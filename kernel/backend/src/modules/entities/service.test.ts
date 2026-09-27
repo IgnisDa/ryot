@@ -49,7 +49,7 @@ import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntitiesRepository } from "./repository";
-import { EntitiesService } from "./service";
+import { EntitiesService, type UpdateEntityInput } from "./service";
 
 const owner = UserId.make("owner");
 const slug = EntitySchemaSlug.make("record");
@@ -449,13 +449,95 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 
 	layer(entitiesLayer())((test) => {
+		test.effect(
+			"replays exact create, update and noop results after newer writes and deletion",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const session = yield* DatabaseSession;
+					const original = createInput("snapshot-create");
+					const created = yield* service.prepareCreateStep(original);
+					assert(created._tag === "Committed");
+					const input = {
+						userId: owner,
+						scope: "user",
+						name: "Updated",
+						populatedAt: null,
+						properties: { title: "updated" },
+						entityId: created.result.entity.id,
+						lifecycle: command("snapshot-update"),
+					} satisfies UpdateEntityInput;
+					const updated = yield* service.update(input);
+					const noopInput = { ...input, lifecycle: command("snapshot-noop") };
+					const noop = yield* service.update(noopInput);
+					expect(noop).toEqual({ warnings: [], entity: updated.entity });
+					const receipts = yield* session.run((db) => db.select().from(tables.mutationReceipt));
+					const updateReceipt = receipts.find(
+						(row) =>
+							row.executionId === input.lifecycle.causation.executionId &&
+							row.commandKind === "entity:update",
+					);
+					const noopReceipt = receipts.find(
+						(row) =>
+							row.executionId === noopInput.lifecycle.causation.executionId &&
+							row.commandKind === "entity:update",
+					);
+					assert(updateReceipt && noopReceipt);
+					expect(updateReceipt.result).toEqual({ entity: updated.entity });
+					expect(noopReceipt.result).toEqual({ entity: noop.entity });
+					expect(noopReceipt.dispatch).toEqual([]);
+					yield* service.update({
+						...input,
+						name: "Newest",
+						properties: { title: "newest" },
+						lifecycle: command("snapshot-newest"),
+					});
+					expect(yield* service.prepareCreateStep(original)).toEqual(created);
+					expect(yield* service.update(input)).toEqual(updated);
+					expect(yield* service.update(noopInput)).toEqual(noop);
+					const deleteCommand = command("snapshot-delete");
+					const deleted = yield* service.deleteByIds([input.entityId], deleteCommand);
+					const deleteReceipts = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.mutationReceipt)
+							.where(eq(tables.mutationReceipt.executionId, deleteCommand.causation.executionId)),
+					);
+					const itemReceipt = deleteReceipts.find((row) => row.commandKind === "entity:delete");
+					assert(itemReceipt);
+					expect(itemReceipt.result).toBeNull();
+					// Force item-receipt recovery rather than the aggregate replay shortcut.
+					yield* session.run((db) =>
+						db
+							.delete(tables.mutationReceipt)
+							.where(eq(tables.mutationReceipt.commandKind, "entity:delete-batch")),
+					);
+					expect(yield* service.deleteByIds([input.entityId], deleteCommand)).toEqual(deleted);
+					const beforeReplay = yield* session.run((db) => db.select().from(tables.mutationReceipt));
+					expect(yield* service.prepareCreateStep(original)).toEqual(created);
+					expect(yield* service.update(input)).toEqual(updated);
+					expect(yield* service.update(noopInput)).toEqual(noop);
+					expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual(
+						beforeReplay,
+					);
+					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+					expect(
+						(yield* session.run((db) =>
+							db
+								.select()
+								.from(tables.mutationReceipt)
+								.where(eq(tables.mutationReceipt.id, updateReceipt.id)),
+						))[0]?.dispatch,
+					).toEqual(updateReceipt.dispatch);
+				}),
+		);
 		test.effect("commits in prepare without policies and after policies with the same rows", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
 				const session = yield* DatabaseSession;
 				const fast = yield* service.prepareCreateStep(createInput("step-fast"));
 				assert(fast._tag === "Committed");
-				expect(fast.result.wasInserted).toBe(true);
+				expect(fast.result.entity.name).toBe("Original");
 				expect(fast.dispatch.map(({ triggerId }) => typeof triggerId)).toEqual([
 					"string",
 					"string",
@@ -647,11 +729,6 @@ describe("EntitiesService committed lifecycle", () => {
 						updateExisting: false,
 						lifecycle: command("population"),
 					});
-					expect(updated.outcome).toEqual({
-						operation: "update",
-						after: updated.entity,
-						before: created.entity,
-					});
 					expect(updated.entity.populatedAt).toBe("2026-09-15T01:00:00.000Z");
 					const noop = yield* service.upsert({
 						...input,
@@ -660,7 +737,6 @@ describe("EntitiesService committed lifecycle", () => {
 						updateExisting: false,
 						lifecycle: command("upsert-noop"),
 					});
-					expect(noop.outcome.operation).toBe("noop");
 					expect(noop.entity).toEqual(updated.entity);
 					expect(
 						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
@@ -971,7 +1047,7 @@ describe("EntitiesService committed lifecycle", () => {
 					code: "active-transaction-required",
 				});
 				const work = yield* session.transaction(service.persistPlannedProviderUpsert(input));
-				expect(work.result).toMatchObject({ wasInserted: true, outcome: { operation: "create" } });
+				expect(work.result.entity.name).toBe("Planned");
 				const triggers = yield* AutomationTriggerRepository;
 				const planned = yield* Effect.forEach(work.dispatch, ({ triggerId }) =>
 					triggers.findById(triggerId),
@@ -983,6 +1059,31 @@ describe("EntitiesService committed lifecycle", () => {
 				const batch = planned[1]?.payload;
 				assert(batch?.operation === "batch");
 				expect(batch.items).toEqual([planned[0]?.payload]);
+				const newerInput = {
+					...input,
+					name: "Newer",
+					properties: { title: "newer" },
+					lifecycle: command("planned-newer"),
+				};
+				const newer = yield* session.transaction(service.persistPlannedProviderUpsert(newerInput));
+				const noopInput = { ...newerInput, lifecycle: command("planned-noop") };
+				const noop = yield* session.transaction(service.persistPlannedProviderUpsert(noopInput));
+				expect(noop.result).toEqual(newer.result);
+				expect(noop.dispatch).toEqual([]);
+				expect(yield* session.transaction(service.persistPlannedProviderUpsert(input))).toEqual(
+					work,
+				);
+				yield* service.deleteByIds([work.result.entity.id], command("planned-delete"));
+				expect(yield* session.transaction(service.persistPlannedProviderUpsert(input))).toEqual(
+					work,
+				);
+				expect(
+					yield* session.transaction(service.persistPlannedProviderUpsert(newerInput)),
+				).toEqual(newer);
+				expect(yield* session.transaction(service.persistPlannedProviderUpsert(noopInput))).toEqual(
+					noop,
+				);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 			}),
 		);
 	});
@@ -1081,6 +1182,23 @@ describe("EntitiesService committed lifecycle", () => {
 						(row) => row.category === "change",
 					).length,
 				).toBe(2);
+				const noop = yield* service.ensureUserEntities(owner, items, command("ensure-noop"));
+				expect(noop).toEqual(
+					first.map(({ entityId }) => ({ entityId, warnings: [], wasInserted: false })),
+				);
+				const [ensured] = first;
+				assert(ensured);
+				yield* service.deleteByIds([ensured.entityId], command("ensure-delete"));
+				yield* session.run((db) =>
+					db
+						.delete(tables.mutationReceipt)
+						.where(eq(tables.mutationReceipt.commandKind, "entity:ensure-batch")),
+				);
+				expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual(first);
+				expect(yield* service.ensureUserEntities(owner, items, command("ensure-noop"))).toEqual(
+					noop,
+				);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 			}),
 		);
 	});

@@ -58,7 +58,9 @@ export const mutationReceiptIdentity = (input: {
 
 export const mutationReceiptOwner = (command: LifecycleCommand, scopeUserId: UserId | null) =>
 	command.accountGeneration?.userId ??
-	(command.causation.initiator.kind === "user" ? command.causation.initiator.id : scopeUserId);
+	(command.causation.source !== "automation" && command.causation.initiator.kind === "user"
+		? command.causation.initiator.id
+		: scopeUserId);
 
 export const MutationReceiptIdentity = Schema.Struct({
 	id: Schema.String,
@@ -89,7 +91,7 @@ const batchIdentity = (input: {
 	mutationReceiptIdentity({
 		scopeUserId: null,
 		commandKind: `batch:${input.resource}`,
-		ownerUserId: input.command.accountGeneration?.userId ?? input.ownerUserId,
+		ownerUserId: mutationReceiptOwner(input.command, input.ownerUserId),
 		input: { identity: input.identity, commandInput: input.commandInput ?? null },
 		command: {
 			...input.command,

@@ -299,6 +299,50 @@ it.effect(
 );
 
 it.effect(
+	"prepares system execution with user attribution and rejects missing or mismatched user ownership",
+	() =>
+		Effect.gen(function* () {
+			const attributed = {
+				...trigger,
+				causation: {
+					...trigger.causation,
+					initiator: { kind: "user" as const, id: UserId.make("importer") },
+				},
+			};
+			const system = yield* prepareAutomationInvocation(
+				{ ...run, executionUserId: null },
+				attributed,
+				payload,
+				afterScript,
+				null,
+			);
+			expect(system.subject).toMatchObject({
+				executionUserId: null,
+				accountGeneration: null,
+				causation: attributed.causation,
+			});
+			const user = yield* prepareAutomationInvocation(
+				run,
+				attributed,
+				payload,
+				afterScript,
+				accountGeneration,
+			);
+			expect(user.subject).toMatchObject({
+				accountGeneration,
+				causation: attributed.causation,
+				executionUserId: run.executionUserId,
+			});
+			for (const account of [null, { token: "token", userId: UserId.make("importer") }]) {
+				const error = yield* Effect.flip(
+					prepareAutomationInvocation(run, attributed, payload, afterScript, account),
+				);
+				expect(error).toMatchObject({ kind: "invalid-input" });
+			}
+		}),
+);
+
+it.effect(
 	"feeds a transformed request into the next policy without replacing the immutable trigger",
 	() =>
 		Effect.gen(function* () {

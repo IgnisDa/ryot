@@ -3,8 +3,8 @@ import {
 	AutomationEntityDraft,
 	AutomationEntityRequestPayload,
 	type AutomationPolicyPatch,
+	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	type UserId,
@@ -17,7 +17,6 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
-	type toLifecycleDispatchPlan,
 	type CommittedLifecycleWork,
 	type LifecycleBatchInput,
 	LifecycleDispatchPlan,
@@ -25,14 +24,14 @@ import {
 	LifecyclePlannedPolicy,
 	LifecyclePlanner,
 } from "#lib/domain/lifecycle";
-import { LifecycleCommand, lifecycleTrigger } from "#lib/domain/lifecycle-command";
+import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
 } from "#lib/domain/lifecycle-policy-patch";
-import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
+import { runRootTransaction } from "#lib/infrastructure/db/transaction";
 import {
 	runLifecycleWriteInline,
 	type LifecycleCommittedStep,
@@ -49,8 +48,7 @@ import {
 } from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
-import type { EntityMutationOutcome } from "./mutation-outcomes";
-import { EntitySaveResult } from "./mutation-outcomes";
+import { EntityDeleteResult, EntityEnsureResult, EntitySnapshotResult } from "./mutation-outcomes";
 import {
 	draftOf,
 	makePersistMutation,
@@ -93,11 +91,6 @@ export type UpsertGlobalEntityItem = {
 };
 export type UpsertGlobalEntitiesOptions = { maximumTotal?: number };
 export type EntityUpsertBatchScope = Pick<LifecycleBatchInput, "command" | "identity">;
-export type PlannedProviderEntityUpsertResult = {
-	readonly entity: ListedEntity;
-	readonly outcome: EntityMutationOutcome;
-	readonly wasInserted: boolean;
-};
 export type EnsureUserEntityItem = {
 	name: string;
 	properties: unknown;
@@ -134,7 +127,7 @@ export const GlobalEntityUpsertResults = Schema.Array(
 	]),
 );
 const GlobalEntityItemReceipt = Schema.Union([
-	EntitySaveResult,
+	EntityEnsureResult,
 	Schema.Struct({ status: Schema.Literal("skipped") }),
 ]);
 export type GlobalEntityUpsertResults = typeof GlobalEntityUpsertResults.Type;
@@ -208,17 +201,6 @@ const globalUpsertReceipt = (
 			})),
 		},
 	});
-const committedStep = (saved: {
-	readonly dispatch: ReadonlyArray<ReturnType<typeof toLifecycleDispatchPlan>>;
-	readonly entity: ListedEntity;
-	readonly wasInserted: boolean;
-	readonly outcome: EntityMutationOutcome;
-}): LifecycleCommittedStep<EntitySaveResult> => ({
-	_tag: "Committed",
-	dispatch: saved.dispatch,
-	result: { entity: saved.entity, outcome: saved.outcome, wasInserted: saved.wasInserted },
-});
-
 const receiptConflict = (error: DbError | MutationReceiptIdentityConflict) =>
 	error instanceof MutationReceiptIdentityConflict
 		? bad("mutation-conflict", "Command identity was reused with different entity input")
@@ -231,9 +213,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const repository = yield* EntitiesRepository;
 		const receipts = yield* MutationReceipts.make;
 		const lookupEntityReceipt = (identity: ReturnType<typeof mutationReceiptIdentity>) =>
-			receipts.lookup(identity, EntitySaveResult).pipe(Effect.mapError(receiptConflict));
+			receipts.lookup(identity, EntitySnapshotResult).pipe(Effect.mapError(receiptConflict));
 		const peekEntityReceipt = (identity: ReturnType<typeof mutationReceiptIdentity>) =>
-			receipts.peek(identity, EntitySaveResult).pipe(Effect.mapError(receiptConflict));
+			receipts.peek(identity, EntitySnapshotResult).pipe(Effect.mapError(receiptConflict));
 		const execution = yield* LifecycleExecution;
 
 		const assertOwner = session.requireRoot.pipe(Effect.mapError(enclosingTransaction));
@@ -241,7 +223,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			Effect.mapError(() => new LifecyclePersistenceError({ code: "active-transaction-required" })),
 		);
 		const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-			retryOnDeadlock(session.transaction(work)).pipe(
+			runRootTransaction(session, work).pipe(
 				Effect.mapError((error) =>
 					error instanceof DatabaseSessionStateError ? enclosingTransaction() : error,
 				),
@@ -429,7 +411,22 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const { request: _request, policies: _policies, ...prepared } = pending;
 			return { ...prepared, draft: final.draft } satisfies PreparedMutation;
 		});
-		const persisted = makePersistMutation({ planner, receipts, repository, validateDraft });
+		const persistence = { planner, receipts, repository, validateDraft };
+		const persistSave = makePersistMutation({
+			...persistence,
+			resultCodec: EntitySnapshotResult,
+			resultOf: (entity) => ({ entity }),
+		});
+		const persistDelete = makePersistMutation({
+			...persistence,
+			resultOf: () => null,
+			resultCodec: EntityDeleteResult,
+		});
+		const persistEnsure = makePersistMutation({
+			...persistence,
+			resultCodec: EntityEnsureResult,
+			resultOf: (entity, wasInserted) => ({ wasInserted, entityId: entity.id }),
+		});
 		const entityBatchPlans = (batch: EntityUpsertBatchScope) =>
 			planner.planBatch({ ...batch, resource: "entity" });
 		const persistAndBatch = Effect.fnUntraced(function* (pending: PendingEntityMutation) {
@@ -440,16 +437,19 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				resource: "entity",
 				scopes: [prepared.scopeUserId],
 			});
-			const saved = yield* persisted(prepared, { ...decision, index: 0 });
+			const saved = yield* persistSave(prepared, { ...decision, index: 0 });
 			const batch = yield* entityBatchPlans(batchScope);
-			const step = committedStep(saved);
-			return { ...step, dispatch: [...step.dispatch, ...batch] };
+			return {
+				...saved,
+				_tag: "Committed",
+				dispatch: [...saved.dispatch, ...batch],
+			} satisfies LifecycleCommittedStep<EntitySnapshotResult>;
 		});
 		const commitMutation = Effect.fn("EntitiesService.commitMutation")(
 			(pending: PendingEntityMutation) => transaction(persistAndBatch(pending)),
 		);
 		const saveInline = <E, R>(
-			step: Effect.Effect<LifecyclePreparedStep<EntitySaveResult, PendingEntityMutation>, E, R>,
+			step: Effect.Effect<LifecyclePreparedStep<EntitySnapshotResult, PendingEntityMutation>, E, R>,
 		) =>
 			runLifecycleWriteInline(execution, {
 				prepare: step,
@@ -541,16 +541,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					_tag: "Committed",
 					result: replay.result,
 					dispatch: [...replay.dispatch, ...batch],
-				} satisfies LifecycleCommittedStep<EntitySaveResult>;
+				} satisfies LifecycleCommittedStep<EntitySnapshotResult>;
 			}
 			const planned = yield* planCreate(input, updateExisting, undefined, undefined, true);
 			if (planned.existing) {
 				const before = snapshot(planned.existing);
-				const result = {
-					wasInserted: false,
-					entity: planned.existing,
-					outcome: { before, after: before, operation: "noop" as const },
-				};
+				const result = { entity: planned.existing };
 				return yield* transaction(
 					Effect.gen(function* () {
 						const recorded = yield* lookupEntityReceipt(identity);
@@ -610,8 +606,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			return yield* create({ ...input, scope: "global" });
 		});
 		const upsert = Effect.fn("EntitiesService.upsert")(function* (input: UpsertEntityInput) {
-			const { entity, outcome, warnings } = yield* saveCreate(input, input.updateExisting);
-			return { entity, outcome, warnings };
+			const { entity, warnings } = yield* saveCreate(input, input.updateExisting);
+			return { entity, warnings };
 		});
 		const persistPlannedProviderUpsertItem = Effect.fnUntraced(function* (
 			input: UpsertEntityInput,
@@ -646,12 +642,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				: null;
 			const replay = existing?.id === commandEntityId(lifecycle);
 			if (existing && !replay && !input.updateExisting && existing.populatedAt !== null) {
-				const before = snapshot(existing);
-				const result = {
-					entity: existing,
-					wasInserted: false,
-					outcome: { before, after: before, operation: "noop" as const },
-				};
+				const result = { entity: existing };
 				yield* receipts.insert({
 					result,
 					dispatch: [],
@@ -659,10 +650,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					batchId: batch.id,
 					batchIndex: batch.index,
 				});
-				return {
-					result,
-					dispatch: [],
-				} satisfies CommittedLifecycleWork<PlannedProviderEntityUpsertResult>;
+				return { result, dispatch: [] } satisfies CommittedLifecycleWork<EntitySnapshotResult>;
 			}
 			const operation = existing && !replay ? "update" : "create";
 			const before = existing && !replay ? snapshot(existing) : null;
@@ -685,7 +673,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			if (requestPlan.policies.length > 0) {
 				return yield* new LifecyclePersistenceError({ code: "before-policy-requires-owner" });
 			}
-			const saved = yield* persisted(
+			const saved = yield* persistSave(
 				{
 					before,
 					receipt,
@@ -701,9 +689,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				batch,
 			);
 			return {
+				result: saved.result,
 				dispatch: saved.dispatch,
-				result: { entity: saved.entity, outcome: saved.outcome, wasInserted: saved.wasInserted },
-			} satisfies CommittedLifecycleWork<PlannedProviderEntityUpsertResult>;
+			} satisfies CommittedLifecycleWork<EntitySnapshotResult>;
 		});
 		const persistPlannedProviderUpserts = Effect.fn(
 			"EntitiesService.persistPlannedProviderUpserts",
@@ -716,8 +704,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				resource: "entity",
 				scopes: input.items.map((item) => (item.scope === "user" ? item.userId : null)),
 			});
-			const itemDispatch: ReturnType<typeof toLifecycleDispatchPlan>[] = [];
-			const results: PlannedProviderEntityUpsertResult[] = [];
+			const itemDispatch: LifecycleDispatchPlan[] = [];
+			const results: EntitySnapshotResult[] = [];
 			for (const [index, item] of input.items.entries()) {
 				const work = yield* persistPlannedProviderUpsertItem(item, { ...decision, index });
 				itemDispatch.push(...work.dispatch);
@@ -739,7 +727,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				return {
 					result,
 					dispatch: work.dispatch,
-				} satisfies CommittedLifecycleWork<PlannedProviderEntityUpsertResult>;
+				} satisfies CommittedLifecycleWork<EntitySnapshotResult>;
 			},
 		);
 		const update = Effect.fn("EntitiesService.update")(function* (input: UpdateEntityInput) {
@@ -753,15 +741,18 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				...(input.scope === "user" ? { userId: input.userId } : {}),
 			};
 			for (const scopeUserId of input.scope === "user" ? [null, input.userId] : [null]) {
-				const recorded = yield* peekEntityReceipt(
-					mutationReceiptIdentity({
-						scopeUserId,
-						input: receiptInput,
-						command: input.lifecycle,
-						commandKind: "entity:update",
-						ownerUserId: mutationReceiptOwner(input.lifecycle, scopeUserId),
-					}),
-				);
+				const recorded = yield* receipts
+					.peek(
+						mutationReceiptIdentity({
+							scopeUserId,
+							input: receiptInput,
+							command: input.lifecycle,
+							commandKind: "entity:update",
+							ownerUserId: mutationReceiptOwner(input.lifecycle, scopeUserId),
+						}),
+						EntitySnapshotResult,
+					)
+					.pipe(Effect.mapError(receiptConflict));
 				if (recorded) {
 					const batch = yield* transaction(
 						entityBatchPlans({ identity: ["batch"], command: input.lifecycle }),
@@ -853,15 +844,18 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					for (const scopeUserId of lifecycle.causation.initiator.kind === "user"
 						? [null, lifecycle.causation.initiator.id]
 						: [null]) {
-						const replay = yield* peekEntityReceipt(
-							mutationReceiptIdentity({
-								command,
-								scopeUserId,
-								input: receiptInput,
-								commandKind: "entity:delete",
-								ownerUserId: mutationReceiptOwner(command, scopeUserId),
-							}),
-						);
+						const replay = yield* receipts
+							.peek(
+								mutationReceiptIdentity({
+									command,
+									scopeUserId,
+									input: receiptInput,
+									commandKind: "entity:delete",
+									ownerUserId: mutationReceiptOwner(command, scopeUserId),
+								}),
+								EntityDeleteResult,
+							)
+							.pipe(Effect.mapError(receiptConflict));
 						if (replay) {
 							return { replay, scopeUserId, prepared: null };
 						}
@@ -909,11 +903,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						prepared.filter((item) => item !== null).entries(),
 						([index, item]) =>
 							item.replay
-								? Effect.succeed({ ...item.replay.result, dispatch: item.replay.dispatch })
-								: persisted(item.prepared, { ...decision, index }),
+								? Effect.succeed({ result: item.replay.result, dispatch: item.replay.dispatch })
+								: persistDelete(item.prepared, { ...decision, index }),
 					);
 					const batch = yield* entityBatchPlans(batchScope);
-					const dispatch = [...saved.flatMap((item) => committedStep(item).dispatch), ...batch];
+					const dispatch = [...saved.flatMap((item) => item.dispatch), ...batch];
 					const deletedCount = saved.length;
 					yield* receipts.insert({
 						dispatch,
@@ -975,7 +969,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						commandKind: "entity:ensure",
 						ownerUserId: mutationReceiptOwner(command, userId),
 					});
-					const recorded = yield* peekEntityReceipt(receipt);
+					const recorded = yield* receipts
+						.peek(receipt, EntityEnsureResult)
+						.pipe(Effect.mapError(receiptConflict));
 					if (recorded) {
 						return { item, receipt, recorded, existing: null, prepared: null };
 					}
@@ -1025,14 +1021,16 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						Effect.gen(function* () {
 							if (item.recorded) {
 								return {
-									entityId: item.recorded.result.entity.id,
+									entityId: item.recorded.result.entityId,
 									saved: { ...item.recorded.result, dispatch: item.recorded.dispatch },
 								};
 							}
-							const prior = yield* lookupEntityReceipt(item.receipt);
+							const prior = yield* receipts
+								.lookup(item.receipt, EntityEnsureResult)
+								.pipe(Effect.mapError(receiptConflict));
 							if (prior) {
 								return {
-									entityId: prior.result.entity.id,
+									entityId: prior.result.entityId,
 									saved: { ...prior.result, dispatch: prior.dispatch },
 								};
 							}
@@ -1041,12 +1039,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 								entitySchemaSlug: item.item.entitySchemaSlug,
 							});
 							if (existing) {
-								const before = snapshot(existing);
-								const result = {
-									entity: existing,
-									wasInserted: false,
-									outcome: { before, after: before, operation: "noop" as const },
-								};
+								const result = { wasInserted: false, entityId: existing.id };
 								yield* receipts.insert({
 									result,
 									dispatch: [],
@@ -1062,8 +1055,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 									"Ensured entity disappeared while policies ran",
 								);
 							}
-							const persistedVar = yield* persisted(item.prepared, { ...decision, index });
-							return { saved: persistedVar, entityId: persistedVar.entity.id };
+							const work = yield* persistEnsure(item.prepared, { ...decision, index });
+							return {
+								entityId: work.result.entityId,
+								saved: { ...work.result, dispatch: work.dispatch },
+							};
 						}),
 					);
 					const batch = yield* entityBatchPlans(batchScope);
@@ -1151,7 +1147,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 									: {
 											dispatch: prior.dispatch,
 											status: "upserted" as const,
-											entityId: prior.result.entity.id,
+											entityId: prior.result.entityId,
 											wasInserted: prior.result.wasInserted,
 										};
 							}
@@ -1166,14 +1162,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 								externalId: input.externalId,
 							});
 							if (existing) {
-								const before = snapshot(
-									(yield* repository.getMutationEntity(existing.id, true))?.entity ?? existing,
-								);
-								const result = {
-									entity: existing,
-									wasInserted: false,
-									outcome: { before, after: before, operation: "noop" as const },
-								};
+								yield* repository.getMutationEntity(existing.id, true);
+								const result = { wasInserted: false, entityId: existing.id };
 								yield* receipts.insert({
 									result,
 									dispatch: [],
@@ -1208,12 +1198,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 									"Provider entity disappeared while policies ran",
 								);
 							}
-							const persistedVar = yield* persisted(input.prepared, { ...decision, index });
+							const persistedVar = yield* persistEnsure(input.prepared, { ...decision, index });
 							return {
 								status: "upserted" as const,
 								dispatch: persistedVar.dispatch,
-								entityId: persistedVar.entity.id,
-								wasInserted: persistedVar.wasInserted,
+								entityId: persistedVar.result.entityId,
+								wasInserted: persistedVar.result.wasInserted,
 							};
 						}),
 					);

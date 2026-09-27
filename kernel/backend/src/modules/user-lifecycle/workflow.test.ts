@@ -10,6 +10,7 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
+import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { UserLifecycleRepository } from "./repository";
@@ -187,6 +188,7 @@ const liveOperationsLayer = <R, E>(dependencies: {
 	readonly overrides: Layer.Layer<R, never, DatabaseSession>;
 }) =>
 	UserLifecycleWorkflowOperationsLive.pipe(
+		Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
 		Layer.provideMerge(Layer.mergeAll(Layer.mock(WorkflowEngine)({}), dependencies.overrides)),
 		Layer.provideMerge(dependencies.database),
 	);

@@ -1,3 +1,4 @@
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type {
 	EntityId,
@@ -5,10 +6,7 @@ import type {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import type { Effect } from "effect";
-import { Context } from "effect";
-
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { Context, type Effect } from "effect";
 
 export const entityPopulationExecutionId = (
 	entityId: EntityId,

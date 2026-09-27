@@ -1,4 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
+import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CreateEventItem,
 	CreateEventsResponse,
@@ -9,10 +10,11 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
+import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 export const EventCreateWorkflowError = Schema.Union([DbError, EventCreateItemError]);
 export const EventCreateWorkflowPayload = Schema.Struct({
@@ -40,10 +42,14 @@ export const enqueueEventCreate = Effect.fn("enqueueEventCreate")(function* (
 	input: EventCreateWorkflowPayload,
 ) {
 	const receipts = yield* MutationReceipts.make;
-	yield* receipts.registerWorkflow(
+	const engine = yield* WorkflowEngine;
+	return yield* dispatchAdmittedWorkflow(
+		receipts,
+		engine,
+		EventCreateWorkflow,
 		input.command.accountGeneration,
-		EventCreateWorkflow._tag,
-		yield* EventCreateWorkflow.executionId(input),
+		{ payload: input },
+		(admission) => admission,
+		(execution) => execution,
 	);
-	return yield* EventCreateWorkflow.execute(input);
 });

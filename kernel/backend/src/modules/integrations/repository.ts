@@ -5,14 +5,18 @@ import type {
 	IntegrationSnapshot,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
-import type { ImportRunId } from "@ryot-app/contract/schema/brands";
-import { IntegrationId, IntegrationWebhookToken, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	IntegrationId,
+	IntegrationWebhookToken,
+	UserId,
+	type ImportRunId,
+} from "@ryot-app/contract/schema/brands";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { AuthRepository } from "#modules/auth/repository";
 import { PluginRevisionActivation } from "#modules/plugins/revision-activation";
 
 import { redactIntegrationForClient } from "./client-redaction";
@@ -102,6 +106,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
+			const auth = yield* AuthRepository;
 			const hasAnyForUser = Effect.fn("IntegrationsRepository.hasAnyForUser")(function* (
 				userId: UserId,
 			) {
@@ -322,14 +327,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			const getUserDisableIntegrations = Effect.fn(
 				"IntegrationsRepository.getUserDisableIntegrations",
 			)(function* (input: { userId: UserId }) {
-				const [row] = yield* database.run((db) =>
-					db
-						.select({ preferences: user.preferences })
-						.from(user)
-						.where(eq(user.id, input.userId))
-						.limit(1),
-				);
-				return row?.preferences.disableIntegrations === true;
+				return (yield* auth.getUserPreferences(input.userId))?.disableIntegrations === true;
 			});
 
 			const listEnabledYankIntegrations = Effect.fn(
@@ -539,7 +537,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(AuthRepository.layer));
 }
 
 export const IntegrationPluginRevisionActivationLive = Layer.effect(
