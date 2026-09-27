@@ -4,29 +4,32 @@ import { sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "effect";
 
 import {
-	SANDBOX_DURABLE_HOST_DISPATCH,
-	sandboxDurableHttpRequestUrl,
+	SANDBOX_HOST_EXECUTION_POLICY,
 	sandboxDurableHostDispatchStrategy,
+} from "#lib/infrastructure/sandbox-runtime/host-execution-policy";
+
+import {
+	sandboxDurableHttpRequestUrl,
 	prepareSandboxCreateEvents,
 	prepareSandboxSendNotification,
 	SandboxDurableHostServiceWorkflow,
 } from "./durable-host-dispatcher";
 
 it("classifies every bridge host capability exactly once", () => {
-	expect(Object.keys(SANDBOX_DURABLE_HOST_DISPATCH).sort()).toEqual(
+	expect(Object.keys(SANDBOX_HOST_EXECUTION_POLICY).sort()).toEqual(
 		Object.keys(sandboxHostContracts).sort(),
 	);
-	expect(SANDBOX_DURABLE_HOST_DISPATCH).toMatchObject({
-		log: "diagnostic",
-		span: "diagnostic",
-		getUserSettings: "activity",
-		createEvents: "event-workflow",
-		emitSignal: "service-workflow",
-		deleteEvents: "lifecycle-workflow",
-		updateEvents: "lifecycle-workflow",
-		invalidateOAuthAccessToken: "activity",
-		ensureUserEntities: "service-workflow",
-		sendNotification: "notification-workflow",
+	expect(SANDBOX_HOST_EXECUTION_POLICY).toMatchObject({
+		log: { dispatch: "diagnostic" },
+		span: { dispatch: "diagnostic" },
+		getUserSettings: { dispatch: "activity" },
+		createEvents: { dispatch: "event-workflow" },
+		emitSignal: { dispatch: "service-workflow" },
+		deleteEvents: { dispatch: "lifecycle-workflow" },
+		updateEvents: { dispatch: "lifecycle-workflow" },
+		invalidateOAuthAccessToken: { dispatch: "activity" },
+		ensureUserEntities: { dispatch: "service-workflow" },
+		sendNotification: { dispatch: "notification-workflow" },
 	});
 	expect(sandboxDurableHostDispatchStrategy("scratch")).toBeNull();
 });
