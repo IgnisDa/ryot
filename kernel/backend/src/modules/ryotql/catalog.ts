@@ -466,7 +466,7 @@ const executableDefinitionFields = {
 	id: physicalField("id", "text", false),
 	slug: physicalField("slug", "text", false),
 	name: physicalField("name", "text", false),
-	pluginSlug: physicalField("plugin_slug", "text", false),
+	pluginSlug: physicalField("plugin_slug", "text"),
 	description: physicalField("description", "text", false),
 };
 
@@ -502,7 +502,7 @@ const importSource: CatalogTable = {
 			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
-					`(${sqlAlias}.workflow_script_id IS NOT NULL AND jsonb_array_length(${missingPluginConfigKeys(sqlAlias)}) = 0)`,
+					`(${sqlAlias}.plugin_id IS NULL OR (${sqlAlias}.workflow_script_id IS NOT NULL AND jsonb_array_length(${missingPluginConfigKeys(sqlAlias)}) = 0))`,
 				),
 		},
 	},
@@ -522,7 +522,9 @@ const integrationProvider: CatalogTable = {
 			kind: "boolean",
 			nullable: false,
 			resolve: ({ sqlAlias }) =>
-				sql.raw(`(${sqlAlias}.lot = 'push' OR ${sqlAlias}.script_id IS NOT NULL)`),
+				sql.raw(
+					`(${sqlAlias}.plugin_id IS NULL OR ${sqlAlias}.lot = 'push' OR ${sqlAlias}.script_id IS NOT NULL)`,
+				),
 		},
 	},
 };
@@ -624,7 +626,7 @@ const integration: CatalogTable = {
 		name: physicalField("name", "text"),
 		id: physicalField("id", "text", false),
 		lot: physicalField("lot", "text", false),
-		pluginSlug: installationPluginSlug(false),
+		pluginSlug: installationPluginSlug(true),
 		provider: physicalField("provider", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),

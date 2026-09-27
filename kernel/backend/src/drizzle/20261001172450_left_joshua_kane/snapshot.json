@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "034e898e-ce8d-43d9-9844-66827f3a7e3a",
+	"id": "f5e1a80c-ce86-46e3-be01-972cfc407436",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -41,6 +41,12 @@
 		{
 			"isRlsEnabled": false,
 			"name": "client_page_composition",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "data_import_submission",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -1894,6 +1900,84 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
+			"name": "key",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "data_import_submission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "run_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "data_import_submission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "digest",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "data_import_submission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 1,
+			"default": "'{}'",
+			"generated": null,
+			"identity": null,
+			"name": "upload_token_hashes",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "data_import_submission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "integration_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "data_import_submission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "data_import_submission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
 			"name": "slug",
 			"entityType": "columns",
 			"schema": "public",
@@ -3187,6 +3271,19 @@
 			"table": "import_run"
 		},
 		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "data_document",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_run"
+		},
+		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -3475,7 +3572,7 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": true,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
@@ -8553,6 +8650,35 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "coalesce(\"integration_id\", '')",
+					"isExpression": true,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{ "value": "key", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
+			],
+			"isUnique": true,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "data_import_submission_identity_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "data_import_submission"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "slug",
 					"isExpression": false,
 					"asc": true,
@@ -10777,6 +10903,32 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["integration_id"],
+			"schemaTo": "public",
+			"tableTo": "integration",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "data_import_submission_integration_id_integration_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "data_import_submission"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "data_import_submission_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "data_import_submission"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["plugin_revision_id"],
 			"schemaTo": "public",
 			"tableTo": "plugin_revision",
@@ -12581,6 +12733,13 @@
 			"table": "import_run"
 		},
 		{
+			"value": "(\"plugin_installation_id\" is null and \"provider\" = 'data-json' and \"lot\" = 'sink') or (\"plugin_installation_id\" is not null and \"provider\" <> 'data-json')",
+			"name": "integration_owner_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "integration"
+		},
+		{
 			"value": "(\"lot\" = 'sink') = (\"webhook_token\" is not null)",
 			"name": "integration_webhook_token_lot_check",
 			"entityType": "checks",
@@ -12771,7 +12930,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_import_source d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.workflow_script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from \"user_plugin\" sp join definition_import_source g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t",
+			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_import_source d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.workflow_script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from \"user_plugin\" sp join definition_import_source g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t\tunion all\n\t\t\tselect u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data import', 'Import generic entities, relationships, and events from JSON.', 0, 'data-json', null::text, '{\"unknownKeys\":\"strict\",\"fields\":{\"submissionKey\":{\"type\":\"string\",\"label\":\"Submission key\",\"description\":\"Optional key to reuse the same run when retrying this submission.\"},\"uploadToken\":{\"type\":\"string\",\"label\":\"JSON file\",\"validation\":{\"required\":true},\"description\":\"A Ryot data document using existing schemas.\",\"format\":{\"kind\":\"upload\",\"allowedFileExtensions\":[\"json\"]}}}}'::jsonb, '{}'::text[], null::jsonb\n\t\t\tfrom \"user\" u\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12782,7 +12941,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_integration_provider d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from \"user_plugin\" sp join definition_integration_provider g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t",
+			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_integration_provider d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug\n\t\t\twhere p.is_executable and not exists (select 1 from \"user_plugin\" sp join definition_integration_provider g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)\n\t\t\tunion all\n\t\t\tselect u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, '{\"fields\":{},\"unknownKeys\":\"strict\"}'::jsonb, false, false\n\t\t\tfrom \"user\" u\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
