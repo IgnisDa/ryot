@@ -566,12 +566,6 @@ export const mediaPlugin = definePlugin({
 		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
 		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
 	],
-	workflows: [
-		{ slug: "import", scriptSlug: "workflow.media-import" },
-		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
-		{ slug: "media-import-population", scriptSlug: "workflow.media-import-population" },
-		{ slug: "media-import-resolution", scriptSlug: "workflow.media-import-resolution" },
-	],
 	crons: [
 		{
 			slug: "media-monitoring",
@@ -597,6 +591,13 @@ export const mediaPlugin = definePlugin({
 			tokenUrl: "https://accounts.spotify.com/api/token",
 			authorizeUrl: "https://accounts.spotify.com/authorize",
 		},
+	],
+	workflows: [
+		{ slug: "import", scriptSlug: "workflow.media-import" },
+		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
+		{ slug: "media-import-segment", scriptSlug: "workflow.media-import-segment" },
+		{ slug: "media-import-population", scriptSlug: "workflow.media-import-population" },
+		{ slug: "media-import-resolution", scriptSlug: "workflow.media-import-resolution" },
 	],
 	client: {
 		homeView: null,
@@ -858,6 +859,17 @@ export const mediaPlugin = definePlugin({
 		},
 	],
 	importSources: [
+		{
+			slug: "spotify",
+			name: "Spotify",
+			workflowSlug: "import",
+			exportHelp: importDocs("spotify"),
+			requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
+			description: "Import listening history from a Spotify extended streaming history export",
+			inputSchema: uploadInputSchema("Spotify export", "Spotify extended streaming history ZIP", [
+				"zip",
+			]),
+		},
 		{
 			slug: "netflix",
 			name: "Netflix",
