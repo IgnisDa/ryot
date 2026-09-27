@@ -4,7 +4,7 @@ import type { SandboxScratchManifest } from "@ryot-app/sandbox-sdk/filesystem";
 
 import type { MediaSourceRecord } from "../imports/collection-schemas";
 import { mediaFilesystem } from "../imports/ingestion.test-support";
-import type { MediaIntegrationAdapterResult } from "../imports/schemas";
+import type { MediaImportFailure, MediaIntegrationAdapterResult } from "../imports/schemas";
 
 export const runIntegrationTestScript = <
 	Input extends Schema.Codec<unknown, unknown>,
@@ -51,7 +51,9 @@ export const runIntegrationTestScript = <
 
 export const integrationTestResult = (
 	records: readonly MediaSourceRecord[],
-): MediaIntegrationAdapterResult => {
+): Omit<MediaIntegrationAdapterResult, "failures"> & {
+	readonly failures: readonly MediaImportFailure[];
+} => {
 	const groups = new Map<string, MediaIntegrationAdapterResult["entityGroups"][number]>();
 	for (const { group } of records) {
 		if (!group) {

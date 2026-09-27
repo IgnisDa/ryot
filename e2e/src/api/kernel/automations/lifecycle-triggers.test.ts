@@ -25,7 +25,9 @@ import {
 	pollSandboxResult,
 	pollTerminalAutomationRunAttempts,
 	pollTerminalAutomationRuns,
+	pollUntil,
 	postApiJson,
+	sampleOperationalPressure,
 	startDataJsonImport,
 	requireCompletedSandboxValue,
 	type AutomationTrigger,
@@ -1039,6 +1041,12 @@ describe("automation lifecycle triggers", () => {
 				hookSlug: AutomationHookSlug.make(slugs.replayHook),
 			});
 			expect(initialRuns).toHaveLength(1);
+			yield* pollUntil(
+				"lifecycle replay journal projection",
+				sampleOperationalPressure([executionId]).pipe(
+					Effect.map((pressure) => (pressure.redis.maxJournalEntries >= 1 ? true : null)),
+				),
+			);
 			expect((yield* deleteSandboxReplayProjection(executionId)).deleted).toBe(true);
 			requireCompletedSandboxValue(
 				yield* pollSandboxResult(userId, jobId),

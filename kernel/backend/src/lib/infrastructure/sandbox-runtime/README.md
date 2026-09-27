@@ -34,6 +34,14 @@ An unrecorded mutable `host.*` call ends that replay unless the host settles it 
 
 Each successfully returned ending request also records its validated JSON result and pinned target in a durable deferred slot owned by the parent execution and request index. A resumed body validates the complete current envelope and request identity before reusing that result, including when the target-resolution activity is already recorded. This preserves completed requests inside a partially settled batch; journal entries still append in order only after the batch returns. Dispatch uses the original workflow instance so child cancellation remains attached to its owner. Failures, defects, interruption, and suspension do not complete a slot. A delayed completion message or concurrent cache miss may repeat an idempotent dispatch; the slot is not a single-flight guarantee.
 
+### Journal projection
+
+Each replay bootstraps from a Redis hash of `index -> encoded entry`. The projection is append-only and write-once: the workflow body tracks the entries its activation has appended and appends only the new suffix before each replay. Appending an identical value is a no-op, so a resumed activation re-appending an earlier prefix never changes or shortens the journal. A differing value for an existing index means the journal diverged and fails the run as a non-retryable infrastructure error naming the index. Every append refreshes the key's TTL.
+
+A queued replay reads exactly the journal length it was enqueued with, `HMGET 0..n-1`, once, before the sandbox starts; entries appended later by another activation are ignored. The worker validates and decodes the entries, passes them into the sandbox run, and the `replayJournal` bootstrap serves them without touching Redis. An absent entry is a lost projection; a corrupt entry (undecodable, wrong index, non-JSON value, or over the byte limit) fails the run as an infrastructure error. The replay envelope must report that same length; any other value fails the run as an infrastructure error.
+
+Before starting the sandbox, the queue worker checks that every enqueued entry is present. When Redis lost or expired any of them, the replay returns a `projectionMissing` outcome instead of running the script. The body then re-appends the full journal from persistence and retries under the next step id, at most twice before failing with `resource-unavailable`. The replay outcome metric records these replays as `missing`.
+
 ### Inline durable calls
 
 A replay's batch is every unrecorded request registered before its first unrecorded call runs, the same batch a pending replay would end with. When every request in it uses a capability whose dispatch strategy is `activity` (reads and idempotent writes that start no workflow and need no sandbox slot), the runner writes the batch to stdout and blocks on a synchronous stdin read. Blocking freezes every script fiber, so the script observes the results exactly as a later replay observes journal entries.
@@ -47,7 +55,7 @@ The replay timeout covers script time only: it pauses while the host settles a b
 ## Durable State
 
 - PostgreSQL workflow persistence is authoritative for execution, request completion, child/activity results, and terminal output.
-- Redis contains only a reconstructible replay projection: request identity, argument hashes, and encoded results. Loss or expiry may rebuild it from workflow persistence.
+- Redis contains only a reconstructible replay projection: request identity, argument hashes, and encoded results. Loss or expiry rebuilds it from the workflow body's in-memory journal.
 - Request identity and argument hashes detect replay nondeterminism.
 - Idempotent service operations run as activities; workflow-owning services compose as deterministic children.
 - Each bounded `httpCall` network attempt is durable. External mutation is at-least-once across the crash window before its result persists; for inline calls that window spans the replay, whose queue result persists them.

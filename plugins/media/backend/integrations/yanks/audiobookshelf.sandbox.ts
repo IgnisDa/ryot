@@ -207,7 +207,7 @@ export default defineScript({
 				if (Option.isNone(listingResult) && !cursor.ownership) {
 					failures.push(
 						sourceFetchFailure({
-							itemIndex,
+							itemIndex: itemIndex++,
 							sourceLabel: library.name,
 							sourceIdentifier: library.id,
 							message: "Failed to fetch Audiobookshelf library items",

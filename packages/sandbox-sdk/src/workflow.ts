@@ -84,20 +84,20 @@ export type WorkflowReplayJournalEntry = Schema.Schema.Type<
 export const workflowReplayEnvelopeSchema = Schema.Union([
 	strictStruct({
 		state: Schema.Literal("pending"),
-		journalLength: Schema.optional(durableCallFields.index),
+		journalLength: durableCallFields.index,
 		requests: Schema.Array(workflowDurableCallRequestSchema),
 	}),
 	strictStruct({
 		output: jsonValueSchema,
 		state: Schema.Literal("completed"),
-		journalLength: Schema.optional(durableCallFields.index),
+		journalLength: durableCallFields.index,
 		requests: Schema.Array(workflowDurableCallRequestSchema),
 	}),
 	strictStruct({
 		error: Schema.String,
 		state: Schema.Literal("failed"),
+		journalLength: durableCallFields.index,
 		kind: Schema.Literals([...SANDBOX_FAILURE_KINDS]),
-		journalLength: Schema.optional(durableCallFields.index),
 		requests: Schema.Array(workflowDurableCallRequestSchema),
 	}),
 ]);

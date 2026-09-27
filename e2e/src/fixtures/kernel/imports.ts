@@ -242,6 +242,7 @@ const fixtureHandleImportChunkSource = (failureCount: number) => {
 		recordKind: "record",
 		stage: "input_transformation",
 		sourceIdentifier: `fixture-${index}`,
+		operationId: `fixture-failure-${index}`,
 		message: "harvest handle fixture failure",
 		sourceLabel: `Harvest fixture ${index + 1}`,
 	}));

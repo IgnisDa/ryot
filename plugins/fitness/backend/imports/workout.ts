@@ -1,11 +1,12 @@
 import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
+import { workoutOperationId, workoutRecordId } from "./identity";
 import { buildWorkoutSetEventProperties, type WorkoutImportItem } from "./workout-domain";
 
 export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWriteItem => {
 	const operationId = (...parts: Array<string | number>) =>
-		JSON.stringify(["workout", workout.itemIndex, ...parts]);
+		workoutOperationId(workout.itemIndex, ...parts);
 	const workoutProperties: Record<string, JsonValue> = { startedAt: workout.startedAt };
 	if (workout.endedAt) {
 		workoutProperties["endedAt"] = workout.endedAt;
@@ -19,7 +20,7 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 		subjectEntityAlias: "workout",
 		sourceLabel: workout.sourceLabel,
 		sourceIdentifier: workout.sourceIdentifier,
-		recordId: JSON.stringify(["workout", workout.itemIndex]),
+		recordId: workoutRecordId(workout.itemIndex),
 		relationships: workout.exercises.map((_exercise, index) => ({
 			properties: {},
 			targetAlias: "fitness-library",
@@ -45,7 +46,7 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 				attribution: {
 					sourceLabel: workout.sourceLabel,
 					sourceIdentifier: workout.sourceIdentifier,
-					recordId: JSON.stringify(["workout", workout.itemIndex]),
+					recordId: workoutRecordId(workout.itemIndex),
 				},
 			})),
 		),

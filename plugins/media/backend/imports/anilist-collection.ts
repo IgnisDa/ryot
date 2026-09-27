@@ -4,7 +4,7 @@ import { adaptAnilistExport, AnilistList } from "./anilist";
 import {
 	compareMediaRecords,
 	jsonArrayFrames,
-	mediaRecordReader,
+	mediaRawRecordReader,
 	normalizeMediaRecords,
 	readMediaCapture,
 	readMediaSourceRange,
@@ -146,7 +146,7 @@ export const collectAnilist = Effect.fn(function* (input: MediaSourceInput) {
 });
 
 export const normalizeAnilist = Effect.fn(function* (input: MediaSourceInput) {
-	const read = mediaRecordReader();
+	const read = mediaRawRecordReader();
 	let offset = input.offset;
 	let header = input.header;
 	let done = false;

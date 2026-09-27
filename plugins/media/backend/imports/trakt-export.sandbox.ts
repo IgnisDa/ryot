@@ -4,7 +4,7 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	collectMediaJson,
 	compareMediaRecords,
-	mediaRecordReader,
+	mediaRawRecordReader,
 	normalizeMediaRecords,
 	readMediaCapture,
 	serializeMediaRecords,
@@ -53,7 +53,7 @@ export default defineScript({
 					],
 				);
 			}
-			const read = mediaRecordReader();
+			const read = mediaRawRecordReader();
 			let offset = input.offset;
 			let done = false;
 			let itemIndex = input.itemIndex;

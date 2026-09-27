@@ -27,14 +27,6 @@ const input = (
 		{
 			itemIndex: 7,
 			collectionMemberships: [],
-			events: [
-				{
-					properties,
-					eventSchemaSlug: "progress",
-					occurredAt: "2026-01-01T00:00:00.000Z",
-					...event,
-				},
-			],
 			entityRef: {
 				kind: "resolved",
 				externalId: "42",
@@ -42,6 +34,15 @@ const input = (
 				entitySchemaSlug: "movie",
 				providerSlug: "movie.tmdb",
 			},
+			events: [
+				{
+					properties,
+					operationId: "event-1",
+					eventSchemaSlug: "progress",
+					occurredAt: "2026-01-01T00:00:00.000Z",
+					...event,
+				},
+			],
 		},
 	],
 });
@@ -125,6 +126,7 @@ it.live(
 				host,
 			);
 			expect(normalized.entityGroups[0]?.events[0]).toEqual({
+				operationId: "event-1",
 				eventSchemaSlug: "progress",
 				occurredAt: "2026-01-01T00:00:00.000Z",
 				properties: { consumedOn: "Plex", progressPercent: 100 },

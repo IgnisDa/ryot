@@ -554,6 +554,7 @@ describe("Plex sink", () => {
 					{
 						itemIndex: 0,
 						stage: "provider_resolution",
+						operationId: '["media-source",0,0,0]',
 						message: 'No show found on TMDB for series "Foundation" and episode 5221957',
 					},
 				],

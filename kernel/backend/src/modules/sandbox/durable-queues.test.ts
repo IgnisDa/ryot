@@ -3,7 +3,9 @@ import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/br
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
+import { appendWorkflowJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { databaseLayer } from "#lib/test-utils/effect";
+import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { executeSandboxExecution, SandboxExecutionQueue } from "./durable-queues";
@@ -159,6 +161,7 @@ layer(
 		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
+				testRedisServiceLayer,
 				dispatcherLayer,
 				kernelReferencesLayer,
 				Layer.mock(SandboxWorkflowReferenceRepository)({}),
@@ -246,6 +249,7 @@ const kernelScriptId = SandboxScriptId.make("kernel-script-id");
 layer(
 	Layer.mergeAll(
 		databaseLayer,
+		testRedisServiceLayer,
 		dispatcherLayer,
 		kernelReferencesLayer,
 		Layer.mock(SandboxRepository)({
@@ -324,6 +328,7 @@ const inlinePrincipal = (capabilities: ReadonlyArray<string>) => ({
 	subject: { type: "system" as const },
 	metadata: { capabilities: [...capabilities] },
 });
+const inlineWorkflowId = testExecutionId("workflow-id");
 const inlineRequest = {
 	index: 3,
 	kind: "host" as const,
@@ -334,6 +339,7 @@ const inlineRequest = {
 layer(
 	Layer.mergeAll(
 		databaseLayer,
+		testRedisServiceLayer,
 		settlingDispatcherLayer,
 		kernelReferencesLayer,
 		Layer.mock(SandboxRepository)({
@@ -369,12 +375,17 @@ layer(
 )((test) => {
 	test.effect("offers inline settlement only for declared activity capabilities", () => {
 		return Effect.gen(function* () {
+			yield* appendWorkflowJournal(
+				inlineWorkflowId,
+				0,
+				[0, 1, 2].map((index) => ({ value: null, request: { ...inlineRequest, index } })),
+			);
 			yield* executeSandboxExecution({
 				journalLength: 3,
 				context: { item: 1 },
-				workflowExecutionId: "workflow-id",
-				executionId: "workflow-id-replay-2",
+				workflowExecutionId: inlineWorkflowId,
 				startedAt: "2026-01-01T00:00:00.000Z",
+				executionId: `${inlineWorkflowId}-replay-2`,
 				principal: inlinePrincipal(["createEvents", "getCachedValue", "log"]),
 			});
 			yield* executeSandboxExecution({
@@ -386,13 +397,53 @@ layer(
 				principal: inlinePrincipal(["createEvents", "emitSignal"]),
 			});
 			const offered = (yield* (yield* RecordedRuns).runs).map(({ inlineDurableHost: inline }) =>
-				inline ? { capabilities: inline.capabilities, journalLength: inline.journalLength } : null,
+				inline ? inline.capabilities : null,
 			);
 
-			expect(offered).toEqual([{ journalLength: 3, capabilities: ["getCachedValue"] }, null]);
+			expect(offered).toEqual([["getCachedValue"], null]);
+			expect((yield* (yield* RecordedRuns).runs).map((run) => run.replayJournal?.length)).toEqual([
+				3, 0,
+			]);
 			expect(yield* (yield* RecordedSettlements).settlements).toEqual([
-				{ context: { item: 1 }, executionId: "workflow-id", startedAt: "2026-01-01T00:00:00.000Z" },
+				{
+					context: { item: 1 },
+					executionId: inlineWorkflowId,
+					startedAt: "2026-01-01T00:00:00.000Z",
+				},
 			]);
 		});
 	});
+});
+
+layer(
+	Layer.mergeAll(
+		databaseLayer,
+		testRedisServiceLayer,
+		dispatcherLayer,
+		kernelReferencesLayer,
+		Layer.mock(SandboxRepository)({ getScript: () => Effect.die("script must not load") }),
+		runtimeSandboxLayer(() => Effect.die("sandbox must not start")),
+	),
+)((test) => {
+	test.effect("reports a lost journal projection without starting the sandbox", () =>
+		Effect.gen(function* () {
+			const result = yield* executeSandboxExecution({
+				...queuedReplay,
+				context: {},
+				journalLength: 2,
+				principal: inlinePrincipal([]),
+				executionId: "workflow-id-replay-1",
+			});
+
+			expect(result).toEqual({
+				logs: [],
+				inline: [],
+				error: null,
+				value: null,
+				status: "completed",
+				projectionMissing: true,
+			});
+			expect(yield* (yield* RecordedRuns).runs).toEqual([]);
+		}),
+	);
 });

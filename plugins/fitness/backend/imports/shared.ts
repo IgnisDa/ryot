@@ -2,12 +2,14 @@ import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { readArtifactRange, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
 import {
 	genericImportChunkSchema,
+	genericImportItemIntents,
 	genericImportWriteItemSchema,
 	type genericImportFailureSchema,
 } from "@ryot-app/sandbox-sdk/imports";
 
 import { parseCsvText, readCsvCell } from "./csv";
 import { adaptHevyRows } from "./hevy";
+import { fitnessFailureOperationId, measurementOperationId, measurementRecordId } from "./identity";
 import { adaptOpenScaleRows } from "./open-scale";
 import type { FitnessStageInput, FitnessStageOutput } from "./schemas";
 import { FitnessRecord } from "./schemas";
@@ -347,7 +349,14 @@ const normalize = Effect.fn(function* (
 			records.push({
 				itemIndex: failure.itemIndex,
 				key: String(failure.itemIndex).padStart(12, "0"),
-				failures: [{ ...failure, unit: failureUnit, recordKind: failureUnit }],
+				failures: [
+					{
+						...failure,
+						unit: failureUnit,
+						recordKind: failureUnit,
+						operationId: fitnessFailureOperationId(failure),
+					},
+				],
 			});
 		}
 		for (const item of result.items) {
@@ -361,14 +370,14 @@ const normalize = Effect.fn(function* (
 							sourceLabel: item.sourceLabel,
 							subjectEntityAlias: "measurement",
 							sourceIdentifier: item.sourceIdentifier,
-							recordId: JSON.stringify(["measurement", item.itemIndex]),
+							recordId: measurementRecordId(item.itemIndex),
 							entities: [
 								{
 									alias: "measurement",
 									entitySchemaSlug: "measurement",
 									outcome: { unit, recordKind: unit },
 									name: `Measurement - ${item.sourceLabel}`,
-									operationId: JSON.stringify(["measurement", item.itemIndex, "entity"]),
+									operationId: measurementOperationId(item.itemIndex),
 									properties: {
 										recordedAt: item.properties.recordedAt,
 										statistics: item.properties.statistics,
@@ -379,9 +388,10 @@ const normalize = Effect.fn(function* (
 								},
 							],
 						};
-			const operations =
-				writeItem.entities.length + writeItem.events.length + writeItem.relationships.length;
-			if (operations > 1000 || encoder.encode(encodeItem(writeItem)).length > RECORD_BYTES) {
+			if (
+				genericImportItemIntents(writeItem).length > 1000 ||
+				encoder.encode(encodeItem(writeItem)).length > RECORD_BYTES
+			) {
 				records.push({
 					itemIndex: item.itemIndex,
 					key: String(item.itemIndex).padStart(12, "0"),
@@ -393,6 +403,7 @@ const normalize = Effect.fn(function* (
 							sourceLabel: item.sourceLabel,
 							stage: "input_transformation",
 							sourceIdentifier: item.sourceIdentifier,
+							operationId: fitnessFailureOperationId(item),
 							message: "Fitness record exceeds the bounded application limit",
 						},
 					],
@@ -458,12 +469,7 @@ const application = Effect.fn(function* (
 			break;
 		}
 		const item = next.record.item;
-		const count = item
-			? item.entities.length +
-				item.events.length +
-				item.relationships.length +
-				(item.collectionMemberships?.length ?? 0)
-			: next.record.failures.length;
+		const count = item ? genericImportItemIntents(item).length : next.record.failures.length;
 		if (count > 1000) {
 			throw new Error("Fitness workout exceeds 1000 operations");
 		}

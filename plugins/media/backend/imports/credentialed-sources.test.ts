@@ -333,11 +333,18 @@ it.live(
 				};
 			});
 			const raw: MediaSourceRecord[] = [
-				{ key: "1", itemIndex: 0, eventIndex: 0, raw: { item: { id: 1, mediaType: "movie" } } },
+				{
+					key: "1",
+					itemIndex: 0,
+					eventIndex: 0,
+					operationId: "raw-0",
+					raw: { item: { id: 1, mediaType: "movie" } },
+				},
 				{
 					key: "1",
 					itemIndex: 1,
 					eventIndex: 0,
+					operationId: "raw-1",
 					raw: { list: "Backlog", item: { id: 1, mediaType: "movie" } },
 				},
 			];

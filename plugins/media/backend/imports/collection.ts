@@ -4,11 +4,20 @@ import { listZipEntries, readGzipRange, readZipEntryRange } from "@ryot-app/sand
 import { readArtifactRange, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
 
 import {
+	MediaNormalizedSourceRecord,
+	MediaRawSourceRecord,
 	MediaSourceRecord,
 	type MediaSourceInput,
 	type MediaSourceOutput,
 } from "./collection-schemas";
 import { importEntityRefIdentifier } from "./groups";
+import {
+	mediaAssociationOperationId,
+	mediaEventOperationId,
+	mediaMembershipOperationId,
+	mediaSourceFailureOperationId,
+	mediaSourceRecordId,
+} from "./identity";
 import type { MediaIntegrationAdapterResult } from "./schemas";
 
 export const WINDOW_BYTES = 256 * 1024;
@@ -102,6 +111,7 @@ export const normalizeMediaRecords = (
 				eventIndex,
 				itemIndex: originalIndex,
 				dedupKey: JSON.stringify(["membership", key, membership.collectionName]),
+				operationId: mediaMembershipOperationId(originalIndex, membership.collectionName),
 				group: {
 					...group,
 					events: [],
@@ -115,7 +125,8 @@ export const normalizeMediaRecords = (
 				key,
 				eventIndex: 0,
 				itemIndex: originalIndex,
-				group: { ...group, itemIndex: originalIndex },
+				operationId: mediaAssociationOperationId(originalIndex),
+				group: { ...group, events: [], itemIndex: originalIndex },
 				dedupKey: JSON.stringify(["association", key, group.ownershipProvider ?? null]),
 			});
 		}
@@ -123,12 +134,14 @@ export const normalizeMediaRecords = (
 			const eventIndex = eventIndexBase + localEventIndex;
 			const attribution = event.attribution ?? {
 				sourceLabel: ref.sourceLabel,
-				recordId: JSON.stringify(["media-source", originalIndex]),
+				recordId: mediaSourceRecordId(originalIndex),
 				sourceIdentifier: source === "netflix" ? ref.sourceLabel : importEntityRefIdentifier(ref),
 			};
+			const operationId = event.operationId ?? mediaEventOperationId(originalIndex, eventIndex);
 			records.push({
 				key,
 				eventIndex,
+				operationId,
 				itemIndex: originalIndex,
 				...(source === "spotify"
 					? { dedupKey: JSON.stringify([importEntityRefIdentifier(ref), event.occurredAt]) }
@@ -137,25 +150,23 @@ export const normalizeMediaRecords = (
 					...group,
 					itemIndex: originalIndex,
 					collectionMemberships: [],
-					events: [
-						{
-							...event,
-							attribution,
-							sourceItemIndex: originalIndex,
-							operationId:
-								event.operationId ?? JSON.stringify(["media-event", originalIndex, eventIndex]),
-						},
-					],
+					events: [{ ...event, attribution, operationId, sourceItemIndex: originalIndex }],
 				},
 			});
 		}
 	}
+	const failureOrdinals = new Map<number, number>();
 	for (const failure of result.failures) {
+		const originalIndex = itemIndex + failure.itemIndex;
+		const ordinal = failureOrdinals.get(originalIndex) ?? 0;
+		failureOrdinals.set(originalIndex, ordinal + 1);
+		const operationId = mediaSourceFailureOperationId(originalIndex, eventIndexBase, ordinal);
 		records.push({
+			operationId,
 			eventIndex: 0,
-			itemIndex: itemIndex + failure.itemIndex,
-			failure: { ...failure, itemIndex: itemIndex + failure.itemIndex },
-			key: `~failure:${String(itemIndex + failure.itemIndex).padStart(16, "0")}`,
+			itemIndex: originalIndex,
+			key: `~failure:${String(originalIndex).padStart(16, "0")}`,
+			failure: { ...failure, operationId, itemIndex: originalIndex },
 		});
 	}
 	return records.sort(compareMediaRecords);
@@ -305,7 +316,8 @@ export const collectMediaCsv = Effect.fn(function* (
 	});
 });
 
-export const mediaRecordReader = () => {
+const makeMediaRecordReader = <S extends Schema.Decoder<unknown>>(record: S) => {
+	const decodeRecord = Schema.decodeEffect(Schema.fromJsonString(record));
 	const windows = new Map<string, { offset: number; size: number; bytes: Uint8Array }>();
 	return Effect.fn(function* (key: string, offset: number) {
 		let bytes = new Uint8Array();
@@ -327,13 +339,17 @@ export const mediaRecordReader = () => {
 			}
 			if (newline >= 0 || offset + bytes.length === window.size) {
 				return {
+					record: yield* decodeRecord(decoder.decode(bytes)),
 					next: offset + bytes.length + (newline >= 0 ? 1 : 0),
-					record: yield* Schema.decodeEffect(recordJson)(decoder.decode(bytes)),
 				};
 			}
 		}
 	});
 };
+
+export const mediaRecordReader = () => makeMediaRecordReader(MediaSourceRecord);
+export const mediaRawRecordReader = () => makeMediaRecordReader(MediaRawSourceRecord);
+export const mediaNormalizedRecordReader = () => makeMediaRecordReader(MediaNormalizedSourceRecord);
 
 export const mergeMediaRecords = Effect.fn(function* (input: MediaSourceInput) {
 	const read = mediaRecordReader();

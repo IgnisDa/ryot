@@ -42,7 +42,7 @@ export type SandboxExecutionOutcome = "success" | "failure" | "timeout";
 export type ProviderImportPhase = "population" | "provider-import-automation";
 /** A body attempt interrupted by workflow suspension is neither a success nor a failure. */
 export type ProviderImportAttemptOutcome = ProviderImportOutcome | "interrupted";
-export type SandboxReplayOutcome = "completed" | "failed" | "stale" | "pending";
+export type SandboxReplayOutcome = "completed" | "failed" | "missing" | "pending";
 
 export const sandboxMetricKind = (metadata: unknown): SandboxMetricKind => {
 	const kind =

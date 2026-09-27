@@ -86,7 +86,7 @@ export default defineScript({
 				if (record.key !== state.key) {
 					state = { preferred: "", key: record.key };
 				}
-				if (record.section === "netflix-context") {
+				if ("raw" in record && record.section === "netflix-context") {
 					const context = yield* Schema.decodeUnknownEffect(TitleContext)(record.raw);
 					state = { key: record.key, preferred: context.preferred };
 					continue;

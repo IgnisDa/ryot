@@ -5,10 +5,12 @@ import anilist from "./anilist.sandbox";
 import {
 	compareMediaRecords,
 	mergeMediaRecords,
+	normalizeMediaRecords,
 	serializeMediaRecords,
 	writeMediaCapture,
 } from "./collection";
 import type { MediaSourceRecord } from "./collection-schemas";
+import { mediaEventOperationId } from "./identity";
 import imdb from "./imdb.sandbox";
 import { mediaFilesystem, mediaFilesystemKey, mediaStageInput } from "./ingestion.test-support";
 import reader from "./read-batch.sandbox";
@@ -20,6 +22,7 @@ const makeRecord = (itemIndex: number): MediaSourceRecord => ({
 	itemIndex,
 	key: "show",
 	eventIndex: 0,
+	operationId: mediaEventOperationId(itemIndex, 0),
 	group: {
 		itemIndex,
 		collectionMemberships: [],
@@ -34,6 +37,7 @@ const makeRecord = (itemIndex: number): MediaSourceRecord => ({
 			{
 				eventSchemaSlug: "progress",
 				properties: { text: "x".repeat(9000) },
+				operationId: mediaEventOperationId(itemIndex, 0),
 				occurredAt: itemIndex % 2 ? "2026-01-01T02:00:00+02:00" : "2026-01-01T00:00:00Z",
 			},
 		],
@@ -174,6 +178,50 @@ it.live("captures AniList metadata after the arrays and uses it during bounded n
 			],
 		});
 		expect(prepared.batch.entityGroups[0]?.collectionMemberships).toEqual([]);
+	}),
+);
+it.live("gives every record of an oversized source row its own failure identity", () =>
+	Effect.gen(function* () {
+		const records = normalizeMediaRecords(
+			{
+				failures: [],
+				entityGroups: [
+					{
+						itemIndex: 0,
+						collectionMemberships: [{ collectionName: "Pinned" }],
+						events: ["complete", "review"].map((eventSchemaSlug) => ({
+							properties: {},
+							eventSchemaSlug,
+							occurredAt: "2026-01-01T00:00:00Z",
+						})),
+						entityRef: {
+							kind: "unresolved",
+							identifierType: "imdb",
+							sourceLabel: "Oversized",
+							entitySchemaSlug: "movie",
+							identifierValue: "tt".repeat(600),
+						},
+					},
+				],
+			},
+			7,
+			"imdb",
+		);
+		const fs = mediaFilesystem({ records: encoder.encode(serializeMediaRecords(records)) });
+		yield* reader.run({
+			offset: 0,
+			itemIndex: 0,
+			dedupKey: null,
+			ingestionArtifacts: { runId: "run", captures: { records: "records" } },
+		});
+		const batch = yield* Schema.decodeEffect(Schema.fromJsonString(MediaImportAdapterBatch))(
+			new TextDecoder().decode(fs.scratch.get("batch.json")),
+		);
+		expect(batch.failures.map(({ operationId }) => operationId).sort()).toEqual([
+			'["media-event",7,0]',
+			'["media-event",7,1]',
+			'["media-membership",7,"Pinned"]',
+		]);
 	}),
 );
 it.live("rejects capture and scratch overflow before publishing any files", () =>

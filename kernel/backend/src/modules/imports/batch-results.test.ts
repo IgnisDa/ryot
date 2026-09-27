@@ -6,7 +6,11 @@ import type {
 import type { GenericImportChunk } from "@ryot-app/sandbox-sdk/imports";
 import { Effect, Layer } from "effect";
 
-import { genericIngestionBatchResult, reconcileGenericIngestionBatch } from "./batch-results";
+import {
+	genericIngestionBatchResult,
+	genericIngestionOperations,
+	reconcileGenericIngestionBatch,
+} from "./batch-results";
 import { IngestionCaptures } from "./capture-service";
 import {
 	ingestionTestDatabase,
@@ -14,6 +18,7 @@ import {
 	ingestionTestReceipt,
 	ingestionTestScope,
 } from "./ingestion.test-support";
+import { ingestionItemIdentity } from "./outcomes";
 import { ImportsRepository } from "./repository";
 
 const batch: IngestionBatch = {
@@ -144,3 +149,29 @@ it.effect(
 			}).pipe(Effect.provideContext(yield* Layer.build(dependencies)));
 		}),
 );
+
+it("derives failure operations from their own operation identity", () => {
+	const operations = genericIngestionOperations(
+		{
+			items: [],
+			failures: ["first", "second"].map((operationId) => ({
+				operationId,
+				itemIndex: 3,
+				unit: "plays",
+				recordKind: "play",
+				message: "invalid",
+				sourceLabel: "History",
+				sourceIdentifier: "track",
+			})),
+		},
+		ingestionTestScope.runId,
+	);
+	expect(
+		operations.map(({ operationId, itemIdentity }) => ({ operationId, itemIdentity })),
+	).toEqual(
+		["first", "second"].map((operationId) => ({
+			operationId,
+			itemIdentity: ingestionItemIdentity(ingestionTestScope.runId, operationId),
+		})),
+	);
+});

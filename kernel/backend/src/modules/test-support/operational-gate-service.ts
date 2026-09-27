@@ -256,7 +256,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 
 				let projectionCount = 0;
 				let projectionErrors = 0;
-				let maxHighWater = 0;
+				let maxJournalEntries = 0;
 				for (const executionId of executionIds) {
 					const fields = yield* Effect.tryPromise(() =>
 						redis.client.hgetall(redisKeys.sandboxWorkflowJournal(executionId)),
@@ -265,23 +265,20 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 						continue;
 					}
 					projectionCount += 1;
-					const highWater = Number(fields["high-water"]);
-					if (
-						!Number.isSafeInteger(highWater) ||
-						highWater < 0 ||
-						Array.from({ length: highWater }, (_, index) => fields[index]).some(
-							(value) => value === undefined,
-						)
-					) {
+					let entries = 0;
+					while (fields[String(entries)] !== undefined) {
+						entries += 1;
+					}
+					if (entries !== Object.keys(fields).length) {
 						projectionErrors += 1;
 					} else {
-						maxHighWater = Math.max(maxHighWater, highWater);
+						maxJournalEntries = Math.max(maxJournalEntries, entries);
 					}
 				}
 
 				return {
 					sandbox: getSandboxProcessMetrics(),
-					redis: { maxHighWater, projectionCount, projectionErrors },
+					redis: { projectionCount, projectionErrors, maxJournalEntries },
 					locks: {
 						advisoryLocks: pressure.advisory_locks,
 						waitingAdvisoryLocks: pressure.waiting_advisory_locks,

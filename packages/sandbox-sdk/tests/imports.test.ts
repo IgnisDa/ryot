@@ -1,5 +1,6 @@
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
+	genericImportChunkOperationIds,
 	genericImportChunkSchema,
 	genericImportKernelInputSchema,
 } from "@ryot-app/sandbox-sdk/imports";
@@ -15,6 +16,7 @@ it("decodes generic media write intents without admitting plugin-private event f
 				sourceLabel: "Lost",
 				sourceIdentifier: "20",
 				entitySchemaSlug: "show",
+				operationId: "failed-lost",
 				stage: "provider_resolution",
 				message: "Could not resolve S1E99",
 			},
@@ -97,6 +99,55 @@ it("decodes generic media write intents without admitting plugin-private event f
 			],
 		}),
 	).toThrow();
+});
+
+it("rejects chunks whose failures repeat an operation or reuse an intent operation", () => {
+	const failure = {
+		itemIndex: 0,
+		unit: "plays",
+		recordKind: "play",
+		message: "invalid",
+		sourceLabel: "Lost",
+		sourceIdentifier: "20",
+	};
+	const decode = Schema.decodeUnknownSync(genericImportChunkSchema);
+	const item = {
+		events: [],
+		itemIndex: 0,
+		relationships: [],
+		recordId: "record",
+		sourceLabel: "Lost",
+		sourceIdentifier: "20",
+		subjectEntityAlias: "media",
+		entities: [
+			{
+				name: "Lost",
+				alias: "media",
+				properties: {},
+				operationId: "entity",
+				entitySchemaSlug: "show",
+			},
+		],
+	};
+
+	expect(
+		genericImportChunkOperationIds({
+			items: [item],
+			failures: [{ ...failure, operationId: "failed" }],
+		}),
+	).toEqual(["entity", "failed"]);
+	expect(() =>
+		decode({
+			items: [],
+			failures: [
+				{ ...failure, operationId: "same" },
+				{ ...failure, operationId: "same" },
+			],
+		}),
+	).toThrow("Ingestion chunk identities must be unique and bounded");
+	expect(() =>
+		decode({ items: [item], failures: [{ ...failure, operationId: "entity" }] }),
+	).toThrow("Ingestion chunk identities must be unique and bounded");
 });
 
 it("requires kernel import commands to carry matching import attribution", () => {

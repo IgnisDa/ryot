@@ -3,9 +3,11 @@ import {
 	type IngestionBatch,
 	type IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
-import type { genericImportApplyResultSchema } from "@ryot-app/sandbox-sdk/imports";
-import { genericImportChunkSchema } from "@ryot-app/sandbox-sdk/imports";
-import { stableStringify } from "@ryot-app/ts-utils/json";
+import type {
+	GenericImportFailure,
+	genericImportApplyResultSchema,
+} from "@ryot-app/sandbox-sdk/imports";
+import { genericImportChunkSchema, genericImportItemIntents } from "@ryot-app/sandbox-sdk/imports";
 import { Effect, Schema } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -15,7 +17,7 @@ import { MutationReceipts } from "#modules/mutations/receipts";
 import { projectRelationshipIngestionReceipt } from "#modules/relationships/mutation-pipeline";
 
 import { IngestionCaptures } from "./capture-service";
-import { summarizeIngestionOutcomes } from "./outcomes";
+import { ingestionItemIdentity, summarizeIngestionOutcomes } from "./outcomes";
 import { ImportsRepository } from "./repository";
 import { ImportRunError } from "./runtime/workflow-errors";
 
@@ -76,20 +78,15 @@ export const reconcileIngestionBatch = Effect.fn("imports.reconcileIngestionBatc
 export const genericIngestionOperations = (
 	chunk: typeof genericImportChunkSchema.Type,
 	runId: IngestionScope["runId"],
-): IngestionOperation[] =>
-	chunk.items.flatMap((item) =>
-		[
-			...item.entities,
-			...item.relationships,
-			...item.events,
-			...(item.collectionMemberships ?? []),
-		].flatMap((intent) =>
+): IngestionOperation[] => [
+	...chunk.items.flatMap((item) =>
+		genericImportItemIntents(item).flatMap((intent) =>
 			intent.outcome
 				? [
 						{
 							...intent.outcome,
 							operationId: intent.operationId,
-							itemIdentity: JSON.stringify(["ingestion", runId, intent.operationId]),
+							itemIdentity: ingestionItemIdentity(runId, intent.operationId),
 							attribution: intent.attribution ?? {
 								recordId: item.recordId,
 								sourceLabel: item.sourceLabel,
@@ -99,7 +96,24 @@ export const genericIngestionOperations = (
 					]
 				: [],
 		),
-	);
+	),
+	...chunk.failures.map((failure) => genericIngestionFailureOperation(failure, runId)),
+];
+
+export const genericIngestionFailureOperation = (
+	failure: GenericImportFailure,
+	runId: IngestionScope["runId"],
+): IngestionOperation => ({
+	unit: failure.unit,
+	recordKind: failure.recordKind,
+	operationId: failure.operationId,
+	itemIdentity: ingestionItemIdentity(runId, failure.operationId),
+	attribution: {
+		sourceLabel: failure.sourceLabel,
+		recordId: String(failure.itemIndex),
+		sourceIdentifier: failure.sourceIdentifier,
+	},
+});
 
 export const reconcileGenericIngestionBatch = Effect.fn("imports.reconcileGenericIngestionBatch")(
 	function* (scope: IngestionScope, batch: IngestionBatch) {
@@ -108,19 +122,6 @@ export const reconcileGenericIngestionBatch = Effect.fn("imports.reconcileGeneri
 			new TextDecoder().decode(yield* captures.read(scope, batch.captureId, 4 * 1024 * 1024)),
 		);
 		const operations = genericIngestionOperations(chunk, scope.runId);
-		for (const failure of chunk.failures) {
-			operations.push({
-				unit: failure.unit,
-				recordKind: failure.recordKind,
-				operationId: stableStringify(["source", failure.sourceIdentifier, failure.itemIndex]),
-				itemIdentity: stableStringify(["source", failure.sourceIdentifier, failure.itemIndex]),
-				attribution: {
-					sourceLabel: failure.sourceLabel,
-					recordId: String(failure.itemIndex),
-					sourceIdentifier: failure.sourceIdentifier,
-				},
-			});
-		}
 		return yield* reconcileIngestionBatch(scope, batch, operations);
 	},
 );

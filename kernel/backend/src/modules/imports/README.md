@@ -5,6 +5,11 @@ artifacts, and domain writes. Plugin sources normalize provider-specific input i
 chunks for the kernel. The kernel-native `data-json` source accepts the shared data document without
 a plugin installation. Both paths write through the owning services.
 
+A chunk carries one operation ID per intent and per failure, unique across the chunk. A failure's
+`operationId` is the ID of the operation the plugin would have written had the record succeeded, so
+issues and outcomes for failed records share the identity scheme of written records. The kernel
+registers every ID of a chunk against its batch, so a second batch cannot reuse an operation.
+
 The `data-json` source validates records against definitions already available to the user. Its
 document-local keys resolve entity and relationship dependencies, including schema-declared nested
 property references. Provider entities use normal provider resolution; custom entities remain

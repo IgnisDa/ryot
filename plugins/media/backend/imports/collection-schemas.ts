@@ -3,7 +3,7 @@ import { sandboxScratchManifestSchema } from "@ryot-app/sandbox-sdk/filesystem";
 import { ingestionArtifactsSchema } from "@ryot-app/sandbox-sdk/imports";
 import { Schema } from "@ryot-app/sandbox-sdk/workflow";
 
-import { ImportMediaEntityGroup, MediaImportAdapterFailure } from "./schemas";
+import { MediaImportBatchEntityGroup, MediaImportFailure } from "./schemas";
 
 const count = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 export const MediaSourceInput = Schema.Struct({
@@ -47,15 +47,24 @@ export const MediaSourceResult = Schema.Struct({
 });
 export const MediaSortedRun = Schema.Struct({ pages: count, prefix: Schema.String });
 export type MediaSortedRun = typeof MediaSortedRun.Type;
-export const MediaSourceRecord = Schema.Struct({
+const mediaSourceRecordFields = {
 	itemIndex: count,
 	eventIndex: count,
 	key: Schema.String,
-	raw: Schema.optional(Schema.Unknown),
-	section: Schema.optional(Schema.String),
 	dedupKey: Schema.optional(Schema.String),
-	group: Schema.optional(ImportMediaEntityGroup),
-	failure: Schema.optional(MediaImportAdapterFailure),
+	failure: Schema.optional(MediaImportFailure),
+	group: Schema.optional(MediaImportBatchEntityGroup),
+};
+export const MediaRawSourceRecord = Schema.Struct({
+	...mediaSourceRecordFields,
+	raw: Schema.Unknown,
+	section: Schema.optional(Schema.String),
+});
+export const MediaNormalizedSourceRecord = Schema.Struct({
+	...mediaSourceRecordFields,
+	operationId: Schema.NonEmptyString,
+	failure: Schema.optional(MediaImportFailure),
+	group: Schema.optional(MediaImportBatchEntityGroup),
 }).check(
 	Schema.makeFilter((record) => {
 		const group = record.group;
@@ -78,4 +87,7 @@ export const MediaSourceRecord = Schema.Struct({
 		);
 	}),
 );
+export const MediaSourceRecord = Schema.Union([MediaRawSourceRecord, MediaNormalizedSourceRecord]);
 export type MediaSourceRecord = typeof MediaSourceRecord.Type;
+export type MediaRawSourceRecord = typeof MediaRawSourceRecord.Type;
+export type MediaNormalizedSourceRecord = typeof MediaNormalizedSourceRecord.Type;

@@ -83,7 +83,7 @@ const makeHarness = () => {
 	const mutations: number[] = [];
 	const interrupted: string[] = [];
 	const reads: string[] = [];
-	const highWaters: number[] = [];
+	const appends: string[] = [];
 	const state: {
 		blocked: boolean;
 		retired: boolean;
@@ -135,8 +135,15 @@ const makeHarness = () => {
 			RedisService,
 			makeRedisService({
 				client: Object.assign(Object.create(null), {
-					eval: (_script: string, _keys: number, _key: string, water: string) => {
-						highWaters.push(Number(water));
+					eval: (
+						_script: string,
+						_keys: number,
+						_key: string,
+						_ttl: string,
+						firstIndex: string,
+						...entries: string[]
+					) => {
+						appends.push(`${firstIndex}:${entries.length}`);
 						return Promise.resolve(1);
 					},
 				}),
@@ -173,7 +180,7 @@ const makeHarness = () => {
 		}),
 	);
 	const fresh = (
-		envelope: WorkflowReplayEnvelope = { requests, state: "pending" },
+		envelope: WorkflowReplayEnvelope = { requests, journalLength: 0, state: "pending" },
 		parentPayload = payload,
 	) => {
 		const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
@@ -290,7 +297,12 @@ const makeHarness = () => {
 				status: "completed" as const,
 				value: replay.executionId.endsWith("-replay-0")
 					? envelope
-					: { output: "done", state: "completed" as const, requests: envelope.requests },
+					: {
+							output: "done",
+							state: "completed" as const,
+							requests: envelope.requests,
+							journalLength: replay.journalLength,
+						},
 			}),
 		);
 		const provide = Effect.fnUntraced(function* <A, E, R>(effect: Effect.Effect<A, E, R>) {
@@ -308,10 +320,10 @@ const makeHarness = () => {
 		fresh,
 		slots,
 		reads,
+		appends,
 		mutations,
 		activities,
 		dispatches,
-		highWaters,
 		interrupted,
 		childStarted,
 		dependencies,
@@ -327,14 +339,14 @@ it.effect(
 			expect(first._tag).toBe("Suspended");
 			expect(h.dispatches).toEqual([0, 1]);
 			expect([...h.slots.keys()]).toEqual(["sandbox-request-0"]);
-			expect(h.highWaters).toEqual([0]);
+			expect(h.appends).toEqual([]);
 			h.state.blocked = false;
 			const resumed = yield* h.fresh().body;
 			assert(resumed._tag === "Complete");
 			expect(yield* resumed.exit).toBe("done");
 			expect(h.dispatches).toEqual([0, 1, 1]);
 			expect(h.mutations).toEqual([0, 1]);
-			expect(h.highWaters).toEqual([0, 0, 2]);
+			expect(h.appends).toEqual(["0:2"]);
 		}),
 );
 
@@ -349,7 +361,11 @@ it.effect.each([
 		Effect.gen(function* () {
 			const h = makeHarness();
 			yield* h.fresh().body;
-			const result = yield* h.fresh({ state: "pending", requests: [changed, secondRequest] }).body;
+			const result = yield* h.fresh({
+				journalLength: 0,
+				state: "pending",
+				requests: [changed, secondRequest],
+			}).body;
 			assert(result._tag === "Complete");
 			const exit = yield* Effect.exit(result.exit);
 			expect(exit.toString()).toContain("SandboxWorkflowNondeterminism");
@@ -361,6 +377,7 @@ it.effect("validates later duplicate indices even when the first request is unre
 	Effect.gen(function* () {
 		const h = makeHarness();
 		const result = yield* h.fresh({
+			journalLength: 0,
 			state: "pending",
 			requests: [firstRequest, secondRequest, { ...secondRequest, name: "third" }],
 		}).body;
@@ -374,7 +391,8 @@ it.effect("rejects a shortened pending trace despite a cached observation and se
 	Effect.gen(function* () {
 		const h = makeHarness();
 		yield* h.fresh().body;
-		const result = yield* h.fresh({ state: "pending", requests: [firstRequest] }).body;
+		const result = yield* h.fresh({ journalLength: 0, state: "pending", requests: [firstRequest] })
+			.body;
 		assert(result._tag === "Complete");
 		expect((yield* Effect.exit(result.exit)).toString()).toContain("pinned observation");
 		expect(h.dispatches).toEqual([0, 1]);
@@ -506,7 +524,7 @@ it.effect("keeps the durable step limit before dispatch or completion", () =>
 	Effect.gen(function* () {
 		const h = makeHarness();
 		const oversized = Array.from({ length: 1_001 }, (_, index) => requestAt(index));
-		const result = yield* h.fresh({ state: "pending", requests: oversized }).body;
+		const result = yield* h.fresh({ journalLength: 0, state: "pending", requests: oversized }).body;
 		assert(result._tag === "Complete");
 		expect((yield* Effect.exit(result.exit)).toString()).toContain("maximum of 1000 durable steps");
 		expect(h.dispatches).toEqual([]);
@@ -528,7 +546,7 @@ it.effect("applies the existing ordered journal byte limit to checkpoint hits", 
 		const result = yield* h.fresh().body;
 		assert(result._tag === "Complete");
 		expect((yield* Effect.exit(result.exit)).toString()).toContain("durable journal exceeds");
-		expect(h.highWaters).toEqual([0]);
+		expect(h.appends).toEqual([]);
 		expect(h.dispatches).toEqual([1]);
 	}),
 );
@@ -666,8 +684,13 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 										harvest: null,
 										status: "completed" as const,
 										value: replay.executionId.endsWith("-replay-0")
-											? { requests, state: "pending" }
-											: { requests, output: "done", state: "completed" },
+											? { requests, journalLength: 0, state: "pending" }
+											: {
+													requests,
+													output: "done",
+													state: "completed",
+													journalLength: replay.journalLength,
+												},
 									}),
 								),
 						);
@@ -790,8 +813,13 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 									harvest: null,
 									status: "completed" as const,
 									value: replay.executionId.endsWith("-replay-0")
-										? { requests: calls, state: "pending" }
-										: { output: "done", requests: calls, state: "completed" },
+										? { requests: calls, journalLength: 0, state: "pending" }
+										: {
+												output: "done",
+												requests: calls,
+												state: "completed",
+												journalLength: replay.journalLength,
+											},
 								}),
 							);
 						}),

@@ -89,7 +89,7 @@ export const postgresGlobalSetup =
 		const running = process.env["TEST_DATABASE_URL"];
 		if (running) {
 			provide("databaseUrl", running);
-			return () => undefined;
+			return () => Promise.resolve();
 		}
 
 		return Effect.runPromise(

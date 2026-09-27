@@ -6,6 +6,7 @@ import type {
 	IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import { genericImportChunkOperationIds } from "@ryot-app/sandbox-sdk/imports";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
@@ -691,6 +692,72 @@ layer(
 					))._tag,
 				).toBe("Failure");
 				expect(yield* repository.listCaptures(scope)).toEqual([{ data: capture }]);
+			}),
+	);
+
+	test.effect(
+		"registers outcome-less intents and failures so another batch cannot reuse them",
+		() =>
+			Effect.gen(function* () {
+				const scope = yield* runningRun();
+				const repository = yield* ImportsRepository;
+				const session = yield* DatabaseSession;
+				yield* session.transaction(repository.publishCapture(scope, capture));
+				const operationIds = genericImportChunkOperationIds({
+					failures: [
+						{
+							itemIndex: 1,
+							unit: "plays",
+							recordKind: "play",
+							message: "invalid",
+							sourceLabel: "Record",
+							operationId: "failed-play",
+							sourceIdentifier: "record-1",
+						},
+					],
+					items: [
+						{
+							events: [],
+							itemIndex: 0,
+							relationships: [],
+							recordId: "record-0",
+							sourceLabel: "Record",
+							sourceIdentifier: "record-0",
+							subjectEntityAlias: "subject",
+							entities: [
+								{
+									properties: {},
+									name: "Subject",
+									alias: "subject",
+									operationId: "support-entity",
+									entitySchemaSlug: "supporting",
+								},
+							],
+						},
+					],
+				});
+				yield* session.transaction(
+					repository.registerBatch(scope, batch, operationIds, batchOwner),
+				);
+				const [stored] = yield* session.run((db) =>
+					db
+						.select({ operationIds: tables.importBatch.operationIds })
+						.from(tables.importBatch)
+						.where(eq(tables.importBatch.id, batch.id))
+						.limit(1),
+				);
+				expect(stored?.operationIds).toEqual(["failed-play", "support-entity"]);
+				const failure = yield* Effect.flip(
+					session.transaction(
+						repository.registerBatch(
+							scope,
+							{ ...batch, ordinal: 1, id: "batch-1" },
+							["support-entity"],
+							batchOwner,
+						),
+					),
+				);
+				expect(failure.message).toBe("Ingestion operation belongs to another batch");
 			}),
 	);
 

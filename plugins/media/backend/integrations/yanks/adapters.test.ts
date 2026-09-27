@@ -1,7 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { genericImportChunkSchema } from "@ryot-app/sandbox-sdk/imports";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { TestClock } from "effect/testing";
 
@@ -12,8 +13,9 @@ import {
 	httpSuccess,
 	integrationRecord,
 } from "../../../tests/backend/automations/automation-test-utils";
+import { createMediaImportChunk } from "../../imports/chunks";
 import { mediaFilesystem } from "../../imports/ingestion.test-support";
-import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
+import type { MediaImportFailure, MediaIntegrationAdapterResult } from "../../imports/schemas";
 import type { HistoryClient } from "../../lib/vendors/youtube-music";
 import { runIntegrationTestScript, integrationTestResult } from "../artifacts.test-support";
 import { confirmIntegrationSource } from "../source-state";
@@ -101,6 +103,19 @@ const historyClient = (
 			},
 		}),
 });
+
+const expectDistinctChunkFailureIds = (failures: ReadonlyArray<MediaImportFailure>) => {
+	const ids = failures.map(({ operationId }) => operationId);
+	expect(new Set(ids).size).toBe(ids.length);
+	expect(() =>
+		Schema.decodeSync(genericImportChunkSchema)(
+			createMediaImportChunk(
+				{ failures, entityGroups: [], populationResults: [] },
+				"2026-01-01T00:00:00.000Z",
+			),
+		),
+	).not.toThrow();
+};
 
 const progressValues = (result: MediaIntegrationAdapterResult) =>
 	result.entityGroups.flatMap((group) =>
@@ -223,6 +238,27 @@ describe("Plex yank", () => {
 				message: "Plex item has no TMDB, TVDB, or IMDb identifier",
 			});
 		}),
+	);
+
+	it.live(
+		"gives consecutive failing library fetches and the next library's first item distinct rows",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* Effect.promise(() =>
+					runPlex({
+						"/library/sections/3/all?includeGuids=1": metadata([
+							{ key: "/m/9", type: "movie", title: "No Ids", lastViewedAt: 1_700_000_000 },
+						]),
+						"/library/sections": libraries([
+							{ key: "1", type: "movie", title: "Movies" },
+							{ key: "2", type: "movie", title: "Films" },
+							{ key: "3", type: "movie", title: "Clips" },
+						]),
+					}),
+				);
+				expect(result.failures.map(({ itemIndex }) => itemIndex)).toEqual([0, 1, 2]);
+				expectDistinctChunkFailureIds(result.failures);
+			}),
 	);
 
 	it.live("returns owned movies and shows regardless of watch state", () =>
@@ -422,6 +458,52 @@ describe("Audiobookshelf yank", () => {
 				stage: "input_transformation",
 				message: "Audiobookshelf item is missing media metadata",
 			});
+		}),
+	);
+
+	it.live(
+		"gives consecutive failing library fetches and the next library's first item distinct rows",
+		() =>
+			Effect.gen(function* () {
+				const filter = "?expanded=1&filter=progress.ZmluaXNoZWQ=";
+				const result = yield* Effect.promise(() =>
+					runAudiobookshelf({
+						[`/api/libraries/lib3/items${filter}`]: { results: [{ id: "x1", name: "Broken" }] },
+						"/api/libraries": {
+							libraries: ["lib1", "lib2", "lib3"].map((id) => ({
+								id,
+								name: id,
+								mediaType: "book",
+							})),
+						},
+					}),
+				);
+				expect(result.failures.map(({ itemIndex }) => itemIndex)).toEqual([0, 1, 2]);
+				expectDistinctChunkFailureIds(result.failures);
+			}),
+	);
+
+	it.live("keeps podcast episode and details failures distinct within and across windows", () =>
+		Effect.gen(function* () {
+			const episodes = Array.from({ length: 130 }, (_, index) => ({ id: `e${index}` }));
+			const result = yield* Effect.promise(() =>
+				runAudiobookshelf({
+					"/api/items/p1?expanded=1&include=progress": { media: { episodes } },
+					"/api/libraries": { libraries: [{ id: "lib1", name: "Podcasts", mediaType: "podcast" }] },
+					"/api/libraries/lib1/items?expanded=1": {
+						results: [podcastItem("p1"), podcastItem("p2")],
+					},
+					"/api/me": {
+						mediaProgress: ["e0", "e1", "e128", "e129"].map((episodeId) => ({
+							episodeId,
+							isFinished: true,
+							libraryItemId: "p1",
+						})),
+					},
+				}),
+			);
+			expect(result.failures.map(({ itemIndex }) => itemIndex)).toEqual([0, 0, 0, 0, 1]);
+			expectDistinctChunkFailureIds(result.failures);
 		}),
 	);
 

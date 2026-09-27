@@ -29,6 +29,7 @@ it.live(
 							key: "book",
 							itemIndex: 77,
 							eventIndex: 0,
+							operationId: "provider-operation-77",
 							group: {
 								itemIndex: 77,
 								collectionMemberships: [{ collectionName: "Imported" }],

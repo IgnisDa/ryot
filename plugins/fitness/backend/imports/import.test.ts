@@ -437,6 +437,39 @@ it("applies more than one OpenScale batch with original row identities and measu
 		),
 	));
 
+it("keeps failures of one workout distinct when its only exercise cannot be imported", () =>
+	Effect.runPromise(
+		runImport(
+			"hevy",
+			[
+				"title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_order,weight_kg,reps,set_type,distance_m,duration_seconds",
+				"Push Day,2026-01-01T10:00:00,2026-01-01T11:00:00,,Mystery,,,1,,,normal,,",
+			].join("\n"),
+		).pipe(
+			Effect.map((result) => {
+				const failures = result.chunks.flatMap((chunk) => chunk.failures);
+				expect(failures.map(({ operationId }) => operationId)).toEqual([
+					'["fitness-source",0,"2026-01-01T10:00:00:Push Day:Mystery"]',
+					'["fitness-source",0,"2026-01-01T10:00:00:Push Day"]',
+				]);
+			}),
+		),
+	));
+
+it("keeps OpenScale failures distinct when rows share a timestamp", () =>
+	Effect.runPromise(
+		runImport(
+			"open_scale",
+			["dateTime,Weight", "2026-01-01T08:00:00Z,bad", "2026-01-01T08:00:00Z,bad"].join("\n"),
+		).pipe(
+			Effect.map((result) => {
+				const failures = result.chunks.flatMap((chunk) => chunk.failures);
+				expect(failures).toHaveLength(2);
+				expect(new Set(failures.map(({ operationId }) => operationId)).size).toBe(2);
+			}),
+		),
+	));
+
 it("rejects an admitted parser pin that does not match the source before collecting", () =>
 	Effect.runPromise(
 		workflow

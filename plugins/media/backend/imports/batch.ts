@@ -16,7 +16,7 @@ import {
 } from "../contracts/workflows";
 import { importEntityRefIdentifier } from "./groups";
 import type {
-	MediaImportAdapterFailure,
+	MediaImportFailure,
 	UnresolvedEpisodeRef,
 	MediaImportAdapterBatch,
 	MediaImportWriteChunkInput,
@@ -122,7 +122,7 @@ export function* runMediaImportBatch(
 	const netflixByIndex = new Map(
 		netflixOutput.results.map((result) => [result.index, result.entityRef]),
 	);
-	const netflixFailures: MediaImportAdapterFailure[] = [];
+	const netflixFailures: MediaImportFailure[] = [];
 	const resolutionItems = batch.entityGroups.flatMap((group, index) =>
 		group.entityRef.kind === "unresolved" && group.entityRef.identifierType !== "netflix-title"
 			? [
@@ -154,6 +154,7 @@ export function* runMediaImportBatch(
 						unit: "events",
 						recordKind: "complete",
 						stage: "provider_resolution",
+						operationId: event.operationId,
 						itemIndex: event.sourceItemIndex ?? group.itemIndex,
 						sourceLabel: event.attribution?.sourceLabel ?? group.entityRef.sourceLabel,
 						message: "Viewing activity matched a show but no season or episode could be extracted",
@@ -282,7 +283,7 @@ export function* runMediaImportBatch(
 			new MediaWorkflowError(`Episode resolution omitted indices ${unansweredRequests.join(", ")}`),
 		);
 	}
-	const episodeFailures: MediaImportAdapterFailure[] = [];
+	const episodeFailures: MediaImportFailure[] = [];
 	const finalizedGroups: FinalizedEntityGroup[] = [];
 	for (const [groupIndex, group] of resolvedGroups.entries()) {
 		const events: FinalizedEvent[] = [];
@@ -308,6 +309,7 @@ export function* runMediaImportBatch(
 				episodeFailures.push({
 					unit: "events",
 					stage: "provider_resolution",
+					operationId: event.operationId,
 					recordKind: event.eventSchemaSlug,
 					entitySchemaSlug: group.entityRef.entitySchemaSlug,
 					itemIndex: event.sourceItemIndex ?? group.itemIndex,

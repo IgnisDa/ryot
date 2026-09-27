@@ -186,7 +186,7 @@ describe("universal durable sandbox tracer", () => {
 				"durable tracer journal projection",
 				sampleOperationalPressure([executionId]).pipe(
 					Effect.map((pressure) =>
-						pressure.redis.maxHighWater >= 8 ? pressure.redis.maxHighWater : null,
+						pressure.redis.maxJournalEntries >= 8 ? pressure.redis.maxJournalEntries : null,
 					),
 				),
 			);
