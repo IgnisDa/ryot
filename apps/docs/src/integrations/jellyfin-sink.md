@@ -73,6 +73,5 @@ provider ID.
   skipped.
 - If `PlayedToCompletion`/`Played` is set, progress is recorded as 100%.
 - `MarkPlayed` events record 100% progress, `MarkUnplayed` events are ignored.
-- Other notification types (e.g. `ItemAdded`, `SessionStart`) are ignored.
 - If you configured a username in the integration settings, only payloads for that
   user are processed.
