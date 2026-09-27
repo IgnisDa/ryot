@@ -45,7 +45,10 @@ function PreferencesRoute() {
 				<SettingsSection title="Appearance" detail="Choose how Ryot looks on this device.">
 					<Appearance theme={theme} />
 				</SettingsSection>
-				<SettingsSection title="Content" detail="Control the metadata providers return.">
+				<SettingsSection
+					title="Language"
+					detail="Choose the preferred language for translated entity names and details. Availability depends on the provider."
+				>
 					{isDemo && <DemoProtectionMessage />}
 					{content}
 				</SettingsSection>
