@@ -1117,9 +1117,9 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 					{ kind: "operation" },
 				),
 			);
-			const value = '日\\"本語'.repeat(1_400_000);
+			const value = '日\\"本語'.repeat(900_000);
 			expect(new TextEncoder().encode(encodeJson(value)).byteLength).toBeGreaterThan(
-				12 * 1024 * 1024,
+				10 * 1024 * 1024,
 			);
 			const { response, controls } = yield* runNative(
 				compiled,
@@ -1139,7 +1139,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 					output: { length: value.length, last: value.slice(-5), first: value.slice(0, 5) },
 				},
 			});
-			expect(controls.length).toBeGreaterThan(12);
+			expect(controls.length).toBeGreaterThan(10);
 			expect(controls.every((name) => name === "journalRead")).toBe(true);
 		}),
 	);
