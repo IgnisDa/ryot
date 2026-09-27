@@ -178,6 +178,11 @@ export const bindSandboxHostFunctions = (
 		(...args) => implementations.ensureUserEntities(input, ...args),
 		defaultFailure("ensureUserEntities"),
 	),
+	getOAuthAccessToken: bindHostFunction(
+		domainSandboxHostContracts.getOAuthAccessToken,
+		(...args) => implementations.getOAuthAccessToken(input, ...args),
+		defaultFailure("getOAuthAccessToken"),
+	),
 	claimPersistentValue: bindHostFunction(
 		coreSandboxHostContracts.claimPersistentValue,
 		(...args) => implementations.claimPersistentValue(input, ...args),

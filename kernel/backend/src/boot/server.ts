@@ -32,6 +32,7 @@ import { GodModeRoutesLive } from "#modules/god-mode/routes";
 import { ImportsRoutesLive } from "#modules/imports/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
+import { OAuthConnectionsRoutesLive } from "#modules/oauth-connections/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
 import { ProviderEntitiesRoutesLive } from "#modules/provider-entities/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
@@ -112,7 +113,9 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	),
 	Layer.provide(Layer.mergeAll(GodModeRoutesLive, AdminRyotQLRoutesLive, TestSupportRoutesLive)),
 	Layer.provide(ImportsRoutesLive),
-	Layer.provide(Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive)),
+	Layer.provide(
+		Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive, OAuthConnectionsRoutesLive),
+	),
 	Layer.provide(Layer.mergeAll(RyotQLRoutesLive, InterestRoutesLive)),
 	Layer.provide(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
 );
@@ -243,4 +246,12 @@ export const ServerLive = Layer.mergeAll(
 		middleware: requestLogger,
 	}),
 	ListeningLive,
-).pipe(Layer.provide(RequestLogUrl.layer), Layer.provide(BunServerLive));
+).pipe(
+	Layer.provide(RequestLogUrl.layer),
+	Layer.provide(
+		Layer.succeed(HttpMiddleware.TracerDisabledWhen, (request) =>
+			request.url.startsWith("/api/oauth-connections/providers/"),
+		),
+	),
+	Layer.provide(BunServerLive),
+);

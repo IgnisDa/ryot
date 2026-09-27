@@ -114,6 +114,9 @@ export const resolveRestoredIntegrationDisabled = (
 	schema: AppSchema,
 ) =>
 	integration.isDisabled ||
+	Object.values(schema.fields).some(
+		(definition) => definition.type === "string" && definition.format?.kind === "oauth-connection",
+	) ||
 	integration.configuredSecretPaths.some((path) => isRequiredSecretPath(path, schema));
 
 const validateProperties = (properties: unknown, propertiesSchema: AppSchema, kind: string) =>

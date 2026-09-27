@@ -15,6 +15,7 @@ import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EventsServiceLive } from "#modules/events/layer";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { NotificationsServiceLive } from "#modules/notifications/layer";
+import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin-script-resolver-live";
@@ -61,6 +62,7 @@ export const SandboxHostImplementationsLive = Layer.effect(
 			RelationshipMutationPipelineLive,
 			SignalEmissionServiceLive,
 			NotificationsServiceLive,
+			OAuthConnectionsServiceLive,
 		),
 	),
 	Layer.provide(EntitiesServiceRuntimeLive),

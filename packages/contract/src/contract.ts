@@ -15,6 +15,7 @@ import { GodModeGroup } from "./modules/god-mode/contract";
 import { ImportsGroup } from "./modules/imports/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
+import { OAuthConnectionsGroup } from "./modules/oauth-connections/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
 import { ProviderEntitiesGroup } from "./modules/provider-entities/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
@@ -48,6 +49,7 @@ export type AppGroups =
 	| typeof TestSupportGroup
 	| typeof ImportsGroup
 	| typeof IntegrationsGroup
+	| typeof OAuthConnectionsGroup
 	| typeof RyotQLGroup
 	| typeof AdminRyotQLGroup
 	| typeof InterestGroup
@@ -76,6 +78,7 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(TestSupportGroup)
 	.add(ImportsGroup)
 	.add(IntegrationsGroup)
+	.add(OAuthConnectionsGroup)
 	.add(RyotQLGroup)
 	.add(AdminRyotQLGroup)
 	.add(InterestGroup)
