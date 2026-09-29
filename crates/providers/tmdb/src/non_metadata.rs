@@ -262,12 +262,11 @@ impl NonMediaTmdbService {
         &self,
         external_id: &str,
         external_source: &str,
-    ) -> Result<String> {
+    ) -> Result<Option<String>> {
         let details = self.find(external_id, external_source).await?;
-        details
+        Ok(details
             .tv_episode_results
             .first()
-            .map(|episode| episode.show_id.to_string())
-            .ok_or_else(|| anyhow!("No results found"))
+            .map(|episode| episode.show_id.to_string()))
     }
 }

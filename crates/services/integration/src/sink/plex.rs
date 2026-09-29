@@ -83,18 +83,18 @@ fn get_episode_external_ids(guids: &[StringIdObject]) -> Vec<(&str, &str)> {
 async fn find_show_on_tmdb(
     guids: &[StringIdObject],
     ss: &Arc<SupportingService>,
-) -> Result<String> {
+) -> Result<Option<String>> {
     let tmdb_service = get_tmdb_non_media_service(ss).await?;
     for (external_id, external_source) in get_episode_external_ids(guids) {
-        match tmdb_service
+        let show_id = tmdb_service
             .find_show_by_episode_external_id(external_id, external_source)
             .await
-        {
-            Ok(show_id) => return Ok(show_id),
-            Err(e) => ryot_log!(debug, "No TMDb show found for {external_id}: {e}"),
+            .with_context(|| format!("Could not look up episode {external_id} on TMDb"))?;
+        if show_id.is_some() {
+            return Ok(show_id);
         }
     }
-    bail!("No TMDb show found for this episode")
+    Ok(None)
 }
 
 async fn get_media_info<'a>(
@@ -111,10 +111,9 @@ async fn get_media_info<'a>(
             }
             // Plex only sends the IDs of the episode, so a show that is not in the
             // database yet has to be looked up on TMDb through the episode.
-            let show_id = find_show_on_tmdb(&metadata.guids, ss).await.map_err(|e| {
-                ryot_log!(debug, "{e}");
-                show_not_found_error(series_name, identifier)
-            })?;
+            let show_id = find_show_on_tmdb(&metadata.guids, ss)
+                .await?
+                .ok_or_else(|| show_not_found_error(series_name, identifier))?;
             Ok((show_id, MediaLot::Show))
         }
         _ => bail!("Only movies and shows supported"),
