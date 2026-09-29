@@ -3,7 +3,10 @@ use std::sync::Arc;
 use anyhow::{Context, Result, anyhow, bail};
 use common_models::StringIdObject;
 use common_utils::ryot_log;
-use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
+use dependent_models::{
+    ApplicationCacheKey, ApplicationCacheValue, ImportCompletedItem, ImportOrExportMetadataItem,
+    ImportResult,
+};
 use dependent_provider_utils::get_tmdb_non_media_service;
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
@@ -114,13 +117,18 @@ async fn get_media_info<'a>(
         "movie" => Ok((identifier.to_owned(), MediaLot::Movie)),
         "episode" => {
             let series_name = metadata.show_name.as_ref().context("Show name missing")?;
-            let show_id = find_show_on_tmdb(identifier, series_name, metadata, ss)
-                .await?
-                .ok_or_else(|| {
-                    anyhow!(
-                        "No show found with Series {series_name:#?} and Episode {identifier:#?}"
-                    )
-                })?;
+            // Plex sends several events per episode, so the lookup is cached, misses included.
+            let show_id = cache_service::get_or_set_with_callback(
+                ss,
+                ApplicationCacheKey::TmdbEpisodeShowId(identifier.to_owned()),
+                ApplicationCacheValue::TmdbEpisodeShowId,
+                || find_show_on_tmdb(identifier, series_name, metadata, ss),
+            )
+            .await?
+            .response
+            .ok_or_else(|| {
+                anyhow!("No show found with Series {series_name:#?} and Episode {identifier:#?}")
+            })?;
             Ok((show_id, MediaLot::Show))
         }
         _ => bail!("Only movies and shows supported"),
