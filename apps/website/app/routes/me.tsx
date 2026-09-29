@@ -82,12 +82,12 @@ const getAllSubscriptionsForCustomer = async (customerId: string) => {
 const getAllPolarSubscriptionsForCustomer = async (customerId: string) => {
 	const allSubscriptions = [];
 	const polar = getPolarClient();
-	const subscriptionsIterator = await polar.subscriptions.list({
-		externalCustomerId: customerId,
+	const subscriptionsIterator = polar.subscriptions.iterList({
+		external_customer_id: customerId,
 	});
 
-	for await (const page of subscriptionsIterator)
-		allSubscriptions.push(...page.result.items);
+	for await (const subscription of subscriptionsIterator)
+		allSubscriptions.push(subscription);
 
 	return allSubscriptions;
 };
@@ -153,7 +153,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				});
 
 				const polar = getPolarClient();
-				await polar.subscriptions.revoke({ id: activeSubscription.id });
+				await polar.subscriptions.revoke(activeSubscription.id);
 				setCancellation(customer.id);
 
 				return data({
@@ -215,9 +215,9 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const frontendUrl = serverVariables.FRONTEND_URL;
 			const checkout = await polar.checkouts.create({
 				products: [productId],
-				customerEmail: customer.email,
-				successUrl: `${frontendUrl}/me`,
-				externalCustomerId: customer.id,
+				customer_email: customer.email,
+				external_customer_id: customer.id,
+				success_url: `${frontendUrl}/me`,
 			});
 
 			return redirect(checkout.url);
