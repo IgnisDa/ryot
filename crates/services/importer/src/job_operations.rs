@@ -25,9 +25,16 @@ pub async fn deploy_import_job(
     }
     .insert(&ss.db)
     .await?;
-    let job = SingleApplicationJob::ImportFromExternalSource(user_id, report.id, Box::new(input));
-    ss.perform_application_job(ApplicationJob::Single(job))
-        .await?;
+    let job =
+        SingleApplicationJob::ImportFromExternalSource(user_id, report.id.clone(), Box::new(input));
+    if let Err(error) = ss
+        .perform_application_job(ApplicationJob::Single(job))
+        .await
+    {
+        // Without a job the report would stay queued until the next restart.
+        ImportReport::delete_by_id(report.id).exec(&ss.db).await?;
+        return Err(error);
+    }
     ryot_log!(debug, "Deployed import job");
     Ok(true)
 }
