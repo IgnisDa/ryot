@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { Polar } from "@polar-sh/sdk";
+import { createPolar } from "@polar-sh/sdk/2026-04";
 import { memoize, zodBoolAsString } from "@ryot/ts-utils";
 import { Unkey } from "@unkey/api";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -110,9 +110,9 @@ export const getUnkeyClient = memoize(() => {
 
 export const getPolarClient = memoize(() => {
 	const accessToken = getPolarAccessToken();
-	return new Polar({
+	return createPolar({
 		accessToken,
-		server: isPolarSandbox() ? "sandbox" : "production",
+		environment: isPolarSandbox() ? "sandbox" : "production",
 	});
 });
 

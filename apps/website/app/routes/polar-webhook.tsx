@@ -1,7 +1,4 @@
-import {
-	validateEvent,
-	WebhookVerificationError,
-} from "@polar-sh/sdk/webhooks";
+import { webhooks } from "@polar-sh/sdk/2026-04";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 import {
@@ -33,14 +30,16 @@ async function findCustomer(
 	);
 }
 
+type PolarWebhookEvent = Awaited<ReturnType<typeof webhooks.validateEvent>>;
+
 async function handleOrderPaid(
-	event: ReturnType<typeof validateEvent>,
+	event: PolarWebhookEvent,
 ): Promise<{ error?: string; message?: string }> {
 	if (event.type !== "order.paid") return { error: "Invalid event type" };
 
 	const { data: order } = event;
 	const polarCustomerId = order.customer.id;
-	const externalCustomerId = order.customer.externalId || undefined;
+	const externalCustomerId = order.customer.external_id || undefined;
 
 	console.log("Received order.paid event", {
 		polarCustomerId,
@@ -53,10 +52,10 @@ async function handleOrderPaid(
 			error: `No customer found for Polar customer ID: ${polarCustomerId}`,
 		};
 
-	const productId = order.productId;
+	const productId = order.product_id;
 	if (!productId) return { error: "Product ID not found in order" };
 
-	const priceId = order.items[0]?.productPriceId;
+	const priceId = order.items[0]?.product_price_id;
 	const planAndProduct = getProductAndPlanTypeByPolarIds(productId, priceId);
 	if (!planAndProduct)
 		return { error: `No matching product found for product ID: ${productId}` };
@@ -80,14 +79,14 @@ async function handleOrderPaid(
 }
 
 async function handleSubscriptionRevoked(
-	event: ReturnType<typeof validateEvent>,
+	event: PolarWebhookEvent,
 ): Promise<{ error?: string; message?: string }> {
 	if (event.type !== "subscription.revoked")
 		return { error: "Invalid event type" };
 
 	const { data: subscription } = event;
 	const polarCustomerId = subscription.customer.id;
-	const externalCustomerId = subscription.customer.externalId || undefined;
+	const externalCustomerId = subscription.customer.external_id || undefined;
 
 	console.log("Received subscription.revoked event", {
 		polarCustomerId,
@@ -111,12 +110,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		headers[key] = value;
 	});
 
-	let event: ReturnType<typeof validateEvent>;
+	let event: PolarWebhookEvent;
 	try {
-		event = validateEvent(body, headers, webhookSecret);
+		event = await webhooks.validateEvent(body, headers, webhookSecret);
 	} catch (error) {
 		console.error("Polar webhook validation failed:", error);
-		const isInvalidSignature = error instanceof WebhookVerificationError;
+		const isInvalidSignature =
+			error instanceof webhooks.PolarWebhookVerificationError;
 		return data(
 			{
 				error: isInvalidSignature
