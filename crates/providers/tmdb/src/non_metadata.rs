@@ -223,12 +223,12 @@ impl MediaProvider for NonMediaTmdbService {
 }
 
 impl NonMediaTmdbService {
-    pub async fn find_by_external_id(
+    async fn find(
         &self,
         external_id: &str,
         external_source: &str,
-    ) -> Result<String> {
-        let details: TmdbFindByExternalSourceResponse = self
+    ) -> Result<TmdbFindByExternalSourceResponse> {
+        let details = self
             .0
             .client
             .get(format!("{URL}/find/{external_id}"))
@@ -240,6 +240,15 @@ impl NonMediaTmdbService {
             .await?
             .json()
             .await?;
+        Ok(details)
+    }
+
+    pub async fn find_by_external_id(
+        &self,
+        external_id: &str,
+        external_source: &str,
+    ) -> Result<String> {
+        let details = self.find(external_id, external_source).await?;
         if !details.movie_results.is_empty() {
             Ok(details.movie_results[0].id.to_string())
         } else if !details.tv_results.is_empty() {
@@ -247,5 +256,18 @@ impl NonMediaTmdbService {
         } else {
             Err(anyhow!("No results found"))
         }
+    }
+
+    pub async fn find_show_by_episode_external_id(
+        &self,
+        external_id: &str,
+        external_source: &str,
+    ) -> Result<String> {
+        let details = self.find(external_id, external_source).await?;
+        details
+            .tv_episode_results
+            .first()
+            .map(|episode| episode.show_id.to_string())
+            .ok_or_else(|| anyhow!("No results found"))
     }
 }

@@ -4,6 +4,7 @@ use anyhow::{Context, Result, anyhow, bail};
 use common_models::StringIdObject;
 use common_utils::ryot_log;
 use dependent_models::{ImportCompletedItem, ImportOrExportMetadataItem, ImportResult};
+use dependent_provider_utils::get_tmdb_non_media_service;
 use enum_models::{MediaLot, MediaSource};
 use media_models::ImportOrExportMetadataItemSeen;
 use regex::Regex;
@@ -67,6 +68,35 @@ fn get_tmdb_identifier(guids: &[StringIdObject]) -> Result<&str> {
         .ok_or_else(|| anyhow!("No TMDb ID associated with this media"))
 }
 
+fn get_episode_external_ids(guids: &[StringIdObject]) -> Vec<(&str, &str)> {
+    [("imdb://", "imdb_id"), ("tvdb://", "tvdb_id")]
+        .into_iter()
+        .filter_map(|(prefix, source)| {
+            guids
+                .iter()
+                .find_map(|g| g.id.strip_prefix(prefix))
+                .map(|id| (id, source))
+        })
+        .collect()
+}
+
+async fn find_show_on_tmdb(
+    guids: &[StringIdObject],
+    ss: &Arc<SupportingService>,
+) -> Result<String> {
+    let tmdb_service = get_tmdb_non_media_service(ss).await?;
+    for (external_id, external_source) in get_episode_external_ids(guids) {
+        match tmdb_service
+            .find_show_by_episode_external_id(external_id, external_source)
+            .await
+        {
+            Ok(show_id) => return Ok(show_id),
+            Err(e) => ryot_log!(debug, "No TMDb show found for {external_id}: {e}"),
+        }
+    }
+    bail!("No TMDb show found for this episode")
+}
+
 async fn get_media_info<'a>(
     identifier: &'a str,
     ss: &Arc<SupportingService>,
@@ -76,8 +106,18 @@ async fn get_media_info<'a>(
         "movie" => Ok((identifier.to_owned(), MediaLot::Movie)),
         "episode" => {
             let series_name = metadata.show_name.as_ref().context("Show name missing")?;
-            let db_show = get_show_by_episode_identifier(series_name, identifier, ss).await?;
-            Ok((db_show.identifier, MediaLot::Show))
+            match get_show_by_episode_identifier(series_name, identifier, ss).await {
+                Ok(db_show) => Ok((db_show.identifier, MediaLot::Show)),
+                // Plex only sends the IDs of the episode, so a show that is not in the
+                // database yet has to be looked up on TMDb through the episode.
+                Err(error) => {
+                    let show_id = find_show_on_tmdb(&metadata.guids, ss).await.map_err(|e| {
+                        ryot_log!(debug, "{e}");
+                        error
+                    })?;
+                    Ok((show_id, MediaLot::Show))
+                }
+            }
         }
         _ => bail!("Only movies and shows supported"),
     }
@@ -146,4 +186,31 @@ pub async fn sink_progress(
         })],
         ..Default::default()
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn episode_payload_exposes_external_ids_for_show_lookup() {
+        let payload = r#"{"event":"media.scrobble","user":true,"owner":false,"Account":{"title":"alice"},"Metadata":{"type":"episode","grandparentTitle":"Harry Hole","parentIndex":1,"index":1,"duration":3724736,"Guid":[{"id":"imdb://tt31841417"},{"id":"tmdb://5221957"},{"id":"tvdb://10394732"}]}}"#;
+        let payload = parse_payload(payload).unwrap();
+        assert_eq!(
+            get_tmdb_identifier(&payload.metadata.guids).unwrap(),
+            "5221957"
+        );
+        assert_eq!(
+            get_episode_external_ids(&payload.metadata.guids),
+            vec![("tt31841417", "imdb_id"), ("10394732", "tvdb_id")]
+        );
+    }
+
+    #[test]
+    fn episode_without_external_ids_has_no_show_lookup() {
+        let guids = vec![StringIdObject {
+            id: "tmdb://5221957".to_owned(),
+        }];
+        assert!(get_episode_external_ids(&guids).is_empty());
+    }
 }

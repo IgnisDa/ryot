@@ -16,7 +16,8 @@ work for all the media that have a valid TMDb ID attached to their metadata.
     - Webhook Url => `<paste_url_copied>`
 
 ::: warning
-Since Plex does not send the expected TMDb ID for shows, progress will only be synced
-if you already have the show in the Ryot database. To do this, simply add the show to
-your watchlist.
+Plex does not send the TMDb ID of a show, only the IDs of the episode. If the show is
+not in the Ryot database yet, Ryot looks it up on TMDb using the IMDb or TVDB ID of the
+episode. If Plex sends neither, progress will only be synced once the show is in the
+Ryot database. To do this, simply add the show to your watchlist.
 :::
