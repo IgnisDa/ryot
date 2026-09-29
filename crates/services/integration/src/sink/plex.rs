@@ -12,8 +12,6 @@ use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
-use crate::utils::{find_show_by_episode_identifier, show_not_found_error};
-
 mod models {
     use super::*;
 
@@ -80,12 +78,16 @@ fn get_episode_external_ids(guids: &[StringIdObject]) -> Vec<(&str, &str)> {
         .collect()
 }
 
+// Plex only sends the IDs of an episode, so its show is looked up on TMDb through the
+// IMDb or TVDB ID of the episode, or else by title and the TMDb ID of the episode.
 async fn find_show_on_tmdb(
-    guids: &[StringIdObject],
+    episode_id: &str,
+    series_name: &str,
+    metadata: &models::PlexWebhookMetadataPayload,
     ss: &Arc<SupportingService>,
 ) -> Result<Option<String>> {
     let tmdb_service = get_tmdb_non_media_service(ss).await?;
-    for (external_id, external_source) in get_episode_external_ids(guids) {
+    for (external_id, external_source) in get_episode_external_ids(&metadata.guids) {
         let show_id = tmdb_service
             .find_show_by_episode_external_id(external_id, external_source)
             .await
@@ -94,7 +96,13 @@ async fn find_show_on_tmdb(
             return Ok(show_id);
         }
     }
-    Ok(None)
+    let Some(season_number) = metadata.season_number else {
+        return Ok(None);
+    };
+    tmdb_service
+        .find_show_by_episode_title(series_name, season_number, episode_id)
+        .await
+        .with_context(|| format!("Could not look up show {series_name:?} on TMDb"))
 }
 
 async fn get_media_info<'a>(
@@ -106,14 +114,13 @@ async fn get_media_info<'a>(
         "movie" => Ok((identifier.to_owned(), MediaLot::Movie)),
         "episode" => {
             let series_name = metadata.show_name.as_ref().context("Show name missing")?;
-            if let Some(db_show) = find_show_by_episode_identifier(identifier, ss).await? {
-                return Ok((db_show.identifier, MediaLot::Show));
-            }
-            // Plex only sends the IDs of the episode, so a show that is not in the
-            // database yet has to be looked up on TMDb through the episode.
-            let show_id = find_show_on_tmdb(&metadata.guids, ss)
+            let show_id = find_show_on_tmdb(identifier, series_name, metadata, ss)
                 .await?
-                .ok_or_else(|| show_not_found_error(series_name, identifier))?;
+                .ok_or_else(|| {
+                    anyhow!(
+                        "No show found with Series {series_name:#?} and Episode {identifier:#?}"
+                    )
+                })?;
             Ok((show_id, MediaLot::Show))
         }
         _ => bail!("Only movies and shows supported"),

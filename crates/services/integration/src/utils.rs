@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, bail};
 use database_models::{metadata, prelude::Metadata};
 use database_utils::apply_columns_search;
 use enum_models::{MediaLot, MediaSource};
@@ -30,10 +30,11 @@ pub struct ArrPushConfig {
     pub external_id: ArrPushConfigExternalId,
 }
 
-pub async fn find_show_by_episode_identifier(
+pub async fn get_show_by_episode_identifier(
+    series: &str,
     episode: &str,
     ss: &Arc<SupportingService>,
-) -> Result<Option<metadata::Model>> {
+) -> Result<metadata::Model> {
     let db_show = Metadata::find()
         .filter(metadata::Column::Lot.eq(MediaLot::Show))
         .filter(metadata::Column::Source.eq(MediaSource::Tmdb))
@@ -49,25 +50,14 @@ pub async fn find_show_by_episode_identifier(
         })
         .one(&ss.db)
         .await?;
-    Ok(db_show)
-}
-
-pub fn show_not_found_error(series: &str, episode: &str) -> anyhow::Error {
-    anyhow!(
-        "No show found with Series {:#?} and Episode {:#?}",
-        series,
-        episode
-    )
-}
-
-pub async fn get_show_by_episode_identifier(
-    series: &str,
-    episode: &str,
-    ss: &Arc<SupportingService>,
-) -> Result<metadata::Model> {
-    find_show_by_episode_identifier(episode, ss)
-        .await?
-        .ok_or_else(|| show_not_found_error(series, episode))
+    match db_show {
+        Some(show) => Ok(show),
+        None => bail!(
+            "No show found with Series {:#?} and Episode {:#?}",
+            series,
+            episode
+        ),
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
