@@ -4,7 +4,7 @@ use anyhow::Result;
 use chrono::Utc;
 use common_utils::ryot_log;
 use database_models::{import_report, prelude::ImportReport};
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, prelude::Expr};
+use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, prelude::Expr};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
@@ -89,7 +89,15 @@ pub async fn invalidate_import_jobs(ss: &Arc<SupportingService>) -> Result<()> {
     let result = ImportReport::update_many()
         .col_expr(import_report::Column::WasSuccess, Expr::value(false))
         .filter(import_report::Column::WasSuccess.is_null())
-        .filter(import_report::Column::EstimatedFinishTime.lt(Utc::now()))
+        .filter(
+            Condition::any()
+                .add(import_report::Column::StartedOn.lt(ss.server_start_time))
+                .add(
+                    Condition::all()
+                        .add(import_report::Column::Progress.is_not_null())
+                        .add(import_report::Column::EstimatedFinishTime.lt(Utc::now())),
+                ),
+        )
         .exec(&ss.db)
         .await?;
     ryot_log!(debug, "Invalidated {} import jobs", result.rows_affected);
