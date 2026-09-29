@@ -12,7 +12,7 @@ use rust_decimal::{Decimal, dec};
 use serde::{Deserialize, Serialize};
 use supporting_service::SupportingService;
 
-use crate::utils::get_show_by_episode_identifier;
+use crate::utils::{find_show_by_episode_identifier, show_not_found_error};
 
 mod models {
     use super::*;
@@ -106,18 +106,16 @@ async fn get_media_info<'a>(
         "movie" => Ok((identifier.to_owned(), MediaLot::Movie)),
         "episode" => {
             let series_name = metadata.show_name.as_ref().context("Show name missing")?;
-            match get_show_by_episode_identifier(series_name, identifier, ss).await {
-                Ok(db_show) => Ok((db_show.identifier, MediaLot::Show)),
-                // Plex only sends the IDs of the episode, so a show that is not in the
-                // database yet has to be looked up on TMDb through the episode.
-                Err(error) => {
-                    let show_id = find_show_on_tmdb(&metadata.guids, ss).await.map_err(|e| {
-                        ryot_log!(debug, "{e}");
-                        error
-                    })?;
-                    Ok((show_id, MediaLot::Show))
-                }
+            if let Some(db_show) = find_show_by_episode_identifier(identifier, ss).await? {
+                return Ok((db_show.identifier, MediaLot::Show));
             }
+            // Plex only sends the IDs of the episode, so a show that is not in the
+            // database yet has to be looked up on TMDb through the episode.
+            let show_id = find_show_on_tmdb(&metadata.guids, ss).await.map_err(|e| {
+                ryot_log!(debug, "{e}");
+                show_not_found_error(series_name, identifier)
+            })?;
+            Ok((show_id, MediaLot::Show))
         }
         _ => bail!("Only movies and shows supported"),
     }
