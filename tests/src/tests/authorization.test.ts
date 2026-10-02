@@ -37,7 +37,7 @@ describe("User authorization regressions", () => {
 				client.request(RegisterUserDocument, {
 					input: { data: { password: credentials }, lot },
 				}),
-			).rejects.toThrow();
+			).rejects.toThrow("Administrator authorization required");
 
 			const { loginUser } = await client.request(LoginUserDocument, {
 				input: { password: credentials },
@@ -100,14 +100,14 @@ describe("User authorization regressions", () => {
 				{ input: { userId, lot: UserLot.Normal } },
 				headers,
 			),
-		).rejects.toThrow();
+		).rejects.toThrow("Administrator authorization required");
 		await expect(
 			client.request(
 				UpdateUserDocument,
 				{ input: { userId, isDisabled: false } },
 				headers,
 			),
-		).rejects.toThrow();
+		).rejects.toThrow("Administrator authorization required");
 		await expect(
 			client.request(
 				UpdateUserDocument,
@@ -122,7 +122,7 @@ describe("User authorization regressions", () => {
 				},
 				headers,
 			),
-		).rejects.toThrow();
+		).rejects.toThrow("Administrator authorization required");
 
 		const { userDetails: unchangedDetails } = await client.request(
 			UserDetailsDocument,
@@ -191,7 +191,7 @@ describe("User authorization regressions", () => {
 				},
 				headers,
 			),
-		).rejects.toThrow();
+		).rejects.toThrow("Administrator authorization required");
 		const { userDetails: afterUpdate } = await client.request(
 			UserDetailsDocument,
 			{},
@@ -214,13 +214,13 @@ describe("User authorization regressions", () => {
 
 		await expect(
 			client.request(UpdateUserDocument, { input: privilegedInput }),
-		).rejects.toThrow();
+		).rejects.toThrow("Administrator authorization required");
 		for (const adminAccessToken of ["", "invalid-admin-token"]) {
 			await expect(
 				client.request(UpdateUserDocument, {
 					input: { ...privilegedInput, adminAccessToken },
 				}),
-			).rejects.toThrow();
+			).rejects.toThrow("Administrator authorization required");
 		}
 
 		const { updateUser } = await client.request(UpdateUserDocument, {

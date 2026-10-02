@@ -151,7 +151,10 @@ export async function startMockOidcProvider(): Promise<StartedMockOidcProvider> 
 		}
 		if (request.method === "POST" && url.pathname === "/token") {
 			const authorization = request.headers.authorization ?? "";
-			const basicCredentials = authorization.match(/^Basic\s+(.+)$/i)?.[1];
+			const basicCredentials =
+				authorization.slice(0, 6).toLowerCase() === "basic "
+					? authorization.slice(6).trim()
+					: "";
 			const credentials = basicCredentials
 				? Buffer.from(basicCredentials, "base64").toString("utf8")
 				: "";

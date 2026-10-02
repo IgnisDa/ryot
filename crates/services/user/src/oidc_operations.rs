@@ -6,7 +6,7 @@ use database_models::{prelude::User, user};
 use dependent_models::{ApplicationCacheKey, ApplicationCacheValue, OidcAuthorizationSessionValue};
 use media_models::{
     AuthUserInput, CompleteOidcLoginInput, LoginResult, OidcAuthorizationResponse, OidcUserInput,
-    RegisterResult, RegisterUserInput,
+    RegisterErrorVariant, RegisterResult, RegisterUserInput,
 };
 use oidc_utils::create_oidc_client;
 use openidconnect::{
@@ -124,16 +124,19 @@ pub async fn complete_oidc_login(
                 },
             )
             .await?;
-            if let RegisterResult::Error(error) = result
-                && error.error == media_models::RegisterErrorVariant::Disabled
-            {
-                bail!("Registration is disabled");
-            }
-            User::find()
-                .filter(user::Column::OidcIssuerId.eq(subject))
-                .one(&ss.db)
-                .await?
-                .ok_or_else(|| anyhow!("OIDC user could not be registered"))?
+            let registered_user = match result {
+                RegisterResult::Ok(user) => User::find_by_id(user.id).one(&ss.db).await?,
+                RegisterResult::Error(error) => match error.error {
+                    RegisterErrorVariant::Disabled => bail!("Registration is disabled"),
+                    RegisterErrorVariant::IdentifierAlreadyExists => {
+                        User::find()
+                            .filter(user::Column::OidcIssuerId.eq(subject))
+                            .one(&ss.db)
+                            .await?
+                    }
+                },
+            };
+            registered_user.ok_or_else(|| anyhow!("OIDC user could not be registered"))?
         }
     };
     login_authenticated_user(ss, user).await

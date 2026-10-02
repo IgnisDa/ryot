@@ -6,6 +6,7 @@ use common_models::StringIdAndNamedObject;
 use database_models::{prelude::Review, review};
 use database_utils::user_by_id;
 use dependent_utility_utils::associate_user_with_entity;
+use enum_models::Visibility;
 use media_models::{CreateReviewCommentInput, ImportOrExportItemReviewComment};
 use nanoid::nanoid;
 use sea_orm::{
@@ -50,7 +51,7 @@ pub async fn create_review_comment(
     else {
         bail!("Review not found");
     };
-    if review.user_id != user_id && review.visibility != Default::default() {
+    if review.user_id != user_id && review.visibility != Visibility::Public {
         bail!("You cannot interact with this review");
     }
 

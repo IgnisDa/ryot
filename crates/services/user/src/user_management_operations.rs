@@ -200,6 +200,7 @@ pub(crate) async fn register_verified_user(
     let user_exists = User::find().filter(filter).count(&txn).await?;
     let total_users = User::find().count(&txn).await?;
     if user_exists != 0 {
+        txn.rollback().await?;
         return Ok(RegisterResult::Error(RegisterError {
             error: RegisterErrorVariant::IdentifierAlreadyExists,
         }));

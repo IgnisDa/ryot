@@ -2,6 +2,7 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
 	LoginUserDocument,
 	RegisterUserDocument,
+	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parse } from "graphql";
 import { getGraphqlClient, registerAdminUser } from "src/utils";
@@ -221,6 +222,34 @@ describe("OIDC protocol security regressions", () => {
 				input: { data: forgedOidc },
 			}),
 		).rejects.toThrow("verified authorization flow");
+	});
+
+	it("logs concurrent verified callbacks for the same new subject into one account", async () => {
+		const subject = `subject-${randomUUID()}`;
+		const email = `user-${randomUUID()}@example.com`;
+		const transactions = await Promise.all([
+			beginOidcTransaction({ email, subject }),
+			beginOidcTransaction({ email, subject }),
+		]);
+		const completions = await Promise.all(
+			transactions.map((transaction) => completeOidcLogin(transaction)),
+		);
+		const userId = await userIdForOidcSubject(subject);
+		expect(userId).toBeTruthy();
+		for (const { completeOidcLogin } of completions) {
+			expect(completeOidcLogin.__typename).toBe("ApiKeyResponse");
+			if (completeOidcLogin.__typename !== "ApiKeyResponse")
+				throw new Error("Expected both verified callbacks to log in");
+			const { userDetails } = await client.request(
+				UserDetailsDocument,
+				{},
+				{ Authorization: `Bearer ${completeOidcLogin.apiKey}` },
+			);
+			expect(userDetails).toMatchObject({
+				id: userId,
+				__typename: "UserDetails",
+			});
+		}
 	});
 
 	it("rejects missing or wrong browser tokens and random state without consuming a valid flow", async () => {
