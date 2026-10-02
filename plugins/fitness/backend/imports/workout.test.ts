@@ -57,7 +57,7 @@ it("requests exact catalog resolution while preserving custom fallback data and 
 		name: "Bench Press",
 		alias: "exercise-0",
 		entitySchemaSlug: "exercise",
-		properties: { images: [], muscles: [], instructions: [], kind: "reps_and_weight" },
+		properties: { images: [], instructions: [], kind: "reps_and_weight" },
 		match: {
 			name: "Bench Press",
 			nameNormalization: "slug",

@@ -10,6 +10,18 @@
 			"types": "./shared/query-recipes.ts",
 			"default": "./shared/query-recipes.ts"
 		},
+		"./taxonomy": {
+			"types": "./shared/taxonomy.ts",
+			"default": "./shared/taxonomy.ts"
+		},
+		"./taxonomy-recipes": {
+			"types": "./shared/taxonomy-recipes.ts",
+			"default": "./shared/taxonomy-recipes.ts"
+		},
+		"./exercise-kinds": {
+			"types": "./shared/exercise-kinds.ts",
+			"default": "./shared/exercise-kinds.ts"
+		},
 		"./import-sources": {
 			"types": "./host/import-sources.ts",
 			"default": "./host/import-sources.ts"

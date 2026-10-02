@@ -421,7 +421,11 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	existing: ListedEntity | null,
 ) {
 	const operations = yield* EntityImportWorkflowOperations;
-	const sandboxResult = yield* operations.processSandbox(payload, executionId);
+	const sandboxResult = yield* operations.processSandbox(
+		payload,
+		executionId,
+		existing?.properties,
+	);
 	if (sandboxResult.error) {
 		return yield* new SandboxRunError({
 			kind: sandboxResult.error.kind,

@@ -44,7 +44,7 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 				scope: "user" as const,
 				alias: `exercise-${index}`,
 				entitySchemaSlug: "exercise",
-				properties: { images: [], muscles: [], instructions: [], kind: exercise.kind },
+				properties: { images: [], instructions: [], kind: exercise.kind },
 				match: {
 					name: exercise.name,
 					nameNormalization: "slug" as const,
