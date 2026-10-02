@@ -3,7 +3,6 @@ import { parseWithZod } from "@conform-to/zod/v4";
 import { useAutoAnimate } from "@formkit/auto-animate/react";
 import { Alert, Anchor, Button, Divider, PasswordInput, Stack, TextInput } from "@mantine/core";
 import {
-	GetOidcRedirectUrlDocument,
 	LoginErrorVariant,
 	LoginUserDocument,
 	RegisterErrorVariant,
@@ -18,7 +17,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
-
+import { startOidcLogin } from "~/lib/oidc.server";
 import { passwordConfirmationSchema } from "~/lib/shared/validation";
 import {
 	createToastHeaders,
@@ -38,17 +37,11 @@ const searchParamsSchema = z.object({
 
 export type SearchParams = z.infer<typeof searchParamsSchema> & Record<string, string>;
 
-const getOidcRedirectUrl = () =>
-	serverGqlService
-		.request(GetOidcRedirectUrlDocument)
-		.then(({ getOidcRedirectUrl }) => getOidcRedirectUrl);
-
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	const [coreDetails] = await Promise.all([getCoreDetails()]);
 	if (coreDetails.oidcEnabled && coreDetails.localAuthDisabled && query.autoOidcLaunch !== false) {
-		const url = await getOidcRedirectUrl();
-		return redirect(url);
+		return startOidcLogin();
 	}
 	return {
 		intent: query.intent || "login",
@@ -143,10 +136,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				headers: await createToastHeaders({ message, type: "error" }),
 			});
 		})
-		.with("getOidcRedirectUrl", async () => {
-			const url = await getOidcRedirectUrl();
-			return redirect(url);
-		})
+		.with("getOidcRedirectUrl", startOidcLogin)
 		.run();
 };
 

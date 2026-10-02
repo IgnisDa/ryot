@@ -1,15 +1,13 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
+use anyhow::{Result, anyhow, bail};
 use argon2::{Argon2, PasswordHash, PasswordVerifier};
 use chrono::Utc;
 use common_models::StringIdObject;
 use database_models::{prelude::User, user};
 use database_utils::{revoke_access_link as db_revoke_access_link, user_by_id};
 use dependent_models::{UserDetails, UserDetailsResult};
-use media_models::{
-    ApiKeyResponse, AuthUserInput, LoginError, LoginErrorVariant, LoginResult, PasswordUserInput,
-};
+use media_models::{ApiKeyResponse, AuthUserInput, LoginError, LoginErrorVariant, LoginResult};
 use media_models::{UserDetailsError, UserDetailsErrorVariant};
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, QueryFilter,
@@ -61,39 +59,55 @@ pub async fn user_details(
 }
 
 pub async fn login_user(ss: &Arc<SupportingService>, input: AuthUserInput) -> Result<LoginResult> {
-    let filter = match input.clone() {
-        AuthUserInput::Oidc(input) => user::Column::OidcIssuerId.eq(input.issuer_id),
-        AuthUserInput::Password(input) => user::Column::Name.eq(input.username),
+    let input = match input {
+        AuthUserInput::Oidc(_) => bail!("OIDC login requires a verified authorization flow"),
+        AuthUserInput::Password(input) => input,
     };
-    let Some(user) = User::find().filter(filter).one(&ss.db).await? else {
+    if ss.config.users.disable_local_auth {
+        bail!("Local authentication is disabled");
+    }
+    let Some(user) = User::find()
+        .filter(user::Column::Name.eq(input.username))
+        .one(&ss.db)
+        .await?
+    else {
         return Ok(LoginResult::Error(LoginError {
             error: LoginErrorVariant::UsernameDoesNotExist,
         }));
     };
+    let Some(hashed_password) = &user.password else {
+        return Ok(LoginResult::Error(LoginError {
+            error: LoginErrorVariant::IncorrectProviderChosen,
+        }));
+    };
+    if user.oidc_issuer_id.is_some() {
+        return Ok(LoginResult::Error(LoginError {
+            error: LoginErrorVariant::IncorrectProviderChosen,
+        }));
+    }
+    if ss.config.users.validate_password {
+        let parsed_hash = PasswordHash::new(hashed_password)
+            .map_err(|_| anyhow!("Invalid password hash format"))?;
+        if Argon2::default()
+            .verify_password(input.password.as_bytes(), &parsed_hash)
+            .is_err()
+        {
+            return Ok(LoginResult::Error(LoginError {
+                error: LoginErrorVariant::CredentialsMismatch,
+            }));
+        }
+    }
+    login_authenticated_user(ss, user).await
+}
+
+pub(crate) async fn login_authenticated_user(
+    ss: &Arc<SupportingService>,
+    user: user::Model,
+) -> Result<LoginResult> {
     if user.is_disabled.unwrap_or_default() {
         return Ok(LoginResult::Error(LoginError {
             error: LoginErrorVariant::AccountDisabled,
         }));
-    }
-    if ss.config.users.validate_password
-        && let AuthUserInput::Password(PasswordUserInput { password, .. }) = input
-    {
-        if let Some(hashed_password) = &user.password {
-            let parsed_hash = PasswordHash::new(hashed_password)
-                .map_err(|_| anyhow!("Invalid password hash format"))?;
-            if Argon2::default()
-                .verify_password(password.as_bytes(), &parsed_hash)
-                .is_err()
-            {
-                return Ok(LoginResult::Error(LoginError {
-                    error: LoginErrorVariant::CredentialsMismatch,
-                }));
-            }
-        } else {
-            return Ok(LoginResult::Error(LoginError {
-                error: LoginErrorVariant::IncorrectProviderChosen,
-            }));
-        }
     }
     if user.two_factor_information.is_some() && ss.config.users.validate_password {
         return Ok(LoginResult::TwoFactorRequired(StringIdObject {
