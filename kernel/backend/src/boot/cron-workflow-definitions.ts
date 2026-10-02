@@ -7,6 +7,7 @@ import type { AutomationReconciliation } from "#modules/automations/reconciliati
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
 import { BackupsService } from "#modules/backups/service";
+import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
 import { oauthConnectionsFrequentTask } from "#modules/oauth-connections/frequent-task";
 import type { OAuthConnectionsService } from "#modules/oauth-connections/service";
@@ -41,6 +42,7 @@ const frequentCronTasks: ReadonlyArray<
 		| UserBootstrapScheduling
 		| UserLifecycleService
 		| WorkflowEngine
+		| WorkflowGarbageCollector
 	>
 > = [
 	{
@@ -51,6 +53,18 @@ const frequentCronTasks: ReadonlyArray<
 				yield* service.cleanupExpiredArtifacts(100);
 			}).pipe(
 				Effect.catchCause((cause) => Effect.logWarning("backup cleanup listing failed", cause)),
+			),
+	},
+	{
+		name: "workflow-garbage-collection",
+		run: () =>
+			Effect.gen(function* () {
+				const garbageCollector = yield* WorkflowGarbageCollector;
+				yield* garbageCollector.runBatch();
+			}).pipe(
+				Effect.catchCause((cause) =>
+					Effect.logWarning("workflow garbage collection batch failed", cause),
+				),
 			),
 	},
 	automationsFrequentTask,
