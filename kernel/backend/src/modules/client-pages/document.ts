@@ -1,9 +1,6 @@
-import {
-	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
-	CLIENT_PAGE_ROOT_ELEMENT_ID,
-} from "@ryot-app/client-plugin-contract";
 import type {
 	ClientArtifactFileReference,
+	ClientCompositionDocument,
 	ClientPageCompositionManifest,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
@@ -15,17 +12,9 @@ import { buildClientAssetUrl } from "#modules/client-artifacts/url";
 
 import type { ArtifactDescription } from "./composition";
 
-type Plan = {
-	readonly modulepreloads: readonly string[];
-	readonly stylesheets: readonly string[];
-	readonly preloads: readonly {
-		readonly href: string;
-		readonly as: "font" | "image" | "fetch";
-		readonly type: string;
-	}[];
-};
+type Plan = Pick<ClientCompositionDocument, "modulepreloads" | "preloads" | "stylesheets">;
 
-const otherPreload = (type: string): "font" | "image" | "fetch" => {
+const otherPreload = (type: string): Plan["preloads"][number]["as"] => {
 	if (type.startsWith("font/")) {
 		return "font";
 	}
@@ -76,21 +65,12 @@ export const planClientDocumentPreloads = (
 	};
 };
 
-const escapeHtml = (value: string) =>
-	value
-		.replaceAll("&", "&amp;")
-		.replaceAll("<", "&lt;")
-		.replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;")
-		.replaceAll("'", "&#39;");
-const htmlJson = (value: unknown) => JSON.stringify(value).replaceAll("<", "\\u003c");
-
 export const renderClientDocument = (
 	manifest: ClientPageCompositionManifest,
 	artifacts: ReadonlyMap<string, ArtifactDescription>,
 	access: ReadonlyMap<string, string>,
 	compositionHash: string,
-) => {
+): ClientCompositionDocument => {
 	const url = ({ file, artifactHash }: ClientArtifactFileReference) => {
 		const key = access.get(artifactHash);
 		if (!key || !artifacts.get(artifactHash)?.files.some(({ name }) => name === file)) {
@@ -98,47 +78,26 @@ export const renderClientDocument = (
 		}
 		return buildClientAssetUrl(artifactHash, key, file);
 	};
-	const plan = planClientDocumentPreloads(manifest, artifacts, access);
 	const imports = Object.fromEntries(
 		Object.entries(manifest.imports).map(([specifier, reference]) => [specifier, url(reference)]),
 	);
-	const descriptor = {
-		...manifest.descriptor,
-		automaticRegistry: manifest.descriptor.automaticRegistry.map(
-			({ stylesheets, artifactClosure: _closure, ...registration }) => ({
-				...registration,
-				stylesheets: [...new Set(stylesheets.map(url))],
-			}),
-		),
-	};
 	const { format, apiVersion, bridgeVersion, compilerVersion } = manifest.identity;
-	const metadata = { format, apiVersion, bridgeVersion, compilerVersion, hash: compositionHash };
-	const links = [
-		...plan.modulepreloads.map((href) => `<link rel="modulepreload" href="${escapeHtml(href)}" />`),
-		...plan.stylesheets.map((href) => `<link rel="stylesheet" href="${escapeHtml(href)}" />`),
-		...plan.preloads.map(
-			({ as, href, type }) =>
-				`<link rel="preload" href="${escapeHtml(href)}" as="${as}" type="${escapeHtml(type)}"${as === "image" ? "" : ' crossorigin="anonymous"'} />`,
-		),
-	].join("\n\t\t");
-	return `<!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<meta name="referrer" content="no-referrer" />
-		<title>${escapeHtml(manifest.identity.name)}</title>
-		<script type="importmap" id="ryot-client-importmap">${htmlJson({ imports })}</script>
-		${links}
-		<script type="application/json" id="${CLIENT_COMPOSITION_METADATA_ELEMENT_ID}">${htmlJson(metadata)}</script>
-		<script type="application/json" id="ryot-client-composition">${htmlJson(descriptor)}</script>
-	</head>
-	<body>
-		<div id="${CLIENT_PAGE_ROOT_ELEMENT_ID}"></div>
-		<script type="module" src="${escapeHtml(url(manifest.bootstrap))}"></script>
-	</body>
-</html>
-`;
+	return {
+		...planClientDocumentPreloads(manifest, artifacts, access),
+		importMap: { imports },
+		title: manifest.identity.name,
+		bootstrap: url(manifest.bootstrap),
+		metadata: { format, apiVersion, bridgeVersion, compilerVersion, hash: compositionHash },
+		descriptor: {
+			...manifest.descriptor,
+			automaticRegistry: manifest.descriptor.automaticRegistry.map(
+				({ stylesheets, artifactClosure: _closure, ...registration }) => ({
+					...registration,
+					stylesheets: [...new Set(stylesheets.map(url))],
+				}),
+			),
+		},
+	};
 };
 
 export const generateClientDocument = Effect.fn("ClientPages.generateDocument")(function* (

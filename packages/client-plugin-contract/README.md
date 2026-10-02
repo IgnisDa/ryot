@@ -22,14 +22,15 @@ There are no compatibility adapters for earlier development builds.
 
 `ClientPageTarget` covers saved-view slugs, explicit plugin routes, and entities. Its page context
 carries renderer identity, settings, optional named data sources, and route parameters. Authenticated
-HTTP preparation returns a document grant; document rendering issues private artifact grants. Neither
-grant crosses the bridge in page context.
+HTTP preparation returns no capability; the authenticated document request issues private artifact
+grants inside the `srcdoc` document. No grant crosses the bridge in page context.
 
 Installed plugin archive client executables are trusted. Archive validation checks integrity and
 compatibility, not provenance. Image-owned artifact hashes are public; all other hashes require a
 capability regardless of plugin scope. Compiled code uses one static URL form,
 `/api/client-assets/:artifactHash/:accessKey/*`. Compositions reference immutable artifacts; the
-capability-bound HTML document is generated separately and is not cached.
+kernel renders each composition document into a sandboxed `srcdoc` frame from an authenticated
+request.
 
 Entity interest uses strict state messages with at most 500 selected IDs: plugins send foreground and
 visible IDs, and the kernel sends entity ID plus `populated` or `translated`. These messages have no

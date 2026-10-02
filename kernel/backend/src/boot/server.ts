@@ -22,7 +22,7 @@ import { AutomationHistoryRoutesLive } from "#modules/automations/history-routes
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupDownloadsRoutesLive, BackupsRoutesLive } from "#modules/backups/routes";
 import { ClientAssetsRoutesLive } from "#modules/client-artifacts/routes";
-import { ClientDocumentsRoutesLive, ClientPagesRoutesLive } from "#modules/client-pages/routes";
+import { ClientPagesRoutesLive } from "#modules/client-pages/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { InterestRoutesLive } from "#modules/entity-interest/routes";
@@ -109,12 +109,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(SavedViewsRoutesLive),
 	Layer.provide(PluginsRoutesLive),
 	Layer.provide(
-		Layer.mergeAll(
-			CollectionsRoutesLive,
-			ClientPagesRoutesLive,
-			ClientDocumentsRoutesLive,
-			ClientAssetsRoutesLive,
-		),
+		Layer.mergeAll(CollectionsRoutesLive, ClientPagesRoutesLive, ClientAssetsRoutesLive),
 	),
 	Layer.provide(
 		Layer.mergeAll(

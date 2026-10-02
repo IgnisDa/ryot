@@ -20,7 +20,6 @@ import type {
 } from "@ryot-app/client-plugin-contract";
 import type { RyotClient } from "@ryot-app/client-sdk";
 import { Button, ScreenFrame, useShortcut } from "@ryot-app/client-ui-sdk";
-import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import clsx from "clsx";
 import { Effect } from "effect";
 import {
@@ -72,7 +71,7 @@ export function PluginFrame(props: {
 	readonly inert?: boolean;
 	readonly theme: ThemeStore;
 	readonly compositionHash: string;
-	readonly documentGrant: PreparedClientPage["composition"]["documentGrant"];
+	readonly onLoadDocument: () => Effect.Effect<string, Error>;
 	readonly documentKey: string;
 	readonly page?: ClientPageContext;
 	readonly chromeLeading: ReactNode;
@@ -113,8 +112,7 @@ export function PluginFrame(props: {
 	const entitySchemaSlug = location.kind === "entity" ? location.entitySchemaSlug : undefined;
 	const { subscribeResume, chromeTriggerRef } = props;
 	const latest = useRef(props);
-	const [documentSrc, setDocumentSrc] = useState(props.documentGrant.src);
-	const grantId = useRef(props.documentGrant.grantId);
+	const [srcDoc, setSrcDoc] = useState<string>();
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
 	const bridge = useRef<PluginBridgeSession>(undefined);
@@ -157,25 +155,20 @@ export function PluginFrame(props: {
 		const timeout = window.setTimeout(() => failHandshake(), BOOTSTRAP_TIMEOUT_MS);
 		return () => window.clearTimeout(timeout);
 	}, [frameStatus]);
-	// A rotated grant means the previous one expired. The live document's URL can't be
-	// changed without navigating, so rebootstrap now rather than leave a reload path to it.
-	useLayoutEffect(() => {
-		if (grantId.current === props.documentGrant.grantId) {
-			return;
-		}
-		grantId.current = props.documentGrant.grantId;
-		releaseBridge();
-		setFrameStatus("loading");
-		setDocumentSrc(props.documentGrant.src);
-	}, [props.documentGrant]);
 	useEffect(() => {
-		const element = frame.current;
-		if (!element) {
-			return undefined;
-		}
-		const failed = () => failHandshake();
-		element.addEventListener("error", failed);
-		return () => element.removeEventListener("error", failed);
+		const controller = new AbortController();
+		Effect.runFork(
+			latest.current
+				.onLoadDocument()
+				.pipe(
+					Effect.match({
+						onFailure: () => failHandshake(),
+						onSuccess: (document) => setSrcDoc(document),
+					}),
+				),
+			{ signal: controller.signal },
+		);
+		return () => controller.abort();
 	}, []);
 
 	useEffect(() => {
@@ -430,20 +423,21 @@ export function PluginFrame(props: {
 						onPress={() => bridge.current?.sendShortcut(shortcut)}
 					/>
 				))}
-			<iframe
-				src={documentSrc}
-				sandbox="allow-scripts"
-				referrerPolicy="no-referrer"
-				title={`${props.title} plugin`}
-				inert={props.inert === true || updateAvailable}
-				className={clsx("h-full w-full border-0", frameStatus !== "ready" && "invisible")}
-				ref={(node) => {
-					frame.current = node;
-					if (props.active) {
-						chromeTriggerRef.current = node;
-					}
-				}}
-			/>
+			{srcDoc === undefined ? null : (
+				<iframe
+					srcDoc={srcDoc}
+					sandbox="allow-scripts"
+					title={`${props.title} plugin`}
+					inert={props.inert === true || updateAvailable}
+					className={clsx("h-full w-full border-0", frameStatus !== "ready" && "invisible")}
+					ref={(node) => {
+						frame.current = node;
+						if (props.active) {
+							chromeTriggerRef.current = node;
+						}
+					}}
+				/>
+			)}
 			{frameStatus === "ready" ? null : (
 				<div className="absolute inset-0">
 					<PluginChromeFrame
