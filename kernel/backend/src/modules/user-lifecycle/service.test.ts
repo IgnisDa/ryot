@@ -77,6 +77,7 @@ const lifecycleServiceLayer = (options: {
 							deleteUserSessions: () => record("sessions"),
 							revokeUserOAuthTokens: () => record("oauth"),
 							updateAuthUserDisabled: () => record("disable"),
+							revokePasswordResetLinks: () => record("reset-links"),
 							handler: () => Effect.die("unused").pipe(Effect.runPromise),
 							purgeApiKeyCaches: (_userId, apiKeys) =>
 								record(`keys:${apiKeys.map(({ id }) => id).join(",")}`).pipe(Effect.as(undefined)),
@@ -174,6 +175,7 @@ layer(
 				"sessions",
 				"oauth",
 				"keys:key-1",
+				"reset-links",
 				"record",
 			]);
 			expect(revokedOperation.metadata.apiKeys).toEqual([]);

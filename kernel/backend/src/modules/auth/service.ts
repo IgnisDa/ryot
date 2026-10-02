@@ -35,6 +35,7 @@ import {
 	UserPreferences,
 	type UserPreferencesPatch,
 } from "@ryot-app/contract/schema/user-preferences";
+import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { verifyBearerToken } from "better-auth/oauth2";
@@ -64,6 +65,9 @@ import { SessionCreationGate } from "./session-gate";
 import { userInitializationPlugin } from "./user-initialization-plugin";
 
 const RESET_LINK_TIMEOUT_MS = 10_000;
+const RESET_PASSWORD_TOKEN_TTL_SECONDS = 30 * 60;
+
+const TrackedResetReply = Schema.Union([Schema.Literals([0, 1]), Schema.String]);
 
 // Better Auth reads its current adapter from AsyncLocalStorage, and Effect resumes a fiber in the
 // async context that woke it, so a store set during one request's Better Auth transaction reaches
@@ -165,6 +169,30 @@ const makeResetCaptureTransport = (redis: Redis): ResetCaptureTransport => ({
 					message,
 				),
 		}),
+	track: (email, id, userId, token) =>
+		Effect.tryPromise({
+			catch: unknownToDbError,
+			try: () =>
+				redis.eval(
+					"if redis.call('get', KEYS[1]) ~= ARGV[1] then return 0 end; local previous = redis.call('set', KEYS[2], ARGV[2], 'EX', ARGV[3], 'GET'); if previous then return previous end; return 1",
+					2,
+					redisKeys.godModePendingReset(email),
+					redisKeys.passwordResetToken(userId),
+					id,
+					token,
+					String(RESET_PASSWORD_TOKEN_TTL_SECONDS),
+				),
+		}).pipe(
+			Effect.flatMap((reply) =>
+				Schema.decodeUnknownEffect(TrackedResetReply)(reply).pipe(
+					Effect.mapError(unknownToDbError),
+				),
+			),
+			Effect.map((reply) => ({
+				tracked: reply !== 0,
+				previous: typeof reply === "string" ? reply : null,
+			})),
+		),
 	subscriber: () => {
 		const subscriber = redis.duplicate();
 		let onMessage: ((channel: string, message: string) => void) | undefined;
@@ -240,19 +268,20 @@ const makeOAuthProviderPlugin = (
 
 const makeAuthInstance = (args: {
 	readonly redis: Redis;
-	readonly resetTransport: ResetCaptureTransport;
 	readonly config: AppConfigValue;
 	readonly session: DatabaseSession["Service"];
+	readonly resetTransport: ResetCaptureTransport;
+	readonly repository: AuthRepository["Service"];
+	readonly lifecycle: LifecycleWriteGuard["Service"];
+	readonly handoffs: ImpersonationHandoffs["Service"];
+	readonly sessionGate: SessionCreationGate["Service"];
+	readonly impersonationSessions: ImpersonationSessions["Service"];
 	readonly runtime: Context.Context<DatabaseSession | RedisService>;
+	readonly revokeResetToken: (token: string) => Effect.Effect<void, DbError>;
+	readonly revokePasswordResetAccess: (userId: UserId) => Effect.Effect<void, DbError>;
 	readonly scheduleUserBootstrap: (
 		userId: string,
 	) => Effect.Effect<void, AuthBootstrapScheduleError>;
-	readonly lifecycle: LifecycleWriteGuard["Service"];
-	readonly sessionGate: SessionCreationGate["Service"];
-	readonly revokeOAuthTokens: (userId: UserId) => Effect.Effect<void, DbError>;
-	readonly repository: AuthRepository["Service"];
-	readonly impersonationSessions: ImpersonationSessions["Service"];
-	readonly handoffs: ImpersonationHandoffs["Service"];
 }) => {
 	const oidcEnabled = isOidcEnabled(args.config);
 
@@ -296,16 +325,19 @@ const makeAuthInstance = (args: {
 			enabled: true,
 			autoSignIn: true,
 			revokeSessionsOnPasswordReset: true,
+			resetPasswordTokenExpiresIn: RESET_PASSWORD_TOKEN_TTL_SECONDS,
 			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
 			onPasswordReset: ({ user }) =>
-				Effect.runPromiseWith(args.runtime)(args.revokeOAuthTokens(UserId.make(user.id))),
+				Effect.runPromiseWith(args.runtime)(args.revokePasswordResetAccess(UserId.make(user.id))),
 			sendResetPassword: ({ user, token }, request) =>
 				Effect.runPromiseWith(args.runtime)(
 					deliverResetLink({
 						token,
 						request,
+						userId: user.id,
 						email: user.email,
 						transport: args.resetTransport,
+						revokeToken: args.revokeResetToken,
 						frontendUrl: args.config.frontendUrl,
 					}).pipe(
 						Effect.catchCauseIf(
@@ -747,7 +779,8 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			redis: redis.client,
 			impersonationSessions,
 			scheduleUserBootstrap: userBootstrap.schedule,
-			revokeOAuthTokens: repository.revokeUserOAuthTokens,
+			revokeResetToken: (token) => revokeResetToken(token),
+			revokePasswordResetAccess: (userId) => revokePasswordResetAccess(userId),
 		});
 		const authenticate = (credential: CredentialInput) =>
 			resolveCredential(
@@ -767,6 +800,68 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 					}),
 				),
 			);
+		// The api-key plugin caches keys in secondary storage but has no admin/server-side API to
+		// invalidate another user's keys (deletion only works through the owning user's session), so
+		// we purge the cache directly via Better Auth's secondaryStorage (its wrapper adds the
+		// `better-auth:` prefix). The `api-key:*` shapes mirror the plugin's internal
+		// getStorageKeyBy* helpers and are pinned to @better-auth/api-key.
+		// TODO: drop this once upstream ships admin-managed api-key deletion.
+		// https://github.com/better-auth/better-auth/discussions/7907
+		const purgeApiKeyCaches = (
+			userId: UserId,
+			apiKeys: ReadonlyArray<{ id: string; key: string }>,
+		) =>
+			Effect.promise(() => auth.$context).pipe(
+				Effect.flatMap((ctx) => {
+					const storage = ctx.secondaryStorage;
+					if (!storage) {
+						return Effect.void;
+					}
+					return Effect.promise(() =>
+						Promise.all([
+							storage.delete(`api-key:by-ref:${userId}`),
+							...apiKeys.flatMap((entry) => [
+								storage.delete(`api-key:${entry.key}`),
+								storage.delete(`api-key:by-id:${entry.id}`),
+							]),
+						]),
+					);
+				}),
+			);
+		const revokeResetToken = (token: string) =>
+			withInternalAdapter(({ internalAdapter }) =>
+				internalAdapter.deleteVerificationByIdentifier(`reset-password:${token}`),
+			);
+		const revokePasswordResetLinks = Effect.fn("AuthService.revokePasswordResetLinks")(function* (
+			userId: UserId,
+		) {
+			const key = redisKeys.passwordResetToken(userId);
+			const token = yield* Effect.tryPromise({
+				catch: unknownToDbError,
+				try: () => redis.client.get(key),
+			});
+			if (token === null) {
+				return;
+			}
+			yield* revokeResetToken(token);
+			yield* Effect.tryPromise({
+				catch: unknownToDbError,
+				try: () =>
+					redis.client.eval(
+						"if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end",
+						1,
+						key,
+						token,
+					),
+			});
+		});
+		const revokePasswordResetAccess = Effect.fn("AuthService.revokePasswordResetAccess")(function* (
+			userId: UserId,
+		) {
+			yield* repository.revokeUserOAuthTokens(userId);
+			yield* purgeApiKeyCaches(userId, yield* repository.deleteUserApiKeys(userId));
+			yield* revokePasswordResetLinks(userId);
+		});
 		const requestPasswordResetLink = Effect.fn("AuthService.requestPasswordResetLink")(function* (
 			email: string,
 		) {
@@ -780,7 +875,9 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		});
 
 		return {
+			purgeApiKeyCaches,
 			requestPasswordResetLink,
+			revokePasswordResetLinks,
 			startUserImpersonation: handoffs.create,
 			apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
 			oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
@@ -828,31 +925,6 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 					? authenticate(credential).pipe(Effect.map(({ user }) => user))
 					: Effect.fail(authenticationRequired());
 			},
-			// The api-key plugin caches keys in secondary storage but has no admin/server-side API to
-			// invalidate another user's keys (deletion only works through the owning user's session), so
-			// we purge the cache directly via Better Auth's secondaryStorage (its wrapper adds the
-			// `better-auth:` prefix). The `api-key:*` shapes mirror the plugin's internal
-			// getStorageKeyBy* helpers and are pinned to @better-auth/api-key.
-			// TODO: drop this once upstream ships admin-managed api-key deletion.
-			// https://github.com/better-auth/better-auth/discussions/7907
-			purgeApiKeyCaches: (userId: UserId, apiKeys: ReadonlyArray<{ id: string; key: string }>) =>
-				Effect.promise(() => auth.$context).pipe(
-					Effect.flatMap((ctx) => {
-						const storage = ctx.secondaryStorage;
-						if (!storage) {
-							return Effect.void;
-						}
-						return Effect.promise(() =>
-							Promise.all([
-								storage.delete(`api-key:by-ref:${userId}`),
-								...apiKeys.flatMap((entry) => [
-									storage.delete(`api-key:${entry.key}`),
-									storage.delete(`api-key:by-id:${entry.id}`),
-								]),
-							]),
-						);
-					}),
-				),
 		};
 	}),
 }) {
@@ -943,18 +1015,23 @@ export const AuthMiddlewareLive = Layer.effect(
 	}),
 );
 
+export const makeAdminMiddleware = (adminAccessToken: Redacted.Redacted) => {
+	const adminTokenDigest = createSha256Hasher().update(Redacted.value(adminAccessToken)).digest();
+	return {
+		adminToken: (httpEffect, { credential }: { readonly credential: Redacted.Redacted }) => {
+			const value = Redacted.value(credential);
+			return value !== "" &&
+				crypto.timingSafeEqual(createSha256Hasher().update(value).digest(), adminTokenDigest)
+				? Effect.provideService(httpEffect, AdminAccess, { authorized: true })
+				: Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }));
+		},
+	} satisfies AdminMiddleware["Service"];
+};
+
 export const AdminMiddlewareLive = Layer.effect(
 	AdminMiddleware,
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
-
-		return {
-			adminToken: (httpEffect, { credential }) => {
-				const value = Redacted.value(credential);
-				return value !== "" && value === Redacted.value(config.server.adminAccessToken)
-					? Effect.provideService(httpEffect, AdminAccess, { authorized: true })
-					: Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } }));
-			},
-		};
+		return makeAdminMiddleware(config.server.adminAccessToken);
 	}),
 );
