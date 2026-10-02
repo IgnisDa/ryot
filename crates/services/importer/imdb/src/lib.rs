@@ -84,48 +84,58 @@ pub async fn import(
             }
         };
         ryot_log!(debug, "Tmdb id: {} ({}/{})", identifier, idx + 1, total);
-        let ended_on = record.date_rated.as_deref().and_then(|d| {
-            NaiveDate::parse_from_str(d, "%Y-%m-%d")
-                .or_else(|_| NaiveDate::parse_from_str(d, "%Y/%m/%d"))
-                .ok()
-                .map(convert_naive_to_utc)
-        });
-        let is_watched = record.your_rating.is_some() || record.date_rated.is_some();
-        let (collections, seen_history) = if is_watched {
-            let seen_item = ImportOrExportMetadataItemSeen {
-                ended_on,
-                providers_consumed_on: Some(vec![ImportSource::Imdb.to_string()]),
-                ..Default::default()
-            };
-            (vec![], vec![seen_item])
-        } else {
-            (
-                vec![CollectionToEntityDetails {
-                    collection_name: DefaultCollection::Watchlist.to_string(),
-                    ..Default::default()
-                }],
-                vec![],
-            )
-        };
-        let reviews = match record.your_rating {
-            Some(r) if r > dec!(0) => vec![ImportOrExportItemRating {
-                // DEV: Rates items out of 10
-                rating: Some(r.saturating_mul(dec!(10))),
-                ..Default::default()
-            }],
-            _ => vec![],
-        };
-        completed.push(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
-            lot,
-            source,
-            identifier,
-            source_id: record.id,
-            collections,
-            seen_history,
-            reviews,
-        }));
+        let item = map_item_to_metadata(&record, lot, source, identifier);
+        completed.push(ImportCompletedItem::Metadata(item));
     }
     Ok(ImportResult { failed, completed })
+}
+
+fn map_item_to_metadata(
+    record: &Item,
+    lot: MediaLot,
+    source: MediaSource,
+    identifier: String,
+) -> ImportOrExportMetadataItem {
+    let ended_on = record.date_rated.as_deref().and_then(|d| {
+        NaiveDate::parse_from_str(d, "%Y-%m-%d")
+            .or_else(|_| NaiveDate::parse_from_str(d, "%Y/%m/%d"))
+            .ok()
+            .map(convert_naive_to_utc)
+    });
+    let is_watched = record.your_rating.is_some() || record.date_rated.is_some();
+    let (collections, seen_history) = if is_watched {
+        let seen_item = ImportOrExportMetadataItemSeen {
+            ended_on,
+            providers_consumed_on: Some(vec![ImportSource::Imdb.to_string()]),
+            ..Default::default()
+        };
+        (vec![], vec![seen_item])
+    } else {
+        (
+            vec![CollectionToEntityDetails {
+                collection_name: DefaultCollection::Watchlist.to_string(),
+                ..Default::default()
+            }],
+            vec![],
+        )
+    };
+    let reviews = match record.your_rating {
+        Some(r) if r > dec!(0) => vec![ImportOrExportItemRating {
+            // DEV: Rates items out of 10
+            rating: Some(r.saturating_mul(dec!(10))),
+            ..Default::default()
+        }],
+        _ => vec![],
+    };
+    ImportOrExportMetadataItem {
+        lot,
+        source,
+        identifier,
+        source_id: record.id.clone(),
+        collections,
+        seen_history,
+        reviews,
+    }
 }
 
 #[cfg(test)]
@@ -152,5 +162,60 @@ mod tests {
         assert_eq!(item.title_type, "movie");
         assert_eq!(item.your_rating, None);
         assert_eq!(item.date_rated, None);
+    }
+
+    #[test]
+    fn test_map_item_to_metadata_watched_with_rating_and_date() {
+        let item = Item {
+            id: "tt0111161".to_string(),
+            title_type: "movie".to_string(),
+            your_rating: Some(dec!(9)),
+            date_rated: Some("2023-08-15".to_string()),
+        };
+        let metadata =
+            map_item_to_metadata(&item, MediaLot::Movie, MediaSource::Tmdb, "123".to_string());
+        assert!(metadata.collections.is_empty());
+        assert_eq!(metadata.seen_history.len(), 1);
+        assert_eq!(
+            metadata.seen_history[0].providers_consumed_on,
+            Some(vec![ImportSource::Imdb.to_string()])
+        );
+        assert!(metadata.seen_history[0].ended_on.is_some());
+        assert_eq!(metadata.reviews.len(), 1);
+        assert_eq!(metadata.reviews[0].rating, Some(dec!(90)));
+    }
+
+    #[test]
+    fn test_map_item_to_metadata_watchlist() {
+        let item = Item {
+            id: "tt0111161".to_string(),
+            title_type: "movie".to_string(),
+            your_rating: None,
+            date_rated: None,
+        };
+        let metadata =
+            map_item_to_metadata(&item, MediaLot::Movie, MediaSource::Tmdb, "123".to_string());
+        assert_eq!(metadata.collections.len(), 1);
+        assert_eq!(
+            metadata.collections[0].collection_name,
+            DefaultCollection::Watchlist.to_string()
+        );
+        assert!(metadata.seen_history.is_empty());
+        assert!(metadata.reviews.is_empty());
+    }
+
+    #[test]
+    fn test_map_item_to_metadata_watched_without_rating() {
+        let item = Item {
+            id: "tt0111161".to_string(),
+            title_type: "movie".to_string(),
+            your_rating: None,
+            date_rated: Some("2023-08-15".to_string()),
+        };
+        let metadata =
+            map_item_to_metadata(&item, MediaLot::Movie, MediaSource::Tmdb, "123".to_string());
+        assert!(metadata.collections.is_empty());
+        assert_eq!(metadata.seen_history.len(), 1);
+        assert!(metadata.reviews.is_empty());
     }
 }
