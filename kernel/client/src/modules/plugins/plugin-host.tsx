@@ -113,7 +113,8 @@ export function PluginFrame(props: {
 	const entitySchemaSlug = location.kind === "entity" ? location.entitySchemaSlug : undefined;
 	const { subscribeResume, chromeTriggerRef } = props;
 	const latest = useRef(props);
-	const [documentSrc] = useState(props.documentGrant.src);
+	const [documentSrc, setDocumentSrc] = useState(props.documentGrant.src);
+	const grantId = useRef(props.documentGrant.grantId);
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
 	const bridge = useRef<PluginBridgeSession>(undefined);
@@ -156,6 +157,17 @@ export function PluginFrame(props: {
 		const timeout = window.setTimeout(() => failHandshake(), BOOTSTRAP_TIMEOUT_MS);
 		return () => window.clearTimeout(timeout);
 	}, [frameStatus]);
+	// A rotated grant means the previous one expired. The live document's URL can't be
+	// changed without navigating, so rebootstrap now rather than leave a reload path to it.
+	useLayoutEffect(() => {
+		if (grantId.current === props.documentGrant.grantId) {
+			return;
+		}
+		grantId.current = props.documentGrant.grantId;
+		releaseBridge();
+		setFrameStatus("loading");
+		setDocumentSrc(props.documentGrant.src);
+	}, [props.documentGrant]);
 	useEffect(() => {
 		const element = frame.current;
 		if (!element) {
