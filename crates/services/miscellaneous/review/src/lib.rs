@@ -10,7 +10,7 @@ use media_models::{CreateReviewCommentInput, ImportOrExportItemReviewComment};
 use nanoid::nanoid;
 use sea_orm::{
     ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, IntoActiveModel, ModelTrait,
-    QueryFilter,
+    QueryFilter, QuerySelect, TransactionTrait,
 };
 use supporting_service::SupportingService;
 
@@ -42,33 +42,73 @@ pub async fn create_review_comment(
     user_id: String,
     input: CreateReviewCommentInput,
 ) -> Result<bool> {
-    let Some(review) = Review::find_by_id(input.review_id).one(&ss.db).await? else {
+    let txn = ss.db.begin().await?;
+    let Some(review) = Review::find_by_id(input.review_id)
+        .lock_exclusive()
+        .one(&txn)
+        .await?
+    else {
         bail!("Review not found");
     };
+    if review.user_id != user_id && review.visibility != Default::default() {
+        bail!("You cannot interact with this review");
+    }
+
+    let should_delete = input.should_delete.unwrap_or_default();
+    let increment_likes = input.increment_likes.unwrap_or_default();
+    let decrement_likes = input.decrement_likes.unwrap_or_default();
+    if [should_delete, increment_likes, decrement_likes]
+        .into_iter()
+        .filter(|action| *action)
+        .count()
+        > 1
+    {
+        bail!("Only one comment action can be requested at a time");
+    }
+
     let mut comments = review.comments.clone();
-    if input.should_delete.unwrap_or_default() {
+    if should_delete {
+        let comment_id = input
+            .comment_id
+            .as_deref()
+            .ok_or_else(|| anyhow!("Comment ID is required"))?;
         let position = comments
             .iter()
-            .position(|r| &r.id == input.comment_id.as_ref().unwrap())
-            .unwrap();
+            .position(|comment| comment.id == comment_id)
+            .ok_or_else(|| anyhow!("Comment not found"))?;
+        if comments[position].user.id != user_id {
+            bail!("Only the comment author can delete it");
+        }
         comments.remove(position);
-    } else if input.increment_likes.unwrap_or_default() {
+    } else if increment_likes {
+        let comment_id = input
+            .comment_id
+            .as_deref()
+            .ok_or_else(|| anyhow!("Comment ID is required"))?;
         let comment = comments
             .iter_mut()
-            .find(|r| &r.id == input.comment_id.as_ref().unwrap())
-            .unwrap();
+            .find(|comment| comment.id == comment_id)
+            .ok_or_else(|| anyhow!("Comment not found"))?;
         comment.liked_by.insert(user_id.clone());
-    } else if input.decrement_likes.unwrap_or_default() {
+    } else if decrement_likes {
+        let comment_id = input
+            .comment_id
+            .as_deref()
+            .ok_or_else(|| anyhow!("Comment ID is required"))?;
         let comment = comments
             .iter_mut()
-            .find(|r| &r.id == input.comment_id.as_ref().unwrap())
-            .unwrap();
+            .find(|comment| comment.id == comment_id)
+            .ok_or_else(|| anyhow!("Comment not found"))?;
         comment.liked_by.remove(&user_id);
     } else {
+        let text = input
+            .text
+            .filter(|text| !text.is_empty())
+            .ok_or_else(|| anyhow!("Comment text is required"))?;
         let user = user_by_id(&user_id, ss).await?;
         comments.push(ImportOrExportItemReviewComment {
             id: nanoid!(20),
-            text: input.text.unwrap(),
+            text,
             user: StringIdAndNamedObject {
                 id: user_id,
                 name: user.name,
@@ -79,6 +119,7 @@ pub async fn create_review_comment(
     }
     let mut review = review.into_active_model();
     review.comments = ActiveValue::Set(comments);
-    review.update(&ss.db).await?;
+    review.update(&txn).await?;
+    txn.commit().await?;
     Ok(true)
 }
