@@ -4,9 +4,9 @@
 	"sideEffects": false,
 	"type": "module",
 	"scripts": {
-		"typecheck": "react-router typegen && tsc",
 		"lint": "biome check .",
 		"build": "react-router build",
+		"typecheck": "react-router typegen && tsc",
 		"dev": "react-router dev --port 3000 --host"
 	},
 	"installConfig": {
