@@ -5,7 +5,7 @@ import { definitionsLibraryPath } from "..";
 const config: CodegenConfig = {
 	overwrite: true,
 	ignoreNoDocuments: true,
-	schema: "http://127.0.0.1:5000/graphql",
+	schema: process.env.BACKEND_GRAPHQL_URL || "http://127.0.0.1:5000/graphql",
 	documents: [
 		join(definitionsLibraryPath, "backend/{queries,mutations}/*.gql"),
 	],

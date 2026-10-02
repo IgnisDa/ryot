@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use common_models::{DefaultCollection, StringIdObject};
 use common_utils::ryot_log;
 use database_models::{prelude::User, user};
@@ -9,21 +9,21 @@ use dependent_collection_utils::create_or_update_collection;
 use dependent_models::ExpireCacheKeyInput;
 use enum_meta::Meta;
 use enum_models::UserLot;
-use futures::try_join;
 use media_models::{
-    AuthUserInput, CreateOrUpdateCollectionInput, OidcUserInput, PasswordUserInput, RegisterError,
-    RegisterErrorVariant, RegisterResult, RegisterUserInput, UserResetResponse, UserResetResult,
+    AuthUserInput, CreateOrUpdateCollectionInput, RegisterError, RegisterErrorVariant,
+    RegisterResult, RegisterUserInput, UserResetResponse, UserResetResult,
 };
 use nanoid::nanoid;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue, ColumnTrait, EntityTrait, ModelTrait, PaginatorTrait,
-    QueryFilter,
+    ActiveModelTrait, ActiveValue, ColumnTrait, ConnectionTrait, DbBackend, EntityTrait,
+    ModelTrait, PaginatorTrait, QueryFilter, Statement, TransactionTrait,
 };
 use sea_orm::{IntoActiveModel, Iterable};
 use supporting_service::SupportingService;
 use user_models::{UpdateUserInput, UserPreferences};
 
 use crate::{
+    authorization::{can_manage_users, revoke_user_credentials},
     password_change_operations::{build_password_change_url, generate_password_change_session},
     user_data_operations::users_list,
 };
@@ -33,17 +33,22 @@ pub async fn update_user(
     ss: &Arc<SupportingService>,
     requester_user_id: Option<String>,
 ) -> Result<StringIdObject> {
-    if let Some(ref uid) = requester_user_id {
-        if uid != &input.user_id
-            && admin_account_guard(uid, ss).await.is_err()
-            && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
-        {
-            bail!("Admin access token required");
-        }
-    } else if input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token {
-        bail!("Admin access token required");
+    let is_self_update = requester_user_id.as_ref() == Some(&input.user_id);
+    let changes_privileged_fields = input.lot.is_some() || input.is_disabled.is_some();
+    if (!is_self_update || changes_privileged_fields)
+        && !can_manage_users(
+            ss,
+            requester_user_id.as_ref(),
+            input.admin_access_token.as_deref(),
+        )
+        .await?
+    {
+        bail!("Administrator authorization required");
     }
-    let db_user = User::find_by_id(input.user_id).one(&ss.db).await?.unwrap();
+    let db_user = User::find_by_id(input.user_id)
+        .one(&ss.db)
+        .await?
+        .ok_or_else(|| anyhow!("User not found"))?;
     let mut extra_information = db_user.extra_information.clone().unwrap_or_default();
     let mut user_obj = db_user.into_active_model();
     if let Some(n) = input.username {
@@ -92,59 +97,45 @@ pub async fn reset_user(
     to_reset_user_id: String,
 ) -> Result<UserResetResult> {
     admin_account_guard(&admin_user_id, ss).await?;
-    let maybe_user = User::find_by_id(&to_reset_user_id).one(&ss.db).await?;
-    let Some(user_to_reset) = maybe_user else {
+    let txn = ss.db.begin().await?;
+    txn.execute(Statement::from_string(
+        DbBackend::Postgres,
+        "LOCK TABLE \"user\" IN SHARE ROW EXCLUSIVE MODE",
+    ))
+    .await?;
+    let Some(user_to_reset) = User::find_by_id(&to_reset_user_id).one(&txn).await? else {
         bail!("User not found");
     };
-
     let original_id = user_to_reset.id.clone();
-    let original_name = user_to_reset.name.clone();
-    let original_oidc_issuer_id = user_to_reset.oidc_issuer_id.clone();
-    let original_lot = user_to_reset.lot;
-
-    user_to_reset.delete(&ss.db).await?;
-
-    let auth_input = match original_oidc_issuer_id {
-        Some(ref issuer_id) => AuthUserInput::Oidc(OidcUserInput {
-            email: original_name,
-            issuer_id: issuer_id.clone(),
-        }),
-        None => AuthUserInput::Password(PasswordUserInput {
-            username: original_name,
-            password: String::new(),
-        }),
+    let is_oidc = user_to_reset.oidc_issuer_id.is_some();
+    revoke_user_credentials(&txn, &original_id).await?;
+    let replacement = user::ActiveModel {
+        id: ActiveValue::Set(original_id.clone()),
+        lot: ActiveValue::Set(user_to_reset.lot),
+        name: ActiveValue::Set(user_to_reset.name.clone()),
+        is_disabled: ActiveValue::Set(user_to_reset.is_disabled),
+        oidc_issuer_id: ActiveValue::Set(user_to_reset.oidc_issuer_id.clone()),
+        preferences: ActiveValue::Set(UserPreferences::default()),
+        ..Default::default()
     };
-
-    let register_input = RegisterUserInput {
-        data: auth_input,
-        lot: Some(original_lot),
-        user_id: Some(original_id.clone()),
-        admin_access_token: Some(ss.config.server.admin_access_token.clone()),
+    user_to_reset.delete(&txn).await?;
+    replacement.insert(&txn).await?;
+    txn.commit().await?;
+    initialize_user(ss, &original_id).await?;
+    cache_service::expire_key(ss, ExpireCacheKeyInput::ByUser(original_id.clone())).await?;
+    let password_change_url = if is_oidc {
+        None
+    } else {
+        let session_id = generate_password_change_session(ss, original_id.clone()).await?;
+        Some(build_password_change_url(
+            &ss.config.frontend.url,
+            &session_id,
+        ))
     };
-
-    let register_result = register_user(ss, None, register_input).await?;
-    cache_service::expire_key(ss, ExpireCacheKeyInput::ByUser(original_id)).await?;
-    match register_result {
-        RegisterResult::Error(error) => Ok(UserResetResult::Error(error)),
-        RegisterResult::Ok(result) => {
-            ryot_log!(debug, "User reset with id {:?}", result.id);
-            let password_change_url = match original_oidc_issuer_id {
-                Some(_) => None,
-                None => {
-                    let session_id =
-                        generate_password_change_session(ss, result.id.clone()).await?;
-                    Some(build_password_change_url(
-                        &ss.config.frontend.url,
-                        &session_id,
-                    ))
-                }
-            };
-            Ok(UserResetResult::Ok(UserResetResponse {
-                user_id: result.id,
-                password_change_url,
-            }))
-        }
-    }
+    Ok(UserResetResult::Ok(UserResetResponse {
+        password_change_url,
+        user_id: original_id,
+    }))
 }
 
 pub async fn register_user(
@@ -152,11 +143,38 @@ pub async fn register_user(
     requester_user_id: Option<String>,
     input: RegisterUserInput,
 ) -> Result<RegisterResult> {
-    if let Some(ref uid) = requester_user_id {
-        admin_account_guard(uid, ss).await?;
-    } else if !ss.config.users.allow_registration
-        && input.admin_access_token.unwrap_or_default() != ss.config.server.admin_access_token
-    {
+    match &input.data {
+        AuthUserInput::Oidc(_) => bail!("OIDC registration requires a verified authorization flow"),
+        AuthUserInput::Password(data) => {
+            if ss.config.users.disable_local_auth {
+                bail!("Local authentication is disabled");
+            }
+            if data.password.is_empty() {
+                bail!("Password must not be empty");
+            }
+        }
+    }
+    if input.user_id.is_some() {
+        bail!("User IDs are generated by the server");
+    }
+    register_verified_user(ss, requester_user_id, input).await
+}
+
+pub(crate) async fn register_verified_user(
+    ss: &Arc<SupportingService>,
+    requester_user_id: Option<String>,
+    input: RegisterUserInput,
+) -> Result<RegisterResult> {
+    let can_manage = can_manage_users(
+        ss,
+        requester_user_id.as_ref(),
+        input.admin_access_token.as_deref(),
+    )
+    .await?;
+    if (input.lot.is_some() || requester_user_id.is_some()) && !can_manage {
+        bail!("Administrator authorization required");
+    }
+    if !ss.config.users.allow_registration && !can_manage {
         return Ok(RegisterResult::Error(RegisterError {
             error: RegisterErrorVariant::Disabled,
         }));
@@ -173,10 +191,14 @@ pub async fn register_user(
             Some(data.password),
         ),
     };
-    let (user_exists, total_users) = try_join!(
-        User::find().filter(filter).count(&ss.db),
-        User::find().count(&ss.db)
-    )?;
+    let txn = ss.db.begin().await?;
+    txn.execute(Statement::from_string(
+        DbBackend::Postgres,
+        "LOCK TABLE \"user\" IN SHARE ROW EXCLUSIVE MODE",
+    ))
+    .await?;
+    let user_exists = User::find().filter(filter).count(&txn).await?;
+    let total_users = User::find().count(&txn).await?;
     if user_exists != 0 {
         return Ok(RegisterResult::Error(RegisterError {
             error: RegisterErrorVariant::IdentifierAlreadyExists,
@@ -186,7 +208,6 @@ pub async fn register_user(
         AuthUserInput::Oidc(data) => Some(data.issuer_id),
         AuthUserInput::Password(_) => None,
     };
-    // TODO: https://github.com/SeaQL/sea-orm/discussions/730#discussioncomment-13440496
     let lot = match input.lot {
         Some(specified_lot) => specified_lot,
         None => match total_users == 0 {
@@ -194,9 +215,7 @@ pub async fn register_user(
             false => UserLot::Normal,
         },
     };
-    let user_id = input
-        .user_id
-        .unwrap_or_else(|| format!("usr_{}", nanoid!(12)));
+    let user_id = format!("usr_{}", nanoid!(12));
     let user = user::ActiveModel {
         lot: ActiveValue::Set(lot),
         id: ActiveValue::Set(user_id),
@@ -206,17 +225,23 @@ pub async fn register_user(
         preferences: ActiveValue::Set(UserPreferences::default()),
         ..Default::default()
     };
-    let user = user.insert(&ss.db).await?;
+    let user = user.insert(&txn).await?;
+    txn.commit().await?;
     ryot_log!(
         debug,
         "User {:?} registered with id {:?}",
         user.name,
         user.id
     );
+    initialize_user(ss, &user.id).await?;
+    Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
+}
+
+async fn initialize_user(ss: &Arc<SupportingService>, user_id: &String) -> Result<()> {
     for col in DefaultCollection::iter() {
         let meta = col.meta().to_owned();
         create_or_update_collection(
-            &user.id,
+            user_id,
             ss,
             CreateOrUpdateCollectionInput {
                 name: col.to_string(),
@@ -228,6 +253,6 @@ pub async fn register_user(
         .await
         .ok();
     }
-    deploy_job_to_calculate_user_activities_and_summary(&user.id, false, ss).await?;
-    Ok(RegisterResult::Ok(StringIdObject { id: user.id }))
+    deploy_job_to_calculate_user_activities_and_summary(user_id, false, ss).await?;
+    Ok(())
 }

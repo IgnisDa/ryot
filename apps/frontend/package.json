@@ -4,7 +4,7 @@
 	"sideEffects": false,
 	"type": "module",
 	"scripts": {
-		"typecheck": "tsc",
+		"typecheck": "react-router typegen && tsc",
 		"lint": "biome check .",
 		"build": "react-router build",
 		"dev": "react-router dev --port 3000 --host"

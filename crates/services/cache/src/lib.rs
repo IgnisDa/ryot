@@ -11,7 +11,8 @@ use dependent_models::{
 };
 use itertools::Itertools;
 use sea_orm::{
-    ActiveValue, ColumnTrait, EntityTrait, QueryFilter, QuerySelect, sea_query::OnConflict,
+    ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, ModelTrait, QueryFilter, QuerySelect,
+    TransactionTrait, sea_query::OnConflict,
 };
 use serde::de::DeserializeOwned;
 use supporting_service::SupportingService;
@@ -24,6 +25,10 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         ApplicationCacheKey::LogDownloadToken { .. } => Duration::minutes(1),
 
         ApplicationCacheKey::MediaTranslationInProgress { .. } => Duration::minutes(15),
+
+        ApplicationCacheKey::OidcAuthorizationSession { .. } => Duration::minutes(10),
+
+        ApplicationCacheKey::UserPasswordChangeSession { .. } => Duration::minutes(30),
 
         ApplicationCacheKey::SpotifyAccessToken => Duration::minutes(50),
 
@@ -72,8 +77,7 @@ fn get_expiry_for_key(ss: &Arc<SupportingService>, key: &ApplicationCacheKey) ->
         | ApplicationCacheKey::TmdbSettings
         | ApplicationCacheKey::ListennotesSettings => Duration::days(5),
 
-        ApplicationCacheKey::TvdbSettings
-        | ApplicationCacheKey::UserPasswordChangeSession { .. } => Duration::days(7),
+        ApplicationCacheKey::TvdbSettings => Duration::days(7),
 
         ApplicationCacheKey::UserFilterPresets { .. }
         | ApplicationCacheKey::MetadataProgressUpdateInProgressCache { .. } => Duration::days(60),
@@ -234,6 +238,40 @@ pub async fn get_value<T: DeserializeOwned>(
         .get(key.to_string())
         .and_then(|v| serde_json::from_value::<T>(v.to_owned()).ok())?;
     Some((value.id, db_value))
+}
+
+pub async fn get_value_for_update<T: DeserializeOwned, C: ConnectionTrait>(
+    db: &C,
+    key: &ApplicationCacheKey,
+) -> Result<Option<(application_cache::Model, T)>> {
+    let Some(cache) = ApplicationCache::find()
+        .filter(application_cache::Column::Key.eq(serde_json::to_string(key)?))
+        .filter(application_cache::Column::ExpiresAt.gt(Utc::now()))
+        .lock_exclusive()
+        .one(db)
+        .await?
+    else {
+        return Ok(None);
+    };
+    let value = cache
+        .value
+        .get(key.to_string())
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("Invalid cache value"))?;
+    Ok(Some((cache, serde_json::from_value(value)?)))
+}
+
+pub async fn consume_value<T: DeserializeOwned>(
+    ss: &Arc<SupportingService>,
+    key: ApplicationCacheKey,
+) -> Result<Option<T>> {
+    let txn = ss.db.begin().await?;
+    let Some((cache, value)) = get_value_for_update(&txn, &key).await? else {
+        return Ok(None);
+    };
+    cache.delete(&txn).await?;
+    txn.commit().await?;
+    Ok(Some(value))
 }
 
 pub async fn get_or_set_with_callback<T, F, Fut>(
