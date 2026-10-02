@@ -2,10 +2,15 @@ use std::sync::Arc;
 
 use anyhow::Result;
 use chrono::Utc;
-use database_models::{application_cache, prelude::ApplicationCache};
+use database_models::{
+    access_link, application_cache,
+    prelude::{AccessLink, ApplicationCache},
+};
 use database_utils::admin_account_guard;
 use ring::digest::{SHA256, digest};
-use sea_orm::{ActiveValue, ConnectionTrait, EntityTrait, QueryFilter, sea_query::Expr};
+use sea_orm::{
+    ActiveValue, ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, sea_query::Expr,
+};
 use subtle::ConstantTimeEq;
 use supporting_service::SupportingService;
 
@@ -36,6 +41,14 @@ pub(crate) async fn revoke_user_credentials<C: ConnectionTrait>(
     db: &C,
     user_id: &str,
 ) -> Result<()> {
+    AccessLink::update_many()
+        .filter(access_link::Column::UserId.eq(user_id))
+        .set(access_link::ActiveModel {
+            is_revoked: ActiveValue::Set(Some(true)),
+            ..Default::default()
+        })
+        .exec(db)
+        .await?;
     ApplicationCache::update_many()
         .filter(Expr::cust_with_values(
             "value -> 'UserSession' ->> 'user_id' = $1 OR value -> 'UserPasswordChangeSession' ->> 'user_id' = $1",

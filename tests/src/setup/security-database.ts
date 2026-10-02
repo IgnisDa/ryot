@@ -1,4 +1,5 @@
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 
 const sqlString = (value: string) => `'${value.replaceAll("'", "''")}'`;
 
@@ -56,4 +57,12 @@ export function expireOidcAuthorizationSession(state: string) {
 		{ OidcAuthorizationSession: state },
 		"expires_at = now() - interval '1 minute'",
 	);
+}
+
+export function createTestAccessLink(userId: string, isAccountDefault = false) {
+	const id = `acl_${randomUUID()}`;
+	executeTestDatabaseSql(
+		`INSERT INTO access_link (id, user_id, name, is_account_default, is_mutation_allowed) VALUES (${sqlString(id)}, ${sqlString(userId)}, 'Security regression access link', ${isAccountDefault}, true)`,
+	);
+	return id;
 }

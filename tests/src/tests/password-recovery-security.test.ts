@@ -2,8 +2,10 @@ import { faker } from "@faker-js/faker";
 import {
 	GetPasswordChangeSessionDocument,
 	LoginUserDocument,
+	ProcessAccessLinkDocument,
 	ResetUserDocument,
 	SetPasswordViaSessionDocument,
+	UserAccessLinksDocument,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import {
@@ -17,6 +19,7 @@ import {
 	getSessionId,
 	registerPasswordUser,
 } from "../setup/authentication-fixtures";
+import { createTestAccessLink } from "../setup/security-database";
 
 describe("Password recovery security regressions", () => {
 	const url = process.env.API_BASE_URL as string;
@@ -70,6 +73,17 @@ describe("Password recovery security regressions", () => {
 	it("rejects empty passwords and revokes existing sessions and links", async () => {
 		const client = getGraphqlClient(url);
 		const user = await registerPasswordUser(client);
+		const otherUser = await registerPasswordUser(client);
+		const accessLinkId = createTestAccessLink(user.userId, true);
+		const otherAccessLinkId = createTestAccessLink(otherUser.userId);
+		const { processAccessLink: accessLinkSession } = await client.request(
+			ProcessAccessLinkDocument,
+			{ input: { id: accessLinkId } },
+		);
+		if (accessLinkSession.__typename !== "ProcessAccessLinkResponse")
+			throw new Error(
+				"Expected an access-link session before password recovery",
+			);
 		const { loginUser: secondLogin } = await client.request(LoginUserDocument, {
 			input: { password: { username: user.username, password: user.password } },
 		});
@@ -108,7 +122,11 @@ describe("Password recovery security regressions", () => {
 			{ input: { sessionId: firstSessionId, password: newPassword } },
 		);
 		expect(setPasswordViaSession).toBe(true);
-		for (const apiKey of [user.apiKey, secondLogin.apiKey]) {
+		for (const apiKey of [
+			user.apiKey,
+			secondLogin.apiKey,
+			accessLinkSession.apiKey,
+		]) {
 			const { userDetails } = await client.request(
 				UserDetailsDocument,
 				{},
@@ -123,10 +141,44 @@ describe("Password recovery security regressions", () => {
 				}),
 			).rejects.toThrow("Password change session not found or expired");
 		}
+		const { processAccessLink: revokedLink } = await client.request(
+			ProcessAccessLinkDocument,
+			{ input: { id: accessLinkId } },
+		);
+		expect(revokedLink).toMatchObject({
+			error: "REVOKED",
+			__typename: "ProcessAccessLinkError",
+		});
+		const { processAccessLink: revokedDefaultLink } = await client.request(
+			ProcessAccessLinkDocument,
+			{ input: { username: user.username } },
+		);
+		expect(revokedDefaultLink).toMatchObject({
+			error: "NOT_FOUND",
+			__typename: "ProcessAccessLinkError",
+		});
+		const { processAccessLink: otherLink } = await client.request(
+			ProcessAccessLinkDocument,
+			{ input: { id: otherAccessLinkId } },
+		);
+		expect(otherLink.__typename).toBe("ProcessAccessLinkResponse");
 		const { loginUser } = await client.request(LoginUserDocument, {
 			input: { password: { username: user.username, password: newPassword } },
 		});
 		expect(loginUser.__typename).toBe("ApiKeyResponse");
+		if (loginUser.__typename !== "ApiKeyResponse")
+			throw new Error("Expected login with the new password");
+		const { userAccessLinks } = await client.request(
+			UserAccessLinksDocument,
+			{},
+			{ Authorization: `Bearer ${loginUser.apiKey}` },
+		);
+		expect(userAccessLinks).toContainEqual(
+			expect.objectContaining({
+				id: accessLinkId,
+				isRevoked: true,
+			}),
+		);
 	});
 
 	it("allows only one competing completion of a recovery session", async () => {
@@ -171,6 +223,13 @@ describe("Password recovery security regressions", () => {
 	it("leaves reset users without a password until the recovery link is redeemed", async () => {
 		const client = getGraphqlClient(url);
 		const user = await registerPasswordUser(client);
+		const accessLinkId = createTestAccessLink(user.userId, true);
+		const { processAccessLink: accessLinkSession } = await client.request(
+			ProcessAccessLinkDocument,
+			{ input: { id: accessLinkId } },
+		);
+		if (accessLinkSession.__typename !== "ProcessAccessLinkResponse")
+			throw new Error("Expected an access-link session before account reset");
 		const { resetUser } = await client.request(
 			ResetUserDocument,
 			{ toResetUserId: user.userId },
@@ -191,5 +250,21 @@ describe("Password recovery security regressions", () => {
 			{ Authorization: `Bearer ${user.apiKey}` },
 		);
 		expect(userDetails.__typename).toBe("UserDetailsError");
+		const { userDetails: accessLinkUserDetails } = await client.request(
+			UserDetailsDocument,
+			{},
+			{ Authorization: `Bearer ${accessLinkSession.apiKey}` },
+		);
+		expect(accessLinkUserDetails.__typename).toBe("UserDetailsError");
+		for (const input of [{ id: accessLinkId }, { username: user.username }]) {
+			const { processAccessLink } = await client.request(
+				ProcessAccessLinkDocument,
+				{ input },
+			);
+			expect(processAccessLink).toMatchObject({
+				error: "NOT_FOUND",
+				__typename: "ProcessAccessLinkError",
+			});
+		}
 	});
 });
