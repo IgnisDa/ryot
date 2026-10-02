@@ -2,7 +2,9 @@ import { faker } from "@faker-js/faker";
 import {
 	CreateOrUpdateUserIntegrationDocument,
 	IntegrationProvider,
+	LoginUserDocument,
 	ResetUserDocument,
+	SetPasswordViaSessionDocument,
 	UserDetailsDocument,
 	UserImportReportsDocument,
 	UserIntegrationsDocument,
@@ -224,26 +226,62 @@ describe("Reset User functionality", () => {
 			{ Authorization: `Bearer ${targetUserApiKey}` },
 		);
 		expect(beforeReset.__typename).toBe("UserDetails");
+		if (beforeReset.__typename !== "UserDetails") {
+			throw new Error("Expected user details before reset");
+		}
+		const originalUsername = beforeReset.name;
 		const { resetUser } = await client.request(
 			ResetUserDocument,
 			{ toResetUserId: targetUserId },
 			{ Authorization: `Bearer ${adminApiKey}` },
 		);
 		expect(resetUser.__typename).toBe("UserResetResponse");
+		let passwordChangeUrl: string | undefined;
 		if (resetUser.__typename === "UserResetResponse") {
 			expect(resetUser.passwordChangeUrl).toBeDefined();
 			expect(typeof resetUser.passwordChangeUrl).toBe("string");
 			expect(resetUser.passwordChangeUrl?.length).toBeGreaterThan(0);
+			passwordChangeUrl = resetUser.passwordChangeUrl ?? undefined;
 		}
+		expect(passwordChangeUrl).toBeDefined();
+		if (!passwordChangeUrl) throw new Error("Expected password change URL");
+		const sessionId = new URL(passwordChangeUrl, url).searchParams.get(
+			"sessionId",
+		);
+		expect(sessionId).toBeTruthy();
+		if (!sessionId) throw new Error("Expected password change session ID");
+
 		const { userDetails: afterReset } = await client.request(
 			UserDetailsDocument,
 			{},
 			{ Authorization: `Bearer ${targetUserApiKey}` },
 		);
-		expect(afterReset.__typename).toBe("UserDetails");
+		expect(afterReset.__typename).toBe("UserDetailsError");
+		const newPassword = faker.internet.password();
+		await client.request(SetPasswordViaSessionDocument, {
+			input: { sessionId, password: newPassword },
+		});
+		const { loginUser } = await client.request(LoginUserDocument, {
+			input: {
+				password: { username: originalUsername, password: newPassword },
+			},
+		});
+		expect(loginUser.__typename).toBe("ApiKeyResponse");
+		if (loginUser.__typename !== "ApiKeyResponse") {
+			throw new Error("Expected a new login session after password reset");
+		}
+		const { userDetails: afterPasswordChange } = await client.request(
+			UserDetailsDocument,
+			{},
+			{ Authorization: `Bearer ${loginUser.apiKey}` },
+		);
+		expect(afterPasswordChange).toMatchObject({
+			__typename: "UserDetails",
+			id: targetUserId,
+		});
 		const collectionsAfterReset = await getUserCollectionsList(
 			url,
-			targetUserApiKey,
+			loginUser.apiKey,
 		);
 		expect(collectionsAfterReset).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 	});
@@ -279,6 +317,16 @@ describe("Reset User functionality", () => {
 		const client = getGraphqlClient(url);
 		const [adminApiKey] = await registerAdminUser(url);
 		const [targetUserApiKey, targetUserId] = await registerTestUser(url);
+		const { userDetails: beforeReset } = await client.request(
+			UserDetailsDocument,
+			{},
+			{ Authorization: `Bearer ${targetUserApiKey}` },
+		);
+		expect(beforeReset.__typename).toBe("UserDetails");
+		if (beforeReset.__typename !== "UserDetails") {
+			throw new Error("Expected user details before reset");
+		}
+		const originalUsername = beforeReset.name;
 		const initialCollections = await getUserCollectionsList(
 			url,
 			targetUserApiKey,
@@ -313,15 +361,49 @@ describe("Reset User functionality", () => {
 		);
 
 		expect(resetUser.__typename).toBe("UserResetResponse");
+		let passwordChangeUrl: string | undefined;
+		if (resetUser.__typename === "UserResetResponse") {
+			passwordChangeUrl = resetUser.passwordChangeUrl ?? undefined;
+		}
+		expect(passwordChangeUrl).toBeDefined();
+		if (!passwordChangeUrl) throw new Error("Expected password change URL");
+		const sessionId = new URL(passwordChangeUrl, url).searchParams.get(
+			"sessionId",
+		);
+		expect(sessionId).toBeTruthy();
+		if (!sessionId) throw new Error("Expected password change session ID");
+
 		const { userDetails } = await client.request(
 			UserDetailsDocument,
 			{},
 			{ Authorization: `Bearer ${targetUserApiKey}` },
 		);
-		expect(userDetails.__typename).toBe("UserDetails");
+		expect(userDetails.__typename).toBe("UserDetailsError");
+		const newPassword = faker.internet.password();
+		await client.request(SetPasswordViaSessionDocument, {
+			input: { sessionId, password: newPassword },
+		});
+		const { loginUser } = await client.request(LoginUserDocument, {
+			input: {
+				password: { username: originalUsername, password: newPassword },
+			},
+		});
+		expect(loginUser.__typename).toBe("ApiKeyResponse");
+		if (loginUser.__typename !== "ApiKeyResponse") {
+			throw new Error("Expected a new login session after password reset");
+		}
+		const { userDetails: afterPasswordChange } = await client.request(
+			UserDetailsDocument,
+			{},
+			{ Authorization: `Bearer ${loginUser.apiKey}` },
+		);
+		expect(afterPasswordChange).toMatchObject({
+			__typename: "UserDetails",
+			id: targetUserId,
+		});
 		const collectionsAfterReset = await getUserCollectionsList(
 			url,
-			targetUserApiKey,
+			loginUser.apiKey,
 		);
 		expect(collectionsAfterReset).toHaveLength(DEFAULT_USER_COLLECTIONS_COUNT);
 	});

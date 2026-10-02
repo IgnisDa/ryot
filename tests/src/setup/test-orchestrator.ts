@@ -8,6 +8,10 @@ import getPort from "get-port";
 import type { StartedNetwork, StartedTestContainer } from "testcontainers";
 import { GenericContainer, Network, Wait } from "testcontainers";
 import { TEST_ADMIN_ACCESS_TOKEN } from "../utils";
+import {
+	type StartedMockOidcProvider,
+	startMockOidcProvider,
+} from "./mock-oidc-provider";
 
 const setupProcessLogging = (process: ChildProcess) => {
 	process.stdout?.on("data", (data) => {
@@ -31,6 +35,7 @@ export interface StartedServices {
 	frontendProcess: ChildProcess;
 	minioContainer: StartedTestContainer;
 	pgContainer: StartedPostgreSqlContainer;
+	oidcProvider: StartedMockOidcProvider;
 }
 
 const MONOREPO_ROOT = path.resolve(__dirname, "../../../");
@@ -76,6 +81,7 @@ async function createMinioBucket(endpoint: string) {
 
 async function startFrontendProcess(
 	frontendPort: number,
+	backendPort: number,
 ): Promise<ChildProcess> {
 	return new Promise((resolve) => {
 		console.log(
@@ -88,7 +94,11 @@ async function startFrontendProcess(
 			{
 				stdio: ["ignore", "pipe", "pipe"],
 				cwd: path.join(MONOREPO_ROOT, "apps/frontend"),
-				env: { ...process.env, PORT: frontendPort.toString() },
+				env: {
+					...process.env,
+					API_URL: `http://127.0.0.1:${backendPort}`,
+					PORT: frontendPort.toString(),
+				},
 			},
 		);
 
@@ -175,6 +185,8 @@ async function startBackendProcess(
 	dbUrl: string,
 	backendPort: number,
 	minioEndpoint: string,
+	frontendUrl: string,
+	oidcProvider: StartedMockOidcProvider,
 ): Promise<ChildProcess> {
 	return new Promise((resolve) => {
 		console.log(
@@ -184,10 +196,16 @@ async function startBackendProcess(
 			DATABASE_URL: dbUrl,
 			FILE_STORAGE_S3_URL: minioEndpoint,
 			SERVER_BACKEND_PORT: backendPort.toString(),
+			SERVER_OIDC_CLIENT_ID: oidcProvider.clientId,
+			SERVER_OIDC_CLIENT_SECRET: oidcProvider.clientSecret,
+			SERVER_OIDC_ISSUER_URL: oidcProvider.issuerUrl,
 			FILE_STORAGE_S3_BUCKET_NAME: TEST_BUCKET_NAME,
 			FILE_STORAGE_S3_ACCESS_KEY_ID: MINIO_ACCESS_KEY,
 			SERVER_ADMIN_ACCESS_TOKEN: TEST_ADMIN_ACCESS_TOKEN,
 			FILE_STORAGE_S3_SECRET_ACCESS_KEY: MINIO_SECRET_KEY,
+			FRONTEND_URL: frontendUrl,
+			USERS_ALLOW_REGISTRATION: "true",
+			USERS_DISABLE_LOCAL_AUTH: "false",
 		};
 
 		const backendProcess = spawn(
@@ -213,6 +231,7 @@ async function startBackendProcess(
 
 export async function startAllServices() {
 	const network = await new Network().start();
+	const storageImage = process.env.TEST_S3_IMAGE || "minio/minio:latest";
 
 	console.log("[Orchestrator] Starting containers in parallel...");
 	const [pgContainer, minioContainer] = await Promise.all([
@@ -226,12 +245,18 @@ export async function startAllServices() {
 				Wait.forLogMessage("database system is ready to accept connections", 2),
 			)
 			.start(),
-		new GenericContainer("minio/minio:latest")
+		new GenericContainer(storageImage)
 			.withEnvironment({
 				MINIO_ROOT_USER: MINIO_ACCESS_KEY,
 				MINIO_ROOT_PASSWORD: MINIO_SECRET_KEY,
+				RUSTFS_ACCESS_KEY: MINIO_ACCESS_KEY,
+				RUSTFS_SECRET_KEY: MINIO_SECRET_KEY,
 			})
-			.withCommand(["server", "/data", "--console-address", ":9090"])
+			.withCommand(
+				storageImage.startsWith("rustfs/")
+					? ["rustfs"]
+					: ["server", "/data", "--console-address", ":9090"],
+			)
 			.withNetwork(network)
 			.withNetworkAliases("minio")
 			.withExposedPorts(9000, 9090)
@@ -254,13 +279,21 @@ export async function startAllServices() {
 		getPort(),
 	]);
 	const backendDbUrl = `postgres://${DB_USER}:${DB_PASSWORD}@${dbHost}:${dbPort}/${DB_NAME}`;
+	const caddyBaseUrl = `http://127.0.0.1:${freeCaddyPort}`;
+	const oidcProvider = await startMockOidcProvider();
 
 	console.log(
 		"[Orchestrator] Starting backend and frontend processes in parallel...",
 	);
 	const [backendProcess, frontendProcess] = await Promise.all([
-		startBackendProcess(backendDbUrl, freeBackendPort, minioExternalEndpoint),
-		startFrontendProcess(freeFrontendPort),
+		startBackendProcess(
+			backendDbUrl,
+			freeBackendPort,
+			minioExternalEndpoint,
+			caddyBaseUrl,
+			oidcProvider,
+		),
+		startFrontendProcess(freeFrontendPort, freeBackendPort),
 	]);
 
 	console.log("[Orchestrator] Starting Caddy process...");
@@ -270,8 +303,6 @@ export async function startAllServices() {
 		freeFrontendPort,
 	);
 
-	const caddyBaseUrl = `http://127.0.0.1:${freeCaddyPort}`;
-
 	return {
 		network,
 		pgContainer,
@@ -280,6 +311,7 @@ export async function startAllServices() {
 		minioContainer,
 		backendProcess,
 		frontendProcess,
+		oidcProvider,
 	};
 }
 
@@ -368,6 +400,15 @@ export async function stopAllServices(services: StartedServices | undefined) {
 		}
 	};
 
+	const stopOidcProvider = async () => {
+		try {
+			await services.oidcProvider.close();
+			console.log("[Orchestrator] Mock OIDC provider stopped.");
+		} catch (error) {
+			console.error("Error stopping mock OIDC provider:", error);
+		}
+	};
+
 	const stopNetwork = async () => {
 		try {
 			await services.network.stop();
@@ -383,6 +424,7 @@ export async function stopAllServices(services: StartedServices | undefined) {
 		stopBackend(),
 		stopMinio(),
 		stopPostgres(),
+		stopOidcProvider(),
 	]);
 	await stopNetwork();
 

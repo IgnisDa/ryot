@@ -3,6 +3,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"lint": "biome check .",
 		"typecheck": "tsc",
 		"test": "vitest run",
 		"test-watch": "vitest"

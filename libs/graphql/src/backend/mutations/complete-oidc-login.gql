@@ -1,0 +1,14 @@
+mutation CompleteOidcLogin($input: CompleteOidcLoginInput!) {
+	completeOidcLogin(input: $input) {
+		__typename
+		... on ApiKeyResponse {
+			apiKey
+		}
+		... on LoginError {
+			error
+		}
+		... on StringIdObject {
+			id
+		}
+	}
+}

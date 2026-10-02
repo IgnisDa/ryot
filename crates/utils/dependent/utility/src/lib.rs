@@ -90,6 +90,7 @@ pub async fn associate_user_with_entity(
         entity_lot,
         EntityLot::Workout
             | EntityLot::Review
+            | EntityLot::Collection
             | EntityLot::WorkoutTemplate
             | EntityLot::UserMeasurement
     ) {

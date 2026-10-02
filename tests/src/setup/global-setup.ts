@@ -12,6 +12,9 @@ export async function setup() {
 	console.log("[GlobalSetup] Starting all services for tests...");
 	try {
 		services = await startAllServices();
+		process.env.TEST_OIDC_ISSUER_URL = services.oidcProvider.issuerUrl;
+		process.env.TEST_DATABASE_CONTAINER_ID = services.pgContainer.getId();
+		process.env.TEST_DATABASE_URL = services.pgContainer.getConnectionUri();
 		if (services.caddyBaseUrl) {
 			process.env.API_BASE_URL = services.caddyBaseUrl;
 			console.log(
@@ -43,5 +46,8 @@ async function teardown(): Promise<void> {
 			"[GlobalTeardown] No services were recorded as started, nothing to stop explicitly.",
 		);
 	}
+	delete process.env.TEST_OIDC_ISSUER_URL;
+	delete process.env.TEST_DATABASE_CONTAINER_ID;
+	delete process.env.TEST_DATABASE_URL;
 	console.log("[GlobalTeardown] Teardown complete.");
 }

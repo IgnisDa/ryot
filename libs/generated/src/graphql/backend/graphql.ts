@@ -413,6 +413,12 @@ export type ComicBookSpecificsInput = {
   pageCount?: InputMaybe<Scalars['Int']['input']>;
 };
 
+export type CompleteOidcLoginInput = {
+  browserToken: Scalars['String']['input'];
+  code: Scalars['String']['input'];
+  state: Scalars['String']['input'];
+};
+
 export type CoreDetails = {
   backendErrors: Array<BackendError>;
   disableTelemetry: Scalars['Boolean']['output'];
@@ -1709,6 +1715,7 @@ export type MusicSpecificsInput = {
 };
 
 export type MutationRoot = {
+  completeOidcLogin: LoginResult;
   /** Complete two-factor authentication setup by verifying the TOTP code. */
   completeTwoFactorSetup: UserTwoFactorBackupCodesResponse;
   /** Create or edit an access link. */
@@ -1867,6 +1874,11 @@ export type MutationRoot = {
   updateUserWorkoutAttributes: Scalars['Boolean']['output'];
   /** Verify a two-factor authentication code (TOTP or backup code). */
   verifyTwoFactor: VerifyTwoFactorResult;
+};
+
+
+export type MutationRootCompleteOidcLoginArgs = {
+  input: CompleteOidcLoginInput;
 };
 
 
@@ -2197,9 +2209,9 @@ export enum NotificationPlatformLot {
   Telegram = 'TELEGRAM'
 }
 
-export type OidcTokenOutput = {
-  email: Scalars['String']['output'];
-  subject: Scalars['String']['output'];
+export type OidcAuthorizationResponse = {
+  authorizationUrl: Scalars['String']['output'];
+  browserToken: Scalars['String']['output'];
 };
 
 export type OidcUserInput = {
@@ -2376,9 +2388,7 @@ export type QueryRoot = {
   /** Get details about a genre present in the database. */
   genreDetails: CachedGenreDetailsResponse;
   /** Get an authorization URL using the configured OIDC client. */
-  getOidcRedirectUrl: Scalars['String']['output'];
-  /** Get an access token using the configured OIDC client. */
-  getOidcToken: OidcTokenOutput;
+  getOidcRedirectUrl: OidcAuthorizationResponse;
   /** Get a presigned URL (valid for 90 minutes) for a given key. */
   getPresignedS3Url: Scalars['String']['output'];
   /** Fetch translation for a given media item. */
@@ -2482,11 +2492,6 @@ export type QueryRootFilterPresetsArgs = {
 
 export type QueryRootGenreDetailsArgs = {
   input: GenreDetailsInput;
-};
-
-
-export type QueryRootGetOidcTokenArgs = {
-  code: Scalars['String']['input'];
 };
 
 
@@ -4228,10 +4233,21 @@ export type GenerateLogDownloadUrlMutationVariables = Exact<{ [key: string]: nev
 
 export type GenerateLogDownloadUrlMutation = { generateLogDownloadUrl: string };
 
+export type CompleteOidcLoginMutationVariables = Exact<{
+  input: CompleteOidcLoginInput;
+}>;
+
+
+export type CompleteOidcLoginMutation = { completeOidcLogin:
+    | { __typename: 'ApiKeyResponse', apiKey: string }
+    | { __typename: 'LoginError', error: LoginErrorVariant }
+    | { __typename: 'StringIdObject', id: string }
+   };
+
 export type GetOidcRedirectUrlQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type GetOidcRedirectUrlQuery = { getOidcRedirectUrl: string };
+export type GetOidcRedirectUrlQuery = { getOidcRedirectUrl: { authorizationUrl: string, browserToken: string } };
 
 export type UserByOidcIssuerIdQueryVariables = Exact<{
   oidcIssuerId: Scalars['String']['input'];
@@ -4239,13 +4255,6 @@ export type UserByOidcIssuerIdQueryVariables = Exact<{
 
 
 export type UserByOidcIssuerIdQuery = { userByOidcIssuerId?: string | null };
-
-export type GetOidcTokenQueryVariables = Exact<{
-  code: Scalars['String']['input'];
-}>;
-
-
-export type GetOidcTokenQuery = { getOidcToken: { email: string, subject: string } };
 
 export type GetPresignedS3UrlQueryVariables = Exact<{
   key: Scalars['String']['input'];
@@ -4677,9 +4686,9 @@ export const CreateFilterPresetDocument = {"kind":"Document","definitions":[{"ki
 export const DeleteFilterPresetDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"DeleteFilterPreset"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filterPresetId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UUID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"deleteFilterPreset"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filterPresetId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filterPresetId"}}}]}]}}]} as unknown as DocumentNode<DeleteFilterPresetMutation, DeleteFilterPresetMutationVariables>;
 export const UpdateFilterPresetLastUsedDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"UpdateFilterPresetLastUsed"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"filterPresetId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"UUID"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"updateFilterPresetLastUsed"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"filterPresetId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"filterPresetId"}}}]}]}}]} as unknown as DocumentNode<UpdateFilterPresetLastUsedMutation, UpdateFilterPresetLastUsedMutationVariables>;
 export const GenerateLogDownloadUrlDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"GenerateLogDownloadUrl"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"generateLogDownloadUrl"}}]}}]} as unknown as DocumentNode<GenerateLogDownloadUrlMutation, GenerateLogDownloadUrlMutationVariables>;
-export const GetOidcRedirectUrlDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetOidcRedirectUrl"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getOidcRedirectUrl"}}]}}]} as unknown as DocumentNode<GetOidcRedirectUrlQuery, GetOidcRedirectUrlQueryVariables>;
+export const CompleteOidcLoginDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"mutation","name":{"kind":"Name","value":"CompleteOidcLogin"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"input"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"CompleteOidcLoginInput"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"completeOidcLogin"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"input"},"value":{"kind":"Variable","name":{"kind":"Name","value":"input"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"__typename"}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"ApiKeyResponse"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"apiKey"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"LoginError"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"error"}}]}},{"kind":"InlineFragment","typeCondition":{"kind":"NamedType","name":{"kind":"Name","value":"StringIdObject"}},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}}]}}]}}]}}]} as unknown as DocumentNode<CompleteOidcLoginMutation, CompleteOidcLoginMutationVariables>;
+export const GetOidcRedirectUrlDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetOidcRedirectUrl"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getOidcRedirectUrl"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"authorizationUrl"}},{"kind":"Field","name":{"kind":"Name","value":"browserToken"}}]}}]}}]} as unknown as DocumentNode<GetOidcRedirectUrlQuery, GetOidcRedirectUrlQueryVariables>;
 export const UserByOidcIssuerIdDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserByOidcIssuerId"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"oidcIssuerId"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userByOidcIssuerId"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"oidcIssuerId"},"value":{"kind":"Variable","name":{"kind":"Name","value":"oidcIssuerId"}}}]}]}}]} as unknown as DocumentNode<UserByOidcIssuerIdQuery, UserByOidcIssuerIdQueryVariables>;
-export const GetOidcTokenDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetOidcToken"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"code"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getOidcToken"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"code"},"value":{"kind":"Variable","name":{"kind":"Name","value":"code"}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"email"}},{"kind":"Field","name":{"kind":"Name","value":"subject"}}]}}]}}]} as unknown as DocumentNode<GetOidcTokenQuery, GetOidcTokenQueryVariables>;
 export const GetPresignedS3UrlDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"GetPresignedS3Url"},"variableDefinitions":[{"kind":"VariableDefinition","variable":{"kind":"Variable","name":{"kind":"Name","value":"key"}},"type":{"kind":"NonNullType","type":{"kind":"NamedType","name":{"kind":"Name","value":"String"}}}}],"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"getPresignedS3Url"},"arguments":[{"kind":"Argument","name":{"kind":"Name","value":"key"},"value":{"kind":"Variable","name":{"kind":"Name","value":"key"}}}]}]}}]} as unknown as DocumentNode<GetPresignedS3UrlQuery, GetPresignedS3UrlQueryVariables>;
 export const UserExportsDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserExports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userExports"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"url"}},{"kind":"Field","name":{"kind":"Name","value":"key"}},{"kind":"Field","name":{"kind":"Name","value":"size"}},{"kind":"Field","name":{"kind":"Name","value":"endedAt"}},{"kind":"Field","name":{"kind":"Name","value":"startedAt"}}]}}]}}]} as unknown as DocumentNode<UserExportsQuery, UserExportsQueryVariables>;
 export const UserCollectionsListDocument = {"kind":"Document","definitions":[{"kind":"OperationDefinition","operation":"query","name":{"kind":"Name","value":"UserCollectionsList"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"userCollectionsList"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"cacheId"}},{"kind":"Field","name":{"kind":"Name","value":"response"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"count"}},{"kind":"Field","name":{"kind":"Name","value":"isDefault"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"creator"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}},{"kind":"Field","name":{"kind":"Name","value":"collaborators"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"extraInformation"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"isHidden"}}]}},{"kind":"Field","name":{"kind":"Name","value":"collaborator"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"id"}},{"kind":"Field","name":{"kind":"Name","value":"name"}}]}}]}},{"kind":"Field","name":{"kind":"Name","value":"informationTemplate"},"selectionSet":{"kind":"SelectionSet","selections":[{"kind":"Field","name":{"kind":"Name","value":"lot"}},{"kind":"Field","name":{"kind":"Name","value":"name"}},{"kind":"Field","name":{"kind":"Name","value":"required"}},{"kind":"Field","name":{"kind":"Name","value":"description"}},{"kind":"Field","name":{"kind":"Name","value":"defaultValue"}},{"kind":"Field","name":{"kind":"Name","value":"possibleValues"}}]}}]}}]}}]}}]} as unknown as DocumentNode<UserCollectionsListQuery, UserCollectionsListQueryVariables>;
