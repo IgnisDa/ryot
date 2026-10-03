@@ -30,22 +30,14 @@ const identitiesFor = Effect.fn("SandboxSidecarQuarantine.identities")(function*
 			? [`system:script:${principal.scriptId}`]
 			: [`system:user:${userId}:jobs`, `system:user:${userId}:script:${principal.scriptId}`];
 	}
-	const uploader =
-		principal.pluginRevision === null
-			? principal.standaloneUploaderId
-			: principal.pluginRevision.ownerId;
-	if (uploader === undefined) {
-		return yield* new SandboxRunError({
-			kind: "resource-unavailable",
-			message: "Sandbox standalone upload has no pinned uploader identity",
-		});
+	const revision = principal.pluginRevision;
+	if (revision === null) {
+		return yield* unavailable();
 	}
-	const hashes = principal.pluginRevision
-		? Object.values(principal.pluginRevision.compiledHashes).sort()
-		: [principal.contentHash];
+	const hashes = Object.values(revision.compiledHashes).sort();
 	if (
-		uploader === null ||
-		principal.pluginRevision?.scope === "system" ||
+		revision.ownerId === null ||
+		revision.scope === "system" ||
 		!hashes.includes(principal.contentHash) ||
 		hashes.some((hash) => !hashPattern.test(hash))
 	) {
@@ -58,7 +50,7 @@ const identitiesFor = Effect.fn("SandboxSidecarQuarantine.identities")(function*
 	const content = Array.from(new Uint8Array(digest), (byte) =>
 		byte.toString(16).padStart(2, "0"),
 	).join("");
-	return [`user:uploader:${uploader}`, `user:content:${content}`];
+	return [`user:owner:${revision.ownerId}`, `user:content:${content}`];
 });
 
 export class SandboxSidecarQuarantine extends Context.Service<SandboxSidecarQuarantine>()(
