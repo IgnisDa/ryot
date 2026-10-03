@@ -598,7 +598,7 @@ const startRun = (
 	Effect.scoped(
 		Effect.gen(function* () {
 			const principal = options.principal ?? makePrincipal(runtimeImports);
-			const lease = yield* supervisor.reserve(principal, false);
+			const lease = yield* supervisor.reserve(principal, 2);
 			if (options.leaseAcquired !== undefined) {
 				yield* Deferred.succeed(options.leaseAcquired, undefined);
 			}
@@ -1357,7 +1357,7 @@ supervisorTest("global_admission_bounds_all_tiers_grants_and_recovery", () =>
 			yield* Effect.yieldNow;
 			expect(admission.snapshot()).toMatchObject({ runs: 2, waiting: 2 });
 			const overflow = yield* Effect.flip(
-				Effect.scoped(supervisor.reserve(makePrincipal([], "user-overflow"), false)),
+				Effect.scoped(supervisor.reserve(makePrincipal([], "user-overflow"), 2)),
 			);
 			expect(overflow.kind).toBe("resource-unavailable");
 			expect(overflow.message).toBe("Sandbox ephemeral admission queue is full");
