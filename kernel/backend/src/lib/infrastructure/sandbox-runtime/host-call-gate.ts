@@ -1,5 +1,4 @@
 import { isJsonValue } from "@ryot-app/contract/schema/json";
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { hostFailure, jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import {
 	workflowDurableResultSchema,
@@ -25,6 +24,7 @@ import { Base64 } from "effect/encoding";
 import { recordSandboxHostCall, sandboxMetricHostFunction } from "../runtime-metrics";
 import { isSandboxCapability } from "./capability-policy";
 import type { SandboxFileAccess } from "./file-service";
+import { encodedJsonBytes } from "./json-bytes";
 import { consumeSandboxHostCall, SANDBOX_LIMITS } from "./limits";
 import { isSandboxCapabilityAllowed, type BoundHostFunction, type SandboxRunInput } from "./shared";
 import {
@@ -32,7 +32,6 @@ import {
 	InlineBatchSchema,
 	journalReadArgsSchema,
 	scratchWriteArgsSchema,
-	SIDECAR_PROTOCOL_LIMITS,
 	type SandboxInvocationSchema,
 	type SidecarHostCallFrame,
 	type SidecarHostResultFrame,
@@ -69,13 +68,15 @@ const decodeJournalPrefixEntry = Schema.decodeUnknownEffect(
 );
 const decodeJournalReadArgs = Schema.decodeUnknownOption(journalReadArgsSchema, strictOptions);
 const decodeInlineBatch = Schema.decodeUnknownOption(InlineBatchSchema, strictOptions);
-const decodeHostCallArgs = Schema.decodeUnknownOption(Schema.Array(jsonValueSchema), strictOptions);
+export const decodeHostCallArgs = Schema.decodeUnknownOption(
+	Schema.Array(jsonValueSchema),
+	strictOptions,
+);
 const decodeArtifactReadRangeArgs = Schema.decodeUnknownOption(
 	artifactReadRangeArgsSchema,
 	strictOptions,
 );
 const decodeScratchWriteArgs = Schema.decodeUnknownOption(scratchWriteArgsSchema, strictOptions);
-const decodeSidecarJson = Schema.decodeUnknownOption(Schema.Json, strictOptions);
 const decodeArgsJson = Schema.decodeUnknownOption(
 	Schema.fromJsonString(Schema.Json),
 	strictOptions,
@@ -85,7 +86,7 @@ const decoder = new TextDecoder("utf-8", { fatal: true });
 const encodeJsonBytes = (value: unknown) => encoder.encode(encodeUnknownJson(value));
 const failureMessage = "Sandbox host call failed";
 
-const decodeFrameArgs = (encoded: string) => {
+export const decodeFrameArgs = (encoded: string) => {
 	const bytes = Base64.decode(encoded);
 	if (bytes._tag === "Failure") {
 		return Option.none();
@@ -180,16 +181,8 @@ const encodeJournalPrefix = Effect.fnUntraced(function* (
 	};
 });
 
-const serializedJson = (value: unknown) => {
-	if (!isJsonValue(value)) {
-		return undefined;
-	}
-	try {
-		return encodeUnknownJson(value);
-	} catch {
-		return undefined;
-	}
-};
+const jsonBytesWithin = (value: unknown, limit: number) =>
+	isJsonValue(value) && encodedJsonBytes(value, limit) <= limit;
 
 const safeHostFailure = (error: unknown) => {
 	if (error instanceof Schema.SchemaError || typeof error !== "object" || error === null) {
@@ -201,11 +194,6 @@ const safeHostFailure = (error: unknown) => {
 	}
 	const data = Reflect.get(error, "data");
 	return isJsonValue(data) ? hostFailure(message, data) : hostFailure(message);
-};
-
-const resultBytes = (frame: SidecarHostResultFrameType) => {
-	const encoded = serializedJson(frame);
-	return encoded === undefined ? Number.POSITIVE_INFINITY : utf8ByteLength(encoded);
 };
 
 const resultFrame = (
@@ -223,34 +211,24 @@ const hostResultFrame = (
 	frame: SidecarHostCallFrameType,
 	value: unknown,
 ): SidecarHostResultFrameType => {
-	const serialized = serializedJson(value);
-	if (
-		serialized === undefined ||
-		utf8ByteLength(serialized) > SANDBOX_LIMITS.bridge.responseBytes
-	) {
-		return resultFrame(frame, {
-			status: "success",
-			value: hostFailure(
-				serialized === undefined
-					? "Sandbox host result is not valid JSON"
-					: `Sandbox bridge response exceeds ${SANDBOX_LIMITS.bridge.responseBytes} UTF-8 bytes`,
-			),
-		});
-	}
-	const jsonValue = decodeSidecarJson(value);
-	if (Option.isNone(jsonValue)) {
+	if (!isJsonValue(value)) {
 		return resultFrame(frame, {
 			status: "success",
 			value: hostFailure("Sandbox host result is not valid JSON"),
 		});
 	}
-	const result = resultFrame(frame, { status: "success", value: jsonValue.value });
-	return resultBytes(result) <= SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult
-		? result
-		: resultFrame(frame, {
-				status: "success",
-				value: hostFailure("Sandbox host result exceeds the sidecar protocol limit"),
-			});
+	if (
+		encodedJsonBytes(value, SANDBOX_LIMITS.bridge.responseBytes) >
+		SANDBOX_LIMITS.bridge.responseBytes
+	) {
+		return resultFrame(frame, {
+			status: "success",
+			value: hostFailure(
+				`Sandbox bridge response exceeds ${SANDBOX_LIMITS.bridge.responseBytes} UTF-8 bytes`,
+			),
+		});
+	}
+	return resultFrame(frame, { value, status: "success" });
 };
 
 const frameFailure = (
@@ -496,10 +474,8 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						if (!input || !inline) {
 							return hostResultFrame(frame, { defer: true });
 						}
-						const inlineJson = serializedJson({ inline: decoded.value });
 						if (
-							inlineJson === undefined ||
-							utf8ByteLength(`${inlineJson}\n`) > SANDBOX_LIMITS.bridge.requestBytes
+							!jsonBytesWithin({ inline: decoded.value }, SANDBOX_LIMITS.bridge.requestBytes - 1)
 						) {
 							return hostResultFrame(frame, { defer: true });
 						}
@@ -562,22 +538,13 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							return hostResultFrame(frame, { defer: true });
 						}
 						const inlineReply = { results: canonicalResults };
-						const resultsJson = serializedJson(inlineReply);
 						if (
-							resultsJson === undefined ||
-							utf8ByteLength(resultsJson) > SANDBOX_LIMITS.bridge.responseBytes
+							!isJsonValue(inlineReply) ||
+							!jsonBytesWithin(inlineReply, SANDBOX_LIMITS.bridge.responseBytes)
 						) {
 							return hostResultFrame(frame, { defer: true });
 						}
-
-						const replyValue = decodeSidecarJson(inlineReply);
-						if (Option.isNone(replyValue)) {
-							return hostResultFrame(frame, { defer: true });
-						}
-						const totalResult = resultFrame(frame, { status: "success", value: replyValue.value });
-						if (resultBytes(totalResult) > SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult) {
-							return hostResultFrame(frame, { defer: true });
-						}
+						const totalResult = resultFrame(frame, { status: "success", value: inlineReply });
 
 						const encodedEntries: Uint8Array[] = [];
 						const deferAndClear = () => {
@@ -630,11 +597,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							return frameFailure(frame, "Sandbox host call arguments are invalid");
 						}
 						const parsed = decodedArgs.value;
-						const serializedArgs = serializedJson({ args: parsed });
-						if (
-							serializedArgs === undefined ||
-							utf8ByteLength(serializedArgs) > SANDBOX_LIMITS.bridge.requestBytes
-						) {
+						if (!jsonBytesWithin({ args: parsed }, SANDBOX_LIMITS.bridge.requestBytes)) {
 							return frameFailure(
 								frame,
 								`Sandbox bridge request exceeds ${SANDBOX_LIMITS.bridge.requestBytes} UTF-8 bytes`,

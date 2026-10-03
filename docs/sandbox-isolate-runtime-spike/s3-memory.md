@@ -44,8 +44,10 @@ or encoded retention.
 - Every term is a reachable-bytes upper bound for the worst legal input: strings at 2 bytes/char,
   byte arrays at length, JSON text at its escaped length, decoded untrusted graphs at a calibrated
   factor `k` per JSON byte covering the whole decode path (every copy from text to the host-function
-  call or to the decoded done response), never JSON.parse alone. Initial working value k = 24; the
-  calibration test fixes it.
+  call or to the decoded done response), never JSON.parse alone. The backend runs on Bun, so `k` is
+  measured in JavaScriptCore: `json_graph_factor_bounds_pathological_decode_paths` decodes 1 MiB
+  pathological argument shapes in a fresh process and measures at most 26.7 (arrays of empty arrays
+  or objects). The contract uses k = 27.
 - Escaped length is computed by a non-allocating walk before any serialization, aborting at the cap.
   The existing caps keep their meaning (they are already measured on serialized UTF-8).
 - Unreachable memory counts as released (GC timing not modelled). Reservations are admission bounds;
@@ -75,8 +77,10 @@ or encoded retention.
 3. Host results: escaped-length walk → reject over cap without allocating → serialize the result frame
    once to UTF-8 bytes (no Schema.Json copy, no re-serialization) → drop the value. The writer keeps
    payload bytes and base64-encodes one part at flush time; writes use `subarray`, not `slice`.
-4. `retire(handle)` purges unstarted host-result messages; an in-progress chunked message completes
-   (never abandons a Rust assembly) and its completion is observable.
+4. `retire(handle)` purges unstarted messages for the handle. A started host result completes; a
+   started run stops after its current part, and the cancel that always precedes that retirement makes
+   the sidecar discard the handle's partial assemblies, so no assembly is abandoned. The completion
+   signal that releases a transient permit lands with the pool in M-S2.
 5. Rust delivers a host result with one native copy: the assembled buffer becomes the V8-bound string
    (borrowed `RawValue` validation).
 6. Rust measures the done string's UTF-8 length without allocating (V8 UTF-8 length) and rejects it above
@@ -121,7 +125,7 @@ after the result's last frame is written or purged.
 | Declared small units       | per capability | `log`, `span`, cache (≤256 KiB), scratch (≤256 KiB), artifact slice (≤1 MiB)                                                                                                                                                                                             |
 
 Dependence on k (M1): E does not depend on k (args graphs are charged in permits). H(k) = k + 56 and
-I(k) = k + 145 (rounded: H = 80, I = 170 at k = 24–25). The approved contract allows k ≤ 40; §8 shows
+I(k) = k + 145 (H = 83, I = 172 at the measured k = 27). The approved contract allows k ≤ 40; §8 shows
 the canonical arithmetic for that range. If calibration yields k > 40, M-S1 stops and returns recomputed
 arithmetic for re-approval before M-S2 starts.
 
@@ -139,8 +143,8 @@ shrinks to 3 × actual encoded evidence (retained bytes, done-time text, queue-r
 which stays charged to the same lane partition until the queue result is returned. The handoff never
 needs new capacity after side effects, so it cannot fail. Accumulated evidence reduces the room for the
 next batch's I; once it does not fit, later batches defer before settlement. Legal inline evidence held
-at once per background run is therefore (P_bg − I) / 3; at 1,904 and k = 24 that is (236 − 170) / 3 =
-22 MiB. Interactive runs in lane mode (P_int = H < I) never settle inline; their batches defer. The queue result carries inline entries as encoded
+at once per background run is therefore (P_bg − I) / 3; at 1,904 and k = 27 that is (233 − 172) / 3 ≈
+20 MiB. Interactive runs in lane mode (P_int = H < I) never settle inline; their batches defer. The queue result carries inline entries as encoded
 JSON text; the workflow body decodes them as before (accepted residual).
 
 ### 5.4 Processes and per-connection transport
@@ -215,19 +219,19 @@ sum of those holdings.
   The S3 latency guarantee is claimed only in lane mode.
 - Typed boot failure below 256 + I + E + 128.
 
-At k = 24 (H 80, I 170, E 538):
+At k = 27 (H 83, I 172, E 538):
 
 |            Budget | Mode                   |                          D | Outcomes (every admitted state ≤ budget)                                                                                                                              |
 | ----------------: | ---------------------- | -------------------------: | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|               964 | boot failure (< 1,092) |                          — | typed configuration error                                                                                                                                             |
-|             1,092 | shared                 |                        666 | one run with a lazy process, or one run on a resident core; never two                                                                                                 |
-|   1,536 (default) | shared                 |                      1,110 | two runs on resident cores (1,076); one lazy-process run plus a core run does not fit (1,204), so it waits; no interactive reservation                                |
-|             1,710 | shared                 |                      1,284 | two core runs, or one lazy + one core run (1,204); two lazy runs (1,332) wait                                                                                         |
-|             1,838 | lane                   | 1,332 (P_int 80, P_bg 170) | background run with lazy (666) plus interactive headroom (666) always held; inline evidence capacity 0 (each batch's evidence must be released before the next batch) |
-| 1,904 (canonical) | lane                   | 1,332 (P_int 80, P_bg 236) | as 1,838, with 22 MiB of concurrent inline evidence                                                                                                                   |
+|               964 | boot failure (< 1,094) |                          — | typed configuration error                                                                                                                                             |
+|             1,094 | shared                 |                        666 | one run with a lazy process, or one run on a resident core; never two                                                                                                 |
+|   1,536 (default) | shared                 |                      1,108 | two runs on resident cores (1,076); one lazy-process run plus a core run does not fit (1,204), so it waits; no interactive reservation                                |
+|             1,710 | shared                 |                      1,282 | two core runs, or one lazy + one core run (1,204); two lazy runs (1,332) wait                                                                                         |
+|             1,843 | lane                   | 1,332 (P_int 83, P_bg 172) | background run with lazy (666) plus interactive headroom (666) always held; inline evidence capacity 0 (each batch's evidence must be released before the next batch) |
+| 1,904 (canonical) | lane                   | 1,332 (P_int 83, P_bg 233) | as 1,843, with 20 MiB of concurrent inline evidence                                                                                                                   |
 
-As functions of k (k ≤ 40 allowed): lane threshold = 1,789 + 2k (1,837 at k = 24, 1,869 at k = 40);
-canonical P_bg = 260 − k; canonical evidence capacity = (115 − 2k) / 3 MiB (22 at k = 24, 11 at k = 40).
+As functions of k (k ≤ 40 allowed): lane threshold = 1,789 + 2k (1,843 at k = 27, 1,869 at k = 40);
+canonical P_bg = 260 − k; canonical evidence capacity = (115 − 2k) / 3 MiB (20 at k = 27, 11 at k = 40).
 Lane mode at 1,904 holds for all k ≤ 57; the k ≤ 40 ceiling keeps at least 11 MiB of inline evidence.
 
 Shared mode remains a lower-throughput configuration under honest accounting: at the 1,536 default, two
@@ -282,7 +286,7 @@ Order: L0 durable worker slot → L1 admission ticket (slot + E + process) → L
 | `k` calibration over pathological shapes across the whole decode path (forced-GC heap measurement in a dedicated test); asserts calibrated k ≤ 40                                                                                                                                                                                              | `json_graph_factor_bounds_pathological_decode_paths`                                                    |
 | Done decoded only after isolate drop; per-handle bounds; honest maximum concurrency under cancellation does not trip them                                                                                                                                                                                                                      | `done_decode_reuses_disposed_isolate_reservation`, `per_handle_bounds_admit_honest_maximum_concurrency` |
 | Rust single-copy delivery; assemblies stay below `ASSEMBLY_BYTES` with lane pools                                                                                                                                                                                                                                                              | `host_result_delivery_keeps_one_native_copy`, `lane_pools_keep_rust_assemblies_within_connection_bound` |
-| Writer purges unstarted results on retire and reports completion                                                                                                                                                                                                                                                                               | `writer_retire_purges_unstarted_results`                                                                |
+| Writer purges unstarted results on retire; cancel discards partial run assemblies                                                                                                                                                                                                                                                              | `writer_retire_purges_unstarted_results`, `cancel_discards_partial_run_assemblies` (Rust)               |
 | Heap headroom included in backend, Rust budget and `maxRss`; boot rejects mismatch                                                                                                                                                                                                                                                             | `isolate_reservation_includes_near_heap_limit_headroom`                                                 |
 | Idle lazy reclaim; background starts never consume the interactive headroom                                                                                                                                                                                                                                                                    | `lazy_processes_preserve_interactive_headroom`                                                          |
 | Lock order                                                                                                                                                                                                                                                                                                                                     | `memory_lock_order_prevents_admission_deadlock`                                                         |
@@ -292,7 +296,7 @@ Order: L0 durable worker slot → L1 admission ticket (slot + E + process) → L
 | Evidence accumulates in the lane partition; the next batch defers before settlement once I no longer fits                                                                                                                                                                                                                                      | `inline_evidence_exhaustion_defers_before_settlement`                                                   |
 | Rust done text: 6 Mi BMP 3-byte characters and lone surrogates rejected or held within the 6 MiB term before drop                                                                                                                                                                                                                              | `done_text_is_measured_before_materialization` (Rust)                                                   |
 | Rust delivery with 4 parked slotted results plus an inline reply stays within the 60 MiB term                                                                                                                                                                                                                                                  | `parked_results_and_inline_reply_fit_delivery_term` (Rust)                                              |
-| Boot mode and predicate at budgets 964, 1,092, 1,536, 1,710, 1,838, 1,904 match §8, including two core-process runs at 1,536 and a waiting lazy-plus-core pair; background work is admitted and completes in shared mode                                                                                                                       | `admission_mode_follows_budget_and_admits_background_work`                                              |
+| Boot mode and predicate at budgets 964, 1,094, 1,536, 1,710, 1,843, 1,904 match §8, including two core-process runs at 1,536 and a waiting lazy-plus-core pair; background work is admitted and completes in shared mode                                                                                                                       | `admission_mode_follows_budget_and_admits_background_work`                                              |
 | Interactive permit acquisition, host call, journal read and result delivery complete while background holds all of P_bg, an inline settlement is in progress and maximum background results are queued on the same connection; fails if interactive permits come from P_bg or wait behind background writer traffic beyond one frame per round | `interactive_host_calls_progress_while_background_transient_capacity_is_exhausted`                      |
 
 Plus `bun run check`, `bun turbo --filter='!@ryot-app/e2e' test`, affected e2e files (`enqueue`,
