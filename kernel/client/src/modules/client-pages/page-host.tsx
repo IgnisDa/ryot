@@ -4,6 +4,7 @@ import { RyotClientError } from "@ryot-app/client-sdk";
 import { useRyot } from "@ryot-app/client-sdk/react";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router";
 import { Effect, Match } from "effect";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -365,7 +366,8 @@ export function ClientPageDocumentHost() {
 			{activeEntry ? (
 				<ClientPageTitle title={publishedTitle ?? activeEntry.document.title} />
 			) : null}
-			{[...entries.values()].map((frameEntry) => {
+			{/* Moving an iframe in the DOM reloads it, so surviving frames keep a fixed order. */}
+			{sortBy([...entries.values()], (frameEntry) => frameEntry.key).map((frameEntry) => {
 				const active = frameEntry.key === displayedKey;
 				return (
 					<div
