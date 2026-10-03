@@ -15,7 +15,7 @@ const identitySchema = Schema.Array(Schema.String.check(Schema.isNonEmpty())).ch
 );
 const decodeIdentities = Schema.decodeUnknownEffect(identitySchema);
 
-export const PROBATION_LEASE_MS = 330_000;
+const PROBATION_LEASE_MS = 330_000;
 export const CRASH_WINDOW_MS = 600_000;
 export const QUARANTINE_MS = 3_600_000;
 const CRASH_STRIKE_LIMIT = 3;
