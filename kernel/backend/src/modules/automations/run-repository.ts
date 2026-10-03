@@ -13,7 +13,19 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { and, asc, eq, inArray, isNotNull, isNull, lte, notInArray, or, sql } from "drizzle-orm";
+import {
+	and,
+	asc,
+	eq,
+	gt,
+	inArray,
+	isNotNull,
+	isNull,
+	lte,
+	notInArray,
+	or,
+	sql,
+} from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { automationRun as table } from "#lib/infrastructure/db/schema/tables/automations";
@@ -239,11 +251,16 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				);
 				return yield* Effect.forEach(rows, decodeRow);
 			});
-			const listQueuedCandidates = Effect.fn(function* (input: { now: Date; limit: number }) {
+			const listQueuedCandidates = Effect.fn(function* (input: {
+				now: Date;
+				limit: number;
+				initialQueuedBefore: Date;
+			}) {
 				if (
 					!Number.isSafeInteger(input.limit) ||
 					input.limit < 1 ||
-					!Number.isFinite(input.now.getTime())
+					!Number.isFinite(input.now.getTime()) ||
+					!Number.isFinite(input.initialQueuedBefore.getTime())
 				) {
 					return yield* new DbError({
 						message: "Queued candidate query requires a valid time and positive integer limit",
@@ -259,6 +276,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 								eq(table.stage, "after"),
 								lte(table.queuedAt, input.now),
 								or(isNull(table.nextAttemptAt), lte(table.nextAttemptAt, input.now)),
+								or(gt(table.attemptCount, 0), lte(table.queuedAt, input.initialQueuedBefore)),
 							),
 						)
 						.orderBy(asc(table.queuedAt), asc(table.id))
