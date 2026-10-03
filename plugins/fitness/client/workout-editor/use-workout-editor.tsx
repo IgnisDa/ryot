@@ -9,11 +9,7 @@ import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import {
-	WorkoutEditorContextOutputSchema,
-	WorkoutEditorContextInputSchema,
-	workoutEditorContextOperationSlug,
-} from "../../shared/workout-editor-context-operations";
+import { invokeWorkoutEditorContext } from "./context-query";
 import { createWorkoutEditorController } from "./controller";
 import { createWorkoutEditorSounds } from "./sounds";
 
@@ -57,6 +53,7 @@ const createEditorSession = (
 		now: Effect.sync(() => schedule.now()),
 		device: (request) => client.device(request),
 		cleanup: (asset) => client.uploads.cleanup(asset),
+		refreshContext: invokeWorkoutEditorContext(client),
 		foreground: () => document.visibilityState === "visible",
 		upload: (request) => client.uploads.uploadPermanent(request),
 		storage: {
@@ -64,14 +61,6 @@ const createEditorSession = (
 			remove: client.storage.remove(pluginId, DRAFT_STORAGE_KEY),
 			write: (value) => client.storage.set(pluginId, DRAFT_STORAGE_KEY, value),
 		},
-		refreshContext: client.operations.invoke({
-			input: {},
-			refreshOnSuccess: false,
-			packageId: PLUGIN_PACKAGE_ID,
-			slug: workoutEditorContextOperationSlug,
-			output: WorkoutEditorContextOutputSchema,
-			inputSchema: WorkoutEditorContextInputSchema,
-		}),
 	});
 	const synchronizeAwake = () =>
 		schedule.run(

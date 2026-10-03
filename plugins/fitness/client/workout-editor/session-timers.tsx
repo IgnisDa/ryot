@@ -5,31 +5,24 @@ import clsx from "clsx";
 import { useEffect, useState } from "react";
 
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
+import { formatEditorSeconds } from "./clock";
+import type { DraftChange } from "./draft-ops";
 import {
-	pauseExecution,
-	pauseRest,
-	pauseStopwatch,
-	pauseWorkout,
+	activeDurationSeconds,
+	pauseCountdown,
+	remainingSeconds,
 	resetStopwatch,
-	resumeExecution,
-	resumeRest,
-	resumeStopwatch,
-	resumeWorkout,
+	resumeCountdown,
+	shiftCountdown,
+	stopwatchSeconds,
+	toggleStopwatch,
+	toggleWorkoutPause,
 } from "./timers";
 
 type Countdown = NonNullable<WorkoutEditorDraft["restCountdown"]>;
 type CountdownKey = "executionCountdown" | "restCountdown";
-type DraftChange = (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => void;
 
 type NextSet = { readonly setId: string; readonly name: string; readonly number: number };
-
-export const formatEditorSeconds = (seconds: number) => {
-	const whole = Math.max(0, Math.floor(seconds));
-	const hours = Math.floor(whole / 3600);
-	const minutes = Math.floor((whole % 3600) / 60);
-	const rest = String(whole % 60).padStart(2, "0");
-	return hours > 0 ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
-};
 
 export const useEditorNow = (running: boolean) => {
 	const schedule = useRyotSchedule();
@@ -47,48 +40,6 @@ export const useEditorNow = (running: boolean) => {
 		return () => cancel();
 	}, [running, schedule]);
 	return now;
-};
-
-export const activeDurationSeconds = (draft: WorkoutEditorDraft, now: number) =>
-	draft.activeDuration === undefined
-		? undefined
-		: draft.activeDuration +
-			(draft.activeDurationStartedAt === undefined
-				? 0
-				: Math.max(0, (now - Date.parse(draft.activeDurationStartedAt)) / 1000));
-
-export const stopwatchSeconds = (draft: WorkoutEditorDraft, now: number) =>
-	(draft.pausedStopwatchSeconds ?? 0) +
-	(draft.stopwatchStartedAt === undefined
-		? 0
-		: Math.max(0, (now - Date.parse(draft.stopwatchStartedAt)) / 1000));
-
-const remainingSeconds = (countdown: Countdown, now: number) =>
-	Math.max(0, countdown.pausedRemainingSeconds ?? (Date.parse(countdown.deadline) - now) / 1000);
-
-export const shiftCountdown = (
-	draft: WorkoutEditorDraft,
-	key: CountdownKey,
-	clientId: string,
-	seconds: number,
-	now: number,
-): WorkoutEditorDraft => {
-	const current = draft[key];
-	if (current === undefined || current.clientId !== clientId) {
-		return draft;
-	}
-	return {
-		...draft,
-		[key]: {
-			...current,
-			deadline: new Date(
-				Math.max(now, Date.parse(current.deadline) + seconds * 1000),
-			).toISOString(),
-			...(current.pausedRemainingSeconds === undefined
-				? {}
-				: { pausedRemainingSeconds: Math.max(0, current.pausedRemainingSeconds + seconds) }),
-		},
-	};
 };
 
 const timeClass = (dock: boolean) =>
@@ -114,9 +65,11 @@ function CountdownBlock(props: {
 	const toggle = () =>
 		onChange(
 			(draft) =>
-				(rest
-					? (paused ? resumeRest : pauseRest)(draft, schedule.now(), countdown.clientId)
-					: (paused ? resumeExecution : pauseExecution)(draft, schedule.now(), countdown.clientId)
+				(paused ? resumeCountdown : pauseCountdown)(
+					draft,
+					props.kind,
+					schedule.now(),
+					countdown.clientId,
 				).draft,
 		);
 	const shift = (seconds: number) =>
@@ -166,6 +119,7 @@ function CountdownBlock(props: {
 				max={total}
 				value={total - remaining}
 				tone={rest ? "accent" : "info"}
+				fillClassName="duration-1000 ease-linear"
 				label={rest ? "Rest progress" : "Set timer progress"}
 			/>
 			<div className={clsx("flex flex-wrap items-center gap-1.5", props.dock && "*:flex-1")}>
@@ -231,15 +185,7 @@ function StopwatchControls(props: {
 				tone="filled"
 				disabled={props.disabled}
 				label={running ? "Pause stopwatch" : "Start stopwatch"}
-				onClick={() =>
-					props.onChange(
-						(draft) =>
-							(draft.stopwatchStartedAt === undefined
-								? resumeStopwatch(draft, schedule.now())
-								: pauseStopwatch(draft, schedule.now())
-							).draft,
-					)
-				}
+				onClick={() => props.onChange((draft) => toggleStopwatch(draft, schedule.now()).draft)}
 			>
 				<AppIcon size={18} name={running ? "pause" : "play"} />
 			</IconButton>
@@ -364,17 +310,9 @@ export function DockTimers(
 					<button
 						type="button"
 						disabled={props.disabled}
+						onClick={() => props.onChange((draft) => toggleStopwatch(draft, schedule.now()).draft)}
 						aria-label={`${running ? "Pause" : "Resume"} stopwatch ${formatEditorSeconds(stopwatch)}`}
 						className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border border-border-emphasis bg-surface px-3 text-[13px] font-medium tabular-nums pointer-coarse:h-10"
-						onClick={() =>
-							props.onChange(
-								(draft) =>
-									(draft.stopwatchStartedAt === undefined
-										? resumeStopwatch(draft, schedule.now())
-										: pauseStopwatch(draft, schedule.now())
-									).draft,
-							)
-						}
 					>
 						<AppIcon size={14} name={running ? "pause" : "timer"} />
 						{formatEditorSeconds(stopwatch)}
@@ -435,15 +373,7 @@ export function RailTimers(props: TimerProps & { readonly startedAt: string | un
 					size="sm"
 					variant="secondary"
 					disabled={props.disabled}
-					onClick={() =>
-						props.onChange(
-							(current) =>
-								(current.activeDurationStartedAt === undefined
-									? resumeWorkout(current, schedule.now())
-									: pauseWorkout(current, schedule.now())
-								).draft,
-						)
-					}
+					onClick={() => props.onChange((draft) => toggleWorkoutPause(draft, schedule.now()).draft)}
 				>
 					<AppIcon size={14} name={paused ? "play" : "pause"} />
 					{paused ? "Resume workout" : "Pause workout"}

@@ -1,22 +1,18 @@
-import { Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 import { assert, describe, expect, it } from "vitest";
 
-import {
-	WorkoutEditorDraftSchema,
-	type WorkoutEditorDraft,
-} from "../../shared/workout-editor-draft";
+import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
+import { exerciseOccurrence, liveDraft, startTime } from "../../tests/client/draft-fixtures";
 import {
 	confirmSet,
 	invalidateWorkoutCountdowns,
-	pauseExecution,
-	pauseRest,
+	pauseCountdown,
 	pauseWorkout,
 	pauseStopwatch,
 	reconcileWorkoutTimers,
-	resumeExecution,
-	resumeRest,
+	resumeCountdown,
 	resumeWorkout,
+	shiftCountdown,
 	resumeStopwatch,
 	resetStopwatch,
 	startExecution,
@@ -24,45 +20,11 @@ import {
 	unconfirmSet,
 } from "./timers";
 
-const startTime = "2026-10-15T10:00:00.000Z";
 const now = Date.parse(startTime);
 
 const draft = (overrides: Partial<WorkoutEditorDraft> = {}) =>
-	Schema.decodeSync(WorkoutEditorDraftSchema)({
-		images: [],
-		videos: [],
-		supersets: [],
-		name: "Session",
-		activeDuration: 0,
-		draftId: "draft-1",
-		startedAt: startTime,
-		mode: { kind: "live" },
-		displayEnergyUnit: "kcal",
-		activeDurationIntent: "set",
-		kind: "fitness-workout-editor",
-		activeDurationStartedAt: startTime,
-		occurrences: [
-			{
-				notes: [],
-				images: [],
-				videos: [],
-				isCollapsed: false,
-				clientId: "occurrence-1",
-				exerciseId: "exercise-1",
-				exerciseKind: "reps_and_duration",
-				sets: [
-					{
-						reps: "0",
-						duration: "2",
-						included: false,
-						setLot: "normal",
-						clientId: "set-1",
-						exerciseKind: "reps_and_duration",
-						restChoice: { kind: "inherited" },
-					},
-				],
-			},
-		],
+	liveDraft({
+		occurrences: [exerciseOccurrence("reps_and_duration", { reps: "0", duration: "2" })],
 		...overrides,
 	});
 
@@ -104,8 +66,9 @@ describe("workout editor timers", () => {
 		};
 		expect(targetSet(confirmSet(zero, "occurrence-1", "set-1", now).draft).included).toBe(true);
 		expect(
-			confirmSet(draft({ mode: { kind: "template-create" } }), "occurrence-1", "set-1", now).kind,
-		).toBe("invalid");
+			confirmSet(draft({ mode: { kind: "template-create" } }), "occurrence-1", "set-1", now)
+				.changed,
+		).toBe(false);
 	});
 
 	it("keeps the stopwatch independent of workout pauses", () => {
@@ -119,10 +82,7 @@ describe("workout editor timers", () => {
 	});
 	it("converts the displayed duration, accepts zero measurements, and rejects an empty duration", () => {
 		const minutes = startExecution(draft(), "occurrence-1", "set-1", now, "execution-1");
-		expect(minutes.kind).toBe("changed");
-		if (minutes.kind !== "changed") {
-			return;
-		}
+		expect(minutes.changed).toBe(true);
 		expect(minutes.draft.executionCountdown).toMatchObject({
 			durationSeconds: 120,
 			clientId: "execution-1",
@@ -143,10 +103,7 @@ describe("workout editor timers", () => {
 			now,
 			"execution-2",
 		);
-		expect(seconds.kind).toBe("changed");
-		if (seconds.kind === "changed") {
-			expect(seconds.draft.executionCountdown?.durationSeconds).toBe(2);
-		}
+		expect(seconds.draft.executionCountdown?.durationSeconds).toBe(2);
 		const invalid = startExecution(
 			draft({
 				occurrences: [
@@ -158,23 +115,36 @@ describe("workout editor timers", () => {
 			now,
 			"execution-3",
 		);
-		expect(invalid.kind).toBe("invalid");
+		expect(invalid.changed).toBe(false);
 	});
 
 	it("pauses and resumes each timer with its remaining time and ignores stale timer identities", () => {
 		const execution = startExecution(draft(), "occurrence-1", "set-1", now, "execution-1");
-		expect(execution.kind).toBe("changed");
-		if (execution.kind !== "changed") {
-			return;
-		}
-		const paused = pauseExecution(execution.draft, now + 30_000, "execution-1");
-		expect(pauseExecution(execution.draft, now + 300_000).draft.executionCountdown?.deadline).toBe(
-			"2026-10-15T10:02:00.000Z",
+		expect(execution.changed).toBe(true);
+		const paused = pauseCountdown(
+			execution.draft,
+			"executionCountdown",
+			now + 30_000,
+			"execution-1",
 		);
+		expect(
+			pauseCountdown(execution.draft, "executionCountdown", now + 300_000).draft.executionCountdown
+				?.deadline,
+		).toBe("2026-10-15T10:02:00.000Z");
 		expect(paused.draft.executionCountdown?.pausedRemainingSeconds).toBe(90);
-		const staleResume = resumeExecution(paused.draft, now + 60_000, "execution-old");
+		const staleResume = resumeCountdown(
+			paused.draft,
+			"executionCountdown",
+			now + 60_000,
+			"execution-old",
+		);
 		expect(staleResume.changed).toBe(false);
-		const resumed = resumeExecution(paused.draft, now + 60_000, "execution-1");
+		const resumed = resumeCountdown(
+			paused.draft,
+			"executionCountdown",
+			now + 60_000,
+			"execution-1",
+		);
 		expect(resumed.draft.executionCountdown).toMatchObject({
 			clientId: "execution-1",
 			deadline: "2026-10-15T10:02:30.000Z",
@@ -187,19 +157,16 @@ describe("workout editor timers", () => {
 			now,
 			"rest-1",
 		);
-		expect(resting.kind).toBe("changed");
-		const restPause = pauseRest(resting.draft, now + 5_000, "rest-1");
+		expect(resting.changed).toBe(true);
+		const restPause = pauseCountdown(resting.draft, "restCountdown", now + 5_000, "rest-1");
 		expect(restPause.draft.restCountdown?.pausedRemainingSeconds).toBe(15);
-		const restResume = resumeRest(restPause.draft, now + 10_000, "rest-1");
+		const restResume = resumeCountdown(restPause.draft, "restCountdown", now + 10_000, "rest-1");
 		expect(restResume.draft.restCountdown?.deadline).toBe("2026-10-15T10:00:25.000Z");
 	});
 
 	it("confirms and unconfirms sets while clearing only their timers", () => {
 		const execution = startExecution(draft(), "occurrence-1", "set-1", now, "execution-1");
-		expect(execution.kind).toBe("changed");
-		if (execution.kind !== "changed") {
-			return;
-		}
+		expect(execution.changed).toBe(true);
 		const confirmed = confirmSet(execution.draft, "occurrence-1", "set-1", now + 10_000);
 		expect(targetSet(confirmed.draft)).toMatchObject({
 			included: true,
@@ -220,10 +187,7 @@ describe("workout editor timers", () => {
 
 	it("reconciles late execution exactly once at its deadline and clears expired rest", () => {
 		const execution = startExecution(draft(), "occurrence-1", "set-1", now, "execution-1");
-		expect(execution.kind).toBe("changed");
-		if (execution.kind !== "changed") {
-			return;
-		}
+		expect(execution.changed).toBe(true);
 		const late = reconcileWorkoutTimers(execution.draft, now + 300_000);
 		expect(targetSet(late.draft).confirmedAt).toBe("2026-10-15T10:02:00.000Z");
 		expect(late.draft.executionCountdown).toBeUndefined();
@@ -242,10 +206,7 @@ describe("workout editor timers", () => {
 
 	it("clears timers for deleted or replaced targets and refuses stale expiry callbacks", () => {
 		const execution = startExecution(draft(), "occurrence-1", "set-1", now, "execution-1");
-		expect(execution.kind).toBe("changed");
-		if (execution.kind !== "changed") {
-			return;
-		}
+		expect(execution.changed).toBe(true);
 		const replaced = {
 			...execution.draft,
 			occurrences: [
@@ -271,10 +232,7 @@ describe("workout editor timers", () => {
 		const resumed = resumeWorkout(paused.draft, now + 10_000);
 		expect(resumed.draft.activeDurationStartedAt).toBe("2026-10-15T10:00:10.000Z");
 		const execution = startExecution(draft(), "occurrence-1", "set-1", now, "execution-1");
-		expect(execution.kind).toBe("changed");
-		if (execution.kind !== "changed") {
-			return;
-		}
+		expect(execution.changed).toBe(true);
 		const historical = {
 			...execution.draft,
 			mode: {
@@ -284,5 +242,46 @@ describe("workout editor timers", () => {
 			},
 		};
 		expect(reconcileWorkoutTimers(historical, now).draft.executionCountdown).toBeUndefined();
+	});
+});
+
+describe("shiftCountdown", () => {
+	const restDraft = (pausedRemainingSeconds?: number) =>
+		liveDraft({
+			restCountdown: {
+				setId: "set",
+				clientId: "rest",
+				durationSeconds: 60,
+				occurrenceId: "occurrence",
+				deadline: "2026-10-15T10:00:20.000Z",
+				exerciseId: EntityId.make("exercise"),
+				...(pausedRemainingSeconds === undefined ? {} : { pausedRemainingSeconds }),
+			},
+		});
+
+	it("moves a running deadline by whole steps and never before now", () => {
+		expect(
+			shiftCountdown(restDraft(), "restCountdown", "rest", 15, now).restCountdown?.deadline,
+		).toBe("2026-10-15T10:00:35.000Z");
+		expect(
+			shiftCountdown(restDraft(), "restCountdown", "rest", -30, now).restCountdown?.deadline,
+		).toBe(startTime);
+	});
+
+	it("shifts paused time without going below zero", () => {
+		expect(
+			shiftCountdown(restDraft(10), "restCountdown", "rest", -15, now).restCountdown
+				?.pausedRemainingSeconds,
+		).toBe(0);
+		expect(
+			shiftCountdown(restDraft(10), "restCountdown", "rest", 15, now).restCountdown
+				?.pausedRemainingSeconds,
+		).toBe(25);
+	});
+
+	it("leaves the draft unchanged for a replaced countdown", () => {
+		const draft = restDraft();
+		expect(shiftCountdown(draft, "restCountdown", "other", 15, now)).toBe(draft);
+		expect(shiftCountdown(draft, "executionCountdown", "rest", 15, now)).toBe(draft);
 	});
 });

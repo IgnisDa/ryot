@@ -2,9 +2,8 @@ import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react
 import {
 	Button,
 	Card,
-	Collapse,
-	Dialog,
 	Checkbox,
+	Collapse,
 	EmptyState,
 	IconButton,
 	MotionList,
@@ -17,7 +16,7 @@ import {
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 
 import { supersetColor, supersetColors, type SupersetColor } from "../../shared/superset-colors";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
@@ -25,10 +24,14 @@ import type {
 	WorkoutHistoryResult,
 	WorkoutHistorySetResult,
 } from "../../shared/workout-history-recipes";
-import { supersetColorVariable, supersetSoftColorVariable } from "../group-colors";
+import { supersetColorVariable } from "../group-colors";
+import { formatMeasure } from "../workout/format";
 import { removeWorkoutItems } from "./actions";
+import { pruneSupersets, supersetOf, type DraftChange } from "./draft-ops";
+import { EditorSheet } from "./editor-sheet";
 import { editorHistoryQuery, readHistorySets } from "./queries";
 import { supersetNames } from "./superset-group";
+import { useCursorPages } from "./use-cursor-pages";
 import { ConfirmDialog } from "./workout-sheets";
 
 const historySetsQuery = createRyotQuery<
@@ -36,27 +39,39 @@ const historySetsQuery = createRyotQuery<
 	WorkoutHistorySetResult["items"]
 >(({ input, client }) => readHistorySets(client, input.workoutId, input.exerciseId));
 
-const historySetText = (set: WorkoutHistorySetResult["items"][number]) =>
+const historySetText = (set: WorkoutHistorySetResult["items"][number], imperial: boolean) =>
 	[
-		set.weight === null ? null : `${set.weight} kg`,
-		set.reps === null ? null : `${set.reps} reps`,
-		set.duration === null ? null : `${set.duration} s`,
-		set.distance === null ? null : `${set.distance} km`,
+		set.weight === null ? null : formatMeasure(set.weight, "kg", imperial),
+		set.reps === null ? null : formatMeasure(set.reps, "reps"),
+		set.duration === null ? null : formatMeasure(set.duration, "seconds"),
+		set.distance === null ? null : formatMeasure(set.distance, "km", imperial),
 		set.rpe === null ? null : `RPE ${set.rpe}`,
 		set.note ? `“${set.note}”` : null,
 	]
 		.filter(Boolean)
 		.join(" · ");
 
-const scrollIntoView = (element: HTMLElement | null, reduced: boolean) => {
-	if (element !== null && element.getBoundingClientRect().height > 0) {
-		element.scrollIntoView({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
-	}
+const useRevealInitial = (
+	ref: RefObject<HTMLElement | null>,
+	initialOccurrenceId: string | undefined,
+) => {
+	const reduced = useMotionPreference();
+	useLayoutEffect(() => {
+		const element = ref.current;
+		if (
+			initialOccurrenceId !== undefined &&
+			element !== null &&
+			element.getBoundingClientRect().height > 0
+		) {
+			element.scrollIntoView({ block: "nearest", behavior: reduced ? "instant" : "smooth" });
+		}
+	}, [initialOccurrenceId, reduced, ref]);
 };
 
 function HistorySession(props: {
 	readonly session: WorkoutHistoryResult["items"][number];
 	readonly exerciseId: string;
+	readonly imperial: boolean;
 	readonly onAppend: (sets: WorkoutHistorySetResult["items"]) => void;
 }) {
 	const [confirming, setConfirming] = useState(false);
@@ -95,7 +110,7 @@ function HistorySession(props: {
 			{result.data === undefined ? null : (
 				<ol className="grid list-decimal gap-0.5 pl-5 text-sm tabular-nums">
 					{result.data.map((set) => (
-						<li key={set.id}>{historySetText(set)}</li>
+						<li key={set.id}>{historySetText(set, props.imperial)}</li>
 					))}
 				</ol>
 			)}
@@ -136,20 +151,15 @@ function HistorySession(props: {
 }
 
 export function HistoryRequiresPro(props: {
-	readonly compact: boolean;
-	readonly safeAreaBottom: number;
 	readonly exerciseName: string;
 	readonly onClose: () => void;
 }) {
 	return (
-		<Dialog
+		<EditorSheet
 			onClose={props.onClose}
 			title="Exercise history"
 			closeLabel="Close history"
 			description={props.exerciseName}
-			safeAreaBottom={props.safeAreaBottom}
-			closeIcon={<AppIcon name="x" size={18} />}
-			placement={props.compact ? "sheet" : "center"}
 			footer={<Button onClick={props.onClose}>Got it</Button>}
 		>
 			<Notice
@@ -160,13 +170,12 @@ export function HistoryRequiresPro(props: {
 				Tap a value in the Previous column to copy last session's numbers. New exercises are still
 				prefilled automatically.
 			</Notice>
-		</Dialog>
+		</EditorSheet>
 	);
 }
 
 export function HistoryOverlay(props: {
-	readonly compact: boolean;
-	readonly safeAreaBottom: number;
+	readonly imperial: boolean;
 	readonly exerciseId: string;
 	readonly exerciseName: string;
 	readonly beforeStartedAt: string | undefined;
@@ -174,54 +183,25 @@ export function HistoryOverlay(props: {
 	readonly onClose: () => void;
 	readonly onAppend: (sets: WorkoutHistorySetResult["items"]) => void;
 }) {
-	const [cursors, setCursors] = useState<readonly string[]>([]);
-	const after = cursors.at(-1);
-	const [loaded, setLoaded] = useState<{
-		readonly result: WorkoutHistoryResult | undefined;
-		readonly sessions: WorkoutHistoryResult["items"];
-	}>({ sessions: [], result: undefined });
-	const result = useRyotQuery(editorHistoryQuery, {
-		after,
+	const history = useCursorPages(editorHistoryQuery, {
 		exerciseId: props.exerciseId,
 		beforeStartedAt: props.beforeStartedAt,
 		excludeWorkoutId: props.excludeWorkoutId,
 	});
-	if (result.data !== undefined && result.data !== loaded.result) {
-		setLoaded({
-			result: result.data,
-			sessions: [
-				...new Map(
-					[...loaded.sessions, ...result.data.items].map((session) => [session.id, session]),
-				).values(),
-			],
-		});
-	}
-	const sessions = loaded.sessions;
-	const nextCursor = result.data?.pageInfo.nextCursor;
-	const invalidCursor =
-		result.data?.pageInfo.hasMore === true &&
-		(nextCursor === null || nextCursor === undefined || cursors.includes(nextCursor));
 	return (
-		<Dialog
+		<EditorSheet
+			wide="side"
 			title="History"
 			onClose={props.onClose}
 			closeLabel="Close history"
 			description={props.exerciseName}
-			safeAreaBottom={props.safeAreaBottom}
-			closeIcon={<AppIcon name="x" size={18} />}
-			placement={props.compact ? "sheet" : "side"}
 			footer={
-				result.data?.pageInfo.hasMore ? (
+				history.hasMore ? (
 					<Button
 						className="w-full"
 						variant="secondary"
-						disabled={result.isFetching || invalidCursor}
-						onClick={() => {
-							const next = result.data?.pageInfo.nextCursor;
-							if (next !== null && next !== undefined && next !== after) {
-								setCursors((previous) => [...previous, next]);
-							}
-						}}
+						onClick={history.showMore}
+						disabled={history.isFetching || history.invalidCursor}
 					>
 						More sessions
 					</Button>
@@ -230,34 +210,35 @@ export function HistoryOverlay(props: {
 		>
 			<div className="grid gap-3">
 				<MotionList className="grid gap-3 empty:hidden">
-					{sessions.map((session) => (
+					{history.items.map((session) => (
 						<HistorySession
 							key={session.id}
 							session={session}
+							imperial={props.imperial}
 							onAppend={props.onAppend}
 							exerciseId={props.exerciseId}
 						/>
 					))}
 				</MotionList>
-				{sessions.length === 0 && result.isSuccess ? (
+				{history.items.length === 0 && history.isSuccess ? (
 					<EmptyState
 						title="No earlier sessions"
 						icon={<AppIcon size={20} name="history" />}
 						description="Sets you log for this exercise show up here next time."
 					/>
 				) : null}
-				{result.isPending ? (
+				{history.isPending ? (
 					<div role="status" className="grid gap-3" aria-label="Loading history">
 						<Skeleton className="h-24" />
 						<Skeleton className="h-24" />
 					</div>
 				) : null}
-				{result.isError ? (
+				{history.isError ? (
 					<Notice
 						tone="danger"
 						icon={<AppIcon size={16} name="circle-alert" />}
 						action={
-							<Button size="sm" variant="secondary" onClick={result.refetch}>
+							<Button size="sm" variant="secondary" onClick={history.refetch}>
 								Retry history
 							</Button>
 						}
@@ -265,23 +246,21 @@ export function HistoryOverlay(props: {
 						History could not be loaded.
 					</Notice>
 				) : null}
-				{invalidCursor ? (
+				{history.invalidCursor ? (
 					<Notice tone="danger" icon={<AppIcon size={16} name="circle-alert" />}>
 						History pagination could not continue. Retry loading this page.
 					</Notice>
 				) : null}
 			</div>
-		</Dialog>
+		</EditorSheet>
 	);
 }
 
 type DraftOverlayProps = {
-	readonly compact: boolean;
-	readonly safeAreaBottom: number;
 	readonly draft: WorkoutEditorDraft;
 	readonly names: ReadonlyMap<string, string>;
 	readonly initialOccurrenceId?: string | undefined;
-	readonly onChange: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => void;
+	readonly onChange: DraftChange;
 	readonly onClose: () => void;
 	readonly onMoved?: (occurrenceId: string) => void;
 };
@@ -293,21 +272,13 @@ export function ReorderOverlay(
 ) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const initialOccurrenceRef = useRef<HTMLDivElement>(null);
-	const reduced = useMotionPreference();
-	useLayoutEffect(() => {
-		if (props.initialOccurrenceId !== undefined) {
-			scrollIntoView(initialOccurrenceRef.current, reduced);
-		}
-	}, [props.initialOccurrenceId, reduced]);
+	useRevealInitial(initialOccurrenceRef, props.initialOccurrenceId);
 	const groups = supersetNames(props.draft);
 	return (
-		<Dialog
+		<EditorSheet
 			onClose={props.onClose}
 			title="Reorder exercises"
 			closeLabel="Close reorder"
-			safeAreaBottom={props.safeAreaBottom}
-			closeIcon={<AppIcon name="x" size={18} />}
-			placement={props.compact ? "sheet" : "center"}
 			footer={<Button onClick={props.onClose}>Done</Button>}
 		>
 			<div ref={scrollRef} className="max-h-[60vh] overflow-y-auto">
@@ -343,9 +314,7 @@ export function ReorderOverlay(
 						if (completedSets > 0) {
 							progress = completedSets === item.sets.length ? "Complete" : "In progress";
 						}
-						const group = props.draft.supersets.find(({ occurrenceIds }) =>
-							occurrenceIds.includes(item.clientId),
-						);
+						const group = supersetOf(props.draft, item.clientId);
 						return (
 							<div
 								ref={item.clientId === props.initialOccurrenceId ? initialOccurrenceRef : undefined}
@@ -366,7 +335,7 @@ export function ReorderOverlay(
 										className="rounded-pill px-2 py-0.5 text-xs font-semibold"
 										style={{
 											color: supersetColorVariable(group.color),
-											backgroundColor: supersetSoftColorVariable(group.color),
+											backgroundColor: supersetColorVariable(group.color, { soft: true }),
 										}}
 									>
 										{groups.get(group.clientId)}
@@ -377,7 +346,7 @@ export function ReorderOverlay(
 					}}
 				/>
 			</div>
-		</Dialog>
+		</EditorSheet>
 	);
 }
 
@@ -393,12 +362,7 @@ export function BulkDeleteOverlay(
 	const [sets, setSets] = useState<readonly string[]>([]);
 	const initialOccurrenceRef = useRef<HTMLFieldSetElement>(null);
 	const [confirming, setConfirming] = useState(false);
-	const reduced = useMotionPreference();
-	useLayoutEffect(() => {
-		if (props.initialOccurrenceId !== undefined) {
-			scrollIntoView(initialOccurrenceRef.current, reduced);
-		}
-	}, [props.initialOccurrenceId, reduced]);
+	useRevealInitial(initialOccurrenceRef, props.initialOccurrenceId);
 	const selectedExercises = props.draft.occurrences.filter(({ clientId }) =>
 		occurrences.includes(clientId),
 	);
@@ -408,13 +372,10 @@ export function BulkDeleteOverlay(
 		.filter(({ clientId }) => sets.includes(clientId)).length;
 	const count = selectedExercises.length + selectedSetCount;
 	return (
-		<Dialog
+		<EditorSheet
 			onClose={props.onClose}
 			closeLabel="Cancel bulk delete"
 			title="Delete exercises or sets"
-			safeAreaBottom={props.safeAreaBottom}
-			closeIcon={<AppIcon name="x" size={18} />}
-			placement={props.compact ? "sheet" : "center"}
 			footer={
 				<>
 					<Button variant="secondary" onClick={props.onClose}>
@@ -487,18 +448,14 @@ export function BulkDeleteOverlay(
 					/>
 				) : null}
 			</MotionPresence>
-		</Dialog>
+		</EditorSheet>
 	);
 }
 
 export function SupersetOverlay(props: DraftOverlayProps) {
 	const initialOccurrenceId = props.initialOccurrenceId;
 	const initialGroup =
-		initialOccurrenceId === undefined
-			? undefined
-			: props.draft.supersets.find(({ occurrenceIds }) =>
-					occurrenceIds.includes(initialOccurrenceId),
-				);
+		initialOccurrenceId === undefined ? undefined : supersetOf(props.draft, initialOccurrenceId);
 	const [editing, setEditing] = useState<string | undefined>(() => initialGroup?.clientId);
 	const [selected, setSelected] = useState<readonly string[]>(() =>
 		initialOccurrenceId === undefined ? [] : (initialGroup?.occurrenceIds ?? [initialOccurrenceId]),
@@ -516,13 +473,10 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 			})
 			.join(" + ");
 	return (
-		<Dialog
+		<EditorSheet
 			title="Supersets"
 			onClose={props.onClose}
 			closeLabel="Close supersets"
-			safeAreaBottom={props.safeAreaBottom}
-			closeIcon={<AppIcon name="x" size={18} />}
-			placement={props.compact ? "sheet" : "center"}
 			description="Group exercises you alternate between."
 			footer={
 				<>
@@ -535,14 +489,10 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 							props.onChange((draft) => ({
 								...draft,
 								supersets: [
-									...draft.supersets
-										.filter(({ clientId }) => clientId !== editing)
-										.flatMap((group) => {
-											const occurrenceIds = group.occurrenceIds.filter(
-												(id) => !selected.includes(id),
-											);
-											return occurrenceIds.length < 2 ? [] : [{ ...group, occurrenceIds }];
-										}),
+									...pruneSupersets(
+										draft.supersets.filter(({ clientId }) => clientId !== editing),
+										(id) => !selected.includes(id),
+									),
 									{ color, occurrenceIds: selected, clientId: editing ?? crypto.randomUUID() },
 								],
 							}));
@@ -655,7 +605,7 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 									<span
 										aria-hidden="true"
 										className="grid size-full place-items-center rounded-sm"
-										style={{ backgroundColor: supersetSoftColorVariable(option.value) }}
+										style={{ backgroundColor: supersetColorVariable(option.value, { soft: true }) }}
 									>
 										<span
 											className="size-4.5 rounded-[5px]"
@@ -696,6 +646,6 @@ export function SupersetOverlay(props: DraftOverlayProps) {
 					/>
 				)}
 			</MotionPresence>
-		</Dialog>
+		</EditorSheet>
 	);
 }

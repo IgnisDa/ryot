@@ -252,7 +252,13 @@ const openEditor = (
 				for (const queryName of Object.keys(request.document.queries)) {
 					if (queryName === "exercises") {
 						data[queryName] = rows(
-							exerciseDetails.map(({ id, kind, name }) => ({ id, name, properties: { kind } })),
+							exerciseDetails.map(({ id, kind, name }) => ({
+								id,
+								name,
+								images: null,
+								instructions: null,
+								properties: { kind },
+							})),
 						);
 					} else if (queryName === "metrics") {
 						data[queryName] = rows(metrics);

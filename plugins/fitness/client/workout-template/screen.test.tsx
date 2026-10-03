@@ -113,7 +113,13 @@ it.live(
 									return [
 										name,
 										rows([
-											{ id: "bench", name: "Bench press", properties: { kind: "reps_and_weight" } },
+											{
+												id: "bench",
+												images: null,
+												instructions: null,
+												name: "Bench press",
+												properties: { kind: "reps_and_weight" },
+											},
 										]),
 									];
 								}

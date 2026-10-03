@@ -4,40 +4,20 @@ import {
 	PluginId,
 	PluginPackageId,
 	type PluginDeviceRequest,
-	type PluginDeviceResult,
-	type PluginNavigationTarget,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { RyotScheduleService, type RyotSchedule } from "@ryot-app/plugin-client-sdk/schedule";
+import { RyotScheduleService } from "@ryot-app/plugin-client-sdk/schedule";
 import { Schema } from "@ryot-app/plugin-kit/effect";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 import { Layer } from "effect";
 import * as Deferred from "effect/Deferred";
 import { TestClock } from "effect/testing";
 
-import {
-	WorkoutEditorDraftSchema,
-	decodeWorkoutEditorDraft,
-} from "../../shared/workout-editor-draft";
+import { decodeWorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { WorkoutEditorSaveInputSchema } from "../../shared/workout-editor-operations";
-import { createWorkoutEditorController } from "./controller";
+import { controllerHarness } from "../../tests/client/controller-harness";
+import { exerciseOccurrence, liveDraft, startTime } from "../../tests/client/draft-fixtures";
 
-const startTime = "2026-10-15T10:00:00.000Z";
-
-const draft = (name = "Session") =>
-	Schema.decodeSync(WorkoutEditorDraftSchema)({
-		name,
-		images: [],
-		videos: [],
-		supersets: [],
-		occurrences: [],
-		activeDuration: 0,
-		draftId: "draft-1",
-		startedAt: startTime,
-		mode: { kind: "live" },
-		displayEnergyUnit: "kcal",
-		activeDurationIntent: "set",
-		kind: "fitness-workout-editor",
-		activeDurationStartedAt: startTime,
-	});
+const draft = (name = "Session") => liveDraft({ name });
 
 const saveInput = (submissionId = "submission-1") =>
 	Schema.decodeSync(WorkoutEditorSaveInputSchema)({
@@ -57,110 +37,20 @@ const saveInput = (submissionId = "submission-1") =>
 	});
 
 const timerDraft = () =>
-	Schema.decodeSync(WorkoutEditorDraftSchema)({
-		images: [],
-		videos: [],
-		supersets: [],
+	liveDraft({
 		name: "Session",
-		activeDuration: 0,
-		draftId: "draft-1",
-		startedAt: startTime,
-		mode: { kind: "live" },
-		displayEnergyUnit: "kcal",
-		activeDurationIntent: "set",
-		kind: "fitness-workout-editor",
-		activeDurationStartedAt: startTime,
+		occurrences: [exerciseOccurrence("duration", { duration: "20" })],
 		executionCountdown: {
 			setId: "set-1",
 			durationSeconds: 20,
 			clientId: "execution-1",
-			exerciseId: "exercise-1",
 			occurrenceId: "occurrence-1",
 			deadline: "2026-10-15T10:00:20.000Z",
+			exerciseId: EntityId.make("exercise-1"),
 		},
-		occurrences: [
-			{
-				notes: [],
-				images: [],
-				videos: [],
-				isCollapsed: false,
-				exerciseId: "exercise-1",
-				clientId: "occurrence-1",
-				exerciseKind: "duration",
-				sets: [
-					{
-						duration: "20",
-						included: false,
-						setLot: "normal",
-						clientId: "set-1",
-						exerciseKind: "duration",
-						restChoice: { kind: "inherited" },
-					},
-				],
-			},
-		],
 	});
 
-const createController = (
-	options: {
-		readonly device?: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceResult>;
-		readonly events?: string[];
-		readonly foreground?: () => boolean;
-		readonly onRead?: () => unknown;
-		readonly now?: Effect.Effect<number, unknown>;
-		readonly onRemove?: () => void;
-		readonly onWrite?: (value: string) => Effect.Effect<void, unknown>;
-		readonly pluginId?: PluginId;
-		readonly schedule?: Pick<RyotSchedule, "after" | "run">;
-		readonly target?: PluginNavigationTarget;
-	} = {},
-) => {
-	let stored: unknown = null;
-	const writes: string[] = [];
-	let reads = 0;
-	let removals = 0;
-	const controller = createWorkoutEditorController({
-		device: options.device,
-		target: options.target,
-		pluginId: options.pluginId,
-		schedule: options.schedule,
-		foreground: options.foreground ?? (() => true),
-		now: options.now ?? Effect.succeed(Date.parse(startTime)),
-		storage: {
-			read: Effect.sync(() => {
-				reads += 1;
-				return options.onRead?.() ?? stored;
-			}),
-			remove: Effect.sync(() => {
-				removals += 1;
-				options.onRemove?.();
-				stored = null;
-			}),
-			write: (value) =>
-				Effect.gen(function* () {
-					writes.push(value);
-					options.events?.push("write");
-					if (options.onWrite !== undefined) {
-						yield* options.onWrite(value);
-					}
-					stored = value;
-				}),
-		},
-	});
-	return {
-		writes,
-		controller,
-		get reads() {
-			return reads;
-		},
-		get stored() {
-			return stored;
-		},
-		get removals() {
-			return removals;
-		},
-	};
-};
+const createController = controllerHarness;
 
 describe("workout editor controller", () => {
 	it.live("reads a valid draft once and keeps unreadable storage behind explicit recovery", () =>

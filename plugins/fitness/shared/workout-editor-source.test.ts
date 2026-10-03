@@ -19,7 +19,9 @@ const entityId = (value: string) => Schema.decodeSync(EntityId)(value);
 const eventId = (value: string) => Schema.decodeSync(EventId)(value);
 
 const exercise = (id: string, kind = "reps_and_weight"): WorkoutEditorExercise => ({
+	images: null,
 	id: entityId(id),
+	instructions: null,
 	name: `Exercise ${id}`,
 	properties: Schema.decodeSync(WorkoutEditorPropertiesSchema)({ kind }),
 });

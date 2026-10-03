@@ -118,7 +118,13 @@ const harness = (
 		if (key === "exercises") {
 			return (
 				options.exercises ?? [
-					{ id: exerciseId, name: "Exercise", properties: { kind: "reps_and_weight" } },
+					{
+						images: null,
+						id: exerciseId,
+						name: "Exercise",
+						instructions: null,
+						properties: { kind: "reps_and_weight" },
+					},
 				]
 			);
 		}
@@ -376,7 +382,13 @@ describe("workout editor save", () => {
 				assert(source.data.kind === "workout");
 				const replacementId = EntityId.make("exercise-2");
 				const exercises = [
-					{ id: replacementId, name: "Replacement", properties: { kind: "reps_and_weight" } },
+					{
+						images: null,
+						id: replacementId,
+						instructions: null,
+						name: "Replacement",
+						properties: { kind: "reps_and_weight" },
+					},
 				];
 				const submitted = {
 					...source,
@@ -407,8 +419,10 @@ describe("workout editor save", () => {
 					exercises: [
 						{
 							...exercises[0],
+							images: null,
 							name: "Duration",
 							id: replacementId,
+							instructions: null,
 							properties: { kind: "duration" },
 						},
 					],

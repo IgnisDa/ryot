@@ -25,7 +25,15 @@ it("removes inheritance overrides while preserving unrelated membership values a
 									pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 									items:
 										key === "exercises"
-											? [{ properties: {}, id: "exercise-1", name: "Exercise" }]
+											? [
+													{
+														images: null,
+														properties: {},
+														id: "exercise-1",
+														name: "Exercise",
+														instructions: null,
+													},
+												]
 											: [
 													{
 														id: "membership-1",
