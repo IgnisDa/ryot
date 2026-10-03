@@ -1,5 +1,6 @@
 import { DateTime, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
+import { measurementMetricKey } from "../../shared/measurement-metrics";
 import { parseCsvText } from "./csv";
 
 const DATE_COLUMN_NAMES = ["date"];
@@ -12,15 +13,6 @@ const SKIP_COLUMN_NAMES = new Set([
 	...TIME_COLUMN_NAMES,
 	...COMMENT_COLUMN_NAMES,
 ]);
-
-const normalizeKey = (label: string) =>
-	label
-		.toLowerCase()
-		.trim()
-		.replace(/\s+/g, "_")
-		.replace(/[^a-z0-9_]/g, "")
-		.replace(/_+/g, "_")
-		.replace(/^_|_$/g, "");
 
 const OpenScaleStatisticSchema = Schema.Struct({
 	key: Schema.String,
@@ -174,7 +166,7 @@ export const adaptOpenScaleRows = (
 				hasBadNumeric = true;
 				break;
 			}
-			statistics.push({ label: header, value: numVal, key: normalizeKey(header) });
+			statistics.push({ label: header, value: numVal, key: measurementMetricKey(header) });
 		}
 
 		if (hasBadNumeric) {

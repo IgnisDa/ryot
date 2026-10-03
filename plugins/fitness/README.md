@@ -90,19 +90,28 @@ The All Measurements saved view renders the `measurements` client page (`client/
 which takes only the view's name and icon from the page context and has no data sources or
 settings. It queries three recipes from `shared/`:
 
-- `measurementSummaryRecipe` returns up to 100 metrics with each one's latest value and time, first
-  reading time, and reading count since the range start.
+- `measurementSummaryRecipe` pages metrics 100 at a time with each one's key, latest value and time,
+  first reading time, and reading count since the range start. The page follows every cursor.
 - `measurementSeriesRecipe` returns one `timeSeries` average of the reading value per metric, with a
   paired `count` series because empty buckets are zero filled. The page batches
   `MEASUREMENT_SERIES_BATCH_SIZE` metrics per document to stay within the ten-query limit, buckets by
   day up to 1Y and by week for All, and clamps All to 900 weekly buckets.
 - `measurementReadingListRecipe` pages the log 100 readings at a time; the page groups readings that
-  share `occurredAt` into one row and groups rows by month.
+  share `occurredAt` into one row and groups rows by month. Show more preserves loaded rows while
+  fetching; a failed later page shows an error and retry. Missing or repeated cursors fail loading.
 
 The page ranks the four metrics with the most readings in range as tiles and log columns. Trend
 lines and sparklines are a trailing rolling average of the bucket averages, over 7 points when there
 are more than 40 and 3 otherwise. Logging, editing, deleting, and pinning are not implemented and
 log a `TODO` to the console.
+
+Add metric opens a name and optional unit form. `measurement-metric-create` creates only a user-owned
+metric through the sandbox `createUserEntity` capability. Shared rules in
+`shared/measurement-metrics.ts` generate a lowercase ASCII key using the OpenScale normalization and
+choose canonical units for known keys; incompatible units and names producing an empty key are
+rejected. Unknown keys allow an optional custom unit. The form guards duplicate keys against all
+loaded metrics; concurrent or direct API writes are not subject to an atomic uniqueness constraint.
+Import reuse still requires both a matching normalized name and key.
 
 Metric cards and rows show the latest reading, such as `73.6 kg · 8 Oct`, taken from the metric's
 newest `measurement-reading` event.

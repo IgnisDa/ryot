@@ -7,6 +7,18 @@ import {
 	ExerciseNoteUpdateInput,
 	exerciseNoteOperationSlugs,
 } from "../../shared/exercise-note-operations";
+import {
+	MeasurementMetricCreateInput,
+	MeasurementMetricCreateOutput,
+	measurementMetricCreateOperationSlug,
+} from "../../shared/measurement-metric-operations";
+
+export const measurementMetricCreateRecipe = defineOperationRecipe({
+	pluginSlug: "fitness",
+	input: MeasurementMetricCreateInput,
+	output: MeasurementMetricCreateOutput,
+	operationSlug: measurementMetricCreateOperationSlug,
+});
 
 export const exerciseNoteCreateRecipe = defineOperationRecipe({
 	pluginSlug: "fitness",

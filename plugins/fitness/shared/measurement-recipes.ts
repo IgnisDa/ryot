@@ -20,61 +20,64 @@ import {
 
 import { property, propertyNumber } from "./entity-selections";
 
-export const MEASUREMENT_METRIC_LIMIT = 100;
 export const MEASUREMENT_SERIES_BATCH_SIZE = 5;
 
 const nullableString = Schema.NullOr(Schema.String);
 
-export const measurementSummaryRecipe = defineRecipe((input: { readonly rangeStart: string }) => {
-	const metric = table("entity", "metric");
-	const reading = table("event", "summaryReading");
-	const metricReadings = and(
-		eq(column(reading, "entityId"), column(metric, "id")),
-		eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
-	);
-	return {
-		map: ({ metrics }) => Result.succeed(metrics.items),
-		queries: {
-			metrics: selectedRows(metric, {
-				limit: MEASUREMENT_METRIC_LIMIT,
-				where: eq(column(metric, "entitySchemaSlug"), literal("measurement-metric")),
-				orderBy: [ascending(column(metric, "name")), ascending(column(metric, "id"))],
-				selection: {
-					id: selectedField(column(metric, "id"), Schema.String),
-					name: selectedField(column(metric, "name"), Schema.String),
-					unit: selectedField(property(metric, "unit"), nullableString),
-					firstAt: selectedField(
-						minimum(reading, column(reading, "occurredAt"), { where: metricReadings }),
-						nullableString,
-					),
-					latestAt: selectedField(
-						latestEventField(reading, {
-							where: metricReadings,
-							select: column(reading, "occurredAt"),
-						}),
-						nullableString,
-					),
-					latestValue: selectedField(
-						latestEventField(reading, {
-							where: metricReadings,
-							select: propertyNumber(reading, "value"),
-						}),
-						Schema.NullOr(Schema.Finite),
-					),
-					rangeCount: selectedField(
-						count(reading, {
-							where: and(
-								metricReadings,
-								gte(column(reading, "occurredAt"), castDate(literal(input.rangeStart))),
-							),
-						}),
-						Schema.Finite,
-					),
-				},
-			}),
-		},
-	};
-});
+export const measurementSummaryRecipe = defineRecipe(
+	(input: { readonly rangeStart: string; readonly after?: string | undefined }) => {
+		const metric = table("entity", "metric");
+		const reading = table("event", "summaryReading");
+		const metricReadings = and(
+			eq(column(reading, "entityId"), column(metric, "id")),
+			eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
+		);
+		return {
+			map: ({ metrics }) => Result.succeed(metrics),
+			queries: {
+				metrics: selectedRows(metric, {
+					limit: 100,
+					after: input.after,
+					where: eq(column(metric, "entitySchemaSlug"), literal("measurement-metric")),
+					orderBy: [ascending(column(metric, "name")), ascending(column(metric, "id"))],
+					selection: {
+						id: selectedField(column(metric, "id"), Schema.String),
+						name: selectedField(column(metric, "name"), Schema.String),
+						key: selectedField(property(metric, "key"), nullableString),
+						unit: selectedField(property(metric, "unit"), nullableString),
+						firstAt: selectedField(
+							minimum(reading, column(reading, "occurredAt"), { where: metricReadings }),
+							nullableString,
+						),
+						latestAt: selectedField(
+							latestEventField(reading, {
+								where: metricReadings,
+								select: column(reading, "occurredAt"),
+							}),
+							nullableString,
+						),
+						latestValue: selectedField(
+							latestEventField(reading, {
+								where: metricReadings,
+								select: propertyNumber(reading, "value"),
+							}),
+							Schema.NullOr(Schema.Finite),
+						),
+						rangeCount: selectedField(
+							count(reading, {
+								where: and(
+									metricReadings,
+									gte(column(reading, "occurredAt"), castDate(literal(input.rangeStart))),
+								),
+							}),
+							Schema.Finite,
+						),
+					},
+				}),
+			},
+		};
+	},
+);
 
 const seriesQueries = (input: SeriesInput) => {
 	const reading = table("event", "seriesReading");
@@ -135,5 +138,5 @@ export const measurementSeriesRecipe = defineRecipe((input: SeriesInput) => ({
 		),
 }));
 
-export type MeasurementSummary = Recipe.Success<typeof measurementSummaryRecipe>[number];
+export type MeasurementSummary = Recipe.Success<typeof measurementSummaryRecipe>["items"][number];
 export type MeasurementSeries = Recipe.Success<typeof measurementSeriesRecipe>[number];
