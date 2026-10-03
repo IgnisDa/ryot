@@ -100,8 +100,13 @@ const WorkoutDetails = ({ data }: { readonly data: WorkoutPresentationData }) =>
 			</summary>
 			<ul className="mt-3 grid gap-3 border-t border-border pt-3">
 				{data.exercises.map((exercise) => (
-					<li key={exercise.id} className="min-w-0">
+					<li className="min-w-0" key={`${exercise.order}:${exercise.id}`}>
 						<p className="truncate text-sm font-semibold text-text">{exercise.name}</p>
+						{exercise.notes.length > 0 && (
+							<p className="mt-1 whitespace-pre-wrap text-sm text-text-muted">
+								{exercise.notes.join("\n")}
+							</p>
+						)}
 						<ul className="mt-1 flex min-w-0 flex-wrap gap-1.5">
 							{exercise.sets.map((set, index) => {
 								const summary = setSummary(set);

@@ -41,6 +41,8 @@ Users are inserted first. Deterministic IDs, exact installation identities, conf
 
 Plugin-owned definitions and views retain qualified stable plugin provenance; kernel definitions retain `NULL` provenance. No private package or unsupported plugin state is synthesized. Mapping files remain authoritative for exact field transforms, clamping, deterministic IDs, and SQL.
 
+Workout exercise notes live in workout `exerciseNotes`, keyed by zero-based `exerciseOrder` and separate from set `note`; templates keep exercise notes. Set durations convert minutes to seconds for workouts and templates, pace converts distance per minute to distance per second, and rest times remain unchanged in seconds.
+
 When legacy debounce rows collapse to one V2 claim, preserve the longest remaining expiry. The claim namespace includes the migrated integration ID, resolved entity ID and schema, progress kind, normalized legacy consumption provider, and subitem signature, and the Redis key uses the active media `import.write-chunks` script. Normalize known provider labels and resolve show/podcast markers to episode IDs; zero or multiple matching integrations, ambiguous browser-extension, removed-provider, and unresolved targets are reported omissions. A pending YouTube Music row creates `seen`; a completed row creates both `seen` and `completed`.
 
 Historical rows are copied directly and never replay current lifecycle or notification hooks. The migration aborts if that work creates any automation triggers, recipients, runs, or attempts; with no runs, it cannot emit automation notifications. Notification channels and notification-subscription preferences are current user configuration, not notification history, and remain migrated.
