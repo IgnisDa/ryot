@@ -4,6 +4,7 @@ import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 import { useMemo } from "react";
 
+import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
 import { cardClass, sectionHeadingClass } from "../exercise/styles";
 import {
 	CHART_GAP_MS,
@@ -38,6 +39,16 @@ function LastLogged(props: {
 	return <span className="whitespace-nowrap">{formatDay(latestAt, timeZone)}</span>;
 }
 
+const pinHint = (pinnedCount: number) => {
+	if (pinnedCount === 0) {
+		return `Star up to ${MEASUREMENT_PIN_LIMIT} metrics below to pin them here`;
+	}
+	const remaining = MEASUREMENT_PIN_LIMIT - pinnedCount;
+	return remaining === 1
+		? "Star one more metric below to pin it here"
+		: `Star up to ${remaining} more metrics below to pin them here`;
+};
+
 export function MetricTiles(props: {
 	readonly now: Date;
 	readonly range: RangeKey;
@@ -50,7 +61,7 @@ export function MetricTiles(props: {
 	return (
 		<div
 			role="group"
-			aria-label="Top metrics"
+			aria-label="Pinned metrics"
 			className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-3 font-ui"
 		>
 			{rows.map(({ trend, change, summary, readings }) => {
@@ -84,6 +95,11 @@ export function MetricTiles(props: {
 					</button>
 				);
 			})}
+			{rows.length >= MEASUREMENT_PIN_LIMIT ? null : (
+				<p className="flex min-h-27 items-center justify-center rounded-xl border border-dashed border-border px-4 py-3.5 text-center text-[13px] text-text-muted">
+					{pinHint(rows.length)}
+				</p>
+			)}
 		</div>
 	);
 }

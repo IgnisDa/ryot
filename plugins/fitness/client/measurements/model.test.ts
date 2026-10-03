@@ -10,7 +10,7 @@ import {
 	groupReadings,
 	rangeStartAt,
 	rollingAverage,
-	selectTileMetrics,
+	selectPinnedMetrics,
 	seriesWindow,
 	sortMetricRows,
 	type MeasurementReading,
@@ -26,6 +26,7 @@ const summary = (id: string, overrides: Partial<MeasurementSummary> = {}): Measu
 	rangeCount: 0,
 	firstAt: null,
 	latestAt: null,
+	pinnedAt: null,
 	latestValue: null,
 	...overrides,
 });
@@ -113,17 +114,16 @@ describe("buildMetricRows", () => {
 	});
 });
 
-describe("selectTileMetrics", () => {
-	it("keeps the four most logged metrics in range, newest first on ties, skipping empty ones", () => {
-		const tiles = selectTileMetrics([
-			summary("a", { rangeCount: 3, latestAt: "2026-10-01T00:00:00.000Z" }),
-			summary("b", { rangeCount: 9, latestAt: "2026-09-01T00:00:00.000Z" }),
-			summary("c", { rangeCount: 3, latestAt: "2026-10-05T00:00:00.000Z" }),
-			summary("d", { rangeCount: 1, latestAt: "2026-10-05T00:00:00.000Z" }),
-			summary("e", { rangeCount: 0, latestAt: "2026-10-09T00:00:00.000Z" }),
-			summary("f", { rangeCount: 2, latestAt: "2026-10-09T00:00:00.000Z" }),
+describe("selectPinnedMetrics", () => {
+	it("keeps pinned metrics in pin order, breaking ties by id, up to the pin limit", () => {
+		const pinned = selectPinnedMetrics([
+			summary("a", { pinnedAt: "2026-10-03T00:00:00.000Z" }),
+			summary("b"),
+			summary("c", { pinnedAt: "2026-10-01T00:00:00.000Z" }),
+			summary("e", { pinnedAt: "2026-10-02T00:00:00.000Z" }),
+			summary("d", { pinnedAt: "2026-10-02T00:00:00.000Z" }),
 		]);
-		expect(tiles.map(({ id }) => id)).toEqual(["b", "c", "a", "f"]);
+		expect(pinned.map(({ id }) => id)).toEqual(["c", "d", "e"]);
 	});
 });
 

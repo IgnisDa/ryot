@@ -32,11 +32,12 @@ const summary = (
 	rangeCount: number,
 	latestValue: number,
 	latestAt: string,
-) => ({ id, name, unit, key: id, latestAt, rangeCount, latestValue, firstAt: latestAt });
+	pinnedAt: string | null = null,
+) => ({ id, name, unit, key: id, latestAt, pinnedAt, rangeCount, latestValue, firstAt: latestAt });
 
 const metrics = rows([
-	summary("weight", "Weight", "kg", 3, 73.6, daysAgo(2)),
-	summary("waist", "Waist", "cm", 1, 82, daysAgo(100)),
+	summary("weight", "Weight", "kg", 3, 73.6, daysAgo(2), daysAgo(30)),
+	summary("waist", "Waist", "cm", 1, 82, daysAgo(100), daysAgo(20)),
 	summary("sugar", "Sugar level", "mg/dL", 0, 130, daysAgo(400)),
 ]);
 
@@ -209,7 +210,7 @@ describe("measurements page", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						answerPending();
-						expect(body.getByRole("group", { name: "Top metrics" })).toBeTruthy();
+						expect(body.getByRole("group", { name: "Pinned metrics" })).toBeTruthy();
 						expect(body.getByRole("region", { name: "Log" }).querySelector("table")).not.toBeNull();
 					}),
 				);
@@ -217,15 +218,15 @@ describe("measurements page", () => {
 				const metricList = body.getByRole("region", { name: "All metrics" });
 				const log = body.getByRole("region", { name: "Log" });
 				expect(page.container?.querySelector("h1")?.textContent).toBe("All Measurements");
-				const tiles = within(body.getByRole("group", { name: "Top metrics" })).getAllByRole(
-					"button",
-				);
+				const pinned = body.getByRole("group", { name: "Pinned metrics" });
+				const tiles = within(pinned).getAllByRole("button");
 				expect(tiles.map((tile) => text(tile))).toEqual([
 					expect.stringContaining("Weight"),
 					expect.stringContaining("Waist"),
 				]);
 				expect(text(tiles[0] ?? null)).toContain("73.6 kg");
 				expect(text(tiles[1] ?? null)).toContain("last");
+				expect(text(pinned)).toContain("Star one more metric below to pin it here");
 				expect(within(chart).getByRole("heading").textContent).toBe("Weight (kg)");
 				expect(within(metricList).getAllByRole("row")).toHaveLength(4);
 
@@ -247,6 +248,72 @@ describe("measurements page", () => {
 					waitFor(() => expect(text(log)).toContain("Sugar level130 mg/dL")),
 				);
 			}),
+	);
+
+	it.live("pins and unpins metrics and blocks pinning beyond the limit", () =>
+		Effect.gen(function* () {
+			let storedMetrics = rows([
+				...metrics.items,
+				summary("hip", "Hip", "cm", 0, 95, daysAgo(400)),
+			]);
+			const { page, answerPending } = openPage(metrics, { metricsPage: () => storedMetrics });
+			const body = within(document.body);
+			const pinButton = (name: string) => body.getByRole("button", { name: `Pin ${name}` });
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(pinButton("Weight").getAttribute("aria-pressed")).toBe("true");
+				}),
+			);
+			expect(pinButton("Sugar level").getAttribute("aria-pressed")).toBe("false");
+			const requests = () =>
+				page.clientMessages().filter(({ type }) => type === "operation-request");
+			fireEvent.click(pinButton("Sugar level"));
+			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(1)));
+			const [pinRequest] = requests();
+			assert(pinRequest?.type === "operation-request");
+			expect(pinRequest).toMatchObject({
+				pluginSlug: "fitness",
+				operationSlug: "measurement-metric-pin",
+				input: { pinned: true, metricId: "sugar" },
+			});
+			storedMetrics = rows([
+				summary("weight", "Weight", "kg", 3, 73.6, daysAgo(2), daysAgo(30)),
+				summary("waist", "Waist", "cm", 1, 82, daysAgo(100), daysAgo(20)),
+				summary("sugar", "Sugar level", "mg/dL", 0, 130, daysAgo(400), daysAgo(0)),
+				summary("hip", "Hip", "cm", 0, 95, daysAgo(400)),
+			]);
+			page.send({
+				outcome: "success",
+				value: { pinned: true },
+				type: "operation-result",
+				requestId: pinRequest.requestId,
+			});
+			const pinned = () => body.getByRole("group", { name: "Pinned metrics" });
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(
+						within(pinned())
+							.getAllByRole("button")
+							.map((tile) => text(tile)),
+					).toEqual([
+						expect.stringContaining("Weight"),
+						expect.stringContaining("Waist"),
+						expect.stringContaining("Sugar level"),
+					]);
+				}),
+			);
+			expect(text(pinned())).not.toContain("Star");
+			expect(pinButton("Hip").getAttribute("disabled")).not.toBeNull();
+			expect(pinButton("Weight").getAttribute("disabled")).toBeNull();
+			fireEvent.click(pinButton("Weight"));
+			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(2)));
+			expect(requests()[1]).toMatchObject({
+				operationSlug: "measurement-metric-pin",
+				input: { pinned: false, metricId: "weight" },
+			});
+		}),
 	);
 
 	it.live("offers metric creation or import when the user has no metrics", () =>
@@ -330,6 +397,7 @@ describe("measurements page", () => {
 					firstAt: null,
 					rangeCount: 0,
 					latestAt: null,
+					pinnedAt: null,
 					id: "new-metric",
 					latestValue: null,
 					key: "blood_pressure",
@@ -427,6 +495,7 @@ describe("measurements page", () => {
 				firstAt: null,
 				rangeCount: 0,
 				latestAt: null,
+				pinnedAt: null,
 				latestValue: null,
 				id: `metric-${index}`,
 				key: `metric_${index}`,
