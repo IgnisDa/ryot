@@ -11,7 +11,7 @@ use itertools::Itertools;
 use media_models::{
     DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportMetadataItemSeen,
 };
-use rust_decimal::{dec, Decimal};
+use rust_decimal::{Decimal, dec};
 use serde::Deserialize;
 use tmdb_provider::NonMediaTmdbService;
 
@@ -84,7 +84,18 @@ pub async fn import(
             }
         };
         ryot_log!(debug, "Tmdb id: {} ({}/{})", identifier, idx + 1, total);
-        let item = map_item_to_metadata(&record, lot, source, identifier);
+        let item = match map_item_to_metadata(&record, lot, source, identifier) {
+            Ok(item) => item,
+            Err(e) => {
+                failed.push(ImportFailedItem {
+                    lot: Some(lot),
+                    identifier: record.id.clone(),
+                    step: ImportFailStep::InputTransformation,
+                    error: Some(e),
+                });
+                continue;
+            }
+        };
         completed.push(ImportCompletedItem::Metadata(item));
     }
     Ok(ImportResult { failed, completed })
@@ -95,14 +106,26 @@ fn map_item_to_metadata(
     lot: MediaLot,
     source: MediaSource,
     identifier: String,
-) -> ImportOrExportMetadataItem {
-    let ended_on = record.date_rated.as_deref().and_then(|d| {
-        NaiveDate::parse_from_str(d, "%Y-%m-%d")
-            .or_else(|_| NaiveDate::parse_from_str(d, "%Y/%m/%d"))
-            .ok()
-            .map(convert_naive_to_utc)
-    });
-    let is_watched = record.your_rating.is_some() || record.date_rated.is_some();
+) -> Result<ImportOrExportMetadataItem, String> {
+    if let Some(r) = record.your_rating {
+        if r < dec!(1) || r > dec!(10) {
+            return Err(format!("Invalid rating '{r}', must be between 1 and 10"));
+        }
+    }
+    let ended_on = if let Some(ref d) = record.date_rated {
+        let trimmed = d.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            let parsed = NaiveDate::parse_from_str(trimmed, "%Y-%m-%d")
+                .or_else(|_| NaiveDate::parse_from_str(trimmed, "%Y/%m/%d"))
+                .map_err(|e| format!("Invalid date rated '{d}': {e}"))?;
+            Some(convert_naive_to_utc(parsed))
+        }
+    } else {
+        None
+    };
+    let is_watched = record.your_rating.is_some() || ended_on.is_some();
     let (collections, seen_history) = if is_watched {
         let seen_item = ImportOrExportMetadataItemSeen {
             ended_on,
@@ -120,14 +143,14 @@ fn map_item_to_metadata(
         )
     };
     let reviews = match record.your_rating {
-        Some(r) if r > dec!(0) => vec![ImportOrExportItemRating {
+        Some(r) => vec![ImportOrExportItemRating {
             // DEV: Rates items out of 10
             rating: Some(r.saturating_mul(dec!(10))),
             ..Default::default()
         }],
-        _ => vec![],
+        None => vec![],
     };
-    ImportOrExportMetadataItem {
+    Ok(ImportOrExportMetadataItem {
         lot,
         source,
         identifier,
@@ -135,7 +158,7 @@ fn map_item_to_metadata(
         collections,
         seen_history,
         reviews,
-    }
+    })
 }
 
 #[cfg(test)]
@@ -173,7 +196,8 @@ mod tests {
             date_rated: Some("2023-08-15".to_string()),
         };
         let metadata =
-            map_item_to_metadata(&item, MediaLot::Movie, MediaSource::Tmdb, "123".to_string());
+            map_item_to_metadata(&item, MediaLot::Movie, MediaSource::Tmdb, "123".to_string())
+                .unwrap();
         assert!(metadata.collections.is_empty());
         assert_eq!(metadata.seen_history.len(), 1);
         assert_eq!(
@@ -194,7 +218,8 @@ mod tests {
             date_rated: None,
         };
         let metadata =
-            map_item_to_metadata(&item, MediaLot::Movie, MediaSource::Tmdb, "123".to_string());
+            map_item_to_metadata(&item, MediaLot::Movie, MediaSource::Tmdb, "123".to_string())
+                .unwrap();
         assert_eq!(metadata.collections.len(), 1);
         assert_eq!(
             metadata.collections[0].collection_name,
@@ -213,9 +238,64 @@ mod tests {
             date_rated: Some("2023-08-15".to_string()),
         };
         let metadata =
-            map_item_to_metadata(&item, MediaLot::Movie, MediaSource::Tmdb, "123".to_string());
+            map_item_to_metadata(&item, MediaLot::Movie, MediaSource::Tmdb, "123".to_string())
+                .unwrap();
         assert!(metadata.collections.is_empty());
         assert_eq!(metadata.seen_history.len(), 1);
         assert!(metadata.reviews.is_empty());
+    }
+
+    #[test]
+    fn test_map_item_to_metadata_invalid_rating() {
+        let item_zero = Item {
+            id: "tt0111161".to_string(),
+            title_type: "movie".to_string(),
+            your_rating: Some(dec!(0)),
+            date_rated: None,
+        };
+        assert!(
+            map_item_to_metadata(
+                &item_zero,
+                MediaLot::Movie,
+                MediaSource::Tmdb,
+                "123".to_string()
+            )
+            .is_err()
+        );
+
+        let item_eleven = Item {
+            id: "tt0111161".to_string(),
+            title_type: "movie".to_string(),
+            your_rating: Some(dec!(11)),
+            date_rated: None,
+        };
+        assert!(
+            map_item_to_metadata(
+                &item_eleven,
+                MediaLot::Movie,
+                MediaSource::Tmdb,
+                "123".to_string()
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn test_map_item_to_metadata_invalid_date() {
+        let item_bad_date = Item {
+            id: "tt0111161".to_string(),
+            title_type: "movie".to_string(),
+            your_rating: None,
+            date_rated: Some("not-a-date".to_string()),
+        };
+        assert!(
+            map_item_to_metadata(
+                &item_bad_date,
+                MediaLot::Movie,
+                MediaSource::Tmdb,
+                "123".to_string()
+            )
+            .is_err()
+        );
     }
 }
