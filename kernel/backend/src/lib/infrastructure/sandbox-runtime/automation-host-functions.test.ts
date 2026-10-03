@@ -74,7 +74,11 @@ const runInput = (
 		pluginRevision: null,
 		scriptSlug: "review-created",
 		scriptId: SandboxScriptId.make("script-1"),
-		metadata: { kind: "automation", capabilities: ["emitSignal", "sendNotification"] },
+		metadata: {
+			kind: "automation",
+			runtimeImports: [],
+			capabilities: ["emitSignal", "sendNotification"],
+		},
 		subject: {
 			runId,
 			triggerId,

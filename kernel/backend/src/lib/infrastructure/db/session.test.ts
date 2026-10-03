@@ -3,12 +3,13 @@ import { assert, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { eq, sql } from "drizzle-orm";
 import { pgTable, text } from "drizzle-orm/pg-core";
-import { Cause, Deferred, Effect, Exit, Fiber, Layer, Redacted } from "effect";
+import { Cause, Deferred, Effect, Exit, Fiber, Layer, Pool, Redacted, Schema } from "effect";
+import { Reactivity } from "effect/reactivity";
 
 import { testDatabaseUrl } from "#lib/test-utils/database";
 
 import { retryOnDeadlock } from "./errors";
-import { DatabaseSession, DatabaseSessionStateError } from "./session";
+import { DatabaseConnectionLimit, DatabaseSession, DatabaseSessionStateError } from "./session";
 
 const entry = pgTable("database_session_test", {
 	id: text("id").primaryKey(),
@@ -27,6 +28,83 @@ const sessionLayer = Layer.effectDiscard(
 	Layer.provideMerge(Layer.effect(DatabaseSession, DatabaseSession.make)),
 	Layer.provideMerge(PgClient.layer({ maxConnections: 1, url: Redacted.make(testDatabaseUrl()) })),
 );
+
+const limitedSessionLayer = Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
+	Layer.provide(PgClient.layer({ maxConnections: 3, url: Redacted.make(testDatabaseUrl()) })),
+);
+
+layer(limitedSessionLayer)((test) => {
+	test.effect(
+		"limits physical connections and reuses a connection for nested and parallel operations",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const session = yield* DatabaseSession;
+					const reactivity = yield* Reactivity.make;
+					const limit = yield* Pool.makeWithTTL({
+						min: 0,
+						max: 1,
+						timeToLive: "60 seconds",
+						acquire: PgClient.makeClient({ url: Redacted.make(testDatabaseUrl()) }).pipe(
+							Effect.provideService(Reactivity.Reactivity, reactivity),
+						),
+					});
+					const occupied = yield* Deferred.make<void>();
+					const release = yield* Deferred.make<void>();
+					const secondEntered = yield* Deferred.make<void>();
+					const decodePids = Schema.decodeUnknownEffect(
+						Schema.Array(Schema.Struct({ pid: Schema.Int })),
+					);
+					const readPid = () =>
+						session.run((db) =>
+							db.select({ pid: sql<number>`pg_backend_pid()` }).from(sql`(select 1) as fixture`),
+						);
+					const first = yield* session
+						.run((db) =>
+							Effect.gen(function* () {
+								const before = yield* decodePids(
+									yield* db
+										.select({ pid: sql<number>`pg_backend_pid()` })
+										.from(sql`(select 1) as fixture`),
+								);
+								expect(yield* session.isTransactionActive).toBe(false);
+								yield* Deferred.succeed(occupied, undefined);
+								yield* Deferred.await(release);
+								const nested = yield* Effect.all([readPid(), readPid()], { concurrency: 2 });
+								const transaction = yield* session.transaction(
+									Effect.gen(function* () {
+										expect(yield* session.isTransactionActive).toBe(true);
+										return yield* Effect.all([readPid(), readPid()], { concurrency: 2 });
+									}),
+								);
+								for (const result of [...nested, ...transaction]) {
+									expect(yield* decodePids(result)).toEqual(before);
+								}
+								return before;
+							}),
+						)
+						.pipe(Effect.provideService(DatabaseConnectionLimit, limit), Effect.forkScoped);
+					yield* Effect.raceFirst(Deferred.await(occupied), Fiber.join(first).pipe(Effect.asVoid));
+					const second = yield* session
+						.run((db) =>
+							Effect.gen(function* () {
+								yield* Deferred.succeed(secondEntered, undefined);
+								return yield* db
+									.select({ pid: sql<number>`pg_backend_pid()` })
+									.from(sql`(select 1) as fixture`);
+							}),
+						)
+						.pipe(Effect.provideService(DatabaseConnectionLimit, limit), Effect.forkScoped);
+					yield* Effect.yieldNow;
+					expect(yield* Deferred.isDone(secondEntered)).toBe(false);
+					yield* Deferred.succeed(release, undefined);
+					yield* Fiber.join(first);
+					yield* decodePids(yield* Fiber.join(second));
+					expect(yield* Deferred.isDone(secondEntered)).toBe(true);
+				}),
+			),
+	);
+});
 
 layer(sessionLayer)((test) => {
 	test.effect("commits work and propagates the transaction through nested run calls", () =>

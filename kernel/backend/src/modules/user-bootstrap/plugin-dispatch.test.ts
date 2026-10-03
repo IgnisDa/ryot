@@ -120,6 +120,7 @@ const baseLayer = Layer.mergeAll(
 							metadata: {
 								kind: "script",
 								capabilities: [],
+								runtimeImports: [],
 								oauthConnectionFields: [],
 								slug: bootstrap.scriptSlug,
 								name: bootstrap.scriptSlug,

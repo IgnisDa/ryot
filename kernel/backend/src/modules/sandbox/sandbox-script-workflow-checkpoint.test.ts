@@ -32,6 +32,7 @@ import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import { RedisService } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
+import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { testDatabaseUrl } from "#lib/test-utils/database";
@@ -116,6 +117,7 @@ const makeHarness = () => {
 		contentHash: "checkpoint-content",
 		metadata: {
 			capabilities: [],
+			runtimeImports: [],
 			kind: "workflow" as const,
 			executableDependencies: [{ kind: "workflow" as const, slug: firstRequest.args.workflowSlug }],
 		},
@@ -124,6 +126,18 @@ const makeHarness = () => {
 		Layer.succeed(PersistedQueue.PersistedQueueFactory, {
 			make: () => Effect.die("Admission must precede queue access"),
 		}),
+		Layer.succeed(
+			RuntimeSandboxService,
+			RuntimeSandboxService.of({
+				completeRecovery: () => Effect.void,
+				run: () => Effect.die("Sandbox must not start"),
+				reserve: () =>
+					Effect.succeed({
+						retainJournal: () => Effect.void,
+						enter: () => Effect.as(Effect.void, undefined),
+					}),
+			}),
+		),
 		Layer.mock(SandboxWorkflowPinning)({
 			establish: () => Effect.succeed({ principal, registrationStatus: "not-required" as const }),
 		}),

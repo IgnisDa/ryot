@@ -5,11 +5,11 @@ import { gzipSync } from "@ryot-app/sandbox-sdk/fflate";
 import { compareMediaRecords, serializeMediaRecords } from "./collection";
 import type { MediaSourceRecord } from "./collection-schemas";
 import goodreads from "./goodreads.sandbox";
-import { mediaFilesystem, mediaFilesystemKey, mediaStageInput } from "./ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
 import myanimelist from "./myanimelist.sandbox";
 import spotify from "./spotify.sandbox";
 
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 const encoder = new TextEncoder();
 const play = (ts: string, name: string) => ({
 	ts,

@@ -60,6 +60,7 @@ const payload = { runId: run.id, attemptNumber: 1, acceptedPatches: [] };
 const afterScript = {
 	capabilities: [],
 	kind: "automation",
+	runtimeImports: [],
 	slug: "hook-script",
 	name: "Hook script",
 	oauthConnectionFields: [],

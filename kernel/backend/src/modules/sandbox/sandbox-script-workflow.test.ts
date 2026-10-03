@@ -18,6 +18,7 @@ import {
 	workflowReplayJournalEntrySchema,
 	workflowReplayEnvelopeSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Deferred, Effect, Layer, Metric, Ref, Schema, Stream, type Exit } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Workflow } from "effect/workflow";
@@ -66,6 +67,13 @@ import {
 	SandboxWorkflowReferenceRegistrationError,
 	SandboxWorkflowReferenceRepository,
 } from "./workflow-reference-repository";
+
+const recoveryPinHash = sha256Hex("sandbox-script-workflow-test-recovery-pin");
+const recoveryIdentity = (executionId: string) => ({
+	executionId,
+	instance: "system/core",
+	pinHash: recoveryPinHash,
+});
 
 const pluginRevision = {
 	ownerId: null,
@@ -173,7 +181,7 @@ layer(
 										providerId: null,
 										scriptSlug: "script",
 										contentHash: "hash-1",
-										metadata: { kind: "automation" as const },
+										metadata: { runtimeImports: [], kind: "automation" as const },
 									}),
 								),
 					}),
@@ -269,7 +277,7 @@ layer(
 										pluginRevision: null,
 										contentHash: "kernel-v1",
 										scriptSlug: "notification",
-										metadata: { kind: "automation" as const },
+										metadata: { runtimeImports: [], kind: "automation" as const },
 									}),
 								),
 					}),
@@ -373,6 +381,7 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 		name: "Workflow",
 		slug: "workflow",
 		capabilities: [],
+		runtimeImports: [],
 		kind: "workflow" as const,
 		oauthConnectionFields: [],
 		requiredPluginConfigKeys: [],
@@ -454,42 +463,52 @@ const hotSwapLayer = recordingLayer(
 							Effect.as({ status: "registered" as const }),
 						),
 			}),
-			Layer.mock(RuntimeSandboxService)({
-				run: (input) =>
-					Effect.gen(function* () {
-						yield* calls.record("executed-content", input.compiledCode);
-						const replayJournal = makeWorkflowReplayJournalHostFunction(input.replayJournal);
-						const journal = yield* replayJournal([]).pipe(Effect.flatMap(replayJournalResult));
-						const output = yield* Effect.gen(function* () {
-							const process = yield* spawner.spawn(
-								ChildProcess.make("/bin/sh", ["-c", input.compiledCode], {
-									env: {
-										REQUEST: encodeJson(hotSwapRequest),
-										JOURNAL: encodeJson(journal.data.map(({ value }) => value)),
-									},
-								}),
-							);
-							return yield* process.stdout.pipe(
-								Stream.decodeText(),
-								Stream.runFold(
-									() => "",
-									(content, chunk) => content + chunk,
-								),
-							);
-						}).pipe(Effect.scoped);
-						yield* Ref.set(active, replacementScriptId);
-						return {
-							logs: [],
-							inline: [],
-							error: null,
-							success: true,
-							harvest: null,
-							executionId: input.executionId,
-							value: yield* decodeEnvelope(output),
-							timing: { totalMs: 1, executionMs: 1 },
-						};
-					}).pipe(Effect.orDie),
-			}),
+			Layer.succeed(
+				RuntimeSandboxService,
+				RuntimeSandboxService.of({
+					completeRecovery: () => Effect.void,
+					reserve: () =>
+						Effect.succeed({
+							retainJournal: () => Effect.void,
+							enter: () => Effect.as(Effect.void, undefined),
+						}),
+					run: (input) =>
+						Effect.gen(function* () {
+							yield* calls.record("executed-content", input.compiledCode);
+							const replayJournal = makeWorkflowReplayJournalHostFunction(input.replayJournal);
+							const journal = yield* replayJournal([]).pipe(Effect.flatMap(replayJournalResult));
+							const output = yield* Effect.gen(function* () {
+								const process = yield* spawner.spawn(
+									ChildProcess.make("/bin/sh", ["-c", input.compiledCode], {
+										env: {
+											REQUEST: encodeJson(hotSwapRequest),
+											JOURNAL: encodeJson(journal.data.map(({ value }) => value)),
+										},
+									}),
+								);
+								return yield* process.stdout.pipe(
+									Stream.decodeText(),
+									Stream.runFold(
+										() => "",
+										(content, chunk) => content + chunk,
+									),
+								);
+							}).pipe(Effect.scoped);
+							yield* Ref.set(active, replacementScriptId);
+							return {
+								logs: [],
+								inline: [],
+								error: null,
+								success: true,
+								harvest: null,
+								executionId: input.executionId,
+								value: yield* decodeEnvelope(output),
+								timing: { totalMs: 1, executionMs: 1 },
+								recovery: recoveryIdentity(input.executionId),
+							};
+						}).pipe(Effect.orDie),
+				}),
+			),
 			Layer.mock(KernelWorkflowReferences)({
 				execute: (
 					_workflowSlug,
@@ -566,7 +585,7 @@ const pluginWorkflowPin = (scriptId: SandboxScriptId) => ({
 	providerId: null,
 	scriptSlug: "workflow",
 	contentHash: "content-hash",
-	metadata: { capabilities: [], kind: "workflow" as const },
+	metadata: { capabilities: [], runtimeImports: [], kind: "workflow" as const },
 });
 
 const suspendedScriptId = SandboxScriptId.make("workflow-script");
@@ -685,7 +704,7 @@ layer(
 								scriptSlug: "workflow",
 								scriptId: interruptedScriptId,
 								contentHash: "operation-hash",
-								metadata: { kind: "workflow", capabilities: [] },
+								metadata: { kind: "workflow", capabilities: [], runtimeImports: [] },
 							}),
 					}),
 					Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -1110,7 +1129,11 @@ const inlineWorkflowLayer = (executionId: string) =>
 								scriptSlug: "inline",
 								scriptId: inlineScriptId,
 								contentHash: "inline-hash",
-								metadata: { kind: "operation", capabilities: ["getCachedValue", "setCachedValue"] },
+								metadata: {
+									kind: "operation",
+									runtimeImports: [],
+									capabilities: ["getCachedValue", "setCachedValue"],
+								},
 							}),
 					}),
 					Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -1348,6 +1371,7 @@ layer(
 								metadata: {
 									kind: "workflow",
 									capabilities: [],
+									runtimeImports: [],
 									executableDependencies: [
 										{ kind: "script", slug: "activity.first" },
 										{ kind: "script", slug: "activity.second" },
@@ -1538,8 +1562,8 @@ layer(
 					pluginRevision: null,
 					scriptSlug: "workflow",
 					contentHash: "workflow-hash",
-					metadata: { kind: "workflow", capabilities: [] },
 					scriptId: SandboxScriptId.make("workflow-script"),
+					metadata: { kind: "workflow", capabilities: [], runtimeImports: [] },
 				},
 				`${importRunId}-import`,
 			);

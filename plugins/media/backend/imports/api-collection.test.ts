@@ -5,9 +5,9 @@ import { stubHttpHost } from "../../tests/backend/imports/source-test-utils";
 import { collectTraktApi } from "./api-collection";
 import { collectAudiobookshelf } from "./audiobookshelf-collection";
 import type { MediaSourceRecord } from "./collection-schemas";
-import { mediaFilesystem, mediaFilesystemKey, mediaStageInput } from "./ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
 
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 it.live("collects Trakt history and custom list pages once with original record attribution", () =>
 	Effect.gen(function* () {
 		const calls: string[] = [];

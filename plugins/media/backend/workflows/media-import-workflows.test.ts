@@ -1,8 +1,13 @@
 import { assert, expect, it } from "@effect/vitest";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
-import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot-app/sandbox-sdk/workflow";
+import type {
+	WorkflowReplayEnvelope,
+	WorkflowReplayHost,
+	WorkflowReplayJournalEntry,
+} from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";
@@ -36,13 +41,12 @@ const completeReplay = <Input extends JsonValue>(
 	resolve: (request: WorkflowReplayEnvelope["requests"][number]) => JsonValue,
 ) =>
 	Effect.gen(function* () {
-		const journal: JsonValue[] = [];
+		const journal: WorkflowReplayJournalEntry[] = [];
 		for (;;) {
-			const envelope = yield* run(
-				input,
-				{ replayJournal: () => Effect.succeed(journal) },
-				{ metadata: {}, sandboxScriptId: "workflow-test" },
-			);
+			const envelope = yield* run(input, makeWorkflowReplayHost(journal), {
+				metadata: {},
+				sandboxScriptId: "workflow-test",
+			});
 			if (envelope.state === "completed") {
 				return envelope.output;
 			}
@@ -52,7 +56,7 @@ const completeReplay = <Input extends JsonValue>(
 			}
 			const request = envelope.requests[journal.length];
 			assert(request);
-			journal.push(resolve(request));
+			journal.push({ request, value: resolve(request) });
 		}
 	});
 
@@ -92,11 +96,10 @@ it.live("emits population children as one deterministic batch", () =>
 			command: importCommand("run-1"),
 			providerId: "provider-openlibrary",
 		}));
-		const envelope = yield* populationWorkflow.run(
-			{ items },
-			{ replayJournal: () => Effect.succeed([]) },
-			{ metadata: {}, sandboxScriptId: "workflow-test" },
-		);
+		const envelope = yield* populationWorkflow.run({ items }, makeWorkflowReplayHost([]), {
+			metadata: {},
+			sandboxScriptId: "workflow-test",
+		});
 
 		assert(envelope.state === "pending");
 		expect(envelope.requests.map((request) => request.name)).toEqual(

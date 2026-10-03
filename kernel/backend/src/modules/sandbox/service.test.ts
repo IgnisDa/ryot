@@ -34,11 +34,11 @@ const scriptId = SandboxScriptId.make("script-id");
 const executingUserId = UserId.make("user-1");
 const storedScript = {
 	id: scriptId,
-	metadata: {},
 	providerId: null,
 	compiledFormat: 1,
 	compiledCode: "compiled",
 	contentHash: "compiled-hash",
+	metadata: { runtimeImports: [] },
 };
 const storedWorkflowScript = {
 	...storedScript,
@@ -48,7 +48,7 @@ const storedWorkflowScript = {
 	pluginSlug: "fixture",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	metadata: { kind: "workflow" as const },
+	metadata: { runtimeImports: [], kind: "workflow" as const },
 };
 
 const mockRepository = Layer.mock(SandboxRepository);
@@ -175,7 +175,11 @@ layer(
 	makeServiceLayer({
 		repository: mockRepository({
 			isPluginScript: () => Effect.succeed(false),
-			getScript: () => Effect.succeed({ ...storedScript, metadata: { kind: "provider" as const } }),
+			getScript: () =>
+				Effect.succeed({
+					...storedScript,
+					metadata: { runtimeImports: [], kind: "provider" as const },
+				}),
 		}),
 	}),
 )((test) => {
@@ -450,7 +454,7 @@ const revisionPinRepository = Layer.unwrap(
 							providerId: null,
 							scriptSlug: "workflow",
 							contentHash: storedScript.contentHash,
-							metadata: { kind: "workflow" as const },
+							metadata: { runtimeImports: [], kind: "workflow" as const },
 							pluginRevision: expectedRevision ? originalRevision : activeRevision,
 						})),
 					),

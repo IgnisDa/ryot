@@ -41,15 +41,15 @@ it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
 				"packages/sandbox-compiler/src/runtime-build/inputs.ts",
 				"packages/sandbox-compiler/src/runtime-build/registry.ts",
 				"packages/sandbox-compiler/src/runtime-build/source-tree.ts",
-				"kernel/backend/src/lib/infrastructure/sandbox-runtime/payload.ts",
-				"kernel/backend/src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts",
+				"kernel/backend/src/lib/infrastructure/sandbox-runtime/isolate-invocation.ts",
+				"kernel/backend/src/lib/infrastructure/sandbox-runtime/sidecar-protocol.ts",
 				"packages/contract/src/modules/ryotql/language.ts",
 				"packages/ryotql/src/index.ts",
 				"packages/ryotql-recipes/src/codecs.ts",
 				"packages/sandbox-sdk/src/runtime-registry.ts",
 				"packages/ts-utils/src/crypto.ts",
 				"packages/typescript-compiler/src/index.ts",
-				"packages/vite-compiler/src/deno.ts",
+				"packages/vite-compiler/src/sandbox.ts",
 				"packages/vite-compiler/package.json",
 			]) {
 				expect(inputs, expected).toHaveProperty(expected);
@@ -68,14 +68,14 @@ it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
 				(root, runtimeDirectory) =>
 					Effect.gen(function* () {
 						const fs = yield* FileSystem.FileSystem;
-						const target = `${root}/outside.sandbox.ts`;
+						const target = `${root}/outside.ts`;
 						yield* fs.writeFileString(target, "export {};");
-						yield* fs.symlink(target, `${runtimeDirectory}/linked.sandbox.ts`);
+						yield* fs.symlink(target, `${runtimeDirectory}/isolate-invocation.ts`);
 					}),
 				{},
 			);
 			expect(failure).toMatchObject({ reason: "symbolic-link", _tag: "SourceWalkError" });
-			expect(String(failure)).toContain("linked.sandbox.ts");
+			expect(String(failure)).toContain("isolate-invocation.ts");
 		}).pipe(Effect.scoped),
 	);
 
@@ -95,8 +95,8 @@ it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
 			fixture: (_root: string, runtimeDirectory: string) =>
 				Effect.gen(function* () {
 					const fs = yield* FileSystem.FileSystem;
-					yield* fs.writeFileString(`${runtimeDirectory}/a.sandbox.ts`, "a");
-					yield* fs.writeFileString(`${runtimeDirectory}/b.sandbox.ts`, "b");
+					yield* fs.writeFileString(`${runtimeDirectory}/isolate-invocation.ts`, "a");
+					yield* fs.writeFileString(`${runtimeDirectory}/isolate-bootstrap.ts`, "b");
 				}),
 		},
 		{
@@ -105,7 +105,7 @@ it.layer(BunServices.layer)("sandboxRuntimeInputs", (test) => {
 			fixture: (_root: string, runtimeDirectory: string) =>
 				Effect.gen(function* () {
 					const fs = yield* FileSystem.FileSystem;
-					yield* fs.writeFileString(`${runtimeDirectory}/entry.sandbox.ts`, "ab");
+					yield* fs.writeFileString(`${runtimeDirectory}/isolate-invocation.ts`, "ab");
 				}),
 		},
 	] as const)("rejects preparation inputs at the $reason", ({ limits, reason, fixture }) =>

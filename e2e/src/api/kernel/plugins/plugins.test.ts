@@ -1,10 +1,9 @@
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntityId, EventSchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect, Schema } from "effect";
 
-import type { Client } from "~/fixtures/kernel";
+import type { Client, TestPluginScript } from "~/fixtures/kernel";
 import {
 	adminHeaders,
 	adminSystemPluginsRecipe,
@@ -38,7 +37,7 @@ import {
 } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
 
-type PluginScript = PluginManifest["scripts"][number];
+type PluginScript = TestPluginScript & { readonly entry: string };
 
 const listEntities = (client: Client) =>
 	collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 }));

@@ -1,9 +1,10 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import type { Path } from "effect";
-import { Effect, FileSystem, Layer } from "effect";
+import { Effect, FileSystem, Layer, Schema } from "effect";
 
 import { loadPluginSource } from "./source.test-support";
 import { discoverSystemPlugins } from "./system";
@@ -39,7 +40,11 @@ const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: st
 		},
 	};
 	const source = yield* loadPluginSource(fixturePackageRoot(), manifest);
-	yield* fs.writeFile(`${root}/${slug}.zip`, writePluginArchive({ ...source, manifest }));
+	const compiledManifest = yield* Schema.decodeUnknownEffect(PluginManifest)(source.manifest);
+	yield* fs.writeFile(
+		`${root}/${slug}.zip`,
+		writePluginArchive({ ...source, manifest: compiledManifest }),
+	);
 });
 
 layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
