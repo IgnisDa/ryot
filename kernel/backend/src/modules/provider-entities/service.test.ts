@@ -11,10 +11,12 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
+import { Cause, Context, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
+import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { createWorkflowJobId, deriveJobIdSecret } from "#lib/shared/job-id";
 import {
 	databaseLayer,
@@ -71,7 +73,10 @@ type SubmitInput = Parameters<Admission["submit"]>[0];
 
 class FakeAdmission extends Context.Service<
 	FakeAdmission,
-	{ readonly submitted: Effect.Effect<ReadonlyArray<SubmitInput>> }
+	{
+		readonly submitted: Effect.Effect<ReadonlyArray<SubmitInput>>;
+		readonly statusRead: Effect.Effect<void>;
+	}
 >()("test/FakeAdmission") {}
 
 const makeServiceLayer = (
@@ -86,31 +91,39 @@ const makeServiceLayer = (
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const submitted = yield* Ref.make<ReadonlyArray<SubmitInput>>([]);
+			const statusReads = yield* Queue.unbounded<void>();
 			const { submit, status } = options;
+			const dependencies = Layer.mergeAll(
+				makeAppConfigLayer(),
+				Layer.succeed(WorkflowEngine, options.engine ?? makeWorkflowEngine()),
+				options.entitiesRepo ?? makeEntitiesRepository(),
+				Layer.mock(PluginRuntimeResolver)({
+					findProviderAvailableToUser: () =>
+						Effect.succeed(
+							options.activeProvider === undefined ? provider : options.activeProvider,
+						),
+				}),
+				Layer.succeed(FakeAdmission, {
+					submitted: Ref.get(submitted),
+					statusRead: Queue.take(statusReads).pipe(Effect.asVoid),
+				}),
+			);
 			const admission = Layer.mock(ProviderImportAdmission)({
 				...(submit && {
 					submit: (input) =>
 						Ref.update(submitted, (all) => [...all, input]).pipe(Effect.as(submit(input))),
 				}),
-				...(status && { status }),
+				...(status && {
+					status: (input) =>
+						status(input).pipe(Effect.tap(() => Queue.offer(statusReads, undefined))),
+				}),
+				cancel: () => Effect.void,
 			});
 			return EntityImportService.layer.pipe(
-				Layer.provideMerge(
-					Layer.mergeAll(
-						databaseLayer,
-						makeAppConfigLayer(),
-						Layer.succeed(WorkflowEngine, options.engine ?? makeWorkflowEngine()),
-						options.entitiesRepo ?? makeEntitiesRepository(),
-						admission,
-						Layer.mock(PluginRuntimeResolver)({
-							findProviderAvailableToUser: () =>
-								Effect.succeed(
-									options.activeProvider === undefined ? provider : options.activeProvider,
-								),
-						}),
-						Layer.succeed(FakeAdmission, { submitted: Ref.get(submitted) }),
-					),
-				),
+				Layer.provideMerge(admission),
+				Layer.provideMerge(WorkflowExecutionNotifications.layer),
+				Layer.provideMerge(dependencies),
+				Layer.provideMerge(databaseLayer),
 			);
 		}),
 	);
@@ -313,36 +326,80 @@ layer(makeServiceLayer())((test) => {
 });
 
 const importResultLayer = (
-	admitted: "queued" | "running" | null,
+	admitted: "queued" | "running" | null | Admission["status"],
 	poll: ReturnType<typeof makeWorkflowEngine>["poll"],
 ) =>
 	makeServiceLayer({
 		engine: makeWorkflowEngine({ poll }),
-		status: () => Effect.succeed(admitted),
+		status: typeof admitted === "function" ? admitted : () => Effect.succeed(admitted),
 	});
 
-const importResult = Effect.gen(function* () {
-	const service = yield* EntityImportService;
-	const jobId = createWorkflowJobId(
-		deriveJobIdSecret("test-admin-token"),
-		{ lane: "interactive", executionId: "exec-abc" },
-		user.id,
-	);
-	return yield* service.getImportResult(user, jobId);
-});
+const importResultJobId = createWorkflowJobId(
+	deriveJobIdSecret("test-admin-token"),
+	{ lane: "interactive", executionId: "exec-abc" },
+	user.id,
+);
+const importIdentity = {
+	executionId: "exec-abc",
+	workflowName: EntityImportWorkflow.forLane("interactive")._tag,
+};
+const importResult = Effect.flatMap(EntityImportService, (service) =>
+	service.getImportResult(user, importResultJobId),
+);
 
-layer(importResultLayer("queued", () => Effect.die("unreachable")))((test) => {
-	test.effect("reports a queued import from the admission ledger", () =>
+layer(
+	importResultLayer(
+		(() => {
+			let reads = 0;
+			return () => Effect.sync(() => (reads++ === 0 ? "queued" : null));
+		})(),
+		() => Effect.succeedNone,
+	),
+)((test) => {
+	test.effect("returns a queued cancellation when cancelImport wakes its result wait", () =>
 		Effect.gen(function* () {
-			expect(yield* importResult).toEqual({ status: "queued" });
+			const admission = yield* FakeAdmission;
+			const fiber = yield* Effect.forkChild(importResult);
+			yield* admission.statusRead;
+			const service = yield* EntityImportService;
+			yield* service.cancelImport(user, importResultJobId);
+			expect(yield* Fiber.join(fiber)).toEqual({ status: "cancelled" });
 		}),
 	);
 });
 
 layer(importResultLayer("running", () => Effect.succeedNone))((test) => {
-	test.effect("returns running status when an admitted workflow has not completed", () =>
+	test.effect("returns running status after its notification wait times out", () =>
 		Effect.gen(function* () {
-			expect(yield* importResult).toEqual({ status: "running" });
+			const admission = yield* FakeAdmission;
+			const fiber = yield* Effect.forkChild(importResult);
+			yield* admission.statusRead;
+			yield* TestClock.adjust("20 seconds");
+			expect(yield* Fiber.join(fiber)).toEqual({ status: "running" });
+		}),
+	);
+});
+
+layer(
+	importResultLayer(
+		"running",
+		(() => {
+			let polls = 0;
+			return (_workflow, executionId) =>
+				executionId === "exec-abc" && polls++ > 0
+					? Effect.succeedSome(new Workflow.Complete({ exit: Exit.succeed(importedEntity) }))
+					: Effect.succeedNone;
+		})(),
+	),
+)((test) => {
+	test.effect("returns workflow completion after a matching notification", () =>
+		Effect.gen(function* () {
+			const admission = yield* FakeAdmission;
+			const notifications = yield* WorkflowExecutionNotifications;
+			const fiber = yield* Effect.forkChild(importResult);
+			yield* admission.statusRead;
+			yield* notifications.publish(importIdentity);
+			expect(yield* Fiber.join(fiber)).toEqual({ status: "completed", data: importedEntity });
 		}),
 	);
 });
@@ -366,9 +423,27 @@ layer(
 			: Effect.succeedNone,
 	),
 )((test) => {
-	test.effect("returns the completed import from the interactive workflow named by the job", () =>
+	test.effect("returns terminal workflow results without waiting for a notification", () =>
 		Effect.gen(function* () {
 			expect(yield* importResult).toEqual({ status: "completed", data: importedEntity });
+		}),
+	);
+});
+
+layer(
+	importResultLayer("running", (workflow, executionId) =>
+		workflow._tag === EntityImportWorkflow.interactive._tag && executionId === "exec-abc"
+			? Effect.succeedSome(
+					new Workflow.Complete({
+						exit: Exit.fail({ message: "failed", stage: "population" as const }),
+					}),
+				)
+			: Effect.succeedNone,
+	),
+)((test) => {
+	test.effect("returns a terminal workflow failure without waiting for a notification", () =>
+		Effect.gen(function* () {
+			expect(yield* importResult).toMatchObject({ status: "failed" });
 		}),
 	);
 });

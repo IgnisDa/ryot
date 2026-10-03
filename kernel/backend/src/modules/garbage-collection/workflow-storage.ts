@@ -2,7 +2,9 @@ import { Effect, Layer } from "effect";
 import { MessageStorage, Snowflake, SqlMessageStorage } from "effect/cluster";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 
+import { terminalWorkflowReplyIdentity } from "./workflow-models";
 import { WorkflowGarbageCollectionRepository } from "./workflow-repository";
 
 export const WorkflowGarbageCollectionStorageLive = Layer.effect(
@@ -10,6 +12,7 @@ export const WorkflowGarbageCollectionStorageLive = Layer.effect(
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		const repository = yield* WorkflowGarbageCollectionRepository;
+		const notifications = yield* WorkflowExecutionNotifications;
 		const storage = yield* SqlMessageStorage.makeEncoded();
 		return yield* MessageStorage.makeEncoded({
 			...storage,
@@ -28,13 +31,26 @@ export const WorkflowGarbageCollectionStorageLive = Layer.effect(
 						Effect.gen(function* () {
 							const request = yield* repository.prepareReply(reply);
 							if (!request) {
-								return;
+								return undefined;
 							}
 							yield* storage.saveReply(reply);
 							yield* repository.complete(reply, request);
+							return request;
 						}),
 					)
-					.pipe(Effect.orDie),
+					.pipe(
+						Effect.orDie,
+						Effect.flatMap((request) =>
+							request
+								? terminalWorkflowReplyIdentity(reply, request).pipe(
+										Effect.orDie,
+										Effect.flatMap((identity) =>
+											identity ? notifications.publish(identity) : Effect.void,
+										),
+									)
+								: Effect.void,
+						),
+					),
 		});
 	}),
 ).pipe(
