@@ -28,7 +28,7 @@ import { makeRedisService, makeWorkflowActivityEngine } from "#lib/test-utils/ef
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { planFixture } from "#modules/automations/lifecycle.test-support";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import type { EntityRelationshipDefinitions } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -63,19 +63,9 @@ const command = rootLifecycleCommand({
 	providerExecutionId: AutomationExecutionId.make("provider-workflow"),
 });
 
-const entityDefinition = (slug: string) => ({
-	slug,
-	name: slug,
-	icon: "circle",
-	pluginSlug: null,
-	eventSchemas: {},
-	mergeIdentityProperties: [],
-	propertiesSchema: { fields: {} },
-});
+const entityDefinition = (slug: string) => ({ slug, pluginId: null });
 
 const definitions = {
-	savedViews: {},
-	signalSchemas: {},
 	entitySchemas: {
 		person: entityDefinition("person"),
 		[rootSchemaSlug]: entityDefinition(rootSchemaSlug),
@@ -98,10 +88,21 @@ const definitions = {
 			targetEntitySchemaSlug: childSchemaSlug,
 		},
 	},
-} satisfies DefinitionSnapshot;
+} satisfies EntityRelationshipDefinitions;
+const definitionsWithoutChildSchema = {
+	...definitions,
+	entitySchemas: {
+		person: entityDefinition("person"),
+		[rootSchemaSlug]: entityDefinition(rootSchemaSlug),
+	},
+} satisfies EntityRelationshipDefinitions;
+const definitionsWithoutChildRelationship = {
+	...definitions,
+	relationshipSchemas: { credits: definitions.relationshipSchemas.credits },
+} satisfies EntityRelationshipDefinitions;
 const definitionsLayer = Layer.mock(DefinitionRepository)({
-	getGlobalSnapshot: Effect.succeed(definitions),
-	getUserSnapshot: () => Effect.succeed(definitions),
+	getGlobalEntityRelationshipDefinitions: Effect.succeed(definitions),
+	getUserEntityRelationshipDefinitions: () => Effect.succeed(definitions),
 	findGlobalRelationshipSchema: (slug) =>
 		Effect.succeed(definitions.relationshipSchemas[slug] ?? null),
 });
@@ -362,6 +363,48 @@ layer(providerWritesLayer({ reconciled: "fail" }))((it) => {
 			expect(Exit.isFailure(exit)).toBe(true);
 			expect(yield* persistedExternalIds).toEqual([]);
 		}),
+	);
+});
+
+layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) => {
+	it.effect("rejects a child entity when its schema is missing from the population catalog", () =>
+		Effect.gen(function* () {
+			const error = yield* Effect.flip(
+				writeChildEntitySet({
+					command,
+					population,
+					providerId,
+					scope: "global",
+					childEntities: [],
+					parentEntityId: rootEntityId,
+					parentEntitySchemaSlug: rootSchemaSlug,
+					definitions: definitionsWithoutChildSchema,
+					expectedChildEntitySchemaSlug: childSchemaSlug,
+				}),
+			);
+			expect(error.message).toBe("Child entity schema not found: part");
+		}),
+	);
+
+	it.effect(
+		"rejects a child entity when its relationship schema is missing from the population catalog",
+		() =>
+			Effect.gen(function* () {
+				const error = yield* Effect.flip(
+					writeChildEntitySet({
+						command,
+						population,
+						providerId,
+						scope: "global",
+						childEntities: [],
+						parentEntityId: rootEntityId,
+						parentEntitySchemaSlug: rootSchemaSlug,
+						expectedChildEntitySchemaSlug: childSchemaSlug,
+						definitions: definitionsWithoutChildRelationship,
+					}),
+				);
+				expect(error.message).toBe("Child relationship schema not found: record -> part");
+			}),
 	);
 });
 

@@ -19,7 +19,7 @@ import { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import { populationLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import type { EntityRelationshipDefinitions } from "#modules/definition-registry/snapshot";
 import { EntitiesService } from "#modules/entities/service";
 
 import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
@@ -67,7 +67,7 @@ const relationshipBatch = (
 export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	input: {
 		command: LifecycleCommand;
-		definitions: DefinitionSnapshot;
+		definitions: EntityRelationshipDefinitions;
 		population: AutomationPopulationContext;
 		syncExisting?: boolean;
 		parentEntityId: EntityId;

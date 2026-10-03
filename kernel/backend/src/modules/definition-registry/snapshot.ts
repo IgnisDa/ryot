@@ -117,6 +117,19 @@ export const DefinitionSnapshot = Schema.Struct({
 
 export type DefinitionSnapshot = typeof DefinitionSnapshot.Type;
 
+export const EntityRelationshipDefinitions = Schema.Struct({
+	relationshipSchemas: DefinitionSnapshot.fields.relationshipSchemas,
+	entitySchemas: Schema.Record(
+		Schema.String,
+		Schema.Struct({
+			slug: EntitySchemaDefinition.fields.slug,
+			pluginId: EntitySchemaDefinition.fields.pluginId,
+		}),
+	),
+});
+
+export type EntityRelationshipDefinitions = typeof EntityRelationshipDefinitions.Type;
+
 export class DefinitionNotFound extends Data.TaggedError("DefinitionNotFound")<{
 	readonly kind: string;
 	readonly slug: string;
