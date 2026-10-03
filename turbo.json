@@ -15,17 +15,16 @@
 			"inputs": ["src/**/*.ts", "!src/**/*.generated.ts", "tooling/**/*.ts", "package.json"],
 			"outputs": [
 				"$TURBO_ROOT$/kernel/sandboxd/payload/**",
-				"src/modules/definition-registry/*.generated.ts",
-				"src/lib/infrastructure/sandbox-runtime/*.generated.ts"
+				"src/modules/definition-registry/*.generated.ts"
 			]
 		},
 		"@ryot-app/kernel-backend#check": {
 			"outputLogs": "errors-only",
-			"dependsOn": ["^check", "^build", "build"]
+			"dependsOn": ["^check", "^build", "build", "@ryot-app/sandboxd#build"]
 		},
 		"@ryot-app/kernel-backend#test": {
 			"outputLogs": "errors-only",
-			"dependsOn": ["build", "^build", "^check", "^test"]
+			"dependsOn": ["build", "^build", "^check", "^test", "@ryot-app/sandboxd#build"]
 		},
 		"@ryot-app/server#build": {
 			"outputs": ["dist/**"],

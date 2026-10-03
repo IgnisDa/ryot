@@ -1,6 +1,8 @@
 FROM oven/bun:1.4.2-debian AS base
 WORKDIR /app
 
+FROM rust:1.93.1-bookworm AS rust-toolchain
+
 FROM base AS prepare
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install --global turbo@2.10.12
 COPY . .
@@ -13,6 +15,13 @@ COPY --from=prepare /app/out/full/ .
 COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 
 FROM builder-base AS backend-builder
+COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
+COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
+ENV CARGO_HOME=/usr/local/cargo
+ENV RUSTUP_HOME=/usr/local/rustup
+ENV PATH=/usr/local/cargo/bin:$PATH
+RUN apt-get update && apt-get install -y --no-install-recommends build-essential ca-certificates python3 && \
+    rm -rf /var/lib/apt/lists/*
 ARG UNKEY_ROOT_KEY=""
 ARG RYOT_VERSION="unknown"
 ENV UNKEY_ROOT_KEY=$UNKEY_ROOT_KEY
@@ -33,37 +42,27 @@ RUN --mount=type=cache,target=/root/.bun/install/cache \
 RUN rm -rf /app/packages/client-plugin-compiler
 
 FROM base AS runner
-RUN useradd -m -u 1001 ryot
-ARG TARGETARCH
-ARG DENO_VERSION=2.9.7
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip && \
-    DENO_ARCH="${TARGETARCH:-$(dpkg --print-architecture)}" && \
-    case "$DENO_ARCH" in \
-    amd64) DENO_TARGET=x86_64-unknown-linux-gnu; DENO_SHA256=c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490 ;; \
-    arm64) DENO_TARGET=aarch64-unknown-linux-gnu; DENO_SHA256=c832298b1ad4422481334855f6003e0f54145762c5a134f20a489511d2f65bbf ;; \
-    *) echo "Unsupported architecture: $DENO_ARCH" >&2; exit 1 ;; \
-    esac && \
-    curl -fsSL "https://github.com/denoland/deno/releases/download/v${DENO_VERSION}/deno-${DENO_TARGET}.zip" -o /tmp/deno.zip && \
-    echo "${DENO_SHA256}  /tmp/deno.zip" | sha256sum -c - && \
-    unzip -q /tmp/deno.zip -d /tmp && \
-    install -m 0755 /tmp/deno /usr/local/bin/deno && \
-    rm -f /tmp/deno /tmp/deno.zip && \
-    apt-get remove -y unzip && \
-    apt-get autoremove -y && \
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
+COPY --from=backend-builder /app/kernel/sandboxd/dist /tmp/ryot-sandboxd
+COPY kernel/sandboxd/tests/launcher/provision.sh /tmp/provision-sandboxd.sh
+RUN bash /tmp/provision-sandboxd.sh \
+    /tmp/ryot-sandboxd/ryot-sandbox-launcher \
+    /tmp/ryot-sandboxd/ryot-sandboxd \
+    /tmp/ryot-sandboxd/snapshots && \
+    rm -rf /tmp/ryot-sandboxd /tmp/provision-sandboxd.sh
 ENV FRONTEND_UMAMI_HOST_URL="https://umami.diptesh.me"
 ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 WORKDIR /home/ryot
 RUN mkdir -p /home/ryot/logs /home/ryot/plugins /home/ryot/storage /home/ryot/tmp /home/ryot/work && \
-    chown -R ryot:ryot /home/ryot/logs /home/ryot/plugins /home/ryot/storage /home/ryot/tmp /home/ryot/work
-COPY --chown=ryot:ryot kernel/backend/src/drizzle ./src/drizzle
-COPY --from=client-builder --chown=ryot:ryot /app/kernel/client/dist ./client
-COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/dist ./dist
-COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/plugins ./plugins
-COPY --from=runtime-deps --chown=ryot:ryot /app/node_modules ./node_modules
-COPY --from=runtime-deps --chown=ryot:ryot /app/packages ./packages
-USER ryot
-# Materialize and smoke-check the read-only sandbox runtime before startup.
+    chown -R ryot-backend:ryot-backend /home/ryot/logs /home/ryot/plugins /home/ryot/storage /home/ryot/tmp /home/ryot/work
+COPY --chown=ryot-backend:ryot-backend kernel/backend/src/drizzle ./src/drizzle
+COPY --from=client-builder --chown=ryot-backend:ryot-backend /app/kernel/client/dist ./client
+COPY --from=backend-builder --chown=ryot-backend:ryot-backend /app/apps/server/dist ./dist
+COPY --from=backend-builder --chown=ryot-backend:ryot-backend /app/apps/server/plugins ./plugins
+COPY --from=runtime-deps --chown=ryot-backend:ryot-backend /app/node_modules ./node_modules
+COPY --from=runtime-deps --chown=ryot-backend:ryot-backend /app/packages ./packages
+USER 1001:1001
 RUN bun run dist/prepare-sandbox-runtime.js
 ENV NODE_ENV=production
 CMD ["bun", "run", "dist/main.js"]
