@@ -81,11 +81,11 @@ it("does not award the Dec22 side lateral 25 x 10 tie and advances in-session ma
 	expect(next.maxima).toEqual({ reps: 10, weight: 25, volume: 250, one_rm: 33.333333 });
 });
 
-it("normalizes imperial and metric inputs to the same maximum and keeps zero and missing values distinct", () => {
-	const imperialWeight = 10 * 0.45359237;
+it("treats weights that round to the same scale as one maximum and keeps zero and missing values distinct", () => {
+	const unroundedWeight = 10 * 0.45359237;
 	const first = awardWorkoutPersonalBests(
 		"reps_and_weight",
-		{ reps: 5, weight: imperialWeight },
+		{ reps: 5, weight: unroundedWeight },
 		{},
 	);
 	const second = awardWorkoutPersonalBests(
