@@ -12,12 +12,13 @@ import { useMemo } from "react";
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
 import { managedAssetBatch } from "../asset-urls";
+import { DisplayPreferences } from "../display-preferences";
 import { WorkoutMediaViewer } from "../media-viewer";
-import { workoutEditorContextQuery } from "../workout-editor/context-query";
 import {
 	buildExerciseGroups,
 	buildTimeline,
 	countEquipment,
+	cardMuscleSources,
 	countMuscleSets,
 	summarizeWorkout,
 } from "./details-model";
@@ -39,8 +40,8 @@ export function WorkoutDetailsView(props: {
 		return {
 			groups,
 			summary,
-			muscles: countMuscleSets(groups),
 			equipment: countEquipment(groups),
+			muscles: countMuscleSets(cardMuscleSources(groups)),
 			timeline: buildTimeline(workout, groups, summary.restSeconds),
 		};
 	}, [workout]);
@@ -127,29 +128,18 @@ function WorkoutDetailsBody(props: {
 function WorkoutDetailsScreen(props: { readonly entityId: string }) {
 	const { compact } = useRyotViewport();
 	const result = useRyotQuery(workoutDetailsQuery, { entityId: props.entityId });
-	const context = useRyotQuery(workoutEditorContextQuery, undefined);
-	let body = <StatusMessage tone="pending">Loading display preferences…</StatusMessage>;
-	if (context.isError) {
-		body = (
-			<>
-				<StatusMessage tone="error">Display preferences could not be loaded.</StatusMessage>
-				<Button onClick={context.refetch}>Retry preferences</Button>
-			</>
-		);
-	}
-	if (context.data) {
-		body = (
-			<WorkoutDetailsBody
-				result={result}
-				compact={compact}
-				settings={context.data.settings}
-				proAvailable={context.data.proAvailable}
-			/>
-		);
-	}
 	return (
 		<PluginScreenFrame hideTitle title={result.data?.name ?? null}>
-			{body}
+			<DisplayPreferences>
+				{(context) => (
+					<WorkoutDetailsBody
+						result={result}
+						compact={compact}
+						settings={context.settings}
+						proAvailable={context.proAvailable}
+					/>
+				)}
+			</DisplayPreferences>
 		</PluginScreenFrame>
 	);
 }

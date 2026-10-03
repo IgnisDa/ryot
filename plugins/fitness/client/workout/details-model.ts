@@ -236,12 +236,22 @@ export const buildTimeline = (
 
 export type MuscleCount = { readonly name: string; readonly sets: number };
 
-export const countMuscleSets = (groups: readonly CardGroup[]): readonly MuscleCount[] => {
+export type MuscleSource = {
+	readonly sets: number;
+	readonly targets: readonly { readonly name: string; readonly role: string | null }[];
+};
+
+export const cardMuscleSources = (groups: readonly CardGroup[]): readonly MuscleSource[] =>
+	groups
+		.flatMap(groupCards)
+		.map((card) => ({ sets: card.sets.length, targets: card.exercise.targets.items }));
+
+export const countMuscleSets = (sources: readonly MuscleSource[]): readonly MuscleCount[] => {
 	const counts = new Map<string, number>();
-	for (const card of groups.flatMap(groupCards)) {
-		for (const target of card.exercise.targets.items) {
+	for (const source of sources) {
+		for (const target of source.targets) {
 			if (target.role !== "stabilizer") {
-				counts.set(target.name, (counts.get(target.name) ?? 0) + card.sets.length);
+				counts.set(target.name, (counts.get(target.name) ?? 0) + source.sets);
 			}
 		}
 	}

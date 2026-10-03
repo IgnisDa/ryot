@@ -4,6 +4,7 @@ import { workoutDetails, workoutExercise, workoutSet } from "../../tests/client/
 import {
 	buildExerciseGroups,
 	buildTimeline,
+	cardMuscleSources,
 	countMuscleSets,
 	summarizeWorkout,
 } from "./details-model";
@@ -159,7 +160,7 @@ describe("workout details model", () => {
 				}),
 			],
 		});
-		expect(countMuscleSets(buildExerciseGroups(workout))).toEqual([
+		expect(countMuscleSets(cardMuscleSources(buildExerciseGroups(workout)))).toEqual([
 			{ sets: 3, name: "Biceps" },
 			{ sets: 1, name: "Lats" },
 		]);
