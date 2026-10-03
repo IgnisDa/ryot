@@ -1,0 +1,7 @@
+[package]
+name = "v8-term-repro"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+v8 = "=150.4.0"
