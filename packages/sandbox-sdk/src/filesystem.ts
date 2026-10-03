@@ -1,10 +1,11 @@
 import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 const encoder = new TextEncoder();
-const SANDBOX_FILESYSTEM_KEY = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
+const NativeError = Error;
+let filesystemRuntime: (() => SandboxFilesystemBinding | undefined) | undefined;
 
-type SandboxFilesystemBinding = {
+export type SandboxFilesystemBinding = {
 	readonly readArtifactRange: (
 		offset: number,
 		length: number,
@@ -32,10 +33,14 @@ export const sandboxScratchManifestSchema = Schema.Struct({
 export type SandboxScratchManifest = Schema.Schema.Type<typeof sandboxScratchManifestSchema>;
 
 const isSandboxBoundaryReason = Schema.is(SandboxBoundaryReason);
+const decodeFilesystemFailure = Schema.decodeUnknownOption(
+	Schema.Struct({ message: Schema.String, data: Schema.optional(Schema.Unknown) }),
+);
 
 const filesystemError = (error: unknown, data?: SandboxBoundaryReason): SandboxFilesystemError => {
-	const message = error instanceof Error ? error.message : String(error);
-	const errorData = error instanceof Error && "data" in error ? error.data : undefined;
+	const failure = decodeFilesystemFailure(error);
+	const message = Option.isSome(failure) ? failure.value.message : String(error);
+	const errorData = Option.isSome(failure) ? failure.value.data : undefined;
 	let reason = data;
 	if (reason === undefined && isSandboxBoundaryReason(errorData)) {
 		reason = errorData;
@@ -50,10 +55,14 @@ const filesystemError = (error: unknown, data?: SandboxBoundaryReason): SandboxF
 const missingGrant = (message: string, operation: string) =>
 	filesystemError(message, { operation, code: "missing-artifact-grant" });
 
-const binding = () =>
-	(globalThis as typeof globalThis & { [SANDBOX_FILESYSTEM_KEY]?: SandboxFilesystemBinding })[
-		SANDBOX_FILESYSTEM_KEY
-	];
+export const configureSandboxFilesystem = (runtime: () => SandboxFilesystemBinding | undefined) => {
+	if (filesystemRuntime !== undefined) {
+		throw new NativeError("Sandbox filesystem runtime is already configured");
+	}
+	filesystemRuntime = runtime;
+};
+
+const binding = () => filesystemRuntime?.();
 
 export const readArtifactRange = (offset: number, length: number, key?: string) =>
 	Effect.suspend(() => {

@@ -15,12 +15,17 @@ use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
 const TIERS: [(&str, &[&str]); 3] = [
-    ("core", &["effect", "ryotql"]),
+    (
+        "core",
+        &["effect", "ryotql", "dependency-runtime", "filesystem"],
+    ),
     (
         "data",
         &[
             "effect",
             "ryotql",
+            "dependency-runtime",
+            "filesystem",
             "fflate",
             "papaparse",
             "fast-xml-parser",
@@ -32,6 +37,8 @@ const TIERS: [(&str, &[&str]); 3] = [
         &[
             "effect",
             "ryotql",
+            "dependency-runtime",
+            "filesystem",
             "fflate",
             "papaparse",
             "fast-xml-parser",
@@ -40,6 +47,8 @@ const TIERS: [(&str, &[&str]); 3] = [
         ],
     ),
 ];
+
+const TRUSTED_RUNNER_SPECIFIER: &str = "ryot-bootstrap:/runner.mjs";
 
 struct PayloadLoader {
     payload: PathBuf,
@@ -53,6 +62,9 @@ impl ModuleLoader for PayloadLoader {
         _referrer: &str,
         _kind: ResolutionKind,
     ) -> ModuleResolveResponse {
+        if specifier == TRUSTED_RUNNER_SPECIFIER {
+            return ModuleSpecifier::parse(specifier).map_err(JsErrorBox::from_err);
+        }
         let target = self
             .imports
             .get(specifier)
@@ -69,7 +81,11 @@ impl ModuleLoader for PayloadLoader {
         _referrer: Option<&ModuleLoadReferrer>,
         _options: ModuleLoadOptions,
     ) -> ModuleLoadResponse {
-        let file = self.payload.join(specifier.path().trim_start_matches('/'));
+        let file = if specifier.as_str() == TRUSTED_RUNNER_SPECIFIER {
+            self.payload.join("runner.mjs")
+        } else {
+            self.payload.join(specifier.path().trim_start_matches('/'))
+        };
         ModuleLoadResponse::Sync(
             std::fs::read_to_string(&file)
                 .map(|code| {
@@ -147,6 +163,18 @@ fn build_snapshot(
             })
             .unwrap_or_else(|error| panic!("{module}: {error}"));
     }
+    let runner =
+        ModuleSpecifier::parse(TRUSTED_RUNNER_SPECIFIER).expect("trusted runner specifier");
+    tokio
+        .block_on(async {
+            let id = runtime.load_side_es_module(&runner).await?;
+            let evaluation = runtime.mod_evaluate(id);
+            runtime
+                .run_event_loop(PollEventLoopOptions::default())
+                .await?;
+            evaluation.await
+        })
+        .unwrap_or_else(|error| panic!("{TRUSTED_RUNNER_SPECIFIER}: {error}"));
     runtime
         .execute_script("ryot:snapshot", "delete Error.stackTraceLimit")
         .expect("stack trace limit");

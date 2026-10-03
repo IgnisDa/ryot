@@ -40,6 +40,7 @@ struct Shared {
     budget: MemoryBudget,
     resident: ResidentMemory,
     draining: AtomicBool,
+    escalated: AtomicBool,
     in_flight: AtomicUsize,
     completed: AtomicU64,
 }
@@ -89,11 +90,16 @@ impl Shared {
     fn exit_if_drained(&self) {
         if self.draining.load(Ordering::SeqCst) && self.in_flight.load(Ordering::SeqCst) == 0 {
             self.outbox.drain(FLUSH_TIMEOUT);
-            std::process::exit(0);
+            std::process::exit(if self.escalated.load(Ordering::SeqCst) {
+                EXIT_ESCALATED
+            } else {
+                0
+            });
         }
     }
 
     fn escalate(&self, handle: &str) -> ! {
+        self.escalated.store(true, Ordering::SeqCst);
         let ticket = self.outbox.control(&Outbound::Fatal {
             generation: self.config.generation,
             handle: handle.to_owned(),
@@ -317,7 +323,13 @@ impl Reader {
     fn run(mut self, mut socket: impl Read) -> i32 {
         loop {
             match read_frame(&mut socket) {
-                Ok(None) => return 0,
+                Ok(None) => {
+                    return if self.shared.escalated.load(Ordering::SeqCst) {
+                        EXIT_ESCALATED
+                    } else {
+                        0
+                    };
+                }
                 Ok(Some(payload)) => match decode_inbound(&payload) {
                     Ok(frame) => self.dispatch(frame),
                     Err(error) => self.reject(&payload, error.0),
@@ -329,7 +341,11 @@ impl Reader {
                         FramingError::Io(error) => error,
                     };
                     eprintln!("ryot-sandboxd: protocol desync: {detail}");
-                    return EXIT_DESYNC;
+                    return if self.shared.escalated.load(Ordering::SeqCst) {
+                        EXIT_ESCALATED
+                    } else {
+                        EXIT_DESYNC
+                    };
                 }
             }
         }
@@ -360,6 +376,7 @@ pub fn serve(
         registry: Registry::default(),
         resident,
         draining: AtomicBool::new(false),
+        escalated: AtomicBool::new(false),
         in_flight: AtomicUsize::new(0),
         completed: AtomicU64::new(0),
     });

@@ -11,11 +11,12 @@ use deno_core::{
     PollEventLoopOptions, ResolutionKind, RuntimeOptions, v8,
 };
 use deno_error::JsErrorBox;
+use serde::Deserialize;
 use serde_json::value::RawValue;
 use sha2::{Digest, Sha256};
 use tokio::sync::Semaphore;
 
-use crate::admission::Admitted;
+use crate::admission::{Admitted, CpuLease};
 use crate::os::ThreadClock;
 use crate::outbox::Outbox;
 use crate::protocol::{
@@ -171,10 +172,14 @@ struct ExecutionLoader {
     snapshot: Arc<Snapshot>,
     module: ModuleSpecifier,
     source: RefCell<Option<String>>,
-    rejected: Rc<RefCell<Option<String>>>,
 }
 
 impl ModuleLoader for ExecutionLoader {
+    fn source_map_source_exists(&self, file_name: &str) -> Option<bool> {
+        // deno_core rewrites relative source-map filenames only when the loader confirms them.
+        Some(file_name.starts_with("ryot-module:/"))
+    }
+
     fn resolve(
         &self,
         specifier: &str,
@@ -190,14 +195,9 @@ impl ModuleLoader for ExecutionLoader {
             .or_else(|| imports.values().find(|target| *target == specifier));
         match target {
             Some(target) => ModuleSpecifier::parse(target).map_err(JsErrorBox::from_err),
-            None => {
-                self.rejected
-                    .borrow_mut()
-                    .get_or_insert_with(|| specifier.to_owned());
-                Err(JsErrorBox::type_error(format!(
-                    "import not allowed: {specifier}"
-                )))
-            }
+            None => Err(JsErrorBox::type_error(format!(
+                "ryot-resolution: import not allowed: {specifier}"
+            ))),
         }
     }
 
@@ -218,7 +218,7 @@ impl ModuleLoader for ExecutionLoader {
                 None,
             )),
             None => Err(JsErrorBox::type_error(format!(
-                "module not available: {specifier}"
+                "ryot-resolution: module not available: {specifier}"
             ))),
         })
     }
@@ -226,6 +226,7 @@ impl ModuleLoader for ExecutionLoader {
 
 struct HostLink {
     entry: Arc<Entry>,
+    lease: Rc<CpuLease>,
     outbox: Outbox,
     generation: u32,
     next: Cell<u64>,
@@ -233,19 +234,53 @@ struct HostLink {
     slots: Arc<Semaphore>,
 }
 
-struct InFlight(Arc<Entry>);
-
-impl Drop for InFlight {
-    fn drop(&mut self) {
-        self.0.host_call_finished();
+impl HostLink {
+    fn inline_batch_sync(&self, args: String) -> Result<String, String> {
+        if args.len() > HOST_ARGS_BYTES {
+            return Err(format!(
+                "Host call arguments exceed {HOST_ARGS_BYTES} bytes"
+            ));
+        }
+        let args = RawValue::from_string(args).map_err(|error| error.to_string())?;
+        let seq = self.next.get();
+        self.next.set(seq + 1);
+        let receiver = self
+            .entry
+            .await_result(seq)
+            .ok_or_else(|| "Sandbox execution is stopping".to_owned())?;
+        self.lease.park_for_inline();
+        let call = Outbound::HostCall {
+            generation: self.generation,
+            handle: self.entry.handle.clone(),
+            seq,
+            name: "inlineBatch".to_owned(),
+            args,
+        };
+        deno_core::futures::executor::block_on(self.outbox.send(
+            self.generation,
+            &self.entry.handle,
+            seq,
+            ChunkedType::HostCall,
+            &call,
+        ));
+        let outcome = deno_core::futures::executor::block_on(receiver);
+        self.entry.inline_settlement_finished();
+        if !self.lease.resume_after_inline() {
+            return Err("Sandbox execution is stopping".to_owned());
+        }
+        match outcome {
+            Ok(HostOutcome::Success(value)) => Ok(value.get().to_owned()),
+            Ok(HostOutcome::Failure(message)) => Err(message),
+            Err(_) => Err("Host call was abandoned".to_owned()),
+        }
     }
 }
 
 impl HostBridge for HostLink {
     fn call(&self, name: String, args: String) -> Result<HostFuture, String> {
-        if name.is_empty() || name.chars().count() > NAME_LENGTH {
+        if name.is_empty() || name.encode_utf16().count() > NAME_LENGTH {
             return Err(format!(
-                "Host function names must be 1..{NAME_LENGTH} characters"
+                "Host function names must be 1..{NAME_LENGTH} UTF-16 code units"
             ));
         }
         if args.len() > HOST_ARGS_BYTES {
@@ -253,11 +288,14 @@ impl HostBridge for HostLink {
                 "Host call arguments exceed {HOST_ARGS_BYTES} bytes"
             ));
         }
-        if self.calls.get() >= HOST_CALLS {
+        let ordinary = name != "journalRead";
+        if ordinary && self.calls.get() >= HOST_CALLS {
             return Err(format!("Sandbox execution exceeds {HOST_CALLS} host calls"));
         }
         let args = RawValue::from_string(args).map_err(|error| error.to_string())?;
-        self.calls.set(self.calls.get() + 1);
+        if ordinary {
+            self.calls.set(self.calls.get() + 1);
+        }
         let seq = self.next.get();
         self.next.set(seq + 1);
         let entry = self.entry.clone();
@@ -272,8 +310,6 @@ impl HostBridge for HostLink {
             let receiver = entry
                 .await_result(seq)
                 .ok_or_else(|| "Sandbox execution is stopping".to_owned())?;
-            entry.host_call_started();
-            let _in_flight = InFlight(entry.clone());
             let call = Outbound::HostCall {
                 generation,
                 handle: entry.handle.clone(),
@@ -290,6 +326,10 @@ impl HostBridge for HostLink {
                 Err(_) => Err("Host call was abandoned".to_owned()),
             }
         }))
+    }
+
+    fn inline_batch(&self, args: String) -> Result<String, String> {
+        self.inline_batch_sync(args)
     }
 }
 
@@ -332,6 +372,22 @@ fn take_console(runtime: &JsRuntime) -> Console {
                 message,
             })
             .collect(),
+    }
+}
+
+#[derive(Deserialize)]
+struct InvocationMode<'a> {
+    #[serde(borrow)]
+    mode: Option<&'a str>,
+}
+
+fn result_limit(input: &str) -> usize {
+    if serde_json::from_str::<InvocationMode<'_>>(input)
+        .is_ok_and(|invocation| invocation.mode == Some("definition"))
+    {
+        ChunkedType::Done.message_bytes()
+    } else {
+        RESULT_BYTES
     }
 }
 
@@ -383,7 +439,6 @@ impl Executor {
         let params = v8::CreateParams::default()
             .heap_limits(0, run.limits.heap_bytes as usize)
             .array_buffer_allocator(allocator.make_shared());
-        let rejected = Rc::new(RefCell::new(None));
         let specifier = ModuleSpecifier::parse(&format!("ryot-module:/{}.js", run.module.sha256))
             .expect("module specifier");
         let creation = self
@@ -396,7 +451,6 @@ impl Executor {
                 snapshot: self.snapshot.clone(),
                 module: specifier.clone(),
                 source: RefCell::new(Some(run.module.source.clone())),
-                rejected: rejected.clone(),
             })),
             create_params: Some(params),
             ..Default::default()
@@ -431,6 +485,7 @@ impl Executor {
                 current + HEAP_HEADROOM
             });
         }
+        let lease = CpuLease::new(entry.clone(), self.cpu.clone());
         {
             let state = runtime.op_state();
             let mut state = state.borrow_mut();
@@ -438,6 +493,7 @@ impl Executor {
             state.put(ExecutionClock(Instant::now()));
             state.put(Bridge(Rc::new(HostLink {
                 entry: entry.clone(),
+                lease: lease.clone(),
                 outbox: self.outbox.clone(),
                 generation: self.generation,
                 next: Cell::new(1),
@@ -455,7 +511,6 @@ impl Executor {
                 started: Instant::now(),
                 paused: Default::default(),
                 paused_since: None,
-                in_flight: 0,
             });
             if state.cancelled || state.limit.is_some() {
                 state.terminating_since = None;
@@ -463,12 +518,13 @@ impl Executor {
             }
         }
 
+        let result_limit = result_limit(run.input.get());
         let input = run.input.get().to_owned();
         let user_tier = self.user_tier;
-        let result = self.block_on(Admitted::new(entry.clone(), self.cpu.clone(), async {
+        let result = self.block_on(Admitted::new(lease, async {
             tokio::select! {
                 biased;
-                result = drive(&mut runtime, user_tier, &specifier, input) => Some(result),
+                result = drive(&mut runtime, user_tier, &specifier, input, result_limit) => Some(result),
                 () = entry.abort.notified() => None,
             }
         }));
@@ -493,21 +549,15 @@ impl Executor {
             Outcome::Limit(limit, message)
         } else {
             match result {
-                Some(Ok(value)) if value.len() > RESULT_BYTES => Outcome::Failed(
+                Some(Ok(value)) if value.len() > result_limit => Outcome::Failed(
                     Phase::Result,
-                    format!("result exceeds {RESULT_BYTES} bytes"),
+                    format!("result exceeds {result_limit} bytes"),
                 ),
                 Some(Ok(value)) => match RawValue::from_string(value) {
                     Ok(value) => Outcome::Completed(value),
                     Err(error) => Outcome::Failed(Phase::Result, error.to_string()),
                 },
-                Some(Err((phase, message))) => {
-                    let phase = match (phase, rejected.borrow().as_ref()) {
-                        (Phase::Evaluation, Some(_)) => Phase::Resolution,
-                        _ => phase,
-                    };
-                    Outcome::Failed(phase, bounded(message))
-                }
+                Some(Err((phase, message))) => Outcome::Failed(phase, bounded(message)),
                 None => Outcome::Failed(Phase::Execution, "execution was stopped".to_owned()),
             }
         };
@@ -520,6 +570,7 @@ async fn drive(
     user_tier: bool,
     specifier: &ModuleSpecifier,
     input: String,
+    result_limit: usize,
 ) -> Result<String, (Phase, String)> {
     let start = runtime
         .execute_script(
@@ -559,7 +610,7 @@ async fn drive(
     let value = v8::Local::new(scope, value);
     let text = v8::Local::<v8::String>::try_from(value)
         .ok()
-        .filter(|text| text.length() <= RESULT_BYTES + 1)
+        .filter(|text| text.length() <= result_limit + 1)
         .ok_or_else(|| {
             (
                 Phase::Execution,
@@ -570,6 +621,7 @@ async fn drive(
     let (status, payload) = text.split_at(text.chars().next().map_or(0, char::len_utf8));
     match status {
         "c" => Ok(payload.to_owned()),
+        "d" => Err((Phase::Resolution, payload.to_owned())),
         "e" => Err((Phase::Evaluation, payload.to_owned())),
         "r" => Err((Phase::Result, payload.to_owned())),
         _ => Err((Phase::Execution, payload.to_owned())),
@@ -579,6 +631,34 @@ async fn drive(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn host_link_name_length_uses_utf16_code_units() {
+        let entry = Arc::new(crate::registry::Entry::new(
+            "host-call-name-length".to_owned(),
+            crate::protocol::Limits {
+                cpu_ms: 1,
+                heap_bytes: 1,
+                deadline_ms: 1,
+                external_bytes: 1,
+            },
+        ));
+        let host = HostLink {
+            lease: CpuLease::new(entry.clone(), Arc::new(Semaphore::new(1))),
+            entry,
+            outbox: Outbox::default(),
+            generation: 1,
+            next: Cell::new(1),
+            calls: Cell::new(0),
+            slots: Arc::new(Semaphore::new(CONCURRENT_HOST_CALLS)),
+        };
+
+        assert!(host.call("😀".repeat(64), "null".to_owned()).is_ok());
+        assert!(matches!(
+            host.call("😀".repeat(65), "null".to_owned()),
+            Err(message) if message == "Host function names must be 1..128 UTF-16 code units"
+        ));
+    }
 
     #[test]
     fn worker_panic_reports_the_execution_and_ends_the_process() {

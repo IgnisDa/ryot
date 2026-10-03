@@ -84,6 +84,7 @@ pub type HostFuture = std::pin::Pin<Box<dyn Future<Output = Result<String, Strin
 
 pub trait HostBridge {
     fn call(&self, name: String, args: String) -> Result<HostFuture, String>;
+    fn inline_batch(&self, args: String) -> Result<String, String>;
 }
 
 pub struct Bridge(pub Rc<dyn HostBridge>);
@@ -220,12 +221,27 @@ async fn op_ryot_host_call(
     call.await.map_err(JsErrorBox::generic)
 }
 
+#[op2]
+#[string]
+fn op_ryot_inline_batch(
+    state: Rc<RefCell<OpState>>,
+    #[string] args: String,
+) -> Result<String, JsErrorBox> {
+    let bridge = state
+        .borrow()
+        .try_borrow::<Bridge>()
+        .map(|bridge| bridge.0.clone())
+        .ok_or_else(|| JsErrorBox::generic("Host calls are unavailable"))?;
+    bridge.inline_batch(args).map_err(JsErrorBox::generic)
+}
+
 deno_core::extension!(
     ryot,
     ops = [
         op_ryot_console,
         op_ryot_digest,
         op_ryot_host_call,
+        op_ryot_inline_batch,
         op_ryot_now,
         op_ryot_random_fill,
         op_ryot_url_parse,

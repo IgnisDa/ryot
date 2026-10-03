@@ -7,6 +7,7 @@
 		op_ryot_console,
 		op_ryot_url_parse,
 		op_ryot_host_call,
+		op_ryot_inline_batch,
 		op_ryot_utf8_length,
 		op_ryot_random_fill,
 		op_ryot_utf8_decode,
@@ -931,6 +932,7 @@
 	const HOST_NAME_LENGTH = 128;
 	const HOST_ARGS_BYTES = 1024 * 1024;
 	const RESULT_BYTES = 4 * 1024 * 1024;
+	let definitionRunner;
 
 	const hostCall = (name, args) => {
 		if (typeof name !== "string") {
@@ -943,24 +945,55 @@
 		return op_ryot_host_call(name, encoded).then(JSONParse);
 	};
 
-	const host = ObjectFreeze({ call: hostCall });
+	const inlineBatch = (args) =>
+		JSONParse(op_ryot_inline_batch(JSONStringify(args === undefined ? null : args)));
+
+	const host = ObjectFreeze({ inlineBatch, call: hostCall });
+
+	const isResolutionError = (error) =>
+		error instanceof TypeError_ && error.message.startsWith("ryot-resolution: ");
 
 	// Results cross into Rust as one primitive string, which no script can make thenable: a
-	// status letter (c completed, e evaluation, x execution, r result) followed by the payload.
+	// status letter followed by the payload.
 	const run = async (specifier, input) => {
+		let parsedInput;
+		try {
+			parsedInput = JSONParse(input);
+		} catch (error) {
+			return `x${describe(error)}`;
+		}
+		if (parsedInput?.mode === "definition") {
+			if (typeof definitionRunner !== "function") {
+				return "eTrusted sandbox definition runner is unavailable";
+			}
+			try {
+				const response = await ReflectApply(definitionRunner, undefined, [specifier, input, {
+					inlineBatch,
+					call: (name, args) => hostCall(name, args),
+				}]);
+				if (uncaught !== null) {
+					return `x${uncaught}`;
+				}
+				return typeof response === "string"
+					? `c${response}`
+					: "rTrusted sandbox definition runner returned no response";
+			} catch (error) {
+				return `${isResolutionError(error) ? "d" : "x"}${describe(error)}`;
+			}
+		}
 		let namespace;
 		try {
 			namespace = await import(specifier);
 		} catch (error) {
-			return `e${describe(error)}`;
+			return `${isResolutionError(error) ? "d" : "e"}${describe(error)}`;
 		}
 		const entry = namespace.default;
 		let value = null;
 		if (typeof entry === "function") {
 			try {
-				value = await entry(JSONParse(input), host);
+				value = await entry(parsedInput, host);
 			} catch (error) {
-				return `x${describe(error)}`;
+				return `${isResolutionError(error) ? "d" : "x"}${describe(error)}`;
 			}
 		}
 		if (uncaught !== null) {
@@ -971,7 +1004,9 @@
 			if (encoded === undefined) {
 				return "rResult is not JSON-serializable";
 			}
-			return encoded.length > RESULT_BYTES ? `rResult exceeds ${RESULT_BYTES} bytes` : `c${encoded}`;
+			return encoded.length > RESULT_BYTES
+				? `rResult exceeds ${RESULT_BYTES} bytes`
+				: `c${encoded}`;
 		} catch (error) {
 			return `r${describe(error)}`;
 		}
@@ -989,9 +1024,11 @@
 		value: (userTier) => {
 			coarseTime = userTier;
 			Error.stackTraceLimit = 10;
+			definitionRunner = globalThis["__ryotDefinitionRunner"];
 			for (const name of [
 				"__ryotLockdown",
 				"__ryotExtend",
+				"__ryotDefinitionRunner",
 				"Deno",
 				"__bootstrap",
 				"WebAssembly",
