@@ -48,8 +48,8 @@ export class AutomationReconciliation extends Context.Service<AutomationReconcil
 				const candidates = yield* operations.listQueuedCandidates({
 					now,
 					limit: AUTOMATION_RECONCILIATION_BATCH_SIZE,
-					// The committing workflow submits a new run through its observer, which must become the run's
-					// parent to be woken by its exit, so a first attempt is reconciled only after that wait ends.
+					// The committing workflow must submit a new run first to become its parent and be woken by its
+					// exit, so a first attempt is reconciled only after that wait ends.
 					initialQueuedBefore: DateTime.toDate(
 						DateTime.subtractDuration(current, Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS)),
 					),
