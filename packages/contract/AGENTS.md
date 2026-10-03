@@ -10,6 +10,7 @@ client-plugin capability payloads belong to `@ryot-app/plugin-client-contract`, 
 
 - Never import backend code or runtime-only dependencies here, including through `import type`. This includes database, Redis, auth-server, Node, and Bun modules.
 - Define shared boundary types here and import them from backend consumers, never the reverse.
+- Keep wire schemas generic: no first-party plugin slugs or plugin-domain enums, codes, or fields. Plugin-specific data is declared by the plugin, and generic shapes carry it.
 - Keep plugin manifest schemas and environment-key naming in `src/modules/plugins`; consumers import them from the defining contract module.
 - Adding an HTTP endpoint requires updating `src/contract.ts`, its contract module, and the matching backend module.
 - Construct authenticated POST/PUT/PATCH/DELETE endpoints with `AuthenticatedMutationEndpoint` from `src/authenticated-mutation-endpoint.ts`, passing an explicit `DemoAccessPolicy` (`"allowed"` or `"protected"`). Do not construct them with raw `HttpApiEndpoint` plus an annotation.

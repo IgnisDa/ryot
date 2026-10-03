@@ -1,3 +1,4 @@
+import { ProviderLibraryMembership } from "@ryot-app/contract/modules/entity-providers/schemas";
 import { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
@@ -150,6 +151,7 @@ export type PluginBridgePageSearch = Schema.Schema.Type<typeof PluginBridgePageS
 
 export const ProviderSearchScreenRequest = strictStruct({
 	schema: EntitySchemaReference,
+	library: ProviderLibraryMembership,
 	initialQuery: Schema.optional(Schema.String),
 });
 

@@ -45,6 +45,7 @@ function PluginDocument(props: { readonly title: string; readonly prepared: Prep
 		<ProviderAddModal
 			onComplete={session.complete}
 			schema={session.request.schema}
+			library={session.request.library}
 			initialQuery={session.request.initialQuery}
 			onClose={() => session.complete({ kind: "cancelled" })}
 		/>

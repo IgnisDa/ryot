@@ -8,12 +8,8 @@ import { isUnauthorizedCause } from "#/modules/instance-admin/errors";
 import {
 	buildMigrationReportClipboardText,
 	formatMigrationReportElapsed,
-	migrationReportDetailKey,
-	migrationReportDetailLabel,
 	migrationReportDetailProvenance,
-	migrationReportDetailSentence,
 	migrationReportLevelPresentation,
-	migrationReportRecordsDetail,
 } from "#/modules/instance-admin/migration-report";
 import { transferMigrationReportDetails } from "#/modules/instance-admin/reset-link-transfer";
 import type { InstanceAdminMigrationReport } from "#/modules/instance-admin/service";
@@ -50,13 +46,9 @@ function DetailList(props: { readonly entry: MigrationReportEntry }) {
 	return (
 		<div className="flex flex-col gap-3 px-2 pb-3">
 			{details.map((detail) => (
-				<div className="flex flex-col gap-1" key={migrationReportDetailKey(detail)}>
-					<span className="text-xs font-medium text-text">
-						{migrationReportDetailLabel(detail)}
-					</span>
-					<span className="text-xs leading-5 text-text-muted">
-						{migrationReportDetailSentence(detail)}
-					</span>
+				<div key={detail.key} className="flex flex-col gap-1">
+					<span className="text-xs font-medium text-text">{detail.label}</span>
+					<span className="text-xs leading-5 text-text-muted">{detail.sentence}</span>
 					{migrationReportDetailProvenance(detail).map((provenance) => (
 						<div key={provenance.key} className="flex gap-2">
 							<span className="w-28 font-mono text-[11px] text-text-subtle">{provenance.key}</span>
@@ -67,7 +59,7 @@ function DetailList(props: { readonly entry: MigrationReportEntry }) {
 					))}
 				</div>
 			))}
-			{migrationReportRecordsDetail(code) ? null : (
+			{details.length > 0 ? null : (
 				<span className="text-xs text-text-subtle">
 					Per-record detail is not recorded for this check.
 				</span>

@@ -46,6 +46,7 @@ const browserSettings = {
 	entitySchemaSlugField: "entitySchemaSlug",
 	addAction: {
 		type: "provider-search",
+		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 		schema: {
 			slug: EntitySchemaSlug.make("book"),
 			owner: { kind: "plugin", pluginId: PluginId.make("media-plugin-id") },

@@ -101,7 +101,11 @@ it("materializes self expressions uniformly and binds only typed renderer settin
 		renderer: { kind: "kernel", name: "entity-browser" } as const,
 		settings: {
 			...kernelView.settings,
-			addAction: { type: "provider-search", schema: { slug: "bottle", owner: { kind: "self" } } },
+			addAction: {
+				type: "provider-search",
+				schema: { slug: "bottle", owner: { kind: "self" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+			},
 		},
 	};
 	const views = revisionDefinitions("plugin-a", {
@@ -129,6 +133,7 @@ it("materializes self expressions uniformly and binds only typed renderer settin
 	expect(views[1]?.settings["addAction"]).toEqual({
 		type: "provider-search",
 		schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "plugin-a" } },
+		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 	});
 	expect(browserAction.schema.owner).toEqual({ kind: "self" });
 });

@@ -180,19 +180,13 @@ it("decodes migration details and preserves include truncation metadata", () => 
 						totalDetails: 101,
 						message: "Skipping",
 						elapsedSeconds: null,
-						code: "integration-cache-provider-unmapped",
+						code: "record-skipped",
 						details: {
 							pageInfo: { limit: 100, hasMore: true },
 							items: [
 								{
 									seq: 1,
-									detail: {
-										userId: "u",
-										legacyCacheId: "c",
-										legacyProvider: null,
-										providersConsumedOn: [],
-										code: "integration-cache-provider-unmapped",
-									},
+									detail: { key: "c", provenance: [], label: "Record c", sentence: "Skipped." },
 								},
 							],
 						},
@@ -202,5 +196,5 @@ it("decodes migration details and preserves include truncation metadata", () => 
 		}),
 	);
 	expect(decoded.items[0]?.details.pageInfo.hasMore).toBe(true);
-	expect(decoded.items[0]?.details.items[0]?.detail).toMatchObject({ legacyCacheId: "c" });
+	expect(decoded.items[0]?.details.items[0]?.detail).toMatchObject({ key: "c" });
 });

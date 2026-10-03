@@ -1,3 +1,4 @@
+import { ProviderLibraryMembership } from "@ryot-app/contract/modules/entity-providers/schemas";
 import {
 	DataRecordProperties,
 	DataRecordTimestamp,
@@ -276,6 +277,7 @@ export const ArchiveEntityBrowserSavedViewSettings = strictStruct({
 	addAction: Schema.NullOr(
 		Schema.Union([
 			strictStruct({
+				library: ProviderLibraryMembership,
 				type: Schema.Literal("provider-search"),
 				schema: strictStruct({ slug: Schema.String, pluginKey: Schema.NullOr(Schema.String) }),
 			}),

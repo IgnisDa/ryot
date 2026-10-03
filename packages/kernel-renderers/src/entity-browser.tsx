@@ -151,6 +151,7 @@ const Browser = ({
 									ryot.screens
 										.openProviderSearch({
 											schema: addAction.schema,
+											library: addAction.library,
 											...(initialQuery === undefined || initialQuery === ""
 												? {}
 												: { initialQuery }),

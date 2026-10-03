@@ -446,6 +446,10 @@ describe("client page routes", () => {
 								addAction: {
 									type: "provider-search",
 									schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+									library: {
+										librarySchemaSlug: "media-library",
+										relationshipSlug: "in-media-library",
+									},
 								},
 							},
 						},
@@ -463,6 +467,7 @@ describe("client page routes", () => {
 				type: "provider-search-screen",
 				requestId: "provider-search-screen-1",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => expect(view.router.state.location.searchStr).toBe("?add=true")),
@@ -472,6 +477,7 @@ describe("client page routes", () => {
 				type: "provider-search-screen",
 				requestId: "provider-search-screen-2",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -580,6 +586,7 @@ describe("client page routes", () => {
 				type: "provider-search-screen",
 				requestId: "provider-search-screen-1",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
 
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
@@ -593,6 +600,7 @@ describe("client page routes", () => {
 				type: "provider-search-screen",
 				requestId: "provider-search-screen-2",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -696,6 +704,7 @@ describe("client page routes", () => {
 				type: "provider-search-screen",
 				requestId: "provider-search-screen-1",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Add Dune" }));

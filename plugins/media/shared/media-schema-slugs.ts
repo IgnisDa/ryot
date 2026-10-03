@@ -1,3 +1,8 @@
+export const mediaLibraryMembership = {
+	librarySchemaSlug: "media-library",
+	relationshipSlug: "in-media-library",
+} as const;
+
 export const builtinMediaEntitySchemaSlugs = [
 	"book",
 	"comic-book",
