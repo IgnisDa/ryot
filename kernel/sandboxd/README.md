@@ -63,17 +63,10 @@ The remaining allowed operations have argument restrictions:
   VMA annotations is denied. `setpriority` permits only `PRIO_PROCESS` with nice value 10 for the
   background lane. `tgkill` permits only this sidecar's process ID for crash termination.
 
-The policy was informed by `strace -ff -tt` runs of the admission, execution, limits, protocol, and
-surface suites on native Linux x86_64 and Linux aarch64 under Docker defaults. Traces separate the
-successful filter installation from later calls and include descendant threads. Snapshot loading,
-environment and descriptor setup, process hardening, and RSS descriptor acquisition happen before
-that boundary. Trace presence alone does not grant access: optional VMA naming and executable-path
-lookups remain denied. The suites cover core/data/full snapshots, both lanes, host calls, asynchronous
-and inline waits, cancellation, termination, recycling, and disposal. Trace files stay outside the
-repository; acceptance results are in [S6](../../docs/sandbox-isolate-runtime-spike/s6.md).
+Trace presence alone does not grant access: optional VMA naming and executable-path lookups remain denied.
 
-This tightens OS confinement. Source-built V8, its memory-corruption sandbox, pointer compression,
-and allocator replacement remain deferred; the syscall policy does not prevent every V8 exploit or
+This tightens OS confinement. Source-built V8, its memory-corruption sandbox, pointer compression, and
+allocator replacement are not used; the syscall policy does not prevent every V8 exploit or
 guarantee isolation between users sharing one sidecar address space.
 
 ## Launcher
@@ -110,7 +103,6 @@ crate's build script builds the `core`, `data`, and `full` snapshots from it, ch
 ops against `ops.inventory`, and writes the digest manifest. The isolate surface is `js/bootstrap.js`,
 plus `js/full.js` on the `full` tier.
 
-`bench/run.sh` measures `core` no-op latency and per-execution RSS; its thresholds apply only on the
-reference 2 vCPU / 4 GB x86_64 host. `bench/import.py --runtime sidecar --output <dir>` runs the e2e
+`bun run bench` prints `core` no-op p50 latency and per-execution RSS. `bench/import.py --runtime sidecar --output <dir>` runs the e2e
 standard-import benchmark three times on that host, recording wall time, peak backend and child RSS,
 container memory, and business rows; it fails a trial that stops making progress for five minutes.

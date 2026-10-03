@@ -2,6 +2,7 @@ pub mod admission;
 pub mod config;
 #[cfg(target_os = "linux")]
 pub mod confine;
+mod console;
 pub mod execute;
 pub mod os;
 pub mod outbox;
@@ -19,7 +20,8 @@ pub fn init_v8() {
     let flags = vec![
         String::new(),
         // TODO(https://github.com/denoland/rusty_v8/issues/2088): remove once TerminateExecution
-        // interrupts TurboFan-optimized loops that call builtins such as Array.prototype.fill.
+        // interrupts TurboFan-optimized loops that call builtins such as Array.prototype.fill and
+        // the termination tests pass without it.
         "--no-turbofan".to_owned(),
         "--single-threaded".to_owned(),
         "--enable-sharedarraybuffer-per-context".to_owned(),

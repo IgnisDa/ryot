@@ -23,17 +23,10 @@ struct SlotState {
 }
 
 impl SlotState {
-    fn queue(lane: Lane) -> usize {
-        match lane {
-            Lane::Interactive => 0,
-            Lane::Background => 1,
-        }
-    }
-
     fn grant(&mut self, woken: &mut Vec<Waker>) {
         while self.free > 0 {
-            let interactive = !self.queues[0].is_empty();
-            let background = !self.queues[1].is_empty();
+            let interactive = !self.queues[Lane::Interactive.index()].is_empty();
+            let background = !self.queues[Lane::Background.index()].is_empty();
             let background_starved = background && self.background_holders == 0;
             let lane = match (interactive, background) {
                 (false, false) => return,
@@ -46,7 +39,7 @@ impl SlotState {
                 (true, _) => Lane::Interactive,
                 (false, true) => Lane::Background,
             };
-            let (id, waker) = self.queues[Self::queue(lane)]
+            let (id, waker) = self.queues[lane.index()]
                 .pop_front()
                 .expect("lane has a waiter");
             self.free -= 1;
@@ -75,7 +68,8 @@ impl SlotState {
 }
 
 /// CPU-active slots granted to interactive waiters first. While background waiters exist and no
-/// background run holds a slot, every fifth grant goes to a background waiter. Held slots are
+/// background run holds a slot, after `INTERACTIVE_GRANTS_BEFORE_BACKGROUND` interactive grants the
+/// next grant goes to a background waiter. Held slots are
 /// never revoked.
 pub struct LaneSlots {
     state: Mutex<SlotState>,
@@ -153,7 +147,7 @@ impl Future for Acquire {
             None => {
                 let id = state.next_id;
                 state.next_id += 1;
-                state.queues[SlotState::queue(self.lane)].push_back((id, context.waker().clone()));
+                state.queues[self.lane.index()].push_back((id, context.waker().clone()));
                 state.grant(&mut woken);
                 self.id = Some(id);
                 id
@@ -161,7 +155,7 @@ impl Future for Acquire {
         };
         let granted = state.granted.remove(&id);
         if !granted {
-            let (_, waker) = state.queues[SlotState::queue(self.lane)]
+            let (_, waker) = state.queues[self.lane.index()]
                 .iter_mut()
                 .find(|(queued, _)| *queued == id)
                 .expect("an ungranted waiter stays queued");
@@ -187,7 +181,7 @@ impl Drop for Acquire {
             return;
         };
         let mut state = self.slots.lock();
-        let queue = &mut state.queues[SlotState::queue(self.lane)];
+        let queue = &mut state.queues[self.lane.index()];
         if let Some(position) = queue.iter().position(|(queued, _)| *queued == id) {
             queue.remove(position);
             return;

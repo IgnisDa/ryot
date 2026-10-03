@@ -17,28 +17,27 @@ use sha2::{Digest, Sha256};
 use tokio::sync::{Semaphore, oneshot};
 
 use crate::admission::{Admitted, CpuLease, LaneSlots};
+use crate::console::{ConsoleCollector, MESSAGE_BYTES, truncate_utf8};
 use crate::os::ThreadClock;
 use crate::outbox::Outbox;
 use crate::protocol::{
-    ChunkedType, Console, ConsoleEntry, HostOutcome, Level, LimitKind, NAME_LENGTH, Outbound,
-    Outcome, Phase, Run, Usage,
+    ChunkedType, Finished, HostOutcome, LimitKind, NAME_LENGTH, Outbound, Outcome, Phase, Run,
+    Usage,
 };
 use crate::registry::{Entry, Meter};
 use crate::snapshots::Snapshot;
 use crate::surface::{
-    Bridge, ConsoleCollector, ConsoleLevel, ExecutionClock, HostBridge, HostFuture,
-    ResolutionRejection, ryot,
+    Bridge, ConsoleSinkHandle, ExecutionClock, HostBridge, HostFuture, ResolutionRejection, ryot,
 };
 
 const RESULT_BYTES: usize = ChunkedType::Done.message_bytes();
 const HOST_ARGS_BYTES: usize = 1024 * 1024;
 const HOST_CALLS: u32 = 1_000;
 const CONCURRENT_HOST_CALLS: usize = 4;
-const MESSAGE_BYTES: usize = 8 * 1024;
 const HEAP_HEADROOM: usize = 32 * 1024 * 1024;
-const HEAP_EXTENSIONS: u32 = 2;
+const HEAP_EXTENSIONS: usize = 2;
 /// Heap V8 may still allocate after the limit while termination unwinds.
-pub const HEAP_HEADROOM_BYTES: u64 = HEAP_HEADROOM as u64 * HEAP_EXTENSIONS as u64;
+pub const HEAP_HEADROOM_BYTES: u64 = (HEAP_HEADROOM * HEAP_EXTENSIONS) as u64;
 
 thread_local! {
     static RUNNING: RefCell<Option<String>> = const { RefCell::new(None) };
@@ -56,15 +55,18 @@ pub fn set_escalation(escalate: impl Fn(&str) + Send + Sync + 'static) {
     ESCALATION.set(Box::new(escalate)).ok();
 }
 
+fn escalate_running() {
+    let handle = RUNNING.with(|running| running.try_borrow().ok().and_then(|value| value.clone()));
+    if let (Some(handle), Some(escalate)) = (handle, ESCALATION.get()) {
+        escalate(&handle);
+    }
+}
+
 pub fn abort_on_panic() {
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         previous(info);
-        let handle =
-            RUNNING.with(|running| running.try_borrow().ok().and_then(|value| value.clone()));
-        if let (Some(handle), Some(escalate)) = (handle, ESCALATION.get()) {
-            escalate(&handle);
-        }
+        escalate_running();
         std::process::abort();
     }));
 }
@@ -72,10 +74,7 @@ pub fn abort_on_panic() {
 /// V8 cannot continue after a fatal OOM, which happens when a builtin keeps allocating after
 /// termination was requested; report the running execution before the process ends.
 unsafe extern "C" fn out_of_memory(_location: *const std::ffi::c_char, _details: &v8::OomDetails) {
-    let handle = RUNNING.with(|running| running.borrow().clone());
-    if let (Some(handle), Some(escalate)) = (handle, ESCALATION.get()) {
-        escalate(&handle);
-    }
+    escalate_running();
     std::process::abort();
 }
 
@@ -393,37 +392,9 @@ pub struct Executor {
     tokio: tokio::runtime::Runtime,
 }
 
-fn bounded(message: String) -> String {
-    if message.len() <= MESSAGE_BYTES {
-        return message;
-    }
-    let mut end = MESSAGE_BYTES;
-    while !message.is_char_boundary(end) {
-        end -= 1;
-    }
-    message[..end].to_owned()
-}
-
-fn take_console(runtime: &JsRuntime) -> Console {
-    let state = runtime.op_state();
-    let collector = state.borrow_mut().take::<ConsoleCollector>();
-    Console {
-        truncated: collector.truncated,
-        entries: collector
-            .entries
-            .into_iter()
-            .map(|(level, message)| ConsoleEntry {
-                level: match level {
-                    ConsoleLevel::Debug => Level::Debug,
-                    ConsoleLevel::Info => Level::Info,
-                    ConsoleLevel::Log => Level::Log,
-                    ConsoleLevel::Warn => Level::Warn,
-                    ConsoleLevel::Error => Level::Error,
-                },
-                message,
-            })
-            .collect(),
-    }
+fn bounded(mut message: String) -> String {
+    truncate_utf8(&mut message, MESSAGE_BYTES);
+    message
 }
 
 impl Executor {
@@ -452,17 +423,14 @@ impl Executor {
         self.tokio.block_on(future)
     }
 
-    pub fn execute(&self, run: &Run, entry: &Arc<Entry>) -> (Outcome, Console, Usage) {
+    pub fn execute(&self, run: &Run, entry: &Arc<Entry>) -> Finished {
         let digest = format!("{:x}", Sha256::digest(run.module.source.as_bytes()));
         if digest != run.module.sha256 {
-            return (
-                Outcome::Failed(
-                    Phase::Integrity,
-                    "module source does not match its sha256".to_owned(),
-                ),
-                Console::default(),
-                Usage::default(),
-            );
+            return Outcome::Failed(
+                Phase::Integrity,
+                "module source does not match its sha256".to_owned(),
+            )
+            .without_run();
         }
         let _enter = self.tokio.enter();
         let budget = Arc::new(ArrayBufferBudget {
@@ -481,6 +449,7 @@ impl Executor {
         let specifier = ModuleSpecifier::parse(&format!("ryot-module:/{}.js", run.module.sha256))
             .expect("module specifier");
         let rejection = ResolutionRejection::default();
+        let console = Rc::new(RefCell::new(ConsoleCollector::default()));
         let creation = self.block_on(self.cpu.acquire(run.lane));
         let creation_wait = creation.waited();
         let runtime = JsRuntime::try_new(RuntimeOptions {
@@ -499,11 +468,8 @@ impl Executor {
         let mut runtime = match runtime {
             Ok(runtime) => runtime,
             Err(error) => {
-                return (
-                    Outcome::Failed(Phase::Evaluation, bounded(error.to_string())),
-                    Console::default(),
-                    Usage::default(),
-                );
+                return Outcome::Failed(Phase::Evaluation, bounded(error.to_string()))
+                    .without_run();
             }
         };
         runtime
@@ -535,7 +501,7 @@ impl Executor {
         {
             let state = runtime.op_state();
             let mut state = state.borrow_mut();
-            state.put(ConsoleCollector::default());
+            state.put(ConsoleSinkHandle(console.clone()));
             state.put(ExecutionClock(Instant::now()));
             state.put(rejection);
             state.put(Bridge(Rc::new(HostLink {
@@ -560,8 +526,7 @@ impl Executor {
                 paused_since: None,
             });
             if state.cancelled || state.limit.is_some() {
-                state.terminating_since = None;
-                entry.stop(&mut state);
+                state.terminate_isolate();
             }
         }
 
@@ -575,7 +540,7 @@ impl Executor {
             }
         }));
 
-        let console = take_console(&runtime);
+        let console = std::mem::take(&mut *console.borrow_mut()).into_console();
         peak.sample(runtime.v8_isolate());
         {
             let mut state = entry.state();

@@ -43,11 +43,32 @@ pub enum Tier {
     Full,
 }
 
+impl Tier {
+    pub const ALL: [Tier; 3] = [Tier::Core, Tier::Data, Tier::Full];
+
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Tier::Core => "core",
+            Tier::Data => "data",
+            Tier::Full => "full",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Lane {
     Interactive,
     Background,
+}
+
+impl Lane {
+    pub const fn index(self) -> usize {
+        match self {
+            Lane::Interactive => 0,
+            Lane::Background => 1,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -304,6 +325,14 @@ pub enum Outcome {
     Cancelled,
     Limit(LimitKind, String),
     Failed(Phase, String),
+}
+
+pub type Finished = (Outcome, Console, Usage);
+
+impl Outcome {
+    pub fn without_run(self) -> Finished {
+        (self, Console::default(), Usage::default())
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
