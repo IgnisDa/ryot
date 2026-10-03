@@ -15,6 +15,10 @@
 			"types": "./src/effect.ts",
 			"default": "./src/effect.ts"
 		},
+		"./entity-editor": {
+			"types": "./src/entity-editor/entity-editor.tsx",
+			"default": "./src/entity-editor/entity-editor.tsx"
+		},
 		"./plugin": {
 			"types": "./src/plugin.tsx",
 			"default": "./src/plugin.tsx"

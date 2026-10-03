@@ -29,6 +29,7 @@ const CLIENT_DEPENDENCY_REGISTRY = [
 	},
 	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk" },
 	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk/effect" },
+	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk/entity-editor" },
 	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk/plugin" },
 	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk/react" },
 	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk/ryotql" },

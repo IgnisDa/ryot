@@ -1,0 +1,403 @@
+import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import type {
+	EntityEditorSaveOutput,
+	EntityEditorSubmission,
+} from "@ryot-app/contract/modules/entities/editor";
+import { EntityId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { ActionForm, Button, Field, StatusMessage, TextField } from "@ryot-app/plugin-ui-sdk";
+import {
+	SchemaForm,
+	useSchemaForm,
+	validateSchemaFormValues,
+	type SchemaAssetUpload,
+	type SchemaFormValues,
+} from "@ryot-app/plugin-ui-sdk/schema-form";
+import { Effect } from "effect";
+import { useLayoutEffect, useRef, useState } from "react";
+
+import { managedAssetKey } from "../assets/keys";
+import { ManagedAssetProvider, useAssetUrl } from "../assets/provider";
+import type { RyotClient } from "../client/client";
+import type { RyotClientError } from "../client/errors";
+import { readCursorPages } from "../queries/cursor-pages";
+import { createRyotQuery } from "../queries/definitions";
+import { useRyotQuery } from "../queries/hooks";
+import { useRyot, useRyotSchedule } from "../queries/provider";
+import {
+	buildSubmission,
+	entityFormValues,
+	entityPropertiesPayload,
+	managedAssetsOf,
+	unreferencedUploads,
+	type EditorProperties,
+	type EditorRelationshipDefinition,
+	type EditorRelationshipTarget,
+	type EditorRelationshipTargets,
+} from "./model";
+import {
+	entityEditorEntityDefinitionRecipe,
+	entityEditorEntityRecipe,
+	entityEditorRelationshipDefinitionsRecipe,
+	entityEditorRelationshipsRecipe,
+} from "./recipes";
+import { RelationshipSection } from "./relationship-section";
+import { schemaFormIcons } from "./schema-form-icons";
+
+type EntityEditorMode =
+	| { readonly kind: "edit"; readonly entityId: string }
+	| { readonly kind: "create"; readonly seedEntityId?: string; readonly initialName?: string };
+
+export type EntityEditorProps = {
+	readonly onCancel: () => void;
+	readonly mode: EntityEditorMode;
+	readonly entitySchemaSlug: string;
+	readonly packageId: PluginPackageId;
+	readonly onSaved: (entityId: string) => void;
+	readonly relationshipSlugs: readonly string[];
+	readonly save: (
+		submission: EntityEditorSubmission,
+	) => Effect.Effect<EntityEditorSaveOutput, RyotClientError>;
+};
+
+const STALE_MESSAGE = "This changed elsewhere. Reload and try again.";
+const SAVE_FAILED_MESSAGE = "Could not save. Try again.";
+
+type DefinitionsInput = {
+	readonly entitySchemaSlug: string;
+	readonly packageId: PluginPackageId;
+	readonly relationshipSlugs: readonly string[];
+};
+
+type SourceInput = DefinitionsInput & {
+	readonly entityId: string | null;
+	readonly forEdit: boolean;
+};
+
+const definitionsQuery = createRyotQuery(
+	({ input, client }: { readonly client: RyotClient; readonly input: DefinitionsInput }) =>
+		Effect.gen(function* () {
+			const reference = client.pluginIdentity(input.packageId);
+			const entity = yield* client.data.query(
+				entityEditorEntityDefinitionRecipe({ reference, slug: input.entitySchemaSlug }),
+			);
+			const found =
+				input.relationshipSlugs.length === 0
+					? []
+					: yield* client.data.query(
+							entityEditorRelationshipDefinitionsRecipe({
+								reference,
+								slugs: input.relationshipSlugs,
+							}),
+						);
+			const relationships = input.relationshipSlugs.flatMap((slug) => {
+				const definition = found.find((candidate) => candidate.slug === slug);
+				const target = definition?.targetEntitySchemaSlug ?? null;
+				return definition === undefined || target === null
+					? []
+					: [{ ...definition, targetEntitySchemaSlug: target }];
+			});
+			return { entity, relationships };
+		}),
+);
+
+const sourceQuery = createRyotQuery(
+	({ input, client }: { readonly client: RyotClient; readonly input: SourceInput }) =>
+		Effect.gen(function* () {
+			const empty = { entity: null, relationships: {} satisfies EditorRelationshipTargets };
+			if (input.entityId === null) {
+				return empty;
+			}
+			const reference = client.pluginIdentity(input.packageId);
+			const entity = yield* client.data.query(
+				entityEditorEntityRecipe({
+					reference,
+					entityId: input.entityId,
+					entitySchemaSlug: input.entitySchemaSlug,
+				}),
+			);
+			if (entity === null) {
+				return empty;
+			}
+			const rows =
+				input.relationshipSlugs.length === 0
+					? { items: [] }
+					: yield* readCursorPages((after) =>
+							client.data.query(
+								entityEditorRelationshipsRecipe({
+									after,
+									reference,
+									slugs: input.relationshipSlugs,
+									sourceEntityId: input.entityId ?? "",
+								}),
+							),
+						);
+			const visible = input.forEdit
+				? rows.items.filter(({ userId }) => userId !== null)
+				: rows.items;
+			const relationships: Record<string, EditorRelationshipTarget[]> = {};
+			for (const row of [...visible].sort(
+				(left, right) => Number(left.userId === null) - Number(right.userId === null),
+			)) {
+				const targets = relationships[row.slug] ?? [];
+				if (!targets.some(({ entityId }) => entityId === row.entityId)) {
+					targets.push({ name: row.name, entityId: row.entityId, properties: row.properties });
+				}
+				relationships[row.slug] = targets;
+			}
+			return { entity, relationships };
+		}),
+	{ cancelOnUnmount: true },
+);
+
+function AssetThumb(props: { readonly asset: AssetLocator }) {
+	const url = useAssetUrl(props.asset);
+	const [video, setVideo] = useState(false);
+	if (url === undefined) {
+		return <span aria-hidden="true" className="block size-full bg-surface-2" />;
+	}
+	return video ? (
+		<video muted src={url} preload="metadata" className="size-full object-cover" />
+	) : (
+		<img alt="" src={url} onError={() => setVideo(true)} className="size-full object-cover" />
+	);
+}
+
+const renderAsset = (asset: AssetLocator) => <AssetThumb asset={asset} />;
+
+type SaveStatus =
+	| { readonly kind: "idle" }
+	| { readonly kind: "saving" }
+	| { readonly kind: "error"; readonly message: string };
+
+function EntityEditorForm(
+	props: EntityEditorProps & {
+		readonly definitions: {
+			readonly entity: { readonly name: string; readonly propertiesSchema: AppSchema };
+			readonly relationships: readonly EditorRelationshipDefinition[];
+		};
+		readonly source: {
+			readonly relationships: EditorRelationshipTargets;
+			readonly entity: {
+				readonly name: string;
+				readonly updatedAt: string;
+				readonly properties: EditorProperties;
+			} | null;
+		};
+	},
+) {
+	const client = useRyot();
+	const schedule = useRyotSchedule();
+	const { mode, source, definitions } = props;
+	const schema = definitions.entity.propertiesSchema;
+	const formMode = mode.kind === "edit" ? "edit" : "create";
+	const stored = source.entity?.properties ?? {};
+	const uploaded = useRef(new Map<string, ManagedAssetLocator>());
+	const [nameError, setNameError] = useState<string>();
+	const [status, setStatus] = useState<SaveStatus>({ kind: "idle" });
+	const [name, setName] = useState(
+		(mode.kind === "create" ? mode.initialName : undefined) ?? source.entity?.name ?? "",
+	);
+	const [relationships, setRelationships] = useState<EditorRelationshipTargets>(
+		source.relationships,
+	);
+	const [rowErrors, setRowErrors] = useState<ReadonlyMap<string, string>>(new Map());
+	const [managed, setManaged] = useState<readonly ManagedAssetLocator[]>(managedAssetsOf(stored));
+
+	const cleanup = (assets: readonly ManagedAssetLocator[]) =>
+		Effect.forEach(assets, (asset) => Effect.ignore(client.uploads.cleanup(asset)), {
+			discard: true,
+		});
+
+	const submit = (values: SchemaFormValues) => {
+		const errors = new Map<string, string>();
+		for (const definition of definitions.relationships) {
+			for (const target of relationships[definition.slug] ?? []) {
+				const message = [
+					...validateSchemaFormValues(
+						definition.propertiesSchema,
+						entityFormValues(definition.propertiesSchema, target.properties),
+					).values(),
+				][0];
+				if (message !== undefined) {
+					errors.set(target.entityId, message);
+				}
+			}
+		}
+		setRowErrors(errors);
+		if (name.trim() === "") {
+			setNameError("Enter a name");
+			return;
+		}
+		if (errors.size > 0) {
+			return;
+		}
+		setNameError(undefined);
+		setStatus({ kind: "saving" });
+		const properties = entityPropertiesPayload(schema, values, formMode, stored);
+		const submission = buildSubmission({
+			name,
+			properties,
+			relationships,
+			entitySchemaSlug: props.entitySchemaSlug,
+			target:
+				mode.kind === "edit" && source.entity !== null
+					? {
+							kind: "update",
+							entityId: EntityId.make(mode.entityId),
+							expected: {
+								name: source.entity.name,
+								updatedAt: source.entity.updatedAt,
+								properties: { ...source.entity.properties },
+							},
+						}
+					: { kind: "create" },
+		});
+		schedule.run(
+			props.save(submission).pipe(
+				Effect.matchEffect({
+					onFailure: () =>
+						Effect.sync(() => setStatus({ kind: "error", message: SAVE_FAILED_MESSAGE })),
+					onSuccess: (output) => {
+						if (output.kind === "saved") {
+							return cleanup(unreferencedUploads(uploaded.current, properties)).pipe(
+								Effect.andThen(Effect.sync(() => props.onSaved(output.entityId))),
+							);
+						}
+						return Effect.sync(() =>
+							setStatus({
+								kind: "error",
+								message: output.kind === "stale" ? STALE_MESSAGE : output.message,
+							}),
+						);
+					},
+				}),
+			),
+			() => undefined,
+		);
+	};
+
+	const form = useSchemaForm({ mode: formMode, onSubmit: submit, schemas: [schema] });
+	const [initialValues] = useState(() => entityFormValues(schema, stored));
+	useLayoutEffect(() => {
+		form.reset(initialValues);
+	}, [form, initialValues]);
+
+	const uploadAsset: SchemaAssetUpload = (request) =>
+		Effect.runPromise(
+			client.uploads.uploadPermanent(request).pipe(
+				Effect.match({
+					onFailure: () => ({ kind: "failed" as const, message: "Upload failed. Try again." }),
+					onSuccess: (asset) => {
+						uploaded.current.set(managedAssetKey(asset), asset);
+						return { asset, kind: "uploaded" as const };
+					},
+				}),
+			),
+		);
+
+	const cancel = () => {
+		schedule.run(
+			cleanup([...uploaded.current.values()]).pipe(Effect.andThen(Effect.sync(props.onCancel))),
+			() => undefined,
+		);
+	};
+
+	return (
+		<ActionForm
+			onSubmit={() => void form.handleSubmit()}
+			className="mx-auto flex w-full max-w-2xl flex-col gap-5"
+			label={`${mode.kind === "edit" ? "Edit" : "New"} ${definitions.entity.name}`}
+		>
+			<Field label="Name" error={nameError}>
+				{(control) => (
+					<TextField
+						{...control}
+						value={name}
+						onChange={(event) => setName(event.currentTarget.value)}
+					/>
+				)}
+			</Field>
+			<ManagedAssetProvider assets={managed}>
+				<SchemaForm
+					form={form}
+					schema={schema}
+					mode={formMode}
+					icons={schemaFormIcons}
+					uploadAsset={uploadAsset}
+					renderAsset={renderAsset}
+					uploadFile={() =>
+						Promise.resolve({ kind: "failed", message: "File uploads are not supported here." })
+					}
+					onChange={() =>
+						setManaged(
+							managedAssetsOf(entityPropertiesPayload(schema, form.state.values, formMode, stored)),
+						)
+					}
+				/>
+			</ManagedAssetProvider>
+			{definitions.relationships.map((definition) => (
+				<RelationshipSection
+					errors={rowErrors}
+					key={definition.slug}
+					definition={definition}
+					packageId={props.packageId}
+					targets={relationships[definition.slug] ?? []}
+					onChange={(targets) =>
+						setRelationships((current) => ({ ...current, [definition.slug]: targets }))
+					}
+				/>
+			))}
+			{status.kind === "error" ? (
+				<StatusMessage tone="error">{status.message}</StatusMessage>
+			) : null}
+			<div className="flex flex-row justify-end gap-2">
+				<Button variant="ghost" onClick={cancel} disabled={status.kind === "saving"}>
+					Cancel
+				</Button>
+				<Button loading={status.kind === "saving"} onClick={() => void form.handleSubmit()}>
+					Save
+				</Button>
+			</div>
+		</ActionForm>
+	);
+}
+
+export function EntityEditor(props: EntityEditorProps) {
+	const { mode, packageId, entitySchemaSlug, relationshipSlugs } = props;
+	const forEdit = mode.kind === "edit";
+	const entityId = mode.kind === "edit" ? mode.entityId : (mode.seedEntityId ?? null);
+	const definitions = useRyotQuery(definitionsQuery, {
+		packageId,
+		entitySchemaSlug,
+		relationshipSlugs,
+	});
+	const source = useRyotQuery(
+		sourceQuery,
+		{ forEdit, entityId, packageId, entitySchemaSlug, relationshipSlugs },
+		{ refreshOnMutation: false },
+	);
+	if (definitions.isError || source.isError) {
+		return (
+			<div className="flex flex-col items-start gap-3">
+				<StatusMessage tone="error">The editor could not be loaded.</StatusMessage>
+				<Button
+					variant="secondary"
+					onClick={() => {
+						definitions.refetch();
+						source.refetch();
+					}}
+				>
+					Retry
+				</Button>
+			</div>
+		);
+	}
+	if (definitions.data === undefined || source.data === undefined) {
+		return <StatusMessage tone="pending">Loading…</StatusMessage>;
+	}
+	if (entityId !== null && source.data.entity === null) {
+		return <StatusMessage tone="error">This item is unavailable.</StatusMessage>;
+	}
+	return <EntityEditorForm {...props} source={source.data} definitions={definitions.data} />;
+}
