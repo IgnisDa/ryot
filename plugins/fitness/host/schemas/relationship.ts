@@ -43,6 +43,13 @@ export const fitnessRelationshipSchemas = () =>
 			},
 		},
 		{
+			propertiesSchema: { fields: {} },
+			slug: "measurement-metric-pinned",
+			name: "Measurement Metric Pinned",
+			targetEntitySchemaSlug: "fitness-library",
+			sourceEntitySchemaSlug: "measurement-metric",
+		},
+		{
 			slug: "exercise-targets",
 			name: "Exercise Targets",
 			sourceEntitySchemaSlug: "exercise",
