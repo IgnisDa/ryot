@@ -2,17 +2,24 @@ name: Sandbox Sidecar
 
 on:
   push:
+    branches: [main]
     paths: &paths
-      - "kernel/**"
+      - "kernel/backend/**"
+      - "kernel/sandboxd/**"
       - "packages/**"
-      - "plugins/**"
+      - "plugins/fitness/**"
+      - "plugins/media/**"
       - "apps/server/**"
       - "Dockerfile"
       - ".dockerignore"
       - "bun.lock"
       - "package.json"
+      - "tsconfig.json"
+      - "tsconfig.options.json"
       - "turbo.json"
       - ".github/workflows/sandboxd.yml"
+      - "!packages/assets/**"
+      - "!**/*.md"
   pull_request:
     paths: *paths
 
