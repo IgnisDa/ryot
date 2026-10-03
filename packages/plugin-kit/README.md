@@ -211,10 +211,6 @@ including items in projected batches. A `json` comparison uses canonical JSON eq
 array order and multiplicity. `unordered-array` compares arrays as sets of canonical JSON elements,
 ignoring order and duplicate multiplicity; non-arrays use JSON equality. Missing and present values,
 including `null`, remain distinct. Compared properties need not also be selected into snapshots.
-Entity update policy inputs also include `dependentEvents`, an immutable sorted, unique summary of
-event schema plugin ID, event schema slug, and reference role (`entity` or `session`). It does not
-expose event IDs, users, or counts. The kernel captures it before policy execution and rechecks it
-before commit; projections do not remove it.
 
 Do not query omitted or historical invocation data back through RyotQL. RyotQL describes current
 state under the trusted principal, which can differ from the complete trigger-time evidence.

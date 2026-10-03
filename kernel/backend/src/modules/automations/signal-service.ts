@@ -13,7 +13,6 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EventsRepository } from "#modules/events/repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -40,7 +39,6 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 			const plugins = yield* PluginRepository;
 			const schemas = yield* SignalSchemasRepository;
 			const entities = yield* EntitiesRepository;
-			const events = yield* EventsRepository;
 			const relationships = yield* RelationshipsRepository;
 			const relationshipSchemas = yield* RelationshipSchemasRepository;
 			const definitions = yield* DefinitionRepository;
@@ -117,18 +115,6 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 								subjectEntityId: input.subjectEntityId,
 								relationshipSchemaSlug: policy.relationshipSchemaSlug,
 								relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
-							});
-						} else if (policy.kind === "dependent_event_owners") {
-							if (!input.subjectEntityId) {
-								return yield* badRequest(
-									"Dependent-event-owners audience requires a subject entity",
-								);
-							}
-							recipients = yield* events.listEnabledOwnersForSubject({
-								role: policy.role,
-								subjectEntityId: input.subjectEntityId,
-								eventSchemaSlug: policy.eventSchemaSlug,
-								eventSchemaPluginId: schema.pluginId ?? null,
 							});
 						}
 						return yield* planner.plan({ trigger, recipients });

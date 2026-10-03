@@ -329,7 +329,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				receiptInput: unknown;
 			},
 		) {
-			let dependentEvents: PreparedMutation["dependentEvents"] = [];
 			const lifecycle = yield* Schema.decodeEffect(LifecycleCommand)(input.lifecycle).pipe(
 				Effect.mapError(() => bad("mutation-conflict", "Invalid lifecycle command")),
 			);
@@ -346,15 +345,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					return yield* bad("mutation-conflict", "Mutation requires the persisted entity snapshot");
 				}
 				if (input.operation === "update") {
-					const capturedDependencies = yield* repository.listEventDependencies(input.entityId);
-					dependentEvents = capturedDependencies;
 					request = {
 						resource: "entity",
 						draft: input.draft,
 						category: "request",
 						operation: "update",
 						before: input.before,
-						dependentEvents: capturedDependencies,
 					};
 				} else {
 					request = {
@@ -376,7 +372,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				...preparedInput,
 				request,
 				lifecycle,
-				dependentEvents,
 				policies: planned.policies,
 				requestId: planned.trigger?.id ?? null,
 				receipt: mutationReceiptIdentity({
@@ -570,7 +565,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				receiptKind,
 				scopeUserId,
 				receiptInput,
-				dependentEvents: [],
 				lifecycle: input.lifecycle,
 				before: existing && !replay ? snapshot(existing) : null,
 				entityId: existing?.id ?? commandEntityId(input.lifecycle),
@@ -710,7 +704,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 			const operation = existing && !replay ? "update" : "create";
 			const before = existing && !replay ? snapshot(existing) : null;
-			let dependentEvents: PreparedMutation["dependentEvents"] = [];
 			let payload: AutomationEntityRequestPayload;
 			if (before === null) {
 				payload = {
@@ -720,15 +713,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					draft: validated.draft,
 				};
 			} else {
-				const capturedDependencies = yield* repository.listEventDependencies(before.id);
-				dependentEvents = capturedDependencies;
 				payload = {
 					before,
 					resource: "entity",
 					category: "request",
 					operation: "update",
 					draft: validated.draft,
-					dependentEvents: capturedDependencies,
 				};
 			}
 			const requestPlan = yield* planner.plan({
@@ -747,7 +737,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					lifecycle,
 					operation,
 					scopeUserId,
-					dependentEvents,
 					draft: validated.draft,
 					requestId: requestPlan.trigger?.id ?? null,
 					entitySchemaPluginId: validated.entitySchemaPluginId,
@@ -856,7 +845,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				...validated,
 				before,
 				receiptInput,
-				dependentEvents: [],
 				entityId: input.entityId,
 				lifecycle: input.lifecycle,
 				scopeUserId: current.userId,
@@ -956,7 +944,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						receiptInput,
 						lifecycle: command,
 						operation: "delete",
-						dependentEvents: [],
 						draft: draftOf(before),
 						scopeUserId: current.userId,
 						receiptKind: "entity:delete",
