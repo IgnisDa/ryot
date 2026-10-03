@@ -96,6 +96,7 @@ it.each([
 							creates: [
 								{
 									properties: {},
+									propertiesMode: "merge",
 									targetEntityId: "library-1",
 									sourceEntityId: "exercise-1",
 									relationshipSchemaSlug: "in-fitness-library",

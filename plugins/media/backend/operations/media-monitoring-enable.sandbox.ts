@@ -32,12 +32,14 @@ export default defineOperation({
 						creates: targets.flatMap(({ entityId }) => [
 							{
 								properties: {},
+								propertiesMode: "merge",
 								sourceEntityId: entityId,
 								targetEntityId: mediaLibrary.entityId,
 								relationshipSchemaSlug: "in-media-library",
 							},
 							{
 								properties: {},
+								propertiesMode: "merge",
 								sourceEntityId: entityId,
 								targetEntityId: mediaLibrary.entityId,
 								relationshipSchemaSlug: "media-monitoring",

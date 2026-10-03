@@ -288,6 +288,7 @@ describe("bindSandboxHostFunctions", () => {
 				creates: [
 					{
 						properties: {},
+						propertiesMode: "replace",
 						sourceEntityId: "example-1",
 						targetEntityId: "library-1",
 						relationshipSchemaSlug: "in-media-library",

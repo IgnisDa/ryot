@@ -137,6 +137,9 @@ and static enum choices. Labels, descriptions, ordering, defaults, validation, a
 Secrets, uploads, OAuth connections, objects, and dynamic choices are not supported. The schema must
 validate an empty record after applying defaults, so initial preferences and reset are always valid.
 
+Defaults apply to absent keys, not explicit nulls. A field with a default and `validation.required`
+accepts an empty record after defaults while rejecting null choices.
+
 Users edit these preferences under Settings → Plugin preferences. Values belong to the exact user's
 installation, separate from `configSchema`, and are included in account backups. Reset removes stored
 choices. Schema evolution is additive; incompatible changes are rejected.
@@ -215,6 +218,9 @@ including `null`, remain distinct. Compared properties need not also be selected
 Do not query omitted or historical invocation data back through RyotQL. RyotQL describes current
 state under the trusted principal, which can differ from the complete trigger-time evidence.
 Plugins never own database tables or direct persistence; writes use kernel host functions.
+`host.changeUserRelationships` requires `propertiesMode: "merge" | "replace"` on each create entry.
+Merge preserves unspecified properties and unions array values; replace replaces the full property
+record. Membership-only writes use merge so that repeated imports do not clear user annotations.
 User-scoped event writes use `host.updateEvents(items)` and `host.deleteEvents(eventIds)`. Each call
 accepts at most 100 items and commits as one atomic batch. An update item is `{ eventId, patch }`;
 the patch may set `properties` with `{ remove, set }`, `occurredAt`, `entityId`, or

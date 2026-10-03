@@ -12,6 +12,7 @@ import {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { createUserRelationshipSchema } from "@ryot-app/sandbox-sdk/core";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
@@ -49,7 +50,12 @@ export type UserRelationshipIdentity = {
 	relationshipSchemaSlug: RelationshipSchemaSlug;
 };
 export type ChangeUserRelationshipBatch = {
-	creates: ReadonlyArray<UserRelationshipIdentity & { properties: unknown }>;
+	creates: ReadonlyArray<
+		UserRelationshipIdentity &
+			Pick<Schema.Schema.Type<typeof createUserRelationshipSchema>, "propertiesMode"> & {
+				properties: unknown;
+			}
+	>;
 	deletes: ReadonlyArray<UserRelationshipIdentity>;
 };
 export type ReconcileGlobalRelationshipGroup = {

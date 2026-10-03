@@ -50,6 +50,7 @@ export default defineAutomation({
 					creates: [
 						{
 							properties: {},
+							propertiesMode: "merge",
 							sourceEntityId: exerciseId,
 							targetEntityId: fitnessLibrary.entityId,
 							relationshipSchemaSlug: "in-fitness-library",

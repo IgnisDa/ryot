@@ -1561,7 +1561,10 @@ describe("changeUserRelationships", () => {
 		targetEntityId: "collection-1",
 		relationshipSchemaSlug: "member-of",
 	};
-	const batch = { deletes: [], creates: [{ ...identity, properties: {} }] };
+	const batch = {
+		deletes: [],
+		creates: [{ ...identity, properties: {}, propertiesMode: "replace" as const }],
+	};
 
 	layer(hostFunctionsLayer())((test) => {
 		test.effect("derives the relationship owner from direct user subject", () =>
@@ -1584,6 +1587,7 @@ describe("changeUserRelationships", () => {
 						scope: "user",
 						userId: "trusted-user",
 						properties: { rank: 0 },
+						propertiesMode: "replace",
 						sourceEntityId: "entity-1",
 						targetEntityId: "collection-1",
 						relationshipSchemaPluginId: null,
@@ -1607,6 +1611,7 @@ describe("changeUserRelationships", () => {
 						scope: "user",
 						userId: "user-1",
 						properties: { rank: 0 },
+						propertiesMode: "replace",
 						sourceEntityId: "entity-1",
 						targetEntityId: "collection-1",
 						relationshipSchemaPluginId: null,

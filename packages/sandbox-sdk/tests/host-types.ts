@@ -151,6 +151,7 @@ defineScript({
 					creates: [
 						{
 							properties: {},
+							propertiesMode: "replace",
 							sourceEntityId: "entity-1",
 							targetEntityId: "library-1",
 							relationshipSchemaSlug: "in-media-library",

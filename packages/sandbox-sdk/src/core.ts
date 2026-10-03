@@ -429,6 +429,7 @@ const userRelationshipIdentitySchema = strictStruct({
 export const createUserRelationshipSchema = strictStruct({
 	...userRelationshipIdentitySchema.fields,
 	properties: globalPropertiesSchema,
+	propertiesMode: Schema.Literals(["merge", "replace"]),
 });
 export const changeUserRelationshipBatchSchema = strictStruct({
 	creates: Schema.Array(createUserRelationshipSchema),

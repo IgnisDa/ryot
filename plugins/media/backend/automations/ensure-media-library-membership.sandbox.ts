@@ -1,5 +1,8 @@
 import { defineAutomation, type AutomationInput } from "@ryot-app/sandbox-sdk/automation";
-import { USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS } from "@ryot-app/sandbox-sdk/core";
+import {
+	USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
+	type ChangeUserRelationshipBatch,
+} from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/sandbox-sdk/ryotql";
@@ -82,12 +85,15 @@ export default defineAutomation({
 				return null;
 			}
 			const mediaLibrary = yield* executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe());
-			const creates = [...targets.values()].map((target) => ({
-				properties: {},
-				sourceEntityId: target.entityId,
-				targetEntityId: mediaLibrary.entityId,
-				relationshipSchemaSlug: "in-media-library",
-			}));
+			const creates = [...targets.values()].map<ChangeUserRelationshipBatch["creates"][number]>(
+				(target) => ({
+					properties: {},
+					propertiesMode: "merge",
+					sourceEntityId: target.entityId,
+					targetEntityId: mediaLibrary.entityId,
+					relationshipSchemaSlug: "in-media-library",
+				}),
+			);
 			const batches = [];
 			for (
 				let index = 0;

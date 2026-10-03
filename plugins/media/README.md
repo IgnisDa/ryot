@@ -483,6 +483,9 @@ entity schema is not a library member, so workspace bootstrap never links the li
 hooks use the same script to upsert `in-media-library` with `changeUserRelationships`, which emits a
 child relationship trigger only when the upsert changes state. The event-batch hook runs after the
 written prefix, so later items in that request do not see memberships created by that hook.
+These membership-only writes merge empty properties and preserve existing relationship properties.
+Monitoring enable uses the same merge behavior for both `in-media-library` and `media-monitoring`,
+including empty-property creates.
 `media.record-media-library-membership-event` is a required after hook on new
 `in-media-library` relationships; it records `add-to-media-library` at the relationship creation time
 for each media library member. Repeated idempotent upserts and existing memberships do not create

@@ -105,6 +105,7 @@ export default defineAutomation({
         deletes: [],
         creates: [{
           properties: { chainId },
+          propertiesMode: "replace",
           targetEntityId,
           sourceEntityId: payload.after.entityId,
           relationshipSchemaSlug: ${JSON.stringify(input.relationshipSchemaSlug)},

@@ -160,9 +160,14 @@ describe("shared value contracts", () => {
 		};
 		expect(
 			decode(changeUserRelationshipsArgsSchema)([
-				[{ deletes: [], creates: [{ ...identity, properties: {} }] }],
+				[{ deletes: [], creates: [{ ...identity, properties: {}, propertiesMode: "replace" }] }],
 			]),
 		).toHaveLength(1);
+		expect(() =>
+			decode(changeUserRelationshipsArgsSchema)([
+				[{ deletes: [], creates: [{ ...identity, properties: {} }] }],
+			]),
+		).toThrow();
 		expect(() =>
 			decode(changeUserRelationshipsArgsSchema)([
 				[{ creates: [], deletes: [], userId: "caller-selected" }],
@@ -173,7 +178,11 @@ describe("shared value contracts", () => {
 				[
 					{
 						deletes: Array.from({ length: 50 }, () => identity),
-						creates: Array.from({ length: 51 }, () => ({ ...identity, properties: {} })),
+						creates: Array.from({ length: 51 }, () => ({
+							...identity,
+							properties: {},
+							propertiesMode: "replace",
+						})),
 					},
 				],
 			]),
