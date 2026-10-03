@@ -68,11 +68,9 @@ it.live("retains the document and bridge across same-composition saved views", (
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient(getApiUrl());
 		const { exercise, exerciseId } = yield* createExerciseEntityFixture(client);
-		const first = yield* createEntityBrowserSavedView(
-			client,
-			{ name: "Composition first view" },
-			[exerciseId],
-		);
+		const first = yield* createEntityBrowserSavedView(client, { name: "Composition first view" }, [
+			exerciseId,
+		]);
 		const second = yield* createEntityBrowserSavedView(
 			client,
 			{ name: "Composition second view" },
