@@ -16,12 +16,8 @@ import {
 	type Recipe,
 } from "@ryot-app/client-sdk/ryotql";
 
-import {
-	property,
-	propertyDate,
-	propertyNumber,
-	workoutDatesSelection,
-} from "../shared/entity-selections";
+import { propertyDate, propertyNumber, workoutDatesSelection } from "../shared/entity-selections";
+import { ExerciseNotesSchema } from "../shared/workout-details-recipes";
 import { PersonalBestSchema } from "../shared/workout-records";
 
 export const workoutPresentationRecipe = defineRecipe((entityIds: readonly string[]) => {
@@ -77,14 +73,7 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 					...workoutDatesSelection(workout),
 					exerciseNotes: selectedField(
 						jsonPath(column(workout, "properties"), "exerciseNotes"),
-						Schema.NullOr(
-							Schema.Array(
-								Schema.Struct({
-									notes: Schema.Array(Schema.String),
-									exerciseOrder: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-								}),
-							),
-						),
+						Schema.NullOr(ExerciseNotesSchema),
 					),
 				},
 				include: {
@@ -113,10 +102,6 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 							distance: selectedField(propertyNumber(event, "distance"), nullableNumber),
 							confirmedAt: selectedField(propertyDate(event, "confirmedAt"), nullableString),
 							exerciseOrder: selectedField(propertyNumber(event, "exerciseOrder"), nullableNumber),
-							unitSystem: selectedField(
-								property(event, "unitSystem"),
-								Schema.NullOr(Schema.String),
-							),
 							personalBests: selectedField(
 								jsonPath(column(event, "properties"), "personalBests"),
 								Schema.NullOr(Schema.Array(PersonalBestSchema)),

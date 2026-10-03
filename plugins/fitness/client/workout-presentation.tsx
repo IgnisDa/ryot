@@ -13,6 +13,7 @@ import {
 	workoutPresentationRecipe,
 	type WorkoutPresentationData,
 } from "./workout-presentation-query";
+import { formatDuration, formatNumber, parseDate } from "./workout/format";
 
 export const loadWorkoutPresentations: EntityPresentationLoader<WorkoutPresentationData> = ({
 	client,
@@ -28,16 +29,8 @@ export const loadWorkoutPresentations: EntityPresentationLoader<WorkoutPresentat
 		);
 };
 
-const validDate = (value: string | null) => {
-	if (value === null) {
-		return null;
-	}
-	const date = new Date(value);
-	return Number.isFinite(date.getTime()) ? date : null;
-};
-
 const workoutDate = (startedAt: string | null) => {
-	const date = validDate(startedAt);
+	const date = parseDate(startedAt);
 	return date
 		? new Intl.DateTimeFormat("en-US", {
 				day: "numeric",
@@ -48,44 +41,24 @@ const workoutDate = (startedAt: string | null) => {
 		: null;
 };
 
-const durationParts = (seconds: number) => {
-	const hours = Math.floor(seconds / 3600);
-	const minutes = Math.floor((seconds % 3600) / 60);
-	return [hours > 0 ? `${hours}h` : null, minutes > 0 ? `${minutes}m` : null]
-		.filter((part) => part !== null)
-		.join(" ");
-};
-
 const workoutDuration = (startedAt: string | null, endedAt: string | null) => {
-	const start = validDate(startedAt);
-	const end = validDate(endedAt);
+	const start = parseDate(startedAt);
+	const end = parseDate(endedAt);
 	if (!start || !end || end < start) {
 		return null;
 	}
-	return durationParts((end.getTime() - start.getTime()) / 1000) || "<1m";
+	return formatDuration((end.getTime() - start.getTime()) / 1000);
 };
 
-const measurementUnit = (unitSystem: string | null, metric: string, imperial: string) => {
-	if (unitSystem === "metric") {
-		return ` ${metric}`;
-	}
-	if (unitSystem === "imperial") {
-		return ` ${imperial}`;
-	}
-	return "";
-};
-
-const setSummary = (set: WorkoutPresentationData["exercises"][number]["sets"][number]) => {
-	const weightUnit = measurementUnit(set.unitSystem, "kg", "lb");
-	const distanceUnit = measurementUnit(set.unitSystem, "km", "mi");
-	const values = [
-		set.reps === null ? null : `${set.reps} reps`,
-		set.weight === null ? null : `${set.weight}${weightUnit}`,
-		set.distance === null ? null : `${set.distance}${distanceUnit}`,
-		set.duration === null ? null : durationParts(set.duration) || `${set.duration}s`,
-	];
-	return values.filter((value) => value !== null).join(" · ");
-};
+const setSummary = (set: WorkoutPresentationData["exercises"][number]["sets"][number]) =>
+	[
+		set.reps === null ? null : `${formatNumber(set.reps)} reps`,
+		set.weight === null ? null : `${formatNumber(set.weight)} kg`,
+		set.distance === null ? null : `${formatNumber(set.distance)} km`,
+		set.duration === null ? null : formatDuration(set.duration),
+	]
+		.filter((value) => value !== null)
+		.join(" · ");
 
 const WorkoutDetails = ({ data }: { readonly data: WorkoutPresentationData }) => {
 	const setCount = data.exercises.reduce((total, exercise) => total + exercise.sets.length, 0);
