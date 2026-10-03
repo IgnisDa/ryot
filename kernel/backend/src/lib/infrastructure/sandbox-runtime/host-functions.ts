@@ -967,46 +967,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
 				}),
 			),
-		executeRyotql: (rawInput, query) =>
-			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
-				Effect.flatMap((input) => {
-					const { subject } = input.principal;
-					if (
-						subject.type === "system" ||
-						(subject.type === "automation-run" && subject.executionUserId === null)
-					) {
-						return sandboxHostEffect(
-							Effect.gen(function* () {
-								const revision = input.principal.pluginRevision;
-								if (revision?.scope !== "system") {
-									return yield* sandboxHostFailure(
-										"executeRyotql system access requires a pinned plugin script",
-										{ operation: "executeRyotql", code: "unavailable-operation" },
-									);
-								}
-								const document = yield* decodeRyotQLDocument(query);
-								return yield* ryotqlService.executeForPlugin(
-									{ pluginSlug: revision.slug, ...revision.schemaScope },
-									document,
-								);
-							}),
-						);
-					}
-					return sandboxHostEffect(
-						Effect.gen(function* () {
-							const document = yield* decodeRyotQLDocument(query);
-							const userId = sandboxRunUserId(input);
-							if (userId === null) {
-								return yield* sandboxHostFailure("executeRyotql requires a user execution", {
-									operation: "executeRyotql",
-									code: "unavailable-operation",
-								});
-							}
-							return yield* ryotqlService.executeForUser(userId, null, "plugin", document);
-						}),
-					);
-				}),
-			),
 		getCurrentIntegration: (rawInput) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -1040,6 +1000,54 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						return yield* Effect.fail("Admitted integration settings are unavailable");
 					}
 					return toSandboxIntegration({ ...integration, ...state.executionSettings.integration });
+				}),
+			),
+		executeRyotql: (rawInput, query) =>
+			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
+				Effect.flatMap((input) => {
+					const { subject } = input.principal;
+					if (
+						subject.type === "system" ||
+						(subject.type === "automation-run" && subject.executionUserId === null)
+					) {
+						return sandboxHostEffect(
+							Effect.gen(function* () {
+								const revision = input.principal.pluginRevision;
+								if (revision?.scope !== "system") {
+									return yield* sandboxHostFailure(
+										"executeRyotql system access requires a pinned plugin script",
+										{ operation: "executeRyotql", code: "unavailable-operation" },
+									);
+								}
+								const document = yield* decodeRyotQLDocument(query);
+								return yield* ryotqlService.executeForPlugin(
+									{ pluginSlug: revision.slug, ...revision.schemaScope },
+									document,
+									SANDBOX_LIMITS.ryotqlResultBytes,
+								);
+							}),
+						);
+					}
+					return sandboxHostEffect(
+						Effect.gen(function* () {
+							const document = yield* decodeRyotQLDocument(query);
+							const userId = sandboxRunUserId(input);
+							if (userId === null) {
+								return yield* sandboxHostFailure("executeRyotql requires a user execution", {
+									operation: "executeRyotql",
+									code: "unavailable-operation",
+								});
+							}
+							return yield* ryotqlService.executeForUser(
+								userId,
+								null,
+								"plugin",
+								document,
+								"standard",
+								SANDBOX_LIMITS.ryotqlResultBytes,
+							);
+						}),
+					);
 				}),
 			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>

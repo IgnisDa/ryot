@@ -142,31 +142,29 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 		},
 		getPersistentValue: (input, key) =>
 			sandboxCacheInputGuard("getPersistentValue", key, () =>
-				redis
-					.get(
+				Effect.uninterruptible(
+					redis.get(
 						redisKeys.sandboxCache(
 							sandboxRunUserId(input),
 							input.principal.providerId ?? input.principal.scriptId,
 							key.trim(),
 						),
-					)
-					.pipe(
-						Effect.flatMap((stored) =>
-							stored === null
-								? Effect.succeed(null)
-								: decodePersistentClaimEnvelope(stored).pipe(
-										Effect.flatMap(({ value }) =>
-											isJsonValue(value)
-												? encodeSandboxCacheValue("getPersistentValue", value).pipe(
-														Effect.as(value),
-													)
-												: Effect.fail("getPersistentValue: stored value is not valid JSON"),
-										),
-										Effect.mapError(() => "getPersistentValue: stored claim is invalid"),
-									),
-						),
-						sandboxHostEffect,
 					),
+				).pipe(
+					Effect.flatMap((stored) =>
+						stored === null
+							? Effect.succeed(null)
+							: decodePersistentClaimEnvelope(stored).pipe(
+									Effect.flatMap(({ value }) =>
+										isJsonValue(value)
+											? encodeSandboxCacheValue("getPersistentValue", value).pipe(Effect.as(value))
+											: Effect.fail("getPersistentValue: stored value is not valid JSON"),
+									),
+									Effect.mapError(() => "getPersistentValue: stored claim is invalid"),
+								),
+					),
+					sandboxHostEffect,
+				),
 			),
 		getCachedValue: (input, key) => {
 			return sandboxCacheInputGuard("getCachedValue", key, () => {
@@ -177,7 +175,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 					key.trim(),
 				);
 
-				return redis.get(redisKey).pipe(
+				return Effect.uninterruptible(redis.get(redisKey)).pipe(
 					Effect.flatMap((cached) => {
 						if (cached === null) {
 							return Effect.succeed(null);
@@ -224,10 +222,9 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 							return { claimed: true as const };
 						}
 
-						const existing = yield* Effect.tryPromise({
-							catch: unknownToMessage,
-							try: () => redis.client.get(redisKey),
-						});
+						const existing = yield* Effect.uninterruptible(
+							Effect.tryPromise({ catch: unknownToMessage, try: () => redis.client.get(redisKey) }),
+						);
 						if (existing === null) {
 							return { value: null, claimed: false };
 						}

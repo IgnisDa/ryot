@@ -165,6 +165,7 @@ const recordingGate = Layer.effect(
 		const real = yield* SandboxHostCallGate;
 		const evidence = yield* NativeMemoryEvidence;
 		return {
+			transientMemory: real.transientMemory,
 			register: Effect.fnUntraced(function* (options: Parameters<typeof real.register>[0]) {
 				const registration = yield* real.register(options);
 				evidence.registrations.set(options.handle, registration);

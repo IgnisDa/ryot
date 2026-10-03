@@ -7,16 +7,33 @@ import {
 	type WorkflowDurableResult,
 } from "@ryot-app/sandbox-sdk/workflow";
 import type { Tracer } from "effect";
-import { Deferred, Duration, Effect, Exit, Fiber, Layer, Queue, Schema, Scope } from "effect";
+import {
+	Deferred,
+	Duration,
+	Effect,
+	Exit,
+	Fiber,
+	Layer,
+	Queue,
+	Scheduler,
+	Schema,
+	Scope,
+} from "effect";
 import { TestClock } from "effect/testing";
 
 import type { SandboxFileAccess } from "./file-service";
 import { hostCallArgs } from "./host-call-args.test-support";
-import { SandboxHostCallGate, type SandboxHostCallGateOptions } from "./host-call-gate";
+import {
+	SANDBOX_TRANSIENT_MEMORY,
+	SandboxHostCallGate,
+	type SandboxHostCallGateOptions,
+	type SandboxHostResultDelivery,
+} from "./host-call-gate";
+import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import type { BoundHostFunction, SandboxRunInput } from "./shared";
 import type { SidecarHostResultFrame } from "./sidecar-protocol";
-import { SidecarHostCallFrame } from "./sidecar-protocol";
+import { base64DecodedLength, SidecarHostCallFrame } from "./sidecar-protocol";
 
 type HostCallFrame = typeof SidecarHostCallFrame.Type;
 type HostResultFrame = typeof SidecarHostResultFrame.Type;
@@ -114,6 +131,50 @@ const makeOptions = (
 });
 
 const gateLayer = Layer.mergeAll(SandboxHostCallGate.layer, TestClock.layer());
+
+const permitBytes = (frame: HostCallFrame, resultBytes: number) =>
+	SANDBOX_JSON_GRAPH_FACTOR * base64DecodedLength(frame.args) + resultBytes;
+
+const holdReplies = () => {
+	const written: Array<() => void> = [];
+	const deliver: SandboxHostResultDelivery = (_reply, released) =>
+		Effect.sync(() => {
+			written.push(released);
+		});
+	return { written, deliver };
+};
+
+const inlineInput = (
+	capabilities: ReadonlyArray<"httpCall" | "listIntegrations">,
+	settle: (count: number) => ReadonlyArray<WorkflowDurableResult>,
+	settled: { count: number },
+) =>
+	makeInput([...capabilities], {
+		replayJournal: [],
+		workflowExecutionId: "memory-workflow",
+		inlineDurableHost: {
+			capabilities: [...capabilities],
+			settle: (requests) =>
+				Effect.sync(() => {
+					settled.count += 1;
+					return settle(requests.length);
+				}),
+		},
+	});
+
+const permitFrame = (seq: number) =>
+	makeFrame(seq, "httpCall", ["GET", "https://example.com/permit"], { handle: "permits" });
+
+const httpRequests = (count: number, firstIndex = 0) =>
+	Array.from({ length: count }, (_, offset) => ({
+		kind: "host",
+		name: "httpCall",
+		index: firstIndex + offset,
+		args: { capability: "httpCall", args: ["GET", "https://example.com/memory"] },
+	}));
+
+const reserveBatch = (seq: number) =>
+	makeFrame(seq, "inlineBatch", { requests: httpRequests(1) }, { handle: "reserve" });
 
 layer(gateLayer)((test) => {
 	test.effect("counts ordinary host waits while pausing only validated inline settlement", () =>
@@ -720,5 +781,307 @@ layer(gateLayer)((test) => {
 				error: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`,
 			});
 		}).pipe(Effect.withSpan("host-call-gate.inline-budget")),
+	);
+});
+
+layer(gateLayer)((test) => {
+	test.effect("host_call_permits_cover_maximum_results_until_written", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const gate = yield* SandboxHostCallGate;
+				const parentSpan = yield* Effect.currentSpan;
+				const registration = yield* gate.register(
+					makeOptions(
+						parentSpan,
+						makeInput(["httpCall"]),
+						{ httpCall: successHostFunction() },
+						makeFiles(),
+						"permits",
+					),
+				);
+				const replies = holdReplies();
+				const ordinary = permitBytes(permitFrame(0), SANDBOX_TRANSIENT_MEMORY.ordinaryBytes);
+				for (const seq of [0, 1, 2, 3]) {
+					yield* registration.dispatch(permitFrame(seq), replies.deliver);
+				}
+				expect(gate.transientMemory()).toEqual({ waiting: 0, used: 4 * ordinary });
+
+				const blocked = yield* registration
+					.dispatch(permitFrame(4), replies.deliver)
+					.pipe(Effect.forkScoped);
+				yield* Effect.yieldNow;
+				expect(gate.transientMemory()).toEqual({ waiting: 1, used: 4 * ordinary });
+				replies.written.shift()?.();
+				yield* Fiber.join(blocked);
+				expect(gate.transientMemory()).toEqual({ waiting: 0, used: 4 * ordinary });
+				for (const released of replies.written.splice(0)) {
+					released();
+				}
+				expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
+			}),
+		).pipe(Effect.withSpan("host-call-gate.permits")),
+	);
+
+	test.effect("host_call_args_decode_under_transient_permit", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const gate = yield* SandboxHostCallGate;
+				const parentSpan = yield* Effect.currentSpan;
+				const registration = yield* gate.register(
+					makeOptions(
+						parentSpan,
+						makeInput(["httpCall"]),
+						{ httpCall: successHostFunction() },
+						makeFiles(),
+						"permits",
+					),
+				);
+				const replies = holdReplies();
+				for (const seq of [0, 1, 2, 3]) {
+					yield* registration.dispatch(permitFrame(seq), replies.deliver);
+				}
+				const undecodable = yield* Schema.decodeEffect(SidecarHostCallFrame)({
+					seq: 4,
+					generation: 1,
+					type: "hostCall",
+					name: "httpCall",
+					handle: "permits",
+					args: btoa("[".repeat(1024)),
+				});
+				const waiting = yield* registration.dispatch(undecodable).pipe(Effect.forkScoped);
+				yield* Effect.yieldNow;
+				expect(gate.transientMemory().waiting).toBe(1);
+				for (const released of replies.written.splice(0)) {
+					released();
+				}
+				expect(frameValue(yield* Fiber.join(waiting))).toMatchObject({
+					success: false,
+					error: "Sandbox host call arguments are invalid",
+				});
+				expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
+			}),
+		).pipe(Effect.withSpan("host-call-gate.args-permit")),
+	);
+
+	test.effect("interrupted_dispatch_never_leaks_permits_at_any_point", () =>
+		Effect.gen(function* () {
+			const gate = yield* SandboxHostCallGate;
+			const parentSpan = yield* Effect.currentSpan;
+			for (const yieldBudget of [3, 8]) {
+				for (let yields = 0; yields < 40; yields += 1) {
+					const scope = yield* Scope.make();
+					const registration = yield* gate
+						.register(
+							makeOptions(
+								parentSpan,
+								makeInput(["getCachedValue"]),
+								undefined,
+								makeFiles(),
+								"interrupted",
+							),
+						)
+						.pipe(Scope.provide(scope));
+					const replies = holdReplies();
+					const call = yield* registration
+						.dispatch(
+							makeFrame(0, "getCachedValue", ["key"], { handle: "interrupted" }),
+							replies.deliver,
+						)
+						.pipe(
+							Effect.provideService(Scheduler.MaxOpsBeforeYield, yieldBudget),
+							Effect.forkDetach,
+						);
+					for (let step = 0; step < yields; step += 1) {
+						yield* Effect.yieldNow;
+					}
+					yield* Fiber.interrupt(call);
+					for (const released of replies.written.splice(0)) {
+						released();
+					}
+					yield* Scope.close(scope, Exit.void);
+					expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
+				}
+			}
+		}).pipe(Effect.withSpan("host-call-gate.interrupted")),
+	);
+
+	test.effect("cancelled_host_calls_release_permits_after_native_completion", () =>
+		Effect.gen(function* () {
+			const gate = yield* SandboxHostCallGate;
+			const parentSpan = yield* Effect.currentSpan;
+			const started = yield* Deferred.make<void>();
+			const finish = yield* Deferred.make<void>();
+			const scope = yield* Scope.make();
+			const registration = yield* gate
+				.register(
+					makeOptions(
+						parentSpan,
+						makeInput(["getCachedValue"]),
+						{
+							getCachedValue: () =>
+								Deferred.succeed(started, undefined).pipe(
+									Effect.andThen(Deferred.await(finish)),
+									Effect.as(hostSuccess(null)),
+									Effect.uninterruptible,
+								),
+						},
+						makeFiles(),
+						"cancelled",
+					),
+				)
+				.pipe(Scope.provide(scope));
+			const frame = makeFrame(0, "getCachedValue", ["key"], { handle: "cancelled" });
+			const call = yield* registration.dispatch(frame).pipe(Effect.forkChild);
+			yield* Deferred.await(started);
+			const closing = yield* Scope.close(scope, Exit.void).pipe(Effect.forkChild);
+			yield* Effect.yieldNow;
+			expect(gate.transientMemory()).toEqual({
+				waiting: 0,
+				used: permitBytes(frame, SANDBOX_TRANSIENT_MEMORY.smallBytes),
+			});
+			expect(closing.pollUnsafe()).toBeUndefined();
+			yield* Deferred.succeed(finish, undefined);
+			yield* Fiber.join(closing);
+			expect(frameValue(yield* Fiber.join(call))).toMatchObject({ success: false });
+			expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
+		}).pipe(Effect.withSpan("host-call-gate.cancelled")),
+	);
+
+	test.effect("inline_batches_reserve_before_settlement_and_defer_without_side_effects", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const gate = yield* SandboxHostCallGate;
+				const parentSpan = yield* Effect.currentSpan;
+				const settled = { count: 0 };
+				const registration = yield* gate.register(
+					makeOptions(
+						parentSpan,
+						inlineInput(
+							["httpCall"],
+							(count) => Array.from({ length: count }, () => ({ value: null, state: "success" })),
+							settled,
+						),
+						{ httpCall: successHostFunction() },
+						makeFiles(),
+						"reserve",
+					),
+				);
+				const replies = holdReplies();
+				for (const seq of [0, 1]) {
+					yield* registration.dispatch(
+						makeFrame(seq, "httpCall", ["GET", "https://example.com/held"], { handle: "reserve" }),
+						replies.deliver,
+					);
+				}
+				expect(frameValue(yield* registration.dispatch(reserveBatch(2)))).toEqual({ defer: true });
+				expect(settled.count).toBe(0);
+
+				for (const released of replies.written.splice(0)) {
+					released();
+				}
+				expect(frameValue(yield* registration.dispatch(reserveBatch(3)))).toEqual({
+					results: [{ value: null, state: "success" }],
+				});
+				expect(settled.count).toBe(1);
+			}),
+		).pipe(Effect.withSpan("host-call-gate.inline-reserve")),
+	);
+
+	test.effect("inline_batches_bound_held_results_before_settlement", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const gate = yield* SandboxHostCallGate;
+				const parentSpan = yield* Effect.currentSpan;
+				const settled = { count: 0 };
+				const registration = yield* gate.register(
+					makeOptions(
+						parentSpan,
+						inlineInput(
+							["httpCall", "listIntegrations"],
+							(count) => Array.from({ length: count }, () => ({ value: null, state: "success" })),
+							settled,
+						),
+						{},
+						makeFiles(),
+						"bounded",
+					),
+				);
+				const batch = (seq: number, requests: ReadonlyArray<unknown>) =>
+					registration.dispatch(makeFrame(seq, "inlineBatch", { requests }, { handle: "bounded" }));
+				const allowance =
+					SANDBOX_TRANSIENT_MEMORY.inlineValueBytes / (2 * SANDBOX_LIMITS.http.responseBytes);
+
+				expect(frameValue(yield* batch(0, httpRequests(allowance + 1)))).toEqual({ defer: true });
+				expect(
+					frameValue(
+						yield* batch(1, [
+							{
+								index: 0,
+								kind: "host",
+								name: "listIntegrations",
+								args: { args: [], capability: "listIntegrations" },
+							},
+						]),
+					),
+				).toEqual({ defer: true });
+				expect(settled.count).toBe(0);
+				expect(frameValue(yield* batch(2, httpRequests(allowance)))).toMatchObject({
+					results: Array.from({ length: allowance }, () => ({ value: null, state: "success" })),
+				});
+				expect(settled.count).toBe(1);
+			}),
+		).pipe(Effect.withSpan("host-call-gate.inline-bound")),
+	);
+
+	test.effect("inline_evidence_exhaustion_defers_before_settlement", () =>
+		Effect.gen(function* () {
+			const gate = yield* SandboxHostCallGate;
+			const parentSpan = yield* Effect.currentSpan;
+			const settled = { count: 0 };
+			const value = "x".repeat(9 * MiB);
+			const scope = yield* Scope.make();
+			const registration = yield* gate
+				.register(
+					makeOptions(
+						parentSpan,
+						inlineInput(
+							["httpCall"],
+							(count) => Array.from({ length: count }, () => ({ value, state: "success" })),
+							settled,
+						),
+						{},
+						makeFiles(),
+						"evidence",
+					),
+				)
+				.pipe(Scope.provide(scope));
+			const batch = (index: number) =>
+				registration.dispatch(
+					makeFrame(
+						index,
+						"inlineBatch",
+						{ requests: httpRequests(1, index) },
+						{ handle: "evidence" },
+					),
+				);
+			for (const index of [0, 1, 2, 3]) {
+				expect(frameValue(yield* batch(index))).toMatchObject({ results: [{ value }] });
+			}
+			const evidence = registration
+				.inlineEntries()
+				.reduce(
+					(sum, entry) => sum + new TextEncoder().encode(encodeUnknownJson(entry)).byteLength,
+					0,
+				);
+			expect(gate.transientMemory()).toEqual({
+				waiting: 0,
+				used: SANDBOX_TRANSIENT_MEMORY.evidenceCopies * evidence,
+			});
+
+			expect(frameValue(yield* batch(4))).toEqual({ defer: true });
+			expect(settled.count).toBe(4);
+			yield* Scope.close(scope, Exit.void);
+			expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
+		}).pipe(Effect.withSpan("host-call-gate.inline-evidence")),
 	);
 });

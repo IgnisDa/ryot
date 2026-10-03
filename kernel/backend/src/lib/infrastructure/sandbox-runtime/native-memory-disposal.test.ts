@@ -20,6 +20,7 @@ import { testExecutionId } from "#lib/test-utils/redis";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { hostCallArgs } from "./host-call-args.test-support";
+import { SANDBOX_TRANSIENT_MEMORY, SandboxHostCallGate } from "./host-call-gate";
 import { SANDBOX_LIMITS } from "./limits";
 import { NativeMemoryEvidence, nativeMemoryLayer } from "./native-memory-disposal.test-support";
 import { makeRunnerInput } from "./runner-native.test-support";
@@ -173,7 +174,12 @@ const assertDisposed = Effect.fnUntraced(function* (executionId: string) {
 		const closedRead = yield* Effect.exit(files.artifactReadRange({ offset: 0, length: 1 }));
 		assert(Exit.isFailure(closedRead));
 	}
-	expect(admission.snapshot()).toMatchObject({ runs: 0, waiting: 0, bytes: 256 * MiB });
+	expect(admission.snapshot()).toMatchObject({
+		runs: 0,
+		waiting: 0,
+		bytes: 256 * MiB + SANDBOX_TRANSIENT_MEMORY.poolBytes,
+	});
+	expect((yield* SandboxHostCallGate).transientMemory()).toEqual({ used: 0, waiting: 0 });
 	expect(supervisor.snapshot()).toMatchObject({ activeExecutions: 0 });
 	expect(
 		(yield* fs.readDirectory(evidence.root)).filter(

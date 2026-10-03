@@ -385,6 +385,7 @@ type QueuedMessage = {
 	readonly frame: SidecarInboundFrame;
 	readonly payload: Uint8Array;
 	readonly count: number;
+	readonly released: (() => void) | undefined;
 	next: number;
 	counted: boolean;
 	retired: boolean;
@@ -473,11 +474,17 @@ export const makeSidecarFrameWriter = ({
 				controlMessages -= 1;
 			}
 			message.counted = false;
+			message.released?.();
 		}
 	};
 
 	const reset = () => {
 		closed = true;
+		for (const message of [current?.message, ...controlQueue, ...runQueue]) {
+			if (message !== undefined) {
+				dropMessage(message);
+			}
+		}
 		runQueue.length = 0;
 		controlQueue.length = 0;
 		runMessages = 0;
@@ -569,7 +576,7 @@ export const makeSidecarFrameWriter = ({
 				}
 			}
 		},
-		enqueue(frame: SidecarInboundFrame) {
+		enqueue(frame: SidecarInboundFrame, released?: () => void) {
 			if (closed) {
 				throw protocolError("framing", "writer is closed");
 			}
@@ -615,6 +622,7 @@ export const makeSidecarFrameWriter = ({
 				count,
 				payload,
 				next: 0,
+				released,
 				category,
 				counted: true,
 				retired: false,

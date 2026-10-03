@@ -1097,6 +1097,7 @@ layer(makeServiceLayer())((test) => {
 					eventSchemas: [{ entitySchemaSlug: "item", eventSchemaSlug: "review" }],
 				},
 				document,
+				1_048_576,
 			);
 
 			const statements = yield* (yield* RecordedStatements).statements;
@@ -1131,6 +1132,7 @@ layer(makeServiceLayer())((test) => {
 						relationshipSchemaSlugs: [],
 					},
 					{ queries: { plugins: rows(plugin, { fields: [] }) } },
+					1_048_576,
 				),
 			);
 

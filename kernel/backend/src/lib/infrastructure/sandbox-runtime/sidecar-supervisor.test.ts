@@ -27,7 +27,11 @@ import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "../sandbox-recovery-store";
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
 import { hostCallArgs } from "./host-call-args.test-support";
-import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./host-call-gate";
+import {
+	SandboxHostCallGate,
+	type SandboxHostCallGateRegistration,
+	SANDBOX_TRANSIENT_MEMORY,
+} from "./host-call-gate";
 import { SANDBOX_LIMITS } from "./limits";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
@@ -241,8 +245,9 @@ const makeRecordingHarness = Effect.gen(function* () {
 				}
 				return frame;
 			}),
-			send: (frame) =>
+			send: (frame, released) =>
 				Effect.gen(function* () {
+					released?.();
 					record.sent.push(frame);
 					events.push({ frame, instance, generation, type: "send", handle: frame.handle });
 					if (frame.type === "run") {
@@ -318,6 +323,7 @@ const makeRecordingHarness = Effect.gen(function* () {
 	} satisfies HarnessService;
 });
 
+const idleBytes = 2 * 128 * MiB + SANDBOX_TRANSIENT_MEMORY.poolBytes;
 const configLayer = makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(2048) } });
 const harnessLayer = Layer.effect(SupervisorTestHarness, makeRecordingHarness);
 const clientLayer = Layer.effect(
@@ -553,7 +559,7 @@ const makePrepare =
 						});
 					}
 				}),
-				dispatch: (frame) =>
+				dispatch: (frame, deliver) =>
 					Effect.gen(function* () {
 						yield* Effect.sync(() =>
 							harness.hostDispatches.push({
@@ -563,13 +569,17 @@ const makePrepare =
 								generation: frame.generation,
 							}),
 						);
-						return yield* Schema.decodeEffect(SidecarHostResultFrame)({
+						const reply = yield* Schema.decodeEffect(SidecarHostResultFrame)({
 							seq: frame.seq,
 							type: "hostResult",
 							handle: frame.handle,
 							generation: frame.generation,
 							result: { status: "success", value: { data: null, success: true } },
 						}).pipe(Effect.orDie);
+						if (deliver !== undefined) {
+							yield* deliver(reply, () => undefined);
+						}
+						return reply;
 					}),
 			};
 			return {
@@ -641,7 +651,7 @@ const withSupervisor = <A, E, R>(
 			expect(harness.events.filter((event) => event.type === "exit-confirmed")).toHaveLength(
 				harness.connections.length,
 			);
-			expect(admission.snapshot()).toMatchObject({ runs: 0, processes: 0, bytes: 2 * 128 * MiB });
+			expect(admission.snapshot()).toMatchObject({ runs: 0, processes: 0, bytes: idleBytes });
 			return result;
 		}),
 	);
@@ -732,7 +742,7 @@ supervisorTest("lazy_tiers_start_once_and_stop_only_when_idle", () =>
 			yield* TestClock.adjust("1 second");
 			yield* Deferred.await(data.exitConfirmed);
 			expect(yield* clientConnection.exit).toEqual({ code: 0, signal: null });
-			expect(admission.snapshot()).toMatchObject({ runs: 0, processes: 2, bytes: 2 * 128 * MiB });
+			expect(admission.snapshot()).toMatchObject({ runs: 0, processes: 2, bytes: idleBytes });
 
 			const replacementFiber = yield* startRun(supervisor, harness, dataRuntimeImports).pipe(
 				Effect.forkScoped({ startImmediately: true }),
@@ -798,7 +808,7 @@ supervisorTest("drain_and_recycle_respect_generation_and_memory_reservations", (
 			yield* Deferred.await(old.closeRequested);
 			expect(old.finalized).toBe(false);
 			expect(admission.snapshot().processes).toBe(3);
-			expect(admission.snapshot().bytes).toBeGreaterThan(2 * 128 * MiB + 128 * MiB);
+			expect(admission.snapshot().bytes).toBeGreaterThan(idleBytes + 128 * MiB);
 			expect(yield* Deferred.isDone(secondPrepareStarted)).toBe(false);
 
 			yield* harness.confirmClose(old.generation);
@@ -935,12 +945,12 @@ supervisorTest(
 				expect(data.finalized).toBe(false);
 				expect(yield* Deferred.isDone(data.exitConfirmed)).toBe(false);
 				expect(admission.snapshot().processes).toBe(3);
-				expect(admission.snapshot().bytes).toBeGreaterThan(2 * 128 * MiB);
+				expect(admission.snapshot().bytes).toBeGreaterThan(idleBytes);
 
 				yield* harness.confirmClose(data.generation);
 				yield* Fiber.join(interruption);
 				expect(data.finalized).toBe(true);
-				expect(admission.snapshot()).toMatchObject({ runs: 0, processes: 2, bytes: 2 * 128 * MiB });
+				expect(admission.snapshot()).toMatchObject({ runs: 0, processes: 2, bytes: idleBytes });
 			}),
 		),
 );

@@ -119,9 +119,12 @@ export default defineWorkflow({
 						client.connect(settings).pipe(
 							Effect.map((connection) => ({
 								...connection,
-								send: Effect.fnUntraced(function* (frame: Parameters<typeof connection.send>[0]) {
+								send: Effect.fnUntraced(function* (
+									frame: Parameters<typeof connection.send>[0],
+									released?: () => void,
+								) {
 									if (frame.type !== "run") {
-										return yield* connection.send(frame);
+										return yield* connection.send(frame, released);
 									}
 									const invocation = yield* Schema.decodeUnknownEffect(SandboxInvocationSchema)(
 										frame.input,

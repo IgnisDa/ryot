@@ -124,11 +124,11 @@ export const recordingSidecarClient = <R>(makeRecorder: Effect.Effect<SidecarRec
 					recorder.connected?.(settings, connection);
 					return {
 						...connection,
-						send: (frame: SidecarInboundFrame) =>
-							connection.send(recorder.sent?.(frame, settings) ?? frame),
 						next: connection.next.pipe(
 							Effect.tap((frame) => Effect.sync(() => recorder.received?.(frame, settings))),
 						),
+						send: (frame: SidecarInboundFrame, released?: () => void) =>
+							connection.send(recorder.sent?.(frame, settings) ?? frame, released),
 						retire: (handle: string) =>
 							connection
 								.retire(handle)

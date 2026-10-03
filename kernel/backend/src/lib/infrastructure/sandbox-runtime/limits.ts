@@ -14,6 +14,7 @@ export const KiB = 1024;
 export const MiB = 1024 * KiB;
 
 export const SANDBOX_LIMITS = {
+	ryotqlResultBytes: MiB,
 	journalBytes: 100 * MiB,
 	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 1_000 },

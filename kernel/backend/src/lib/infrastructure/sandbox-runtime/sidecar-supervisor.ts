@@ -28,7 +28,7 @@ import {
 } from "../runtime-metrics";
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "../sandbox-recovery-store";
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
-import type { SandboxHostCallGateRegistration } from "./host-call-gate";
+import type { SandboxHostCallGateRegistration, SandboxHostResultDelivery } from "./host-call-gate";
 import { SANDBOX_LIMITS } from "./limits";
 import { SandboxSidecarAdmission, type SandboxAdmissionLease } from "./sidecar-admission";
 import { SandboxSidecarClient } from "./sidecar-client";
@@ -422,7 +422,33 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							run.pending--;
 						}
 					});
-					yield* admission.withDatabaseLimit(run.gate.dispatch(frame)).pipe(
+					const deliver: SandboxHostResultDelivery = (reply, released) =>
+						run.writes
+							.withPermits(1)(
+								Effect.gen(function* () {
+									const budget = yield* run.gate.scriptBudget;
+									const elapsed = budget.settledMs - run.extendedMs;
+									if (elapsed > 0) {
+										yield* run.gate.extend(elapsed);
+										run.extendedMs = budget.settledMs;
+									}
+									yield* settle;
+									if (generation.closing || (yield* Deferred.isDone(run.result))) {
+										released();
+										return;
+									}
+									yield* generation.connection.send(reply, released);
+								}),
+							)
+							.pipe(
+								Effect.onError(() => Effect.sync(released)),
+								Effect.catchCause(() =>
+									generation.closing
+										? Effect.void
+										: scheduleClose(entry, generation, failureFor(entry, generation, "transport")),
+								),
+							);
+					yield* admission.withDatabaseLimit(run.gate.dispatch(frame, deliver)).pipe(
 						Effect.onExit((exit) => {
 							const result = Exit.isSuccess(exit) ? exit.value.result : undefined;
 							const failed =
@@ -442,22 +468,6 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							}
 							return recordSandboxSidecarHostCall({ ...entry.key, outcome, function: frame.name });
 						}),
-						Effect.flatMap((reply) =>
-							run.writes.withPermits(1)(
-								Effect.gen(function* () {
-									const budget = yield* run.gate.scriptBudget;
-									const elapsed = budget.settledMs - run.extendedMs;
-									if (elapsed > 0) {
-										yield* run.gate.extend(elapsed);
-										run.extendedMs = budget.settledMs;
-									}
-									yield* settle;
-									if (!generation.closing && !(yield* Deferred.isDone(run.result))) {
-										yield* generation.connection.send(reply);
-									}
-								}),
-							),
-						),
 						Effect.catchCauseIf(
 							(cause) => !Cause.hasInterrupts(cause),
 							() =>

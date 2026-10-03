@@ -7,6 +7,7 @@ import { Reactivity } from "effect/reactivity";
 import { AppConfig, databaseConnectionBudget } from "../config/service";
 import { DatabaseConnectionLimit } from "../db/session";
 import { recordSandboxAdmissionWait } from "../runtime-metrics";
+import { SANDBOX_TRANSIENT_MEMORY } from "./host-call-gate";
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import { SIDECAR_PROTOCOL_LIMITS, SidecarLane } from "./sidecar-protocol";
 
@@ -18,16 +19,16 @@ const isolateBytes =
 	SANDBOX_LIMITS.sidecar.heapHeadroomBytes;
 const resident = (instance: string) => instance === "system/core" || instance === "user/core";
 const journalCopies = 3;
+const outstandingHostCalls = SANDBOX_LIMITS.bridge.concurrentHostCalls + 1;
+const staticBytes = 2 * processBytes + SANDBOX_TRANSIENT_MEMORY.poolBytes;
+// Isolate, fixed stack and staging, run start, then per outstanding host call its inbound frame,
+// Rust encoding and Rust result delivery, then the done text Rust holds before disposal.
 const runBytes =
 	isolateBytes +
-	(8 + 4 + 1 + 2) * MiB +
-	3 * SIDECAR_PROTOCOL_LIMITS.messageBytes.run +
-	4 * SANDBOX_LIMITS.execution.requestBytes +
-	3 * SANDBOX_LIMITS.compiler.javascriptBytes +
-	12 * SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult +
-	3 * 14 * MiB +
-	8 * SANDBOX_LIMITS.bridge.responseBytes +
-	2 * SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
+	15 * MiB +
+	28 * MiB +
+	outstandingHostCalls * (4 * MiB + 5 * MiB + SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult) +
+	SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
 
 const reservationSchema = Schema.Struct({ instance: Schema.String, journalBytes: Schema.Int });
 const laneSchema = Schema.Struct({
@@ -76,9 +77,11 @@ export const sandboxMemoryBudgetBytes = (
 	if (budget > halfMemory) {
 		return Result.fail(limitError("Sandbox memory budget exceeds half the effective host memory"));
 	}
-	if (2 * processBytes + runBytes > budget) {
+	if (staticBytes + runBytes + processBytes > budget) {
 		return Result.fail(
-			limitError("Sandbox memory budget cannot fit resident core processes and a run"),
+			limitError(
+				"Sandbox memory budget cannot fit resident core processes, transient memory and a lazy run",
+			),
 		);
 	}
 	return Result.succeed(budget);
@@ -108,7 +111,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 			const instances = new Map<string, { bytes: number; generation: number }>();
 			const leases = new WeakMap<SandboxAdmissionLease["Service"], LeaseState>();
 			const lanes = new Map<string, number>();
-			const state = { runs: 0, waiting: 0, reservations: 0, bytes: 2 * processBytes };
+			const state = { runs: 0, waiting: 0, reservations: 0, bytes: staticBytes };
 			const notify = () => {
 				const waiting = [...changed, ...admissionChanged];
 				changed.clear();
@@ -122,7 +125,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				commit: () => void,
 				valid: () => boolean = () => true,
 			) {
-				if (amount > budget - 2 * processBytes) {
+				if (amount > budget - staticBytes) {
 					return yield* limitError("Sandbox execution cannot fit the required idle topology");
 				}
 				while (state.bytes + amount > budget) {
@@ -226,7 +229,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				const initialBytes = journalCopies * input.journalBytes;
 				if (
 					initialBytes + runBytes + (resident(input.instance) ? 0 : processBytes) >
-					budget - 2 * processBytes
+					budget - staticBytes
 				) {
 					return yield* limitError("Sandbox execution cannot fit the required idle topology");
 				}

@@ -5,7 +5,11 @@ import {
 	type PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
-import type { RyotQLResponse, RowItem } from "@ryot-app/contract/modules/ryotql/language";
+import type {
+	RowItem,
+	RyotQLDocument,
+	RyotQLResponse,
+} from "@ryot-app/contract/modules/ryotql/language";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import { NotificationSubscriptionId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { ascending, column, descending, field, rows, star, table } from "@ryot-app/ryotql";
@@ -997,6 +1001,40 @@ layer(catalogDatabaseLayer)((test) => {
 			expect(yield* readRows(other, "savedView", ["id"])).toEqual([
 				{ id: "builtin:other:system-home" },
 			]);
+		}),
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("withholds results above the byte budget across named queries", () =>
+		Effect.gen(function* () {
+			const service = yield* RyotQLService;
+			const views = table("savedView", "views");
+			const viewRows = rows(views, {
+				orderBy: [descending(column(views, "id"))],
+				fields: [field("id", column(views, "id"))],
+			});
+			const execute = (queries: RyotQLDocument["queries"], resultBytes: number) =>
+				service.executeForUser("owner", null, "kernel", { queries }, "standard", resultBytes);
+
+			let fitting = 1;
+			while (Result.isFailure(yield* Effect.result(execute({ rows: viewRows }, fitting)))) {
+				fitting *= 2;
+			}
+			expect(rowsOf(yield* execute({ rows: viewRows }, fitting)).items).toEqual([
+				{ id: "view-plugin-component" },
+				{ id: "view-kernel" },
+				{ id: "view-component" },
+				{ id: "builtin:owner:system-home" },
+				{ id: "builtin:owner:private-home" },
+				{ id: "builtin:owner:disabled-home" },
+			]);
+			expect(yield* Effect.flip(execute({ rows: viewRows }, fitting / 2))).toMatchObject({
+				reason: { limitBytes: fitting / 2, code: "result-too-large" },
+			});
+			expect(
+				yield* Effect.flip(execute({ rows: viewRows, again: viewRows }, fitting)),
+			).toMatchObject({ reason: { limitBytes: fitting, code: "result-too-large" } });
 		}),
 	);
 });
