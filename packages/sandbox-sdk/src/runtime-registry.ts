@@ -9,57 +9,83 @@ export const PLUGIN_KIT_EFFECT_IMPORT = "@ryot-app/plugin-kit/effect";
 export const PLUGIN_KIT_RYOTQL_IMPORT = "@ryot-app/plugin-kit/ryotql";
 export const PLUGIN_KIT_SCHEMA_IMPORT = "@ryot-app/plugin-kit/schema";
 
+const sharedRuntimeExternals = ["effect", "dependency-runtime", "filesystem"] as const;
+
 export const SANDBOX_RUNTIME_REGISTRY = [
 	{
+		runner: true,
 		name: "effect",
+		subpathAliases: true,
+		runtimeExternals: [],
 		packageName: "effect",
 		sdkImport: "@ryot-app/sandbox-sdk/effect",
 		aliases: ["effect", PLUGIN_KIT_EFFECT_IMPORT],
 	},
 	{
 		aliases: [],
+		runner: true,
+		runtimeExternals: [],
 		name: "dependency-runtime",
 		packageName: "@ryot-app/sandbox-sdk",
 		sdkImport: "@ryot-app/sandbox-sdk/dependency-runtime",
 	},
 	{
 		aliases: [],
+		runner: true,
 		name: "filesystem",
+		runtimeExternals: ["effect"],
 		packageName: "@ryot-app/sandbox-sdk",
 		sdkImport: SANDBOX_SDK_FILESYSTEM_IMPORT,
 	},
 	{
 		aliases: [],
+		runner: false,
 		name: "cheerio",
 		packageName: "cheerio",
+		runtimeExternals: sharedRuntimeExternals,
 		sdkImport: "@ryot-app/sandbox-sdk/cheerio",
 	},
 	{
 		aliases: [],
+		runner: false,
 		name: "youtubei",
 		packageName: "youtubei.js",
+		runtimeExternals: sharedRuntimeExternals,
 		sdkImport: "@ryot-app/sandbox-sdk/youtubei",
 		sourceAliases: [
 			{ specifier: "youtubei.js/web", entryRelativePath: "dist/src/platform/web.js" },
 		],
 	},
-	{ aliases: [], name: "fflate", packageName: "fflate", sdkImport: "@ryot-app/sandbox-sdk/fflate" },
 	{
 		aliases: [],
+		runner: false,
+		name: "fflate",
+		packageName: "fflate",
+		runtimeExternals: sharedRuntimeExternals,
+		sdkImport: "@ryot-app/sandbox-sdk/fflate",
+	},
+	{
+		aliases: [],
+		runner: false,
 		name: "papaparse",
 		packageName: "papaparse",
+		runtimeExternals: sharedRuntimeExternals,
 		sdkImport: "@ryot-app/sandbox-sdk/papaparse",
 	},
 	{
 		aliases: [],
+		runner: false,
 		name: "fast-xml-parser",
 		packageName: "fast-xml-parser",
+		runtimeExternals: sharedRuntimeExternals,
 		sdkImport: "@ryot-app/sandbox-sdk/fast-xml-parser",
 	},
 	{
+		runner: true,
 		name: "ryotql",
 		packageName: "@ryot-app/ryotql",
 		aliases: [PLUGIN_KIT_RYOTQL_IMPORT],
+		runtimeExternals: sharedRuntimeExternals,
 		sdkImport: "@ryot-app/sandbox-sdk/ryotql",
 	},
 ] as const;

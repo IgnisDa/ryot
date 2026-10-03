@@ -2,7 +2,10 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
-import { sandboxRuntimeInputs } from "@ryot-app/sandbox-compiler/runtime-build/inputs";
+import {
+	SANDBOX_ISOLATE_SOURCE_FILES,
+	sandboxRuntimeInputs,
+} from "@ryot-app/sandbox-compiler/runtime-build/inputs";
 import { buildSandboxRuntimePayload } from "@ryot-app/sandbox-compiler/runtime-build/payload";
 import { walkSourceFiles } from "@ryot-app/sandbox-compiler/runtime-build/source-tree";
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
@@ -66,33 +69,17 @@ const compileTrustedRunner = (kernelDirectory: string, sandboxRuntimeDirectory: 
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
-		const sourceNames = new Set([
-			"isolate-invocation.ts",
-			"isolate-bootstrap.ts",
-			"isolate-utilities.ts",
-			"limits.ts",
-			"sidecar-protocol.ts",
-		]);
+		const sourceNames = new Set<string>(SANDBOX_ISOLATE_SOURCE_FILES);
 		const sources = yield* walkSourceFiles(
 			sandboxRuntimeDirectory,
 			sandboxRuntimeDirectory,
 			(file) => sourceNames.has(path.basename(file)),
 		);
-		const externalSpecifiers = new Set<string>();
-		for (const dependency of SANDBOX_RUNTIME_REGISTRY) {
-			if (
-				dependency.name !== "effect" &&
-				dependency.name !== "ryotql" &&
-				dependency.name !== "dependency-runtime" &&
-				dependency.name !== "filesystem"
-			) {
-				continue;
-			}
-			externalSpecifiers.add(dependency.sdkImport);
-			for (const alias of dependency.aliases) {
-				externalSpecifiers.add(alias);
-			}
-		}
+		const externalSpecifiers = new Set(
+			SANDBOX_RUNTIME_REGISTRY.filter(({ runner }) => runner).flatMap(({ aliases, sdkImport }) =>
+				Array.of<string>(sdkImport).concat(aliases),
+			),
+		);
 		const { javascript } = yield* buildSandboxEsm({
 			outputFile: "runner.mjs",
 			entry: "isolate-invocation.ts",

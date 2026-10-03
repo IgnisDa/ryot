@@ -31,9 +31,6 @@ it.layer(BunServices.layer)("resolveSandboxRuntimeRegistry", (test) => {
 					sdkImport: entry.sdkImport,
 					packageName: entry.packageName,
 				});
-				if (entry.packageName === "@ryot-app/sandbox-sdk") {
-					expect(dependency?.packageEntrypoint).toBe(dependency?.entrypoint);
-				}
 			}
 		}),
 	);

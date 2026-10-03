@@ -15,8 +15,8 @@ export type ResolvedSandboxRuntimeDependency = {
 	readonly version: string;
 	readonly entrypoint: string;
 	readonly runtimeFile: string;
-	readonly packageEntrypoint: string;
 	readonly aliases: readonly string[];
+	readonly runtimeExternals: RegistryEntry["runtimeExternals"];
 	readonly name: RegistryEntry["name"];
 	readonly sdkImport: RegistryEntry["sdkImport"];
 	readonly packageName: RegistryEntry["packageName"];
@@ -64,36 +64,41 @@ export const resolveSandboxRuntimeRegistry = (resolveFrom: string) =>
 							message: `Could not resolve trusted entry ${entry.sdkImport}: ${String(cause)}`,
 						}),
 				});
-				const packageEntrypoint =
-					entry.packageName === "@ryot-app/sandbox-sdk"
-						? entrypoint
-						: yield* Effect.try({
-								try: () => Bun.resolveSync(entry.packageName, sdkDirectory),
-								catch: (cause) =>
-									new SandboxRuntimeBuildError({
-										message: `Could not resolve trusted package ${entry.packageName}: ${String(cause)}`,
-									}),
-							});
 				const packageDirectory = dependencyPackage.manifestPath.slice(
 					0,
 					dependencyPackage.manifestPath.lastIndexOf("/"),
 				);
-				const buildAliases =
-					"sourceAliases" in entry
-						? entry.sourceAliases.map(({ specifier, entryRelativePath }) => ({
-								find: specifier,
-								replacement: `${packageDirectory}/${entryRelativePath}`,
-							}))
-						: [];
+				let buildAliases: ResolvedSandboxRuntimeDependency["buildAliases"] = [];
+				if ("subpathAliases" in entry) {
+					const packageEntrypoint = yield* Effect.try({
+						try: () => Bun.resolveSync(entry.packageName, sdkDirectory),
+						catch: (cause) =>
+							new SandboxRuntimeBuildError({
+								message: `Could not resolve trusted package ${entry.packageName}: ${String(cause)}`,
+							}),
+					});
+					buildAliases = [
+						{ replacement: packageEntrypoint, find: new RegExp(`^${entry.packageName}$`) },
+						{
+							find: new RegExp(`^${entry.packageName}/(.+)$`),
+							replacement: `${packageEntrypoint.slice(0, packageEntrypoint.lastIndexOf("/"))}/$1.js`,
+						},
+					];
+				} else if ("sourceAliases" in entry) {
+					buildAliases = entry.sourceAliases.map(({ specifier, entryRelativePath }) => ({
+						find: specifier,
+						replacement: `${packageDirectory}/${entryRelativePath}`,
+					}));
+				}
 				return {
 					version,
 					entrypoint,
 					buildAliases,
 					name: entry.name,
-					packageEntrypoint,
 					aliases: entry.aliases,
 					sdkImport: entry.sdkImport,
 					packageName: entry.packageName,
+					runtimeExternals: entry.runtimeExternals,
 					runtimeFile: `${entry.name}-${version}.mjs`,
 				} satisfies ResolvedSandboxRuntimeDependency;
 			}),
