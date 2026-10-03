@@ -6,6 +6,7 @@ import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { describe, expect, it } from "vitest";
 
 import {
+	chargeSandboxHostCall,
 	consumeSandboxHostCall,
 	sandboxCacheKeyError,
 	sandboxCacheTtlError,
@@ -73,6 +74,23 @@ describe("sandbox limits", () => {
 		expect(consumeSandboxHostCall(httpBudget, "httpCall")).toMatchObject({
 			message: expect.stringContaining("50 httpCall calls"),
 			reason: { operation: "httpCall", code: "execution-limit" },
+		});
+	});
+
+	it("charges the isolate's budget by arithmetic alone and leaves the capability lookup to the host", () => {
+		const budget = { http: 0, total: SANDBOX_LIMITS.hostCalls.total };
+
+		expect(chargeSandboxHostCall(budget, "not-a-capability")).toBe(
+			"Sandbox execution exceeds 1000 host calls",
+		);
+		expect(
+			consumeSandboxHostCall(
+				{ http: 0, total: SANDBOX_LIMITS.hostCalls.total },
+				"not-a-capability",
+			),
+		).toEqual({
+			reason: { code: "execution-limit" },
+			message: "Sandbox execution exceeds 1000 host calls",
 		});
 	});
 

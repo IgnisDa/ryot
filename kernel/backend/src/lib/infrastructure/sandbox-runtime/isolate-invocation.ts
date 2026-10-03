@@ -25,12 +25,22 @@ import {
 	installWorkflowDeterminismGuard,
 } from "./isolate-bootstrap";
 import {
+	isArray,
+	isNumber,
+	isObject,
+	regExpExec,
+	sealPrimordials,
+	stringIncludes,
+	uint8ArraySubarray,
+	uncurry,
+} from "./isolate-primordials";
+import {
 	createLogCollector,
 	executionError,
 	isRecord,
 	type SandboxLogCollector,
 } from "./isolate-utilities";
-import { MiB, SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "./limits";
+import { chargeSandboxHostCall, MiB, SANDBOX_LIMITS, type SandboxHostCallBudget } from "./limits";
 import {
 	artifactReadRangeArgsSchema,
 	artifactReadRangeResultSchema,
@@ -75,39 +85,20 @@ const jsonStringify = JSON.stringify.bind(JSON);
 const base64Encode = globalThis.btoa.bind(globalThis);
 const performanceNow = globalThis.performance.now.bind(globalThis.performance);
 const arrayIsArray = nativeArray.isArray;
-const arraySortMethod = Object.getOwnPropertyDescriptor(nativeArray.prototype, "sort")?.value;
-const uint8ArrayPrototype = Object.getPrototypeOf(nativeUint8Array.prototype);
-const uint8ArraySubarrayMethod = Object.getOwnPropertyDescriptor(
-	uint8ArrayPrototype,
-	"subarray",
-)?.value;
-const arrayBufferTransferMethod = Object.getOwnPropertyDescriptor(
-	ArrayBuffer.prototype,
-	"transfer",
-)?.value;
-const transferBuffer = arrayBufferTransferMethod.call.bind(arrayBufferTransferMethod);
-const releaseBytes = (bytes: Uint8Array) => {
+const sortArray = uncurry(nativeArray.prototype, "sort", isArray);
+const transferBuffer = uncurry(ArrayBuffer.prototype, "transfer", isObject);
+const releaseBytes = (bytes: Uint8Array<ArrayBuffer>) => {
 	if (bytes.byteLength > 0) {
 		transferBuffer(bytes.buffer, 0);
 	}
 };
-const stringCharCodeAtMethod = Object.getOwnPropertyDescriptor(
-	String.prototype,
-	"charCodeAt",
-)?.value;
-const stringIncludesMethod = Object.getOwnPropertyDescriptor(String.prototype, "includes")?.value;
-const regexpExecMethod = Object.getOwnPropertyDescriptor(RegExp.prototype, "exec")?.value;
+const stringCharCodeAt = uncurry(String.prototype, "charCodeAt", isNumber);
 const decodeRangeInto = (data: string, target: Uint8Array, offset: number) =>
 	decodeBase64Into(data, target, offset)
 		? Effect.void
 		: Effect.fail(createFailure("Sandbox bridge returned invalid base64"));
-const boundArraySort = arraySortMethod.call.bind(arraySortMethod);
 const arrayFrom = nativeArray.from.bind(nativeArray);
-const boundUint8ArraySubarray = uint8ArraySubarrayMethod.call.bind(uint8ArraySubarrayMethod);
-const boundStringCharCodeAt = stringCharCodeAtMethod.call.bind(stringCharCodeAtMethod);
-const boundStringIncludes = stringIncludesMethod.call.bind(stringIncludesMethod);
 const stringFromCharCode = String.fromCharCode.bind(String);
-const boundRegExpExec = regexpExecMethod.call.bind(regexpExecMethod);
 const mathCeil = Math.ceil;
 const mathMin = Math.min;
 const numberIsFinite = nativeNumber.isFinite.bind(nativeNumber);
@@ -127,7 +118,6 @@ type RunnerPhaseFailure = {
 	readonly error: unknown;
 	readonly kind?: SandboxExecutionError["kind"];
 };
-type HostBudget = { http: number; total: number };
 type DurableWorkflowReference = Pick<
 	SandboxWorkflowReference<Schema.ConstraintDecoder<unknown>, Schema.ConstraintDecoder<unknown>>,
 	"input" | "output" | "workflowSlug"
@@ -215,28 +205,6 @@ const joinArray = (values: readonly string[], separator: string) => {
 	}
 	return result;
 };
-const sortArray = (values: string[]) => {
-	boundArraySort(values);
-};
-const stringContains = (value: string, part: string) => {
-	const result: unknown = boundStringIncludes(value, part);
-	return typeof result === "boolean" && result;
-};
-const stringCharCodeAt = (value: string, index: number) => {
-	const result: unknown = boundStringCharCodeAt(value, index);
-	if (typeof result !== "number") {
-		throw new nativeError("Sandbox bridge returned invalid base64");
-	}
-	return result;
-};
-const subarrayBytes = (bytes: Uint8Array, start: number, end: number) => {
-	const result: unknown = boundUint8ArraySubarray(bytes, start, end);
-	if (!(result instanceof nativeUint8Array)) {
-		throw new nativeError("Sandbox runner could not read bytes");
-	}
-	return result;
-};
-const safeStringify = (value: unknown) => jsonStringify(value);
 const bytesOf = (value: string) => encodeText(value).byteLength;
 const createFailure = (message: string, data?: JsonValue): SandboxHostError =>
 	data === undefined ? { message } : { data, message };
@@ -288,7 +256,7 @@ const encodeBase64 = (bytes: Uint8Array) => {
 const jsonClone = (value: unknown, label: string): JsonValue => {
 	let serialized: string | undefined;
 	try {
-		serialized = safeStringify(value);
+		serialized = jsonStringify(value);
 	} catch {
 		throw new nativeError(label + " must be JSON-serializable");
 	}
@@ -310,10 +278,10 @@ const stableJson = (value: unknown): string => {
 	if (isRecord(value)) {
 		const keys = objectKeys(value);
 		sortArray(keys);
-		const fields = arrayFrom(keys, (key) => safeStringify(key) + ":" + stableJson(value[key]));
+		const fields = arrayFrom(keys, (key) => jsonStringify(key) + ":" + stableJson(value[key]));
 		return "{" + joinArray(fields, ",") + "}";
 	}
-	return nativeString(safeStringify(value));
+	return nativeString(jsonStringify(value));
 };
 
 const transportArguments = (fnName: string, args: ReadonlyArray<unknown>) => {
@@ -357,24 +325,11 @@ const asSandboxHostError = (error: unknown): SandboxHostError => {
 	}
 };
 
-const chargeHostCall = (budget: HostBudget, name: string): SandboxHostError | undefined => {
-	budget.total += 1;
-	if (name === "httpCall") {
-		budget.http += 1;
-	}
-	if (budget.total > SANDBOX_RUNNER_LIMITS.hostCallCount) {
-		return createFailure(SANDBOX_RUNNER_LIMITS.hostCallLimitMessage, {
-			operation: name,
-			code: "execution-limit",
-		});
-	}
-	if (budget.http > SANDBOX_RUNNER_LIMITS.httpCallCount) {
-		return createFailure(SANDBOX_RUNNER_LIMITS.httpCallLimitMessage, {
-			operation: name,
-			code: "execution-limit",
-		});
-	}
-	return undefined;
+const chargeHostCall = (budget: SandboxHostCallBudget, name: string) => {
+	const message = chargeSandboxHostCall(budget, name);
+	return message === null
+		? undefined
+		: createFailure(message, { operation: name, code: "execution-limit" });
 };
 
 const missingGrant = (message: string, operation: string): SandboxHostError =>
@@ -418,7 +373,7 @@ const isSandboxDefinition = (value: unknown): value is SandboxDefinition =>
 	Schema.isSchema(value["output"]);
 
 const importCompiledModule = (specifier: string) => {
-	if (boundRegExpExec(/^ryot-module:\/[a-f0-9]{64}\.js$/, specifier) === null) {
+	if (regExpExec(/^ryot-module:\/[a-f0-9]{64}\.js$/, specifier) === null) {
 		return Effect.fail({
 			phase: "load",
 			error: "Compiled sandbox module specifier is invalid",
@@ -684,9 +639,9 @@ const createFilesystemBinding = (
 							chunk.name.length === 0 ||
 							chunk.name === "." ||
 							chunk.name === ".." ||
-							stringContains(chunk.name, "/") ||
-							stringContains(chunk.name, "\\") ||
-							stringContains(chunk.name, "\0") ||
+							stringIncludes(chunk.name, "/") ||
+							stringIncludes(chunk.name, "\\") ||
+							stringIncludes(chunk.name, "\0") ||
 							!(chunk.contents instanceof nativeUint8Array) ||
 							includesArray(names, chunk.name)
 						) {
@@ -714,7 +669,7 @@ const createFilesystemBinding = (
 						}
 						for (let offset = 0; offset < chunk.contents.byteLength; offset += scratchChunkBytes) {
 							const end = mathMin(chunk.contents.byteLength, offset + scratchChunkBytes);
-							const data = encodeBase64(subarrayBytes(chunk.contents, offset, end));
+							const data = encodeBase64(uint8ArraySubarray(chunk.contents, offset, end));
 							yield* writeScratch(
 								yield* decodeScratchWriteArgs({
 									data,
@@ -732,9 +687,34 @@ const createFilesystemBinding = (
 };
 
 const responseBytes = (value: unknown) => {
-	const serialized = safeStringify(value);
+	const serialized = jsonStringify(value);
 	return typeof serialized === "string" ? bytesOf(serialized) : Number.POSITIVE_INFINITY;
 };
+
+const sendInlineBatch = <E>(
+	bridge: SandboxInvocationBridge,
+	requests: unknown,
+	label: string,
+	bridgeError: (error: unknown) => E,
+) =>
+	Effect.gen(function* () {
+		const batch = yield* Schema.decodeUnknownEffect(InlineBatchSchema, strictOptions)({ requests });
+		if (responseBytes({ inline: batch }) + 1 > SANDBOX_LIMITS.bridge.requestBytes) {
+			return null;
+		}
+		const rawReply = yield* Effect.try({
+			catch: bridgeError,
+			try: () => bridge.inlineBatch(jsonClone(batch, label)),
+		});
+		const reply = yield* Schema.decodeUnknownEffect(
+			InlineBatchReplySchema,
+			strictOptions,
+		)(rawReply);
+		if ("defer" in reply) {
+			return null;
+		}
+		return reply.results;
+	});
 
 const createHost = (
 	invocation: SandboxInvocation,
@@ -742,7 +722,7 @@ const createHost = (
 	journal: WorkflowReplayJournal | undefined,
 ) => {
 	const host: Record<string, unknown> = objectCreate(null);
-	const budget: HostBudget = { http: 0, total: 0 };
+	const budget: SandboxHostCallBudget = { http: 0, total: 0 };
 	const callHost = (name: string, args: ReadonlyArray<unknown>) => {
 		const budgetError = chargeHostCall(budget, name);
 		if (budgetError) {
@@ -758,12 +738,10 @@ const createHost = (
 		} catch (error) {
 			return Effect.fail(asSandboxHostError(error));
 		}
-		if (responseBytes({ args: jsonArgs }) > SANDBOX_RUNNER_LIMITS.bridgeRequestBytes) {
+		if (responseBytes({ args: jsonArgs }) > SANDBOX_LIMITS.bridge.requestBytes) {
 			return Effect.fail(
 				createFailure(
-					"Sandbox bridge request exceeds " +
-						SANDBOX_RUNNER_LIMITS.bridgeRequestBytes +
-						" UTF-8 bytes",
+					"Sandbox bridge request exceeds " + SANDBOX_LIMITS.bridge.requestBytes + " UTF-8 bytes",
 				),
 			);
 		}
@@ -772,11 +750,11 @@ const createHost = (
 			try: () => bridge.call(name, jsonArgs),
 		}).pipe(
 			Effect.flatMap((response) => {
-				if (responseBytes(response) > SANDBOX_RUNNER_LIMITS.bridgeResponseBytes) {
+				if (responseBytes(response) > SANDBOX_LIMITS.bridge.responseBytes) {
 					return Effect.fail(
 						createFailure(
 							"Sandbox bridge response exceeds " +
-								SANDBOX_RUNNER_LIMITS.bridgeResponseBytes +
+								SANDBOX_LIMITS.bridge.responseBytes +
 								" UTF-8 bytes",
 						),
 					);
@@ -794,20 +772,9 @@ const createHost = (
 	if (journal) {
 		host["replayJournal"] = () => Effect.succeed(journal);
 		host["settleInline"] = (requests: unknown) =>
-			Effect.gen(function* () {
-				const batch = yield* Schema.decodeUnknownEffect(
-					InlineBatchSchema,
-					strictOptions,
-				)({ requests });
-				if (responseBytes({ inline: batch }) + 1 > SANDBOX_RUNNER_LIMITS.bridgeRequestBytes) {
-					return null;
-				}
-				const reply = yield* Effect.try({
-					catch: asSandboxHostError,
-					try: () => bridge.inlineBatch(jsonClone(batch, "Sandbox inline sleep batch")),
-				}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(InlineBatchReplySchema, strictOptions)));
-				return "defer" in reply ? null : reply.results;
-			}).pipe(Effect.mapError(asSandboxHostError));
+			sendInlineBatch(bridge, requests, "Sandbox inline sleep batch", asSandboxHostError).pipe(
+				Effect.mapError(asSandboxHostError),
+			);
 	}
 	for (let index = 0; index < invocation.apiFunctions.length; index += 1) {
 		const name = invocation.apiFunctions[index];
@@ -836,7 +803,7 @@ const createDurableHost = (
 	const calls: DurableCall[] = [];
 	const inlineValues: Array<JsonValue | undefined> = [];
 	const inlineCapabilities = invocation.inlineDurableCapabilities ?? [];
-	const budget: HostBudget = { http: 0, total: 0 };
+	const budget: SandboxHostCallBudget = { http: 0, total: 0 };
 	let pendingObserved = false;
 	let settledJournalLength = journal.length;
 
@@ -857,41 +824,24 @@ const createDurableHost = (
 				}
 				pushArray(inlineRequests, request);
 			}
-			const decoded = Schema.decodeUnknownResult(
-				InlineBatchSchema,
-				strictOptions,
-			)({ requests: inlineRequests });
-			if (decoded._tag === "Failure") {
-				return Effect.die(decoded.failure);
-			}
-			if (
-				responseBytes({ inline: decoded.success }) + 1 >
-				SANDBOX_RUNNER_LIMITS.bridgeRequestBytes
-			) {
-				return Effect.succeed(false);
-			}
-			let rawReply: JsonValue;
-			try {
-				rawReply = bridge.inlineBatch(jsonClone(decoded.success, "Sandbox inline durable batch"));
-			} catch (error) {
-				return Effect.die(error);
-			}
-			return Schema.decodeUnknownEffect(
-				InlineBatchReplySchema,
-				strictOptions,
-			)(rawReply).pipe(
+			return sendInlineBatch(
+				bridge,
+				inlineRequests,
+				"Sandbox inline durable batch",
+				(error: unknown) => error,
+			).pipe(
 				Effect.orDie,
-				Effect.flatMap((reply) => {
-					if ("defer" in reply) {
+				Effect.flatMap((results) => {
+					if (results === null) {
 						return Effect.succeed(false);
 					}
-					if (reply.results.length !== inlineRequests.length) {
+					if (results.length !== inlineRequests.length) {
 						return Effect.die(
 							new nativeError("Sandbox inline durable results do not match the batch"),
 						);
 					}
 					for (let offset = 0; offset < inlineRequests.length; offset += 1) {
-						const result = reply.results[offset];
+						const result = results[offset];
 						if (result !== undefined) {
 							inlineValues[settledJournalLength + offset] = result;
 						}
@@ -1332,7 +1282,7 @@ const runInvocation = Effect.fnUntraced(function* (
 		Effect.mapError((error) => ({ error, phase: "input" }) satisfies RunnerPhaseFailure),
 	);
 	state.invocation = invocation;
-	state.logs = createLogCollector(SANDBOX_RUNNER_LIMITS);
+	state.logs = createLogCollector();
 	installConsole(state.logs.console);
 	filesystemBinding = createFilesystemBinding(invocation, bridge);
 	disableCodeGeneration();
@@ -1367,11 +1317,13 @@ const runInvocation = Effect.fnUntraced(function* (
 			error: "Sandbox definition result is not JSON-serializable",
 		} satisfies RunnerPhaseFailure);
 	}
-	if (bytesOf(serializedValue) > SANDBOX_RUNNER_LIMITS.resultBytes) {
+	if (bytesOf(serializedValue) > SANDBOX_LIMITS.execution.resultBytes) {
 		return yield* Effect.fail({
 			phase: "output",
 			error:
-				"Sandbox definition result exceeds " + SANDBOX_RUNNER_LIMITS.resultBytes + " UTF-8 bytes",
+				"Sandbox definition result exceeds " +
+				SANDBOX_LIMITS.execution.resultBytes +
+				" UTF-8 bytes",
 		} satisfies RunnerPhaseFailure);
 	}
 	return serializeResponse({
@@ -1422,3 +1374,5 @@ objectDefineProperty(globalThis, "__ryotDefinitionRunner", {
 	configurable: true,
 	value: executeSandboxInvocation,
 });
+
+sealPrimordials();
