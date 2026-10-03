@@ -141,7 +141,7 @@ pub fn attach(mut command: Command) -> Sidecar {
         assemblies: HashMap::new(),
     };
     match sidecar.try_recv() {
-        Some(Outbound::Ready { generation }) => assert_eq!(generation, GENERATION),
+        Some(Outbound::Ready { generation, .. }) => assert_eq!(generation, GENERATION),
         Some(other) => panic!("expected ready, got {other:?}"),
         None => panic!(
             "sidecar exited before ready: {:?} {}",
@@ -239,7 +239,7 @@ impl Sidecar {
             generation: GENERATION,
             handle: handle.to_owned(),
             seq,
-            outcome: HostOutcome::Success(raw(value)),
+            outcome: HostOutcome::Success(raw(value).into()),
         });
     }
 

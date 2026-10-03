@@ -2,6 +2,7 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Data, Effect, FileSystem, Path } from "effect";
+import { Base64 } from "effect/encoding";
 
 import {
 	SIDECAR_PROTOCOL_LIMITS,
@@ -21,6 +22,8 @@ const MiB = 1024 * 1024;
 const sha256 = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 const limits = { cpuMs: 2_000, deadlineMs: 30_000, heapBytes: 64 * MiB, externalBytes: 16 * MiB };
 const envelope = { seq: 0, generation: 7, handle: "exec-1" };
+const encodedArgs = (value: unknown) =>
+	Base64.encode(new TextEncoder().encode(JSON.stringify(value)));
 const usage = { externalBytes: 0, heapBytes: 12 * MiB };
 const run = {
 	...envelope,
@@ -88,31 +91,31 @@ const fixtures: ReadonlyArray<Fixture> = [
 		data: "eyJzZXEiOjA=",
 		byteLength: SIDECAR_PROTOCOL_LIMITS.partBytes + 1,
 	}),
-	outbound("ready", { generation: 7, type: "ready" }),
+	outbound("ready", { generation: 7, type: "ready", heapHeadroomBytes: 64 * MiB }),
 	outbound("host-call", {
 		...envelope,
 		seq: 1,
 		type: "hostCall",
 		name: "httpCall",
-		args: ["GET", "https://example.com", {}],
+		args: encodedArgs(["GET", "https://example.com", {}]),
 	}),
 	outbound("host-call-name-ascii-128", {
 		...envelope,
-		args: null,
 		type: "hostCall",
 		name: "a".repeat(128),
+		args: encodedArgs(null),
 	}),
 	outbound("host-call-name-bmp-128", {
 		...envelope,
-		args: null,
 		type: "hostCall",
 		name: "é".repeat(128),
+		args: encodedArgs(null),
 	}),
 	outbound("host-call-name-astral-64", {
 		...envelope,
-		args: null,
 		type: "hostCall",
 		name: "😀".repeat(64),
+		args: encodedArgs(null),
 	}),
 	outbound("done-completed", {
 		...envelope,
@@ -195,26 +198,26 @@ const fixtures: ReadonlyArray<Fixture> = [
 	invalidPayload("host-call-empty-name", "outbound", {
 		...envelope,
 		name: "",
-		args: null,
 		type: "hostCall",
+		args: encodedArgs(null),
 	}),
 	invalidPayload("host-call-name-ascii-129", "outbound", {
 		...envelope,
-		args: null,
 		type: "hostCall",
 		name: "a".repeat(129),
+		args: encodedArgs(null),
 	}),
 	invalidPayload("host-call-name-bmp-129", "outbound", {
 		...envelope,
-		args: null,
 		type: "hostCall",
 		name: "é".repeat(129),
+		args: encodedArgs(null),
 	}),
 	invalidPayload("host-call-name-astral-65", "outbound", {
 		...envelope,
-		args: null,
 		type: "hostCall",
 		name: "😀".repeat(65),
+		args: encodedArgs(null),
 	}),
 	invalidPayload("done-unknown-phase", "outbound", {
 		...envelope,

@@ -285,11 +285,12 @@ export const SidecarPartFrame = Schema.Struct({
 export const SidecarReadyFrame = Schema.Struct({
 	generation: Generation,
 	type: Schema.Literal("ready"),
+	heapHeadroomBytes: boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
 });
 
 export const SidecarHostCallFrame = Schema.Struct({
 	...envelope,
-	args: Schema.Json,
+	args: Base64,
 	type: Schema.Literal("hostCall"),
 	name: Schema.String.check(
 		Schema.isMinLength(1),

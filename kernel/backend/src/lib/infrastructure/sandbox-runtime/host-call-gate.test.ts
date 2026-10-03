@@ -11,6 +11,7 @@ import { Deferred, Duration, Effect, Exit, Fiber, Layer, Queue, Schema, Scope } 
 import { TestClock } from "effect/testing";
 
 import type { SandboxFileAccess } from "./file-service";
+import { hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate, type SandboxHostCallGateOptions } from "./host-call-gate";
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import type { BoundHostFunction, SandboxRunInput } from "./shared";
@@ -74,11 +75,11 @@ const makeFrame = (
 	args: unknown,
 	options: { readonly handle?: string; readonly generation?: number } = {},
 ): HostCallFrame =>
-	Schema.decodeUnknownSync(SidecarHostCallFrame)({
+	Schema.decodeSync(SidecarHostCallFrame)({
 		seq,
-		args,
 		name,
 		type: "hostCall",
+		args: hostCallArgs(args),
 		generation: options.generation ?? 1,
 		handle: options.handle ?? "gate-handle",
 	});

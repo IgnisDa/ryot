@@ -231,7 +231,7 @@ const verifyTier = (tier: SnapshotTier, outputs: ReadonlyArray<PluginScriptOutpu
 					maxActive: 1,
 					trust: "user",
 					maxRss: 450 * MiB,
-					memoryBudget: 324 * MiB,
+					memoryBudget: 388 * MiB,
 				})
 				.pipe(Effect.mapError((error) => pluginLoadFailure(tier, errorText(error))));
 			const ready = yield* connection.next.pipe(

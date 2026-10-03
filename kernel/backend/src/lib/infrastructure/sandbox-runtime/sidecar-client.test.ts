@@ -6,6 +6,8 @@ import { Effect, FileSystem, Layer, Metric } from "effect";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
 
+import { decodedHostCallArgs } from "./host-call-args.test-support";
+import { SANDBOX_LIMITS } from "./limits";
 import { SandboxSidecarClient } from "./sidecar-client";
 
 const live = Layer.unwrap(
@@ -37,9 +39,13 @@ layer(live, { excludeTestServices: true })((test) => {
 					trust: "user",
 					generation: 7,
 					maxRss: 256 * 1024 * 1024,
-					memoryBudget: 128 * 1024 * 1024,
+					memoryBudget: 192 * 1024 * 1024,
 				});
-				expect(yield* connection.next).toEqual({ type: "ready", generation: 7 });
+				expect(yield* connection.next).toEqual({
+					type: "ready",
+					generation: 7,
+					heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes,
+				});
 				yield* Effect.gen(function* () {
 					for (;;) {
 						const snapshots = yield* Metric.snapshot;
@@ -80,7 +86,7 @@ layer(live, { excludeTestServices: true })((test) => {
 				const call = yield* connection.next;
 				expect(call.type).toBe("hostCall");
 				assert(call.type === "hostCall");
-				expect(call.args).toBe(value);
+				expect(decodedHostCallArgs(call.args)).toBe(value);
 				yield* connection.send({
 					generation: 7,
 					seq: call.seq,
@@ -136,9 +142,13 @@ layer(live, { excludeTestServices: true })((test) => {
 					trust: "user",
 					generation: 9,
 					maxRss: 512 * 1024 * 1024,
-					memoryBudget: 256 * 1024 * 1024,
+					memoryBudget: 448 * 1024 * 1024,
 				});
-				expect(yield* connection.next).toEqual({ type: "ready", generation: 9 });
+				expect(yield* connection.next).toEqual({
+					type: "ready",
+					generation: 9,
+					heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes,
+				});
 				const start = Effect.fnUntraced(function* (
 					handle: string,
 					lane: "background" | "interactive",
@@ -230,9 +240,13 @@ layer(live, { excludeTestServices: true })((test) => {
 					trust: "user",
 					generation: 11,
 					maxRss: 512 * 1024 * 1024,
-					memoryBudget: 256 * 1024 * 1024,
+					memoryBudget: 448 * 1024 * 1024,
 				});
-				expect(yield* connection.next).toEqual({ type: "ready", generation: 11 });
+				expect(yield* connection.next).toEqual({
+					type: "ready",
+					generation: 11,
+					heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes,
+				});
 				if (process.platform === "linux") {
 					assert(connection.pid !== undefined);
 					expect((yield* fs.readFileString(`/proc/${connection.pid}/oom_score_adj`)).trim()).toBe(
@@ -315,12 +329,20 @@ layer(live, { excludeTestServices: true })((test) => {
 						maxActive: 1,
 						trust: "user",
 						maxRss: 256 * 1024 * 1024,
-						memoryBudget: 128 * 1024 * 1024,
+						memoryBudget: 192 * 1024 * 1024,
 					});
 				const first = yield* connect(21);
 				const second = yield* connect(22);
-				expect(yield* first.next).toEqual({ type: "ready", generation: 21 });
-				expect(yield* second.next).toEqual({ type: "ready", generation: 22 });
+				expect(yield* first.next).toEqual({
+					type: "ready",
+					generation: 21,
+					heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes,
+				});
+				expect(yield* second.next).toEqual({
+					type: "ready",
+					generation: 22,
+					heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes,
+				});
 				expect(yield* liveUserCore).toBe(2);
 				yield* first.close;
 				expect(yield* liveUserCore).toBe(1);

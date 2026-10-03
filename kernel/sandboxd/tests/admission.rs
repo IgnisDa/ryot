@@ -122,7 +122,7 @@ fn the_memory_budget_queues_excess_runs() {
         external_bytes: 32 * MIB,
         ..support::limits()
     };
-    let mut sidecar = support::spawn(Tier::Core, &["--memory-budget", &(150 * MIB).to_string()]);
+    let mut sidecar = support::spawn(Tier::Core, &["--memory-budget", &(200 * MIB).to_string()]);
     sidecar.send(&support::run_frame(
         "first",
         Tier::Core,

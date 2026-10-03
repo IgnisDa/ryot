@@ -39,7 +39,9 @@ fn protocol_fixtures_conform() {
         };
         assert_ne!(fixture.expect, "framing", "{} framed cleanly", fixture.name);
         let reencoded = match fixture.direction.as_str() {
-            "inbound" => decode_inbound(&payload).map(|decoded| encode_inbound(&decoded)),
+            "inbound" => decode_inbound(payload.clone())
+                .map(|decoded| encode_inbound(&decoded))
+                .map_err(|rejection| rejection.error),
             _ => decode_outbound(&payload).map(|decoded| encode_outbound(&decoded)),
         };
         match (fixture.expect.as_str(), reencoded) {
@@ -60,8 +62,28 @@ fn host_result(handle: &str, seq: u64, value: Value) -> Inbound {
         generation: support::GENERATION,
         handle: handle.to_owned(),
         seq,
-        outcome: HostOutcome::Success(support::raw(value)),
+        outcome: HostOutcome::Success(support::raw(value).into()),
     }
+}
+
+#[test]
+fn host_result_delivery_keeps_one_native_copy() {
+    let value = json!({ "text": "é".repeat(64 * 1024), "items": [1, 2, 3] });
+    let payload = encode_inbound(&host_result("copy", 7, value.clone()));
+    let buffer = payload.as_ptr();
+    let Ok(Inbound::HostResult {
+        outcome: HostOutcome::Success(text),
+        ..
+    }) = decode_inbound(payload)
+    else {
+        panic!("expected a successful host result");
+    };
+    let delivered = text.into_string();
+    assert_eq!(delivered.as_ptr(), buffer);
+    assert_eq!(
+        serde_json::from_str::<Value>(&delivered).expect("json"),
+        value
+    );
 }
 
 const ECHO_HOST: &str = "export default async (input, host) => host.call('echo', input)";
@@ -89,7 +111,7 @@ fn forged_retired_and_foreign_generation_frames_are_dropped() {
         generation: support::GENERATION + 1,
         handle: "live".to_owned(),
         seq,
-        outcome: HostOutcome::Success(support::raw(json!("other generation"))),
+        outcome: HostOutcome::Success(support::raw(json!("other generation")).into()),
     });
     sidecar.send(&host_result("live", seq + 7, json!("unknown call")));
     sidecar.send(&host_result("live", seq, json!("answered")));

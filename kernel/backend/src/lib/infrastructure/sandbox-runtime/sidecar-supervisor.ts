@@ -521,7 +521,11 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 											const ready = yield* connection.next.pipe(
 												Effect.timeout(SANDBOX_LIMITS.sidecar.startupMs),
 											);
-											if (ready.type !== "ready" || ready.generation !== generationId) {
+											if (
+												ready.type !== "ready" ||
+												ready.generation !== generationId ||
+												ready.heapHeadroomBytes > SANDBOX_LIMITS.sidecar.heapHeadroomBytes
+											) {
 												return yield* startupError();
 											}
 											const readyAt = yield* Clock.currentTimeMillis;

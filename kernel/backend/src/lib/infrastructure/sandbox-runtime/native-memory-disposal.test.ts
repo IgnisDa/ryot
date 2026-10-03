@@ -19,6 +19,7 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import { testExecutionId } from "#lib/test-utils/redis";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
+import { hostCallArgs } from "./host-call-args.test-support";
 import { SANDBOX_LIMITS } from "./limits";
 import { NativeMemoryEvidence, nativeMemoryLayer } from "./native-memory-disposal.test-support";
 import { makeRunnerInput } from "./runner-native.test-support";
@@ -139,7 +140,7 @@ const lateHostCall = (handle: string, generation: number) =>
 		generation,
 		type: "hostCall",
 		name: "journalRead",
-		args: { offset: 0, length: 1 },
+		args: hostCallArgs({ offset: 0, length: 1 }),
 	});
 
 const assertDisposed = Effect.fnUntraced(function* (executionId: string) {

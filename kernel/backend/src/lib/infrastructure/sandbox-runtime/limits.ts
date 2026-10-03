@@ -51,6 +51,7 @@ export const SANDBOX_LIMITS = {
 		disposalMs: 2_000,
 		absoluteMs: 300_000,
 		settlementMs: 30_000,
+		heapHeadroomBytes: 64 * MiB,
 		rssCeilingBytes: 1536 * MiB,
 		rssOverheadBytes: 128 * MiB,
 		queuedBytesPerThread: 52 * MiB,

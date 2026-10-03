@@ -37,6 +37,8 @@ const CONCURRENT_HOST_CALLS: usize = 4;
 const MESSAGE_BYTES: usize = 8 * 1024;
 const HEAP_HEADROOM: usize = 32 * 1024 * 1024;
 const HEAP_EXTENSIONS: u32 = 2;
+/// Heap V8 may still allocate after the limit while termination unwinds.
+pub const HEAP_HEADROOM_BYTES: u64 = HEAP_HEADROOM as u64 * HEAP_EXTENSIONS as u64;
 
 thread_local! {
     static RUNNING: RefCell<Option<String>> = const { RefCell::new(None) };
@@ -318,7 +320,7 @@ async fn send_host_call(
 
 fn settle(outcome: Result<HostOutcome, oneshot::error::RecvError>) -> Result<String, String> {
     match outcome {
-        Ok(HostOutcome::Success(value)) => Ok(value.get().to_owned()),
+        Ok(HostOutcome::Success(value)) => Ok(value.into_string()),
         Ok(HostOutcome::Failure(message)) => Err(message),
         Err(_) => Err("Host call was abandoned".to_owned()),
     }
@@ -668,15 +670,31 @@ async fn drive(
                 Phase::Execution,
                 "sandbox bootstrap returned no result".to_owned(),
             )
-        })?
-        .to_rust_string_lossy(scope);
-    let (status, payload) = text.split_at(text.chars().next().map_or(0, char::len_utf8));
+        })?;
+    completion(text.utf8_length(scope), || text.to_rust_string_lossy(scope))
+}
+
+/// Converts the bootstrap's status-prefixed result after checking its UTF-8 size, so an oversized
+/// string is rejected before Rust copies it and the accepted one is copied once.
+fn completion(
+    utf8_length: usize,
+    materialize: impl FnOnce() -> String,
+) -> Result<String, (Phase, String)> {
+    if utf8_length > RESULT_BYTES + 1 {
+        return Err((
+            Phase::Result,
+            format!("result exceeds {RESULT_BYTES} bytes"),
+        ));
+    }
+    let mut text = materialize();
+    let status = text.chars().next();
+    text.drain(..status.map_or(0, char::len_utf8));
     match status {
-        "c" => Ok(payload.to_owned()),
-        "d" => Err((Phase::Resolution, payload.to_owned())),
-        "e" => Err((Phase::Evaluation, payload.to_owned())),
-        "r" => Err((Phase::Result, payload.to_owned())),
-        _ => Err((Phase::Execution, payload.to_owned())),
+        Some('c') => Ok(text),
+        Some('d') => Err((Phase::Resolution, text)),
+        Some('e') => Err((Phase::Evaluation, text)),
+        Some('r') => Err((Phase::Result, text)),
+        _ => Err((Phase::Execution, text)),
     }
 }
 
@@ -705,6 +723,25 @@ mod tests {
             host.call("😀".repeat(65), "null".to_owned()),
             Err(message) if message == "Host function names must be 1..128 UTF-16 code units"
         ));
+    }
+
+    #[test]
+    fn done_text_is_measured_before_materialization() {
+        let characters = RESULT_BYTES / 3;
+        let fits = format!("c{}", "€".repeat(characters));
+        assert_eq!(
+            completion(fits.len(), || fits.clone()).map(|text| text.len()),
+            Ok(3 * characters)
+        );
+        assert_eq!(
+            completion(1 + 3 * (characters + 1), || unreachable!(
+                "oversized text was copied"
+            )),
+            Err((
+                Phase::Result,
+                format!("result exceeds {RESULT_BYTES} bytes")
+            ))
+        );
     }
 
     #[test]

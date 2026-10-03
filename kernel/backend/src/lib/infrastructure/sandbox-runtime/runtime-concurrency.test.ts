@@ -4,6 +4,7 @@ import { Deferred, Effect, Fiber, Queue } from "effect";
 
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
+import { hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
 import {
 	makeRunnerInput,
@@ -24,10 +25,10 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 const frame = (handle: string, seq: number): typeof SidecarHostCallFrame.Type => ({
 	seq,
 	handle,
-	args: ["key"],
 	generation: 1,
 	type: "hostCall",
 	name: "getCachedValue",
+	args: hostCallArgs(["key"]),
 });
 
 const register = Effect.fnUntraced(function* (
@@ -142,12 +143,12 @@ layer(runnerNativeLayer, { excludeTestServices: true })((test) => {
 				for (let seq = 0; seq < 4; seq++) {
 					const result = yield* registration.dispatch({
 						...frame("exit-permits", seq),
-						args: [seq % 2 === 0 ? "failure" : "defect"],
+						args: hostCallArgs([seq % 2 === 0 ? "failure" : "defect"]),
 					});
 					expect(result.result).toMatchObject({ status: "success", value: { success: false } });
 				}
 				const cancelled = yield* Effect.forkChild(
-					registration.dispatch({ ...frame("exit-permits", 4), args: ["interrupt"] }),
+					registration.dispatch({ ...frame("exit-permits", 4), args: hostCallArgs(["interrupt"]) }),
 				);
 				yield* Queue.take(started);
 				yield* Fiber.interrupt(cancelled);

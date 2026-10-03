@@ -128,10 +128,64 @@ struct HostResultBody {
     message: Option<String>,
 }
 
+/// Validated JSON text kept inside the buffer it was decoded from, so delivery moves the buffer
+/// instead of copying the value.
+#[derive(Debug)]
+pub struct JsonText {
+    bytes: Vec<u8>,
+    start: usize,
+    end: usize,
+}
+
+impl JsonText {
+    pub fn get(&self) -> &str {
+        std::str::from_utf8(&self.bytes[self.start..self.end]).expect("validated JSON is UTF-8")
+    }
+
+    pub fn into_string(mut self) -> String {
+        self.bytes.truncate(self.end);
+        self.bytes.drain(..self.start);
+        String::from_utf8(self.bytes).expect("validated JSON is UTF-8")
+    }
+}
+
+impl From<Box<RawValue>> for JsonText {
+    fn from(value: Box<RawValue>) -> Self {
+        let bytes = String::from(Box::<str>::from(value)).into_bytes();
+        Self {
+            end: bytes.len(),
+            bytes,
+            start: 0,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum HostOutcome {
-    Success(Box<RawValue>),
+    Success(JsonText),
     Failure(String),
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BorrowedHostResultBody<'a> {
+    status: HostStatus,
+    #[serde(default, borrow, deserialize_with = "present_borrowed")]
+    value: Option<&'a RawValue>,
+    #[serde(default)]
+    message: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct BorrowedHostResultFrame<'a> {
+    #[serde(rename = "type")]
+    _kind: FrameType,
+    generation: u32,
+    handle: String,
+    seq: u64,
+    #[serde(borrow)]
+    result: BorrowedHostResultBody<'a>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -180,6 +234,8 @@ struct GenerationFrame {
     reason: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     handle: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    heap_headroom_bytes: Option<u64>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -191,7 +247,7 @@ struct HostCallFrame {
     handle: String,
     seq: u64,
     name: String,
-    args: Box<RawValue>,
+    args: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -320,6 +376,7 @@ pub enum Inbound {
 pub enum Outbound {
     Ready {
         generation: u32,
+        heap_headroom_bytes: u64,
     },
     HostCall {
         generation: u32,
@@ -359,6 +416,12 @@ pub struct PayloadError(pub String);
 
 fn present<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Box<RawValue>>, D::Error> {
     Box::<RawValue>::deserialize(deserializer).map(Some)
+}
+
+fn present_borrowed<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<&'de RawValue>, D::Error> {
+    <&RawValue>::deserialize(deserializer).map(Some)
 }
 
 fn invalid(message: impl Into<String>) -> PayloadError {
@@ -438,44 +501,90 @@ fn frame_type(payload: &[u8]) -> Result<FrameType, PayloadError> {
     parse::<Head>(payload).map(|head| head.kind)
 }
 
-pub fn decode_inbound(payload: &[u8]) -> Result<Inbound, PayloadError> {
+enum Decoded {
+    Frame(Inbound),
+    HostResult {
+        generation: u32,
+        handle: String,
+        seq: u64,
+        value: Result<(usize, usize), String>,
+    },
+}
+
+/// A rejected inbound payload, returned so the reader can still attribute it to a run.
+#[derive(Debug)]
+pub struct Rejected {
+    pub error: PayloadError,
+    pub payload: Vec<u8>,
+}
+
+pub fn decode_inbound(payload: Vec<u8>) -> Result<Inbound, Rejected> {
+    match decode(&payload) {
+        Ok(Decoded::Frame(frame)) => Ok(frame),
+        Ok(Decoded::HostResult {
+            generation,
+            handle,
+            seq,
+            value,
+        }) => Ok(Inbound::HostResult {
+            generation,
+            handle,
+            seq,
+            outcome: match value {
+                Ok((start, end)) => HostOutcome::Success(JsonText {
+                    bytes: payload,
+                    start,
+                    end,
+                }),
+                Err(message) => HostOutcome::Failure(message),
+            },
+        }),
+        Err(error) => Err(Rejected { error, payload }),
+    }
+}
+
+fn decode(payload: &[u8]) -> Result<Decoded, PayloadError> {
     match frame_type(payload)? {
         FrameType::Run => {
             let run: Run = parse(payload)?;
             check_run(&run)?;
-            Ok(Inbound::Run(Box::new(run)))
+            Ok(Decoded::Frame(Inbound::Run(Box::new(run))))
         }
         FrameType::HostResult => {
-            let frame: HostResultFrame = parse(payload)?;
+            let frame: BorrowedHostResultFrame =
+                serde_json::from_slice(payload).map_err(|error| invalid(error.to_string()))?;
             check_envelope(&frame.handle, frame.seq)?;
-            let outcome = match (
+            let value = match (
                 frame.result.status,
                 frame.result.value,
                 frame.result.message,
             ) {
-                (HostStatus::Success, Some(value), None) => HostOutcome::Success(value),
-                (HostStatus::Failure, None, Some(message)) => HostOutcome::Failure(message),
+                (HostStatus::Success, Some(value), None) => {
+                    let start = value.get().as_ptr() as usize - payload.as_ptr() as usize;
+                    Ok((start, start + value.get().len()))
+                }
+                (HostStatus::Failure, None, Some(message)) => Err(message),
                 _ => return Err(invalid("host result fields do not match its status")),
             };
-            Ok(Inbound::HostResult {
+            Ok(Decoded::HostResult {
                 generation: frame.generation,
                 handle: frame.handle,
                 seq: frame.seq,
-                outcome,
+                value,
             })
         }
         FrameType::Cancel => {
             let frame: EnvelopeFrame = parse(payload)?;
             check_envelope(&frame.handle, frame.seq)?;
-            Ok(Inbound::Cancel {
+            Ok(Decoded::Frame(Inbound::Cancel {
                 generation: frame.generation,
                 handle: frame.handle,
-            })
+            }))
         }
         FrameType::Part => {
             let part: Part = parse(payload)?;
             check_part(&part)?;
-            Ok(Inbound::Part(part))
+            Ok(Decoded::Frame(Inbound::Part(part)))
         }
         _ => Err(invalid("frame type is not accepted from the backend")),
     }
@@ -488,8 +597,12 @@ pub fn decode_outbound(payload: &[u8]) -> Result<Outbound, PayloadError> {
                 generation,
                 reason: None,
                 handle: None,
+                heap_headroom_bytes: Some(heap_headroom_bytes),
                 ..
-            } => Ok(Outbound::Ready { generation }),
+            } => Ok(Outbound::Ready {
+                generation,
+                heap_headroom_bytes,
+            }),
             _ => Err(invalid("ready carries unexpected fields")),
         },
         FrameType::Draining => match parse::<GenerationFrame>(payload)? {
@@ -497,6 +610,7 @@ pub fn decode_outbound(payload: &[u8]) -> Result<Outbound, PayloadError> {
                 generation,
                 reason: Some(reason),
                 handle: None,
+                heap_headroom_bytes: None,
                 ..
             } => {
                 let reason = match reason.as_str() {
@@ -513,6 +627,7 @@ pub fn decode_outbound(payload: &[u8]) -> Result<Outbound, PayloadError> {
                 generation,
                 reason: Some(reason),
                 handle: Some(handle),
+                heap_headroom_bytes: None,
                 ..
             } if reason == "termination-ignored" && valid_handle(&handle) => {
                 Ok(Outbound::Fatal { generation, handle })
@@ -527,12 +642,18 @@ pub fn decode_outbound(payload: &[u8]) -> Result<Outbound, PayloadError> {
                     "host function name must be 1..{NAME_LENGTH} UTF-16 code units"
                 )));
             }
+            let args = BASE64
+                .decode(&frame.args)
+                .ok()
+                .and_then(|bytes| String::from_utf8(bytes).ok())
+                .and_then(|text| RawValue::from_string(text).ok())
+                .ok_or_else(|| invalid("host call arguments are not base64 JSON"))?;
             Ok(Outbound::HostCall {
                 generation: frame.generation,
                 handle: frame.handle,
                 seq: frame.seq,
                 name: frame.name,
-                args: frame.args,
+                args,
             })
         }
         FrameType::Done => {
@@ -595,7 +716,9 @@ pub fn encode_inbound(frame: &Inbound) -> Vec<u8> {
             let result = match outcome {
                 HostOutcome::Success(value) => HostResultBody {
                     status: HostStatus::Success,
-                    value: Some(value.clone()),
+                    value: Some(
+                        RawValue::from_string(value.get().to_owned()).expect("validated JSON"),
+                    ),
                     message: None,
                 },
                 HostOutcome::Failure(message) => HostResultBody {
@@ -624,11 +747,15 @@ pub fn encode_inbound(frame: &Inbound) -> Vec<u8> {
 
 pub fn encode_outbound(frame: &Outbound) -> Vec<u8> {
     match frame {
-        Outbound::Ready { generation } => to_json(&GenerationFrame {
+        Outbound::Ready {
+            generation,
+            heap_headroom_bytes,
+        } => to_json(&GenerationFrame {
             kind: FrameType::Ready,
             generation: *generation,
             reason: None,
             handle: None,
+            heap_headroom_bytes: Some(*heap_headroom_bytes),
         }),
         Outbound::Draining { generation, reason } => to_json(&GenerationFrame {
             kind: FrameType::Draining,
@@ -641,12 +768,14 @@ pub fn encode_outbound(frame: &Outbound) -> Vec<u8> {
                 .to_owned(),
             ),
             handle: None,
+            heap_headroom_bytes: None,
         }),
         Outbound::Fatal { generation, handle } => to_json(&GenerationFrame {
             kind: FrameType::Fatal,
             generation: *generation,
             reason: Some("termination-ignored".to_owned()),
             handle: Some(handle.clone()),
+            heap_headroom_bytes: None,
         }),
         Outbound::HostCall {
             generation,
@@ -660,7 +789,7 @@ pub fn encode_outbound(frame: &Outbound) -> Vec<u8> {
             handle: handle.clone(),
             seq: *seq,
             name: name.clone(),
-            args: args.clone(),
+            args: BASE64.encode(args.get()),
         }),
         Outbound::Done {
             generation,

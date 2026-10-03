@@ -26,7 +26,9 @@ import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "../sandbox-recovery-store";
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
+import { hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./host-call-gate";
+import { SANDBOX_LIMITS } from "./limits";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
 import { SandboxSidecarClient } from "./sidecar-client";
@@ -259,7 +261,11 @@ const makeRecordingHarness = Effect.gen(function* () {
 		events.push({ instance, generation, at: connectedAt, type: "connect" });
 		connections.push(record);
 		yield* Queue.offer(connectionsAdded, record);
-		yield* Queue.offer(incoming, { generation, type: "ready" });
+		yield* Queue.offer(incoming, {
+			generation,
+			type: "ready",
+			heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes,
+		});
 		yield* Effect.addFinalizer(() => connectionClose);
 		return connection;
 	});
@@ -579,9 +585,9 @@ const committedHostCall = (run: RunFrame, seq: number): HostCallFrame =>
 		seq,
 		type: "hostCall",
 		handle: run.handle,
-		args: { args: [] },
 		name: "committedAction",
 		generation: run.generation,
+		args: hostCallArgs({ args: [] }),
 	});
 
 const startRun = (
@@ -1416,7 +1422,7 @@ const inlineBatch = (run: RunFrame, seq: number, index: number) =>
 		handle: run.handle,
 		name: "inlineBatch",
 		generation: run.generation,
-		args: {
+		args: hostCallArgs({
 			requests: [
 				{
 					index,
@@ -1425,7 +1431,7 @@ const inlineBatch = (run: RunFrame, seq: number, index: number) =>
 					args: { args: ["key"], capability: "getCachedValue" },
 				},
 			],
-		},
+		}),
 	});
 
 supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_backstop", () =>
@@ -1500,8 +1506,8 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 				type: "hostCall",
 				handle: run.handle,
 				name: "getCachedValue",
-				args: { args: ["key"] },
 				generation: run.generation,
+				args: hostCallArgs({ args: ["key"] }),
 			});
 			yield* harness.emit(run.generation, ordinaryCall);
 			yield* TestClock.adjust("4 seconds");

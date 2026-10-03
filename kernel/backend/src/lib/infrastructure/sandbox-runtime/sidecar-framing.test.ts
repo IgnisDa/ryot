@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { hostCallArgs } from "./host-call-args.test-support";
 import { makeSidecarFrameReader, makeSidecarFrameWriter } from "./sidecar-framing";
 import {
 	sidecarInboundFrames,
@@ -48,9 +49,9 @@ const hostCallFrame = (handle: string, seq: number, text: string) =>
 		seq,
 		handle,
 		generation: 7,
-		args: { text },
 		name: "lookup",
 		type: "hostCall",
+		args: hostCallArgs({ text }),
 	}) satisfies OutboundFrame;
 
 const runFrame = (handle: string, seq: number, text: string) =>
@@ -190,7 +191,7 @@ describe("sidecar framing", () => {
 		const first = outboundParts(doneFrame("first", 10, "🛰️".repeat(40_000)));
 		const second = outboundParts(doneFrame("second", 11, "🧩".repeat(38_000)));
 		const interleaved: OutboundFrame[] = [
-			{ generation: 7, type: "ready" },
+			{ generation: 7, type: "ready", heapHeadroomBytes: 0 },
 			{ generation: 7, type: "draining", reason: "memory" },
 			{ generation: 7, type: "fatal", handle: "first", reason: "termination-ignored" },
 		];
@@ -291,7 +292,7 @@ describe("sidecar framing", () => {
 		const foreignParts = outboundParts(doneFrame("first", 22, "g".repeat(150_000), 8));
 		feedOutboundFrames(dropReader, [...unknownParts, ...retiredParts, ...foreignParts]);
 		const beforeForeignReady = received.length;
-		feedOutboundFrames(dropReader, [{ generation: 8, type: "ready" }]);
+		feedOutboundFrames(dropReader, [{ generation: 8, type: "ready", heapHeadroomBytes: 0 }]);
 		expect(received).toHaveLength(beforeForeignReady);
 		expect(received.filter((frame) => frame.type === "done")).toHaveLength(3);
 		expect(invalid).toHaveLength(5);
