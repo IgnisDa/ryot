@@ -72,6 +72,7 @@ export const mediaIntegrations = defineExecutableAlternatives({
 		"integration.emby": integration("integration.emby"),
 		"integration.kodi": integration("integration.kodi"),
 		"integration.komga": integration("integration.komga"),
+		"integration.anilist": integration("integration.anilist"),
 		"integration.spotify": integration("integration.spotify"),
 		"integration.plex-sink": integration("integration.plex-sink"),
 		"integration.plex-yank": integration("integration.plex-yank"),

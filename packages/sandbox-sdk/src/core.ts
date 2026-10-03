@@ -221,6 +221,7 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"upsertGlobalEntities",
 	"getCurrentIntegration",
 	"getOAuthAccessToken",
+	"invalidateOAuthAccessToken",
 	"changeUserRelationships",
 	"upsertGlobalRelationships",
 ] as const;
@@ -515,6 +516,10 @@ export const oauthAccessTokenSchema = strictStruct({
 	accessToken: Schema.String,
 });
 export const getOAuthAccessTokenResultSchema = hostResultSchema(oauthAccessTokenSchema);
+export const invalidateOAuthAccessTokenArgsSchema = Schema.Tuple([
+	strictStruct({ field: nonEmptyString, accessToken: nonEmptyString }),
+]);
+export const invalidateOAuthAccessTokenResultSchema = hostResultSchema(Schema.Null);
 export const executeRyotqlDataSchema = Schema.Unknown;
 export const getEntitySchemasArgsSchema = Schema.Tuple([sandboxEntitySchemaSlugListSchema]);
 export const executeRyotqlArgsSchema = Schema.Tuple([ryotqlDocumentSchema]);
@@ -627,6 +632,11 @@ export const domainSandboxHostContracts = {
 		args: getEntitySchemasArgsSchema,
 		result: getEntitySchemasResultSchema,
 		success: Schema.Array(entitySchemaRecordSchema),
+	},
+	invalidateOAuthAccessToken: {
+		success: Schema.Null,
+		args: invalidateOAuthAccessTokenArgsSchema,
+		result: invalidateOAuthAccessTokenResultSchema,
 	},
 	upsertGlobalEntities: {
 		args: upsertGlobalEntitiesArgsSchema,

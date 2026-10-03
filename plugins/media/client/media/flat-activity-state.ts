@@ -24,7 +24,7 @@ import {
 
 export type MediaFlatActivityBeat = Exclude<
 	MediaFlatActivityMediaEvent["eventSchemaSlug"],
-	"review" | "complete" | "progress" | "add-to-media-library"
+	"review" | "complete" | "progress" | "add-to-media-library" | "list-state"
 >;
 
 type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
@@ -34,12 +34,18 @@ type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
 	readonly percent: number | undefined;
 };
 
+type MediaFlatActivitySnapshotRow<Extra> = ActivityAnchor & {
+	readonly type: "snapshot";
+	readonly extra: Extra;
+};
+
 export type MediaFlatActivityRow<Subject, Extra = unknown> =
 	| MediaActivityCollectionRow
 	| MediaActivityCompletionRow
 	| MediaActivityLibraryRow
 	| MediaActivityReviewRow<Subject>
 	| MediaFlatActivityProgressRow<Extra>
+	| MediaFlatActivitySnapshotRow<Extra>
 	| MediaActivityBeatRow<MediaFlatActivityBeat>;
 
 export type MediaFlatActivityTimeline<Subject, Extra = unknown> = MediaActivityTimeline<
@@ -78,6 +84,9 @@ const parentRow = <Subject, Extra>(
 			source: optionalText(event.consumedOn),
 			percent: event.progressPercent ?? undefined,
 		};
+	}
+	if (event.eventSchemaSlug === "list-state") {
+		return { ...anchorOf(event, "snapshot"), extra: event, type: "snapshot" };
 	}
 	return mediaBeatRow(event, event.eventSchemaSlug);
 };

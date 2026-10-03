@@ -495,27 +495,32 @@ it("declares the complete media-owned source", () => {
 		expect.objectContaining({ userState: { deniedOperations: ["clear", "merge"] } }),
 	);
 	expect(mediaPlugin.configSchema.unknownKeys).toBe("strict");
-	expect(Object.keys(mediaPlugin.configSchema.fields)).toEqual([
-		"metronUsername",
-		"twitchClientId",
-		"traktClientId",
-		"spotifyClientId",
-		"tvdbApiKey",
-		"malClientId",
-		"metronPassword",
-		"tmdbAccessToken",
-		"hardcoverApiKey",
-		"giantBombApiKey",
-		"twitchClientSecret",
-		"googleBooksApiKey",
-		"listennotesApiKey",
-		"spotifyClientSecret",
-		"progressUpdateThresholdHours",
-	]);
+	expect(sortBy(Object.keys(mediaPlugin.configSchema.fields))).toEqual(
+		sortBy([
+			"metronUsername",
+			"twitchClientId",
+			"traktClientId",
+			"anilistClientId",
+			"spotifyClientId",
+			"tvdbApiKey",
+			"malClientId",
+			"metronPassword",
+			"tmdbAccessToken",
+			"hardcoverApiKey",
+			"giantBombApiKey",
+			"twitchClientSecret",
+			"googleBooksApiKey",
+			"listennotesApiKey",
+			"anilistClientSecret",
+			"spotifyClientSecret",
+			"progressUpdateThresholdHours",
+		]),
+	);
 	expect(mediaPlugin.configSchema.fields.tmdbAccessToken?.secret).toBe(true);
+	expect(mediaPlugin.configSchema.fields.anilistClientSecret?.secret).toBe(true);
 	expect(mediaPlugin.configSchema.fields.progressUpdateThresholdHours?.defaultValue).toBe(2);
 	expect(mediaPlugin.httpRateLimits).toEqual([
-		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
+		{ requests: 30, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
 		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
 		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
 	]);
@@ -523,9 +528,22 @@ it("declares the complete media-owned source", () => {
 		"https://coverartarchive.org",
 	);
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.integrationProviders).toHaveLength(13);
+	expect(mediaPlugin.integrationProviders).toHaveLength(14);
 	expect(mediaPlugin.oauthProviders).toEqual([
 		{
+			scopes: [],
+			pkce: "none",
+			slug: "anilist",
+			name: "AniList",
+			clientIdConfigKey: "anilistClientId",
+			accessTokenLifetimeSeconds: 31_536_000,
+			tokenEndpointAuth: "client_secret_post",
+			clientSecretConfigKey: "anilistClientSecret",
+			tokenUrl: "https://anilist.co/api/v2/oauth/token",
+			authorizeUrl: "https://anilist.co/api/v2/oauth/authorize",
+		},
+		{
+			pkce: "S256",
 			slug: "spotify",
 			name: "Spotify",
 			clientIdConfigKey: "spotifyClientId",
@@ -536,6 +554,23 @@ it("declares the complete media-owned source", () => {
 			authorizeUrl: "https://accounts.spotify.com/authorize",
 		},
 	]);
+	expect(mediaPlugin.integrationProviders.find(({ slug }) => slug === "anilist")).toMatchObject({
+		lot: "yank",
+		requiresProKey: true,
+		scriptSlug: "workflow.media-integration",
+		plan: { selections: { "integration-adapter": { value: "integration.anilist" } } },
+		settingsSchema: {
+			fields: {
+				syncAnime: { type: "boolean", defaultValue: true },
+				syncManga: { type: "boolean", defaultValue: true },
+				account: {
+					type: "string",
+					validation: { required: true },
+					format: { provider: "anilist", kind: "oauth-connection" },
+				},
+			},
+		},
+	});
 	expect(mediaPlugin.integrationProviders.find(({ slug }) => slug === "spotify")).toMatchObject({
 		lot: "yank",
 		requiresProKey: true,

@@ -4,7 +4,7 @@ import type {
 	MediaPresentationDataOf,
 	MediaSummaryOf,
 } from "../../shared/media-recipes";
-import { mediaFlatActivityCopy } from "../media/activity-copy";
+import { mediaFlatActivityCopy, mediaListStateStatusLabel } from "../media/activity-copy";
 import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { formatLocalDateLabel } from "../media/date";
 import { defineFlatMediaSchema } from "../media/flat-schema";
@@ -20,6 +20,11 @@ type AnimePresentation = MediaPresentationDataOf<typeof animeRecipes>;
 type AnimeProgressPosition = Pick<
 	Extract<MediaActivityEventOf<typeof animeRecipes>, { readonly kind: "media" }>,
 	"animeEpisode"
+>;
+
+type AnimeListStateSnapshot = Pick<
+	Extract<MediaActivityEventOf<typeof animeRecipes>, { readonly kind: "media" }>,
+	"listState"
 >;
 
 export const animeSummaryFacts = (anime: AnimeSummary): readonly MediaSummaryFact[] => {
@@ -45,6 +50,18 @@ export const animeProgressLabel = (
 	return percent === undefined ? "Part-way through the anime" : `${percent}% through the anime`;
 };
 
+export const animeListStateDetail = (event: AnimeListStateSnapshot) => {
+	const listState = event.listState;
+	if (listState === null) {
+		return undefined;
+	}
+	return [
+		mediaListStateStatusLabel(listState.state),
+		...(listState.animeEpisode === undefined ? [] : [`Episode ${listState.animeEpisode}`]),
+		`Repeat count ${listState.repeatCount}`,
+	].join(" · ");
+};
+
 export const animeSchema = defineFlatMediaSchema({
 	recipes: animeRecipes,
 	facts: animeSummaryFacts,
@@ -60,9 +77,10 @@ export const animeSchema = defineFlatMediaSchema({
 		people: "Cast & crew",
 		notice: "Studios and recommendations",
 	},
-	activityCopy: mediaFlatActivityCopy({
+	activityCopy: mediaFlatActivityCopy<AnimeProgressPosition & AnimeListStateSnapshot>({
 		verb: "watch",
 		noun: "anime",
 		progress: animeProgressLabel,
+		snapshot: { label: "Synced from AniList", detail: animeListStateDetail },
 	}),
 });

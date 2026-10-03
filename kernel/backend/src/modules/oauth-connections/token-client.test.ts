@@ -9,6 +9,7 @@ const provider = {
 	scopes: [],
 	slug: "account",
 	name: "Account",
+	pkce: "S256" as const,
 	clientIdConfigKey: "clientId",
 	clientSecretConfigKey: "clientSecret",
 	tokenUrl: "https://accounts.example.test/token",

@@ -15,6 +15,7 @@ export const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	scratch: { subjects: [], bridge: false },
 	"artifact-read": { subjects: [], bridge: false },
 	getOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
+	invalidateOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
 	sendNotification: { bridge: true, subjects: ["automation-run"] as const },
 	createEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
 	updateEvents: { bridge: true, subjects: ["user", "automation-run"] as const },

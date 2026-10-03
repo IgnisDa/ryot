@@ -264,7 +264,15 @@ const oauthConnectionField = (label: string) => ({
 	format: { provider: "account", kind: "oauth-connection" as const },
 });
 
-export const oauthRevisionPackage = (slug: string, integrationProviderSlug: string) => {
+export const oauthRevisionPackage = (
+	slug: string,
+	integrationProviderSlug: string,
+	options: {
+		readonly accessTokenLifetimeSeconds?: number;
+		readonly pkce?: "S256" | "none";
+		readonly requiresProKey?: boolean;
+	} = {},
+) => {
 	const plugin = revisionPackage(slug, "v1");
 	const manifest = {
 		...plugin.manifest,
@@ -280,24 +288,13 @@ export const oauthRevisionPackage = (slug: string, integrationProviderSlug: stri
 				},
 			},
 		},
-		oauthProviders: [
-			{
-				slug: "account",
-				name: "Account",
-				scopes: ["read", "offline"],
-				clientIdConfigKey: "clientId",
-				clientSecretConfigKey: "clientSecret",
-				tokenUrl: "https://accounts.example.test/token",
-				tokenEndpointAuth: "client_secret_basic" as const,
-				authorizeUrl: "https://accounts.example.test/authorize?prompt=consent",
-			},
-		],
 		integrationProviders: [
 			{
 				name: "OAuth yank",
 				lot: "yank" as const,
 				scriptSlug: `${slug}.task`,
 				slug: integrationProviderSlug,
+				...(options.requiresProKey === undefined ? {} : { requiresProKey: options.requiresProKey }),
 				description: "Yank with a linked account",
 				settingsSchema: {
 					fields: {
@@ -306,6 +303,22 @@ export const oauthRevisionPackage = (slug: string, integrationProviderSlug: stri
 						endpoint: { label: "Endpoint", type: "string" as const, description: "Endpoint" },
 					},
 				},
+			},
+		],
+		oauthProviders: [
+			{
+				slug: "account",
+				name: "Account",
+				scopes: ["read", "offline"],
+				pkce: options.pkce ?? "S256",
+				...(options.accessTokenLifetimeSeconds === undefined
+					? {}
+					: { accessTokenLifetimeSeconds: options.accessTokenLifetimeSeconds }),
+				clientIdConfigKey: "clientId",
+				clientSecretConfigKey: "clientSecret",
+				tokenUrl: "https://accounts.example.test/token",
+				tokenEndpointAuth: "client_secret_basic" as const,
+				authorizeUrl: "https://accounts.example.test/authorize?prompt=consent",
 			},
 		],
 	};

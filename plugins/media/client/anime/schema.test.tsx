@@ -38,6 +38,7 @@ const PROGRESS_EVENT = {
 	timeSpent: null,
 	startedOn: null,
 	isSpoiler: null,
+	listState: null,
 	animeEpisode: 12,
 	completedOn: null,
 	progressPercent: 62,
@@ -55,7 +56,10 @@ const animeSummary = (overrides: Record<string, unknown> = {}) =>
 		...overrides,
 	});
 
-const animeActivity = (events: readonly Record<string, unknown>[] = [PROGRESS_EVENT]) =>
+const animeActivity = (
+	events: readonly Record<string, unknown>[] = [PROGRESS_EVENT],
+	completionCount = 1,
+) =>
 	Result.getOrThrow(
 		animeRecipes
 			.activityRecipe({ eventLimit: 60, entityId: "anime-1", collectionEventLimit: 60 })
@@ -63,11 +67,16 @@ const animeActivity = (events: readonly Record<string, unknown>[] = [PROGRESS_EV
 				data: {
 					events: rowsResult(events, { limit: 60, hasMore: false, nextCursor: null }),
 					collectionEvents: rowsResult([], { limit: 60, hasMore: false, nextCursor: null }),
-					totals: rowsResult([{ completionCount: 1, consumedAmount: 24, unknownAmountCount: 0 }], {
-						limit: 1,
-						hasMore: false,
-						nextCursor: null,
-					}),
+					totals: rowsResult(
+						[
+							{
+								completionCount,
+								unknownAmountCount: 0,
+								consumedAmount: completionCount === 0 ? 0 : 24,
+							},
+						],
+						{ limit: 1, hasMore: false, nextCursor: null },
+					),
 				},
 			}),
 	);
@@ -123,6 +132,56 @@ describe("anime schema", () => {
 		expect(container.textContent).not.toContain("62% through the anime");
 		expect(container.textContent).toContain("Episodes");
 		expect(container.textContent).toContain("24");
+		unmount();
+	});
+
+	it("renders a list-state snapshot as an observation with position and repeat metadata", () => {
+		const activity = animeActivity(
+			[
+				{
+					text: null,
+					rating: null,
+					timeSpent: null,
+					startedOn: null,
+					isSpoiler: null,
+					animeEpisode: 0,
+					consumedOn: null,
+					completedOn: null,
+					progressPercent: null,
+					id: "anime-list-state",
+					eventSchemaSlug: "list-state",
+					createdAt: "2026-05-02T10:00:05.000Z",
+					occurredAt: "2026-05-02T10:00:00.000Z",
+					listState: {
+						repeatCount: 2,
+						animeEpisode: 0,
+						source: "anilist",
+						state: "in_progress",
+						sourceEntryId: "entry-1",
+						sourceAccountId: "account-1",
+						sourceUpdatedAt: "2026-05-01T10:00:00.000Z",
+					},
+				},
+			],
+			0,
+		);
+		const view = animeSchema.activityView(activity);
+		expect(view?.summary.completions).toBe(0);
+		expect(view?.summary.amount).toEqual({ total: 0, missing: 0 });
+
+		const { unmount, container } = mountRyotClient(
+			noopAdapter,
+			<animeSchema.Activity
+				compact
+				refresh={() => undefined}
+				state={animeSchema.mapActivity(readyQueryResult(activity))}
+			/>,
+		);
+		expect(container.textContent).toContain("Synced from AniList");
+		expect(container.textContent).toContain("In progress");
+		expect(container.textContent).toContain("Episode 0");
+		expect(container.textContent).toContain("Repeat count 2");
+		expect(container.textContent).not.toContain("Finished the anime");
 		unmount();
 	});
 

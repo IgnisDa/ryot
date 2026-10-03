@@ -569,7 +569,11 @@ export const mediaCollectionEventsQuery = (input: {
 	});
 };
 
-export const mediaFlatActivityParentSlugs = [...mediaActivityParentSlugs, "progress"] as const;
+export const mediaFlatActivityParentSlugs = [
+	...mediaActivityParentSlugs,
+	"progress",
+	"list-state",
+] as const;
 
 const mediaFlatActivityEventSelection = (event: Table) => ({
 	...mediaActivityEventSelection(event),

@@ -75,6 +75,9 @@ const tokenEndpointLayer = Layer.succeed(
 
 const configLayer = makeAppConfigLayer({ fileStorage: { localTempDir } });
 
+const mockProKey = (isValidated: boolean) =>
+	Layer.mock(ProKeyService)({ isValidated: Effect.succeed(isValidated) });
+
 const infrastructure = Layer.mergeAll(
 	LifecycleWriteGuard.layer,
 	S3Service.layer,
@@ -100,15 +103,15 @@ const roundTripLayer = Layer.mergeAll(
 					Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
 					Layer.provide(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 				),
-				OAuthConnectionsServiceLive,
+				OAuthConnectionsServiceLive.pipe(Layer.provide(mockProKey(true))),
 				Layer.mock(ImportsService)({}),
 				Layer.mock(DataImportAdmission)({}),
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
-				Layer.mock(ProKeyService)({ isValidated: Effect.succeed(true) }),
+				mockProKey(true),
 			),
 		),
 	),
-	OAuthConnectionsServiceLive,
+	OAuthConnectionsServiceLive.pipe(Layer.provide(mockProKey(true))),
 ).pipe(
 	Layer.provide(tokenEndpointLayer),
 	Layer.provideMerge(infrastructure),

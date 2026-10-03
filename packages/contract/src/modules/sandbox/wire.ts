@@ -24,6 +24,7 @@ export const SANDBOX_HOST_CAPABILITIES = [
 	"upsertGlobalEntities",
 	"getCurrentIntegration",
 	"getOAuthAccessToken",
+	"invalidateOAuthAccessToken",
 	"changeUserRelationships",
 	"upsertGlobalRelationships",
 	"emitSignal",

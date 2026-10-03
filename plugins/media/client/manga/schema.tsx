@@ -4,7 +4,7 @@ import type {
 	MediaPresentationDataOf,
 	MediaSummaryOf,
 } from "../../shared/media-recipes";
-import { mediaFlatActivityCopy } from "../media/activity-copy";
+import { mediaFlatActivityCopy, mediaListStateStatusLabel } from "../media/activity-copy";
 import { decimalLabel, mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
@@ -18,6 +18,11 @@ type MangaPresentation = MediaPresentationDataOf<typeof mangaRecipes>;
 type MangaProgressPosition = Pick<
 	Extract<MediaActivityEventOf<typeof mangaRecipes>, { readonly kind: "media" }>,
 	"mangaChapter" | "mangaVolume"
+>;
+
+type MangaListStateSnapshot = Pick<
+	Extract<MediaActivityEventOf<typeof mangaRecipes>, { readonly kind: "media" }>,
+	"listState"
 >;
 
 export const mangaSummaryFacts = (manga: MangaSummary): readonly MediaSummaryFact[] =>
@@ -48,6 +53,24 @@ export const mangaProgressLabel = (
 	return percent === undefined ? "Part-way through the manga" : `${percent}% through the manga`;
 };
 
+export const mangaListStateDetail = (event: MangaListStateSnapshot) => {
+	const listState = event.listState;
+	if (listState === null) {
+		return undefined;
+	}
+	const position = [
+		...(listState.mangaVolume === undefined ? [] : [`Volume ${listState.mangaVolume}`]),
+		...(listState.mangaChapter === undefined
+			? []
+			: [`Chapter ${decimalLabel(listState.mangaChapter)}`]),
+	];
+	return [
+		mediaListStateStatusLabel(listState.state),
+		...position,
+		`Repeat count ${listState.repeatCount}`,
+	].join(" · ");
+};
+
 export const mangaSchema = defineFlatMediaSchema({
 	recipes: mangaRecipes,
 	facts: mangaSummaryFacts,
@@ -57,14 +80,15 @@ export const mangaSchema = defineFlatMediaSchema({
 	nouns: { title: "Manga", plural: "manga", singular: "manga" },
 	measureFigure: { label: "Chapters", value: mediaActivityCountFigure },
 	overviewLoadingDetail: "Fetching the credits and recommendations for this manga.",
-	activityCopy: mediaFlatActivityCopy({
-		verb: "read",
-		noun: "manga",
-		progress: mangaProgressLabel,
-	}),
 	creditCopy: {
 		companies: "Publishers",
 		people: "Authors & artists",
 		notice: "Credits and recommendations",
 	},
+	activityCopy: mediaFlatActivityCopy<MangaProgressPosition & MangaListStateSnapshot>({
+		verb: "read",
+		noun: "manga",
+		progress: mangaProgressLabel,
+		snapshot: { label: "Synced from AniList", detail: mangaListStateDetail },
+	}),
 });

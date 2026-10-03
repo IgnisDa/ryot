@@ -101,6 +101,125 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 	}
 };
 
+const listStateDateComponent = (label: string, maximum?: number) => ({
+	label,
+	type: "integer" as const,
+	description: `${label} in the AniList date`,
+	validation: { minimum: 1, ...(maximum === undefined ? {} : { maximum }) },
+});
+
+const listStateDateField = (label: string, description: string, position: number) => ({
+	label,
+	position,
+	description,
+	type: "object" as const,
+	unknownKeys: "strict" as const,
+	properties: {
+		year: listStateDateComponent("Year"),
+		day: listStateDateComponent("Day", 31),
+		month: listStateDateComponent("Month", 12),
+	},
+});
+
+const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
+	name: "List State",
+	slug: "list-state",
+	propertiesSchema: {
+		unknownKeys: "strict" as const,
+		fields: {
+			startedDate: listStateDateField(
+				"Started Date",
+				"The partial start date AniList reports, without inferred components",
+				6,
+			),
+			completedDate: listStateDateField(
+				"Completed Date",
+				"The partial completion date AniList reports, without inferred components",
+				7,
+			),
+			repeatCount: {
+				position: 5,
+				label: "Repeat Count",
+				type: "integer" as const,
+				validation: { minimum: 0, required: true as const },
+				description: "The number of repeats recorded by AniList",
+			},
+			sourceEntryId: {
+				position: 2,
+				type: "string" as const,
+				label: "Source Entry ID",
+				validation: { minLength: 1, required: true as const },
+				description: "The AniList list entry that provided this state",
+			},
+			sourceUpdatedAt: {
+				position: 4,
+				type: "datetime" as const,
+				label: "Source Updated At",
+				validation: { required: true as const },
+				description: "The last update time AniList reports for this list entry",
+			},
+			sourceAccountId: {
+				position: 1,
+				type: "string" as const,
+				label: "Source Account ID",
+				validation: { minLength: 1, required: true as const },
+				description: "The AniList account that provided this list state",
+			},
+			source: {
+				position: 0,
+				label: "Source",
+				type: "enum" as const,
+				validation: { required: true as const },
+				description: "The source that provided this list state",
+				choices: { kind: "static" as const, values: [{ value: "anilist", label: "AniList" }] },
+			},
+			state: {
+				position: 3,
+				label: "List State",
+				type: "enum" as const,
+				validation: { required: true as const },
+				description: "The current state recorded by AniList",
+				choices: {
+					kind: "static" as const,
+					values: [
+						{ value: "backlog" },
+						{ value: "in_progress" },
+						{ value: "on_hold" },
+						{ value: "dropped" },
+						{ value: "complete" },
+					],
+				},
+			},
+			...(entitySchemaSlug === "anime"
+				? {
+						animeEpisode: {
+							position: 8,
+							label: "Anime Episode",
+							type: "integer" as const,
+							validation: { minimum: 0 },
+							description: "Episode number AniList reports for this anime",
+						},
+					}
+				: {
+						mangaVolume: {
+							position: 8,
+							label: "Manga Volume",
+							type: "integer" as const,
+							validation: { minimum: 0 },
+							description: "Volume number AniList reports for this manga",
+						},
+						mangaChapter: {
+							position: 9,
+							label: "Manga Chapter",
+							type: "integer" as const,
+							validation: { minimum: 0 },
+							description: "Chapter number AniList reports for this manga",
+						},
+					}),
+		},
+	},
+});
+
 const lifecycleEventSchemaBySlug = (slug: string) => {
 	const eventSchema = mediaLifecycleEventSchemas().find((schema) => schema.slug === slug);
 	if (!eventSchema) {
@@ -232,6 +351,9 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 			},
 		},
 	},
+	...(entitySchemaSlug === "anime" || entitySchemaSlug === "manga"
+		? [listStateEventSchema(entitySchemaSlug)]
+		: []),
 ];
 
 const buildMediaGroupEntitySchema = (slug: string, name: string, icon: string) => ({

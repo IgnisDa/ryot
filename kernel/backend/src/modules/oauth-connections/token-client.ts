@@ -14,7 +14,7 @@ type OAuthTokenGrant =
 	| {
 			readonly code: string;
 			readonly redirectUri: string;
-			readonly codeVerifier: string;
+			readonly codeVerifier?: string;
 			readonly grantType: "authorization_code";
 	  }
 	| { readonly refreshToken: string; readonly grantType: "refresh_token" };
@@ -47,7 +47,7 @@ const grantParameters = (grant: OAuthTokenGrant): Record<string, string> =>
 				code: grant.code,
 				grant_type: grant.grantType,
 				redirect_uri: grant.redirectUri,
-				code_verifier: grant.codeVerifier,
+				...(grant.codeVerifier === undefined ? {} : { code_verifier: grant.codeVerifier }),
 			}
 		: { grant_type: grant.grantType, refresh_token: grant.refreshToken };
 
@@ -113,7 +113,10 @@ export class OAuthTokenClient extends Context.Service<OAuthTokenClient>()("OAuth
 			return {
 				accessToken: token.access_token,
 				refreshToken: token.refresh_token ?? null,
-				expiresInSeconds: token.expires_in ?? DEFAULT_ACCESS_TOKEN_LIFETIME_SECONDS,
+				expiresInSeconds:
+					token.expires_in ??
+					provider.accessTokenLifetimeSeconds ??
+					DEFAULT_ACCESS_TOKEN_LIFETIME_SECONDS,
 			};
 		});
 

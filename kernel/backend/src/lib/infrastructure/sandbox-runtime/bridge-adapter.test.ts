@@ -55,6 +55,7 @@ const makeImplementations = (
 	requestEventStreamWork: () => Effect.fail({ message: "unused" }),
 	changeUserRelationships: () => Effect.fail({ message: "unused" }),
 	upsertGlobalRelationships: () => Effect.fail({ message: "unused" }),
+	invalidateOAuthAccessToken: () => Effect.fail({ message: "unused" }),
 	...overrides,
 });
 

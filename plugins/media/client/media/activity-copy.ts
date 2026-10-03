@@ -1,4 +1,17 @@
+import type { ListStateProperties } from "../../shared/list-state";
+
 type MediaActivityVerb = "read" | "play" | "watch" | "listen";
+
+const MEDIA_LIST_STATE_LABELS: Record<ListStateProperties["state"], string> = {
+	backlog: "Backlog",
+	dropped: "Dropped",
+	on_hold: "On hold",
+	complete: "Complete",
+	in_progress: "In progress",
+};
+
+export const mediaListStateStatusLabel = (state: ListStateProperties["state"]) =>
+	MEDIA_LIST_STATE_LABELS[state];
 
 type MediaActivityVerbCopy = {
 	readonly object: string;
@@ -62,6 +75,10 @@ export const mediaFlatActivityCopy = <Extra = unknown>(input: {
 	readonly noun: string;
 	readonly verb: MediaActivityVerb;
 	readonly progress?: (percent: string | undefined, extra: Extra) => string;
+	readonly snapshot?: {
+		readonly label: string;
+		readonly detail: (extra: Extra) => string | undefined;
+	};
 }) => {
 	const verb = MEDIA_ACTIVITY_VERBS[input.verb];
 	const { rowLabels, ...copy } = mediaActivityCopy(verb, input.noun);
@@ -77,6 +94,7 @@ export const mediaFlatActivityCopy = <Extra = unknown>(input: {
 		rowLabels: { ...rowLabels, progress },
 		completionsLabel: verb.completionsLabel,
 		beats: mediaActivityBeats(verb, input.noun),
+		snapshot: input.snapshot ?? { label: "Synced", detail: () => undefined },
 	};
 };
 

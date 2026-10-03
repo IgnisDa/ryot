@@ -60,6 +60,7 @@ export type OAuthConnectionCallbackQuery = typeof OAuthConnectionCallbackQuery.T
 const OAuthConnectionRequestFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("oauth-client-not-configured") }),
 	Schema.Struct({ code: Schema.Literal("oauth-token-exchange-failed") }),
+	Schema.Struct({ code: Schema.Literal("pro-key-required") }),
 	Schema.Struct({ code: Schema.Literal("too-many-pending-oauth-connections") }),
 	Schema.Struct({ field: Schema.String, code: Schema.Literal("oauth-field-not-found") }),
 	Schema.Struct({ provider: Schema.String, code: Schema.Literal("provider-not-found") }),

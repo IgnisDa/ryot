@@ -153,6 +153,10 @@ export type MediaFlatSchemaDescriptor<
 		readonly emptyDetail: string;
 		readonly loadingDetail: string;
 		readonly progressVerb: string;
+		readonly snapshot?: {
+			readonly label: string;
+			readonly detail: (extra: Extra) => string | undefined;
+		};
 		readonly completionsLabel: string;
 		readonly rowLabels: {
 			readonly review: string;
@@ -182,6 +186,7 @@ const MARKER_TONE: Record<MediaFlatSchemaRow["type"], string> = {
 	beat: "bg-border",
 	review: "bg-accent",
 	progress: "bg-accent",
+	snapshot: "bg-accent",
 	completion: "bg-accent",
 	"media-library": "bg-accent",
 	collection: "bg-transparent",
@@ -287,6 +292,9 @@ export const defineFlatMediaSchema = <
 				row.extra,
 			);
 		}
+		if (row.type === "snapshot") {
+			return activityCopy.snapshot?.label ?? "Synced";
+		}
 		return activityCopy.rowLabels.review;
 	};
 
@@ -295,7 +303,18 @@ export const defineFlatMediaSchema = <
 		rowLabel: activityRowLabel,
 		segmentNoun: activityCopy.segmentNoun,
 		rowSource: (row) => (row.type === "progress" ? row.source : undefined),
-		rowBody: (row) => (row.type === "review" ? <MediaActivityReviewDetail row={row} /> : null),
+		rowBody: (row) => {
+			if (row.type === "review") {
+				return <MediaActivityReviewDetail row={row} />;
+			}
+			if (row.type === "snapshot") {
+				const detail = activityCopy.snapshot?.detail(row.extra);
+				return detail === undefined ? null : (
+					<p className="font-ui text-[11px] text-text-subtle">{detail}</p>
+				);
+			}
+			return null;
+		},
 	};
 
 	const activityFigures = (summary: MediaFlatActivitySummary) => {

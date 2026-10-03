@@ -74,6 +74,7 @@ it.effect("reserves OAuth providers for system plugins", () =>
 					slug: "account",
 					name: "Account",
 					scopes: ["read"],
+					pkce: "S256" as const,
 					clientIdConfigKey: "clientId",
 					clientSecretConfigKey: "clientSecret",
 					tokenUrl: "https://accounts.example.test/token",
