@@ -166,31 +166,6 @@ export const AutomationEntitySnapshot = strictStruct({
 	updatedAt: IsoUtcString,
 });
 export type AutomationEntitySnapshot = typeof AutomationEntitySnapshot.Type;
-export const AutomationEntityEventDependency = strictStruct({
-	eventSchemaSlug: EventSchemaSlug,
-	eventSchemaPluginId: Schema.NullOr(PluginId),
-	role: Schema.Literals(["entity", "session"]),
-});
-export type AutomationEntityEventDependency = typeof AutomationEntityEventDependency.Type;
-const compareEntityEventDependencies = (
-	left: AutomationEntityEventDependency,
-	right: AutomationEntityEventDependency,
-) =>
-	(left.eventSchemaPluginId ?? "").localeCompare(right.eventSchemaPluginId ?? "") ||
-	left.eventSchemaSlug.localeCompare(right.eventSchemaSlug) ||
-	left.role.localeCompare(right.role);
-const uniqueSortedEntityEventDependencies = Schema.Array(AutomationEntityEventDependency).pipe(
-	Schema.check(
-		Schema.makeFilter(
-			(dependencies) =>
-				dependencies.every((dependency, index) => {
-					const previous = dependencies[index - 1];
-					return previous === undefined || compareEntityEventDependencies(previous, dependency) < 0;
-				}) ||
-				"Expected unique entity event dependencies sorted by plugin ID, event schema slug, and role",
-		),
-	),
-);
 
 export const AutomationPopulationContext = strictStruct({
 	rootPreviouslyPopulated: Schema.Boolean,
@@ -321,21 +296,7 @@ const mutationPayloads = <
 		}),
 	},
 });
-const entityPayloadBase = mutationPayloads(
-	"entity",
-	AutomationEntityDraft,
-	AutomationEntitySnapshot,
-);
-const entityPayloads = {
-	...entityPayloadBase,
-	request: {
-		...entityPayloadBase.request,
-		update: strictStruct({
-			...entityPayloadBase.request.update.fields,
-			dependentEvents: uniqueSortedEntityEventDependencies,
-		}),
-	},
-};
+const entityPayloads = mutationPayloads("entity", AutomationEntityDraft, AutomationEntitySnapshot);
 const eventPayloads = mutationPayloads("event", AutomationEventDraft, AutomationEventSnapshot);
 const relationshipPayloads = mutationPayloads(
 	"relationship",
@@ -474,14 +435,7 @@ const projectedMutationPayloads = <
 	change: { ...payloads.change, update: withChangedProperties(payloads.change.update) },
 	request: { ...payloads.request, update: withChangedProperties(payloads.request.update) },
 });
-const projectedEntityPayloadsBase = projectedMutationPayloads(entityPayloadBase);
-const projectedEntityPayloads = {
-	...projectedEntityPayloadsBase,
-	request: {
-		...projectedEntityPayloadsBase.request,
-		update: withChangedProperties(entityPayloads.request.update),
-	},
-};
+const projectedEntityPayloads = projectedMutationPayloads(entityPayloads);
 const projectedEventPayloads = projectedMutationPayloads(eventPayloads);
 const projectedRelationshipPayloads = projectedMutationPayloads(relationshipPayloads);
 const projectedEventRequests = [
