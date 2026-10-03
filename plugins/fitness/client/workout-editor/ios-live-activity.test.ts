@@ -80,6 +80,7 @@ describe("workout iOS Live Activity", () => {
 		expect(content.secondary).toEqual({ seconds: 90, label: "Active", kind: "duration" });
 		expect(content.status).toBe("Resting · workout paused");
 		expect(content.staleAt).toBe(countdown.deadline);
+		expect(content.staleMessage).toBe("Rest complete");
 		const paused = workoutIosActivityContent(
 			liveDraft({ restCountdown: { ...countdown, pausedRemainingSeconds: 21 } }),
 			names,
@@ -133,6 +134,9 @@ describe("workout iOS Live Activity", () => {
 		const working = workoutIosActivityContent({ ...base, executionCountdown: countdown }, names);
 		expect(working.status).toBe("Working");
 		expect(working.detail).toBe("Bench Press");
+		expect(working.staleAt).toBe(countdown.deadline);
+		expect(working.staleMessage).toBe("Set timer complete");
+		expect(working.secondary).toEqual({ kind: "elapsed", label: "Active", startedAt: startTime });
 	});
 
 	it("uses superset progression and does not label an incomplete save as saved", () => {
