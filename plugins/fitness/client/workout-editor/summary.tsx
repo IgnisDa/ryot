@@ -1,3 +1,5 @@
+import clsx from "clsx";
+
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import { includedWorkoutOccurrences } from "../../shared/workout-editor-transformations";
 import {
@@ -6,14 +8,14 @@ import {
 	milesToKilometers,
 	poundsToKilograms,
 } from "../../shared/workout-units";
-import { formatEditorSeconds } from "./clocks";
+import { activeDurationSeconds, formatEditorSeconds } from "./session-timers";
 
 const quantity = (text: string | undefined) =>
 	text !== undefined && text.trim() !== "" && Number.isFinite(Number(text)) && Number(text) >= 0
 		? Number(text)
 		: 0;
 
-export function EditorSummary(props: {
+export function EditorStats(props: {
 	readonly draft: WorkoutEditorDraft;
 	readonly now: number;
 	readonly compact: boolean;
@@ -45,52 +47,69 @@ export function EditorSummary(props: {
 			),
 		0,
 	);
-	const active =
-		draft.activeDuration === undefined
-			? "Unknown"
-			: formatEditorSeconds(
-					draft.activeDuration +
-						(draft.activeDurationStartedAt === undefined
-							? 0
-							: Math.max(0, (props.now - Date.parse(draft.activeDurationStartedAt)) / 1000)),
-				);
+	const active = activeDurationSeconds(draft, props.now);
 	const template = draft.mode.kind === "template-create" || draft.mode.kind === "template-edit";
-	const stats = [
-		{
-			label: template ? "Planned sets" : "Included sets",
-			value: String(included.reduce((count, { sets }) => count + sets.length, 0)),
-		},
-		{
-			label: template ? "Exercises" : "Active duration",
-			value: template ? String(draft.occurrences.length) : active,
-		},
-		{
-			label: "Volume",
-			value: `${(props.imperial ? kilogramsToPounds(volumeKg) : volumeKg).toLocaleString(undefined, { maximumFractionDigits: 1 })} ${props.imperial ? "lb" : "kg"}`,
-		},
-		{ label: "Repetitions", value: reps.toLocaleString() },
-	];
+	const total = draft.occurrences.reduce((count, { sets }) => count + sets.length, 0);
+	const done = included.reduce((count, { sets }) => count + sets.length, 0);
+	const stats: { readonly label: string; readonly value: string; readonly unit?: string }[] =
+		template
+			? [
+					{ label: "Exercises", value: String(draft.occurrences.length) },
+					{ value: String(total), label: "Planned sets" },
+				]
+			: [
+					{
+						label: draft.mode.kind === "historical" ? "Active" : "Duration",
+						value: active === undefined ? "Unknown" : formatEditorSeconds(active),
+					},
+					{ label: "Sets", unit: `/${total}`, value: String(done) },
+					{
+						label: "Volume",
+						unit: props.imperial ? " lb" : " kg",
+						value: (props.imperial ? kilogramsToPounds(volumeKg) : volumeKg).toLocaleString(
+							undefined,
+							{ maximumFractionDigits: 1 },
+						),
+					},
+					{ label: "Reps", value: reps.toLocaleString() },
+					...(distanceKm > 0
+						? [
+								{
+									label: "Distance",
+									unit: props.imperial ? " mi" : " km",
+									value: (props.imperial
+										? kilometersToMiles(distanceKm)
+										: distanceKm
+									).toLocaleString(undefined, { maximumFractionDigits: 2 }),
+								},
+							]
+						: []),
+				];
 	return (
-		<div className="rounded-xl border border-border bg-surface-2 p-4">
-			<dl className={`grid gap-4 ${props.compact ? "grid-cols-2" : "grid-cols-4"}`}>
-				{stats.map(({ label, value }) => (
-					<div key={label}>
-						<dt className="text-xs font-medium uppercase tracking-wider text-text-subtle">
-							{label}
-						</dt>
-						<dd className="mt-1 text-xl font-semibold tabular-nums text-text">{value}</dd>
-					</div>
-				))}
-			</dl>
-			{distanceKm > 0 ? (
-				<p className="mt-3 text-sm text-text-subtle">
-					Distance:{" "}
-					{(props.imperial ? kilometersToMiles(distanceKm) : distanceKm).toLocaleString(undefined, {
-						maximumFractionDigits: 2,
-					})}{" "}
-					{props.imperial ? "mi" : "km"}
-				</p>
-			) : null}
-		</div>
+		<dl
+			className={props.compact ? "grid gap-2.5" : "flex flex-wrap gap-x-8 gap-y-3"}
+			style={
+				props.compact
+					? { gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }
+					: undefined
+			}
+		>
+			{stats.map(({ unit, label, value }) => (
+				<div key={label} className="grid min-w-0 content-start gap-px">
+					<dt className="text-xs text-text-muted">{label}</dt>
+					<dd
+						className={clsx(
+							"font-semibold whitespace-nowrap tabular-nums",
+							props.compact ? "text-lg leading-6" : "text-metric",
+						)}
+					>
+						{value}
+						{unit === undefined ? null : (
+							<small className="text-xs font-medium text-text-subtle">{unit}</small>
+						)}
+					</dd>
+				</div>
+			))}
+		</dl>
 	);
 }

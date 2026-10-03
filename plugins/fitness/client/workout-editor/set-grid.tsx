@@ -1,4 +1,4 @@
-import { Button, CellInput, CompletionToggle } from "@ryot-app/plugin-ui-sdk";
+import { CellInput, CompletionToggle } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
@@ -8,7 +8,7 @@ import type {
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
 import { requiredWorkoutMeasurementsByKind, type WorkoutSetLot } from "../../shared/workout-set";
-import { formatEditorSeconds } from "./clocks";
+import { formatEditorSeconds } from "./session-timers";
 
 export type SetMeasurement =
 	(typeof requiredWorkoutMeasurementsByKind)[keyof typeof requiredWorkoutMeasurementsByKind][number];
@@ -105,8 +105,6 @@ export function SetGrid(props: {
 	readonly onComplete: (set: WorkoutEditorSet) => void;
 	readonly onCopyPrevious: (set: WorkoutEditorSet) => void;
 	readonly onOpenSet: (set: WorkoutEditorSet) => void;
-	readonly onStartRest: () => void;
-	readonly onSkipRest: () => void;
 }) {
 	const { draft, compact, occurrence } = props;
 	const live = draft.mode.kind === "live";
@@ -314,24 +312,6 @@ export function SetGrid(props: {
 								{formatEditorSeconds(remaining(execution))} left
 							</p>
 						)}
-						{draft.pendingRest?.setId === set.clientId ? (
-							<div role="status" className="flex flex-wrap items-center gap-2 py-1 pl-10">
-								<span className="mr-auto text-sm">
-									Rest for {formatEditorSeconds(draft.pendingRest.seconds)}?
-								</span>
-								<Button
-									size="sm"
-									variant="ghost"
-									disabled={props.disabled}
-									onClick={props.onSkipRest}
-								>
-									Skip rest
-								</Button>
-								<Button size="sm" disabled={props.disabled} onClick={props.onStartRest}>
-									Start rest
-								</Button>
-							</div>
-						) : null}
 						{index < occurrence.sets.length - 1 && !historical ? (
 							<button
 								type="button"
