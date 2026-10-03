@@ -93,7 +93,7 @@ Scheduling takes one key, UTC deadline, bounded title/body, semantic navigation 
 flag. It reports `scheduled`, `inexact`, `denied`, or `unsupported`; cancellation removes pending and
 delivered alerts. Native IDs and authenticated scope never cross the bridge. Awake demand and haptics
 apply only to active foreground pages. Return shortcuts persist only a label and navigation target.
-Haptics use `kind: "impact"` (the default) for pickup and `kind: "selection"` for reorder drops.
+Haptics use `kind: "impact"` for pickup and `kind: "selection"` for reorder drops.
 Scheduled alerts own their completion sound; callers must not duplicate it with application audio
 when scheduling reports `scheduled` or `inexact`. Muting uses a silent alert instead.
 

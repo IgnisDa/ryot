@@ -3,6 +3,7 @@ import type {
 	PluginDeviceOutcome,
 	PluginDeviceRequest,
 	PluginDeviceResult,
+	PluginHapticKind,
 	PluginNavigationTarget,
 } from "@ryot-app/plugin-client-contract";
 import { Context, Data, Effect, Layer, Semaphore } from "effect";
@@ -38,9 +39,7 @@ export class DevicePlatform extends Context.Service<
 		) => Effect.Effect<PluginDeviceResult, DevicePlatformError>;
 		readonly cancel: (id: number) => Effect.Effect<void, DevicePlatformError>;
 		readonly awake: (enabled: boolean) => Effect.Effect<void, DevicePlatformError>;
-		readonly haptic: (
-			kind: NonNullable<Extract<PluginDeviceRequest, { readonly action: "haptic" }>["kind"]>,
-		) => Effect.Effect<void>;
+		readonly haptic: (kind: PluginHapticKind) => Effect.Effect<void>;
 		readonly listen: (
 			tap: (id: number) => void,
 			foreground: (active: boolean) => void,
@@ -202,7 +201,7 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 						let value: PluginDeviceResult = { status: "done" };
 						if (request.action === "haptic") {
 							if (active && foreground) {
-								yield* platform.haptic(request.kind ?? "impact");
+								yield* platform.haptic(request.kind);
 							}
 						} else if (request.action === "awake") {
 							demands.set(frame, { active, enabled: request.enabled });
