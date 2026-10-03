@@ -1,5 +1,5 @@
 import { expect, layer } from "@effect/vitest";
-import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import { IntegrationId, UserId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { describe } from "vitest";
@@ -20,6 +20,7 @@ import {
 	revisionPackage,
 	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
+import { SystemPlugins } from "#modules/plugins/system";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import { IntegrationPluginRevisionActivationLive, IntegrationsRepository } from "./repository";
@@ -27,8 +28,8 @@ import { IntegrationPluginRevisionActivationLive, IntegrationsRepository } from 
 const owner = UserId.make("owner");
 const timestamp = new Date("2026-09-23T00:00:00.000Z");
 
-const providerPackage = (version: string, endpointSecret: boolean) => {
-	const plugin = revisionPackage("notes", version);
+const providerPackage = (version: string, endpointSecret: boolean, packageId?: PluginPackageId) => {
+	const plugin = revisionPackage("notes", version, "notes-entity", packageId);
 	return {
 		...plugin,
 		manifest: {
@@ -94,6 +95,9 @@ const seedOwner = Layer.effectDiscard(
 const committedDatabaseLayer = seedOwner.pipe(
 	Layer.provideMerge(
 		PluginIngestionLock.layer.pipe(
+			Layer.provide(
+				Layer.succeed(SystemPlugins, { sources: [], packageIds: new Set<PluginPackageId>() }),
+			),
 			Layer.provide(IntegrationPluginRevisionActivationLive),
 			Layer.provideMerge(repositories),
 		),
@@ -123,6 +127,9 @@ const waitForLockedTransaction = Effect.fn(function* (attempts = 2_000) {
 describe("integration client settings projection", () => {
 	layer(
 		PluginIngestionLock.layer.pipe(
+			Layer.provide(
+				Layer.succeed(SystemPlugins, { sources: [], packageIds: new Set<PluginPackageId>() }),
+			),
 			Layer.provide(IntegrationPluginRevisionActivationLive),
 			Layer.provideMerge(repositoryLayer),
 			Layer.provideMerge(revisionDatabaseLayer),
@@ -132,7 +139,8 @@ describe("integration client settings projection", () => {
 			"strips secrets on create and update and recomputes when the revision changes",
 			() =>
 				Effect.gen(function* () {
-					const installed = yield* installRevisionPackage(providerPackage("v1", false), owner);
+					const original = providerPackage("v1", false);
+					const installed = yield* installRevisionPackage(original, owner);
 					const integrations = yield* IntegrationsRepository;
 					const created = yield* integrations.createForUser({
 						...integration,
@@ -155,11 +163,17 @@ describe("integration client settings projection", () => {
 						providerSpecifics: { kind: "notes", token: "secret-b", endpoint: "https://other.test" },
 					});
 					expect(yield* client).toEqual({ kind: "notes", endpoint: "https://other.test" });
-					yield* (yield* PluginIngestionLock).persistUserPlugin(providerPackage("v2", true), {
-						slug: "notes",
-						scope: "user",
-						ownerId: owner,
-					});
+					yield* (yield* DatabaseSession).transaction(
+						(yield* PluginIngestionLock).persistUserPlugin(
+							providerPackage("v2", true, original.manifest.metadata.packageId),
+							{
+								slug: "notes",
+								scope: "user",
+								ownerId: owner,
+								packageId: original.manifest.metadata.packageId,
+							},
+						),
+					);
 					expect(yield* client).toEqual({ kind: "notes" });
 				}),
 		);
@@ -215,9 +229,8 @@ describe("integration client settings projection", () => {
 					const integrations = yield* IntegrationsRepository;
 					const inTransaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 						session.transaction(effect);
-					const installed = yield* inTransaction(
-						installRevisionPackage(providerPackage("v1", false), owner),
-					);
+					const original = providerPackage("v1", false);
+					const installed = yield* installRevisionPackage(original, owner);
 					const created = yield* inTransaction(
 						integrations.createForUser({
 							...integration,
@@ -236,11 +249,15 @@ describe("integration client settings projection", () => {
 					const revisionChange = yield* Effect.forkChild(
 						inTransaction(
 							Effect.gen(function* () {
-								yield* (yield* PluginIngestionLock).persistUserPlugin(providerPackage("v2", true), {
-									slug: "notes",
-									scope: "user",
-									ownerId: owner,
-								});
+								yield* (yield* PluginIngestionLock).persistUserPlugin(
+									providerPackage("v2", true, original.manifest.metadata.packageId),
+									{
+										slug: "notes",
+										scope: "user",
+										ownerId: owner,
+										packageId: original.manifest.metadata.packageId,
+									},
+								);
 								yield* Deferred.succeed(persisted, undefined);
 								yield* Deferred.await(release);
 							}),

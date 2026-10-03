@@ -13,6 +13,7 @@ import { Effect, Layer } from "effect";
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import { mutationReceipt } from "#lib/infrastructure/db/schema/tables/mutations";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";
+import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { ingestionItemIdentity } from "./outcomes";
 
@@ -30,6 +31,7 @@ export const ingestionTestRun = (overrides: Partial<IngestionRun> = {}): Ingesti
 	source: "fixture",
 	status: "running",
 	expiryReason: null,
+	failureReason: null,
 	integrationId: null,
 	blockDeadline: null,
 	executionKind: "source",
@@ -58,9 +60,15 @@ export const ingestionTestRevision = {
 	configSchema: { fields: {} },
 	userBootstrapScriptSlugs: [],
 	id: PluginId.make("plugin-1"),
+	packageId: fixtureManifest().metadata.packageId,
 	revisionId: PluginRevisionId.make("revision-1"),
 	configRevisionId: PluginConfigRevisionId.make("config-1"),
-	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+	schemaScope: {
+		eventSchemas: [],
+		signalSchemaSlugs: [],
+		entitySchemaSlugs: [],
+		relationshipSchemaSlugs: [],
+	},
 };
 export const ingestionTestSource = {
 	source: "fixture",

@@ -1,7 +1,12 @@
 import { expect, it, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginCron, PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	PluginId,
+	PluginPackageId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { Context, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -62,7 +67,7 @@ const normalizedPlugin = (
 	pluginSlug: string,
 	schedule: PluginCron["schedule"] = { cron: "* * * * *" },
 ): PluginRegistryEntry => {
-	const manifest = fixtureManifest();
+	const manifest = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
 	const declared = manifest.scripts[0];
 	assert(declared);
 	const scriptSlug = `${pluginSlug}-script`;
@@ -88,6 +93,7 @@ const normalizedPlugin = (
 		scope: "system" as const,
 		manifest: normalizedManifest,
 		sourceHash: `${pluginSlug}-source`,
+		packageId: manifest.metadata.packageId,
 		activationId: `${pluginSlug}-activation`,
 		scripts: [
 			{
@@ -130,9 +136,9 @@ const normalizedWorkflowPlugin = (pluginSlug: string): PluginRegistryEntry => {
 
 const resolveFromCatalog =
 	(plugins: Effect.Effect<Catalog>): ResolveActivePluginCron =>
-	({ cronSlug, pluginSlug }) =>
+	({ cronSlug, pluginId }) =>
 		Effect.map(plugins, (current) => {
-			const plugin = current[pluginSlug];
+			const plugin = current[pluginId];
 			const cron = plugin?.manifest.crons.find(({ slug }) => slug === cronSlug);
 			if (!cron) {
 				return null;
@@ -144,16 +150,16 @@ const resolveFromCatalog =
 				cron,
 				script: {
 					slug,
+					pluginId,
 					name: slug,
 					source: "source",
 					providerId: null,
 					compiledFormat: 1,
-					pluginId: pluginSlug,
 					createdAt: new Date(0),
 					compiledCode: "compiled",
 					contentHash: `${slug}-hash`,
 					id: SandboxScriptId.make(`${slug}-id`),
-					pluginRevisionId: `${pluginSlug}-revision-id`,
+					pluginRevisionId: `${pluginId}-revision-id`,
 					metadata: {
 						kind,
 						slug,
@@ -178,7 +184,7 @@ const makeLayer = (
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const catalog = yield* Ref.make<Catalog>(
-				Object.fromEntries((options.plugins ?? []).map((plugin) => [plugin.slug, plugin])),
+				Object.fromEntries((options.plugins ?? []).map((plugin) => [plugin.id, plugin])),
 			);
 			const plugins = Ref.get(catalog);
 			return PluginCronService.layer.pipe(
@@ -200,7 +206,11 @@ const makeLayer = (
 								Effect.map(plugins, (current) =>
 									Object.values(current)
 										.flatMap((plugin) =>
-											plugin.manifest.crons.map((cron) => ({ cron, pluginSlug: plugin.slug })),
+											plugin.manifest.crons.map((cron) => ({
+												cron,
+												pluginId: plugin.id,
+												pluginSlug: plugin.slug,
+											})),
 										)
 										.sort(
 											(left, right) =>
@@ -212,7 +222,7 @@ const makeLayer = (
 						recordingWorkflowEngineLayer(options.failingExecutionId),
 						Layer.succeed(PluginCatalog, {
 							load: (plugin) =>
-								Ref.update(catalog, (current) => ({ ...current, [plugin.slug]: plugin })),
+								Ref.update(catalog, (current) => ({ ...current, [plugin.id]: plugin })),
 						}),
 					),
 				),
@@ -235,7 +245,7 @@ const gatedSelectionLayer = (plugins: ReadonlyArray<PluginRegistryEntry>) =>
 					plugins,
 					resolveActivePluginCron: (catalog) => (identity) =>
 						Effect.gen(function* () {
-							const plugin = (yield* catalog)[identity.pluginSlug];
+							const plugin = (yield* catalog)[identity.pluginId];
 							const cron = plugin?.manifest.crons.find(({ slug }) => slug === identity.cronSlug);
 							assert(plugin);
 							assert(cron);
@@ -249,9 +259,9 @@ const gatedSelectionLayer = (plugins: ReadonlyArray<PluginRegistryEntry>) =>
 									...script,
 									providerId: null,
 									createdAt: testDate,
-									pluginId: identity.pluginSlug,
+									pluginId: identity.pluginId,
 									id: SandboxScriptId.make(`${script.contentHash}-id`),
-									pluginRevisionId: `${identity.pluginSlug}-revision-id`,
+									pluginRevisionId: `${identity.pluginId}-revision-id`,
 								},
 							};
 						}),
@@ -268,17 +278,38 @@ layer(makeLayer({ plugins: [normalizedPlugin("fixture")] }))((test) => {
 			yield* service.dispatchDue(60_000);
 			expect(yield* yield* DispatchedRuns).toEqual([
 				{
-					executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
+					executionId: "plugin-cron-10-fixture-id-12-fixture-cron-60000",
 					payload: {
 						input: {},
 						lane: "background",
 						resolutionMode: "exact",
 						subject: { type: "system" },
 						scriptId: SandboxScriptId.make("fixture-script-id"),
-						executionId: "plugin-cron-7-fixture-12-fixture-cron-60000",
+						executionId: "plugin-cron-10-fixture-id-12-fixture-cron-60000",
 					},
 				},
 			]);
+		}),
+	);
+});
+
+layer(
+	makeLayer({
+		plugins: [
+			{ ...normalizedPlugin("whiskey"), id: "first-id" },
+			{ ...normalizedPlugin("whiskey"), id: "second-id" },
+		],
+	}),
+)((test) => {
+	test.effect("gives same-name system schedules independent local-owner execution ids", () =>
+		Effect.gen(function* () {
+			yield* (yield* PluginCronService).dispatchDue(60_000);
+			expect((yield* yield* DispatchedRuns).map(({ executionId }) => executionId).sort()).toEqual(
+				[
+					pluginCronExecutionId("first-id", "whiskey-cron", 60_000),
+					pluginCronExecutionId("second-id", "whiskey-cron", 60_000),
+				].sort(),
+			);
 		}),
 	);
 });
@@ -335,15 +366,15 @@ layer(makeLayer({ plugins: [normalizedPlugin("first"), normalizedPlugin("second"
 	test.effect("targets exactly one script cron", () =>
 		Effect.gen(function* () {
 			const service = yield* PluginCronService;
-			expect(yield* service.trigger(PluginSlug.make("second"), "second-cron", "parent-id")).toEqual(
-				{
-					status: "executed",
-					pluginSlug: "second",
-					cronSlug: "second-cron",
-					result: "plugin-cron-6-second-11-second-cron-parent-id",
-					executionId: "plugin-cron-6-second-11-second-cron-parent-id",
-				},
-			);
+			expect(
+				yield* service.trigger(PluginId.make("second-id"), "second-cron", "parent-id"),
+			).toEqual({
+				status: "executed",
+				pluginId: "second-id",
+				cronSlug: "second-cron",
+				result: "plugin-cron-9-second-id-11-second-cron-parent-id",
+				executionId: "plugin-cron-9-second-id-11-second-cron-parent-id",
+			});
 			const captured = yield* yield* DispatchedRuns;
 			expect(captured).toHaveLength(1);
 			expect(captured[0]?.payload).toMatchObject({
@@ -359,15 +390,15 @@ layer(makeLayer({ plugins: [normalizedWorkflowPlugin("fixture")] }))((test) => {
 		Effect.gen(function* () {
 			const service = yield* PluginCronService;
 			const result = yield* service.trigger(
-				PluginSlug.make("fixture"),
+				PluginId.make("fixture-id"),
 				"fixture-cron",
 				"parent-id",
 			);
 			expect(result).toMatchObject({
 				status: "executed",
-				pluginSlug: "fixture",
+				pluginId: "fixture-id",
 				cronSlug: "fixture-cron",
-				executionId: "plugin-cron-7-fixture-12-fixture-cron-parent-id",
+				executionId: "plugin-cron-10-fixture-id-12-fixture-cron-parent-id",
 			});
 			const captured = yield* yield* DispatchedRuns;
 			expect(captured).toHaveLength(1);
@@ -385,10 +416,10 @@ layer(makeLayer({ plugins: [normalizedPlugin("fixture")] }))((test) => {
 	test.effect("returns notFound without dispatching an unknown cron", () =>
 		Effect.gen(function* () {
 			const service = yield* PluginCronService;
-			expect(yield* service.trigger(PluginSlug.make("fixture"), "unknown", "parent-id")).toEqual({
+			expect(yield* service.trigger(PluginId.make("fixture-id"), "unknown", "parent-id")).toEqual({
 				status: "notFound",
 				cronSlug: "unknown",
-				pluginSlug: "fixture",
+				pluginId: "fixture-id",
 			});
 			expect(yield* yield* DispatchedRuns).toEqual([]);
 		}),
@@ -398,20 +429,20 @@ layer(makeLayer({ plugins: [normalizedPlugin("fixture")] }))((test) => {
 layer(
 	makeLayer({
 		plugins: [normalizedPlugin("fixture")],
-		failingExecutionId: "plugin-cron-7-fixture-12-fixture-cron-parent-id",
+		failingExecutionId: "plugin-cron-10-fixture-id-12-fixture-cron-parent-id",
 	}),
 )((test) => {
 	test.effect("reports workflow failures from manual cron triggers", () =>
 		Effect.gen(function* () {
 			const service = yield* PluginCronService;
 			const result = yield* service.trigger(
-				PluginSlug.make("fixture"),
+				PluginId.make("fixture-id"),
 				"fixture-cron",
 				"parent-id",
 			);
 			expect(result).toMatchObject({
 				status: "failed",
-				pluginSlug: "fixture",
+				pluginId: "fixture-id",
 				cronSlug: "fixture-cron",
 				result: { error: { phase: "execute", message: "dispatch failed" } },
 			});
@@ -428,7 +459,7 @@ layer(makeLayer())((test) => {
 			yield* (yield* PluginCatalog).load(normalizedPlugin("hot"));
 			yield* service.dispatchDue(120_000);
 			expect((yield* yield* DispatchedRuns).map(({ executionId }) => executionId)).toEqual([
-				"plugin-cron-3-hot-8-hot-cron-120000",
+				"plugin-cron-6-hot-id-8-hot-cron-120000",
 			]);
 		}),
 	);
@@ -461,8 +492,8 @@ layer(gatedSelectionLayer([normalizedPlugin("fixture")]))((test) => {
 
 layer(
 	makeLayer({
-		failingExecutionId: "plugin-cron-7-missing-12-missing-cron-60000",
 		plugins: [normalizedPlugin("missing"), normalizedPlugin("working")],
+		failingExecutionId: "plugin-cron-10-missing-id-12-missing-cron-60000",
 	}),
 )((test) => {
 	test.effect("isolates unavailable and failed cron dispatches", () =>
@@ -470,7 +501,7 @@ layer(
 			const service = yield* PluginCronService;
 			yield* service.dispatchDue(60_000);
 			expect((yield* yield* DispatchedRuns).map(({ executionId }) => executionId)).toEqual([
-				"plugin-cron-7-working-12-working-cron-60000",
+				"plugin-cron-10-working-id-12-working-cron-60000",
 			]);
 		}),
 	);

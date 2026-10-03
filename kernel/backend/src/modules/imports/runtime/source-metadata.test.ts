@@ -1,8 +1,10 @@
 import { expect, it } from "@effect/vitest";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
+import { fixtureManifest } from "#modules/plugins/test-support";
 
 import {
 	buildImportInputSummary,
@@ -46,6 +48,11 @@ const registeredSource = (
 	pluginId: "example-plugin-id",
 	configuredPluginConfigKeys: [],
 	installationId: "example-installation",
+	packageId: fixtureManifest().metadata.packageId,
+	reference: {
+		slug: overrides.slug ?? "nu",
+		owner: { kind: "plugin", pluginId: PluginId.make("example-plugin-id") },
+	},
 	configContext: {
 		configSchema,
 		kind: "revision",
@@ -111,8 +118,8 @@ it.effect("returns only the visible required upload after schema parsing", () =>
 			},
 		});
 		const properties = yield* parseRegistryImportSourceInput(source, {
-			source: "nu",
 			mode: "history",
+			source: source.reference,
 			historyUploadToken: "history",
 		});
 
@@ -146,7 +153,7 @@ it.effect("rejects undeclared upload token fields before schema parsing", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			parseRegistryImportSourceInput(registeredSource(), {
-				source: "nu",
+				source: registeredSource().reference,
 				historyUploadToken: "not-even-a-token",
 			}),
 		);
@@ -158,7 +165,7 @@ it.effect("rejects reserved internal fields before schema parsing", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			parseRegistryImportSourceInput(registeredSource(), {
-				source: "nu",
+				source: registeredSource().reference,
 				integrationScriptSlug: "integration.spoofed",
 			}),
 		);
@@ -169,7 +176,7 @@ it.effect("rejects reserved internal fields before schema parsing", () =>
 it.effect("formats schema validation failures", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(registeredSource(), { source: "nu" }),
+			parseRegistryImportSourceInput(registeredSource(), { source: registeredSource().reference }),
 		);
 		expect(error).toContain("Import source input is invalid:");
 		expect(error).toContain("uploadToken");
@@ -206,9 +213,9 @@ it.effect("rejects explicit nulls that would leave every conditional upload abse
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			parseRegistryImportSourceInput(epsilonSource(), {
-				source: "epsilon",
 				primaryUploadToken: null,
 				secondaryUploadToken: null,
+				source: epsilonSource().reference,
 			}),
 		);
 		expect(error).toContain("primaryUploadToken is required");
@@ -220,7 +227,7 @@ it.effect("accepts a single conditional upload token and leaves the sibling null
 	Effect.gen(function* () {
 		const source = epsilonSource();
 		const properties = yield* parseRegistryImportSourceInput(source, {
-			source: "epsilon",
+			source: source.reference,
 			secondaryUploadToken: null,
 			primaryUploadToken: "primary",
 		});
@@ -235,7 +242,7 @@ it.effect("rejects an upload token carried as an object", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			parseRegistryImportSourceInput(registeredSource(), {
-				source: "nu",
+				source: registeredSource().reference,
 				uploadToken: { token: "nu", expiresAt: "2026-08-23T00:00:00.000Z" },
 			}),
 		);
@@ -247,7 +254,10 @@ it.effect("rejects an upload token carried as an object", () =>
 it.effect("rejects an empty required upload token", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			parseRegistryImportSourceInput(registeredSource(), { source: "nu", uploadToken: "" }),
+			parseRegistryImportSourceInput(registeredSource(), {
+				uploadToken: "",
+				source: registeredSource().reference,
+			}),
 		);
 		expect(error).toContain("uploadToken");
 	}),
@@ -257,9 +267,9 @@ it.effect("builds payload from decoded properties and replaces upload tokens wit
 	Effect.gen(function* () {
 		const source = registeredSource();
 		const properties = yield* parseRegistryImportSourceInput(source, {
-			source: "nu",
 			uploadToken: "nu",
 			profileName: "Kids",
+			source: source.reference,
 		});
 
 		expect(buildImportSourcePayload(properties, source)).toEqual({
@@ -288,7 +298,7 @@ it("names the environment keys of required keys missing from the environment con
 		requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
 	});
 	expect(registryImportSourceMissingConfigKeys(source)).toEqual([
-		"RYOT_PLUGIN_EXAMPLE_DELTA_API_KEY",
+		pluginConfigEnvironmentKey(source.packageId, "deltaApiKey"),
 	]);
 });
 

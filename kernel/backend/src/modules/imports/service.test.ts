@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { PluginId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -53,6 +53,8 @@ const source: RegisteredImportSource = {
 	requiredPluginConfigKeys: [],
 	configuredPluginConfigKeys: [],
 	installationId: "installation-1",
+	packageId: fixtureManifest().metadata.packageId,
+	reference: { slug: "fixture", owner: { kind: "plugin", pluginId: PluginId.make("plugin-1") } },
 	readinessMetadata: { scripts: [], workflows: [], oauthProviders: [], availableConfigKeys: [] },
 	configContext: {
 		kind: "revision",
@@ -222,7 +224,7 @@ const serviceCase = (
 			),
 		);
 		const exit = yield* Effect.flatMap(ImportsService, (service) =>
-			service.startImportRun(user, { apiKey: "secret", source: "fixture" }),
+			service.startImportRun(user, { apiKey: "secret", source: source.reference }),
 		).pipe(
 			Effect.exit,
 			Effect.provideContext(

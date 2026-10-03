@@ -134,9 +134,9 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					),
 				);
 
-			const redirectUri = (pluginSlug: string, oauthProviderSlug: string) =>
+			const redirectUri = (pluginId: string, oauthProviderSlug: string) =>
 				new URL(
-					`/api/oauth-connections/providers/${encodeURIComponent(pluginSlug)}/${encodeURIComponent(oauthProviderSlug)}/callback`,
+					`/api/oauth-connections/providers/${encodeURIComponent(pluginId)}/${encodeURIComponent(oauthProviderSlug)}/callback`,
 					frontendUrl,
 				).toString();
 
@@ -198,11 +198,12 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 				body: CreateOAuthConnectionBody,
 			) {
 				const providerNotFound = new OAuthConnectionRequestError({
-					reason: { code: "provider-not-found", provider: body.integrationProvider },
+					reason: { code: "provider-not-found", provider: body.integrationProvider.slug },
 				});
+				const reference = body.integrationProvider;
 				let registered: RegisteredIntegrationProvider | null;
 				if (body.integrationId === undefined) {
-					registered = yield* catalog.findForUser(user.id, body.integrationProvider);
+					registered = yield* catalog.findForUser(user.id, reference);
 				} else {
 					const integration = yield* repository.findIntegrationForUser(body.integrationId, user.id);
 					if (!integration) {
@@ -211,7 +212,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 						});
 					}
 					if (
-						integration.provider !== body.integrationProvider ||
+						integration.provider !== reference.slug ||
 						integration.pluginInstallationId === null
 					) {
 						return yield* providerNotFound;
@@ -221,6 +222,11 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 						integration.provider,
 						integration.pluginInstallationId,
 					);
+					if (
+						reference.owner.kind !== "plugin" ||
+						registered?.pluginId !== reference.owner.pluginId
+					)
+						{return yield* providerNotFound;}
 				}
 				if (!registered) {
 					return yield* providerNotFound;
@@ -266,7 +272,6 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					client: body.client,
 					stateHash: hashSecret(state),
 					oauthProviderSlug: provider.slug,
-					pluginSlug: registered.pluginSlug,
 					integrationProviderSlug: registered.slug,
 					pluginInstallationId: registered.installationId,
 					tokenUrlOrigin: new URL(provider.tokenUrl).origin,
@@ -284,7 +289,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					state,
 					response_type: "code",
 					client_id: credentials.clientId,
-					redirect_uri: redirectUri(registered.pluginSlug, provider.slug),
+					redirect_uri: redirectUri(registered.pluginId, provider.slug),
 				};
 				if (verifier !== null) {
 					parameters["code_challenge_method"] = "S256";
@@ -301,7 +306,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 
 			const callback = Effect.fn("OAuthConnectionsService.callback")(
 				function* (
-					path: { readonly pluginSlug: string; readonly oauthProviderSlug: string },
+					path: { readonly pluginId: string; readonly oauthProviderSlug: string },
 					query: OAuthConnectionCallbackQuery,
 				) {
 					const receivedAt = yield* now;
@@ -317,7 +322,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					const failed = returnLocation(pending.client, { connection: id, status: "failed" });
 					const fail = repository.markFailed({ id, from: "pending" }).pipe(Effect.as(failed));
 					if (
-						pending.pluginSlug !== path.pluginSlug ||
+						pending.pluginId !== path.pluginId ||
 						pending.oauthProviderSlug !== path.oauthProviderSlug ||
 						query.error !== undefined ||
 						query.code === undefined ||
@@ -331,7 +336,9 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 						pending.pluginInstallationId,
 					);
 					const provider =
-						registered?.pluginSlug === pending.pluginSlug
+						registered?.pluginId === path.pluginId &&
+						oauthConnectionFieldProvider(registered.settingsSchema, pending.field) ===
+							pending.oauthProviderSlug
 							? yield* findOAuthProvider(registered, pending.oauthProviderSlug)
 							: null;
 					if (!provider || (provider.issuer !== undefined && query.iss !== provider.issuer)) {
@@ -391,7 +398,9 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					claimed.pluginInstallationId,
 				);
 				const provider =
-					registered?.pluginSlug === claimed.pluginSlug
+					registered?.pluginId === claimed.pluginId &&
+					oauthConnectionFieldProvider(registered.settingsSchema, claimed.field) ===
+						claimed.oauthProviderSlug
 						? yield* findOAuthProvider(registered, claimed.oauthProviderSlug)
 						: null;
 				if (
@@ -421,7 +430,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 						code,
 						...(codeVerifier === undefined ? {} : { codeVerifier }),
 						grantType: "authorization_code",
-						redirectUri: redirectUri(claimed.pluginSlug, claimed.oauthProviderSlug),
+						redirectUri: redirectUri(registered.pluginId, claimed.oauthProviderSlug),
 					})
 					.pipe(Effect.catchTag("OAuthTokenEndpointError", () => exchangeFailed));
 				const connectedAt = yield* now;
@@ -525,7 +534,6 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 				);
 				if (
 					!provider ||
-					bound.installationPluginSlug !== bound.pluginSlug ||
 					oauthConnectionFieldProvider(provider.settingsSchema, input.field) !==
 						bound.oauthProviderSlug
 				) {

@@ -4,13 +4,17 @@ import type {
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
-import { Context, DateTime, Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { Context, DateTime, Effect, Layer, Option } from "effect";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { interruptWorkflowAndWait } from "#lib/infrastructure/workflow-interruption";
+import {
+	interruptWorkflowAndWait,
+	isWorkflowSettled,
+} from "#lib/infrastructure/workflow-interruption";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import type { PluginIngestionRetirementPolicy } from "#modules/plugins/ingestion-retirement";
 
 import { IngestionCaptures } from "./capture-service";
 import { ImportsRepository } from "./repository";
@@ -28,9 +32,47 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 			const engine = yield* WorkflowEngine;
 			const notifications = yield* WorkflowExecutionNotifications;
 			const catalogue = yield* AdmittedWorkflowCatalogue;
+			const canCleanup = Effect.fn("IngestionExecution.canCleanup")(function* (
+				scope: IngestionScope,
+			) {
+				const run = yield* repository.getIngestionRun(scope);
+				if (run?.failureReason?.code !== "package-identity-conflict") {
+					return true;
+				}
+				const instance = yield* Effect.serviceOption(WorkflowInstance);
+				const currentExecutionId = Option.isSome(instance) ? instance.value.executionId : null;
+				const owners = [
+					{
+						executionId: scope.runId,
+						workflowName:
+							run.integrationId === null
+								? "ProcessImportRunWorkflow"
+								: "ProcessIntegrationRunWorkflow",
+					},
+					...(yield* repository.listBatchExecutions(scope)),
+				];
+				for (const owner of owners) {
+					if (owner.executionId === currentExecutionId) {
+						continue;
+					}
+					const workflow = catalogue.find((entry) => entry._tag === owner.workflowName);
+					if (
+						!workflow ||
+						!(yield* isWorkflowSettled(workflow, owner.executionId).pipe(
+							Effect.provideService(WorkflowEngine, engine),
+						))
+					) {
+						return false;
+					}
+				}
+				return yield* captures.canCleanup(scope);
+			});
 			const cleanup = Effect.fn("IngestionExecution.cleanup")(function* (scope: IngestionScope) {
 				const run = yield* repository.getIngestionRun(scope);
 				if (!run || !["completed", "failed", "cancelled", "expired"].includes(run.status)) {
+					return;
+				}
+				if (!(yield* canCleanup(scope))) {
 					return;
 				}
 				yield* captures.cleanup(scope);
@@ -48,6 +90,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 				scope: IngestionScope;
 				status: "completed" | "failed" | "cancelled";
 				failureReason?: ImportRunFailureReason;
+				retirementPolicy?: PluginIngestionRetirementPolicy;
 				reconcile: (batch: IngestionBatch) => Effect.Effect<IngestionSummary, E, R>;
 				confirm?: (
 					batch: IngestionBatch,
@@ -57,8 +100,18 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 				if (!run) {
 					return false;
 				}
+				const policy: PluginIngestionRetirementPolicy =
+					input.retirementPolicy ??
+					(run.failureReason?.code === "package-identity-conflict"
+						? {
+								kind: "quarantine",
+								reason: { ...run.failureReason, code: "package-identity-conflict" },
+							}
+						: { kind: "removal" });
 				if (["completed", "failed", "cancelled", "expired"].includes(run.status)) {
-					yield* cleanup(input.scope);
+					if (policy.kind === "removal") {
+						yield* cleanup(input.scope);
+					}
 					return false;
 				}
 				const requestedStatus =
@@ -68,7 +121,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 						? "failed"
 						: input.status;
 				if (run.status === "cancelling" || requestedStatus !== "completed") {
-					yield* captures.stopWrites(input.scope);
+					yield* captures.stopWrites(input.scope, policy);
 					for (const owner of yield* repository.listBatchExecutions(input.scope)) {
 						if (owner.executionId === input.scope.runId) {
 							continue;
@@ -79,12 +132,12 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 								message: "Ingestion batch owner is not registered",
 							});
 						}
-						yield* interruptWorkflowAndWait(workflow, owner.executionId, {
-							requireReply: true,
-						}).pipe(
-							Effect.provideService(WorkflowEngine, engine),
-							Effect.provideService(WorkflowExecutionNotifications, notifications),
-						);
+						yield* policy.kind === "quarantine"
+							? engine.interrupt(workflow, owner.executionId)
+							: interruptWorkflowAndWait(workflow, owner.executionId, { requireReply: true }).pipe(
+									Effect.provideService(WorkflowEngine, engine),
+									Effect.provideService(WorkflowExecutionNotifications, notifications),
+								);
 					}
 				}
 				for (const { data } of yield* repository.listBatches(input.scope)) {
@@ -114,6 +167,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 										},
 									}
 								: {}),
+							...(policy.kind === "quarantine" ? { failureReason: policy.reason } : {}),
 						});
 					}),
 				);
@@ -122,14 +176,20 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 						scope: input.scope,
 						status: "cancelled",
 						finishedAt: yield* DateTime.nowAsDate,
+						...(policy.kind === "quarantine" ? { failureReason: policy.reason } : {}),
 					});
 				}
-				yield* cleanup(input.scope);
+				if (policy.kind === "removal") {
+					yield* cleanup(input.scope);
+				}
 				return settled;
 			});
 			const deleteReport = Effect.fn("IngestionExecution.deleteReport")(function* (
 				scope: IngestionScope,
 			) {
+				if (!(yield* canCleanup(scope))) {
+					return yield* new ImportRunError({ message: "Ingestion execution is still settling" });
+				}
 				yield* cleanup(scope);
 				return yield* database.transaction(
 					Effect.gen(function* () {

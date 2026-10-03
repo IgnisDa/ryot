@@ -98,9 +98,126 @@ const requestData = {
 		providerId: null,
 		populatedAt: null,
 		entitySchemaSlug: "record",
+		entitySchemaPluginId: null,
 	},
 } as const;
 const request = Schema.decodeSync(AutomationRequestPayload)(requestData);
+
+it.effect(
+	"replays captured kernel collection observer targets without changing plugin write ownership",
+	() =>
+		Effect.gen(function* () {
+			const target = {
+				resource: "event",
+				operation: "create",
+				owner: { kind: "kernel" },
+				eventSchemaSlug: "review",
+				entitySchemaSlug: "collection",
+			} as const;
+			const capturedTargets = [target];
+			const { owner: _owner, ...localTarget } = target;
+			const item = {
+				resource: "event",
+				category: "change",
+				operation: "create",
+				after: {
+					properties: {},
+					id: "kernel-event",
+					sessionEntityId: null,
+					entityId: "collection",
+					eventSchemaSlug: "review",
+					eventSchemaPluginId: null,
+					entitySchemaPluginId: null,
+					createdAt: trigger.occurredAt,
+					updatedAt: trigger.occurredAt,
+					occurredAt: trigger.occurredAt,
+					entitySchemaSlug: "collection",
+				},
+			};
+			const batch = yield* Schema.decodeUnknownEffect(AutomationTrigger)({
+				...trigger,
+				kind: { resource: "event", category: "change", operation: "batch" },
+				payload: {
+					resource: "event",
+					category: "change",
+					operation: "batch",
+					items: [
+						item,
+						{
+							...item,
+							after: {
+								...item.after,
+								id: "plugin-event",
+								eventSchemaPluginId: run.pluginId,
+								entitySchemaPluginId: run.pluginId,
+							},
+						},
+					],
+				},
+			});
+			const script = {
+				...afterScript,
+				inputProjection: { event: { properties: [], compareProperties: [] } },
+			};
+			const retained = yield* prepareAutomationInvocation(
+				run,
+				batch,
+				payload,
+				script,
+				accountGeneration,
+				undefined,
+				capturedTargets,
+			);
+			expect(retained).toMatchObject({
+				subject: { pluginId: run.pluginId, pluginRevisionId: run.pluginRevisionId },
+				input: {
+					automation: {
+						payload: {
+							items: [
+								{
+									after: {
+										id: "kernel-event",
+										eventSchemaPluginId: null,
+										entitySchemaPluginId: null,
+									},
+								},
+							],
+						},
+					},
+				},
+			});
+			const current = yield* prepareAutomationInvocation(
+				run,
+				batch,
+				payload,
+				script,
+				accountGeneration,
+				undefined,
+				[localTarget],
+			);
+			expect(current).toMatchObject({
+				subject: { pluginId: run.pluginId },
+				input: {
+					automation: {
+						payload: {
+							items: [{ after: { id: "plugin-event", eventSchemaPluginId: run.pluginId } }],
+						},
+					},
+				},
+			});
+			expect(
+				yield* prepareAutomationInvocation(
+					run,
+					batch,
+					payload,
+					script,
+					accountGeneration,
+					undefined,
+					capturedTargets,
+				),
+			).toEqual(retained);
+		}),
+);
 const requestTrigger = Schema.decodeSync(AutomationTrigger)({
 	...trigger,
 	payload: request,

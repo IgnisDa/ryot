@@ -3,13 +3,10 @@ import { Layer } from "effect";
 import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import { EventsRepository } from "#modules/events/repository";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 import { PluginRepositoryLive } from "#modules/plugins/repository-layer";
-import { RelationshipSchemasRepositoryLive } from "#modules/relationship-schemas/layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
-import { SignalSchemasRepositoryLive } from "#modules/signals/layer";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationExecutionOperationsLive, LifecycleExecutionLive } from "./execution";
@@ -106,11 +103,8 @@ export const SignalEmissionServiceLive = SignalEmissionService.layer.pipe(
 		Layer.mergeAll(
 			LifecycleServicesLive,
 			AutomationTriggerRepository.layer,
-			SignalSchemasRepositoryLive,
 			EntitiesRepositoryLive,
-			EventsRepository.layer,
 			RelationshipsRepository.layer,
-			RelationshipSchemasRepositoryLive,
 		),
 	),
 	Layer.provide(PluginRepositoryLive),

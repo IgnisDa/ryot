@@ -2,11 +2,11 @@ import {
 	AutomationConflictError,
 	AutomationNotFoundError,
 } from "@ryot-app/contract/modules/automations/schemas";
-import type {
-	NotificationSubscriptionId,
-	SignalSchemaSlug,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import {
+	definitionOwner,
+	type SignalSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import type { NotificationSubscriptionId, UserId } from "@ryot-app/contract/schema/brands";
 import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -34,12 +34,10 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 			const resolveStateSignalSchema = Effect.fn(function* (state: StoredNotificationSubscription) {
 				const definition = yield* definitions.findUserSignalSchema(
 					state.userId,
-					state.signalSchemaSlug,
+					{ slug: state.signalSchemaSlug, owner: definitionOwner(state.signalSchemaPluginId) },
 					{ listed: true },
 				);
-				return (definition?.pluginId ?? null) === (state.signalSchemaPluginId ?? null)
-					? definition
-					: undefined;
+				return definition?.pluginId === state.signalSchemaPluginId ? definition : undefined;
 			});
 
 			const loadRule = Effect.fn("NotificationSubscriptionsService.loadRule")(function* (input: {
@@ -62,36 +60,30 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 			});
 
 			const installRule = Effect.fn("NotificationSubscriptionsService.installRule")(
-				function* (input: { userId: UserId; signalSchemaSlug: SignalSchemaSlug }) {
+				function* (input: { userId: UserId; signalSchema: SignalSchemaReference }) {
 					return yield* session
 						.transaction(
 							Effect.gen(function* () {
 								const signalSchema = yield* definitions.findUserSignalSchema(
 									input.userId,
-									input.signalSchemaSlug,
+									input.signalSchema,
 								);
 								if (signalSchema?.catalogState !== "active") {
 									return yield* new AutomationNotFoundError({
-										reason: {
-											code: "signal-schema-not-found",
-											signalSchemaSlug: input.signalSchemaSlug,
-										},
+										reason: { code: "signal-schema-not-found", signalSchema: input.signalSchema },
 									});
 								}
 								const state = yield* repository.insertNotificationSubscription({
 									metadata: null,
 									isActive: true,
 									userId: input.userId,
-									signalSchemaSlug: input.signalSchemaSlug,
-									signalSchemaPluginId: signalSchema.pluginId ?? null,
+									signalSchemaSlug: input.signalSchema.slug,
+									signalSchemaPluginId: signalSchema.pluginId,
 								});
 								return state
 									? { id: state.id }
 									: yield* new AutomationConflictError({
-											reason: {
-												code: "rule-already-installed",
-												signalSchemaSlug: input.signalSchemaSlug,
-											},
+											reason: { code: "rule-already-installed", signalSchema: input.signalSchema },
 										});
 							}),
 						)
@@ -107,7 +99,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 							userId,
 							metadata: null,
 							isActive: true,
-							signalSchemaPluginId: signalSchema.pluginId ?? null,
+							signalSchemaPluginId: signalSchema.pluginId,
 							signalSchemaSlug: SignalSchemaSlugBrand.make(signalSchema.slug),
 						});
 					}

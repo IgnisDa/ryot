@@ -13,6 +13,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { CollectionsService } from "#modules/collections/service";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
@@ -22,6 +23,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { fixtureManifest } from "#modules/plugins/test-support";
 import { EntityImportWorkflowOperations } from "#modules/provider-entities/operations-workflow";
 import { RelationshipsService } from "#modules/relationships/service";
 
@@ -35,8 +37,10 @@ import {
 	ingestionTestNow,
 	ingestionTestRun,
 	ingestionTestScope,
+	ingestionTestSource,
 } from "./ingestion.test-support";
 import { ImportsRepository } from "./repository";
+import { ImportSourceStateStore } from "./runtime/source-state-store";
 
 const command = rootLifecycleCommand({
 	source: "import",
@@ -48,7 +52,27 @@ const command = rootLifecycleCommand({
 	initiator: { kind: "user", id: ingestionTestScope.userId },
 	executionId: AutomationExecutionId.make(ingestionTestScope.runId),
 });
-const applyCase = (chunk: GenericImportChunk, cancelled = false) =>
+const domainCommand = {
+	...command,
+	writeContext: {
+		providerId: null,
+		contentHash: "hash",
+		scriptSlug: "fixture",
+		scriptId: ingestionTestSource.workflowScriptId,
+		pluginRevision: ingestionTestSource.pluginRevision,
+		metadata: { runtimeImports: [], kind: "workflow" as const },
+		subject: {
+			type: "user" as const,
+			userId: ingestionTestScope.userId,
+			accountGeneration: ingestionTestScope.accountGeneration,
+		},
+	},
+};
+const applyCase = (
+	chunk: GenericImportChunk,
+	cancelled = false,
+	pluginRevision: SandboxPluginRevision = ingestionTestSource.pluginRevision,
+) =>
 	Effect.gen(function* () {
 		const batches = new Map<string, IngestionBatch>();
 		const outcomes = new Map<string, IngestionOutcome>();
@@ -59,7 +83,30 @@ const applyCase = (chunk: GenericImportChunk, cancelled = false) =>
 			ingestionTestDatabase(),
 			Layer.mock(LifecycleExecution)({}),
 			Layer.mock(EventsService)({}),
-			Layer.mock(PluginRuntimeResolver)({}),
+			Layer.mock(PluginRuntimeResolver)({
+				findPluginAvailableToUser: () =>
+					Effect.succeed({
+						id: "plugin-1",
+						slug: "fixture",
+						health: "ready",
+						isHidden: false,
+						scope: "system",
+						ownerUserId: null,
+						clientImports: [],
+						healthReason: null,
+						sourceHash: "hash",
+						compiledHashes: {},
+						incompatibilityReason: null,
+						manifest: fixtureManifest(),
+						pluginRevisionId: "revision-1",
+						installationId: "installation-1",
+						pluginConfigRevisionId: "config-1",
+						packageId: ingestionTestSource.pluginRevision.packageId,
+					}),
+			}),
+			Layer.mock(ImportSourceStateStore)({
+				load: () => Effect.succeed({ ...ingestionTestSource, files: {}, pluginRevision }),
+			}),
 			Layer.mock(EntityImportWorkflowOperations)({}),
 			Layer.succeed(
 				WorkflowInstance,
@@ -114,7 +161,7 @@ const applyCase = (chunk: GenericImportChunk, cancelled = false) =>
 					}),
 			}),
 			Layer.mock(DefinitionRepository)({
-				getUserSnapshot: () =>
+				getSnapshotForContext: () =>
 					Effect.sync(() => {
 						definitionReads++;
 						return buildDefinitionSnapshot(kernelDefinitionSource());
@@ -127,7 +174,6 @@ const applyCase = (chunk: GenericImportChunk, cancelled = false) =>
 		);
 		const payload = {
 			...ingestionTestScope,
-			command,
 			ordinal: 0,
 			batchId: "batch",
 			captureId: "capture",
@@ -135,6 +181,10 @@ const applyCase = (chunk: GenericImportChunk, cancelled = false) =>
 			inputFingerprint: "fingerprint",
 			artifactOwnerExecutionId: "run-1-import",
 			artifactReferenceExecutionId: "batch-owner",
+			command: {
+				...domainCommand,
+				writeContext: { ...domainCommand.writeContext, pluginRevision },
+			},
 		};
 		const first = yield* runProcessGenericImportChunksWorkflow(payload, "batch-owner").pipe(
 			Effect.provideContext(yield* Layer.build(dependencies)),
@@ -194,6 +244,103 @@ it.effect("returns an empty applied batch without settling or sealing its root",
 		const result = yield* applyCase({ items: [], failures: [] });
 		expect(result.first).toEqual({ issues: [], summary: [], confirmed: [] });
 		expect(result.batches.get("batch")?.state).toBe("applied");
+	}),
+);
+
+it.effect("cannot use a kernel same-name schema through a plugin generic-import child", () =>
+	Effect.gen(function* () {
+		const result = yield* applyCase(
+			{
+				failures: [],
+				items: [
+					{
+						events: [],
+						itemIndex: 0,
+						relationships: [],
+						recordId: "foreign",
+						sourceLabel: "Import",
+						sourceIdentifier: "foreign",
+						subjectEntityAlias: "entity",
+						entities: [
+							{
+								properties: {},
+								alias: "entity",
+								name: "Collection",
+								operationId: "foreign-entity",
+								entitySchemaSlug: "collection",
+								outcome: { unit: "entities", recordKind: "entity" },
+							},
+						],
+					},
+				],
+			},
+			false,
+			{
+				...ingestionTestSource.pluginRevision,
+				schemaScope: {
+					...ingestionTestSource.pluginRevision.schemaScope,
+					entitySchemaSlugs: ["collection"],
+				},
+			},
+		);
+		expect(result.first.confirmed).toEqual([]);
+		expect(result.first.summary).toEqual([
+			{
+				unit: "entities",
+				recordKind: "entity",
+				counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
+			},
+		]);
+	}),
+);
+
+it.effect("rejects private global entity intents through the generic-import helper", () =>
+	Effect.gen(function* () {
+		const result = yield* applyCase(
+			{
+				failures: [],
+				items: [
+					{
+						events: [],
+						itemIndex: 0,
+						relationships: [],
+						recordId: "global",
+						sourceLabel: "Import",
+						sourceIdentifier: "global",
+						subjectEntityAlias: "entity",
+						entities: [
+							{
+								properties: {},
+								alias: "entity",
+								scope: "global",
+								name: "Collection",
+								operationId: "global-entity",
+								entitySchemaSlug: "collection",
+								outcome: { unit: "entities", recordKind: "entity" },
+							},
+						],
+					},
+				],
+			},
+			false,
+			{
+				...ingestionTestSource.pluginRevision,
+				scope: "user",
+				ownerId: ingestionTestScope.userId,
+				schemaScope: {
+					...ingestionTestSource.pluginRevision.schemaScope,
+					entitySchemaSlugs: ["collection"],
+				},
+			},
+		);
+		expect(result.first.confirmed).toEqual([]);
+		expect(result.first.summary).toEqual([
+			{
+				unit: "entities",
+				recordKind: "entity",
+				counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
+			},
+		]);
 	}),
 );
 it.effect("keeps original event attribution when preparation fails a grouped item", () =>

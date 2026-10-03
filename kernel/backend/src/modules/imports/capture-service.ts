@@ -1,8 +1,8 @@
-import type { IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
+import type { IngestionRun, IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, FileSystem, Layer } from "effect";
+import { Context, Effect, FileSystem, Layer, Option } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -12,6 +12,7 @@ import { interruptWorkflowAndWait } from "#lib/infrastructure/workflow-interrupt
 import { ActivityBody } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import type { PluginIngestionRetirementPolicy } from "#modules/plugins/ingestion-retirement";
 import {
 	IngestionPayloads,
 	ingestionPayloadDigest,
@@ -20,6 +21,14 @@ import {
 import { ProcessIngestionCaptureWorkflow, captureWriteExecutionId } from "./capture-write-workflow";
 import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
+
+const inactiveCaptureOwner = (run: IngestionRun | null) =>
+	new ImportRunError({
+		message: "Ingestion capture owner is not active",
+		...(run?.failureReason?.code === "package-identity-conflict"
+			? { reason: run.failureReason }
+			: {}),
+	});
 
 export class IngestionCaptures extends Context.Service<IngestionCaptures>()("IngestionCaptures", {
 	make: Effect.gen(function* () {
@@ -67,7 +76,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			}
 			const run = yield* repository.getIngestionRun(input.scope);
 			if (!run || !["pending", "blocked", "running"].includes(run.status)) {
-				return yield* new ImportRunError({ message: "Ingestion capture owner is not active" });
+				return yield* inactiveCaptureOwner(run);
 			}
 			if (input.bytes.byteLength > input.maxBytes) {
 				return yield* new ImportRunError({ message: "Ingestion capture exceeds its byte limit" });
@@ -137,7 +146,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			}
 			const run = yield* repository.getIngestionRun(input.scope);
 			if (!run || !["pending", "blocked", "running"].includes(run.status)) {
-				return yield* new ImportRunError({ message: "Ingestion capture owner is not active" });
+				return yield* inactiveCaptureOwner(run);
 			}
 			const reservation = yield* repository.getPayloadReservation(input.scope, input.id);
 			if (!reservation) {
@@ -175,6 +184,10 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			outputIndex: number;
 			bytes: Uint8Array;
 		}) {
+			const run = yield* repository.getIngestionRun(input.scope);
+			if (!run || !["pending", "blocked", "running"].includes(run.status)) {
+				return yield* inactiveCaptureOwner(run);
+			}
 			if (input.bytes.byteLength > 4 * 1024 * 1024) {
 				return yield* new ImportRunError({ message: "Staged artifact exceeds its byte limit" });
 			}
@@ -245,10 +258,10 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			yield* fs.writeFile(path, bytes);
 			return path;
 		});
-		const stopWrites = Effect.fn("IngestionCaptures.stopWrites")(function* (input: {
-			userId: IngestionScope["userId"];
-			runId?: IngestionScope["runId"];
-		}) {
+		const stopWrites = Effect.fn("IngestionCaptures.stopWrites")(function* (
+			input: { userId: IngestionScope["userId"]; runId?: IngestionScope["runId"] },
+			policy: PluginIngestionRetirementPolicy = { kind: "removal" },
+		) {
 			for (const { runId, reservation, accountGeneration } of yield* database.transaction(
 				repository.stopPayloadWrites(input),
 			)) {
@@ -261,13 +274,29 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 					continue;
 				}
 				const executionId = captureWriteExecutionId(scope, reservation.id);
-				yield* interruptWorkflowAndWait(ProcessIngestionCaptureWorkflow, executionId, {
-					requireReply: true,
-				}).pipe(
-					Effect.provideService(WorkflowEngine, engine),
-					Effect.provideService(WorkflowExecutionNotifications, notifications),
-				);
+				yield* policy.kind === "quarantine"
+					? engine.interrupt(ProcessIngestionCaptureWorkflow, executionId)
+					: interruptWorkflowAndWait(ProcessIngestionCaptureWorkflow, executionId, {
+							requireReply: true,
+						}).pipe(
+							Effect.provideService(WorkflowEngine, engine),
+							Effect.provideService(WorkflowExecutionNotifications, notifications),
+						);
 			}
+		});
+		const canCleanup = Effect.fn("IngestionCaptures.canCleanup")(function* (scope: IngestionScope) {
+			for (const { reservation } of yield* repository.listPayloadReservations(scope)) {
+				if (reservation.writeStarted && !reservation.released) {
+					const result = yield* engine.poll(
+						ProcessIngestionCaptureWorkflow,
+						captureWriteExecutionId(scope, reservation.id),
+					);
+					if (Option.isNone(result) || result.value._tag !== "Complete") {
+						return false;
+					}
+				}
+			}
+			return true;
 		});
 		const cleanup = Effect.fn("IngestionCaptures.cleanup")(function* (scope: IngestionScope) {
 			const run = yield* repository.getIngestionRun(scope);
@@ -326,6 +355,10 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 					message: "Ingestion recovery must be dispatched by its workflow body",
 				});
 			}
+			const run = yield* repository.getIngestionRun(scope);
+			if (!run || !["pending", "blocked", "running"].includes(run.status)) {
+				return yield* inactiveCaptureOwner(run);
+			}
 			for (const { reservation } of yield* repository.listPayloadReservations(scope)) {
 				if (
 					!reservation.released &&
@@ -345,6 +378,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 			publish,
 			cleanup,
 			recover,
+			canCleanup,
 			stopWrites,
 			readStaged,
 			materialize,

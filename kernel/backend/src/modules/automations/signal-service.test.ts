@@ -1,7 +1,13 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginSignalAudiencePolicy } from "@ryot-app/contract/modules/plugins/manifest";
-import { AutomationExecutionId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	AutomationExecutionId,
+	EntityId,
+	SignalSchemaSlug,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { describe } from "vitest";
@@ -20,9 +26,7 @@ import {
 	revisionPackage,
 	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
-import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 
 import { LifecyclePlannerServiceLive } from "./layer";
 import { withLifecycleBatchPlanning, withLifecycleDispatch } from "./lifecycle.test-support";
@@ -32,8 +36,8 @@ import { AutomationTriggerRepository } from "./trigger-repository";
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
 const subjectEntityId = EntityId.make("subject");
-const command = (itemIdentity = "signal") =>
-	rootLifecycleCommand({
+const command = (itemIdentity = "signal") => ({
+	...rootLifecycleCommand({
 		itemIdentity,
 		source: "api",
 		lane: "interactive",
@@ -41,14 +45,17 @@ const command = (itemIdentity = "signal") =>
 		initiator: { id: owner, kind: "user" },
 		executionId: AutomationExecutionId.make("emit"),
 		accountGeneration: { userId: owner, token: "test-account-generation" },
-	});
-const input = {
-	subjectEntityId,
-	command: command(),
-	schemaSlug: "fixture.signal",
-	properties: { value: "first" },
-	principal: { kind: "user", userId: owner },
-} as const;
+	}),
+	writeContext: null,
+});
+const input = (pluginId: string) =>
+	({
+		subjectEntityId,
+		command: command(),
+		properties: { value: "first" },
+		principal: { kind: "user", userId: owner },
+		reference: { owner: definitionOwner(pluginId), slug: SignalSchemaSlug.make("fixture.signal") },
+	}) as const;
 const privateSignalPackage = (slug: string) => {
 	const value = revisionPackage(slug);
 	return {
@@ -158,8 +165,6 @@ const setup = (
 const dependencies = Layer.mergeAll(
 	EntitiesRepository.layer,
 	RelationshipsRepository.layer,
-	RelationshipSchemasRepository.layer,
-	SignalSchemasRepository.layer,
 	AutomationTriggerRepository.layer,
 );
 const plannerLayer = LifecyclePlannerServiceLive.pipe(Layer.provide(makeAppConfigLayer()));
@@ -207,11 +212,11 @@ describe("Signal emission PostgreSQL", () => {
 			"keeps original recipients and pinned runs after audience changes, and rejects payload reuse",
 			() =>
 				Effect.gen(function* () {
-					yield* setup();
+					const pluginId = yield* setup();
 					const service = yield* SignalEmissionService;
 					yield* (yield* DatabaseSession).run((db) =>
 						Effect.gen(function* () {
-							const first = yield* service.emitSignal(input);
+							const first = yield* service.emitSignal(input(pluginId));
 							expect(first.wasCreated).toBe(true);
 							expect(
 								(yield* db.select().from(tables.automationRun))
@@ -224,7 +229,10 @@ describe("Signal emission PostgreSQL", () => {
 								.update(tables.user)
 								.set({ disabledAt: DateTime.toDate(yield* DateTime.now) })
 								.where(eq(tables.user.id, recipient));
-							expect(yield* service.emitSignal(input)).toEqual({ ...first, wasCreated: false });
+							expect(yield* service.emitSignal(input(pluginId))).toEqual({
+								...first,
+								wasCreated: false,
+							});
 							expect(
 								(yield* db.select().from(tables.automationTriggerRecipient))
 									.map((row) => row.userId)
@@ -233,7 +241,7 @@ describe("Signal emission PostgreSQL", () => {
 							expect(yield* db.select().from(tables.automationRun)).toHaveLength(2);
 							assertExitFails(
 								yield* service
-									.emitSignal({ ...input, properties: { value: "different" } })
+									.emitSignal({ ...input(pluginId), properties: { value: "different" } })
 									.pipe(Effect.exit),
 								new DbError({
 									message: `Automation trigger identity conflict: ${first.triggerId}`,
@@ -248,11 +256,11 @@ describe("Signal emission PostgreSQL", () => {
 	layer(signalLayer())((test) => {
 		test.effect("excludes disabled actors and recipients from new plans", () =>
 			Effect.gen(function* () {
-				yield* setup();
+				const pluginId = yield* setup();
 				yield* (yield* DatabaseSession).run((db) =>
 					Effect.gen(function* () {
 						yield* db.update(tables.user).set({ disabledAt: DateTime.toDate(yield* DateTime.now) });
-						const result = yield* (yield* SignalEmissionService).emitSignal(input);
+						const result = yield* (yield* SignalEmissionService).emitSignal(input(pluginId));
 						expect(result.wasCreated).toBe(true);
 						expect(yield* db.select().from(tables.automationTrigger)).toHaveLength(1);
 						expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
@@ -305,9 +313,12 @@ describe("Signal emission PostgreSQL", () => {
 						]);
 
 						const result = yield* (yield* SignalEmissionService).emitSignal({
-							...input,
-							schemaSlug: "shared.signal",
+							...input(actorPlugin.pluginId),
 							command: command("private-signal"),
+							reference: {
+								owner: definitionOwner(actorPlugin.pluginId),
+								slug: SignalSchemaSlug.make("shared.signal"),
+							},
 						});
 						expect(result.wasCreated).toBe(true);
 						expect(yield* db.select().from(tables.automationRun)).toMatchObject([
@@ -333,11 +344,11 @@ describe("Signal emission PostgreSQL", () => {
 			"rolls back trigger, recipients and runs when planning fails, without starting execution",
 			() =>
 				Effect.gen(function* () {
-					yield* setup();
+					const pluginId = yield* setup();
 					yield* (yield* DatabaseSession).run((db) =>
 						Effect.gen(function* () {
 							assertExitFails(
-								yield* (yield* SignalEmissionService).emitSignal(input).pipe(Effect.exit),
+								yield* (yield* SignalEmissionService).emitSignal(input(pluginId)).pipe(Effect.exit),
 								planningFailure,
 							);
 							expect(yield* db.select().from(tables.automationTrigger)).toEqual([]);

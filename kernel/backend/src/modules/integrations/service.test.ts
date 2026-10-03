@@ -5,7 +5,12 @@ import {
 	integrationCommonSchema,
 	integrationCommonPropertyNames,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import { IntegrationWebhookToken, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	IntegrationWebhookToken,
+	PluginId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -31,6 +36,7 @@ import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
 } from "#modules/plugins/integration-provider-catalog";
+import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { IntegrationIngestion } from "./ingestion";
 import { IntegrationsRepository, type IntegrationRecord } from "./repository";
@@ -54,8 +60,13 @@ const systemPlugin = (pluginSlug: string) =>
 		pluginSlug,
 		pluginScope: "system",
 		pluginId: `${pluginSlug}-plugin-id`,
+		packageId: fixtureManifest().metadata.packageId,
 		installationId: `${pluginSlug}-installation-id`,
 		readinessMetadata: { scripts: [], workflows: [], oauthProviders: [], availableConfigKeys: [] },
+		reference: {
+			slug: pluginSlug,
+			owner: { kind: "plugin", pluginId: PluginId.make(`${pluginSlug}-plugin-id`) },
+		},
 		configContext: {
 			kind: "revision",
 			ownerUserId: null,
@@ -407,8 +418,8 @@ describe("create", () => {
 		test.effect("returns only the id without fetching client detail after persisting secrets", () =>
 			Effect.gen(function* () {
 				const result = yield* (yield* IntegrationsService).create(user, {
-					provider: pushProvider.slug,
 					providerSpecifics: { token: "create-secret" },
+					provider: { ...pushProvider.reference, slug: pushProvider.slug },
 				});
 				expect(result).toEqual({ id: makeIntegration().id });
 				expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)?.input).toEqual({
@@ -446,7 +457,10 @@ describe("create", () => {
 			Effect.gen(function* () {
 				const service = yield* IntegrationsService;
 				const exit = yield* Effect.exit(
-					service.create(user, { provider: "pro-sink", providerSpecifics: {} }),
+					service.create(user, {
+						providerSpecifics: {},
+						provider: { ...proSinkProvider.reference, slug: "pro-sink" },
+					}),
 				);
 
 				assertExitFails(

@@ -432,7 +432,12 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 						Effect.gen(function* () {
 							yield* db
 								.insert(plugin)
-								.values({ id: "plugin", slug: "fixture", status: "inactive" });
+								.values({
+									id: "plugin",
+									slug: "fixture",
+									status: "inactive",
+									packageId: fixtureManifest().metadata.packageId,
+								});
 							yield* db
 								.insert(pluginRevision)
 								.values({
