@@ -1,6 +1,7 @@
 # Sandbox Isolate Runtime Plan
 
-**Status:** S1 is ready to implement; S2–S6 are reviewed and approved one at a time before they start.
+**Status:** S1 is implemented in `kernel/sandboxd` (see [S1 results](#s1-results)); S2–S6 are reviewed
+and approved one at a time before they start.
 Replaces the single-use Deno process per replay with V8 isolates hosted by long-lived, OS-confined
 native sidecars.
 
@@ -75,6 +76,9 @@ object URLs reach ops that copy data into Rust memory outside every limit.
   setting for deployments where untrusted users share an instance.
 - **Snapshot tiers:** the compiler already knows each script's runtime imports. Each script is paired
   with the smallest kernel-built snapshot covering them, so most scripts avoid youtubei and cheerio.
+- **Snapshot tiers are separate processes.** The prebuilt V8 shares one read-only heap per process, so
+  isolates restored from different snapshots cannot coexist in one process. S6's V8 sandbox also
+  requires a shared read-only heap, so this stays.
 - **TurboFan disabled** (`--no-turbofan`). `TerminateExecution` does not interrupt TurboFan-optimized
   loops that call builtins such as `Array.prototype.fill`; pure `rusty_v8` repro:
   [denoland/rusty_v8#2088](https://github.com/denoland/rusty_v8/issues/2088). Maglev remains enabled and
@@ -102,6 +106,12 @@ object URLs reach ops that copy data into Rust memory outside every limit.
   work is admitted first, with a reserved background share.
 
 ## Architecture
+
+### Process topology
+
+One sidecar process runs per trust tier × snapshot tier, each with its own memory budget. A sidecar
+loads exactly one snapshot and rejects runs for any other tier. `core` sidecars stay resident; `data`
+and `full` sidecars start lazily and stop after an idle period.
 
 ### Sidecar isolate surface
 
@@ -154,7 +164,7 @@ production fails closed when confinement cannot be applied; macOS development ru
 ### Protocol
 
 One inherited socketpair per sidecar with length-framed messages: run, host call, host result,
-cancel, and done. Every frame carries the sidecar generation, an opaque execution handle assigned by
+cancel, and done, plus ready, draining, and fatal lifecycle frames and part frames for chunking. Every frame carries the sidecar generation, an opaque execution handle assigned by
 the backend, and a call sequence. Per-type size caps are checked before allocation on both sides;
 large payloads are chunked so one execution cannot block the connection. Frames for unknown or retired
 handles are dropped, results are delivered at most once, and late frames after cancel are discarded.
@@ -345,7 +355,7 @@ Each slice is approved separately. S3–S6 are outlines until their predecessor 
     a stub host answers; every compiled backend module in the built `media` and `fitness` archives
     evaluates on its covering tier; on `full`, a youtubei client is constructed against fixture
     responses served through stub `httpCall` results; a module importing outside its tier is rejected
-    at resolution.
+    at resolution; a sidecar rejects runs for any tier other than its own.
   - _Surface:_ the op inventory matches the allowlist; every absent global is absent; every `console`
     method reaches the per-execution collector and nothing reaches stderr; `performance.now` is coarsened
     in user-tier mode; two isolates produce different random sequences.
@@ -378,6 +388,43 @@ Each slice is approved separately. S3–S6 are outlines until their predecessor 
 - **Stops:** prebuilt V8 unavailable for a required target; the runtime payload needs a global or op
   that cannot be metered; snapshot restore fails beyond the known workarounds.
 
+#### S1 results
+
+Every acceptance item has a named, passing test in `kernel/sandboxd/tests/` (and
+`sidecar-protocol.test.ts` for the TypeScript side). `bun run check` and
+`bun turbo --filter='!@ryot-app/e2e' test` are clean; the sidecar suites pass on macOS arm64 and Linux
+arm64, where the confinement suite runs.
+
+| Area                    | Tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Execution               | `each_tier_runs_its_fixture_module`, `host_calls_are_answered_by_the_stub_host`, `plugin_archive_modules_evaluate_on_their_covering_tier` (219 modules), `youtubei_client_is_constructed_through_http_call_host_calls`, `imports_outside_the_tier_are_rejected_at_resolution`, `runs_for_any_other_tier_are_rejected`                                                                                                                                                                                                                                                                                                                               |
+| Surface                 | `op_inventory_matches_allowlist`, `absent_globals_are_absent`, `every_console_method_reaches_the_collector`, `console_output_never_reaches_stderr`, `performance_now_is_coarsened_in_the_user_tier`, `isolates_produce_different_random_sequences`                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Limits                  | `loops_and_fill_loops_are_stopped_at_the_cpu_limit`, `heap_growth_is_stopped_at_the_heap_limit`, `array_buffers_and_external_memory_are_contained`, `termination_escalates_with_the_culprit_reported_before_exit`, `uninterruptible_allocation_escalates_with_the_culprit_reported_before_exit`, `a_stopped_run_waiting_for_a_cpu_slot_is_not_escalated`, `deadlines_expire_while_host_call_waits_do_not_count`, `crash_probes_do_not_crash_the_process`, `oversized_results_and_host_arguments_fail_inside_the_heap`, `script_errors_and_results_stay_bounded_before_reaching_rust`, `ext_data_file_and_remote_imports_are_rejected_at_resolution` |
+| Admission and lifecycle | `v8_platform_pool_is_capped`, `the_cpu_active_cap_queues_excess_runs_but_not_parked_ones`, `the_memory_budget_queues_excess_runs`, `background_lane_threads_run_at_lower_priority`, `the_sidecar_drains_and_restarts_at_its_execution_count`, `the_sidecar_drains_and_restarts_at_its_rss_threshold`                                                                                                                                                                                                                                                                                                                                                |
+| Integrity               | `startup_rejects_a_snapshot_whose_digest_does_not_match`, `a_run_whose_module_hash_does_not_match_fails`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Protocol                | `protocol_fixtures_conform`, `forged_retired_and_foreign_generation_frames_are_dropped`, `late_frames_after_cancel_are_discarded`, `duplicate_results_are_dropped`, `read_frame_rejects_oversize_lengths_before_reading_the_payload`, `oversize_frames_are_rejected_before_allocation_and_desync_restarts_the_sidecar`, `a_well_framed_invalid_payload_fails_only_its_execution`, `bounded_queues_apply_backpressure`, `a_chunked_large_payload_does_not_delay_another_executions_frames`, `interleaved_executions_are_attributed_correctly`                                                                                                        |
+| Confinement (Linux)     | `confinement_denies_files_sockets_and_dangerous_syscalls`, `the_sidecar_serves_while_confined_with_an_empty_environment`, `startup_fails_when_confinement_cannot_be_applied`                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| Build caching           | the `sandboxd.yml` step that deletes the payload and replays it from the turbo cache                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+
+- **Benchmark** on the reference host (x86_64, 2 vCPU, 3.8 GB, Ubuntu 26.04): `core` no-op p50 7.10 ms,
+  6.36 MiB per execution across 50 live isolates; sidecar RSS 51.6 MiB idle, 369.7 MiB with 50 isolates.
+- **S6 measurement:** with the counting allocator cap raised to its maximum, V8's heap and
+  external-memory accounting still stopped retained ArrayBuffer growth
+  (`v8_accounting_stops_array_buffer_growth_without_the_allocator_cap`).
+- **Deviations from this plan:**
+  - Snapshot tiers run as separate processes (see [Decisions](#decisions)).
+  - The protocol adds `ready`, `draining`, `fatal` (naming the culprit), and `part` frames.
+  - The deadline excludes time waiting on host calls.
+  - The `full` tier also installs `EventTarget`, `Event`, `CustomEvent`, and `crypto.subtle.digest`,
+    which youtubei needs while loading.
+  - V8 runs with `--single-threaded`, so GC and compilation stay on the metered isolate thread; the
+    platform pool keeps deno_core's cap of min(cores, 4).
+  - Each lane has its own worker pool, because an unprivileged thread cannot raise its priority back.
+  - V8 builtins that never check for termination, such as `fill` on a huge sparse array or one giant
+    `replaceAll`, cannot be stopped in-process; they end in the attributed exit (fatal frame, exit 70).
+- **Not yet verified:** the `sandboxd.yml` CI workflow has not run on GitHub, and the confinement suite has
+  not run on x86_64.
+
 ### S2 — Backend integration
 
 - **Outcome:** every sandbox execution runs through `ryot-sandboxd`; the Deno path is deleted.
@@ -388,6 +435,8 @@ Each slice is approved separately. S3–S6 are outlines until their predecessor 
   - runner bootstrap port: definition invocation, input and output validation, durable replay;
   - per-script tier selection from compiler-derived runtime imports;
   - tier routing from the execution principal;
+  - routing runs on trust tier × snapshot tier, with lazy start and idle stop of `data` and `full`
+    sidecars;
   - a global execution bound and memory-budget admission preserving database pool headroom;
   - building `ryot-sandboxd` and its snapshots in the single-arch image and in the local build used by
     backend tests and e2e, with the sidecar UID so confinement applies;
@@ -444,7 +493,15 @@ S2, when workflow-engine rows become the dominant per-import cost.
 - S6: V8 sandbox and pointer compression on a source-built V8.
 - Fan-out reduction track after S2.
 - Switch the user tier to per-user sidecars if a deployment hosts mutually untrusted users.
-- Add `kernel/sandboxd` to the ownership list in the root `AGENTS.md` when the crate lands.
+- S2 must keep each lane's outstanding runs within its threads plus queue: the sidecar stops reading
+  while a lane queue is full, which also holds back host results and cancels.
+- A worker panic drops its run without a done frame; abort on panic or finish the run.
+- Deny the x32 syscall ABI in the x86_64 seccomp filter.
+- Tighten tests that accept more than their names claim: external-memory containment also accepts the
+  heap limit, Landlock is checked in a probe process rather than the running sidecar, and the platform
+  pool test allows up to four threads.
+- A caught rejected dynamic import makes a later evaluation error report the `resolution` phase.
+- Rust counts host-call name length in code points and TypeScript in UTF-16 units.
 
 ## Open Risks
 
@@ -452,4 +509,6 @@ S2, when workflow-engine rows become the dominant per-import cost.
   unknown cases. Re-run the termination, escape, and crash suites on every `deno_core` or V8 upgrade.
 - **Memory at high concurrency:** 6–14 MiB per live isolate depending on snapshot tier until S6 adds
   pointer compression.
+- **Uninterruptible builtins:** a builtin that never checks for termination exits the whole sidecar,
+  taking its neighbours' executions with it; S2's supervisor re-runs them.
 - **Fairness gaming:** per-user fairness can be gamed with many accounts where signup is open.
