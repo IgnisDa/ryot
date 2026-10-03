@@ -11,7 +11,7 @@ import { Context, DateTime, Effect, Layer } from "effect";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
-import { getSandboxProcessMetrics } from "#lib/infrastructure/sandbox-runtime/runtime";
+import { SandboxSidecarSupervisor } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
@@ -43,6 +43,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 			const ingestion = yield* IngestionExecution;
 			const gateRepository = yield* OperationalGateRepository;
 			const sandbox = yield* SandboxExecutionService;
+			const supervisor = yield* SandboxSidecarSupervisor;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const receipts = yield* MutationReceipts.make;
 
@@ -277,7 +278,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				}
 
 				return {
-					sandbox: getSandboxProcessMetrics(),
+					sandbox: supervisor.snapshot(),
 					redis: { projectionCount, projectionErrors, maxJournalEntries },
 					locks: {
 						advisoryLocks: pressure.advisory_locks,

@@ -33,6 +33,7 @@ export const SandboxScriptMetadata = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
+	runtimeImports: SandboxExecutionMetadata.fields.runtimeImports,
 	searchOptionsSchema: Schema.optional(Schema.toType(AppSchema)),
 	requiredPluginConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	automationType: Schema.optional(Schema.Literals(["automation", "policy"])),

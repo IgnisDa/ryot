@@ -19,12 +19,6 @@ const filesystemGrantCapabilities = new Set<string>(FILESYSTEM_GRANT_SANDBOX_CAP
 export const isSandboxFilesystemGrantCapability = (capability: string) =>
 	filesystemGrantCapabilities.has(capability);
 
-export type SandboxProcessGrants = {
-	readonly artifactPath?: string;
-	readonly scratchDirectory?: string;
-	readonly namedArtifactPaths?: Readonly<Record<string, string>>;
-};
-
 export const declaresSandboxFilesystemGrant = (
 	allowedHostFunctions: readonly string[],
 	capability: FilesystemGrantSandboxCapability,

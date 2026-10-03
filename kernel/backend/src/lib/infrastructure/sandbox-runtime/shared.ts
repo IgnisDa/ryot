@@ -40,7 +40,7 @@ import type { SandboxExecutionPrincipal } from "./execution-principal";
 
 export { isJsonValue } from "@ryot-app/contract/schema/json";
 
-export type WorkflowHostRequest = Extract<WorkflowDurableCallRequest, { readonly kind: "host" }>;
+type WorkflowHostRequest = Extract<WorkflowDurableCallRequest, { readonly kind: "host" }>;
 
 /**
  * Lets a live workflow replay settle an unrecorded durable batch without ending. `settle` returns

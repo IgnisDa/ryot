@@ -306,8 +306,21 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-const processPinnedSandbox = (payload: SandboxExecutionQueuePayload) =>
-	processSandboxExecutionQueue(payload);
+const processPinnedSandbox = Effect.fn("processPinnedSandbox")(function* (
+	payload: SandboxExecutionQueuePayload,
+) {
+	for (let attempt = 0; ; attempt++) {
+		const result = yield* processSandboxExecutionQueue({ ...payload, recoveryAttempt: attempt });
+		if (result.recoverySuspended !== true) {
+			return result;
+		}
+		yield* DurableClock.sleep({
+			duration: "60 seconds",
+			inMemoryThreshold: Duration.millis(1),
+			name: `${payload.executionId}-recovery-${attempt}`,
+		});
+	}
+});
 
 export const sandboxWorkflowChildExecutionId = (executionId: string, name: string, index: number) =>
 	`${executionId}-child-${sanitizeSandboxExecutionSegment(name)}-${index}`;

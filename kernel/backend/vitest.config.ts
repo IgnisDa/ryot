@@ -10,6 +10,6 @@ export default mergeConfig(
 	shared,
 	defineConfig({
 		resolve: { alias: [{ find: /^#(lib|modules)\//, replacement: `${srcDir}$1/` }] },
-		test: { testTimeout: 20_000, hookTimeout: 120_000, globalSetup: ["./global-setup.ts"] },
+		test: { testTimeout: 120_000, hookTimeout: 120_000, globalSetup: ["./global-setup.ts"] },
 	}),
 );

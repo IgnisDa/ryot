@@ -1,0 +1,334 @@
+import { PgClient } from "@effect/sql-pg";
+import { SandboxRunError } from "@ryot-app/contract/errors";
+import { Clock, Context, Deferred, Effect, Layer, Pool, Schema, Semaphore } from "effect";
+import type { Scope } from "effect";
+import { Reactivity } from "effect/reactivity";
+
+import { AppConfig } from "../config/service";
+import { DatabaseConnectionLimit } from "../db/session";
+import { recordSandboxAdmissionWait } from "../runtime-metrics";
+import { SANDBOX_LIMITS } from "./limits";
+import { SIDECAR_PROTOCOL_LIMITS, SidecarLane } from "./sidecar-protocol";
+
+const MiB = 1024 * 1024;
+const processBytes = 128 * MiB;
+const resident = (instance: string) => instance === "system/core" || instance === "user/core";
+const journalCopies = 3;
+const runBytes =
+	(256 + 64 + 8 + 4 + 1 + 2) * MiB +
+	3 * SIDECAR_PROTOCOL_LIMITS.messageBytes.run +
+	4 * SANDBOX_LIMITS.execution.requestBytes +
+	3 * SANDBOX_LIMITS.compiler.javascriptBytes +
+	12 * SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult +
+	3 * 14 * MiB +
+	8 * SANDBOX_LIMITS.bridge.responseBytes +
+	2 * SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
+
+const reservationSchema = Schema.Struct({ journal: Schema.Boolean, instance: Schema.String });
+const laneSchema = Schema.Struct({
+	lane: SidecarLane,
+	generation: Schema.Int,
+	instance: Schema.String,
+});
+const encodeLane = Schema.encodeSync(Schema.fromJsonString(laneSchema));
+
+export class SandboxAdmissionLease extends Context.Service<
+	SandboxAdmissionLease,
+	{
+		readonly retainJournal: (bytes: number) => Effect.Effect<void, SandboxRunError>;
+		readonly enter: (
+			input: typeof laneSchema.Type,
+		) => Effect.Effect<void, SandboxRunError, Scope.Scope>;
+	}
+>()("SandboxAdmissionLease") {}
+
+type LeaseState = {
+	bytes: number;
+	instance: string;
+	journalBytes: number;
+	startupBytes: number;
+	closed: boolean;
+	entering: boolean;
+	startup: string | undefined;
+	lane: string | undefined;
+};
+
+const limitError = (message: string) =>
+	new SandboxRunError({ message, kind: "resource-unavailable" });
+
+export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmission>()(
+	"SandboxSidecarAdmission",
+	{
+		make: Effect.gen(function* () {
+			const config = yield* AppConfig;
+			const concurrency = config.sandbox.workerConcurrency;
+			const budget = config.sandbox.memoryBudgetMiB * MiB;
+			const effectiveMemory = process.constrainedMemory();
+			if (
+				!Number.isSafeInteger(effectiveMemory) ||
+				effectiveMemory <= 0 ||
+				budget > Math.floor(effectiveMemory / 2)
+			) {
+				return yield* limitError("Sandbox memory budget exceeds half the effective host memory");
+			}
+			if (2 * processBytes + runBytes > budget) {
+				return yield* limitError(
+					"Sandbox memory budget cannot fit resident core processes and a run",
+				);
+			}
+			const global = yield* Semaphore.make(concurrency);
+			const reactivity = yield* Reactivity.make;
+			const database = yield* Pool.makeWithTTL({
+				min: 0,
+				timeToLive: "60 seconds",
+				max: config.database.poolMax - 4 - concurrency,
+				acquire: PgClient.makeClient({
+					url: config.database.url,
+					connectTimeout: config.database.connectionTimeoutMs,
+				}).pipe(Effect.provideService(Reactivity.Reactivity, reactivity)),
+			});
+			const changed = new Set<Deferred.Deferred<void>>();
+			const instances = new Map<string, { bytes: number; generation: number }>();
+			const leases = new WeakMap<SandboxAdmissionLease["Service"], LeaseState>();
+			const lanes = new Map<string, number>();
+			const state = { runs: 0, waiting: 0, bytes: 2 * processBytes };
+			const notify = () => {
+				const waiting = [...changed];
+				changed.clear();
+				for (const waiter of waiting) {
+					Deferred.doneUnsafe(waiter, Effect.void);
+				}
+			};
+			const reserveBytes = Effect.fnUntraced(function* (
+				amount: number,
+				commit: () => void,
+				valid: () => boolean = () => true,
+			) {
+				if (amount > budget - 2 * processBytes) {
+					return yield* limitError("Sandbox execution cannot fit the required idle topology");
+				}
+				while (state.bytes + amount > budget) {
+					if (!valid()) {
+						return yield* limitError("Sandbox reservation owner closed while waiting");
+					}
+					const waiter = yield* Deferred.make<void>();
+					changed.add(waiter);
+					yield* Deferred.await(waiter).pipe(
+						Effect.ensuring(Effect.sync(() => changed.delete(waiter))),
+					);
+				}
+				if (!valid()) {
+					return yield* limitError("Sandbox reservation owner closed while waiting");
+				}
+				state.bytes += amount;
+				commit();
+				return undefined;
+			});
+			const releaseRun = (lease: LeaseState) => {
+				if (lease.lane !== undefined) {
+					state.runs--;
+					const count = lanes.get(lease.lane) ?? 0;
+					if (count <= 1) {
+						lanes.delete(lease.lane);
+					} else {
+						lanes.set(lease.lane, count - 1);
+					}
+					lease.lane = undefined;
+				}
+				lease.entering = false;
+				lease.startup = undefined;
+				notify();
+			};
+			const reserveProcess = Effect.fn("SandboxSidecarAdmission.reserveProcess")(function* (
+				instance: string,
+				generation: number,
+				firstLease?: SandboxAdmissionLease["Service"],
+			) {
+				if (instances.has(instance)) {
+					return yield* limitError("Sandbox process generation already owns a reservation");
+				}
+				const lease = firstLease === undefined ? undefined : leases.get(firstLease);
+				if (
+					firstLease !== undefined &&
+					(lease === undefined ||
+						lease.closed ||
+						lease.entering ||
+						lease.lane !== undefined ||
+						lease.instance !== instance)
+				) {
+					return yield* limitError("Sandbox startup requires an active unused admission lease");
+				}
+				const current = { bytes: 0, generation };
+				const startup = encodeLane({ instance, generation, lane: "interactive" });
+				instances.set(instance, current);
+				if (lease !== undefined) {
+					lease.entering = true;
+				}
+				yield* Effect.addFinalizer(() =>
+					Effect.sync(() => {
+						if (instances.get(instance) === current) {
+							if (!resident(instance)) {
+								state.bytes -= current.bytes;
+							}
+							instances.delete(instance);
+							if (lease !== undefined && !lease.closed && lease.startup === startup) {
+								releaseRun(lease);
+							}
+							notify();
+						}
+					}),
+				);
+				const credit = Math.min(lease?.startupBytes ?? 0, resident(instance) ? 0 : processBytes);
+				yield* reserveBytes(
+					(resident(instance) ? 0 : processBytes) - credit,
+					() => {
+						current.bytes = processBytes;
+						if (lease !== undefined) {
+							lease.bytes -= credit;
+							lease.startupBytes -= credit;
+							lease.startup = startup;
+							lease.entering = false;
+						}
+					},
+					() => lease === undefined || !lease.closed,
+				);
+				return undefined;
+			});
+			const reservePrefix = Effect.fn("SandboxSidecarAdmission.reservePrefix")(function* (
+				input: typeof reservationSchema.Type,
+			) {
+				const waitingAt = yield* Clock.currentTimeMillis;
+				if (state.waiting >= concurrency) {
+					return yield* limitError("Sandbox ephemeral admission queue is full");
+				}
+				state.waiting++;
+				yield* Effect.uninterruptibleMask((restore) =>
+					Effect.gen(function* () {
+						yield* restore(global.take(1)).pipe(
+							Effect.ensuring(
+								Effect.sync(() => {
+									state.waiting--;
+								}),
+							),
+						);
+						yield* Effect.addFinalizer(() => global.release(1));
+					}),
+				);
+				const lease: LeaseState = {
+					bytes: 0,
+					closed: false,
+					journalBytes: 0,
+					startupBytes: 0,
+					entering: false,
+					lane: undefined,
+					startup: undefined,
+					instance: input.instance,
+				};
+				yield* Effect.addFinalizer(() =>
+					Effect.sync(() => {
+						lease.closed = true;
+						releaseRun(lease);
+						state.bytes -= lease.bytes;
+						lease.bytes = 0;
+						notify();
+					}),
+				);
+				const initialBytes = journalCopies * (input.journal ? SANDBOX_LIMITS.journalBytes : 2);
+				const startupBytes =
+					resident(input.instance) || (instances.get(input.instance)?.bytes ?? 0) > 0
+						? 0
+						: processBytes;
+				yield* reserveBytes(
+					initialBytes + runBytes + startupBytes,
+					() => {
+						lease.bytes = initialBytes + runBytes + startupBytes;
+						lease.journalBytes = initialBytes;
+						lease.startupBytes = startupBytes;
+					},
+					() => !lease.closed,
+				);
+				const retainJournal = (retainedBytes: number) =>
+					Effect.try({
+						catch: (error) =>
+							error instanceof SandboxRunError
+								? error
+								: limitError("Sandbox journal reservation is invalid"),
+						try: () => {
+							if (
+								!Number.isSafeInteger(retainedBytes) ||
+								retainedBytes < 0 ||
+								retainedBytes > SANDBOX_LIMITS.journalBytes
+							) {
+								throw limitError("Sandbox retained journal exceeds its reservation");
+							}
+							const next = journalCopies * retainedBytes;
+							if (
+								lease.closed ||
+								lease.entering ||
+								lease.lane !== undefined ||
+								next > lease.journalBytes
+							) {
+								throw limitError("Sandbox journal reservation cannot grow after loading");
+							}
+							state.bytes -= lease.journalBytes - next;
+							lease.bytes -= lease.journalBytes - next;
+							lease.journalBytes = next;
+							notify();
+						},
+					});
+				const enter = Effect.fnUntraced(function* (lane: typeof laneSchema.Type) {
+					const key = encodeLane(lane);
+					const instance = instances.get(lane.instance);
+					if (
+						lease.closed ||
+						lease.instance !== lane.instance ||
+						lease.entering ||
+						lease.lane !== undefined ||
+						instance?.generation !== lane.generation ||
+						instance.bytes === 0 ||
+						(lanes.get(key) ?? 0) >= concurrency * 2
+					) {
+						return yield* limitError(
+							"Sandbox lane admission rejected its generation or outstanding count",
+						);
+					}
+					lease.entering = true;
+					yield* Effect.addFinalizer(() => Effect.sync(() => releaseRun(lease)));
+					if (instances.get(lane.instance) !== instance) {
+						return yield* limitError("Sandbox generation closed during admission");
+					}
+					lease.entering = false;
+					lease.startup = undefined;
+					state.bytes -= lease.startupBytes;
+					lease.bytes -= lease.startupBytes;
+					lease.startupBytes = 0;
+					notify();
+					lease.lane = key;
+					state.runs++;
+					lanes.set(key, (lanes.get(key) ?? 0) + 1);
+					return undefined;
+				});
+				const service = { enter, retainJournal };
+				yield* recordSandboxAdmissionWait((yield* Clock.currentTimeMillis) - waitingAt);
+				leases.set(service, lease);
+				return service;
+			});
+			return {
+				reservePrefix,
+				reserveProcess,
+				maximumActive: concurrency,
+				isolateMemoryBytes: concurrency * (320 * MiB + SIDECAR_PROTOCOL_LIMITS.messageBytes.run),
+				snapshot: () => ({
+					...state,
+					budget,
+					processes: instances.size,
+					waiting: state.waiting + changed.size,
+				}),
+				withDatabaseLimit: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+					effect.pipe(Effect.provideService(DatabaseConnectionLimit, database)),
+			};
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

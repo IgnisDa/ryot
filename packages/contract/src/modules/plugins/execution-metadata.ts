@@ -19,6 +19,17 @@ export const SandboxExecutionMetadata = strictStruct({
 	optionalPluginConfigKeys: Schema.Array(name),
 	executableDependencies: Schema.Array(ExecutableDependency),
 	capabilities: Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES])),
+	runtimeImports: Schema.Array(name).pipe(
+		Schema.check(
+			Schema.makeFilter(
+				(imports) =>
+					imports.slice(1).every((specifier, index) => {
+						const previous = imports[index];
+						return previous !== undefined && previous < specifier;
+					}) || "Runtime imports must be strictly sorted and unique",
+			),
+		),
+	),
 });
 
 export type SandboxExecutionMetadata = Schema.Schema.Type<typeof SandboxExecutionMetadata>;

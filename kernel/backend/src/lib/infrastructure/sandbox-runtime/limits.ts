@@ -25,18 +25,17 @@ export const SANDBOX_LIMITS = {
 	http: { timeoutMs: 8_000, requestBytes: MiB, responseBytes: 10 * MiB },
 	cache: { keyBytes: 256, valueBytes: 256 * KiB, ttlSeconds: 30 * 24 * 60 * 60 },
 	observability: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
+	execution: {
+		timeoutMs: 30_000,
+		resultBytes: 4 * MiB,
+		requestBytes: 2 * MiB,
+		contextBytes: 64 * KiB,
+	},
 	bridge: {
 		requestBytes: MiB,
 		concurrentHostCalls: 4,
 		responseBytes: 10 * MiB,
 		durableResponseBytes: 101 * MiB,
-	},
-	execution: {
-		denoHeapMiB: 256,
-		timeoutMs: 30_000,
-		resultBytes: 4 * MiB,
-		requestBytes: 2 * MiB,
-		contextBytes: 64 * KiB,
 	},
 } as const;
 
@@ -74,7 +73,7 @@ export const SANDBOX_RUNNER_LIMITS = {
 	hostCallLimitMessage: sandboxHostCallLimitMessage(SANDBOX_LIMITS.hostCalls.total),
 };
 
-export type SandboxHostCallBudget = { http: number; total: number };
+type SandboxHostCallBudget = { http: number; total: number };
 
 export const consumeSandboxHostCall = (
 	budget: SandboxHostCallBudget,

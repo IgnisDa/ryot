@@ -7,7 +7,7 @@ import {
 	PluginManifest,
 	type PluginHttpRateLimit,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { SandboxProviderId, SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import {
 	and,
@@ -804,7 +804,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			yield* database.run((db) =>
 				db
 					.insert(schema.sandboxScript)
-					.values({ ...script, pluginRevisionId: null })
+					.values({ ...script, uploaderId: null, pluginRevisionId: null })
 					.onConflictDoNothing(),
 			);
 			const [existing] = yield* database.run((db) =>
@@ -816,6 +816,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							eq(schema.sandboxScript.slug, script.slug),
 							eq(schema.sandboxScript.contentHash, script.contentHash),
 							isNull(schema.sandboxScript.pluginRevisionId),
+							isNull(schema.sandboxScript.uploaderId),
 						),
 					)
 					.limit(1),
@@ -840,6 +841,44 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			);
 			return undefined;
 		});
+
+		const persistStandaloneScript = Effect.fn("PluginRepository.persistStandaloneScript")(
+			function* (script: PersistedScript, uploaderId: UserId) {
+				yield* database.run((db) =>
+					db
+						.insert(schema.sandboxScript)
+						.values({ ...script, uploaderId, pluginRevisionId: null })
+						.onConflictDoNothing(),
+				);
+				const [existing] = yield* database.run((db) =>
+					db
+						.select()
+						.from(schema.sandboxScript)
+						.where(
+							and(
+								eq(schema.sandboxScript.uploaderId, uploaderId),
+								eq(schema.sandboxScript.slug, script.slug),
+								eq(schema.sandboxScript.contentHash, script.contentHash),
+								isNull(schema.sandboxScript.pluginRevisionId),
+							),
+						)
+						.limit(1),
+				);
+				if (
+					existing?.providerId !== null ||
+					existing.name !== script.name ||
+					existing.source !== script.source ||
+					existing.compiledCode !== script.compiledCode ||
+					existing.compiledFormat !== script.compiledFormat ||
+					stableStringify(existing.metadata) !== stableStringify(script.metadata)
+				) {
+					return yield* new DbError({
+						message: "Standalone script conflicts with immutable stored data",
+					});
+				}
+				return SandboxScriptId.make(existing.id);
+			},
+		);
 
 		const persist = Effect.fn("PluginRepository.persist")(function* (
 			plugin: NormalizedPlugin,
@@ -1277,6 +1316,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			recordUninstallReceipt,
 			resolveProviderBySlugs,
 			findPrivateByIdForUser,
+			persistStandaloneScript,
 			listActiveSystemPlugins,
 			hasDefinitionReferences,
 			resolveEnvironmentConfig,

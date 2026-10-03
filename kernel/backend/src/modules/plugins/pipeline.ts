@@ -18,11 +18,13 @@ import {
 	type PluginArchiveError,
 } from "@ryot-app/plugin-archive";
 import { declaredScriptMetadata } from "@ryot-app/sandbox-compiler/plugin-manifest";
+import { SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS } from "@ryot-app/sandbox-sdk/imports";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
-import { Effect, Match, Schema } from "effect";
+import { auditSandboxEsmOutput } from "@ryot-app/vite-compiler";
+import { Effect, Match, Result, Schema } from "effect";
 
 import type { SchemaEvolutionError } from "./schema-evolution";
 import type {
@@ -49,6 +51,7 @@ const compareCodeUnits = (left: string, right: string) => {
 	}
 	return 0;
 };
+const approvedRuntimeImports = new Set<string>(SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS);
 
 export const toPluginScriptDescriptor = (
 	script: NormalizedPluginScript,
@@ -104,6 +107,7 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 		return yield* new PluginValidationError({ issues: ["Plugin compiled scripts are missing"] });
 	}
 	const expectedEntries = new Set(manifest.scripts.map(({ entry }) => entry));
+	const scriptsByEntry = new Map(manifest.scripts.map((script) => [script.entry, script]));
 	const compiledByEntry = new Map(source.compiledScripts.map((script) => [script.entry, script]));
 	if (
 		expectedEntries.size !== manifest.scripts.length ||
@@ -116,7 +120,7 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 		});
 	}
 	for (const script of source.compiledScripts) {
-		if (!Number.isSafeInteger(script.format) || script.format < 1) {
+		if (script.format !== 1) {
 			return yield* new PluginValidationError({
 				issues: [`Plugin compiled script is invalid: ${script.entry}`],
 			});
@@ -128,6 +132,30 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 					issues: [`Plugin compiled script JavaScript is not valid UTF-8: ${script.entry}`],
 				}),
 		});
+		const audit = auditSandboxEsmOutput(script.javascript, approvedRuntimeImports);
+		if (Result.isFailure(audit)) {
+			return yield* new PluginValidationError({
+				issues: [
+					`Plugin compiled script output is invalid: ${script.entry}: ${audit.failure.message}`,
+				],
+			});
+		}
+		const declared = scriptsByEntry.get(script.entry);
+		if (!declared) {
+			return yield* new PluginValidationError({
+				issues: [`Plugin compiled script metadata is missing: ${script.entry}`],
+			});
+		}
+		if (
+			audit.success.length !== declared.runtimeImports.length ||
+			audit.success.some((specifier, index) => specifier !== declared.runtimeImports[index])
+		) {
+			return yield* new PluginValidationError({
+				issues: [
+					`Plugin compiled script runtime imports do not match its manifest: ${script.entry}`,
+				],
+			});
+		}
 	}
 	if (Boolean(manifest.client) !== Boolean(source.compiledClient)) {
 		return yield* new PluginValidationError({

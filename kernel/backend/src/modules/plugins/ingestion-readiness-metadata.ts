@@ -61,6 +61,7 @@ export const ingestionReadinessMetadata = (
 		({
 			slug,
 			capabilities,
+			runtimeImports,
 			oauthConnectionFields,
 			executableDependencies,
 			requiredPluginConfigKeys,
@@ -68,6 +69,7 @@ export const ingestionReadinessMetadata = (
 		}) => ({
 			slug,
 			capabilities,
+			runtimeImports,
 			oauthConnectionFields,
 			executableDependencies,
 			requiredPluginConfigKeys,

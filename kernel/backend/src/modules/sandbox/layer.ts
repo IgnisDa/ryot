@@ -27,6 +27,7 @@ import { RyotQLService } from "#modules/ryotql/service";
 
 import { EventStreamProcessorLive } from "./event-stream-processor";
 import { SandboxRepository } from "./repository";
+import { SandboxExecutionAuthorityLive } from "./runtime-authority";
 import { SandboxWorkflowPinning } from "./sandbox-script-workflow";
 import { SandboxExecutionService } from "./service";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
@@ -89,4 +90,5 @@ export const SandboxHostImplementationsLive = Layer.effect(
 
 export const RuntimeSandboxServiceLive = SandboxService.layer.pipe(
 	Layer.provide(SandboxHostImplementationsLive),
+	Layer.provide(SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer))),
 );

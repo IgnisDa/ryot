@@ -3,6 +3,7 @@ export const ingestionReadinessMetadataSql = (alias: string) => `(SELECT jsonb_b
 		'slug', script->'slug',
 		'requiredPluginConfigKeys', script->'requiredPluginConfigKeys',
 		'optionalPluginConfigKeys', script->'optionalPluginConfigKeys',
+		'runtimeImports', script->'runtimeImports',
 		'oauthConnectionFields', script->'oauthConnectionFields',
 		'executableDependencies', script->'executableDependencies',
 		'capabilities', script->'capabilities'

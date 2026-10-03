@@ -7,8 +7,11 @@ import { DurableQueue } from "effect/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { RedisService } from "#lib/infrastructure/redis";
+import { SandboxRecoveryIdentity } from "#lib/infrastructure/sandbox-recovery-store";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
+import { SandboxAdmissionLease } from "#lib/infrastructure/sandbox-runtime/sidecar-admission";
+import { SidecarRecoverySuspended } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
 import { readWorkflowJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 
 import {
@@ -28,6 +31,7 @@ const SandboxExecutionQueuePayload = Schema.Struct({
 	workflowExecutionId: Schema.String,
 	principal: SandboxExecutionPrincipal,
 	grants: Schema.optional(SandboxExecutionGrants),
+	recoveryAttempt: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
 });
 export type SandboxExecutionQueuePayload = Schema.Schema.Type<typeof SandboxExecutionQueuePayload>;
 
@@ -36,6 +40,8 @@ export type SandboxExecutionQueuePayload = Schema.Schema.Type<typeof SandboxExec
  * journal projection entries were lost never ran the script and sets `projectionMissing`.
  */
 const SandboxReplayResult = Schema.Struct({
+	recovery: Schema.optional(SandboxRecoveryIdentity),
+	recoverySuspended: Schema.optional(Schema.Literal(true)),
 	...SandboxExecutionResult.fields,
 	inline: Schema.Array(workflowReplayJournalEntrySchema),
 	projectionMissing: Schema.optional(Schema.Literal(true)),
@@ -47,15 +53,28 @@ export const SandboxExecutionQueue = DurableQueue.make({
 	success: SandboxReplayResult,
 	name: "SandboxExecutionQueue",
 	payload: SandboxExecutionQueuePayload,
-	idempotencyKey: ({ executionId }) => executionId,
+	idempotencyKey: ({ executionId, recoveryAttempt }) =>
+		recoveryAttempt === undefined || recoveryAttempt === 0
+			? executionId
+			: `${executionId}-recovery-${recoveryAttempt}`,
 });
 
-export const processSandboxExecutionQueue = (payload: SandboxExecutionQueuePayload) =>
-	DurableQueue.process(SandboxExecutionQueue, payload).pipe(
-		Effect.mapError(
-			(error) => new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+export const processSandboxExecutionQueue = Effect.fn("processSandboxExecutionQueue")(function* (
+	payload: SandboxExecutionQueuePayload,
+) {
+	const result = yield* DurableQueue.process(SandboxExecutionQueue, payload).pipe(
+		Effect.mapError((error) =>
+			error instanceof SandboxRunError
+				? error
+				: new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
 		),
 	);
+	if (result.recovery !== undefined) {
+		const runtime = yield* RuntimeSandboxService;
+		yield* runtime.completeRecovery(result.recovery);
+	}
+	return result;
+});
 
 export type SandboxExecutionResolutionMode = "active" | "exact";
 
@@ -70,81 +89,102 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	const repository = yield* SandboxRepository;
 	const sandbox = yield* RuntimeSandboxService;
 	const dispatcher = yield* SandboxDurableHostDispatcher;
+	return yield* Effect.scoped(
+		Effect.gen(function* () {
+			const lease = yield* sandbox.reserve(payload.principal, true);
 
-	const replayJournal = yield* readWorkflowJournal(
-		yield* RedisService,
-		payload.workflowExecutionId,
-		payload.journalLength,
-	);
-	if (replayJournal === null) {
-		return {
-			logs: [],
-			inline: [],
-			error: null,
-			value: null,
-			status: "completed" as const,
-			projectionMissing: true as const,
-		};
-	}
+			const replayJournal = yield* readWorkflowJournal(
+				yield* RedisService,
+				payload.workflowExecutionId,
+				payload.journalLength,
+			);
+			if (replayJournal === null) {
+				return {
+					logs: [],
+					inline: [],
+					error: null,
+					value: null,
+					status: "completed" as const,
+					projectionMissing: true as const,
+				};
+			}
 
-	const script = yield* repository.getScript(payload.principal.scriptId);
-	if (!script || script.contentHash !== payload.principal.contentHash) {
-		return yield* new SandboxRunError({
-			kind: "missing-artifact",
-			message: "Sandbox script not found",
-		});
-	}
-	const inlineCapabilities = sandboxInlineDurableCapabilities(payload.principal);
-	const grants =
-		isObjectRecord(payload.context) &&
-		(typeof payload.context["artifactHandle"] === "string" ||
-			isObjectRecord(payload.context["ingestionArtifact"]) ||
-			isObjectRecord(payload.context["ingestionArtifacts"]))
-			? yield* Effect.flatMap(KernelWorkflowReferences, (references) =>
-					references.resolveArtifactGrants(
-						payload.context,
-						payload.principal.subject,
-						payload.grants,
-					),
-				)
-			: payload.grants;
-
-	const result = yield* sandbox.run({
-		replayJournal,
-		context: payload.context,
-		startedAt: payload.startedAt,
-		principal: payload.principal,
-		executionId: payload.executionId,
-		compiledCode: script.compiledCode,
-		compiledFormat: script.compiledFormat,
-		workflowExecutionId: payload.workflowExecutionId,
-		...(grants ? { grants } : {}),
-		...(inlineCapabilities.length > 0
-			? {
-					inlineDurableHost: {
-						capabilities: inlineCapabilities,
-						settle: (requests) =>
-							dispatcher.settleInline(
-								requests,
+			const script = yield* repository.getScript(payload.principal.scriptId);
+			if (!script || script.contentHash !== payload.principal.contentHash) {
+				return yield* new SandboxRunError({
+					kind: "missing-artifact",
+					message: "Sandbox script not found",
+				});
+			}
+			const inlineCapabilities = sandboxInlineDurableCapabilities(payload.principal);
+			const grants =
+				isObjectRecord(payload.context) &&
+				(typeof payload.context["artifactHandle"] === "string" ||
+					isObjectRecord(payload.context["ingestionArtifact"]) ||
+					isObjectRecord(payload.context["ingestionArtifacts"]))
+					? yield* Effect.flatMap(KernelWorkflowReferences, (references) =>
+							references.resolveArtifactGrants(
 								payload.context,
-								payload.principal,
-								payload.workflowExecutionId,
-								payload.startedAt,
+								payload.principal.subject,
+								payload.grants,
 							),
-					},
-				}
-			: {}),
-	});
+						)
+					: payload.grants;
 
-	return {
-		logs: result.logs,
-		error: result.error,
-		value: result.value,
-		timing: result.timing,
-		inline: result.inline,
-		harvest: result.harvest,
-		status: "completed" as const,
-	};
+			const result = yield* sandbox
+				.run({
+					replayJournal,
+					context: payload.context,
+					startedAt: payload.startedAt,
+					principal: payload.principal,
+					executionId: payload.executionId,
+					compiledCode: script.compiledCode,
+					compiledFormat: script.compiledFormat,
+					workflowExecutionId: payload.workflowExecutionId,
+					...(grants ? { grants } : {}),
+					...(inlineCapabilities.length > 0
+						? {
+								inlineDurableHost: {
+									capabilities: inlineCapabilities,
+									settle: (requests) =>
+										dispatcher.settleInline(
+											requests,
+											payload.context,
+											payload.principal,
+											payload.workflowExecutionId,
+											payload.startedAt,
+										),
+								},
+							}
+						: {}),
+				})
+				.pipe(Effect.provideService(SandboxAdmissionLease, lease));
+
+			return {
+				logs: result.logs,
+				error: result.error,
+				value: result.value,
+				timing: result.timing,
+				inline: result.inline,
+				harvest: result.harvest,
+				recovery: result.recovery,
+				status: "completed" as const,
+			};
+		}).pipe(
+			Effect.catchIf(
+				(error) => error instanceof SidecarRecoverySuspended,
+				() =>
+					Effect.succeed({
+						logs: [],
+						inline: [],
+						error: null,
+						value: null,
+						status: "completed" as const,
+						recoverySuspended: true as const,
+					}),
+			),
+		),
+	);
 });
 
 const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
@@ -152,9 +192,10 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 		SandboxExecutionQueue,
 		(payload) =>
 			executeSandboxExecution(payload).pipe(
-				Effect.mapError(
-					(error) =>
-						new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+				Effect.mapError((error) =>
+					error instanceof SandboxRunError
+						? error
+						: new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
 				),
 			),
 		{ concurrency },

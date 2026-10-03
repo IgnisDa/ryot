@@ -1,21 +1,16 @@
-import { Context, DateTime, Effect, Layer, FileSystem, Path } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { garbageCollectSandboxCompiledModules } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
-import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { PluginRepository } from "#modules/plugins/repository";
 
 export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollector>()(
 	"ScriptGarbageCollector",
 	{
 		make: Effect.gen(function* () {
-			const path = yield* Path.Path;
-			const fs = yield* FileSystem.FileSystem;
 			const database = yield* DatabaseSession;
 			const config = yield* AppConfig;
 			const repository = yield* PluginRepository;
-			const runtime = yield* PackageCacheManager;
 			const deferred = Effect.logDebug("sandbox script garbage collection deferred").pipe(
 				Effect.as({ removedCount: 0, candidateCount: 0 }),
 			);
@@ -49,24 +44,14 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 							retryWindowDays: config.automations.retryWindowDays,
 						});
 						const liveHashes = new Set(yield* repository.listPersistedLivenessContentHashes(now));
-						const moduleResult = yield* garbageCollectSandboxCompiledModules(
-							runtime,
-							liveHashes,
-							limit,
-						).pipe(
-							Effect.provideService(FileSystem.FileSystem, fs),
-							Effect.provideService(Path.Path, path),
-						);
 						const removedScripts = yield* repository.deleteUnreferencedScripts(liveHashes, {
 							now,
 							limit,
 						});
 						const removedPlugins = yield* repository.deleteInactiveUnreferencedPlugins(limit);
 						return {
-							removedCount:
-								moduleResult.removedCount + removedScripts.length + removedPlugins.length,
-							candidateCount:
-								moduleResult.candidateCount + removedScripts.length + removedPlugins.length,
+							removedCount: removedScripts.length + removedPlugins.length,
+							candidateCount: removedScripts.length + removedPlugins.length,
 						};
 					}),
 				);
