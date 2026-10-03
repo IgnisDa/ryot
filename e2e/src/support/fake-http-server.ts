@@ -14,7 +14,10 @@ const closeFakeHttpServer = (scope: Scope.Closeable) =>
 
 type Respond = (url: URL, request: Request) => Response | Effect.Effect<Response>;
 
-export const startFakeHttpServerScoped = (respond: Respond = () => Response.json({ ok: true })) =>
+export const startFakeHttpServerScoped = (
+	respond: Respond = () => Response.json({ ok: true }),
+	hostname = "127.0.0.1",
+) =>
 	Effect.gen(function* () {
 		const scope = yield* Effect.acquireRelease(Scope.make(), (serverScope) =>
 			Scope.close(serverScope, Exit.void),
@@ -22,7 +25,7 @@ export const startFakeHttpServerScoped = (respond: Respond = () => Response.json
 		return yield* Scope.provide(
 			Effect.gen(function* () {
 				const recorded: ScopedFakeHttpServer["requests"] = [];
-				const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
+				const server = yield* BunHttpServer.make({ port: 0, hostname });
 				yield* HttpServer.serveEffect(
 					Effect.gen(function* () {
 						const request = yield* HttpServerRequest.toWeb(
@@ -48,7 +51,8 @@ export const startFakeHttpServerScoped = (respond: Respond = () => Response.json
 				if (address._tag === "UnixPathAddress") {
 					return yield* Effect.die("Fake HTTP server unexpectedly bound to a Unix socket");
 				}
-				return { requests: recorded, url: `http://127.0.0.1:${address.port}` };
+				const host = hostname.includes(":") ? `[${hostname}]` : hostname;
+				return { requests: recorded, url: `http://${host}:${address.port}` };
 			}),
 			scope,
 		);
