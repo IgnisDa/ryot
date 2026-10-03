@@ -37,7 +37,7 @@ it.live(
 			yield* frame.getByRole("button", { name: "Add", exact: true }).click();
 			yield* renameDraft(frame, "Template details", name);
 			yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
-			const picker = frame.getByRole("dialog", { exact: true, name: "Choose exercises" });
+			const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
 			yield* picker.getByRole("checkbox", { exact: true, name: exerciseName }).check();
 			yield* picker.getByRole("button", { exact: true, name: "Add 1 exercise" }).click();
 			const exercise = frame.getByRole("region", { exact: true, name: exerciseName });
@@ -124,7 +124,7 @@ it.live(
 			yield* exercise.getByRole("button", { exact: true, name: `${exerciseName} actions` }).click();
 			yield* frame.getByRole("menuitem", { exact: true, name: "Replace exercise" }).click();
 			const replace = frame.getByRole("dialog", { exact: true, name: `Replace ${exerciseName}` });
-			yield* replace.getByRole("checkbox", { exact: true, name: replacementName }).check();
+			yield* replace.getByRole("radio", { exact: true, name: replacementName }).click();
 			yield* replace.getByRole("button", { exact: true, name: "Replace exercise" }).click();
 			const replaced = frame.getByRole("region", { exact: true, name: replacementName });
 			expect(
