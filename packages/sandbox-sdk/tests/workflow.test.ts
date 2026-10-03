@@ -7,7 +7,10 @@ import {
 	Schema,
 	workflowDurableCallRequestSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
-import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
+import type {
+	WorkflowReplayHost,
+	WorkflowReplayJournalEntry,
+} from "@ryot-app/sandbox-sdk/workflow";
 import { Effect as RuntimeEffect } from "effect";
 import { describe, expect, test } from "vitest";
 
@@ -75,6 +78,7 @@ describe("workflow definitions", () => {
 				const output = yield* workflow.run(
 					{ value: 1 },
 					{
+						settleInline: replayHost.settleInline,
 						replayJournal: () => {
 							calls.push("bootstrap");
 							return replayHost.replayJournal();
@@ -163,6 +167,232 @@ describe("workflow definitions", () => {
 			}),
 		));
 
+	test("short_sleep_settles_inline_and_replays_without_waiting_again", () =>
+		RuntimeEffect.runPromise(
+			RuntimeEffect.gen(function* () {
+				const workflow = defineWorkflow({
+					input: Schema.Null,
+					output: Schema.String,
+					manifest: defineManifest({
+						kind: "workflow",
+						name: "Inline sleep",
+						slug: "inline-sleep",
+					}),
+					run: (_input, replay) =>
+						Effect.gen(function* () {
+							yield* replay.sleep("first", 25);
+							yield* replay.sleep("second", 75);
+							return "finished";
+						}),
+				});
+				const requests: Parameters<WorkflowReplayHost["settleInline"]>[0] = [
+					{ index: 0, name: "first", kind: "sleep", args: { durationMs: 25 } },
+					{ index: 1, kind: "sleep", name: "second", args: { durationMs: 75 } },
+				];
+				const batches: Array<Parameters<WorkflowReplayHost["settleInline"]>[0]> = [];
+				const emptyHost = makeWorkflowReplayHost([]);
+				const inlineHost: WorkflowReplayHost = {
+					...emptyHost,
+					settleInline: (batch) => {
+						batches.push(batch);
+						return RuntimeEffect.succeed(batch.map(() => null));
+					},
+				};
+				const metadata = { metadata: {}, sandboxScriptId: "inline-sleep" };
+
+				const firstRun = yield* workflow.run(null, inlineHost, metadata);
+				expect(firstRun).toEqual({
+					requests,
+					journalLength: 0,
+					state: "completed",
+					output: "finished",
+				});
+				expect(batches).toEqual([requests.slice(0, 1), requests.slice(1)]);
+
+				const journal: WorkflowReplayJournalEntry[] = requests.map((request) => ({
+					request,
+					value: null,
+				}));
+				const replayBase = makeWorkflowReplayHost(journal);
+				const replayHost: WorkflowReplayHost = {
+					...replayBase,
+					settleInline: () => RuntimeEffect.die("Unexpected inline settlement during replay"),
+				};
+				const replayed = yield* workflow.run(null, replayHost, metadata);
+
+				expect(replayed).toEqual({
+					requests,
+					journalLength: 2,
+					state: "completed",
+					output: "finished",
+				});
+			}),
+		));
+
+	test("settles registered parallel eligible sleeps in one ordered batch", () =>
+		RuntimeEffect.runPromise(
+			RuntimeEffect.gen(function* () {
+				const workflow = defineWorkflow({
+					input: Schema.Null,
+					output: Schema.Array(Schema.String),
+					manifest: defineManifest({
+						kind: "workflow",
+						name: "Parallel inline sleep",
+						slug: "parallel-inline-sleep",
+					}),
+					run: (_input, replay) =>
+						Effect.all([replay.sleep("first", 10), replay.sleep("second", 20)], {
+							concurrency: "unbounded",
+						}).pipe(Effect.as(["first", "second"])),
+				});
+				const batches: Array<Parameters<WorkflowReplayHost["settleInline"]>[0]> = [];
+				const replayBase = makeWorkflowReplayHost([]);
+				const replayHost: WorkflowReplayHost = {
+					...replayBase,
+					settleInline: (requests) => {
+						batches.push(requests);
+						return RuntimeEffect.succeed(requests.map(() => null));
+					},
+				};
+				const envelope = yield* workflow.run(null, replayHost, {
+					metadata: {},
+					sandboxScriptId: "parallel-inline-sleep",
+				});
+
+				expect(envelope).toEqual({
+					journalLength: 0,
+					state: "completed",
+					output: ["first", "second"],
+					requests: [
+						{ index: 0, name: "first", kind: "sleep", args: { durationMs: 10 } },
+						{ index: 1, kind: "sleep", name: "second", args: { durationMs: 20 } },
+					],
+				});
+				expect(batches).toEqual([
+					[
+						{ index: 0, name: "first", kind: "sleep", args: { durationMs: 10 } },
+						{ index: 1, kind: "sleep", name: "second", args: { durationMs: 20 } },
+					],
+				]);
+			}),
+		));
+
+	test("keeps inline sleeps pending when an activity or child reference is registered", () =>
+		RuntimeEffect.runPromise(
+			RuntimeEffect.gen(function* () {
+				const workflow = defineWorkflow({
+					input: Schema.Null,
+					output: Schema.String,
+					manifest: defineManifest({
+						kind: "workflow",
+						name: "Mixed inline calls",
+						slug: "mixed-inline-calls",
+					}),
+					run: (_input, replay) =>
+						Effect.all(
+							[
+								replay.sleep("pause", 10),
+								replay.activity(
+									"activity",
+									{ input: Schema.Null, output: Schema.String, scriptSlug: "activity.work" },
+									null,
+								),
+								replay.child(
+									"child",
+									{ input: Schema.Null, output: Schema.String, workflowSlug: "workflow.work" },
+									null,
+								),
+							],
+							{ concurrency: "unbounded" },
+						).pipe(Effect.as("unreachable")),
+				});
+				const batches: Array<Parameters<WorkflowReplayHost["settleInline"]>[0]> = [];
+				const replayBase = makeWorkflowReplayHost([]);
+				const replayHost: WorkflowReplayHost = {
+					...replayBase,
+					settleInline: (requests) => {
+						batches.push(requests);
+						return RuntimeEffect.succeed(requests.map(() => null));
+					},
+				};
+				const envelope = yield* workflow.run(null, replayHost, {
+					metadata: {},
+					sandboxScriptId: "mixed-inline-calls",
+				});
+
+				expect(envelope).toEqual({
+					state: "pending",
+					journalLength: 0,
+					requests: [
+						{ index: 0, name: "pause", kind: "sleep", args: { durationMs: 10 } },
+						{
+							index: 1,
+							name: "activity",
+							kind: "activity",
+							args: { input: null, scriptSlug: "activity.work" },
+						},
+						{
+							index: 2,
+							name: "child",
+							kind: "child",
+							args: { input: null, workflowSlug: "workflow.work" },
+						},
+					],
+				});
+				expect(batches).toEqual([]);
+			}),
+		));
+
+	test("defers inline sleeps and fails malformed settlement results", () =>
+		RuntimeEffect.runPromise(
+			RuntimeEffect.gen(function* () {
+				const workflow = defineWorkflow({
+					input: Schema.Null,
+					output: Schema.Null,
+					run: (_input, replay) => replay.sleep("pause", 10),
+					manifest: defineManifest({
+						kind: "workflow",
+						name: "Deferred inline sleep",
+						slug: "deferred-inline-sleep",
+					}),
+				});
+				const metadata = { metadata: {}, sandboxScriptId: "deferred-inline-sleep" };
+				const request = { index: 0, name: "pause", kind: "sleep", args: { durationMs: 10 } };
+				const replayBase = makeWorkflowReplayHost([]);
+				const pending = yield* workflow.run(
+					null,
+					{ ...replayBase, settleInline: () => RuntimeEffect.succeed(null) },
+					metadata,
+				);
+				expect(pending).toEqual({ state: "pending", journalLength: 0, requests: [request] });
+
+				const wrongCount = yield* workflow.run(
+					null,
+					{ ...replayBase, settleInline: () => RuntimeEffect.succeed([]) },
+					metadata,
+				);
+				expect(wrongCount).toEqual({
+					state: "failed",
+					journalLength: 0,
+					requests: [request],
+					kind: "script-failure",
+					error: "Error: Inline sleep results do not match the batch",
+				});
+
+				const nonNullValue = yield* workflow.run(
+					null,
+					{ ...replayBase, settleInline: () => RuntimeEffect.succeed(["not-null"]) },
+					metadata,
+				);
+				expect(nonNullValue).toMatchObject({
+					state: "failed",
+					journalLength: 0,
+					requests: [request],
+					kind: "script-failure",
+				});
+			}),
+		));
+
 	test("reads only executed calls and preserves parallel registration order", () =>
 		RuntimeEffect.runPromise(
 			RuntimeEffect.gen(function* () {
@@ -226,6 +456,7 @@ describe("workflow definitions", () => {
 				const output = yield* workflow.run(
 					null,
 					{
+						settleInline: () => RuntimeEffect.succeed(null),
 						replayJournal: () =>
 							RuntimeEffect.succeed({
 								length: entries.length,

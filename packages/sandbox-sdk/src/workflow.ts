@@ -53,6 +53,11 @@ export const workflowHostRequestSchema = strictStruct({
 		capability: sandboxHostCapabilitySchema,
 	}),
 });
+export const workflowInlineRequestSchema = Schema.Union([
+	workflowSleepRequestSchema,
+	workflowHostRequestSchema,
+]);
+export type WorkflowInlineRequest = Schema.Schema.Type<typeof workflowInlineRequestSchema>;
 export const workflowNestedChildRequestSchema = strictStruct({
 	...durableCallFields,
 	kind: Schema.Literal("workflow-child"),
@@ -111,6 +116,12 @@ export type WorkflowReplayJournal = {
 
 export type WorkflowReplayHost = {
 	readonly replayJournal: () => RuntimeEffect.Effect<WorkflowReplayJournal, SandboxHostError>;
+	readonly settleInline: (
+		requests: ReadonlyArray<Schema.Schema.Type<typeof workflowSleepRequestSchema>>,
+	) => RuntimeEffect.Effect<
+		ReadonlyArray<WorkflowReplayJournalEntry["value"]> | null,
+		SandboxHostError
+	>;
 };
 
 export type WorkflowScriptReference<
@@ -301,16 +312,39 @@ const stableJson = (value: unknown): string => {
 const makeWorkflowReplay = (
 	journal: WorkflowReplayJournal,
 	requests: WorkflowDurableCallRequest[],
+	host: WorkflowReplayHost,
 ): WorkflowReplay => {
+	const inlineValues: Array<WorkflowReplayJournalEntry["value"] | undefined> = [];
+	let settledLength = journal.length;
 	const resolve = <Output extends Schema.ConstraintDecoder<unknown>>(
 		request: WorkflowDurableCallRequest,
 		output: Output,
 	): RuntimeEffect.Effect<Output["Type"], WorkflowReplayFailure> => {
-		return RuntimeEffect.suspend(() => {
+		return RuntimeEffect.gen(function* () {
 			if (request.index >= journal.length) {
-				return RuntimeEffect.fail(pending);
+				if (inlineValues[request.index] === undefined) {
+					const batch = requests.slice(settledLength);
+					const sleeps = batch.filter((entry) => entry.kind === "sleep");
+					if (sleeps.length !== batch.length) {
+						return yield* RuntimeEffect.fail(pending);
+					}
+					const values = yield* host.settleInline(sleeps);
+					if (values === null) {
+						return yield* RuntimeEffect.fail(pending);
+					}
+					if (values.length !== sleeps.length) {
+						return yield* RuntimeEffect.fail(
+							new WorkflowJournalMismatchError("Inline sleep results do not match the batch"),
+						);
+					}
+					for (const [offset, value] of values.entries()) {
+						inlineValues[settledLength + offset] = value;
+					}
+					settledLength += sleeps.length;
+				}
+				return yield* Schema.decodeEffect(output)(inlineValues[request.index]);
 			}
-			return journal
+			return yield* journal
 				.read(request.index)
 				.pipe(
 					RuntimeEffect.flatMap(
@@ -386,7 +420,7 @@ export const defineWorkflow = <
 		return host.replayJournal().pipe(
 			RuntimeEffect.flatMap((journal) => {
 				const replayIdentity = { journalLength: journal.length };
-				return definition.run(input, makeWorkflowReplay(journal, requests), execution).pipe(
+				return definition.run(input, makeWorkflowReplay(journal, requests, host), execution).pipe(
 					RuntimeEffect.flatMap((value) => Schema.decodeUnknownEffect(definition.output)(value)),
 					RuntimeEffect.flatMap(Schema.decodeUnknownEffect(jsonValueSchema)),
 					RuntimeEffect.map((output) => ({

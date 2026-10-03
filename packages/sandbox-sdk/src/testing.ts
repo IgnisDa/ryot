@@ -37,6 +37,7 @@ export function defineSandboxTestHost(_manifest: SandboxManifest, host: unknown)
 }
 
 export const makeWorkflowReplayHost = (entries: ReadonlyArray<unknown>): WorkflowReplayHost => ({
+	settleInline: () => Effect.succeed(null),
 	replayJournal: () =>
 		Effect.succeed({
 			length: entries.length,
