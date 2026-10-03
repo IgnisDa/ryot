@@ -147,7 +147,6 @@ const authoredManifest = definePlugin({
 			slug: "import.test",
 			name: "Test import source",
 			workflowSlug: "refresh.workflow",
-			requiredPluginConfigKeys: ["TEST_KEY"],
 			description: "Import test data from a file",
 			exportHelp: {
 				docsUrl: "https://example.com/export",
@@ -174,8 +173,11 @@ const scripts = [
 		kind: "automation",
 		name: "Test automation",
 		slug: "automation.test",
+		oauthConnectionFields: [],
+		executableDependencies: [],
 		automationType: "automation",
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 		capabilities: ["emitSignal"],
 		entry: "scripts/test.sandbox.ts",
 		inputProjection: {
@@ -191,14 +193,20 @@ const scripts = [
 		kind: "operation",
 		name: "Test operation",
 		slug: "operation.test",
+		oauthConnectionFields: [],
+		executableDependencies: [],
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 		entry: "scripts/operation.sandbox.ts",
 	},
 	{
 		kind: "provider",
 		capabilities: [],
+		oauthConnectionFields: [],
+		executableDependencies: [],
 		providerOperation: "details",
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 		name: "Test provider details",
 		slug: "provider.test.details",
 		providerSlug: "provider.test",
@@ -207,8 +215,11 @@ const scripts = [
 	{
 		kind: "provider",
 		capabilities: [],
+		oauthConnectionFields: [],
+		executableDependencies: [],
 		providerOperation: "search",
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 		name: "Test provider search",
 		slug: "provider.test.search",
 		providerSlug: "provider.test",
@@ -227,7 +238,10 @@ const scripts = [
 	{
 		kind: "script",
 		capabilities: [],
+		oauthConnectionFields: [],
+		executableDependencies: [],
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 		name: "Test provider preload",
 		slug: "provider.test.preload",
 		providerSlug: "provider.test",
@@ -238,7 +252,10 @@ const scripts = [
 		capabilities: [],
 		name: "Test workflow",
 		slug: "workflow.test",
+		oauthConnectionFields: [],
+		executableDependencies: [],
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
 		entry: "scripts/workflow.sandbox.ts",
 	},
 ] as const;
@@ -986,7 +1003,7 @@ describe("definePlugin", () => {
 			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				importSources: [
-					{ ...manifest.importSources[0], requiredPluginConfigKeys: ["MISSING_KEY"] },
+					{ ...manifest.importSources[0], plan: { selections: { missing: { value: "missing" } } } },
 				],
 			}),
 		).toThrow();

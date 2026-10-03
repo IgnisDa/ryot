@@ -35,8 +35,14 @@ export const pluginScriptCompileMismatchIssue = (error: PluginScriptCompileMisma
 	);
 
 export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetadata => {
+	const execution = {
+		oauthConnectionFields: script.oauthConnectionFields,
+		executableDependencies: script.executableDependencies,
+		optionalPluginConfigKeys: script.optionalPluginConfigKeys,
+	};
 	if (script.kind === "script") {
 		return {
+			...execution,
 			slug: script.slug,
 			name: script.name,
 			kind: script.kind,
@@ -48,6 +54,7 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 	if (script.kind === "automation") {
 		if (script.automationType === "policy") {
 			return {
+				...execution,
 				slug: script.slug,
 				name: script.name,
 				kind: script.kind,
@@ -58,6 +65,7 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 			};
 		}
 		return {
+			...execution,
 			slug: script.slug,
 			name: script.name,
 			kind: script.kind,
@@ -69,6 +77,7 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 	}
 	if (script.kind === "operation") {
 		return {
+			...execution,
 			slug: script.slug,
 			name: script.name,
 			kind: script.kind,
@@ -78,6 +87,7 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 	}
 	if (script.kind === "workflow") {
 		return {
+			...execution,
 			kind: "workflow",
 			slug: script.slug,
 			name: script.name,
@@ -86,6 +96,7 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 		};
 	}
 	return {
+		...execution,
 		kind: "provider",
 		slug: script.slug,
 		name: script.name,

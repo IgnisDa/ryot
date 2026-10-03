@@ -1,3 +1,4 @@
+import type { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
 import { Schema } from "effect";
 
@@ -7,7 +8,7 @@ export const SANDBOX_COMPILED_FORMAT = 1 as const;
 
 export type CompiledSandboxModule = {
 	readonly javascript: string;
-	readonly manifest: SandboxManifest;
+	readonly manifest: SandboxManifest & SandboxExecutionMetadata;
 	readonly format: typeof SANDBOX_COMPILED_FORMAT;
 };
 
