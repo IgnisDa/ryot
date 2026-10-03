@@ -7,13 +7,13 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Layer, Result, Schema } from "effect";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
+import { makeUserPrincipal, makeUserSubject } from "#lib/test-utils/sandbox-run-input";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
+import { encodeJson } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
-import type { SandboxHostImplementationMaps } from "./host-implementations";
 import { SANDBOX_LIMITS } from "./limits";
-import type { RuntimeSandboxHostImplementationMap } from "./runtime-host-functions";
 import type { BoundHostFunction, SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
 import { SandboxSidecarClient } from "./sidecar-client";
@@ -51,66 +51,50 @@ export type SidecarRecorder = {
 	readonly retired?: (handle: string) => void;
 };
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
-const unusedHostCall = () => Effect.die("Unexpected native sandbox host dispatch");
-const unusedLifecycleValue = (): never => {
-	throw new Error("Unexpected native sandbox lifecycle value");
+const definitionEntryPoint = (kind: string | undefined) => {
+	if (kind === "operation") {
+		return "defineOperation";
+	}
+	if (kind === "workflow") {
+		return "defineWorkflow";
+	}
+	if (kind === "automation") {
+		return "defineAutomation";
+	}
+	return "defineScript";
 };
-const unusedLifecycleSteps = {
-	commit: unusedHostCall,
-	prepare: unusedHostCall,
-	validate: unusedHostCall,
-	value: unusedLifecycleValue,
-	applyPolicies: unusedHostCall,
-};
-const unusedRelationshipSteps = {
-	validate: unusedHostCall,
-	value: unusedLifecycleValue,
-	itemWrite: unusedLifecycleValue,
-};
+
+export const defineNativeScript = (
+	run: string,
+	options: {
+		readonly name?: string;
+		readonly slug?: string;
+		readonly input?: string;
+		readonly output?: string;
+		readonly imports?: string;
+		readonly topLevel?: string;
+		readonly kind?: "script" | "operation" | "workflow" | "provider" | "automation";
+	} = {},
+) => `
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+${options.kind === "operation" ? 'import { defineOperation } from "@ryot-app/sandbox-sdk/operation";' : ""}
+${options.kind === "workflow" ? 'import { defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";' : ""}
+${options.kind === "automation" ? 'import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";' : ""}
+${options.imports ?? ""}
+export const manifest = defineManifest({
+  kind: "${options.kind ?? "script"}", name: "${options.name ?? "Native runner"}", slug: "${options.slug ?? "native-runner"}",
+  ${options.kind === "automation" ? 'automationType: "automation", inputProjection: { signal: { properties: ["message"] } },' : ""}
+});
+${options.topLevel ?? ""}
+export default ${definitionEntryPoint(options.kind)}({
+  manifest,
+  ${options.kind === "automation" ? "" : `input: ${options.input ?? "Schema.Struct({})"}, output: ${options.output ?? "Schema.Unknown"},`}
+  run: ${run},
+});
+`;
 
 export const nativePlatformLayer = Layer.mergeAll(BunServices.layer, sandboxCompilerPlatformLayer);
-
-export const unusedSandboxHostImplementations = (
-	runtime: Partial<RuntimeSandboxHostImplementationMap> = {},
-): SandboxHostImplementationMaps => ({
-	automation: { emitSignal: unusedHostCall, sendNotification: unusedHostCall },
-	runtime: {
-		httpCall: unusedHostCall,
-		setCachedValue: unusedHostCall,
-		getCachedValue: unusedHostCall,
-		getPersistentValue: unusedHostCall,
-		claimPersistentValue: unusedHostCall,
-		...runtime,
-	},
-	lifecycle: {
-		upsertGlobalEntities: unusedLifecycleSteps,
-		changeUserRelationships: unusedRelationshipSteps,
-		upsertGlobalRelationships: unusedRelationshipSteps,
-		updateEvents: { commit: unusedHostCall, validate: unusedHostCall },
-		deleteEvents: { commit: unusedHostCall, validate: unusedHostCall },
-	},
-	additional: {
-		deleteEvents: unusedHostCall,
-		createEvents: unusedHostCall,
-		updateEvents: unusedHostCall,
-		executeRyotql: unusedHostCall,
-		getPluginConfig: unusedHostCall,
-		getUserSettings: unusedHostCall,
-		listIntegrations: unusedHostCall,
-		listEventSchemas: unusedHostCall,
-		getEntitySchemas: unusedHostCall,
-		getUserPreferences: unusedHostCall,
-		ensureUserEntities: unusedHostCall,
-		getOAuthAccessToken: unusedHostCall,
-		upsertGlobalEntities: unusedHostCall,
-		getCurrentIntegration: unusedHostCall,
-		requestEventStreamWork: unusedHostCall,
-		changeUserRelationships: unusedHostCall,
-		upsertGlobalRelationships: unusedHostCall,
-		invalidateOAuthAccessToken: unusedHostCall,
-	},
-});
 
 export const recordingSidecarClient = <R>(makeRecorder: Effect.Effect<SidecarRecorder, never, R>) =>
 	Layer.effect(
@@ -159,23 +143,18 @@ export const makeRunnerInput = (
 		lane: options.lane ?? "interactive",
 		startedAt: "2026-08-06T00:00:00.000Z",
 		executionId: options.executionId ?? "native-runner-execution",
-		principal: {
+		principal: makeUserPrincipal({
 			contentHash,
-			providerId: null,
 			metadata: compiled.manifest,
+			subject: makeUserSubject(userId),
 			scriptSlug: compiled.manifest.slug,
 			scriptId: SandboxScriptId.make("native-runner-script"),
-			subject: {
-				userId,
-				type: "user",
-				accountGeneration: { userId, token: "native-runner-account" },
-			},
 			pluginRevision: makeUserPluginRevision({
 				ownerId: userId,
 				slug: "native-runner-plugin",
 				compiledHashes: { [compiled.manifest.slug]: contentHash },
 			}),
-		},
+		}),
 		...(options.workflowExecutionId === undefined
 			? {}
 			: { workflowExecutionId: options.workflowExecutionId }),

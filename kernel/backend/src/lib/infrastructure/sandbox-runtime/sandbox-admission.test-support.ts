@@ -2,6 +2,7 @@ import { Effect, Layer, Option } from "effect";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
+import type { SandboxFileAccess } from "./file-service";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
 
@@ -9,6 +10,14 @@ const admissionConfig = (memoryBudgetMiB: number, workerConcurrency = 2) =>
 	makeAppConfigLayer({
 		sandbox: { workerConcurrency, memoryBudgetMiB: Option.some(memoryBudgetMiB) },
 	});
+
+export const idleBytes = (admission: SandboxSidecarAdmission["Service"]) =>
+	admission.plan.budget - admission.plan.dynamicBytes;
+
+export const sandboxAdmissionLayer = (memoryBudgetMiB: number) =>
+	Layer.effect(SandboxSidecarAdmission, SandboxSidecarAdmission.make).pipe(
+		Layer.provide(admissionConfig(memoryBudgetMiB)),
+	);
 
 export const makeSandboxAdmission = (memoryBudgetMiB: number, workerConcurrency?: number) =>
 	Layer.build(admissionConfig(memoryBudgetMiB, workerConcurrency)).pipe(
@@ -21,3 +30,14 @@ export const sandboxGateLayer = (memoryBudgetMiB = 1904) =>
 			SandboxSidecarAdmission.layer.pipe(Layer.provide(admissionConfig(memoryBudgetMiB))),
 		),
 	);
+
+export const makeFiles = (
+	artifactReadRange: SandboxFileAccess["artifactReadRange"] = (args) =>
+		Effect.succeed({ size: 0, data: "", offset: args.offset }),
+	scratchWrite: SandboxFileAccess["scratchWrite"] = () => Effect.succeed(null),
+): SandboxFileAccess => ({
+	scratchWrite,
+	artifactReadRange,
+	harvest: () => Effect.succeed(null),
+	filesystem: { scratch: false, artifact: false, namedArtifacts: [] },
+});

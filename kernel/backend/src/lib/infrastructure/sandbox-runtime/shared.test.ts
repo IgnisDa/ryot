@@ -173,6 +173,66 @@ describe("requireSandboxCapabilityInput", () => {
 		).not.toHaveProperty("replayJournal");
 	});
 
+	const selection: ReadonlyArray<
+		readonly [
+			name: string,
+			kind: "script" | "workflow",
+			capabilities: ReadonlyArray<string> | undefined,
+			bound: ReadonlyArray<string>,
+			expected: ReadonlyArray<string>,
+		]
+	> = [
+		["binds nothing without declared capabilities", "script", undefined, ["log", "span"], []],
+		["ignores unknown capability names", "script", ["log", "unknown"], ["log", "span"], ["log"]],
+		[
+			"never binds filesystem grant capabilities",
+			"script",
+			["scratch", "artifact-read", "httpCall"],
+			["scratch", "httpCall"],
+			["httpCall"],
+		],
+		[
+			"keeps replayJournal out of workflow selection",
+			"workflow",
+			["httpCall"],
+			["httpCall", "replayJournal"],
+			[],
+		],
+		[
+			"does not bind replayJournal alone",
+			"script",
+			["replayJournal"],
+			["httpCall", "replayJournal"],
+			[],
+		],
+		[
+			"binds only the ordinary capability beside replayJournal",
+			"script",
+			["httpCall", "replayJournal"],
+			["httpCall", "replayJournal"],
+			["httpCall"],
+		],
+		[
+			"gates executeRyotql by the declared capability",
+			"script",
+			["executeRyotql"],
+			["executeRyotql"],
+			["executeRyotql"],
+		],
+	];
+
+	it.each(selection)("selects host functions: %s", (_name, kind, capabilities, bound, expected) => {
+		const input = makeRunInput(
+			{ type: "system" },
+			null,
+			{ kind, capabilities: capabilities === undefined ? undefined : [...capabilities] },
+			{ pluginRevision: pluginRevision() },
+		);
+		const functions = Object.fromEntries(bound.map((name) => [name, () => Effect.void]));
+
+		expect(Object.keys(selectSandboxHostFunctions(functions, input))).toEqual(expected);
+	});
+
 	it("requires a declared notification capability and user automation scope", () => {
 		const input = makeRunInput(automationSubject("after", UserId.make("user_1")));
 		expect(isSandboxCapabilityAllowed(input, "sendNotification")).toBe(true);
@@ -201,7 +261,7 @@ describe("requireSandboxCapabilityInput", () => {
 		).toBe(false);
 	});
 
-	it("non_workflow_executions_expose_only_resource_free_capabilities", () => {
+	it("exposes only resource-free capabilities to non-workflow executions", () => {
 		const input = makeRunInput(automationSubject("after", UserId.make("user_1")));
 		const functions = Object.fromEntries(
 			SANDBOX_HOST_CAPABILITIES.map((capability) => [capability, () => Effect.void]),

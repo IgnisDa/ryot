@@ -1,7 +1,7 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 
 // Upper bound on decoded JavaScript memory per JSON byte across a whole decode path, measured by
-// `json_graph_factor_bounds_pathological_decode_paths`.
+// the "bounds pathological decode paths with the JSON graph factor" test.
 export const SANDBOX_JSON_GRAPH_FACTOR = 27;
 
 const isJsonArray = (value: JsonValue): value is readonly JsonValue[] => Array.isArray(value);

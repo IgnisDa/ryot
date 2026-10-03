@@ -5,6 +5,15 @@ import { SANDBOX_RUNNER_LIMITS } from "./limits";
 
 const specifier = `ryot-module:/${"a".repeat(64)}.js`;
 
+const moduleDirectory = "ryot-module:/inline-module";
+const payload = { scriptId: "script-1", executionId: "execution-1" };
+
+const errorWithStack = (stack: readonly string[]) => {
+	const error = new Error("intentional");
+	Object.defineProperty(error, "stack", { value: ["Error: intentional", ...stack].join("\n") });
+	return error;
+};
+
 const stackError = (stack: readonly string[]) => {
 	const error = new Error(`failure in ${specifier} execution-secret script-secret`);
 	Object.defineProperty(error, "stack", { value: ["Error: failure", ...stack].join("\n") });
@@ -32,6 +41,37 @@ describe("isolate runner diagnostics", () => {
 		expect(result.message).not.toContain(specifier);
 		expect(result.message).not.toContain("execution-secret");
 		expect(result.message).not.toContain("script-secret");
+	});
+
+	it("preserves every mapped source frame", () => {
+		const frameCount = 12;
+		const error = errorWithStack(
+			Array.from(
+				{ length: frameCount },
+				(_, index) =>
+					`    at sandboxFrame${index} (${moduleDirectory}/backend/scripts/entry.sandbox.ts:${index + 1}:${index + 2})`,
+			),
+		);
+
+		const result = executionError(error, "execute", payload, moduleDirectory, "script-failure");
+
+		expect(result.stack?.split("\n")).toHaveLength(frameCount);
+		expect(result.line).toBe(1);
+		expect(result.column).toBe(2);
+		expect(result.stack).toContain("at backend/scripts/entry.sandbox.ts:1:2");
+		expect(result.stack).toContain(
+			`at backend/scripts/entry.sandbox.ts:${frameCount}:${frameCount + 1}`,
+		);
+	});
+
+	it("reports no frames when the module identity is unknown", () => {
+		const error = errorWithStack(["    at run (file:///sandbox/modules/script.ts:4:9)"]);
+
+		expect(executionError(error, "execute", undefined, moduleDirectory, "script-failure")).toEqual({
+			phase: "execute",
+			message: "intentional",
+			kind: "script-failure",
+		});
 	});
 
 	it("bounds console entries and appends one truncation marker", () => {

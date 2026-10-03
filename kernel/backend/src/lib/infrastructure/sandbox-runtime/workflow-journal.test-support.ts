@@ -10,7 +10,8 @@ import {
 	type SandboxPinnedJournal,
 } from "#lib/infrastructure/sandbox-journal-store";
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+import { encodeJson } from "./host-call-args.test-support";
+
 const decodeEntry = Schema.decodeUnknownSync(
 	Schema.fromJsonString(workflowReplayJournalEntrySchema),
 );

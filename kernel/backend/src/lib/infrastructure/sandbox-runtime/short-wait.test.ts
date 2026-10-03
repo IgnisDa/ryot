@@ -5,7 +5,7 @@ import { TestClock } from "effect/testing";
 import { makeSandboxShortWait } from "./short-wait";
 
 layer(TestClock.layer())((test) => {
-	test.effect("short_wait_budget_bounds_sequential_and_parallel_waits", () =>
+	test.effect("bounds sequential and parallel waits with the short wait budget", () =>
 		Effect.gen(function* () {
 			const sequential = makeSandboxShortWait();
 			expect(yield* sequential.wait(0)).toBe(true);
@@ -38,7 +38,7 @@ layer(TestClock.layer())((test) => {
 		}),
 	);
 
-	test.effect("short_wait_interruption_refunds_unused_allowance", () =>
+	test.effect("refunds the unused allowance when a short wait is interrupted", () =>
 		Effect.gen(function* () {
 			const budget = makeSandboxShortWait();
 			const waiting = yield* Effect.forkChild(budget.wait(1_000));

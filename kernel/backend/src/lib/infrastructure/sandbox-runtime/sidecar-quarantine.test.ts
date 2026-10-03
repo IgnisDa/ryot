@@ -8,6 +8,7 @@ import { sandboxProtectionKeys } from "#lib/infrastructure/sandbox-crash-store";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { deleteRedisKeysOnExit, testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
+import { makeUserPrincipal, makeUserSubject } from "#lib/test-utils/sandbox-run-input";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 
 import type { SandboxExecutionPrincipal } from "./execution-principal";
@@ -26,23 +27,19 @@ const makePrincipal = (
 	ownerId: UserId,
 	contentHash: string,
 	compiledHashes: Readonly<Record<string, string>>,
-): SandboxExecutionPrincipal => ({
-	contentHash,
-	providerId: null,
-	scriptSlug: "entry",
-	metadata: { kind: "script", runtimeImports: [] },
-	scriptId: SandboxScriptId.make(testExecutionId("script")),
-	pluginRevision: makeUserPluginRevision({
-		ownerId,
-		compiledHashes,
-		slug: testExecutionId("plugin"),
-	}),
-	subject: {
-		type: "user",
-		userId: ownerId,
-		accountGeneration: { userId: ownerId, token: "generation" },
-	},
-});
+): SandboxExecutionPrincipal =>
+	makeUserPrincipal({
+		contentHash,
+		scriptSlug: "entry",
+		subject: makeUserSubject(ownerId),
+		metadata: { kind: "script", runtimeImports: [] },
+		scriptId: SandboxScriptId.make(testExecutionId("script")),
+		pluginRevision: makeUserPluginRevision({
+			ownerId,
+			compiledHashes,
+			slug: testExecutionId("plugin"),
+		}),
+	});
 
 const testHash = () => crypto.randomUUID().replaceAll("-", "").padEnd(64, "0");
 
@@ -90,7 +87,7 @@ layer(quarantineLayer)((test) => {
 			}),
 		),
 	);
-	test.effect("quarantine_rejects_user_trust_without_plugin_revision", () =>
+	test.effect("rejects user-trust quarantine without a plugin revision", () =>
 		Effect.gen(function* () {
 			const quarantine = yield* SandboxSidecarQuarantine;
 			const owner = UserId.make(testExecutionId("owner"));

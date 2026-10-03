@@ -1,19 +1,17 @@
 import { expect, it, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { Deferred, Effect, Exit, Fiber, Layer, Option, Result, Scope } from "effect";
+import { Deferred, Effect, Exit, Fiber, Option, Result, Scope } from "effect";
 
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
-
-import { makeSandboxAdmission } from "./host-call-gate.test-support";
 import { MiB } from "./limits";
 import { sandboxMemoryPlan } from "./memory-plan";
+import {
+	idleBytes,
+	makeSandboxAdmission,
+	sandboxAdmissionLayer,
+} from "./sandbox-admission.test-support";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
 
-const admissionLayer = Layer.effect(SandboxSidecarAdmission, SandboxSidecarAdmission.make).pipe(
-	Layer.provide(makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(1100) } })),
-);
-const idleBytes = (admission: SandboxSidecarAdmission["Service"]) =>
-	admission.plan.budget - admission.plan.dynamicBytes;
+const admissionLayer = sandboxAdmissionLayer(1100);
 const acquireScope = Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void));
 const GiB = 1024 * MiB;
 const idleSnapshot = (admission: SandboxSidecarAdmission["Service"]) => ({
@@ -30,7 +28,7 @@ const planFailure = (result: Result.Result<unknown, SandboxRunError>) =>
 		: result;
 
 layer(admissionLayer)((test) => {
-	test.effect("atomic_admission_keeps_memory_waiters_from_holding_execution_slots", () =>
+	test.effect("keeps memory waiters from holding execution slots through atomic admission", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const admission = yield* SandboxSidecarAdmission;
@@ -199,7 +197,7 @@ layer(admissionLayer)((test) => {
 				}),
 			),
 	);
-	test.effect("memory_admission_counts_frames_startups_and_buffers", () =>
+	test.effect("counts frames, startups, and buffers in memory admission", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const measured = yield* SandboxSidecarAdmission;
@@ -258,7 +256,7 @@ const plannedRegions = (budget: number) =>
 const closeTwice = (scope: Scope.Closeable) =>
 	Scope.close(scope, Exit.void).pipe(Effect.andThen(Scope.close(scope, Exit.void)));
 
-it("sandbox_memory_budget_derives_from_effective_memory", () => {
+it("derives the sandbox memory budget from effective memory", () => {
 	expect(plannedBudget(Option.none(), 8 * GiB)).toEqual(Result.succeed(1536 * MiB));
 	expect(plannedBudget(Option.none(), 2 * GiB)).toEqual(Result.succeed(GiB));
 	expect(plannedBudget(Option.some(2048), 8 * GiB)).toEqual(Result.succeed(2 * GiB));
@@ -274,7 +272,7 @@ it("sandbox_memory_budget_derives_from_effective_memory", () => {
 	}
 });
 
-it.effect("admission_mode_follows_budget_and_admits_background_work", () =>
+it.effect("follows the budget for admission mode and admits background work", () =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			for (const budget of [800, 853]) {
@@ -330,7 +328,7 @@ it.effect("admission_mode_follows_budget_and_admits_background_work", () =>
 	),
 );
 
-it.effect("fair_admission_releases_tickets_and_reservations_exactly_once", () =>
+it.effect("releases fair admission tickets and reservations exactly once", () =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			const admission = yield* makeSandboxAdmission(1452);

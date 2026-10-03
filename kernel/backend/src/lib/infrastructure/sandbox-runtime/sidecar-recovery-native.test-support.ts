@@ -1,6 +1,6 @@
 import { assert } from "@effect/vitest";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { Context, Effect, Layer, Option, Queue, Redacted } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
@@ -8,10 +8,12 @@ import { SandboxCrashStore, sandboxProtectionKeys } from "#lib/infrastructure/sa
 import { SandboxRecoveryStore } from "#lib/infrastructure/sandbox-recovery-store";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { deleteRedisKeysOnExit, testRedisUrl } from "#lib/test-utils/redis";
+import { unusedSandboxHostImplementations } from "#lib/test-utils/sandbox-host-implementations";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxExecutionAuthority } from "./execution-principal";
 import { SandboxFileService } from "./file-service";
+import { encodeJson } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { SandboxHostImplementations } from "./host-implementations";
 import { MiB } from "./limits";
@@ -19,7 +21,6 @@ import {
 	makeRunnerInput,
 	nativePlatformLayer,
 	recordingSidecarClient,
-	unusedSandboxHostImplementations,
 	type RunnerCompiled,
 	type RunnerOptions,
 } from "./runner-native.test-support";
@@ -43,8 +44,6 @@ type NativeFrameEvidence = {
 	readonly frame: Event | SidecarInboundFrame;
 	readonly instance: string;
 };
-
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 export const killNativeConnection = Effect.fnUntraced(function* (connection: Connection) {
 	assert(connection.pid !== undefined);
@@ -87,6 +86,7 @@ export class NativeRecoveryEvidence extends Context.Service<
 	NativeRecoveryEvidence,
 	{
 		readonly sent: NativeFrameEvidence[];
+		readonly sentSignal: Queue.Queue<void>;
 		readonly received: NativeFrameEvidence[];
 		readonly connections: NativeConnectionEvidence[];
 		readonly tightenedModules: Set<string>;
@@ -115,6 +115,7 @@ const recordingClient = recordingSidecarClient(
 		sent: (frame, settings) => {
 			const record = { frame, instance: `${settings.trust}/${settings.tier}` };
 			evidence.sent.push(record);
+			Queue.offerUnsafe(evidence.sentSignal, undefined);
 			evidence.timeline.push({ ...record, direction: "sent" });
 			return frame.type === "run" && evidence.tightenedModules.has(frame.module.sha256)
 				? { ...frame, limits: { ...frame.limits, ...tightenedMemoryLimits } }
@@ -140,13 +141,16 @@ export const nativeRecoveryLayer = Layer.mergeAll(
 	Layer.provideMerge(
 		Layer.effect(
 			NativeRecoveryEvidence,
-			Effect.sync(() => ({
-				sent: [],
-				received: [],
-				timeline: [],
-				connections: [],
-				tightenedModules: new Set<string>(),
-			})),
+			Effect.gen(function* () {
+				return {
+					sent: [],
+					received: [],
+					timeline: [],
+					connections: [],
+					tightenedModules: new Set<string>(),
+					sentSignal: yield* Queue.unbounded<void>(),
+				};
+			}),
 		),
 	),
 	Layer.provideMerge(
@@ -157,6 +161,15 @@ export const nativeRecoveryLayer = Layer.mergeAll(
 	),
 	Layer.provideMerge(nativePlatformLayer),
 );
+
+export const awaitSent = Effect.fnUntraced(function* (
+	evidence: NativeRecoveryEvidence["Service"],
+	predicate: () => boolean,
+) {
+	while (!predicate()) {
+		yield* Queue.take(evidence.sentSignal);
+	}
+});
 
 export const compileTightenedNative = Effect.fnUntraced(function* (source: string) {
 	const compiled = yield* (yield* SandboxCompiler).compile(source);

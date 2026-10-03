@@ -18,11 +18,13 @@ import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SANDBOX_LIMITS } from "./limits";
+import { defineNativeScript } from "./runner-native.test-support";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
 import { SandboxInvocationSchema, type SidecarRunFrame } from "./sidecar-protocol";
 import { SandboxSidecarQuarantine } from "./sidecar-quarantine";
 import {
+	awaitSent,
 	killNativeConnection,
 	compileTightenedNative,
 	NativeRecoveryEvidence,
@@ -36,14 +38,13 @@ import { SandboxSidecarSupervisor, SidecarRecoverySuspended } from "./sidecar-su
 const executionId = (frame: typeof SidecarRunFrame.Type) =>
 	Schema.decodeUnknownSync(SandboxInvocationSchema)(frame.input).executionId;
 
-const definition = (slug: string, run: string, kind = "script") => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-export const manifest = defineManifest({ kind: "${kind}", name: "Native recovery", slug: "${slug}" });
-export default ${kind === "operation" ? "defineOperation" : "defineScript"}({
-  manifest, input: Schema.Struct({ mode: Schema.String }), output: Schema.Unknown, run: ${run},
-});`;
+const definition = (slug: string, run: string, kind: "script" | "operation" = "script") =>
+	defineNativeScript(run, {
+		kind,
+		slug,
+		name: "Native recovery",
+		input: "Schema.Struct({ mode: Schema.String })",
+	});
 
 const crashSource = (slug: string) =>
 	definition(
@@ -166,9 +167,8 @@ const probationRenewsOnFatalAndClearsOnSuccess = Effect.scoped(
 		);
 		const expire = Effect.fnUntraced(function* () {
 			for (const identity of identities) {
-				yield* Effect.promise(() => redis.client.pexpire(redisKeys.sandboxQuarantine(identity), 1));
+				yield* Effect.promise(() => redis.client.del(redisKeys.sandboxQuarantine(identity)));
 			}
-			yield* Effect.sleep("10 millis");
 		});
 		yield* expire();
 		yield* Effect.scoped(
@@ -199,13 +199,11 @@ const probationRenewsOnFatalAndClearsOnSuccess = Effect.scoped(
 				const before = evidence.sent.length;
 				const located = yield* reconstructed.locate(parked.principal);
 				const fiber = yield* runSupervisedNative(reconstructed, parked).pipe(Effect.forkScoped);
-				while (
-					!evidence.sent
+				yield* awaitSent(evidence, () =>
+					evidence.sent
 						.slice(before)
-						.some(({ frame, instance }) => instance === located.instance && frame.type === "run")
-				) {
-					yield* Effect.sleep("10 millis");
-				}
+						.some(({ frame, instance }) => instance === located.instance && frame.type === "run"),
+				);
 				assertExitFails(
 					yield* Effect.exit(runSupervisedNative(reconstructed, second)),
 					quarantined,
@@ -334,7 +332,7 @@ const unavailableCrashStoreFailsClosed = Effect.scoped(
 );
 
 layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
-	test.effect("crash_quarantine_blocks_owner_plugin_rotation", () =>
+	test.effect("blocks owner plugin rotation after a crash quarantine", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const compiler = yield* SandboxCompiler;
@@ -371,7 +369,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 		),
 	);
 
-	test.effect("crash_quarantine_blocks_identical_plugins_across_accounts", () =>
+	test.effect("blocks identical plugins across accounts after a crash quarantine", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const compiler = yield* SandboxCompiler;
@@ -409,7 +407,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 		),
 	);
 
-	test.effect("quarantine_probation_and_system_jobs_preserve_healthy_work", () =>
+	test.effect("preserves healthy work through quarantine, probation, and system jobs", () =>
 		Effect.gen(function* () {
 			yield* probationRenewsOnFatalAndClearsOnSuccess;
 			yield* systemJobQuarantineSparesOtherWork;
@@ -418,7 +416,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 	);
 
 	test.effect(
-		"collateral_recovery_preserves_committed_prefix_and_suspension_across_reconstructed_supervisor",
+		"preserves the committed prefix and suspension across a reconstructed supervisor in collateral recovery",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -598,7 +596,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 	);
 
 	test.effect(
-		"native_mid_import_exit_probes_survivors_in_stable_order_and_freezes_fresh_work",
+		"probes survivors in stable order and freezes fresh work after a mid-import exit",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -641,9 +639,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 							.flatMap(({ frame, instance }) =>
 								instance === located.instance && frame.type === "run" ? [frame] : [],
 							);
-					while (runs().length < 2) {
-						yield* Effect.sleep("10 millis");
-					}
+					yield* awaitSent(evidence, () => runs().length >= 2);
 					const initial = runs();
 					const first = initial[0];
 					assert(first !== undefined);

@@ -1,5 +1,4 @@
 import { describe, expect, it, layer } from "@effect/vitest";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import {
 	Context,
@@ -14,19 +13,19 @@ import {
 } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
 
+import { makeUserRunInput } from "#lib/test-utils/sandbox-run-input";
 import { makeRecordingTracer } from "#lib/test-utils/tracer";
 
 import { hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
-import { sandboxGateLayer } from "./host-call-gate.test-support";
 import { SANDBOX_LIMITS } from "./limits";
 import {
 	makeObservabilitySandboxApiFunctions,
 	makeSandboxObservabilityCollector,
 	mergeSandboxExecutionLogs,
 } from "./observability-host-functions";
-import { selectSandboxHostFunctions } from "./service";
-import type { BoundHostFunction, SandboxRunInput } from "./shared";
+import { sandboxGateLayer } from "./sandbox-admission.test-support";
+import type { BoundHostFunction } from "./shared";
 
 type CapturedLog = {
 	options: Parameters<LoggerType<unknown, unknown>["log"]>[0];
@@ -63,29 +62,9 @@ const recordedTelemetryLayer = Layer.unwrap(
 	}),
 );
 
-const selectedHostFunction: BoundHostFunction = () => Effect.succeed(null);
-
-const input: SandboxRunInput = {
-	context: {},
-	compiledCode: "",
-	compiledFormat: 1,
-	lane: "interactive",
-	executionId: "execution-1",
-	startedAt: "2026-01-01T00:00:00.000Z",
-	principal: {
-		contentHash: "",
-		providerId: null,
-		scriptSlug: "script",
-		pluginRevision: null,
-		scriptId: SandboxScriptId.make("script-1"),
-		metadata: { runtimeImports: [], capabilities: ["log", "span"] },
-		subject: {
-			type: "user",
-			userId: UserId.make("user-1"),
-			accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-		},
-	},
-};
+const input = makeUserRunInput({
+	principal: { metadata: { runtimeImports: [], capabilities: ["log", "span"] } },
+});
 
 const makeLogHostFunction =
 	(host: ReturnType<typeof makeObservabilitySandboxApiFunctions>): BoundHostFunction =>
@@ -110,29 +89,6 @@ const makeSpanHostFunction =
 			.pipe(Effect.map(hostSuccess));
 
 describe("sandbox observability host functions", () => {
-	it("selects log and span only when explicitly allowed", () => {
-		const bound = { log: selectedHostFunction, span: selectedHostFunction };
-
-		expect(
-			selectSandboxHostFunctions(bound, {
-				principal: {
-					...input.principal,
-					subject: { type: "system" },
-					metadata: { runtimeImports: [] },
-				},
-			}),
-		).toEqual({});
-		expect(
-			selectSandboxHostFunctions(bound, {
-				principal: {
-					...input.principal,
-					subject: { type: "system" },
-					metadata: { runtimeImports: [], capabilities: ["log", "unknown"] },
-				},
-			}),
-		).toEqual({ log: selectedHostFunction });
-	});
-
 	it("serializes deterministically and merges entries after console logs", () => {
 		const collector = makeSandboxObservabilityCollector();
 
