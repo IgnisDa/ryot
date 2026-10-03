@@ -10,8 +10,17 @@ const MEDIA_LIST_STATE_LABELS: Record<ListStateProperties["state"], string> = {
 	in_progress: "In progress",
 };
 
-export const mediaListStateStatusLabel = (state: ListStateProperties["state"]) =>
-	MEDIA_LIST_STATE_LABELS[state];
+export const mediaListStateDetail = (
+	listState: ListStateProperties | null,
+	positions: readonly (string | undefined)[],
+) =>
+	listState === null
+		? undefined
+		: [
+				MEDIA_LIST_STATE_LABELS[listState.state],
+				...positions.filter((position) => position !== undefined),
+				`Repeat count ${listState.repeatCount}`,
+			].join(" · ");
 
 type MediaActivityVerbCopy = {
 	readonly object: string;
