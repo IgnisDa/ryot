@@ -562,6 +562,9 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isSuccess(decodeTarget(savedView))).toBe(true);
 		expect(Result.isSuccess(decodeTarget(targetEntity))).toBe(true);
 		expect(Result.isSuccess(decodeTarget({ kind: "kernel-page", page: "import-data" }))).toBe(true);
+		expect(
+			Result.isSuccess(decodeTarget({ kind: "kernel-page", page: "plugin-preferences" })),
+		).toBe(true);
 		expect(Result.isFailure(decodeTarget({ page: "settings", kind: "kernel-page" }))).toBe(true);
 		expect(
 			Result.isFailure(

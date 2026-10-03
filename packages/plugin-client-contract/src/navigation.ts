@@ -128,14 +128,14 @@ export const PluginLogicalLocation = Schema.Union([PluginRouteLocation, PluginEn
 
 export type PluginLogicalLocation = Schema.Schema.Type<typeof PluginLogicalLocation>;
 
-export const KernelPage = Schema.Literals(["import-data"]);
+export const KernelPage = Schema.Literals(["import-data", "plugin-preferences"]);
 
 export type KernelPage = Schema.Schema.Type<typeof KernelPage>;
 
-export const kernelPagePaths = { "import-data": "/settings/import-data" } as const satisfies Record<
-	KernelPage,
-	string
->;
+export const kernelPagePaths = {
+	"import-data": "/settings/import-data",
+	"plugin-preferences": "/settings/plugin-preferences",
+} as const satisfies Record<KernelPage, string>;
 
 export const PluginNavigationTarget = Schema.Union([
 	strictStruct({ reference: SavedViewReference, kind: Schema.Literal("saved-view") }),
