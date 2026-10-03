@@ -5,13 +5,15 @@ import { isAppSchemaPathEffectivelyRequired } from "../../schema/property-schema
 import { IngestionBlockReason, IngestionPlan } from "../imports/ingestion";
 import type { SourcePlan } from "./execution";
 import { kernelWorkflowTargets, selectSourcePlan } from "./execution";
-import { SandboxExecutionMetadata } from "./execution-metadata";
+import { SandboxSourceExecutionMetadata } from "./execution-metadata";
 import { PluginOAuthProvider } from "./manifest";
 
 export const IngestionReadinessMetadata = Schema.Struct({
 	availableConfigKeys: Schema.Array(Schema.String),
 	workflows: Schema.Array(Schema.Struct({ slug: Schema.String, scriptSlug: Schema.String })),
-	scripts: Schema.Array(Schema.Struct({ slug: Schema.String, ...SandboxExecutionMetadata.fields })),
+	scripts: Schema.Array(
+		Schema.Struct({ slug: Schema.String, ...SandboxSourceExecutionMetadata.fields }),
+	),
 	oauthProviders: Schema.Array(
 		Schema.Struct({
 			slug: PluginOAuthProvider.fields.slug,

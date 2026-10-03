@@ -3,7 +3,7 @@ import { Effect, Schema } from "effect";
 
 import { compileSandboxPackageEntries } from "./compiler-builtins";
 import { compileSandboxSource } from "./compiler-core";
-import { validateCompiledSandboxManifest } from "./compiler-metadata";
+import { validateSandboxCapabilities } from "./compiler-metadata";
 import { sandboxCompilerPlatformLayer } from "./compiler-platform";
 import { compilePluginSandboxSourceEntries } from "./compiler-plugins";
 
@@ -159,7 +159,7 @@ const request = (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "ht
 export const manifest = defineManifest({ kind: "script", slug: "entry", name: "Entry" });
 export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Unknown, run: (_input, host) => request(host) });
 `);
-			const diagnostic = validateCompiledSandboxManifest({
+			const diagnostic = validateSandboxCapabilities({
 				...compiled.manifest,
 				kind: "automation",
 				automationType: "policy",
@@ -168,7 +168,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 			expect(compiled.manifest.capabilities).toEqual(["httpCall"]);
 			expect(diagnostic?.code).toBe("RYOT_CAPABILITY");
 			expect(
-				validateCompiledSandboxManifest({
+				validateSandboxCapabilities({
 					...compiled.manifest,
 					capabilities: [],
 					kind: "automation",
@@ -248,9 +248,9 @@ export default defineAutomation({
 				if (automation?.kind !== "automation") {
 					throw new Error("Expected a compiled automation manifest");
 				}
-				expect(
-					validateCompiledSandboxManifest({ ...automation, automationType: "policy" })?.code,
-				).toBe("RYOT_CAPABILITY");
+				expect(validateSandboxCapabilities({ ...automation, automationType: "policy" })?.code).toBe(
+					"RYOT_CAPABILITY",
+				);
 			}),
 	);
 	test.effect.each(["source", "package"] as const)(
