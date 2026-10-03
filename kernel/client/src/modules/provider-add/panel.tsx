@@ -23,6 +23,8 @@ import {
 	SchemaForm,
 	type SchemaFileUpload,
 	type SchemaFormIcons,
+	type SchemaAssetUpload,
+	type SchemaAssetRenderer,
 	toSchemaFormPayload,
 	useSchemaForm,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
@@ -56,6 +58,7 @@ import {
 	type ProviderSearchState,
 } from "#/modules/provider-add/search-controller";
 import type { ProviderAddLoadError, ProviderSearchSummary } from "#/modules/provider-add/service";
+import { schemaFormReorderFeedback } from "#/modules/ui/schema-form-feedback";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
 
 const SEARCH_DEBOUNCE_MS = 350;
@@ -87,6 +90,8 @@ type ProviderSearchPanelProps = {
 	readonly onCreateCustom?: ((query: string) => void) | undefined;
 	readonly onImported: (entityId: EntityId) => void;
 	readonly uploadFile: SchemaFileUpload;
+	readonly uploadAsset: SchemaAssetUpload;
+	readonly renderAsset: SchemaAssetRenderer;
 	readonly providers: ProviderSummariesState;
 	readonly initialQuery?: string | undefined;
 	readonly entitySchemaSlug: EntitySchemaSlug;
@@ -412,7 +417,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 	};
 	const activeOptionCount =
 		options.status === "ready"
-			? Object.keys(toSchemaFormPayload(options.schema, optionsForm.state.values)).length
+			? Object.keys(toSchemaFormPayload(options.schema, optionsForm.state.values.fields)).length
 			: 0;
 
 	const runSearch = useEffectEvent((operation: ProviderSearchOperation) => {
@@ -421,7 +426,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 		}
 		const optionPayload =
 			options.status === "ready" && options.providerId === selected.providerId
-				? toSchemaFormPayload(options.schema, optionsForm.state.values)
+				? toSchemaFormPayload(options.schema, optionsForm.state.values.fields)
 				: undefined;
 		return props
 			.search(
@@ -600,6 +605,9 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 													schema={ready.schema}
 													icons={schemaFormIcons}
 													uploadFile={props.uploadFile}
+													uploadAsset={props.uploadAsset}
+													renderAsset={props.renderAsset}
+													onReorder={schemaFormReorderFeedback}
 													onChange={() => dispatch({ type: "options-changed" })}
 												/>
 											)),

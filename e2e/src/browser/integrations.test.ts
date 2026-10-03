@@ -43,7 +43,7 @@ const connectKodi = (page: Playwright.Page) =>
 			.click();
 		yield* wizard(page).getByRole("heading", { name: PROVIDER_NAME }).waitFor();
 
-		yield* wizard(page).getByLabel("Name").fill(INTEGRATION_NAME);
+		yield* wizard(page).getByLabel("Name", { exact: true }).fill(INTEGRATION_NAME);
 		yield* wizard(page).getByRole("button", { name: "Continue" }).click();
 		yield* wizard(page).getByRole("button", { exact: true, name: "Connect" }).click();
 		yield* wizard(page).waitFor({ state: "hidden" });
@@ -90,7 +90,7 @@ it.live("connects, edits and deletes an integration from settings", () =>
 			yield* page.getByRole("button", { name: "Copy webhook URL" }).waitFor({ state: "visible" });
 			yield* page.getByText("This integration has not run yet.").waitFor({ state: "visible" });
 
-			yield* page.getByLabel("Name").fill(RENAMED_INTEGRATION);
+			yield* page.getByLabel("Name", { exact: true }).fill(RENAMED_INTEGRATION);
 			yield* page.getByRole("button", { name: "Save changes" }).click();
 			yield* page.getByRole("heading", { level: 1, name: RENAMED_INTEGRATION }).waitFor();
 

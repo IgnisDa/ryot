@@ -84,7 +84,7 @@ it.live("saves plugin preferences, validates drafts, and guards unsaved navigati
 
 		yield* limit.fill("11");
 		yield* page.getByRole("button", { name: "Save changes" }).click();
-		yield* page.getByText("Reminder limit is above the maximum").waitFor({ state: "visible" });
+		yield* page.locator('[data-invalid="true"]').getByRole("alert").waitFor({ state: "visible" });
 		expect(yield* page.getByText("Plugin settings saved.").count).toBe(0);
 
 		yield* settingsSidebar(page).getByRole("link", { name: "Account" }).click();

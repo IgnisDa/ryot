@@ -5,6 +5,8 @@ import {
 	describeSchemaFormFields,
 	SchemaForm,
 	useSchemaForm,
+	type SchemaAssetUpload,
+	type SchemaAssetRenderer,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { useDeferredValue, useLayoutEffect, useState } from "react";
 
@@ -128,13 +130,16 @@ function TargetRow(props: {
 	readonly target: EditorRelationshipTarget;
 	readonly onRemove: () => void;
 	readonly onChange: (properties: EditorProperties) => void;
+	readonly uploadAsset: SchemaAssetUpload;
+	readonly renderAsset: SchemaAssetRenderer;
+	readonly onReorder: () => void;
 }) {
 	const { target, definition } = props;
 	const schema = definition.propertiesSchema;
 	const form = useSchemaForm({ schemas: [schema], onSubmit: () => undefined });
 	const [initialValues] = useState(() => entityFormValues(schema, target.properties));
 	useLayoutEffect(() => {
-		form.reset(initialValues);
+		form.reset({ fields: initialValues });
 	}, [form, initialValues]);
 	const editable = describeSchemaFormFields(schema).fields.length > 0;
 	return (
@@ -155,10 +160,18 @@ function TargetRow(props: {
 					form={form}
 					schema={schema}
 					icons={schemaFormIcons}
+					onReorder={props.onReorder}
+					uploadAsset={props.uploadAsset}
+					renderAsset={props.renderAsset}
 					uploadFile={unsupportedFileUpload}
 					onChange={() =>
 						props.onChange(
-							entityPropertiesPayload(schema, form.state.values, "create", target.properties),
+							entityPropertiesPayload(
+								schema,
+								form.state.values.fields,
+								"create",
+								target.properties,
+							),
 						)
 					}
 				/>
@@ -174,6 +187,9 @@ export function RelationshipSection(props: {
 	readonly targets: readonly EditorRelationshipTarget[];
 	readonly errors: ReadonlyMap<string, string>;
 	readonly onChange: (targets: readonly EditorRelationshipTarget[]) => void;
+	readonly uploadAsset: SchemaAssetUpload;
+	readonly renderAsset: SchemaAssetRenderer;
+	readonly onReorder: () => void;
 }) {
 	const { targets, definition } = props;
 	const [picking, setPicking] = useState(false);
@@ -189,6 +205,9 @@ export function RelationshipSection(props: {
 							target={target}
 							key={target.entityId}
 							definition={definition}
+							onReorder={props.onReorder}
+							uploadAsset={props.uploadAsset}
+							renderAsset={props.renderAsset}
 							error={props.errors.get(target.entityId)}
 							onRemove={() =>
 								props.onChange(targets.filter(({ entityId }) => entityId !== target.entityId))

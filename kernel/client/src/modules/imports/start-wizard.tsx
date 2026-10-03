@@ -1,4 +1,4 @@
-import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
+import { useRyotMutation, useSchemaAssetUpload } from "@ryot-app/plugin-client-sdk/react";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	initialSchemaFormValues,
@@ -60,6 +60,7 @@ export function ImportStartWizard(props: {
 	readonly sources: ImportSourcePickerState;
 }) {
 	const uploadFile = useSchemaFileUpload();
+	const uploadAsset = useSchemaAssetUpload();
 	const startMutation = useRyotMutation(createImportRunMutation);
 	const [failure, setFailure] = useState<ImportStartFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
@@ -145,7 +146,7 @@ export function ImportStartWizard(props: {
 		)),
 		Match.when("configure", () =>
 			source === undefined ? null : (
-				<form.Subscribe selector={(formState) => formState.values}>
+				<form.Subscribe selector={(formState) => formState.values.fields}>
 					{(values) => (
 						<SelectedImportReadiness
 							reference={source.reference}
@@ -157,6 +158,7 @@ export function ImportStartWizard(props: {
 									onBack={goBack}
 									source={source}
 									uploadFile={uploadFile}
+									uploadAsset={uploadAsset}
 									failureDetail={inputFailure}
 									onContinue={() => void form.handleSubmit()}
 								/>
@@ -168,7 +170,7 @@ export function ImportStartWizard(props: {
 		),
 		Match.when("review", () =>
 			source === undefined ? null : (
-				<form.Subscribe selector={(formState) => formState.values}>
+				<form.Subscribe selector={(formState) => formState.values.fields}>
 					{(values) => (
 						<ImportReviewStep
 							source={source}

@@ -1,3 +1,4 @@
+import { useSchemaAssetUpload } from "@ryot-app/plugin-client-sdk/react";
 import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type {
@@ -90,6 +91,7 @@ export function IntegrationDetailView(props: {
 	readonly connectOAuth: SchemaOAuthConnect;
 	readonly oauthDisabledReason: string | undefined;
 }) {
+	const uploadAsset = useSchemaAssetUpload();
 	return (
 		<div className="flex flex-col gap-6 pb-4">
 			{props.integration.webhookUrl === undefined ? (
@@ -116,11 +118,12 @@ export function IntegrationDetailView(props: {
 						mode="edit"
 						form={props.form}
 						provider={props.provider}
+						uploadAsset={uploadAsset}
 						uploadFile={props.uploadFile}
 						connectOAuth={props.connectOAuth}
 						oauthDisabledReason={props.oauthDisabledReason}
 					/>
-					<props.form.Subscribe selector={(state) => state.values}>
+					<props.form.Subscribe selector={(state) => state.values.fields}>
 						{(values) =>
 							props.provider === undefined ? null : (
 								<SelectedIntegrationReadiness

@@ -22,6 +22,7 @@ const providers = [provider(1), provider(2)];
 const renderPanel = (onCreateCustom?: (query: string) => void) =>
 	render(
 		<ProviderSearchPanel
+			renderAsset={() => null}
 			onClose={() => undefined}
 			entitySchemaSlug={bookSlug}
 			onImported={() => undefined}
@@ -34,6 +35,7 @@ const renderPanel = (onCreateCustom?: (query: string) => void) =>
 			search={() => Effect.die(new Error("not used"))}
 			importEntity={() => Effect.die(new Error("not used"))}
 			uploadFile={() => Promise.reject(new Error("not used"))}
+			uploadAsset={() => Promise.reject(new Error("not used"))}
 			loadEntityLinks={() => Effect.die(new Error("not used"))}
 			loadSearchOptions={() => Effect.die(new Error("not used"))}
 		/>,

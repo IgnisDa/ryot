@@ -1,7 +1,8 @@
-import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
+import { useRyotMutation, useSchemaAssetUpload } from "@ryot-app/plugin-client-sdk/react";
 import { Button, FieldMessage, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	useSchemaForm,
+	type SchemaAssetUpload,
 	type SchemaFileUpload,
 	type SchemaFormApi,
 	type SchemaFormValues,
@@ -75,6 +76,7 @@ function SettingsStep(props: {
 	readonly form: SchemaFormApi;
 	readonly onContinue: () => void;
 	readonly uploadFile: SchemaFileUpload;
+	readonly uploadAsset: SchemaAssetUpload;
 	readonly failureDetail: string | undefined;
 	readonly provider: IntegrationProviderItem;
 }) {
@@ -91,9 +93,10 @@ function SettingsStep(props: {
 				provider={props.provider}
 				connectOAuth={oauth.connect}
 				uploadFile={props.uploadFile}
+				uploadAsset={props.uploadAsset}
 				oauthDisabledReason={oauth.disabledReason}
 			/>
-			<props.form.Subscribe selector={(state) => state.values}>
+			<props.form.Subscribe selector={(state) => state.values.fields}>
 				{(values) => (
 					<SelectedIntegrationReadiness
 						reference={props.provider.reference}
@@ -196,6 +199,7 @@ function ReviewStep(props: {
 
 export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const uploadFile = useSchemaFileUpload();
+	const uploadAsset = useSchemaAssetUpload();
 	const create = useRyotMutation(createIntegrationMutation);
 	const [failure, setFailure] = useState<IntegrationSaveFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
@@ -283,6 +287,7 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 					onBack={goBack}
 					provider={provider}
 					uploadFile={uploadFile}
+					uploadAsset={uploadAsset}
 					failureDetail={settingsFailure}
 					onContinue={() => void form.handleSubmit()}
 				/>
@@ -290,7 +295,7 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 		),
 		Match.when("review", () =>
 			provider === undefined ? null : (
-				<form.Subscribe selector={(formState) => formState.values}>
+				<form.Subscribe selector={(formState) => formState.values.fields}>
 					{(values) => (
 						<ReviewStep
 							values={values}

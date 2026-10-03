@@ -145,7 +145,11 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 				yield* update
 					.mutateEffect({
 						id: integration.id,
-						payload: updateIntegrationBody({ values, provider }),
+						payload: updateIntegrationBody({
+							values,
+							provider,
+							originalSettings: integration.providerSpecifics,
+						}),
 					})
 					.pipe(
 						Effect.catchCause((cause) =>

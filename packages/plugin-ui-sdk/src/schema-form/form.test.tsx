@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
-import { imagesField } from "@ryot-app/contract/schema/core";
+import { imagesField, managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect } from "effect";
 import { useEffect } from "react";
 
@@ -185,7 +185,7 @@ const dateSchema = {
 	},
 } satisfies AppSchema;
 
-const unsupportedSchema = {
+const objectSchema = {
 	fields: {
 		name: { label: "Name", type: "string", description: "Name" },
 		metadata: { type: "object", properties: {}, label: "Metadata", description: "Metadata" },
@@ -237,7 +237,10 @@ function SchemaFormHarness(props: {
 		schemas: [selectedSchema],
 		...(props.mode === undefined ? {} : { mode: props.mode }),
 	});
-	useEffect(() => form.reset(initialSchemaFormValues(selectedSchema)), [form, selectedSchema]);
+	useEffect(
+		() => form.reset({ fields: initialSchemaFormValues(selectedSchema) }),
+		[form, selectedSchema],
+	);
 	return (
 		<>
 			<SchemaForm
@@ -257,6 +260,159 @@ function SchemaFormHarness(props: {
 }
 
 describe("SchemaForm", () => {
+	it.live("keeps schema keys literal rather than interpreting dots or brackets as form paths", () =>
+		Effect.gen(function* () {
+			const literalKeys: AppSchema = {
+				fields: {
+					"title.name": { label: "Title", type: "string", description: "Title" },
+					"ids[0]": { type: "string", label: "Identifier", description: "Identifier" },
+				},
+			};
+			const submitted: SchemaFormValues[] = [];
+			render(
+				<SchemaFormHarness schema={literalKeys} onSubmit={(values) => submitted.push(values)} />,
+			);
+			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Literal" } });
+			fireEvent.change(screen.getByLabelText("Identifier"), { target: { value: "a" } });
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(submitted).toEqual([{ "ids[0]": "a", "title.name": "Literal" }])),
+			);
+		}),
+	);
+	it.live("edits and reorders recursive object lists without replacing the surviving inputs", () =>
+		Effect.gen(function* () {
+			const nested: AppSchema = {
+				fields: {
+					groups: {
+						type: "array",
+						label: "Groups",
+						description: "Groups",
+						items: {
+							type: "object",
+							label: "Group",
+							description: "Group",
+							properties: {
+								name: {
+									label: "Name",
+									type: "string",
+									description: "Name",
+									validation: { required: true },
+								},
+								dates: {
+									type: "array",
+									label: "Dates",
+									description: "Dates",
+									items: { type: "date", label: "Date", description: "Date" },
+								},
+							},
+						},
+					},
+				},
+			};
+			const submitted: SchemaFormValues[] = [];
+			render(<SchemaFormHarness schema={nested} onSubmit={(values) => submitted.push(values)} />);
+			fireEvent.click(screen.getByRole("button", { name: "Add Groups item" }));
+			const first = screen.getByLabelText("Name");
+			fireEvent.change(first, { target: { value: "First" } });
+			fireEvent.click(screen.getByRole("button", { name: "Add Dates item" }));
+			fireEvent.change(screen.getByLabelText("Dates item 1"), { target: { value: "2026-10-19" } });
+			fireEvent.click(screen.getByRole("button", { name: "Add Groups item" }));
+			const second = screen.getAllByLabelText("Name")[1];
+			if (second === undefined) {
+				throw new Error("Second group is missing");
+			}
+			fireEvent.change(second, { target: { value: "Second" } });
+			fireEvent.click(screen.getByRole("button", { name: "Move Groups item 2 up" }));
+			expect(screen.getAllByLabelText("Name")).toEqual([second, first]);
+			fireEvent.click(screen.getByRole("button", { name: "Remove Groups item 2" }));
+			expect(screen.getByLabelText("Name")).toBe(second);
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(submitted).toEqual([{ groups: [{ name: "Second" }] }])),
+			);
+		}),
+	);
+
+	it.live(
+		"shows nested item errors beside their inputs and focuses the first invalid control",
+		() =>
+			Effect.gen(function* () {
+				const nested: AppSchema = {
+					fields: {
+						groups: {
+							type: "array",
+							label: "Groups",
+							defaultValue: [{}],
+							description: "Groups",
+							items: {
+								type: "object",
+								label: "Group",
+								description: "Group",
+								properties: {
+									name: {
+										label: "Name",
+										type: "string",
+										description: "Name",
+										validation: { required: true },
+									},
+								},
+							},
+						},
+					},
+				};
+				render(<SchemaFormHarness schema={nested} onSubmit={() => undefined} />);
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				expect(yield* Effect.promise(() => screen.findByRole("alert"))).toHaveProperty(
+					"textContent",
+					"Name is required",
+				);
+				expect(document.activeElement).toBe(screen.getByLabelText("Name"));
+			}),
+	);
+
+	it.live("edits required asset metadata without changing the asset locator", () =>
+		Effect.gen(function* () {
+			const images: AppSchema = {
+				fields: {
+					images: {
+						type: "array",
+						label: "Images",
+						description: "Images",
+						defaultValue: [{ type: "local", key: "images/a.png" }],
+						items: {
+							...managedAssetItemSchema,
+							properties: {
+								...managedAssetItemSchema.properties,
+								purpose: {
+									type: "enum",
+									label: "Purpose",
+									description: "Purpose",
+									validation: { required: true },
+									choices: { kind: "static", values: [{ value: "cover" }, { value: "backdrop" }] },
+								},
+							},
+						},
+					},
+				},
+			};
+			const submitted: SchemaFormValues[] = [];
+			render(
+				<SchemaFormHarness assets schema={images} onSubmit={(values) => submitted.push(values)} />,
+			);
+			const purpose = screen.getByRole("radiogroup", { name: "Purpose" });
+			fireEvent.click(within(purpose).getByRole("radio", { name: "cover" }));
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(submitted).toEqual([
+						{ images: [{ type: "local", purpose: "cover", key: "images/a.png" }] },
+					]),
+				),
+			);
+		}),
+	);
+
 	it("renders a boolean as a switch, a string as text and a small enum as segmented", () => {
 		render(<SchemaFormHarness onSubmit={() => undefined} />);
 
@@ -271,7 +427,7 @@ describe("SchemaForm", () => {
 			const submitted: SchemaFormValues[] = [];
 			render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
 
-			const label = screen.getByText("Title").closest("span");
+			const label = screen.getByText("Title *").closest("span");
 			expect(label?.textContent).toBe("Title *");
 			expect(screen.queryByRole("alert")).toBeNull();
 
@@ -284,6 +440,10 @@ describe("SchemaForm", () => {
 			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Dune" } });
 
 			expect(screen.queryByRole("alert")).toBeNull();
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(submitted).toEqual([{ adult: false, region: "us", title: "Dune" }])),
+			);
 		}),
 	);
 
@@ -315,7 +475,7 @@ describe("SchemaForm", () => {
 			fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
 			const element = yield* Effect.promise(() => screen.findByRole("alert"));
-			expect(element.textContent).toContain("Handle is too short");
+			expect(element.textContent).toContain("at least 3");
 			expect(submitted).toEqual([]);
 		}),
 	);
@@ -338,7 +498,6 @@ describe("SchemaForm", () => {
 		expect(screen.getByLabelText("Name")).toBeTruthy();
 		expect(screen.queryByLabelText("Archive")).toBeNull();
 		expect(screen.getByRole("button", { name: "Choose a file for Archive" })).toBeTruthy();
-		expect(screen.queryByText("Some fields are not supported in this app version.")).toBeNull();
 	});
 
 	it.live(
@@ -465,34 +624,35 @@ describe("SchemaForm", () => {
 		}),
 	);
 
-	it("renders date and datetime properties as text fields", () => {
+	it("renders date and datetime properties with native date controls", () => {
 		render(<SchemaFormHarness schema={dateSchema} onSubmit={() => undefined} />);
 
-		expect(screen.getByLabelText("Start date")).toBeTruthy();
-		expect(screen.getByLabelText("Start at")).toBeTruthy();
+		expect(screen.getByLabelText("Start date").getAttribute("type")).toBe("date");
+		expect(screen.getByLabelText("Start at").getAttribute("type")).toBe("datetime-local");
 	});
 
-	it("skips unsupported property kinds instead of crashing the form", () => {
-		render(<SchemaFormHarness schema={unsupportedSchema} onSubmit={() => undefined} />);
+	it("lets an optional object be added and explicitly cleared", () => {
+		render(<SchemaFormHarness schema={objectSchema} onSubmit={() => undefined} />);
 
 		expect(screen.getByLabelText("Name")).toBeTruthy();
-		expect(screen.queryByLabelText("Metadata")).toBeNull();
-		expect(screen.getByText("Some fields are not supported in this app version.")).toBeTruthy();
+		fireEvent.click(screen.getByRole("button", { name: "Add Metadata" }));
+		expect(screen.queryByRole("button", { name: "Add Metadata" })).toBeNull();
+		fireEvent.click(screen.getByRole("button", { name: "Clear Metadata" }));
+		expect(screen.getByRole("button", { name: "Add Metadata" })).toBeTruthy();
 	});
 
-	it("shows the unsupported note for an OAuth connection field without a connect transport", () => {
+	it("names the OAuth field whose connect transport is missing", () => {
 		render(<SchemaFormHarness schema={oauthSchema} onSubmit={() => undefined} />);
 
 		expect(screen.getByLabelText("Name")).toBeTruthy();
 		expect(screen.queryByRole("button", { name: "Connect Account" })).toBeNull();
-		expect(screen.getByText("Some fields are not supported in this app version.")).toBeTruthy();
+		expect(screen.getByText("OAuth connections are not available for Account.")).toBeTruthy();
 	});
 
 	it("renders a connect control for an OAuth connection field given a connect transport", () => {
 		render(<OAuthFormHarness />);
 
 		expect(screen.getByRole("button", { name: "Connect Account" })).toBeTruthy();
-		expect(screen.queryByText("Some fields are not supported in this app version.")).toBeNull();
 	});
 
 	it("calls onChange for every edit", () => {
@@ -500,7 +660,7 @@ describe("SchemaForm", () => {
 		const selectedSchema = schema;
 		function Harness() {
 			const form = useSchemaForm({ onSubmit: () => undefined, schemas: [selectedSchema] });
-			useEffect(() => form.reset(initialSchemaFormValues(selectedSchema)), [form]);
+			useEffect(() => form.reset({ fields: initialSchemaFormValues(selectedSchema) }), [form]);
 			return (
 				<SchemaForm
 					form={form}
@@ -527,7 +687,6 @@ describe("SchemaForm", () => {
 		expect(screen.getByText("images/a.png")).toBeTruthy();
 		expect(screen.getByText("https://example.test/b.png")).toBeTruthy();
 		expect(screen.getByRole("button", { name: "Add Images" })).toBeTruthy();
-		expect(screen.queryByText("Some fields are not supported in this app version.")).toBeNull();
 
 		fireEvent.click(screen.getByRole("button", { name: "Remove Images 1" }));
 
@@ -535,11 +694,11 @@ describe("SchemaForm", () => {
 		expect(screen.getByText("https://example.test/b.png")).toBeTruthy();
 	});
 
-	it("shows the unsupported note for an asset list without an upload transport", () => {
+	it("names the asset field whose upload transport is missing", () => {
 		render(<SchemaFormHarness schema={assetSchema} onSubmit={() => undefined} />);
 
 		expect(screen.queryByRole("button", { name: "Add Images" })).toBeNull();
-		expect(screen.getByText("Some fields are not supported in this app version.")).toBeTruthy();
+		expect(screen.getByText("Uploads are not available for Images.")).toBeTruthy();
 	});
 
 	it("disables an immutable field with an explanation when editing but not when creating", () => {

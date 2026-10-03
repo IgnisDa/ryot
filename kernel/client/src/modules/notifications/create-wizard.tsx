@@ -1,8 +1,13 @@
-import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
+import {
+	renderSchemaAsset,
+	useRyotMutation,
+	useSchemaAssetUpload,
+} from "@ryot-app/plugin-client-sdk/react";
 import { Button, FieldMessage, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	SchemaForm,
 	useSchemaForm,
+	type SchemaAssetUpload,
 	type SchemaFormApi,
 	type SchemaFormValues,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
@@ -28,6 +33,7 @@ import { createNotificationChannelMutation } from "#/modules/notifications/servi
 import { CatalogPicker } from "#/modules/ui/catalog/picker";
 import { findBySlug } from "#/modules/ui/catalog/selection";
 import { schemaReviewRows } from "#/modules/ui/review-rows";
+import { schemaFormReorderFeedback } from "#/modules/ui/schema-form-feedback";
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
@@ -63,6 +69,7 @@ function ConfigureStep(props: {
 	readonly onBack: () => void;
 	readonly form: SchemaFormApi;
 	readonly onContinue: () => void;
+	readonly uploadAsset: SchemaAssetUpload;
 	readonly failureDetail: string | undefined;
 	readonly definition: NotificationChannelDefinition;
 }) {
@@ -78,7 +85,10 @@ function ConfigureStep(props: {
 				icons={schemaFormIcons}
 				uploadFile={uploadFile}
 				onChange={() => undefined}
+				uploadAsset={props.uploadAsset}
+				renderAsset={renderSchemaAsset}
 				schema={props.definition.schema}
+				onReorder={schemaFormReorderFeedback}
 			/>
 			{props.failureDetail === undefined ? null : (
 				<FieldMessage>{props.failureDetail}</FieldMessage>
@@ -164,6 +174,7 @@ export function NotificationChannelCreateWizard(props: {
 	readonly onCreated: () => void;
 }) {
 	const create = useRyotMutation(createNotificationChannelMutation);
+	const uploadAsset = useSchemaAssetUpload();
 	const [failure, setFailure] = useState<NotificationChannelSaveFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const definition = findBySlug(notificationChannelList, state.slug);
@@ -250,6 +261,7 @@ export function NotificationChannelCreateWizard(props: {
 					form={form}
 					onBack={goBack}
 					definition={definition}
+					uploadAsset={uploadAsset}
 					failureDetail={configureFailure}
 					onContinue={() => void form.handleSubmit()}
 				/>
@@ -257,7 +269,7 @@ export function NotificationChannelCreateWizard(props: {
 		),
 		Match.when("review", () =>
 			definition === undefined ? null : (
-				<form.Subscribe selector={(formState) => formState.values}>
+				<form.Subscribe selector={(formState) => formState.values.fields}>
 					{(values) => (
 						<ReviewStep
 							values={values}

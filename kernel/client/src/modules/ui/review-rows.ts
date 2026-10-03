@@ -1,54 +1,82 @@
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
-	describeSchemaFormFields,
+	type AppPropertyDefinition,
+	type AppSchema,
+	getOrderedAppSchemaFieldEntries,
+} from "@ryot-app/contract/schema/property-schema";
+import {
 	schemaChoiceLabel,
-	type SchemaFormField,
-	type SchemaFormValue,
+	toSchemaFormPayload,
 	type SchemaFormValues,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 
 export type SchemaReviewRow = { readonly label: string; readonly value: string };
 
-const MASKED_REVIEW_VALUE = "Kept hidden";
-
-const UPLOADED_REVIEW_VALUE = "Ready to import";
-
-const choiceLabel = (field: SchemaFormField, value: string) => {
-	const choice = field.choices?.find((candidate) => candidate.value === value);
+const choiceLabel = (property: AppPropertyDefinition, value: string) => {
+	if (
+		(property.type !== "enum" && property.type !== "enum-array") ||
+		property.choices.kind !== "static"
+	) {
+		return value;
+	}
+	const choice = property.choices.values.find((candidate) => candidate.value === value);
 	return choice === undefined ? value : schemaChoiceLabel(choice);
 };
 
-const reviewValue = (field: SchemaFormField, value: Exclude<SchemaFormValue, undefined>) => {
-	if (field.control === "file") {
-		return UPLOADED_REVIEW_VALUE;
-	}
-	if (field.secret) {
-		return MASKED_REVIEW_VALUE;
-	}
+const primitiveValue = (property: AppPropertyDefinition, value: unknown) => {
 	if (typeof value === "boolean") {
 		return value ? "Yes" : "No";
 	}
-	if (typeof value === "object") {
-		return value
-			.map((entry) => {
-				if (typeof entry === "string") {
-					return choiceLabel(field, entry);
-				}
-				return typeof entry === "object" ? "Attached" : String(entry);
-			})
-			.join(", ");
+	if (typeof value === "string") {
+		return choiceLabel(property, value);
 	}
-	return typeof value === "string" ? choiceLabel(field, value) : String(value);
+	return typeof value === "number" ? String(value) : "";
+};
+
+const reviewPropertyRows = (
+	property: AppPropertyDefinition,
+	value: unknown,
+	label: string,
+): readonly SchemaReviewRow[] => {
+	if (value === undefined) {
+		return [];
+	}
+	if (property.secret) {
+		return [{ label, value: "Kept hidden" }];
+	}
+	if (property.type === "string" && property.format?.kind === "upload") {
+		return [{ label, value: "Ready to import" }];
+	}
+	if (property.type === "string" && property.format?.kind === "oauth-connection") {
+		return [{ label, value: value === null ? "Not set" : "Connected" }];
+	}
+	if (value === null) {
+		return [{ label, value: "Not set" }];
+	}
+	if (property.type === "object" && property.validation?.asset) {
+		return [{ label, value: "Attached" }];
+	}
+	if (property.type === "object" && typeof value === "object" && !Array.isArray(value)) {
+		return getOrderedAppSchemaFieldEntries(property.properties).flatMap(([key, child]) =>
+			reviewPropertyRows(child, Reflect.get(value, key), `${label} / ${child.label}`),
+		);
+	}
+	if (property.type === "array" && Array.isArray(value)) {
+		return value.flatMap((item, index) =>
+			reviewPropertyRows(property.items, item, `${label} ${index + 1}`),
+		);
+	}
+	if (Array.isArray(value)) {
+		return [{ label, value: value.map((item) => primitiveValue(property, item)).join(", ") }];
+	}
+	return [{ label, value: primitiveValue(property, value) }];
 };
 
 export const schemaReviewRows = (
 	schema: AppSchema,
 	values: SchemaFormValues,
-): readonly SchemaReviewRow[] =>
-	describeSchemaFormFields(schema, values).fields.flatMap((field) => {
-		const value = values[field.key];
-		if (value === undefined || value === "" || (typeof value === "object" && value.length === 0)) {
-			return [];
-		}
-		return [{ label: field.label, value: reviewValue(field, value) }];
-	});
+): readonly SchemaReviewRow[] => {
+	const input = toSchemaFormPayload(schema, values);
+	return getOrderedAppSchemaFieldEntries(schema.fields).flatMap(([key, property]) =>
+		reviewPropertyRows(property, input[key], property.label),
+	);
+};
