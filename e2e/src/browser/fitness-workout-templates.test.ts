@@ -4,26 +4,20 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import { createAuthenticatedClient, getEntity } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
+	openFitnessPage,
 	readWorkoutDetails,
+	renameDraft,
+	saveDraft,
 	workoutEditorProServer,
 } from "~/fixtures/plugins/fitness";
-import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-
-const renameDraft = (frame: Playwright.FrameLocator, title: string, name: string) =>
-	Effect.gen(function* () {
-		yield* frame.getByRole("button", { exact: true, name: "Details" }).click();
-		const details = frame.getByRole("dialog", { exact: true, name: title });
-		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill(name);
-		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
-	});
 
 it.live(
 	"creates, edits and starts templates with media and preserves confirmed sets on replacement",
 	() =>
 		Effect.gen(function* () {
-			const { apiUrl, frontendUrl } = yield* workoutEditorProServer;
+			const { apiUrl, origin: frontendUrl } = yield* workoutEditorProServer;
 			const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 			const name = `Template acceptance ${crypto.randomUUID()}`;
 			const exerciseName = `Bench ${name}`;
@@ -32,8 +26,11 @@ it.live(
 			const replacement = yield* createExerciseEntityFixture(client, { name: replacementName });
 			const page = yield* (yield* Playwright.Browser).newPage();
 			yield* signInThroughHostedOAuth(page, email, password, { frontendUrl });
-			yield* page.goto(`${frontendUrl}/v/p/ryot/fitness/all-workout-templates`);
-			const frame = page.locator("iframe:visible").contentFrame();
+			const frame = yield* openFitnessPage(
+				page,
+				"/v/p/ryot/fitness/all-workout-templates",
+				frontendUrl,
+			);
 			yield* frame.getByRole("button", { name: "Add", exact: true }).click();
 			yield* renameDraft(frame, "Template details", name);
 			yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
@@ -76,24 +73,10 @@ it.live(
 			yield* frame
 				.getByRole("button", { exact: true, name: "Attachments (1)" })
 				.waitFor({ state: "visible" });
-			yield* frame.getByRole("button", { exact: true, name: "Save" }).click();
-			yield* frame.getByRole("button", { exact: true, name: "Save template" }).click();
-			yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
-			yield* frame
-				.getByRole("heading", { name, level: 1, exact: true })
-				.waitFor({ state: "visible" });
-			const templateId = requirePresent(
-				new URL(page.url()).pathname.split("/").at(-1),
-				"Expected the template URL",
-			);
+			const templateId = yield* saveDraft(page, frame, { name, confirm: "Save template" });
 			yield* frame.getByRole("button", { exact: true, name: "Edit template" }).click();
 			yield* renameDraft(frame, "Template details", `${name} edited`);
-			yield* frame.getByRole("button", { exact: true, name: "Save" }).click();
-			yield* frame.getByRole("button", { exact: true, name: "Save template" }).click();
-			yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
-			yield* frame
-				.getByRole("heading", { level: 1, exact: true, name: `${name} edited` })
-				.waitFor({ state: "visible" });
+			yield* saveDraft(page, frame, { name: `${name} edited`, confirm: "Save template" });
 			const savedTemplate = yield* getEntity(client, templateId);
 			expect(savedTemplate.name).toBe(`${name} edited`);
 			expect(savedTemplate.properties).toMatchObject({
@@ -135,16 +118,11 @@ it.live(
 			yield* replaced
 				.getByRole("button", { exact: true, pressed: true, name: "Complete set 1" })
 				.waitFor({ state: "visible" });
-			yield* frame.getByRole("button", { exact: true, name: "Finish" }).click();
-			yield* frame.getByRole("button", { exact: true, name: "Save workout" }).click();
-			yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
-			yield* frame
-				.getByRole("heading", { level: 1, exact: true, name: `${name} performed` })
-				.waitFor({ state: "visible" });
-			const workoutId = requirePresent(
-				new URL(page.url()).pathname.split("/").at(-1),
-				"Expected the workout URL",
-			);
+			const workoutId = yield* saveDraft(page, frame, {
+				review: "Finish",
+				confirm: "Save workout",
+				name: `${name} performed`,
+			});
 			const saved = yield* readWorkoutDetails(client, workoutId);
 			expect(saved.exercises.items).toMatchObject([
 				{
@@ -158,11 +136,6 @@ it.live(
 			yield* frame.getByRole("button", { exact: true, name: "More workout actions" }).click();
 			yield* frame.getByRole("menuitem", { exact: true, name: "Create template" }).click();
 			yield* renameDraft(frame, "Template details", `${name} cloned`);
-			yield* frame.getByRole("button", { exact: true, name: "Save" }).click();
-			yield* frame.getByRole("button", { exact: true, name: "Save template" }).click();
-			yield* page.waitForURL((url) => url.pathname.startsWith("/e/"));
-			yield* frame
-				.getByRole("heading", { level: 1, exact: true, name: `${name} cloned` })
-				.waitFor({ state: "visible" });
+			yield* saveDraft(page, frame, { name: `${name} cloned`, confirm: "Save template" });
 		}).pipe(PlaywrightSpawner.withBrowser),
 );

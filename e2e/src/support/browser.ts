@@ -37,3 +37,5 @@ export const waitForSearchParam = (page: Playwright.Page, value: string | null) 
 				new URLSearchParams(body.ownerDocument.location.search).get("search") === expected,
 			value,
 		);
+
+export const pluginFrame = (page: Playwright.Page) => page.locator("iframe:visible").contentFrame();

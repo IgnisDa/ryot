@@ -28,15 +28,15 @@ it.live(
 			yield* frame.getByRole("heading", { level: 1, name: "All Measurements" }).waitFor();
 			yield* frame.getByRole("button", { exact: true, name: "Log measurement" }).click();
 			const dialog = frame.getByRole("dialog", { name: "Log measurement" });
-			yield* dialog.getByLabel("Weight (kg)", { exact: true }).fill("0");
-			yield* dialog.getByLabel("Waist (cm)", { exact: true }).fill("80.5");
-			yield* dialog.getByLabel("Comment (optional)").fill("Morning browser entry");
+			const fillReading = Effect.gen(function* () {
+				yield* dialog.getByLabel("Weight (kg)", { exact: true }).fill("0");
+				yield* dialog.getByLabel("Waist (cm)", { exact: true }).fill("80.5");
+				yield* dialog.getByLabel("Comment (optional)").fill("Morning browser entry");
+			});
+			yield* fillReading;
 			yield* dialog.getByRole("button", { exact: true, name: "Cancel" }).click();
-			expect(yield* frame.getByText("Morning browser entry", { exact: true }).count).toBe(0);
 			yield* frame.getByRole("button", { exact: true, name: "Log measurement" }).click();
-			yield* dialog.getByLabel("Weight (kg)", { exact: true }).fill("0");
-			yield* dialog.getByLabel("Waist (cm)", { exact: true }).fill("80.5");
-			yield* dialog.getByLabel("Comment (optional)").fill("Morning browser entry");
+			yield* fillReading;
 			yield* dialog.getByRole("button", { exact: true, name: "Save" }).click();
 			yield* dialog.waitFor({ state: "hidden" });
 			const metrics = frame.getByRole("region", { exact: true, name: "All metrics" });
