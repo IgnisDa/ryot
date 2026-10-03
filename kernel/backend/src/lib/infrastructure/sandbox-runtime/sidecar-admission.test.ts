@@ -1,37 +1,151 @@
 import { expect, it, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { Deferred, Effect, Exit, Fiber, Layer, Option, Result, Scope } from "effect";
+import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { Deferred, Effect, Exit, Fiber, Layer, Option, Result, Schema, Scope } from "effect";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import { SandboxSidecarAdmission, sandboxMemoryBudgetBytes } from "./sidecar-admission";
 import { SIDECAR_PROTOCOL_LIMITS } from "./sidecar-protocol";
+import { readWorkflowJournal } from "./workflow-journal";
 
 const admissionLayer = Layer.effect(SandboxSidecarAdmission, SandboxSidecarAdmission.make).pipe(
 	Layer.provide(makeAppConfigLayer()),
 );
 const acquireScope = Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void));
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 layer(admissionLayer)((test) => {
+	test.effect("journal_read_cancellation_retains_memory_until_the_native_reply_finishes", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const admission = yield* SandboxSidecarAdmission;
+				const started = yield* Deferred.make<void>();
+				const pending = Promise.withResolvers<unknown>();
+				const raw = encodeJson({
+					value: "done",
+					request: {
+						index: 0,
+						name: "call",
+						kind: "activity",
+						args: { input: null, scriptSlug: "activity" },
+					},
+				});
+				const bytes = utf8ByteLength(raw);
+				const reader = yield* Effect.scoped(
+					Effect.gen(function* () {
+						yield* admission.reservePrefix({ journalBytes: bytes + 2, instance: "system/core" });
+						yield* readWorkflowJournal(
+							{
+								client: {
+									eval: () => {
+										Deferred.doneUnsafe(started, Effect.void);
+										return pending.promise;
+									},
+								},
+							},
+							"cancelled-journal-read",
+							{ bytes: bytes + 2, entries: [[bytes, "0".repeat(40)]] },
+						);
+					}),
+				).pipe(Effect.forkScoped({ startImmediately: true }));
+				yield* Deferred.await(started);
+				const reserved = admission.snapshot().bytes;
+				const cancelling = yield* Fiber.interrupt(reader).pipe(
+					Effect.forkScoped({ startImmediately: true }),
+				);
+				expect(admission.snapshot()).toMatchObject({ reservations: 1, bytes: reserved });
+				pending.resolve(["read", [raw]]);
+				yield* Fiber.join(cancelling);
+				expect(admission.snapshot()).toMatchObject({ reservations: 0, bytes: 256 * MiB });
+			}),
+		),
+	);
+
+	test.effect("atomic_admission_keeps_memory_waiters_from_holding_execution_slots", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const admission = yield* SandboxSidecarAdmission;
+				const firstScope = yield* acquireScope;
+				const smallScope = yield* acquireScope;
+				yield* admission
+					.reservePrefix({ journalBytes: 2, instance: "system/core" })
+					.pipe(Scope.provide(firstScope));
+				const firstBytes = admission.snapshot().bytes;
+				const largeEntered = yield* Deferred.make<void>();
+				const large = yield* Effect.scoped(
+					admission
+						.reservePrefix({ instance: "system/core", journalBytes: SANDBOX_LIMITS.journalBytes })
+						.pipe(Effect.tap(() => Deferred.succeed(largeEntered, undefined))),
+				).pipe(Effect.forkScoped({ startImmediately: true }));
+				expect(admission.snapshot()).toMatchObject({
+					waiting: 1,
+					reservations: 1,
+					bytes: firstBytes,
+				});
+
+				yield* admission
+					.reservePrefix({ journalBytes: 2, instance: "system/core" })
+					.pipe(Scope.provide(smallScope));
+				expect(admission.snapshot()).toMatchObject({ waiting: 1, reservations: 2 });
+				expect(admission.snapshot().bytes).toBeLessThanOrEqual(admission.snapshot().budget);
+				expect(yield* Deferred.isDone(largeEntered)).toBe(false);
+				yield* Fiber.interrupt(large);
+				expect(admission.snapshot()).toMatchObject({ waiting: 0, reservations: 2 });
+				yield* Scope.close(firstScope, Exit.void);
+				yield* Scope.close(smallScope, Exit.void);
+				expect(admission.snapshot()).toMatchObject({ reservations: 0, bytes: 256 * MiB });
+			}),
+		),
+	);
+
 	test.effect(
-		"large journal waiters cannot consume the bytes needed for the admitted replay to start",
+		"inspected_small_journals_can_reserve_two_replays_without_maximum_prefix_allowances",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
 					const admission = yield* SandboxSidecarAdmission;
 					const firstScope = yield* acquireScope;
+					const secondScope = yield* acquireScope;
 					const processScope = yield* acquireScope;
 					const first = yield* admission
-						.reservePrefix({ journal: true, instance: "user/full" })
+						.reservePrefix({ journalBytes: 1024, instance: "system/core" })
+						.pipe(Scope.provide(firstScope));
+					const second = yield* admission
+						.reservePrefix({ journalBytes: 1024, instance: "system/core" })
+						.pipe(Scope.provide(secondScope));
+					yield* admission
+						.reserveProcess("system/core", 1, first)
+						.pipe(Scope.provide(processScope));
+					yield* first.enter({ generation: 1, lane: "interactive", instance: "system/core" });
+					yield* second.enter({ generation: 1, lane: "interactive", instance: "system/core" });
+					expect(admission.snapshot()).toMatchObject({ runs: 2, waiting: 0, reservations: 2 });
+					expect(admission.snapshot().bytes).toBeLessThanOrEqual(admission.snapshot().budget);
+					const growth = yield* Effect.flip(second.retainJournal(1025));
+					expect(growth.message).toBe("Sandbox journal reservation cannot grow after loading");
+				}),
+			),
+	);
+
+	test.effect(
+		"large journal waiters cannot consume the bytes needed for the admitted replay to start",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const firstScope = yield* acquireScope;
+					const processScope = yield* acquireScope;
+					const admission = yield* SandboxSidecarAdmission;
+					const first = yield* admission
+						.reservePrefix({ instance: "user/full", journalBytes: SANDBOX_LIMITS.journalBytes })
 						.pipe(Scope.provide(firstScope));
 					const secondEntered = yield* Deferred.make<void>();
 					const releaseSecond = yield* Deferred.make<void>();
 					const second = yield* Effect.scoped(
 						Effect.gen(function* () {
 							const lease = yield* admission.reservePrefix({
-								journal: true,
 								instance: "user/full",
+								journalBytes: SANDBOX_LIMITS.journalBytes,
 							});
 							yield* lease.retainJournal(SANDBOX_LIMITS.journalBytes);
 							yield* lease.enter({ generation: 1, lane: "interactive", instance: "user/full" });
@@ -65,7 +179,7 @@ layer(admissionLayer)((test) => {
 					const prefixScope = yield* acquireScope;
 					const processScope = yield* acquireScope;
 					const lease = yield* admission
-						.reservePrefix({ journal: true, instance: "user/full" })
+						.reservePrefix({ instance: "user/full", journalBytes: SANDBOX_LIMITS.journalBytes })
 						.pipe(Scope.provide(prefixScope));
 					const journalReservationBytes = admission.snapshot().bytes;
 					expect(journalReservationBytes).toBeGreaterThan(300 * 1024 * 1024);
@@ -97,28 +211,28 @@ layer(admissionLayer)((test) => {
 					const first = yield* acquireScope;
 					const second = yield* acquireScope;
 					yield* admission
-						.reservePrefix({ journal: false, instance: "system/core" })
+						.reservePrefix({ journalBytes: 2, instance: "system/core" })
 						.pipe(Scope.provide(first));
 					const singleLeaseBytes = admission.snapshot().bytes;
 					yield* admission
-						.reservePrefix({ journal: false, instance: "system/core" })
+						.reservePrefix({ journalBytes: 2, instance: "system/core" })
 						.pipe(Scope.provide(second));
 					const entered = yield* Deferred.make<void>();
 					const waiter = yield* Effect.scoped(
 						admission
-							.reservePrefix({ journal: false, instance: "system/core" })
+							.reservePrefix({ journalBytes: 2, instance: "system/core" })
 							.pipe(Effect.tap(() => Deferred.succeed(entered, undefined))),
 					).pipe(Effect.forkScoped);
 					yield* Effect.yieldNow;
 					expect(admission.snapshot().waiting).toBe(1);
 					expect(yield* Deferred.isDone(entered)).toBe(false);
 					const secondWaiter = yield* Effect.scoped(
-						admission.reservePrefix({ journal: false, instance: "system/core" }),
+						admission.reservePrefix({ journalBytes: 2, instance: "system/core" }),
 					).pipe(Effect.forkScoped);
 					yield* Effect.yieldNow;
 					expect(admission.snapshot().waiting).toBe(2);
 					const full = yield* Effect.flip(
-						admission.reservePrefix({ journal: false, instance: "system/core" }),
+						admission.reservePrefix({ journalBytes: 2, instance: "system/core" }),
 					);
 					expect(full.message).toBe("Sandbox ephemeral admission queue is full");
 					yield* Fiber.interrupt(secondWaiter);
@@ -126,7 +240,7 @@ layer(admissionLayer)((test) => {
 					expect(admission.snapshot().waiting).toBe(0);
 					yield* Scope.close(first, Exit.void);
 					yield* Effect.scoped(
-						admission.reservePrefix({ journal: false, instance: "system/core" }),
+						admission.reservePrefix({ journalBytes: 2, instance: "system/core" }),
 					);
 					expect(admission.snapshot().bytes).toBe(singleLeaseBytes);
 				}),
@@ -141,7 +255,7 @@ layer(admissionLayer)((test) => {
 					const prefixScope = yield* acquireScope;
 					const processScope = yield* acquireScope;
 					const lease = yield* admission
-						.reservePrefix({ journal: false, instance: "system/core" })
+						.reservePrefix({ journalBytes: 2, instance: "system/core" })
 						.pipe(Scope.provide(prefixScope));
 					yield* admission.reserveProcess("system/core", 4).pipe(Scope.provide(processScope));
 					const duplicate = yield* Effect.flip(admission.reserveProcess("system/core", 5));
@@ -175,7 +289,7 @@ layer(admissionLayer)((test) => {
 				expect(idle).toBe(2 * 128 * MiB);
 				const measureScope = yield* acquireScope;
 				yield* measured
-					.reservePrefix({ journal: false, instance: "system/core" })
+					.reservePrefix({ journalBytes: 2, instance: "system/core" })
 					.pipe(Scope.provide(measureScope));
 				const runBytes = measured.snapshot().bytes - idle;
 				expect(runBytes).toBeGreaterThan(
@@ -188,7 +302,7 @@ layer(admissionLayer)((test) => {
 
 				const journalScope = yield* acquireScope;
 				const journal = yield* measured
-					.reservePrefix({ journal: true, instance: "system/core" })
+					.reservePrefix({ instance: "system/core", journalBytes: SANDBOX_LIMITS.journalBytes })
 					.pipe(Scope.provide(journalScope));
 				expect(measured.snapshot().bytes - idle).toBe(
 					runBytes + 3 * (SANDBOX_LIMITS.journalBytes - "[]".length),
@@ -211,11 +325,16 @@ layer(admissionLayer)((test) => {
 				const leaseScope = yield* acquireScope;
 				const processScope = yield* acquireScope;
 				const lazy = yield* tight
-					.reservePrefix({ journal: false, instance: "user/data" })
+					.reservePrefix({ journalBytes: 2, instance: "user/data" })
 					.pipe(Scope.provide(leaseScope));
 				expect(tight.snapshot().bytes).toBe(idle + 128 * MiB + runBytes);
 				const unfit = yield* Effect.flip(
-					Effect.scoped(tight.reservePrefix({ journal: true, instance: "system/core" })),
+					Effect.scoped(
+						tight.reservePrefix({
+							instance: "system/core",
+							journalBytes: SANDBOX_LIMITS.journalBytes,
+						}),
+					),
 				);
 				expect(unfit.kind).toBe("resource-unavailable");
 				expect(unfit.message).toBe("Sandbox execution cannot fit the required idle topology");
@@ -230,7 +349,7 @@ layer(admissionLayer)((test) => {
 				const secondAdmitted = yield* Deferred.make<void>();
 				const second = yield* Effect.scoped(
 					tight
-						.reservePrefix({ journal: false, instance: "user/full" })
+						.reservePrefix({ journalBytes: 2, instance: "user/full" })
 						.pipe(Effect.andThen(Deferred.succeed(secondAdmitted, undefined))),
 				).pipe(Effect.forkScoped({ startImmediately: true }));
 				yield* Effect.yieldNow;

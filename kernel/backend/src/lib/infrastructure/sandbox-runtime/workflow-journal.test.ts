@@ -5,6 +5,7 @@ import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
+import { inspectSandboxJournal } from "#lib/infrastructure/sandbox-journal-store";
 import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
 
 import { selectSandboxHostFunctions } from "./service";
@@ -47,6 +48,14 @@ const entry = (index: number, result: number) => ({
 });
 
 const journalKey = (executionId: string) => redisKeys.sandboxWorkflowJournal(executionId);
+const readProjectedJournal = Effect.fnUntraced(function* (
+	redis: RedisService["Service"],
+	executionId: string,
+	length: number,
+) {
+	const inspection = yield* inspectSandboxJournal(redis, executionId, length);
+	return inspection === null ? null : yield* readWorkflowJournal(redis, executionId, inspection);
+});
 
 layer(testRedisServiceLayer)((test) => {
 	test.effect("appends write-once entries idempotently and refreshes the projection ttl", () =>
@@ -90,7 +99,7 @@ layer(testRedisServiceLayer)((test) => {
 			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
 			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal.slice(0, 2));
 
-			expect(yield* readWorkflowJournal(redis, executionId, 3)).toEqual(journal);
+			expect(yield* readProjectedJournal(redis, executionId, 3)).toEqual(journal);
 		}),
 	);
 
@@ -118,7 +127,7 @@ layer(testRedisServiceLayer)((test) => {
 
 			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
 
-			expect(yield* readWorkflowJournal(redis, executionId, 2)).toEqual(journal.slice(0, 2));
+			expect(yield* readProjectedJournal(redis, executionId, 2)).toEqual(journal.slice(0, 2));
 		}),
 	);
 
@@ -126,7 +135,7 @@ layer(testRedisServiceLayer)((test) => {
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
 
-			expect(yield* readWorkflowJournal(redis, testExecutionId("none"), 0)).toEqual([]);
+			expect(yield* readProjectedJournal(redis, testExecutionId("none"), 0)).toEqual([]);
 		}),
 	);
 
@@ -136,12 +145,12 @@ layer(testRedisServiceLayer)((test) => {
 			const executionId = testExecutionId("lost");
 
 			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, [entry(0, 1), entry(1, 2)]);
-			expect(yield* readWorkflowJournal(redis, executionId, 2)).toHaveLength(2);
+			expect(yield* readProjectedJournal(redis, executionId, 2)).toHaveLength(2);
 
 			yield* Effect.promise(() => redis.client.hdel(journalKey(executionId), "1"));
 
-			expect(yield* readWorkflowJournal(redis, executionId, 2)).toBeNull();
-			expect(yield* readWorkflowJournal(redis, testExecutionId("never-written"), 1)).toBeNull();
+			expect(yield* readProjectedJournal(redis, executionId, 2)).toBeNull();
+			expect(yield* readProjectedJournal(redis, testExecutionId("never-written"), 1)).toBeNull();
 		}),
 	);
 
@@ -156,7 +165,7 @@ layer(testRedisServiceLayer)((test) => {
 			yield* appendWorkflowJournalWithRedis(redis, wrongIndex, 0, [entry(1, 1)]);
 
 			for (const id of [unparsable, wrongIndex]) {
-				const error = yield* Effect.flip(readWorkflowJournal(redis, id, 1));
+				const error = yield* Effect.flip(readProjectedJournal(redis, id, 1));
 				expect(error).toMatchObject({ kind: "infrastructure" });
 				expect(error.message).toContain("journal[0] is corrupt");
 			}
@@ -167,7 +176,7 @@ layer(testRedisServiceLayer)((test) => {
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
 
-			const error = yield* Effect.flip(readWorkflowJournal(redis, "bounded", 1001));
+			const error = yield* Effect.flip(readProjectedJournal(redis, "bounded", 1001));
 
 			expect(error).toMatchObject({ kind: "infrastructure" });
 			expect(error.message).toBe("Sandbox workflow journal length is invalid");

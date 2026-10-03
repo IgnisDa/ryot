@@ -1,6 +1,7 @@
 # S3 memory-admission design review
 
-**Status:** investigation findings and proposed design; implementation requires approval.
+**Status:** bounded prefix inspection and atomic resource admission are approved and implemented.
+Transient pooling and lazy backend prefixes remain proposals requiring approval.
 
 ## Established constraints
 
@@ -21,7 +22,7 @@ The admission calculation in
 | **Run total, excluding journal and process startup** |     **636** |
 
 The resident process reservation is 256 MiB. Each lazy process adds 128 MiB. Durable journal
-loading reserves 300 MiB, then `retainJournal` reduces it to three times the actual serialized size.
+loading reserves three copies of the inspected prefix size before fetching values.
 The journal limit is 100 MiB; the default aggregate budget is 1,536 MiB.
 
 | Two-run topology             | Minimum reservation, excluding journal contents |
@@ -36,12 +37,15 @@ needed for two maximum-journal runs even without a lazy process.
 
 ## Allocation and retention paths
 
-1. `sidecar-admission.ts:reservePrefix` takes a global concurrency permit before waiting for memory.
-   A memory waiter can therefore occupy a worker/permit without running an isolate.
-2. `modules/sandbox/durable-queues.ts:executeSandboxExecution` reserves the maximum prefix before
-   reading Redis, then loads the script and passes the decoded journal into runtime execution.
-3. `workflow-journal.ts:readWorkflowJournal` fetches every prefix entry in one `HMGET`. It retains
-   the returned strings while decoding the entries and checks total bytes after receiving the reply.
+1. `sidecar-admission.ts:reservePrefix` grants concurrency, memory, and process-start capacity
+   atomically. A memory waiter owns no execution permit or partial reservation.
+2. `modules/sandbox/durable-queues.ts:executeSandboxExecution` inspects the exact enqueued prefix,
+   reserves its bytes, then loads values and the script.
+3. `sandbox-journal-store.ts` checks presence and aggregate lengths before reading values in Redis.
+   Inspection returns bounded length/fingerprint pins; the read atomically verifies them. Missing
+   entries preserve projection-missing behavior, and changed entries fail without returning values.
+   `workflow-journal.ts:readWorkflowJournal` retains returned strings while decoding entries; its
+   native Redis reply remains reserved through cancellation.
 4. `service.ts:run` serializes the decoded journal to calculate its retained reservation.
 5. `host-call-gate.ts:encodeJournalPrefix` creates encoded copies of every entry. The run input
    also contains the decoded journal; the gate retains it for inline request indexing and dispatch.
@@ -54,23 +58,27 @@ needed for two maximum-journal runs even without a lazy process.
 The existing `memory_admission_counts_journals_frames_startups_and_buffers` test covers the current
 reservation lifecycle. It does not establish that smaller reservations cover the same allocations.
 
-## Proposed design for approval
+## Current admission
 
-### 1. Size the pinned prefix before allocating it
+Bounded prefix inspection avoids the maximum loading allowance for small journals. **It is
+insufficient alone:** two runs with a lazy process still exceed the default budget.
 
-Use a bounded Redis-side inspection of exactly the committed prefix to obtain lengths and validate
-the total before a backend reply can contain its values. Missing entries retain projection-missing
-behavior. Cap inspection output and work by the existing 1,000-entry limit.
+Passing coverage:
 
-Admission reserves the actual required prefix capacity before fetching or decoding values. It
-atomically grants concurrency, process-start capacity, and memory only after all can fit. A waiter
-does not hold a partial allocation or global execution permit. Redis changes between inspection
-and reading must fail closed rather than allocate beyond the inspected reservation.
+- `journal_inspection_pins_exact_prefix_bytes_without_returning_values`
+- `journal_inspection_bounds_reply_before_loading_values`
+- `journal_reads_reject_changed_inspected_prefix`
+- `journal_inspection_preserves_missing_prefix_and_immutable_appends`
+- `journal_inspection_rejects_invalid_lengths_and_unavailable_state`
+- `durable_replay_reserves_inspected_journal_bytes_before_loading_values`
+- `durable_replay_rejects_prefix_growth_during_admission_before_loading_or_running`
+- `atomic_admission_keeps_memory_waiters_from_holding_execution_slots`
+- `inspected_small_journals_can_reserve_two_replays_without_maximum_prefix_allowances`
+- `journal_read_cancellation_retains_memory_until_the_native_reply_finishes`
 
-This removes the unconditional 300 MiB loading penalty for small journals. **It is insufficient
-alone:** two runs with a lazy process still exceed the default budget.
+## Remaining design for approval
 
-### 2. Separate persistent execution memory from transient buffer ownership
+### Separate persistent execution memory from transient buffer ownership
 
 Keep heap, external-memory, stack, module, and retained evidence reservations tied to the execution.
 Give journal decoding, host response construction, serialization, transport queues, and reassembly
@@ -87,7 +95,7 @@ parallelism, even while preserving the existing per-execution maximum of four ca
 explicit decision and throughput/deadlock tests. Do not subtract any of the current allowances
 until an allocation-lifetime proof identifies the replaced ownership.
 
-### 3. Avoid retaining an entire decoded backend journal if required
+### Avoid retaining an entire decoded backend journal if required
 
 If the verified budget still cannot fit, use the committed Redis projection as the pinned backing
 store and serve bounded ranges through the existing `journalRead` path. Retain bounded prefix
@@ -111,6 +119,5 @@ behind a lazy callback does not make the allocation bounded.
   including synchronous inline settlement and independent socket control traffic.
 - Fresh-host end-to-end latency and import progress measurements at the approved configuration.
 
-**Recommendation:** approve bounded prefix inspection and atomic all-resource admission as the
-first implementation step, then approve a transient-pool/lazy-prefix design only after its ownership
-table establishes a feasible bound. Do not treat the first step as proof of S3 latency acceptance.
+Approve a transient-pool/lazy-prefix design only after its ownership table establishes a feasible
+bound. Prefix inspection and atomic admission alone do not prove S3 latency acceptance.

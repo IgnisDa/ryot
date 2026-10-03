@@ -234,7 +234,8 @@ Each slice is approved separately. S3–S6 are outlines until their predecessor 
 
 ### S3 — Scheduling and fairness
 
-- **Status:** proposed contract awaiting review and approval: [s3.md](s3.md).
+- **Status:** prefix inspection and atomic admission implemented; remaining scheduling contract
+  awaiting review and approval: [s3.md](s3.md).
 - **Outcome:** interactive and background lanes, and per-user and per-plugin fairness for all
   executions and for global HTTP admission slots.
 - **Acceptance:** with background imports saturating the CPU, interactive search and details stay

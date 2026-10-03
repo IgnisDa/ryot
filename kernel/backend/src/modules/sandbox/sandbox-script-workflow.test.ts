@@ -1,5 +1,5 @@
 import { BunServices } from "@effect/platform-bun";
-import { expect, it, layer } from "@effect/vitest";
+import { assert, expect, it, layer } from "@effect/vitest";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { KERNEL_ENTITY_IMPORT_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import {
@@ -25,6 +25,7 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { RedisService } from "#lib/infrastructure/redis";
+import { inspectSandboxJournal } from "#lib/infrastructure/sandbox-journal-store";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import {
@@ -1241,11 +1242,13 @@ layer(inlineWorkflowLayer(inlineIds.race))((test) => {
 					yield* appendWorkflowJournalWithRedis(redis, inlineIds.race, 0, [
 						cachedEntry(inlineFirst),
 					]);
-					const loaded = yield* readWorkflowJournal(
+					const inspection = yield* inspectSandboxJournal(
 						redis,
 						inlineIds.race,
 						sandboxPayload.journalLength,
 					);
+					assert(inspection !== null);
+					const loaded = yield* readWorkflowJournal(redis, inlineIds.race, inspection);
 					yield* calls.record("loaded", loaded);
 					return {
 						...replayBase,

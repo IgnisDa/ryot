@@ -768,7 +768,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 			});
 			const reserve = Effect.fn("SandboxSidecarSupervisor.reserve")(function* (
 				principal: SandboxExecutionPrincipal,
-				journal: boolean,
+				journalBytes: number,
 			) {
 				const key = yield* locate(principal);
 				const protection = yield* quarantine
@@ -781,7 +781,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				if (protection.probation) {
 					yield* recordSandboxSidecarEvent({ ...key, reason: "opened", event: "probation" });
 				}
-				const reservation = admission.reservePrefix({ journal, instance: key.instance });
+				const reservation = admission.reservePrefix({ journalBytes, instance: key.instance });
 				const lease = yield* protection.probation
 					? reservation.pipe(
 							Effect.timeoutOrElse({

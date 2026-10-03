@@ -7,6 +7,7 @@ import { DurableQueue } from "effect/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { RedisService } from "#lib/infrastructure/redis";
+import { inspectSandboxJournal } from "#lib/infrastructure/sandbox-journal-store";
 import { SandboxRecoveryIdentity } from "#lib/infrastructure/sandbox-recovery-store";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
@@ -103,12 +104,21 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	const dispatcher = yield* SandboxDurableHostDispatcher;
 	return yield* Effect.scoped(
 		Effect.gen(function* () {
-			const lease = yield* sandbox.reserve(payload.principal, true);
-
-			const replayJournal = yield* readWorkflowJournal(
-				yield* RedisService,
+			const redis = yield* RedisService;
+			const inspection = yield* inspectSandboxJournal(
+				redis,
 				payload.workflowExecutionId,
 				payload.journalLength,
+			);
+			if (inspection === null) {
+				return { ...emptyReplayResult(), projectionMissing: true as const };
+			}
+			const lease = yield* sandbox.reserve(payload.principal, inspection.bytes);
+
+			const replayJournal = yield* readWorkflowJournal(
+				redis,
+				payload.workflowExecutionId,
+				inspection,
 			);
 			if (replayJournal === null) {
 				return { ...emptyReplayResult(), projectionMissing: true as const };
