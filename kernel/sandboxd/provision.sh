@@ -23,10 +23,6 @@ for file in "$launcher" "$sidecar"; do
 		exit 1
 	fi
 done
-if [[ ! -f "$snapshots/snapshots.json" ]]; then
-	printf '%s\n' 'launcher setup failure: snapshot digest manifest is missing' >&2
-	exit 1
-fi
 for tier in core data full; do
 	if [[ ! -f "$snapshots/$tier.snap" ]]; then
 		printf 'launcher setup failure: snapshot is missing: %s/%s.snap\n' "$snapshots" "$tier" >&2
@@ -80,8 +76,6 @@ for tier in core data full; do
 	install -o root -g root -m 0444 "$snapshots/$tier.snap" \
 		"/home/ryot/sandboxd/snapshots/$tier.snap"
 done
-install -o root -g root -m 0444 "$snapshots/snapshots.json" \
-	/home/ryot/sandboxd/snapshots/snapshots.json
 install -o root -g root -m 0755 "$launcher" /usr/local/libexec/ryot-sandbox-launcher
 # uutils coreutils install drops special mode bits, so set and verify setuid separately.
 chmod 04755 /usr/local/libexec/ryot-sandbox-launcher
