@@ -67,8 +67,17 @@ const clientImportUrl = (frame: Playwright.Locator, specifier: string) =>
 it.live("retains the document and bridge across same-composition saved views", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient(getApiUrl());
-		const first = yield* createEntityBrowserSavedView(client, { name: "Composition first view" });
-		const second = yield* createEntityBrowserSavedView(client, { name: "Composition second view" });
+		const { exercise, exerciseId } = yield* createExerciseEntityFixture(client);
+		const first = yield* createEntityBrowserSavedView(
+			client,
+			{ name: "Composition first view" },
+			[exerciseId],
+		);
+		const second = yield* createEntityBrowserSavedView(
+			client,
+			{ name: "Composition second view" },
+			[exerciseId],
+		);
 		const firstPage = yield* prepareClientPage(client, first.slug);
 		const secondPage = yield* prepareClientPage(client, second.slug);
 		expect(firstPage.composition.hash).toBe(secondPage.composition.hash);
@@ -87,6 +96,7 @@ it.live("retains the document and bridge across same-composition saved views", (
 			.contentFrame()
 			.getByRole("heading", { level: 1, name: "Composition first view" })
 			.waitFor();
+		yield* frame.contentFrame().getByRole("link", { exact: true, name: exercise.name }).waitFor();
 		const iframe = Option.getOrThrow(yield* frame.elementHandle());
 		const srcDoc = yield* frame.getAttribute("srcdoc");
 		expect(srcDoc).not.toBeNull();
@@ -109,6 +119,7 @@ it.live("retains the document and bridge across same-composition saved views", (
 			.contentFrame()
 			.getByRole("heading", { level: 1, name: "Composition second view" })
 			.waitFor();
+		yield* frame.contentFrame().getByRole("link", { exact: true, name: exercise.name }).waitFor();
 		expect(yield* frame.evaluate((current, original) => current === original, iframe)).toBe(true);
 		expect(yield* frame.getAttribute("srcdoc")).toBe(srcDoc);
 		expect(yield* frame.contentFrame().locator("body").getAttribute("data-e2e-runtime")).toBe(
