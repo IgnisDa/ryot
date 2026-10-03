@@ -295,7 +295,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				}
 				if (terminalFailure !== undefined) {
 					const now = yield* Clock.currentTimeMillis;
-					if (now - generation.readyAt >= 60_000) {
+					if (now - generation.readyAt >= SANDBOX_LIMITS.sidecar.stableMs) {
 						entry.failures = 0;
 					}
 					entry.failures++;
@@ -512,8 +512,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 												memoryBudget: admission.isolateMemoryBytes,
 												maxActive: Math.min(admission.maximumActive, navigator.hardwareConcurrency),
 												maxRss: Math.min(
-													1536 * 1024 * 1024,
-													128 * 1024 * 1024 + admission.isolateMemoryBytes,
+													SANDBOX_LIMITS.sidecar.rssCeilingBytes,
+													SANDBOX_LIMITS.sidecar.rssOverheadBytes + admission.isolateMemoryBytes,
 												),
 											});
 											const ready = yield* connection.next.pipe(
@@ -572,7 +572,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 									const generationIsClosing = yield* Effect.sync(() => generation.closing);
 									if (
 										!generationIsClosing &&
-										clockNow - generation.readyAt >= 60_000 &&
+										clockNow - generation.readyAt >= SANDBOX_LIMITS.sidecar.stableMs &&
 										entry.healthyEpoch === undefined
 									) {
 										entry.healthyEpoch = crypto.randomUUID();

@@ -554,12 +554,27 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							return hostResultFrame(frame, { defer: true });
 						}
 
+						const replyValue = decodeSidecarJson(inlineReply);
+						if (Option.isNone(replyValue)) {
+							return hostResultFrame(frame, { defer: true });
+						}
+						const totalResult = resultFrame(frame, { status: "success", value: replyValue.value });
+						if (resultBytes(totalResult) > SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult) {
+							return hostResultFrame(frame, { defer: true });
+						}
+
 						const encodedEntries: Uint8Array[] = [];
+						const deferAndClear = () => {
+							for (const encoded of encodedEntries) {
+								encoded.fill(0);
+							}
+							return hostResultFrame(frame, { defer: true });
+						};
 						let nextJournalJsonBytes = totalJournalJsonBytes;
 						for (const [index, result] of canonicalResults.entries()) {
 							const requestJson = requestBytes[index];
 							if (requestJson === undefined) {
-								return hostResultFrame(frame, { defer: true });
+								return deferAndClear();
 							}
 							const journalEntry = decodeJournalEntry({
 								value: result,
@@ -572,23 +587,10 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 									: 1;
 							nextJournalJsonBytes += bytes.byteLength + separatorBytes;
 							if (nextJournalJsonBytes > SANDBOX_LIMITS.journalBytes) {
-								for (const encoded of encodedEntries) {
-									encoded.fill(0);
-								}
-								return hostResultFrame(frame, { defer: true });
+								bytes.fill(0);
+								return deferAndClear();
 							}
 							encodedEntries.push(bytes);
-						}
-						const replyValue = decodeSidecarJson(inlineReply);
-						if (Option.isNone(replyValue)) {
-							return hostResultFrame(frame, { defer: true });
-						}
-						const totalResult = resultFrame(frame, { status: "success", value: replyValue.value });
-						if (resultBytes(totalResult) > SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult) {
-							for (const encoded of encodedEntries) {
-								encoded.fill(0);
-							}
-							return hostResultFrame(frame, { defer: true });
 						}
 
 						inlineEncodedEntries.push(...encodedEntries);

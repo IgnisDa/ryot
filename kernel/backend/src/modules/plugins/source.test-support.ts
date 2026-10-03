@@ -2,6 +2,7 @@ import {
 	clientArtifactMetadata,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { derivePluginSandboxScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { Data, Effect, FileSystem, Stream } from "effect";
 
@@ -60,69 +61,23 @@ export const loadPluginSandboxScripts = Effect.fn("loadPluginSandboxScripts")(fu
 	);
 });
 
-export const loadPluginSource = (packageRoot: string, manifest: unknown) =>
+export const loadPluginSource = (packageRoot: string, manifest: PluginManifest) =>
 	Effect.gen(function* () {
 		const outputs = yield* loadPluginSandboxScripts(packageRoot);
-		const declaredScripts =
-			typeof manifest === "object" && manifest !== null && "scripts" in manifest
-				? manifest.scripts
-				: undefined;
 		const byEntry = new Map(outputs.map((output) => [output.script.entry, output]));
-		const compiledScripts = Array.isArray(declaredScripts)
-			? declaredScripts.flatMap((value) => {
-					if (typeof value !== "object" || value === null || !("entry" in value)) {
-						return [];
-					}
-					const entry = value.entry;
-					const output = typeof entry === "string" ? byEntry.get(entry) : undefined;
-					return output && typeof entry === "string"
-						? [{ entry, format: output.compiled.format, javascript: output.compiled.javascript }]
-						: [];
-				})
-			: [];
-		const manifestWithRuntimeImports =
-			typeof manifest === "object" &&
-			manifest !== null &&
-			"scripts" in manifest &&
-			Array.isArray(manifest.scripts)
-				? {
-						...manifest,
-						scripts: manifest.scripts.map((value) => {
-							if (
-								typeof value !== "object" ||
-								value === null ||
-								!("entry" in value) ||
-								typeof value.entry !== "string"
-							) {
-								return value;
-							}
-							const output = byEntry.get(value.entry);
-							return output ? { ...value, runtimeImports: output.script.runtimeImports } : value;
-						}),
-					}
-				: manifest;
-		const clientManifest =
-			typeof manifest === "object" && manifest !== null && "client" in manifest
-				? manifest.client
-				: undefined;
-		let compiledClient: PluginClientArtifact | undefined;
-		if (clientManifest) {
-			const metadataValue =
-				typeof manifest === "object" && manifest !== null && "metadata" in manifest
-					? manifest.metadata
-					: undefined;
-			const pluginName =
-				typeof metadataValue === "object" &&
-				metadataValue !== null &&
-				"name" in metadataValue &&
-				typeof metadataValue.name === "string"
-					? metadataValue.name
-					: "Fixture";
-			compiledClient = fixtureClientArtifact(pluginName);
-		}
+		const compiledScripts = manifest.scripts.flatMap(({ entry }) => {
+			const output = byEntry.get(entry);
+			return output
+				? [{ entry, format: output.compiled.format, javascript: output.compiled.javascript }]
+				: [];
+		});
+		const scripts = manifest.scripts.map((script) => {
+			const output = byEntry.get(script.entry);
+			return output ? { ...script, runtimeImports: output.script.runtimeImports } : script;
+		});
 		return {
 			compiledScripts,
-			manifest: manifestWithRuntimeImports,
-			...(compiledClient ? { compiledClient } : {}),
+			manifest: { ...manifest, scripts },
+			...(manifest.client ? { compiledClient: fixtureClientArtifact(manifest.metadata.name) } : {}),
 		} satisfies PluginSource;
 	});

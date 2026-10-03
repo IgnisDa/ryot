@@ -1,3 +1,4 @@
+import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import type { PluginArchiveCompiledScript } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -50,15 +51,11 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 						);
 					}
 					const { entry: _entry, ...declared } = script;
-					const {
-						capabilities: _capabilities,
-						runtimeImports: _runtimeImports,
-						requiredPluginConfigKeys: _required,
-						optionalPluginConfigKeys: _optional,
-						oauthConnectionFields: _connections,
-						executableDependencies: _dependencies,
-						...authored
-					} = output.manifest;
+					const authored = Object.fromEntries(
+						Object.entries(output.manifest).filter(
+							([key]) => !Object.hasOwn(SandboxExecutionMetadata.fields, key),
+						),
+					);
 					if (stableStringify(declared) !== stableStringify(authored)) {
 						return Effect.die(
 							new Error(`Generated kernel script metadata does not match ${script.entry}`),

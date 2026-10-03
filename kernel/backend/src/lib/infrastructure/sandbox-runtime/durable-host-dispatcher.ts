@@ -308,7 +308,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								);
 							}
 							const backoffMs = Math.min(
-								30_000,
+								SANDBOX_LIMITS.http.coordinationBackoffMs,
 								1_000 * 2 ** Math.min(coordinationFailureStreak - 1, 5),
 							);
 							yield* DurableClock.sleep({
