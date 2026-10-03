@@ -1,6 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import type { Path } from "effect";
@@ -23,7 +24,7 @@ const withRoot = <A, E>(
 
 const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: string) {
 	const fs = yield* FileSystem.FileSystem;
-	const base = fixtureManifest();
+	const base = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
 	const manifest = {
 		...base,
 		metadata: { ...base.metadata, slug, name: slug },
@@ -72,6 +73,23 @@ layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
 			}),
 		),
 	);
+	test.effect(
+		"rejects duplicate bundled package identities even under different archive filenames",
+		() =>
+			withRoot((root) =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					yield* writeArchive(root, "first");
+					yield* fs.writeFile(`${root}/second.zip`, yield* fs.readFile(`${root}/first.zip`));
+					const result = yield* Effect.result(discoverSystemPlugins(root));
+					assert(result._tag === "Failure");
+					expect(result.failure).toMatchObject({
+						_tag: "PluginValidationError",
+						issues: [expect.stringContaining("Duplicate bundled package identity")],
+					});
+				}),
+			),
+	);
 
 	test.effect("ignores non-archive entries", () =>
 		withRoot((root) =>
@@ -94,6 +112,7 @@ layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
 
 				assert(result._tag === "Failure");
 				expect(result.failure).toBeInstanceOf(PluginArchiveError);
+				assert(result.failure instanceof PluginArchiveError);
 				expect(result.failure.reason).toBe("malformed-zip");
 			}),
 		),

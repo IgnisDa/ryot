@@ -8,8 +8,8 @@ import {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
+	PluginId,
 	type IntegrationId,
-	PluginSlug,
 	type SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -20,10 +20,16 @@ import type { Headers as PlatformHeaders } from "effect/http";
 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { AuthService } from "#modules/auth/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
+import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
 import { SandboxExecutionService } from "#modules/sandbox/service";
+import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
+import { PluginInstallationRepository } from "./installation-repository";
 import { PluginRepository } from "./repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
@@ -46,7 +52,9 @@ type DispatchInput = {
 	readonly accountGeneration: AccountGeneration;
 	readonly userId: UserId;
 	readonly payload: JsonValue;
-	readonly pluginSlug: string;
+	readonly pluginId: PluginId;
+	readonly executionId: string;
+	readonly pluginRevision: SandboxPluginRevision;
 	readonly operationSlug: string;
 	readonly scriptId: SandboxScriptId;
 	readonly integrationId?: IntegrationId;
@@ -57,18 +65,21 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 		const auth = yield* AuthService;
 		const database = yield* DatabaseSession;
 		const repository = yield* PluginRepository;
+		const installations = yield* PluginInstallationRepository;
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
 		const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
 		const receipts = yield* MutationReceipts.make;
+		const scripts = yield* SandboxRepository;
+		const references = yield* SandboxWorkflowReferenceRepository;
 
 		const dispatch = Effect.fn("OperationsService.dispatch")(function* (input: DispatchInput) {
-			const executionId = `plugin-operation-${input.pluginSlug}-${input.operationSlug}-${generateId()}`;
 			const result = yield* sandbox.executeScript({
-				executionId,
 				lane: "interactive",
 				input: input.payload,
 				scriptId: input.scriptId,
+				executionId: input.executionId,
+				pluginRevision: input.pluginRevision,
 				subject: {
 					type: "user",
 					userId: input.userId,
@@ -117,15 +128,12 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 
 		const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
 			readonly payload: JsonValue;
-			readonly pluginSlug: string;
+			readonly pluginId: PluginId;
 			readonly sourceHash?: string;
 			readonly operationSlug: string;
 			readonly headers: PlatformHeaders.Headers;
 		}) {
-			const operation = {
-				operationSlug: input.operationSlug,
-				pluginSlug: PluginSlug.make(input.pluginSlug),
-			};
+			const operation = { pluginId: input.pluginId, operationSlug: input.operationSlug };
 			const operationNotFound = new PluginNotFoundError({
 				reason: { code: "operation-not-found", ...operation },
 			});
@@ -134,12 +142,34 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 			});
 			const sourceHash = input.sourceHash;
 			const staleRevision = new PluginConflictError({
-				reason: { code: "source-revision-stale", pluginSlug: operation.pluginSlug },
+				reason: { pluginId: operation.pluginId, code: "source-revision-stale" },
 			});
-			const resolveOperation = Effect.fn(function* (userId: UserId) {
+			const resolveOperation = Effect.fn(function* (
+				userId: UserId,
+				checkPrivateQuarantine = false,
+			) {
+				if (checkPrivateQuarantine) {
+					const privatePlugin = yield* repository.findPrivateByIdForUser(input.pluginId, userId);
+					if (privatePlugin) {
+						const installation = yield* installations.findByUserAndPlugin(userId, privatePlugin.id);
+						if (
+							installation?.health === "incompatible" &&
+							installation.incompatibilityReason === "package-identity-conflict" &&
+							installation.uninstalledAt === null
+						) {
+							return yield* new PluginConflictError({
+								reason: {
+									code: "package-identity-conflict",
+									packageId: privatePlugin.packageId,
+									pluginId: PluginId.make(privatePlugin.id),
+								},
+							});
+						}
+					}
+				}
 				const resolved = yield* runtime.findOperationAvailableToUser({
 					userId,
-					pluginSlug: input.pluginSlug,
+					pluginId: input.pluginId,
 					operationSlug: input.operationSlug,
 				});
 				if (sourceHash === undefined || !resolved) {
@@ -161,13 +191,60 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				Effect.map(Result.succeed),
 				Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
 			);
+			const executionId = `plugin-operation-${input.pluginId}-${input.operationSlug}-${generateId()}`;
+			const pinDispatch = Effect.fn("OperationsService.pinDispatch")(function* (
+				dispatchInput: Omit<DispatchInput, "pluginRevision" | "executionId">,
+				resolved: NonNullable<Effect.Success<ReturnType<typeof resolveOperation>>>,
+			) {
+				const subject = {
+					type: "user" as const,
+					userId: dispatchInput.userId,
+					accountGeneration: dispatchInput.accountGeneration,
+					...(dispatchInput.integrationId ? { integrationId: dispatchInput.integrationId } : {}),
+				};
+				const pin = yield* scripts.getScriptPin(dispatchInput.scriptId, undefined, subject);
+				if (
+					!pin?.pluginRevision ||
+					pin.pluginRevision.id !== input.pluginId ||
+					pin.pluginRevision.revisionId !== resolved.plugin.pluginRevisionId ||
+					pin.pluginRevision.configRevisionId !== resolved.plugin.pluginConfigRevisionId ||
+					pin.pluginRevision.packageId !== resolved.plugin.packageId ||
+					pin.contentHash !== resolved.script.contentHash ||
+					pin.scriptSlug !== resolved.operation.scriptSlug ||
+					pin.metadata.kind !== "operation"
+				) {
+					return yield* operationNotFound;
+				}
+				yield* admitWorkflow(
+					receipts,
+					SandboxScriptWorkflow,
+					dispatchInput.accountGeneration,
+					executionId,
+				);
+				yield* references
+					.registerInTransaction({
+						executionId,
+						userId: dispatchInput.userId,
+						contentHash: pin.contentHash,
+						pluginId: pin.pluginRevision.id,
+						scriptId: dispatchInput.scriptId,
+					})
+					.pipe(
+						Effect.catchTag("SandboxWorkflowReferenceRegistrationError", () => operationNotFound),
+					);
+				return {
+					...dispatchInput,
+					executionId,
+					pluginRevision: pin.pluginRevision,
+				} satisfies DispatchInput;
+			});
 
 			const resolveAuthorized = () =>
 				Effect.gen(function* () {
 					if (Result.isSuccess(authenticated)) {
 						const { user, authorization } = authenticated.success;
 						const userId = user.id;
-						const resolved = yield* resolveOperation(userId);
+						const resolved = yield* resolveOperation(userId, true);
 						if (resolved?.operation.auth === "user") {
 							if (
 								authorization.accessClass === "demo" &&
@@ -178,14 +255,17 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 									reason: { code: "demo-operation-protected" },
 								});
 							}
-							return {
-								userId,
-								payload: input.payload,
-								scriptId: resolved.script.id,
-								pluginSlug: input.pluginSlug,
-								operationSlug: input.operationSlug,
-								accountGeneration: user.accountGeneration,
-							} satisfies DispatchInput;
+							return yield* pinDispatch(
+								{
+									userId,
+									payload: input.payload,
+									pluginId: input.pluginId,
+									scriptId: resolved.script.id,
+									operationSlug: input.operationSlug,
+									accountGeneration: user.accountGeneration,
+								},
+								resolved,
+							);
 						}
 						if (resolved) {
 							const scope = yield* resolveIntegrationScope.pipe(
@@ -200,18 +280,21 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 							if (scope.pluginInstallationId !== resolved.plugin.installationId) {
 								return yield* operationNotFound;
 							}
-							return {
-								userId: scope.userId,
-								payload: input.payload,
-								scriptId: resolved.script.id,
-								pluginSlug: input.pluginSlug,
-								integrationId: scope.integrationId,
-								operationSlug: input.operationSlug,
-								accountGeneration:
-									user.id === scope.userId
-										? user.accountGeneration
-										: yield* receipts.currentAccount(scope.userId),
-							} satisfies DispatchInput;
+							return yield* pinDispatch(
+								{
+									userId: scope.userId,
+									payload: input.payload,
+									pluginId: input.pluginId,
+									scriptId: resolved.script.id,
+									integrationId: scope.integrationId,
+									operationSlug: input.operationSlug,
+									accountGeneration:
+										user.id === scope.userId
+											? user.accountGeneration
+											: yield* receipts.currentAccount(scope.userId),
+								},
+								resolved,
+							);
 						}
 					}
 
@@ -232,29 +315,29 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					) {
 						return yield* operationNotFound;
 					}
-					return {
-						userId: owner.userId,
-						payload: input.payload,
-						scriptId: resolved.script.id,
-						pluginSlug: input.pluginSlug,
-						integrationId: owner.integrationId,
-						operationSlug: input.operationSlug,
-						accountGeneration: yield* receipts.currentAccount(owner.userId),
-					} satisfies DispatchInput;
+					return yield* pinDispatch(
+						{
+							userId: owner.userId,
+							payload: input.payload,
+							pluginId: input.pluginId,
+							scriptId: resolved.script.id,
+							integrationId: owner.integrationId,
+							operationSlug: input.operationSlug,
+							accountGeneration: yield* receipts.currentAccount(owner.userId),
+						},
+						resolved,
+					);
 				});
-			const authorized =
-				sourceHash === undefined
-					? yield* resolveAuthorized()
-					: yield* mapDatabaseErrors(
-							database
-								.transaction(
-									Effect.gen(function* () {
-										yield* repository.lockIngestion();
-										return yield* resolveAuthorized();
-									}),
-								)
-								.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
-						);
+			const authorized = yield* mapDatabaseErrors(
+				database
+					.transaction(
+						Effect.gen(function* () {
+							yield* repository.lockIngestionShared();
+							return yield* resolveAuthorized();
+						}),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
+			);
 			return yield* dispatch(authorized);
 		});
 

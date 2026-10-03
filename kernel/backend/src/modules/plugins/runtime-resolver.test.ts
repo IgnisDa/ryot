@@ -1,5 +1,22 @@
 import { expect, layer } from "@effect/vitest";
-import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	clientArtifactMetadata,
+	clientDeclarationHash,
+	pluginExportSpecifier,
+	type PluginClientImport,
+} from "@ryot-app/client-plugin-contract";
+import {
+	CLIENT_API_VERSION,
+	type PluginClientEntry,
+} from "@ryot-app/contract/modules/plugins/manifest";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	EntitySchemaSlug,
+	PluginId,
+	SandboxProviderId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
 import { Effect, Result } from "effect";
 import { assert, describe } from "vitest";
@@ -7,6 +24,7 @@ import { assert, describe } from "vitest";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { definitionLookup } from "#modules/definition-registry/snapshot";
 
 import { PluginInstallationRepository } from "./installation-repository";
 import { PluginRepository } from "./repository";
@@ -20,7 +38,180 @@ import { PluginRuntimeResolver } from "./runtime-resolver";
 const owner = UserId.make("owner");
 const other = UserId.make("recipient");
 
+const operationPackage = (version: string) => {
+	const value = revisionPackage("whiskey", version);
+	return {
+		...value,
+		scripts: value.scripts.map((script) =>
+			script.metadata.kind === "script"
+				? Object.assign({}, script, {
+						metadata: Object.assign({}, script.metadata, { kind: "operation" as const }),
+					})
+				: script,
+		),
+		manifest: {
+			...value.manifest,
+			scripts: value.manifest.scripts.map((script) =>
+				script.kind === "script"
+					? Object.assign({}, script, { kind: "operation" as const })
+					: script,
+			),
+			operations: [
+				{
+					auth: "user" as const,
+					slug: "same-operation",
+					description: "Operation",
+					scriptSlug: "whiskey.task",
+					demoAccess: "allowed" as const,
+				},
+			],
+		},
+	};
+};
+
+const schedulePackage = () => {
+	const value = revisionPackage("whiskey");
+	return {
+		...value,
+		manifest: {
+			...value.manifest,
+			crons: [
+				{
+					slug: "scheduled",
+					description: "Scheduled",
+					scriptSlug: "whiskey.task",
+					schedule: { cron: "* * * * *" },
+				},
+			],
+		},
+	};
+};
+
+const withClient = (
+	value: ReturnType<typeof revisionPackage>,
+	client: PluginClientEntry,
+	imports: readonly PluginClientImport[],
+) => {
+	const files = [
+		{
+			name: "index.html",
+			contentType: "text/html; charset=utf-8",
+			contents: new TextEncoder().encode("<!doctype html><html></html>"),
+		},
+		{
+			name: "plugin.js",
+			contentType: "text/javascript; charset=utf-8",
+			contents: new TextEncoder().encode(
+				imports
+					.map(
+						(entry) =>
+							`import ${JSON.stringify(pluginExportSpecifier(entry.reference, entry.exportName))};`,
+					)
+					.join("\n"),
+			),
+		},
+	];
+	return {
+		...value,
+		manifest: { ...value.manifest, client },
+		compiledClient: {
+			...clientArtifactMetadata(
+				value.manifest.metadata.name,
+				value.manifest.metadata.packageId,
+				files,
+				{ imports, clientDeclarationHash: clientDeclarationHash(client) },
+			),
+			files,
+		},
+	};
+};
+
 describe("revision-backed runtime resolution", () => {
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"selects same-name providers and operations by owner without system preference",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const privatePlugin = yield* installRevisionPackage(operationPackage("private"), owner);
+					const system = yield* installRevisionPackage(operationPackage("system"));
+					const ownReference = {
+						slug: "whiskey-provider",
+						owner: definitionOwner(privatePlugin.pluginId),
+					};
+					const ownProvider = yield* runtime.findProviderAvailableToUserByReference(
+						owner,
+						ownReference,
+					);
+					assert(ownProvider);
+					expect(ownProvider.pluginId).toBe(privatePlugin.pluginId);
+					expect(
+						(yield* runtime.findSchemaProviderByReference({
+							slug: "whiskey-provider",
+							owner: definitionOwner(system.pluginId),
+						}))?.provider.pluginId,
+					).toBe(system.pluginId);
+					expect(yield* runtime.findSchemaProviderByReference(ownReference)).toBeNull();
+					expect(
+						yield* runtime.findProviderAvailableToUserByReference(other, ownReference),
+					).toBeNull();
+					expect(
+						yield* runtime.findProviderAvailableToUserByReference(owner, {
+							slug: "whiskey-provider",
+							owner: { kind: "kernel" },
+						}),
+					).toBeNull();
+					expect(
+						(yield* runtime.listSchemaProviders({
+							userId: owner,
+							entitySchemas: [
+								{
+									slug: EntitySchemaSlug.make("whiskey-entity"),
+									owner: definitionOwner(privatePlugin.pluginId),
+								},
+							],
+						})).map(({ provider }) => provider.pluginId),
+					).toEqual([privatePlugin.pluginId]);
+					expect(
+						yield* runtime.findAuthorizedSchemaProviderById({
+							providerId: ownProvider.id,
+							entitySchema: {
+								owner: definitionOwner(system.pluginId),
+								slug: EntitySchemaSlug.make("whiskey-entity"),
+							},
+						}),
+					).toBeNull();
+					expect(
+						(yield* runtime.findOperationAvailableToUser({
+							userId: owner,
+							operationSlug: "same-operation",
+							pluginId: privatePlugin.pluginId,
+						}))?.script.contentHash,
+					).toBe("whiskey.task-private");
+					expect(
+						(yield* runtime.findOperationAvailableToUser({
+							userId: owner,
+							pluginId: system.pluginId,
+							operationSlug: "same-operation",
+						}))?.script.contentHash,
+					).toBe("whiskey.task-system");
+					expect(
+						yield* runtime.findOperationAvailableToUser({
+							userId: other,
+							operationSlug: "same-operation",
+							pluginId: privatePlugin.pluginId,
+						}),
+					).toBeNull();
+					expect(
+						yield* runtime.findOperationAvailableToUser({
+							userId: owner,
+							operationSlug: "same-operation",
+							pluginId: PluginId.make("absent"),
+						}),
+					).toBeNull();
+				}),
+		);
+	});
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect(
 			"resolves provider declarations and operation-specific scripts from the active revision",
@@ -28,7 +219,10 @@ describe("revision-backed runtime resolution", () => {
 				Effect.gen(function* () {
 					const runtime = yield* PluginRuntimeResolver;
 					const installed = yield* installRevisionPackage(revisionPackage());
-					const fixtureProvider = yield* runtime.findSchemaProviderBySlug("fixture-provider");
+					const fixtureProvider = yield* runtime.findSchemaProviderByReference({
+						slug: "fixture-provider",
+						owner: definitionOwner(installed.pluginId),
+					});
 					assert(fixtureProvider);
 					expect(fixtureProvider.entitySchemaSlug).toBe("fixture-entity");
 					expect(fixtureProvider.provider.pluginId).toBe(installed.pluginId);
@@ -50,23 +244,29 @@ describe("revision-backed runtime resolution", () => {
 					expect(yield* runtime.listSchemaProviders({ userId: other })).toEqual([]);
 					expect(
 						yield* runtime.findAuthorizedSchemaProviderById({
-							pluginSlug: "fixture",
-							entitySchemaSlug: "fixture-entity",
 							providerId: fixtureProvider.provider.id,
+							entitySchema: {
+								owner: definitionOwner(installed.pluginId),
+								slug: EntitySchemaSlug.make("fixture-entity"),
+							},
 						}),
 					).not.toBeNull();
 					expect(
 						yield* runtime.findAuthorizedSchemaProviderById({
-							pluginSlug: "foreign",
-							entitySchemaSlug: "fixture-entity",
 							providerId: fixtureProvider.provider.id,
+							entitySchema: {
+								owner: definitionOwner("foreign"),
+								slug: EntitySchemaSlug.make("fixture-entity"),
+							},
 						}),
 					).toBeNull();
 					expect(
 						yield* runtime.findAuthorizedSchemaProviderById({
-							pluginSlug: "fixture",
-							entitySchemaSlug: "wrong-entity",
 							providerId: fixtureProvider.provider.id,
+							entitySchema: {
+								owner: definitionOwner(installed.pluginId),
+								slug: EntitySchemaSlug.make("wrong-entity"),
+							},
 						}),
 					).toBeNull();
 				}),
@@ -81,7 +281,10 @@ describe("revision-backed runtime resolution", () => {
 					const runtime = yield* PluginRuntimeResolver;
 					const plugins = yield* PluginRepository;
 					const installed = yield* installRevisionPackage(revisionPackage());
-					const provider = yield* runtime.findSchemaProviderBySlug("fixture-provider");
+					const provider = yield* runtime.findSchemaProviderByReference({
+						slug: "fixture-provider",
+						owner: definitionOwner(installed.pluginId),
+					});
 					assert(provider);
 					const unsupported = yield* Effect.result(
 						runtime.resolveTranslateScript(provider.provider.id),
@@ -180,20 +383,59 @@ describe("revision-backed runtime resolution", () => {
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
+		test.effect("resolves an active private script only for its executing user", () =>
+			Effect.gen(function* () {
+				const runtime = yield* PluginRuntimeResolver;
+				const privatePlugin = yield* installRevisionPackage(revisionPackage("retained"), owner);
+				const systemPlugin = yield* installRevisionPackage(revisionPackage("retained"));
+				const privateScript = yield* runtime.findScriptAvailableToUser(
+					owner,
+					privatePlugin.pluginId,
+					"retained.task",
+				);
+				const systemScript = yield* runtime.findScriptAvailableToUser(
+					owner,
+					systemPlugin.pluginId,
+					"retained.task",
+				);
+				assert(privateScript && systemScript);
+
+				expect(privateScript.id).not.toBe(systemScript.id);
+				expect(yield* runtime.findActiveScriptById(privateScript.id, owner)).toMatchObject({
+					pluginSlug: "retained",
+					contentHash: "retained.task-v1",
+					pluginId: privatePlugin.pluginId,
+				});
+				expect(yield* runtime.findActiveScriptById(privateScript.id, other)).toBeNull();
+				expect(yield* runtime.findActiveScriptById(privateScript.id, null)).toBeNull();
+				expect(yield* runtime.findActiveScriptById(systemScript.id, null)).toMatchObject({
+					pluginId: systemPlugin.pluginId,
+					contentHash: "retained.task-v1",
+				});
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
 		test.effect(
 			"keeps captured catalog operations pinned while new requests select the upgraded revision",
 			() =>
 				Effect.gen(function* () {
 					const runtime = yield* PluginRuntimeResolver;
-					const first = yield* installRevisionPackage(revisionPackage("notes", "v1"), owner);
+					const original = revisionPackage("notes", "v1");
+					const first = yield* installRevisionPackage(original, owner);
 					const captured = yield* runtime.findPluginAvailableToUser(owner, first.pluginId);
 					assert(captured);
+					expect(captured.clientImports).toEqual([]);
 					const oldScript = yield* runtime.findWorkflowScriptInAvailablePlugin(
 						captured,
 						"notes-flow",
 					);
 					assert(oldScript);
-					const second = yield* installRevisionPackage(revisionPackage("notes", "v2"), owner);
+					const second = yield* installRevisionPackage(
+						revisionPackage("notes", "v2", "notes-entity", original.manifest.metadata.packageId),
+						owner,
+					);
 					expect(second.pluginId).toBe(first.pluginId);
 					expect(second.installation.id).toBe(first.installation.id);
 					expect(second.revisionId).not.toBe(first.revisionId);
@@ -209,7 +451,7 @@ describe("revision-backed runtime resolution", () => {
 						))?.contentHash,
 					).toBe("notes.workflow-v2");
 					expect(
-						yield* runtime.findActiveScriptById(SandboxScriptId.make(oldScript.id)),
+						yield* runtime.findActiveScriptById(SandboxScriptId.make(oldScript.id), owner),
 					).toBeNull();
 				}),
 		);
@@ -222,12 +464,19 @@ describe("revision-backed runtime resolution", () => {
 				Effect.gen(function* () {
 					const runtime = yield* PluginRuntimeResolver;
 					const plugins = yield* PluginRepository;
-					const installed = yield* installRevisionPackage(revisionPackage("notes", "v1"), owner);
-					yield* plugins.persist(revisionPackage("notes", "v2"), {
-						slug: "notes",
-						scope: "user",
-						ownerId: owner,
-					});
+					const original = revisionPackage("notes", "v1");
+					const installed = yield* installRevisionPackage(original, owner);
+					yield* (yield* DatabaseSession).transaction(
+						plugins.persist(
+							revisionPackage("notes", "v2", "notes-entity", original.manifest.metadata.packageId),
+							{
+								slug: "notes",
+								scope: "user",
+								ownerId: owner,
+								packageId: original.manifest.metadata.packageId,
+							},
+						),
+					);
 					expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);
 					const [pending] = yield* runtime.listPluginsAvailableToUser(owner, true);
 					expect(pending?.id).toBe(installed.pluginId);
@@ -244,57 +493,83 @@ describe("revision-backed runtime resolution", () => {
 					const installations = yield* PluginInstallationRepository;
 					const installed = yield* installRevisionPackage(revisionPackage("notes"), owner);
 					const effective = (listed: boolean) => definitions.getUserSnapshot(owner, { listed });
-					expect((yield* effective(false)).entitySchemas["notes-entity"]?.pluginId).toBe(
-						installed.pluginId,
-					);
+					const reference = { slug: "notes-entity", owner: definitionOwner(installed.pluginId) };
+					expect(
+						definitionLookup(yield* effective(false)).getEntitySchema(reference)?.pluginId,
+					).toBe(installed.pluginId);
 					yield* installations.updateHealth({
 						healthReason: null,
 						health: "installing",
 						id: installed.installation.id,
 					});
-					expect((yield* effective(false)).entitySchemas["notes-entity"]).toBeUndefined();
-					expect((yield* effective(true)).entitySchemas["notes-entity"]?.pluginId).toBe(
-						installed.pluginId,
-					);
+					expect(
+						definitionLookup(yield* effective(false)).getEntitySchema(reference),
+					).toBeUndefined();
+					expect(
+						definitionLookup(yield* effective(true)).getEntitySchema(reference)?.pluginId,
+					).toBe(installed.pluginId);
 					yield* installations.updateHealth({
 						health: "incompatible",
 						healthReason: "conflict",
 						id: installed.installation.id,
 					});
-					expect((yield* effective(true)).entitySchemas["notes-entity"]).toBeUndefined();
+					expect(
+						definitionLookup(yield* effective(true)).getEntitySchema(reference),
+					).toBeUndefined();
+					const runtime = yield* PluginRuntimeResolver;
+					expect(yield* runtime.listPluginsAvailableToUser(owner, true)).toEqual([]);
+					expect(
+						(yield* runtime.listPluginsForManagement(owner)).map(
+							({ id, health, healthReason }) => ({ id, health, healthReason }),
+						),
+					).toEqual([{ id: installed.pluginId, health: "incompatible", healthReason: "conflict" }]);
 				}),
 		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect(
-			"lets shipped definitions win a private collision without dropping independent private definitions",
-			() =>
-				Effect.gen(function* () {
-					const repository = yield* DefinitionRepository;
-					const privatePackage = revisionPackage("notes", "v1", "shared-entity");
-					const entity = privatePackage.manifest.entitySchemas[0];
-					assert(entity);
-					const privatePlugin = yield* installRevisionPackage(
-						{
-							...privatePackage,
-							manifest: {
-								...privatePackage.manifest,
-								entitySchemas: [
-									...privatePackage.manifest.entitySchemas,
-									{ ...entity, slug: "notes-extra" },
-								],
-							},
+		test.effect("keeps same-name schema definitions independent across owners", () =>
+			Effect.gen(function* () {
+				const repository = yield* DefinitionRepository;
+				const privatePackage = revisionPackage("notes", "v1", "shared-entity");
+				const entity = privatePackage.manifest.entitySchemas[0];
+				assert(entity);
+				const privatePlugin = yield* installRevisionPackage(
+					{
+						...privatePackage,
+						manifest: {
+							...privatePackage.manifest,
+							entitySchemas: [
+								...privatePackage.manifest.entitySchemas,
+								{ ...entity, slug: "notes-extra" },
+							],
 						},
-						owner,
-					);
-					const system = yield* installRevisionPackage(
-						revisionPackage("shared", "v1", "shared-entity"),
-					);
-					const definitions = yield* repository.getUserSnapshot(owner, { listed: false });
-					expect(definitions.entitySchemas["shared-entity"]?.pluginId).toBe(system.pluginId);
-					expect(definitions.entitySchemas["notes-extra"]?.pluginId).toBe(privatePlugin.pluginId);
-				}),
+					},
+					owner,
+				);
+				const system = yield* installRevisionPackage(
+					revisionPackage("shared", "v1", "shared-entity"),
+				);
+				const definitions = yield* repository.getUserSnapshot(owner, { listed: false });
+				expect(
+					definitionLookup(definitions).getEntitySchema({
+						slug: "shared-entity",
+						owner: definitionOwner(system.pluginId),
+					})?.pluginId,
+				).toBe(system.pluginId);
+				expect(
+					definitionLookup(definitions).getEntitySchema({
+						slug: "shared-entity",
+						owner: definitionOwner(privatePlugin.pluginId),
+					})?.pluginId,
+				).toBe(privatePlugin.pluginId);
+				expect(
+					definitionLookup(definitions).getEntitySchema({
+						slug: "notes-extra",
+						owner: definitionOwner(privatePlugin.pluginId),
+					})?.pluginId,
+				).toBe(privatePlugin.pluginId);
+			}),
 		);
 	});
 
@@ -321,12 +596,14 @@ describe("revision-backed runtime resolution", () => {
 					},
 				});
 				expect(
-					(yield* runtime.resolveActivePluginCron({ pluginSlug: "fixture", cronSlug: "scheduled" }))
-						?.script.pluginRevisionId,
+					(yield* runtime.resolveActivePluginCron({
+						cronSlug: "scheduled",
+						pluginId: installed.pluginId,
+					}))?.script.pluginRevisionId,
 				).toBe(installed.revisionId);
 				expect(
 					(yield* runtime.resolveActivePluginUserBootstrap({
-						pluginSlug: "fixture",
+						pluginId: installed.pluginId,
 						bootstrapSlug: "user-startup",
 					}))?.script.pluginRevisionId,
 				).toBe(installed.revisionId);
@@ -385,21 +662,144 @@ describe("revision-backed runtime resolution", () => {
 			}),
 		);
 	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"quarantines a private same-name schedule without removing the system schedule",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const installations = yield* PluginInstallationRepository;
+					const privatePlugin = yield* installRevisionPackage(schedulePackage(), owner);
+					const system = yield* installRevisionPackage(schedulePackage());
+					expect(
+						(yield* runtime.listPrivateCronSchedules()).map(({ installationId }) => installationId),
+					).toEqual([privatePlugin.installation.id]);
+					expect(
+						(yield* runtime.listSystemCronSchedules()).map(({ pluginId }) => pluginId),
+					).toEqual([system.pluginId]);
+					expect(
+						yield* runtime.resolveActivePluginCron({
+							cronSlug: "scheduled",
+							pluginId: privatePlugin.pluginId,
+						}),
+					).toBeNull();
+					expect(
+						yield* runtime.resolvePrivatePluginCron({
+							cronSlug: "scheduled",
+							installationId: system.installation.id,
+						}),
+					).toBeNull();
+					yield* installations.updateHealth({
+						health: "incompatible",
+						id: privatePlugin.installation.id,
+						healthReason: "Identity conflict",
+						incompatibilityReason: "package-identity-conflict",
+					});
+					expect(yield* runtime.listPrivateCronSchedules()).toEqual([]);
+					expect(
+						yield* runtime.resolvePrivatePluginCron({
+							cronSlug: "scheduled",
+							installationId: privatePlugin.installation.id,
+						}),
+					).toBeNull();
+					expect(
+						(yield* runtime.resolveActivePluginCron({
+							cronSlug: "scheduled",
+							pluginId: system.pluginId,
+						}))?.script.pluginId,
+					).toBe(system.pluginId);
+					expect(
+						(yield* runtime.listPluginsForManagement(owner)).find(
+							({ id }) => id === privatePlugin.pluginId,
+						)?.incompatibilityReason,
+					).toBe("package-identity-conflict");
+				}),
+		);
+	});
 });
 
 describe("catalog reads across revision boundaries", () => {
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"projects client imports from each selected revision artifact without rebinding captured catalogs",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const target = revisionPackage("whiskey");
+					const reference = {
+						scope: "system" as const,
+						packageId: target.manifest.metadata.packageId,
+					};
+					const targetClient: PluginClientEntry = {
+						homeView: null,
+						apiVersion: CLIENT_API_VERSION,
+						exports: {
+							card: {
+								kind: "component",
+								entry: "client/card.tsx",
+								automaticEntityPresentations: false,
+							},
+							other: {
+								kind: "component",
+								entry: "client/other.tsx",
+								automaticEntityPresentations: false,
+							},
+						},
+					};
+					yield* installRevisionPackage(withClient(target, targetClient, []));
+					const original = revisionPackage("whiskey");
+					const client: PluginClientEntry = {
+						homeView: null,
+						apiVersion: CLIENT_API_VERSION,
+						pluginDependencies: { target: reference },
+						exports: {
+							home: {
+								kind: "component",
+								entry: "client/home.tsx",
+								automaticEntityPresentations: false,
+							},
+						},
+					};
+					const firstImport: PluginClientImport = { reference, exportName: "card" };
+					const secondImport: PluginClientImport = { reference, exportName: "other" };
+					const installed = yield* installRevisionPackage(
+						withClient(original, client, [firstImport]),
+					);
+					const captured = yield* runtime.findPluginAvailableToUser(owner, installed.pluginId);
+					assert(captured);
+					expect(captured.clientImports).toEqual([firstImport]);
+					const next = revisionPackage(
+						"whiskey",
+						"v2",
+						"whiskey-entity",
+						original.manifest.metadata.packageId,
+					);
+					yield* installRevisionPackage(withClient(next, client, [secondImport]));
+					expect(
+						(yield* runtime.findPluginAvailableToUser(owner, installed.pluginId))?.clientImports,
+					).toEqual([secondImport]);
+					expect(captured.clientImports).toEqual([firstImport]);
+				}),
+		);
+	});
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect("serves the upgraded manifest and the upgraded script rows after a reinstall", () =>
 			Effect.gen(function* () {
 				const plugins = yield* PluginRepository;
 				const runtime = yield* PluginRuntimeResolver;
-				const first = yield* installRevisionPackage(revisionPackage("fixture", "v1"));
-				const provider = yield* runtime.findSchemaProviderBySlug("fixture-provider");
+				const original = revisionPackage("fixture", "v1");
+				const first = yield* installRevisionPackage(original);
+				const provider = yield* runtime.findSchemaProviderByReference({
+					slug: "fixture-provider",
+					owner: definitionOwner(first.pluginId),
+				});
 				assert(provider);
 				const firstScript = yield* runtime.resolveDetailsScript(provider.provider.id);
 				expect((yield* plugins.listActiveSystemPlugins())[0]?.manifest.metadata.version).toBe("v1");
 
-				const second = yield* installRevisionPackage(revisionPackage("fixture", "v2"));
+				const second = yield* installRevisionPackage(
+					revisionPackage("fixture", "v2", "fixture-entity", original.manifest.metadata.packageId),
+				);
 				expect(second.revisionId).not.toBe(first.revisionId);
 				expect((yield* plugins.listActiveSystemPlugins())[0]?.manifest.metadata.version).toBe("v2");
 				const secondScript = yield* runtime.resolveDetailsScript(provider.provider.id);
@@ -418,7 +818,10 @@ describe("catalog reads across revision boundaries", () => {
 					const plugins = yield* PluginRepository;
 					const runtime = yield* PluginRuntimeResolver;
 					const installed = yield* installRevisionPackage(revisionPackage());
-					const provider = yield* runtime.findSchemaProviderBySlug("fixture-provider");
+					const provider = yield* runtime.findSchemaProviderByReference({
+						slug: "fixture-provider",
+						owner: definitionOwner(installed.pluginId),
+					});
 					assert(provider);
 					expect((yield* runtime.listPluginsAvailableToUser(owner)).length).toBe(1);
 
@@ -430,7 +833,12 @@ describe("catalog reads across revision boundaries", () => {
 							.where(eq(tables.pluginRevision.id, installed.revisionId)),
 					);
 					expect(revision?.manifest.providers).toHaveLength(1);
-					expect(yield* runtime.findSchemaProviderBySlug("fixture-provider")).toBeNull();
+					expect(
+						yield* runtime.findSchemaProviderByReference({
+							slug: "fixture-provider",
+							owner: definitionOwner(installed.pluginId),
+						}),
+					).toBeNull();
 					expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
 					expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);
 				}),
@@ -441,11 +849,20 @@ describe("catalog reads across revision boundaries", () => {
 		test.effect("stops resolving a provider the new active revision no longer declares", () =>
 			Effect.gen(function* () {
 				const runtime = yield* PluginRuntimeResolver;
-				yield* installRevisionPackage(revisionPackage("fixture", "v1"));
-				const provider = yield* runtime.findSchemaProviderBySlug("fixture-provider");
+				const original = revisionPackage("fixture", "v1");
+				const installed = yield* installRevisionPackage(original);
+				const provider = yield* runtime.findSchemaProviderByReference({
+					slug: "fixture-provider",
+					owner: definitionOwner(installed.pluginId),
+				});
 				assert(provider);
 
-				const upgraded = revisionPackage("fixture", "v2");
+				const upgraded = revisionPackage(
+					"fixture",
+					"v2",
+					"fixture-entity",
+					original.manifest.metadata.packageId,
+				);
 				yield* installRevisionPackage({
 					...upgraded,
 					scripts: upgraded.scripts.filter(({ metadata }) => metadata.kind !== "provider"),
@@ -455,7 +872,12 @@ describe("catalog reads across revision boundaries", () => {
 						scripts: upgraded.manifest.scripts.filter(({ kind }) => kind !== "provider"),
 					},
 				});
-				expect(yield* runtime.findSchemaProviderBySlug("fixture-provider")).toBeNull();
+				expect(
+					yield* runtime.findSchemaProviderByReference({
+						slug: "fixture-provider",
+						owner: definitionOwner(installed.pluginId),
+					}),
+				).toBeNull();
 				expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
 			}),
 		);

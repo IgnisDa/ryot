@@ -1,6 +1,10 @@
 import { sourcePlanConfigKeys } from "@ryot-app/contract/modules/plugins/execution";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { and, column, eq, literal, table } from "@ryot-app/ryotql";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
+import { AuthoredEntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import { PluginId } from "@ryot-app/contract/schema/brands";
+import { Result, Schema } from "effect";
 
 import {
 	formatPropertyIssues,
@@ -15,6 +19,14 @@ export const materializeSavedView = (
 	pluginSlug: string,
 	client: PluginManifest["client"],
 ): SavedViewDefinition => {
+	const dataSources =
+		definition.dataSources === null
+			? null
+			: mapPluginIdentityReferences(definition.dataSources, (reference) =>
+					reference.kind === "self"
+						? { kind: "local", pluginId: PluginId.make(pluginId) }
+						: reference,
+				);
 	if (definition.renderer.kind === "plugin") {
 		const page = client?.exports?.[definition.renderer.exportName];
 		if (page?.kind !== "page") {
@@ -35,61 +47,48 @@ export const materializeSavedView = (
 			...definition,
 			pluginId,
 			pluginSlug,
+			dataSources,
 			renderer: { pluginId, kind: "plugin" as const, exportName: definition.renderer.exportName },
 		};
 	}
+	let settings = definition.settings;
 	if (
-		definition.renderer.name !== "entity-browser" &&
-		definition.renderer.name !== "collection-browser"
+		definition.renderer.name === "entity-browser" ||
+		definition.renderer.name === "collection-browser"
 	) {
-		return { ...definition, pluginId, pluginSlug, renderer: definition.renderer };
-	}
-	const rawSourceName = definition.settings["sourceName"];
-	const sourceName = typeof rawSourceName === "string" ? rawSourceName : undefined;
-	const ownerField = definition.settings["ownerPluginIdField"];
-	const source = sourceName === undefined ? undefined : definition.dataSources?.queries[sourceName];
-	const ownerSelection =
-		source?.output.type === "rows" && typeof ownerField === "string"
-			? source.output.fields.find((selection) => "key" in selection && selection.key === ownerField)
-			: undefined;
-	const dataSources =
-		definition.dataSources &&
-		sourceName !== undefined &&
-		source?.output.type === "rows" &&
-		ownerSelection &&
-		"expr" in ownerSelection &&
-		ownerSelection.expr.type === "column"
-			? {
-					...definition.dataSources,
-					queries: {
-						...definition.dataSources.queries,
-						[sourceName]: {
-							...source,
-							where: and(
-								...(source.where ? [source.where] : []),
-								eq(
-									column(table("entity", ownerSelection.expr.tableAlias), "entitySchemaPluginId"),
-									literal(pluginId),
-								),
-							),
+		const decoded = Schema.decodeUnknownResult(AuthoredEntityBrowserSavedViewSettings)(
+			definition.settings,
+		);
+		if (Result.isFailure(decoded)) {
+			throw new Error(
+				`Invalid saved view ${definition.slug}: invalid ${definition.renderer.name} settings`,
+			);
+		}
+		const addAction = decoded.success.addAction;
+		settings = {
+			...decoded.success,
+			addAction:
+				addAction === null
+					? null
+					: {
+							...addAction,
+							schema: {
+								slug: addAction.schema.slug,
+								owner:
+									addAction.schema.owner.kind === "self"
+										? definitionOwner(pluginId)
+										: addAction.schema.owner,
+							},
 						},
-					},
-				}
-			: definition.dataSources;
-	const addAction = definition.settings["addAction"];
+		};
+	}
 	return {
 		...definition,
 		pluginId,
+		settings,
 		pluginSlug,
 		dataSources,
 		renderer: definition.renderer,
-		settings:
-			typeof addAction === "object" && addAction !== null && !Array.isArray(addAction)
-				? {
-						...definition.settings,
-						addAction: Object.assign({}, addAction, { ownerPluginId: pluginId }),
-					}
-				: definition.settings,
 	};
 };
 

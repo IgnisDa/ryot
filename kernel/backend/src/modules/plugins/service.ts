@@ -2,17 +2,18 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	PluginConflictError,
 	PluginNotFoundError,
+	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginId, PluginSlug } from "@ryot-app/contract/schema/brands";
-import { inArray } from "drizzle-orm";
+import { PluginId, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
+import { PluginIngestionRetirement } from "./ingestion-retirement";
+import { PluginInstallationRepository } from "./installation-repository";
 import {
 	normalizePluginPackage,
 	normalizePluginSource,
@@ -55,6 +56,8 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const definitions = yield* DefinitionRepository;
 			const systemPlugins = yield* SystemPlugins;
 			const invalidator = yield* PluginCatalogInvalidator;
+			const installations = yield* PluginInstallationRepository;
+			const retirement = yield* PluginIngestionRetirement;
 			const kernelSignalSlugs = new Set(
 				kernelDefinitionSource().signalSchemas.map(({ slug }) => slug),
 			);
@@ -67,16 +70,11 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					try: () => validateSystemPluginSet(kernel, plugins),
 					catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 				});
-				yield* validateSignalSchemaFormatterReferences(
-					snapshot,
-					plugins.flatMap(({ manifest }) => manifest.scripts),
-					kernelScripts,
-					kernelSignalSlugs,
-				);
+				yield* validateSignalSchemaFormatterReferences(snapshot, kernelScripts, kernelSignalSlugs);
 				yield* Effect.forEach(
 					plugins,
 					(plugin) =>
-						validatePluginManifestReferences(plugin.manifest, snapshot).pipe(
+						validatePluginManifestReferences(plugin.manifest).pipe(
 							Effect.andThen(validateIntegrationProviderSettingsSchemas(plugin.manifest)),
 							Effect.andThen(validateImportSourceInputSchemas(plugin.manifest)),
 							Effect.andThen(
@@ -91,27 +89,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			)(function* () {
 				yield* validateSystemSet(yield* repository.listActiveSystemPlugins());
 			});
-			const assertNoCustomViewSlugCollisions = Effect.fn(function* (
-				manifest: NormalizedPlugin["manifest"],
-			) {
-				const slugs = manifest.savedViews.map((view) => view.slug);
-				if (slugs.length === 0) {
-					return yield* Effect.void;
-				}
-				const [collision] = yield* database.run((db) =>
-					db
-						.select({ slug: schema.savedView.slug })
-						.from(schema.savedView)
-						.where(inArray(schema.savedView.slug, slugs))
-						.limit(1),
-				);
-				if (collision) {
-					return yield* new PluginValidationError({
-						issues: [`Saved view slug '${collision.slug}' is owned by a custom view`],
-					});
-				}
-				return yield* Effect.void;
-			});
 			const inTransaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 				Effect.uninterruptible(
 					database.transaction(repository.lockIngestion().pipe(Effect.andThen(effect))),
@@ -123,33 +100,54 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 
 			const ingestSystemPluginUnlocked = Effect.fn(
 				"PluginIngestionService.ingestSystemPluginUnlocked",
-			)(function* (source: PluginSource, environmentResolution: EnvironmentResolutionTiming) {
+			)(function* (
+				source: PluginSource,
+				environmentResolution: EnvironmentResolutionTiming,
+				target?: { readonly pluginId: string; readonly expectedSourceHash: string },
+				createOnly = false,
+			) {
 				const normalizedSource = yield* normalizePluginSource(source);
 				const { manifest, sourceHash } = normalizedSource;
 				yield* validatePluginManifestPolicy(manifest, { scope: "system" });
 				yield* validatePluginScriptEntries(manifest);
 				const slug = manifest.metadata.slug;
+				const packageId = manifest.metadata.packageId;
 				const installed = yield* repository.listActiveSystemPlugins();
+				const selected = target ? installed.find(({ id }) => id === target.pluginId) : undefined;
+				if (selected && selected.packageId !== packageId) {
+					return yield* new PluginRequestError({
+						reason: {
+							packageId,
+							code: "package-id-mismatch",
+							pluginId: PluginId.make(selected.id),
+							expectedPackageId: selected.packageId,
+						},
+					});
+				}
 				yield* validateSystemSet(
 					[
-						...installed.filter((plugin) => plugin.slug !== slug),
-						{ slug, manifest, scripts: [], id: `pending:${slug}` },
+						...installed.filter((plugin) =>
+							target ? plugin.id !== target.pluginId : plugin.packageId !== packageId,
+						),
+						{ slug, manifest, scripts: [], id: target?.pluginId ?? `pending:${packageId}` },
 					],
 					false,
 				);
 
 				const cached = yield* repository.findBySourceHash({
 					slug,
+					packageId,
+					...(target ? { pluginId: target.pluginId } : {}),
 					sourceHash,
 					ownerId: null,
 					scope: "system",
 				});
-				if (cached) {
+				if (cached && !target && !createOnly) {
 					const committed = yield* inTransaction(
 						Effect.gen(function* () {
 							const plugins = yield* repository.listActiveSystemPlugins();
 							const authoritative = plugins.find(
-								(plugin) => plugin.slug === slug && plugin.sourceHash === sourceHash,
+								(plugin) => plugin.packageId === packageId && plugin.sourceHash === sourceHash,
 							);
 							if (!authoritative) {
 								return null;
@@ -159,25 +157,80 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								yield* repository.resolveEnvironmentConfig(authoritative);
 							}
 							yield* invalidator.recordAll;
-							return authoritative;
+							const quarantined =
+								yield* installations.quarantinePackageIdentityConflicts(packageId);
+							for (const installation of quarantined) {
+								yield* invalidator.recordUser(UserId.make(installation.userId));
+							}
+							return { quarantined, authoritative };
 						}),
 					);
 					if (committed) {
 						yield* invalidator.all;
-						return committed;
+						for (const installation of committed.quarantined) {
+							yield* retirement.retire({
+								pluginInstallationId: installation.id,
+								userId: UserId.make(installation.userId),
+								policy: {
+									kind: "quarantine",
+									reason: {
+										installationId: installation.id,
+										code: "package-identity-conflict",
+										pluginId: PluginId.make(installation.pluginId),
+									},
+								},
+							});
+						}
+						return committed.authoritative;
 					}
 				}
 
 				const normalized = normalizePluginPackage(normalizedSource);
 				const stored = yield* inTransaction(
 					Effect.gen(function* () {
-						yield* assertNoCustomViewSlugCollisions(manifest);
-						const previous = yield* repository.findActiveSystemPlugin(slug);
+						const previous = target
+							? yield* repository.findActiveSystemPluginById(target.pluginId)
+							: yield* repository.findActiveSystemPluginByPackageId(packageId);
+						if (createOnly && previous) {
+							return yield* new PluginConflictError({
+								reason: { packageId, code: "already-installed" },
+							});
+						}
+						if (target && (!previous || previous.sourceHash !== target.expectedSourceHash)) {
+							return yield* new PluginConflictError({
+								reason: { code: "source-revision-stale", pluginId: PluginId.make(target.pluginId) },
+							});
+						}
+						if (previous && previous.packageId !== packageId) {
+							return yield* new PluginRequestError({
+								reason: {
+									packageId,
+									code: "package-id-mismatch",
+									pluginId: PluginId.make(previous.id),
+									expectedPackageId: previous.packageId,
+								},
+							});
+						}
 						if (previous) {
 							yield* validateAdditiveSchemaEvolution(previous.manifest, manifest);
+							const declarations = yield* repository.findReferencedRemovedDeclarations(
+								previous,
+								manifest,
+							);
+							if (declarations.length > 0) {
+								return yield* new PluginConflictError({
+									reason: {
+										declarations,
+										pluginId: PluginId.make(previous.id),
+										code: "referenced-definition-incompatible",
+									},
+								});
+							}
 						}
 						const pluginId = yield* repository.persist(normalized, {
 							slug,
+							packageId,
+							...(target ? { pluginId: target.pluginId } : {}),
 							ownerId: null,
 							scope: "system",
 						});
@@ -194,11 +247,29 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							yield* repository.resolveEnvironmentConfig(entry);
 						}
 						yield* invalidator.recordAll;
-						return entry;
+						const quarantined = yield* installations.quarantinePackageIdentityConflicts(packageId);
+						for (const installation of quarantined) {
+							yield* invalidator.recordUser(UserId.make(installation.userId));
+						}
+						return { entry, quarantined };
 					}),
 				);
 				yield* invalidator.all;
-				return stored;
+				for (const installation of stored.quarantined) {
+					yield* retirement.retire({
+						pluginInstallationId: installation.id,
+						userId: UserId.make(installation.userId),
+						policy: {
+							kind: "quarantine",
+							reason: {
+								installationId: installation.id,
+								code: "package-identity-conflict",
+								pluginId: PluginId.make(installation.pluginId),
+							},
+						},
+					});
+				}
+				return stored.entry;
 			});
 			const ingestSystemPluginSource = (
 				source: PluginSource,
@@ -224,36 +295,63 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const installPlugin = Effect.fn("PluginIngestionService.installPlugin")(function* (
 				source: PluginSource,
 			) {
-				const installed = yield* ingestSystemPlugin(source);
+				const normalized = yield* normalizePluginSource(source).pipe(structurePluginFailure);
+				if (
+					yield* repository.findActiveSystemPluginByPackageId(
+						normalized.manifest.metadata.packageId,
+					)
+				) {
+					return yield* new PluginConflictError({
+						reason: {
+							code: "already-installed",
+							packageId: normalized.manifest.metadata.packageId,
+						},
+					});
+				}
+				const installed = yield* ingestSystemPluginUnlocked(
+					source,
+					"immediate",
+					undefined,
+					true,
+				).pipe(structurePluginFailure);
+				return { pluginId: PluginId.make(installed.id), slug: PluginSlug.make(installed.slug) };
+			});
+			const updatePlugin = Effect.fn("PluginIngestionService.updatePlugin")(function* (
+				input: PluginSource & { readonly pluginId: string; readonly sourceHash: string },
+			) {
+				const installed = yield* ingestSystemPluginUnlocked(input, "immediate", {
+					pluginId: input.pluginId,
+					expectedSourceHash: input.sourceHash,
+				}).pipe(structurePluginFailure);
 				return { pluginId: PluginId.make(installed.id), slug: PluginSlug.make(installed.slug) };
 			});
 
 			const uninstallPlugin = Effect.fn("PluginIngestionService.uninstallPlugin")(function* (
-				slug: string,
+				pluginId: string,
 				activationId: string,
 			) {
-				const pluginSlug = PluginSlug.make(slug);
+				const localPluginId = PluginId.make(pluginId);
 				const removed = yield* inTransaction(
 					Effect.gen(function* () {
 						const receipt = yield* repository.findUninstallReceipt(activationId);
-						if (receipt?.ownerId === null && receipt.slug === slug) {
+						if (receipt?.ownerId === null && receipt.pluginId === pluginId) {
 							return receipt.pluginId;
 						}
 						const installed = yield* repository.listActiveSystemPlugins();
-						const plugin = installed.find((candidate) => candidate.slug === slug);
+						const plugin = installed.find((candidate) => candidate.id === pluginId);
 						if (!plugin || plugin.activationId !== activationId) {
 							return yield* new PluginNotFoundError({
-								reason: { pluginSlug, code: "plugin-not-found" },
+								reason: { pluginId: localPluginId, code: "plugin-not-found" },
 							});
 						}
-						if (systemPlugins.slugs.has(slug)) {
+						if (systemPlugins.packageIds.has(plugin.packageId)) {
 							return yield* new PluginConflictError({
-								reason: { pluginSlug, code: "system-plugin" },
+								reason: { code: "system-plugin", pluginId: localPluginId },
 							});
 						}
 						if (yield* repository.hasIntegrationReferences({ pluginId: plugin.id })) {
 							return yield* new PluginConflictError({
-								reason: { pluginSlug, code: "integration-referenced" },
+								reason: { pluginId: localPluginId, code: "integration-referenced" },
 							});
 						}
 						const schemaSlugs = plugin.manifest.entitySchemas.map(
@@ -266,16 +364,16 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							})
 						) {
 							return yield* new PluginConflictError({
-								reason: { pluginSlug, code: "entity-referenced" },
+								reason: { pluginId: localPluginId, code: "entity-referenced" },
 							});
 						}
 						if (yield* repository.hasDefinitionReferences(plugin.id)) {
 							return yield* new PluginConflictError({
-								reason: { pluginSlug, code: "entity-referenced" },
+								reason: { pluginId: localPluginId, code: "entity-referenced" },
 							});
 						}
 						const dangling = yield* validateSystemSet(
-							installed.filter((candidate) => candidate.slug !== slug),
+							installed.filter((candidate) => candidate.id !== pluginId),
 						).pipe(
 							Effect.as(null),
 							Effect.catchTag("PluginValidationError", (error) => Effect.succeed(error)),
@@ -283,7 +381,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						if (dangling) {
 							return yield* new PluginConflictError({
 								reason: {
-									pluginSlug,
+									pluginId: localPluginId,
 									code: "definition-referenced",
 									diagnostics: validationDiagnostics(dangling),
 								},
@@ -291,9 +389,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						}
 						yield* repository.deactivate(plugin.id);
 						yield* repository.recordUninstallReceipt({
-							slug,
 							activationId,
 							ownerId: null,
+							slug: plugin.slug,
 							pluginId: plugin.id,
 							installationId: null,
 						});
@@ -307,6 +405,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 
 			return {
 				listPlugins,
+				updatePlugin,
 				installPlugin,
 				uninstallPlugin,
 				ingestSystemPlugin,

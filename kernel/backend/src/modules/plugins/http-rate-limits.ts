@@ -1,4 +1,9 @@
 import type { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	definitionKey,
+	identityTupleKey,
+	type DefinitionOwner,
+} from "@ryot-app/contract/modules/plugins/references";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 
@@ -12,9 +17,15 @@ export type HttpRateLimitLookups = Readonly<{
 	byOrigin: Readonly<Record<string, CanonicalHttpRateLimitPolicy>>;
 }>;
 
-const normalizeOrigin = (origin: string) => new URL(origin).origin;
+const normalizeOrigin = (origin: string) => {
+	const url = new URL(origin);
+	url.hostname = url.hostname.replace(/\.+$/, "");
+	return url.origin;
+};
 const hashCanonicalDeclaration = (declaration: PluginHttpRateLimit) =>
-	sha256Hex(stableStringify(declaration));
+	sha256Hex(
+		stableStringify({ requests: declaration.requests, intervalMs: declaration.intervalMs }),
+	);
 
 const canonicalizeHttpRateLimitDeclaration = (declaration: PluginHttpRateLimit) =>
 	({
@@ -26,6 +37,8 @@ const canonicalizeHttpRateLimitDeclaration = (declaration: PluginHttpRateLimit) 
 
 export const buildHttpRateLimitLookups = (
 	plugins: ReadonlyArray<{
+		readonly owner: DefinitionOwner;
+		readonly scope: "system" | "user";
 		readonly slug: string;
 		readonly httpRateLimits: ReadonlyArray<PluginHttpRateLimit>;
 	}>,
@@ -35,13 +48,18 @@ export const buildHttpRateLimitLookups = (
 	const byKey: Record<string, CanonicalHttpRateLimitPolicy> = {};
 	const byOrigin: Record<string, CanonicalHttpRateLimitPolicy> = {};
 	for (const plugin of plugins) {
+		if (plugin.scope === "user" && plugin.httpRateLimits.length > 0)
+			{throw new Error("Private plugins cannot declare deployment HTTP policies");}
+		if (plugin.owner.kind === "kernel")
+			{throw new Error("Deployment HTTP policies require a plugin owner");}
 		for (const declaration of plugin.httpRateLimits) {
 			const canonical = canonicalizeHttpRateLimitDeclaration(declaration);
 			const policy = { declaration: canonical, hash: hashCanonicalDeclaration(canonical) };
-			const keyed = byKey[canonical.key];
-			if (keyed && keyed.hash !== policy.hash) {
+			const key = definitionKey("http-rate-limit", plugin.owner, canonical.key);
+			const keyed = byKey[key];
+			if (keyed && stableStringify(keyed.declaration) !== stableStringify(canonical)) {
 				throw new Error(
-					`Conflicting HTTP rate limit key '${canonical.key}' in active plugins '${ownerByKey.get(canonical.key)}' and '${plugin.slug}'`,
+					`Conflicting HTTP rate limit key '${canonical.key}' in active plugins '${ownerByKey.get(key)}' and '${plugin.slug}'`,
 				);
 			}
 			for (const origin of canonical.origins) {
@@ -52,10 +70,17 @@ export const buildHttpRateLimitLookups = (
 					);
 				}
 			}
-			byKey[canonical.key] = policy;
-			ownerByKey.set(canonical.key, plugin.slug);
+			byKey[key] = policy;
+			ownerByKey.set(key, plugin.slug);
 			for (const origin of canonical.origins) {
-				byOrigin[origin] = policy;
+				byOrigin[origin] = {
+					...policy,
+					declaration: {
+						...canonical,
+						origins: [origin],
+						key: identityTupleKey("http-origin", origin),
+					},
+				};
 				ownerByOrigin.set(origin, plugin.slug);
 			}
 		}

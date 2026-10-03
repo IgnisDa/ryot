@@ -2,9 +2,6 @@ import { expect, it } from "@effect/vitest";
 import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
-
 import { fixtureManifest } from "./test-support";
 import { validatePluginExecutableScripts, validatePluginManifestReferences } from "./validation";
 
@@ -56,12 +53,11 @@ it.effect("rejects duplicate, missing, and incompatible user bootstrap script re
 			],
 		}),
 	];
-	const snapshot = buildDefinitionSnapshot(kernelDefinitionSource());
 
 	return Effect.forEach(cases, (mutate) =>
 		Effect.gen(function* () {
 			const exit = yield* Effect.exit(
-				validatePluginManifestReferences(mutate(userBootstrapManifest()), snapshot),
+				validatePluginManifestReferences(mutate(userBootstrapManifest())),
 			);
 			expect(Exit.isFailure(exit)).toBe(true);
 		}),

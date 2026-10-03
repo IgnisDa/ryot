@@ -8,7 +8,15 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
-import { IntegrationId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	IntegrationId,
+	PluginId,
+	PluginPackageId,
+	PluginRevisionId,
+	PluginConfigRevisionId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
@@ -21,28 +29,75 @@ import { IntegrationOperationScopeResolverLive } from "#modules/integrations/ope
 import type { IntegrationRecord } from "#modules/integrations/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { makeIntegration as integrationRecord } from "#modules/integrations/test-support";
+import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxExecutionService } from "#modules/sandbox/service";
+import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
+import {
+	PluginInstallationRepository,
+	type PluginInstallationHydratedState,
+} from "./installation-repository";
 import { OperationsService } from "./operations-service";
 import { PluginRepository } from "./repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 import { fixtureManifest } from "./test-support";
+import type { StoredPlugin } from "./types";
 
-const SYSTEM_SLUG = "fixture";
-const PRIVATE_SLUG = "private";
+const SYSTEM_ID = PluginId.make("fixture-plugin-id");
+const PRIVATE_ID = PluginId.make("private-plugin-id");
 const DRIVER_REF = "operation.fixture";
 const OPERATION_SLUG = "resolve.fixture";
 const SOURCE_HASH = "source-hash";
 
 const USER_ONE = UserId.make("user-1");
 const USER_TWO = UserId.make("user-2");
+const STORED_PRIVATE_PACKAGE_ID = PluginPackageId.make("278c821d-a6d3-47b7-b8a1-934c28d10003");
+
+const storedPrivatePlugin = (packageId = STORED_PRIVATE_PACKAGE_ID): StoredPlugin => ({
+	packageId,
+	scripts: [],
+	scope: "user",
+	id: PRIVATE_ID,
+	status: "active",
+	ownerId: USER_ONE,
+	slug: "same-name",
+	sourceHash: SOURCE_HASH,
+	manifest: fixtureManifest(packageId),
+	activationId: "private-plugin-activation",
+});
+
+const privateInstallation = (
+	overrides: Partial<PluginInstallationHydratedState> = {},
+): PluginInstallationHydratedState => ({
+	config: {},
+	sortOrder: 0,
+	isHidden: false,
+	userId: USER_ONE,
+	userSettings: {},
+	healthReason: null,
+	isInitialized: true,
+	uninstalledAt: null,
+	pluginScope: "user",
+	homeSavedView: null,
+	pluginId: PRIVATE_ID,
+	health: "incompatible",
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
+	pluginSlug: "same-name",
+	activeConfigRevisionId: null,
+	id: "install-private-user-1",
+	packageId: STORED_PRIVATE_PACKAGE_ID,
+	incompatibilityReason: "package-identity-conflict",
+	...overrides,
+});
 
 type AvailableOperation = (
 	| Pick<Extract<PluginOperation, { auth: "user" }>, "auth" | "demoAccess">
 	| Pick<Extract<PluginOperation, { auth: "integration" }>, "auth">
 ) & {
 	readonly ownerId: UserId;
-	readonly pluginSlug: string;
+	readonly pluginId: PluginId;
+	readonly packageId?: PluginPackageId;
 	readonly scriptId?: string;
 	readonly installationId: string;
 	readonly scope: "system" | "user";
@@ -86,16 +141,20 @@ const resolvedOperation = (available: AvailableOperation) => ({
 				},
 	plugin: {
 		isHidden: false,
+		slug: "same-name",
+		clientImports: [],
+		healthReason: null,
 		scope: available.scope,
+		id: available.pluginId,
 		sourceHash: SOURCE_HASH,
 		health: "ready" as const,
-		slug: available.pluginSlug,
-		manifest: fixtureManifest(),
+		incompatibilityReason: null,
 		pluginRevisionId: "fixture-revision",
-		id: `${available.pluginSlug}-plugin-id`,
 		pluginConfigRevisionId: "fixture-config",
 		installationId: available.installationId,
+		manifest: fixtureManifest(available.packageId),
 		compiledHashes: { [DRIVER_REF]: "fixture-compiled" },
+		packageId: fixtureManifest(available.packageId).metadata.packageId,
 		ownerUserId: available.scope === "user" ? available.ownerId : null,
 	},
 });
@@ -119,6 +178,8 @@ class FakeOperationDependencies extends Context.Service<
 	{
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
 		readonly captured: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly privateOwnershipReads: Effect.Effect<ReadonlyArray<string>>;
+		readonly availableLookups: Effect.Effect<number>;
 		readonly offerOperations: (available: ReadonlyArray<AvailableOperation>) => Effect.Effect<void>;
 		readonly useIntegration: (integration: IntegrationRecord | null) => Effect.Effect<void>;
 	}
@@ -131,6 +192,10 @@ class OperationFakeState extends Context.Service<
 		readonly captured: Ref.Ref<ReadonlyArray<unknown>>;
 		readonly integration: Ref.Ref<IntegrationRecord | null>;
 		readonly available: Ref.Ref<ReadonlyArray<AvailableOperation>>;
+		readonly privatePlugin: Ref.Ref<StoredPlugin | null>;
+		readonly privateInstallation: Ref.Ref<PluginInstallationHydratedState | null>;
+		readonly privateOwnershipReads: Ref.Ref<ReadonlyArray<string>>;
+		readonly availableLookups: Ref.Ref<number>;
 	}
 >()("test/OperationFakeState") {}
 
@@ -142,15 +207,21 @@ const makeLayer = (input: {
 	activeSourceHash?: string;
 	integration?: IntegrationRecord | null;
 	available?: ReadonlyArray<AvailableOperation>;
+	privatePlugin?: StoredPlugin | null;
+	privateInstallation?: PluginInstallationHydratedState | null;
 }) => {
 	const stateLayer = Layer.effect(
 		OperationFakeState,
 		Effect.gen(function* () {
 			return {
+				availableLookups: yield* Ref.make(0),
 				available: yield* Ref.make(input.available ?? []),
 				events: yield* Ref.make<ReadonlyArray<string>>([]),
 				captured: yield* Ref.make<ReadonlyArray<unknown>>([]),
 				integration: yield* Ref.make(input.integration ?? null),
+				privatePlugin: yield* Ref.make(input.privatePlugin ?? null),
+				privateOwnershipReads: yield* Ref.make<ReadonlyArray<string>>([]),
+				privateInstallation: yield* Ref.make(input.privateInstallation ?? null),
 			};
 		}),
 	);
@@ -161,6 +232,8 @@ const makeLayer = (input: {
 				Layer.succeed(FakeOperationDependencies, {
 					events: Ref.get(state.events),
 					captured: Ref.get(state.captured),
+					availableLookups: Ref.get(state.availableLookups),
+					privateOwnershipReads: Ref.get(state.privateOwnershipReads),
 					offerOperations: (available) => Ref.set(state.available, available),
 					useIntegration: (integration) => Ref.set(state.integration, integration),
 				}),
@@ -169,10 +242,36 @@ const makeLayer = (input: {
 					getByWebhookToken: () => Ref.get(state.integration),
 				}),
 				Layer.mock(PluginRepository)({
-					lockIngestion: () => recordEvent("lock"),
+					lockIngestionShared: () => recordEvent("lock"),
 					isActiveRevision: ({ sourceHash }) =>
 						recordEvent("revision").pipe(
 							Effect.as(sourceHash === (input.activeSourceHash ?? SOURCE_HASH)),
+						),
+					findPrivateByIdForUser: (pluginId, userId) =>
+						Ref.update(state.privateOwnershipReads, (reads) => [
+							...reads,
+							`plugin:${userId}:${pluginId}`,
+						]).pipe(
+							Effect.andThen(
+								Effect.map(Ref.get(state.privatePlugin), (plugin) =>
+									plugin?.id === pluginId && plugin.ownerId === userId ? plugin : null,
+								),
+							),
+						),
+				}),
+				Layer.mock(PluginInstallationRepository)({
+					findByUserAndPlugin: (userId, pluginId) =>
+						Ref.update(state.privateOwnershipReads, (reads) => [
+							...reads,
+							`installation:${userId}:${pluginId}`,
+						]).pipe(
+							Effect.andThen(
+								Effect.map(Ref.get(state.privateInstallation), (installation) =>
+									installation?.pluginId === pluginId && installation.userId === userId
+										? installation
+										: null,
+								),
+							),
 						),
 				}),
 				Layer.mock(AuthService)({
@@ -200,17 +299,77 @@ const makeLayer = (input: {
 							: Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } })),
 				}),
 				Layer.mock(PluginRuntimeResolver)({
-					findOperationAvailableToUser: ({ userId, pluginSlug, operationSlug }) =>
-						Effect.map(Ref.get(state.available), (available) => {
-							const match = available.find(
-								(candidate) =>
-									candidate.ownerId === userId &&
-									candidate.pluginSlug === pluginSlug &&
-									operationSlug === OPERATION_SLUG,
-							);
-							return match ? resolvedOperation(match) : null;
-						}),
+					findOperationAvailableToUser: ({ userId, pluginId, operationSlug }) =>
+						Ref.update(state.availableLookups, (count) => count + 1).pipe(
+							Effect.andThen(
+								Effect.map(Ref.get(state.available), (available) => {
+									const match = available.find(
+										(candidate) =>
+											candidate.ownerId === userId &&
+											candidate.pluginId === pluginId &&
+											operationSlug === OPERATION_SLUG,
+									);
+									return match ? resolvedOperation(match) : null;
+								}),
+							),
+						),
 				}),
+				Layer.succeed(
+					SandboxRepository,
+					SandboxRepository.of({
+						getScript: () => Effect.die("Operation admission only reads verified pins"),
+						isPluginScript: () => Effect.die("Operation admission requires an exact plugin target"),
+						resolveWorkflowCallScript: () =>
+							Effect.die("Operations do not resolve child scripts at admission"),
+						getScriptPin: (scriptId) =>
+							Effect.map(Ref.get(state.available), (available) => {
+								const match = available.find(
+									(candidate) => resolvedOperation(candidate).script.id === scriptId,
+								);
+								if (!match) {
+									return null;
+								}
+								const { plugin, script } = resolvedOperation(match);
+								return {
+									scriptId,
+									providerId: null,
+									scriptSlug: script.slug,
+									metadata: script.metadata,
+									contentHash: script.contentHash,
+									pluginRevision: {
+										slug: plugin.slug,
+										id: match.pluginId,
+										scope: plugin.scope,
+										workflowScripts: {},
+										packageId: plugin.packageId,
+										ownerId: plugin.ownerUserId,
+										userBootstrapScriptSlugs: [],
+										compiledHashes: plugin.compiledHashes,
+										configSchema: plugin.manifest.configSchema,
+										revisionId: PluginRevisionId.make(plugin.pluginRevisionId),
+										configRevisionId: PluginConfigRevisionId.make(plugin.pluginConfigRevisionId),
+										schemaScope: {
+											eventSchemas: [],
+											entitySchemaSlugs: [],
+											signalSchemaSlugs: [],
+											relationshipSchemaSlugs: [],
+										},
+									},
+								};
+							}),
+					}),
+				),
+				Layer.succeed(
+					SandboxWorkflowReferenceRepository,
+					SandboxWorkflowReferenceRepository.of({
+						release: () => Effect.void,
+						lockIngestionShared: () => Effect.void,
+						listReferences: () => Effect.succeed([]),
+						hasReferences: () => Effect.succeed(false),
+						hasInstallationReferences: () => Effect.succeed(false),
+						registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
+					}),
+				),
 				Layer.mock(SandboxExecutionService)({
 					executeScript: (runInput) =>
 						recordEvent("dispatch").pipe(
@@ -244,8 +403,8 @@ const systemUserOperation = {
 	auth: "user",
 	scope: "system",
 	ownerId: USER_ONE,
+	pluginId: SYSTEM_ID,
 	demoAccess: "allowed",
-	pluginSlug: SYSTEM_SLUG,
 	installationId: "install-fixture-user-1",
 } satisfies AvailableOperation;
 
@@ -253,7 +412,7 @@ const systemIntegrationOperation = {
 	scope: "system",
 	ownerId: USER_ONE,
 	auth: "integration",
-	pluginSlug: SYSTEM_SLUG,
+	pluginId: SYSTEM_ID,
 	installationId: "install-fixture-user-1",
 } satisfies AvailableOperation;
 
@@ -261,7 +420,7 @@ const privateIntegrationOperation = {
 	scope: "user",
 	ownerId: USER_ONE,
 	auth: "integration",
-	pluginSlug: PRIVATE_SLUG,
+	pluginId: PRIVATE_ID,
 	installationId: "install-private-user-1",
 } satisfies AvailableOperation;
 
@@ -275,7 +434,7 @@ const expectError = (
 };
 
 const invoke = (input: {
-	pluginSlug: string;
+	pluginId: PluginId;
 	payload?: JsonValue;
 	sourceHash?: string;
 	operationSlug?: string;
@@ -283,17 +442,67 @@ const invoke = (input: {
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({
 			headers: Headers.empty,
+			pluginId: input.pluginId,
 			payload: input.payload ?? {},
-			pluginSlug: input.pluginSlug,
 			operationSlug: input.operationSlug ?? OPERATION_SLUG,
 			...(input.sourceHash === undefined ? {} : { sourceHash: input.sourceHash }),
 		}),
 	);
 
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		available: [
+			systemUserOperation,
+			{
+				...systemUserOperation,
+				scope: "user",
+				pluginId: PRIVATE_ID,
+				installationId: "same-name-private",
+				packageId: PluginPackageId.make("278c821d-a6d3-47b7-b8a1-934c28d10002"),
+			},
+		],
+	}),
+)((test) => {
+	test.effect(
+		"admits same-name targets by exact owner and carries their verified pins without a UI hash",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expect(yield* invoke({ pluginId: PRIVATE_ID })).toBe("ok");
+				expect(yield* invoke({ pluginId: SYSTEM_ID })).toBe("ok");
+				expect(yield* fake.events).toEqual(["lock", "dispatch", "lock", "dispatch"]);
+				expect(yield* fake.captured).toMatchObject([
+					{
+						scriptId: "same-name-private-script",
+						pluginRevision: {
+							scope: "user",
+							id: PRIVATE_ID,
+							revisionId: "fixture-revision",
+							configRevisionId: "fixture-config",
+						},
+					},
+					{
+						scriptId: "install-fixture-user-1-script",
+						pluginRevision: {
+							id: SYSTEM_ID,
+							scope: "system",
+							revisionId: "fixture-revision",
+							configRevisionId: "fixture-config",
+						},
+					},
+				]);
+			}),
+	);
+});
+
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
 	test.effect("returns NotFound for a plugin absent from every registry the caller owns", () =>
 		Effect.gen(function* () {
-			expectError(yield* Effect.exit(invoke({ pluginSlug: "missing" })), PluginNotFoundError);
+			expectError(
+				yield* Effect.exit(invoke({ pluginId: PluginId.make("missing") })),
+				PluginNotFoundError,
+			);
 		}),
 	);
 });
@@ -302,7 +511,7 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 	test.effect("returns NotFound for an unknown operation", () =>
 		Effect.gen(function* () {
 			expectError(
-				yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG, operationSlug: "missing" })),
+				yield* Effect.exit(invoke({ pluginId: SYSTEM_ID, operationSlug: "missing" })),
 				PluginNotFoundError,
 			);
 		}),
@@ -320,7 +529,7 @@ layer(
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
 			expectError(
-				yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG, sourceHash: SOURCE_HASH })),
+				yield* Effect.exit(invoke({ pluginId: SYSTEM_ID, sourceHash: SOURCE_HASH })),
 				PluginConflictError,
 			);
 			expect(yield* fake.captured).toEqual([]);
@@ -332,21 +541,58 @@ layer(
 layer(
 	makeLayer({
 		currentUserId: USER_TWO,
+		privatePlugin: storedPrivatePlugin(),
+		privateInstallation: privateInstallation(),
 		available: [
 			{
 				auth: "user",
 				scope: "user",
 				ownerId: USER_ONE,
+				pluginId: PRIVATE_ID,
 				demoAccess: "allowed",
-				pluginSlug: PRIVATE_SLUG,
 				installationId: "install-private-user-1",
 			},
 		],
 	}),
 )((test) => {
-	test.effect("returns NotFound for a slug that exists only in another user's registry", () =>
+	test.effect("returns NotFound for a plugin owned only by another user", () =>
 		Effect.gen(function* () {
-			expectError(yield* Effect.exit(invoke({ pluginSlug: PRIVATE_SLUG })), PluginNotFoundError);
+			const fake = yield* FakeOperationDependencies;
+			expectError(yield* Effect.exit(invoke({ pluginId: PRIVATE_ID })), PluginNotFoundError);
+			expect(yield* fake.privateOwnershipReads).toEqual([`plugin:${USER_TWO}:${PRIVATE_ID}`]);
+			expect(yield* fake.availableLookups).toBe(1);
+		}),
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		available: [systemUserOperation],
+		privatePlugin: storedPrivatePlugin(),
+		privateInstallation: privateInstallation(),
+	}),
+)((test) => {
+	test.effect("reports the stored private package identity for an owned quarantined plugin", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeOperationDependencies;
+			const exit = yield* Effect.exit(invoke({ pluginId: PRIVATE_ID }));
+			assert(Exit.isFailure(exit));
+			expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
+				new PluginConflictError({
+					reason: {
+						pluginId: PRIVATE_ID,
+						code: "package-identity-conflict",
+						packageId: STORED_PRIVATE_PACKAGE_ID,
+					},
+				}),
+			);
+			expect(yield* fake.privateOwnershipReads).toEqual([
+				`plugin:${USER_ONE}:${PRIVATE_ID}`,
+				`installation:${USER_ONE}:${PRIVATE_ID}`,
+			]);
+			expect(yield* fake.availableLookups).toBe(0);
+			expect(yield* fake.events).toEqual(["lock"]);
 		}),
 	);
 });
@@ -359,8 +605,8 @@ layer(
 				auth: "user",
 				scope: "user",
 				ownerId: USER_ONE,
+				pluginId: PRIVATE_ID,
 				demoAccess: "allowed",
-				pluginSlug: PRIVATE_SLUG,
 				installationId: "install-private-user-1",
 			},
 		],
@@ -369,7 +615,7 @@ layer(
 	test.effect("dispatches a private operation with the owning user's subject", () =>
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
-			expect(yield* invoke({ pluginSlug: PRIVATE_SLUG })).toBe("ok");
+			expect(yield* invoke({ pluginId: PRIVATE_ID })).toBe("ok");
 			expect(yield* fake.captured).toEqual([
 				expect.objectContaining({
 					lane: "interactive",
@@ -389,7 +635,7 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 	test.effect("preserves user operation access for standard credentials", () =>
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
-			expect(yield* invoke({ pluginSlug: SYSTEM_SLUG })).toBe("ok");
+			expect(yield* invoke({ pluginId: SYSTEM_ID })).toBe("ok");
 			expect(yield* fake.captured).toEqual([
 				expect.objectContaining({
 					subject: {
@@ -399,7 +645,7 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 					},
 				}),
 			]);
-			expect(yield* fake.events).toEqual(["dispatch"]);
+			expect(yield* fake.events).toEqual(["lock", "dispatch"]);
 		}),
 	);
 });
@@ -410,8 +656,8 @@ layer(
 	test.effect("dispatches a demo-accessible system user operation for demo credentials", () =>
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
-			expect(yield* invoke({ pluginSlug: SYSTEM_SLUG })).toBe("ok");
-			expect(yield* fake.events).toEqual(["dispatch"]);
+			expect(yield* invoke({ pluginId: SYSTEM_ID })).toBe("ok");
+			expect(yield* fake.events).toEqual(["lock", "dispatch"]);
 		}),
 	);
 });
@@ -426,8 +672,8 @@ layer(
 	test.effect("rejects a protected system user operation for demo credentials", () =>
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
-			expectError(yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG })), DemoOperationProtected);
-			expect(yield* fake.events).toEqual([]);
+			expectError(yield* Effect.exit(invoke({ pluginId: SYSTEM_ID })), DemoOperationProtected);
+			expect(yield* fake.events).toEqual(["lock"]);
 		}),
 	);
 });
@@ -438,7 +684,7 @@ const privateUserOperation = (demoAccess: "allowed" | "protected") =>
 		auth: "user",
 		scope: "user",
 		ownerId: USER_ONE,
-		pluginSlug: PRIVATE_SLUG,
+		pluginId: PRIVATE_ID,
 		installationId: "install-private-user-1",
 	}) satisfies AvailableOperation;
 
@@ -452,10 +698,12 @@ layer(makeLayer({ accessClass: "demo", currentUserId: USER_ONE }))((test) => {
 					Effect.gen(function* () {
 						yield* fake.offerOperations([privateUserOperation(demoAccess)]);
 						expectError(
-							yield* Effect.exit(invoke({ pluginSlug: PRIVATE_SLUG })),
+							yield* Effect.exit(invoke({ pluginId: PRIVATE_ID })),
 							DemoOperationProtected,
 						);
-						expect(yield* fake.events).toEqual([]);
+						expect(yield* fake.events).toEqual(
+							demoAccess === "allowed" ? ["lock"] : ["lock", "lock"],
+						);
 					}),
 				);
 			}),
@@ -476,10 +724,10 @@ layer(
 	test.effect("preserves integration operation access for demo credentials", () =>
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
-			expect(yield* invoke({ pluginSlug: SYSTEM_SLUG, payload: { integrationId: "int-1" } })).toBe(
+			expect(yield* invoke({ pluginId: SYSTEM_ID, payload: { integrationId: "int-1" } })).toBe(
 				"ok",
 			);
-			expect(yield* fake.events).toEqual(["dispatch"]);
+			expect(yield* fake.events).toEqual(["lock", "dispatch"]);
 		}),
 	);
 });
@@ -498,9 +746,9 @@ layer(
 		() =>
 			Effect.gen(function* () {
 				const fake = yield* FakeOperationDependencies;
-				expect(
-					yield* invoke({ pluginSlug: SYSTEM_SLUG, payload: { integrationId: "int-1" } }),
-				).toBe("ok");
+				expect(yield* invoke({ pluginId: SYSTEM_ID, payload: { integrationId: "int-1" } })).toBe(
+					"ok",
+				);
 				expect(yield* fake.captured).toEqual([
 					expect.objectContaining({
 						subject: {
@@ -529,15 +777,13 @@ layer(
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
 			expectError(
-				yield* Effect.exit(
-					invoke({ pluginSlug: SYSTEM_SLUG, payload: { integrationId: "int-1" } }),
-				),
+				yield* Effect.exit(invoke({ pluginId: SYSTEM_ID, payload: { integrationId: "int-1" } })),
 				PluginNotFoundError,
 			);
 			expect(
-				yield* invoke({ pluginSlug: SYSTEM_SLUG, payload: { webhookToken: "webhook-token-1" } }),
+				yield* invoke({ pluginId: SYSTEM_ID, payload: { webhookToken: "webhook-token-1" } }),
 			).toBe("ok");
-			expect(yield* fake.events).toEqual(["dispatch"]);
+			expect(yield* fake.events).toEqual(["lock", "lock", "dispatch"]);
 		}),
 	);
 });
@@ -555,9 +801,7 @@ layer(
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
 			expectError(
-				yield* Effect.exit(
-					invoke({ pluginSlug: SYSTEM_SLUG, payload: { integrationId: "int-1" } }),
-				),
+				yield* Effect.exit(invoke({ pluginId: SYSTEM_ID, payload: { integrationId: "int-1" } })),
 				PluginNotFoundError,
 			);
 			expect(yield* fake.captured).toEqual([]);
@@ -581,9 +825,7 @@ layer(
 			Effect.gen(function* () {
 				const fake = yield* FakeOperationDependencies;
 				expectError(
-					yield* Effect.exit(
-						invoke({ pluginSlug: SYSTEM_SLUG, payload: { integrationId: "int-1" } }),
-					),
+					yield* Effect.exit(invoke({ pluginId: SYSTEM_ID, payload: { integrationId: "int-1" } })),
 					PluginNotFoundError,
 				);
 				expect(yield* fake.captured).toEqual([]);
@@ -608,9 +850,7 @@ layer(
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
 			expectError(
-				yield* Effect.exit(
-					invoke({ pluginSlug: SYSTEM_SLUG, payload: { integrationId: "int-1" } }),
-				),
+				yield* Effect.exit(invoke({ pluginId: SYSTEM_ID, payload: { integrationId: "int-1" } })),
 				PluginNotFoundError,
 			);
 			expect(yield* fake.captured).toEqual([]);
@@ -630,7 +870,7 @@ layer(
 	test.effect("dispatches a private integration operation for its owner's integration", () =>
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
-			expect(yield* invoke({ pluginSlug: PRIVATE_SLUG, payload: { integrationId: "int-1" } })).toBe(
+			expect(yield* invoke({ pluginId: PRIVATE_ID, payload: { integrationId: "int-1" } })).toBe(
 				"ok",
 			);
 			expect(yield* fake.captured).toEqual([
@@ -644,6 +884,7 @@ layer(
 					},
 				}),
 			]);
+			expect(yield* fake.privateOwnershipReads).toEqual([]);
 		}),
 	);
 });
@@ -661,9 +902,7 @@ layer(
 		Effect.gen(function* () {
 			const fake = yield* FakeOperationDependencies;
 			expectError(
-				yield* Effect.exit(
-					invoke({ pluginSlug: PRIVATE_SLUG, payload: { integrationId: "int-1" } }),
-				),
+				yield* Effect.exit(invoke({ pluginId: PRIVATE_ID, payload: { integrationId: "int-1" } })),
 				PluginNotFoundError,
 			);
 			expect(yield* fake.captured).toEqual([]);
@@ -674,7 +913,7 @@ layer(
 layer(makeLayer({ currentUserId: USER_ONE, available: [systemIntegrationOperation] }))((test) => {
 	test.effect("rejects an authenticated integration operation without a scope payload", () =>
 		Effect.gen(function* () {
-			expectError(yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG })), PluginRequestError);
+			expectError(yield* Effect.exit(invoke({ pluginId: SYSTEM_ID })), PluginRequestError);
 		}),
 	);
 });
@@ -697,7 +936,7 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemIntegrationOperatio
 						yield* fake.useIntegration(integration);
 						expectError(
 							yield* Effect.exit(
-								invoke({ pluginSlug: SYSTEM_SLUG, payload: { integrationId: "int-1" } }),
+								invoke({ pluginId: SYSTEM_ID, payload: { integrationId: "int-1" } }),
 							),
 							PluginNotFoundError,
 						);
@@ -710,7 +949,7 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemIntegrationOperatio
 layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 	test.effect("rejects user operations without an authenticated session", () =>
 		Effect.gen(function* () {
-			expectError(yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG })), AuthUnauthorized);
+			expectError(yield* Effect.exit(invoke({ pluginId: SYSTEM_ID })), AuthUnauthorized);
 		}),
 	);
 });
@@ -718,7 +957,7 @@ layer(makeLayer({ available: [systemUserOperation] }))((test) => {
 layer(makeLayer({ available: [systemIntegrationOperation] }))((test) => {
 	test.effect("rejects an unauthenticated call that carries no integration scope", () =>
 		Effect.gen(function* () {
-			expectError(yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG })), AuthUnauthorized);
+			expectError(yield* Effect.exit(invoke({ pluginId: SYSTEM_ID })), AuthUnauthorized);
 		}),
 	);
 });
@@ -732,7 +971,7 @@ layer(
 )((test) => {
 	test.effect("propagates sandbox failures from operation scripts", () =>
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG }));
+			const exit = yield* Effect.exit(invoke({ pluginId: SYSTEM_ID }));
 			assert(Exit.isFailure(exit));
 			expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
 				new PluginInvocationError({
@@ -762,7 +1001,7 @@ layer(
 )((test) => {
 	test.effect("rejects non-JSON operation results as runtime failures", () =>
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(invoke({ pluginSlug: SYSTEM_SLUG }));
+			const exit = yield* Effect.exit(invoke({ pluginId: SYSTEM_ID }));
 			assert(Exit.isFailure(exit));
 			expect(Option.getOrThrow(Cause.findErrorOption(exit.cause))).toEqual(
 				new PluginInvocationError({

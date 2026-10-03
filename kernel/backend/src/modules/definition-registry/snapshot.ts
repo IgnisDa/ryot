@@ -2,6 +2,13 @@ import {
 	PluginEntityUserStatePolicy,
 	PluginSignalAudiencePolicy,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	definitionKey,
+	definitionOwner,
+	type DeclarationReference,
+	type DefinitionOwner,
+	type EventSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityBrowserSavedViewSettings,
@@ -19,7 +26,7 @@ import {
 } from "#lib/property-schema/property-schema-runtime";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
-const pluginIdField = { pluginId: Schema.optional(Schema.NullOr(Schema.String)) };
+const pluginIdField = { pluginId: Schema.NullOr(Schema.String) };
 
 export const EventSchemaDefinition = Schema.Struct({
 	...pluginIdField,
@@ -85,18 +92,13 @@ export const SavedViewDefinition = Schema.Struct({
 
 export type SavedViewDefinition = typeof SavedViewDefinition.Type;
 
-type SourceDefinition<Definition> = Omit<Definition, "pluginId"> & {
-	readonly pluginId?: string | null | undefined;
-};
-
 export type DefinitionSource = {
-	readonly savedViews: ReadonlyArray<SourceDefinition<SavedViewDefinition>>;
-	readonly signalSchemas: ReadonlyArray<SourceDefinition<SignalSchemaDefinition>>;
-	readonly relationshipSchemas: ReadonlyArray<SourceDefinition<RelationshipSchemaDefinition>>;
+	readonly savedViews: ReadonlyArray<SavedViewDefinition>;
+	readonly signalSchemas: ReadonlyArray<SignalSchemaDefinition>;
+	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaDefinition>;
 	readonly entitySchemas: ReadonlyArray<
-		Omit<EntitySchemaSourceDefinition, "eventSchemas" | "pluginId"> & {
-			readonly pluginId?: string | null | undefined;
-			readonly eventSchemas: ReadonlyArray<SourceDefinition<EventSchemaDefinition>>;
+		Omit<EntitySchemaSourceDefinition, "eventSchemas"> & {
+			readonly eventSchemas: ReadonlyArray<EventSchemaDefinition>;
 		}
 	>;
 };
@@ -133,6 +135,7 @@ export type EntityRelationshipDefinitions = typeof EntityRelationshipDefinitions
 export class DefinitionNotFound extends Data.TaggedError("DefinitionNotFound")<{
 	readonly kind: string;
 	readonly slug: string;
+	readonly owner: DefinitionOwner;
 }> {}
 
 const deepFreeze = <Value>(value: Value): Value => {
@@ -145,16 +148,20 @@ const deepFreeze = <Value>(value: Value): Value => {
 	return Object.freeze(value);
 };
 
-const assertUniqueSlugs = (kind: string, definitions: ReadonlyArray<{ readonly slug: string }>) => {
+const assertUniqueSlugs = (
+	kind: string,
+	definitions: ReadonlyArray<{ readonly slug: string; readonly pluginId: string | null }>,
+) => {
 	const slugs = new Set<string>();
 	for (const definition of definitions) {
 		if (definition.slug.includes("/")) {
 			throw new Error(`${kind} slug cannot contain '/': ${definition.slug}`);
 		}
-		if (slugs.has(definition.slug)) {
+		const key = definitionKey(kind, definitionOwner(definition.pluginId), definition.slug);
+		if (slugs.has(key)) {
 			throw new Error(`Duplicate ${kind} slug: ${definition.slug}`);
 		}
-		slugs.add(definition.slug);
+		slugs.add(key);
 	}
 };
 
@@ -165,7 +172,7 @@ const assertSchemaDefinition = (kind: string, slug: string, schema: AppSchema) =
 	}
 };
 
-const validateSavedViewDefinition = (savedView: SourceDefinition<SavedViewDefinition>) => {
+const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
 	if (savedView.dataSources !== null) {
 		const issue = validateRyotQLDocument(savedView.dataSources, savedViewDataSourceAccess);
 		if (issue) {
@@ -207,8 +214,16 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 	assertUniqueSlugs("signal schema", source.signalSchemas);
 	assertUniqueSlugs("saved view", source.savedViews);
 
-	const entitySchemaSlugs = new Set(source.entitySchemas.map(({ slug }) => slug));
-	const relationshipSchemaSlugs = new Set(source.relationshipSchemas.map(({ slug }) => slug));
+	const entitySchemaSlugs = new Set(
+		source.entitySchemas.map(({ slug, pluginId }) =>
+			definitionKey("entity", definitionOwner(pluginId), slug),
+		),
+	);
+	const relationshipSchemaSlugs = new Set(
+		source.relationshipSchemas.map(({ slug, pluginId }) =>
+			definitionKey("relationship", definitionOwner(pluginId), slug),
+		),
+	);
 
 	for (const savedView of source.savedViews) {
 		validateSavedViewDefinition(savedView);
@@ -235,6 +250,9 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 		}
 		assertUniqueSlugs(`event schema for ${entitySchema.slug}`, entitySchema.eventSchemas);
 		for (const eventSchema of entitySchema.eventSchemas) {
+			if (eventSchema.pluginId !== entitySchema.pluginId) {
+				throw new Error(`Event schema ${eventSchema.slug} owner does not match its entity schema`);
+			}
 			assertSchemaDefinition(
 				"event",
 				`${entitySchema.slug}:${eventSchema.slug}`,
@@ -253,7 +271,12 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 			relationshipSchema.sourceEntitySchemaSlug,
 			relationshipSchema.targetEntitySchemaSlug,
 		]) {
-			if (entitySchemaSlug !== null && !entitySchemaSlugs.has(entitySchemaSlug)) {
+			if (
+				entitySchemaSlug !== null &&
+				!entitySchemaSlugs.has(
+					definitionKey("entity", definitionOwner(relationshipSchema.pluginId), entitySchemaSlug),
+				)
+			) {
 				throw new Error(
 					`Relationship schema ${relationshipSchema.slug} references missing entity schema ${entitySchemaSlug}`,
 				);
@@ -265,7 +288,13 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 		assertSchemaDefinition("signal", signalSchema.slug, signalSchema.propertiesSchema);
 		if (
 			signalSchema.audiencePolicy.kind === "related_users" &&
-			!relationshipSchemaSlugs.has(signalSchema.audiencePolicy.relationshipSchemaSlug)
+			!relationshipSchemaSlugs.has(
+				definitionKey(
+					"relationship",
+					definitionOwner(signalSchema.pluginId),
+					signalSchema.audiencePolicy.relationshipSchemaSlug,
+				),
+			)
 		) {
 			throw new Error(
 				`Signal schema ${signalSchema.slug} references missing relationship schema ${signalSchema.audiencePolicy.relationshipSchemaSlug}`,
@@ -274,44 +303,32 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 	}
 };
 
-const toRecord = <Definition extends { readonly slug: string }>(
+const toRecord = <Definition extends { readonly slug: string; readonly pluginId: string | null }>(
+	kind: string,
 	definitions: ReadonlyArray<Definition>,
-) => Object.fromEntries(definitions.map((definition) => [definition.slug, definition]));
+) =>
+	Object.fromEntries(
+		definitions.map((definition) => [
+			definitionKey(kind, definitionOwner(definition.pluginId), definition.slug),
+			definition,
+		]),
+	);
 
 export const buildDefinitionSnapshot = (source: DefinitionSource): DefinitionSnapshot => {
 	validateDefinitionSource(source);
 	const cloned = structuredClone(source);
 	return deepFreeze({
-		savedViews: toRecord(
-			cloned.savedViews.map((definition) => ({
-				...definition,
-				pluginId: definition.pluginId ?? null,
-			})),
-		),
-		signalSchemas: toRecord(
-			cloned.signalSchemas.map((definition) => ({
-				...definition,
-				pluginId: definition.pluginId ?? null,
-			})),
-		),
-		relationshipSchemas: toRecord(
-			cloned.relationshipSchemas.map((definition) => ({
-				...definition,
-				pluginId: definition.pluginId ?? null,
-			})),
-		),
+		savedViews: toRecord("saved-view", cloned.savedViews),
+		signalSchemas: toRecord("signal", cloned.signalSchemas),
+		relationshipSchemas: toRecord("relationship", cloned.relationshipSchemas),
 		entitySchemas: Object.fromEntries(
 			cloned.entitySchemas.map(({ eventSchemas, ...entitySchema }) => [
-				entitySchema.slug,
+				definitionKey("entity", definitionOwner(entitySchema.pluginId), entitySchema.slug),
 				{
 					...entitySchema,
-					pluginId: entitySchema.pluginId ?? null,
 					mergeIdentityProperties: entitySchema.mergeIdentityProperties ?? [],
-					eventSchemas: toRecord(
-						eventSchemas.map((definition) => ({
-							...definition,
-							pluginId: definition.pluginId ?? entitySchema.pluginId ?? null,
-						})),
+					eventSchemas: Object.fromEntries(
+						eventSchemas.map((definition) => [definition.slug, definition]),
 					),
 				},
 			]),
@@ -333,39 +350,54 @@ const validateProperties = (
 	slug: string,
 	properties: unknown,
 	propertiesSchema: AppSchema | undefined,
+	owner: DefinitionOwner,
 ): Effect.Effect<Record<string, unknown>, DefinitionNotFound | PropertyValidationError> =>
 	propertiesSchema
 		? parseAppSchemaProperties({ kind, properties, propertiesSchema })
-		: Effect.fail(new DefinitionNotFound({ kind, slug }));
+		: Effect.fail(new DefinitionNotFound({ kind, slug, owner }));
 
 export const definitionLookup = (snapshot: DefinitionSnapshot) => {
-	const getEntitySchema = (slug: string) => snapshot.entitySchemas[slug];
-	const getSignalSchema = (slug: string) => snapshot.signalSchemas[slug];
-	const getSavedView = (slug: string) => snapshot.savedViews[slug];
-	const getRelationshipSchema = (slug: string) => snapshot.relationshipSchemas[slug];
-	const getEventSchema = (entitySchemaSlug: string, eventSchemaSlug: string) =>
-		getEntitySchema(entitySchemaSlug)?.eventSchemas[eventSchemaSlug];
-	const validateEntityProperties = (slug: string, properties: unknown) =>
-		validateProperties("Entity", slug, properties, getEntitySchema(slug)?.propertiesSchema);
-	const validateEventProperties = (
-		entitySchemaSlug: string,
-		eventSchemaSlug: string,
-		properties: unknown,
-	) =>
+	const getEntitySchema = ({ slug, owner }: DeclarationReference) =>
+		snapshot.entitySchemas[definitionKey("entity", owner, slug)];
+	const getSignalSchema = ({ slug, owner }: DeclarationReference) =>
+		snapshot.signalSchemas[definitionKey("signal", owner, slug)];
+	const getSavedView = ({ slug, owner }: DeclarationReference) =>
+		snapshot.savedViews[definitionKey("saved-view", owner, slug)];
+	const getRelationshipSchema = ({ slug, owner }: DeclarationReference) =>
+		snapshot.relationshipSchemas[definitionKey("relationship", owner, slug)];
+	const getEventSchema = ({ slug, owner, entitySchemaSlug }: EventSchemaReference) =>
+		getEntitySchema({ owner, slug: entitySchemaSlug })?.eventSchemas[slug];
+	const validateEntityProperties = (reference: DeclarationReference, properties: unknown) =>
+		validateProperties(
+			"Entity",
+			reference.slug,
+			properties,
+			getEntitySchema(reference)?.propertiesSchema,
+			reference.owner,
+		);
+	const validateEventProperties = (reference: EventSchemaReference, properties: unknown) =>
 		validateProperties(
 			"Event",
-			`${entitySchemaSlug}:${eventSchemaSlug}`,
+			`${reference.entitySchemaSlug}:${reference.slug}`,
 			properties,
-			getEventSchema(entitySchemaSlug, eventSchemaSlug)?.propertiesSchema,
+			getEventSchema(reference)?.propertiesSchema,
+			reference.owner,
 		);
-	const validateSignalProperties = (slug: string, properties: unknown) =>
-		validateProperties("Signal", slug, properties, getSignalSchema(slug)?.propertiesSchema);
-	const validateRelationshipProperties = (slug: string, properties: unknown) =>
+	const validateSignalProperties = (reference: DeclarationReference, properties: unknown) =>
+		validateProperties(
+			"Signal",
+			reference.slug,
+			properties,
+			getSignalSchema(reference)?.propertiesSchema,
+			reference.owner,
+		);
+	const validateRelationshipProperties = (reference: DeclarationReference, properties: unknown) =>
 		validateProperties(
 			"Relationship",
-			slug,
+			reference.slug,
 			properties,
-			getRelationshipSchema(slug)?.propertiesSchema,
+			getRelationshipSchema(reference)?.propertiesSchema,
+			reference.owner,
 		);
 
 	return {

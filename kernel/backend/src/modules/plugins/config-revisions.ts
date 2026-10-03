@@ -1,6 +1,7 @@
 import { configFromAppSchema } from "@ryot-app/config";
 import { DbError } from "@ryot-app/contract/errors";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
@@ -477,18 +478,46 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				function* (input: {
 					pluginId: string;
 					pluginRevisionId: string;
-					pluginSlug: string;
-					configSchema: AppSchema;
+					packageId: PluginPackageId;
 				}) {
 					yield* lock(input.pluginId);
+					const [owner] = yield* database.run((db) =>
+						db
+							.select({
+								packageId: tables.plugin.packageId,
+								manifest: tables.pluginRevision.manifest,
+							})
+							.from(tables.plugin)
+							.innerJoin(
+								tables.pluginRevision,
+								eq(tables.pluginRevision.id, tables.plugin.activeRevisionId),
+							)
+							.where(
+								and(
+									eq(tables.plugin.id, input.pluginId),
+									eq(tables.pluginRevision.id, input.pluginRevisionId),
+									sql`${tables.plugin.ownerId} is null`,
+								),
+							)
+							.limit(1),
+					);
+					if (
+						!owner ||
+						owner.packageId !== input.packageId ||
+						owner.manifest.metadata.packageId !== owner.packageId
+					) {
+						return yield* new DbError({
+							message: "Environment configuration package ownership is invalid",
+						});
+					}
 					yield* validateKeys();
-					const loaded = yield* configFromAppSchema(input.configSchema, ([key]) =>
-						pluginConfigEnvironmentKey(input.pluginSlug, key ?? ""),
+					const loaded = yield* configFromAppSchema(owner.manifest.configSchema, ([key]) =>
+						pluginConfigEnvironmentKey(input.packageId, key ?? ""),
 					).pipe(
 						Effect.mapError(
 							() =>
 								new DbError({
-									message: `Environment configuration for plugin ${input.pluginSlug} is invalid`,
+									message: `Environment configuration for plugin ${input.packageId} is invalid`,
 								}),
 						),
 					);

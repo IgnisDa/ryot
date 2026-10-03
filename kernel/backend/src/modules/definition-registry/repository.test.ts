@@ -1,5 +1,6 @@
 import { expect, layer } from "@effect/vitest";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq, isNull } from "drizzle-orm";
 import { Effect, Exit } from "effect";
 import { assert, describe } from "vitest";
@@ -53,7 +54,9 @@ const userPlugin = Effect.fn(function* (pluginId: string) {
 
 const entitySlugs = Effect.fn(function* (options: { readonly listed: boolean }) {
 	const definitions = yield* DefinitionRepository;
-	return Object.keys((yield* definitions.getUserSnapshot(owner, options)).entitySchemas).sort();
+	return Object.values((yield* definitions.getUserSnapshot(owner, options)).entitySchemas)
+		.map(({ slug }) => slug)
+		.sort();
 });
 
 const linkedTo = (packageValue: NormalizedPlugin, targetEntitySchemaSlug: string) => ({
@@ -78,7 +81,32 @@ const relationshipSchema = (slug: string, source: string, target: string) => ({
 const withRelationshipSchemas = (
 	packageValue: NormalizedPlugin,
 	relationshipSchemas: NormalizedPlugin["manifest"]["relationshipSchemas"],
-) => ({ ...packageValue, manifest: { ...packageValue.manifest, relationshipSchemas } });
+) => {
+	const entity = packageValue.manifest.entitySchemas[0];
+	assert(entity);
+	const manifestEntitySlugs = new Set(packageValue.manifest.entitySchemas.map(({ slug }) => slug));
+	const endpointSlugs = new Set(
+		relationshipSchemas
+			.flatMap(({ sourceEntitySchemaSlug, targetEntitySchemaSlug }) => [
+				sourceEntitySchemaSlug,
+				targetEntitySchemaSlug,
+			])
+			.filter((slug): slug is string => slug !== null),
+	);
+	const additionalEntitySchemas = Array.from(
+		[...endpointSlugs].filter((slug) => !manifestEntitySlugs.has(slug)),
+		(slug) => ({ ...entity, slug }),
+	);
+
+	return {
+		...packageValue,
+		manifest: {
+			...packageValue.manifest,
+			relationshipSchemas,
+			entitySchemas: [...packageValue.manifest.entitySchemas, ...additionalEntitySchemas],
+		},
+	};
+};
 
 const withoutSignalAndSavedViewDefinitions = (packageValue: NormalizedPlugin) => ({
 	...packageValue,
@@ -87,15 +115,21 @@ const withoutSignalAndSavedViewDefinitions = (packageValue: NormalizedPlugin) =>
 
 describe("definition views", () => {
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("finds requested global relationship schemas in view precedence order", () =>
+		test.effect("finds only requested owner-qualified global relationship schemas", () =>
 			Effect.gen(function* () {
 				const definitions = yield* DefinitionRepository;
 				const kernel = kernelDefinitionSource();
 				yield* seedKernelDefinitions({
 					...kernel,
 					relationshipSchemas: [
-						relationshipSchema("kernel-pair", "shared-source", "shared-target"),
-						relationshipSchema("kernel-other-target", "shared-source", "other-target"),
+						{
+							...relationshipSchema("kernel-pair", "shared-source", "shared-target"),
+							pluginId: null,
+						},
+						{
+							...relationshipSchema("kernel-other-target", "shared-source", "other-target"),
+							pluginId: null,
+						},
 					],
 				});
 				const alpha = yield* installRevisionPackage(
@@ -110,16 +144,33 @@ describe("definition views", () => {
 				);
 
 				const found = yield* definitions.findGlobalRelationshipSchemas([
-					"beta-pair",
-					"kernel-other-target",
-					"alpha-pair",
-					"not-requested",
+					{ slug: "beta-pair", owner: definitionOwner(beta.pluginId) },
+					{ slug: "kernel-other-target", owner: definitionOwner(null) },
+					{ slug: "alpha-pair", owner: definitionOwner(alpha.pluginId) },
+					{ slug: "beta-pair", owner: definitionOwner(alpha.pluginId) },
 				]);
-				expect(Object.keys(found)).toEqual(["alpha-pair", "beta-pair", "kernel-other-target"]);
-				expect(found["alpha-pair"]?.pluginId).toBe(alpha.pluginId);
-				expect(found["beta-pair"]?.pluginId).toBe(beta.pluginId);
-				expect(found["kernel-other-target"]?.pluginId).toBeNull();
-				expect(yield* definitions.findGlobalRelationshipSchemas(["not-found"])).toEqual({});
+				expect(Object.keys(found)).toEqual([
+					definitionKey("relationship", definitionOwner(alpha.pluginId), "alpha-pair"),
+					definitionKey("relationship", definitionOwner(beta.pluginId), "beta-pair"),
+					definitionKey("relationship", definitionOwner(null), "kernel-other-target"),
+				]);
+				expect(
+					found[definitionKey("relationship", definitionOwner(alpha.pluginId), "alpha-pair")]
+						?.pluginId,
+				).toBe(alpha.pluginId);
+				expect(
+					found[definitionKey("relationship", definitionOwner(beta.pluginId), "beta-pair")]
+						?.pluginId,
+				).toBe(beta.pluginId);
+				expect(
+					found[definitionKey("relationship", definitionOwner(null), "kernel-other-target")]
+						?.pluginId,
+				).toBeNull();
+				expect(
+					yield* definitions.findGlobalRelationshipSchemas([
+						{ slug: "not-found", owner: definitionOwner(null) },
+					]),
+				).toEqual({});
 				expect(yield* definitions.findGlobalRelationshipSchemas([])).toEqual({});
 			}),
 		);
@@ -157,17 +208,23 @@ describe("definition views", () => {
 					const globalDefinitions = yield* definitions.getGlobalEntityRelationshipDefinitions;
 					const globalSnapshot = yield* definitions.getGlobalSnapshot;
 					expect(globalDefinitions.entitySchemas).toEqual({
-						collection: { pluginId: null, slug: "collection" },
-						"system-entity": { slug: "system-entity", pluginId: system.pluginId },
+						[definitionKey("entity", definitionOwner(null), "collection")]: {
+							pluginId: null,
+							slug: "collection",
+						},
+						[definitionKey("entity", definitionOwner(system.pluginId), "system-entity")]: {
+							slug: "system-entity",
+							pluginId: system.pluginId,
+						},
 					});
-					expect(Object.keys(globalDefinitions.entitySchemas)).toEqual([
+					expect(Object.values(globalDefinitions.entitySchemas).map(({ slug }) => slug)).toEqual([
 						"collection",
 						"system-entity",
 					]);
 					expect(globalDefinitions.entitySchemas).toEqual(
 						Object.fromEntries(
 							Object.values(globalSnapshot.entitySchemas).map(({ slug, pluginId }) => [
-								slug,
+								definitionKey("entity", definitionOwner(pluginId), slug),
 								{ slug, pluginId },
 							]),
 						),
@@ -175,23 +232,37 @@ describe("definition views", () => {
 					expect(globalSnapshot.savedViews).toEqual({});
 					expect(globalSnapshot.signalSchemas).toEqual({});
 					expect(globalDefinitions.relationshipSchemas).toEqual(globalSnapshot.relationshipSchemas);
-					expect(globalDefinitions.relationshipSchemas["member-of"]?.pluginId).toBeNull();
-					expect(globalDefinitions.relationshipSchemas["system-link"]?.pluginId).toBe(
-						system.pluginId,
-					);
-					expect(Object.keys(globalDefinitions.relationshipSchemas)).toEqual([
-						"system-link",
-						"member-of",
-					]);
+					expect(
+						globalDefinitions.relationshipSchemas[
+							definitionKey("relationship", definitionOwner(null), "member-of")
+						]?.pluginId,
+					).toBeNull();
+					expect(
+						globalDefinitions.relationshipSchemas[
+							definitionKey("relationship", definitionOwner(system.pluginId), "system-link")
+						]?.pluginId,
+					).toBe(system.pluginId);
+					expect(
+						Object.values(globalDefinitions.relationshipSchemas).map(({ slug }) => slug),
+					).toEqual(["system-link", "member-of"]);
 
 					const userDefinitions = yield* definitions.getUserEntityRelationshipDefinitions(owner);
 					const userSnapshot = yield* definitions.getUserSnapshot(owner, effective);
 					expect(userDefinitions.entitySchemas).toEqual({
-						collection: { pluginId: null, slug: "collection" },
-						"system-entity": { slug: "system-entity", pluginId: system.pluginId },
-						"private-entity": { slug: "private-entity", pluginId: privatePlugin.pluginId },
+						[definitionKey("entity", definitionOwner(null), "collection")]: {
+							pluginId: null,
+							slug: "collection",
+						},
+						[definitionKey("entity", definitionOwner(system.pluginId), "system-entity")]: {
+							slug: "system-entity",
+							pluginId: system.pluginId,
+						},
+						[definitionKey("entity", definitionOwner(privatePlugin.pluginId), "private-entity")]: {
+							slug: "private-entity",
+							pluginId: privatePlugin.pluginId,
+						},
 					});
-					expect(Object.keys(userDefinitions.entitySchemas)).toEqual([
+					expect(Object.values(userDefinitions.entitySchemas).map(({ slug }) => slug)).toEqual([
 						"collection",
 						"system-entity",
 						"private-entity",
@@ -199,7 +270,7 @@ describe("definition views", () => {
 					expect(userDefinitions.entitySchemas).toEqual(
 						Object.fromEntries(
 							Object.values(userSnapshot.entitySchemas).map(({ slug, pluginId }) => [
-								slug,
+								definitionKey("entity", definitionOwner(pluginId), slug),
 								{ slug, pluginId },
 							]),
 						),
@@ -207,18 +278,24 @@ describe("definition views", () => {
 					expect(userSnapshot.savedViews).toEqual({});
 					expect(userSnapshot.signalSchemas).toEqual({});
 					expect(userDefinitions.relationshipSchemas).toEqual(userSnapshot.relationshipSchemas);
-					expect(userDefinitions.relationshipSchemas["member-of"]?.pluginId).toBeNull();
-					expect(userDefinitions.relationshipSchemas["system-link"]?.pluginId).toBe(
-						system.pluginId,
-					);
-					expect(userDefinitions.relationshipSchemas["private-link"]?.pluginId).toBe(
-						privatePlugin.pluginId,
-					);
-					expect(Object.keys(userDefinitions.relationshipSchemas)).toEqual([
-						"private-link",
-						"system-link",
-						"member-of",
-					]);
+					expect(
+						userDefinitions.relationshipSchemas[
+							definitionKey("relationship", definitionOwner(null), "member-of")
+						]?.pluginId,
+					).toBeNull();
+					expect(
+						userDefinitions.relationshipSchemas[
+							definitionKey("relationship", definitionOwner(system.pluginId), "system-link")
+						]?.pluginId,
+					).toBe(system.pluginId);
+					expect(
+						userDefinitions.relationshipSchemas[
+							definitionKey("relationship", definitionOwner(privatePlugin.pluginId), "private-link")
+						]?.pluginId,
+					).toBe(privatePlugin.pluginId);
+					expect(
+						Object.values(userDefinitions.relationshipSchemas).map(({ slug }) => slug),
+					).toEqual(["private-link", "system-link", "member-of"]);
 				}),
 		);
 	});
@@ -233,8 +310,14 @@ describe("definition views", () => {
 					yield* seedKernelDefinitions({
 						...kernel,
 						relationshipSchemas: [
-							relationshipSchema("kernel-pair", "shared-source", "shared-target"),
-							relationshipSchema("kernel-other-target", "shared-source", "other-target"),
+							{
+								...relationshipSchema("kernel-pair", "shared-source", "shared-target"),
+								pluginId: null,
+							},
+							{
+								...relationshipSchema("kernel-other-target", "shared-source", "other-target"),
+								pluginId: null,
+							},
 						],
 					});
 					const alpha = yield* installRevisionPackage(
@@ -250,18 +333,21 @@ describe("definition views", () => {
 
 					expect(
 						yield* definitions.findGlobalRelationshipSchemaByEndpoints(
+							definitionOwner(alpha.pluginId),
 							"shared-source",
 							"shared-target",
 						),
 					).toMatchObject({ slug: "alpha-pair", pluginId: alpha.pluginId });
 					expect(
 						yield* definitions.findGlobalRelationshipSchemaByEndpoints(
+							definitionOwner(null),
 							"shared-source",
 							"other-target",
 						),
 					).toMatchObject({ pluginId: null, slug: "kernel-other-target" });
 					expect(
 						yield* definitions.findGlobalRelationshipSchemaByEndpoints(
+							definitionOwner(alpha.pluginId),
 							"shared-source",
 							"missing-target",
 						),
@@ -271,16 +357,28 @@ describe("definition views", () => {
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("shadows private definitions with the global system set", () =>
+		test.effect("keeps same-named private definitions independent from the global system set", () =>
 			Effect.gen(function* () {
 				const definitions = yield* DefinitionRepository;
 				yield* seedKernelDefinitions();
 				const system = yield* installRevisionPackage(revisionPackage());
-				yield* installRevisionPackage(revisionPackage("private", "v1", "fixture-entity"), owner);
+				const privatePlugin = yield* installRevisionPackage(
+					revisionPackage("private", "v1", "fixture-entity"),
+					owner,
+				);
 
 				const snapshot = yield* definitions.getUserSnapshot(owner, effective);
-				expect(snapshot.entitySchemas["fixture-entity"]?.pluginId).toBe(system.pluginId);
-				expect(Object.keys(snapshot.relationshipSchemas)).toEqual([
+				expect(
+					snapshot.entitySchemas[
+						definitionKey("entity", definitionOwner(system.pluginId), "fixture-entity")
+					]?.pluginId,
+				).toBe(system.pluginId);
+				expect(
+					snapshot.entitySchemas[
+						definitionKey("entity", definitionOwner(privatePlugin.pluginId), "fixture-entity")
+					]?.pluginId,
+				).toBe(privatePlugin.pluginId);
+				expect(Object.values(snapshot.relationshipSchemas).map(({ slug }) => slug)).toEqual([
 					"private-link",
 					"fixture-link",
 					"member-of",
@@ -288,9 +386,24 @@ describe("definition views", () => {
 
 				yield* setInstallation(system.installation.id, { isHidden: true });
 				const hidden = yield* definitions.getUserSnapshot(owner, effective);
-				expect(hidden.entitySchemas["fixture-entity"]).toBeUndefined();
-				expect(hidden.relationshipSchemas["private-link"]).toBeUndefined();
-				expect(hidden.entitySchemas["collection"]).toBeDefined();
+				expect(
+					hidden.entitySchemas[
+						definitionKey("entity", definitionOwner(system.pluginId), "fixture-entity")
+					],
+				).toBeUndefined();
+				expect(
+					hidden.entitySchemas[
+						definitionKey("entity", definitionOwner(privatePlugin.pluginId), "fixture-entity")
+					],
+				).toBeDefined();
+				expect(
+					hidden.relationshipSchemas[
+						definitionKey("relationship", definitionOwner(privatePlugin.pluginId), "private-link")
+					],
+				).toBeDefined();
+				expect(
+					hidden.entitySchemas[definitionKey("entity", definitionOwner(null), "collection")],
+				).toBeDefined();
 			}),
 		);
 	});
@@ -346,10 +459,14 @@ describe("definition views", () => {
 				yield* setInstallation(alpha.installation.id, { health: "installing" });
 
 				const relationshipSlugs = (options: { readonly listed: boolean }) =>
-					definitions
-						.getUserSnapshot(owner, options)
-						.pipe(Effect.map((snapshot) => Object.keys(snapshot.relationshipSchemas).sort()));
-				expect(yield* relationshipSlugs(listed)).toEqual(["alpha-link", "beta-link"]);
+					definitions.getUserSnapshot(owner, options).pipe(
+						Effect.map((snapshot) =>
+							Object.values(snapshot.relationshipSchemas)
+								.map(({ slug }) => slug)
+								.sort(),
+						),
+					);
+				expect(yield* relationshipSlugs(listed)).toEqual(["alpha-link"]);
 				expect(yield* relationshipSlugs(effective)).toEqual([]);
 				expect(yield* entitySlugs(effective)).toEqual(["beta-entity"]);
 
@@ -377,16 +494,33 @@ describe("definition views", () => {
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const plugins = yield* PluginRepository;
-				const system = yield* installRevisionPackage(revisionPackage());
-				const alpha = yield* installRevisionPackage(revisionPackage("alpha"), owner);
+				const systemPackage = revisionPackage();
+				const privatePackage = revisionPackage("alpha");
+				const system = yield* installRevisionPackage(systemPackage);
+				const alpha = yield* installRevisionPackage(privatePackage, owner);
 				expect((yield* userPlugin(system.pluginId))?.isExecutable).toBe(true);
 				expect((yield* userPlugin(alpha.pluginId))?.isExecutable).toBe(true);
 
-				yield* plugins.persist(revisionPackage("alpha", "v2"), {
-					slug: "alpha",
-					scope: "user",
-					ownerId: owner,
-				});
+				yield* session.transaction(
+					Effect.gen(function* () {
+						yield* plugins.lockIngestion();
+						yield* plugins.persist(
+							revisionPackage(
+								"alpha",
+								"v2",
+								"alpha-entity",
+								privatePackage.manifest.metadata.packageId,
+							),
+							{
+								slug: "alpha",
+								scope: "user",
+								ownerId: owner,
+								pluginId: PluginId.make(alpha.pluginId),
+								packageId: privatePackage.manifest.metadata.packageId,
+							},
+						);
+					}),
+				);
 				expect((yield* userPlugin(alpha.pluginId))?.isExecutable).toBe(false);
 
 				const [pinned] = yield* session.run((db) =>
@@ -396,11 +530,26 @@ describe("definition views", () => {
 						.where(eq(tables.globalPlugin.pluginId, system.pluginId)),
 				);
 				assert(pinned?.configRevisionId);
-				yield* plugins.persist(revisionPackage("fixture", "v2"), {
-					ownerId: null,
-					slug: "fixture",
-					scope: "system",
-				});
+				yield* session.transaction(
+					Effect.gen(function* () {
+						yield* plugins.lockIngestion();
+						yield* plugins.persist(
+							revisionPackage(
+								"fixture",
+								"v2",
+								"fixture-entity",
+								systemPackage.manifest.metadata.packageId,
+							),
+							{
+								ownerId: null,
+								slug: "fixture",
+								scope: "system",
+								pluginId: PluginId.make(system.pluginId),
+								packageId: systemPackage.manifest.metadata.packageId,
+							},
+						);
+					}),
+				);
 				const [unpinned] = yield* session.run((db) =>
 					db
 						.select({
@@ -458,10 +607,12 @@ describe("definition views", () => {
 				expect(yield* kernelEntities()).toEqual([{ id: seeded.id, name: "Renamed" }]);
 				const snapshot = yield* definitions.getUserSnapshot(UserId.make("recipient"), effective);
 				expect(snapshot.relationshipSchemas).toEqual({});
-				expect(Object.keys(snapshot.entitySchemas["collection"]?.eventSchemas ?? {})).toEqual([
-					"add-entity-to-collection",
-					"remove-entity-from-collection",
-				]);
+				expect(
+					Object.keys(
+						snapshot.entitySchemas[definitionKey("entity", definitionOwner(null), "collection")]
+							?.eventSchemas ?? {},
+					),
+				).toEqual(["add-entity-to-collection", "remove-entity-from-collection"]);
 				expect(yield* definitions.readKernelSource).toMatchObject({
 					relationshipSchemas: [],
 					savedViews: [{ pluginId: null, slug: "collections" }],

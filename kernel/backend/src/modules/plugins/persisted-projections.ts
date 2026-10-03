@@ -3,8 +3,6 @@ import { getColumns, sql } from "drizzle-orm";
 
 import { plugin, pluginRevision, sandboxScript } from "#lib/infrastructure/db/schema/tables/core";
 
-// The mutable half of the catalog: plugin identity, status, and the active revision pointer.
-// Immutable revision content is never selected here; callers join `plugin_revision`.
 export const pluginPointerFields = getColumns(plugin);
 
 export const scriptPluginId = sql<

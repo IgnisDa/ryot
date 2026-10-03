@@ -1,13 +1,19 @@
 import {
 	clientArtifactMetadata,
-	type PluginClientArtifact,
+	clientDeclarationHash,
+	PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	PluginManifest,
 	type PluginHttpRateLimit,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	type PluginPackageId,
+	SandboxProviderId,
+	SandboxScriptId,
+} from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import {
 	and,
@@ -78,6 +84,7 @@ type LoadedPluginRevision = PluginRevision & {
 const revisionFields = {
 	id: schema.pluginRevision.id,
 	pluginSlug: schema.plugin.slug,
+	packageId: schema.plugin.packageId,
 	manifest: schema.pluginRevision.manifest,
 	pluginId: schema.pluginRevision.pluginId,
 	sourceHash: schema.pluginRevision.sourceHash,
@@ -86,7 +93,10 @@ const revisionFields = {
 type RevisionRow = Pick<
 	typeof schema.pluginRevision.$inferSelect,
 	"id" | "manifest" | "pluginId" | "sourceHash"
-> & { readonly pluginSlug: (typeof schema.plugin.$inferSelect)["slug"] };
+> & {
+	readonly pluginSlug: (typeof schema.plugin.$inferSelect)["slug"];
+	readonly packageId: PluginPackageId;
+};
 
 export const decodeStoredManifest = (manifest: unknown, pluginSlug: string) =>
 	Schema.decodeUnknownEffect(PluginManifest)(manifest).pipe(
@@ -100,6 +110,11 @@ const toLoadedRevision = Effect.fn(function* (
 	scripts: ReadonlyArray<{ readonly slug: string; readonly contentHash: string }>,
 ) {
 	const manifest = yield* decodeStoredManifest(row.manifest, row.pluginSlug);
+	if (manifest.metadata.packageId !== row.packageId) {
+		return yield* new DbError({
+			message: "Retained manifest package identity does not match its owner",
+		});
+	}
 	const storedHashes = new Map(scripts.map((script) => [script.slug, script.contentHash]));
 	const compiledHashes: Record<string, string> = {};
 	const descriptors: Array<PluginScriptDescriptor> = [];
@@ -172,6 +187,7 @@ const toStoredPlugin = (pointer: PluginPointerRow, revision: LoadedPluginRevisio
 					id: pointer.id,
 					scope: "system",
 					slug: pointer.slug,
+					packageId: pointer.packageId,
 					activationId: pointer.activationId,
 				}
 			: {
@@ -179,6 +195,7 @@ const toStoredPlugin = (pointer: PluginPointerRow, revision: LoadedPluginRevisio
 					id: pointer.id,
 					slug: pointer.slug,
 					ownerId: pointer.ownerId,
+					packageId: pointer.packageId,
 					activationId: pointer.activationId,
 				};
 	return {
@@ -263,18 +280,46 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			},
 		);
 
-		const findActiveSystemPlugin = Effect.fn("PluginRepository.findActiveSystemPlugin")(function* (
-			slug: string,
-		) {
+		const findActiveSystemPluginByPackageId = Effect.fn(
+			"PluginRepository.findActiveSystemPluginByPackageId",
+		)(function* (packageId: PluginPackageId) {
 			const rows = yield* database.run((db) =>
 				db
 					.select(pluginPointerFields)
 					.from(schema.plugin)
-					.where(and(activeSystem, eq(schema.plugin.slug, slug)))
+					.where(and(activeSystem, eq(schema.plugin.packageId, packageId)))
 					.limit(1),
 			);
 			const [plugin] = yield* toStoredPlugins(rows);
 			return plugin ?? null;
+		});
+		const findActiveSystemPluginById = Effect.fn("PluginRepository.findActiveSystemPluginById")(
+			function* (pluginId: string) {
+				const rows = yield* database.run((db) =>
+					db
+						.select(pluginPointerFields)
+						.from(schema.plugin)
+						.where(and(activeSystem, eq(schema.plugin.id, pluginId)))
+						.limit(1),
+				);
+				const [plugin] = yield* toStoredPlugins(rows);
+				return plugin ?? null;
+			},
+		);
+		const findPrivateByPackageIdForUser = Effect.fn(
+			"PluginRepository.findPrivateByPackageIdForUser",
+		)(function* (packageId: PluginPackageId, userId: string) {
+			const rows = yield* database.run((db) =>
+				db
+					.select(pluginPointerFields)
+					.from(schema.plugin)
+					.where(and(eq(schema.plugin.packageId, packageId), eq(schema.plugin.ownerId, userId)))
+					.limit(1),
+			);
+			const [row] = rows;
+			return row?.activeRevisionId
+				? toStoredPlugin(row, yield* lookupRevision(row.activeRevisionId))
+				: null;
 		});
 		const findUninstallReceipt = Effect.fn("PluginRepository.findUninstallReceipt")(function* (
 			activationId: string,
@@ -298,22 +343,12 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				),
 		);
 
-		const listActiveSystemSlugs = Effect.fn("PluginRepository.listActiveSystemSlugs")(function* () {
-			const rows = yield* database.run((db) =>
-				db
-					.select({ slug: schema.plugin.slug })
-					.from(schema.plugin)
-					.where(activeSystem)
-					.orderBy(asc(schema.plugin.slug)),
-			);
-			return rows.map(({ slug }) => slug);
-		});
-
 		const listActiveHttpRateLimits = Effect.fn("PluginRepository.listActiveHttpRateLimits")(
 			function* () {
-				return yield* database.run((db) =>
+				const rows = yield* database.run((db) =>
 					db
 						.select({
+							id: schema.plugin.id,
 							slug: schema.plugin.slug,
 							httpRateLimits: sql<
 								ReadonlyArray<PluginHttpRateLimit>
@@ -327,6 +362,11 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.where(activeSystem)
 						.orderBy(asc(schema.plugin.slug)),
 				);
+				return Array.from(rows, ({ id, ...row }) => ({
+					...row,
+					scope: "system" as const,
+					owner: definitionOwner(id),
+				}));
 			},
 		);
 
@@ -422,6 +462,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							metadata: manifest.metadata,
 							sourceHash: revision.sourceHash,
 							configSchema: manifest.configSchema,
+							packageId: manifest.metadata.packageId,
 							integrationProviders: manifest.integrationProviders,
 							signalSchemaSlugs: manifest.signalSchemas.map(
 								({ slug: signalSchemaSlug }) => signalSchemaSlug,
@@ -530,6 +571,113 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				return false;
 			},
 		);
+		const findReferencedRemovedDeclarations = Effect.fn(
+			"PluginRepository.findReferencedRemovedDeclarations",
+		)(function* (previous: StoredPlugin, next: PluginManifest) {
+			const removedProviders = previous.manifest.providers.filter(
+				({ slug }) => !next.providers.some((provider) => provider.slug === slug),
+			);
+			const removedIntegrationProviders = previous.manifest.integrationProviders.filter(
+				({ slug }) => !next.integrationProviders.some((provider) => provider.slug === slug),
+			);
+			const removedOperations = previous.manifest.operations.filter(
+				({ slug }) => !next.operations.some((operation) => operation.slug === slug),
+			);
+			const removedExports = Object.keys(previous.manifest.client?.exports ?? {}).filter(
+				(name) => !Object.hasOwn(next.client?.exports ?? {}, name),
+			);
+			const referenced = new Set<string>();
+			if (removedProviders.length > 0) {
+				const rows = yield* database.run((db) =>
+					db
+						.select({ slug: schema.sandboxProvider.slug })
+						.from(schema.entity)
+						.innerJoin(
+							schema.sandboxProvider,
+							eq(schema.entity.providerId, schema.sandboxProvider.id),
+						)
+						.where(
+							and(
+								eq(schema.sandboxProvider.pluginId, previous.id),
+								inArray(
+									schema.sandboxProvider.slug,
+									removedProviders.map(({ slug }) => slug),
+								),
+							),
+						),
+				);
+				for (const row of rows) {
+					referenced.add(`provider:${row.slug}`);
+				}
+			}
+			if (removedIntegrationProviders.length > 0) {
+				const rows = yield* database.run((db) =>
+					db
+						.select({ provider: schema.integration.provider })
+						.from(schema.integration)
+						.innerJoin(
+							schema.pluginInstallation,
+							eq(schema.pluginInstallation.id, schema.integration.pluginInstallationId),
+						)
+						.where(
+							and(
+								eq(schema.pluginInstallation.pluginId, previous.id),
+								inArray(
+									schema.integration.provider,
+									removedIntegrationProviders.map(({ slug }) => slug),
+								),
+							),
+						),
+				);
+				for (const row of rows) {
+					referenced.add(`integration-provider:${row.provider}`);
+				}
+			}
+			if (removedExports.length > 0) {
+				const views = yield* database.run((db) =>
+					db
+						.select({ renderer: schema.savedView.renderer })
+						.from(schema.savedView)
+						.where(sql`${schema.savedView.renderer}->>'pluginId' = ${previous.id}`),
+				);
+				for (const { renderer } of views) {
+					if (renderer.kind === "plugin" && removedExports.includes(renderer.exportName)) {
+						referenced.add(`client-export:${renderer.exportName}`);
+					}
+				}
+			}
+			if (removedExports.length > 0 || removedOperations.length > 0) {
+				const consumers = yield* database.run((db) =>
+					db
+						.select({ ownerId: schema.plugin.ownerId, manifest: schema.pluginRevision.manifest })
+						.from(schema.plugin)
+						.innerJoin(
+							schema.pluginRevision,
+							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+						)
+						.where(and(eq(schema.plugin.status, "active"), not(eq(schema.plugin.id, previous.id)))),
+				);
+				const scope = previous.scope;
+				if (
+					consumers.some(({ ownerId, manifest }) =>
+						Object.values(manifest.client?.pluginDependencies ?? {}).some(
+							(reference) =>
+								reference.packageId === previous.packageId &&
+								reference.scope === scope &&
+								(scope === "system" || ownerId === null || ownerId === previous.ownerId),
+						),
+					)
+				) {
+					for (const name of removedExports) {
+						referenced.add(`client-export:${name}`);
+					}
+					for (const { slug } of removedOperations) {
+						referenced.add(`operation:${slug}`);
+					}
+				}
+			}
+			return [...referenced].sort();
+		});
 
 		const findBySourceHash = Effect.fn("PluginRepository.findBySourceHash")(function* (
 			input: PluginPersistenceIdentity & { readonly sourceHash: string },
@@ -544,7 +692,8 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					)
 					.where(
 						and(
-							eq(schema.plugin.slug, input.slug),
+							eq(schema.plugin.packageId, input.packageId),
+							input.pluginId ? eq(schema.plugin.id, input.pluginId) : undefined,
 							eq(schema.plugin.status, "active"),
 							eq(schema.pluginRevision.sourceHash, input.sourceHash),
 							input.ownerId === null
@@ -564,7 +713,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			"PluginRepository.findTestSupportOperationResult",
 		)(function* (
 			identity:
-				| PluginPersistenceIdentity
+				| { readonly pluginId: string; readonly ownerId: null; readonly scope: "system" }
 				| { readonly pluginId: string; readonly ownerId: string; readonly scope: "user" },
 		) {
 			const [plugin] = yield* database.run((db) =>
@@ -577,9 +726,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					.from(schema.plugin)
 					.where(
 						and(
-							"pluginId" in identity
-								? eq(schema.plugin.id, identity.pluginId)
-								: eq(schema.plugin.slug, identity.slug),
+							eq(schema.plugin.id, identity.pluginId),
 							eq(schema.plugin.status, "active"),
 							identity.ownerId === null
 								? isNull(schema.plugin.ownerId)
@@ -619,6 +766,8 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						and(
 							eq(schema.pluginInstallation.pluginId, plugin.id),
 							eq(schema.pluginInstallation.userId, identity.ownerId),
+							eq(schema.pluginInstallation.health, "ready"),
+							isNull(schema.pluginInstallation.incompatibilityReason),
 							isNull(schema.pluginInstallation.uninstalledAt),
 						),
 					)
@@ -666,6 +815,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					db
 						.select({
 							id: schema.pluginRevision.id,
+							packageId: schema.plugin.packageId,
 							manifest: schema.pluginRevision.manifest,
 							sourceHash: schema.pluginRevision.sourceHash,
 							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
@@ -682,6 +832,11 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					return yield* new DbError({ message: `Plugin ${pluginId} has no active revision` });
 				}
 				const manifest = yield* decodeStoredManifest(revision.manifest, pluginId);
+				if (manifest.metadata.packageId !== revision.packageId) {
+					return yield* new DbError({
+						message: "Retained manifest package identity does not match its owner",
+					});
+				}
 				const scriptRows = yield* database.run((db) =>
 					db
 						.select({
@@ -734,18 +889,30 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				const compiledClient = revision.clientArtifactHash
 					? yield* artifacts.loadClientArtifact(revision.clientArtifactHash)
 					: undefined;
+				const archivedClient =
+					compiledClient && Schema.is(PluginClientArtifact)(compiledClient)
+						? compiledClient
+						: undefined;
+				if (
+					compiledClient &&
+					(!archivedClient || archivedClient.packageId !== manifest.metadata.packageId)
+				) {
+					return yield* new DbError({
+						message: "Retained client artifact package identity does not match the manifest",
+					});
+				}
 				if (manifest.client && !compiledClient) {
 					return yield* new DbError({
 						message: `Plugin ${pluginId} is missing its retained compiled client artifact`,
 					});
 				}
-				const normalized = yield* normalizeRetainedArtifacts(compiledClient);
+				const normalized = yield* normalizeRetainedArtifacts(archivedClient);
 				if (normalized.sourceHash !== revision.sourceHash) {
 					return yield* new DbError({
 						message: `Plugin ${pluginId} retained package hash does not match its artifacts`,
 					});
 				}
-				return { compiledScripts, ...(compiledClient ? { compiledClient } : {}) };
+				return { compiledScripts, ...(archivedClient ? { compiledClient: archivedClient } : {}) };
 			},
 		);
 		const findRevisionClientArtifact = Effect.fn("PluginRepository.findRevisionClientArtifact")(
@@ -754,6 +921,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					db
 						.select({
 							pluginSlug: schema.plugin.slug,
+							packageId: schema.plugin.packageId,
 							manifest: schema.pluginRevision.manifest,
 							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
 						})
@@ -766,13 +934,40 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					return null;
 				}
 				const manifest = yield* decodeStoredManifest(revision.manifest, revision.pluginSlug);
+				if (manifest.metadata.packageId !== revision.packageId) {
+					return yield* new DbError({
+						message: "Retained manifest package identity does not match its owner",
+					});
+				}
 				if (!manifest.client) {
 					return yield* new DbError({
 						message: `Plugin ${revision.pluginSlug} has a client artifact without a client manifest`,
 					});
 				}
 				const artifact = yield* artifacts.loadClientArtifact(revision.clientArtifactHash);
-				if (clientArtifactMetadata(manifest.metadata.name, artifact.files).hash !== artifact.hash) {
+				if (
+					!("packageId" in artifact) ||
+					!Schema.is(PluginClientArtifact)(artifact) ||
+					artifact.packageId !== manifest.metadata.packageId ||
+					artifact.clientDeclarationHash !== clientDeclarationHash(manifest.client) ||
+					artifact.imports.some(
+						({ reference }) =>
+							!Object.values(manifest.client?.pluginDependencies ?? {}).some(
+								(dependency) =>
+									dependency.packageId === reference.packageId &&
+									dependency.scope === reference.scope,
+							),
+					) ||
+					clientArtifactMetadata(
+						manifest.metadata.name,
+						manifest.metadata.packageId,
+						artifact.files,
+						{
+							imports: artifact.imports,
+							clientDeclarationHash: clientDeclarationHash(manifest.client),
+						},
+					).hash !== artifact.hash
+				) {
 					return yield* new DbError({
 						message: `Plugin ${revision.pluginSlug} retained client artifact hash does not match its contents`,
 					});
@@ -845,12 +1040,33 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			plugin: NormalizedPlugin,
 			identity: PluginPersistenceIdentity,
 		) {
-			const slug = identity.slug;
+			yield* database.requireTransaction;
+			const { slug, packageId } = plugin.manifest.metadata;
+			if (identity.packageId !== packageId) {
+				return yield* new DbError({
+					message: "Plugin persistence package identity does not match the manifest",
+				});
+			}
+			if (identity.pluginId) {
+				const targetId = identity.pluginId;
+				const [target] = yield* database.run((db) =>
+					db
+						.select(pluginPointerFields)
+						.from(schema.plugin)
+						.where(eq(schema.plugin.id, targetId))
+						.limit(1),
+				);
+				if (!target || target.packageId !== packageId || target.ownerId !== identity.ownerId) {
+					return yield* new DbError({
+						message: "Plugin update package identity does not match its target",
+					});
+				}
+			}
 			const mutation = { status: "installing" } as const;
 			const [inserted] = yield* database.run((db) =>
 				db
 					.insert(schema.plugin)
-					.values({ ...mutation, slug, ownerId: identity.ownerId })
+					.values({ ...mutation, slug, packageId, ownerId: identity.ownerId })
 					.onConflictDoNothing()
 					.returning({ id: schema.plugin.id }),
 			);
@@ -861,11 +1077,13 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							.update(schema.plugin)
 							.set({
 								...mutation,
+								slug,
 								activationId: sql`case when ${schema.plugin.status} = 'inactive' then gen_random_uuid()::text else ${schema.plugin.activationId} end`,
 							})
 							.where(
 								and(
-									eq(schema.plugin.slug, slug),
+									eq(schema.plugin.packageId, packageId),
+									identity.pluginId ? eq(schema.plugin.id, identity.pluginId) : undefined,
 									identity.ownerId === null
 										? isNull(schema.plugin.ownerId)
 										: eq(schema.plugin.ownerId, identity.ownerId),
@@ -904,9 +1122,32 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				});
 			}
 			if (plugin.compiledClient) {
+				const client = plugin.manifest.client;
+				if (!client) {
+					return yield* new DbError({
+						message: "Plugin client artifact has no client declaration",
+					});
+				}
 				if (
-					clientArtifactMetadata(plugin.manifest.metadata.name, plugin.compiledClient.files)
-						.hash !== plugin.compiledClient.hash
+					plugin.compiledClient.packageId !== plugin.manifest.metadata.packageId ||
+					plugin.compiledClient.clientDeclarationHash !== clientDeclarationHash(client) ||
+					plugin.compiledClient.imports.some(
+						({ reference }) =>
+							!Object.values(client.pluginDependencies ?? {}).some(
+								(dependency) =>
+									dependency.packageId === reference.packageId &&
+									dependency.scope === reference.scope,
+							),
+					) ||
+					clientArtifactMetadata(
+						plugin.manifest.metadata.name,
+						plugin.manifest.metadata.packageId,
+						plugin.compiledClient.files,
+						{
+							imports: plugin.compiledClient.imports,
+							clientDeclarationHash: clientDeclarationHash(client),
+						},
+					).hash !== plugin.compiledClient.hash
 				) {
 					return yield* new DbError({
 						message: "Plugin client artifact metadata hash does not match its contents",
@@ -1068,9 +1309,8 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				}
 				const configRevisionId = yield* configs.resolveEnvironment({
 					pluginId: plugin.id,
-					pluginSlug: plugin.slug,
 					pluginRevisionId: row.activeRevisionId,
-					configSchema: plugin.manifest.configSchema,
+					packageId: plugin.manifest.metadata.packageId,
 				});
 				yield* setEnvironmentConfigRevision(plugin.id, configRevisionId);
 				yield* Effect.logInfo(
@@ -1085,6 +1325,38 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				db.update(schema.plugin).set({ status: "inactive" }).where(eq(schema.plugin.id, pluginId)),
 			);
 		});
+		const rotatePrivateActivation = Effect.fn("PluginRepository.rotatePrivateActivation")(
+			function* (input: {
+				readonly pluginId: string;
+				readonly ownerId: string;
+				readonly expectedActivationId: string;
+			}) {
+				yield* database.requireTransaction;
+				yield* lockIngestion();
+				yield* configs.lock(input.pluginId);
+				const [updated] = yield* database.run((db) =>
+					db
+						.update(schema.plugin)
+						.set({ activationId: sql`gen_random_uuid()::text` })
+						.where(
+							and(
+								eq(schema.plugin.id, input.pluginId),
+								eq(schema.plugin.ownerId, input.ownerId),
+								eq(schema.plugin.status, "active"),
+								eq(schema.plugin.activationId, input.expectedActivationId),
+								sql`exists (select 1 from ${schema.pluginInstallation} where ${schema.pluginInstallation.pluginId} = ${schema.plugin.id} and ${schema.pluginInstallation.userId} = ${input.ownerId} and ${schema.pluginInstallation.isInitialized} = false and ${schema.pluginInstallation.health} = 'incompatible' and ${schema.pluginInstallation.uninstalledAt} is null)`,
+							),
+						)
+						.returning({ activationId: schema.plugin.activationId }),
+				);
+				if (!updated) {
+					return yield* new DbError({
+						message: "Private plugin activation changed before initialization recovery",
+					});
+				}
+				return updated.activationId;
+			},
+		);
 
 		const deleteInactiveUnreferencedPlugins = Effect.fn(
 			"PluginRepository.deleteInactiveUnreferencedPlugins",
@@ -1272,11 +1544,10 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			persistKernelScript,
 			hasEntityReferences,
 			findUninstallReceipt,
-			listActiveSystemSlugs,
-			findActiveSystemPlugin,
 			recordUninstallReceipt,
 			resolveProviderBySlugs,
 			findPrivateByIdForUser,
+			rotatePrivateActivation,
 			listActiveSystemPlugins,
 			hasDefinitionReferences,
 			resolveEnvironmentConfig,
@@ -1284,12 +1555,16 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			hasIntegrationReferences,
 			deleteUnreferencedScripts,
 			hasLiveWorkflowReferences,
+			findActiveSystemPluginById,
 			listPortablePluginMetadata,
 			findRevisionClientArtifact,
 			findClientArtifactForSource,
 			listCompiledPackageArtifacts,
 			setEnvironmentConfigRevision,
+			findPrivateByPackageIdForUser,
 			findTestSupportOperationResult,
+			findActiveSystemPluginByPackageId,
+			findReferencedRemovedDeclarations,
 			deleteInactiveUnreferencedPlugins,
 			listPersistedLivenessContentHashes,
 			validateConfigurationKeys: configs.validateKeys,

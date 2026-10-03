@@ -4,7 +4,13 @@ import type {
 	PluginConfigSchema,
 	PluginIntegrationProvider,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
+import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
+import {
+	PluginId,
+	SandboxScriptId,
+	type PluginPackageId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { and, eq, sql, type SQL } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
@@ -22,6 +28,8 @@ export type RegisteredIntegrationProvider = {
 	readonly slug: string;
 	readonly name: string;
 	readonly pluginId: string;
+	readonly packageId: PluginPackageId;
+	readonly reference: DeclarationReference;
 	readonly pluginSlug: string;
 	readonly description: string;
 	readonly installationId: string;
@@ -71,7 +79,13 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 						sql`${schema.pluginConfigRevision.pluginInstallationId} is not distinct from case when ${provider.pluginScope} = 'user' then ${provider.installationId} else null end`,
 					),
 				)
-				.leftJoin(schema.sandboxScript, eq(schema.sandboxScript.id, provider.scriptId))
+				.leftJoin(
+					schema.sandboxScript,
+					and(
+						eq(schema.sandboxScript.id, provider.scriptId),
+						eq(schema.sandboxScript.pluginRevisionId, provider.pluginRevisionId),
+					),
+				)
 				.where(and(eq(provider.userId, userId), predicate)),
 		);
 		return rows
@@ -123,6 +137,11 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 							pluginSlug,
 							pluginScope,
 							installationId,
+							packageId: manifest.metadata.packageId,
+							reference: {
+								slug: row.slug,
+								owner: { kind: "plugin", pluginId: PluginId.make(pluginId) },
+							},
 							configContext: {
 								configSchema,
 								pluginRevisionId,
@@ -156,9 +175,15 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 
 			const findForUser = Effect.fn("IntegrationProviderCatalog.findForUser")(function* (
 				userId: UserId,
-				providerSlug: string,
+				reference: DeclarationReference,
 			) {
-				const [resolved] = yield* queryProviders(userId, eq(provider.slug, providerSlug));
+				if (reference.owner.kind === "kernel") {
+					return null;
+				}
+				const [resolved] = yield* queryProviders(
+					userId,
+					and(eq(provider.slug, reference.slug), eq(provider.pluginId, reference.owner.pluginId)),
+				);
 				return resolved?.provider ?? null;
 			});
 

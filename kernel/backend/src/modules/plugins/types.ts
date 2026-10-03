@@ -35,13 +35,22 @@ export type NormalizedPlugin = Omit<PluginRevision, "scripts"> & {
 	readonly compiledClient?: PluginClientArtifact;
 };
 
-export type PluginPersistenceIdentity =
-	| { readonly slug: string; readonly ownerId: null; readonly scope: "system" }
-	| { readonly slug: string; readonly ownerId: string; readonly scope: "user" };
-
-export type StoredPluginIdentity = PluginPersistenceIdentity & {
-	readonly id: string;
-	readonly activationId: string;
+export type PluginPersistenceIdentity = (
+	| { readonly ownerId: null; readonly scope: "system" }
+	| { readonly ownerId: string; readonly scope: "user" }
+) & {
+	readonly slug: string;
+	readonly packageId: PluginManifest["metadata"]["packageId"];
+	readonly pluginId?: string;
 };
+
+export type StoredPluginIdentity = Omit<
+	PluginPersistenceIdentity,
+	"pluginId" | "ownerId" | "scope"
+> &
+	(
+		| { readonly ownerId: null; readonly scope: "system" }
+		| { readonly ownerId: string; readonly scope: "user" }
+	) & { readonly id: string; readonly activationId: string };
 
 export type StoredPlugin = PluginRevision & StoredPluginIdentity & { readonly status: string };

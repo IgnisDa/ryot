@@ -1,4 +1,5 @@
 import { badRequest } from "@ryot-app/contract/errors";
+import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
@@ -12,7 +13,6 @@ import {
 } from "#modules/definition-registry/snapshot";
 import { mergeManifestDefinitions } from "#modules/definition-registry/source";
 
-import { PluginIngestionLock } from "./ingestion-lock";
 import { normalizePluginPackage, normalizePluginSource } from "./pipeline";
 import { PluginRepository } from "./repository";
 import type { NormalizedPlugin } from "./types";
@@ -35,23 +35,26 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 		make: Effect.gen(function* () {
 			const plugins = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
-			const ingestionLock = yield* PluginIngestionLock;
 
 			const prepare = Effect.fn("PluginBackupRestore.prepare")(function* (
 				packages: ReadonlyArray<ArchivePrivatePlugin>,
 			) {
 				const keys = new Set<string>();
-				const slugs = new Set<string>();
-				const system = yield* plugins.listPortablePluginMetadata();
+				const packageIds = new Set<string>();
 				const prepared: PreparedBackupPrivatePlugin[] = [];
 				for (const item of packages) {
-					if (keys.has(item.key) || slugs.has(item.slug)) {
+					if (
+						keys.has(item.key) ||
+						packageIds.has(item.packageId) ||
+						item.key !== pluginPackageKey({ scope: "user", packageId: item.packageId })
+					) {
 						return yield* badRequest("Backup contains duplicate private plugin identity");
 					}
 					keys.add(item.key);
-					slugs.add(item.slug);
+					packageIds.add(item.packageId);
 					const manifest = yield* asInvalidBackup(decodePluginManifest(item.manifest));
 					if (
+						manifest.metadata.packageId !== item.packageId ||
 						manifest.metadata.slug !== item.slug ||
 						manifest.metadata.version !== item.version ||
 						stableStringify(manifest) !== stableStringify(item.manifest)
@@ -69,30 +72,15 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 						return yield* badRequest("Backup private plugin source hash is invalid");
 					}
 					yield* asInvalidBackup(
-						validatePluginManifestPolicy(manifest, {
-							scope: "user",
-							systemSlugs: new Set(system.map(({ slug }) => slug)),
-						}),
+						validatePluginManifestPolicy(manifest, { scope: "user", systemPackageIds: new Set() }),
 					);
 					yield* asInvalidBackup(validatePluginScriptEntries(manifest));
 					const normalized = normalizePluginPackage(normalizedSource);
 					yield* asInvalidBackup(validatePluginExecutableScripts(normalized));
 					prepared.push({ ...item, manifest, normalized });
 				}
-				const candidates = prepared.map(({ key, slug, normalized }) => ({
-					slug,
-					id: key,
-					manifest: normalized.manifest,
-				}));
-				const global = definitionSourceFromSnapshot(yield* definitions.getGlobalSnapshot);
-				const composedDefinitions = yield* Effect.try({
-					catch: (error) => badRequest(String(error)),
-					try: () => buildDefinitionSnapshot(mergeManifestDefinitions(global, candidates)),
-				});
 				for (const candidate of prepared) {
-					yield* asInvalidBackup(
-						validatePluginManifestReferences(candidate.normalized.manifest, composedDefinitions),
-					);
+					yield* asInvalidBackup(validatePluginManifestReferences(candidate.normalized.manifest));
 				}
 				return prepared;
 			});
@@ -102,11 +90,13 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 				prepared: ReadonlyArray<PreparedBackupPrivatePlugin>,
 			) {
 				const pluginIdByKey = new Map<string, string>();
+				yield* plugins.lockIngestion();
 				for (const item of prepared) {
-					const pluginId = yield* ingestionLock.persistUserPlugin(item.normalized, {
+					const pluginId = yield* plugins.persist(item.normalized, {
 						scope: "user",
 						slug: item.slug,
 						ownerId: userId,
+						packageId: item.packageId,
 					});
 					pluginIdByKey.set(item.key, pluginId);
 				}
@@ -118,23 +108,22 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 				pluginIdByKey: ReadonlyMap<string, string>,
 			) {
 				const global = definitionSourceFromSnapshot(yield* definitions.getGlobalSnapshot);
+				const candidates: Array<Parameters<typeof mergeManifestDefinitions>[1][number]> = [];
+				for (const item of prepared) {
+					const id = pluginIdByKey.get(item.key);
+					if (!id) {
+						return yield* badRequest("Backup private plugin mapping is incomplete");
+					}
+					candidates.push({ id, slug: item.slug, manifest: item.normalized.manifest });
+				}
 				return yield* Effect.try({
 					catch: (error) => badRequest(String(error)),
 					try: (): DefinitionSnapshot =>
-						buildDefinitionSnapshot(
-							mergeManifestDefinitions(
-								global,
-								prepared.map((item) => ({
-									slug: item.slug,
-									manifest: item.normalized.manifest,
-									id: pluginIdByKey.get(item.key) ?? item.key,
-								})),
-							),
-						),
+						buildDefinitionSnapshot(mergeManifestDefinitions(global, candidates)),
 				});
 			});
 
-			return { persist, prepare, buildDefinitions };
+			return { persist, prepare, buildDefinitions, lockIngestion: plugins.lockIngestion() };
 		}),
 	},
 ) {

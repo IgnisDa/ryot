@@ -1,8 +1,10 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
@@ -24,15 +26,17 @@ type PluginRow = typeof schema.plugin.$inferSelect;
 
 export type PluginPrivateInstallationRow = Pick<
 	PluginInstallationRow,
-	"userId" | "health" | "healthReason"
+	"userId" | "health" | "healthReason" | "incompatibilityReason" | "isInitialized"
 > & {
 	readonly pluginId: PluginRow["id"];
 	readonly pluginSlug: PluginRow["slug"];
+	readonly packageId: PluginRow["packageId"];
 	readonly manifest: (typeof schema.pluginRevision.$inferSelect)["manifest"];
 	readonly installationId: PluginInstallationRow["id"];
 };
 
 export type PluginInstallationState = StoredInstallationRow & {
+	readonly packageId: PluginRow["packageId"];
 	readonly pluginSlug: string;
 	readonly pluginScope: "system" | "user";
 };
@@ -44,10 +48,12 @@ const provisionSystemInstallations = (
 	userId: UserId | null,
 	health: PluginInstallationHealth,
 ) => sql`
-	insert into ${schema.pluginInstallation} (id, user_id, plugin_id, health)
-	select gen_random_uuid()::text, ${schema.user.id}, ${schema.plugin.id}, ${health}
+	insert into ${schema.pluginInstallation} (id, user_id, plugin_id, health, is_initialized)
+	select gen_random_uuid()::text, ${schema.user.id}, ${schema.plugin.id}, ${health},
+		jsonb_array_length(${schema.pluginRevision.manifest}->'userBootstrap') = 0
 	from ${schema.user}
 	cross join ${schema.plugin}
+	join ${schema.pluginRevision} on ${schema.pluginRevision.id} = ${schema.plugin.activeRevisionId}
 	where ${schema.plugin.ownerId} is null
 		and ${schema.plugin.status} = 'active'
 		${
@@ -61,16 +67,20 @@ const provisionSystemInstallations = (
 const privateInstallation = {
 	pluginId: schema.plugin.id,
 	pluginSlug: schema.plugin.slug,
+	packageId: schema.plugin.packageId,
 	manifest: schema.pluginRevision.manifest,
 	userId: schema.pluginInstallation.userId,
 	health: schema.pluginInstallation.health,
 	installationId: schema.pluginInstallation.id,
 	healthReason: schema.pluginInstallation.healthReason,
+	isInitialized: schema.pluginInstallation.isInitialized,
+	incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
 };
 
 const installationState = {
 	pluginSlug: schema.plugin.slug,
 	id: schema.pluginInstallation.id,
+	packageId: schema.plugin.packageId,
 	userId: schema.pluginInstallation.userId,
 	health: schema.pluginInstallation.health,
 	pluginId: schema.pluginInstallation.pluginId,
@@ -80,8 +90,10 @@ const installationState = {
 	updatedAt: schema.pluginInstallation.updatedAt,
 	userSettings: schema.pluginInstallation.userSettings,
 	healthReason: schema.pluginInstallation.healthReason,
+	isInitialized: schema.pluginInstallation.isInitialized,
 	uninstalledAt: schema.pluginInstallation.uninstalledAt,
-	homeSavedViewSlug: schema.pluginInstallation.homeSavedViewSlug,
+	homeSavedView: schema.pluginInstallation.homeSavedView,
+	incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
 	activeConfigRevisionId: schema.pluginInstallation.activeConfigRevisionId,
 	pluginScope: sql<
 		"system" | "user"
@@ -357,7 +369,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			);
 
 			const findHomeSavedView = Effect.fn("PluginInstallationRepository.findHomeSavedView")(
-				function* (userId: UserId, savedViewSlug: string) {
+				function* (userId: UserId, reference: SavedViewReference) {
 					const [row] = yield* database.run((db) =>
 						db
 							.select({
@@ -369,7 +381,18 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 							.from(schema.userSavedViewEffective)
 							.where(
 								and(
-									eq(schema.userSavedViewEffective.slug, savedViewSlug),
+									reference.kind === "custom"
+										? and(
+												eq(schema.userSavedViewEffective.id, reference.savedViewId),
+												eq(schema.userSavedViewEffective.isBuiltin, false),
+											)
+										: and(
+												eq(schema.userSavedViewEffective.slug, reference.slug),
+												eq(schema.userSavedViewEffective.isBuiltin, true),
+												reference.kind === "kernel"
+													? isNull(schema.userSavedViewEffective.pluginId)
+													: eq(schema.userSavedViewEffective.pluginId, reference.pluginId),
+											),
 									eq(schema.userSavedViewEffective.userId, userId),
 								),
 							)
@@ -400,11 +423,16 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 					id: string;
 					healthReason: string | null;
 					health: PluginInstallationHealth;
+					incompatibilityReason?: PluginInstallationRow["incompatibilityReason"];
 				}) {
 					yield* database.run((db) =>
 						db
 							.update(schema.pluginInstallation)
-							.set({ health: input.health, healthReason: input.healthReason })
+							.set({
+								health: input.health,
+								healthReason: input.healthReason,
+								incompatibilityReason: input.incompatibilityReason ?? null,
+							})
 							.where(eq(schema.pluginInstallation.id, input.id)),
 					);
 				},
@@ -412,15 +440,60 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const updateHealthForActivation = Effect.fn(
 				"PluginInstallationRepository.updateHealthForActivation",
 			)(function* (input: Parameters<typeof updateHealth>[0] & { activationId: string }) {
+				yield* database.requireTransaction;
+				yield* database.run((db) =>
+					db.execute(
+						sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
+					),
+				);
 				const [updated] = yield* database.run((db) =>
 					db
 						.update(schema.pluginInstallation)
-						.set({ health: input.health, healthReason: input.healthReason })
+						.set({
+							health: input.health,
+							healthReason: input.healthReason,
+							incompatibilityReason: input.incompatibilityReason ?? null,
+							isInitialized:
+								input.health === "ready" ? true : schema.pluginInstallation.isInitialized,
+						})
 						.where(
 							and(
 								eq(schema.pluginInstallation.id, input.id),
+								eq(schema.pluginInstallation.health, "installing"),
 								isNull(schema.pluginInstallation.uninstalledAt),
+								isNull(schema.pluginInstallation.incompatibilityReason),
 								sql`exists (select 1 from ${schema.plugin} where ${schema.plugin.id} = ${schema.pluginInstallation.pluginId} and ${schema.plugin.status} = 'active' and ${schema.plugin.activationId} = ${input.activationId})`,
+							),
+						)
+						.returning({ id: schema.pluginInstallation.id }),
+				);
+				return updated !== undefined;
+			});
+			const completeSystemInitialization = Effect.fn(
+				"PluginInstallationRepository.completeSystemInitialization",
+			)(function* (input: {
+				readonly installationId: string;
+				readonly activationId: string;
+				readonly userId: UserId;
+			}) {
+				yield* database.requireTransaction;
+				yield* database.run((db) =>
+					db.execute(
+						sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
+					),
+				);
+				const [updated] = yield* database.run((db) =>
+					db
+						.update(schema.pluginInstallation)
+						.set({ health: "ready", healthReason: null, isInitialized: true })
+						.where(
+							and(
+								eq(schema.pluginInstallation.id, input.installationId),
+								eq(schema.pluginInstallation.userId, input.userId),
+								sql`${schema.pluginInstallation.health} in ('ready', 'installing')`,
+								isNull(schema.pluginInstallation.uninstalledAt),
+								isNull(schema.pluginInstallation.incompatibilityReason),
+								sql`exists (select 1 from ${schema.plugin} where ${schema.plugin.id} = ${schema.pluginInstallation.pluginId} and ${schema.plugin.ownerId} is null and ${schema.plugin.status} = 'active' and ${schema.plugin.activationId} = ${input.activationId})`,
 							),
 						)
 						.returning({ id: schema.pluginInstallation.id }),
@@ -429,11 +502,11 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			});
 
 			const setHomeSavedView = Effect.fn("PluginInstallationRepository.setHomeSavedView")(
-				function* (userId: UserId, id: string, homeSavedViewSlug: string | null) {
+				function* (userId: UserId, id: string, homeSavedView: SavedViewReference | null) {
 					const [row] = yield* database.run((db) =>
 						db
 							.update(schema.pluginInstallation)
-							.set({ homeSavedViewSlug })
+							.set({ homeSavedView })
 							.where(
 								and(
 									eq(schema.pluginInstallation.id, id),
@@ -448,15 +521,15 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 
 			const clearHomeSavedViewReferences = Effect.fn(
 				"PluginInstallationRepository.clearHomeSavedViewReferences",
-			)(function* (userId: UserId, savedViewSlug: string) {
+			)(function* (userId: UserId, reference: SavedViewReference) {
 				yield* database.run((db) =>
 					db
 						.update(schema.pluginInstallation)
-						.set({ homeSavedViewSlug: null })
+						.set({ homeSavedView: null })
 						.where(
 							and(
 								eq(schema.pluginInstallation.userId, userId),
-								eq(schema.pluginInstallation.homeSavedViewSlug, savedViewSlug),
+								eq(schema.pluginInstallation.homeSavedView, reference),
 							),
 						),
 				);
@@ -485,6 +558,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 								ingestionRetiring: false,
 								isHidden: input.isHidden,
 								sortOrder: input.sortOrder,
+								incompatibilityReason: null,
+								isInitialized: sql`case when ${schema.pluginInstallation.uninstalledAt} is not null then false else ${schema.pluginInstallation.isInitialized} end`,
 							},
 						})
 						.returning(),
@@ -545,6 +620,10 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const assertIngestionActive = Effect.fn("PluginInstallationRepository.assertIngestionActive")(
 				function* (userId: UserId, id: string) {
 					yield* database.requireTransaction;
+					const pluginId = yield* installationPluginId(id);
+					if (pluginId !== null) {
+						yield* configs.lock(pluginId);
+					}
 					yield* database.acquireUserWriteLock(userId);
 					const [row] = yield* database.run((db) =>
 						db
@@ -625,6 +704,41 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						.orderBy(asc(schema.pluginInstallation.userId), asc(schema.plugin.slug)),
 				);
 				return rows satisfies ReadonlyArray<PluginPrivateInstallationRow>;
+			});
+			const quarantinePackageIdentityConflicts = Effect.fn(
+				"PluginInstallationRepository.quarantinePackageIdentityConflicts",
+			)(function* (packageId: PluginRow["packageId"]) {
+				yield* database.requireTransaction;
+				const rows = yield* database.run((db) =>
+					db
+						.select({
+							pluginId: schema.plugin.id,
+							id: schema.pluginInstallation.id,
+							userId: schema.pluginInstallation.userId,
+						})
+						.from(schema.pluginInstallation)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.where(
+							and(
+								eq(schema.plugin.packageId, packageId),
+								isNotNull(schema.plugin.ownerId),
+								isNull(schema.pluginInstallation.uninstalledAt),
+								isNull(schema.pluginInstallation.incompatibilityReason),
+							),
+						)
+						.orderBy(asc(schema.plugin.id), asc(schema.pluginInstallation.userId)),
+				);
+				for (const row of rows) {
+					yield* configs.lock(row.pluginId);
+					yield* database.acquireUserWriteLock(UserId.make(row.userId));
+					yield* updateHealth({
+						id: row.id,
+						health: "incompatible",
+						incompatibilityReason: "package-identity-conflict",
+						healthReason: "The package identity is reserved by an active system plugin",
+					});
+				}
+				return rows;
 			});
 
 			const findUserSettings = Effect.fn(function* (userId: UserId, id: string) {
@@ -728,8 +842,10 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				listPrivateInstallations,
 				updateHealthForActivation,
 				findUserSettingsForRevision,
+				completeSystemInitialization,
 				clearHomeSavedViewReferences,
 				refreshClientConfigsForPlugin,
+				quarantinePackageIdentityConflicts,
 				provisionSystemInstallationsForUser,
 				provisionSystemInstallationsForAllUsers,
 			};
