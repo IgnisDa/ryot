@@ -6,6 +6,14 @@ export { Badge } from "./badge";
 export { Button, IconButton } from "./button";
 export { Modal } from "./modal";
 export { Dialog } from "./dialog";
+export {
+	Collapse,
+	MotionList,
+	MotionPresence,
+	MotionScrollRoot,
+	MotionSwap,
+	useMotionPreference,
+} from "./motion";
 export { ActionDock } from "./action-dock";
 export { ProgressBar } from "./progress-bar";
 export { clockFormat, Stepper } from "./stepper";

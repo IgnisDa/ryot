@@ -21,6 +21,9 @@ export const focusableElements = (container: HTMLElement | null) =>
 		(element) => !unreachable(element),
 	);
 
+const inertOwners = new WeakMap<Element, { count: number; readonly wasInert: boolean }>();
+const scrollOwners = new WeakMap<HTMLElement, { count: number; readonly overflow: string }>();
+
 export function useInertBackground(ref: RefObject<HTMLElement | null>) {
 	useEffect(() => {
 		const panel = ref.current;
@@ -32,14 +35,21 @@ export function useInertBackground(ref: RefObject<HTMLElement | null>) {
 			if (child.contains(panel)) {
 				break;
 			}
-			if (!child.hasAttribute("inert")) {
-				child.setAttribute("inert", "");
-				background.push(child);
-			}
+			const owner = inertOwners.get(child) ?? { count: 0, wasInert: child.hasAttribute("inert") };
+			owner.count += 1;
+			inertOwners.set(child, owner);
+			child.setAttribute("inert", "");
+			background.push(child);
 		}
 		return () => {
 			for (const child of background) {
-				child.removeAttribute("inert");
+				const owner = inertOwners.get(child);
+				if (owner !== undefined && --owner.count === 0) {
+					if (!owner.wasInert) {
+						child.removeAttribute("inert");
+					}
+					inertOwners.delete(child);
+				}
 			}
 		};
 	}, [ref]);
@@ -79,11 +89,16 @@ export function useFocusTrap(
 }
 
 export function useScrollLock(enabled: boolean) {
-	const previous = useRef<string | null>(null);
+	const lockedBody = useRef<HTMLElement | null>(null);
 	const unlock = useCallback(() => {
-		if (previous.current !== null) {
-			document.body.style.overflow = previous.current;
-			previous.current = null;
+		const body = lockedBody.current;
+		if (body !== null) {
+			const owner = scrollOwners.get(body);
+			if (owner !== undefined && --owner.count === 0) {
+				body.style.overflow = owner.overflow;
+				scrollOwners.delete(body);
+			}
+			lockedBody.current = null;
 		}
 	}, []);
 
@@ -91,8 +106,12 @@ export function useScrollLock(enabled: boolean) {
 		if (!enabled) {
 			return undefined;
 		}
-		previous.current = document.body.style.overflow;
-		document.body.style.overflow = "hidden";
+		const body = document.body;
+		const owner = scrollOwners.get(body) ?? { count: 0, overflow: body.style.overflow };
+		owner.count += 1;
+		scrollOwners.set(body, owner);
+		lockedBody.current = body;
+		body.style.overflow = "hidden";
 		return unlock;
 	}, [enabled, unlock]);
 
@@ -125,11 +144,26 @@ export function useDismissOnOutside(
 	}, [enabled]);
 }
 
-export function useRestoreFocus(triggerRef: RefObject<HTMLElement | null>) {
+export function useRestoreFocus(
+	triggerRef: RefObject<HTMLElement | null>,
+	scopeRef?: RefObject<HTMLElement | null>,
+) {
 	const restore = useCallback(() => {
 		const trigger = triggerRef.current;
-		queueMicrotask(() => trigger?.focus());
-	}, [triggerRef]);
+		const scope = scopeRef?.current;
+		queueMicrotask(() => {
+			if (
+				scope !== undefined &&
+				document.activeElement !== document.body &&
+				!scope?.contains(document.activeElement)
+			) {
+				return;
+			}
+			if (trigger?.isConnected && !trigger.closest("[inert]")) {
+				trigger.focus();
+			}
+		});
+	}, [scopeRef, triggerRef]);
 
 	useEffect(() => restore, [restore]);
 

@@ -137,7 +137,7 @@ export function MultiSelect<Value extends string>({
 					closeLabel="Close options"
 					onInterceptBack={onInterceptBack ?? (() => false)}
 					containerClassName="items-center justify-center p-4"
-					className="flex h-[80%] max-h-[80%] w-full max-w-xl animate-dialog-in flex-col rounded-xl bg-raised p-4 shadow-modal motion-reduce:animate-none md:h-auto"
+					className="flex h-[80%] max-h-[80%] w-full max-w-xl flex-col rounded-xl bg-raised p-4 shadow-modal md:h-auto"
 				>
 					<div className="mb-3 flex items-center justify-between">
 						<span className="text-base font-semibold text-text">{label}</span>
