@@ -7,7 +7,7 @@ Rolldown so standalone sandbox compiler workers can bundle the TypeScript projec
 
 The `./javascript-references` entry exposes a Rolldown AST visitor. It extracts static imports,
 re-exports, literal dynamic imports, and `new URL(..., import.meta.url)` references from emitted
-JavaScript. It reports nonliteral dynamic expressions to the caller; client and Deno compilers
+JavaScript. It reports nonliteral dynamic expressions to the caller; client and sandbox compilers
 enforce their own approval policies.
 
 Each target supplies a complete in-memory project configuration and resolved source/type aliases.

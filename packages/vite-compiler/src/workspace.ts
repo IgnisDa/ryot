@@ -1,8 +1,4 @@
-// Staging checks native filesystem path semantics, including Windows absolute paths.
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { isAbsolute, join, relative, resolve, win32 } from "node:path";
-
-import { Effect, FileSystem, Result } from "effect";
+import { Effect, FileSystem, Path, Result } from "effect";
 
 import { viteCompilerError } from "./error";
 import type { ViteCompilerError } from "./error";
@@ -35,8 +31,8 @@ export const validateRelativePath = (
 		valuePath.length > 1024 ||
 		valuePath.includes("\0") ||
 		valuePath.includes("\\") ||
-		isAbsolute(valuePath) ||
-		win32.isAbsolute(valuePath)
+		valuePath.startsWith("/") ||
+		/^[a-z]:\//i.test(valuePath)
 	) {
 		return Result.fail(viteCompilerError("invalid-input", "Path must be a safe relative path"));
 	}
@@ -55,10 +51,10 @@ const validateJobId = (jobId: unknown): Result.Result<string, ViteCompilerError>
 	return Result.succeed(jobId);
 };
 
-export const getCompilerWorkspaceRoot = ({
-	jobId,
-	parentPath,
-}: Required<CompilerWorkspaceOptions>): Result.Result<string, ViteCompilerError> => {
+export const getCompilerWorkspaceRoot = (
+	path: Path.Path,
+	{ jobId, parentPath }: Required<CompilerWorkspaceOptions>,
+): Result.Result<string, ViteCompilerError> => {
 	if (typeof parentPath !== "string" || parentPath.length === 0) {
 		return Result.fail(viteCompilerError("invalid-input", "Workspace parent path is invalid"));
 	}
@@ -66,7 +62,7 @@ export const getCompilerWorkspaceRoot = ({
 	if (Result.isFailure(validatedJobId)) {
 		return validatedJobId;
 	}
-	return Result.succeed(join(resolve(parentPath), validatedJobId.success));
+	return Result.succeed(path.join(path.resolve(parentPath), validatedJobId.success));
 };
 
 const filesystemError = (operation: string, path: string, cause: unknown) =>
@@ -76,6 +72,7 @@ const createCompilerWorkspace = Effect.fn("createCompilerWorkspace")(function* (
 	options: CompilerWorkspaceOptions,
 ) {
 	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
 	let rootPath: string;
 	if (options.jobId !== undefined) {
 		if (options.parentPath === undefined) {
@@ -86,10 +83,10 @@ const createCompilerWorkspace = Effect.fn("createCompilerWorkspace")(function* (
 		}
 		const parentPath = options.parentPath;
 		rootPath = yield* Effect.fromResult(
-			getCompilerWorkspaceRoot({ parentPath, jobId: options.jobId }),
+			getCompilerWorkspaceRoot(path, { parentPath, jobId: options.jobId }),
 		);
 		yield* fs
-			.makeDirectory(resolve(parentPath), { recursive: true })
+			.makeDirectory(path.resolve(parentPath), { recursive: true })
 			.pipe(
 				Effect.mapError((cause) => filesystemError("create workspace parent", parentPath, cause)),
 			);
@@ -108,17 +105,19 @@ const createCompilerWorkspace = Effect.fn("createCompilerWorkspace")(function* (
 
 	const workspace = {
 		rootPath,
-		sourcePath: join(rootPath, "source"),
-		outputPath: join(rootPath, "output"),
-		generatedPath: join(rootPath, "generated"),
+		sourcePath: path.join(rootPath, "source"),
+		outputPath: path.join(rootPath, "output"),
+		generatedPath: path.join(rootPath, "generated"),
 	} satisfies CompilerWorkspace;
 	return yield* Effect.forEach(
 		[workspace.sourcePath, workspace.generatedPath, workspace.outputPath],
-		(path) =>
+		(directory) =>
 			fs
-				.makeDirectory(path)
+				.makeDirectory(directory)
 				.pipe(
-					Effect.mapError((cause) => filesystemError("create workspace namespace", path, cause)),
+					Effect.mapError((cause) =>
+						filesystemError("create workspace namespace", directory, cause),
+					),
 				),
 		{ discard: true },
 	).pipe(
@@ -189,6 +188,7 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 	inputs: readonly WorkspaceFile[],
 ) {
 	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
 	const ordered = yield* Effect.fromResult(validateInputs(inputs));
 	const namespaceRealPath = yield* fs
 		.realPath(namespacePath)
@@ -199,8 +199,8 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 		);
 	const destinations = yield* Effect.forEach(ordered, (file) =>
 		Effect.gen(function* () {
-			const destination = resolve(namespacePath, file.path);
-			const parent = resolve(destination, "..");
+			const destination = path.resolve(namespacePath, file.path);
+			const parent = path.resolve(destination, "..");
 			yield* fs
 				.makeDirectory(parent, { recursive: true })
 				.pipe(
@@ -208,7 +208,7 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 				);
 			let componentPath = namespacePath;
 			for (const component of file.path.split("/").slice(0, -1)) {
-				componentPath = join(componentPath, component);
+				componentPath = path.join(componentPath, component);
 				const componentStatus = yield* fs
 					.stat(componentPath)
 					.pipe(
@@ -228,11 +228,8 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 				.pipe(
 					Effect.mapError((cause) => filesystemError("resolve workspace directory", parent, cause)),
 				);
-			const relativeParent = relative(namespaceRealPath, parentRealPath);
-			if (
-				relativeParent === ".." ||
-				relativeParent.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`)
-			) {
+			const relativeParent = path.relative(namespaceRealPath, parentRealPath);
+			if (relativeParent === ".." || relativeParent.startsWith(`..${path.sep}`)) {
 				return yield* viteCompilerError(
 					"workspace-symlink",
 					`Workspace path escapes its namespace: ${file.path}`,
@@ -274,7 +271,7 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 		},
 		{ discard: true },
 	);
-	return ordered.map(({ path }) => path);
+	return ordered.map((file) => file.path);
 });
 
 export const stageSourceFiles = (workspace: CompilerWorkspace, inputs: readonly WorkspaceFile[]) =>
