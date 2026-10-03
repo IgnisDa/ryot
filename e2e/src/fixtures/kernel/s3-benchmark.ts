@@ -12,16 +12,13 @@ import { startMediaPopulationGate } from "~/fixtures/plugins/media";
 import { assertCondition, requirePresent } from "~/support/assertions";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 import { getApiUrl } from "~/support/harness-target";
-import { roleLogFile } from "~/support/role-logs";
 
 import {
 	LATENCY_MODES,
-	RoleMetricSnapshot,
+	MetricSnapshot,
 	sha256,
 	type HostSample,
 	type LatencyTrialRecord,
-	type MetricSnapshot,
-	type RoleMetrics,
 } from "../../../s3-benchmark-records";
 import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
 import { type Client, createTestUser, refreshOAuthTokens } from "./auth";
@@ -573,12 +570,16 @@ export const startBackgroundLoad = (input: {
 	});
 
 // Background imports spend long stretches persisting without outbound HTTP, so progress is measured
-// where the queue hands background work out: the background role's stream, or the only one in `all`.
-export const backgroundStall = (metrics: RoleMetrics, fromMs: number, toMs: number) => {
+// where the queue hands background work out.
+export const backgroundStall = (
+	metrics: ReadonlyArray<MetricSnapshot>,
+	fromMs: number,
+	toMs: number,
+) => {
 	let lastAdvance = fromMs;
 	let maxStall = 0;
 	let previous: number | undefined;
-	for (const { atMs, metrics: points } of metrics["background"] ?? metrics["all"] ?? []) {
+	for (const { atMs, metrics: points } of metrics) {
 		const dispatched = points["ryot.durable_queue.dispatches"]?.find(
 			({ attributes }) => attributes.lane === "background",
 		)?.value;
@@ -598,22 +599,17 @@ export const readMetricWindow = (otlpFile: string, startMs: number, endMs: numbe
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const text = yield* fs.readFileString(otlpFile);
-		const decodeLine = Schema.decodeEffect(Schema.fromJsonString(RoleMetricSnapshot));
-		const lines = yield* Effect.forEach(
+		const decodeLine = Schema.decodeEffect(Schema.fromJsonString(MetricSnapshot));
+		const snapshots = yield* Effect.forEach(
 			text.split("\n").filter((line) => line.length > 0),
 			(line) => decodeLine(line),
 		);
-		const windows: Record<string, Array<MetricSnapshot>> = {};
-		for (const role of new Set(lines.map((line) => line.role))) {
-			const snapshots = lines.filter((line) => line.role === role).map((line) => line.snapshot);
-			const before = snapshots.findLast(({ atMs }) => atMs <= startMs);
-			const inside = snapshots.filter(({ atMs }) => atMs > startMs && atMs < endMs);
-			const after = snapshots.find(({ atMs }) => atMs >= endMs);
-			windows[role] = [before, ...inside, after].filter(
-				(snapshot): snapshot is MetricSnapshot => snapshot !== undefined,
-			);
-		}
-		return windows;
+		const before = snapshots.findLast(({ atMs }) => atMs <= startMs);
+		const inside = snapshots.filter(({ atMs }) => atMs > startMs && atMs < endMs);
+		const after = snapshots.find(({ atMs }) => atMs >= endMs);
+		return [before, ...inside, after].filter(
+			(snapshot): snapshot is MetricSnapshot => snapshot !== undefined,
+		);
 	});
 
 export const benchmarkConfiguration = (
@@ -672,14 +668,8 @@ export const readAdmissionTimings = Effect.fn("readAdmissionTimings")(function* 
 	const fs = yield* FileSystem.FileSystem;
 	const decode = Schema.decodeUnknownEffect(AdmissionTimingLine);
 	const timings: Array<AdmissionTiming> = [];
-	const logs: Array<string> = [];
-	for (const role of ["all", "interactive", "background"] as const) {
-		const logFile = yield* roleLogFile(baseLogFile, role);
-		if (yield* fs.exists(logFile)) {
-			logs.push(yield* fs.readFileString(logFile));
-		}
-	}
-	for (const line of logs.flatMap((text) => text.split("\n"))) {
+	const text = (yield* fs.exists(baseLogFile)) ? yield* fs.readFileString(baseLogFile) : "";
+	for (const line of text.split("\n")) {
 		if (!line.includes('message="sandbox HTTP admission timing"')) {
 			continue;
 		}

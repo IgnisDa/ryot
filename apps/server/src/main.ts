@@ -7,8 +7,6 @@ import {
 	SchemaMigrationLive,
 	SystemPluginIngestionLive,
 } from "@ryot-app/kernel-backend/boot/layers";
-import { AppConfig } from "@ryot-app/kernel-backend/lib/infrastructure/config/service";
-import { runSplitSupervisor } from "@ryot-app/kernel-backend/lib/infrastructure/split-supervisor";
 import { Config, ConfigProvider, Effect, Layer } from "effect";
 
 import { LegacyDataMigrationLive, LegacyTableRenameLive } from "./migrations/layers";
@@ -24,18 +22,10 @@ const AppLive = MigrationSequenceLive.pipe(Layer.flatMap(() => RuntimeServerLive
 
 const StartupLive = Layer.effectDiscard(
 	Effect.gen(function* () {
-		const config = yield* AppConfig.make;
 		const migrationOnly = yield* Config.Boolean("RUN_MIGRATION_ONLY").pipe(
 			Config.withDefault(false),
 		);
-		if (!migrationOnly && config.server.lanes === "split") {
-			return yield* runSplitSupervisor({
-				effectiveMemory: process.constrainedMemory(),
-				entry: { args: process.argv.slice(1), executable: process.execPath },
-			}).pipe(Effect.provideService(AppConfig, config));
-		}
-		const runtime = config.server.processRole === "all" ? AppLive : RuntimeServerLive;
-		const layer = (migrationOnly ? MigrationSequenceLive : runtime).pipe(
+		const layer = (migrationOnly ? MigrationSequenceLive : AppLive).pipe(
 			Layer.provide(MigrationInfrastructureLive),
 			Layer.provide(ObservabilityProvidedLive),
 		);

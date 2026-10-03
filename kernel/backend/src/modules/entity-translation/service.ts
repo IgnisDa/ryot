@@ -27,7 +27,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 					entityId: input.entityId,
 				});
 				return engine
-					.execute(TranslateEntityWorkflow.forLane(input.lane), {
+					.execute(TranslateEntityWorkflow, {
 						executionId,
 						discard: true,
 						payload: { ...input, executionId },

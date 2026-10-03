@@ -17,6 +17,7 @@ import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
+import { Workflow } from "effect/workflow";
 
 import { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import { populationLifecycleCommand } from "#lib/domain/lifecycle-command";
@@ -25,8 +26,7 @@ import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { implementLaneWorkflow, laneWorkflow } from "#lib/infrastructure/workflow-lane";
-import { makeActivity } from "#lib/infrastructure/workflow-scope";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntityRelationshipDefinitions } from "#modules/definition-registry/snapshot";
 import { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
@@ -473,7 +473,7 @@ export const ProviderEntityPopulationPayload = Schema.Struct({
 
 export type ProviderEntityPopulationPayload = typeof ProviderEntityPopulationPayload.Type;
 
-export const ProviderEntityPopulationWorkflow = laneWorkflow("ProviderEntityPopulationWorkflow", {
+export const ProviderEntityPopulationWorkflow = Workflow.make("ProviderEntityPopulationWorkflow", {
 	success: ListedEntity satisfies DurableSchema,
 	error: SandboxRunError satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
@@ -489,7 +489,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 		const receipts = yield* MutationReceipts.make;
 		yield* admitWorkflow(
 			receipts,
-			ProviderEntityPopulationWorkflow.forLane(payload.command.causation.lane),
+			ProviderEntityPopulationWorkflow,
 			payload.command.accountGeneration,
 			executionId,
 		).pipe(
@@ -535,7 +535,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 		Effect.annotateLogs(effect, { executionId, workflow: "ProviderEntityPopulationWorkflow" }),
 );
 
-export const ProviderEntityPopulationWorkflowDefinitionsLive = implementLaneWorkflow(
+export const ProviderEntityPopulationWorkflowDefinitionsLive = implementWorkflow(
 	ProviderEntityPopulationWorkflow,
 	runProviderEntityPopulationWorkflow,
 );

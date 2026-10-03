@@ -249,30 +249,6 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			}
 		}
 
-		const { lanes, processRole, runnerSocketDir } = config.server;
-		if (processRole !== "all" && lanes !== "all") {
-			return yield* Effect.fail(
-				configError(`RYOT_SERVER_ROLE=${processRole} requires SERVER_LANES=all.`),
-			);
-		}
-		if (processRole === "all" && Option.isSome(runnerSocketDir)) {
-			return yield* Effect.fail(
-				configError(
-					"RYOT_RUNNER_SOCKET_DIR is only valid when RYOT_SERVER_ROLE is interactive or background.",
-				),
-			);
-		}
-		if (
-			processRole !== "all" &&
-			(Option.isNone(runnerSocketDir) || !runnerSocketDir.value.startsWith("/"))
-		) {
-			return yield* Effect.fail(
-				configError(
-					`RYOT_SERVER_ROLE=${processRole} requires RYOT_RUNNER_SOCKET_DIR to be an absolute path.`,
-				),
-			);
-		}
-
 		if (logging.file.path.trim().length === 0) {
 			return yield* Effect.fail(configError("SERVER_LOG_FILE must not be empty."));
 		}

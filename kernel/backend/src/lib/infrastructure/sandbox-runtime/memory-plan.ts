@@ -27,8 +27,6 @@ const inlinePermitBytes = sandboxTransientPermitBytes(
 	SANDBOX_LIMITS.bridge.requestBytes,
 );
 export const interactiveHeadroomBytes = runBytes + processBytes;
-export const sharedModeMinimumBudgetBytes =
-	residentBytes + inlinePermitBytes + interactiveHeadroomBytes;
 
 export type SandboxMemoryPlan = {
 	readonly budget: number;
@@ -42,11 +40,10 @@ const limitError = (message: string) =>
 
 // Lane mode keeps one interactive run with a lazy process beside one background run with its own, and
 // caps each lane's pool at one inline batch plus its evidence; the interactive pool is filled first.
-// Shared mode has one inline-sized pool, and is the only mode of a process serving one lane.
+// Shared mode has one inline-sized pool for budgets too small for lane mode.
 export const sandboxMemoryPlan = (
 	configuredMiB: Option.Option<number>,
 	effectiveMemory: number,
-	lanes: ReadonlyArray<ExecutionLane>,
 ): Result.Result<SandboxMemoryPlan, SandboxRunError> => {
 	if (!Number.isSafeInteger(effectiveMemory) || effectiveMemory <= 0) {
 		return Result.fail(limitError("Sandbox effective host memory is unavailable"));
@@ -60,7 +57,7 @@ export const sandboxMemoryPlan = (
 		return Result.fail(limitError("Sandbox memory budget exceeds half the effective host memory"));
 	}
 	const available = budget - residentBytes;
-	if (lanes.length > 1 && available >= 2 * inlinePermitBytes + 2 * interactiveHeadroomBytes) {
+	if (available >= 2 * inlinePermitBytes + 2 * interactiveHeadroomBytes) {
 		const poolCap = inlinePermitBytes + SANDBOX_TRANSIENT_MEMORY.inlineEvidenceBytes;
 		const interactive = Math.min(
 			available - 2 * interactiveHeadroomBytes - inlinePermitBytes,

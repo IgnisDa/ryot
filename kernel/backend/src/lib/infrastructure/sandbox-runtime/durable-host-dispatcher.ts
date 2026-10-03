@@ -31,8 +31,7 @@ import {
 	reportSandboxLifecycleWarnings,
 	toSandboxHostError,
 } from "#lib/infrastructure/sandbox-runtime/shared";
-import { implementLaneWorkflow } from "#lib/infrastructure/workflow-lane";
-import { makeActivity } from "#lib/infrastructure/workflow-scope";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { GlobalEntityUpsertResults, PendingGlobalEntityUpsert } from "#modules/entities/service";
 import {
 	EventCreateWorkflow,
@@ -80,7 +79,7 @@ const lifecycleHostSuccessSchemas = {
 	UpsertGlobalRelationships: sandboxHostContracts.upsertGlobalRelationships.success,
 };
 
-export const SandboxDurableHostServiceWorkflowLive = implementLaneWorkflow(
+export const SandboxDurableHostServiceWorkflowLive = implementWorkflow(
 	SandboxDurableHostServiceWorkflow,
 	(payload) => runSandboxDurableHostServiceWorkflow(payload),
 );
@@ -314,7 +313,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					return dispatchAdmittedWorkflow(
 						receipts,
 						engine,
-						SandboxDurableHostServiceWorkflow.forLane(payload.lane),
+						SandboxDurableHostServiceWorkflow,
 						principal.subject.type === "system" ? null : principal.subject.accountGeneration,
 						{
 							executionId: `${executionId}-host-service-${request.index}`,
@@ -365,11 +364,11 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						const result = yield* dispatchAdmittedWorkflow(
 							receipts,
 							engine,
-							EventCreateWorkflow.forLane(eventPayload.command.causation.lane),
+							EventCreateWorkflow,
 							eventPayload.command.accountGeneration,
 							{
 								payload: eventPayload,
-								executionId: EventCreateWorkflow.background.idempotencyKey(eventPayload),
+								executionId: EventCreateWorkflow.idempotencyKey(eventPayload),
 							},
 							(registration) =>
 								registration.pipe(

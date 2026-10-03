@@ -1,79 +1,39 @@
-import { Effect, Layer, Option, type Schema } from "effect";
+import { Layer, type Schema } from "effect";
 import {
 	ClusterWorkflowEngine,
-	RunnerAddress,
 	RunnerHealth,
 	Runners,
 	Sharding,
 	ShardingConfig,
-	SocketRunner,
 	SqlRunnerStorage,
 } from "effect/cluster";
-import { RpcSerialization } from "effect/rpc";
 
 import { WorkflowGarbageCollectionStorageLive } from "#modules/garbage-collection/workflow-storage";
 
-import { AppConfig } from "./config/service";
 import { PgClientLive } from "./db/postgres";
 import { RedisService } from "./redis";
-import { runnerSocketClientProtocolLayer, runnerSocketServerLayer } from "./runner-socket";
-import { type ServerRole, serverRole } from "./server-role";
 import { WorkflowExecutionNotifications } from "./workflow-execution-notifications";
-import { interactiveShardGroup } from "./workflow-lane";
 
 export type DurableSchema = Schema.ConstraintCodec<unknown, unknown>;
 
-const defaultShardGroup = "default";
+export const shardingConfig = { shardLockDisableAdvisory: true } satisfies Partial<
+	ShardingConfig.ShardingConfig["Service"]
+>;
 
-const assignedShardGroups = {
-	background: [defaultShardGroup],
-	interactive: [interactiveShardGroup],
-	all: [defaultShardGroup, interactiveShardGroup],
-} satisfies Record<ServerRole, ReadonlyArray<string>>;
-
-export const shardingConfigFor = (lanes: ServerRole) =>
-	({
-		shardLockDisableAdvisory: true,
-		assignedShardGroups: assignedShardGroups[lanes],
-		availableShardGroups: [defaultShardGroup, interactiveShardGroup],
-		...(lanes === "all" ? {} : { runnerAddress: Option.some(RunnerAddress.make(lanes, 0)) }),
-	}) satisfies Partial<ShardingConfig.ShardingConfig["Service"]>;
-
-const runnerLayer = (role: ServerRole, runnerSocketDir: Option.Option<string>) => {
-	if (role === "all") {
-		return Sharding.layer.pipe(
-			Layer.provideMerge(Runners.layerNoop),
-			Layer.provide(RunnerHealth.layerNoop),
-		);
-	}
-	const socketDir = Option.getOrThrow(runnerSocketDir);
-	const clientProtocol = runnerSocketClientProtocolLayer(socketDir);
-	return SocketRunner.layer.pipe(
-		Layer.provide(
-			RunnerHealth.layerPing.pipe(Layer.provide(Runners.layerRpc), Layer.provide(clientProtocol)),
-		),
-		Layer.provide([runnerSocketServerLayer(socketDir, role), clientProtocol]),
-		Layer.provide(RpcSerialization.layerNdjson),
-	);
-};
+const storage = WorkflowGarbageCollectionStorageLive.pipe(
+	Layer.provideMerge(
+		WorkflowExecutionNotifications.liveLayer.pipe(Layer.provide(RedisService.layer)),
+	),
+);
 
 export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 	Layer.provideMerge(
-		Layer.unwrap(
-			Effect.gen(function* () {
-				const { server } = yield* AppConfig;
-				const role = yield* serverRole(server);
-				const storage = WorkflowGarbageCollectionStorageLive.pipe(
-					Layer.provideMerge(
-						WorkflowExecutionNotifications.liveLayer.pipe(Layer.provide(RedisService.layer)),
-					),
-				);
-				return runnerLayer(role, server.runnerSocketDir).pipe(
-					Layer.provideMerge(storage),
-					Layer.provide(Layer.orDie(SqlRunnerStorage.layer)),
-					Layer.provide(ShardingConfig.layer(shardingConfigFor(role))),
-				);
-			}),
+		Sharding.layer.pipe(
+			Layer.provideMerge(Runners.layerNoop),
+			Layer.provide(RunnerHealth.layerNoop),
+			Layer.provideMerge(storage),
+			Layer.provide(Layer.orDie(SqlRunnerStorage.layer)),
+			Layer.provide(ShardingConfig.layer(shardingConfig)),
 		),
 	),
 	Layer.provide(PgClientLive),

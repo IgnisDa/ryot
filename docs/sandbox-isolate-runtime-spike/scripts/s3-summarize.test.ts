@@ -73,7 +73,6 @@ const trial = (
 		measureEndedAtMs: 2_000,
 		warmup: { search: 20, details: 20 },
 		configuration: {
-			SERVER_LANES: "split",
 			SERVER_LOG_LEVEL: "info",
 			cpuIterations: 1,
 			platform: "linux",
@@ -111,10 +110,7 @@ const trial = (
 				lockWaitingConnections: 0,
 			},
 		],
-		metrics: {
-			interactive: [snapshot(900, 0, 10), snapshot(2_100, scale, 13)],
-			background: [snapshot(900, 0, 20), snapshot(2_100, scale, 24)],
-		},
+		metrics: [snapshot(900, 0, 30), snapshot(2_100, scale, 37)],
 	});
 };
 
@@ -122,14 +118,13 @@ const fairness = (pass: boolean) =>
 	encodeFairness({
 		kind: "fairness",
 		host: [],
-		metrics: {},
+		metrics: [],
 		windowMs: 1_000,
 		windowEndedAtMs: 2_000,
 		windowStartedAtMs: 1_000,
 		startedAt: "2026-10-09T00:00:00.000Z",
 		tolerance: { executions: 4, admissions: 2 },
 		configuration: {
-			SERVER_LANES: "split",
 			SERVER_LOG_LEVEL: "info",
 			cpuIterations: 1,
 			platform: "linux",
@@ -229,11 +224,10 @@ describe("s3 summarizer validation", () => {
 		expect(output).toContain("unloaded-2: search has 1 samples without a valid ticket wait");
 	});
 
-	it("passes search at 1.2 and details at 1.5 of unloaded and reports the topology", () => {
+	it("passes search at 1.2 and details at 1.5 of unloaded", () => {
 		const { exitCode, output } = run(completeSet({ searchScale: 1.2, detailsScale: 1.5 }));
 		expect(exitCode).toBe(0);
 		expect(output).toContain("Verdict: **pass**");
-		expect(output).toContain("Topology: SERVER_LANES=split");
 	});
 
 	it("fails the verdict when loaded search p95 exceeds 1.25 of unloaded", () => {
@@ -252,20 +246,18 @@ describe("s3 summarizer validation", () => {
 		expect(output).toMatch(/\| details \|.*\| 1\.6 \| fail \|/);
 	});
 
-	it("rejects a role whose metrics window has fewer than two snapshots", () => {
+	it("rejects a metrics window with fewer than two snapshots", () => {
 		const root = completeSet();
 		const path = `${root}/loaded-2.json`;
 		const record = JSON.parse(readFileSync(path, "utf8"));
-		record.metrics.background = record.metrics.background.slice(0, 1);
+		record.metrics = record.metrics.slice(0, 1);
 		writeFileSync(path, JSON.stringify(record));
 		const { exitCode, output } = run(root);
 		expect(exitCode).not.toBe(0);
-		expect(output).toContain(
-			"loaded-2: the background role's OTel metrics window has fewer than two snapshots",
-		);
+		expect(output).toContain("loaded-2: the OTel metrics window has fewer than two snapshots");
 	});
 
-	it("sums the metric deltas of every role", () => {
+	it("reports the metric delta of the window", () => {
 		const root = completeSet();
 		run(root);
 		const summary = JSON.parse(readFileSync(`${root}/summary.json`, "utf8"));

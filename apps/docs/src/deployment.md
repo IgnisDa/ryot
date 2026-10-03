@@ -46,10 +46,6 @@ only its own task. The supplied deployments do not set CPU, memory, or process/t
 The sandbox budget is an admission bound, not a limit on total application memory; leave room
 for the backend, PostgreSQL, Redis, and other services.
 
-`SERVER_LANES=all` runs one backend process. `SERVER_LANES=split` runs separate interactive and
-background processes, each with its own sidecars and memory budget. Split mode needs more memory
-and fails at startup if the total budget cannot support both processes.
-
 ## Imports
 
 Ryot runs two provider imports at a time and queues the rest, so one user importing a lot does

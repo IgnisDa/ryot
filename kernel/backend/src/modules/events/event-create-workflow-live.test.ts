@@ -532,7 +532,7 @@ const run = (input = payload) =>
 	runEventCreateWorkflow(input, "workflow").pipe(
 		Effect.provideService(
 			WorkflowInstance,
-			WorkflowInstance.initial(EventCreateWorkflow.background, "workflow"),
+			WorkflowInstance.initial(EventCreateWorkflow, "workflow"),
 		),
 	);
 

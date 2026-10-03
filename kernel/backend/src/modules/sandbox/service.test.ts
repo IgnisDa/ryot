@@ -80,7 +80,7 @@ const engineLayer =
 const activityEngineLayer =
 	(executionId: string) =>
 	(execute: ExecuteWorkflow): Layer.Layer<WorkflowEngine | WorkflowInstance> => {
-		const instance = WorkflowInstance.initial(SandboxScriptWorkflow.background, executionId);
+		const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
 		return Layer.merge(
 			Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance, { execute })),
 			Layer.succeed(WorkflowInstance, instance),
@@ -157,7 +157,7 @@ layer(makeServiceLayer({ repository: installedScriptRepository }))((test) => {
 			yield* service.enqueue(executingUserId, { scriptId, context: {} }, "interactive");
 			const execution = (yield* (yield* SandboxServiceCalls).executions).at(-1);
 
-			expect(execution?.workflow).toBe(SandboxScriptWorkflow.interactive);
+			expect(execution?.workflow).toBe(SandboxScriptWorkflow);
 			expect(execution?.options.payload).toMatchObject({
 				scriptId,
 				resultMode: "execution",
@@ -189,7 +189,7 @@ layer(
 			yield* service.enqueue(executingUserId, { scriptId, context: {} }, "interactive");
 			const execution = (yield* (yield* SandboxServiceCalls).executions).at(-1);
 
-			expect(execution?.workflow).toBe(SandboxScriptWorkflow.interactive);
+			expect(execution?.workflow).toBe(SandboxScriptWorkflow);
 			expect(execution?.options.payload).toMatchObject({
 				scriptId,
 				input: {},
@@ -298,27 +298,29 @@ for (const lane of ["interactive", "background"] as const) {
 		makeServiceLayer({
 			repository: installedScriptRepository,
 			workflow: engineLayer((workflow) =>
-				workflow._tag === SandboxScriptWorkflow.forLane(lane)._tag
+				workflow._tag === SandboxScriptWorkflow._tag
 					? Effect.succeedSome(new Workflow.Complete({ exit: Exit.succeed(completedResult) }))
 					: Effect.succeedNone,
 			),
 		}),
 	)((test) => {
-		test.effect(`returns the completed public result of a ${lane} job from its lane workflow`, () =>
-			Effect.gen(function* () {
-				const service = yield* SandboxExecutionService;
-				const { jobId } = yield* service.enqueue(executingUserId, { scriptId }, lane);
-				const execution = (yield* (yield* SandboxServiceCalls).executions).at(-1);
+		test.effect(
+			`returns the completed public result of a ${lane} job from the sandbox workflow`,
+			() =>
+				Effect.gen(function* () {
+					const service = yield* SandboxExecutionService;
+					const { jobId } = yield* service.enqueue(executingUserId, { scriptId }, lane);
+					const execution = (yield* (yield* SandboxServiceCalls).executions).at(-1);
 
-				expect(execution?.workflow).toBe(SandboxScriptWorkflow.forLane(lane));
-				expect(yield* service.getResult(executingUserId, jobId)).toEqual({
-					logs: ["completed"],
-					status: "completed",
-					value: { ok: true },
-					timing: { totalMs: 12, executionMs: 8 },
-					error: { phase: "execute", kind: "script-failure", message: "reported failure" },
-				});
-			}),
+					expect(execution?.workflow).toBe(SandboxScriptWorkflow);
+					expect(yield* service.getResult(executingUserId, jobId)).toEqual({
+						logs: ["completed"],
+						status: "completed",
+						value: { ok: true },
+						timing: { totalMs: 12, executionMs: 8 },
+						error: { phase: "execute", kind: "script-failure", message: "reported failure" },
+					});
+				}),
 		);
 	});
 }
@@ -369,7 +371,7 @@ layer(
 			const execution = (yield* (yield* SandboxServiceCalls).executions).at(-1);
 
 			expect(result).toEqual({ results: [] });
-			expect(execution?.workflow).toBe(SandboxScriptWorkflow.interactive);
+			expect(execution?.workflow).toBe(SandboxScriptWorkflow);
 			expect(execution?.options).toMatchObject({
 				executionId,
 				payload: {

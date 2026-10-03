@@ -1,17 +1,15 @@
-import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { hmacSha256Base64Url } from "@ryot-app/ts-utils/crypto";
-import { Schema } from "effect";
 
 const separator = ".";
 const keyDomain = "sandbox-job-id";
 const textEncoder = new TextEncoder();
 
-export type WorkflowJob = { readonly lane: ExecutionLane; readonly executionId: string };
+export type WorkflowJob = { readonly executionId: string; readonly itemCount?: number };
 
-const isExecutionLane = Schema.is(ExecutionLane);
+const itemCountText = (job: WorkflowJob) => job.itemCount?.toString() ?? "";
 
 const createSignature = (secret: string, job: WorkflowJob, userId: string) =>
-	hmacSha256Base64Url(secret, `${job.lane}:${job.executionId}:${userId}`);
+	hmacSha256Base64Url(secret, `${job.executionId}:${itemCountText(job)}:${userId}`);
 
 const signaturesMatch = (actual: string, expected: string) => {
 	const actualBytes = textEncoder.encode(actual);
@@ -30,25 +28,27 @@ export const deriveJobIdSecret = (adminAccessToken: string, domain: string = key
 	hmacSha256Base64Url(adminAccessToken, domain);
 
 export const createWorkflowJobId = (secret: string, job: WorkflowJob, userId: string) =>
-	`${job.lane}${separator}${job.executionId}${separator}${createSignature(secret, job, userId)}`;
+	`${job.executionId}${separator}${itemCountText(job)}${separator}${createSignature(secret, job, userId)}`;
 
 export const resolveWorkflowJob = (
 	secret: string,
 	userId: string,
 	jobId: string,
 ): WorkflowJob | null => {
-	const laneEnd = jobId.indexOf(separator);
 	const signatureStart = jobId.lastIndexOf(separator);
-	if (laneEnd <= 0 || signatureStart <= laneEnd + 1 || signatureStart === jobId.length - 1) {
+	const countStart = jobId.lastIndexOf(separator, signatureStart - 1);
+	if (countStart <= 0 || signatureStart === jobId.length - 1) {
 		return null;
 	}
 
-	const lane = jobId.slice(0, laneEnd);
-	if (!isExecutionLane(lane)) {
+	const executionId = jobId.slice(0, countStart);
+	const countText = jobId.slice(countStart + 1, signatureStart);
+	const signature = jobId.slice(signatureStart + 1);
+	const itemCount = Number(countText);
+	if (countText !== "" && !(/^[1-9]\d*$/.test(countText) && Number.isSafeInteger(itemCount))) {
 		return null;
 	}
-	const job = { lane, executionId: jobId.slice(laneEnd + 1, signatureStart) };
-	const signature = jobId.slice(signatureStart + 1);
+	const job = countText === "" ? { executionId } : { itemCount, executionId };
 
 	return signaturesMatch(signature, createSignature(secret, job, userId)) ? job : null;
 };
