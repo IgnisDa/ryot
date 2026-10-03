@@ -1,0 +1,152 @@
+[
+	{
+		"name": "run",
+		"expect": "valid",
+		"direction": "inbound"
+	},
+	{
+		"name": "run-full-background",
+		"expect": "valid",
+		"direction": "inbound"
+	},
+	{
+		"name": "host-result-success",
+		"expect": "valid",
+		"direction": "inbound"
+	},
+	{
+		"name": "host-result-failure",
+		"expect": "valid",
+		"direction": "inbound"
+	},
+	{
+		"name": "cancel",
+		"expect": "valid",
+		"direction": "inbound"
+	},
+	{
+		"name": "part-run",
+		"expect": "valid",
+		"direction": "inbound"
+	},
+	{
+		"name": "ready",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
+		"name": "host-call",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
+		"name": "done-completed",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
+		"name": "done-failed",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
+		"name": "done-limit",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
+		"name": "done-cancelled",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
+		"name": "draining",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
+		"name": "fatal",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
+		"name": "part-done",
+		"expect": "valid",
+		"direction": "outbound"
+	},
+	{
+		"name": "run-bad-sha256",
+		"expect": "payload",
+		"direction": "inbound"
+	},
+	{
+		"name": "run-heap-below-minimum",
+		"expect": "payload",
+		"direction": "inbound"
+	},
+	{
+		"name": "run-unknown-tier",
+		"expect": "payload",
+		"direction": "inbound"
+	},
+	{
+		"name": "run-excess-property",
+		"expect": "payload",
+		"direction": "inbound"
+	},
+	{
+		"name": "run-missing-handle",
+		"expect": "payload",
+		"direction": "inbound"
+	},
+	{
+		"name": "cancel-handle-shape",
+		"expect": "payload",
+		"direction": "inbound"
+	},
+	{
+		"name": "host-result-unknown-status",
+		"expect": "payload",
+		"direction": "inbound"
+	},
+	{
+		"name": "unknown-type",
+		"expect": "payload",
+		"direction": "inbound"
+	},
+	{
+		"name": "part-bad-base64",
+		"expect": "payload",
+		"direction": "inbound"
+	},
+	{
+		"name": "host-call-empty-name",
+		"expect": "payload",
+		"direction": "outbound"
+	},
+	{
+		"name": "done-unknown-phase",
+		"expect": "payload",
+		"direction": "outbound"
+	},
+	{
+		"name": "not-json",
+		"expect": "payload",
+		"direction": "inbound"
+	},
+	{
+		"name": "oversize-length",
+		"expect": "framing",
+		"direction": "inbound"
+	},
+	{
+		"name": "zero-length",
+		"expect": "framing",
+		"direction": "inbound"
+	},
+	{
+		"name": "truncated",
+		"expect": "framing",
+		"direction": "outbound"
+	}
+]
