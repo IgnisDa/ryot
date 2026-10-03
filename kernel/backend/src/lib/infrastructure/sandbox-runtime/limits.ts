@@ -22,7 +22,7 @@ export const SANDBOX_LIMITS = {
 	userRelationshipWrites: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	journalReads: { count: 2_048, sliceBytes: MiB, totalBytes: 200 * MiB },
-	isolate: { cpuMs: 30_000, heapBytes: 256 * MiB, externalBytes: 64 * MiB },
+	isolate: { cpuMs: 30_000, heapBytes: 64 * MiB, externalBytes: 16 * MiB },
 	scratch: { maxEntries: 4_096, totalBytes: 5 * MiB, chunkBytes: 256 * KiB },
 	cache: { keyBytes: 256, valueBytes: 256 * KiB, ttlSeconds: 30 * 24 * 60 * 60 },
 	observability: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
@@ -42,7 +42,7 @@ export const SANDBOX_LIMITS = {
 		requestBytes: MiB,
 		concurrentHostCalls: 4,
 		responseBytes: 10 * MiB,
-		durableResponseBytes: 101 * MiB,
+		durableResponseBytes: 12 * MiB,
 	},
 	sidecar: {
 		idleMs: 60_000,
@@ -152,10 +152,14 @@ export const sandboxWorkflowJournalByteError = (
 	journalBytes: number,
 	entryBytes: number,
 	entryCount: number,
-) =>
-	journalBytes + entryBytes + (entryCount === 0 ? 0 : 1) > SANDBOX_LIMITS.journalBytes
+) => {
+	if (entryBytes > SANDBOX_LIMITS.bridge.durableResponseBytes) {
+		return `Sandbox workflow durable journal entry exceeds ${SANDBOX_LIMITS.bridge.durableResponseBytes} UTF-8 bytes`;
+	}
+	return journalBytes + entryBytes + (entryCount === 0 ? 0 : 1) > SANDBOX_LIMITS.journalBytes
 		? `Sandbox workflow durable journal exceeds ${SANDBOX_LIMITS.journalBytes} UTF-8 bytes`
 		: null;
+};
 
 export const sandboxContextError = (context: unknown) => {
 	const bytes = jsonByteLength(context);

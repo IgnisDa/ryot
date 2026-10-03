@@ -11,7 +11,7 @@ import { SIDECAR_PROTOCOL_LIMITS } from "./sidecar-protocol";
 import { readWorkflowJournal } from "./workflow-journal";
 
 const admissionLayer = Layer.effect(SandboxSidecarAdmission, SandboxSidecarAdmission.make).pipe(
-	Layer.provide(makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(1700) } })),
+	Layer.provide(makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(1300) } })),
 );
 const acquireScope = Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void));
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
@@ -293,7 +293,8 @@ layer(admissionLayer)((test) => {
 					.pipe(Scope.provide(measureScope));
 				const runBytes = measured.snapshot().bytes - idle;
 				expect(runBytes).toBeGreaterThan(
-					(256 + 64) * MiB +
+					SANDBOX_LIMITS.isolate.heapBytes +
+						SANDBOX_LIMITS.isolate.externalBytes +
 						3 * SIDECAR_PROTOCOL_LIMITS.messageBytes.run +
 						12 * SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult +
 						8 * SANDBOX_LIMITS.bridge.responseBytes,

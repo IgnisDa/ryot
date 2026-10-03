@@ -576,12 +576,12 @@ export default {
             assert_eq!(name, "artifactReadRange");
             assert_eq!(args["length"], 1024 * 1024);
             whole_reads += 1;
-            json!({ "offset": args["offset"], "size": 63 * 1024 * 1024, "data": chunk })
+            json!({ "offset": args["offset"], "size": 15 * 1024 * 1024, "data": chunk })
         })
         .value();
     assert_eq!(whole_result["success"], true, "{whole_result}");
-    assert_eq!(whole_result["value"], (63 * 1024 * 1024).to_string());
-    assert_eq!(whole_reads, 63);
+    assert_eq!(whole_result["value"], (15 * 1024 * 1024).to_string());
+    assert_eq!(whole_reads, 15);
     let ungranted = sidecar
         .execute(
             Tier::Core,

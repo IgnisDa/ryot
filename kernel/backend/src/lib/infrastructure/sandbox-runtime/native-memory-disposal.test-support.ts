@@ -199,7 +199,7 @@ export const nativeMemoryLayer = Layer.unwrap(
 		const config = nativeConfigLayer({
 			redisUrl: Redacted.make(testRedisUrl()),
 			fileStorage: { localTempDir: evidence.root },
-			sandbox: { memoryBudgetMiB: Option.some(2048) },
+			sandbox: { memoryBudgetMiB: Option.some(1536) },
 		});
 		const dependencies = Layer.mergeAll(
 			recordingClient,
