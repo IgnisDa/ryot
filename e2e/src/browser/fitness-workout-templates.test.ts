@@ -108,7 +108,8 @@ it.live(
 			yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();
 			yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill(`${name} performed`);
 			yield* exercise.getByRole("button", { exact: true, name: "Complete set 1" }).click();
-			yield* exercise.getByRole("button", { exact: true, name: "Replace" }).click();
+			yield* exercise.getByRole("button", { exact: true, name: `${exerciseName} actions` }).click();
+			yield* frame.getByRole("menuitem", { exact: true, name: "Replace exercise" }).click();
 			const replace = frame.getByRole("dialog", { exact: true, name: `Replace ${exerciseName}` });
 			yield* replace.getByRole("checkbox", { exact: true, name: replacementName }).check();
 			yield* replace.getByRole("button", { exact: true, name: "Replace exercise" }).click();
