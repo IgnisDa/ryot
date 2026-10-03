@@ -1,10 +1,15 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import {
+	and,
 	castDate,
+	castJson,
 	castNumber,
 	castText,
 	column,
+	eq,
+	isNull,
 	jsonPath,
+	or,
 	selectedField,
 	type table,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -23,6 +28,12 @@ export const property = (source: Table, path: string) =>
 
 export const propertyDate = (source: Table, path: string) =>
 	castDate(jsonPath(column(source, "properties"), path));
+
+export const propertyJson = (source: Table, path: string) =>
+	castJson(jsonPath(column(source, "properties"), path));
+
+export const nullableEquals = (left: ReturnType<typeof column>, right: ReturnType<typeof column>) =>
+	or(and(isNull(left), isNull(right)), eq(left, right));
 
 export const propertyNumber = (source: Table, path: string) =>
 	castNumber(jsonPath(column(source, "properties"), path));

@@ -25,6 +25,7 @@ import {
 	propertyNumber,
 	workoutDatesSelection,
 } from "./entity-selections";
+import { exerciseEquipmentInclude } from "./taxonomy-recipes";
 
 type Table = ReturnType<typeof table>;
 type EntityFilterInput = { entityId?: string | undefined; name?: string | undefined };
@@ -38,7 +39,7 @@ const entityWhere = (entity: Table, schemaSlug: string, input: EntityFilterInput
 		...(input.name ? [eq(column(entity, "name"), literal(input.name))] : []),
 	);
 
-const workoutSelection = (entity: Table) => ({
+export const workoutSelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
 	...workoutDatesSelection(entity),
 	comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
@@ -54,7 +55,7 @@ const workoutTemplateSelection = (entity: Table) => ({
 	comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
 });
 
-const workoutTemplateInclude = (parent: Table, limit: number) => {
+export const workoutTemplateInclude = (parent: Table, limit: number) => {
 	const template = table("entity", "template");
 	const relationship = table("relationship", "templateRelationship");
 	return selectedInclude(relationship, {
@@ -90,27 +91,6 @@ const workoutInclude = (parent: Table, limit: number) => {
 	});
 };
 
-const exerciseEquipmentInclude = (parent: Table) => {
-	const equipment = table("entity", "exerciseEquipment");
-	const relationship = table("relationship", "exerciseEquipmentRelationship");
-	return selectedInclude(relationship, {
-		limit: 100,
-		orderBy: [ascending(column(equipment, "name")), ascending(column(relationship, "id"))],
-		joins: [
-			join("inner", equipment, eq(column(relationship, "targetEntityId"), column(equipment, "id"))),
-		],
-		selection: {
-			id: selectedField(column(equipment, "id"), Schema.String),
-			name: selectedField(column(equipment, "name"), Schema.String),
-		},
-		where: and(
-			eq(column(relationship, "sourceEntityId"), column(parent, "id")),
-			eq(column(relationship, "relationshipSchemaSlug"), literal("exercise-uses-equipment")),
-			eq(column(equipment, "entitySchemaSlug"), literal("exercise-equipment")),
-		),
-	});
-};
-
 export const exerciseListRecipe = defineRecipe(
 	(input: EntityListInput & Pick<EntityFilterInput, "name">) => {
 		const entity = table("entity", "entity");
@@ -120,9 +100,7 @@ export const exerciseListRecipe = defineRecipe(
 					...exercises,
 					items: exercises.items.map(({ equipment, ...exercise }) => ({
 						...exercise,
-						equipment: [
-							...new Map(equipment.items.map((item) => [item.id, item] as const)).values(),
-						],
+						equipment: equipment.items,
 					})),
 				}),
 			queries: {
