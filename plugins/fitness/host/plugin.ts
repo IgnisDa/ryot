@@ -65,38 +65,6 @@ export const fitnessPlugin = definePlugin({
 		{ slug: "import-application", scriptSlug: "workflow.import-application" },
 		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
 	],
-	client: {
-		homeView: null,
-		apiVersion: CLIENT_API_VERSION,
-		entities: {
-			exercise: { listPresentation: "entity-row", gridPresentation: "entity-card" },
-			workout: { listPresentation: "workout-row", gridPresentation: "workout-card" },
-			measurement: { listPresentation: "entity-row", gridPresentation: "entity-card" },
-			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
-		},
-		exports: {
-			"entity-row": {
-				kind: "presentation",
-				entry: "client/entity-row.ts",
-				automaticEntityPresentations: false,
-			},
-			"workout-row": {
-				kind: "presentation",
-				entry: "client/workout-row.ts",
-				automaticEntityPresentations: false,
-			},
-			"entity-card": {
-				kind: "presentation",
-				entry: "client/entity-card.ts",
-				automaticEntityPresentations: false,
-			},
-			"workout-card": {
-				kind: "presentation",
-				entry: "client/workout-card.ts",
-				automaticEntityPresentations: false,
-			},
-		},
-	},
 	providers: [
 		{
 			name: "Free Exercise DB",
@@ -177,6 +145,48 @@ export const fitnessPlugin = definePlugin({
 			},
 		}),
 	),
+	client: {
+		homeView: null,
+		apiVersion: CLIENT_API_VERSION,
+		entities: {
+			exercise: { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			measurement: { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			workout: {
+				detailPage: "workout-detail",
+				listPresentation: "workout-row",
+				gridPresentation: "workout-card",
+			},
+		},
+		exports: {
+			"entity-row": {
+				kind: "presentation",
+				entry: "client/entity-row.ts",
+				automaticEntityPresentations: false,
+			},
+			"workout-row": {
+				kind: "presentation",
+				entry: "client/workout-row.ts",
+				automaticEntityPresentations: false,
+			},
+			"entity-card": {
+				kind: "presentation",
+				entry: "client/entity-card.ts",
+				automaticEntityPresentations: false,
+			},
+			"workout-card": {
+				kind: "presentation",
+				entry: "client/workout-card.ts",
+				automaticEntityPresentations: false,
+			},
+			"workout-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/workout/screen.tsx",
+				automaticEntityPresentations: false,
+			},
+		},
+	},
 	hooks: [
 		{
 			position: 100,
