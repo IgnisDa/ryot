@@ -1,3 +1,4 @@
+import { PluginClientEntities } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginPackageReference,
 	SavedViewReference,
@@ -52,6 +53,10 @@ export const pluginClientCatalogRecipe = defineRecipe(
 					health: selectedField(column(installation, "health"), PluginInstallationHealth),
 					scope: selectedField(column(plugin, "scope"), PluginPackageReference.fields.scope),
 					clientApiVersion: selectedField(column(plugin, "clientApiVersion"), Schema.Literal(1)),
+					clientEntities: selectedField(
+						column(plugin, "clientEntities"),
+						Schema.NullOr(PluginClientEntities),
+					),
 					homeSavedView: selectedField(
 						column(installation, "homeSavedView"),
 						Schema.NullOr(SavedViewReference),

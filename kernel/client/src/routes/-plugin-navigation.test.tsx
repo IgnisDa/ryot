@@ -649,6 +649,66 @@ describe("client page routes", () => {
 		}),
 	);
 
+	it.live("navigates to the schema create route with the query when Create custom is used", () =>
+		Effect.gen(function* () {
+			const view = mount({
+				entry: "/p/test/plugin-1?tab=home",
+				entries: [{ ...catalog[0], clientEntities: { book: { createRoute: "/books/new" } } }],
+				loadProviders: () =>
+					Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
+			});
+			const bridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
+			bridge.port.postMessage({
+				initialQuery: "dune part two",
+				type: "provider-search-screen",
+				requestId: "provider-search-screen-1",
+				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+			});
+
+			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
+			fireEvent.click(screen.getByRole("button", { name: "Create custom" }));
+
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					expect(view.router.state.location.pathname).toBe("/p/test/plugin-1/books/new");
+					expect(view.router.state.location.searchStr).toBe("?name=dune+part+two");
+				}),
+			);
+			expect(bridge.messages).toContainEqual({
+				outcome: "success",
+				value: { kind: "create-requested" },
+				requestId: "provider-search-screen-1",
+				type: "provider-search-screen-result",
+			});
+			expect(screen.queryByRole("dialog", { name: "Add from a provider" })).toBeNull();
+		}),
+	);
+
+	it.live("offers no Create custom without a create route for the schema", () =>
+		Effect.gen(function* () {
+			mount({
+				entry: "/p/test/plugin-1?tab=home",
+				loadProviders: () =>
+					Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
+			});
+			const bridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
+			bridge.port.postMessage({
+				type: "provider-search-screen",
+				requestId: "provider-search-screen-1",
+				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
+				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
+			});
+
+			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
+			expect(screen.queryByRole("button", { name: "Create custom" })).toBeNull();
+		}),
+	);
+
 	it.live("returns the imported entity ID and closes provider search from a plugin route", () =>
 		Effect.gen(function* () {
 			const providerId = SandboxProviderId.make("provider-1");

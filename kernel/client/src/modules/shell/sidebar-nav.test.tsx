@@ -18,6 +18,7 @@ const current: PluginClientCatalogEntry = {
 	scope: "system",
 	clientApiVersion: 1,
 	homeSavedView: null,
+	clientEntities: null,
 	contentHash: "source-media",
 	installationId: "installation-media",
 	pluginId: PluginId.make("plugin-media"),

@@ -143,7 +143,8 @@ headers from the application's origin. Signed downloads used by browser code als
 `HEAD` rules. Configure these on the bucket; the SDK does not change storage policies.
 
 `screens.openProviderSearch` is the only provider-add screen capability. It returns an Effect with
-either imported entity IDs or a cancellation outcome. It carries the configured entity-schema owner
+imported entity IDs, a cancellation outcome, or `create-requested` when the user chose the schema's
+declared `createRoute` (the kernel then navigates there). It carries the configured entity-schema owner
 and slug, plus an optional initial query; it does not expose a generic native screen method. After a
 successful import, the host sends one narrow `page-refresh` signal. Client pages can register their
 current source refetch with `usePageRefresh`; successful shared mutations use the same refresh registry.

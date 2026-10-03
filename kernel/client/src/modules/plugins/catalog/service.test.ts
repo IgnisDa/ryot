@@ -35,6 +35,7 @@ const entry = {
 	scope: "system",
 	clientApiVersion: 1,
 	homeSavedView: null,
+	clientEntities: null,
 	pluginId: "plugin-1",
 	packageId: "test/fixture",
 	contentHash: "source-hash",

@@ -216,23 +216,24 @@ export const PluginClientDependencies = Schema.Record(Schema.String, PluginPacka
 	Schema.check(pluginManifestSlugKeys),
 );
 
+export const PluginClientEntities = Schema.Record(
+	pluginManifestSlug,
+	strictStruct({
+		createRoute: Schema.optional(Schema.String),
+		detailPage: Schema.optional(pluginManifestSlug),
+		gridPresentation: Schema.optional(pluginManifestSlug),
+		listPresentation: Schema.optional(pluginManifestSlug),
+	}),
+);
+
 export const PluginClientEntry = strictStruct({
 	homeView: Schema.NullOr(pluginManifestSlug),
 	exports: Schema.optional(PluginClientExports),
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
+	entities: Schema.optional(PluginClientEntities),
 	notFoundPage: Schema.optional(pluginManifestSlug),
 	pluginDependencies: Schema.optional(PluginClientDependencies),
 	routes: Schema.optional(Schema.Record(Schema.String, pluginManifestSlug)),
-	entities: Schema.optional(
-		Schema.Record(
-			pluginManifestSlug,
-			strictStruct({
-				detailPage: Schema.optional(pluginManifestSlug),
-				gridPresentation: Schema.optional(pluginManifestSlug),
-				listPresentation: Schema.optional(pluginManifestSlug),
-			}),
-		),
-	),
 });
 
 export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
@@ -906,6 +907,12 @@ const hasValidClientManifestReferences = (
 		if (
 			registrations.detailPage !== undefined &&
 			clientExports[registrations.detailPage]?.kind !== "page"
+		) {
+			return false;
+		}
+		if (
+			registrations.createRoute !== undefined &&
+			manifest.client?.routes?.[registrations.createRoute] === undefined
 		) {
 			return false;
 		}

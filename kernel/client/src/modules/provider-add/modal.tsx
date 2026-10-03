@@ -11,6 +11,8 @@ import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ComponentProps } from "react";
 
+import { toGlobalHref } from "#/modules/plugins/catalog/location";
+import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { importProviderEntity } from "#/modules/provider-add/import-controller";
 import {
 	type ProviderAddOutcome,
@@ -26,6 +28,7 @@ export const PROVIDER_ADD_TITLE = "Add from a provider";
 
 type ProviderAddModalProps = {
 	readonly onClose: () => void;
+	readonly onCreate: (href: string) => void;
 	readonly onComplete?: (outcome: ProviderSearchScreenOutcome) => void;
 	readonly initialQuery?: string | undefined;
 	readonly schema: EntitySchemaReference;
@@ -53,6 +56,11 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 	const entitySchemaSlug = props.schema.slug;
 	const ownerPluginId =
 		props.schema.owner.kind === "plugin" ? props.schema.owner.pluginId : undefined;
+	const { catalog } = usePluginCatalog();
+	const owner = catalog.find(
+		(entry) => entry.pluginId === ownerPluginId && entry.health !== "incompatible",
+	);
+	const createRoute = owner?.clientEntities?.[entitySchemaSlug]?.createRoute;
 	const schemaKey = definitionKey("entity", props.schema.owner, entitySchemaSlug);
 	const providerService = runtime.runSync(ProviderAddService);
 	const clientStorage = runtime.runSync(ClientStorage);
@@ -159,6 +167,25 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 		props.onComplete(outcome);
 		return true;
 	};
+	const createCustom = (query: string) => {
+		if (owner === undefined || createRoute === undefined) {
+			return;
+		}
+		const href = toGlobalHref(
+			{
+				path: createRoute,
+				kind: "plugin-route",
+				packageId: owner.packageId,
+				search: query === "" ? "" : new URLSearchParams({ name: query }).toString(),
+			},
+			catalog,
+		);
+		if (href === undefined) {
+			return;
+		}
+		complete({ kind: "create-requested" });
+		props.onCreate(href);
+	};
 	const close = () => {
 		if (!complete({ kind: "cancelled" })) {
 			props.onClose();
@@ -189,6 +216,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 						selectedProviderId={state.selectedProviderId}
 						relationshipSlug={props.library.relationshipSlug}
 						librarySchemaSlug={props.library.librarySchemaSlug}
+						onCreateCustom={createRoute === undefined ? undefined : createCustom}
 						onImported={(entityId: EntityId) => {
 							imported.current = true;
 							complete({ kind: "added", entityIds: [entityId] });

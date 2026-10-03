@@ -170,7 +170,8 @@ Local declaration names can repeat across packages. Entity and relationship sche
 
 Client exports are stable names with kind `page`, `component`, or `presentation`. Routes map URL
 patterns to page exports; entity declarations map owned schema slugs to detail and grid/list
-presentation exports; `homeView` names a plugin-owned saved view or is null. Saved views do not carry
+presentation exports and may name a `createRoute`, one of the declared routes, that the provider-add
+flow offers as "Create custom" with the search text as the `name` search parameter; `homeView` names a plugin-owned saved view or is null. Saved views do not carry
 legacy display mappings or sandbox scripts.
 
 ### User Settings

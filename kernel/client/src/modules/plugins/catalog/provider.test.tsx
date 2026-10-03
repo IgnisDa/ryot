@@ -30,6 +30,7 @@ const catalog: PluginClientCatalog = [
 		scope: "system",
 		clientApiVersion: 1,
 		homeSavedView: null,
+		clientEntities: null,
 		contentHash: "source-hash",
 		installationId: "installation-1",
 		pluginId: PluginId.make("plugin-1"),

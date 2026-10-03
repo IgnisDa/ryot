@@ -83,6 +83,7 @@ export type ProviderEntityLinksInput = {
 
 type ProviderSearchPanelProps = {
 	readonly onClose: () => void;
+	readonly onCreateCustom?: ((query: string) => void) | undefined;
 	readonly onImported: (entityId: EntityId) => void;
 	readonly uploadFile: SchemaFileUpload;
 	readonly providers: ProviderSummariesState;
@@ -523,6 +524,15 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 					<AppIcon name="x" size={16} className="text-text-muted" />
 				</button>
 			</div>
+
+			{props.onCreateCustom === undefined ? null : (
+				<Button
+					className="justify-self-start"
+					onClick={() => props.onCreateCustom?.(state.query.trim())}
+				>
+					Create custom
+				</Button>
+			)}
 
 			{Match.value(props.providers).pipe(
 				Match.when({ status: "loading" }, () => (

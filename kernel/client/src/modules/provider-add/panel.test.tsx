@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect } from "effect";
 import { axe } from "vitest-axe";
 
@@ -19,12 +19,13 @@ const provider = (index: number): ProviderSearchSummary => ({
 
 const providers = [provider(1), provider(2)];
 
-const renderPanel = () =>
+const renderPanel = (onCreateCustom?: (query: string) => void) =>
 	render(
 		<ProviderSearchPanel
 			onClose={() => undefined}
 			entitySchemaSlug={bookSlug}
 			onImported={() => undefined}
+			onCreateCustom={onCreateCustom}
 			librarySchemaSlug="media-library"
 			onSelectProvider={() => undefined}
 			relationshipSlug="in-media-library"
@@ -57,6 +58,21 @@ describe("provider search panel", () => {
 			);
 		}),
 	);
+
+	it("offers Create custom only when a handler is supplied and passes the trimmed query", () => {
+		const withoutHandler = renderPanel();
+		expect(screen.queryByRole("button", { name: "Create custom" })).toBeNull();
+		withoutHandler.unmount();
+
+		const queries: string[] = [];
+		renderPanel((query) => queries.push(query));
+		fireEvent.change(screen.getByRole("textbox", { name: "Search providers" }), {
+			target: { value: "  Dune  " },
+		});
+		fireEvent.click(screen.getByRole("button", { name: "Create custom" }));
+
+		expect(queries).toEqual(["Dune"]);
+	});
 
 	it.live("passes an axe pass on the rendered panel", () =>
 		Effect.gen(function* () {
