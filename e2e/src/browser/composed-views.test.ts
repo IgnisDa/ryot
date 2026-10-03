@@ -22,6 +22,7 @@ import {
 	listEventSchemas,
 	prepareClientPage,
 	requireEventSchemaBySlug,
+	uploadPermanentAsset,
 } from "~/fixtures/kernel";
 import {
 	createWorkoutEntityFixture,
@@ -34,7 +35,6 @@ import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth, waitForSearchParam } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 	Effect.gen(function* () {
@@ -501,37 +501,14 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		const apiUrl = getApiUrl();
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const installation = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
-		const uploadArtwork = (fileName: string, source: string) =>
-			Effect.gen(function* () {
-				const intent = yield* client.call((c) =>
-					c.uploads.createIntent({
-						payload: { fileName, kind: "permanent", contentType: "image/svg+xml" },
-					}),
-				);
-				const upload = yield* webRequest(new URL(intent.uploadUrl, `${apiUrl}/`), {
-					body: source,
-					method: intent.method,
-					headers: intent.headers,
-				});
-				expect([200, 204]).toContain(upload.status);
-				const artwork = yield* client.call((c) =>
-					c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
-				);
-				if (!("key" in artwork)) {
-					throw new Error(`Expected permanent artwork for ${fileName}`);
-				}
-				return artwork;
-			});
-		const [showArtwork, pokemonArtwork] = yield* Effect.all([
-			uploadArtwork(
-				"composed-show.svg",
-				'<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#7c3aed"/></svg>',
-			),
-			uploadArtwork(
-				"composed-pokemon.svg",
-				'<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><circle cx="40" cy="40" r="40" fill="#16a34a"/></svg>',
-			),
-		]);
+		const showArtwork =
+			'<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#7c3aed"/></svg>';
+		const showArtworkUrl = "https://images.test/composed-show.svg";
+		const pokemonArtwork = yield* uploadPermanentAsset(client, {
+			contentType: "image/svg+xml",
+			fileName: "composed-pokemon.svg",
+			body: '<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><circle cx="40" cy="40" r="40" fill="#16a34a"/></svg>',
+		});
 		const fallbackSchema = yield* createEntitySchema(client, {
 			name: "Mixed fallback",
 			pluginSlug: `mixed-fallback-${crypto.randomUUID()}`,
@@ -550,7 +527,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 			showProperties: {
 				publishYear: 2025,
 				productionStatus: "Returning Series",
-				images: [{ ...showArtwork, purpose: "cover" }],
+				images: [{ type: "remote", purpose: "cover", url: showArtworkUrl }],
 			},
 		});
 		const { schema: episodeSchema } = yield* findMediaEntitySchema(client, "show-episode");
@@ -623,6 +600,13 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
+		yield* page.use((native) =>
+			native
+				.context()
+				.route(showArtworkUrl, (route) =>
+					route.fulfill({ body: showArtwork, contentType: "image/svg+xml" }),
+				),
+		);
 		yield* signInThroughHostedOAuth(page, email, password);
 		const assetRequests: string[] = [];
 		yield* page.use((nativePage) => {
@@ -703,10 +687,8 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 				).toBe(60);
 
 				yield* expectVisibleText(workout, "04 Composed Strength Workout");
-				yield* expectVisibleText(workout, "Sep 7");
 				yield* expectVisibleText(workout, "1h 30m");
 				expect(yield* workout.locator("img").count).toBe(0);
-				yield* expectVisibleText(workout, exercise.name);
 				yield* expectVisibleText(workout, "60 kg × 8");
 
 				yield* expectVisibleText(pokemonItem, "05 Composed Bulbasaur");
@@ -732,6 +714,8 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		const workoutGrid = runtime.locator(`[data-entity-id="${workoutId}"][data-layout="grid"]`);
 		const pokemonGrid = runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="card"]`);
 		yield* expectRichEntities(showGrid, workoutGrid, pokemonGrid);
+		yield* expectVisibleText(workoutGrid, "Mon, Sep 7");
+		yield* expectVisibleText(workoutGrid, exercise.name);
 		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/plugin-client-sdk/plugin");
 		const runtimeBase = runtimeUrl.slice(0, runtimeUrl.lastIndexOf("/") + 1);
 		const fontRequests = assetRequests.filter((path) => path.endsWith(".woff2"));
