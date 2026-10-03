@@ -1,5 +1,5 @@
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
-import type {
+import {
 	EntityEditorSaveOutput,
 	EntityEditorSubmission,
 } from "@ryot-app/contract/modules/entities/editor";
@@ -20,10 +20,11 @@ import { managedAssetKey } from "../assets/keys";
 import { ManagedAssetProvider, useAssetUrl } from "../assets/provider";
 import type { RyotClient } from "../client/client";
 import type { RyotClientError } from "../client/errors";
+import { PluginScreenFrame } from "../plugin-screen";
 import { readCursorPages } from "../queries/cursor-pages";
 import { createRyotQuery } from "../queries/definitions";
 import { useRyotQuery } from "../queries/hooks";
-import { useRyot, useRyotSchedule } from "../queries/provider";
+import { usePluginNavigation, useRyot, useRyotSchedule } from "../queries/provider";
 import {
 	buildSubmission,
 	entityFormValues,
@@ -59,6 +60,9 @@ export type EntityEditorProps = {
 		submission: EntityEditorSubmission,
 	) => Effect.Effect<EntityEditorSaveOutput, RyotClientError>;
 };
+
+const editorTitle = (mode: EntityEditorMode, entityName: string) =>
+	`${mode.kind === "edit" ? "Edit" : "New"} ${entityName}`;
 
 const STALE_MESSAGE = "This changed elsewhere. Reload and try again.";
 const SAVE_FAILED_MESSAGE = "Could not save. Try again.";
@@ -306,8 +310,8 @@ function EntityEditorForm(
 	return (
 		<ActionForm
 			onSubmit={() => void form.handleSubmit()}
+			label={editorTitle(mode, definitions.entity.name)}
 			className="mx-auto flex w-full max-w-2xl flex-col gap-5"
-			label={`${mode.kind === "edit" ? "Edit" : "New"} ${definitions.entity.name}`}
 		>
 			<Field label="Name" error={nameError}>
 				{(control) => (
@@ -400,4 +404,41 @@ export function EntityEditor(props: EntityEditorProps) {
 		return <StatusMessage tone="error">This item is unavailable.</StatusMessage>;
 	}
 	return <EntityEditorForm {...props} source={source.data} definitions={definitions.data} />;
+}
+
+export function EntityEditorScreen(
+	props: Omit<EntityEditorProps, "onCancel" | "onSaved" | "save"> & {
+		readonly saveOperationSlug: string;
+	},
+) {
+	const { mode, packageId, entitySchemaSlug, relationshipSlugs, saveOperationSlug } = props;
+	const client = useRyot();
+	const navigation = usePluginNavigation();
+	const definitions = useRyotQuery(definitionsQuery, {
+		packageId,
+		entitySchemaSlug,
+		relationshipSlugs,
+	});
+	return (
+		<PluginScreenFrame
+			title={
+				definitions.data === undefined ? null : editorTitle(mode, definitions.data.entity.name)
+			}
+		>
+			<EntityEditor
+				{...props}
+				onCancel={() => navigation.back()}
+				onSaved={(entityId) => client.navigation.replace({ entityId, kind: "entity" })}
+				save={(submission) =>
+					client.operations.invoke({
+						packageId,
+						input: submission,
+						slug: saveOperationSlug,
+						output: EntityEditorSaveOutput,
+						inputSchema: EntityEditorSubmission,
+					})
+				}
+			/>
+		</PluginScreenFrame>
+	);
 }
