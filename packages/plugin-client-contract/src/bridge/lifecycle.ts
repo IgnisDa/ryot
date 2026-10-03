@@ -187,7 +187,11 @@ const providerSearchScreenResultFields = {
 };
 
 export const PluginBridgeProviderSearchScreenResult = Schema.Union([
-	strictStruct({ ...providerSearchScreenResultFields, outcome: ProviderSearchScreenOutcome }),
+	strictStruct({
+		...providerSearchScreenResultFields,
+		value: ProviderSearchScreenOutcome,
+		outcome: Schema.Literal("success"),
+	}),
 	strictStruct({
 		...providerSearchScreenResultFields,
 		reason: RyotClientErrorReason,

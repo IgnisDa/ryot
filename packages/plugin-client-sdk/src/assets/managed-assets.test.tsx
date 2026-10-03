@@ -10,7 +10,7 @@ import { RyotClientError } from "../client/errors";
 import { RyotProvider } from "../queries/provider";
 import { createTestRyotClock } from "../testing";
 import { managedAssetBatches } from "./keys";
-import { ManagedAssetProvider, useManagedAssetUrl } from "./provider";
+import { ManagedAssetProvider, useAssetUrl, useManagedAssetUrl } from "./provider";
 
 type TestClock = ReturnType<typeof createTestRyotClock>;
 
@@ -206,5 +206,30 @@ describe("ManagedAssetProvider", () => {
 			yield* Effect.promise(() => waitFor(() => expect(calls).toBe(2)));
 			expect(container.textContent).toBe("https://cdn.test/stable-cover");
 		}),
+	);
+
+	it.live(
+		"returns remote asset URLs directly and resolves managed assets through the provider",
+		() =>
+			Effect.gen(function* () {
+				const managed = { type: "s3", key: "cover" } as const;
+				const Probe = () => (
+					<p>
+						{useAssetUrl({ type: "remote", url: "https://img.test/a.png" })}|
+						{useAssetUrl(managed) ?? "placeholder"}
+					</p>
+				);
+				const { container } = render(
+					successfulAdapter([]),
+					<ManagedAssetProvider assets={[managed]}>
+						<Probe />
+					</ManagedAssetProvider>,
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(container.textContent).toBe("https://img.test/a.png|https://cdn.test/s3-cover"),
+					),
+				);
+			}),
 	);
 });

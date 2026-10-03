@@ -1,4 +1,4 @@
-import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import {
 	createContext,
 	useCallback,
@@ -116,4 +116,9 @@ export function ManagedAssetProvider(props: {
 export function useManagedAssetUrl(asset: ManagedAssetLocator | undefined) {
 	const urls = useContext(ManagedAssetUrlsContext);
 	return asset === undefined ? undefined : urls.get(managedAssetKey(asset));
+}
+
+export function useAssetUrl(asset: AssetLocator | undefined) {
+	const managedUrl = useManagedAssetUrl(asset?.type === "remote" ? undefined : asset);
+	return asset?.type === "remote" ? asset.url : managedUrl;
 }

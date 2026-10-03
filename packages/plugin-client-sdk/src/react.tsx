@@ -5,7 +5,7 @@ export {
 	managedAssetKey,
 	type ManagedAssetBatch,
 } from "./assets/keys";
-export { ManagedAssetProvider, useManagedAssetUrl } from "./assets/provider";
+export { ManagedAssetProvider, useAssetUrl, useManagedAssetUrl } from "./assets/provider";
 export {
 	createRyotMutation,
 	createRyotQuery,

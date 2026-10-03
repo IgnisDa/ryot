@@ -115,10 +115,12 @@ function mount(
 		documentKey: pageKey,
 		freshnessCheckRevision,
 		onHeader: () => undefined,
+		onFlushReady: () => undefined,
 		onOpenDrawer: () => undefined,
 		onNavigateBack: () => undefined,
 		onOverlayState: () => undefined,
 		onKernelShortcut: () => undefined,
+		onReleaseResources: () => undefined,
 		chromeTriggerRef: { current: null },
 		compositionHash: "composition-hash",
 		onProviderSearch: providerSearchHandler,
@@ -136,6 +138,8 @@ function mount(
 		onStorage: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onCollection: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
+		onDevice: () =>
+			Effect.succeed({ outcome: "failure" as const, reason: "invalid-request" as const }),
 		onExternalLink: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "link-open-failed" as const }),
 		navigation: {

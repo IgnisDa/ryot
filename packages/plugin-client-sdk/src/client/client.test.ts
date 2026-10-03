@@ -37,6 +37,7 @@ describe("Effect-native client capabilities", () => {
 				input: null,
 				slug: "context",
 				output: Schema.String,
+				inputSchema: Schema.Null,
 				packageId: PluginPackageId.make("ryot/fitness"),
 			};
 			yield* client.operations.invoke({ ...request, refreshOnSuccess: false });
@@ -143,13 +144,20 @@ describe("Effect-native client capabilities", () => {
 						slug: "greet",
 						input: Number.NaN,
 						packageId: "test/fixture",
+						inputSchema: Schema.Finite,
 					}),
 				),
 			).toMatchObject({ reason: "invalid-input" });
 			expect(calls).toBe(0);
 			expect(
 				yield* Effect.flip(
-					client.operations.invoke({ output, input: {}, slug: "greet", packageId: "test/fixture" }),
+					client.operations.invoke({
+						output,
+						input: {},
+						slug: "greet",
+						packageId: "test/fixture",
+						inputSchema: Schema.Struct({}),
+					}),
 				),
 			).toMatchObject({ reason: "malformed-result" });
 			expect(calls).toBe(1);
@@ -178,6 +186,7 @@ describe("Effect-native client capabilities", () => {
 					slug: "save",
 					output: Schema.String,
 					packageId: "test/fixture",
+					inputSchema: Schema.Struct({}),
 				}),
 			).toBe("saved");
 			expect(
@@ -187,6 +196,7 @@ describe("Effect-native client capabilities", () => {
 						slug: "save",
 						output: Schema.Finite,
 						packageId: "test/fixture",
+						inputSchema: Schema.Struct({}),
 					}),
 				),
 			).toMatchObject({ reason: "malformed-result" });
@@ -250,13 +260,16 @@ describe("Effect-native client capabilities", () => {
 							uploads.push(request);
 							if (request.action === "temporary") {
 								expect(request.source).toBe(source);
-								return { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
+								return {
+									action: "temporary",
+									token: { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" },
+								};
 							}
 							if (request.action === "permanent") {
 								expect(request.source).toBe(source);
-								return asset;
+								return { asset, action: "permanent" };
 							}
-							return { status: "deleted" };
+							return { action: "cleanup", status: "deleted" };
 						}),
 				}),
 			);
@@ -279,7 +292,9 @@ describe("Effect-native client capabilities", () => {
 			expect(
 				yield* Effect.flip(
 					createRyotClient(
-						createTestRyotAdapter({ upload: () => Effect.succeed({ status: "unknown" }) }),
+						createTestRyotAdapter({
+							upload: () => Effect.succeed({ action: "cleanup", status: "unknown" }),
+						}),
 					).uploads.cleanup(asset),
 				),
 			).toMatchObject({ reason: "malformed-result" });

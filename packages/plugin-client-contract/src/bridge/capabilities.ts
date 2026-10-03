@@ -371,23 +371,19 @@ export const PluginBridgeUploadRequest = Schema.Union(
 
 export type PluginBridgeUploadRequest = Schema.Schema.Type<typeof PluginBridgeUploadRequest>;
 
-const pluginUploadSuccessVariants = [
-	strictStruct({
-		token: TemporaryUploadToken,
-		outcome: Schema.Literal("success"),
-		action: Schema.Literal("temporary"),
-	}),
-	strictStruct({
-		asset: ManagedAssetLocator,
-		outcome: Schema.Literal("success"),
-		action: Schema.Literal("permanent"),
-	}),
-	strictStruct({
-		...CleanupManagedAssetOutput.fields,
-		action: Schema.Literal("cleanup"),
-		outcome: Schema.Literal("success"),
-	}),
+const pluginUploadResultVariants = [
+	strictStruct({ token: TemporaryUploadToken, action: Schema.Literal("temporary") }),
+	strictStruct({ asset: ManagedAssetLocator, action: Schema.Literal("permanent") }),
+	strictStruct({ ...CleanupManagedAssetOutput.fields, action: Schema.Literal("cleanup") }),
 ] as const;
+
+export const PluginUploadResult = Schema.Union(pluginUploadResultVariants);
+
+export type PluginUploadResult = Schema.Schema.Type<typeof PluginUploadResult>;
+
+const pluginUploadSuccessVariants = pluginUploadResultVariants.map((variant) =>
+	strictStruct({ ...variant.fields, outcome: Schema.Literal("success") }),
+);
 
 const pluginUploadFailureFields = {
 	outcome: Schema.Literal("failure"),

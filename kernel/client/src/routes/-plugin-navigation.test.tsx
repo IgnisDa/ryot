@@ -476,7 +476,8 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual({
-						outcome: { kind: "cancelled" },
+						outcome: "success",
+						value: { kind: "cancelled" },
 						requestId: "provider-search-screen-2",
 						type: "provider-search-screen-result",
 					}),
@@ -500,12 +501,14 @@ describe("client page routes", () => {
 				),
 			).toEqual([
 				{
-					outcome: { kind: "cancelled" },
+					outcome: "success",
+					value: { kind: "cancelled" },
 					requestId: "provider-search-screen-2",
 					type: "provider-search-screen-result",
 				},
 				{
-					outcome: { kind: "cancelled" },
+					outcome: "success",
+					value: { kind: "cancelled" },
 					requestId: "provider-search-screen-1",
 					type: "provider-search-screen-result",
 				},
@@ -594,7 +597,8 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual({
-						outcome: { kind: "cancelled" },
+						outcome: "success",
+						value: { kind: "cancelled" },
 						requestId: "provider-search-screen-2",
 						type: "provider-search-screen-result",
 					}),
@@ -621,12 +625,14 @@ describe("client page routes", () => {
 				),
 			).toEqual([
 				{
-					outcome: { kind: "cancelled" },
+					outcome: "success",
+					value: { kind: "cancelled" },
 					requestId: "provider-search-screen-2",
 					type: "provider-search-screen-result",
 				},
 				{
-					outcome: { kind: "cancelled" },
+					outcome: "success",
+					value: { kind: "cancelled" },
 					requestId: "provider-search-screen-1",
 					type: "provider-search-screen-result",
 				},
@@ -698,9 +704,10 @@ describe("client page routes", () => {
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual({
+						outcome: "success",
 						requestId: "provider-search-screen-1",
 						type: "provider-search-screen-result",
-						outcome: { kind: "added", entityIds: [entityId] },
+						value: { kind: "added", entityIds: [entityId] },
 					}),
 				),
 			);

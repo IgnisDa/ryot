@@ -139,7 +139,7 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 				}
 				if (action.kind === "package") {
 					const upload = yield* uploads
-						.upload(scope, {
+						.uploadTemporary(scope, {
 							action: "temporary",
 							source: action.file,
 							fileName: action.file.name,
@@ -153,11 +153,6 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 									}),
 							),
 						);
-					if (upload.action !== "temporary") {
-						return yield* new PluginManagementError({
-							detail: "Could not upload the selected plugin archive.",
-						});
-					}
 					return yield* api
 						.updatePackage(scope, {
 							params,

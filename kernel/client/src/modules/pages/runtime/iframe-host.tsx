@@ -119,9 +119,9 @@ export function PageIframeHost(props: {
 		request: PluginOperationRequest,
 	) => Effect.Effect<PluginOperationDispatchOutcome>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
-	readonly onDevice?: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
-	readonly onFlushReady?: (flush: (() => Effect.Effect<boolean>) | undefined) => void;
-	readonly onReleaseResources?: () => void;
+	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
+	readonly onFlushReady: (flush: (() => Effect.Effect<boolean>) | undefined) => void;
+	readonly onReleaseResources: () => void;
 }) {
 	const { key, index, compact, leading, edgeBack, location } = props.navigation;
 	const routePath = location.kind === "route" ? location.path : undefined;
@@ -153,8 +153,8 @@ export function PageIframeHost(props: {
 		latestCatalog.current = catalog;
 	});
 	const closeBridge = () => {
-		latest.current.onReleaseResources?.();
-		latest.current.onFlushReady?.(undefined);
+		latest.current.onReleaseResources();
+		latest.current.onFlushReady(undefined);
 		bridge.current?.close();
 		bridge.current = undefined;
 		latest.current.onScreenState(null);
@@ -275,7 +275,7 @@ export function PageIframeHost(props: {
 					index: current.navigation.index,
 				});
 				if (current.page) {
-					current.onReleaseResources?.();
+					current.onReleaseResources();
 					bridge.current?.sendDocument(current.documentKey, current.page, current.navigation);
 				}
 			},
@@ -372,6 +372,7 @@ export function PageIframeHost(props: {
 			onRyotQL: (request) => latest.current.onQuery(request),
 			onAssets: (request) => latest.current.onAssets(request),
 			onUpload: (request) => latest.current.onUpload(request),
+			onDevice: (request) => latest.current.onDevice(request),
 			onStorage: (request) => latest.current.onStorage(request),
 			onPageSearch: (request) => latest.current.onPageSearch(request),
 			onCollection: (request) => latest.current.onCollection(request),
@@ -394,9 +395,6 @@ export function PageIframeHost(props: {
 					latest.current.onScreenState(state);
 				}
 			},
-			onDevice: (request) =>
-				latest.current.onDevice?.(request) ??
-				Effect.succeed({ outcome: "failure", reason: "invalid-request" }),
 			onOverlayState: (count) => {
 				if (bridge.current === connection.session) {
 					setOverlayCount(count);
@@ -443,7 +441,7 @@ export function PageIframeHost(props: {
 		if (!connection.failed) {
 			connection.session = nextBridge;
 			bridge.current = nextBridge;
-			latest.current.onFlushReady?.(nextBridge.requestFlush);
+			latest.current.onFlushReady(nextBridge.requestFlush);
 		}
 	}
 	useEffect(() => {

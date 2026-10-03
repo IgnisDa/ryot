@@ -168,15 +168,17 @@ describe("plugin Effect request engine", () => {
 				},
 			]);
 			channel.port1.postMessage({
+				outcome: "success",
 				type: "provider-search-screen-result",
 				requestId: "provider-search-screen-stale",
-				outcome: { kind: "added", entityIds: ["late-entity"] },
+				value: { kind: "added", entityIds: ["late-entity"] },
 			});
 			yield* waitForMessagePortMacrotask;
 			channel.port1.postMessage({
+				outcome: "success",
 				requestId: "provider-search-screen-1",
 				type: "provider-search-screen-result",
-				outcome: { kind: "added", entityIds: ["entity-1"] },
+				value: { kind: "added", entityIds: ["entity-1"] },
 			});
 			expect(yield* Fiber.join(pending)).toEqual({ kind: "added", entityIds: ["entity-1"] });
 		}),
@@ -188,7 +190,8 @@ describe("plugin Effect request engine", () => {
 			const pending = yield* Effect.forkChild(providerSearch(runtime), { startImmediately: true });
 			yield* waitForMessagePortMacrotask;
 			channel.port1.postMessage({
-				outcome: { kind: "cancelled" },
+				outcome: "success",
+				value: { kind: "cancelled" },
 				requestId: "provider-search-screen-1",
 				type: "provider-search-screen-result",
 			});
@@ -475,6 +478,7 @@ describe("plugin Effect request engine", () => {
 					slug: "greet",
 					output: Schema.String,
 					packageId: "test/fixture",
+					inputSchema: Schema.Struct({}),
 				}),
 				{ startImmediately: true },
 			);
@@ -659,6 +663,7 @@ describe("plugin Effect request engine", () => {
 						input: null,
 						slug: "greet",
 						output: Schema.String,
+						inputSchema: Schema.Null,
 						packageId: "test/fixture",
 					}),
 				),
@@ -688,6 +693,7 @@ describe("plugin Effect request engine", () => {
 					slug: "greet",
 					output: Schema.String,
 					packageId: "test/fixture",
+					inputSchema: Schema.Struct({}),
 				}),
 				{ startImmediately: true },
 			);

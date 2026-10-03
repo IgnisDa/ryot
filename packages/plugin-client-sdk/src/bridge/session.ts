@@ -38,6 +38,7 @@ import {
 	type PluginBridgeUploadRequest,
 	type ClientCompositionMetadata,
 	type PluginThemeSnapshot,
+	type PluginUploadRequest,
 	type RyotClientErrorReason,
 } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
@@ -50,7 +51,6 @@ import type {
 	RyotPageSearchUpdate,
 	RyotProviderSearchScreenRequest,
 	EntityUpdate,
-	UploadAdapterRequest,
 } from "../client/adapter";
 import { createRyotClient } from "../client/client";
 import { RyotClientError } from "../client/errors";
@@ -342,7 +342,7 @@ export const createPluginRuntime = (
 						({ ...entry, requestId, type: "storage-request" }) satisfies PluginBridgeStorageRequest,
 				);
 
-	const upload = (request: UploadAdapterRequest) =>
+	const upload = (request: PluginUploadRequest) =>
 		sendRequest(
 			"upload",
 			(requestId) =>
@@ -649,11 +649,7 @@ export const createPluginRuntime = (
 					);
 				}),
 				Match.when({ type: "provider-search-screen-result" }, (result) => {
-					settle(
-						"provider-search-screen",
-						result.requestId,
-						result.outcome === "failure" ? result : { outcome: "success", value: result.outcome },
-					);
+					settle("provider-search-screen", result.requestId, result);
 				}),
 				Match.when({ type: "external-link-result" }, (result) => {
 					settle(
@@ -679,14 +675,7 @@ export const createPluginRuntime = (
 						settle("upload", result.requestId, result);
 						return;
 					}
-					let value: unknown;
-					if (result.action === "temporary") {
-						value = result.token;
-					} else if (result.action === "permanent") {
-						value = result.asset;
-					} else {
-						value = { status: result.status };
-					}
+					const { type: _type, outcome: _outcome, requestId: _requestId, ...value } = result;
 					settle("upload", result.requestId, { value, outcome: "success" });
 				}),
 				Match.when({ type: "asset-result" }, (result) => {

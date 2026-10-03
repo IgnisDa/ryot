@@ -32,7 +32,7 @@ import { fixtureRoute } from "./targets";
 
 const Greeting = Schema.Struct({ greeting: Schema.String });
 
-type GreetingInput = { readonly name: string | number };
+const GreetingInput = Schema.Struct({ name: Schema.Union([Schema.String, Schema.Finite]) });
 
 const catalogTones = { error: "error", pending: "pending", success: "success" } as const;
 
@@ -47,12 +47,13 @@ const fixtureClientPluginCatalogQuery = createRyotQuery(({ client }) =>
 	client.data.query(fixtureClientPluginCatalogRecipe()),
 );
 
-const greetingMutation = createRyotMutation<GreetingInput, typeof Greeting.Type>(
+const greetingMutation = createRyotMutation<typeof GreetingInput.Type, typeof Greeting.Type>(
 	({ input, client }) =>
 		client.operations.invoke({
 			input,
 			slug: "greet",
 			output: Greeting,
+			inputSchema: GreetingInput,
 			packageId: PLUGIN_PACKAGE_ID,
 		}),
 );
