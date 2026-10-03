@@ -118,7 +118,7 @@ Each call re-resolves policy from PostgreSQL. Unmatched origins run one bounded 
 
 Only a matched HTTP `429` retries automatically. `Retry-After` accepts delta seconds or an HTTP date; missing or invalid values use the full policy interval. The global block advances atomically before durable sleep and retry with a new deterministic attempt identity. Non-`429` failures and unmatched calls do not retry. Coordination failures retry with deterministic one-second exponential durable backoff capped at 30 seconds; matched calls fail closed while coordination is unavailable, but proven-unmatched calls continue.
 
-Admission has no bursts, slot reclamation, tenant fairness, priority, or reserved capacity. Provider-specific quota headers are ignored. First-party policies are AniList, 90 requests/minute at `https://graphql.anilist.co`, and MusicBrainz, one request/second at `https://musicbrainz.org`; other origins are unmatched.
+Admission has no bursts, slot reclamation, tenant fairness, priority, or reserved capacity. Provider-specific quota headers are ignored. First-party policies are AniList, 30 requests/minute at `https://graphql.anilist.co`, and MusicBrainz, one request/second at `https://musicbrainz.org`; other origins are unmatched.
 
 HTTP logs contain only workflow execution ID, policy key, normalized origin, stage, attempt, wait/duration, and status. URLs, query strings, headers, bodies, credentials, and user IDs are excluded.
 

@@ -117,6 +117,7 @@ export const SANDBOX_HOST_RESULT_BYTES = {
 	requestEventStreamWork: KiB,
 	changeUserRelationships: null,
 	upsertGlobalRelationships: null,
+	invalidateOAuthAccessToken: KiB,
 	httpCall: 2 * SANDBOX_LIMITS.http.responseBytes,
 	executeRyotql: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.ryotqlResultBytes,
 	getCachedValue: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.cache.valueBytes,

@@ -109,6 +109,7 @@ export const unusedSandboxHostImplementations = (
 		requestEventStreamWork: unusedHostCall,
 		changeUserRelationships: unusedHostCall,
 		upsertGlobalRelationships: unusedHostCall,
+		invalidateOAuthAccessToken: unusedHostCall,
 	},
 });
 
