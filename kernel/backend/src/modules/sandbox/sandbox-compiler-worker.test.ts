@@ -79,7 +79,7 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 			);
 			expect(exitCode, stderr).toBe(0);
 			const response = yield* decodeWorkerResponse(stdout);
-			assert(response.success);
+			assert(response.success, stdout);
 			expect(response.value.manifest).toMatchObject({ slug: "plain-value" });
 			expect(response.value.javascript).toContain("sourceMappingURL=data:application/json;base64,");
 			expect(yield* fs.exists(path.join(workspaceParentPath, workspaceJobId))).toBe(false);
