@@ -1,13 +1,7 @@
 import { assert, expect, it } from "@effect/vitest";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
-import type {
-	WorkflowReplayEnvelope,
-	WorkflowReplayHost,
-	WorkflowReplayJournalEntry,
-} from "@ryot-app/sandbox-sdk/workflow";
+import { driveWorkflowReplay, makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
+import type { WorkflowReplayEnvelope } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";
@@ -31,34 +25,10 @@ const importCommand = (runId: string) =>
 		},
 	});
 
-const completeReplay = <Input extends JsonValue>(
-	run: (
-		input: Input,
-		host: WorkflowReplayHost,
-		execution: { metadata: Record<string, JsonValue>; sandboxScriptId: string },
-	) => Effect.Effect<WorkflowReplayEnvelope, SandboxHostError>,
-	input: Input,
-	resolve: (request: WorkflowReplayEnvelope["requests"][number]) => JsonValue,
-) =>
-	Effect.gen(function* () {
-		const journal: WorkflowReplayJournalEntry[] = [];
-		for (;;) {
-			const envelope = yield* run(input, makeWorkflowReplayHost(journal), {
-				metadata: {},
-				sandboxScriptId: "workflow-test",
-			});
-			if (envelope.state === "completed") {
-				return envelope.output;
-			}
-			expect(envelope.state).toBe("pending");
-			if (envelope.state === "failed") {
-				throw new Error(envelope.error);
-			}
-			const request = envelope.requests[journal.length];
-			assert(request);
-			journal.push({ request, value: resolve(request) });
-		}
-	});
+const completedOutput = (envelope: WorkflowReplayEnvelope) => {
+	assert(envelope.state === "completed");
+	return envelope.output;
+};
 
 it.live("keeps 205 resolution results aligned during in-process replay", () =>
 	Effect.gen(function* () {
@@ -70,10 +40,10 @@ it.live("keeps 205 resolution results aligned during in-process replay", () =>
 				{ providerSlug: "book.openlibrary", scriptSlug: "media-import-resolve.book.openlibrary" },
 			],
 		}));
-		const output = yield* completeReplay(resolutionWorkflow.run, { items }, (request) => ({
+		const output = yield* driveWorkflowReplay(resolutionWorkflow.run, { items }, (request) => ({
 			status: "completed",
 			externalId: `resolved-${request.index}`,
-		}));
+		})).pipe(Effect.map(completedOutput));
 
 		expect(output).toEqual({
 			results: items.map(({ index }) => ({
@@ -122,7 +92,7 @@ it.live("keeps ten concurrent in-process population replays isolated", () =>
 					command: importCommand(`run-${workflowIndex}`),
 					externalId: `external-${workflowIndex}-${index}`,
 				}));
-				return completeReplay(populationWorkflow.run, { items }, (request) => {
+				return driveWorkflowReplay(populationWorkflow.run, { items }, (request) => {
 					expect(request).toMatchObject({
 						kind: "child",
 						args: { workflowSlug: "kernel:entity-import" },
@@ -131,7 +101,7 @@ it.live("keeps ten concurrent in-process population replays isolated", () =>
 						status: "completed",
 						entity: { id: `entity-${workflowIndex}-${request.index}` },
 					};
-				});
+				}).pipe(Effect.map(completedOutput));
 			},
 			{ concurrency: "unbounded" },
 		);

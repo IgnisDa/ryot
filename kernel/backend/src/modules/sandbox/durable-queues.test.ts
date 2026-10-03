@@ -1,5 +1,6 @@
 import { expect, it, layer } from "@effect/vitest";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Ref } from "effect";
 
@@ -7,6 +8,7 @@ import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/san
 import { appendWorkflowJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
+import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { executeSandboxExecution, SandboxExecutionQueue } from "./durable-queues";
@@ -55,22 +57,15 @@ const runtimeSandboxLayer = (
 			return Layer.merge(
 				Layer.succeed(
 					RuntimeSandboxService,
-					RuntimeSandboxService.of({
-						completeRecovery: () => Effect.void,
-						reserve: () =>
-							Effect.succeed({
-								retainJournal: () => Effect.void,
-								enter: () => Effect.as(Effect.void, undefined),
-							}),
-						run: (input) =>
-							Ref.update(runs, (all) => [...all, input]).pipe(
-								Effect.andThen(respond(input)),
-								Effect.map((result) => ({
-									...result,
-									recovery: recoveryIdentity(input.executionId),
-								})),
-							),
-					}),
+					stubRuntimeSandboxService((input) =>
+						Ref.update(runs, (all) => [...all, input]).pipe(
+							Effect.andThen(respond(input)),
+							Effect.map((result) => ({
+								...result,
+								recovery: recoveryIdentity(input.executionId),
+							})),
+						),
+					),
 				),
 				Layer.succeed(RecordedRuns, { runs: Ref.get(runs) }),
 			);
@@ -122,15 +117,10 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 	updatedAt: new Date(0),
 	contentHash: id === historicalScriptId ? "historical-hash" : "active-hash",
 	metadata: {
-		capabilities: [],
+		...emptySandboxExecutionMetadata,
 		name: "Workflow",
 		slug: "workflow",
-		runtimeImports: [],
 		kind: "workflow" as const,
-		oauthConnectionFields: [],
-		executableDependencies: [],
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
 	},
 });
 const historical = hotSwapScript(historicalScriptId, historicalContent);

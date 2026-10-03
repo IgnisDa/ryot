@@ -2,6 +2,7 @@ import { layer } from "@effect/vitest";
 import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
@@ -88,14 +89,9 @@ const seed = (stage: "after" | "before" = "after", maxAttempts = 2) =>
 						slug: "kernel.notify",
 						metadata: {
 							name: "Notify",
-							capabilities: [],
+							...emptySandboxExecutionMetadata,
 							kind: "automation",
-							runtimeImports: [],
 							slug: "kernel.notify",
-							oauthConnectionFields: [],
-							executableDependencies: [],
-							requiredPluginConfigKeys: [],
-							optionalPluginConfigKeys: [],
 						},
 					});
 				yield* db
