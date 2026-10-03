@@ -329,6 +329,7 @@ export const SidecarDoneFrame = Schema.Struct({
 	type: Schema.Literal("done"),
 	usage: Schema.Struct({
 		heapBytes: boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
+		cpuWaitMs: boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
 		externalBytes: boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER }),
 	}),
 	console: Schema.Struct({

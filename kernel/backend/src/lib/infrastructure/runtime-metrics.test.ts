@@ -5,6 +5,7 @@ import {
 	recordProviderImportBodySettled,
 	recordProviderImportBodyStarted,
 	recordSandboxExecution,
+	recordSandboxExecutionUsage,
 	recordSandboxHostCall,
 	recordSandboxWorkflowReplayFinished,
 	sandboxMetricHostFunction,
@@ -52,6 +53,31 @@ describe("sandbox runtime metrics", () => {
 				});
 				expect(executions?.state).toMatchObject({ count: 1 });
 				expect(duration?.state).toMatchObject({ count: 1, sum: 30_000 });
+			}),
+		),
+	);
+
+	it.effect("records CPU slot wait against the lane of the execution", () =>
+		withIsolatedRegistry(
+			Effect.gen(function* () {
+				const usage = {
+					tier: "core",
+					heapBytes: 1,
+					trust: "system",
+					kind: "provider",
+					externalBytes: 1,
+					outcome: "completed",
+				} as const;
+				yield* recordSandboxExecutionUsage({ ...usage, cpuWaitMs: 900, lane: "background" });
+				yield* recordSandboxExecutionUsage({ ...usage, cpuWaitMs: 4, lane: "interactive" });
+				const background = yield* findSnapshot("ryot.sandbox.execution.cpu_wait", {
+					lane: "background",
+				});
+				const interactive = yield* findSnapshot("ryot.sandbox.execution.cpu_wait", {
+					lane: "interactive",
+				});
+				expect(background?.state).toMatchObject({ count: 1, sum: 900 });
+				expect(interactive?.state).toMatchObject({ sum: 4, count: 1 });
 			}),
 		),
 	);

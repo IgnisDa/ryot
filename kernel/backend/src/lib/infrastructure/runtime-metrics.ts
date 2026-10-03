@@ -154,6 +154,12 @@ const sandboxExecutionPeakExternal = Metric.histogram("ryot.sandbox.execution.pe
 	description: "Peak ArrayBuffer and V8 external memory of one sandbox execution",
 });
 
+const sandboxExecutionCpuWait = Metric.histogram("ryot.sandbox.execution.cpu_wait", {
+	attributes: { unit: MILLISECONDS },
+	boundaries: [...DURATION_BOUNDARIES],
+	description: "Time one sandbox execution waited for a sidecar CPU slot, by lane",
+});
+
 const sandboxSidecarDuration = Metric.histogram("ryot.sandbox.sidecar.duration", {
 	attributes: { unit: MILLISECONDS },
 	boundaries: [...DURATION_BOUNDARIES],
@@ -380,7 +386,9 @@ export const recordSandboxExecutionUsage = (input: {
 	readonly trust: typeof SandboxTrust.Type;
 	readonly tier: typeof SidecarTier.Type;
 	readonly outcome: "completed" | "cancelled" | "limit" | "failed";
+	readonly lane: ExecutionLane;
 	readonly heapBytes: number;
+	readonly cpuWaitMs: number;
 	readonly externalBytes: number;
 }) => {
 	const attributes = {
@@ -395,6 +403,10 @@ export const recordSandboxExecutionUsage = (input: {
 			Metric.update(
 				Metric.withAttributes(sandboxExecutionPeakExternal, attributes),
 				input.externalBytes,
+			),
+			Metric.update(
+				Metric.withAttributes(sandboxExecutionCpuWait, { lane: input.lane }),
+				input.cpuWaitMs,
 			),
 		],
 		{ discard: true },

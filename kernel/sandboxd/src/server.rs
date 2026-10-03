@@ -7,9 +7,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use deno_core::futures::executor::block_on;
-use tokio::sync::Semaphore;
 
-use crate::admission::MemoryBudget;
+use crate::admission::{LaneSlots, MemoryBudget};
 use crate::config::Config;
 use crate::execute::{Executor, HEAP_HEADROOM_BYTES, set_escalation, set_running};
 use crate::os::{ResidentMemory, lower_thread_priority};
@@ -376,7 +375,7 @@ pub fn serve(
             .spawn(move || outbox.run_writer(writer))
             .expect("spawn writer");
     }
-    let cpu = Arc::new(Semaphore::new(config.max_active));
+    let cpu = LaneSlots::new(config.max_active);
     let snapshot = Arc::new(snapshot);
     let shared = Arc::new(Shared {
         budget: MemoryBudget::new(config.memory_budget),

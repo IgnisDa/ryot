@@ -16,7 +16,7 @@ use serde_json::value::RawValue;
 use sha2::{Digest, Sha256};
 use tokio::sync::{Semaphore, oneshot};
 
-use crate::admission::{Admitted, CpuLease};
+use crate::admission::{Admitted, CpuLease, LaneSlots};
 use crate::os::ThreadClock;
 use crate::outbox::Outbox;
 use crate::protocol::{
@@ -389,7 +389,7 @@ pub struct Executor {
     pub user_tier: bool,
     pub snapshot: Arc<Snapshot>,
     pub outbox: Outbox,
-    pub cpu: Arc<Semaphore>,
+    pub cpu: Arc<LaneSlots>,
     tokio: tokio::runtime::Runtime,
 }
 
@@ -432,7 +432,7 @@ impl Executor {
         user_tier: bool,
         snapshot: Arc<Snapshot>,
         outbox: Outbox,
-        cpu: Arc<Semaphore>,
+        cpu: Arc<LaneSlots>,
     ) -> Self {
         let tokio = tokio::runtime::Builder::new_current_thread()
             .enable_all()
@@ -481,9 +481,8 @@ impl Executor {
         let specifier = ModuleSpecifier::parse(&format!("ryot-module:/{}.js", run.module.sha256))
             .expect("module specifier");
         let rejection = ResolutionRejection::default();
-        let creation = self
-            .block_on(self.cpu.clone().acquire_owned())
-            .expect("CPU slots stay open");
+        let creation = self.block_on(self.cpu.acquire(run.lane));
+        let creation_wait = creation.waited();
         let runtime = JsRuntime::try_new(RuntimeOptions {
             startup_snapshot: Some(self.snapshot.bytes),
             extensions: vec![ryot::init()],
@@ -532,7 +531,7 @@ impl Executor {
                 current + HEAP_HEADROOM
             });
         }
-        let lease = CpuLease::new(entry.clone(), self.cpu.clone());
+        let lease = CpuLease::new(entry.clone(), self.cpu.clone(), run.lane, creation_wait);
         {
             let state = runtime.op_state();
             let mut state = state.borrow_mut();
@@ -568,7 +567,7 @@ impl Executor {
 
         let input = run.input.get().to_owned();
         let user_tier = self.user_tier;
-        let result = self.block_on(Admitted::new(lease, async {
+        let result = self.block_on(Admitted::new(lease.clone(), async {
             tokio::select! {
                 biased;
                 result = drive(&mut runtime, user_tier, &specifier, input) => Some(result),
@@ -615,6 +614,7 @@ impl Executor {
                 .external
                 .load(Ordering::SeqCst)
                 .max(budget.peak.load(Ordering::SeqCst)) as u64,
+            cpu_wait_ms: lease.waited_ms(),
         };
         (outcome, console, usage)
     }
@@ -709,7 +709,12 @@ mod tests {
             crate::protocol::Limits::minimal(),
         ));
         let host = HostLink {
-            lease: CpuLease::new(entry.clone(), Arc::new(Semaphore::new(1))),
+            lease: CpuLease::new(
+                entry.clone(),
+                LaneSlots::new(1),
+                crate::protocol::Lane::Interactive,
+                std::time::Duration::ZERO,
+            ),
             entry,
             outbox: Outbox::default(),
             generation: 1,

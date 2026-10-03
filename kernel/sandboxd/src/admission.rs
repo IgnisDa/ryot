@@ -1,48 +1,248 @@
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
+use std::collections::{HashSet, VecDeque};
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::{Arc, Condvar, Mutex};
-use std::task::{Context, Poll};
-use std::time::Instant;
+use std::sync::{Arc, Condvar, Mutex, MutexGuard};
+use std::task::{Context, Poll, Waker};
+use std::time::{Duration, Instant};
 
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
-
+use crate::protocol::Lane;
 use crate::registry::Entry;
 
-type Acquire = Pin<Box<dyn Future<Output = OwnedSemaphorePermit> + Send>>;
+const INTERACTIVE_GRANTS_BEFORE_BACKGROUND: u32 = 4;
 
-pub(crate) struct CpuLease {
-    entry: Arc<Entry>,
-    slots: Arc<Semaphore>,
-    permit: RefCell<Option<OwnedSemaphorePermit>>,
+#[derive(Default)]
+struct SlotState {
+    free: usize,
+    background_holders: usize,
+    interactive_streak: u32,
+    next_id: u64,
+    queues: [VecDeque<(u64, Waker)>; 2],
+    granted: HashSet<u64>,
 }
 
-impl CpuLease {
-    pub(crate) fn new(entry: Arc<Entry>, slots: Arc<Semaphore>) -> Rc<Self> {
-        Rc::new(Self {
-            entry,
-            slots,
-            permit: RefCell::new(None),
+impl SlotState {
+    fn queue(lane: Lane) -> usize {
+        match lane {
+            Lane::Interactive => 0,
+            Lane::Background => 1,
+        }
+    }
+
+    fn grant(&mut self, woken: &mut Vec<Waker>) {
+        while self.free > 0 {
+            let interactive = !self.queues[0].is_empty();
+            let background = !self.queues[1].is_empty();
+            let background_starved = background && self.background_holders == 0;
+            let lane = match (interactive, background) {
+                (false, false) => return,
+                (true, true)
+                    if background_starved
+                        && self.interactive_streak >= INTERACTIVE_GRANTS_BEFORE_BACKGROUND =>
+                {
+                    Lane::Background
+                }
+                (true, _) => Lane::Interactive,
+                (false, true) => Lane::Background,
+            };
+            let (id, waker) = self.queues[Self::queue(lane)]
+                .pop_front()
+                .expect("lane has a waiter");
+            self.free -= 1;
+            match lane {
+                Lane::Interactive => {
+                    if background_starved {
+                        self.interactive_streak += 1;
+                    }
+                }
+                Lane::Background => {
+                    self.background_holders += 1;
+                    self.interactive_streak = 0;
+                }
+            }
+            self.granted.insert(id);
+            woken.push(waker);
+        }
+    }
+
+    fn release(&mut self, lane: Lane) {
+        self.free += 1;
+        if lane == Lane::Background {
+            self.background_holders -= 1;
+        }
+    }
+}
+
+/// CPU-active slots granted to interactive waiters first. While background waiters exist and no
+/// background run holds a slot, every fifth grant goes to a background waiter. Held slots are
+/// never revoked.
+pub struct LaneSlots {
+    state: Mutex<SlotState>,
+}
+
+impl LaneSlots {
+    pub fn new(slots: usize) -> Arc<Self> {
+        Arc::new(Self {
+            state: Mutex::new(SlotState {
+                free: slots,
+                ..SlotState::default()
+            }),
         })
     }
 
-    fn has_permit(&self) -> bool {
-        self.permit.borrow().is_some()
+    fn lock(&self) -> MutexGuard<'_, SlotState> {
+        self.state.lock().expect("CPU slots")
     }
 
-    fn install(&self, permit: OwnedSemaphorePermit) {
-        *self.permit.borrow_mut() = Some(permit);
+    fn settle(&self, state: MutexGuard<'_, SlotState>, release: Option<Lane>) {
+        let mut state = state;
+        if let Some(lane) = release {
+            state.release(lane);
+        }
+        let mut woken = Vec::new();
+        state.grant(&mut woken);
+        drop(state);
+        woken.into_iter().for_each(Waker::wake);
+    }
+
+    pub(crate) fn acquire(self: &Arc<Self>, lane: Lane) -> Acquire {
+        Acquire {
+            slots: self.clone(),
+            lane,
+            id: None,
+            started: Instant::now(),
+        }
+    }
+}
+
+pub(crate) struct CpuSlot {
+    slots: Arc<LaneSlots>,
+    lane: Lane,
+    waited: Duration,
+}
+
+impl CpuSlot {
+    pub(crate) fn waited(&self) -> Duration {
+        self.waited
+    }
+}
+
+impl Drop for CpuSlot {
+    fn drop(&mut self) {
+        self.slots.settle(self.slots.lock(), Some(self.lane));
+    }
+}
+
+pub(crate) struct Acquire {
+    slots: Arc<LaneSlots>,
+    lane: Lane,
+    id: Option<u64>,
+    started: Instant,
+}
+
+impl Future for Acquire {
+    type Output = CpuSlot;
+
+    fn poll(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<CpuSlot> {
+        let slots = self.slots.clone();
+        let mut woken = Vec::new();
+        let mut state = slots.lock();
+        let id = match self.id {
+            Some(id) => id,
+            None => {
+                let id = state.next_id;
+                state.next_id += 1;
+                state.queues[SlotState::queue(self.lane)].push_back((id, context.waker().clone()));
+                state.grant(&mut woken);
+                self.id = Some(id);
+                id
+            }
+        };
+        let granted = state.granted.remove(&id);
+        if !granted {
+            let (_, waker) = state.queues[SlotState::queue(self.lane)]
+                .iter_mut()
+                .find(|(queued, _)| *queued == id)
+                .expect("an ungranted waiter stays queued");
+            waker.clone_from(context.waker());
+        }
+        drop(state);
+        woken.into_iter().for_each(Waker::wake);
+        if !granted {
+            return Poll::Pending;
+        }
+        self.id = None;
+        Poll::Ready(CpuSlot {
+            slots,
+            lane: self.lane,
+            waited: self.started.elapsed(),
+        })
+    }
+}
+
+impl Drop for Acquire {
+    fn drop(&mut self) {
+        let Some(id) = self.id else {
+            return;
+        };
+        let mut state = self.slots.lock();
+        let queue = &mut state.queues[SlotState::queue(self.lane)];
+        if let Some(position) = queue.iter().position(|(queued, _)| *queued == id) {
+            queue.remove(position);
+            return;
+        }
+        if state.granted.remove(&id) {
+            self.slots.settle(state, Some(self.lane));
+        }
+    }
+}
+
+pub(crate) struct CpuLease {
+    entry: Arc<Entry>,
+    slots: Arc<LaneSlots>,
+    lane: Lane,
+    slot: RefCell<Option<CpuSlot>>,
+    waited: Cell<Duration>,
+}
+
+impl CpuLease {
+    pub(crate) fn new(
+        entry: Arc<Entry>,
+        slots: Arc<LaneSlots>,
+        lane: Lane,
+        waited: Duration,
+    ) -> Rc<Self> {
+        Rc::new(Self {
+            entry,
+            slots,
+            lane,
+            slot: RefCell::new(None),
+            waited: Cell::new(waited),
+        })
+    }
+
+    pub(crate) fn waited_ms(&self) -> u64 {
+        self.waited.get().as_millis() as u64
+    }
+
+    fn has_slot(&self) -> bool {
+        self.slot.borrow().is_some()
+    }
+
+    fn install(&self, slot: CpuSlot) {
+        self.waited.set(self.waited.get() + slot.waited());
+        *self.slot.borrow_mut() = Some(slot);
     }
 
     fn release_polling(&self) {
-        let permit = self.permit.borrow_mut().take();
+        let slot = self.slot.borrow_mut().take();
         self.entry.state().polling_since = None;
-        drop(permit);
+        drop(slot);
     }
 
     pub(crate) fn park_for_inline(&self) {
-        assert!(self.has_permit(), "inline settlement requires a CPU lease");
+        assert!(self.has_slot(), "inline settlement requires a CPU lease");
         let now = Instant::now();
         {
             let mut state = self.entry.state();
@@ -52,32 +252,32 @@ impl CpuLease {
                 meter.paused_since = Some(now);
             }
         }
-        drop(self.permit.borrow_mut().take());
+        drop(self.slot.borrow_mut().take());
     }
 
     pub(crate) fn resume_after_inline(&self) -> bool {
         let mut stopping = self.entry.stop_receiver();
-        let slots = self.slots.clone();
-        let permit = deno_core::futures::executor::block_on(async move {
+        let acquire = self.slots.acquire(self.lane);
+        let slot = deno_core::futures::executor::block_on(async move {
             if *stopping.borrow() {
                 None
             } else {
                 tokio::select! {
                     biased;
                     _ = stopping.changed() => None,
-                    permit = slots.acquire_owned() => permit.ok(),
+                    slot = acquire => Some(slot),
                 }
             }
         });
         let mut state = self.entry.state();
         state.sync_waiting_since = None;
-        let Some(permit) = permit.filter(|_| {
+        let Some(slot) = slot.filter(|_| {
             !state.cancelled && state.limit.is_none() && state.terminating_since.is_none()
         }) else {
             return false;
         };
         drop(state);
-        self.install(permit);
+        self.install(slot);
         self.start_polling();
         true
     }
@@ -109,15 +309,15 @@ impl<F: Future> Future for Admitted<F> {
     type Output = F::Output;
 
     fn poll(mut self: Pin<&mut Self>, context: &mut Context<'_>) -> Poll<F::Output> {
-        if !self.lease.has_permit() {
-            let slots = self.lease.slots.clone();
-            let acquiring = self.acquiring.get_or_insert_with(|| {
-                Box::pin(async move { slots.acquire_owned().await.expect("CPU slots stay open") })
-            });
-            match acquiring.as_mut().poll(context) {
-                Poll::Ready(permit) => {
+        if !self.lease.has_slot() {
+            let lease = self.lease.clone();
+            let acquiring = self
+                .acquiring
+                .get_or_insert_with(|| lease.slots.acquire(lease.lane));
+            match Pin::new(acquiring).poll(context) {
+                Poll::Ready(slot) => {
                     self.acquiring = None;
-                    self.lease.install(permit);
+                    self.lease.install(slot);
                 }
                 Poll::Pending => return Poll::Pending,
             }
@@ -174,22 +374,65 @@ impl Drop for Reservation<'_> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
+    use deno_core::futures::task::noop_waker;
 
     use super::*;
     use crate::protocol::Limits;
 
+    fn ready(acquire: &mut Acquire) -> Option<CpuSlot> {
+        let waker = noop_waker();
+        match Pin::new(acquire).poll(&mut Context::from_waker(&waker)) {
+            Poll::Ready(slot) => Some(slot),
+            Poll::Pending => None,
+        }
+    }
+
+    fn held(slots: &Arc<LaneSlots>, lane: Lane) -> CpuSlot {
+        ready(&mut slots.acquire(lane)).expect("a free CPU slot")
+    }
+
+    fn queue(slots: &Arc<LaneSlots>, lane: Lane, count: usize) -> Vec<(Lane, Acquire)> {
+        (0..count)
+            .map(|_| {
+                let mut acquire = slots.acquire(lane);
+                assert!(ready(&mut acquire).is_none(), "the slot is occupied");
+                (lane, acquire)
+            })
+            .collect()
+    }
+
+    fn take_granted(waiters: &mut Vec<(Lane, Acquire)>) -> (Lane, CpuSlot) {
+        let granted: Vec<usize> = (0..waiters.len())
+            .filter(|index| {
+                waiters[*index]
+                    .1
+                    .slots
+                    .lock()
+                    .granted
+                    .contains(&waiters[*index].1.id.expect("queued"))
+            })
+            .collect();
+        assert_eq!(granted.len(), 1, "exactly one waiter is granted");
+        let (lane, mut acquire) = waiters.remove(granted[0]);
+        (lane, ready(&mut acquire).expect("granted waiter is ready"))
+    }
+
     #[test]
     fn cancellation_interrupts_cpu_lease_reacquisition() {
-        let slots = Arc::new(Semaphore::new(1));
+        let slots = LaneSlots::new(1);
         let entry = Arc::new(Entry::new(
             "cancelled-reacquisition".to_owned(),
             Limits::minimal(),
         ));
-        let lease = CpuLease::new(entry.clone(), slots.clone());
-        lease.install(slots.clone().try_acquire_owned().expect("CPU permit"));
+        let lease = CpuLease::new(
+            entry.clone(),
+            slots.clone(),
+            Lane::Interactive,
+            Duration::ZERO,
+        );
+        lease.install(held(&slots, Lane::Interactive));
         lease.park_for_inline();
-        let occupied = slots.try_acquire_owned().expect("park releases the permit");
+        let occupied = held(&slots, Lane::Interactive);
         let stopper = std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(20));
             entry.cancel();
@@ -201,5 +444,100 @@ mod tests {
         assert!(!lease.resume_after_inline());
         assert!(start.elapsed() < Duration::from_millis(250));
         stopper.join().expect("stopper");
+    }
+
+    #[test]
+    fn interactive_waiters_are_granted_before_earlier_background_waiters() {
+        let slots = LaneSlots::new(1);
+        let holder = held(&slots, Lane::Background);
+        let mut waiters = queue(&slots, Lane::Background, 2);
+        waiters.extend(queue(&slots, Lane::Interactive, 2));
+        drop(holder);
+        let (lane, slot) = take_granted(&mut waiters);
+        assert_eq!(lane, Lane::Interactive);
+        drop(slot);
+        assert_eq!(take_granted(&mut waiters).0, Lane::Interactive);
+    }
+
+    #[test]
+    fn background_waiters_are_granted_no_later_than_the_fifth_grant() {
+        let slots = LaneSlots::new(1);
+        let mut holder = held(&slots, Lane::Interactive);
+        let mut waiters = queue(&slots, Lane::Background, 1);
+        waiters.extend(queue(&slots, Lane::Interactive, 8));
+        let mut order = Vec::new();
+        for _ in 0..5 {
+            drop(holder);
+            let (lane, slot) = take_granted(&mut waiters);
+            order.push(lane);
+            holder = slot;
+        }
+        assert_eq!(
+            order,
+            [
+                Lane::Interactive,
+                Lane::Interactive,
+                Lane::Interactive,
+                Lane::Interactive,
+                Lane::Background
+            ]
+        );
+        drop(holder);
+        assert_eq!(take_granted(&mut waiters).0, Lane::Interactive);
+    }
+
+    #[test]
+    fn interactive_grants_are_not_counted_while_a_background_run_holds_a_slot() {
+        let slots = LaneSlots::new(2);
+        let background_holder = held(&slots, Lane::Background);
+        let mut holder = held(&slots, Lane::Interactive);
+        let mut waiters = queue(&slots, Lane::Background, 1);
+        waiters.extend(queue(&slots, Lane::Interactive, 12));
+        for _ in 0..8 {
+            drop(holder);
+            let (lane, slot) = take_granted(&mut waiters);
+            assert_eq!(lane, Lane::Interactive);
+            holder = slot;
+        }
+        drop(background_holder);
+        let mut holders = vec![holder];
+        let mut order = Vec::new();
+        for grant in 0..5 {
+            if grant > 0 {
+                drop(holders.remove(0));
+            }
+            let (lane, slot) = take_granted(&mut waiters);
+            order.push(lane);
+            holders.push(slot);
+        }
+        assert_eq!(
+            order,
+            [
+                Lane::Interactive,
+                Lane::Interactive,
+                Lane::Interactive,
+                Lane::Interactive,
+                Lane::Background
+            ]
+        );
+    }
+
+    #[test]
+    fn dropped_waiters_never_leak_or_double_grant_a_slot() {
+        let slots = LaneSlots::new(1);
+        let holder = held(&slots, Lane::Background);
+        let mut waiters = queue(&slots, Lane::Interactive, 2);
+        waiters.extend(queue(&slots, Lane::Background, 1));
+        drop(waiters.remove(0));
+        drop(holder);
+        drop(waiters.remove(0));
+        drop(waiters.remove(0));
+        let mut extra = slots.acquire(Lane::Background);
+        let slot = ready(&mut extra).expect("every dropped waiter returned its slot");
+        assert!(
+            ready(&mut slots.acquire(Lane::Interactive)).is_none(),
+            "the slot was granted twice"
+        );
+        drop(slot);
     }
 }
