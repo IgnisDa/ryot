@@ -4,7 +4,7 @@
 Read the applicable `AGENTS.md` files before you change code.
 :::
 
-Prerequisites: [Bun](https://bun.sh), [Deno](https://deno.com), and [Docker](https://www.docker.com).
+Prerequisites: [Bun](https://bun.sh), [Rust](https://rustup.rs) (the toolchain pinned in `kernel/sandboxd/rust-toolchain.toml`), and [Docker](https://www.docker.com).
 
 1. Install dependencies with `bun install`.
 2. Start required services:
