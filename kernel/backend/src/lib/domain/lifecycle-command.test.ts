@@ -20,6 +20,30 @@ import {
 	rootLifecycleCommand,
 } from "./lifecycle-command";
 
+const writes = (lane: "background" | "interactive") => {
+	const { causation } = rootLifecycleCommand({
+		lane,
+		source: "api",
+		itemIdentity: "entity",
+		accountGeneration: null,
+		occurredAt: "2026-09-15T00:00:00.000Z",
+		initiator: { id: null, kind: "system" },
+		executionId: AutomationExecutionId.make("root"),
+	});
+	return (["policy", "required", "async"] as const).map(
+		(delivery) =>
+			automationLifecycleCausation(
+				{
+					delivery,
+					causation,
+					runId: AutomationRunId.make(`${delivery}-run`),
+					triggerId: AutomationTriggerId.make("trigger"),
+				},
+				AutomationExecutionId.make(`${delivery}-write`),
+			).lane,
+	);
+};
+
 describe("lifecycle commands", () => {
 	it("keeps nested child identities distinct from provider population path identities", () => {
 		const command = rootLifecycleCommand({
@@ -48,30 +72,8 @@ describe("lifecycle commands", () => {
 		expect(provider.population).toBe(population);
 	});
 	it("scheduling_lane_survives_durable_boundaries: automation writes run in their run's lane", () => {
-		const { causation } = rootLifecycleCommand({
-			source: "api",
-			lane: "interactive",
-			itemIdentity: "entity",
-			accountGeneration: null,
-			occurredAt: "2026-09-15T00:00:00.000Z",
-			initiator: { id: null, kind: "system" },
-			executionId: AutomationExecutionId.make("root"),
-		});
-		const write = (delivery: "async" | "policy" | "required") =>
-			automationLifecycleCausation(
-				{
-					delivery,
-					causation,
-					runId: AutomationRunId.make(`${delivery}-run`),
-					triggerId: AutomationTriggerId.make("trigger"),
-				},
-				AutomationExecutionId.make(`${delivery}-write`),
-			).lane;
-		expect([write("policy"), write("required"), write("async")]).toEqual([
-			"interactive",
-			"interactive",
-			"background",
-		]);
+		expect(writes("interactive")).toEqual(["interactive", "interactive", "background"]);
+		expect(writes("background")).toEqual(["background", "background", "background"]);
 	});
 	it("preserves causal metadata and changes trigger identity by resource or item", () => {
 		const executionId = AutomationExecutionId.make("execution-1");
