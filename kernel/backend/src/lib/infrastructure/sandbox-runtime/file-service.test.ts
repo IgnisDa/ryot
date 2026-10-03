@@ -51,6 +51,10 @@ class FileServiceRoot extends Context.Service<FileServiceRoot, string>()(
 class FileServiceControl extends Context.Service<FileServiceControl, FileServiceTestControl>()(
 	"test/SandboxFileServiceControl",
 ) {}
+class ScratchEntryFileService extends Context.Service<
+	ScratchEntryFileService,
+	SandboxFileService["Service"]
+>()("test/ScratchEntryFileService") {}
 
 const fileServiceLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -124,6 +128,16 @@ const fileServiceLayer = Layer.unwrap(
 		);
 		return Layer.mergeAll(
 			services,
+			Layer.effect(ScratchEntryFileService, SandboxFileService.make).pipe(
+				Layer.provide(SandboxArtifactStore.layer),
+				Layer.provide(
+					Layer.mergeAll(
+						makeAppConfigLayer({ fileStorage: { localTempDir: root } }),
+						Layer.succeed(FileSystem.FileSystem, realFs),
+						Layer.succeed(ServerRun, { id: "scratch-entry-test-run" }),
+					),
+				),
+			),
 			Layer.succeed(FileServiceRoot, root),
 			Layer.succeed(FileServiceControl, control),
 		);
@@ -192,6 +206,35 @@ type SandboxFileAccess = Effect.Success<ReturnType<SandboxFileService["Service"]
 
 describe("sandbox file service", () => {
 	layer(fileServiceLayer)((test) => {
+		test.effect("scratch_entry_admission_caps_partial_uploads_and_allows_replacement", () =>
+			Effect.gen(function* () {
+				const root = yield* FileServiceRoot;
+				const service = yield* ScratchEntryFileService;
+				yield* Effect.scoped(
+					Effect.gen(function* () {
+						const files = yield* service.open(makeInput({}));
+						for (let index = 0; index < SANDBOX_LIMITS.scratch.maxEntries; index++) {
+							yield* files.scratchWrite({
+								data: "",
+								offset: 0,
+								final: false,
+								name: `chunk-${index}`,
+							});
+						}
+						expect(
+							yield* Effect.flip(
+								files.scratchWrite({ data: "", offset: 0, final: true, name: "overflow" }),
+							),
+						).toEqual({ message: "Sandbox scratch directory exceeds 4096 entries" });
+						expect(
+							yield* files.scratchWrite({ data: "", offset: 0, final: true, name: "chunk-0" }),
+						).toBeNull();
+					}),
+				);
+				expect(yield* scratchDirectoriesIn(root)).toEqual([]);
+			}),
+		);
+
 		test.effect("file_service_enforces_write_time_quota_and_named_harvest", () =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
