@@ -24,6 +24,7 @@ const runForIntegration = <A, E>(integrationUrl: string, program: ContractProgra
 export const lookupMetadata = (integrationUrl: string, title: string) =>
 	Effect.gen(function* () {
 		const { webhookToken } = resolveConnection(integrationUrl);
+		// TODO: Operations are now addressed by local plugin ID, which the extension cannot derive from the webhook URL alone.
 		const { results } = yield* runForIntegration(integrationUrl, (client) =>
 			invokeOperationRecipe(metadataLookupRecipe, { webhookToken, titles: [title] }, (request) =>
 				client.plugins
