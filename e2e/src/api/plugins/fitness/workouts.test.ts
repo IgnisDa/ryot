@@ -1,5 +1,4 @@
 import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import { workoutListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import {
 	workoutCardsRecipe,
 	workoutComparisonsRecipe,
@@ -29,7 +28,7 @@ import {
 	findWorkoutSetEventSchema,
 	waitForSessionEventCount,
 } from "~/fixtures/plugins/fitness";
-import { assertPresent, assertTaggedError } from "~/support/assertions";
+import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Workouts E2E", () => {
@@ -366,24 +365,6 @@ describe("Workouts E2E", () => {
 				endedAt: "2026-04-27T11:00:00Z",
 				startedAt: "2026-04-27T10:00:00Z",
 			});
-		}),
-	);
-
-	it.live("shows workout entities through the All Workouts saved-view defaults", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
-			yield* createWorkoutEntityFixture(client);
-
-			const result = yield* executeRyotQLRecipe(
-				client,
-				workoutListRecipe({ reference: { pluginId, kind: "local" } }),
-			);
-
-			const firstWorkout = result.items[0];
-			assertPresent(firstWorkout, "Expected at least one workout item");
-			expect(result.items.length).toBeGreaterThan(0);
-			expect(firstWorkout.startedAt).toEqual(expect.any(String));
 		}),
 	);
 

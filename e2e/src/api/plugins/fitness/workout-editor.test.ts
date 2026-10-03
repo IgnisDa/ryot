@@ -1,11 +1,11 @@
 import { EventId, SignalSchemaSlug, UserId, type EntityId } from "@ryot-app/contract/schema/brands";
-import { workoutListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import {
 	type WorkoutEditorBaseline,
 	workoutEditorEntityRecipe,
 	workoutEditorMembershipRecipe,
 	workoutEditorSetsRecipe,
 } from "@ryot-app/fitness-plugin/workout-editor-recipes";
+import { workoutCardsRecipe } from "@ryot-app/fitness-plugin/workout-list-recipes";
 import { DateTime, Effect, Exit, Scope } from "effect";
 
 import {
@@ -176,7 +176,7 @@ describe("Workout editor E2E", () => {
 			const reference = yield* workoutReference(client);
 			const workouts = yield* executeRyotQLRecipe(
 				client,
-				workoutListRecipe({ reference, limit: 100 }),
+				workoutCardsRecipe({ reference, search: name }),
 			);
 			expect(workouts.items.filter(({ name: itemName }) => itemName === name)).toHaveLength(1);
 			const baseline = yield* loadWorkoutBaseline(client, saved.entityId);

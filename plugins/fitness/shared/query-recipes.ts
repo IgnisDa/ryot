@@ -143,22 +143,6 @@ export const exerciseListRecipe = defineRecipe(
 	},
 );
 
-export const workoutListRecipe = defineRecipe((input: EntityListInput) => {
-	const entity = table("entity", "entity");
-	return {
-		map: ({ workouts }) => Result.succeed(workouts),
-		queries: {
-			workouts: selectedRows(entity, {
-				after: input.after,
-				limit: input.limit,
-				selection: workoutSelection(entity),
-				where: entityWhere(entity, "workout", input),
-				orderBy: [ascending(column(entity, "name"))],
-			}),
-		},
-	};
-});
-
 export const measurementReadingListRecipe = defineRecipe(
 	(
 		input: Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
@@ -264,7 +248,6 @@ export const workoutTemplateDetailRecipe = defineRecipe(
 );
 
 export type ExerciseListResult = Recipe.Success<typeof exerciseListRecipe>;
-export type WorkoutListResult = Recipe.Success<typeof workoutListRecipe>;
 export type MeasurementReadingListResult = Recipe.Success<typeof measurementReadingListRecipe>;
 export type WorkoutTemplateListResult = Recipe.Success<typeof workoutTemplateListRecipe>;
 export type WorkoutDetailResult = Recipe.Success<typeof workoutDetailRecipe>;
