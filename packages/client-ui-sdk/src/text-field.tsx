@@ -21,6 +21,26 @@ export function TextField({ invalid, className, density = "default", ...props }:
 	);
 }
 
+type TextAreaProps = ComponentProps<"textarea"> & {
+	readonly invalid?: boolean;
+	readonly density?: "compact" | "default";
+};
+
+export function TextArea({ invalid, className, density = "default", ...props }: TextAreaProps) {
+	return (
+		<textarea
+			{...props}
+			aria-invalid={invalid}
+			className={clsx(
+				"rounded-lg border border-border bg-raised text-text",
+				density === "default" ? "px-4 py-3 text-base" : "px-3 py-2 text-base md:text-sm",
+				invalid === true && "border-danger",
+				className,
+			)}
+		/>
+	);
+}
+
 export function FieldMessage({ className, ...props }: ComponentProps<"p">) {
 	return <p role="alert" className={clsx("text-sm text-danger", className)} {...props} />;
 }

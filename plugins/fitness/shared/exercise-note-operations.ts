@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Schema } from "@ryot-app/plugin-kit/effect";
 
 const ExerciseNoteId = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 

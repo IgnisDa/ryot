@@ -38,9 +38,9 @@
 			"types": "./host/import-sources.ts",
 			"default": "./host/import-sources.ts"
 		},
-		"./contracts/operations": {
-			"types": "./backend/contracts/operations.ts",
-			"default": "./backend/contracts/operations.ts"
+		"./exercise-note-operations": {
+			"types": "./shared/exercise-note-operations.ts",
+			"default": "./shared/exercise-note-operations.ts"
 		},
 		"./contracts/operation-recipes": {
 			"types": "./backend/contracts/operation-recipes.ts",

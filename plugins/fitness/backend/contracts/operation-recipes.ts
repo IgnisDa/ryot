@@ -5,7 +5,7 @@ import {
 	ExerciseNoteDeleteInput,
 	ExerciseNoteOutput,
 	ExerciseNoteUpdateInput,
-} from "./operations";
+} from "../../shared/exercise-note-operations";
 
 export const exerciseNoteCreateRecipe = defineOperationRecipe({
 	pluginSlug: "fitness",
