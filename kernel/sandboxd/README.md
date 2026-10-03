@@ -24,6 +24,20 @@ slot (released while an isolate waits on host calls or timers) and for a memory 
 heap, external-memory, and run-frame bytes. After `--max-executions` runs or when RSS reaches
 `--max-rss`, the sidecar sends `draining`, rejects new runs, finishes admitted ones, and exits.
 
+## Launcher
+
+On Linux the backend never runs `ryot-sandboxd` directly. The root-owned setuid
+`ryot-sandbox-launcher` accepts only the UID-1001 backend with one connected socket on descriptor 3,
+clears the environment and other descriptors, sets `oom_score_adj` 1000, drops to UID/GID 1002, and
+executes the fixed installed sidecar and snapshots. `ryot-sandbox-launcher terminate <pid>` kills
+only a direct child of the caller that matches its root-owned launch attestation, through a pidfd.
+
+`tests/launcher/provision.sh <launcher> <sidecar> <snapshots>` installs the release artifacts at the
+fixed paths and creates the 1001/1002 accounts; the image and Linux test setups run it as root.
+`tests/launcher/test-default-docker.sh` builds and runs the launcher suite as root under Docker's
+default seccomp profile; plain `cargo test` must skip the launcher tests
+(`--skip launcher_ --skip sidecar_identity_environment_and_descriptors_are_confined`).
+
 ## Protocol
 
 Frames are a 4-byte big-endian length and a JSON payload of at most 256 KiB. The schema source of
@@ -43,4 +57,6 @@ ops against `ops.inventory`, and writes the digest manifest. The isolate surface
 plus `js/full.js` on the `full` tier.
 
 `bench/run.sh` measures `core` no-op latency and per-execution RSS; its thresholds apply only on the
-reference 2 vCPU / 4 GB x86_64 host.
+reference 2 vCPU / 4 GB x86_64 host. `bench/import.py --runtime sidecar --output <dir>` runs the e2e
+standard-import benchmark three times on that host, recording wall time, peak backend and child RSS,
+container memory, and business rows; it fails a trial that stops making progress for five minutes.
