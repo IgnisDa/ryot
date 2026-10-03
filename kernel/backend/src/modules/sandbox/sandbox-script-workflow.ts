@@ -57,6 +57,7 @@ import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/work
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
 	processSandboxExecutionQueue,
+	sandboxRecoveryExecutionId,
 	type SandboxExecutionQueuePayload,
 	type SandboxExecutionResolutionMode,
 	type SandboxReplayResult,
@@ -317,7 +318,7 @@ const processPinnedSandbox = Effect.fn("processPinnedSandbox")(function* (
 		yield* DurableClock.sleep({
 			duration: "60 seconds",
 			inMemoryThreshold: Duration.millis(1),
-			name: `${payload.executionId}-recovery-${attempt}`,
+			name: sandboxRecoveryExecutionId(payload.executionId, attempt),
 		});
 	}
 });

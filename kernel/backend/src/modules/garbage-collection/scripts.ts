@@ -12,7 +12,7 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 			const config = yield* AppConfig;
 			const repository = yield* PluginRepository;
 			const deferred = Effect.logDebug("sandbox script garbage collection deferred").pipe(
-				Effect.as({ removedCount: 0, candidateCount: 0 }),
+				Effect.as({ removedCount: 0 }),
 			);
 			const collect = Effect.fn("ScriptGarbageCollector.collect")(function* (input?: {
 				now: Date;
@@ -49,10 +49,7 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 							limit,
 						});
 						const removedPlugins = yield* repository.deleteInactiveUnreferencedPlugins(limit);
-						return {
-							removedCount: removedScripts.length + removedPlugins.length,
-							candidateCount: removedScripts.length + removedPlugins.length,
-						};
+						return { removedCount: removedScripts.length + removedPlugins.length };
 					}),
 				);
 				if (result === undefined) {

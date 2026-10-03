@@ -81,16 +81,12 @@ layer(realCollectorLayer, { excludeTestServices: true })((test) => {
 			const collector = yield* ScriptGarbageCollector;
 			const result = yield* collector.collect(scheduledCollection);
 			expect(result.removedCount).toBeGreaterThan(0);
-			expect(result.candidateCount).toBe(result.removedCount);
 			expect(
 				yield* session.run((db) =>
 					db.select().from(tables.sandboxScript).where(eq(tables.sandboxScript.id, script.id)),
 				),
 			).toEqual([]);
-			expect(yield* collector.collect(scheduledCollection)).toEqual({
-				removedCount: 0,
-				candidateCount: 0,
-			});
+			expect(yield* collector.collect(scheduledCollection)).toEqual({ removedCount: 0 });
 		}),
 	);
 
@@ -113,10 +109,7 @@ layer(realCollectorLayer, { excludeTestServices: true })((test) => {
 				}),
 			);
 			yield* repository.deactivate(installed.pluginId);
-			expect(yield* collector.collect(scheduledCollection)).toEqual({
-				removedCount: 0,
-				candidateCount: 0,
-			});
+			expect(yield* collector.collect(scheduledCollection)).toEqual({ removedCount: 0 });
 			yield* collector.collect();
 			expect(
 				yield* session.run((db) =>
@@ -174,7 +167,7 @@ layer(realCollectorLayer, { excludeTestServices: true })((test) => {
 				const result = yield* collector
 					.collect(scheduledCollection)
 					.pipe(Effect.timeout("2 seconds"), Effect.ensuring(Deferred.succeed(release, undefined)));
-				expect(result).toEqual({ removedCount: 0, candidateCount: 0 });
+				expect(result).toEqual({ removedCount: 0 });
 				expect(
 					yield* session.run((db) =>
 						db

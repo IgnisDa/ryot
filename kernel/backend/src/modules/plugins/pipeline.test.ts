@@ -119,11 +119,17 @@ it.effect("requires compiled scripts to exactly match manifest entries", () =>
 		if (!entry) {
 			return;
 		}
-		const error = yield* Effect.flip(normalizePluginSource({ manifest, compiledScripts: [] }));
-
-		expect(error.issues).toEqual([
-			"Plugin compiled scripts must exactly match manifest script entries",
-		]);
+		const compiled = { entry, format: 1, javascript: "export {};" };
+		for (const compiledScripts of [
+			[],
+			[compiled, compiled],
+			[compiled, { ...compiled, entry: "backend/extra.sandbox.ts" }],
+		]) {
+			const error = yield* Effect.flip(normalizePluginSource({ manifest, compiledScripts }));
+			expect(error.issues).toEqual([
+				"Plugin compiled scripts must exactly match manifest script entries",
+			]);
+		}
 	}),
 );
 

@@ -48,6 +48,22 @@ const SandboxReplayResult = Schema.Struct({
 });
 export type SandboxReplayResult = Schema.Schema.Type<typeof SandboxReplayResult>;
 
+export const sandboxRecoveryExecutionId = (executionId: string, attempt: number) =>
+	`${executionId}-recovery-${attempt}`;
+
+const toSandboxRunError = (error: unknown) =>
+	error instanceof SandboxRunError
+		? error
+		: new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) });
+
+const emptyReplayResult = () => ({
+	logs: [],
+	inline: [],
+	error: null,
+	value: null,
+	status: "completed" as const,
+});
+
 export const SandboxExecutionQueue = DurableQueue.make({
 	error: SandboxRunError,
 	success: SandboxReplayResult,
@@ -56,18 +72,14 @@ export const SandboxExecutionQueue = DurableQueue.make({
 	idempotencyKey: ({ executionId, recoveryAttempt }) =>
 		recoveryAttempt === undefined || recoveryAttempt === 0
 			? executionId
-			: `${executionId}-recovery-${recoveryAttempt}`,
+			: sandboxRecoveryExecutionId(executionId, recoveryAttempt),
 });
 
 export const processSandboxExecutionQueue = Effect.fn("processSandboxExecutionQueue")(function* (
 	payload: SandboxExecutionQueuePayload,
 ) {
 	const result = yield* DurableQueue.process(SandboxExecutionQueue, payload).pipe(
-		Effect.mapError((error) =>
-			error instanceof SandboxRunError
-				? error
-				: new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
-		),
+		Effect.mapError(toSandboxRunError),
 	);
 	if (result.recovery !== undefined) {
 		const runtime = yield* RuntimeSandboxService;
@@ -99,14 +111,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 				payload.journalLength,
 			);
 			if (replayJournal === null) {
-				return {
-					logs: [],
-					inline: [],
-					error: null,
-					value: null,
-					status: "completed" as const,
-					projectionMissing: true as const,
-				};
+				return { ...emptyReplayResult(), projectionMissing: true as const };
 			}
 
 			const script = yield* repository.getScript(payload.principal.scriptId);
@@ -173,15 +178,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		}).pipe(
 			Effect.catchIf(
 				(error) => error instanceof SidecarRecoverySuspended,
-				() =>
-					Effect.succeed({
-						logs: [],
-						inline: [],
-						error: null,
-						value: null,
-						status: "completed" as const,
-						recoverySuspended: true as const,
-					}),
+				() => Effect.succeed({ ...emptyReplayResult(), recoverySuspended: true as const }),
 			),
 		),
 	);
@@ -190,14 +187,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 	DurableQueue.worker(
 		SandboxExecutionQueue,
-		(payload) =>
-			executeSandboxExecution(payload).pipe(
-				Effect.mapError((error) =>
-					error instanceof SandboxRunError
-						? error
-						: new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
-				),
-			),
+		(payload) => executeSandboxExecution(payload).pipe(Effect.mapError(toSandboxRunError)),
 		{ concurrency },
 	);
 

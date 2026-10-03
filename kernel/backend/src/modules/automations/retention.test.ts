@@ -66,7 +66,7 @@ const recordingCollectorLayer = Layer.effectContext(
 		return Context.make(ScriptGarbageCollector, {
 			collect: (input) =>
 				(input ? Ref.update(collections, (values) => [...values, input]) : Effect.void).pipe(
-					Effect.as({ removedCount: 0, candidateCount: 0 }),
+					Effect.as({ removedCount: 0 }),
 				),
 		}).pipe(Context.add(ScriptCollections, Ref.get(collections)));
 	}),
@@ -218,7 +218,7 @@ describe("AutomationRetention", () => {
 									prunedTriggers: 1,
 									deletedTriggers: 1,
 									clearedScriptPins: 1,
-									garbageCollection: { removedCount: 0, candidateCount: 0 },
+									garbageCollection: { removedCount: 0 },
 								},
 								{
 									deletedRuns: 0,
@@ -226,7 +226,7 @@ describe("AutomationRetention", () => {
 									prunedTriggers: 1,
 									deletedTriggers: 0,
 									clearedScriptPins: 1,
-									garbageCollection: { removedCount: 0, candidateCount: 0 },
+									garbageCollection: { removedCount: 0 },
 								},
 							]);
 							expect(yield* yield* ScriptCollections).toEqual([
