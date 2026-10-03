@@ -3,7 +3,8 @@
 **Status:** S1, S2, and S4 are implemented (see [S1](s1.md), [S2](s2.md), and [S4](s4.md));
 S3 awaits an E2 decision ([s3.md](s3.md)); S5 is implemented, with reference-host benchmark and Linux CI verified
 ([s5.md](s5.md));
-S6 is separate.
+S6 implements the Linux syscall allowlist ([s6.md](s6.md)); custom V8 and allocator hardening remain
+deferred.
 Replaces the single-use Deno process per replay with V8 isolates hosted by long-lived, OS-confined
 native sidecars.
 
@@ -49,8 +50,8 @@ lower details latency, but both loaded/unloaded endpoint ratios miss E2 under CP
 - **Snapshot tiers:** the compiler already knows each script's runtime imports. Each script is paired
   with the smallest kernel-built snapshot covering them, so most scripts avoid youtubei and cheerio.
 - **Snapshot tiers are separate processes.** The prebuilt V8 shares one read-only heap per process, so
-  isolates restored from different snapshots cannot coexist in one process. S6's V8 sandbox also
-  requires a shared read-only heap, so this stays.
+  isolates restored from different snapshots cannot coexist in one process. The deferred V8 sandbox
+  also requires a shared read-only heap, so this stays.
 - **TurboFan disabled** (`--no-turbofan`). `TerminateExecution` does not interrupt TurboFan-optimized
   loops that call builtins such as `Array.prototype.fill`; pure `rusty_v8` repro:
   [denoland/rusty_v8#2088](https://github.com/denoland/rusty_v8/issues/2088). Maglev remains enabled and
@@ -70,9 +71,9 @@ lower details latency, but both loaded/unloaded endpoint ratios miss E2 under CP
   the live isolate; longer waits end the replay as today.
 - **Rust lives in `kernel/sandboxd`,** a Cargo crate built from source with a toolchain pinned by
   `rust-toolchain.toml`; `rusty_v8` prebuilt static libraries keep builds short.
-- **V8's built-in sandbox is deferred to S6.** It needs V8 built from source and forbids the counting
-  ArrayBuffer allocator. S1 ships the prebuilt V8 without it and measures whether V8's own accounting
-  can enforce the off-heap cap.
+- **V8 memory-corruption hardening is deferred.** Source-built V8, its built-in sandbox, pointer
+  compression, and replacing the counting ArrayBuffer allocator remain a separate follow-up. The
+  pinned prebuilt V8 and counting allocator stay in use.
 - **Fairness unit is the human user.** System-plugin work on a user's behalf counts against that user;
   each plugin is capped within a user; user-less system work is its own capped tenant. Interactive
   work is admitted first, with a reserved background share.
@@ -135,10 +136,11 @@ per isolate, holds no shared resource, and either lives on the V8 heap or is met
 ### OS confinement
 
 `ryot-sandboxd` runs as its own UID with an empty environment, inherits only a socketpair, sets
-`no_new_privs`, is non-dumpable with core dumps disabled, and applies a seccomp filter denying internet
-sockets, `execve` after startup, `ptrace`, `process_vm_*`, `userfaultfd`, `io_uring`, `bpf`,
-`perf_event_open`, `mount`, `unshare`, namespace-creating `clone`, all `clone3`, and every x32-ABI
-syscall on x86_64, plus a deny-all Landlock policy verified inside the sidecar after loading the snapshot.
+`no_new_privs`, is non-dumpable with core dumps disabled, and applies a default-deny seccomp allowlist
+for Linux x86_64 and aarch64. Only runtime syscalls and the exact glibc thread-creation flags are
+permitted; unlisted calls and x32 return `EPERM`, while `clone3` returns `ENOSYS` for pthread creation.
+A deny-all Landlock policy remains verified inside the sidecar after loading the snapshot. The policy
+and restrictions are documented in `kernel/sandboxd/README.md`.
 The backend and sidecars share one container. Shipped deployment defaults do not set CPU, memory,
 or PID ceilings or require separate sidecar cgroups. The launcher sets a high `oom_score_adj`;
 isolate limits and backend memory admission remain. Linux production fails closed when confinement
@@ -235,7 +237,7 @@ result, any acceptance item you could not prove, and every deviation from this d
 ## Slices
 
 Each slice is approved separately. S4 and S5 are independent of S3's unmet E2 criterion;
-S6 requires separate review.
+S6 is approved for syscall-policy hardening only.
 
 ### S1 — Sidecar runtime
 
@@ -275,15 +277,20 @@ S6 requires separate review.
 - **Outcome:** waits shorter than a threshold, including matched HTTP rate-limit slots, settle in the
   live isolate.
 
-### S6 — V8 sandbox hardening
+### S6 — Linux syscall allowlist
 
-- **Outcome:** the sidecar runs on a source-built V8 with its sandbox and pointer compression enabled,
-  confining V8 memory corruption away from sidecar state and halving isolate memory.
-- **Scope:** cached source builds of the pinned V8 for Linux amd64/arm64 in CI, replacing the counting
-  ArrayBuffer allocator with V8 accounting, and convert the seccomp denylist to an allowlist.
-- **Prerequisites:** S1's accounting measurement shows the off-heap cap holds without the allocator.
-- **Acceptance:** the S1 containment, escape, and crash suites pass unchanged; per-isolate heap falls
-  measurably.
+- **Status:** implemented for the approved syscall-policy scope. Contract and verification:
+  [s6.md](s6.md).
+- **Outcome:** a default-deny Linux x86_64/aarch64 seccomp allowlist rejects newly encountered or
+  unlisted syscalls without a denylist update.
+- **Scope:** post-lockdown syscall traces, restricted thread creation, real kernel confinement tests,
+  and native, launcher, and backend acceptance. The pinned Rust/V8/Deno build, counting allocator,
+  limits, confinement startup order, and replay semantics remain.
+- **Acceptance:** existing containment, escape, crash, lifecycle, and replay tests pass under
+  confinement; unknown syscalls, process creation, and namespace creation are denied, while required
+  threads work under Docker defaults.
+- **Deferred:** custom V8 builds, the V8 sandbox, pointer compression, and allocator replacement. This
+  slice makes no memory or latency claim.
 
 Fan-out reduction, batching automation runs per plugin revision, is a separate track measured after
 S2, when workflow-engine rows become the dominant per-import cost.
@@ -295,7 +302,8 @@ S2, when workflow-engine rows become the dominant per-import cost.
 - Remove `--no-turbofan` and its TODO once
   [denoland/rusty_v8#2088](https://github.com/denoland/rusty_v8/issues/2088) is fixed upstream and the
   termination suite passes without it.
-- S6: V8 sandbox and pointer compression on a source-built V8.
+- Source-built V8 with its sandbox and pointer compression; allocator replacement after off-heap
+  accounting is proven.
 - Fan-out reduction track after S2.
 - Switch the user tier to per-user sidecars if a deployment hosts mutually untrusted users.
 
@@ -311,8 +319,8 @@ These scripts stay until the later slices no longer need them: `kernel/sandboxd/
 
 - **V8 termination:** depends on `--no-turbofan` until upstream fixes the hole; the backstop covers
   unknown cases. Re-run the termination, escape, and crash suites on every `deno_core` or V8 upgrade.
-- **Memory at high concurrency:** 6–14 MiB per live isolate depending on snapshot tier until S6 adds
-  pointer compression.
+- **Memory at high concurrency:** 6–14 MiB per live isolate depending on snapshot tier until the
+  deferred pointer-compression work.
 - **Uninterruptible builtins:** a builtin that never checks for termination exits the whole sidecar,
   taking its neighbours' executions with it; S2's supervisor re-runs them.
 - **Fairness gaming:** per-user fairness can be gamed with many accounts where signup is open.
