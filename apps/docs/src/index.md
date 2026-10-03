@@ -55,10 +55,8 @@ it is temporary storage. For production, consider S3-compatible permanent storag
 
 Some metadata providers require credentials. See [Configuration](./configuration.md).
 
-The image supports Linux amd64 and arm64. Use a recent Linux kernel with Landlock and seccomp
-support. Keep the image's user and default Docker security settings; `no-new-privileges` or
-`nosuid` prevents plugin execution. See [Deployment](./deployment.md) for memory and platform
-requirements.
+The image supports Linux amd64 and arm64; see [Deployment](./deployment.md) for platform and
+memory requirements.
 
 ## Upgrading to Pro
 

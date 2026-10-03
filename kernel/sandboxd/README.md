@@ -85,10 +85,12 @@ executes the fixed installed sidecar and snapshots. `ryot-sandbox-launcher termi
 only a direct child of the caller that matches its root-owned launch attestation, through a pidfd.
 
 `provision.sh <launcher> <sidecar> <snapshots>` installs the release artifacts at the fixed paths and
-creates the 1001/1002 accounts; the image and Linux test setups run it as root.
-`tests/launcher/test-default-docker.sh` builds and runs the launcher suite as root under Docker's
-default seccomp profile, with serialized Cargo builds. The root-only launcher tests are `#[ignore]`d,
-so plain `cargo test` skips them and the script runs them with `--ignored`.
+creates the 1001/1002 accounts; the image and the `sandbox-test` stage run it as root.
+Build the stage with `docker buildx build --target sandbox-test --load -t ryot-sandbox-test .`, then run
+the launcher suite as root under Docker's default seccomp profile and capabilities, without extra
+`docker run` flags: `docker run --rm --user 0 -w /app/kernel/sandboxd ryot-sandbox-test cargo test
+--test launcher -- --ignored --test-threads=1`. The root-only launcher tests are `#[ignore]`d, so
+plain `cargo test` skips them.
 
 ## Protocol
 
