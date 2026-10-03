@@ -125,13 +125,13 @@ const automationRunSubjectFields = {
 
 export const SandboxExecutionSubject = Schema.Union([
 	strictStruct({ type: Schema.Literal("system") }),
-	// `integrationId` is the integration the execution belongs to and `integrationRunId` is the
-	// integration run executing it. Only trusted kernel dispatch sets them, so a script can never
-	// widen its own credential scope by supplying an id.
+	// Only trusted kernel dispatch sets integration and import run IDs, so scripts cannot widen
+	// credential or snapshot scope by supplying an ID.
 	strictStruct({
 		userId: UserId,
 		type: Schema.Literal("user"),
 		accountGeneration: AccountGeneration,
+		importRunId: Schema.optional(ImportRunId),
 		integrationId: Schema.optional(IntegrationId),
 		integrationRunId: Schema.optional(ImportRunId),
 	}),
