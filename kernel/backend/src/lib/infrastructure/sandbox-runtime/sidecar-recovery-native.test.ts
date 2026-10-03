@@ -1,11 +1,6 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import {
-	PluginConfigRevisionId,
-	PluginId,
-	PluginRevisionId,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Deferred, Effect, Fiber, Queue, Schema } from "effect";
@@ -15,6 +10,7 @@ import { SandboxCrashStore, SandboxCrashStoreError } from "#lib/infrastructure/s
 import { SandboxRecoveryStore } from "#lib/infrastructure/sandbox-recovery-store";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { testExecutionId } from "#lib/test-utils/redis";
+import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import type { SandboxRunInput } from "./shared";
@@ -52,29 +48,15 @@ const crashSource = (slug: string) =>
   : Effect.sleep(input.mode === "park" ? "1 second" : "0 millis").pipe(Effect.as("healthy"))`,
 	);
 
-const withUploader = (input: SandboxRunInput, uploader: UserId): SandboxRunInput => ({
-	...input,
-	principal: { ...input.principal, standaloneUploaderId: uploader },
-});
-
 const asPlugin = (input: SandboxRunInput, ownerId: UserId, renamed = false): SandboxRunInput => ({
 	...input,
 	principal: {
 		...input.principal,
-		standaloneUploaderId: undefined,
-		pluginRevision: {
+		pluginRevision: makeUserPluginRevision({
 			ownerId,
-			scope: "user",
-			workflowScripts: {},
-			userBootstrapScriptSlugs: [],
 			slug: testExecutionId("plugin"),
-			id: PluginId.make(testExecutionId("plugin")),
-			configSchema: { fields: {}, unknownKeys: "strict" },
-			revisionId: PluginRevisionId.make(testExecutionId("revision")),
-			configRevisionId: PluginConfigRevisionId.make(testExecutionId("config")),
 			compiledHashes: { [renamed ? "renamed" : "entry"]: input.principal.contentHash },
-			schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
-		},
+		}),
 	},
 });
 
@@ -162,9 +144,9 @@ const probationRenewsOnFatalAndClearsOnSuccess = Effect.scoped(
 		const redis = yield* RedisService;
 		const track = yield* trackNativeKeys;
 		const compiled = yield* compileTightenedNative(crashSource(testExecutionId("probation")));
-		const base = withUploader(
+		const base = asPlugin(
 			nativeInput(compiled, testExecutionId("probation"), { mode: "crash" }),
-			UserId.make(testExecutionId("uploader")),
+			UserId.make(testExecutionId("owner")),
 		);
 		const identities = yield* track(base);
 		yield* Effect.scoped(
@@ -248,7 +230,7 @@ const systemJobQuarantineSparesOtherWork = Effect.scoped(
 			...base,
 			principal: {
 				...base.principal,
-				standaloneUploaderId: undefined,
+				pluginRevision: null,
 				subject: {
 					type: "user",
 					userId: user,
@@ -275,10 +257,7 @@ const systemJobQuarantineSparesOtherWork = Effect.scoped(
 			executionId: testExecutionId("userless"),
 			principal: { ...crash.principal, subject: { type: "system" } },
 		};
-		const userTier = withUploader(
-			{ ...other, executionId: testExecutionId("user-tier") },
-			otherUser,
-		);
+		const userTier = asPlugin({ ...other, executionId: testExecutionId("user-tier") }, otherUser);
 		for (const input of [crash, other, userless]) {
 			yield* track(input, "system");
 		}
@@ -299,7 +278,7 @@ const systemJobQuarantineSparesOtherWork = Effect.scoped(
 			...rotatedBase,
 			principal: {
 				...rotatedBase.principal,
-				standaloneUploaderId: undefined,
+				pluginRevision: null,
 				subject: crash.principal.subject,
 			},
 		};
@@ -334,9 +313,9 @@ const unavailableCrashStoreFailsClosed = Effect.scoped(
 			Effect.provideService(SandboxSidecarQuarantine, quarantine),
 		);
 		const before = evidence.sent.length;
-		const input = withUploader(
+		const input = asPlugin(
 			nativeInput(compiled, testExecutionId("store-failure"), { mode: "healthy" }),
-			UserId.make(testExecutionId("store-uploader")),
+			UserId.make(testExecutionId("store-owner")),
 		);
 		assertExitFails(
 			yield* Effect.exit(runSupervisedNative(supervisor, input)),
@@ -350,39 +329,35 @@ const unavailableCrashStoreFailsClosed = Effect.scoped(
 );
 
 layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
-	test.effect("crash_quarantine_blocks_uploader_plugin_rotation", () =>
+	test.effect("crash_quarantine_blocks_owner_plugin_rotation", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const compiler = yield* SandboxCompiler;
 				const track = yield* trackNativeKeys;
 				const supervisor = yield* SandboxSidecarSupervisor.make;
-				const uploader = UserId.make(testExecutionId("uploader"));
-				const other = UserId.make(testExecutionId("other-uploader"));
+				const owner = UserId.make(testExecutionId("owner"));
+				const other = UserId.make(testExecutionId("other-owner"));
 				const compiled = yield* compileTightenedNative(crashSource(testExecutionId("fatal")));
 				const crash = asPlugin(
 					nativeInput(compiled, testExecutionId("crash"), { mode: "crash" }),
-					uploader,
+					owner,
 				);
 				const rotatedCompiled = yield* compiler.compile(
 					definition(testExecutionId("rotated"), `() => Effect.succeed("healthy")`),
 				);
 				const rotated = asPlugin(
 					nativeInput(rotatedCompiled, testExecutionId("rotated"), { mode: "healthy" }),
-					uploader,
-				);
-				const standalone = withUploader(
-					nativeInput(rotatedCompiled, testExecutionId("standalone"), { mode: "healthy" }),
-					uploader,
+					owner,
 				);
 				const healthy = asPlugin(
 					nativeInput(rotatedCompiled, testExecutionId("healthy"), { mode: "healthy" }),
 					other,
 				);
-				for (const input of [rotated, standalone, healthy]) {
+				for (const input of [rotated, healthy]) {
 					yield* track(input);
 				}
 				yield* quarantineThroughCrashes(supervisor, crash, track);
-				yield* assertQuarantinedWithoutDispatch(supervisor, [rotated, standalone]);
+				yield* assertQuarantinedWithoutDispatch(supervisor, [rotated]);
 				expect(yield* runSupervisedNative(supervisor, healthy)).toMatchObject({
 					success: true,
 					value: "healthy",
@@ -397,22 +372,17 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 				const compiler = yield* SandboxCompiler;
 				const track = yield* trackNativeKeys;
 				const supervisor = yield* SandboxSidecarSupervisor.make;
-				const uploader = UserId.make(testExecutionId("uploader"));
-				const other = UserId.make(testExecutionId("other-uploader"));
-				const third = UserId.make(testExecutionId("third-uploader"));
+				const owner = UserId.make(testExecutionId("owner"));
+				const other = UserId.make(testExecutionId("other-owner"));
 				const compiled = yield* compileTightenedNative(crashSource(testExecutionId("fatal")));
 				const crash = asPlugin(
 					nativeInput(compiled, testExecutionId("crash"), { mode: "crash" }),
-					uploader,
+					owner,
 				);
 				const repacked = asPlugin(
 					nativeInput(compiled, testExecutionId("repacked"), { mode: "healthy" }),
 					other,
 					true,
-				);
-				const uploaded = withUploader(
-					nativeInput(compiled, testExecutionId("uploaded"), { mode: "healthy" }),
-					third,
 				);
 				const healthyCompiled = yield* compiler.compile(
 					definition(testExecutionId("healthy"), `() => Effect.succeed("healthy")`),
@@ -421,11 +391,11 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 					nativeInput(healthyCompiled, testExecutionId("healthy"), { mode: "healthy" }),
 					other,
 				);
-				for (const input of [repacked, uploaded, healthy]) {
+				for (const input of [repacked, healthy]) {
 					yield* track(input);
 				}
 				yield* quarantineThroughCrashes(supervisor, crash, track);
-				yield* assertQuarantinedWithoutDispatch(supervisor, [repacked, uploaded]);
+				yield* assertQuarantinedWithoutDispatch(supervisor, [repacked]);
 				expect(yield* runSupervisedNative(supervisor, healthy)).toMatchObject({
 					success: true,
 					value: "healthy",
@@ -466,8 +436,8 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 							"operation",
 						),
 					);
-					const uploader = UserId.make(testExecutionId("victim-uploader"));
-					const seed = withUploader(
+					const owner = UserId.make(testExecutionId("victim-owner"));
+					const seed = asPlugin(
 						nativeInput(
 							compiled,
 							testExecutionId("seed"),
@@ -487,7 +457,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 								},
 							},
 						),
-						uploader,
+						owner,
 					);
 					yield* track(seed);
 					const prefix = yield* Effect.scoped(
@@ -502,7 +472,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 							return result.inline;
 						}),
 					);
-					const victim = withUploader(
+					const victim = asPlugin(
 						nativeInput(
 							compiled,
 							testExecutionId("victim"),
@@ -529,7 +499,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 								},
 							},
 						),
-						uploader,
+						owner,
 					);
 					yield* track(victim);
 					const pinHash = sha256Hex(
@@ -550,9 +520,9 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 								const culpritCompiled = yield* compileTightenedNative(
 									crashSource(testExecutionId("culprit")),
 								);
-								const culprit = withUploader(
+								const culprit = asPlugin(
 									nativeInput(culpritCompiled, testExecutionId("culprit"), { mode: "crash" }),
-									UserId.make(testExecutionId("culprit-uploader")),
+									UserId.make(testExecutionId("culprit-owner")),
 								);
 								yield* track(culprit);
 								yield* assertNativeCrash(supervisor, culprit);
@@ -586,9 +556,9 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 							const healthyCompiled = yield* compiler.compile(
 								definition(testExecutionId("healthy"), `() => Effect.succeed("healthy")`),
 							);
-							const healthy = withUploader(
+							const healthy = asPlugin(
 								nativeInput(healthyCompiled, testExecutionId("health"), { mode: "healthy" }),
-								UserId.make(testExecutionId("healthy-uploader")),
+								UserId.make(testExecutionId("healthy-owner")),
 							);
 							yield* track(healthy);
 							yield* runSupervisedNative(reconstructed, healthy);
@@ -628,14 +598,14 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 					);
 					expect(compiled.javascript).toContain("while");
 					const candidates = [0, 1].map(() =>
-						withUploader(
+						asPlugin(
 							nativeInput(compiled, testExecutionId("candidate"), { mode: "healthy" }),
-							UserId.make(testExecutionId("candidate-uploader")),
+							UserId.make(testExecutionId("candidate-owner")),
 						),
 					);
-					const fresh = withUploader(
+					const fresh = asPlugin(
 						nativeInput(compiled, testExecutionId("fresh"), { mode: "healthy" }),
-						UserId.make(testExecutionId("fresh-uploader")),
+						UserId.make(testExecutionId("fresh-owner")),
 					);
 					const identities = new Set<string>();
 					for (const input of [...candidates, fresh]) {

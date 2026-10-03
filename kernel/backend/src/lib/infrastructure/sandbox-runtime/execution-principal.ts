@@ -44,21 +44,14 @@ export const SandboxExecutionPrincipal = Schema.Struct({
 	metadata: SandboxScriptMetadata,
 	subject: SandboxExecutionSubject,
 	providerId: Schema.NullOr(SandboxProviderId),
-	standaloneUploaderId: Schema.optional(UserId),
 	kernelScript: Schema.optional(Schema.Literal(true)),
 	pluginRevision: Schema.NullOr(SandboxPluginRevision),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter((principal) => {
-			if (
-				principal.kernelScript === true &&
-				(principal.pluginRevision !== null || principal.standaloneUploaderId !== undefined)
-			) {
-				return "Kernel identity cannot accompany uploaded script ownership";
-			}
-			const { subject, pluginRevision, standaloneUploaderId } = principal;
-			if (pluginRevision !== null && standaloneUploaderId !== undefined) {
-				return "Standalone uploader identity cannot accompany a plugin revision";
+			const { subject, pluginRevision } = principal;
+			if (principal.kernelScript === true && pluginRevision !== null) {
+				return "Kernel identity cannot accompany a plugin revision";
 			}
 			if (
 				subject.type === "automation-run" &&

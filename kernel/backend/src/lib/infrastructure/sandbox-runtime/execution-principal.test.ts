@@ -87,3 +87,11 @@ it("accepts source-zero principals only with all-null plugin ownership", () => {
 	expect(() => decode({ ...principal, pluginRevision: null })).toThrow();
 	expect(() => decode({ ...kernel, pluginRevision: principal.pluginRevision })).toThrow();
 });
+
+it("rejects kernel identity together with a plugin revision", () => {
+	const decode = Schema.decodeUnknownSync(SandboxExecutionPrincipal);
+	expect(decode(principal)).toEqual(principal);
+	expect(() => decode({ ...principal, kernelScript: true })).toThrow(
+		"Kernel identity cannot accompany a plugin revision",
+	);
+});

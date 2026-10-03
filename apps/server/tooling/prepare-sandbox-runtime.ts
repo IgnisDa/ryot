@@ -2,7 +2,13 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { appConfigDefinition } from "@ryot-app/kernel-backend/lib/infrastructure/config/definition";
 import { AppConfig } from "@ryot-app/kernel-backend/lib/infrastructure/config/service";
 import {
@@ -47,7 +53,7 @@ import {
 
 const startedAt = "2026-01-01T00:00:00.000Z";
 const scriptId = SandboxScriptId.make("production-runtime-smoke");
-const uploaderId = UserId.make("production-runtime-smoke-user");
+const ownerId = UserId.make("production-runtime-smoke-user");
 const trusts = ["system", "user"] as const;
 
 type SmokeTier = (typeof smokeTiers)[number];
@@ -275,21 +281,37 @@ const smoke = Effect.gen(function* () {
 				scriptId,
 				contentHash,
 				providerId: null,
-				pluginRevision: null,
 				metadata: compiled.manifest,
 				scriptSlug: smokeSourceManifest.slug,
-				...(trust === "system" ? { kernelScript: true } : { standaloneUploaderId: uploaderId }),
-				subject:
-					trust === "system"
-						? { type: "system" }
-						: {
+				...(trust === "system"
+					? { kernelScript: true, pluginRevision: null, subject: { type: "system" } }
+					: {
+							subject: {
 								type: "user",
-								userId: uploaderId,
+								userId: ownerId,
 								accountGeneration: {
-									userId: uploaderId,
+									userId: ownerId,
 									token: "production-runtime-smoke-account-generation",
 								},
 							},
+							pluginRevision: {
+								ownerId,
+								scope: "user",
+								workflowScripts: {},
+								userBootstrapScriptSlugs: [],
+								slug: "production-runtime-smoke",
+								id: PluginId.make("production-runtime-smoke"),
+								configSchema: { fields: {}, unknownKeys: "strict" },
+								compiledHashes: { [smokeSourceManifest.slug]: contentHash },
+								revisionId: PluginRevisionId.make("production-runtime-smoke-revision"),
+								configRevisionId: PluginConfigRevisionId.make("production-runtime-smoke-config"),
+								schemaScope: {
+									eventSchemas: [],
+									entitySchemaSlugs: [],
+									relationshipSchemaSlugs: [],
+								},
+							},
+						}),
 			}).pipe(
 				Effect.mapError(
 					() =>

@@ -47,7 +47,7 @@ import {
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
-import { sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
+import { makeUserPluginRevision, sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
@@ -444,27 +444,31 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 				const control = yield* SandboxHeadroomControl;
 				const observer = yield* SandboxHeadroomObserver;
 				const admission = yield* SandboxSidecarAdmission;
-				const uploaderId = UserId.make(testExecutionId("sandbox-headroom-uploader"));
+				const ownerId = UserId.make(testExecutionId("sandbox-headroom-owner"));
 				const scriptId = SandboxScriptId.make(testExecutionId("sandbox-headroom-script"));
 				const subject: SandboxExecutionPrincipal["subject"] = {
 					type: "user",
-					userId: uploaderId,
+					userId: ownerId,
 					accountGeneration: {
-						userId: uploaderId,
+						userId: ownerId,
 						token: testExecutionId("sandbox-headroom-account"),
 					},
 				};
 				const compiled = yield* compiler.compile(headroomSource);
 				expect(compiled.manifest.capabilities).toContain("getCachedValue");
+				const contentHash = sha256Hex(compiled.javascript);
 				const principal: SandboxExecutionPrincipal = {
 					subject,
 					scriptId,
+					contentHash,
 					providerId: null,
-					pluginRevision: null,
 					metadata: compiled.manifest,
-					standaloneUploaderId: uploaderId,
 					scriptSlug: compiled.manifest.slug,
-					contentHash: sha256Hex(compiled.javascript),
+					pluginRevision: makeUserPluginRevision({
+						ownerId,
+						slug: testExecutionId("sandbox-headroom-plugin"),
+						compiledHashes: { [compiled.manifest.slug]: contentHash },
+					}),
 				};
 				yield* Effect.sync(() => {
 					control.fixture = { compiled, principal };

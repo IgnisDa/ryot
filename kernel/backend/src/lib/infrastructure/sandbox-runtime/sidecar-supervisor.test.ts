@@ -1,4 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
@@ -19,7 +20,9 @@ import {
 import { TestClock } from "effect/testing";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
+import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 
 import { SandboxRecoveryStore } from "../sandbox-recovery-store";
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
@@ -1556,10 +1559,41 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 	).pipe(Effect.withSpan("sandbox.supervisor.inline-budget-test")),
 );
 
-const owned = (owner: string, scriptSlug: string): SandboxExecutionPrincipal => ({
-	...makePrincipal([], scriptSlug),
-	standaloneUploaderId: UserId.make(owner),
-});
+const owned = (owner: string | null, scriptSlug: string): SandboxExecutionPrincipal => {
+	const principal = makePrincipal([], scriptSlug);
+	return {
+		...principal,
+		pluginRevision: makeUserPluginRevision({
+			slug: `${scriptSlug}-plugin`,
+			ownerId: owner === null ? null : UserId.make(owner),
+			compiledHashes: { [scriptSlug]: principal.contentHash },
+		}),
+	};
+};
+
+supervisorTest("per_user_sharding_rejects_missing_owner", () =>
+	Effect.gen(function* () {
+		const config = yield* AppConfig;
+		yield* withSupervisor(({ supervisor }) =>
+			Effect.gen(function* () {
+				for (const principal of [makePrincipal([], "unowned-script"), owned(null, "null-owner")]) {
+					assertExitFails(
+						yield* Effect.exit(supervisor.locate(principal)),
+						new SandboxRunError({
+							kind: "missing-artifact",
+							message: "Sandbox user-tier execution has no pinned owner",
+						}),
+					);
+				}
+			}),
+		).pipe(
+			Effect.provideService(AppConfig, {
+				...config,
+				sandbox: { ...config.sandbox, perUserSidecars: true },
+			}),
+		);
+	}),
+);
 
 supervisorTest("per_user_sidecars_shard_the_user_tier_by_owner", () =>
 	Effect.gen(function* () {

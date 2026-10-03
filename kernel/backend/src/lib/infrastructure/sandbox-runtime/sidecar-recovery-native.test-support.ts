@@ -139,12 +139,7 @@ export const nativeRecoveryLayer = Layer.mergeAll(
 	SandboxSidecarQuarantine.layer,
 	SandboxCrashStore.layer,
 	Layer.succeed(SandboxExecutionAuthority, {
-		resolve: (principal) =>
-			Effect.succeed(
-				principal.standaloneUploaderId === undefined && principal.pluginRevision === null
-					? "system"
-					: "user",
-			),
+		resolve: (principal) => Effect.succeed(principal.pluginRevision === null ? "system" : "user"),
 	}),
 ).pipe(
 	Layer.provideMerge(RedisService.layer),

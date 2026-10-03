@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "72dd3f38-933c-4c7f-8eed-e026d4a7f94d",
+	"id": "ba6944d2-9d8a-449b-8e05-353b4091916b",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -8163,19 +8163,6 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "uploader_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "sandbox_script"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
 			"name": "provider_id",
 			"entityType": "columns",
 			"schema": "public",
@@ -11817,46 +11804,11 @@
 				}
 			],
 			"isUnique": true,
-			"where": "\"plugin_revision_id\" is null and \"uploader_id\" is null",
+			"where": "\"plugin_revision_id\" is null",
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
 			"name": "sandbox_script_kernel_slug_content_hash_unique",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "sandbox_script"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "uploader_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "slug",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "content_hash",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": true,
-			"where": "\"uploader_id\" is not null",
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "sandbox_script_uploader_slug_content_hash_unique",
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "sandbox_script"
@@ -13406,19 +13358,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["uploader_id"],
-			"schemaTo": "public",
-			"tableTo": "user",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"name": "sandbox_script_uploader_id_user_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "sandbox_script"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["provider_id"],
 			"schemaTo": "public",
 			"tableTo": "sandbox_provider",
@@ -14720,13 +14659,6 @@
 		{
 			"value": "(\"plugin_revision_id\" is null) = (\"source\" is not null)",
 			"name": "sandbox_script_source_owner_check",
-			"entityType": "checks",
-			"schema": "public",
-			"table": "sandbox_script"
-		},
-		{
-			"value": "\"uploader_id\" is null or \"plugin_revision_id\" is null",
-			"name": "sandbox_script_uploader_owner_check",
 			"entityType": "checks",
 			"schema": "public",
 			"table": "sandbox_script"

@@ -1,12 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import {
-	PluginId,
-	PluginRevisionId,
-	PluginConfigRevisionId,
-	SandboxScriptId,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Redacted } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -18,6 +12,7 @@ import {
 	testExecutionId,
 	testRedisUrl,
 } from "#lib/test-utils/redis";
+import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 
 import type { SandboxExecutionPrincipal } from "./execution-principal";
 import { SandboxSidecarQuarantine } from "./sidecar-quarantine";
@@ -41,23 +36,15 @@ const makePrincipal = (
 	scriptSlug: "entry",
 	metadata: { kind: "script", runtimeImports: [] },
 	scriptId: SandboxScriptId.make(testExecutionId("script")),
+	pluginRevision: makeUserPluginRevision({
+		ownerId,
+		compiledHashes,
+		slug: testExecutionId("plugin"),
+	}),
 	subject: {
 		type: "user",
 		userId: ownerId,
 		accountGeneration: { userId: ownerId, token: "generation" },
-	},
-	pluginRevision: {
-		ownerId,
-		scope: "user",
-		compiledHashes,
-		workflowScripts: {},
-		userBootstrapScriptSlugs: [],
-		slug: testExecutionId("plugin"),
-		id: PluginId.make(testExecutionId("plugin")),
-		configSchema: { fields: {}, unknownKeys: "strict" },
-		revisionId: PluginRevisionId.make(testExecutionId("revision")),
-		configRevisionId: PluginConfigRevisionId.make(testExecutionId("config")),
-		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
 	},
 });
 
@@ -80,32 +67,24 @@ const sessions = Effect.gen(function* () {
 });
 
 layer(quarantineLayer)((test) => {
-	test.effect("charges the pinned standalone uploader rather than the executing user", () =>
+	test.effect("charges the plugin owner and content identities", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const open = yield* sessions;
-				const uploader = UserId.make(testExecutionId("uploader"));
-				const executingUser = UserId.make(testExecutionId("executor"));
+				const owner = UserId.make(testExecutionId("owner"));
 				const hash = testHash();
-				const uploaded = {
-					...makePrincipal(executingUser, hash, { entry: hash }),
-					pluginRevision: null,
-					standaloneUploaderId: uploader,
-				};
+				const crashing = makePrincipal(owner, hash, { entry: hash });
+				const healthyOwner = UserId.make(testExecutionId("owner"));
 				const healthyHash = testHash();
-				const healthy = {
-					...uploaded,
-					contentHash: healthyHash,
-					standaloneUploaderId: executingUser,
-				};
+				const healthy = makePrincipal(healthyOwner, healthyHash, { entry: healthyHash });
 				yield* open(healthy, "user");
 				for (let index = 0; index < 3; index++) {
-					const session = yield* open(uploaded, "user");
-					expect(session.identities[0]).toBe(`user:uploader:${uploader}`);
+					const session = yield* open(crashing, "user");
+					expect(session.identities[0]).toBe(`user:owner:${owner}`);
 					yield* session.recordCrash;
 				}
 				assertExitFails(
-					yield* Effect.exit(open(uploaded, "user")),
+					yield* Effect.exit(open(crashing, "user")),
 					new SandboxRunError({
 						kind: "resource-unavailable",
 						message: "Sandbox execution is quarantined or awaiting exclusive probation",
@@ -115,22 +94,31 @@ layer(quarantineLayer)((test) => {
 			}),
 		),
 	);
-	test.effect("does not substitute the executing user for a missing standalone uploader pin", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const quarantine = yield* SandboxSidecarQuarantine;
-				const owner = UserId.make(testExecutionId("owner"));
-				const hash = testHash();
-				const principal = { ...makePrincipal(owner, hash, { entry: hash }), pluginRevision: null };
+	test.effect("quarantine_rejects_user_trust_without_plugin_revision", () =>
+		Effect.gen(function* () {
+			const quarantine = yield* SandboxSidecarQuarantine;
+			const owner = UserId.make(testExecutionId("owner"));
+			const hash = testHash();
+			const principal = makePrincipal(owner, hash, { entry: hash });
+			const revision = makeUserPluginRevision({
+				ownerId: owner,
+				slug: testExecutionId("plugin"),
+				compiledHashes: { entry: hash },
+			});
+			for (const rejected of [
+				{ ...principal, pluginRevision: null },
+				{ ...principal, pluginRevision: { ...revision, ownerId: null } },
+				{ ...principal, pluginRevision: { ...revision, scope: "system" as const } },
+			]) {
 				assertExitFails(
-					yield* Effect.exit(quarantine.open(principal, "user")),
+					yield* Effect.exit(quarantine.open(rejected, "user")),
 					new SandboxRunError({
 						kind: "resource-unavailable",
-						message: "Sandbox standalone upload has no pinned uploader identity",
+						message: "Sandbox crash protection unavailable",
 					}),
 				);
-			}),
-		),
+			}
+		}),
 	);
 	test.effect(
 		"content quarantine follows the executable set across accounts and renamed modules",

@@ -18,6 +18,7 @@ import {
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { deleteRedisKeysOnExit, testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
+import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
@@ -290,7 +291,7 @@ const makeRunInput = (
 	compiled: Effect.Success<ReturnType<SandboxCompiler["Service"]["compile"]>>,
 	executionId: string,
 	context: unknown,
-	uploaderId: UserId,
+	ownerId: UserId,
 	grants?: SandboxRunInput["grants"],
 ): SandboxRunInput => ({
 	context,
@@ -299,20 +300,23 @@ const makeRunInput = (
 	compiledCode: compiled.javascript,
 	principal: {
 		providerId: null,
-		pluginRevision: null,
 		metadata: compiled.manifest,
-		standaloneUploaderId: uploaderId,
+		subject: makeUserSubject(ownerId),
 		scriptSlug: compiled.manifest.slug,
-		subject: makeUserSubject(uploaderId),
 		scriptId: SandboxScriptId.make(executionId),
 		contentHash: sha256Hex(compiled.javascript),
+		pluginRevision: makeUserPluginRevision({
+			ownerId,
+			slug: `${executionId}-plugin`,
+			compiledHashes: { [compiled.manifest.slug]: sha256Hex(compiled.javascript) },
+		}),
 	},
 	...(grants === undefined ? {} : { grants }),
 });
 
 layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 	test.effect("real_native_service_preserves_definition_results_and_host_dispatch", () => {
-		const uploaderId = UserId.make(testExecutionId("native-service-uploader"));
+		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const successExecutionId = testExecutionId("native-service-success");
 		const invalidExecutionId = testExecutionId("native-service-invalid-input");
 		return withRecoveryCleanup(
@@ -327,11 +331,11 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 					compiled,
 					successExecutionId,
 					{ count: 7, key: "shared-key" },
-					uploaderId,
+					ownerId,
 				);
 				const result = yield* service.run(input);
 				const invalid = yield* service.run(
-					makeRunInput(compiled, invalidExecutionId, { key: "unused", count: "wrong" }, uploaderId),
+					makeRunInput(compiled, invalidExecutionId, { key: "unused", count: "wrong" }, ownerId),
 				);
 
 				expect(result).toEqual({
@@ -352,7 +356,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 				expect(result.timing.totalMs).toBeGreaterThan(0);
 				expect(result.timing.executionMs).toBeGreaterThanOrEqual(0);
 				expect(control.calls).toEqual([
-					{ args: ["shared-key"], subject: makeUserSubject(uploaderId) },
+					{ args: ["shared-key"], subject: makeUserSubject(ownerId) },
 				]);
 				expect(invalid).toMatchObject({
 					success: false,
@@ -367,7 +371,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 	});
 
 	test.effect("integration_rejects_module_and_snapshot_tampering", () => {
-		const uploaderId = UserId.make(testExecutionId("native-service-uploader"));
+		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const tamperedExecutionId = testExecutionId("native-service-tampered-module");
 		const unsupportedExecutionId = testExecutionId("native-service-unsupported-format");
 		return withRecoveryCleanup(
@@ -382,7 +386,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 					compiled,
 					tamperedExecutionId,
 					{ count: 1, key: "unused" },
-					uploaderId,
+					ownerId,
 				);
 				const tampered = yield* Effect.flip(
 					service.run({ ...tamperedInput, compiledCode: `${tamperedInput.compiledCode} ` }),
@@ -396,7 +400,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 					compiled,
 					unsupportedExecutionId,
 					{ count: 1, key: "unused" },
-					uploaderId,
+					ownerId,
 				);
 				const unsupported = yield* Effect.flip(
 					service.run({ ...unsupportedInput, compiledFormat: compiled.format + 1 }),
@@ -411,7 +415,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 	});
 
 	test.effect("files_and_http_require_execution_bound_grants", () => {
-		const uploaderId = UserId.make(testExecutionId("native-service-uploader"));
+		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const grantedExecutionId = testExecutionId("native-service-granted-artifact");
 		const deniedExecutionId = testExecutionId("native-service-missing-artifact-grant");
 		return withRecoveryCleanup(
@@ -428,11 +432,9 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 				expect(compiled.manifest.capabilities).toContain("artifact-read");
 
 				const granted = yield* service.run(
-					makeRunInput(compiled, grantedExecutionId, {}, uploaderId, { artifactPath }),
+					makeRunInput(compiled, grantedExecutionId, {}, ownerId, { artifactPath }),
 				);
-				const denied = yield* service.run(
-					makeRunInput(compiled, deniedExecutionId, {}, uploaderId),
-				);
+				const denied = yield* service.run(makeRunInput(compiled, deniedExecutionId, {}, ownerId));
 				expect(granted).toMatchObject({
 					error: null,
 					success: true,
@@ -451,7 +453,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 	});
 
 	test.effect("native_service_disposes_cancelled_isolates_and_preserves_neighbours", () => {
-		const uploaderId = UserId.make(testExecutionId("native-service-uploader"));
+		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const cancelledExecutionId = testExecutionId("native-service-cancelled");
 		const neighbourExecutionId = testExecutionId("native-service-neighbour");
 		return withRecoveryCleanup(
@@ -465,7 +467,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 				const blocked = yield* compiler.compile(blockedDefinitionSource);
 				const neighbour = yield* compiler.compile(neighbourDefinitionSource);
 				const runFiber = yield* Effect.forkChild(
-					service.run(makeRunInput(blocked, cancelledExecutionId, {}, uploaderId)),
+					service.run(makeRunInput(blocked, cancelledExecutionId, {}, ownerId)),
 				);
 				const started = yield* Effect.raceFirst(
 					Deferred.await(control.hostStarted).pipe(
@@ -498,11 +500,11 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 				expect(Exit.isFailure(interrupted)).toBe(true);
 				yield* Deferred.await(control.hostInterrupted);
 				yield* Deferred.await(control.hostCompleted);
-				expect(control.calls).toEqual([{ args: ["block"], subject: makeUserSubject(uploaderId) }]);
+				expect(control.calls).toEqual([{ args: ["block"], subject: makeUserSubject(ownerId) }]);
 				expect(admission.snapshot().runs).toBe(0);
 
 				const result = yield* service.run(
-					makeRunInput(neighbour, neighbourExecutionId, {}, uploaderId),
+					makeRunInput(neighbour, neighbourExecutionId, {}, ownerId),
 				);
 				expect(result).toMatchObject({ success: true, value: "fresh" });
 			}),
@@ -510,7 +512,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 	});
 
 	test.effect("integration_enforces_invocation_context_and_result_caps", () => {
-		const uploaderId = UserId.make(testExecutionId("native-service-uploader"));
+		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const executionIds: string[] = [];
 		const nextExecutionId = () => {
 			const executionId = testExecutionId("native-service-caps");
@@ -526,7 +528,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 				const resultBytes = 4 * 1024 * 1024;
 				const contextBytes = 64 * 1024;
 				const run = (context: { unit: string; count: number; tail: number; pad: string }) =>
-					service.run(makeRunInput(compiled, nextExecutionId(), context, uploaderId));
+					service.run(makeRunInput(compiled, nextExecutionId(), context, ownerId));
 
 				for (const unit of ["a", "🙂", '"']) {
 					const unitBytes = encodedBytes(encodeJson(unit)) - 2;
@@ -556,7 +558,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 	});
 
 	test.effect("granted_executions_settle_inline_without_permission_elevation", () => {
-		const uploaderId = UserId.make(testExecutionId("native-service-uploader"));
+		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const executionIds = [
 			testExecutionId("native-service-granted-inline"),
 			testExecutionId("native-service-granted-named"),
@@ -580,7 +582,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 				const settled: Array<ReadonlyArray<unknown>> = [];
 				const runGranted = (executionId: string, named: boolean) =>
 					service.run({
-						...makeRunInput(compiled, executionId, { named }, uploaderId, { artifactPath }),
+						...makeRunInput(compiled, executionId, { named }, ownerId, { artifactPath }),
 						replayJournal: [],
 						workflowExecutionId: `${executionId}-workflow`,
 						inlineDurableHost: {
@@ -625,7 +627,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 	});
 
 	test.effect("integrated_isolate_has_no_ambient_authority", () => {
-		const uploaderId = UserId.make(testExecutionId("native-service-uploader"));
+		const ownerId = UserId.make(testExecutionId("native-service-owner"));
 		const executionId = testExecutionId("native-service-ambient-authority");
 		const fullExecutionId = testExecutionId("native-service-ambient-full");
 		return withRecoveryCleanup(
@@ -639,7 +641,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 						{ ...compiled, javascript, manifest: { ...compiled.manifest, runtimeImports: [] } },
 						executionId,
 						{},
-						uploaderId,
+						ownerId,
 					),
 				);
 				expect(result).toMatchObject({ value: [], success: true });
@@ -655,7 +657,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 						},
 						fullExecutionId,
 						{},
-						uploaderId,
+						ownerId,
 					),
 				);
 				expect(full).toMatchObject({

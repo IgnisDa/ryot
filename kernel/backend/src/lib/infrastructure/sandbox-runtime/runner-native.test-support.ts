@@ -6,7 +6,7 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Layer, Result, Schema } from "effect";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
+import { makeUserPluginRevision, sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxHostCallGate } from "./host-call-gate";
@@ -150,7 +150,8 @@ export const makeRunnerInput = (
 	context: unknown,
 	options: RunnerOptions = {},
 ): SandboxRunInput => {
-	const userId = UserId.make("native-runner-uploader");
+	const userId = UserId.make("native-runner-owner");
+	const contentHash = sha256Hex(compiled.javascript);
 	return {
 		context,
 		compiledFormat: compiled.format,
@@ -158,18 +159,21 @@ export const makeRunnerInput = (
 		startedAt: "2026-08-06T00:00:00.000Z",
 		executionId: options.executionId ?? "native-runner-execution",
 		principal: {
+			contentHash,
 			providerId: null,
-			pluginRevision: null,
 			metadata: compiled.manifest,
-			standaloneUploaderId: userId,
 			scriptSlug: compiled.manifest.slug,
-			contentHash: sha256Hex(compiled.javascript),
 			scriptId: SandboxScriptId.make("native-runner-script"),
 			subject: {
 				userId,
 				type: "user",
 				accountGeneration: { userId, token: "native-runner-account" },
 			},
+			pluginRevision: makeUserPluginRevision({
+				ownerId: userId,
+				slug: "native-runner-plugin",
+				compiledHashes: { [compiled.manifest.slug]: contentHash },
+			}),
 		},
 		...(options.workflowExecutionId === undefined
 			? {}

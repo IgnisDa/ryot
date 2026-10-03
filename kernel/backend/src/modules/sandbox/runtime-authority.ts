@@ -44,9 +44,6 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 			if (validated.kernelScript === true) {
 				return "system";
 			}
-			if (validated.standaloneUploaderId !== undefined) {
-				return "user";
-			}
 			return yield* invalidPin();
 		});
 		return { resolve };

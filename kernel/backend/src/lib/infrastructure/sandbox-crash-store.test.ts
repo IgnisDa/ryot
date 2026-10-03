@@ -18,7 +18,7 @@ const storeLayer = Layer.unwrap(
 );
 
 const identities = Effect.acquireRelease(
-	Effect.sync(() => [testExecutionId("uploader"), testExecutionId("content")]),
+	Effect.sync(() => [testExecutionId("owner"), testExecutionId("content")]),
 	(keys) =>
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
@@ -34,7 +34,7 @@ const identities = Effect.acquireRelease(
 );
 
 layer(storeLayer)((test) => {
-	test.effect("counts distinct crashes atomically and blocks uploader and content rotation", () =>
+	test.effect("counts distinct crashes atomically and blocks owner and content rotation", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const store = yield* SandboxCrashStore;

@@ -123,7 +123,7 @@ const sandbox = group(
 			label: "Per-user sidecars",
 			envKey: "SANDBOX_PER_USER_SIDECARS",
 			description:
-				"Run each uploader's user-tier scripts in their own sidecar processes instead of shared ones; use when mutually untrusted users share an instance",
+				"Run each plugin owner's user-tier scripts in their own sidecar processes instead of shared ones; use when mutually untrusted users share an instance",
 		}),
 		importConcurrency: integerField({
 			defaultValue: 2,

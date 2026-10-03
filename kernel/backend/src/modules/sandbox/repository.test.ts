@@ -49,7 +49,6 @@ const manifest = {
 
 const pluginPinRow = {
 	id: "script-id",
-	uploaderId: null,
 	pluginOwnerId: null,
 	pluginSlug: "plugin",
 	pluginId: "plugin-id",
