@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 export function ActionDock(props: {
 	readonly label: string;
-	readonly className?: string;
+	readonly className?: string | undefined;
 	readonly children: ReactNode;
 	readonly safeAreaBottom: number;
 }) {

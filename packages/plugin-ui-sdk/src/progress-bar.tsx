@@ -6,7 +6,7 @@ export function ProgressBar(props: {
 	readonly max: number;
 	readonly label: string;
 	readonly value: number;
-	readonly className?: string;
+	readonly className?: string | undefined;
 	readonly tone: keyof typeof toneClasses;
 }) {
 	const max = Math.max(0, props.max);
