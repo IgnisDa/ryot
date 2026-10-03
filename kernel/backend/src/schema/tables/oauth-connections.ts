@@ -11,7 +11,6 @@ import {
 	jsonb,
 	snakeCase,
 	text,
-	timestamp,
 	unique,
 } from "drizzle-orm/pg-core";
 
@@ -20,6 +19,7 @@ import type { SubkeyCiphertext } from "#platform/config/plugin-config-encryption
 import { user } from "./auth";
 import { pluginInstallation } from "./core";
 import { integration } from "./imports";
+import { timestamptz, updatedAtColumn } from "./timestamps";
 
 export const oauthConnection = snakeCase.table(
 	"oauth_connection",
@@ -27,10 +27,14 @@ export const oauthConnection = snakeCase.table(
 		integrationId: text(),
 		id: text().primaryKey(),
 		field: text().notNull(),
+		expiresAt: timestamptz(),
 		stateHash: text().notNull(),
 		completionSecretHash: text(),
+		updatedAt: updatedAtColumn(),
 		tokenUrlOrigin: text().notNull(),
+		refreshLeaseUntil: timestamptz(),
 		oauthProviderSlug: text().notNull(),
+		accessTokenExpiresAt: timestamptz(),
 		pluginInstallationId: text().notNull(),
 		code: jsonb().$type<SubkeyCiphertext>(),
 		integrationProviderSlug: text().notNull(),
@@ -38,19 +42,12 @@ export const oauthConnection = snakeCase.table(
 		accessToken: jsonb().$type<SubkeyCiphertext>(),
 		codeVerifier: jsonb().$type<SubkeyCiphertext>(),
 		refreshToken: jsonb().$type<SubkeyCiphertext>(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		status: text().$type<OAuthConnectionStatus>().notNull(),
 		client: jsonb().$type<OAuthConnectionClient>().notNull(),
-		expiresAt: timestamp({ precision: 3, withTimezone: true }),
-		refreshLeaseUntil: timestamp({ precision: 3, withTimezone: true }),
-		accessTokenExpiresAt: timestamp({ precision: 3, withTimezone: true }),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ precision: 3, withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		unique("oauth_connection_state_hash_unique").on(table.stateHash),

@@ -2,10 +2,11 @@ import type { AutomationTriggerPayload } from "@ryot-app/contract/modules/automa
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { sql } from "drizzle-orm";
-import { check, index, integer, jsonb, snakeCase, text, timestamp } from "drizzle-orm/pg-core";
+import { check, index, integer, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin, pluginConfigRevision, pluginRevision, sandboxScript } from "./core";
+import { timestamptz } from "./timestamps";
 
 export const mutationReceipt = snakeCase.table(
 	"mutation_receipt",
@@ -21,13 +22,13 @@ export const mutationReceipt = snakeCase.table(
 		inputFingerprint: text().notNull(),
 		result: jsonb().$type<JsonValue>(),
 		dispatch: jsonb().$type<JsonValue>().notNull(),
+		recordedAt: timestamptz().defaultNow().notNull(),
 		evidence: jsonb().$type<AutomationTriggerPayload>(),
 		accountGeneration: jsonb().$type<AccountGeneration>(),
 		mutationScope: text().$type<"global" | "user">().notNull(),
 		ownerUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		scopeUserId: text().references(() => user.id, { onDelete: "cascade" }),
 		pluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
-		recordedAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		sandboxScriptId: text().references(() => sandboxScript.id, { onDelete: "restrict" }),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "restrict" }),
 		pluginConfigRevisionId: text().references(() => pluginConfigRevision.id, {

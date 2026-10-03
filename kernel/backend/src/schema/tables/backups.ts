@@ -6,31 +6,24 @@ import type {
 } from "@ryot-app/contract/modules/backups/schemas";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
-import {
-	index,
-	integer,
-	jsonb,
-	snakeCase,
-	text,
-	timestamp,
-	uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { index, integer, jsonb, snakeCase, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { timestamptz } from "./timestamps";
 
 export const backupRun = snakeCase.table(
 	"backup_run",
 	{
 		artifactKey: text(),
+		expiresAt: timestamptz(),
+		startedAt: timestamptz(),
+		finishedAt: timestamptz(),
 		progress: integer().notNull().default(0),
 		failure: jsonb().$type<BackupRunFailure>(),
 		kind: text().notNull().$type<BackupRunKind>(),
-		expiresAt: timestamp({ precision: 3, withTimezone: true }),
-		startedAt: timestamp({ precision: 3, withTimezone: true }),
-		finishedAt: timestamp({ precision: 3, withTimezone: true }),
+		createdAt: timestamptz().defaultNow().notNull(),
 		artifactProvider: text().$type<BackupRunArtifactProvider>(),
 		status: text().notNull().$type<BackupRunStatus>().default("pending"),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

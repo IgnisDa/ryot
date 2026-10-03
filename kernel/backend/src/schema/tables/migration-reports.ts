@@ -13,8 +13,9 @@ import {
 	serial,
 	snakeCase,
 	text,
-	timestamp,
 } from "drizzle-orm/pg-core";
+
+import { timestamptz } from "./timestamps";
 
 export const migrationReport = snakeCase.table(
 	"migration_report",
@@ -24,9 +25,9 @@ export const migrationReport = snakeCase.table(
 		message: text().notNull(),
 		seq: serial().primaryKey(),
 		elapsedSeconds: doublePrecision(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		code: text().$type<MigrationReportAnomalyCode>(),
 		level: text().notNull().$type<MigrationReportLevel>(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 	},
 	(table) => [
 		check("migration_report_level_check", sql`${table.level} in ('info', 'warning')`),
@@ -41,8 +42,8 @@ export const migrationReportDetail = snakeCase.table(
 	"migration_report_detail",
 	{
 		seq: serial().primaryKey(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		detail: jsonb().$type<MigrationReportDetail>().notNull(),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		reportSeq: integer()
 			.notNull()
 			.references(() => migrationReport.seq, { onDelete: "cascade" }),

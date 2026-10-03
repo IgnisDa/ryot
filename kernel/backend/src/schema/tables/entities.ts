@@ -1,30 +1,28 @@
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
-import { index, jsonb, snakeCase, text, timestamp, unique, uniqueIndex } from "drizzle-orm/pg-core";
+import { index, jsonb, snakeCase, text, unique, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin, sandboxProvider } from "./core";
+import { timestamptz, updatedAtColumn } from "./timestamps";
 
 export const entity = snakeCase.table(
 	"entity",
 	{
 		externalId: text(),
 		name: text().notNull(),
+		populatedAt: timestamptz(),
+		updatedAt: updatedAtColumn(),
 		entitySchemaSlug: text().notNull(),
-		populatedAt: timestamp({ precision: 3, withTimezone: true }),
+		createdAt: timestamptz().defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		entitySchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		id: text()
 			.notNull()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		updatedAt: timestamp({ precision: 3, withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		index("entity_user_id_idx").on(table.userId),
@@ -50,10 +48,11 @@ export const entity = snakeCase.table(
 export const relationship = snakeCase.table(
 	"relationship",
 	{
+		updatedAt: updatedAtColumn(),
 		relationshipSchemaSlug: text().notNull(),
+		createdAt: timestamptz().defaultNow().notNull(),
 		userId: text().references(() => user.id, { onDelete: "cascade" }),
 		properties: jsonb().$type<Record<string, unknown>>().notNull().default({}),
-		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		relationshipSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		id: text()
 			.notNull()
@@ -65,10 +64,6 @@ export const relationship = snakeCase.table(
 		targetEntityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ precision: 3, withTimezone: true })
-			.defaultNow()
-			.$onUpdate(() => /* @__PURE__ */ new Date())
-			.notNull(),
 	},
 	(table) => [
 		index("relationship_schema_slug_idx").on(table.relationshipSchemaSlug),
