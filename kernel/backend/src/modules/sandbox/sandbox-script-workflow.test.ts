@@ -279,6 +279,7 @@ layer(
 										scriptId,
 										providerId: null,
 										pluginRevision: null,
+										kernelScript: true as const,
 										contentHash: "kernel-v1",
 										scriptSlug: "notification",
 										metadata: { runtimeImports: [], kind: "automation" as const },
@@ -316,6 +317,7 @@ layer(
 				registrationStatus: "not-required",
 				principal: {
 					pluginRevision: null,
+					kernelScript: true,
 					subject: payload.subject,
 					scriptId: "kernel-notification-v1",
 				},
