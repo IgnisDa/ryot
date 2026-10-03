@@ -6,7 +6,6 @@ import {
 	column,
 	defineRecipe,
 	eq,
-	isNull,
 	join,
 	jsonPath,
 	literal,
@@ -19,7 +18,7 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
-import { property, propertyDate, propertyNumber } from "./entity-selections";
+import { nullableEquals, property, propertyDate, propertyNumber } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
 import { PersonalBestSchema } from "./workout-records";
 
@@ -110,14 +109,8 @@ export const workoutSetExerciseIdsRecipe = defineRecipe(
 						eq(column(event, "eventSchemaSlug"), literal("workout-set")),
 						eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
 						eq(column(workout, "entitySchemaSlug"), literal("workout")),
-						or(
-							and(isNull(eventPluginId), isNull(exercisePluginId)),
-							eq(eventPluginId, exercisePluginId),
-						),
-						or(
-							and(isNull(eventPluginId), isNull(workoutPluginId)),
-							eq(eventPluginId, workoutPluginId),
-						),
+						nullableEquals(eventPluginId, exercisePluginId),
+						nullableEquals(eventPluginId, workoutPluginId),
 					),
 				}),
 			},

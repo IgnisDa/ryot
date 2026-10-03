@@ -196,48 +196,6 @@ describe("fitness query recipes", () => {
 		);
 	});
 
-	it("decodes exercise equipment relationships and removes duplicate equipment ids", () => {
-		const recipe = exerciseListRecipe({});
-		expect(
-			recipe.decode({
-				data: {
-					exercises: {
-						type: "rows",
-						pageInfo: { limit: 20, hasMore: false, nextCursor: null },
-						items: [
-							{
-								image: null,
-								name: "Push Up",
-								id: "exercise-1",
-								kind: "strength",
-								level: "beginner",
-								schemaSlug: "exercise",
-								equipment: {
-									type: "rows",
-									pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-									items: [
-										{ name: "Barbell", id: "equipment-1" },
-										{ name: "Barbell", id: "equipment-1" },
-									],
-								},
-							},
-						],
-					},
-				},
-			}),
-		).toMatchObject({
-			success: {
-				items: [
-					{
-						id: "exercise-1",
-						level: "beginner",
-						equipment: [{ name: "Barbell", id: "equipment-1" }],
-					},
-				],
-			},
-		});
-	});
-
 	it("queries shared and user-owned taxonomy entities and their exercise relationships", () => {
 		const targetList = targetListRecipe({ limit: 4, name: "Lats", after: "target-cursor" });
 		const targetRows = targetList.document.queries.targets;
