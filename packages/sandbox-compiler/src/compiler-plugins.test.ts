@@ -1,27 +1,72 @@
 import { expect, it } from "@effect/vitest";
-import { SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS } from "@ryot-app/sandbox-sdk/imports";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { auditSandboxEsmOutput } from "@ryot-app/vite-compiler";
-import { Effect, Result } from "effect";
+import { Effect } from "effect";
 
 import { sandboxCompilerPlatformLayer } from "./compiler-platform";
 import { compilePluginSandboxEntries, compilePluginSandboxSourceEntries } from "./compiler-plugins";
 
 const digest = sha256Hex;
 
+const script = (slug: string, imports: string, run: string, extra = "") => `
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+${imports}
+
+export const manifest = defineManifest({ kind: "script", name: "${slug}", slug: "${slug}" });
+${extra}
+export default defineScript({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Unknown,
+  run: () => ${run},
+});
+`;
+
 it.layer(sandboxCompilerPlatformLayer)("plugin sandbox compilation", (test) => {
 	test.effect("runtime_import_facts_match_emitted_module_audit", () =>
 		Effect.gen(function* () {
-			const packageRoot = new URL("../test-fixtures/multi-file-plugin", import.meta.url).pathname;
-			const compiled = yield* compilePluginSandboxEntries(packageRoot, [
-				{ kind: "script", entry: "scripts/zeta.sandbox.ts" },
-				{ kind: "script", entry: "scripts/alpha.sandbox.ts" },
-			]);
-			for (const { compiled: module } of compiled) {
-				expect(
-					auditSandboxEsmOutput(module.javascript, new Set(SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS)),
-				).toEqual(Result.succeed(module.manifest.runtimeImports));
-			}
+			const compiled = yield* compilePluginSandboxSourceEntries(
+				{
+					"alias.sandbox.ts": script(
+						"alias",
+						'import { Schema as PluginSchema } from "@ryot-app/plugin-kit/effect";',
+						"Effect.succeed(PluginSchema === Schema)",
+					),
+					"forms.sandbox.ts": script(
+						"forms",
+						'import type { load } from "@ryot-app/sandbox-sdk/cheerio";',
+						"Effect.succeed(null)",
+						'export { gzipSync } from "@ryot-app/sandbox-sdk/fflate";\nexport type Loader = typeof load;',
+					),
+				},
+				[
+					{ kind: "script", entry: "alias.sandbox.ts" },
+					{ kind: "script", entry: "forms.sandbox.ts" },
+				],
+			);
+			expect(
+				Object.fromEntries(
+					compiled.map(({ entry, compiled: module }) => [entry, module.manifest.runtimeImports]),
+				),
+			).toEqual({
+				"alias.sandbox.ts": ["@ryot-app/plugin-kit/effect", "@ryot-app/sandbox-sdk/effect"],
+				"forms.sandbox.ts": ["@ryot-app/sandbox-sdk/effect", "@ryot-app/sandbox-sdk/fflate"],
+			});
+			const dynamic = yield* Effect.flip(
+				compilePluginSandboxSourceEntries(
+					{
+						"dynamic.sandbox.ts": script(
+							"dynamic",
+							"",
+							'Effect.promise(() => import(["@ryot-app/sandbox-sdk", "papaparse"].join("/")))',
+						),
+					},
+					[{ kind: "script", entry: "dynamic.sandbox.ts" }],
+				),
+			);
+			expect(dynamic).toMatchObject({
+				diagnostics: [expect.objectContaining({ message: "Dynamic imports are not allowed" })],
+			});
 		}),
 	);
 
