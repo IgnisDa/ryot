@@ -11,7 +11,7 @@ import { assertCompleted } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("sandbox filesystem grants", () => {
-	it.live("fails bounded retries when scratch entry count exceeds kernel limits", () =>
+	it.live("rejects scratch entry overflow at the host-call budget", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `scratch-entry-limit-${crypto.randomUUID()}`;
@@ -30,8 +30,12 @@ describe("sandbox filesystem grants", () => {
 
 			const result = yield* pollSandboxResult(userId, jobId);
 
-			expect(result.status).toBe("failed");
-			expect(result.error).toContain("Sandbox scratch directory exceeds 4096 entries");
+			assertCompleted(result, "scratch entry limit");
+			expect(result.value).toBeNull();
+			expect(result.error).toMatchObject({
+				phase: "execute",
+				message: expect.stringContaining("Sandbox execution exceeds 1000 host calls"),
+			});
 		}),
 	);
 
