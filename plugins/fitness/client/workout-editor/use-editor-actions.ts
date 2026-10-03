@@ -126,6 +126,11 @@ export function useEditorActions(input: {
 	const exerciseOf = (occurrence: WorkoutEditorOccurrence) =>
 		exercises?.find(({ id }) => id === occurrence.exerciseId);
 
+	const blocked = (text: string) => {
+		setMessage(text);
+		closeOverlay();
+	};
+
 	const save = () => {
 		const current = controller.getSnapshot();
 		if (current.status === "ready" && current.uploading) {
@@ -136,10 +141,6 @@ export function useEditorActions(input: {
 			return;
 		}
 		submitting.current = true;
-		const blocked = (text: string) => {
-			setMessage(text);
-			closeOverlay();
-		};
 		run(
 			Effect.gen(function* () {
 				if (saved !== undefined) {
@@ -212,10 +213,10 @@ export function useEditorActions(input: {
 				closeOverlay();
 				setMessage(saveFailureMessage(result));
 				if (editable) {
-					controller.change((current) =>
-						current.mode.kind === "live"
-							? { ...current, endedAt: undefined, activeDurationStartedAt: toIso(schedule.now()) }
-							: current,
+					controller.change((rejected) =>
+						rejected.mode.kind === "live"
+							? { ...rejected, endedAt: undefined, activeDurationStartedAt: toIso(schedule.now()) }
+							: rejected,
 					);
 				}
 			}).pipe(
@@ -351,11 +352,12 @@ export function useEditorActions(input: {
 						? current
 						: {
 								...current,
-								sets: copied.map((set) => ({
-									...set,
-									included: draft.mode.kind === "historical",
-									note: context?.proAvailable === true ? set.note : undefined,
-								})),
+								sets: copied.map((set) =>
+									Object.assign({}, set, {
+										included: draft.mode.kind === "historical",
+										note: context?.proAvailable === true ? set.note : undefined,
+									}),
+								),
 							};
 				}),
 			);
@@ -405,10 +407,9 @@ export function useEditorActions(input: {
 			return [
 				{
 					...occurrence,
-					sets: occurrence.sets.map((set) => ({
-						...set,
-						included: editorDraft?.mode.kind === "historical",
-					})),
+					sets: occurrence.sets.map((set) =>
+						Object.assign({}, set, { included: editorDraft?.mode.kind === "historical" }),
+					),
 				},
 			];
 		});

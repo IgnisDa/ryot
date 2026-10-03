@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Dialog } from "./dialog";
@@ -53,9 +53,10 @@ describe("Dialog close button", () => {
 			<Dialog title="Sheet" closeLabel="Close sheet" onClose={() => closes.push("close")} />,
 		);
 
-		const buttons = screen.getAllByRole("button", { name: "Close sheet" });
-		expect(buttons).toHaveLength(2);
-		fireEvent.click(buttons[1]!);
+		expect(screen.getAllByRole("button", { name: "Close sheet" })).toHaveLength(2);
+		fireEvent.click(
+			within(screen.getByRole("dialog")).getByRole("button", { name: "Close sheet" }),
+		);
 		expect(closes).toEqual(["close"]);
 
 		rerender(<Dialog title="Sheet" closeIcon={null} onClose={() => {}} closeLabel="Close sheet" />);
