@@ -1,6 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { Effect, Layer } from "effect";
 
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -17,6 +18,7 @@ export const ingestionRetirementTestLayer = Layer.effect(
 		Layer.effect(IngestionCaptures, IngestionCaptures.make).pipe(
 			Layer.provide(Layer.effect(IngestionPayloads, IngestionPayloads.make)),
 			Layer.provide(ImportsRepository.layer),
+			Layer.provide(WorkflowExecutionNotifications.layer),
 		),
 	),
 	Layer.provide(ImportsRepository.layer),
@@ -29,5 +31,7 @@ export const ingestionRetirementTestLayer = Layer.effect(
 			})),
 		).pipe(Layer.provide(SandboxWorkflowReferenceRepository.layer)),
 	),
-	Layer.provide(Layer.mergeAll(BunServices.layer, makeAppConfigLayer())),
+	Layer.provide(
+		Layer.mergeAll(BunServices.layer, makeAppConfigLayer(), WorkflowExecutionNotifications.layer),
+	),
 );

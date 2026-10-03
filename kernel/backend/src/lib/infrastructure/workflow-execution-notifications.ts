@@ -1,4 +1,5 @@
-import { Cause, Context, Deferred, Effect, FiberSet, Layer } from "effect";
+import type { Duration } from "effect";
+import { Cause, Context, Deferred, Effect, FiberSet, Layer, Option } from "effect";
 
 import {
 	decodeWorkflowExecutionNotificationMessage,
@@ -137,3 +138,36 @@ export class WorkflowExecutionNotifications extends Context.Service<WorkflowExec
 		}),
 	);
 }
+
+export const awaitWorkflowSettled = Effect.fn("workflow.awaitSettled")(function* <A, E, R>(input: {
+	read: Effect.Effect<A, E, R>;
+	isSettled: (value: A) => boolean;
+	identities: ReadonlyArray<WorkflowIdentity>;
+	timeout?: Duration.Input;
+	backstop: Duration.Input;
+}) {
+	const notifications = yield* WorkflowExecutionNotifications;
+	const settle = Effect.gen(function* () {
+		for (;;) {
+			const settled = yield* Effect.scoped(
+				Effect.gen(function* () {
+					const hints = yield* Effect.forEach(input.identities, notifications.listen);
+					const value = yield* input.read;
+					if (input.isSettled(value)) {
+						return Option.some(value);
+					}
+					yield* Effect.raceAll([...hints, Effect.sleep(input.backstop)]);
+					return Option.none<A>();
+				}),
+			);
+			if (Option.isSome(settled)) {
+				return settled.value;
+			}
+		}
+	});
+	if (input.timeout === undefined) {
+		return yield* settle;
+	}
+	const result = yield* settle.pipe(Effect.timeoutOption(input.timeout));
+	return Option.isSome(result) ? result.value : yield* input.read;
+});

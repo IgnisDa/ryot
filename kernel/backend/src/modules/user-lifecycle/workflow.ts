@@ -12,6 +12,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { interruptWorkflowAndWait } from "#lib/infrastructure/workflow-interruption";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { AuthService } from "#modules/auth/service";
@@ -76,6 +77,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 		const repository = yield* UserLifecycleRepository;
 		const objectStorage = yield* ObjectStorageService;
 		const engine = yield* WorkflowEngine;
+		const notifications = yield* WorkflowExecutionNotifications;
 		const receipts = yield* MutationReceipts.make;
 		const mutationWorkflows = yield* AdmittedWorkflowCatalogue;
 		const ingestion = yield* IngestionExecution;
@@ -117,6 +119,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 						}
 						yield* interruptWorkflowAndWait(workflow, owner.executionId).pipe(
 							Effect.provideService(WorkflowEngine, engine),
+							Effect.provideService(WorkflowExecutionNotifications, notifications),
 						);
 					}
 					yield* ingestion.retire({ userId: operation.operation.userId });

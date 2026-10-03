@@ -26,15 +26,7 @@ import { AutomationRunWorkflowOperationsLive } from "./run-workflow-live";
 import { SignalEmissionService } from "./signal-service";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
-export const AutomationRepositoriesLive = Layer.mergeAll(
-	AutomationAttemptRepository.layer,
-	AutomationHistoryRepository.layer,
-	AutomationRunRepository.layer,
-	AutomationTriggerRepository.layer,
-	AutomationsRepository.layer,
-);
-
-export const AutomationExecutionOperationsServiceLive = AutomationExecutionOperationsLive.pipe(
+const AutomationExecutionOperationsServiceLive = AutomationExecutionOperationsLive.pipe(
 	Layer.provide(Layer.merge(AutomationRunRepository.layer, AutomationAttemptRepository.layer)),
 );
 

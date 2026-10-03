@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AutomationRunId } from "@ryot-app/contract/schema/brands";
-import { Cause, Clock, Context, Duration, Effect, Layer, Option, Schedule, Schema } from "effect";
+import { Cause, Clock, Context, Duration, Effect, Layer, Option, Schema } from "effect";
 import { DurableClock, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -13,6 +13,10 @@ import {
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { startWorkflowDeadline } from "#lib/infrastructure/workflow-deadline";
+import {
+	awaitWorkflowSettled,
+	WorkflowExecutionNotifications,
+} from "#lib/infrastructure/workflow-execution-notifications";
 import { ActivityBody, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -26,14 +30,16 @@ import {
 	settledAutomationRunResult,
 } from "./run-workflow";
 
-export const AUTOMATION_IMMEDIATE_TIMEOUT_MS = SANDBOX_LIMITS.execution.timeoutMs + 5_000;
+const AUTOMATION_IMMEDIATE_TIMEOUT_SLACK_MS = 5_000;
+export const AUTOMATION_IMMEDIATE_TIMEOUT_MS =
+	SANDBOX_LIMITS.execution.timeoutMs + AUTOMATION_IMMEDIATE_TIMEOUT_SLACK_MS;
 export const AUTOMATION_IMMEDIATE_CONCURRENCY = 8;
 
 export type AutomationDispatchState = "claimed" | "closed" | "fresh";
 
 export type AutomationDispatch = { readonly state: AutomationDispatchState };
 
-const dispatchStateOf = (
+export const dispatchStateOf = (
 	row: { readonly attemptCount: number; readonly status: string } | undefined,
 ): AutomationDispatchState => {
 	if (!row || (row.attemptCount === 0 && row.status !== "queued")) {
@@ -41,6 +47,11 @@ const dispatchStateOf = (
 	}
 	return row.attemptCount > 0 ? "claimed" : "fresh";
 };
+
+const runUnavailable = () => new DbError({ message: "Automation run is unavailable" });
+
+const rootTransactionRequired = () =>
+	new DbError({ message: "Automation admission requires a root transaction" });
 
 export class AutomationExecutionOperations extends Context.Service<
 	AutomationExecutionOperations,
@@ -91,7 +102,7 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 				}
 				const run = yield* runs.findById(payload.runId);
 				if (!run) {
-					return yield* new DbError({ message: "Automation run is unavailable" });
+					return yield* runUnavailable();
 				}
 				return {
 					_tag: "completed",
@@ -107,26 +118,15 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 					.transaction(
 						Effect.gen(function* () {
 							const run = yield* runs.findById(payload.runId);
-							const [dispatch] = yield* runs.listDispatchStates([payload.runId]);
-							if (!run || !dispatch) {
-								return yield* new DbError({ message: "Automation run is unavailable" });
+							if (!run) {
+								return yield* runUnavailable();
 							}
-							if (run.executionUserId === null) {
-								return null;
-							}
-							const currentAccount = yield* receipts.currentAccount(run.executionUserId);
-							if (!(yield* runs.findById(payload.runId))) {
-								return yield* new DbError({ message: "Automation run is unavailable" });
-							}
-							return currentAccount;
+							return run.executionUserId === null
+								? null
+								: yield* receipts.currentAccount(run.executionUserId);
 						}),
 					)
-					.pipe(
-						Effect.catchTag(
-							"DatabaseSessionStateError",
-							() => new DbError({ message: "Automation admission requires a root transaction" }),
-						),
-					);
+					.pipe(Effect.catchTag("DatabaseSessionStateError", rootTransactionRequired));
 				return yield* dispatchAdmittedWorkflow(
 					receipts,
 					engine,
@@ -138,18 +138,12 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 							.transaction(
 								Effect.gen(function* () {
 									if (!(yield* runs.findById(payload.runId))) {
-										return yield* new DbError({ message: "Automation run is unavailable" });
+										return yield* runUnavailable();
 									}
 									return yield* admission;
 								}),
 							)
-							.pipe(
-								Effect.catchTag(
-									"DatabaseSessionStateError",
-									() =>
-										new DbError({ message: "Automation admission requires a root transaction" }),
-								),
-							),
+							.pipe(Effect.catchTag("DatabaseSessionStateError", rootTransactionRequired)),
 					(execution) => execution,
 				);
 			}),
@@ -164,7 +158,7 @@ const requireWorkflowBody = (operation: string) =>
 			: Effect.void,
 	);
 
-const OUTSIDE_WORKFLOW_RECHECK = Duration.millis(50);
+export const OUTSIDE_WORKFLOW_BACKSTOP = Duration.millis(500);
 
 type RequiredRun = { readonly awaited: boolean; readonly payload: AutomationRunWorkflowPayload };
 
@@ -174,6 +168,7 @@ export const LifecycleExecutionLive = Layer.effect(
 		const operations = yield* AutomationExecutionOperations;
 		const session = yield* DatabaseSession;
 		const engine = yield* WorkflowEngine;
+		const notifications = yield* WorkflowExecutionNotifications;
 		const inWorkflow = <A, E>(
 			instance: WorkflowInstance["Service"],
 			effect: Effect.Effect<A, E, WorkflowEngine | WorkflowInstance>,
@@ -199,7 +194,10 @@ export const LifecycleExecutionLive = Layer.effect(
 			const states = yield* operations.dispatchStates(payloads.map(({ runId }) => runId)).pipe(
 				Effect.catchCauseIf(
 					(cause) => !Cause.hasInterruptsOnly(cause),
-					() => Effect.succeed(new Map<AutomationRunId, AutomationDispatch>()),
+					(cause) =>
+						Effect.logWarning("automation dispatch state read failed", cause).pipe(
+							Effect.as(new Map<AutomationRunId, AutomationDispatch>()),
+						),
 				),
 			);
 			return yield* Effect.forEach(
@@ -212,7 +210,10 @@ export const LifecycleExecutionLive = Layer.effect(
 									Effect.as(true),
 									Effect.catchCauseIf(
 										(cause) => !Cause.hasInterruptsOnly(cause),
-										() => Effect.succeed(false),
+										(cause) =>
+											Effect.logWarning("automation run submission failed", cause).pipe(
+												Effect.as(false),
+											),
 									),
 								)
 							: Effect.succeed(state === "claimed");
@@ -263,11 +264,8 @@ export const LifecycleExecutionLive = Layer.effect(
 					}),
 				],
 			});
-			// TODO: After https://github.com/Effect-TS/effect/issues/8995 is fixed, upgrade effect and
-			// @effect/* together to a release containing the fix. Remove this deletion and the
-			// WorkflowInstance lookup above. Add a SQL-backed cluster-engine regression proving that
-			// a losing clock cannot interrupt/restart later work after hooks win; cover deadline-first too.
-			// Run the hook regressions and rerun the S3 latency and tenant-fairness benchmarks.
+			// TODO: Remove this deletion and the WorkflowInstance lookup once
+			// https://github.com/Effect-TS/effect/issues/8995 is fixed in the installed effect release.
 			instance.awaitedDeferreds.delete(deadlineClock.deferred.name);
 			return yield* makeActivity({
 				error: DbError,
@@ -276,18 +274,32 @@ export const LifecycleExecutionLive = Layer.effect(
 				success: Schema.Array(AutomationRunSettlement),
 			});
 		});
-		const awaitOutside = (required: ReadonlyArray<RequiredRun>, deadline: number) =>
-			Effect.all([settleAll(required, deadline), Clock.currentTimeMillis]).pipe(
-				Effect.repeat({
-					schedule: Schedule.spaced(OUTSIDE_WORKFLOW_RECHECK),
-					until: ([settlements, now]) =>
-						now >= deadline ||
-						settlements.every(
-							(settlement, index) => settlement._tag === "completed" || !required[index]?.awaited,
-						),
-				}),
-				Effect.map(([settlements]) => settlements),
-			);
+		const awaitOutside = Effect.fnUntraced(function* (
+			required: ReadonlyArray<RequiredRun>,
+			deadline: number,
+		) {
+			const now = yield* Clock.currentTimeMillis;
+			return yield* awaitWorkflowSettled({
+				backstop: OUTSIDE_WORKFLOW_BACKSTOP,
+				read: settleAll(required, deadline),
+				timeout: Duration.millis(Math.max(0, deadline - now)),
+				isSettled: (settlements) =>
+					settlements.every(
+						(settlement, index) => settlement._tag === "completed" || !required[index]?.awaited,
+					),
+				identities: required.flatMap(({ awaited, payload }) =>
+					awaited
+						? [
+								{
+									workflowName: AutomationRunWorkflow._tag,
+									executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
+										.workflowExecutionId,
+								},
+							]
+						: [],
+				),
+			}).pipe(Effect.provideService(WorkflowExecutionNotifications, notifications));
+		});
 		const settleRequired = (name: string, required: ReadonlyArray<RequiredRun>, deadline: number) =>
 			Effect.flatMap(Effect.serviceOption(WorkflowInstance), (instance) =>
 				Option.isSome(instance)

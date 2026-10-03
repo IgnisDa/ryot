@@ -4,6 +4,7 @@ import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 
@@ -36,6 +37,7 @@ it.effect(
 				inputFingerprint: "fingerprint",
 			};
 			const dependencies = Layer.mergeAll(
+				WorkflowExecutionNotifications.layer,
 				ingestionTestDatabase(),
 				Layer.succeed(AdmittedWorkflowCatalogue, [ProcessGenericImportChunksWorkflow]),
 				Layer.succeed(

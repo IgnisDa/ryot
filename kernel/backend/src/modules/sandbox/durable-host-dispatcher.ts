@@ -1,6 +1,7 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
 import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
 import {
 	hostFailure,
@@ -24,10 +25,7 @@ import {
 	decodeSandboxHostArguments,
 	normalizeOptionalNull,
 } from "#lib/infrastructure/sandbox-runtime/bridge-adapter";
-import {
-	SandboxExecutionPrincipal,
-	type SandboxExecutionPrincipal as SandboxExecutionPrincipalValue,
-} from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import type { SandboxHttpProgress } from "#lib/infrastructure/sandbox-runtime/http-progress";
 import type { SandboxInlineProgress } from "#lib/infrastructure/sandbox-runtime/inline-progress";
@@ -45,6 +43,7 @@ import {
 import type { SandboxShortWait } from "#lib/infrastructure/sandbox-runtime/short-wait";
 import type { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 
+import { infrastructureRunError } from "./run-error";
 import {
 	SandboxScriptWorkflowPayload,
 	type SandboxScriptWorkflowPayload as SandboxScriptWorkflowPayloadValue,
@@ -63,7 +62,7 @@ const decodeHostResult = Schema.decodeUnknownEffect(
 	]),
 );
 
-const failure = (message: string, data?: JsonValue): WorkflowDurableResult => ({
+export const durableHostFailure = (message: string, data?: JsonValue): WorkflowDurableResult => ({
 	state: "failure",
 	error: data === undefined ? { message } : { data, message },
 });
@@ -87,7 +86,7 @@ export const sandboxHttpRedirectClassifier =
 const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(function* (
 	request: HostRequest,
 	context: unknown,
-	principal: SandboxExecutionPrincipalValue,
+	principal: SandboxExecutionPrincipal,
 	lane: ExecutionLane,
 	executionId: string,
 	startedAt: string,
@@ -107,9 +106,9 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 		startedAt,
 		principal,
 		compiledCode: "",
-		compiledFormat: 1,
 		workflowExecutionId: executionId,
 		hostCallDiscriminator: request.index,
+		compiledFormat: SANDBOX_COMPILED_FORMAT,
 		executionId: `${executionId}-host-${request.index}`,
 	};
 	yield* requireSandboxCapabilityInput(input, request.args.capability).pipe(
@@ -124,19 +123,11 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 	return { input };
 });
 
-const loadPayloadDispatchInput = (
-	request: HostRequest,
-	payload: SandboxScriptWorkflowPayloadValue,
-	principal: SandboxExecutionPrincipalValue,
-	executionId: string,
-	startedAt: string,
-) => loadDispatchInput(request, payload.input, principal, payload.lane, executionId, startedAt);
-
 export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivity")(function* (
 	implementations: SandboxHostImplementations["Service"],
 	request: HostRequest,
 	context: unknown,
-	principal: SandboxExecutionPrincipalValue,
+	principal: SandboxExecutionPrincipal,
 	lane: ExecutionLane,
 	executionId: string,
 	startedAt: string,
@@ -170,13 +161,11 @@ export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivit
 	}
 	const result = yield* bound(request.args.args).pipe(
 		Effect.flatMap(decodeHostResult),
-		Effect.mapError(
-			(error) => new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
-		),
+		Effect.mapError(infrastructureRunError),
 	);
 	return result.success
 		? ({ state: "success", value: result.data } as const)
-		: failure(result.error, result.data);
+		: durableHostFailure(result.error, result.data);
 });
 
 const encodeHttpCallResult = Schema.encodeUnknownEffect(sandboxHostContracts.httpCall.result);
@@ -188,7 +177,7 @@ const encodeHttpCallResult = Schema.encodeUnknownEffect(sandboxHostContracts.htt
 export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(function* (
 	request: HostRequest,
 	context: unknown,
-	principal: SandboxExecutionPrincipalValue,
+	principal: SandboxExecutionPrincipal,
 	lane: ExecutionLane,
 	executionId: string,
 	startedAt: string,
@@ -228,29 +217,28 @@ export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(functi
 	}
 	const encoded = yield* encodeHttpCallResult(outcome).pipe(
 		Effect.flatMap(decodeHostResult),
-		Effect.mapError(
-			(error) => new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
-		),
+		Effect.mapError(infrastructureRunError),
 	);
 	return {
 		_tag: "completed" as const,
 		result: encoded.success
 			? ({ state: "success", value: encoded.data } as const)
-			: failure(encoded.error, encoded.data),
+			: durableHostFailure(encoded.error, encoded.data),
 	};
 });
 
 export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents")(function* (
 	request: HostRequest,
 	payload: SandboxScriptWorkflowPayloadValue,
-	principal: SandboxExecutionPrincipalValue,
+	principal: SandboxExecutionPrincipal,
 	executionId: string,
 	startedAt: string,
 ) {
-	const { input } = yield* loadPayloadDispatchInput(
+	const { input } = yield* loadDispatchInput(
 		request,
-		payload,
+		payload.input,
 		principal,
+		payload.lane,
 		executionId,
 		startedAt,
 	);
@@ -289,14 +277,15 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 		{ lifecycle }: SandboxHostImplementations["Service"],
 		request: HostRequest,
 		payload: SandboxScriptWorkflowPayloadValue,
-		principal: SandboxExecutionPrincipalValue,
+		principal: SandboxExecutionPrincipal,
 		executionId: string,
 		startedAt: string,
 	) {
-		const { input } = yield* loadPayloadDispatchInput(
+		const { input } = yield* loadDispatchInput(
 			request,
-			payload,
+			payload.input,
 			principal,
+			payload.lane,
 			executionId,
 			startedAt,
 		);
@@ -357,14 +346,15 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 	function* (
 		request: HostRequest,
 		payload: SandboxScriptWorkflowPayloadValue,
-		principal: SandboxExecutionPrincipalValue,
+		principal: SandboxExecutionPrincipal,
 		executionId: string,
 		startedAt: string,
 	) {
-		const { input } = yield* loadPayloadDispatchInput(
+		const { input } = yield* loadDispatchInput(
 			request,
-			payload,
+			payload.input,
 			principal,
+			payload.lane,
 			executionId,
 			startedAt,
 		);
@@ -393,7 +383,7 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 	},
 );
 
-export const SandboxDurableHostServiceWorkflowPayload = Schema.Struct({
+const SandboxDurableHostServiceWorkflowPayload = Schema.Struct({
 	startedAt: Schema.String,
 	parentExecutionId: Schema.String,
 	request: workflowHostRequestSchema,
@@ -426,20 +416,18 @@ export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHos
 	},
 );
 
-export const durableHostFailure = failure;
-
-export type SandboxDurableHostDispatcherValue = {
+type SandboxDurableHostDispatcherValue = {
 	readonly dispatch: (
 		request: HostRequest,
 		payload: SandboxScriptWorkflowPayloadValue,
-		principal: SandboxExecutionPrincipalValue,
+		principal: SandboxExecutionPrincipal,
 		executionId: string,
 		progress?: SandboxHttpProgress,
 	) => Effect.Effect<WorkflowDurableResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	readonly settleInline: (
 		requests: ReadonlyArray<WorkflowInlineRequest>,
 		context: unknown,
-		principal: SandboxExecutionPrincipalValue,
+		principal: SandboxExecutionPrincipal,
 		lane: ExecutionLane,
 		executionId: string,
 		startedAt: string,

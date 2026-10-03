@@ -10,7 +10,7 @@ import { ingestionActivitiesSql, ingestionSummarySql } from "./ingestion-project
 
 export type CatalogFieldKind = "boolean" | "date" | "json" | "number" | "text";
 
-export type CatalogFieldContext = { readonly sqlAlias: string; readonly language: string | null };
+type CatalogFieldContext = { readonly sqlAlias: string; readonly language: string | null };
 
 export type CatalogField = {
 	readonly kind: CatalogFieldKind;
@@ -37,7 +37,7 @@ type CatalogUserPolicy =
 			readonly parentOwnerColumn: string;
 	  };
 
-export type CatalogVisibility = {
+type CatalogVisibility = {
 	readonly user?: CatalogUserPolicy & {
 		readonly pluginReadable: boolean;
 		readonly demoReadable?: false;

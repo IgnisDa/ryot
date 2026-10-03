@@ -14,6 +14,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { createWorkflowJobId, deriveJobIdSecret } from "#lib/shared/job-id";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
@@ -57,6 +58,7 @@ const serviceLayer = EventsService.layer.pipe(
 			mutationAdmissionTestLayer,
 			Layer.mock(LifecyclePlanner)({}),
 			Layer.mock(LifecycleExecution)({}),
+			WorkflowExecutionNotifications.layer,
 		),
 	),
 	Layer.provide(makeAppConfigLayer()),
@@ -152,6 +154,7 @@ const completedServiceLayer = EventsService.layer.pipe(
 			mutationAdmissionTestLayer,
 			Layer.mock(LifecyclePlanner)({}),
 			Layer.mock(LifecycleExecution)({}),
+			WorkflowExecutionNotifications.layer,
 		),
 	),
 	Layer.provide(makeAppConfigLayer()),
