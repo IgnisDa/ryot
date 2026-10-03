@@ -9,7 +9,7 @@ import { supersetColorVariable } from "../group-colors";
 
 type Superset = WorkoutEditorDraft["supersets"][number];
 
-export type OccurrenceSegment = {
+type OccurrenceSegment = {
 	readonly occurrences: WorkoutEditorOccurrence[];
 	readonly group: (Superset & { readonly name: string }) | undefined;
 };

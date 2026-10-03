@@ -31,7 +31,7 @@ type SheetProps = {
 
 const closeIcon = <AppIcon name="x" size={18} />;
 
-export const isTemplateDraft = (draft: WorkoutEditorDraft) =>
+const isTemplateDraft = (draft: WorkoutEditorDraft) =>
 	draft.mode.kind === "template-create" || draft.mode.kind === "template-edit";
 
 export function WorkoutDetailsSheet(

@@ -21,7 +21,7 @@ type Countdown = NonNullable<WorkoutEditorDraft["restCountdown"]>;
 type CountdownKey = "executionCountdown" | "restCountdown";
 type DraftChange = (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => void;
 
-export type NextSet = { readonly setId: string; readonly name: string; readonly number: number };
+type NextSet = { readonly setId: string; readonly name: string; readonly number: number };
 
 export const formatEditorSeconds = (seconds: number) => {
 	const whole = Math.max(0, Math.floor(seconds));
@@ -208,7 +208,7 @@ function CountdownBlock(props: {
 	);
 }
 
-export function StopwatchControls(props: {
+function StopwatchControls(props: {
 	readonly now: number;
 	readonly disabled: boolean;
 	readonly draft: WorkoutEditorDraft;
