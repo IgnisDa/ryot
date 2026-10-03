@@ -53,7 +53,7 @@
 - Stay within the agreed scope. Ask before widening it, and do not start another review round once findings are addressed.
 - Implementers must get checks and tests green before handing work to review, and must include the results in the handoff.
 - Reviews are read-only: reviewers read code and report findings. They never edit files and do not rerun checks or tests.
-- Work is done when `bun run check` and `bun turbo --filter='!@ryot-app/e2e' test` are clean. Run only the affected e2e files, never the whole e2e suite.
+- Work is done when `bun run check` and `bun turbo --filter='!@ryot-app/e2e' test` are clean. Run only the affected e2e files, never the whole e2e suite. Make sure the check is green before starting testing.
 - When a task's changes are complete, read and execute `.agents/skills/codebase-cleanup` in the main session before reporting done.
 
 Last two steps apply only when code changes have landed.
