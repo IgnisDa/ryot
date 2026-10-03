@@ -5,16 +5,16 @@ import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { inspectSandboxJournal } from "#lib/infrastructure/sandbox-journal-store";
+import {
+	inspectSandboxJournal,
+	pinSandboxJournal,
+} from "#lib/infrastructure/sandbox-journal-store";
 import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
 
 import { selectSandboxHostFunctions } from "./service";
 import type { SandboxRunInput } from "./shared";
-import {
-	appendWorkflowJournalWithRedis,
-	makeWorkflowReplayJournalHostFunction,
-	readWorkflowJournal,
-} from "./workflow-journal";
+import { appendWorkflowJournalWithRedis } from "./workflow-journal";
+import { readPinnedJournal } from "./workflow-journal.test-support";
 
 const workflowInput: SandboxRunInput = {
 	context: {},
@@ -54,7 +54,9 @@ const readProjectedJournal = Effect.fnUntraced(function* (
 	length: number,
 ) {
 	const inspection = yield* inspectSandboxJournal(redis, executionId, length);
-	return inspection === null ? null : yield* readWorkflowJournal(redis, executionId, inspection);
+	return inspection === null
+		? null
+		: yield* readPinnedJournal(pinSandboxJournal(redis, executionId, inspection));
 });
 
 layer(testRedisServiceLayer)((test) => {
@@ -69,7 +71,7 @@ layer(testRedisServiceLayer)((test) => {
 			yield* Effect.promise(() => redis.client.expire(journalKey(executionId), 10));
 			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
 
-			expect(Object.keys(projected)).toEqual(["0", "1"]);
+			expect(new Set(Object.keys(projected))).toEqual(new Set(["c:0:0", "c:1:0", "m:0", "m:1"]));
 			expect(yield* Effect.promise(() => redis.client.hgetall(journalKey(executionId)))).toEqual(
 				projected,
 			);
@@ -147,48 +149,13 @@ layer(testRedisServiceLayer)((test) => {
 			yield* appendWorkflowJournalWithRedis(redis, executionId, 0, [entry(0, 1), entry(1, 2)]);
 			expect(yield* readProjectedJournal(redis, executionId, 2)).toHaveLength(2);
 
-			yield* Effect.promise(() => redis.client.hdel(journalKey(executionId), "1"));
+			yield* Effect.promise(() => redis.client.hdel(journalKey(executionId), "m:1"));
 
 			expect(yield* readProjectedJournal(redis, executionId, 2)).toBeNull();
 			expect(yield* readProjectedJournal(redis, testExecutionId("never-written"), 1)).toBeNull();
 		}),
 	);
-
-	test.effect("fails as infrastructure when a projected entry is corrupt", () =>
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
-			const unparsable = testExecutionId("corrupt");
-			const wrongIndex = testExecutionId("wrong-index");
-
-			yield* appendWorkflowJournalWithRedis(redis, unparsable, 0, [entry(0, 1)]);
-			yield* Effect.promise(() => redis.client.hset(journalKey(unparsable), "0", "{"));
-			yield* appendWorkflowJournalWithRedis(redis, wrongIndex, 0, [entry(1, 1)]);
-
-			for (const id of [unparsable, wrongIndex]) {
-				const error = yield* Effect.flip(readProjectedJournal(redis, id, 1));
-				expect(error).toMatchObject({ kind: "infrastructure" });
-				expect(error.message).toContain("journal[0] is corrupt");
-			}
-		}),
-	);
 });
-
-it.effect("serves the loaded journal and rejects request-bearing calls", () =>
-	Effect.gen(function* () {
-		const journal = [entry(0, 1)];
-		const replayJournal = makeWorkflowReplayJournalHostFunction(journal);
-
-		expect(yield* replayJournal([])).toEqual({ success: true, data: journal });
-		expect(yield* replayJournal([[request(0, "old-protocol")]])).toEqual({
-			success: false,
-			error: "replayJournal does not accept arguments",
-		});
-		expect(yield* makeWorkflowReplayJournalHostFunction(undefined)([])).toEqual({
-			success: false,
-			error: "replayJournal is available only to workflow executions",
-		});
-	}),
-);
 
 it("keeps workflow replay journal out of ordinary host-function selection", () => {
 	const bound = { httpCall: unusedHostFunction, replayJournal: unusedHostFunction };

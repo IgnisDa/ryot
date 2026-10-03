@@ -18,7 +18,6 @@ const isolateBytes =
 	SANDBOX_LIMITS.isolate.externalBytes +
 	SANDBOX_LIMITS.sidecar.heapHeadroomBytes;
 const resident = (instance: string) => instance === "system/core" || instance === "user/core";
-const journalCopies = 3;
 const outstandingHostCalls = SANDBOX_LIMITS.bridge.concurrentHostCalls + 1;
 const staticBytes = 2 * processBytes + SANDBOX_TRANSIENT_MEMORY.poolBytes;
 // Isolate, fixed stack and staging, run start, then per outstanding host call its inbound frame,
@@ -30,7 +29,6 @@ const runBytes =
 	outstandingHostCalls * (4 * MiB + 5 * MiB + SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult) +
 	SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
 
-const reservationSchema = Schema.Struct({ instance: Schema.String, journalBytes: Schema.Int });
 const laneSchema = Schema.Struct({
 	lane: SidecarLane,
 	generation: Schema.Int,
@@ -41,7 +39,6 @@ const encodeLane = Schema.encodeSync(Schema.fromJsonString(laneSchema));
 export class SandboxAdmissionLease extends Context.Service<
 	SandboxAdmissionLease,
 	{
-		readonly retainJournal: (bytes: number) => Effect.Effect<void, SandboxRunError>;
 		readonly enter: (
 			input: typeof laneSchema.Type,
 		) => Effect.Effect<void, SandboxRunError, Scope.Scope>;
@@ -51,7 +48,6 @@ export class SandboxAdmissionLease extends Context.Service<
 type LeaseState = {
 	bytes: number;
 	instance: string;
-	journalBytes: number;
 	startupBytes: number;
 	closed: boolean;
 	entering: boolean;
@@ -215,33 +211,18 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				);
 				return undefined;
 			});
-			const reservePrefix = Effect.fn("SandboxSidecarAdmission.reservePrefix")(function* (
-				input: typeof reservationSchema.Type,
+			const reserveRun = Effect.fn("SandboxSidecarAdmission.reserveRun")(function* (
+				runInstance: string,
 			) {
 				const waitingAt = yield* Clock.currentTimeMillis;
-				if (
-					!Number.isSafeInteger(input.journalBytes) ||
-					input.journalBytes < 2 ||
-					input.journalBytes > SANDBOX_LIMITS.journalBytes
-				) {
-					return yield* limitError("Sandbox journal reservation is invalid");
-				}
-				const initialBytes = journalCopies * input.journalBytes;
-				if (
-					initialBytes + runBytes + (resident(input.instance) ? 0 : processBytes) >
-					budget - staticBytes
-				) {
-					return yield* limitError("Sandbox execution cannot fit the required idle topology");
-				}
 				const lease: LeaseState = {
 					bytes: 0,
 					closed: false,
-					journalBytes: 0,
 					startupBytes: 0,
 					entering: false,
 					lane: undefined,
 					startup: undefined,
-					instance: input.instance,
+					instance: runInstance,
 				};
 				yield* Effect.uninterruptibleMask((restore) =>
 					Effect.gen(function* () {
@@ -264,15 +245,14 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 									return yield* limitError("Sandbox reservation owner closed while waiting");
 								}
 								const startupBytes =
-									resident(input.instance) || (instances.get(input.instance)?.bytes ?? 0) > 0
+									resident(runInstance) || (instances.get(runInstance)?.bytes ?? 0) > 0
 										? 0
 										: processBytes;
-								const amount = initialBytes + runBytes + startupBytes;
+								const amount = runBytes + startupBytes;
 								if (state.reservations < concurrency && state.bytes + amount <= budget) {
 									state.reservations++;
 									state.bytes += amount;
 									lease.bytes = amount;
-									lease.journalBytes = initialBytes;
 									lease.startupBytes = startupBytes;
 									return undefined;
 								}
@@ -300,31 +280,6 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 						);
 					}),
 				);
-				const retainJournal = Effect.fnUntraced(function* (
-					retainedBytes: number,
-				): Effect.fn.Return<void, SandboxRunError> {
-					if (
-						!Number.isSafeInteger(retainedBytes) ||
-						retainedBytes < 0 ||
-						retainedBytes > SANDBOX_LIMITS.journalBytes
-					) {
-						return yield* limitError("Sandbox retained journal exceeds its reservation");
-					}
-					const next = journalCopies * retainedBytes;
-					if (
-						lease.closed ||
-						lease.entering ||
-						lease.lane !== undefined ||
-						next > lease.journalBytes
-					) {
-						return yield* limitError("Sandbox journal reservation cannot grow after loading");
-					}
-					state.bytes -= lease.journalBytes - next;
-					lease.bytes -= lease.journalBytes - next;
-					lease.journalBytes = next;
-					notify();
-					return undefined;
-				});
 				const enter = Effect.fnUntraced(function* (lane: typeof laneSchema.Type) {
 					const key = encodeLane(lane);
 					const instance = instances.get(lane.instance);
@@ -357,13 +312,13 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 					lanes.set(key, (lanes.get(key) ?? 0) + 1);
 					return undefined;
 				});
-				const service = { enter, retainJournal };
+				const service = { enter };
 				yield* recordSandboxAdmissionWait((yield* Clock.currentTimeMillis) - waitingAt);
 				leases.set(service, lease);
 				return service;
 			});
 			return {
-				reservePrefix,
+				reserveRun,
 				reserveProcess,
 				maximumActive: concurrency,
 				isolateMemoryBytes: concurrency * (isolateBytes + SIDECAR_PROTOCOL_LIMITS.messageBytes.run),

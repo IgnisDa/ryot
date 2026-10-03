@@ -2,6 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { assert } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
+import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Layer, Result, Schema } from "effect";
 
@@ -23,14 +24,13 @@ import {
 	type SidecarInboundFrame,
 } from "./sidecar-protocol";
 import { selectSnapshotTier } from "./snapshot-tier";
+import { memoryPinnedJournal } from "./workflow-journal.test-support";
 
 export type RunnerCompiled = Effect.Success<ReturnType<SandboxCompiler["Service"]["compile"]>>;
 export type RunnerOptions = Partial<
-	Pick<
-		SandboxRunInput,
-		"executionId" | "workflowExecutionId" | "replayJournal" | "inlineDurableHost"
-	>
+	Pick<SandboxRunInput, "executionId" | "workflowExecutionId" | "inlineDurableHost">
 > & {
+	readonly replayJournal?: ReadonlyArray<WorkflowReplayJournalEntry>;
 	readonly functions?: Readonly<Record<string, BoundHostFunction>>;
 	readonly filesystem?: { readonly artifact: boolean };
 	readonly reply?: (
@@ -180,7 +180,7 @@ export const makeRunnerInput = (
 			: { workflowExecutionId: options.workflowExecutionId }),
 		...(options.workflowExecutionId === undefined && options.replayJournal === undefined
 			? {}
-			: { replayJournal: options.replayJournal ?? [] }),
+			: { replayJournal: memoryPinnedJournal(options.replayJournal ?? []) }),
 		...(options.inlineDurableHost === undefined
 			? {}
 			: { inlineDurableHost: options.inlineDurableHost }),
