@@ -29,7 +29,7 @@ layer(Layer.mergeAll(BunFileSystem.layer, BunPath.layer, ViteBuildService.layer)
 			};
 			const compiled = yield* compileClientPluginModule(input);
 			expect(compiled.artifact.files.some(({ name }) => name.endsWith(".js"))).toBe(true);
-			expect(compiled.artifact.files.filter(({ name }) => name.endsWith(".mp3"))).toHaveLength(4);
+			expect(compiled.artifact.files.filter(({ name }) => name.endsWith(".mp3"))).toHaveLength(5);
 		}),
 	);
 });

@@ -330,7 +330,7 @@ export function SetGrid(props: {
 									</p>
 								)}
 							</Collapse>
-							{index < occurrence.sets.length - 1 && !historical ? (
+							<Collapse open={index < occurrence.sets.length - 1 && !historical}>
 								<button
 									type="button"
 									onClick={() => props.onOpenSet(set)}
@@ -345,7 +345,7 @@ export function SetGrid(props: {
 									<AppIcon size={12} name="timer" />
 									{restText}
 								</button>
-							) : null}
+							</Collapse>
 						</div>
 					);
 				})}
