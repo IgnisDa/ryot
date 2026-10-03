@@ -11,7 +11,7 @@ import {
 	recordSandboxAggregateRss,
 	recordSandboxRuntimeGauges,
 	recordSandboxSidecarEvent,
-	recordSandboxSidecarRss,
+	recordSandboxSidecarProcesses,
 } from "../runtime-metrics";
 import { parseProcStatusRssBytes } from "./process-sampling";
 import { makeSidecarFrameReader, makeSidecarFrameWriter } from "./sidecar-framing";
@@ -86,7 +86,21 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 			const installation = yield* SandboxSidecarInstallation;
 			const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 			const fs = yield* FileSystem.FileSystem;
-			const rss = new Map<number, number | null>();
+			const rss = new Map<
+				number,
+				{ readonly trust: "system" | "user"; readonly tier: string; bytes: number | null }
+			>();
+			const publishProcesses = (settings: typeof processSettingsSchema.Type) =>
+				Effect.suspend(() => {
+					const processes = [...rss.values()].filter(
+						(entry) => entry.trust === settings.trust && entry.tier === settings.tier,
+					);
+					return recordSandboxSidecarProcesses({
+						...settings,
+						processes: processes.length,
+						bytes: processes.reduce((sum, entry) => sum + (entry.bytes ?? 0), 0),
+					});
+				});
 			const publishRss = Effect.suspend(() =>
 				Effect.all(
 					[
@@ -99,8 +113,8 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 							});
 						}),
 						recordSandboxAggregateRss(
-							[...rss.values()].reduce<number>((sum, value) => sum + (value ?? 0), 0),
-							[...rss.values()].filter((value) => value !== null).length,
+							[...rss.values()].reduce<number>((sum, entry) => sum + (entry.bytes ?? 0), 0),
+							[...rss.values()].filter((entry) => entry.bytes !== null).length,
 						),
 					],
 					{ discard: true },
@@ -191,7 +205,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 				const pid = child.pid;
 				const retireRss = Effect.suspend(() =>
 					pid !== undefined && rss.delete(pid)
-						? recordSandboxSidecarRss({ ...settings, bytes: 0 }).pipe(
+						? publishProcesses(settings).pipe(
 								Effect.andThen(
 									recordSandboxSidecarEvent({ ...settings, event: "stop", reason: "confirmed" }),
 								),
@@ -200,8 +214,9 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 						: Effect.void,
 				);
 				if (pid !== undefined) {
-					rss.set(pid, null);
+					rss.set(pid, { bytes: null, tier: settings.tier, trust: settings.trust });
 					yield* recordSandboxSidecarEvent({ ...settings, event: "start", reason: "spawned" });
+					yield* publishProcesses(settings);
 					yield* Effect.addFinalizer(() =>
 						child.exitCode !== null || child.signalCode !== null ? retireRss : Effect.void,
 					);
@@ -222,11 +237,9 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 										)
 							).pipe(Effect.orElseSucceed(() => null));
 							if (yield* monitorIsActive) {
-								rss.set(pid, bytes);
+								rss.set(pid, { bytes, tier: settings.tier, trust: settings.trust });
 								yield* publishRss;
-								if (bytes !== null) {
-									yield* recordSandboxSidecarRss({ ...settings, bytes });
-								}
+								yield* publishProcesses(settings);
 							}
 							yield* Effect.sleep("1 second");
 						}

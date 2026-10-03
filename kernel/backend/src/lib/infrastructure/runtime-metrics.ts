@@ -207,19 +207,6 @@ export const recordSandboxSidecarEvent = (input: {
 				),
 				1,
 			),
-			...(input.event === "start" || input.event === "stop"
-				? [
-						Metric.update(
-							Metric.withAttributes(
-								Metric.gauge("ryot.sandbox.sidecar.live_processes", {
-									attributes: { unit: "{process}" },
-								}),
-								{ trust: input.trust, snapshot: input.tier },
-							),
-							input.event === "start" ? 1 : 0,
-						),
-					]
-				: []),
 			...(input.durationMs === undefined
 				? []
 				: [
@@ -395,17 +382,32 @@ export const recordSandboxAggregateRss = (bytes: number, sampledProcesses: numbe
 		{ discard: true },
 	);
 
-export const recordSandboxSidecarRss = (input: {
+export const recordSandboxSidecarProcesses = (input: {
 	readonly trust: "system" | "user";
 	readonly tier: typeof SidecarTier.Type;
+	readonly processes: number;
 	readonly bytes: number;
 }) =>
-	Metric.update(
-		Metric.withAttributes(
-			Metric.gauge("ryot.sandbox.sidecar.rss", { attributes: { unit: BYTES } }),
-			{ trust: input.trust, snapshot: input.tier },
-		),
-		input.bytes,
+	Effect.all(
+		[
+			Metric.update(
+				Metric.withAttributes(
+					Metric.gauge("ryot.sandbox.sidecar.live_processes", {
+						attributes: { unit: "{process}" },
+					}),
+					{ trust: input.trust, snapshot: input.tier },
+				),
+				input.processes,
+			),
+			Metric.update(
+				Metric.withAttributes(
+					Metric.gauge("ryot.sandbox.sidecar.rss", { attributes: { unit: BYTES } }),
+					{ trust: input.trust, snapshot: input.tier },
+				),
+				input.bytes,
+			),
+		],
+		{ discard: true },
 	);
 
 let executingProviderImportBodies = 0;
