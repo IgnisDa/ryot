@@ -117,7 +117,7 @@ per isolate, holds no shared resource, and either lives on the V8 heap or is met
 - **Crash attribution:** the sidecar reports the execution that caused an escalation exit (S1). The
   backend supervisor re-runs a crashed sidecar's unattributed in-flight executions one at a time to find
   the culprit, keeps collateral executions' retry budgets, backs off restarts, and quarantines the
-  uploader and plugin in the user tier or the triggering user or job in the system tier (S2).
+  plugin owner and plugin content in the user tier or the triggering user or job in the system tier (S2).
 
 ### OS confinement
 
