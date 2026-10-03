@@ -2,6 +2,25 @@ FROM oven/bun:1.4.3-debian AS base
 WORKDIR /app
 
 FROM rust:1.93.1-bookworm AS rust-toolchain
+RUN rustup component add rustfmt clippy
+
+FROM rust-toolchain AS chef
+RUN cargo install cargo-chef --locked --version 0.1.78
+
+FROM chef AS planner
+WORKDIR /app/kernel/sandboxd
+COPY kernel/sandboxd/Cargo.toml kernel/sandboxd/Cargo.lock kernel/sandboxd/rust-toolchain.toml kernel/sandboxd/build.rs ./
+COPY kernel/sandboxd/src ./src
+COPY kernel/sandboxd/tests ./tests
+COPY kernel/sandboxd/bench ./bench
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS cook
+WORKDIR /app/kernel/sandboxd
+COPY kernel/sandboxd/rust-toolchain.toml ./
+COPY --from=planner /app/kernel/sandboxd/recipe.json recipe.json
+RUN cargo chef cook --release --recipe-path recipe.json
+RUN cargo chef cook --tests --recipe-path recipe.json
 
 FROM base AS prepare
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install --global turbo@2.10.12
@@ -17,6 +36,8 @@ COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 FROM builder-base AS backend-builder
 COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
 COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
+COPY --from=cook /usr/local/cargo/registry /usr/local/cargo/registry
+COPY --from=cook /app/kernel/sandboxd/target /app/kernel/sandboxd/target
 ENV CARGO_HOME=/usr/local/cargo
 ENV RUSTUP_HOME=/usr/local/rustup
 ENV PATH=/usr/local/cargo/bin:$PATH
