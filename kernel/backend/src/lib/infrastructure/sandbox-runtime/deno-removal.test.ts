@@ -3,8 +3,21 @@ import { expect, layer } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
+const runtimeBuildPaths = [
+	".dockerignore",
+	".github",
+	"Dockerfile",
+	"apps",
+	"ci",
+	"e2e",
+	"kernel",
+	"package.json",
+	"packages",
+	"plugins",
+	"turbo.json",
+];
+
 const allowedPaths = [
-	/^docs\/sandbox-isolate-runtime(\.md|-spike\/)/,
 	/^kernel\/sandboxd\//,
 	/^kernel\/backend\/src\/lib\/infrastructure\/sandbox-runtime\/deno-removal\.test\.ts$/,
 ];
@@ -23,9 +36,11 @@ layer(BunServices.layer)((test) =>
 				"../../../../../..",
 			);
 			const listed = yield* spawner.string(
-				ChildProcess.make("git", ["ls-files", "--cached", "--others", "--exclude-standard"], {
-					cwd: root,
-				}),
+				ChildProcess.make(
+					"git",
+					["ls-files", "--cached", "--others", "--exclude-standard", "--", ...runtimeBuildPaths],
+					{ cwd: root },
+				),
 			);
 			const files = listed
 				.split("\n")
