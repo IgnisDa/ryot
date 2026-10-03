@@ -5,10 +5,12 @@ import {
 	type SchemaFileUpload,
 	type SchemaFormApi,
 	type SchemaFormValues,
+	toSchemaFormPayload,
 } from "@ryot-app/client-ui-sdk/schema-form";
 import { Cause, Effect, Match } from "effect";
 import { useReducer, useState } from "react";
 
+import { SelectedIntegrationReadiness } from "#/modules/imports/selected-readiness";
 import { useOAuthConnect } from "#/modules/integrations/oauth-connect";
 import {
 	createIntegrationBody,
@@ -91,6 +93,16 @@ function SettingsStep(props: {
 				uploadFile={props.uploadFile}
 				oauthDisabledReason={oauth.disabledReason}
 			/>
+			<props.form.Subscribe selector={(state) => state.values}>
+				{(values) => (
+					<SelectedIntegrationReadiness
+						slug={props.provider.slug}
+						settings={toSchemaFormPayload(props.provider.settingsSchema, values)}
+					>
+						{() => null}
+					</SelectedIntegrationReadiness>
+				)}
+			</props.form.Subscribe>
 			{props.failureDetail === undefined ? null : (
 				<FieldMessage>{props.failureDetail}</FieldMessage>
 			)}
@@ -152,15 +164,22 @@ function ReviewStep(props: {
 				<FieldMessage>{props.failureDetail}</FieldMessage>
 			)}
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
-				<Button
-					type="button"
-					variant="primary"
-					className="sm:px-6"
-					disabled={props.pending}
-					onClick={props.onConnect}
+				<SelectedIntegrationReadiness
+					slug={props.provider.slug}
+					settings={toSchemaFormPayload(props.provider.settingsSchema, props.values)}
 				>
-					{props.pending ? "Connecting..." : "Connect"}
-				</Button>
+					{(ready) => (
+						<Button
+							type="button"
+							variant="primary"
+							className="sm:px-6"
+							onClick={props.onConnect}
+							disabled={props.pending || !ready}
+						>
+							{props.pending ? "Connecting..." : "Connect"}
+						</Button>
+					)}
+				</SelectedIntegrationReadiness>
 				<Button
 					type="button"
 					variant="secondary"

@@ -28,16 +28,12 @@ const running = {
 
 describe("run status presentation", () => {
 	it("treats only finished runs as terminal", () => {
-		expect((["pending", "running", "cancelling"] as const).map(isTerminalRunStatus)).toEqual([
-			false,
-			false,
-			false,
-		]);
-		expect((["completed", "failed", "cancelled"] as const).map(isTerminalRunStatus)).toEqual([
-			true,
-			true,
-			true,
-		]);
+		expect(
+			(["pending", "blocked", "running", "cancelling"] as const).map(isTerminalRunStatus),
+		).toEqual([false, false, false, false]);
+		expect(
+			(["completed", "failed", "cancelled", "expired"] as const).map(isTerminalRunStatus),
+		).toEqual([true, true, true, true]);
 	});
 
 	it("clamps and rounds run counts", () => {
@@ -48,11 +44,28 @@ describe("run status presentation", () => {
 	});
 
 	it("maps every run status to its pill", () => {
-		expect((["pending", "running", "completed", "failed"] as const).map(runStatusPill)).toEqual([
+		expect(
+			(
+				[
+					"pending",
+					"blocked",
+					"expired",
+					"running",
+					"cancelling",
+					"completed",
+					"failed",
+					"cancelled",
+				] as const
+			).map(runStatusPill),
+		).toEqual([
 			{ icon: "clock", tone: "muted", label: "Queued" },
+			{ icon: "clock", tone: "muted", label: "Setup required" },
+			{ tone: "muted", icon: "circle-x", label: "Expired" },
 			{ tone: "info", label: "Running", icon: "rotate-ccw" },
+			{ tone: "info", icon: "rotate-ccw", label: "Cancelling" },
 			{ tone: "success", label: "Completed", icon: "circle-check" },
 			{ tone: "danger", label: "Failed", icon: "circle-alert" },
+			{ tone: "muted", icon: "circle-x", label: "Cancelled" },
 		]);
 	});
 
@@ -67,6 +80,7 @@ describe("run status presentation", () => {
 		expect(runDurationLabel(running, NOW)).toBe("2m");
 		expect(runDurationLabel({ ...running, startedAt: null }, NOW)).toBeUndefined();
 		expect(runDurationLabel({ ...running, status: "failed" }, NOW)).toBeUndefined();
+		expect(runDurationLabel({ ...running, status: "expired" }, NOW)).toBeUndefined();
 	});
 
 	it("describes when a run happened in words", () => {
