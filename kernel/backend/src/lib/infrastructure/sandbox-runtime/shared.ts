@@ -3,6 +3,7 @@ import {
 	LifecycleCommand,
 	type AutomationSource,
 	type AutomationWarning,
+	type ExecutionLane,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import {
@@ -54,6 +55,7 @@ export type SandboxInlineDurableHost = {
 };
 
 export type SandboxRunInput = {
+	readonly lane: ExecutionLane;
 	readonly context: unknown;
 	readonly startedAt?: string;
 	readonly executionId: string;
@@ -246,6 +248,7 @@ export const sandboxLifecycleCommand = (
 			causation: rootLifecycleCausation({
 				source,
 				executionId,
+				lane: input.lane,
 				initiator: actor.initiator,
 				...(integrationId === undefined ? {} : { integrationId }),
 				...(source === "provider-refresh"

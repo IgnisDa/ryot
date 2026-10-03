@@ -20,6 +20,7 @@ const workflowInput: SandboxRunInput = {
 	context: {},
 	compiledCode: "",
 	compiledFormat: 1,
+	lane: "interactive",
 	workflowExecutionId: "parent",
 	executionId: "parent-replay-3",
 	principal: {

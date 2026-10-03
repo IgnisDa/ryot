@@ -1,3 +1,4 @@
+import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	SandboxExecutionGrants,
 	SandboxExecutionSubject,
@@ -9,6 +10,7 @@ import { Schema } from "effect";
 import { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 export const SandboxScriptWorkflowPayload = Schema.Struct({
+	lane: ExecutionLane,
 	input: jsonValueSchema,
 	scriptId: SandboxScriptId,
 	executionId: Schema.String,

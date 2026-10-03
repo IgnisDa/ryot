@@ -68,6 +68,7 @@ const input: SandboxRunInput = {
 	context: {},
 	compiledCode: "",
 	compiledFormat: 1,
+	lane: "interactive",
 	executionId: "execution-1",
 	principal: {
 		contentHash: "",

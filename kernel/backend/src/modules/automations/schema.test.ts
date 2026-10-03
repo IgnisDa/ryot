@@ -55,6 +55,7 @@ it("defines automation trigger columns and indexes", () => {
 		["occurred_at", true],
 		["blocked_reason", false],
 		["created_at", true],
+		["lane", true],
 		["scope_user_id", false],
 		["category", true],
 		["source", true],

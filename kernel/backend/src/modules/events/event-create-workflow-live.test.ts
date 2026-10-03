@@ -57,6 +57,7 @@ const entitySchemaSlug = EntitySchemaSlug.make("record");
 const command = rootLifecycleCommand({
 	source: "api",
 	occurredAt: now,
+	lane: "interactive",
 	itemIdentity: "events",
 	initiator: { id: userId, kind: "user" },
 	executionId: AutomationExecutionId.make("batch"),

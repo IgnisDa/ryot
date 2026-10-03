@@ -20,6 +20,7 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 				const service = yield* RelationshipsService;
 				const command = rootLifecycleCommand({
 					source: "api",
+					lane: "interactive",
 					itemIdentity: "relationship",
 					initiator: { id: user.id, kind: "user" },
 					accountGeneration: user.accountGeneration,

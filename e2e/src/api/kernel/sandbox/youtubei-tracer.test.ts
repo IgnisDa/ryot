@@ -94,6 +94,7 @@ describe("Youtubei durable tracer", () => {
 			);
 			const { userId } = yield* createAuthenticatedClient();
 			const { jobId, executionId } = yield* enqueueSandboxScript(userId, {
+				lane: "interactive",
 				scriptId: plugin.scriptIds[scriptSlug] ?? plugin.scriptId,
 				context: { firstUrl: `${http.url}/first`, secondUrl: `${http.url}/second` },
 			});

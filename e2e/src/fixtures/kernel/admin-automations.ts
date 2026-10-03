@@ -117,6 +117,7 @@ export const adminAutomationTriggersRecipe = defineRecipe(
 						"blockedReason",
 						"payloadPrunedAt",
 						"depth",
+						"lane",
 						"source",
 						"executionId",
 						"rootExecutionId",
@@ -144,6 +145,7 @@ export const adminAutomationTriggersRecipe = defineRecipe(
 								blockedReason: item.blockedReason,
 								payloadPrunedAt: item.payloadPrunedAt,
 								causation: {
+									lane: item.lane,
 									depth: item.depth,
 									source: item.source,
 									initiator: { id: item.initiatorId, kind: item.initiatorKind },

@@ -4,6 +4,7 @@ import {
 	AutomationPolicyInput,
 	AutomationPolicyOutput,
 	AutomationRunAttempt,
+	ExecutionLane,
 	type AutomationFailureKind,
 	type AutomationRun,
 	type AutomationTrigger,
@@ -22,6 +23,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
+import { automationRunLane } from "#lib/domain/lifecycle-command";
 import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch";
 import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -48,6 +50,7 @@ import {
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 const PreparedAutomationRun = Schema.Struct({
+	lane: ExecutionLane,
 	scriptId: SandboxScriptId,
 	subject: SandboxExecutionSubject,
 	input: Schema.Union([AutomationInput, AutomationPolicyInput]),
@@ -150,6 +153,7 @@ export const prepareAutomationInvocation = (
 		return yield* Schema.decodeUnknownEffect(PreparedAutomationRun)({
 			input,
 			scriptId: run.sandboxScriptId,
+			lane: automationRunLane({ stage: run.stage, causation: trigger.causation }),
 			subject: {
 				runId: run.id,
 				stage: run.stage,

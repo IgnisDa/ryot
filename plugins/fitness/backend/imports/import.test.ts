@@ -38,6 +38,7 @@ const command = Schema.decodeSync(LifecycleCommand)({
 		depth: 0,
 		source: "import",
 		parentRunId: null,
+		lane: "background",
 		importRunId: "run-1",
 		executionId: "run-1",
 		parentTriggerId: null,

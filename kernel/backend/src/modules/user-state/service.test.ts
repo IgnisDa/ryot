@@ -68,6 +68,7 @@ const user = {
 
 const command = rootLifecycleCommand({
 	source: "api",
+	lane: "interactive",
 	itemIdentity: "user-state",
 	initiator: { id: user.id, kind: "user" },
 	accountGeneration: user.accountGeneration,

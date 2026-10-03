@@ -184,7 +184,7 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 			});
 
 			const establish = Effect.fn("SandboxWorkflowPinning.establish")(function* (
-				payload: SandboxScriptWorkflowPayloadValue,
+				payload: Omit<SandboxScriptWorkflowPayloadValue, "lane">,
 				executionId: string,
 				expectedPluginId?: string,
 				retain?: (principal: SandboxExecutionPrincipal) => Effect.Effect<void, SandboxRunError>,
@@ -602,6 +602,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 						request.args.workflowSlug,
 						request.args.input,
 						payload.subject,
+						payload.lane,
 						childExecutionId,
 						executionId,
 						payload.scriptId,
@@ -621,6 +622,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 								{
 									executionId: childExecutionId,
 									payload: {
+										lane: payload.lane,
 										resolutionMode: "exact",
 										subject: payload.subject,
 										input: request.args.input,
@@ -796,6 +798,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			replayStartedAt = yield* Clock.currentTimeMillis;
 			const replay = yield* Effect.scoped(
 				processReplay({
+					lane: payload.lane,
 					context: payload.input,
 					startedAt: pin.startedAt,
 					principal: pin.principal,

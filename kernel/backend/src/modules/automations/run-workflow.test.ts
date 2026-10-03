@@ -247,6 +247,7 @@ it.effect(
 				{ retained: "metadata" },
 			);
 			expect(prepared).toEqual({
+				lane: "background",
 				scriptId: "script-old",
 				input: {
 					automation: {
@@ -369,6 +370,33 @@ it.effect(
 				),
 			);
 			expect(exit._tag).toBe("Failure");
+		}),
+);
+
+it.effect(
+	"scheduling_lane_survives_durable_boundaries: before runs keep the trigger lane and after runs are background",
+	() =>
+		Effect.gen(function* () {
+			const interactive = {
+				...trigger,
+				causation: { ...trigger.causation, lane: "interactive" as const },
+			};
+			const after = yield* prepareAutomationInvocation(
+				run,
+				interactive,
+				payload,
+				afterScript,
+				accountGeneration,
+			);
+			const before = yield* prepareAutomationInvocation(
+				beforeRun,
+				{ ...requestTrigger, causation: interactive.causation },
+				payload,
+				policyScript,
+				accountGeneration,
+			);
+			expect([after.lane, before.lane]).toEqual(["background", "interactive"]);
+			expect(after.subject).toMatchObject({ causation: { lane: "interactive" } });
 		}),
 );
 

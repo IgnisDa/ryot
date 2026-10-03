@@ -290,6 +290,7 @@ const command = (executionId: string): LifecycleCommand =>
 	rootLifecycleCommand({
 		source: "api",
 		occurredAt: now,
+		lane: "interactive",
 		initiator: { id: user.id, kind: "user" },
 		itemIdentity: "collection:add-membership",
 		accountGeneration: user.accountGeneration,

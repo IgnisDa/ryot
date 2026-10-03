@@ -116,6 +116,7 @@ describe("AutomationRetention", () => {
 										source: "api" as const,
 										operation: "emit" as const,
 										category: "signal" as const,
+										lane: "interactive" as const,
 										executionId: `execution-${id}`,
 										resourceKind: "signal" as const,
 										initiatorKind: "system" as const,

@@ -1,4 +1,5 @@
 import { badRequest, notFound, SandboxRunError } from "@ryot-app/contract/errors";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	EnqueueSandboxBody,
@@ -141,6 +142,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						payload: {
 							input,
 							executionId,
+							lane: payload.lane,
 							resultMode: "execution",
 							resolutionMode: "exact",
 							subject: resolvedPayload.subject,
@@ -220,6 +222,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 			const executeWorkflow = Effect.fn("SandboxExecutionService.executeWorkflow")(
 				function* (input: {
 					input: JsonValue;
+					lane: ExecutionLane;
 					executionId: string;
 					scriptId: SandboxScriptId;
 					grants?: SandboxExecutionGrants;
@@ -238,6 +241,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						{
 							executionId: input.executionId,
 							payload: {
+								lane: input.lane,
 								input: input.input,
 								subject: input.subject,
 								resolutionMode: "exact",
@@ -261,6 +265,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 
 			const executeScript = Effect.fn("SandboxExecutionService.executeScript")(function* (input: {
 				input: unknown;
+				lane: ExecutionLane;
 				executionId: string;
 				scriptId: SandboxScriptId;
 				grants?: SandboxExecutionGrants;
@@ -281,6 +286,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						),
 					);
 					return yield* executeSandboxScriptWorkflow({
+						lane: input.lane,
 						input: scriptInput,
 						subject: input.subject,
 						resolutionMode: "exact",
@@ -341,6 +347,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				function* (input: {
 					accountGeneration: AccountGeneration;
 					input: JsonValue;
+					lane: ExecutionLane;
 					pluginId: string;
 					executionId: string;
 					workflowSlug: string;
@@ -361,6 +368,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						return yield* notFound(sandboxScriptNotFoundError);
 					}
 					const payload = {
+						lane: input.lane,
 						input: input.input,
 						scriptId: script.id,
 						executionId: input.executionId,

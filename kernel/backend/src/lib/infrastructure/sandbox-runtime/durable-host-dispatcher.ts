@@ -404,6 +404,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								request,
 								payload.input,
 								principal,
+								payload.lane,
 								executionId,
 								startedAt,
 							);
@@ -722,6 +723,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							request,
 							payload.input,
 							principal,
+							payload.lane,
 							executionId,
 							startedAt,
 						),
@@ -892,7 +894,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		return {
 			dispatch: (request, payload, principal, executionId) =>
 				recordHostCall(request, dispatchDurableHostCall(request, payload, principal, executionId)),
-			settleInline: (requests, context, principal, executionId, startedAt) =>
+			settleInline: (requests, context, principal, lane, executionId, startedAt) =>
 				Effect.gen(function* () {
 					const eligible = yield* Effect.forEach(requests, settlesInline);
 					if (!eligible.every(Boolean)) {
@@ -908,6 +910,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 									request,
 									context,
 									principal,
+									lane,
 									executionId,
 									startedAt,
 								),

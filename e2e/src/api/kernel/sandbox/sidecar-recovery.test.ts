@@ -46,6 +46,7 @@ describe("sandbox sidecar recovery", () => {
 			);
 			expect(fixture.plugin.scope).toBe("user");
 			const resolvedJob = yield* enqueueSandboxScript(userId, {
+				lane: "interactive",
 				context: { value: fixture.suffix, identifierType: "source-id" },
 				scriptId: requirePresent(fixture.plugin.scriptIds[fixture.resolveSlug], "resolve script"),
 			});
@@ -100,7 +101,10 @@ export default defineScript({ manifest, input: Schema.Unknown, output: Schema.Un
 				fixture.committedName,
 			]);
 			expect(yield* userCoreProcess(pid)).toEqual(before);
-			const job = yield* enqueueSandboxScript(userId, { scriptId: installed.scriptId });
+			const job = yield* enqueueSandboxScript(userId, {
+				lane: "interactive",
+				scriptId: installed.scriptId,
+			});
 			const after = yield* pollUntil(
 				"native user/core generation replacement",
 				userCoreProcess(pid).pipe(

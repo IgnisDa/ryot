@@ -30,6 +30,7 @@ const TestTranslateEntityWorkflow = Workflow.make("TestTranslateEntityWorkflow",
 
 const payload = {
 	language: "es",
+	lane: "interactive",
 	externalId: "ext-1",
 	executionId: "exec-1",
 	entitySchemaSlug: "record",

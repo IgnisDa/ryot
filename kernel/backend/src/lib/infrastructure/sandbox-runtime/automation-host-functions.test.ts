@@ -28,6 +28,7 @@ const triggerId = AutomationTriggerId.make("trigger-1");
 const occurredAt = "2026-07-20T10:00:00.000Z";
 const causation = {
 	depth: 2,
+	lane: "background" as const,
 	source: "integration" as const,
 	importRunId: ImportRunId.make("import-1"),
 	parentRunId: AutomationRunId.make("parent-run"),
@@ -45,6 +46,7 @@ const runInput = (
 ): SandboxRunInput => ({
 	compiledCode: "",
 	compiledFormat: 1,
+	lane: "interactive",
 	hostCallDiscriminator: 4,
 	startedAt: "2026-07-20T10:00:01.000Z",
 	executionId: "attempt-2-sandbox-host-4",

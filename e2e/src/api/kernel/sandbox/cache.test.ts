@@ -129,6 +129,7 @@ const runProviderCache = (userId: string, scriptId: SandboxScriptId) =>
 	Effect.gen(function* () {
 		const { jobId } = yield* enqueueSandboxScript(userId, {
 			scriptId,
+			lane: "interactive",
 			context: { page: 1, pageSize: 1, query: "cache" },
 		});
 		return yield* pollSandboxResult(userId, jobId);
@@ -165,7 +166,7 @@ describe("sandbox cache functions", () => {
 						name: "cache-round-trip",
 					}),
 				});
-				const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+				const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 				const value = requireObjectRecord(
 					requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
@@ -188,7 +189,7 @@ describe("sandbox cache functions", () => {
 				capabilities: ["getCachedValue"],
 				source: cacheSandboxSource({ slug, key: missingKey, operation: "get", name: "cache-miss" }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const value = requireObjectRecord(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
@@ -219,14 +220,14 @@ describe("sandbox cache functions", () => {
 				}),
 			});
 
-			const first = yield* enqueueSandboxScript(userId, { scriptId });
+			const first = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 			const firstValue = requireObjectRecord(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, first.jobId)),
 				"Expected first persistent claim result to be an object",
 			);
 			expect(firstValue.data).toEqual({ claimed: true });
 
-			const second = yield* enqueueSandboxScript(userId, { scriptId });
+			const second = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 			const secondValue = requireObjectRecord(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, second.jobId)),
 				"Expected second persistent claim result to be an object",
@@ -255,6 +256,7 @@ describe("sandbox cache functions", () => {
 			expect(writerScriptId).not.toBe(readerScriptId);
 
 			const { jobId: writeJobId } = yield* enqueueSandboxScript(userIdA, {
+				lane: "interactive",
 				scriptId: writerScriptId,
 				context: { externalId: "cache-writer" },
 			});

@@ -22,6 +22,7 @@ const causation = {
 	depth: 0,
 	source: "api",
 	parentRunId: null,
+	lane: "interactive",
 	parentTriggerId: null,
 	executionId: "command-1",
 	rootExecutionId: "command-1",
@@ -513,6 +514,7 @@ describe("lifecycle payload boundaries", () => {
 			{ ...child, parentRunId: null },
 			{ ...child, parentTriggerId: null },
 			{ ...child, depth: 0 },
+			{ ...child, lane: "urgent" },
 			{ ...causation, depth: -1 },
 			{ ...causation, origin: { kind: "api" } },
 		]) {

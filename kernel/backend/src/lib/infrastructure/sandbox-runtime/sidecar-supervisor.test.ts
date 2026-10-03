@@ -1,5 +1,6 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
@@ -607,6 +608,8 @@ const startRun = (
 	runtimeImports: ReadonlyArray<string> = [],
 	options: {
 		readonly leaseAcquired?: Deferred.Deferred<void>;
+		readonly lane?: ExecutionLane;
+		readonly runLane?: ExecutionLane;
 		readonly executionId?: string;
 		readonly pinHash?: string;
 		readonly principal?: SandboxExecutionPrincipal;
@@ -616,7 +619,7 @@ const startRun = (
 	Effect.scoped(
 		Effect.gen(function* () {
 			const principal = options.principal ?? makePrincipal(runtimeImports);
-			const lease = yield* supervisor.reserve(principal);
+			const lease = yield* supervisor.reserve(principal, options.lane ?? "interactive");
 			if (options.leaseAcquired !== undefined) {
 				yield* Deferred.succeed(options.leaseAcquired, undefined);
 			}
@@ -625,6 +628,7 @@ const startRun = (
 				principal,
 				prepare: options.prepare ?? makePrepare(harness),
 				pinHash: options.pinHash ?? sha256Hex(moduleSource),
+				lane: options.runLane ?? options.lane ?? "interactive",
 				executionId: options.executionId ?? crypto.randomUUID(),
 			});
 		}),
@@ -769,6 +773,28 @@ supervisorTest("lazy_tiers_start_once_and_stop_only_when_idle", () =>
 			});
 		}),
 	).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
+);
+
+supervisorTest(
+	"scheduling_lane_survives_durable_boundaries: the reserved lane reaches the run frame",
+	() =>
+		withSupervisor(({ harness, supervisor }) =>
+			Effect.gen(function* () {
+				const mismatch = yield* Effect.flip(
+					startRun(supervisor, harness, [], { lane: "background", runLane: "interactive" }),
+				);
+				expect(mismatch.message).toBe("Sandbox admission does not match its principal");
+				const fiber = yield* startRun(supervisor, harness, [], { lane: "background" }).pipe(
+					Effect.forkScoped({ startImmediately: true }),
+				);
+				const [core] = userCoreConnections(harness);
+				assert(core !== undefined);
+				const run = yield* Queue.take(core.nextRun);
+				expect(run.lane).toBe("background");
+				yield* harness.complete(core, run);
+				yield* Fiber.join(fiber);
+			}),
+		),
 );
 
 supervisorTest("drain_and_recycle_respect_generation_and_memory_reservations", () =>
@@ -1375,7 +1401,7 @@ supervisorTest("global_admission_bounds_all_tiers_grants_and_recovery", () =>
 			yield* Effect.yieldNow;
 			expect(admission.snapshot()).toMatchObject({ runs: 2, waiting: 2 });
 			const overflow = yield* Effect.flip(
-				Effect.scoped(supervisor.reserve(makePrincipal([], "user-overflow"))),
+				Effect.scoped(supervisor.reserve(makePrincipal([], "user-overflow"), "interactive")),
 			);
 			expect(overflow.kind).toBe("resource-unavailable");
 			expect(overflow.message).toBe("Sandbox ephemeral admission queue is full");
@@ -1456,6 +1482,7 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 			const input: SandboxRunInput = {
 				context: {},
 				compiledFormat: 1,
+				lane: "interactive",
 				compiledCode: moduleSource,
 				executionId: "inline-budget",
 				replayJournal: memoryPinnedJournal([]),
@@ -1587,6 +1614,7 @@ supervisorTest("per_handle_bounds_admit_honest_maximum_concurrency", () =>
 			const input: SandboxRunInput = {
 				context: {},
 				compiledFormat: 1,
+				lane: "interactive",
 				compiledCode: moduleSource,
 				executionId: "pending-bound",
 				replayJournal: memoryPinnedJournal([]),

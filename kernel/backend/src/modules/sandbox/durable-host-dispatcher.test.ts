@@ -42,6 +42,7 @@ it.effect("applies centralized capability authorization before durable host disp
 			},
 			{
 				input: {},
+				lane: "interactive",
 				resolutionMode: "exact",
 				executionId: "sandbox-parent",
 				scriptId: SandboxScriptId.make("script-1"),
@@ -84,6 +85,7 @@ it.effect("derives event root identity from the trusted workflow and host index"
 			},
 			{
 				input: {},
+				lane: "interactive",
 				resolutionMode: "exact",
 				executionId: "sandbox-parent",
 				scriptId: SandboxScriptId.make("script-1"),
@@ -160,6 +162,7 @@ it("derives service workflow identity from the parent and call index", () => {
 			startedAt: "2026-08-06T00:00:00.000Z",
 			sandbox: {
 				input: {},
+				lane: "interactive",
 				resolutionMode: "exact",
 				subject: { type: "system" },
 				executionId: "sandbox-parent",

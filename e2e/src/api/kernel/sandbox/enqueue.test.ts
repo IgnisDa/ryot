@@ -29,7 +29,10 @@ describe("sandbox enqueue by script ID", () => {
 			const { userId } = yield* createAuthenticatedClient();
 
 			const error = yield* Effect.flip(
-				enqueueSandboxScript(userId, { scriptId: SandboxScriptId.make(crypto.randomUUID()) }),
+				enqueueSandboxScript(userId, {
+					lane: "interactive",
+					scriptId: SandboxScriptId.make(crypto.randomUUID()),
+				}),
 			);
 
 			assertTaggedError(error, "TestSupportNotFound");
@@ -47,6 +50,7 @@ describe("sandbox enqueue by script ID", () => {
 			const searchScriptId = getFirstProviderSearchScriptId(schema);
 
 			const { jobId } = yield* enqueueSandboxScript(userId, {
+				lane: "interactive",
 				scriptId: searchScriptId,
 				context: { page: 1, pageSize: 5, query: "test" },
 			});
@@ -81,7 +85,7 @@ describe("sandbox enqueue by script ID", () => {
 				name: "Runtime manifest mismatch",
 				source: runtimeManifestMismatchSandboxSource({ slug, name: "Runtime manifest mismatch" }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "sandbox job");

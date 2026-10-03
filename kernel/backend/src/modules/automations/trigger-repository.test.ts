@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Data, DateTime, Effect, Layer } from "effect";
 import { describe } from "vitest";
 
@@ -49,6 +49,26 @@ describe("AutomationTriggerRepository", () => {
 						payload: null,
 						payloadPrunedAt: trigger.createdAt,
 					});
+				}),
+			);
+			test.effect("scheduling_lane_survives_durable_boundaries: triggers persist their lane", () =>
+				Effect.gen(function* () {
+					const repo = yield* AutomationTriggerRepository;
+					const fixture = triggerFixture("background-lane-trigger");
+					const trigger = {
+						...fixture,
+						causation: { ...fixture.causation, lane: "background" as const },
+					};
+					yield* repo.insert(trigger);
+					expect((yield* repo.findById(trigger.id))?.causation.lane).toBe("background");
+					const invalid = yield* (yield* DatabaseSession)
+						.run((db) =>
+							db.execute(
+								sql`update ${automationTrigger} set lane = 'urgent' where ${automationTrigger.id} = ${trigger.id}`,
+							),
+						)
+						.pipe(Effect.flip);
+					expect(invalid._tag).toBe("DbError");
 				}),
 			);
 			test.effect("preserves event-stream work attribution across inserts and reads", () =>

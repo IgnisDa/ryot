@@ -112,6 +112,7 @@ const causation = {
 	parentRunId: null,
 	parentTriggerId: null,
 	source: "api" as const,
+	lane: "background" as const,
 	executionId: AutomationExecutionId.make("root-execution"),
 	rootExecutionId: AutomationExecutionId.make("root-execution"),
 	initiator: { kind: "user" as const, id: UserId.make("user-1") },
@@ -252,6 +253,7 @@ layer(childOwnerDispatchLayer)((test) => {
 					subject,
 					scriptId,
 					executionId,
+					lane: "background" as const,
 					resolutionMode: "exact" as const,
 					startedAt: "2026-08-06T00:00:00.000Z",
 					input: {
@@ -383,6 +385,7 @@ layer(importHostDispatchLayer)((test) => {
 						scriptId,
 						executionId,
 						input: context,
+						lane: "background",
 						subject: importSubject,
 						resolutionMode: "exact",
 						startedAt: "2026-08-06T00:00:00.000Z",
@@ -597,6 +600,7 @@ const runHttpDispatch = Effect.gen(function* () {
 		{
 			scriptId,
 			input: {},
+			lane: "background",
 			resolutionMode: "exact",
 			subject: principal.subject,
 			executionId: httpExecutionId,
@@ -890,6 +894,7 @@ layer(interruptedDispatchLayer)((test) => {
 					{
 						scriptId,
 						input: {},
+						lane: "background",
 						resolutionMode: "exact",
 						subject: principal.subject,
 						executionId: interruptedExecutionId,
@@ -913,6 +918,7 @@ const lifecyclePayload = {
 	subject,
 	scriptId,
 	input: {},
+	lane: "background" as const,
 	resolutionMode: "exact" as const,
 	executionId: "sandbox-lifecycle",
 	startedAt: "2026-09-17T00:00:00.000Z",

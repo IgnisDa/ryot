@@ -163,6 +163,7 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 					}
 					const command = rootLifecycleCommand({
 						source: "import",
+						lane: "background",
 						importRunId: runId,
 						initiator: { id: user.id, kind: "user" },
 						accountGeneration: user.accountGeneration,

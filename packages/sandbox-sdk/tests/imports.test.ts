@@ -161,6 +161,7 @@ it("requires kernel import commands to carry matching import attribution", () =>
 			causation: {
 				depth: 0,
 				parentRunId: null,
+				lane: "background",
 				executionId: "run-1",
 				importRunId: "run-1",
 				source: "integration",

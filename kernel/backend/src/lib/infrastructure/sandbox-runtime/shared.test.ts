@@ -59,6 +59,7 @@ const makeRunInput = (
 	context: {},
 	compiledCode: "",
 	compiledFormat: 1,
+	lane: "interactive",
 	executionId: "exec_1",
 	principal: {
 		subject,
@@ -90,6 +91,7 @@ const automationSubject = (
 		depth: 0,
 		source: "api",
 		parentRunId: null,
+		lane: "interactive",
 		parentTriggerId: null,
 		initiator: { id: null, kind: "system" },
 		executionId: AutomationExecutionId.make("execution_1"),

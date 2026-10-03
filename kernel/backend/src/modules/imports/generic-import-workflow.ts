@@ -308,6 +308,7 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 			{
 				providerId: provider.id,
 				value: descriptor.value,
+				lane: command.causation.lane,
 				identifierType: descriptor.identifierType,
 				accountGeneration: command.accountGeneration,
 				userId: provider.pluginScope === "user" ? userId : null,

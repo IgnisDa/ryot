@@ -281,7 +281,12 @@ export default defineScript({
 	);
 	const queued = await apiClient.runAdmin((c) =>
 		c.testSupport.enqueueSandbox({
-			payload: { context: {}, scriptId: script.id, executingUserId: UserId.make(executingUserId) },
+			payload: {
+				lane: "interactive",
+				context: {},
+				scriptId: script.id,
+				executingUserId: UserId.make(executingUserId),
+			},
 		}),
 	);
 	const startedAt = Date.now();

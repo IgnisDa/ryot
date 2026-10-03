@@ -7,14 +7,14 @@ import {
 	type AutomationSource,
 	type AutomationTrigger,
 	type AutomationTriggerPayload,
+	type ExecutionLane,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type {
 	AutomationExecutionId,
 	ImportRunId,
 	IntegrationId,
-	AutomationRunId,
-	AutomationTriggerId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -59,23 +59,27 @@ export const lifecycleActor = (
 	};
 };
 
+type AutomationRunSubject = Extract<SandboxExecutionSubject, { type: "automation-run" }>;
+
+export const automationRunLane = (
+	run: Pick<AutomationRunSubject, "causation" | "stage">,
+): ExecutionLane => (run.stage === "after" ? "background" : run.causation.lane);
+
 export const automationLifecycleCausation = (
-	parent: {
-		causation: AutomationCausation;
-		runId: AutomationRunId;
-		triggerId: AutomationTriggerId;
-	},
+	parent: Pick<AutomationRunSubject, "causation" | "runId" | "stage" | "triggerId">,
 	executionId: AutomationExecutionId,
 ): AutomationCausation => ({
 	...parent.causation,
 	executionId,
 	source: "automation",
 	parentRunId: parent.runId,
+	lane: automationRunLane(parent),
 	parentTriggerId: parent.triggerId,
 	depth: parent.causation.depth + 1,
 });
 
 export const rootLifecycleCausation = (input: {
+	lane: ExecutionLane;
 	importRunId?: ImportRunId;
 	integrationId?: IntegrationId;
 	initiator: AutomationInitiator;
@@ -84,6 +88,7 @@ export const rootLifecycleCausation = (input: {
 	providerExecutionId?: AutomationExecutionId;
 }): AutomationCausation => ({
 	depth: 0,
+	lane: input.lane,
 	parentRunId: null,
 	source: input.source,
 	parentTriggerId: null,

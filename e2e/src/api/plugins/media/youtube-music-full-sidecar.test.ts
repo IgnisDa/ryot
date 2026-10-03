@@ -210,6 +210,7 @@ describe("YouTube Music on the full sidecar", () => {
 			);
 			const { userId } = yield* createAuthenticatedClient();
 			const { jobId } = yield* enqueueSandboxScript(userId, {
+				lane: "interactive",
 				context: { page: 1, pageSize: 20, query: "track" },
 				scriptId: plugin.scriptIds[searchSlug] ?? plugin.scriptId,
 			});

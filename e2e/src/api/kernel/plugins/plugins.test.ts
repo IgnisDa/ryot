@@ -507,7 +507,11 @@ export default defineAutomation({
 			expect(after.some(({ slug }) => slug === provider.pluginSlug)).toBe(false);
 			expect((yield* listEntities(client)).some(({ slug }) => slug === schemaSlug)).toBe(false);
 			const historicalFailure = yield* Effect.flip(
-				enqueueSandboxScript(userId, { context: {}, scriptId: reingestedSearchScriptId }),
+				enqueueSandboxScript(userId, {
+					context: {},
+					lane: "interactive",
+					scriptId: reingestedSearchScriptId,
+				}),
 			);
 			assertTaggedError(historicalFailure, "TestSupportNotFound");
 			expect(historicalFailure.reason).toEqual({

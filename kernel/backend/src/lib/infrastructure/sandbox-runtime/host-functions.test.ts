@@ -169,6 +169,7 @@ const runInput = (
 	return {
 		compiledCode: "",
 		compiledFormat: 1,
+		lane: "interactive",
 		hostCallDiscriminator: 0,
 		executionId: "execution-1",
 		workflowExecutionId: "workflow-1",
@@ -226,6 +227,7 @@ const automationSubject = (
 		causation: {
 			depth: 0,
 			parentRunId: null,
+			lane: "interactive",
 			source: origin.kind,
 			parentTriggerId: null,
 			executionId: AutomationExecutionId.make("root-execution"),

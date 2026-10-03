@@ -86,7 +86,9 @@ const getSandboxResultAt = (client: ContractSession, userId: string, jobId: stri
 const enqueueSandboxAt = (client: ContractSession, userId: string, scriptId: SandboxScriptId) =>
 	client.call(
 		(c) =>
-			c.testSupport.enqueueSandbox({ payload: { scriptId, executingUserId: UserId.make(userId) } }),
+			c.testSupport.enqueueSandbox({
+				payload: { scriptId, lane: "interactive", executingUserId: UserId.make(userId) },
+			}),
 		adminHeaders(),
 	);
 

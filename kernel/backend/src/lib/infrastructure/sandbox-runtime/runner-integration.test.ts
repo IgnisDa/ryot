@@ -561,6 +561,7 @@ export default defineWorkflow({
 											depth: 0,
 											source: "api",
 											parentRunId: null,
+											lane: "interactive",
 											executionId: "root",
 											parentTriggerId: null,
 											rootExecutionId: "root",

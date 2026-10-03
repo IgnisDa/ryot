@@ -1,4 +1,5 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
@@ -162,6 +163,7 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 	request: HostRequest,
 	context: unknown,
 	principal: SandboxExecutionPrincipalValue,
+	lane: ExecutionLane,
 	executionId: string,
 	startedAt: string,
 ) {
@@ -175,6 +177,7 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 		});
 	}
 	const input = {
+		lane,
 		context,
 		startedAt,
 		principal,
@@ -196,15 +199,31 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 	return { input };
 });
 
+const loadPayloadDispatchInput = (
+	request: HostRequest,
+	payload: SandboxScriptWorkflowPayloadValue,
+	principal: SandboxExecutionPrincipalValue,
+	executionId: string,
+	startedAt: string,
+) => loadDispatchInput(request, payload.input, principal, payload.lane, executionId, startedAt);
+
 export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivity")(function* (
 	implementations: SandboxHostImplementations["Service"],
 	request: HostRequest,
 	context: unknown,
 	principal: SandboxExecutionPrincipalValue,
+	lane: ExecutionLane,
 	executionId: string,
 	startedAt: string,
 ) {
-	const { input } = yield* loadDispatchInput(request, context, principal, executionId, startedAt);
+	const { input } = yield* loadDispatchInput(
+		request,
+		context,
+		principal,
+		lane,
+		executionId,
+		startedAt,
+	);
 	const boundFunctions = bindSandboxHostFunctions(
 		{
 			...implementations.runtime,
@@ -242,9 +261,9 @@ export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents"
 	executionId: string,
 	startedAt: string,
 ) {
-	const { input } = yield* loadDispatchInput(
+	const { input } = yield* loadPayloadDispatchInput(
 		request,
-		payload.input,
+		payload,
 		principal,
 		executionId,
 		startedAt,
@@ -288,9 +307,9 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 		executionId: string,
 		startedAt: string,
 	) {
-		const { input } = yield* loadDispatchInput(
+		const { input } = yield* loadPayloadDispatchInput(
 			request,
-			payload.input,
+			payload,
 			principal,
 			executionId,
 			startedAt,
@@ -356,9 +375,9 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 		executionId: string,
 		startedAt: string,
 	) {
-		const { input } = yield* loadDispatchInput(
+		const { input } = yield* loadPayloadDispatchInput(
 			request,
-			payload.input,
+			payload,
 			principal,
 			executionId,
 			startedAt,
@@ -414,6 +433,7 @@ export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHos
 			payload.request,
 			payload.sandbox.input,
 			payload.principal,
+			payload.sandbox.lane,
 			payload.parentExecutionId,
 			payload.startedAt,
 		);
@@ -437,6 +457,7 @@ export type SandboxDurableHostDispatcherValue = {
 		requests: ReadonlyArray<HostRequest>,
 		context: unknown,
 		principal: SandboxExecutionPrincipalValue,
+		lane: ExecutionLane,
 		executionId: string,
 		startedAt: string,
 	) => Effect.Effect<ReadonlyArray<WorkflowDurableResult> | null>;

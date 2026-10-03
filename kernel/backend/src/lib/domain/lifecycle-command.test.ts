@@ -1,6 +1,8 @@
 import type { AutomationTriggerPayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationExecutionId,
+	AutomationRunId,
+	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
 	EventSchemaSlug,
@@ -11,6 +13,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import {
+	automationLifecycleCausation,
 	childLifecycleCommand,
 	populationLifecycleCommand,
 	lifecycleTrigger,
@@ -20,6 +23,7 @@ import {
 describe("lifecycle commands", () => {
 	it("keeps nested child identities distinct from provider population path identities", () => {
 		const command = rootLifecycleCommand({
+			lane: "background",
 			accountGeneration: null,
 			source: "provider-refresh",
 			itemIdentity: '["import",2]',
@@ -42,6 +46,28 @@ describe("lifecycle commands", () => {
 		expect(child.causation).toBe(command.causation);
 		expect(provider.causation).toBe(command.causation);
 		expect(provider.population).toBe(population);
+	});
+	it("scheduling_lane_survives_durable_boundaries: automation writes run in their run's lane", () => {
+		const { causation } = rootLifecycleCommand({
+			source: "api",
+			lane: "interactive",
+			itemIdentity: "entity",
+			accountGeneration: null,
+			occurredAt: "2026-09-15T00:00:00.000Z",
+			initiator: { id: null, kind: "system" },
+			executionId: AutomationExecutionId.make("root"),
+		});
+		const write = (stage: "after" | "before") =>
+			automationLifecycleCausation(
+				{
+					stage,
+					causation,
+					runId: AutomationRunId.make(`${stage}-run`),
+					triggerId: AutomationTriggerId.make("trigger"),
+				},
+				AutomationExecutionId.make(`${stage}-write`),
+			).lane;
+		expect([write("before"), write("after")]).toEqual(["interactive", "background"]);
 	});
 	it("preserves causal metadata and changes trigger identity by resource or item", () => {
 		const executionId = AutomationExecutionId.make("execution-1");
@@ -78,6 +104,7 @@ describe("lifecycle commands", () => {
 			occurredAt,
 			executionId,
 			integrationId,
+			lane: "background",
 			source: "integration",
 			itemIdentity: "item-1",
 			importRunId: ImportRunId.make("import-1"),

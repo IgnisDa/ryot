@@ -90,6 +90,7 @@ export class PluginUserBootstrapDispatcher extends Context.Service<PluginUserBoo
 			const sandbox = yield* SandboxExecutionService;
 			return yield* makePluginUserBootstrapDispatcher((payload) =>
 				sandbox.executeScript({
+					lane: "background",
 					input: payload.context,
 					subject: payload.subject,
 					scriptId: payload.scriptId,

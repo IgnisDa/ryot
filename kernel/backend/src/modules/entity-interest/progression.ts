@@ -65,6 +65,7 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 								userId,
 								entityId,
 								accountGeneration,
+								lane: "interactive",
 								language: preferredLanguage,
 								externalId: entity.externalId,
 								properties: entity.properties,

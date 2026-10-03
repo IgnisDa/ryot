@@ -97,6 +97,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 						payload: {
 							input: {},
 							executionId,
+							lane: "background",
 							resolutionMode: "exact",
 							subject: resolved.subject,
 							scriptId: resolved.script.id,

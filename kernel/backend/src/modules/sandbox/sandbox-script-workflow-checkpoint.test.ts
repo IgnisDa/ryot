@@ -73,6 +73,7 @@ const payload: SandboxScriptWorkflowPayload = {
 	scriptId,
 	input: {},
 	executionId,
+	lane: "interactive",
 	resolutionMode: "exact",
 	subject: { type: "system" },
 };
@@ -160,7 +161,7 @@ const makeHarness = () => {
 			}),
 		),
 		Layer.mock(KernelWorkflowReferences)({
-			execute: (_slug, input, _subject, childId) =>
+			execute: (_slug, input, _subject, _lane, childId) =>
 				Effect.gen(function* () {
 					const childPayload = yield* Schema.decodeUnknownEffect(Child.payloadSchema)(input).pipe(
 						Effect.mapError(
@@ -666,7 +667,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 								const engine = yield* WorkflowEngine;
 								return KernelWorkflowReferences.of({
 									resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
-									execute: (_slug, input, _subject, childId) =>
+									execute: (_slug, input, _subject, _lane, childId) =>
 										Effect.gen(function* () {
 											const childPayload = yield* Schema.decodeUnknownEffect(Child.payloadSchema)(
 												input,

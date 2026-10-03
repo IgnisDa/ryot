@@ -87,6 +87,7 @@ describe("entity translation via client-declared interest", () => {
 			const resolveScriptId = provider.resolveScriptId;
 			assertPresent(resolveScriptId, "Installed provider resolve script not found");
 			const { jobId } = yield* enqueueSandboxScript(providerUserId, {
+				lane: "interactive",
 				scriptId: resolveScriptId,
 				context: { value: "tt-e2e", identifierType: "imdb" },
 			});

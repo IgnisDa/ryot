@@ -15,6 +15,7 @@ export const mediaImportTestCommand = (integrationId?: string) =>
 		causation: {
 			depth: 0,
 			parentRunId: null,
+			lane: "background",
 			importRunId: "run",
 			parentTriggerId: null,
 			executionId: "execution",

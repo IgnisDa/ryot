@@ -291,6 +291,7 @@ const command = (id: string) =>
 	rootLifecycleCommand({
 		source: "api",
 		itemIdentity: id,
+		lane: "interactive",
 		occurredAt: isoOccurredAt,
 		initiator: { id: userId, kind: "user" },
 		accountGeneration: { userId, token: accountToken },

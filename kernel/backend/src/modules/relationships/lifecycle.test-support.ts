@@ -67,6 +67,7 @@ export const baseInput = {
 export const command = (id: string, actorUserId: UserId = userId) =>
 	rootLifecycleCommand({
 		source: "api",
+		lane: "interactive",
 		itemIdentity: "relationship",
 		occurredAt: "2026-09-15T00:00:00.000Z",
 		executionId: AutomationExecutionId.make(id),

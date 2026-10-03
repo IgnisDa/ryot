@@ -1,3 +1,4 @@
+import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	SandboxExecutionError,
 	SandboxScriptMetadata,
@@ -243,14 +244,13 @@ export const SIDECAR_INTERNAL_HOST_CALLS = [
 	"replayJournal",
 	"scratchWrite",
 ] as const;
-export const SidecarLane = Schema.Literals(["interactive", "background"]);
 export const SidecarChunkedFrameType = Schema.Literals(["run", "done", "hostCall", "hostResult"]);
 
 export const SidecarRunFrame = Schema.Struct({
 	...envelope,
 	tier: SidecarTier,
-	lane: SidecarLane,
 	input: Schema.Json,
+	lane: ExecutionLane,
 	type: Schema.Literal("run"),
 	module: Schema.Struct({ sha256: Sha256, source: Schema.String }),
 	limits: Schema.Struct({

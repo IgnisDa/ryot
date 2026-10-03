@@ -66,6 +66,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 			const executionId = `plugin-operation-${input.pluginSlug}-${input.operationSlug}-${generateId()}`;
 			const result = yield* sandbox.executeScript({
 				executionId,
+				lane: "interactive",
 				input: input.payload,
 				scriptId: input.scriptId,
 				subject: {

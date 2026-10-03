@@ -50,6 +50,7 @@ const relatedSchemaSlug = EntitySchemaSlug.make("person");
 
 const command = rootLifecycleCommand({
 	occurredAt: now,
+	lane: "background",
 	source: "provider-refresh",
 	itemIdentity: "population",
 	initiator: { id: userId, kind: "user" },

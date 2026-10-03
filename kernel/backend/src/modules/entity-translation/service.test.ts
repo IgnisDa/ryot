@@ -65,6 +65,7 @@ layer(makeServiceLayer())((test) => {
 			const service = yield* TranslationsService;
 			yield* service.requestFill({
 				language: "es",
+				lane: "interactive",
 				externalId: "record-1",
 				entitySchemaSlug: "record",
 				userId: UserId.make("user-1"),
@@ -97,6 +98,7 @@ layer(makeServiceLayer(() => Effect.die("enqueue failed")))((test) => {
 			const exit = yield* Effect.exit(
 				service.requestFill({
 					language: "es",
+					lane: "interactive",
 					externalId: "record-1",
 					entitySchemaSlug: "record",
 					userId: UserId.make("user-1"),

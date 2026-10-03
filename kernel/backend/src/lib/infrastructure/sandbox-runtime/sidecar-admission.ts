@@ -1,5 +1,6 @@
 import { PgClient } from "@effect/sql-pg";
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Clock, Context, Deferred, Effect, Layer, Option, Pool, Result, Schema } from "effect";
 import type { Scope } from "effect";
 import { Reactivity } from "effect/reactivity";
@@ -9,7 +10,7 @@ import { DatabaseConnectionLimit } from "../db/session";
 import { recordSandboxAdmissionWait } from "../runtime-metrics";
 import { SANDBOX_TRANSIENT_MEMORY } from "./host-call-gate";
 import { MiB, SANDBOX_LIMITS } from "./limits";
-import { SIDECAR_PROTOCOL_LIMITS, SidecarLane } from "./sidecar-protocol";
+import { SIDECAR_PROTOCOL_LIMITS } from "./sidecar-protocol";
 
 const processBytes = 128 * MiB;
 const defaultMemoryBudgetBytes = 1536 * MiB;
@@ -30,7 +31,7 @@ const runBytes =
 	SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
 
 const laneSchema = Schema.Struct({
-	lane: SidecarLane,
+	lane: ExecutionLane,
 	generation: Schema.Int,
 	instance: Schema.String,
 });
@@ -52,7 +53,8 @@ type LeaseState = {
 	closed: boolean;
 	entering: boolean;
 	startup: string | undefined;
-	lane: string | undefined;
+	entered: string | undefined;
+	lane: ExecutionLane;
 };
 
 const limitError = (message: string) =>
@@ -142,15 +144,15 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				return undefined;
 			});
 			const releaseRun = (lease: LeaseState) => {
-				if (lease.lane !== undefined) {
+				if (lease.entered !== undefined) {
 					state.runs--;
-					const count = lanes.get(lease.lane) ?? 0;
+					const count = lanes.get(lease.entered) ?? 0;
 					if (count <= 1) {
-						lanes.delete(lease.lane);
+						lanes.delete(lease.entered);
 					} else {
-						lanes.set(lease.lane, count - 1);
+						lanes.set(lease.entered, count - 1);
 					}
-					lease.lane = undefined;
+					lease.entered = undefined;
 				}
 				lease.entering = false;
 				lease.startup = undefined;
@@ -170,7 +172,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 					(lease === undefined ||
 						lease.closed ||
 						lease.entering ||
-						lease.lane !== undefined ||
+						lease.entered !== undefined ||
 						lease.instance !== instance)
 				) {
 					return yield* limitError("Sandbox startup requires an active unused admission lease");
@@ -213,14 +215,16 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 			});
 			const reserveRun = Effect.fn("SandboxSidecarAdmission.reserveRun")(function* (
 				runInstance: string,
+				lane: ExecutionLane,
 			) {
 				const waitingAt = yield* Clock.currentTimeMillis;
 				const lease: LeaseState = {
+					lane,
 					bytes: 0,
 					closed: false,
 					startupBytes: 0,
 					entering: false,
-					lane: undefined,
+					entered: undefined,
 					startup: undefined,
 					instance: runInstance,
 				};
@@ -280,15 +284,16 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 						);
 					}),
 				);
-				const enter = Effect.fnUntraced(function* (lane: typeof laneSchema.Type) {
-					const key = encodeLane(lane);
-					const instance = instances.get(lane.instance);
+				const enter = Effect.fnUntraced(function* (target: typeof laneSchema.Type) {
+					const key = encodeLane(target);
+					const instance = instances.get(target.instance);
 					if (
 						lease.closed ||
-						lease.instance !== lane.instance ||
+						lease.instance !== target.instance ||
+						lease.lane !== target.lane ||
 						lease.entering ||
-						lease.lane !== undefined ||
-						instance?.generation !== lane.generation ||
+						lease.entered !== undefined ||
+						instance?.generation !== target.generation ||
 						instance.bytes === 0 ||
 						(lanes.get(key) ?? 0) >= concurrency * 2
 					) {
@@ -298,7 +303,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 					}
 					lease.entering = true;
 					yield* Effect.addFinalizer(() => Effect.sync(() => releaseRun(lease)));
-					if (instances.get(lane.instance) !== instance) {
+					if (instances.get(target.instance) !== instance) {
 						return yield* limitError("Sandbox generation closed during admission");
 					}
 					lease.entering = false;
@@ -307,7 +312,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 					lease.bytes -= lease.startupBytes;
 					lease.startupBytes = 0;
 					notify();
-					lease.lane = key;
+					lease.entered = key;
 					state.runs++;
 					lanes.set(key, (lanes.get(key) ?? 0) + 1);
 					return undefined;

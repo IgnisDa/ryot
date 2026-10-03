@@ -102,6 +102,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 							rootExecutionId,
 							source: "import",
 							parentRunId: null,
+							lane: "background",
 							importRunId: run.id,
 							parentTriggerId: null,
 							executionId: rootExecutionId,
@@ -157,6 +158,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 						.enqueuePluginWorkflow({
 							executionId,
 							accountGeneration,
+							lane: "background",
 							pluginId: installation.id,
 							input: { items: packedItems },
 							workflowSlug: input.workflowSlug,

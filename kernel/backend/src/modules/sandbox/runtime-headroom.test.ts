@@ -309,7 +309,7 @@ const makeHeadroomLayer = Layer.unwrap(
 				const state = yield* SandboxHeadroomControl;
 				return SandboxDurableHostDispatcher.of({
 					dispatch: () => Effect.die("Non-inline durable dispatch is not expected"),
-					settleInline: (requests, _context, _principal, executionId) =>
+					settleInline: (requests, _context, _principal, _lane, executionId) =>
 						Effect.gen(function* () {
 							state.batches.push(executionId);
 							state.activeBatches += 1;
@@ -424,6 +424,7 @@ const makeHeadroomLayer = Layer.unwrap(
 							const result = yield* processSandboxExecutionQueue({
 								startedAt,
 								journalLength: 0,
+								lane: "interactive",
 								context: payload.input,
 								principal: fixture.principal,
 								executionId: `${payload.executionId}-replay-${slot}`,
@@ -500,6 +501,7 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 					subject,
 					scriptId,
 					input: {},
+					lane: "interactive",
 					resolutionMode: "exact",
 					executionId: workflowExecutionId,
 				};

@@ -31,6 +31,7 @@ import { ImportSourceStateStore } from "./runtime/source-state-store";
 
 const command = rootLifecycleCommand({
 	source: "import",
+	lane: "background",
 	itemIdentity: "root",
 	importRunId: ingestionTestScope.runId,
 	occurredAt: IsoUtcString.make(ingestionTestNow),
@@ -134,6 +135,7 @@ it.effect(
 			const result = yield* rootCase("running", true, "none");
 			expect(result.calls).toEqual([
 				expect.objectContaining({
+					lane: "background",
 					scriptId: "script-1",
 					executionId: "run-1-import",
 					input: {

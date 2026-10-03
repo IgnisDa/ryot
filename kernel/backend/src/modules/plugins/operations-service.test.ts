@@ -372,6 +372,7 @@ layer(
 			expect(yield* invoke({ pluginSlug: PRIVATE_SLUG })).toBe("ok");
 			expect(yield* fake.captured).toEqual([
 				expect.objectContaining({
+					lane: "interactive",
 					scriptId: "install-private-user-1-script",
 					subject: {
 						type: "user",

@@ -520,13 +520,12 @@ layer(sandboxEnqueues.layer)((test) => {
 		const executingUserId = UserId.make("user-id");
 		return Effect.gen(function* () {
 			const service = yield* TestSupportService;
-			expect(yield* service.enqueueSandbox({ scriptId, executingUserId })).toEqual({
-				jobId: "job-id",
-				executionId: "execution-id",
-			});
+			expect(
+				yield* service.enqueueSandbox({ scriptId, executingUserId, lane: "interactive" }),
+			).toEqual({ jobId: "job-id", executionId: "execution-id" });
 			expect((yield* sandboxEnqueues.recorded).at(-1)).toEqual({
-				payload: { scriptId },
 				userId: executingUserId,
+				payload: { scriptId, lane: "interactive" },
 			});
 		});
 	});

@@ -1,5 +1,8 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	type ExecutionLane,
+	LifecycleCommand,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_EVENT_STREAM_WORKFLOW,
@@ -77,6 +80,7 @@ const EventStreamDispatchReferenceInput = Schema.Struct({ id: Schema.String });
 
 const lifecycleCommand = (
 	subject: Parameters<KernelWorkflowReferences["Service"]["execute"]>[2],
+	lane: ExecutionLane,
 	executionId: string,
 	itemIdentity: string,
 	occurredAt: LifecycleCommand["occurredAt"],
@@ -95,6 +99,7 @@ const lifecycleCommand = (
 	const attributedIntegrationId = integrationId ?? attribution.integrationId;
 	return rootLifecycleCommand({
 		...lifecycleActor(subject.type === "user" ? subject : null),
+		lane,
 		occurredAt,
 		itemIdentity,
 		executionId: AutomationExecutionId.make(executionId),
@@ -170,6 +175,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 				workflowSlug,
 				input,
 				subject,
+				lane,
 				executionId,
 				_parentExecutionId,
 				callerScriptId,
@@ -274,6 +280,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 											entityScope: { userId: null, type: "global" },
 											command: lifecycleCommand(
 												subject,
+												lane,
 												childExecutionId,
 												`${KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW}:${index}`,
 												occurredAt,
@@ -384,6 +391,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const rawRunId = Reflect.get(rawInput, "runId");
 						const command = lifecycleCommand(
 							subject,
+							lane,
 							typeof rawRunId === "string" ? rawRunId : executionId,
 							KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 							occurredAt,
@@ -607,6 +615,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						}
 						const command = lifecycleCommand(
 							subject,
+							lane,
 							executionId,
 							KERNEL_ENTITY_IMPORT_WORKFLOW,
 							occurredAt,
@@ -667,6 +676,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 					}
 					const command = lifecycleCommand(
 						subject,
+						lane,
 						executionId,
 						KERNEL_EVENT_CREATE_WORKFLOW,
 						occurredAt,

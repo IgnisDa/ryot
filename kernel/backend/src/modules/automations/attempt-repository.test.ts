@@ -64,6 +64,7 @@ const seed = (stage: "after" | "before" = "after", maxAttempts = 2) =>
 						occurredAt: now,
 						operation: "emit",
 						category: "signal",
+						lane: "interactive",
 						executionId: "command",
 						resourceKind: "signal",
 						initiatorKind: "system",

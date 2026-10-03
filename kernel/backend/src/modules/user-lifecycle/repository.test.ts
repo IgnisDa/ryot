@@ -143,6 +143,7 @@ describe("user lifecycle persistence cleanup", () => {
 									category: "signal",
 									scopeUserId: owner,
 									initiatorId: owner,
+									lane: "interactive",
 									payloadPrunedAt: now,
 									initiatorKind: "user",
 									resourceKind: "signal",

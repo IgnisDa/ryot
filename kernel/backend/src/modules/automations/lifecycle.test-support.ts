@@ -175,6 +175,7 @@ export const triggerFixture = (id = "trigger-test", signalSchemaPluginId: Plugin
 			depth: 0,
 			source: "api",
 			parentRunId: null,
+			lane: "interactive",
 			parentTriggerId: null,
 			importRunId: "import",
 			executionId: "command",
