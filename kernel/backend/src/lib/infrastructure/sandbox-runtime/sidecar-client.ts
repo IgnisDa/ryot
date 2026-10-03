@@ -65,10 +65,8 @@ const exitSchema = Schema.Struct({
 	signal: Schema.NullOr(Schema.String),
 });
 
-const diagnosticBytes = 64 * 1024;
 const queueFailure = () =>
 	new SidecarClientError({ reason: "transport", message: "Could not queue sidecar frame" });
-const decoder = new TextDecoder();
 const sidecarClientEvent = Schema.Union([
 	SidecarOutboundFrame,
 	Schema.Struct({ handle: Schema.String, message: Schema.String, type: Schema.Literal("invalid") }),
@@ -194,14 +192,13 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					}
 					return !(yield* Deferred.isDone(exited));
 				});
-				let diagnostics = new Uint8Array();
 				const child = yield* Effect.try({
 					catch: () =>
 						new SidecarClientError({ reason: "startup", message: "Could not spawn sidecar" }),
 					try: () =>
 						spawn(command.executable, [...command.prefix, ...args, ...command.suffix], {
 							env: {},
-							stdio: ["ignore", "ignore", "pipe", "pipe"],
+							stdio: ["ignore", "ignore", "inherit", "pipe"],
 						}),
 				});
 				const socket = child.stdio[3];
@@ -256,7 +253,9 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					);
 				};
 				const events = yield* Schema.decodeUnknownEffect(nativeEvents)(child);
-				// "exit" can fire before stderr is drained; "close" follows the stdio streams ending.
+				events.once("exit", (code: number | null, signal: string | null) => {
+					Deferred.doneUnsafe(exited, Effect.succeed({ code, signal }));
+				});
 				events.once("close", (code: number | null, signal: string | null) => {
 					Deferred.doneUnsafe(exited, Effect.succeed({ code, signal }));
 				});
@@ -264,14 +263,6 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					if (!closed) {
 						fail("Sidecar process failed");
 					}
-				});
-				child.stderr?.on("data", (bytes: Uint8Array) => {
-					const keep = Math.min(diagnosticBytes, bytes.byteLength);
-					const previous = Math.min(diagnostics.byteLength, diagnosticBytes - keep);
-					const next = new Uint8Array(previous + keep);
-					next.set(diagnostics.subarray(diagnostics.byteLength - previous));
-					next.set(bytes.subarray(bytes.byteLength - keep), previous);
-					diagnostics = next;
 				});
 				const dispose = Effect.fnUntraced(function* () {
 					closed = true;
@@ -401,7 +392,6 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					exit: Deferred.await(exited),
 					close: Effect.scoped(dispose()),
 					generation: settings.generation,
-					diagnostics: () => decoder.decode(diagnostics),
 					next: Effect.raceFirst(Queue.take(frames), Deferred.await(failed)),
 					retire: (handle: string) =>
 						Effect.sync(() => {
