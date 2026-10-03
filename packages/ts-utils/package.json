@@ -7,6 +7,7 @@
 		}
 	},
 	"scripts": {
+		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
@@ -14,6 +15,10 @@
 		"slugify": "1.6.9"
 	},
 	"devDependencies": {
-		"@types/lodash": "4.17.24"
+		"@effect/vitest": "4.0.0",
+		"@ryot-app/testing": "workspace:*",
+		"@types/lodash": "4.17.24",
+		"effect": "4.0.0",
+		"vitest": "4.1.9"
 	}
 }

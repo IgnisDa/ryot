@@ -1,5 +1,6 @@
 import { encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
-import { type Path, Predicate, Result } from "effect";
+import { posixExtname } from "@ryot-app/ts-utils/path";
+import { Predicate, Result } from "effect";
 
 import { viteCompilerError } from "./error";
 import type { ViteCompilerError } from "./error";
@@ -35,7 +36,6 @@ const contentTypes: Readonly<Record<string, string>> = {
 };
 
 export const collectViteOutputs = (
-	paths: Path.Path,
 	result: unknown,
 ): Result.Result<readonly CollectedViteFile[], ViteCompilerError> => {
 	const outputs = Array.isArray(result) ? result : [result];
@@ -89,7 +89,7 @@ export const collectViteOutputs = (
 			files.push({
 				path,
 				bytes,
-				contentType: contentTypes[paths.extname(path).toLowerCase()] ?? "application/octet-stream",
+				contentType: contentTypes[posixExtname(path).toLowerCase()] ?? "application/octet-stream",
 			});
 		}
 	}

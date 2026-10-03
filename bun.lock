@@ -625,7 +625,11 @@
         "slugify": "1.6.9",
       },
       "devDependencies": {
+        "@effect/vitest": "4.0.0",
+        "@ryot-app/testing": "workspace:*",
         "@types/lodash": "4.17.24",
+        "effect": "4.0.0",
+        "vitest": "4.1.9",
       },
     },
     "packages/typescript-compiler": {

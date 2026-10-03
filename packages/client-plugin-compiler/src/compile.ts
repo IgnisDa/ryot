@@ -1,5 +1,5 @@
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Effect, Path } from "effect";
+import { Effect } from "effect";
 
 import { resolveClientPluginCompilerDependencies } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
@@ -21,7 +21,6 @@ const failure = (entry: string, code: string, message: string) =>
 
 export const validateClientPluginPackage = (input: ClientPluginCompilerPackageInput) =>
 	Effect.gen(function* () {
-		const paths = yield* Path.Path;
 		const plan = yield* planClientCompilation(input);
 		const compiledFiles = sortBy(
 			Object.entries(plan.files).filter(
@@ -66,7 +65,7 @@ export const validateClientPluginPackage = (input: ClientPluginCompilerPackageIn
 			sourceFiles["client/__ryot_plugin_dependencies__.d.ts"] = plan.dependencyDeclarations;
 		}
 		const dependencies = yield* resolveClientPluginCompilerDependencies;
-		const policyDiagnostics = validateClientSourcePolicy(paths, {
+		const policyDiagnostics = validateClientSourcePolicy({
 			sourceFiles,
 			files: plan.files,
 			publicExports: {},
