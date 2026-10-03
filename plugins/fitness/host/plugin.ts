@@ -1,5 +1,6 @@
 import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 
+import { exerciseNoteOperationSlugs } from "../shared/exercise-note-operations";
 import { fitnessConfigSchema } from "./config";
 import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity";
@@ -68,21 +69,21 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
-			slug: "exercise-note-create",
+			slug: exerciseNoteOperationSlugs.create,
 			scriptSlug: "operation.exercise-note-create",
 			description: "Create a private exercise note",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
-			slug: "exercise-note-update",
+			slug: exerciseNoteOperationSlugs.update,
 			scriptSlug: "operation.exercise-note-update",
 			description: "Update a private exercise note",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
-			slug: "exercise-note-delete",
+			slug: exerciseNoteOperationSlugs.delete,
 			scriptSlug: "operation.exercise-note-delete",
 			description: "Delete a private exercise note",
 		},

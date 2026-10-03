@@ -3,7 +3,7 @@ import { EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
 import type { WorkoutExercise, WorkoutSet } from "../../client/workout/details-model";
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 
-const page = <Item>(items: readonly Item[]) => ({
+export const page = <Item>(items: readonly Item[]) => ({
 	items,
 	pageInfo: { limit: 100, hasMore: false },
 });
