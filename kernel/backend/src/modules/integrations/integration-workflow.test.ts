@@ -1,424 +1,347 @@
 import { BunFileSystem } from "@effect/platform-bun";
-import { expect, layer } from "@effect/vitest";
+import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import {
-	AutomationTriggerId,
-	ImportRunId,
-	IntegrationId,
-	SandboxScriptId,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Ref } from "effect";
+import type { IngestionIssue, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
+import { ImportRunId, IntegrationId } from "@ryot-app/contract/schema/brands";
+import { Deferred, Effect, Fiber, Layer } from "effect";
+import { TestClock } from "effect/testing";
+import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { RedisService } from "#lib/infrastructure/redis";
-import {
-	makeAppConfigLayer,
-	makeRedisService,
-	makeWorkflowActivityEngine,
-} from "#lib/test-utils/effect";
+import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
-import { SignalEmissionService, type EmitSignalInput } from "#modules/automations/signal-service";
-import { ImportRunFailuresService } from "#modules/imports/failure-service";
+import { SignalEmissionService } from "#modules/automations/signal-service";
+import { IngestionExecution } from "#modules/imports/execution-service";
+import {
+	ingestionTestRun,
+	ingestionTestScope,
+	ingestionTestSource,
+} from "#modules/imports/ingestion.test-support";
 import { ImportsRepository } from "#modules/imports/repository";
-import { ImportsService } from "#modules/imports/service";
-import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
+import { IntegrationConfirmationError, IntegrationIngestion } from "./ingestion";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { runIntegrationRunWorkflow } from "./integration-workflow-live";
-import { IntegrationsRepository, type IntegrationRecord } from "./repository";
+import { IntegrationsRepository } from "./repository";
 import { IntegrationsService } from "./service";
 import { makeIntegration, makeRun } from "./test-support";
 
-const mockImportsService = Layer.mock(ImportsService);
-const mockImportsRepository = Layer.mock(ImportsRepository);
-const mockIntegrationsService = Layer.mock(IntegrationsService);
-const mockSignalEmissionService = Layer.mock(SignalEmissionService);
-const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
-const mockImportRunFailuresService = Layer.mock(ImportRunFailuresService);
+const integrationId = IntegrationId.make("integration-1");
+const rootPayload = { ...ingestionTestScope, integrationId };
 
-const registeredProvider = {
-	lot: "sink" as const,
-	name: "Test provider",
-	slug: "test-provider",
-	pluginSlug: "fixture",
-	installationId: "inst_1",
-	description: "Test provider",
-	pluginId: "fixture-plugin-id",
-	settingsSchema: { fields: {} },
-	pluginScope: "system" as const,
-	scriptSlug: "integration.test-provider",
-	configContext: {
-		ownerUserId: null,
-		kind: "revision" as const,
-		configSchema: { fields: {} },
-		pluginConfigRevisionId: null,
-		pluginRevisionId: "fixture-revision-id",
-	},
-};
-
-type Recorded = Record<string, unknown>;
-
-class FakeIntegrationRun extends Context.Service<
-	FakeIntegrationRun,
-	{
-		readonly runUpdates: Effect.Effect<ReadonlyArray<Recorded>>;
-		readonly sandboxCalls: Effect.Effect<ReadonlyArray<Recorded>>;
-		readonly childDispatches: Effect.Effect<ReadonlyArray<Recorded>>;
-		readonly integrationUpdates: Effect.Effect<ReadonlyArray<Recorded>>;
-		readonly emittedSignals: Effect.Effect<ReadonlyArray<EmitSignalInput>>;
-		readonly providerLookups: Effect.Effect<ReadonlyArray<Record<string, string>>>;
-		readonly workflowResolutions: Effect.Effect<ReadonlyArray<Record<string, string>>>;
-	}
->()("test/FakeIntegrationRun") {}
-
-const append = <A>(ref: Ref.Ref<ReadonlyArray<A>>, value: A) =>
-	Ref.update(ref, (all) => [...all, value]);
-
-const makeTestLayer = (
+const rootCase = (
+	status: IngestionRun["status"],
+	failure: "none" | "source" | "suspend" = "none",
 	options: {
-		disableWins?: boolean;
-		emitsSignals?: boolean;
-		sandboxFailure?: string;
-		sandboxInterrupt?: boolean;
-		capturesChildren?: boolean;
-		integration?: IntegrationRecord | null;
-		runStatus?: "completed" | "failed";
-		recentStatuses?: ReadonlyArray<{ status: "completed" | "failed" }>;
+		issues?: readonly IngestionIssue[];
+		runId?: ImportRunId;
+		start?: (runId: ImportRunId) => Effect.Effect<boolean>;
+		execute?: Effect.Effect<void>;
+		settle?: () => void;
+		beforeSettle?: () => Effect.Effect<void, IntegrationConfirmationError>;
 	} = {},
 ) =>
-	Layer.mergeAll(
-		mutationAdmissionTestLayer,
-		makeAppConfigLayer(),
-		BunFileSystem.layer,
-		mockImportRunFailuresService({ create: () => Effect.void }),
-		mockImportsRepository({
-			listRecentStatusesByIntegrationId: () => Effect.succeed([...(options.recentStatuses ?? [])]),
-			getRunById: () =>
-				Effect.succeed(options.runStatus === undefined ? null : makeRun(options.runStatus)),
-		}),
-		mockIntegrationsRepository({
-			getUserDisableIntegrations: () => Effect.succeed(false),
-			getByIdAnyUser: () =>
-				Effect.succeed(options.integration === undefined ? makeIntegration() : options.integration),
-		}),
-		Layer.unwrap(
-			Effect.gen(function* () {
-				const runUpdates = yield* Ref.make<ReadonlyArray<Recorded>>([]);
-				const sandboxCalls = yield* Ref.make<ReadonlyArray<Recorded>>([]);
-				const childDispatches = yield* Ref.make<ReadonlyArray<Recorded>>([]);
-				const integrationUpdates = yield* Ref.make<ReadonlyArray<Recorded>>([]);
-				const emittedSignals = yield* Ref.make<ReadonlyArray<EmitSignalInput>>([]);
-				const providerLookups = yield* Ref.make<ReadonlyArray<Record<string, string>>>([]);
-				const workflowResolutions = yield* Ref.make<ReadonlyArray<Record<string, string>>>([]);
-				const store = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
-				const instance = WorkflowInstance.initial(ProcessIntegrationRunWorkflow, "run_1");
-				instance.suspended = options.sandboxInterrupt ?? false;
-				return Layer.mergeAll(
-					Layer.succeed(FakeIntegrationRun, {
-						runUpdates: Ref.get(runUpdates),
-						sandboxCalls: Ref.get(sandboxCalls),
-						emittedSignals: Ref.get(emittedSignals),
-						childDispatches: Ref.get(childDispatches),
-						providerLookups: Ref.get(providerLookups),
-						integrationUpdates: Ref.get(integrationUpdates),
-						workflowResolutions: Ref.get(workflowResolutions),
+	Effect.gen(function* () {
+		const payload = {
+			...ingestionTestScope,
+			integrationId,
+			runId: options.runId ?? ingestionTestScope.runId,
+		};
+		let run = ingestionTestRun({ status, integrationId, collectionSealed: true });
+		const executions: unknown[] = [];
+		const settlements: string[] = [];
+		const reasons: Array<ImportRunFailureReason | undefined> = [];
+		const issues: IngestionIssue[] = [];
+		const finished: unknown[] = [];
+		const instance = WorkflowInstance.initial(ProcessIntegrationRunWorkflow, payload.runId);
+		instance.suspended = failure === "suspend";
+		const dependencies = Layer.mergeAll(
+			mutationAdmissionTestLayer,
+			BunFileSystem.layer,
+			makeAppConfigLayer({
+				fileStorage: { localTempDir: "/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode" },
+			}),
+			Layer.succeed(WorkflowInstance, instance),
+			Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({
+					activityExecute: (activity) =>
+						Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
+				}),
+			),
+			Layer.mock(ImportsRepository)({
+				getIngestionRun: () => Effect.sync(() => run),
+				recordIssue: (_scope, issue) =>
+					Effect.sync(() => {
+						issues.push(issue);
+						return true;
 					}),
-					Layer.succeed(WorkflowInstance, instance),
-					Layer.succeed(
-						WorkflowEngine,
-						makeWorkflowActivityEngine(
-							instance,
-							options.capturesChildren
-								? {
-										execute: (_workflow, dispatch) =>
-											append(childDispatches, {
-												payload: dispatch.payload,
-												executionId: dispatch.executionId,
-											}),
-									}
-								: {},
+				getRunById: () =>
+					Effect.sync(() => ({
+						...makeRun(run.status === "failed" ? "failed" : "completed"),
+						status: run.status,
+						finishedAt: "2026-06-17T12:00:00.000Z",
+					})),
+				startIntegrationIngestion: () =>
+					(options.start ? options.start(payload.runId) : Effect.succeed(true)).pipe(
+						Effect.tap((started) =>
+							Effect.sync(() => {
+								if (started) {
+									run = { ...run, status: "running" };
+								}
+							}),
 						),
 					),
-					Layer.succeed(
-						RedisService,
-						makeRedisService({
-							get: (key) => Ref.get(store).pipe(Effect.map((all) => all.get(key) ?? null)),
-							set: (key, value) => Ref.update(store, (all) => new Map(all).set(key, value)),
-							del: (...keys) =>
-								Ref.modify(store, (all) => {
-									const next = new Map(all);
-									const removed = keys.filter((key) => next.delete(key)).length;
-									return [removed, next];
-								}),
+			}),
+			Layer.mock(IngestionExecution)({ cleanup: () => Effect.void }),
+			Layer.mock(IntegrationIngestion)({
+				recoverInput: () =>
+					Effect.succeed({
+						...ingestionTestSource,
+						sourcePayload: { ...ingestionTestSource.sourcePayload, integrationContext: {} },
+					}),
+				settle: (_scope, requested, reason) =>
+					(options.beforeSettle ? options.beforeSettle() : Effect.void).pipe(
+						Effect.andThen(
+							Effect.sync(() => {
+								settlements.push(requested);
+								reasons.push(reason);
+								run = { ...run, status: requested };
+								options.settle?.();
+								return true;
+							}),
+						),
+					),
+			}),
+			Layer.mock(IntegrationsRepository)({
+				listRecentHealthStatuses: () => Effect.succeed([]),
+				getForUser: () =>
+					Effect.succeed(makeIntegration({ id: integrationId, userId: payload.userId })),
+			}),
+			Layer.mock(IntegrationsService)({
+				disableIfEnabled: () => Effect.succeed(false),
+				recordRunFinished: (input) =>
+					Effect.sync(() => {
+						finished.push(input);
+					}),
+			}),
+			Layer.mock(SignalEmissionService)({}),
+			Layer.mock(SandboxArtifactStore)({
+				retain: () => Effect.void,
+				release: () => Effect.void,
+				materializeOutputs: () => Effect.succeed(["durable-input-handle"]),
+			}),
+			Layer.mock(SandboxExecutionService)({
+				executeWorkflow: (input) =>
+					Effect.sync(() => {
+						executions.push(input);
+					}).pipe(
+						Effect.andThen(options.execute ?? Effect.void),
+						Effect.andThen(() => {
+							if (failure === "suspend") {
+								return Effect.interrupt;
+							}
+							if (failure === "source") {
+								return Effect.fail(
+									new SandboxRunError({ kind: "script-failure", message: "source failed" }),
+								);
+							}
+							return Effect.succeed({ summary: [], issues: options.issues ?? [] });
 						}),
 					),
-					Layer.mock(IntegrationProviderCatalog)({
-						resolveOwnedForUser: () => Effect.succeed(null),
-						findForUser: () => Effect.succeed(registeredProvider),
-						findOwnedForUser: (_userId, providerSlug, installationId) =>
-							append(providerLookups, { providerSlug, installationId }).pipe(
-								Effect.as(installationId === "inst_1" ? registeredProvider : null),
-							),
-					}),
-					Layer.mock(SandboxExecutionService)({
-						resolveWorkflowScript: (input) =>
-							append(workflowResolutions, input).pipe(
-								Effect.as(SandboxScriptId.make("workflow.example-import")),
-							),
-						executeWorkflow: (input) =>
-							append(sandboxCalls, { payload: input.input, executionId: input.executionId }).pipe(
-								Effect.andThen(() => {
-									if (options.sandboxInterrupt) {
-										return Effect.interrupt;
-									}
-									return options.sandboxFailure
-										? Effect.fail(
-												new SandboxRunError({
-													kind: "script-failure",
-													message: options.sandboxFailure,
-												}),
-											)
-										: Effect.succeed(null);
-								}),
-							),
-					}),
-					mockImportsService({
-						markStarted: (input) =>
-							append(runUpdates, { ...input, status: "running" }).pipe(
-								Effect.as("started" as const),
-							),
-						finishFailed: (input) =>
-							append(runUpdates, { ...input, status: "failed" }).pipe(
-								Effect.as("settled" as const),
-							),
-						finishCancelled: (input) =>
-							append(runUpdates, { ...input, status: "cancelled" }).pipe(
-								Effect.as("settled" as const),
-							),
-						getRunControlForUser: () =>
-							Effect.succeed(
-								options.runStatus === undefined
-									? null
-									: {
-											status: options.runStatus,
-											id: ImportRunId.make("run_1"),
-											executionKind: "integration" as const,
-										},
-							),
-					}),
-					mockIntegrationsService({
-						update: (userId, integrationId, body) =>
-							append(integrationUpdates, { userId, integrationId, ...body }).pipe(
-								Effect.as(makeIntegration()),
-							),
-						disableIfEnabled: (userId, integrationId, runId) =>
-							options.disableWins
-								? append(integrationUpdates, {
-										runId,
-										userId,
-										integrationId,
-										isDisabled: true,
-									}).pipe(Effect.as(true))
-								: Effect.succeed(false),
-					}),
-					mockSignalEmissionService({
-						emitSignal: (input) =>
-							options.emitsSignals
-								? append(emittedSignals, input).pipe(
-										Effect.as({
-											warnings: [],
-											wasCreated: true,
-											triggerId: AutomationTriggerId.make("trigger-1"),
-										}),
-									)
-								: Effect.die("unexpected signal emission"),
-					}),
-				);
 			}),
-		),
-	);
+		);
+		yield* runIntegrationRunWorkflow(payload, payload.runId).pipe(
+			Effect.scoped,
+			Effect.exit,
+			Effect.provideContext(yield* Layer.build(dependencies)),
+		);
+		return { issues, reasons, finished, executions, settlements };
+	});
 
-const sinkPayload = {
-	userId: UserId.make("user_1"),
-	runId: ImportRunId.make("run_1"),
-	integrationId: IntegrationId.make("int_1"),
-	accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
-	webhook: {
-		contentType: "application/json",
-		rawBody: JSON.stringify({ lot: "item", progress: 30, identifier: "603" }),
-	},
-};
-
-const yankPayload = {
-	userId: UserId.make("user_1"),
-	runId: ImportRunId.make("run_1"),
-	integrationId: IntegrationId.make("int_1"),
-	accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
-};
-
-layer(makeTestLayer({ capturesChildren: true, runStatus: "completed" }))((test) => {
-	test.effect("persists the sink adapter result and dispatches the normalized child", () =>
+it.effect(
+	"runs retained executable state and settles a successful no-op at the integration root",
+	() =>
 		Effect.gen(function* () {
-			const fake = yield* FakeIntegrationRun;
-			yield* runIntegrationRunWorkflow(sinkPayload, "run_1");
-
-			const childDispatches = [...(yield* fake.sandboxCalls), ...(yield* fake.childDispatches)];
-			const integrationUpdates = yield* fake.integrationUpdates;
-			expect(childDispatches).toHaveLength(1);
-			expect(childDispatches[0]).toMatchObject({
-				executionId: "run_1-import",
-				payload: {
-					runId: "run_1",
-					source: "test-provider",
-					sourcePayload: {
-						integrationId: "int_1",
-						integrationContext: sinkPayload.webhook,
-						integrationScriptSlug: "integration.test-provider",
-					},
-					command: {
-						occurredAt: expect.any(String),
-						itemIdentity: '["integration-run","run_1"]',
-						causation: {
-							depth: 0,
-							parentRunId: null,
-							executionId: "run_1",
-							importRunId: "run_1",
-							source: "integration",
-							parentTriggerId: null,
-							integrationId: "int_1",
-							rootExecutionId: "run_1",
-							initiator: { id: "int_1", kind: "integration" },
-						},
-					},
-				},
-			});
-			expect(yield* fake.providerLookups).toEqual([
-				{ installationId: "inst_1", providerSlug: "test-provider" },
-			]);
-			expect(yield* fake.workflowResolutions).toEqual([
-				{
-					userId: "user_1",
-					executionId: "run_1",
-					workflowSlug: "import",
-					pluginId: "fixture-plugin-id",
-					pluginInstallationId: "inst_1",
-				},
-			]);
-
-			expect(yield* fake.runUpdates).toContainEqual(
-				expect.objectContaining({ runId: "run_1", status: "running" }),
-			);
-			expect(integrationUpdates).toHaveLength(1);
-			expect(integrationUpdates[0]).toMatchObject({
-				userId: "user_1",
-				integrationId: "int_1",
-				lastFinishedAt: expect.any(Date),
-			});
-		}),
-	);
-});
-
-layer(makeTestLayer({ integration: null, capturesChildren: true }))((test) => {
-	test.effect("fails the run when the integration is not found", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeIntegrationRun;
-			yield* runIntegrationRunWorkflow(sinkPayload, "run_1");
-
-			expect([...(yield* fake.sandboxCalls), ...(yield* fake.childDispatches)]).toHaveLength(0);
-			expect(yield* fake.runUpdates).toEqual([
+			const result = yield* rootCase("pending");
+			expect(result.executions).toEqual([
 				expect.objectContaining({
-					runId: "run_1",
-					status: "failed",
-					failureReason: { code: "integration-not-found" },
+					executionId: `${rootPayload.runId}-import`,
+					scriptId: ingestionTestSource.workflowScriptId,
+					pluginRevision: ingestionTestSource.pluginRevision,
+					input: expect.objectContaining({
+						sourcePayloadHandle: "durable-input-handle",
+						plan: { selection: {}, operation: "fixture" },
+					}),
 				}),
 			]);
+			expect(result.settlements).toEqual(["completed"]);
+			expect(result.finished).toHaveLength(1);
 		}),
-	);
-});
+);
 
-layer(
-	makeTestLayer({
-		runStatus: "failed",
-		capturesChildren: true,
-		sandboxFailure: "Failed to run integration",
-		integration: makeIntegration({ lot: "yank" }),
+it.effect("resumes a running root without replacing executable pins", () =>
+	Effect.gen(function* () {
+		const result = yield* rootCase("running");
+		expect(result.executions).toEqual([
+			expect.objectContaining({
+				scriptId: ingestionTestSource.workflowScriptId,
+				pluginRevision: ingestionTestSource.pluginRevision,
+			}),
+		]);
+		expect(result.settlements).toEqual(["completed"]);
 	}),
-)((test) => {
-	test.effect("fails the whole run on catastrophic yank provider failure", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeIntegrationRun;
-			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
+);
 
-			expect(yield* fake.childDispatches).toHaveLength(0);
-			expect(yield* fake.runUpdates).toContainEqual(
-				expect.objectContaining({
-					runId: "run_1",
-					status: "failed",
-					failureReason: { code: "unexpected-failure", operation: "integration-import" },
-				}),
-			);
-		}),
-	);
-});
-
-layer(makeTestLayer({ sandboxInterrupt: true }))((test) => {
-	test.effect("preserves workflow suspension while awaiting the plugin import child", () =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runIntegrationRunWorkflow(sinkPayload, "run_1"));
-
-			expect(exit._tag).toBe("Failure");
-			expect(yield* (yield* FakeIntegrationRun).runUpdates).not.toContainEqual(
-				expect.objectContaining({ status: "failed" }),
-			);
-		}),
-	);
-});
-
-layer(
-	makeTestLayer({
-		disableWins: true,
-		emitsSignals: true,
-		runStatus: "failed",
-		integration: makeIntegration({
-			lot: "yank",
-			extraSettings: { disableOnContinuousErrors: true },
-		}),
-		recentStatuses: [
-			{ status: "failed" },
-			{ status: "failed" },
-			{ status: "failed" },
-			{ status: "failed" },
-			{ status: "failed" },
-		],
+it.effect("settles cancellation before source execution", () =>
+	Effect.gen(function* () {
+		const result = yield* rootCase("cancelling");
+		expect(result.executions).toEqual([]);
+		expect(result.settlements).toEqual(["cancelled"]);
+		expect(result.finished).toEqual([]);
 	}),
-)((test) => {
-	test.effect("disables a yank integration after continuous failures during finalization", () =>
-		Effect.gen(function* () {
-			const fake = yield* FakeIntegrationRun;
-			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
+);
 
-			expect(yield* fake.integrationUpdates).toEqual([
-				{ runId: "run_1", userId: "user_1", isDisabled: true, integrationId: "int_1" },
-			]);
-			expect((yield* fake.emittedSignals).at(-1)).toMatchObject({
-				schemaSlug: "integration.disabled",
-				principal: { kind: "user", userId: "user_1" },
-				properties: { integrationId: "int_1", providerName: "test-provider" },
-				command: {
-					occurredAt: expect.any(String),
-					itemIdentity: '["[\\"integration-run\\",\\"run_1\\"]","signal","integration.disabled"]',
-					causation: {
-						executionId: "run_1",
-						importRunId: "run_1",
-						source: "integration",
-						integrationId: "int_1",
-						rootExecutionId: "run_1",
-						initiator: { id: "int_1", kind: "integration" },
+it.effect("does not execute blocked or expired deliveries or contribute to health", () =>
+	Effect.gen(function* () {
+		for (const status of ["blocked", "expired", "cancelled"] as const) {
+			const result = yield* rootCase(status);
+			expect(result.executions).toEqual([]);
+			expect(result.settlements).toEqual([]);
+			expect(result.finished).toEqual([]);
+		}
+	}),
+);
+
+it.effect("recovers health finalization after settlement without replaying the source", () =>
+	Effect.gen(function* () {
+		const result = yield* rootCase("completed");
+		expect(result.executions).toEqual([]);
+		expect(result.settlements).toEqual([]);
+		expect(result.finished).toHaveLength(1);
+	}),
+);
+
+it.effect("fails source errors but preserves suspended work", () =>
+	Effect.gen(function* () {
+		expect((yield* rootCase("running", "source")).settlements).toEqual(["failed"]);
+		expect((yield* rootCase("running", "suspend")).settlements).toEqual([]);
+	}),
+);
+
+it.effect(
+	"retains source-level failure reasons and keeps attributed record errors and warnings partial",
+	() =>
+		Effect.gen(function* () {
+			const issue: IngestionIssue = {
+				severity: "error",
+				attribution: null,
+				operationId: null,
+				id: "source-failure",
+				recordKind: "source",
+				reason: { key: null, code: "input-transformation-failed" },
+			};
+			const failed = yield* rootCase("pending", "none", { issues: [issue] });
+			expect(failed.settlements).toEqual(["failed"]);
+			expect(failed.reasons).toEqual([{ code: "input-transformation-failed" }]);
+			expect(failed.issues).toEqual([issue]);
+			const partial = yield* rootCase("pending", "none", {
+				issues: [
+					{ ...issue, severity: "warning" },
+					{
+						...issue,
+						attribution: { recordId: "record", sourceLabel: "row", sourceIdentifier: "id" },
 					},
-				},
+				],
 			});
+			expect(partial.settlements).toEqual(["completed"]);
+			expect(partial.reasons).toEqual([undefined]);
 		}),
-	);
-});
+);
+
+it.effect(
+	"retries the terminal owner after confirmation failure without recollecting or finishing health early",
+	() =>
+		Effect.gen(function* () {
+			const failed = yield* Deferred.make<void>();
+			let attempts = 0;
+			const running = yield* rootCase("running", "none", {
+				beforeSettle: () =>
+					Effect.gen(function* () {
+						attempts++;
+						if (attempts === 1) {
+							yield* Deferred.succeed(failed, undefined);
+							return yield* new IntegrationConfirmationError({
+								message: "Confirmation unavailable",
+							});
+						}
+						return yield* Effect.void;
+					}),
+			}).pipe(Effect.forkChild);
+			yield* Deferred.await(failed);
+			yield* TestClock.adjust("1 second");
+			const result = yield* Fiber.join(running);
+			expect(attempts).toBe(2);
+			expect(result.executions).toHaveLength(1);
+			expect(result.settlements).toEqual(["completed"]);
+			expect(result.finished).toHaveLength(1);
+		}),
+);
+
+it.effect(
+	"holds competing sink execution through application and releases a failed delivery before the next starts",
+	() =>
+		Effect.gen(function* () {
+			const entered = yield* Deferred.make<void>();
+			const release = yield* Deferred.make<void>();
+			const waiting = yield* Deferred.make<void>();
+			let owner: ImportRunId | null = null;
+			let executions = 0;
+			const start = Effect.fnUntraced(function* (runId: ImportRunId) {
+				if (owner !== null && owner !== runId) {
+					yield* Deferred.succeed(waiting, undefined);
+					return false;
+				}
+				owner = runId;
+				return true;
+			});
+			const first = yield* rootCase("pending", "source", {
+				start,
+				settle: () => {
+					owner = null;
+				},
+				runId: ImportRunId.make("competing-first"),
+				execute: Effect.sync(() => {
+					executions++;
+				}).pipe(
+					Effect.andThen(Deferred.succeed(entered, undefined)),
+					Effect.andThen(Deferred.await(release)),
+				),
+			}).pipe(Effect.forkChild);
+			yield* Deferred.await(entered);
+			const second = yield* rootCase("pending", "none", {
+				start,
+				settle: () => {
+					owner = null;
+				},
+				runId: ImportRunId.make("competing-second"),
+				execute: Effect.sync(() => {
+					executions++;
+				}),
+			}).pipe(Effect.forkChild);
+			yield* Deferred.await(waiting);
+			expect(executions).toBe(1);
+			yield* Deferred.succeed(release, undefined);
+			const failed = yield* Fiber.join(first);
+			expect(failed.settlements).toEqual(["failed"]);
+			expect(failed.finished).toEqual([]);
+			yield* TestClock.adjust("1 second");
+			const completed = yield* Fiber.join(second);
+			expect(completed.settlements).toEqual(["completed"]);
+			expect(completed.finished).toHaveLength(1);
+			expect(executions).toBe(2);
+		}),
+);

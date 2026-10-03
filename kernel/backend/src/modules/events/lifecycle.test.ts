@@ -27,6 +27,7 @@ import {
 	makeConfigProviderLayer,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
+import { ingestionRetirementTestLayer } from "#lib/test-utils/ingestion-retirement";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { AuthService } from "#modules/auth/service";
 import {
@@ -35,6 +36,7 @@ import {
 } from "#modules/automations/lifecycle.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
+import { ImportsRepository } from "#modules/imports/repository";
 import { MutationReceipts, MutationReceiptIdentity } from "#modules/mutations/receipts";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
@@ -49,6 +51,7 @@ import {
 
 import { EventCreateWorkflow, EventCreateWorkflowPayload } from "./event-create-workflow";
 import { runEventCreateWorkflow } from "./event-create-workflow-live";
+import { eventCreateBatchInput } from "./mutation-receipts";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
 
@@ -346,10 +349,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							instance.abandoned = !explicit;
 							yield* Scope.close(instance.scope, exit);
 							const decision = receipts.batchIdentity({
-								resource: "event",
-								identity: ["events"],
-								command: input.command,
-								commandInput: input.payload,
+								...eventCreateBatchInput(input),
 								ownerUserId: system ? null : userId,
 							});
 							return yield* session.transaction(receipts.lookupBatch(decision));
@@ -389,11 +389,8 @@ describe("Event lifecycle PostgreSQL", () => {
 						payload: [{ properties: {}, eventSchemaSlug, entityId: EntityId.make(" ") }],
 					};
 					const emptyDecision = receipts.batchIdentity({
-						resource: "event",
+						...eventCreateBatchInput(invalidInput),
 						ownerUserId: userId,
-						identity: ["events"],
-						command: invalidInput.command,
-						commandInput: invalidInput.payload,
 					});
 					const candidateId = `receipt-candidate-${emptyDecision.id}`;
 					yield* session.transaction(
@@ -1021,6 +1018,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					>()).pipe(Context.add(LifecycleExecution, gatedExecution));
 					let recordingEngine: WorkflowEngine["Service"];
 					recordingEngine = makeWorkflowEngine({
+						poll: () => Effect.succeedNone,
 						activityExecute: (activity) =>
 							Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
 						interrupt: (workflow, executionId) =>
@@ -1127,7 +1125,9 @@ describe("Event lifecycle PostgreSQL", () => {
 						),
 						AuthService,
 					);
-					const repository = yield* UserLifecycleRepository.make;
+					const repository = yield* UserLifecycleRepository.make.pipe(
+						Effect.provideService(ImportsRepository, yield* ImportsRepository.make),
+					);
 					const lifecycle = yield* UserLifecycleService.make.pipe(
 						Effect.provideService(AuthService, auth),
 						Effect.provideService(UserLifecycleRepository, repository),
@@ -1144,7 +1144,9 @@ describe("Event lifecycle PostgreSQL", () => {
 						ObjectStorageService,
 					);
 					const operations = Context.get(
-						yield* Layer.build(UserLifecycleWorkflowOperationsLive).pipe(
+						yield* Layer.build(
+							UserLifecycleWorkflowOperationsLive.pipe(Layer.provide(ingestionRetirementTestLayer)),
+						).pipe(
 							Effect.provideService(
 								AdmittedWorkflowCatalogue,
 								Object.freeze([EventCreateWorkflow]),

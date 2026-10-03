@@ -114,7 +114,11 @@ const makeHarness = () => {
 		subject: payload.subject,
 		scriptSlug: "workflow.checkpoint",
 		contentHash: "checkpoint-content",
-		metadata: { capabilities: [], kind: "workflow" as const },
+		metadata: {
+			capabilities: [],
+			kind: "workflow" as const,
+			executableDependencies: [{ kind: "workflow" as const, slug: firstRequest.args.workflowSlug }],
+		},
 	};
 	const dependencies = Layer.mergeAll(
 		Layer.succeed(PersistedQueue.PersistedQueueFactory, {
@@ -630,6 +634,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 							Effect.gen(function* () {
 								const engine = yield* WorkflowEngine;
 								return KernelWorkflowReferences.of({
+									resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
 									execute: (_slug, input, _subject, childId) =>
 										Effect.gen(function* () {
 											const childPayload = yield* Schema.decodeUnknownEffect(Child.payloadSchema)(

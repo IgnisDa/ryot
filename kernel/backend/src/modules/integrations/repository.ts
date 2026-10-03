@@ -1,3 +1,4 @@
+import { DbError } from "@ryot-app/contract/errors";
 import type {
 	IntegrationExtraSettings,
 	IntegrationProvider,
@@ -17,11 +18,16 @@ import { Context, Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { AuthRepository } from "#modules/auth/repository";
+import { ImportsRepository } from "#modules/imports/repository";
 import { PluginRevisionActivation } from "#modules/plugins/revision-activation";
 
 import { redactIntegrationForClient } from "./client-redaction";
+import { integrationHealthExcludedFailureCodes } from "./health";
 
-type IntegrationRow = Omit<typeof schema.integration.$inferSelect, "clientProviderSpecifics">;
+type IntegrationRow = Omit<
+	typeof schema.integration.$inferSelect,
+	"clientProviderSpecifics" | "retiring"
+>;
 type SelectedIntegrationRow = IntegrationRow & { readonly pluginSlug: string | null };
 
 export type IntegrationRecord = IntegrationSnapshot & {
@@ -107,6 +113,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
 			const auth = yield* AuthRepository;
+			const imports = yield* ImportsRepository.make;
 			const hasAnyForUser = Effect.fn("IntegrationsRepository.hasAnyForUser")(function* (
 				userId: UserId,
 			) {
@@ -242,6 +249,25 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				providerSpecifics: IntegrationProviderSettings;
 			}) {
 				yield* lockInstallationPlugin(input.pluginInstallationId);
+				yield* database.acquireUserWriteLock(input.userId);
+				const installationId = input.pluginInstallationId;
+				if (installationId !== null) {
+					const [installation] = yield* database.run((db) =>
+						db
+							.select({ retiring: schema.pluginInstallation.ingestionRetiring })
+							.from(schema.pluginInstallation)
+							.where(
+								and(
+									eq(schema.pluginInstallation.id, installationId),
+									eq(schema.pluginInstallation.userId, input.userId),
+								),
+							)
+							.limit(1),
+					);
+					if (!installation || installation.retiring) {
+						return yield* new DbError({ message: "Integration installation has retired" });
+					}
+				}
 				const clientSpecifics = yield* clientProviderSpecifics(input);
 				const [row] = yield* database.run((db) =>
 					db
@@ -294,6 +320,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 							and(
 								eq(schema.integration.webhookToken, webhookToken),
 								eq(schema.integration.lot, "sink"),
+								eq(schema.integration.retiring, false),
 							),
 						)
 						.limit(1),
@@ -343,6 +370,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				const conditions = [
 					eq(schema.integration.lot, "yank"),
 					eq(schema.integration.isDisabled, false),
+					eq(schema.integration.retiring, false),
 				];
 				if (input.userId !== null) {
 					conditions.push(eq(schema.integration.userId, input.userId));
@@ -493,6 +521,45 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				},
 			);
 
+			const recordRunFinished = Effect.fn("IntegrationsRepository.recordRunFinished")(
+				function* (input: { userId: UserId; integrationId: IntegrationId; finishedAt: Date }) {
+					yield* database.run((db) =>
+						db
+							.update(schema.integration)
+							.set({ lastFinishedAt: input.finishedAt })
+							.where(
+								and(
+									ownedIntegrationWhere(input),
+									sql`${schema.integration.lastFinishedAt} is null or ${schema.integration.lastFinishedAt} < ${input.finishedAt}`,
+								),
+							),
+					);
+				},
+			);
+
+			const listRecentHealthStatuses = Effect.fn("IntegrationsRepository.listRecentHealthStatuses")(
+				function* (input: { userId: UserId; integrationId: IntegrationId }) {
+					return yield* database.run((db) =>
+						db
+							.select({ status: schema.importRun.status })
+							.from(schema.importRun)
+							.where(
+								and(
+									eq(schema.importRun.userId, input.userId),
+									eq(schema.importRun.integrationId, input.integrationId),
+									inArray(schema.importRun.status, ["completed", "failed", "cancelled"]),
+									sql`coalesce(${schema.importRun.failureReason} ->> 'code', '') not in (${sql.join(
+										integrationHealthExcludedFailureCodes.map((code) => sql`${code}`),
+										sql`, `,
+									)})`,
+								),
+							)
+							.orderBy(desc(schema.importRun.createdAt), desc(schema.importRun.id))
+							.limit(5),
+					);
+				},
+			);
+
 			const hasAutoDisableClaim = Effect.fn("IntegrationsRepository.hasAutoDisableClaim")(
 				function* (importRunId: ImportRunId) {
 					const [row] = yield* database.run((db) =>
@@ -518,10 +585,47 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				userId: UserId;
 				integrationId: IntegrationId;
 			}) {
-				yield* database.run((db) =>
-					db.delete(schema.integration).where(ownedIntegrationWhere(input)),
-				);
+				return yield* database
+					.transaction(
+						Effect.gen(function* () {
+							yield* database.acquireUserWriteLock(input.userId);
+							yield* imports.purgePayloadReservations(input);
+							const rows = yield* database.run((db) =>
+								db
+									.delete(schema.integration)
+									.where(
+										and(
+											ownedIntegrationWhere(input),
+											eq(schema.integration.retiring, true),
+											sql`not exists (select 1 from ${schema.importRun} where ${schema.importRun.integrationId} = ${input.integrationId} and (${schema.importRun.status} in ('pending', 'blocked', 'running', 'cancelling') or ${schema.importRun.pins} is not null or exists (select 1 from ${schema.importPayloadReservation} where ${schema.importPayloadReservation.runId} = ${schema.importRun.id} and not ${schema.importPayloadReservation.released})))`,
+										),
+									)
+									.returning({ id: schema.integration.id }),
+							);
+							if (rows.length === 0 && (yield* getForUser(input))) {
+								return yield* new DbError({
+									message: "Integration retirement cleanup is incomplete",
+								});
+							}
+							return yield* Effect.void;
+						}),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			});
+			const beginRetirement = Effect.fn("IntegrationsRepository.beginRetirement")(
+				function* (input: { userId: UserId; integrationId: IntegrationId }) {
+					yield* database.requireTransaction;
+					yield* database.acquireUserWriteLock(input.userId);
+					const rows = yield* database.run((db) =>
+						db
+							.update(schema.integration)
+							.set({ retiring: true })
+							.where(ownedIntegrationWhere(input))
+							.returning({ id: schema.integration.id }),
+					);
+					return rows.length > 0;
+				},
+			);
 
 			return {
 				getForUser,
@@ -532,11 +636,14 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				updateForUser,
 				deleteForUser,
 				getByIdAnyUser,
+				beginRetirement,
 				getClientForUser,
 				getByWebhookToken,
+				recordRunFinished,
 				hasAutoDisableClaim,
 				insertAutoDisableClaim,
 				disableForUserIfEnabled,
+				listRecentHealthStatuses,
 				getUserDisableIntegrations,
 				listEnabledYankIntegrations,
 				refreshClientProviderSpecificsForPlugin,

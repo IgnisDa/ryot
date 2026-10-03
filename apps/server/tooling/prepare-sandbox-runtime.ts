@@ -20,7 +20,10 @@ class SandboxRuntimeSmokeError extends Data.TaggedError("SandboxRuntimeSmokeErro
 
 const manifest = {
 	kind: "script",
+	oauthConnectionFields: [],
+	executableDependencies: [],
 	requiredPluginConfigKeys: [],
+	optionalPluginConfigKeys: [],
 	name: "Production runtime smoke",
 	slug: "production-runtime-smoke",
 	capabilities: ["getCachedValue"],

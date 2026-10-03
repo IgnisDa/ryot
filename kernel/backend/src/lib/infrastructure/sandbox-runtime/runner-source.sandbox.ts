@@ -1,4 +1,5 @@
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
+import { Clock, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import {
 	createLogCollector,
@@ -40,6 +41,8 @@ nativeError.stackTraceLimit = Infinity;
 const createDictionary = Object.create;
 const nativeString = globalThis.String;
 const readFile = Deno.readFile.bind(Deno);
+const openFile = Deno.open.bind(Deno);
+const statFile = Deno.stat.bind(Deno);
 const nativeFunction = globalThis.Function;
 const reflectConstruct = Reflect.construct;
 const writeFile = Deno.writeFile.bind(Deno);
@@ -62,6 +65,7 @@ const jsonStringify = JSON.stringify.bind(JSON);
 const bridgeFetch = globalThis.fetch.bind(globalThis);
 const exitDeno: (code?: number) => never = Deno.exit.bind(Deno);
 const getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+const hasOwn = Object.hasOwn;
 const performanceNow = performance.now.bind(performance);
 const filesystemKey = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
 const generatorFunction = Object.getPrototypeOf(function* () {}).constructor as Function;
@@ -112,6 +116,41 @@ const installFilesystem = (payload: SandboxRunnerPayload) => {
 		enumerable: false,
 		configurable: true,
 		value: {
+			readArtifactRange: async (offset: number, length: number, key?: string) => {
+				if (
+					!Number.isSafeInteger(offset) ||
+					offset < 0 ||
+					!Number.isSafeInteger(length) ||
+					length < 1 ||
+					length > 1024 * 1024
+				) {
+					throw new nativeError(
+						"Artifact range requires a nonnegative offset and 1..1048576 bytes",
+					);
+				}
+				const target =
+					key === undefined
+						? artifactPath
+						: namedArtifactPaths && hasOwn(namedArtifactPaths, key)
+							? namedArtifactPaths[key]
+							: undefined;
+				if (!target) throw new nativeError("Sandbox artifact grant is unavailable");
+				const { size } = await statFile(target);
+				const file = await openFile(target, { read: true });
+				try {
+					await file.seek(offset, 0);
+					const bytes = new nativeUint8Array(Math.min(length, Math.max(0, size - offset)));
+					let read = 0;
+					while (read < bytes.length) {
+						const count = await file.read(bytes.subarray(read));
+						if (count === null) break;
+						read += count;
+					}
+					return { bytes: bytes.subarray(0, read), size };
+				} finally {
+					file.close();
+				}
+			},
 			readArtifact: () => {
 				if (!artifactPath) {
 					return Promise.reject(new nativeError("Sandbox artifact grant is unavailable"));
@@ -855,7 +894,9 @@ const manifestsMatch = (left: unknown, right: unknown) =>
 	left.name === right.name &&
 	left.slug === right.slug &&
 	stringArraysMatch(left.capabilities, right.capabilities) &&
-	stringArraysMatch(left.requiredPluginConfigKeys, right.requiredPluginConfigKeys);
+	["automationType", "inputProjection", "searchOptionsSchema"].every(
+		(key) => stableJson(left[key]) === stableJson(right[key]),
+	);
 
 const importCompiledModule = async (
 	payload: SandboxRunnerPayload,
@@ -933,9 +974,24 @@ const executeDefinition = async (
 			return throwPhase("execute", "Sandbox definition must return an Effect");
 		}
 		const outcome = await Effect.runPromise(
-			Effect.match(execution, {
-				onFailure: (error) => ({ error, success: false as const }),
-				onSuccess: (value) => ({ value, success: true as const }),
+			Effect.gen(function* () {
+				const clock = yield* Clock.Clock;
+				const millis = nativeDate.parse(payload.startedAt);
+				const nanos = BigInt(millis) * 1_000_000n;
+				return yield* Effect.match(execution, {
+					onFailure: (error) => ({ error, success: false as const }),
+					onSuccess: (value) => ({ value, success: true as const }),
+				}).pipe(
+					Effect.provideService(Clock.Clock, {
+						sleep: (duration) => clock.sleep(duration),
+						currentTimeMillis: Effect.succeed(millis),
+						currentTimeNanos: Effect.succeed(nanos),
+						monotonicTimeNanos: clock.monotonicTimeNanos,
+						currentTimeMillisUnsafe: () => millis,
+						currentTimeNanosUnsafe: () => nanos,
+						monotonicTimeNanosUnsafe: () => clock.monotonicTimeNanosUnsafe(),
+					}),
+				);
 			}),
 		);
 		if (durable) {
@@ -1049,6 +1105,15 @@ void (async () => {
 			let value: unknown;
 			try {
 				const compiledModule = await importCompiledModule(payload);
+				const persistedMetadata = payload.metadata;
+				if (!isRecord(persistedMetadata))
+					return throwPhase("load", "Compiled sandbox dependencies are missing");
+				await Schema.decodeUnknownPromise(SandboxExecutionMetadata)({
+					requiredPluginConfigKeys: persistedMetadata.requiredPluginConfigKeys,
+					optionalPluginConfigKeys: persistedMetadata.optionalPluginConfigKeys,
+					executableDependencies: persistedMetadata.executableDependencies,
+					oauthConnectionFields: persistedMetadata.oauthConnectionFields,
+				});
 				value = await executeDefinition(compiledModule.default, payload, (nextPhase) => {
 					phase = nextPhase;
 				});

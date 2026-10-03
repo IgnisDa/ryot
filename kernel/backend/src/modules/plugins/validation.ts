@@ -285,9 +285,11 @@ export const validatePluginManifestReferences = (
 			yield* assertSlug("integration provider", provider.slug);
 			if (provider.lot !== "push") {
 				yield* assertReference("Integration provider", provider.scriptSlug, scriptSlugs);
-				if (manifest.scripts.find(({ slug }) => slug === provider.scriptSlug)?.kind !== "script") {
+				if (
+					manifest.scripts.find(({ slug }) => slug === provider.scriptSlug)?.kind !== "workflow"
+				) {
 					return yield* fail(
-						`Integration provider ${provider.slug} script ${provider.scriptSlug} must be a direct script`,
+						`Integration provider ${provider.slug} script ${provider.scriptSlug} must be a workflow script`,
 					);
 				}
 			}
@@ -447,6 +449,22 @@ export const validatePluginExecutableScripts = (plugin: {
 			if (script.metadata.kind !== "workflow") {
 				return yield* fail(
 					`Workflow ${workflow.slug} script ${workflow.scriptSlug} must be a workflow script`,
+				);
+			}
+		}
+		for (const provider of plugin.manifest.integrationProviders) {
+			if (provider.lot === "push") {
+				continue;
+			}
+			const script = plugin.scripts.find(({ slug }) => slug === provider.scriptSlug);
+			if (!script) {
+				return yield* fail(
+					`Integration provider ${provider.slug} references missing compiled script: ${provider.scriptSlug}`,
+				);
+			}
+			if (script.metadata.kind !== "workflow") {
+				return yield* fail(
+					`Integration provider ${provider.slug} script ${provider.scriptSlug} must be a workflow script`,
 				);
 			}
 		}

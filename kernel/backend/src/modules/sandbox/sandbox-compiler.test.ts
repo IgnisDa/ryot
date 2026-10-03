@@ -28,7 +28,6 @@ export const manifest = defineManifest({
   inputProjection: { signal: { properties: [] } },
   name: "Automation",
   slug: "automation.test",
-  requiredPluginConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -45,7 +44,6 @@ export const manifest = defineManifest({
   kind: "workflow",
   name: "Workflow",
   slug: "workflow.test",
-  requiredPluginConfigKeys: [],
 });
 
 export default defineWorkflow({
@@ -72,7 +70,10 @@ layer(SandboxCompiler.layer)((test) => {
 				capabilities: [],
 				name: "Plain value",
 				slug: "plain-value",
+				oauthConnectionFields: [],
+				executableDependencies: [],
 				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
 			});
 			expect(compiled.javascript).toContain("export {");
 			expect(compiled.javascript).toContain("sourceMappingURL=data:application/json;base64,");

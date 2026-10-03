@@ -1,6 +1,7 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/sandbox-sdk/workflow";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Layer, Schema } from "effect";
 import { DurableQueue } from "effect/unstable/workflow";
 
@@ -13,6 +14,7 @@ import {
 	sandboxInlineDurableCapabilities,
 } from "./durable-host-dispatcher";
 import { SandboxExecutionResult } from "./execution-result";
+import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
 
 const SandboxExecutionQueuePayload = Schema.Struct({
@@ -71,6 +73,19 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		});
 	}
 	const inlineCapabilities = sandboxInlineDurableCapabilities(payload.principal);
+	const grants =
+		isObjectRecord(payload.context) &&
+		(typeof payload.context["artifactHandle"] === "string" ||
+			isObjectRecord(payload.context["ingestionArtifact"]) ||
+			isObjectRecord(payload.context["ingestionArtifacts"]))
+			? yield* Effect.flatMap(KernelWorkflowReferences, (references) =>
+					references.resolveArtifactGrants(
+						payload.context,
+						payload.principal.subject,
+						payload.grants,
+					),
+				)
+			: payload.grants;
 
 	const result = yield* sandbox.run({
 		context: payload.context,
@@ -80,7 +95,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		compiledCode: script.compiledCode,
 		compiledFormat: script.compiledFormat,
 		workflowExecutionId: payload.workflowExecutionId,
-		...(payload.grants ? { grants: payload.grants } : {}),
+		...(grants ? { grants } : {}),
 		...(inlineCapabilities.length > 0
 			? {
 					inlineDurableHost: {

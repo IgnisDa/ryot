@@ -58,6 +58,7 @@ export class OAuthConnectionBindingError extends Data.TaggedError("OAuthConnecti
 }> {}
 
 type CipherColumn = "accessToken" | "code" | "codeVerifier" | "refreshToken";
+type OAuthConfigAuthority = Pick<RegisteredIntegrationProvider, "configContext" | "installationId">;
 
 type CipherOwner = { readonly id: string; readonly userId: string };
 
@@ -148,12 +149,9 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 			};
 
 			const findOAuthProvider = Effect.fn("OAuthConnectionsService.findOAuthProvider")(function* (
-				registered: RegisteredIntegrationProvider,
+				registered: OAuthConfigAuthority,
 				oauthProviderSlug: string,
 			) {
-				if (registered.pluginScope !== "system") {
-					return null;
-				}
 				const declared = yield* repository.findOAuthProviders(
 					registered.configContext.pluginRevisionId,
 				);
@@ -165,21 +163,22 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 			});
 
 			const resolveCredentials = Effect.fn("OAuthConnectionsService.resolveCredentials")(
-				function* (registered: RegisteredIntegrationProvider, provider: PluginOAuthProvider) {
+				function* (registered: OAuthConfigAuthority, provider: PluginOAuthProvider) {
 					const { configContext } = registered;
-					if (configContext.pluginConfigRevisionId === null) {
-						return null;
-					}
-					const config = yield* configs.read({
-						ownerUserId: configContext.ownerUserId,
-						id: configContext.pluginConfigRevisionId,
-						pluginRevisionId: configContext.pluginRevisionId,
-					});
-					const parsed = yield* resolveContextConfig({
-						config,
-						kind: "installation",
-						configSchema: configContext.configSchema,
-					});
+					const config =
+						configContext.pluginConfigRevisionId === null
+							? {}
+							: yield* configs.read({
+									ownerUserId: configContext.ownerUserId,
+									id: configContext.pluginConfigRevisionId,
+									pluginRevisionId: configContext.pluginRevisionId,
+									pluginInstallationId:
+										configContext.ownerUserId === null ? null : registered.installationId,
+								});
+					const parsed = yield* resolveContextConfig(
+						{ config, kind: "installation", configSchema: configContext.configSchema },
+						[provider.clientIdConfigKey, provider.clientSecretConfigKey],
+					);
 					const clientId = parsed[provider.clientIdConfigKey];
 					const clientSecret = parsed[provider.clientSecretConfigKey];
 					return typeof clientId === "string" &&
@@ -221,7 +220,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 						integration.pluginInstallationId,
 					);
 				}
-				if (registered?.pluginScope !== "system") {
+				if (!registered) {
 					return yield* providerNotFound;
 				}
 				const oauthProviderSlug = oauthConnectionFieldProvider(
@@ -484,7 +483,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 
 			const refreshAccessToken = Effect.fn("OAuthConnectionsService.refreshAccessToken")(function* (
 				connection: ConnectionRow,
-				registered: RegisteredIntegrationProvider,
+				registered: OAuthConfigAuthority,
 			) {
 				const lease = {
 					tokenVersion: connection.tokenVersion,
@@ -552,23 +551,35 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					yield* requireNoTransaction;
 					const unavailable = accessTokenError(OAUTH_ACCESS_TOKEN_MESSAGES.unavailable);
 					const bound = yield* repository.findForIntegrationRun(input);
-					if (!bound || bound.pluginId !== input.pluginId) {
+					if (
+						!bound?.pins ||
+						bound.pins.pluginRevisionId === null ||
+						bound.pluginId !== input.pluginId ||
+						(bound.pluginOwnerId !== null && bound.pluginOwnerId !== input.userId)
+					) {
 						return yield* unavailable;
 					}
-					const registered = yield* catalog.findOwnedForUser(
-						input.userId,
-						bound.integrationProviderSlug,
-						bound.pluginInstallationId,
+					const provider = bound.manifest.integrationProviders.find(
+						({ slug }) => slug === bound.integrationProviderSlug,
 					);
 					if (
-						!registered ||
-						registered.pluginId !== input.pluginId ||
-						registered.pluginSlug !== bound.pluginSlug ||
-						oauthConnectionFieldProvider(registered.settingsSchema, input.field) !==
+						!provider ||
+						bound.installationPluginSlug !== bound.pluginSlug ||
+						oauthConnectionFieldProvider(provider.settingsSchema, input.field) !==
 							bound.oauthProviderSlug
 					) {
 						return yield* unavailable;
 					}
+					const registered: OAuthConfigAuthority = {
+						installationId: bound.pluginInstallationId,
+						configContext: {
+							kind: "revision",
+							configSchema: bound.manifest.configSchema,
+							pluginRevisionId: bound.pins.pluginRevisionId,
+							pluginConfigRevisionId: bound.pins.pluginConfigRevisionId,
+							ownerUserId: bound.pluginOwnerId === null ? null : UserId.make(bound.pluginOwnerId),
+						},
+					};
 					let connection: ConnectionRow = bound;
 					for (let attempt = 0; attempt <= REFRESH_POLL_ATTEMPTS; attempt += 1) {
 						if (attempt > 0) {

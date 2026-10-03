@@ -285,7 +285,10 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 							Schema.fromJsonString(UploadIntentMetadata),
 						)(completed).pipe(Effect.orDie);
 						if (metadata.kind === "temporary") {
-							const completionToken = "token" in completion ? completion.token : "";
+							const completionToken = completion.token;
+							if (completionToken === undefined) {
+								return yield* uploadError({ intentId, code: "intent-invalid" });
+							}
 							const tokenValue = yield* Schema.encodeUnknownEffect(
 								Schema.fromJsonString(UploadTokenValue),
 							)({ intentId, userId: user.id }).pipe(Effect.orDie);

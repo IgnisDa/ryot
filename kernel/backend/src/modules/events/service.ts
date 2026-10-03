@@ -138,7 +138,11 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			Effect.mapError(() => new LifecyclePersistenceError({ code: "active-transaction-required" })),
 		);
 		const create = Effect.fn("EventsService.create")(function* (
-			input: { readonly userId: UserId; readonly payload: ReadonlyArray<CreateEventItem> },
+			input: {
+				readonly userId: UserId;
+				readonly payload: ReadonlyArray<CreateEventItem>;
+				readonly itemIdentities?: ReadonlyArray<string>;
+			},
 			command: LifecycleCommand,
 		) {
 			if (input.payload.length === 0) {
