@@ -17,9 +17,7 @@ layer(BunServices.layer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
-				const directory = yield* fs.makeTempDirectoryScoped({
-					directory: "/var/folders/x2/4ldmcvss5wlg5f5sfly3bqwm0000gn/T/opencode",
-				});
+				const directory = yield* fs.makeTempDirectoryScoped();
 				const working = `${directory}/working`;
 				yield* fs.makeDirectory(working);
 				const dependencies = Layer.mergeAll(
