@@ -82,6 +82,12 @@ for tier in core data full; do
 done
 install -o root -g root -m 0444 "$snapshots/snapshots.json" \
 	/home/ryot/sandboxd/snapshots/snapshots.json
-install -o root -g root -m 04755 "$launcher" /usr/local/libexec/ryot-sandbox-launcher
+install -o root -g root -m 0755 "$launcher" /usr/local/libexec/ryot-sandbox-launcher
+# uutils coreutils install drops special mode bits, so set and verify setuid separately.
+chmod 04755 /usr/local/libexec/ryot-sandbox-launcher
+if [[ "$(stat -c %a /usr/local/libexec/ryot-sandbox-launcher)" != 4755 ]]; then
+	printf '%s\n' 'launcher setup failure: the installed launcher is not setuid root' >&2
+	exit 1
+fi
 
 printf '%s\n' 'launcher setup complete: UID/GID 1001/1002 and trusted fixed paths installed'
