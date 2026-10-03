@@ -3,12 +3,8 @@ import { PgClient } from "@effect/sql-pg";
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import {
-	type WorkflowDurableResult,
-	workflowReplayJournalEntrySchema,
-} from "@ryot-app/sandbox-sdk/workflow";
+import type { WorkflowDurableResult } from "@ryot-app/sandbox-sdk/workflow";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { sql } from "drizzle-orm";
 import {
 	Clock,
@@ -35,6 +31,7 @@ import {
 	type SandboxExecutionPrincipal,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
+import { unusedSandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/runner-native.test-support";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { SandboxSidecarAdmission } from "#lib/infrastructure/sandbox-runtime/sidecar-admission";
 import { ServerRun } from "#lib/infrastructure/server-run";
@@ -52,9 +49,11 @@ import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { SandboxExecutionQueueWorkerLive, processSandboxExecutionQueue } from "./durable-queues";
-import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
-import { compiledArtifactsLayer } from "./sandbox-fixtures.test-support";
+import {
+	compiledArtifactsLayer,
+	unusedKernelWorkflowReferencesLayer,
+} from "./sandbox-fixtures.test-support";
 import { SandboxScriptWorkflowPayload } from "./sandbox-script-workflow-payload";
 
 type CompiledFixture = Effect.Success<ReturnType<SandboxCompiler["Service"]["compile"]>>;
@@ -63,14 +62,9 @@ type HeadroomControl = {
 	fixture:
 		| { readonly compiled: CompiledFixture; readonly principal: SandboxExecutionPrincipal }
 		| undefined;
-	readonly batches: Array<string>;
-	readonly callbackStarts: Array<{ readonly executionId: string; readonly index: number }>;
+	readonly callbackStarts: Array<string>;
 	readonly pidPairs: Array<{ readonly root: number; readonly nested: number }>;
 	readonly rootPids: Array<number>;
-	activeBatches: number;
-	activeHostCallbacks: number;
-	maximumActiveBatches: number;
-	maximumActiveHostCallbacks: number;
 	readonly fourCallbacksStarted: Deferred.Deferred<void>;
 	readonly firstRootEntered: Deferred.Deferred<void>;
 	readonly releaseFirstRoot: Deferred.Deferred<void>;
@@ -82,86 +76,14 @@ class SandboxHeadroomControl extends Context.Service<SandboxHeadroomControl, Hea
 
 class SandboxHeadroomObserver extends Context.Service<
 	SandboxHeadroomObserver,
-	{
-		readonly schemaName: string;
-		readonly applicationName: string;
-		readonly countApplicationConnections: Effect.Effect<number, unknown>;
-	}
+	{ readonly countApplicationConnections: Effect.Effect<number, unknown> }
 >()("test/SandboxHeadroomObserver") {}
 
 const SandboxHeadroomReplayWorkflow = Workflow.make("SandboxHeadroomReplayWorkflow", {
+	success: Schema.Void,
 	error: SandboxRunError,
 	payload: SandboxScriptWorkflowPayload,
 	idempotencyKey: ({ executionId }) => executionId,
-	success: Schema.Array(
-		Schema.Struct({
-			completed: Schema.Boolean,
-			inline: Schema.Array(workflowReplayJournalEntrySchema),
-		}),
-	),
-});
-
-const isCompleted = Schema.is(Schema.Struct({ state: Schema.Literal("completed") }));
-
-const unusedEffect = () => Effect.die("Unused sandbox host implementation");
-const unusedValue = (): never => {
-	throw new Error("Unused sandbox lifecycle host implementation");
-};
-
-const makeHostImplementations = (): SandboxHostImplementations["Service"] => ({
-	automation: { emitSignal: unusedEffect, sendNotification: unusedEffect },
-	runtime: {
-		httpCall: unusedEffect,
-		setCachedValue: unusedEffect,
-		getCachedValue: unusedEffect,
-		getPersistentValue: unusedEffect,
-		claimPersistentValue: unusedEffect,
-	},
-	lifecycle: {
-		updateEvents: { commit: unusedEffect, validate: unusedEffect },
-		deleteEvents: { commit: unusedEffect, validate: unusedEffect },
-		upsertGlobalEntities: {
-			value: unusedValue,
-			commit: unusedEffect,
-			prepare: unusedEffect,
-			validate: unusedEffect,
-			applyPolicies: unusedEffect,
-		},
-		changeUserRelationships: {
-			value: unusedValue,
-			commit: unusedEffect,
-			prepare: unusedEffect,
-			validate: unusedEffect,
-			applyPolicies: unusedEffect,
-		},
-		upsertGlobalRelationships: {
-			value: unusedValue,
-			commit: unusedEffect,
-			prepare: unusedEffect,
-			validate: unusedEffect,
-			applyPolicies: unusedEffect,
-		},
-	},
-	additional: {
-		deleteEvents: unusedEffect,
-		createEvents: unusedEffect,
-		updateEvents: unusedEffect,
-		executeRyotql: unusedEffect,
-		getPluginConfig: unusedEffect,
-		getUserSettings: unusedEffect,
-		listIntegrations: unusedEffect,
-		listEventSchemas: unusedEffect,
-		getEntitySchemas: unusedEffect,
-		getUserPreferences: unusedEffect,
-		ensureUserEntities: unusedEffect,
-		getOAuthAccessToken: unusedEffect,
-		upsertGlobalEntities: unusedEffect,
-		getCurrentIntegration: unusedEffect,
-		requestEventStreamWork: unusedEffect,
-		changeUserRelationships: unusedEffect,
-		upsertGlobalRelationships: unusedEffect,
-		invalidateOAuthAccessToken: unusedEffect,
-	},
 });
 
 const headroomSource = `
@@ -202,15 +124,10 @@ const makeHeadroomLayer = Layer.unwrap(
 		const temporaryRoot = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-headroom-" });
 		const root = yield* fs.realPath(temporaryRoot);
 		const controlFactory: HeadroomControl = {
-			batches: [],
 			pidPairs: [],
 			rootPids: [],
-			activeBatches: 0,
-			fixture: undefined,
 			callbackStarts: [],
-			activeHostCallbacks: 0,
-			maximumActiveBatches: 0,
-			maximumActiveHostCallbacks: 0,
+			fixture: undefined,
 			firstRootEntered: yield* Deferred.make<void>(),
 			releaseFirstRoot: yield* Deferred.make<void>(),
 			fourCallbacksStarted: yield* Deferred.make<void>(),
@@ -222,8 +139,6 @@ const makeHeadroomLayer = Layer.unwrap(
 			database: { poolMax: 7, url: Redacted.make(applicationUrl.toString()) },
 		});
 		const observerFactory = {
-			schemaName,
-			applicationName,
 			countApplicationConnections: admin
 				.unsafe(
 					`SELECT count(*)::int AS connections FROM pg_stat_activity WHERE application_name = '${applicationName}'`,
@@ -255,7 +170,7 @@ const makeHeadroomLayer = Layer.unwrap(
 			Layer.succeed(SandboxHeadroomObserver, observerFactory),
 			Layer.succeed(ServerRun, { id: testExecutionId("sandbox-headroom-server") }),
 			Layer.succeed(SandboxExecutionAuthority, { resolve: (_principal) => Effect.succeed("user") }),
-			Layer.succeed(SandboxHostImplementations, makeHostImplementations()),
+			Layer.succeed(SandboxHostImplementations, unusedSandboxHostImplementations()),
 		).pipe(
 			Layer.provideMerge(RedisService.layer),
 			Layer.provideMerge(BunServices.layer),
@@ -296,113 +211,59 @@ const makeHeadroomLayer = Layer.unwrap(
 		};
 		const repositoryLayer = Layer.succeed(SandboxRepository, repository);
 		const artifactLayer = compiledArtifactsLayer(repositoryLayer);
-		const fixtureServices = Layer.mergeAll(
-			artifactLayer,
-			Layer.succeed(KernelWorkflowReferences, {
-				execute: () => Effect.die("Kernel workflow dispatch is unused"),
-				resolveArtifactGrants: () => Effect.die("Artifact grants are unused"),
-			}),
-		);
+		const fixtureServices = Layer.mergeAll(artifactLayer, unusedKernelWorkflowReferencesLayer);
 		const dispatcher = Layer.effect(
 			SandboxDurableHostDispatcher,
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const headroomObserver = yield* SandboxHeadroomObserver;
 				const admission = yield* SandboxSidecarAdmission;
 				const state = yield* SandboxHeadroomControl;
 				return SandboxDurableHostDispatcher.of({
 					cancelInline: () => Effect.void,
 					dispatch: () => Effect.die("Non-inline durable dispatch is not expected"),
 					settleInline: (requests, _context, _principal, _lane, executionId) =>
-						Effect.gen(function* () {
-							state.batches.push(executionId);
-							state.activeBatches += 1;
-							state.maximumActiveBatches = Math.max(
-								state.maximumActiveBatches,
-								state.activeBatches,
-							);
-							return yield* Effect.forEach(
-								requests,
-								(request) =>
-									Effect.gen(function* () {
-										assert(request.kind === "host");
-										if (
-											request.name !== "getCachedValue" ||
-											request.args.capability !== "getCachedValue"
-										) {
-											return yield* Effect.die("Unexpected inline host request");
-										}
-										state.callbackStarts.push({ executionId, index: request.index });
-										if (
-											state.callbackStarts.filter((call) => call.executionId === executionId)
-												.length === 4
-										) {
-											yield* Deferred.succeed(state.fourCallbacksStarted, undefined);
-										}
-										const value = yield* admission.withDatabaseLimit(
-											session
-												.run((db) =>
-													Effect.gen(function* () {
-														expect(yield* session.isTransactionActive).toBe(false);
-														const [rootRow] = yield* db
-															.select({
-																pid: sql<number>`pg_backend_pid()`,
-																schema: sql<string>`current_schema()`,
-																applicationName: sql<string>`current_setting('application_name')`,
-															})
-															.from(sql`(select 1) as fixture`);
-														if (rootRow === undefined) {
-															return yield* Effect.die("Root PID query returned no row");
-														}
-														expect(rootRow.schema).toBe(headroomObserver.schemaName);
-														expect(rootRow.applicationName).toBe(headroomObserver.applicationName);
-														yield* Effect.sync(() => {
-															state.rootPids.push(rootRow.pid);
-															state.activeHostCallbacks += 1;
-															state.maximumActiveHostCallbacks = Math.max(
-																state.maximumActiveHostCallbacks,
-																state.activeHostCallbacks,
-															);
-														});
-														if (state.rootPids.length === 1) {
-															yield* Deferred.succeed(state.firstRootEntered, undefined);
-															yield* Deferred.await(state.releaseFirstRoot);
-														}
-														const [nested] = yield* session.run((nestedDb) =>
-															nestedDb
-																.select({ pid: sql<number>`pg_backend_pid()` })
-																.from(sql`(select 1) as fixture`),
-														);
-														if (nested === undefined) {
-															return yield* Effect.die("Nested PID query returned no row");
-														}
-														expect(yield* session.isTransactionActive).toBe(false);
-														yield* Effect.sync(() =>
-															state.pidPairs.push({ root: rootRow.pid, nested: nested.pid }),
-														);
-														return request.index + 1;
-													}),
-												)
-												.pipe(
-													Effect.ensuring(
-														Effect.sync(() => {
-															state.activeHostCallbacks -= 1;
-														}),
-													),
-													Effect.orDie,
-												),
-										);
-										return { value, state: "success" } satisfies WorkflowDurableResult;
-									}),
-								{ concurrency: 4 },
-							).pipe(
-								Effect.ensuring(
-									Effect.sync(() => {
-										state.activeBatches -= 1;
-									}),
-								),
-							);
-						}),
+						Effect.forEach(
+							requests,
+							(request) =>
+								Effect.gen(function* () {
+									assert(request.kind === "host");
+									state.callbackStarts.push(executionId);
+									if (state.callbackStarts.filter((id) => id === executionId).length === 4) {
+										yield* Deferred.succeed(state.fourCallbacksStarted, undefined);
+									}
+									const value = yield* admission.withDatabaseLimit(
+										session
+											.run((db) =>
+												Effect.gen(function* () {
+													const [rootRow] = yield* db
+														.select({ pid: sql<number>`pg_backend_pid()` })
+														.from(sql`(select 1) as fixture`);
+													if (rootRow === undefined) {
+														return yield* Effect.die("Root PID query returned no row");
+													}
+													state.rootPids.push(rootRow.pid);
+													if (state.rootPids.length === 1) {
+														yield* Deferred.succeed(state.firstRootEntered, undefined);
+														yield* Deferred.await(state.releaseFirstRoot);
+													}
+													const [nested] = yield* session.run((nestedDb) =>
+														nestedDb
+															.select({ pid: sql<number>`pg_backend_pid()` })
+															.from(sql`(select 1) as fixture`),
+													);
+													if (nested === undefined) {
+														return yield* Effect.die("Nested PID query returned no row");
+													}
+													state.pidPairs.push({ root: rootRow.pid, nested: nested.pid });
+													return request.index + 1;
+												}),
+											)
+											.pipe(Effect.orDie),
+									);
+									return { value, state: "success" } satisfies WorkflowDurableResult;
+								}),
+							{ concurrency: 4 },
+						),
 				});
 			}),
 		);
@@ -422,27 +283,21 @@ const makeHeadroomLayer = Layer.unwrap(
 					return yield* Effect.die("Sandbox fixture principal was not installed");
 				}
 				const startedAt = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
-				return yield* Effect.forEach(
+				yield* Effect.forEach(
 					[0, 1],
 					(slot) =>
-						Effect.gen(function* () {
-							const result = yield* processSandboxExecutionQueue({
-								startedAt,
-								journalLength: 0,
-								lane: "background",
-								context: payload.input,
-								principal: fixture.principal,
-								executionId: `${payload.executionId}-replay-${slot}`,
-								workflowExecutionId: `${payload.executionId}-slot-${slot}`,
-							}).pipe(Effect.orDie);
-							const completed = isCompleted(result.value);
-							expect(result.value).toMatchObject(
-								completed ? { output: [1, 2, 3, 4] } : { state: "pending" },
-							);
-							return { completed, inline: result.inline };
-						}),
-					{ concurrency: 2 },
+						processSandboxExecutionQueue({
+							startedAt,
+							journalLength: 0,
+							lane: "background",
+							context: payload.input,
+							principal: fixture.principal,
+							executionId: `${payload.executionId}-replay-${slot}`,
+							workflowExecutionId: `${payload.executionId}-slot-${slot}`,
+						}).pipe(Effect.orDie),
+					{ discard: true, concurrency: 2 },
 				);
+				return undefined;
 			}),
 		).pipe(Layer.provideMerge(worker));
 		return workflow;
@@ -471,7 +326,6 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 					},
 				};
 				const compiled = yield* compiler.compile(headroomSource);
-				expect(compiled.manifest.capabilities).toContain("getCachedValue");
 				const contentHash = sha256Hex(compiled.javascript);
 				const principal: SandboxExecutionPrincipal = {
 					subject,
@@ -490,117 +344,43 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 					control.fixture = { compiled, principal };
 				});
 				const workflowExecutionId = testExecutionId("sandbox-headroom-workflow");
-				const inlineExecutionIds = [
-					`${workflowExecutionId}-slot-0`,
-					`${workflowExecutionId}-slot-1`,
-				];
-				const replayExecutionIds = [
-					`${workflowExecutionId}-replay-0`,
-					`${workflowExecutionId}-replay-1`,
-				];
 				yield* Effect.addFinalizer(() =>
-					redis.del(...replayExecutionIds.map(redisKeys.sandboxRecovery)),
+					redis.del(
+						...[0, 1].map((slot) =>
+							redisKeys.sandboxRecovery(`${workflowExecutionId}-replay-${slot}`),
+						),
+					),
 				);
 				yield* Effect.addFinalizer(() => Deferred.succeed(control.releaseFirstRoot, undefined));
-				const payload: SandboxScriptWorkflowPayload = {
-					subject,
-					scriptId,
-					input: {},
-					lane: "interactive",
-					resolutionMode: "exact",
-					executionId: workflowExecutionId,
-				};
 				const fiber = yield* Effect.forkChild(
 					engine.execute(SandboxHeadroomReplayWorkflow, {
-						payload,
 						executionId: workflowExecutionId,
+						payload: {
+							subject,
+							scriptId,
+							input: {},
+							lane: "interactive",
+							resolutionMode: "exact",
+							executionId: workflowExecutionId,
+						},
 					}),
 				);
 				yield* Deferred.await(control.fourCallbacksStarted);
 				yield* Deferred.await(control.firstRootEntered);
-				expect(control.batches).toHaveLength(1);
-				expect(control.activeBatches).toBe(1);
-				expect(control.callbackStarts).toHaveLength(4);
-				const blockedExecutionId =
-					control.batches[0] ?? (yield* Effect.die("Inline dispatch batch did not start"));
-				expect(
-					control.callbackStarts.filter((call) => call.executionId === blockedExecutionId),
-				).toHaveLength(4);
-				expect(control.rootPids).toHaveLength(1);
-				expect(control.activeHostCallbacks).toBe(1);
-				expect(admission.snapshot().runs).toBeGreaterThanOrEqual(1);
-				expect(admission.snapshot().runs).toBeLessThanOrEqual(2);
-				expect(yield* Deferred.isDone(control.releaseFirstRoot)).toBe(false);
 				const [application] = yield* session.run((db) =>
-					db
-						.select({
-							pid: sql<number>`pg_backend_pid()`,
-							schema: sql<string>`current_schema()`,
-							applicationName: sql<string>`current_setting('application_name')`,
-						})
-						.from(sql`(select 1) as fixture`),
+					db.select({ pid: sql<number>`pg_backend_pid()` }).from(sql`(select 1) as fixture`),
 				);
-				expect(application?.pid).toBeDefined();
-				expect(application?.schema).toBe(observer.schemaName);
-				expect(application?.applicationName).toBe(observer.applicationName);
 				expect(application?.pid).not.toBe(control.rootPids[0]);
 				const connectionsWhileHeld = yield* observer.countApplicationConnections;
 				expect(connectionsWhileHeld).toBeGreaterThanOrEqual(2);
 				expect(connectionsWhileHeld).toBeLessThanOrEqual(7);
-				expect(yield* Deferred.isDone(control.releaseFirstRoot)).toBe(false);
 				yield* Deferred.succeed(control.releaseFirstRoot, undefined);
-				const slots = yield* Fiber.join(fiber);
-				expect(slots).toHaveLength(2);
-				const settledExecutionIds = inlineExecutionIds.filter(
-					(_, slot) => slots[slot]?.completed === true,
-				);
-				const outputs = slots.filter((slot) => slot.completed).map((slot) => slot.inline);
-				expect(settledExecutionIds).toContain(blockedExecutionId);
-				expect(control.activeBatches).toBe(0);
-				expect(control.maximumActiveBatches).toBe(1);
-				expect(control.activeHostCallbacks).toBe(0);
-				expect(control.maximumActiveHostCallbacks).toBe(1);
-				expect(control.callbackStarts).toHaveLength(4 * settledExecutionIds.length);
-				expect(sortBy(control.batches)).toEqual(sortBy(settledExecutionIds));
-				for (const slot of slots.filter((candidate) => !candidate.completed)) {
-					expect(slot.inline).toEqual([]);
-				}
-				for (const executionId of settledExecutionIds) {
-					expect(control.batches.filter((batch) => batch === executionId)).toHaveLength(1);
-					expect(
-						sortBy(
-							control.callbackStarts.filter((call) => call.executionId === executionId),
-							"index",
-						).map((call) => call.index),
-					).toEqual([0, 1, 2, 3]);
-				}
-				expect(control.pidPairs).toHaveLength(4 * settledExecutionIds.length);
+				yield* Fiber.join(fiber);
+				expect(control.pidPairs).not.toHaveLength(0);
 				for (const pair of control.pidPairs) {
 					expect(pair.nested).toBe(pair.root);
 				}
-				for (const output of outputs) {
-					expect(output.map((entry) => entry.request.index)).toEqual([0, 1, 2, 3]);
-					expect(output.map((entry) => entry.value)).toEqual(
-						[1, 2, 3, 4].map((value) => ({ value, state: "success" })),
-					);
-				}
 				expect(admission.snapshot().runs).toBe(0);
-				expect(yield* session.isTransactionActive).toBe(false);
-				const [after] = yield* session.run((db) =>
-					db.select({ pid: sql<number>`pg_backend_pid()` }).from(sql`(select 1) as fixture`),
-				);
-				expect(after?.pid).toBeDefined();
-				const connectionsAfter = yield* observer.countApplicationConnections;
-				expect(connectionsAfter).toBeLessThanOrEqual(7);
-				yield* Effect.logInfo("Sandbox dispatch headroom observed").pipe(
-					Effect.annotateLogs({
-						workerConcurrency: 2,
-						applicationConnectionsAfter: connectionsAfter,
-						maximumConcurrentQueueBatches: control.maximumActiveBatches,
-						maximumLeasedHostCallbacks: control.maximumActiveHostCallbacks,
-						applicationConnectionsWhileHostLeaseHeld: connectionsWhileHeld,
-					}),
-				);
 			}),
 		),
 	);

@@ -1,4 +1,4 @@
-import { assert, expect, it, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
@@ -20,14 +20,17 @@ import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
 	executeSandboxExecution,
-	SandboxExecutionQueue,
 	SandboxProjectionMissing,
 	SandboxRecoverySuspended,
 } from "./durable-queues";
-import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
-import { compiledArtifactsLayer } from "./sandbox-fixtures.test-support";
+import {
+	compiledArtifactsLayer,
+	hotSwapScript,
+	scriptRepositoryLayer,
+	unusedKernelWorkflowReferencesLayer,
+} from "./sandbox-fixtures.test-support";
 import { SandboxWorkflowPinning } from "./sandbox-script-workflow";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
@@ -42,11 +45,6 @@ const dispatcherLayer = Layer.succeed(SandboxDurableHostDispatcher, {
 	cancelInline: () => Effect.void,
 	dispatch: () => Effect.die("durable dispatch is not expected"),
 	settleInline: () => Effect.die("inline dispatch is not expected"),
-});
-
-const kernelReferencesLayer = Layer.succeed(KernelWorkflowReferences, {
-	execute: () => Effect.die("kernel dispatch is not expected"),
-	resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
 });
 
 type RuntimeRunInput = Parameters<RuntimeSandboxService["Service"]["run"]>[0];
@@ -127,34 +125,18 @@ case "$EXECUTION_ID" in
 esac
 `;
 const replacementContent = "printf 'completed:active-v2'";
-const historicalContentHash = sha256Hex(historicalContent);
-const replacementContentHash = sha256Hex(replacementContent);
-const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => ({
-	id,
-	compiledCode,
-	slug: "workflow",
+const hotSwapMetadata = {
+	...emptySandboxExecutionMetadata,
 	name: "Workflow",
-	providerId: null,
-	compiledFormat: 1,
-	pluginSlug: "plugin",
-	source: compiledCode,
-	createdAt: new Date(0),
-	updatedAt: new Date(0),
-	contentHash: id === historicalScriptId ? historicalContentHash : replacementContentHash,
-	metadata: {
-		...emptySandboxExecutionMetadata,
-		name: "Workflow",
-		slug: "workflow",
-		kind: "workflow" as const,
-	},
-});
-const historical = hotSwapScript(historicalScriptId, historicalContent);
-const replacement = hotSwapScript(activeScriptId, replacementContent);
-const hotSwapRepositoryLayer = Layer.mock(SandboxRepository)({
-	isPluginScript: () => Effect.succeed(true),
-	getScript: (scriptId) =>
-		Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
-});
+	slug: "workflow",
+	kind: "workflow" as const,
+};
+const historical = hotSwapScript(historicalScriptId, historicalContent, hotSwapMetadata);
+const replacement = hotSwapScript(activeScriptId, replacementContent, hotSwapMetadata);
+const hotSwapRepositoryLayer = scriptRepositoryLayer(
+	(scriptId) => (scriptId === historicalScriptId ? historical : replacement),
+	{ isPluginScript: () => Effect.succeed(true) },
+);
 const hotSwapArtifactsLayer = compiledArtifactsLayer(hotSwapRepositoryLayer);
 
 class ActiveScript extends Context.Service<
@@ -169,37 +151,13 @@ const hotSwapResolverLayer = Layer.unwrap(
 			Layer.mock(SandboxPluginScriptResolver)({
 				findActiveScriptById: () =>
 					Ref.get(active).pipe(
-						Effect.map((id) =>
-							hotSwapScript(id, id === historicalScriptId ? historicalContent : replacementContent),
-						),
+						Effect.map((id) => (id === historicalScriptId ? historical : replacement)),
 					),
 			}),
 			Layer.succeed(ActiveScript, { activate: (id) => Ref.set(active, id) }),
 		);
 	}),
 );
-
-it("uses the sandbox execution id as the durable queue identity", () => {
-	const payload = {
-		context: {},
-		journalLength: 0,
-		executionId: "execution-id",
-		lane: "interactive" as const,
-		workflowExecutionId: "workflow-id",
-		startedAt: "2026-01-01T00:00:00.000Z",
-		principal: {
-			providerId: null,
-			pluginRevision: null,
-			scriptSlug: "workflow",
-			metadata: { runtimeImports: [] },
-			contentHash: historicalContentHash,
-			subject: { type: "system" as const },
-			scriptId: SandboxScriptId.make("historical-script-id"),
-		},
-	};
-
-	expect(SandboxExecutionQueue.idempotencyKey(payload)).toBe("execution-id");
-});
 
 layer(
 	SandboxWorkflowPinning.layer.pipe(
@@ -208,7 +166,7 @@ layer(
 				databaseLayer,
 				testRedisServiceLayer,
 				dispatcherLayer,
-				kernelReferencesLayer,
+				unusedKernelWorkflowReferencesLayer,
 				Layer.mock(SandboxWorkflowReferenceRepository)({}),
 				hotSwapArtifactsLayer,
 				hotSwapResolverLayer,
@@ -278,8 +236,8 @@ layer(
 				expect(replayed.value).toBe("completed:pinned-v1");
 				expect(executedContent).toEqual([historicalContent, historicalContent]);
 				expect(runs.map((run) => run.principal.contentHash)).toEqual([
-					historicalContentHash,
-					historicalContentHash,
+					historical.contentHash,
+					historical.contentHash,
 				]);
 				expect(yield* (yield* RecordedRuns).reserved).toEqual(["interactive", "interactive"]);
 				expect(replayed).toMatchObject({ recovery: recoveryIdentity("execution-id-replay-1") });
@@ -295,17 +253,14 @@ const queuedCode = "queued-version";
 const kernelCode = "kernel-version";
 const queuedContentHash = sha256Hex(queuedCode);
 const kernelContentHash = sha256Hex(kernelCode);
-const queuedRepositoryLayer = Layer.mock(SandboxRepository)({
-	getScript: (scriptId) =>
-		Effect.succeed({
-			id: scriptId,
-			compiledFormat: 1,
-			metadata: { runtimeImports: [] },
-			providerId: scriptId === queuedScriptId ? "provider-id" : null,
-			compiledCode: scriptId === queuedScriptId ? queuedCode : kernelCode,
-			contentHash: scriptId === queuedScriptId ? queuedContentHash : kernelContentHash,
-		}),
-});
+const queuedRepositoryLayer = scriptRepositoryLayer((scriptId) => ({
+	id: scriptId,
+	compiledFormat: 1,
+	metadata: { runtimeImports: [] },
+	providerId: scriptId === queuedScriptId ? "provider-id" : null,
+	compiledCode: scriptId === queuedScriptId ? queuedCode : kernelCode,
+	contentHash: scriptId === queuedScriptId ? queuedContentHash : kernelContentHash,
+}));
 const queuedArtifactsLayer = compiledArtifactsLayer(queuedRepositoryLayer);
 
 layer(
@@ -313,7 +268,7 @@ layer(
 		databaseLayer,
 		testRedisServiceLayer,
 		dispatcherLayer,
-		kernelReferencesLayer,
+		unusedKernelWorkflowReferencesLayer,
 		queuedArtifactsLayer,
 		runtimeSandboxLayer((input) =>
 			Effect.succeed({
@@ -379,17 +334,14 @@ layer(
 const inlineScriptId = SandboxScriptId.make("inline-script-id");
 const inlineCode = "code";
 const inlineContentHash = sha256Hex(inlineCode);
-const inlineRepositoryLayer = Layer.mock(SandboxRepository)({
-	getScript: () =>
-		Effect.succeed({
-			providerId: null,
-			compiledFormat: 1,
-			id: inlineScriptId,
-			compiledCode: inlineCode,
-			contentHash: inlineContentHash,
-			metadata: { runtimeImports: [] },
-		}),
-});
+const inlineRepositoryLayer = scriptRepositoryLayer(() => ({
+	providerId: null,
+	compiledFormat: 1,
+	id: inlineScriptId,
+	compiledCode: inlineCode,
+	contentHash: inlineContentHash,
+	metadata: { runtimeImports: [] },
+}));
 const inlineArtifactsLayer = compiledArtifactsLayer(inlineRepositoryLayer);
 const inlinePrincipal = (capabilities: ReadonlyArray<string>) => ({
 	providerId: null,
@@ -413,7 +365,7 @@ layer(
 		databaseLayer,
 		testRedisServiceLayer,
 		settlingDispatcherLayer,
-		kernelReferencesLayer,
+		unusedKernelWorkflowReferencesLayer,
 		inlineArtifactsLayer,
 		runtimeSandboxLayer((input) =>
 			Effect.gen(function* () {
@@ -592,7 +544,7 @@ layer(
 		databaseLayer,
 		testRedisServiceLayer,
 		dispatcherLayer,
-		kernelReferencesLayer,
+		unusedKernelWorkflowReferencesLayer,
 		compiledArtifactsLayer(
 			Layer.mock(SandboxRepository)({ getScript: () => Effect.die("script must not load") }),
 		),

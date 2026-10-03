@@ -28,6 +28,7 @@ import {
 } from "#modules/plugins/http-rate-limit-authority";
 import {
 	dispatchSandboxHttpHop,
+	hostCallScopeOf,
 	sandboxDurableHttpRequestUrl,
 	sandboxHttpRedirectClassifier,
 } from "#modules/sandbox/durable-host-dispatcher";
@@ -664,11 +665,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 					}
 					const outcome = yield* dispatchSandboxHttpHop(
 						request,
-						payload.input,
-						principal,
-						payload.lane,
-						executionId,
-						startedAt,
+						hostCallScopeOf(payload, principal, executionId, startedAt),
 						redirect,
 						classify,
 					).pipe(Effect.provideService(HttpClient.HttpClient, httpClient));

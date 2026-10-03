@@ -83,13 +83,30 @@ export const sandboxHttpRedirectClassifier =
 			Effect.orElseSucceed(() => "stop" as const),
 		);
 
-const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(function* (
-	request: HostRequest,
-	context: unknown,
+export interface HostCallScope {
+	readonly context: unknown;
+	readonly executionId: string;
+	readonly lane: ExecutionLane;
+	readonly principal: SandboxExecutionPrincipal;
+	readonly startedAt: string;
+}
+
+export const hostCallScopeOf = (
+	payload: SandboxScriptWorkflowPayloadValue,
 	principal: SandboxExecutionPrincipal,
-	lane: ExecutionLane,
 	executionId: string,
 	startedAt: string,
+): HostCallScope => ({
+	principal,
+	startedAt,
+	executionId,
+	lane: payload.lane,
+	context: payload.input,
+});
+
+const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(function* (
+	request: HostRequest,
+	{ lane, context, principal, startedAt, executionId }: HostCallScope,
 ) {
 	if (
 		request.name !== request.args.capability ||
@@ -126,20 +143,9 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivity")(function* (
 	implementations: SandboxHostImplementations["Service"],
 	request: HostRequest,
-	context: unknown,
-	principal: SandboxExecutionPrincipal,
-	lane: ExecutionLane,
-	executionId: string,
-	startedAt: string,
+	scope: HostCallScope,
 ) {
-	const { input } = yield* loadDispatchInput(
-		request,
-		context,
-		principal,
-		lane,
-		executionId,
-		startedAt,
-	);
+	const { input } = yield* loadDispatchInput(request, scope);
 	const boundFunctions = bindSandboxHostFunctions(
 		{
 			...implementations.runtime,
@@ -176,15 +182,11 @@ const encodeHttpCallResult = Schema.encodeUnknownEffect(sandboxHostContracts.htt
  */
 export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(function* (
 	request: HostRequest,
-	context: unknown,
-	principal: SandboxExecutionPrincipal,
-	lane: ExecutionLane,
-	executionId: string,
-	startedAt: string,
+	scope: HostCallScope,
 	redirect: SandboxHttpRedirect | null,
 	classify: SandboxHttpClassify,
 ) {
-	yield* loadDispatchInput(request, context, principal, lane, executionId, startedAt);
+	yield* loadDispatchInput(request, scope);
 	const outcome = yield* Effect.gen(function* () {
 		const [method, url, options] = yield* decodeSandboxHostArguments(
 			"httpCall",
@@ -229,19 +231,10 @@ export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(functi
 
 export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents")(function* (
 	request: HostRequest,
-	payload: SandboxScriptWorkflowPayloadValue,
-	principal: SandboxExecutionPrincipal,
-	executionId: string,
-	startedAt: string,
+	scope: HostCallScope,
 ) {
-	const { input } = yield* loadDispatchInput(
-		request,
-		payload.input,
-		principal,
-		payload.lane,
-		executionId,
-		startedAt,
-	);
+	const { input } = yield* loadDispatchInput(request, scope);
+	const { principal } = scope;
 	const args = yield* Schema.decodeUnknownEffect(sandboxHostContracts.createEvents.args)(
 		request.args.args,
 	).pipe(
@@ -276,19 +269,9 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 	function* (
 		{ lifecycle }: SandboxHostImplementations["Service"],
 		request: HostRequest,
-		payload: SandboxScriptWorkflowPayloadValue,
-		principal: SandboxExecutionPrincipal,
-		executionId: string,
-		startedAt: string,
+		scope: HostCallScope,
 	) {
-		const { input } = yield* loadDispatchInput(
-			request,
-			payload.input,
-			principal,
-			payload.lane,
-			executionId,
-			startedAt,
-		);
+		const { input } = yield* loadDispatchInput(request, scope);
 		const capability = request.args.capability;
 		const validateLifecycleInput = Effect.fnUntraced(function* () {
 			if (capability === "upsertGlobalEntities") {
@@ -343,21 +326,9 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 );
 
 export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotification")(
-	function* (
-		request: HostRequest,
-		payload: SandboxScriptWorkflowPayloadValue,
-		principal: SandboxExecutionPrincipal,
-		executionId: string,
-		startedAt: string,
-	) {
-		const { input } = yield* loadDispatchInput(
-			request,
-			payload.input,
-			principal,
-			payload.lane,
-			executionId,
-			startedAt,
-		);
+	function* (request: HostRequest, scope: HostCallScope) {
+		const { input } = yield* loadDispatchInput(request, scope);
+		const { principal } = scope;
 		const args = yield* Schema.decodeUnknownEffect(sandboxHostContracts.sendNotification.args)(
 			request.args.args,
 		).pipe(
@@ -407,11 +378,12 @@ export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHos
 		return yield* dispatchSandboxHostActivity(
 			yield* SandboxHostImplementations,
 			payload.request,
-			payload.sandbox.input,
-			payload.principal,
-			payload.sandbox.lane,
-			payload.parentExecutionId,
-			payload.startedAt,
+			hostCallScopeOf(
+				payload.sandbox,
+				payload.principal,
+				payload.parentExecutionId,
+				payload.startedAt,
+			),
 		);
 	},
 );

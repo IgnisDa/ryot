@@ -31,6 +31,7 @@ import {
 } from "./execution";
 import { triggerFixture, queuedRunFixture } from "./lifecycle.test-support";
 import {
+	behave,
 	executionIdOf,
 	operationsLive,
 	policyOutput,
@@ -206,6 +207,13 @@ layer(executionLayer)((test) => {
 		"settles required hooks after one re-check outside a workflow and never awaits async hooks",
 		() =>
 			Effect.gen(function* () {
+				yield* behave({
+					"held-async": { hold: true },
+					"retry-failed": { fail: true },
+					"skipped-outside": { closed: true },
+					"submission-failed": { rejectSubmission: true },
+					"submission-failed-async": { rejectSubmission: true },
+				});
 				const service = yield* LifecycleExecution;
 				const fiber = yield* outside(
 					service.after({
@@ -240,6 +248,7 @@ layer(executionLayer)((test) => {
 		"counts an attempt that finished before the deadline even when its run exits after it",
 		() =>
 			Effect.gen(function* () {
+				yield* behave({ "late-success": { lateExit: true } });
 				const service = yield* LifecycleExecution;
 				const fiber = yield* outside(
 					service.after({ triggerId: trigger.id, runs: [run("late-success")] }),
@@ -252,6 +261,7 @@ layer(executionLayer)((test) => {
 		"resumes a waiting workflow when each required hook completes and submits each hook once",
 		() =>
 			Effect.gen(function* () {
+				yield* behave({ "held-first": { hold: true }, "held-second": { hold: true } });
 				yield* startParent("wake", ["held-first", "held-second"]);
 				expect(yield* parentResult("wake")).toBeUndefined();
 				const starts = yield* parentStarts("wake");
@@ -268,6 +278,7 @@ layer(executionLayer)((test) => {
 
 	test.effect("records a pending hook at the deadline and keeps that outcome on replay", () =>
 		Effect.gen(function* () {
+			yield* behave({ "held-deadline": { hold: true } });
 			yield* startParent("deadline", ["held-deadline"], { gated: true });
 			yield* TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS);
 			yield* release("held-deadline");
@@ -282,6 +293,7 @@ layer(executionLayer)((test) => {
 
 	test.effect("counts a hook whose attempt finished before the deadline it lost the race to", () =>
 		Effect.gen(function* () {
+			yield* behave({ "late-in-workflow": { lateExit: true } });
 			yield* startParent("late-exit", ["late-in-workflow"]);
 			yield* TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS);
 			expect(yield* parentResult("late-exit")).toEqual(Exit.succeed([]));
@@ -305,6 +317,10 @@ layer(executionLayer)((test) => {
 
 	test.effect("never starts a hook whose submission failed or was closed before it", () =>
 		Effect.gen(function* () {
+			yield* behave({
+				"skipped-wf": { closed: true },
+				"submission-failed-wf": { rejectSubmission: true },
+			});
 			yield* startParent("unsubmitted", ["submission-failed-wf", "skipped-wf", "success-wf"]);
 			expect(yield* parentResult("unsubmitted")).toEqual(
 				Exit.succeed([pendingWarning("submission-failed-wf"), pendingWarning("skipped-wf")]),
@@ -320,6 +336,7 @@ layer(executionLayer)((test) => {
 
 	test.effect("gives each wait in one workflow its own deadline", () =>
 		Effect.gen(function* () {
+			yield* behave({ "held-two-waits": { hold: true } });
 			yield* startParent("two-waits", ["held-two-waits"], { laterRuns: ["success-later"] });
 			yield* TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS);
 			expect(yield* parentResult("two-waits")).toEqual(
@@ -330,6 +347,13 @@ layer(executionLayer)((test) => {
 
 	test.effect("returns policy output only for a policy that succeeds before the deadline", () =>
 		Effect.gen(function* () {
+			yield* behave({
+				"held-policy": { hold: true },
+				"skipped-policy": { closed: true },
+				"policy-accepted": { policy: true },
+				"policy-failed": { fail: true, policy: true },
+				"submission-failed-policy": { rejectSubmission: true },
+			});
 			const service = yield* LifecycleExecution;
 			const policy = (runId: string) =>
 				service.executePolicy({
@@ -365,6 +389,7 @@ layer(executionLayer)((test) => {
 		"dispatches plans in order with blocked warnings and rejects an open transaction",
 		() =>
 			Effect.gen(function* () {
+				yield* behave({ "first-failed": { fail: true }, "second-failed": { fail: true } });
 				const control = yield* RunControl;
 				const blockedReason = {
 					omittedHooks: [],
