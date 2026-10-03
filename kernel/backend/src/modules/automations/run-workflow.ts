@@ -5,7 +5,7 @@ import {
 	AutomationRunAttempt,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
@@ -48,4 +48,47 @@ export const AutomationRunWorkflow = Workflow.make("AutomationRunWorkflow", {
 	payload: AutomationRunWorkflowPayload satisfies DurableSchema,
 	idempotencyKey: ({ runId, attemptNumber }) =>
 		automationAttemptIdentity(runId, attemptNumber).workflowExecutionId,
+});
+
+export const settledAutomationRunResult = (
+	stage: "after" | "before",
+	attempt: AutomationRunAttempt,
+): Effect.Effect<AutomationRunWorkflowResult, DbError> =>
+	Effect.map(
+		stage === "before" && attempt.status === "succeeded"
+			? Schema.decodeUnknownEffect(AutomationPolicyOutput)(attempt.returnedValue).pipe(
+					Effect.mapError(
+						() => new DbError({ message: "Automation policy outcome is unavailable" }),
+					),
+				)
+			: Effect.succeed(null),
+		(policyOutput) => ({
+			policyOutput,
+			attempt: Schema.decodeSync(AutomationAttemptResult)(attempt),
+		}),
+	);
+
+export const AutomationObservation = Schema.Union([
+	Schema.TaggedStruct("completed", { result: AutomationRunWorkflowResult }),
+	Schema.TaggedStruct("expired", {}),
+]);
+export type AutomationObservation = typeof AutomationObservation.Type;
+
+export const AutomationObservationWorkflowPayload = Schema.Struct({
+	...AutomationRunWorkflowPayload.fields,
+	deadline: Schema.Finite,
+});
+export type AutomationObservationWorkflowPayload = typeof AutomationObservationWorkflowPayload.Type;
+
+export const automationObservationExecutionId = (runId: AutomationRunId, attemptNumber: number) =>
+	`${automationAttemptIdentity(runId, attemptNumber).workflowExecutionId}-observation`;
+
+// A short-lived observer owns the deadline race, so a losing clock or a late run exit only reaches a
+// completed workflow and never wakes the long-lived workflow that waits for the outcome.
+export const AutomationObservationWorkflow = Workflow.make("AutomationObservationWorkflow", {
+	error: DbError satisfies DurableSchema,
+	success: AutomationObservation satisfies DurableSchema,
+	payload: AutomationObservationWorkflowPayload satisfies DurableSchema,
+	idempotencyKey: ({ runId, attemptNumber }) =>
+		automationObservationExecutionId(runId, attemptNumber),
 });

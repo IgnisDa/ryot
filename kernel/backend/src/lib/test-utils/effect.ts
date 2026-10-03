@@ -1,5 +1,7 @@
+import { BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect";
+import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
 import { Workflow } from "effect/workflow";
 import {
 	layerMemory as workflowEngineMemoryLayer,
@@ -87,6 +89,30 @@ export const makeWorkflowEngine = (
 	);
 
 export const workflowEngineTestLayer = workflowEngineMemoryLayer;
+
+// The cluster engine persists its messages in a schema private to the calling scope.
+export const makeSqlClusterWorkflowEngine = Effect.fnUntraced(function* () {
+	const admin = yield* PgClient.make({ url: Redacted.make(testDatabaseUrl()) });
+	const schemaName = `workflow_${crypto.randomUUID().replaceAll("-", "")}`;
+	yield* Effect.acquireRelease(admin.unsafe(`CREATE SCHEMA "${schemaName}"`), () =>
+		admin.unsafe(`DROP SCHEMA "${schemaName}" CASCADE`).pipe(Effect.orDie),
+	);
+	return ClusterWorkflowEngine.layer.pipe(
+		Layer.provide(
+			SingleRunner.layer({
+				runnerStorage: "sql",
+				shardingConfig: { shardLockDisableAdvisory: true },
+			}),
+		),
+		Layer.provide(
+			PgClient.layer({
+				url: Redacted.make(testDatabaseUrl()),
+				startupParameters: { search_path: schemaName },
+			}),
+		),
+		Layer.provide(BunServices.layer),
+	);
+});
 
 export const makeRedisService = (
 	overrides: Partial<RedisService["Service"]> = {},

@@ -1,23 +1,10 @@
 import { BunServices } from "@effect/platform-bun";
-import { PgClient } from "@effect/sql-pg";
 import { assert, expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import type { WorkflowReplayEnvelope } from "@ryot-app/sandbox-sdk/workflow";
-import {
-	Cause,
-	Deferred,
-	Effect,
-	Exit,
-	Fiber,
-	Layer,
-	Option,
-	Redacted,
-	Schema,
-	type Scope,
-} from "effect";
-import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
+import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option, Schema, type Scope } from "effect";
 import { PersistedQueue } from "effect/persistence";
 import { Reactivity } from "effect/reactivity";
 import { DurableDeferred, Workflow } from "effect/workflow";
@@ -35,8 +22,11 @@ import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { testDatabaseUrl } from "#lib/test-utils/database";
-import { fakeDatabaseSession, makeRedisService } from "#lib/test-utils/effect";
+import {
+	fakeDatabaseSession,
+	makeRedisService,
+	makeSqlClusterWorkflowEngine,
+} from "#lib/test-utils/effect";
 import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
@@ -626,29 +616,6 @@ it.effect("checks account generation before a persisted completion can be read",
 	}),
 );
 
-const makeSqlClusterEngine = Effect.fnUntraced(function* () {
-	const admin = yield* PgClient.make({ url: Redacted.make(testDatabaseUrl()) });
-	const schemaName = `checkpoint_${crypto.randomUUID().replaceAll("-", "")}`;
-	yield* Effect.acquireRelease(admin.unsafe(`CREATE SCHEMA "${schemaName}"`), () =>
-		admin.unsafe(`DROP SCHEMA "${schemaName}" CASCADE`).pipe(Effect.orDie),
-	);
-	return ClusterWorkflowEngine.layer.pipe(
-		Layer.provide(
-			SingleRunner.layer({
-				runnerStorage: "sql",
-				shardingConfig: { shardLockDisableAdvisory: true },
-			}),
-		),
-		Layer.provide(
-			PgClient.layer({
-				url: Redacted.make(testDatabaseUrl()),
-				startupParameters: { search_path: schemaName },
-			}),
-		),
-		Layer.provide(BunServices.layer),
-	);
-});
-
 it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices: true })(
 	(test) => {
 		test.effect(
@@ -656,7 +623,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 			() =>
 				Effect.scoped(
 					Effect.gen(function* () {
-						const engineLayer = yield* makeSqlClusterEngine();
+						const engineLayer = yield* makeSqlClusterWorkflowEngine();
 						const h = makeHarness();
 						const dispatches: number[] = [];
 						const resumed = yield* Deferred.make<void>();
@@ -782,7 +749,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 		])("keeps only necessary app body activations for $kind", ({ child, checkpointCount }) =>
 			Effect.scoped(
 				Effect.gen(function* () {
-					const engineLayer = yield* makeSqlClusterEngine();
+					const engineLayer = yield* makeSqlClusterWorkflowEngine();
 					const h = makeHarness();
 					const signal = DurableDeferred.make("checkpoint-test-release", { success: Schema.Void });
 					const checkpointsReady = yield* Deferred.make<void>();

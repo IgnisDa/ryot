@@ -12,7 +12,11 @@ import { SandboxRepository } from "#modules/sandbox/repository";
 import { SignalSchemasRepositoryLive } from "#modules/signals/layer";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
-import { AutomationExecutionOperationsLive, LifecycleExecutionLive } from "./execution";
+import {
+	AutomationExecutionOperationsLive,
+	AutomationObservationWorkflowDefinitionsLive,
+	LifecycleExecutionLive,
+} from "./execution";
 import { AutomationHistoryRepository } from "./history-repository";
 import { AutomationHistoryService } from "./history-service";
 import { NotificationSubscriptionsService } from "./notification-subscriptions-service";
@@ -35,8 +39,13 @@ export const AutomationRepositoriesLive = Layer.mergeAll(
 );
 
 export const AutomationExecutionOperationsServiceLive = AutomationExecutionOperationsLive.pipe(
-	Layer.provide(AutomationRunRepository.layer),
+	Layer.provide(Layer.merge(AutomationRunRepository.layer, AutomationAttemptRepository.layer)),
 );
+
+export const AutomationObservationWorkflowDefinitionsProvidedLive =
+	AutomationObservationWorkflowDefinitionsLive.pipe(
+		Layer.provide(AutomationExecutionOperationsServiceLive),
+	);
 
 const plannerResolver = AutomationPlannerResolver.layer.pipe(
 	Layer.provide(PluginRepositoryLive),

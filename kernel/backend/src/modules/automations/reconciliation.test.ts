@@ -1,12 +1,12 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
-import { Context, DateTime, Effect, Fiber, Layer, Ref } from "effect";
+import { Context, DateTime, Duration, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
 import { databaseLayer } from "#lib/test-utils/effect";
 
-import { automationAttemptIdentity } from "./attempt-repository";
+import { AutomationAttemptRepository, automationAttemptIdentity } from "./attempt-repository";
 import {
 	AUTOMATION_IMMEDIATE_CONCURRENCY,
 	AUTOMATION_IMMEDIATE_TIMEOUT_MS,
@@ -92,6 +92,7 @@ const liveSubmissionLayer = Layer.unwrap(
 					findById: (id) => Effect.succeed(queuedRunFixture(id)),
 				}),
 			),
+			Layer.provide(AutomationAttemptRepository.layer),
 			Layer.provideMerge(databaseLayer),
 			Layer.provideMerge(recordingRunWorkflowEngineLayer()),
 		),
@@ -105,12 +106,16 @@ layer(liveSubmissionLayer)((test) => {
 		"submits missed initial runs and due retries with the same deterministic ID on replay",
 		() =>
 			Effect.gen(function* () {
-				const now = DateTime.toDate(yield* DateTime.now);
+				const current = yield* DateTime.now;
 				yield* reconcile.pipe(Effect.andThen(reconcile));
-				expect(yield* (yield* ReconciliationCalls).reads).toEqual([
-					{ now, limit: AUTOMATION_RECONCILIATION_BATCH_SIZE },
-					{ now, limit: AUTOMATION_RECONCILIATION_BATCH_SIZE },
-				]);
+				const read = {
+					now: DateTime.toDate(current),
+					limit: AUTOMATION_RECONCILIATION_BATCH_SIZE,
+					initialQueuedBefore: DateTime.toDate(
+						DateTime.subtractDuration(current, Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS)),
+					),
+				};
+				expect(yield* (yield* ReconciliationCalls).reads).toEqual([read, read]);
 				const expected = [candidate("missed"), candidate("retry", 3)].map((run) => ({
 					discard: true,
 					payload: { runId: run.id, acceptedPatches: [], attemptNumber: run.attemptCount + 1 },
