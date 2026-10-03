@@ -11,7 +11,7 @@
 	},
 	"dependencies": {
 		"@conform-to/zod": "1.19.3",
-		"@effect/platform-bun": "4.0.0-rc.117",
+		"@effect/platform-bun": "4.0.0",
 		"@isaacs/ttlcache": "2.1.5",
 		"@marsidev/react-turnstile": "1.5.2",
 		"@paddle/paddle-js": "1.6.4",
@@ -34,7 +34,7 @@
 		"clsx": "2.1.1",
 		"dayjs": "1.11.21",
 		"drizzle-orm": "0.45.2",
-		"effect": "4.0.0-rc.117",
+		"effect": "4.0.0",
 		"embla-carousel-autoplay": "8.6.0",
 		"embla-carousel-react": "8.6.0",
 		"humanize-duration-ts": "2.1.1",

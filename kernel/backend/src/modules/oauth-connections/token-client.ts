@@ -1,6 +1,6 @@
 import type { PluginOAuthProvider } from "@ryot-app/contract/modules/plugins/manifest";
 import { Context, Data, Duration, Effect, Layer, Option, Schema } from "effect";
-import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 
 import { readSandboxByteLimitedText } from "#lib/infrastructure/sandbox-runtime/stream-utils";
 

@@ -1,7 +1,7 @@
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { Cause, Clock, Effect, type Exit, Option, Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
 	recordProviderImportBodyOutcome,

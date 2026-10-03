@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { BackupRunId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { HttpClient, HttpClientResponse, type HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientResponse, type HttpClientRequest } from "effect/http";
 
 import { AuthenticatedApi, makeAuthenticatedApi } from "#/api/authenticated";
 import { BackupsApi, backupArchiveFileName } from "#/api/backups";

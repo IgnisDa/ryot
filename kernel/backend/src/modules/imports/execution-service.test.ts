@@ -1,8 +1,8 @@
 import { expect, it } from "@effect/vitest";
 import { Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { TestClock } from "effect/testing";
-import { Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";

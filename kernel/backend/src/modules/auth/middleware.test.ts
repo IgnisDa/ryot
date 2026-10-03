@@ -16,8 +16,8 @@ import {
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Redacted } from "effect";
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { unhandled } from "effect/Types";
-import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
 import {
 	credentialFromHeaders,

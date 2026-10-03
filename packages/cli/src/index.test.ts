@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { expect, it, layer } from "@effect/vitest";
 import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive } from "@ryot-app/plugin-archive";
 import { Data, Effect, FileSystem, Path, Schema, Stream } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const decoder = new TextDecoder();
 

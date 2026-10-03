@@ -18,7 +18,7 @@ import { genericImportKernelInputSchema } from "@ryot-app/sandbox-sdk/imports";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Effect, Exit, Layer, Schema } from "effect";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
 	rootLifecycleCommand,

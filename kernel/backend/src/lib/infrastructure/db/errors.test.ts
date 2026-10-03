@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core";
 import { Cause, Effect } from "effect";
-import { DeadlockError, SqlError, UniqueViolation } from "effect/unstable/sql/SqlError";
+import { DeadlockError, SqlError, UniqueViolation } from "effect/sql/SqlError";
 
 import {
 	databaseError,

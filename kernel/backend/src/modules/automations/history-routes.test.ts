@@ -1,5 +1,5 @@
 import { AppContract } from "@ryot-app/contract/contract";
-import { OpenApi } from "effect/unstable/httpapi";
+import { OpenApi } from "effect/http-api";
 import { expect, it } from "vitest";
 
 it("keeps retry on the OAuth/API-key auth boundary without history reads", () => {

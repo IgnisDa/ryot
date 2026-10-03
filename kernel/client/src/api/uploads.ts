@@ -1,6 +1,6 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
 import { Context, Effect, Layer } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/unstable/http";
+import { HttpClient, HttpClientRequest } from "effect/http";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
 import { resolveApiUrl } from "#/api/origin";

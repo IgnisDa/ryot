@@ -12,8 +12,8 @@ import {
 	workflowDurableResultSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
 import { Cause, Clock, Duration, Effect, Layer, Schema } from "effect";
-import { DurableClock } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { DurableClock } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import {

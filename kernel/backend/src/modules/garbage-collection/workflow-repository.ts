@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
-import { type Envelope, type Reply, ShardId } from "effect/unstable/cluster";
+import { type Envelope, type Reply, ShardId } from "effect/cluster";
 
 import { workflowExecution as table } from "#lib/infrastructure/db/schema/tables/workflow-executions";
 import { DatabaseSession } from "#lib/infrastructure/db/session";

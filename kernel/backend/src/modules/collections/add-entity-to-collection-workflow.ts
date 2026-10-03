@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/contract/modules/collections/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
-import { Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { RelationshipSingleResult } from "#modules/relationships/mutation-pipeline";

@@ -1,16 +1,7 @@
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import { ServerLogsFailure, ServerLogsNotFound } from "@ryot-app/contract/modules/god-mode/logs";
-import {
-	Context,
-	DateTime,
-	Effect,
-	Encoding,
-	FileSystem,
-	Layer,
-	Option,
-	Path,
-	Stream,
-} from "effect";
+import { Context, DateTime, Effect, FileSystem, Layer, Option, Path, Stream } from "effect";
+import { Base64Url } from "effect/encoding";
 import { Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -21,9 +12,7 @@ type LogFile = ContractSuccess<"serverLogs", "list">["files"][number];
 const unavailable = () => new ServerLogsNotFound({ reason: { code: "log-file-unavailable" } });
 const failed = () => new ServerLogsFailure({ reason: { code: "log-read-failed" } });
 const fileId = (name: string, stat: FileSystem.File.Info) =>
-	Encoding.encodeBase64Url(
-		new TextEncoder().encode(`${name}\0${stat.dev}\0${Option.getOrNull(stat.ino)}`),
-	);
+	Base64Url.encode(new TextEncoder().encode(`${name}\0${stat.dev}\0${Option.getOrNull(stat.ino)}`));
 
 export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: string) {
 	const fs = yield* FileSystem.FileSystem;

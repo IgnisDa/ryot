@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Effect, FileSystem, Layer, Path, Stream } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { bundleSandboxPackage } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";

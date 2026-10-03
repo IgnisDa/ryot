@@ -1,8 +1,8 @@
 {
 	"lock": false,
 	"imports": {
-		"@ryot-app/sandbox-sdk/effect": "npm:effect@4.0.0-rc.117",
-		"effect": "npm:effect@4.0.0-rc.117",
+		"@ryot-app/sandbox-sdk/effect": "npm:effect@4.0.0",
+		"effect": "npm:effect@4.0.0",
 		"@ryot-app/contract/modules/plugins/execution-metadata": "../../../../../../packages/contract/src/modules/plugins/execution-metadata.ts",
 		"@ryot-app/contract/modules/sandbox/boundary-reason": "../../../../../../packages/contract/src/modules/sandbox/boundary-reason.ts",
 		"../../../../../../packages/contract/src/modules/sandbox/wire": "../../../../../../packages/contract/src/modules/sandbox/wire.ts",

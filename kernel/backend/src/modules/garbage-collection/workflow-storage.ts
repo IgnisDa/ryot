@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { MessageStorage, Snowflake, SqlMessageStorage } from "effect/unstable/cluster";
+import { MessageStorage, Snowflake, SqlMessageStorage } from "effect/cluster";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 

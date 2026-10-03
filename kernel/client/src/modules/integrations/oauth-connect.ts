@@ -341,6 +341,9 @@ export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
 				const attempt = runtimeClient.isNative ? connectNative(input) : startWeb(input);
 				return Effect.raceFirst(
 					attempt.pipe(
+						Effect.map((outcome) =>
+							outcome.kind === "pending" ? failed(MESSAGES.expired) : outcome,
+						),
 						Effect.timeoutOption(ATTEMPT_TIMEOUT),
 						Effect.map(Option.getOrElse(() => failed(MESSAGES.expired))),
 					),

@@ -130,10 +130,10 @@ const isPromise = (context, node, seen = new Set()) => {
 };
 
 const isWorkflowFactory = (context, node) =>
-	importedFrom(context, node, "effect/unstable/workflow", "Workflow") ||
+	importedFrom(context, node, "effect/workflow", "Workflow") ||
 	(node.type === "MemberExpression" &&
 		propertyName(node) === "Workflow" &&
-		importedFrom(context, node.object, "effect/unstable/workflow", "*"));
+		importedFrom(context, node.object, "effect/workflow", "*"));
 
 const isWorkflow = (context, node, seen = new Set()) => {
 	if (node.type === "Identifier") {

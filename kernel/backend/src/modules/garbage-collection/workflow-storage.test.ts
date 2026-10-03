@@ -2,8 +2,8 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { Clock, Effect, Exit, Layer, Option, Redacted, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
-import { DurableDeferred, Workflow } from "effect/unstable/workflow";
-import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+import { DurableDeferred, Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { workflowExecution } from "#lib/infrastructure/db/schema/tables/workflow-executions";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
