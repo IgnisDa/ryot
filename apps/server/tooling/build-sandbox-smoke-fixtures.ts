@@ -25,9 +25,11 @@ const ambientGlobals = [
 	"Worker",
 	"SharedWorker",
 ];
-const entryForTier = (tier: (typeof smokeTiers)[number]) => `${tier}.sandbox.ts`;
+type SmokeTier = (typeof smokeTiers)[number];
 
-const makeDefinitionSource = (tier: (typeof smokeTiers)[number]) => {
+const entryForTier = (tier: SmokeTier) => `${tier}.sandbox.ts`;
+
+const makeDefinitionSource = (tier: SmokeTier) => {
 	let dependencyImports = "";
 	let dependencyProbe = "";
 	if (tier === "data") {
@@ -101,7 +103,7 @@ export const buildSandboxSmokeFixtures = Effect.gen(function* () {
 		Object.fromEntries(smokeTiers.map((tier) => [entryForTier(tier), makeDefinitionSource(tier)])),
 		smokeTiers.map((tier) => ({ entry: entryForTier(tier), kind: smokeSourceManifest.kind })),
 	);
-	const fixtureForTier = Effect.fnUntraced(function* (tier: (typeof smokeTiers)[number]) {
+	const fixtureForTier = Effect.fnUntraced(function* (tier: SmokeTier) {
 		const fixture = compiled.find(({ entry }) => entry === entryForTier(tier));
 		if (fixture === undefined) {
 			return yield* new SandboxSmokeFixtureError({

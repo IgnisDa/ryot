@@ -1,7 +1,7 @@
 import type { SandboxSourceExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
 import type { ProviderOperation } from "@ryot-app/sandbox-sdk/provider";
-import { Effect, Result } from "effect";
+import { Effect } from "effect";
 import * as ts from "typescript/unstable/ast";
 import { DiagnosticCategory } from "typescript/unstable/async";
 
@@ -14,13 +14,13 @@ import {
 	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
-import { finalizeCompiledManifest, validateSandboxCapabilities } from "./compiler-metadata";
+import { finalizeCompiledModule, validateSandboxCapabilities } from "./compiler-metadata";
 import {
 	createTypeScriptSourcesProjectForEntries,
 	sandboxSourcePath,
 	type SandboxTypeScriptSources,
 } from "./compiler-project";
-import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
+import type { CompiledSandboxModule } from "./compiler-protocol";
 import {
 	inspectSandboxModuleImports,
 	inspectSandboxSource,
@@ -335,31 +335,22 @@ const compileValidatedSandboxEntries = (
 					sandboxCompilerDiagnostic("RYOT_BUNDLE", `Compiler returned no output for ${entry}`),
 				]);
 			}
-			if (utf8ByteLength(output.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
-				return sandboxCompilationFailure([
-					sandboxCompilerDiagnostic(
-						"RYOT_COMPILED_SIZE",
-						`Compiled sandbox module exceeds ${SANDBOX_COMPILER_LIMITS.javascriptBytes} UTF-8 bytes`,
-					),
-				]);
-			}
-			const finalManifest = finalizeCompiledManifest(manifest, {
-				...metadata,
+			return finalizeCompiledModule({
+				manifest,
+				metadata,
+				javascript: output.javascript,
 				runtimeImports: output.runtimeImports,
-			});
-			if (Result.isFailure(finalManifest)) {
-				return sandboxCompilationFailure([finalManifest.failure]);
-			}
-			return Effect.succeed({
-				entry,
-				source,
-				providerOperation: inspection.providerOperation,
-				compiled: {
-					javascript: output.javascript,
-					manifest: finalManifest.success,
-					format: SANDBOX_COMPILED_FORMAT,
-				},
-			} satisfies CompiledBuiltInSandboxEntry);
+			}).pipe(
+				Effect.map(
+					(compiled) =>
+						({
+							entry,
+							source,
+							compiled,
+							providerOperation: inspection.providerOperation,
+						}) satisfies CompiledBuiltInSandboxEntry,
+				),
+			);
 		});
 	});
 

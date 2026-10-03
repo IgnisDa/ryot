@@ -1,29 +1,7 @@
 import { Effect, FileSystem } from "effect";
 
-import {
-	createAuthenticatedClient,
-	enqueueSandboxScript,
-	httpCallFailureSandboxSource,
-	installSandboxScriptScoped,
-	pollSandboxResult,
-	requireCompletedSandboxValue,
-} from "~/fixtures/kernel";
+import { runSandboxHttpCall } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
-
-const runHttpCall = (url: string) =>
-	Effect.gen(function* () {
-		const { client, userId } = yield* createAuthenticatedClient();
-		const slug = `egress-scheme-${crypto.randomUUID()}`;
-		const { scriptId } = yield* installSandboxScriptScoped({
-			slug,
-			client,
-			name: "egress-scheme",
-			capabilities: ["httpCall"],
-			source: httpCallFailureSandboxSource({ url, slug, name: "egress-scheme" }),
-		});
-		const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
-		return requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId));
-	});
 
 describe("sandbox httpCall egress schemes", () => {
 	it.live("denies file: URLs on the host", () =>
@@ -33,7 +11,7 @@ describe("sandbox httpCall egress schemes", () => {
 			const path = yield* fs.makeTempFileScoped();
 			yield* fs.writeFileString(path, marker);
 
-			expect(yield* runHttpCall(`file://${path}`)).toMatchObject({
+			expect(yield* runSandboxHttpCall("egress-scheme", `file://${path}`)).toMatchObject({
 				success: false,
 				data: { code: "destination-denied" },
 			});
@@ -44,10 +22,9 @@ describe("sandbox httpCall egress schemes", () => {
 		Effect.gen(function* () {
 			const marker = `egress-data-${crypto.randomUUID()}`;
 
-			expect(yield* runHttpCall(`data:text/plain,${marker}`)).toMatchObject({
-				success: false,
-				data: { code: "destination-denied" },
-			});
+			expect(yield* runSandboxHttpCall("egress-scheme", `data:text/plain,${marker}`)).toMatchObject(
+				{ success: false, data: { code: "destination-denied" } },
+			);
 		}),
 	);
 });
