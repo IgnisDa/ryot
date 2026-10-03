@@ -1,3 +1,4 @@
+import { imagesField } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { describe, expect, it } from "vitest";
 
@@ -846,5 +847,73 @@ describe("timezone format", () => {
 				"Timezone has an invalid format",
 			);
 		}
+	});
+});
+
+describe("asset lists", () => {
+	const assetSchema = {
+		fields: { images: imagesField("Images"), note: { ...described("Note"), type: "string" } },
+	} satisfies AppSchema;
+	const locators = [
+		{ type: "local", key: "images/a.png" },
+		{ type: "remote", url: "https://example.test/b.png" },
+	] as const;
+
+	it("renders an asset array as an assets control instead of an unsupported field", () => {
+		const description = describeSchemaFormFields(assetSchema);
+
+		expect(description.unsupported).toEqual([]);
+		expect(description.fields).toEqual([
+			expect.objectContaining({ key: "images", type: "assets", control: "assets" }),
+			expect.objectContaining({ key: "note" }),
+		]);
+	});
+
+	it("passes locator arrays through the payload unchanged and keeps an emptied list", () => {
+		expect(toSchemaFormPayload(assetSchema, { note: "x", images: locators })).toEqual({
+			note: "x",
+			images: locators,
+		});
+		expect(toSchemaFormPayload(assetSchema, { images: [] })).toEqual({ images: [] });
+	});
+
+	it("keeps declared locator defaults and rejects malformed lists", () => {
+		const defaulted = {
+			fields: { images: { ...imagesField("Images"), defaultValue: locators } },
+		} satisfies AppSchema;
+
+		expect(initialSchemaFormValues(defaulted)).toEqual({ images: locators });
+		expect(validateSchemaFormValues(assetSchema, { images: locators }).size).toBe(0);
+		expect(validateSchemaFormValues(assetSchema, { images: ["not-a-locator"] }).get("images")).toBe(
+			"Images has an invalid value",
+		);
+	});
+});
+
+describe("immutable properties", () => {
+	const immutableSchema = {
+		fields: {
+			name: { ...described("Name"), type: "string" },
+			kind: { ...described("Kind"), type: "string", immutable: true },
+		},
+	} satisfies AppSchema;
+
+	const readOnlyOf = (mode: "create" | "edit") =>
+		Object.fromEntries(
+			describeSchemaFormFields(immutableSchema, {}, mode).fields.map(
+				({ key, readOnly }) => [key, readOnly] as const,
+			),
+		);
+
+	it("marks an immutable field read-only only when editing", () => {
+		expect(readOnlyOf("edit")).toEqual({ kind: true, name: false });
+		expect(readOnlyOf("create")).toEqual({ kind: false, name: false });
+	});
+
+	it("still submits a read-only value so the server sees it unchanged", () => {
+		expect(toSchemaFormPayload(immutableSchema, { name: "n", kind: "reps" })).toEqual({
+			name: "n",
+			kind: "reps",
+		});
 	});
 });

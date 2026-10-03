@@ -1,3 +1,4 @@
+import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { useForm } from "@tanstack/react-form";
 import { Match } from "effect";
@@ -11,7 +12,9 @@ import { SegmentedControl } from "../segmented-control";
 import { Select } from "../select";
 import { Switch } from "../switch";
 import { FieldMessage, TextField } from "../text-field";
-import { pickBrowserUploadFile } from "./file/browser-file";
+import { SchemaAssetField } from "./asset/field";
+import type { SchemaAssetUpload } from "./asset/upload";
+import { pickBrowserMediaFile, pickBrowserUploadFile } from "./file/browser-file";
 import { SchemaFileField, type SchemaFileIcons } from "./file/field";
 import type { SchemaFileUpload } from "./file/upload";
 import type { SchemaOAuthConnect } from "./oauth/connect";
@@ -46,6 +49,8 @@ const timeZoneChoices = (current: string) => {
 const emptySchemaFormValues: SchemaFormValues = {};
 
 const UNSUPPORTED_FIELDS_MESSAGE = "Some fields are not supported in this app version.";
+
+const READ_ONLY_MESSAGE = "Can't be changed after creation";
 
 export function useSchemaForm(props: {
 	mode?: SchemaFormMode;
@@ -90,7 +95,10 @@ const isNumericField = (field: SchemaFormField) =>
 	field.type === "number" || field.type === "integer";
 
 const schemaArray = (value: SchemaFormValue): readonly SchemaFormArrayValue[] =>
-	Array.isArray(value) ? value : [];
+	Array.isArray(value) ? value.filter((item) => typeof item !== "object") : [];
+
+const schemaAssets = (value: SchemaFormValue): readonly AssetLocator[] =>
+	Array.isArray(value) ? value.filter((item) => typeof item === "object") : [];
 
 const schemaStringArray = (value: SchemaFormValue): readonly string[] =>
 	schemaArray(value).filter((item): item is string => typeof item === "string");
@@ -243,7 +251,9 @@ function SchemaFieldControl(props: {
 	readonly uploadFile: SchemaFileUpload;
 	readonly inputRef: Ref<HTMLInputElement>;
 	readonly connectOAuth: SchemaOAuthConnect | undefined;
+	readonly uploadAsset: SchemaAssetUpload | undefined;
 	readonly oauthDisabledReason: string | undefined;
+	readonly renderAsset: SchemaAssetRenderer | undefined;
 	readonly onChange: (value: SchemaFormValue) => void;
 }) {
 	const choices = props.field.choices ?? [];
@@ -257,6 +267,21 @@ function SchemaFieldControl(props: {
 				onSubmitEditing={props.onSubmitEditing}
 			/>
 		)),
+		Match.when("assets", () =>
+			props.uploadAsset === undefined || props.renderAsset === undefined ? (
+				<span className="text-xs text-text-subtle">{UNSUPPORTED_FIELDS_MESSAGE}</span>
+			) : (
+				<SchemaAssetField
+					icons={props.icons}
+					onChange={props.onChange}
+					label={props.field.label}
+					pickFile={pickBrowserMediaFile}
+					uploadAsset={props.uploadAsset}
+					renderAsset={props.renderAsset}
+					value={schemaAssets(props.value)}
+				/>
+			),
+		),
 		Match.when("switch", () => (
 			<div className="flex flex-row items-center gap-2">
 				<Switch
@@ -381,7 +406,9 @@ function SchemaFieldRow(props: {
 	readonly uploadFile: SchemaFileUpload;
 	readonly inputRef: Ref<HTMLInputElement>;
 	readonly connectOAuth: SchemaOAuthConnect | undefined;
+	readonly uploadAsset: SchemaAssetUpload | undefined;
 	readonly oauthDisabledReason: string | undefined;
+	readonly renderAsset: SchemaAssetRenderer | undefined;
 	readonly onChange: (value: SchemaFormValue) => void;
 }) {
 	const retainsSecret = isRetainedSecretField(props.field, props.mode);
@@ -398,19 +425,29 @@ function SchemaFieldRow(props: {
 				{props.field.label}
 				{props.field.required && !retainsSecret ? <span className="text-danger"> *</span> : null}
 			</span>
-			<SchemaFieldControl
-				icons={props.icons}
-				field={props.field}
-				value={props.value}
-				inputRef={props.inputRef}
-				onChange={props.onChange}
-				uploadFile={props.uploadFile}
-				connectOAuth={props.connectOAuth}
-				description={props.field.description}
-				onSubmitEditing={props.onSubmitEditing}
-				oauthDisabledReason={props.oauthDisabledReason}
-			/>
-			{showsDescriptionBelow ? (
+			<fieldset
+				disabled={props.field.readOnly}
+				className="m-0 flex min-w-0 flex-col border-0 p-0 disabled:opacity-60"
+			>
+				<SchemaFieldControl
+					icons={props.icons}
+					field={props.field}
+					value={props.value}
+					inputRef={props.inputRef}
+					onChange={props.onChange}
+					uploadFile={props.uploadFile}
+					uploadAsset={props.uploadAsset}
+					renderAsset={props.renderAsset}
+					connectOAuth={props.connectOAuth}
+					description={props.field.description}
+					onSubmitEditing={props.onSubmitEditing}
+					oauthDisabledReason={props.oauthDisabledReason}
+				/>
+			</fieldset>
+			{props.field.readOnly ? (
+				<span className="text-xs text-text-subtle">{READ_ONLY_MESSAGE}</span>
+			) : null}
+			{showsDescriptionBelow && !props.field.readOnly ? (
 				<span className="text-xs text-text-subtle">{props.field.description}</span>
 			) : null}
 			{retainsSecret ? (
@@ -421,6 +458,8 @@ function SchemaFieldRow(props: {
 	);
 }
 
+export type SchemaAssetRenderer = (asset: AssetLocator) => ReactNode;
+
 export function SchemaForm(props: {
 	readonly title?: string;
 	readonly schema: AppSchema;
@@ -430,14 +469,16 @@ export function SchemaForm(props: {
 	readonly icons: SchemaFormIcons;
 	readonly uploadFile: SchemaFileUpload;
 	readonly connectOAuth?: SchemaOAuthConnect;
+	readonly uploadAsset?: SchemaAssetUpload;
 	readonly oauthDisabledReason?: string;
+	readonly renderAsset?: SchemaAssetRenderer;
 }) {
 	const mode = props.mode ?? "create";
 	const inputs = useRef(new Map<string, HTMLInputElement | null>());
 	return (
 		<props.form.Subscribe selector={(state) => state.values}>
 			{(values) => {
-				const description = describeSchemaFormFields(props.schema, values);
+				const description = describeSchemaFormFields(props.schema, values, mode);
 				if (description.fields.length === 0 && description.unsupported.length === 0) {
 					return null;
 				}
@@ -472,6 +513,8 @@ export function SchemaForm(props: {
 											icons={props.icons}
 											value={formField.value}
 											uploadFile={props.uploadFile}
+											uploadAsset={props.uploadAsset}
+											renderAsset={props.renderAsset}
 											connectOAuth={props.connectOAuth}
 											error={formField.errors[0]?.message}
 											onSubmitEditing={() => submitFrom(field.key)}

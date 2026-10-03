@@ -98,6 +98,10 @@ curve.
   group identity in both themes. `groupColors` lists the names, `groupColorVariable(color, { soft })`
   returns the CSS variable, and `Card` marks its edge with `groupColor`. Pair a color with its name or a
   label, never color alone.
+- `SchemaForm` renders an array of managed-asset objects as a thumbnail grid with add and remove
+  buttons. The caller supplies the `uploadAsset` and `renderAsset` transports; without them the field
+  reports itself unsupported. In `edit` mode a property marked `immutable` renders disabled with
+  "Can't be changed after creation" and still contributes its value to the payload.
 - `DataTable` stays unstyled; tables use 12px subtle headers, divided rows, `hover` row fill, and
   right-aligned tabular numbers.
 

@@ -15,12 +15,12 @@ export const browserFileCandidate = (file: File): SchemaFileCandidate => ({
 	contentType: file.type === "" ? DEFAULT_UPLOAD_CONTENT_TYPE : file.type,
 });
 
-export const pickBrowserUploadFile: SchemaFilePicker = (options) =>
+const pickBrowserFile = (accept: string): Promise<SchemaFilePickOutcome> =>
 	// oxlint-disable-next-line effecttsgo/new-promise -- The browser file input reports selection and cancellation only through DOM events.
 	new Promise((resolve) => {
 		const input = document.createElement("input");
 		input.type = "file";
-		input.accept = fileAcceptAttribute(options.allowedFileExtensions);
+		input.accept = accept;
 		input.style.display = "none";
 		const settle = (outcome: SchemaFilePickOutcome) => {
 			input.remove();
@@ -34,3 +34,8 @@ export const pickBrowserUploadFile: SchemaFilePicker = (options) =>
 		document.body.append(input);
 		input.click();
 	});
+
+export const pickBrowserUploadFile: SchemaFilePicker = (options) =>
+	pickBrowserFile(fileAcceptAttribute(options.allowedFileExtensions));
+
+export const pickBrowserMediaFile = () => pickBrowserFile("image/*,video/*");

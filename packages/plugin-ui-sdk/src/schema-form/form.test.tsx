@@ -1,9 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
+import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { imagesField } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect } from "effect";
 import { useEffect } from "react";
 
+import type { SchemaAssetUpload } from "./asset/upload";
 import type { SchemaFileUpload } from "./file/upload";
 import { SchemaForm, useSchemaForm, type SchemaFormIcons } from "./form";
 import { initialSchemaFormValues, type SchemaFormMode, type SchemaFormValues } from "./state";
@@ -68,6 +71,31 @@ const uploadSchema = {
 			label: "Archive",
 			description: "Archive",
 			format: { kind: "upload", allowedFileExtensions: ["zip"] },
+		},
+	},
+} satisfies AppSchema;
+
+const assetSchema = {
+	fields: {
+		images: {
+			...imagesField("Images"),
+			defaultValue: [
+				{ type: "local", key: "images/a.png" },
+				{ type: "remote", url: "https://example.test/b.png" },
+			],
+		},
+	},
+} satisfies AppSchema;
+
+const immutableSchema = {
+	fields: {
+		name: { label: "Name", type: "string", description: "Name" },
+		kind: {
+			type: "enum",
+			label: "Kind",
+			immutable: true,
+			description: "Kind",
+			choices: { kind: "static", values: [{ value: "reps" }, { value: "duration" }] },
 		},
 	},
 } satisfies AppSchema;
@@ -190,9 +218,17 @@ function OAuthFormHarness() {
 	);
 }
 
+const renderAsset = (asset: AssetLocator) => (
+	<span>{asset.type === "remote" ? asset.url : asset.key}</span>
+);
+
+const uploadAsset: SchemaAssetUpload = () =>
+	Promise.resolve({ kind: "uploaded", asset: { type: "local", key: "images/new.png" } });
+
 function SchemaFormHarness(props: {
 	schema?: AppSchema;
 	mode?: SchemaFormMode;
+	assets?: boolean;
 	onSubmit: (values: SchemaFormValues) => void;
 }) {
 	const selectedSchema = props.schema ?? schema;
@@ -211,6 +247,7 @@ function SchemaFormHarness(props: {
 				uploadFile={uploadNothing}
 				onChange={() => undefined}
 				{...(props.mode === undefined ? {} : { mode: props.mode })}
+				{...(props.assets === true ? { uploadAsset, renderAsset } : {})}
 			/>
 			<button type="button" onClick={() => void form.handleSubmit()}>
 				Search
@@ -482,5 +519,42 @@ describe("SchemaForm", () => {
 		fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Du" } });
 
 		expect(changes).toBe(2);
+	});
+
+	it("renders an asset list with removable tiles and an add control", () => {
+		render(<SchemaFormHarness assets schema={assetSchema} onSubmit={() => undefined} />);
+
+		expect(screen.getByText("images/a.png")).toBeTruthy();
+		expect(screen.getByText("https://example.test/b.png")).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Add Images" })).toBeTruthy();
+		expect(screen.queryByText("Some fields are not supported in this app version.")).toBeNull();
+
+		fireEvent.click(screen.getByRole("button", { name: "Remove Images 1" }));
+
+		expect(screen.queryByText("images/a.png")).toBeNull();
+		expect(screen.getByText("https://example.test/b.png")).toBeTruthy();
+	});
+
+	it("shows the unsupported note for an asset list without an upload transport", () => {
+		render(<SchemaFormHarness schema={assetSchema} onSubmit={() => undefined} />);
+
+		expect(screen.queryByRole("button", { name: "Add Images" })).toBeNull();
+		expect(screen.getByText("Some fields are not supported in this app version.")).toBeTruthy();
+	});
+
+	it("disables an immutable field with an explanation when editing but not when creating", () => {
+		const { unmount } = render(
+			<SchemaFormHarness mode="edit" schema={immutableSchema} onSubmit={() => undefined} />,
+		);
+
+		expect(screen.getByRole("radio", { name: "reps" }).closest("fieldset")?.disabled).toBe(true);
+		expect(screen.getByLabelText("Name").closest("fieldset")?.disabled).toBe(false);
+		expect(screen.getByText("Can't be changed after creation")).toBeTruthy();
+		unmount();
+
+		render(<SchemaFormHarness schema={immutableSchema} onSubmit={() => undefined} />);
+
+		expect(screen.getByRole("radio", { name: "reps" }).closest("fieldset")?.disabled).toBe(false);
+		expect(screen.queryByText("Can't be changed after creation")).toBeNull();
 	});
 });
