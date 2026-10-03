@@ -531,10 +531,13 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 								yield* Effect.exit(Fiber.join(fiber)),
 								new SidecarRecoverySuspended({ instance: "user/core" }),
 							);
-							expect(yield* store.read(victim.executionId, "user/core", pinHash)).toEqual({
-								recoveries: 3,
-								suspended: true,
-							});
+							expect(
+								yield* store.read({
+									pinHash,
+									instance: "user/core",
+									executionId: victim.executionId,
+								}),
+							).toEqual({ recoveries: 3, suspended: true });
 							expect(interrupted).toBe(4);
 						}),
 					);
@@ -568,10 +571,13 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 								success: true,
 								value: { journalLength: 1, state: "completed", output: "committed-result" },
 							});
-							expect(yield* store.read(victim.executionId, "user/core", pinHash)).toEqual({
-								recoveries: 3,
-								suspended: false,
-							});
+							expect(
+								yield* store.read({
+									pinHash,
+									instance: "user/core",
+									executionId: victim.executionId,
+								}),
+							).toEqual({ recoveries: 3, suspended: false });
 							expect(committedDispatches).toBe(1);
 							yield* reconstructed.completeRecovery(result.recovery);
 							expect(yield* redis.get(redisKeys.sandboxRecovery(victim.executionId))).toBeNull();
@@ -682,13 +688,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 					}
 					for (const result of completed) {
 						expect(result).toMatchObject({ success: true, value: "healthy" });
-						expect(
-							yield* store.read(
-								result.recovery.executionId,
-								result.recovery.instance,
-								result.recovery.pinHash,
-							),
-						).toEqual({ recoveries: 1, suspended: false });
+						expect(yield* store.read(result.recovery)).toEqual({ recoveries: 1, suspended: false });
 						yield* supervisor.completeRecovery(result.recovery);
 					}
 					for (const identity of identities) {

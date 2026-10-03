@@ -24,7 +24,7 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 
-import { SandboxRecoveryStore } from "../sandbox-recovery-store";
+import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "../sandbox-recovery-store";
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
 import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./host-call-gate";
 import type { SandboxRunInput } from "./shared";
@@ -377,7 +377,7 @@ const quarantineLayer = Layer.effect(
 const recoveryStoreLayer = Layer.effect(
 	SandboxRecoveryStore,
 	Effect.map(SupervisorTestHarness, (harness) => ({
-		read: (executionId: string, instance: string, pinHash: string) => {
+		read: ({ pinHash, instance, executionId }: SandboxRecoveryIdentity) => {
 			const state = recoveryStateFor(harness, executionId, instance, pinHash);
 			return publishRecoveryCall(
 				harness,
@@ -385,7 +385,7 @@ const recoveryStoreLayer = Layer.effect(
 				state,
 			);
 		},
-		clear: (executionId: string, instance: string, pinHash: string) => {
+		clear: ({ pinHash, instance, executionId }: SandboxRecoveryIdentity) => {
 			const state = recoveryStateFor(harness, executionId, instance, pinHash);
 			state.recoveries = 0;
 			state.suspended = false;
@@ -397,7 +397,7 @@ const recoveryStoreLayer = Layer.effect(
 				state,
 			);
 		},
-		resume: (executionId: string, instance: string, pinHash: string, healthyEpoch: string) => {
+		resume: ({ pinHash, instance, executionId }: SandboxRecoveryIdentity, healthyEpoch: string) => {
 			const state = recoveryStateFor(harness, executionId, instance, pinHash);
 			if (state.healthyEpoch !== healthyEpoch) {
 				state.healthyEpoch = healthyEpoch;
@@ -409,7 +409,7 @@ const recoveryStoreLayer = Layer.effect(
 				state,
 			);
 		},
-		collateral: (executionId: string, instance: string, pinHash: string, eventId: string) => {
+		collateral: ({ pinHash, instance, executionId }: SandboxRecoveryIdentity, eventId: string) => {
 			const state = recoveryStateFor(harness, executionId, instance, pinHash);
 			if (!state.eventIds.has(eventId)) {
 				state.eventIds.add(eventId);

@@ -18,6 +18,7 @@ export const SandboxRecoveryIdentity = Schema.Struct({
 	executionId: nonEmptyStringSchema,
 	pinHash: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/)),
 });
+export type SandboxRecoveryIdentity = typeof SandboxRecoveryIdentity.Type;
 const decodeIdentity = Schema.decodeUnknownEffect(SandboxRecoveryIdentity);
 const decodeNonEmptyString = Schema.decodeUnknownEffect(nonEmptyStringSchema);
 
@@ -26,16 +27,6 @@ local operation = ARGV[1]
 local instance = ARGV[2]
 local pin_hash = ARGV[3]
 local argument = ARGV[4]
-local now_parts = redis.call("TIME")
-if #KEYS ~= 1 or #now_parts ~= 2 or not instance or instance == "" or not pin_hash or string.len(pin_hash) ~= 64 or string.match(pin_hash, "^[0-9a-f]+$") == nil then
-  return "corrupt"
-end
-if operation ~= "read" and operation ~= "collateral" and operation ~= "resume" and operation ~= "clear" then
-  return "corrupt"
-end
-if (operation == "collateral" or operation == "resume") and (not argument or argument == "") then
-  return "corrupt"
-end
 local function encode_state(recoveries, suspended)
   return cjson.encode({ recoveries = recoveries, suspended = suspended })
 end
@@ -130,12 +121,10 @@ export class SandboxRecoveryStore extends Context.Service<SandboxRecoveryStore>(
 			const redis = yield* RedisService;
 			const execute = Effect.fn("SandboxRecoveryStore.execute")(function* (
 				operation: "read" | "collateral" | "resume" | "clear",
-				executionId: string,
-				instance: string,
-				pinHash: string,
+				input: SandboxRecoveryIdentity,
 				argument?: string,
 			) {
-				const identity = yield* decodeIdentity({ pinHash, instance, executionId }).pipe(
+				const identity = yield* decodeIdentity(input).pipe(
 					Effect.mapError(
 						() => new SandboxRecoveryStoreError({ message: "Invalid recovery identity" }),
 					),
@@ -178,14 +167,12 @@ export class SandboxRecoveryStore extends Context.Service<SandboxRecoveryStore>(
 				);
 			});
 			return {
-				read: (executionId: string, instance: string, pinHash: string) =>
-					execute("read", executionId, instance, pinHash),
-				clear: (executionId: string, instance: string, pinHash: string) =>
-					execute("clear", executionId, instance, pinHash),
-				collateral: (executionId: string, instance: string, pinHash: string, eventId: string) =>
-					execute("collateral", executionId, instance, pinHash, eventId),
-				resume: (executionId: string, instance: string, pinHash: string, healthyEpoch: string) =>
-					execute("resume", executionId, instance, pinHash, healthyEpoch),
+				read: (identity: SandboxRecoveryIdentity) => execute("read", identity),
+				clear: (identity: SandboxRecoveryIdentity) => execute("clear", identity),
+				collateral: (identity: SandboxRecoveryIdentity, eventId: string) =>
+					execute("collateral", identity, eventId),
+				resume: (identity: SandboxRecoveryIdentity, healthyEpoch: string) =>
+					execute("resume", identity, healthyEpoch),
 			};
 		}),
 	},

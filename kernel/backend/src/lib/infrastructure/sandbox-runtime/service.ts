@@ -312,7 +312,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 			);
 		}, Effect.withSpan("sandbox.execution"));
 		const completeRecovery = Effect.fn("SandboxService.completeRecovery")(function* (
-			identity: typeof SandboxRecoveryIdentity.Type,
+			identity: SandboxRecoveryIdentity,
 		) {
 			yield* supervisor.completeRecovery(identity);
 		});

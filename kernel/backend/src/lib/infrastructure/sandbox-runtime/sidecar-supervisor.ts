@@ -816,11 +816,16 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 					});
 				}
 				const logical: LogicalRun = { cancelled: false, handle: undefined, ticket: undefined };
+				const recovery = {
+					instance: key.instance,
+					pinHash: options.pinHash,
+					executionId: options.executionId,
+				};
 				return yield* Effect.scoped(
 					Effect.gen(function* () {
 						yield* Effect.addFinalizer(() => Effect.sync(() => finishCandidate(entry, logical)));
 						let state = yield* recoveryStore
-							.read(options.executionId, key.instance, options.pinHash)
+							.read(recovery)
 							.pipe(Effect.mapError(unavailableRecovery));
 						if (state.suspended) {
 							if (entry.healthyEpoch === undefined) {
@@ -828,7 +833,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 								return yield* new SidecarRecoverySuspended({ instance: key.instance });
 							}
 							state = yield* recoveryStore
-								.resume(options.executionId, key.instance, options.pinHash, entry.healthyEpoch)
+								.resume(recovery, entry.healthyEpoch)
 								.pipe(Effect.mapError(unavailableRecovery));
 							if (state.suspended) {
 								return yield* new SidecarRecoverySuspended({ instance: key.instance });
@@ -855,14 +860,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 									entry.healthyEpoch = crypto.randomUUID();
 								}
 								yield* protectedLease.protection.survived;
-								return {
-									...result.success,
-									recovery: {
-										instance: key.instance,
-										pinHash: options.pinHash,
-										executionId: options.executionId,
-									},
-								};
+								return { ...result.success, recovery };
 							}
 							const failure = result.failure;
 							if (!(failure instanceof SidecarGenerationError)) {
@@ -879,7 +877,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 								});
 							}
 							state = yield* recoveryStore
-								.collateral(options.executionId, key.instance, options.pinHash, failure.eventId)
+								.collateral(recovery, failure.eventId)
 								.pipe(Effect.mapError(unavailableRecovery));
 							yield* recordSandboxSidecarEvent({
 								...key,
@@ -912,11 +910,9 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				}),
 			);
 			const completeRecovery = Effect.fn("SandboxSidecarSupervisor.completeRecovery")(function* (
-				identity: typeof SandboxRecoveryIdentity.Type,
+				identity: SandboxRecoveryIdentity,
 			) {
-				yield* recoveryStore
-					.clear(identity.executionId, identity.instance, identity.pinHash)
-					.pipe(Effect.mapError(unavailableRecovery));
+				yield* recoveryStore.clear(identity).pipe(Effect.mapError(unavailableRecovery));
 			});
 			const sample = Effect.gen(function* () {
 				yield* recordSandboxActiveExecutions(executions.activeExecutions);
