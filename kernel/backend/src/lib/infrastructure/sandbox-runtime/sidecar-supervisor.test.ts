@@ -21,6 +21,7 @@ import {
 import { TestClock } from "effect/testing";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { CRASH_WINDOW_MS } from "#lib/infrastructure/sandbox-crash-store";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
@@ -545,7 +546,7 @@ const makePrepare =
 				scriptBudget: Clock.currentTimeMillis.pipe(
 					Effect.map((now) => ({
 						settledMs,
-						remainingMs: Math.max(0, 600_000 - (now - startedAt) + settledMs),
+						remainingMs: Math.max(0, CRASH_WINDOW_MS - (now - startedAt) + settledMs),
 					})),
 				),
 				close: Effect.sync(() => {

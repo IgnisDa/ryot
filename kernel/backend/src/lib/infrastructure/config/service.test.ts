@@ -157,9 +157,7 @@ describe("validateSystemConfig sandbox capacity", () => {
 							const message = Cause.pretty(result.cause);
 							expect(message).toContain("DATABASE_POOL_MAX");
 							expect(message).toContain("SANDBOX_WORKER_CONCURRENCY");
-							expect(message).toContain("one cluster runner connection");
-							expect(message).toContain("two durable queue worker connections");
-							expect(message).toContain("one application connection");
+							expect(message).toContain("application pool");
 							expect(message).toContain("sandbox host database dispatch connection");
 						}
 					}),

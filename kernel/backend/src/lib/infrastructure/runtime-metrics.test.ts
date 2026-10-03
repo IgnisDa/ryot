@@ -3,8 +3,6 @@ import { Effect, Metric } from "effect";
 
 import {
 	recordHttpAdmissionTicket,
-	recordProviderImportBodySettled,
-	recordProviderImportBodyStarted,
 	recordSandboxExecution,
 	recordSandboxExecutionUsage,
 	recordSandboxHostCall,
@@ -155,18 +153,6 @@ describe("sandbox runtime metrics", () => {
 				});
 				expect(replays?.state).toMatchObject({ count: 1 });
 				expect(journal?.state).toMatchObject({ count: 1, sum: 512 });
-			}),
-		),
-	);
-
-	it.effect("never reports a negative number of executing import bodies", () =>
-		withIsolatedRegistry(
-			Effect.gen(function* () {
-				yield* recordProviderImportBodyStarted;
-				yield* recordProviderImportBodySettled;
-				yield* recordProviderImportBodySettled;
-				const snapshot = yield* findSnapshot("ryot.provider_import.executing_bodies", {});
-				expect(snapshot?.state).toMatchObject({ value: 0 });
 			}),
 		),
 	);

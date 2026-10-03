@@ -4,14 +4,10 @@ import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Redacted } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
+import { sandboxProtectionKeys } from "#lib/infrastructure/sandbox-crash-store";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import {
-	deleteRedisKeysOnExit,
-	sandboxProtectionKeys,
-	testExecutionId,
-	testRedisUrl,
-} from "#lib/test-utils/redis";
+import { deleteRedisKeysOnExit, testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 
 import type { SandboxExecutionPrincipal } from "./execution-principal";

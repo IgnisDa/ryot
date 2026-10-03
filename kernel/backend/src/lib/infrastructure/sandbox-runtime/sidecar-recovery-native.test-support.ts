@@ -4,9 +4,10 @@ import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
-import { SandboxCrashStore } from "#lib/infrastructure/sandbox-crash-store";
+import { SandboxCrashStore, sandboxProtectionKeys } from "#lib/infrastructure/sandbox-crash-store";
 import { SandboxRecoveryStore } from "#lib/infrastructure/sandbox-recovery-store";
-import { deleteRedisKeysOnExit, sandboxProtectionKeys, testRedisUrl } from "#lib/test-utils/redis";
+import { makeAppConfigLayer } from "#lib/test-utils/effect";
+import { deleteRedisKeysOnExit, testRedisUrl } from "#lib/test-utils/redis";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxExecutionAuthority } from "./execution-principal";
@@ -16,7 +17,6 @@ import { SandboxHostImplementations } from "./host-implementations";
 import { MiB } from "./limits";
 import {
 	makeRunnerInput,
-	nativeConfigLayer,
 	nativePlatformLayer,
 	recordingSidecarClient,
 	unusedSandboxHostImplementations,
@@ -155,7 +155,7 @@ export const nativeRecoveryLayer = Layer.mergeAll(
 		),
 	),
 	Layer.provideMerge(
-		nativeConfigLayer({
+		makeAppConfigLayer({
 			redisUrl: Redacted.make(testRedisUrl()),
 			sandbox: { memoryBudgetMiB: Option.some(2048) },
 		}),

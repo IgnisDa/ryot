@@ -7,9 +7,11 @@ export class SandboxRecoveryStoreError extends Schema.TaggedError<SandboxRecover
 	{ message: Schema.String },
 ) {}
 
+export const RECOVERY_LIMIT = 3;
+
 const recoveryStateSchema = Schema.Struct({
 	suspended: Schema.Boolean,
-	recoveries: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 3 })),
+	recoveries: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: RECOVERY_LIMIT })),
 });
 const decodeRecoveryState = Schema.decodeUnknownEffect(Schema.fromJsonString(recoveryStateSchema));
 const nonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
@@ -30,58 +32,17 @@ local argument = ARGV[4]
 local function encode_state(recoveries, suspended)
   return cjson.encode({ recoveries = recoveries, suspended = suspended })
 end
-local key_type = redis.call("TYPE", KEYS[1]).ok
-if key_type ~= "none" and key_type ~= "hash" then return "corrupt" end
-if key_type == "none" then
+if redis.call("EXISTS", KEYS[1]) == 0 then
   if operation == "clear" then return encode_state(0, false) end
   redis.call("HSET", KEYS[1], "instance", instance, "pinHash", pin_hash, "recoveries", "0", "suspended", "0")
 end
 local values = redis.call("HGETALL", KEYS[1])
 local row = {}
-local allowed = {
-  instance = true,
-  pinHash = true,
-  recoveries = true,
-  suspended = true,
-  event1 = true,
-  event2 = true,
-  event3 = true,
-  latestSuspendedEvent = true,
-  healthyEpoch = true
-}
 for index = 1, #values, 2 do
-  local field = values[index]
-  if not allowed[field] or row[field] ~= nil then return "corrupt" end
-  row[field] = values[index + 1]
-end
-if not row.instance or row.instance == "" or not row.pinHash or string.len(row.pinHash) ~= 64 or string.match(row.pinHash, "^[0-9a-f]+$") == nil then
-  return "corrupt"
-end
-if not row.recoveries or string.match(row.recoveries, "^[0-3]$") == nil or (row.suspended ~= "0" and row.suspended ~= "1") then
-  return "corrupt"
+  row[values[index]] = values[index + 1]
 end
 local recoveries = tonumber(row.recoveries)
 local suspended = row.suspended == "1"
-for index = 1, 3 do
-  local event = row["event" .. index]
-  if index <= recoveries then
-    if not event or event == "" then return "corrupt" end
-    for previous = 1, index - 1 do
-      if event == row["event" .. previous] then return "corrupt" end
-    end
-  elseif event ~= nil then
-    return "corrupt"
-  end
-end
-if row.latestSuspendedEvent ~= nil then
-  if recoveries ~= 3 or row.latestSuspendedEvent == "" then return "corrupt" end
-  for index = 1, 3 do
-    if row.latestSuspendedEvent == row["event" .. index] then return "corrupt" end
-  end
-elseif suspended then
-  return "corrupt"
-end
-if row.healthyEpoch ~= nil and row.healthyEpoch == "" then return "corrupt" end
 if row.instance ~= instance or row.pinHash ~= pin_hash then return "identity-mismatch" end
 if operation == "clear" then
   redis.call("DEL", KEYS[1])
@@ -92,7 +53,7 @@ elseif operation == "collateral" then
     if row["event" .. index] == argument then duplicate = true end
   end
   if not duplicate then
-    if recoveries < 3 then
+    if recoveries < ${RECOVERY_LIMIT} then
       recoveries = recoveries + 1
       redis.call("HSET", KEYS[1], "recoveries", tostring(recoveries), "event" .. recoveries, argument)
     else

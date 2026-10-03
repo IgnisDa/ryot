@@ -4,16 +4,10 @@ import {
 	PluginRevisionId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Effect, Path } from "effect";
+import { Effect } from "effect";
 
 import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxService } from "#lib/infrastructure/sandbox-runtime/service";
-
-export const sandboxRuntimeDirectory = Effect.gen(function* () {
-	const path = yield* Path.Path;
-	const source = yield* path.fromFileUrl(new URL(import.meta.url));
-	return path.resolve(path.dirname(source), "../../../../sandboxd/dist");
-});
 
 export const makeUserPluginRevision = (input: {
 	readonly slug: string;

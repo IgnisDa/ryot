@@ -4,6 +4,7 @@ import { Context, Deferred, Effect, FileSystem, Layer, Option, Queue, Redacted }
 import { RedisService } from "#lib/infrastructure/redis";
 import { SandboxRecoveryStore } from "#lib/infrastructure/sandbox-recovery-store";
 import { ServerRun } from "#lib/infrastructure/server-run";
+import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { testRedisUrl } from "#lib/test-utils/redis";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
@@ -13,7 +14,6 @@ import { decodedHostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./host-call-gate";
 import { SandboxHostImplementations } from "./host-implementations";
 import {
-	nativeConfigLayer,
 	nativePlatformLayer,
 	recordingSidecarClient,
 	unusedSandboxHostImplementations,
@@ -197,7 +197,7 @@ const recordingFiles = Layer.effect(
 export const nativeMemoryLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const evidence = yield* NativeMemoryEvidence;
-		const config = nativeConfigLayer({
+		const config = makeAppConfigLayer({
 			redisUrl: Redacted.make(testRedisUrl()),
 			fileStorage: { localTempDir: evidence.root },
 			sandbox: { memoryBudgetMiB: Option.some(1536) },

@@ -15,6 +15,18 @@ const identitySchema = Schema.Array(Schema.String.check(Schema.isNonEmpty())).ch
 );
 const decodeIdentities = Schema.decodeUnknownEffect(identitySchema);
 
+export const PROBATION_LEASE_MS = 330_000;
+export const CRASH_WINDOW_MS = 600_000;
+export const QUARANTINE_MS = 3_600_000;
+const CRASH_STRIKE_LIMIT = 3;
+
+export const sandboxProtectionKeys = (identity: string) => [
+	redisKeys.sandboxCrashWindow(identity),
+	redisKeys.sandboxQuarantine(identity),
+	redisKeys.sandboxProbation(identity),
+	redisKeys.sandboxProbationLease(identity),
+];
+
 const crashScript = `
 local operation = ARGV[1]
 local argument = ARGV[2]
@@ -23,14 +35,8 @@ local now = tonumber(now_parts[1]) * 1000 + math.floor(tonumber(now_parts[2]) / 
 local probation = false
 local owned = true
 for index = 1, #KEYS, 4 do
-  local expected = { "zset", "string", "string", "string" }
-  for offset = 0, 3 do
-    local kind = redis.call("TYPE", KEYS[index + offset]).ok
-    if kind ~= "none" and kind ~= expected[offset + 1] then return "corrupt" end
-  end
   local blocked = redis.call("GET", KEYS[index + 1])
   local required = redis.call("GET", KEYS[index + 2])
-  if (blocked and blocked ~= "1") or (required and required ~= "1") then return "corrupt" end
   local lease = redis.call("GET", KEYS[index + 3])
   if operation == "acquire" and (blocked or lease) then return "blocked" end
   if required then probation = true end
@@ -40,17 +46,17 @@ if operation == "acquire" then
   if not probation then return "allowed" end
   for index = 1, #KEYS, 4 do
     redis.call("SET", KEYS[index + 2], "1")
-    redis.call("SET", KEYS[index + 3], argument, "PX", 330000)
+    redis.call("SET", KEYS[index + 3], argument, "PX", ${PROBATION_LEASE_MS})
   end
   return "probation"
 elseif operation == "strike" then
   for index = 1, #KEYS, 4 do
     local window = KEYS[index]
-    redis.call("ZREMRANGEBYSCORE", window, "-inf", now - 600000)
+    redis.call("ZREMRANGEBYSCORE", window, "-inf", now - ${CRASH_WINDOW_MS})
     redis.call("ZADD", window, "NX", now, argument)
-    redis.call("PEXPIRE", window, 600000)
-    if redis.call("ZCARD", window) >= 3 or redis.call("EXISTS", KEYS[index + 3]) == 1 then
-      redis.call("SET", KEYS[index + 1], "1", "PX", 3600000)
+    redis.call("PEXPIRE", window, ${CRASH_WINDOW_MS})
+    if redis.call("ZCARD", window) >= ${CRASH_STRIKE_LIMIT} or redis.call("EXISTS", KEYS[index + 3]) == 1 then
+      redis.call("SET", KEYS[index + 1], "1", "PX", ${QUARANTINE_MS})
       redis.call("SET", KEYS[index + 2], "1")
       redis.call("DEL", KEYS[index + 3])
     end
@@ -67,7 +73,6 @@ elseif operation == "survived" or operation == "release" then
   end
   if owned then return "recorded" else return "stale" end
 end
-return "corrupt"
 `;
 
 export class SandboxCrashStore extends Context.Service<SandboxCrashStore>()("SandboxCrashStore", {
@@ -84,12 +89,7 @@ export class SandboxCrashStore extends Context.Service<SandboxCrashStore>()("San
 			if (new Set(validated).size !== validated.length || argument.length === 0) {
 				return yield* new SandboxCrashStoreError({ message: "Invalid crash ownership" });
 			}
-			const keys = validated.flatMap((identity) => [
-				redisKeys.sandboxCrashWindow(identity),
-				redisKeys.sandboxQuarantine(identity),
-				redisKeys.sandboxProbation(identity),
-				redisKeys.sandboxProbationLease(identity),
-			]);
+			const keys = validated.flatMap(sandboxProtectionKeys);
 			const result = yield* Effect.tryPromise(() =>
 				redis.client.eval(crashScript, keys.length, ...keys, operation, argument),
 			).pipe(

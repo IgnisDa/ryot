@@ -1,7 +1,7 @@
 import { describe, expect, layer } from "@effect/vitest";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Clock, Effect, Layer } from "effect";
+import { Clock, Effect, Layer, Schema } from "effect";
 import Redis from "ioredis";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -13,7 +13,6 @@ import {
 	PROVIDER_HTTP_TICKET_LIMITS,
 	ProviderHttpAdmissionCorruptState,
 	type ProviderHttpAdmissionDeclaration,
-	type ProviderHttpAdmissionTiming,
 	ProviderHttpAdmissionUnavailable,
 	type ProviderHttpPoll,
 	type ProviderHttpTicket,
@@ -23,16 +22,7 @@ import { redisKeys, RedisService } from "./redis";
 type Client = RedisService["Service"]["client"];
 type Admission = Effect.Success<ReturnType<typeof makeProviderHttpAdmission>>;
 
-const productionTiming: ProviderHttpAdmissionTiming = {
-	ticketLeaseMs: 120_000,
-	tombstoneTtlMs: 600_000,
-	minimumGrantLeaseMs: 1_000,
-};
-
 const call = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.orDie);
-
-const makeAdmission = (timing: Partial<ProviderHttpAdmissionTiming> = {}) =>
-	makeProviderHttpAdmission({ ...productionTiming, ...timing });
 
 const usePolicy = Effect.fnUntraced(function* (
 	overrides: Partial<ProviderHttpAdmissionDeclaration> = {},
@@ -79,6 +69,25 @@ const stateField = (client: Client, key: string, field: string) =>
 		call(() => client.hget(key, field)),
 		(value) => Number(value),
 	);
+
+const StoredTicket = Schema.fromJsonString(Schema.Record(Schema.String, Schema.String));
+
+const ageTicket = Effect.fnUntraced(function* (
+	client: Client,
+	state: ReturnType<typeof redisKeys.providerHttpAdmission>,
+	id: string,
+	ageMs: number,
+) {
+	const raw = yield* call(() => client.hget(state.tickets, id));
+	const stored = yield* Schema.decodeUnknownEffect(StoredTicket)(raw).pipe(Effect.orDie);
+	const lastPolledAt = Number(stored["w"]) - ageMs;
+	const aged = yield* Schema.encodeUnknownEffect(StoredTicket)({
+		...stored,
+		w: String(lastPolledAt),
+	}).pipe(Effect.orDie);
+	yield* call(() => client.hset(state.tickets, id, aged));
+	yield* call(() => client.zadd(state.renewals, lastPolledAt, id));
+});
 
 const ticketCount = (client: Client, key: string) => call(() => client.hlen(key));
 
@@ -151,7 +160,10 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { declaration } = yield* usePolicy();
-					const instances = [yield* makeAdmission(), yield* makeAdmission()];
+					const instances = [
+						yield* makeProviderHttpAdmission(),
+						yield* makeProviderHttpAdmission(),
+					];
 					const userA = ["p1", "p2", "p3"].flatMap((plugin) =>
 						range(4).map((n) => ticket(`a-${plugin}-${n}`, "user:a", plugin)),
 					);
@@ -182,7 +194,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { state, client, declaration } = yield* usePolicy();
-					const service = yield* makeAdmission();
+					const service = yield* makeProviderHttpAdmission();
 					yield* registerAll(
 						[service],
 						declaration,
@@ -207,8 +219,8 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			() =>
 				Effect.scoped(
 					Effect.gen(function* () {
-						const { declaration } = yield* usePolicy();
-						const service = yield* makeAdmission({ minimumGrantLeaseMs: 300 });
+						const { state, client, declaration } = yield* usePolicy();
+						const service = yield* makeProviderHttpAdmission();
 						const [a1, a2, b1, b2] = [
 							ticket("a1", "user:a"),
 							ticket("a2", "user:a"),
@@ -218,13 +230,12 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 						yield* registerAll([service], declaration, [a1, a2, b1, b2]);
 
 						expect(yield* service.poll(declaration, b1)).toMatchObject({ status: "wait" });
-						const grantedAt = yield* Clock.currentTimeMillis;
 						expect(yield* service.poll(declaration, a2)).toMatchObject({ status: "wait" });
-						yield* Effect.sleep(350);
+						const expiredAt = (yield* Clock.currentTimeMillis) - 1;
+						yield* call(() => client.hset(state.state, "x", String(expiredAt)));
 
 						expect(yield* service.poll(declaration, b1)).toMatchObject({ status: "wait" });
 						const reassigned = yield* service.poll(declaration, a2);
-						expect((yield* Clock.currentTimeMillis) - grantedAt).toBeLessThan(600);
 						expect(reassigned).toMatchObject({ status: "granted" });
 						if (reassigned.status === "granted") {
 							expect(yield* service.claim(declaration, a2, reassigned.nonce)).toEqual({
@@ -244,7 +255,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { declaration } = yield* usePolicy();
-					const service = yield* makeAdmission();
+					const service = yield* makeProviderHttpAdmission();
 					const background = range(3).map((n) => ticket(`bg-${n}`, "user:a", "p", "background"));
 					const interactive = range(10).map((n) => ticket(`in-${n}`, `user:${n % 2}`));
 					yield* registerAll([service], declaration, [...background, ...interactive]);
@@ -268,7 +279,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { state, client, declaration } = yield* usePolicy({ requests: 1, intervalMs: 40 });
-					const service = yield* makeAdmission({ minimumGrantLeaseMs: 60 });
+					const service = yield* makeProviderHttpAdmission();
 					const tickets = range(6).map((n) => ticket(`t-${n}`, `user:${n % 3}`));
 					yield* registerAll([service], declaration, tickets);
 					const anchors: Array<number> = [];
@@ -301,7 +312,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { keys, client, declaration } = yield* usePolicy();
-					const service = yield* makeAdmission();
+					const service = yield* makeProviderHttpAdmission();
 					const first = ticket("t-1", "user:a");
 					yield* service.register(declaration, first);
 					const before = yield* snapshot(client, keys);
@@ -321,7 +332,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { declaration } = yield* usePolicy();
-					const service = yield* makeAdmission();
+					const service = yield* makeProviderHttpAdmission();
 					const [first, second] = [ticket("t-1", "user:a"), ticket("t-2", "user:b")];
 					yield* registerAll([service], declaration, [first, second]);
 					const nonce = yield* grantNonce(yield* service.poll(declaration, first));
@@ -342,7 +353,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 						requests: 1,
 						intervalMs: 60_000,
 					});
-					const service = yield* makeAdmission();
+					const service = yield* makeProviderHttpAdmission();
 					const first = ticket("t-1", "user:a");
 					yield* service.register(declaration, first);
 					const nonce = yield* grantNonce(yield* service.poll(declaration, first));
@@ -363,7 +374,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { declaration } = yield* usePolicy({ requests: 1, intervalMs: 30_000 });
-					const service = yield* makeAdmission();
+					const service = yield* makeProviderHttpAdmission();
 					const [first, second] = [ticket("t-1", "user:a"), ticket("t-2", "user:b")];
 					yield* registerAll([service], declaration, [first, second]);
 					const nonce = yield* grantNonce(yield* service.poll(declaration, first));
@@ -384,20 +395,21 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 		test.effect("keeps a blocked waiter's ticket through a block longer than its lease", () =>
 			Effect.scoped(
 				Effect.gen(function* () {
-					const { declaration } = yield* usePolicy();
-					const service = yield* makeAdmission({ ticketLeaseMs: 200 });
+					const { state, client, declaration } = yield* usePolicy();
+					const service = yield* makeProviderHttpAdmission();
 					const waiter = ticket("waiter", "user:a");
 					yield* service.register(declaration, waiter);
-					yield* service.block(declaration, 600);
+					yield* service.block(declaration, 300_000);
 					const waiting = yield* service.poll(declaration, waiter);
-					expect(waiting.status === "wait" && waiting.waitMs).toBeGreaterThanOrEqual(500);
-					yield* Effect.sleep(400);
+					expect(waiting.status === "wait" && waiting.waitMs).toBeGreaterThanOrEqual(250_000);
+					yield* ageTicket(client, state, "waiter", 200_000);
 
 					expect(yield* service.register(declaration, ticket("other", "user:b"))).toEqual({
 						status: "registered",
 					});
 					expect(yield* service.poll(declaration, waiter)).toMatchObject({ status: "wait" });
-					yield* Effect.sleep(250);
+					const unblockedAt = (yield* Clock.currentTimeMillis) - 1;
+					yield* call(() => client.hset(state.state, "b", String(unblockedAt)));
 					expect(yield* service.poll(declaration, waiter)).toMatchObject({ status: "granted" });
 				}),
 			),
@@ -407,7 +419,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { state, client, declaration } = yield* usePolicy();
-					const service = yield* makeAdmission();
+					const service = yield* makeProviderHttpAdmission();
 					const [first, stale, fresh] = [
 						ticket("t-1", "user:a"),
 						ticket("t-2", "user:b"),
@@ -437,7 +449,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { state, client, declaration } = yield* usePolicy();
-					const service = yield* makeAdmission({ ticketLeaseMs: 200 });
+					const service = yield* makeProviderHttpAdmission();
 					const [cancelled, abandoned, later] = [
 						ticket("cancelled", "user:a"),
 						ticket("abandoned", "user:b"),
@@ -446,7 +458,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 					yield* registerAll([service], declaration, [cancelled, abandoned]);
 					yield* service.cancel(declaration, cancelled);
 					expect(yield* call(() => client.hkeys(state.tickets))).toEqual(["abandoned"]);
-					yield* Effect.sleep(250);
+					yield* ageTicket(client, state, "abandoned", 121_000);
 
 					yield* service.register(declaration, later);
 
@@ -463,7 +475,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { state, client, declaration } = yield* usePolicy();
-					const service = yield* makeAdmission();
+					const service = yield* makeProviderHttpAdmission();
 					yield* registerAll(
 						[service],
 						declaration,
@@ -486,42 +498,11 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			),
 		);
 
-		test.effect("fails a corrupt ticket or policy closed without refreshing its TTL", () =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { state, client, declaration } = yield* usePolicy();
-					const service = yield* makeAdmission();
-					const [broken, healthy] = [ticket("broken", "user:a"), ticket("healthy", "user:b")];
-					yield* registerAll([service], declaration, [broken, healthy]);
-					yield* call(() => client.hset(state.tickets, "broken", "{not json"));
-					yield* call(() => client.pexpire(state.tickets, 5_000));
-					const corrupt = new ProviderHttpAdmissionCorruptState({
-						message: "Redis admission state is corrupt",
-					});
-
-					assertExitFails(yield* Effect.exit(service.poll(declaration, broken)), corrupt);
-					expect(yield* call(() => client.pttl(state.tickets))).toBeLessThanOrEqual(5_000);
-					expect(yield* service.poll(declaration, healthy)).toMatchObject({ status: "granted" });
-					expect(yield* service.poll(declaration, broken)).toEqual({ status: "unknown" });
-
-					yield* call(() => client.hset(state.state, "a", "not-a-number"));
-					yield* call(() => client.pexpire(state.state, 5_000));
-					assertExitFails(
-						yield* Effect.exit(service.register(declaration, ticket("next", "user:c"))),
-						corrupt,
-					);
-					assertExitFails(yield* Effect.exit(service.poll(declaration, healthy)), corrupt);
-					assertExitFails(yield* Effect.exit(service.block(declaration, 1_000)), corrupt);
-					expect(yield* call(() => client.pttl(state.state))).toBeLessThanOrEqual(5_000);
-				}),
-			),
-		);
-
 		test.effect("caps an honoured Retry-After at one hour", () =>
 			Effect.scoped(
 				Effect.gen(function* () {
 					const { declaration } = yield* usePolicy();
-					const service = yield* makeAdmission();
+					const service = yield* makeProviderHttpAdmission();
 
 					assertExitFails(
 						yield* Effect.exit(
@@ -551,7 +532,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 							requests: 1,
 							intervalMs: 400,
 						});
-						const before = yield* makeAdmission({ ticketLeaseMs: 300 });
+						const before = yield* makeProviderHttpAdmission();
 						const [first, waiter] = [ticket("first", "user:a"), ticket("waiter", "user:b")];
 						yield* registerAll([before], declaration, [first, waiter]);
 						const nonce = yield* grantNonce(yield* before.poll(declaration, first));
@@ -559,10 +540,11 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 						yield* before.block(declaration, 600);
 						expect(yield* before.poll(declaration, waiter)).toMatchObject({ status: "wait" });
 						const anchor = yield* stateField(client, state.state, "a");
-						const blockedUntil = yield* stateField(client, state.state, "b");
-						yield* Effect.sleep(Math.max(0, blockedUntil + 350 - (yield* Clock.currentTimeMillis)));
+						yield* ageTicket(client, state, "waiter", 130_000);
+						const blockedUntil = (yield* Clock.currentTimeMillis) - 130_000;
+						yield* call(() => client.hset(state.state, "b", String(blockedUntil)));
 
-						const after = yield* makeAdmission({ ticketLeaseMs: 300 });
+						const after = yield* makeProviderHttpAdmission();
 						expect(yield* after.poll(declaration, waiter)).toEqual({ status: "unknown" });
 						expect(yield* stateField(client, state.state, "a")).toBe(anchor);
 						expect(yield* stateField(client, state.state, "b")).toBe(blockedUntil);
@@ -579,7 +561,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 		test.effect("refuses registration at the policy and system tenant limits without writing", () =>
 			Effect.scoped(
 				Effect.gen(function* () {
-					const service = yield* makeAdmission();
+					const service = yield* makeProviderHttpAdmission();
 					const system = yield* usePolicy();
 					yield* registerAll(
 						[service],
@@ -616,7 +598,7 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 		test.effect("reports an unreachable Redis as unavailable", () =>
 			Effect.gen(function* () {
 				const offline = new Redis(testRedisUrl(), { lazyConnect: true, enableOfflineQueue: false });
-				const service = yield* makeAdmission().pipe(
+				const service = yield* makeProviderHttpAdmission().pipe(
 					Effect.provideService(RedisService, makeRedisService({ client: offline })),
 				);
 				const error = yield* Effect.flip(
@@ -654,7 +636,7 @@ layer(Layer.empty)((test) => {
 				const client = Object.assign(Object.create(null), {
 					eval: () => Promise.resolve(response),
 				}) satisfies Client;
-				const service = yield* makeAdmission().pipe(
+				const service = yield* makeProviderHttpAdmission().pipe(
 					Effect.provideService(RedisService, makeRedisService({ client })),
 				);
 				const exit = yield* Effect.exit(

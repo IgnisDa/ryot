@@ -29,7 +29,7 @@ const JOURNAL_SIZE_BOUNDARIES = [
 
 const JOURNAL_ENTRY_BOUNDARIES = [1, 2, 5, 10, 25, 50, 100, 250, 500, 1_000] as const;
 
-export const SANDBOX_METRIC_KINDS = [
+const SANDBOX_METRIC_KINDS = [
 	"script",
 	"operation",
 	"workflow",
@@ -135,6 +135,7 @@ const sandboxHostCalls = Metric.counter("ryot.sandbox.host_calls", {
 const sandboxSidecarEvents = Metric.counter("ryot.sandbox.sidecar.events", {
 	incremental: true,
 	attributes: { unit: "{event}" },
+	description: "Sandbox sidecar lifecycle events by trust, snapshot tier, event and reason",
 });
 
 const EXECUTION_MEMORY_BOUNDARIES = [
@@ -163,35 +164,43 @@ const sandboxExecutionCpuWait = Metric.histogram("ryot.sandbox.execution.cpu_wai
 const sandboxSidecarDuration = Metric.histogram("ryot.sandbox.sidecar.duration", {
 	attributes: { unit: MILLISECONDS },
 	boundaries: [...DURATION_BOUNDARIES],
+	description: "Duration of a sandbox sidecar lifecycle event that has one",
 });
 
 const sandboxSidecarGauges = {
-	outstanding_runs: Metric.gauge("ryot.sandbox.sidecar.outstanding_runs", {
-		attributes: { unit: "{item}" },
-	}),
 	restart_backoff: Metric.gauge("ryot.sandbox.sidecar.restart_backoff", {
 		attributes: { unit: MILLISECONDS },
+		description: "Current restart backoff of a sandbox sidecar",
+	}),
+	outstanding_runs: Metric.gauge("ryot.sandbox.sidecar.outstanding_runs", {
+		attributes: { unit: "{item}" },
+		description: "Runs currently outstanding on a sandbox sidecar",
 	}),
 	outstanding_host_calls: Metric.gauge("ryot.sandbox.sidecar.outstanding_host_calls", {
 		attributes: { unit: "{item}" },
+		description: "Host calls currently outstanding on a sandbox sidecar",
 	}),
 };
 
 const sandboxAdmissionWaiting = Metric.gauge("ryot.sandbox.admission.waiting", {
 	attributes: { unit: "{run}" },
+	description: "Sandbox runs waiting for memory admission",
 });
 
 const sandboxAdmissionBytes = Metric.gauge("ryot.sandbox.admission.bytes", {
 	attributes: { unit: BYTES },
+	description: "Memory currently admitted to sandbox runs",
 });
 
 const sandboxAdmissionPressure = Metric.gauge("ryot.sandbox.admission.pressure", {
 	attributes: { unit: "1" },
+	description: "Admitted sandbox memory as a fraction of the memory budget",
 });
 
 const sandboxAdmissionWaitDuration = Metric.histogram("ryot.sandbox.admission.wait_duration", {
 	attributes: { unit: MILLISECONDS },
 	boundaries: [...DURATION_BOUNDARIES],
+	description: "Time a sandbox run waited for memory admission",
 });
 
 const durableQueueWaitDuration = Metric.histogram("ryot.durable_queue.wait_duration", {
@@ -222,19 +231,34 @@ const httpAdmissionTicketWait = Metric.histogram("ryot.http_admission.ticket_wai
 const sandboxSidecarHostCalls = Metric.counter("ryot.sandbox.sidecar.host_calls", {
 	incremental: true,
 	attributes: { unit: "{call}" },
+	description: "Host-function calls made by sandbox sidecars by function and outcome",
 });
 
-const sandboxWorkerRss = Metric.gauge("ryot.sandbox.worker_rss", { attributes: { unit: BYTES } });
+const sandboxWorkerRss = Metric.gauge("ryot.sandbox.worker_rss", {
+	attributes: { unit: BYTES },
+	description: "Resident set size summed over sandbox worker processes",
+});
 
 const sandboxRssSampledProcesses = Metric.gauge("ryot.sandbox.rss_sampled_processes", {
 	attributes: { unit: "{process}" },
+	description: "Sandbox worker processes included in the sampled resident set size",
 });
 
 const sandboxSidecarLiveProcesses = Metric.gauge("ryot.sandbox.sidecar.live_processes", {
 	attributes: { unit: "{process}" },
+	description: "Live sandbox sidecar processes",
 });
 
-const sandboxSidecarRss = Metric.gauge("ryot.sandbox.sidecar.rss", { attributes: { unit: BYTES } });
+const sandboxSidecarRss = Metric.gauge("ryot.sandbox.sidecar.rss", {
+	attributes: { unit: BYTES },
+	description: "Resident set size of sandbox sidecar processes",
+});
+
+const observe = <Input>(
+	metric: Metric.Metric<Input, unknown>,
+	attributes: Metric.Metric.Attributes,
+	value: Input,
+) => Metric.update(Metric.withAttributes(metric, attributes), value);
 
 // Import workflow bodies replay from the start after every suspension or restart, so these three
 // metrics count process-local body attempts, never logical imports. Logical import state lives in
@@ -269,12 +293,9 @@ export const recordSandboxExecution = (input: {
 	const attributes = { kind: input.kind, outcome: input.outcome };
 	return Effect.all(
 		[
-			Metric.update(Metric.withAttributes(sandboxExecutions, attributes), 1),
-			Metric.update(Metric.withAttributes(sandboxExecutionDuration, attributes), input.durationMs),
-			Metric.update(
-				Metric.withAttributes(sandboxRunnerResponseSize, attributes),
-				input.responseBytes,
-			),
+			observe(sandboxExecutions, attributes, 1),
+			observe(sandboxExecutionDuration, attributes, input.durationMs),
+			observe(sandboxRunnerResponseSize, attributes, input.responseBytes),
 		],
 		{ discard: true },
 	);
@@ -347,18 +368,9 @@ export const recordSandboxAdmission = (input: {
 }) =>
 	Effect.all(
 		[
-			Metric.update(
-				Metric.withAttributes(sandboxAdmissionWaiting, { mode: input.mode }),
-				input.waiting,
-			),
-			Metric.update(
-				Metric.withAttributes(sandboxAdmissionBytes, { mode: input.mode }),
-				input.bytes,
-			),
-			Metric.update(
-				Metric.withAttributes(sandboxAdmissionPressure, { mode: input.mode }),
-				input.bytes / input.budget,
-			),
+			observe(sandboxAdmissionWaiting, { mode: input.mode }, input.waiting),
+			observe(sandboxAdmissionBytes, { mode: input.mode }, input.bytes),
+			observe(sandboxAdmissionPressure, { mode: input.mode }, input.bytes / input.budget),
 		],
 		{ discard: true },
 	);
@@ -437,15 +449,9 @@ export const recordSandboxExecutionUsage = (input: {
 	};
 	return Effect.all(
 		[
-			Metric.update(Metric.withAttributes(sandboxExecutionPeakHeap, attributes), input.heapBytes),
-			Metric.update(
-				Metric.withAttributes(sandboxExecutionPeakExternal, attributes),
-				input.externalBytes,
-			),
-			Metric.update(
-				Metric.withAttributes(sandboxExecutionCpuWait, { lane: input.lane }),
-				input.cpuWaitMs,
-			),
+			observe(sandboxExecutionPeakHeap, attributes, input.heapBytes),
+			observe(sandboxExecutionPeakExternal, attributes, input.externalBytes),
+			observe(sandboxExecutionCpuWait, { lane: input.lane }, input.cpuWaitMs),
 		],
 		{ discard: true },
 	);
@@ -477,19 +483,10 @@ export const recordSandboxWorkflowReplayFinished = (input: {
 	const attributes = { kind: input.kind, outcome: input.outcome };
 	return Effect.all(
 		[
-			Metric.update(Metric.withAttributes(sandboxWorkflowReplays, attributes), 1),
-			Metric.update(
-				Metric.withAttributes(sandboxWorkflowReplayDuration, attributes),
-				input.durationMs,
-			),
-			Metric.update(
-				Metric.withAttributes(sandboxWorkflowJournalSize, { kind: input.kind }),
-				input.journalBytes,
-			),
-			Metric.update(
-				Metric.withAttributes(sandboxWorkflowJournalEntries, { kind: input.kind }),
-				input.journalEntries,
-			),
+			observe(sandboxWorkflowReplays, attributes, 1),
+			observe(sandboxWorkflowReplayDuration, attributes, input.durationMs),
+			observe(sandboxWorkflowJournalSize, { kind: input.kind }, input.journalBytes),
+			observe(sandboxWorkflowJournalEntries, { kind: input.kind }, input.journalEntries),
 		],
 		{ discard: true },
 	);
@@ -540,17 +537,9 @@ export const recordSandboxSidecarProcesses = (input: {
 	);
 };
 
-let executingProviderImportBodies = 0;
+export const recordProviderImportBodyStarted = Metric.modify(providerImportExecutingBodies, 1);
 
-const setProviderImportExecutingBodies = (delta: number) =>
-	Effect.suspend(() => {
-		executingProviderImportBodies = Math.max(0, executingProviderImportBodies + delta);
-		return Metric.update(providerImportExecutingBodies, executingProviderImportBodies);
-	});
-
-export const recordProviderImportBodyStarted = setProviderImportExecutingBodies(1);
-
-export const recordProviderImportBodySettled = setProviderImportExecutingBodies(-1);
+export const recordProviderImportBodySettled = Metric.modify(providerImportExecutingBodies, -1);
 
 export const recordProviderImportBodyOutcome = (input: {
 	readonly outcome: ProviderImportOutcome;
