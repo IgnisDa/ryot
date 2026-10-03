@@ -456,7 +456,9 @@ all five tests, including x32 and namespace-clone denial and in-sidecar Landlock
   `bun turbo --filter='!@ryot-app/e2e' test` are clean; affected sandbox, media, and fitness e2e files
   pass, including YouTube Music provider scripts; killing a sidecar mid-import recovers durably; a user
   plugin that repeatedly crashes the user sidecar is quarantined without exhausting other users'
-  executions; the built image runs sandbox scripts with confinement applied; a fresh 2 vCPU / 4 GB host runs the standard
+  executions, including when one user rotates the crash through many plugins and the same plugin is
+  uploaded from many accounts; the built image, run by Docker with its default seccomp profile, starts
+  every sidecar with Landlock enforced and the seccomp filter installed and runs sandbox scripts; a fresh 2 vCPU / 4 GB host runs the standard
   provider import with identical business rows, lower wall time, and lower peak memory than today.
 - **Rollback:** revert the slice.
 - **Stops:** a sandbox capability that cannot be expressed within the surface allowlist.
