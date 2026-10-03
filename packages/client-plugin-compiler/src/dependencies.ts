@@ -34,6 +34,7 @@ const CLIENT_DEPENDENCY_REGISTRY = [
 	{ policy: "trusted", specifier: "@ryot-app/ryotql-recipes/saved-views" },
 	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk" },
 	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/icon" },
+	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/markdown" },
 	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/sync" },
 	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/tint" },
 	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/table" },

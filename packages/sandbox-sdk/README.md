@@ -25,6 +25,24 @@ returns raw `null`; host requests keep their typed success or failure results.
 Shared plugin sources use the environment-neutral `@ryot-app/plugin-kit/effect` shim. It does not
 export `Effect`; import the sandbox Effect surface in backend-only sources.
 
+## Markdown Conversion
+
+`@ryot-app/sandbox-sdk/markdown` exports the pure synchronous
+`normalizeMarkdown(input: string, options?: { baseUrl?: string }): string`. It parses Markdown and
+embedded HTML and returns restricted canonical Markdown without a final newline. It retains
+paragraphs, strong and emphasized text, lists, blockquotes, hard breaks, HTTP/S links, and nested
+inline `:spoiler[...]` and block `:::spoiler` directives. Relative links require `baseUrl`; unsafe or
+invalid links become their label text. Directive attributes and unknown directive wrappers are
+removed. Headings become strong paragraphs, tables become textual rows, code becomes literal text,
+and images become alt text. Executable HTML, forms, and embedded media are removed. No raw HTML is
+emitted. Normalizing canonical output again gives the same result.
+
+`@ryot-app/sandbox-sdk/markdown-text` exports the dependency-free synchronous
+`escapeMarkdownText(input: string): string` for literal input. It escapes punctuation and leading
+whitespace, preserves blank-line paragraphs, and represents line breaks explicitly. This helper is
+compiler-bundled; rich conversion uses the `markdown` runtime in the data and full snapshot tiers.
+Both helpers require no host capabilities.
+
 ## Host Surface
 
 Ordinary scripts use `ScriptHost`; before-stage policies use `PolicyHost`, which exposes only the

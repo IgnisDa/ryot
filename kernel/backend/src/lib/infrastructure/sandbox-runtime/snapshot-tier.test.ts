@@ -7,7 +7,7 @@ import { selectSnapshotTier } from "./snapshot-tier";
 it("snapshot_routing_uses_smallest_covering_import_set", () => {
 	const coreLibraries = new Set(["dependency-runtime", "effect", "filesystem", "ryotql"]);
 	const fullLibraries = new Set(["youtubei"]);
-	const dataLibraries = new Set(["cheerio", "fflate", "fast-xml-parser", "papaparse"]);
+	const dataLibraries = new Set(["cheerio", "fflate", "fast-xml-parser", "markdown", "papaparse"]);
 	const tierForName = (name: string): "core" | "data" | "full" => {
 		if (fullLibraries.has(name)) {
 			return "full";
