@@ -19,21 +19,58 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer, Ref } from "effect";
+import { JsonValue } from "@ryot-app/contract/schema/json";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
+import {
+	SandboxExecutionAuthority,
+	SandboxExecutionPrincipal,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { EventStreamRepository } from "#modules/events/stream-repository";
 import { IngestionCaptures } from "#modules/imports/capture-service";
-import { ingestionTestRun } from "#modules/imports/ingestion.test-support";
+import { ingestionTestRevision, ingestionTestRun } from "#modules/imports/ingestion.test-support";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { KernelWorkflowReferences } from "#modules/sandbox/kernel-workflow-references";
 
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
+
+const callerAuthority = (subject: SandboxExecutionSubject): SandboxExecutionPrincipal =>
+	Schema.decodeSync(SandboxExecutionPrincipal)({
+		subject,
+		providerId: null,
+		scriptId: "caller-script",
+		contentHash: "caller-hash",
+		scriptSlug: "caller-script",
+		metadata: { kind: "workflow", capabilities: [], runtimeImports: [] },
+		pluginRevision: {
+			...ingestionTestRevision,
+			schemaScope: { ...ingestionTestRevision.schemaScope, entitySchemaSlugs: ["record", "group"] },
+		},
+	});
+const populationAuthority = (subject: SandboxExecutionSubject): SandboxExecutionPrincipal =>
+	Schema.decodeSync(SandboxExecutionPrincipal)({
+		...callerAuthority(subject),
+		pluginRevision: {
+			...ingestionTestRevision,
+			id: "provider-owner",
+			schemaScope: { ...ingestionTestRevision.schemaScope, entitySchemaSlugs: ["record"] },
+		},
+	});
+const executionAuthorityLayer = Layer.succeed(SandboxExecutionAuthority, {
+	resolve: (principal) =>
+		Schema.decodeEffect(SandboxExecutionPrincipal)(principal).pipe(
+			Effect.map((verified) => verified.pluginRevision?.scope ?? "system"),
+			Effect.mapError(
+				() => new SandboxRunError({ kind: "missing-artifact", message: "Invalid caller pin" }),
+			),
+		),
+});
 
 const mockImportsRepository = Layer.mock(ImportsRepository);
 const eventStreamRepositoryLayer = (get: EventStreamRepository["Service"]["get"]) =>
@@ -55,6 +92,7 @@ const eventStreamRepositoryLayer = (get: EventStreamRepository["Service"]["get"]
 	);
 const eventStreamRepository = eventStreamRepositoryLayer(() => Effect.succeed(null));
 const captureDependencies = Layer.mergeAll(
+	executionAuthorityLayer,
 	Layer.mock(IngestionCaptures)({}),
 	Layer.mock(SandboxArtifactStore)({}),
 	BunFileSystem.layer,
@@ -82,6 +120,7 @@ const referencesLayer = (repositories: Layer.Layer<ImportsRepository | Integrati
 
 const populationReferencesLayer = (
 	authorizes: (providerId: SandboxProviderId) => boolean = () => true,
+	scope: "system" | "user" = "system",
 ) =>
 	Layer.provide(
 		KernelWorkflowReferencesLive,
@@ -91,6 +130,22 @@ const populationReferencesLayer = (
 			eventStreamRepository,
 			unownedRepositories,
 			Layer.mock(PluginRuntimeResolver)({
+				findProviderAvailableToUser: (_userId, providerId) =>
+					Effect.succeed(
+						authorizes(providerId)
+							? {
+									id: providerId,
+									name: "Records",
+									pluginScope: scope,
+									slug: "record.catalog",
+									createdAt: new Date(0),
+									updatedAt: new Date(0),
+									pluginId: "provider-owner",
+									rootEntitySchemaSlug: "record",
+									information: { source: "catalog" },
+								}
+							: null,
+					),
 				findAuthorizedSchemaProviderById: ({ providerId }) =>
 					Effect.succeed(
 						authorizes(providerId)
@@ -187,7 +242,6 @@ const eventStreamWork = (
 ): NonNullable<Effect.Success<ReturnType<EventStreamRepository["Service"]["get"]>>> => ({
 	attempt: 0,
 	error: null,
-	pluginPin: null,
 	dirtyFrom: null,
 	status: "queued",
 	checkpoint: null,
@@ -201,10 +255,17 @@ const eventStreamWork = (
 	processorScriptId: SandboxScriptId.make("processor-script"),
 	key: {
 		userId,
-		eventSchemaPluginId: null,
 		entityId: EntityId.make("entity-1"),
+		eventSchemaPluginId: ingestionTestRevision.id,
 		eventSchemaSlug: EventSchemaSlug.make("event-stream"),
 	},
+	pluginPin: Schema.encodeUnknownSync(JsonValue)(
+		callerAuthority({
+			userId,
+			type: "user",
+			accountGeneration: { userId, token: "test-account-generation" },
+		}).pluginRevision,
+	),
 });
 
 layer(
@@ -245,7 +306,7 @@ layer(
 				"background",
 				"trusted-child-execution",
 				"parent-execution",
-				SandboxScriptId.make("caller-script"),
+				callerAuthority(subject),
 			);
 			expect(dispatched).toBeNull();
 			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
@@ -260,7 +321,7 @@ layer(
 					"background",
 					"foreign-child-execution",
 					"parent-execution",
-					SandboxScriptId.make("caller-script"),
+					callerAuthority(subject),
 				),
 			);
 			expect(failure.message).toContain("does not belong to the executing user");
@@ -275,6 +336,7 @@ layer(
 			Layer.mergeAll(
 				mutationAdmissionTestLayer,
 				BunFileSystem.layer,
+				executionAuthorityLayer,
 				eventStreamRepository,
 				unusedEngineLayer,
 				Layer.mock(PluginRuntimeResolver)({}),
@@ -322,7 +384,11 @@ layer(
 				"background",
 				"capture-child",
 				"run-1-import",
-				SandboxScriptId.make("caller-script"),
+				callerAuthority({
+					type: "user",
+					userId: UserId.make("user-1"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+				}),
 			);
 			expect(result).toEqual({
 				captureId: "page-1",
@@ -366,7 +432,7 @@ layer(
 				"interactive",
 				"entity-import-execution",
 				"parent-execution",
-				SandboxScriptId.make("caller-script"),
+				callerAuthority(subject),
 			);
 			yield* references.execute(
 				KERNEL_EVENT_CREATE_WORKFLOW,
@@ -375,7 +441,7 @@ layer(
 				"interactive",
 				"event-create-execution",
 				"parent-execution",
-				SandboxScriptId.make("caller-script"),
+				callerAuthority(subject),
 			);
 
 			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toMatchObject([
@@ -400,19 +466,17 @@ const slugResolvingReferencesLayer = Layer.provide(
 		eventStreamRepository,
 		unownedRepositories,
 		Layer.mock(PluginRuntimeResolver)({
-			findSchemaProviderBySlug: () =>
+			findProviderAvailableToUserByReference: () =>
 				Effect.succeed({
-					entitySchemaSlug: EntitySchemaSlug.make("group"),
-					provider: {
-						name: "Alpha",
-						slug: "group.alpha",
-						pluginId: "example",
-						createdAt: new Date(0),
-						updatedAt: new Date(0),
-						rootEntitySchemaSlug: "group",
-						information: { source: "alpha" },
-						id: SandboxProviderId.make("provider-group-alpha"),
-					},
+					name: "Alpha",
+					slug: "group.alpha",
+					pluginScope: "system",
+					createdAt: new Date(0),
+					updatedAt: new Date(0),
+					rootEntitySchemaSlug: "group",
+					information: { source: "alpha" },
+					pluginId: ingestionTestRevision.id,
+					id: SandboxProviderId.make("provider-group-alpha"),
 				}),
 		}),
 	),
@@ -445,7 +509,14 @@ layer(
 				"interactive",
 				"entity-import-execution",
 				"parent-execution",
-				SandboxScriptId.make("caller-script"),
+				callerAuthority({
+					type: "user",
+					userId: UserId.make("trusted-user"),
+					accountGeneration: {
+						token: "test-account-generation",
+						userId: UserId.make("trusted-user"),
+					},
+				}),
 			);
 
 			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
@@ -469,9 +540,9 @@ const ownedRepositories = Layer.mergeAll(
 				accountGeneration: scope.accountGeneration,
 				pins: {
 					scriptId: "script",
-					pluginRevisionId: null,
-					pluginConfigRevisionId: null,
 					executionId: "parent/execution",
+					pluginRevisionId: ingestionTestRevision.revisionId,
+					pluginConfigRevisionId: ingestionTestRevision.configRevisionId,
 				},
 			}),
 		getRunById: () =>
@@ -528,7 +599,14 @@ layer(
 				"background",
 				"child-execution",
 				"parent/execution",
-				SandboxScriptId.make("caller-script"),
+				callerAuthority({
+					type: "user",
+					userId: UserId.make("trusted-user"),
+					accountGeneration: {
+						token: "test-account-generation",
+						userId: UserId.make("trusted-user"),
+					},
+				}),
 			);
 
 			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
@@ -565,7 +643,7 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 					"interactive",
 					"entity-import-execution",
 					"parent-execution",
-					SandboxScriptId.make("caller-script"),
+					callerAuthority({ type: "system" }),
 				),
 			);
 
@@ -599,7 +677,14 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 					"background",
 					"entity-import-execution",
 					"parent-execution",
-					SandboxScriptId.make("caller-script"),
+					callerAuthority({
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					}),
 				),
 			);
 
@@ -630,7 +715,15 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 					"interactive",
 					"event-create-execution",
 					"parent-execution",
-					SandboxScriptId.make("caller-script"),
+					callerAuthority({
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						integrationId: IntegrationId.make("victim-integration"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					}),
 				),
 			);
 
@@ -676,7 +769,7 @@ layer(
 					"interactive",
 					"population-reference",
 					"parent-execution",
-					SandboxScriptId.make("caller-script"),
+					populationAuthority({ type: "system" }),
 				);
 
 				const dispatches = yield* RecordedWorkflowDispatches;
@@ -744,7 +837,7 @@ layer(
 					"interactive",
 					"population-reference",
 					"parent-execution",
-					SandboxScriptId.make("caller-script"),
+					populationAuthority({ type: "system" }),
 				),
 			);
 
@@ -761,11 +854,51 @@ const populationInput = {
 };
 
 layer(
+	populationReferencesLayer(undefined, "user").pipe(
+		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "private-entity" }))),
+	),
+)((test) => {
+	test.effect(
+		"keeps private ownership and exact caller pins through kernel provider children",
+		() =>
+			Effect.gen(function* () {
+				const userId = UserId.make("private-owner");
+				const subject = {
+					userId,
+					type: "user",
+					accountGeneration: { userId, token: "test-account-generation" },
+				} as const;
+				const pinned = populationAuthority(subject);
+				const principal = yield* Schema.decodeUnknownEffect(SandboxExecutionPrincipal)({
+					...pinned,
+					pluginRevision: { ...pinned.pluginRevision, scope: "user", ownerId: userId },
+				});
+				yield* (yield* KernelWorkflowReferences).execute(
+					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+					populationInput,
+					subject,
+					"background",
+					"private-population",
+					"private-parent",
+					principal,
+				);
+				expect(yield* (yield* RecordedWorkflowDispatches).payloads).toMatchObject([
+					{
+						pluginId: "provider-owner",
+						command: { writeContext: principal },
+						entityScope: { userId, type: "user" },
+					},
+				]);
+			}),
+	);
+});
+
+layer(
 	populationReferencesLayer(() => false).pipe(
 		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "entity-1" }))),
 	),
 )((test) => {
-	test.effect("rejects non-system and unauthorized provider population calls", () =>
+	test.effect("rejects unavailable user and unauthorized system provider population calls", () =>
 		Effect.gen(function* () {
 			const references = yield* KernelWorkflowReferences;
 			const userExit = yield* Effect.exit(
@@ -780,10 +913,14 @@ layer(
 					"interactive",
 					"user-call",
 					"parent-execution",
-					SandboxScriptId.make("caller-script"),
+					populationAuthority({
+						type: "user",
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					}),
 				),
 			);
-			expect(userExit.toString()).toContain("available only for system executions");
+			expect(userExit.toString()).toContain("is unavailable or has no exact binding");
 
 			const ownershipExit = yield* Effect.exit(
 				references.execute(
@@ -793,11 +930,11 @@ layer(
 					"interactive",
 					"foreign-call",
 					"parent-execution",
-					SandboxScriptId.make("caller-script"),
+					populationAuthority({ type: "system" }),
 				),
 			);
 			expect(ownershipExit.toString()).toContain(
-				"is not active or has no exact binding to entity schema 'record' owned by plugin 'catalog'",
+				"is unavailable or has no exact binding to entity schema 'record' owned by plugin 'provider-owner'",
 			);
 			expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(0);
 		}),
@@ -826,12 +963,12 @@ layer(
 					"interactive",
 					"population-reference",
 					"parent-execution",
-					SandboxScriptId.make("caller-script"),
+					populationAuthority({ type: "system" }),
 				),
 			);
 
 			expect(exit.toString()).toContain(
-				"is not active or has no exact binding to entity schema 'record' owned by plugin 'catalog'",
+				"is unavailable or has no exact binding to entity schema 'record' owned by plugin 'provider-owner'",
 			);
 			expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(0);
 		}),
@@ -865,7 +1002,7 @@ layer(
 						"interactive",
 						`valid-batch-${items.length}`,
 						"parent-execution",
-						SandboxScriptId.make("caller-script"),
+						populationAuthority({ type: "system" }),
 					);
 				}
 				expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(101);
@@ -879,7 +1016,7 @@ layer(
 							"interactive",
 							"invalid-batch",
 							"parent-execution",
-							SandboxScriptId.make("caller-script"),
+							populationAuthority({ type: "system" }),
 						),
 					);
 					expect(exit.toString()).toContain("Invalid kernel workflow input");

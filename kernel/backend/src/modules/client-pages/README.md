@@ -4,6 +4,16 @@ Client-page preparation resolves a saved view, plugin route, or entity against t
 catalog. It reuses an immutable composition by key and materializes it on a miss. A hit does not
 inspect artifacts or rebuild the manifest. Preparation does not compile plugin source. A separate freshness check compares a prepared page with current catalog state.
 
+Dependency aliases belong to the importing manifest. Compiled imports carry scoped package UUIDs
+and export names; graph preparation checks their declarations, exact targets, exports, and cycles.
+Composition maps and contributor bindings use local plugin IDs, never metadata names or slugs.
+Page context carries each contributor's package ID, local ID, revision, and installation. These
+nonsecret bindings support explicit SDK recipe selection in a shared realm, not module isolation.
+
+Plugin routes use `/p/<pluginId>`. Saved views use `/v/c/<id>`, `/v/k/<slug>`, or
+`/v/p/<pluginId>/<slug>` according to their tagged reference. Quarantine removes executable
+contributors; freshness checks never replace them with another package.
+
 Saved-view preparation reads `user_saved_view_effective`: custom views are user-owned rows,
 while built-in content comes from current definitions and optional per-user visibility and
 order overrides. The effective definition and override revision participate in freshness

@@ -117,6 +117,7 @@ import {
 	SandboxWorkflowPinningLive,
 } from "#modules/sandbox/layer";
 import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxExecutionAuthorityLive } from "#modules/sandbox/runtime-authority";
 import { SandboxWorkflowDefinitionsLive } from "#modules/sandbox/sandbox-workflow-live";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { SavedViewsServiceLive } from "#modules/saved-views/layer";
@@ -298,6 +299,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 						EventStreamRepository.layer,
 						IntegrationsRepository.layer,
 						PluginRuntimeResolverLive,
+						SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer)),
 					),
 				),
 			),

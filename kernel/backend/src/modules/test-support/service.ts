@@ -1,6 +1,8 @@
 import { createLocalAccountIssuer, createOAuthAccountIssuer } from "@better-auth/core/db";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
+import type { ContractPayload } from "@ryot-app/contract/client";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	InstallPluginBody,
 	UpdatePrivatePluginBody,
@@ -9,18 +11,16 @@ import {
 	TestSupportBadRequest,
 	TestSupportOperationFailure,
 	type TestSupportInstallSystemPluginBodyBase64,
+	type TestSupportUpdateSystemPluginBodyBase64,
 	type TestSupportEnqueueSandboxBody,
 	type TestSupportTriggerPluginCronBody,
 } from "@ryot-app/contract/modules/test-support/schemas";
 import {
 	AutomationExecutionId,
-	type EntitySchemaSlug,
 	type EntityId,
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
-	type PluginSlug,
-	type RelationshipSchemaSlug,
 	type SandboxProviderId,
 	SandboxScriptId,
 	type UserId,
@@ -47,7 +47,7 @@ import { PluginCronService } from "#modules/scheduler/plugin-cron";
 type CreateGlobalEntityInput = {
 	readonly name: string;
 	readonly externalId?: string | undefined;
-	readonly entitySchemaSlug: EntitySchemaSlug;
+	readonly entitySchema: EntitySchemaReference;
 	readonly properties: Record<string, unknown>;
 	readonly populatedAt?: string | null | undefined;
 	readonly providerId?: SandboxProviderId | undefined;
@@ -69,16 +69,24 @@ const parseDate = (value: string) => {
 
 const systemApiCommand = Effect.fnUntraced(function* (itemIdentity: string) {
 	const executionId = AutomationExecutionId.make(generateId());
-	return rootLifecycleCommand({
-		executionId,
-		itemIdentity,
-		source: "api",
-		lane: "interactive",
-		accountGeneration: null,
-		initiator: { id: null, kind: "system" },
-		occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-	});
+	return {
+		...rootLifecycleCommand({
+			executionId,
+			itemIdentity,
+			source: "api",
+			lane: "interactive",
+			accountGeneration: null,
+			initiator: { id: null, kind: "system" },
+			occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+		}),
+		writeContext: null,
+	};
 });
+
+const childSystemApiCommand = (
+	command: ReturnType<typeof rootLifecycleCommand>,
+	itemIdentity: string,
+) => ({ ...childLifecycleCommand(command, itemIdentity), writeContext: null });
 
 const reportWarnings = (
 	operation: string,
@@ -87,6 +95,23 @@ const reportWarnings = (
 	warnings.length === 0
 		? Effect.void
 		: Effect.logWarning("test support lifecycle warnings", { warnings, operation });
+
+const decodeCompiledClient = (
+	compiledClient: TestSupportInstallSystemPluginBodyBase64["compiledClient"],
+) =>
+	compiledClient === undefined
+		? Effect.void
+		: Schema.decodeUnknownEffect(PluginClientArtifactFromBase64)(compiledClient).pipe(
+				Effect.mapError(
+					() =>
+						new TestSupportBadRequest({
+							reason: {
+								code: "invalid-request",
+								diagnostic: "Plugin client artifact must be a valid Base64 artifact",
+							},
+						}),
+				),
+			);
 
 export class TestSupportService extends Context.Service<TestSupportService>()(
 	"TestSupportService",
@@ -113,7 +138,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 						return yield* new TestSupportOperationFailure({
 							reason: {
 								code: "operation-failed",
-								diagnostic: `Plugin '${"pluginId" in identity ? identity.pluginId : identity.slug}' was not persisted after ingestion`,
+								diagnostic: `Plugin '${identity.pluginId}' was not persisted after ingestion`,
 							},
 						});
 					}
@@ -133,22 +158,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const installSystemPlugin = Effect.fn("TestSupportService.installSystemPlugin")(function* (
 				input: TestSupportInstallSystemPluginBodyBase64,
 			) {
-				const compiledClient =
-					input.compiledClient === undefined
-						? undefined
-						: yield* Schema.decodeUnknownEffect(PluginClientArtifactFromBase64)(
-								input.compiledClient,
-							).pipe(
-								Effect.mapError(
-									() =>
-										new TestSupportBadRequest({
-											reason: {
-												code: "invalid-request",
-												diagnostic: "Plugin client artifact must be a valid Base64 artifact",
-											},
-										}),
-								),
-							);
+				const compiledClient = yield* decodeCompiledClient(input.compiledClient);
 				const installed = yield* pluginIngestion.installPlugin({
 					manifest: input.manifest,
 					compiledScripts: input.compiledScripts,
@@ -157,7 +167,25 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				return yield* getPluginOperationResult({
 					ownerId: null,
 					scope: "system",
-					slug: installed.slug,
+					pluginId: installed.pluginId,
+				});
+			});
+			const updateSystemPlugin = Effect.fn("TestSupportService.updateSystemPlugin")(function* (
+				pluginId: PluginId,
+				input: TestSupportUpdateSystemPluginBodyBase64,
+			) {
+				const compiledClient = yield* decodeCompiledClient(input.compiledClient);
+				const updated = yield* pluginIngestion.updatePlugin({
+					pluginId,
+					manifest: input.manifest,
+					sourceHash: input.sourceHash,
+					compiledScripts: input.compiledScripts,
+					...(compiledClient === undefined ? {} : { compiledClient }),
+				});
+				return yield* getPluginOperationResult({
+					ownerId: null,
+					scope: "system",
+					pluginId: updated.pluginId,
 				});
 			});
 			const installPrivatePlugin = Effect.fn("TestSupportService.installPrivatePlugin")(function* (
@@ -173,14 +201,18 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			});
 			const updatePrivatePlugin = Effect.fn("TestSupportService.updatePrivatePlugin")(function* (
 				userId: UserId,
-				pluginSlug: PluginSlug,
+				installationId: string,
 				input: UpdatePrivatePluginBody,
 			) {
-				yield* pluginInstallations.updatePrivatePlugin({ userId, pluginSlug, ...input });
+				const updated = yield* pluginInstallations.updatePrivatePlugin({
+					userId,
+					installationId,
+					...input,
+				});
 				return yield* getPluginOperationResult({
 					scope: "user",
 					ownerId: userId,
-					slug: pluginSlug,
+					pluginId: updated.pluginId,
 				});
 			});
 
@@ -194,8 +226,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					properties: input.properties,
 					externalId: input.externalId,
 					providerId: input.providerId,
-					entitySchemaSlug: input.entitySchemaSlug,
-					lifecycle: childLifecycleCommand(command, "create"),
+					entitySchema: input.entitySchema,
+					lifecycle: childSystemApiCommand(command, "create"),
 				});
 				if (input.populatedAt === undefined) {
 					yield* reportWarnings("create-global-entity", created.warnings);
@@ -206,7 +238,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					name: created.entity.name,
 					entityId: created.entity.id,
 					properties: created.entity.properties,
-					lifecycle: childLifecycleCommand(command, "set-populated-at"),
+					lifecycle: childSystemApiCommand(command, "set-populated-at"),
 					populatedAt: input.populatedAt === null ? null : yield* parseDate(input.populatedAt),
 				});
 				yield* reportWarnings("create-global-entity", [...created.warnings, ...updated.warnings]);
@@ -233,17 +265,9 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			});
 
 			const upsertGlobalRelationship = Effect.fn("TestSupportService.upsertGlobalRelationship")(
-				function* (input: {
-					sourceEntityId: EntityId;
-					targetEntityId: EntityId;
-					relationshipSchemaSlug: RelationshipSchemaSlug;
-					properties?: Record<string, unknown> | undefined;
-				}) {
-					const relationshipSchema = yield* relationshipSchemas.findById(
-						input.relationshipSchemaSlug,
-						null,
-					);
-					if (!relationshipSchema) {
+				function* (input: ContractPayload<"testSupport", "upsertGlobalRelationship">) {
+					const schema = yield* relationshipSchemas.findByReference(input.relationshipSchema, null);
+					if (!schema) {
 						return yield* new TestSupportBadRequest({
 							reason: { code: "invalid-request", diagnostic: "Relationship schema not found" },
 						});
@@ -254,13 +278,12 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 							properties: input.properties ?? {},
 							sourceEntityId: input.sourceEntityId,
 							targetEntityId: input.targetEntityId,
-							relationshipSchemaSlug: input.relationshipSchemaSlug,
-							relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
+							relationshipSchema: input.relationshipSchema,
 						},
 						yield* systemApiCommand(
 							stableStringify([
 								"test-support:upsert-global-relationship",
-								input.relationshipSchemaSlug,
+								input.relationshipSchema,
 								input.sourceEntityId,
 								input.targetEntityId,
 							]),
@@ -311,12 +334,24 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					name: string | null;
 					properties: Record<string, unknown> | null;
 				}) {
-					return yield* translations.upsert({ ...input, populatedAt: yield* DateTime.nowAsDate });
+					return yield* translations
+						.upsertKernelOverlay(
+							{ ...input, populatedAt: yield* DateTime.nowAsDate },
+							yield* systemApiCommand("test-support:upsert-entity-translation"),
+						)
+						.pipe(
+							Effect.mapError(
+								(error) =>
+									new TestSupportOperationFailure({
+										reason: { code: "operation-failed", diagnostic: error.message },
+									}),
+							),
+						);
 				},
 			);
 
 			const triggerPluginCron = (input: TestSupportTriggerPluginCronBody) =>
-				pluginCrons.trigger(input.pluginSlug, input.cronSlug, `plugin-cron-manual-${generateId()}`);
+				pluginCrons.trigger(input.pluginId, input.cronSlug, `plugin-cron-manual-${generateId()}`);
 
 			const reconcilePluginInstallations = Effect.gen(function* () {
 				yield* pluginInstallations.reconcileSystemInstallations();
@@ -326,6 +361,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				linkAuthAccount,
 				triggerPluginCron,
 				createGlobalEntity,
+				updateSystemPlugin,
 				installSystemPlugin,
 				updatePrivatePlugin,
 				installPrivatePlugin,
@@ -336,8 +372,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				reconcilePluginInstallations,
 				getSandboxResult: sandbox.getResult,
 				setEntityInterestMembership: interest.setEntityInterestMembership,
-				uninstallSystemPlugin: (pluginSlug: PluginSlug, activationId: string) =>
-					pluginIngestion.uninstallPlugin(pluginSlug, activationId),
+				uninstallSystemPlugin: (pluginId: PluginId, activationId: string) =>
+					pluginIngestion.uninstallPlugin(pluginId, activationId),
 				enqueueSandbox: (input: TestSupportEnqueueSandboxBody) => {
 					const { lane, executingUserId, ...payload } = input;
 					return sandbox.enqueue(executingUserId, payload, lane);

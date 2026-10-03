@@ -3,9 +3,19 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	pluginExportSpecifier,
 } from "@ryot-app/client-plugin-contract";
 import type { ClientPageCompositionIdentity } from "@ryot-app/contract/modules/client-pages/schemas";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+
+export const pageReference = {
+	scope: "user" as const,
+	packageId: PluginPackageId.make("b8ca02a6-72a0-4a55-914a-d4e8d8479b2e"),
+};
+export const presentationReference = {
+	scope: "user" as const,
+	packageId: PluginPackageId.make("7a055972-4f50-4c79-8086-546ac6024b54"),
+};
 
 export const identity = (): ClientPageCompositionIdentity => ({
 	name: "Page",
@@ -17,8 +27,8 @@ export const identity = (): ClientPageCompositionIdentity => ({
 	runtimeArtifactHash: "a".repeat(64),
 	compilerVersion: CLIENT_COMPILER_VERSION,
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-	selectedExports: ["@ryot-app/plugins/page/main"],
 	eagerArtifactHashes: ["a".repeat(64), "b".repeat(64)],
+	selectedExports: [pluginExportSpecifier(pageReference, "main")],
 	entry: { path: "client/main.tsx", contributor: "page-namespace" },
 	automaticRegistry: [
 		{
@@ -26,18 +36,19 @@ export const identity = (): ClientPageCompositionIdentity => ({
 			entitySchemaSlug: "entity",
 			ownerPluginId: "presentation-id",
 			artifactClosure: ["c".repeat(64)],
-			exportSpecifier: "@ryot-app/plugins/presentation/card",
+			exportSpecifier: pluginExportSpecifier(presentationReference, "card"),
 		},
 	],
 	contributors: [
 		{
 			kind: "plugin",
-			pluginId: "page-id",
+			...pageReference,
 			sourceHash: "source",
-			pluginDependencies: [],
+			pluginDependencies: {},
+			revisionId: "page-revision",
 			namespace: "page-namespace",
+			pluginId: PluginId.make("page-id"),
 			clientArtifactHash: "b".repeat(64),
-			pluginSlug: PluginSlug.make("page"),
 			exports: [
 				{
 					name: "main",
@@ -50,12 +61,13 @@ export const identity = (): ClientPageCompositionIdentity => ({
 		},
 		{
 			kind: "plugin",
+			...presentationReference,
 			sourceHash: "source",
-			pluginDependencies: [],
-			pluginId: "presentation-id",
+			pluginDependencies: {},
 			clientArtifactHash: "c".repeat(64),
+			revisionId: "presentation-revision",
 			namespace: "presentation-namespace",
-			pluginSlug: PluginSlug.make("presentation"),
+			pluginId: PluginId.make("presentation-id"),
 			exports: [
 				{
 					name: "card",

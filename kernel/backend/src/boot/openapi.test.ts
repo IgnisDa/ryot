@@ -25,22 +25,26 @@ describe("OpenAPI documentation", () => {
 
 	it("documents the user plugin installation surface", () => {
 		const spec = OpenApi.fromApi(AppContract);
-		expect(spec.paths["/plugins/{pluginSlug}/state"]?.patch?.security).toEqual([
+		expect(spec.paths["/plugins/installations/{installationId}/state"]?.patch?.security).toEqual([
 			{ oauth: [] },
 			{ apiKey: [] },
 		]);
 		for (const status of [400, 404, 409]) {
-			expect(spec.paths["/plugins/{pluginSlug}/state"]?.patch?.responses[status]).toBeDefined();
+			expect(
+				spec.paths["/plugins/installations/{installationId}/state"]?.patch?.responses[status],
+			).toBeDefined();
 		}
-		expect(spec.paths["/plugins"]?.post?.description).toContain("source file map");
+		expect(spec.paths["/plugins"]?.post?.description).toContain("precompiled plugin archive");
 		expect(
-			spec.paths["/plugins/{pluginSlug}/{activationId}"]?.delete?.responses["409"],
+			spec.paths["/plugins/installations/{installationId}/{activationId}"]?.delete?.responses[
+				"409"
+			],
 		).toBeDefined();
 		const systemPlugins = spec.paths["/test-support/system-plugins"];
 		expect(systemPlugins?.post?.security).toEqual([{ adminToken: [] }]);
 		expect(systemPlugins?.get).toBeUndefined();
 		expect(
-			spec.paths["/test-support/system-plugins/{pluginSlug}/{activationId}"]?.delete?.security,
+			spec.paths["/test-support/system-plugins/{pluginId}/{activationId}"]?.delete?.security,
 		).toEqual([{ adminToken: [] }]);
 	});
 
@@ -123,7 +127,7 @@ describe("OpenAPI documentation", () => {
 		expect(paths["/test-support/sandbox/result/{jobId}"]?.get).toBeDefined();
 		expect(paths["/test-support/entity-translations"]?.put).toBeDefined();
 		expect(paths["/test-support/relationships/global"]?.put).toBeDefined();
-		expect(paths["/plugins/{pluginSlug}/state"]?.patch).toBeDefined();
+		expect(paths["/plugins/installations/{installationId}/state"]?.patch).toBeDefined();
 		expect(paths["/backups/runs/{id}/download"]?.get).toBeDefined();
 		expect(paths["/backups/runs/{id}/download-url"]?.post).toBeDefined();
 		expect(paths["/imports/runs/{runId}/failures/download-url"]?.post).toBeDefined();
