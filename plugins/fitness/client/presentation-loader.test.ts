@@ -1,7 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
 
+import { preferenceSettings } from "../tests/client/draft-fixtures";
 import { loadFitnessPresentations } from "./entity-presentation";
 import { loadWorkoutPresentations } from "./workout-presentation";
 
@@ -106,32 +108,52 @@ describe("fitness presentation loaders", () => {
 		}),
 	);
 
-	it.live("loads workouts with the shared nested set include and grouping", () =>
+	it.live("loads workout cards by id in the user's unit system", () =>
 		Effect.gen(function* () {
-			const documents: unknown[] = [];
+			const lists: unknown[] = [];
 			const clock = createTestRyotClock({
+				pluginIdentity: () => ({ kind: "local", pluginId: PluginId.make("fitness") }),
+				invokeOperation: () =>
+					Effect.succeed({
+						proAvailable: false,
+						settings: { ...preferenceSettings, unitSystem: "imperial" },
+					}),
 				query: (document) => {
-					documents.push(document);
+					const queries = document.queries;
+					if ("exercises" in queries) {
+						return Effect.succeed({ data: { exercises: rows([]) } });
+					}
+					lists.push(queries["workouts"]);
 					return Effect.succeed({
 						data: {
-							presentations: rows([
+							workouts: rows([
 								{
-									presentationId: "workout-1",
-									presentationName: "Push day",
-									presentationExerciseNotes: null,
-									presentationEndedAt: "2026-09-07T09:00:00.000Z",
-									presentationStartedAt: "2026-09-07T08:00:00.000Z",
-									presentationSets: rows([
+									setCount: 1,
+									volume: 480,
+									id: "workout-1",
+									exerciseCount: 1,
+									name: "Push day",
+									personalBests: 0,
+									template: rows([]),
+									activeDuration: 3600,
+									repeatedFromId: null,
+									previousTemplateWorkoutId: null,
+									endedAt: "2026-09-07T09:00:00.000Z",
+									startedAt: "2026-09-07T08:00:00.000Z",
+									sets: rows([
 										{
 											reps: 8,
 											weight: 60,
+											oneRm: null,
 											id: "set-1",
 											setOrder: 0,
 											duration: null,
 											distance: null,
 											exerciseOrder: 0,
+											personalBests: null,
 											exerciseId: "exercise-1",
 											exerciseName: "Bench Press",
+											exerciseKind: "reps_and_weight",
 										},
 									]),
 								},
@@ -145,20 +167,23 @@ describe("fitness presentation loaders", () => {
 				references: [reference("workout-1", "workout", "Push day")],
 			});
 
-			expect(documents[0]).toMatchObject({
-				queries: {
-					presentations: {
-						output: { include: [expect.objectContaining({ limit: 100, key: "presentationSets" })] },
-					},
-				},
-			});
-			expect(loaded["workout-1"]?.exercises).toEqual([
+			expect(lists).toEqual([
 				expect.objectContaining({
-					id: "exercise-1",
-					name: "Bench Press",
-					sets: [expect.objectContaining({ reps: 8, weight: 60 })],
+					where: expect.objectContaining({
+						predicates: expect.arrayContaining([
+							expect.objectContaining({
+								type: "in",
+								values: [{ type: "literal", value: "workout-1" }],
+							}),
+						]),
+					}),
 				}),
 			]);
+			expect(loaded["workout-1"]).toMatchObject({
+				volume: "1,058 lb",
+				duration: { value: "1h", label: "Duration" },
+				top: [expect.objectContaining({ name: "Bench Press", best: "132.28 lb × 8" })],
+			});
 			yield* Effect.promise(() => clock.dispose());
 		}),
 	);
