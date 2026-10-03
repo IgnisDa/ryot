@@ -2,6 +2,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
+	CreateMembershipBody,
 	MembershipResponse,
 } from "@ryot-app/contract/modules/collections/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
@@ -31,6 +32,7 @@ export const AddEntityToCollectionWorkflowPayload = Schema.Struct({
 	collectionId: EntityId,
 	executionId: Schema.String,
 	command: DomainLifecycleCommand,
+	mode: CreateMembershipBody.fields.mode,
 	properties: Schema.optional(Schema.Unknown),
 });
 
