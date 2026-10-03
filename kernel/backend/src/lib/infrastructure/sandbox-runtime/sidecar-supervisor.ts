@@ -131,6 +131,13 @@ export type SandboxSidecarRun<A = void> = {
 
 const resident = (key: ProcessKey) => key.tier === "core" && key.instance === `${key.trust}/core`;
 
+const idle = (entry: Instance, generation: Generation) =>
+	!resident(entry.key) &&
+	!generation.closing &&
+	entry.recovery === undefined &&
+	generation.runs.size === 0 &&
+	entry.waiting === 0;
+
 const startupError = () =>
 	new SandboxRunError({ kind: "infrastructure", message: "Sandbox sidecar startup failed" });
 
@@ -600,10 +607,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 										entry.healthyEpoch = crypto.randomUUID();
 									}
 									if (
-										!resident(entry.key) &&
-										entry.recovery === undefined &&
-										generation.runs.size === 0 &&
-										entry.waiting === 0 &&
+										idle(entry, generation) &&
 										(yield* Clock.currentTimeMillis) - generation.lastActiveAt >=
 											SANDBOX_LIMITS.sidecar.idleMs
 									) {
@@ -713,7 +717,9 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 								if (generation.closing || generation.draining || entry.current !== generation) {
 									return yield* startupError();
 								}
-								yield* generation.connection.register(handle).pipe(Effect.mapError(startupError));
+								yield* generation.connection
+									.register(handle, options.lane)
+									.pipe(Effect.mapError(startupError));
 								generation.runs.set(handle, active);
 								const budget = yield* prepared.gate.scriptBudget;
 								active.sent = true;
@@ -980,6 +986,26 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 					yield* recordSandboxSidecarGauges(gauge);
 				}
 			});
+			const reclaim = Effect.gen(function* () {
+				let oldest: { readonly entry: Instance; readonly generation: Generation } | undefined;
+				for (const entry of instances.values()) {
+					const generation = entry.current;
+					if (
+						generation !== undefined &&
+						idle(entry, generation) &&
+						!admission.leased(entry.key.instance) &&
+						(oldest === undefined || generation.lastActiveAt < oldest.generation.lastActiveAt)
+					) {
+						oldest = { entry, generation };
+					}
+				}
+				if (oldest !== undefined) {
+					yield* closeGeneration(oldest.entry, oldest.generation);
+				}
+			});
+			yield* Effect.forever(admission.pressure.pipe(Effect.andThen(reclaim))).pipe(
+				Effect.forkIn(parent),
+			);
 			yield* Effect.gen(function* () {
 				for (;;) {
 					yield* sample;

@@ -1,8 +1,9 @@
 # S3 memory admission
 
-**Status:** approved. Bounded prefix inspection and atomic resource admission are implemented; slices
-M-M and M-S0 to M-S4 below implement the rest in order. Lanes, durable fair selection, CPU admission,
-HTTP tickets and benchmark statistics are separate S3 decisions ([s3.md](s3.md)). Units are MiB;
+**Status:** approved and implemented through slice M-S4: lane-mode memory plans, the interactive
+headroom predicate, lazy reclaim, lane transient pools and the lane-fair writer. Durable fair
+selection, CPU admission, HTTP tickets and benchmark statistics are separate S3 decisions
+([s3.md](s3.md)). Units are MiB;
 G = `SANDBOX_WORKER_CONCURRENCY` = 2 on the canonical host.
 
 ## Decisions
@@ -17,9 +18,8 @@ G = `SANDBOX_WORKER_CONCURRENCY` = 2 on the canonical host.
 - Per-script limits are 64 MiB heap and 16 MiB external for every kind. The measured maximum is
   19.7 MiB heap and 1.9 MiB external (system/full provider); a journal entry and its durable host
   response are capped at 12 MiB, and parsing very large HTTP or durable responses fails at the limit.
-- Until scheduling routes runs into lanes, every run draws permits from one static pool of
-  I + 60 = 232 MiB (the capped background partition), leaving room for ≈20 MiB of inline evidence
-  beside one batch reservation; boot needs 256 + 232 + E + 128 = 914 MiB. M-S4 splits it by lane.
+- Every run draws transient permits from the pool of the lane it was reserved with (§8); shared mode
+  maps both lanes to one pool.
 - Sandbox `executeRyotql` results are capped at 1 MiB of JSON across the document, measured by
   PostgreSQL before rows are returned (Vmax = k × 1 MiB = 27 MiB). Capabilities with no
   pre-materialization bound (`listIntegrations`, entity and event schemas, current integration, user
@@ -159,9 +159,11 @@ JSON text; the workflow body decodes them as before (accepted residual).
 ### 5.4 Processes and per-connection transport
 
 Resident core 2 × 128; lazy 128 each (values unchanged). Permits charge the call's actual argument
-bytes, so the 232 MiB pool admits at most ⌊232/56⌋ = 4 maximum host results (4 × 12 = 48 MiB) plus
-small results and run frames per connection, below `ASSEMBLY_BYTES` (fixes A10's dependency). This
-holds because P ≤ I + 60 for every k in 19–40 (§8).
+bytes. The lane pools together admit up to five maximum host results (60 MiB), which with journal or
+artifact slices and run frames can exceed the sidecar's 64 MiB `ASSEMBLY_BYTES` on one connection.
+The backend writer therefore starts a chunked message only while the chunked messages already in
+flight on that connection fit `ASSEMBLY_BYTES`; socket order makes that count exact. Non-interactive
+messages leave one maximum host result (12 MiB) free for interactive results.
 
 ## 6. Acquisition, handoff and release sequence
 

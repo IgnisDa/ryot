@@ -444,6 +444,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 							testExecutionId("seed"),
 							{ mode: "seed" },
 							{
+								lane: "background",
 								workflowExecutionId: "native-recovery-workflow",
 								inlineDurableHost: {
 									capabilities: ["getCachedValue"],
@@ -479,6 +480,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 							testExecutionId("victim"),
 							{ mode: "park" },
 							{
+								lane: "background",
 								replayJournal: prefix,
 								workflowExecutionId: "native-recovery-workflow",
 								inlineDurableHost: {
