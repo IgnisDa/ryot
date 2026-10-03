@@ -24,7 +24,7 @@ pub enum ChunkedType {
 }
 
 impl ChunkedType {
-    pub fn message_bytes(self) -> usize {
+    pub const fn message_bytes(self) -> usize {
         let mib = MIB as usize;
         match self {
             Self::Run => 4 * mib,
@@ -57,6 +57,18 @@ pub struct Limits {
     pub heap_bytes: u64,
     pub deadline_ms: u64,
     pub external_bytes: u64,
+}
+
+#[cfg(test)]
+impl Limits {
+    pub(crate) fn minimal() -> Self {
+        Self {
+            cpu_ms: 1,
+            heap_bytes: 1,
+            deadline_ms: 1,
+            external_bytes: 1,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

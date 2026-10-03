@@ -443,6 +443,30 @@ fn oversized_results_and_host_arguments_fail_inside_the_heap() {
 }
 
 #[test]
+fn script_results_are_limited_to_four_mib_of_utf8_json() {
+    let mut sidecar = support::spawn(Tier::Core, &[]);
+    let characters = (4 * MIB as usize - 2) / 2;
+    let fits = sidecar.execute(
+        Tier::Core,
+        &format!("export default () => '\\u0100'.repeat({characters})"),
+        Value::Null,
+    );
+    assert_eq!(
+        fits.value().as_str().map(|text| text.chars().count()),
+        Some(characters)
+    );
+    let exceeds = sidecar.execute(
+        Tier::Core,
+        &format!("export default () => '\\u0100'.repeat({characters}) + 'a'"),
+        Value::Null,
+    );
+    assert_eq!(
+        exceeds.failure(),
+        (Phase::Result, "Result exceeds 4194304 bytes")
+    );
+}
+
+#[test]
 fn script_errors_and_results_stay_bounded_before_reaching_rust() {
     let mut sidecar = support::spawn(Tier::Core, &[]);
     let limits = Limits {

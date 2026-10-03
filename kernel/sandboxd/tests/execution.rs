@@ -5,9 +5,11 @@ use std::io::Read;
 use std::path::Path;
 use std::time::Duration;
 
-use ryot_sandboxd::protocol::{ChunkedType, Inbound, Outbound, Outcome, Phase, Tier};
+use ryot_sandboxd::protocol::{ChunkedType, Inbound, Limits, Outbound, Outcome, Phase, Tier};
 use ryot_sandboxd::snapshots::Snapshot;
 use serde_json::{Map, Value, json};
+
+const MIB: u64 = 1024 * 1024;
 
 fn read_archive_entry(archive: &mut zip::ZipArchive<std::fs::File>, path: &str) -> String {
     let mut source = String::new();
@@ -100,6 +102,40 @@ fn definition_invocation(metadata: Value, context: Value, execution_id: &str) ->
         "apiFunctions": api_functions,
         "context": context,
     })
+}
+
+fn script_metadata(
+    name: &str,
+    slug: &str,
+    capabilities: &[&str],
+    runtime_imports: &[&str],
+) -> Value {
+    json!({
+        "kind": "script",
+        "name": name,
+        "slug": slug,
+        "oauthConnectionFields": [],
+        "requiredPluginConfigKeys": [],
+        "optionalPluginConfigKeys": [],
+        "executableDependencies": [],
+        "capabilities": capabilities,
+        "runtimeImports": runtime_imports,
+    })
+}
+
+fn artifact_invocation(metadata: &Value, execution_id: &str) -> Value {
+    let mut invocation = definition_invocation(metadata.clone(), Value::Null, execution_id);
+    invocation["filesystem"] = json!({ "artifact": true, "scratch": false, "namedArtifacts": [] });
+    invocation
+}
+
+fn large_limits() -> Limits {
+    Limits {
+        cpu_ms: 30_000,
+        heap_bytes: 256 * MIB,
+        deadline_ms: 30_000,
+        external_bytes: 64 * MIB,
+    }
 }
 
 const CORE_FIXTURE: &str = r#"
@@ -352,8 +388,8 @@ fn definition_envelopes_use_done_limit_while_values_keep_the_four_mib_limit() {
     }))
     .expect("TMDB response body");
     let mut sidecar = support::spawn(Tier::Core, &[]);
-    let limits = ryot_sandboxd::protocol::Limits {
-        heap_bytes: 256 * 1024 * 1024,
+    let limits = Limits {
+        heap_bytes: 256 * MIB,
         ..support::limits()
     };
     sidecar.send(&support::run_frame(
@@ -484,25 +520,21 @@ export default {
     ),
 };
 "#;
-    let metadata = json!({
-        "kind": "script",
-        "name": "Filesystem",
-        "slug": "filesystem",
-        "oauthConnectionFields": [],
-        "requiredPluginConfigKeys": [],
-        "optionalPluginConfigKeys": [],
-        "executableDependencies": [],
-        "capabilities": ["artifact-read"],
-        "runtimeImports": ["@ryot-app/sandbox-sdk/effect", "@ryot-app/sandbox-sdk/filesystem"],
-    });
+    let metadata = script_metadata(
+        "Filesystem",
+        "filesystem",
+        &["artifact-read"],
+        &[
+            "@ryot-app/sandbox-sdk/effect",
+            "@ryot-app/sandbox-sdk/filesystem",
+        ],
+    );
     let mut sidecar = support::spawn(Tier::Core, &[]);
-    let mut invocation = definition_invocation(metadata.clone(), Value::Null, "filesystem-granted");
-    invocation["filesystem"] = json!({ "artifact": true, "scratch": false, "namedArtifacts": [] });
     sidecar.send(&support::run_frame(
         "filesystem-granted",
         Tier::Core,
         source,
-        invocation,
+        artifact_invocation(&metadata, "filesystem-granted"),
         support::limits(),
     ));
     let mut reads = 0;
@@ -531,15 +563,11 @@ export default {
     run: () => readArtifactRange(0, 1).pipe(Effect.map(range => range.size)),
 };
 "#;
-    let mut range_invocation =
-        definition_invocation(metadata.clone(), Value::Null, "filesystem-range");
-    range_invocation["filesystem"] =
-        json!({ "artifact": true, "scratch": false, "namedArtifacts": [] });
     sidecar.send(&support::run_frame(
         "filesystem-range",
         Tier::Core,
         range_source,
-        range_invocation,
+        artifact_invocation(&metadata, "filesystem-range"),
         support::limits(),
     ));
     let range_result = sidecar
@@ -552,22 +580,13 @@ export default {
     assert_eq!(range_result["success"], true, "{range_result}");
     assert_eq!(range_result["value"], 100 * 1024 * 1024);
     let whole_source = source.replace("new TextDecoder().decode(bytes)", "String(bytes.length)");
-    let mut whole_invocation =
-        definition_invocation(metadata.clone(), Value::Null, "filesystem-whole");
-    whole_invocation["filesystem"] =
-        json!({ "artifact": true, "scratch": false, "namedArtifacts": [] });
-    let mut whole_limits = support::limits();
-    whole_limits.heap_bytes = 256 * 1024 * 1024;
-    whole_limits.external_bytes = 64 * 1024 * 1024;
-    whole_limits.cpu_ms = 30_000;
-    whole_limits.deadline_ms = 30_000;
     let chunk = STANDARD.encode(vec![b'a'; 1024 * 1024]);
     sidecar.send(&support::run_frame(
         "filesystem-whole",
         Tier::Core,
         &whole_source,
-        whole_invocation,
-        whole_limits,
+        artifact_invocation(&metadata, "filesystem-whole"),
+        large_limits(),
     ));
     let mut whole_reads = 0;
     let whole_result = sidecar
@@ -610,12 +629,12 @@ export default {
     ).pipe(Effect.map(values => values.reduce((total, value) => total + value.length, 0))),
 };
 "#;
-    let metadata = json!({
-        "kind": "script", "name": "Journal", "slug": "journal",
-        "capabilities": ["getCachedValue"], "runtimeImports": ["@ryot-app/sandbox-sdk/effect"],
-        "oauthConnectionFields": [], "requiredPluginConfigKeys": [],
-        "optionalPluginConfigKeys": [], "executableDependencies": [],
-    });
+    let metadata = script_metadata(
+        "Journal",
+        "journal",
+        &["getCachedValue"],
+        &["@ryot-app/sandbox-sdk/effect"],
+    );
     let mut sidecar = support::spawn(Tier::Core, &[]);
     let mut invocation = definition_invocation(metadata, Value::Null, "large-journal");
     invocation["workflowExecutionId"] = json!("large-journal-workflow");
@@ -653,17 +672,12 @@ export default {
     }
     assert!(entry.len() < 100 * 1024 * 1024);
     invocation["journal"] = json!({ "length": 6, "totalBytes": entry.len(), "offsets": offsets });
-    let mut limits = support::limits();
-    limits.heap_bytes = 256 * 1024 * 1024;
-    limits.external_bytes = 64 * 1024 * 1024;
-    limits.cpu_ms = 30_000;
-    limits.deadline_ms = 30_000;
     sidecar.send(&support::run_frame(
         "large-journal",
         Tier::Core,
         source,
         invocation,
-        limits,
+        large_limits(),
     ));
     let mut reads = 0;
     let result = sidecar.finish("large-journal", |name, args| {
@@ -710,6 +724,21 @@ fn caught_dynamic_import_does_not_poison_later_error_phase() {
         let (actual_phase, actual_message) = done.failure();
         assert_eq!(actual_phase, phase, "{actual_message}");
         assert!(actual_message.contains(message), "{actual_message}");
+    }
+}
+
+#[test]
+fn scripts_cannot_claim_the_resolution_phase_without_a_loader_rejection() {
+    let mut sidecar = support::spawn(Tier::Core, &[]);
+    for message in ["ryot-resolution: x", "import not allowed: x"] {
+        let done = sidecar.execute(
+            Tier::Core,
+            &format!("export default () => {{ throw new TypeError({message:?}); }};"),
+            Value::Null,
+        );
+        let (phase, actual) = done.failure();
+        assert_eq!(phase, Phase::Execution, "{actual}");
+        assert!(actual.contains(message), "{actual}");
     }
 }
 
@@ -792,7 +821,7 @@ fn journal_read_calls_do_not_use_the_ordinary_host_call_budget() {
 #[test]
 fn synchronous_inline_settlement_freezes_timers_and_wakes_on_cancel() {
     let mut sidecar = support::spawn(Tier::Core, &["--max-active", "1", "--threads", "2"]);
-    let limits = ryot_sandboxd::protocol::Limits {
+    let limits = Limits {
         deadline_ms: 400,
         ..support::limits()
     };
@@ -909,7 +938,7 @@ fn synchronous_inline_settlement_freezes_timers_and_wakes_on_cancel() {
 }
 
 #[test]
-fn host_call_name_length_uses_utf16_code_units() {
+fn bootstrap_bounds_host_call_names_in_utf16_code_units() {
     let mut sidecar = support::spawn(Tier::Core, &[]);
     let allowed_name = "😀".repeat(64);
     let allowed_source =
