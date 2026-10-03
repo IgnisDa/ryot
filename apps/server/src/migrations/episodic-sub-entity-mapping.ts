@@ -433,6 +433,8 @@ BEGIN
 			"updated_at" = EXCLUDED."updated_at";
 	GET DIAGNOSTICS podcast_episodes_inserted = ROW_COUNT;
 
+	ANALYZE "entity";
+
 	${[
 		{ value: "value", schema: input.showSeasonEntitySchema, table: "_legacy_show_season_entities" },
 		{

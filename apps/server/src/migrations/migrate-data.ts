@@ -470,16 +470,13 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		logReportRows(connection, reportSequence),
 	);
 
-	// Provider-sourced ("global") entities migrate only when user data references them (plus all
-	// user-authored custom entities). The referenced-id set and the populated-metadata gate, which
-	// adds credited people and groups to that set, are collected up front and consumed by the
-	// metadata / person / company / metadata_group entity migrations.
 	const legacyIntegrationProgressCache = yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
 			yield* connection.executeRaw(createLegacyDescriptionInputsSql, []);
 			yield* connection.executeRaw(buildReferencedGlobalEntityIdsSql(), []);
 			yield* connection.executeRaw(buildPopulatedMetadataIdsSql(), []);
 			yield* connection.executeRaw(buildMetadataMigrationSql(resolvedMetadataTargets), []);
+			reportSequence = yield* logReportRows(connection, reportSequence);
 			yield* connection.executeRaw(
 				buildLegacyEpisodicSubEntityMigrationSql({
 					showSeasonEntitySchema,
@@ -491,6 +488,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				}),
 				[],
 			);
+			reportSequence = yield* logReportRows(connection, reportSequence);
 			yield* connection.executeRaw(
 				buildMetadataGroupEntityMigrationSql(resolvedMetadataGroupEntityTargets),
 				[],
@@ -543,27 +541,16 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				buildWorkoutRepeatedFromRelationshipMigrationSql(workoutRepeatedFromRelationshipSchema),
 				[],
 			);
-			yield* connection.executeRaw(buildReviewMigrationSql(mediaPluginId), []);
-			yield* connection.executeRaw(buildSeenMigrationSql(mediaPluginId), []);
-			yield* connection.executeRaw(buildSeenEpisodicCompletionMigrationSql(mediaPluginId), []);
 			yield* connection.executeRaw(
-				`
-					DO $$
-					DECLARE
-						rec RECORD;
-					BEGIN
-						FOR rec IN
-							SELECT schemaname, tablename
-							FROM pg_tables
-							WHERE schemaname = ANY (current_schemas(false))
-							ORDER BY schemaname, tablename
-						LOOP
-							EXECUTE format('ANALYZE %I.%I', rec.schemaname, rec.tablename);
-						END LOOP;
-					END $$;
-				`,
+				'DO $$ BEGIN ANALYZE "entity"; ANALYZE "relationship"; ANALYZE "event"; END $$;',
 				[],
 			);
+			yield* connection.executeRaw(buildReviewMigrationSql(mediaPluginId), []);
+			reportSequence = yield* logReportRows(connection, reportSequence);
+			yield* connection.executeRaw(buildSeenMigrationSql(mediaPluginId), []);
+			reportSequence = yield* logReportRows(connection, reportSequence);
+			yield* connection.executeRaw(buildSeenEpisodicCompletionMigrationSql(mediaPluginId), []);
+			reportSequence = yield* logReportRows(connection, reportSequence);
 			yield* connection.executeRaw(
 				buildPersonRelationshipMigrationSql(resolvedPersonRelationshipTargets),
 				[],
@@ -613,6 +600,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				[],
 			);
 			yield* normalizeLegacyDescriptions(connection);
+			reportSequence = yield* logReportRows(connection, reportSequence);
 			return yield* readLegacyIntegrationProgressCache(connection, mediaPluginId);
 		}).pipe(
 			Effect.ensuring(connection.executeRaw(dropLegacyDescriptionInputsSql, []).pipe(Effect.orDie)),
