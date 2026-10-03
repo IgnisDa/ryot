@@ -282,6 +282,7 @@ describe("measurements page", () => {
 				waitFor(() => expect(body.getByRole("dialog", { name: "Add metric" })).toBeTruthy()),
 			);
 			const dialog = within(body.getByRole("dialog", { name: "Add metric" }));
+			expect(dialog.getByRole("form", { name: "Add metric" }).tagName).toBe("DIV");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(document.activeElement).toBe(dialog.getByLabelText("Name"))),
 			);
@@ -303,9 +304,7 @@ describe("measurements page", () => {
 					expect(dialog.getByLabelText("Unit (optional)").getAttribute("value")).toBe(" mmHg "),
 				),
 			);
-			const form = dialog.getByRole("button", { name: "Add metric" }).closest("form");
-			assert(form !== null);
-			fireEvent.submit(form);
+			fireEvent.click(dialog.getByRole("button", { name: "Add metric" }));
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					expect(
@@ -412,10 +411,8 @@ describe("measurements page", () => {
 			fireEvent.click(body.getByRole("button", { name: "Add metric" }));
 			yield* Effect.promise(() => waitFor(() => expect(body.getByRole("dialog")).toBeTruthy()));
 			const dialog = within(body.getByRole("dialog"));
-			const form = dialog.getByRole("button", { name: "Add metric" }).closest("form");
-			assert(form !== null);
 			fireEvent.change(dialog.getByLabelText("Name"), { target: { value: "!!!" } });
-			fireEvent.submit(form);
+			fireEvent.click(dialog.getByRole("button", { name: "Add metric" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(dialog.getByRole("alert").textContent).toContain("Enter a name")),
 			);
@@ -424,7 +421,7 @@ describe("measurements page", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => expect(dialog.getByLabelText("Name").getAttribute("value")).toBe("Mood")),
 			);
-			fireEvent.submit(form);
+			fireEvent.keyDown(dialog.getByLabelText("Name"), { key: "Enter" });
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(
@@ -444,7 +441,7 @@ describe("measurements page", () => {
 				waitFor(() => expect(dialog.getByRole("alert").textContent).toContain("couldn't be added")),
 			);
 			expect(dialog.getByLabelText("Name").getAttribute("value")).toBe("Mood");
-			fireEvent.submit(form);
+			fireEvent.click(dialog.getByRole("button", { name: "Add metric" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(
