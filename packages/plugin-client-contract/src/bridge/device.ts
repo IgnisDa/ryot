@@ -20,7 +20,11 @@ const variants = [
 	}),
 	strictStruct({ ...owner, key, action: Schema.Literal("cancel") }),
 	strictStruct({ ...owner, enabled: Schema.Boolean, action: Schema.Literal("awake") }),
-	strictStruct({ ...owner, action: Schema.Literal("haptic") }),
+	strictStruct({
+		...owner,
+		action: Schema.Literal("haptic"),
+		kind: Schema.optionalKey(Schema.Literals(["impact", "selection"])),
+	}),
 	strictStruct({
 		...owner,
 		action: Schema.Literal("return-shortcut"),

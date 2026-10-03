@@ -129,8 +129,8 @@ export const DeviceRouteStubs = DeviceService.layer.pipe(
 	Layer.provide(makeClientStorage()),
 	Layer.provide(
 		Layer.succeed(DevicePlatform, {
-			haptic: Effect.void,
 			awake: () => Effect.void,
+			haptic: () => Effect.void,
 			cancel: () => Effect.void,
 			listen: () => Effect.succeed(() => {}),
 			schedule: () => Effect.succeed({ status: "unsupported" }),

@@ -38,7 +38,9 @@ export class DevicePlatform extends Context.Service<
 		) => Effect.Effect<PluginDeviceResult, DevicePlatformError>;
 		readonly cancel: (id: number) => Effect.Effect<void, DevicePlatformError>;
 		readonly awake: (enabled: boolean) => Effect.Effect<void, DevicePlatformError>;
-		readonly haptic: Effect.Effect<void>;
+		readonly haptic: (
+			kind: NonNullable<Extract<PluginDeviceRequest, { readonly action: "haptic" }>["kind"]>,
+		) => Effect.Effect<void>;
 		readonly listen: (
 			tap: (id: number) => void,
 			foreground: (active: boolean) => void,
@@ -200,7 +202,7 @@ export class DeviceService extends Context.Service<DeviceService>()("DeviceServi
 						let value: PluginDeviceResult = { status: "done" };
 						if (request.action === "haptic") {
 							if (active && foreground) {
-								yield* platform.haptic;
+								yield* platform.haptic(request.kind ?? "impact");
 							}
 						} else if (request.action === "awake") {
 							demands.set(frame, { active, enabled: request.enabled });
