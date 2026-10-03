@@ -67,10 +67,18 @@ jobs:
         run: bash kernel/sandboxd/tests/launcher/test-default-docker.sh
 
   image:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Build the release image from source
-        run: docker build .
+        run: docker build --tag ryot-sandbox-image .
+      - name: Run all six confined sandbox keys in the release image
+        run: |
+          docker run --rm --network none \
+            ryot-sandbox-image bun run dist/prepare-sandbox-runtime.js

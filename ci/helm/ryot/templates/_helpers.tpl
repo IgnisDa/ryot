@@ -347,6 +347,19 @@ Validation: fail fast on missing or inconsistent required configuration.
 {{- if not .Values.service.port -}}
 {{- fail "service.port is required" -}}
 {{- end -}}
+{{- $security := .Values.securityContext | default dict -}}
+{{- if ne (toString $security.runAsUser) "1001" -}}
+{{- fail "securityContext.runAsUser must be 1001 for the sandbox launcher" -}}
+{{- end -}}
+{{- if ne (toString $security.runAsGroup) "1001" -}}
+{{- fail "securityContext.runAsGroup must be 1001 for the sandbox launcher" -}}
+{{- end -}}
+{{- if ne $security.allowPrivilegeEscalation true -}}
+{{- fail "securityContext.allowPrivilegeEscalation must be true for the setuid sandbox launcher" -}}
+{{- end -}}
+{{- if eq $security.readOnlyRootFilesystem true -}}
+{{- fail "securityContext.readOnlyRootFilesystem must be false for launcher records and application files" -}}
+{{- end -}}
 {{- /* SERVER_ADMIN_ACCESS_TOKEN (required) */ -}}
 {{- include "ryot.assertSecretRef" (dict "field" "secret.adminAccessToken" "cfg" .Values.secret.adminAccessToken "required" true) -}}
 {{- /* SERVER_PRO_KEY (optional, but secret ref must be consistent) */ -}}

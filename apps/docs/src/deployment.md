@@ -6,6 +6,14 @@ import variables from "./variables";
 
 Use [Docker Compose](./index.md#installation) unless your platform needs another method.
 
+## Plugin runtime requirements
+
+The image supports Linux amd64 and arm64. The host must support Landlock and seccomp; plugin
+execution fails if either protection cannot be applied. The backend runs as UID/GID 1001 and the
+plugin sidecars as UID/GID 1002. Keep the image's user, allow its setuid launcher, and keep
+`/run/ryot-sandboxd` and the application directories writable. Do not enable `no-new-privileges`
+or mount the launcher with `nosuid`.
+
 ## Plugin configuration encryption
 
 Ryot generates one dedicated 32-byte encryption key on first start and stores it in the
@@ -34,8 +42,13 @@ Mount `/home/ryot/storage` if you do not configure S3. Never persist `/home/ryot
 Ryot sizes plugin memory from the memory it can see: the container's memory limit if it has one,
 otherwise the server's memory. Plugins get the smaller of 1,536 MiB and half of that memory, or
 `SANDBOX_MEMORY_BUDGET_MIB`, which may not exceed half. A plugin that uses too much memory fails
-only its own task. A container memory limit is optional; if you set one, give Ryot at least 3 GB so
-interactive and background plugin work keep separate memory.
+only its own task. The supplied deployments do not set CPU, memory, or process/thread ceilings.
+The sandbox budget is an admission bound, not a limit on total application memory; leave room
+for the backend, PostgreSQL, Redis, and other services.
+
+`SERVER_LANES=all` runs one backend process. `SERVER_LANES=split` runs separate interactive and
+background processes, each with its own sidecars and memory budget. Split mode needs more memory
+and fails at startup if the total budget cannot support both processes.
 
 ## Imports
 
@@ -94,7 +107,8 @@ dokku git:from-image ryot ignisda/ryot:latest
    ```
 
 2. Copy the repository's <a :href="`${variables.filePath}/ci/fly.toml`" target="_blank">fly.toml</a>.
-   Set its `app` key to a unique name, then launch it.
+   Set its `app` key to a unique name and choose Machine resources in Fly's settings. The template
+   leaves resource selection to you. Then launch it.
    ```bash
    flyctl launch
    ```
@@ -131,6 +145,10 @@ dokku git:from-image ryot ignisda/ryot:latest
 
 The OCI Helm chart requires Helm 3.8 or later. It includes PostgreSQL and Redis by default, but
 can use external services.
+
+The chart's CPU and memory requests reserve scheduling capacity only. The setuid launcher
+requires `allowPrivilegeEscalation: true`, so Kubernetes Restricted pod-security policy is not
+compatible. Use the chart's UID/GID 1001 and runtime-default seccomp settings.
 
 ```bash
 helm install ryot oci://ghcr.io/ignisda/charts/ryot \
