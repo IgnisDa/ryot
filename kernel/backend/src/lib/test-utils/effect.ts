@@ -175,6 +175,7 @@ export const makeAppConfigLayer = (
 			importConcurrency: 2,
 			workerConcurrency: 2,
 			memoryBudgetMiB: 1536,
+			perUserSidecars: false,
 			launcherPath: requiredStringDefault(
 				appConfigDefinition.fields.sandbox.fields.launcherPath.schema.defaultValue,
 				"SANDBOX_LAUNCHER_PATH",
