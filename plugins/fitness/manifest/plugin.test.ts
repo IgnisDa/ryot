@@ -11,7 +11,7 @@ import { manifest as hevyManifest } from "../backend/imports/hevy.sandbox";
 import { manifest as openScaleManifest } from "../backend/imports/open-scale.sandbox";
 import { manifest as settingsManifest } from "../backend/imports/settings.sandbox";
 import { manifest as strongAppManifest } from "../backend/imports/strong-app.sandbox";
-import { workoutEditorRoutes } from "../shared/workout-editor-routes";
+import { fitnessClientRoutes } from "../shared/workout-editor-routes";
 import { FitnessCreateImportRunBody } from "./import-sources";
 import { fitnessPlugin } from "./plugin";
 
@@ -90,15 +90,10 @@ it("declares the complete fitness-owned source", () => {
 	expect(fitnessPlugin.signalSchemas.map(({ slug }) => slug)).toEqual(["workout.created"]);
 	expect(fitnessPlugin.client).toEqual({
 		homeView: null,
-		routes: workoutEditorRoutes,
+		routes: fitnessClientRoutes,
 		apiVersion: CLIENT_API_VERSION,
 		entities: {
 			"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
-			exercise: {
-				detailPage: "exercise-detail",
-				listPresentation: "entity-row",
-				gridPresentation: "entity-card",
-			},
 			workout: {
 				detailPage: "workout-detail",
 				listPresentation: "workout-row",
@@ -108,6 +103,12 @@ it("declares the complete fitness-owned source", () => {
 				listPresentation: "entity-row",
 				gridPresentation: "entity-card",
 				detailPage: "workout-template-detail",
+			},
+			exercise: {
+				createRoute: "/exercises/new",
+				detailPage: "exercise-detail",
+				listPresentation: "entity-row",
+				gridPresentation: "entity-card",
 			},
 		},
 		exports: {
@@ -160,6 +161,12 @@ it("declares the complete fitness-owned source", () => {
 				settingsSchema: { fields: {} },
 				automaticEntityPresentations: false,
 				entry: "client/workout-editor/page.tsx",
+			},
+			"exercise-editor": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/exercise-editor/page.tsx",
 			},
 			"workout-template-detail": {
 				kind: "page",

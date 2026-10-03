@@ -1,6 +1,8 @@
 import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 
+import { exerciseMergeOperationSlug } from "../shared/exercise-merge-operations";
 import { exerciseNoteOperationSlugs } from "../shared/exercise-note-operations";
+import { exerciseSaveOperationSlug } from "../shared/exercise-save-operations";
 import {
 	measurementMetricCreateOperationSlug,
 	measurementMetricPinOperationSlug,
@@ -18,7 +20,7 @@ import {
 	workoutEditorSaveOperationSlug,
 	workoutTimeCorrectionOperationSlug,
 } from "../shared/workout-editor-context-operations";
-import { workoutEditorRoutes } from "../shared/workout-editor-routes";
+import { fitnessClientRoutes } from "../shared/workout-editor-routes";
 import { fitnessConfigSchema } from "./config";
 import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity";
@@ -167,15 +169,10 @@ export const fitnessPlugin = definePlugin({
 	),
 	client: {
 		homeView: null,
-		routes: workoutEditorRoutes,
+		routes: fitnessClientRoutes,
 		apiVersion: CLIENT_API_VERSION,
 		entities: {
 			"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
-			exercise: {
-				detailPage: "exercise-detail",
-				listPresentation: "entity-row",
-				gridPresentation: "entity-card",
-			},
 			workout: {
 				detailPage: "workout-detail",
 				listPresentation: "workout-row",
@@ -185,6 +182,12 @@ export const fitnessPlugin = definePlugin({
 				listPresentation: "entity-row",
 				gridPresentation: "entity-card",
 				detailPage: "workout-template-detail",
+			},
+			exercise: {
+				createRoute: "/exercises/new",
+				detailPage: "exercise-detail",
+				listPresentation: "entity-row",
+				gridPresentation: "entity-card",
 			},
 		},
 		exports: {
@@ -238,6 +241,12 @@ export const fitnessPlugin = definePlugin({
 				automaticEntityPresentations: false,
 				entry: "client/workout-editor/page.tsx",
 			},
+			"exercise-editor": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/exercise-editor/page.tsx",
+			},
 			"workout-template-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
@@ -246,99 +255,6 @@ export const fitnessPlugin = definePlugin({
 			},
 		},
 	},
-	operations: [
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: workoutDeleteOperationSlug,
-			scriptSlug: "operation.workout-delete",
-			description: "Permanently delete a workout",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: workoutEditorSaveOperationSlug,
-			description: "Save a workout or template",
-			scriptSlug: "operation.workout-editor-save",
-		},
-		{
-			auth: "user",
-			demoAccess: "allowed",
-			slug: workoutEditorContextOperationSlug,
-			scriptSlug: "operation.workout-editor-context",
-			description: "Read workout editor preferences and availability",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: exerciseOverrideUpdateOperationSlug,
-			description: "Update exercise preferences",
-			scriptSlug: "operation.exercise-override-update",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			description: "Correct workout times",
-			slug: workoutTimeCorrectionOperationSlug,
-			scriptSlug: "operation.workout-time-correction",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: measurementMetricCreateOperationSlug,
-			description: "Create a measurement metric",
-			scriptSlug: "operation.measurement-metric-create",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: measurementMetricPinOperationSlug,
-			scriptSlug: "operation.measurement-metric-pin",
-			description: "Pin or unpin a measurement metric",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			description: "Log measurement readings",
-			slug: measurementReadingLogOperationSlug,
-			scriptSlug: "operation.measurement-reading-log",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			description: "Update measurement readings",
-			slug: measurementReadingUpdateOperationSlug,
-			scriptSlug: "operation.measurement-reading-update",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			description: "Delete measurement readings",
-			slug: measurementReadingDeleteOperationSlug,
-			scriptSlug: "operation.measurement-reading-delete",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: exerciseNoteOperationSlugs.create,
-			scriptSlug: "operation.exercise-note-create",
-			description: "Create a private exercise note",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: exerciseNoteOperationSlugs.update,
-			scriptSlug: "operation.exercise-note-update",
-			description: "Update a private exercise note",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: exerciseNoteOperationSlugs.delete,
-			scriptSlug: "operation.exercise-note-delete",
-			description: "Delete a private exercise note",
-		},
-	],
 	hooks: [
 		{
 			position: 100,
@@ -448,6 +364,113 @@ export const fitnessPlugin = definePlugin({
 				initialDelayMs: 1000,
 				externalIdempotency: "none",
 			},
+		},
+	],
+	operations: [
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: workoutDeleteOperationSlug,
+			scriptSlug: "operation.workout-delete",
+			description: "Permanently delete a workout",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: workoutEditorSaveOperationSlug,
+			description: "Save a workout or template",
+			scriptSlug: "operation.workout-editor-save",
+		},
+		{
+			auth: "user",
+			demoAccess: "allowed",
+			slug: workoutEditorContextOperationSlug,
+			scriptSlug: "operation.workout-editor-context",
+			description: "Read workout editor preferences and availability",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: exerciseOverrideUpdateOperationSlug,
+			description: "Update exercise preferences",
+			scriptSlug: "operation.exercise-override-update",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: exerciseSaveOperationSlug,
+			scriptSlug: "operation.exercise-save",
+			description: "Create or edit a custom exercise",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: exerciseMergeOperationSlug,
+			scriptSlug: "operation.exercise-merge",
+			description: "Merge a custom exercise into another exercise",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			description: "Correct workout times",
+			slug: workoutTimeCorrectionOperationSlug,
+			scriptSlug: "operation.workout-time-correction",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: measurementMetricCreateOperationSlug,
+			description: "Create a measurement metric",
+			scriptSlug: "operation.measurement-metric-create",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: measurementMetricPinOperationSlug,
+			scriptSlug: "operation.measurement-metric-pin",
+			description: "Pin or unpin a measurement metric",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			description: "Log measurement readings",
+			slug: measurementReadingLogOperationSlug,
+			scriptSlug: "operation.measurement-reading-log",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			description: "Update measurement readings",
+			slug: measurementReadingUpdateOperationSlug,
+			scriptSlug: "operation.measurement-reading-update",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			description: "Delete measurement readings",
+			slug: measurementReadingDeleteOperationSlug,
+			scriptSlug: "operation.measurement-reading-delete",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: exerciseNoteOperationSlugs.create,
+			scriptSlug: "operation.exercise-note-create",
+			description: "Create a private exercise note",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: exerciseNoteOperationSlugs.update,
+			scriptSlug: "operation.exercise-note-update",
+			description: "Update a private exercise note",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: exerciseNoteOperationSlugs.delete,
+			scriptSlug: "operation.exercise-note-delete",
+			description: "Delete a private exercise note",
 		},
 	],
 });
