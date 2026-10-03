@@ -129,6 +129,7 @@
 
 | Plugin Config Key | Variable | Label | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|---|
+| `media.anilistClientId` | `RYOT_PLUGIN_MEDIA_ANILIST_CLIENT_ID` | AniList client ID | Client ID for AniList accounts | No | No | — |
 | `media.metronUsername` | `RYOT_PLUGIN_MEDIA_METRON_USERNAME` | Metron username | Username used to access Metron metadata | No | No | — |
 | `media.twitchClientId` | `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_ID` | Twitch client ID | Client ID used to access IGDB metadata | No | No | — |
 | `media.traktClientId` | `RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID` | Trakt client ID | Client ID used to import data from Trakt | No | No | — |
@@ -138,6 +139,7 @@
 | `media.metronPassword` | `RYOT_PLUGIN_MEDIA_METRON_PASSWORD` | Metron password | Password used to access Metron metadata | No | Yes | — |
 | `media.tmdbAccessToken` | `RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN` | TMDB access token | Access token used to access TMDB metadata | No | Yes | — |
 | `media.hardcoverApiKey` | `RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY` | Hardcover API key | API key used to access Hardcover metadata | No | Yes | — |
+| `media.anilistClientSecret` | `RYOT_PLUGIN_MEDIA_ANILIST_CLIENT_SECRET` | AniList client secret | Client secret for AniList accounts | No | Yes | — |
 | `media.giantBombApiKey` | `RYOT_PLUGIN_MEDIA_GIANT_BOMB_API_KEY` | Giant Bomb API key | API key used to access Giant Bomb metadata | No | Yes | — |
 | `media.twitchClientSecret` | `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET` | Twitch client secret | Client secret used to access IGDB metadata | No | Yes | — |
 | `media.googleBooksApiKey` | `RYOT_PLUGIN_MEDIA_GOOGLE_BOOKS_API_KEY` | Google Books API key | API key used to access Google Books metadata | No | Yes | — |

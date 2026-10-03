@@ -6,3 +6,6 @@ Imports include manga, anime, ratings, history, favorites, and custom lists.
    settings](https://anilist.co/settings/account).
 2. Under **GDPR Data Download**, select **Download**.
 3. Upload the JSON file under **Settings > Import data**.
+
+This GDPR export import is separate from the ongoing [AniList integration](../integrations/anilist.md),
+which syncs current anime and manga list state.
