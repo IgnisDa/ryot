@@ -8,17 +8,19 @@ const WatchProviderOfferSchema = Schema.Literals(watchProviderOffers);
 
 const WatchProviderSchema = Schema.Struct({
 	name: Schema.String,
-	image: Schema.NullOr(Schema.String),
-	offers: Schema.Array(WatchProviderOfferSchema),
+	image: Schema.optionalKey(Schema.NullOr(Schema.String)),
+	offers: Schema.optionalKey(Schema.NullOr(Schema.Array(WatchProviderOfferSchema))),
 });
 
 const WatchProviderCountrySchema = Schema.Struct({
 	country: Schema.String,
-	link: Schema.NullOr(Schema.String),
-	providers: Schema.Array(WatchProviderSchema),
+	link: Schema.optionalKey(Schema.NullOr(Schema.String)),
+	providers: Schema.optionalKey(Schema.NullOr(Schema.Array(Schema.NullOr(WatchProviderSchema)))),
 });
 
-export const WatchProviderListSchema = Schema.NullOr(Schema.Array(WatchProviderCountrySchema));
+export const WatchProviderListSchema = Schema.NullOr(
+	Schema.Array(Schema.NullOr(WatchProviderCountrySchema)),
+);
 
 export type WatchProvider = Schema.Schema.Type<typeof WatchProviderSchema>;
 

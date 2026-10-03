@@ -8,6 +8,32 @@ const usProviders = (providers: readonly Record<string, unknown>[]) => ({
 });
 
 describe("show watch providers", () => {
+	it("shows manually entered providers without requiring optional links or logos", () => {
+		const show = decodeShowSummary({
+			watchProviders: [{ country: "US", providers: [{ name: "Custom", offers: ["stream"] }] }],
+		});
+		const [group] = watchProviderGroups(show, "US");
+		assert(group !== undefined);
+		const [provider] = group.providers;
+		assert(provider !== undefined);
+		expect(provider.name).toBe("Custom");
+		expect(watchProviderLink(show, "US")).toBeUndefined();
+		expect(watchProviderAsset(provider)).toBeUndefined();
+	});
+
+	it("omits empty country entries and providers without offers", () => {
+		expect(
+			watchProviderGroups(decodeShowSummary({ watchProviders: [null, { country: "US" }] }), "US"),
+		).toEqual([]);
+		expect(
+			watchProviderGroups(
+				decodeShowSummary({
+					watchProviders: [{ country: "US", providers: [null, { name: "Unspecified" }] }],
+				}),
+				"US",
+			),
+		).toEqual([]);
+	});
 	it("groups the region's providers by offer kind in contract order", () => {
 		expect(
 			watchProviderGroups(decodeShowSummary(), "US").map((group) => ({

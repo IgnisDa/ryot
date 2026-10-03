@@ -25,7 +25,7 @@ export type MediaWatchProviders = { readonly watchProviders: WatchProviderList }
 const regionAvailability = (media: MediaWatchProviders, region: string | undefined) =>
 	region === undefined
 		? undefined
-		: (media.watchProviders ?? []).find((entry) => entry.country === region);
+		: (media.watchProviders ?? []).find((entry) => entry?.country === region);
 
 export const viewerRegion = () =>
 	new Intl.Locale(Intl.DateTimeFormat().resolvedOptions().locale).region ?? undefined;
@@ -38,14 +38,14 @@ export const watchProviderGroups = (
 	region: string | undefined,
 ): readonly WatchProviderGroup[] => {
 	const availability = regionAvailability(media, region);
-	if (availability === undefined) {
+	if (availability?.providers === undefined || availability.providers === null) {
 		return [];
 	}
-	const providers = [...availability.providers].sort((left, right) =>
-		left.name.localeCompare(right.name),
-	);
+	const providers = availability.providers
+		.filter((provider) => provider !== null)
+		.sort((left, right) => left.name.localeCompare(right.name));
 	return watchProviderOffers.flatMap((offer) => {
-		const offered = providers.filter((provider) => provider.offers.includes(offer));
+		const offered = providers.filter((provider) => provider.offers?.includes(offer) === true);
 		return offered.length === 0 ? [] : [{ offer, providers: offered, label: OFFER_LABELS[offer] }];
 	});
 };
@@ -54,4 +54,6 @@ export const watchProviderLink = (media: MediaWatchProviders, region: string | u
 	regionAvailability(media, region)?.link ?? undefined;
 
 export const watchProviderAsset = (provider: WatchProvider): MediaImageAsset | undefined =>
-	provider.image === null ? undefined : { type: "remote", url: provider.image };
+	provider.image === null || provider.image === undefined
+		? undefined
+		: { type: "remote", url: provider.image };
