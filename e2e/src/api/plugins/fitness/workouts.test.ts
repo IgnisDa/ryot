@@ -1,38 +1,35 @@
 import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId } from "@ryot-app/contract/schema/brands";
 import { workoutListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
-import { PLUGIN_PACKAGE_ID } from "@ryot-app/fitness-plugin/shared/plugin-identity";
+import {
+	workoutCardsRecipe,
+	workoutComparisonsRecipe,
+	workoutCountRecipe,
+	workoutSummaryRecipe,
+	workoutWeeksRecipe,
+} from "@ryot-app/fitness-plugin/workout-list-recipes";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createEntity,
-	executeRyotQL,
 	executeRyotQLRecipe,
-	getSavedView,
 	getEntity,
 	insertRelationshipRow,
 	listSavedViews,
 	waitForCreateEvents,
 	waitForEventCount,
-	requireRows,
-	requireRyotQLText,
 	uploadPermanentAsset,
 } from "~/fixtures/kernel";
 import {
 	createWorkoutEntityFixture,
 	createExerciseEntityFixture,
+	createWorkoutTemplateEntityFixture,
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,
 	findWorkoutSetEventSchema,
 	waitForSessionEventCount,
 } from "~/fixtures/plugins/fitness";
-import {
-	assertCondition,
-	assertPresent,
-	assertTaggedError,
-	requirePresent,
-} from "~/support/assertions";
+import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Workouts E2E", () => {
@@ -193,146 +190,168 @@ describe("Workouts E2E", () => {
 			}),
 	);
 
-	it.live("creates the built-in All Workouts saved view with workout defaults", () =>
+	it.live("renders the built-in All Workouts saved view with the workouts page", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 			const views = yield* listSavedViews(client, { pluginId });
-			const allWorkoutsView = views.find((view) => view.name === "All Workouts");
-			assertPresent(allWorkoutsView, "Expected the built-in All Workouts saved view");
-			const dataSources = requirePresent(
-				allWorkoutsView.dataSources,
-				"All Workouts saved view has no data sources",
-			);
-			const savedViewSource = dataSources.queries.savedView;
-			assertPresent(savedViewSource, "Expected the All Workouts named source");
-			assertCondition(
-				savedViewSource.output.type === "rows",
-				"Expected the All Workouts named source to use rows output",
-			);
 
-			expect(allWorkoutsView).toMatchObject({
+			expect(views.find((view) => view.name === "All Workouts")).toMatchObject({
+				settings: {},
 				isBuiltin: true,
+				dataSources: null,
 				name: "All Workouts",
-				renderer: { kind: "kernel", name: "entity-browser" },
+				renderer: { kind: "plugin", exportName: "workouts" },
 				reference: builtinSavedViewReference(pluginId, "all-workouts"),
-				settings: {
-					defaultLayout: "grid",
-					sourceName: "savedView",
-					entityIdField: "entityId",
-					searchFields: ["column0"],
-					layouts: ["grid", "list", "table"],
-					ownerPluginIdField: "ownerPluginId",
-					entitySchemaSlugField: "entitySchemaSlug",
-					addAction: {
-						search: {},
-						type: "plugin-route",
-						path: "/workouts/new",
-						packageId: PLUGIN_PACKAGE_ID,
-					},
-					tableColumns: [
-						{ label: "Name", field: "column0", displayKind: "text" },
-						{ field: "column1", label: "Started At", displayKind: "date" },
-						{ field: "column2", label: "Ended At", displayKind: "date" },
-					],
-				},
 			});
-			expect(savedViewSource.output.fields).toEqual(
-				expect.arrayContaining([
-					expect.objectContaining({
-						key: "entityId",
-						expr: { field: "id", type: "column", tableAlias: "entity" },
-					}),
-					expect.objectContaining({
-						key: "ownerPluginId",
-						expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
-					}),
-					expect.objectContaining({
-						key: "entitySchemaSlug",
-						expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-					}),
-				]),
-			);
-			expect(savedViewSource.where).toMatchObject({
-				type: "and",
-				predicates: expect.arrayContaining([
-					expect.objectContaining({
-						type: "and",
-						predicates: expect.arrayContaining([
-							expect.objectContaining({
-								right: { type: "literal", value: "workout" },
-								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
-							}),
-							expect.objectContaining({
-								right: { type: "pluginId", reference: { pluginId, kind: "local" } },
-								left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
-							}),
-						]),
-					}),
-				]),
-			});
-			expect(
-				savedViewSource.output.fields.map((selection) => "key" in selection && selection.key),
-			).toEqual([
-				"entityId",
-				"column0",
-				"column1",
-				"column2",
-				"populationStatus",
-				"translationStatus",
-				"ownerPluginId",
-				"entitySchemaSlug",
-				"presentationId",
-				"presentationName",
-				"presentationEndedAt",
-				"presentationStartedAt",
-				"presentationExerciseNotes",
-			]);
 		}),
 	);
 
-	it.live("sorts All Workouts by ended time descending", () =>
+	it.live("pages workout cards newest first with server totals, origins and period totals", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
-			const { workoutId: alphaWorkoutId } = yield* createWorkoutEntityFixture(client, {
-				name: "Alpha",
-				endedAt: "2026-01-01T11:00:00Z",
-				startedAt: "2026-01-01T10:00:00Z",
+			const reference = { pluginId, kind: "local" as const };
+			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
+			const { exerciseId } = yield* createExerciseEntityFixture(client, {
+				kind: "reps_and_weight",
 			});
-			const { workoutId: betaWorkoutId } = yield* createWorkoutEntityFixture(client, {
-				name: "Beta",
-				endedAt: "2026-02-01T11:00:00Z",
-				startedAt: "2026-02-01T10:00:00Z",
+			const workout = (name: string, day: string, weights: readonly number[]) =>
+				Effect.gen(function* () {
+					const { workoutId } = yield* createWorkoutEntityFixture(client, {
+						name,
+						endedAt: `${day}T11:00:00Z`,
+						startedAt: `${day}T10:00:00Z`,
+					});
+					if (weights.length > 0) {
+						yield* client.call((c) =>
+							c.events.create({
+								payload: weights.map((weight, setOrder) => ({
+									entityId: exerciseId,
+									sessionEntityId: workoutId,
+									eventSchemaSlug: workoutSetEventSchema.id,
+									properties: { weight, reps: 5, setOrder, setLot: "normal", exerciseOrder: 0 },
+								})),
+							}),
+						);
+						yield* waitForSessionEventCount(client, workoutId, weights.length);
+					}
+					return workoutId;
+				});
+			const firstPull = yield* workout("Pull", "2026-10-01", [80]);
+			const legs = yield* workout("Legs", "2026-10-07", [100]);
+			const secondPull = yield* workout("Pull", "2026-10-08", []);
+			const repeatedLegs = yield* workout("Legs", "2026-10-14", [110, 100]);
+			const { workoutTemplateId } = yield* createWorkoutTemplateEntityFixture(client, {
+				name: "Pull B",
 			});
-			const { workoutId: zuluWorkoutId } = yield* createWorkoutEntityFixture(client, {
-				name: "Zulu",
-				endedAt: "2026-03-01T11:00:00Z",
-				startedAt: "2026-03-01T10:00:00Z",
-			});
-
-			const savedView = yield* getSavedView(client, {
-				pluginId,
-				kind: "plugin",
-				slug: "all-workouts",
-			});
-			const dataSources = requirePresent(
-				savedView.dataSources,
-				"All Workouts saved view has no data sources",
+			const repeatedFrom = yield* findFitnessRelationshipSchema(client, "workout-repeated-from");
+			const fromTemplate = yield* findFitnessRelationshipSchema(
+				client,
+				"workout-to-workout-template",
 			);
-			const sourceName = savedView.settings["sourceName"];
-			assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
-			const result = requireRows(
-				(yield* executeRyotQL(client, dataSources)).data[sourceName],
-				sourceName,
-			);
+			yield* insertRelationshipRow(client, {
+				targetEntityId: legs,
+				sourceEntityId: repeatedLegs,
+				relationshipSchema: repeatedFrom.reference,
+			});
+			for (const sourceEntityId of [firstPull, secondPull]) {
+				yield* insertRelationshipRow(client, {
+					sourceEntityId,
+					targetEntityId: workoutTemplateId,
+					relationshipSchema: fromTemplate.reference,
+				});
+			}
 
-			const workoutIds = [zuluWorkoutId, betaWorkoutId, alphaWorkoutId];
+			const page = yield* executeRyotQLRecipe(
+				client,
+				workoutCardsRecipe({ reference, search: "" }),
+			);
 			expect(
-				result.items
-					.map((item) => requireRyotQLText(item, "entityId"))
-					.filter((id) => workoutIds.includes(EntityId.make(id))),
-			).toEqual(workoutIds);
+				page.items.map(({ id, volume, setCount, repeatedFromId, previousTemplateWorkoutId }) => ({
+					id,
+					volume,
+					setCount,
+					repeatedFromId,
+					previousTemplateWorkoutId,
+				})),
+			).toEqual([
+				{
+					setCount: 2,
+					volume: 1050,
+					id: repeatedLegs,
+					repeatedFromId: legs,
+					previousTemplateWorkoutId: null,
+				},
+				{
+					setCount: 0,
+					volume: null,
+					id: secondPull,
+					repeatedFromId: null,
+					previousTemplateWorkoutId: firstPull,
+				},
+				{
+					id: legs,
+					volume: 500,
+					setCount: 1,
+					repeatedFromId: null,
+					previousTemplateWorkoutId: null,
+				},
+				{
+					volume: 400,
+					setCount: 1,
+					id: firstPull,
+					repeatedFromId: null,
+					previousTemplateWorkoutId: null,
+				},
+			]);
+			expect(page.items[0]?.sets.map(({ weight }) => weight)).toEqual([110, 100]);
+			expect(page.items[1]?.template?.name).toBe("Pull B");
+			expect(
+				(yield* executeRyotQLRecipe(
+					client,
+					workoutCardsRecipe({ reference, search: "pul", workoutIds: [secondPull, legs] }),
+				)).items.map(({ id }) => id),
+			).toEqual([secondPull]);
+			expect(
+				yield* executeRyotQLRecipe(client, workoutCountRecipe({ reference, search: "pul" })),
+			).toBe(2);
+			expect(
+				yield* executeRyotQLRecipe(
+					client,
+					workoutComparisonsRecipe({ reference, workoutIds: [legs] }),
+				),
+			).toEqual([{ id: legs, volume: 500, startedAt: expect.any(String) }]);
+
+			const weeks = yield* executeRyotQLRecipe(
+				client,
+				workoutWeeksRecipe({
+					reference,
+					search: "",
+					timeZone: "UTC",
+					endAt: "2026-10-19T00:00:00Z",
+					startAt: "2026-09-28T00:00:00Z",
+				}),
+			);
+			expect(weeks.map(({ volume, workouts }) => ({ volume, workouts }))).toEqual([
+				{ workouts: 1, volume: 400 },
+				{ workouts: 2, volume: 500 },
+				{ workouts: 1, volume: 1050 },
+			]);
+
+			const summary = yield* executeRyotQLRecipe(
+				client,
+				workoutSummaryRecipe({
+					reference,
+					timeZone: "UTC",
+					days: { endAt: "2026-10-19T00:00:00Z", startAt: "2026-09-28T00:00:00Z" },
+					current: { endAt: "2026-10-16T00:00:00Z", startAt: "2026-10-09T00:00:00Z" },
+					previous: { endAt: "2026-10-09T00:00:00Z", startAt: "2026-10-02T00:00:00Z" },
+				}),
+			);
+			expect(summary.current).toMatchObject({ workouts: 1, volume: 1050 });
+			expect(summary.previous).toMatchObject({ workouts: 2, volume: 500 });
+			expect(summary.days.map(({ workouts }) => workouts)).toEqual([1, 1, 1, 1]);
 		}),
 	);
 

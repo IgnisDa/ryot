@@ -131,6 +131,12 @@ it("declares the complete fitness-owned source", () => {
 				entry: "client/workout-card.ts",
 				automaticEntityPresentations: false,
 			},
+			workouts: {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/workouts/screen.tsx",
+			},
 			"workout-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
@@ -344,7 +350,7 @@ it("declares the complete fitness-owned source", () => {
 	});
 	expect(fitnessPlugin.savedViews.map(({ name, renderer }) => ({ name, renderer }))).toEqual([
 		{ name: "All Exercises", renderer: { kind: "kernel", name: "entity-browser" } },
-		{ name: "All Workouts", renderer: { kind: "kernel", name: "entity-browser" } },
+		{ name: "All Workouts", renderer: { kind: "plugin", exportName: "workouts" } },
 		{ name: "All Measurements", renderer: { kind: "plugin", exportName: "measurements" } },
 		{ name: "All Workout Templates", renderer: { kind: "kernel", name: "entity-browser" } },
 	]);

@@ -16,13 +16,6 @@ const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 	if (slug === "exercise") {
 		return [name, { label: "Level", ...text(titleCase(entityProperty("level"))) }];
 	}
-	if (slug === "workout") {
-		return [
-			name,
-			{ label: "Started At", ...date(entityProperty("startedAt")) },
-			{ label: "Ended At", ...date(entityProperty("endedAt")) },
-		];
-	}
 	return [
 		name,
 		{ label: "Created At", ...date(entityColumn("createdAt")) },

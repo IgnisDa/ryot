@@ -6,14 +6,12 @@ import {
 	schemaOwnerPredicate,
 	and,
 	ascending,
-	castDate,
 	column,
 	countDistinct,
 	descending,
 	document,
 	eq,
 	field,
-	jsonPath,
 	literal,
 	rows,
 	table,
@@ -23,10 +21,7 @@ import {
 	savedViewRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
 
-import {
-	fitnessPresentationSource,
-	workoutPresentationSource,
-} from "../shared/entity-presentations";
+import { fitnessPresentationSource } from "../shared/entity-presentations";
 import { fitnessLibraryLinkExists } from "../shared/library-recipes";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { fitnessEntitySchemas } from "./schemas/entity";
@@ -38,15 +33,17 @@ const addAction = (slug: string): JsonValue =>
 				type: "provider-search",
 				schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(slug) },
 			}
-		: {
-				search: {},
-				type: "plugin-route",
-				packageId: PLUGIN_PACKAGE_ID,
-				path: slug === "workout" ? "/workouts/new" : "/templates/new",
-			};
+		: { search: {}, type: "plugin-route", path: "/templates/new", packageId: PLUGIN_PACKAGE_ID };
 
 export const fitnessSavedViews = () => {
 	const schemas = new Map(fitnessEntitySchemas.map((schema) => [schema.slug, schema]));
+	const iconOf = (slug: (typeof fitnessEntitySchemas)[number]["slug"]) => {
+		const schema = schemas.get(slug);
+		if (!schema) {
+			throw new Error(`Missing fitness entity schema: ${slug}`);
+		}
+		return schema.icon;
+	};
 	const entity = table("entity", "entity");
 	const workoutSet = table("event", "savedViewWorkoutSet");
 	const inputs: ReadonlyArray<{
@@ -54,7 +51,7 @@ export const fitnessSavedViews = () => {
 		readonly slug: string;
 		readonly sortOrder: number;
 		readonly orderBy?: readonly OrderBy[] | undefined;
-		readonly entitySchemaSlug: "exercise" | "workout" | "workout-template";
+		readonly entitySchemaSlug: "exercise" | "workout-template";
 	}> = [
 		{
 			sortOrder: 0,
@@ -75,13 +72,6 @@ export const fitnessSavedViews = () => {
 			],
 		},
 		{
-			sortOrder: 1,
-			name: "All Workouts",
-			slug: "all-workouts",
-			entitySchemaSlug: "workout",
-			orderBy: [descending(castDate(jsonPath(column(entity, "properties"), "endedAt")))],
-		},
-		{
 			sortOrder: 3,
 			slug: "all-workout-templates",
 			name: "All Workout Templates",
@@ -90,18 +80,11 @@ export const fitnessSavedViews = () => {
 		},
 	];
 	const entityBrowserViews = inputs.map((input) => {
-		const schema = schemas.get(input.entitySchemaSlug);
-		if (!schema) {
-			throw new Error(`Missing fitness entity schema: ${input.entitySchemaSlug}`);
-		}
 		const expressions = buildViewExpressions(input.entitySchemaSlug);
 		const projections = buildSavedViewLayoutProjections({
 			table: { ...expressions.table, entity },
 		});
-		const presentation =
-			input.entitySchemaSlug === "workout"
-				? workoutPresentationSource()
-				: fitnessPresentationSource(input.entitySchemaSlug);
+		const presentation = fitnessPresentationSource(input.entitySchemaSlug);
 		const fields = [
 			...projections.table.fields,
 			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
@@ -119,12 +102,7 @@ export const fitnessSavedViews = () => {
 			source: {
 				type: "persisted",
 				queryDocument: document({
-					savedView: rows(entity, {
-						where,
-						fields,
-						orderBy: input.orderBy,
-						...(presentation.include === undefined ? {} : { include: presentation.include }),
-					}),
+					savedView: rows(entity, { where, fields, orderBy: input.orderBy }),
 				}),
 			},
 		}).document;
@@ -132,8 +110,8 @@ export const fitnessSavedViews = () => {
 			dataSources,
 			name: input.name,
 			slug: input.slug,
-			icon: schema.icon,
 			sortOrder: input.sortOrder,
+			icon: iconOf(input.entitySchemaSlug),
 			renderer: { kind: "kernel", name: "entity-browser" } as const,
 			settings: {
 				pageSize: 20,
@@ -150,18 +128,36 @@ export const fitnessSavedViews = () => {
 			},
 		};
 	});
-	const metricSchema = schemas.get("measurement-metric");
-	if (!metricSchema) {
-		throw new Error("Missing fitness entity schema: measurement-metric");
-	}
-	const measurementsView = {
-		sortOrder: 2,
+	const pageView = (input: {
+		readonly name: string;
+		readonly slug: string;
+		readonly sortOrder: number;
+		readonly exportName: string;
+		readonly entitySchemaSlug: "measurement-metric" | "workout";
+	}) => ({
 		settings: {},
+		name: input.name,
+		slug: input.slug,
 		dataSources: null,
-		icon: metricSchema.icon,
-		slug: "all-measurements",
-		name: "All Measurements",
-		renderer: { kind: "plugin", exportName: "measurements" } as const,
-	};
-	return [...entityBrowserViews.slice(0, 2), measurementsView, ...entityBrowserViews.slice(2)];
+		sortOrder: input.sortOrder,
+		icon: iconOf(input.entitySchemaSlug),
+		renderer: { kind: "plugin", exportName: input.exportName } as const,
+	});
+	return [
+		...entityBrowserViews,
+		pageView({
+			sortOrder: 1,
+			name: "All Workouts",
+			slug: "all-workouts",
+			exportName: "workouts",
+			entitySchemaSlug: "workout",
+		}),
+		pageView({
+			sortOrder: 2,
+			name: "All Measurements",
+			slug: "all-measurements",
+			exportName: "measurements",
+			entitySchemaSlug: "measurement-metric",
+		}),
+	].sort((left, right) => left.sortOrder - right.sortOrder);
 };

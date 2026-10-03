@@ -208,6 +208,12 @@ export const fitnessPlugin = definePlugin({
 				entry: "client/workout-card.ts",
 				automaticEntityPresentations: false,
 			},
+			workouts: {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/workouts/screen.tsx",
+			},
 			"workout-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },
