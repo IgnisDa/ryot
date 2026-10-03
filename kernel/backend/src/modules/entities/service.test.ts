@@ -176,6 +176,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 					fields: {
 						image: managedAssetProperty,
 						title: { type: "string", label: "Title", description: "Title" },
+						code: { label: "Code", type: "string", immutable: true, description: "Code" },
 						score: {
 							type: "number",
 							label: "Score",
@@ -573,6 +574,103 @@ describe("EntitiesService committed lifecycle", () => {
 				expect(
 					yield* service.update({ ...input, name: "Different" }).pipe(Effect.flip),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });
+			}),
+		);
+	});
+	layer(entitiesLayer())((test) => {
+		test.effect("rejects user updates that change or omit an immutable property", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const created = yield* service.create({
+					...createInput("immutable-create"),
+					properties: { code: "a", title: "original" },
+				});
+				const update = (id: string, properties: Record<string, unknown>) =>
+					service.update({
+						properties,
+						userId: owner,
+						scope: "user",
+						name: "Changed",
+						requireUserOwned: true,
+						lifecycle: command(id),
+						entityId: created.entity.id,
+					});
+				expect(yield* update("immutable-changed", { code: "b" }).pipe(Effect.flip)).toMatchObject({
+					reason: { property: "code", code: "immutable-property" },
+				});
+				expect(yield* update("immutable-omitted", { title: "x" }).pipe(Effect.flip)).toMatchObject({
+					reason: { property: "code", code: "immutable-property" },
+				});
+				const unchanged = yield* update("immutable-kept", { code: "a", title: "changed" });
+				expect(unchanged.entity.properties).toEqual({ code: "a", title: "changed" });
+			}),
+		);
+		test.effect("leaves global updates unaffected by immutable properties", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const global = yield* service.create({
+					...createInput("immutable-global"),
+					scope: "global",
+					properties: { code: "a" },
+				});
+				const updated = yield* service.update({
+					scope: "global",
+					name: "Changed",
+					properties: { code: "b" },
+					entityId: global.entity.id,
+					lifecycle: command("immutable-global-update"),
+				});
+				expect(updated.entity.properties).toEqual({ code: "b" });
+			}),
+		);
+	});
+	layer(
+		entitiesLayer({
+			policies: [
+				{
+					action: "transform",
+					patch: { resource: "entity", draft: { properties: { set: {}, remove: ["code"] } } },
+				},
+			],
+		}),
+	)((test) => {
+		test.effect("rejects a before-stage policy that removes a stored immutable property", () =>
+			Effect.gen(function* () {
+				const repository = yield* EntitiesRepository;
+				const session = yield* DatabaseSession;
+				const service = yield* EntitiesService;
+				const [stored] = yield* session.transaction(
+					repository.insertEntities([
+						{
+							scope: "user",
+							userId: owner,
+							name: "Stored",
+							populatedAt: null,
+							entitySchemaSlug: slug,
+							properties: { code: "a" },
+							entitySchemaPluginId: null,
+							id: EntityId.make("stored-immutable"),
+							createdAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z")),
+						},
+					]),
+				);
+				assert(stored);
+				expect(
+					yield* service
+						.update({
+							userId: owner,
+							scope: "user",
+							name: "Changed",
+							entityId: stored.id,
+							requireUserOwned: true,
+							properties: { code: "a" },
+							lifecycle: command("immutable-policy"),
+						})
+						.pipe(Effect.flip),
+				).toMatchObject({ reason: { property: "code", code: "immutable-property" } });
+				expect(
+					(yield* repository.getByIdForUser({ userId: owner, entityId: stored.id }))?.properties,
+				).toEqual({ code: "a" });
 			}),
 		);
 	});

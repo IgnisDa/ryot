@@ -39,6 +39,8 @@ export const exercisePropertiesSchema: AppSchema = {
 		kind: {
 			type: "enum",
 			label: "Kind",
+			immutable: true,
+			validation: { required: true },
 			description: "Which measurements are used to track sets of this exercise",
 			choices: { kind: "static", values: exerciseKinds.map((value) => ({ value })) },
 		},
