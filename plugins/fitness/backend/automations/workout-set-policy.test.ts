@@ -92,7 +92,7 @@ const run = (
 	);
 
 describe("workout set policy", () => {
-	it("converts imperial measurements, normalizes statistics, and removes supplied badges", () => {
+	it("derives statistics from metric measurements and removes supplied badges", () => {
 		const input = policyInput({
 			resource: "event",
 			category: "request",
@@ -105,7 +105,6 @@ describe("workout set policy", () => {
 				volume: 900,
 				restTime: 90,
 				distance: 2.5,
-				unitSystem: "imperial",
 				note: "Keep this note",
 				personalBests: ["time"],
 			}),
@@ -121,13 +120,7 @@ describe("workout set policy", () => {
 							draft: {
 								properties: {
 									remove: ["pace", "personalBests"],
-									set: {
-										oneRm: 6.047899,
-										volume: 45.35924,
-										unitSystem: "metric",
-										weight: 10 * 0.45359237,
-										distance: 2.5 * 1.609344,
-									},
+									set: { volume: 100, oneRm: 13.333333, exerciseKind: "reps_and_weight" },
 								},
 							},
 						},
@@ -142,13 +135,7 @@ describe("workout set policy", () => {
 			resource: "event",
 			category: "request",
 			operation: "create",
-			draft: eventDraft({
-				reps: 0,
-				weight: 0,
-				restTime: 0,
-				note: "Keep this",
-				unitSystem: "imperial",
-			}),
+			draft: eventDraft({ reps: 0, weight: 0, restTime: 0, note: "Keep this" }),
 		});
 
 		return Effect.runPromise(
@@ -158,7 +145,7 @@ describe("workout set policy", () => {
 						action: "transform",
 						patch: {
 							resource: "event",
-							draft: { properties: { remove: [], set: { unitSystem: "metric" } } },
+							draft: { properties: { remove: [], set: { exerciseKind: "reps_and_weight" } } },
 						},
 					});
 				}),
@@ -172,7 +159,6 @@ describe("workout set policy", () => {
 			weight: 20,
 			volume: 160,
 			oneRm: 24.827586,
-			unitSystem: "metric",
 			personalBests: ["reps", "one_rm"],
 		});
 		const ordinary = policyInput({
@@ -186,7 +172,6 @@ describe("workout set policy", () => {
 				weight: 20,
 				oneRm: 400,
 				volume: 160,
-				unitSystem: "metric",
 				personalBests: ["reps", "one_rm"],
 			}),
 		});
@@ -202,7 +187,6 @@ describe("workout set policy", () => {
 					weight: 20,
 					volume: 160,
 					oneRm: 24.827586,
-					unitSystem: "metric",
 					personalBests: ["reps", "one_rm"],
 				}),
 			},
@@ -218,11 +202,47 @@ describe("workout set policy", () => {
 					action: "transform",
 					patch: {
 						resource: "event",
-						draft: { properties: { remove: ["personalBests"], set: { oneRm: 24.827586 } } },
+						draft: {
+							properties: {
+								remove: ["personalBests"],
+								set: { oneRm: 24.827586, exerciseKind: "reps_and_weight" },
+							},
+						},
 					},
 				});
 				expect(preserved).toEqual({ action: "allow" });
 				expect(calls).toHaveLength(1);
+			}),
+		);
+	});
+
+	it("keeps a recorded kind that differs from the exercise and rejects an unknown one", () => {
+		const recorded = policyInput({
+			resource: "event",
+			category: "request",
+			operation: "create",
+			draft: eventDraft({ reps: 12, oneRm: 28, weight: 20, volume: 240, exerciseKind: "reps" }),
+		});
+		const unknown = policyInput({
+			resource: "event",
+			category: "request",
+			operation: "create",
+			draft: eventDraft({ reps: 12, exerciseKind: "sprints" }),
+		});
+
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				expect(yield* run(recorded, contextResponse({ kind: "reps_and_weight" }))).toEqual({
+					action: "transform",
+					patch: {
+						resource: "event",
+						draft: { properties: { set: {}, remove: ["oneRm", "volume"] } },
+					},
+				});
+				expect(yield* run(unknown)).toEqual({
+					action: "reject",
+					reason: "workout_set_exercise_kind_invalid",
+				});
 			}),
 		);
 	});
@@ -232,7 +252,7 @@ describe("workout set policy", () => {
 			resource: "event",
 			category: "request",
 			operation: "create",
-			draft: eventDraft({ reps: 5, unitSystem: "metric" }),
+			draft: eventDraft({ reps: 5 }),
 		});
 
 		return Effect.runPromise(

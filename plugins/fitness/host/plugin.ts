@@ -207,8 +207,6 @@ export const fitnessPlugin = definePlugin({
 					entitySchemaSlug: "exercise",
 					eventSchemaSlug: "workout-set",
 				},
-				{ resource: "entity", operation: "update", entitySchemaSlug: "exercise" },
-				{ resource: "entity", operation: "update", entitySchemaSlug: "workout" },
 			],
 		},
 		{
@@ -251,25 +249,11 @@ export const fitnessPlugin = definePlugin({
 		{
 			stage: "after",
 			delivery: "async",
-			name: "Detect workout context changes",
-			slug: "fitness.workout-context-changed",
-			scriptSlug: "automation.workout-context-changed",
-			targets: [
-				{ resource: "entity", operation: "update", entitySchemaSlug: "exercise" },
-				{ resource: "entity", operation: "update", entitySchemaSlug: "workout" },
-			],
-		},
-		{
-			stage: "after",
-			delivery: "async",
 			executionScope: "user",
 			slug: "fitness.workout-context-records",
 			scriptSlug: "automation.workout-records",
-			name: "Recompute records after workout context changes",
-			targets: [
-				{ operation: "emit", resource: "signal", signalSchemaSlug: "exercise.context-changed" },
-				{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.context-changed" },
-			],
+			name: "Recompute records after workout start changes",
+			targets: [{ resource: "entity", operation: "update", entitySchemaSlug: "workout" }],
 		},
 		{
 			stage: "after",
@@ -298,17 +282,13 @@ export const fitnessPlugin = definePlugin({
 			slug: "fitness.notification",
 			name: "Fitness notification",
 			scriptSlug: "automation.fitness-notification",
+			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" }],
 			retry: {
 				maxAttempts: 1,
 				maxDelayMs: 60000,
 				initialDelayMs: 1000,
 				externalIdempotency: "none",
 			},
-			targets: [
-				{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" },
-				{ operation: "emit", resource: "signal", signalSchemaSlug: "exercise.context-changed" },
-				{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.context-changed" },
-			],
 		},
 	],
 });

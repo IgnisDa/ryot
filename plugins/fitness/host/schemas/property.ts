@@ -65,6 +65,7 @@ export const exercisePropertiesSchema: AppSchema = {
 };
 
 export const workoutSetPropertiesSchema: AppSchema = {
+	unknownKeys: "strict",
 	fields: {
 		images: imagesField("Images attached to this exercise in the workout"),
 		videos: videosField("Videos attached to this exercise in the workout"),
@@ -123,6 +124,12 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			normalize: { round: { scale: workoutSetScales.weight } },
 			description: "Weight used in this set in kilograms (kg)",
 		},
+		exerciseKind: {
+			type: "enum",
+			label: "Exercise Kind",
+			description: "Exercise kind this set was logged under",
+			choices: { kind: "static", values: exerciseKinds.map((value) => ({ value })) },
+		},
 		oneRm: {
 			type: "number",
 			label: "One Rm",
@@ -150,13 +157,6 @@ export const workoutSetPropertiesSchema: AppSchema = {
 			validation: { minimum: 0 },
 			normalize: { round: { scale: workoutSetScales.pace } },
 			description: "Speed calculated as kilometers per second from canonical metric measurements",
-		},
-		unitSystem: {
-			type: "enum",
-			label: "Unit System",
-			choices: { kind: "static", values: [{ value: "metric" }, { value: "imperial" }] },
-			description:
-				"Source input unit system; stored measurements and calculations use canonical metric units (kg, km, seconds)",
 		},
 		setLot: {
 			type: "enum",
@@ -211,15 +211,16 @@ export const workoutPropertiesSchema: AppSchema = {
 			label: "Comment",
 			description: "Optional notes or comments about this workout",
 		},
-		startedAt: {
-			type: "datetime",
-			label: "Started At",
-			description: "Date and time this workout session began",
-		},
 		caloriesBurnt: {
 			type: "number",
 			label: "Calories Burnt",
 			description: "Estimated calories burned during this workout",
+		},
+		startedAt: {
+			type: "datetime",
+			label: "Started At",
+			validation: { required: true },
+			description: "Date and time this workout session began",
 		},
 		supersets: {
 			type: "array",

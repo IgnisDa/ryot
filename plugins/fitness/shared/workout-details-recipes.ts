@@ -171,7 +171,6 @@ const exercisesInclude = (workout: Table) => {
 		selection: {
 			id: selectedField(column(exercise, "id"), Schema.String),
 			name: selectedField(column(exercise, "name"), Schema.String),
-			kind: selectedField(property(exercise, "kind"), Schema.NullOr(exerciseKindSchema)),
 			images: selectedField(propertyJson(exercise, "images"), Schema.NullOr(ImageLocatorsSchema)),
 			previousWorkoutStartedAt: selectedField(
 				priorSession(workout, exercise, "startedAt"),
@@ -212,6 +211,7 @@ const exercisesInclude = (workout: Table) => {
 					restTime: selectedField(propertyNumber(set, "restTime"), nullableNumber),
 					setOrder: selectedField(propertyNumber(set, "setOrder"), nullableNumber),
 					confirmedAt: selectedField(propertyDate(set, "confirmedAt"), nullableString),
+					exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
 					recordStatus: selectedField(
 						recordStatus(exercise, set),
 						Schema.Literals(["pending", "ready", "failed"]),

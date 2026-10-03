@@ -172,12 +172,7 @@ describe("adaptHevyCsv", () => {
 			set: { reps: 5, weight: 100, distance: 2, duration: 60, setLot: "normal" },
 		});
 
-		expect(properties).toMatchObject({
-			reps: 5,
-			setOrder: 0,
-			exerciseOrder: 0,
-			unitSystem: "metric",
-		});
+		expect(properties).toMatchObject({ reps: 5, setOrder: 0, exerciseOrder: 0 });
 		expect(properties).not.toHaveProperty("weight");
 		expect(properties).not.toHaveProperty("duration");
 		expect(properties).not.toHaveProperty("distance");

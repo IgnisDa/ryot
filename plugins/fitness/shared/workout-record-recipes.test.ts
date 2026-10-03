@@ -75,66 +75,56 @@ describe("workout record recipes", () => {
 		expect(decoded.success).toEqual(["exercise-1"]);
 	});
 
-	it.each([
-		["entity", "entityId", "exercise-1"],
-		["session", "sessionEntityId", "workout-1"],
-	] as const)(
-		"pages workout-set exercises by %s subject",
-		(role, subjectField, subjectEntityId) => {
-			const recipe = workoutSetExerciseIdsRecipe({ role, subjectEntityId, after: "event-cursor" });
-			const query = recipe.document.queries.workoutSetExerciseIds;
-			if (query?.output.type !== "rows") {
-				throw new Error("Expected workout-set exercise rows query");
-			}
-			expect(query.output.pagination).toEqual({ limit: 50, after: "event-cursor" });
-			expect(query.output.orderBy).toEqual([
-				{
-					direction: "asc",
-					expr: { field: "id", type: "column", tableAlias: "workoutSetContextEvent" },
-				},
-			]);
-			expect(query.output.fields).toEqual([
-				{
-					key: "entityId",
-					expr: { type: "column", field: "entityId", tableAlias: "workoutSetContextEvent" },
-				},
-			]);
-			expect(query.joins).toHaveLength(2);
-			expect(query.where).toMatchObject({
-				type: "and",
-				predicates: expect.arrayContaining([
-					expect.objectContaining({
-						right: { type: "literal", value: subjectEntityId },
-						left: { type: "column", field: subjectField, tableAlias: "workoutSetContextEvent" },
-					}),
-					expect.objectContaining({
-						right: { type: "literal", value: "workout-set" },
-						left: {
-							type: "column",
-							field: "eventSchemaSlug",
-							tableAlias: "workoutSetContextEvent",
-						},
-					}),
-				]),
-			});
-			const decoded = recipe.decode({
-				data: {
-					workoutSetExerciseIds: rows([{ entityId: "exercise-1" }, { entityId: "exercise-2" }], {
-						limit: 50,
-						hasMore: true,
-						nextCursor: "next-event",
-					}),
-				},
-			});
-			if (decoded._tag === "Failure") {
-				throw decoded.failure;
-			}
-			expect(decoded.success).toEqual({
-				items: [{ entityId: "exercise-1" }, { entityId: "exercise-2" }],
-				pageInfo: { limit: 50, hasMore: true, nextCursor: "next-event" },
-			});
-		},
-	);
+	it("pages the exercises of a workout's sets", () => {
+		const recipe = workoutSetExerciseIdsRecipe({ after: "event-cursor", workoutId: "workout-1" });
+		const query = recipe.document.queries.workoutSetExerciseIds;
+		if (query?.output.type !== "rows") {
+			throw new Error("Expected workout-set exercise rows query");
+		}
+		expect(query.output.pagination).toEqual({ limit: 50, after: "event-cursor" });
+		expect(query.output.orderBy).toEqual([
+			{
+				direction: "asc",
+				expr: { field: "id", type: "column", tableAlias: "workoutSetContextEvent" },
+			},
+		]);
+		expect(query.output.fields).toEqual([
+			{
+				key: "entityId",
+				expr: { type: "column", field: "entityId", tableAlias: "workoutSetContextEvent" },
+			},
+		]);
+		expect(query.joins).toHaveLength(2);
+		expect(query.where).toMatchObject({
+			type: "and",
+			predicates: expect.arrayContaining([
+				expect.objectContaining({
+					right: { type: "literal", value: "workout-1" },
+					left: { type: "column", field: "sessionEntityId", tableAlias: "workoutSetContextEvent" },
+				}),
+				expect.objectContaining({
+					right: { type: "literal", value: "workout-set" },
+					left: { type: "column", field: "eventSchemaSlug", tableAlias: "workoutSetContextEvent" },
+				}),
+			]),
+		});
+		const decoded = recipe.decode({
+			data: {
+				workoutSetExerciseIds: rows([{ entityId: "exercise-1" }, { entityId: "exercise-2" }], {
+					limit: 50,
+					hasMore: true,
+					nextCursor: "next-event",
+				}),
+			},
+		});
+		if (decoded._tag === "Failure") {
+			throw decoded.failure;
+		}
+		expect(decoded.success).toEqual({
+			items: [{ entityId: "exercise-1" }, { entityId: "exercise-2" }],
+			pageInfo: { limit: 50, hasMore: true, nextCursor: "next-event" },
+		});
+	});
 
 	it("pages normalized anchors by event id and record rows by the stable null-last record order", () => {
 		const normalization = workoutRecordRowsRecipe({

@@ -75,7 +75,7 @@ it("requests exact catalog resolution while preserving custom fallback data and 
 	expect(item.events[0]).toMatchObject({
 		entityAlias: "exercise-0",
 		sessionEntityAlias: "workout",
-		properties: { reps: 5, weight: 100, volume: 500, note: "Felt strong", unitSystem: "metric" },
+		properties: { reps: 5, weight: 100, volume: 500, note: "Felt strong" },
 	});
 	expect(item.events[0]?.occurredAt).toBe("2026-01-01T08:00:00.000Z");
 	expect(item.events[0]?.properties).not.toHaveProperty("confirmedAt");
@@ -130,7 +130,7 @@ it("uses normalized metric measurements for pace and event properties", () => {
 	expect(item.events[0]?.properties).toMatchObject({
 		distance: 1.5,
 		duration: 900,
-		unitSystem: "metric",
+		exerciseKind: "distance_and_duration",
 	});
 	expect(item.events[0]?.properties.pace).toBeCloseTo(1.5 / 900, 12);
 });

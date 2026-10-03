@@ -56,28 +56,3 @@ it("formats workout.created exclusively from the inline signal", () => {
 			),
 	);
 });
-
-it.each(["exercise.context-changed", "workout.context-changed"])(
-	"does not notify for internal %s signals",
-	(signalSchemaSlug) => {
-		const messages: string[] = [];
-		return Effect.runPromise(
-			definition
-				.run(
-					notificationInput(signalSchemaSlug, {}),
-					defineSandboxTestHost(manifest, {
-						sendNotification: (message) => {
-							messages.push(message);
-							return Effect.succeed(null);
-						},
-					}),
-				)
-				.pipe(
-					Effect.map((result) => {
-						expect(result).toBeNull();
-						expect(messages).toEqual([]);
-					}),
-				),
-		);
-	},
-);

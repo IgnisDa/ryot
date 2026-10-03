@@ -7,7 +7,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
-import type { ExerciseKind } from "../../shared/exercise-kinds";
+import { exerciseKindSchema, type ExerciseKind } from "../../shared/exercise-kinds";
 import { workoutSetContextRecipe } from "../../shared/workout-record-recipes";
 import {
 	calculateWorkoutSetStatistics,
@@ -25,11 +25,11 @@ export const manifest = defineManifest({
 				"confirmedAt",
 				"distance",
 				"duration",
+				"exerciseKind",
 				"oneRm",
 				"pace",
 				"personalBests",
 				"reps",
-				"unitSystem",
 				"volume",
 				"weight",
 			],
@@ -74,13 +74,6 @@ const finiteMeasurements = (properties: Readonly<Record<string, unknown>>) =>
 		duration: properties["duration"],
 	});
 
-const metricMeasurement = (value: number | undefined, unitSystem: unknown, factor: number) => {
-	if (value === undefined) {
-		return undefined;
-	}
-	return unitSystem === "imperial" ? value * factor : value;
-};
-
 const setProperty = (
 	properties: Readonly<Record<string, unknown>>,
 	set: Record<string, number | string>,
@@ -93,31 +86,14 @@ const setProperty = (
 };
 
 const transformSet = (properties: Readonly<Record<string, unknown>>, kind: ExerciseKind) => {
-	const unitSystem = properties["unitSystem"];
-	if (unitSystem !== undefined && unitSystem !== "metric" && unitSystem !== "imperial") {
-		return reject("workout_set_unit_system_invalid");
-	}
 	const measurementsResult = finiteMeasurements(properties);
 	if (measurementsResult._tag === "Failure") {
 		return reject("workout_set_measurements_invalid");
 	}
-	const source = measurementsResult.success;
-	const metric = {
-		reps: source.reps,
-		duration: source.duration,
-		weight: metricMeasurement(source.weight, unitSystem, 0.45359237),
-		distance: metricMeasurement(source.distance, unitSystem, 1.609344),
-	};
-	const statistics = calculateWorkoutSetStatistics(kind, metric);
+	const statistics = calculateWorkoutSetStatistics(kind, measurementsResult.success);
 	const set: Record<string, number | string> = {};
 	const remove: string[] = [];
-	setProperty(properties, set, "unitSystem", "metric");
-	for (const key of ["reps", "weight", "duration", "distance"] as const) {
-		const value = metric[key];
-		if (value !== undefined) {
-			setProperty(properties, set, key, value);
-		}
-	}
+	setProperty(properties, set, "exerciseKind", kind);
 	for (const [key, value] of [
 		["oneRm", statistics.oneRm],
 		["volume", statistics.volume],
@@ -165,12 +141,20 @@ export default defineAutomationPolicy({
 		if (workoutId === null) {
 			return Effect.succeed(reject("workout_set_context_missing"));
 		}
+		const recordedKind = payload.draft.properties["exerciseKind"];
+		const recorded =
+			recordedKind === undefined
+				? undefined
+				: Schema.decodeUnknownResult(exerciseKindSchema)(recordedKind);
+		if (recorded?._tag === "Failure") {
+			return Effect.succeed(reject("workout_set_exercise_kind_invalid"));
+		}
 		return Effect.gen(function* () {
 			const context = yield* executeRyotqlRecipe(
 				host.executeRyotql,
 				workoutSetContextRecipe({ workoutId, exerciseId: payload.draft.entityId }),
 			);
-			const exerciseKind = context.exercise?.kind;
+			const exerciseKind = recorded?.success ?? context.exercise?.kind;
 			if (
 				exerciseKind === undefined ||
 				exerciseKind === null ||

@@ -47,7 +47,19 @@ const automationInput = (
 		},
 	});
 
-const signalAutomationInput = (signalSchemaSlug: string, subjectEntityId: string) =>
+const entitySnapshot = {
+	name: "Push",
+	properties: {},
+	id: "workout-1",
+	externalId: null,
+	providerId: null,
+	populatedAt: null,
+	createdAt: timestamp,
+	updatedAt: timestamp,
+	entitySchemaSlug: "workout",
+};
+
+const workoutUpdateInput = (changedProperties: readonly string[]) =>
 	Schema.decodeSync(automationInputSchema)({
 		automation: {
 			runId: "run-1",
@@ -55,6 +67,14 @@ const signalAutomationInput = (signalSchemaSlug: string, subjectEntityId: string
 			triggerId: "trigger-1",
 			executionUserId: "user-1",
 			hookSlug: "fitness.workout-context-records",
+			payload: {
+				changedProperties,
+				resource: "entity",
+				category: "change",
+				operation: "update",
+				after: entitySnapshot,
+				before: entitySnapshot,
+			},
 			causation: {
 				depth: 0,
 				source: "api",
@@ -63,16 +83,6 @@ const signalAutomationInput = (signalSchemaSlug: string, subjectEntityId: string
 				executionId: "execution-1",
 				rootExecutionId: "execution-1",
 				initiator: { kind: "user", id: "user-1" },
-			},
-			payload: {
-				properties: {},
-				subjectEntityId,
-				signalSchemaSlug,
-				operation: "emit",
-				actorUserId: null,
-				category: "signal",
-				resource: "signal",
-				signalSchemaPluginId: "fitness-plugin",
 			},
 		},
 	});
@@ -134,11 +144,8 @@ const recordingHost = (
 	return { host, requests, workflows };
 };
 
-describe("workout context record signal", () => {
-	it.each([
-		["exercise.context-changed", "exercise-1"],
-		["workout.context-changed", "workout-1"],
-	] as const)("pages relevant events for %s", (signalSchemaSlug, subjectEntityId) => {
+describe("workout start change", () => {
+	it("requests record streams for every exercise in the workout when its start changes", () => {
 		const { host, requests, workflows } = recordingHost(undefined, [
 			workoutSetExercisePage(["exercise-1", "exercise-1", "exercise-2"], {
 				hasMore: true,
@@ -148,10 +155,9 @@ describe("workout context record signal", () => {
 		]);
 
 		return Effect.runPromise(
-			definition.run(signalAutomationInput(signalSchemaSlug, subjectEntityId), host).pipe(
+			definition.run(workoutUpdateInput(["startedAt"]), host).pipe(
 				Effect.map((result) => {
 					expect(result).toBeNull();
-					expect(requests).toHaveLength(3);
 					expect(requests).toEqual(
 						["exercise-1", "exercise-2", "exercise-3"].map((entityId) =>
 							expect.objectContaining({
@@ -171,7 +177,7 @@ describe("workout context record signal", () => {
 						["exercise-1", "exercise-2", "exercise-3"].map((entityId) =>
 							expect.objectContaining({
 								input: { id: `work-${entityId}` },
-								name: `workout-context-records:${signalSchemaSlug}:${subjectEntityId}:${entityId}`,
+								name: `workout-start-records:workout-1:${entityId}`,
 							}),
 						),
 					);
@@ -180,10 +186,10 @@ describe("workout context record signal", () => {
 		);
 	});
 
-	it("does not request a record stream when the subject has no matching events", () => {
-		const { host, requests, workflows } = recordingHost(undefined, [workoutSetExercisePage([])]);
+	it("requests nothing when the workout update leaves its start unchanged", () => {
+		const { host, requests, workflows } = recordingHost(undefined, []);
 		return Effect.runPromise(
-			definition.run(signalAutomationInput("workout.context-changed", "workout-1"), host).pipe(
+			definition.run(workoutUpdateInput([]), host).pipe(
 				Effect.map((result) => {
 					expect(result).toBeNull();
 					expect(requests).toEqual([]);
@@ -328,6 +334,7 @@ describe("workout record automation", () => {
 						{ equality: "json", property: "confirmedAt" },
 						{ equality: "json", property: "distance" },
 						{ equality: "json", property: "duration" },
+						{ equality: "json", property: "exerciseKind" },
 						{ equality: "json", property: "exerciseOrder" },
 						{ equality: "json", property: "oneRm" },
 						{ property: "pace", equality: "json" },
@@ -338,7 +345,11 @@ describe("workout record automation", () => {
 						{ equality: "json", property: "weight" },
 					],
 				});
-				expect(manifest.inputProjection.signal).toEqual({ properties: [] });
+				expect(manifest.inputProjection.entity).toEqual({
+					properties: [],
+					parentEntityProperties: [],
+					compareProperties: [{ equality: "json", property: "startedAt" }],
+				});
 			}),
 		);
 	});

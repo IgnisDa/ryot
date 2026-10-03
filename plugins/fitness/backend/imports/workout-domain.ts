@@ -97,9 +97,9 @@ export const buildWorkoutSetEventProperties = (input: {
 	exerciseKind: ExerciseKind;
 }) => {
 	const properties: Record<string, JsonValue> = {
-		unitSystem: "metric",
 		setLot: input.set.setLot,
 		setOrder: input.setOrder,
+		exerciseKind: input.exerciseKind,
 		exerciseOrder: input.exerciseOrder,
 	};
 	if (input.set.note) {
