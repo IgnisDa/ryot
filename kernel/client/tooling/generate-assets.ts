@@ -1,112 +1,104 @@
-// oxlint-disable-next-line effecttsgo/node-builtin-import -- Native asset generation invokes the capacitor-assets CLI synchronously.
-import { spawnSync } from "node:child_process";
-// oxlint-disable-next-line effecttsgo/node-builtin-import -- Generated platform resources are written through Node's filesystem API.
-import { mkdir, readdir, rename, rm, writeFile } from "node:fs/promises";
-// oxlint-disable-next-line effecttsgo/node-builtin-import -- Build-time native resource paths use Node path utilities.
-import { join } from "node:path";
-
+import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { ChildProcess } from "effect/process";
 import sharp from "sharp";
 
 const BRAND = "#fd7e14";
 const DEBUG = "#4dabf7";
 const ICON = "AppIcon-512@2x.png";
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
-const CLIENT = new URL("..", import.meta.url).pathname;
-const WEB = join(CLIENT, "public");
-const SOURCE = join(CLIENT, "assets/icon-only.png");
-const RESOURCES = join(CLIENT, "android/app/src/main/res");
-const CATALOG = join(CLIENT, "ios/App/App/Assets.xcassets");
-const BIN = join(CLIENT, "node_modules/.bin/capacitor-assets");
+const program = Effect.gen(function* () {
+	const path = yield* Path.Path;
+	const fs = yield* FileSystem.FileSystem;
+	const client = yield* path.fromFileUrl(new URL("..", import.meta.url));
+	const web = path.join(client, "public");
+	const source = path.join(client, "assets/icon-only.png");
+	const resources = path.join(client, "android/app/src/main/res");
+	const catalog = path.join(client, "ios/App/App/Assets.xcassets");
+	const bin = path.join(client, "node_modules/.bin/capacitor-assets");
+	const generate = Effect.fn("generateNativeAssets")(function* (
+		background: string,
+		...args: string[]
+	) {
+		const child = yield* ChildProcess.make(
+			bin,
+			[
+				"generate",
+				...args,
+				"--iconBackgroundColor",
+				background,
+				"--iconBackgroundColorDark",
+				background,
+				"--splashBackgroundColor",
+				BRAND,
+				"--splashBackgroundColorDark",
+				BRAND,
+			],
+			{ cwd: client, stdout: "inherit", stderr: "inherit" },
+		);
+		const exitCode = yield* child.exitCode;
+		if (Number(exitCode) !== 0) {
+			return yield* Effect.die(new Error(`capacitor-assets exited with ${Number(exitCode)}`));
+		}
+		return undefined;
+	});
 
-const generate = (background: string, ...args: string[]) => {
-	const { status } = spawnSync(
-		BIN,
-		[
-			"generate",
-			...args,
-			"--iconBackgroundColor",
-			background,
-			"--iconBackgroundColorDark",
-			background,
-			"--splashBackgroundColor",
-			BRAND,
-			"--splashBackgroundColorDark",
-			BRAND,
-		],
-		{ cwd: CLIENT, stdio: "inherit" },
+	// `icon-only.png` bakes the brand orange into its pixels, so no background colour can move the iOS
+	// icon off brand. The debug icon comes from `assets/dev`, where the transparent mark is the only
+	// source and the colour does apply.
+	yield* generate(DEBUG, "--ios", "--assetPath", "assets/dev");
+	const debugIcon = path.join(catalog, "AppIconDev.appiconset");
+	yield* fs.makeDirectory(debugIcon, { recursive: true });
+	yield* fs.rename(path.join(catalog, "AppIcon.appiconset", ICON), path.join(debugIcon, ICON));
+	yield* fs.writeFileString(
+		path.join(debugIcon, "Contents.json"),
+		encodeJson({
+			info: { version: 1, author: "xcode" },
+			images: [{ filename: ICON, platform: "ios", size: "1024x1024", idiom: "universal" }],
+		}),
 	);
 
-	if (status !== 0) {
-		throw new Error(`capacitor-assets exited with ${String(status)}`);
-	}
-};
+	// `capacitor-assets` scales the iOS splash logo relative to the source image but the Android one
+	// relative to the target canvas, so each platform needs its own size for the mark.
+	yield* generate(BRAND, "--ios", "--logoSplashTargetWidth", "512");
+	yield* generate(BRAND, "--android", "--logoSplashScale", "0.4");
 
-// `icon-only.png` bakes the brand orange into its pixels, so no background colour can move the iOS
-// icon off brand. The debug icon comes from `assets/dev`, where the transparent mark is the only
-// source and the colour does apply. That pass writes the production set, so the icon is claimed
-// into the set the Xcode target selects for Debug before the production pass restores it.
-generate(DEBUG, "--ios", "--assetPath", "assets/dev");
-
-const debugIcon = join(CATALOG, "AppIconDev.appiconset");
-
-await mkdir(debugIcon, { recursive: true });
-await rename(join(CATALOG, "AppIcon.appiconset", ICON), join(debugIcon, ICON));
-await writeFile(
-	join(debugIcon, "Contents.json"),
-	`{
-  "images": [
-    {
-      "idiom": "universal",
-      "size": "1024x1024",
-      "filename": "${ICON}",
-      "platform": "ios"
-    }
-  ],
-  "info": {
-    "author": "xcode",
-    "version": 1
-  }
-}
-`,
-);
-
-// `capacitor-assets` scales the iOS splash logo relative to the source image but the Android one
-// relative to the target canvas, so each platform needs its own size for the mark to land at
-// roughly the 100pt the retired Expo client used.
-generate(BRAND, "--ios", "--logoSplashTargetWidth", "512");
-generate(BRAND, "--android", "--logoSplashScale", "0.4");
-
-// `capacitor-assets` insets both adaptive-icon layers into the 72dp safe zone and emits a solid
-// colour background bitmap per density. An adaptive background must be full-bleed, or launcher
-// parallax reveals transparent edges, so the layers are rewritten to reference the brand colour
-// directly and the redundant bitmaps are dropped. Referencing the colour is also what lets the
-// debug resource overlay give the debug variant its own launcher icon.
-await Promise.all(
-	["ic_launcher.xml", "ic_launcher_round.xml"].map((name) =>
-		writeFile(
-			join(RESOURCES, "mipmap-anydpi-v26", name),
-			`<?xml version="1.0" encoding="utf-8"?>
+	// `capacitor-assets` insets both adaptive-icon layers into the 72dp safe zone and emits a solid
+	// colour background bitmap per density. An adaptive background must be full-bleed, or launcher
+	// parallax reveals transparent edges, so the layers are rewritten to reference the brand colour.
+	yield* Effect.forEach(
+		["ic_launcher.xml", "ic_launcher_round.xml"],
+		(name) =>
+			fs.writeFileString(
+				path.join(resources, "mipmap-anydpi-v26", name),
+				`<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background" />
     <foreground android:drawable="@mipmap/ic_launcher_foreground" />
 </adaptive-icon>
 `,
-		),
-	),
+			),
+		{ discard: true, concurrency: "unbounded" },
+	);
+	const directories = yield* fs.readDirectory(resources);
+	yield* Effect.forEach(
+		directories.filter((directory) => directory.startsWith("mipmap-")),
+		(directory) =>
+			fs.remove(path.join(resources, directory, "ic_launcher_background.png"), { force: true }),
+		{ discard: true, concurrency: "unbounded" },
+	);
+
+	// `index.html` links these two directly. `capacitor-assets` only writes into the native projects,
+	// and its `--pwa` mode emits a whole Apple splash set under names of its own.
+	yield* Effect.tryPromise(() =>
+		sharp(source).resize(64).png().toFile(path.join(web, "favicon.png")),
+	);
+	yield* Effect.tryPromise(() =>
+		sharp(source).resize(180).png().toFile(path.join(web, "apple-touch-icon.png")),
+	);
+});
+
+BunRuntime.runMain(
+	Effect.scoped(Layer.build(Layer.effectDiscard(program).pipe(Layer.provide(BunServices.layer)))),
 );
-
-const directories = await readdir(RESOURCES);
-
-await Promise.all(
-	directories
-		.filter((directory) => directory.startsWith("mipmap-"))
-		.map((directory) =>
-			rm(join(RESOURCES, directory, "ic_launcher_background.png"), { force: true }),
-		),
-);
-
-// `index.html` links these two directly. `capacitor-assets` only writes into the native projects,
-// and its `--pwa` mode emits a whole Apple splash set under names of its own, so the web icons are
-// resized here from the same source the iOS icon uses.
-await sharp(SOURCE).resize(64).png().toFile(join(WEB, "favicon.png"));
-await sharp(SOURCE).resize(180).png().toFile(join(WEB, "apple-touch-icon.png"));
