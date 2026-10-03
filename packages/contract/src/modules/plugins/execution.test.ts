@@ -16,6 +16,7 @@ const script = (
 ) => ({
 	slug,
 	name: slug,
+	runtimeImports: [],
 	executableDependencies,
 	kind: "script" as const,
 	requiredPluginConfigKeys,

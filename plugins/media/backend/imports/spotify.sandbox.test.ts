@@ -3,12 +3,12 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { compareMediaRecords, serializeMediaRecords } from "./collection";
 import type { MediaSourceRecord } from "./collection-schemas";
-import { mediaFilesystem, mediaFilesystemKey, mediaStageInput } from "./ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
 import type { MediaReadBatchOutput } from "./process";
 import reader from "./read-batch.sandbox";
 import spotify from "./spotify.sandbox";
 
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 const row = (index: number) => ({
 	ms_played: 60000,
 	reason_end: "trackdone",

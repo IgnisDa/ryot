@@ -1,7 +1,11 @@
 import { assert, expect, it } from "@effect/vitest";
 import { genericImportKernelInputSchema } from "@ryot-app/sandbox-sdk/imports";
+import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
-import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot-app/sandbox-sdk/workflow";
+import type {
+	WorkflowReplayEnvelope,
+	WorkflowReplayJournalEntry,
+} from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import { mediaImportTestCommand } from "../imports/ingestion.test-support";
@@ -11,7 +15,9 @@ it.live(
 	"applies multiple batches and continues the same provider with only confirmed event outcomes",
 	() =>
 		Effect.gen(function* () {
-			const journal: JsonValue[] = [];
+			const journal: WorkflowReplayJournalEntry[] = [];
+			const record = (request: WorkflowReplayEnvelope["requests"][number], value: JsonValue) =>
+				journal.push({ value, request });
 			const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
 			const input = {
 				page: 0,
@@ -57,11 +63,10 @@ it.live(
 			let applied = 0;
 			let envelope: WorkflowReplayEnvelope;
 			for (;;) {
-				envelope = yield* workflow.run(
-					input,
-					{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
-					{ metadata: {}, sandboxScriptId: "media-application" },
-				);
+				envelope = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
+					metadata: {},
+					sandboxScriptId: "media-application",
+				});
 				if (envelope.state !== "pending") {
 					break;
 				}
@@ -70,7 +75,7 @@ it.live(
 				requests.push(request);
 				if (request.kind === "activity") {
 					if (request.args.scriptSlug === "import.read-batch") {
-						journal.push({
+						record(request, {
 							offset: 10,
 							done: true,
 							dedupKey: null,
@@ -79,7 +84,7 @@ it.live(
 							batch: { failures: [], totalItems: 0, entityGroups: [] },
 						});
 					} else if (request.args.scriptSlug === "import.write-chunks") {
-						journal.push({ chunkHandles: [`writes-${applied}`] });
+						record(request, { chunkHandles: [`writes-${applied}`] });
 					} else {
 						expect(request.args.scriptSlug).toBe("integration.spotify");
 						expect(request.args.input).toEqual({
@@ -93,7 +98,7 @@ it.live(
 								inputFingerprint: `fingerprint-${applied - 1}`,
 							},
 						});
-						journal.push({ chunkHandles: [] });
+						record(request, { chunkHandles: [] });
 					}
 				} else {
 					assert(request.kind === "child");
@@ -102,14 +107,14 @@ it.live(
 						request.args.input,
 					);
 					if (operation.action === "capture") {
-						journal.push({
+						record(request, {
 							handle: operation.handle,
 							captureId: operation.captureId,
 							inputFingerprint: `fingerprint-${applied}`,
 						});
 					} else {
 						expect(operation.action).toBe("apply");
-						journal.push({ issues: [], summary: [], confirmed: confirmations[applied++] ?? [] });
+						record(request, { issues: [], summary: [], confirmed: confirmations[applied++] ?? [] });
 					}
 				}
 			}

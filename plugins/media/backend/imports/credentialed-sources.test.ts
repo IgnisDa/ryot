@@ -7,13 +7,13 @@ import { collectTraktApi } from "./api-collection";
 import audiobookshelf, { manifest as audiobookshelfManifest } from "./audiobookshelf.sandbox";
 import { compareMediaRecords, serializeMediaRecords } from "./collection";
 import type { MediaSourceInput, MediaSourceOutput, MediaSourceRecord } from "./collection-schemas";
-import { mediaFilesystem, mediaFilesystemKey, mediaStageInput } from "./ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
 import jellyfin, { manifest as jellyfinManifest } from "./jellyfin.sandbox";
 import { collectMediaTracker } from "./media-tracker-collection";
 import plex, { manifest as plexManifest } from "./plex.sandbox";
 import type { HttpHost } from "./source-api";
 
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 const runSource = Effect.fn(function* <Host extends HttpHost>(
 	collect: (
 		input: MediaSourceInput,

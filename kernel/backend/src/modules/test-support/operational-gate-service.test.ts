@@ -12,6 +12,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { createPluginConfigEncryption } from "#lib/infrastructure/config/plugin-config-encryption";
 import type { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
+import { SandboxSidecarSupervisor } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { fakeDatabaseSession, makeRedisService } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
@@ -121,6 +122,13 @@ const workflowLoadLayer = (
 				),
 				Layer.provideMerge(
 					Layer.mergeAll(
+						Layer.succeed(SandboxSidecarSupervisor, {
+							run: () => Effect.die("unused"),
+							locate: () => Effect.die("unused"),
+							reserve: () => Effect.die("unused"),
+							completeRecovery: () => Effect.die("unused"),
+							snapshot: () => ({ totalExecutions: 0, activeExecutions: 0, maxActiveExecutions: 0 }),
+						}),
 						options.database ?? mutationAdmissionTestLayer,
 						pluginConfigEncryptionKey,
 						mockImports({ createManualRun: () => Effect.succeed(importRun) }),

@@ -34,6 +34,7 @@ import {
 	type AutomationTriggerFilter,
 	type Client,
 	type InstalledTestPlugin,
+	type TestPluginScript,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
@@ -48,6 +49,10 @@ type SourceRecord = Extract<
 >;
 type PluginScript = PluginManifest["scripts"][number];
 type AutomationScript = Extract<PluginScript, { kind: "automation" }>;
+type FixtureScript = TestPluginScript & { readonly entry: string };
+type FixtureAutomationScript = Extract<FixtureScript, { kind: "automation" }> & {
+	readonly entry: string;
+};
 type TriggerPayload = NonNullable<AutomationTrigger["payload"]>;
 type EventCreateRequestPayload = Extract<
 	TriggerPayload,
@@ -105,7 +110,7 @@ const automationScript = (
 	entry: string,
 	name: string,
 	declaration: AutomationDeclaration,
-): PluginScript => ({
+): FixtureAutomationScript => ({
 	slug,
 	name,
 	entry,
@@ -309,7 +314,7 @@ const scripts = [
 		optionalPluginConfigKeys: [],
 		name: "E2E lifecycle replay pause",
 	},
-] satisfies PluginManifest["scripts"];
+] satisfies ReadonlyArray<FixtureScript>;
 
 const installLifecyclePlugin = () =>
 	installTestPluginBundle({

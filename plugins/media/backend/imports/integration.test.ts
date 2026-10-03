@@ -1,6 +1,10 @@
 import { assert, expect, it } from "@effect/vitest";
+import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
-import type { WorkflowReplayEnvelope, WorkflowReplayHost } from "@ryot-app/sandbox-sdk/workflow";
+import type {
+	WorkflowReplayEnvelope,
+	WorkflowReplayJournalEntry,
+} from "@ryot-app/sandbox-sdk/workflow";
 import { Cause, Effect, Exit } from "effect";
 
 import { mediaImportTestCommand } from "./ingestion.test-support";
@@ -20,15 +24,16 @@ it.live(
 					selection: { "integration-adapter": "integration.spotify" },
 				},
 			};
-			const journal: JsonValue[] = [];
+			const journal: WorkflowReplayJournalEntry[] = [];
+			const record = (request: WorkflowReplayEnvelope["requests"][number], value: JsonValue) =>
+				journal.push({ value, request });
 			const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
 			let envelope: WorkflowReplayEnvelope;
 			for (;;) {
-				envelope = yield* workflow.run(
-					input,
-					{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
-					{ metadata: {}, sandboxScriptId: "media-integration" },
-				);
+				envelope = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
+					metadata: {},
+					sandboxScriptId: "media-integration",
+				});
 				if (envelope.state !== "pending") {
 					break;
 				}
@@ -37,7 +42,7 @@ it.live(
 				requests.push(request);
 				if (request.kind === "activity") {
 					if (request.args.scriptSlug === "import.control") {
-						journal.push({
+						record(request, {
 							next: null,
 							entries: [],
 							settings: {
@@ -49,7 +54,7 @@ it.live(
 				} else {
 					assert(request.kind === "child");
 					if (request.name === "seal") {
-						journal.push({ summary: [], sealed: true });
+						record(request, { summary: [], sealed: true });
 					} else if (request.args.workflowSlug === "media-integration-collection") {
 						expect(request.args.input).toMatchObject({
 							page: 0,
@@ -57,7 +62,7 @@ it.live(
 							integrationContext: { marker: "admitted" },
 							integrationScriptSlug: "integration.spotify",
 						});
-						journal.push({
+						record(request, {
 							page: 1,
 							done: true,
 							carry: null,
@@ -70,7 +75,7 @@ it.live(
 							integrationScriptSlug: "integration.spotify",
 							run: { pages: 1, prefix: "integration-source-0" },
 						});
-						journal.push({
+						record(request, {
 							page: 1,
 							batch: 1,
 							offset: 0,
@@ -81,10 +86,10 @@ it.live(
 							dedupKey: null,
 						});
 					} else if (request.name.startsWith("progress:")) {
-						journal.push({ recorded: true });
+						record(request, { recorded: true });
 					} else {
 						expect(request.args.workflowSlug).toBe("kernel:process-import-chunks");
-						journal.push({
+						record(request, {
 							handle: "page-0",
 							inputFingerprint: "fingerprint",
 							captureId: "integration-source-0-0",
@@ -111,31 +116,39 @@ it.live(
 
 it.live("rejects a collector that differs from the accepted plan before collection", () =>
 	Effect.gen(function* () {
+		const input = {
+			runId: "run",
+			source: "spotify",
+			sourcePayloadHandle: "settings",
+			command: mediaImportTestCommand("provider"),
+			plan: {
+				operation: "workflow.media-integration",
+				selection: { "integration-adapter": "integration.spotify" },
+			},
+		};
+		const initial = yield* workflow.run(input, makeWorkflowReplayHost([]), {
+			metadata: {},
+			sandboxScriptId: "media-integration",
+		});
+		assert(initial.state === "pending");
+		const request = initial.requests[0];
+		assert(request);
 		const exit = yield* Effect.exit(
 			workflow.run(
-				{
-					runId: "run",
-					source: "spotify",
-					sourcePayloadHandle: "settings",
-					command: mediaImportTestCommand("provider"),
-					plan: {
-						operation: "workflow.media-integration",
-						selection: { "integration-adapter": "integration.spotify" },
-					},
-				},
-				{
-					replayJournal: () =>
-						Effect.succeed([
-							{
-								next: null,
-								entries: [],
-								settings: {
-									integrationContext: {},
-									integrationScriptSlug: "integration.youtube-music",
-								},
+				input,
+				makeWorkflowReplayHost([
+					{
+						request,
+						value: {
+							next: null,
+							entries: [],
+							settings: {
+								integrationContext: {},
+								integrationScriptSlug: "integration.youtube-music",
 							},
-						]),
-				},
+						},
+					},
+				]),
 				{ metadata: {}, sandboxScriptId: "media-integration" },
 			),
 		);
@@ -148,38 +161,47 @@ it.live("rejects a collector that differs from the accepted plan before collecti
 
 it.live("reports a collector-wide parse failure without assigning it to a record", () =>
 	Effect.gen(function* () {
-		const envelope = yield* workflow.run(
+		const input = {
+			runId: "run",
+			source: "kodi",
+			sourcePayloadHandle: "settings",
+			command: mediaImportTestCommand("provider"),
+			plan: {
+				operation: "workflow.media-integration",
+				selection: { "integration-adapter": "integration.kodi" },
+			},
+		};
+		const values: JsonValue[] = [
 			{
-				runId: "run",
-				source: "kodi",
-				sourcePayloadHandle: "settings",
-				command: mediaImportTestCommand("provider"),
-				plan: {
-					operation: "workflow.media-integration",
-					selection: { "integration-adapter": "integration.kodi" },
-				},
+				next: null,
+				entries: [],
+				settings: { integrationContext: {}, integrationScriptSlug: "integration.kodi" },
 			},
 			{
-				replayJournal: () =>
-					Effect.succeed<readonly JsonValue[]>([
-						{
-							next: null,
-							entries: [],
-							settings: { integrationContext: {}, integrationScriptSlug: "integration.kodi" },
-						},
-						{
-							page: 1,
-							run: null,
-							done: true,
-							carry: null,
-							ordinal: 65,
-							sourceFailure: "input-transformation-failed",
-						},
-						{ summary: [], sealed: true },
-					]),
+				page: 1,
+				run: null,
+				done: true,
+				carry: null,
+				ordinal: 65,
+				sourceFailure: "input-transformation-failed",
 			},
-			{ metadata: {}, sandboxScriptId: "media-integration" },
-		);
+			{ summary: [], sealed: true },
+		];
+		const journal: WorkflowReplayJournalEntry[] = [];
+		for (const value of values) {
+			const pending = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
+				metadata: {},
+				sandboxScriptId: "media-integration",
+			});
+			assert(pending.state === "pending");
+			const request = pending.requests[journal.length];
+			assert(request);
+			journal.push({ value, request });
+		}
+		const envelope = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
+			metadata: {},
+			sandboxScriptId: "media-integration",
+		});
 		assert(envelope.state === "completed");
 		expect(envelope.output).toEqual({
 			summary: [],

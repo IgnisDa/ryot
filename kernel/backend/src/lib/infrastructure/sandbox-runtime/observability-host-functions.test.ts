@@ -16,13 +16,13 @@ import type { Logger as LoggerType } from "effect/Logger";
 
 import { makeRecordingTracer } from "#lib/test-utils/tracer";
 
+import { SandboxHostCallGate } from "./host-call-gate";
 import { SANDBOX_LIMITS } from "./limits";
 import {
 	makeObservabilitySandboxApiFunctions,
 	makeSandboxObservabilityCollector,
 	mergeSandboxExecutionLogs,
 } from "./observability-host-functions";
-import { runSandboxBridgeHostFunction } from "./runtime";
 import { selectSandboxHostFunctions } from "./service";
 import type { BoundHostFunction, SandboxRunInput } from "./shared";
 
@@ -74,7 +74,7 @@ const input: SandboxRunInput = {
 		scriptSlug: "script",
 		pluginRevision: null,
 		scriptId: SandboxScriptId.make("script-1"),
-		metadata: { capabilities: ["log", "span"] },
+		metadata: { runtimeImports: [], capabilities: ["log", "span"] },
 		subject: {
 			type: "user",
 			userId: UserId.make("user-1"),
@@ -83,13 +83,39 @@ const input: SandboxRunInput = {
 	},
 };
 
+const makeLogHostFunction =
+	(host: ReturnType<typeof makeObservabilitySandboxApiFunctions>): BoundHostFunction =>
+	() =>
+		host
+			.log(input, [
+				{
+					level: "warning",
+					message: "plugin warning",
+					attributes: { plugin: "example", executionId: "plugin-value" },
+				},
+			])
+			.pipe(Effect.map(hostSuccess));
+
+const makeSpanHostFunction =
+	(host: ReturnType<typeof makeObservabilitySandboxApiFunctions>): BoundHostFunction =>
+	() =>
+		host
+			.span(input, [
+				{ name: "provider.run", attributes: { plugin: "example", scriptId: "plugin-value" } },
+			])
+			.pipe(Effect.map(hostSuccess));
+
 describe("sandbox observability host functions", () => {
 	it("selects log and span only when explicitly allowed", () => {
 		const bound = { log: selectedHostFunction, span: selectedHostFunction };
 
 		expect(
 			selectSandboxHostFunctions(bound, {
-				principal: { ...input.principal, metadata: {}, subject: { type: "system" } },
+				principal: {
+					...input.principal,
+					subject: { type: "system" },
+					metadata: { runtimeImports: [] },
+				},
 			}),
 		).toEqual({});
 		expect(
@@ -97,7 +123,7 @@ describe("sandbox observability host functions", () => {
 				principal: {
 					...input.principal,
 					subject: { type: "system" },
-					metadata: { capabilities: ["log", "unknown"] },
+					metadata: { runtimeImports: [], capabilities: ["log", "unknown"] },
 				},
 			}),
 		).toEqual({ log: selectedHostFunction });
@@ -182,7 +208,7 @@ describe("sandbox observability host functions", () => {
 		expect(totalCollector.logs).toEqual(before);
 	});
 
-	layer(recordedTelemetryLayer)((test) => {
+	layer(Layer.mergeAll(recordedTelemetryLayer, SandboxHostCallGate.layer))((test) => {
 		test.effect(
 			"emits correlated structured logs and completed child spans under the execution trace",
 			() =>
@@ -192,36 +218,45 @@ describe("sandbox observability host functions", () => {
 
 					yield* Effect.gen(function* () {
 						const parentSpan = yield* Effect.currentSpan;
-						const log: BoundHostFunction = () =>
-							host
-								.log(input, [
-									{
-										level: "warning",
-										message: "plugin warning",
-										attributes: { plugin: "example", executionId: "plugin-value" },
-									},
-								])
-								.pipe(Effect.map(hostSuccess));
-						const span: BoundHostFunction = () =>
-							host
-								.span(input, [
-									{
-										name: "provider.run",
-										attributes: { plugin: "example", scriptId: "plugin-value" },
-									},
-								])
-								.pipe(Effect.map(hostSuccess));
+						const log = makeLogHostFunction(host);
+						const span = makeSpanHostFunction(host);
 
-						yield* runSandboxBridgeHostFunction(log, [], {
-							parentSpan,
-							fnName: "log",
-							executionId: input.executionId,
-						});
-						yield* runSandboxBridgeHostFunction(span, [], {
-							parentSpan,
-							fnName: "span",
-							executionId: input.executionId,
-						});
+						yield* Effect.scoped(
+							Effect.gen(function* () {
+								const gate = yield* SandboxHostCallGate;
+								const registration = yield* gate.register({
+									input,
+									parentSpan,
+									generation: 1,
+									handle: "telemetry",
+									instance: "user/core",
+									apiFunctions: { log, span },
+									files: {
+										harvest: () => Effect.succeed(null),
+										scratchWrite: () => Effect.succeed(null),
+										filesystem: { scratch: false, artifact: false, namedArtifacts: [] },
+										artifactReadRange: (args) =>
+											Effect.succeed({ size: 0, data: "", offset: args.offset }),
+									},
+								});
+								yield* Effect.gen(function* () {
+									for (const [seq, name] of ["log", "span"].entries()) {
+										const result = yield* registration.dispatch({
+											seq,
+											name,
+											args: [],
+											generation: 1,
+											type: "hostCall",
+											handle: "telemetry",
+										});
+										expect(result.result).toMatchObject({
+											status: "success",
+											value: { success: true },
+										});
+									}
+								}).pipe(Effect.withSpan("sidecar.transport"));
+							}),
+						);
 					}).pipe(Effect.withSpan("sandbox.execution"));
 
 					const telemetry = yield* RecordedTelemetry;

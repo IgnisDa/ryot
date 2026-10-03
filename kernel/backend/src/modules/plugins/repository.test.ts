@@ -18,6 +18,7 @@ import {
 	clientArtifactMatches,
 	ClientArtifactsRepository,
 } from "#modules/client-artifacts/repository";
+import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { PluginInstallationRepository } from "./installation-repository";
 import { pluginSourceHash } from "./pipeline";
@@ -309,6 +310,74 @@ describe("plugin repository revisions", () => {
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
+		test.effect("pins standalone uploaders without adopting their rows as kernel scripts", () =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const repository = yield* PluginRepository;
+					const pins = yield* SandboxRepository;
+					const session = yield* DatabaseSession;
+					const first = revisionPackage("standalone").scripts[0];
+					assert(first);
+					const { entry: _entry, ...compiled } = first;
+					const script = { ...compiled, source: "standalone source" };
+					yield* Effect.addFinalizer(() =>
+						session
+							.run((db) =>
+								Effect.gen(function* () {
+									yield* db
+										.delete(tables.kernelScript)
+										.where(eq(tables.kernelScript.slug, script.slug));
+									yield* db
+										.delete(tables.sandboxScript)
+										.where(eq(tables.sandboxScript.slug, script.slug));
+								}),
+							)
+							.pipe(Effect.orDie),
+					);
+					const firstId = yield* repository.persistStandaloneScript(script, owner);
+					expect(yield* repository.persistStandaloneScript(script, owner)).toBe(firstId);
+					const recipient = UserId.make("recipient");
+					const secondId = yield* repository.persistStandaloneScript(script, recipient);
+					expect(secondId).not.toBe(firstId);
+					expect(yield* pins.getScriptPin(firstId)).toMatchObject({
+						pluginRevision: null,
+						standaloneUploaderId: owner,
+					});
+					expect(yield* pins.getScriptPin(secondId)).toMatchObject({
+						pluginRevision: null,
+						standaloneUploaderId: recipient,
+					});
+					yield* repository.persistKernelScript(script);
+					const [kernel] = yield* session.run((db) =>
+						db.select().from(tables.kernelScript).where(eq(tables.kernelScript.slug, script.slug)),
+					);
+					assert(kernel);
+					expect(kernel.scriptId).not.toBe(firstId);
+					expect(kernel.scriptId).not.toBe(secondId);
+					const rows = yield* session.run((db) =>
+						db
+							.select({ uploaderId: tables.sandboxScript.uploaderId })
+							.from(tables.sandboxScript)
+							.where(eq(tables.sandboxScript.slug, script.slug)),
+					);
+					expect(rows).toHaveLength(3);
+					expect(rows).toEqual(
+						expect.arrayContaining([
+							{ uploaderId: null },
+							{ uploaderId: "owner" },
+							{ uploaderId: "recipient" },
+						]),
+					);
+					expect(
+						Result.isFailure(
+							yield* Effect.result(
+								repository.persistStandaloneScript({ ...script, compiledCode: "changed" }, owner),
+							),
+						),
+					).toBe(true);
+				}),
+			),
+		);
 		test.effect(
 			"selects the booted kernel artifact after downgrade and prunes only unpinned old code",
 			() =>

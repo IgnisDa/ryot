@@ -1,6 +1,8 @@
 import { expect, it } from "@effect/vitest";
+import { SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS } from "@ryot-app/sandbox-sdk/imports";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Effect } from "effect";
+import { auditSandboxEsmOutput } from "@ryot-app/vite-compiler";
+import { Effect, Result } from "effect";
 
 import { sandboxCompilerPlatformLayer } from "./compiler-platform";
 import { compilePluginSandboxEntries, compilePluginSandboxSourceEntries } from "./compiler-plugins";
@@ -8,6 +10,21 @@ import { compilePluginSandboxEntries, compilePluginSandboxSourceEntries } from "
 const digest = sha256Hex;
 
 it.layer(sandboxCompilerPlatformLayer)("plugin sandbox compilation", (test) => {
+	test.effect("runtime_import_facts_match_emitted_module_audit", () =>
+		Effect.gen(function* () {
+			const packageRoot = new URL("../test-fixtures/multi-file-plugin", import.meta.url).pathname;
+			const compiled = yield* compilePluginSandboxEntries(packageRoot, [
+				{ kind: "script", entry: "scripts/zeta.sandbox.ts" },
+				{ kind: "script", entry: "scripts/alpha.sandbox.ts" },
+			]);
+			for (const { compiled: module } of compiled) {
+				expect(
+					auditSandboxEsmOutput(module.javascript, new Set(SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS)),
+				).toEqual(Result.succeed(module.manifest.runtimeImports));
+			}
+		}),
+	);
+
 	test.effect(
 		"compiles plugin scripts in deterministic order with package-local shared modules",
 		() =>
@@ -33,10 +50,43 @@ it.layer(sandboxCompilerPlatformLayer)("plugin sandbox compilation", (test) => {
 					expect(result.compiled.javascript).not.toContain('from "../shared/value"');
 					expect(Object.keys(result.compiled).sort()).toEqual(["format", "javascript", "manifest"]);
 				}
+				expect(first.map(({ compiled }) => compiled.manifest.runtimeImports)).toEqual([
+					["@ryot-app/sandbox-sdk/effect"],
+					["@ryot-app/plugin-kit/effect", "@ryot-app/sandbox-sdk/effect"],
+				]);
+				expect(first[0]?.compiled.javascript).not.toContain('from "@ryot-app/sandbox-sdk/wire"');
 				expect(first[0]?.compiled.manifest.requiredPluginConfigKeys).toEqual([]);
 				expect(first[0]?.compiled.manifest.capabilities).toEqual([]);
 			}),
-		10_000,
+	);
+
+	test.effect("rejects runtime import facts authored through defineManifest", () =>
+		Effect.gen(function* () {
+			const failure = yield* compilePluginSandboxSourceEntries(
+				{
+					"entry.sandbox.ts": `
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+  kind: "script",
+  name: "Authored imports",
+  slug: "authored-imports",
+  runtimeImports: [],
+});
+
+export default defineScript({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: () => Effect.succeed(null),
+});
+`,
+				},
+				[{ kind: "script", entry: "entry.sandbox.ts" }],
+			).pipe(Effect.flip);
+			expect(failure.diagnostics.some(({ code }) => code === "TS2322")).toBe(true);
+		}),
 	);
 
 	test.effect("compiles direct operation, workflow, and automation declarations", () =>
@@ -549,6 +599,15 @@ export const rowSlug = "shared-row";
 			expect(javascript).toContain("shared-row");
 			expect(javascript).toContain('from "@ryot-app/plugin-kit/ryotql"');
 			expect(javascript).not.toContain('from "../shared/row"');
+			expect(compiled[0]?.compiled.manifest.runtimeImports).toContain(
+				"@ryot-app/plugin-kit/ryotql",
+			);
+			expect(compiled[0]?.compiled.manifest.runtimeImports).toEqual([
+				"@ryot-app/plugin-kit/effect",
+				"@ryot-app/plugin-kit/ryotql",
+				"@ryot-app/sandbox-sdk/effect",
+				"effect",
+			]);
 		}),
 	);
 

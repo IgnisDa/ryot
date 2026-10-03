@@ -4,9 +4,14 @@ import type {
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import {
+	configureSandboxFilesystem,
+	type SandboxFilesystemBinding,
+} from "@ryot-app/sandbox-sdk/filesystem";
+import {
 	genericImportChunkSchema,
 	genericImportKernelInputSchema,
 } from "@ryot-app/sandbox-sdk/imports";
+import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
 import { jsonValueSchema, type JsonValue } from "@ryot-app/sandbox-sdk/wire";
 import type {
 	WorkflowReplayEnvelope,
@@ -23,8 +28,11 @@ import { FitnessSettingsInput } from "./settings";
 import settingsScript from "./settings.sandbox";
 import { runFitnessStage } from "./shared";
 
-const filesystemKey = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
-afterEach(() => Reflect.deleteProperty(globalThis, filesystemKey));
+let filesystemBinding: SandboxFilesystemBinding | undefined;
+configureSandboxFilesystem(() => filesystemBinding);
+afterEach(() => {
+	filesystemBinding = undefined;
+});
 
 const command = Schema.decodeSync(LifecycleCommand)({
 	occurredAt: "2026-09-16T00:00:00.000Z",
@@ -78,10 +86,16 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 			counts: { ...dimension.counts, [result]: dimension.counts[result] + 1 },
 		};
 	};
-	Reflect.set(globalThis, filesystemKey, {
-		writeScratchChunks: (scratch: typeof files) => {
-			files = scratch;
+	filesystemBinding = {
+		readArtifact: () => Promise.resolve(primary),
+		writeScratchChunks: (scratch) => {
+			files = [...scratch];
 			return Promise.resolve();
+		},
+		readNamedArtifact: (key: string) => {
+			let bytes = key === "uploadToken" ? upload : grants[key];
+			assert(bytes, `Missing grant ${key}`);
+			return Promise.resolve(bytes);
 		},
 		readArtifactRange: (offset: number, length: number, key?: string) => {
 			maximumRead = Math.max(maximumRead, length);
@@ -98,7 +112,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 			}
 			return Promise.resolve({ size: bytes.length, bytes: bytes.slice(offset, offset + length) });
 		},
-	});
+	};
 	let parser = "import.open-scale";
 	if (source === "hevy") {
 		parser = "import.hevy";
@@ -164,7 +178,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 				for (;;) {
 					const envelope = yield* applicationWorkflow.run(
 						childInput,
-						{ replayJournal: () => Effect.succeed(childJournal) },
+						makeWorkflowReplayHost(childJournal),
 						{ metadata: {}, sandboxScriptId: "fitness-import-application" },
 					);
 					if (envelope.state === "failed") {
@@ -184,7 +198,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 				for (;;) {
 					const envelope = yield* mergeWorkflow.run(
 						childInput,
-						{ replayJournal: () => Effect.succeed(childJournal) },
+						makeWorkflowReplayHost(childJournal),
 						{ metadata: {}, sandboxScriptId: "fitness-import-merge" },
 					);
 					if (envelope.state === "failed") {
@@ -302,21 +316,19 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 			return yield* Schema.decodeUnknownEffect(jsonValueSchema)(structuredClone(value));
 		});
 	for (;;) {
-		const envelope = yield* workflow.run(
-			input,
-			{ replayJournal: () => Effect.succeed(journal) },
-			{ metadata: {}, sandboxScriptId: "fitness-import" },
-		);
+		const envelope = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
+			metadata: {},
+			sandboxScriptId: "fitness-import",
+		});
 		if (envelope.state === "failed") {
 			assert.fail(envelope.error);
 		}
 		if (envelope.state === "completed") {
 			expect(uploadBytesRead).toBe(upload.length);
-			const replayed = yield* workflow.run(
-				input,
-				{ replayJournal: () => Effect.succeed(journal) },
-				{ metadata: {}, sandboxScriptId: "fitness-import" },
-			);
+			const replayed = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
+				metadata: {},
+				sandboxScriptId: "fitness-import",
+			});
 			expect(replayed).toEqual(envelope);
 			return {
 				chunks,
@@ -481,7 +493,7 @@ it("rejects an admitted parser pin that does not match the source before collect
 					sourcePayloadHandle: "settings",
 					plan: { operation: "import", selection: { "source-parser": "import.open-scale" } },
 				},
-				{ replayJournal: () => Effect.succeed([]) },
+				makeWorkflowReplayHost([]),
 				{ metadata: {}, sandboxScriptId: "fitness-import" },
 			)
 			.pipe(

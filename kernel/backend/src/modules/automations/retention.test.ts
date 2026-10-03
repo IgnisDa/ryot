@@ -102,7 +102,7 @@ describe("AutomationRetention", () => {
 									contentHash: "hash",
 									compiledCode: "code",
 									slug: "kernel.fixture",
-									metadata: { kind: "automation" },
+									metadata: { kind: "automation", runtimeImports: [] },
 								});
 							yield* db
 								.insert(tables.automationTrigger)

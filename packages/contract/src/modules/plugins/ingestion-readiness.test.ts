@@ -5,6 +5,7 @@ import { evaluateIngestionReadiness, type IngestionReadinessMetadata } from "./i
 const script = (slug: string, keys: ReadonlyArray<string> = []) => ({
 	slug,
 	capabilities: [],
+	runtimeImports: [],
 	oauthConnectionFields: [],
 	executableDependencies: [],
 	requiredPluginConfigKeys: keys,

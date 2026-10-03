@@ -52,7 +52,11 @@ describe("sandbox filesystem grant gating", () => {
 						scriptSlug: "script",
 						subject: { type: "system" },
 						scriptId: SandboxScriptId.make("script-1"),
-						metadata: { kind: "script", capabilities: ["scratch", "artifact-read", "httpCall"] },
+						metadata: {
+							kind: "script",
+							runtimeImports: [],
+							capabilities: ["scratch", "artifact-read", "httpCall"],
+						},
 					},
 				}),
 			),

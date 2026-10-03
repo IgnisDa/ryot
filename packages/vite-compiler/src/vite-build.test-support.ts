@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Path, Ref } from "effect";
 import type { InlineConfig } from "vite";
 
 import type { ViteCompilerError } from "./error";
@@ -35,4 +35,4 @@ export const fakeViteBuildLayer = (respond: ViteBuildResponse) =>
 				}),
 			);
 		}),
-	);
+	).pipe(Layer.merge(Path.layer));

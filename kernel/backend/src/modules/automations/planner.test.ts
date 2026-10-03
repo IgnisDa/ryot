@@ -974,6 +974,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						metadata: {
 							name: "Notify",
 							capabilities: [],
+							runtimeImports: [],
 							oauthConnectionFields: [],
 							executableDependencies: [],
 							kind: "automation" as const,

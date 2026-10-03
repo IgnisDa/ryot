@@ -67,19 +67,40 @@ export const loadPluginSource = (packageRoot: string, manifest: unknown) =>
 			typeof manifest === "object" && manifest !== null && "scripts" in manifest
 				? manifest.scripts
 				: undefined;
-		const byEntry = new Map(outputs.map(({ script, compiled }) => [script.entry, compiled]));
+		const byEntry = new Map(outputs.map((output) => [output.script.entry, output]));
 		const compiledScripts = Array.isArray(declaredScripts)
 			? declaredScripts.flatMap((value) => {
 					if (typeof value !== "object" || value === null || !("entry" in value)) {
 						return [];
 					}
 					const entry = value.entry;
-					const compiled = typeof entry === "string" ? byEntry.get(entry) : undefined;
-					return compiled && typeof entry === "string"
-						? [{ entry, format: compiled.format, javascript: compiled.javascript }]
+					const output = typeof entry === "string" ? byEntry.get(entry) : undefined;
+					return output && typeof entry === "string"
+						? [{ entry, format: output.compiled.format, javascript: output.compiled.javascript }]
 						: [];
 				})
 			: [];
+		const manifestWithRuntimeImports =
+			typeof manifest === "object" &&
+			manifest !== null &&
+			"scripts" in manifest &&
+			Array.isArray(manifest.scripts)
+				? {
+						...manifest,
+						scripts: manifest.scripts.map((value) => {
+							if (
+								typeof value !== "object" ||
+								value === null ||
+								!("entry" in value) ||
+								typeof value.entry !== "string"
+							) {
+								return value;
+							}
+							const output = byEntry.get(value.entry);
+							return output ? { ...value, runtimeImports: output.script.runtimeImports } : value;
+						}),
+					}
+				: manifest;
 		const clientManifest =
 			typeof manifest === "object" && manifest !== null && "client" in manifest
 				? manifest.client
@@ -100,8 +121,8 @@ export const loadPluginSource = (packageRoot: string, manifest: unknown) =>
 			compiledClient = fixtureClientArtifact(pluginName);
 		}
 		return {
-			manifest,
 			compiledScripts,
+			manifest: manifestWithRuntimeImports,
 			...(compiledClient ? { compiledClient } : {}),
 		} satisfies PluginSource;
 	});

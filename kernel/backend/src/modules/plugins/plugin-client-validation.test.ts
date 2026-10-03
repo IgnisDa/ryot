@@ -1,10 +1,10 @@
-import { BunFileSystem } from "@effect/platform-bun";
+import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { clientArtifactFile, clientArtifactMetadata } from "@ryot-app/client-plugin-contract";
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { readPluginArchive, writePluginArchive } from "@ryot-app/plugin-archive";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
 import { normalizePluginSource } from "./pipeline";
 import { loadPluginSource } from "./source.test-support";
@@ -25,7 +25,7 @@ const manifest = () => ({
 	},
 });
 
-layer(Layer.merge(BunFileSystem.layer, ViteBuildService.layer))((test) => {
+layer(Layer.mergeAll(BunFileSystem.layer, BunPath.layer, ViteBuildService.layer))((test) => {
 	test.effect("accepts the precompiled client artifact when its content hash matches", () =>
 		Effect.gen(function* () {
 			const pluginManifest = {
@@ -47,6 +47,7 @@ layer(Layer.merge(BunFileSystem.layer, ViteBuildService.layer))((test) => {
 				client: manifest().client,
 			} satisfies PluginManifest;
 			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
+			const compiledManifest = yield* Schema.decodeUnknownEffect(PluginManifest)(source.manifest);
 			const compiledClient = source.compiledClient;
 			expect(compiledClient).toBeDefined();
 			if (!compiledClient) {
@@ -70,8 +71,8 @@ layer(Layer.merge(BunFileSystem.layer, ViteBuildService.layer))((test) => {
 			const archive = writePluginArchive({
 				...source,
 				compiledScripts,
-				manifest: pluginManifest,
 				compiledClient: artifact,
+				manifest: compiledManifest,
 			});
 			const decoded = yield* readPluginArchive(archive);
 			const normalized = yield* normalizePluginSource(decoded);
@@ -89,7 +90,7 @@ layer(Layer.merge(BunFileSystem.layer, ViteBuildService.layer))((test) => {
 			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
 			const error = yield* Effect.flip(
 				normalizePluginSource({
-					manifest: pluginManifest,
+					manifest: source.manifest,
 					compiledScripts: source.compiledScripts,
 				}),
 			);

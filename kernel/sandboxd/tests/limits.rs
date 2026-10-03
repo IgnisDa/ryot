@@ -198,7 +198,7 @@ fn v8_accounting_stops_array_buffer_growth_without_the_allocator_cap() {
 }
 
 #[test]
-fn deadlines_expire_while_host_call_waits_do_not_count() {
+fn ordinary_host_waits_count_toward_script_deadline() {
     let mut sidecar = support::spawn(Tier::Core, &[]);
     let limits = Limits {
         deadline_ms: 400,
@@ -223,7 +223,7 @@ fn deadlines_expire_while_host_call_waits_do_not_count() {
         std::thread::sleep(Duration::from_millis(800));
         json!("answered")
     });
-    assert_eq!(done.value(), json!("answered"));
+    assert_eq!(done.limit(), LimitKind::Deadline);
 }
 
 #[test]
@@ -270,6 +270,36 @@ fn uninterruptible_allocation_escalates_with_the_culprit_reported_before_exit() 
         .wait(Duration::from_secs(10))
         .expect("sidecar exits");
     assert_eq!(status.code(), Some(ryot_sandboxd::server::EXIT_ESCALATED));
+}
+
+#[test]
+fn fatal_host_disconnect_preserves_the_escalated_exit_status() {
+    for _ in 0..8 {
+        let mut sidecar = support::spawn(Tier::Core, &[]);
+        sidecar.send(&support::run_frame(
+            "fill",
+            Tier::Core,
+            "export default () => new Array(2 ** 32 - 1).fill(0)",
+            Value::Null,
+            tight(),
+        ));
+        let fatal = sidecar.recv();
+        sidecar
+            .raw_socket()
+            .shutdown(std::net::Shutdown::Both)
+            .expect("host disconnects immediately after fatal");
+        match fatal {
+            Outbound::Fatal { handle, generation } => {
+                assert_eq!(handle, "fill");
+                assert_eq!(generation, support::GENERATION);
+            }
+            other => panic!("expected the culprit to be reported, got {other:?}"),
+        }
+        let status = sidecar
+            .wait(Duration::from_secs(10))
+            .expect("sidecar exits after host disconnect");
+        assert_eq!(status.code(), Some(ryot_sandboxd::server::EXIT_ESCALATED));
+    }
 }
 
 #[test]

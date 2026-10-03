@@ -1,10 +1,6 @@
-// Tests construct native filesystem paths for the Vite workspace.
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { join } from "node:path";
-
-import { BunFileSystem } from "@effect/platform-bun";
+import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { describe, expect, layer } from "@effect/vitest";
-import { Effect, FileSystem, Layer } from "effect";
+import { Effect, FileSystem, Layer, Path } from "effect";
 import type { InlineConfig } from "vite";
 
 import {
@@ -18,7 +14,7 @@ import {
 import type { CompilerWorkspace } from "./index";
 import { FakeViteBuild, fakeViteBuildLayer } from "./vite-build.test-support";
 
-const liveLayer = Layer.merge(BunFileSystem.layer, ViteBuildService.layer);
+const liveLayer = Layer.mergeAll(BunFileSystem.layer, BunPath.layer, ViteBuildService.layer);
 const virtualWorkspace: CompilerWorkspace = {
 	rootPath: "/virtual/job",
 	sourcePath: "/virtual/job/source",
@@ -201,6 +197,7 @@ describe("Vite build", () => {
 		test.effect("builds with the live Vite layer and keeps output in memory", () =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
 				const workspace = yield* acquireCompilerWorkspace();
 				yield* stageGeneratedFiles(workspace, [
 					{ path: "entry.ts", contents: "export const value: number = 1;" },
@@ -209,7 +206,7 @@ describe("Vite build", () => {
 					workspace,
 					typeScriptProject,
 					config: {
-						build: { rolldownOptions: { input: join(workspace.generatedPath, "entry.ts") } },
+						build: { rolldownOptions: { input: path.join(workspace.generatedPath, "entry.ts") } },
 					},
 				});
 				expect(result.files).toHaveLength(1);
@@ -220,6 +217,7 @@ describe("Vite build", () => {
 
 		test.effect("does not load a staged source package tsconfig", () =>
 			Effect.gen(function* () {
+				const path = yield* Path.Path;
 				const workspace = yield* acquireCompilerWorkspace();
 				yield* stageSourceFiles(workspace, [
 					{ path: "dependency/index.ts", contents: "export const value: number = 1;" },
@@ -235,7 +233,7 @@ describe("Vite build", () => {
 					workspace,
 					typeScriptProject,
 					config: {
-						build: { rolldownOptions: { input: join(workspace.generatedPath, "entry.ts") } },
+						build: { rolldownOptions: { input: path.join(workspace.generatedPath, "entry.ts") } },
 					},
 				});
 				expect(result.files).toHaveLength(1);

@@ -1,4 +1,5 @@
 import { sandboxManifestSchema } from "@ryot-app/sandbox-sdk/core";
+import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
 import {
 	defineManifest,
 	defineWorkflow,
@@ -6,6 +7,7 @@ import {
 	Schema,
 	workflowDurableCallRequestSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
+import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect as RuntimeEffect } from "effect";
 import { describe, expect, test } from "vitest";
 
@@ -69,12 +71,13 @@ describe("workflow definitions", () => {
 						},
 					},
 				];
+				const replayHost = makeWorkflowReplayHost(journal);
 				const output = yield* workflow.run(
 					{ value: 1 },
 					{
 						replayJournal: () => {
 							calls.push("bootstrap");
-							return Effect.succeed(journal);
+							return replayHost.replayJournal();
 						},
 					},
 					{ metadata: {}, sandboxScriptId: "workflow-1" },
@@ -128,18 +131,15 @@ describe("workflow definitions", () => {
 				const run = (values: ReadonlyArray<null>) =>
 					workflow.run(
 						null,
-						{
-							replayJournal: () =>
-								Effect.succeed(
-									values.map((value, index) => {
-										const request = requests.at(index);
-										if (!request) {
-											throw new Error("Missing test request");
-										}
-										return { value, request };
-									}),
-								),
-						},
+						makeWorkflowReplayHost(
+							values.map((value, index) => {
+								const request = requests.at(index);
+								if (!request) {
+									throw new Error("Missing test request");
+								}
+								return { value, request };
+							}),
+						),
 						{ metadata: {}, sandboxScriptId: "workflow-1" },
 					);
 
@@ -163,6 +163,109 @@ describe("workflow definitions", () => {
 			}),
 		));
 
+	test("reads only executed calls and preserves parallel registration order", () =>
+		RuntimeEffect.runPromise(
+			RuntimeEffect.gen(function* () {
+				const manifest = defineManifest({
+					kind: "workflow",
+					name: "Lazy replay",
+					slug: "lazy-replay",
+				});
+				const workflow = defineWorkflow({
+					manifest,
+					input: Schema.Null,
+					output: Schema.Array(Schema.String),
+					run: (_input, replay) =>
+						Effect.gen(function* () {
+							const results = yield* Effect.all(
+								[
+									replay.activity(
+										"first",
+										{ input: Schema.Null, output: Schema.String, scriptSlug: "activity.first" },
+										null,
+									),
+									replay.activity(
+										"second",
+										{ input: Schema.Null, output: Schema.String, scriptSlug: "activity.second" },
+										null,
+									),
+								],
+								{ concurrency: "unbounded" },
+							);
+							if (results[0] === "continue") {
+								yield* replay.sleep("unexecuted", 30);
+							}
+							return results;
+						}),
+				});
+				const entries: WorkflowReplayJournalEntry[] = [
+					{
+						value: "one",
+						request: {
+							index: 0,
+							name: "first",
+							kind: "activity",
+							args: { input: null, scriptSlug: "activity.first" },
+						},
+					},
+					{
+						value: "two",
+						request: {
+							index: 1,
+							name: "second",
+							kind: "activity",
+							args: { input: null, scriptSlug: "activity.second" },
+						},
+					},
+					{
+						value: null,
+						request: { index: 2, kind: "sleep", name: "unexecuted", args: { durationMs: 30 } },
+					},
+				];
+				const reads: number[] = [];
+				const output = yield* workflow.run(
+					null,
+					{
+						replayJournal: () =>
+							RuntimeEffect.succeed({
+								length: entries.length,
+								read: (index) =>
+									RuntimeEffect.sync(() => reads.push(index)).pipe(
+										RuntimeEffect.flatMap(() => {
+											const entry = entries.at(index);
+											return entry
+												? RuntimeEffect.succeed(entry)
+												: RuntimeEffect.fail({ message: `Missing test journal entry ${index}` });
+										}),
+									),
+							}),
+					},
+					{ metadata: {}, sandboxScriptId: "lazy-replay" },
+				);
+
+				expect(output).toEqual({
+					journalLength: 3,
+					state: "completed",
+					output: ["one", "two"],
+					requests: [
+						{
+							index: 0,
+							name: "first",
+							kind: "activity",
+							args: { input: null, scriptSlug: "activity.first" },
+						},
+						{
+							index: 1,
+							name: "second",
+							kind: "activity",
+							args: { input: null, scriptSlug: "activity.second" },
+						},
+					],
+				});
+				expect(reads).toEqual([0, 1]);
+			}),
+		));
+
 	test("returns a completed replay envelope with validated output", () =>
 		RuntimeEffect.runPromise(
 			RuntimeEffect.gen(function* () {
@@ -176,20 +279,12 @@ describe("workflow definitions", () => {
 
 				const output = yield* workflow.run(
 					null,
-					{
-						replayJournal: () =>
-							Effect.succeed([
-								{
-									value: null,
-									request: {
-										index: 0,
-										name: "done",
-										kind: "sleep" as const,
-										args: { durationMs: 10 },
-									},
-								},
-							]),
-					},
+					makeWorkflowReplayHost([
+						{
+							value: null,
+							request: { index: 0, name: "done", kind: "sleep", args: { durationMs: 10 } },
+						},
+					]),
 					{ metadata: {}, sandboxScriptId: "workflow-1" },
 				);
 
@@ -214,20 +309,12 @@ describe("workflow definitions", () => {
 
 				const envelope = yield* workflow.run(
 					null,
-					{
-						replayJournal: () =>
-							Effect.succeed([
-								{
-									value: null,
-									request: {
-										index: 0,
-										name: "other",
-										kind: "sleep" as const,
-										args: { durationMs: 10 },
-									},
-								},
-							]),
-					},
+					makeWorkflowReplayHost([
+						{
+							value: null,
+							request: { index: 0, name: "other", kind: "sleep", args: { durationMs: 10 } },
+						},
+					]),
 					{ metadata: {}, sandboxScriptId: "mismatch" },
 				);
 
@@ -271,11 +358,10 @@ describe("workflow definitions", () => {
 								),
 				});
 
-				const output = yield* workflow.run(
-					undefined,
-					{ replayJournal: () => Effect.succeed([]) },
-					{ metadata: {}, sandboxScriptId: "workflow-1" },
-				);
+				const output = yield* workflow.run(undefined, makeWorkflowReplayHost([]), {
+					metadata: {},
+					sandboxScriptId: "workflow-1",
+				});
 
 				expect(output).toMatchObject({ requests: [], state: "failed" });
 			}),
@@ -353,20 +439,17 @@ describe("workflow definitions", () => {
 
 					const envelope = yield* workflow.run(
 						{},
-						{
-							replayJournal: () =>
-								RuntimeEffect.succeed([
-									{
-										value: "recorded",
-										request: {
-											index: 0,
-											name: "step",
-											kind: "activity" as const,
-											args: { input: {}, scriptSlug: "activity.step" },
-										},
-									},
-								]),
-						},
+						makeWorkflowReplayHost([
+							{
+								value: "recorded",
+								request: {
+									index: 0,
+									name: "step",
+									kind: "activity",
+									args: { input: {}, scriptSlug: "activity.step" },
+								},
+							},
+						]),
 						{ metadata: {}, sandboxScriptId: "failing" },
 					);
 

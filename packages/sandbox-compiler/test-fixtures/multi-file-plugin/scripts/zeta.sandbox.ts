@@ -1,3 +1,4 @@
+import { Schema as PluginKitSchema } from "@ryot-app/plugin-kit/effect";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
@@ -7,7 +8,7 @@ export const manifest = defineManifest({ name: "Zeta", slug: "zeta", kind: "scri
 
 export default defineScript({
 	manifest,
-	output: Schema.String,
 	input: Schema.Struct({}),
+	output: PluginKitSchema.String,
 	run: () => Effect.succeed(value),
 });

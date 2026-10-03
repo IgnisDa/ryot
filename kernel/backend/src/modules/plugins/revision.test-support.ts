@@ -105,6 +105,7 @@ export const revisionPackage = (
 	const entity = fixture.entitySchemas[0];
 	assert(entity);
 	const common = {
+		runtimeImports: [],
 		capabilities: [] as const,
 		oauthConnectionFields: [] as const,
 		executableDependencies: [] as const,

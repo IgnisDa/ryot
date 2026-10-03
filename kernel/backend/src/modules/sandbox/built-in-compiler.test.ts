@@ -40,6 +40,7 @@ it.layer(sandboxCompilerPlatformLayer)("compileBuiltInSandboxEntry", (test) => {
 				executableDependencies: [],
 				requiredPluginConfigKeys: [],
 				optionalPluginConfigKeys: [],
+				runtimeImports: ["@ryot-app/sandbox-sdk/effect", "effect"],
 			});
 			expect(result.compiled.javascript).toContain("resolved-id");
 			expect(result.compiled.javascript).not.toContain('from "./helper"');

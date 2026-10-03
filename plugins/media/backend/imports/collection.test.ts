@@ -12,12 +12,12 @@ import {
 import type { MediaSourceRecord } from "./collection-schemas";
 import { mediaEventOperationId } from "./identity";
 import imdb from "./imdb.sandbox";
-import { mediaFilesystem, mediaFilesystemKey, mediaStageInput } from "./ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
 import reader from "./read-batch.sandbox";
 import { MediaImportAdapterBatch } from "./schemas";
 
 const encoder = new TextEncoder();
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 const makeRecord = (itemIndex: number): MediaSourceRecord => ({
 	itemIndex,
 	key: "show",

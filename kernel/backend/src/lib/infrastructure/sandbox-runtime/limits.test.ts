@@ -30,6 +30,12 @@ describe("sandbox limits", () => {
 			observability: { entryCount: 500, entryBytes: 8_192, totalBytes: 262_144 },
 			http: { timeoutMs: 8_000, requestBytes: 1_048_576, responseBytes: 10_485_760 },
 			userRelationshipWrites: { batches: 50, changesTotal: 500, changesPerBatch: 100 },
+			execution: {
+				timeoutMs: 30_000,
+				contextBytes: 65_536,
+				resultBytes: 4_194_304,
+				requestBytes: 2_097_152,
+			},
 			globalWrites: {
 				entityItems: 500,
 				relationshipGroups: 50,
@@ -41,13 +47,6 @@ describe("sandbox limits", () => {
 				requestBytes: 1_048_576,
 				responseBytes: 10_485_760,
 				durableResponseBytes: 105_906_176,
-			},
-			execution: {
-				denoHeapMiB: 256,
-				timeoutMs: 30_000,
-				contextBytes: 65_536,
-				resultBytes: 4_194_304,
-				requestBytes: 2_097_152,
 			},
 			compiler: {
 				concurrency: 2,

@@ -24,7 +24,7 @@ import {
 } from "@ryot-app/ryotql";
 import { Effect, Schema } from "effect";
 
-import type { RyotQLResponse } from "~/fixtures/kernel";
+import type { RyotQLResponse, TestPluginScript } from "~/fixtures/kernel";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
@@ -51,7 +51,7 @@ import {
 } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-type PluginScript = PluginManifest["scripts"][number];
+type PluginScript = TestPluginScript & { readonly entry: string };
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 type PluginRelationshipSchema = PluginManifest["relationshipSchemas"][number];
 

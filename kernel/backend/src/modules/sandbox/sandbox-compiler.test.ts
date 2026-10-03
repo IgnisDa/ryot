@@ -72,6 +72,7 @@ layer(SandboxCompiler.layer)((test) => {
 				executableDependencies: [],
 				requiredPluginConfigKeys: [],
 				optionalPluginConfigKeys: [],
+				runtimeImports: ["@ryot-app/sandbox-sdk/effect"],
 			});
 			expect(compiled.javascript).toContain("export {");
 			expect(compiled.javascript).toContain("sourceMappingURL=data:application/json;base64,");

@@ -42,13 +42,14 @@ const manifest = {
 	entitySchemas: [],
 	relationshipSchemas: [],
 	configSchema: { fields: {}, unknownKeys: "strict" },
-	scripts: [{ kind: "script", slug: "plugin.script" }],
 	workflows: [{ slug: "plugin-workflow", scriptSlug: "plugin.workflow" }],
+	scripts: [{ kind: "script", runtimeImports: [], slug: "plugin.script" }],
 	userBootstrap: [{ slug: "bootstrap", description: "Bootstrap", scriptSlug: "plugin.script" }],
 };
 
 const pluginPinRow = {
 	id: "script-id",
+	uploaderId: null,
 	pluginOwnerId: null,
 	pluginSlug: "plugin",
 	pluginId: "plugin-id",
@@ -61,9 +62,9 @@ const pluginPinRow = {
 	pluginRevisionId: "revision-1",
 	activeRevisionId: "revision-1",
 	pluginScope: "system" as const,
-	metadata: { kind: "script" as const },
 	compiledHashes: { "plugin.script": "current-hash" },
 	environmentConfigRevisionId: "config-1" as string | null,
+	metadata: { runtimeImports: [], kind: "script" as const },
 };
 
 const config = {

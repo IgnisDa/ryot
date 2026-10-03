@@ -4,14 +4,14 @@ import { genericImportChunkSchema } from "@ryot-app/sandbox-sdk/imports";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
 import { serializeMediaRecords } from "./collection";
-import { mediaFilesystem, mediaFilesystemKey } from "./ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem } from "./ingestion.test-support";
 import reader from "./read-batch.sandbox";
 import writer, { manifest } from "./write-chunks.sandbox";
 
 const unexpected = () =>
 	Effect.die(new Error("Ordinary import used an integration host capability"));
 
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 it.live(
 	"keeps large event properties in artifacts and restores original provider attribution before application",
 	() =>

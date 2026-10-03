@@ -127,6 +127,71 @@ it.effect("requires compiled scripts to exactly match manifest entries", () =>
 	}),
 );
 
+it.effect("accepts format 1 output when audited imports match canonical facts", () =>
+	Effect.gen(function* () {
+		const fixture = fixtureManifest();
+		const script = fixture.scripts[0];
+		assert(script);
+		const entry = script.entry;
+		const manifest = { ...fixture, scripts: [{ ...script, runtimeImports: ["effect"] }] };
+		const normalized = yield* normalizePluginSource({
+			manifest,
+			compiledScripts: [{ entry, format: 1, javascript: 'import "effect"; export {};' }],
+		});
+		expect(normalized.manifest.scripts[0]?.runtimeImports).toEqual(["effect"]);
+	}),
+);
+
+it.effect("rejects non-format-1, unknown, and nonliteral archive output", () =>
+	Effect.gen(function* () {
+		const manifest = fixtureManifest();
+		const script = manifest.scripts[0];
+		assert(script);
+		for (const archive of [
+			{ format: 2, javascript: "export {};" },
+			{ format: 1, javascript: 'import "unknown"; export {};' },
+			{ format: 1, javascript: "await import(specifier); export {};" },
+		]) {
+			const error = yield* normalizePluginSource({
+				manifest,
+				compiledScripts: [{ entry: script.entry, ...archive }],
+			}).pipe(Effect.flip);
+			let expectedIssue = "non-literal dynamic import";
+			if (archive.format !== 1) {
+				expectedIssue = "Plugin compiled script is invalid";
+			} else if (archive.javascript.includes("unknown")) {
+				expectedIssue = "unapproved external import";
+			}
+			expect(error.issues[0]).toContain(expectedIssue);
+		}
+	}),
+);
+
+it.effect("rejects forged and missing archive runtime import facts", () =>
+	Effect.gen(function* () {
+		const manifest = fixtureManifest();
+		const script = manifest.scripts[0];
+		assert(script);
+		const forged = yield* normalizePluginSource({
+			manifest,
+			compiledScripts: [
+				{ format: 1, entry: script.entry, javascript: 'import "effect"; export {};' },
+			],
+		}).pipe(Effect.flip);
+		expect(forged.issues).toEqual([
+			`Plugin compiled script runtime imports do not match its manifest: ${script.entry}`,
+		]);
+
+		const { runtimeImports, ...scriptWithoutRuntimeImports } = script;
+		expect(runtimeImports).toEqual([]);
+		const missing = yield* normalizePluginSource({
+			manifest: { ...manifest, scripts: [scriptWithoutRuntimeImports] },
+			compiledScripts: [{ format: 1, entry: script.entry, javascript: "export {};" }],
+		}).pipe(Effect.flip);
+		expect(missing.issues.join("\n")).toContain("runtimeImports");
+	}),
+);
+
 it.effect("rejects a package with no compiled script collection", () =>
 	Effect.gen(function* () {
 		const manifest = {

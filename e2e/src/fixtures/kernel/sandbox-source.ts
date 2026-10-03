@@ -69,13 +69,10 @@ export function processFailureSandboxSource(input: SandboxSourceIdentity) {
 		...input,
 		inputSchema: "Schema.Struct({})",
 		outputSchema: "Schema.Literal(true)",
-		run: `() => {
-    const allocations = [];
-    for (let index = 0; index < 64; index += 1) {
-      allocations.push(new Array(1024 * 1024).fill(index));
-    }
-    return Effect.succeed(true as const);
-  }`,
+		run: `() => Effect.sync(() => {
+    console.log("before sandbox failure");
+    throw new Error("native sandbox failure: " + "診断".repeat(64 * 1024) + ":diagnostic-end");
+  })`,
 	});
 }
 

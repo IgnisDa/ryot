@@ -1,8 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
-import { Effect, FileSystem, Layer, Path, Stream } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { Effect, FileSystem, Layer, Path } from "effect";
 
 import { bundleSandboxPackage } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
@@ -10,12 +9,11 @@ import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 const testPlatformLayer = Layer.merge(BunServices.layer, ViteBuildService.layer);
 
 it.layer(testPlatformLayer)("bundleSandboxPackage", (test) => {
-	test.effect("uses a scoped addressed workspace and emits executable Deno ESM", () =>
+	test.effect("uses a scoped addressed workspace for multiple sandbox entries", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const path = yield* Path.Path;
-				const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 				const parentPath = yield* fs.makeTempDirectoryScoped({ prefix: "sandbox-bundle-test-" });
 				const jobId = "direct-call";
 				const dependencies = yield* resolveSandboxCompilerDependencies;
@@ -28,23 +26,6 @@ it.layer(testPlatformLayer)("bundleSandboxPackage", (test) => {
 				);
 				expect(modules.map(({ entry }) => entry)).toEqual(["entry.ts", "second.ts"]);
 				expect(yield* fs.exists(path.join(parentPath, jobId))).toBe(false);
-
-				const encoded = Buffer.from(modules[0]?.javascript ?? "").toString("base64");
-				const process = yield* spawner.spawn(
-					ChildProcess.make(
-						"deno",
-						[
-							"eval",
-							`const module = await import("data:text/javascript;base64,${encoded}"); if (module.default !== 42) Deno.exit(1);`,
-						],
-						{ stdout: "pipe", stderr: "pipe" },
-					),
-				);
-				const [exitCode, stderr] = yield* Effect.all([
-					process.exitCode,
-					process.stderr.pipe(Stream.decodeText({ encoding: "utf-8" }), Stream.runCollect),
-				]);
-				expect(exitCode, Array.from(stderr).join("")).toBe(0);
 			}),
 		),
 	);

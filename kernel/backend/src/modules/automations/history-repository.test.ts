@@ -132,6 +132,7 @@ const seedHistory = Layer.effectDiscard(
 							name: "Notify",
 							capabilities: [],
 							kind: "automation",
+							runtimeImports: [],
 							slug: "kernel.notify",
 							oauthConnectionFields: [],
 							executableDependencies: [],

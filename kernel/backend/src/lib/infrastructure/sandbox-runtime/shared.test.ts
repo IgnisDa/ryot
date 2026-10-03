@@ -51,7 +51,7 @@ const pluginRevision = (isUserBootstrap = false) => ({
 const makeRunInput = (
 	subject: SandboxExecutionSubject,
 	providerId: SandboxProviderId | null = null,
-	metadata: SandboxScriptMetadata = {},
+	metadata: Omit<SandboxScriptMetadata, "runtimeImports"> = {},
 	principalFacts: Partial<SandboxExecutionPrincipal> = {},
 ): SandboxRunInput => ({
 	context: {},
@@ -65,7 +65,7 @@ const makeRunInput = (
 		scriptSlug: "script",
 		pluginRevision: null,
 		scriptId: SandboxScriptId.make("script_1"),
-		metadata: { capabilities: [...SANDBOX_HOST_CAPABILITIES], ...metadata },
+		metadata: { runtimeImports: [], capabilities: [...SANDBOX_HOST_CAPABILITIES], ...metadata },
 		...principalFacts,
 	},
 });
@@ -165,7 +165,7 @@ describe("requireSandboxCapabilityInput", () => {
 		);
 		expect(
 			selectSandboxHostFunctions(functions, { ...input, workflowExecutionId: "workflow" }),
-		).toHaveProperty("replayJournal", functions["replayJournal"]);
+		).not.toHaveProperty("replayJournal");
 	});
 
 	it("requires a declared notification capability and user automation scope", () => {

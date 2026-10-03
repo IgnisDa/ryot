@@ -167,7 +167,7 @@ layer(
 					slug: "fixture.details",
 					compiledCode: "compiled",
 					contentHash: "details-hash",
-					metadata: { kind: "provider" as const },
+					metadata: { runtimeImports: [], kind: "provider" as const },
 				}),
 		}),
 	),

@@ -1,4 +1,4 @@
-import { BunFileSystem } from "@effect/platform-bun";
+import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/modules/plugins/contract";
@@ -451,7 +451,9 @@ const makeLayer = (input?: {
 	return PluginIngestionService.layer.pipe(
 		Layer.provideMerge(fakesLayer),
 		Layer.provideMerge(stateLayer),
-		Layer.provideMerge(Layer.mergeAll(databaseLayer, BunFileSystem.layer, ViteBuildService.layer)),
+		Layer.provideMerge(
+			Layer.mergeAll(databaseLayer, BunFileSystem.layer, BunPath.layer, ViteBuildService.layer),
+		),
 	);
 };
 
@@ -554,7 +556,7 @@ layer(makeLayer({}))((test) => {
 						entry: "backend/providers/fixture/provider/search.sandbox.ts",
 					},
 				],
-			} satisfies PluginManifest;
+			};
 			const source = yield* loadPluginSource(fixturePackageRoot(), manifest);
 			const plugin = yield* ingestion.ingestSystemPlugin(source);
 			const searchScript = plugin.scripts.find(({ slug }) => slug === "fixture.provider.search");

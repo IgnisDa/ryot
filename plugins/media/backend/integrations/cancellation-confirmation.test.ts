@@ -29,7 +29,11 @@ import { PluginInstallationRepository } from "@ryot-app/kernel-backend/modules/p
 import { SandboxPluginScriptResolver } from "@ryot-app/kernel-backend/modules/sandbox/plugin-script-resolver";
 import { SandboxExecutionService } from "@ryot-app/kernel-backend/modules/sandbox/service";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import {
+	defineSandboxTestHost,
+	makeWorkflowReplayHost,
+	runSandboxTestScript,
+} from "@ryot-app/sandbox-sdk/testing";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { Layer } from "effect";
 import { TestClock } from "effect/testing";
@@ -42,13 +46,13 @@ import {
 	integrationRecord,
 } from "../../tests/backend/automations/automation-test-utils";
 import { createMediaImportChunk } from "../imports/chunks";
-import { mediaFilesystem, mediaFilesystemKey } from "../imports/ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem } from "../imports/ingestion.test-support";
 import root from "../imports/integration.sandbox";
 import { YankInput } from "./schemas";
 import spotify, { manifest as spotifyManifest } from "./yanks/spotify.sandbox";
 import { runYoutubeMusicYank, manifest as youtubeManifest } from "./yanks/youtube-music.sandbox";
 
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 it.effect.each(["spotify", "youtube-music"] as const)(
 	"confirms %s receipts after cancellation, retains pins and captures on confirmation failure, and suppresses or advances the next collection",
 	(provider) =>
@@ -277,11 +281,7 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 							const decoded = yield* Schema.decodeUnknownEffect(root.input)(input.input);
 							assert("ingestionConfirmation" in decoded);
 							expect(decoded.integrationContext).toEqual(envelope);
-							const first = yield* root.run(
-								decoded,
-								{ replayJournal: () => Effect.succeed([]) },
-								execution,
-							);
+							const first = yield* root.run(decoded, makeWorkflowReplayHost([]), execution);
 							assert(first.state === "pending");
 							const request = first.requests[0];
 							assert(request?.kind === "activity");
@@ -290,7 +290,7 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 							yield* invoke(yield* Schema.decodeUnknownEffect(YankInput)(request.args.input));
 							const done = yield* root.run(
 								decoded,
-								{ replayJournal: () => Effect.succeed([{ chunkHandles: [] }]) },
+								makeWorkflowReplayHost([{ request, value: { chunkHandles: [] } }]),
 								execution,
 							);
 							assert(done.state === "completed");

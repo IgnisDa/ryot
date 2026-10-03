@@ -1,4 +1,4 @@
-import { BunFileSystem } from "@effect/platform-bun";
+import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import type { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
@@ -57,7 +57,8 @@ const emittedRuntime = (
 	css = "",
 	chunks: readonly { readonly fileName: string; readonly code: string }[] = [],
 ) =>
-	Layer.merge(
+	Layer.mergeAll(
+		BunPath.layer,
 		BunFileSystem.layer,
 		Layer.succeed(
 			ViteBuildService,

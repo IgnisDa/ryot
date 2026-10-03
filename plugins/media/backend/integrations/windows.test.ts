@@ -9,11 +9,11 @@ import {
 	httpSuccess,
 	integrationRecord,
 } from "../../tests/backend/automations/automation-test-utils";
-import { mediaFilesystem, mediaFilesystemKey } from "../imports/ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem } from "../imports/ingestion.test-support";
 import plex, { manifest } from "./yanks/plex.sandbox";
 import { runYoutubeMusicYank, manifest as youtubeManifest } from "./yanks/youtube-music.sandbox";
 
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 it.effect(
 	"retains the YouTube Music collection day across captured windows without fetching history or reading changed settings again",
 	() =>

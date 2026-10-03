@@ -63,6 +63,7 @@ const scriptManifest: PluginArchivePackage["manifest"] = {
 			slug: "fixture",
 			capabilities: [],
 			entry: scriptEntry,
+			runtimeImports: [],
 			name: "Fixture script",
 			oauthConnectionFields: [],
 			executableDependencies: [],

@@ -68,6 +68,7 @@ const registeredSource = (
 			{
 				capabilities: [],
 				slug: "nu-script",
+				runtimeImports: [],
 				oauthConnectionFields: [],
 				executableDependencies: [],
 				optionalPluginConfigKeys: [],

@@ -90,6 +90,7 @@ const seed = (stage: "after" | "before" = "after", maxAttempts = 2) =>
 							name: "Notify",
 							capabilities: [],
 							kind: "automation",
+							runtimeImports: [],
 							slug: "kernel.notify",
 							oauthConnectionFields: [],
 							executableDependencies: [],

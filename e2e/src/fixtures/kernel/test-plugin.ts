@@ -27,6 +27,7 @@ import { uploadPrivatePluginPackage } from "./temporary-archive";
 type TestPluginManifest = PluginManifest;
 type PluginScript = TestPluginManifest["scripts"][number];
 type GeneratedDependencyFields =
+	| "runtimeImports"
 	| "optionalPluginConfigKeys"
 	| "executableDependencies"
 	| "oauthConnectionFields";
@@ -150,7 +151,12 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	integrationProviders: input.integrationProviders ?? [],
 	scripts: (input.scripts ?? []).map((script) =>
 		Object.assign(
-			{ oauthConnectionFields: [], executableDependencies: [], optionalPluginConfigKeys: [] },
+			{
+				runtimeImports: [],
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
+			},
 			script,
 		),
 	),
@@ -479,6 +485,7 @@ export const reinstallTestPluginScript = (
 		const files = { ...installed.files, [target.entry]: encoder.encode(source) };
 		const scripts = [...installed.manifest.scripts];
 		scripts[targetIndex] = {
+			runtimeImports: [],
 			oauthConnectionFields: [],
 			executableDependencies: [],
 			optionalPluginConfigKeys: [],

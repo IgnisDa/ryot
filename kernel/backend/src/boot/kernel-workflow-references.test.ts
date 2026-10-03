@@ -127,6 +127,7 @@ const populationReferencesLayer = (
 						metadata: {
 							kind: "workflow",
 							capabilities: [],
+							runtimeImports: [],
 							name: "Catalog refresh",
 							slug: "catalog.refresh",
 							oauthConnectionFields: [],

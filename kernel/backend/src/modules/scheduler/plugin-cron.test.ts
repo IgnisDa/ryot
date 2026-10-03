@@ -153,7 +153,14 @@ const resolveFromCatalog =
 					contentHash: `${slug}-hash`,
 					id: SandboxScriptId.make(`${slug}-id`),
 					pluginRevisionId: `${pluginSlug}-revision-id`,
-					metadata: { kind, slug, name: slug, capabilities: [], requiredPluginConfigKeys: [] },
+					metadata: {
+						kind,
+						slug,
+						name: slug,
+						capabilities: [],
+						runtimeImports: [],
+						requiredPluginConfigKeys: [],
+					},
 				},
 			};
 		});
@@ -503,6 +510,7 @@ const privateCronScriptRow = (installationId: string) => ({
 	id: SandboxScriptId.make(`${installationId}-script-id`),
 	metadata: {
 		capabilities: [],
+		runtimeImports: [],
 		name: "Private script",
 		slug: "private-script",
 		oauthConnectionFields: [],
