@@ -8,6 +8,7 @@ Rationale lives in `README.md`.
 - Reconcile plugin screens only from kernel entry `index` and stable `key`, never from paths. Move focus only when the active key changes.
 - Retain screen React keys and hide inactive screens with `visibility: hidden`. Do not add separate scroll restoration.
 - Scroll inside the screen shell, never on the shell itself; the shell is the transform target and therefore a containing block for fixed descendants. Pinned chrome goes through `PluginScreenFrame`'s `floatingAction`.
+- Install shared focused-field visibility handling in each plugin document because the kernel cannot inspect sandboxed focus.
 - Derive visibility from rendered screen roles. Limit imperative writes to transition transforms and scrim opacity.
 - Keep transition ownership with its initiator. Animate pops only for compact layouts without reduced motion; retention is unconditional.
 - Keep reconciliation and gesture recognition DOM-free. Add no animation or gesture dependency.
