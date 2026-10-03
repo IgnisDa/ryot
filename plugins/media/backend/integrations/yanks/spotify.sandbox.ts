@@ -1,4 +1,4 @@
-import type { ExecutionMetadata, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ExecutionMetadata, ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
@@ -14,16 +14,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Spotify yank",
 	slug: "integration.spotify",
-	capabilities: [
-		"log",
-		"span",
-		"httpCall",
-		"getCurrentIntegration",
-		"getOAuthAccessToken",
-		"claimPersistentValue",
-		"getPersistentValue",
-		"scratch",
-	],
 });
 
 const RecentlyPlayed = Schema.Struct({
@@ -60,7 +50,16 @@ type EntityGroup = MediaIntegrationAdapterResult["entityGroups"][number];
 
 const runSpotifyYank = (
 	input: typeof YankInput.Type,
-	host: SandboxHost<typeof manifest.capabilities>,
+	host: Pick<
+		ScriptHost,
+		| "log"
+		| "span"
+		| "httpCall"
+		| "getCurrentIntegration"
+		| "getOAuthAccessToken"
+		| "claimPersistentValue"
+		| "getPersistentValue"
+	>,
 	execution: ExecutionMetadata,
 ) =>
 	Effect.gen(function* () {

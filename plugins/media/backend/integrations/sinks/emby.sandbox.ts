@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Emby sink",
 	slug: "integration.emby",
-	capabilities: ["getCurrentIntegration", "scratch"],
 });
 
 export default defineScript({

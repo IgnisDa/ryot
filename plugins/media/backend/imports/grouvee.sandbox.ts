@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.grouvee",
 	name: "Parse Grouvee import",
-	capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({

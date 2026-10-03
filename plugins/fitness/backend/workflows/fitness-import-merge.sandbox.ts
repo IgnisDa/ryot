@@ -11,7 +11,6 @@ import { FitnessMergeInput, FitnessMergeOutput } from "../imports/schemas";
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	slug: "workflow.import-merge",
 	name: "Merge Fitness import captures",
 });

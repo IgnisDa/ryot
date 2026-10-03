@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.hevy",
 	name: "Collect Hevy import",
-	capabilities: ["artifact-read", "scratch"],
 });
 
 export default defineScript({

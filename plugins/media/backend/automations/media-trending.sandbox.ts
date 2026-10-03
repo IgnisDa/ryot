@@ -15,13 +15,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "media-trending",
 	name: "Media Trending Refresh",
-	capabilities: [
-		"log",
-		"httpCall",
-		"getPluginConfig",
-		"upsertGlobalEntities",
-		"upsertGlobalRelationships",
-	],
 });
 
 const providers = [

@@ -1,4 +1,4 @@
-import type { ExecutionMetadata, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ExecutionMetadata, ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
@@ -19,16 +19,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "YouTube Music yank",
 	slug: "integration.youtube-music",
-	capabilities: [
-		"log",
-		"span",
-		"httpCall",
-		"getCurrentIntegration",
-		"claimPersistentValue",
-		"getPersistentValue",
-		"scratch",
-		"artifact-read",
-	],
 });
 
 type HistoryClientFactory = (
@@ -62,7 +52,15 @@ export const dailyProgressWindow = (timezone: string, startedAt: string) => {
 
 export const runYoutubeMusicYank = (
 	input: typeof YankInput.Type,
-	host: SandboxHost<typeof manifest.capabilities>,
+	host: Pick<
+		ScriptHost,
+		| "log"
+		| "span"
+		| "httpCall"
+		| "getCurrentIntegration"
+		| "claimPersistentValue"
+		| "getPersistentValue"
+	>,
 	execution: ExecutionMetadata,
 	createClient: HistoryClientFactory = createYoutubeHistoryClient,
 ) =>

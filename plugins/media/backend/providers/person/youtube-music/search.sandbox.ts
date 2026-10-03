@@ -7,7 +7,6 @@ import { buildArtistSearch } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "YouTube Music artist search",
 	slug: "person.youtube-music.search",
 });

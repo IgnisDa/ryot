@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	slug: "podcast.listennotes.search",
 	name: "Listen Notes Podcast Search",
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 export default defineProvider({ manifest, run: search.run, operation: "search" });

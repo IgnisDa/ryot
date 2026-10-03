@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
@@ -8,7 +8,7 @@ import { MediaSandboxError } from "../../../lib/failures";
 import { decodeJsonResponse } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case";
 
-type GoogleBooksHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
+type GoogleBooksHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
 type UnknownRecord = Record<string, unknown>;
 
@@ -156,7 +156,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Google Books",
 	slug: "book.google-books",
-	capabilities: ["httpCall", "getPluginConfig"],
 });
 
 export const search = defineProvider({

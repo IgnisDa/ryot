@@ -28,7 +28,6 @@ import { FitnessSettingsInput, FitnessSettingsOutput } from "./settings";
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	name: "Fitness import",
 	slug: "workflow.import",
 });

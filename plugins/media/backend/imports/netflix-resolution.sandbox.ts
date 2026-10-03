@@ -14,7 +14,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Resolve Netflix titles",
 	slug: "import.netflix-resolution",
-	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 export default defineScript({
 	manifest,

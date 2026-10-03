@@ -11,12 +11,7 @@ import {
 	readTotalItems,
 } from "../../../lib/vendors/igdb";
 
-export const manifest = defineManifest({
-	name: "IGDB",
-	kind: "provider",
-	slug: "company.igdb",
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
-});
+export const manifest = defineManifest({ name: "IGDB", kind: "provider", slug: "company.igdb" });
 
 const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_logo_med";
 

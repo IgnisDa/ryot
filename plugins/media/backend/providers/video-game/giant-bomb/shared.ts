@@ -22,7 +22,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb",
 	slug: "video-game.giant-bomb",
-	capabilities: ["httpCall", "getPluginConfig"],
 });
 
 const buildPlatformReleases = (platforms: unknown) => {

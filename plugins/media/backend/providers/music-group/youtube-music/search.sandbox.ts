@@ -7,7 +7,6 @@ import { buildAlbumSearch } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "YouTube Music album search",
 	slug: "music-group.youtube-music.search",
 });

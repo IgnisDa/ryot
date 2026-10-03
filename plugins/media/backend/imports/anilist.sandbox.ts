@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.anilist",
 	name: "Collect AniList export",
-	capabilities: ["artifact-read", "scratch"],
 });
 export default defineScript({
 	manifest,

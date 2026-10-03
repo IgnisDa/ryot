@@ -7,7 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	slug: "movie.tvdb.translate",
 	name: "TVDB Movie Translation",
-	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 
 export default defineProvider({ manifest, run: translate.run, operation: "translate" });
