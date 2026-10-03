@@ -45,15 +45,17 @@ from `automation.payload` and emits `workout.created`.
 and formats the plugin-owned message. Notification delivery has one attempt and no automatic retry
 of uncertain external outcomes. Neither script queries execution records through RyotQL.
 
-`policy.workout-context` requires workout-set events to reference an exercise with a kind and a
-workout with a start time. It sets `occurredAt` from `confirmedAt`, or from the workout start when
-confirmation is absent. `policy.workout-set` converts imperial weight and distance to metric,
-normalizes measurements and derived statistics, and removes supplied personal-best badges outside
-trusted record-worker updates. `fitness.workout-records` batches workout-set changes by exercise and
-dispatches `script.workout-record-step`. The worker reads the current user-scoped event stream,
-normalizes event times, and recomputes derived statistics and personal-best badges in bounded pages.
-It does not replay historical automation triggers. Entity update policies receive a sorted, distinct
-summary of dependent event schemas and reference roles. The context policy blocks removing or
-invalidating exercise kind when workout-set events reference the exercise, and workout start time
-when workout-set events reference the workout. It permits these changes when no matching events
-exist, including for global entities.
+Workouts require a valid `startedAt`, which the kernel validates on every write. `policy.workout-context`
+requires workout-set events to reference a workout and sets `occurredAt` from `confirmedAt`, or from
+the workout start when confirmation is absent.
+`policy.workout-set` records the exercise kind on each set: a supplied or stored `exerciseKind` is
+kept, and an absent one is taken from the exercise. Sets accept only canonical metric measurements
+(kg, km, seconds) and reject undeclared properties; writers convert before writing. The policy derives
+statistics from the set's kind and removes supplied personal-best badges outside trusted record-worker
+updates. Fitness policies target only workout-set
+events, so exercise and workout updates, including provider refreshes, never run them. `fitness.workout-records` batches
+workout-set changes by exercise and dispatches `script.workout-record-step`; the worker reads the
+current user-scoped event stream, normalizes event times, and recomputes derived statistics and
+personal-best badges in bounded pages, tracking bests separately for each recorded kind. It does not
+replay historical automation triggers. `fitness.workout-context-records` repairs the streams of a
+workout's exercises when its start time changes.

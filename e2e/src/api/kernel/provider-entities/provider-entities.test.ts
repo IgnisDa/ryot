@@ -80,7 +80,10 @@ beforeAll(() =>
 			workoutProvider = yield* installTestProvider({
 				client,
 				rootEntitySchemaSlug: workoutSchema.id,
-				details: fakeProviderDetailsResult({ properties: {}, name: "E2E Imported Workout" }),
+				details: fakeProviderDetailsResult({
+					name: "E2E Imported Workout",
+					properties: { startedAt: "2026-04-27T10:00:00.000Z" },
+				}),
 			});
 		}),
 	),

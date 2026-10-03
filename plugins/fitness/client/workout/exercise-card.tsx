@@ -85,7 +85,7 @@ function SetTable(props: { readonly card: ExerciseCard; readonly compact: boolea
 	const { card, compact } = props;
 	const labels = setLabels(card.sets);
 	const showRpe = card.sets.some((set) => set.rpe !== null);
-	const showOneRm = card.exercise.kind === "reps_and_weight";
+	const showOneRm = card.kind === "reps_and_weight";
 	const columns = compact ? "grid-cols-[2rem_minmax(0,1fr)_auto]" : wideColumns(showOneRm, showRpe);
 	return (
 		<div role="table" className="font-ui" aria-label={`Sets for ${card.exercise.name}`}>
@@ -135,7 +135,7 @@ function SetTable(props: { readonly card: ExerciseCard; readonly compact: boolea
 							{labels[index]}
 						</span>
 						<span role="cell" className="font-medium text-text">
-							{formatSetMain(card.exercise.kind, set)}
+							{formatSetMain(card.kind, set)}
 							{compact && secondary.length > 0 ? (
 								<span className="font-normal text-[13px] text-text-muted">
 									{` · ${secondary.join(" · ")}`}

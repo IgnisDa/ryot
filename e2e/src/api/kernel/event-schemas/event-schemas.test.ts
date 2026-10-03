@@ -54,20 +54,20 @@ describe("GET /event-schemas", () => {
 						label: "Duration",
 						description: "Duration of this set in seconds",
 					},
-					reps: {
-						label: "Reps",
-						type: "number",
-						description: "Number of repetitions performed in this set",
-					},
 					weight: {
 						type: "number",
 						label: "Weight",
-						description: "Weight used in this set in the user's preferred unit",
+						description: "Weight used in this set in kilograms (kg)",
 					},
 					distance: {
 						type: "number",
 						label: "Distance",
-						description: "Distance covered in this set in the user's preferred unit",
+						description: "Distance covered in this set in kilometers (km)",
+					},
+					reps: {
+						label: "Reps",
+						type: "integer",
+						description: "Nonnegative whole number of repetitions performed in this set",
 					},
 					setOrder: {
 						type: "integer",

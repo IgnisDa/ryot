@@ -12,6 +12,7 @@ export type MeasureUnit = "kg" | "km" | "reps" | "seconds";
 export type ExerciseCard = {
 	readonly key: string;
 	readonly order: number;
+	readonly kind: ExerciseKind | null;
 	readonly notes: readonly string[];
 	readonly exercise: WorkoutExercise;
 	readonly sets: readonly WorkoutSet[];
@@ -116,7 +117,8 @@ export const buildExerciseGroups = (workout: WorkoutDetails): readonly CardGroup
 	const cards = occurrences
 		.sort((left, right) => left.order - right.order)
 		.map(({ sets, order, exercise }): ExerciseCard => {
-			const unit = exercise.kind === null ? null : measureUnitByKind[exercise.kind];
+			const kind = sets[0]?.exerciseKind ?? null;
+			const unit = kind === null ? null : measureUnitByKind[kind];
 			const superset = supersets.find(({ orders }) => orders.includes(order));
 			const previousStartedAt = exercise.previousWorkoutStartedAt;
 			const comparison =
@@ -131,6 +133,7 @@ export const buildExerciseGroups = (workout: WorkoutDetails): readonly CardGroup
 						}
 					: null;
 			return {
+				kind,
 				sets,
 				order,
 				exercise,
