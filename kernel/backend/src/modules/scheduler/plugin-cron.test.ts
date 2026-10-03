@@ -2,6 +2,7 @@ import { expect, it, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginCron, PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { Context, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { assert } from "vitest";
@@ -509,15 +510,10 @@ const privateCronScriptRow = (installationId: string) => ({
 	pluginRevisionId: "private-revision-id",
 	id: SandboxScriptId.make(`${installationId}-script-id`),
 	metadata: {
-		capabilities: [],
-		runtimeImports: [],
+		...emptySandboxExecutionMetadata,
 		name: "Private script",
 		slug: "private-script",
-		oauthConnectionFields: [],
-		executableDependencies: [],
 		kind: "automation" as const,
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
 	},
 });
 

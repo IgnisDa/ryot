@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/sandbox/wire";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -58,16 +59,11 @@ const run = Schema.decodeSync(AutomationRun)({
 });
 const payload = { runId: run.id, attemptNumber: 1, acceptedPatches: [] };
 const afterScript = {
-	capabilities: [],
+	...emptySandboxExecutionMetadata,
 	kind: "automation",
-	runtimeImports: [],
 	slug: "hook-script",
 	name: "Hook script",
-	oauthConnectionFields: [],
-	executableDependencies: [],
 	automationType: "automation",
-	requiredPluginConfigKeys: [],
-	optionalPluginConfigKeys: [],
 	inputProjection: { signal: { properties: ["nested"] } },
 } as const;
 const policyScript = {

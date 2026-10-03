@@ -37,6 +37,7 @@ import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { fakeDatabaseSession, makeRedisService } from "#lib/test-utils/effect";
+import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
@@ -128,15 +129,7 @@ const makeHarness = () => {
 		}),
 		Layer.succeed(
 			RuntimeSandboxService,
-			RuntimeSandboxService.of({
-				completeRecovery: () => Effect.void,
-				run: () => Effect.die("Sandbox must not start"),
-				reserve: () =>
-					Effect.succeed({
-						retainJournal: () => Effect.void,
-						enter: () => Effect.as(Effect.void, undefined),
-					}),
-			}),
+			stubRuntimeSandboxService(() => Effect.die("Sandbox must not start")),
 		),
 		Layer.mock(SandboxWorkflowPinning)({
 			establish: () => Effect.succeed({ principal, registrationStatus: "not-required" as const }),

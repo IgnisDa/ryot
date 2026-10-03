@@ -10,6 +10,7 @@ import {
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { IntegrationId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 import { assert } from "vitest";
@@ -61,13 +62,8 @@ const makeActiveScript = (id: string) => ({
 	metadata: {
 		name: DRIVER_REF,
 		slug: DRIVER_REF,
-		capabilities: [],
-		runtimeImports: [],
-		oauthConnectionFields: [],
+		...emptySandboxExecutionMetadata,
 		kind: "operation" as const,
-		executableDependencies: [],
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
 	},
 });
 

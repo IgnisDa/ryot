@@ -6,6 +6,7 @@ import {
 } from "@ryot-app/contract/modules/provider-entities/schemas";
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
@@ -77,15 +78,10 @@ const searchScript = {
 	pluginRevisionId: "records-revision",
 	id: SandboxScriptId.make("search-script-id"),
 	metadata: {
-		capabilities: [],
-		runtimeImports: [],
+		...emptySandboxExecutionMetadata,
 		name: "Records search",
 		slug: "records.search",
 		kind: "provider" as const,
-		oauthConnectionFields: [],
-		executableDependencies: [],
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
 		providerSlug: "records.provider",
 		providerOperation: "search" as const,
 	},

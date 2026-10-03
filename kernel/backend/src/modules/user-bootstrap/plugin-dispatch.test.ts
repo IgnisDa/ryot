@@ -2,6 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 
@@ -119,14 +120,9 @@ const baseLayer = Layer.mergeAll(
 							id: SandboxScriptId.make(`${bootstrap.scriptSlug}-id`),
 							metadata: {
 								kind: "script",
-								capabilities: [],
-								runtimeImports: [],
-								oauthConnectionFields: [],
+								...emptySandboxExecutionMetadata,
 								slug: bootstrap.scriptSlug,
 								name: bootstrap.scriptSlug,
-								executableDependencies: [],
-								requiredPluginConfigKeys: [],
-								optionalPluginConfigKeys: [],
 							},
 						} satisfies NonNullable<
 							Effect.Success<

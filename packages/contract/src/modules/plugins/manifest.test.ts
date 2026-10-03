@@ -1,6 +1,7 @@
 import { Result, Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
+import { emptySandboxExecutionMetadata } from "../../testing";
 import { uploadContentTypeExtensions } from "../uploads/upload-policy";
 import { CLIENT_API_VERSION, definePlugin, PluginManifest } from "./manifest";
 
@@ -190,26 +191,16 @@ const scripts = [
 		},
 	},
 	{
-		capabilities: [],
+		...emptySandboxExecutionMetadata,
 		kind: "operation",
-		runtimeImports: [],
 		name: "Test operation",
 		slug: "operation.test",
-		oauthConnectionFields: [],
-		executableDependencies: [],
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
 		entry: "scripts/operation.sandbox.ts",
 	},
 	{
 		kind: "provider",
-		capabilities: [],
-		runtimeImports: [],
-		oauthConnectionFields: [],
-		executableDependencies: [],
+		...emptySandboxExecutionMetadata,
 		providerOperation: "details",
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
 		name: "Test provider details",
 		slug: "provider.test.details",
 		providerSlug: "provider.test",
@@ -217,13 +208,8 @@ const scripts = [
 	},
 	{
 		kind: "provider",
-		capabilities: [],
-		runtimeImports: [],
-		oauthConnectionFields: [],
-		executableDependencies: [],
+		...emptySandboxExecutionMetadata,
 		providerOperation: "search",
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
 		name: "Test provider search",
 		slug: "provider.test.search",
 		providerSlug: "provider.test",
@@ -241,12 +227,7 @@ const scripts = [
 	},
 	{
 		kind: "script",
-		capabilities: [],
-		runtimeImports: [],
-		oauthConnectionFields: [],
-		executableDependencies: [],
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
+		...emptySandboxExecutionMetadata,
 		name: "Test provider preload",
 		slug: "provider.test.preload",
 		providerSlug: "provider.test",
@@ -254,14 +235,9 @@ const scripts = [
 	},
 	{
 		kind: "workflow",
-		capabilities: [],
-		runtimeImports: [],
+		...emptySandboxExecutionMetadata,
 		name: "Test workflow",
 		slug: "workflow.test",
-		oauthConnectionFields: [],
-		executableDependencies: [],
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
 		entry: "scripts/workflow.sandbox.ts",
 	},
 ] as const;

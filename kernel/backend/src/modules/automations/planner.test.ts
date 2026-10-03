@@ -12,6 +12,7 @@ import {
 	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { assert, describe } from "vitest";
@@ -973,13 +974,8 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						slug: "automation.notification",
 						metadata: {
 							name: "Notify",
-							capabilities: [],
-							runtimeImports: [],
-							oauthConnectionFields: [],
-							executableDependencies: [],
+							...emptySandboxExecutionMetadata,
 							kind: "automation" as const,
-							requiredPluginConfigKeys: [],
-							optionalPluginConfigKeys: [],
 							slug: "automation.notification",
 							automationType: "automation" as const,
 							inputProjection: { signal: { properties: ["providerName"] } },

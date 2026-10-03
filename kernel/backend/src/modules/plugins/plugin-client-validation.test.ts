@@ -1,10 +1,9 @@
-import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
 import { clientArtifactFile, clientArtifactMetadata } from "@ryot-app/client-plugin-contract";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { readPluginArchive, writePluginArchive } from "@ryot-app/plugin-archive";
-import { ViteBuildService } from "@ryot-app/vite-compiler";
-import { Effect, Layer, Schema } from "effect";
+import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
+import { Effect, Schema } from "effect";
 
 import { normalizePluginSource } from "./pipeline";
 import { loadPluginSource } from "./source.test-support";
@@ -25,7 +24,7 @@ const manifest = () => ({
 	},
 });
 
-layer(Layer.mergeAll(BunFileSystem.layer, BunPath.layer, ViteBuildService.layer))((test) => {
+layer(sandboxCompilerPlatformLayer)((test) => {
 	test.effect("accepts the precompiled client artifact when its content hash matches", () =>
 		Effect.gen(function* () {
 			const pluginManifest = {

@@ -17,6 +17,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
@@ -130,14 +131,9 @@ const seedHistory = Layer.effectDiscard(
 						compiledCode: "private-code",
 						metadata: {
 							name: "Notify",
-							capabilities: [],
+							...emptySandboxExecutionMetadata,
 							kind: "automation",
-							runtimeImports: [],
 							slug: "kernel.notify",
-							oauthConnectionFields: [],
-							executableDependencies: [],
-							requiredPluginConfigKeys: [],
-							optionalPluginConfigKeys: [],
 						},
 					});
 			}),

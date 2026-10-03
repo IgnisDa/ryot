@@ -1,11 +1,10 @@
-import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/modules/plugins/contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginSlug, type UserId } from "@ryot-app/contract/schema/brands";
-import { ViteBuildService } from "@ryot-app/vite-compiler";
+import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -451,9 +450,7 @@ const makeLayer = (input?: {
 	return PluginIngestionService.layer.pipe(
 		Layer.provideMerge(fakesLayer),
 		Layer.provideMerge(stateLayer),
-		Layer.provideMerge(
-			Layer.mergeAll(databaseLayer, BunFileSystem.layer, BunPath.layer, ViteBuildService.layer),
-		),
+		Layer.provideMerge(Layer.merge(databaseLayer, sandboxCompilerPlatformLayer)),
 	);
 };
 
