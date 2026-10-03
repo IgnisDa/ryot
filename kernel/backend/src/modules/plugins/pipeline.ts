@@ -106,20 +106,22 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 	if (!Array.isArray(source.compiledScripts)) {
 		return yield* new PluginValidationError({ issues: ["Plugin compiled scripts are missing"] });
 	}
-	const expectedEntries = new Set(manifest.scripts.map(({ entry }) => entry));
-	const scriptsByEntry = new Map(manifest.scripts.map((script) => [script.entry, script]));
 	const compiledByEntry = new Map(source.compiledScripts.map((script) => [script.entry, script]));
+	const scripts = manifest.scripts.flatMap((declared) => {
+		const compiled = compiledByEntry.get(declared.entry);
+		return compiled === undefined ? [] : [{ declared, compiled }];
+	});
 	if (
-		expectedEntries.size !== manifest.scripts.length ||
+		new Set(manifest.scripts.map(({ entry }) => entry)).size !== manifest.scripts.length ||
 		compiledByEntry.size !== source.compiledScripts.length ||
-		compiledByEntry.size !== expectedEntries.size ||
-		[...expectedEntries].some((entry) => !compiledByEntry.has(entry))
+		scripts.length !== manifest.scripts.length ||
+		scripts.length !== source.compiledScripts.length
 	) {
 		return yield* new PluginValidationError({
 			issues: ["Plugin compiled scripts must exactly match manifest script entries"],
 		});
 	}
-	for (const script of source.compiledScripts) {
+	for (const { declared, compiled: script } of scripts) {
 		if (script.format !== 1) {
 			return yield* new PluginValidationError({
 				issues: [`Plugin compiled script is invalid: ${script.entry}`],
@@ -138,12 +140,6 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 				issues: [
 					`Plugin compiled script output is invalid: ${script.entry}: ${audit.failure.message}`,
 				],
-			});
-		}
-		const declared = scriptsByEntry.get(script.entry);
-		if (!declared) {
-			return yield* new PluginValidationError({
-				issues: [`Plugin compiled script metadata is missing: ${script.entry}`],
 			});
 		}
 		if (
@@ -216,6 +212,7 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 	}
 	const sourceHash = pluginSourceHash(manifest, source.compiledScripts, compiledClient);
 	return {
+		scripts,
 		manifest,
 		compiledScripts: source.compiledScripts,
 		...(compiledClient ? { compiledClient } : {}),
@@ -225,39 +222,20 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 
 export const normalizePluginPackage = Effect.fn("PluginPipeline.normalizePluginPackage")(
 	(input: Effect.Success<ReturnType<typeof normalizePluginSource>>) =>
-		Effect.gen(function* () {
-			const compiledByEntry = new Map(
-				input.compiledScripts.map((script) => [script.entry, script]),
-			);
-			const scripts: Array<NormalizedPluginScript> = yield* Effect.forEach(
-				input.manifest.scripts,
-				(script) => {
-					const compiled = compiledByEntry.get(script.entry);
-					if (!compiled) {
-						return Effect.fail(
-							new PluginValidationError({
-								issues: [`Normalized plugin is missing compiled script ${script.entry}`],
-							}),
-						);
-					}
-					return Effect.succeed({
-						slug: script.slug,
-						name: script.name,
-						entry: script.entry,
-						compiledFormat: compiled.format,
-						compiledCode: compiled.javascript,
-						contentHash: digest(compiled.javascript),
-						metadata: declaredScriptMetadata(script),
-					});
-				},
-			);
-			return {
-				scripts,
-				manifest: input.manifest,
-				sourceHash: input.sourceHash,
-				...(input.compiledClient ? { compiledClient: input.compiledClient } : {}),
-			} satisfies NormalizedPlugin;
-		}),
+		Effect.succeed({
+			manifest: input.manifest,
+			sourceHash: input.sourceHash,
+			...(input.compiledClient ? { compiledClient: input.compiledClient } : {}),
+			scripts: input.scripts.map(({ declared, compiled }): NormalizedPluginScript => ({
+				slug: declared.slug,
+				name: declared.name,
+				entry: declared.entry,
+				compiledFormat: compiled.format,
+				compiledCode: compiled.javascript,
+				contentHash: digest(compiled.javascript),
+				metadata: declaredScriptMetadata(declared),
+			})),
+		} satisfies NormalizedPlugin),
 );
 
 export const validationDiagnostics = (error: PluginValidationError) =>
