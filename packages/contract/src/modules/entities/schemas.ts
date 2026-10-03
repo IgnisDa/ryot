@@ -19,6 +19,7 @@ const EntityBadRequestReason = Schema.Union([
 	}),
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
+	Schema.Struct({ property: Schema.String, code: Schema.Literal("immutable-property") }),
 	Schema.Struct({
 		message: Schema.String,
 		code: Schema.Literals([
