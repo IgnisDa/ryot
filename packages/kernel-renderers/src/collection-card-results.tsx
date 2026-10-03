@@ -1,5 +1,9 @@
 import { Option, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginLink, type EntityReference } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	PluginLink,
+	type EntityBrowserLayout,
+	type EntityReference,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	EntityArtWell,
 	SyncPip,
@@ -7,8 +11,6 @@ import {
 	isTitleProvisional,
 } from "@ryot-app/plugin-ui-sdk/sync";
 import type { EntityBrowserResultItem } from "@ryot-app/ryotql-recipes/saved-views";
-
-import type { BrowserLayout } from "./entity-browser-controller";
 
 const CollectionPresentation = Schema.Struct({ presentationMemberCount: Schema.Finite });
 
@@ -28,7 +30,7 @@ const CollectionCard = ({
 }: {
 	readonly count: number | undefined;
 	readonly reference: EntityReference;
-	readonly layout: Exclude<BrowserLayout, "table">;
+	readonly layout: Exclude<EntityBrowserLayout, "table">;
 }) => {
 	const title = reference.name ?? "collection";
 	const schemaLabel = reference.entitySchemaSlug.split("-").join(" ");
@@ -77,7 +79,7 @@ export const CollectionCardResults = ({
 }: {
 	readonly items: readonly EntityBrowserResultItem[];
 	readonly references: readonly EntityReference[];
-	readonly layout: Exclude<BrowserLayout, "table">;
+	readonly layout: Exclude<EntityBrowserLayout, "table">;
 }) => {
 	const counts = new Map(
 		items.map(({ entityId, presentation }) => [
