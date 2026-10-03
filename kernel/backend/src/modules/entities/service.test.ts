@@ -1007,6 +1007,78 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 
 	layer(entitiesLayer())((test) => {
+		test.effect(
+			"constrains user deletion to its owner and definition and replays its cascade",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* EntitiesService;
+					const events = yield* EventsRepository;
+					const workout = yield* service.create(createInput("scoped-delete-workout"));
+					const exercise = yield* service.create(createInput("scoped-delete-exercise"));
+					yield* createEvent(
+						EventId.make("scoped-delete-set"),
+						owner,
+						exercise.entity.id,
+						workout.entity.id,
+					);
+					for (const [index, target] of [
+						{ entitySchema, userId: UserId.make("another-owner") },
+						{ userId: owner, entitySchema: { slug, owner: definitionOwner("another-plugin") } },
+						{
+							userId: owner,
+							entitySchema: {
+								owner: entitySchema.owner,
+								slug: EntitySchemaSlug.make("another-schema"),
+							},
+						},
+					].entries()) {
+						expect(
+							yield* service
+								.deleteByIds([workout.entity.id], command(`scoped-denied-${index}`), target)
+								.pipe(Effect.flip),
+						).toMatchObject({
+							_tag: "EntityNotFound",
+							reason: { code: "entity-not-found", entityId: workout.entity.id },
+						});
+					}
+					const lifecycle = command("scoped-delete");
+					const target = { entitySchema, userId: owner };
+					expect(
+						(yield* service.deleteByIds([workout.entity.id], lifecycle, target)).deletedCount,
+					).toBe(1);
+					expect(yield* events.listEventIdentitiesForEntities([exercise.entity.id])).toEqual([]);
+					expect(yield* service.getByIdAnyScope(exercise.entity.id)).toEqual(exercise.entity);
+					expect(
+						(yield* service.deleteByIds([workout.entity.id], lifecycle, target)).deletedCount,
+					).toBe(1);
+				}),
+		);
+	});
+
+	layer(entitiesLayer())((test) => {
+		test.effect("does not allow a user-scoped delete to remove a global entity", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const global = yield* service.createGlobal({
+					entitySchema,
+					name: "Global",
+					properties: { title: "global" },
+					lifecycle: systemCommand("scoped-global-create"),
+				});
+				expect(
+					yield* service
+						.deleteByIds([global.entity.id], command("scoped-global-delete"), {
+							entitySchema,
+							userId: owner,
+						})
+						.pipe(Effect.flip),
+				).toMatchObject({ _tag: "EntityNotFound" });
+				expect(yield* service.getByIdAnyScope(global.entity.id)).toEqual(global.entity);
+			}),
+		);
+	});
+
+	layer(entitiesLayer())((test) => {
 		test.effect("deletes an event once when both entity reference roles match the batch", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;

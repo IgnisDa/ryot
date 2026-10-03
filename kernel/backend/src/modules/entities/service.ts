@@ -1237,12 +1237,24 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
 			ids: readonly [EntityId, ...EntityId[]],
 			lifecycle: DomainLifecycleCommand,
+			target?: { readonly userId: UserId; readonly entitySchema: EntitySchemaReference },
 		) {
 			yield* assertOwner;
 			const orderedIds = [...new Set(ids)].sort();
+			const matchesTarget = (
+				current: NonNullable<Effect.Success<ReturnType<typeof repository.getMutationEntity>>>,
+			) =>
+				!target ||
+				(current.userId === target.userId &&
+					current.entity.entitySchemaSlug === target.entitySchema.slug &&
+					current.entity.entitySchemaPluginId ===
+						definitionOwnerPluginId(target.entitySchema.owner));
 			for (const entityId of orderedIds) {
 				const current = yield* repository.getMutationEntity(entityId);
 				if (current) {
+					if (!matchesTarget(current)) {
+						return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
+					}
 					yield* writeChecks
 						.check(lifecycle, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
 						.pipe(Effect.mapError(writeFailure));
@@ -1253,7 +1265,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				command: lifecycle,
 				commandKind: "entity:delete-batch",
 				ownerUserId: mutationReceiptOwner(lifecycle, null),
-				input: { entityIds: orderedIds, writeContext: lifecycle.writeContext },
+				input: {
+					entityIds: orderedIds,
+					target: target ?? null,
+					writeContext: lifecycle.writeContext,
+				},
 			});
 			const aggregateResult = Schema.Struct({ deletedCount: Schema.Finite });
 			const existingBatch = yield* receipts
@@ -1289,6 +1305,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					const command = itemCommand(lifecycle, entityId);
 					const receiptInput = {
 						entityId,
+						target: target ?? null,
 						requestedIds: orderedIds,
 						writeContext: lifecycle.writeContext,
 					};
@@ -1314,6 +1331,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					const current = yield* repository.getMutationEntity(entityId);
 					if (!current) {
 						return null;
+					}
+					if (!matchesTarget(current)) {
+						return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 					}
 					const before = snapshot(current.entity);
 					yield* validateExistingEntity(current.entity, current.userId, command);
