@@ -1,8 +1,7 @@
 import type { IngestionReadinessMetadata } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-
-import { parseAppSchemaPropertiesSafe } from "#modules/definitions/properties/runtime";
+import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 
 export const availablePluginConfigKeys = (
 	configSchema: AppSchema,

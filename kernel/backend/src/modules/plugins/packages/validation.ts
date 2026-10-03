@@ -10,13 +10,13 @@ import {
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { pluginPackageSegments, type PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Cron, Data, Effect, Result, Schema } from "effect";
 
 import {
 	formatPropertyIssues,
 	parseLabeledPropertySchemaInput,
-	parseAppSchemaPropertiesSafe,
 	validateAppSchemaDefinition,
 } from "#modules/definitions/properties/runtime";
 import type { DefinitionSnapshot } from "#modules/definitions/snapshot";

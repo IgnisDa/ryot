@@ -7,12 +7,10 @@ import {
 	mapEntityBrowserAddActionSchema,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { Result, Schema } from "effect";
 
-import {
-	formatPropertyIssues,
-	parseAppSchemaPropertiesSafe,
-} from "#modules/definitions/properties/runtime";
+import { formatPropertyIssues } from "#modules/definitions/properties/runtime";
 
 import type { DefinitionSource, SavedViewDefinition } from "./snapshot";
 

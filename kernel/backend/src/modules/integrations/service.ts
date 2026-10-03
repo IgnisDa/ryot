@@ -22,6 +22,7 @@ import type {
 	IntegrationWebhookToken,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -306,7 +307,16 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 				let providerSpecifics: IntegrationProviderSettings | undefined;
 				if (body.providerSpecifics !== undefined) {
-					const merged = { ...existing.providerSpecifics, ...body.providerSpecifics };
+					const merged = {
+						...existing.providerSpecifics,
+						...(registered
+							? retainPropertySecrets(
+									registered.settingsSchema,
+									existing.providerSpecifics,
+									body.providerSpecifics,
+								)
+							: body.providerSpecifics),
+					};
 					if (existing.pluginInstallationId === null) {
 						yield* parseAppSchemaProperties({
 							properties: merged,
