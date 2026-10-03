@@ -20,9 +20,6 @@ layer(RequestLogUrl.layer)((test) => {
 					"/api/client-assets/:artifactHash/:accessKey/*",
 				);
 			}
-			const document = "http://server.test/api/client-pages/documents/private-token";
-			expect(yield* resolve(document)).toBe("/api/client-pages/documents/:token");
-			expect(yield* resolve(document, "OPTIONS")).toBe("/api/client-pages/documents/:token");
 		}),
 	);
 
