@@ -1,28 +1,30 @@
 import type {
 	CoreSandboxHostMethodMap,
 	ExecutionMetadata,
-	SandboxHost,
-	SandboxHostMethodMap,
+	PolicyHost,
 	SandboxManifest,
+	ScriptHost,
 } from "./core";
 import { Effect, Schema } from "./effect";
+import type { WorkflowReplayHost } from "./workflow";
 
-type SandboxTestHost<Manifest extends SandboxManifest> = Omit<
-	SandboxHost<Manifest["capabilities"]>,
-	"executeWorkflow" | "getPluginConfig"
-> &
-	("getPluginConfig" extends Manifest["capabilities"][number]
-		? {
-				readonly getPluginConfig: (
-					keys: Parameters<SandboxHostMethodMap["getPluginConfig"]>[0],
-				) => ReturnType<CoreSandboxHostMethodMap["getPluginConfig"]>;
-			}
+type HostForManifest<Manifest extends SandboxManifest> = Manifest extends {
+	readonly kind: "workflow";
+}
+	? WorkflowReplayHost
+	: Manifest extends { readonly kind: "automation"; readonly automationType: "policy" }
+		? PolicyHost
+		: ScriptHost;
+
+type SandboxTestHost<Host extends object> = Partial<Omit<Host, "getPluginConfig">> &
+	("getPluginConfig" extends keyof Host
+		? { readonly getPluginConfig?: CoreSandboxHostMethodMap["getPluginConfig"] }
 		: object);
 
 export function defineSandboxTestHost<const Manifest extends SandboxManifest>(
 	_manifest: Manifest,
-	host: SandboxTestHost<Manifest>,
-): SandboxHost<Manifest["capabilities"]>;
+	host: SandboxTestHost<HostForManifest<Manifest>>,
+): HostForManifest<Manifest>;
 export function defineSandboxTestHost(_manifest: SandboxManifest, host: unknown): unknown {
 	return host;
 }

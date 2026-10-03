@@ -34,6 +34,7 @@ it.layer(sandboxCompilerPlatformLayer)("plugin sandbox compilation", (test) => {
 					expect(Object.keys(result.compiled).sort()).toEqual(["format", "javascript", "manifest"]);
 				}
 				expect(first[0]?.compiled.manifest.requiredPluginConfigKeys).toEqual([]);
+				expect(first[0]?.compiled.manifest.capabilities).toEqual([]);
 			}),
 		10_000,
 	);
@@ -49,7 +50,6 @@ export const manifest = defineManifest({
 	name: "Operation",
 	slug: "operation",
 	kind: "operation",
-	capabilities: [],
 });
 
 export default defineOperation({
@@ -70,7 +70,6 @@ export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "automation",
 	inputProjection: { event: { compareProperties: [], properties: [] } },
-	capabilities: [],
 });
 
 export default defineAutomation({
@@ -85,7 +84,6 @@ export const manifest = defineManifest({
 	name: "Workflow",
 	slug: "workflow",
 	kind: "workflow",
-	capabilities: [],
 });
 
 export default defineWorkflow({
@@ -114,6 +112,7 @@ export default defineWorkflow({
 				"workflow",
 			]);
 			expect(compiled[0]?.compiled.manifest).toMatchObject({
+				capabilities: [],
 				inputProjection: { event: { properties: [], compareProperties: [] } },
 			});
 			const workflowBundle = compiled.find(({ entry }) => entry === "workflow.sandbox.ts");
@@ -149,7 +148,6 @@ export const manifest = defineManifest({
 	name: "Workflow",
 	slug: "workflow",
 	kind: "workflow",
-	capabilities: [],
 });
 
 export default defineWorkflow({
@@ -198,7 +196,6 @@ export const manifest = defineManifest({
 	name: "Workflow",
 	slug: "workflow",
 	kind: "workflow",
-	capabilities: [],
 });
 
 export default defineWorkflow({
@@ -235,7 +232,6 @@ export const manifest = defineManifest({
 	name: "Workflow",
 	slug: "workflow",
 	kind: "workflow",
-	capabilities: [],
 });
 
 export default defineWorkflow({
@@ -291,7 +287,6 @@ export const manifest = defineManifest({
 	name: "Workflow",
 	slug: "workflow",
 	kind: "workflow",
-	capabilities: [],
 });
 
 export default defineWorkflow({
@@ -326,7 +321,6 @@ export const manifest = defineManifest({
 	name: "Operation",
 	slug: "operation",
 	kind: "operation",
-	capabilities: [],
 });
 
 export default defineOperation({
@@ -360,7 +354,6 @@ export const manifest = defineManifest({
 	name: "Provider",
 	slug: "provider",
 	kind: "provider",
-	capabilities: [],
 });
 
 export default defineProvider({
@@ -392,7 +385,6 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: [],
 	name: "Provider Search",
 	slug: "provider.search",
 	searchOptionsSchema: {
@@ -440,7 +432,6 @@ export default defineProvider({
 import { defineDriver, defineManifest, defineOperation } from "@ryot-app/sandbox-sdk/driver";
 
 export const manifest = defineManifest({
-	capabilities: [],
 	kind: "operation",
 	name: "Old operation",
 	slug: "old-operation",
@@ -479,7 +470,6 @@ import { TYPE_CHOICES } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: [],
 	name: "Move search",
 	slug: "move.search",
 	searchOptionsSchema: {
@@ -525,7 +515,6 @@ import { Schema } from "@ryot-app/plugin-kit/effect";
 import { rowSlug } from "../shared/row";
 
 export const manifest = defineManifest({
-	capabilities: [],
 	name: "Operation",
 	slug: "operation",
 	kind: "operation",
