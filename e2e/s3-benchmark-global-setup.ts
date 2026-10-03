@@ -1,4 +1,4 @@
-import { Config, Effect, Schema } from "effect";
+import { Config, Effect, FileSystem, Schema } from "effect";
 
 import { setupE2e } from "./global-setup";
 import { MetricSnapshot } from "./s3-benchmark-records";
@@ -80,6 +80,7 @@ const metricSnapshotFromOtlp = (body: unknown): MetricSnapshot => {
 
 const ServerEnv = Schema.fromJsonString(Schema.Record(Schema.String, Schema.String));
 const SnapshotLine = Schema.fromJsonString(MetricSnapshot);
+const TraceLine = Schema.fromJsonString(Schema.Unknown);
 
 const pinnedServerEnv = {
 	DATABASE_POOL_MAX: "10",
@@ -93,6 +94,8 @@ const startMetricsSink = Effect.gen(function* () {
 	const outDir = yield* Config.String("S3_BENCHMARK_OUT_DIR");
 	const runName = yield* Config.String("S3_BENCHMARK_RUN_NAME");
 	const metricsFile = `${outDir}/otlp-${runName}.ndjson`;
+	const tracesFile = `${outDir}/traces-${runName}.ndjson`;
+	const fs = yield* FileSystem.FileSystem;
 	const lines: Array<string> = [];
 	const pending: { requests?: Array<{ body: unknown; path: string }> } = {};
 	const sink = yield* startFakeHttpServer(() =>
@@ -102,6 +105,10 @@ const startMetricsSink = Effect.gen(function* () {
 				if (path === "/v1/metrics") {
 					lines.push(`${yield* Schema.encodeEffect(SnapshotLine)(metricSnapshotFromOtlp(body))}\n`);
 					yield* Effect.promise(() => Bun.write(metricsFile, lines.join("")));
+				}
+				if (path === "/v1/traces") {
+					const line = yield* Schema.encodeEffect(TraceLine)(body);
+					yield* fs.writeFileString(tracesFile, `${line}\n`, { flag: "a" });
 				}
 			}
 			return Response.json({});
