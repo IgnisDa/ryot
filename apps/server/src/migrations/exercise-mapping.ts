@@ -1,3 +1,4 @@
+import { exerciseKinds } from "@ryot-app/fitness-plugin/exercise-kinds";
 import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
@@ -25,17 +26,8 @@ const exerciseEntityTargetValuesSql = sql.join(
 	sql`, `,
 );
 
-const supportedExerciseLots = [
-	"reps",
-	"duration",
-	"reps_and_weight",
-	"reps_and_duration",
-	"distance_and_duration",
-	"reps_and_duration_and_distance",
-] as const;
-
 const supportedExerciseLotValuesSql = sql.join(
-	supportedExerciseLots.map((lot) => sql`(${lot})`),
+	exerciseKinds.map((lot) => sql`(${lot})`),
 	sql`, `,
 );
 

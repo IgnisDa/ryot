@@ -1,3 +1,5 @@
+import { exerciseKinds } from "@ryot-app/fitness-plugin/exercise-kinds";
+
 import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
 import type { QualifiedSchema } from "./migration-resolution";
 import {
@@ -205,6 +207,8 @@ DECLARE
 	rows_inserted int := 0;
 	invalid_confirmed_at_count int;
 	invalid_confirmed_at_sample text;
+	invalid_lot_count int;
+	invalid_lot_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	${buildRequireLegacyTableSql("workout -> entity", "workout")}
@@ -222,6 +226,19 @@ BEGIN
 				WITH ORDINALITY AS s(value, ordinality)
 			WHERE NULLIF(s.value ->> 'confirmed_at', '') IS NOT NULL
 				AND NOT pg_input_is_valid(s.value ->> 'confirmed_at', 'timestamp with time zone')
+		`,
+	})}
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_lot_count",
+		sampleVariable: "invalid_lot_sample",
+		message:
+			"workout -> event: % workout exercise(s) have a missing or unsupported lot: %. Each set stores the exercise kind it was logged under, so it cannot be migrated without one. Fix those workout exercises in the V1 database, then start the server again.",
+		source: `
+			SELECT w.id || ':' || (ex.ordinality - 1)::text AS label
+			FROM "workout" w
+			CROSS JOIN LATERAL jsonb_array_elements(COALESCE(w.information -> 'exercises', '[]'::jsonb))
+				WITH ORDINALITY AS ex(value, ordinality)
+			WHERE COALESCE(ex.value ->> 'lot', '') NOT IN (${exerciseKinds.map((kind) => quoteSqlString(kind)).join(", ")})
 		`,
 	})}
 
@@ -264,7 +281,7 @@ BEGIN
 				'restTime',           s.value -> 'rest_time',
 				'confirmedAt',        s.value ->> 'confirmed_at',
 				'restTimerStartedAt', s.value ->> 'rest_timer_started_at',
-				'unitSystem',         'metric',
+				'exerciseKind',       ex.value ->> 'lot',
 				'images',              ${buildLegacyImagesSql("ex.value -> 'assets'")},
 				'videos',              ${buildLegacyVideosSql("ex.value -> 'assets'")},
 				'reps',               ${buildDecimalStatField("s.value", "reps")},
