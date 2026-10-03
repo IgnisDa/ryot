@@ -108,6 +108,7 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 const compileRuntimePayload = (kernelDirectory: string, sandboxRuntimeDirectory: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
 		const payload: SandboxRuntimePayload = yield* buildSandboxRuntimePayload(kernelDirectory).pipe(
 			Effect.mapError(
 				(error) =>
@@ -123,6 +124,14 @@ const compileRuntimePayload = (kernelDirectory: string, sandboxRuntimeDirectory:
 		yield* fs.writeFileString(
 			`${sandboxRuntimeDirectory}/runtime-payload-metadata.generated.ts`,
 			`export const sandboxRuntimePayloadMetadata = ${encodeJson({ metadata: payload.metadata, contentHash: payload.contentHash })} as const;\n`,
+		);
+		const sidecarPayloadDirectory = path.resolve(kernelDirectory, "../sandboxd/payload");
+		yield* fs.remove(sidecarPayloadDirectory, { force: true, recursive: true });
+		yield* fs.makeDirectory(sidecarPayloadDirectory, { recursive: true });
+		yield* Effect.forEach(
+			payload.files,
+			(file) => fs.writeFileString(path.join(sidecarPayloadDirectory, file.path), file.contents),
+			{ discard: true },
 		);
 		yield* Effect.logInfo("Compiled trusted Deno runtime payload");
 	});
