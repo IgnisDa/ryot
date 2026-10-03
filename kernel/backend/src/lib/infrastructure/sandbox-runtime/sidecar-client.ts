@@ -1,4 +1,5 @@
 // Effect's extra-descriptor API is directional; this boundary needs one inherited duplex socket.
+// TODO: Use ChildProcessSpawner once https://github.com/Effect-TS/effect/issues/8902 is resolved.
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import { spawn } from "node:child_process";
 
