@@ -7,8 +7,57 @@ import {
 	openFitnessPage,
 	updateExerciseOverrides,
 } from "~/fixtures/plugins/fitness";
+import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
+
+it.live(
+	"snaps back a short sheet pull and dismisses a downward drag without leaving the workout",
+	() =>
+		Effect.gen(function* () {
+			const { email, password } = yield* createAuthenticatedClient();
+			const page = yield* (yield* Playwright.Browser).newPage();
+			yield* page.setViewportSize({ width: 390, height: 844 });
+			yield* signInThroughHostedOAuth(page, email, password);
+			const frame = yield* openFitnessPage(page, "/p/ryot/fitness/workouts/new");
+			yield* frame.getByRole("button", { exact: false, name: "Edit workout details" }).click();
+			const details = frame.getByRole("dialog", { exact: true, name: "Workout details" });
+			yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill("Drag recovery");
+			const heading = frame.getByRole("heading", { exact: true, name: "Workout details" });
+			yield* heading.waitForFunction((element) => {
+				const panel = element.closest('[role="dialog"]');
+				return panel instanceof HTMLElement && getComputedStyle(panel).transform === "none";
+			});
+			const bounds = requirePresent(
+				yield* page.use((raw) =>
+					raw
+						.locator("iframe:visible")
+						.contentFrame()
+						.getByRole("heading", { exact: true, name: "Workout details" })
+						.boundingBox(),
+				),
+				"Expected sheet heading bounds",
+			);
+			const x = bounds.x + bounds.width / 2;
+			const y = bounds.y + bounds.height / 2;
+			yield* page.use((raw) => raw.mouse.move(x, y));
+			yield* page.use((raw) => raw.mouse.down());
+			yield* page.use((raw) => raw.mouse.move(x, y + 12, { steps: 6 }));
+			yield* page.use((raw) => raw.mouse.up());
+			yield* heading.waitForFunction((element) => {
+				const panel = element.closest('[role="dialog"]');
+				return panel instanceof HTMLElement && getComputedStyle(panel).transform === "none";
+			});
+			yield* page.use((raw) => raw.mouse.move(x, y));
+			yield* page.use((raw) => raw.mouse.down());
+			yield* page.use((raw) => raw.mouse.move(x, y + 180, { steps: 12 }));
+			yield* page.use((raw) => raw.mouse.up());
+			yield* details.waitFor({ state: "hidden" });
+			yield* frame
+				.getByRole("button", { exact: true, name: "Edit workout details, Drag recovery" })
+				.waitFor({ state: "visible" });
+		}).pipe(PlaywrightSpawner.withBrowser),
+);
 
 for (const reducedMotion of ["reduce", "no-preference"] as const) {
 	it.live(

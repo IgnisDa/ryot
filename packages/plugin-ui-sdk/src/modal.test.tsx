@@ -5,7 +5,7 @@ import { useRef, useState } from "react";
 import { axe } from "vitest-axe";
 
 import { Menu } from "./menu";
-import { Modal } from "./modal";
+import { Modal, shouldDismissSheet } from "./modal";
 import { OverlayBackProvider, type OverlayBackAdapter } from "./shortcut";
 
 function TriggeredModal(props: {
@@ -79,6 +79,14 @@ function NestedModals(props: { readonly adapter: OverlayBackAdapter }) {
 }
 
 describe("Modal", () => {
+	it("dismisses sheets after a deliberate downward pull or flick, not an upward or short drag", () => {
+		expect(shouldDismissSheet(121, 0, 600)).toBe(true);
+		expect(shouldDismissSheet(76, 0, 300)).toBe(true);
+		expect(shouldDismissSheet(30, 800, 600)).toBe(true);
+		expect(shouldDismissSheet(20, 800, 600)).toBe(false);
+		expect(shouldDismissSheet(60, 0, 600)).toBe(false);
+		expect(shouldDismissSheet(-150, -800, 600)).toBe(false);
+	});
 	it("dismisses a nested modal before its parent on document Back", () => {
 		const handlers: Array<() => boolean> = [];
 		const adapter: OverlayBackAdapter = {

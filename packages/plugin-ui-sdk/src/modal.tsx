@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { motion, useIsPresent, useReducedMotion } from "motion/react";
+import { motion, useDragControls, useIsPresent, useReducedMotion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 
@@ -31,6 +31,9 @@ type ModalProps = {
 	readonly placement?: "center" | "sheet" | "side";
 };
 
+export const shouldDismissSheet = (offset: number, velocity: number, height: number) =>
+	offset >= Math.min(120, height * 0.25) || (offset > 24 && velocity > 600);
+
 export function Modal({
 	label,
 	onClose,
@@ -51,10 +54,12 @@ export function Modal({
 	const fallbackTriggerRef = useRef<HTMLElement | null>(null);
 	const present = useIsPresent();
 	const reduced = useReducedMotion();
+	const dragControls = useDragControls();
+	const draggable = placement === "sheet" && dismissible && present;
 	const hidden = {
 		opacity: 0,
 		x: reduced || placement !== "side" ? 0 : 24,
-		y: reduced ? 0 : { side: 0, center: 6, sheet: 40 }[placement],
+		y: reduced ? 0 : { side: 0, center: 6, sheet: "100%" }[placement],
 	};
 
 	useRestoreFocus(triggerRef ?? fallbackTriggerRef, panelRef);
@@ -113,15 +118,45 @@ export function Modal({
 					exit={hidden}
 					ref={panelRef}
 					initial={hidden}
+					dragSnapToOrigin
 					aria-modal="true"
 					aria-label={label}
+					dragListener={false}
+					dragMomentum={false}
+					dragControls={dragControls}
 					aria-labelledby={labelledBy}
+					drag={draggable ? "y" : false}
+					dragElastic={{ top: 0, bottom: 1 }}
 					animate={{ x: 0, y: 0, opacity: 1 }}
+					dragConstraints={{ top: 0, bottom: 0 }}
 					transition={reduced ? { duration: 0 } : motionTransition}
-					className={clsx("relative motion-reduce:transform-none", className)}
+					className={clsx("relative motion-reduce:transition-none", className)}
 					onAnimationComplete={() => {
 						if (present) {
 							revealFocusedField();
+						}
+					}}
+					onDragEnd={(_event, info) => {
+						if (
+							shouldDismissSheet(
+								info.offset.y,
+								info.velocity.y,
+								panelRef.current?.getBoundingClientRect().height ?? 0,
+							)
+						) {
+							requestClose();
+						}
+					}}
+					onPointerDownCapture={(event) => {
+						if (
+							draggable &&
+							event.button === 0 &&
+							event.target instanceof HTMLElement &&
+							event.target.closest("[data-sheet-drag-region]") !== null &&
+							event.target.closest("button, input, textarea, a, select, [contenteditable]") === null
+						) {
+							dragControls.start(event);
+							window.getSelection()?.removeAllRanges();
 						}
 					}}
 				>
