@@ -46,7 +46,7 @@ layer(sandboxCompilerPlatformLayer)((test) => {
 				client: manifest().client,
 			} satisfies PluginManifest;
 			const source = yield* loadPluginSource(fixturePackageRoot(), pluginManifest);
-			const compiledManifest = yield* Schema.decodeUnknownEffect(PluginManifest)(source.manifest);
+			const compiledManifest = yield* Schema.decodeEffect(PluginManifest)(source.manifest);
 			const compiledClient = source.compiledClient;
 			expect(compiledClient).toBeDefined();
 			if (!compiledClient) {
