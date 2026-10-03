@@ -1,4 +1,5 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
@@ -9,6 +10,7 @@ import type { DurableSchema } from "#lib/infrastructure/workflow";
 export const TranslateEntityWorkflowPayload = Schema.Struct({
 	userId: UserId,
 	entityId: EntityId,
+	lane: ExecutionLane,
 	language: Schema.String,
 	externalId: Schema.String,
 	properties: Schema.Unknown,

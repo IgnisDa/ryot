@@ -54,6 +54,7 @@ describe("sandbox RyotQL reads", () => {
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
+				lane: "interactive",
 				context: { ids: [first.id, second.id] },
 			});
 
@@ -71,6 +72,7 @@ describe("sandbox RyotQL reads", () => {
 
 			const { jobId: emptyJobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
+				lane: "interactive",
 				context: { ids: [] },
 			});
 			const emptyResult = yield* pollSandboxResult(userId, emptyJobId);
@@ -97,6 +99,7 @@ describe("sandbox RyotQL reads", () => {
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
+				lane: "interactive",
 				context: { entityId, eventSchemaSlug, entitySchemaSlug },
 			});
 

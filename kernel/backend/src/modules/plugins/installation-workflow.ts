@@ -179,6 +179,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 				Effect.gen(function* () {
 					const result = yield* sandbox.executeScript({
 						input: {},
+						lane: "background",
 						scriptId: input.scriptId,
 						subject: {
 							type: "user",

@@ -213,6 +213,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 					accountGeneration: workClaim.accountGeneration,
 					causation: {
 						...rootLifecycleCausation({
+							lane: "background",
 							source: "bootstrap",
 							executionId: AutomationExecutionId.make(executionId),
 							initiator: { kind: "user", id: workClaim.accountGeneration.userId },

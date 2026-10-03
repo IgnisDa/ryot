@@ -1039,6 +1039,7 @@ describe("automation lifecycle triggers", () => {
 			);
 			const { jobId, executionId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
+				lane: "interactive",
 				context: { entityId: entity.id, eventSchemaSlug: EventSchemaSlug.make(slugs.replayEvent) },
 			});
 			const initialRuns = yield* pollAutomationRuns({

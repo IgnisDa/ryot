@@ -1,4 +1,5 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/sandbox-sdk/workflow";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
@@ -26,6 +27,7 @@ import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
 
 const SandboxExecutionQueuePayload = Schema.Struct({
+	lane: ExecutionLane,
 	context: Schema.Unknown,
 	startedAt: Schema.String,
 	/** Entries the workflow has journaled before this replay; inline results must extend it. */
@@ -115,7 +117,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			if (inspection === null) {
 				return { ...emptyReplayResult(), projectionMissing: true as const };
 			}
-			const lease = yield* sandbox.reserve(payload.principal);
+			const lease = yield* sandbox.reserve(payload.principal, payload.lane);
 			const replayJournal = pinSandboxJournal(redis, payload.workflowExecutionId, inspection);
 
 			const script = yield* repository.getScript(payload.principal.scriptId);
@@ -143,6 +145,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			const exit = yield* sandbox
 				.run({
 					replayJournal,
+					lane: payload.lane,
 					context: payload.context,
 					startedAt: payload.startedAt,
 					principal: payload.principal,
@@ -160,6 +163,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 											requests,
 											payload.context,
 											payload.principal,
+											payload.lane,
 											payload.workflowExecutionId,
 											payload.startedAt,
 										),

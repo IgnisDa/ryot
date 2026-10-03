@@ -1,4 +1,5 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
@@ -26,6 +27,7 @@ import type { EntityImportPayload, ProviderEntityImportWorkflowPayload } from ".
 
 type ProviderResolveOperationInput = {
 	readonly value: string;
+	readonly lane: ExecutionLane;
 	readonly userId: UserId | null;
 	readonly identifierType: string;
 	readonly providerId: SandboxProviderId;
@@ -93,6 +95,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 				});
 				return yield* sandbox.executeScript({
 					scriptId,
+					lane: payload.command.causation.lane,
 					executionId: `${executionId}-sandbox-details`,
 					input: {
 						externalId: payload.externalId,
@@ -132,6 +135,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 				});
 				return yield* sandbox.executeScript({
 					scriptId,
+					lane: input.lane,
 					executionId: `${executionId}-sandbox-resolve`,
 					input: { value: input.value, identifierType: input.identifierType },
 					subject: accountGeneration

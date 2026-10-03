@@ -132,6 +132,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 		yield* sandbox.executeWorkflow({
 			input,
 			grants,
+			lane: "background",
 			executionId: owner,
 			scriptId: state.workflowScriptId,
 			pluginRevision: state.pluginRevision,

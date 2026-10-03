@@ -169,6 +169,7 @@ it.effect(
 			const result = yield* rootCase("pending");
 			expect(result.executions).toEqual([
 				expect.objectContaining({
+					lane: "background",
 					executionId: `${rootPayload.runId}-import`,
 					scriptId: ingestionTestSource.workflowScriptId,
 					pluginRevision: ingestionTestSource.pluginRevision,

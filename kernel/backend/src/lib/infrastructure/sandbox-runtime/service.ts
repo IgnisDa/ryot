@@ -1,4 +1,5 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { jsonByteLength, utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
@@ -97,8 +98,9 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const apiFunctions = { ...hosts.runtime, ...hosts.additional, ...hosts.automation };
 		const reserve = Effect.fn("SandboxService.reserve")(function* (
 			principal: SandboxExecutionPrincipal,
+			lane: ExecutionLane,
 		) {
-			return yield* supervisor.reserve(principal);
+			return yield* supervisor.reserve(principal, lane);
 		});
 		const run = Effect.fn("SandboxService.run")(function* (input: SandboxRunInput) {
 			const executionStartedAt = yield* Clock.currentTimeMillis;
@@ -115,7 +117,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 					const existingLease = yield* Effect.serviceOption(SandboxAdmissionLease);
 					const lease = Option.isSome(existingLease)
 						? existingLease.value
-						: yield* reserve(input.principal);
+						: yield* reserve(input.principal, input.lane);
 					const context = input.context ?? {};
 					const contextError = sandboxContextError(context);
 					if (contextError !== null) {
@@ -142,6 +144,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 					);
 					const result = yield* supervisor.run({
 						lease,
+						lane: input.lane,
 						principal: input.principal,
 						executionId: input.executionId,
 						pinHash: sha256Hex(

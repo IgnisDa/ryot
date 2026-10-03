@@ -75,6 +75,7 @@ const trigger = (id: string) => ({
 	source: "api" as const,
 	operation: "emit" as const,
 	category: "signal" as const,
+	lane: "interactive" as const,
 	resourceKind: "signal" as const,
 	initiatorKind: "system" as const,
 	payload: {

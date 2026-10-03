@@ -102,14 +102,14 @@ const requireBuiltinOrDie =
 const userCommand = Effect.fnUntraced(function* (
 	accountGeneration: AccountGeneration,
 	itemIdentity: string,
-	source: "api" | "import" = "api",
 	executionId = AutomationExecutionId.make(generateId()),
 ) {
 	return rootLifecycleCommand({
-		source,
 		executionId,
 		itemIdentity,
+		source: "api",
 		accountGeneration,
+		lane: "interactive",
 		initiator: { kind: "user", id: accountGeneration.userId },
 		occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
 	});
@@ -433,7 +433,6 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				const command = yield* userCommand(
 					user.accountGeneration,
 					"collection:add-membership",
-					"api",
 					executionId,
 				);
 				return yield* dispatchAdmittedWorkflow(
