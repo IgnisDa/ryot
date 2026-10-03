@@ -2,7 +2,7 @@ pub mod admission;
 pub mod config;
 #[cfg(target_os = "linux")]
 pub mod confine;
-mod console;
+pub mod console;
 pub mod execute;
 pub mod os;
 pub mod outbox;

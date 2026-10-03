@@ -12,10 +12,16 @@ import {
 	recordSandboxSidecarEvent,
 	recordSandboxSidecarProcesses,
 } from "../runtime-metrics";
+import { SandboxTrust } from "./execution-principal";
 import { SANDBOX_LIMITS } from "./limits";
 import { parseProcStatusRssBytes } from "./process-sampling";
 import { makeSidecarFrameReader, makeSidecarFrameWriter } from "./sidecar-framing";
-import { SidecarTier, SidecarOutboundFrame, type SidecarInboundFrame } from "./sidecar-protocol";
+import {
+	SIDECAR_GENERATION_MAX,
+	SidecarTier,
+	SidecarOutboundFrame,
+	type SidecarInboundFrame,
+} from "./sidecar-protocol";
 
 export const SANDBOX_LAUNCHER_PATH = "/usr/local/libexec/ryot-sandbox-launcher";
 
@@ -24,7 +30,7 @@ const installationSchema = Schema.Union([
 	Schema.Struct({ snapshots: Schema.String, executable: Schema.String }),
 ]);
 
-export class SandboxSidecarInstallation extends Context.Service<
+class SandboxSidecarInstallation extends Context.Service<
 	SandboxSidecarInstallation,
 	typeof installationSchema.Type
 >()("SandboxSidecarInstallation") {
@@ -49,13 +55,13 @@ const processSettingsSchema = Schema.Struct({
 	tier: SidecarTier,
 	maxRss: Schema.Int,
 	threads: Schema.Int,
+	trust: SandboxTrust,
 	maxActive: Schema.Int,
 	generation: Schema.Int,
 	memoryBudget: Schema.Int,
-	trust: Schema.Literals(["system", "user"]),
 });
 
-export class SidecarClientError extends Data.TaggedError("SidecarClientError")<{
+class SidecarClientError extends Data.TaggedError("SidecarClientError")<{
 	readonly message: string;
 	readonly reason: "startup" | "transport" | "exit" | "disposal";
 }> {}
@@ -90,7 +96,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 			const fs = yield* FileSystem.FileSystem;
 			const rss = new Map<
 				number,
-				{ readonly trust: "system" | "user"; readonly tier: string; bytes: number | null }
+				{ readonly trust: typeof SandboxTrust.Type; readonly tier: string; bytes: number | null }
 			>();
 			const publishProcesses = (settings: typeof processSettingsSchema.Type) =>
 				Effect.suspend(() => {
@@ -151,7 +157,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 				if (
 					!Number.isSafeInteger(settings.generation) ||
 					settings.generation < 0 ||
-					settings.generation > 4_294_967_295 ||
+					settings.generation > SIDECAR_GENERATION_MAX ||
 					![settings.threads, settings.maxActive, settings.memoryBudget, settings.maxRss].every(
 						(value) => Number.isSafeInteger(value) && value > 0,
 					)

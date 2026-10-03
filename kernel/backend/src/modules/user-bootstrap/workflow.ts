@@ -1,6 +1,7 @@
 import { InternalError, internalError, unknownToMessage } from "@ryot-app/contract/errors";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { exponentialBackoffMs } from "@ryot-app/ts-utils/backoff";
 import { Cause, Context, Duration, Effect, Layer, Result, Schema } from "effect";
 import { DurableClock, Workflow } from "effect/workflow";
 
@@ -74,7 +75,7 @@ export const runUserBootstrapWorkflow = Effect.fn("UserBootstrapWorkflow")(funct
 		yield* Effect.logWarning("user bootstrap will retry", result.failure).pipe(
 			Effect.annotateLogs({ attempt, userId: payload.userId }),
 		);
-		const delayMs = Math.min(5 * 60_000, 1_000 * 2 ** Math.min(attempt - 1, 12));
+		const delayMs = exponentialBackoffMs(attempt, 5 * 60_000);
 		yield* DurableClock.sleep({
 			duration: Duration.millis(delayMs),
 			name: `user-bootstrap-retry-${attempt}`,

@@ -54,6 +54,7 @@ import {
 	type HttpRateLimitAuthorityResolution,
 	PluginHttpRateLimitAuthority,
 } from "#modules/plugins/http-rate-limit-authority";
+import { RelationshipBatchSummary } from "#modules/relationships/mutation-pipeline";
 import {
 	SandboxDurableHostServiceWorkflow,
 	SandboxDurableHostDispatcher,
@@ -79,12 +80,19 @@ const unusedStep = {
 	prepare: () => Effect.die("unused"),
 	applyPolicies: () => Effect.die("unused"),
 };
+const unusedRelationshipStep = {
+	value: () => [],
+	validate: unused,
+	itemWrite: () => {
+		throw new Error("unused");
+	},
+};
 const unusedLifecycle: SandboxHostImplementations["Service"]["lifecycle"] = {
 	updateEvents: unusedStep,
 	deleteEvents: unusedStep,
 	upsertGlobalEntities: unusedStep,
-	changeUserRelationships: unusedStep,
-	upsertGlobalRelationships: unusedStep,
+	changeUserRelationships: unusedRelationshipStep,
+	upsertGlobalRelationships: unusedRelationshipStep,
 };
 const unusedLifecycleExecution = Layer.mock(LifecycleExecution)({
 	dispatch: () => Effect.die("unused"),
@@ -675,6 +683,7 @@ const runHttpDispatch = (
 				resolutionMode: "exact",
 				subject: principal.subject,
 				executionId: httpExecutionId,
+				startedAt: "2026-01-01T00:00:00.000Z",
 			},
 			principal,
 			httpExecutionId,
@@ -1578,6 +1587,7 @@ layer(interruptedDispatchLayer)((test) => {
 						resolutionMode: "exact",
 						subject: principal.subject,
 						executionId: interruptedExecutionId,
+						startedAt: "2026-01-01T00:00:00.000Z",
 					},
 					principal,
 					interruptedExecutionId,
@@ -1711,16 +1721,8 @@ layer(
 		lifecycle: () =>
 			lifecycleSteps({
 				changeUserRelationships: {
-					commit: () => Effect.die("no commit"),
-					applyPolicies: () => Effect.die("no policies"),
 					value: (results: ReadonlyArray<{ created: number; deleted: number }>) =>
 						results.map(({ created, deleted }) => ({ created, deleted })),
-					prepare: (_input: unknown, _batch: unknown, index: number) =>
-						Effect.succeed({
-							_tag: "Committed",
-							result: { updated: 0, deleted: 0, created: index },
-							dispatch: [{ runs: [], blockedReason: null, triggerId: `batch-${index}` }],
-						}),
 					validate: () =>
 						Effect.succeed({
 							batches: [batch, batch],
@@ -1732,6 +1734,18 @@ layer(
 								itemIdentity: "changeUserRelationships",
 							},
 						}),
+					itemWrite: (input: { readonly batches: ReadonlyArray<unknown> }) => ({
+						items: input.batches,
+						result: RelationshipBatchSummary,
+						commit: () => () => Effect.die("no commit"),
+						applyPolicies: () => Effect.die("no policies"),
+						prepare: (_batch: unknown, index: number) =>
+							Effect.succeed({
+								_tag: "Committed",
+								result: { updated: 0, deleted: 0, created: index },
+								dispatch: [{ runs: [], blockedReason: null, triggerId: `batch-${index}` }],
+							}),
+					}),
 				},
 			}),
 	}),
@@ -1864,11 +1878,15 @@ layer(lifecycleDispatchLayer({ lifecycle: () => lifecycleSteps({}) }))((test) =>
 					lifecycleSteps({
 						changeUserRelationships: {
 							value: () => [],
-							commit: () => Effect.die("no commit"),
 							validate: () => Effect.succeed(validated),
-							prepare: () => Effect.succeed({ pending: { items: [] }, _tag: "PoliciesRequired" }),
-							applyPolicies: () =>
-								Effect.fail(new SandboxLifecycleHostFailure({ message: "policy-rejected" })),
+							itemWrite: () => ({
+								items: [batch],
+								result: RelationshipBatchSummary,
+								commit: () => () => Effect.die("no commit"),
+								prepare: () => Effect.succeed({ pending: { items: [] }, _tag: "PoliciesRequired" }),
+								applyPolicies: () =>
+									Effect.fail(new SandboxLifecycleHostFailure({ message: "policy-rejected" })),
+							}),
 						},
 					}),
 				);

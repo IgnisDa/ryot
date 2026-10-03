@@ -18,11 +18,7 @@ import {
 const frameHeaderBytes = 4;
 const maximumFrameBytes = SIDECAR_PROTOCOL_LIMITS.frameBytes;
 const maximumPartBytes = SIDECAR_PROTOCOL_LIMITS.partBytes;
-// An honest sidecar has at most four slotted calls, one blocking inline batch and one done per run.
-const maximumHandleAssemblies = {
-	done: 1,
-	hostCall: SANDBOX_LIMITS.bridge.concurrentHostCalls + 1,
-};
+const maximumHandleAssemblies = { done: 1, hostCall: SANDBOX_LIMITS.bridge.outstandingHostCalls };
 const encoder = new TextEncoder();
 
 type SidecarFrameReaderOptions = {
@@ -57,15 +53,6 @@ type Assembly = {
 const protocolError = (reason: "framing" | "payload", message: string) =>
 	new SidecarProtocolError({ reason, message });
 
-const validateLimit = (name: string, value: number, minimum = 0) => {
-	if (!Number.isSafeInteger(value) || value < minimum) {
-		throw protocolError(
-			"framing",
-			`${name} must be a safe integer greater than or equal to ${minimum}`,
-		);
-	}
-};
-
 const readEnvelope = (
 	value: unknown,
 ): {
@@ -83,7 +70,7 @@ const readEnvelope = (
 	};
 };
 
-const framePayload = (payload: Uint8Array) => {
+export const framePayload = (payload: Uint8Array) => {
 	if (payload.byteLength === 0 || payload.byteLength > maximumFrameBytes) {
 		throw protocolError(
 			"framing",
@@ -104,9 +91,6 @@ export const makeSidecarFrameReader = ({
 	maximumAssemblies,
 	maximumBufferedBytes,
 }: SidecarFrameReaderOptions) => {
-	validateLimit("generation", generation);
-	validateLimit("maximumAssemblies", maximumAssemblies);
-	validateLimit("maximumBufferedBytes", maximumBufferedBytes, frameHeaderBytes);
 	const header = new Uint8Array(frameHeaderBytes);
 	const assemblies = new Map<string, Assembly>();
 	let headerBytes = 0;
@@ -333,17 +317,20 @@ export const makeSidecarFrameReader = ({
 			if (closed) {
 				throw failure ?? protocolError("framing", "reader is closed");
 			}
-			for (const byte of bytes) {
+			let offset = 0;
+			while (offset < bytes.byteLength) {
 				if (failure !== undefined) {
 					throw failure;
 				}
 				if (body === undefined) {
-					if (bufferedBytes + 1 > maximumBufferedBytes) {
+					const take = Math.min(frameHeaderBytes - headerBytes, bytes.byteLength - offset);
+					if (bufferedBytes + take > maximumBufferedBytes) {
 						fail(protocolError("framing", `pending bytes exceed ${maximumBufferedBytes}`));
 					}
-					header[headerBytes] = byte;
-					headerBytes += 1;
-					bufferedBytes += 1;
+					header.set(bytes.subarray(offset, offset + take), headerBytes);
+					headerBytes += take;
+					bufferedBytes += take;
+					offset += take;
 					if (headerBytes !== frameHeaderBytes) {
 						continue;
 					}
@@ -363,8 +350,10 @@ export const makeSidecarFrameReader = ({
 					bufferedBytes += length;
 					continue;
 				}
-				body[bodyBytes] = byte;
-				bodyBytes += 1;
+				const take = Math.min(body.byteLength - bodyBytes, bytes.byteLength - offset);
+				body.set(bytes.subarray(offset, offset + take), bodyBytes);
+				bodyBytes += take;
+				offset += take;
 				if (bodyBytes !== body.byteLength) {
 					continue;
 				}
@@ -383,7 +372,6 @@ export const makeSidecarFrameReader = ({
 
 type QueuedMessage = {
 	readonly handle: string;
-	readonly category: "run" | "control";
 	readonly lane: ExecutionLane | undefined;
 	readonly queue: "run" | "control" | ExecutionLane;
 	readonly frame: SidecarInboundFrame;
@@ -460,9 +448,6 @@ export const makeSidecarFrameWriter = ({
 	maximumQueuedBytes,
 	maximumControlMessages,
 }: SidecarFrameWriterOptions) => {
-	validateLimit("maximumRunMessages", maximumRunMessages);
-	validateLimit("maximumControlMessages", maximumControlMessages);
-	validateLimit("maximumQueuedBytes", maximumQueuedBytes, frameHeaderBytes + 1);
 	const queues: Record<QueuedMessage["queue"], QueuedMessage[]> = {
 		run: [],
 		control: [],
@@ -484,7 +469,7 @@ export const makeSidecarFrameWriter = ({
 		}
 		if (message.counted) {
 			queuedBytes -= message.payload.byteLength;
-			if (message.category === "run") {
+			if (message.queue === "run") {
 				runMessages -= 1;
 			} else {
 				controlMessages -= 1;
@@ -560,7 +545,7 @@ export const makeSidecarFrameWriter = ({
 
 	// A started host result is finished so the sidecar never keeps a partial assembly; a started run
 	// stops after its current part because the cancel that precedes retirement discards its assembly.
-	const removable = (message: QueuedMessage) => message.next === 0 || message.category === "run";
+	const removable = (message: QueuedMessage) => message.next === 0 || message.queue === "run";
 
 	const removeQueued = (queue: QueuedMessage[], handle: string) => {
 		for (let index = queue.length - 1; index >= 0; index -= 1) {
@@ -684,7 +669,6 @@ export const makeSidecarFrameWriter = ({
 				payload,
 				next: 0,
 				released,
-				category,
 				counted: true,
 				retired: false,
 				lane: handleLane,

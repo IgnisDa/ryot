@@ -31,6 +31,7 @@ import {
 } from "#lib/domain/lifecycle-command";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
+import { sandboxSubjectUserId } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -314,12 +315,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							),
 						);
 					}
-					let userId = null;
-					if (subject.type === "user") {
-						userId = subject.userId;
-					} else if (subject.type === "automation-run") {
-						userId = subject.executionUserId;
-					}
+					const userId = sandboxSubjectUserId(subject);
 					if (userId === null) {
 						return yield* new SandboxRunError({
 							kind: "script-failure",

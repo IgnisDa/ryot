@@ -5,10 +5,9 @@ import { describe, expect, it } from "vitest";
 import { hostCallArgs } from "./host-call-args.test-support";
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import { sandboxMemoryPlan } from "./memory-plan";
+import { sidecarInboundFrames, sidecarOutboundFrames } from "./sidecar-frame-codec.test-support";
 import { makeSidecarFrameReader, makeSidecarFrameWriter } from "./sidecar-framing";
 import {
-	sidecarInboundFrames,
-	sidecarOutboundFrames,
 	SIDECAR_PROTOCOL_LIMITS,
 	SidecarInboundFrame,
 	SidecarProtocolError,
@@ -194,7 +193,7 @@ describe("sidecar framing", () => {
 			maximumBufferedBytes: 4 * 1024 * 1024,
 			onInvalid: (handle, message) => invalid.push({ handle, message }),
 		});
-		for (let seq = 1; seq <= SANDBOX_LIMITS.bridge.concurrentHostCalls + 1; seq++) {
+		for (let seq = 1; seq <= SANDBOX_LIMITS.bridge.outstandingHostCalls; seq++) {
 			feedOutboundFrames(reader, firstPart("bounded", seq));
 		}
 		feedOutboundFrames(reader, firstPart("neighbour", 1));
@@ -233,6 +232,28 @@ describe("sidecar framing", () => {
 			["first", "part", 1],
 			["first", "part", 1],
 		]);
+	});
+
+	it("reader_decodes_frames_fed_in_chunks_that_straddle_headers_and_bodies", () => {
+		const received: OutboundFrame[] = [];
+		const reader = makeSidecarFrameReader({
+			generation: 7,
+			maximumAssemblies: 8,
+			isActive: () => true,
+			onInvalid: () => undefined,
+			maximumBufferedBytes: 2 * 1024 * 1024,
+			onFrame: (frame) => received.push(frame),
+		});
+		const frames: OutboundFrame[] = [
+			{ generation: 7, type: "ready", heapHeadroomBytes: 0 },
+			{ generation: 7, type: "draining", reason: "memory" },
+			hostCallFrame("straddle", 1, "x".repeat(1_000)),
+		];
+		const stream = concatBytes(frames.map((frame) => sidecarOutboundFrames.encode(frame)));
+		for (let offset = 0; offset < stream.byteLength; offset += 3) {
+			reader.feed(stream.subarray(offset, offset + 3));
+		}
+		expect(received).toEqual(frames);
 	});
 
 	it("client_handles_partial_writes_chunk_interleaving_and_desync", () => {

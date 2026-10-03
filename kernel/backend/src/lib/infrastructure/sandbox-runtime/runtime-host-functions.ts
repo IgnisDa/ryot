@@ -1,4 +1,5 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
+import { isJsonValue } from "@ryot-app/contract/schema/json";
 import type { httpCallOptionsSchema } from "@ryot-app/sandbox-sdk/core";
 import { httpCallResponseSchema } from "@ryot-app/sandbox-sdk/core";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
@@ -23,11 +24,11 @@ import {
 	SANDBOX_LIMITS,
 } from "./limits";
 import {
-	isJsonValue,
 	sandboxHostEffect,
 	sandboxHostFailure,
 	sandboxRunUserId,
 	type SandboxHostImplementationMap,
+	type SandboxRunInput,
 } from "./shared";
 import { readSandboxByteLimitedText } from "./stream-utils";
 
@@ -128,7 +129,7 @@ const withManualRedirects = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		),
 	);
 
-export const SANDBOX_HTTP_REDIRECT_HOPS = 5;
+const SANDBOX_HTTP_REDIRECT_HOPS = 5;
 const REDIRECT_STATUSES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 const CREDENTIAL_HEADERS: ReadonlySet<string> = new Set([
 	"cookie",
@@ -145,13 +146,13 @@ const REQUEST_BODY_HEADERS: ReadonlySet<string> = new Set([
 export const SANDBOX_HTTP_REDIRECT_STOPPED_MESSAGE =
 	"httpCall redirect target requires durable rate-limit admission";
 
-export const SandboxHttpRequest = Schema.Struct({
+const SandboxHttpRequest = Schema.Struct({
 	url: Schema.String,
 	method: Schema.String,
 	body: Schema.optional(Schema.String),
 	headers: Schema.Record(Schema.String, Schema.String),
 });
-export type SandboxHttpRequest = typeof SandboxHttpRequest.Type;
+type SandboxHttpRequest = typeof SandboxHttpRequest.Type;
 
 /** A hop the classifier stopped; it stays in the host and never reaches scripts. */
 export const SandboxHttpRedirect = Schema.TaggedStruct("redirected", {
@@ -160,11 +161,11 @@ export const SandboxHttpRedirect = Schema.TaggedStruct("redirected", {
 });
 export type SandboxHttpRedirect = typeof SandboxHttpRedirect.Type;
 
-export const HttpHopResult = Schema.Union([
+const HttpHopResult = Schema.Union([
 	Schema.TaggedStruct("completed", { result: httpCallResponseSchema }),
 	SandboxHttpRedirect,
 ]);
-export type HttpHopResult = typeof HttpHopResult.Type;
+type HttpHopResult = typeof HttpHopResult.Type;
 
 /** `follow` only for a hop proven unmatched by rate-limit policy; `stop` otherwise. */
 export type SandboxHttpClassify = (url: string) => Effect.Effect<"follow" | "stop">;
@@ -307,6 +308,12 @@ export const executeSandboxHttp = (
 		}),
 	);
 
+const cacheScope = (input: SandboxRunInput) =>
+	[sandboxRunUserId(input), input.principal.providerId ?? input.principal.scriptId] as const;
+
+const persistentKey = (input: SandboxRunInput, key: string) =>
+	redisKeys.sandboxCache(...cacheScope(input), key.trim());
+
 export const makeRuntimeSandboxApiFunctions = (
 	classify: SandboxHttpClassify,
 ): Effect.Effect<
@@ -318,8 +325,24 @@ export const makeRuntimeSandboxApiFunctions = (
 		const redis = yield* RedisService;
 		const serverRun = yield* ServerRun;
 		const httpClient = yield* HttpClient.HttpClient;
+		const runKey = (input: SandboxRunInput, key: string) =>
+			redisKeys.sandboxRunCache(serverRun.id, ...cacheScope(input), key.trim());
 
 		return {
+			setCachedValue: (input, key, value, expiry) =>
+				sandboxCacheInputGuard(
+					"setCachedValue",
+					key,
+					() =>
+						encodeSandboxCacheValue("setCachedValue", value).pipe(
+							Effect.flatMap((serialized) =>
+								redis.set(runKey(input, key), serialized, expiry).pipe(Effect.as(null)),
+							),
+							sandboxHostEffect,
+						),
+					expiry,
+					"expiry",
+				),
 			// Inline and live calls cannot wait for admission, so a stopped redirect fails the call.
 			httpCall: (_input, method, url, options) =>
 				prepareSandboxHttpRequest(method, url, options).pipe(
@@ -337,40 +360,9 @@ export const makeRuntimeSandboxApiFunctions = (
 							: sandboxHostFailure(SANDBOX_HTTP_REDIRECT_STOPPED_MESSAGE),
 					),
 				),
-			setCachedValue: (input, key, value, expiry) => {
-				return sandboxCacheInputGuard(
-					"setCachedValue",
-					key,
-					() => {
-						const redisKey = redisKeys.sandboxRunCache(
-							serverRun.id,
-							sandboxRunUserId(input),
-							input.principal.providerId ?? input.principal.scriptId,
-							key.trim(),
-						);
-
-						return encodeSandboxCacheValue("setCachedValue", value).pipe(
-							Effect.flatMap((serialized) =>
-								redis.set(redisKey, serialized, expiry).pipe(Effect.as(null)),
-							),
-							sandboxHostEffect,
-						);
-					},
-					expiry,
-					"expiry",
-				);
-			},
 			getPersistentValue: (input, key) =>
 				sandboxCacheInputGuard("getPersistentValue", key, () =>
-					Effect.uninterruptible(
-						redis.get(
-							redisKeys.sandboxCache(
-								sandboxRunUserId(input),
-								input.principal.providerId ?? input.principal.scriptId,
-								key.trim(),
-							),
-						),
-					).pipe(
+					Effect.uninterruptible(redis.get(persistentKey(input, key))).pipe(
 						Effect.flatMap((stored) =>
 							stored === null
 								? Effect.succeed(null)
@@ -388,16 +380,9 @@ export const makeRuntimeSandboxApiFunctions = (
 						sandboxHostEffect,
 					),
 				),
-			getCachedValue: (input, key) => {
-				return sandboxCacheInputGuard("getCachedValue", key, () => {
-					const redisKey = redisKeys.sandboxRunCache(
-						serverRun.id,
-						sandboxRunUserId(input),
-						input.principal.providerId ?? input.principal.scriptId,
-						key.trim(),
-					);
-
-					return Effect.uninterruptible(redis.get(redisKey)).pipe(
+			getCachedValue: (input, key) =>
+				sandboxCacheInputGuard("getCachedValue", key, () =>
+					Effect.uninterruptible(redis.get(runKey(input, key))).pipe(
 						Effect.flatMap((cached) => {
 							if (cached === null) {
 								return Effect.succeed(null);
@@ -415,19 +400,14 @@ export const makeRuntimeSandboxApiFunctions = (
 							);
 						}),
 						sandboxHostEffect,
-					);
-				});
-			},
-			claimPersistentValue: (input, key, value, ttlSeconds) => {
-				return sandboxCacheInputGuard(
+					),
+				),
+			claimPersistentValue: (input, key, value, ttlSeconds) =>
+				sandboxCacheInputGuard(
 					"claimPersistentValue",
 					key,
 					() => {
-						const redisKey = redisKeys.sandboxCache(
-							sandboxRunUserId(input),
-							input.principal.providerId ?? input.principal.scriptId,
-							key.trim(),
-						);
+						const redisKey = persistentKey(input, key);
 
 						return Effect.gen(function* () {
 							yield* encodeSandboxCacheValue("claimPersistentValue", value);
@@ -443,7 +423,7 @@ export const makeRuntimeSandboxApiFunctions = (
 								try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
 							});
 							if (setResult !== null) {
-								return { claimed: true as const };
+								return { claimed: true } as const;
 							}
 
 							const existing = yield* Effect.uninterruptible(
@@ -458,7 +438,7 @@ export const makeRuntimeSandboxApiFunctions = (
 							return yield* decodePersistentClaimEnvelope(existing).pipe(
 								Effect.map(({ owner, value: storedValue }) =>
 									owner !== null && owner === input.executionId
-										? ({ claimed: true as const } as const)
+										? ({ claimed: true } as const)
 										: ({
 												claimed: false as const,
 												value: isJsonValue(storedValue) ? storedValue : null,
@@ -470,7 +450,6 @@ export const makeRuntimeSandboxApiFunctions = (
 					},
 					ttlSeconds,
 					"TTL",
-				);
-			},
+				),
 		};
 	});

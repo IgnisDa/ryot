@@ -29,9 +29,18 @@ export const ProviderInformation = Schema.Struct({
 
 export type ProviderInformation = Schema.Schema.Type<typeof ProviderInformation>;
 
+export const SandboxScriptKind = Schema.Literals([
+	"script",
+	"operation",
+	"workflow",
+	"provider",
+	"automation",
+]);
+
 export const SandboxScriptMetadata = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
+	kind: Schema.optional(SandboxScriptKind),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	runtimeImports: SandboxExecutionMetadata.fields.runtimeImports,
 	searchOptionsSchema: Schema.optional(Schema.toType(AppSchema)),
@@ -41,9 +50,6 @@ export const SandboxScriptMetadata = Schema.Struct({
 	executableDependencies: Schema.optional(SandboxExecutionMetadata.fields.executableDependencies),
 	optionalPluginConfigKeys: Schema.optional(
 		SandboxExecutionMetadata.fields.optionalPluginConfigKeys,
-	),
-	kind: Schema.optional(
-		Schema.Literals(["script", "operation", "workflow", "provider", "automation"]),
 	),
 	inputProjection: Schema.optional(
 		Schema.Union([AutomationAfterInputProjection, AutomationPolicyInputProjection]),

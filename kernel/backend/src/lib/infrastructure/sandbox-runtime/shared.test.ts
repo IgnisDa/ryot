@@ -18,6 +18,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, PlatformError } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -25,7 +26,6 @@ import type { SandboxExecutionPrincipal } from "./execution-principal";
 import { sandboxHostResultBytes } from "./host-execution-policy";
 import { selectSandboxHostFunctions } from "./service";
 import {
-	isJsonValue,
 	isSandboxCapabilityAllowed,
 	requireSandboxCapabilityInput,
 	sandboxLifecycleCommand,
@@ -60,6 +60,7 @@ const makeRunInput = (
 	compiledFormat: 1,
 	lane: "interactive",
 	executionId: "exec_1",
+	startedAt: "2026-01-01T00:00:00.000Z",
 	principal: {
 		subject,
 		providerId,

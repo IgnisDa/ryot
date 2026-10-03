@@ -36,7 +36,7 @@ import {
 	sandboxGrantPathError,
 	sanitizeSandboxExecutionSegment,
 } from "./filesystem-grants";
-import { SANDBOX_LIMITS } from "./limits";
+import { MiB, SANDBOX_LIMITS } from "./limits";
 import { toSandboxHostError, type SandboxRunInput } from "./shared";
 import {
 	artifactReadRangeArgsSchema,
@@ -63,7 +63,6 @@ const sandboxFailure = (
 	error instanceof SandboxRunError
 		? error
 		: new SandboxRunError({ kind, message: unknownToMessage(error) });
-const hostFailure = (error: unknown): SandboxHostError => toSandboxHostError(error);
 
 type PathSnapshot = {
 	readonly path: string;
@@ -171,12 +170,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 
 					const info = yield* fs
 						.stat(ancestor)
-						.pipe(
-							Effect.mapError(
-								(error) =>
-									new SandboxRunError({ kind: "invalid-input", message: unknownToMessage(error) }),
-							),
-						);
+						.pipe(Effect.mapError((error) => sandboxFailure(error, "invalid-input")));
 					const final = index === ancestors.length - 1;
 					if (final ? info.type !== expectedType : info.type !== "Directory") {
 						return yield* new SandboxRunError({
@@ -210,9 +204,8 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 				}
 				const handle = yield* Effect.acquireRelease(
 					Effect.tryPromise({
+						catch: (error) => sandboxFailure(error, "invalid-input"),
 						try: () => openDescriptor(candidate, constants.O_RDONLY | constants.O_NOFOLLOW),
-						catch: (error) =>
-							new SandboxRunError({ kind: "invalid-input", message: unknownToMessage(error) }),
 					}),
 					(file) =>
 						Effect.tryPromise({ catch: () => undefined, try: () => file.close() }).pipe(
@@ -221,8 +214,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 				);
 				const descriptorInfo = yield* Effect.tryPromise({
 					try: () => handle.stat(),
-					catch: (error) =>
-						new SandboxRunError({ kind: "invalid-input", message: unknownToMessage(error) }),
+					catch: (error) => sandboxFailure(error, "invalid-input"),
 				});
 				const after = yield* inspectPath(candidate, label, "File");
 				if (
@@ -315,7 +307,9 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 				let harvested = false;
 				const quotaFailure = (bytes: number) =>
 					reservedBytes + bytes > SANDBOX_LIMITS.scratch.totalBytes
-						? failedHostRequest("Sandbox scratch write exceeds its 5 MiB quota")
+						? failedHostRequest(
+								`Sandbox scratch write exceeds its ${SANDBOX_LIMITS.scratch.totalBytes / MiB} MiB quota`,
+							)
 						: undefined;
 
 				const removeUpload = Effect.fnUntraced(function* (upload: ScratchUpload) {
@@ -373,7 +367,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 						);
 					}
 					const info = yield* Effect.tryPromise({
-						catch: hostFailure,
+						catch: toSandboxHostError,
 						try: () => pinned.handle.stat(),
 					});
 					if (!info.isFile() || !Number.isSafeInteger(info.size) || info.size < 0) {
@@ -381,7 +375,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 					}
 					const bytes = new Uint8Array(args.length);
 					const read = yield* Effect.tryPromise({
-						catch: hostFailure,
+						catch: toSandboxHostError,
 						try: () => pinned.handle.read(bytes, 0, args.length, args.offset),
 					});
 					if (read.bytesRead < 0 || read.bytesRead > args.length) {
@@ -426,9 +420,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 								let upload = uploads.get(args.name);
 								if (args.offset === 0) {
 									if (upload !== undefined) {
-										yield* removeUpload(upload).pipe(
-											Effect.mapError((error) => hostFailure(error)),
-										);
+										yield* removeUpload(upload).pipe(Effect.mapError(toSandboxHostError));
 									} else {
 										const targetPath = path.join(scratchDirectory, args.name);
 										if ((yield* isSymbolicLink(targetPath)) || (yield* fs.exists(targetPath))) {
@@ -439,7 +431,9 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 									}
 									if (uploads.size >= SANDBOX_LIMITS.scratch.maxEntries) {
 										return yield* Effect.fail(
-											failedHostRequest("Sandbox scratch directory exceeds 4096 entries"),
+											failedHostRequest(
+												`Sandbox scratch directory exceeds ${SANDBOX_LIMITS.scratch.maxEntries} entries`,
+											),
 										);
 									}
 									const quotaExceeded = quotaFailure(decodedBytes);
@@ -482,7 +476,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 								const write = Effect.gen(function* () {
 									const decoded = Base64.decode(args.data);
 									if (Result.isFailure(decoded)) {
-										return yield* Effect.fail(hostFailure(decoded.failure));
+										return yield* Effect.fail(toSandboxHostError(decoded.failure));
 									}
 									const bytes = decoded.success;
 									yield* fs
@@ -490,12 +484,12 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 											mode: 0o600,
 											flag: activeUpload.started ? "a" : "wx",
 										})
-										.pipe(Effect.mapError(hostFailure));
+										.pipe(Effect.mapError(toSandboxHostError));
 									activeUpload.started = true;
 									if (args.final) {
 										const info = yield* fs
 											.stat(activeUpload.temporaryPath)
-											.pipe(Effect.mapError(hostFailure));
+											.pipe(Effect.mapError(toSandboxHostError));
 										if (
 											info.type !== "File" ||
 											Number(info.size) !== activeUpload.bytes ||
@@ -508,7 +502,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 										}
 										yield* fs
 											.rename(activeUpload.temporaryPath, activeUpload.targetPath)
-											.pipe(Effect.mapError(hostFailure));
+											.pipe(Effect.mapError(toSandboxHostError));
 										activeUpload.complete = true;
 									}
 									yield* restore(Effect.yieldNow);
