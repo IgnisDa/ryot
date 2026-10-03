@@ -16,6 +16,7 @@ import {
 	Semaphore,
 } from "effect";
 
+import { AppConfig } from "../config/service";
 import {
 	recordSandboxActiveExecutions,
 	recordSandboxAdmission,
@@ -123,6 +124,8 @@ export type SandboxSidecarRun = {
 	>;
 };
 
+const resident = (key: ProcessKey) => key.tier === "core" && key.instance === `${key.trust}/core`;
+
 const startupError = () =>
 	new SandboxRunError({ kind: "infrastructure", message: "Sandbox sidecar startup failed" });
 
@@ -136,6 +139,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 	"SandboxSidecarSupervisor",
 	{
 		make: Effect.gen(function* () {
+			const config = yield* AppConfig;
 			const client = yield* SandboxSidecarClient;
 			const admission = yield* SandboxSidecarAdmission;
 			const authority = yield* SandboxExecutionAuthority;
@@ -162,11 +166,18 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						message: "Sandbox runtime imports do not match a snapshot",
 					});
 				}
-				return {
-					trust,
-					tier: tier.success,
-					instance: `${trust}/${tier.success}`,
-				} satisfies ProcessKey;
+				const shared = `${trust}/${tier.success}`;
+				if (trust === "system" || !config.sandbox.perUserSidecars) {
+					return { trust, instance: shared, tier: tier.success } satisfies ProcessKey;
+				}
+				const owner = principal.pluginRevision?.ownerId ?? principal.standaloneUploaderId;
+				if (owner === undefined) {
+					return yield* new SandboxRunError({
+						kind: "missing-artifact",
+						message: "Sandbox user-tier execution has no pinned owner",
+					});
+				}
+				return { trust, tier: tier.success, instance: `${shared}/${owner}` } satisfies ProcessKey;
 			});
 			const getInstance = Effect.fnUntraced(function* (key: ProcessKey) {
 				const existing = instances.get(key.instance);
@@ -323,7 +334,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 			) =>
 				closeGeneration(entry, generation, failure).pipe(
 					Effect.andThen(() =>
-						!shuttingDown && entry.key.tier === "core"
+						!shuttingDown && resident(entry.key)
 							? ensure(entry).pipe(
 									Effect.asVoid,
 									Effect.catch(() =>
@@ -564,7 +575,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 										entry.healthyEpoch = crypto.randomUUID();
 									}
 									if (
-										entry.key.tier !== "core" &&
+										!resident(entry.key) &&
 										entry.recovery === undefined &&
 										generation.runs.size === 0 &&
 										entry.waiting === 0 &&
@@ -906,17 +917,26 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				yield* recordSandboxActiveExecutions(executions.activeExecutions);
 				yield* recordSandboxAdmission(admission.snapshot());
 				const now = yield* Clock.currentTimeMillis;
+				const gauges = new Map<string, Parameters<typeof recordSandboxSidecarGauges>[0]>();
 				for (const entry of instances.values()) {
 					const generation = entry.current;
-					yield* recordSandboxSidecarGauges({
-						...entry.key,
-						runs: generation?.runs.size ?? 0,
-						backoffMs: Math.max(0, entry.nextStartAt - now),
-						hostCalls: [...(generation?.runs.values() ?? [])].reduce(
-							(sum, activeRun) => sum + activeRun.pending,
-							0,
-						),
+					const key = `${entry.key.trust}/${entry.key.tier}`;
+					const previous = gauges.get(key);
+					gauges.set(key, {
+						tier: entry.key.tier,
+						trust: entry.key.trust,
+						runs: (previous?.runs ?? 0) + (generation?.runs.size ?? 0),
+						backoffMs: Math.max(previous?.backoffMs ?? 0, entry.nextStartAt - now),
+						hostCalls:
+							(previous?.hostCalls ?? 0) +
+							[...(generation?.runs.values() ?? [])].reduce(
+								(sum, activeRun) => sum + activeRun.pending,
+								0,
+							),
 					});
+				}
+				for (const gauge of gauges.values()) {
+					yield* recordSandboxSidecarGauges(gauge);
 				}
 			});
 			yield* Effect.gen(function* () {

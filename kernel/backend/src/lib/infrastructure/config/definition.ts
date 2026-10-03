@@ -119,6 +119,13 @@ const sandbox = group(
 			description:
 				"Global sandbox execution concurrency across trust and snapshot tiers; keep it within available database and memory headroom",
 		}),
+		perUserSidecars: booleanField({
+			defaultValue: false,
+			label: "Per-user sidecars",
+			envKey: "SANDBOX_PER_USER_SIDECARS",
+			description:
+				"Run each uploader's user-tier scripts in their own sidecar processes instead of shared ones; use when mutually untrusted users share an instance",
+		}),
 		importConcurrency: integerField({
 			defaultValue: 2,
 			label: "Import concurrency",
