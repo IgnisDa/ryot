@@ -732,6 +732,14 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 				) {
 					return;
 				}
+				if (
+					symbol &&
+					analyzedMethods.has(symbol.name) &&
+					symbol.declarations.some((handle) => handle.path.includes("/sandbox-sdk/src/"))
+				) {
+					yield* visit(node);
+					return;
+				}
 				yield* visit(node.expression);
 			}
 			if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
