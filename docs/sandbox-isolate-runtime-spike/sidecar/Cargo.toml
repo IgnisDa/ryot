@@ -1,0 +1,20 @@
+[package]
+name = "sidecar"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+deno_core = { version = "=0.412.0", default-features = false, features = ["v8", "reactor-tokio", "v8_use_custom_libcxx"] }
+deno_web = "=0.290.0"
+deno_webidl = "=0.259.0"
+deno_error = "=0.7.1"
+tokio = { version = "1", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+libc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 4
