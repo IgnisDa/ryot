@@ -107,7 +107,6 @@ it.live("retains the document and bridge across same-composition saved views", (
 			.evaluate((body) => body.setAttribute("data-e2e-runtime", "retained"));
 		const before = requests.length;
 		expect(requests).toContain("/api/client-pages/document");
-		// The second saved view is a router navigation, not a full top-level page load.
 		yield* page
 			.getByTestId("desktop-sidebar")
 			.getByRole("link", { exact: true, name: "Composition second view" })
