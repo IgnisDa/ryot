@@ -90,8 +90,10 @@ displaying kJ multiplies by 4.184. Display preferences never change stored units
 The exact user's Fitness installation owns the flat `userSettingsSchema` preferences: `unitSystem`
 (`metric`), `normalRestTime` (60 seconds), `warmUpRestTime`, `dropRestTime`, and `failureRestTime`
 (0 seconds), `muteSounds` and `promptForRestTimer` (false), `startTimerForDurationExercises` (true),
-and `energyUnit` (`kcal`, with `kJ` also supported). Defaults make an empty record valid; explicit null
-choices are invalid. Reset removes stored choices. These are not kernel preferences or plugin config.
+and `energyUnit` (`kcal`, with `kJ` also supported). `weeklyWorkoutGoal` (1 to 14) is optional with no
+default; missing or null (a cleared field) means not set. Defaults make an empty record valid; other
+explicit null choices are invalid. Reset removes stored choices. These are not kernel preferences or
+plugin config.
 
 The user's `in-fitness-library` relationship owns optional per-exercise rest overrides with the same
 four names and `defaultDurationUnit` (`seconds` or `minutes`). These fields have no defaults. Missing

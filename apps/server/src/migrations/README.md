@@ -63,8 +63,9 @@ remain in the workout's `images` and `videos` fields.
 Fitness settings flatten V1 display units, four set-type rest durations, sound mute, rest prompting,
 duration countdown, and energy unit onto the exact installation. Missing preference blocks use V1
 defaults; unset rests in an existing rest-settings object become zero. Null non-rest choices and
-unsupported values abort active-schema validation. Exercise rest overrides and duration units belong
-to the user-owned `in-fitness-library` relationship, never provider exercise properties. Missing/null
+unsupported values abort active-schema validation. `weeklyWorkoutGoal` has no V1 source and stays
+unset. Exercise rest overrides and duration units belong to the user-owned `in-fitness-library`
+relationship, never provider exercise properties. Missing/null
 overrides remain absent and inherit; stored zero and default-looking values are preserved. Invalid
 exercise overrides abort. Omit `exclude_from_analytics` intentionally; no equivalent behavior exists.
 

@@ -45,6 +45,7 @@ export const WorkoutPreferenceSettingsSchema = Schema.Struct({
 	unitSystem: UnitSystemSchema,
 	promptForRestTimer: Schema.Boolean,
 	startTimerForDurationExercises: Schema.Boolean,
+	weeklyWorkoutGoal: Schema.optional(Schema.NullOr(Schema.Int)),
 });
 
 export type WorkoutRestSettings = typeof WorkoutRestSettingsSchema.Type;
