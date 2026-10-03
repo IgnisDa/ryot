@@ -51,6 +51,7 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 					}
 					const { entry: _entry, ...declared } = script;
 					const {
+						capabilities: _capabilities,
 						requiredPluginConfigKeys: _required,
 						optionalPluginConfigKeys: _optional,
 						oauthConnectionFields: _connections,

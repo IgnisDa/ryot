@@ -9,6 +9,7 @@ import {
 	isRecord,
 	readBridgeResponse,
 	type SandboxLogCollector,
+	type SandboxRunnerError,
 	type SandboxRunnerPayload,
 	throwPhase,
 	validateLimits,
@@ -889,17 +890,10 @@ const writeSuccess = async (
 
 const writeFailure = async (
 	logs: readonly string[],
-	error: {
-		kind: string;
-		phase: string;
-		message: string;
-		line?: number;
-		column?: number;
-		stack?: string;
-	},
+	error: SandboxRunnerError,
 	executionMs: number,
 ) => {
-	const serializedError = `{"kind":${jsonStringify(error.kind)},"phase":${jsonStringify(error.phase)},"message":${jsonStringify(error.message)}${error.line === undefined ? "" : `,"line":${error.line}`}${error.column === undefined ? "" : `,"column":${error.column}`}${error.stack === undefined ? "" : `,"stack":${jsonStringify(error.stack)}`}}`;
+	const serializedError = `{"kind":${jsonStringify(error.kind)},"phase":${jsonStringify(error.phase)},"message":${jsonStringify(error.message)}${error.data === undefined ? "" : `,"data":${jsonStringify(error.data)}`}${error.line === undefined ? "" : `,"line":${error.line}`}${error.column === undefined ? "" : `,"column":${error.column}`}${error.stack === undefined ? "" : `,"stack":${jsonStringify(error.stack)}`}}`;
 	const result = `{"success":false,"logs":${serializeLogs(logs)},"error":${serializedError},"timing":{"executionMs":${executionMs}}}\n`;
 	await writeStdout(encodeText(result));
 };
@@ -1126,6 +1120,7 @@ void (async () => {
 				if (!isRecord(persistedMetadata))
 					return throwPhase("load", "Compiled sandbox dependencies are missing");
 				await Schema.decodeUnknownPromise(SandboxExecutionMetadata)({
+					capabilities: persistedMetadata.capabilities,
 					requiredPluginConfigKeys: persistedMetadata.requiredPluginConfigKeys,
 					optionalPluginConfigKeys: persistedMetadata.optionalPluginConfigKeys,
 					executableDependencies: persistedMetadata.executableDependencies,
