@@ -26,13 +26,23 @@ import { uploadPrivatePluginPackage } from "./temporary-archive";
 
 type TestPluginManifest = PluginManifest;
 type PluginScript = TestPluginManifest["scripts"][number];
+type GeneratedDependencyFields =
+	| "optionalPluginConfigKeys"
+	| "executableDependencies"
+	| "oauthConnectionFields";
+type FixtureScript = PluginScript extends infer Script
+	? Script extends PluginScript
+		? Omit<Script, GeneratedDependencyFields> & Partial<Pick<Script, GeneratedDependencyFields>>
+		: never
+	: never;
 type PluginProvider = TestPluginManifest["providers"][number];
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
 type PluginOperationResult = ContractSuccess<"testSupport", "installSystemPlugin">;
 
 export type TestPluginScript = PluginScript extends infer Script
-	? Script extends { readonly entry: string }
-		? Omit<Script, "entry">
+	? Script extends PluginScript
+		? Omit<Script, "entry" | GeneratedDependencyFields> &
+				Partial<Pick<Script, GeneratedDependencyFields>>
 		: never
 	: never;
 
@@ -42,7 +52,6 @@ type TestPluginManifestInput = Partial<
 		| "crons"
 		| "hooks"
 		| "savedViews"
-		| "scripts"
 		| "workflows"
 		| "operations"
 		| "configSchema"
@@ -54,6 +63,7 @@ type TestPluginManifestInput = Partial<
 		| "integrationProviders"
 	>
 > & {
+	scripts?: ReadonlyArray<FixtureScript>;
 	providers?: ReadonlyArray<PluginProvider>;
 	clientDefinition?: TestPluginManifest["client"];
 	pluginSlug: TestPluginManifest["metadata"]["slug"];
@@ -132,7 +142,6 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	signalSchemas: [],
 	crons: input.crons ?? [],
 	hooks: input.hooks ?? [],
-	scripts: input.scripts ?? [],
 	workflows: input.workflows ?? [],
 	savedViews: input.savedViews ?? [],
 	operations: input.operations ?? [],
@@ -143,6 +152,12 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	httpRateLimits: input.httpRateLimits ?? [],
 	relationshipSchemas: input.relationshipSchemas ?? [],
 	integrationProviders: input.integrationProviders ?? [],
+	scripts: (input.scripts ?? []).map((script) =>
+		Object.assign(
+			{ oauthConnectionFields: [], executableDependencies: [], optionalPluginConfigKeys: [] },
+			script,
+		),
+	),
 	...(input.clientDefinition ? { client: input.clientDefinition } : {}),
 	configSchema: input.configSchema ?? { fields: {}, unknownKeys: "strict" as const },
 	metadata: {
@@ -294,7 +309,7 @@ export const installTestPluginBundle = (
 		pluginSlug?: string;
 		crons?: TestPluginManifest["crons"];
 		hooks?: TestPluginManifest["hooks"];
-		scripts: TestPluginManifest["scripts"];
+		scripts: ReadonlyArray<FixtureScript>;
 		files: Readonly<Record<string, string>>;
 		config?: InstallPluginPayload["config"];
 		providers?: ReadonlyArray<PluginProvider>;
@@ -467,7 +482,13 @@ export const reinstallTestPluginScript = (
 		}
 		const files = { ...installed.files, [target.entry]: encoder.encode(source) };
 		const scripts = [...installed.manifest.scripts];
-		scripts[targetIndex] = { ...script, entry: target.entry };
+		scripts[targetIndex] = {
+			oauthConnectionFields: [],
+			executableDependencies: [],
+			optionalPluginConfigKeys: [],
+			...script,
+			entry: target.entry,
+		};
 		const manifest = { ...installed.manifest, scripts };
 		let operationResult: PluginOperationResult;
 		if (installed.scope === "system") {

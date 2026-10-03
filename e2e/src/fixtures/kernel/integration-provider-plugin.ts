@@ -12,8 +12,8 @@ export const installTestIntegrationProvider = (
 	const providerSlug = `e2e-integration-provider-${suffix}`;
 	const scriptSlug = `integration.e2e-sink-${suffix}`;
 	const entry = `backend/scripts/${scriptSlug}.sandbox.ts`;
-	const workflowEntry = `backend/scripts/workflow.import-${suffix}.sandbox.ts`;
-	const workflowScriptSlug = `workflow.e2e-integration-import-${suffix}`;
+	const workflowEntry = `backend/scripts/workflow.integration-${suffix}.sandbox.ts`;
+	const workflowScriptSlug = `workflow.e2e-integration-${suffix}`;
 	const name = "E2E integration sink";
 	const source = `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
@@ -22,7 +22,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "script",
   capabilities: [],
-  requiredPluginConfigKeys: [],
   name: ${JSON.stringify(name)},
   slug: ${JSON.stringify(scriptSlug)},
 });
@@ -36,25 +35,26 @@ export default defineScript({
 `;
 	const workflowSource = `
 import {
-  genericImportKernelInputSchema,
+  genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
 } from "@ryot-app/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { defineExecutableAlternatives, defineManifest, defineScriptReference, defineWorkflow, Effect, Schema, selectExecutable } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
   capabilities: [],
-  requiredPluginConfigKeys: [],
-  name: "E2E integration import",
+  name: "E2E integration ingestion",
   slug: ${JSON.stringify(workflowScriptSlug)},
 });
 
-const kernelImport = {
-  input: genericImportKernelInputSchema,
-  output: genericImportWorkflowResultSchema,
-  workflowSlug: "kernel:process-import-chunks",
-};
+const adapters = defineExecutableAlternatives({
+  id: "integration-adapter",
+  stage: "settings",
+  references: {
+    ${JSON.stringify(scriptSlug)}: defineScriptReference({ scriptSlug: ${JSON.stringify(scriptSlug)}, input: Schema.Unknown, output: Schema.Unknown }),
+  },
+});
 
 export default defineWorkflow({
   manifest,
@@ -62,21 +62,19 @@ export default defineWorkflow({
   output: genericImportWorkflowResultSchema,
   run: (input, replay) =>
     Effect.gen(function* () {
-      const integrationScriptSlug = input.sourcePayload?.["integrationScriptSlug"];
-      if (typeof integrationScriptSlug !== "string") throw new Error("Missing integration script slug");
+      const integrationScriptSlug = input.plan.selection["integration-adapter"];
+      if (typeof integrationScriptSlug !== "string") throw new Error("Missing integration adapter selection");
       yield* replay.activity(
         "read-integration",
-        { scriptSlug: integrationScriptSlug, input: Schema.Unknown, output: Schema.Unknown },
-        input.sourcePayload?.["integrationContext"] ?? {},
+        selectExecutable(adapters, integrationScriptSlug),
+        {},
       );
-      return yield* replay.child("complete-import", kernelImport, {
-        totalItems: 0,
-        failureCount: 0,
-        chunkHandles: [],
-        writeItemCount: 0,
+      const sealed = yield* replay.child("seal", genericImportSealReference, {
         runId: input.runId,
         command: input.command,
+        operation: { action: "seal" },
       });
+      return { issues: [], summary: sealed.summary };
     }),
 });
 `;
@@ -86,18 +84,7 @@ export default defineWorkflow({
 		scope: "system",
 		baseUrl: options.baseUrl,
 		files: { [entry]: source, [workflowEntry]: workflowSource },
-		workflows: [{ slug: "import", scriptSlug: workflowScriptSlug }],
-		integrationProviders: [
-			{
-				scriptSlug,
-				lot: "sink",
-				settingsSchema,
-				slug: providerSlug,
-				name: "E2E integration provider",
-				description: "E2E dynamically installed integration provider",
-				...(options.requiresProKey !== undefined ? { requiresProKey: options.requiresProKey } : {}),
-			},
-		],
+		workflows: [{ slug: "integration", scriptSlug: workflowScriptSlug }],
 		scripts: [
 			{
 				name,
@@ -113,7 +100,19 @@ export default defineWorkflow({
 				entry: workflowEntry,
 				slug: workflowScriptSlug,
 				requiredPluginConfigKeys: [],
-				name: "E2E integration import",
+				name: "E2E integration ingestion",
+			},
+		],
+		integrationProviders: [
+			{
+				lot: "sink",
+				settingsSchema,
+				slug: providerSlug,
+				scriptSlug: workflowScriptSlug,
+				name: "E2E integration provider",
+				description: "E2E dynamically installed integration provider",
+				plan: { selections: { "integration-adapter": { value: scriptSlug } } },
+				...(options.requiresProKey !== undefined ? { requiresProKey: options.requiresProKey } : {}),
 			},
 		],
 	}).pipe(Effect.map((plugin) => ({ plugin, providerSlug })));

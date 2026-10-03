@@ -131,10 +131,14 @@ describe("Native data JSON imports", () => {
 					],
 				});
 				expect(run).toMatchObject({
-					failedItems: 1,
-					importedItems: 1,
-					processedItems: 2,
 					status: "completed",
+					summary: [
+						{
+							unit: "entities",
+							recordKind: "entity",
+							counts: { created: 0, updated: 0, skipped: 0, unchanged: 1, unsuccessful: 1 },
+						},
+					],
 				});
 				expect(yield* listImportedEntityNames(user.client, matchedSlug)).toEqual([
 					"Provider matched record",
@@ -204,7 +208,26 @@ describe("Native data JSON imports", () => {
 
 			const { run } = yield* startDataJsonImport(user, input);
 			assertCompleted(run, "mixed-schema data JSON import");
-			expect(run).toMatchObject({ failedItems: 0, importedItems: 4, processedItems: 4 });
+			expect(run.summary).toEqual(
+				expect.arrayContaining([
+					{
+						unit: "entities",
+						recordKind: "entity",
+						counts: { created: 2, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 0 },
+					},
+					{
+						unit: "events",
+						recordKind: "event",
+						counts: { created: 1, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 0 },
+					},
+					{
+						unit: "relationships",
+						recordKind: "relationship",
+						counts: { created: 1, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 0 },
+					},
+				]),
+			);
+			expect(run.summary).toHaveLength(3);
 			expect(yield* listImportedEntityNames(user.client, graph.entityA.schemaId)).toEqual([
 				alphaName,
 			]);
@@ -289,10 +312,24 @@ describe("Native data JSON imports", () => {
 					],
 				});
 				assertCompleted(run, "partially failed data JSON import");
-				expect(run).toMatchObject({ failedItems: 2, importedItems: 1, processedItems: 3 });
+				expect(run.summary).toEqual(
+					expect.arrayContaining([
+						{
+							unit: "entities",
+							recordKind: "entity",
+							counts: { created: 1, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
+						},
+						{
+							unit: "events",
+							recordKind: "event",
+							counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
+						},
+					]),
+				);
+				expect(run.summary).toHaveLength(2);
 				const detail = yield* getImportRun(user.client, runId, undefined, 10);
-				expect(detail.failures.items).toHaveLength(2);
-				expect(detail.failures.items.map(({ sourceIdentifier }) => sourceIdentifier)).toEqual(
+				expect(detail.issues.items).toHaveLength(2);
+				expect(detail.issues.items.map(({ data }) => data.attribution?.sourceIdentifier)).toEqual(
 					expect.arrayContaining(["invalid-entity", "dependent-event"]),
 				);
 				expect(yield* listImportedEntityNames(user.client, graph.entityA.schemaId)).toEqual([]);
@@ -329,7 +366,13 @@ describe("Native data JSON imports", () => {
 					],
 				});
 				assertCompleted(duplicate.run, "duplicate-key data JSON import");
-				expect(duplicate.run).toMatchObject({ failedItems: 2, importedItems: 0 });
+				expect(duplicate.run.summary).toEqual([
+					{
+						unit: "entities",
+						recordKind: "entity",
+						counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 2 },
+					},
+				]);
 
 				const unknownReference = yield* startDataJsonImport(user, {
 					events: [],
@@ -345,7 +388,13 @@ describe("Native data JSON imports", () => {
 					],
 				});
 				assertCompleted(unknownReference.run, "unknown-reference data JSON import");
-				expect(unknownReference.run).toMatchObject({ failedItems: 1, importedItems: 0 });
+				expect(unknownReference.run.summary).toEqual([
+					{
+						unit: "entities",
+						recordKind: "entity",
+						counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
+					},
+				]);
 				expect(yield* listImportedEntityNames(user.client, graph.entityA.schemaId)).toEqual([]);
 				expect(yield* listImportedEntityNames(user.client, graph.entityB.schemaId)).toEqual([]);
 			}),
@@ -461,7 +510,13 @@ describe("Native data JSON imports", () => {
 				],
 			});
 			assertCompleted(foreignImport.run, "inaccessible-entity data JSON import");
-			expect(foreignImport.run).toMatchObject({ failedItems: 1, importedItems: 0 });
+			expect(foreignImport.run.summary).toEqual([
+				{
+					unit: "entities",
+					recordKind: "entity",
+					counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
+				},
+			]);
 			expect(yield* listImportedEntityNames(stranger.client, strangerSchema.schemaId)).toEqual([]);
 			expect((yield* getEntity(owner.client, ownedEntity.id)).properties).toEqual(
 				original.properties,
@@ -521,7 +576,13 @@ describe("Native data JSON imports", () => {
 				],
 			});
 			assertCompleted(run, "managed-asset data JSON import");
-			expect(run).toMatchObject({ failedItems: 0, importedItems: 1 });
+			expect(run.summary).toEqual([
+				{
+					unit: "entities",
+					recordKind: "entity",
+					counts: { created: 1, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 0 },
+				},
+			]);
 			const entityId = yield* findEntityId(user.client, schema.schemaId, name);
 			expect((yield* getEntity(user.client, entityId)).properties.attachment).toEqual(locator);
 			const stranger = yield* createAuthenticatedClient();
@@ -550,7 +611,16 @@ describe("Native data JSON imports", () => {
 					},
 				],
 			});
-			expect(foreign.run).toMatchObject({ failedItems: 1, importedItems: 0, status: "completed" });
+			expect(foreign.run).toMatchObject({
+				status: "completed",
+				summary: [
+					{
+						unit: "entities",
+						recordKind: "entity",
+						counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
+					},
+				],
+			});
 			expect(yield* listImportedEntityNames(stranger.client, strangerSchema.schemaId)).toEqual([]);
 		}),
 	);

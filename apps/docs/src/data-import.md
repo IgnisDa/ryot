@@ -116,3 +116,29 @@ Data JSON uses append-only writes through Ryot's normal write paths and lifecycl
 commit incrementally: a failed record does not undo records already committed, and independent
 records can still succeed. Cyclic record dependencies fail the affected records. Check the import
 report for failures and partial results.
+
+## Run reports and recovery
+
+Imports append history and cannot be reversed. A separate import can duplicate activity already
+imported or synced by an integration. Cancelling stops future work; it keeps committed changes.
+Deleting a report removes its diagnostics, not the data it added.
+
+Each activity shows its own unit, completed count, last advancement, and any known wait. A progress
+bar has a percentage only when the exact total is known for that unit. An unknown total is not an
+estimated finish time. Results distinguish created, updated, unchanged, skipped, and unsuccessful
+records. Source reading and provider preparation do not mean user history was saved.
+
+Record issues show warnings and errors with their source record, operation, and reason. Expected
+skips appear in the outcome summary. Use **Download issues** to save the complete issue report,
+including the reason the run stopped. The download does not contain uploaded data or credentials.
+
+Active runs recover automatically after a server restart. Inputs remain available while the run
+needs them. Execution uses its selected plugin and configuration revisions; changing setup does
+not change a run that has already started. Completion, failure, cancellation, or expiry releases
+captured inputs and revision pins. Lightweight summaries and diagnostics remain until report deletion.
+
+For plugin webhooks, a delivery accepted while known setup requirements are missing waits in a
+blocked state. Its report lists the missing prerequisites and a fixed deadline seven days after
+acceptance. It resumes automatically when setup is ready. Rechecking setup does not extend the
+deadline. If it expires, fix setup and send a new delivery. Waiting or expiry alone does not count
+as a continuous integration error. Scheduled integrations wait for readiness before creating a run.
