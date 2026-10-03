@@ -341,7 +341,8 @@ Each slice is approved separately. S3–S6 are outlines until their predecessor 
   - _CI:_ `.github/workflows/sandboxd.yml` triggers on pushes and pull requests touching
     `kernel/sandboxd/**`, the protocol module, `kernel/backend/tooling/**`, `packages/sandbox-sdk/**`,
     `plugins/media/**`, or `plugins/fitness/**`. On `ubuntu-24.04`, `ubuntu-24.04-arm`, and `macos-14`
-    it installs Bun and the pinned Rust toolchain, runs `bun install` and
+    it installs Bun and the pinned Rust toolchain, caches the Cargo registry and compiled dependencies
+    per runner and Rust dependency/toolchain inputs, runs `bun install` and
     `bun turbo build --filter=@ryot-app/kernel-backend --filter=@ryot-app/media-plugin --filter=@ryot-app/fitness-plugin`,
     then runs `cargo test`, with confinement tests on the Linux runners only.
 - **Benchmark:** a script in `kernel/sandboxd/bench/` runs on a fresh 2 vCPU / 4 GB x86_64 host. Its
