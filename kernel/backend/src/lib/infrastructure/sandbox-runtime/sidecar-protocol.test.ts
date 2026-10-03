@@ -32,6 +32,23 @@ const roundTrip = <Frame>(
 ) => codec.decode(bytes).pipe(Effect.map(codec.encode));
 
 layer(BunFileSystem.layer)((test) => {
+	test.effect("done_frames_carry_cpu_wait_in_usage", () =>
+		Effect.gen(function* () {
+			const bytes = sidecarOutboundFrames.encode({
+				seq: 3,
+				type: "done",
+				generation: 7,
+				handle: "wait",
+				outcome: { status: "cancelled" },
+				console: { entries: [], truncated: false },
+				usage: { heapBytes: 1, cpuWaitMs: 37, externalBytes: 2 },
+			});
+			const decoded = yield* sidecarOutboundFrames.decode(bytes);
+			assert(decoded.type === "done");
+			expect(decoded.usage).toEqual({ heapBytes: 1, cpuWaitMs: 37, externalBytes: 2 });
+		}),
+	);
+
 	test.effect("host_call_name_length_matches_utf16_on_both_sides", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;

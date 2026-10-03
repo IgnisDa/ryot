@@ -2,12 +2,14 @@ mod support;
 
 use std::time::Duration;
 
-use ryot_sandboxd::protocol::{DrainReason, Limits, Outbound, Phase, Tier};
+use ryot_sandboxd::protocol::{DrainReason, Inbound, Lane, Limits, Outbound, Outcome, Phase, Tier};
 use serde_json::{Value, json};
 
 const MIB: u64 = 1024 * 1024;
 const BUSY: &str = "export default () => { const start = Date.now(); while (Date.now() - start < 800) {} return 'busy'; }";
 const STARTS: &str = "export default async (_input, host) => host.call('started', null)";
+const BUSY_AFTER_START: &str = "export default async (_input, host) => { await host.call('started', null); const start = Date.now(); while (Date.now() - start < 800) {} return 'busy'; }";
+const INLINE: &str = "export default (_input, host) => host.inlineBatch({ requests: [] })";
 const HOLDS: &str = "export default async (_input, host) => host.call('hold', null)";
 
 fn thread_count(pid: u32) -> usize {
@@ -113,6 +115,126 @@ fn the_cpu_active_cap_queues_excess_runs_but_not_parked_ones() {
         Outbound::HostCall { handle, .. } => assert_eq!(handle, "starts"),
         other => panic!("expected the second run to start alongside the first, got {other:?}"),
     }
+}
+
+fn lane_frame(handle: &str, lane: Lane, source: &str) -> Inbound {
+    let Inbound::Run(mut run) =
+        support::run_frame(handle, Tier::Core, source, Value::Null, support::limits())
+    else {
+        unreachable!("run_frame builds a run");
+    };
+    run.lane = lane;
+    Inbound::Run(run)
+}
+
+fn parked_host_call(sidecar: &mut support::Sidecar, handle: &str) -> u64 {
+    match sidecar.recv() {
+        Outbound::HostCall {
+            handle: call_handle,
+            seq,
+            ..
+        } if call_handle == handle => seq,
+        other => panic!("expected {handle}'s host call, got {other:?}"),
+    }
+}
+
+#[test]
+fn cpu_admission_preserves_lane_priority_on_resume() {
+    let mut sidecar = support::spawn(Tier::Core, &["--max-active", "1", "--threads", "4"]);
+    sidecar.send(&lane_frame("parked", Lane::Interactive, HOLDS));
+    let parked = parked_host_call(&mut sidecar, "parked");
+    sidecar.send(&lane_frame("inline", Lane::Interactive, INLINE));
+    let inline = parked_host_call(&mut sidecar, "inline");
+
+    sidecar.send(&lane_frame("busy", Lane::Background, BUSY_AFTER_START));
+    let started = parked_host_call(&mut sidecar, "busy");
+    sidecar.reply("busy", started, Value::Null);
+    std::thread::sleep(Duration::from_millis(100));
+    for handle in ["queued-1", "queued-2"] {
+        sidecar.send(&lane_frame(
+            handle,
+            Lane::Background,
+            "export default () => 'queued'",
+        ));
+    }
+    std::thread::sleep(Duration::from_millis(100));
+    sidecar.reply("parked", parked, json!("resumed"));
+    sidecar.reply("inline", inline, json!({}));
+
+    let mut finished = Vec::new();
+    while finished.len() < 5 {
+        match sidecar.recv() {
+            Outbound::Done {
+                handle,
+                outcome: Outcome::Completed(_),
+                usage,
+                ..
+            } => finished.push((handle, usage.cpu_wait_ms)),
+            other => panic!("expected a completed run, got {other:?}"),
+        }
+    }
+    let order: Vec<&str> = finished
+        .iter()
+        .map(|(handle, _)| handle.as_str())
+        .filter(|handle| *handle != "busy")
+        .collect();
+    let mut resumed = order[..2].to_vec();
+    resumed.sort_unstable();
+    assert_eq!(
+        resumed,
+        ["inline", "parked"],
+        "queued background runs took the slot before resumed interactive runs: {order:?}"
+    );
+    let mut queued = order[2..].to_vec();
+    queued.sort_unstable();
+    assert_eq!(queued, ["queued-1", "queued-2"]);
+
+    let wait = |handle: &str| {
+        finished
+            .iter()
+            .find(|(finished, _)| finished == handle)
+            .expect("finished run")
+            .1
+    };
+    assert!(wait("busy") < 100, "the first run waited for a slot");
+    for handle in ["queued-1", "queued-2", "parked", "inline"] {
+        assert!(
+            wait(handle) >= 400,
+            "{handle} reported {}ms of CPU wait behind a 800ms run",
+            wait(handle)
+        );
+    }
+    let uncontended = sidecar.execute(Tier::Core, "export default () => 1", Value::Null);
+    assert!(uncontended.usage.cpu_wait_ms < 100);
+
+    sidecar.send(&lane_frame("cancelled", Lane::Interactive, INLINE));
+    let cancelled = parked_host_call(&mut sidecar, "cancelled");
+    sidecar.send(&lane_frame(
+        "busy-again",
+        Lane::Background,
+        BUSY_AFTER_START,
+    ));
+    let started = parked_host_call(&mut sidecar, "busy-again");
+    sidecar.reply("busy-again", started, Value::Null);
+    std::thread::sleep(Duration::from_millis(100));
+    sidecar.reply("cancelled", cancelled, json!({}));
+    std::thread::sleep(Duration::from_millis(100));
+    sidecar.send(&Inbound::Cancel {
+        generation: support::GENERATION,
+        handle: "cancelled".to_owned(),
+    });
+    match sidecar.recv_within(Duration::from_millis(400)) {
+        Some(Outbound::Done {
+            handle,
+            outcome: Outcome::Cancelled,
+            ..
+        }) => assert_eq!(handle, "cancelled"),
+        other => panic!("cancellation did not wake the waiting inline resume: {other:?}"),
+    }
+    assert_eq!(
+        sidecar.finish("busy-again", |_, _| unreachable!()).value(),
+        json!("busy")
+    );
 }
 
 #[test]
