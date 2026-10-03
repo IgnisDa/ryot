@@ -273,13 +273,8 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 								);
 							}
 							const principal = {
+								...pinned,
 								subject: payload.subject,
-								scriptId: pinned.scriptId,
-								metadata: pinned.metadata,
-								providerId: pinned.providerId,
-								scriptSlug: pinned.scriptSlug,
-								contentHash: pinned.contentHash,
-								pluginRevision: pinned.pluginRevision,
 							} satisfies SandboxExecutionPrincipal;
 							if (retain) {
 								yield* retain(principal);
