@@ -1,6 +1,6 @@
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import { isValidIsbn, normalizeIsbn } from "./helpers";
+import { isValidIsbn, normalizeIsbn } from "../lib/isbn";
 import type { ImportEntityRef } from "./schemas";
 
 const Episode = Schema.Struct({

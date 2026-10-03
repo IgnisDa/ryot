@@ -5,6 +5,7 @@ import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import { MediaSandboxError } from "../../lib/failures";
 import { captureIntegrationRecords } from "../artifacts";
+import { httpFailureStatus, integrationRequestFailure } from "../http";
 import { integrationRecordId } from "../identity";
 import { IntegrationArtifactOutput, YankInput } from "../schemas";
 import { executionStartedAt } from "../shared";
@@ -31,20 +32,10 @@ const RecentlyPlayed = Schema.Struct({
 	),
 });
 
-const HttpFailureStatus = Schema.Struct({ data: Schema.Struct({ status: Schema.Finite }) });
-
 const RECENTLY_PLAYED_URL = "https://api.spotify.com/v1/me/player/recently-played?limit=50";
 const LOWER_BOUND_MARGIN_MS = 60 * 60 * 1_000;
 const PLAY_CLAIM_TTL_SECONDS = 30 * 24 * 60 * 60;
 const encodePlayClaimKey = Schema.encodeSync(Schema.fromJsonString(Schema.Array(Schema.String)));
-
-const spotifyRequestFailure = (error: unknown) =>
-	new MediaSandboxError({
-		message: Option.match(Schema.decodeUnknownOption(HttpFailureStatus)(error), {
-			onNone: () => "Spotify recently played request failed",
-			onSome: ({ data }) => `Spotify recently played request returned status ${data.status}`,
-		}),
-	});
 
 type EntityGroup = MediaIntegrationAdapterResult["entityGroups"][number];
 
@@ -79,7 +70,11 @@ const runSpotifyYank = (
 				lowerBound === null ? RECENTLY_PLAYED_URL : `${RECENTLY_PLAYED_URL}&after=${lowerBound}`,
 				{ headers: { Accept: "application/json", Authorization: `Bearer ${accessToken}` } },
 			)
-			.pipe(Effect.mapError(spotifyRequestFailure));
+			.pipe(
+				Effect.mapError((error) =>
+					integrationRequestFailure("Spotify recently played", httpFailureStatus(error)),
+				),
+			);
 		const recentlyPlayed = yield* Schema.decodeEffect(Schema.fromJsonString(RecentlyPlayed))(
 			response.body,
 		).pipe(

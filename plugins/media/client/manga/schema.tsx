@@ -4,7 +4,7 @@ import type {
 	MediaPresentationDataOf,
 	MediaSummaryOf,
 } from "../../shared/media-recipes";
-import { mediaFlatActivityCopy, mediaListStateStatusLabel } from "../media/activity-copy";
+import { mediaFlatActivityCopy, mediaListStateDetail } from "../media/activity-copy";
 import { decimalLabel, mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
@@ -54,21 +54,12 @@ export const mangaProgressLabel = (
 };
 
 export const mangaListStateDetail = (event: MangaListStateSnapshot) => {
-	const listState = event.listState;
-	if (listState === null) {
-		return undefined;
-	}
-	const position = [
-		...(listState.mangaVolume === undefined ? [] : [`Volume ${listState.mangaVolume}`]),
-		...(listState.mangaChapter === undefined
-			? []
-			: [`Chapter ${decimalLabel(listState.mangaChapter)}`]),
-	];
-	return [
-		mediaListStateStatusLabel(listState.state),
-		...position,
-		`Repeat count ${listState.repeatCount}`,
-	].join(" · ");
+	const volume = event.listState?.mangaVolume;
+	const chapter = event.listState?.mangaChapter;
+	return mediaListStateDetail(event.listState, [
+		volume === undefined ? undefined : `Volume ${volume}`,
+		chapter === undefined ? undefined : `Chapter ${decimalLabel(chapter)}`,
+	]);
 };
 
 export const mangaSchema = defineFlatMediaSchema({

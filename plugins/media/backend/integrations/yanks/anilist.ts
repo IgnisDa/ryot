@@ -2,6 +2,7 @@ import { DateTime, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { IsoDateString } from "@ryot-app/sandbox-sdk/ryotql";
 
 import { ListStatePropertiesSchema, type ListStateProperties } from "../../../shared/list-state";
+import { anilistListState } from "../../lib/anilist-list";
 
 const nonNegativeInteger = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 const positiveInteger = Schema.Int.check(Schema.isGreaterThan(0));
@@ -90,24 +91,6 @@ const partialDate = (value: typeof AniListDate.Type | null) => {
 	return Object.keys(date).length ? date : undefined;
 };
 
-const stateForStatus = (status: string): ListStateProperties["state"] | undefined => {
-	switch (status) {
-		case "PLANNING":
-			return "backlog";
-		case "CURRENT":
-		case "REPEATING":
-			return "in_progress";
-		case "COMPLETED":
-			return "complete";
-		case "PAUSED":
-			return "on_hold";
-		case "DROPPED":
-			return "dropped";
-		default:
-			return undefined;
-	}
-};
-
 export const parseAniListEntry = (
 	value: unknown,
 	input: { mediaType: AniListMediaType; sourceAccountId: string },
@@ -117,7 +100,7 @@ export const parseAniListEntry = (
 		return Option.none();
 	}
 	const entry = decoded.value;
-	const state = stateForStatus(entry.status);
+	const state = anilistListState(entry.status);
 	const updatedAt = DateTime.make(entry.updatedAt * 1_000);
 	if (!state || Option.isNone(updatedAt)) {
 		return Option.none();
