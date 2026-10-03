@@ -74,7 +74,7 @@ it.live("does not cancel alerts when navigation replaces an equivalent scope obj
 );
 
 it.live(
-	"restores return shortcuts only for their authenticated scope and clears them explicitly",
+	"restores return shortcuts only for their authenticated scope, hides them on their target, and clears them explicitly",
 	() =>
 		Effect.gen(function* () {
 			let stored: DeviceState = { nextId: 1, alerts: [], shortcuts: [] };
@@ -128,6 +128,7 @@ it.live(
 				<ReturnShortcutBar
 					runtime={restored}
 					safeAreaBottom={16}
+					isCurrent={() => false}
 					scope={{ ...scope, userId: "user-2" }}
 					onNavigate={(to) => navigations.push(to)}
 				/>,
@@ -139,6 +140,17 @@ it.live(
 						scope={scope}
 						runtime={restored}
 						safeAreaBottom={16}
+						onNavigate={(to) => navigations.push(to)}
+						isCurrent={(current) => current.kind === "plugin-route" && current.path === "/editor"}
+					/>,
+				);
+				expect(view.queryByRole("button", { name: "Resume workout" })).toBeNull();
+				view.rerender(
+					<ReturnShortcutBar
+						scope={scope}
+						runtime={restored}
+						safeAreaBottom={16}
+						isCurrent={() => false}
 						onNavigate={(to) => navigations.push(to)}
 					/>,
 				);

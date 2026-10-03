@@ -40,11 +40,14 @@ export function ReturnShortcutBar(props: {
 	readonly scope: ApiScope;
 	readonly runtime: DeviceRuntime;
 	readonly safeAreaBottom: number;
+	readonly isCurrent: (target: PluginNavigationTarget) => boolean;
 	readonly onNavigate: (target: PluginNavigationTarget) => void;
 }) {
 	const service = props.runtime.runSync(DeviceService);
 	const shortcuts = useSyncExternalStore(service.subscribe, service.shortcuts, service.shortcuts);
-	const scoped = shortcuts.filter((shortcut) => shortcut.scope === apiScopeKey(props.scope));
+	const scoped = shortcuts.filter(
+		(shortcut) => shortcut.scope === apiScopeKey(props.scope) && !props.isCurrent(shortcut.target),
+	);
 	return scoped.length === 0 ? null : (
 		<aside
 			aria-label="Return shortcuts"

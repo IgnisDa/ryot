@@ -12,9 +12,10 @@ type SoundSource = Pick<
 	AudioBufferSourceNode,
 	"buffer" | "disconnect" | "start" | "stop" | "addEventListener"
 >;
-type SoundContext = Pick<AudioContext, "state" | "resume" | "close" | "decodeAudioData"> & {
-	createBufferSource: () => SoundSource;
-};
+type SoundContext = Pick<
+	AudioContext,
+	"state" | "resume" | "close" | "suspend" | "decodeAudioData"
+> & { createBufferSource: () => SoundSource };
 
 // oxlint-disable-next-line effecttsgo/async-function -- Browser asset-fetch boundary; the plugin Effect surface does not expose HttpClient.
 const loadSound = async (source: string) => {
@@ -31,6 +32,7 @@ export const createWorkoutEditorSounds = (
 		return {
 			close: () => context.close(),
 			resume: () => context.resume(),
+			suspend: () => context.suspend(),
 			get state() {
 				return context.state;
 			},
@@ -97,6 +99,7 @@ export const createWorkoutEditorSounds = (
 					return false;
 				}
 				const decoded = buffer;
+				const services = yield* Effect.context();
 				return yield* Effect.try(() => {
 					const source = current.createBufferSource();
 					source.buffer = decoded;
@@ -105,6 +108,11 @@ export const createWorkoutEditorSounds = (
 						() => {
 							sources.delete(source);
 							source.disconnect();
+							if (sources.size === 0 && !isDisposed()) {
+								Effect.runForkWith(services)(
+									Effect.tryPromise(() => current.suspend()).pipe(Effect.ignore),
+								);
+							}
 						},
 						{ once: true },
 					);
