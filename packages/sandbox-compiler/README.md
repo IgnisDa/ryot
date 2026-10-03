@@ -1,8 +1,8 @@
 # Sandbox Compiler
 
-`@ryot-app/sandbox-compiler` compiles backend TypeScript into format-1 Deno ESM. It owns sandbox
+`@ryot-app/sandbox-compiler` compiles backend TypeScript into format-1 sandbox ESM. It owns sandbox
 source policy, manifest extraction, workflow checks, compiler limits, and sandbox diagnostics. It
-uses `@ryot-app/vite-compiler` for the complete Deno ESM build profile and scoped workspace.
+uses `@ryot-app/vite-compiler` for the complete Sandbox ESM build profile and scoped workspace.
 
 ## Public Entrypoints And Callers
 
@@ -18,7 +18,7 @@ uses `@ryot-app/vite-compiler` for the complete Deno ESM build profile and scope
 
 Compile functions require `FileSystem` and `ViteBuildService`; callers provide
 `sandboxCompilerPlatformLayer` at their entrypoint. Standalone user scripts enter through `./worker`. Built-ins and plugin manifest scripts use the same
-semantic and Vite Deno build stages, but retain their separate public APIs and metadata checks.
+semantic and Vite Sandbox ESM build stages, but retain their separate public APIs and metadata checks.
 
 ## Build Pipeline
 
@@ -67,13 +67,13 @@ metadata, and analysis-limit failures.
 
 A build acquires a scoped workspace through `@ryot-app/vite-compiler` and stages the package under
 `source/`. A workspace may use the supervisor's `parentPath` and `jobId`, and its scope removes the
-workspace. A standalone user script builds its single entry with `buildDenoEsm`; built-ins and plugin
-manifests build every validated entry of one package with `buildDenoEsmPackage`, which stages the
+workspace. A standalone user script builds its single entry with `buildSandboxEsm`; built-ins and plugin
+manifests build every validated entry of one package with `buildSandboxEsmPackage`, which stages the
 package once and reuses that workspace for each entry.
 
-The shared Deno profile emits exactly one `sandbox.mjs` module as unminified ES2022 ESM with an inline
+The shared Sandbox ESM profile emits exactly one `sandbox.mjs` module as unminified ES2022 ESM with an inline
 source map and no CSS, module preload, or code splitting. Runner and trusted runtime generation use
-the same `buildDenoEsm` API with their own output filenames.
+the same `buildSandboxEsm` API with their own output filenames.
 
 Plugin archives contain compiled backend entries and emitted client assets, not authoring source files
 or compiled `script.source`. Retained source maps preserve authored paths and line mappings but omit
@@ -118,7 +118,7 @@ diagnostics into its public diagnostic model and enforces the compiled-size limi
 ## Host, Supervision, And Limits
 
 Bun is used for the worker host, dependency resolution, filesystem Layer, and worker packaging. The
-compiled sandbox module is not a Bun artifact; it executes in Deno.
+compiled sandbox module executes in a fresh V8 isolate inside `ryot-sandboxd`.
 
 The parent supervisor creates a UUID job directory, passes its path and job ID to the worker, and
 removes that directory with scoped acquire/use/release cleanup after success, failure, cancellation,

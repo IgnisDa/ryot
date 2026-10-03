@@ -5,8 +5,6 @@ export class SandboxRuntimeBuildError extends Data.TaggedError("SandboxRuntimeBu
 	readonly message: string;
 }> {}
 
-export const SANDBOX_DENO_VERSION = "2.9.7";
-
 const PackageManifest = Schema.fromJsonString(
 	Schema.Struct({ name: Schema.String, version: Schema.optional(Schema.String) }),
 );
@@ -66,13 +64,16 @@ export const resolveSandboxRuntimeRegistry = (resolveFrom: string) =>
 							message: `Could not resolve trusted entry ${entry.sdkImport}: ${String(cause)}`,
 						}),
 				});
-				const packageEntrypoint = yield* Effect.try({
-					try: () => Bun.resolveSync(entry.packageName, sdkDirectory),
-					catch: (cause) =>
-						new SandboxRuntimeBuildError({
-							message: `Could not resolve trusted package ${entry.packageName}: ${String(cause)}`,
-						}),
-				});
+				const packageEntrypoint =
+					entry.packageName === "@ryot-app/sandbox-sdk"
+						? entrypoint
+						: yield* Effect.try({
+								try: () => Bun.resolveSync(entry.packageName, sdkDirectory),
+								catch: (cause) =>
+									new SandboxRuntimeBuildError({
+										message: `Could not resolve trusted package ${entry.packageName}: ${String(cause)}`,
+									}),
+							});
 				const packageDirectory = dependencyPackage.manifestPath.slice(
 					0,
 					dependencyPackage.manifestPath.lastIndexOf("/"),

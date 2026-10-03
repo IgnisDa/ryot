@@ -76,7 +76,19 @@ export const sandboxRuntimeInputs = (
 		const options = { limits, budget };
 		const workspaceRoot = path.resolve(kernelDirectory, "../..");
 		const sources: Record<string, string> = {
-			...(yield* walkSourceFiles(sandboxRuntimeDirectory, workspaceRoot, sandboxSource, options)),
+			...(yield* walkSourceFiles(
+				sandboxRuntimeDirectory,
+				workspaceRoot,
+				(file) =>
+					[
+						"isolate-invocation.ts",
+						"isolate-bootstrap.ts",
+						"isolate-utilities.ts",
+						"limits.ts",
+						"sidecar-protocol.ts",
+					].some((name) => file.endsWith(`/${name}`)),
+				options,
+			)),
 			...(yield* walkSourceFiles(
 				path.join(kernelDirectory, "src/modules/definition-registry/kernel-scripts"),
 				workspaceRoot,
@@ -111,7 +123,6 @@ export const sandboxRuntimeInputs = (
 			path.join(workspaceRoot, "package.json"),
 			path.join(workspaceRoot, "bun.lock"),
 			path.join(kernelDirectory, "package.json"),
-			path.join(kernelDirectory, "src/lib/infrastructure/sandbox-runtime/payload.ts"),
 			...packageDirectories.map((directory) => path.join(directory, "package.json")),
 		]) {
 			sources[relativeTo(file)] = yield* readSourceWithin(file, limits, budget);

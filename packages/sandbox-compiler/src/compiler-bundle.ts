@@ -2,10 +2,10 @@ import {
 	SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS,
 	SANDBOX_SDK_IMPORTS,
 } from "@ryot-app/sandbox-sdk/imports";
-import { buildDenoEsm, buildDenoEsmPackage } from "@ryot-app/vite-compiler";
+import { buildSandboxEsm, buildSandboxEsmPackage } from "@ryot-app/vite-compiler";
 import type {
 	CompilerWorkspaceOptions,
-	DenoEsmBuildResult,
+	SandboxEsmBuildResult,
 	ViteCompilerError,
 	ViteDiagnostic,
 } from "@ryot-app/vite-compiler";
@@ -28,15 +28,15 @@ const bundledSdkImports = SANDBOX_SDK_IMPORTS.filter(
 const sandboxDiagnosticMessage = (message: string) =>
 	message
 		.replace(
-			"Deno ESM output contains a forbidden runtime helper:",
+			"Sandbox ESM output contains a forbidden runtime helper:",
 			"Compiled JavaScript contains a forbidden CommonJS, Bun, or browser helper:",
 		)
 		.replace(
-			"Deno ESM output contains a forbidden runtime import:",
+			"Sandbox ESM output contains a forbidden runtime import:",
 			"Compiled JavaScript contains a forbidden runtime import:",
 		)
 		.replace(
-			"Deno ESM output contains an unapproved external import:",
+			"Sandbox ESM output contains an unapproved external import:",
 			"Compiled JavaScript contains an unknown external import:",
 		);
 
@@ -84,18 +84,21 @@ const bundleFailure = (error: ViteCompilerError) =>
 	);
 
 const compiledJavaScript = (
-	build: DenoEsmBuildResult,
-): Effect.Effect<string, SandboxCompilerFailure> =>
+	build: SandboxEsmBuildResult,
+): Effect.Effect<
+	Pick<SandboxEsmBuildResult, "javascript" | "runtimeImports">,
+	SandboxCompilerFailure
+> =>
 	build.diagnostics.some(({ severity }) => severity === "error")
 		? sandboxCompilationFailure(build.diagnostics.map(toBuildDiagnostic))
-		: Effect.succeed(build.javascript);
+		: Effect.succeed({ javascript: build.javascript, runtimeImports: build.runtimeImports });
 
 export const bundleUserScript = (
 	source: string,
 	sdkEntries: Readonly<Record<string, string>>,
 	workspaceOptions: CompilerWorkspaceOptions = {},
 ) =>
-	buildDenoEsm({
+	buildSandboxEsm({
 		outputFile,
 		workspaceOptions,
 		entry: SANDBOX_SOURCE_FILE,
@@ -111,7 +114,7 @@ export const bundleSandboxPackage = (
 	concurrency: number,
 	workspaceOptions: CompilerWorkspaceOptions = {},
 ) =>
-	buildDenoEsmPackage({
+	buildSandboxEsmPackage({
 		entries,
 		outputFile,
 		concurrency,
@@ -124,7 +127,11 @@ export const bundleSandboxPackage = (
 		Effect.flatMap((modules) =>
 			Effect.forEach(modules, (module) =>
 				compiledJavaScript(module).pipe(
-					Effect.map((javascript) => ({ javascript, entry: module.entry })),
+					Effect.map(({ javascript, runtimeImports }) => ({
+						javascript,
+						runtimeImports,
+						entry: module.entry,
+					})),
 				),
 			),
 		),

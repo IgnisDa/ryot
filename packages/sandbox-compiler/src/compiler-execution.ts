@@ -18,6 +18,8 @@ import {
 } from "./compiler-diagnostics";
 import { SANDBOX_COMPILER_LIMITS } from "./limits";
 
+type SandboxSourceExecutionMetadata = Omit<SandboxExecutionMetadata, "runtimeImports">;
+
 const checkerQuery = <A>(call: () => Promise<A>) => Effect.tryPromise(call);
 
 const children = (node: ts.Node) => {
@@ -825,7 +827,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 				executableDependencies: [...unique.entries()]
 					.sort(([left], [right]) => left.localeCompare(right))
 					.map(([, dependency]) => dependency),
-			} satisfies SandboxExecutionMetadata,
+			} satisfies SandboxSourceExecutionMetadata,
 		};
 	});
 };

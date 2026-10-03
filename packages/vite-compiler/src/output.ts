@@ -1,9 +1,5 @@
-// Vite output MIME inference uses the emitted file's native extension synchronously.
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { extname } from "node:path";
-
 import { encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
-import { Predicate, Result } from "effect";
+import { type Path, Predicate, Result } from "effect";
 
 import { viteCompilerError } from "./error";
 import type { ViteCompilerError } from "./error";
@@ -38,10 +34,8 @@ const contentTypes: Readonly<Record<string, string>> = {
 	".json": "application/json; charset=utf-8",
 };
 
-const inferContentType = (path: string) =>
-	contentTypes[extname(path).toLowerCase()] ?? "application/octet-stream";
-
 export const collectViteOutputs = (
+	paths: Path.Path,
 	result: unknown,
 ): Result.Result<readonly CollectedViteFile[], ViteCompilerError> => {
 	const outputs = Array.isArray(result) ? result : [result];
@@ -92,7 +86,11 @@ export const collectViteOutputs = (
 					viteCompilerError("invalid-output", `Vite emitted invalid executable text: ${path}`),
 				);
 			}
-			files.push({ path, bytes, contentType: inferContentType(path) });
+			files.push({
+				path,
+				bytes,
+				contentType: contentTypes[paths.extname(path).toLowerCase()] ?? "application/octet-stream",
+			});
 		}
 	}
 	files.sort(({ path: left }, { path: right }) => {

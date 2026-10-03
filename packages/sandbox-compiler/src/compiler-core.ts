@@ -83,7 +83,7 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 				sandboxCompilerDiagnostic("RYOT_DEFINITION", definitionMismatch),
 			]);
 		}
-		const manifest = { ...extracted.manifest, ...project.execution.metadata };
+		const manifest = { ...extracted.manifest, ...project.execution.metadata, runtimeImports: [] };
 		const capabilityDiagnostic = validateCompiledSandboxManifest(manifest);
 		if (capabilityDiagnostic) {
 			return yield* sandboxCompilationFailure([capabilityDiagnostic]);
@@ -99,8 +99,8 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 			]);
 		}
 
-		const javascript = yield* bundleUserScript(source, dependencies.sdkEntries, workspaceOptions);
-		if (utf8ByteLength(javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
+		const compiled = yield* bundleUserScript(source, dependencies.sdkEntries, workspaceOptions);
+		if (utf8ByteLength(compiled.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
 			return yield* sandboxCompilationFailure([
 				sandboxCompilerDiagnostic(
 					"RYOT_COMPILED_SIZE",
@@ -108,10 +108,26 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 				),
 			]);
 		}
+		const finalManifest = { ...manifest, runtimeImports: compiled.runtimeImports };
+		const finalManifestDiagnostic = validateCompiledSandboxManifest(finalManifest);
+		if (finalManifestDiagnostic) {
+			return yield* sandboxCompilationFailure([finalManifestDiagnostic]);
+		}
+		if (
+			(jsonByteLength(finalManifest) ?? Number.POSITIVE_INFINITY) >
+			SANDBOX_COMPILER_LIMITS.manifestBytes
+		) {
+			return yield* sandboxCompilationFailure([
+				sandboxCompilerDiagnostic(
+					"RYOT_MANIFEST_SIZE",
+					`Sandbox manifest exceeds ${SANDBOX_COMPILER_LIMITS.manifestBytes} UTF-8 bytes`,
+				),
+			]);
+		}
 
 		return {
-			manifest,
-			javascript,
+			manifest: finalManifest,
+			javascript: compiled.javascript,
 			format: SANDBOX_COMPILED_FORMAT,
 		} satisfies CompiledSandboxModule;
 	});

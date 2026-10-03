@@ -1,7 +1,3 @@
-// Vite entries use native paths; emitted module references use POSIX URL paths.
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { posix, resolve } from "node:path";
-
 import {
 	clientArtifactFile,
 	clientArtifactMetadata,
@@ -16,7 +12,7 @@ import {
 	stageGeneratedFiles,
 } from "@ryot-app/vite-compiler";
 import tailwindcss from "@tailwindcss/vite";
-import { Effect } from "effect";
+import { Effect, Path } from "effect";
 
 import {
 	CLIENT_DEPENDENCY_SPECIFIERS,
@@ -151,16 +147,17 @@ if (descriptorValue.application === "page") {
 }
 `;
 
-const localReferencePath = (from: string, reference: string) => {
+const localReferencePath = (paths: Path.Path, from: string, reference: string) => {
 	const target = referencePath(reference);
 	if (target.startsWith("/")) {
 		return undefined;
 	}
-	const path = posix.normalize(posix.join(posix.dirname(from), target));
+	const path = paths.join(paths.dirname(from), target).split(paths.sep).join("/");
 	return path === ".." || path.startsWith("../") ? undefined : path;
 };
 
 const validateOutputReferences = (
+	paths: Path.Path,
 	files: readonly {
 		readonly path: string;
 		readonly bytes: Uint8Array;
@@ -189,7 +186,7 @@ const validateOutputReferences = (
 			if (!reference || isExternalReference(reference)) {
 				continue;
 			}
-			const path = localReferencePath(file.path, reference);
+			const path = localReferencePath(paths, file.path, reference);
 			if (path === undefined || !filesByName.has(path)) {
 				return `Emitted file "${file.path}" references missing or escaping path "${reference}"`;
 			}
@@ -213,6 +210,7 @@ const validateOutputReferences = (
 };
 
 export const buildClientRuntime = Effect.gen(function* () {
+	const path = yield* Path.Path;
 	const dependencies = yield* resolveClientPluginCompilerDependencies;
 	const workspace = yield* acquireCompilerWorkspace({ parentPath: dependencies.compilerRoot }).pipe(
 		Effect.mapError((error) => failure(error.message)),
@@ -265,10 +263,10 @@ export const buildClientRuntime = Effect.gen(function* () {
 					input: Object.fromEntries([
 						...CLIENT_DEPENDENCY_SPECIFIERS.map((_, index) => [
 							String(index),
-							resolve(workspace.generatedPath, `entries/entry-${index}.ts`),
+							path.resolve(workspace.generatedPath, `entries/entry-${index}.ts`),
 						]),
-						["bootstrap", resolve(workspace.generatedPath, "bootstrap.ts")],
-						["styles", resolve(workspace.generatedPath, RUNTIME_STYLESHEET)],
+						["bootstrap", path.resolve(workspace.generatedPath, "bootstrap.ts")],
+						["styles", path.resolve(workspace.generatedPath, RUNTIME_STYLESHEET)],
 					]),
 				},
 			},
@@ -311,7 +309,7 @@ export const buildClientRuntime = Effect.gen(function* () {
 		return yield* failure("Vite did not emit the client runtime stylesheet");
 	}
 	const missingReference = yield* Effect.try({
-		try: () => validateOutputReferences(bundled.files),
+		try: () => validateOutputReferences(path, bundled.files),
 		catch: () => failure("Client runtime emitted invalid text or syntax"),
 	});
 	if (missingReference) {
