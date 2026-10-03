@@ -1,14 +1,13 @@
 # Server Tooling
 
-`build.ts` compiles native smoke fixtures and bundles `src/main.ts` and `prepare-sandbox-runtime.ts` into `dist/`, inlining
+`build.ts` writes the native smoke fixtures to `dist/`, bundles `src/main.ts` and `prepare-sandbox-runtime.ts` there, and inlines
 `RYOT_VERSION` and `UNKEY_ROOT_KEY`. `version.ts` resolves the version from `RYOT_VERSION`, falling
 back to `git describe --tags --always --dirty`; `apps/server/dev.ts` passes the same value to the
 unbundled server.
 
 `assemble.ts` copies the archives named in `shipped-plugins.json`, verifies their client artifact
 hashes, compiles the client runtime and kernel renderers, and writes `plugins/client-image.json`.
-It also copies the canonical native executable, launcher, snapshots, and manifest to `sandboxd/`
-and generates the precompiled smoke fixtures in `dist/`.
+It also copies the canonical native executable, launcher, and snapshots to `sandboxd/`.
 Run it with `bun run assemble` from `apps/server`; its output matches the `/home/ryot` image layout.
 
 `prepare-sandbox-runtime.ts` is bundled into `dist/prepare-sandbox-runtime.js`. During image creation it

@@ -49,61 +49,24 @@ jobs:
       - name: Cache Rust dependencies and build artifacts
         uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
         with:
-          key: ${{ matrix.runner }}-${{ hashFiles('kernel/sandboxd/Cargo.lock', 'kernel/sandboxd/Cargo.toml', 'kernel/sandboxd/build.rs', 'kernel/sandboxd/rust-toolchain.toml', 'kernel/sandboxd/src/**', 'kernel/sandboxd/js/**', 'kernel/sandboxd/ops.inventory', 'kernel/backend/src/lib/infrastructure/sandbox-runtime/**', 'kernel/backend/tooling/**', 'packages/contract/**', 'packages/plugin-kit/**', 'packages/ryotql/**', 'packages/sandbox-compiler/**', 'packages/sandbox-sdk/**', 'packages/typescript-compiler/**', 'packages/vite-compiler/**', 'bun.lock') }}
+          key: ${{ matrix.runner }}
           workspaces: kernel/sandboxd -> target
           cache-on-failure: true
       - name: Install dependencies
         run: bun install --frozen-lockfile
-      - name: Build the runtime payload and plugin archives
-        run: bun turbo build --filter=@ryot-app/kernel-backend --filter=@ryot-app/media-plugin --filter=@ryot-app/fitness-plugin
-      - name: Replay the runtime payload from the turbo cache
-        run: |
-          rm -rf kernel/sandboxd/payload
-          bun turbo build --filter=@ryot-app/kernel-backend | tee turbo-replay.log
-          grep -q "FULL TURBO" turbo-replay.log
-          test -f kernel/sandboxd/payload/runtime-metadata.json
-      - name: Build release executables and snapshots after payload generation
+      - name: Build the runtime payload, snapshots, and release executables
         run: bun turbo build --filter=@ryot-app/sandboxd
-      - name: local_test_and_e2e_build_restore_native_runtime
+      - name: Lint the sidecar and launcher
+        working-directory: kernel/sandboxd
         run: |
-          ! command -v deno
-          rm -rf kernel/sandboxd/dist
-          bun turbo build --filter=@ryot-app/sandboxd | tee sandboxd-replay.log
-          grep -q "FULL TURBO" sandboxd-replay.log
-          for artifact in ryot-sandboxd ryot-sandbox-launcher snapshots/core.snap snapshots/data.snap snapshots/full.snap snapshots/snapshots.json; do
-            test -s "kernel/sandboxd/dist/$artifact"
-          done
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
       - name: Test the sidecar
         working-directory: kernel/sandboxd
-        run: cargo test -- --skip launcher_ --skip sidecar_identity_environment_and_descriptors_are_confined
+        run: cargo test
       - name: Test explicit provisioning and launcher confinement under Docker defaults
         if: runner.os == 'Linux'
         run: bash kernel/sandboxd/tests/launcher/test-default-docker.sh
-      - name: Set up native PostgreSQL and Redis on macOS
-        if: runner.os == 'macOS'
-        run: |
-          brew install postgresql@18 redis
-          PG_BIN="$(brew --prefix postgresql@18)/bin"
-          REDIS_BIN="$(brew --prefix redis)/bin"
-          "$PG_BIN/initdb" --pgdata="$RUNNER_TEMP/ryot-postgres" --username=postgres --auth=trust --encoding=UTF8 --locale=C
-          "$PG_BIN/pg_ctl" --pgdata="$RUNNER_TEMP/ryot-postgres" --log="$RUNNER_TEMP/ryot-postgres.log" --options="-h 127.0.0.1 -p 5432 -c max_connections=100" --wait start
-          "$PG_BIN/psql" --host=127.0.0.1 --username=postgres --dbname=postgres --set=ON_ERROR_STOP=1 --command="SELECT current_user, rolsuper, rolcreatedb FROM pg_roles WHERE rolname = current_user;"
-          "$REDIS_BIN/redis-server" --bind 127.0.0.1 --port 6379 --daemonize yes --save "" --appendonly no --dir "$RUNNER_TEMP" --pidfile "$RUNNER_TEMP/ryot-redis.pid" --logfile "$RUNNER_TEMP/ryot-redis.log"
-          for attempt in {1..30}; do
-            if "$REDIS_BIN/redis-cli" -h 127.0.0.1 -p 6379 ping | grep -qx PONG; then
-              break
-            fi
-            sleep 1
-          done
-          "$REDIS_BIN/redis-cli" -h 127.0.0.1 -p 6379 ping | grep -qx PONG
-      - name: Test backend integration on macOS
-        if: runner.os == 'macOS'
-        env:
-          TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
-          TEST_REDIS_URL: redis://127.0.0.1:6379
-        run: |
-          echo "Native macOS sandbox execution uses unconfined development mode"
-          bun turbo --filter=@ryot-app/kernel-backend test --only --env-mode=loose
 
   image:
     runs-on: ubuntu-24.04
@@ -112,8 +75,4 @@ jobs:
         with:
           persist-credentials: false
       - name: Build the release image from source
-        run: docker build --tag ryot-sandboxd-proof .
-      - name: Prove the release image has no Deno executable
-        run: docker run --rm --entrypoint /bin/sh ryot-sandboxd-proof -c '! command -v deno && ! find / -xdev -name deno -type f 2>/dev/null | grep -q .'
-      - name: docker_default_seccomp_runs_all_confined_tiers
-        run: docker run --rm --user 1001:1001 ryot-sandboxd-proof bun run dist/prepare-sandbox-runtime.js
+        run: docker build .

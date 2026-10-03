@@ -32,11 +32,11 @@ clears the environment and other descriptors, sets `oom_score_adj` 1000, drops t
 executes the fixed installed sidecar and snapshots. `ryot-sandbox-launcher terminate <pid>` kills
 only a direct child of the caller that matches its root-owned launch attestation, through a pidfd.
 
-`tests/launcher/provision.sh <launcher> <sidecar> <snapshots>` installs the release artifacts at the
-fixed paths and creates the 1001/1002 accounts; the image and Linux test setups run it as root.
+`provision.sh <launcher> <sidecar> <snapshots>` installs the release artifacts at the fixed paths and
+creates the 1001/1002 accounts; the image and Linux test setups run it as root.
 `tests/launcher/test-default-docker.sh` builds and runs the launcher suite as root under Docker's
-default seccomp profile; plain `cargo test` must skip the launcher tests
-(`--skip launcher_ --skip sidecar_identity_environment_and_descriptors_are_confined`).
+default seccomp profile. The root-only launcher tests are `#[ignore]`d, so plain `cargo test` skips
+them and the script runs them with `--ignored`.
 
 ## Protocol
 

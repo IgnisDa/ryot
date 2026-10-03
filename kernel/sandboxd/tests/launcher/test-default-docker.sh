@@ -12,15 +12,12 @@ docker run --rm \
 	bash -euo pipefail -c '
 		export CARGO_TARGET_DIR=/tmp/ryot-sandboxd-launcher-target
 		cargo build --release --bins
-		rustup component add clippy
-		cargo clippy --all-targets -- -D warnings
 		cargo test --bin ryot-sandbox-launcher -- --test-threads=1
-		cargo test --test launcher --no-run
 		artifacts=/tmp/ryot-sandboxd-launcher-dist
 		cargo run --release --bin ryot-sandbox-artifacts -- "$artifacts"
-		/workspace/kernel/sandboxd/tests/launcher/provision.sh \
+		/workspace/kernel/sandboxd/provision.sh \
 			"$artifacts/ryot-sandbox-launcher" \
 			"$artifacts/ryot-sandboxd" \
 			"$artifacts/snapshots"
-		cargo test --test launcher -- --test-threads=1 --nocapture
+		cargo test --test launcher -- --ignored --test-threads=1 --nocapture
 	'

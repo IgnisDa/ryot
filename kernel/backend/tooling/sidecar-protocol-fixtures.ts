@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { Data, Effect, FileSystem, Layer, Path } from "effect";
+import { Data, Effect, FileSystem, Path } from "effect";
 
 import {
 	SIDECAR_PROTOCOL_LIMITS,
@@ -286,5 +286,6 @@ const program = Effect.gen(function* () {
 });
 
 BunRuntime.runMain(
-	Effect.scoped(Layer.build(Layer.effectDiscard(program).pipe(Layer.provide(BunServices.layer)))),
+	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The protocol fixture generator is a command-line entrypoint
+	program.pipe(Effect.provide(BunServices.layer)),
 );

@@ -272,6 +272,14 @@ S2, when workflow-engine rows become the dominant per-import cost.
 - Fan-out reduction track after S2.
 - Switch the user tier to per-user sidecars if a deployment hosts mutually untrusted users.
 
+## Retained for S3–S5, eligible for cleanup
+
+These scripts stay until the later slices no longer need them: `kernel/sandboxd/bench/import.py`,
+`e2e/vitest.benchmark.config.ts`, `e2e/benchmark-global-setup.ts`,
+`e2e/src/api/plugins/media/imports/media-population-benchmark.test.ts`,
+`apps/server/tooling/prepare-sandbox-runtime.ts` with its smoke fixtures, and
+`docs/sandbox-isolate-runtime-spike/{scripts,workloads,sidecar}`.
+
 ## Open Risks
 
 - **V8 termination:** depends on `--no-turbofan` until upstream fixes the hole; the backstop covers

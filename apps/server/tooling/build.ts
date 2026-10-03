@@ -1,9 +1,10 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { Config, Effect, Layer, Schema } from "effect";
 
-import { SandboxSmokeFixturesBuildLive } from "./build-sandbox-smoke-fixtures";
+import { buildSandboxSmokeFixtures } from "./build-sandbox-smoke-fixtures";
 import { resolveVersion } from "./version";
 
 const serverRoot = Bun.fileURLToPath(new URL("..", import.meta.url));
@@ -11,7 +12,7 @@ const serverRoot = Bun.fileURLToPath(new URL("..", import.meta.url));
 const encodeStringLiteral = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
 
 const build = Effect.gen(function* () {
-	yield* Effect.scoped(Layer.build(SandboxSmokeFixturesBuildLive));
+	yield* buildSandboxSmokeFixtures;
 	const version = yield* encodeStringLiteral(yield* resolveVersion);
 	const unkeyRootKey = yield* encodeStringLiteral(
 		yield* Config.String("UNKEY_ROOT_KEY").pipe(Config.withDefault("")),
@@ -41,5 +42,5 @@ const build = Effect.gen(function* () {
 
 BunRuntime.runMain(
 	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The server build is a command-line entrypoint
-	build.pipe(Effect.provide(BunServices.layer)),
+	build.pipe(Effect.provide(Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer))),
 );

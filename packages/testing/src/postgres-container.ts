@@ -17,6 +17,13 @@ export class PostgresContainerError extends Data.TaggedError("PostgresContainerE
 	readonly message: string;
 }> {}
 
+const platformLayer = Layer.merge(BunFileSystem.layer, BunPath.layer);
+
+const withPlatform = <A, E>(effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>) =>
+	Effect.scoped(
+		Layer.build(platformLayer).pipe(Effect.flatMap((context) => Effect.provide(effect, context))),
+	);
+
 const containerError = (message: string, cause: unknown) =>
 	new PostgresContainerError({ cause, message });
 
@@ -26,9 +33,6 @@ export const startPostgresContainerEffect = (input: { label: string; maxConnecti
 		const fs = yield* FileSystem.FileSystem;
 		const context = yield* Effect.context();
 		const logPath = path.join(tmpdir(), `ryot-${input.label}-postgres-${process.pid}.log`);
-		yield* fs
-			.writeFile(logPath, new Uint8Array())
-			.pipe(Effect.mapError((cause) => containerError("Could not create PostgreSQL logs", cause)));
 		let logFiber: Fiber.Fiber<void, PostgresContainerError> | undefined;
 		const container = yield* Effect.tryPromise({
 			catch: (cause) => containerError("Could not start PostgreSQL container", cause),
@@ -55,7 +59,7 @@ export const startPostgresContainerEffect = (input: { label: string; maxConnecti
 							Stream.fromAsyncIterable<Uint8Array, PostgresContainerError>(stream, (cause) =>
 								containerError("Could not read PostgreSQL logs", cause),
 							).pipe(
-								Stream.runForEach((chunk) => fs.writeFile(logPath, chunk, { flag: "a" })),
+								Stream.run(fs.sink(logPath)),
 								Effect.mapError((cause) =>
 									containerError("Could not write PostgreSQL logs", cause),
 								),
@@ -91,14 +95,7 @@ export const stopPostgresContainerEffect = (started?: StartedPostgresContainer) 
 
 // The E2E fixture consumes the test infrastructure through a Promise API.
 export const startPostgresContainer = (input: { label: string; maxConnections?: number }) =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const context = yield* Layer.build(Layer.merge(BunFileSystem.layer, BunPath.layer));
-				return yield* startPostgresContainerEffect(input).pipe(Effect.provide(context));
-			}),
-		),
-	);
+	Effect.runPromise(withPlatform(startPostgresContainerEffect(input)));
 export const stopPostgresContainer = (started?: StartedPostgresContainer) =>
 	Effect.runPromise(stopPostgresContainerEffect(started));
 
@@ -112,22 +109,18 @@ export const postgresGlobalSetup =
 		}
 
 		return Effect.runPromise(
-			Effect.scoped(
-				Effect.gen(function* () {
-					const context = yield* Layer.build(Layer.merge(BunFileSystem.layer, BunPath.layer));
-					const postgres = yield* startPostgresContainerEffect(input).pipe(
-						Effect.provide(context),
-						Effect.mapError((cause) =>
-							containerError(
-								`Could not start PostgreSQL for the ${input.label} suite. Start a container runtime (a non-default socket needs DOCKER_HOST and TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE in the package's .env, as in e2e/.env), or point TEST_DATABASE_URL at a running instance (bun run docker:up).`,
-								cause,
-							),
+			Effect.gen(function* () {
+				const postgres = yield* withPlatform(startPostgresContainerEffect(input)).pipe(
+					Effect.mapError((cause) =>
+						containerError(
+							`Could not start PostgreSQL for the ${input.label} suite. Start a container runtime (a non-default socket needs DOCKER_HOST and TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE in the package's .env, as in e2e/.env), or point TEST_DATABASE_URL at a running instance (bun run docker:up).`,
+							cause,
 						),
-					);
-					provide("databaseUrl", postgres.url);
-					yield* Effect.logInfo(`PostgreSQL logs: ${postgres.logPath}`);
-					return () => stopPostgresContainer(postgres);
-				}),
-			),
+					),
+				);
+				provide("databaseUrl", postgres.url);
+				yield* Effect.logInfo(`PostgreSQL logs: ${postgres.logPath}`);
+				return () => stopPostgresContainer(postgres);
+			}),
 		);
 	};

@@ -208,7 +208,12 @@ fn probe_child(mode: &str) -> ChildGuard {
     let executable = std::env::current_exe().expect("launcher test executable");
     let mut command = Command::new(executable);
     command
-        .args(["--exact", "launcher_identity_probe_child", "--nocapture"])
+        .args([
+            "--exact",
+            "launcher_identity_probe_child",
+            "--ignored",
+            "--nocapture",
+        ])
         .env_clear()
         .env(PROBE, mode)
         .stdin(Stdio::piped())
@@ -251,6 +256,7 @@ fn alter_record(record: &str, key: &str) -> String {
 }
 
 #[test]
+#[ignore = "requires root and the provisioned launcher; run with --ignored"]
 fn launcher_rejects_untrusted_callers_paths_and_descriptors() {
     setup();
 
@@ -356,6 +362,7 @@ fn launcher_rejects_untrusted_callers_paths_and_descriptors() {
 }
 
 #[test]
+#[ignore = "requires root and the provisioned launcher; run with --ignored"]
 fn launcher_termination_is_bound_to_caller_child_identity_and_pidfd() {
     setup();
     let mut child = probe_child("identity");
@@ -394,6 +401,7 @@ fn launcher_termination_is_bound_to_caller_child_identity_and_pidfd() {
 }
 
 #[test]
+#[ignore = "requires root and the provisioned launcher; run with --ignored"]
 fn sidecar_identity_environment_and_descriptors_are_confined() {
     setup();
     for trust in ["system", "user"] {
@@ -412,6 +420,7 @@ fn sidecar_identity_environment_and_descriptors_are_confined() {
 }
 
 #[test]
+#[ignore = "probe child spawned by the launcher tests"]
 fn launcher_identity_probe_child() {
     let Ok(mode) = std::env::var(PROBE) else {
         return;
@@ -610,6 +619,7 @@ fn launcher_identity_probe_child() {
             .args([
                 "--exact",
                 "launcher_foreign_parent_probe_child",
+                "--ignored",
                 "--nocapture",
             ])
             .env_clear()
@@ -688,6 +698,7 @@ fn launcher_identity_probe_child() {
 }
 
 #[test]
+#[ignore = "probe child spawned by the launcher tests"]
 fn launcher_foreign_parent_probe_child() {
     if std::env::var(PROBE).ok().as_deref() != Some("foreign") {
         return;

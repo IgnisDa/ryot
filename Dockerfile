@@ -45,7 +45,7 @@ FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 COPY --from=backend-builder /app/kernel/sandboxd/dist /tmp/ryot-sandboxd
-COPY kernel/sandboxd/tests/launcher/provision.sh /tmp/provision-sandboxd.sh
+COPY kernel/sandboxd/provision.sh /tmp/provision-sandboxd.sh
 RUN bash /tmp/provision-sandboxd.sh \
     /tmp/ryot-sandboxd/ryot-sandbox-launcher \
     /tmp/ryot-sandboxd/ryot-sandboxd \

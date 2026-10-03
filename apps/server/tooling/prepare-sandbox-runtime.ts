@@ -24,7 +24,17 @@ import { SandboxSidecarQuarantine } from "@ryot-app/kernel-backend/lib/infrastru
 import { SandboxSidecarSupervisor } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-supervisor";
 import { ServerRun } from "@ryot-app/kernel-backend/lib/infrastructure/server-run";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
-import { ConfigProvider, Context, Crypto, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import {
+	ConfigProvider,
+	Context,
+	Crypto,
+	Data,
+	Effect,
+	FileSystem,
+	Layer,
+	Path,
+	Schema,
+} from "effect";
 import { Hex } from "effect/encoding";
 
 import {
@@ -49,12 +59,18 @@ const SmokeOutput = Schema.Struct({
 	hostValue: Schema.Literal(smokeHostCallValue),
 });
 
-const configEnvironmentKey = (field: { readonly envKey?: string | undefined }) => {
-	if (field.envKey === undefined) {
-		throw new Error("Smoke configuration field has no canonical environment key");
-	}
-	return field.envKey;
-};
+class SandboxSmokeConfigError extends Data.TaggedError("SandboxSmokeConfigError")<{
+	readonly message: string;
+}> {}
+
+const configEnvironmentKey = (field: { readonly envKey?: string | undefined }) =>
+	field.envKey === undefined
+		? Effect.fail(
+				new SandboxSmokeConfigError({
+					message: "Smoke configuration field has no canonical environment key",
+				}),
+			)
+		: Effect.succeed(field.envKey);
 
 const SandboxSmokeConfigProviderLive = Layer.effectContext(
 	Effect.gen(function* () {
@@ -63,14 +79,17 @@ const SandboxSmokeConfigProviderLive = Layer.effectContext(
 		const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-native-sandbox-smoke-" });
 		const workDirectory = path.join(root, "work");
 		yield* fs.makeDirectory(workDirectory, { recursive: true });
+		const [redisUrlKey, localTempDirKey, adminAccessTokenKey, databaseUrlKey] = yield* Effect.all([
+			configEnvironmentKey(appConfigDefinition.fields.redisUrl),
+			configEnvironmentKey(appConfigDefinition.fields.fileStorage.fields.localTempDir),
+			configEnvironmentKey(appConfigDefinition.fields.server.fields.adminAccessToken),
+			configEnvironmentKey(appConfigDefinition.fields.database.fields.url),
+		]);
 		const values = {
-			[configEnvironmentKey(appConfigDefinition.fields.redisUrl)]: "redis://127.0.0.1:6379",
-			[configEnvironmentKey(appConfigDefinition.fields.fileStorage.fields.localTempDir)]:
-				workDirectory,
-			[configEnvironmentKey(appConfigDefinition.fields.server.fields.adminAccessToken)]:
-				"sandbox-smoke-build-placeholder",
-			[configEnvironmentKey(appConfigDefinition.fields.database.fields.url)]:
-				"postgres://sandbox-smoke:sandbox-smoke@127.0.0.1:5432/sandbox-smoke",
+			[localTempDirKey]: workDirectory,
+			[redisUrlKey]: "redis://127.0.0.1:6379",
+			[adminAccessTokenKey]: "sandbox-smoke-build-placeholder",
+			[databaseUrlKey]: "postgres://sandbox-smoke:sandbox-smoke@127.0.0.1:5432/sandbox-smoke",
 		};
 		return Context.make(ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown(values));
 	}),
@@ -80,18 +99,11 @@ const AppConfigSmokeLive = AppConfig.layer.pipe(Layer.provideMerge(SandboxSmokeC
 
 const ServerRunSmokeLive = Layer.succeed(ServerRun, { id: "production-runtime-smoke" });
 
-const trustedPrincipals = new Map<
-	string,
-	{ readonly contentHash: string; readonly trust: SmokeTrust }
->();
+const trustedPrincipals = new Map<string, SmokeTrust>();
 
 const encodePrincipal = Schema.encodeSync(Schema.fromJsonString(SandboxExecutionPrincipal));
-const resolveTrustedPrincipal = (principal: SandboxExecutionPrincipal) => {
-	const trusted = trustedPrincipals.get(encodePrincipal(principal));
-	return trusted !== undefined && trusted.contentHash === principal.contentHash
-		? trusted
-		: undefined;
-};
+const resolveTrustedPrincipal = (principal: SandboxExecutionPrincipal) =>
+	trustedPrincipals.get(encodePrincipal(principal));
 
 const invalidSmokePrincipal = () =>
 	new SandboxRunError({
@@ -102,22 +114,19 @@ const invalidSmokePrincipal = () =>
 const SandboxExecutionAuthoritySmokeLive = Layer.succeed(SandboxExecutionAuthority, {
 	resolve: (principal) => {
 		const trusted = resolveTrustedPrincipal(principal);
-		return trusted === undefined
-			? Effect.fail(invalidSmokePrincipal())
-			: Effect.succeed(trusted.trust);
+		return trusted === undefined ? Effect.fail(invalidSmokePrincipal()) : Effect.succeed(trusted);
 	},
 });
 
 const SandboxSidecarQuarantineSmokeLive = Layer.succeed(SandboxSidecarQuarantine, {
 	open: (principal, trust) => {
-		const fixture = resolveTrustedPrincipal(principal);
-		if (fixture === undefined || fixture.trust !== trust) {
+		if (resolveTrustedPrincipal(principal) !== trust) {
 			return Effect.fail(invalidSmokePrincipal());
 		}
 		return Effect.succeed({
 			probation: false,
 			survived: Effect.void,
-			identities: [`smoke:${fixture.contentHash}`],
+			identities: [`smoke:${principal.contentHash}`],
 			recordCrash: Effect.fail(
 				new SandboxRunError({
 					kind: "infrastructure",
@@ -236,12 +245,7 @@ const smoke = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const supervisor = yield* SandboxSidecarSupervisor;
 	const fixturesPath = yield* path.fromFileUrl(
-		new URL(
-			import.meta.url.endsWith(".ts")
-				? "../dist/sandbox-smoke-fixtures.json"
-				: "./sandbox-smoke-fixtures.json",
-			import.meta.url,
-		),
+		new URL("./sandbox-smoke-fixtures.json", import.meta.url),
 	);
 	const compiledByTier = yield* fs.readFileString(fixturesPath).pipe(
 		Effect.flatMap(Schema.decodeEffect(SandboxSmokeFixturesJson)),
@@ -253,23 +257,6 @@ const smoke = Effect.gen(function* () {
 				}),
 		),
 	);
-
-	for (const tier of smokeTiers) {
-		const compiled = compiledByTier[tier];
-		const compiledFormat: number = compiled.format;
-		if (
-			compiledFormat !== SANDBOX_COMPILED_FORMAT ||
-			compiled.manifest.kind !== smokeSourceManifest.kind ||
-			compiled.manifest.name !== smokeSourceManifest.name ||
-			compiled.manifest.slug !== smokeSourceManifest.slug ||
-			!compiled.manifest.capabilities.includes("getCachedValue")
-		) {
-			return yield* new SandboxRunError({
-				kind: "missing-artifact",
-				message: "Compiled smoke fixture does not match its authored format-1 manifest",
-			});
-		}
-	}
 
 	const fixtures: Array<{
 		readonly trust: SmokeTrust;
@@ -312,7 +299,7 @@ const smoke = Effect.gen(function* () {
 						}),
 				),
 			);
-			trustedPrincipals.set(encodePrincipal(principal), { trust, contentHash });
+			trustedPrincipals.set(encodePrincipal(principal), trust);
 			fixtures.push({ trust, principal, expectedTier: tier, compiledCode: compiled.javascript });
 		}
 	}
@@ -428,5 +415,6 @@ const smoke = Effect.gen(function* () {
 }).pipe(Effect.withSpan("production-native-sandbox-smoke"));
 
 BunRuntime.runMain(
-	Effect.scoped(Layer.build(Layer.effectDiscard(smoke).pipe(Layer.provide(RuntimeSmokeLive)))),
+	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The native sandbox smoke is a command-line entrypoint
+	smoke.pipe(Effect.provide(RuntimeSmokeLive)),
 );

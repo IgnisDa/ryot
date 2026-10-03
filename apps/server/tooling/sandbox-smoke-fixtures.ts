@@ -14,7 +14,20 @@ export const smokeTiers = ["core", "data", "full"] as const;
 
 const CompiledSmokeDefinition = Schema.Struct({
 	...CompilerWorkerResponse.members[0].fields.value.fields,
-	manifest: SandboxScriptManifest,
+	manifest: Schema.Struct({
+		...SandboxScriptManifest.members[0].fields,
+		name: Schema.Literal(smokeSourceManifest.name),
+		slug: Schema.Literal(smokeSourceManifest.slug),
+		capabilities: Schema.Array(Schema.String).pipe(
+			Schema.check(
+				Schema.makeFilter(
+					(capabilities) =>
+						capabilities.includes("getCachedValue") ||
+						"Smoke fixtures must declare the getCachedValue capability",
+				),
+			),
+		),
+	}),
 });
 
 export const SandboxSmokeFixturesJson = Schema.fromJsonString(
