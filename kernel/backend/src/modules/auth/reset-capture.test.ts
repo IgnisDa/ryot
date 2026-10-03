@@ -7,11 +7,14 @@ import { captureResetLink, deliverResetLink, type ResetCaptureTransport } from "
 
 const email = "owner@example.test";
 const frontendUrl = "https://ryot.example";
+const userId = "user-1";
 
 const harness = () => {
 	const pending = new Map<string, string>();
 	const listeners = new Set<(id: string, message: string) => void>();
 	const subscriptions = new Set<string>();
+	const tracked = new Map<string, string>();
+	const revoked: Array<string> = [];
 	let closed = 0;
 	let failSubscription = false;
 	const transport: ResetCaptureTransport = {
@@ -39,6 +42,15 @@ const harness = () => {
 				}
 				pending.delete(address);
 			}),
+		track: (address, id, owner, token) =>
+			Effect.sync(() => {
+				if (pending.get(address) !== id) {
+					return { tracked: false, previous: null };
+				}
+				const previous = tracked.get(owner) ?? null;
+				tracked.set(owner, token);
+				return { previous, tracked: true };
+			}),
 		subscriber: () => ({
 			quit: () =>
 				Effect.sync(() => {
@@ -64,6 +76,8 @@ const harness = () => {
 	};
 	return {
 		pending,
+		tracked,
+		revoked,
 		transport,
 		listeners,
 		subscriptions,
@@ -71,6 +85,10 @@ const harness = () => {
 		failSubscription: () => {
 			failSubscription = true;
 		},
+		revokeToken: (token: string) =>
+			Effect.sync(() => {
+				revoked.push(token);
+			}),
 	};
 };
 
@@ -89,10 +107,12 @@ it.effect("subscribes before initiation and releases resources after capture", (
 			return Effect.runPromiseWith(runtime)(
 				deliverResetLink({
 					email,
+					userId,
 					request,
 					frontendUrl,
 					token: "token",
 					transport: state.transport,
+					revokeToken: state.revokeToken,
 				}).pipe(Effect.as(new Response(null, { status: 200 }))),
 			);
 		});
@@ -145,10 +165,12 @@ it.effect("times out an old request without sending its late token into a newer 
 					Effect.andThen(
 						deliverResetLink({
 							email,
+							userId,
 							request,
 							frontendUrl,
 							token: "old",
 							transport: state.transport,
+							revokeToken: state.revokeToken,
 						}),
 					),
 					Effect.as(new Response(null)),
@@ -166,10 +188,12 @@ it.effect("times out an old request without sending its late token into a newer 
 			Effect.runPromiseWith(runtime)(
 				deliverResetLink({
 					email,
+					userId,
 					frontendUrl,
 					token: "old",
 					request: oldRequest,
 					transport: state.transport,
+					revokeToken: state.revokeToken,
 				}).pipe(
 					Effect.tap(() =>
 						Effect.sync(() => {
@@ -179,10 +203,12 @@ it.effect("times out an old request without sending its late token into a newer 
 					Effect.andThen(
 						deliverResetLink({
 							email,
+							userId,
 							request,
 							frontendUrl,
 							token: "new",
 							transport: state.transport,
+							revokeToken: state.revokeToken,
 						}),
 					),
 					Effect.as(new Response(null)),
@@ -191,6 +217,8 @@ it.effect("times out an old request without sending its late token into a newer 
 		).pipe(Effect.forkChild);
 		yield* Deferred.succeed(finish, undefined);
 		expect((yield* Fiber.join(second)).resetUrl).toContain("new");
+		expect(state.tracked.get(userId)).toBe("new");
+		expect(state.revoked).toEqual([]);
 		expect(state.pending.size).toBe(0);
 		expect(state.closed()).toBe(2);
 	}),
@@ -214,11 +242,13 @@ it.effect("interrupts a pending capture and allows a different email concurrentl
 			(request) =>
 				Effect.runPromiseWith(runtime)(
 					deliverResetLink({
+						userId,
 						request,
 						frontendUrl,
 						token: "other",
 						transport: state.transport,
 						email: "other@example.test",
+						revokeToken: state.revokeToken,
 					}).pipe(Effect.as(new Response(null))),
 				),
 			"other@example.test",
@@ -247,16 +277,21 @@ it.effect(
 				return Effect.runPromiseWith(runtime)(Effect.never);
 			}).pipe(Effect.forkChild);
 			yield* Deferred.await(started);
+			state.tracked.set(userId, "issued");
 			yield* deliverResetLink({
 				email,
+				userId,
 				frontendUrl,
 				token: "external",
 				transport: state.transport,
+				revokeToken: state.revokeToken,
 				request: new Request(frontendUrl, {
 					headers: { "x-ryot-reset-capture-id": "unreserved-id" },
 				}),
 			});
 			expect(state.pending.get(email)).toBe("replacement-id");
+			expect(state.tracked.get(userId)).toBe("issued");
+			expect(state.revoked).toEqual([]);
 			yield* Fiber.interrupt(captureFiber);
 			expect(state.pending.get(email)).toBe("replacement-id");
 			expect(state.listeners.size).toBe(0);

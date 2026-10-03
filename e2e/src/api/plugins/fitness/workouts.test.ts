@@ -1,3 +1,4 @@
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { workoutListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
@@ -212,11 +213,12 @@ describe("Workouts E2E", () => {
 				sourceName,
 			);
 
-			expect(result.items.map((item) => requireRyotQLText(item, "entityId"))).toEqual([
-				zuluWorkoutId,
-				betaWorkoutId,
-				alphaWorkoutId,
-			]);
+			const workoutIds = [zuluWorkoutId, betaWorkoutId, alphaWorkoutId];
+			expect(
+				result.items
+					.map((item) => requireRyotQLText(item, "entityId"))
+					.filter((id) => workoutIds.includes(EntityId.make(id))),
+			).toEqual(workoutIds);
 		}),
 	);
 

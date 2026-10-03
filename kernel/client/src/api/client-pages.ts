@@ -10,6 +10,8 @@ export class ClientPagesApi extends Context.Service<ClientPagesApi>()("ClientPag
 		return {
 			prepare: (scope: ApiScope, request: ContractRequest<"clientPages", "prepare">) =>
 				api.run(scope, (client) => client.clientPages.prepare(request)),
+			document: (scope: ApiScope, request: ContractRequest<"clientPages", "document">) =>
+				api.run(scope, (client) => client.clientPages.document(request)),
 			checkFreshness: (
 				scope: ApiScope,
 				request: ContractRequest<"clientPages", "checkFreshness">,

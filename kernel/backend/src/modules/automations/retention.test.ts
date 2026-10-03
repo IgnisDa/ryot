@@ -8,8 +8,8 @@ import { describe } from "vitest";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
+import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 import { revisionDatabaseLayer } from "#modules/plugins/revision.test-support";
-import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationRetention } from "./retention";

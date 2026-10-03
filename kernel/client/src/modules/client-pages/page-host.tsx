@@ -4,10 +4,12 @@ import { RyotClientError } from "@ryot-app/client-sdk";
 import { useRyot } from "@ryot-app/client-sdk/react";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router";
 import { Effect, Match } from "effect";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { ClientPagesApi } from "#/api/client-pages";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
@@ -16,6 +18,7 @@ import {
 	usePublishedClientPageDocument,
 } from "#/modules/client-pages/document";
 import { ClientPageFreshness } from "#/modules/client-pages/freshness";
+import { renderClientDocument } from "#/modules/client-pages/srcdoc";
 import { EntityInterestService, type WatchEntities } from "#/modules/entity-interest/service";
 import { useScreenLeadingControl } from "#/modules/navigation/app-screen";
 import {
@@ -67,9 +70,6 @@ export function mergePageSearch(current: string, update: PluginPageSearchUpdate)
 	}
 	return next.toString();
 }
-
-export const documentGrantSrc = (scope: ApiScope, src: string) =>
-	new URL(src, `${scope.serverUrl}/`).toString();
 
 const documentOwner = ({ context, identity }: PreparedClientPage) => {
 	const documentId = "savedViewId" in identity ? identity.savedViewId : "";
@@ -365,7 +365,8 @@ export function ClientPageDocumentHost() {
 			{activeEntry ? (
 				<ClientPageTitle title={publishedTitle ?? activeEntry.document.title} />
 			) : null}
-			{[...entries.values()].map((frameEntry) => {
+			{/* Moving an iframe in the DOM reloads it, so surviving frames keep a fixed order. */}
+			{sortBy([...entries.values()], (frameEntry) => frameEntry.key).map((frameEntry) => {
 				const active = frameEntry.key === displayedKey;
 				return (
 					<div
@@ -503,16 +504,18 @@ function ClientPageFrame(props: {
 			onStorage={(request) =>
 				props.runtime.runSync(PluginStorage).outcome(props.scope, identity.contributors, request)
 			}
-			documentGrant={{
-				...props.document.prepared.composition.documentGrant,
-				src: documentGrantSrc(props.scope, props.document.prepared.composition.documentGrant.src),
-			}}
 			onNavigate={(request) =>
 				void navigate({
 					href: request.href,
 					replace: request.replace,
 					state: (current) => ({ ...current, ryotEntryKey: crypto.randomUUID() }),
 				})
+			}
+			onLoadDocument={() =>
+				props.runtime
+					.runSync(ClientPagesApi)
+					.document(props.scope, { payload: { identity } })
+					.pipe(Effect.map((document) => renderClientDocument(document, props.scope.serverUrl)))
 			}
 			onPageSearch={({ mode, update }) => {
 				const nextSearch = mergePageSearch(props.location.searchStr, update);

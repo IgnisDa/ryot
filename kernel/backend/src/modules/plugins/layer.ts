@@ -1,8 +1,8 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { Effect, Layer } from "effect";
 
-import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { ScriptGarbageCollectorLive } from "#modules/garbage-collection/layer";
 import { IngestionRetirementLive } from "#modules/imports/layer";
 import { IngestionRetirement } from "#modules/imports/retirement-service";
 import {
@@ -30,7 +30,6 @@ import {
 	PluginInstallationLifecycleDispatcherLive,
 } from "./installation-workflow";
 import { PluginRepository } from "./repository";
-import { ScriptGarbageCollector } from "./script-garbage-collector";
 import { PluginIngestionService } from "./service";
 import { SystemPlugins } from "./system";
 
@@ -46,10 +45,6 @@ export const PluginIngestionLockLive = PluginIngestionLock.layer.pipe(
 			PluginRevisionActivationLive,
 		),
 	),
-);
-
-export const ScriptGarbageCollectorLive = ScriptGarbageCollector.layer.pipe(
-	Layer.provide(Layer.merge(PluginRepository.layer, PackageCacheManager.layer)),
 );
 
 export const PluginInvalidationSubscriberLive = PluginInvalidationSubscriber.layer.pipe(
