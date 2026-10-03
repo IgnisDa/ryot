@@ -343,7 +343,9 @@ const occurrenceFields = (occurrence: WorkoutEditorOccurrence) => ({
 	images: occurrence.images,
 	clientId: occurrence.clientId,
 	exerciseId: occurrence.exerciseId,
-	sourceExerciseOrder: occurrence.sourceExerciseOrder,
+	...(occurrence.sourceExerciseOrder === undefined
+		? {}
+		: { sourceExerciseOrder: occurrence.sourceExerciseOrder }),
 });
 
 export const buildWorkoutEditorSaveInput = (
@@ -378,12 +380,16 @@ export const buildWorkoutEditorSaveInput = (
 			exerciseDurationUnit:
 				context.exerciseOverridesById[occurrence.exerciseId]?.defaultDurationUnit,
 		});
+	const caloriesBurnt =
+		draft.caloriesBurnt === undefined || draft.caloriesBurnt.trim() === ""
+			? undefined
+			: energyToKilocalories(Number(draft.caloriesBurnt.trim()), draft.displayEnergyUnit);
 	const data = isTemplateMode(draft.mode)
 		? {
 				supersets,
 				videos: draft.videos,
 				images: draft.images,
-				comment: draft.comment,
+				...(draft.comment === undefined ? {} : { comment: draft.comment }),
 				name: draft.name.trim(),
 				kind: "template" as const,
 				target:
@@ -418,16 +424,13 @@ export const buildWorkoutEditorSaveInput = (
 				supersets,
 				videos: draft.videos,
 				images: draft.images,
-				comment: draft.comment,
-				endedAt: draft.endedAt,
+				...(draft.comment === undefined ? {} : { comment: draft.comment }),
+				...(draft.endedAt === undefined ? {} : { endedAt: draft.endedAt }),
 				name: draft.name.trim(),
 				kind: "workout" as const,
 				startedAt: draft.startedAt,
 				activeDuration: activeDurationChange(draft, input.submittedAt),
-				caloriesBurnt:
-					draft.caloriesBurnt === undefined || draft.caloriesBurnt.trim() === ""
-						? undefined
-						: energyToKilocalories(Number(draft.caloriesBurnt.trim()), draft.displayEnergyUnit),
+				...(caloriesBurnt === undefined ? {} : { caloriesBurnt }),
 				target:
 					draft.mode.kind === "historical"
 						? {
@@ -462,7 +465,7 @@ export const buildWorkoutEditorSaveInput = (
 								clientId: set.clientId,
 								exerciseKind: set.exerciseKind,
 								...(set.note === undefined ? {} : { note: set.note }),
-								restTime: rest.kind === "resolved" ? rest.seconds : undefined,
+								...(rest.kind === "resolved" ? { restTime: rest.seconds } : {}),
 								...(set.eventId === undefined ? {} : { eventId: set.eventId }),
 								occurredAt: set.occurredAt ?? set.confirmedAt ?? draft.startedAt,
 								...(set.confirmedAt === undefined ? {} : { confirmedAt: set.confirmedAt }),

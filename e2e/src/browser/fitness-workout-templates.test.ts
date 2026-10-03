@@ -34,9 +34,14 @@ it.live(
 			yield* frame.getByRole("button", { name: "Add", exact: true }).click();
 			yield* renameDraft(frame, "Template details", name);
 			yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
-			const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
+			const picker = frame.getByRole("dialog", {
+				exact: true,
+				includeHidden: true,
+				name: "Add exercises",
+			});
 			yield* picker.getByRole("checkbox", { exact: true, name: exerciseName }).check();
 			yield* picker.getByRole("button", { exact: true, name: "Add 1 exercise" }).click();
+			yield* picker.waitFor({ state: "hidden" });
 			const exercise = frame.getByRole("region", { exact: true, name: exerciseName });
 			yield* exercise.getByRole("textbox", { exact: true, name: "Set 1 reps" }).fill("8");
 			yield* exercise.getByRole("textbox", { exact: true, name: "Set 1 weight (kg)" }).fill("40");
@@ -104,12 +109,16 @@ it.live(
 			yield* frame.getByRole("button", { exact: true, name: "Start workout" }).click();
 			yield* renameDraft(frame, "Workout details", `${name} performed`);
 			yield* exercise.getByRole("button", { exact: true, name: "Complete set 1" }).click();
+			expect(yield* exercise.textContent()).toContain("1/1 done");
 			yield* exercise.getByRole("button", { exact: true, name: `${exerciseName} actions` }).click();
 			yield* frame.getByRole("menuitem", { exact: true, name: "Replace exercise" }).click();
 			const replace = frame.getByRole("dialog", { exact: true, name: `Replace ${exerciseName}` });
 			yield* replace.getByRole("radio", { exact: true, name: replacementName }).click();
 			yield* replace.getByRole("button", { exact: true, name: "Replace exercise" }).click();
 			const replaced = frame.getByRole("region", { exact: true, name: replacementName });
+			yield* replaced
+				.getByRole("button", { exact: true, name: `Expand ${replacementName}` })
+				.click();
 			expect(
 				yield* replaced
 					.getByRole("textbox", { exact: true, name: "Set 1 weight (kg)" })

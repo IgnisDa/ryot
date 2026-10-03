@@ -39,6 +39,10 @@ const countdownMatchesTarget = (draft: WorkoutEditorDraft, countdown: Countdown)
 
 const clearTargetCountdowns = (draft: WorkoutEditorDraft, occurrenceId: string, setId: string) => ({
 	...draft,
+	pendingRest:
+		draft.pendingRest?.occurrenceId === occurrenceId && draft.pendingRest.setId === setId
+			? undefined
+			: draft.pendingRest,
 	restCountdown:
 		draft.restCountdown?.occurrenceId === occurrenceId && draft.restCountdown.setId === setId
 			? undefined
@@ -142,7 +146,15 @@ export const startExecution = (
 		durationSeconds,
 		exerciseId: occurrence.exerciseId,
 	};
-	return changed({ ...draft, executionCountdown });
+	return changed({
+		...draft,
+		executionCountdown,
+		activeSetId: setId,
+		activeOccurrenceId: occurrenceId,
+		occurrences: draft.occurrences.map((item) =>
+			item.clientId === occurrenceId ? { ...item, isCollapsed: false } : item,
+		),
+	});
 };
 
 export const startRest = (

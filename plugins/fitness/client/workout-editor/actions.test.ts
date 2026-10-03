@@ -18,6 +18,8 @@ import {
 	nextWorkoutOccurrence,
 	removeWorkoutItems,
 	resolvePendingRest,
+	updateSet,
+	workoutProgressTarget,
 } from "./actions";
 
 const startedAt = "2026-10-16T10:00:00.000Z";
@@ -393,6 +395,9 @@ describe("workout editor actions", () => {
 			exerciseId: "occurrence-1-exercise",
 		});
 		expect(prompted.restCountdown).toBeUndefined();
+		expect(prompted.activeOccurrenceId).toBe("occurrence-2");
+		expect(findOccurrence(prompted, "occurrence-1").isCollapsed).toBe(true);
+		expect(findOccurrence(prompted, "occurrence-2").isCollapsed).toBe(false);
 		expect(
 			findSet(prompted, "occurrence-1", "occurrence-1-set").restTimerStartedAt,
 		).toBeUndefined();
@@ -400,6 +405,7 @@ describe("workout editor actions", () => {
 		const started = resolvePendingRest(prompted, startTime + 1_000, "prompted-rest", false);
 		expect(started.pendingRest).toBeUndefined();
 		expect(started.activeOccurrenceId).toBe("occurrence-2");
+		expect(started.activeSetId).toBe(prompted.activeSetId);
 		expect(started.restCountdown?.deadline).toBe(isoAt(startTime + 21_000));
 		expect(findSet(started, "occurrence-1", "occurrence-1-set").restTimerStartedAt).toBe(
 			isoAt(startTime + 1_000),
@@ -410,6 +416,77 @@ describe("workout editor actions", () => {
 		expect(skipped.restCountdown).toBeUndefined();
 		expect(skipped.activeOccurrenceId).toBe("occurrence-2");
 		expect(findSet(skipped, "occurrence-1", "occurrence-1-set").restTimerStartedAt).toBeUndefined();
+	});
+
+	it("collapses the final exercise without reopening it or selecting a completed set", () => {
+		const result = completeWorkoutSet(workoutDraft(), {
+			prompt: false,
+			overrides: {},
+			now: startTime,
+			timerId: "rest-final",
+			setId: "occurrence-1-set",
+			occurrenceId: "occurrence-1",
+			settings: preferences({ normalRestTime: 0 }),
+		});
+		expect(findOccurrence(result, "occurrence-1").isCollapsed).toBe(true);
+		expect(result.activeOccurrenceId).toBeUndefined();
+		expect(result.activeSetId).toBeUndefined();
+		expect(workoutProgressTarget(result)).toBeUndefined();
+	});
+
+	it("uses the cyclic superset destination for the highlighted and upcoming set", () => {
+		const draft = workoutDraft({
+			supersets: [{ color: "blue", clientId: "superset", occurrenceIds: ["first", "second"] }],
+			occurrences: [
+				workoutOccurrence("first", { sets: [workoutSet("first-1"), workoutSet("first-2")] }),
+				workoutOccurrence("second", { isCollapsed: true }),
+			],
+		});
+		const result = completeWorkoutSet(draft, {
+			prompt: true,
+			overrides: {},
+			now: startTime,
+			timerId: "rest",
+			setId: "first-1",
+			occurrenceId: "first",
+			settings: preferences({ normalRestTime: 20 }),
+		});
+		expect(workoutProgressTarget(result)?.occurrence.clientId).toBe("second");
+		expect(workoutProgressTarget(result)?.set.clientId).toBe("second-set");
+		expect(findOccurrence(result, "first").isCollapsed).toBe(false);
+		expect(findOccurrence(result, "second").isCollapsed).toBe(false);
+	});
+
+	it("unconfirms an erased measurement and cancels its rest without changing other sets", () => {
+		const draft = workoutDraft({
+			pendingRest: {
+				seconds: 20,
+				setId: "occurrence-1-set",
+				occurrenceId: "occurrence-1",
+				exerciseId: "occurrence-1-exercise",
+			},
+			occurrences: [
+				workoutOccurrence("occurrence-1", {
+					sets: [
+						workoutSet("occurrence-1-set", { included: true, confirmedAt: startedAt }),
+						workoutSet("second"),
+					],
+				}),
+			],
+		});
+		const result = updateSet(draft, "occurrence-1", "occurrence-1-set", (set) => ({
+			...set,
+			reps: "",
+		}));
+		expect(findSet(result, "occurrence-1", "occurrence-1-set")).toMatchObject({
+			reps: "",
+			included: false,
+		});
+		expect(findSet(result, "occurrence-1", "second")).toEqual(
+			findSet(draft, "occurrence-1", "second"),
+		);
+		expect(findSet(result, "occurrence-1", "occurrence-1-set").confirmedAt).toBeUndefined();
+		expect(result.pendingRest).toBeUndefined();
 	});
 
 	it("does not leave a rest countdown overdue when completion is observed after the full rest", () => {
