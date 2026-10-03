@@ -68,7 +68,7 @@ layer(live, { excludeTestServices: true })((test) => {
 				}).pipe(Effect.timeout("2 seconds"));
 				const source = "export default async (input, host) => await host.call('echo', input);";
 				const value = "🙂".repeat(90_000);
-				yield* connection.register("native-client-1");
+				yield* connection.register("native-client-1", "interactive");
 				yield* connection.send({
 					seq: 0,
 					type: "run",
@@ -156,7 +156,7 @@ layer(live, { excludeTestServices: true })((test) => {
 					lane: "background" | "interactive",
 					input: { readonly marker: string; readonly padding?: string },
 				) {
-					yield* connection.register(handle);
+					yield* connection.register(handle, lane);
 					yield* connection.send({
 						lane,
 						input,
@@ -202,9 +202,9 @@ layer(live, { excludeTestServices: true })((test) => {
 					marker: "queued",
 					padding: "x".repeat(3 * 1024 * 1024),
 				});
-				expect((yield* Effect.flip(connection.register("interactive-excess"))).reason).toBe(
-					"transport",
-				);
+				expect(
+					(yield* Effect.flip(connection.register("interactive-excess", "interactive"))).reason,
+				).toBe("transport");
 				yield* answer(running);
 				expect(yield* finished(1)).toEqual({
 					"interactive-running": { value: "running", status: "completed" },
@@ -215,9 +215,9 @@ layer(live, { excludeTestServices: true })((test) => {
 				yield* start("background-running", "background", { marker: "running" });
 				const background = yield* parked("background-running");
 				yield* start("background-queued", "background", { marker: "queued" });
-				expect((yield* Effect.flip(connection.register("background-excess"))).reason).toBe(
-					"transport",
-				);
+				expect(
+					(yield* Effect.flip(connection.register("background-excess", "background"))).reason,
+				).toBe("transport");
 				yield* cancel("background-queued");
 				yield* answer(background);
 				expect(yield* finished(2)).toEqual({
@@ -256,7 +256,7 @@ layer(live, { excludeTestServices: true })((test) => {
 					);
 				}
 				const run = Effect.fnUntraced(function* (handle: string, source: string) {
-					yield* connection.register(handle);
+					yield* connection.register(handle, "interactive");
 					yield* connection.send({
 						handle,
 						seq: 0,

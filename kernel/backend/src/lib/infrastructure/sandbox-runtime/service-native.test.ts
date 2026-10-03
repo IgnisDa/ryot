@@ -22,6 +22,7 @@ import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
+import { SandboxHostCallGate } from "./host-call-gate";
 import { SandboxHostImplementations } from "./host-implementations";
 import { nativeConfigLayer, unusedSandboxHostImplementations } from "./runner-native.test-support";
 import { SandboxService } from "./service";
@@ -462,10 +463,14 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 			[cancelledExecutionId, neighbourExecutionId],
 			Effect.gen(function* () {
 				const admission = yield* SandboxSidecarAdmission;
+				const gate = yield* SandboxHostCallGate;
 				const compiler = yield* SandboxCompiler;
 				const service = yield* SandboxService;
 				const control = yield* NativeServiceControl;
 				control.calls.length = 0;
+				for (const lane of ["interactive", "background"] as const) {
+					expect(gate.transientMemory(lane).capacity).toBe(admission.plan.pools[lane]);
+				}
 				const blocked = yield* compiler.compile(blockedDefinitionSource);
 				const neighbour = yield* compiler.compile(neighbourDefinitionSource);
 				const runFiber = yield* Effect.forkChild(
@@ -585,6 +590,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 				const runGranted = (executionId: string, named: boolean) =>
 					service.run({
 						...makeRunInput(compiled, executionId, { named }, ownerId, { artifactPath }),
+						lane: "background",
 						replayJournal: memoryPinnedJournal([]),
 						workflowExecutionId: `${executionId}-workflow`,
 						inlineDurableHost: {

@@ -1103,3 +1103,60 @@ fn runs_for_any_other_tier_are_rejected() {
         );
     }
 }
+
+#[test]
+fn parked_results_and_inline_reply_fit_delivery_term() {
+    let mut sidecar = support::spawn(Tier::Core, &[]);
+    let limits = Limits {
+        heap_bytes: 256 * MIB,
+        ..support::limits()
+    };
+    let source = r#"
+        export default async (_input, host) => {
+            const calls = Array.from({ length: 6 }, (_, index) => host.call("echo", index));
+            await new Promise((resolve) => setTimeout(resolve, 50));
+            const inline = host.inlineBatch({ requests: [] });
+            const lengths = [];
+            for (const call of calls) lengths.push((await call).length);
+            return { inline: inline.length, lengths };
+        };
+    "#;
+    sidecar.send(&support::run_frame(
+        "parked",
+        Tier::Core,
+        source,
+        Value::Null,
+        limits,
+    ));
+    let maximum = ChunkedType::HostResult.message_bytes() - 1024;
+    let value = json!("x".repeat(maximum));
+    let call = |sidecar: &mut support::Sidecar| match sidecar.recv() {
+        Outbound::HostCall { seq, name, .. } => (seq, name),
+        other => panic!("expected a host call, got {other:?}"),
+    };
+    let slotted: Vec<u64> = (0..4)
+        .map(|_| {
+            let (seq, name) = call(&mut sidecar);
+            assert_eq!(name, "echo");
+            seq
+        })
+        .collect();
+    let (inline, name) = call(&mut sidecar);
+    assert_eq!(name, "inlineBatch");
+    for seq in &slotted {
+        sidecar.reply("parked", *seq, value.clone());
+    }
+    assert!(
+        sidecar.recv_within(Duration::from_millis(300)).is_none(),
+        "a fifth host call was sent while four results were parked"
+    );
+    sidecar.reply("parked", inline, value.clone());
+    let done = sidecar.finish("parked", |name, _| {
+        assert_eq!(name, "echo");
+        value.clone()
+    });
+    assert_eq!(
+        done.value(),
+        json!({ "inline": maximum, "lengths": vec![maximum; 6] })
+    );
+}

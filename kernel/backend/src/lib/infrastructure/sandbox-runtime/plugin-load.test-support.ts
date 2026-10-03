@@ -103,7 +103,7 @@ const verifyScript = (
 		let terminal = false;
 
 		yield* connection
-			.register(handle)
+			.register(handle, "interactive")
 			.pipe(Effect.mapError((error) => pluginLoadFailure(slug, errorText(error))));
 
 		const waitForDone = Effect.gen(function* () {

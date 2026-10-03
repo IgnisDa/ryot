@@ -235,10 +235,10 @@ const SandboxHostImplementationsSmokeLive = Layer.succeed(SandboxHostImplementat
 });
 
 const SandboxServiceSmokeLive = Layer.effect(SandboxService, SandboxService.make).pipe(
-	Layer.provideMerge(SandboxSidecarSupervisorSmokeLive),
 	Layer.provideMerge(SandboxHostCallGate.layer),
 	Layer.provide(SandboxFileService.layer),
 	Layer.provide(SandboxHostImplementationsSmokeLive),
+	Layer.provideMerge(SandboxSidecarSupervisorSmokeLive),
 );
 
 const RuntimeSmokeLive = SandboxServiceSmokeLive.pipe(

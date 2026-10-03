@@ -15,6 +15,7 @@ import type { SandboxHostImplementationMaps } from "./host-implementations";
 import { SANDBOX_LIMITS } from "./limits";
 import type { RuntimeSandboxHostImplementationMap } from "./runtime-host-functions";
 import type { BoundHostFunction, SandboxRunInput } from "./shared";
+import { SandboxSidecarAdmission } from "./sidecar-admission";
 import { SandboxSidecarClient } from "./sidecar-client";
 import {
 	SandboxInvocationResponseSchema,
@@ -28,7 +29,7 @@ import { memoryPinnedJournal } from "./workflow-journal.test-support";
 
 export type RunnerCompiled = Effect.Success<ReturnType<SandboxCompiler["Service"]["compile"]>>;
 export type RunnerOptions = Partial<
-	Pick<SandboxRunInput, "executionId" | "workflowExecutionId" | "inlineDurableHost">
+	Pick<SandboxRunInput, "executionId" | "inlineDurableHost" | "lane" | "workflowExecutionId">
 > & {
 	readonly replayJournal?: ReadonlyArray<WorkflowReplayJournalEntry>;
 	readonly functions?: Readonly<Record<string, BoundHostFunction>>;
@@ -143,7 +144,7 @@ export const recordingSidecarClient = <R>(makeRecorder: Effect.Effect<SidecarRec
 export const runnerNativeLayer = Layer.mergeAll(
 	SandboxSidecarClient.layer,
 	SandboxCompiler.layer,
-	SandboxHostCallGate.layer,
+	SandboxHostCallGate.layer.pipe(Layer.provideMerge(SandboxSidecarAdmission.layer)),
 ).pipe(Layer.provideMerge(nativeConfigLayer()), Layer.provideMerge(nativePlatformLayer));
 
 export const makeRunnerInput = (
@@ -155,9 +156,9 @@ export const makeRunnerInput = (
 	const contentHash = sha256Hex(compiled.javascript);
 	return {
 		context,
-		lane: "interactive",
 		compiledFormat: compiled.format,
 		compiledCode: compiled.javascript,
+		lane: options.lane ?? "interactive",
 		startedAt: "2026-08-06T00:00:00.000Z",
 		executionId: options.executionId ?? "native-runner-execution",
 		principal: {
@@ -234,7 +235,7 @@ export const runNative = Effect.fnUntraced(function* (
 					artifactReadRange: () => Effect.die("Unexpected runner artifact read"),
 				},
 			});
-			yield* connection.register(handle);
+			yield* connection.register(handle, input.lane);
 			yield* Effect.addFinalizer(() => connection.close.pipe(Effect.orDie));
 			const invocation = yield* Schema.decodeUnknownEffect(SandboxInvocationSchema)({
 				context,
@@ -260,7 +261,7 @@ export const runNative = Effect.fnUntraced(function* (
 				generation,
 				type: "run",
 				input: jsonInput,
-				lane: "interactive",
+				lane: input.lane,
 				module: { source: compiled.javascript, sha256: input.principal.contentHash },
 				limits: { ...SANDBOX_LIMITS.isolate, deadlineMs: SANDBOX_LIMITS.execution.timeoutMs },
 			});

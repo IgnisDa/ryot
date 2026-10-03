@@ -8,11 +8,12 @@ import { Reactivity } from "effect/reactivity";
 import { AppConfig, databaseConnectionBudget } from "../config/service";
 import { DatabaseConnectionLimit } from "../db/session";
 import { recordSandboxAdmissionWait } from "../runtime-metrics";
-import { SANDBOX_TRANSIENT_MEMORY } from "./host-call-gate";
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import { SIDECAR_PROTOCOL_LIMITS } from "./sidecar-protocol";
+import { SANDBOX_TRANSIENT_MEMORY, sandboxTransientPermitBytes } from "./transient-memory";
 
 const processBytes = 128 * MiB;
+const residentBytes = 2 * processBytes;
 const defaultMemoryBudgetBytes = 1536 * MiB;
 const isolateBytes =
 	SANDBOX_LIMITS.isolate.heapBytes +
@@ -20,7 +21,6 @@ const isolateBytes =
 	SANDBOX_LIMITS.sidecar.heapHeadroomBytes;
 const resident = (instance: string) => instance === "system/core" || instance === "user/core";
 const outstandingHostCalls = SANDBOX_LIMITS.bridge.concurrentHostCalls + 1;
-const staticBytes = 2 * processBytes + SANDBOX_TRANSIENT_MEMORY.poolBytes;
 // Isolate, fixed stack and staging, run start, then per outstanding host call its inbound frame,
 // Rust encoding and Rust result delivery, then the done text Rust holds before disposal.
 const runBytes =
@@ -29,6 +29,22 @@ const runBytes =
 	28 * MiB +
 	outstandingHostCalls * (4 * MiB + 5 * MiB + SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult) +
 	SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
+const ordinaryPermitBytes = sandboxTransientPermitBytes(
+	"httpCall",
+	SANDBOX_LIMITS.bridge.requestBytes,
+);
+const inlinePermitBytes = sandboxTransientPermitBytes(
+	"inlineBatch",
+	SANDBOX_LIMITS.bridge.requestBytes,
+);
+const interactiveHeadroomBytes = runBytes + processBytes;
+
+export type SandboxMemoryPlan = {
+	readonly budget: number;
+	readonly dynamicBytes: number;
+	readonly mode: "lane" | "shared";
+	readonly pools: Readonly<Record<ExecutionLane, number>>;
+};
 
 const laneSchema = Schema.Struct({
 	lane: ExecutionLane,
@@ -60,10 +76,12 @@ type LeaseState = {
 const limitError = (message: string) =>
 	new SandboxRunError({ message, kind: "resource-unavailable" });
 
-export const sandboxMemoryBudgetBytes = (
+// Lane mode keeps one interactive run with a lazy process beside one background run with its own, and
+// caps the background pool at one inline batch plus its evidence. Shared mode has one inline-sized pool.
+export const sandboxMemoryPlan = (
 	configuredMiB: Option.Option<number>,
 	effectiveMemory: number,
-): Result.Result<number, SandboxRunError> => {
+): Result.Result<SandboxMemoryPlan, SandboxRunError> => {
 	if (!Number.isSafeInteger(effectiveMemory) || effectiveMemory <= 0) {
 		return Result.fail(limitError("Sandbox effective host memory is unavailable"));
 	}
@@ -75,14 +93,32 @@ export const sandboxMemoryBudgetBytes = (
 	if (budget > halfMemory) {
 		return Result.fail(limitError("Sandbox memory budget exceeds half the effective host memory"));
 	}
-	if (staticBytes + runBytes + processBytes > budget) {
-		return Result.fail(
-			limitError(
-				"Sandbox memory budget cannot fit resident core processes, transient memory and a lazy run",
-			),
+	const available = budget - residentBytes;
+	if (available >= ordinaryPermitBytes + inlinePermitBytes + 2 * interactiveHeadroomBytes) {
+		const background = Math.min(
+			available - ordinaryPermitBytes - 2 * interactiveHeadroomBytes,
+			inlinePermitBytes + SANDBOX_TRANSIENT_MEMORY.inlineEvidenceBytes,
 		);
+		return Result.succeed({
+			budget,
+			mode: "lane",
+			pools: { background, interactive: ordinaryPermitBytes },
+			dynamicBytes: available - ordinaryPermitBytes - background,
+		});
 	}
-	return Result.succeed(budget);
+	if (available >= inlinePermitBytes + interactiveHeadroomBytes) {
+		return Result.succeed({
+			budget,
+			mode: "shared",
+			dynamicBytes: available - inlinePermitBytes,
+			pools: { background: inlinePermitBytes, interactive: inlinePermitBytes },
+		});
+	}
+	return Result.fail(
+		limitError(
+			"Sandbox memory budget cannot fit resident core processes, transient memory and a lazy run",
+		),
+	);
 };
 
 export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmission>()(
@@ -91,8 +127,18 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
 			const concurrency = config.sandbox.workerConcurrency;
-			const budget = yield* Effect.fromResult(
-				sandboxMemoryBudgetBytes(config.sandbox.memoryBudgetMiB, process.constrainedMemory()),
+			const plan = yield* Effect.fromResult(
+				sandboxMemoryPlan(config.sandbox.memoryBudgetMiB, process.constrainedMemory()),
+			);
+			const budget = plan.budget;
+			yield* Effect.logInfo("Sandbox memory admission planned").pipe(
+				Effect.annotateLogs({
+					mode: plan.mode,
+					budgetBytes: budget,
+					dynamicBytes: plan.dynamicBytes,
+					backgroundPoolBytes: plan.pools.background,
+					interactivePoolBytes: plan.pools.interactive,
+				}),
 			);
 			const reactivity = yield* Reactivity.make;
 			const database = yield* Pool.makeWithTTL({
@@ -106,10 +152,15 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 			});
 			const changed = new Set<Deferred.Deferred<void>>();
 			const admissionChanged = new Set<Deferred.Deferred<void>>();
-			const instances = new Map<string, { bytes: number; generation: number }>();
+			const instances = new Map<
+				string,
+				{ bytes: number; generation: number; lane: ExecutionLane | undefined }
+			>();
 			const leases = new WeakMap<SandboxAdmissionLease["Service"], LeaseState>();
+			const open = new Set<LeaseState>();
 			const lanes = new Map<string, number>();
-			const state = { runs: 0, waiting: 0, reservations: 0, bytes: staticBytes };
+			const state = { runs: 0, waiting: 0, reservations: 0, bytes: budget - plan.dynamicBytes };
+			let pressure = Deferred.makeUnsafe<void>();
 			const notify = () => {
 				const waiting = [...changed, ...admissionChanged];
 				changed.clear();
@@ -118,23 +169,54 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 					Deferred.doneUnsafe(waiter, Effect.void);
 				}
 			};
+			const interactiveBytes = () => {
+				let bytes = 0;
+				for (const lease of open) {
+					if (lease.lane === "interactive") {
+						bytes += lease.bytes;
+					}
+				}
+				for (const instance of instances.values()) {
+					if (instance.lane === "interactive") {
+						bytes += instance.bytes;
+					}
+				}
+				return bytes;
+			};
+			const fits = (lane: ExecutionLane | undefined, amount: number) =>
+				state.bytes + amount <=
+				budget -
+					(plan.mode === "lane" && lane === "background"
+						? Math.max(0, interactiveHeadroomBytes - interactiveBytes())
+						: 0);
+			// Registers synchronously with the failed check, so a release in between cannot be missed.
+			const awaitChange = (waiters: Set<Deferred.Deferred<void>>, reclaimable: boolean) => {
+				const waiter = Deferred.makeUnsafe<void>();
+				waiters.add(waiter);
+				if (reclaimable) {
+					Deferred.doneUnsafe(pressure, Effect.void);
+				}
+				return Deferred.await(waiter).pipe(
+					Effect.ensuring(Effect.sync(() => waiters.delete(waiter))),
+				);
+			};
 			const reserveBytes = Effect.fnUntraced(function* (
+				lane: ExecutionLane | undefined,
 				amount: number,
 				commit: () => void,
-				valid: () => boolean = () => true,
+				valid: () => boolean,
 			) {
-				if (amount > budget - staticBytes) {
+				if (amount > plan.dynamicBytes) {
 					return yield* limitError("Sandbox execution cannot fit the required idle topology");
 				}
-				while (state.bytes + amount > budget) {
-					if (!valid()) {
-						return yield* limitError("Sandbox reservation owner closed while waiting");
+				// A credited start already holds its bytes, so it never waits on the headroom.
+				if (amount > 0) {
+					while (!fits(lane, amount)) {
+						if (!valid()) {
+							return yield* limitError("Sandbox reservation owner closed while waiting");
+						}
+						yield* awaitChange(changed, true);
 					}
-					const waiter = yield* Deferred.make<void>();
-					changed.add(waiter);
-					yield* Deferred.await(waiter).pipe(
-						Effect.ensuring(Effect.sync(() => changed.delete(waiter))),
-					);
 				}
 				if (!valid()) {
 					return yield* limitError("Sandbox reservation owner closed while waiting");
@@ -177,8 +259,13 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				) {
 					return yield* limitError("Sandbox startup requires an active unused admission lease");
 				}
-				const current = { bytes: 0, generation };
-				const startup = encodeLane({ instance, generation, lane: "interactive" });
+				const current = {
+					bytes: 0,
+					generation,
+					lane: resident(instance) ? undefined : lease?.lane,
+				};
+				const startup =
+					lease === undefined ? undefined : encodeLane({ instance, generation, lane: lease.lane });
 				instances.set(instance, current);
 				if (lease !== undefined) {
 					lease.entering = true;
@@ -199,6 +286,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				);
 				const credit = Math.min(lease?.startupBytes ?? 0, resident(instance) ? 0 : processBytes);
 				yield* reserveBytes(
+					lease?.lane,
 					(resident(instance) ? 0 : processBytes) - credit,
 					() => {
 						current.bytes = processBytes;
@@ -231,9 +319,11 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				yield* Effect.uninterruptibleMask((restore) =>
 					Effect.gen(function* () {
 						let waiting = false;
+						open.add(lease);
 						yield* Effect.addFinalizer(() =>
 							Effect.sync(() => {
 								lease.closed = true;
+								open.delete(lease);
 								releaseRun(lease);
 								if (lease.bytes > 0) {
 									state.reservations--;
@@ -253,7 +343,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 										? 0
 										: processBytes;
 								const amount = runBytes + startupBytes;
-								if (state.reservations < concurrency && state.bytes + amount <= budget) {
+								if (state.reservations < concurrency && fits(lane, amount)) {
 									state.reservations++;
 									state.bytes += amount;
 									lease.bytes = amount;
@@ -267,11 +357,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 									waiting = true;
 									state.waiting++;
 								}
-								const waiter = yield* Deferred.make<void>();
-								admissionChanged.add(waiter);
-								yield* restore(Deferred.await(waiter)).pipe(
-									Effect.ensuring(Effect.sync(() => admissionChanged.delete(waiter))),
-								);
+								yield* restore(awaitChange(admissionChanged, state.reservations < concurrency));
 							}
 						}).pipe(
 							Effect.ensuring(
@@ -323,18 +409,29 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				return service;
 			});
 			return {
+				plan,
 				reserveRun,
 				reserveProcess,
 				maximumActive: concurrency,
+				leased: (instance: string) => [...open].some((lease) => lease.instance === instance),
 				isolateMemoryBytes: concurrency * (isolateBytes + SIDECAR_PROTOCOL_LIMITS.messageBytes.run),
+				withDatabaseLimit: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+					effect.pipe(Effect.provideService(DatabaseConnectionLimit, database)),
+				pressure: Effect.suspend(() => Deferred.await(pressure)).pipe(
+					Effect.andThen(
+						Effect.sync(() => {
+							pressure = Deferred.makeUnsafe<void>();
+						}),
+					),
+				),
 				snapshot: () => ({
 					...state,
 					budget,
+					mode: plan.mode,
 					processes: instances.size,
+					interactiveBytes: interactiveBytes(),
 					waiting: state.waiting + changed.size,
 				}),
-				withDatabaseLimit: <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-					effect.pipe(Effect.provideService(DatabaseConnectionLimit, database)),
 			};
 		}),
 	},

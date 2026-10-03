@@ -5,11 +5,12 @@ import { Effect, Schema } from "effect";
 
 import { hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
+import { sandboxGateLayer } from "./host-call-gate.test-support";
 import { SANDBOX_LIMITS } from "./limits";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
-layer(SandboxHostCallGate.layer)((test) => {
+layer(sandboxGateLayer())((test) => {
 	test.effect("enforces exact ASCII and multi-byte JSON request and response byte boundaries", () =>
 		Effect.scoped(
 			Effect.gen(function* () {

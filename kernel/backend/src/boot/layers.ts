@@ -181,6 +181,11 @@ const ContentLifecycleRepositoriesLive = Layer.merge(
 	DefinitionRepository.layer,
 );
 
+// One reference keeps a single sandbox runtime with ingestion staging for every consumer.
+const StagedRuntimeSandboxServiceLive = RuntimeSandboxServiceLive.pipe(
+	Layer.provide(IngestionArtifactStagingProvidedLive),
+);
+
 const ServicesLive = Layer.mergeAll(
 	AuthServiceLive,
 	AutomationHistoryServiceLive,
@@ -207,7 +212,7 @@ const ServicesLive = Layer.mergeAll(
 	PluginInstallationRuntimeLive,
 	ProviderEntitySearchServiceLive,
 	RelationshipsServiceLive,
-	RuntimeSandboxServiceLive.pipe(Layer.provide(IngestionArtifactStagingProvidedLive)),
+	StagedRuntimeSandboxServiceLive,
 	SandboxExecutionServiceLive,
 	SavedViewsServiceLive,
 	RyotQLService.layer,
@@ -237,7 +242,10 @@ const ServicesLive = Layer.mergeAll(
 	Layer.provide(Layer.merge(ContentLifecycleRepositoriesLive, AdmittedWorkflowCatalogueLive)),
 );
 
-const ServicesWithTestSupportLive = Layer.merge(ServicesLive, TestSupportServicesLive).pipe(
+const ServicesWithTestSupportLive = Layer.merge(
+	ServicesLive,
+	TestSupportServicesLive.pipe(Layer.provide(StagedRuntimeSandboxServiceLive)),
+).pipe(
 	Layer.provideMerge(Layer.mergeAll(IngestionRetirementLive, PluginRuntimeResolverLive)),
 	Layer.provide(AdmittedWorkflowCatalogueLive),
 );

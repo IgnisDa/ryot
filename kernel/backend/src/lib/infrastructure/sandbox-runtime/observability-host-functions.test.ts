@@ -18,6 +18,7 @@ import { makeRecordingTracer } from "#lib/test-utils/tracer";
 
 import { hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
+import { sandboxGateLayer } from "./host-call-gate.test-support";
 import { SANDBOX_LIMITS } from "./limits";
 import {
 	makeObservabilitySandboxApiFunctions,
@@ -210,7 +211,7 @@ describe("sandbox observability host functions", () => {
 		expect(totalCollector.logs).toEqual(before);
 	});
 
-	layer(Layer.mergeAll(recordedTelemetryLayer, SandboxHostCallGate.layer))((test) => {
+	layer(Layer.mergeAll(recordedTelemetryLayer, sandboxGateLayer()))((test) => {
 		test.effect(
 			"emits correlated structured logs and completed child spans under the execution trace",
 			() =>

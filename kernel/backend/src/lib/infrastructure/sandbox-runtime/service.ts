@@ -328,8 +328,8 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provideMerge(SandboxSidecarSupervisor.layer),
-		Layer.provide(SandboxHostCallGate.layer),
+		Layer.provideMerge(SandboxHostCallGate.layer),
 		Layer.provide(SandboxFileService.layer),
+		Layer.provideMerge(SandboxSidecarSupervisor.layer),
 	);
 }

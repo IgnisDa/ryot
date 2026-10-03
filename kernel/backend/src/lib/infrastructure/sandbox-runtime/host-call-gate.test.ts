@@ -1,6 +1,7 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { assert, expect, it, layer } from "@effect/vitest";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
+import { hostFailure, hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import {
 	workflowHostRequestSchema,
 	workflowReplayJournalEntrySchema,
@@ -21,19 +22,23 @@ import {
 } from "effect";
 import { TestClock } from "effect/testing";
 
+import type { SandboxPinnedJournal } from "../sandbox-journal-store";
 import type { SandboxFileAccess } from "./file-service";
 import { hostCallArgs } from "./host-call-args.test-support";
 import {
-	SANDBOX_TRANSIENT_MEMORY,
 	SandboxHostCallGate,
 	type SandboxHostCallGateOptions,
 	type SandboxHostResultDelivery,
 } from "./host-call-gate";
+import { makeSandboxAdmission, sandboxGateLayer } from "./host-call-gate.test-support";
 import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import type { BoundHostFunction, SandboxRunInput } from "./shared";
+import { SandboxSidecarAdmission } from "./sidecar-admission";
+import { makeSidecarFrameWriter } from "./sidecar-framing";
 import type { SidecarHostResultFrame } from "./sidecar-protocol";
 import { base64DecodedLength, SidecarHostCallFrame } from "./sidecar-protocol";
+import { SANDBOX_TRANSIENT_MEMORY } from "./transient-memory";
 import { memoryPinnedJournal } from "./workflow-journal.test-support";
 
 type HostCallFrame = typeof SidecarHostCallFrame.Type;
@@ -51,15 +56,14 @@ const makeInput = (
 	capabilities: NonNullable<SandboxRunInput["principal"]["metadata"]["capabilities"]> = [
 		...metadataCapabilities,
 	],
-	options: Pick<
-		SandboxRunInput,
-		"workflowExecutionId" | "replayJournal" | "inlineDurableHost"
+	options: Partial<
+		Pick<SandboxRunInput, "lane" | "workflowExecutionId" | "replayJournal" | "inlineDurableHost">
 	> = {},
 ): SandboxRunInput => ({
 	context: {},
 	compiledCode: "",
 	compiledFormat: 1,
-	lane: "interactive",
+	lane: "background",
 	executionId: "gate-execution",
 	principal: {
 		contentHash: "",
@@ -140,7 +144,7 @@ const cachedValueRequest = (index: number) =>
 		args: { args: [], capability: "getCachedValue" },
 	});
 
-const gateLayer = Layer.mergeAll(SandboxHostCallGate.layer, TestClock.layer());
+const gateLayer = Layer.mergeAll(sandboxGateLayer(), TestClock.layer());
 
 const permitBytes = (frame: HostCallFrame, resultBytes: number) =>
 	SANDBOX_JSON_GRAPH_FACTOR * base64DecodedLength(frame.args) + resultBytes;
@@ -814,20 +818,29 @@ layer(gateLayer)((test) => {
 				for (const seq of [0, 1, 2, 3]) {
 					yield* registration.dispatch(permitFrame(seq), replies.deliver);
 				}
-				expect(gate.transientMemory()).toEqual({ waiting: 0, used: 4 * ordinary });
+				expect(gate.transientMemory("background")).toMatchObject({
+					waiting: 0,
+					used: 4 * ordinary,
+				});
 
 				const blocked = yield* registration
 					.dispatch(permitFrame(4), replies.deliver)
 					.pipe(Effect.forkScoped);
 				yield* Effect.yieldNow;
-				expect(gate.transientMemory()).toEqual({ waiting: 1, used: 4 * ordinary });
+				expect(gate.transientMemory("background")).toMatchObject({
+					waiting: 1,
+					used: 4 * ordinary,
+				});
 				replies.written.shift()?.();
 				yield* Fiber.join(blocked);
-				expect(gate.transientMemory()).toEqual({ waiting: 0, used: 4 * ordinary });
+				expect(gate.transientMemory("background")).toMatchObject({
+					waiting: 0,
+					used: 4 * ordinary,
+				});
 				for (const released of replies.written.splice(0)) {
 					released();
 				}
-				expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
+				expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
 			}),
 		).pipe(Effect.withSpan("host-call-gate.permits")),
 	);
@@ -860,7 +873,7 @@ layer(gateLayer)((test) => {
 				});
 				const waiting = yield* registration.dispatch(undecodable).pipe(Effect.forkScoped);
 				yield* Effect.yieldNow;
-				expect(gate.transientMemory().waiting).toBe(1);
+				expect(gate.transientMemory("background").waiting).toBe(1);
 				for (const released of replies.written.splice(0)) {
 					released();
 				}
@@ -868,7 +881,7 @@ layer(gateLayer)((test) => {
 					success: false,
 					error: "Sandbox host call arguments are invalid",
 				});
-				expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
+				expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
 			}),
 		).pipe(Effect.withSpan("host-call-gate.args-permit")),
 	);
@@ -909,7 +922,7 @@ layer(gateLayer)((test) => {
 						released();
 					}
 					yield* Scope.close(scope, Exit.void);
-					expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
+					expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
 				}
 			}
 		}).pipe(Effect.withSpan("host-call-gate.interrupted")),
@@ -945,7 +958,7 @@ layer(gateLayer)((test) => {
 			yield* Deferred.await(started);
 			const closing = yield* Scope.close(scope, Exit.void).pipe(Effect.forkChild);
 			yield* Effect.yieldNow;
-			expect(gate.transientMemory()).toEqual({
+			expect(gate.transientMemory("background")).toMatchObject({
 				waiting: 0,
 				used: permitBytes(frame, SANDBOX_TRANSIENT_MEMORY.smallBytes),
 			});
@@ -953,7 +966,7 @@ layer(gateLayer)((test) => {
 			yield* Deferred.succeed(finish, undefined);
 			yield* Fiber.join(closing);
 			expect(frameValue(yield* Fiber.join(call))).toMatchObject({ success: false });
-			expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
+			expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
 		}).pipe(Effect.withSpan("host-call-gate.cancelled")),
 	);
 
@@ -1083,7 +1096,7 @@ layer(gateLayer)((test) => {
 					(sum, entry) => sum + new TextEncoder().encode(encodeUnknownJson(entry)).byteLength,
 					0,
 				);
-			expect(gate.transientMemory()).toEqual({
+			expect(gate.transientMemory("background")).toMatchObject({
 				waiting: 0,
 				used: SANDBOX_TRANSIENT_MEMORY.evidenceCopies * evidence,
 			});
@@ -1091,7 +1104,7 @@ layer(gateLayer)((test) => {
 			expect(frameValue(yield* batch(4))).toEqual({ defer: true });
 			expect(settled.count).toBe(4);
 			yield* Scope.close(scope, Exit.void);
-			expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
+			expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
 		}).pipe(Effect.withSpan("host-call-gate.inline-evidence")),
 	);
 	test.effect("lazy_journal_reads_charge_fetched_chunks_and_fail_closed", () =>
@@ -1166,3 +1179,307 @@ layer(gateLayer)((test) => {
 		}).pipe(Effect.withSpan("host-call-gate.lazy-journal")),
 	);
 });
+
+const gateFor = (admission: SandboxSidecarAdmission["Service"]) =>
+	SandboxHostCallGate.make.pipe(Effect.provideService(SandboxSidecarAdmission, admission));
+
+const enterLazy = (
+	admission: SandboxSidecarAdmission["Service"],
+	instance: string,
+	generation: number,
+	lane: ExecutionLane,
+) =>
+	Effect.gen(function* () {
+		const lease = yield* admission.reserveRun(instance, lane);
+		yield* admission.reserveProcess(instance, generation, lease);
+		yield* lease.enter({ lane, instance, generation });
+	});
+
+const maximumJournal: SandboxPinnedJournal = {
+	fault: () => undefined,
+	bytes: 8 * 12 * MiB + 9,
+	readChunk: () => Effect.succeed(new Uint8Array(MiB)),
+	entries: Array.from({ length: 8 }, (_, index) => [12 * MiB, 12, String(index)] as const),
+};
+
+const decodeFrameHandle = Schema.decodeUnknownSync(
+	Schema.fromJsonString(Schema.Struct({ handle: Schema.String })),
+);
+
+it.effect("interactive_memory_headroom_preserves_existing_execution_limits", () =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const admission = yield* makeSandboxAdmission(1363, 3);
+			const gate = yield* gateFor(admission);
+			const parentSpan = yield* Effect.currentSpan;
+			yield* enterLazy(admission, "user/data", 1, "background");
+			const background = yield* gate.register(
+				makeOptions(
+					parentSpan,
+					makeInput(["httpCall"], {
+						lane: "background",
+						replayJournal: maximumJournal,
+						workflowExecutionId: "headroom-background",
+					}),
+					{ httpCall: successHostFunction() },
+					makeFiles(),
+					"background",
+				),
+			);
+			const replies = holdReplies();
+			yield* background.dispatch(
+				makeFrame(0, "httpCall", ["GET", "https://example.com/maximum"], { handle: "background" }),
+				replies.deliver,
+			);
+			yield* background.dispatch(
+				makeFrame(1, "journalRead", { offset: 0, length: MiB }, { handle: "background" }),
+				replies.deliver,
+			);
+			expect(replies.written).toHaveLength(2);
+			const backgroundMemory = gate.transientMemory("background");
+			const secondAdmitted = yield* Deferred.make<void>();
+			yield* Effect.scoped(
+				admission
+					.reserveRun("user/full", "background")
+					.pipe(Effect.andThen(Deferred.succeed(secondAdmitted, undefined))),
+			).pipe(Effect.forkScoped({ startImmediately: true }));
+			yield* Effect.yieldNow;
+			expect(admission.snapshot().waiting).toBe(1);
+
+			yield* enterLazy(admission, "user/full", 2, "interactive");
+			const interactive = yield* gate.register(
+				makeOptions(
+					parentSpan,
+					makeInput(["httpCall"], { lane: "interactive" }),
+					{ httpCall: successHostFunction() },
+					makeFiles(),
+					"interactive",
+				),
+			);
+			const reply = yield* interactive.dispatch(
+				makeFrame(0, "httpCall", ["GET", "https://example.com/interactive"], {
+					handle: "interactive",
+				}),
+			);
+			expect(frameValue(reply)).toEqual(hostSuccess("GET"));
+			expect(gate.transientMemory("interactive")).toMatchObject({ used: 0, waiting: 0 });
+			expect(gate.transientMemory("background")).toEqual(backgroundMemory);
+			expect(admission.snapshot()).toMatchObject({
+				runs: 2,
+				waiting: 1,
+				bytes: admission.plan.budget,
+			});
+			expect(yield* Deferred.isDone(secondAdmitted)).toBe(false);
+			for (const released of replies.written.splice(0)) {
+				released();
+			}
+		}).pipe(Effect.withSpan("host-call-gate.interactive-headroom")),
+	),
+);
+
+it.effect("interactive_host_calls_progress_while_background_transient_capacity_is_exhausted", () =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const admission = yield* makeSandboxAdmission(1904, 3);
+			const gate = yield* gateFor(admission);
+			const parentSpan = yield* Effect.currentSpan;
+			const lanes = new Map<string, ExecutionLane>([
+				["inline", "background"],
+				["results", "background"],
+				["interactive", "interactive"],
+			]);
+			const written: string[] = [];
+			let writable = Number.POSITIVE_INFINITY;
+			const writer = makeSidecarFrameWriter({
+				maximumRunMessages: 2,
+				maximumControlMessages: 16,
+				maximumQueuedBytes: 64 * MiB,
+				lane: (handle) => lanes.get(handle),
+				write: (bytes) => {
+					written.push(decodeFrameHandle(new TextDecoder().decode(bytes.subarray(4))).handle);
+					writable -= 1;
+					return { blocked: writable <= 0, written: bytes.byteLength };
+				},
+			});
+			const deliver: SandboxHostResultDelivery = (reply, released) =>
+				Effect.sync(() => writer.enqueue(reply, released));
+			const settlementStarted = yield* Deferred.make<void>();
+			const releaseSettlement = yield* Deferred.make<void>();
+			const inline = yield* gate.register(
+				makeOptions(
+					parentSpan,
+					makeInput(["httpCall"], {
+						lane: "background",
+						replayJournal: memoryPinnedJournal([]),
+						workflowExecutionId: "exhausted-inline",
+						inlineDurableHost: {
+							capabilities: ["httpCall"],
+							settle: (requests) =>
+								Deferred.succeed(settlementStarted, undefined).pipe(
+									Effect.andThen(Deferred.await(releaseSettlement)),
+									Effect.as(
+										requests.map((): WorkflowDurableResult => ({ value: null, state: "success" })),
+									),
+								),
+						},
+					}),
+					{},
+					makeFiles(),
+					"inline",
+				),
+			);
+			const settling = yield* inline
+				.dispatch(makeFrame(0, "inlineBatch", { requests: httpRequests(1) }, { handle: "inline" }))
+				.pipe(Effect.forkScoped);
+			yield* Deferred.await(settlementStarted);
+			const maximum = "x".repeat(SANDBOX_LIMITS.bridge.responseBytes - 1024);
+			const results = yield* gate.register(
+				makeOptions(
+					parentSpan,
+					makeInput(["httpCall"], { lane: "background" }),
+					{ httpCall: () => Effect.succeed(hostSuccess(maximum)) },
+					makeFiles(),
+					"results",
+				),
+			);
+			yield* results.dispatch(
+				makeFrame(0, "httpCall", ["GET", "https://example.com/first"], { handle: "results" }),
+				deliver,
+			);
+			const blocked = yield* results
+				.dispatch(
+					makeFrame(1, "httpCall", ["GET", "https://example.com/second"], { handle: "results" }),
+					deliver,
+				)
+				.pipe(Effect.forkScoped);
+			yield* Effect.yieldNow;
+			expect(gate.transientMemory("background")).toMatchObject({ waiting: 1 });
+			writable = 1;
+			writer.flush();
+			expect(written).toEqual(["results"]);
+
+			const interactive = yield* gate.register(
+				makeOptions(
+					parentSpan,
+					makeInput(["httpCall"], {
+						lane: "interactive",
+						workflowExecutionId: "exhausted-interactive",
+						replayJournal: memoryPinnedJournal([
+							{ value: "x".repeat(2 * MiB), request: cachedValueRequest(0) },
+						]),
+					}),
+					{ httpCall: successHostFunction() },
+					makeFiles(),
+					"interactive",
+				),
+			);
+			yield* interactive.dispatch(
+				makeFrame(0, "httpCall", ["GET", "https://example.com/interactive"], {
+					handle: "interactive",
+				}),
+				deliver,
+			);
+			yield* interactive.dispatch(
+				makeFrame(1, "journalRead", { offset: 0, length: MiB }, { handle: "interactive" }),
+				deliver,
+			);
+			expect(gate.transientMemory("interactive").used).toBeGreaterThan(0);
+			expect(gate.transientMemory("background")).toMatchObject({ waiting: 1 });
+			writable = Number.POSITIVE_INFINITY;
+			writer.flush();
+			const first = written.indexOf("interactive");
+			const last = written.lastIndexOf("interactive");
+			expect(first).toBe(1);
+			expect(written.slice(first, last + 1).join(",")).not.toContain("results,results");
+			expect(gate.transientMemory("interactive")).toMatchObject({ used: 0, waiting: 0 });
+
+			yield* Deferred.succeed(releaseSettlement, undefined);
+			yield* Fiber.join(settling);
+			yield* Fiber.join(blocked);
+			writer.flush();
+			expect(gate.transientMemory("background")).toMatchObject({ waiting: 0 });
+		}).pipe(Effect.withSpan("host-call-gate.interactive-progress")),
+	),
+);
+
+it.effect("escaped_host_results_stay_within_transient_permits", () =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const admission = yield* makeSandboxAdmission(1904);
+			const gate = yield* gateFor(admission);
+			const parentSpan = yield* Effect.currentSpan;
+			const limit = SANDBOX_LIMITS.bridge.responseBytes;
+			let body = "";
+			const registration = yield* gate.register(
+				makeOptions(
+					parentSpan,
+					makeInput(["httpCall"], { lane: "interactive" }),
+					{ httpCall: () => Effect.succeed(hostSuccess(body)) },
+					makeFiles(),
+					"escaped",
+				),
+			);
+			const replies = holdReplies();
+			const oversized = hostFailure(`Sandbox bridge response exceeds ${limit} UTF-8 bytes`);
+			for (const [seq, { text, accepted }] of [
+				{ accepted: false, text: "\u0001".repeat(Math.ceil(limit / 6)) },
+				{ accepted: false, text: "\ud800".repeat(Math.ceil(limit / 6)) },
+				{ accepted: false, text: "\ufffd".repeat(Math.ceil(limit / 3)) },
+				{ accepted: true, text: "\u0001".repeat(Math.floor(limit / 6) - 16) },
+			].entries()) {
+				body = text;
+				const frame = permitFrame(seq);
+				const reply = yield* registration.dispatch(
+					makeFrame(seq, "httpCall", ["GET", "https://example.com/permit"], { handle: "escaped" }),
+					replies.deliver,
+				);
+				expect(frameValue(reply)).toEqual(accepted ? hostSuccess(text) : oversized);
+				expect(gate.transientMemory("interactive").used).toBe(
+					permitBytes(frame, SANDBOX_TRANSIENT_MEMORY.ordinaryBytes),
+				);
+				expect(gate.transientMemory("interactive").used).toBeLessThanOrEqual(
+					admission.plan.pools.interactive,
+				);
+				replies.written.shift()?.();
+			}
+			expect(gate.transientMemory("interactive")).toMatchObject({ used: 0, waiting: 0 });
+		}).pipe(Effect.withSpan("host-call-gate.escaped-results")),
+	),
+);
+
+it.effect("transient_pools_follow_the_admission_memory_plan", () =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const parentSpan = yield* Effect.currentSpan;
+			for (const budget of [1094, 1904]) {
+				const admission = yield* makeSandboxAdmission(budget);
+				const gate = yield* gateFor(admission);
+				expect([
+					gate.transientMemory("interactive").capacity,
+					gate.transientMemory("background").capacity,
+				]).toEqual([admission.plan.pools.interactive, admission.plan.pools.background]);
+				const registration = yield* gate.register(
+					makeOptions(
+						parentSpan,
+						makeInput(["httpCall"], { lane: "background" }),
+						{ httpCall: successHostFunction() },
+						makeFiles(),
+						`wiring-${budget}`,
+					),
+				);
+				const replies = holdReplies();
+				yield* registration.dispatch(
+					makeFrame(0, "httpCall", ["GET", "https://example.com/permit"], {
+						handle: `wiring-${budget}`,
+					}),
+					replies.deliver,
+				);
+				const background = gate.transientMemory("background").used;
+				expect(gate.transientMemory("interactive").used).toBe(
+					admission.plan.mode === "shared" ? background : 0,
+				);
+				replies.written.shift()?.();
+			}
+		}).pipe(Effect.withSpan("host-call-gate.pool-wiring")),
+	),
+);

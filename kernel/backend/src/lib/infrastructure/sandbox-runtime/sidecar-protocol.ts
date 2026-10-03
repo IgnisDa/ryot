@@ -216,6 +216,8 @@ export const SIDECAR_PROTOCOL_LIMITS = {
 	partBytes: 64 * KiB,
 	consoleEntries: 500,
 	frameBytes: 256 * KiB,
+	// The sidecar's per-connection cap on preallocated chunked assemblies (`ASSEMBLY_BYTES`).
+	assemblyBytes: 64 * MiB,
 	messageBytes: { run: 4 * MiB, done: 6 * MiB, hostCall: 2 * MiB, hostResult: 12 * MiB },
 	execution: {
 		cpuMs: { minimum: 1, maximum: 600_000 },

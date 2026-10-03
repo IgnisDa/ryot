@@ -28,12 +28,8 @@ import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "../sandbox-recovery-store";
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
 import { hostCallArgs } from "./host-call-args.test-support";
-import {
-	SandboxHostCallGate,
-	type SandboxHostCallGateRegistration,
-	SANDBOX_TRANSIENT_MEMORY,
-} from "./host-call-gate";
-import { SANDBOX_LIMITS } from "./limits";
+import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./host-call-gate";
+import { MiB, SANDBOX_LIMITS } from "./limits";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
 import { SandboxSidecarClient } from "./sidecar-client";
@@ -140,7 +136,6 @@ class SupervisorTestHarness extends Context.Service<SupervisorTestHarness, Harne
 	"SupervisorTestHarness",
 ) {}
 
-const MiB = 1024 * 1024;
 const userId = UserId.make("gate-user");
 const moduleSource = "export default async () => null;";
 const dataRuntimeImports = ["@ryot-app/sandbox-sdk/fflate"];
@@ -325,7 +320,8 @@ const makeRecordingHarness = Effect.gen(function* () {
 	} satisfies HarnessService;
 });
 
-const idleBytes = 2 * 128 * MiB + SANDBOX_TRANSIENT_MEMORY.poolBytes;
+const idleBytes = (admission: SandboxSidecarAdmission["Service"]) =>
+	admission.plan.budget - admission.plan.dynamicBytes;
 const configLayer = makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(2048) } });
 const harnessLayer = Layer.effect(SupervisorTestHarness, makeRecordingHarness);
 const clientLayer = Layer.effect(
@@ -656,7 +652,11 @@ const withSupervisor = <A, E, R>(
 			expect(harness.events.filter((event) => event.type === "exit-confirmed")).toHaveLength(
 				harness.connections.length,
 			);
-			expect(admission.snapshot()).toMatchObject({ runs: 0, processes: 0, bytes: idleBytes });
+			expect(admission.snapshot()).toMatchObject({
+				runs: 0,
+				processes: 0,
+				bytes: idleBytes(admission),
+			});
 			return result;
 		}),
 	);
@@ -747,7 +747,11 @@ supervisorTest("lazy_tiers_start_once_and_stop_only_when_idle", () =>
 			yield* TestClock.adjust("1 second");
 			yield* Deferred.await(data.exitConfirmed);
 			expect(yield* clientConnection.exit).toEqual({ code: 0, signal: null });
-			expect(admission.snapshot()).toMatchObject({ runs: 0, processes: 2, bytes: idleBytes });
+			expect(admission.snapshot()).toMatchObject({
+				runs: 0,
+				processes: 2,
+				bytes: idleBytes(admission),
+			});
 
 			const replacementFiber = yield* startRun(supervisor, harness, dataRuntimeImports).pipe(
 				Effect.forkScoped({ startImmediately: true }),
@@ -835,7 +839,7 @@ supervisorTest("drain_and_recycle_respect_generation_and_memory_reservations", (
 			yield* Deferred.await(old.closeRequested);
 			expect(old.finalized).toBe(false);
 			expect(admission.snapshot().processes).toBe(3);
-			expect(admission.snapshot().bytes).toBeGreaterThan(idleBytes + 128 * MiB);
+			expect(admission.snapshot().bytes).toBeGreaterThan(idleBytes(admission) + 128 * MiB);
 			expect(yield* Deferred.isDone(secondPrepareStarted)).toBe(false);
 
 			yield* harness.confirmClose(old.generation);
@@ -972,12 +976,16 @@ supervisorTest(
 				expect(data.finalized).toBe(false);
 				expect(yield* Deferred.isDone(data.exitConfirmed)).toBe(false);
 				expect(admission.snapshot().processes).toBe(3);
-				expect(admission.snapshot().bytes).toBeGreaterThan(idleBytes);
+				expect(admission.snapshot().bytes).toBeGreaterThan(idleBytes(admission));
 
 				yield* harness.confirmClose(data.generation);
 				yield* Fiber.join(interruption);
 				expect(data.finalized).toBe(true);
-				expect(admission.snapshot()).toMatchObject({ runs: 0, processes: 2, bytes: idleBytes });
+				expect(admission.snapshot()).toMatchObject({
+					runs: 0,
+					processes: 2,
+					bytes: idleBytes(admission),
+				});
 			}),
 		),
 );
@@ -1482,7 +1490,7 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 			const input: SandboxRunInput = {
 				context: {},
 				compiledFormat: 1,
-				lane: "interactive",
+				lane: "background",
 				compiledCode: moduleSource,
 				executionId: "inline-budget",
 				replayJournal: memoryPinnedJournal([]),
@@ -1531,6 +1539,7 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 				});
 			const runFiber = yield* startRun(supervisor, harness, [], {
 				prepare,
+				lane: "background",
 				principal: input.principal,
 			}).pipe(Effect.forkScoped({ startImmediately: true }));
 			const connection = getConnection(harness, "user/core");
@@ -1782,5 +1791,284 @@ supervisorTest("per_user_sidecars_shard_the_user_tier_by_owner", () =>
 				sandbox: { ...config.sandbox, perUserSidecars: true },
 			}),
 		);
+	}),
+);
+
+const withLaneSupervisor = <A, E, R>(work: Parameters<typeof withSupervisor<A, E, R>>[0]) =>
+	Effect.gen(function* () {
+		const config = yield* AppConfig;
+		const laneConfig = {
+			...config,
+			sandbox: {
+				...config.sandbox,
+				workerConcurrency: 3,
+				perUserSidecars: true,
+				memoryBudgetMiB: Option.some(1363),
+			},
+		};
+		const admission = yield* SandboxSidecarAdmission.make.pipe(
+			Effect.provideService(AppConfig, laneConfig),
+		);
+		expect(admission.plan.mode).toBe("lane");
+		return yield* withSupervisor(work).pipe(
+			Effect.provideService(SandboxSidecarAdmission, admission),
+			Effect.provideService(AppConfig, laneConfig),
+		);
+	});
+
+const startOwned = (
+	supervisor: SandboxSidecarSupervisor["Service"],
+	harness: HarnessService,
+	owner: string,
+	lane: ExecutionLane,
+	afterGeneration: number,
+) =>
+	Effect.gen(function* () {
+		const fiber = yield* startRun(supervisor, harness, [], {
+			lane,
+			principal: owned(owner, `${owner}-script`),
+		}).pipe(Effect.forkScoped({ startImmediately: true }));
+		const connection = yield* awaitConnection(harness, "user/core", afterGeneration);
+		return { fiber, connection, run: yield* Queue.take(connection.nextRun) };
+	});
+
+const exitedBefore = (harness: HarnessService, exited: number, connected: number) =>
+	harness.events.findIndex(
+		(event) => event.type === "exit-confirmed" && event.generation === exited,
+	) <
+	harness.events.findIndex((event) => event.type === "connect" && event.generation === connected);
+
+supervisorTest("lazy_processes_preserve_interactive_headroom", () =>
+	withLaneSupervisor(({ harness, admission, supervisor }) =>
+		Effect.gen(function* () {
+			const shared = getConnection(harness, "user/core");
+			const background = yield* startOwned(
+				supervisor,
+				harness,
+				"alice",
+				"background",
+				shared.generation,
+			);
+			const interactive = yield* startOwned(
+				supervisor,
+				harness,
+				"bob",
+				"interactive",
+				background.connection.generation,
+			);
+			expect(admission.snapshot()).toMatchObject({ runs: 2, bytes: admission.plan.budget });
+			yield* harness.complete(background.connection, background.run);
+			yield* Fiber.join(background.fiber);
+			yield* TestClock.adjust("1 second");
+			yield* harness.complete(interactive.connection, interactive.run);
+			yield* Fiber.join(interactive.fiber);
+			expect(admission.snapshot()).toMatchObject({ processes: 4, interactiveBytes: 128 * MiB });
+			expect([background.connection.finalized, interactive.connection.finalized]).toEqual([
+				false,
+				false,
+			]);
+
+			const next = yield* startOwned(
+				supervisor,
+				harness,
+				"carol",
+				"background",
+				interactive.connection.generation,
+			);
+			expect(background.connection.finalized).toBe(true);
+			expect(interactive.connection.finalized).toBe(false);
+			expect(
+				exitedBefore(harness, background.connection.generation, next.connection.generation),
+			).toBe(true);
+			yield* harness.complete(next.connection, next.run);
+			yield* Fiber.join(next.fiber);
+		}),
+	),
+);
+
+supervisorTest("memory_lock_order_prevents_admission_deadlock", () =>
+	withLaneSupervisor(({ harness, admission, supervisor }) =>
+		Effect.gen(function* () {
+			const gate = yield* SandboxHostCallGate.make;
+			const parentSpan = yield* Effect.currentSpan;
+			const releaseHost = yield* Deferred.make<void>();
+			const registration = yield* gate.register({
+				parentSpan,
+				generation: 1,
+				handle: "permits",
+				instance: "user/data",
+				apiFunctions: {
+					httpCall: () => Deferred.await(releaseHost).pipe(Effect.as(hostSuccess(null))),
+				},
+				files: {
+					harvest: () => Effect.succeed(null),
+					scratchWrite: () => Effect.succeed(null),
+					artifactReadRange: () => Effect.die("Unexpected artifact read"),
+					filesystem: { scratch: false, artifact: false, namedArtifacts: [] },
+				},
+				input: {
+					context: {},
+					compiledFormat: 1,
+					lane: "background",
+					executionId: "lock-order",
+					compiledCode: moduleSource,
+					principal: {
+						...makePrincipal([], "lock-order"),
+						metadata: { kind: "script", runtimeImports: [], capabilities: ["httpCall"] },
+					},
+				},
+			});
+			const permitHolders = yield* Effect.forEach(
+				[0, 1, 2],
+				(seq) =>
+					registration
+						.dispatch(
+							Schema.decodeSync(SidecarHostCallFrame)({
+								seq,
+								generation: 1,
+								type: "hostCall",
+								name: "httpCall",
+								handle: "permits",
+								args: hostCallArgs(["GET", `https://example.com/${"k".repeat(900_000)}`]),
+							}),
+						)
+						.pipe(Effect.forkScoped({ startImmediately: true })),
+				{ concurrency: "unbounded" },
+			);
+			yield* Effect.yieldNow;
+			expect(gate.transientMemory("background").waiting).toBeGreaterThan(0);
+
+			const shared = getConnection(harness, "user/core");
+			const alice = yield* startOwned(
+				supervisor,
+				harness,
+				"alice",
+				"background",
+				shared.generation,
+			);
+			yield* harness.complete(alice.connection, alice.run);
+			yield* Fiber.join(alice.fiber);
+			const leaseScope = yield* Scope.make();
+			const lease = yield* supervisor
+				.reserve(owned("alice", "alice-script"), "background")
+				.pipe(Scope.provide(leaseScope));
+			const carol = yield* startRun(supervisor, harness, [], {
+				lane: "background",
+				principal: owned("carol", "carol-script"),
+			}).pipe(Effect.forkScoped({ startImmediately: true }));
+			yield* TestClock.adjust("1 second");
+			expect(admission.snapshot().waiting).toBeGreaterThan(0);
+			expect(alice.connection.finalized).toBe(false);
+
+			const retry = yield* supervisor
+				.run({
+					lease,
+					lane: "background",
+					prepare: makePrepare(harness),
+					pinHash: sha256Hex(moduleSource),
+					executionId: crypto.randomUUID(),
+					principal: owned("alice", "alice-script"),
+				})
+				.pipe(Effect.forkScoped({ startImmediately: true }));
+			yield* harness.complete(alice.connection, yield* Queue.take(alice.connection.nextRun));
+			yield* Fiber.join(retry);
+			yield* Scope.close(leaseScope, Exit.void);
+			const carolConnection = yield* awaitConnection(
+				harness,
+				"user/core",
+				alice.connection.generation,
+			);
+			expect(alice.connection.finalized).toBe(true);
+			yield* harness.complete(carolConnection, yield* Queue.take(carolConnection.nextRun));
+			yield* Fiber.join(carol);
+			expect(gate.transientMemory("background").waiting).toBeGreaterThan(0);
+			yield* Deferred.succeed(releaseHost, undefined);
+			yield* Effect.forEach(permitHolders, Fiber.join);
+			expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
+		}).pipe(Effect.withSpan("sandbox.supervisor.lock-order-test")),
+	),
+);
+
+supervisorTest("done_decode_reuses_disposed_isolate_reservation", () =>
+	withSupervisor(({ harness, admission, supervisor }) =>
+		Effect.gen(function* () {
+			const finished: Array<ReturnType<typeof admission.snapshot>> = [];
+			const releaseHost = yield* Deferred.make<void>();
+			const prepare: SandboxSidecarRun["prepare"] = (identity) =>
+				makePrepare(harness)(identity).pipe(
+					Effect.map((prepared) => ({
+						...prepared,
+						finish: () =>
+							Effect.sync(() => {
+								finished.push(admission.snapshot());
+							}),
+						gate: {
+							...prepared.gate,
+							dispatch: (frame, deliver) =>
+								Deferred.await(releaseHost).pipe(
+									Effect.andThen(prepared.gate.dispatch(frame, deliver)),
+								),
+						},
+					})),
+				);
+			const fiber = yield* startRun(supervisor, harness, [], { prepare }).pipe(
+				Effect.forkScoped({ startImmediately: true }),
+			);
+			const [core] = userCoreConnections(harness);
+			assert(core !== undefined);
+			const run = yield* Queue.take(core.nextRun);
+			const running = admission.snapshot();
+			expect(running.runs).toBe(1);
+			yield* harness.emit(core.generation, committedHostCall(run, 1));
+			yield* harness.complete(core, run);
+			yield* Fiber.join(fiber);
+			expect(finished).toEqual([running]);
+			yield* Deferred.succeed(releaseHost, undefined);
+		}),
+	),
+);
+
+supervisorTest("isolate_reservation_includes_near_heap_limit_headroom", () =>
+	Effect.gen(function* () {
+		const harness = yield* SupervisorTestHarness;
+		const admission = yield* SandboxSidecarAdmission;
+		const isolateBytes =
+			SANDBOX_LIMITS.isolate.heapBytes +
+			SANDBOX_LIMITS.isolate.externalBytes +
+			SANDBOX_LIMITS.sidecar.heapHeadroomBytes;
+		const runScope = yield* Scope.make();
+		yield* admission.reserveRun("system/core", "interactive").pipe(Scope.provide(runScope));
+		expect(admission.snapshot().bytes - idleBytes(admission)).toBeGreaterThan(isolateBytes);
+		yield* Scope.close(runScope, Exit.void);
+
+		yield* withSupervisor(() => Effect.void);
+		const memoryBudget = admission.maximumActive * (isolateBytes + 4 * MiB);
+		expect(harness.connections.map((connection) => connection.settings)).toMatchObject([
+			{ memoryBudget, maxRss: SANDBOX_LIMITS.sidecar.rssOverheadBytes + memoryBudget },
+			{ memoryBudget, maxRss: SANDBOX_LIMITS.sidecar.rssOverheadBytes + memoryBudget },
+		]);
+
+		const overreporting = Effect.provideService(SandboxSidecarClient, {
+			connect: (settings) =>
+				harness
+					.connect(settings)
+					.pipe(
+						Effect.map((connection) => ({
+							...connection,
+							next: connection.next.pipe(
+								Effect.map((frame) =>
+									frame.type === "ready"
+										? { ...frame, heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes + 1 }
+										: frame,
+								),
+							),
+						})),
+					),
+		});
+		const rejected = yield* Effect.scoped(
+			Effect.flip(overreporting(SandboxSidecarSupervisor.make)),
+		);
+		expect(rejected).toMatchObject({ message: "Sandbox sidecar startup failed" });
+		expect(admission.snapshot()).toMatchObject({ processes: 0, bytes: idleBytes(admission) });
 	}),
 );

@@ -12,7 +12,7 @@ import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { RelationshipSchemasRepositoryLive } from "#modules/relationship-schemas/layer";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
-import { RuntimeSandboxServiceLive, SandboxExecutionServiceLive } from "#modules/sandbox/layer";
+import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
 import { PluginCronServiceLive } from "#modules/scheduler/layer";
 
 import { OperationalGateRepository } from "./operational-gate-repository";
@@ -39,7 +39,6 @@ export const TestSupportServicesLive = Layer.merge(
 		Layer.provide(DefinitionRepository.layer),
 	),
 	OperationalGateService.layer.pipe(
-		Layer.provide(RuntimeSandboxServiceLive),
 		Layer.provide(
 			Layer.mergeAll(
 				OperationalGateRepository.layer,

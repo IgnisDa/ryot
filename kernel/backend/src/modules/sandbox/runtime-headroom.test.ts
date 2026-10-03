@@ -425,7 +425,7 @@ const makeHeadroomLayer = Layer.unwrap(
 							const result = yield* processSandboxExecutionQueue({
 								startedAt,
 								journalLength: 0,
-								lane: "interactive",
+								lane: "background",
 								context: payload.input,
 								principal: fixture.principal,
 								executionId: `${payload.executionId}-replay-${slot}`,
