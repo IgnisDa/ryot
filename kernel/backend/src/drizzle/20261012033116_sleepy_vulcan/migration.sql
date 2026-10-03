@@ -800,6 +800,7 @@ CREATE TABLE "plugin_revision" (
 	"icon" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'icon') STORED,
 	"description" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'description') STORED,
 	"plugin_id" text NOT NULL,
+	"sandbox_authority" jsonb GENERATED ALWAYS AS (plugin_sandbox_authority(manifest)) STORED NOT NULL,
 	CONSTRAINT "plugin_revision_plugin_source_unique" UNIQUE("plugin_id","source_hash"),
 	CONSTRAINT "plugin_revision_id_plugin_unique" UNIQUE("id","plugin_id")
 );

@@ -1,8 +1,8 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "6761fa14-d0dc-41ef-96be-c0d267059307",
-	"prevIds": ["66a9ed20-478f-47ff-9f24-44ef507038f8"],
+	"id": "6b5f55ee-518c-4ecc-827b-c6cd34c2e695",
+	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
 		{ "isRlsEnabled": false, "name": "apikey", "entityType": "tables", "schema": "public" },
@@ -7576,19 +7576,6 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
-			"generated": { "as": "plugin_sandbox_authority(manifest)", "type": "stored" },
-			"identity": null,
-			"name": "sandbox_authority",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "plugin_revision"
-		},
-		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
 			"generated": null,
 			"identity": null,
 			"name": "client_config_schema",
@@ -7670,6 +7657,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_revision"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": { "as": "plugin_sandbox_authority(manifest)", "type": "stored" },
+			"identity": null,
+			"name": "sandbox_authority",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_revision"
