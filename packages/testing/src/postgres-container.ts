@@ -33,6 +33,9 @@ export const startPostgresContainerEffect = (input: { label: string; maxConnecti
 		const fs = yield* FileSystem.FileSystem;
 		const context = yield* Effect.context();
 		const logPath = path.join(tmpdir(), `ryot-${input.label}-postgres-${process.pid}.log`);
+		yield* fs
+			.writeFile(logPath, new Uint8Array())
+			.pipe(Effect.mapError((cause) => containerError("Could not create PostgreSQL logs", cause)));
 		let logFiber: Fiber.Fiber<void, PostgresContainerError> | undefined;
 		const container = yield* Effect.tryPromise({
 			catch: (cause) => containerError("Could not start PostgreSQL container", cause),
@@ -59,7 +62,7 @@ export const startPostgresContainerEffect = (input: { label: string; maxConnecti
 							Stream.fromAsyncIterable<Uint8Array, PostgresContainerError>(stream, (cause) =>
 								containerError("Could not read PostgreSQL logs", cause),
 							).pipe(
-								Stream.run(fs.sink(logPath)),
+								Stream.runForEach((chunk) => fs.writeFile(logPath, chunk, { flag: "a" })),
 								Effect.mapError((cause) =>
 									containerError("Could not write PostgreSQL logs", cause),
 								),
