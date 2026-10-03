@@ -1,5 +1,17 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
+export const videoGameRelationKinds = [
+	"Edition",
+	"Port",
+	"Remake",
+	"Remaster",
+	"Expanded Game",
+	"Expansion",
+	"Standalone Expansion",
+	"DLC",
+	"Mod",
+] as const;
+
 const optionalNumber = Schema.optional(Schema.NullOr(Schema.Finite));
 
 const optionalString = Schema.optional(Schema.NullOr(Schema.String));

@@ -143,9 +143,25 @@ overview gallery, not as a backdrop, so the hero uses art height at both widths.
 
 Video Game measures `timeSpent` alone, with no fallback: `timeToBeat` is a community estimate of the
 game, not a record of your play, so a completion with no recorded time stays unknown and the total
-renders as `24h+`. Its overview adds two summary-sourced sections through `overviewTrailing` - "How
-long to beat" showing the hastily, normally, and completely paces, and "Platforms" listing each
-platform release with its date and region when the provider recorded them. The summary decodes the
+renders as `24h+`. The IGDB game type (`gameType`, e.g. Port, Remake) is a summary fact, and search
+results append it to their metadata unless it is "Main Game". Its overview adds two summary-sourced
+sections through `overviewTrailing` - "How long to beat" showing the hastily, normally, and
+completely paces, and "Platforms" listing each platform release with its date and region when the
+provider recorded them.
+
+Games relate to games through `video-game-to-video-game`, whose source is the original and whose
+target is the derived game, with a `kind` relationship property. IGDB derives one `kind` per pair
+from the child's fields, so the parent's and the child's details agree: `version_parent` yields
+"Edition" (even when `parent_game` is also set), otherwise `parent_game` yields the child's game
+type, or "Related" without one; links where either game is a Bundle are dropped. Parents cannot see
+their children, so details run one reverse lookup (`where parent_game = X | version_parent = X`,
+at most four 500-row pages) and write the outgoing group authoritatively; a lookup that hits the page
+cap writes it additively so a truncated batch never deletes edges. The child's own fields make the
+incoming group always authoritative. The overview adds `originals` and `derivatives` queries through
+`extraOverviewQueries`; `derivatives` loads 60 rows ordered by `videoGameRelationKinds` priority,
+then year and name, so truncation drops mods and DLC before ports, remakes, and remasters. The
+descriptor's `overviewRails` turns them into one "<Kind> of <Parent>" rail per original and one rail
+per derivative kind. The summary decodes the
 whole `timeToBeat` object because all three paces are shown; rows and cards need one figure, so they
 select `timeToBeat.normally` directly through the variadic property accessors in
 `shared/entity-selections.ts`. Only `name` is guaranteed
