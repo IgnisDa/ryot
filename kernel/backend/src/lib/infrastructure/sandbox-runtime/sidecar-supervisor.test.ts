@@ -292,6 +292,7 @@ const makeRecordingHarness = Effect.gen(function* () {
 				type: "done",
 				handle: run.handle,
 				generation: run.generation,
+				usage: { heapBytes: 0, externalBytes: 0 },
 				console: { entries: [], truncated: false },
 				outcome: { value: null, status: "completed" },
 			} satisfies DoneFrame).pipe(Effect.asVoid),
@@ -1551,6 +1552,7 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 				handle: run.handle,
 				generation: run.generation,
 				outcome: { status: "cancelled" },
+				usage: { heapBytes: 0, externalBytes: 0 },
 				console: { entries: [], truncated: false },
 			});
 			expect((yield* Fiber.join(runFiber)).done.outcome).toEqual({ status: "cancelled" });

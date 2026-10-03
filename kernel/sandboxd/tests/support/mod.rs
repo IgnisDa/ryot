@@ -66,6 +66,7 @@ pub struct Sidecar {
 pub struct Done {
     pub outcome: Outcome,
     pub console: ryot_sandboxd::protocol::Console,
+    pub usage: ryot_sandboxd::protocol::Usage,
 }
 
 impl Done {
@@ -259,8 +260,15 @@ impl Sidecar {
                     handle: done_handle,
                     outcome,
                     console,
+                    usage,
                     ..
-                } if done_handle == handle => return Done { outcome, console },
+                } if done_handle == handle => {
+                    return Done {
+                        outcome,
+                        console,
+                        usage,
+                    };
+                }
                 Outbound::Draining { reason, .. } => self.drained = Some(reason),
                 other => panic!("unexpected frame {other:?}"),
             }

@@ -20,9 +20,11 @@ import { AppConfig } from "../config/service";
 import {
 	recordSandboxActiveExecutions,
 	recordSandboxAdmission,
+	recordSandboxExecutionUsage,
 	recordSandboxSidecarEvent,
 	recordSandboxSidecarGauges,
 	recordSandboxSidecarHostCall,
+	sandboxMetricKind,
 } from "../runtime-metrics";
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "../sandbox-recovery-store";
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
@@ -749,6 +751,23 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 								}),
 							),
 						);
+						const usage = {
+							...result.done.usage,
+							tier: key.tier,
+							trust: key.trust,
+							outcome: result.done.outcome.status,
+							kind: sandboxMetricKind(options.principal.metadata),
+						};
+						yield* recordSandboxExecutionUsage(usage);
+						yield* Effect.annotateCurrentSpan({
+							kind: usage.kind,
+							trust: usage.trust,
+							snapshot: usage.tier,
+							outcome: usage.outcome,
+							peakHeapBytes: usage.heapBytes,
+							scriptId: options.principal.scriptId,
+							peakExternalBytes: usage.externalBytes,
+						});
 						if (active.invalid) {
 							return yield* new SandboxRunError({
 								kind: "infrastructure",

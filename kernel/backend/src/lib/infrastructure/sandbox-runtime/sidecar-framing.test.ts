@@ -29,6 +29,7 @@ const doneFrame = (handle: string, seq: number, text: string, generation = 7) =>
 		handle,
 		generation,
 		type: "done",
+		usage: { heapBytes: 0, externalBytes: 0 },
 		console: { entries: [], truncated: false },
 		outcome: { value: { text }, status: "completed" },
 	}) satisfies OutboundFrame;

@@ -21,6 +21,7 @@ const MiB = 1024 * 1024;
 const sha256 = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 const limits = { cpuMs: 2_000, deadlineMs: 30_000, heapBytes: 64 * MiB, externalBytes: 16 * MiB };
 const envelope = { seq: 0, generation: 7, handle: "exec-1" };
+const usage = { externalBytes: 0, heapBytes: 12 * MiB };
 const run = {
 	...envelope,
 	limits,
@@ -115,6 +116,7 @@ const fixtures: ReadonlyArray<Fixture> = [
 	}),
 	outbound("done-completed", {
 		...envelope,
+		usage,
 		type: "done",
 		outcome: { status: "completed", value: { items: [1, 2, 3] } },
 		console: {
@@ -127,18 +129,21 @@ const fixtures: ReadonlyArray<Fixture> = [
 	}),
 	outbound("done-failed", {
 		...envelope,
+		usage,
 		type: "done",
 		console: { entries: [], truncated: true },
 		outcome: { status: "failed", phase: "resolution", message: "import not allowed: node:fs" },
 	}),
 	outbound("done-limit", {
 		...envelope,
+		usage,
 		type: "done",
 		console: { entries: [], truncated: false },
 		outcome: { limit: "cpu", status: "limit", message: "CPU limit of 2000 ms exceeded" },
 	}),
 	outbound("done-cancelled", {
 		...envelope,
+		usage,
 		type: "done",
 		outcome: { status: "cancelled" },
 		console: { entries: [], truncated: false },
@@ -213,6 +218,7 @@ const fixtures: ReadonlyArray<Fixture> = [
 	}),
 	invalidPayload("done-unknown-phase", "outbound", {
 		...envelope,
+		usage,
 		type: "done",
 		console: { entries: [], truncated: false },
 		outcome: { message: "x", phase: "boot", status: "failed" },
