@@ -14,7 +14,7 @@ import {
 	integrationRecord,
 } from "../../../tests/backend/automations/automation-test-utils";
 import type { MediaSourceRecord } from "../../imports/collection-schemas";
-import { mediaFilesystem, mediaFilesystemKey } from "../../imports/ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem } from "../../imports/ingestion.test-support";
 import { mediaIntegrations } from "../../imports/references";
 import { MediaSandboxError } from "../../lib/failures";
 import type { YankInput } from "../schemas";
@@ -212,7 +212,7 @@ const groups = (records: readonly MediaSourceRecord[]) =>
 const events = (records: readonly MediaSourceRecord[]) =>
 	records.flatMap(({ group }) => group?.events ?? []);
 
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 
 describe("AniList yank", () => {
 	it("registers the AniList integration adapter", () => {
