@@ -124,7 +124,7 @@ Only a matched HTTP `429` retries automatically. `Retry-After` accepts delta sec
 
 Redirects are followed by hand, at most five per call, with fetch semantics: `303`, and `POST` under `301` or `302`, become `GET` without a body or its content headers, and `Authorization`, `Cookie`, and `Proxy-Authorization` are dropped across origins. Scripts may not set `Host`. A durable network attempt follows a hop only when policy proves it unmatched; a matched hop or a failed lookup ends the attempt before the hop is requested, and the workflow journals it, admits it under a ticket for that hop, and continues from it in the next attempt. Inline settlement uses the same check and fails the call instead. An IP literal or other alias that reaches a declared host is not matched.
 
-Ticket metrics record wait from registration to grant, grants, expired grants, and overloads by lane, policy key, and outcome. HTTP logs contain only workflow execution ID, policy key, normalized origin, stage, attempt, wait/duration, and status. URLs, query strings, headers, bodies, credentials, users, tenants, plugins, and ticket identities are excluded.
+Ticket metrics record wait from registration to grant, grants, expired grants, and overloads by lane, policy key, and outcome. HTTP logs contain only workflow execution ID, request index, hop, policy key, normalized origin, stage, attempt, wait/duration, and status; each admitted matched hop logs its ticket wait (registration to grant) and resume delay (grant to network start) at info level. URLs, query strings, headers, bodies, credentials, users, tenants, plugins, and ticket identities are excluded.
 
 ## Recovery
 

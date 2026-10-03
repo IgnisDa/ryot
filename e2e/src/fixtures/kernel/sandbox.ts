@@ -80,7 +80,7 @@ export const enqueueSandboxScript = (executingUserId: string, body: EnqueueSandb
 		};
 	});
 
-export const pollSandboxResult = (executingUserId: string, jobId: string) =>
+export const pollSandboxResult = (executingUserId: string, jobId: string, timeoutMs?: number) =>
 	pollUntil(
 		`sandbox job '${jobId}'`,
 		Effect.gen(function* () {
@@ -94,6 +94,7 @@ export const pollSandboxResult = (executingUserId: string, jobId: string) =>
 			);
 			return result.status !== "pending" ? result : null;
 		}),
+		timeoutMs,
 	);
 
 export const deleteSandboxReplayProjection = (executionId: string) =>

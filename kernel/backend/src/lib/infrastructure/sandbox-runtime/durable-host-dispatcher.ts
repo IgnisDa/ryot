@@ -109,6 +109,15 @@ const HttpRateLimitResolution = Schema.Union([
 	}),
 ]);
 
+type AdmissionTiming = { readonly grantedAtMs: number; readonly registeredAtMs: number };
+
+const timed = <A, E>(effect: Effect.Effect<A, E>) =>
+	Effect.flatMap(effect, (value) =>
+		Effect.map(Clock.currentTimeMillis, (atMs) => ({ atMs, value })),
+	);
+
+const observed = <S extends Schema.Top>(value: S) => Schema.Struct({ value, atMs: Schema.Int });
+
 const HttpNetworkAttempt = Schema.Struct({
 	durationMs: Schema.Int,
 	responseTimeMs: Schema.Int,
@@ -400,24 +409,30 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					);
 
 				const register = (policy: MatchedHttpRateLimit, ticket: ProviderHttpTicket) =>
-					coordinate("register", ProviderHttpRegistration, () =>
-						admission
-							.register(admissionDeclaration(policy), ticket)
-							.pipe(Effect.catchTags(admissionFailure("register"))),
+					coordinate("register", observed(ProviderHttpRegistration), () =>
+						timed(
+							admission
+								.register(admissionDeclaration(policy), ticket)
+								.pipe(Effect.catchTags(admissionFailure("register"))),
+						),
 					);
 
 				const poll = (policy: MatchedHttpRateLimit, ticket: ProviderHttpTicket) =>
-					coordinate("poll", ProviderHttpPoll, () =>
-						admission
-							.poll(admissionDeclaration(policy), ticket)
-							.pipe(Effect.catchTags(admissionFailure("poll"))),
+					coordinate("poll", observed(ProviderHttpPoll), () =>
+						timed(
+							admission
+								.poll(admissionDeclaration(policy), ticket)
+								.pipe(Effect.catchTags(admissionFailure("poll"))),
+						),
 					);
 
 				const claim = (policy: MatchedHttpRateLimit, ticket: ProviderHttpTicket, nonce: string) =>
-					coordinate("claim", ProviderHttpClaim, () =>
-						admission
-							.claim(admissionDeclaration(policy), ticket, nonce)
-							.pipe(Effect.catchTags(admissionFailure("claim"))),
+					coordinate("claim", observed(ProviderHttpClaim), () =>
+						timed(
+							admission
+								.claim(admissionDeclaration(policy), ticket, nonce)
+								.pipe(Effect.catchTags(admissionFailure("claim"))),
+						),
 					);
 
 				const block = (policy: MatchedHttpRateLimit, delayMs: number) =>
@@ -457,8 +472,10 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						let policy = initial;
 						let overloadStreak = 0;
 						let guardedKey: string | undefined;
+						let registeredAtMs: number | undefined;
 						registration: for (;;) {
-							const registered = yield* register(policy, ticket);
+							const { value: registered, atMs: registerAtMs } = yield* register(policy, ticket);
+							registeredAtMs ??= registerAtMs;
 							if (registered.status === "overloaded") {
 								overloadStreak += 1;
 								yield* sleepFor(
@@ -467,7 +484,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								);
 								const resolution = yield* resolvePolicy(url);
 								if (!resolution.matched) {
-									return resolution;
+									return { resolution, timing: null };
 								}
 								policy = resolution;
 								continue registration;
@@ -478,9 +495,10 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								yield* cancelOnInterrupt(policy, ticket);
 							}
 							let nonce = registered.status === "claimed" ? "claimed" : null;
+							let grantedAtMs = registerAtMs;
 							for (;;) {
 								if (nonce === null) {
-									const polled = yield* poll(policy, ticket);
+									const { value: polled, atMs: polledAtMs } = yield* poll(policy, ticket);
 									if (polled.status === "retry") {
 										continue;
 									}
@@ -506,7 +524,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 										if (!resolution.matched || !samePolicy(policy, resolution)) {
 											yield* cancelNow(policy, ticket);
 											if (!resolution.matched) {
-												return resolution;
+												return { resolution, timing: null };
 											}
 											policy = resolution;
 											continue registration;
@@ -514,8 +532,9 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 										continue;
 									}
 									nonce = polled.status === "granted" ? polled.nonce : "claimed";
+									grantedAtMs = polledAtMs;
 								}
-								const claimed = yield* claim(policy, ticket, nonce);
+								const { value: claimed } = yield* claim(policy, ticket, nonce);
 								nonce = null;
 								if (claimed.status === "admitted") {
 									yield* Effect.logTrace("sandbox HTTP admission claimed").pipe(
@@ -527,7 +546,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 											policyKey: bounded(policy.declaration.key, 128),
 										}),
 									);
-									return policy;
+									return { resolution: policy, timing: { grantedAtMs, registeredAtMs } };
 								}
 								if (claimed.status === "unknown") {
 									break;
@@ -535,7 +554,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							}
 							const resolution = yield* resolvePolicy(url);
 							if (!resolution.matched) {
-								return resolution;
+								return { resolution, timing: null };
 							}
 							policy = resolution;
 						}
@@ -544,6 +563,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				const runNetworkAttempt = (
 					policy: MatchedHttpRateLimit | null,
 					redirect: SandboxHttpRedirect | null,
+					timing: AdmissionTiming | null,
 				) => {
 					networkAttempt += 1;
 					const attempt = networkAttempt;
@@ -553,6 +573,19 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						name: `sandbox-http-${request.index}-network-${attempt}`,
 						execute: Effect.gen(function* () {
 							const startedAtMs = yield* Clock.currentTimeMillis;
+							if (policy && timing) {
+								yield* Effect.logInfo("sandbox HTTP admission timing").pipe(
+									Effect.annotateLogs({
+										attempt,
+										hop: redirect?.hop ?? 0,
+										requestIndex: request.index,
+										sandboxWorkflowExecutionId: executionId,
+										policyKey: bounded(policy.declaration.key, 128),
+										resumeDelayMs: Math.max(0, startedAtMs - timing.grantedAtMs),
+										ticketWaitMs: Math.max(0, timing.grantedAtMs - timing.registeredAtMs),
+									}),
+								);
+							}
 							const outcome = yield* dispatchSandboxHttpHop(
 								request,
 								payload.input,
@@ -599,7 +632,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 
 				const requestUrl = sandboxDurableHttpRequestUrl(request);
 				if (requestUrl === null) {
-					const attempted = yield* runNetworkAttempt(null, null);
+					const attempted = yield* runNetworkAttempt(null, null, null);
 					return attempted.outcome._tag === "completed"
 						? attempted.outcome.result
 						: yield* new SandboxRunError({
@@ -615,10 +648,12 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				let resolution = yield* resolvePolicy(url);
 				for (;;) {
 					let policy: MatchedHttpRateLimit | null = null;
+					let timing: AdmissionTiming | null = null;
 					if (resolution.matched) {
 						const admitted = yield* admit(resolution, url, { hop, attempt });
-						if (admitted.matched) {
-							policy = admitted;
+						if (admitted.resolution.matched) {
+							policy = admitted.resolution;
+							timing = admitted.timing;
 						}
 					}
 					if (policy === null && terminalRateLimit) {
@@ -627,6 +662,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					const attempted: typeof HttpNetworkAttempt.Type = yield* runNetworkAttempt(
 						policy,
 						redirect,
+						timing,
 					);
 					if (attempted.outcome._tag === "redirected") {
 						redirect = attempted.outcome;
