@@ -154,6 +154,7 @@ const blockedProvider: IntegrationProviderItem = {
 		availableConfigKeys: [],
 		scripts: [
 			{
+				capabilities: [],
 				oauthConnectionFields: [],
 				executableDependencies: [],
 				optionalPluginConfigKeys: [],
