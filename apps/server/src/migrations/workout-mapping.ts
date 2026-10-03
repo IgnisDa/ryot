@@ -1,18 +1,19 @@
 import { exerciseKinds } from "@ryot-app/fitness-plugin/exercise-kinds";
+import { workoutSetScales } from "@ryot-app/fitness-plugin/workout-records";
 
 import { buildLegacyImagesSql, buildLegacyVideosSql } from "./asset-mapping";
 import type { QualifiedSchema } from "./migration-resolution";
 import {
 	buildAbortOnRowsSql,
+	buildAnomalyReportSql,
 	buildRequireLegacyTableSql,
 	buildReportSql,
 	quoteNullableSqlString,
 	quoteSqlString,
 } from "./shared";
 
-// V1 Option<Decimal> is a rust_decimal JSON string; cast to float8.
 const buildDecimalStatField = (statAlias: string, field: string) =>
-	`NULLIF(${statAlias} -> 'statistic' ->> '${field}', '')::float8`;
+	`NULLIF(${statAlias} -> 'statistic' ->> '${field}', '')::numeric`;
 
 export const buildWorkoutTemplateMigrationSql = (schema: QualifiedSchema) => `
 DO $$
@@ -22,9 +23,40 @@ DECLARE
 	cursor_id text := '';
 	next_cursor_id text;
 	rows_inserted int := 0;
+	invalid_unit_count int;
+	invalid_unit_sample text;
+	invalid_rest_count int;
+	invalid_rest_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	${buildRequireLegacyTableSql("workout -> entity", "workout_template")}
+	IF EXISTS (SELECT 1 FROM "migration_report" WHERE phase = 'workout_template -> entity') THEN
+		RETURN;
+	END IF;
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_unit_count",
+		sampleVariable: "invalid_unit_sample",
+		message:
+			"workout_template -> entity: % exercise(s) have a missing or unsupported unit system: %. Template measurements cannot be converted safely. Correct these unit systems in the V1 database, then start again.",
+		source: `SELECT wt.id || ':' || (ex.ordinality - 1)::text AS label
+			FROM "workout_template" wt
+			CROSS JOIN LATERAL jsonb_array_elements(COALESCE(wt.information -> 'exercises', '[]'::jsonb)) WITH ORDINALITY AS ex(value, ordinality)
+			WHERE COALESCE(lower(ex.value ->> 'unit_system'), '') NOT IN ('metric', 'imperial')`,
+	})}
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_rest_count",
+		sampleVariable: "invalid_rest_sample",
+		message:
+			"workout_template -> entity: % set(s) have an invalid rest time: %. Rest times must be nonnegative whole seconds. Correct those values in the V1 database, then start again.",
+		source: `SELECT wt.id || ':' || (ex.ordinality - 1)::text || ':' || (s.ordinality - 1)::text AS label
+			FROM "workout_template" wt
+			CROSS JOIN LATERAL jsonb_array_elements(COALESCE(wt.information -> 'exercises', '[]'::jsonb)) WITH ORDINALITY AS ex(value, ordinality)
+			CROSS JOIN LATERAL jsonb_array_elements(COALESCE(ex.value -> 'sets', '[]'::jsonb)) WITH ORDINALITY AS s(value, ordinality)
+			WHERE s.value -> 'rest_time' IS NOT NULL AND s.value -> 'rest_time' <> 'null'::jsonb
+				AND NOT CASE WHEN jsonb_typeof(s.value -> 'rest_time') = 'number'
+					THEN (s.value ->> 'rest_time')::numeric >= 0 AND (s.value ->> 'rest_time')::numeric = trunc((s.value ->> 'rest_time')::numeric)
+					ELSE false END`,
+	})}
 
 	LOOP
 		WITH batch AS (
@@ -76,10 +108,11 @@ BEGIN
 												'setOrder', (s.ordinality - 1)::int,
 												'rpe',      s.value -> 'rpe',
 												'note',     NULLIF(s.value ->> 'note', ''),
+												'restTime', s.value -> 'rest_time',
 												'reps',     ${buildDecimalStatField("s.value", "reps")},
-												'weight',   ${buildDecimalStatField("s.value", "weight")},
-												'duration', ${buildDecimalStatField("s.value", "duration")} * 60,
-												'distance', ${buildDecimalStatField("s.value", "distance")}
+												'weight',   round(${buildDecimalStatField("s.value", "weight")} * CASE WHEN lower(ex.value ->> 'unit_system') = 'imperial' THEN 0.45359237 ELSE 1 END, ${workoutSetScales.weight}),
+												'duration', round(${buildDecimalStatField("s.value", "duration")} * 60, ${workoutSetScales.duration}),
+												'distance', round(${buildDecimalStatField("s.value", "distance")} * CASE WHEN lower(ex.value ->> 'unit_system') = 'imperial' THEN 1.609344 ELSE 1 END, ${workoutSetScales.distance})
 											))
 											ORDER BY s.ordinality
 										)
@@ -121,9 +154,35 @@ DECLARE
 	cursor_id text := '';
 	next_cursor_id text;
 	rows_inserted int := 0;
+	invalid_energy_unit_count int;
+	invalid_energy_unit_sample text;
+	invalid_energy_value_count int;
+	invalid_energy_value_sample text;
+	anomaly_count int;
+	anomaly_seq bigint;
 	started_at timestamptz := clock_timestamp();
 BEGIN
 	${buildRequireLegacyTableSql("workout -> entity", "workout")}
+	IF EXISTS (SELECT 1 FROM "migration_report" WHERE phase = 'workout -> entity') THEN
+		RETURN;
+	END IF;
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_energy_value_count",
+		sampleVariable: "invalid_energy_value_sample",
+		source: `SELECT id AS label FROM "workout" WHERE calories_burnt::text IN ('NaN', 'Infinity', '-Infinity')`,
+		message:
+			"workout -> entity: % workout(s) have a nonfinite energy value: %. Energy must be a finite kcal quantity. Correct those values in the V1 database, then start again.",
+	})}
+	${buildAbortOnRowsSql({
+		countVariable: "invalid_energy_unit_count",
+		sampleVariable: "invalid_energy_unit_sample",
+		source: `SELECT w.id AS label FROM "workout" w
+			JOIN "old_user" legacy_user ON legacy_user.id = w.user_id
+			WHERE w.calories_burnt >= 0
+				AND COALESCE(lower(btrim(legacy_user.preferences #>> '{fitness,logging,calories_burnt_unit}')), 'kcal') <> 'kcal'`,
+		message:
+			"workout -> entity: % workout(s) have nonnegative energy history with a non-kcal user preference: %. V1 stored no per-workout unit, so the current label cannot prove the historical unit. Confirm and convert these V1 energy values to kcal and correct the preference, then start again; do not just relabel unknown values.",
+	})}
 
 	LOOP
 		WITH batch AS (
@@ -157,7 +216,8 @@ BEGIN
 				'startedAt',     to_char(w.start_time AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 				'endedAt',       to_char(w.end_time   AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
 				'comment',       NULLIF(w.information ->> 'comment', ''),
-				'caloriesBurnt', w.calories_burnt,
+				'activeDuration', CASE WHEN w.duration >= 0 THEN w.duration END,
+				'caloriesBurnt', CASE WHEN w.calories_burnt >= 0 THEN w.calories_burnt END,
 				'images',        ${buildLegacyImagesSql("w.information -> 'assets'")},
 				'videos',        ${buildLegacyVideosSql("w.information -> 'assets'")},
 				'exerciseNotes', COALESCE(
@@ -192,6 +252,43 @@ BEGIN
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
 	END LOOP;
+	${buildAnomalyReportSql({
+		phase: "workout -> entity",
+		seqVariable: "anomaly_seq",
+		countVariable: "anomaly_count",
+		code: "workout-active-duration-invalid",
+		source: '(SELECT * FROM "workout" WHERE duration < 0) invalid_workout',
+		message:
+			"Negative recorded workout durations were omitted as unknown. Original values and timestamps are retained in report details; timestamps were not changed.",
+		detail: `jsonb_build_object(
+			'code', 'workout-active-duration-invalid',
+			'userId', invalid_workout.user_id,
+			'workoutId', invalid_workout.id,
+			'legacyValue', invalid_workout.duration::text,
+			'startedAt', invalid_workout.start_time::text,
+			'endedAt', invalid_workout.end_time::text
+		)`,
+	})}
+	${buildAnomalyReportSql({
+		phase: "workout -> entity",
+		seqVariable: "anomaly_seq",
+		code: "workout-energy-invalid",
+		countVariable: "anomaly_count",
+		message:
+			"Negative recorded workout energy values were omitted as unknown. Original values, units, and timestamps are retained in report details.",
+		source: `(SELECT w.*, legacy_user.preferences #>> '{fitness,logging,calories_burnt_unit}' AS legacy_energy_unit
+			FROM "workout" w JOIN "old_user" legacy_user ON legacy_user.id = w.user_id
+			WHERE w.calories_burnt < 0) invalid_workout`,
+		detail: `jsonb_build_object(
+			'code', 'workout-energy-invalid',
+			'userId', invalid_workout.user_id,
+			'workoutId', invalid_workout.id,
+			'legacyValue', invalid_workout.calories_burnt::text,
+			'legacyEnergyUnit', invalid_workout.legacy_energy_unit,
+			'startedAt', invalid_workout.start_time::text,
+			'endedAt', invalid_workout.end_time::text
+		)`,
+	})}
 
 	${buildReportSql("workout -> entity", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
@@ -285,17 +382,17 @@ BEGIN
 				'images',              ${buildLegacyImagesSql("ex.value -> 'assets'")},
 				'videos',              ${buildLegacyVideosSql("ex.value -> 'assets'")},
 				'reps',               ${buildDecimalStatField("s.value", "reps")},
-				'weight',             CASE
+				'weight',             round(CASE
 					WHEN lower(ex.value ->> 'unit_system') = 'imperial'
 					THEN ${buildDecimalStatField("s.value", "weight")} * 0.45359237
 					ELSE ${buildDecimalStatField("s.value", "weight")}
-				END,
-				'duration',           ${buildDecimalStatField("s.value", "duration")} * 60,
-				'distance',           CASE
+				END, ${workoutSetScales.weight}),
+				'duration',           round(${buildDecimalStatField("s.value", "duration")} * 60, ${workoutSetScales.duration}),
+				'distance',           round(CASE
 					WHEN lower(ex.value ->> 'unit_system') = 'imperial'
 					THEN ${buildDecimalStatField("s.value", "distance")} * 1.609344
 					ELSE ${buildDecimalStatField("s.value", "distance")}
-				END
+				END, ${workoutSetScales.distance})
 			)),
 			w.start_time,
 			COALESCE(NULLIF(s.value ->> 'confirmed_at', '')::timestamptz, w.start_time)
