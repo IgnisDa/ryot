@@ -15,6 +15,8 @@ import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Effect } from "effect";
 import { Context, Schema } from "effect";
 
+export const SandboxTrust = Schema.Literals(["system", "user"]);
+
 export const SandboxPluginRevision = Schema.Struct({
 	id: PluginId,
 	slug: Schema.String,
@@ -83,6 +85,6 @@ export class SandboxExecutionAuthority extends Context.Service<
 	{
 		readonly resolve: (
 			principal: SandboxExecutionPrincipal,
-		) => Effect.Effect<"system" | "user", SandboxRunError>;
+		) => Effect.Effect<typeof SandboxTrust.Type, SandboxRunError>;
 	}
 >()("SandboxExecutionAuthority") {}

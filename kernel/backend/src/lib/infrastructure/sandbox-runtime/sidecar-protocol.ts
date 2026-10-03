@@ -236,6 +236,13 @@ const Generation = boundedInt({ minimum: 0, maximum: 4_294_967_295 });
 const envelope = { seq: Seq, handle: Handle, generation: Generation };
 
 export const SidecarTier = Schema.Literals(["core", "data", "full"]);
+export const SIDECAR_INTERNAL_HOST_CALLS = [
+	"artifactReadRange",
+	"inlineBatch",
+	"journalRead",
+	"replayJournal",
+	"scratchWrite",
+] as const;
 export const SidecarLane = Schema.Literals(["interactive", "background"]);
 export const SidecarChunkedFrameType = Schema.Literals(["run", "done", "hostCall", "hostResult"]);
 

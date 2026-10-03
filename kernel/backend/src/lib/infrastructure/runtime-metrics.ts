@@ -1,7 +1,8 @@
 import { sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Metric } from "effect";
 
-import type { SidecarTier } from "./sandbox-runtime/sidecar-protocol";
+import type { SandboxTrust } from "./sandbox-runtime/execution-principal";
+import { SIDECAR_INTERNAL_HOST_CALLS, type SidecarTier } from "./sandbox-runtime/sidecar-protocol";
 
 // Effect metrics carry no dedicated unit field; `OtlpMetrics` reads the OTLP unit from a `unit`
 // attribute, so every declaration below states its unit exactly once and inherits it on export.
@@ -55,11 +56,7 @@ export const sandboxMetricKind = (metadata: unknown): SandboxMetricKind => {
 
 const hostFunctionNames: ReadonlySet<string> = new Set([
 	...Object.keys(sandboxHostContracts),
-	"artifactReadRange",
-	"inlineBatch",
-	"journalRead",
-	"replayJournal",
-	"scratchWrite",
+	...SIDECAR_INTERNAL_HOST_CALLS,
 ]);
 
 export const sandboxMetricHostFunction = (name: string) =>
@@ -133,6 +130,62 @@ const sandboxHostCalls = Metric.counter("ryot.sandbox.host_calls", {
 	description: "Sandbox host-function calls by function and outcome",
 });
 
+const sandboxSidecarEvents = Metric.counter("ryot.sandbox.sidecar.events", {
+	incremental: true,
+	attributes: { unit: "{event}" },
+});
+
+const sandboxSidecarDuration = Metric.histogram("ryot.sandbox.sidecar.duration", {
+	attributes: { unit: MILLISECONDS },
+	boundaries: [...DURATION_BOUNDARIES],
+});
+
+const sandboxSidecarGauges = {
+	outstanding_runs: Metric.gauge("ryot.sandbox.sidecar.outstanding_runs", {
+		attributes: { unit: "{item}" },
+	}),
+	restart_backoff: Metric.gauge("ryot.sandbox.sidecar.restart_backoff", {
+		attributes: { unit: MILLISECONDS },
+	}),
+	outstanding_host_calls: Metric.gauge("ryot.sandbox.sidecar.outstanding_host_calls", {
+		attributes: { unit: "{item}" },
+	}),
+};
+
+const sandboxAdmissionWaiting = Metric.gauge("ryot.sandbox.admission.waiting", {
+	attributes: { unit: "{run}" },
+});
+
+const sandboxAdmissionBytes = Metric.gauge("ryot.sandbox.admission.bytes", {
+	attributes: { unit: BYTES },
+});
+
+const sandboxAdmissionPressure = Metric.gauge("ryot.sandbox.admission.pressure", {
+	attributes: { unit: "1" },
+});
+
+const sandboxAdmissionWaitDuration = Metric.histogram("ryot.sandbox.admission.wait_duration", {
+	attributes: { unit: MILLISECONDS },
+	boundaries: [...DURATION_BOUNDARIES],
+});
+
+const sandboxSidecarHostCalls = Metric.counter("ryot.sandbox.sidecar.host_calls", {
+	incremental: true,
+	attributes: { unit: "{call}" },
+});
+
+const sandboxWorkerRss = Metric.gauge("ryot.sandbox.worker_rss", { attributes: { unit: BYTES } });
+
+const sandboxRssSampledProcesses = Metric.gauge("ryot.sandbox.rss_sampled_processes", {
+	attributes: { unit: "{process}" },
+});
+
+const sandboxSidecarLiveProcesses = Metric.gauge("ryot.sandbox.sidecar.live_processes", {
+	attributes: { unit: "{process}" },
+});
+
+const sandboxSidecarRss = Metric.gauge("ryot.sandbox.sidecar.rss", { attributes: { unit: BYTES } });
+
 // Import workflow bodies replay from the start after every suspension or restart, so these three
 // metrics count process-local body attempts, never logical imports. Logical import state lives in
 // durable workflow persistence.
@@ -178,7 +231,7 @@ export const recordSandboxExecution = (input: {
 };
 
 export const recordSandboxSidecarEvent = (input: {
-	readonly trust: "system" | "user";
+	readonly trust: typeof SandboxTrust.Type;
 	readonly tier: typeof SidecarTier.Type;
 	readonly event:
 		| "start"
@@ -194,67 +247,47 @@ export const recordSandboxSidecarEvent = (input: {
 		| "disposal";
 	readonly reason: string;
 	readonly durationMs?: number;
-}) =>
-	Effect.all(
+}) => {
+	const attributes = {
+		trust: input.trust,
+		event: input.event,
+		snapshot: input.tier,
+		reason: input.reason,
+	};
+	return Effect.all(
 		[
-			Metric.update(
-				Metric.withAttributes(
-					Metric.counter("ryot.sandbox.sidecar.events", {
-						incremental: true,
-						attributes: { unit: "{event}" },
-					}),
-					{ trust: input.trust, event: input.event, snapshot: input.tier, reason: input.reason },
-				),
-				1,
-			),
+			Metric.update(Metric.withAttributes(sandboxSidecarEvents, attributes), 1),
 			...(input.durationMs === undefined
 				? []
 				: [
 						Metric.update(
-							Metric.withAttributes(
-								Metric.histogram("ryot.sandbox.sidecar.duration", {
-									attributes: { unit: MILLISECONDS },
-									boundaries: [...DURATION_BOUNDARIES],
-								}),
-								{
-									trust: input.trust,
-									event: input.event,
-									snapshot: input.tier,
-									reason: input.reason,
-								},
-							),
+							Metric.withAttributes(sandboxSidecarDuration, attributes),
 							input.durationMs,
 						),
 					]),
 		],
 		{ discard: true },
 	);
+};
 
 export const recordSandboxSidecarGauges = (input: {
-	readonly trust: "system" | "user";
+	readonly trust: typeof SandboxTrust.Type;
 	readonly tier: typeof SidecarTier.Type;
 	readonly runs: number;
 	readonly hostCalls: number;
 	readonly backoffMs: number;
-}) =>
-	Effect.forEach(
+}) => {
+	const attributes = { trust: input.trust, snapshot: input.tier };
+	return Effect.forEach(
 		[
-			["outstanding_runs", input.runs],
-			["outstanding_host_calls", input.hostCalls],
-			["restart_backoff", input.backoffMs],
+			[sandboxSidecarGauges.outstanding_runs, input.runs],
+			[sandboxSidecarGauges.outstanding_host_calls, input.hostCalls],
+			[sandboxSidecarGauges.restart_backoff, input.backoffMs],
 		] as const,
-		([name, value]) =>
-			Metric.update(
-				Metric.withAttributes(
-					Metric.gauge(`ryot.sandbox.sidecar.${name}`, {
-						attributes: { unit: name === "restart_backoff" ? MILLISECONDS : "{item}" },
-					}),
-					{ trust: input.trust, snapshot: input.tier },
-				),
-				value,
-			),
+		([gauge, value]) => Metric.update(Metric.withAttributes(gauge, attributes), value),
 		{ discard: true },
 	);
+};
 
 export const recordSandboxAdmission = (input: {
 	readonly waiting: number;
@@ -263,30 +296,15 @@ export const recordSandboxAdmission = (input: {
 }) =>
 	Effect.all(
 		[
-			Metric.update(
-				Metric.gauge("ryot.sandbox.admission.waiting", { attributes: { unit: "{run}" } }),
-				input.waiting,
-			),
-			Metric.update(
-				Metric.gauge("ryot.sandbox.admission.bytes", { attributes: { unit: BYTES } }),
-				input.bytes,
-			),
-			Metric.update(
-				Metric.gauge("ryot.sandbox.admission.pressure", { attributes: { unit: "1" } }),
-				input.bytes / input.budget,
-			),
+			Metric.update(sandboxAdmissionWaiting, input.waiting),
+			Metric.update(sandboxAdmissionBytes, input.bytes),
+			Metric.update(sandboxAdmissionPressure, input.bytes / input.budget),
 		],
 		{ discard: true },
 	);
 
 export const recordSandboxAdmissionWait = (durationMs: number) =>
-	Metric.update(
-		Metric.histogram("ryot.sandbox.admission.wait_duration", {
-			attributes: { unit: MILLISECONDS },
-			boundaries: [...DURATION_BOUNDARIES],
-		}),
-		durationMs,
-	);
+	Metric.update(sandboxAdmissionWaitDuration, durationMs);
 
 export const recordSandboxHostCall = (input: {
 	readonly function: string;
@@ -301,24 +319,18 @@ export const recordSandboxHostCall = (input: {
 	);
 
 export const recordSandboxSidecarHostCall = (input: {
-	readonly trust: "system" | "user";
+	readonly trust: typeof SandboxTrust.Type;
 	readonly tier: typeof SidecarTier.Type;
 	readonly function: string;
 	readonly outcome: "success" | "failure" | "interrupted";
 }) =>
 	Metric.update(
-		Metric.withAttributes(
-			Metric.counter("ryot.sandbox.sidecar.host_calls", {
-				incremental: true,
-				attributes: { unit: "{call}" },
-			}),
-			{
-				trust: input.trust,
-				snapshot: input.tier,
-				outcome: input.outcome,
-				function: sandboxMetricHostFunction(input.function),
-			},
-		),
+		Metric.withAttributes(sandboxSidecarHostCalls, {
+			trust: input.trust,
+			snapshot: input.tier,
+			outcome: input.outcome,
+			function: sandboxMetricHostFunction(input.function),
+		}),
 		1,
 	);
 
@@ -370,45 +382,30 @@ export const recordSandboxActiveExecutions = (value: number) =>
 export const recordSandboxAggregateRss = (bytes: number, sampledProcesses: number) =>
 	Effect.all(
 		[
-			Metric.update(
-				Metric.gauge("ryot.sandbox.worker_rss", { attributes: { unit: BYTES } }),
-				bytes,
-			),
-			Metric.update(
-				Metric.gauge("ryot.sandbox.rss_sampled_processes", { attributes: { unit: "{process}" } }),
-				sampledProcesses,
-			),
+			Metric.update(sandboxWorkerRss, bytes),
+			Metric.update(sandboxRssSampledProcesses, sampledProcesses),
 		],
 		{ discard: true },
 	);
 
 export const recordSandboxSidecarProcesses = (input: {
-	readonly trust: "system" | "user";
+	readonly trust: typeof SandboxTrust.Type;
 	readonly tier: typeof SidecarTier.Type;
 	readonly processes: number;
 	readonly bytes: number;
-}) =>
-	Effect.all(
+}) => {
+	const attributes = { trust: input.trust, snapshot: input.tier };
+	return Effect.all(
 		[
 			Metric.update(
-				Metric.withAttributes(
-					Metric.gauge("ryot.sandbox.sidecar.live_processes", {
-						attributes: { unit: "{process}" },
-					}),
-					{ trust: input.trust, snapshot: input.tier },
-				),
+				Metric.withAttributes(sandboxSidecarLiveProcesses, attributes),
 				input.processes,
 			),
-			Metric.update(
-				Metric.withAttributes(
-					Metric.gauge("ryot.sandbox.sidecar.rss", { attributes: { unit: BYTES } }),
-					{ trust: input.trust, snapshot: input.tier },
-				),
-				input.bytes,
-			),
+			Metric.update(Metric.withAttributes(sandboxSidecarRss, attributes), input.bytes),
 		],
 		{ discard: true },
 	);
+};
 
 let executingProviderImportBodies = 0;
 
