@@ -3,17 +3,13 @@ import { Effect } from "effect";
 
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
 
-export const lightImpact = Effect.suspend(() =>
+export const impactHaptic = Effect.suspend(() =>
 	isNativePlatform()
 		? Effect.ignore(Effect.tryPromise(() => Haptics.impact({ style: ImpactStyle.Light })))
 		: Effect.void,
 );
 
-export const impactLight = () => {
-	Effect.runFork(lightImpact);
-};
-
-export const selectionChange = Effect.suspend(() =>
+export const selectionHaptic = Effect.suspend(() =>
 	isNativePlatform()
 		? Effect.ignore(
 				Effect.gen(function* () {
@@ -24,5 +20,3 @@ export const selectionChange = Effect.suspend(() =>
 			)
 		: Effect.void,
 );
-
-export const selectionChanged = () => Effect.runFork(selectionChange);

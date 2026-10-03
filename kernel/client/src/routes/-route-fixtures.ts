@@ -33,6 +33,7 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
 import { EntitiesService } from "#/modules/entities/service";
 import { ImportsService } from "#/modules/imports/service";
@@ -127,15 +128,7 @@ export const NavigationRouteStubs = Layer.succeed(NavigationService, {
 
 export const DeviceRouteStubs = DeviceService.layer.pipe(
 	Layer.provide(makeClientStorage()),
-	Layer.provide(
-		Layer.succeed(DevicePlatform, {
-			awake: () => Effect.void,
-			haptic: () => Effect.void,
-			cancel: () => Effect.void,
-			listen: () => Effect.succeed(() => {}),
-			schedule: () => Effect.succeed({ status: "unsupported" }),
-		}),
-	),
+	Layer.provide(Layer.succeed(DevicePlatform, noopDevicePlatform)),
 );
 
 export const makeCustomizeStub = (

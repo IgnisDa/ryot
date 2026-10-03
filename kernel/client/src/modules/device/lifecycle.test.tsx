@@ -7,6 +7,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
 import { DeviceScope, ReturnShortcutBar } from "#/modules/device/lifecycle";
+import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
 import { emptyDeviceState, type DeviceState } from "#/modules/device/state";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
@@ -22,9 +23,7 @@ it.live("does not cancel alerts when navigation replaces an equivalent scope obj
 		let stored: DeviceState = emptyDeviceState;
 		const cancelled: number[] = [];
 		const platform = Layer.succeed(DevicePlatform, {
-			awake: () => Effect.void,
-			haptic: () => Effect.void,
-			listen: () => Effect.succeed(() => {}),
+			...noopDevicePlatform,
 			schedule: () => Effect.succeed({ status: "scheduled" }),
 			cancel: (id) =>
 				Effect.sync(() => {
@@ -91,13 +90,7 @@ it.live(
 	() =>
 		Effect.gen(function* () {
 			let stored: DeviceState = emptyDeviceState;
-			const platform = Layer.succeed(DevicePlatform, {
-				awake: () => Effect.void,
-				haptic: () => Effect.void,
-				cancel: () => Effect.void,
-				listen: () => Effect.succeed(() => {}),
-				schedule: () => Effect.succeed({ status: "unsupported" }),
-			});
+			const platform = Layer.succeed(DevicePlatform, noopDevicePlatform);
 			const makeRuntime = () =>
 				ManagedRuntime.make(
 					DeviceService.layer.pipe(
