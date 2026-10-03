@@ -8,10 +8,8 @@ import {
 import { Effect } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createEntity,
-	getApiClient,
 	installTestPluginBundle,
 	listAutomationRuns,
 	listAutomationTriggers,
@@ -165,12 +163,6 @@ const schemaFields = (
 	fields: PluginManifest["entitySchemas"][number]["propertiesSchema"]["fields"],
 ) => ({ fields, unknownKeys: "strict" as const });
 
-const reconcilePluginInstallations = () =>
-	getApiClient().call(
-		(client) => client.testSupport.reconcilePluginInstallations(),
-		adminHeaders(),
-	);
-
 describe("automation recursion budgets", () => {
 	it.live("preserves parentage through replay and blocks descendants beyond depth eight", () =>
 		Effect.gen(function* () {
@@ -197,8 +189,8 @@ describe("automation recursion budgets", () => {
 			);
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
+					client,
 					pluginSlug,
-					scope: "system",
 					scripts: [rootScript, recursiveScript],
 					files: {
 						[recursiveScript.entry]: recursiveSignalSource(recursiveScript),
@@ -296,7 +288,6 @@ describe("automation recursion budgets", () => {
 				}),
 				uninstallTestPlugin,
 			);
-			yield* reconcilePluginInstallations();
 
 			const source = yield* createEntity(client, {
 				properties: {},
@@ -496,8 +487,8 @@ describe("automation recursion budgets", () => {
 			yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					hooks,
+					client,
 					pluginSlug,
-					scope: "system",
 					scripts: [rootScript, noOpScript],
 					files: {
 						[noOpScript.entry]: noOpAutomationSource(noOpScript),
@@ -533,7 +524,6 @@ describe("automation recursion budgets", () => {
 				}),
 				uninstallTestPlugin,
 			);
-			yield* reconcilePluginInstallations();
 
 			const entity = yield* createEntity(client, {
 				properties: {},
