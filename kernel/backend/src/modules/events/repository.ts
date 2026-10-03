@@ -12,7 +12,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -289,15 +289,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 							eq(schema.event.id, input.eventId),
 							eq(schema.event.userId, input.userId),
 							eq(schema.event.revision, current.revision),
-							eq(schema.event.entityId, current.entityId),
-							eq(schema.event.eventSchemaSlug, current.eventSchemaSlug),
-							eq(schema.event.occurredAt, current.occurredAt),
-							current.sessionEntityId === null
-								? isNull(schema.event.sessionEntityId)
-								: eq(schema.event.sessionEntityId, current.sessionEntityId),
-							current.eventSchemaPluginId === null
-								? isNull(schema.event.eventSchemaPluginId)
-								: eq(schema.event.eventSchemaPluginId, current.eventSchemaPluginId),
 						),
 					)
 					.returning({ id: schema.event.id }),
@@ -315,11 +306,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 		});
 
 		const deletePreparedEvent = Effect.fn("EventsRepository.deletePreparedEvent")(function* (
-			input: EventIdentityInput & {
-				before: AutomationEventSnapshot;
-				expectedRevision: number;
-				ownerWorkId?: string;
-			},
+			input: EventIdentityInput & { expectedRevision: number; ownerWorkId?: string },
 		) {
 			yield* requireTransaction;
 			const current = yield* getEventForMutation(input);
@@ -336,14 +323,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 							eq(schema.event.id, input.eventId),
 							eq(schema.event.userId, input.userId),
 							eq(schema.event.revision, input.expectedRevision),
-							eq(
-								schema.event.updatedAt,
-								DateTime.toDateUtc(DateTime.makeUnsafe(input.before.updatedAt)),
-							),
-							eq(schema.event.entityId, input.before.entityId),
-							input.before.sessionEntityId === null
-								? isNull(schema.event.sessionEntityId)
-								: eq(schema.event.sessionEntityId, input.before.sessionEntityId),
 						),
 					)
 					.returning({ id: schema.event.id }),
@@ -352,8 +331,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				yield* touchEventMutation({
 					after: streamKey,
 					before: streamKey,
+					afterOccurredAt: current.occurredAt,
 					beforeOccurredAt: current.occurredAt,
-					afterOccurredAt: DateTime.toDate(DateTime.makeUnsafe(input.before.occurredAt)),
 					...(input.ownerWorkId === undefined ? {} : { ownerWorkId: input.ownerWorkId }),
 				});
 			}
@@ -395,8 +374,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 					where "id" = ${input.eventId}
 						and "user_id" = ${input.userId}
 						and "revision" = ${current.revision}
-						and "entity_id" = ${current.entityId}
-						and "session_entity_id" is not distinct from ${current.sessionEntityId}
 						and ("entity_id" = ${input.mergeFrom} or "session_entity_id" = ${input.mergeFrom})
 					returning "id"
 				`,
@@ -418,7 +395,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 
 		const updatePreparedEvent = Effect.fn("EventsRepository.updatePreparedEvent")(function* (
 			input: EventIdentityInput & {
-				before: AutomationEventSnapshot;
 				draft: AutomationEventDraft;
 				expectedRevision: number;
 				updatedAt: Date;
@@ -448,9 +424,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 						where "id" = ${input.eventId}
 							and "user_id" = ${input.userId}
 							and "revision" = ${input.expectedRevision}
-							and "event_schema_slug" = ${input.before.eventSchemaSlug}
-							and "entity_id" = ${input.before.entityId}
-							and "session_entity_id" is not distinct from ${input.before.sessionEntityId}
 						returning "id"
 					`,
 					"objects",
