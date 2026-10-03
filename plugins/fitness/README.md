@@ -15,6 +15,14 @@ The workout detail page reads one `workoutDetailsRecipe` document from
 exercise with its sets, targets, equipment, and the sets of its latest earlier session, chosen by
 workout start through a correlated `first`. Each exercise returns at most 100 sets per session.
 
+The exercise detail page reads one `exerciseDetailsRecipe` document from
+`shared/exercise-details-recipes.ts`: the exercise with its targets and equipment, ungrouped totals
+(including the best weight for at least 1, 5, 8, 12, and 30 reps), monthly buckets in the caller's time
+zone, the most frequent workout, the five latest sessions with their sets, set and workout notes, and
+the exercise's `review` notes. Personal-best rows and notes are bounded to the newest 100 rows (set and
+workout notes to 20); personal-best rows come newest first and the client keeps the newest set per badge
+type.
+
 Exercise targets and equipment are separate entity taxonomies in `shared/taxonomy-recipes.ts`.
 Exercise targets use `exercise-targets` relationships with an optional role; equipment uses
 `exercise-uses-equipment`. Shared standard entities and private user-owned entities are visible
