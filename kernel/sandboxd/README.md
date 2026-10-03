@@ -102,7 +102,3 @@ are stale, and both the Rust and TypeScript tests decode and re-encode every fix
 crate's build script builds the `core`, `data`, and `full` snapshots from it, checks the registered
 ops against `ops.inventory`, and writes the digest manifest. The isolate surface is `js/bootstrap.js`,
 plus `js/full.js` on the `full` tier.
-
-`bun run bench` prints `core` no-op p50 latency and per-execution RSS. `bench/import.py --runtime sidecar --output <dir>` runs the e2e
-standard-import benchmark three times on that host, recording wall time, peak backend and child RSS,
-container memory, and business rows; it fails a trial that stops making progress for five minutes.

@@ -88,7 +88,6 @@ const httpProgress = Schema.decodeSync(SandboxHttpProgress)({
 	blockWaitAttempt: 3,
 	admissionAttempt: 4,
 	blockedUntilMs: null,
-	registeredAtMs: null,
 	coordinationAttempt: 5,
 	registrationAttempt: 6,
 	terminalRateLimit: null,

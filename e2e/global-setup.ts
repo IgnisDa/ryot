@@ -21,7 +21,7 @@ const serverCwd = fileURLToPath(new URL("../apps/server", import.meta.url));
 const clientDist = fileURLToPath(new URL("../kernel/client/dist", import.meta.url));
 
 // oxlint-disable-next-line effecttsgo/async-function -- Vitest globalSetup owns the Promise-returning setup contract.
-export const setupE2e = async (extraEnv: Readonly<Record<string, string | undefined>> = {}) => {
+export default async () => {
 	const sleepInhibitor =
 		process.platform === "darwin"
 			? Bun.spawn(["caffeinate", "-i", "-w", String(process.pid)], {
@@ -102,7 +102,6 @@ export const setupE2e = async (extraEnv: Readonly<Record<string, string | undefi
 						SERVER_DISABLE_NOTIFICATIONS: "false",
 						SERVER_SMTP_MAILBOX: "Ryot <no-reply@ryot.io>",
 						SERVER_LOG_FILE: path.join(logDirectory, "ryot.log"),
-						...extraEnv,
 					},
 				});
 				apiProcess = spawnApiProcess(apiEnv, serverCwd);
@@ -132,5 +131,3 @@ export const setupE2e = async (extraEnv: Readonly<Record<string, string | undefi
 	console.info(`PostgreSQL logs: ${setup.pgLogPath}`);
 	return () => runPromise(setup.shutdown.pipe(Effect.ensuring(releaseSleepInhibitor)));
 };
-
-export default () => setupE2e();

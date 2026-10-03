@@ -237,6 +237,10 @@ const projections = new Map<string, ReadonlyArray<string>>([
 
 layer(
 	workflowLoadLayer({
+		database: fakeDatabaseSession({
+			execute: () =>
+				Effect.succeed([{ deadlocks: 0, waiting_advisory_locks: 0, lock_waiting_connections: 0 }]),
+		}),
 		redis: makeRedisService({
 			client: Object.assign(Object.create(null), {
 				hkeys: (key: string) => {
@@ -244,19 +248,6 @@ layer(
 					return Promise.resolve(projections.get(key) ?? []);
 				},
 			}),
-		}),
-		database: fakeDatabaseSession({
-			execute: () =>
-				Effect.succeed([
-					{
-						deadlocks: 0,
-						advisory_locks: 0,
-						total_connections: 1,
-						active_connections: 1,
-						waiting_advisory_locks: 0,
-						lock_waiting_connections: 0,
-					},
-				]),
 		}),
 	}),
 )((test) => {
