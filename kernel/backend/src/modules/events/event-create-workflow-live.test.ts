@@ -77,6 +77,7 @@ type Policy = {
 type HarnessOptions = {
 	unreadableEntity?: EntityId;
 	revokeEntityBeforeWrite?: EntityId;
+	changeEntityMetadataDuringPolicy?: EntityId;
 	policies?: Policy[];
 	execute?: (
 		input: Parameters<LifecycleExecution["Service"]["executePolicy"]>[0] & {
@@ -109,6 +110,7 @@ type HarnessState = {
 	readonly activeActivity: boolean;
 	readonly schemaActivated: boolean;
 	readonly schemaDisabled: boolean;
+	readonly changedEntityMetadata: ReadonlySet<EntityId>;
 };
 
 const initialState = (options: HarnessOptions): HarnessState => ({
@@ -127,6 +129,7 @@ const initialState = (options: HarnessOptions): HarnessState => ({
 	schemaActivated: false,
 	activeTransaction: false,
 	policyRequests: new Map(),
+	changedEntityMetadata: new Set(),
 });
 
 class EventCreateHarness extends Context.Service<
@@ -375,10 +378,17 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 							executed: [...done, identities.get(input.runId) ?? "missing"],
 							queued: new Set([...queued].filter((id) => id !== input.runId)),
 						}));
-						return yield* (
+						const output = yield* (
 							options.execute?.({ ...input, index: executed.length, payload: patched.request }) ??
 								Effect.succeed({ action: "allow" as const })
 						);
+						const changedEntityId = options.changeEntityMetadataDuringPolicy;
+						if (changedEntityId !== undefined) {
+							yield* update(({ changedEntityMetadata }) => ({
+								changedEntityMetadata: new Set([...changedEntityMetadata, changedEntityId]),
+							}));
+						}
+						return output;
 					}),
 			});
 			const engine = makeWorkflowEngine({
@@ -423,6 +433,23 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 										entityId: requestedId,
 										entitySchemaPluginId: null,
 										propertiesSchema: { fields: {} },
+									},
+						),
+					getByIdForUser: ({ entityId: requestedId }) =>
+						read(({ options, lockedEntityIds, changedEntityMetadata }) =>
+							requestedId === options.unreadableEntity ||
+							(lockedEntityIds.length > 0 && requestedId === options.revokeEntityBeforeWrite)
+								? null
+								: {
+										name: "Record",
+										createdAt: now,
+										updatedAt: now,
+										id: requestedId,
+										externalId: null,
+										entitySchemaSlug,
+										providerId: null,
+										populatedAt: null,
+										properties: changedEntityMetadata.has(requestedId) ? { changed: true } : {},
 									},
 						),
 				}),
@@ -762,9 +789,29 @@ layer(
 					index: 0,
 					reason: { entityId: racingSession, code: "session-entity-not-found" },
 				});
-				expect(yield* h.lockedEntityIds).toEqual([[entityId, racingSession]]);
+				expect(yield* h.lockedEntityIds).toEqual([[racingSession, entityId]]);
 				expect(yield* h.created).toEqual([]);
 			}),
+	);
+});
+
+layer(
+	harnessLayer({
+		changeEntityMetadataDuringPolicy: entityId,
+		policies: [{ position: 1, slug: "metadata" }],
+	}),
+)((test) => {
+	test.effect("rejects an original reference changed while its policy runs", () =>
+		Effect.gen(function* () {
+			const h = yield* EventCreateHarness;
+			expect((yield* run()).failure).toEqual({
+				index: 0,
+				reason: { entityId, code: "entity-not-found" },
+			});
+			expect(yield* h.executed).toEqual(["plugin/metadata"]);
+			expect(yield* h.lockedEntityIds).toEqual([[entityId]]);
+			expect(yield* h.created).toEqual([]);
+		}),
 	);
 });
 

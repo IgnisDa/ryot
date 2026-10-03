@@ -101,6 +101,7 @@ CREATE TABLE "automation_trigger" (
 	"integration_id" text,
 	"parent_trigger_id" text,
 	"id" text PRIMARY KEY,
+	"event_stream_work_id" text,
 	"depth" integer NOT NULL,
 	"provider_execution_id" text,
 	"execution_id" text NOT NULL,
@@ -299,6 +300,7 @@ CREATE TABLE "entity_translation" (
 --> statement-breakpoint
 CREATE TABLE "event" (
 	"event_schema_slug" text NOT NULL,
+	"revision" integer DEFAULT 0 NOT NULL,
 	"occurred_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
@@ -308,6 +310,34 @@ CREATE TABLE "event" (
 	"entity_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "event_stream" (
+	"id" text PRIMARY KEY,
+	"event_schema_slug" text NOT NULL,
+	"revision" integer DEFAULT 0 NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"event_schema_plugin_id" text,
+	"user_id" text NOT NULL,
+	"entity_id" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "event_stream_work" (
+	"error" text,
+	"claimed_revision" integer,
+	"account_token" text NOT NULL,
+	"plugin_revision_id" text NOT NULL,
+	"processor_script_id" text NOT NULL,
+	"attempt" integer DEFAULT 0 NOT NULL,
+	"dirty_from" timestamp with time zone,
+	"plugin_pin" jsonb NOT NULL,
+	"checkpoint" jsonb DEFAULT 'null',
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"output_properties" jsonb DEFAULT '[]' NOT NULL,
+	"id" text PRIMARY KEY,
+	"status" text DEFAULT 'queued' NOT NULL,
+	CONSTRAINT "event_stream_work_status_check" CHECK ("status" in ('queued', 'running', 'completed', 'failed')),
+	CONSTRAINT "event_stream_work_attempt_check" CHECK ("attempt" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "import_activity" (
@@ -1116,6 +1146,10 @@ ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fkey" FORE
 ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_stream_work" ADD CONSTRAINT "event_stream_work_id_event_stream_id_fkey" FOREIGN KEY ("id") REFERENCES "event_stream"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_parent_id_import_activity_run_id_id_fkey" FOREIGN KEY ("run_id","parent_id") REFERENCES "import_activity"("run_id","id");--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_batch_id_import_batch_run_id_id_fkey" FOREIGN KEY ("run_id","batch_id") REFERENCES "import_batch"("run_id","id");--> statement-breakpoint

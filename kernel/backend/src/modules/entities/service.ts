@@ -39,6 +39,8 @@ import {
 } from "#lib/infrastructure/lifecycle-workflow-step";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { trimToNull } from "#lib/shared/validation";
+import { EventsRepository } from "#modules/events/repository";
+import { EventsService, type PreparedEventDelete } from "#modules/events/service";
 import {
 	mutationReceiptIdentity,
 	mutationReceiptOwner,
@@ -211,6 +213,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const session = yield* DatabaseSession;
 		const planner = yield* LifecyclePlanner;
 		const repository = yield* EntitiesRepository;
+		const eventsRepository = yield* EventsRepository;
+		const events = yield* EventsService;
 		const receipts = yield* MutationReceipts.make;
 		const lookupEntityReceipt = (identity: ReturnType<typeof mutationReceiptIdentity>) =>
 			receipts.lookup(identity, EntitySnapshotResult).pipe(Effect.mapError(receiptConflict));
@@ -325,6 +329,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				receiptInput: unknown;
 			},
 		) {
+			let dependentEvents: PreparedMutation["dependentEvents"] = [];
 			const lifecycle = yield* Schema.decodeEffect(LifecycleCommand)(input.lifecycle).pipe(
 				Effect.mapError(() => bad("mutation-conflict", "Invalid lifecycle command")),
 			);
@@ -340,16 +345,25 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				if (input.before === null) {
 					return yield* bad("mutation-conflict", "Mutation requires the persisted entity snapshot");
 				}
-				request =
-					input.operation === "update"
-						? {
-								resource: "entity",
-								draft: input.draft,
-								category: "request",
-								operation: "update",
-								before: input.before,
-							}
-						: { resource: "entity", operation: "delete", draft: input.before, category: "request" };
+				if (input.operation === "update") {
+					const capturedDependencies = yield* repository.listEventDependencies(input.entityId);
+					dependentEvents = capturedDependencies;
+					request = {
+						resource: "entity",
+						draft: input.draft,
+						category: "request",
+						operation: "update",
+						before: input.before,
+						dependentEvents: capturedDependencies,
+					};
+				} else {
+					request = {
+						resource: "entity",
+						operation: "delete",
+						draft: input.before,
+						category: "request",
+					};
+				}
 			}
 			const planned = yield* planner.plan({
 				trigger: lifecycleTrigger(lifecycle, input.scopeUserId, request),
@@ -362,6 +376,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				...preparedInput,
 				request,
 				lifecycle,
+				dependentEvents,
 				policies: planned.policies,
 				requestId: planned.trigger?.id ?? null,
 				receipt: mutationReceiptIdentity({
@@ -555,6 +570,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				receiptKind,
 				scopeUserId,
 				receiptInput,
+				dependentEvents: [],
 				lifecycle: input.lifecycle,
 				before: existing && !replay ? snapshot(existing) : null,
 				entityId: existing?.id ?? commandEntityId(input.lifecycle),
@@ -694,16 +710,27 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 			const operation = existing && !replay ? "update" : "create";
 			const before = existing && !replay ? snapshot(existing) : null;
-			const payload: AutomationEntityRequestPayload =
-				before === null
-					? { resource: "entity", category: "request", operation: "create", draft: validated.draft }
-					: {
-							before,
-							resource: "entity",
-							category: "request",
-							operation: "update",
-							draft: validated.draft,
-						};
+			let dependentEvents: PreparedMutation["dependentEvents"] = [];
+			let payload: AutomationEntityRequestPayload;
+			if (before === null) {
+				payload = {
+					resource: "entity",
+					category: "request",
+					operation: "create",
+					draft: validated.draft,
+				};
+			} else {
+				const capturedDependencies = yield* repository.listEventDependencies(before.id);
+				dependentEvents = capturedDependencies;
+				payload = {
+					before,
+					resource: "entity",
+					category: "request",
+					operation: "update",
+					draft: validated.draft,
+					dependentEvents: capturedDependencies,
+				};
+			}
 			const requestPlan = yield* planner.plan({
 				trigger: lifecycleTrigger(lifecycle, scopeUserId, payload),
 			});
@@ -720,6 +747,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					lifecycle,
 					operation,
 					scopeUserId,
+					dependentEvents,
 					draft: validated.draft,
 					requestId: requestPlan.trigger?.id ?? null,
 					entitySchemaPluginId: validated.entitySchemaPluginId,
@@ -828,6 +856,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				...validated,
 				before,
 				receiptInput,
+				dependentEvents: [],
 				entityId: input.entityId,
 				lifecycle: input.lifecycle,
 				scopeUserId: current.userId,
@@ -877,6 +906,21 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					warnings: yield* execution.dispatch(existingBatch.dispatch),
 				};
 			}
+			const eventIdentities = yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
+			const preparedEvents: PreparedEventDelete[] = [];
+			for (const identity of eventIdentities) {
+				const eventCommand = itemCommand(
+					{ ...lifecycle, accountGeneration: yield* receipts.currentAccount(identity.userId) },
+					`${identity.userId}:${identity.eventId}:cascade-delete`,
+				);
+				const preparedEvent = yield* events.prepareDelete(identity, eventCommand);
+				if (!preparedEvent) {
+					return yield* new DbError({
+						message: "Event changed while cascade deletion was prepared",
+					});
+				}
+				preparedEvents.push(preparedEvent);
+			}
 			const prepared = yield* Effect.forEach(orderedIds, (entityId) =>
 				Effect.gen(function* () {
 					const command = itemCommand(lifecycle, entityId);
@@ -912,6 +956,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						receiptInput,
 						lifecycle: command,
 						operation: "delete",
+						dependentEvents: [],
 						draft: draftOf(before),
 						scopeUserId: current.userId,
 						receiptKind: "entity:delete",
@@ -927,18 +972,43 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			);
 			const committed = yield* transaction(
 				Effect.gen(function* () {
+					for (const entityId of orderedIds) {
+						yield* repository.getMutationEntity(entityId, true);
+					}
 					const previous = yield* receipts
 						.lookup(aggregateReceipt, aggregateResult)
 						.pipe(Effect.mapError(receiptConflict));
 					if (previous) {
 						return { dispatch: previous.dispatch, deletedCount: previous.result.deletedCount };
 					}
+					const currentEventIdentities =
+						yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
+					if (!same(eventIdentities, currentEventIdentities)) {
+						return yield* new DbError({
+							message: "Entity event references changed while deletion policies ran",
+						});
+					}
+					const eventBatchScope = { command: lifecycle, identity: ["cascade-events"] };
+					const eventDecision = yield* planner.prepareBatch({
+						...eventBatchScope,
+						resource: "event",
+						scopes: [...new Set(eventIdentities.map(({ userId }) => userId))],
+					});
 					const batchScope = { command: lifecycle, identity: ["deletes"] };
 					const decision = yield* planner.prepareBatch({
 						...batchScope,
 						resource: "entity",
 						scopes: prepared.flatMap((item) => (item ? [item.scopeUserId] : [])),
 					});
+					const eventSaved = yield* Effect.forEach(preparedEvents.entries(), ([index, item]) =>
+						events.persistPreparedDelete(item, {
+							...eventDecision,
+							index,
+							command: lifecycle,
+							identity: eventBatchScope.identity,
+						}),
+					);
+					const eventBatch = yield* planner.planBatch({ ...eventBatchScope, resource: "event" });
 					const saved = yield* Effect.forEach(
 						prepared.filter((item) => item !== null).entries(),
 						([index, item]) =>
@@ -947,7 +1017,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 								: persistDelete(item.prepared, { ...decision, index }),
 					);
 					const batch = yield* entityBatchPlans(batchScope);
-					const dispatch = [...saved.flatMap((item) => item.dispatch), ...batch];
+					const dispatch = [
+						...eventSaved.flatMap((item) => item.dispatch),
+						...eventBatch,
+						...saved.flatMap((item) => item.dispatch),
+						...batch,
+					];
 					const deletedCount = saved.length;
 					yield* receipts.insert({
 						dispatch,

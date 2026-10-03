@@ -46,6 +46,8 @@ import {
 	definitionSavedView,
 	definitionSignalSchema,
 } from "#lib/infrastructure/db/schema/tables/definitions";
+import { entity } from "#lib/infrastructure/db/schema/tables/entities";
+import { eventStream, eventStreamWork } from "#lib/infrastructure/db/schema/tables/event-streams";
 import { migrationReport } from "#lib/infrastructure/db/schema/tables/migration-reports";
 import { savedView, savedViewOverride } from "#lib/infrastructure/db/schema/tables/views";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -299,6 +301,56 @@ const seedCatalog = Effect.gen(function* () {
 					accountId: `${userId}-${providerId}`,
 				})),
 			);
+			yield* db.insert(entity).values([
+				{
+					userId: "owner",
+					name: "Owner exercise",
+					id: "stream-entity-owner",
+					entitySchemaSlug: "exercise",
+				},
+				{
+					userId: "other",
+					name: "Other exercise",
+					id: "stream-entity-other",
+					entitySchemaSlug: "exercise",
+				},
+			]);
+			yield* db.insert(eventStream).values([
+				{
+					revision: 4,
+					userId: "owner",
+					id: "stream-owner",
+					eventSchemaSlug: "workout-set",
+					entityId: "stream-entity-owner",
+				},
+				{
+					revision: 2,
+					userId: "other",
+					id: "stream-other",
+					eventSchemaSlug: "workout-set",
+					entityId: "stream-entity-other",
+				},
+			]);
+			yield* db.insert(eventStreamWork).values([
+				{
+					id: "stream-owner",
+					claimedRevision: 4,
+					status: "completed",
+					pluginPin: { private: "owner-plugin-pin" },
+					accountToken: "owner-private-account-token",
+					pluginRevisionId: "owner-private-plugin-revision",
+					processorScriptId: "owner-private-processor-script",
+				},
+				{
+					status: "running",
+					id: "stream-other",
+					claimedRevision: 2,
+					pluginPin: { private: "other-plugin-pin" },
+					accountToken: "other-private-account-token",
+					pluginRevisionId: "other-private-plugin-revision",
+					processorScriptId: "other-private-processor-script",
+				},
+			]);
 			yield* db.insert(plugin).values([
 				{ slug: "installed", status: "disabled", id: "installed-plugin" },
 				{ slug: "removed", status: "disabled", id: "removed-plugin" },
@@ -1083,6 +1135,50 @@ layer(catalogDatabaseLayer)((test) => {
 					plan: { selections: { collector: { value: "remote" } } },
 				},
 			]);
+		}),
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("scopes event streams and work to their owner in kernel and plugin audiences", () =>
+		Effect.gen(function* () {
+			for (const audience of ["kernel", "plugin"] satisfies readonly RyotQLAudience[]) {
+				expect(
+					yield* readRows({ audience, userId: "owner" }, "eventStream", [
+						"id",
+						"entityId",
+						"eventSchemaSlug",
+						"eventSchemaPluginId",
+						"revision",
+					]),
+				).toEqual([
+					{
+						revision: 4,
+						id: "stream-owner",
+						eventSchemaPluginId: null,
+						eventSchemaSlug: "workout-set",
+						entityId: "stream-entity-owner",
+					},
+				]);
+				expect(
+					yield* readRows({ audience, userId: "owner" }, "eventStreamWork", [
+						"id",
+						"status",
+						"claimedRevision",
+					]),
+				).toEqual([{ id: "stream-owner", claimedRevision: 4, status: "completed" }]);
+
+				expect(yield* readRows({ audience, userId: "other" }, "eventStream", ["id"])).toEqual([
+					{ id: "stream-other" },
+				]);
+				expect(
+					yield* readRows({ audience, userId: "other" }, "eventStreamWork", [
+						"id",
+						"status",
+						"claimedRevision",
+					]),
+				).toEqual([{ status: "running", id: "stream-other", claimedRevision: 2 }]);
+			}
 		}),
 	);
 });

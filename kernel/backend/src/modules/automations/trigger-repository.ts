@@ -37,6 +37,7 @@ const decodeRow = (row: typeof table.$inferSelect) =>
 				initiator: { id: row.initiatorId, kind: row.initiatorKind },
 				...(row.importRunId === null ? {} : { importRunId: row.importRunId }),
 				...(row.integrationId === null ? {} : { integrationId: row.integrationId }),
+				...(row.eventStreamWorkId === null ? {} : { eventStreamWorkId: row.eventStreamWorkId }),
 				...(row.providerExecutionId === null
 					? {}
 					: { providerExecutionId: row.providerExecutionId }),

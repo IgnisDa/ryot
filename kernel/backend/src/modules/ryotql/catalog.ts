@@ -248,6 +248,42 @@ const event: CatalogTable = {
 		occurredAt: physicalField("occurred_at", "date", false),
 		sessionEntityId: physicalField("session_entity_id", "text"),
 		eventSchemaSlug: physicalField("event_schema_slug", "text", false),
+		eventSchemaPluginId: physicalField("event_schema_plugin_id", "text"),
+	},
+};
+
+const eventStream: CatalogTable = {
+	primaryKey: ["id"],
+	name: "event_stream",
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+	},
+	fields: {
+		id: physicalField("id", "text", false),
+		entityId: physicalField("entity_id", "text", false),
+		revision: physicalField("revision", "number", false),
+		eventSchemaSlug: physicalField("event_schema_slug", "text", false),
+		eventSchemaPluginId: physicalField("event_schema_plugin_id", "text"),
+	},
+};
+
+const eventStreamWork: CatalogTable = {
+	primaryKey: ["id"],
+	name: "event_stream_work",
+	fields: {
+		id: physicalField("id", "text", false),
+		status: physicalField("status", "text", false),
+		claimedRevision: physicalField("claimed_revision", "number"),
+	},
+	visibility: {
+		user: {
+			column: "id",
+			parentColumn: "id",
+			type: "parentOwned",
+			pluginReadable: true,
+			parentTable: "event_stream",
+			parentOwnerColumn: "user_id",
+		},
 	},
 };
 
@@ -1037,6 +1073,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	backupRun,
 	importRun,
 	savedView,
+	eventStream,
 	eventSchema,
 	integration,
 	importIssue,
@@ -1046,6 +1083,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	signalSchema,
 	sandboxScript,
 	automationRun,
+	eventStreamWork,
 	migrationReport,
 	sandboxProvider,
 	automationTrigger,
