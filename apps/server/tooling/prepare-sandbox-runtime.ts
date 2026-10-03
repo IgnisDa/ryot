@@ -1,152 +1,432 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { materializeSandboxCompiledModule } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/compiled-modules";
-import { SANDBOX_RUNNER_LIMITS } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/limits";
-import { sandboxRunnerSource } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/runner.generated";
+import { SandboxRunError } from "@ryot-app/contract/errors";
+import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { appConfigDefinition } from "@ryot-app/kernel-backend/lib/infrastructure/config/definition";
+import { AppConfig } from "@ryot-app/kernel-backend/lib/infrastructure/config/service";
 import {
-	BridgeService,
-	PackageCacheManager,
-	sandboxDenoRunFlags,
-} from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/runtime";
-import { sandboxRuntimePayload } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/runtime-payload.generated";
-import { runProcessCapturing } from "@ryot-app/sandbox-compiler/runtime-build/process";
-import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
-import { Clock, Crypto, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
+	SandboxRecoveryStore,
+	SandboxRecoveryStoreError,
+} from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-recovery-store";
+import {
+	SandboxExecutionAuthority,
+	SandboxExecutionPrincipal,
+} from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/execution-principal";
+import { SandboxFileService } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/file-service";
+import { SandboxHostCallGate } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/host-call-gate";
+import { SandboxHostImplementations } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/host-implementations";
+import { SandboxService } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/service";
+import type { SandboxRunInput } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/shared";
+import { SandboxSidecarAdmission } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-admission";
+import { SandboxSidecarClient } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-client";
+import { SandboxSidecarQuarantine } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-quarantine";
+import { SandboxSidecarSupervisor } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-supervisor";
+import { ServerRun } from "@ryot-app/kernel-backend/lib/infrastructure/server-run";
+import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
+import { ConfigProvider, Context, Crypto, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { Hex } from "effect/encoding";
 
-class SandboxRuntimeSmokeError extends Data.TaggedError("SandboxRuntimeSmokeError")<{
-	readonly message: string;
-}> {}
+import {
+	SandboxSmokeFixturesJson,
+	smokeHostCallKey,
+	smokeHostCallValue,
+	smokeSourceManifest,
+	smokeTiers,
+} from "./sandbox-smoke-fixtures";
 
-const sourceManifest = {
-	kind: "script",
-	name: "Production runtime smoke",
-	slug: "production-runtime-smoke",
-} as const;
+const startedAt = "2026-01-01T00:00:00.000Z";
+const scriptId = SandboxScriptId.make("production-runtime-smoke");
+const uploaderId = UserId.make("production-runtime-smoke-user");
+const trusts = ["system", "user"] as const;
 
-const metadata = {
-	...sourceManifest,
-	oauthConnectionFields: [],
-	executableDependencies: [],
-	requiredPluginConfigKeys: [],
-	optionalPluginConfigKeys: [],
-	capabilities: ["getCachedValue"],
-} as const;
+type SmokeTier = (typeof smokeTiers)[number];
+type SmokeTrust = (typeof trusts)[number];
 
-const compiledSource = `
-import { Effect as SdkEffect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { Effect as PluginKitEffect } from "@ryot-app/plugin-kit/effect";
+const SmokeOutput = Schema.Struct({
+	ambient: Schema.Tuple([]),
+	aliasIdentity: Schema.Literal(true),
+	hostValue: Schema.Literal(smokeHostCallValue),
+});
 
-export default {
-  input: Schema.Struct({}),
-  definitionType: "ryot:sandbox-script",
-  manifest: ${JSON.stringify(sourceManifest)},
-  output: Schema.Struct({ aliasIdentity: Schema.Boolean, hostValue: Schema.String }),
-  run: (_input, host) => host.getCachedValue("production-smoke").pipe(
-    SdkEffect.map((hostValue) => ({ aliasIdentity: SdkEffect === PluginKitEffect, hostValue })),
-  ),
+const configEnvironmentKey = (field: { readonly envKey?: string | undefined }) => {
+	if (field.envKey === undefined) {
+		throw new Error("Smoke configuration field has no canonical environment key");
+	}
+	return field.envKey;
 };
-`;
 
-const encodeRequest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
-const SmokeResponse = Schema.fromJsonString(
-	Schema.Struct({
-		success: Schema.Literal(true),
-		value: Schema.Struct({
-			aliasIdentity: Schema.Literal(true),
-			hostValue: Schema.Literal("mediated-production-smoke"),
-		}),
+const SandboxSmokeConfigProviderLive = Layer.effectContext(
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
+		const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-native-sandbox-smoke-" });
+		const workDirectory = path.join(root, "work");
+		yield* fs.makeDirectory(workDirectory, { recursive: true });
+		const values = {
+			[configEnvironmentKey(appConfigDefinition.fields.redisUrl)]: "redis://127.0.0.1:6379",
+			[configEnvironmentKey(appConfigDefinition.fields.fileStorage.fields.localTempDir)]:
+				workDirectory,
+			[configEnvironmentKey(appConfigDefinition.fields.server.fields.adminAccessToken)]:
+				"sandbox-smoke-build-placeholder",
+			[configEnvironmentKey(appConfigDefinition.fields.database.fields.url)]:
+				"postgres://sandbox-smoke:sandbox-smoke@127.0.0.1:5432/sandbox-smoke",
+		};
+		return Context.make(ConfigProvider.ConfigProvider, ConfigProvider.fromUnknown(values));
 	}),
-);
+).pipe(Layer.provide(BunServices.layer));
 
-const program = Effect.gen(function* () {
-	const fs = yield* FileSystem.FileSystem;
-	const path = yield* Path.Path;
-	const bridge = yield* BridgeService;
-	const runtime = yield* PackageCacheManager;
-	const crypto = yield* Crypto.Crypto;
-	const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-production-runtime-smoke-" });
-	const runnerPath = `${root}/runner.mjs`;
-	yield* fs.writeFileString(runnerPath, sandboxRunnerSource);
-	const sourceHash = Hex.encode(
-		yield* crypto.digest("SHA-256", new TextEncoder().encode(compiledSource)),
-	);
-	const modulePath = yield* materializeSandboxCompiledModule(runtime, sourceHash, compiledSource);
-	const moduleUrl = (yield* path.toFileUrl(modulePath)).href;
-	const executionId = "production-runtime-smoke";
-	const token = "production-runtime-smoke-token";
-	const parentSpan = yield* Effect.currentSpan;
-	const now = yield* Clock.currentTimeMillis;
-	yield* bridge.addSession(executionId, {
-		token,
-		parentSpan,
-		hostCallLimit: 1,
-		expiresAt: now + 30_000,
-		apiFunctions: {
-			getCachedValue: (args) =>
-				args[0] === "production-smoke"
-					? Effect.succeed(hostSuccess("mediated-production-smoke"))
-					: Effect.fail(new SandboxRuntimeSmokeError({ message: "Unexpected smoke host call" })),
-		},
+const AppConfigSmokeLive = AppConfig.layer.pipe(Layer.provideMerge(SandboxSmokeConfigProviderLive));
+
+const ServerRunSmokeLive = Layer.succeed(ServerRun, { id: "production-runtime-smoke" });
+
+const trustedPrincipals = new Map<
+	string,
+	{ readonly contentHash: string; readonly trust: SmokeTrust }
+>();
+
+const encodePrincipal = Schema.encodeSync(Schema.fromJsonString(SandboxExecutionPrincipal));
+const resolveTrustedPrincipal = (principal: SandboxExecutionPrincipal) => {
+	const trusted = trustedPrincipals.get(encodePrincipal(principal));
+	return trusted !== undefined && trusted.contentHash === principal.contentHash
+		? trusted
+		: undefined;
+};
+
+const invalidSmokePrincipal = () =>
+	new SandboxRunError({
+		kind: "missing-artifact",
+		message: "Smoke fixture principal is not trusted",
 	});
 
-	const request = `${encodeRequest({
-		token,
-		metadata,
-		moduleUrl,
-		context: {},
-		executionId,
-		compiledFormat: 1,
-		limits: SANDBOX_RUNNER_LIMITS,
-		apiFunctions: ["getCachedValue"],
-		scriptId: "production-runtime-smoke",
-		startedAt: "2026-01-01T00:00:00.000Z",
-		apiBase: `http://127.0.0.1:${bridge.port}`,
-	})}\n`;
-	const denoEnvironment = {
-		DENO_DIR: runtime.cacheDirectory,
-		PATH: Bun.env["PATH"] ?? "/usr/local/bin:/usr/bin:/bin",
-	};
-	const version = yield* runProcessCapturing("deno", ["--version"], { env: denoEnvironment });
-	const installedDenoVersion = version.stdout.split("\n")[0]?.split(" ")[1];
-	if (installedDenoVersion !== sandboxRuntimePayload.metadata.denoVersion) {
-		return yield* new SandboxRuntimeSmokeError({
-			message: `Deno ${installedDenoVersion ?? "unknown"} does not match the runtime payload built for Deno ${sandboxRuntimePayload.metadata.denoVersion}`,
+const SandboxExecutionAuthoritySmokeLive = Layer.succeed(SandboxExecutionAuthority, {
+	resolve: (principal) => {
+		const trusted = resolveTrustedPrincipal(principal);
+		return trusted === undefined
+			? Effect.fail(invalidSmokePrincipal())
+			: Effect.succeed(trusted.trust);
+	},
+});
+
+const SandboxSidecarQuarantineSmokeLive = Layer.succeed(SandboxSidecarQuarantine, {
+	open: (principal, trust) => {
+		const fixture = resolveTrustedPrincipal(principal);
+		if (fixture === undefined || fixture.trust !== trust) {
+			return Effect.fail(invalidSmokePrincipal());
+		}
+		return Effect.succeed({
+			probation: false,
+			survived: Effect.void,
+			identities: [`smoke:${fixture.contentHash}`],
+			recordCrash: Effect.fail(
+				new SandboxRunError({
+					kind: "infrastructure",
+					message: "Native sandbox smoke recorded a sidecar crash",
+				}),
+			),
 		});
-	}
-	const { stdout, stderr, exitCode } = yield* runProcessCapturing(
-		"deno",
-		[
-			"run",
-			...sandboxDenoRunFlags({
-				runnerPath,
-				bridgePort: bridge.port,
-				runtimeDirectory: runtime.directory,
-				importMapPath: runtime.importMapPath,
-			}),
-			runnerPath,
-		],
-		{ input: request, env: denoEnvironment },
+	},
+});
+
+const initialRecoveryState = { recoveries: 0, suspended: false };
+const smokeRecoveryUnavailable = () =>
+	new SandboxRecoveryStoreError({ message: "Native sandbox smoke recovery is disabled" });
+
+const SandboxRecoveryStoreSmokeLive = Layer.succeed(SandboxRecoveryStore, {
+	read: () => Effect.succeed(initialRecoveryState),
+	clear: () => Effect.succeed(initialRecoveryState),
+	resume: () => Effect.fail(smokeRecoveryUnavailable()),
+	collateral: () => Effect.fail(smokeRecoveryUnavailable()),
+});
+
+const SandboxSidecarSupervisorSmokeLive = Layer.effect(
+	SandboxSidecarSupervisor,
+	SandboxSidecarSupervisor.make,
+).pipe(
+	Layer.provideMerge(SandboxSidecarClient.layer),
+	Layer.provideMerge(SandboxSidecarAdmission.layer),
+	Layer.provide(SandboxExecutionAuthoritySmokeLive),
+	Layer.provide(SandboxSidecarQuarantineSmokeLive),
+	Layer.provide(SandboxRecoveryStoreSmokeLive),
+);
+
+const unusedHostEffect = () => Effect.die("Unused native sandbox smoke host implementation");
+const unusedHostValue = (): never => {
+	throw new Error("Unused native sandbox smoke host implementation");
+};
+
+const recordedHostCalls: string[] = [];
+
+const SandboxHostImplementationsSmokeLive = Layer.succeed(SandboxHostImplementations, {
+	automation: { emitSignal: unusedHostEffect, sendNotification: unusedHostEffect },
+	runtime: {
+		httpCall: unusedHostEffect,
+		setCachedValue: unusedHostEffect,
+		getPersistentValue: unusedHostEffect,
+		claimPersistentValue: unusedHostEffect,
+		getCachedValue: (_input, key) =>
+			key === smokeHostCallKey
+				? Effect.sync(() => {
+						recordedHostCalls.push(key);
+						return smokeHostCallValue;
+					})
+				: Effect.fail({ message: "Unexpected native sandbox smoke host call" }),
+	},
+	additional: {
+		deleteEvents: unusedHostEffect,
+		createEvents: unusedHostEffect,
+		updateEvents: unusedHostEffect,
+		executeRyotql: unusedHostEffect,
+		getPluginConfig: unusedHostEffect,
+		getUserSettings: unusedHostEffect,
+		listIntegrations: unusedHostEffect,
+		listEventSchemas: unusedHostEffect,
+		getEntitySchemas: unusedHostEffect,
+		getUserPreferences: unusedHostEffect,
+		ensureUserEntities: unusedHostEffect,
+		getOAuthAccessToken: unusedHostEffect,
+		upsertGlobalEntities: unusedHostEffect,
+		getCurrentIntegration: unusedHostEffect,
+		requestEventStreamWork: unusedHostEffect,
+		changeUserRelationships: unusedHostEffect,
+		upsertGlobalRelationships: unusedHostEffect,
+	},
+	lifecycle: {
+		updateEvents: { commit: unusedHostEffect, validate: unusedHostEffect },
+		deleteEvents: { commit: unusedHostEffect, validate: unusedHostEffect },
+		upsertGlobalEntities: {
+			value: unusedHostValue,
+			commit: unusedHostEffect,
+			prepare: unusedHostEffect,
+			validate: unusedHostEffect,
+			applyPolicies: unusedHostEffect,
+		},
+		changeUserRelationships: {
+			value: unusedHostValue,
+			commit: unusedHostEffect,
+			prepare: unusedHostEffect,
+			validate: unusedHostEffect,
+			applyPolicies: unusedHostEffect,
+		},
+		upsertGlobalRelationships: {
+			value: unusedHostValue,
+			commit: unusedHostEffect,
+			prepare: unusedHostEffect,
+			validate: unusedHostEffect,
+			applyPolicies: unusedHostEffect,
+		},
+	},
+});
+
+const SandboxServiceSmokeLive = Layer.effect(SandboxService, SandboxService.make).pipe(
+	Layer.provideMerge(SandboxSidecarSupervisorSmokeLive),
+	Layer.provideMerge(SandboxHostCallGate.layer),
+	Layer.provide(SandboxFileService.layer),
+	Layer.provide(SandboxHostImplementationsSmokeLive),
+);
+
+const RuntimeSmokeLive = SandboxServiceSmokeLive.pipe(
+	Layer.provideMerge(Layer.mergeAll(BunServices.layer, AppConfigSmokeLive, ServerRunSmokeLive)),
+);
+
+const smoke = Effect.gen(function* () {
+	const crypto = yield* Crypto.Crypto;
+	const service = yield* SandboxService;
+	const fs = yield* FileSystem.FileSystem;
+	const path = yield* Path.Path;
+	const supervisor = yield* SandboxSidecarSupervisor;
+	const fixturesPath = yield* path.fromFileUrl(
+		new URL(
+			import.meta.url.endsWith(".ts")
+				? "../dist/sandbox-smoke-fixtures.json"
+				: "./sandbox-smoke-fixtures.json",
+			import.meta.url,
+		),
 	);
-	if (exitCode !== 0) {
-		return yield* new SandboxRuntimeSmokeError({
-			message: `Deno runtime smoke exited with code ${exitCode}: ${stderr || stdout}`,
-		});
-	}
-	return yield* Schema.decodeEffect(SmokeResponse)(stdout.trim()).pipe(
+	const compiledByTier = yield* fs.readFileString(fixturesPath).pipe(
+		Effect.flatMap(Schema.decodeEffect(SandboxSmokeFixturesJson)),
 		Effect.mapError(
-			(error) =>
-				new SandboxRuntimeSmokeError({
-					message: `Deno runtime smoke returned an invalid response: ${String(error)}`,
+			() =>
+				new SandboxRunError({
+					kind: "missing-artifact",
+					message: "Prebuilt smoke fixtures are missing or invalid",
 				}),
 		),
 	);
-}).pipe(Effect.withSpan("production-sandbox-runtime-smoke"));
 
-const RuntimeSmokeLive = Layer.merge(BridgeService.layer, PackageCacheManager.layer).pipe(
-	Layer.provideMerge(BunServices.layer),
+	for (const tier of smokeTiers) {
+		const compiled = compiledByTier[tier];
+		const compiledFormat: number = compiled.format;
+		if (
+			compiledFormat !== SANDBOX_COMPILED_FORMAT ||
+			compiled.manifest.kind !== smokeSourceManifest.kind ||
+			compiled.manifest.name !== smokeSourceManifest.name ||
+			compiled.manifest.slug !== smokeSourceManifest.slug ||
+			!compiled.manifest.capabilities.includes("getCachedValue")
+		) {
+			return yield* new SandboxRunError({
+				kind: "missing-artifact",
+				message: "Compiled smoke fixture does not match its authored format-1 manifest",
+			});
+		}
+	}
+
+	const fixtures: Array<{
+		readonly trust: SmokeTrust;
+		readonly compiledCode: string;
+		readonly expectedTier: SmokeTier;
+		readonly principal: SandboxExecutionPrincipal;
+	}> = [];
+
+	for (const trust of trusts) {
+		for (const tier of smokeTiers) {
+			const compiled = compiledByTier[tier];
+			const contentHash = Hex.encode(
+				yield* crypto.digest("SHA-256", new TextEncoder().encode(compiled.javascript)),
+			);
+			const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({
+				scriptId,
+				contentHash,
+				providerId: null,
+				pluginRevision: null,
+				metadata: compiled.manifest,
+				scriptSlug: smokeSourceManifest.slug,
+				...(trust === "system" ? { kernelScript: true } : { standaloneUploaderId: uploaderId }),
+				subject:
+					trust === "system"
+						? { type: "system" }
+						: {
+								type: "user",
+								userId: uploaderId,
+								accountGeneration: {
+									userId: uploaderId,
+									token: "production-runtime-smoke-account-generation",
+								},
+							},
+			}).pipe(
+				Effect.mapError(
+					() =>
+						new SandboxRunError({
+							kind: "missing-artifact",
+							message: "Smoke fixture principal is invalid",
+						}),
+				),
+			);
+			trustedPrincipals.set(encodePrincipal(principal), { trust, contentHash });
+			fixtures.push({ trust, principal, expectedTier: tier, compiledCode: compiled.javascript });
+		}
+	}
+
+	const completedKeys: string[] = [];
+	for (const fixture of fixtures) {
+		const located = yield* supervisor.locate(fixture.principal);
+		const expectedKey = `${fixture.trust}/${fixture.expectedTier}`;
+		if (
+			located.trust !== fixture.trust ||
+			located.tier !== fixture.expectedTier ||
+			located.instance !== expectedKey
+		) {
+			return yield* new SandboxRunError({
+				kind: "missing-artifact",
+				message: "Native sidecar selected the wrong smoke fixture key",
+			});
+		}
+
+		const executionId = `production-runtime-smoke-${yield* crypto.randomUUIDv4}`;
+		const input: SandboxRunInput = {
+			startedAt,
+			executionId,
+			context: {},
+			principal: fixture.principal,
+			compiledCode: fixture.compiledCode,
+			compiledFormat: SANDBOX_COMPILED_FORMAT,
+		};
+		const result = yield* service.run(input);
+		if (!result.success || result.error !== null || result.executionId !== executionId) {
+			return yield* new SandboxRunError({
+				kind: "script-failure",
+				message: "Native sandbox smoke execution did not succeed",
+			});
+		}
+		yield* Schema.decodeUnknownEffect(SmokeOutput)(result.value).pipe(
+			Effect.mapError(
+				() =>
+					new SandboxRunError({
+						kind: "invalid-output",
+						message: "Native sandbox smoke output is invalid",
+					}),
+			),
+		);
+		if (result.recovery.executionId !== executionId || result.recovery.instance !== expectedKey) {
+			return yield* new SandboxRunError({
+				kind: "invalid-output",
+				message: "Native sandbox smoke output or recovery identity is invalid",
+			});
+		}
+		const calls = yield* Effect.sync(() => [...recordedHostCalls]);
+		if (
+			calls.length !== completedKeys.length + 1 ||
+			calls.some((key) => key !== smokeHostCallKey)
+		) {
+			return yield* new SandboxRunError({
+				kind: "script-failure",
+				message: "Native sandbox smoke host call record is invalid",
+			});
+		}
+		yield* service.completeRecovery(result.recovery);
+		completedKeys.push(expectedKey);
+	}
+
+	if (completedKeys.length !== 6 || recordedHostCalls.length !== 6) {
+		return yield* new SandboxRunError({
+			kind: "script-failure",
+			message: "Native sandbox smoke did not complete all six fixture keys",
+		});
+	}
+	if (process.platform === "linux") {
+		const sidecars: string[] = [];
+		for (const entry of yield* fs.readDirectory("/proc")) {
+			if (!/^\d+$/.test(entry)) {
+				continue;
+			}
+			const status = yield* fs
+				.readFileString(`/proc/${entry}/status`)
+				.pipe(Effect.orElseSucceed(() => ""));
+			if (
+				!status.split("\n").includes("Name:\tryot-sandboxd") ||
+				!status.split("\n").includes(`PPid:\t${process.pid}`)
+			) {
+				continue;
+			}
+			const oomScore = yield* fs.readFileString(`/proc/${entry}/oom_score_adj`);
+			const lines = status.split("\n");
+			if (
+				!lines.includes("Uid:\t1002\t1002\t1002\t1002") ||
+				!lines.includes("Gid:\t1002\t1002\t1002\t1002") ||
+				!lines.includes("NoNewPrivs:\t1") ||
+				!lines.includes("Seccomp:\t2") ||
+				oomScore.trim() !== "1000"
+			) {
+				return yield* new SandboxRunError({
+					kind: "infrastructure",
+					message: "Native sandbox sidecar process is not confined",
+				});
+			}
+			sidecars.push(entry);
+		}
+		if (sidecars.length !== 6) {
+			return yield* new SandboxRunError({
+				kind: "infrastructure",
+				message: "Native sandbox smoke did not find six confined sidecar processes",
+			});
+		}
+	}
+	yield* Effect.logInfo("Native sandbox smoke passed").pipe(
+		Effect.annotateLogs({ keys: completedKeys.join(",") }),
+	);
+	return undefined;
+}).pipe(Effect.withSpan("production-native-sandbox-smoke"));
+
+BunRuntime.runMain(
+	Effect.scoped(Layer.build(Layer.effectDiscard(smoke).pipe(Layer.provide(RuntimeSmokeLive)))),
 );
-
-// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The runtime image smoke check is a command-line entrypoint
-BunRuntime.runMain(Effect.scoped(program).pipe(Effect.provide(RuntimeSmokeLive)));

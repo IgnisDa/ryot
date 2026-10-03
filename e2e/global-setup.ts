@@ -4,6 +4,7 @@ import { Effect, FileSystem, Path } from "effect";
 import getPort from "get-port";
 
 import { runPromise } from "./src/support/e2e-runtime";
+import { verifyNativeSandboxProvisioning } from "./src/support/native-sandbox-provisioning";
 import {
 	buildApiEnv,
 	spawnApiProcess,
@@ -20,7 +21,7 @@ const serverCwd = fileURLToPath(new URL("../apps/server", import.meta.url));
 const clientDist = fileURLToPath(new URL("../kernel/client/dist", import.meta.url));
 
 // oxlint-disable-next-line effecttsgo/async-function -- Vitest globalSetup owns the Promise-returning setup contract.
-export default async () => {
+export const setupE2e = async (extraEnv: Readonly<Record<string, string | undefined>> = {}) => {
 	const setup = await runPromise(
 		Effect.gen(function* () {
 			const build = Bun.spawnSync(
@@ -32,12 +33,14 @@ export default async () => {
 					"--filter=@ryot-app/kernel-client",
 					"--filter=@ryot-app/fitness-plugin",
 					"--filter=@ryot-app/fixture-plugin",
+					"--filter=@ryot-app/sandboxd",
 				],
 				{ stdin: "inherit", stdout: "inherit", stderr: "inherit", cwd: repositoryRoot },
 			);
 			if (build.exitCode !== 0) {
 				throw new Error(`E2E build failed with exit code ${build.exitCode}`);
 			}
+			yield* verifyNativeSandboxProvisioning(repositoryRoot);
 
 			const assembly = Bun.spawnSync(["bun", "run", "assemble"], {
 				cwd: serverCwd,
@@ -86,6 +89,7 @@ export default async () => {
 						SERVER_DISABLE_NOTIFICATIONS: "false",
 						SERVER_SMTP_MAILBOX: "Ryot <no-reply@ryot.io>",
 						SERVER_LOG_FILE: path.join(logDirectory, "ryot.log"),
+						...extraEnv,
 					},
 				});
 				apiProcess = spawnApiProcess(apiEnv, serverCwd);
@@ -97,6 +101,7 @@ export default async () => {
 				return {
 					shutdown,
 					frontendUrl,
+					apiPid: apiProcess.pid,
 					pgLogPath: coreInfrastructure.pgLogPath,
 					logFile: String(apiEnv.SERVER_LOG_FILE),
 					apiUrl: `http://127.0.0.1:${apiPort}/api`,
@@ -107,9 +112,12 @@ export default async () => {
 		}),
 	);
 	process.env.E2E_FRONTEND_URL = setup.frontendUrl;
+	process.env.E2E_SERVER_PID = String(setup.apiPid);
 	process.env.E2E_API_URL = setup.apiUrl;
 	process.env.E2E_ADMIN_ACCESS_TOKEN = setup.adminToken;
 	process.env.E2E_SERVER_LOG_FILE = setup.logFile;
 	console.info(`PostgreSQL logs: ${setup.pgLogPath}`);
 	return () => runPromise(setup.shutdown);
 };
+
+export default () => setupE2e();

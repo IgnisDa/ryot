@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { Config, Effect, Schema } from "effect";
+import { Config, Effect, Layer, Schema } from "effect";
 
+import { SandboxSmokeFixturesBuildLive } from "./build-sandbox-smoke-fixtures";
 import { resolveVersion } from "./version";
 
 const serverRoot = Bun.fileURLToPath(new URL("..", import.meta.url));
@@ -10,6 +11,7 @@ const serverRoot = Bun.fileURLToPath(new URL("..", import.meta.url));
 const encodeStringLiteral = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
 
 const build = Effect.gen(function* () {
+	yield* Effect.scoped(Layer.build(SandboxSmokeFixturesBuildLive));
 	const version = yield* encodeStringLiteral(yield* resolveVersion);
 	const unkeyRootKey = yield* encodeStringLiteral(
 		yield* Config.String("UNKEY_ROOT_KEY").pipe(Config.withDefault("")),
