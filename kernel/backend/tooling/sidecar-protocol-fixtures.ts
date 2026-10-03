@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { Data, Effect, FileSystem, Path } from "effect";
+import { Data, Effect, FileSystem, Layer, Path } from "effect";
 
 import {
 	SIDECAR_PROTOCOL_LIMITS,
@@ -95,6 +95,24 @@ const fixtures: ReadonlyArray<Fixture> = [
 		name: "httpCall",
 		args: ["GET", "https://example.com", {}],
 	}),
+	outbound("host-call-name-ascii-128", {
+		...envelope,
+		args: null,
+		type: "hostCall",
+		name: "a".repeat(128),
+	}),
+	outbound("host-call-name-bmp-128", {
+		...envelope,
+		args: null,
+		type: "hostCall",
+		name: "é".repeat(128),
+	}),
+	outbound("host-call-name-astral-64", {
+		...envelope,
+		args: null,
+		type: "hostCall",
+		name: "😀".repeat(64),
+	}),
 	outbound("done-completed", {
 		...envelope,
 		type: "done",
@@ -175,6 +193,24 @@ const fixtures: ReadonlyArray<Fixture> = [
 		args: null,
 		type: "hostCall",
 	}),
+	invalidPayload("host-call-name-ascii-129", "outbound", {
+		...envelope,
+		args: null,
+		type: "hostCall",
+		name: "a".repeat(129),
+	}),
+	invalidPayload("host-call-name-bmp-129", "outbound", {
+		...envelope,
+		args: null,
+		type: "hostCall",
+		name: "é".repeat(129),
+	}),
+	invalidPayload("host-call-name-astral-65", "outbound", {
+		...envelope,
+		args: null,
+		type: "hostCall",
+		name: "😀".repeat(65),
+	}),
 	invalidPayload("done-unknown-phase", "outbound", {
 		...envelope,
 		type: "done",
@@ -249,5 +285,6 @@ const program = Effect.gen(function* () {
 	return yield* Effect.void;
 });
 
-// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The fixture generator is a command-line entrypoint
-BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));
+BunRuntime.runMain(
+	Effect.scoped(Layer.build(Layer.effectDiscard(program).pipe(Layer.provide(BunServices.layer)))),
+);

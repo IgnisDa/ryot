@@ -1,3 +1,4 @@
+import { withApprovedDependencyRuntime } from "@ryot-app/sandbox-sdk/dependency-runtime";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { Innertube } from "youtubei.js/web";
 
@@ -18,27 +19,10 @@ type RequestParts = {
 	headers: Record<string, string>;
 };
 
-type ApprovedDependencyRuntime = <A>(operation: () => Promise<A>) => Promise<A>;
-
-const approvedDependencyRuntimeKey = Symbol.for(
-	"@ryot-app/sandbox-sdk/approved-dependency-runtime",
-);
-
-const isApprovedDependencyRuntime = (value: unknown): value is ApprovedDependencyRuntime =>
-	typeof value === "function";
-
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
 	value !== null && typeof value === "object"
 		? Object.fromEntries(Object.entries(value))
 		: undefined;
-
-const withApprovedDependencyRuntime = <A>(operation: () => Promise<A>) => {
-	const runtime = Reflect.get(globalThis, approvedDependencyRuntimeKey);
-	if (isApprovedDependencyRuntime(runtime)) {
-		return runtime(operation);
-	}
-	return operation();
-};
 
 const mergeHeaders = (target: Record<string, string>, source: unknown) => {
 	if (source instanceof Headers) {

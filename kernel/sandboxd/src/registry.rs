@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
 use deno_core::v8;
-use tokio::sync::{Notify, oneshot};
+use tokio::sync::{Notify, oneshot, watch};
 
 use crate::os::ThreadClock;
 use crate::protocol::{HostOutcome, LimitKind, Limits};
@@ -14,7 +14,6 @@ pub struct Meter {
     pub started: Instant,
     pub paused: Duration,
     pub paused_since: Option<Instant>,
-    pub in_flight: u32,
 }
 
 impl Meter {
@@ -22,7 +21,7 @@ impl Meter {
         self.clock.elapsed().saturating_sub(self.cpu_start)
     }
 
-    /// Wall time spent running script code: host-call waits pause the deadline.
+    /// Wall time spent running script code: inline settlement pauses the deadline.
     pub fn script_time(&self, now: Instant) -> Duration {
         let paused = self.paused
             + self
@@ -41,6 +40,8 @@ pub struct EntryState {
     pub terminating_since: Option<Instant>,
     /// Set while the execution holds a CPU slot and is being polled.
     pub polling_since: Option<Instant>,
+    /// Set while synchronous inline settlement or CPU reacquisition blocks the isolate thread.
+    pub(crate) sync_waiting_since: Option<Instant>,
     /// The leaked `Arc<Entry>` owned by a pending external-memory interrupt.
     pub interrupt: Option<usize>,
     pub finished: bool,
@@ -50,16 +51,19 @@ pub struct Entry {
     pub handle: String,
     pub limits: Limits,
     pub abort: Notify,
+    stopping: watch::Sender<bool>,
     pending: Mutex<HashMap<u64, oneshot::Sender<HostOutcome>>>,
     state: Mutex<EntryState>,
 }
 
 impl Entry {
     pub fn new(handle: String, limits: Limits) -> Self {
+        let (stopping, _) = watch::channel(false);
         Self {
             handle,
             limits,
             abort: Notify::new(),
+            stopping,
             pending: Mutex::default(),
             state: Mutex::default(),
         }
@@ -82,31 +86,22 @@ impl Entry {
         Some(receiver)
     }
 
+    pub(crate) fn stop_receiver(&self) -> watch::Receiver<bool> {
+        self.stopping.subscribe()
+    }
+
     /// Delivers a host result at most once; results for unknown or settled calls are dropped.
     pub fn deliver(&self, seq: u64, outcome: HostOutcome) -> bool {
         let sender = self.pending.lock().expect("pending calls").remove(&seq);
         sender.is_some_and(|sender| sender.send(outcome).is_ok())
     }
 
-    pub fn host_call_started(&self) {
+    pub(crate) fn inline_settlement_finished(&self) {
         let mut state = self.state();
-        if let Some(meter) = state.meter.as_mut() {
-            if meter.in_flight == 0 {
-                meter.paused_since = Some(Instant::now());
-            }
-            meter.in_flight += 1;
-        }
-    }
-
-    pub fn host_call_finished(&self) {
-        let mut state = self.state();
-        if let Some(meter) = state.meter.as_mut() {
-            meter.in_flight = meter.in_flight.saturating_sub(1);
-            if meter.in_flight == 0
-                && let Some(since) = meter.paused_since.take()
-            {
-                meter.paused += since.elapsed();
-            }
+        if let Some(meter) = state.meter.as_mut()
+            && let Some(since) = meter.paused_since.take()
+        {
+            meter.paused += since.elapsed();
         }
     }
 
@@ -117,6 +112,7 @@ impl Entry {
             return false;
         }
         state.terminating_since = Some(Instant::now());
+        self.stopping.send_replace(true);
         self.pending.lock().expect("pending calls").clear();
         self.abort.notify_one();
         if let Some(isolate) = &state.isolate {
