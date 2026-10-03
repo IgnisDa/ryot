@@ -4,11 +4,11 @@ The backend executes plugin and source-zero kernel scripts as untrusted TypeScri
 
 ## Build And Execution
 
-Plugin ingestion validates precompiled format-1 JavaScript from plugin archives and stores immutable rows by script identity and content hash. It does not run compiler workers or prove source provenance. Local authoring and build checks compile `.sandbox.ts` entries from source. Build generation also compiles kernel-script sources for definition source zero. Root scripts are pinned before first execution; child targets resolve from the active pinned plugin revision when first observed and are then pinned to that durable step.
+Plugin ingestion validates precompiled format-1 JavaScript from plugin archives and stores immutable rows by script identity and content hash. It does not run compiler workers or prove source provenance. Local authoring and build checks compile `.sandbox.ts` entries from source. Build generation also compiles kernel-script sources for definition source zero. Root scripts are pinned before first execution; child targets resolve from the exact pinned plugin revision when first observed and are then pinned to that durable step.
 
 Build tooling emits the trusted isolate runner and runtime modules into `kernel/sandboxd/payload`, and generates the kernel-script sources and compiled files. Runner and dependency modules use `@ryot-app/vite-compiler`'s `buildSandboxEsm` profile. The release task emits the `dist` executable, launcher, three snapshots, and digest manifest.
 
-Before each invocation, `SandboxService` reloads persisted authority and verifies the compiled script's SHA-256. It chooses the smallest audited isolate tier required. System authority is allowed only for a verified kernel script or verified system-scope plugin. User-scope plugin scripts run with user authority under their owning user.
+Before each invocation, the runtime reloads persisted authority and verifies the compiled script's SHA-256. The archived manifest, owning plugin row and authority projection must agree on package ID. Historical pins keep their exact code, configuration and definitions across compatible upgrades. Fresh host calls still check current account and installation authority; quarantine does not grant an exception for historical pins. System authority is allowed only for a verified kernel script or verified system-scope plugin. User-scope plugin scripts run under their owning user. Kernel children retain the verified caller principal in their domain lifecycle command, rather than gaining unrestricted kernel write authority.
 
 The service retains at most 16 verified compiled modules by content hash, each bounded by the 1 MiB compiled-code limit. Cache entries contain code and format only; authority remains a persisted-row read. Missing or invalid artifacts and failed loads are not retained.
 
@@ -85,17 +85,17 @@ The contract package owns the capability vocabulary. `SANDBOX_CAPABILITY_REQUIRE
 
 The role table is the runtime policy ceiling. A script receives only methods permitted for its trusted principal and present in its pinned compiled capability list.
 
-| Principal or role                   | Available bridge capabilities                                                                                                                                                            |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| All valid subjects                  | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPersistentValue`, `getPluginConfig`, `claimPersistentValue`                                                           |
-| User or user automation run         | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
-| System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                                    |
-| User-subject plugin script          | `createUserEntity` for one user-owned entity whose schema belongs to that plugin                                                                                                         |
-| Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                             |
-| User or system automation run       | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                               |
-| Integration run of its own plugin   | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                             |
+| Principal or role                 | Available bridge capabilities                                                                                                                                                            |
+| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| All valid subjects                | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPersistentValue`, `getPluginConfig`, `claimPersistentValue`                                                           |
+| User or user automation run       | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
+| Designated user-bootstrap script  | `ensureUserEntities` for that plugin's entity schemas, in either plugin scope                                                                                                            |
+| User-subject plugin script        | `createUserEntity` for one user-owned entity whose schema belongs to that plugin                                                                                                         |
+| Pinned system-scope plugin script | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                             |
+| User or system automation run     | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                               |
+| Integration run of its own plugin | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                             |
 
-`scratch` and `artifact-read` are not host calls. System elevation requires persisted authority for a verified kernel or system-scope plugin. User capabilities require a trusted user subject. `getEntitySchemas` uses that user's effective ready, enabled plugin catalog. Entity and event data reads use RyotQL; schema calls expose metadata only.
+`scratch` and `artifact-read` are not host calls. System elevation requires persisted authority for a verified kernel or system-scope plugin. User capabilities require a trusted user subject. Local schema calls resolve the caller's exact owner and pinned revision. User-subject RyotQL can read other visible plugins through explicit references; those foreign definitions remain current. Entity and event data reads use RyotQL; schema calls expose metadata only.
 
 `upsertGlobalEntities` additionally requires provider association. `ensureUserEntities` is available only to the declared user-bootstrap script and remains scoped to entity schemas owned by that plugin.
 
@@ -103,6 +103,8 @@ The role table is the runtime policy ceiling. A script receives only methods per
 Schema ownership must match both the pinned plugin scope and the user's effective definition. Scripts
 cannot choose a user, global scope, or provider provenance; before-stage policies and system subjects
 cannot create user entities through this capability.
+
+A hidden, unfinished installation may run its explicitly dispatched initializer. Its principal carries the exact installation and activation binding; reload requires current account ownership, `installing` health, `isInitialized = false`, and a pinned designated bootstrap script. Ordinary hidden executions remain unavailable. Completed initialization is not repeated on recovery, and stale activation bindings or quarantine never authorize another initializer.
 
 Plugin config reads use compiler-generated required and optional key allowlists against the pinned
 revision. Required reads fail when missing; optional reads omit unavailable values. Undeclared reads
@@ -114,7 +116,7 @@ OAuth token invalidation is limited to the current integration run and expires a
 the submitted token matches the current token under a connection, token-version, and integration
 binding compare-and-set.
 
-Cache keys are isolated by executing user and logical provider ID, falling back to script ID only when no provider exists. Ordinary cache values are refreshed after backend restart; `claimPersistentValue` survives restart and writes only if absent. `getPersistentValue` reads the value in that same persistent namespace without claiming it or extending its expiry.
+Cache namespaces use canonical JSON tuples with the executing user, tagged local plugin/kernel owner, tagged provider ID or stable local script slug, and authored key. Disposable values also include exact revision/content and configuration pins, and reset after backend restart. Persistent values exclude revision and configuration pins, so compatible updates keep their keys. `claimPersistentValue` survives restart and writes only if absent. `getPersistentValue` reads that persistent namespace without claiming or extending its expiry.
 
 ## Global HTTP Admission
 

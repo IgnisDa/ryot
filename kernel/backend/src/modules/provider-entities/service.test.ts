@@ -43,16 +43,18 @@ const user: CurrentUserValue = {
 const externalId = "ext-123";
 const providerId = SandboxProviderId.make("provider-1");
 const entitySchemaSlug = EntitySchemaSlug.make("schema-1");
-const provider = {
+const provider: NonNullable<
+	Effect.Success<ReturnType<PluginRuntimeResolver["Service"]["findProviderAvailableToUser"]>>
+> = {
 	id: providerId,
 	name: "Provider",
 	pluginId: "plugin",
 	slug: "provider.slug",
+	pluginScope: "system",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
 	information: { source: "provider" },
 	rootEntitySchemaSlug: entitySchemaSlug,
-	pluginScope: "system" as "system" | "user",
 };
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
@@ -61,10 +63,11 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 	mockEntitiesRepository({ ...overrides });
 
 const fakeEntitySchemaScope = {
-	slug: "item",
-	userId: user.id,
+	userId: null,
 	isBuiltin: false,
 	id: entitySchemaSlug,
+	slug: entitySchemaSlug,
+	pluginId: provider.pluginId,
 	propertiesSchema: { fields: {} },
 };
 

@@ -22,6 +22,8 @@ import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, PlatformError } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { fixtureManifest } from "#modules/plugins/test-support";
+
 import type { SandboxExecutionPrincipal } from "./execution-principal";
 import { sandboxHostResultBytes } from "./host-execution-policy";
 import { selectSandboxHostFunctions } from "./service";
@@ -42,11 +44,17 @@ const pluginRevision = (isUserBootstrap = false) => ({
 	workflowScripts: {},
 	scope: "system" as const,
 	id: PluginId.make("plugin_1"),
+	packageId: fixtureManifest().metadata.packageId,
 	revisionId: PluginRevisionId.make("revision_1"),
 	configRevisionId: PluginConfigRevisionId.make("config_1"),
 	userBootstrapScriptSlugs: isUserBootstrap ? ["script"] : [],
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
-	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+	schemaScope: {
+		eventSchemas: [],
+		entitySchemaSlugs: [],
+		signalSchemaSlugs: [],
+		relationshipSchemaSlugs: [],
+	},
 });
 
 const makeRunInput = (
@@ -414,7 +422,7 @@ describe("requireSandboxCapabilityInput", () => {
 		).toThrow("emitSignal is not available to this system execution");
 	});
 
-	it("requires a pinned system user-bootstrap script for ensureUserEntities", () => {
+	it("permits only exact designated user-bootstrap scripts in either plugin scope", () => {
 		const subject = {
 			type: "user" as const,
 			userId: UserId.make("user_1"),
@@ -422,7 +430,7 @@ describe("requireSandboxCapabilityInput", () => {
 		};
 		expect(() =>
 			Effect.runSync(requireSandboxCapabilityInput(makeRunInput(subject), "ensureUserEntities")),
-		).toThrow("ensureUserEntities is available only to pinned system user bootstrap scripts");
+		).toThrow("ensureUserEntities is available only to pinned user bootstrap scripts");
 		const trusted = makeRunInput(
 			subject,
 			null,
@@ -432,6 +440,45 @@ describe("requireSandboxCapabilityInput", () => {
 		expect(Effect.runSync(requireSandboxCapabilityInput(trusted, "ensureUserEntities"))).toBe(
 			trusted,
 		);
+		const privateBootstrap = {
+			...trusted,
+			principal: {
+				...trusted.principal,
+				pluginRevision: {
+					...pluginRevision(true),
+					scope: "user" as const,
+					ownerId: subject.userId,
+				},
+			},
+		};
+		expect(
+			Effect.runSync(requireSandboxCapabilityInput(privateBootstrap, "ensureUserEntities")),
+		).toBe(privateBootstrap);
+		expect(Effect.runSync(requireSandboxCapabilityInput(privateBootstrap, "executeRyotql"))).toBe(
+			privateBootstrap,
+		);
+		expect(() =>
+			Effect.runSync(
+				requireSandboxCapabilityInput(
+					{
+						...privateBootstrap,
+						principal: { ...privateBootstrap.principal, scriptSlug: "other-script" },
+					},
+					"ensureUserEntities",
+				),
+			),
+		).toThrow("available only to pinned user bootstrap scripts");
+		expect(() =>
+			Effect.runSync(
+				requireSandboxCapabilityInput(
+					{
+						...privateBootstrap,
+						principal: { ...privateBootstrap.principal, subject: { type: "system" } },
+					},
+					"executeRyotql",
+				),
+			),
+		).toThrow("system access requires a pinned system plugin script");
 	});
 });
 

@@ -44,7 +44,10 @@ import {
 	type ProviderHttpRegistration,
 	type ProviderHttpTicket,
 } from "#lib/infrastructure/provider-http-admission";
-import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import {
+	SandboxExecutionAuthority,
+	type SandboxExecutionPrincipal,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxLifecycleHostFailure } from "#lib/infrastructure/sandbox-runtime/host-functions";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
@@ -55,6 +58,7 @@ import {
 	type HttpRateLimitAuthorityResolution,
 	PluginHttpRateLimitAuthority,
 } from "#modules/plugins/http-rate-limit-authority";
+import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipBatchSummary } from "#modules/relationships/mutation-pipeline";
 import {
 	SandboxDurableHostServiceWorkflow,
@@ -152,9 +156,15 @@ const principal = {
 		scope: "system" as const,
 		userBootstrapScriptSlugs: [],
 		revisionId: subject.pluginRevisionId,
+		packageId: fixtureManifest().metadata.packageId,
 		configRevisionId: subject.pluginConfigRevisionId,
 		configSchema: { fields: {}, unknownKeys: "strict" as const },
-		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+		schemaScope: {
+			eventSchemas: [],
+			entitySchemaSlugs: [],
+			signalSchemaSlugs: [],
+			relationshipSchemaSlugs: [],
+		},
 	},
 };
 
@@ -178,11 +188,19 @@ const dispatcherLayer = (options: {
 	readonly lifecycleExecution?: Layer.Layer<LifecycleExecution>;
 	readonly resolve?: PluginHttpRateLimitAuthority["Service"]["resolve"];
 	readonly admission?: Partial<ProviderHttpAdmissionService["Service"]>;
+	readonly authority?: SandboxExecutionAuthority["Service"];
 }) =>
 	SandboxDurableHostDispatcherLive.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
 				mutationAdmissionTestLayer,
+				Layer.succeed(
+					SandboxExecutionAuthority,
+					options.authority ?? {
+						resolve: (executionPrincipal) =>
+							Effect.succeed(executionPrincipal.pluginRevision?.scope ?? "system"),
+					},
+				),
 				Layer.succeed(
 					HttpClient.HttpClient,
 					options.httpClient ?? HttpClient.make(() => Effect.die("unused")),

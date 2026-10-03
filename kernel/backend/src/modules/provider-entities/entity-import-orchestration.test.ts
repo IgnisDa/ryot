@@ -6,6 +6,7 @@ import {
 	EntitySchemaSlug,
 	SandboxProviderId,
 	UserId,
+	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Cause, Effect, Fiber, Metric } from "effect";
@@ -23,8 +24,8 @@ import {
 } from "./entity-import-workflow";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 
-const importCommand = (executionId: string, userId: UserId) =>
-	rootLifecycleCommand({
+const importCommand = (executionId: string, userId: UserId) => ({
+	...rootLifecycleCommand({
 		source: "import",
 		lane: "background",
 		initiator: { id: userId, kind: "user" },
@@ -32,7 +33,10 @@ const importCommand = (executionId: string, userId: UserId) =>
 		executionId: AutomationExecutionId.make(executionId),
 		occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
 		accountGeneration: { userId, token: "test-account-generation" },
-	});
+	}),
+	writeContext: null,
+});
+const pluginId = PluginId.make("fixture-owner");
 
 const importWithoutMembership = (entitySchemaSlug: string) => {
 	const executionId = `${entitySchemaSlug}-import`;
@@ -43,6 +47,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 		name: "Fixture",
 		externalId: "external-1",
 		id: EntityId.make("fixture-1"),
+		entitySchemaPluginId: pluginId,
 		createdAt: "2026-01-01T00:00:00.000Z",
 		updatedAt: "2026-01-01T00:00:00.000Z",
 		populatedAt: "2026-01-01T00:00:00.000Z",
@@ -54,6 +59,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 		const userId = UserId.make("user-1");
 		const result = yield* runEntityImportWorkflow(
 			{
+				pluginId,
 				executionId,
 				externalId: "external-1",
 				entityScope: { userId, type: "global" },
@@ -115,6 +121,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 			name: "Fixture",
 			externalId: "external-1",
 			id: EntityId.make("fixture-1"),
+			entitySchemaPluginId: pluginId,
 			createdAt: "2026-01-01T00:00:00.000Z",
 			updatedAt: "2026-01-01T00:00:00.000Z",
 			populatedAt: "2026-01-01T00:00:00.000Z",
@@ -127,6 +134,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 			const error = yield* Effect.flip(
 				runEntityImportWorkflow(
 					{
+						pluginId,
 						executionId,
 						externalId: "external-1",
 						entityScope: { userId, type: "global" },
@@ -169,6 +177,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 				name: "Fixture",
 				externalId: "external-1",
 				id: EntityId.make("fixture-1"),
+				entitySchemaPluginId: pluginId,
 				createdAt: "2026-01-01T00:00:00.000Z",
 				updatedAt: "2026-01-01T00:00:00.000Z",
 				populatedAt: "2026-01-01T00:00:00.000Z",
@@ -176,6 +185,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 				entitySchemaSlug: EntitySchemaSlug.make("record"),
 			};
 			const payload = {
+				pluginId,
 				executionId,
 				externalId: "external-1",
 				command: importCommand(executionId, userId),

@@ -1,5 +1,5 @@
 import { expect, layer } from "@effect/vitest";
-import { SandboxRunError } from "@ryot-app/contract/errors";
+import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
@@ -132,7 +132,6 @@ describe("sandbox execution authority", () => {
 								{
 									sortOrder: 0,
 									icon: "bookmark",
-									pluginSlug: slug,
 									dataSources: null,
 									name: "Large saved view",
 									slug: `${slug}-saved-view`,
@@ -161,6 +160,7 @@ describe("sandbox execution authority", () => {
 					const expectedSandboxAuthority = {
 						userBootstrapScriptSlugs: [],
 						configSchema: pluginPackage.manifest.configSchema,
+						packageId: pluginPackage.manifest.metadata.packageId,
 						scriptKinds: Object.fromEntries(
 							pluginPackage.manifest.scripts.map(({ kind, slug: scriptSlug }) => [
 								scriptSlug,
@@ -176,6 +176,9 @@ describe("sandbox execution authority", () => {
 						schemaScope: {
 							entitySchemaSlugs: [entitySchema.slug, secondEntitySlug],
 							relationshipSchemaSlugs: [relationshipSchema.slug, `${slug}-link-second`],
+							signalSchemaSlugs: pluginPackage.manifest.signalSchemas.map(
+								({ slug: signalSlug }) => signalSlug,
+							),
 							eventSchemas: [
 								{ eventSchemaSlug: eventSchema.slug, entitySchemaSlug: entitySchema.slug },
 								...secondEventSlugs.map((eventSchemaSlug) => ({
@@ -329,7 +332,7 @@ describe("sandbox execution authority", () => {
 		);
 
 		test.effect(
-			"rejects malformed declarations and non-string workflow targets in persisted authority",
+			"rejects changes to archived authority without replacing the retained principal",
 			() =>
 				Effect.gen(function* () {
 					const authority = yield* SandboxExecutionAuthority;
@@ -360,19 +363,19 @@ describe("sandbox execution authority", () => {
 						sql`jsonb_set(${tables.pluginRevision.manifest}, '{entitySchemas,0,eventSchemas}', 'null'::jsonb)`,
 						sql`jsonb_set(${tables.pluginRevision.manifest}, '{workflows,0,scriptSlug}', '42'::jsonb)`,
 					]) {
-						yield* session.run((db) =>
-							db
-								.update(tables.pluginRevision)
-								.set({ manifest: pluginPackage.manifest })
-								.where(eq(tables.pluginRevision.id, installed.revisionId)),
+						const rejected = yield* Effect.exit(
+							session.run((db) =>
+								db
+									.update(tables.pluginRevision)
+									.set({ manifest })
+									.where(eq(tables.pluginRevision.id, installed.revisionId)),
+							),
 						);
-						yield* session.run((db) =>
-							db
-								.update(tables.pluginRevision)
-								.set({ manifest })
-								.where(eq(tables.pluginRevision.id, installed.revisionId)),
+						assertExitFails(
+							rejected,
+							new DbError({ code: "55000", message: "Plugin revision content is immutable" }),
 						);
-						yield* assertRejected(authority, [principal]);
+						expect(yield* authority.resolve(principal)).toBe("user");
 					}
 				}),
 		);

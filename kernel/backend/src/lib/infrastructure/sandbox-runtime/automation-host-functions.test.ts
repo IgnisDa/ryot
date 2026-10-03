@@ -153,6 +153,7 @@ layer(automationHostLayer)((test) => {
 				{
 					occurredAt,
 					itemIdentity: "emitSignal:part-1",
+					writeContext: runInput().principal,
 					accountGeneration: { userId, token: "test-account-generation" },
 					causation: {
 						...causation,

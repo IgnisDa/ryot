@@ -3,6 +3,7 @@ import {
 	EventCreateItemError,
 	type CreateEventItem,
 } from "@ryot-app/contract/modules/events/schemas";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -12,7 +13,12 @@ import {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Option, Schema } from "effect";
 
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { EntitiesRepository } from "#modules/entities/repository";
+import {
+	makeDomainWriteChecks,
+	type DomainLifecycleCommand,
+} from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
 export const CapturedEventReferences = Schema.Record(EntityId, Schema.String);
@@ -44,6 +50,7 @@ export const capturedEventReferences = Effect.fn("capturedEventReferences")(func
 			[entityId]: stableStringify({
 				properties: entity.properties,
 				entitySchemaSlug: entity.entitySchemaSlug,
+				entitySchemaPluginId: entity.entitySchemaPluginId,
 			}),
 		});
 	}
@@ -104,8 +111,14 @@ const requireReadableEntity = Effect.fn(function* (
 });
 
 export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemScopes")(
-	function* (input: { readonly item: CreateEventItem; readonly userId: UserId }) {
+	function* (input: {
+		readonly item: CreateEventItem;
+		readonly userId: UserId;
+		readonly command: DomainLifecycleCommand;
+		readonly commit?: boolean;
+	}) {
 		const eventSchemasRepository = yield* EventSchemasRepository;
+		const checks = makeDomainWriteChecks(yield* DatabaseSession);
 		const rawEntityId = input.item.entityId.trim();
 		if (!rawEntityId) {
 			return yield* new EventCreateItemError({ reason: { code: "entity-id-required" } });
@@ -121,6 +134,18 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 			entityId,
 			code: "entity-not-found",
 		});
+		const manifest = yield* checks
+			.check(
+				input.command,
+				definitionOwner(entityScope.entitySchemaPluginId),
+				input.userId,
+				input.commit ?? false,
+			)
+			.pipe(
+				Effect.mapError(
+					() => new EventCreateItemError({ reason: { entityId, code: "entity-not-found" } }),
+				),
+			);
 		const eventSchemaScope = yield* eventSchemasRepository.getScopeForUser({
 			eventSchemaSlug,
 			userId: input.userId,
@@ -128,6 +153,14 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 			entitySchemaSlug: EntitySchemaSlug.make(entityScope.entitySchemaSlug),
 		});
 		if (!eventSchemaScope) {
+			return yield* new EventCreateItemError({
+				reason: { eventSchemaSlug, code: "event-schema-not-found" },
+			});
+		}
+		const declaration = manifest?.entitySchemas
+			.find(({ slug }) => slug === entityScope.entitySchemaSlug)
+			?.eventSchemas.find(({ slug }) => slug === eventSchemaSlug);
+		if (manifest && !declaration) {
 			return yield* new EventCreateItemError({
 				reason: { eventSchemaSlug, code: "event-schema-not-found" },
 			});
@@ -147,6 +180,11 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 				code: "session-entity-not-found",
 				entityId: requestedSessionEntityId,
 			});
+			if (manifest && sessionScope.entitySchemaPluginId !== entityScope.entitySchemaPluginId) {
+				return yield* new EventCreateItemError({
+					reason: { code: "session-entity-not-found", entityId: requestedSessionEntityId },
+				});
+			}
 			sessionEntityId = sessionScope.entityId;
 		}
 
@@ -158,7 +196,10 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 			entityScope,
 			eventSchemaSlug,
 			sessionEntityId,
-			eventSchemaScope,
+			activePropertiesSchema: eventSchemaScope.propertiesSchema,
+			eventSchemaScope: declaration
+				? { ...eventSchemaScope, propertiesSchema: declaration.propertiesSchema }
+				: eventSchemaScope,
 		};
 	},
 );

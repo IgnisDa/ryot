@@ -1,12 +1,10 @@
 import { DbError } from "@ryot-app/contract/errors";
-import {
-	AutomationHookIdentity,
-	type LifecycleCommand,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import { AutomationHookIdentity } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { CreateEventItem, UpdateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import { EventId, type UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
 	mutationReceiptIdentity,
 	MutationReceiptIdentityConflict,
@@ -31,21 +29,25 @@ export const projectEventIngestionReceipt = (commandKind: string, result: unknow
 		: Effect.succeed(null);
 
 export const eventCreateBatchInput = (input: {
-	command: LifecycleCommand;
+	command: DomainLifecycleCommand;
 	payload: ReadonlyArray<CreateEventItem>;
 	itemIdentities?: ReadonlyArray<string> | undefined;
 }) => ({
 	identity: ["events"],
 	command: input.command,
 	resource: "event" as const,
-	commandInput: { payload: input.payload, itemIdentities: input.itemIdentities ?? null },
+	commandInput: {
+		payload: input.payload,
+		writeContext: input.command.writeContext,
+		itemIdentities: input.itemIdentities ?? null,
+	},
 });
 
 export const eventCreateItemCommand = (
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
 	index: number,
 	itemIdentity?: string,
-): LifecycleCommand => ({
+): DomainLifecycleCommand => ({
 	...command,
 	itemIdentity: itemIdentity ?? `${command.itemIdentity}:event:${index}`,
 });
@@ -53,23 +55,23 @@ export const eventCreateItemCommand = (
 export const eventCreateReceiptIdentity = (
 	input: {
 		userId: UserId;
-		command: LifecycleCommand;
+		command: DomainLifecycleCommand;
 		itemIdentities?: ReadonlyArray<string> | undefined;
 	},
 	index: number,
 	submittedItem: CreateEventItem,
 ) =>
 	mutationReceiptIdentity({
-		input: submittedItem,
 		ownerUserId: input.userId,
 		scopeUserId: input.userId,
 		commandKind: "event:create",
+		input: { item: submittedItem, writeContext: input.command.writeContext },
 		command: eventCreateItemCommand(input.command, index, input.itemIdentities?.[index]),
 	});
 
 export const eventMutationReceiptIdentity = (
 	input: EventIdentityInput,
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
 	mutation:
 		| { readonly operation: "delete" }
 		| { readonly operation: "edit"; readonly submitted: UpdateEventItem }
@@ -94,23 +96,23 @@ export const eventMutationReceiptIdentity = (
 	return mutationReceiptIdentity({
 		command,
 		commandKind,
-		input: receiptInput,
 		ownerUserId: input.userId,
 		scopeUserId: input.userId,
+		input: { mutation: receiptInput, writeContext: command.writeContext },
 	});
 };
 
 export const eventMutationBatchReceiptIdentity = (input: {
 	userId: UserId;
-	command: LifecycleCommand;
+	command: DomainLifecycleCommand;
 	operation: "delete" | "edit";
 	submitted: unknown;
 }) =>
 	mutationReceiptIdentity({
 		command: input.command,
-		input: input.submitted,
 		ownerUserId: input.userId,
 		scopeUserId: input.userId,
+		input: { items: input.submitted, writeContext: input.command.writeContext },
 		commandKind: input.operation === "edit" ? "event:edit-batch" : "event:delete-batch",
 	});
 

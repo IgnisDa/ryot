@@ -1,8 +1,5 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import {
-	LifecycleCommand,
-	type AutomationWarning,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { createEventItemSchema, sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
@@ -16,6 +13,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { runLifecycleWriteStepWith } from "#lib/infrastructure/lifecycle-workflow-step";
 import { recordSandboxHostCall } from "#lib/infrastructure/runtime-metrics";
+import { SandboxExecutionAuthority } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sandboxDurableHostDispatchStrategy } from "#lib/infrastructure/sandbox-runtime/host-execution-policy";
 import {
 	type LifecycleItemWrite,
@@ -31,6 +29,7 @@ import {
 } from "#lib/infrastructure/sandbox-runtime/shared";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { GlobalEntityUpsertResults, PendingGlobalEntityUpsert } from "#modules/entities/service";
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -58,7 +57,7 @@ import { infrastructureRunError } from "#modules/sandbox/run-error";
 
 const PreparedSandboxCreateEvents = Schema.Struct({
 	userId: UserId,
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
 	payload: Schema.Array(createEventItemSchema),
 });
 
@@ -121,6 +120,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
+		const authority = yield* SandboxExecutionAuthority;
 		const receipts = yield* MutationReceipts.make;
 		const httpDispatcher = yield* SandboxHttpDispatcher;
 		const implementations = yield* SandboxHostImplementations;
@@ -160,7 +160,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					execute: prepareSandboxLifecycleHostInput(implementations, request, scope),
 				});
 				if (prepared._tag === "Failure") {
-					return durableHostFailure(prepared.message);
+					return durableHostFailure(prepared.message, prepared.data);
 				}
 				const steps = implementations.lifecycle;
 				const written = yield* Effect.gen(function* () {
@@ -204,11 +204,11 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				}).pipe(
 					Effect.map((outcome) => ({ ...outcome, _tag: "written" as const })),
 					Effect.catch((error) =>
-						Effect.succeed({ _tag: "failed" as const, message: toSandboxHostError(error).message }),
+						Effect.succeed({ ...toSandboxHostError(error), _tag: "failed" as const }),
 					),
 				);
 				if (written._tag === "failed") {
-					return durableHostFailure(written.message);
+					return durableHostFailure(written.message, written.data);
 				}
 				yield* reportSandboxLifecycleWarnings(capability, written.warnings);
 				const value = yield* Schema.encodeUnknownEffect(lifecycleHostSuccessSchemas[prepared._tag])(
@@ -369,11 +369,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		};
 
 		return {
-			dispatch: (request, payload, principal, executionId, progress) =>
-				recordHostCall(
-					request,
-					dispatchDurableHostCall(request, payload, principal, executionId, progress),
-				),
 			cancelInline: (executionId, progress) =>
 				Effect.forEach(
 					progress,
@@ -382,6 +377,17 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							? httpDispatcher.cancel(executionId, entry.progress)
 							: Effect.void,
 					{ discard: true },
+				),
+			dispatch: (request, payload, principal, executionId, progress) =>
+				recordHostCall(
+					request,
+					authority
+						.resolve(principal)
+						.pipe(
+							Effect.andThen(
+								dispatchDurableHostCall(request, payload, principal, executionId, progress),
+							),
+						),
 				),
 			settleInline: (
 				requests,
@@ -416,6 +422,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 									}
 									return { settled, value: null };
 								}
+								yield* authority.resolve(principal);
 								const value = yield* request.args.capability === "httpCall"
 									? recordHostCall(
 											request,

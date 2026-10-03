@@ -1,15 +1,14 @@
 import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
-import type {
-	AutomationPopulationContext,
-	LifecycleCommand,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
 	type EntityId,
 	RelationshipSchemaSlug,
 	type SandboxProviderId,
 	type UserId,
+	type PluginId,
 } from "@ryot-app/contract/schema/brands";
 import type { ProviderDetailsChildEntity } from "@ryot-app/sandbox-sdk/provider";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -21,6 +20,7 @@ import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { EntityRelationshipDefinitions } from "#modules/definition-registry/snapshot";
 import { EntitiesService } from "#modules/entities/service";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 
 import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
 
@@ -47,11 +47,11 @@ export const ChildEntitySetWriteResult = Schema.Struct({
 export type ChildEntitySetWriteResult = typeof ChildEntitySetWriteResult.Type;
 
 const relationshipBatch = (
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
 	itemIdentity: ReadonlyArray<string>,
 	population: AutomationPopulationContext,
-): LifecycleCommand =>
-	populationLifecycleCommand(command, itemIdentity, {
+): DomainLifecycleCommand => ({
+	...populationLifecycleCommand(command, itemIdentity, {
 		...population,
 		batch: {
 			afterCount: 0,
@@ -62,11 +62,14 @@ const relationshipBatch = (
 			updatedCount: 0,
 			id: stableStringify([command.causation.executionId, ...itemIdentity]),
 		},
-	});
+	}),
+	writeContext: command.writeContext,
+});
 
 export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	input: {
-		command: LifecycleCommand;
+		command: DomainLifecycleCommand;
+		pluginId: PluginId;
 		definitions: EntityRelationshipDefinitions;
 		population: AutomationPopulationContext;
 		syncExisting?: boolean;
@@ -101,7 +104,9 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	}
 	const childEntitySchemaSlug = input.expectedChildEntitySchemaSlug ?? rowChildEntitySchemaSlug;
 	const childEntitySchema = childEntitySchemaSlug
-		? input.definitions.entitySchemas[childEntitySchemaSlug]
+		? input.definitions.entitySchemas[
+				definitionKey("entity", definitionOwner(input.pluginId), childEntitySchemaSlug)
+			]
 		: undefined;
 	if (childEntitySchemaSlug && !childEntitySchema) {
 		return yield* new SandboxRunError({
@@ -112,6 +117,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	const relationshipDefinition = childEntitySchemaSlug
 		? Object.values(input.definitions.relationshipSchemas).find(
 				(definition) =>
+					definition.pluginId === input.pluginId &&
 					definition.sourceEntitySchemaSlug === input.parentEntitySchemaSlug &&
 					definition.targetEntitySchemaSlug === childEntitySchemaSlug,
 			)
@@ -144,13 +150,19 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 							externalId: childEntity.externalId,
 							properties: childEntity.properties,
 							updateExisting: input.syncExisting ?? false,
-							entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
 							populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(input.command.occurredAt)),
-							lifecycle: populationLifecycleCommand(
-								input.command,
-								["child", String(input.parentEntityId), childEntity.externalId],
-								input.population,
-							),
+							entitySchema: {
+								owner: definitionOwner(input.pluginId),
+								slug: EntitySchemaSlug.make(childEntitySchemaSlug),
+							},
+							lifecycle: {
+								...populationLifecycleCommand(
+									input.command,
+									["child", String(input.parentEntityId), childEntity.externalId],
+									input.population,
+								),
+								writeContext: input.command.writeContext,
+							},
 						}))
 					: [];
 				const upserts = yield* entities.persistPlannedProviderUpserts({

@@ -12,6 +12,7 @@ export const toCollectionResponse = (
 	warnings,
 	id: entity.id,
 	name: entity.name,
+	entitySchemaPluginId: null,
 	createdAt: entity.createdAt,
 	updatedAt: entity.updatedAt,
 	properties: entity.properties,

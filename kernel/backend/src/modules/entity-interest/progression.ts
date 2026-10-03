@@ -60,18 +60,33 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 							entity.providerId,
 						);
 						const canonicalLanguage = provider?.information.canonicalLanguage;
+						if (
+							provider?.pluginId !== entity.entitySchemaPluginId ||
+							provider.rootEntitySchemaSlug !== entity.entitySchemaSlug
+						) {
+							continue;
+						}
 						if (canonicalLanguage && preferredLanguage !== canonicalLanguage) {
-							yield* translations.requestFill({
-								userId,
-								entityId,
-								accountGeneration,
-								lane: "interactive",
-								language: preferredLanguage,
-								externalId: entity.externalId,
-								properties: entity.properties,
-								providerId: entity.providerId,
-								entitySchemaSlug: entity.entitySchemaSlug,
-							});
+							yield* translations
+								.requestFill({
+									userId,
+									entityId,
+									accountGeneration,
+									lane: "interactive",
+									language: preferredLanguage,
+									externalId: entity.externalId,
+									properties: entity.properties,
+									providerId: entity.providerId,
+									entitySchemaSlug: entity.entitySchemaSlug,
+									entitySchemaPluginId: entity.entitySchemaPluginId,
+								})
+								.pipe(
+									Effect.catchTag("SandboxRunError", (error) =>
+										error.kind === "missing-artifact" || error.kind === "invalid-input"
+											? Effect.void
+											: Effect.fail(error),
+									),
+								);
 							requestedLanguages.add(preferredLanguage);
 						}
 					}
@@ -89,6 +104,7 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 				}
 				if (owner !== null) {
 					yield* requestTranslations(entityId).pipe(
+						Effect.catchTag("EntityNotFound", () => Effect.void),
 						Effect.ensuring(redis.releaseLease(leaseKey, owner)),
 					);
 				}

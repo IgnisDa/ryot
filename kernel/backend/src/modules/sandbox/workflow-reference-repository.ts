@@ -1,3 +1,4 @@
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -5,6 +6,10 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import type {
+	SandboxInstallationInitialization,
+	SandboxPluginRevision,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 type WorkflowReferenceRow = typeof schema.sandboxWorkflowReference.$inferSelect;
 
@@ -46,6 +51,8 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			)(function* (input: {
 				userId?: string;
 				allowInactive?: boolean;
+				expectedRevision?: Pick<SandboxPluginRevision, "id" | "revisionId" | "configRevisionId">;
+				initialization?: SandboxInstallationInitialization;
 				pluginId: string;
 				executionId: string;
 				contentHash: string;
@@ -55,8 +62,15 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 					db
 						.select({
 							slug: schema.plugin.slug,
+							status: schema.plugin.status,
 							ownerId: schema.plugin.ownerId,
+							activationId: schema.plugin.activationId,
+							health: schema.pluginInstallation.health,
+							isHidden: schema.pluginInstallation.isHidden,
 							installationId: schema.pluginInstallation.id,
+							isInitialized: schema.pluginInstallation.isInitialized,
+							uninstalledAt: schema.pluginInstallation.uninstalledAt,
+							incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
 						})
 						.from(schema.plugin)
 						.leftJoin(
@@ -80,13 +94,33 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 						message: `Plugin '${input.pluginId}' is not active`,
 					});
 				}
-				if (plugin.ownerId !== null && (!input.userId || !plugin.installationId)) {
+				if (
+					plugin.ownerId !== null &&
+					(plugin.status !== "active" || plugin.ownerId !== input.userId || !plugin.installationId)
+				) {
 					return yield* new SandboxWorkflowReferenceRegistrationError({
 						reason: "plugin-inactive",
 						message: `Private plugin '${input.pluginId}' requires an exact user installation`,
 					});
 				}
-				if (input.userId && !plugin.installationId) {
+				const initialization = input.initialization;
+				const initializer =
+					initialization !== undefined &&
+					input.userId !== undefined &&
+					initialization.installationId === plugin.installationId &&
+					initialization.activationId === plugin.activationId &&
+					plugin.health === "installing" &&
+					!plugin.isInitialized;
+				if (
+					(initialization && !initializer) ||
+					(input.userId &&
+						(!plugin.installationId ||
+							(plugin.isHidden && !initializer) ||
+							plugin.uninstalledAt ||
+							plugin.incompatibilityReason !== null ||
+							(!["ready", "installing"].includes(plugin.health ?? "") &&
+								!(input.expectedRevision && plugin.health === "needs-configuration"))))
+				) {
 					return yield* new SandboxWorkflowReferenceRegistrationError({
 						reason: "plugin-inactive",
 						message: `Plugin '${input.pluginId}' has no installation for user '${input.userId}'`,
@@ -94,7 +128,14 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 				}
 				const [script] = yield* database.run((db) =>
 					db
-						.select({ id: schema.sandboxScript.id })
+						.select({
+							id: schema.sandboxScript.id,
+							slug: schema.sandboxScript.slug,
+							metadata: schema.sandboxScript.metadata,
+							userBootstrap: sql<
+								PluginManifest["userBootstrap"]
+							>`${schema.pluginRevision.manifest}->'userBootstrap'`,
+						})
 						.from(schema.sandboxScript)
 						.innerJoin(
 							schema.pluginRevision,
@@ -105,15 +146,46 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 								eq(schema.sandboxScript.id, input.scriptId),
 								eq(schema.sandboxScript.contentHash, input.contentHash),
 								eq(schema.pluginRevision.pluginId, input.pluginId),
+								input.expectedRevision
+									? eq(schema.pluginRevision.id, input.expectedRevision.revisionId)
+									: undefined,
 							),
 						)
 						.limit(1),
 				);
-				if (!script) {
+				if (
+					!script ||
+					(initialization &&
+						(script.metadata.kind !== "script" ||
+							!script.userBootstrap.some((entry) => entry.scriptSlug === script.slug)))
+				) {
 					return yield* new SandboxWorkflowReferenceRegistrationError({
 						reason: "script-mismatch",
 						message: `Script '${input.scriptId}' does not match plugin '${input.pluginId}' and its content hash`,
 					});
+				}
+				if (input.expectedRevision) {
+					const expectedRevision = input.expectedRevision;
+					const [config] = yield* database.run((db) =>
+						db
+							.select({ id: schema.pluginConfigRevision.id })
+							.from(schema.pluginConfigRevision)
+							.where(
+								and(
+									eq(schema.pluginConfigRevision.id, expectedRevision.configRevisionId),
+									eq(schema.pluginConfigRevision.pluginRevisionId, expectedRevision.revisionId),
+									sql`${schema.pluginConfigRevision.ownerUserId} is not distinct from ${plugin.ownerId}`,
+									sql`${schema.pluginConfigRevision.encryptedPayload} is not null`,
+								),
+							)
+							.limit(1),
+					);
+					if (input.expectedRevision.id !== input.pluginId || !config) {
+						return yield* new SandboxWorkflowReferenceRegistrationError({
+							reason: "script-mismatch",
+							message: "Retained workflow configuration does not match its exact plugin revision",
+						});
+					}
 				}
 				const reference = {
 					scriptId: input.scriptId,

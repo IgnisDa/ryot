@@ -23,10 +23,11 @@ const command = rootLifecycleCommand({
 
 const population = Schema.decodeSync(AutomationPopulationContext)({
 	rootPreviouslyPopulated: true,
-	scopeEntity: { id: "show-1", name: "Show", entitySchemaSlug: "show" },
+	scopeEntity: { id: "show-1", name: "Show", entitySchemaSlug: "show", entitySchemaPluginId: null },
 	parentEntity: {
 		name: "Show",
 		entitySchemaSlug: "show",
+		entitySchemaPluginId: null,
 		properties: { images: "x".repeat(40_000) },
 	},
 });
@@ -40,6 +41,7 @@ const creditChange = (index: number, withPopulation = false) => ({
 		after: {
 			targetEntityId: "movie-1",
 			id: `relationship-${index}`,
+			relationshipSchemaPluginId: null,
 			sourceEntityId: `person-${index}`,
 			createdAt: "2026-09-15T00:00:00.000Z",
 			updatedAt: "2026-09-15T00:00:00.000Z",

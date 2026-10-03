@@ -21,6 +21,8 @@ type InterestItem = {
 	readonly providerId: string;
 	readonly properties: object;
 	readonly entitySchemaSlug: string;
+	readonly entitySchemaPluginId: string | null;
+	readonly userId: string | null;
 	readonly populationStatus: "none" | "pending" | "ready";
 	readonly translationStatus: "none" | "pending" | "ready";
 };
@@ -38,12 +40,14 @@ const responseWithItems = (items: readonly InterestItem[]) =>
 
 const row = (id: string, overrides: Partial<InterestItem> = {}): InterestItem => ({
 	id,
+	userId: "user-1",
 	providerId: "provider-1",
 	properties: { title: id },
 	populationStatus: "ready",
 	entitySchemaSlug: "record",
 	translationStatus: "ready",
 	externalId: `external-${id}`,
+	entitySchemaPluginId: "private-plugin",
 	...overrides,
 });
 
@@ -51,9 +55,7 @@ class FakeInterestFollowUps extends Context.Service<
 	FakeInterestFollowUps,
 	{
 		readonly populationRequests: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly translationRequests: Effect.Effect<
-			ReadonlyArray<Pick<RequestFillInput, "entityId" | "lane">>
-		>;
+		readonly translationRequests: Effect.Effect<ReadonlyArray<RequestFillInput>>;
 	}
 >()("test/FakeInterestFollowUps") {}
 
@@ -61,9 +63,7 @@ const reconcilerLayer = (items: readonly InterestItem[]) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const populationRequests = yield* Ref.make<ReadonlyArray<unknown>>([]);
-			const translationRequests = yield* Ref.make<
-				ReadonlyArray<Pick<RequestFillInput, "entityId" | "lane">>
-			>([]);
+			const translationRequests = yield* Ref.make<ReadonlyArray<RequestFillInput>>([]);
 			return InterestReconciler.layer.pipe(
 				Layer.provide(
 					Layer.mergeAll(
@@ -74,8 +74,7 @@ const reconcilerLayer = (items: readonly InterestItem[]) =>
 							request: (input) => Ref.update(populationRequests, (all) => [...all, input]),
 						}),
 						Layer.mock(TranslationsService)({
-							requestFill: ({ lane, entityId }) =>
-								Ref.update(translationRequests, (all) => [...all, { lane, entityId }]),
+							requestFill: (input) => Ref.update(translationRequests, (all) => [...all, input]),
 						}),
 					),
 				),
@@ -99,7 +98,14 @@ layer(
 
 			expect(result).toEqual({ terminal: [], reconciledEntityIds: ["entity-1"] });
 			expect(yield* (yield* FakeInterestFollowUps).populationRequests).toMatchObject([
-				{ command: { causation: { lane: "interactive" } } },
+				{
+					userId: "user-1",
+					entitySchemaPluginId: "private-plugin",
+					command: {
+						writeContext: null,
+						causation: { lane: "interactive", initiator: { id: "user-1", kind: "user" } },
+					},
+				},
 			]);
 		}),
 	);
@@ -113,8 +119,8 @@ layer(reconcilerLayer([row("entity-1"), row("entity-2", { translationStatus: "pe
 				const result = yield* reconciler.reconcile(principal, ["entity-1", "entity-2"]);
 
 				expect(result.terminal).toEqual([{ entityId: "entity-1", reason: "translated" }]);
-				expect(yield* (yield* FakeInterestFollowUps).translationRequests).toEqual([
-					{ lane: "interactive", entityId: "entity-2" },
+				expect(yield* (yield* FakeInterestFollowUps).translationRequests).toMatchObject([
+					{ lane: "interactive", entityId: "entity-2", entitySchemaPluginId: "private-plugin" },
 				]);
 			}),
 		);

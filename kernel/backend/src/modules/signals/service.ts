@@ -23,10 +23,10 @@ export class SignalSchemasService extends Context.Service<SignalSchemasService>(
 			const repository = yield* SignalSchemasRepository;
 			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 
-			const getBuiltinBySlug = Effect.fn("SignalSchemasService.getBuiltinBySlug")(function* (
+			const getKernelBySlug = Effect.fn("SignalSchemasService.getKernelBySlug")(function* (
 				slug: string,
 			) {
-				const signalSchema = yield* repository.findGlobalBySlug(slug);
+				const signalSchema = yield* repository.findKernelBySlug(slug);
 				if (!signalSchema) {
 					return yield* notFound("Signal schema not found");
 				}
@@ -43,9 +43,8 @@ export class SignalSchemasService extends Context.Service<SignalSchemasService>(
 				}
 
 				if (input.audiencePolicy.kind === "related_users") {
-					const relationshipSchema = yield* relationshipSchemasRepository.findById(
+					const relationshipSchema = yield* relationshipSchemasRepository.findKernelBySlug(
 						input.audiencePolicy.relationshipSchemaSlug,
-						null,
 					);
 					if (!relationshipSchema) {
 						return yield* new SignalSchemaContractDrift({
@@ -54,7 +53,7 @@ export class SignalSchemasService extends Context.Service<SignalSchemasService>(
 					}
 				}
 
-				const existing = yield* repository.findGlobalBySlug(input.slug);
+				const existing = yield* repository.findKernelBySlug(input.slug);
 				if (!existing) {
 					return yield* repository.insertBuiltin(input);
 				}
@@ -80,7 +79,7 @@ export class SignalSchemasService extends Context.Service<SignalSchemasService>(
 				return existing;
 			});
 
-			return { ensureBuiltin, getBuiltinBySlug };
+			return { ensureBuiltin, getKernelBySlug };
 		}),
 	},
 ) {

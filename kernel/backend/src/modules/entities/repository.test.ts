@@ -1,4 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -138,7 +139,7 @@ layer(
 	repositoryWithDatabase(
 		{},
 		makePluginRuntime({
-			findSchemaProviderBySlug: () =>
+			findSchemaProviderByReference: () =>
 				Effect.succeed({
 					entitySchemaSlug: EntitySchemaSlug.make("person"),
 					provider: {
@@ -175,7 +176,10 @@ layer(
 	test.effect("resolves provider identity and its active details executable", () =>
 		Effect.gen(function* () {
 			const repository = yield* EntitiesRepository;
-			const resolved = yield* repository.findEntitySchemaProviderBySlug("fixture-provider");
+			const resolved = yield* repository.findEntitySchemaProviderByReference({
+				slug: "fixture-provider",
+				owner: definitionOwner("fixture"),
+			});
 
 			expect(resolved).toEqual({
 				providerId,
@@ -265,7 +269,7 @@ layer(
 			expect(total).toBe(7);
 			expect(executed).toHaveLength(1);
 			expect(executed[0]).toContain("pg_advisory_xact_lock");
-			expect(executed[0]).toContain("global-entities:person:plugin-1:provider-1");
+			expect(executed[0]).toContain('["global-entities","plugin-1","person","provider-1"]');
 		}),
 	);
 });
@@ -280,6 +284,7 @@ layer(
 			const repository = yield* EntitiesRepository;
 			const common = {
 				scope: "global" as const,
+				entitySchemaPluginId: "plugin-1",
 				providerId: SandboxProviderId.make("provider-1"),
 				entitySchemaSlug: EntitySchemaSlug.make("person"),
 			};
@@ -290,8 +295,8 @@ layer(
 			]);
 
 			expect(yield* recordedEntries).toEqual([
-				'["provider-entity","global","global","person","provider-1","alpha"]',
-				'["provider-entity","global","global","person","provider-1","zeta"]',
+				'["provider-entity","global","global","plugin-1","person","provider-1","alpha"]',
+				'["provider-entity","global","global","plugin-1","person","provider-1","zeta"]',
 			]);
 		}),
 	);
@@ -522,7 +527,13 @@ layer(
 			where: (condition: { getSQL: () => Statement }) => ({
 				limit: () =>
 					record(dialect.sqlToQuery(condition.getSQL()).params).pipe(
-						Effect.as([{ id: "existing-global", entitySchemaSlug: "record" }]),
+						Effect.as([
+							{
+								id: "existing-global",
+								entitySchemaSlug: "record",
+								entitySchemaPluginId: "example",
+							},
+						]),
 					),
 			}),
 		};
@@ -537,11 +548,15 @@ layer(
 				expect(
 					yield* repository.findGlobalEntityForRestore({
 						externalId: "external-id",
-						entitySchemaPluginId: null,
+						entitySchemaPluginId: "example",
 						entitySchemaSlug: EntitySchemaSlug.make("record"),
-						provider: { pluginSlug: "example", providerSlug: "open-library" },
+						provider: { slug: "open-library", owner: definitionOwner("example") },
 					}),
-				).toEqual({ id: "existing-global", entitySchemaSlug: "record" });
+				).toEqual({
+					id: "existing-global",
+					entitySchemaSlug: "record",
+					entitySchemaPluginId: "example",
+				});
 				const [params] = yield* recordedEntries;
 				expect(params).toEqual(
 					expect.arrayContaining(["external-id", "record", "example", "open-library"]),

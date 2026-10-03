@@ -3,9 +3,13 @@ import {
 	AutomationEntityDraft,
 	AutomationEntityRequestPayload,
 	type AutomationPolicyPatch,
-	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
+import {
+	definitionKey,
+	definitionOwner,
+	type EntitySchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import {
 	type UserId,
 	EntityId,
@@ -60,15 +64,21 @@ import {
 	type PreparedMutation,
 } from "./mutation-persistence";
 import { EntitiesRepository } from "./repository";
+import {
+	DomainLifecycleCommand,
+	DomainWriteConflict,
+	makeDomainWriteChecks,
+	writerPropertiesSchema,
+} from "./write-context";
 
 type Scope = { scope: "global" } | { scope: "user"; userId: UserId };
 export type CreateEntityInput = Scope & {
 	name: string;
-	entitySchemaSlug: EntitySchemaSlug;
+	entitySchema: EntitySchemaReference;
 	properties: unknown;
 	externalId?: string | undefined;
 	populatedAt?: Date | null;
-	lifecycle: LifecycleCommand;
+	lifecycle: DomainLifecycleCommand;
 	providerId?: SandboxProviderId | undefined;
 };
 export type UpdateEntityInput = Scope & {
@@ -76,7 +86,7 @@ export type UpdateEntityInput = Scope & {
 	entityId: EntityId;
 	properties: unknown;
 	populatedAt: Date | null;
-	lifecycle: LifecycleCommand;
+	lifecycle: DomainLifecycleCommand;
 };
 export type UpsertEntityInput = CreateEntityInput & {
 	externalId: string;
@@ -85,18 +95,20 @@ export type UpsertEntityInput = CreateEntityInput & {
 	providerId: SandboxProviderId;
 };
 export type UpsertGlobalEntityItem = {
+	entitySchema: EntitySchemaReference;
 	name: string;
 	externalId: string;
 	properties: unknown;
 	populatedAt: Date | null;
-	entitySchemaSlug: EntitySchemaSlug;
 };
 export type UpsertGlobalEntitiesOptions = { maximumTotal?: number };
-export type EntityUpsertBatchScope = Pick<LifecycleBatchInput, "command" | "identity">;
+export type EntityUpsertBatchScope = Pick<LifecycleBatchInput, "identity"> & {
+	command: DomainLifecycleCommand;
+};
 export type EnsureUserEntityItem = {
+	entitySchema: EntitySchemaReference;
 	name: string;
 	properties: unknown;
-	entitySchemaSlug: EntitySchemaSlug;
 };
 export const PendingEntityMutation = Schema.Struct({
 	...PreparedEntityMutation.fields,
@@ -152,11 +164,18 @@ const enclosingTransaction = () =>
 		"enclosing-transaction",
 		"EntitiesService must own the transaction and post-commit execution",
 	);
-const itemCommand = (lifecycle: LifecycleCommand, identity: string): LifecycleCommand => ({
+const writeFailure = (error: DbError | DomainWriteConflict) =>
+	error instanceof DomainWriteConflict
+		? new EntityBadRequest({ reason: error.reason })
+		: bad("mutation-conflict", error.message);
+const itemCommand = (
+	lifecycle: DomainLifecycleCommand,
+	identity: string,
+): DomainLifecycleCommand => ({
 	...lifecycle,
 	itemIdentity: stableStringify([lifecycle.itemIdentity, identity]),
 });
-const commandEntityId = (lifecycle: LifecycleCommand) =>
+const commandEntityId = (lifecycle: DomainLifecycleCommand) =>
 	EntityId.make(
 		`ent_${sha256Base64Url(stableStringify([lifecycle.causation.executionId, lifecycle.itemIdentity]))}`,
 	);
@@ -164,9 +183,10 @@ const createReceiptInput = (input: CreateEntityInput, updateExisting?: boolean) 
 	scope: input.scope,
 	name: input.name.trim(),
 	properties: input.properties,
+	entitySchema: input.entitySchema,
 	externalId: input.externalId ?? null,
 	providerId: input.providerId ?? null,
-	entitySchemaSlug: input.entitySchemaSlug,
+	writeContext: input.lifecycle.writeContext,
 	populatedAt: input.populatedAt?.toISOString() ?? null,
 	...(input.scope === "user" ? { userId: input.userId } : {}),
 	...(updateExisting === undefined ? {} : { updateExisting }),
@@ -185,7 +205,7 @@ const createReceipt = (input: CreateEntityInput, updateExisting?: boolean) =>
 const globalUpsertReceipt = (
 	items: ReadonlyArray<UpsertGlobalEntityItem>,
 	providerId: SandboxProviderId,
-	lifecycle: LifecycleCommand,
+	lifecycle: DomainLifecycleCommand,
 	options?: UpsertGlobalEntitiesOptions,
 ) =>
 	mutationReceiptIdentity({
@@ -195,6 +215,7 @@ const globalUpsertReceipt = (
 		ownerUserId: mutationReceiptOwner(lifecycle, null),
 		input: {
 			providerId,
+			writeContext: lifecycle.writeContext,
 			maximumTotal: options?.maximumTotal ?? null,
 			items: items.map((item) => ({
 				...item,
@@ -211,6 +232,7 @@ const receiptConflict = (error: DbError | MutationReceiptIdentityConflict) =>
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
 		const session = yield* DatabaseSession;
+		const writeChecks = makeDomainWriteChecks(session);
 		const planner = yield* LifecyclePlanner;
 		const repository = yield* EntitiesRepository;
 		const eventsRepository = yield* EventsRepository;
@@ -235,7 +257,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			Effect.mapError(() => new LifecyclePersistenceError({ code: "active-transaction-required" })),
 		);
 		const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-			runRootTransaction(session, work).pipe(
+			runRootTransaction(session, repository.lockSchemaCatalog().pipe(Effect.andThen(work))).pipe(
 				Effect.mapError((error) =>
 					error instanceof DatabaseSessionStateError ? enclosingTransaction() : error,
 				),
@@ -244,27 +266,40 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const entitySchema = Effect.fnUntraced(function* (
 			scopeUserId: UserId | null,
 			entitySchemaSlug: EntitySchemaSlug,
+			entitySchemaPluginId: string | null,
 		) {
+			const reference: EntitySchemaReference = {
+				slug: entitySchemaSlug,
+				owner: definitionOwner(entitySchemaPluginId),
+			};
 			const definition = yield* scopeUserId === null
-				? repository.findSystemEntitySchemaById(entitySchemaSlug)
-				: repository.findEntitySchemaForUser({ entitySchemaSlug, userId: scopeUserId });
+				? repository.findSystemEntitySchemaByReference(reference)
+				: repository.findEntitySchemaForUser({ userId: scopeUserId, entitySchema: reference });
 			if (!definition) {
 				return yield* new EntityNotFound({
-					reason: { entitySchemaSlug, code: "entity-schema-not-found" },
+					reason: { schema: reference, code: "entity-schema-not-found" },
 				});
 			}
 			return definition;
 		});
 		const prepareReferenceStep = Effect.fn("EntitiesService.prepareReferenceStep")(
-			function* (input: { userId: UserId; entityId: EntityId; lifecycle: LifecycleCommand }) {
+			function* (input: { userId: UserId; entityId: EntityId; lifecycle: DomainLifecycleCommand }) {
 				return yield* transaction(
 					Effect.gen(function* () {
+						yield* writeChecks
+							.check(
+								input.lifecycle,
+								definitionOwner(input.lifecycle.writeContext?.pluginRevision?.id ?? null),
+								input.userId,
+								true,
+							)
+							.pipe(Effect.mapError(writeFailure));
 						const identity = mutationReceiptIdentity({
 							command: input.lifecycle,
 							ownerUserId: input.userId,
 							scopeUserId: input.userId,
 							commandKind: "entity:reference",
-							input: { entityId: input.entityId },
+							input: { entityId: input.entityId, writeContext: input.lifecycle.writeContext },
 						});
 						const replay = yield* lookupEntityReceipt(identity);
 						if (replay) {
@@ -288,10 +323,67 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			},
 		);
 		const validateDraft = Effect.fnUntraced(function* (
-			draft: Omit<AutomationEntityDraft, "properties"> & { properties: unknown },
+			draft: Omit<AutomationEntityDraft, "properties" | "entitySchemaPluginId"> & {
+				properties: unknown;
+			},
 			scopeUserId: UserId | null,
+			entitySchemaPluginId: string | null,
+			lifecycle: DomainLifecycleCommand,
+			commit = false,
 		) {
-			const definition = yield* entitySchema(scopeUserId, draft.entitySchemaSlug);
+			if (
+				lifecycle.writeContext?.pluginRevision &&
+				lifecycle.kernelCollection === true &&
+				entitySchemaPluginId === null &&
+				draft.entitySchemaSlug !== "collection"
+			) {
+				return yield* new EntityBadRequest({
+					reason: {
+						code: "owner-mismatch",
+						actual: { kind: "kernel" },
+						expected: definitionOwner(lifecycle.writeContext.pluginRevision.id),
+					},
+				});
+			}
+			const pinnedManifest = yield* writeChecks
+				.check(lifecycle, definitionOwner(entitySchemaPluginId), scopeUserId, commit)
+				.pipe(Effect.mapError(writeFailure));
+			const activeDeclaration =
+				pinnedManifest && entitySchemaPluginId !== null
+					? (yield* writeChecks.activeManifest(entitySchemaPluginId)).entitySchemas.find(
+							({ slug }) => slug === draft.entitySchemaSlug,
+						)
+					: null;
+			if (pinnedManifest && !activeDeclaration) {
+				return yield* bad(
+					"mutation-conflict",
+					"Pinned entity declaration has no active storage definition",
+				);
+			}
+			const activeDefinition = activeDeclaration
+				? {
+						slug: draft.entitySchemaSlug,
+						pluginId: entitySchemaPluginId,
+						propertiesSchema: activeDeclaration.propertiesSchema,
+					}
+				: yield* entitySchema(scopeUserId, draft.entitySchemaSlug, entitySchemaPluginId);
+			if (draft.providerId !== null) {
+				yield* writeChecks
+					.checkProvider(draft.providerId, definitionOwner(entitySchemaPluginId))
+					.pipe(Effect.mapError((error) => bad("mutation-conflict", error.message)));
+			}
+			const pinnedDeclaration = pinnedManifest?.entitySchemas.find(
+				({ slug }) => slug === draft.entitySchemaSlug,
+			);
+			if (pinnedManifest && !pinnedDeclaration) {
+				return yield* bad(
+					"mutation-conflict",
+					"Entity schema is not declared by the pinned writer",
+				);
+			}
+			const definition = pinnedDeclaration
+				? { ...activeDefinition, propertiesSchema: pinnedDeclaration.propertiesSchema }
+				: activeDefinition;
 			const name = trimToNull(draft.name);
 			if (!name) {
 				return yield* new EntityBadRequest({ reason: { field: "name", code: "name-required" } });
@@ -299,7 +391,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const properties = yield* parseAppSchemaProperties({
 				kind: "Entity",
 				properties: draft.properties,
-				propertiesSchema: definition.propertiesSchema,
+				propertiesSchema: pinnedDeclaration
+					? writerPropertiesSchema(definition.propertiesSchema)
+					: definition.propertiesSchema,
 			}).pipe(
 				Effect.mapError(
 					(error) =>
@@ -308,10 +402,28 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						}),
 				),
 			);
+			if (commit && pinnedDeclaration) {
+				const stored = yield* parseAppSchemaProperties({
+					properties,
+					kind: "Entity",
+					propertiesSchema: writerPropertiesSchema(activeDefinition.propertiesSchema),
+				}).pipe(
+					Effect.mapError(() =>
+						bad("mutation-conflict", "Pinned entity payload violates active storage constraints"),
+					),
+				);
+				if (!same(stored, properties)) {
+					return yield* bad(
+						"mutation-conflict",
+						"Active entity constraints would change the pinned payload",
+					);
+				}
+			}
 			const validated = yield* Schema.decodeUnknownEffect(AutomationEntityDraft)({
 				...draft,
 				name,
 				properties,
+				entitySchemaPluginId,
 			}).pipe(
 				Effect.mapError(
 					() => new EntityBadRequest({ reason: { paths: [], code: "invalid-properties" } }),
@@ -323,13 +435,47 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				entitySchemaFingerprint: catalogDefinitionFingerprint(definition),
 			};
 		});
+		const validateExistingEntity = Effect.fnUntraced(function* (
+			entity: EntitySnapshotResult["entity"],
+			scopeUserId: UserId | null,
+			lifecycle: DomainLifecycleCommand,
+		) {
+			if (!lifecycle.writeContext?.pluginRevision) {
+				return yield* Effect.void;
+			}
+			const parsed = yield* validateDraft(
+				draftOf(snapshot(entity)),
+				scopeUserId,
+				entity.entitySchemaPluginId,
+				lifecycle,
+			).pipe(
+				Effect.mapError(() =>
+					bad("mutation-conflict", "Current entity cannot be processed by the pinned writer"),
+				),
+			);
+			if (!same(parsed.draft.properties, entity.properties)) {
+				return yield* bad(
+					"mutation-conflict",
+					"Pinned entity constraints would change the current stored value",
+				);
+			}
+			return yield* Effect.void;
+		});
 		const planMutationInTransaction = Effect.fnUntraced(function* (
 			input: Omit<PreparedMutation, "requestId" | "receipt"> & {
 				receiptKind: string;
 				receiptInput: unknown;
 			},
 		) {
-			const lifecycle = yield* Schema.decodeEffect(LifecycleCommand)(input.lifecycle).pipe(
+			yield* writeChecks
+				.check(
+					input.lifecycle,
+					definitionOwner(input.entitySchemaPluginId),
+					input.scopeUserId,
+					true,
+				)
+				.pipe(Effect.mapError(writeFailure));
+			const lifecycle = yield* Schema.decodeEffect(DomainLifecycleCommand)(input.lifecycle).pipe(
 				Effect.mapError(() => bad("mutation-conflict", "Invalid lifecycle command")),
 			);
 			let request: AutomationEntityRequestPayload;
@@ -420,7 +566,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 								patched.ok ? "Entity delete policies cannot transform requests" : patched.reason,
 							);
 						}
-						const validated = yield* validateDraft(patched.request.draft, pending.scopeUserId);
+						const validated = yield* validateDraft(
+							patched.request.draft,
+							pending.scopeUserId,
+							pending.entitySchemaPluginId,
+							pending.lifecycle,
+						);
 						const successor = { ...patched.request, draft: validated.draft };
 						const acceptedPatch = canonicalLifecyclePolicyPatch(payload, successor);
 						payload = successor;
@@ -448,6 +599,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					? draftOf(pending.request.draft)
 					: pending.request.draft,
 				pending.scopeUserId,
+				pending.entitySchemaPluginId,
+				pending.lifecycle,
 			);
 			if (
 				final.entitySchemaPluginId !== pending.entitySchemaPluginId ||
@@ -461,7 +614,21 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const { request: _request, policies: _policies, ...prepared } = pending;
 			return { ...prepared, draft: final.draft } satisfies PreparedMutation;
 		});
-		const persistence = { planner, receipts, repository, validateDraft };
+		const persistence = {
+			planner,
+			receipts,
+			repository,
+			validateDraft,
+			authorizeMutation: (input: PreparedMutation) =>
+				writeChecks
+					.check(
+						input.lifecycle,
+						definitionOwner(input.entitySchemaPluginId),
+						input.scopeUserId,
+						true,
+					)
+					.pipe(Effect.asVoid, Effect.mapError(writeFailure)),
+		};
 		const persistSave = makePersistMutation({
 			...persistence,
 			resultCodec: EntitySnapshotResult,
@@ -477,8 +644,18 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			resultCodec: EntityEnsureResult,
 			resultOf: (entity, wasInserted) => ({ wasInserted, entityId: entity.id }),
 		});
-		const entityBatchPlans = (batch: EntityUpsertBatchScope) =>
-			planner.planBatch({ ...batch, resource: "entity" });
+		const entityBatchPlans = Effect.fnUntraced(function* (batch: EntityUpsertBatchScope) {
+			const pin = batch.command.writeContext?.pluginRevision;
+			yield* writeChecks
+				.check(
+					batch.command,
+					definitionOwner(pin?.id ?? null),
+					pin?.scope === "user" ? pin.ownerId : null,
+					true,
+				)
+				.pipe(Effect.mapError(writeFailure));
+			return yield* planner.planBatch({ ...batch, resource: "entity" });
+		});
 		const persistAndBatch = Effect.fnUntraced(function* (pending: PendingEntityMutation) {
 			const prepared = yield* acceptedMutation(pending);
 			const batchScope = { identity: ["batch"], command: prepared.lifecycle };
@@ -528,10 +705,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					properties: input.properties,
 					externalId: input.externalId ?? null,
 					providerId: input.providerId ?? null,
-					entitySchemaSlug: input.entitySchemaSlug,
+					entitySchemaSlug: input.entitySchema.slug,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 				},
 				scopeUserId,
+				input.entitySchema.owner.kind === "plugin" ? input.entitySchema.owner.pluginId : null,
+				input.lifecycle,
 			);
 			const { externalId, providerId } = input;
 			const existing =
@@ -542,6 +721,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 									...input,
 									externalId,
 									providerId,
+									entitySchemaSlug: input.entitySchema.slug,
 									entitySchemaPluginId: validated.entitySchemaPluginId,
 								};
 								yield* repository.lockProviderEntityMutations([identity]);
@@ -552,6 +732,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 							}),
 						)
 					: null;
+			if (existing) {
+				yield* validateExistingEntity(existing, scopeUserId, input.lifecycle);
+			}
 			const replay = existing?.id === commandEntityId(input.lifecycle);
 			if (
 				existing &&
@@ -581,6 +764,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			updateExisting?: boolean,
 		) {
 			yield* assertOwner;
+			yield* writeChecks
+				.check(
+					input.lifecycle,
+					input.entitySchema.owner,
+					input.scope === "user" ? input.userId : null,
+				)
+				.pipe(Effect.mapError(writeFailure));
 			const identity = createReceipt(input, updateExisting);
 			const replay = yield* peekEntityReceipt(identity);
 			if (replay) {
@@ -664,7 +854,15 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			batch: { id: string; hasCandidates: boolean; index: number },
 		) {
 			yield* assertActiveTransaction;
-			const lifecycle = yield* Schema.decodeEffect(LifecycleCommand)(input.lifecycle).pipe(
+			yield* writeChecks
+				.check(
+					input.lifecycle,
+					input.entitySchema.owner,
+					input.scope === "user" ? input.userId : null,
+					true,
+				)
+				.pipe(Effect.mapError(writeFailure));
+			const lifecycle = yield* Schema.decodeEffect(DomainLifecycleCommand)(input.lifecycle).pipe(
 				Effect.mapError(() => bad("mutation-conflict", "Invalid lifecycle command")),
 			);
 			const scopeUserId = input.scope === "user" ? input.userId : null;
@@ -679,17 +877,26 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					properties: input.properties,
 					externalId: input.externalId,
 					providerId: input.providerId,
-					entitySchemaSlug: input.entitySchemaSlug,
+					entitySchemaSlug: input.entitySchema.slug,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 				},
 				scopeUserId,
+				input.entitySchema.owner.kind === "plugin" ? input.entitySchema.owner.pluginId : null,
+				input.lifecycle,
 			);
-			const identity = { ...input, entitySchemaPluginId: validated.entitySchemaPluginId };
+			const identity = {
+				...input,
+				entitySchemaSlug: input.entitySchema.slug,
+				entitySchemaPluginId: validated.entitySchemaPluginId,
+			};
 			yield* repository.lockProviderEntityMutations([identity]);
 			const found = yield* repository.findEntityByExternalId(identity);
 			const existing = found
 				? ((yield* repository.getMutationEntity(found.id, true))?.entity ?? null)
 				: null;
+			if (existing) {
+				yield* validateExistingEntity(existing, scopeUserId, input.lifecycle);
+			}
 			const replay = existing?.id === commandEntityId(lifecycle);
 			if (existing && !replay && !input.updateExisting && existing.populatedAt !== null) {
 				const result = { entity: existing };
@@ -789,11 +996,22 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		);
 		const update = Effect.fn("EntitiesService.update")(function* (input: UpdateEntityInput) {
 			yield* assertOwner;
+			const ownedCurrent = yield* repository.getMutationEntity(input.entityId);
+			if (ownedCurrent) {
+				yield* writeChecks
+					.check(
+						input.lifecycle,
+						definitionOwner(ownedCurrent.entity.entitySchemaPluginId),
+						ownedCurrent.userId,
+					)
+					.pipe(Effect.mapError(writeFailure));
+			}
 			const receiptInput = {
 				scope: input.scope,
 				name: input.name.trim(),
 				entityId: input.entityId,
 				properties: input.properties,
+				writeContext: input.lifecycle.writeContext,
 				populatedAt: input.populatedAt?.toISOString() ?? null,
 				...(input.scope === "user" ? { userId: input.userId } : {}),
 			};
@@ -832,6 +1050,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				});
 			}
 			const before = snapshot(current.entity);
+			yield* validateExistingEntity(current.entity, current.userId, input.lifecycle);
 			const validated = yield* validateDraft(
 				{
 					...draftOf(before),
@@ -840,6 +1059,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 				},
 				current.userId,
+				current.entity.entitySchemaPluginId,
+				input.lifecycle,
 			);
 			const pendingInput = {
 				...validated,
@@ -873,16 +1094,24 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		});
 		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
 			ids: readonly [EntityId, ...EntityId[]],
-			lifecycle: LifecycleCommand,
+			lifecycle: DomainLifecycleCommand,
 		) {
 			yield* assertOwner;
 			const orderedIds = [...new Set(ids)].sort();
+			for (const entityId of orderedIds) {
+				const current = yield* repository.getMutationEntity(entityId);
+				if (current) {
+					yield* writeChecks
+						.check(lifecycle, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
+						.pipe(Effect.mapError(writeFailure));
+				}
+			}
 			const aggregateReceipt = mutationReceiptIdentity({
 				scopeUserId: null,
-				input: orderedIds,
 				command: lifecycle,
 				commandKind: "entity:delete-batch",
 				ownerUserId: mutationReceiptOwner(lifecycle, null),
+				input: { entityIds: orderedIds, writeContext: lifecycle.writeContext },
 			});
 			const aggregateResult = Schema.Struct({ deletedCount: Schema.Finite });
 			const existingBatch = yield* receipts
@@ -901,7 +1130,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					{ ...lifecycle, accountGeneration: yield* receipts.currentAccount(identity.userId) },
 					`${identity.userId}:${identity.eventId}:cascade-delete`,
 				);
-				const preparedEvent = yield* events.prepareDelete(identity, eventCommand);
+				const preparedEvent = yield* events.prepareEntityCascadeDelete(
+					identity,
+					orderedIds,
+					eventCommand,
+				);
 				if (!preparedEvent) {
 					return yield* new DbError({
 						message: "Event changed while cascade deletion was prepared",
@@ -912,7 +1145,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const prepared = yield* Effect.forEach(orderedIds, (entityId) =>
 				Effect.gen(function* () {
 					const command = itemCommand(lifecycle, entityId);
-					const receiptInput = { entityId, requestedIds: orderedIds };
+					const receiptInput = {
+						entityId,
+						requestedIds: orderedIds,
+						writeContext: lifecycle.writeContext,
+					};
 					for (const scopeUserId of lifecycle.causation.initiator.kind === "user"
 						? [null, lifecycle.causation.initiator.id]
 						: [null]) {
@@ -937,18 +1174,27 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						return null;
 					}
 					const before = snapshot(current.entity);
-					const definition = yield* entitySchema(current.userId, before.entitySchemaSlug);
+					yield* validateExistingEntity(current.entity, current.userId, command);
+					const validated = yield* validateDraft(
+						draftOf(before),
+						current.userId,
+						current.entity.entitySchemaPluginId,
+						command,
+					);
+					yield* writeChecks
+						.check(command, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
+						.pipe(Effect.mapError(writeFailure));
 					const pending = yield* planMutation({
 						before,
 						entityId,
 						receiptInput,
 						lifecycle: command,
 						operation: "delete",
-						draft: draftOf(before),
+						draft: validated.draft,
 						scopeUserId: current.userId,
 						receiptKind: "entity:delete",
-						entitySchemaPluginId: definition.pluginId ?? null,
-						entitySchemaFingerprint: catalogDefinitionFingerprint(definition),
+						entitySchemaPluginId: validated.entitySchemaPluginId,
+						entitySchemaFingerprint: validated.entitySchemaFingerprint,
 					});
 					return {
 						replay: null,
@@ -959,6 +1205,19 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			);
 			const committed = yield* transaction(
 				Effect.gen(function* () {
+					const writeContext = lifecycle.writeContext;
+					let scopeUserId: UserId | null = null;
+					if (writeContext?.pluginRevision?.scope === "user") {
+						scopeUserId = writeContext.pluginRevision.ownerId;
+					}
+					yield* writeChecks
+						.check(
+							lifecycle,
+							definitionOwner(lifecycle.writeContext?.pluginRevision?.id ?? null),
+							scopeUserId,
+							true,
+						)
+						.pipe(Effect.mapError(writeFailure));
 					for (const entityId of orderedIds) {
 						yield* repository.getMutationEntity(entityId, true);
 					}
@@ -1027,15 +1286,30 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const ensureUserEntities = Effect.fn("EntitiesService.ensureUserEntities")(function* (
 			userId: UserId,
 			items: ReadonlyArray<EnsureUserEntityItem>,
-			lifecycle: LifecycleCommand,
+			lifecycle: DomainLifecycleCommand,
 		) {
 			yield* assertOwner;
+			yield* writeChecks
+				.check(
+					lifecycle,
+					definitionOwner(lifecycle.writeContext?.pluginRevision?.id ?? null),
+					userId,
+				)
+				.pipe(Effect.mapError(writeFailure));
+			for (const item of items) {
+				yield* writeChecks
+					.check(lifecycle, item.entitySchema.owner, userId)
+					.pipe(Effect.mapError(writeFailure));
+			}
 			const aggregateReceipt = mutationReceiptIdentity({
 				command: lifecycle,
 				scopeUserId: userId,
 				commandKind: "entity:ensure-batch",
 				ownerUserId: mutationReceiptOwner(lifecycle, userId),
-				input: items.map((item) => ({ ...item, name: item.name.trim() })),
+				input: {
+					writeContext: lifecycle.writeContext,
+					items: items.map((item) => ({ ...item, name: item.name.trim() })),
+				},
 			});
 			const aggregateResult = Schema.Array(
 				Schema.Struct({
@@ -1062,8 +1336,16 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			}
 			const prepared = yield* Effect.forEach(items, (item) =>
 				Effect.gen(function* () {
-					const command = itemCommand(lifecycle, item.entitySchemaSlug);
-					const receiptInput = { ...item, userId, name: item.name.trim() };
+					const command = itemCommand(
+						lifecycle,
+						definitionKey("entity", item.entitySchema.owner, item.entitySchema.slug),
+					);
+					const receiptInput = {
+						...item,
+						userId,
+						name: item.name.trim(),
+						writeContext: lifecycle.writeContext,
+					};
 					const receipt = mutationReceiptIdentity({
 						command,
 						scopeUserId: userId,
@@ -1079,7 +1361,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					}
 					const existing = yield* repository.findUserEntityWithoutProvenance({
 						userId,
-						entitySchemaSlug: item.entitySchemaSlug,
+						entitySchemaSlug: item.entitySchema.slug,
+						entitySchemaPluginId:
+							item.entitySchema.owner.kind === "plugin" ? item.entitySchema.owner.pluginId : null,
 					});
 					if (existing) {
 						return { item, receipt, existing, prepared: null, recorded: null };
@@ -1103,6 +1387,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			);
 			const committed = yield* transaction(
 				Effect.gen(function* () {
+					for (const item of items) {
+						yield* writeChecks
+							.check(lifecycle, item.entitySchema.owner, userId, true)
+							.pipe(Effect.mapError(writeFailure));
+					}
 					const previous = yield* receipts
 						.lookup(aggregateReceipt, aggregateResult)
 						.pipe(Effect.mapError(receiptConflict));
@@ -1117,7 +1406,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					});
 					yield* repository.lockUserEntityEnsureScopes({
 						userId,
-						entitySchemaSlugs: items.map((item) => item.entitySchemaSlug),
+						entitySchemas: items.map((item) => item.entitySchema),
 					});
 					const saved = yield* Effect.forEach(prepared, (item, index) =>
 						Effect.gen(function* () {
@@ -1138,7 +1427,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 							}
 							const existing = yield* repository.findUserEntityWithoutProvenance({
 								userId,
-								entitySchemaSlug: item.item.entitySchemaSlug,
+								entitySchemaSlug: item.item.entitySchema.slug,
+								entitySchemaPluginId:
+									item.item.entitySchema.owner.kind === "plugin"
+										? item.item.entitySchema.owner.pluginId
+										: null,
 							});
 							if (existing) {
 								const result = { wasInserted: false, entityId: existing.id };
@@ -1195,12 +1488,17 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const commitGlobalEntities = Effect.fnUntraced(function* (
 			planned: PendingGlobalEntityUpsert["planned"],
 			providerId: SandboxProviderId,
-			lifecycle: LifecycleCommand,
+			lifecycle: DomainLifecycleCommand,
 			aggregateReceipt: ReturnType<typeof mutationReceiptIdentity>,
 			options?: UpsertGlobalEntitiesOptions,
 		) {
 			return yield* transaction(
 				Effect.gen(function* () {
+					for (const item of planned) {
+						yield* writeChecks
+							.check(lifecycle, definitionOwner(item.entitySchemaPluginId), null, true)
+							.pipe(Effect.mapError(writeFailure));
+					}
 					const previous = yield* receipts
 						.lookup(aggregateReceipt, GlobalEntityUpsertResults)
 						.pipe(Effect.mapError(receiptConflict));
@@ -1330,11 +1628,19 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		)(function* (
 			items: ReadonlyArray<UpsertGlobalEntityItem>,
 			providerId: SandboxProviderId,
-			lifecycle: LifecycleCommand,
+			lifecycle: DomainLifecycleCommand,
 			options: UpsertGlobalEntitiesOptions | undefined,
 			cursor: GlobalEntityUpsertCursor,
 		) {
 			yield* assertOwner;
+			yield* writeChecks
+				.check(lifecycle, definitionOwner(lifecycle.writeContext?.pluginRevision?.id ?? null), null)
+				.pipe(Effect.mapError(writeFailure));
+			for (const item of items) {
+				yield* writeChecks
+					.check(lifecycle, item.entitySchema.owner, null)
+					.pipe(Effect.mapError(writeFailure));
+			}
 			const aggregateReceipt = globalUpsertReceipt(items, providerId, lifecycle, options);
 			const replay = yield* receipts
 				.peek(aggregateReceipt, GlobalEntityUpsertResults)
@@ -1359,10 +1665,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				}
 				const command = itemCommand(
 					lifecycle,
-					stableStringify([item.entitySchemaSlug, providerId, item.externalId]),
+					stableStringify([item.entitySchema, providerId, item.externalId]),
 				);
 				const receiptInput = {
 					providerId,
+					writeContext: lifecycle.writeContext,
 					item: { ...item, name: item.name.trim() },
 					maximumTotal: options?.maximumTotal ?? null,
 				};
@@ -1390,9 +1697,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						receipt,
 						recorded: true,
 						prepared: null,
-						entitySchemaPluginId: null,
 						externalId: item.externalId,
-						entitySchemaSlug: item.entitySchemaSlug,
+						entitySchemaSlug: item.entitySchema.slug,
+						entitySchemaPluginId:
+							item.entitySchema.owner.kind === "plugin" ? item.entitySchema.owner.pluginId : null,
 					});
 					continue;
 				}
@@ -1414,13 +1722,17 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					pending = result.pending;
 				}
 				const prepared = pending ? yield* acceptedMutation(pending) : null;
-				const definition = yield* entitySchema(null, item.entitySchemaSlug);
+				const definition = yield* entitySchema(
+					null,
+					item.entitySchema.slug,
+					item.entitySchema.owner.kind === "plugin" ? item.entitySchema.owner.pluginId : null,
+				);
 				planned.push({
 					receipt,
 					prepared,
 					recorded: false,
 					externalId: item.externalId,
-					entitySchemaSlug: item.entitySchemaSlug,
+					entitySchemaSlug: item.entitySchema.slug,
 					entitySchemaPluginId: definition.pluginId ?? null,
 				});
 			}
@@ -1431,7 +1743,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const upsertGlobalEntities = Effect.fn("EntitiesService.upsertGlobalEntities")(function* (
 			items: ReadonlyArray<UpsertGlobalEntityItem>,
 			providerId: SandboxProviderId,
-			lifecycle: LifecycleCommand,
+			lifecycle: DomainLifecycleCommand,
 			options?: UpsertGlobalEntitiesOptions,
 		) {
 			const prepare = (cursor: GlobalEntityUpsertCursor) =>

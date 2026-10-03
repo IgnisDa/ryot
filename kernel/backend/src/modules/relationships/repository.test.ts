@@ -22,6 +22,7 @@ describe("RelationshipsRepository PostgreSQL", () => {
 					properties: { rank: 1 },
 					createdAt: created.createdAt,
 					updatedAt: created.updatedAt,
+					relationshipSchemaPluginId: null,
 					sourceEntityId: baseInput.sourceEntityId,
 					targetEntityId: baseInput.targetEntityId,
 					relationshipSchemaSlug: baseInput.relationshipSchemaSlug,

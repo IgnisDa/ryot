@@ -1,16 +1,19 @@
 import { assert, expect, layer } from "@effect/vitest";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	AutomationRunId,
 	AutomationTriggerId,
 	RelationshipSchemaSlug,
 	UserId,
+	EntitySchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { automationLifecycleCausation } from "#lib/domain/lifecycle-command";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
 
 import {
@@ -47,6 +50,8 @@ const globalInput = {
 	relationshipSchemaSlug,
 	properties: { rank: 1 },
 	scope: "global" as const,
+	relationshipSchemaPluginId: null,
+	relationshipSchema: { slug: relationshipSchemaSlug, owner: { kind: "kernel" as const } },
 };
 
 const installGlobalHooks = Effect.fn(function* () {
@@ -133,10 +138,26 @@ const installGlobalHooks = Effect.fn(function* () {
 		},
 		null,
 	);
+	const entities = yield* EntitiesRepository;
+	const identity = {
+		properties: {},
+		populatedAt: null,
+		scope: "global" as const,
+		entitySchemaPluginId: installed.pluginId,
+		entitySchemaSlug: EntitySchemaSlug.make("ownership-fixture"),
+	};
+	const source = yield* entities.insertEntity({ ...identity, name: "Source" });
+	const target = yield* entities.insertEntity({ ...identity, name: "Target" });
 	return {
 		...globalInput,
+		sourceEntityId: source.entity.id,
+		targetEntityId: target.entity.id,
 		relationshipSchemaPluginId: installed.pluginId,
 		relationshipSchemaSlug: RelationshipSchemaSlug.make(schema.slug),
+		relationshipSchema: {
+			owner: definitionOwner(installed.pluginId),
+			slug: RelationshipSchemaSlug.make(schema.slug),
+		},
 	};
 });
 
@@ -148,19 +169,28 @@ layer(relationshipDatabaseLayer())((test) => {
 				const service = yield* RelationshipsService;
 				const session = yield* DatabaseSession;
 				const input = yield* installGlobalHooks();
+				const { sourceEntityId: ownedSourceEntityId, targetEntityId: ownedTargetEntityId } = input;
 				const singleCommand = { ...automationCommand("system-item"), accountGeneration: null };
 				const created = yield* service.create(input, singleCommand);
 				expect(created.relationship).toMatchObject({ wasInserted: true, properties: { rank: 1 } });
 				const group = {
-					relationshipSchemaSlug: input.relationshipSchemaSlug,
+					relationshipSchema: input.relationshipSchema,
 					selector: {
 						type: "anchored" as const,
 						direction: "outgoing" as const,
-						anchorEntityId: sourceEntityId,
+						anchorEntityId: ownedSourceEntityId,
 					},
 					relationships: [
-						{ sourceEntityId, targetEntityId, properties: { rank: 2 } },
-						{ sourceEntityId, properties: { rank: 3 }, targetEntityId: sourceEntityId },
+						{
+							properties: { rank: 2 },
+							sourceEntityId: ownedSourceEntityId,
+							targetEntityId: ownedTargetEntityId,
+						},
+						{
+							properties: { rank: 3 },
+							sourceEntityId: ownedSourceEntityId,
+							targetEntityId: ownedSourceEntityId,
+						},
 					],
 				};
 				const batchCommand = { ...automationCommand("system-batch"), accountGeneration: null };
@@ -182,10 +212,10 @@ layer(relationshipDatabaseLayer())((test) => {
 				const relationships = yield* session.run((db) => db.select().from(tables.relationship));
 				expect(relationships).toHaveLength(2);
 				expect(
-					relationships.find((row) => row.targetEntityId === targetEntityId)?.properties,
+					relationships.find((row) => row.targetEntityId === ownedTargetEntityId)?.properties,
 				).toEqual({ rank: 2 });
 				expect(
-					relationships.find((row) => row.targetEntityId === sourceEntityId)?.properties,
+					relationships.find((row) => row.targetEntityId === ownedSourceEntityId)?.properties,
 				).toEqual({ rank: 3 });
 				const triggers = yield* session.run((db) => db.select().from(tables.automationTrigger));
 				expect(triggers.some(({ operation }) => operation === "batch")).toBe(true);
@@ -211,7 +241,7 @@ layer(relationshipDatabaseLayer())((test) => {
 					accountGeneration: { userId, token: "test-account-generation" },
 				};
 				const group = {
-					relationshipSchemaSlug,
+					relationshipSchema: globalInput.relationshipSchema,
 					relationships: [{ sourceEntityId, targetEntityId, properties: { rank: 1 } }],
 					selector: {
 						type: "anchored" as const,
