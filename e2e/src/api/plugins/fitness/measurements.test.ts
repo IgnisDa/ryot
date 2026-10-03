@@ -20,8 +20,9 @@ import {
 import {
 	createMeasurementMetric,
 	createMeasurementReadingFixture,
+	deleteMeasurementReadings,
 } from "~/fixtures/plugins/fitness";
-import { assertPresent, requirePresent } from "~/support/assertions";
+import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Measurements E2E", () => {
@@ -97,6 +98,33 @@ describe("Measurements E2E", () => {
 					occurredAt: expect.stringMatching(/^2026-04-27T08:00:00(\.\d+)?Z$/),
 				}),
 			]);
+		}),
+	);
+
+	it.live("deletes a user's own readings and rejects another user's", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { client: otherClient } = yield* createAuthenticatedClient();
+			yield* createMeasurementReadingFixture(client);
+			const [stored] = (yield* executeRyotQLRecipe(client, measurementReadingListRecipe({}))).items;
+			const readingIds = [requirePresent(stored, "Expected a reading").id];
+
+			const failure = yield* Effect.flip(deleteMeasurementReadings(otherClient, { readingIds }));
+			assertTaggedError(failure, "PluginInvocationError");
+			expect(failure.reason).toMatchObject({
+				code: "runtime-failed",
+				diagnostics: [
+					{ severity: "error", message: expect.stringContaining("Measurement reading not found") },
+				],
+			});
+			expect(
+				(yield* executeRyotQLRecipe(client, measurementReadingListRecipe({}))).items,
+			).toHaveLength(1);
+
+			expect(yield* deleteMeasurementReadings(client, { readingIds })).toEqual({ count: 1 });
+			expect((yield* executeRyotQLRecipe(client, measurementReadingListRecipe({}))).items).toEqual(
+				[],
+			);
 		}),
 	);
 
