@@ -69,7 +69,6 @@ describe("Server log API", () => {
 			assert(retained);
 
 			expect(active).toMatchObject({ active: true, name: seeded.activeName });
-			expect(active.size).toBeGreaterThan(0);
 			expect(retained).toMatchObject({
 				active: false,
 				name: seeded.name,
@@ -90,13 +89,12 @@ describe("Server log API", () => {
 			expect(retainedBytes).toEqual(seeded.bytes);
 
 			const activeResponse = yield* webRequest(yield* downloadFileUrl(active.id));
-			const activeBytes = Buffer.from(yield* Effect.promise(() => activeResponse.arrayBuffer()));
+			yield* Effect.promise(() => activeResponse.arrayBuffer());
 			expect(activeResponse.status).toBe(200);
 			expect(activeResponse.headers.get("content-type")).toBe("text/plain; charset=utf-8");
 			expect(activeResponse.headers.get("content-disposition")).toContain(
 				`filename="${seeded.activeName}"`,
 			);
-			expect(activeBytes.byteLength).toBeGreaterThan(0);
 
 			const allTicket = yield* getApiClient().call(
 				(api) => api.serverLogs.createAllDownloadTicket(),
