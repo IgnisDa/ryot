@@ -4,7 +4,7 @@ import type {
 	ProviderInformation,
 	SandboxScriptMetadata,
 } from "@ryot-app/contract/modules/sandbox/schemas";
-import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PLUGIN_PACKAGE_ID_PATTERN, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
@@ -18,6 +18,7 @@ import {
 	index,
 	integer,
 	jsonb,
+	type PgTableExtraConfigValue,
 	smallint,
 	snakeCase,
 	text,
@@ -65,6 +66,11 @@ export const plugin = snakeCase.table(
 	},
 	(table) => [
 		check(
+			"plugin_package_id_format_check",
+			sql`${table.packageId} ~ ${sql.raw(`'${PLUGIN_PACKAGE_ID_PATTERN}'`)}`,
+		),
+		unique("plugin_id_package_unique").on(table.id, table.packageId),
+		check(
 			"plugin_active_revision_check",
 			sql`${table.status} <> 'active' or ${table.activeRevisionId} is not null`,
 		),
@@ -102,6 +108,7 @@ export const pluginRevision = snakeCase.table(
 	"plugin_revision",
 	{
 		clientArtifactHash: text(),
+		pluginId: text().notNull(),
 		sourceHash: text().notNull(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
 		clientConfigSchema: jsonb().$type<AppSchema>().notNull(),
@@ -112,17 +119,25 @@ export const pluginRevision = snakeCase.table(
 		icon: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'icon'`),
 		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		description: text().generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'description'`),
-		pluginId: text()
+		packageId: text()
+			.$type<PluginPackageId>()
 			.notNull()
-			.references((): AnyPgColumn => plugin.id, { onDelete: "cascade" }),
+			.generatedAlwaysAs(sql`manifest -> 'metadata' ->> 'packageId'`),
 	},
-	(table) => [
+	(table): PgTableExtraConfigValue[] => [
 		unique("plugin_revision_plugin_source_unique").on(table.pluginId, table.sourceHash),
 		unique("plugin_revision_id_plugin_unique").on(table.id, table.pluginId),
 		foreignKey({
-			columns: [table.clientArtifactHash],
-			foreignColumns: [clientArtifact.hash],
-			name: "plugin_revision_client_artifact_hash_fk",
+			name: "plugin_revision_owner_package_fk",
+			columns: [table.pluginId, table.packageId],
+			foreignColumns: [plugin.id, plugin.packageId],
+		})
+			.onDelete("cascade")
+			.onUpdate("restrict"),
+		foreignKey({
+			name: "plugin_revision_client_artifact_package_fk",
+			columns: [table.clientArtifactHash, table.packageId],
+			foreignColumns: [clientArtifact.hash, clientArtifact.packageId],
 		}),
 	],
 );

@@ -1,7 +1,16 @@
 import type { PluginClientImport } from "@ryot-app/client-plugin-contract";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
-import { bytea, check, jsonb, primaryKey, smallint, snakeCase, text } from "drizzle-orm/pg-core";
+import {
+	bytea,
+	check,
+	jsonb,
+	primaryKey,
+	smallint,
+	snakeCase,
+	text,
+	unique,
+} from "drizzle-orm/pg-core";
 
 export const clientArtifact = snakeCase.table(
 	"client_artifact",
@@ -16,6 +25,7 @@ export const clientArtifact = snakeCase.table(
 		imports: jsonb().$type<readonly PluginClientImport[]>().notNull().default([]),
 	},
 	(table) => [
+		unique("client_artifact_hash_package_unique").on(table.hash, table.packageId),
 		check(
 			"client_artifact_package_declaration_check",
 			sql`(${table.packageId} is null) = (${table.clientDeclarationHash} is null)`,
