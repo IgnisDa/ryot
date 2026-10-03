@@ -175,6 +175,7 @@ const replyProviderSearch = (
 	requestId: string,
 	outcome:
 		| { readonly kind: "cancelled" }
+		| { readonly kind: "create-requested" }
 		| { readonly kind: "added"; readonly entityIds: readonly EntityId[] },
 ) =>
 	act(() => {
@@ -286,6 +287,38 @@ describe("ExercisePicker", () => {
 			expect(applied).toHaveLength(0);
 			click(screen.getByRole("button", { name: "Add 1 exercise" }));
 			expect(applied[0]?.map(({ id }) => id)).toEqual(["exercise-1"]);
+		}),
+	);
+
+	it.live("closes the picker when provider search requests a custom exercise", () =>
+		Effect.gen(function* () {
+			const applied: Array<readonly PickerExercise[]> = [];
+			const page = createPage({ onApply: (items) => applied.push(items) });
+			const answerRequests = createRequestAnswerer();
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerRequests(page, {
+						exercisePage: () => rows([exercise("exercise-1", "Bench press", "reps")]),
+					});
+					expect(screen.getByRole("checkbox", { name: "Bench press" })).toBeTruthy();
+				}),
+			);
+
+			click(screen.getByRole("checkbox", { name: "Bench press" }));
+			click(screen.getByRole("button", { name: "Add from provider" }));
+			const request = yield* Effect.promise(() =>
+				waitFor(() => {
+					const current = requireProviderRequest(page);
+					expect(current.type).toBe("provider-search-screen");
+					return current;
+				}),
+			);
+			replyProviderSearch(page, request.requestId, { kind: "create-requested" });
+
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getByText("Picker closed")).toBeTruthy()),
+			);
+			expect(applied).toHaveLength(0);
 		}),
 	);
 

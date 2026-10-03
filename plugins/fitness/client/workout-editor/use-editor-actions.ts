@@ -1,6 +1,6 @@
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
@@ -19,11 +19,16 @@ import {
 	resolveWorkoutLocalPreferences,
 	WorkoutExerciseOverridesSchema,
 } from "../../shared/workout-editor-preferences";
+import { fitnessRoute } from "../../shared/workout-editor-routes";
 import {
 	buildWorkoutEditorSaveInput,
 	replaceWorkoutOccurrence,
 } from "../../shared/workout-editor-transformations";
-import type { WorkoutExercisePickerResult } from "../../shared/workout-exercise-recipes";
+import {
+	WorkoutExercisePickerFiltersSchema,
+	workoutExercisePickerRecipe,
+	type WorkoutExercisePickerResult,
+} from "../../shared/workout-exercise-recipes";
 import {
 	workoutHistoryRecipe,
 	type WorkoutHistorySetResult,
@@ -85,6 +90,7 @@ export function useEditorActions(input: {
 	readonly exercises: readonly EditorExercise[] | undefined;
 	readonly closeMedia: () => void;
 	readonly closeOverlay: () => void;
+	readonly pendingAddExerciseId: string | undefined;
 	readonly scrollTo: (id: string, contextId?: string) => void;
 	readonly onSaved: ((entityId: SavedEntityId) => void) | undefined;
 }) {
@@ -94,6 +100,7 @@ export function useEditorActions(input: {
 	const schedule = useRyotSchedule();
 	const { pluginId } = client.pluginIdentity(PLUGIN_PACKAGE_ID);
 	const submitting = useRef(false);
+	const addedExerciseId = useRef<string | undefined>(undefined);
 	const [message, setMessage] = useState<string>();
 	const [saved, setSaved] = useState<SavedEntityId>();
 	const [invalid, setInvalid] = useState<InvalidSet>();
@@ -425,6 +432,47 @@ export function useEditorActions(input: {
 			run(prefillFromHistory(occurrence));
 		}
 	};
+
+	const addPendingExercise = useEffectEvent((exerciseId: string) =>
+		run(
+			Effect.gen(function* () {
+				const filters = Schema.decodeResult(WorkoutExercisePickerFiltersSchema)({
+					exerciseIds: [exerciseId],
+				});
+				const picked =
+					filters._tag === "Failure"
+						? undefined
+						: yield* client.data.query(
+								workoutExercisePickerRecipe({
+									...filters.success,
+									reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+								}),
+							);
+				const exercise = picked?.items.find(({ kind }) => kind !== null);
+				if (exercise === undefined) {
+					setMessage("This exercise is not in your library or has no kind, so it was not added.");
+					return;
+				}
+				applyExercises([exercise], undefined);
+			}).pipe(
+				Effect.ensuring(
+					Effect.sync(() => client.navigation.replace(fitnessRoute("/workout-editor"))),
+				),
+			),
+		),
+	);
+	const addable =
+		context !== undefined && editorDraft?.submission === undefined && editorDraft !== undefined;
+	useEffect(() => {
+		if (input.pendingAddExerciseId === undefined) {
+			addedExerciseId.current = undefined;
+			return;
+		}
+		if (addable && addedExerciseId.current !== input.pendingAddExerciseId) {
+			addedExerciseId.current = input.pendingAddExerciseId;
+			addPendingExercise(input.pendingAddExerciseId);
+		}
+	}, [addable, input.pendingAddExerciseId]);
 
 	const confirm = (occurrence: WorkoutEditorOccurrence, set: WorkoutEditorSet, manual: boolean) => {
 		if (context === undefined || local === undefined) {

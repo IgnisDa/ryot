@@ -27,6 +27,7 @@ const readLibraryExercises = (client: RyotClient, exerciseIds: PickerInput["exer
 export function useProviderSearch(input: {
 	readonly search: string;
 	readonly replacementKind: ExerciseKind | undefined;
+	readonly onCreateRequested: () => void;
 	readonly onFound: (exercises: readonly PickerExercise[]) => void;
 }) {
 	const client = useRyot();
@@ -56,6 +57,10 @@ export function useProviderSearch(input: {
 					schema: { owner: { pluginId, kind: "plugin" }, slug: EntitySchemaSlug.make("exercise") },
 				});
 				if (outcome.kind === "cancelled") {
+					return;
+				}
+				if (outcome.kind === "create-requested") {
+					input.onCreateRequested();
 					return;
 				}
 				const exercises = yield* readLibraryExercises(client, outcome.entityIds);

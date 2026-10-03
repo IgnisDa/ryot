@@ -6,6 +6,7 @@ import type { PickerExercise } from "./picker-model";
 export function PickerSelectionTray(props: {
 	readonly replacing: boolean;
 	readonly disabled: boolean;
+	readonly applyLabel?: string | undefined;
 	readonly onApply: () => void;
 	readonly selected: readonly PickerExercise[];
 	readonly onRemove: (exercise: PickerExercise) => void;
@@ -48,7 +49,7 @@ export function PickerSelectionTray(props: {
 				disabled={selected.length === 0 || props.disabled}
 			>
 				{replacing
-					? "Replace exercise"
+					? (props.applyLabel ?? "Replace exercise")
 					: `Add ${selected.length} ${selected.length === 1 ? "exercise" : "exercises"}`}
 			</Button>
 		</>

@@ -304,7 +304,8 @@ image previews and video controls use the resolved URLs without storing them in 
 
 The Fitness Library picker owns ordered selection, multi-value filters, usage sorting, and bounded
 device-local presets. Provider search returns generic added entity IDs; Fitness reloads them and
-checks eligibility before selecting them. Neither picker cancellation nor workout cancellation
+checks eligibility before selecting them. A `create-requested` outcome closes the picker while the
+kernel opens the exercise editor, named from the provider query. Neither picker cancellation nor workout cancellation
 removes an exercise already added to the library.
 
 ### iOS Live Workout Activity

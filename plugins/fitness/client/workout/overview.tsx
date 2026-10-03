@@ -12,8 +12,8 @@ import {
 	kilogramsToPounds,
 	type EnergyUnit,
 } from "../../shared/workout-units";
+import { AddEntityToCollection } from "../collections";
 import { AdjustWorkoutTime } from "./adjust-time";
-import { AddWorkoutToCollection } from "./collections";
 import { DeleteWorkout } from "./delete";
 import type {
 	MuscleCount,
@@ -83,7 +83,7 @@ function WorkoutActions(props: {
 				<AdjustWorkoutTime entityId={props.entityId} onClose={() => setAdjustingTime(false)} />
 			) : null}
 			{action === "collections" ? (
-				<AddWorkoutToCollection entityId={props.entityId} onClose={() => setAction(undefined)} />
+				<AddEntityToCollection entityId={props.entityId} onClose={() => setAction(undefined)} />
 			) : null}
 			{action === "delete" ? (
 				<DeleteWorkout

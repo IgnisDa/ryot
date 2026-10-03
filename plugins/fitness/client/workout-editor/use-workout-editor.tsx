@@ -11,9 +11,9 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { invokeWorkoutEditorContext } from "./context-query";
 import { createWorkoutEditorController } from "./controller";
+import { DRAFT_STORAGE_KEY } from "./draft-storage";
 import { createWorkoutEditorSounds } from "./sounds";
 
-const DRAFT_STORAGE_KEY = "fitness-workout-editor-draft";
 const noop = () => {};
 
 const createEditorSession = (

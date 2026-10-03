@@ -1,10 +1,17 @@
 import type { AssetLocator } from "@ryot-app/plugin-client-sdk";
-import { Button } from "@ryot-app/plugin-ui-sdk";
+import { Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { Button, MenuButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { useState } from "react";
+import { useState, type ComponentProps } from "react";
 
+import { WorkoutExerciseOverridesSchema } from "../../shared/workout-editor-preferences";
+import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { AssetArtWell } from "../asset-urls";
+import { AddEntityToCollection } from "../collections";
+import { ExerciseDefaultsSheet } from "../workout-editor/preferences";
+import { addToDraftLabel, type ActiveEditorDraft } from "./active-draft";
 import {
 	exerciseFacts,
 	forceLabels,
@@ -15,11 +22,10 @@ import {
 	mechanicLabels,
 	type ExerciseRecord,
 } from "./details-model";
+import { ExerciseMergeFlow, MergeFailureMessage, mergeBlockedReason } from "./merge";
 import { cardClass, cardHeadingClass, sectionHeadingClass } from "./styles";
 
 const assetKey = (asset: AssetLocator) => (asset.type === "remote" ? asset.url : asset.key);
-
-const later = (action: string) => () => console.log(`TODO: ${action}`);
 
 function Pill(props: { readonly label: string; readonly tone?: "accent" | "plain" }) {
 	return (
@@ -36,34 +42,126 @@ function Pill(props: { readonly label: string; readonly tone?: "accent" | "plain
 	);
 }
 
-function ExerciseActions(props: { readonly compact: boolean; readonly custom: boolean }) {
+function ExerciseActions(props: {
+	readonly compact: boolean;
+	readonly onChanged: () => void;
+	readonly onPostReview: () => void;
+	readonly exercise: ExerciseRecord;
+	readonly draft: ActiveEditorDraft | undefined;
+}) {
+	const { draft, exercise } = props;
+	const client = useRyot();
+	const [action, setAction] = useState<"collections" | "merge" | "preferences">();
+	const [mergeFailure, setMergeFailure] =
+		useState<ComponentProps<typeof MergeFailureMessage>["failure"]>();
+	const overrides = Schema.decodeResult(WorkoutExerciseOverridesSchema)(
+		exercise.membershipProperties ?? {},
+	);
+	const exerciseKind = exercise.kind;
+	const inDraft = draft?.exerciseIds.includes(exercise.id) === true;
+	const mergeItem =
+		isCustomExercise(exercise) && exerciseKind !== null
+			? [
+					{
+						key: "merge",
+						disabled: inDraft,
+						onSelect: () => setAction("merge"),
+						label: inDraft
+							? `Merge into… (${mergeBlockedReason(draft.mode.kind.startsWith("template") ? "template" : "workout")})`
+							: "Merge into…",
+					},
+				]
+			: [];
 	return (
 		<div className={clsx("flex flex-wrap gap-2", props.compact && "w-full")}>
-			<Button onClick={later("start workout")} className={clsx(props.compact && "flex-1")}>
-				Start workout
-			</Button>
-			{props.custom ? (
-				<Button variant="secondary" onClick={later("edit exercise")}>
+			{draft === undefined ? null : (
+				<Button
+					className={clsx(props.compact && "flex-1")}
+					onClick={() =>
+						client.navigation.push({
+							...fitnessRoute("/workout-editor"),
+							search: { add: exercise.id },
+						})
+					}
+				>
+					{addToDraftLabel(draft.mode)}
+				</Button>
+			)}
+			{isCustomExercise(exercise) ? (
+				<Button
+					variant="secondary"
+					onClick={() =>
+						client.navigation.push(
+							fitnessRoute(`/exercises/${encodeURIComponent(exercise.id)}/edit`),
+						)
+					}
+				>
 					Edit
 				</Button>
 			) : null}
-			<Button variant="secondary" onClick={later("add exercise to collection")}>
+			<Button variant="secondary" onClick={() => setAction("collections")}>
 				Add to collection
 			</Button>
-			<Button
-				variant="secondary"
-				aria-label="More exercise actions"
-				onClick={later("more exercise actions")}
-			>
-				<AppIcon size={18} name="more-horizontal" />
-			</Button>
+			<MenuButton
+				label="More exercise actions"
+				renderTrigger={(trigger) => (
+					<Button {...trigger} variant="secondary" aria-label="More exercise actions">
+						<AppIcon size={18} name="more-horizontal" />
+					</Button>
+				)}
+				items={[
+					{
+						key: "preferences",
+						label: "Preferences",
+						onSelect: () => setAction("preferences"),
+						disabled: exerciseKind === null || overrides._tag === "Failure",
+					},
+					{ key: "review", label: "Post a review", onSelect: props.onPostReview },
+					{
+						key: "duplicate",
+						label: "Duplicate",
+						onSelect: () =>
+							client.navigation.push({
+								...fitnessRoute("/exercises/new"),
+								search: { duplicate: exercise.id },
+							}),
+					},
+					...mergeItem,
+				]}
+			/>
+			{mergeFailure === undefined ? null : <MergeFailureMessage failure={mergeFailure} />}
+			{action === "merge" && exerciseKind !== null ? (
+				<ExerciseMergeFlow
+					kind={exerciseKind}
+					name={exercise.name}
+					exerciseId={exercise.id}
+					onFailed={setMergeFailure}
+					onClose={() => setAction(undefined)}
+				/>
+			) : null}
+			{action === "collections" ? (
+				<AddEntityToCollection entityId={exercise.id} onClose={() => setAction(undefined)} />
+			) : null}
+			{action === "preferences" && exerciseKind !== null && overrides._tag === "Success" ? (
+				<ExerciseDefaultsSheet
+					exerciseId={exercise.id}
+					onSaved={props.onChanged}
+					exerciseKind={exerciseKind}
+					exerciseName={exercise.name}
+					overrides={overrides.success}
+					onClose={() => setAction(undefined)}
+				/>
+			) : null}
 		</div>
 	);
 }
 
 export function ExerciseHeader(props: {
 	readonly compact: boolean;
+	readonly onChanged: () => void;
+	readonly onPostReview: () => void;
 	readonly exercise: ExerciseRecord;
+	readonly draft: ActiveEditorDraft | undefined;
 }) {
 	const { compact, exercise } = props;
 	const custom = isCustomExercise(exercise);
@@ -100,7 +198,13 @@ export function ExerciseHeader(props: {
 					{custom ? <Pill label="Created by you" /> : null}
 				</div>
 			</div>
-			<ExerciseActions custom={custom} compact={compact} />
+			<ExerciseActions
+				compact={compact}
+				draft={props.draft}
+				exercise={exercise}
+				onChanged={props.onChanged}
+				onPostReview={props.onPostReview}
+			/>
 		</header>
 	);
 }
