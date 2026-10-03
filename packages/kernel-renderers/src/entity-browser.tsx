@@ -10,7 +10,11 @@ import {
 } from "@ryot-app/ryotql-recipes/saved-views";
 import { useEffect, useEffectEvent, useState } from "react";
 
-import { EntityBrowserController, type BrowserQueryPage } from "./entity-browser-controller";
+import {
+	EntityBrowserController,
+	type BrowserQueryPage,
+	type BrowserResultsRenderer,
+} from "./entity-browser-controller";
 
 const QueryInput = Schema.Tuple([
 	Schema.String,
@@ -62,7 +66,13 @@ const BrowserCount = ({
 	return null;
 };
 
-const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type }) => {
+const Browser = ({
+	input,
+	renderResults,
+}: {
+	readonly input: typeof EntityBrowserPageInput.Type;
+	readonly renderResults?: BrowserResultsRenderer | undefined;
+}) => {
 	const ryot = useRyot();
 	const [query] = useState(() =>
 		createRyotQuery<string, BrowserQueryPage<null>>(
@@ -92,6 +102,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 		<EntityBrowserController
 			query={query}
 			name={() => viewName}
+			renderResults={renderResults}
 			identityKey={input.target.slug}
 			layouts={input.settings.layouts}
 			errorTitle="Saved view unavailable"
@@ -132,13 +143,15 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 	);
 };
 
-export default function EntityBrowserPage() {
+export default function EntityBrowserPage({
+	renderResults,
+}: { readonly renderResults?: BrowserResultsRenderer | undefined } = {}) {
 	const page = Schema.decodeUnknownResult(EntityBrowserPageInput)(usePageContext());
 	return Result.isFailure(page) ? (
 		<PluginScreenFrame title="Entity browser">
 			<StatusMessage tone="error">This entity browser configuration is invalid.</StatusMessage>
 		</PluginScreenFrame>
 	) : (
-		<Browser input={page.success} />
+		<Browser input={page.success} renderResults={renderResults} />
 	);
 }

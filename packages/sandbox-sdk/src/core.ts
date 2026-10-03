@@ -35,8 +35,8 @@ export const CORE_SANDBOX_HOST_CAPABILITIES = [
 	"getCachedValue",
 	"setCachedValue",
 	"getPluginConfig",
-	"getSystemConfig",
 	"getUserPreferences",
+	"getUserSettings",
 	"claimPersistentValue",
 ] as const;
 
@@ -97,17 +97,14 @@ export const claimPersistentValueArgsSchema = Schema.Tuple([
 ]);
 export const configKeysSchema = Schema.Array(nonEmptyString);
 export const getPluginConfigArgsSchema = Schema.Tuple([configKeysSchema]);
-export const getSystemConfigArgsSchema = Schema.Tuple([configKeysSchema]);
 export const claimPersistentValueResultSchema = hostResultSchema(cacheClaimSchema);
 export const configValuesSchema = Schema.Record(Schema.String, jsonValueSchema);
 export const getPluginConfigResultSchema = hostResultSchema(configValuesSchema);
-export const getSystemConfigResultSchema = hostResultSchema(configValuesSchema);
-export const userPreferencesSchema = strictStruct({
-	allowNsfw: Schema.Boolean,
-	disableIntegrations: Schema.Boolean,
-});
+export const userPreferencesSchema = strictStruct({ disableIntegrations: Schema.Boolean });
 export const getUserPreferencesArgsSchema = Schema.Tuple([]);
 export const getUserPreferencesResultSchema = hostResultSchema(userPreferencesSchema);
+export const getUserSettingsArgsSchema = Schema.Tuple([]);
+export const getUserSettingsResultSchema = hostResultSchema(configValuesSchema);
 export const logEntrySchema = strictStruct({
 	message: nonEmptyString,
 	level: Schema.Literals(["debug", "info", "warning", "error"]),
@@ -139,10 +136,10 @@ export const coreSandboxHostContracts = {
 		args: getPluginConfigArgsSchema,
 		result: getPluginConfigResultSchema,
 	},
-	getSystemConfig: {
+	getUserSettings: {
 		success: configValuesSchema,
-		args: getSystemConfigArgsSchema,
-		result: getSystemConfigResultSchema,
+		args: getUserSettingsArgsSchema,
+		result: getUserSettingsResultSchema,
 	},
 	getCachedValue: {
 		args: getCachedValueArgsSchema,
@@ -197,6 +194,7 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"ensureUserEntities",
 	"upsertGlobalEntities",
 	"getCurrentIntegration",
+	"getOAuthAccessToken",
 	"changeUserRelationships",
 	"upsertGlobalRelationships",
 ] as const;
@@ -444,6 +442,14 @@ export const ryotqlDocumentSchema = jsonValueSchema as unknown as Schema.Codec<
 export type ListIntegrationsOptions = Schema.Schema.Type<typeof listIntegrationsOptionsSchema>;
 
 export const getCurrentIntegrationArgsSchema = Schema.Tuple([]);
+export const getOAuthAccessTokenArgsSchema = Schema.Tuple([
+	strictStruct({ field: nonEmptyString }),
+]);
+export const oauthAccessTokenSchema = strictStruct({
+	expiresAt: Schema.String,
+	accessToken: Schema.String,
+});
+export const getOAuthAccessTokenResultSchema = hostResultSchema(oauthAccessTokenSchema);
 export const executeRyotqlDataSchema = Schema.Unknown;
 export const getEntitySchemasArgsSchema = Schema.Tuple([sandboxEntitySchemaSlugListSchema]);
 export const executeRyotqlArgsSchema = Schema.Tuple([ryotqlDocumentSchema]);
@@ -518,6 +524,11 @@ export const domainSandboxHostContracts = {
 		args: listIntegrationsArgsSchema,
 		success: listIntegrationsDataSchema,
 		result: listIntegrationsResultSchema,
+	},
+	getOAuthAccessToken: {
+		success: oauthAccessTokenSchema,
+		args: getOAuthAccessTokenArgsSchema,
+		result: getOAuthAccessTokenResultSchema,
 	},
 	ensureUserEntities: {
 		args: ensureUserEntitiesArgsSchema,
@@ -618,15 +629,9 @@ export const SANDBOX_HOST_CAPABILITIES = [
 ] as const satisfies readonly SandboxHostCapability[];
 export const sandboxHostCapabilitySchema = Schema.Literals([...SANDBOX_HOST_CAPABILITIES]);
 
-export type SandboxHostMethodMap = Omit<
-	CoreSandboxHostMethodMap,
-	"getPluginConfig" | "getSystemConfig"
-> &
+export type SandboxHostMethodMap = Omit<CoreSandboxHostMethodMap, "getPluginConfig"> &
 	DomainSandboxHostMethodMap &
-	AutomationSandboxHostMethodMap & {
-		readonly getPluginConfig: GetConfig;
-		readonly getSystemConfig: GetConfig;
-	};
+	AutomationSandboxHostMethodMap & { readonly getPluginConfig: GetConfig };
 export type SandboxHostImplementationMap<Context> = CoreSandboxHostImplementationMap<Context> &
 	DomainSandboxHostImplementationMap<Context> &
 	AutomationSandboxHostImplementationMap<Context>;
@@ -644,7 +649,6 @@ const sandboxManifestBaseFields = {
 	name: manifestStringSchema,
 	capabilities: Schema.Array(sandboxHostCapabilitySchema),
 	requiredPluginConfigKeys: Schema.Array(manifestStringSchema),
-	requiredSystemConfigKeys: Schema.Array(manifestStringSchema),
 };
 
 export const sandboxManifestSchema = Schema.Union([

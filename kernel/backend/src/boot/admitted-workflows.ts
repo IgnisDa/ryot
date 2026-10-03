@@ -3,6 +3,10 @@ import { Layer } from "effect";
 import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
+import {
+	ProcessDataImportWorkflow,
+	ProcessDataImportSegmentWorkflow,
+} from "#modules/imports/data-workflow";
 import { ProcessGenericImportChunksWorkflow } from "#modules/imports/generic-import-workflow";
 import { ProcessImportRunWorkflow } from "#modules/imports/import-run-workflow";
 import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
@@ -22,6 +26,8 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		ProviderEntityPopulationWorkflow,
 		AutomationRunWorkflow,
 		ProcessImportRunWorkflow,
+		ProcessDataImportWorkflow,
+		ProcessDataImportSegmentWorkflow,
 		ProcessGenericImportChunksWorkflow,
 		ProcessIntegrationRunWorkflow,
 		IntegrationSyncWorkflow,

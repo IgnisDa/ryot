@@ -4,15 +4,19 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createEntity,
+	executeRyotQL,
 	executeRyotQLRecipe,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
+	getSavedView,
 	getEntity,
 	insertRelationshipRow,
 	listEntitySchemas,
 	listSavedViews,
 	waitForCreateEvents,
 	waitForEventCount,
+	requireRows,
+	requireRyotQLText,
 } from "~/fixtures/kernel";
 import {
 	createWorkoutEntityFixture,
@@ -173,6 +177,45 @@ describe("Workouts E2E", () => {
 				"translationStatus",
 				"ownerPluginId",
 				"entitySchemaSlug",
+			]);
+		}),
+	);
+
+	it.live("sorts All Workouts by ended time descending", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { workoutId: alphaWorkoutId } = yield* createWorkoutEntityFixture(client, {
+				name: "Alpha",
+				endedAt: "2026-01-01T11:00:00Z",
+				startedAt: "2026-01-01T10:00:00Z",
+			});
+			const { workoutId: betaWorkoutId } = yield* createWorkoutEntityFixture(client, {
+				name: "Beta",
+				endedAt: "2026-02-01T11:00:00Z",
+				startedAt: "2026-02-01T10:00:00Z",
+			});
+			const { workoutId: zuluWorkoutId } = yield* createWorkoutEntityFixture(client, {
+				name: "Zulu",
+				endedAt: "2026-03-01T11:00:00Z",
+				startedAt: "2026-03-01T10:00:00Z",
+			});
+
+			const savedView = yield* getSavedView(client, "all-workouts");
+			const dataSources = requirePresent(
+				savedView.dataSources,
+				"All Workouts saved view has no data sources",
+			);
+			const sourceName = savedView.settings["sourceName"];
+			assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
+			const result = requireRows(
+				(yield* executeRyotQL(client, dataSources)).data[sourceName],
+				sourceName,
+			);
+
+			expect(result.items.map((item) => requireRyotQLText(item, "entityId"))).toEqual([
+				zuluWorkoutId,
+				betaWorkoutId,
+				alphaWorkoutId,
 			]);
 		}),
 	);

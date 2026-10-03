@@ -13,6 +13,7 @@ import { getApiUrl } from "~/support/harness-target";
 import type { ContractSession } from "./contract-client";
 
 type WaitOptions = { timeoutMs?: number };
+type SocketClose = { readonly code: number; readonly reason: string };
 type EntityInterestCommandResult = EntityInterestAppliedMessage | EntityInterestRejectedMessage;
 type EntityUpdatedWaiter = {
 	reject: (error: Error) => void;
@@ -23,6 +24,7 @@ type InterestWebSocket = {
 	close: () => Effect.Effect<void>;
 	readonly ready: EntityInterestReadyMessage;
 	getEntityUpdatedMessages: () => readonly EntityInterestEntityUpdatedMessage[];
+	waitForClose: (options?: WaitOptions) => Effect.Effect<SocketClose>;
 	replaceInterest: (entityIds: readonly string[]) => Effect.Effect<EntityInterestCommandResult>;
 	expectNoEntityUpdated: (entityId: string, options: { windowMs: number }) => Effect.Effect<void>;
 	updateInterest: (input: {
@@ -56,6 +58,7 @@ export const openInterestWebSocket = (
 
 		let expectedClose = false;
 		let failure: Error | null = null;
+		let closed: SocketClose | undefined;
 		let revision = 0;
 		const commands = yield* Semaphore.make(1);
 		let receivedReady: EntityInterestReadyMessage | undefined;
@@ -63,6 +66,7 @@ export const openInterestWebSocket = (
 		let completeClose: ((result: Effect.Effect<void>) => void) | undefined;
 		const messages: EntityInterestEntityUpdatedMessage[] = [];
 		const listeners = new Set<EntityUpdatedWaiter>();
+		const closeListeners = new Set<(event: SocketClose) => void>();
 		const acknowledgements = new Map<
 			number,
 			{ reject: (error: Error) => void; resolve: (message: EntityInterestCommandResult) => void }
@@ -92,6 +96,12 @@ export const openInterestWebSocket = (
 			socket.close();
 		});
 		socket.addEventListener("close", (event) => {
+			const close = { code: event.code, reason: event.reason };
+			closed = close;
+			for (const listener of closeListeners) {
+				listener(close);
+			}
+			closeListeners.clear();
 			if (!expectedClose || event.code !== 1000) {
 				const error = new Error(
 					`Entity interest WebSocket closed unexpectedly (${event.code}: ${event.reason})`,
@@ -280,7 +290,27 @@ export const openInterestWebSocket = (
 				});
 			}).pipe(Effect.timeoutOrElse({ duration: windowMs, orElse: () => Effect.void }));
 
+		const waitForClose = (waitOptions: WaitOptions = {}) =>
+			Effect.callback<SocketClose>((resume) => {
+				if (closed !== undefined) {
+					resume(Effect.succeed(closed));
+					return Effect.void;
+				}
+				const listener = (event: SocketClose) => resume(Effect.succeed(event));
+				closeListeners.add(listener);
+				return Effect.sync(() => {
+					closeListeners.delete(listener);
+				});
+			}).pipe(
+				Effect.timeoutOrElse({
+					duration: waitOptions.timeoutMs ?? 10_000,
+					orElse: () =>
+						Effect.die(new Error("Timed out waiting for entity interest WebSocket close")),
+				}),
+			);
+
 		return {
+			waitForClose,
 			ready: readyMessage,
 			waitForEntityUpdated,
 			expectNoEntityUpdated,
@@ -289,12 +319,12 @@ export const openInterestWebSocket = (
 			replaceInterest: (entityIds) => sendCommand({ entityIds, type: "replace" }),
 			close: () =>
 				Effect.callback<void>((resume) => {
-					if (failure) {
-						resume(Effect.die(failure));
-						return Effect.void;
-					}
 					if (socket.readyState === WebSocket.CLOSED) {
 						resume(Effect.void);
+						return Effect.void;
+					}
+					if (failure) {
+						resume(Effect.die(failure));
 						return Effect.void;
 					}
 					completeClose = resume;

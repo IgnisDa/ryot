@@ -257,7 +257,6 @@ layer(makeLayer())((test) => {
 					kind: "script" as const,
 					capabilities: [] as const,
 					requiredPluginConfigKeys: [] as const,
-					requiredSystemConfigKeys: [] as const,
 				},
 			],
 		};

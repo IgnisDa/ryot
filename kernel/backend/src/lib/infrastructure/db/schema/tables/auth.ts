@@ -41,9 +41,8 @@ export const user = snakeCase.table(
 			"user_preferences_check",
 			sql`
 		jsonb_typeof(${table.preferences}) = 'object'
-		and ${table.preferences} ?& array['allowNsfw', 'disableIntegrations', 'language']
-		and ${table.preferences} - 'allowNsfw' - 'disableIntegrations' - 'language' = '{}'::jsonb
-		and jsonb_typeof(${table.preferences}->'allowNsfw') = 'boolean'
+		and ${table.preferences} ?& array['disableIntegrations', 'language']
+		and ${table.preferences} - 'disableIntegrations' - 'language' = '{}'::jsonb
 		and jsonb_typeof(${table.preferences}->'disableIntegrations') = 'boolean'
 		and (
 			jsonb_typeof(${table.preferences}->'language') = 'null'
@@ -64,6 +63,7 @@ export const session = snakeCase.table(
 		token: text().notNull().unique(),
 		accessClass: text().default("standard").notNull(),
 		expiresAt: timestamp({ withTimezone: true }).notNull(),
+		impersonationExpiresAt: timestamp({ withTimezone: true }),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()

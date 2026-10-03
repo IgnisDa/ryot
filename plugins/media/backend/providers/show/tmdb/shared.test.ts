@@ -20,7 +20,7 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
+		getUserSettings: () => Effect.succeed({ allowNsfw: false }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 	});
@@ -34,7 +34,7 @@ describe("show.tmdb sandbox script", () => {
 			[resolveManifest.slug, resolve.operation, resolveManifest.capabilities],
 			[translateManifest.slug, translate.operation, translateManifest.capabilities],
 		]).toEqual([
-			["show.tmdb.search", "search", ["httpCall", "getPluginConfig", "getUserPreferences"]],
+			["show.tmdb.search", "search", ["httpCall", "getPluginConfig", "getUserSettings"]],
 			["show.tmdb.details", "details", ["httpCall", "getPluginConfig"]],
 			["show.tmdb.resolve", "resolve", ["httpCall", "getPluginConfig"]],
 			["show.tmdb.translate", "translate", ["httpCall", "getPluginConfig"]],

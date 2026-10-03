@@ -57,33 +57,53 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 				.where(and(eq(provider.userId, userId), predicate)),
 		);
 		return rows
-			.map(
+			.flatMap(
 				({
 					script,
+					pluginId,
+					pluginSlug,
+					pluginScope,
 					configSchema,
+					installationId,
 					configRevisionId,
 					pluginRevisionId,
 					...row
-				}): {
+				}): ReadonlyArray<{
 					readonly script: CatalogScript | null;
 					readonly provider: RegisteredIntegrationProvider;
-				} => ({
-					script: script && {
-						...script,
-						pluginId: row.pluginId,
-						id: SandboxScriptId.make(script.id),
-					},
-					provider: {
-						...row,
-						configContext: {
-							configSchema,
-							pluginRevisionId,
-							kind: "revision" as const,
-							pluginConfigRevisionId: configRevisionId,
-							ownerUserId: row.pluginScope === "user" ? userId : null,
+				}> => {
+					if (
+						pluginId === null ||
+						pluginSlug === null ||
+						installationId === null ||
+						pluginRevisionId === null ||
+						pluginScope === null
+					) {
+						return [];
+					}
+
+					const result: {
+						readonly script: CatalogScript | null;
+						readonly provider: RegisteredIntegrationProvider;
+					} = {
+						script: script && { ...script, pluginId, id: SandboxScriptId.make(script.id) },
+						provider: {
+							...row,
+							pluginId,
+							pluginSlug,
+							pluginScope,
+							installationId,
+							configContext: {
+								configSchema,
+								pluginRevisionId,
+								kind: "revision" as const,
+								pluginConfigRevisionId: configRevisionId,
+								ownerUserId: pluginScope === "user" ? userId : null,
+							},
 						},
-					},
-				}),
+					};
+					return [result];
+				},
 			)
 			.sort(
 				(left, right) =>

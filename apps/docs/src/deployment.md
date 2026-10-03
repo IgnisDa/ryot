@@ -16,10 +16,17 @@ Full PostgreSQL backups include the key and encrypted plugin configuration; acco
 exclude both. If the key is missing while encrypted configuration exists, startup fails rather
 than silently generating a replacement, so back up the database as a whole.
 
+## Admin access token
+
+Keep `SERVER_ADMIN_ACCESS_TOKEN` unchanged. Changing it can lock out users with two-factor
+authentication and stop the server from issuing new login tokens. It also logs users out and
+invalidates existing file links and job status links. Stored files and plugin settings are
+unaffected. Token rotation needs additional recovery steps; changing the setting alone is
+not enough.
+
 ## File storage
 
-Keep `SERVER_ADMIN_ACCESS_TOKEN` stable because it signs local file URLs. Mount
-`/home/ryot/storage` if you do not configure S3. Never persist `/home/ryot/work`. See
+Mount `/home/ryot/storage` if you do not configure S3. Never persist `/home/ryot/work`. See
 [File Storage](guides/file-storage.md).
 
 ## Memory
@@ -142,3 +149,11 @@ for the full list of configurable values.
 
 Install Ryot from the [Cosmos marketplace](https://cosmos-cloud.io/proxy#cosmos-ui/market-listing/cosmos-cloud/Ryot).
 Review the generated URL before installation. Cosmos creates the database and credentials.
+
+## Cloudzy
+
+[![Deploy Ryot on Cloudzy](https://design.cloudzy.com/logo/cloudzy-light-marketplace-badge-147x32.svg)](https://cloudzy.com/marketplace/ryot/)
+
+Deploy Ryot on a Cloudzy VPS with the one-click installer, which runs Ryot with Docker Compose on
+Ubuntu Server 24.04 LTS. See the [Cloudzy Marketplace page](https://cloudzy.com/marketplace/ryot/)
+for Docker management commands, configuration files, and installation paths.

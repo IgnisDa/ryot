@@ -49,7 +49,7 @@ layer(testLayer)((test) => {
 						);
 						yield* session.run((db) =>
 							db.execute(
-								sql`update "user" set preferences = '{"allowNsfw":"yes"}'::jsonb where id = ${id}`,
+								sql`update "user" set preferences = '{"disableIntegrations":"yes"}'::jsonb where id = ${id}`,
 							),
 						);
 						expect(
@@ -102,7 +102,7 @@ layer(testLayer)((test) => {
 			const secondStarted = yield* Deferred.make<void>();
 			const first = session.transaction(
 				Effect.gen(function* () {
-					yield* repository.patchUserPreferences(id, { allowNsfw: true });
+					yield* repository.patchUserPreferences(id, { language: "fr" });
 					yield* Deferred.succeed(ready, undefined);
 					yield* Deferred.await(secondStarted);
 				}),
@@ -118,7 +118,7 @@ layer(testLayer)((test) => {
 			);
 			expect(stored?.preferences).toEqual({
 				...defaultUserPreferences,
-				allowNsfw: true,
+				language: "fr",
 				disableIntegrations: true,
 			});
 		}),
@@ -145,13 +145,13 @@ layer(testLayer)((test) => {
 			expect(after?.updatedAt).toEqual(before?.updatedAt);
 			expect(
 				(yield* Effect.flip(
-					repository.patchUserPreferences(UserId.make("missing"), { allowNsfw: true }),
+					repository.patchUserPreferences(UserId.make("missing"), { disableIntegrations: true }),
 				)).message,
 			).toContain("User not found");
 			const invalid = yield* Effect.flip(
 				session.run((db) =>
 					db.execute(
-						sql`update "user" set preferences = '{"allowNsfw":"yes"}'::jsonb where id = ${id}`,
+						sql`update "user" set preferences = '{"disableIntegrations":"yes"}'::jsonb where id = ${id}`,
 					),
 				),
 			);
@@ -164,7 +164,7 @@ layer(testLayer)((test) => {
 						);
 						yield* session.run((db) =>
 							db.execute(
-								sql`update "user" set preferences = '{"allowNsfw":"yes"}'::jsonb where id = ${id}`,
+								sql`update "user" set preferences = '{"disableIntegrations":"yes"}'::jsonb where id = ${id}`,
 							),
 						);
 						expect((yield* Effect.flip(repository.patchUserPreferences(id, {}))).message).toContain(
@@ -193,7 +193,7 @@ layer(testLayer)((test) => {
 				[
 					session.transaction(
 						Effect.gen(function* () {
-							yield* repository.patchUserPreferences(id, { allowNsfw: true });
+							yield* repository.patchUserPreferences(id, { disableIntegrations: true });
 							yield* Deferred.succeed(locked, undefined);
 							yield* Deferred.await(secondStarted);
 						}),
@@ -201,7 +201,7 @@ layer(testLayer)((test) => {
 					Effect.gen(function* () {
 						yield* Deferred.await(locked);
 						yield* Deferred.succeed(secondStarted, undefined);
-						yield* repository.patchUserPreferences(id, { allowNsfw: false });
+						yield* repository.patchUserPreferences(id, { disableIntegrations: false });
 					}),
 				],
 				{ concurrency: 2 },

@@ -41,6 +41,7 @@ import {
 import {
 	buildMetadataMigrationSql,
 	buildMetadataToMetadataRelationshipMigrationSql,
+	buildPopulatedMetadataIdsSql,
 	getUnsupportedMetadataSources,
 } from "./metadata-mapping";
 import { metadataMigrationTargets } from "./metadata-mapping-targets";
@@ -84,6 +85,7 @@ import {
 	buildLegacyUserLibraryMigrationSql,
 } from "./user-auth-mapping";
 import { buildMeasurementMigrationSql } from "./user-measurement-mapping";
+import { buildLegacyUserSettingsMigrationSql } from "./user-settings-mapping";
 import { buildUserToEntityInLibraryMigrationSql } from "./user-to-entity-mapping";
 import {
 	buildWorkoutMigrationSql,
@@ -203,6 +205,12 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const libraryEntitySchema = entitySchema(mediaPluginId, "media-library");
 	const memberOfRelationshipSchema = relationshipSchema(null, "member-of");
 	const inLibraryRelationshipSchema = relationshipSchema(mediaPluginId, "in-media-library");
+	const fitnessLibraryEntitySchema = entitySchema(fitnessPluginId, "fitness-library");
+	const inFitnessLibraryRelationshipSchema = relationshipSchema(
+		fitnessPluginId,
+		"in-fitness-library",
+	);
+	const exerciseEntitySchema = entitySchema(fitnessPluginId, "exercise");
 	for (const slug of legacySavedViewTargets.kernel) {
 		requireSchema(resolution.savedViews, null, slug, "saved view");
 	}
@@ -283,6 +291,14 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const mediaInstallationIdsByUserId = new Map(
 		mediaInstallations.map(({ userId, installationId }) => [userId, installationId]),
 	);
+	if (mediaInstallations.length > 0) {
+		yield* withReservedConnection((connection) =>
+			connection.executeRaw(
+				buildLegacyUserSettingsMigrationSql(mediaInstallations, mediaPluginId),
+				[],
+			),
+		);
+	}
 	const integrationProgressScript = requireMapped(
 		resolution.scripts,
 		mediaPluginId,
@@ -356,7 +372,16 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		fitnessPluginId,
 	);
 	yield* withReservedConnection((connection) =>
-		connection.executeRaw(buildLegacyUserLibraryMigrationSql(libraryEntitySchema), []),
+		Effect.gen(function* () {
+			yield* connection.executeRaw(
+				buildLegacyUserLibraryMigrationSql(libraryEntitySchema, "Media Library"),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildLegacyUserLibraryMigrationSql(fitnessLibraryEntitySchema, "Fitness Library"),
+				[],
+			);
+		}),
 	);
 	reportSequence = yield* withReservedConnection((connection) =>
 		logReportRows(connection, reportSequence),
@@ -404,13 +429,14 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		logReportRows(connection, reportSequence),
 	);
 
-	// Slim migration: provider-sourced ("global") entities are reconstructed on demand by V2's
-	// entity population workflow, so we materialize only the subset referenced by user data (plus
-	// all user-authored custom entities). The referenced-id set is collected up front and consumed
-	// by the metadata / person / company / metadata_group entity migrations.
+	// Provider-sourced ("global") entities migrate only when user data references them (plus all
+	// user-authored custom entities). The referenced-id set and the populated-metadata gate, which
+	// adds credited people and groups to that set, are collected up front and consumed by the
+	// metadata / person / company / metadata_group entity migrations.
 	const legacyIntegrationProgressCache = yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
 			yield* connection.executeRaw(buildReferencedGlobalEntityIdsSql(), []);
+			yield* connection.executeRaw(buildPopulatedMetadataIdsSql(), []);
 			yield* connection.executeRaw(buildMetadataMigrationSql(resolvedMetadataTargets), []);
 			yield* connection.executeRaw(
 				buildLegacyEpisodicSubEntityMigrationSql({
@@ -499,6 +525,14 @@ export const migrateLegacyTables = Effect.gen(function* () {
 					libraryEntitySchema,
 					inLibraryRelationshipSchema,
 					libraryEligibleEntitySchemaSlugs,
+				}),
+				[],
+			);
+			yield* connection.executeRaw(
+				buildUserToEntityInLibraryMigrationSql({
+					libraryEntitySchema: fitnessLibraryEntitySchema,
+					libraryEligibleEntitySchemaSlugs: [exerciseEntitySchema.slug],
+					inLibraryRelationshipSchema: inFitnessLibraryRelationshipSchema,
 				}),
 				[],
 			);

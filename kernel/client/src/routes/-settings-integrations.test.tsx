@@ -3,6 +3,7 @@ import type {
 	CreateIntegrationBody,
 	UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
+import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
 import {
 	ImportRunId,
 	IntegrationId,
@@ -18,6 +19,7 @@ import { AuthenticatedApiError } from "#/api/authenticated";
 import type { IntegrationsApi } from "#/api/integrations";
 import { KernelApiTestLayer, makeIntegrationsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
+import type { UserSettingsApi } from "#/api/user-settings";
 import type { AuthService } from "#/modules/auth/service";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { IntegrationsService } from "#/modules/integrations/service";
@@ -48,6 +50,7 @@ import {
 	ImportsRouteStubs,
 	NotificationChannelRouteStubs,
 	makeUserSettingsStub,
+	userSettings,
 	ClientPagesApiRouteStubs,
 	ClientPageSessionsRouteStubs,
 } from "#/routes/-route-fixtures";
@@ -64,7 +67,6 @@ const commonSchema = {
 	fields: {
 		name: { ...described("Name"), type: "string" },
 		isDisabled: { ...described("Disabled"), type: "boolean", defaultValue: false },
-		syncOwnership: { ...described("Sync ownership"), type: "boolean", defaultValue: false },
 		disableOnContinuousErrors: {
 			...described("Disable on continuous errors"),
 			type: "boolean",
@@ -85,14 +87,23 @@ const commonSchema = {
 	},
 } satisfies IntegrationProviderItem["commonSchema"];
 
+const ownershipSyncCommonSchema = {
+	...commonSchema,
+	fields: {
+		...commonSchema.fields,
+		syncOwnership: { ...described("Sync ownership"), type: "boolean", defaultValue: false },
+	},
+} satisfies IntegrationProviderItem["commonSchema"];
+
 const komgaProvider: IntegrationProviderItem = {
 	lot: "yank",
-	commonSchema,
 	slug: "komga",
 	name: "Komga",
 	isCreatable: true,
 	pluginSlug: "media",
 	requiresProKey: false,
+	supportsOwnershipSync: true,
+	commonSchema: ownershipSyncCommonSchema,
 	description: "Import progress and ownership from Komga",
 	settingsSchema: {
 		fields: {
@@ -115,6 +126,7 @@ const kodiProvider: IntegrationProviderItem = {
 	isCreatable: true,
 	pluginSlug: "media",
 	requiresProKey: false,
+	supportsOwnershipSync: false,
 	settingsSchema: { fields: {} },
 	description: "Receive Kodi playback webhooks",
 };
@@ -178,10 +190,22 @@ const makeIntegrationQueries = (
 			AuthenticatedApiError
 		>;
 		readonly detail?: () => Effect.Effect<IntegrationDetailRow | undefined, AuthenticatedApiError>;
+		readonly settings?: () => typeof userSettings;
 	} = {},
 ): Layer.Layer<RyotQLApi> =>
 	makeRyotQLApi({
 		execute: (_scope, request) => {
+			if ("user" in request.payload.queries) {
+				return Effect.succeed({
+					data: {
+						user: {
+							type: "rows" as const,
+							items: [options.settings?.() ?? userSettings],
+							pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+						},
+					},
+				});
+			}
 			if ("integrations" in request.payload.queries) {
 				const integrations = request.payload.queries.integrations;
 				if (integrations.output.type !== "rows") {
@@ -248,6 +272,7 @@ const mountView = (
 	integrationsApi: Layer.Layer<IntegrationsApi> = makeIntegrationsApi(),
 	queries: Layer.Layer<RyotQLApi> = makeIntegrationQueries(),
 	auth: Layer.Layer<AuthService> = AuthStub,
+	userSettingsApi: Layer.Layer<UserSettingsApi> = makeUserSettingsStub(),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const publicApi = makePublicApiStub();
@@ -264,7 +289,7 @@ const mountView = (
 			KernelApiTestLayer,
 			ClientPagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
-			makeUserSettingsStub(),
+			userSettingsApi,
 			events.layer,
 			makePluginCatalog(catalog),
 			NavigationRouteStubs,
@@ -311,6 +336,53 @@ describe("integrations list", () => {
 			expect(
 				screen.getByRole("button", { name: "Sync all integrations" }).hasAttribute("disabled"),
 			).toBe(true);
+			expect(
+				screen.getByRole("switch", { name: "Pause integrations" }).hasAttribute("disabled"),
+			).toBe(true);
+		}),
+	);
+
+	it.live("pauses integrations for the account and reverts the switch when saving fails", () =>
+		Effect.gen(function* () {
+			const saved: UpdateUserPreferencesBody[] = [];
+			let current = userSettings;
+			mountView(
+				"/settings/integrations",
+				makeIntegrationsApi(),
+				makeIntegrationQueries({ settings: () => current }),
+				AuthStub,
+				makeUserSettingsStub({
+					updatePreferences: (_scope, request) => {
+						saved.push(request.payload);
+						if (saved.length === 1) {
+							return Effect.fail(new AuthenticatedApiError({ cause: new Error("nope") }));
+						}
+						return Effect.sync(() => {
+							current = { ...current, preferences: { ...current.preferences, ...request.payload } };
+						});
+					},
+				}),
+			);
+
+			const pause = yield* Effect.promise(() =>
+				screen.findByRole("switch", { name: "Pause integrations" }),
+			);
+			expect(pause.getAttribute("aria-checked")).toBe("false");
+
+			fireEvent.click(pause);
+			yield* Effect.promise(() => screen.findByText("Could not update integrations. Try again."));
+			expect(pause.getAttribute("aria-checked")).toBe("false");
+
+			fireEvent.click(pause);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.queryByText("Could not update integrations. Try again.")).toBeNull(),
+				),
+			);
+			expect(
+				screen.getByRole("switch", { name: "Pause integrations" }).getAttribute("aria-checked"),
+			).toBe("true");
+			expect(saved).toEqual([{ disableIntegrations: true }, { disableIntegrations: true }]);
 		}),
 	);
 

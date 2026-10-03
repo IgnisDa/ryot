@@ -26,11 +26,15 @@ import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientPageFreshness } from "#/modules/client-pages/freshness";
 import { EntitiesService } from "#/modules/entities/service";
+import { GodModeImpersonationService } from "#/modules/god-mode/impersonation";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { ImportsService } from "#/modules/imports/service";
+import { OAuthConnectService } from "#/modules/integrations/oauth-connect";
+import { makeOAuthReturnCapture, OAuthReturnCapture } from "#/modules/integrations/oauth-return";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
+import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 import { NavigationService } from "#/modules/navigation/service";
 import { NotificationChannelsService } from "#/modules/notifications/service";
 import { ProviderAddService } from "#/modules/provider-add/service";
@@ -120,11 +124,14 @@ export const userSettings: UserSettingsResult = {
 	name: "Test User",
 	id: UserId.make("user-1"),
 	email: "user@ryot.example",
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 };
 
 export const makeUserSettingsStub = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
-	makeUserSettingsApi(overrides);
+	makeUserSettingsApi({
+		twoFactorStatus: () => Effect.succeed({ enabled: false, available: false }),
+		...overrides,
+	});
 
 export const makeAuthStub = (
 	overrides: Partial<AuthService["Service"]> = {},
@@ -132,6 +139,7 @@ export const makeAuthStub = (
 ) =>
 	Layer.succeed(AuthService, {
 		changeServer: () => Effect.void,
+		clearSession: () => Effect.void,
 		signOut: () => Effect.succeed(false),
 		settledSession: () => Effect.succeed(session),
 		session: () => ({ getSnapshot: () => session, subscribe: () => () => undefined }),
@@ -143,6 +151,12 @@ export const ServerStub = Layer.succeed(ServerService, {
 	selected: Effect.succeed(server),
 });
 
+const OAuthConnectionRouteStubs = Layer.mergeAll(
+	DeepLinkClaims.layer,
+	Layer.succeed(OAuthConnectService, { connect: () => Effect.die("not used") }),
+	Layer.sync(OAuthReturnCapture, () => makeOAuthReturnCapture(() => undefined)),
+);
+
 export const makeOAuthRouteStubs = (
 	tokenOverrides: Partial<OAuthTokenService["Service"]> = {},
 	hostedOverrides: Partial<HostedAuthService["Service"]> = {},
@@ -150,12 +164,20 @@ export const makeOAuthRouteStubs = (
 	launcherOverrides: Partial<OAuthLauncher["Service"]> = {},
 ) =>
 	Layer.mergeAll(
+		OAuthConnectionRouteStubs,
 		Layer.succeed(HostedAuthService, {
 			signOutHosted: Effect.void,
 			signInWithOidc: Effect.void,
 			resetPassword: () => Effect.void,
 			verifyTwoFactor: () => Effect.void,
+			twoFactorSession: Effect.die("not used"),
 			continueAfterInitialization: Effect.void,
+			enableTwoFactor: () => Effect.die("not used"),
+			disableTwoFactor: () => Effect.die("not used"),
+			confirmTwoFactor: () => Effect.die("not used"),
+			redeemImpersonation: () => Effect.die("not used"),
+			regenerateBackupCodes: () => Effect.die("not used"),
+			openTwoFactorManagement: () => Effect.die("not used"),
 			signInDemo: Effect.succeed({ mode: "demo" } as const),
 			initializationStatus: Effect.succeed({ status: "ready" } as const),
 			submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
@@ -180,6 +202,13 @@ export const makeOAuthRouteStubs = (
 					callbackUri: `${origin}/auth/callback`,
 					logoutUri: `${origin}/auth/logout/callback`,
 				}),
+			forImpersonation: (origin) =>
+				Effect.succeed({
+					nativeApplicationId: null,
+					clientId: "ryot-impersonation-web",
+					callbackUri: `${origin}/auth/callback`,
+					logoutUri: `${origin}/auth/logout/callback`,
+				}),
 			...runtimeOverrides,
 		}),
 		Layer.succeed(OAuthTokenService, {
@@ -193,10 +222,32 @@ export const makeOAuthRouteStubs = (
 		}),
 		Layer.succeed(OAuthLauncher, {
 			launch: () => Effect.void,
+			prepareImpersonation: () =>
+				Effect.succeed({
+					codeChallenge: "challenge",
+					authorizationUrl: `${server}/api/auth/oauth2/authorize`,
+					client: {
+						nativeApplicationId: null,
+						clientId: "ryot-impersonation-web",
+						callbackUri: `${server}/auth/callback`,
+						logoutUri: `${server}/auth/logout/callback`,
+					},
+					pending: {
+						createdAt: 1,
+						state: "state",
+						nonce: "nonce",
+						destination: "/",
+						serverOrigin: server,
+						codeVerifier: "verifier",
+						clientId: "ryot-impersonation-web",
+						redirectUri: `${server}/auth/callback`,
+					},
+				}),
 			prepare: () =>
 				Effect.succeed({
 					_tag: "Ready",
 					plan: {
+						codeChallenge: "challenge",
 						authorizationUrl: `${server}/api/auth/oauth2/authorize`,
 						client: {
 							clientId: "ryot-web",
@@ -232,6 +283,7 @@ export const GodModeRouteStubs = Layer.mergeAll(
 	GodModeSessionStub,
 	GodModeApiStub,
 	GodModeService.layer.pipe(Layer.provide(GodModeSessionStub), Layer.provide(GodModeApiStub)),
+	Layer.succeed(GodModeImpersonationService, { start: () => Effect.void }),
 );
 
 export const makeEntityRouteStub = (
@@ -411,6 +463,7 @@ export const makePublicApiStub = (isServerKeyValidated = false) =>
 		getSystemConfig: () =>
 			Effect.succeed({
 				analytics: {},
+				version: "v1.0.0",
 				pro: { isServerKeyValidated },
 				notifications: { smtpEnabled: false },
 				frontendOrigin: window.location.origin,

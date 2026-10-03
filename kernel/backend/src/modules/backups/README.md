@@ -43,7 +43,14 @@ All database writes occur in one transaction: restore is atomic. Local event-fil
 
 `restore/writer.ts` validates and maps archive records; `restore/persistence.ts` owns historical inserts, updates, installation config revisions, and client projections. Ordinary repositories expose runtime writes and backup reads, not historical restore writes. Both the restore writer and its persistence layer use the active database session inside the workflow's transaction.
 
+Export, restore, and Data import share property-reference and managed-asset handling from
+`kernel/backend/src/lib/domain/data-references.ts`. The archive record property fields reuse
+`DataRecordProperties`, `entityDataFields`, `relationshipDataFields`, and `eventDataFields` from
+`packages/contract/src/modules/imports/data-json.ts` rather than defining separate field shapes.
+
 Private packages and exact installation identities are restored without lifecycle dispatch. Complete installations retain archived hidden intent; missing redacted required secrets produce `needs-configuration`. Integrations missing required secrets are disabled. Integration and saved-view provenance resolve to the exact installation.
+
+Installation records include per-user plugin preferences as JSON. Plugin manifest settings schemas forbid secret fields, so these preferences are included as non-secret data and validated against the active manifest during restore. The archive format version remains 1.
 
 Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Restore resolves built-ins from current definitions, rejects custom slug conflicts and missing definitions, then resolves installation home views by slug. The archive format version remains 1.
 

@@ -50,7 +50,6 @@ const automationScript = (
 	capabilities,
 	kind: "automation",
 	automationType: "automation",
-	requiredSystemConfigKeys: [],
 	name: `E2E retry automation ${slug}`,
 	requiredPluginConfigKeys: capabilities.includes("getPluginConfig") ? ["marker"] : [],
 	inputProjection: {
@@ -71,7 +70,6 @@ export const manifest = defineManifest({
   capabilities: ["claimPersistentValue", "getPluginConfig", "httpCall"],
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
   requiredPluginConfigKeys: ["marker"],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -107,7 +105,6 @@ export const manifest = defineManifest({
   capabilities: ["httpCall"],
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -130,7 +127,6 @@ export const manifest = defineManifest({
   capabilities: ${JSON.stringify(capabilities)},
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineAutomation({
@@ -152,7 +148,6 @@ export const manifest = defineManifest({
   capabilities: ["claimPersistentValue", "getPluginConfig", "httpCall"],
   inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
   requiredPluginConfigKeys: ["marker"],
-  requiredSystemConfigKeys: [],
 });
 
 export default defineAutomation({

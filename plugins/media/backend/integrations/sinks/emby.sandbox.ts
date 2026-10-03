@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	name: "Emby sink",
 	slug: "integration.emby",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["getCurrentIntegration"],
 });
 

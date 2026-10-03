@@ -12,6 +12,7 @@ import {
 	type SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -78,8 +79,9 @@ type RestoreInstallationInput = Pick<
 	readonly id?: string;
 	readonly config: Record<string, unknown>;
 	readonly preserveExistingConfig: boolean;
-	readonly configuredSecretPaths?: ReadonlyArray<string>;
 	readonly allowMissingRequiredSecrets?: boolean;
+	readonly userSettings: Record<string, JsonValue>;
+	readonly configuredSecretPaths?: ReadonlyArray<string>;
 };
 
 export class BackupRestorePersistence extends Context.Service<BackupRestorePersistence>()(
@@ -204,11 +206,24 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					readonly minimumProgress: string;
 					readonly maximumProgress: string;
 					readonly lastFinishedAt: Date | null;
-					readonly pluginInstallationId: string;
 					readonly provider: IntegrationProvider;
+					readonly pluginInstallationId: string | null;
 					readonly extraSettings: IntegrationExtraSettings;
 					readonly providerSpecifics: IntegrationProviderSettings;
 				}) {
+					if (input.pluginInstallationId === null) {
+						yield* session.run((db) =>
+							db
+								.insert(schema.integration)
+								.values({
+									...input,
+									webhookToken: crypto.randomUUID(),
+									clientProviderSpecifics: input.providerSpecifics,
+								}),
+						);
+						return;
+					}
+					const installationId = input.pluginInstallationId;
 					yield* session.run((db) =>
 						db
 							.select({ id: schema.plugin.id })
@@ -217,7 +232,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 								schema.pluginInstallation,
 								eq(schema.pluginInstallation.pluginId, schema.plugin.id),
 							)
-							.where(eq(schema.pluginInstallation.id, input.pluginInstallationId))
+							.where(eq(schema.pluginInstallation.id, installationId))
 							.for("share", { of: schema.plugin }),
 					);
 					const [provider] = yield* session.run((db) =>
@@ -235,7 +250,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 									eq(schema.definitionIntegrationProvider.slug, input.provider),
 								),
 							)
-							.where(eq(schema.pluginInstallation.id, input.pluginInstallationId))
+							.where(eq(schema.pluginInstallation.id, installationId))
 							.limit(1),
 					);
 					yield* session.run((db) =>
@@ -284,6 +299,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 									sortOrder: input.sortOrder,
 									createdAt: input.createdAt,
 									updatedAt: input.updatedAt,
+									userSettings: input.userSettings,
 								},
 							})
 							.returning(),

@@ -6,7 +6,6 @@ import { resolve } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Google Books Resolve",
-	requiredSystemConfigKeys: [],
 	slug: "book.google-books.resolve",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["googleBooksApiKey"],

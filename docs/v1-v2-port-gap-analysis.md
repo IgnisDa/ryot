@@ -146,7 +146,6 @@ Scheduled and manual user-scoped Yank synchronization are ported. One provider g
 ## Open / Unverified
 
 - **Pro / paid-tier gating** — V1 validates a server "Pro Key" against the Unkey API and uses it to gate at least one thing found during this audit (bypassing the non-pro filter-preset quota); there may be others. No trace of this concept (Unkey, a pro key, or any premium-feature gate) exists anywhere in V2. Needs a product decision: is a paid/pro tier in scope for V2 at all, or was it a hosted-SaaS-only concept that should be dropped along with the rest of that offering?
-- **Admin impersonation link** — rides on Access Links in V1, which are intentionally excluded (see below). Worth a explicit decision on whether impersonation should get its own lightweight replacement or is dropped along with access links entirely — it's a distinct, independently useful admin capability from generic shareable links.
 - **Instance-level configuration knobs** — present in V1's config schema with no V2 equivalent yet, most of which are cheap to add once their owning feature lands (e.g. SMTP settings arrive with notification platforms): SMTP sender/mailbox address, configurable login-token expiry (V1 default 90 days), a password-strength-validation toggle, a configurable dashboard announcement message, a telemetry opt-out, Umami analytics integration, per-provider cover-image-size preference (Openlibrary, IGDB), and configurable max upload size / host binding / startup delay (V2 hardcodes 50MB and `0.0.0.0`).
 
 ## Deferred — Build On RyotQL

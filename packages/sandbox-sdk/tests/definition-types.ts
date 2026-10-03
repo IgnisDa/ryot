@@ -12,7 +12,6 @@ const scriptManifest = defineManifest({
 	name: "Typed script",
 	slug: "typed-script",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["getCachedValue"],
 });
 const script = defineScript({
@@ -34,7 +33,6 @@ const operationManifest = defineManifest({
 	name: "Typed operation",
 	slug: "typed-operation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 const operation = defineOperation({
 	output: Schema.String,
@@ -58,7 +56,6 @@ const automationManifest = defineManifest({
 	name: "Typed automation",
 	slug: "typed-automation",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	automationType: "automation",
 	inputProjection: { event: { properties: [], compareProperties: [] } },
 });
@@ -81,7 +78,6 @@ const workflowManifest = defineManifest({
 	name: "Typed workflow",
 	slug: "typed-workflow",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 const workflow = defineWorkflow({
 	output: Schema.String,

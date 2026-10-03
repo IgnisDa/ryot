@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.storygraph",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Parse StoryGraph import",
 	capabilities: ["artifact-read"],
 });

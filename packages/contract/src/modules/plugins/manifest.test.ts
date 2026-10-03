@@ -176,7 +176,6 @@ const scripts = [
 		slug: "automation.test",
 		automationType: "automation",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		capabilities: ["emitSignal"],
 		entry: "scripts/test.sandbox.ts",
 		inputProjection: {
@@ -193,7 +192,6 @@ const scripts = [
 		name: "Test operation",
 		slug: "operation.test",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		entry: "scripts/operation.sandbox.ts",
 	},
 	{
@@ -201,7 +199,6 @@ const scripts = [
 		capabilities: [],
 		providerOperation: "details",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		name: "Test provider details",
 		slug: "provider.test.details",
 		providerSlug: "provider.test",
@@ -212,7 +209,6 @@ const scripts = [
 		capabilities: [],
 		providerOperation: "search",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		name: "Test provider search",
 		slug: "provider.test.search",
 		providerSlug: "provider.test",
@@ -232,7 +228,6 @@ const scripts = [
 		kind: "script",
 		capabilities: [],
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		name: "Test provider preload",
 		slug: "provider.test.preload",
 		providerSlug: "provider.test",
@@ -244,7 +239,6 @@ const scripts = [
 		name: "Test workflow",
 		slug: "workflow.test",
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		entry: "scripts/workflow.sandbox.ts",
 	},
 ] as const;
@@ -1312,14 +1306,32 @@ describe("definePlugin", () => {
 		const [yank, push] = manifest.integrationProviders;
 		const decoded = Schema.decodeSync(PluginManifest)({
 			...manifest,
+			integrationProviders: [{ ...yank, supportsOwnershipSync: true }, push],
+		});
+		const sink = Schema.decodeSync(PluginManifest)({
+			...manifest,
 			integrationProviders: [{ ...yank, lot: "sink", slug: "integration.sink" }, push],
 		});
 
 		expect(decoded.integrationProviders[0]).toMatchObject({
+			lot: "yank",
+			supportsOwnershipSync: true,
+			scriptSlug: "automation.test",
+		});
+		expect(sink.integrationProviders[0]).toMatchObject({
 			lot: "sink",
 			scriptSlug: "automation.test",
 		});
-		expect(decoded.integrationProviders[1]).not.toHaveProperty("scriptSlug");
+		expect(sink.integrationProviders[1]).not.toHaveProperty("scriptSlug");
+		expect(() =>
+			Schema.decodeSync(PluginManifest)({
+				...manifest,
+				integrationProviders: [
+					{ ...yank, lot: "sink", slug: "integration.sink", supportsOwnershipSync: true },
+					push,
+				],
+			}),
+		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
@@ -1366,6 +1378,99 @@ describe("definePlugin", () => {
 				integrationProviders: [{ ...yank, webhookPath: "/hook" }, push],
 			}),
 		).toThrow();
+	});
+
+	it("validates OAuth providers and the integration settings that reference them", () => {
+		const [yank, push] = manifest.integrationProviders;
+		const oauthProvider = {
+			slug: "account",
+			name: "Account",
+			clientIdConfigKey: "CLIENT_ID",
+			clientSecretConfigKey: "TEST_KEY",
+			scopes: ["user-read-recently-played"],
+			tokenEndpointAuth: "client_secret_basic",
+			tokenUrl: "https://accounts.example.com/api/token",
+			authorizeUrl: "https://accounts.example.com/authorize?show_dialog=true",
+		} as const;
+		const accountField = {
+			type: "string",
+			label: "Account",
+			description: "Linked account",
+			format: { provider: "account", kind: "oauth-connection" },
+		} as const;
+		const withOAuth = (
+			overrides: {
+				readonly provider?: Record<string, unknown>;
+				readonly settingsFields?: Record<string, unknown>;
+			} = {},
+		) => ({
+			...manifest,
+			oauthProviders: [{ ...oauthProvider, ...overrides.provider }],
+			integrationProviders: [
+				{
+					...yank,
+					settingsSchema: { fields: overrides.settingsFields ?? { account: accountField } },
+				},
+				push,
+			],
+			configSchema: {
+				...manifest.configSchema,
+				fields: {
+					...manifest.configSchema.fields,
+					CLIENT_ID: { type: "string", label: "Client ID", description: "OAuth client ID" },
+				},
+			},
+		});
+
+		expect(Schema.decodeUnknownSync(PluginManifest)(withOAuth()).oauthProviders).toEqual([
+			oauthProvider,
+		]);
+		for (const invalid of [
+			withOAuth({ provider: { tokenUrl: "http://accounts.example.com/api/token" } }),
+			withOAuth({ provider: { authorizeUrl: "https://accounts.example.com/authorize?state=x" } }),
+			withOAuth({ provider: { authorizeUrl: "https://user:pass@accounts.example.com/authorize" } }),
+			withOAuth({ provider: { scopes: ["two scopes"] } }),
+			withOAuth({ provider: { clientSecretConfigKey: "CLIENT_ID" } }),
+			withOAuth({ provider: { clientIdConfigKey: "MISSING" } }),
+			withOAuth({ provider: { tokenEndpointAuth: "none" } }),
+			withOAuth({
+				settingsFields: {
+					account: { ...accountField, format: { provider: "missing", kind: "oauth-connection" } },
+				},
+			}),
+			withOAuth({ settingsFields: { account: { ...accountField, defaultValue: "connection" } } }),
+			withOAuth({
+				settingsFields: {
+					nested: {
+						type: "object",
+						label: "Nested",
+						description: "Nested",
+						properties: { account: accountField },
+					},
+				},
+			}),
+			{ ...withOAuth(), oauthProviders: [oauthProvider, oauthProvider] },
+			{
+				...withOAuth(),
+				importSources: [
+					{
+						...manifest.importSources[0],
+						inputSchema: {
+							unknownKeys: "strict",
+							fields: { ...manifest.importSources[0].inputSchema.fields, account: accountField },
+						},
+					},
+				],
+			},
+			{
+				...withOAuth(),
+				signalSchemas: [
+					{ ...manifest.signalSchemas[0], propertiesSchema: { fields: { account: accountField } } },
+				],
+			},
+		]) {
+			expect(() => Schema.decodeUnknownSync(PluginManifest)(invalid)).toThrow();
+		}
 	});
 
 	it("strictly validates schema-driven import source declarations", () => {

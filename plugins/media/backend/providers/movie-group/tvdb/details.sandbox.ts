@@ -5,7 +5,6 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	requiredSystemConfigKeys: [],
 	name: "TVDB Movie Group Details",
 	slug: "movie-group.tvdb.details",
 	requiredPluginConfigKeys: ["tvdbApiKey"],

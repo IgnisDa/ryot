@@ -23,7 +23,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 
@@ -82,7 +82,6 @@ const searchScript = {
 		slug: "records.search",
 		kind: "provider" as const,
 		requiredPluginConfigKeys: [],
-		requiredSystemConfigKeys: [],
 		providerSlug: "records.provider",
 		providerOperation: "search" as const,
 	},

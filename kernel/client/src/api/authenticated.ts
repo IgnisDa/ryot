@@ -5,6 +5,7 @@ import { HttpClient } from "effect/unstable/http";
 
 import { serverApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
+import { decodeOAuthTokenIdentity } from "#/modules/auth/token-identity";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 
 export class AuthenticatedApiError extends Data.TaggedError("AuthenticatedApiError")<{
@@ -26,23 +27,42 @@ export type AuthenticatedApiService = {
 	) => Effect.Effect<Record<string, string>, AuthenticatedApiError>;
 };
 
+const tokenForScope = (
+	tokens: OAuthTokenService["Service"],
+	scope: ApiScope,
+	forceRefresh = false,
+) =>
+	Effect.gen(function* () {
+		const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
+		if (token !== null && decodeOAuthTokenIdentity(token)?.sub !== scope.userId) {
+			return yield* new AuthenticatedApiError({
+				cause: "OAuth token does not match the API scope.",
+			});
+		}
+		return token;
+	}).pipe(
+		Effect.mapError((cause) =>
+			cause instanceof AuthenticatedApiError ? cause : new AuthenticatedApiError({ cause }),
+		),
+	);
+
 export const makeAuthenticatedApi = (
 	tokens: OAuthTokenService["Service"],
 	http: HttpClient.HttpClient,
 ): AuthenticatedApiService => ({
 	authorization: (scope: ApiScope) =>
 		Effect.gen(function* () {
-			const token = yield* tokens.accessToken(scope.serverUrl);
+			const token = yield* tokenForScope(tokens, scope);
 			const headers: Record<string, string> = {};
 			if (token !== null) {
 				headers.Authorization = `Bearer ${token}`;
 			}
 			return headers;
-		}).pipe(Effect.mapError((cause) => new AuthenticatedApiError({ cause }))),
+		}),
 	run: <A, E>(scope: ApiScope, program: ContractProgram<A, E>) => {
 		const attempt = (forceRefresh: boolean) =>
 			Effect.gen(function* () {
-				const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
+				const token = yield* tokenForScope(tokens, scope, forceRefresh);
 				return yield* makeContractClient(
 					serverApiUrl(scope.serverUrl),
 					token ? { Authorization: `Bearer ${token}` } : {},

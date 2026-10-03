@@ -36,6 +36,20 @@ const uploadInputSchema = (
 	},
 });
 
+const timezoneInputField = {
+	position: 1,
+	label: "Timezone",
+	type: "string" as const,
+	format: { kind: "timezone" as const },
+	validation: { required: true as const },
+	description: "Timezone the export's dates were recorded in",
+};
+
+const timezoneUploadInputSchema = (...args: Parameters<typeof uploadInputSchema>) => {
+	const base = uploadInputSchema(...args);
+	return { ...base, fields: { ...base.fields, timezone: timezoneInputField } };
+};
+
 const apiKeyInputSchema = (name: string, apiKeyDescription = `${name} API token`) => ({
 	unknownKeys: "strict" as const,
 	fields: {
@@ -352,6 +366,7 @@ const integrationProviders = [
 		lot: "yank",
 		slug: "komga",
 		name: "Komga",
+		supportsOwnershipSync: true,
 		scriptSlug: "integration.komga",
 		description: "Import progress and ownership from Komga",
 		settingsSchema: providerSettings("komga", {
@@ -363,6 +378,7 @@ const integrationProviders = [
 		lot: "yank",
 		slug: "plex_yank",
 		name: "Plex yank",
+		supportsOwnershipSync: true,
 		scriptSlug: "integration.plex-yank",
 		description: "Import watched media and ownership from Plex",
 		settingsSchema: providerSettings("plex_yank", {
@@ -374,6 +390,7 @@ const integrationProviders = [
 		lot: "yank",
 		slug: "audiobookshelf",
 		name: "Audiobookshelf",
+		supportsOwnershipSync: true,
 		scriptSlug: "integration.audiobookshelf",
 		description: "Import finished media and ownership from Audiobookshelf",
 		settingsSchema: providerSettings("audiobookshelf", {
@@ -389,13 +406,34 @@ const integrationProviders = [
 		scriptSlug: "integration.youtube-music",
 		description: "Import listening history from YouTube Music",
 		settingsSchema: providerSettings("youtube_music", {
-			timezone: stringSetting("Timezone", "Timezone used for daily history synchronization"),
 			authCookie: stringSetting(
 				"Authentication cookie",
 				"YouTube Music authentication cookie",
 				true,
 				true,
 			),
+			timezone: {
+				...stringSetting("Timezone", "Timezone used for daily history synchronization"),
+				position: 0,
+				format: { kind: "timezone" as const },
+			},
+		}),
+	},
+	{
+		lot: "yank",
+		slug: "spotify",
+		name: "Spotify",
+		requiresProKey: true,
+		scriptSlug: "integration.spotify",
+		description: "Import listening history from Spotify",
+		settingsSchema: providerSettings("spotify", {
+			account: {
+				type: "string",
+				label: "Spotify account",
+				validation: { required: true },
+				format: { provider: "spotify", kind: "oauth-connection" },
+				description: "Spotify account to read listening history from",
+			},
 		}),
 	},
 	{
@@ -541,16 +579,22 @@ export const mediaPlugin = definePlugin({
 		description:
 			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},
+	userSettingsSchema: {
+		unknownKeys: "strict",
+		fields: {
+			allowNsfw: {
+				position: 0,
+				type: "boolean",
+				defaultValue: false,
+				label: "Show NSFW content",
+				description: "Allow providers to include adult metadata and results.",
+			},
+		},
+	},
 	httpRateLimits: [
 		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
 		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
 		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
-	],
-	workflows: [
-		{ slug: "import", scriptSlug: "workflow.media-import" },
-		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
-		{ slug: "media-import-population", scriptSlug: "workflow.media-import-population" },
-		{ slug: "media-import-resolution", scriptSlug: "workflow.media-import-resolution" },
 	],
 	crons: [
 		{
@@ -565,6 +609,25 @@ export const mediaPlugin = definePlugin({
 			schedule: { tier: "infrequent" },
 			description: "Refresh global media trending rankings",
 		},
+	],
+	oauthProviders: [
+		{
+			slug: "spotify",
+			name: "Spotify",
+			clientIdConfigKey: "spotifyClientId",
+			scopes: ["user-read-recently-played"],
+			tokenEndpointAuth: "client_secret_basic",
+			clientSecretConfigKey: "spotifyClientSecret",
+			tokenUrl: "https://accounts.spotify.com/api/token",
+			authorizeUrl: "https://accounts.spotify.com/authorize",
+		},
+	],
+	workflows: [
+		{ slug: "import", scriptSlug: "workflow.media-import" },
+		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
+		{ slug: "media-import-segment", scriptSlug: "workflow.media-import-segment" },
+		{ slug: "media-import-population", scriptSlug: "workflow.media-import-population" },
+		{ slug: "media-import-resolution", scriptSlug: "workflow.media-import-resolution" },
 	],
 	client: {
 		homeView: null,
@@ -827,6 +890,17 @@ export const mediaPlugin = definePlugin({
 	],
 	importSources: [
 		{
+			slug: "spotify",
+			name: "Spotify",
+			workflowSlug: "import",
+			exportHelp: importDocs("spotify"),
+			requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
+			description: "Import listening history from a Spotify extended streaming history export",
+			inputSchema: uploadInputSchema("Spotify export", "Spotify extended streaming history ZIP", [
+				"zip",
+			]),
+		},
+		{
 			slug: "netflix",
 			name: "Netflix",
 			workflowSlug: "import",
@@ -879,7 +953,7 @@ export const mediaPlugin = definePlugin({
 			workflowSlug: "import",
 			requiredPluginConfigKeys: [],
 			exportHelp: importDocs("anilist"),
-			inputSchema: uploadInputSchema("AniList export", "AniList JSON export", ["json"]),
+			inputSchema: timezoneUploadInputSchema("AniList export", "AniList JSON export", ["json"]),
 			description:
 				"Import anime, manga, progress, reviews, favorites, and custom lists from AniList",
 		},

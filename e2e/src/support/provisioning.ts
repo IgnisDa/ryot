@@ -99,7 +99,9 @@ export function buildApiEnv(input: {
 	extraEnv?: Record<string, string | undefined>;
 }): NodeJS.ProcessEnv {
 	const safeLabel = input.label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-	const logFile = `${tmpdir()}/ryot-e2e-${safeLabel}-${Date.now()}-${input.port}.log`;
+	const logFile =
+		input.extraEnv?.SERVER_LOG_FILE ??
+		`${tmpdir()}/ryot-e2e-${safeLabel}-${Date.now()}-${input.port}.log`;
 	console.log(
 		`[${input.label}] api logs -> ${logFile} (console: ${logFile}.stdout, ${logFile}.stderr)`,
 	);
