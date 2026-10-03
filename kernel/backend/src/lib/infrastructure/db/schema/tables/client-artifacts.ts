@@ -1,12 +1,27 @@
-import { bytea, primaryKey, smallint, snakeCase, text } from "drizzle-orm/pg-core";
+import type { PluginClientImport } from "@ryot-app/client-plugin-contract";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { sql } from "drizzle-orm";
+import { bytea, check, jsonb, primaryKey, smallint, snakeCase, text } from "drizzle-orm/pg-core";
 
-export const clientArtifact = snakeCase.table("client_artifact", {
-	format: smallint().notNull(),
-	apiVersion: smallint().notNull(),
-	hash: text().notNull().primaryKey(),
-	bridgeVersion: smallint().notNull(),
-	compilerVersion: smallint().notNull(),
-});
+export const clientArtifact = snakeCase.table(
+	"client_artifact",
+	{
+		format: smallint().notNull(),
+		clientDeclarationHash: text(),
+		apiVersion: smallint().notNull(),
+		hash: text().notNull().primaryKey(),
+		bridgeVersion: smallint().notNull(),
+		compilerVersion: smallint().notNull(),
+		packageId: text().$type<PluginPackageId>(),
+		imports: jsonb().$type<readonly PluginClientImport[]>().notNull().default([]),
+	},
+	(table) => [
+		check(
+			"client_artifact_package_declaration_check",
+			sql`(${table.packageId} is null) = (${table.clientDeclarationHash} is null)`,
+		),
+	],
+);
 
 export const clientArtifactFile = snakeCase.table(
 	"client_artifact_file",

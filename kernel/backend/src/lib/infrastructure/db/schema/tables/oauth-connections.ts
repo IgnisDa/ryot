@@ -28,7 +28,6 @@ export const oauthConnection = snakeCase.table(
 		id: text().primaryKey(),
 		field: text().notNull(),
 		stateHash: text().notNull(),
-		pluginSlug: text().notNull(),
 		completionSecretHash: text(),
 		tokenUrlOrigin: text().notNull(),
 		oauthProviderSlug: text().notNull(),

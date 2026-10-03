@@ -30,7 +30,7 @@ import {
 
 import { user } from "./auth";
 import { plugin, pluginInstallation, pluginRevision } from "./core";
-import { savedView, savedViewOverride } from "./views";
+import { builtinSavedViewIdSql, savedView, savedViewOverride } from "./views";
 
 type PluginScope = "system" | "user";
 type InstallationHealth =
@@ -185,7 +185,7 @@ export const definitionIntegrationProvider = snakeCase.table(
 );
 
 const globalPluginQuery = sql`
- select p.id as plugin_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable
+ select p.id as plugin_id, p.package_id, p.slug, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable
 	from plugin p
 	left join plugin_config_revision c on c.id = p.environment_config_revision_id
 	where p.owner_user_id is null and p.status = 'active'
@@ -196,13 +196,14 @@ export const globalPlugin = snakeCase
 		slug: text().notNull(),
 		configRevisionId: text(),
 		pluginId: text().notNull(),
+		packageId: text().notNull(),
 		isExecutable: boolean().notNull(),
 		activeRevisionId: text().notNull(),
 	})
 	.as(globalPluginQuery);
 
 const userPluginQuery = sql`
-	select i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, case when p.owner_user_id is null then 'system' else 'user' end as scope, p.owner_user_id, p.active_revision_id, case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.owner_user_id is null and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.owner_user_id is null then c.owner_user_id is null else c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
+	select i.user_id, p.id as plugin_id, p.package_id, i.id as installation_id, p.slug, case when p.owner_user_id is null then 'system' else 'user' end as scope, p.owner_user_id, p.active_revision_id, case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.owner_user_id is null and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.owner_user_id is null then c.owner_user_id is null else c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
 	from plugin_installation i
 	join plugin p on p.id = i.plugin_id
 	left join plugin_config_revision c on c.id = case when p.owner_user_id is null then p.environment_config_revision_id else i.active_config_revision_id end
@@ -216,6 +217,7 @@ export const userPlugin = snakeCase
 		userId: text().notNull(),
 		configRevisionId: text(),
 		pluginId: text().notNull(),
+		packageId: text().notNull(),
 		isListed: boolean().notNull(),
 		isHidden: boolean().notNull(),
 		sortOrder: integer().notNull(),
@@ -230,6 +232,7 @@ export const userPlugin = snakeCase
 
 const globalColumns = () => ({
 	pluginId: text(),
+	packageId: text(),
 	pluginSlug: text(),
 	id: text().notNull(),
 	slug: text().notNull(),
@@ -254,9 +257,11 @@ const entitySchemaColumns = () => ({
 
 const eventSchemaColumns = () => ({
 	pluginId: text(),
+	packageId: text(),
 	id: text().notNull(),
 	slug: text().notNull(),
 	name: text().notNull(),
+	pluginRevisionId: text(),
 	position: integer().notNull(),
 	entitySchemaId: text().notNull(),
 	entitySchemaSlug: text().notNull(),
@@ -288,7 +293,7 @@ export const globalEntitySchema = snakeCase
 	.view("global_entity_schema", { ...globalColumns(), ...entitySchemaColumns() })
 	.as(
 		sql`
-			select d.id, r.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties
 			from definition_entity_schema d
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join (${globalPluginQuery}) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
@@ -298,7 +303,7 @@ export const globalEntitySchema = snakeCase
 
 export const globalEventSchema = snakeCase.view("global_event_schema", eventSchemaColumns()).as(
 	sql`
-			select v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, v.slug, v.name, v.position, v.properties_schema
+			select v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema
 			from ${globalEntitySchema} e
 			join definition_event_schema v on v.entity_schema_id = e.id
 		`,
@@ -308,7 +313,7 @@ export const globalRelationshipSchema = snakeCase
 	.view("global_relationship_schema", { ...globalColumns(), ...relationshipSchemaColumns() })
 	.as(
 		sql`
-			select d.id, r.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema
 			from definition_relationship_schema d
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join ${globalPlugin} g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
@@ -320,7 +325,7 @@ export const globalSignalSchema = snakeCase
 	.view("global_signal_schema", { ...globalColumns(), ...signalSchemaColumns() })
 	.as(
 		sql`
-			select d.id, r.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state
 			from definition_signal_schema d
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join ${globalPlugin} g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
@@ -332,7 +337,7 @@ export const globalSavedView = snakeCase
 	.view("global_saved_view", { ...globalColumns(), ...savedViewColumns() })
 	.as(
 		sql`
-			select d.id, r.plugin_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, g.slug as plugin_slug, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer
 			from definition_saved_view d
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join ${globalPlugin} g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
@@ -344,15 +349,15 @@ export const userEntitySchema = snakeCase
 	.view("user_entity_schema", { ...userColumns(), ...entitySchemaColumns() })
 	.as(
 		sql`
-			select u.id as user_id, d.id, null::text as plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective
+			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective
 			from definition_entity_schema d
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective
 			from (${userPluginQuery}) p
 			join definition_entity_schema d on d.plugin_revision_id = p.active_revision_id
-			where p.is_listed and (p.scope = 'system' or not exists (select 1 from ${globalEntitySchema} g where g.slug = d.slug))
+			where p.is_listed
 		`,
 	);
 
@@ -364,7 +369,7 @@ export const userEventSchema = snakeCase
 	})
 	.as(
 		sql`
-			select e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, v.slug, v.name, v.position, v.properties_schema, e.is_effective
+			select e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, e.is_effective
 			from ${userEntitySchema} e
 			join definition_event_schema v on v.entity_schema_id = e.id
 		`,
@@ -374,15 +379,15 @@ export const userRelationshipSchema = snakeCase
 	.view("user_relationship_schema", { ...userColumns(), ...relationshipSchemaColumns() })
 	.as(
 		sql`
-			select u.id as user_id, d.id, null::text as plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective
+			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective
 			from definition_relationship_schema d
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.slug = d.source_entity_schema_slug and e.is_effective)) and (d.target_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.slug = d.target_entity_schema_slug and e.is_effective))
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.source_entity_schema_slug and e.is_effective)) and (d.target_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.target_entity_schema_slug and e.is_effective))
 			from ${userPlugin} p
 			join definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id
-			where p.is_listed and (p.scope = 'system' or not exists (select 1 from ${globalRelationshipSchema} g where g.slug = d.slug)) and (d.source_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.slug = d.target_entity_schema_slug))
+			where p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = p.plugin_id and e.slug = d.target_entity_schema_slug))
 		`,
 	);
 
@@ -390,15 +395,15 @@ export const userSignalSchema = snakeCase
 	.view("user_signal_schema", { ...userColumns(), ...signalSchemaColumns() })
 	.as(
 		sql`
-			select u.id as user_id, d.id, null::text as plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, true as is_effective
+			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, true as is_effective
 			from definition_signal_schema d
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, p.is_definition_effective and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from ${userRelationshipSchema} r where r.user_id = p.user_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug' and r.is_effective))
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.notification_hook_slug, d.properties_schema, d.audience_policy, d.catalog_state, p.is_definition_effective and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from ${userRelationshipSchema} r where r.user_id = p.user_id and r.plugin_id = p.plugin_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug' and r.is_effective))
 			from ${userPlugin} p
 			join definition_signal_schema d on d.plugin_revision_id = p.active_revision_id
-			where p.is_listed and (p.scope = 'system' or not exists (select 1 from ${globalSignalSchema} g where g.slug = d.slug)) and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from ${userRelationshipSchema} r where r.user_id = p.user_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug'))
+			where p.is_listed and (d.audience_policy ->> 'kind' <> 'related_users' or exists (select 1 from ${userRelationshipSchema} r where r.user_id = p.user_id and r.plugin_id = p.plugin_id and r.slug = d.audience_policy ->> 'relationshipSchemaSlug'))
 		`,
 	);
 
@@ -406,20 +411,21 @@ export const userSavedView = snakeCase
 	.view("user_saved_view", { ...userColumns(), ...savedViewColumns() })
 	.as(
 		sql`
-			select u.id as user_id, d.id, null::text as plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, true as is_effective
+			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, true as is_effective
 			from definition_saved_view d
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, p.is_definition_effective
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.sort_order, d.data_sources, d.settings, d.renderer, p.is_definition_effective
 			from ${userPlugin} p
 			join definition_saved_view d on d.plugin_revision_id = p.active_revision_id
-			where p.is_listed and (p.scope = 'system' or not exists (select 1 from ${globalSavedView} g where g.slug = d.slug))
+			where p.is_listed
 		`,
 	);
 
 export const userSavedViewEffective = snakeCase.view("user_saved_view_effective", {
 	pluginId: text(),
+	packageId: text(),
 	pluginSlug: text(),
 	id: text().notNull(),
 	slug: text().notNull(),
@@ -437,7 +443,7 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 	updatedAt: timestamp({ precision: 3, withTimezone: true }),
 	settings: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull(),
 }).as(sql`
-	select s.id, null::text as plugin_id, custom_plugin.slug as plugin_slug,
+	select s.id, null::text as plugin_id, custom_plugin.package_id, custom_plugin.slug as plugin_slug,
 		s.user_id, s.slug, s.name, s.icon, s.plugin_installation_id,
 		s.revision, s.sort_order, s.data_sources, false as is_builtin,
 		s.is_hidden, s.renderer, s.created_at, s.settings, s.updated_at
@@ -445,7 +451,7 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 	left join ${pluginInstallation} custom_installation on custom_installation.id = s.plugin_installation_id
 	left join ${plugin} custom_plugin on custom_plugin.id = custom_installation.plugin_id
 	union all
-	select 'builtin:' || d.user_id || ':' || d.slug as id, d.plugin_id, d.plugin_slug,
+	select ${builtinSavedViewIdSql(sql`d.user_id`, sql`d.plugin_id`, sql`d.slug`)} as id, d.plugin_id, d.package_id, d.plugin_slug,
 		d.user_id, d.slug, d.name, d.icon, p.installation_id as plugin_installation_id,
 		hashtext(d.id || ':' || coalesce(o.revision, 0)::text) as revision,
 		coalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,
@@ -459,6 +465,7 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 
 const executableDefinitionColumns = () => ({
 	pluginId: text(),
+	packageId: text(),
 	pluginSlug: text(),
 	id: text().notNull(),
 	slug: text().notNull(),
@@ -484,13 +491,13 @@ export const userImportSource = snakeCase
 	})
 	.as(
 		sql`
-			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help, d.plan
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.workflow_slug, s.id as workflow_script_id, d.input_schema, d.required_plugin_config_keys, d.export_help, d.plan
 			from ${userPlugin} p
 			join definition_import_source d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.workflow_script_slug
-			where p.is_executable and not exists (select 1 from ${userPlugin} sp join definition_import_source g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)
+			where p.is_executable
 			union all
-			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data import', 'Import generic entities, relationships, and events from JSON.', 0, 'data-json', null::text, ${sql.raw(`'${JSON.stringify(dataJsonImportInputSchema).replaceAll("'", "''")}'::jsonb`)}, '{}'::text[], null::jsonb, null::jsonb
+			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data import', 'Import generic entities, relationships, and events from JSON.', 0, 'data-json', null::text, ${sql.raw(`'${JSON.stringify(dataJsonImportInputSchema).replaceAll("'", "''")}'::jsonb`)}, '{}'::text[], null::jsonb, null::jsonb
 			from ${user} u
 		`,
 	);
@@ -507,13 +514,13 @@ export const userIntegrationProvider = snakeCase
 	})
 	.as(
 		sql`
-			select p.user_id, d.id, p.plugin_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.slug as plugin_slug, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync
 			from ${userPlugin} p
 			join definition_integration_provider d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug
-			where p.is_executable and not exists (select 1 from ${userPlugin} sp join definition_integration_provider g on g.plugin_revision_id = sp.active_revision_id where sp.user_id = p.user_id and sp.plugin_id <> p.plugin_id and sp.scope = 'system' and sp.is_executable and g.slug = d.slug)
+			where p.is_executable
 			union all
-			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, ${sql.raw(`'${JSON.stringify(dataJsonIntegrationSettingsSchema).replaceAll("'", "''")}'::jsonb`)}, false, false
+			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, ${sql.raw(`'${JSON.stringify(dataJsonIntegrationSettingsSchema).replaceAll("'", "''")}'::jsonb`)}, false, false
 			from ${user} u
 		`,
 	);
@@ -525,6 +532,7 @@ export const userSandboxProvider = snakeCase
 		name: text().notNull(),
 		userId: text().notNull(),
 		pluginId: text().notNull(),
+		packageId: text().notNull(),
 		installationId: text().notNull(),
 		rootEntitySchemaSlug: text().notNull(),
 		pluginScope: text().$type<PluginScope>().notNull(),
@@ -534,21 +542,23 @@ export const userSandboxProvider = snakeCase
 	})
 	.as(
 		sql`
-			select p.user_id, s.id, s.plugin_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at
+			select p.user_id, s.id, s.plugin_id, p.package_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at
 			from ${userPlugin} p
 			join sandbox_provider s on s.plugin_id = p.plugin_id
 			join plugin_revision r on r.id = p.active_revision_id
-			where p.is_executable and exists (select 1 from jsonb_array_elements(r.manifest -> 'providers') m where m ->> 'slug' = s.slug) and exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.slug = s.root_entity_schema_slug and e.is_effective)
+			where p.is_executable and exists (select 1 from jsonb_array_elements(r.manifest -> 'providers') m where m ->> 'slug' = s.slug and m ->> 'rootEntitySchemaSlug' = s.root_entity_schema_slug) and exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
 		`,
 	);
 
 export const userSandboxProviderOperation = snakeCase.view("user_sandbox_provider_operation", {
 	userId: text().notNull(),
+	pluginId: text().notNull(),
+	packageId: text().notNull(),
 	operation: text().notNull(),
 	providerId: text().notNull(),
 	optionsSchema: jsonb().$type<AppSchema>(),
 }).as(sql`
-		select provider.user_id, provider.id as provider_id,
+		select provider.user_id, provider.id as provider_id, provider.plugin_id, provider.package_id,
 			case when operation.key = 'searchOptions' then 'search-options' else operation.key end as operation,
 			case when operation.key = 'search' then script.metadata -> 'searchOptionsSchema' else null end as options_schema
 		from ${userSandboxProvider} provider
