@@ -1,9 +1,16 @@
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
 import { Effect, Schema } from "effect";
 
+import { adminHeaders } from "./admin";
 import type { Client } from "./auth";
+import { getApiClient } from "./contract-client";
 import { providerSandboxSource } from "./sandbox-provider";
-import { installTestPluginBundle } from "./test-plugin";
+import {
+	installTestPluginBundle,
+	installTestSupportSystemPlugin,
+	testPluginManifest,
+} from "./test-plugin";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
@@ -51,6 +58,30 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 		const chunkEntry = "backend/scripts/chunks.sandbox.ts";
 		const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
 		const resolveEntry = `backend/providers/${providerSlug}/resolve.sandbox.ts`;
+		const policyManifest = testPluginManifest({
+			pluginSlug: `sidecar-recovery-policy-${suffix}`,
+			httpRateLimits: [
+				{
+					requests: 1,
+					intervalMs: 100,
+					key: `sidecar.recovery.${suffix}`,
+					origins: [new URL(checkpointUrl).origin],
+				},
+			],
+		});
+		yield* Effect.acquireRelease(
+			installTestSupportSystemPlugin({ files: {}, manifest: policyManifest }),
+			({ activationId }) =>
+				getApiClient()
+					.call(
+						(c) =>
+							c.testSupport.uninstallSystemPlugin({
+								params: { activationId, pluginSlug: PluginSlug.make(policyManifest.metadata.slug) },
+							}),
+						adminHeaders(),
+					)
+					.pipe(Effect.orDie),
+		);
 		const plugin = yield* installTestPluginBundle({
 			client,
 			scope: "user",
