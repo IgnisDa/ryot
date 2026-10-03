@@ -69,7 +69,7 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 								),
 							)
 							.where(identityFilter(identity))
-							.for("update", { of: rootExecution }),
+							.for("share", { of: rootExecution }),
 					);
 					return locked;
 				},
