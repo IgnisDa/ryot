@@ -43,6 +43,7 @@ pub struct RegisterUserInput {
     #[graphql(skip)]
     pub user_id: Option<String>,
     /// If registration is disabled, this can be used to override it.
+    #[graphql(secret)]
     pub admin_access_token: Option<String>,
 }
 
@@ -101,9 +102,19 @@ pub enum LoginResult {
 }
 
 #[derive(Debug, Serialize, Deserialize, SimpleObject, Clone, Default)]
-pub struct OidcTokenOutput {
-    pub email: String,
-    pub subject: String,
+pub struct OidcAuthorizationResponse {
+    pub authorization_url: String,
+    #[graphql(secret)]
+    pub browser_token: String,
+}
+
+#[derive(Debug, InputObject)]
+pub struct CompleteOidcLoginInput {
+    pub state: String,
+    #[graphql(secret)]
+    pub code: String,
+    #[graphql(secret)]
+    pub browser_token: String,
 }
 
 #[derive(Debug, Default, Serialize, Deserialize, InputObject, Clone)]
@@ -199,6 +210,7 @@ pub enum VerifyTwoFactorResult {
 pub struct GetPasswordChangeSessionInput {
     pub user_id: String,
     /// If user details are not present in the request, this can be used to override it
+    #[graphql(secret)]
     pub admin_access_token: Option<String>,
 }
 

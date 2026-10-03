@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
-use anyhow::{Result, bail};
+use anyhow::{Result, anyhow, bail};
 use background_models::{ApplicationJob, HpApplicationJob};
 use common_models::StringIdObject;
 use common_utils::ryot_log;
 use database_models::{
-    prelude::{Collection, Exercise, Genre, Workout, WorkoutTemplate},
+    prelude::{Collection, Exercise, Genre, Review, Workout, WorkoutTemplate},
     review,
 };
 use database_utils::user_by_id;
@@ -18,7 +18,7 @@ use media_models::{
     SeenShowExtraOptionalInformation,
 };
 use rust_decimal::dec;
-use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait};
+use sea_orm::{ActiveModelTrait, ActiveValue, EntityTrait, IntoActiveModel};
 use supporting_service::SupportingService;
 use user_models::{UserPreferences, UserReviewScale};
 
@@ -27,6 +27,23 @@ pub async fn create_or_update_review(
     input: CreateOrUpdateReviewInput,
     ss: &Arc<SupportingService>,
 ) -> Result<StringIdObject> {
+    let is_update = input.review_id.is_some();
+    let existing_review = match input.review_id.as_ref() {
+        Some(review_id) => {
+            let existing = Review::find_by_id(review_id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Review not found"))?;
+            if existing.user_id != *user_id {
+                bail!("This review does not belong to you");
+            }
+            if existing.entity_id != input.entity_id || existing.entity_lot != input.entity_lot {
+                bail!("Review entity does not match the existing review");
+            }
+            Some(existing)
+        }
+        None => None,
+    };
     let preferences = user_by_id(user_id, ss).await?.preferences;
     if preferences.general.disable_reviews {
         bail!("Reviews are disabled");
@@ -54,32 +71,31 @@ pub async fn create_or_update_review(
     if input.rating.is_none() && input.text.is_none() {
         bail!("At-least one of rating or review is required.");
     }
-    let mut review_obj =
-        review::ActiveModel {
-            text: ActiveValue::Set(input.text),
+    let mut review_obj = match existing_review {
+        Some(existing) => existing.into_active_model(),
+        None => review::ActiveModel {
             comments: ActiveValue::Set(vec![]),
             user_id: ActiveValue::Set(user_id.to_owned()),
-            show_extra_information: ActiveValue::Set(show_ei),
-            anime_extra_information: ActiveValue::Set(anime_ei),
-            manga_extra_information: ActiveValue::Set(manga_ei),
-            podcast_extra_information: ActiveValue::Set(podcast_ei),
-            id: match input.review_id.clone() {
-                Some(i) => ActiveValue::Unchanged(i),
-                None => ActiveValue::NotSet,
-            },
-            rating: ActiveValue::Set(input.rating.map(
-                |r| match preferences.general.review_scale {
-                    UserReviewScale::OutOfTen => r * dec!(10),
-                    UserReviewScale::OutOfFive => r * dec!(20),
-                    UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => r,
-                },
-            )),
             ..Default::default()
-        };
-    let entity_id = input.entity_id.clone();
+        },
+    };
+    review_obj.text = ActiveValue::Set(input.text);
+    review_obj.show_extra_information = ActiveValue::Set(show_ei);
+    review_obj.anime_extra_information = ActiveValue::Set(anime_ei);
+    review_obj.manga_extra_information = ActiveValue::Set(manga_ei);
+    review_obj.podcast_extra_information = ActiveValue::Set(podcast_ei);
+    review_obj.rating = ActiveValue::Set(input.rating.map(
+        |r| match preferences.general.review_scale {
+            UserReviewScale::OutOfTen => r * dec!(10),
+            UserReviewScale::OutOfFive => r * dec!(20),
+            UserReviewScale::OutOfHundred | UserReviewScale::ThreePointSmiley => r,
+        },
+    ));
     macro_rules! set_review_id {
         ($field:ident) => {
-            review_obj.$field = ActiveValue::Set(Some(entity_id))
+            if !is_update {
+                review_obj.$field = ActiveValue::Set(Some(input.entity_id.clone()))
+            }
         };
     }
     match input.entity_lot {
@@ -92,7 +108,12 @@ pub async fn create_or_update_review(
         | EntityLot::Review
         | EntityLot::Workout
         | EntityLot::WorkoutTemplate
-        | EntityLot::UserMeasurement => unreachable!(),
+        | EntityLot::UserMeasurement => {
+            bail!(
+                "Reviews are not supported for entity lot: {:?}",
+                input.entity_lot
+            );
+        }
     };
     if let Some(s) = input.is_spoiler {
         review_obj.is_spoiler = ActiveValue::Set(s);
@@ -103,7 +124,7 @@ pub async fn create_or_update_review(
     if let Some(d) = input.date {
         review_obj.posted_on = ActiveValue::Set(d);
     }
-    let insert = review_obj.save(&ss.db).await.unwrap();
+    let insert = review_obj.save(&ss.db).await?;
     if insert.visibility.unwrap() == Visibility::Public {
         let entity_lot = insert.entity_lot.unwrap();
         let id = insert.entity_id.unwrap();
@@ -169,22 +190,46 @@ async fn get_entity_title_from_id_and_lot(
     ss: &Arc<SupportingService>,
 ) -> Result<String> {
     let obj_title = match lot {
-        EntityLot::Genre => Genre::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Genre => {
+            Genre::find_by_id(id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Genre not found"))?
+                .name
+        }
         EntityLot::Metadata => metadata_details(ss, id).await?.response.title,
         EntityLot::MetadataGroup => metadata_group_details(ss, id).await?.response.details.title,
         EntityLot::Person => person_details(id, ss).await?.response.details.name,
-        EntityLot::Collection => Collection::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Exercise => Exercise::find_by_id(id).one(&ss.db).await?.unwrap().name,
-        EntityLot::Workout => Workout::find_by_id(id).one(&ss.db).await?.unwrap().name,
+        EntityLot::Collection => {
+            Collection::find_by_id(id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Collection not found"))?
+                .name
+        }
+        EntityLot::Exercise => {
+            Exercise::find_by_id(id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Exercise not found"))?
+                .name
+        }
+        EntityLot::Workout => {
+            Workout::find_by_id(id)
+                .one(&ss.db)
+                .await?
+                .ok_or_else(|| anyhow!("Workout not found"))?
+                .name
+        }
         EntityLot::WorkoutTemplate => {
             WorkoutTemplate::find_by_id(id)
                 .one(&ss.db)
                 .await?
-                .unwrap()
+                .ok_or_else(|| anyhow!("Workout template not found"))?
                 .name
         }
         EntityLot::Review | EntityLot::UserMeasurement => {
-            unreachable!()
+            bail!("Reviews are not supported for entity lot: {lot:?}");
         }
     };
     Ok(obj_title)
