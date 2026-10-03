@@ -1,6 +1,5 @@
 import {
 	Archive,
-	ArrowDown,
 	ArrowRight,
 	ArrowUpDown,
 	Book,
@@ -177,7 +176,6 @@ const icons = {
 	"list-video": ListVideo,
 	"panel-left": PanelLeft,
 	"rotate-ccw": RotateCcw,
-	"arrow-down": ArrowDown,
 	"refresh-cw": RefreshCw,
 	"sticky-note": StickyNote,
 	"arrow-right": ArrowRight,

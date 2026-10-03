@@ -1,5 +1,6 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyot, type RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { ProgressBar } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
@@ -90,9 +91,13 @@ export function MediaFactRow(props: {
 
 export function MediaProgressBar(props: { readonly percent: number }) {
 	return (
-		<div className="h-1 max-w-md overflow-hidden rounded-pill bg-surface-2">
-			<div style={{ width: `${props.percent}%` }} className="h-full rounded-pill bg-success" />
-		</div>
+		<ProgressBar
+			max={100}
+			tone="success"
+			label="Progress"
+			className="max-w-md"
+			value={props.percent}
+		/>
 	);
 }
 

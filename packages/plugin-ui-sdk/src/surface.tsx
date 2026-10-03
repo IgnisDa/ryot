@@ -1,13 +1,20 @@
 import clsx from "clsx";
 import type { ComponentProps, ReactNode } from "react";
 
+import { groupColorVariable, type GroupColor } from "./group-colors";
+
 const cardPadding = { none: "", md: "p-4", lg: "p-5" } as const;
 
 export function Card({
+	style,
 	className,
+	groupColor,
 	padding = "md",
 	...props
-}: ComponentProps<"div"> & { readonly padding?: keyof typeof cardPadding }) {
+}: ComponentProps<"div"> & {
+	readonly groupColor?: GroupColor;
+	readonly padding?: keyof typeof cardPadding;
+}) {
 	return (
 		<div
 			className={clsx(
@@ -15,6 +22,11 @@ export function Card({
 				cardPadding[padding],
 				className,
 			)}
+			style={
+				groupColor === undefined
+					? style
+					: { boxShadow: `inset 3px 0 0 ${groupColorVariable(groupColor)}`, ...style }
+			}
 			{...props}
 		/>
 	);

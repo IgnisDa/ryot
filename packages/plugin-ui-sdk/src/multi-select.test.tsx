@@ -28,6 +28,18 @@ function GenreSelect(props: { readonly variant?: "chip" | "field" }) {
 	);
 }
 
+function DefaultIconSelect() {
+	const [selected, setSelected] = useState<ReadonlyArray<"action" | "comedy">>([]);
+	return (
+		<MultiSelect
+			label="Genres"
+			selected={selected}
+			onChange={setSelected}
+			choices={[{ value: "action" }, { value: "comedy" }]}
+		/>
+	);
+}
+
 const openOptions = () => fireEvent.click(screen.getByRole("button", { name: "Genres" }));
 
 describe("MultiSelect", () => {
@@ -77,4 +89,16 @@ describe("MultiSelect", () => {
 			expect(results.violations.map((violation) => violation.id)).toEqual([]);
 		}),
 	);
+
+	it("draws default icons and returns the choice value type", () => {
+		const { container } = render(<DefaultIconSelect />);
+		expect(container.querySelector("svg")).not.toBeNull();
+
+		openOptions();
+		fireEvent.click(screen.getByRole("checkbox", { name: "action" }));
+
+		expect(screen.getByRole("checkbox", { name: "action" }).getAttribute("aria-checked")).toBe(
+			"true",
+		);
+	});
 });
