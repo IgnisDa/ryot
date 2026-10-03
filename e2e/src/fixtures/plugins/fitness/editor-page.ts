@@ -14,7 +14,7 @@ export const overlay = (frame: Playwright.FrameLocator, name: string) =>
 
 export const waitInScrollBand = (target: Playwright.Locator) =>
 	target.waitForFunction((element) => {
-		const root = element.closest("[data-motion-scroll-root]");
+		const root = element.closest("[data-scroll-root]");
 		const header = root?.querySelector('[data-scroll-obstruction="top"]')?.getBoundingClientRect();
 		const dock = root?.parentElement
 			?.querySelector('[data-scroll-obstruction="bottom"]')

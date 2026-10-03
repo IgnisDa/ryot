@@ -1,13 +1,24 @@
 import { useEffect } from "react";
 
-const editable =
-	'input:not([type="hidden"]), textarea, [contenteditable]:not([contenteditable="false"])';
+import { editableSelector } from "./overlay";
+
+export const revealOffset = (
+	band: { readonly top: number; readonly bottom: number },
+	target: { readonly top: number; readonly bottom: number },
+) =>
+	target.top < band.top || target.bottom - target.top > band.bottom - band.top
+		? target.top - band.top
+		: Math.max(0, target.bottom - band.bottom);
 let users = 0;
 let dispose: (() => void) | undefined;
 
 export function revealFocusedField() {
 	const field = document.activeElement;
-	if (!(field instanceof HTMLElement) || !field.matches(editable) || field.closest("[inert]")) {
+	if (
+		!(field instanceof HTMLElement) ||
+		!field.matches(editableSelector) ||
+		field.closest("[inert]")
+	) {
 		return;
 	}
 	const viewport = window.visualViewport;
@@ -24,7 +35,7 @@ export function revealFocusedField() {
 		}
 		const bounds = parent.getBoundingClientRect();
 		const header = parent.querySelector('[data-scroll-obstruction="top"]')?.getBoundingClientRect();
-		const dock = parent.matches("[data-motion-scroll-root]")
+		const dock = parent.hasAttribute("data-scroll-root")
 			? parent.parentElement
 					?.querySelector('[data-scroll-obstruction="bottom"]')
 					?.getBoundingClientRect()
@@ -34,11 +45,7 @@ export function revealFocusedField() {
 		if (bottom <= top) {
 			continue;
 		}
-		const target = field.getBoundingClientRect();
-		const offset =
-			target.top < top || target.height > bottom - top
-				? target.top - top
-				: Math.max(0, target.bottom - bottom);
+		const offset = revealOffset({ top, bottom }, field.getBoundingClientRect());
 		if (offset !== 0) {
 			parent.scrollTop += offset;
 		}
