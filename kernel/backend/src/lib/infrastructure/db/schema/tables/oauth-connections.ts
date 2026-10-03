@@ -35,20 +35,20 @@ export const oauthConnection = snakeCase.table(
 		pluginInstallationId: text().notNull(),
 		code: jsonb().$type<SubkeyCiphertext>(),
 		integrationProviderSlug: text().notNull(),
-		expiresAt: timestamp({ withTimezone: true }),
 		tokenVersion: integer().notNull().default(0),
 		accessToken: jsonb().$type<SubkeyCiphertext>(),
 		codeVerifier: jsonb().$type<SubkeyCiphertext>(),
 		refreshToken: jsonb().$type<SubkeyCiphertext>(),
-		refreshLeaseUntil: timestamp({ withTimezone: true }),
 		status: text().$type<OAuthConnectionStatus>().notNull(),
-		accessTokenExpiresAt: timestamp({ withTimezone: true }),
 		client: jsonb().$type<OAuthConnectionClient>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		expiresAt: timestamp({ precision: 3, withTimezone: true }),
+		refreshLeaseUntil: timestamp({ precision: 3, withTimezone: true }),
+		accessTokenExpiresAt: timestamp({ precision: 3, withTimezone: true }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),

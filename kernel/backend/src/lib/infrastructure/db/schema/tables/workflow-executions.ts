@@ -9,9 +9,9 @@ export const workflowExecution = snakeCase.table(
 		workflowName: text().notNull(),
 		rootExecutionId: text().notNull(),
 		rootWorkflowName: text().notNull(),
-		clearedAt: timestamp({ withTimezone: true }),
-		expiredAt: timestamp({ withTimezone: true }),
-		completedAt: timestamp({ withTimezone: true }),
+		clearedAt: timestamp({ precision: 3, withTimezone: true }),
+		expiredAt: timestamp({ precision: 3, withTimezone: true }),
+		completedAt: timestamp({ precision: 3, withTimezone: true }),
 		status: text().$type<"active" | "succeeded" | "failed">().notNull(),
 	},
 	(table) => [

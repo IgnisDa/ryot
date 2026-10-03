@@ -8,11 +8,11 @@ CREATE TABLE "account" (
 	"issuer" text NOT NULL,
 	"account_id" text NOT NULL,
 	"provider_id" text NOT NULL,
-	"access_token_expires_at" timestamp with time zone,
-	"refresh_token_expires_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"access_token_expires_at" timestamp(3) with time zone,
+	"refresh_token_expires_at" timestamp(3) with time zone,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL
+	"updated_at" timestamp(3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "apikey" (
@@ -30,13 +30,13 @@ CREATE TABLE "apikey" (
 	"request_count" integer DEFAULT 0,
 	"rate_limit_max" integer DEFAULT 10,
 	"rate_limit_enabled" boolean DEFAULT true,
-	"expires_at" timestamp with time zone,
 	"config_id" text DEFAULT 'default' NOT NULL,
-	"last_request" timestamp with time zone,
-	"last_refill_at" timestamp with time zone,
 	"rate_limit_time_window" integer DEFAULT 86400000,
-	"created_at" timestamp with time zone NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL,
+	"expires_at" timestamp(3) with time zone,
+	"last_request" timestamp(3) with time zone,
+	"last_refill_at" timestamp(3) with time zone,
+	"created_at" timestamp(3) with time zone NOT NULL,
+	"updated_at" timestamp(3) with time zone NOT NULL,
 	"reference_id" text NOT NULL
 );
 --> statement-breakpoint
@@ -48,20 +48,20 @@ CREATE TABLE "automation_run" (
 	"script_content_hash" text NOT NULL,
 	"history_payload" jsonb,
 	"attempt_count" integer DEFAULT 0 NOT NULL,
-	"started_at" timestamp with time zone,
-	"finished_at" timestamp with time zone,
-	"next_attempt_at" timestamp with time zone,
 	"stage" text NOT NULL,
 	"skip_reason" jsonb,
+	"started_at" timestamp(3) with time zone,
 	"retry_policy" jsonb,
 	"sandbox_script_id" text,
+	"finished_at" timestamp(3) with time zone,
 	"history_payload_truncated" boolean DEFAULT false NOT NULL,
 	"delivery" text NOT NULL,
-	"artifacts_expire_at" timestamp with time zone NOT NULL,
-	"queued_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"next_attempt_at" timestamp(3) with time zone,
 	"plugin_id" text,
 	"execution_user_id" text,
 	"status" text DEFAULT 'queued' NOT NULL,
+	"artifacts_expire_at" timestamp(3) with time zone NOT NULL,
+	"queued_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"plugin_revision_id" text,
 	"trigger_id" text NOT NULL,
 	"plugin_config_revision_id" text,
@@ -77,17 +77,17 @@ CREATE TABLE "automation_run_attempt" (
 	"retryable" boolean NOT NULL,
 	"attempt_number" integer NOT NULL,
 	"workflow_execution_id" text NOT NULL CONSTRAINT "automation_run_attempt_workflow_unique" UNIQUE,
-	"finished_at" timestamp with time zone,
 	"logs" jsonb,
-	"artifacts_pruned_at" timestamp with time zone,
 	"error" jsonb,
-	"started_at" timestamp with time zone NOT NULL,
 	"timing" jsonb,
+	"finished_at" timestamp(3) with time zone,
 	"history_artifacts_truncated" boolean DEFAULT false NOT NULL,
 	"history_logs" jsonb,
 	"history_error" jsonb,
 	"status" text NOT NULL,
 	"failure_kind" text,
+	"artifacts_pruned_at" timestamp(3) with time zone,
+	"started_at" timestamp(3) with time zone NOT NULL,
 	"returned_value" jsonb,
 	"run_id" text NOT NULL,
 	CONSTRAINT "automation_run_attempt_number_unique" UNIQUE("run_id","attempt_number"),
@@ -106,17 +106,17 @@ CREATE TABLE "automation_trigger" (
 	"provider_execution_id" text,
 	"execution_id" text NOT NULL,
 	"root_execution_id" text NOT NULL,
-	"payload_pruned_at" timestamp with time zone,
 	"payload" jsonb,
-	"occurred_at" timestamp with time zone NOT NULL,
+	"payload_pruned_at" timestamp(3) with time zone,
 	"blocked_reason" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"occurred_at" timestamp(3) with time zone NOT NULL,
 	"lane" text NOT NULL,
 	"scope_user_id" text,
 	"category" text NOT NULL,
 	"source" text NOT NULL,
 	"operation" text NOT NULL,
 	"resource_kind" text NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"initiator_kind" text NOT NULL,
 	CONSTRAINT "automation_trigger_kind_check" CHECK (("category" in ('request', 'change') and "resource_kind" in ('entity', 'event', 'relationship') and "operation" in ('create', 'update', 'delete')) or ("category" = 'change' and "resource_kind" in ('entity', 'event', 'relationship') and "operation" = 'batch') or ("category" = 'change' and "resource_kind" = 'provider-entity-import' and "operation" = 'complete') or ("category" = 'signal' and "resource_kind" = 'signal' and "operation" = 'emit')),
 	CONSTRAINT "automation_trigger_causation_check" CHECK ("depth" >= 0 and "lane" in ('interactive', 'background') and "initiator_kind" in ('user', 'integration', 'system') and "source" in ('api', 'import', 'integration', 'bootstrap', 'provider-refresh', 'automation') and ("source" <> 'automation' or ("parent_run_id" is not null and "parent_trigger_id" is not null and "depth" > 0))),
@@ -136,13 +136,13 @@ CREATE TABLE "backup_run" (
 	"artifact_key" text,
 	"progress" integer DEFAULT 0 NOT NULL,
 	"failure" jsonb,
-	"expires_at" timestamp with time zone,
-	"started_at" timestamp with time zone,
 	"kind" text NOT NULL,
-	"finished_at" timestamp with time zone,
+	"expires_at" timestamp(3) with time zone,
+	"started_at" timestamp(3) with time zone,
+	"finished_at" timestamp(3) with time zone,
 	"artifact_provider" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"status" text DEFAULT 'pending' NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY
 );
@@ -168,7 +168,7 @@ CREATE TABLE "client_page_composition" (
 	"composition_hash" text NOT NULL UNIQUE,
 	"identity" jsonb NOT NULL,
 	"manifest" jsonb NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "data_import_submission" (
@@ -278,47 +278,47 @@ CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
 	"entity_schema_slug" text NOT NULL,
-	"populated_at" timestamp with time zone,
+	"populated_at" timestamp(3) with time zone,
 	"user_id" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
 	"provider_id" text,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"entity_schema_plugin_id" text,
 	"id" text PRIMARY KEY,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "entity_translation" (
 	"name" text,
 	"language" text,
-	"populated_at" timestamp with time zone,
 	"properties" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"populated_at" timestamp(3) with time zone,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"entity_id" text,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "entity_translation_pkey" PRIMARY KEY("entity_id","language")
 );
 --> statement-breakpoint
 CREATE TABLE "event" (
 	"event_schema_slug" text NOT NULL,
 	"revision" integer DEFAULT 0 NOT NULL,
-	"occurred_at" timestamp with time zone NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"occurred_at" timestamp(3) with time zone NOT NULL,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
 	"session_entity_id" text,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"event_schema_plugin_id" text,
 	"user_id" text NOT NULL,
 	"entity_id" text NOT NULL,
 	"id" text PRIMARY KEY,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "event_stream" (
 	"id" text PRIMARY KEY,
 	"event_schema_slug" text NOT NULL,
 	"revision" integer DEFAULT 0 NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"event_schema_plugin_id" text,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
 	"entity_id" text NOT NULL
 );
@@ -330,11 +330,11 @@ CREATE TABLE "event_stream_work" (
 	"plugin_revision_id" text NOT NULL,
 	"processor_script_id" text NOT NULL,
 	"attempt" integer DEFAULT 0 NOT NULL,
-	"dirty_from" timestamp with time zone,
 	"plugin_pin" jsonb NOT NULL,
 	"checkpoint" jsonb DEFAULT 'null',
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"dirty_from" timestamp(3) with time zone,
 	"output_properties" jsonb DEFAULT '[]' NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY,
 	"status" text DEFAULT 'queued' NOT NULL,
 	CONSTRAINT "event_stream_work_status_check" CHECK ("status" in ('queued', 'running', 'completed', 'failed')),
@@ -418,24 +418,24 @@ CREATE TABLE "import_run" (
 	"account_generation" text NOT NULL,
 	"plan" jsonb,
 	"pins" jsonb,
-	"started_at" timestamp with time zone,
-	"finished_at" timestamp with time zone,
 	"integration_lot" text,
-	"block_deadline" timestamp with time zone,
 	"source" text NOT NULL,
 	"collection_sealed" boolean DEFAULT false NOT NULL,
 	"expiry_reason" text,
 	"failure_reason" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"started_at" timestamp(3) with time zone,
+	"finished_at" timestamp(3) with time zone,
+	"block_deadline" timestamp(3) with time zone,
 	"prepared_release" jsonb,
 	"status" text DEFAULT 'pending' NOT NULL,
 	"input_summary" jsonb DEFAULT '{}' NOT NULL,
 	"integration_id" text,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
 	"block_reasons" jsonb DEFAULT '[]' NOT NULL,
 	"id" text PRIMARY KEY,
 	"plugin_installation_id" text,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "import_run_owner_unique" UNIQUE("id","user_id","account_generation"),
 	CONSTRAINT "import_run_prepared_release_check" CHECK ("prepared_release" is null or ("pins" is not null and ("plan" is null or "plan" = "prepared_release"->'plan'))),
 	CONSTRAINT "import_run_block_check" CHECK ("status" <> 'blocked' or ("integration_lot" = 'sink' and "block_deadline" = "created_at" + interval '7 days')),
@@ -453,16 +453,16 @@ CREATE TABLE "integration" (
 	"is_disabled" boolean DEFAULT false NOT NULL,
 	"sync_ownership" boolean DEFAULT false NOT NULL,
 	"minimum_progress" numeric DEFAULT '2' NOT NULL,
-	"last_finished_at" timestamp with time zone,
 	"maximum_progress" numeric DEFAULT '95' NOT NULL,
 	"provider" text NOT NULL,
+	"last_finished_at" timestamp(3) with time zone,
 	"extra_settings" jsonb NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"provider_specifics" jsonb NOT NULL,
 	"client_provider_specifics" jsonb NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "integration_oauth_owner_unique" UNIQUE("id","user_id","plugin_installation_id","provider"),
 	CONSTRAINT "integration_run_owner_unique" UNIQUE("id","user_id"),
 	CONSTRAINT "integration_owner_check" CHECK (("plugin_installation_id" is null and "provider" = 'data-json' and "lot" = 'sink') or ("plugin_installation_id" is not null and "provider" <> 'data-json')),
@@ -471,7 +471,7 @@ CREATE TABLE "integration" (
 --> statement-breakpoint
 CREATE TABLE "integration_auto_disable_claim" (
 	"import_run_id" text PRIMARY KEY,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"integration_id" text NOT NULL
 );
 --> statement-breakpoint
@@ -481,8 +481,8 @@ CREATE TABLE "jwks" (
 	"id" text PRIMARY KEY,
 	"public_key" text NOT NULL,
 	"private_key" text NOT NULL,
-	"expires_at" timestamp with time zone,
-	"created_at" timestamp with time zone NOT NULL
+	"expires_at" timestamp(3) with time zone,
+	"created_at" timestamp(3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "kernel_script" (
@@ -496,7 +496,7 @@ CREATE TABLE "managed_asset" (
 	"size" integer NOT NULL,
 	"content_type" text NOT NULL,
 	"provider" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"owner_user_id" text NOT NULL,
 	CONSTRAINT "managed_asset_pkey" PRIMARY KEY("provider","key")
 );
@@ -509,7 +509,7 @@ CREATE TABLE "migration_report" (
 	"elapsed_seconds" double precision,
 	"code" text,
 	"level" text NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "migration_report_level_check" CHECK ("level" in ('info', 'warning')),
 	CONSTRAINT "migration_report_warning_code_check" CHECK ("level" <> 'warning' or "code" is not null)
 );
@@ -517,7 +517,7 @@ CREATE TABLE "migration_report" (
 CREATE TABLE "migration_report_detail" (
 	"seq" serial PRIMARY KEY,
 	"detail" jsonb NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"report_seq" integer NOT NULL
 );
 --> statement-breakpoint
@@ -536,10 +536,10 @@ CREATE TABLE "mutation_receipt" (
 	"evidence" jsonb,
 	"account_generation" jsonb,
 	"mutation_scope" text NOT NULL,
-	"recorded_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"owner_user_id" text,
 	"scope_user_id" text,
 	"plugin_id" text,
+	"recorded_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"sandbox_script_id" text,
 	"plugin_revision_id" text,
 	"plugin_config_revision_id" text,
@@ -552,22 +552,22 @@ CREATE TABLE "mutation_receipt" (
 CREATE TABLE "notification_channel" (
 	"description" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"platform" text NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"platform_specifics" jsonb NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "notification_subscription" (
 	"signal_schema_slug" text NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"metadata" jsonb,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"signal_schema_plugin_id" text,
 	"user_id" text NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY,
 	CONSTRAINT "notification_subscription_user_signal_unique" UNIQUE NULLS NOT DISTINCT("user_id","signal_schema_slug","signal_schema_plugin_id")
 );
@@ -580,11 +580,11 @@ CREATE TABLE "oauth_access_token" (
 	"authorization_code_id" text,
 	"scopes" text[] NOT NULL,
 	"requested_user_info_claims" text[],
-	"revoked" timestamp with time zone,
 	"confirmation" jsonb,
-	"expires_at" timestamp with time zone NOT NULL,
-	"created_at" timestamp with time zone NOT NULL,
+	"revoked" timestamp(3) with time zone,
 	"user_id" text,
+	"expires_at" timestamp(3) with time zone NOT NULL,
+	"created_at" timestamp(3) with time zone NOT NULL,
 	"session_id" text,
 	"client_id" text NOT NULL,
 	"refresh_id" text
@@ -621,23 +621,23 @@ CREATE TABLE "oauth_client" (
 	"redirect_uris" text[] NOT NULL,
 	"post_logout_redirect_uris" text[],
 	"backchannel_logout_session_required" boolean,
-	"created_at" timestamp with time zone,
-	"updated_at" timestamp with time zone,
 	"dpop_bound_access_tokens" boolean DEFAULT false,
 	"metadata" jsonb,
 	"client_credentials_scopes" text[] DEFAULT '{}'::text[],
+	"created_at" timestamp(3) with time zone,
+	"updated_at" timestamp(3) with time zone,
 	"user_id" text
 );
 --> statement-breakpoint
 CREATE TABLE "oauth_client_assertion" (
 	"id" text PRIMARY KEY,
-	"expires_at" timestamp with time zone NOT NULL
+	"expires_at" timestamp(3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "oauth_client_resource" (
 	"id" text PRIMARY KEY,
-	"created_at" timestamp with time zone,
 	"metadata" jsonb,
+	"created_at" timestamp(3) with time zone,
 	"client_id" text NOT NULL,
 	"resource_id" text NOT NULL
 );
@@ -654,18 +654,18 @@ CREATE TABLE "oauth_connection" (
 	"plugin_installation_id" text NOT NULL,
 	"code" jsonb,
 	"integration_provider_slug" text NOT NULL,
-	"expires_at" timestamp with time zone,
 	"token_version" integer DEFAULT 0 NOT NULL,
 	"access_token" jsonb,
 	"code_verifier" jsonb,
 	"refresh_token" jsonb,
-	"refresh_lease_until" timestamp with time zone,
 	"status" text NOT NULL,
-	"access_token_expires_at" timestamp with time zone,
 	"client" jsonb NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp(3) with time zone,
+	"refresh_lease_until" timestamp(3) with time zone,
+	"access_token_expires_at" timestamp(3) with time zone,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "oauth_connection_integration_field_unique" UNIQUE("integration_id","field"),
 	CONSTRAINT "oauth_connection_status_check" CHECK ("status" in ('pending', 'authorized', 'connected', 'failed', 'expired')),
 	CONSTRAINT "oauth_connection_integration_status_check" CHECK ("integration_id" is null or "status" in ('connected', 'expired'))
@@ -677,9 +677,9 @@ CREATE TABLE "oauth_consent" (
 	"resources" text[],
 	"scopes" text[] NOT NULL,
 	"requested_user_info_claims" text[],
-	"created_at" timestamp with time zone NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL,
 	"user_id" text,
+	"created_at" timestamp(3) with time zone NOT NULL,
+	"updated_at" timestamp(3) with time zone NOT NULL,
 	"client_id" text NOT NULL
 );
 --> statement-breakpoint
@@ -692,13 +692,13 @@ CREATE TABLE "oauth_refresh_token" (
 	"token" text NOT NULL UNIQUE,
 	"scopes" text[] NOT NULL,
 	"requested_user_info_claims" text[],
-	"revoked" timestamp with time zone,
-	"auth_time" timestamp with time zone,
-	"rotated_at" timestamp with time zone,
 	"confirmation" jsonb,
-	"expires_at" timestamp with time zone NOT NULL,
-	"created_at" timestamp with time zone NOT NULL,
-	"rotation_replay_expires_at" timestamp with time zone,
+	"revoked" timestamp(3) with time zone,
+	"auth_time" timestamp(3) with time zone,
+	"rotated_at" timestamp(3) with time zone,
+	"expires_at" timestamp(3) with time zone NOT NULL,
+	"created_at" timestamp(3) with time zone NOT NULL,
+	"rotation_replay_expires_at" timestamp(3) with time zone,
 	"session_id" text,
 	"client_id" text NOT NULL,
 	"user_id" text NOT NULL
@@ -715,11 +715,11 @@ CREATE TABLE "oauth_resource" (
 	"disabled" boolean DEFAULT false,
 	"policy_version" integer DEFAULT 1,
 	"identifier" text NOT NULL UNIQUE,
-	"created_at" timestamp with time zone,
-	"updated_at" timestamp with time zone,
 	"metadata" jsonb,
 	"custom_claims" jsonb,
-	"dpop_bound_access_tokens_required" boolean DEFAULT false
+	"dpop_bound_access_tokens_required" boolean DEFAULT false,
+	"created_at" timestamp(3) with time zone,
+	"updated_at" timestamp(3) with time zone
 );
 --> statement-breakpoint
 CREATE TABLE "plugin" (
@@ -727,7 +727,7 @@ CREATE TABLE "plugin" (
 	"status" text NOT NULL,
 	"active_revision_id" text,
 	"environment_config_revision_id" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"owner_user_id" text,
 	"activation_id" text NOT NULL,
 	"id" text PRIMARY KEY,
@@ -737,15 +737,15 @@ CREATE TABLE "plugin" (
 --> statement-breakpoint
 CREATE TABLE "plugin_catalog_change" (
 	"user_id" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"id" text PRIMARY KEY
+	"id" text PRIMARY KEY,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "plugin_config_encryption_key" (
 	"id" text NOT NULL,
 	"key" bytea NOT NULL,
 	"singleton" boolean PRIMARY KEY DEFAULT true,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "plugin_config_encryption_key_singleton_check" CHECK ("singleton" = true),
 	CONSTRAINT "plugin_config_encryption_key_length_check" CHECK (octet_length("key") = 32)
 );
@@ -756,10 +756,10 @@ CREATE TABLE "plugin_config_revision" (
 	"encryption_key_id" text NOT NULL,
 	"payload_fingerprint" text NOT NULL,
 	"configured_keys" text[] NOT NULL,
-	"payload_pruned_at" timestamp with time zone,
 	"id" text PRIMARY KEY,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"payload_pruned_at" timestamp(3) with time zone,
 	"owner_user_id" text,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"plugin_revision_id" text NOT NULL,
 	"plugin_installation_id" text,
 	CONSTRAINT "plugin_config_revision_id_revision_unique" UNIQUE("id","plugin_revision_id"),
@@ -773,17 +773,17 @@ CREATE TABLE "plugin_installation" (
 	"home_saved_view_slug" text,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_hidden" boolean DEFAULT false NOT NULL,
-	"uninstalled_at" timestamp with time zone,
 	"ingestion_retiring" boolean DEFAULT false NOT NULL,
 	"configured_secret_paths" text[] DEFAULT '{}'::text[] NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"uninstalled_at" timestamp(3) with time zone,
 	"client_config" jsonb DEFAULT '{}' NOT NULL,
 	"user_settings" jsonb DEFAULT '{}' NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
 	"active_config_revision_id" text,
 	"plugin_id" text NOT NULL,
 	"id" text PRIMARY KEY,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"health" text DEFAULT 'ready' NOT NULL,
 	CONSTRAINT "plugin_installation_user_plugin_unique" UNIQUE("user_id","plugin_id"),
 	CONSTRAINT "plugin_installation_id_user_id_unique" UNIQUE("id","user_id")
@@ -795,9 +795,9 @@ CREATE TABLE "plugin_revision" (
 	"manifest" jsonb NOT NULL,
 	"client_config_schema" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"name" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'name') STORED,
 	"icon" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'icon') STORED,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"description" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'description') STORED,
 	"plugin_id" text NOT NULL,
 	CONSTRAINT "plugin_revision_plugin_source_unique" UNIQUE("plugin_id","source_hash"),
@@ -818,22 +818,22 @@ CREATE TABLE "provider_import_admission" (
 	"provider_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"entity_schema_slug" text NOT NULL,
-	"admitted_at" timestamp with time zone,
+	"admitted_at" timestamp(3) with time zone,
 	"status" text NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "relationship" (
 	"relationship_schema_slug" text NOT NULL,
 	"user_id" text,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"properties" jsonb DEFAULT '{}' NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"relationship_schema_plugin_id" text,
 	"id" text PRIMARY KEY,
 	"source_entity_id" text NOT NULL,
 	"target_entity_id" text NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "relationship_identity_unique" UNIQUE NULLS NOT DISTINCT("user_id","source_entity_id","target_entity_id","relationship_schema_slug","relationship_schema_plugin_id")
 );
 --> statement-breakpoint
@@ -842,10 +842,10 @@ CREATE TABLE "sandbox_provider" (
 	"name" text NOT NULL,
 	"root_entity_schema_slug" text NOT NULL,
 	"information" jsonb NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"plugin_id" text NOT NULL,
 	"id" text PRIMARY KEY,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "sandbox_provider_plugin_id_unique" UNIQUE("plugin_id","slug")
 );
 --> statement-breakpoint
@@ -857,8 +857,8 @@ CREATE TABLE "sandbox_script" (
 	"compiled_code" text NOT NULL,
 	"compiled_format" smallint DEFAULT 1 NOT NULL,
 	"metadata" jsonb NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"provider_id" text,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"plugin_revision_id" text,
 	"id" text PRIMARY KEY,
 	CONSTRAINT "sandbox_script_id_revision_unique" UNIQUE("id","plugin_revision_id"),
@@ -882,11 +882,11 @@ CREATE TABLE "saved_view" (
 	"data_sources" jsonb,
 	"is_hidden" boolean DEFAULT false NOT NULL,
 	"renderer" jsonb NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"settings" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "saved_view_user_slug_unique" UNIQUE("user_id","slug")
 );
 --> statement-breakpoint
@@ -906,11 +906,11 @@ CREATE TABLE "session" (
 	"id" text PRIMARY KEY,
 	"token" text NOT NULL UNIQUE,
 	"access_class" text DEFAULT 'standard' NOT NULL,
-	"expires_at" timestamp with time zone NOT NULL,
-	"impersonation_expires_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp(3) with time zone NOT NULL,
+	"impersonation_expires_at" timestamp(3) with time zone,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,
-	"updated_at" timestamp with time zone NOT NULL
+	"updated_at" timestamp(3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "two_factor" (
@@ -919,7 +919,7 @@ CREATE TABLE "two_factor" (
 	"verified" boolean NOT NULL,
 	"backup_codes" text NOT NULL,
 	"failed_verification_count" integer DEFAULT 0,
-	"locked_until" timestamp with time zone,
+	"locked_until" timestamp(3) with time zone,
 	"user_id" text NOT NULL
 );
 --> statement-breakpoint
@@ -929,13 +929,13 @@ CREATE TABLE "user" (
 	"id" text PRIMARY KEY,
 	"two_factor_enabled" boolean,
 	"email" text NOT NULL UNIQUE,
-	"disabled_at" timestamp with time zone,
 	"email_verified" boolean DEFAULT false NOT NULL,
-	"bootstrap_completed_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"disabled_at" timestamp(3) with time zone,
+	"bootstrap_completed_at" timestamp(3) with time zone,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"account_generation" text DEFAULT gen_random_uuid() NOT NULL,
 	"preferences" jsonb DEFAULT '{"language":null,"disableIntegrations":false}' NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "user_preferences_check" CHECK (
 		jsonb_typeof("preferences") = 'object'
 		and "preferences" ?& array['disableIntegrations', 'language']
@@ -955,16 +955,16 @@ CREATE TABLE "user_lifecycle_operation" (
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
 	"metadata" jsonb NOT NULL,
-	"started_at" timestamp with time zone,
 	"reset_result" jsonb,
-	"finished_at" timestamp with time zone,
 	"workflow_attempt" integer DEFAULT 0 NOT NULL,
-	"access_revoked_at" timestamp with time zone,
 	"failure" jsonb,
+	"started_at" timestamp(3) with time zone,
 	"kind" text NOT NULL,
-	"access_revocation_started_at" timestamp with time zone,
-	"database_cleanup_completed_at" timestamp with time zone,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"finished_at" timestamp(3) with time zone,
+	"access_revoked_at" timestamp(3) with time zone,
+	"access_revocation_started_at" timestamp(3) with time zone,
+	"database_cleanup_completed_at" timestamp(3) with time zone,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"status" text DEFAULT 'pending' NOT NULL
 );
 --> statement-breakpoint
@@ -972,9 +972,9 @@ CREATE TABLE "verification" (
 	"id" text PRIMARY KEY,
 	"value" text NOT NULL,
 	"identifier" text NOT NULL,
-	"expires_at" timestamp with time zone NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"expires_at" timestamp(3) with time zone NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "workflow_execution" (
@@ -983,9 +983,9 @@ CREATE TABLE "workflow_execution" (
 	"workflow_name" text,
 	"root_execution_id" text NOT NULL,
 	"root_workflow_name" text NOT NULL,
-	"cleared_at" timestamp with time zone,
-	"expired_at" timestamp with time zone,
-	"completed_at" timestamp with time zone,
+	"cleared_at" timestamp(3) with time zone,
+	"expired_at" timestamp(3) with time zone,
+	"completed_at" timestamp(3) with time zone,
 	"status" text NOT NULL,
 	CONSTRAINT "workflow_execution_pkey" PRIMARY KEY("workflow_name","execution_id"),
 	CONSTRAINT "workflow_execution_status_check" CHECK ("status" in ('active', 'succeeded', 'failed')),

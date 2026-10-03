@@ -16,9 +16,9 @@ export const providerImportAdmission = snakeCase.table(
 		providerId: text().notNull(),
 		id: text().notNull().primaryKey(),
 		entitySchemaSlug: text().notNull(),
-		admittedAt: timestamp({ withTimezone: true }),
+		admittedAt: timestamp({ precision: 3, withTimezone: true }),
 		status: text().notNull().$type<ProviderImportAdmissionStatus>(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

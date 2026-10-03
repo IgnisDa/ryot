@@ -7,13 +7,13 @@ export const entityTranslation = snakeCase.table(
 	{
 		name: text(),
 		language: text().notNull(),
-		populatedAt: timestamp({ withTimezone: true }),
 		properties: jsonb().$type<Record<string, unknown>>(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		populatedAt: timestamp({ precision: 3, withTimezone: true }),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		entityId: text()
 			.notNull()
 			.references(() => entity.id, { onDelete: "cascade" }),
-		updatedAt: timestamp({ withTimezone: true })
+		updatedAt: timestamp({ precision: 3, withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
 			.notNull(),
