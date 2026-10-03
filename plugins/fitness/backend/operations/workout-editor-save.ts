@@ -1,7 +1,8 @@
-import type {
-	CreateEventItem,
-	ScriptHost,
-	UpdateEventItem,
+import {
+	createEventsResultDataSchema,
+	type CreateEventItem,
+	type ScriptHost,
+	type UpdateEventItem,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
@@ -9,7 +10,7 @@ import {
 	type RyotqlRecipeDecodeError,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { JsonValue, SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
-import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "../../shared/exercise-kinds";
 import { userFitnessLibraryRecipe } from "../../shared/library-recipes";
@@ -684,24 +685,7 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 		const created = yield* host.createEvents(creates, options("sets")).pipe(
 			Effect.catch((error) => {
 				const partial = Schema.decodeUnknownResult(
-					Schema.Struct({
-						count: Schema.Int,
-						partial: Schema.Literal(true),
-						outcomes: Schema.Array(
-							Schema.Union([
-								Schema.Struct({
-									eventId: EventId,
-									index: Schema.Int,
-									status: Schema.Literal("written"),
-								}),
-								Schema.Struct({
-									index: Schema.Int,
-									reason: Schema.String,
-									status: Schema.Literal("skipped_by_policy"),
-								}),
-							]),
-						),
-					}),
+					Schema.Struct({ ...createEventsResultDataSchema.fields, partial: Schema.Literal(true) }),
 				)(error.data);
 				return partial._tag === "Success" ? Effect.succeed(partial.success) : Effect.fail(error);
 			}),
