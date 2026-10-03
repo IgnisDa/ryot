@@ -15,6 +15,11 @@ import {
 	buildMonitoringCollectionMigrationSql,
 	buildOwnedCollectionOwnershipMigrationSql,
 } from "./collection-mapping";
+import {
+	createLegacyDescriptionInputsSql,
+	dropLegacyDescriptionInputsSql,
+	normalizeLegacyDescriptions,
+} from "./description-normalization";
 import { buildLegacyEpisodicSubEntityMigrationSql } from "./episodic-sub-entity-mapping";
 import {
 	buildExerciseMigrationSql,
@@ -456,6 +461,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	// metadata / person / company / metadata_group entity migrations.
 	const legacyIntegrationProgressCache = yield* withReservedConnection((connection) =>
 		Effect.gen(function* () {
+			yield* connection.executeRaw(createLegacyDescriptionInputsSql, []);
 			yield* connection.executeRaw(buildReferencedGlobalEntityIdsSql(), []);
 			yield* connection.executeRaw(buildPopulatedMetadataIdsSql(), []);
 			yield* connection.executeRaw(buildMetadataMigrationSql(resolvedMetadataTargets), []);
@@ -583,8 +589,11 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				}),
 				[],
 			);
+			yield* normalizeLegacyDescriptions(connection);
 			return yield* readLegacyIntegrationProgressCache(connection);
-		}),
+		}).pipe(
+			Effect.ensuring(connection.executeRaw(dropLegacyDescriptionInputsSql, []).pipe(Effect.orDie)),
+		),
 	);
 	const legacyS3AssetMigration = yield* migrateLegacyS3Assets;
 	yield* withReservedConnection((connection) =>
