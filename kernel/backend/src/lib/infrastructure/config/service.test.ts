@@ -22,9 +22,7 @@ const systemEnvironmentLayer = (
 	options: {
 		readonly logFile?: string;
 		readonly logLevel?: string;
-		readonly memoryBudgetMiB?: string;
 		readonly logRotationSize?: string;
-		readonly workerConcurrency?: string;
 		readonly logRotationInterval?: string;
 	} = {},
 ) =>
@@ -40,12 +38,6 @@ const systemEnvironmentLayer = (
 		...(options.logRotationInterval === undefined
 			? {}
 			: { SERVER_LOG_ROTATION_INTERVAL: options.logRotationInterval }),
-		...(options.memoryBudgetMiB === undefined
-			? {}
-			: { SANDBOX_MEMORY_BUDGET_MIB: options.memoryBudgetMiB }),
-		...(options.workerConcurrency === undefined
-			? {}
-			: { SANDBOX_WORKER_CONCURRENCY: options.workerConcurrency }),
 	});
 
 const otlpEndpointLayer = (endpoint: string) =>
@@ -84,48 +76,6 @@ describe("system log config", () => {
 			}),
 		);
 	});
-
-	layer(systemEnvironmentLayer({ workerConcurrency: "5" }))((test) => {
-		test.effect("reads sandbox worker concurrency from the environment", () =>
-			Effect.gen(function* () {
-				const result = yield* loaded;
-				assert(Exit.isSuccess(result));
-				expect(result.value.sandbox.workerConcurrency).toBe(5);
-			}),
-		);
-	});
-
-	layer(systemEnvironmentLayer())((test) => {
-		test.effect("leaves the sandbox memory budget unset for derivation", () =>
-			Effect.gen(function* () {
-				const result = yield* loaded;
-				assert(Exit.isSuccess(result));
-				expect(result.value.sandbox.memoryBudgetMiB).toEqual(Option.none());
-			}),
-		);
-	});
-
-	layer(systemEnvironmentLayer({ memoryBudgetMiB: "2048" }))((test) => {
-		test.effect("reads the sandbox memory budget from the environment", () =>
-			Effect.gen(function* () {
-				const result = yield* loaded;
-				assert(Exit.isSuccess(result));
-				expect(result.value.sandbox.memoryBudgetMiB).toEqual(Option.some(2048));
-			}),
-		);
-	});
-
-	for (const memoryBudgetMiB of ["0", "-1", "1.5"]) {
-		layer(systemEnvironmentLayer({ memoryBudgetMiB }))((test) => {
-			test.effect(`rejects sandbox memory budget ${memoryBudgetMiB} from the environment`, () =>
-				Effect.gen(function* () {
-					const result = yield* loaded;
-					assert(Exit.isFailure(result));
-					expect(Cause.pretty(result.cause)).toContain("SANDBOX_MEMORY_BUDGET_MIB");
-				}),
-			);
-		});
-	}
 
 	layer(systemEnvironmentLayer())((test) => {
 		test.effect("defaults filesystem paths relative to the working directory", () =>
@@ -217,49 +167,27 @@ describe("validateSystemConfig sandbox capacity", () => {
 		});
 	}
 
-	for (const workerConcurrency of [0, -1, 1.5]) {
-		layer(makeAppConfigLayer({ sandbox: { workerConcurrency } }))((test) => {
-			test.effect(`rejects sandbox worker concurrency ${workerConcurrency}`, () =>
-				Effect.gen(function* () {
-					const result = yield* validated;
-					expect(Exit.isFailure(result)).toBe(true);
-					if (Exit.isFailure(result)) {
-						expect(Cause.pretty(result.cause)).toContain("SANDBOX_WORKER_CONCURRENCY");
-					}
-				}),
-			);
-		});
-	}
-
-	for (const importConcurrency of [0, -1, 1.5]) {
-		layer(makeAppConfigLayer({ sandbox: { importConcurrency } }))((test) => {
-			test.effect(`rejects import concurrency ${importConcurrency}`, () =>
-				Effect.gen(function* () {
-					const result = yield* validated;
-					expect(Exit.isFailure(result)).toBe(true);
-					if (Exit.isFailure(result)) {
-						expect(Cause.pretty(result.cause)).toContain("SANDBOX_IMPORT_CONCURRENCY");
-					}
-				}),
-			);
-		});
-	}
-
-	for (const memoryBudgetMiB of [0, -1, 1.5]) {
-		layer(makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(memoryBudgetMiB) } }))(
-			(test) => {
-				test.effect(`rejects sandbox memory budget ${memoryBudgetMiB}`, () =>
+	for (const value of [0, -1, 1.5, Number.NaN]) {
+		for (const [key, sandbox] of [
+			["SANDBOX_WORKER_CONCURRENCY", { workerConcurrency: value }],
+			["SANDBOX_IMPORT_CONCURRENCY", { importConcurrency: value }],
+			["SANDBOX_MEMORY_BUDGET_MIB", { memoryBudgetMiB: Option.some(value) }],
+		] as const) {
+			layer(makeAppConfigLayer({ sandbox }))((test) => {
+				test.effect(`rejects ${key} ${value}`, () =>
 					Effect.gen(function* () {
 						const result = yield* validated;
 						assert(Exit.isFailure(result));
 						const failure = Cause.findErrorOption(result.cause);
 						assert(Option.isSome(failure));
 						expect(failure.value).toMatchObject({ _tag: "ConfigError" });
-						expect(Cause.pretty(result.cause)).toContain("SANDBOX_MEMORY_BUDGET_MIB");
+						expect(Cause.pretty(result.cause)).toContain(
+							`${key} (${value}) must be a positive integer`,
+						);
 					}),
 				);
-			},
-		);
+			});
+		}
 	}
 });
 
