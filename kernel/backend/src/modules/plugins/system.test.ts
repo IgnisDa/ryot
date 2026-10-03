@@ -40,7 +40,7 @@ const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: st
 		},
 	};
 	const source = yield* loadPluginSource(fixturePackageRoot(), manifest);
-	const compiledManifest = yield* Schema.decodeUnknownEffect(PluginManifest)(source.manifest);
+	const compiledManifest = yield* Schema.decodeEffect(PluginManifest)(source.manifest);
 	yield* fs.writeFile(
 		`${root}/${slug}.zip`,
 		writePluginArchive({ ...source, manifest: compiledManifest }),
