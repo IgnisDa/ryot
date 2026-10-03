@@ -196,6 +196,25 @@ describe("requireSandboxCapabilityInput", () => {
 		).toBe(false);
 	});
 
+	it("non_workflow_executions_expose_only_resource_free_capabilities", () => {
+		const input = makeRunInput(automationSubject("after", UserId.make("user_1")));
+		const functions = Object.fromEntries(
+			SANDBOX_HOST_CAPABILITIES.map((capability) => [capability, () => Effect.void]),
+		);
+		for (const capability of [
+			"createEvents",
+			"updateEvents",
+			"deleteEvents",
+			"sendNotification",
+			"changeUserRelationships",
+		] as const) {
+			expect(isSandboxCapabilityAllowed(input, capability)).toBe(true);
+			expect(selectSandboxHostFunctions(functions, input)).not.toHaveProperty(capability);
+		}
+		expect(selectSandboxHostFunctions(functions, input)).toHaveProperty("httpCall");
+		expect(selectSandboxHostFunctions(functions, input)).toHaveProperty("getCachedValue");
+	});
+
 	it("uses execution user and trusted causation integration without subscription context", () => {
 		const base = automationSubject("after", UserId.make("user_1"));
 		const subject = {
