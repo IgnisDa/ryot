@@ -56,6 +56,63 @@ const waitFor = Effect.fn("waitFor")(function* <E>(check: Effect.Effect<boolean,
 });
 
 it.layer(BunServices.layer)("ryot plugin build", (test) => {
+	test.effect("preserves generated configuration, OAuth, and executable facts in the archive", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin();
+			const manifestPath = path.join(plugin, "manifest.ts");
+			const manifest = yield* fs.readFileString(manifestPath);
+			yield* fs.writeFileString(
+				manifestPath,
+				manifest.replace(
+					'configSchema: { fields: {}, unknownKeys: "strict" }',
+					'configSchema: { fields: { token: { type: "string", label: "Token", description: "API token" }, threshold: { type: "number", label: "Threshold", description: "Optional threshold" } }, unknownKeys: "strict" }',
+				),
+			);
+			yield* fs.writeFileString(
+				path.join(plugin, "backend/main.sandbox.ts"),
+				`
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+export const manifest = defineManifest({ kind: "script", slug: "main", name: "Main" });
+export default defineScript({ manifest, input: Schema.Unknown, output: Schema.String, run: (_input, host) => Effect.gen(function* () {
+  yield* host.getPluginConfig({ required: ["token"], optional: ["threshold"] });
+  yield* host.getOAuthAccessToken({ field: "connection" });
+  return "ready";
+}) });
+`,
+			);
+			yield* fs.writeFileString(
+				path.join(plugin, "backend/root.sandbox.ts"),
+				`
+import { defineManifest, defineWorkflow, defineWorkflowReference, Schema } from "@ryot-app/sandbox-sdk/workflow";
+const target = defineWorkflowReference({ workflowSlug: "kernel:event-create", input: Schema.Unknown, output: Schema.String });
+export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root" });
+export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.String, run: (input, replay) => replay.child("write", target, input) });
+`,
+			);
+			const result = yield* run(plugin, ["plugin", "build"]);
+			expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+			const archive = yield* readPluginArchive(
+				yield* fs.readFile(path.join(plugin, "dist", "cli-test.zip")),
+			);
+			expect(archive.manifest.scripts.find(({ slug }) => slug === "main")).toMatchObject({
+				executableDependencies: [],
+				requiredPluginConfigKeys: ["token"],
+				oauthConnectionFields: ["connection"],
+				optionalPluginConfigKeys: ["threshold"],
+				capabilities: ["getOAuthAccessToken", "getPluginConfig"],
+			});
+			expect(archive.manifest.scripts.find(({ slug }) => slug === "root")).toMatchObject({
+				capabilities: [],
+				oauthConnectionFields: [],
+				requiredPluginConfigKeys: [],
+				optionalPluginConfigKeys: [],
+				executableDependencies: [{ kind: "workflow", slug: "kernel:event-create" }],
+			});
+		}),
+	);
 	test.effect("preserves policy and after automation metadata in the archive", () =>
 		Effect.gen(function* () {
 			const path = yield* Path.Path;
@@ -71,7 +128,6 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   kind: "automation", automationType: "${automationType}", slug: "${automationType}", name: "${automationType}",
-  capabilities: [], requiredPluginConfigKeys: [],
   inputProjection: ${automationType === "policy" ? "{ event: { properties: [] } }" : "{ signal: { properties: [] } }"},
 });
 export default ${helper}({ manifest, run: () => Effect.succeed(${automationType === "policy" ? '{ action: "allow" as const }' : "null"}) });
@@ -85,6 +141,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			);
 			expect(archive.manifest.scripts.filter(({ kind }) => kind === "automation")).toMatchObject([
 				{
+					capabilities: [],
 					slug: "automation",
 					automationType: "automation",
 					entry: "backend/automation.sandbox.ts",
@@ -92,6 +149,7 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				},
 				{
 					slug: "policy",
+					capabilities: [],
 					automationType: "policy",
 					entry: "backend/policy.sandbox.ts",
 					inputProjection: { event: { properties: [] } },
@@ -100,62 +158,59 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			expect(
 				archive.compiledScripts
 					.filter(({ entry }) => entry !== "backend/main.sandbox.ts")
-					.map(({ entry, source, format, javascript }) => ({
+					.map(({ entry, format, javascript }) => ({
 						entry,
-						source,
 						format,
 						javascript: javascript.length > 0,
 					})),
 			).toEqual([
-				{
-					format: 1,
-					javascript: true,
-					entry: "backend/automation.sandbox.ts",
-					source: expect.stringContaining('automationType: "automation"'),
-				},
-				{
-					format: 1,
-					javascript: true,
-					entry: "backend/policy.sandbox.ts",
-					source: expect.stringContaining('automationType: "policy"'),
-				},
+				{ format: 1, javascript: true, entry: "backend/automation.sandbox.ts" },
+				{ format: 1, javascript: true, entry: "backend/policy.sandbox.ts" },
 			]);
 		}),
 	);
 
 	test.effect(
-		"builds a deterministic slug archive with canonical manifest data and filtered sources",
+		"builds a deterministic source-free archive with compiled assets and canonical manifest data",
 		() =>
 			Effect.gen(function* () {
 				const path = yield* Path.Path;
 				const fs = yield* FileSystem.FileSystem;
 				const plugin = yield* createPlugin();
 				const assetBytes = new Uint8Array([0xff, 0x00, 0x7f]);
-				for (const extension of [
-					"png",
-					"jpg",
-					"jpeg",
-					"gif",
-					"webp",
-					"avif",
-					"ico",
-					"woff2",
-					"wasm",
-				]) {
-					yield* fs.writeFile(path.join(plugin, "client", `asset.${extension}`), assetBytes);
+				const extensions = ["png", "jpg", "jpeg", "gif", "webp", "ico", "woff2", "wasm"];
+				for (const extension of extensions) {
+					yield* fs.writeFile(
+						path.join(plugin, "client", `asset.${extension}`),
+						new Uint8Array([...assetBytes, extensions.indexOf(extension)]),
+					);
 				}
+				yield* fs.writeFileString(
+					path.join(plugin, "client", "styles.css"),
+					extensions
+						.map(
+							(extension) =>
+								`.asset-${extension} { background-image: url("./asset.${extension}"); }`,
+						)
+						.join("\n"),
+				);
 				yield* fs.writeFileString(path.join(plugin, "backend", "data.json"), "{}\n");
+				const homePath = path.join(plugin, "client", "home.tsx");
+				yield* fs.writeFileString(
+					homePath,
+					`import "./styles.css";\n${yield* fs.readFileString(homePath)}`,
+				);
 				yield* fs.writeFileString(path.join(plugin, "shared", "data.json"), "{}\n");
 				yield* fs.writeFileString(path.join(plugin, "client", "data.json"), "{}\n");
 				yield* fs.writeFile(path.join(plugin, "client", "ignored.PNG"), assetBytes);
 				const result = yield* run(plugin, ["plugin", "build"]);
+				expect(result.exitCode, result.stdout + result.stderr).toBe(0);
 				const output = path.join(plugin, "dist", "cli-test.zip");
 				const first = yield* fs.readFile(output);
 				const pluginPackage = yield* readPluginArchive(first);
 				const secondResult = yield* run(plugin, ["plugin", "build"]);
 				const compiledClient = pluginPackage.compiledClient;
 
-				expect(result.exitCode, result.stderr).toBe(0);
 				expect(secondResult.exitCode, secondResult.stderr).toBe(0);
 				expect(compiledClient).toBeDefined();
 				expect(compiledClient?.files.map(({ name }) => name)).toContain("module.js");
@@ -165,43 +220,41 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				expect(pluginPackage.manifest).toMatchObject({
 					httpRateLimits: [{ origins: ["https://example.com"] }],
 				});
-				expect(decoder.decode(pluginPackage.files["backend/main.sandbox.ts"])).toContain(
-					'"initial"',
-				);
-				expect(decoder.decode(pluginPackage.files["backend/nested/worker.ts"])).toContain("worker");
 				expect(pluginPackage.compiledScripts).toHaveLength(1);
 				expect(pluginPackage.compiledScripts[0]).toMatchObject({
 					format: 1,
 					entry: "backend/main.sandbox.ts",
-					source: expect.stringContaining('Effect.succeed("initial")'),
 				});
 				expect(pluginPackage.compiledScripts[0]?.javascript).toContain("initial");
-				expect(pluginPackage.files["backend/data.json"]).toBeUndefined();
-				expect(pluginPackage.files["backend/ignored.test.ts"]).toBeUndefined();
-				expect(Object.keys(pluginPackage.files)).toEqual([
-					"backend/main.sandbox.ts",
-					"backend/nested/worker.ts",
-					"shared/util.ts",
-					"client/asset.avif",
-					"client/asset.gif",
-					"client/asset.ico",
-					"client/asset.jpeg",
-					"client/asset.jpg",
-					"client/asset.png",
-					"client/asset.wasm",
-					"client/asset.webp",
-					"client/asset.woff2",
-					"client/home.tsx",
-					"client/logo.svg",
-					"client/styles.css",
-				]);
-				expect(pluginPackage.files["client/asset.png"]).toEqual(assetBytes);
-				expect(pluginPackage.files["client/data.json"]).toBeUndefined();
-				expect(pluginPackage.files["client/ignored.PNG"]).toBeUndefined();
-				expect(pluginPackage.files["client/ignored.test.tsx"]).toBeUndefined();
-				expect(decoder.decode(pluginPackage.files["shared/util.ts"])).toContain("sharedLabel");
-				expect(pluginPackage.files["shared/data.json"]).toBeUndefined();
-				expect(pluginPackage.files["shared/ignored.test.ts"]).toBeUndefined();
+				expect(pluginPackage).not.toHaveProperty("files");
+				expect(pluginPackage.compiledScripts[0]).not.toHaveProperty("source");
+				for (const extension of extensions) {
+					const asset = compiledClient?.files.find(({ name }) => name.endsWith(`.${extension}`));
+					const expected = new Uint8Array([...assetBytes, extensions.indexOf(extension)]);
+					expect(asset?.contents, extension).toEqual(expected);
+				}
+				for (const file of compiledClient?.files ?? []) {
+					expect(file.name).not.toMatch(/\.(?:map|tsx?|css\.map)$/);
+					if (file.contentType.startsWith("text/")) {
+						expect(decoder.decode(file.contents)).not.toContain("sourceMappingURL");
+					}
+				}
+				const inlineMap = pluginPackage.compiledScripts[0]?.javascript.match(
+					/sourceMappingURL=data:application\/json;base64,([^\s]+)/,
+				)?.[1];
+				expect(inlineMap).toBeDefined();
+				const map = yield* Schema.decodeEffect(
+					Schema.fromJsonString(
+						Schema.Struct({
+							mappings: Schema.String,
+							sources: Schema.Array(Schema.String),
+							sourcesContent: Schema.optional(Schema.Array(Schema.NullOr(Schema.String))),
+						}),
+					),
+				)(Buffer.from(inlineMap ?? "", "base64").toString("utf-8"));
+				expect(map.sources).toContain("backend/main.sandbox.ts");
+				expect(map.mappings.length).toBeGreaterThan(0);
+				expect(map.sourcesContent).toBeUndefined();
 			}),
 	);
 
@@ -450,14 +503,14 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 			const mainPath = path.join(plugin, "backend", "main.sandbox.ts");
 			yield* fs.writeFileString(
 				path.join(plugin, "backend", "shared.ts"),
-				'export const CONFIG_KEYS = ["alpha"] as const;\n',
+				'export const SCRIPT_SLUG = "main" as const;\n',
 			);
 			const main = yield* fs.readFileString(mainPath);
 			yield* fs.writeFileString(
 				mainPath,
-				`import { CONFIG_KEYS } from "./shared";\n${main.replace(
-					"requiredPluginConfigKeys: []",
-					"requiredPluginConfigKeys: CONFIG_KEYS",
+				`import { SCRIPT_SLUG } from "./shared";\n${main.replace(
+					'slug: "main"',
+					"slug: SCRIPT_SLUG",
 				)}`,
 			);
 
@@ -522,9 +575,9 @@ layer(BunServices.layer, { excludeTestServices: true })("ryot plugin build --wat
 							return false;
 						}
 						const pluginPackage = yield* readPluginArchive(yield* fs.readFile(output));
-						return decoder
-							.decode(pluginPackage.files["backend/main.sandbox.ts"])
-							.includes('"updated"');
+						return pluginPackage.compiledScripts.some(({ javascript }) =>
+							javascript.includes('"updated"'),
+						);
 					}),
 				);
 			}),

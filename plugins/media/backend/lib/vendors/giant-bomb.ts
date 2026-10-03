@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { MediaSandboxError } from "../failures";
@@ -10,13 +10,13 @@ import {
 	type UnknownRecord,
 } from "../records";
 
-export type GiantBombHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
+export type GiantBombHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
 export const BASE_URL = "https://www.giantbomb.com/api";
 export const GUID_PATTERN = /^\d+-\d+$/;
 
 export const getApiKey = (host: GiantBombHost) =>
-	host.getPluginConfig(["giantBombApiKey"]).pipe(
+	host.getPluginConfig({ required: ["giantBombApiKey"] }).pipe(
 		Effect.map(({ giantBombApiKey }) => giantBombApiKey),
 		Effect.mapError((error) => ({
 			...error,

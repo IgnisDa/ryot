@@ -133,7 +133,10 @@ const seedHistory = Layer.effectDiscard(
 							capabilities: [],
 							kind: "automation",
 							slug: "kernel.notify",
+							oauthConnectionFields: [],
+							executableDependencies: [],
 							requiredPluginConfigKeys: [],
+							optionalPluginConfigKeys: [],
 						},
 					});
 			}),

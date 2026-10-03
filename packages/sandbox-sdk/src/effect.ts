@@ -1,4 +1,5 @@
 export {
+	Clock,
 	DateTime,
 	Duration,
 	Effect,

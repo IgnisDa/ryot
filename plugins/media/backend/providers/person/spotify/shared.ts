@@ -16,8 +16,6 @@ export const manifest = defineManifest({
 	name: "Spotify",
 	kind: "provider",
 	slug: "person.spotify",
-	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 const ALBUM_PAGE_LIMIT = 50;

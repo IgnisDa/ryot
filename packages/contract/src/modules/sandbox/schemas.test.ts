@@ -49,13 +49,17 @@ it("rejects legacy automation subjects and retains direct user integration scope
 		decode({
 			type: "user",
 			userId: "user-1",
+			importRunId: "import-run-1",
 			integrationId: "integration-1",
+			integrationRunId: "integration-run-1",
 			accountGeneration: { userId: "user-1", token: "generation-1" },
 		}),
 	).toEqual({
 		type: "user",
 		userId: "user-1",
+		importRunId: "import-run-1",
 		integrationId: "integration-1",
+		integrationRunId: "integration-run-1",
 		accountGeneration: { userId: "user-1", token: "generation-1" },
 	});
 	for (const legacy of [

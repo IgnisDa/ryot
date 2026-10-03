@@ -1,11 +1,11 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest } from "./shared";
 
-type OpenLibraryPersonHost = SandboxHost<typeof manifest.capabilities>;
+type OpenLibraryPersonHost = Pick<ScriptHost, "httpCall">;
 
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });

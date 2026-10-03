@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import type { IngestionIssue } from "@ryot-app/contract/modules/imports/ingestion";
 import { ImportRequestError } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import {
@@ -53,21 +54,24 @@ import {
 
 const LIMIT = 20;
 
-const FAILURE_LIMIT = 25;
-
 const AuthStub = makeAuthStub();
 
 const described = (label: string) => ({ label, description: label });
 
 const hevySource: ImportSourceItem = {
+	plan: null,
 	slug: "hevy",
 	name: "Hevy",
 	isStartable: true,
+	pluginScope: "system",
 	pluginSlug: "fitness",
 	workflowSlug: "import",
+	readinessMetadata: null,
 	missingPluginConfigKeys: [],
 	requiredPluginConfigKeys: [],
+	installationId: "fitness-installation",
 	description: "Import workouts from a Hevy CSV export",
+	readiness: { plan: null, ready: true, blockReasons: [] },
 	exportHelp: { steps: ["Open the Hevy app", "Export your workouts"] },
 	inputSchema: {
 		unknownKeys: "strict",
@@ -83,13 +87,18 @@ const hevySource: ImportSourceItem = {
 };
 
 const traktSource: ImportSourceItem = {
+	plan: null,
 	slug: "trakt",
 	name: "Trakt",
 	isStartable: true,
 	pluginSlug: "media",
+	pluginScope: "system",
 	workflowSlug: "import",
+	readinessMetadata: null,
 	missingPluginConfigKeys: [],
 	requiredPluginConfigKeys: [],
+	installationId: "media-installation",
+	readiness: { plan: null, ready: true, blockReasons: [] },
 	description: "Import watched history from a Trakt profile",
 	inputSchema: {
 		unknownKeys: "strict",
@@ -107,18 +116,46 @@ const lockedSource: ImportSourceItem = {
 	exportHelp: undefined,
 	description: "Import watched history from Plex",
 	missingPluginConfigKeys: ["RYOT_MEDIA_PLEX_TOKEN"],
+	readiness: {
+		plan: null,
+		ready: false,
+		blockReasons: [{ key: "RYOT_MEDIA_PLEX_TOKEN", code: "configuration-required" }],
+	},
+	readinessMetadata: {
+		oauthProviders: [],
+		availableConfigKeys: [],
+		workflows: [{ slug: "import", scriptSlug: "import" }],
+		scripts: [
+			{
+				slug: "import",
+				capabilities: [],
+				oauthConnectionFields: [],
+				executableDependencies: [],
+				optionalPluginConfigKeys: [],
+				requiredPluginConfigKeys: ["RYOT_MEDIA_PLEX_TOKEN"],
+			},
+		],
+	},
 };
 
+const outcomeSummary = (created: number, unsuccessful = 0): ImportRunSummary["summary"] => [
+	{
+		unit: "workouts",
+		recordKind: "workout",
+		counts: { created, updated: 0, skipped: 0, unsuccessful, unchanged: 0 },
+	},
+];
+
 const makeRun = (overrides: Partial<ImportRunSummary> = {}) => ({
-	progress: 100,
-	totalItems: 12,
-	failedItems: 0,
+	activities: [],
 	source: "hevy",
+	blockReasons: [],
 	inputSummary: {},
-	importedItems: 12,
-	processedItems: 12,
+	expiryReason: null,
+	blockDeadline: null,
 	failureReason: null,
 	status: "completed",
+	summary: outcomeSummary(12),
 	id: ImportRunId.make("run_1"),
 	createdAt: "2026-08-23T11:00:00.000Z",
 	updatedAt: "2026-08-23T11:05:00.000Z",
@@ -127,21 +164,6 @@ const makeRun = (overrides: Partial<ImportRunSummary> = {}) => ({
 	...overrides,
 });
 
-const makeFailure = (overrides: Record<string, unknown> = {}) => ({
-	itemIndex: 4,
-	runId: "run_1",
-	id: "failure_1",
-	eventSchemaSlug: null,
-	sourceIdentifier: "row-5",
-	sourceLabel: "Bench Press",
-	entitySchemaSlug: "workout",
-	stage: "input_transformation",
-	createdAt: "2026-08-23T11:01:00.000Z",
-	reason: { code: "input-transformation-failed" },
-	...overrides,
-});
-
-/** Decoded through the real recipes so fixtures cannot drift from the wire shape. */
 const decodeRuns = (runs: readonly unknown[], hasMore = false) =>
 	Result.getOrThrow(
 		manualImportRunsRecipe({ limit: LIMIT }).decode({
@@ -155,23 +177,41 @@ const decodeRuns = (runs: readonly unknown[], hasMore = false) =>
 		}),
 	);
 
-const decodeRun = (runs: readonly unknown[], failures: readonly unknown[] = [], hasMore = false) =>
+const decodeRun = (runs: readonly unknown[]) =>
 	Result.getOrThrow(
-		importRunRecipe({ runId: "run_1", failureLimit: FAILURE_LIMIT }).decode({
-			data: {
-				run: rowsResult(runs, { limit: 2, hasMore: false, nextCursor: null }),
-				failures: rowsResult(failures, {
-					hasMore,
-					limit: FAILURE_LIMIT,
-					nextCursor: hasMore ? "next" : null,
-				}),
-			},
+		importRunRecipe({ runId: "run_1" }).decode({
+			data: { run: rowsResult(runs, { limit: 2, hasMore: false, nextCursor: null }) },
 		}),
 	);
 
-const makeImportSourceQueries = (sources: readonly ImportSourceItem[] | null) =>
+const makeImportSourceQueries = (
+	sources: readonly ImportSourceItem[] | null,
+	issues: readonly IngestionIssue[],
+) =>
 	makeRyotQLApi({
 		execute: (_scope, request) => {
+			if ("issues" in request.payload.queries) {
+				const output = request.payload.queries.issues.output;
+				if (output.type !== "rows") {
+					return Effect.die("Expected issue rows");
+				}
+				const offset = output.pagination.after === undefined ? 0 : 25;
+				const page = issues.slice(offset, offset + output.pagination.limit);
+				const hasMore = offset + page.length < issues.length;
+				return Effect.succeed({
+					data: {
+						issues: {
+							type: "rows" as const,
+							items: page.map((data) => ({ data, id: data.id, runId: "run_1" })),
+							pageInfo: {
+								hasMore,
+								limit: output.pagination.limit,
+								nextCursor: hasMore ? "next-issues" : null,
+							},
+						},
+					},
+				});
+			}
 			if (!("sources" in request.payload.queries)) {
 				return Effect.die("Unexpected RyotQL document");
 			}
@@ -201,6 +241,7 @@ const mountView = (
 	importsApi: Layer.Layer<ImportsApi> = makeImportsApi(),
 	imports: Layer.Layer<ImportsService> = ImportsRouteStubs,
 	sources: readonly ImportSourceItem[] | null = [hevySource],
+	issues: readonly IngestionIssue[] = [],
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -228,7 +269,7 @@ const mountView = (
 			makePluginStorage(),
 			imports,
 			importsApi,
-			makeImportSourceQueries(sources),
+			makeImportSourceQueries(sources, issues),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(makeStorageStubLayer("fixture")),
@@ -255,9 +296,8 @@ describe("import data list", () => {
 							decodeRuns([
 								makeRun(),
 								makeRun({
-									failedItems: 3,
-									importedItems: 9,
 									source: "open_scale",
+									summary: outcomeSummary(9, 3),
 									id: ImportRunId.make("run_2"),
 								}),
 							]),
@@ -268,10 +308,10 @@ describe("import data list", () => {
 			const row = yield* Effect.promise(() =>
 				screen.findByRole("link", { name: /Open the Hevy import from/ }),
 			);
-			expect(row.textContent).toContain("12 added");
+			expect(row.textContent).toContain("12 created");
 			expect(
 				screen.getByRole("link", { name: /Open the Open Scale import from/ }).textContent,
-			).toContain("9 added · 3 failed");
+			).toContain("9 created · 0 updated · 0 unchanged · 0 skipped · 3 unsuccessful");
 
 			fireEvent.click(row);
 			yield* Effect.promise(() =>
@@ -292,11 +332,23 @@ describe("import data list", () => {
 						Effect.succeed(
 							decodeRuns([
 								makeRun({
-									progress: 25,
 									finishedAt: null,
-									importedItems: 3,
 									status: "running",
-									processedItems: 3,
+									summary: outcomeSummary(3),
+									activities: [
+										{
+											id: "read",
+											wait: null,
+											completed: 3,
+											batchId: null,
+											exactTotal: 12,
+											parentId: null,
+											kind: "reading",
+											state: "running",
+											unit: "workouts",
+											lastAdvancedAt: "2026-08-23T11:01:00.000Z",
+										},
+									],
 								}),
 							]),
 						),
@@ -306,9 +358,11 @@ describe("import data list", () => {
 			const card = yield* Effect.promise(() =>
 				screen.findByRole("link", { name: "Open the Hevy import in progress" }),
 			);
-			expect(card.textContent).toContain("3 of 12 read · 3 added · 0 failed");
-			expect(card.textContent).toContain("25%");
-			expect(within(card).getByRole("progressbar").getAttribute("aria-valuetext")).toBe("3 of 12");
+			expect(card.textContent).toContain("3 of 12 workouts");
+			expect(card.textContent).toContain("3 created");
+			expect(within(card).getByRole("progressbar").getAttribute("aria-valuetext")).toBe(
+				"3 of 12 workouts",
+			);
 		}),
 	);
 
@@ -473,9 +527,7 @@ describe("import data list", () => {
 
 			const option = within(dialog).getByRole("button", { name: "Plex is unavailable" });
 			expect(option.hasAttribute("disabled")).toBe(true);
-			expect(
-				within(dialog).getByText("Set RYOT_MEDIA_PLEX_TOKEN on your server to use this."),
-			).not.toBeNull();
+			expect(within(dialog).getByText("Set RYOT_MEDIA_PLEX_TOKEN on your server.")).not.toBeNull();
 		}),
 	);
 
@@ -512,6 +564,48 @@ describe("import data list", () => {
 		}),
 	);
 
+	it.live("returns admission readiness reasons to setup without discarding selected settings", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data",
+				makeImportsApi({
+					createRun: () =>
+						Effect.fail(
+							startFailure({
+								source: "trakt",
+								code: "source-not-ready",
+								blockReasons: [
+									{ key: "CLIENT_ID", code: "configuration-required" },
+									{ key: "account", code: "connection-required" },
+								],
+							}),
+						),
+				}),
+				makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
+				[traktSource],
+			);
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Start an import" })),
+			);
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Import from Trakt" })),
+			);
+			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Username")), {
+				target: { value: "someone" },
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Start import" })),
+			);
+			yield* Effect.promise(() =>
+				screen.findByText("Set CLIENT_ID for this source. Connect account for this account."),
+			);
+			expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Username" }).value).toBe(
+				"someone",
+			);
+		}),
+	);
+
 	it.live("keeps the failure visible when the services cannot be listed", () =>
 		Effect.gen(function* () {
 			mountView(
@@ -535,6 +629,36 @@ describe("import data list", () => {
 });
 
 describe("import run detail", () => {
+	it.live("pages attributed issues separately from the old failure count", () =>
+		Effect.gen(function* () {
+			const issues: IngestionIssue[] = Array.from({ length: 26 }, (_, index) => ({
+				id: `issue-${index}`,
+				recordKind: "workout",
+				operationId: `write-${index}`,
+				severity: index === 0 ? "warning" : "error",
+				reason: { key: "exercise", code: "provider-unavailable" },
+				attribution: {
+					recordId: `row-${index}`,
+					sourceLabel: `Workout ${index}`,
+					sourceIdentifier: `source-${index}`,
+				},
+			}));
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi(),
+				makeImportsStub({ loadRun: () => Effect.succeed(decodeRun([makeRun()])) }),
+				[hevySource],
+				issues,
+			);
+			yield* Effect.promise(() => screen.findByText("Workout 0 · warning"));
+			expect(screen.getByText("Record: row-0 · Source: source-0")).not.toBeNull();
+			expect(screen.queryByText("Workout 25 · error")).toBeNull();
+			fireEvent.click(screen.getByRole("button", { name: "Show more record issues" }));
+			yield* Effect.promise(() => screen.findByText("Workout 25 · error"));
+			expect(screen.getAllByText("Workout 0 · warning")).toHaveLength(1);
+			expect(screen.queryByRole("button", { name: "Show more record issues" })).toBeNull();
+		}),
+	);
 	it.live("retries a failed detail loader through the route error state", () =>
 		Effect.gen(function* () {
 			let loads = 0;
@@ -586,7 +710,7 @@ describe("import run detail", () => {
 		}),
 	);
 
-	it.live("shows the counts and groups what could not be brought over", () =>
+	it.live("shows committed counts and attributed record issues", () =>
 		Effect.gen(function* () {
 			mountView(
 				"/settings/import-data/run_1",
@@ -594,59 +718,62 @@ describe("import run detail", () => {
 				makeImportsStub({
 					loadRun: () =>
 						Effect.succeed(
-							decodeRun(
-								[
-									makeRun({
-										failedItems: 1,
-										importedItems: 11,
-										inputSummary: { fileNames: ["a.csv"] },
-									}),
-								],
-								[makeFailure()],
-							),
+							decodeRun([
+								makeRun({ summary: outcomeSummary(11, 1), inputSummary: { fileNames: ["a.csv"] } }),
+							]),
 						),
 				}),
+				[hevySource],
+				[
+					{
+						id: "issue-1",
+						severity: "error",
+						recordKind: "workout",
+						operationId: "workout-5",
+						reason: { key: null, code: "input-transformation-failed" },
+						attribution: {
+							recordId: "record-5",
+							sourceIdentifier: "row-5",
+							sourceLabel: "Bench Press",
+						},
+					},
+				],
 			);
 
 			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
 			expect(screen.getByText("From a.csv")).not.toBeNull();
-			expect(screen.getByText("11")).not.toBeNull();
-			expect(screen.getByText("Couldn't be read")).not.toBeNull();
-
-			const row = screen.getByRole("button", { name: "Bench Press" });
-			expect(screen.queryByText("row-5")).toBeNull();
-			fireEvent.click(row);
-			expect(screen.getByText("row-5")).not.toBeNull();
+			expect(screen.getByText(/workouts: 11 created/)).not.toBeNull();
+			yield* Effect.promise(() => screen.findByText("Bench Press · error"));
+			expect(screen.getByText("workout · input-transformation-failed")).not.toBeNull();
+			expect(screen.getByText("Record: record-5 · Source: row-5")).not.toBeNull();
 		}),
 	);
 
-	it.live("offers the full failure download when no failures are loaded and retries errors", () =>
+	it.live("downloads issues without an old failure count and retries download errors", () =>
 		Effect.gen(function* () {
 			const downloads: string[] = [];
 			mountView(
 				"/settings/import-data/run_1",
 				makeImportsApi({
-					downloadFailures: (_scope, runId) => {
+					downloadIssues: (_scope, runId) => {
 						downloads.push(runId);
 						return downloads.length === 1
 							? Effect.fail(new AuthenticatedApiError({ cause: 500 }))
 							: Effect.void;
 					},
 				}),
-				makeImportsStub({
-					loadRun: () => Effect.succeed(decodeRun([makeRun({ failedItems: 1 })])),
-				}),
+				makeImportsStub({ loadRun: () => Effect.succeed(decodeRun([makeRun()])) }),
 			);
 
 			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
-			const downloadButton = screen.getByRole("button", { name: "Download errors" });
+			const downloadButton = screen.getByRole("button", { name: "Download issues" });
 			fireEvent.click(downloadButton);
 			yield* Effect.promise(() => screen.findByRole("alert"));
 			expect(screen.getByRole("alert").textContent).toBe(
-				"Could not download these errors. Try again.",
+				"Could not download these issues. Try again.",
 			);
 
-			fireEvent.click(screen.getByRole("button", { name: "Download errors" }));
+			fireEvent.click(screen.getByRole("button", { name: "Download issues" }));
 			yield* Effect.promise(() => waitFor(() => expect(downloads).toEqual(["run_1", "run_1"])));
 			expect(screen.queryByRole("alert")).toBeNull();
 		}),
@@ -700,7 +827,9 @@ describe("import run detail", () => {
 				yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Delete record" })),
 			);
 			const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
-			expect(within(dialog).getByText(/12 items it added stay in your library/)).not.toBeNull();
+			expect(
+				within(dialog).getByText(/All committed changes remain in your library/),
+			).not.toBeNull();
 			fireEvent.click(within(dialog).getByRole("button", { name: "Delete record" }));
 
 			yield* Effect.promise(() => waitFor(() => expect(deleted).toEqual(["run_1"])));
@@ -751,6 +880,61 @@ describe("import run detail", () => {
 					"This keeps running on your server, even if you close Ryot or the server restarts.",
 				),
 			).not.toBeNull();
+		}),
+	);
+
+	it.live("keeps a blocked delivery cancelable with its fixed setup deadline", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRun: () =>
+						Effect.succeed(
+							decodeRun([
+								makeRun({
+									finishedAt: null,
+									status: "blocked",
+									blockDeadline: "2026-08-30T11:00:00.000Z",
+									blockReasons: [{ key: "CLIENT_ID", code: "configuration-required" }],
+								}),
+							]),
+						),
+				}),
+			);
+			yield* Effect.promise(() => screen.findByText("Set CLIENT_ID for this source."));
+			expect(screen.getByText(/The deadline does not extend/)).not.toBeNull();
+			fireEvent.click(screen.getByRole("button", { name: "Import actions" }));
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Cancel import" })),
+			);
+			const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+			expect(
+				within(dialog).getByRole("textbox", { name: 'Type "Cancel this import" to confirm' }),
+			).not.toBeNull();
+			expect(screen.queryByRole("menuitem", { name: "Delete record" })).toBeNull();
+		}),
+	);
+
+	it.live("treats expiry as terminal and offers report deletion instead of cancellation", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRun: () =>
+						Effect.succeed(
+							decodeRun([
+								makeRun({ summary: [], status: "expired", expiryReason: "setup-deadline-expired" }),
+							]),
+						),
+				}),
+			);
+			yield* Effect.promise(() => screen.findByText(/Fix setup, then send a new delivery/));
+			expect(screen.getByText("No outcomes recorded")).not.toBeNull();
+			fireEvent.click(screen.getByRole("button", { name: "Import actions" }));
+			yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Delete record" }));
+			expect(screen.queryByRole("menuitem", { name: "Cancel import" })).toBeNull();
 		}),
 	);
 

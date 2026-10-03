@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import type {
 	ProviderDetailsRelatedEntity,
@@ -9,14 +9,12 @@ import { MediaSandboxError } from "../failures";
 import { getUserAllowNsfw } from "../host";
 import { asRecord, decodeJsonResponse, numberValue, stringValue } from "../records";
 
-export type MyAnimeListHost = SandboxHost<
-	readonly ["httpCall", "getPluginConfig", "getUserSettings"]
->;
+export type MyAnimeListHost = Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getUserSettings">;
 
 const MAL_API_BASE_URL = "https://api.myanimelist.net/v2";
 
 export const getMalClientId = (host: MyAnimeListHost) =>
-	host.getPluginConfig(["malClientId"]).pipe(
+	host.getPluginConfig({ required: ["malClientId"] }).pipe(
 		Effect.map(({ malClientId }) => malClientId),
 		Effect.mapError((error) => ({
 			...error,

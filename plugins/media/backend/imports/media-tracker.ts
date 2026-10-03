@@ -1,32 +1,19 @@
-import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import { getOccurredAtValue, nowIso, parseDateInput } from "./dates";
-import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";
+import { getOccurredAtValue, parseDateInput } from "./dates";
 import {
-	addCollectionMembership,
 	createBacklogEvent,
 	createCompleteEvent,
 	createDroppedEvent,
 	createOnHoldEvent,
 	createProgressEvent,
-	createReviewEvent,
-	finalizeEntityGroups,
-	normalizeLifecycleStatus,
 	toTitleCaseWords,
 } from "./helpers";
-import type { ImportEntityRef, MediaImportAdapterFailure } from "./schemas";
-import {
-	requestSourceJson,
-	sourceApiHost,
-	withSourceRequestOptions,
-	type HttpHost,
-} from "./source-api";
-import { sourceFetchFailure } from "./source-helpers";
+import type { ImportEntityRef } from "./schemas";
 
 const MediaType = Schema.Literals(["audiobook", "book", "movie", "tv", "video_game"]);
-type MediaType = typeof MediaType.Type;
-const Item = Schema.Struct({ id: Schema.Int, mediaType: Schema.optional(MediaType) });
-const List = Schema.Struct({
+export const Item = Schema.Struct({ id: Schema.Int, mediaType: Schema.optional(MediaType) });
+export const List = Schema.Struct({
 	id: Schema.Int,
 	name: Schema.String,
 	description: Schema.optional(Schema.NullOr(Schema.String)),
@@ -47,7 +34,7 @@ const SeenHistory = Schema.Struct({
 	episodeId: Schema.optional(Schema.NullOr(Schema.Int)),
 	date: Schema.optional(Schema.NullOr(Schema.Union([Schema.Finite, Schema.String]))),
 });
-const Details = Schema.Struct({
+export const Details = Schema.Struct({
 	id: Schema.Int,
 	name: Schema.optional(Schema.String),
 	title: Schema.optional(Schema.String),
@@ -76,30 +63,18 @@ const Details = Schema.Struct({
 		),
 	),
 });
-type Details = typeof Details.Type;
-
-const openLibraryKey = (value: string) => {
-	const segments = value.trim().split("/");
-	for (let index = segments.length - 1; index >= 0; index -= 1) {
-		const segment = segments[index]?.trim();
-		if (segment) {
-			return segment;
-		}
-	}
-	return undefined;
-};
-const label = (id: number, type: MediaType, details: Details) =>
+export const label = (id: number, type: typeof MediaType.Type, details: typeof Details.Type) =>
 	details.title ?? details.name ?? `${toTitleCaseWords(type)} ${id}`;
-const fallbackDate = (details: Details, importedAt: string) => {
-	const values = [
-		...details.seenHistory.map(({ date }) => parseDateInput(date)),
+export const fallbackDate = (details: typeof Details.Type, importedAt: string) =>
+	[
+		...details.seenHistory.map((seen) => parseDateInput(seen.date)),
 		parseDateInput(details.userRating?.date),
-	].filter((value): value is string => Boolean(value));
-	return values.sort((a, b) => getOccurredAtValue(b) - getOccurredAtValue(a))[0] ?? importedAt;
-};
-const entityRef = (
-	details: Details,
-	type: MediaType,
+	]
+		.filter((value): value is string => Boolean(value))
+		.sort((left, right) => getOccurredAtValue(right) - getOccurredAtValue(left))[0] ?? importedAt;
+export const entityRef = (
+	details: typeof Details.Type,
+	type: typeof MediaType.Type,
 	sourceLabel: string,
 ): ImportEntityRef | "goodreads" | null => {
 	if (type === "movie" || type === "tv") {
@@ -139,7 +114,11 @@ const entityRef = (
 	if (details.goodreadsId) {
 		return "goodreads";
 	}
-	const id = details.openlibraryId ? openLibraryKey(details.openlibraryId) : undefined;
+	const idSegments = details.openlibraryId?.trim().split("/");
+	let id = idSegments?.pop();
+	while (id === "") {
+		id = idSegments?.pop();
+	}
 	return id
 		? {
 				sourceLabel,
@@ -150,7 +129,7 @@ const entityRef = (
 			}
 		: null;
 };
-const lifecycleEvent = (lifecycle: string, occurredAt: string) => {
+export const lifecycleEvent = (lifecycle: string, occurredAt: string) => {
 	if (lifecycle === "backlog") {
 		return createBacklogEvent(occurredAt);
 	}
@@ -168,204 +147,3 @@ const lifecycleEvent = (lifecycle: string, occurredAt: string) => {
 	}
 	return null;
 };
-
-export const adaptMediaTrackerData = (
-	input: { apiKey: string; apiUrl: string; allowInsecureConnections?: boolean | undefined },
-	host: HttpHost,
-) =>
-	Effect.gen(function* () {
-		const requestHost = withSourceRequestOptions(host, input.allowInsecureConnections);
-		const importedAt = nowIso();
-		const headers = { Accept: "application/json", "access-token": input.apiKey };
-		const baseUrl = input.apiUrl.replace(/\/+$/, "").endsWith("/api")
-			? input.apiUrl
-			: `${input.apiUrl.replace(/\/+$/, "")}/api`;
-		const fetch = (path: string, query?: Record<string, string | number>) =>
-			requestSourceJson(requestHost, {
-				path,
-				headers,
-				baseUrl,
-				...(query === undefined ? {} : { query }),
-			});
-		const user = yield* fetch("user").pipe(
-			Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ id: Schema.Int }))),
-		);
-		const lists = yield* fetch("lists", { userId: user.id }).pipe(
-			Effect.flatMap(Schema.decodeUnknownEffect(Schema.Array(List))),
-		);
-		const failures: MediaImportAdapterFailure[] = [];
-		const groups = new Map<string, ImportMediaEntityGroupBuilder>();
-		const cache = new Map<number, Details>();
-		const getDetails = (id: number) =>
-			Effect.gen(function* () {
-				const cached = cache.get(id);
-				if (cached) {
-					return cached;
-				}
-				const value = yield* fetch(`details/${id}`).pipe(
-					Effect.flatMap(Schema.decodeUnknownEffect(Details)),
-				);
-				cache.set(id, value);
-				return value;
-			});
-		let itemIndex = 0;
-		const normalize = (item: typeof Item.Type, details: Details, currentIndex: number) => {
-			if (!item.mediaType) {
-				failures.push({
-					itemIndex: currentIndex,
-					stage: "input_transformation",
-					sourceIdentifier: String(item.id),
-					message: "MediaTracker item has no media type",
-				});
-				return null;
-			}
-			const sourceLabel = label(item.id, item.mediaType, details);
-			const ref = entityRef(details, item.mediaType, sourceLabel);
-			if (ref === "goodreads") {
-				failures.push({
-					sourceLabel,
-					itemIndex: currentIndex,
-					stage: "input_transformation",
-					sourceIdentifier: String(item.id),
-					message: "MediaTracker book uses an unsupported Goodreads identifier",
-				});
-				return null;
-			}
-			if (!ref) {
-				failures.push({
-					sourceLabel,
-					itemIndex: currentIndex,
-					stage: "input_transformation",
-					sourceIdentifier: String(item.id),
-					message: `MediaTracker ${item.mediaType} item is missing a supported provider identifier`,
-				});
-				return null;
-			}
-			return { ref, sourceLabel, mediaType: item.mediaType };
-		};
-		for (const list of lists) {
-			const listItems = yield* fetch("list/items", { listId: list.id }).pipe(
-				Effect.flatMap(
-					Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ mediaItem: Item }))),
-				),
-				Effect.result,
-			);
-			if (Result.isFailure(listItems)) {
-				failures.push(
-					sourceFetchFailure({
-						itemIndex,
-						sourceLabel: list.name,
-						sourceIdentifier: String(list.id),
-						host: sourceApiHost(input.apiUrl),
-						message: "Failed to fetch MediaTracker list items",
-					}),
-				);
-				continue;
-			}
-			for (const { mediaItem } of listItems.success) {
-				const currentIndex = itemIndex++;
-				const details = yield* getDetails(mediaItem.id).pipe(Effect.result);
-				if (Result.isFailure(details)) {
-					failures.push(
-						sourceFetchFailure({
-							sourceLabel: list.name,
-							itemIndex: currentIndex,
-							host: sourceApiHost(input.apiUrl),
-							sourceIdentifier: String(mediaItem.id),
-							message: "Failed to fetch MediaTracker item details",
-						}),
-					);
-					continue;
-				}
-				const normalized = normalize(mediaItem, details.success, currentIndex);
-				if (!normalized) {
-					continue;
-				}
-				const group = getOrCreateMediaEntityGroup(groups, normalized.ref, currentIndex);
-				const lifecycle = normalizeLifecycleStatus(list.name);
-				if (lifecycle) {
-					const event = lifecycleEvent(lifecycle, fallbackDate(details.success, importedAt));
-					if (event) {
-						group.events.push(event);
-					}
-				} else {
-					addCollectionMembership(group, list.name);
-				}
-			}
-		}
-		const seenItems = yield* fetch("items").pipe(
-			Effect.flatMap(Schema.decodeUnknownEffect(Schema.Array(Item))),
-		);
-		for (const item of seenItems) {
-			const currentIndex = itemIndex++;
-			const details = yield* getDetails(item.id).pipe(Effect.result);
-			if (Result.isFailure(details)) {
-				failures.push(
-					sourceFetchFailure({
-						itemIndex: currentIndex,
-						sourceIdentifier: String(item.id),
-						host: sourceApiHost(input.apiUrl),
-						message: "Failed to fetch MediaTracker item details",
-					}),
-				);
-				continue;
-			}
-			const normalized = normalize(item, details.success, currentIndex);
-			if (!normalized) {
-				continue;
-			}
-			const group = getOrCreateMediaEntityGroup(groups, normalized.ref, currentIndex);
-			if (normalized.mediaType === "tv") {
-				for (const seen of details.success.seenHistory) {
-					const occurredAt = parseDateInput(seen.date);
-					if (!occurredAt || !seen.episodeId) {
-						continue;
-					}
-					const episode = details.success.seasons
-						.flatMap(({ episodes }) => episodes)
-						.find(({ id }) => id === seen.episodeId);
-					if (!episode) {
-						failures.push({
-							itemIndex: currentIndex,
-							stage: "input_transformation",
-							sourceIdentifier: String(item.id),
-							sourceLabel: normalized.sourceLabel,
-							message: "MediaTracker show history item is missing episode coverage",
-						});
-						continue;
-					}
-					group.events.push({
-						occurredAt,
-						eventSchemaSlug: "progress",
-						properties: { progressPercent: 100 },
-						unresolvedEpisode: {
-							type: "show",
-							seasonNumber: episode.seasonNumber,
-							episodeNumber: episode.episodeNumber,
-						},
-					});
-				}
-			} else {
-				for (const seen of details.success.seenHistory) {
-					const occurredAt = parseDateInput(seen.date);
-					if (occurredAt) {
-						group.events.push(createCompleteEvent({ occurredAt, completedOn: occurredAt }));
-					}
-				}
-			}
-			const review = createReviewEvent({
-				text: details.success.userRating?.review ?? null,
-				occurredAt:
-					parseDateInput(details.success.userRating?.date) ??
-					fallbackDate(details.success, importedAt),
-				rating:
-					typeof details.success.userRating?.rating === "number"
-						? Math.round(Math.min(details.success.userRating.rating * 20, 100) * 100) / 100
-						: null,
-			});
-			if (review) {
-				group.events.push(review);
-			}
-		}
-		return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()) };
-	});

@@ -7,8 +7,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "IGDB Company Search",
 	slug: "company.igdb.search",
-	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
-	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
 export default defineProvider({ manifest, run: search.run, operation: "search" });

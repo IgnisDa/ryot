@@ -18,6 +18,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import type { ChangeUserRelationshipBatch } from "@ryot-app/sandbox-sdk/core";
 import { sql } from "drizzle-orm";
@@ -45,14 +46,34 @@ import {
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
+import {
+	ingestionTestRevision,
+	ingestionTestSource,
+} from "#modules/imports/ingestion.test-support";
+import type { ImportSourceExecutionSettings } from "#modules/imports/runtime/source-state";
+import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
+import { ImportRunError } from "#modules/imports/runtime/workflow-errors";
 import { IntegrationsRepository, type IntegrationRecord } from "#modules/integrations/repository";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
+import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
 import { makeAdditionalSandboxApiFunctions, toSandboxCreateEventsResult } from "./host-functions";
+
+const userSettingsSchema = {
+	unknownKeys: "strict",
+	fields: {
+		timezone: {
+			type: "string",
+			label: "Timezone",
+			description: "Timezone used by import normalization",
+		},
+	},
+} as const;
 
 const seededDatabase = Layer.effectDiscard(
 	Effect.gen(function* () {
@@ -112,7 +133,7 @@ const ownedIntegration = (input: GetForUserInput): IntegrationRecord => ({
 	id: input.integrationId,
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
-	pluginInstallationId: "example-installation",
+	pluginInstallationId: "installation-1",
 	extraSettings: { disableOnContinuousErrors: false },
 	providerSpecifics: {
 		kind: "lambda_yank",
@@ -269,6 +290,9 @@ class HostFunctionCalls extends Context.Service<
 		readonly createdRelationships: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly deletedRelationships: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly integrationLookups: Effect.Effect<ReadonlyArray<GetForUserInput>>;
+		readonly sourceStateLookups: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly installationLookups: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly lookupOrder: Effect.Effect<ReadonlyArray<string>>;
 		readonly oauthTokenRequests: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly useDefinitions: (source: DefinitionSource) => Effect.Effect<void>;
 	}
@@ -285,6 +309,11 @@ const hostFunctionsLayer = (
 		readonly integration?: (input: GetForUserInput) => Effect.Effect<IntegrationRecord | null>;
 		readonly pluginConfig?: PluginRuntimeResolver["Service"]["resolvePluginConfigContext"];
 		readonly oauthAccessToken?: OAuthConnectionsService["Service"]["accessTokenForIntegrationRun"];
+		readonly executionSettings?: (runId: string) => ImportSourceExecutionSettings;
+		readonly liveUserSettings?: Record<string, JsonValue> | (() => Record<string, JsonValue>);
+		readonly sourceStateUnavailable?: boolean;
+		readonly sourceStateRunId?: string;
+		readonly installationUnavailable?: boolean;
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -296,6 +325,9 @@ const hostFunctionsLayer = (
 			const createdRelationships = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const deletedRelationships = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const integrationLookups = yield* Ref.make<ReadonlyArray<GetForUserInput>>([]);
+			const sourceStateLookups = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const installationLookups = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const lookupOrder = yield* Ref.make<ReadonlyArray<string>>([]);
 			const oauthTokenRequests = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const snapshot = yield* Ref.make(
 				buildDefinitionSnapshot(options.definitions ?? kernelDefinitionSource()),
@@ -307,11 +339,14 @@ const hostFunctionsLayer = (
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({}),
 				Layer.succeed(HostFunctionCalls, {
+					lookupOrder: Ref.get(lookupOrder),
 					ensuredEntities: Ref.get(ensuredEntities),
 					ryotqlUserCalls: Ref.get(ryotqlUserCalls),
 					ryotqlPluginCalls: Ref.get(ryotqlPluginCalls),
 					integrationLookups: Ref.get(integrationLookups),
+					sourceStateLookups: Ref.get(sourceStateLookups),
 					oauthTokenRequests: Ref.get(oauthTokenRequests),
+					installationLookups: Ref.get(installationLookups),
 					pluginConfigLookups: Ref.get(pluginConfigLookups),
 					createdRelationships: Ref.get(createdRelationships),
 					deletedRelationships: Ref.get(deletedRelationships),
@@ -326,9 +361,60 @@ const hostFunctionsLayer = (
 				}),
 				Layer.mock(IntegrationsRepository)({
 					getForUser: (input) =>
-						append(integrationLookups, input).pipe(
+						append(lookupOrder, "integration").pipe(
+							Effect.andThen(append(integrationLookups, input)),
 							Effect.andThen(
 								options.integration ? options.integration(input) : Effect.die("unused"),
+							),
+						),
+				}),
+				Layer.mock(ImportSourceStateStore)({
+					load: (scope) =>
+						append(lookupOrder, "source-state").pipe(
+							Effect.andThen(append(sourceStateLookups, scope)),
+							Effect.andThen(
+								Effect.suspend(() => {
+									if (
+										options.sourceStateUnavailable ||
+										(options.sourceStateRunId !== undefined &&
+											scope.runId !== options.sourceStateRunId)
+									) {
+										return Effect.fail(
+											new ImportRunError({ message: "Admitted source state is unavailable" }),
+										);
+									}
+									const { namedArtifactPaths: _namedArtifactPaths, ...source } =
+										ingestionTestSource;
+									return Effect.succeed({
+										...source,
+										files: {},
+										pluginRevision: ingestionTestRevision,
+										sourcePayload: { ...source.sourcePayload, integrationId: "int-trusted" },
+										executionSettings: options.executionSettings?.(scope.runId) ?? {
+											userSettings: {},
+										},
+									});
+								}),
+							),
+						),
+				}),
+				Layer.mock(PluginInstallationRepository)({
+					findUserSettingsForRevision: (input) =>
+						append(lookupOrder, "installation").pipe(
+							Effect.andThen(append(installationLookups, input)),
+							Effect.andThen(() =>
+								Effect.succeed(
+									options.installationUnavailable
+										? null
+										: {
+												installationId: "installation-1",
+												manifest: { ...fixtureManifest(), userSettingsSchema },
+												userSettings:
+													typeof options.liveUserSettings === "function"
+														? options.liveUserSettings()
+														: (options.liveUserSettings ?? { timezone: "UTC" }),
+											},
+								),
 							),
 						),
 				}),
@@ -523,7 +609,14 @@ const runGetOAuthAccessToken = (
 		Effect.flatMap((functions) =>
 			Effect.result(
 				functions.getOAuthAccessToken(
-					runInput(subject, SANDBOX_HOST_CAPABILITIES, principalFacts),
+					runInput(subject, SANDBOX_HOST_CAPABILITIES, {
+						...principalFacts,
+						metadata: {
+							oauthConnectionFields: ["account"],
+							capabilities: SANDBOX_HOST_CAPABILITIES,
+							...principalFacts.metadata,
+						},
+					}),
 					{ field: "account" },
 				),
 			),
@@ -571,7 +664,6 @@ describe("getOAuthAccessToken", () => {
 			Effect.gen(function* () {
 				const cases = [
 					{
-						message: "getOAuthAccessToken is available only to integration run executions",
 						subject: {
 							type: "user",
 							userId: UserId.make("user-1"),
@@ -582,25 +674,25 @@ describe("getOAuthAccessToken", () => {
 							},
 						} satisfies SandboxExecutionSubject,
 					},
+					{ subject: integrationRunSubject, principalFacts: { pluginRevision: null } },
 					{
-						subject: integrationRunSubject,
-						principalFacts: { pluginRevision: null },
-						message: "getOAuthAccessToken is available only to integration run executions",
-					},
-					{
-						message: "getOAuthAccessToken is available only to user executions",
 						subject: automationSubject({
 							kind: "integration",
 							integrationId: IntegrationId.make("int-trusted"),
 						}),
 					},
 				];
-				for (const { message, subject, principalFacts } of cases) {
+				for (const { subject, principalFacts } of cases) {
 					const result = yield* runGetOAuthAccessToken(
 						subject,
 						principalFacts ?? { pluginRevision: systemPluginRevision },
 					);
-					expect(Result.getFailure(result)).toEqual(Option.some({ message }));
+					const failure = Option.getOrThrow(Result.getFailure(result));
+					expect(failure.message).toContain("available only");
+					expect(failure.data).toEqual({
+						code: "unavailable-operation",
+						operation: "getOAuthAccessToken",
+					});
 				}
 				expect(yield* (yield* HostFunctionCalls).oauthTokenRequests).toEqual([]);
 			}),
@@ -675,12 +767,12 @@ describe("getCurrentIntegration", () => {
 						Effect.gen(function* () {
 							const result = yield* runGetCurrentIntegration(subject);
 
-							expect(Result.getFailure(result)).toEqual(
-								Option.some({
-									message:
-										"getCurrentIntegration is available only to executions scoped to an integration",
-								}),
-							);
+							const failure = Option.getOrThrow(Result.getFailure(result));
+							expect(failure.message).toContain("available only");
+							expect(failure.data).toEqual({
+								code: "unavailable-operation",
+								operation: "getCurrentIntegration",
+							});
 						}),
 				),
 			);
@@ -703,6 +795,304 @@ describe("getCurrentIntegration", () => {
 			}),
 		);
 	});
+
+	const selectedSettings = {
+		minimumProgress: 10,
+		maximumProgress: 80,
+		syncOwnership: false,
+		providerSpecifics: { filter: "movie", provider: "tmdb", kind: "lambda_yank" },
+	};
+	const changedSettings = {
+		syncOwnership: true,
+		minimumProgress: 20,
+		maximumProgress: 90,
+		providerSpecifics: { filter: "show", provider: "tvdb", kind: "lambda_yank" },
+	};
+	let liveIntegrationSettings = {
+		minimumProgress: 1,
+		maximumProgress: 99,
+		syncOwnership: false,
+		providerSpecifics: { filter: "live", provider: "live", kind: "lambda_yank" },
+	};
+	layer(
+		hostFunctionsLayer({
+			integration: (input) =>
+				Effect.succeed({ ...ownedIntegration(input), ...liveIntegrationSettings }),
+			executionSettings: (runId) => ({
+				userSettings: {},
+				integration: runId === "run-1" ? selectedSettings : changedSettings,
+			}),
+		}),
+	)((test) => {
+		test.effect(
+			"uses the admitted integration settings while later runs use their own snapshot",
+			() =>
+				Effect.gen(function* () {
+					const functions = yield* makeAdditionalSandboxApiFunctions;
+					const userId = UserId.make("user-1");
+					const integrationId = IntegrationId.make("int-trusted");
+					const readForRun = (runId: string) =>
+						functions.getCurrentIntegration({
+							...runInput(
+								{
+									userId,
+									type: "user",
+									integrationId,
+									integrationRunId: ImportRunId.make(runId),
+									accountGeneration: { userId, token: "test-account-generation" },
+								},
+								SANDBOX_HOST_CAPABILITIES,
+								{ pluginRevision: ingestionTestRevision },
+							),
+							executionId: `${runId}-import`,
+						});
+					const firstRead = yield* readForRun("run-1");
+					liveIntegrationSettings = {
+						syncOwnership: true,
+						minimumProgress: 30,
+						maximumProgress: 70,
+						providerSpecifics: { provider: "tvdb", filter: "changed", kind: "lambda_yank" },
+					};
+					const activeRun = yield* readForRun("run-1");
+					const nextRun = yield* readForRun("run-2");
+
+					expect(firstRead.providerSpecifics).toEqual({
+						filter: "movie",
+						provider: "tmdb",
+						kind: "lambda_yank",
+					});
+					expect(activeRun.providerSpecifics).toEqual({
+						filter: "movie",
+						provider: "tmdb",
+						kind: "lambda_yank",
+					});
+					expect(activeRun.minimumProgress).toBe(10);
+					expect(activeRun.maximumProgress).toBe(80);
+					expect(activeRun.syncOwnership).toBe(false);
+					expect(nextRun.providerSpecifics).toEqual({
+						filter: "show",
+						provider: "tvdb",
+						kind: "lambda_yank",
+					});
+					expect(nextRun.minimumProgress).toBe(20);
+					expect(nextRun.maximumProgress).toBe(90);
+					expect(nextRun.syncOwnership).toBe(true);
+					expect(yield* (yield* HostFunctionCalls).sourceStateLookups).toEqual(
+						["run-1", "run-1", "run-2"].map((runId) => ({
+							runId,
+							userId,
+							accountGeneration: { userId, token: "test-account-generation" },
+						})),
+					);
+					expect(yield* (yield* HostFunctionCalls).lookupOrder).toEqual(
+						Array.from({ length: 3 }, () => ["integration", "source-state"]).flat(),
+					);
+				}),
+		);
+	});
+});
+
+describe("getUserSettings", () => {
+	layer(hostFunctionsLayer({ liveUserSettings: { timezone: "UTC" } }))((test) => {
+		test.effect("keeps non-ingestion settings live", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const userId = UserId.make("user-1");
+				expect(
+					yield* functions.getUserSettings({
+						...runInput(
+							{
+								userId,
+								type: "user",
+								accountGeneration: { userId, token: "test-account-generation" },
+							},
+							["getUserSettings"],
+							{ pluginRevision: systemPluginRevision },
+						),
+						context: { runId: "run-1" },
+						executionId: "run-1-import",
+					}),
+				).toEqual({ timezone: "UTC" });
+			}),
+		);
+	});
+	let liveUserSettings: Record<string, JsonValue> = { timezone: "UTC" };
+	layer(
+		hostFunctionsLayer({
+			liveUserSettings: () => liveUserSettings,
+			executionSettings: (runId) => ({
+				userSettings: { timezone: runId === "run-1" ? "America/Los_Angeles" : "Asia/Tokyo" },
+			}),
+		}),
+	)((test) => {
+		test.effect("uses the accepted timezone for child and durable host executions", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const userId = UserId.make("user-1");
+				const readForRun = (runId: string, executionId: string, context: Record<string, unknown>) =>
+					functions.getUserSettings({
+						...runInput(
+							{
+								userId,
+								type: "user",
+								importRunId: ImportRunId.make(runId),
+								accountGeneration: { userId, token: "test-account-generation" },
+							},
+							["getUserSettings"],
+							{ pluginRevision: ingestionTestRevision },
+						),
+						context,
+						executionId,
+					});
+				expect(yield* readForRun("run-1", "run-1-import-child-collect-0", {})).toEqual({
+					timezone: "America/Los_Angeles",
+				});
+				liveUserSettings = { timezone: "Europe/Paris" };
+				expect(yield* readForRun("run-1", "run-1-import-host-1", { runId: "forged-run" })).toEqual({
+					timezone: "America/Los_Angeles",
+				});
+				expect(
+					yield* readForRun("run-2", "run-2-import-child-collect-0", { runId: "run-1" }),
+				).toEqual({ timezone: "Asia/Tokyo" });
+				expect(yield* (yield* HostFunctionCalls).sourceStateLookups).toEqual(
+					["run-1", "run-1", "run-2"].map((runId) => ({
+						runId,
+						userId,
+						accountGeneration: { userId, token: "test-account-generation" },
+					})),
+				);
+				expect(yield* (yield* HostFunctionCalls).installationLookups).toMatchObject(
+					[0, 1, 2].map(() => ({ userId, pluginId: "plugin-1", pluginRevisionId: "revision-1" })),
+				);
+				expect(yield* (yield* HostFunctionCalls).lookupOrder).toEqual(
+					Array.from({ length: 3 }, () => ["installation", "source-state"]).flat(),
+				);
+			}),
+		);
+	});
+	layer(hostFunctionsLayer())((test) => {
+		test.effect("rejects admitted settings from a different pinned plugin", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const userId = UserId.make("user-1");
+				const result = yield* Effect.result(
+					functions.getUserSettings({
+						...runInput(
+							{
+								userId,
+								type: "user",
+								importRunId: ImportRunId.make("run-1"),
+								accountGeneration: { userId, token: "test-account-generation" },
+							},
+							["getUserSettings"],
+							{ pluginRevision: systemPluginRevision },
+						),
+						context: { runId: "forged-run" },
+						executionId: "run-1-import-host-1",
+					}),
+				);
+
+				expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
+					"Admitted ingestion execution settings are unavailable",
+				);
+			}),
+		);
+	});
+	layer(hostFunctionsLayer({ installationUnavailable: true }))((test) => {
+		test.effect("rejects admitted settings after the live installation is deleted", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const userId = UserId.make("user-1");
+				const result = yield* Effect.result(
+					functions.getUserSettings({
+						...runInput(
+							{
+								userId,
+								type: "user",
+								importRunId: ImportRunId.make("run-1"),
+								accountGeneration: { userId, token: "test-account-generation" },
+							},
+							["getUserSettings"],
+							{ pluginRevision: ingestionTestRevision },
+						),
+						executionId: "run-1-import-host-1",
+					}),
+				);
+
+				expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
+					"Plugin installation not found",
+				);
+			}),
+		);
+	});
+	layer(hostFunctionsLayer({ sourceStateRunId: "run-1" }))((test) => {
+		test.effect("rejects a run ID that does not own the accepted settings snapshot", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const userId = UserId.make("user-1");
+				const result = yield* Effect.result(
+					functions.getUserSettings({
+						...runInput(
+							{
+								userId,
+								type: "user",
+								importRunId: ImportRunId.make("different-run"),
+								accountGeneration: { userId, token: "test-account-generation" },
+							},
+							["getUserSettings"],
+							{ pluginRevision: ingestionTestRevision },
+						),
+						context: { runId: "run-1" },
+						executionId: "run-1-import-host-1",
+					}),
+				);
+
+				expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
+					"Admitted ingestion execution settings are unavailable",
+				);
+				expect(yield* (yield* HostFunctionCalls).sourceStateLookups).toEqual([
+					{
+						userId,
+						runId: "different-run",
+						accountGeneration: { userId, token: "test-account-generation" },
+					},
+				]);
+			}),
+		);
+	});
+	layer(hostFunctionsLayer({ sourceStateUnavailable: true }))((test) => {
+		test.effect("does not fall back to live settings for an admitted import", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalSandboxApiFunctions;
+				const userId = UserId.make("user-1");
+				const result = yield* Effect.result(
+					functions.getUserSettings({
+						...runInput(
+							{
+								userId,
+								type: "user",
+								importRunId: ImportRunId.make("run-1"),
+								accountGeneration: { userId, token: "test-account-generation" },
+							},
+							["getUserSettings"],
+							{ pluginRevision: ingestionTestRevision },
+						),
+						context: { runId: "forged-run" },
+						executionId: "run-1-import-host-1",
+					}),
+				);
+				expect(Option.getOrThrow(Result.getFailure(result)).message).toBe(
+					"Admitted ingestion execution settings are unavailable",
+				);
+				expect(yield* (yield* HostFunctionCalls).installationLookups).toHaveLength(1);
+				expect(yield* (yield* HostFunctionCalls).sourceStateLookups).toHaveLength(1);
+				expect(yield* (yield* HostFunctionCalls).lookupOrder).toEqual([
+					"installation",
+					"source-state",
+				]);
+			}),
+		);
+	});
 });
 
 const pluginConfigSchema = {
@@ -721,7 +1111,7 @@ const runGetPluginConfig = (principalFacts: Partial<SandboxExecutionPrincipal>) 
 						...principalFacts,
 						metadata: { capabilities: ["getPluginConfig"], requiredPluginConfigKeys: ["apiToken"] },
 					}),
-					["apiToken"],
+					{ required: ["apiToken"] },
 				),
 			),
 		),
@@ -745,15 +1135,32 @@ describe("getPluginConfig", () => {
 		},
 	);
 
+	layer(hostFunctionsLayer({ pluginConfig: () => Effect.succeed({}) }))((test) => {
+		test.effect("returns a boundary reason for missing required configuration", () =>
+			Effect.gen(function* () {
+				const result = yield* runGetPluginConfig({
+					pluginRevision: { ...systemPluginRevision, configSchema: pluginConfigSchema },
+				});
+				const failure = Option.getOrThrow(Result.getFailure(result));
+
+				expect(failure.message).toContain("not configured");
+				expect(failure.data).toEqual({ keys: ["apiToken"], code: "missing-required-config" });
+			}),
+		);
+	});
+
 	layer(hostFunctionsLayer({ pluginConfig: () => Effect.die("must not resolve unpinned config") }))(
 		(test) => {
 			test.effect("rejects config access before resolving without a trusted pin", () =>
 				Effect.gen(function* () {
 					const result = yield* runGetPluginConfig({});
 
-					expect(Result.getFailure(result)).toEqual(
-						Option.some({ message: "Plugin config is available only to active plugin scripts" }),
-					);
+					const failure = Option.getOrThrow(Result.getFailure(result));
+					expect(failure.message).toContain("active plugin scripts");
+					expect(failure.data).toEqual({
+						operation: "getPluginConfig",
+						code: "unavailable-operation",
+					});
 				}),
 			);
 		},
@@ -851,11 +1258,9 @@ describe("executeRyotql", () => {
 					},
 				});
 
-				expect(Result.getFailure(result)).toEqual(
-					Option.some({
-						message: "executeRyotql system access requires a pinned system plugin script",
-					}),
-				);
+				const failure = Option.getOrThrow(Result.getFailure(result));
+				expect(failure.message).toContain("pinned system plugin script");
+				expect(failure.data).toEqual({ operation: "executeRyotql", code: "unavailable-operation" });
 				expect(yield* (yield* HostFunctionCalls).ryotqlPluginCalls).toEqual([]);
 			}),
 		);
@@ -1039,11 +1444,12 @@ describe("changeUserRelationships", () => {
 					[{ creates: [], deletes: overflow }],
 				);
 
-				expect(Result.getFailure(system)).toEqual(
-					Option.some({
-						message: "changeUserRelationships is not available for system executions",
-					}),
-				);
+				const systemFailure = Option.getOrThrow(Result.getFailure(system));
+				expect(systemFailure.message).toContain("not available for system executions");
+				expect(systemFailure.data).toEqual({
+					code: "unavailable-operation",
+					operation: "changeUserRelationships",
+				});
 				expect(Result.getFailure(tooMany)).toEqual(
 					Option.some({ message: "changeUserRelationships exceeds 500 changes" }),
 				);
@@ -1165,17 +1571,18 @@ describe("ensureUserEntities", () => {
 					},
 				});
 
-				expect(Result.getFailure(delegated)).toEqual(
-					Option.some({ message: "ensureUserEntities is available only to user executions" }),
-				);
-				expect(Result.getFailure(system)).toEqual(
-					Option.some({ message: "ensureUserEntities is not available for system executions" }),
-				);
-				expect(Result.getFailure(untrusted)).toEqual(
-					Option.some({
-						message: "ensureUserEntities is available only to pinned system user bootstrap scripts",
-					}),
-				);
+				for (const [result, message] of [
+					[delegated, "available only to user executions"],
+					[system, "not available for system executions"],
+					[untrusted, "available only to pinned system user bootstrap scripts"],
+				] as const) {
+					const failure = Option.getOrThrow(Result.getFailure(result));
+					expect(failure.message).toContain(message);
+					expect(failure.data).toEqual({
+						code: "unavailable-operation",
+						operation: "ensureUserEntities",
+					});
+				}
 				expect(Result.getFailure(foreign)).toEqual(
 					Option.some({
 						message: "ensureUserEntities cannot write foreign entity schema: workspace",
@@ -1220,11 +1627,12 @@ describe("ensureUserEntities", () => {
 					},
 				});
 
-				expect(Result.getFailure(declared)).toEqual(
-					Option.some({
-						message: "ensureUserEntities is available only to pinned system user bootstrap scripts",
-					}),
-				);
+				const failure = Option.getOrThrow(Result.getFailure(declared));
+				expect(failure.message).toContain("available only to pinned system user bootstrap scripts");
+				expect(failure.data).toEqual({
+					code: "unavailable-operation",
+					operation: "ensureUserEntities",
+				});
 			}),
 		);
 	});

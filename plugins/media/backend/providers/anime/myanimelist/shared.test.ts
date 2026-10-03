@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -7,7 +7,7 @@ import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
 
-type MyAnimeListAnimeHost = SandboxHost<typeof manifest.capabilities>;
+type MyAnimeListAnimeHost = Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getUserSettings">;
 
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
@@ -16,7 +16,7 @@ const makeHost = (httpCall: MyAnimeListAnimeHost["httpCall"], allowNsfw = false)
 	defineSandboxTestHost(manifest, {
 		httpCall,
 		getUserSettings: () => Effect.succeed({ allowNsfw }),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"]))),
 	});
 
@@ -39,7 +39,7 @@ describe("anime.myanimelist sandbox script", () => {
 		const configKeys: string[] = [];
 		const host = defineSandboxTestHost(manifest, {
 			getUserSettings: () => Effect.succeed({ allowNsfw: false }),
-			getPluginConfig: (keys) => {
+			getPluginConfig: ({ required: keys = [] }) => {
 				configKeys.push(...keys);
 				return Effect.succeed(Object.fromEntries(keys.map((key) => [key, "client-id"])));
 			},

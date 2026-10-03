@@ -29,7 +29,6 @@ const packageWithSources = (slug: string, version = "v1") => {
 				slug: `${slug}-${name}`,
 				description: "Import source",
 				workflowSlug: `${slug}-flow`,
-				requiredPluginConfigKeys: [],
 				inputSchema: { fields: {}, unknownKeys: "strict" as const },
 			})),
 		},

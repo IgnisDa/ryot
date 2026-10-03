@@ -16,7 +16,6 @@ import {
 	index,
 	integer,
 	jsonb,
-	primaryKey,
 	smallint,
 	snakeCase,
 	text,
@@ -123,18 +122,6 @@ export const pluginRevision = snakeCase.table(
 	],
 );
 
-export const pluginRevisionSourceFile = snakeCase.table(
-	"plugin_revision_source_file",
-	{
-		path: text().notNull(),
-		contents: bytea().notNull(),
-		pluginRevisionId: text()
-			.notNull()
-			.references(() => pluginRevision.id, { onDelete: "cascade" }),
-	},
-	(table) => [primaryKey({ columns: [table.pluginRevisionId, table.path] })],
-);
-
 export const pluginInstallation = snakeCase.table(
 	"plugin_installation",
 	{
@@ -143,6 +130,7 @@ export const pluginInstallation = snakeCase.table(
 		sortOrder: integer().notNull().default(0),
 		isHidden: boolean().notNull().default(false),
 		uninstalledAt: timestamp({ withTimezone: true }),
+		ingestionRetiring: boolean().notNull().default(false),
 		configuredSecretPaths: text().array().notNull().default([]),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		clientConfig: jsonb().$type<Record<string, JsonValue>>().notNull().default({}),

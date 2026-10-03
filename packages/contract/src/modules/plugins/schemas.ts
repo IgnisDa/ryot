@@ -45,7 +45,6 @@ const PluginPackageArchiveIssue = Schema.Literals([
 	"encrypted-entry",
 	"directory-entry",
 	"duplicate-entry",
-	"source-non-utf8",
 	"manifest-invalid",
 	"unexpected-entry",
 	"missing-manifest",
@@ -53,7 +52,6 @@ const PluginPackageArchiveIssue = Schema.Literals([
 	"duplicate-manifest",
 	"path-bytes-exceeded",
 	"entry-count-exceeded",
-	"source-bytes-exceeded",
 	"unsupported-compression",
 	"manifest-bytes-exceeded",
 	"compressed-bytes-exceeded",
@@ -99,10 +97,6 @@ const PluginRequestFailureReason = Schema.Union([
 	Schema.Struct({
 		code: Schema.Literal("compilation-failed"),
 		diagnostics: Schema.Array(PluginCompilerDiagnostic),
-	}),
-	Schema.Struct({
-		code: Schema.Literal("package-limit-exceeded"),
-		limit: Schema.Literals(["file-count", "total-bytes", "script-count"]),
 	}),
 	Schema.Struct({
 		surfaces: Schema.Array(Schema.String),

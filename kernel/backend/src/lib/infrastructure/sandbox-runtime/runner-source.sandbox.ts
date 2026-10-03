@@ -1,4 +1,5 @@
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
+import { Clock, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import {
 	createLogCollector,
@@ -8,6 +9,7 @@ import {
 	isRecord,
 	readBridgeResponse,
 	type SandboxLogCollector,
+	type SandboxRunnerError,
 	type SandboxRunnerPayload,
 	throwPhase,
 	validateLimits,
@@ -40,6 +42,8 @@ nativeError.stackTraceLimit = Infinity;
 const createDictionary = Object.create;
 const nativeString = globalThis.String;
 const readFile = Deno.readFile.bind(Deno);
+const openFile = Deno.open.bind(Deno);
+const statFile = Deno.stat.bind(Deno);
 const nativeFunction = globalThis.Function;
 const reflectConstruct = Reflect.construct;
 const writeFile = Deno.writeFile.bind(Deno);
@@ -62,6 +66,7 @@ const jsonStringify = JSON.stringify.bind(JSON);
 const bridgeFetch = globalThis.fetch.bind(globalThis);
 const exitDeno: (code?: number) => never = Deno.exit.bind(Deno);
 const getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
+const hasOwn = Object.hasOwn;
 const performanceNow = performance.now.bind(performance);
 const filesystemKey = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
 const generatorFunction = Object.getPrototypeOf(function* () {}).constructor as Function;
@@ -112,9 +117,48 @@ const installFilesystem = (payload: SandboxRunnerPayload) => {
 		enumerable: false,
 		configurable: true,
 		value: {
+			readArtifactRange: async (offset: number, length: number, key?: string) => {
+				if (
+					!Number.isSafeInteger(offset) ||
+					offset < 0 ||
+					!Number.isSafeInteger(length) ||
+					length < 1 ||
+					length > 1024 * 1024
+				) {
+					throw new nativeError(
+						"Artifact range requires a nonnegative offset and 1..1048576 bytes",
+					);
+				}
+				const target =
+					key === undefined
+						? artifactPath
+						: namedArtifactPaths && hasOwn(namedArtifactPaths, key)
+							? namedArtifactPaths[key]
+							: undefined;
+				if (!target) {
+					throw missingArtifactGrant("Sandbox artifact grant is unavailable", "readArtifactRange");
+				}
+				const { size } = await statFile(target);
+				const file = await openFile(target, { read: true });
+				try {
+					await file.seek(offset, 0);
+					const bytes = new nativeUint8Array(Math.min(length, Math.max(0, size - offset)));
+					let read = 0;
+					while (read < bytes.length) {
+						const count = await file.read(bytes.subarray(read));
+						if (count === null) break;
+						read += count;
+					}
+					return { bytes: bytes.subarray(0, read), size };
+				} finally {
+					file.close();
+				}
+			},
 			readArtifact: () => {
 				if (!artifactPath) {
-					return Promise.reject(new nativeError("Sandbox artifact grant is unavailable"));
+					return Promise.reject(
+						missingArtifactGrant("Sandbox artifact grant is unavailable", "readArtifact"),
+					);
 				}
 				return readFile(artifactPath);
 			},
@@ -122,14 +166,17 @@ const installFilesystem = (payload: SandboxRunnerPayload) => {
 				const namedArtifactPath = namedArtifactPaths?.[key];
 				if (!namedArtifactPath) {
 					return Promise.reject(
-						new nativeError(`Sandbox named artifact grant "${key}" is unavailable`),
+						missingArtifactGrant(
+							`Sandbox named artifact grant "${key}" is unavailable`,
+							"readNamedArtifact",
+						),
 					);
 				}
 				return readFile(namedArtifactPath);
 			},
 			writeScratchChunks: async (chunks: unknown) => {
 				if (!scratchDirectory) {
-					throw new nativeError("Sandbox scratch grant is unavailable");
+					throw missingArtifactGrant("Sandbox scratch grant is unavailable", "writeScratchChunks");
 				}
 				if (!arrayIsArray(chunks)) {
 					throw new nativeError("Sandbox scratch chunks must be an array");
@@ -401,7 +448,14 @@ const writeStdoutAllSync = (bytes: Uint8Array) => {
 	}
 };
 
-const hostFailure = (error: string) => ({ error, success: false as const });
+const hostFailure = (error: string, data?: unknown) => ({
+	error,
+	success: false as const,
+	...(data === undefined ? {} : { data }),
+});
+
+const missingArtifactGrant = (message: string, operation: string) =>
+	Object.assign(new nativeError(message), { data: { code: "missing-artifact-grant", operation } });
 
 const PHASE_FAILURE_KINDS: Record<string, string> = {
 	load: "missing-artifact",
@@ -429,10 +483,16 @@ const transportHostCall =
 			budget.http += 1;
 		}
 		if (budget.total > payload.limits.hostCallCount) {
-			return hostFailure(payload.limits.hostCallLimitMessage);
+			return hostFailure(payload.limits.hostCallLimitMessage, {
+				operation: fnName,
+				code: "execution-limit",
+			});
 		}
 		if (budget.http > payload.limits.httpCallCount) {
-			return hostFailure(payload.limits.httpCallLimitMessage);
+			return hostFailure(payload.limits.httpCallLimitMessage, {
+				operation: fnName,
+				code: "execution-limit",
+			});
 		}
 
 		let requestBody: string;
@@ -616,7 +676,7 @@ const durableResult = (
 	return Effect.fail(new nativeError("Recorded sandbox durable result is invalid"));
 };
 
-const createDurableHost = async (definition: SandboxDefinition, payload: SandboxRunnerPayload) => {
+const createDurableHost = async (payload: SandboxRunnerPayload) => {
 	const transportHost = createHost(payload);
 	const bootstrap = transportHost.replayJournal;
 	if (typeof bootstrap !== "function") {
@@ -669,9 +729,15 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 			budget.http += 1;
 		}
 		return budget.total > payload.limits.hostCallCount
-			? payload.limits.hostCallLimitMessage
+			? {
+					message: payload.limits.hostCallLimitMessage,
+					reason: { operation: capability, code: "execution-limit" },
+				}
 			: budget.http > payload.limits.httpCallCount
-				? payload.limits.httpCallLimitMessage
+				? {
+						message: payload.limits.httpCallLimitMessage,
+						reason: { operation: capability, code: "execution-limit" },
+					}
 				: undefined;
 	};
 	const register = (
@@ -708,8 +774,8 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 		});
 	};
 	const host: Record<string, unknown> = createDictionary(null);
-	const capabilities = arrayIsArray(definition.manifest.capabilities)
-		? definition.manifest.capabilities
+	const capabilities = arrayIsArray(payload.metadata?.capabilities)
+		? payload.metadata.capabilities
 		: [];
 	for (let index = 0; index < capabilities.length; index += 1) {
 		const capability = capabilities[index];
@@ -729,7 +795,7 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 		host[capability] = (...args: unknown[]) => {
 			const budgetError = consumeBudget(capability);
 			if (budgetError) {
-				return Effect.fail({ message: budgetError });
+				return Effect.fail({ message: budgetError.message, data: budgetError.reason });
 			}
 			const index = requests.length;
 			const call = register(
@@ -746,7 +812,10 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 	}
 	host.executeWorkflow = (name: unknown, reference: unknown, input: unknown) => {
 		if (typeof name !== "string" || name.length === 0 || !isDurableWorkflowReference(reference)) {
-			return Effect.fail({ message: "executeWorkflow requires a name and workflow reference" });
+			return Effect.fail({
+				data: { operation: "executeWorkflow", code: "invalid-executable-target" },
+				message: "executeWorkflow requires a name and workflow reference",
+			});
 		}
 		const decoded = Schema.decodeUnknownResult(reference.input)(input);
 		if (decoded._tag === "Failure") {
@@ -756,7 +825,7 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 		}
 		const budgetError = consumeBudget("executeWorkflow");
 		if (budgetError) {
-			return Effect.fail({ message: budgetError });
+			return Effect.fail({ message: budgetError.message, data: budgetError.reason });
 		}
 		const index = requests.length;
 		return register(
@@ -821,41 +890,24 @@ const writeSuccess = async (
 
 const writeFailure = async (
 	logs: readonly string[],
-	error: {
-		kind: string;
-		phase: string;
-		message: string;
-		line?: number;
-		column?: number;
-		stack?: string;
-	},
+	error: SandboxRunnerError,
 	executionMs: number,
 ) => {
-	const serializedError = `{"kind":${jsonStringify(error.kind)},"phase":${jsonStringify(error.phase)},"message":${jsonStringify(error.message)}${error.line === undefined ? "" : `,"line":${error.line}`}${error.column === undefined ? "" : `,"column":${error.column}`}${error.stack === undefined ? "" : `,"stack":${jsonStringify(error.stack)}`}}`;
+	const serializedError = `{"kind":${jsonStringify(error.kind)},"phase":${jsonStringify(error.phase)},"message":${jsonStringify(error.message)}${error.data === undefined ? "" : `,"data":${jsonStringify(error.data)}`}${error.line === undefined ? "" : `,"line":${error.line}`}${error.column === undefined ? "" : `,"column":${error.column}`}${error.stack === undefined ? "" : `,"stack":${jsonStringify(error.stack)}`}}`;
 	const result = `{"success":false,"logs":${serializeLogs(logs)},"error":${serializedError},"timing":{"executionMs":${executionMs}}}\n`;
 	await writeStdout(encodeText(result));
-};
-
-const stringArraysMatch = (left: unknown, right: unknown) => {
-	if (!arrayIsArray(left) || !arrayIsArray(right) || left.length !== right.length) {
-		return false;
-	}
-	for (let index = 0; index < left.length; index += 1) {
-		if (typeof left[index] !== "string" || left[index] !== right[index]) {
-			return false;
-		}
-	}
-	return true;
 };
 
 const manifestsMatch = (left: unknown, right: unknown) =>
 	isRecord(left) &&
 	isRecord(right) &&
+	!hasOwn(left, "capabilities") &&
 	left.kind === right.kind &&
 	left.name === right.name &&
 	left.slug === right.slug &&
-	stringArraysMatch(left.capabilities, right.capabilities) &&
-	stringArraysMatch(left.requiredPluginConfigKeys, right.requiredPluginConfigKeys);
+	["automationType", "inputProjection", "searchOptionsSchema"].every(
+		(key) => stableJson(left[key]) === stableJson(right[key]),
+	);
 
 const importCompiledModule = async (
 	payload: SandboxRunnerPayload,
@@ -919,7 +971,7 @@ const executeDefinition = async (
 	setPhase("execute");
 	const durable =
 		typeof payload.workflowExecutionId === "string" && definition.manifest.kind !== "workflow"
-			? await createDurableHost(definition, payload)
+			? await createDurableHost(payload)
 			: undefined;
 	const host = durable?.host ?? createHost(payload);
 	let result: unknown;
@@ -933,9 +985,24 @@ const executeDefinition = async (
 			return throwPhase("execute", "Sandbox definition must return an Effect");
 		}
 		const outcome = await Effect.runPromise(
-			Effect.match(execution, {
-				onFailure: (error) => ({ error, success: false as const }),
-				onSuccess: (value) => ({ value, success: true as const }),
+			Effect.gen(function* () {
+				const clock = yield* Clock.Clock;
+				const millis = nativeDate.parse(payload.startedAt);
+				const nanos = BigInt(millis) * 1_000_000n;
+				return yield* Effect.match(execution, {
+					onFailure: (error) => ({ error, success: false as const }),
+					onSuccess: (value) => ({ value, success: true as const }),
+				}).pipe(
+					Effect.provideService(Clock.Clock, {
+						sleep: (duration) => clock.sleep(duration),
+						currentTimeMillis: Effect.succeed(millis),
+						currentTimeNanos: Effect.succeed(nanos),
+						monotonicTimeNanos: clock.monotonicTimeNanos,
+						currentTimeMillisUnsafe: () => millis,
+						currentTimeNanosUnsafe: () => nanos,
+						monotonicTimeNanosUnsafe: () => clock.monotonicTimeNanosUnsafe(),
+					}),
+				);
 			}),
 		);
 		if (durable) {
@@ -1049,6 +1116,16 @@ void (async () => {
 			let value: unknown;
 			try {
 				const compiledModule = await importCompiledModule(payload);
+				const persistedMetadata = payload.metadata;
+				if (!isRecord(persistedMetadata))
+					return throwPhase("load", "Compiled sandbox dependencies are missing");
+				await Schema.decodeUnknownPromise(SandboxExecutionMetadata)({
+					capabilities: persistedMetadata.capabilities,
+					requiredPluginConfigKeys: persistedMetadata.requiredPluginConfigKeys,
+					optionalPluginConfigKeys: persistedMetadata.optionalPluginConfigKeys,
+					executableDependencies: persistedMetadata.executableDependencies,
+					oauthConnectionFields: persistedMetadata.oauthConnectionFields,
+				});
 				value = await executeDefinition(compiledModule.default, payload, (nextPhase) => {
 					phase = nextPhase;
 				});

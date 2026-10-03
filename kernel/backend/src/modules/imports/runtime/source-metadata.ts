@@ -3,6 +3,7 @@ import {
 	isImportUploadTokenField,
 	type CreateImportRunBody,
 } from "@ryot-app/contract/modules/imports/schemas";
+import { evaluateIngestionReadiness } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
@@ -81,16 +82,23 @@ export const registryImportSourceFileInputs = (
 			: [];
 	});
 
-export const registryImportSourceMissingConfigKeys = (source: RegisteredImportSource) => {
-	if (source.pluginScope !== "system") {
-		return source.configContext.pluginConfigRevisionId === null
-			? [...source.requiredPluginConfigKeys]
-			: [];
-	}
-	return source.requiredPluginConfigKeys
-		.filter((key) => !source.configuredPluginConfigKeys.includes(key))
-		.map((key) => pluginConfigEnvironmentKey(source.pluginSlug, key));
-};
+export const registryImportSourceReadiness = (
+	source: RegisteredImportSource,
+	settings?: Readonly<Record<string, unknown>>,
+) =>
+	evaluateIngestionReadiness({
+		settings,
+		kind: "workflow",
+		sourcePlan: source.plan,
+		operation: source.workflowSlug,
+		metadata: source.readinessMetadata,
+		settingsSchema: source.inputSchema,
+	});
+
+export const registryImportSourceMissingConfigKeys = (source: RegisteredImportSource) =>
+	registryImportSourceReadiness(source).blockReasons.map(({ key }) =>
+		source.pluginScope === "system" ? pluginConfigEnvironmentKey(source.pluginSlug, key) : key,
+	);
 
 export const buildImportSourcePayload = (
 	properties: Readonly<Record<string, unknown>>,

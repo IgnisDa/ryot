@@ -1,5 +1,5 @@
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { JsonPrimitive, SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
+import type { JsonPrimitive } from "@ryot-app/contract/modules/sandbox/wire";
 
 export type SandboxSourceIdentity = { readonly name: string; readonly slug: string };
 
@@ -11,8 +11,6 @@ type ScriptModuleSourceInput = SandboxSourceIdentity & {
 	readonly filesystemImport?: boolean;
 	readonly sdkImports?: readonly string[];
 	readonly ryotqlImports?: readonly string[];
-	readonly requiredPluginConfigKeys?: readonly string[];
-	readonly capabilities: readonly SandboxHostCapability[];
 };
 
 const scriptModuleSource = (input: ScriptModuleSourceInput) => {
@@ -42,8 +40,6 @@ export const manifest = defineManifest({
   kind: "script",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
-  capabilities: ${JSON.stringify(input.capabilities)},
-  requiredPluginConfigKeys: ${JSON.stringify(input.requiredPluginConfigKeys ?? [])},
 });
 
 ${input.declarations ?? ""}
@@ -62,7 +58,6 @@ export function literalSandboxSource(
 ) {
 	return scriptModuleSource({
 		...input,
-		capabilities: [],
 		inputSchema: "Schema.Struct({})",
 		outputSchema: `Schema.Literal(${JSON.stringify(input.value)})`,
 		run: `() => Effect.succeed(${JSON.stringify(input.value)} as const)`,
@@ -72,7 +67,6 @@ export function literalSandboxSource(
 export function processFailureSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		capabilities: [],
 		inputSchema: "Schema.Struct({})",
 		outputSchema: "Schema.Literal(true)",
 		run: `() => {
@@ -88,7 +82,6 @@ export function processFailureSandboxSource(input: SandboxSourceIdentity) {
 export function observabilitySandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["log", "span"],
 		inputSchema: "Schema.Struct({})",
 		outputSchema: "Schema.Literal(true)",
 		run: `(_input, host) => Effect.gen(function* () {
@@ -126,7 +119,6 @@ export function httpCallSandboxSource(
 ) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["httpCall"],
 		inputSchema: "Schema.Struct({})",
 		sdkImports: ["httpCallResultSchema"],
 		outputSchema: "httpCallResultSchema",
@@ -141,7 +133,6 @@ export function httpCallFailureSandboxSource(
 ) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["httpCall"],
 		inputSchema: "Schema.Struct({})",
 		sdkImports: ["httpCallResultSchema"],
 		outputSchema: "httpCallResultSchema",
@@ -161,7 +152,6 @@ export function ryotqlSandboxSource(
 ) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["executeRyotql"],
 		inputSchema: "Schema.Struct({})",
 		sdkImports: ["ryotqlDocumentSchema"],
 		outputSchema: "Schema.Array(Schema.Unknown)",
@@ -195,7 +185,6 @@ export function systemRyotqlProbeSandboxSource(
 		...input,
 		inputSchema: "Schema.Struct({})",
 		sdkImports: ["ryotqlDocumentSchema"],
-		capabilities: ["executeRyotql", "upsertGlobalEntities"],
 		outputSchema: "Schema.Struct({ count: Schema.Number })",
 		declarations: `const queryName = ${JSON.stringify(input.queryName)};
 const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
@@ -227,7 +216,6 @@ const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringif
 export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["executeRyotql"],
 		sdkImports: ["entityRecordSchema"],
 		outputSchema: "Schema.Array(entityRecordSchema)",
 		ryotqlImports: ["entityReadRecipe", "executeRyotqlRecipe"],
@@ -243,7 +231,6 @@ export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
 export function eventRowsSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["executeRyotql"],
 		outputSchema: "Schema.Array(Schema.Unknown)",
 		ryotqlImports: ["eventReadRecipe", "executeRyotqlRecipe"],
 		inputSchema:
@@ -259,7 +246,6 @@ export function eventRowsSandboxSource(input: SandboxSourceIdentity) {
 export function entitySchemasSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["getEntitySchemas"],
 		sdkImports: ["entitySchemaRecordSchema"],
 		outputSchema: "Schema.Array(entitySchemaRecordSchema)",
 		run: "(input, host) => host.getEntitySchemas(input.slugs)",
@@ -270,7 +256,6 @@ export function entitySchemasSandboxSource(input: SandboxSourceIdentity) {
 export function eventSchemasSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["listEventSchemas"],
 		sdkImports: ["eventSchemaRecordSchema"],
 		outputSchema: "Schema.Array(eventSchemaRecordSchema)",
 		run: "(input, host) => host.listEventSchemas(input.slugs)",
@@ -281,17 +266,15 @@ export function eventSchemasSandboxSource(input: SandboxSourceIdentity) {
 export function pluginConfigSandboxSource(
 	input: SandboxSourceIdentity & {
 		readonly keys: readonly string[];
-		readonly requiredPluginConfigKeys?: readonly string[];
+		readonly optionalKeys?: readonly string[];
 	},
 ) {
 	return scriptModuleSource({
 		...input,
 		sdkImports: ["jsonValueSchema"],
 		inputSchema: "Schema.Struct({})",
-		capabilities: ["getPluginConfig"],
 		outputSchema: "Schema.Record(Schema.String, jsonValueSchema)",
-		requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? input.keys,
-		run: `(_input, host) => host.getPluginConfig(${JSON.stringify(input.keys)})`,
+		run: `(_input, host) => host.getPluginConfig({ required: ${JSON.stringify(input.keys)}, optional: ${JSON.stringify(input.optionalKeys ?? [])} })`,
 	});
 }
 
@@ -299,7 +282,6 @@ export function userPreferencesSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
 		inputSchema: "Schema.Struct({})",
-		capabilities: ["getUserPreferences"],
 		outputSchema: "userPreferencesSchema",
 		sdkImports: ["userPreferencesSchema"],
 		run: "(_input, host) => host.getUserPreferences()",
@@ -312,7 +294,6 @@ export function scratchEntryLimitSandboxSource(
 	return scriptModuleSource({
 		...input,
 		filesystemImport: true,
-		capabilities: ["scratch"],
 		inputSchema: "Schema.Struct({})",
 		outputSchema: "Schema.Struct({ chunkFiles: Schema.Array(Schema.String) })",
 		run: `() => writeScratchChunks(Array.from({ length: ${input.chunkCount} }, (_, index) => ({
@@ -325,7 +306,6 @@ export function scratchEntryLimitSandboxSource(
 export function throwingSandboxSource(input: SandboxSourceIdentity & { readonly message: string }) {
 	return scriptModuleSource({
 		...input,
-		capabilities: [],
 		outputSchema: "Schema.Unknown",
 		inputSchema: "Schema.Struct({})",
 		run: `() => Effect.sync(() => { throw new Error(${JSON.stringify(input.message)}); })`,
@@ -346,7 +326,6 @@ export function deepThrowingSandboxSource(
 
 	return scriptModuleSource({
 		...input,
-		capabilities: [],
 		outputSchema: "Schema.Unknown",
 		inputSchema: "Schema.Struct({})",
 		run: `() => Effect.sync(() => {
@@ -359,7 +338,6 @@ export function deepThrowingSandboxSource(
 export function runtimeManifestMismatchSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		capabilities: [],
 		inputSchema: "Schema.Struct({})",
 		outputSchema: "Schema.Literal(true)",
 		run: "() => Effect.succeed(true as const)",
@@ -390,7 +368,6 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 		return scriptModuleSource({
 			...input,
 			inputSchema: "Schema.Struct({})",
-			capabilities: ["claimPersistentValue"],
 			sdkImports: ["claimPersistentValueResultSchema"],
 			outputSchema: "claimPersistentValueResultSchema",
 			run: `(_input, host) => host.claimPersistentValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds}).pipe(
@@ -404,7 +381,6 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 			...input,
 			outputSchema: "getCachedValueResultSchema",
 			sdkImports: ["getCachedValueResultSchema"],
-			capabilities: ["setCachedValue", "getCachedValue"],
 			inputSchema: 'Schema.Struct({ operation: Schema.Literal("get", "set") })',
 			run: `(input, host) => Effect.gen(function* () {
     if (input.operation === "set") {
@@ -420,7 +396,6 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 		return scriptModuleSource({
 			...input,
 			inputSchema: "Schema.Struct({})",
-			capabilities: ["getCachedValue"],
 			sdkImports: ["getCachedValueResultSchema"],
 			outputSchema: "getCachedValueResultSchema",
 			run: `(_input, host) => host.getCachedValue(${JSON.stringify(input.key)}).pipe(
@@ -433,7 +408,6 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 		return scriptModuleSource({
 			...input,
 			inputSchema: "Schema.Struct({})",
-			capabilities: ["setCachedValue"],
 			sdkImports: ["setCachedValueResultSchema"],
 			outputSchema: "setCachedValueResultSchema",
 			run: `(_input, host) => host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds}).pipe(
@@ -447,7 +421,6 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 		inputSchema: "Schema.Struct({})",
 		outputSchema: "getCachedValueResultSchema",
 		sdkImports: ["getCachedValueResultSchema"],
-		capabilities: ["setCachedValue", "getCachedValue"],
 		run: `(_input, host) => Effect.gen(function* () {
     yield* host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds});
     const data = yield* host.getCachedValue(${JSON.stringify(input.key)});
@@ -464,8 +437,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
-  capabilities: [],
-  requiredPluginConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -490,8 +461,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
-  capabilities: ["getCurrentIntegration", "listIntegrations"],
-  requiredPluginConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -523,8 +492,6 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",
-  capabilities: ["getPluginConfig"],
-  requiredPluginConfigKeys: [${configKey}],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
 });
@@ -534,7 +501,7 @@ export default defineOperation({
   input: Schema.Struct({ prefix: Schema.String }),
   output: Schema.Struct({ label: Schema.String }),
   run: (input, host) => Effect.gen(function* () {
-    const config = yield* host.getPluginConfig([${configKey}]);
+    const config = yield* host.getPluginConfig({ required: [${configKey}] });
     const value = String(config[${configKey}]);
     return { label: input.prefix + ":" + (${input.transform ?? "value"}) };
   }),

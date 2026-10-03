@@ -21,7 +21,18 @@ export const EventCreateWorkflowPayload = Schema.Struct({
 	userId: UserId,
 	command: LifecycleCommand,
 	payload: Schema.Array(CreateEventItem),
-});
+	itemIdentities: Schema.optional(Schema.Array(Schema.NonEmptyString)),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(input) =>
+				input.itemIdentities === undefined ||
+				(input.itemIdentities.length === input.payload.length &&
+					new Set(input.itemIdentities).size === input.itemIdentities.length) ||
+				"Event operation identities must be unique and match the event payload",
+		),
+	),
+);
 export type EventCreateWorkflowPayload = typeof EventCreateWorkflowPayload.Type;
 
 export const EventCreateWorkflow = Workflow.make("EventCreateWorkflow", {

@@ -1,4 +1,5 @@
 import { SandboxFailureKind, SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
@@ -37,6 +38,7 @@ import {
 	type SandboxReplayOutcome,
 } from "#lib/infrastructure/runtime-metrics";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
+import { isDeclaredExecutableCall } from "#lib/infrastructure/sandbox-runtime/executable-dependencies";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
 import {
@@ -63,10 +65,7 @@ import {
 	SandboxExecutionResult as SandboxExecutionResultSchema,
 	type SandboxExecutionResult,
 } from "./execution-result";
-import {
-	KernelWorkflowReferences,
-	KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
-} from "./kernel-workflow-references";
+import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import {
@@ -188,6 +187,7 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 				payload: SandboxScriptWorkflowPayloadValue,
 				executionId: string,
 				expectedPluginId?: string,
+				retain?: (principal: SandboxExecutionPrincipal) => Effect.Effect<void, SandboxRunError>,
 			) {
 				return yield* database
 					.transaction(
@@ -281,6 +281,9 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 								contentHash: pinned.contentHash,
 								pluginRevision: pinned.pluginRevision,
 							} satisfies SandboxExecutionPrincipal;
+							if (retain) {
+								yield* retain(principal);
+							}
 							const registrationStatus = principal.pluginRevision
 								? (yield* references.registerInTransaction({
 										executionId,
@@ -420,6 +423,7 @@ const observeWorkflowReplay = Effect.fnUntraced(function* (
 	journal: ReadonlyArray<WorkflowReplayJournalEntry>,
 	inline: ReadonlyArray<WorkflowReplayJournalEntry>,
 	pluginRevision: SandboxExecutionPrincipal["pluginRevision"],
+	metadata: SandboxExecutionPrincipal["metadata"],
 	step: number,
 ) {
 	const envelope = yield* Schema.decodeUnknownEffect(workflowReplayEnvelopeSchema)(
@@ -434,6 +438,14 @@ const observeWorkflowReplay = Effect.fnUntraced(function* (
 	);
 	// The activity pins targets; the current envelope must be checked on every body activation.
 	const validated = yield* validateWorkflowReplayEnvelope(envelope, journal, inline);
+	for (const request of envelope.requests) {
+		if (!isDeclaredExecutableCall(metadata, request)) {
+			return yield* sandboxFailure(
+				"script-failure",
+				"Executable target is not declared by this script",
+			);
+		}
+	}
 	const observed = yield* makeActivity({
 		error: SandboxRunError,
 		success: ObservedWorkflowReplay,
@@ -775,15 +787,17 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			yield* projectWorkflowJournal(executionId, journal);
 			const replayExecutionId = `${executionId}-replay-${step}`;
 			replayStartedAt = yield* Clock.currentTimeMillis;
-			const replay = yield* processReplay({
-				context: payload.input,
-				startedAt: pin.startedAt,
-				principal: pin.principal,
-				journalLength: journal.length,
-				executionId: replayExecutionId,
-				workflowExecutionId: executionId,
-				...(payload.grants ? { grants: payload.grants } : {}),
-			});
+			const replay = yield* Effect.scoped(
+				processReplay({
+					context: payload.input,
+					startedAt: pin.startedAt,
+					principal: pin.principal,
+					journalLength: journal.length,
+					executionId: replayExecutionId,
+					workflowExecutionId: executionId,
+					...(payload.grants ? { grants: payload.grants } : {}),
+				}),
+			);
 			yield* Effect.forEach(
 				replay.logs,
 				(message) =>
@@ -807,6 +821,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				journal,
 				replay.inline,
 				pin.principal.pluginRevision,
+				pin.principal.metadata,
 				step,
 			);
 			if (journal.length + replay.inline.length > SANDBOX_WORKFLOW_MAX_STEPS) {

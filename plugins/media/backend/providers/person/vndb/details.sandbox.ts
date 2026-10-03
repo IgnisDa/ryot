@@ -5,10 +5,8 @@ import { details } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "VNDB Person Details",
 	slug: "person.vndb.details",
-	requiredPluginConfigKeys: [],
 });
 
 export default defineProvider({ manifest, run: details.run, operation: "details" });

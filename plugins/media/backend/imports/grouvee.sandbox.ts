@@ -1,25 +1,21 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
+import { collectMediaCsv } from "./collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
 import { adaptGrouveeCsv } from "./grouvee";
-import { batchMediaImportResult } from "./helpers";
-import { MediaImportAdapterBatch, MediaImportParserInput } from "./schemas";
-import { readImportArtifactText } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.grouvee",
 	name: "Parse Grouvee import",
-	requiredPluginConfigKeys: [],
-	capabilities: ["artifact-read"],
 });
 
 export default defineScript({
 	manifest,
-	input: MediaImportParserInput,
-	output: MediaImportAdapterBatch,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input) =>
-		readImportArtifactText.pipe(
-			Effect.map((text) => batchMediaImportResult(adaptGrouveeCsv(text), input.start, input.limit)),
+		collectMediaCsv("grouvee", input, (text, eventOffset) =>
+			adaptGrouveeCsv(text, input.importedAt, eventOffset, 128),
 		),
 });

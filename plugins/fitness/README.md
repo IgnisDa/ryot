@@ -17,6 +17,14 @@ through RyotQL scoping, and `userId` identifies their origin. Omitting a target 
 Authenticated entity and relationship create operations support manual additions; provider taxonomy
 migration remains pending.
 
+## Imports
+
+Fitness imports append history and cannot be reversed. A separate import can duplicate existing
+activity. Run reports count workouts or measurements in their source-owned units, not internal
+chunks. Activities describe source reading, exercise resolution, and writing separately from actual
+created, updated, unchanged, skipped, or unsuccessful outcomes. Active recovery retains inputs and
+execution pins until terminal cleanup; cancelling keeps committed results.
+
 ## Automations
 
 `fitness.ensure-fitness-library-membership` is a required, user-scoped after hook on exercise

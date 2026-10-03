@@ -21,7 +21,7 @@ import type { MediaImportAdapterFailure } from "./schemas";
 
 const sanitizeListName = (value: string) => value.replace(/\s*\(#\d+\)\s*$/, "").trim();
 
-export const adaptHardcoverCsv = (csvText: string) => {
+export const adaptHardcoverCsv = (csvText: string, importedAt = nowIso()) => {
 	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Title", "Status", "Hardcover Book ID"], "Hardcover");
 	const failures: MediaImportAdapterFailure[] = [];
@@ -64,7 +64,7 @@ export const adaptHardcoverCsv = (csvText: string) => {
 			parseDateTime(row["Review Date"] ?? "", ["YYYY-MM-DDTHH:mm:ss[Z]", "YYYY-MM-DDTHH:mm:ssZ"]) ??
 			completedOn ??
 			startedOn ??
-			nowIso();
+			importedAt;
 		const lifecycleStatus = normalizeLifecycleStatus(row["Status"] ?? "");
 		const occurredAt = completedOn ?? startedOn ?? reviewOccurredAt;
 		if (lifecycleStatus === "complete" || completedOn) {

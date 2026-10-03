@@ -5,9 +5,7 @@ import { search } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
 	name: "MangaUpdates Search",
-	requiredPluginConfigKeys: [],
 	slug: "manga.manga-updates.search",
 });
 

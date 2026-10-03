@@ -1,3 +1,4 @@
+import { sourcePlanConfigKeys } from "@ryot-app/contract/modules/plugins/execution";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { and, column, eq, literal, table } from "@ryot-app/ryotql";
 
@@ -108,6 +109,7 @@ export const revisionDefinitions = (
 	),
 	importSources: manifest.importSources.map((source) => ({
 		...source,
+		requiredPluginConfigKeys: sourcePlanConfigKeys(manifest, source),
 		workflowScriptSlug:
 			manifest.workflows.find(({ slug }) => slug === source.workflowSlug)?.scriptSlug ?? null,
 	})),

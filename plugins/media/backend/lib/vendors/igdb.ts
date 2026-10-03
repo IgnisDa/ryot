@@ -1,11 +1,12 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 import { MediaSandboxError } from "../failures";
 import { asRecord, decodeJsonResponse, numberValue, stringValue } from "../records";
 
-export type IgdbHost = SandboxHost<
-	readonly ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"]
+export type IgdbHost = Pick<
+	ScriptHost,
+	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
 >;
 
 const BASE_URL = "https://api.igdb.com/v4";
@@ -25,7 +26,7 @@ const asCachedToken = (value: unknown): CachedToken | null => {
 };
 
 export const getCredentials = (host: IgdbHost) =>
-	host.getPluginConfig(["twitchClientId", "twitchClientSecret"]).pipe(
+	host.getPluginConfig({ required: ["twitchClientId", "twitchClientSecret"] }).pipe(
 		Effect.mapError((error) => ({
 			...error,
 			message: error.message || "Failed to retrieve Twitch credentials",
