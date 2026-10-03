@@ -72,23 +72,6 @@ fn compiled_plugin_script(plugin: &str, slug: &str) -> (String, Value) {
     (source, Value::Object(metadata))
 }
 
-fn runner_limits() -> Value {
-    json!({
-        "resultBytes": 4 * 1024 * 1024,
-        "hostCallCount": 1_000,
-        "httpCallCount": 50,
-        "logEntryBytes": 8 * 1024,
-        "logEntryCount": 500,
-        "logTotalBytes": 256 * 1024,
-        "bridgeRequestBytes": 1024 * 1024,
-        "bridgeResponseBytes": 10 * 1024 * 1024,
-        "durableBridgeResponseBytes": 101 * 1024 * 1024,
-        "logTruncationMarker": "[sandbox logs truncated]",
-        "hostCallLimitMessage": "Sandbox execution exceeds 1000 host calls",
-        "httpCallLimitMessage": "Sandbox execution exceeds 50 httpCall calls",
-    })
-}
-
 fn definition_invocation(metadata: Value, context: Value, execution_id: &str) -> Value {
     let api_functions = metadata["capabilities"].clone();
     json!({
@@ -98,7 +81,6 @@ fn definition_invocation(metadata: Value, context: Value, execution_id: &str) ->
         "metadata": metadata,
         "compiledFormat": 1,
         "mode": "definition",
-        "limits": runner_limits(),
         "apiFunctions": api_functions,
         "context": context,
     })
