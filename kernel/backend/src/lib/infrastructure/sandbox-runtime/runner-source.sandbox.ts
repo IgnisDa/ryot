@@ -134,7 +134,9 @@ const installFilesystem = (payload: SandboxRunnerPayload) => {
 						: namedArtifactPaths && hasOwn(namedArtifactPaths, key)
 							? namedArtifactPaths[key]
 							: undefined;
-				if (!target) throw new nativeError("Sandbox artifact grant is unavailable");
+				if (!target) {
+					throw missingArtifactGrant("Sandbox artifact grant is unavailable", "readArtifactRange");
+				}
 				const { size } = await statFile(target);
 				const file = await openFile(target, { read: true });
 				try {
@@ -153,7 +155,9 @@ const installFilesystem = (payload: SandboxRunnerPayload) => {
 			},
 			readArtifact: () => {
 				if (!artifactPath) {
-					return Promise.reject(new nativeError("Sandbox artifact grant is unavailable"));
+					return Promise.reject(
+						missingArtifactGrant("Sandbox artifact grant is unavailable", "readArtifact"),
+					);
 				}
 				return readFile(artifactPath);
 			},
@@ -161,14 +165,17 @@ const installFilesystem = (payload: SandboxRunnerPayload) => {
 				const namedArtifactPath = namedArtifactPaths?.[key];
 				if (!namedArtifactPath) {
 					return Promise.reject(
-						new nativeError(`Sandbox named artifact grant "${key}" is unavailable`),
+						missingArtifactGrant(
+							`Sandbox named artifact grant "${key}" is unavailable`,
+							"readNamedArtifact",
+						),
 					);
 				}
 				return readFile(namedArtifactPath);
 			},
 			writeScratchChunks: async (chunks: unknown) => {
 				if (!scratchDirectory) {
-					throw new nativeError("Sandbox scratch grant is unavailable");
+					throw missingArtifactGrant("Sandbox scratch grant is unavailable", "writeScratchChunks");
 				}
 				if (!arrayIsArray(chunks)) {
 					throw new nativeError("Sandbox scratch chunks must be an array");
@@ -440,7 +447,14 @@ const writeStdoutAllSync = (bytes: Uint8Array) => {
 	}
 };
 
-const hostFailure = (error: string) => ({ error, success: false as const });
+const hostFailure = (error: string, data?: unknown) => ({
+	error,
+	success: false as const,
+	...(data === undefined ? {} : { data }),
+});
+
+const missingArtifactGrant = (message: string, operation: string) =>
+	Object.assign(new nativeError(message), { data: { code: "missing-artifact-grant", operation } });
 
 const PHASE_FAILURE_KINDS: Record<string, string> = {
 	load: "missing-artifact",
@@ -468,10 +482,16 @@ const transportHostCall =
 			budget.http += 1;
 		}
 		if (budget.total > payload.limits.hostCallCount) {
-			return hostFailure(payload.limits.hostCallLimitMessage);
+			return hostFailure(payload.limits.hostCallLimitMessage, {
+				operation: fnName,
+				code: "execution-limit",
+			});
 		}
 		if (budget.http > payload.limits.httpCallCount) {
-			return hostFailure(payload.limits.httpCallLimitMessage);
+			return hostFailure(payload.limits.httpCallLimitMessage, {
+				operation: fnName,
+				code: "execution-limit",
+			});
 		}
 
 		let requestBody: string;
@@ -655,7 +675,7 @@ const durableResult = (
 	return Effect.fail(new nativeError("Recorded sandbox durable result is invalid"));
 };
 
-const createDurableHost = async (definition: SandboxDefinition, payload: SandboxRunnerPayload) => {
+const createDurableHost = async (payload: SandboxRunnerPayload) => {
 	const transportHost = createHost(payload);
 	const bootstrap = transportHost.replayJournal;
 	if (typeof bootstrap !== "function") {
@@ -708,9 +728,15 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 			budget.http += 1;
 		}
 		return budget.total > payload.limits.hostCallCount
-			? payload.limits.hostCallLimitMessage
+			? {
+					message: payload.limits.hostCallLimitMessage,
+					reason: { operation: capability, code: "execution-limit" },
+				}
 			: budget.http > payload.limits.httpCallCount
-				? payload.limits.httpCallLimitMessage
+				? {
+						message: payload.limits.httpCallLimitMessage,
+						reason: { operation: capability, code: "execution-limit" },
+					}
 				: undefined;
 	};
 	const register = (
@@ -747,8 +773,8 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 		});
 	};
 	const host: Record<string, unknown> = createDictionary(null);
-	const capabilities = arrayIsArray(definition.manifest.capabilities)
-		? definition.manifest.capabilities
+	const capabilities = arrayIsArray(payload.metadata?.capabilities)
+		? payload.metadata.capabilities
 		: [];
 	for (let index = 0; index < capabilities.length; index += 1) {
 		const capability = capabilities[index];
@@ -768,7 +794,7 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 		host[capability] = (...args: unknown[]) => {
 			const budgetError = consumeBudget(capability);
 			if (budgetError) {
-				return Effect.fail({ message: budgetError });
+				return Effect.fail({ message: budgetError.message, data: budgetError.reason });
 			}
 			const index = requests.length;
 			const call = register(
@@ -785,7 +811,10 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 	}
 	host.executeWorkflow = (name: unknown, reference: unknown, input: unknown) => {
 		if (typeof name !== "string" || name.length === 0 || !isDurableWorkflowReference(reference)) {
-			return Effect.fail({ message: "executeWorkflow requires a name and workflow reference" });
+			return Effect.fail({
+				data: { operation: "executeWorkflow", code: "invalid-executable-target" },
+				message: "executeWorkflow requires a name and workflow reference",
+			});
 		}
 		const decoded = Schema.decodeUnknownResult(reference.input)(input);
 		if (decoded._tag === "Failure") {
@@ -795,7 +824,7 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 		}
 		const budgetError = consumeBudget("executeWorkflow");
 		if (budgetError) {
-			return Effect.fail({ message: budgetError });
+			return Effect.fail({ message: budgetError.message, data: budgetError.reason });
 		}
 		const index = requests.length;
 		return register(
@@ -875,25 +904,13 @@ const writeFailure = async (
 	await writeStdout(encodeText(result));
 };
 
-const stringArraysMatch = (left: unknown, right: unknown) => {
-	if (!arrayIsArray(left) || !arrayIsArray(right) || left.length !== right.length) {
-		return false;
-	}
-	for (let index = 0; index < left.length; index += 1) {
-		if (typeof left[index] !== "string" || left[index] !== right[index]) {
-			return false;
-		}
-	}
-	return true;
-};
-
 const manifestsMatch = (left: unknown, right: unknown) =>
 	isRecord(left) &&
 	isRecord(right) &&
+	!hasOwn(left, "capabilities") &&
 	left.kind === right.kind &&
 	left.name === right.name &&
 	left.slug === right.slug &&
-	stringArraysMatch(left.capabilities, right.capabilities) &&
 	["automationType", "inputProjection", "searchOptionsSchema"].every(
 		(key) => stableJson(left[key]) === stableJson(right[key]),
 	);
@@ -960,7 +977,7 @@ const executeDefinition = async (
 	setPhase("execute");
 	const durable =
 		typeof payload.workflowExecutionId === "string" && definition.manifest.kind !== "workflow"
-			? await createDurableHost(definition, payload)
+			? await createDurableHost(payload)
 			: undefined;
 	const host = durable?.host ?? createHost(payload);
 	let result: unknown;

@@ -9,6 +9,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
+import { createPluginConfigEncryption } from "#lib/infrastructure/config/plugin-config-encryption";
 import type { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
@@ -17,6 +18,7 @@ import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
+import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -28,6 +30,14 @@ const runId = ImportRunId.make("run-id");
 const executingUserId = UserId.make("user-id");
 const mockImports = Layer.mock(ImportsService);
 const mockSandbox = Layer.mock(SandboxExecutionService);
+const pluginConfigEncryptionKey = Layer.succeed(
+	PluginConfigEncryptionKey,
+	PluginConfigEncryptionKey.of({
+		load: Effect.succeed(
+			createPluginConfigEncryption({ id: "test-key", key: new Uint8Array(32).fill(7) }),
+		),
+	}),
+);
 
 const gateInput = {
 	itemCount: 1,
@@ -112,6 +122,7 @@ const workflowLoadLayer = (
 				Layer.provideMerge(
 					Layer.mergeAll(
 						options.database ?? mutationAdmissionTestLayer,
+						pluginConfigEncryptionKey,
 						mockImports({ createManualRun: () => Effect.succeed(importRun) }),
 						Layer.succeed(OperationalGateRepository, { runningScope: () => Effect.succeed(scope) }),
 						Layer.succeed(IngestionExecution, {

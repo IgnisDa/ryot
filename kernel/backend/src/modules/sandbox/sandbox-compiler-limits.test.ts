@@ -63,12 +63,10 @@ layer(SandboxCompiler.layer)((test) => {
 				const encoded = yield* Schema.encodeEffect(
 					Schema.fromJsonString(Schema.Array(Schema.String)),
 				)(keys);
-				const source = validSource
-					.replace("capabilities: []", 'capabilities: ["getPluginConfig"]')
-					.replace(
-						"run: (input) => Effect.succeed(input.value)",
-						`run: (_input, host) => host.getPluginConfig({ ${keyKind}: ${encoded} }).pipe(Effect.as(1))`,
-					);
+				const source = validSource.replace(
+					"run: (input) => Effect.succeed(input.value)",
+					`run: (_input, host) => host.getPluginConfig({ ${keyKind}: ${encoded} }).pipe(Effect.as(1))`,
+				);
 				expect(utf8ByteLength(source)).toBeLessThan(SANDBOX_LIMITS.compiler.sourceBytes);
 				expect(jsonByteLength(keys)).toBeGreaterThan(SANDBOX_LIMITS.compiler.manifestBytes);
 				const failure = yield* compile(source).pipe(Effect.flip);
@@ -106,7 +104,6 @@ layer(SandboxCompiler.layer)((test) => {
 	export enum LargeCompiledValue { ${enumMembers} }
 	export const manifest = defineManifest({
 	  kind: "script",
-	  capabilities: [],
 	  name: "Large compiled value",
 	  slug: "large-compiled-value",
 	});

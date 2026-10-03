@@ -66,6 +66,7 @@ export const ingestionTestSource = {
 	namedArtifactPaths: {},
 	pluginRevision: ingestionTestRevision,
 	pluginInstallationId: "installation-1",
+	executionSettings: { userSettings: {} },
 	sourcePayload: { apiKey: "private-credential" },
 	workflowScriptId: SandboxScriptId.make("script-1"),
 };

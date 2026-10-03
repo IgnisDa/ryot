@@ -219,14 +219,16 @@ const ServicesLive = Layer.mergeAll(
 	AutomationReconciliationLive,
 	AutomationRetentionLive,
 	WorkflowGarbageCollector.layer,
-	PluginConfigEncryptionKey.layer,
 	PluginCronServiceLive,
 	LifecycleServicesLive,
 	// HTTP routes consume these ports directly.
 	LifecycleWriteGuard.layer,
 	ObjectStorageServiceLive,
 	PluginCatalogHub.layer,
-).pipe(Layer.provide(Layer.merge(ContentLifecycleRepositoriesLive, AdmittedWorkflowCatalogueLive)));
+).pipe(
+	Layer.provideMerge(PluginConfigEncryptionKey.layer),
+	Layer.provide(Layer.merge(ContentLifecycleRepositoriesLive, AdmittedWorkflowCatalogueLive)),
+);
 
 const ServicesWithTestSupportLive = Layer.merge(ServicesLive, TestSupportServicesLive).pipe(
 	Layer.provideMerge(Layer.mergeAll(IngestionRetirementLive, PluginRuntimeResolverLive)),
