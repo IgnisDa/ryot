@@ -9,7 +9,10 @@ import {
 	mapPluginIdentityReferences,
 	type RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/language";
-import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import {
+	EntityBrowserSavedViewSettings,
+	mapEntityBrowserAddActionSchema,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -59,10 +62,10 @@ export const exportRendererSettings = Effect.fn(function* (
 	}
 	const encoded = yield* Schema.encodeEffect(ArchiveEntityBrowserSavedViewSettings)({
 		...decoded,
-		addAction:
-			action === null || action.type === "plugin-route"
-				? action
-				: { type: action.type, schema: { pluginKey: key ?? null, slug: action.schema.slug } },
+		addAction: mapEntityBrowserAddActionSchema(action, ({ slug }) => ({
+			slug,
+			pluginKey: key ?? null,
+		})),
 	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 	return decodeArchiveJsonObject(encoded);
 });
@@ -89,13 +92,10 @@ export const importRendererSettings = Effect.fn(function* (
 	}
 	const encoded = yield* Schema.encodeUnknownEffect(EntityBrowserSavedViewSettings)({
 		...decoded,
-		addAction:
-			action === null || action.type === "plugin-route"
-				? action
-				: {
-						type: action.type,
-						schema: { slug: action.schema.slug, owner: definitionOwner(id ?? null) },
-					},
+		addAction: mapEntityBrowserAddActionSchema(action, ({ slug }) => ({
+			slug,
+			owner: definitionOwner(id ?? null),
+		})),
 	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 	return decodeArchiveJsonObject(encoded);
 });

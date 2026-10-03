@@ -1,6 +1,5 @@
 import { badRequest } from "@ryot-app/contract/errors";
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
-import { dataJsonIntegrationSettingsSchema } from "@ryot-app/contract/modules/imports/data-json";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	builtinSavedViewId,
@@ -34,6 +33,7 @@ import { TranslationsRepository } from "#modules/entities/localization/repositor
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { resolveIntegrationSettingsSchema } from "#modules/integrations/settings-schema";
 import { concretePluginConfigSecretPaths } from "#modules/plugins/configuration/redaction";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -789,25 +789,21 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					for (const integration of data.integrations) {
 						const plugin =
 							integration.packageKey === null ? undefined : pluginByKey.get(integration.packageKey);
-						const provider =
-							integration.packageKey === null
-								? { settingsSchema: dataJsonIntegrationSettingsSchema }
-								: plugin?.integrationProviders.find(
-										(definition) =>
-											definition.slug === integration.provider &&
-											definition.lot === integration.lot,
-									);
-						if (!provider) {
+						const settingsSchema = resolveIntegrationSettingsSchema(
+							integration,
+							plugin?.integrationProviders,
+						);
+						if (!settingsSchema) {
 							return yield* badRequest("Backup references unavailable integration provider");
 						}
 						yield* parseAppSchemaProperties({
 							kind: "Integration settings",
+							propertiesSchema: settingsSchema,
 							properties: integration.providerSpecifics,
-							propertiesSchema: provider.settingsSchema,
 						}).pipe(Effect.mapError((error) => badRequest(error.message)));
 						additionalPropertyRecords.push({
+							propertiesSchema: settingsSchema,
 							properties: integration.providerSpecifics,
-							propertiesSchema: provider.settingsSchema,
 						});
 					}
 					for (const subscription of data.notificationSubscriptions) {
@@ -994,22 +990,18 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					for (const integration of data.integrations) {
 						const plugin =
 							integration.packageKey === null ? undefined : pluginByKey.get(integration.packageKey);
-						const provider =
-							integration.packageKey === null
-								? { settingsSchema: dataJsonIntegrationSettingsSchema }
-								: plugin?.integrationProviders.find(
-										(definition) =>
-											definition.slug === integration.provider &&
-											definition.lot === integration.lot,
-									);
-						if (!provider) {
+						const settingsSchema = resolveIntegrationSettingsSchema(
+							integration,
+							plugin?.integrationProviders,
+						);
+						if (!settingsSchema) {
 							return yield* badRequest("Backup references unavailable integration provider");
 						}
 						restoredIntegrations.push({
 							...integration,
 							providerSpecifics: yield* transformProperties(
 								integration.providerSpecifics,
-								provider.settingsSchema,
+								settingsSchema,
 								`/integrations/${integration.id}/providerSpecifics`,
 							),
 							configuredSecretPaths: redactions
