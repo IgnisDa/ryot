@@ -768,9 +768,16 @@ fn host_calls_are_answered_by_the_stub_host() {
                 }
             }
             ryot_sandboxd::protocol::Outbound::Done {
-                outcome, console, ..
+                outcome,
+                console,
+                usage,
+                ..
             } => {
-                break support::Done { outcome, console };
+                break support::Done {
+                    outcome,
+                    console,
+                    usage,
+                };
             }
             other => panic!("unexpected frame {other:?}"),
         }

@@ -21,7 +21,7 @@ use crate::os::ThreadClock;
 use crate::outbox::Outbox;
 use crate::protocol::{
     ChunkedType, Console, ConsoleEntry, HostOutcome, Level, LimitKind, NAME_LENGTH, Outbound,
-    Outcome, Phase, Run,
+    Outcome, Phase, Run, Usage,
 };
 use crate::registry::{Entry, Meter};
 use crate::snapshots::Snapshot;
@@ -80,6 +80,7 @@ unsafe extern "C" fn out_of_memory(_location: *const std::ffi::c_char, _details:
 struct ArrayBufferBudget {
     entry: Arc<Entry>,
     used: AtomicUsize,
+    peak: AtomicUsize,
     limit: usize,
 }
 
@@ -94,8 +95,44 @@ impl ArrayBufferBudget {
             );
             return false;
         }
+        self.peak.fetch_max(previous + length, Ordering::SeqCst);
         true
     }
+}
+
+#[derive(Default)]
+struct PeakMemory {
+    heap: AtomicUsize,
+    external: AtomicUsize,
+}
+
+impl PeakMemory {
+    fn sample(&self, isolate: &mut v8::Isolate) {
+        let statistics = isolate.get_heap_statistics();
+        self.heap
+            .fetch_max(statistics.used_heap_size(), Ordering::SeqCst);
+        self.external
+            .fetch_max(statistics.external_memory(), Ordering::SeqCst);
+    }
+}
+
+/// Samples heap usage before each collection, when it is at a local peak.
+///
+/// # Safety
+///
+/// `data` must point to a `PeakMemory` that outlives the isolate, and V8 must invoke this on the
+/// isolate's own thread.
+unsafe extern "C" fn sample_before_collection(
+    isolate: v8::UnsafeRawIsolatePtr,
+    _type: v8::GCType,
+    _flags: v8::GCCallbackFlags,
+    data: *mut c_void,
+) {
+    // SAFETY: `execute` registers its PeakMemory, which it drops only after the runtime.
+    let peak = unsafe { &*data.cast_const().cast::<PeakMemory>() };
+    // SAFETY: V8 invokes GC callbacks on the isolate's own thread with a live isolate.
+    let mut isolate = unsafe { v8::Isolate::from_raw_isolate_ptr(isolate) };
+    peak.sample(&mut isolate);
 }
 
 unsafe extern "C" fn allocate(budget: &ArrayBufferBudget, length: usize) -> *mut c_void {
@@ -413,7 +450,7 @@ impl Executor {
         self.tokio.block_on(future)
     }
 
-    pub fn execute(&self, run: &Run, entry: &Arc<Entry>) -> (Outcome, Console) {
+    pub fn execute(&self, run: &Run, entry: &Arc<Entry>) -> (Outcome, Console, Usage) {
         let digest = format!("{:x}", Sha256::digest(run.module.source.as_bytes()));
         if digest != run.module.sha256 {
             return (
@@ -422,16 +459,20 @@ impl Executor {
                     "module source does not match its sha256".to_owned(),
                 ),
                 Console::default(),
+                Usage::default(),
             );
         }
         let _enter = self.tokio.enter();
         let budget = Arc::new(ArrayBufferBudget {
             entry: entry.clone(),
             used: AtomicUsize::new(0),
+            peak: AtomicUsize::new(0),
             limit: run.limits.external_bytes as usize,
         });
+        let peak = PeakMemory::default();
         // SAFETY: the vtable matches ArrayBufferBudget and the Arc is released by drop_budget.
-        let allocator = unsafe { v8::new_rust_allocator(Arc::into_raw(budget), &ALLOCATOR) };
+        let allocator =
+            unsafe { v8::new_rust_allocator(Arc::into_raw(budget.clone()), &ALLOCATOR) };
         let params = v8::CreateParams::default()
             .heap_limits(0, run.limits.heap_bytes as usize)
             .array_buffer_allocator(allocator.make_shared());
@@ -460,6 +501,7 @@ impl Executor {
                 return (
                     Outcome::Failed(Phase::Evaluation, bounded(error.to_string())),
                     Console::default(),
+                    Usage::default(),
                 );
             }
         };
@@ -467,6 +509,11 @@ impl Executor {
             .v8_isolate()
             .set_allow_wasm_code_generation_callback(deny_wasm);
         runtime.v8_isolate().set_oom_error_handler(out_of_memory);
+        runtime.v8_isolate().add_gc_prologue_callback(
+            sample_before_collection,
+            std::ptr::from_ref(&peak).cast_mut().cast(),
+            v8::GCType::kGCTypeAll,
+        );
         {
             let entry = entry.clone();
             let heap = run.limits.heap_bytes;
@@ -528,6 +575,7 @@ impl Executor {
         }));
 
         let console = take_console(&runtime);
+        peak.sample(runtime.v8_isolate());
         {
             let mut state = entry.state();
             state.finished = true;
@@ -559,7 +607,14 @@ impl Executor {
                 None => Outcome::Failed(Phase::Execution, "execution was stopped".to_owned()),
             }
         };
-        (outcome, console)
+        let usage = Usage {
+            heap_bytes: peak.heap.load(Ordering::SeqCst) as u64,
+            external_bytes: peak
+                .external
+                .load(Ordering::SeqCst)
+                .max(budget.peak.load(Ordering::SeqCst)) as u64,
+        };
+        (outcome, console, usage)
     }
 }
 
