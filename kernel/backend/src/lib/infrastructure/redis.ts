@@ -43,14 +43,27 @@ export const redisKeys = {
 		`ryot:integrations:cache:${integrationId}:${key}`,
 	sandboxProbationLease: (identity: string) =>
 		`ryot:sandbox:probation-lease:${encodeURIComponent(identity)}`,
-	providerHttpAdmission: (policyKey: string) =>
-		`ryot:provider-http-admission:${encodeURIComponent(policyKey)}`,
 	providerSearchOptions: (providerId: string, scriptId: string) =>
 		`ryot:provider:search-options:${providerId}:${scriptId}`,
 	sandboxCache: (userId: string | null, scriptId: string, key: string) =>
 		`ryot:sandbox:cache:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
 	sandboxRunCache: (serverRunId: string, userId: string | null, scriptId: string, key: string) =>
 		`ryot:sandbox:cache:run:${serverRunId}:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
+	// One hash tag per policy keeps every key a ticket script declares in one cluster slot.
+	providerHttpAdmission: (policyKey: string) => {
+		const base = `ryot:http-tickets:{${encodeURIComponent(policyKey)}}`;
+		return {
+			state: `${base}:state`,
+			flows: `${base}:flows`,
+			counts: `${base}:counts`,
+			tickets: `${base}:tickets`,
+			plugins: `${base}:plugins`,
+			renewals: `${base}:renewals`,
+			tombstones: `${base}:tombstones`,
+			backgroundTenants: `${base}:tenants:background`,
+			interactiveTenants: `${base}:tenants:interactive`,
+		};
+	},
 };
 
 export class RedisService extends Context.Service<RedisService>()("RedisService", {

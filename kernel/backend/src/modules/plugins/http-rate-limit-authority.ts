@@ -14,14 +14,25 @@ export type HttpRateLimitAuthorityResolution =
 			reason: "invalid-url" | "non-http-url" | "undeclared-origin";
 	  }>;
 
-const requestOrigin = (requestUrl: string) => {
+const requestOrigin = (
+	requestUrl: string,
+):
+	| Readonly<{ matched: false; reason: "invalid-url" | "non-http-url" }>
+	| Readonly<{ origin: string }> => {
 	const parsed = Result.try(() => new URL(requestUrl));
 	if (Result.isFailure(parsed)) {
-		return { matched: false as const, reason: "invalid-url" as const };
+		return { matched: false, reason: "invalid-url" };
 	}
 	if (parsed.success.protocol !== "http:" && parsed.success.protocol !== "https:") {
-		return { matched: false as const, reason: "non-http-url" as const };
+		return { matched: false, reason: "non-http-url" };
 	}
+	// The URL parser lowercases hosts, drops default ports and canonicalizes IP literals, but keeps
+	// a fully qualified name's trailing dot, which reaches the same host.
+	const hostname = parsed.success.hostname.replace(/\.+$/, "");
+	if (hostname.length === 0) {
+		return { matched: false, reason: "invalid-url" };
+	}
+	parsed.success.hostname = hostname;
 	return { origin: parsed.success.origin };
 };
 

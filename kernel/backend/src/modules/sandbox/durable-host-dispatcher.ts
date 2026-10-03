@@ -3,7 +3,12 @@ import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifec
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import {
+	hostFailure,
+	hostSuccess,
+	jsonValueSchema,
+	type SandboxHostError,
+} from "@ryot-app/sandbox-sdk/wire";
 import {
 	type WorkflowDurableCallRequest,
 	type WorkflowDurableResult,
@@ -27,10 +32,17 @@ import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/
 import { SANDBOX_JSON_GRAPH_FACTOR } from "#lib/infrastructure/sandbox-runtime/json-bytes";
 import { KiB, SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
+	executeSandboxHttp,
+	prepareSandboxHttpRequest,
+	type SandboxHttpClassify,
+	type SandboxHttpRedirect,
+} from "#lib/infrastructure/sandbox-runtime/runtime-host-functions";
+import {
 	requireSandboxCapabilityInput,
 	sandboxLifecycleCommand,
 	sandboxRunUserId,
 } from "#lib/infrastructure/sandbox-runtime/shared";
+import type { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 
 import {
 	SandboxScriptWorkflowPayload,
@@ -152,13 +164,28 @@ export const sandboxInlineDurableCapabilities = (principal: SandboxExecutionPrin
 			sandboxHostResultBytes(capability) !== null,
 	);
 
+// The bridge binding reads explicit null options as omitted; policy resolution must read the same
+// URL the request would be sent to.
+const httpCallArgs = (request: HostRequest) => {
+	const args = request.args.args;
+	return args.length === 3 && args[2] === null ? args.slice(0, 2) : args;
+};
+
 export const sandboxDurableHttpRequestUrl = (request: HostRequest) =>
 	Option.getOrNull(
 		Option.map(
-			Schema.decodeUnknownOption(httpCallArgsSchema)(request.args.args),
+			Schema.decodeUnknownOption(httpCallArgsSchema)(httpCallArgs(request)),
 			(args) => args[1],
 		),
 	);
+
+export const sandboxHttpRedirectClassifier =
+	(resolve: PluginHttpRateLimitAuthority["Service"]["resolve"]): SandboxHttpClassify =>
+	(url) =>
+		resolve(url).pipe(
+			Effect.map((resolution) => (resolution.matched ? ("stop" as const) : ("follow" as const))),
+			Effect.orElseSucceed(() => "stop" as const),
+		);
 
 const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(function* (
 	request: HostRequest,
@@ -253,6 +280,65 @@ export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivit
 	return result.success
 		? ({ state: "success", value: result.data } as const)
 		: failure(result.error, result.data);
+});
+
+const encodeHttpCallResult = Schema.encodeUnknownEffect(sandboxHostContracts.httpCall.result);
+
+/**
+ * Runs one durable network activity for a matched or proven-unmatched hop: the script's request
+ * when `redirect` is null, otherwise the journaled redirect it continues from.
+ */
+export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(function* (
+	request: HostRequest,
+	context: unknown,
+	principal: SandboxExecutionPrincipalValue,
+	lane: ExecutionLane,
+	executionId: string,
+	startedAt: string,
+	redirect: SandboxHttpRedirect | null,
+	classify: SandboxHttpClassify,
+) {
+	yield* loadDispatchInput(request, context, principal, lane, executionId, startedAt);
+	const outcome = yield* Effect.gen(function* () {
+		const [method, url, options] = yield* decodeSandboxHostArguments(
+			"httpCall",
+			sandboxHostContracts.httpCall,
+		)(httpCallArgs(request)).pipe(Effect.mapError((error): SandboxHostError => error));
+		const next =
+			redirect === null
+				? yield* prepareSandboxHttpRequest(method, url, options)
+				: {
+						url: redirect.url,
+						method: redirect.method,
+						headers: redirect.headers,
+						...(redirect.body === undefined ? {} : { body: redirect.body }),
+					};
+		return yield* executeSandboxHttp(next, {
+			classify,
+			hop: redirect?.hop ?? 0,
+			allowInsecureConnections: options?.allowInsecureConnections,
+		});
+	}).pipe(
+		Effect.match({
+			onFailure: (error) => hostFailure(error.message, error.data),
+			onSuccess: (hop) => (hop._tag === "completed" ? hostSuccess(hop.result) : hop),
+		}),
+	);
+	if ("_tag" in outcome) {
+		return outcome;
+	}
+	const encoded = yield* encodeHttpCallResult(outcome).pipe(
+		Effect.flatMap(decodeHostResult),
+		Effect.mapError(
+			(error) => new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+		),
+	);
+	return {
+		_tag: "completed" as const,
+		result: encoded.success
+			? ({ state: "success", value: encoded.data } as const)
+			: failure(encoded.error, encoded.data),
+	};
 });
 
 export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents")(function* (

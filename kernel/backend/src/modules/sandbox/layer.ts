@@ -18,6 +18,7 @@ import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-st
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { NotificationsServiceLive } from "#modules/notifications/layer";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
+import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
@@ -25,6 +26,7 @@ import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin
 import { RelationshipMutationPipelineLive } from "#modules/relationships/layer";
 import { RyotQLService } from "#modules/ryotql/service";
 
+import { sandboxHttpRedirectClassifier } from "./durable-host-dispatcher";
 import { EventStreamProcessorLive } from "./event-stream-processor";
 import { SandboxRepository } from "./repository";
 import { SandboxExecutionAuthorityLive } from "./runtime-authority";
@@ -59,9 +61,11 @@ export const SandboxHostImplementationsLive = Layer.effect(
 	SandboxHostImplementations,
 	Effect.all({
 		lifecycle: makeSandboxLifecycleHostApi,
-		runtime: makeRuntimeSandboxApiFunctions,
 		additional: makeAdditionalSandboxApiFunctions,
 		automation: makeAutomationSandboxApiFunctions,
+		runtime: Effect.flatMap(PluginHttpRateLimitAuthority, (authority) =>
+			makeRuntimeSandboxApiFunctions(sandboxHttpRedirectClassifier(authority.resolve)),
+		),
 	}),
 ).pipe(
 	Layer.provide(
@@ -79,6 +83,7 @@ export const SandboxHostImplementationsLive = Layer.effect(
 	Layer.provide(LifecycleServicesLive),
 	Layer.provide(EntitiesRepositoryLive),
 	Layer.provide(PluginRuntimeResolverLive),
+	Layer.provide(PluginHttpRateLimitAuthority.layer),
 	Layer.provide(PluginRepository.layer),
 	Layer.provide(ImportSourceStateStore.layer),
 	Layer.provide(PluginInstallationRepository.layer),

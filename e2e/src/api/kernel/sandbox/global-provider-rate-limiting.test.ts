@@ -415,7 +415,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 	afterAll(() => runPromise(stopIsolatedServices()));
 
 	it.live(
-		"shares Redis admission across processes and resumes a future reservation after restart",
+		"shares Redis admission across processes and resumes a pending ticket after restart",
 		() =>
 			Effect.gen(function* () {
 				const http = requirePresent(httpServer, "Isolated HTTP server is not initialised");
