@@ -135,7 +135,7 @@ const pluginActiveRevisionField = (
 });
 
 const pluginMetadataField = (key: "description" | "icon" | "name"): CatalogField =>
-	pluginActiveRevisionField(`revision.manifest -> 'metadata' ->> '${key}'`, "text", true);
+	pluginActiveRevisionField(`revision.${key}`, "text", true);
 
 const pluginClientApiVersion = pluginActiveRevisionField(
 	`(revision.manifest -> 'client' ->> 'apiVersion')::int`,
@@ -855,7 +855,7 @@ const automationRun: CatalogTable = {
 			nullable: true,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
-					`(SELECT revision.manifest -> 'metadata' ->> 'name' FROM plugin_revision revision WHERE revision.id = ${sqlAlias}.plugin_revision_id)`,
+					`(SELECT revision.name FROM plugin_revision revision WHERE revision.id = ${sqlAlias}.plugin_revision_id)`,
 				),
 		},
 		triggerKind: {

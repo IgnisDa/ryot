@@ -1,0 +1,3 @@
+ALTER TABLE "plugin_revision" ADD COLUMN "name" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'name') STORED;--> statement-breakpoint
+ALTER TABLE "plugin_revision" ADD COLUMN "icon" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'icon') STORED;--> statement-breakpoint
+ALTER TABLE "plugin_revision" ADD COLUMN "description" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'description') STORED;
