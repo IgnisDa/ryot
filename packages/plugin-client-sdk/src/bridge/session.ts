@@ -10,6 +10,7 @@ import {
 	PLUGIN_HEADER_TITLE_MAX,
 	PluginBridgeHostMessage,
 	type PluginDeviceRequest,
+	type PluginIosLiveActivityRequest,
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
 	type PluginBridgeCollectionRequest,
@@ -61,6 +62,7 @@ type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed"
 
 type RequestType =
 	| "device"
+	| "ios-live-activity"
 	| "asset"
 	| "collection"
 	| "external-link"
@@ -435,6 +437,12 @@ export const createPluginRuntime = (
 				requestId,
 				type: "external-link-request",
 			})),
+		iosLiveActivity: (request: PluginIosLiveActivityRequest) =>
+			sendRequest("ios-live-activity", (requestId) => ({
+				...request,
+				requestId,
+				type: "ios-live-activity-request",
+			})),
 		overlays: {
 			setDismissHandler: (handler) => {
 				dismissOverlay = handler;
@@ -571,31 +579,35 @@ export const createPluginRuntime = (
 				finish("failed", "protocol", true);
 				return;
 			}
-			Match.value(decoded.success).pipe(
-				Match.when({ type: "flush-request" }, ({ requestId }) => {
+			const message = decoded.success;
+			switch (message.type) {
+				case "flush-request":
 					Effect.runFork(
 						Effect.forEach([...flushHandlers], (flush) => flush(), { discard: true }).pipe(
 							Effect.matchCause({ onSuccess: () => true, onFailure: () => false }),
 							Effect.tap((flushed) =>
 								Effect.sync(() => {
 									if (state === "active") {
-										post({ flushed, requestId, type: "flush-result" });
+										post({ flushed, type: "flush-result", requestId: message.requestId });
 									}
 								}),
 							),
 						),
 					);
-				}),
-				Match.when({ type: "device-result" }, (result) =>
-					settle("device", result.requestId, result),
-				),
-				Match.when({ type: "document" }, ({ page, documentKey, navigation: nextNavigation }) => {
-					contributors = page?.contributors ?? [];
+					return;
+				case "device-result":
+					settle("device", message.requestId, message);
+					return;
+				case "ios-live-activity-result":
+					settle("ios-live-activity", message.requestId, message);
+					return;
+				case "document":
+					contributors = message.page?.contributors ?? [];
 					resetDocument();
-					onDocument?.(documentKey, page);
-					acceptLocation(nextNavigation);
-				}),
-				Match.when({ type: "dismiss-overlay" }, ({ requestId }) => {
+					onDocument?.(message.documentKey, message.page);
+					acceptLocation(message.navigation);
+					return;
+				case "dismiss-overlay": {
 					let dismissed = false;
 					try {
 						dismissed = dismissOverlay();
@@ -604,98 +616,111 @@ export const createPluginRuntime = (
 					}
 					post({
 						dismissed,
-						requestId,
+						requestId: message.requestId,
 						type: "dismiss-overlay-result",
 					} satisfies PluginBridgeDismissOverlayResult);
-				}),
-				Match.when({ type: "entity-updated" }, ({ reason, entityId }) => {
+					return;
+				}
+				case "entity-updated":
 					for (const owner of Array.from(interestOwners)) {
 						if (
 							interestOwners.has(owner) &&
-							(owner.interest.foreground.includes(entityId) ||
-								owner.interest.visible.includes(entityId))
+							(owner.interest.foreground.includes(message.entityId) ||
+								owner.interest.visible.includes(message.entityId))
 						) {
-							owner.onUpdate({ reason, entityId });
+							owner.onUpdate({ reason: message.reason, entityId: message.entityId });
 						}
 					}
-				}),
-				Match.when({ type: "location" }, (location) => acceptLocation(location)),
-				Match.when({ type: "viewport" }, ({ safeAreaTop, safeAreaBottom }) =>
-					navigationStore.setViewport({ safeAreaTop, safeAreaBottom }),
-				),
-				Match.when({ type: "theme" }, ({ mode }) => {
-					applyThemeMode(mode);
-					theme = { resolvedMode: mode };
+					return;
+				case "location":
+					acceptLocation(message);
+					return;
+				case "viewport":
+					navigationStore.setViewport({
+						safeAreaTop: message.safeAreaTop,
+						safeAreaBottom: message.safeAreaBottom,
+					});
+					return;
+				case "theme":
+					applyThemeMode(message.mode);
+					theme = { resolvedMode: message.mode };
 					for (const listener of themeListeners) {
 						listener();
 					}
-				}),
-				Match.when({ type: "page-refresh" }, () => {
+					return;
+				case "page-refresh":
 					client.mutationCompleted.hint();
-				}),
-				Match.when({ type: "page-shortcut-press" }, ({ shortcut }) => {
-					for (const press of pageShortcuts.get(shortcut) ?? []) {
+					return;
+				case "page-shortcut-press":
+					for (const press of pageShortcuts.get(message.shortcut) ?? []) {
 						press();
 					}
-				}),
-				Match.when({ type: "lifecycle-close" }, ({ reason }) =>
-					finish(reason, reason === "disposed" ? "disposed" : "protocol", false),
-				),
-				Match.when({ type: "operation-result" }, (result) => {
+					return;
+				case "lifecycle-close":
+					finish(message.reason, message.reason === "disposed" ? "disposed" : "protocol", false);
+					return;
+				case "operation-result":
 					settle(
 						"operation",
-						result.requestId,
-						result.outcome === "failure" ? result : { outcome: "success", value: result.value },
+						message.requestId,
+						message.outcome === "failure" ? message : { outcome: "success", value: message.value },
 					);
-				}),
-				Match.when({ type: "provider-search-screen-result" }, (result) => {
-					settle("provider-search-screen", result.requestId, result);
-				}),
-				Match.when({ type: "external-link-result" }, (result) => {
+					return;
+				case "provider-search-screen-result":
+					settle("provider-search-screen", message.requestId, message);
+					return;
+				case "external-link-result":
 					settle(
 						"external-link",
-						result.requestId,
-						result.outcome === "failure"
-							? result
+						message.requestId,
+						message.outcome === "failure"
+							? message
 							: { outcome: "success", value: { outcome: "success" } },
 					);
-				}),
-				Match.when({ type: "storage-result" }, (result) => {
-					settle("storage", result.requestId, result);
-				}),
-				Match.when({ type: "collection-result" }, (result) => {
+					return;
+				case "storage-result":
+					settle("storage", message.requestId, message);
+					return;
+				case "collection-result":
 					settle(
 						"collection",
-						result.requestId,
-						result.outcome === "failure" ? result : { outcome: "success", value: result.response },
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.response },
 					);
-				}),
-				Match.when({ type: "upload-result" }, (result) => {
-					if (result.outcome === "failure") {
-						settle("upload", result.requestId, result);
+					return;
+				case "upload-result": {
+					if (message.outcome === "failure") {
+						settle("upload", message.requestId, message);
 						return;
 					}
-					const { type: _type, outcome: _outcome, requestId: _requestId, ...value } = result;
-					settle("upload", result.requestId, { value, outcome: "success" });
-				}),
-				Match.when({ type: "asset-result" }, (result) => {
+					const { type: _type, outcome: _outcome, requestId: _requestId, ...value } = message;
+					settle("upload", message.requestId, { value, outcome: "success" });
+					return;
+				}
+				case "asset-result":
 					settle(
 						"asset",
-						result.requestId,
-						result.outcome === "failure"
-							? result
-							: { outcome: "success", value: result.resolutions },
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.resolutions },
 					);
-				}),
-				Match.when({ type: "ryotql-result" }, (result) => {
+					return;
+				case "ryotql-result":
 					settle(
 						"ryotql",
-						result.requestId,
-						result.outcome === "failure" ? result : { outcome: "success", value: result.response },
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.response },
 					);
-				}),
-				Match.exhaustive,
-			);
+					return;
+				default: {
+					throw new Error("Unhandled plugin host message", { cause: message satisfies never });
+				}
+			}
 		},
 		{ signal: listeners.signal },
 	);

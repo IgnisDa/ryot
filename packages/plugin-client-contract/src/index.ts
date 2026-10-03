@@ -25,6 +25,7 @@ export { CLIENT_API_VERSION };
 export * from "./bridge/capabilities";
 export * from "./bridge/device";
 export * from "./bridge/lifecycle";
+export * from "./bridge/ios-live-activities";
 export * from "./bridge/messages";
 export * from "./navigation";
 export * from "./source-policy";

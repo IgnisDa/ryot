@@ -21,6 +21,8 @@ import {
 	type PluginAssetRequest,
 	type PluginCollectionOutcome,
 	type PluginCollectionRequest,
+	type PluginIosLiveActivityOutcome,
+	type PluginIosLiveActivityRequest,
 	type PluginOperationBridgeErrorReason,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
@@ -140,6 +142,7 @@ const invalidDeviceRequest = { outcome: "failure", reason: "invalid-request" } a
 const connect = (
 	options: {
 		readonly onDevice?: Parameters<typeof openPluginBridge>[0]["onDevice"];
+		readonly onIosLiveActivity?: Parameters<typeof openPluginBridge>[0]["onIosLiveActivity"];
 		readonly timeoutMs?: number;
 		readonly onAssets?: Parameters<typeof openPluginBridge>[0]["onAssets"];
 		readonly onUpload?: Parameters<typeof openPluginBridge>[0]["onUpload"];
@@ -208,6 +211,13 @@ const connect = (
 			providerSearches.push(request);
 			return options.onProviderSearch?.(request) ?? Effect.succeed({ kind: "cancelled" as const });
 		},
+		onIosLiveActivity:
+			options.onIosLiveActivity ??
+			(() =>
+				Effect.succeed<PluginIosLiveActivityOutcome>({
+					outcome: "success",
+					value: { status: "unsupported" },
+				})),
 		onOperation:
 			options.onOperation ??
 			((request) => {
@@ -318,6 +328,97 @@ describe("bridge page screens", () => {
 				),
 			);
 			expect(calls).toEqual([{ key: "rest", action: "cancel", pluginId: "fitness" }]);
+		}),
+	);
+
+	it.live("correlates iOS live activity outcomes and safely reports unexpected defects", () =>
+		Effect.gen(function* () {
+			const calls: PluginIosLiveActivityRequest[] = [];
+			const { init, received, pluginPort } = connect({
+				onIosLiveActivity: (request) =>
+					Effect.sync(() => {
+						calls.push(request);
+						return {
+							outcome: "success",
+							value: { status: "unsupported" },
+						} satisfies PluginIosLiveActivityOutcome;
+					}),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toContainEqual(at(home, 0))));
+			pluginPort.postMessage({
+				pluginId: "fitness",
+				action: "availability",
+				requestId: "ios-live-activity-1",
+				type: "ios-live-activity-request",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(received).toContainEqual({
+						outcome: "success",
+						value: { status: "unsupported" },
+						requestId: "ios-live-activity-1",
+						type: "ios-live-activity-result",
+					}),
+				),
+			);
+			expect(calls).toEqual([{ pluginId: "fitness", action: "availability" }]);
+
+			const diagnostics: unknown[] = [];
+			const failed = connect({
+				onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+				onIosLiveActivity: () => Effect.die(new Error("unexpected")),
+			});
+			failed.pluginPort.postMessage(readyFor(failed.init));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(failed.received).toContainEqual(at(home, 0))),
+			);
+			failed.pluginPort.postMessage({
+				action: "list",
+				pluginId: "fitness",
+				requestId: "ios-live-activity-3",
+				type: "ios-live-activity-request",
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(failed.received).toContainEqual({
+						outcome: "failure",
+						reason: "transport",
+						requestId: "ios-live-activity-3",
+						type: "ios-live-activity-result",
+					}),
+				),
+			);
+			expect(diagnostics).toHaveLength(1);
+		}),
+	);
+
+	it.live("interrupts pending iOS live activity work on disposal", () =>
+		Effect.gen(function* () {
+			const diagnostics: unknown[] = [];
+			const started: null[] = [];
+			const interrupted: null[] = [];
+			const { init, session, received, pluginPort } = connect({
+				onDiagnostic: (diagnostic) => diagnostics.push(diagnostic),
+				onIosLiveActivity: () =>
+					Effect.sync(() => started.push(null)).pipe(
+						Effect.andThen(Effect.never),
+						Effect.ensuring(Effect.sync(() => interrupted.push(null))),
+					),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+			pluginPort.postMessage({
+				action: "list",
+				pluginId: "fitness",
+				type: "ios-live-activity-request",
+				requestId: "ios-live-activity-pending",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(started).toEqual([null])));
+			session.close();
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toEqual([null])));
+			expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
+			expect(diagnostics).toEqual([]);
 		}),
 	);
 
@@ -848,6 +949,11 @@ describe("plugin bridge", () => {
 						throw new Error("transfer failed");
 					},
 				},
+				onIosLiveActivity: () =>
+					Effect.succeed<PluginIosLiveActivityOutcome>({
+						outcome: "success",
+						value: { status: "unsupported" },
+					}),
 			});
 			sessions.push(session);
 

@@ -7,6 +7,7 @@ import type {
 	ExternalLinkRequest,
 	PluginCollectionRequest,
 	PluginDeviceRequest,
+	PluginIosLiveActivityRequest,
 	PluginManagedAssetResolution,
 	PluginOperationRequest,
 	PluginPageSearchUpdate,
@@ -63,6 +64,9 @@ export type FileUploadRequest = Omit<
 export type RyotClientAdapter = {
 	readonly registerFlush?: (flush: () => Effect.Effect<void, RyotClientError>) => () => void;
 	readonly device?: (request: PluginDeviceRequest) => Effect.Effect<unknown, RyotClientError>;
+	readonly iosLiveActivity?: (
+		request: PluginIosLiveActivityRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
 	readonly pluginIdentity?: (
 		packageId: PluginPackageId,
 	) => Extract<PluginIdentityReference, { readonly kind: "local" }>;

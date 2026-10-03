@@ -28,6 +28,10 @@ import {
 	PluginBridgePersistenceState,
 } from "./device";
 import {
+	PluginBridgeIosLiveActivityRequest,
+	PluginBridgeIosLiveActivityResult,
+} from "./ios-live-activities";
+import {
 	PluginBridgeDismissOverlay,
 	PluginBridgeDismissOverlayResult,
 	PluginBridgeDocument,
@@ -52,6 +56,7 @@ import {
 } from "./lifecycle";
 
 export const PluginBridgeClientMessage = Schema.Union([
+	PluginBridgeIosLiveActivityRequest,
 	PluginBridgeDeviceRequest,
 	PluginBridgeFlushResult,
 	PluginBridgePersistenceState,
@@ -83,6 +88,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
 
 export const PluginBridgeHostMessage = Schema.Union([
+	PluginBridgeIosLiveActivityResult,
 	PluginBridgeDeviceResult,
 	PluginBridgeFlushRequest,
 	PluginBridgeExternalLinkResult,

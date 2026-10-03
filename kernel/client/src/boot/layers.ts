@@ -10,6 +10,7 @@ import { ExternalLinksLive } from "#/modules/external-links/layer";
 import { ImportsService } from "#/modules/imports/service";
 import { InstanceAdminLive } from "#/modules/instance-admin/layer";
 import { IntegrationsLive } from "#/modules/integrations/layer";
+import { IosLiveActivitiesLive } from "#/modules/ios-live-activities/layer";
 import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 import { NavigationLive } from "#/modules/navigation/layer";
 import { NotificationChannelsService } from "#/modules/notifications/service";
@@ -21,6 +22,7 @@ import { ServerLive } from "#/modules/server/layer";
 import { ShellLive } from "#/modules/shell/layer";
 
 export const ClientLive = Layer.mergeAll(
+	IosLiveActivitiesLive,
 	DeviceLive,
 	AssetsLive,
 	EntitiesService.layer,
