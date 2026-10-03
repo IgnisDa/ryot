@@ -10,6 +10,11 @@ workout presentation query. List recipes share input types with pagination deriv
 inputs. The shared sources use the neutral Plugin Kit imports so both plugin compilers can resolve
 them.
 
+The workout detail page reads one `workoutDetailsRecipe` document from
+`shared/workout-details-recipes.ts`: the workout, its repeated-from and template links, and each
+exercise with its sets, targets, equipment, and the sets of its latest earlier session, chosen by
+workout start through a correlated `first`. Each exercise returns at most 100 sets per session.
+
 Exercise targets and equipment are separate entity taxonomies in `shared/taxonomy-recipes.ts`.
 Exercise targets use `exercise-targets` relationships with an optional role; equipment uses
 `exercise-uses-equipment`. Shared standard entities and private user-owned entities are visible
