@@ -11,7 +11,7 @@ use tokio::sync::Semaphore;
 
 use crate::admission::MemoryBudget;
 use crate::config::Config;
-use crate::execute::{Executor, set_escalation};
+use crate::execute::{Executor, set_escalation, set_running};
 use crate::os::{ResidentMemory, lower_thread_priority};
 use crate::outbox::Outbox;
 use crate::protocol::{
@@ -99,7 +99,7 @@ impl Shared {
             handle: handle.to_owned(),
         });
         self.outbox.flush_control(ticket, FLUSH_TIMEOUT);
-        eprintln!("ryot-sandboxd: execution {handle} ignored termination");
+        eprintln!("ryot-sandboxd: execution {handle} requires process exit");
         std::process::exit(EXIT_ESCALATED);
     }
 }
@@ -126,6 +126,7 @@ fn spawn_workers(
                     let Ok(Job { run, entry }) = receiver.lock().expect("lane queue").recv() else {
                         return;
                     };
+                    set_running(Some(entry.handle.clone()));
                     let reserve = run.limits.heap_bytes
                         + run.limits.external_bytes
                         + (run.module.source.len() + run.input.get().len()) as u64;
@@ -145,6 +146,7 @@ fn spawn_workers(
                         Some(_reservation) => executor.execute(&run, &entry),
                     };
                     shared.finish(&entry.handle, outcome, console);
+                    set_running(None);
                 }
             })
             .expect("spawn worker");

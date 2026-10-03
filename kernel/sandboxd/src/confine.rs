@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use landlock::{ABI, Access, AccessFs, AccessNet, Ruleset, RulesetAttr, RulesetStatus};
-use seccompiler::{BpfProgram, SeccompAction, SeccompFilter, TargetArch};
+use seccompiler::{
+    BpfProgram, SeccompAction, SeccompCmpArgLen, SeccompCmpOp, SeccompCondition, SeccompFilter,
+    SeccompRule, TargetArch,
+};
 
 pub const DENIED_SYSCALLS: [i64; 18] = [
     libc::SYS_socket,
@@ -79,10 +82,33 @@ pub fn lock_down() -> Result<(), String> {
     } else {
         TargetArch::aarch64
     };
-    let rules = DENIED_SYSCALLS
+    let mut rules = DENIED_SYSCALLS
         .iter()
         .map(|syscall| (*syscall, Vec::new()))
         .collect::<BTreeMap<_, _>>();
+    let namespace_flags = libc::CLONE_NEWCGROUP
+        | libc::CLONE_NEWIPC
+        | libc::CLONE_NEWNET
+        | libc::CLONE_NEWNS
+        | libc::CLONE_NEWPID
+        | libc::CLONE_NEWTIME
+        | libc::CLONE_NEWUSER
+        | libc::CLONE_NEWUTS;
+    let clone_rules = (0..32)
+        .map(|bit| 1_u64 << bit)
+        .filter(|flag| flag & namespace_flags as u64 != 0)
+        .map(|flag| {
+            SeccompCondition::new(
+                0,
+                SeccompCmpArgLen::Dword,
+                SeccompCmpOp::MaskedEq(flag),
+                flag,
+            )
+            .and_then(|condition| SeccompRule::new(vec![condition]))
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| format!("building clone rules failed: {error}"))?;
+    rules.insert(libc::SYS_clone, clone_rules);
     let filter: BpfProgram = SeccompFilter::new(
         rules,
         SeccompAction::Allow,
@@ -91,5 +117,46 @@ pub fn lock_down() -> Result<(), String> {
     )
     .and_then(TryInto::try_into)
     .map_err(|error| format!("building the seccomp filter failed: {error}"))?;
-    seccompiler::apply_filter(&filter).map_err(|error| format!("seccomp failed: {error}"))
+    #[cfg(target_arch = "x86_64")]
+    let filter = {
+        let mut filter = filter;
+        let mut x32 = vec![
+            seccompiler::sock_filter {
+                code: (libc::BPF_LD | libc::BPF_W | libc::BPF_ABS) as u16,
+                jt: 0,
+                jf: 0,
+                k: 0,
+            },
+            seccompiler::sock_filter {
+                code: (libc::BPF_JMP | libc::BPF_JSET | libc::BPF_K) as u16,
+                jt: 0,
+                jf: 1,
+                k: 0x40000000,
+            },
+            seccompiler::sock_filter {
+                code: (libc::BPF_RET | libc::BPF_K) as u16,
+                jt: 0,
+                jf: 0,
+                k: libc::SECCOMP_RET_ERRNO | libc::EPERM as u32,
+            },
+        ];
+        x32.append(&mut filter);
+        x32
+    };
+    seccompiler::apply_filter(&filter).map_err(|error| format!("seccomp failed: {error}"))?;
+    // glibc retries pthread creation with clone only when clone3 returns ENOSYS.
+    let clone3: BpfProgram = SeccompFilter::new(
+        BTreeMap::from([(libc::SYS_clone3, Vec::new())]),
+        SeccompAction::Allow,
+        SeccompAction::Errno(libc::ENOSYS as u32),
+        arch,
+    )
+    .and_then(TryInto::try_into)
+    .map_err(|error| format!("building the clone3 filter failed: {error}"))?;
+    seccompiler::apply_filter(&clone3).map_err(|error| format!("seccomp failed: {error}"))?;
+    let error = std::fs::File::open("/").err();
+    if error.as_ref().and_then(std::io::Error::raw_os_error) != Some(libc::EACCES) {
+        return Err(format!("Landlock did not deny a file open: {error:?}"));
+    }
+    Ok(())
 }

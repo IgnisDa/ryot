@@ -35,8 +35,12 @@ url = "2"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [profile.release]
+panic = "abort"
 lto = "thin"
 codegen-units = 4
+
+[profile.test]
+panic = "abort"
 
 [[bench]]
 name = "noop"

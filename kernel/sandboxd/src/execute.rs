@@ -1,7 +1,7 @@
 use std::cell::{Cell, RefCell};
 use std::ffi::c_void;
 use std::rc::Rc;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
@@ -44,8 +44,25 @@ type Escalation = Box<dyn Fn(&str) + Send + Sync>;
 
 static ESCALATION: OnceLock<Escalation> = OnceLock::new();
 
+pub(crate) fn set_running(handle: Option<String>) {
+    RUNNING.with(|running| *running.borrow_mut() = handle);
+}
+
 pub fn set_escalation(escalate: impl Fn(&str) + Send + Sync + 'static) {
     ESCALATION.set(Box::new(escalate)).ok();
+}
+
+pub fn abort_on_panic() {
+    let previous = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        previous(info);
+        let handle =
+            RUNNING.with(|running| running.try_borrow().ok().and_then(|value| value.clone()));
+        if let (Some(handle), Some(escalate)) = (handle, ESCALATION.get()) {
+            escalate(&handle);
+        }
+        std::process::abort();
+    }));
 }
 
 /// V8 cannot continue after a fatal OOM, which happens when a builtin keeps allocating after
@@ -59,9 +76,9 @@ unsafe extern "C" fn out_of_memory(_location: *const std::ffi::c_char, _details:
 }
 
 struct ArrayBufferBudget {
+    entry: Arc<Entry>,
     used: AtomicUsize,
     limit: usize,
-    tripped: AtomicBool,
 }
 
 impl ArrayBufferBudget {
@@ -69,7 +86,10 @@ impl ArrayBufferBudget {
         let previous = self.used.fetch_add(length, Ordering::SeqCst);
         if previous.saturating_add(length) > self.limit {
             self.used.fetch_sub(length, Ordering::SeqCst);
-            self.tripped.store(true, Ordering::SeqCst);
+            self.entry.exceed(
+                LimitKind::External,
+                format!("ArrayBuffer limit of {} bytes exceeded", self.limit),
+            );
             return false;
         }
         true
@@ -354,13 +374,12 @@ impl Executor {
         }
         let _enter = self.tokio.enter();
         let budget = Arc::new(ArrayBufferBudget {
+            entry: entry.clone(),
             used: AtomicUsize::new(0),
             limit: run.limits.external_bytes as usize,
-            tripped: AtomicBool::new(false),
         });
         // SAFETY: the vtable matches ArrayBufferBudget and the Arc is released by drop_budget.
-        let allocator =
-            unsafe { v8::new_rust_allocator(Arc::into_raw(budget.clone()), &ALLOCATOR) };
+        let allocator = unsafe { v8::new_rust_allocator(Arc::into_raw(budget), &ALLOCATOR) };
         let params = v8::CreateParams::default()
             .heap_limits(0, run.limits.heap_bytes as usize)
             .array_buffer_allocator(allocator.make_shared());
@@ -412,7 +431,6 @@ impl Executor {
                 current + HEAP_HEADROOM
             });
         }
-        RUNNING.with(|running| *running.borrow_mut() = Some(entry.handle.clone()));
         {
             let state = runtime.op_state();
             let mut state = state.borrow_mut();
@@ -455,7 +473,6 @@ impl Executor {
             }
         }));
 
-        RUNNING.with(|running| running.borrow_mut().take());
         let console = take_console(&runtime);
         {
             let mut state = entry.state();
@@ -484,13 +501,6 @@ impl Executor {
                     Ok(value) => Outcome::Completed(value),
                     Err(error) => Outcome::Failed(Phase::Result, error.to_string()),
                 },
-                Some(Err(_)) if budget.tripped.load(Ordering::SeqCst) => Outcome::Limit(
-                    LimitKind::External,
-                    format!(
-                        "ArrayBuffer limit of {} bytes exceeded",
-                        run.limits.external_bytes
-                    ),
-                ),
                 Some(Err((phase, message))) => {
                     let phase = match (phase, rejected.borrow().as_ref()) {
                         (Phase::Evaluation, Some(_)) => Phase::Resolution,
@@ -563,5 +573,54 @@ async fn drive(
         "e" => Err((Phase::Evaluation, payload.to_owned())),
         "r" => Err((Phase::Result, payload.to_owned())),
         _ => Err((Phase::Execution, payload.to_owned())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn worker_panic_reports_the_execution_and_ends_the_process() {
+        if std::env::var_os("RYOT_WORKER_PANIC_PROBE").is_some() {
+            abort_on_panic();
+            set_escalation(|handle| {
+                let fatal = Outbound::Fatal {
+                    generation: 1,
+                    handle: handle.to_owned(),
+                };
+                println!(
+                    "{}",
+                    String::from_utf8(crate::protocol::encode_outbound(&fatal)).expect("fatal")
+                );
+                std::process::exit(crate::server::EXIT_ESCALATED);
+            });
+            std::thread::spawn(|| {
+                RUNNING.with(|running| *running.borrow_mut() = Some("panic-run".to_owned()));
+                panic!("worker panic probe");
+            })
+            .join()
+            .expect("worker must end the process");
+            return;
+        }
+        let output = std::process::Command::new(std::env::current_exe().expect("test binary"))
+            .args([
+                "--exact",
+                "execute::tests::worker_panic_reports_the_execution_and_ends_the_process",
+                "--nocapture",
+            ])
+            .env("RYOT_WORKER_PANIC_PROBE", "1")
+            .output()
+            .expect("panic probe");
+        assert_eq!(output.status.code(), Some(crate::server::EXIT_ESCALATED));
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let fatal = stdout
+            .lines()
+            .find_map(|line| crate::protocol::decode_outbound(line.as_bytes()).ok())
+            .expect("fatal frame");
+        assert!(
+            matches!(fatal, Outbound::Fatal { generation: 1, handle } if handle == "panic-run")
+        );
+        assert!(String::from_utf8_lossy(&output.stderr).contains("worker panic probe"));
     }
 }

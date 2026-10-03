@@ -157,7 +157,8 @@ per isolate, holds no shared resource, and either lives on the V8 heap or is met
 `ryot-sandboxd` runs as its own UID with an empty environment, inherits only a socketpair, sets
 `no_new_privs`, is non-dumpable with core dumps disabled, and applies a seccomp filter denying internet
 sockets, `execve` after startup, `ptrace`, `process_vm_*`, `userfaultfd`, `io_uring`, `bpf`,
-`perf_event_open`, `mount`, and `unshare`, plus a deny-all Landlock policy after loading the snapshot.
+`perf_event_open`, `mount`, `unshare`, namespace-creating `clone`, all `clone3`, and every x32-ABI
+syscall on x86_64, plus a deny-all Landlock policy verified inside the sidecar after loading the snapshot.
 Deployments add cgroup `memory.max`, `pids.max`, and CPU weight, and a high `oom_score_adj`. Linux
 production fails closed when confinement cannot be applied; macOS development runs unconfined.
 
@@ -411,6 +412,12 @@ arm64, where the confinement suite runs.
 - **S6 measurement:** with the counting allocator cap raised to its maximum, V8's heap and
   external-memory accounting still stopped retained ArrayBuffer growth
   (`v8_accounting_stops_array_buffer_growth_without_the_allocator_cap`).
+- **Worker panics:** release and test profiles specify abort; because Cargo's test harness ignores
+  that setting, the sidecar also installs a panic hook that exits the process and reports the active
+  execution (`worker_panic_reports_the_execution_and_ends_the_process`).
+- **Confinement:** `landlock_is_verified_inside_the_running_sidecar` checks native file-open denial
+  during sidecar startup and rejects startup when enforcement is bypassed. Namespace `clone` calls
+  and x32 syscalls return `EPERM`; `clone3` returns `ENOSYS` so glibc can create threads through `clone`.
 - **Deviations from this plan:**
   - Snapshot tiers run as separate processes (see [Decisions](#decisions)).
   - The protocol adds `ready`, `draining`, `fatal` (naming the culprit), and `part` frames.
@@ -477,7 +484,7 @@ arm64, where the confinement suite runs.
 - **Outcome:** the sidecar runs on a source-built V8 with its sandbox and pointer compression enabled,
   confining V8 memory corruption away from sidecar state and halving isolate memory.
 - **Scope:** cached source builds of the pinned V8 for Linux amd64/arm64 in CI, replacing the counting
-  ArrayBuffer allocator with V8 accounting.
+  ArrayBuffer allocator with V8 accounting, and convert the seccomp denylist to an allowlist.
 - **Prerequisites:** S1's accounting measurement shows the off-heap cap holds without the allocator.
 - **Acceptance:** the S1 containment, escape, and crash suites pass unchanged; per-isolate heap falls
   measurably.
@@ -495,11 +502,6 @@ S2, when workflow-engine rows become the dominant per-import cost.
 - Switch the user tier to per-user sidecars if a deployment hosts mutually untrusted users.
 - S2 must keep each lane's outstanding runs within its threads plus queue: the sidecar stops reading
   while a lane queue is full, which also holds back host results and cancels.
-- A worker panic drops its run without a done frame; abort on panic or finish the run.
-- Deny the x32 syscall ABI in the x86_64 seccomp filter.
-- Tighten tests that accept more than their names claim: external-memory containment also accepts the
-  heap limit, Landlock is checked in a probe process rather than the running sidecar, and the platform
-  pool test allows up to four threads.
 - A caught rejected dynamic import makes a later evaluation error report the `resolution` phase.
 - Rust counts host-call name length in code points and TypeScript in UTF-16 units.
 

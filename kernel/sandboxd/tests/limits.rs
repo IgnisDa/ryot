@@ -128,37 +128,39 @@ fn heap_growth_is_stopped_at_the_heap_limit() {
 
 #[test]
 fn array_buffers_and_external_memory_are_contained() {
+    let external_limits = Limits {
+        heap_bytes: 128 * MIB,
+        ..tight()
+    };
     let outcomes = contain(
         Tier::Core,
         &[
             (
                 "buffers",
                 "export default () => { const kept = []; for (;;) kept.push(new ArrayBuffer(4 * 1024 * 1024)); }",
-                tight(),
+                external_limits.clone(),
             ),
             (
                 "huge",
                 "export default () => new Uint8Array(750 * 1024 * 1024).length",
-                tight(),
+                external_limits.clone(),
             ),
             (
                 "encoded",
                 "export default () => { const kept = []; const text = 'x'.repeat(1024 * 1024); for (;;) kept.push(new TextEncoder().encode(text)); }",
-                tight(),
+                external_limits.clone(),
             ),
             (
                 "cloned",
                 "export default () => { const kept = []; const source = new ArrayBuffer(4 * 1024 * 1024); for (;;) kept.push(structuredClone(source)); }",
-                tight(),
+                external_limits,
             ),
         ],
     );
     for handle in ["buffers", "huge", "encoded", "cloned"] {
-        assert!(
-            matches!(
-                limit_of(&outcomes[handle]),
-                Some(LimitKind::External | LimitKind::Heap)
-            ),
+        assert_eq!(
+            limit_of(&outcomes[handle]),
+            Some(LimitKind::External),
             "{handle}: {:?}",
             outcomes[handle]
         );

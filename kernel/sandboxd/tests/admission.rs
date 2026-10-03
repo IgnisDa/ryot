@@ -32,13 +32,13 @@ fn v8_platform_pool_is_capped() {
         "export default () => new Array(1e6).fill(1).length",
         Value::Null,
     );
-    // main (reader), writer, watchdog, one interactive and one background worker
     let own_threads = 5;
     let platform_threads = thread_count(sidecar.pid()) - own_threads;
-    assert!(
-        platform_threads <= 4,
-        "{platform_threads} V8 platform threads"
-    );
+    let expected = std::thread::available_parallelism()
+        .expect("cores")
+        .get()
+        .min(4);
+    assert_eq!(platform_threads, expected, "V8 platform threads");
 }
 
 #[test]
