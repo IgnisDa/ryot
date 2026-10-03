@@ -1,19 +1,15 @@
 # Books
 
-The default provider that Ryot uses for book tracking is
-[Openlibrary](https://openlibrary.org). You might find it lacking in some cases, so Ryot
-also supports other providers.
+[Open Library](https://openlibrary.org) is the default book provider. Configure another provider
+if it does not contain the books you need.
 
 ## Hardcover
 
-Ryot supports tracking books via [Hardcover](https://hardcover.app). As of writing, the
-API key expires after a year or on January 1st, so you will need to renew it accordingly.
-
-You can use the following steps to obtain your own API keys:
+Hardcover API keys expire after one year or on January 1. Renew the key when required.
 
 1. Create a [Hardcover](https://hardcover.app) account.
 2. Open [API Access](https://hardcover.app/account/api) and create an API key using the `Read-Only Stats / Export` preset.
-3. Set it as `BOOKS_HARDCOVER_API_KEY`.
+3. Set it as `RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY`.
 
 ## Google Books
 

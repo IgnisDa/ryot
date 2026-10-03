@@ -1,40 +1,44 @@
+import { Effect } from "effect";
 import { Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import { match } from "ts-pattern";
+
 import { storage } from "#imports";
 import logo from "~/assets/icon.png";
+
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../../lib/constants";
 import { ExtensionStatus, type FormState } from "../../lib/extension-types";
 import { logger } from "../../lib/logger";
+import { fromPlatform, run } from "../../lib/platform";
 
 const getStatusMessage = (status: ExtensionStatus): string => {
 	return match(status)
 		.with(ExtensionStatus.Idle, () => "Idle, please watch a video to start")
-		.with(
-			ExtensionStatus.VideoDetected,
-			() => "Video found, starting tracking...",
-		)
-		.with(
-			ExtensionStatus.LookupInProgress,
-			() => "Metadata lookup under way...",
-		)
+		.with(ExtensionStatus.VideoDetected, () => "Video found, starting tracking...")
+		.with(ExtensionStatus.LookupInProgress, () => "Metadata lookup under way...")
 		.with(ExtensionStatus.TrackingActive, () => "Tracking active")
-		.with(
-			ExtensionStatus.LookupFailed,
-			() => "Metadata lookup failed - extension inactive",
-		)
+		.with(ExtensionStatus.LookupFailed, () => "Metadata lookup failed - extension inactive")
 		.exhaustive();
 };
+
+const getStatusBackgroundClass = (status: ExtensionStatus): string =>
+	match(status)
+		.with(ExtensionStatus.LookupFailed, () => "bg-red-50")
+		.with(ExtensionStatus.TrackingActive, () => "bg-green-50")
+		.otherwise(() => "bg-gray-100");
+
+const getStatusTextClass = (status: ExtensionStatus): string =>
+	match(status)
+		.with(ExtensionStatus.LookupFailed, () => "text-red-800")
+		.with(ExtensionStatus.TrackingActive, () => "text-green-800")
+		.otherwise(() => "text-gray-800");
 
 const App = () => {
 	const [currentPage, setCurrentPage] = useState<"main" | "settings">("main");
 	const [url, setUrl] = useState("");
 	const [formState, setFormState] = useState<FormState>({ status: "idle" });
-	const [extensionStatus, setExtensionStatus] =
-		useState<ExtensionStatus | null>(null);
-	const [currentVideoTitle, setCurrentVideoTitle] = useState<string | null>(
-		null,
-	);
+	const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null);
+	const [currentVideoTitle, setCurrentVideoTitle] = useState<string | null>(null);
 	const [debugMode, setDebugMode] = useState(false);
 
 	const validateUrl = (urlString: string) => {
@@ -44,12 +48,9 @@ const App = () => {
 		}
 
 		try {
-			const url = new URL(urlString);
-			if (url.protocol !== "http:" && url.protocol !== "https:") {
-				setFormState((prev) => ({
-					...prev,
-					error: "URL must start with http:// or https://",
-				}));
+			const parsedUrl = new URL(urlString);
+			if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+				setFormState((prev) => ({ ...prev, error: "URL must start with http:// or https://" }));
 				return false;
 			}
 			setFormState((prev) => ({ ...prev, error: undefined }));
@@ -61,91 +62,102 @@ const App = () => {
 	};
 
 	useEffect(() => {
-		const loadSavedUrl = async () => {
-			const savedUrl = await storage.getItem<string>(
-				STORAGE_KEYS.INTEGRATION_URL,
-			);
-			if (savedUrl) {
-				setUrl(savedUrl);
-				validateUrl(savedUrl);
-				setFormState({ status: "submitted" });
-			}
-		};
-
-		const loadExtensionStatus = async () => {
-			try {
-				const response = await browser.runtime.sendMessage({
-					type: MESSAGE_TYPES.GET_STATUS,
-				});
-				if (response.success) {
-					setExtensionStatus(response.data);
+		const loadSavedUrl = () =>
+			Effect.gen(function* () {
+				const savedUrl = yield* fromPlatform(() =>
+					storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL),
+				);
+				if (savedUrl) {
+					setUrl(savedUrl);
+					setFormState({ status: "submitted" });
 				}
-			} catch (error) {
-				logger.error("Failed to get extension status", { error });
-			}
-		};
+			});
 
-		const loadCurrentVideoTitle = async () => {
-			try {
-				const response = await browser.runtime.sendMessage({
-					type: MESSAGE_TYPES.GET_CACHED_TITLE,
-				});
-				if (response.success) {
-					setCurrentVideoTitle(response.data);
-				}
-			} catch (error) {
-				logger.error("Failed to get cached title", { error });
-			}
-		};
-
-		const loadDebugMode = async () => {
-			const savedDebugMode = await storage.getItem<boolean>(
-				STORAGE_KEYS.DEBUG_MODE,
+		const loadExtensionStatus = () =>
+			fromPlatform(() => browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_STATUS })).pipe(
+				Effect.map((response) => {
+					if (response.success) {
+						setExtensionStatus(response.data);
+					}
+				}),
+				Effect.catch((error) =>
+					Effect.sync(() => {
+						logger.error("Failed to get extension status", { error });
+					}),
+				),
 			);
-			setDebugMode(savedDebugMode || false);
-		};
 
-		loadSavedUrl();
-		loadExtensionStatus();
-		loadCurrentVideoTitle();
-		loadDebugMode();
+		const loadCurrentVideoTitle = () =>
+			fromPlatform(() =>
+				browser.runtime.sendMessage({ type: MESSAGE_TYPES.GET_CACHED_TITLE }),
+			).pipe(
+				Effect.map((response) => {
+					if (response.success) {
+						setCurrentVideoTitle(response.data);
+					}
+				}),
+				Effect.catch((error) =>
+					Effect.sync(() => {
+						logger.error("Failed to get cached title", { error });
+					}),
+				),
+			);
+
+		const loadDebugMode = () =>
+			fromPlatform(() => storage.getItem<boolean>(STORAGE_KEYS.DEBUG_MODE)).pipe(
+				Effect.tap((savedDebugMode) => Effect.sync(() => setDebugMode(savedDebugMode ?? false))),
+			);
+
+		run(loadSavedUrl());
+		run(loadExtensionStatus());
+		run(loadCurrentVideoTitle());
+		run(loadDebugMode());
 
 		const handleStorageChange = () => {
-			loadExtensionStatus();
-			loadCurrentVideoTitle();
+			run(loadExtensionStatus());
+			run(loadCurrentVideoTitle());
 		};
 
-		const unwatch = storage.watch(
-			STORAGE_KEYS.EXTENSION_STATUS,
-			handleStorageChange,
-		);
+		const unwatch = storage.watch(STORAGE_KEYS.EXTENSION_STATUS, handleStorageChange);
 
 		return unwatch;
 	}, []);
 
-	const handleSubmit = async (e: React.FormEvent) => {
+	const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
 		e.preventDefault();
 
-		if (!validateUrl(url)) return;
+		if (!validateUrl(url)) {
+			return;
+		}
 
 		setFormState({ status: "submitting" });
-		await storage.setItem(STORAGE_KEYS.INTEGRATION_URL, url);
-		setFormState({ status: "submitted" });
+		void Effect.runPromise(
+			fromPlatform(() => storage.setItem(STORAGE_KEYS.INTEGRATION_URL, url)).pipe(
+				Effect.tap(() => Effect.sync(() => setFormState({ status: "submitted" }))),
+			),
+		);
 	};
 
-	const handleClear = async () => {
-		await storage.clear("local");
-		setUrl("");
-		setFormState({ status: "idle" });
-		setExtensionStatus(null);
-		setCurrentVideoTitle(null);
-		setDebugMode(false);
-		setCurrentPage("main");
+	const handleClear = () => {
+		void Effect.runPromise(
+			fromPlatform(() => storage.clear("local")).pipe(
+				Effect.tap(() =>
+					Effect.sync(() => {
+						setUrl("");
+						setFormState({ status: "idle" });
+						setExtensionStatus(null);
+						setCurrentVideoTitle(null);
+						setDebugMode(false);
+						setCurrentPage("main");
+					}),
+				),
+			),
+		);
 	};
 
-	const handleDebugModeChange = async (enabled: boolean) => {
+	const handleDebugModeChange = (enabled: boolean) => {
 		setDebugMode(enabled);
-		await storage.setItem(STORAGE_KEYS.DEBUG_MODE, enabled);
+		void Effect.runPromise(fromPlatform(() => storage.setItem(STORAGE_KEYS.DEBUG_MODE, enabled)));
 	};
 
 	if (currentPage === "settings") {
@@ -184,12 +196,12 @@ const App = () => {
 					<div className="p-4 bg-gray-50 rounded-md">
 						<h3 className="font-medium text-gray-800 mb-2">Reset Extension</h3>
 						<p className="text-sm text-gray-600 mb-3">
-							Clear all extension data including integration URL, cached
-							metadata, and status information.
+							Clear all extension data including integration URL, cached metadata, and status
+							information.
 						</p>
 						<button
 							type="button"
-							onClick={handleClear}
+							onClick={() => handleClear()}
 							className="w-full py-2.5 px-4 bg-red-500 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-red-600"
 						>
 							Clear All Data
@@ -209,49 +221,40 @@ const App = () => {
 				</div>
 				<button
 					type="button"
+					title="Settings"
 					onClick={() => setCurrentPage("settings")}
 					className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-					title="Settings"
 				>
 					<Settings size={18} />
 				</button>
 			</div>
-			<form onSubmit={handleSubmit} className="flex flex-col gap-3">
+			<form className="flex flex-col gap-3" onSubmit={(e) => handleSubmit(e)}>
 				{formState.status !== "submitted" && (
 					<>
-						<label
-							htmlFor="url-input"
-							className="text-sm font-medium text-gray-600 mb-1"
-						>
+						<label htmlFor="url-input" className="text-sm font-medium text-gray-600 mb-1">
 							Integration URL
 						</label>
 						<input
 							type="text"
 							value={url}
 							id="url-input"
-							className={`w-full py-2.5 px-3 border-2 rounded-md text-sm transition-colors box-border focus:outline-none ${formState.error ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"}`}
+							placeholder="Enter your integration URL"
 							onChange={(e) => {
 								const newUrl = e.target.value;
 								setUrl(newUrl);
 								validateUrl(newUrl);
 							}}
-							placeholder="Enter your integration URL"
+							className={`w-full py-2.5 px-3 border-2 rounded-md text-sm transition-colors box-border focus:outline-none ${formState.error ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"}`}
 						/>
-						{formState.error && (
-							<div className="text-red-500 text-xs mt-1">{formState.error}</div>
-						)}
+						{formState.error && <div className="text-red-500 text-xs mt-1">{formState.error}</div>}
 					</>
 				)}
 				<div className="flex gap-2 mt-2">
 					{formState.status !== "submitted" && (
 						<button
 							type="submit"
+							disabled={formState.status === "submitting" || !url.trim() || !!formState.error}
 							className="flex-2 py-2.5 px-4 bg-blue-600 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-							disabled={
-								formState.status === "submitting" ||
-								!url.trim() ||
-								!!formState.error
-							}
 						>
 							{formState.status === "submitting" ? "Saving..." : "Submit"}
 						</button>
@@ -259,32 +262,15 @@ const App = () => {
 					{formState.status === "submitted" && (
 						<div className="w-full">
 							{extensionStatus ? (
-								<div
-									className={`p-3 rounded-md ${
-										extensionStatus === ExtensionStatus.LookupFailed
-											? "bg-red-50"
-											: extensionStatus === ExtensionStatus.TrackingActive
-												? "bg-green-50"
-												: "bg-gray-100"
-									}`}
-								>
+								<div className={`p-3 rounded-md ${getStatusBackgroundClass(extensionStatus)}`}>
 									<div
-										className={`text-sm font-medium mb-1 ${
-											extensionStatus === ExtensionStatus.LookupFailed
-												? "text-red-800"
-												: extensionStatus === ExtensionStatus.TrackingActive
-													? "text-green-800"
-													: "text-gray-800"
-										}`}
+										className={`text-sm font-medium mb-1 ${getStatusTextClass(extensionStatus)}`}
 									>
 										Status: {getStatusMessage(extensionStatus)}
 									</div>
-									{currentVideoTitle &&
-										extensionStatus !== ExtensionStatus.Idle && (
-											<div className="text-xs text-gray-600 mb-1">
-												{currentVideoTitle}
-											</div>
-										)}
+									{currentVideoTitle && extensionStatus !== ExtensionStatus.Idle && (
+										<div className="text-xs text-gray-600 mb-1">{currentVideoTitle}</div>
+									)}
 								</div>
 							) : (
 								<div className="p-3 bg-gray-100 rounded-md text-sm text-gray-600">

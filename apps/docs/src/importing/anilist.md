@@ -1,9 +1,8 @@
-# Anilist
+# AniList
 
-Manga and anime can be imported from [Anilist](https://anilist.co) along with ratings,
-history, favorites and custom lists.
+Imports include manga, anime, ratings, history, favorites, and custom lists.
 
-1. Login to your Anilist account and go to your [account
-  settings](https://anilist.co/settings/account).
-2. Scroll down to the "GDPR Data Download" section and click on "Download".
-3. Upload the JSON file in the input.
+1. Log in to AniList and open [account
+   settings](https://anilist.co/settings/account).
+2. Under **GDPR Data Download**, select **Download**.
+3. Upload the JSON file under **Settings > Import data**.

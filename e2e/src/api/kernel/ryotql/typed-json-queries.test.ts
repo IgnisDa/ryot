@@ -1,0 +1,319 @@
+import {
+	aggregate,
+	and,
+	ascending,
+	castBoolean,
+	castDate,
+	castJson,
+	castNumber,
+	castText,
+	coalesce,
+	column,
+	contains,
+	descending,
+	document,
+	eq,
+	field,
+	gte,
+	gt,
+	inArray,
+	isNotNull,
+	isNull,
+	jsonPath,
+	literal,
+	measure,
+	not,
+	or,
+	rows,
+	table,
+} from "@ryot-app/ryotql";
+import { Effect } from "effect";
+
+import {
+	createAuthenticatedClient,
+	createEntityFixture,
+	createPluginEntitySchema,
+	executeRyotQL,
+	requireRows,
+	requireRyotQLValue,
+} from "~/fixtures/kernel";
+import { describe, expect, it } from "~/support/effect-test";
+
+const createSchema = (client: Parameters<typeof createPluginEntitySchema>[0], name: string) =>
+	createPluginEntitySchema(client, {
+		schemaName: name,
+		propertiesSchema: { fields: {}, unknownKeys: "passthrough" },
+	});
+
+describe("RyotQL typed JSON entity queries", () => {
+	it.live("queries books, movies, and courses with deep JSON expressions", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const [book, movie, course] = yield* Effect.all([
+				createSchema(client, "RyotQLBook"),
+				createSchema(client, "RyotQLMovie"),
+				createSchema(client, "RyotQLCourse"),
+			]);
+			yield* Effect.all([
+				createEntityFixture(client, {
+					name: "Book Alpha",
+					entitySchemaSlug: book.schemaId,
+					properties: {
+						author: "Author A",
+						tags: ["featured", "paperback"],
+						details: {
+							score: 4.8,
+							available: true,
+							contributors: [{ name: "Editor A" }],
+							publishedAt: "2024-03-10T12:00:00.000Z",
+							metadata: { edition: 2, format: "hardcover" },
+						},
+					},
+				}),
+				createEntityFixture(client, {
+					name: "Book Beta",
+					entitySchemaSlug: book.schemaId,
+					properties: {
+						author: "Author B",
+						tags: ["featured", "paperback"],
+						details: {
+							score: 3.1,
+							available: false,
+							metadata: { edition: 2, format: "paperback" },
+						},
+					},
+				}),
+				createEntityFixture(client, {
+					name: "Movie Gamma",
+					entitySchemaSlug: movie.schemaId,
+					properties: { director: "Director G", details: { score: 4.6 } },
+				}),
+				createEntityFixture(client, {
+					name: "Course Advanced",
+					entitySchemaSlug: course.schemaId,
+					properties: {
+						code: "100%_Ready",
+						tags: ["advanced", "api"],
+						details: { durationMinutes: 90, startsAt: "2026-09-01T09:00:00.000Z" },
+					},
+				}),
+				createEntityFixture(client, {
+					name: "Course Decoy",
+					entitySchemaSlug: course.schemaId,
+					properties: {
+						code: "100XXReady",
+						tags: ["advanced"],
+						details: { durationMinutes: 120, startsAt: "2026-09-01T09:00:00.000Z" },
+					},
+				}),
+			]);
+
+			const entity = table("entity", "entity");
+			const properties = column(entity, "properties");
+			const schema = column(entity, "entitySchemaSlug");
+			const score = castNumber(jsonPath(properties, "details", "score"));
+			const result = yield* executeRyotQL(
+				client,
+				document({
+					noBooks: rows(entity, { fields: [], where: and(eq(schema, literal(book.slug)), or()) }),
+					allBooks: rows(entity, { fields: [], where: and(eq(schema, literal(book.slug)), and()) }),
+					unknown: rows(entity, {
+						fields: [],
+						where: eq(schema, literal(`unknown-${crypto.randomUUID()}`)),
+					}),
+					bookCounts: aggregate(entity, {
+						where: eq(schema, literal(book.slug)),
+						measures: [measure("count", { function: "count" })],
+					}),
+					structuralBooks: rows(entity, {
+						fields: [],
+						where: and(
+							eq(schema, literal(book.slug)),
+							eq(
+								jsonPath(properties, "details", "metadata"),
+								literal({ edition: 2, format: "hardcover" }),
+							),
+						),
+					}),
+					media: rows(entity, {
+						orderBy: [ascending(column(entity, "name"))],
+						where: inArray(schema, [literal(book.slug), literal(movie.slug)]),
+						fields: [
+							field("name", column(entity, "name")),
+							field(
+								"creator",
+								coalesce(jsonPath(properties, "author"), jsonPath(properties, "director")),
+							),
+						],
+					}),
+					courses: rows(entity, {
+						fields: [
+							field("name", column(entity, "name")),
+							field("duration", castNumber(jsonPath(properties, "details", "durationMinutes"))),
+						],
+						where: and(
+							eq(schema, literal(course.slug)),
+							gt(castNumber(jsonPath(properties, "details", "durationMinutes")), literal(60)),
+							gte(
+								castDate(jsonPath(properties, "details", "startsAt")),
+								castDate(literal("2026-09-01T00:00:00.000Z")),
+							),
+							contains(castText(jsonPath(properties, "code")), literal("%_")),
+							contains(jsonPath(properties, "tags"), literal(["advanced"])),
+						),
+					}),
+					books: rows(entity, {
+						orderBy: [descending(score)],
+						where: and(
+							eq(schema, literal(book.slug)),
+							gte(score, literal(3)),
+							contains(jsonPath(properties, "tags"), literal(["featured"])),
+							contains(jsonPath(properties, "details", "metadata"), literal({ edition: 2 })),
+							isNotNull(jsonPath(properties, "author")),
+						),
+						fields: [
+							field("name", column(entity, "name")),
+							field("score", score),
+							field("available", castBoolean(jsonPath(properties, "details", "available"))),
+							field("publishedAt", castDate(jsonPath(properties, "details", "publishedAt"))),
+							field("metadata", castJson(jsonPath(properties, "details", "metadata"))),
+							field("contributor", jsonPath(properties, "details", "contributors", 0)),
+						],
+					}),
+				}),
+			);
+
+			const books = requireRows(result.data["books"], "books");
+			expect(books.items).toHaveLength(2);
+			expect(books.items).toEqual([
+				{
+					score: 4.8,
+					available: true,
+					name: "Book Alpha",
+					contributor: { name: "Editor A" },
+					publishedAt: "2024-03-10T12:00:00.000Z",
+					metadata: { edition: 2, format: "hardcover" },
+				},
+				{
+					score: 3.1,
+					available: false,
+					publishedAt: null,
+					name: "Book Beta",
+					contributor: null,
+					metadata: { edition: 2, format: "paperback" },
+				},
+			]);
+			expect(
+				requireRows(result.data["media"], "media").items.map((item) => [
+					requireRyotQLValue(item, "name"),
+					requireRyotQLValue(item, "creator"),
+				]),
+			).toEqual([
+				["Book Alpha", "Author A"],
+				["Book Beta", "Author B"],
+				["Movie Gamma", "Director G"],
+			]);
+			expect(requireRows(result.data["courses"], "courses").items).toEqual([
+				{ duration: 90, name: "Course Advanced" },
+			]);
+			expect(requireRows(result.data["structuralBooks"], "structuralBooks").items).toHaveLength(1);
+			expect(requireRows(result.data["allBooks"], "allBooks").items).toHaveLength(2);
+			expect(requireRows(result.data["noBooks"], "noBooks").items).toHaveLength(0);
+			expect(requireRows(result.data["unknown"], "unknown").items).toHaveLength(0);
+			const bookCounts = result.data["bookCounts"];
+			expect(bookCounts?.type).toBe("aggregate");
+			const count = bookCounts?.type === "aggregate" ? bookCounts.items[0] : undefined;
+			expect(count && requireRyotQLValue(count, "count")).toBe(2);
+		}),
+	);
+
+	it.live("returns null for missing, incompatible, and malformed JSON casts", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const schemaDefinition = yield* createSchema(client, "RyotQLSafeCasts");
+			yield* Effect.all([
+				createEntityFixture(client, {
+					name: "Cast Invalid",
+					entitySchemaSlug: schemaDefinition.schemaId,
+					properties: {
+						text: 42,
+						json: null,
+						number: "1e400",
+						boolean: "true",
+						date: "not-a-date",
+					},
+				}),
+				createEntityFixture(client, {
+					name: "Cast Valid",
+					entitySchemaSlug: schemaDefinition.schemaId,
+					properties: {
+						number: 12.5,
+						text: "ready",
+						boolean: true,
+						json: { nested: true },
+						date: "2026-08-07T12:00:00.000Z",
+					},
+				}),
+			]);
+
+			const entity = table("entity", "entity");
+			const properties = column(entity, "properties");
+			const number = castNumber(jsonPath(properties, "number"));
+			const result = yield* executeRyotQL(
+				client,
+				document({
+					casts: rows(entity, {
+						where: and(
+							eq(column(entity, "entitySchemaSlug"), literal(schemaDefinition.slug)),
+							not(eq(number, literal(1))),
+							or(isNull(number), isNotNull(number)),
+						),
+						fields: [
+							field("name", column(entity, "name")),
+							field("text", castText(jsonPath(properties, "text"))),
+							field("number", number),
+							field("boolean", castBoolean(jsonPath(properties, "boolean"))),
+							field("date", castDate(jsonPath(properties, "date"))),
+							field("json", castJson(jsonPath(properties, "json"))),
+							field("missing", castText(jsonPath(properties, "missing"))),
+							field("outOfRange", castNumber(literal("1e400"))),
+							field("nonFinite", castNumber(literal("NaN"))),
+							field("infiniteDate", castDate(literal("infinity"))),
+							field("constant", literal(true)),
+						],
+					}),
+				}),
+			);
+
+			const casts = requireRows(result.data["casts"], "casts");
+			expect(casts.items).toHaveLength(2);
+			const byName = new Map(casts.items.map((item) => [requireRyotQLValue(item, "name"), item]));
+			expect(byName.get("Cast Invalid")).toEqual({
+				text: null,
+				date: null,
+				json: null,
+				number: null,
+				missing: null,
+				boolean: null,
+				constant: true,
+				nonFinite: null,
+				outOfRange: null,
+				infiniteDate: null,
+				name: "Cast Invalid",
+			});
+			expect(byName.get("Cast Valid")).toEqual({
+				number: 12.5,
+				text: "ready",
+				missing: null,
+				boolean: true,
+				constant: true,
+				nonFinite: null,
+				outOfRange: null,
+				name: "Cast Valid",
+				infiniteDate: null,
+				json: { nested: true },
+				date: "2026-08-07T12:00:00.000Z",
+			});
+		}),
+	);
+});

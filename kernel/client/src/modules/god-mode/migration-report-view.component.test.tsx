@@ -1,0 +1,263 @@
+import { assert, describe, expect, it } from "@effect/vitest";
+import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { Effect, Cause, Exit } from "effect";
+
+import { AdminApiError } from "#/api/admin";
+import { MigrationReportView } from "#/modules/god-mode/migration-report-view";
+import type { GodModeMigrationReport } from "#/modules/god-mode/service";
+
+const report: GodModeMigrationReport = {
+	pageInfo: { limit: 50, hasMore: false, nextCursor: null },
+	items: [
+		{
+			seq: 7,
+			count: 1_234,
+			level: "warning",
+			phase: "metadata",
+			totalDetails: 1_234,
+			elapsedSeconds: 12.5,
+			code: "seen-episode-absent",
+			createdAt: "2025-01-02T03:04:05",
+			message: "Skipped malformed item",
+			details: {
+				pageInfo: { limit: 100, hasMore: true },
+				items: [
+					{
+						seq: 1,
+						detail: {
+							kind: "show",
+							seasonExists: false,
+							requestedSeason: "0",
+							requestedEpisode: "1",
+							parentName: "Black Mirror",
+							userId: "usr_ujrD0pCeKc1Y",
+							code: "seen-episode-absent",
+							parentEntityId: "met_WYGquxnbOnHd",
+							legacyRecordId: "see_hlFQdGwVxnPL",
+							availableSummary: "seasons 1, 2, 3, 4, 5, 6, 7",
+						},
+					},
+				],
+			},
+		},
+		{
+			seq: 6,
+			count: 42,
+			code: null,
+			level: "info",
+			elapsedSeconds: 1,
+			totalDetails: null,
+			phase: "exercise -> entity",
+			message: "row(s) migrated total",
+			createdAt: "2025-01-02T03:04:04",
+			details: { items: [], pageInfo: { limit: 100, hasMore: false } },
+		},
+	],
+};
+
+const emptyReport: GodModeMigrationReport = {
+	items: [],
+	pageInfo: { limit: 50, hasMore: false, nextCursor: null },
+};
+
+const expectedReportTime = new Intl.DateTimeFormat("en-US", {
+	day: "numeric",
+	month: "short",
+	year: "numeric",
+	hour: "numeric",
+	minute: "2-digit",
+	second: "2-digit",
+}).format(new Date("2025-01-02T03:04:05"));
+
+describe("MigrationReportView", () => {
+	it.live("loads on mount and renders the semantic report table", () =>
+		Effect.gen(function* () {
+			const requests: Array<string | undefined> = [];
+			render(
+				<MigrationReportView
+					unauthorized={() => undefined}
+					load={(after) => {
+						requests.push(after);
+						return Effect.succeed(Exit.succeed(report));
+					}}
+				/>,
+			);
+
+			const table = yield* Effect.promise(() => screen.findByRole("table"));
+			expect(requests).toHaveLength(1);
+			expect(requests[0]).toBeUndefined();
+			expect(
+				within(table)
+					.getAllByRole("columnheader")
+					.map((cell) => cell.textContent),
+			).toEqual(["Time", "Severity", "Phase", "Message", "Count", "Elapsed"]);
+			expect(within(table).getByText(expectedReportTime)).toBeTruthy();
+			expect(within(table).getByText("Warning").className).toContain("text-warning");
+			expect(within(table).getByText("metadata")).toBeTruthy();
+			expect(within(table).getByText("Skipped malformed item")).toBeTruthy();
+			expect(within(table).getByText("1,234")).toBeTruthy();
+			expect(within(table).getByText("12.5s")).toBeTruthy();
+		}),
+	);
+
+	it.live("expands a coded warning to reveal its per-record detail and total", () =>
+		Effect.gen(function* () {
+			render(
+				<MigrationReportView
+					unauthorized={() => undefined}
+					load={() => Effect.succeed(Exit.succeed(report))}
+				/>,
+			);
+
+			const toggle = yield* Effect.promise(() =>
+				screen.findByRole("button", { name: /Skipped malformed item/ }),
+			);
+			expect(toggle.getAttribute("aria-expanded")).toBe("false");
+			expect(screen.queryByText("Black Mirror — season 0, episode 1")).toBeNull();
+
+			fireEvent.click(toggle);
+
+			expect(toggle.getAttribute("aria-expanded")).toBe("true");
+			expect(screen.getByText("Black Mirror — season 0, episode 1")).toBeTruthy();
+			expect(screen.getByText("met_WYGquxnbOnHd")).toBeTruthy();
+			expect(screen.getByText(/and 1,233 more, queryable in migration_report_detail/)).toBeTruthy();
+		}),
+	);
+
+	it.live("gives rows without a code no expand affordance", () =>
+		Effect.gen(function* () {
+			render(
+				<MigrationReportView
+					unauthorized={() => undefined}
+					load={() => Effect.succeed(Exit.succeed(report))}
+				/>,
+			);
+
+			yield* Effect.promise(() => screen.findByRole("table"));
+			expect(screen.queryByRole("button", { name: /row\(s\) migrated total/ })).toBeNull();
+		}),
+	);
+
+	it.live(
+		"loads the next cursor and keeps previous reports visible after a failure and retry",
+		() =>
+			Effect.gen(function* () {
+				const nextEntry = report.items.at(-1);
+				assert(nextEntry);
+				const requests: Array<string | undefined> = [];
+				let nextAttempts = 0;
+				render(
+					<MigrationReportView
+						unauthorized={() => undefined}
+						load={(after) => {
+							requests.push(after);
+							if (after === undefined) {
+								return Effect.succeed(
+									Exit.succeed({
+										...report,
+										pageInfo: { limit: 50, hasMore: true, nextCursor: "next" },
+									}),
+								);
+							}
+							nextAttempts += 1;
+							return Effect.succeed(
+								nextAttempts === 1
+									? Exit.fail(new AdminApiError({ cause: "offline" }))
+									: Exit.succeed({
+											pageInfo: { limit: 50, hasMore: false, nextCursor: null },
+											items: [{ ...nextEntry, seq: 5, message: "Completed another phase" }],
+										}),
+							);
+						}}
+					/>,
+				);
+
+				yield* Effect.promise(() => screen.findByText("Skipped malformed item"));
+				fireEvent.click(screen.getByRole("button", { name: "Load more reports" }));
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Retry" })),
+				);
+				expect(screen.getByText("Skipped malformed item")).toBeTruthy();
+				yield* Effect.promise(() => screen.findByText("Completed another phase"));
+				expect(requests).toEqual([undefined, "next", "next"]);
+				expect(screen.queryByRole("button", { name: "Load more reports" })).toBeNull();
+			}),
+	);
+
+	it.live("retries an initial non-auth failure and shows the empty state", () =>
+		Effect.gen(function* () {
+			let calls = 0;
+			render(
+				<MigrationReportView
+					unauthorized={() => undefined}
+					load={() => {
+						calls += 1;
+						return Effect.succeed(
+							calls === 1
+								? Exit.fail(new AdminApiError({ cause: "offline" }))
+								: Exit.succeed(emptyReport),
+						);
+					}}
+				/>,
+			);
+
+			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Retry" })));
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "No migration report" }));
+			expect(calls).toBe(2);
+		}),
+	);
+
+	it.live("relocks on unauthorized without showing a retry state", () =>
+		Effect.gen(function* () {
+			let relocks = 0;
+			render(
+				<MigrationReportView
+					unauthorized={() => {
+						relocks += 1;
+					}}
+					load={() =>
+						Effect.succeed(
+							Exit.failCause(
+								Cause.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
+							),
+						)
+					}
+				/>,
+			);
+
+			yield* Effect.promise(() => waitFor(() => expect(relocks).toBe(1)));
+			expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+			expect(screen.queryByRole("heading", { name: "Migration report" })).toBeNull();
+		}),
+	);
+
+	it.live("cancels an in-flight load on unmount", () =>
+		Effect.gen(function* () {
+			let started = false;
+			let interrupted = false;
+			const view = render(
+				<MigrationReportView
+					unauthorized={() => undefined}
+					load={() =>
+						Effect.sync(() => {
+							started = true;
+						}).pipe(
+							Effect.andThen(Effect.never),
+							Effect.onInterrupt(() =>
+								Effect.sync(() => {
+									interrupted = true;
+								}),
+							),
+						)
+					}
+				/>,
+			);
+
+			yield* Effect.promise(() => waitFor(() => expect(started).toBe(true)));
+			expect(interrupted).toBe(false);
+			view.unmount();
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toBe(true)));
+		}),
+	);
+});

@@ -1,0 +1,21 @@
+{
+	"useTabs": true,
+	"sortImports": true,
+	"objectWrap": "collapse",
+	"$schema": "./node_modules/oxfmt/configuration_schema.json",
+	"ignorePatterns": [
+		"**/tmp/**",
+		"**/out/**",
+		"**/ios/**",
+		"**/dist/**",
+		"**/.wxt/**",
+		"**/build/**",
+		"**/.expo/**",
+		"**/android/**",
+		"**/.vitepress/**",
+		"**/.react-router/**",
+		"apps/frontend/app/styles/*.css",
+		"kernel/client/src/routeTree.gen.ts",
+		"apps/docs/src/includes/app-backend-config-schema.md"
+	]
+}

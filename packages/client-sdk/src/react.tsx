@@ -1,0 +1,1080 @@
+import {
+	RegistryContext,
+	RegistryProvider,
+	useAtomRefresh,
+	useAtomSet,
+	useAtomValue,
+} from "@effect/atom-react";
+import { OverlayBackProvider } from "@ryot-app/client-ui-sdk";
+import { SETTLE_RING_DURATION_MS } from "@ryot-app/client-ui-sdk/sync";
+import { MANAGED_ASSET_RESOLUTION_MAX_ASSETS } from "@ryot-app/contract/modules/uploads/schemas";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
+import * as Cause from "effect/Cause";
+import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
+import * as Option from "effect/Option";
+import * as Schema from "effect/Schema";
+import * as AsyncResult from "effect/unstable/reactivity/AsyncResult";
+import * as Atom from "effect/unstable/reactivity/Atom";
+import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useEffectEvent,
+	useMemo,
+	useRef,
+	useState,
+	useSyncExternalStore,
+	type ReactNode,
+} from "react";
+
+import { ActiveScreenContext } from "./active-screen";
+import { createEntityRefresh, entityTransport } from "./entity-refresh";
+import type {
+	RyotClientError,
+	EntityInterest,
+	EntityInterestSubscription,
+	EntityUpdate,
+	ManagedAssetLocator,
+	ManagedAssetResolution,
+	RyotClient,
+} from "./index";
+import type { PluginRouterNavigation } from "./navigation/store";
+import {
+	RyotClientService,
+	RyotNavigationService,
+	RyotScheduleService,
+	type RyotRuntime,
+	type RyotSchedule,
+} from "./schedule";
+import { createSettleTracker } from "./settle";
+
+export { ActiveScreenContext };
+
+const staleTime = 30 * 1_000;
+const idleTTL = 5 * 60 * 1_000;
+const queryTypeId = Symbol("@ryot-app/client-sdk/react/query");
+const mutationTypeId = Symbol("@ryot-app/client-sdk/react/mutation");
+type PageRefreshHandle = () => Effect.Effect<void>;
+type PageRefreshRegistry = {
+	readonly generation: () => number;
+	readonly hint: () => void;
+	readonly register: (handle: PageRefreshHandle, consumedGeneration?: number) => () => void;
+};
+type ManagedPageRefreshRegistry = PageRefreshRegistry & {
+	readonly activate: () => void;
+	readonly dispose: () => void;
+};
+const PageRefreshRegistryContext = createContext<PageRefreshRegistry | undefined>(undefined);
+const RyotContext = createContext<
+	| {
+			readonly client: RyotClient;
+			readonly hostServices: unknown;
+			readonly schedule: RyotSchedule;
+			readonly navigation: PluginRouterNavigation | undefined;
+	  }
+	| undefined
+>(undefined);
+
+type QueryContext<Input, HostServices> = {
+	readonly input: Input;
+	readonly client: RyotClient;
+	readonly hostServices: HostServices;
+};
+
+type MutationContext<Input, HostServices> = QueryContext<Input, HostServices>;
+
+export interface RyotQuery<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+> {
+	readonly [queryTypeId]: {
+		readonly data?: Data;
+		readonly input?: Input;
+		readonly hostServices?: HostServices;
+		readonly failure?: Failure;
+	};
+}
+
+export interface RyotMutation<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+> {
+	readonly [mutationTypeId]: {
+		readonly data?: Data;
+		readonly input?: Input;
+		readonly hostServices?: HostServices;
+		readonly failure?: Failure;
+	};
+}
+
+export type RyotQueryResult<Data> = {
+	readonly isError: boolean;
+	readonly isSuccess: boolean;
+	readonly isPending: boolean;
+	readonly error: Error | null;
+	readonly isFetching: boolean;
+	readonly refetch: () => void;
+	readonly data: Data | undefined;
+	readonly status: "pending" | "error" | "success";
+};
+
+export type RyotQueryHookOptions = { readonly refreshOnMutation?: boolean };
+
+export type RyotMutationResult<Input, Data, Failure extends Error = Error> = {
+	readonly reset: () => void;
+	readonly isPending: boolean;
+	readonly error: Error | null;
+	readonly data: Data | undefined;
+	readonly mutate: (input: Input) => void;
+	readonly status: "idle" | "pending" | "error" | "success";
+	readonly mutateEffect: (input: Input) => Effect.Effect<Data, Failure>;
+};
+
+const browserFocusSignal = Atom.readable((get) => {
+	let version = 0;
+	if (typeof window === "undefined" || typeof document === "undefined") {
+		return version;
+	}
+	const ownerDocument = document;
+	const onVisibilityChange = () => {
+		if (ownerDocument.visibilityState === "visible") {
+			get.setSelf(++version);
+		}
+	};
+	ownerDocument.addEventListener("visibilitychange", onVisibilityChange);
+	get.addFinalizer(() => ownerDocument.removeEventListener("visibilitychange", onVisibilityChange));
+	return version;
+});
+
+const asError = (cause: Cause.Cause<unknown>) => {
+	const error = Cause.squash(cause);
+	return error instanceof Error ? error : new Error(String(error));
+};
+
+type RyotQueryOptions<Input, Data> = {
+	/** Cancels in-flight work when the final consumer for an input unmounts. */
+	readonly cancelOnUnmount?: boolean;
+	readonly initialData?: (input: Input) => Data;
+	readonly entityInterest?: (context: {
+		readonly input: Input;
+		readonly data: Data | undefined;
+	}) => EntityInterest;
+};
+
+const makeQueryAtom = <Data, Failure extends Error>(
+	run: Effect.Effect<Data, Failure>,
+	initialData?: Data,
+	cancelOnUnmount = false,
+	interested = false,
+) => {
+	const hydrated = new WeakSet<AtomRegistry.AtomRegistry>();
+	const effect = Effect.flatMap(AtomRegistry.AtomRegistry, (registry) => {
+		if (initialData !== undefined && !hydrated.has(registry)) {
+			hydrated.add(registry);
+			return Effect.succeed(initialData);
+		}
+		return run;
+	});
+	const source =
+		initialData === undefined ? Atom.make(run) : Atom.make(effect, { initialValue: initialData });
+	const requestSource = cancelOnUnmount ? source.pipe(Atom.setIdleTTL(0)) : source;
+	if (interested) {
+		return requestSource.pipe(Atom.setIdleTTL(cancelOnUnmount ? 0 : idleTTL));
+	}
+	if (initialData !== undefined || cancelOnUnmount) {
+		return requestSource;
+	}
+	return requestSource.pipe(Atom.swr({ staleTime }), Atom.setIdleTTL(idleTTL));
+};
+
+class QueryDefinition<Input, Data, HostServices, Failure extends Error> implements RyotQuery<
+	Input,
+	Data,
+	HostServices,
+	Failure
+> {
+	readonly [queryTypeId] = {};
+
+	constructor(
+		readonly atom: (
+			registry: AtomRegistry.AtomRegistry,
+			client: RyotClient,
+			hostServices: HostServices,
+			input: Input,
+		) => ReturnType<typeof makeQueryAtom<Data, Failure>>,
+		readonly entityInterest?: RyotQueryOptions<Input, Data>["entityInterest"],
+	) {}
+}
+
+class MutationDefinition<Input, Data, HostServices, Failure extends Error> implements RyotMutation<
+	Input,
+	Data,
+	HostServices,
+	Failure
+> {
+	readonly [mutationTypeId] = {};
+
+	constructor(
+		readonly run: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
+	) {}
+}
+
+export function createRyotQuery<Data, Failure extends Error = RyotClientError>(
+	query: (context: Omit<QueryContext<void, undefined>, "input">) => Effect.Effect<Data, Failure>,
+	options?: RyotQueryOptions<void, Data>,
+): RyotQuery<void, Data, undefined, Failure>;
+export function createRyotQuery<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+>(
+	query: (context: QueryContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
+	options?: RyotQueryOptions<Input, Data>,
+): RyotQuery<Input, Data, HostServices, Failure>;
+export function createRyotQuery<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+>(
+	query: (context: QueryContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
+	options?: RyotQueryOptions<Input, Data>,
+) {
+	type ClientQueries = {
+		hostServices: HostServices;
+		readonly inputs: (input: Input) => ReturnType<typeof makeQueryAtom<Data, Failure>>;
+	};
+	const registries = new WeakMap<AtomRegistry.AtomRegistry, WeakMap<RyotClient, ClientQueries>>();
+	return new QueryDefinition<Input, Data, HostServices, Failure>(
+		(registry, client, hostServices, input) => {
+			let clients = registries.get(registry);
+			if (!clients) {
+				clients = new WeakMap();
+				registries.set(registry, clients);
+			}
+			let clientQueries = clients.get(client);
+			if (!clientQueries) {
+				const current: ClientQueries = {
+					hostServices,
+					inputs: Atom.family((familyInput: Input) =>
+						makeQueryAtom<Data, Failure>(
+							Effect.suspend(() =>
+								query({ client, input: familyInput, hostServices: current.hostServices }),
+							),
+							options?.initialData?.(familyInput),
+							options?.cancelOnUnmount,
+							options?.entityInterest !== undefined,
+						),
+					),
+				};
+				clientQueries = current;
+				clients.set(client, clientQueries);
+			}
+			clientQueries.hostServices = hostServices;
+			return clientQueries.inputs(input);
+		},
+		options?.entityInterest,
+	);
+}
+
+export function createRyotMutation<Data, Failure extends Error = RyotClientError>(
+	mutation: (
+		context: Omit<MutationContext<void, undefined>, "input">,
+	) => Effect.Effect<Data, Failure>,
+): RyotMutation<void, Data, undefined, Failure>;
+export function createRyotMutation<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+>(
+	mutation: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
+): RyotMutation<Input, Data, HostServices, Failure>;
+export function createRyotMutation<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+>(mutation: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>) {
+	return new MutationDefinition<Input, Data, HostServices, Failure>(mutation);
+}
+
+const createPageRefreshRegistry = (schedule: RyotSchedule): ManagedPageRefreshRegistry => {
+	const handles = new Set<PageRefreshHandle>();
+	const catchUps = new Set<PageRefreshHandle>();
+	let generation = 0;
+	let refreshAll = false;
+	const run = () => {
+		const selected = refreshAll
+			? [...handles]
+			: [...catchUps].filter((handle) => handles.has(handle));
+		refreshAll = false;
+		catchUps.clear();
+		return Effect.forEach(selected, (handle) => Effect.suspend(handle), {
+			discard: true,
+			concurrency: "unbounded",
+		});
+	};
+	let refresh = createEntityRefresh(schedule, run);
+	let disposed = false;
+	return {
+		generation: () => generation,
+		hint: () => {
+			generation++;
+			refreshAll = true;
+			refresh.hint();
+		},
+		dispose: () => {
+			disposed = true;
+			handles.clear();
+			catchUps.clear();
+			refreshAll = false;
+			refresh.dispose();
+		},
+		activate: () => {
+			if (disposed) {
+				refresh = createEntityRefresh(schedule, run);
+				disposed = false;
+				if (refreshAll || catchUps.size > 0) {
+					refresh.hint();
+				}
+			}
+		},
+		register: (handle: PageRefreshHandle, consumedGeneration?: number) => {
+			handles.add(handle);
+			if (consumedGeneration !== undefined && consumedGeneration !== generation) {
+				catchUps.add(handle);
+				refresh.hint();
+			}
+			return () => {
+				handles.delete(handle);
+				catchUps.delete(handle);
+			};
+		},
+	};
+};
+
+export const RyotProvider = ({
+	runtime,
+	children,
+	hostServices,
+}: {
+	children: ReactNode;
+	runtime: RyotRuntime;
+	readonly hostServices?: unknown;
+}) => {
+	const runtimeValue = useMemo(
+		() =>
+			runtime.runSync(
+				Effect.all({
+					client: RyotClientService,
+					schedule: RyotScheduleService,
+					// Only a plugin artifact's runtime carries navigation; the kernel host has no router.
+					navigation: Effect.map(
+						Effect.serviceOption(RyotNavigationService),
+						Option.getOrUndefined,
+					),
+				}),
+			),
+		[runtime],
+	);
+	const value = useMemo(() => ({ ...runtimeValue, hostServices }), [runtimeValue, hostServices]);
+	const refreshRegistry = useMemo(
+		() => createPageRefreshRegistry(value.schedule),
+		[value.schedule],
+	);
+	useEffect(() => {
+		refreshRegistry.activate();
+		const unsubscribe = value.client.mutationCompleted.subscribe(refreshRegistry.hint);
+		return () => {
+			unsubscribe();
+			refreshRegistry.dispose();
+		};
+	}, [refreshRegistry, value.client]);
+	return (
+		<RegistryProvider defaultIdleTTL={idleTTL}>
+			<RyotContext.Provider value={value}>
+				<OverlayBackProvider adapter={value.client.overlayBack}>
+					<PageRefreshRegistryContext.Provider value={refreshRegistry}>
+						<PageRefreshLifecycle />
+						{children}
+					</PageRefreshRegistryContext.Provider>
+				</OverlayBackProvider>
+			</RyotContext.Provider>
+		</RegistryProvider>
+	);
+};
+
+const PageRefreshLifecycle = () => {
+	const registry = useContext(RegistryContext);
+	const pageRegistry = useContext(PageRefreshRegistryContext);
+	useEffect(() => {
+		if (!pageRegistry) {
+			return undefined;
+		}
+		registry.get(browserFocusSignal);
+		return registry.subscribe(browserFocusSignal, pageRegistry.hint);
+	}, [pageRegistry, registry]);
+	return null;
+};
+
+export const usePageRefresh = (handle: PageRefreshHandle) => {
+	const active = useContext(ActiveScreenContext);
+	const registry = useContext(PageRefreshRegistryContext);
+	const refresh = useEffectEvent(handle);
+	const consumed = useRef<{ registry: PageRefreshRegistry; generation: number } | undefined>(
+		undefined,
+	);
+	useEffect(() => {
+		if (!registry) {
+			return undefined;
+		}
+		if (consumed.current?.registry !== registry) {
+			consumed.current = { registry, generation: registry.generation() };
+		}
+		if (!active) {
+			return undefined;
+		}
+		const invoke = () => {
+			if (consumed.current?.registry === registry) {
+				consumed.current.generation = registry.generation();
+			}
+			return refresh();
+		};
+		return registry.register(invoke, consumed.current.generation);
+	}, [active, registry]);
+};
+
+export const usePageRefreshRequest = () => {
+	const registry = useContext(PageRefreshRegistryContext);
+	if (!registry) {
+		throw new Error("usePageRefreshRequest must be used within RyotProvider");
+	}
+	return registry.hint;
+};
+
+export const useRyot = () => {
+	const context = useContext(RyotContext);
+	if (!context) {
+		throw new Error("useRyot must be used within RyotProvider");
+	}
+	return context.client;
+};
+
+export const useRyotSchedule = (): RyotSchedule => {
+	const context = useContext(RyotContext);
+	if (!context) {
+		throw new Error("useRyotSchedule must be used within RyotProvider");
+	}
+	return context.schedule;
+};
+
+/** SDK-internal: `PluginRouter` only. Not a plugin capability, so it stays off `./plugin`. */
+export const usePluginNavigation = (): PluginRouterNavigation => {
+	const context = useContext(RyotContext);
+	if (!context?.navigation) {
+		throw new Error("usePluginNavigation must be used within a plugin artifact RyotProvider");
+	}
+	return context.navigation;
+};
+
+export const useRyotTheme = () => {
+	const { theme } = useRyot();
+	return useSyncExternalStore(theme.subscribe, theme.getSnapshot, theme.getSnapshot);
+};
+
+export type PluginStorageState<A> =
+	| { readonly status: "loading" }
+	| {
+			readonly value: A | null;
+			readonly status: "ready";
+			readonly remove: () => Promise<void>;
+			readonly set: (value: A) => Promise<void>;
+	  };
+
+export const usePluginStorage = <A,>(options: {
+	readonly key: string;
+	readonly pluginSlug: string;
+	readonly schema: Schema.Codec<A, JsonValue>;
+}): PluginStorageState<A> => {
+	const client = useRyot();
+	const { key, schema, pluginSlug } = options;
+	const identity = JSON.stringify([pluginSlug, key]);
+	const [stored, setStored] = useState<{ readonly identity: string; readonly value: A | null }>();
+	const decode = useEffectEvent((value: JsonValue | null) =>
+		value === null ? null : Option.getOrNull(Schema.decodeOption(schema)(value)),
+	);
+	useEffect(() => {
+		const fiber = Effect.runFork(
+			client.storage.get(pluginSlug, key).pipe(
+				Effect.map(decode),
+				Effect.orElseSucceed(() => null),
+				Effect.tap((value) =>
+					Effect.sync(() => {
+						setStored((current) =>
+							current?.identity === identity ? current : { value, identity },
+						);
+					}),
+				),
+			),
+		);
+		return () => {
+			Effect.runFork(Fiber.interrupt(fiber));
+		};
+	}, [client, identity, key, pluginSlug]);
+	const set = useCallback(
+		(value: A) => {
+			const encoded = Schema.encodeSync(schema)(value);
+			setStored({ value, identity });
+			return Effect.runPromise(client.storage.set(pluginSlug, key, encoded));
+		},
+		[client, identity, key, pluginSlug, schema],
+	);
+	const remove = useCallback(() => {
+		setStored({ identity, value: null });
+		return Effect.runPromise(client.storage.remove(pluginSlug, key));
+	}, [client, identity, key, pluginSlug]);
+	return stored?.identity === identity
+		? { set, remove, status: "ready", value: stored.value }
+		: { status: "loading" };
+};
+
+const interestedQueries = new WeakMap<
+	AtomRegistry.AtomRegistry,
+	WeakMap<object, { users: number; readonly hint: () => void; readonly dispose: () => void } | null>
+>();
+const pageQueries = new WeakMap<
+	AtomRegistry.AtomRegistry,
+	WeakMap<
+		object,
+		{
+			users: number;
+			pending: boolean;
+			readonly hint: () => void;
+			readonly dispose: () => void;
+		} | null
+	>
+>();
+const pageQueryGenerations = new WeakMap<
+	AtomRegistry.AtomRegistry,
+	WeakMap<object, { registry: PageRefreshRegistry; generation: number }>
+>();
+
+const useQueryPageRefresh = <Data, Failure extends Error>(
+	atom: ReturnType<typeof makeQueryAtom<Data, Failure>>,
+	refreshOnMutation: boolean,
+	catchUp: boolean,
+) => {
+	const active = useContext(ActiveScreenContext);
+	const registry = useContext(RegistryContext);
+	const pageRegistry = useContext(PageRefreshRegistryContext);
+	useEffect(() => {
+		if (!pageRegistry || !refreshOnMutation) {
+			return undefined;
+		}
+		let generations = pageQueryGenerations.get(registry);
+		if (!generations) {
+			generations = new WeakMap();
+			pageQueryGenerations.set(registry, generations);
+		}
+		let consumed = generations.get(atom);
+		if (consumed?.registry !== pageRegistry) {
+			consumed = { registry: pageRegistry, generation: pageRegistry.generation() };
+			generations.set(atom, consumed);
+		}
+		if (!active) {
+			return undefined;
+		}
+		if (!catchUp) {
+			consumed.generation = pageRegistry.generation();
+		}
+		let controllers = pageQueries.get(registry);
+		if (!controllers) {
+			controllers = new WeakMap();
+			pageQueries.set(registry, controllers);
+		}
+		let controller = controllers.get(atom);
+		if (!controller) {
+			const current = {
+				users: 0,
+				pending: false,
+				dispose: () => undefined,
+				hint: () => {
+					if (registry.get(atom).waiting) {
+						current.pending = true;
+					} else {
+						registry.refresh(atom);
+					}
+				},
+			};
+			const unsubscribe = registry.subscribe(atom, () => {
+				if (current.pending && !registry.get(atom).waiting) {
+					current.pending = false;
+					registry.refresh(atom);
+				}
+			});
+			const invoke = () =>
+				Effect.sync(() => {
+					consumed.generation = pageRegistry.generation();
+					current.hint();
+				});
+			const unregister = pageRegistry.register(invoke, consumed.generation);
+			current.dispose = () => {
+				unregister();
+				unsubscribe();
+			};
+			controller = current;
+			controllers.set(atom, controller);
+		}
+		controller.users++;
+		return () => {
+			if (--controller.users === 0) {
+				controller.dispose();
+				controllers.set(atom, null);
+			}
+		};
+	}, [active, atom, catchUp, pageRegistry, refreshOnMutation, registry]);
+};
+
+const useQueryInterest = <Data, Failure extends Error>(
+	client: RyotClient,
+	schedule: RyotSchedule,
+	atom: ReturnType<typeof makeQueryAtom<Data, Failure>>,
+	input: unknown,
+	interest?: RyotQueryOptions<unknown, Data>["entityInterest"],
+) => {
+	const active = useContext(ActiveScreenContext);
+	const registry = useContext(RegistryContext);
+	const previous = useRef({ atom, active, attached: false });
+	const latestInput = useRef(input);
+	useEffect(() => {
+		latestInput.current = input;
+	});
+	useEffect(() => {
+		const queryInput = latestInput.current;
+		const reattach =
+			previous.current.attached && previous.current.atom === atom && previous.current.active;
+		const catchUp = previous.current.atom === atom && !previous.current.active && active;
+		previous.current = { atom, active, attached: true };
+		if (!interest || !active) {
+			return undefined;
+		}
+		let controllers = interestedQueries.get(registry);
+		if (!controllers) {
+			controllers = new WeakMap();
+			interestedQueries.set(registry, controllers);
+		}
+		let controller = controllers.get(atom);
+		if (!controller) {
+			const remount =
+				!reattach && controllers.has(atom) && !AsyncResult.isInitial(registry.get(atom));
+			let data: Data | undefined;
+			let subscription: EntityInterestSubscription | undefined;
+			const refresh = createEntityRefresh(schedule, () =>
+				Effect.sync(() => {
+					if (registry.get(atom).waiting) {
+						refresh.block(true);
+						refresh.hint();
+					} else {
+						registry.refresh(atom);
+						refresh.block(registry.get(atom).waiting);
+					}
+				}),
+			);
+			const sync = () => {
+				const result = registry.get(atom);
+				if (AsyncResult.isSuccess(result)) {
+					data = result.value;
+				} else if (AsyncResult.isFailure(result) && result.previousSuccess._tag === "Some") {
+					data = result.previousSuccess.value.value;
+				}
+				refresh.block(result.waiting);
+				const next = interest({ data, input: queryInput });
+				entityTransport(() => {
+					if (subscription) {
+						subscription.update(next);
+					} else {
+						subscription = client.entities.watch(next, refresh.hint);
+					}
+				});
+			};
+			subscription = entityTransport(() =>
+				client.entities.watch(interest({ data, input: queryInput }), refresh.hint),
+			);
+			const unsubscribe = registry.subscribe(atom, sync);
+			sync();
+			if (remount) {
+				refresh.hint();
+			}
+			controller = {
+				users: 0,
+				hint: refresh.hint,
+				dispose: () => {
+					refresh.dispose();
+					unsubscribe();
+					entityTransport(() => subscription?.dispose());
+				},
+			};
+			controllers.set(atom, controller);
+		}
+		controller.users++;
+		if (catchUp) {
+			controller.hint();
+		}
+		return () => {
+			if (--controller.users === 0) {
+				controller.dispose();
+				controllers.set(atom, null);
+			}
+		};
+	}, [client, schedule, registry, atom, interest, active]);
+};
+
+const useSettleTracker = () => {
+	const schedule = useRyotSchedule();
+	const tracker = useMemo(() => createSettleTracker(schedule, SETTLE_RING_DURATION_MS), [schedule]);
+	useEffect(() => () => tracker.dispose(), [tracker]);
+	const settled = useSyncExternalStore(tracker.subscribe, tracker.snapshot, tracker.snapshot);
+	return { settled, tracker };
+};
+
+export const useEntitySettle = (interest: EntityInterest) => {
+	const client = useRyot();
+	const active = useContext(ActiveScreenContext);
+	const { settled, tracker } = useSettleTracker();
+	const latestInterest = useRef(interest);
+	const subscription = useRef<EntityInterestSubscription | undefined>(undefined);
+	useEffect(() => {
+		latestInterest.current = interest;
+	});
+	useEffect(() => {
+		if (!active) {
+			return undefined;
+		}
+		const watch = entityTransport(() =>
+			client.entities.watch(latestInterest.current, tracker.stage),
+		);
+		subscription.current = watch;
+		return () => {
+			subscription.current = undefined;
+			entityTransport(() => watch?.dispose());
+		};
+	}, [client, active, tracker]);
+	useEffect(() => {
+		entityTransport(() => subscription.current?.update(interest));
+	}, [interest]);
+	return { settled, commit: tracker.commit };
+};
+
+export const useEntityRefresh = (options: {
+	readonly blocked: boolean;
+	readonly identity: string;
+	readonly interest: EntityInterest;
+	readonly onRefresh: (updates: readonly EntityUpdate[]) => Effect.Effect<void>;
+}) => {
+	const client = useRyot();
+	const schedule = useRyotSchedule();
+	const active = useContext(ActiveScreenContext);
+	const { settled, tracker } = useSettleTracker();
+	const latest = useRef(options);
+	const previous = useRef({ active, identity: options.identity });
+	const controller = useRef<
+		| {
+				subscription: EntityInterestSubscription | undefined;
+				readonly client: RyotClient;
+				readonly identity: string;
+				readonly refresh: ReturnType<typeof createEntityRefresh>;
+		  }
+		| undefined
+	>(undefined);
+	useEffect(() => {
+		latest.current = options;
+	});
+	useEffect(() => {
+		const refresh = createEntityRefresh(schedule, (updates) => {
+			for (const update of updates) {
+				tracker.stage(update);
+			}
+			return Effect.tap(latest.current.onRefresh(updates), () =>
+				Effect.sync(() => tracker.commit()),
+			);
+		});
+		controller.current = { client, refresh, subscription: undefined, identity: options.identity };
+		return () => {
+			controller.current = undefined;
+			refresh.dispose();
+		};
+	}, [client, schedule, options.identity, tracker]);
+	useEffect(() => {
+		const catchUp =
+			previous.current.identity === options.identity && !previous.current.active && active;
+		previous.current = { active, identity: options.identity };
+		const current = controller.current;
+		current?.refresh.block(!active || latest.current.blocked);
+		if (!active || current?.client !== client || current.identity !== options.identity) {
+			return undefined;
+		}
+		const subscription = entityTransport(() =>
+			client.entities.watch(latest.current.interest, current.refresh.hint),
+		);
+		current.subscription = subscription;
+		if (catchUp) {
+			current.refresh.hint();
+		}
+		return () => {
+			current.subscription = undefined;
+			entityTransport(() => subscription?.dispose());
+		};
+	}, [client, options.identity, active]);
+	useEffect(() => {
+		controller.current?.refresh.block(!active || options.blocked);
+		entityTransport(() => controller.current?.subscription?.update(options.interest));
+	}, [active, options.interest, options.blocked]);
+	return { settled };
+};
+
+export function useRyotQuery<Data, HostServices, Failure extends Error>(
+	query: RyotQuery<void, Data, HostServices, Failure>,
+	input?: void,
+	options?: RyotQueryHookOptions,
+): RyotQueryResult<Data>;
+export function useRyotQuery<Input, Data, HostServices, Failure extends Error>(
+	query: RyotQuery<Input, Data, HostServices, Failure>,
+	input: Input,
+	options?: RyotQueryHookOptions,
+): RyotQueryResult<Data>;
+export function useRyotQuery<Data, HostServices, Failure extends Error>(
+	query: RyotQuery<unknown, Data, HostServices, Failure>,
+	input?: unknown,
+	options?: RyotQueryHookOptions,
+): RyotQueryResult<Data> {
+	const context = useContext(RyotContext);
+	const registry = useContext(RegistryContext);
+	if (!context) {
+		throw new Error("useRyotQuery must be used within RyotProvider");
+	}
+	const { client, schedule, hostServices } = context;
+	if (!(query instanceof QueryDefinition)) {
+		throw new Error("useRyotQuery requires a query created by createRyotQuery");
+	}
+	// The definition declares the host type; React context cannot link that generic to a provider.
+	const atom = query.atom(registry, client, hostServices, input);
+	useQueryInterest(client, schedule, atom, input, query.entityInterest);
+	const result = useAtomValue(atom);
+	const refetch = useAtomRefresh(atom);
+	useQueryPageRefresh(
+		atom,
+		options?.refreshOnMutation !== false,
+		query.entityInterest === undefined,
+	);
+	const isError = AsyncResult.isFailure(result);
+	const isSuccess = AsyncResult.isSuccess(result);
+	let data: Data | undefined;
+	if (isSuccess) {
+		data = result.value;
+	} else if (isError && result.previousSuccess._tag === "Some") {
+		data = result.previousSuccess.value.value;
+	}
+	let status: RyotQueryResult<Data>["status"] = "pending";
+	if (isSuccess) {
+		status = "success";
+	} else if (isError) {
+		status = "error";
+	}
+	return {
+		data,
+		status,
+		refetch,
+		isError,
+		isSuccess,
+		isFetching: result.waiting,
+		isPending: AsyncResult.isInitial(result),
+		error: isError ? asError(result.cause) : null,
+	};
+}
+
+export const useRyotMutation = <Input, Data, HostServices, Failure extends Error>(
+	mutation: RyotMutation<Input, Data, HostServices, Failure>,
+): RyotMutationResult<Input, Data, Failure> => {
+	const context = useContext(RyotContext);
+	const registry = useContext(RegistryContext);
+	if (!context) {
+		throw new Error("useRyotMutation must be used within RyotProvider");
+	}
+	const { client, hostServices } = context;
+	// The definition declares the host type; React context cannot link that generic to a provider.
+	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+	const typedHostServices = hostServices as HostServices;
+	if (!(mutation instanceof MutationDefinition)) {
+		throw new Error("useRyotMutation requires a mutation created by createRyotMutation");
+	}
+	const run: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure> =
+		mutation.run;
+	const atom = useMemo(
+		() =>
+			Atom.fn<Input>()<Failure, Data>((input) =>
+				Effect.suspend(() => run({ input, client, hostServices: typedHostServices })),
+			),
+		[client, run, typedHostServices],
+	);
+	const result = useAtomValue(atom);
+	const set = useAtomSet(atom);
+	const mutateEffect = (input: Input) =>
+		Effect.sync(() => registry.set(atom, input)).pipe(
+			Effect.andThen(AtomRegistry.getResult(registry, atom, { suspendOnWaiting: true })),
+		);
+	let status: RyotMutationResult<Input, Data, Failure>["status"] = "idle";
+	if (result.waiting) {
+		status = "pending";
+	} else if (AsyncResult.isFailure(result)) {
+		status = "error";
+	} else if (AsyncResult.isSuccess(result)) {
+		status = "success";
+	}
+	return {
+		status,
+		mutate: set,
+		mutateEffect,
+		isPending: result.waiting,
+		reset: () => set(Atom.Reset),
+		data: AsyncResult.isSuccess(result) ? result.value : undefined,
+		error: AsyncResult.isFailure(result) ? asError(result.cause) : null,
+	};
+};
+
+const ASSET_REFRESH_LEAD_MS = 60_000;
+
+export const managedAssetKey = (locator: ManagedAssetLocator) => `${locator.type}:${locator.key}`;
+
+const sortedManagedAssetLocators = (locators: readonly ManagedAssetLocator[]) =>
+	[...locators].sort((left, right) => managedAssetKey(left).localeCompare(managedAssetKey(right)));
+
+export const canonicalAssetBatchKey = (locators: readonly ManagedAssetLocator[]) =>
+	JSON.stringify(sortedManagedAssetLocators(locators));
+
+export type ManagedAssetBatch = {
+	readonly key: string;
+	readonly locators: readonly ManagedAssetLocator[];
+};
+
+export const managedAssetBatches = (
+	locators: readonly ManagedAssetLocator[],
+): readonly ManagedAssetBatch[] => {
+	const deduped = sortedManagedAssetLocators([
+		...new Map(locators.map((locator) => [managedAssetKey(locator), locator])).values(),
+	]);
+	const batches: ManagedAssetBatch[] = [];
+	for (let index = 0; index < deduped.length; index += MANAGED_ASSET_RESOLUTION_MAX_ASSETS) {
+		const slice = deduped.slice(index, index + MANAGED_ASSET_RESOLUTION_MAX_ASSETS);
+		batches.push({ locators: slice, key: canonicalAssetBatchKey(slice) });
+	}
+	return batches;
+};
+
+const useStableManagedAssetLocators = (locators: readonly ManagedAssetLocator[]) => {
+	const key = canonicalAssetBatchKey(locators);
+	const [stable, setStable] = useState({ key, locators });
+	if (stable.key !== key) {
+		setStable({ key, locators });
+		return locators;
+	}
+	return stable.locators;
+};
+
+const managedAssetBatchQuery = createRyotQuery<string, readonly ManagedAssetResolution[]>(
+	({ input, client }) => {
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The key is created only from schema-validated locator values.
+		const locators = JSON.parse(input) as readonly ManagedAssetLocator[];
+		return client.assets.resolve(locators);
+	},
+	{ cancelOnUnmount: true },
+);
+
+const ManagedAssetUrlsContext = createContext<ReadonlyMap<string, string>>(new Map());
+
+function ManagedAssetBatchResolver(props: {
+	readonly batchKey: string;
+	readonly onResolved: (batchKey: string, urls: ReadonlyMap<string, string>) => void;
+}) {
+	const schedule = useRyotSchedule();
+	const result = useRyotQuery(managedAssetBatchQuery, props.batchKey);
+	const refresh = useEffectEvent(() => result.refetch());
+	const publish = useEffectEvent((urls: ReadonlyMap<string, string>) =>
+		props.onResolved(props.batchKey, urls),
+	);
+	const resolutions = result.data;
+
+	useEffect(() => {
+		publish(
+			new Map(
+				(resolutions ?? []).map((resolution) => [
+					managedAssetKey(resolution.asset),
+					resolution.url,
+				]),
+			),
+		);
+	}, [resolutions]);
+
+	useEffect(() => {
+		if (resolutions === undefined || resolutions.length === 0) {
+			return undefined;
+		}
+		const earliestExpiry = Math.min(
+			...resolutions.map((resolution) => Date.parse(resolution.expiresAt)),
+		);
+		return schedule.after(
+			Math.max(ASSET_REFRESH_LEAD_MS, earliestExpiry - ASSET_REFRESH_LEAD_MS - schedule.now()),
+			refresh,
+		);
+	}, [resolutions, schedule]);
+
+	return null;
+}
+
+export function ManagedAssetProvider(props: {
+	readonly assets: readonly ManagedAssetLocator[];
+	readonly children: ReactNode;
+}) {
+	const parentUrls = useContext(ManagedAssetUrlsContext);
+	const stableAssets = useStableManagedAssetLocators(props.assets);
+	const batches = useMemo(() => managedAssetBatches(stableAssets), [stableAssets]);
+	const [resolvedBatches, setResolvedBatches] = useState<
+		ReadonlyMap<string, ReadonlyMap<string, string>>
+	>(new Map());
+
+	const onResolved = useCallback((batchKey: string, urls: ReadonlyMap<string, string>) => {
+		setResolvedBatches((previous) => new Map(previous).set(batchKey, urls));
+	}, []);
+
+	const urls = useMemo(() => {
+		const merged = new Map(parentUrls);
+		for (const batch of batches) {
+			for (const [key, url] of resolvedBatches.get(batch.key) ?? []) {
+				merged.set(key, url);
+			}
+		}
+		return merged;
+	}, [parentUrls, batches, resolvedBatches]);
+
+	return (
+		<ManagedAssetUrlsContext.Provider value={urls}>
+			{batches.map((batch) => (
+				<ManagedAssetBatchResolver key={batch.key} batchKey={batch.key} onResolved={onResolved} />
+			))}
+			{props.children}
+		</ManagedAssetUrlsContext.Provider>
+	);
+}
+
+export function useManagedAssetUrl(asset: ManagedAssetLocator | undefined) {
+	const urls = useContext(ManagedAssetUrlsContext);
+	return asset === undefined ? undefined : urls.get(managedAssetKey(asset));
+}

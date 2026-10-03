@@ -1,20 +1,87 @@
-import { MetadataLookupDocument } from "@ryot/generated/graphql/backend/graphql";
-import { isFiniteNumber } from "@ryot/ts-utils";
-import { GraphQLClient } from "graphql-request";
+import { isFiniteNumber } from "@ryot-app/ts-utils/lodash";
+import { Cause, Effect } from "effect";
+import { FetchHttpClient, type HttpClient } from "effect/unstable/http";
+
 import { storage } from "#imports";
+
 import { MESSAGE_TYPES, STORAGE_KEYS } from "../lib/constants";
+import { lookupMetadata, postIntegrationWebhook } from "../lib/contract-client";
 import type { ProgressDataWithMetadata } from "../lib/extension-types";
 import { ExtensionStatus } from "../lib/extension-types";
 import { logger } from "../lib/logger";
+import { errorMessage, fromPlatform } from "../lib/platform";
 
-function extractGraphQLEndpoint(integrationUrl: string) {
-	try {
-		const url = new URL(integrationUrl);
-		return `${url.origin}/backend/graphql`;
-	} catch (_error) {
-		throw new Error(`Invalid integration URL: ${integrationUrl}`);
+const handleMetadataLookup = Effect.fn("handleMetadataLookup")(function* (data: { title: string }) {
+	const integrationUrl = yield* fromPlatform(() =>
+		storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL),
+	);
+
+	if (!integrationUrl) {
+		throw new Error("Integration URL not found in storage");
 	}
-}
+
+	logger.debug("Making metadata lookup request", { title: data.title, url: integrationUrl });
+
+	const result = yield* lookupMetadata(integrationUrl, data.title);
+
+	logger.debug("Metadata lookup response", { result });
+
+	return result;
+});
+
+const handleProgressData = (progressData: ProgressDataWithMetadata, tabUrl?: string) =>
+	Effect.gen(function* () {
+		const integrationUrl = yield* fromPlatform(() =>
+			storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL),
+		);
+
+		if (!integrationUrl) {
+			throw new Error("Integration URL not found in storage");
+		}
+
+		const { rawData, metadata } = progressData;
+
+		if (!isFiniteNumber(rawData.progress) || !tabUrl || metadata.status === "notFound") {
+			return undefined;
+		}
+
+		const mediaSeen = {
+			lot: metadata.data.lot,
+			progress: rawData.progress,
+			identifier: metadata.data.identifier,
+			...(metadata.showInformation
+				? {
+						show_season_number: metadata.showInformation.season,
+						show_episode_number: metadata.showInformation.episode,
+					}
+				: {}),
+		};
+
+		const integrationPayload = { url: tabUrl, data: mediaSeen };
+
+		logger.debug("Sending integration data", { url: integrationUrl, payload: integrationPayload });
+
+		yield* postIntegrationWebhook(integrationUrl, integrationPayload);
+
+		logger.info("Integration data sent successfully");
+
+		return { success: true };
+	}).pipe(
+		Effect.catchCause((cause) => {
+			logger.error("Integration data request failed", { error: cause });
+			return Effect.succeed({ success: false, error: errorMessage(cause) });
+		}),
+	);
+
+const getCurrentStatus = () =>
+	fromPlatform(() => storage.getItem<ExtensionStatus>(STORAGE_KEYS.EXTENSION_STATUS)).pipe(
+		Effect.map((status) => status ?? ExtensionStatus.Idle),
+	);
+
+const getCurrentCachedTitle = () =>
+	fromPlatform(() => storage.getItem<string>(STORAGE_KEYS.CURRENT_PAGE_TITLE)).pipe(
+		Effect.map((title) => title ?? null),
+	);
 
 export default defineBackground(() => {
 	logger.info("Background script initialized");
@@ -24,153 +91,56 @@ export default defineBackground(() => {
 	});
 
 	browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
-		if (message.type === MESSAGE_TYPES.GET_STATUS) {
-			getCurrentStatus()
-				.then((status) => {
-					sendResponse({ success: true, data: status });
-				})
-				.catch((error) => {
-					logger.debug("Failed to get status", { error });
-					sendResponse({ success: false, error: error.message });
-				});
-
+		const respond = <A, E>(
+			program: Effect.Effect<A, E, HttpClient.HttpClient>,
+			label: string,
+			makeResponse: (result: A) => unknown,
+		) => {
+			void Effect.runPromise(
+				program.pipe(
+					// oxlint-disable-next-line effecttsgo/strict-effect-provide -- Each runtime message is a background entrypoint
+					Effect.provide(FetchHttpClient.layer),
+					Effect.matchCause({
+						onSuccess: (result) => sendResponse(makeResponse(result)),
+						onFailure: (cause) => {
+							const error = Cause.squash(cause);
+							logger.debug(label, { error });
+							sendResponse({ success: false, error: errorMessage(error) });
+						},
+					}),
+				),
+			);
 			return true;
+		};
+		if (message.type === MESSAGE_TYPES.GET_STATUS) {
+			return respond(getCurrentStatus(), "Failed to get status", (status) => ({
+				data: status,
+				success: true,
+			}));
 		}
 
 		if (message.type === MESSAGE_TYPES.SEND_PROGRESS_DATA) {
-			handleProgressData(message.data, sender.tab?.url)
-				.then((result) => {
-					sendResponse({ success: true, result });
-				})
-				.catch((error) => {
-					logger.debug("Progress data request failed", { error });
-					sendResponse({ success: false, error: error.message });
-				});
-
-			return true;
+			return respond(
+				handleProgressData(message.data, sender.tab?.url),
+				"Progress data request failed",
+				(result) => ({ result, success: true }),
+			);
 		}
 
 		if (message.type === MESSAGE_TYPES.METADATA_LOOKUP) {
-			handleMetadataLookup(message.data)
-				.then((result) => {
-					sendResponse({ success: true, data: result });
-				})
-				.catch((error) => {
-					logger.debug("Metadata lookup failed", { error });
-					sendResponse({ success: false, error: error.message });
-				});
-
-			return true;
+			return respond(handleMetadataLookup(message.data), "Metadata lookup failed", (result) => ({
+				data: result,
+				success: true,
+			}));
 		}
 
 		if (message.type === MESSAGE_TYPES.GET_CACHED_TITLE) {
-			getCurrentCachedTitle()
-				.then((title) => {
-					sendResponse({ success: true, data: title });
-				})
-				.catch((error) => {
-					logger.debug("Failed to get cached title", { error });
-					sendResponse({ success: false, error: error.message });
-				});
-
-			return true;
+			return respond(getCurrentCachedTitle(), "Failed to get cached title", (title) => ({
+				data: title,
+				success: true,
+			}));
 		}
+
+		return undefined;
 	});
-
-	async function handleMetadataLookup(data: { title: string }) {
-		const integrationUrl = await storage.getItem<string>(
-			STORAGE_KEYS.INTEGRATION_URL,
-		);
-
-		if (!integrationUrl) {
-			throw new Error("Integration URL not found in storage");
-		}
-
-		const graphqlEndpoint = extractGraphQLEndpoint(integrationUrl);
-		const client = new GraphQLClient(graphqlEndpoint);
-
-		logger.debug("Making metadata lookup request", {
-			title: data.title,
-			endpoint: graphqlEndpoint,
-		});
-
-		const result = await client.request(MetadataLookupDocument, {
-			title: data.title,
-		});
-
-		logger.debug("Metadata lookup response", { result });
-
-		return result.metadataLookup;
-	}
-
-	async function handleProgressData(
-		progressData: ProgressDataWithMetadata,
-		tabUrl?: string,
-	) {
-		try {
-			const integrationUrl = await storage.getItem<string>(
-				STORAGE_KEYS.INTEGRATION_URL,
-			);
-
-			if (!integrationUrl) {
-				throw new Error("Integration URL not found in storage");
-			}
-
-			const { rawData, metadata } = progressData;
-
-			if (
-				!isFiniteNumber(rawData.progress) ||
-				!tabUrl ||
-				"notFound" in metadata
-			) {
-				return;
-			}
-
-			const integrationPayload = {
-				url: tabUrl,
-				data: {
-					progress: rawData.progress,
-					identifier: metadata.data.identifier,
-					lot: metadata.data.lot.toLowerCase(),
-					show_season_number: metadata.showInformation?.season,
-					show_episode_number: metadata.showInformation?.episode,
-				},
-			};
-
-			logger.debug("Sending integration data", {
-				url: integrationUrl,
-				payload: integrationPayload,
-			});
-
-			await fetch(integrationUrl, {
-				method: "POST",
-				body: JSON.stringify(integrationPayload),
-				headers: { "Content-Type": "application/json" },
-			});
-
-			logger.info("Integration data sent successfully");
-
-			return { success: true };
-		} catch (error) {
-			logger.error("Integration data request failed", { error });
-			return {
-				success: false,
-				error: error instanceof Error ? error.message : "Unknown error",
-			};
-		}
-	}
-
-	async function getCurrentStatus() {
-		const status = await storage.getItem<ExtensionStatus>(
-			STORAGE_KEYS.EXTENSION_STATUS,
-		);
-		return status || ExtensionStatus.Idle;
-	}
-
-	async function getCurrentCachedTitle() {
-		const title = await storage.getItem<string>(
-			STORAGE_KEYS.CURRENT_PAGE_TITLE,
-		);
-		return title || null;
-	}
 });

@@ -1,0 +1,42 @@
+import type { ContractPayload } from "@ryot-app/contract/client";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { Effect } from "effect";
+
+import { requireObjectRecord, requirePresent } from "~/support/assertions";
+
+import type { Client } from "./auth";
+
+type CreateCollectionPayload = ContractPayload<"collections", "create">;
+
+export type CreateCollectionOptions = Partial<
+	Omit<CreateCollectionPayload, "membershipPropertiesSchema">
+> & { membershipPropertiesSchema?: AppSchema };
+
+export const createCollection = (client: Client, options: CreateCollectionOptions = {}) =>
+	Effect.gen(function* () {
+		const {
+			membershipPropertiesSchema,
+			description = "A test collection",
+			name = `Test Collection ${crypto.randomUUID()}`,
+		} = options;
+
+		const collection = yield* client.call((c) =>
+			c.collections.create({
+				payload: {
+					name,
+					description,
+					...(membershipPropertiesSchema && { membershipPropertiesSchema }),
+				},
+			}),
+		);
+
+		requirePresent(collection.id, `Failed to create collection '${name}'`);
+
+		return {
+			...collection,
+			properties: requireObjectRecord(
+				collection.properties,
+				"Collection properties must be an object",
+			),
+		};
+	});

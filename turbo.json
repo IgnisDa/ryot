@@ -1,37 +1,55 @@
 {
 	"$schema": "https://turbo.build/schema.json",
 	"tasks": {
+		"dev": { "cache": false, "persistent": true },
+		"check": { "dependsOn": ["^check", "^build"], "outputLogs": "errors-only" },
+		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test"] },
 		"build": {
 			"dependsOn": ["^build"],
-			"outputs": ["build/**", ".vitepress/dist/**", "dist/**", "out/**"]
+			"outputLogs": "errors-only",
+			"env": ["UNKEY_ROOT_KEY", "RYOT_VERSION"],
+			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
 		},
-		"build-chrome": {
+		"@ryot-app/kernel-backend#build": {
 			"dependsOn": ["^build"],
-			"outputs": ["dist/chrome-mv3/**", "dist/*-chrome.zip"]
-		},
-		"build-firefox": {
-			"dependsOn": ["^build"],
+			"inputs": ["src/**/*.ts", "!src/**/*.generated.ts", "tooling/**/*.ts", "package.json"],
 			"outputs": [
-				"dist/firefox-mv2/**",
-				"dist/*-sources.zip",
-				"dist/*-firefox.zip"
+				"src/lib/infrastructure/sandbox-runtime/*.generated.ts",
+				"src/modules/definition-registry/*.generated.ts"
 			]
 		},
-		"typecheck": {},
-		"lint": {},
-		"test": {
-			"dependsOn": ["^build"]
+		"@ryot-app/kernel-backend#check": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^check", "^build", "build"]
 		},
-		"dev": {
-			"cache": false,
-			"persistent": true
+		"@ryot-app/kernel-backend#test": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["build", "^build", "^check", "^test"]
 		},
-		"test-watch": {
-			"cache": false,
-			"persistent": true
+		"@ryot-app/server#build": {
+			"outputs": ["dist/**"],
+			"dependsOn": ["^build"],
+			"outputLogs": "errors-only",
+			"env": ["UNKEY_ROOT_KEY", "RYOT_VERSION"]
 		},
-		"backend-graphql": {
-			"cache": false
+		"@ryot-app/kernel-renderers#build": {
+			"dependsOn": ["^build"],
+			"outputs": ["src/sources.generated.ts"],
+			"inputs": [
+				"src/**/*.ts",
+				"src/**/*.tsx",
+				"!src/**/*.generated.ts",
+				"tooling/**/*.ts",
+				"package.json"
+			]
+		},
+		"@ryot-app/kernel-renderers#check": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^check", "^build", "build"]
+		},
+		"@ryot-app/kernel-renderers#test": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["build", "^build", "^check", "^test"]
 		}
 	}
 }
