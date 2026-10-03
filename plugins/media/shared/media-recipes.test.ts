@@ -352,6 +352,7 @@ describe("media flat recipes", () => {
 				{ value: "complete" },
 				{ value: "review" },
 				{ value: "progress" },
+				{ value: "list-state" },
 			],
 		});
 	});

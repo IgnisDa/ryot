@@ -4,6 +4,10 @@ import type { AppNumberPropertyValidation } from "@ryot-app/contract/schema/prop
 const nonNegativeValidation: AppNumberPropertyValidation = { minimum: 0 };
 
 const mediaConfigDefinition = definePluginConfig("media", {
+	anilistClientId: stringField({
+		label: "AniList client ID",
+		description: "Client ID for AniList accounts",
+	}),
 	metronUsername: stringField({
 		label: "Metron username",
 		description: "Username used to access Metron metadata",
@@ -43,6 +47,11 @@ const mediaConfigDefinition = definePluginConfig("media", {
 		secret: true,
 		label: "Hardcover API key",
 		description: "API key used to access Hardcover metadata",
+	}),
+	anilistClientSecret: stringField({
+		secret: true,
+		label: "AniList client secret",
+		description: "Client secret for AniList accounts",
 	}),
 	giantBombApiKey: stringField({
 		secret: true,

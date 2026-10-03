@@ -666,16 +666,23 @@ import { defineScriptReference, type WorkflowReplay } from "@ryot-app/sandbox-sd
 
 const reference = defineScriptReference({ scriptSlug: "used-child", input: Schema.Unknown, output: Schema.Null });
 const request = (
-  host: Pick<ScriptHost, "getPluginConfig" | "getOAuthAccessToken">,
+  host: Pick<
+    ScriptHost,
+    "getPluginConfig" | "getOAuthAccessToken" | "invalidateOAuthAccessToken"
+  >,
   replay: WorkflowReplay,
 ) => {
   void host.getPluginConfig({ required: ["token"], optional: ["threshold"] });
   void host.getOAuthAccessToken({ field: "account" });
+  void host.invalidateOAuthAccessToken({ field: "account", accessToken: "stale" });
   return replay.activity("used-child", reference, {}).pipe(Effect.as(null));
 };
 
 export default (
-  host: Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getOAuthAccessToken">,
+  host: Pick<
+    ScriptHost,
+    "httpCall" | "getPluginConfig" | "getOAuthAccessToken" | "invalidateOAuthAccessToken"
+  >,
   replay: WorkflowReplay,
 ) => {
   const helpers = {
@@ -707,8 +714,8 @@ export default (
 			oauthConnectionFields: ["account"],
 			requiredPluginConfigKeys: ["token"],
 			optionalPluginConfigKeys: ["threshold"],
-			capabilities: ["getOAuthAccessToken", "getPluginConfig"],
 			executableDependencies: [{ kind: "script", slug: "used-child" }],
+			capabilities: ["getOAuthAccessToken", "getPluginConfig", "invalidateOAuthAccessToken"],
 		});
 		expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], [], []]);
 	}),

@@ -31,6 +31,7 @@ import {
 	EpisodicLifecycleStateSchema,
 	episodicLifecycleExpressions,
 	episodicNextUpInclude,
+	eventSlugIsOneOf,
 	MediaLifecycleStateSchema,
 	mediaLifecycleExpressions,
 	type EpisodicKindConfig,
@@ -119,21 +120,21 @@ export type EpisodicByLifecycleStateResult = Recipe.Success<typeof episodicByLif
 
 /**
  * In-library flat media of every builtin schema in one of `states`, most recent lifecycle activity
- * first, with the position the latest progress event recorded.
+ * first, with the position from the latest progress event or list-state snapshot.
  */
 export const flatByLifecycleStateRecipe = defineRecipe(
 	(input: { readonly limit: number; readonly states: NonEmpty<MediaLifecycleState> }) => {
 		const entity = table("entity", "entity");
 		const lifecycle = mediaLifecycleExpressions(entity, "listLifecycle");
 		const latestActivityAt = lifecycle.latestSignal.occurredAt;
-		const progress = table("event", "listLatestProgress");
-		const latestProgressPosition = (property: string) =>
+		const positionEvent = table("event", "listLatestPosition");
+		const latestPosition = (property: string) =>
 			selectedField(
-				latestEventField(progress, {
-					select: propertyNumber(progress, property),
+				latestEventField(positionEvent, {
+					select: propertyNumber(positionEvent, property),
 					where: and(
-						eq(column(progress, "entityId"), column(entity, "id")),
-						eq(column(progress, "eventSchemaSlug"), literal("progress")),
+						eq(column(positionEvent, "entityId"), column(entity, "id")),
+						eventSlugIsOneOf(positionEvent, ["progress", "list-state"]),
 					),
 				}),
 				Schema.NullOr(Schema.Finite),
@@ -151,9 +152,9 @@ export const flatByLifecycleStateRecipe = defineRecipe(
 					),
 					selection: {
 						...listedMediaSelection(entity),
-						mangaVolume: latestProgressPosition("mangaVolume"),
-						animeEpisode: latestProgressPosition("animeEpisode"),
-						mangaChapter: latestProgressPosition("mangaChapter"),
+						mangaVolume: latestPosition("mangaVolume"),
+						animeEpisode: latestPosition("animeEpisode"),
+						mangaChapter: latestPosition("mangaChapter"),
 						state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
 						latestActivityAt: selectedField(latestActivityAt, Schema.NullOr(IsoDateString)),
 						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),

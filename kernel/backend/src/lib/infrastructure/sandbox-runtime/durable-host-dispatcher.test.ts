@@ -100,6 +100,7 @@ const implementations: SandboxHostImplementations["Service"] = {
 		requestEventStreamWork: unused,
 		changeUserRelationships: unused,
 		upsertGlobalRelationships: unused,
+		invalidateOAuthAccessToken: unused,
 	},
 };
 

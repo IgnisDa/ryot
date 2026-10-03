@@ -129,13 +129,21 @@ trusted principal and present in its pinned compiled capability list.
 | System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                                    |
 | Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                             |
 | User or system automation run       | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                               |
-| Integration run of its own plugin   | `getOAuthAccessToken` for an OAuth connection field the integration's current settings schema declares                                                                                   |
+| Integration run of its own plugin   | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                             |
 
 `scratch` and `artifact-read` are non-bridge permissions. System elevation requires a persisted pinned system-scope plugin principal. User capabilities require a trusted user subject. `getEntitySchemas` uses that user's effective ready, enabled plugin catalog. Entity and event data reads use RyotQL; schema calls expose metadata only.
 
 `upsertGlobalEntities` additionally requires provider association. `ensureUserEntities` is available only to the declared user-bootstrap script and remains scoped to entity schemas owned by that plugin.
 
-Plugin config reads use compiler-generated required and optional key allowlists against the pinned revision. Required reads fail when missing; optional reads omit unavailable values. Undeclared reads and promotion of an optional-only key to a required read are denied. Executable calls and OAuth connection fields are restricted to generated dependency facts. Normalized environment-key collisions reject plugin loading.
+Plugin config reads use compiler-generated required and optional key allowlists against the pinned
+revision. Required reads fail when missing; optional reads omit unavailable values. Undeclared reads
+and promotion of an optional-only key to a required read are denied. Executable calls and OAuth
+connection fields are restricted to generated dependency facts. Normalized environment-key collisions
+reject plugin loading.
+
+OAuth token invalidation is limited to the current integration run and expires a connection only when
+the submitted token matches the current token under a connection, token-version, and integration
+binding compare-and-set.
 
 Cache keys are isolated by executing user and logical provider ID, falling back to script ID only when no provider exists. Ordinary cache values are refreshed after backend restart; `claimPersistentValue` survives restart and writes only if absent. `getPersistentValue` reads the value in that same persistent namespace without claiming it or extending its expiry.
 
