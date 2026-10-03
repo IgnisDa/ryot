@@ -4,8 +4,8 @@ mod support;
 
 use std::fs::{self, File};
 use std::io::{BufRead, BufReader, Read, Write};
-use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
-use std::os::unix::fs::{MetadataExt, PermissionsExt};
+use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::os::unix::net::{UnixDatagram, UnixStream};
 use std::os::unix::process::{CommandExt, ExitStatusExt};
 use std::process::{Child, ChildStdout, Command, Output, Stdio};
@@ -23,6 +23,7 @@ const BACKEND_UID: u32 = 1001;
 const SIDECAR_UID: u32 = 1002;
 const PROBE: &str = "RYOT_LAUNCHER_PROBE";
 const TARGET_PID: &str = "RYOT_LAUNCHER_TARGET_PID";
+const DECOY: &str = "RYOT_LAUNCHER_DECOY";
 
 struct ChildGuard(Child);
 
@@ -94,6 +95,17 @@ fn launch_args() -> Vec<String> {
     launch_args_for("user", "core")
 }
 
+fn launch_args_replacing(flag: &str, replacement: &str, value: &str) -> Vec<String> {
+    let mut args = launch_args();
+    let index = args
+        .iter()
+        .position(|arg| arg == flag)
+        .expect("launch flag");
+    args[index] = replacement.to_owned();
+    args[index + 1] = value.to_owned();
+    args
+}
+
 fn launch_args_for(trust: &str, tier: &str) -> Vec<String> {
     [
         "launch",
@@ -119,19 +131,19 @@ fn launch_args_for(trust: &str, tier: &str) -> Vec<String> {
     .collect()
 }
 
-fn attach_descriptor(command: &mut Command, fd: i32, no_new_privs: bool) {
+/// Each `(source, target)` pair leaves `source` inheritable at `target`; sources must not collide
+/// with an earlier target.
+fn inherit(command: &mut Command, descriptors: Vec<(RawFd, RawFd)>, no_new_privs: bool) {
     // SAFETY: only descriptor setup and an optional prctl run between fork and exec.
     unsafe {
         command.pre_exec(move || {
-            if fd >= 0 {
-                if fd != 3 && libc::dup2(fd, 3) < 0 {
+            for &(source, target) in &descriptors {
+                if source != target && libc::dup2(source, target) < 0 {
                     return Err(std::io::Error::last_os_error());
                 }
-                if fd == 3 {
-                    let flags = libc::fcntl(3, libc::F_GETFD);
-                    if flags < 0 || libc::fcntl(3, libc::F_SETFD, flags & !libc::FD_CLOEXEC) < 0 {
-                        return Err(std::io::Error::last_os_error());
-                    }
+                let flags = libc::fcntl(target, libc::F_GETFD);
+                if flags < 0 || libc::fcntl(target, libc::F_SETFD, flags & !libc::FD_CLOEXEC) < 0 {
+                    return Err(std::io::Error::last_os_error());
                 }
             }
             if no_new_privs && libc::prctl(libc::PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0) != 0 {
@@ -142,7 +154,7 @@ fn attach_descriptor(command: &mut Command, fd: i32, no_new_privs: bool) {
     }
 }
 
-fn invoke(args: &[String], uid: u32, descriptor: Option<i32>, no_new_privs: bool) -> Output {
+fn invoke(args: &[String], uid: u32, descriptor: Option<RawFd>, no_new_privs: bool) -> Output {
     let mut command = Command::new(LAUNCHER);
     command
         .args(args)
@@ -153,7 +165,11 @@ fn invoke(args: &[String], uid: u32, descriptor: Option<i32>, no_new_privs: bool
         .stderr(Stdio::piped())
         .uid(uid)
         .gid(uid);
-    attach_descriptor(&mut command, descriptor.unwrap_or(-1), no_new_privs);
+    inherit(
+        &mut command,
+        descriptor.map(|fd| vec![(fd, 3)]).unwrap_or_default(),
+        no_new_privs,
+    );
     command.output().expect("run installed launcher")
 }
 
@@ -312,48 +328,41 @@ fn launcher_rejects_untrusted_callers_paths_and_descriptors() {
         ("--max-executions", "1"),
         ("--grace-ms", "0"),
     ] {
-        let mut args = launch_args();
-        args[3] = flag.to_owned();
-        args[4] = value.to_owned();
         assert_rejected(
-            &args,
+            &launch_args_replacing("--tier", flag, value),
             BACKEND_UID,
             None,
             false,
             "unsupported launcher argument",
         );
     }
-    let mut duplicate = launch_args();
-    duplicate[3] = "--generation".to_owned();
     assert_rejected(
-        &duplicate,
+        &launch_args_replacing("--tier", "--generation", "1"),
         BACKEND_UID,
         None,
         false,
         "--generation must appear exactly once",
     );
-    let mut zero = launch_args();
-    zero[8] = "0".to_owned();
     assert_rejected(
-        &zero,
+        &launch_args_replacing("--threads", "--threads", "0"),
         BACKEND_UID,
         None,
         false,
         "--threads must be positive",
     );
-    let mut overflow = launch_args();
-    overflow[14] = u64::MAX.to_string() + "0";
     assert_rejected(
-        &overflow,
+        &launch_args_replacing(
+            "--memory-budget",
+            "--memory-budget",
+            &(u64::MAX.to_string() + "0"),
+        ),
         BACKEND_UID,
         None,
         false,
         "--memory-budget is out of range",
     );
-    let mut bad_tier = launch_args();
-    bad_tier[4] = "/tmp/snapshots".to_owned();
     assert_rejected(
-        &bad_tier,
+        &launch_args_replacing("--tier", "--tier", "/tmp/snapshots"),
         BACKEND_UID,
         None,
         false,
@@ -402,6 +411,95 @@ fn launcher_termination_is_bound_to_caller_child_identity_and_pidfd() {
 
 #[test]
 #[ignore = "requires root and the provisioned launcher; run with --ignored"]
+fn launcher_removes_its_record_through_the_verified_directory_when_the_caller_exits() {
+    setup();
+    let decoy = std::env::temp_dir().join(format!("ryot-launcher-decoy-{}", std::process::id()));
+    fs::create_dir(&decoy).expect("create decoy directory");
+    fs::set_permissions(&decoy, fs::Permissions::from_mode(0o755)).expect("open decoy directory");
+    let lock = File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .mode(0o600)
+        .open(format!("{RECORDS}/.lock"))
+        .expect("open attestation lock");
+    // SAFETY: flock only operates on the open lock descriptor.
+    assert_eq!(unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX) }, 0);
+
+    let mut probe = ChildGuard(
+        Command::new(std::env::current_exe().expect("launcher test executable"))
+            .args([
+                "--exact",
+                "launcher_orphan_probe_child",
+                "--ignored",
+                "--nocapture",
+            ])
+            .env_clear()
+            .env(PROBE, "orphan")
+            .env(DECOY, &decoy)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .uid(BACKEND_UID)
+            .gid(BACKEND_UID)
+            .spawn()
+            .expect("spawn UID-1001 orphan probe"),
+    );
+    let mut stderr = probe.0.stderr.take().expect("probe stderr");
+    let (diagnostic_sender, diagnostic_receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let mut diagnostic = String::new();
+        stderr.read_to_string(&mut diagnostic).ok();
+        diagnostic_sender.send(diagnostic).ok();
+    });
+    let output = output_lines(probe.0.stdout.take().expect("probe stdout"));
+    let pid = read_output_line(&output)
+        .strip_prefix("LAUNCHER_ORPHAN ")
+        .expect("orphan probe readiness")
+        .parse::<u32>()
+        .expect("launcher PID");
+
+    let deadline = Instant::now() + Duration::from_secs(15);
+    while !fs::read_to_string("/proc/locks")
+        .expect("read kernel lock table")
+        .lines()
+        .any(|line| {
+            let fields = line.split_ascii_whitespace().collect::<Vec<_>>();
+            fields.get(1) == Some(&"->") && fields.get(5) == Some(&pid.to_string().as_str())
+        })
+    {
+        assert!(
+            Instant::now() < deadline,
+            "launcher {pid} did not wait for the attestation lock"
+        );
+        thread::sleep(Duration::from_millis(10));
+    }
+    write_probe(&mut probe.0, "exit");
+    let status = probe.0.wait().expect("orphan probe exit");
+    assert!(status.success(), "orphan probe failed: {status}");
+    drop(lock);
+
+    let diagnostic = diagnostic_receiver
+        .recv_timeout(Duration::from_secs(15))
+        .expect("orphaned launcher did not exit within 15 seconds");
+    assert!(
+        diagnostic.contains("launcher identity changed before sidecar exec"),
+        "{diagnostic}"
+    );
+    assert!(
+        !std::path::Path::new(&format!("{RECORDS}/{pid}")).exists(),
+        "failed launch retained its attestation"
+    );
+    assert!(
+        !decoy.join(".lock").exists(),
+        "cleanup used the inherited descriptor 5"
+    );
+    fs::remove_dir_all(&decoy).expect("remove decoy directory");
+}
+
+#[test]
+#[ignore = "requires root and the provisioned launcher; run with --ignored"]
 fn sidecar_identity_environment_and_descriptors_are_confined() {
     setup();
     for trust in ["system", "user"] {
@@ -442,27 +540,12 @@ fn launcher_identity_probe_child() {
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::piped());
-    let socket_fd = child_socket.as_raw_fd();
     let extra = File::open("/dev/null").expect("extra inherited descriptor");
-    let extra_fd = extra.as_raw_fd();
-    // SAFETY: the child only remaps the protocol socket and a deliberate extra descriptor before exec.
-    unsafe {
-        command.pre_exec(move || {
-            if socket_fd != 3 && libc::dup2(socket_fd, 3) < 0 {
-                return Err(std::io::Error::last_os_error());
-            }
-            if socket_fd == 3 {
-                let flags = libc::fcntl(3, libc::F_GETFD);
-                if flags < 0 || libc::fcntl(3, libc::F_SETFD, flags & !libc::FD_CLOEXEC) < 0 {
-                    return Err(std::io::Error::last_os_error());
-                }
-            }
-            if libc::dup2(extra_fd, 10) < 0 || libc::fcntl(10, libc::F_SETFD, 0) < 0 {
-                return Err(std::io::Error::last_os_error());
-            }
-            Ok(())
-        });
-    }
+    inherit(
+        &mut command,
+        vec![(child_socket.as_raw_fd(), 3), (extra.as_raw_fd(), 10)],
+        false,
+    );
     let mut child = ChildGuard(command.spawn().expect("spawn installed launcher"));
     let stderr = child.0.stderr.take().expect("launcher stderr");
     let (diagnostic_sender, diagnostic_receiver) = mpsc::channel();
@@ -695,6 +778,40 @@ fn launcher_identity_probe_child() {
         }
         panic!("launcher test controller disconnected");
     }
+}
+
+#[test]
+#[ignore = "probe child spawned by the launcher tests"]
+fn launcher_orphan_probe_child() {
+    if std::env::var(PROBE).ok().as_deref() != Some("orphan") {
+        return;
+    }
+    let decoy = File::open(std::env::var(DECOY).expect("decoy directory")).expect("decoy");
+    // SAFETY: F_DUPFD_CLOEXEC returns a new descriptor above the launcher slots.
+    let decoy =
+        unsafe { OwnedFd::from_raw_fd(libc::fcntl(decoy.as_raw_fd(), libc::F_DUPFD_CLOEXEC, 64)) };
+    let (_socket, child_socket) = UnixStream::pair().expect("backend protocol socket");
+    let mut command = Command::new(LAUNCHER);
+    command
+        .args(launch_args())
+        .env_clear()
+        .stdin(Stdio::null())
+        .stdout(Stdio::null());
+    inherit(
+        &mut command,
+        vec![(child_socket.as_raw_fd(), 3), (decoy.as_raw_fd(), 5)],
+        false,
+    );
+    let launcher = command.spawn().expect("spawn installed launcher");
+    println!("LAUNCHER_ORPHAN {}", launcher.id());
+    std::io::stdout().flush().expect("flush orphan readiness");
+    let mut line = String::new();
+    std::io::stdin()
+        .read_line(&mut line)
+        .expect("read orphan probe command");
+    assert_eq!(line, "exit\n");
+    // The launcher must outlive this probe so that exiting orphans it.
+    std::mem::forget(launcher);
 }
 
 #[test]

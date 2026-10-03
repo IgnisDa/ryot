@@ -90,11 +90,15 @@ impl Shared {
     fn exit_if_drained(&self) {
         if self.draining.load(Ordering::SeqCst) && self.in_flight.load(Ordering::SeqCst) == 0 {
             self.outbox.drain(FLUSH_TIMEOUT);
-            std::process::exit(if self.escalated.load(Ordering::SeqCst) {
-                EXIT_ESCALATED
-            } else {
-                0
-            });
+            std::process::exit(self.exit_status(0));
+        }
+    }
+
+    fn exit_status(&self, code: i32) -> i32 {
+        if self.escalated.load(Ordering::SeqCst) {
+            EXIT_ESCALATED
+        } else {
+            code
         }
     }
 
@@ -323,13 +327,7 @@ impl Reader {
     fn run(mut self, mut socket: impl Read) -> i32 {
         loop {
             match read_frame(&mut socket) {
-                Ok(None) => {
-                    return if self.shared.escalated.load(Ordering::SeqCst) {
-                        EXIT_ESCALATED
-                    } else {
-                        0
-                    };
-                }
+                Ok(None) => return self.shared.exit_status(0),
                 Ok(Some(payload)) => match decode_inbound(&payload) {
                     Ok(frame) => self.dispatch(frame),
                     Err(error) => self.reject(&payload, error.0),
@@ -341,11 +339,7 @@ impl Reader {
                         FramingError::Io(error) => error,
                     };
                     eprintln!("ryot-sandboxd: protocol desync: {detail}");
-                    return if self.shared.escalated.load(Ordering::SeqCst) {
-                        EXIT_ESCALATED
-                    } else {
-                        EXIT_DESYNC
-                    };
+                    return self.shared.exit_status(EXIT_DESYNC);
                 }
             }
         }

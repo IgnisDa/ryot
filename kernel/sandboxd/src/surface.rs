@@ -89,6 +89,18 @@ pub trait HostBridge {
 
 pub struct Bridge(pub Rc<dyn HostBridge>);
 
+/// The module loader's latest rejection message, shared between the loader and the isolate.
+#[derive(Clone, Default)]
+pub struct ResolutionRejection(pub Rc<RefCell<Option<String>>>);
+
+fn bridge(state: &RefCell<OpState>) -> Result<Rc<dyn HostBridge>, JsErrorBox> {
+    state
+        .borrow()
+        .try_borrow::<Bridge>()
+        .map(|bridge| bridge.0.clone())
+        .ok_or_else(|| JsErrorBox::generic("Host calls are unavailable"))
+}
+
 #[op2(fast)]
 fn op_ryot_console(state: &mut OpState, #[string] level: &str, #[string] message: String) {
     let level = match level {
@@ -212,12 +224,9 @@ async fn op_ryot_host_call(
     #[string] name: String,
     #[string] args: String,
 ) -> Result<String, JsErrorBox> {
-    let bridge = state
-        .borrow()
-        .try_borrow::<Bridge>()
-        .map(|bridge| bridge.0.clone())
-        .ok_or_else(|| JsErrorBox::generic("Host calls are unavailable"))?;
-    let call = bridge.call(name, args).map_err(JsErrorBox::type_error)?;
+    let call = bridge(&state)?
+        .call(name, args)
+        .map_err(JsErrorBox::type_error)?;
     call.await.map_err(JsErrorBox::generic)
 }
 
@@ -227,12 +236,17 @@ fn op_ryot_inline_batch(
     state: Rc<RefCell<OpState>>,
     #[string] args: String,
 ) -> Result<String, JsErrorBox> {
-    let bridge = state
-        .borrow()
-        .try_borrow::<Bridge>()
-        .map(|bridge| bridge.0.clone())
-        .ok_or_else(|| JsErrorBox::generic("Host calls are unavailable"))?;
-    bridge.inline_batch(args).map_err(JsErrorBox::generic)
+    bridge(&state)?
+        .inline_batch(args)
+        .map_err(JsErrorBox::generic)
+}
+
+#[op2]
+#[string]
+fn op_ryot_last_resolution_rejection(state: &mut OpState) -> Option<String> {
+    state
+        .try_borrow::<ResolutionRejection>()
+        .and_then(|rejection| rejection.0.borrow().clone())
 }
 
 deno_core::extension!(
@@ -242,6 +256,7 @@ deno_core::extension!(
         op_ryot_digest,
         op_ryot_host_call,
         op_ryot_inline_batch,
+        op_ryot_last_resolution_rejection,
         op_ryot_now,
         op_ryot_random_fill,
         op_ryot_url_parse,

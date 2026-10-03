@@ -79,6 +79,7 @@ allow op_ryot_console
 allow op_ryot_digest
 allow op_ryot_host_call
 allow op_ryot_inline_batch
+allow op_ryot_last_resolution_rejection
 allow op_ryot_now
 allow op_ryot_random_fill
 allow op_ryot_url_parse
