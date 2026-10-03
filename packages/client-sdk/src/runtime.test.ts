@@ -94,6 +94,67 @@ afterEach(() => {
 });
 
 describe("plugin Effect request engine", () => {
+	it.live(
+		"correlates external links and clears interrupted and disposed calls without cancellation",
+		() =>
+			Effect.gen(function* () {
+				const { channel, runtime, messages } = yield* openRuntime();
+				const first = yield* Effect.forkChild(
+					runtime.client.links.open({ url: "https://example.test" }),
+					{ startImmediately: true },
+				);
+				yield* waitForMessagePortMacrotask;
+				expect(sent(messages, "external-link-request")).toEqual([
+					{
+						url: "https://example.test",
+						requestId: "external-link-1",
+						type: "external-link-request",
+					},
+				]);
+				channel.port1.postMessage({
+					outcome: "success",
+					requestId: "external-link-1",
+					type: "external-link-result",
+				});
+				expect(yield* Fiber.join(first)).toEqual({ outcome: "success" });
+				const interrupted = yield* Effect.forkChild(
+					runtime.client.links.open({ url: "http://example.test" }),
+					{ startImmediately: true },
+				);
+				yield* Fiber.interrupt(interrupted);
+				channel.port1.postMessage({
+					outcome: "success",
+					requestId: "external-link-2",
+					type: "external-link-result",
+				});
+				const failure = yield* Effect.forkChild(
+					Effect.result(runtime.client.links.open({ url: "https://example.test" })),
+					{ startImmediately: true },
+				);
+				channel.port1.postMessage({
+					outcome: "failure",
+					requestId: "external-link-3",
+					type: "external-link-result",
+					reason: "activation-required",
+				});
+				expect(yield* Fiber.join(failure)).toMatchObject({
+					failure: { reason: "activation-required" },
+				});
+				const disposed = yield* Effect.forkChild(
+					Effect.result(runtime.client.links.open({ url: "https://example.test" })),
+					{ startImmediately: true },
+				);
+				runtime.dispose();
+				expect(yield* Fiber.join(disposed)).toMatchObject({ failure: { reason: "disposed" } });
+				channel.port1.postMessage({
+					outcome: "success",
+					requestId: "external-link-4",
+					type: "external-link-result",
+				});
+				yield* waitForMessagePortMacrotask;
+				expect(sent(messages, "external-link-cancel")).toEqual([]);
+			}),
+	);
 	it.live("reports embedded metadata and correlates successful and failed queries", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

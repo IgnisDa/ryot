@@ -1,4 +1,4 @@
-import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
+import { createRyotClient, RyotClientError, type RyotClientAdapter } from "@ryot-app/client-sdk";
 import { makeRyotRuntime, type RyotRuntime } from "@ryot-app/client-sdk/schedule";
 import { Effect } from "effect";
 
@@ -16,6 +16,7 @@ import {
 	TemporaryUploads,
 } from "#/modules/assets/temporary-uploads";
 import { EntityInterestService } from "#/modules/entity-interest/service";
+import { ExternalLinks } from "#/modules/external-links/service";
 import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientRuntime } from "#/runtime";
 
@@ -33,9 +34,11 @@ export const createKernelRyotClient = (
 	runtime: KernelApiRuntime,
 	scope: ApiScope,
 	theme: ThemeStore,
+	openExternalLink?: RyotClientAdapter["openExternalLink"],
 ) => {
 	return createRyotClient({
 		theme,
+		openExternalLink,
 		watchEntities: (interest, onUpdate) =>
 			runtime.runSync(
 				Effect.map(EntityInterestService, (service) => service.watch(scope, interest, onUpdate)),
@@ -100,7 +103,12 @@ export const createKernelRyotClientStore = (
 			if (existing !== undefined) {
 				return existing;
 			}
-			const client = createKernelRyotClient(runtime, scope, theme);
+			const client = createKernelRyotClient(
+				runtime,
+				scope,
+				theme,
+				runtime.runSync(ExternalLinks).open,
+			);
 			const session = {
 				client,
 				runtime: makeRyotRuntime(client),

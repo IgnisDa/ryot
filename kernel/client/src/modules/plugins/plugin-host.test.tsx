@@ -101,6 +101,8 @@ function mount(
 		onStorage: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onCollection: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
+		onExternalLink: () =>
+			Effect.succeed({ outcome: "failure" as const, reason: "link-open-failed" as const }),
 		navigation: {
 			index,
 			location,
