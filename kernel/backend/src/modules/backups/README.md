@@ -37,22 +37,28 @@ Export upload additionally allows 64 MiB for ZIP overhead.
 
 The [kernel transaction invariant](../../../AGENTS.md#persistence) forbids transactions across network I/O. Export therefore creates a scoped temp directory, reads a single repeatable-read snapshot, spills events using database `ORDER BY id`, commits, then streams the archive to storage. Temp cleanup covers success, failure, and interruption.
 
-Restore validation spools events and assets into the caller's scoped temp directory. It validates section order, counts, hashes, limits, required system packages, and private packages before writes. Private packages include a manifest, compiled scripts, and the compiled-client artifact with its fingerprint; they include no authoring source. These artifacts are validated and collision-checked without server-side compilation. Assets are staged before the transaction so network work is outside it.
+Restore validation spools events and assets into the caller's scoped temp directory. It validates section order, counts, hashes, limits, declared ownership, typed references, required system packages, and private packages before account writes. Package keys encode scope and permanent package UUID; names and slugs are metadata. Private packages include a manifest, compiled scripts, and the package-bound compiled-client artifact with its fingerprint; they include no authoring source. Assets are staged before the transaction so network work is outside it.
+
+System requirements contain a definition contract derived from the manifest schemas. Restore binds only a matching destination system package. A compatible revision can satisfy the requirement after contract and restored-value validation. Missing or incompatible packages fail preflight. Account restore never installs system code or changes a system revision, environment configuration, or shared global entity that already exists. Private records cannot request global scope.
 
 All database writes occur in one transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Temp deletion failure is logged and swallowed so it cannot turn a committed restore into a failed run.
 
 `restore/writer.ts` validates and maps archive records; `restore/persistence.ts` owns historical inserts, updates, installation config revisions, and client projections. Ordinary repositories expose runtime writes and backup reads, not historical restore writes. Both the restore writer and its persistence layer use the active database session inside the workflow's transaction.
 
-Export, restore, and Data import share property-reference and managed-asset handling from
-`kernel/backend/src/lib/domain/data-references.ts`. The archive record property fields reuse
-`DataRecordProperties`, `entityDataFields`, `relationshipDataFields`, and `eventDataFields` from
-`packages/contract/src/modules/imports/data-json.ts` rather than defining separate field shapes.
+`export/repository.ts` reads stored built-in overrides independently of executable saved-view catalogs. Export uses the retained private manifest to keep quarantined view state without exposing its client code.
 
-Private packages and exact installation identities are restored without lifecycle dispatch. Complete installations retain archived hidden intent; missing redacted required secrets produce `needs-configuration`. Integrations missing required secrets are disabled. Integration and saved-view provenance resolve to the exact installation.
+Export, restore, and Data import share property-reference and managed-asset handling from
+`kernel/backend/src/lib/domain/data-references.ts`. Archive values reuse the data JSON property and timestamp codecs. Archive schema ownership uses scoped package keys, not source-local database IDs.
+
+Private packages and installation identities are mapped to destination-local records without lifecycle dispatch. Hidden intent and incompatible health are distinct. Exported quarantine remains incompatible even when its former system conflict is absent. A private package that conflicts with a destination system identity is retained privately with `package-identity-conflict`; its data never binds to the system owner. Missing redacted required secrets produce `needs-configuration`. Integrations missing required secrets are disabled. Private configuration never falls back to environment values.
+
+Installation records require `isInitialized`, the persisted completion marker from the installation/bootstrap lifecycle. Export and restore preserve it independently of health, quarantine, and hidden intent. A completed installation can skip bootstrap during explicit validated recovery; an incomplete quarantined installation remains uninitialized and uses the existing workflow with a fresh activation token. Account restore does not run bootstrap or infer completion from archived data. Archives missing this field are rejected; the backup version remains 1.
+
+Explicit maps bind package keys, installation IDs, entity IDs, relationship IDs, and custom saved-view IDs. Events retain duplicate detection through deterministic destination-user-scoped IDs without an event-count-sized map. Providers, sessions, integrations, subscriptions, renderer owners, workspace associations, home references, and built-in overrides keep their exact ownership. Only typed query plugin references and the known renderer schema-reference codec remap plugin ownership. Ordinary query literals and opaque plugin JSON remain unchanged.
 
 Installation records include per-user plugin preferences as JSON. Plugin manifest settings schemas forbid secret fields, so these preferences are included as non-secret data and validated against the active manifest during restore. The archive format version remains 1.
 
-Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Restore resolves built-ins from current definitions, rejects custom slug conflicts and missing definitions, then resolves installation home views by slug. The archive format version remains 1.
+Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Built-ins use exact owner plus local slug; custom views have their own namespace. Homes use tagged custom, kernel, or plugin references. The archive format version remains 1.
 
 Private plugin backups contain no authoring source. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
 

@@ -2,9 +2,10 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { IntegrationId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { ConfigProvider, Effect, FileSystem, Layer, Schema, Stream } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -37,6 +38,7 @@ import {
 	oauthRevisionPackage,
 	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
+import { SystemPlugins } from "#modules/plugins/system";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { createArchiveStream, validateArchiveStream } from "./archive/archive";
@@ -116,6 +118,9 @@ const roundTripLayer = Layer.mergeAll(
 	Layer.provide(tokenEndpointLayer),
 	Layer.provideMerge(infrastructure),
 	Layer.provideMerge(revisionDatabaseLayer),
+	Layer.provide(
+		Layer.succeed(SystemPlugins, { sources: [], packageIds: new Set<PluginPackageId>() }),
+	),
 );
 
 const archiveText = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
@@ -125,14 +130,17 @@ layer(roundTripLayer)((test) => {
 		"exports OAuth-backed integrations without connections and restores them disabled",
 		() =>
 			Effect.gen(function* () {
-				yield* installRevisionPackage(
-					oauthRevisionPackage("oauth-backup", "oauth-backup-yank"),
-				).pipe(
+				const packageValue = oauthRevisionPackage("oauth-backup", "oauth-backup-yank");
+				const { pluginId } = yield* installRevisionPackage(packageValue).pipe(
 					Effect.provideService(
 						ConfigProvider.ConfigProvider,
 						ConfigProvider.fromUnknown({
-							[pluginConfigEnvironmentKey("oauth-backup", "clientId")]: "client-1",
-							[pluginConfigEnvironmentKey("oauth-backup", "clientSecret")]: "client-secret-1",
+							[pluginConfigEnvironmentKey(packageValue.manifest.metadata.packageId, "clientId")]:
+								"client-1",
+							[pluginConfigEnvironmentKey(
+								packageValue.manifest.metadata.packageId,
+								"clientSecret",
+							)]: "client-secret-1",
 						}),
 					),
 				);
@@ -141,20 +149,26 @@ layer(roundTripLayer)((test) => {
 				const { connectionId, authorizeUrl } = yield* connections.create(currentUser, {
 					field: "account",
 					client: { kind: "web" },
-					integrationProvider: "oauth-backup-yank",
+					integrationProvider: {
+						slug: "oauth-backup-yank",
+						owner: { kind: "plugin", pluginId: PluginId.make(pluginId) },
+					},
 				});
 				const state = new URL(authorizeUrl).searchParams.get("state");
 				assert(state);
 				const location = yield* connections.callback(
-					{ pluginSlug: "oauth-backup", oauthProviderSlug: "account" },
+					{ pluginId, oauthProviderSlug: "account" },
 					{ state, code: "backup-auth-code" },
 				);
 				const secret = new URLSearchParams(location.split("#")[1] ?? "").get("secret");
 				assert(secret);
 				yield* connections.complete(currentUser, connectionId, secret);
 				const { id: integrationId } = yield* (yield* IntegrationsService).create(currentUser, {
-					provider: "oauth-backup-yank",
 					providerSpecifics: { account: connectionId, endpoint: "https://tracker.example.test" },
+					provider: {
+						slug: "oauth-backup-yank",
+						owner: { kind: "plugin", pluginId: PluginId.make(pluginId) },
+					},
 				});
 				const [bound] = yield* session.run((db) =>
 					db
@@ -239,9 +253,37 @@ layer(roundTripLayer)((test) => {
 					),
 				);
 
+				const [restoredInstallation] = yield* session.run((db) =>
+					db
+						.select({ id: tables.pluginInstallation.id })
+						.from(tables.pluginInstallation)
+						.where(
+							and(
+								eq(tables.pluginInstallation.userId, owner),
+								eq(tables.pluginInstallation.pluginId, pluginId),
+							),
+						),
+				);
+				assert(restoredInstallation);
+				const restoredIntegrations = yield* session.run((db) =>
+					db
+						.select({ id: tables.integration.id })
+						.from(tables.integration)
+						.where(
+							and(
+								eq(tables.integration.userId, owner),
+								eq(tables.integration.pluginInstallationId, restoredInstallation.id),
+								eq(tables.integration.provider, "oauth-backup-yank"),
+							),
+						),
+				);
+				expect(restoredIntegrations).toHaveLength(1);
+				const [restoredIntegration] = restoredIntegrations;
+				assert(restoredIntegration);
+				expect(restoredIntegration.id).not.toBe(integrationId);
 				const restored = yield* (yield* IntegrationsRepository).getForUser({
-					integrationId,
 					userId: owner,
+					integrationId: IntegrationId.make(restoredIntegration.id),
 				});
 				expect(restored).toMatchObject({
 					isDisabled: true,

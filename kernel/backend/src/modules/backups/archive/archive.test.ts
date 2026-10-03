@@ -1,6 +1,11 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
-import { CLIENT_API_VERSION, clientArtifactMetadata } from "@ryot-app/client-plugin-contract";
+import {
+	CLIENT_API_VERSION,
+	clientArtifactMetadata,
+	clientDeclarationHash,
+} from "@ryot-app/client-plugin-contract";
+import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, FileSystem, Schema, Stream } from "effect";
@@ -16,11 +21,14 @@ import {
 	ArchiveEvent,
 	ArchiveManifest,
 	ArchivePrivatePlugin,
+	archivePluginDefinitionContract,
 	type ArchiveRecords,
 } from "./schemas";
 import { encodeNdjson, IncrementalSha256 } from "./streaming";
 
 const timestamp = "2026-08-23T12:00:00.000Z";
+const packageId = fixtureManifest().metadata.packageId;
+const systemKey = pluginPackageKey({ packageId, scope: "system" });
 const encoder = new TextEncoder();
 const savedViewEntity = table("entity", "fixture");
 const savedViewQuery = document({
@@ -49,14 +57,17 @@ const records: ArchiveRecords = {
 			config: {},
 			sortOrder: 0,
 			userSettings: {},
+			healthReason: null,
 			hiddenIntent: false,
+			isInitialized: true,
 			id: "installation-1",
 			createdAt: timestamp,
 			updatedAt: timestamp,
+			packageKey: systemKey,
 			lifecycleIntent: "ready",
 			configuredSecretPaths: [],
-			homeSavedViewSlug: "fixture",
-			packageKey: `system:fixture:${"a".repeat(64)}`,
+			incompatibilityReason: null,
+			homeSavedView: { kind: "custom", savedViewId: "view-1" },
 		},
 	],
 	savedViews: [
@@ -70,15 +81,12 @@ const records: ArchiveRecords = {
 			pluginKey: null,
 			isHidden: false,
 			isBuiltin: false,
+			installationId: null,
 			createdAt: timestamp,
 			updatedAt: timestamp,
 			dataSources: savedViewQuery,
 			settings: { heading: "Fixture" },
-			renderer: {
-				kind: "plugin",
-				exportName: "FixturePage",
-				pluginKey: `system:fixture:${"a".repeat(64)}`,
-			},
+			renderer: { kind: "plugin", pluginKey: systemKey, exportName: "FixturePage" },
 		},
 	],
 };
@@ -93,7 +101,15 @@ const input = (overrides: Partial<CreateArchiveInput> = {}): CreateArchiveInput 
 		archiveId: "archive-1",
 		appVersion: "backend-v1",
 		events: { ...events, count: 0, chunks: [] },
-		requiredPlugins: [{ slug: "fixture", version: "1.0.0", sourceHash: "a".repeat(64) }],
+		requiredPlugins: [
+			{
+				packageId,
+				slug: "fixture",
+				version: "1.0.0",
+				sourceHash: "a".repeat(64),
+				definitionContract: archivePluginDefinitionContract(fixtureManifest()),
+			},
+		],
 		...overrides,
 	};
 };
@@ -256,14 +272,24 @@ layer(BunFileSystem.layer)((test) => {
 				},
 			};
 			const files = [
-				...fixtureClientArtifact(manifest.metadata.name).files,
+				...fixtureClientArtifact(
+					manifest.metadata.name,
+					manifest.metadata.packageId,
+					manifest.client,
+				).files,
 				{
 					name: "asset.png",
 					contentType: "image/png",
 					contents: new Uint8Array([0x00, 0xff, 0x80, 0x41]),
 				},
 			];
-			const compiledClient = { ...clientArtifactMetadata(manifest.metadata.name, files), files };
+			const compiledClient = {
+				...clientArtifactMetadata(manifest.metadata.name, manifest.metadata.packageId, files, {
+					imports: [],
+					clientDeclarationHash: clientDeclarationHash(manifest.client),
+				}),
+				files,
+			};
 			const compiledScripts = manifest.scripts.map(({ entry }) => ({
 				entry,
 				format: 1,
@@ -277,7 +303,8 @@ layer(BunFileSystem.layer)((test) => {
 				compiledScripts,
 				slug: manifest.metadata.slug,
 				version: manifest.metadata.version,
-				key: `user:${manifest.metadata.slug}:${sourceHash}`,
+				packageId: manifest.metadata.packageId,
+				key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
 			};
 			const archive = yield* archiveBytes(
 				input({ records: { ...records, privatePlugins: [privatePlugin] } }),
@@ -304,6 +331,68 @@ layer(BunFileSystem.layer)((test) => {
 			expect(validated.manifest.version).toBe(1);
 			expect(validated.records).toEqual(records);
 		}).pipe(Effect.scoped),
+	);
+
+	test.effect(
+		"retains incomplete quarantine initialization and rejects archives without the completion marker",
+		() =>
+			Effect.gen(function* () {
+				const manifest = fixtureManifest();
+				const compiledScripts = manifest.scripts.map(({ entry }) => ({
+					entry,
+					format: 1,
+					javascript: "export {};",
+				}));
+				const key = pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId });
+				const installation = records.installations[0];
+				assert(installation);
+				const incomplete = {
+					...installation,
+					packageKey: key,
+					isInitialized: false,
+					lifecycleIntent: "incompatible" as const,
+					healthReason: "Initialization interrupted",
+					incompatibilityReason: "package-identity-conflict" as const,
+				};
+				const archiveInput = input({
+					records: {
+						...records,
+						installations: [incomplete],
+						privatePlugins: [
+							{
+								key,
+								manifest,
+								compiledScripts,
+								slug: manifest.metadata.slug,
+								version: manifest.metadata.version,
+								packageId: manifest.metadata.packageId,
+								sourceHash: pluginSourceHash(manifest, compiledScripts),
+							},
+						],
+					},
+				});
+				const archive = yield* archiveBytes(archiveInput);
+				const validated = yield* validateArchive(asChunks(archive));
+				expect(validated.records.installations[0]).toMatchObject({
+					hiddenIntent: false,
+					isInitialized: false,
+					lifecycleIntent: "incompatible",
+					incompatibilityReason: "package-identity-conflict",
+				});
+				const invalid = yield* mutateArchive(archiveInput, (files) => {
+					const missing = { ...incomplete };
+					Reflect.deleteProperty(missing, "isInitialized");
+					replaceSection(
+						files,
+						"installations.ndjson",
+						encoder.encode(`${JSON.stringify(missing)}\n`),
+					);
+				});
+				expect(yield* validationError(invalid)).toMatchObject({
+					reason: "invalid_entry",
+					path: "installations.ndjson",
+				});
+			}).pipe(Effect.scoped),
 	);
 
 	test.effect("round-trips dependency translations by entity and language", () =>
@@ -570,12 +659,13 @@ layer(BunFileSystem.layer)((test) => {
 					"private-plugins.ndjson",
 					encoder.encode(
 						`${JSON.stringify({
+							packageId,
 							manifest: {},
 							slug: "fixture",
 							version: "1.0.0",
 							compiledScripts: [],
 							sourceHash: "a".repeat(64),
-							key: `user:fixture:${"a".repeat(64)}`,
+							key: pluginPackageKey({ packageId, scope: "user" }),
 						})}\n`,
 					),
 				);

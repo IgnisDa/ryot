@@ -1,15 +1,29 @@
 import { badRequest, DbError } from "@ryot-app/contract/errors";
 import { dataJsonIntegrationSettingsSchema } from "@ryot-app/contract/modules/imports/data-json";
-import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
+import {
+	definitionKey,
+	definitionOwner,
+	identityTupleKey,
+	pluginPackageKey,
+	type SavedViewReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
+	EntityBrowserSavedViewSettings,
+	type SavedViewRenderer,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
+	PluginId,
+	SavedViewId,
 	SignalSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Context, Data, Effect, Layer, Stream } from "effect";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Context, Data, Effect, Layer, Schema, Stream } from "effect";
 
 import {
 	rewriteManagedAssetLocators,
@@ -18,59 +32,118 @@ import {
 } from "#lib/domain/data-references";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { AutomationsRepository } from "#modules/automations/repository";
-import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import {
+	buildDefinitionSnapshot,
+	definitionSourceFromSnapshot,
+	type DefinitionSnapshot,
+} from "#modules/definition-registry/snapshot";
+import { mergeManifestDefinitions } from "#modules/definition-registry/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { validateRestoredProperties } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
+import { validateAdditiveSchemaEvolution } from "#modules/plugins/schema-evolution";
+import type { StoredPlugin } from "#modules/plugins/types";
 import { resolvePluginUserSettings } from "#modules/plugins/user-settings";
 import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
-import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import type { ValidatedArchiveEvents } from "../archive/archive";
 import { archiveError } from "../archive/error";
-import { rewriteEventReferences, rewriteRelationshipReferences } from "../archive/references";
+import {
+	importQueryPluginReferences,
+	importRendererSettings,
+	rewriteEventReferences,
+	rewriteRelationshipReferences,
+} from "../archive/references";
 import {
 	decodeArchiveJsonObject,
+	archivePluginDefinitionContract,
 	isArchiveJsonObject,
 	type ArchiveRecords,
 	type ArchiveEntityDependency,
 	type ArchiveInstallation,
+	type ArchiveRequiredPlugin,
 } from "../archive/schemas";
 import { BackupRestorePersistence } from "./persistence";
 
 export class RequiredBackupPluginUnavailable extends Data.TaggedError(
 	"RequiredBackupPluginUnavailable",
-)<{ readonly pluginSlug: string; readonly requiredVersion: string }> {}
+)<{
+	readonly packageId: ArchiveRequiredPlugin["packageId"];
+	readonly pluginSlug: string;
+	readonly requiredVersion: string;
+}> {}
 
 const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);
 
 export const resolveRequiredPluginIds = Effect.fn(function* (
-	required: ReadonlyArray<{
-		readonly slug: string;
-		readonly version: string;
-		readonly sourceHash: string;
-	}>,
-	installedPlugins: ReadonlyArray<{
-		readonly id: string;
-		readonly slug: string;
-		readonly version: string;
-		readonly sourceHash: string;
-	}>,
+	required: ReadonlyArray<ArchiveRequiredPlugin>,
+	installedPlugins: ReadonlyArray<StoredPlugin>,
 ) {
-	const installed = new Map(installedPlugins.map((plugin) => [plugin.slug, plugin]));
+	const installed = new Map(
+		installedPlugins
+			.filter((plugin) => plugin.scope === "system")
+			.map((plugin) => [plugin.manifest.metadata.packageId, plugin]),
+	);
 	const pluginIdByKey = new Map<string, string>();
 	for (const plugin of required) {
-		const target = installed.get(plugin.slug);
-		if (target?.version !== plugin.version || target.sourceHash !== plugin.sourceHash) {
+		const key = pluginPackageKey({ scope: "system", packageId: plugin.packageId });
+		const target = installed.get(plugin.packageId);
+		if (!target || pluginIdByKey.has(key)) {
 			return yield* new RequiredBackupPluginUnavailable({
 				pluginSlug: plugin.slug,
+				packageId: plugin.packageId,
 				requiredVersion: plugin.version,
 			});
 		}
-		pluginIdByKey.set(`system:${plugin.slug}:${plugin.sourceHash}`, target.id);
+		if (
+			target.sourceHash === plugin.sourceHash &&
+			stableStringify(plugin.definitionContract) !==
+				stableStringify(archivePluginDefinitionContract(target.manifest))
+		) {
+			return yield* new RequiredBackupPluginUnavailable({
+				pluginSlug: plugin.slug,
+				packageId: plugin.packageId,
+				requiredVersion: plugin.version,
+			});
+		}
+		yield* Effect.try({
+			catch: () =>
+				new RequiredBackupPluginUnavailable({
+					pluginSlug: plugin.slug,
+					packageId: plugin.packageId,
+					requiredVersion: plugin.version,
+				}),
+			try: () =>
+				buildDefinitionSnapshot(
+					mergeManifestDefinitions(
+						{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
+						[
+							{
+								id: target.id,
+								slug: plugin.slug,
+								manifest: { ...target.manifest, ...plugin.definitionContract },
+							},
+						],
+					),
+				),
+		});
+		yield* validateAdditiveSchemaEvolution(
+			{ ...target.manifest, ...plugin.definitionContract },
+			target.manifest,
+		).pipe(
+			Effect.mapError(
+				() =>
+					new RequiredBackupPluginUnavailable({
+						pluginSlug: plugin.slug,
+						packageId: plugin.packageId,
+						requiredVersion: plugin.version,
+					}),
+			),
+		);
+		pluginIdByKey.set(key, target.id);
 	}
 	return pluginIdByKey;
 });
@@ -97,15 +170,37 @@ const isRequiredSecretPath = (path: string, schema: AppSchema) => {
 };
 
 export const resolveRestoredInstallationLifecycle = (
-	state: Pick<ArchiveInstallation, "configuredSecretPaths" | "hiddenIntent" | "lifecycleIntent">,
+	state: Pick<
+		ArchiveInstallation,
+		| "configuredSecretPaths"
+		| "hiddenIntent"
+		| "lifecycleIntent"
+		| "incompatibilityReason"
+		| "healthReason"
+	>,
 	schema: AppSchema,
 	redactedConfigNeedsConfiguration: boolean,
+	systemIdentityConflict = false,
 ) => {
+	if (systemIdentityConflict || state.lifecycleIntent === "incompatible") {
+		return {
+			isHidden: state.hiddenIntent,
+			health: "incompatible" as const,
+			incompatibilityReason: systemIdentityConflict
+				? ("package-identity-conflict" as const)
+				: state.incompatibilityReason,
+			healthReason: systemIdentityConflict
+				? "The package identity is reserved by an active system plugin"
+				: state.healthReason,
+		};
+	}
 	const missingRequiredSecret =
 		state.lifecycleIntent === "needs-configuration" ||
 		redactedConfigNeedsConfiguration ||
 		state.configuredSecretPaths.some((path) => isRequiredSecretPath(path, schema));
 	return {
+		healthReason: null,
+		incompatibilityReason: null,
 		isHidden: missingRequiredSecret ? true : state.hiddenIntent,
 		health: missingRequiredSecret ? ("needs-configuration" as const) : ("ready" as const),
 	};
@@ -229,6 +324,26 @@ export const assertDependencySchemaOwnership = Effect.fn(function* (
 	) {
 		return yield* badRequest("Backup global dependency schema is not owned by its plugin");
 	}
+	if (
+		dependency.identity.kind === "provider" &&
+		(dependency.externalId === null ||
+			dependency.provider === null ||
+			dependency.provider.pluginKey !== dependency.identity.pluginKey ||
+			dependency.provider.providerSlug !== dependency.identity.providerSlug)
+	) {
+		return yield* badRequest("Backup provider dependency provenance is inconsistent");
+	}
+	if (
+		dependency.identity.kind === "bootstrap" &&
+		(dependency.provider !== null ||
+			dependency.externalId !== dependency.identity.externalId ||
+			dependency.entitySchemaSlug !== dependency.identity.entitySchemaSlug)
+	) {
+		return yield* badRequest("Backup bootstrap dependency identity is inconsistent");
+	}
+	if (dependency.identity.kind === "unmanaged" && dependency.provider !== null) {
+		return yield* badRequest("Backup unmanaged dependency has provider provenance");
+	}
 	return yield* Effect.void;
 });
 
@@ -242,7 +357,18 @@ export const preflightProvenance = Effect.fn(function* (
 	archivedEvents: ValidatedArchiveEvents,
 	pluginIdByKey: ReadonlyMap<string, string>,
 	definitions: DefinitionSnapshot,
+	requiredPlugins: ReadonlyArray<ArchiveRequiredPlugin> = [],
 ) {
+	const privateKeys = new Set(records.privatePlugins.map(({ key }) => key));
+	const entitiesById = new Map(
+		[...records.entities, ...records.entityDependencies].map((entity) => [entity.id, entity]),
+	);
+	const definition = (kind: string, slug: string, key: string | null) =>
+		definitionKey(
+			kind,
+			definitionOwner(key === null ? null : (pluginIdByKey.get(key) ?? key)),
+			slug,
+		);
 	const mappedPluginId = Effect.fn(function* (key: string | null) {
 		if (key === null) {
 			return null;
@@ -252,94 +378,301 @@ export const preflightProvenance = Effect.fn(function* (
 	});
 	const assertOwner = Effect.fn(function* (
 		key: string | null,
-		definition: { readonly pluginId?: string | null | undefined } | undefined,
+		schemaDefinition: { readonly pluginId?: string | null | undefined } | undefined,
 		kind: string,
 	) {
-		if (!definition) {
+		if (!schemaDefinition) {
 			return yield* badRequest(`Backup references an unavailable ${kind}`);
 		}
-		if ((yield* mappedPluginId(key)) !== (definition.pluginId ?? null)) {
+		if ((yield* mappedPluginId(key)) !== (schemaDefinition.pluginId ?? null)) {
 			return yield* badRequest(`Backup ${kind} provenance has the wrong plugin owner`);
 		}
 		return yield* Effect.void;
 	});
-	const assertProvider = Effect.fn(function* (provider: { readonly pluginKey: string } | null) {
+	const contracts = new Map([
+		...records.privatePlugins.map((plugin) => [plugin.key, plugin.manifest] as const),
+		...requiredPlugins.map(
+			(plugin) =>
+				[
+					pluginPackageKey({ scope: "system", packageId: plugin.packageId }),
+					plugin.definitionContract,
+				] as const,
+		),
+	]);
+	for (const plugin of records.privatePlugins) {
+		for (const imported of plugin.compiledClient?.imports ?? []) {
+			const key = pluginPackageKey(imported.reference);
+			yield* mappedPluginId(key);
+			if (!contracts.get(key)?.client?.exports?.[imported.exportName]) {
+				return yield* badRequest("Backup client dependency references an unavailable export");
+			}
+		}
+	}
+	const assertProvider = Effect.fn(function* (
+		provider: { readonly pluginKey: string; readonly providerSlug: string } | null,
+		schemaKey: string | null,
+		schemaSlug: string,
+	) {
 		if (provider) {
 			yield* mappedPluginId(provider.pluginKey);
+			if (
+				provider.pluginKey !== schemaKey ||
+				!contracts
+					.get(provider.pluginKey)
+					?.providers.some(({ slug }) => slug === provider.providerSlug)
+			) {
+				return yield* badRequest(
+					`Backup provider provenance is not declared by the owner of '${schemaSlug}'`,
+				);
+			}
 		}
+		return yield* Effect.void;
 	});
 
 	for (const installation of records.installations) {
 		yield* mappedPluginId(installation.packageKey);
+		const privatePlugin = records.privatePlugins.find(({ key }) => key === installation.packageKey);
+		if (privatePlugin) {
+			yield* validateRestoredProperties(
+				installation.config,
+				privatePlugin.manifest.configSchema,
+				installation.configuredSecretPaths,
+				installation.lifecycleIntent === "needs-configuration" ||
+					installation.lifecycleIntent === "incompatible",
+			).pipe(Effect.mapError((error) => badRequest(error.message)));
+		}
+		yield* resolveRestoredPluginUserSettings(
+			installation.userSettings,
+			contracts.get(installation.packageKey)?.userSettingsSchema,
+		);
+		const home = installation.homeSavedView;
+		if (home && home.kind !== "custom") {
+			const key = home.kind === "plugin" ? home.pluginKey : null;
+			yield* assertOwner(
+				key,
+				definitions.savedViews[definition("saved-view", home.slug, key)],
+				"home saved view",
+			);
+		}
 	}
 	for (const integration of records.integrations) {
 		if (integration.packageKey !== null) {
 			yield* mappedPluginId(integration.packageKey);
 		}
+		const provider =
+			integration.packageKey === null
+				? { settingsSchema: dataJsonIntegrationSettingsSchema }
+				: contracts
+						.get(integration.packageKey)
+						?.integrationProviders.find(
+							({ lot, slug }) => slug === integration.provider && lot === integration.lot,
+						);
+		if (!provider) {
+			return yield* badRequest("Backup integration provider is not declared by its owner");
+		}
+		yield* parseAppSchemaProperties({
+			kind: "Integration settings",
+			properties: integration.providerSpecifics,
+			propertiesSchema: provider.settingsSchema,
+			allowedMissingRequiredPaths: integration.configuredSecretPaths.map((path) =>
+				path.slice(1).split("/").map(decodePointerSegment),
+			),
+		}).pipe(Effect.mapError((error) => badRequest(error.message)));
 	}
 	for (const entity of records.entities) {
-		yield* assertOwner(
-			entity.entitySchemaPluginKey,
-			definitions.entitySchemas[entity.entitySchemaSlug],
-			"entity schema",
-		);
-		yield* assertProvider(entity.provider);
+		const schema =
+			definitions.entitySchemas[
+				definition("entity", entity.entitySchemaSlug, entity.entitySchemaPluginKey)
+			];
+		yield* assertOwner(entity.entitySchemaPluginKey, schema, "entity schema");
+		yield* assertProvider(entity.provider, entity.entitySchemaPluginKey, entity.entitySchemaSlug);
+		if (schema) {
+			yield* validateProperties(entity.properties, schema.propertiesSchema, "Entity properties");
+		}
 	}
 	for (const dependency of records.entityDependencies) {
-		yield* assertOwner(
+		if (
+			dependency.entitySchemaPluginKey !== null &&
+			privateKeys.has(dependency.entitySchemaPluginKey)
+		) {
+			return yield* badRequest("Backup private entity cannot request global scope");
+		}
+		const schema =
+			definitions.entitySchemas[
+				definition("entity", dependency.entitySchemaSlug, dependency.entitySchemaPluginKey)
+			];
+		yield* assertOwner(dependency.entitySchemaPluginKey, schema, "entity schema");
+		yield* assertProvider(
+			dependency.provider,
 			dependency.entitySchemaPluginKey,
-			definitions.entitySchemas[dependency.entitySchemaSlug],
-			"entity schema",
+			dependency.entitySchemaSlug,
 		);
-		yield* assertProvider(dependency.provider);
+		yield* assertDependencySchemaOwnership(dependency, dependency.entitySchemaPluginKey);
+		if (schema) {
+			yield* validateProperties(
+				dependency.properties,
+				schema.propertiesSchema,
+				"Entity properties",
+			);
+			for (const translation of dependency.translations) {
+				if (translation.properties !== null) {
+					yield* validateProperties(
+						translation.properties,
+						schema.propertiesSchema,
+						"Translation properties",
+					);
+				}
+			}
+		}
 		if (dependency.identity.kind !== "unmanaged") {
 			yield* mappedPluginId(dependency.identity.pluginKey);
 		}
 	}
 	for (const relationship of records.relationships) {
-		yield* assertOwner(
-			relationship.relationshipSchemaPluginKey,
-			definitions.relationshipSchemas[relationship.relationshipSchemaSlug],
-			"relationship schema",
-		);
+		if (relationship.scope !== "user") {
+			return yield* badRequest("Backup relationship cannot request global scope");
+		}
+		const schema =
+			definitions.relationshipSchemas[
+				definition(
+					"relationship",
+					relationship.relationshipSchemaSlug,
+					relationship.relationshipSchemaPluginKey,
+				)
+			];
+		yield* assertOwner(relationship.relationshipSchemaPluginKey, schema, "relationship schema");
+		if (schema) {
+			yield* validateProperties(
+				relationship.properties,
+				schema.propertiesSchema,
+				"Relationship properties",
+			);
+		}
+		if (schema) {
+			for (const [id, slug] of [
+				[relationship.sourceEntityId, schema.sourceEntitySchemaSlug],
+				[relationship.targetEntityId, schema.targetEntitySchemaSlug],
+			] as const) {
+				const endpoint = entitiesById.get(id);
+				if (!endpoint) {
+					return yield* badRequest("Backup relationship references an unknown entity");
+				}
+				if (
+					(relationship.relationshipSchemaPluginKey !== null || slug !== null) &&
+					endpoint.entitySchemaPluginKey !== relationship.relationshipSchemaPluginKey
+				) {
+					return yield* badRequest("Backup relationship endpoint has the wrong schema owner");
+				}
+				if (slug !== null && endpoint.entitySchemaSlug !== slug) {
+					return yield* badRequest("Backup relationship endpoint has the wrong entity schema");
+				}
+			}
+		}
 	}
 	for (const view of records.savedViews) {
 		if (view.kind === "builtin-override") {
-			yield* assertOwner(view.pluginKey, definitions.savedViews[view.slug], "saved view");
+			yield* assertOwner(
+				view.pluginKey,
+				definitions.savedViews[definition("saved-view", view.slug, view.pluginKey)],
+				"saved view",
+			);
 		} else {
-			if (definitions.savedViews[view.slug]) {
-				return yield* badRequest(
-					`Custom saved view slug '${view.slug}' belongs to a built-in view`,
-				);
-			}
 			if (view.pluginKey !== null) {
 				yield* mappedPluginId(view.pluginKey);
 			}
+			const dataSources = yield* importQueryPluginReferences(view.dataSources, pluginIdByKey, null);
+			const settings = yield* importRendererSettings(view.renderer, view.settings, pluginIdByKey);
+			if (
+				view.renderer.kind === "kernel" &&
+				(view.renderer.name === "entity-browser" || view.renderer.name === "collection-browser")
+			) {
+				const decoded = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(
+					settings,
+				).pipe(Effect.mapError((error) => badRequest(error.message)));
+				if (
+					decoded.addAction &&
+					!definitions.entitySchemas[
+						definitionKey("entity", decoded.addAction.schema.owner, decoded.addAction.schema.slug)
+					]
+				) {
+					return yield* badRequest("Backup renderer references an unavailable entity schema");
+				}
+			}
+			const renderer: SavedViewRenderer =
+				view.renderer.kind === "plugin"
+					? {
+							kind: "plugin",
+							exportName: view.renderer.exportName,
+							pluginId:
+								(yield* mappedPluginId(view.renderer.pluginKey)) ??
+								(yield* badRequest("Backup renderer owner is unavailable")),
+						}
+					: view.renderer;
+			const page =
+				view.renderer.kind === "plugin"
+					? contracts.get(view.renderer.pluginKey)?.client?.exports?.[view.renderer.exportName]
+					: undefined;
+			yield* validateSavedViewDefinition(
+				renderer,
+				settings,
+				dataSources,
+				null,
+				page?.kind === "page" ? page : null,
+			).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 		}
 		if (view.kind === "custom" && view.renderer.kind === "plugin") {
 			yield* mappedPluginId(view.renderer.pluginKey);
 		}
 	}
 	for (const subscription of records.notificationSubscriptions) {
-		yield* assertOwner(
-			subscription.signalSchemaPluginKey,
-			definitions.signalSchemas[subscription.signalSchemaSlug],
-			"signal schema",
-		);
+		const schema =
+			definitions.signalSchemas[
+				definition("signal", subscription.signalSchemaSlug, subscription.signalSchemaPluginKey)
+			];
+		yield* assertOwner(subscription.signalSchemaPluginKey, schema, "signal schema");
+		if (schema && isArchiveJsonObject(subscription.metadata)) {
+			yield* validateProperties(
+				subscription.metadata,
+				schema.propertiesSchema,
+				"Notification metadata",
+			);
+		}
 	}
 	const entitySchemaById = new Map(
-		[...records.entities, ...records.entityDependencies].map(({ id, entitySchemaSlug }) => [
-			id,
-			entitySchemaSlug,
-		]),
+		[...records.entities, ...records.entityDependencies].map(
+			({ id, entitySchemaSlug, entitySchemaPluginKey }) => [
+				id,
+				definition("entity", entitySchemaSlug, entitySchemaPluginKey),
+			],
+		),
 	);
+	const entityIds = new Set(entitySchemaById.keys());
+	for (const relationship of records.relationships) {
+		if (
+			!entityIds.has(relationship.sourceEntityId) ||
+			!entityIds.has(relationship.targetEntityId)
+		) {
+			return yield* badRequest("Backup relationship references an unknown entity");
+		}
+	}
 	yield* Stream.runForEach(archivedEvents.read(), (event) =>
 		Effect.gen(function* () {
-			const entitySchemaSlug = entitySchemaById.get(event.entityId);
-			const definition = entitySchemaSlug
-				? definitions.entitySchemas[entitySchemaSlug]?.eventSchemas[event.eventSchemaSlug]
+			if (event.sessionEntityId !== null && !entityIds.has(event.sessionEntityId)) {
+				return yield* badRequest("Backup event session references an unknown entity");
+			}
+			const schemaKey = entitySchemaById.get(event.entityId);
+			const eventDefinition = schemaKey
+				? definitions.entitySchemas[schemaKey]?.eventSchemas[event.eventSchemaSlug]
 				: undefined;
-			yield* assertOwner(event.eventSchemaPluginKey, definition, "event schema");
+			yield* assertOwner(event.eventSchemaPluginKey, eventDefinition, "event schema");
+			if (eventDefinition) {
+				yield* validateProperties(
+					event.properties,
+					eventDefinition.propertiesSchema,
+					"Event properties",
+				);
+			}
+			return yield* Effect.void;
 		}),
 	);
 	return yield* Effect.void;
@@ -352,24 +685,98 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 			const persistence = yield* BackupRestorePersistence;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
-			const savedViews = yield* SavedViewsRepository;
 			const automations = yield* AutomationsRepository;
 			const installations = yield* PluginInstallationRepository;
 
 			const assertRequiredPlugins = Effect.fn("BackupRestoreWriter.assertRequiredPlugins")(
-				function* (
-					required: ReadonlyArray<{
-						readonly slug: string;
-						readonly version: string;
-						readonly sourceHash: string;
-					}>,
-				) {
+				function* (required: ReadonlyArray<ArchiveRequiredPlugin>) {
 					return yield* resolveRequiredPluginIds(
 						required,
-						yield* plugins.listPortablePluginMetadata(),
+						yield* plugins.listActiveSystemPlugins(),
 					);
 				},
 			);
+			const preflight = Effect.fn("BackupRestoreWriter.preflight")(function* (
+				records: ArchiveRecords,
+				archivedEvents: ValidatedArchiveEvents,
+				pluginIdByKey: ReadonlyMap<string, string>,
+				definitions: DefinitionSnapshot,
+				required: ReadonlyArray<ArchiveRequiredPlugin>,
+			) {
+				const system = new Map(
+					(yield* plugins.listActiveSystemPlugins()).map((plugin) => [
+						plugin.manifest.metadata.packageId,
+						plugin,
+					]),
+				);
+				const currentContracts: ArchiveRequiredPlugin[] = [];
+				const archivedCandidates: Array<Parameters<typeof mergeManifestDefinitions>[1][number]> =
+					[];
+				const systemIds = new Set<string>();
+				for (const plugin of required) {
+					const target = system.get(plugin.packageId);
+					if (
+						!target ||
+						pluginIdByKey.get(
+							pluginPackageKey({ scope: "system", packageId: plugin.packageId }),
+						) !== target.id
+					) {
+						return yield* new RequiredBackupPluginUnavailable({
+							pluginSlug: plugin.slug,
+							packageId: plugin.packageId,
+							requiredVersion: plugin.version,
+						});
+					}
+					currentContracts.push({
+						...plugin,
+						definitionContract: archivePluginDefinitionContract(target.manifest),
+					});
+					systemIds.add(target.id);
+					archivedCandidates.push({
+						id: target.id,
+						slug: plugin.slug,
+						manifest: { ...target.manifest, ...plugin.definitionContract },
+					});
+				}
+				const source = definitionSourceFromSnapshot(definitions);
+				const archivedDefinitions = yield* Effect.try({
+					catch: (error) => badRequest(String(error)),
+					try: () =>
+						buildDefinitionSnapshot(
+							mergeManifestDefinitions(
+								{
+									savedViews: source.savedViews.filter(
+										({ pluginId }) => pluginId === null || !systemIds.has(pluginId),
+									),
+									entitySchemas: source.entitySchemas.filter(
+										({ pluginId }) => pluginId === null || !systemIds.has(pluginId),
+									),
+									signalSchemas: source.signalSchemas.filter(
+										({ pluginId }) => pluginId === null || !systemIds.has(pluginId),
+									),
+									relationshipSchemas: source.relationshipSchemas.filter(
+										({ pluginId }) => pluginId === null || !systemIds.has(pluginId),
+									),
+								},
+								archivedCandidates,
+							),
+						),
+				});
+				yield* preflightProvenance(
+					records,
+					archivedEvents,
+					pluginIdByKey,
+					archivedDefinitions,
+					required,
+				);
+				return yield* preflightProvenance(
+					records,
+					archivedEvents,
+					pluginIdByKey,
+					definitions,
+					currentContracts,
+				);
+			});
 
 			const resolveProvider = Effect.fn(function* (
 				pluginIdByKey: ReadonlyMap<string, string>,
@@ -433,13 +840,31 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					].map((plugin) => [plugin.id, plugin]),
 				);
 				const installationIdByKey = new Map<string, string>();
+				const installationIdById = new Map<string, string>();
+				const customViewIds = new Map(
+					records.savedViews
+						.filter((view) => view.kind === "custom")
+						.map((view) => [view.id, SavedViewId.make(crypto.randomUUID())]),
+				);
+				const privateKeys = new Set(records.privatePlugins.map(({ key }) => key));
+				const systemPackageIds = new Set(
+					systemPlugins.map((plugin) => plugin.manifest.metadata.packageId),
+				);
 				const installationActivations: Array<{
 					readonly id: string;
 					readonly updatedAt: Date;
 					readonly isHidden: boolean;
-					readonly health: "ready" | "needs-configuration";
+					readonly health: "ready" | "needs-configuration" | "incompatible";
+					readonly healthReason: string | null;
+					readonly incompatibilityReason: ArchiveInstallation["incompatibilityReason"];
 				}> = [];
 				const pluginKeyById = new Map([...pluginIdByKey].map(([key, id]) => [id, key]));
+				for (const plugin of privatePlugins) {
+					const key = pluginKeyById.get(plugin.id);
+					if (key !== undefined) {
+						privateKeys.add(key);
+					}
+				}
 				for (const state of records.installations) {
 					const pluginId = pluginIdByKey.get(state.packageKey);
 					const installedPlugin = pluginId ? installedPlugins.get(pluginId) : undefined;
@@ -455,19 +880,25 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						state.userSettings,
 						installedPlugin.userSettingsSchema,
 					);
-					const isSystemPackage = state.packageKey.startsWith("system:");
+					const isSystemPackage = !privateKeys.has(state.packageKey);
 					const redactedConfigNeedsConfiguration = isSystemPackage
 						? false
 						: (yield* validateRestoredProperties(
 								config,
 								installedPlugin.configSchema,
 								state.configuredSecretPaths,
-								state.lifecycleIntent === "needs-configuration",
+								state.lifecycleIntent === "needs-configuration" ||
+									state.lifecycleIntent === "incompatible",
 							)).needsConfiguration;
 					const lifecycle = resolveRestoredInstallationLifecycle(
 						state,
 						installedPlugin.configSchema,
 						redactedConfigNeedsConfiguration,
+						!isSystemPackage &&
+							records.privatePlugins.some(
+								(plugin) =>
+									plugin.key === state.packageKey && systemPackageIds.has(plugin.packageId),
+							),
 					);
 					const restored = yield* persistence.restoreInstallation({
 						userId,
@@ -477,25 +908,32 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						isHidden: true,
 						health: "installing",
 						sortOrder: state.sortOrder,
+						isInitialized: state.isInitialized,
 						createdAt: parseDate(state.createdAt),
 						updatedAt: parseDate(state.updatedAt),
 						preserveExistingConfig: isSystemPackage,
 						configuredSecretPaths: state.configuredSecretPaths,
-						allowMissingRequiredSecrets: state.lifecycleIntent === "needs-configuration",
+						allowMissingRequiredSecrets:
+							state.lifecycleIntent === "needs-configuration" ||
+							state.lifecycleIntent === "incompatible",
 					});
 					if (!restored) {
 						return yield* badRequest("Backup plugin installation could not be restored");
 					}
 					installationIdByKey.set(state.packageKey, restored.id);
+					installationIdById.set(state.id, restored.id);
 					installationActivations.push({
 						id: restored.id,
-						health: lifecycle.health,
-						isHidden: lifecycle.isHidden,
+						...lifecycle,
 						updatedAt: parseDate(state.updatedAt),
 					});
 				}
-				const getEntitySchema = (slug: string) => definitions.entitySchemas[slug];
-				const getRelationshipSchema = (slug: string) => definitions.relationshipSchemas[slug];
+				const mappedOwner = (key: string | null) =>
+					definitionOwner(key === null ? null : (pluginIdByKey.get(key) ?? key));
+				const getEntitySchema = (slug: string, key: string | null) =>
+					definitions.entitySchemas[definitionKey("entity", mappedOwner(key), slug)];
+				const getRelationshipSchema = (slug: string, key: string | null) =>
+					definitions.relationshipSchemas[definitionKey("relationship", mappedOwner(key), slug)];
 				for (const integration of records.integrations) {
 					const pluginId =
 						integration.packageKey === null ? undefined : pluginIdByKey.get(integration.packageKey);
@@ -507,10 +945,14 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 									(definition) =>
 										definition.slug === integration.provider && definition.lot === integration.lot,
 								);
-					const pluginInstallationId =
-						integration.packageKey === null
-							? null
-							: installationIdByKey.get(integration.packageKey);
+					let pluginInstallationId: string | null | undefined;
+					if (integration.packageKey === null) {
+						pluginInstallationId = null;
+					} else if (integration.installationId === null) {
+						pluginInstallationId = undefined;
+					} else {
+						pluginInstallationId = installationIdById.get(integration.installationId);
+					}
 					if (
 						!provider ||
 						pluginInstallationId === undefined ||
@@ -531,10 +973,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					yield* persistence.restoreForUser({
 						userId,
 						providerSpecifics,
-						id: integration.id,
 						lot: integration.lot,
 						pluginInstallationId,
 						name: integration.name,
+						id: crypto.randomUUID(),
 						provider: integration.provider,
 						extraSettings: integration.extraSettings,
 						syncOwnership: integration.syncOwnership,
@@ -549,7 +991,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					});
 				}
 				const entityIdMap = new Map<string, EntityId>();
-				const relationshipIdMap = new Map<string, string>();
+				const relationshipIdMap = new Map<string, string>(
+					records.relationships.map(({ id }) => [id, crypto.randomUUID()]),
+				);
 				const entitySchemaById = new Map<EntityId, EntitySchemaSlug>();
 				const rewriteProperties = (
 					properties: Record<string, unknown>,
@@ -564,8 +1008,84 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						);
 						return yield* rewriteManagedAssetLocators(references, propertiesSchema, assetLocators);
 					}).pipe(Effect.mapError(archiveReferenceError));
+				const bootstrapMappings = yield* resolveBootstrapEntityMappings(
+					records.entities,
+					yield* entities.listUserEntitiesForBackup(userId),
+					pluginIdByKey,
+				);
+				for (const entity of records.entities) {
+					entityIdMap.set(
+						entity.id,
+						bootstrapMappings.get(entity.id) ?? EntityId.make(crypto.randomUUID()),
+					);
+				}
+				const dependencyTargets = new Map<
+					string,
+					Effect.Success<ReturnType<typeof entities.findGlobalEntityForRestore>>
+				>();
 				for (const dependency of records.entityDependencies) {
-					const schemaDefinition = getEntitySchema(dependency.entitySchemaSlug);
+					if (
+						dependency.entitySchemaPluginKey !== null &&
+						privateKeys.has(dependency.entitySchemaPluginKey)
+					) {
+						return yield* badRequest("Backup private entity cannot request global scope");
+					}
+					const pluginId =
+						dependency.entitySchemaPluginKey === null
+							? null
+							: pluginIdByKey.get(dependency.entitySchemaPluginKey);
+					if (
+						pluginId === undefined ||
+						(pluginId !== null && !systemPlugins.some((plugin) => plugin.id === pluginId))
+					) {
+						return yield* badRequest("Backup global dependency requires verified system ownership");
+					}
+					const exact =
+						dependency.identity.kind === "unmanaged"
+							? yield* entities.findGlobalEntityById(EntityId.make(dependency.id))
+							: null;
+					if (
+						dependency.identity.kind === "unmanaged" &&
+						(!exact ||
+							exact.entitySchemaSlug !== dependency.entitySchemaSlug ||
+							exact.entitySchemaPluginId !== pluginId)
+					) {
+						return yield* badRequest(
+							"Backup unmanaged dependency does not match a current registry identity",
+						);
+					}
+					let target:
+						| typeof exact
+						| Effect.Success<ReturnType<typeof entities.findGlobalEntityForRestore>> = exact;
+					if (dependency.identity.kind !== "unmanaged") {
+						if (dependency.externalId === null) {
+							target = null;
+						} else {
+							target = yield* entities.findGlobalEntityForRestore({
+								entitySchemaPluginId: pluginId,
+								externalId: dependency.externalId,
+								entitySchemaSlug: EntitySchemaSlug.make(dependency.entitySchemaSlug),
+								provider:
+									dependency.provider === null
+										? null
+										: {
+												slug: dependency.provider.providerSlug,
+												owner: definitionOwner(
+													pluginId ??
+														(yield* badRequest("Backup provider requires a system owner")),
+												),
+											},
+							});
+						}
+					}
+					dependencyTargets.set(dependency.id, target);
+					entityIdMap.set(dependency.id, target?.id ?? EntityId.make(dependency.id));
+				}
+				for (const dependency of records.entityDependencies) {
+					const schemaDefinition = getEntitySchema(
+						dependency.entitySchemaSlug,
+						dependency.entitySchemaPluginKey,
+					);
 					if (!schemaDefinition) {
 						return yield* badRequest("Backup references an unavailable entity schema");
 					}
@@ -575,27 +1095,11 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							? (pluginKeyById.get(schemaDefinition.pluginId) ?? null)
 							: null,
 					);
-					if (
-						dependency.identity.kind === "provider" &&
-						(!dependency.provider ||
-							dependency.provider.pluginKey !== dependency.identity.pluginKey ||
-							dependency.provider.providerSlug !== dependency.identity.providerSlug)
-					) {
-						return yield* badRequest("Backup provider dependency provenance is inconsistent");
-					}
-					if (
-						dependency.identity.kind === "bootstrap" &&
-						(dependency.provider !== null ||
-							dependency.externalId !== dependency.identity.externalId ||
-							dependency.entitySchemaSlug !== dependency.identity.entitySchemaSlug)
-					) {
-						return yield* badRequest("Backup bootstrap dependency identity is inconsistent");
-					}
 					const entitySchemaSlug = EntitySchemaSlug.make(dependency.entitySchemaSlug);
 					const entitySchemaPluginId = dependency.entitySchemaPluginKey
 						? (pluginIdByKey.get(dependency.entitySchemaPluginKey) ?? null)
 						: null;
-					let target = null;
+					let target = dependencyTargets.get(dependency.id) ?? null;
 					let inserted = false;
 					let provider = null;
 					if (dependency.identity.kind === "provider") {
@@ -604,45 +1108,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							return yield* badRequest("Backup global dependency is missing its natural identity");
 						}
 						provider = yield* resolveProvider(pluginIdByKey, archivedProvider);
-						const providerPluginId = pluginIdByKey.get(archivedProvider.pluginKey);
-						const providerPlugin = providerPluginId
-							? installedPlugins.get(providerPluginId)
-							: undefined;
-						if (!providerPlugin) {
-							return yield* badRequest("Backup provider plugin mapping is unavailable");
-						}
-						target = yield* entities.findGlobalEntityForRestore({
-							entitySchemaSlug,
-							entitySchemaPluginId,
-							externalId: dependency.externalId,
-							provider: {
-								pluginSlug: providerPlugin.slug,
-								providerSlug: archivedProvider.providerSlug,
-							},
-						});
-					} else if (dependency.identity.kind === "bootstrap") {
-						target = yield* entities.findGlobalEntityForRestore({
-							provider: null,
-							entitySchemaSlug,
-							entitySchemaPluginId,
-							externalId: dependency.identity.externalId,
-						});
-					} else {
-						if (dependency.provider !== null) {
-							return yield* badRequest("Backup unmanaged dependency has provider provenance");
-						}
-						const exact = yield* entities.findGlobalEntityById(EntityId.make(dependency.id));
-						if (exact && exact.entitySchemaSlug !== entitySchemaSlug) {
-							return yield* badRequest(
-								"Backup global dependency identity conflicts with existing data",
-							);
-						}
-						if (!exact) {
-							return yield* badRequest(
-								"Backup unmanaged dependency does not match a current registry identity",
-							);
-						}
-						target = exact;
 					}
 					if (!target) {
 						const properties = yield* rewriteProperties(
@@ -658,6 +1123,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							properties,
 							userId: null,
 							id: dependency.id,
+							entitySchemaPluginId,
 							name: dependency.name,
 							providerId: provider?.id ?? null,
 							externalId: dependency.externalId,
@@ -665,11 +1131,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							updatedAt: parseDate(dependency.updatedAt),
 							entitySchemaSlug: dependency.entitySchemaSlug,
 							populatedAt: dependency.populatedAt ? parseDate(dependency.populatedAt) : null,
-							entitySchemaPluginId: dependency.entitySchemaPluginKey
-								? (pluginIdByKey.get(dependency.entitySchemaPluginKey) ?? null)
-								: null,
 						});
-						target = { id, entitySchemaSlug };
+						target = { id, entitySchemaSlug, entitySchemaPluginId };
 						inserted = true;
 					}
 					entityIdMap.set(dependency.id, target.id);
@@ -696,14 +1159,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 				}
 
-				const bootstrapMappings = yield* resolveBootstrapEntityMappings(
-					records.entities,
-					yield* entities.listUserEntitiesForBackup(userId),
-					pluginIdByKey,
-				);
-				for (const entity of records.entities) {
-					entityIdMap.set(entity.id, bootstrapMappings.get(entity.id) ?? EntityId.make(entity.id));
-				}
 				for (const entity of records.entities) {
 					const mappedId = entityIdMap.get(entity.id);
 					if (!mappedId) {
@@ -714,7 +1169,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						continue;
 					}
 					const provider = yield* resolveProvider(pluginIdByKey, entity.provider);
-					const propertiesSchema = getEntitySchema(entity.entitySchemaSlug)?.propertiesSchema;
+					const propertiesSchema = getEntitySchema(
+						entity.entitySchemaSlug,
+						entity.entitySchemaPluginKey,
+					)?.propertiesSchema;
 					if (!propertiesSchema) {
 						return yield* badRequest("Backup references an unavailable entity schema");
 					}
@@ -723,7 +1181,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					const id = yield* persistence.restoreEntity({
 						userId,
 						properties,
-						id: entity.id,
+						id: mappedId,
 						name: entity.name,
 						externalId: entity.externalId,
 						providerId: provider?.id ?? null,
@@ -748,6 +1206,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					const targetEntityId = EntityId.make(rewritten.targetEntityId);
 					const propertiesSchema = getRelationshipSchema(
 						relationship.relationshipSchemaSlug,
+						relationship.relationshipSchemaPluginKey,
 					)?.propertiesSchema;
 					if (!propertiesSchema) {
 						return yield* badRequest("Backup references an unavailable relationship schema");
@@ -759,9 +1218,11 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						properties,
 						sourceEntityId,
 						targetEntityId,
-						id: relationship.id,
 						createdAt: parseDate(relationship.createdAt),
 						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+						id:
+							relationshipIdMap.get(relationship.id) ??
+							(yield* badRequest("Backup relationship mapping is incomplete")),
 						relationshipSchemaPluginId: relationship.relationshipSchemaPluginKey
 							? (pluginIdByKey.get(relationship.relationshipSchemaPluginKey) ?? null)
 							: null,
@@ -780,9 +1241,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						if (!entitySchemaSlug) {
 							return yield* badRequest("Backup event references an unknown entity schema");
 						}
-						const propertiesSchema =
-							getEntitySchema(entitySchemaSlug)?.eventSchemas[event.eventSchemaSlug]
-								?.propertiesSchema;
+						const propertiesSchema = getEntitySchema(entitySchemaSlug, event.eventSchemaPluginKey)
+							?.eventSchemas[event.eventSchemaSlug]?.propertiesSchema;
 						if (!propertiesSchema) {
 							return yield* badRequest("Backup references an unavailable event schema");
 						}
@@ -805,12 +1265,12 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							userId,
 							entityId,
 							properties,
-							id: event.id,
 							sessionEntityId,
 							createdAt: parseDate(event.createdAt),
 							updatedAt: parseDate(event.updatedAt),
 							eventSchemaSlug: event.eventSchemaSlug,
 							occurredAt: parseDate(event.occurredAt),
+							id: sha256Hex(identityTupleKey("backup-event", userId, event.id)),
 							eventSchemaPluginId: event.eventSchemaPluginKey
 								? (pluginIdByKey.get(event.eventSchemaPluginKey) ?? null)
 								: null,
@@ -827,24 +1287,25 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				}
 				for (const view of records.savedViews) {
 					if (view.kind === "builtin-override") {
-						if (!definitions.savedViews[view.slug]) {
+						if (
+							!definitions.savedViews[
+								definitionKey("saved-view", mappedOwner(view.pluginKey), view.slug)
+							]
+						) {
 							return yield* badRequest("Backup references an unavailable built-in saved view");
 						}
-						const restored = yield* savedViews.setBuiltinState(
+						yield* persistence.restoreBuiltinOverride({
 							userId,
-							view.slug,
-							view.isHidden,
-							view.sortOrder,
-						);
-						if (!restored) {
-							return yield* badRequest("Backup target is missing a built-in saved view");
-						}
+							slug: view.slug,
+							isHidden: view.isHidden,
+							sortOrder: view.sortOrder,
+							pluginId: view.pluginKey === null ? null : pluginIdByKey.get(view.pluginKey),
+						});
 						continue;
 					}
-					const pluginInstallationId = view.pluginKey
-						? installationIdByKey.get(view.pluginKey)
-						: null;
-					if (view.pluginKey && !pluginInstallationId) {
+					const pluginInstallationId =
+						view.installationId === null ? null : installationIdById.get(view.installationId);
+					if (view.installationId !== null && !pluginInstallationId) {
 						return yield* badRequest("Backup saved view installation mapping is invalid");
 					}
 					let renderer: SavedViewRenderer;
@@ -861,46 +1322,69 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						renderer.kind === "plugin"
 							? installedPlugins.get(renderer.pluginId)?.client?.exports?.[renderer.exportName]
 							: undefined;
+					const dataSources = yield* importQueryPluginReferences(
+						view.dataSources,
+						pluginIdByKey,
+						null,
+					);
+					const settings = yield* importRendererSettings(
+						view.renderer,
+						view.settings,
+						pluginIdByKey,
+					);
 					yield* validateSavedViewDefinition(
 						renderer,
-						view.settings,
-						view.dataSources,
+						settings,
+						dataSources,
 						null,
 						pluginPage?.kind === "page" ? pluginPage : null,
 					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 					const restored = yield* persistence.restoreCustomView({
 						userId,
 						renderer,
+						settings,
+						dataSources,
 						slug: view.slug,
 						name: view.name,
 						icon: view.icon,
 						pluginInstallationId,
-						id: crypto.randomUUID(),
-						settings: view.settings,
 						isHidden: view.isHidden,
 						sortOrder: view.sortOrder,
-						dataSources: view.dataSources,
 						createdAt: parseDate(view.createdAt),
 						updatedAt: parseDate(view.updatedAt),
+						id:
+							customViewIds.get(view.id) ??
+							(yield* badRequest("Backup custom view mapping is incomplete")),
 					});
 					if (!restored) {
 						return yield* badRequest("Backup saved view could not be restored");
 					}
 				}
 				for (const state of records.installations) {
-					if (state.homeSavedViewSlug === null) {
+					if (state.homeSavedView === null) {
 						continue;
 					}
-					const installationId = installationIdByKey.get(state.packageKey);
-					const homeView = yield* savedViews.findBySlug(userId, state.homeSavedViewSlug);
+					const installationId = installationIdById.get(state.id);
+					const home = state.homeSavedView;
+					let reference: SavedViewReference;
+					if (home.kind === "custom") {
+						const id = customViewIds.get(home.savedViewId);
+						if (!id) {
+							return yield* badRequest("Backup home custom view mapping is incomplete");
+						}
+						reference = { kind: "custom", savedViewId: id };
+					} else if (home.kind === "plugin") {
+						const id = pluginIdByKey.get(home.pluginKey);
+						if (!id) {
+							return yield* badRequest("Backup home plugin mapping is incomplete");
+						}
+						reference = { kind: "plugin", slug: home.slug, pluginId: PluginId.make(id) };
+					} else {
+						reference = home;
+					}
 					if (
 						!installationId ||
-						!homeView ||
-						!(yield* installations.setHomeSavedView(
-							userId,
-							installationId,
-							state.homeSavedViewSlug,
-						))
+						!(yield* installations.setHomeSavedView(userId, installationId, reference))
 					) {
 						return yield* badRequest("Backup installation home saved view could not be restored");
 					}
@@ -909,7 +1393,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (
 						definition.catalogState === "active" &&
 						definition.pluginId &&
-						pluginKeyById.get(definition.pluginId)?.startsWith("user:")
+						privateKeys.has(pluginKeyById.get(definition.pluginId) ?? "")
 					) {
 						yield* automations.insertNotificationSubscription({
 							userId,
@@ -921,8 +1405,15 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 				}
 				for (const subscription of records.notificationSubscriptions) {
-					const definition = definitions.signalSchemas[subscription.signalSchemaSlug];
-					if (definition?.catalogState !== "active") {
+					const definition =
+						definitions.signalSchemas[
+							definitionKey(
+								"signal",
+								mappedOwner(subscription.signalSchemaPluginKey),
+								subscription.signalSchemaSlug,
+							)
+						];
+					if (!definition) {
 						return yield* badRequest("Backup references an unavailable notification subscription");
 					}
 					const restored = yield* persistence.restoreNotificationSubscription({
@@ -949,7 +1440,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				return undefined;
 			});
 
-			return { restoreRecords, assertRequiredPlugins };
+			return { preflight, restoreRecords, assertRequiredPlugins };
 		}),
 	},
 ) {

@@ -1,3 +1,4 @@
+import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { Schema, Effect, Stream, FileSystem, Cause, type PlatformError } from "effect";
 import { Zip, Unzip, ZipDeflate, UnzipInflate, ZipPassThrough, UnzipPassThrough } from "fflate";
 
@@ -206,42 +207,88 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 	}
 	const viewSlugs = new Set<string>();
 	for (const view of records.savedViews) {
-		if (viewSlugs.has(view.slug)) {
+		const key = JSON.stringify([
+			view.kind,
+			view.kind === "builtin-override" ? view.pluginKey : null,
+			view.slug,
+		]);
+		if (viewSlugs.has(key)) {
 			throw archiveError(
 				"duplicate_record_id",
 				`Duplicate saved view slug '${view.slug}'`,
 				"saved-views.ndjson",
 			);
 		}
-		viewSlugs.add(view.slug);
+		viewSlugs.add(key);
 	}
-	const viewSlugsForHome = new Set(records.savedViews.map(({ slug }) => slug));
-	for (const installation of records.installations) {
+	const customViewIds = new Set(
+		records.savedViews.filter((view) => view.kind === "custom").map(({ id }) => id),
+	);
+	const installationById = new Map(records.installations.map((record) => [record.id, record]));
+	for (const record of [
+		...records.integrations,
+		...records.savedViews.filter((view) => view.kind === "custom"),
+	]) {
+		if (record.installationId !== null && !installationById.has(record.installationId)) {
+			throw archiveError("missing_reference_mapping", "Backup references an unknown installation");
+		}
 		if (
-			installation.homeSavedViewSlug !== null &&
-			!viewSlugsForHome.has(installation.homeSavedViewSlug)
+			"packageKey" in record &&
+			record.installationId !== null &&
+			installationById.get(record.installationId)?.packageKey !== record.packageKey
+		) {
+			throw archiveError("invalid_entry", "Backup integration installation owner is inconsistent");
+		}
+		if (
+			"pluginKey" in record &&
+			(record.installationId === null
+				? record.pluginKey !== null
+				: installationById.get(record.installationId)?.packageKey !== record.pluginKey)
 		) {
 			throw archiveError(
+				"invalid_entry",
+				"Backup custom view workspace association is inconsistent",
+			);
+		}
+	}
+	for (const installation of records.installations) {
+		const home = installation.homeSavedView;
+		if (home?.kind === "custom" && !customViewIds.has(home.savedViewId)) {
+			throw archiveError(
 				"missing_reference_mapping",
-				`Installation references unknown home saved view '${installation.homeSavedViewSlug}'`,
+				`Installation references unknown home saved view '${home.savedViewId}'`,
 				"installations.ndjson",
+			);
+		}
+		if (
+			installation.incompatibilityReason !== null &&
+			installation.lifecycleIntent !== "incompatible"
+		) {
+			throw archiveError(
+				"invalid_entry",
+				"Backup installation quarantine reason requires incompatible health",
 			);
 		}
 	}
 	const signalSlugs = new Set<string>();
 	for (const subscription of records.notificationSubscriptions) {
-		if (signalSlugs.has(subscription.signalSchemaSlug)) {
+		const key = JSON.stringify([subscription.signalSchemaPluginKey, subscription.signalSchemaSlug]);
+		if (signalSlugs.has(key)) {
 			throw archiveError(
 				"duplicate_record_id",
 				`Duplicate signal schema slug '${subscription.signalSchemaSlug}'`,
 				"notification-subscriptions.ndjson",
 			);
 		}
-		signalSlugs.add(subscription.signalSchemaSlug);
+		signalSlugs.add(key);
 	}
 	const privateKeys = new Set<string>();
 	for (const plugin of records.privatePlugins) {
-		if (privateKeys.has(plugin.key) || plugin.key !== `user:${plugin.slug}:${plugin.sourceHash}`) {
+		if (
+			privateKeys.has(plugin.key) ||
+			plugin.key !== pluginPackageKey({ scope: "user", packageId: plugin.packageId }) ||
+			plugin.manifest.metadata.packageId !== plugin.packageId
+		) {
 			throw archiveError("duplicate_record_id", "Invalid or duplicate private plugin key");
 		}
 		privateKeys.add(plugin.key);
@@ -260,16 +307,16 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 };
 
 const validateRequiredPlugins = (plugins: ReadonlyArray<ArchiveRequiredPlugin>) => {
-	const slugs = new Set<string>();
+	const packageIds = new Set<string>();
 	for (const plugin of plugins) {
-		if (slugs.has(plugin.slug)) {
+		if (packageIds.has(plugin.packageId)) {
 			throw archiveError(
 				"duplicate_record_id",
-				`Duplicate required plugin slug '${plugin.slug}'`,
+				`Duplicate required plugin package '${plugin.packageId}'`,
 				"manifest.json",
 			);
 		}
-		slugs.add(plugin.slug);
+		packageIds.add(plugin.packageId);
 	}
 };
 
@@ -279,7 +326,7 @@ const validatePluginKeys = (
 ) => {
 	const declared = new Set([
 		...records.privatePlugins.map(({ key }) => key),
-		...required.map(({ slug, sourceHash }) => `system:${slug}:${sourceHash}`),
+		...required.map((plugin) => pluginPackageKey({ scope: "system", packageId: plugin.packageId })),
 	]);
 	const referenced = collectReferencedPluginKeys(records);
 	for (const key of referenced) {
@@ -294,10 +341,7 @@ const validatePluginKeys = (
 
 const sortedRequiredPlugins = (plugins: ReadonlyArray<ArchiveRequiredPlugin>) => {
 	validateRequiredPlugins(plugins);
-	return [...plugins].sort(
-		(left, right) =>
-			left.slug.localeCompare(right.slug) || left.version.localeCompare(right.version),
-	);
+	return [...plugins].sort((left, right) => left.packageId.localeCompare(right.packageId));
 };
 
 const buildManifest = (
@@ -306,6 +350,8 @@ const buildManifest = (
 	limits: ArchiveLimits,
 ) => {
 	validateRecordKeys(records);
+	validateRequiredPlugins(input.requiredPlugins);
+	validatePluginKeys(records, input.requiredPlugins);
 	for (const [path, values] of Object.entries(recordCollections(records))) {
 		if (values.length > limits.maxRecordsPerSection) {
 			throw archiveError("count_mismatch", "Section record limit exceeded", path);
