@@ -410,14 +410,14 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 							reader.retire(handle);
 							writer.retire(handle);
 						}),
-					send: (frame: SidecarInboundFrame) =>
+					send: (frame: SidecarInboundFrame, released?: () => void) =>
 						Effect.suspend(() =>
 							closed
 								? Effect.fail(queueFailure())
 								: Effect.try({
 										catch: queueFailure,
 										try: () => {
-											writer.enqueue(frame);
+											writer.enqueue(frame, released);
 											writer.flush();
 										},
 									}),

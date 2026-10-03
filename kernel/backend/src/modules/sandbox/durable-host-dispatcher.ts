@@ -23,6 +23,8 @@ import {
 	type SandboxExecutionPrincipal as SandboxExecutionPrincipalValue,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
+import { SANDBOX_JSON_GRAPH_FACTOR } from "#lib/infrastructure/sandbox-runtime/json-bytes";
+import { KiB, SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	requireSandboxCapabilityInput,
 	sandboxLifecycleCommand,
@@ -90,6 +92,37 @@ export const SANDBOX_DURABLE_HOST_DISPATCH = {
 	upsertGlobalRelationships: "lifecycle-workflow",
 } as const satisfies Record<keyof typeof sandboxHostContracts, SandboxDurableHostDispatchStrategy>;
 
+// Retained backend memory of a capability's result, bounded before the result materializes; `null`
+// marks results only the workflow body may hold.
+export const SANDBOX_HOST_RESULT_BYTES = {
+	log: KiB,
+	span: KiB,
+	emitSignal: null,
+	createEvents: null,
+	deleteEvents: null,
+	updateEvents: null,
+	setCachedValue: KiB,
+	getPluginConfig: null,
+	getUserSettings: null,
+	getEntitySchemas: null,
+	listEventSchemas: null,
+	listIntegrations: null,
+	sendNotification: null,
+	getUserPreferences: KiB,
+	ensureUserEntities: null,
+	getOAuthAccessToken: null,
+	upsertGlobalEntities: null,
+	getCurrentIntegration: null,
+	requestEventStreamWork: KiB,
+	changeUserRelationships: null,
+	upsertGlobalRelationships: null,
+	httpCall: 2 * SANDBOX_LIMITS.http.responseBytes,
+	executeRyotql: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.ryotqlResultBytes,
+	getCachedValue: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.cache.valueBytes,
+	getPersistentValue: SANDBOX_JSON_GRAPH_FACTOR * (SANDBOX_LIMITS.cache.valueBytes + KiB),
+	claimPersistentValue: SANDBOX_JSON_GRAPH_FACTOR * (SANDBOX_LIMITS.cache.valueBytes + KiB),
+} as const satisfies Record<keyof typeof sandboxHostContracts, number | null>;
+
 export const sandboxDurableHostDispatchStrategy = (capability: SandboxHostCapability) => {
 	if (capability === "artifact-read" || capability === "scratch") {
 		return null;
@@ -97,15 +130,24 @@ export const sandboxDurableHostDispatchStrategy = (capability: SandboxHostCapabi
 	return SANDBOX_DURABLE_HOST_DISPATCH[capability];
 };
 
+export const sandboxHostResultBytes = (capability: SandboxHostCapability) => {
+	if (capability === "artifact-read" || capability === "scratch") {
+		return null;
+	}
+	return SANDBOX_HOST_RESULT_BYTES[capability];
+};
+
 /**
  * Declared capabilities whose durable calls a live replay may settle inline: plain activities that
- * neither start workflows nor need another sandbox execution slot.
+ * neither start workflows nor need another sandbox execution slot, with results bounded before they
+ * materialize.
  */
 export const sandboxInlineDurableCapabilities = (principal: SandboxExecutionPrincipalValue) =>
 	(principal.metadata.capabilities ?? []).filter(
 		(capability): capability is SandboxHostCapability =>
 			isSandboxCapability(capability) &&
-			sandboxDurableHostDispatchStrategy(capability) === "activity",
+			sandboxDurableHostDispatchStrategy(capability) === "activity" &&
+			sandboxHostResultBytes(capability) !== null,
 	);
 
 export const sandboxDurableHttpRequestUrl = (request: HostRequest) =>

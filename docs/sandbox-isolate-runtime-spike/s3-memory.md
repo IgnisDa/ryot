@@ -15,8 +15,16 @@ G = `SANDBOX_WORKER_CONCURRENCY` = 2 on the canonical host.
   the measured 3,809 MiB host). The default stays the smaller of 1,536 MiB and half.
 - The replay journal is served lazily from chunked Redis entries (M4).
 - Per-script limits are 64 MiB heap and 16 MiB external for every kind. The measured maximum is
-  19.7 MiB heap and 1.9 MiB external (system/full provider); legal inputs that need more, such as
-  journal entries above ≈16 MiB or parsing very large HTTP or durable responses, fail at the limit.
+  19.7 MiB heap and 1.9 MiB external (system/full provider); a journal entry and its durable host
+  response are capped at 12 MiB, and parsing very large HTTP or durable responses fails at the limit.
+- Until scheduling routes runs into lanes, every run draws permits from one static pool of
+  I + 60 = 232 MiB (the capped background partition), leaving room for ≈20 MiB of inline evidence
+  beside one batch reservation; boot needs 256 + 232 + E + 128 = 914 MiB. M-S4 splits it by lane.
+- Sandbox `executeRyotql` results are capped at 1 MiB of JSON across the document, measured by
+  PostgreSQL before rows are returned (Vmax = k × 1 MiB = 27 MiB). Capabilities with no
+  pre-materialization bound (`listIntegrations`, entity and event schemas, current integration, user
+  settings, plugin config, OAuth token) neither bind live nor settle inline; the workflow body
+  dispatches them.
 
 ## 1. Defects in the S2 accounting
 
@@ -53,7 +61,7 @@ or encoded retention.
   The existing caps keep their meaning (they are already measured on serialized UTF-8).
 - Unreachable memory counts as released (GC timing not modelled). Reservations are admission bounds;
   S4 adds cgroups.
-- A1 charged: isolate term 256 + 64 + 64 = 384. Rust reports its heap headroom in `ready`; the backend
+- A1 charged: isolate term 64 + 16 + 64 = 144. Rust reports its heap headroom in `ready`; the backend
   rejects a generation whose heap + external + headroom exceeds the reserved term. Rust `MemoryBudget`
   per isolate and `maxRss` include the headroom.
 
@@ -150,10 +158,10 @@ JSON text; the workflow body decodes them as before (accepted residual).
 
 ### 5.4 Processes and per-connection transport
 
-Resident core 2 × 128; lazy 128 each (values unchanged). The lane pools bound concurrent maximum host
-results to about one per lane (⌊232/83⌋ = 2 ordinary in the background lane, 1 interactive, or one inline reply), so Rust assemblies stay ≤ 2 × 12 MiB
-plus small results per connection (≤ 3 × 12 + small), below `ASSEMBLY_BYTES` (fixes A10's dependency; tested).
-This holds because P_bg ≤ I + 60 < 3H for every k in 19–40 (§8).
+Resident core 2 × 128; lazy 128 each (values unchanged). Permits charge the call's actual argument
+bytes, so the 232 MiB pool admits at most ⌊232/56⌋ = 4 maximum host results (4 × 12 = 48 MiB) plus
+small results and run frames per connection, below `ASSEMBLY_BYTES` (fixes A10's dependency). This
+holds because P ≤ I + 60 for every k in 19–40 (§8).
 
 ## 6. Acquisition, handoff and release sequence
 
@@ -190,8 +198,8 @@ This holds because P_bg ≤ I + 60 < 3H for every k in 19–40 (§8).
 - The backend never decodes or retains the prefix; `pinHash` uses the pins and inline `firstIndex` uses
   the pinned count. `SandboxRunInput.replayJournal` becomes a pinned journal source.
 - Existing behaviour retained: entries are reassembled in the isolate through 1 MiB reads (2,048
-  reads, 200 MiB). The reassembly buffer is external memory, so an entry above ≈64 MiB cannot be read
-  inside one isolate (pre-existing; self-limiting; not changed by S3).
+  reads, 200 MiB). The reassembly buffer is external memory; entries are capped at 12 MiB so one
+  always fits the 16 MiB external limit.
 
 ## 8. Admission predicate, modes and budget arithmetic (G = 2)
 
