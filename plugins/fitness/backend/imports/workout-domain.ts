@@ -35,6 +35,14 @@ export const WorkoutImportItemSchema = Schema.Struct({
 	endedAt: Schema.mutableKey(Schema.NullOr(Schema.String)),
 	comment: Schema.mutableKey(Schema.optional(Schema.NullOr(Schema.String))),
 	exercises: Schema.mutableKey(Schema.mutable(Schema.Array(WorkoutImportExerciseSchema))),
+	activeDuration: Schema.mutableKey(
+		Schema.optional(
+			Schema.Finite.pipe(
+				Schema.check(Schema.isInt()),
+				Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+			),
+		),
+	),
 });
 
 export type WorkoutImportItem = Schema.Schema.Type<typeof WorkoutImportItemSchema>;

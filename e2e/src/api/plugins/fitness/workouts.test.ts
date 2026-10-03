@@ -75,7 +75,7 @@ describe("Workouts E2E", () => {
 				caloriesBurnt: {
 					type: "number",
 					label: "Calories Burnt",
-					description: "Estimated calories burned during this workout",
+					description: "Estimated energy burned during this workout in kilocalories (kcal)",
 				},
 			});
 		}),
@@ -103,27 +103,66 @@ describe("Workouts E2E", () => {
 		}),
 	);
 
-	it.live("persists normalized workout media", () =>
+	it.live("rejects invalid recorded duration and energy without inventing unknown values", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const startedAt = "2026-04-27T10:00:00Z";
+			for (const properties of [
+				{ startedAt, activeDuration: -1 },
+				{ startedAt, activeDuration: 1.5 },
+				{ startedAt, caloriesBurnt: -1 },
+			]) {
+				const error = yield* Effect.flip(
+					createEntity(client, {
+						properties,
+						name: "Invalid workout",
+						entitySchemaSlug: workoutSchema.id,
+					}),
+				);
+				assertTaggedError(error, "EntityBadRequest");
+				expect(error.reason.code).toBe("invalid-properties");
+			}
 			const workout = yield* createEntity(client, {
+				properties: { startedAt },
+				name: "Unknown duration workout",
 				entitySchemaSlug: workoutSchema.id,
-				name: `Workout ${crypto.randomUUID()}`,
-				properties: {
+			});
+			const stored = yield* getEntity(client, workout.id);
+			expect(stored.properties).not.toHaveProperty("activeDuration");
+			expect(stored.properties).not.toHaveProperty("caloriesBurnt");
+		}),
+	);
+
+	it.live(
+		"persists normalized workout media and recorded duration independently of elapsed time",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+				const workout = yield* createEntity(client, {
+					entitySchemaSlug: workoutSchema.id,
+					name: `Workout ${crypto.randomUUID()}`,
+					properties: {
+						caloriesBurnt: 150,
+						activeDuration: 2400,
+						endedAt: "2026-04-27T11:00:00Z",
+						startedAt: "2026-04-27T10:00:00Z",
+						videos: [{ type: "s3", key: "workouts/video.mp4" }],
+						images: [{ type: "local", key: "permanent/workout.jpg" }],
+					},
+				});
+				const entity = yield* getEntity(client, workout.id);
+
+				expect(entity.properties).toMatchObject({
+					caloriesBurnt: 150,
+					activeDuration: 2400,
 					endedAt: "2026-04-27T11:00:00Z",
 					startedAt: "2026-04-27T10:00:00Z",
 					videos: [{ type: "s3", key: "workouts/video.mp4" }],
 					images: [{ type: "local", key: "permanent/workout.jpg" }],
-				},
-			});
-			const entity = yield* getEntity(client, workout.id);
-
-			expect(entity.properties).toMatchObject({
-				videos: [{ type: "s3", key: "workouts/video.mp4" }],
-				images: [{ type: "local", key: "permanent/workout.jpg" }],
-			});
-		}),
+				});
+			}),
 	);
 
 	it.live("creates the built-in All Workouts saved view with workout defaults", () =>

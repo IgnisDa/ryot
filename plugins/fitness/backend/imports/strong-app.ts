@@ -67,53 +67,23 @@ const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongA
 
 const parseWorkoutDurationSeconds = (value: string) => {
 	const trimmed = value.trim();
-	if (/^\d+$/.test(trimmed)) {
-		return Number(trimmed);
+	const components =
+		/^(?:(\d+(?:\.\d+)?)\s*h\s*)?(?:(\d+(?:\.\d+)?)\s*m\s*)?(?:(\d+(?:\.\d+)?)\s*s\s*)?$/i.exec(
+			trimmed,
+		);
+	let seconds = Number.NaN;
+	if (/^\d+(?:\.\d+)?$/.test(trimmed)) {
+		seconds = Number(trimmed);
+	} else if (components && trimmed.length > 0) {
+		seconds =
+			Number(components[1] ?? 0) * 3600 +
+			Number(components[2] ?? 0) * 60 +
+			Number(components[3] ?? 0);
 	}
-
-	let totalSeconds = 0;
-	const normalized = trimmed.toLowerCase();
-	const hoursPosition = normalized.indexOf("h");
-	if (hoursPosition >= 0) {
-		const hours = Number(normalized.slice(0, hoursPosition).trim());
-		if (Number.isNaN(hours)) {
-			throw new Error(`Could not parse workout duration "${value}"`);
-		}
-		totalSeconds += hours * 3600;
+	if (!Number.isFinite(seconds) || seconds < 0 || !Number.isSafeInteger(Math.trunc(seconds))) {
+		throw new Error(`Could not parse workout duration "${value}"`);
 	}
-
-	const minutesPosition = normalized.indexOf("m");
-	if (minutesPosition >= 0) {
-		const start = hoursPosition >= 0 ? hoursPosition + 1 : 0;
-		const minutesText = normalized.slice(start, minutesPosition).trim();
-		if (minutesText.length > 0) {
-			const minutes = Number(minutesText);
-			if (Number.isNaN(minutes)) {
-				throw new Error(`Could not parse workout duration "${value}"`);
-			}
-			totalSeconds += minutes * 60;
-		}
-	}
-
-	const secondsPosition = normalized.indexOf("s");
-	if (secondsPosition >= 0) {
-		let start = 0;
-		if (minutesPosition >= 0) {
-			start = minutesPosition + 1;
-		} else if (hoursPosition >= 0) {
-			start = hoursPosition + 1;
-		}
-		const secondsText = normalized.slice(start, secondsPosition).trim();
-		if (secondsText.length > 0) {
-			const seconds = Number(secondsText);
-			if (Number.isNaN(seconds)) {
-				throw new Error(`Could not parse workout duration "${value}"`);
-			}
-			totalSeconds += seconds;
-		}
-	}
-
-	return totalSeconds;
+	return seconds;
 };
 
 const toWorkoutSet = (row: StrongAppRow): WorkoutImportSet => {
@@ -260,6 +230,7 @@ export const adaptStrongAppRows = (
 			itemIndex: firstRow.itemIndex,
 			comment: firstRow.workoutNotes ?? null,
 			startedAt: DateTime.formatIso(startedAt.value),
+			activeDuration: Math.trunc(parsedDuration.success),
 			endedAt: DateTime.formatIso(
 				DateTime.addDuration(startedAt.value, Duration.seconds(parsedDuration.success)),
 			),

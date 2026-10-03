@@ -2,6 +2,7 @@ import {
 	AuthoredPluginManifest,
 	CLIENT_API_VERSION,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import { parseAppSchemaPropertiesSafe } from "@ryot-app/kernel-backend/lib/property-schema/property-schema-runtime";
 import { Schema } from "effect";
 import { assert, expect, it } from "vitest";
 
@@ -36,6 +37,35 @@ const expectedImportSources = [
 		description: "Import measurements from an OpenScale CSV export",
 	},
 ] as const;
+
+it("provides complete Fitness preference defaults without creating exercise overrides", () => {
+	expect(
+		parseAppSchemaPropertiesSafe({
+			properties: {},
+			propertiesSchema: fitnessPlugin.userSettingsSchema,
+		}),
+	).toEqual({
+		success: true,
+		data: {
+			dropRestTime: 0,
+			warmUpRestTime: 0,
+			muteSounds: false,
+			normalRestTime: 60,
+			failureRestTime: 0,
+			energyUnit: "kcal",
+			unitSystem: "metric",
+			promptForRestTimer: false,
+			startTimerForDurationExercises: true,
+		},
+	});
+	const membership = fitnessPlugin.relationshipSchemas.find(
+		({ slug }) => slug === "in-fitness-library",
+	);
+	assert(membership);
+	expect(
+		parseAppSchemaPropertiesSafe({ properties: {}, propertiesSchema: membership.propertiesSchema }),
+	).toEqual({ data: {}, success: true });
+});
 
 it("declares the complete fitness-owned source", () => {
 	expect(() => Schema.decodeSync(AuthoredPluginManifest)(fitnessPlugin)).not.toThrow();

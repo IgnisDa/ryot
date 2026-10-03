@@ -8,6 +8,9 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 	const operationId = (...parts: Array<string | number>) =>
 		workoutOperationId(workout.itemIndex, ...parts);
 	const workoutProperties: Record<string, JsonValue> = { startedAt: workout.startedAt };
+	if (workout.activeDuration !== undefined) {
+		workoutProperties["activeDuration"] = workout.activeDuration;
+	}
 	if (workout.endedAt) {
 		workoutProperties["endedAt"] = workout.endedAt;
 	}

@@ -20,6 +20,7 @@ describe("adaptHevyCsv", () => {
 
 		expect(result.failures).toEqual([]);
 		expect(result.items.length).toBe(1);
+		expect(result.items[0]).not.toHaveProperty("activeDuration");
 		expect(result.items[0]).toMatchObject({
 			name: "Push Day",
 			comment: "Good session",
