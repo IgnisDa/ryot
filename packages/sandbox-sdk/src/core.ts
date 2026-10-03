@@ -218,6 +218,7 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"listIntegrations",
 	"executeRyotql",
 	"ensureUserEntities",
+	"createUserEntity",
 	"upsertGlobalEntities",
 	"getCurrentIntegration",
 	"getOAuthAccessToken",
@@ -576,6 +577,9 @@ export const ensureUserEntitiesArgsSchema = Schema.Tuple([
 ]);
 export const ensureUserEntitiesDataSchema = Schema.Array(ensureUserEntityResultSchema);
 export const ensureUserEntitiesResultSchema = hostResultSchema(ensureUserEntitiesDataSchema);
+export const createUserEntityArgsSchema = Schema.Tuple([ensureUserEntityItemSchema]);
+export const createUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
+export const createUserEntityResultSchema = hostResultSchema(createUserEntityDataSchema);
 export const upsertGlobalEntitiesArgsSchema = Schema.Tuple([
 	Schema.Array(upsertGlobalEntityItemSchema).pipe(
 		Schema.check(Schema.isMaxLength(GLOBAL_WRITE_SANDBOX_LIMITS.entityItems)),
@@ -613,6 +617,11 @@ export const domainSandboxHostContracts = {
 		args: listIntegrationsArgsSchema,
 		success: listIntegrationsDataSchema,
 		result: listIntegrationsResultSchema,
+	},
+	createUserEntity: {
+		args: createUserEntityArgsSchema,
+		success: createUserEntityDataSchema,
+		result: createUserEntityResultSchema,
 	},
 	getOAuthAccessToken: {
 		success: oauthAccessTokenSchema,

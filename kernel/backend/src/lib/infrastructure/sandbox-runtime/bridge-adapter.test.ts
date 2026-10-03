@@ -28,6 +28,7 @@ const makeImplementations = (
 	listEventSchemas: () => Effect.fail({ message: "unused" }),
 	listIntegrations: () => Effect.fail({ message: "unused" }),
 	sendNotification: () => Effect.fail({ message: "unused" }),
+	createUserEntity: () => Effect.fail({ message: "unused" }),
 	getPersistentValue: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
@@ -331,6 +332,39 @@ describe("bindSandboxHostFunctions", () => {
 			expect(
 				yield* bound.ensureUserEntities([[{ ...item, pluginSlug: "caller-selected" }]]),
 			).toEqual({ success: false, error: "0.0.pluginSlug: Expected no excess property" });
+			expect(calls).toHaveLength(1);
+		}),
+	);
+
+	it.effect("validates single user entity creates without accepting a caller-owned subject", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const implementations = makeImplementations({
+				createUserEntity: (runInput, item) => {
+					calls.push({ item, runInput });
+					return Effect.succeed({ entityId: "created-id" });
+				},
+			});
+			const bound = bindSandboxHostFunctions(implementations, input);
+			const item = {
+				name: "Library",
+				properties: { color: "blue" },
+				entitySchemaSlug: "media-library",
+			};
+
+			expect(yield* bound.createUserEntity([item])).toEqual({
+				success: true,
+				data: { entityId: "created-id" },
+			});
+			expect(calls).toEqual([{ item, runInput: input }]);
+			expect(yield* bound.createUserEntity([{ ...item, userId: "caller-selected" }])).toEqual({
+				success: false,
+				error: "0.userId: Expected no excess property",
+			});
+			expect(yield* bound.createUserEntity([{ ...item, scope: "caller-selected" }])).toEqual({
+				success: false,
+				error: "0.scope: Expected no excess property",
+			});
 			expect(calls).toHaveLength(1);
 		}),
 	);
