@@ -49,29 +49,12 @@ export type WorkoutSetPropertiesInput = {
 export const selectWorkoutSetMeasurements = (
 	kind: ExerciseKind,
 	measurements: typeof WorkoutSetMeasurementsSchema.Type,
-) => {
-	return {
-		...((kind === "reps" ||
-			kind === "reps_and_weight" ||
-			kind === "reps_and_duration" ||
-			kind === "reps_and_duration_and_distance") &&
-		measurements.reps !== undefined
-			? { reps: measurements.reps }
-			: {}),
-		...(kind === "reps_and_weight" && measurements.weight !== undefined
-			? { weight: measurements.weight }
-			: {}),
-		...(kind !== "reps" && kind !== "reps_and_weight" && measurements.duration !== undefined
-			? { duration: measurements.duration }
-			: {}),
-		...(kind !== "reps" &&
-		kind !== "duration" &&
-		kind !== "reps_and_weight" &&
-		kind !== "reps_and_duration" &&
-		measurements.distance !== undefined
-			? { distance: measurements.distance }
-			: {}),
-	};
+): typeof WorkoutSetMeasurementsSchema.Type => {
+	return Object.fromEntries(
+		requiredWorkoutMeasurementsByKind[kind].flatMap((field) =>
+			measurements[field] === undefined ? [] : [[field, measurements[field]]],
+		),
+	);
 };
 
 const value = (input: number | undefined) =>
@@ -93,12 +76,6 @@ const finiteMeasurements = (measurements: typeof WorkoutSetMeasurementsSchema.Ty
 export const buildWorkoutSetEventProperties = (input: WorkoutSetPropertiesInput) => {
 	const measurements = finiteMeasurements(selectWorkoutSetMeasurements(input.exerciseKind, input));
 	const statistics = calculateWorkoutSetStatistics(input.exerciseKind, measurements);
-	const measurementProperties = {
-		...(measurements.reps === undefined ? {} : { reps: measurements.reps }),
-		...(measurements.weight === undefined ? {} : { weight: measurements.weight }),
-		...(measurements.duration === undefined ? {} : { duration: measurements.duration }),
-		...(measurements.distance === undefined ? {} : { distance: measurements.distance }),
-	};
 	return {
 		setLot: input.setLot,
 		setOrder: input.setOrder,
@@ -111,7 +88,7 @@ export const buildWorkoutSetEventProperties = (input: WorkoutSetPropertiesInput)
 			? {}
 			: { restTimerStartedAt: input.restTimerStartedAt }),
 		...(input.rpe === undefined ? {} : { rpe: input.rpe }),
-		...measurementProperties,
+		...measurements,
 		...(statistics.pace === undefined ? {} : { pace: statistics.pace }),
 		...(statistics.volume === undefined ? {} : { volume: statistics.volume }),
 		...(statistics.oneRm === undefined ? {} : { oneRm: statistics.oneRm }),

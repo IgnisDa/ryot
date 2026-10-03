@@ -5,7 +5,7 @@ import { assert, expect, it } from "vitest";
 import { WorkoutEditorDraftSchema } from "./workout-editor-draft";
 import {
 	buildWorkoutEditorSaveInput,
-	cloneWorkoutForRepeat,
+	cloneWorkoutEditorSource,
 	includedWorkoutOccurrences,
 	indexWorkoutOccurrences,
 	isMeaningfulTemplateSet,
@@ -187,7 +187,8 @@ it("repeats reusable data with fresh identities and clears session-only state", 
 		],
 	});
 	let id = 0;
-	const repeated = cloneWorkoutForRepeat(source, {
+	const repeated = cloneWorkoutEditorSource(source, {
+		kind: "repeat",
 		draftId: "draft-repeat",
 		name: "Upper body repeat",
 		idFor: () => `fresh-${(id += 1)}`,

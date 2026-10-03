@@ -15,7 +15,6 @@ import {
 	type WorkoutEditorExercise,
 	type WorkoutEditorEvent,
 } from "./workout-editor-recipes";
-import { cloneWorkoutForRepeat } from "./workout-editor-transformations";
 import { WorkoutEditorMediaSchema, WorkoutSetLotSchema } from "./workout-set";
 
 const nonNegativeInteger = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
@@ -90,17 +89,10 @@ const WorkoutEditorTemplatePropertiesSchema = Schema.Struct({
 });
 
 const WorkoutEditorWorkoutSetPropertiesSchema = Schema.Struct({
-	rpe: optionalNullableRpe,
-	setOrder: nonNegativeInteger,
-	note: optionalNullableString,
-	restTime: optionalNullableRest,
+	...WorkoutEditorTemplateSetPropertiesSchema.fields,
 	exerciseKind: exerciseKindSchema,
 	exerciseOrder: nonNegativeInteger,
-	reps: optionalNullableMeasurement,
-	weight: optionalNullableMeasurement,
 	confirmedAt: optionalNullableString,
-	duration: optionalNullableMeasurement,
-	distance: optionalNullableMeasurement,
 	restTimerStartedAt: optionalNullableString,
 	setLot: Schema.optional(WorkoutSetLotSchema),
 });
@@ -123,12 +115,12 @@ const valid = <A>(schema: Schema.Codec<A, unknown>, value: unknown): A | undefin
 	return result._tag === "Success" ? result.success : undefined;
 };
 
-const measuredStrings = (source: {
-	readonly reps?: number | null | undefined;
-	readonly weight?: number | null | undefined;
-	readonly duration?: number | null | undefined;
-	readonly distance?: number | null | undefined;
-}) => ({
+const measuredStrings = (
+	source: Pick<
+		typeof WorkoutEditorTemplateSetPropertiesSchema.Type,
+		"reps" | "weight" | "duration" | "distance"
+	>,
+) => ({
 	reps: asMeasurement(source.reps),
 	weight: asMeasurement(source.weight),
 	duration: asMeasurement(source.duration),
@@ -451,101 +443,3 @@ export const hydrateWorkoutEditorSource = (input: {
 	input.kind === "workout"
 		? workoutDraft(input.baseline, input.exercises, input.draftId)
 		: templateDraft(input.baseline, input.exercises, input.draftId);
-
-export const cloneWorkoutEditorSource = (
-	source: WorkoutEditorDraft,
-	input:
-		| {
-				readonly kind: "live";
-				readonly draftId: string;
-				readonly idFor: () => string;
-				readonly name: string;
-				readonly startedAt: string;
-				readonly templateId: EntityId;
-		  }
-		| {
-				readonly kind: "template-create";
-				readonly draftId: string;
-				readonly idFor: () => string;
-				readonly name: string;
-				readonly sourceWorkoutId: EntityId;
-		  },
-): WorkoutEditorDraft => {
-	if (input.kind === "live") {
-		const cloned = cloneWorkoutForRepeat(source, {
-			name: input.name,
-			idFor: input.idFor,
-			draftId: input.draftId,
-			startedAt: input.startedAt,
-			sourceWorkoutId: input.templateId,
-		});
-		return {
-			...cloned,
-			mode: { kind: "live", source: { kind: "template", entityId: input.templateId } },
-			occurrences: cloned.occurrences.map((occurrence, occurrenceIndex) =>
-				Object.assign({}, occurrence, {
-					sets: occurrence.sets.map((set, setIndex) =>
-						Object.assign({}, set, {
-							rpe: source.occurrences[occurrenceIndex]?.sets[setIndex]?.rpe,
-						}),
-					),
-				}),
-			),
-		};
-	}
-	const occurrenceIds = new Map<string, string>();
-	const occurrences = source.occurrences.map((occurrence) => {
-		const clientId = input.idFor();
-		occurrenceIds.set(occurrence.clientId, clientId);
-		return {
-			...occurrence,
-			clientId,
-			images: [],
-			videos: [],
-			isCollapsed: false,
-			sourceExerciseOrder: undefined,
-			sets: occurrence.sets.map((set) => ({
-				...set,
-				included: false,
-				eventId: undefined,
-				occurredAt: undefined,
-				confirmedAt: undefined,
-				clientId: input.idFor(),
-				restTimerStartedAt: undefined,
-			})),
-		};
-	});
-	return {
-		...source,
-		images: [],
-		videos: [],
-		occurrences,
-		name: input.name,
-		comment: undefined,
-		endedAt: undefined,
-		startedAt: undefined,
-		submission: undefined,
-		pendingRest: undefined,
-		activeSetId: undefined,
-		draftId: input.draftId,
-		caloriesBurnt: undefined,
-		restCountdown: undefined,
-		uploadedAssets: undefined,
-		activeDuration: undefined,
-		activeOccurrenceId: undefined,
-		executionCountdown: undefined,
-		stopwatchStartedAt: undefined,
-		activeDurationIntent: "preserve",
-		pausedStopwatchSeconds: undefined,
-		activeDurationStartedAt: undefined,
-		mode: { kind: "template-create", sourceWorkoutId: input.sourceWorkoutId },
-		supersets: source.supersets.map((superset) => ({
-			...superset,
-			clientId: input.idFor(),
-			occurrenceIds: superset.occurrenceIds.flatMap((id) => {
-				const mapped = occurrenceIds.get(id);
-				return mapped === undefined ? [] : [mapped];
-			}),
-		})),
-	};
-};
