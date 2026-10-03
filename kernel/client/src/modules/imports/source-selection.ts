@@ -1,14 +1,19 @@
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { getOrderedAppSchemaFieldEntries } from "@ryot-app/contract/schema/property-schema";
 
 import type { ImportSourceItem } from "#/modules/imports/service";
-import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
+import {
+	pluginCatalogGroup,
+	pluginHeading,
+	type CatalogEntry,
+} from "#/modules/ui/catalog/selection";
 
 import { ingestionReadinessRequirement } from "./readiness-presentation";
 
 export type ImportWizardSource = Pick<
 	ImportSourceItem,
-	"slug" | "name" | "description" | "inputSchema" | "exportHelp"
+	"reference" | "slug" | "name" | "description" | "inputSchema" | "exportHelp"
 >;
 
 const SERVER_INPUT_SHAPE = "Server";
@@ -39,20 +44,28 @@ export const importSourceInputShape = (schema: AppSchema) => {
 };
 
 export const importSourceEntry = (source: ImportSourceItem): CatalogEntry => ({
-	slug: source.slug,
 	name: source.name,
+	slug: importSourceKey(source),
 	description: source.description,
 	isAvailable: source.readiness.ready,
 	badge: importSourceInputShape(source.inputSchema),
 	requirement: ingestionReadinessRequirement(source.readiness, source.pluginScope),
 	group:
-		source.pluginSlug === null
+		source.reference.owner.kind === "kernel"
 			? { key: "kernel", heading: "Ryot" }
-			: pluginCatalogGroup(source.pluginSlug),
+			: pluginCatalogGroup({
+					scope: source.pluginScope,
+					reference: source.reference,
+					packageId: source.packageId,
+					name: source.pluginSlug === null ? source.name : pluginHeading(source.pluginSlug),
+				}),
 });
 
 export const importSourceChooseLabel = (entry: CatalogEntry) =>
 	entry.isAvailable ? `Import from ${entry.name}` : `${entry.name} is unavailable`;
 
 export const importSourceNames = (sources: readonly ImportSourceItem[]) =>
-	new Map(sources.map((source) => [source.slug, source.name]));
+	new Map(sources.map((source) => [importSourceKey(source), source.name]));
+
+export const importSourceKey = (source: Pick<ImportSourceItem, "reference">) =>
+	definitionKey("import-source", source.reference.owner, source.reference.slug);

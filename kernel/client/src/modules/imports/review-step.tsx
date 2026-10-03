@@ -55,7 +55,7 @@ export function ImportReviewStep(props: {
 			)}
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
 				<SelectedImportReadiness
-					slug={props.source.slug}
+					reference={props.source.reference}
 					settings={toSchemaFormPayload(props.source.inputSchema, props.values)}
 				>
 					{(ready) => (

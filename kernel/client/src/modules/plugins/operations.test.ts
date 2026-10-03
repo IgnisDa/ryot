@@ -15,7 +15,7 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -71,13 +71,13 @@ describe("plugin operations service", () => {
 						request: {
 							operationSlug: "greet",
 							input: { greeting: "hi" },
-							pluginSlug: PluginSlug.make("fixture"),
+							pluginId: PluginId.make("fixture"),
 						},
 					});
 
 					expect(yield* (yield* FakePluginsApi).requests).toEqual([
 						{
-							params: { pluginSlug: "fixture", operationSlug: "greet" },
+							params: { pluginId: "fixture", operationSlug: "greet" },
 							payload: { sourceHash: "source-hash", payload: { greeting: "hi" } },
 						},
 					]);
@@ -92,7 +92,7 @@ describe("plugin operations service", () => {
 				const outcome = yield* service.invoke({
 					scope,
 					sourceHash: "source-hash",
-					request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
+					request: { input: null, operationSlug: "greet", pluginId: PluginId.make("fixture") },
 				});
 
 				expect(outcome).toEqual({ outcome: "success", value: { greeted: "hi" } });
@@ -103,7 +103,7 @@ describe("plugin operations service", () => {
 	layer(
 		failing(
 			new PluginConflictError({
-				reason: { code: "source-revision-stale", pluginSlug: PluginSlug.make("fixture") },
+				reason: { code: "source-revision-stale", pluginId: PluginId.make("fixture") },
 			}),
 		),
 	)((test) => {
@@ -113,7 +113,7 @@ describe("plugin operations service", () => {
 				const outcome = yield* service.invoke({
 					scope,
 					sourceHash: "source-hash",
-					request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
+					request: { input: null, operationSlug: "greet", pluginId: PluginId.make("fixture") },
 				});
 
 				expect(outcome).toEqual({ outcome: "stale-session" });
@@ -126,12 +126,15 @@ describe("plugin operations service", () => {
 		new AuthRateLimited({ reason: { retryAfterMs: null, code: "api-key-rate-limited" } }),
 		new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 		new PluginNotFoundError({
-			reason: { code: "plugin-not-found", pluginSlug: PluginSlug.make("fixture") },
+			reason: { code: "plugin-not-found", pluginId: PluginId.make("fixture") },
 		}),
 		new PluginRequestError({ reason: { code: "upload-unavailable" } }),
 		new PluginInvocationError({ reason: { diagnostics: [], code: "runtime-failed" } }),
 		new PluginConflictError({
-			reason: { code: "already-installed", pluginSlug: PluginSlug.make("fixture") },
+			reason: {
+				code: "already-installed",
+				packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+			},
 		}),
 	];
 
@@ -143,11 +146,7 @@ describe("plugin operations service", () => {
 					const outcome = yield* service.invoke({
 						scope,
 						sourceHash: "source-hash",
-						request: {
-							input: null,
-							operationSlug: "greet",
-							pluginSlug: PluginSlug.make("fixture"),
-						},
+						request: { input: null, operationSlug: "greet", pluginId: PluginId.make("fixture") },
 					});
 
 					expect(outcome).toEqual({ outcome: "failure", reason: "operation-failed" });
@@ -163,7 +162,7 @@ describe("plugin operations service", () => {
 				const outcome = yield* service.invoke({
 					scope,
 					sourceHash: "source-hash",
-					request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
+					request: { input: null, operationSlug: "greet", pluginId: PluginId.make("fixture") },
 				});
 
 				expect(outcome).toEqual({ outcome: "failure", reason: "transport" });

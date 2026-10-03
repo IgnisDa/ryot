@@ -4,7 +4,7 @@ import type {
 	ContractPayload,
 	ContractSuccess,
 } from "@ryot-app/contract/client";
-import { PluginId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { PluginId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -18,11 +18,7 @@ const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https
 
 type Call =
 	| { readonly kind: "reorder"; readonly payload: ContractPayload<"savedViews", "reorder"> }
-	| {
-			readonly kind: "update";
-			readonly payload: ContractPayload<"savedViews", "update">;
-			readonly params: ContractPathParams<"savedViews", "update">;
-	  }
+	| { readonly kind: "update"; readonly payload: ContractPayload<"savedViews", "update"> }
 	| {
 			readonly kind: "workspace";
 			readonly payload: ContractPayload<"plugins", "updatePluginState">;
@@ -58,7 +54,10 @@ const customizeLayer = (fail?: Call["kind"]) =>
 							makeSavedViewsApi({
 								update: (_scope, request) => record({ kind: "update", ...request }, savedView),
 								reorder: (_scope, request) =>
-									record({ kind: "reorder", ...request }, { viewSlugs: request.payload.viewSlugs }),
+									record(
+										{ kind: "reorder", ...request },
+										{ references: request.payload.references },
+									),
 							}),
 							makePluginInstallationsApi({
 								update: (_scope, request) =>
@@ -72,14 +71,18 @@ const customizeLayer = (fail?: Call["kind"]) =>
 		}),
 	);
 
+const reference = (slug: string) => ({
+	kind: "custom" as const,
+	savedViewId: SavedViewId.make(slug),
+});
 const plan: CustomizePlan = {
-	reorders: [{ viewSlugs: ["all", "recent"] }],
+	reorders: [{ references: [reference("all"), reference("recent")] }],
 	workspaceUpdates: [
-		{ pluginSlug: PluginSlug.make("media"), payload: { sortOrder: 0, isHidden: false } },
+		{ installationId: "media-installation", payload: { sortOrder: 0, isHidden: false } },
 	],
 	updates: [
-		{ viewSlug: "shows", payload: { icon: "list", name: "Shows", isHidden: true } },
-		{ viewSlug: "all", payload: { name: "All", icon: "list", isHidden: false } },
+		{ reference: reference("shows"), payload: { icon: "list", name: "Shows", isHidden: true } },
+		{ reference: reference("all"), payload: { name: "All", icon: "list", isHidden: false } },
 	],
 };
 
@@ -93,19 +96,17 @@ describe("customize sidebar service", () => {
 				expect(yield* (yield* FakeCustomizeApis).calls).toEqual([
 					{
 						kind: "update",
-						params: { viewSlug: "shows" },
-						payload: { icon: "list", name: "Shows", isHidden: true },
+						payload: { icon: "list", name: "Shows", isHidden: true, reference: reference("shows") },
 					},
 					{
 						kind: "update",
-						params: { viewSlug: "all" },
-						payload: { name: "All", icon: "list", isHidden: false },
+						payload: { name: "All", icon: "list", isHidden: false, reference: reference("all") },
 					},
-					{ kind: "reorder", payload: { viewSlugs: ["all", "recent"] } },
+					{ kind: "reorder", payload: { references: [reference("all"), reference("recent")] } },
 					{
 						kind: "workspace",
-						params: { pluginSlug: "media" },
 						payload: { sortOrder: 0, isHidden: false },
+						params: { installationId: "media-installation" },
 					},
 				]);
 			}),

@@ -1,4 +1,4 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute } from "@tanstack/react-router";
 
 import { prepareClientPage } from "#/modules/client-pages/preparation";
@@ -6,13 +6,13 @@ import { toPluginLocation } from "#/modules/plugins/plugin-location";
 
 import { PluginRoutePage } from "./route";
 
-export const Route = createFileRoute("/_authenticated/$pluginSlug/$")({
+export const Route = createFileRoute("/_authenticated/p/$pluginId/$")({
 	shouldReload: false,
 	component: PluginSplat,
 	loaderDeps: ({ search }) => search,
 	loader: ({ params, context, location, abortController }) => {
 		const { path, search } = toPluginLocation(
-			params.pluginSlug,
+			params.pluginId,
 			location.pathname,
 			location.searchStr,
 		);
@@ -21,7 +21,7 @@ export const Route = createFileRoute("/_authenticated/$pluginSlug/$")({
 				path,
 				search,
 				kind: "plugin-route",
-				pluginSlug: PluginSlug.make(params.pluginSlug),
+				pluginId: PluginId.make(params.pluginId),
 			}),
 			{ signal: abortController.signal },
 		);
@@ -30,9 +30,6 @@ export const Route = createFileRoute("/_authenticated/$pluginSlug/$")({
 
 function PluginSplat() {
 	return (
-		<PluginRoutePage
-			preparation={Route.useLoaderData()}
-			pluginSlug={Route.useParams().pluginSlug}
-		/>
+		<PluginRoutePage preparation={Route.useLoaderData()} pluginId={Route.useParams().pluginId} />
 	);
 }

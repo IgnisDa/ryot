@@ -8,6 +8,8 @@ import {
 	ImportRunId,
 	IntegrationId,
 	IntegrationWebhookToken,
+	PluginId,
+	PluginPackageId,
 	PluginSlug,
 } from "@ryot-app/contract/schema/brands";
 import type { IntegrationDetail, IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
@@ -109,9 +111,12 @@ const komgaProvider: IntegrationProviderItem = {
 	readinessConnections: [],
 	supportsOwnershipSync: true,
 	installationId: "media-installation",
+	pluginId: PluginId.make("media-plugin"),
 	commonSchema: ownershipSyncCommonSchema,
 	description: "Import progress and ownership from Komga",
 	readiness: { plan: null, ready: true, blockReasons: [] },
+	packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+	reference: { slug: "komga", owner: { kind: "plugin", pluginId: PluginId.make("media-plugin") } },
 	settingsSchema: {
 		fields: {
 			baseUrl: { ...described("Base URL"), type: "string", validation: { required: true } },
@@ -141,8 +146,11 @@ const kodiProvider: IntegrationProviderItem = {
 	supportsOwnershipSync: false,
 	settingsSchema: { fields: {} },
 	installationId: "media-installation",
+	pluginId: PluginId.make("media-plugin"),
 	description: "Receive Kodi playback webhooks",
 	readiness: { plan: null, ready: true, blockReasons: [] },
+	packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+	reference: { slug: "kodi", owner: { kind: "plugin", pluginId: PluginId.make("media-plugin") } },
 };
 
 const blockedProvider: IntegrationProviderItem = {
@@ -178,6 +186,7 @@ const makeSummary = (overrides: Partial<IntegrationSummary> = {}): IntegrationSu
 	pluginSlug: PluginSlug.make("media"),
 	createdAt: "2026-08-20T10:00:00.000Z",
 	updatedAt: "2026-08-20T10:00:00.000Z",
+	pluginId: PluginId.make("media-plugin"),
 	extraSettings: { disableOnContinuousErrors: false },
 	...overrides,
 });
@@ -575,7 +584,7 @@ describe("integrations list", () => {
 			fireEvent.click(screen.getByRole("button", { name: "Connect" }));
 
 			yield* Effect.promise(() => waitFor(() => expect(created).toHaveLength(1)));
-			expect(created[0]?.provider).toBe("komga");
+			expect(created[0]?.provider).toEqual(komgaProvider.reference);
 			expect(created[0]?.providerSpecifics).toEqual({
 				apiKey: "secret",
 				baseUrl: "https://komga.example",

@@ -146,10 +146,10 @@ export const useEdge = () => {
 	return edge;
 };
 
-export const useRememberedWorkspaceSlug = () => {
+export const useRememberedWorkspacePluginId = () => {
 	const slug = useContext(RememberedWorkspaceContext);
 	if (slug === undefined) {
-		throw new Error("useRememberedWorkspaceSlug must be used inside AuthenticatedShell");
+		throw new Error("useRememberedWorkspacePluginId must be used inside AuthenticatedShell");
 	}
 	return slug;
 };

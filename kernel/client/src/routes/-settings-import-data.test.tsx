@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { IngestionIssue } from "@ryot-app/contract/modules/imports/ingestion";
 import { ImportRequestError } from "@ryot-app/contract/modules/imports/schemas";
-import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import { ImportRunId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	importRunRecipe,
 	manualImportRunsRecipe,
@@ -70,9 +70,12 @@ const hevySource: ImportSourceItem = {
 	missingPluginConfigKeys: [],
 	requiredPluginConfigKeys: [],
 	installationId: "fitness-installation",
+	pluginId: PluginId.make("fitness-plugin"),
 	description: "Import workouts from a Hevy CSV export",
 	readiness: { plan: null, ready: true, blockReasons: [] },
 	exportHelp: { steps: ["Open the Hevy app", "Export your workouts"] },
+	packageId: PluginPackageId.make("570e77e1-e450-40ea-b1cb-6e2ae3223bb3"),
+	reference: { slug: "hevy", owner: { kind: "plugin", pluginId: PluginId.make("fitness-plugin") } },
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -98,8 +101,11 @@ const traktSource: ImportSourceItem = {
 	missingPluginConfigKeys: [],
 	requiredPluginConfigKeys: [],
 	installationId: "media-installation",
+	pluginId: PluginId.make("media-plugin"),
 	readiness: { plan: null, ready: true, blockReasons: [] },
 	description: "Import watched history from a Trakt profile",
+	packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+	reference: { slug: "trakt", owner: { kind: "plugin", pluginId: PluginId.make("media-plugin") } },
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -116,6 +122,7 @@ const lockedSource: ImportSourceItem = {
 	exportHelp: undefined,
 	description: "Import watched history from Plex",
 	missingPluginConfigKeys: ["RYOT_MEDIA_PLEX_TOKEN"],
+	reference: { ...traktSource.reference, slug: "plex" },
 	readiness: {
 		plan: null,
 		ready: false,
@@ -475,7 +482,7 @@ describe("import data list", () => {
 			fireEvent.click(screen.getByRole("button", { name: "Start import" }));
 
 			yield* Effect.promise(() => waitFor(() => expect(started).toHaveLength(1)));
-			expect(started[0]).toEqual({ source: "trakt", username: "someone" });
+			expect(started[0]).toEqual({ username: "someone", source: traktSource.reference });
 			yield* Effect.promise(() =>
 				screen.findByRole("link", { name: /Open the Trakt import from/ }),
 			);

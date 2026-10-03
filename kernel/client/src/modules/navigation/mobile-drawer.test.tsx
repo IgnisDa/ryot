@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -24,11 +25,13 @@ const workspace = (
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
-	pluginId: "plugin-media",
 	sourceHash: "source-media",
 	installationId: "installation-media",
 	...overrides,
-	homeSavedViewSlug: overrides.homeSavedViewSlug ?? null,
+	scope: overrides.scope ?? "system",
+	homeSavedView: overrides.homeSavedView ?? null,
+	pluginId: overrides.pluginId ?? `plugin-${overrides.slug ?? "media"}`,
+	packageId: overrides.packageId ?? PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 });
 
 const snapshot = {
@@ -49,8 +52,10 @@ const sections: SidebarSections = {
 			sortOrder: 0,
 			kind: "home",
 			icon: "house",
+			reference: null,
 			isHidden: false,
 			pluginSlug: null,
+			pluginInstallationId: null,
 		},
 	],
 };
@@ -155,7 +160,7 @@ describe("mobile drawer", () => {
 		Effect.gen(function* () {
 			render(<Harness />);
 			const { dialog } = yield* Effect.promise(() => openDrawer());
-			const first = screen.getByRole("button", { name: "Media workspace, media" });
+			const first = screen.getByRole("button", { name: /^Media workspace,/ });
 			const last = screen.getByRole("link", { name: "Open settings" });
 
 			first.focus();
@@ -197,7 +202,7 @@ describe("mobile drawer", () => {
 		Effect.gen(function* () {
 			render(<Harness />);
 			yield* Effect.promise(() => openDrawer());
-			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
+			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
 			expect(screen.getByRole("menu", { name: "Workspaces" })).toBeTruthy();
 
 			fireEvent.click(screen.getByTestId("drawer-scrim"));
@@ -256,11 +261,11 @@ describe("mobile drawer", () => {
 			yield* Effect.promise(() => waitFor(() => expect(homeOpen).toBe(false)));
 
 			yield* Effect.promise(() => openDrawer());
-			fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
-			fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" }));
+			fireEvent.click(screen.getByRole("button", { name: /^Media workspace,/ }));
+			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Journal / }));
 
 			yield* Effect.promise(() =>
-				waitFor(() => expect(selected).toEqual({ open: false, slug: "journal" })),
+				waitFor(() => expect(selected).toEqual({ open: false, slug: "plugin-journal" })),
 			);
 		}),
 	);

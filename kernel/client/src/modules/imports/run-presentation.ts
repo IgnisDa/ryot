@@ -139,6 +139,16 @@ export const importRunFailureNotice = (
 			detail: "This integration needs Ryot Pro. Add a valid Pro key, then start the import again.",
 		})),
 		Match.when({ code: "queue-unavailable" }, () => stoppedEarly),
+		Match.when({ code: "installation-unavailable" }, () => ({
+			label: "Plugin unavailable",
+			detail:
+				"This plugin installation is not available. Manage it in plugin settings before trying again.",
+		})),
+		Match.when({ code: "package-identity-conflict" }, () => ({
+			label: "Package identity conflict",
+			detail:
+				"This private installation is quarantined. Its data and history remain attached to the private plugin.",
+		})),
 		Match.when({ code: "unexpected-failure" }, () => stoppedEarly),
 		Match.exhaustive,
 	);

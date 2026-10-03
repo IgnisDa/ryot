@@ -5,6 +5,7 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot-app/contract/modules/plugins/contract";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { Deferred, Effect, Layer, ManagedRuntime, Schedule } from "effect";
@@ -27,11 +28,13 @@ const catalog: PluginClientCatalog = [
 		slug: "fixture",
 		health: "ready",
 		isHidden: false,
+		scope: "system",
 		clientApiVersion: 1,
+		homeSavedView: null,
 		pluginId: "plugin-1",
-		homeSavedViewSlug: null,
 		sourceHash: "source-hash",
 		installationId: "installation-1",
+		packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 	},
 ];
 const ryot = createTestRyotClock();

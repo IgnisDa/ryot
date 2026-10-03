@@ -58,7 +58,7 @@ function CustomizeSection({ anchorRef, scrollRef, ...props }: SectionProps) {
 						itemHeight={ROW_HEIGHT}
 						onReorder={props.onMove}
 						onDrop={selectionChanged}
-						itemKey={(item) => item.slug}
+						itemKey={(item) => item.id}
 						itemLabel={(item) => item.name}
 						handleIcon={<AppIcon size={18} name="grip-vertical" />}
 						renderItem={({ item, index, handle }) => (

@@ -2,7 +2,7 @@ import { describe, expect, layer } from "@effect/vitest";
 import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import type { ContractSuccess } from "@ryot-app/contract/client";
-import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, PluginId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
@@ -12,7 +12,7 @@ import type { ProviderEntitiesApi } from "#/api/provider-entities";
 import type { ApiScope } from "#/api/scope";
 import { ProviderAddService } from "#/modules/provider-add/service";
 
-const ownerPluginId = "stable-plugin-id";
+const ownerPluginId = PluginId.make("stable-plugin-id");
 const entitySchemaSlug = EntitySchemaSlug.make("book");
 const providerId = SandboxProviderId.make("provider-1");
 const relationshipSlug = "in-media-library";
@@ -103,13 +103,17 @@ describe("ProviderAddService", () => {
 
 			return Effect.gen(function* () {
 				const service = yield* ProviderAddService;
-				const providers = yield* service.loadProviders(client, entitySchemaSlug, ownerPluginId);
+				const providers = yield* service.loadProviders(client, {
+					slug: entitySchemaSlug,
+					owner: { kind: "plugin", pluginId: ownerPluginId },
+				});
 				const links = yield* service.loadEntityLinks(client, {
 					providerId,
 					entitySchemaSlug,
 					relationshipSlug,
 					librarySchemaSlug,
 					externalIds: ["ext-1"],
+					reference: { kind: "local", pluginId: ownerPluginId },
 				});
 
 				expect(providers.items).toEqual([providerRow]);
@@ -122,8 +126,11 @@ describe("ProviderAddService", () => {
 								predicates: [
 									{},
 									{
-										right: { value: ownerPluginId },
 										left: { field: "pluginId", tableAlias: "provider" },
+										right: {
+											type: "pluginId",
+											reference: { kind: "local", pluginId: ownerPluginId },
+										},
 									},
 									{},
 									{},
@@ -165,7 +172,12 @@ describe("ProviderAddService", () => {
 				const service = yield* ProviderAddService;
 				const client = failingDataClient();
 				const stages = [
-					yield* Effect.flip(service.loadProviders(client, entitySchemaSlug)),
+					yield* Effect.flip(
+						service.loadProviders(client, {
+							slug: entitySchemaSlug,
+							owner: { kind: "plugin", pluginId: ownerPluginId },
+						}),
+					),
 					yield* Effect.flip(
 						service.loadEntityLinks(client, {
 							providerId,
@@ -173,6 +185,7 @@ describe("ProviderAddService", () => {
 							relationshipSlug,
 							librarySchemaSlug,
 							externalIds: ["ext-1"],
+							reference: { kind: "local", pluginId: ownerPluginId },
 						}),
 					),
 					yield* Effect.flip(service.loadSearchOptions(scope, providerId)),

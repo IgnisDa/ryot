@@ -29,6 +29,11 @@ states, and result layouts. Saved views adapt their configured recipe and option
 collections adapt the collections recipe, never expose Add, and pass `{ collectionId }` as the entity
 presentation context.
 
+The provider Add action carries a typed `EntitySchemaReference`, including its exact owner.
+Plugin-authored settings use a self-relative authored reference that materializes to that local
+owner. Generic browser results retain each selected entity's actual owner for presentation selection;
+the current workspace does not supply schema ownership.
+
 Renderer queries return Effects from `createRyotQuery` callbacks. The collection header loads before
 the member query uses its schema; aggregate, count, and member requests then run concurrently. Query
 cancellation follows Effect interruption when the page unmounts.

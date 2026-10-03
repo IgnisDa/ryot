@@ -78,7 +78,7 @@ const makeUserSettingsQueries = (get: () => typeof userSettings = () => userSett
 
 const mountView = (
 	initialEntry: string | string[],
-	rememberedSlug: string | null = "fixture",
+	rememberedSlug: string | null = "plugin-1",
 	entries: PluginClientCatalog = catalog,
 	authLayer: Layer.Layer<AuthService> = AuthStub,
 	publicLayer = makePublicApiStub(),
@@ -183,7 +183,7 @@ describe("authenticated route gate", () => {
 				expect(view.interestEvents).toEqual(["acquire", "release"]);
 			}),
 	);
-	it.live.each(["/", "/fixture", "/settings", "/settings/preferences", "/settings/account"])(
+	it.live.each(["/", "/p/plugin-1", "/settings", "/settings/preferences", "/settings/account"])(
 		"redirects an unauthenticated visitor from %s to /auth",
 		(path) =>
 			Effect.gen(function* () {
@@ -270,14 +270,14 @@ describe("settings navigation", () => {
 					.getAllByRole("link")
 					.map((link) => link.textContent);
 
-			expect(labels("You")).toEqual(["Preferences", "Plugin preferences", "Account"]);
+			expect(labels("You")).toEqual(["Preferences", "Plugin preferences", "Plugins", "Account"]);
 			expect(labels("Server")).toEqual(["Administration", "About"]);
 		}),
 	);
 
 	it.live("navigates with replace when selecting a section from the desktop sidebar", () =>
 		Effect.gen(function* () {
-			const view = mountView(["/fixture", "/settings/preferences"]);
+			const view = mountView(["/p/plugin-1", "/settings/preferences"]);
 			const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
 
 			fireEvent.click(within(sidebar).getByRole("link", { name: "Account" }));
@@ -287,7 +287,7 @@ describe("settings navigation", () => {
 
 			view.router.history.back();
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
 			);
 		}),
 	);
@@ -368,7 +368,7 @@ describe("settings navigation", () => {
 		"returns to the previous entry when back is used after navigating into a detail route",
 		() =>
 			Effect.gen(function* () {
-				const view = mountView(["/fixture", "/settings"]);
+				const view = mountView(["/p/plugin-1", "/settings"]);
 				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
 				const sections = screen.getByTestId("settings-index-sections");
 
@@ -399,12 +399,12 @@ describe("settings navigation", () => {
 
 	it.live("replaces to the remembered workspace route on direct entry to /settings", () =>
 		Effect.gen(function* () {
-			const view = mountView("/settings", "fixture");
+			const view = mountView("/settings", "plugin-1");
 			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
 
 			fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
 			);
 			expect(view.router.history.canGoBack()).toBe(false);
 		}),
@@ -425,21 +425,21 @@ describe("settings navigation", () => {
 				},
 			];
 			const view = mountView(
-				"/fixture",
-				"fixture",
+				"/p/plugin-1",
+				"plugin-1",
 				entries,
 				undefined,
 				undefined,
-				makeStorageStub("fixture", recorder),
+				makeStorageStub("plugin-1", recorder),
 			);
-			yield* Effect.promise(() => screen.findByTitle("fixture plugin"));
+			yield* Effect.promise(() => screen.findByTitle("Fixture plugin"));
 
-			fireEvent.click(screen.getByRole("button", { name: "Fixture workspace, fixture" }));
-			fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" }));
+			fireEvent.click(screen.getByRole("button", { name: /^Fixture workspace,/ }));
+			fireEvent.click(screen.getByRole("menuitemradio", { name: /^Switch to Journal / }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(recorder.setCalls).toEqual([
-						{ slug: "journal", scope: { serverUrl: server, userId: authenticated.user.id } },
+						{ slug: "plugin-2", scope: { serverUrl: server, userId: authenticated.user.id } },
 					]),
 				),
 			);
@@ -448,7 +448,7 @@ describe("settings navigation", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/journal")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-2")),
 			);
 			expect(view.router.history.canGoBack()).toBe(false);
 		}),
@@ -469,17 +469,17 @@ describe("settings navigation", () => {
 				},
 			];
 			const view = mountView(
-				"/fixture",
-				"fixture",
+				"/p/plugin-1",
+				"plugin-1",
 				entries,
 				undefined,
 				undefined,
-				makeStorageStub("fixture", recorder),
+				makeStorageStub("plugin-1", recorder),
 			);
-			yield* Effect.promise(() => screen.findByTitle("fixture plugin"));
+			yield* Effect.promise(() => screen.findByTitle("Fixture plugin"));
 
-			yield* Effect.promise(() => view.router.navigate({ replace: true, href: "/journal" }));
-			yield* Effect.promise(() => screen.findByTitle("journal plugin"));
+			yield* Effect.promise(() => view.router.navigate({ replace: true, href: "/p/plugin-2" }));
+			yield* Effect.promise(() => screen.findByTitle("Journal plugin"));
 			expect(recorder.setCalls).toEqual([]);
 
 			yield* Effect.promise(() => view.router.navigate({ replace: true, href: "/settings" }));
@@ -487,7 +487,7 @@ describe("settings navigation", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
 			);
 		}),
 	);

@@ -1,18 +1,19 @@
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 
 type IntegrationIdentity = {
 	readonly provider: string;
 	readonly name?: string | null;
-	readonly pluginSlug: string | null;
+	readonly pluginId: string | null;
 };
 
 export type IntegrationProviderNames = ReadonlyMap<string, string>;
 
-/** Provider slugs are only unique within their plugin, so display names are keyed by both. */
 export const integrationProviderKey = (input: {
 	readonly provider: string;
-	readonly pluginSlug: string | null;
-}) => `${input.pluginSlug ?? ""}:${input.provider}`;
+	readonly pluginId: string | null;
+}) => definitionKey("integration-provider", definitionOwner(input.pluginId), input.provider);
 
 export const integrationProviderName = (
 	integration: IntegrationIdentity,
