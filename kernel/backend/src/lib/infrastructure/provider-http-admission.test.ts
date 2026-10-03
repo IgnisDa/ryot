@@ -19,6 +19,7 @@ type AdmissionState = {
 	readonly expiresAtMs: number;
 	readonly nextEligibleMs: number;
 	readonly blockedUntilMs: number;
+	readonly nextAdmissionMs: number;
 };
 
 type AdmissionCall = { readonly key: string; readonly operation: string; readonly ttlMs: number };
@@ -59,6 +60,7 @@ const fakeAdmissionRedisLayer = (respond?: EvalResponse) =>
 				hash: string,
 				value: number,
 				ttlMs: number,
+				spacingMs: number,
 			): ReadonlyArray<string> => {
 				const nowMs = MutableRef.get(now.ref);
 				MutableRef.update(calls.ref, (all) => [...all, { key, ttlMs, operation }]);
@@ -67,10 +69,12 @@ const fakeAdmissionRedisLayer = (respond?: EvalResponse) =>
 				if (operation === "reserve") {
 					const blockedUntilMs = current?.blockedUntilMs ?? 0;
 					const nextEligibleMs = current?.hash === hash ? current.nextEligibleMs : nowMs;
-					const eligibleAtMs = Math.max(nowMs, nextEligibleMs, blockedUntilMs);
+					const nextAdmissionMs = current?.hash === hash ? current.nextAdmissionMs : 0;
+					const eligibleAtMs = Math.max(nowMs, nextEligibleMs, nextAdmissionMs, blockedUntilMs);
 					store(key, {
 						hash,
 						blockedUntilMs,
+						nextAdmissionMs,
 						nextEligibleMs: eligibleAtMs + value,
 						expiresAtMs: Math.max(nowMs, blockedUntilMs) + ttlMs,
 					});
@@ -82,8 +86,16 @@ const fakeAdmissionRedisLayer = (respond?: EvalResponse) =>
 				}
 
 				if (operation === "confirm") {
-					store(key, { ...current, expiresAtMs: Math.max(nowMs, current.blockedUntilMs) + ttlMs });
-					const eligibleAtMs = Math.max(value, current.blockedUntilMs);
+					const eligibleAtMs = Math.max(value, current.blockedUntilMs, current.nextAdmissionMs);
+					store(key, {
+						...current,
+						expiresAtMs: Math.max(nowMs, current.blockedUntilMs) + ttlMs,
+						nextAdmissionMs: eligibleAtMs > nowMs ? current.nextAdmissionMs : nowMs + spacingMs,
+						nextEligibleMs:
+							eligibleAtMs > nowMs
+								? current.nextEligibleMs
+								: Math.max(current.nextEligibleMs, nowMs + spacingMs),
+					});
 					return eligibleAtMs > nowMs
 						? ["later", String(eligibleAtMs), String(nowMs)]
 						: ["admitted"];
@@ -111,10 +123,20 @@ const fakeAdmissionRedisLayer = (respond?: EvalResponse) =>
 					hash: string,
 					valueText: string,
 					ttlText: string,
+					spacingText: string,
 				) => {
 					const canned = MutableRef.get(response.ref);
 					return canned === undefined
-						? Promise.resolve(simulate(key, operation, hash, Number(valueText), Number(ttlText)))
+						? Promise.resolve(
+								simulate(
+									key,
+									operation,
+									hash,
+									Number(valueText),
+									Number(ttlText),
+									Number(spacingText),
+								),
+							)
 						: canned();
 				},
 			}) satisfies RedisClient;
@@ -195,7 +217,7 @@ describe("ProviderHttpAdmissionService", () => {
 
 	layer(fakeAdmissionRedisLayer())((test) => {
 		test.effect(
-			"confirms against the latest block without consuming a slot and advances blocks monotonically",
+			"confirms against the latest block and advances admission spacing and blocks monotonically",
 			() =>
 				Effect.gen(function* () {
 					const redis = yield* FakeAdmissionRedis;
@@ -223,7 +245,7 @@ describe("ProviderHttpAdmissionService", () => {
 
 					yield* redis.setNow(5_000);
 					expect(yield* service.confirm(declaration, token)).toEqual({ status: "admitted" });
-					expect((yield* redis.states).get(key)?.nextEligibleMs).toBe(nextEligibleMs);
+					expect((yield* redis.states).get(key)?.nextEligibleMs).toBe(5_334);
 				}),
 		);
 	});
