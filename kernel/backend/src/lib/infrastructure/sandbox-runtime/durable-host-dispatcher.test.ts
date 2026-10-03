@@ -32,6 +32,7 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import { withEgressPolicy } from "#lib/infrastructure/egress/http-client";
 import {
 	ProviderHttpAdmissionService,
 	ProviderHttpAdmissionUnavailable,
@@ -564,7 +565,7 @@ const httpDispatchLayer = (options: {
 					engine,
 					resolve,
 					instance,
-					httpClient,
+					httpClient: withEgressPolicy(httpClient),
 					script: { ...script, metadata: { ...script.metadata, capabilities: ["httpCall"] } },
 					admission: {
 						cancel: (declaration, ticket) =>
@@ -894,6 +895,22 @@ layer(
 			]);
 			expect(activityNames.join(" ")).not.toContain("private");
 			expect(activityNames.join(" ")).not.toContain("secret");
+		}),
+	);
+});
+
+layer(httpDispatchLayer({ outcomes: [{ status: 200 }] }))((test) => {
+	test.effect("denies a non-HTTP destination as a certain failure without a request", () =>
+		Effect.gen(function* () {
+			const harness = yield* HttpDispatchHarness;
+			expect(yield* runHttpDispatch("file:///etc/passwd")).toEqual({
+				state: "failure",
+				error: {
+					data: { code: "destination-denied" },
+					message: "httpCall destination is not allowed",
+				},
+			});
+			expect(httpEvents(yield* harness.events)).toEqual([]);
 		}),
 	);
 });
