@@ -55,10 +55,12 @@ layer(live, { excludeTestServices: true })((test) => {
 								metric.attributes?.["trust"] === "user" &&
 								metric.attributes["snapshot"] === "core",
 						);
-						if (sample !== undefined) {
-							expect(sample.state).toMatchObject({ value: expect.any(Number) });
-							assert("value" in sample.state && typeof sample.state.value === "number");
-							expect(sample.state.value).toBeGreaterThan(0);
+						if (
+							sample !== undefined &&
+							"value" in sample.state &&
+							typeof sample.state.value === "number" &&
+							sample.state.value > 0
+						) {
 							return;
 						}
 						yield* Effect.sleep("10 millis");

@@ -1567,6 +1567,96 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 	).pipe(Effect.withSpan("sandbox.supervisor.inline-budget-test")),
 );
 
+supervisorTest("per_handle_bounds_admit_honest_maximum_concurrency", () =>
+	withSupervisor(({ harness, supervisor }) =>
+		Effect.gen(function* () {
+			const gate = yield* SandboxHostCallGate.make;
+			const parentSpan = yield* Effect.currentSpan;
+			const release = yield* Deferred.make<void>();
+			const input: SandboxRunInput = {
+				context: {},
+				compiledFormat: 1,
+				replayJournal: [],
+				compiledCode: moduleSource,
+				executionId: "pending-bound",
+				workflowExecutionId: "pending-bound-workflow",
+				principal: {
+					...makePrincipal([], "pending-bound"),
+					metadata: { kind: "workflow", runtimeImports: [], capabilities: ["getCachedValue"] },
+				},
+				inlineDurableHost: {
+					capabilities: ["getCachedValue"],
+					settle: (requests) =>
+						Deferred.await(release).pipe(
+							Effect.as(requests.map(() => ({ value: null, state: "success" as const }))),
+						),
+				},
+			};
+			const prepare: SandboxSidecarRun["prepare"] = (identity) =>
+				Effect.gen(function* () {
+					const registration = yield* gate
+						.register({
+							...identity,
+							input,
+							parentSpan,
+							apiFunctions: {
+								getCachedValue: () => Deferred.await(release).pipe(Effect.as(hostSuccess(null))),
+							},
+							files: {
+								harvest: () => Effect.succeed(null),
+								scratchWrite: () => Effect.die("Unexpected scratch write"),
+								artifactReadRange: () => Effect.die("Unexpected artifact read"),
+								filesystem: { scratch: false, artifact: false, namedArtifacts: [] },
+							},
+						})
+						.pipe(Effect.orDie);
+					return {
+						input: null,
+						gate: registration,
+						finish: () => Effect.void,
+						module: { source: moduleSource, sha256: sha256Hex(moduleSource) },
+					};
+				});
+			const runFiber = yield* startRun(supervisor, harness, [], {
+				prepare,
+				principal: input.principal,
+			}).pipe(Effect.forkScoped({ startImmediately: true }));
+			const connection = getConnection(harness, "user/core");
+			const run = yield* Queue.take(connection.nextRun);
+			const call = (seq: number) =>
+				Schema.decodeEffect(SidecarHostCallFrame)({
+					seq,
+					type: "hostCall",
+					handle: run.handle,
+					name: "getCachedValue",
+					generation: run.generation,
+					args: hostCallArgs(["key"]),
+				});
+			for (let seq = 1; seq <= SANDBOX_LIMITS.bridge.concurrentHostCalls; seq++) {
+				yield* harness.emit(run.generation, yield* call(seq));
+			}
+			yield* harness.emit(run.generation, inlineBatch(run, 5, 0));
+			yield* TestClock.adjust("1 second");
+			expect(connection.sent.filter((frame) => frame.type === "cancel")).toEqual([]);
+
+			yield* harness.emit(run.generation, yield* call(6));
+			expect(yield* Queue.take(connection.nextCancel)).toMatchObject({ handle: run.handle });
+			yield* harness.emit(run.generation, {
+				seq: 0,
+				type: "done",
+				handle: run.handle,
+				generation: run.generation,
+				outcome: { status: "cancelled" },
+				usage: { heapBytes: 0, externalBytes: 0 },
+				console: { entries: [], truncated: false },
+			});
+			const failure = yield* Effect.flip(Fiber.join(runFiber));
+			expect(failure.message).toBe("Sandbox sidecar returned an invalid execution payload");
+			expect(connection.finalized).toBe(false);
+		}),
+	).pipe(Effect.withSpan("sandbox.supervisor.pending-bound-test")),
+);
+
 const owned = (owner: string | null, scriptSlug: string): SandboxExecutionPrincipal => {
 	const principal = makePrincipal([], scriptSlug);
 	return {

@@ -14,8 +14,8 @@ const RUN_MEASUREMENT = process.env.RUN_SANDBOX_USAGE_MEASUREMENT === "1";
 
 const workloads = [
 	{ schema: "book", query: "The Hobbit", provider: "OpenLibrary" },
-	{ schema: "anime", provider: "AniList", query: "Cowboy Bebop" },
-	{ schema: "manga", query: "Berserk", provider: "AniList" },
+	{ schema: "anime", provider: "Anilist", query: "Cowboy Bebop" },
+	{ schema: "manga", query: "Berserk", provider: "Anilist" },
 	{ schema: "manga", query: "Berserk", provider: "MangaUpdates" },
 	{ schema: "audiobook", provider: "Audible", query: "Project Hail Mary" },
 	{ schema: "music", provider: "MusicBrainz", query: "Bohemian Rhapsody" },

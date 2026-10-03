@@ -291,6 +291,15 @@ impl Reader {
                 }
             }
             Inbound::Cancel { handle, .. } => {
+                let mut released = 0;
+                self.assemblies.retain(|(owner, ..), assembly| {
+                    let keep = *owner != handle;
+                    if !keep {
+                        released += assembly.reserved();
+                    }
+                    keep
+                });
+                self.assembled_bytes -= released;
                 if let Some(entry) = self.shared.registry.get(&handle) {
                     entry.cancel();
                 }
