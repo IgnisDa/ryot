@@ -6,7 +6,7 @@ import type {
 	AutomationPolicyOutput,
 	AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { EntityBadRequest } from "@ryot-app/contract/modules/entities/schemas";
+import { EntityBadRequest, EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	definitionOwner,
 	type EntitySchemaReference,
@@ -24,6 +24,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/workflow";
@@ -565,9 +566,10 @@ describe("EntitiesService committed lifecycle", () => {
 				expect((yield* session.run((db) => db.select().from(tables.mutationReceipt))).length).toBe(
 					receiptCount,
 				);
-				expect(
-					yield* service.update({ ...input, lifecycle: command("stale-update") }).pipe(Effect.flip),
-				).toMatchObject({ reason: { code: "mutation-conflict" } });
+				assertExitFails(
+					yield* Effect.exit(service.update({ ...input, lifecycle: command("stale-update") })),
+					new EntityStale({ reason: { code: "entity-stale", entityId: created.entity.id } }),
+				);
 				expect(
 					yield* service.update({ ...input, name: "Different" }).pipe(Effect.flip),
 				).toMatchObject({ reason: { code: "mutation-conflict" } });

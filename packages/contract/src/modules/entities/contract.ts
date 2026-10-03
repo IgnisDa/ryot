@@ -7,6 +7,7 @@ import {
 	EntityBadRequest,
 	EntityNotFound,
 	EntityMutationResult,
+	EntityStale,
 } from "./schemas";
 
 export const EntitiesGroup = HttpApiGroup.make("entities")
@@ -18,6 +19,7 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 			error: [
 				EntityBadRequest.pipe(HttpApiSchema.status(400)),
 				EntityNotFound.pipe(HttpApiSchema.status(404)),
+				EntityStale.pipe(HttpApiSchema.status(409)),
 			],
 		}).annotate(OpenApi.Description, "Create an entity."),
 	)

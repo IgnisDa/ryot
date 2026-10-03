@@ -37,15 +37,7 @@ export const EventUpdatePatch = strictStruct({
 
 export type EventUpdatePatch = typeof EventUpdatePatch.Type;
 
-export const EventSnapshotPrecondition = strictStruct({
-	entityId: AutomationEventSnapshot.fields.entityId,
-	updatedAt: AutomationEventSnapshot.fields.updatedAt,
-	occurredAt: AutomationEventSnapshot.fields.occurredAt,
-	properties: AutomationEventSnapshot.fields.properties,
-	sessionEntityId: AutomationEventSnapshot.fields.sessionEntityId,
-});
-
-export const EventFieldPrecondition = strictStruct({
+export const EventWritePrecondition = strictStruct({
 	kind: Schema.Literal("fields"),
 	entityId: AutomationEventSnapshot.fields.entityId,
 	occurredAt: AutomationEventSnapshot.fields.occurredAt,
@@ -63,11 +55,6 @@ export const EventFieldPrecondition = strictStruct({
 		),
 	),
 );
-
-export const EventWritePrecondition = Schema.Union([
-	EventSnapshotPrecondition,
-	EventFieldPrecondition,
-]);
 export type EventWritePrecondition = typeof EventWritePrecondition.Type;
 
 export const UpdateEventItem = strictStruct({

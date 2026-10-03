@@ -15,6 +15,7 @@ import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
 import {
 	collectManagedAssetLocatorsInto,
+	managedAssetLocatorKey,
 	sortedManagedAssetLocators,
 } from "#lib/domain/managed-asset-locators";
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -114,9 +115,6 @@ export const requireNotificationMetadataSchema = Effect.fn(function* (
 	}
 	return propertiesSchema;
 });
-
-const locatorKey = (locator: { readonly type: "local" | "s3"; readonly key: string }) =>
-	`${locator.type}:${locator.key}`;
 
 export const requirePluginKey = Effect.fn("BackupExportSnapshot.requirePluginKey")(function* (
 	pluginKeyById: ReadonlyMap<string, string>,
@@ -841,7 +839,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					);
 					const archiveLocators = new Map<string, AssetLocator>(
 						managedAssets.map((asset) => [
-							locatorKey({ key: asset.key, type: asset.provider }),
+							managedAssetLocatorKey({ key: asset.key, type: asset.provider }),
 							rewriteAssetLocatorForArchive({ key: asset.key, type: asset.provider }, asset.sha256),
 						]),
 					);

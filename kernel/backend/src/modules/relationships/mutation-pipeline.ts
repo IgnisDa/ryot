@@ -15,6 +15,7 @@ import {
 import { RelationshipId, type UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Effect, Layer, Schema, Struct } from "effect";
 
+import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlannedPolicy, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
@@ -196,6 +197,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
 			const receipts = yield* MutationReceipts.make;
+			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const receiptFor = relationshipReceiptIdentity;
 			const { lookupReceipts, insertReceipts } = makeReceiptBatches(receipts);
 			const lookupItemReceipts = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
@@ -212,6 +214,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				execution,
 				repository,
 				definitions,
+				assetReferences,
 			};
 			const transaction = rootTransaction(session);
 			const primitives = makeRelationshipMutationPrimitives(dependencies);

@@ -14,7 +14,6 @@ import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/wo
 import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
 import { Effect, Schema } from "effect";
 
-import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	type AdditionalScriptHostImplementationMap,
 	requireSandboxCapabilityInput,
@@ -33,7 +32,7 @@ import {
 	userLifecycleSource,
 	type LifecycleHostInput,
 } from "#modules/scripts/host/lifecycle-host";
-import { sandboxSubmissionCommand } from "#modules/scripts/host/submission-command";
+import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { EventsService } from "./service";
@@ -60,15 +59,8 @@ export const toSandboxCreateEventsResult = (result: CreateEventsResponse) =>
 
 export const eventLifecycleHostSteps = (
 	events: EventsService["Service"],
-	runtime: PluginRuntimeResolver["Service"],
+	submissions: SandboxSubmissionCommands["Service"],
 ) => {
-	const findInstallation = (
-		userId: UserId,
-		pluginId: Parameters<typeof runtime.findPluginAvailableToUser>[1],
-	) =>
-		runtime
-			.findPluginAvailableToUser(userId, pluginId)
-			.pipe(Effect.map((plugin) => plugin?.installationId ?? null));
 	return {
 		updateEvents: {
 			commit: (input: LifecycleHostInput<"UpdateEvents">) =>
@@ -92,11 +84,10 @@ export const eventLifecycleHostSteps = (
 							);
 						}
 						const decoded = yield* Schema.decodeUnknownEffect(Schema.Array(UpdateEventItem))(items);
-						const command = yield* sandboxSubmissionCommand(
+						const command = yield* submissions.commandFor(
 							input,
 							yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "updateEvents"),
 							options,
-							findInstallation,
 						);
 						return {
 							command,
@@ -129,11 +120,10 @@ export const eventLifecycleHostSteps = (
 							);
 						}
 						const decoded = yield* Schema.decodeEffect(Schema.Array(EventId))(eventIds);
-						const command = yield* sandboxSubmissionCommand(
+						const command = yield* submissions.commandFor(
 							input,
 							yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "deleteEvents"),
 							options,
-							findInstallation,
 						);
 						return {
 							command,
@@ -154,7 +144,7 @@ export const makeEventScriptHost = Effect.gen(function* () {
 	const events = yield* EventsService;
 	const eventStreamWork = yield* EventStreamWorkService;
 	const sandboxRepository = yield* SandboxRepository;
-	const lifecycle = eventLifecycleHostSteps(events, yield* PluginRuntimeResolver);
+	const lifecycle = eventLifecycleHostSteps(events, yield* SandboxSubmissionCommands);
 
 	const createEvents = (input: UserSandboxRunInput, payload: ReadonlyArray<CreateEventItem>) =>
 		Effect.gen(function* () {
