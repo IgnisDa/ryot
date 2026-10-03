@@ -241,6 +241,9 @@ export const makeRelationshipMutationPrimitives = ({
 	) {
 		yield* assertActiveTransaction;
 		yield* assertStableSource(mutation, validated, before);
+		if (mutation.mode === "ensure" && before !== null) {
+			return null;
+		}
 		if (!before && mutation.mode === "update") {
 			return yield* new RelationshipNotFound({ reason: { code: "relationship-not-found" } });
 		}
@@ -416,10 +419,12 @@ export const makeRelationshipMutationPrimitives = ({
 			const row = rows.get(key) ?? null;
 			const current = row ? yield* snapshot(row) : null;
 			yield* assertStableSource(mutation, validated, current);
-			if (!equal(current, before)) {
+			const alreadyEnsured = mutation.mode === "ensure" && current !== null;
+			if (!alreadyEnsured && !equal(current, before)) {
 				return yield* concurrentChange();
 			}
 			if (
+				alreadyEnsured ||
 				!request ||
 				(request.operation !== "delete" &&
 					current &&

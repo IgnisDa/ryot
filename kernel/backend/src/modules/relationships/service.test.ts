@@ -97,6 +97,31 @@ describe("Relationships lifecycle owner", () => {
 	});
 
 	layer(relationshipDatabaseLayer())((test) => {
+		test.effect("preserves relationship metadata on repeated ensure", () =>
+			Effect.gen(function* () {
+				const service = yield* RelationshipsService;
+				const existingProperties = { rank: 1, labels: ["saved"] };
+				const created = yield* service.prepareCreate(
+					{ ...baseInput, ifAbsent: true, properties: existingProperties },
+					command("ensure-initial"),
+				);
+				assert(created._tag === "Committed");
+				expect(created.result.operation).toBe("create");
+
+				const repeated = yield* service.prepareCreate(
+					{ ...baseInput, ifAbsent: true, properties: { rank: 2, labels: ["incoming"] } },
+					command("ensure-repeated"),
+				);
+				assert(repeated._tag === "Committed");
+				expect(repeated.result).toMatchObject({
+					operation: "noop",
+					relationship: { properties: existingProperties },
+				});
+			}),
+		);
+	});
+
+	layer(relationshipDatabaseLayer())((test) => {
 		test.effect("rejects a foreign qualified relationship schema", () =>
 			Effect.gen(function* () {
 				const service = yield* RelationshipsService;
