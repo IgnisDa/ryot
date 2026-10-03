@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { PluginId } from "../../schema/brands";
 import {
 	PluginConflictError,
 	PluginInvokeBody,
@@ -9,7 +10,8 @@ import {
 	UpdatePrivatePluginBody,
 } from "./schemas";
 
-const uploadPayload = { uploadToken: "fixture-upload-token" };
+const uploadPayload = { sourceHash: "source-hash", uploadToken: "fixture-upload-token" };
+const pluginId = PluginId.make("fixture-plugin-id");
 
 describe("UpdatePrivatePluginBody", () => {
 	it("decodes an upload token and config patch", () => {
@@ -25,6 +27,7 @@ describe("UpdatePrivatePluginBody", () => {
 	it("rejects incomplete uploads and excess fields", () => {
 		for (const input of [
 			{ ...uploadPayload, uploadToken: undefined },
+			{ uploadToken: "fixture-upload-token" },
 			{ ...uploadPayload, config: { invalid: undefined } },
 			{ ...uploadPayload, unknown: true },
 		]) {
@@ -73,18 +76,18 @@ it("decodes saved-view uninstall conflicts", () => {
 	expect(
 		Schema.decodeSync(PluginConflictError)({
 			_tag: "PluginConflictError",
-			reason: { pluginSlug: "fixture", code: "saved-view-referenced" },
+			reason: { pluginId, code: "saved-view-referenced" },
 		}),
-	).toMatchObject({ reason: { pluginSlug: "fixture", code: "saved-view-referenced" } });
+	).toMatchObject({ reason: { pluginId, code: "saved-view-referenced" } });
 });
 
 it("decodes stale plugin source revision conflicts", () => {
 	expect(
 		Schema.decodeSync(PluginConflictError)({
 			_tag: "PluginConflictError",
-			reason: { pluginSlug: "fixture", code: "source-revision-stale" },
+			reason: { pluginId, code: "source-revision-stale" },
 		}),
-	).toMatchObject({ reason: { pluginSlug: "fixture", code: "source-revision-stale" } });
+	).toMatchObject({ reason: { pluginId, code: "source-revision-stale" } });
 });
 
 it("accepts only JSON operation HTTP payloads and results", () => {

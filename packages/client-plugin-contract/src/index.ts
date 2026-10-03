@@ -1,3 +1,4 @@
+import { ClientPageCodeContributor } from "@ryot-app/contract/modules/client-pages/schemas";
 import {
 	CollectionResponse,
 	CreateCollectionBody,
@@ -10,6 +11,7 @@ import {
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-interest/messages";
 import { CLIENT_API_VERSION } from "@ryot-app/contract/modules/plugins/manifest";
+import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { RyotQLDocument, RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { EntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
@@ -18,7 +20,7 @@ import {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
-import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
@@ -26,6 +28,15 @@ import { Schema } from "effect";
 import { clientVersionFields } from "./artifact";
 
 export {
+	PluginClientImport,
+	ClientRuntimeArtifactMetadata,
+	clientDeclarationHash,
+	ClientArtifact,
+	ClientArtifactFromBase64,
+	ClientRuntimeArtifact,
+	ClientRuntimeArtifactFromBase64,
+	clientRuntimeArtifactMetadata,
+	pluginExportSpecifier,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_COMPILER_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
@@ -174,11 +185,11 @@ export const PluginThemeSnapshot = strictStruct({ resolvedMode: PluginThemeMode 
 export type PluginThemeSnapshot = Schema.Schema.Type<typeof PluginThemeSnapshot>;
 
 export const ClientPageTarget = Schema.Union([
-	strictStruct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
+	strictStruct({ reference: SavedViewReference, kind: Schema.Literal("saved-view") }),
 	strictStruct({
+		pluginId: PluginId,
 		path: Schema.String,
 		search: Schema.String,
-		pluginSlug: PluginSlug,
 		kind: Schema.Literal("plugin-route"),
 	}),
 	strictStruct({
@@ -203,8 +214,7 @@ export const ClientPageRenderer = Schema.Union([
 export type ClientPageRenderer = Schema.Schema.Type<typeof ClientPageRenderer>;
 
 export const ClientPageOperationTarget = strictStruct({
-	pluginSlug: PluginSlug,
-	pluginId: Schema.String,
+	pluginId: PluginId,
 	sourceHash: Schema.String,
 	installationId: Schema.String,
 });
@@ -221,6 +231,7 @@ export const ClientPageContext = strictStruct({
 	dataSources: Schema.NullOr(RyotQLDocument),
 	view: Schema.NullOr(ClientPageViewIdentity),
 	settings: Schema.Record(Schema.String, JsonValue),
+	contributors: Schema.Array(ClientPageCodeContributor),
 	route: strictStruct({ params: Schema.Record(Schema.String, Schema.String) }),
 });
 
@@ -280,13 +291,13 @@ export const kernelPagePaths = { "import-data": "/settings/import-data" } as con
 >;
 
 export const PluginNavigationTarget = Schema.Union([
-	strictStruct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
+	strictStruct({ reference: SavedViewReference, kind: Schema.Literal("saved-view") }),
 	strictStruct({ page: KernelPage, kind: Schema.Literal("kernel-page") }),
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
 	strictStruct({
+		pluginId: PluginId,
 		path: Schema.String,
 		search: Schema.String,
-		pluginSlug: PluginSlug,
 		kind: Schema.Literal("plugin-route"),
 	}),
 ]);
@@ -399,8 +410,7 @@ export type PluginBridgePageSearch = Schema.Schema.Type<typeof PluginBridgePageS
 
 export const ProviderSearchScreenRequest = strictStruct({
 	initialQuery: Schema.optional(Schema.String),
-	ownerPluginId: EntityBrowserAddAction.fields.ownerPluginId,
-	entitySchemaSlug: EntityBrowserAddAction.fields.entitySchemaSlug,
+	schema: EntityBrowserAddAction.fields.schema,
 });
 
 export type ProviderSearchScreenRequest = Schema.Schema.Type<typeof ProviderSearchScreenRequest>;
@@ -671,7 +681,7 @@ export type PluginBridgeAssetResult = Schema.Schema.Type<typeof PluginBridgeAsse
 
 export const PluginOperationRequest = strictStruct({
 	input: JsonValue,
-	pluginSlug: PluginSlug,
+	pluginId: PluginId,
 	operationSlug: Schema.String,
 });
 
@@ -679,7 +689,7 @@ export type PluginOperationRequest = Schema.Schema.Type<typeof PluginOperationRe
 
 export const PluginBridgeOperationRequest = strictStruct({
 	input: JsonValue,
-	pluginSlug: PluginSlug,
+	pluginId: PluginId,
 	requestId: Schema.String,
 	operationSlug: Schema.String,
 	type: Schema.Literal("operation-request"),
@@ -724,7 +734,7 @@ export type PluginStorageBridgeErrorReason = Schema.Schema.Type<
 >;
 
 const pluginStorageRequestFields = {
-	pluginSlug: PluginSlug,
+	pluginId: PluginId,
 	key: Schema.String.pipe(
 		Schema.check(Schema.isMinLength(1), Schema.isMaxLength(PLUGIN_STORAGE_KEY_MAX_LENGTH)),
 	),

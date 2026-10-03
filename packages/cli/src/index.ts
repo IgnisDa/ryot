@@ -6,6 +6,7 @@ import {
 	compileClientPluginModule,
 } from "@ryot-app/client-plugin-compiler";
 import {
+	clientDeclarationHash,
 	isPluginSourceFile,
 	pluginClientFileExtension,
 	type PluginClientArtifact,
@@ -185,9 +186,12 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 	);
 	return yield* compileClientPluginModule({
 		files,
+		kind: "plugin",
 		name: manifest.metadata.name,
+		packageId: manifest.metadata.packageId,
 		apiVersion: manifest.client.apiVersion,
-		pluginDependencies: manifest.client.pluginDependencies ?? [],
+		pluginDependencies: manifest.client.pluginDependencies ?? {},
+		clientDeclarationHash: clientDeclarationHash(manifest.client),
 		publicExports: Object.fromEntries(
 			Object.entries(manifest.client.exports ?? {}).map(([name, declaration]) => [
 				name,
@@ -252,7 +256,7 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 		),
 	);
 	yield* writeOutput(
-		path.resolve(cwd, output ?? `dist/${manifest.metadata.slug}.zip`),
+		path.resolve(cwd, output ?? `dist/${manifest.metadata.packageId}.zip`),
 		manifest,
 		compiledScripts,
 		compiledClient,
@@ -389,7 +393,25 @@ const buildCommand = Command.make(
 	}),
 );
 
-const pluginCommand = Command.make("plugin").pipe(Command.withSubcommands([buildCommand]));
+const initIdentityCommand = Command.make(
+	"init-identity",
+	{},
+	Effect.fn("initPluginIdentity")(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
+		const shared = path.join(process.cwd(), "shared");
+		yield* fs.makeDirectory(shared, { recursive: true });
+		yield* fs.writeFileString(
+			path.join(shared, "plugin-identity.ts"),
+			`export const PLUGIN_PACKAGE_ID = "${crypto.randomUUID()}";\n`,
+			{ flag: "wx" },
+		);
+	}),
+);
+
+const pluginCommand = Command.make("plugin").pipe(
+	Command.withSubcommands([buildCommand, initIdentityCommand]),
+);
 
 const cli = Command.make("ryot").pipe(Command.withSubcommands([pluginCommand]));
 

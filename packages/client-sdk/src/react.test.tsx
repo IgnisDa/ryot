@@ -198,7 +198,7 @@ describe("Effect-native React definitions", () => {
 			yield* clock.client.operations.invoke({
 				input: {},
 				slug: "save",
-				pluginSlug: "fixture",
+				pluginId: "fixture",
 				output: Schema.String,
 			});
 			yield* Effect.promise(() => clock.advance(249));
@@ -220,13 +220,13 @@ describe("Effect-native React definitions", () => {
 					const first = yield* client.operations.invoke({
 						input,
 						slug: "first",
-						pluginSlug: "fixture",
+						pluginId: "fixture",
 						output: Schema.String,
 					});
 					return yield* client.operations.invoke({
 						input: first,
 						slug: "second",
-						pluginSlug: "fixture",
+						pluginId: "fixture",
 						output: Schema.String,
 					});
 				}),
@@ -284,11 +284,11 @@ describe("Effect-native React definitions", () => {
 
 	it.live("reads and writes storage at the React boundary", () =>
 		Effect.gen(function* () {
-			const storage = createTestPluginStorage([["fixture:order", { order: "dvd" }]]);
+			const storage = createTestPluginStorage([['["fixture","order"]', { order: "dvd" }]]);
 			const clock = makeClock({ accessStorage: storage.accessStorage });
 			const schema = Schema.Struct({ order: Schema.Literals(["aired", "dvd"]) });
 			const View = () => {
-				const value = usePluginStorage({ schema, key: "order", pluginSlug: "fixture" });
+				const value = usePluginStorage({ schema, key: "order", pluginId: "fixture" });
 				return value.status === "ready" ? (
 					<button type="button" onClick={() => void value.set({ order: "aired" })}>
 						{value.value?.order ?? "unset"}
@@ -305,7 +305,7 @@ describe("Effect-native React definitions", () => {
 					return Promise.resolve();
 				}),
 			);
-			expect(storage.entries.get("fixture:order")).toEqual({ order: "aired" });
+			expect(storage.entries.get('["fixture","order"]')).toEqual({ order: "aired" });
 		}),
 	);
 });

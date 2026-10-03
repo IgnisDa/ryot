@@ -1,9 +1,10 @@
 import { Schema } from "effect";
 
-import { PluginId, PluginSlug } from "../../schema/brands";
+import { PluginId, PluginPackageId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../sandbox/schemas";
+import { SavedViewReference } from "./references";
 
 const PluginValidationDiagnostic = Schema.Struct({
 	code: Schema.String,
@@ -65,27 +66,17 @@ const PluginPackageArchiveIssue = Schema.Literals([
 	"compiled-script-metadata-bytes-exceeded",
 ]);
 
-/**
- * Plugins occupy the first client URL segment, so a plugin slug matching a global client route
- * would make either the route or the plugin unreachable. Plugin activation rejects these names.
- */
-export const reservedPluginSlugs: ReadonlySet<string> = new Set([
-	"e",
-	"v",
-	"auth",
-	"oauth",
-	"settings",
-	"god-mode",
-	"onboarding",
-	"reset-password",
-	"customize-sidebar",
-]);
-
 const PluginRequestFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("slug-reserved") }),
-	Schema.Struct({ savedViewSlug: Schema.String, code: Schema.Literal("home-view-hidden") }),
-	Schema.Struct({ savedViewSlug: Schema.String, code: Schema.Literal("home-view-not-found") }),
+	Schema.Struct({ packageId: PluginPackageId, code: Schema.Literal("reserved-system-identity") }),
+	Schema.Struct({ reference: SavedViewReference, code: Schema.Literal("home-view-hidden") }),
+	Schema.Struct({ reference: SavedViewReference, code: Schema.Literal("home-view-not-found") }),
+	Schema.Struct({
+		pluginId: PluginId,
+		packageId: PluginPackageId,
+		expectedPackageId: PluginPackageId,
+		code: Schema.Literal("package-id-mismatch"),
+	}),
 	Schema.Struct({
 		issue: PluginPackageArchiveIssue,
 		code: Schema.Literal("package-archive-invalid"),
@@ -107,45 +98,56 @@ const PluginRequestFailureReason = Schema.Union([
 		issues: Schema.Array(PluginSchemaEvolutionIssue),
 	}),
 	Schema.Struct({
-		pluginSlug: PluginSlug,
+		pluginId: PluginId,
 		operationSlug: Schema.String,
 		code: Schema.Literal("invalid-operation-scope"),
 	}),
 	Schema.Struct({
-		savedViewSlug: Schema.String,
+		reference: SavedViewReference,
 		code: Schema.Literal("home-view-renderer-unavailable"),
 	}),
 ]);
 
 const PluginConflictReason = Schema.Union([
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("system-plugin") }),
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("already-installed") }),
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("entity-referenced") }),
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("workflow-referenced") }),
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("source-revision-stale") }),
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("saved-view-referenced") }),
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("integration-referenced") }),
+	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("system-plugin") }),
+	Schema.Struct({ packageId: PluginPackageId, code: Schema.Literal("already-installed") }),
+	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("entity-referenced") }),
+	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("workflow-referenced") }),
+	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("source-revision-stale") }),
+	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("saved-view-referenced") }),
+	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("integration-referenced") }),
 	Schema.Struct({
-		pluginSlug: PluginSlug,
+		pluginId: PluginId,
+		packageId: PluginPackageId,
+		code: Schema.Literal("package-identity-conflict"),
+	}),
+	Schema.Struct({
+		pluginId: PluginId,
+		declarations: Schema.Array(Schema.String),
+		code: Schema.Literal("referenced-definition-incompatible"),
+	}),
+	Schema.Struct({
+		pluginId: PluginId,
 		code: Schema.Literal("definition-referenced"),
 		diagnostics: Schema.Array(PluginValidationDiagnostic),
 	}),
 	Schema.Struct({
-		pluginSlug: PluginSlug,
+		pluginId: PluginId,
 		code: Schema.Literal("installation-not-ready"),
 		health: Schema.Literals(["failed", "installing", "incompatible", "needs-configuration"]),
 	}),
 ]);
 
 const PluginNotFoundReason = Schema.Union([
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("plugin-not-found") }),
+	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("plugin-not-found") }),
+	Schema.Struct({ installationId: Schema.String, code: Schema.Literal("installation-not-found") }),
 	Schema.Struct({
-		pluginSlug: PluginSlug,
+		pluginId: PluginId,
 		operationSlug: Schema.String,
 		code: Schema.Literal("operation-not-found"),
 	}),
 	Schema.Struct({
-		pluginSlug: PluginSlug,
+		pluginId: PluginId,
 		operationSlug: Schema.String,
 		code: Schema.Literal("operation-scope-not-found"),
 	}),
@@ -186,6 +188,7 @@ export const InstallPluginBody = Schema.Struct({
 export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;
 
 export const UpdatePrivatePluginBody = strictStruct({
+	sourceHash: Schema.String,
 	uploadToken: Schema.String,
 	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	config: Schema.optional(Schema.Record(Schema.String, JsonValue)),
@@ -207,7 +210,7 @@ export const UpdatePluginInstallationBody = strictStruct({
 export type UpdatePluginInstallationBody = typeof UpdatePluginInstallationBody.Type;
 
 export const PluginHomeViewSelection = strictStruct({
-	savedViewSlug: Schema.NullOr(Schema.String),
+	savedView: Schema.NullOr(SavedViewReference),
 });
 
 export type PluginHomeViewSelection = typeof PluginHomeViewSelection.Type;
@@ -219,6 +222,10 @@ export const PluginInstallationHealth = Schema.Literals([
 	"incompatible",
 	"needs-configuration",
 ]);
+
+export const PluginInstallationIncompatibilityReason = Schema.Literal("package-identity-conflict");
+export type PluginInstallationIncompatibilityReason =
+	typeof PluginInstallationIncompatibilityReason.Type;
 
 export const PluginInstallationWriteResult = Schema.Struct({
 	id: Schema.String,

@@ -50,14 +50,13 @@ describe("saved-view schemas", () => {
 			ownerPluginIdField: "ownerPluginId",
 			entitySchemaSlugField: "entitySchemaSlug",
 			tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
-			addAction: {
-				type: "provider-search",
-				entitySchemaSlug: "movie",
-				ownerPluginId: "media-plugin",
-			},
 			sortChoices: [
 				{ name: "newest", label: "Newest", orderBy: [{ direction: "desc", field: "createdAt" }] },
 			],
+			addAction: {
+				type: "provider-search",
+				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-plugin" } },
+			},
 		});
 		const resultsInput = {
 			pageSize: 50,

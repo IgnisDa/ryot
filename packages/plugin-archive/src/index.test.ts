@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import {
-	CLIENT_API_VERSION,
-	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_BRIDGE_PROTOCOL_VERSION,
-	CLIENT_COMPILER_VERSION,
+	clientArtifactMetadata,
+	clientDeclarationHash,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Schema } from "effect";
 import { unzipSync, Zip, zipSync, ZipDeflate } from "fflate";
@@ -14,6 +14,7 @@ import type { PluginArchiveErrorReason, PluginArchivePackage } from "./index";
 import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive, writePluginArchive } from "./index";
 
 const encoder = new TextEncoder();
+const packageId = PluginPackageId.make("ee8040dd-5a40-42a1-916d-58190c1a06e8");
 
 const compareNames = (left: string, right: string) => {
 	if (left < right) {
@@ -44,11 +45,19 @@ const fixture = {
 		integrationProviders: [],
 		configSchema: { fields: {}, unknownKeys: "strict" },
 		metadata: {
+			packageId,
 			icon: "fixture",
 			name: "Fixture",
 			slug: "fixture",
 			version: "1.0.0",
 			description: "Fixture",
+		},
+		client: {
+			apiVersion: 1,
+			homeView: null,
+			exports: {
+				home: { kind: "component", entry: "client/home.tsx", automaticEntityPresentations: false },
+			},
 		},
 	},
 } satisfies PluginArchivePackage;
@@ -79,30 +88,30 @@ const scriptFixture: PluginArchivePackage = {
 	compiledScripts: [compiledScriptFixture],
 };
 
-const compiledClientFixture: PluginClientArtifact = {
-	hash: "artifact-hash",
-	format: CLIENT_ARTIFACT_FORMAT,
-	apiVersion: CLIENT_API_VERSION,
-	compilerVersion: CLIENT_COMPILER_VERSION,
-	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-	files: [
-		{
-			name: "plugin.js",
-			contentType: "text/javascript; charset=utf-8",
-			contents: encoder.encode("export const plugin = true;\n"),
-		},
-		{
-			name: "assets/icon.svg",
-			contentType: "image/svg+xml",
-			contents: new Uint8Array([0xff, 0x00, 0x7f]),
-		},
-		{
-			name: "index.html",
-			contentType: "text/html; charset=utf-8",
-			contents: encoder.encode("<html></html>\n"),
-		},
-	],
-};
+const clientFixture = (files: PluginClientArtifact["files"]): PluginClientArtifact => ({
+	...clientArtifactMetadata(fixture.manifest.metadata.name, packageId, files, {
+		imports: [],
+		clientDeclarationHash: clientDeclarationHash(fixture.manifest.client),
+	}),
+	files,
+});
+const compiledClientFixture = clientFixture([
+	{
+		name: "plugin.js",
+		contentType: "text/javascript; charset=utf-8",
+		contents: encoder.encode("export const plugin = true;\n"),
+	},
+	{
+		name: "assets/icon.svg",
+		contentType: "image/svg+xml",
+		contents: new Uint8Array([0xff, 0x00, 0x7f]),
+	},
+	{
+		name: "index.html",
+		contentType: "text/html; charset=utf-8",
+		contents: encoder.encode("<html></html>\n"),
+	},
+]);
 
 const compiledClientMetadata = (artifact: PluginClientArtifact) =>
 	encoder.encode(
@@ -110,9 +119,12 @@ const compiledClientMetadata = (artifact: PluginClientArtifact) =>
 			{
 				hash: artifact.hash,
 				format: artifact.format,
+				imports: artifact.imports,
+				packageId: artifact.packageId,
 				apiVersion: artifact.apiVersion,
 				bridgeVersion: artifact.bridgeVersion,
 				compilerVersion: artifact.compilerVersion,
+				clientDeclarationHash: artifact.clientDeclarationHash,
 				files: artifact.files
 					.map(({ name, contentType }) => ({ name, contentType }))
 					.sort((left, right) => compareNames(left.name, right.name)),
@@ -252,6 +264,88 @@ const mutateHeaders = (
 };
 
 describe("plugin archive", () => {
+	it.live(
+		"rejects stale client declarations for the same package despite an intact artifact hash",
+		() =>
+			Effect.gen(function* () {
+				const { client, ...withoutClient } = fixture.manifest;
+				const manifests = [
+					withoutClient,
+					{
+						...fixture.manifest,
+						client: {
+							...client,
+							pluginDependencies: { whiskey: { packageId, scope: "system" as const } },
+						},
+					},
+					{
+						...fixture.manifest,
+						client: {
+							...client,
+							exports: {
+								card: {
+									entry: "client/card.tsx",
+									kind: "component" as const,
+									automaticEntityPresentations: false,
+								},
+							},
+						},
+					},
+				];
+				for (const manifest of manifests) {
+					const manifestJson = yield* Schema.encodeEffect(Schema.fromJsonString(PluginManifest))(
+						manifest,
+					);
+					expectWriteReason(
+						{ manifest, compiledClient: compiledClientFixture },
+						"compiled-client-invalid",
+					);
+					yield* Effect.promise(() =>
+						expectReason(
+							archive([
+								["manifest.json", encoder.encode(manifestJson)],
+								["compiled-client/metadata.json", compiledClientMetadata(compiledClientFixture)],
+								...compiledClientFixture.files.map(
+									({ name, contents }) => [`compiled-client/files/${name}`, contents] as const,
+								),
+							]),
+							"compiled-client-invalid",
+						),
+					);
+				}
+			}),
+	);
+	it.live("rejects mismatched manifest/client identities and tampered client hashes", () =>
+		Effect.gen(function* () {
+			const otherPackageId = PluginPackageId.make("97887987-a15b-452b-bfdc-633028850ad9");
+			for (const compiledClient of [
+				{ ...compiledClientFixture, packageId: otherPackageId },
+				{ ...compiledClientFixture, hash: "wrong-hash" },
+				{
+					...compiledClientFixture,
+					files: compiledClientFixture.files.map((file) =>
+						file.name === "plugin.js"
+							? { ...file, contents: encoder.encode("export const changed = true;") }
+							: file,
+					),
+				},
+			]) {
+				expectWriteReason({ ...fixture, compiledClient }, "compiled-client-invalid");
+				yield* Effect.promise(() =>
+					expectReason(
+						archive([
+							["manifest.json", rawManifest],
+							["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
+							...compiledClient.files.map(
+								({ name, contents }) => [`compiled-client/files/${name}`, contents] as const,
+							),
+						]),
+						"compiled-client-invalid",
+					),
+				);
+			}
+		}),
+	);
 	it("writes byte-identical deterministic archives in canonical order", () => {
 		const first = writePluginArchive(fixture);
 		const second = writePluginArchive({ manifest: fixture.manifest });
@@ -339,12 +433,11 @@ describe("plugin archive", () => {
 	it.live("preserves a compiled client JavaScript BOM", () =>
 		Effect.gen(function* () {
 			const contents = encoder.encode("\ufeffexport const plugin = true;\n");
-			const compiledClient = {
-				...compiledClientFixture,
-				files: compiledClientFixture.files.map((file) =>
+			const compiledClient = clientFixture(
+				compiledClientFixture.files.map((file) =>
 					file.name === "plugin.js" ? { ...file, contents } : file,
 				),
-			};
+			);
 			const bytes = writePluginArchive({ ...fixture, compiledClient });
 			expect(unzipSync(bytes)["compiled-client/files/plugin.js"]).toEqual(contents);
 			expect(
@@ -498,11 +591,14 @@ describe("plugin archive", () => {
 					new TextDecoder().decode(entries["compiled-client/metadata.json"]),
 				),
 			).toEqual({
+				packageId,
 				hash: compiledClient.hash,
 				format: compiledClient.format,
+				imports: compiledClient.imports,
 				apiVersion: compiledClient.apiVersion,
 				bridgeVersion: compiledClient.bridgeVersion,
 				compilerVersion: compiledClient.compilerVersion,
+				clientDeclarationHash: compiledClient.clientDeclarationHash,
 				files: [
 					{ name: "assets/icon.svg", contentType: "image/svg+xml" },
 					{ name: "index.html", contentType: "text/html; charset=utf-8" },
@@ -533,14 +629,13 @@ describe("plugin archive", () => {
 		const names = ["a.svg", "B.svg", "_x.svg", "index.html"];
 		const bytes = writePluginArchive({
 			...fixture,
-			compiledClient: {
-				...compiledClientFixture,
-				files: names.map((name) => ({
+			compiledClient: clientFixture(
+				names.map((name) => ({
 					name,
 					contents: new Uint8Array(0),
 					contentType: name.endsWith(".html") ? "text/html; charset=utf-8" : "image/svg+xml",
 				})),
-			},
+			),
 		});
 		expect(Object.keys(unzipSync(bytes))).toEqual([
 			"manifest.json",
@@ -622,16 +717,13 @@ describe("plugin archive", () => {
 				const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes);
 				const pluginBytes = writePluginArchive({
 					manifest: fixture.manifest,
-					compiledClient: {
-						...compiledClientFixture,
-						files: [
-							{
-								contents: bytes,
-								contentType: "image/svg+xml",
-								name: path.slice("compiled-client/files/".length),
-							},
-						],
-					},
+					compiledClient: clientFixture([
+						{
+							contents: bytes,
+							contentType: "image/svg+xml",
+							name: path.slice("compiled-client/files/".length),
+						},
+					]),
 				});
 				const result = yield* readPluginArchive(pluginBytes);
 

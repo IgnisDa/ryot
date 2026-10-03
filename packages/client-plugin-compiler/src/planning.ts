@@ -79,7 +79,7 @@ export const planClientCompilation = (
 				);
 			}
 		}
-		const pluginDependencies = input.pluginDependencies ?? [];
+		const pluginDependencies = Object.keys(input.pluginDependencies ?? {});
 		const typeAliases = Object.fromEntries(
 			sortBy(Object.entries(input.publicExports), ([name]) => name).map(
 				([, declaration], index) => [`@ryot-internal/package-export-${index}`, declaration.entry],

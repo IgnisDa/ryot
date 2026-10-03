@@ -38,6 +38,8 @@ import { createPluginRuntime } from "./runtime";
 import { makeRyotPluginRuntime, type RyotPluginRuntime } from "./schedule";
 
 export { loadStylesheet } from "./stylesheets";
+export { EntitySchemaSlug, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+export type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 
 type ClientPluginDefinition = PluginRouterDefinition;
 

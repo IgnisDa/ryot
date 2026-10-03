@@ -79,6 +79,8 @@ describe("automation definitions", () => {
 					entityId: "entity-1",
 					sessionEntityId: null,
 					entitySchemaSlug: "item",
+					eventSchemaPluginId: null,
+					entitySchemaPluginId: null,
 					eventSchemaSlug: "progress",
 					occurredAt: context.occurredAt,
 				},

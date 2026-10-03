@@ -1,18 +1,19 @@
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { defineOperationRecipe, invokeOperationRecipe } from "./operations";
 
 const recipe = defineOperationRecipe({
-	pluginSlug: "media",
 	operationSlug: "resolve-episodes",
+	pluginId: PluginId.make("media-owner"),
 	input: Schema.Struct({ count: Schema.FiniteFromString }),
 	output: Schema.Struct({ entityId: Schema.String, count: Schema.FiniteFromString }),
 });
 
 describe("invokeOperationRecipe", () => {
 	it("encodes the input, forwards the request, and decodes the transport result", () => {
-		const request: { payload: unknown; pluginSlug: string; operationSlug: string }[] = [];
+		const request: { payload: unknown; pluginId: PluginId; operationSlug: string }[] = [];
 		const result = Effect.runSync(
 			invokeOperationRecipe(recipe, { count: 3 }, (incoming) => {
 				request.push(incoming);
@@ -21,7 +22,7 @@ describe("invokeOperationRecipe", () => {
 		);
 
 		expect(request).toEqual([
-			{ pluginSlug: "media", payload: { count: "3" }, operationSlug: "resolve-episodes" },
+			{ pluginId: "media-owner", payload: { count: "3" }, operationSlug: "resolve-episodes" },
 		]);
 		expect(result).toEqual({ count: 4, entityId: "entity-1" });
 	});

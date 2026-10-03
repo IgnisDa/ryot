@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { BackupRunId } from "../../schema/brands";
+import { BackupRunId, PluginPackageId } from "../../schema/brands";
 
 export const BackupRunStatus = Schema.Literals(["pending", "running", "completed", "failed"]);
 export type BackupRunStatus = typeof BackupRunStatus.Type;
@@ -50,6 +50,7 @@ export const BackupRunFailure = Schema.Union([
 	}),
 	Schema.Struct({
 		pluginSlug: Schema.String,
+		packageId: PluginPackageId,
 		requiredVersion: Schema.String,
 		code: Schema.Literal("required-plugin-unavailable"),
 	}),

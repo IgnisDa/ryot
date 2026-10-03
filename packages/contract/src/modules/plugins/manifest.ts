@@ -1,6 +1,7 @@
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Result, Schema, SchemaGetter } from "effect";
 
+import { PluginPackageId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
 import { HttpUrl, strictStruct } from "../../schema/utils";
@@ -21,6 +22,7 @@ import {
 } from "./execution";
 import { SandboxExecutionMetadata } from "./execution-metadata";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
+import { DefinitionOwner, PluginPackageReference } from "./references";
 
 export const CLIENT_API_VERSION = 1 as const;
 
@@ -210,10 +212,10 @@ const PluginClientExports = Schema.Record(Schema.String, PluginClientExport).pip
 	),
 );
 
-const PluginClientDependencies = Schema.Array(pluginManifestSlug).pipe(
+const PluginClientDependencies = Schema.Record(pluginManifestSlug, PluginPackageReference).pipe(
 	Schema.check(
 		Schema.makeFilter((dependencies) =>
-			new Set(dependencies).size === dependencies.length
+			Object.keys(dependencies).every((alias) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(alias))
 				? true
 				: "Expected unique plugin client dependencies",
 		),
@@ -246,8 +248,9 @@ const PluginQueryDocument = Schema.toType(RyotQLDocument);
 export const PluginMetadata = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
-	slug: Schema.String,
 	version: Schema.String,
+	slug: pluginManifestSlug,
+	packageId: PluginPackageId,
 	description: Schema.String,
 });
 
@@ -317,7 +320,6 @@ export const PluginSavedView = strictStruct({
 	slug: Schema.String,
 	sortOrder: Schema.Finite,
 	renderer: AuthoredSavedViewRenderer,
-	pluginSlug: Schema.NullOr(Schema.String),
 	dataSources: Schema.NullOr(PluginQueryDocument),
 	settings: Schema.Record(Schema.String, JsonValue),
 });
@@ -695,7 +697,7 @@ export const PluginLifecycleOperation = Schema.Literals(["create", "delete", "up
 
 export type PluginLifecycleOperation = Schema.Schema.Type<typeof PluginLifecycleOperation>;
 
-export const PluginHookTarget = Schema.Union([
+const PluginLocalHookTarget = Schema.Union([
 	strictStruct({
 		resource: Schema.Literal("entity"),
 		operation: PluginLifecycleOperation,
@@ -723,6 +725,22 @@ export const PluginHookTarget = Schema.Union([
 		signalSchemaSlug: pluginManifestSlug,
 	}),
 ]);
+export const KernelCollectionEventHookTarget = strictStruct({
+	owner: DefinitionOwner.members[0],
+	resource: Schema.Literal("event"),
+	operation: PluginLifecycleOperation,
+	entitySchemaSlug: Schema.Literal("collection"),
+	eventSchemaSlug: Schema.Literals([
+		"review",
+		"add-entity-to-collection",
+		"remove-entity-from-collection",
+	]),
+});
+export type KernelCollectionEventHookTarget = typeof KernelCollectionEventHookTarget.Type;
+export const PluginHookTarget = Schema.Union([
+	...PluginLocalHookTarget.members,
+	KernelCollectionEventHookTarget,
+]);
 export type PluginHookTarget = typeof PluginHookTarget.Type;
 const hookFields = {
 	slug: pluginManifestSlug,
@@ -738,6 +756,7 @@ export const PluginBeforeHook = strictStruct({
 	...hookFields,
 	stage: Schema.Literal("before"),
 	batchFrequency: Schema.optional(Schema.Literals(["item", "once-per-subject"])),
+	targets: Schema.Array(PluginLocalHookTarget).pipe(Schema.check(Schema.isMinLength(1))),
 	position: Schema.optional(
 		Schema.Finite.pipe(Schema.check(Schema.makeFilter((n) => Number.isSafeInteger(n)))),
 	),
@@ -766,6 +785,12 @@ export const PluginHook = Schema.Union([
 		executionScope: Schema.optional(Schema.Literals(["user", "global"])),
 	}).pipe(
 		Schema.check(
+			Schema.makeFilter(
+				(hook) =>
+					!hook.targets.some((target) => "owner" in target) ||
+					hook.executionScope !== "global" ||
+					"Kernel collection observers require user execution scope",
+			),
 			Schema.makeFilter((hook) =>
 				hook.batchMaxItems !== undefined && hook.frequency !== "batch"
 					? "batchMaxItems requires batch frequency"
@@ -831,20 +856,17 @@ const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type)
 	if (new Set(manifest.hooks.map(({ slug }) => slug)).size !== manifest.hooks.length) {
 		return false;
 	}
-	const entitySchemas = [
-		...KERNEL_DECLARED_SCHEMA_SURFACE.entitySchemas,
-		...manifest.entitySchemas,
-	];
-	const relationshipSchemas = [
-		...KERNEL_DECLARED_SCHEMA_SURFACE.relationshipSchemas,
-		...manifest.relationshipSchemas,
-	];
-	const signalSchemas = [
-		...KERNEL_DECLARED_SCHEMA_SURFACE.signalSchemas,
-		...manifest.signalSchemas,
-	];
+	const entitySchemas = manifest.entitySchemas;
+	const relationshipSchemas = manifest.relationshipSchemas;
+	const signalSchemas = manifest.signalSchemas;
 	for (const hook of manifest.hooks) {
 		for (const target of hook.targets) {
+			if ("owner" in target) {
+				if (hook.stage !== "after") {
+					return false;
+				}
+				continue;
+			}
 			switch (target.resource) {
 				case "entity":
 				case "provider-entity-import":
@@ -925,10 +947,7 @@ const hasValidClientManifestReferences = (
 	if (
 		manifest.client !== undefined &&
 		manifest.client.homeView !== null &&
-		!manifest.savedViews.some(
-			(view) =>
-				view.slug === manifest.client?.homeView && view.pluginSlug === manifest.metadata.slug,
-		)
+		!manifest.savedViews.some((view) => view.slug === manifest.client?.homeView)
 	) {
 		return false;
 	}
@@ -976,10 +995,45 @@ const hasValidOAuthProviderReferences = (
 	);
 };
 
+const uniqueSlugs = (declarations: readonly { readonly slug: string }[]) =>
+	declarations.every(({ slug }) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(slug)) &&
+	new Set(declarations.map(({ slug }) => slug)).size === declarations.length;
+
+const hasValidLocalDeclarations = (manifest: typeof AuthoredPluginManifestFields.Type) => {
+	if (
+		![
+			manifest.entitySchemas,
+			manifest.relationshipSchemas,
+			manifest.signalSchemas,
+			manifest.savedViews,
+			manifest.operations,
+			manifest.crons,
+		].every(uniqueSlugs)
+	) {
+		return false;
+	}
+	const entities = new Set(manifest.entitySchemas.map(({ slug }) => slug));
+	const relationships = new Set(manifest.relationshipSchemas.map(({ slug }) => slug));
+	return (
+		manifest.entitySchemas.every(({ eventSchemas }) => uniqueSlugs(eventSchemas)) &&
+		manifest.providers.every(({ rootEntitySchemaSlug }) => entities.has(rootEntitySchemaSlug)) &&
+		manifest.relationshipSchemas.every(
+			({ sourceEntitySchemaSlug, targetEntitySchemaSlug }) =>
+				(sourceEntitySchemaSlug === null || entities.has(sourceEntitySchemaSlug)) &&
+				(targetEntitySchemaSlug === null || entities.has(targetEntitySchemaSlug)),
+		) &&
+		manifest.signalSchemas.every(
+			({ audiencePolicy }) =>
+				audiencePolicy.kind === "actor" || relationships.has(audiencePolicy.relationshipSchemaSlug),
+		)
+	);
+};
+
 const hasValidAuthoredPluginManifestReferences = (
 	manifest: typeof AuthoredPluginManifestFields.Type,
 ) => {
 	if (
+		!hasValidLocalDeclarations(manifest) ||
 		!hasValidClientManifestReferences(manifest) ||
 		!hasValidHookTargets(manifest) ||
 		!hasValidOAuthProviderReferences(manifest)
@@ -989,7 +1043,7 @@ const hasValidAuthoredPluginManifestReferences = (
 	const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
 	const configKeys = new Set(Object.keys(manifest.configSchema.fields));
 	const configEnvironmentKeys = [...configKeys].map((key) =>
-		pluginConfigEnvironmentKey(manifest.metadata.slug, key),
+		pluginConfigEnvironmentKey(manifest.metadata.packageId, key),
 	);
 	if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
 		return false;
@@ -1039,6 +1093,7 @@ export type AuthoredPluginManifest = Schema.Schema.Type<typeof AuthoredPluginMan
 
 const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.Type) => {
 	if (
+		!hasValidLocalDeclarations(manifest) ||
 		!hasValidClientManifestReferences(manifest) ||
 		!hasValidHookTargets(manifest) ||
 		!hasValidOAuthProviderReferences(manifest)
@@ -1051,7 +1106,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 	const userBootstrapSlugs = new Set(manifest.userBootstrap.map(({ slug }) => slug));
 	const configKeys = new Set(Object.keys(manifest.configSchema.fields));
 	const configEnvironmentKeys = [...configKeys].map((key) =>
-		pluginConfigEnvironmentKey(manifest.metadata.slug, key),
+		pluginConfigEnvironmentKey(manifest.metadata.packageId, key),
 	);
 	if (new Set(configEnvironmentKeys).size !== configEnvironmentKeys.length) {
 		return false;

@@ -6,7 +6,8 @@ import {
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
-import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Effect, Match, Schema } from "effect";
 import { useEffect, useState, act } from "react";
@@ -39,7 +40,7 @@ import { createTestRyotClock, waitForMessagePortMacrotask } from "./testing";
 
 let mountCount = 0;
 let entityMountCount = 0;
-const pluginSlug = "fixture";
+const pluginId = "fixture";
 
 const ItemRoute = () => {
 	const { itemId } = usePluginParams();
@@ -85,19 +86,19 @@ const Home = () => {
 				Greet
 			</button>
 			<PluginLink
-				to={{ pluginSlug, kind: "plugin-route", path: "/items/item-1", search: { tab: "stats" } }}
+				to={{ pluginId, kind: "plugin-route", path: "/items/item-1", search: { tab: "stats" } }}
 			>
 				Item 1
 			</PluginLink>
 			<button
 				type="button"
-				onClick={() => navigation.push({ pluginSlug, kind: "plugin-route", path: "/items/item-2" })}
+				onClick={() => navigation.push({ pluginId, kind: "plugin-route", path: "/items/item-2" })}
 			>
 				Push item 2
 			</button>
 			<button
 				type="button"
-				onClick={() => navigation.replace({ path: "/", pluginSlug, kind: "plugin-route" })}
+				onClick={() => navigation.replace({ pluginId, path: "/", kind: "plugin-route" })}
 			>
 				Replace home
 			</button>
@@ -203,17 +204,20 @@ const openChannel = (
 	};
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
 		const target: PluginBridgeNavigate["target"] = Match.value(to).pipe(
-			Match.when({ kind: "plugin-route" }, ({ path, search, pluginSlug: targetPlugin }) => ({
+			Match.when({ kind: "plugin-route" }, ({ path, search, pluginId: targetPlugin }) => ({
 				path,
 				kind: "plugin-route" as const,
-				pluginSlug: PluginSlug.make(targetPlugin),
+				pluginId: PluginId.make(targetPlugin),
 				search: search === undefined ? "" : new URLSearchParams(search).toString(),
 			})),
 			Match.when({ kind: "entity" }, ({ entityId }) => ({
 				kind: "entity" as const,
 				entityId: EntityId.make(entityId),
 			})),
-			Match.when({ kind: "saved-view" }, ({ slug }) => ({ slug, kind: "saved-view" as const })),
+			Match.when({ kind: "saved-view" }, ({ reference }) => ({
+				kind: "saved-view" as const,
+				reference: Schema.decodeSync(SavedViewReference)(reference),
+			})),
 			Match.when({ kind: "kernel-page" }, ({ page }) => ({ page, kind: "kernel-page" as const })),
 			Match.exhaustive,
 		);
@@ -598,7 +602,7 @@ describe("PluginRouter", () => {
 			if (!link) {
 				throw new Error("expected a rendered plugin link");
 			}
-			expect(link.getAttribute("href")).toBe("/fixture/items/item-1?tab=stats");
+			expect(link.getAttribute("href")).toBe("/p/fixture/items/item-1?tab=stats");
 			act(() => {
 				link.dispatchEvent(new MouseEvent("click", { button: 0, bubbles: true, cancelable: true }));
 			});
@@ -613,7 +617,7 @@ describe("PluginRouter", () => {
 								search: "tab=stats",
 								kind: "plugin-route",
 								path: "/items/item-1",
-								pluginSlug: PluginSlug.make(pluginSlug),
+								pluginId: PluginId.make(pluginId),
 							},
 						} satisfies PluginBridgeNavigate,
 					]),
@@ -697,7 +701,7 @@ describe("PluginRouter", () => {
 			root.render(
 				<RyotProvider runtime={channel.clock.runtime}>
 					<PluginLink
-						to={{ pluginSlug, kind: "plugin-route", path: "/items/item-1" }}
+						to={{ pluginId, kind: "plugin-route", path: "/items/item-1" }}
 						onClick={(event) => {
 							clicks += 1;
 							event.preventDefault();
@@ -775,7 +779,7 @@ describe("PluginRouter", () => {
 								search: "",
 								kind: "plugin-route",
 								path: "/items/item-2",
-								pluginSlug: PluginSlug.make(pluginSlug),
+								pluginId: PluginId.make(pluginId),
 							},
 						} satisfies PluginBridgeNavigate,
 						{
@@ -785,7 +789,7 @@ describe("PluginRouter", () => {
 								path: "/",
 								search: "",
 								kind: "plugin-route",
-								pluginSlug: PluginSlug.make(pluginSlug),
+								pluginId: PluginId.make(pluginId),
 							},
 						} satisfies PluginBridgeNavigate,
 					]),

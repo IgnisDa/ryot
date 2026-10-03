@@ -6,7 +6,9 @@ import {
 	CLIENT_COMPILER_VERSION,
 	type PluginClientArtifact,
 	clientArtifactMetadata,
+	clientDeclarationHash,
 } from "@ryot-app/client-plugin-contract";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Effect, Layer } from "effect";
@@ -16,6 +18,13 @@ import { compileClientPluginModule } from "./module";
 import { clientPluginCompilerPlatformLayer } from "./platform";
 
 const bytes = (contents: string) => new TextEncoder().encode(contents);
+const packageId = PluginPackageId.make("ee8040dd-5a40-42a1-916d-58190c1a06e8");
+const dependencyPackageId = PluginPackageId.make("97887987-a15b-452b-bfdc-633028850ad9");
+const pluginIdentity = {
+	packageId,
+	kind: "plugin" as const,
+	clientDeclarationHash: clientDeclarationHash({ homeView: null, apiVersion: CLIENT_API_VERSION }),
+};
 const text = (contents: Uint8Array | undefined) => new TextDecoder().decode(contents);
 const assertDefined: <Value>(value: Value | undefined) => asserts value is Value = (value) => {
 	expect(value).toBeDefined();
@@ -45,6 +54,7 @@ const emittedLayer = (javascript: string, css = "") =>
 	);
 
 const emittedInput = {
+	...pluginIdentity,
 	name: "Reference plugin",
 	apiVersion: CLIENT_API_VERSION,
 	publicExports: { home: { entry: "client/home.tsx", kind: "component" as const } },
@@ -198,9 +208,12 @@ it.layer(clientPluginCompilerPlatformLayer)("compileClientPluginModule", (test) 
 		() =>
 			Effect.gen(function* () {
 				const input = {
+					...pluginIdentity,
 					name: "Module plugin",
-					pluginDependencies: ["media"],
 					apiVersion: CLIENT_API_VERSION,
+					pluginDependencies: {
+						media: { scope: "system" as const, packageId: dependencyPackageId },
+					},
 					publicExports: {
 						zulu: { entry: "client/zulu.tsx", kind: "component" as const },
 						alpha: { entry: "client/alpha.tsx", kind: "component" as const },
@@ -258,7 +271,7 @@ export default function Alpha() {
 						"react/jsx-runtime",
 						"@ryot-app/client-sdk/plugin",
 						"@ryot-app/client-ui-sdk/markdown",
-						"@ryot-app/plugins/media/show-card",
+						`@ryot-app/plugins/system/${dependencyPackageId}/show-card`,
 					]),
 				);
 				expect(imports).toContain("@ryot-app/plugin-kit/effect");
@@ -268,7 +281,9 @@ export default function Alpha() {
 				expect(artifact.apiVersion).toBe(CLIENT_API_VERSION);
 				expect(artifact.bridgeVersion).toBe(CLIENT_BRIDGE_PROTOCOL_VERSION);
 				expect(artifact.compilerVersion).toBe(CLIENT_COMPILER_VERSION);
-				expect(artifact.hash).toBe(clientArtifactMetadata(input.name, artifact.files).hash);
+				expect(artifact.hash).toBe(
+					clientArtifactMetadata(input.name, input.packageId, artifact.files, artifact).hash,
+				);
 			}),
 		60_000,
 	);
@@ -278,6 +293,7 @@ export default function Alpha() {
 		() =>
 			Effect.gen(function* () {
 				const failure = yield* compileClientPluginModule({
+					...pluginIdentity,
 					name: "Invalid module plugin",
 					apiVersion: CLIENT_API_VERSION,
 					publicExports: { invalid: { kind: "component", entry: "client/invalid.tsx" } },
@@ -298,6 +314,7 @@ export default function Alpha() {
 		() =>
 			Effect.gen(function* () {
 				const input = {
+					...pluginIdentity,
 					name: "Invalid exports",
 					apiVersion: CLIENT_API_VERSION,
 					publicExports: { home: { kind: "page" as const, entry: "client/home.tsx" } },
@@ -334,6 +351,7 @@ export default function Alpha() {
 	test.effect("rejects invalid package source paths and oversized assets during planning", () =>
 		Effect.gen(function* () {
 			const input = {
+				...pluginIdentity,
 				name: "Invalid package",
 				apiVersion: CLIENT_API_VERSION,
 				publicExports: { home: { kind: "page" as const, entry: "client/home.tsx" } },
@@ -359,6 +377,7 @@ export default function Alpha() {
 		Effect.gen(function* () {
 			const image = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x01]);
 			const { artifact } = yield* compileClientPluginModule({
+				...pluginIdentity,
 				name: "Styled plugin",
 				apiVersion: CLIENT_API_VERSION,
 				publicExports: { home: { kind: "page", entry: "client/home.tsx" } },
@@ -385,6 +404,7 @@ export default function Alpha() {
 		() =>
 			Effect.gen(function* () {
 				const input = {
+					...pluginIdentity,
 					name: "CLI test plugin",
 					apiVersion: CLIENT_API_VERSION,
 					publicExports: { home: { entry: "client/home.tsx", kind: "component" as const } },
@@ -402,5 +422,63 @@ export default function Alpha() {
 				expect(second.artifact.hash).toBe(first.artifact.hash);
 			}),
 		60_000,
+	);
+	test.effect(
+		"binds identical aliases independently and leaves import-like strings unchanged",
+		() =>
+			Effect.gen(function* () {
+				const input = {
+					...emittedInput,
+					files: {
+						"client/home.tsx": bytes(
+							'import Card from "@ryot-app/plugins/whiskey/card"; export default function Home() { return <Card label="@ryot-app/plugins/whiskey/card" />; }',
+						),
+					},
+				};
+				const first = yield* compileClientPluginModule({
+					...input,
+					pluginDependencies: {
+						whiskey: { packageId, scope: "system" },
+						unused: { scope: "user", packageId: dependencyPackageId },
+					},
+				});
+				const second = yield* compileClientPluginModule({
+					...input,
+					pluginDependencies: { whiskey: { scope: "user", packageId: dependencyPackageId } },
+				});
+				const firstJavascript = text(requiredFile(first.artifact, "module.js").contents);
+				const secondJavascript = text(requiredFile(second.artifact, "module.js").contents);
+				expect(firstJavascript).toContain(`@ryot-app/plugins/system/${packageId}/card`);
+				expect(first.artifact.imports).toEqual([
+					{ exportName: "card", reference: { packageId, scope: "system" } },
+				]);
+				expect(second.artifact.imports).toEqual([
+					{ exportName: "card", reference: { scope: "user", packageId: dependencyPackageId } },
+				]);
+				expect(secondJavascript).toContain(`@ryot-app/plugins/user/${dependencyPackageId}/card`);
+				expect(firstJavascript).toContain("@ryot-app/plugins/whiskey/card");
+				expect(secondJavascript).toContain("@ryot-app/plugins/whiskey/card");
+				expect(first.artifact.hash).not.toBe(second.artifact.hash);
+				const failure = yield* compileClientPluginModule(input).pipe(Effect.flip);
+				expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_IMPORT");
+			}),
+	);
+	test.effect("builds kernel modules without an authored package identity", () =>
+		Effect.gen(function* () {
+			const { name, files, apiVersion, publicExports } = emittedInput;
+			const kernel = yield* compileClientPluginModule({
+				name,
+				files,
+				apiVersion,
+				publicExports,
+				kind: "kernel",
+			});
+			expect(kernel.kind).toBe("kernel");
+			expect(kernel.artifact).not.toHaveProperty("packageId");
+			const plugin = yield* compileClientPluginModule(emittedInput);
+			expect(plugin.kind).toBe("plugin");
+			expect(plugin.artifact.packageId).toBe(packageId);
+			expect(plugin.artifact.hash).not.toBe(kernel.artifact.hash);
+		}),
 	);
 });
