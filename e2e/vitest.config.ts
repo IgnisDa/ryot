@@ -13,8 +13,8 @@ export default mergeConfig(
 		test: {
 			maxWorkers: 6,
 			isolate: false,
-			testTimeout: 930_000,
-			hookTimeout: 360_000,
+			testTimeout: 180_000,
+			hookTimeout: 180_000,
 			globalSetup: ["./global-setup.ts"],
 			reporters: ["hanging-process", "default"],
 			include: ["src/api/**/*.test.ts", "src/browser/**/*.test.ts"],

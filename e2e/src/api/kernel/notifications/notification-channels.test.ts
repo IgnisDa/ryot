@@ -32,7 +32,12 @@ import {
 	testNotificationChannels,
 	updateNotificationChannel,
 } from "~/fixtures/kernel";
-import { findFitnessEntitySchema, saveWorkoutEditor } from "~/fixtures/plugins/fitness";
+import {
+	findFitnessEntitySchema,
+	operationInput,
+	saveWorkoutEditor,
+	workoutData,
+} from "~/fixtures/plugins/fitness";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
@@ -303,21 +308,14 @@ describe("notification delivery", () => {
 				slug: SignalSchemaSlug.make("workout.created"),
 			};
 			const now = DateTime.formatIso(yield* DateTime.now);
-			const saved = yield* saveWorkoutEditor(client, {
-				submittedAt: now,
-				submissionId: crypto.randomUUID(),
-				data: {
-					images: [],
-					videos: [],
-					supersets: [],
-					startedAt: now,
-					kind: "workout",
-					occurrences: [],
-					target: { kind: "create" },
-					activeDuration: { kind: "preserve" },
-					name: `Zero Channel Workout ${crypto.randomUUID()}`,
-				},
-			});
+			const saved = yield* saveWorkoutEditor(
+				client,
+				operationInput(
+					workoutData({ startedAt: now, name: `Zero Channel Workout ${crypto.randomUUID()}` }),
+					undefined,
+					now,
+				),
+			);
 			expect(saved.kind).toBe("saved");
 
 			const { id: triggerId } = yield* pollSignalTrigger({

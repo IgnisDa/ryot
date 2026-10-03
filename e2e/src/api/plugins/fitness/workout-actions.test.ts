@@ -16,6 +16,7 @@ import {
 	createWorkoutEntityFixture,
 	createWorkoutTemplateEntityFixture,
 	deleteWorkout,
+	LARGE_WORKOUT_BUDGET,
 	findWorkoutSetEventSchema,
 	readWorkoutDetails,
 	seedExerciseWorkout,
@@ -55,7 +56,9 @@ it.live(
 					})),
 				}),
 			);
-			expect((yield* waitForCreateEvents(client, response, 600_000)).count).toBe(101);
+			expect(
+				(yield* waitForCreateEvents(client, response, LARGE_WORKOUT_BUDGET.eventsMs)).count,
+			).toBe(101);
 			const newer = yield* seedExerciseWorkout(client, {
 				exerciseId,
 				name: "Surviving workout",
@@ -141,6 +144,7 @@ it.live(
 				name: collection.name,
 			});
 		}),
+	LARGE_WORKOUT_BUDGET.testMs,
 );
 
 it.live("rejects deletion of another user's workout and of an exercise", () =>

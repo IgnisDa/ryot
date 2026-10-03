@@ -54,6 +54,7 @@ describe("Workouts E2E", () => {
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 
 			expect(workoutSchema.propertiesSchema.fields).toMatchObject({
+				exerciseMedia: { type: "array" },
 				images: { type: "array", label: "Images", description: "Images attached to this workout" },
 				videos: { type: "array", label: "Videos", description: "Videos attached to this workout" },
 				endedAt: {
@@ -70,11 +71,6 @@ describe("Workouts E2E", () => {
 					type: "datetime",
 					label: "Started At",
 					description: "Date and time this workout session began",
-				},
-				exerciseMedia: {
-					type: "array",
-					label: "Exercise Media",
-					description: "Images and videos for each exercise occurrence in this workout",
 				},
 				caloriesBurnt: {
 					type: "number",
