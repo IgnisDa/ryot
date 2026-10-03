@@ -7,11 +7,7 @@ import {
 	type EntityPresentationComponentProps,
 	type EntityPresentationLoader,
 } from "@ryot-app/client-sdk/plugin";
-import {
-	ManagedAssetProvider,
-	managedAssetKey,
-	useManagedAssetUrl,
-} from "@ryot-app/client-sdk/react";
+import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
 import {
 	EntityArtWell,
 	fieldSyncState,
@@ -20,6 +16,7 @@ import {
 } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 
+import { managedAssetBatch, useAssetUrl } from "./asset-urls";
 import {
 	fitnessPresentationRecipe,
 	type FitnessPresentationData,
@@ -39,14 +36,7 @@ export const loadFitnessPresentations: EntityPresentationLoader<FitnessPresentat
 	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
 	return client.data.query(fitnessPresentationRecipe({ slug, entityIds })).pipe(
 		Effect.map((rows) => {
-			const managed = rows
-				.map(coverAsset)
-				.filter(
-					(asset): asset is ManagedAssetLocator => asset !== undefined && asset.type !== "remote",
-				);
-			const batchAssets = [
-				...new Map(managed.map((asset) => [managedAssetKey(asset), asset])).values(),
-			].sort((left, right) => managedAssetKey(left).localeCompare(managedAssetKey(right)));
+			const batchAssets = managedAssetBatch(rows.map(coverAsset));
 			return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
 		}),
 	);
@@ -67,13 +57,13 @@ function FitnessArtwork(props: {
 	readonly data: FitnessPresentationViewData;
 }) {
 	const asset = coverAsset(props.data);
-	const managedUrl = useManagedAssetUrl(asset?.type === "remote" ? undefined : asset);
+	const url = useAssetUrl(asset);
 	return (
 		<EntityArtWell
+			url={url}
 			shape="rounded"
 			monogram={props.data.name}
 			state={fieldSyncState(asset, props.data)}
-			url={asset?.type === "remote" ? asset.url : managedUrl}
 			className={clsx("shrink-0", artworkSize(props.layout, props.compact))}
 		/>
 	);
