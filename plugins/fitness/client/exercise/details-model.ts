@@ -1,4 +1,7 @@
-import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
+import {
+	bestWeightRepThresholds,
+	type ExerciseDetails,
+} from "../../shared/exercise-details-recipes";
 import type { ExerciseKind } from "../../shared/exercise-kinds";
 import type { PersonalBest } from "../../shared/workout-records";
 import { formatClock, formatDuration, formatNumber, parseDate } from "../workout/format";
@@ -30,7 +33,7 @@ export const levelLabels = {
 	intermediate: "Intermediate",
 } as const;
 
-export type FactRow = { readonly label: string; readonly value: string };
+type FactRow = { readonly label: string; readonly value: string };
 
 export const exerciseFacts = (exercise: ExerciseRecord): readonly FactRow[] => {
 	const equipment = exercise.equipment.items.map((item) => item.name).join(", ");
@@ -46,7 +49,7 @@ export const exerciseFacts = (exercise: ExerciseRecord): readonly FactRow[] => {
 	return rows.filter((row) => row !== null);
 };
 
-export type MuscleGroup = { readonly label: string | null; readonly names: readonly string[] };
+type MuscleGroup = { readonly label: string | null; readonly names: readonly string[] };
 
 const roleGroups = [
 	{ role: "primary", label: "Primary" },
@@ -70,8 +73,8 @@ export const groupTargets = (targets: readonly Target[]): readonly MuscleGroup[]
 		.filter((group) => group.names.length > 0);
 };
 
-export type MetricUnit = "kg" | "km" | "kmh" | "reps" | "seconds" | "sessions";
-export type MetricKey =
+type MetricUnit = "kg" | "km" | "kmh" | "reps" | "seconds" | "sessions";
+type MetricKey =
 	| "distance"
 	| "duration"
 	| "maxDuration"
@@ -248,11 +251,7 @@ export const peakPoint = (points: readonly MonthPoint[]) =>
 		null,
 	);
 
-export type StatTile = {
-	readonly label: string;
-	readonly value: string;
-	readonly detail: string | null;
-};
+type StatTile = { readonly label: string; readonly value: string; readonly detail: string | null };
 
 const oneDecimal = (value: number) => formatNumber(Math.round(value * 10) / 10);
 
@@ -355,7 +354,7 @@ const personalBestOrder: readonly PersonalBest[] = [
 	"distance",
 ];
 
-export type PersonalBestEntry = { readonly type: PersonalBest; readonly row: PersonalBestRow };
+type PersonalBestEntry = { readonly type: PersonalBest; readonly row: PersonalBestRow };
 
 export const latestPersonalBests = (
 	rows: readonly PersonalBestRow[],
@@ -374,8 +373,6 @@ export const latestPersonalBests = (
 		return row === undefined ? [] : [{ row, type }];
 	});
 };
-
-export const bestWeightRepThresholds = [1, 5, 8, 12, 30] as const;
 
 export const bestWeightByReps = (totals: Totals) => {
 	const weights = [
