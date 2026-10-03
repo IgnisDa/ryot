@@ -30,6 +30,7 @@ import {
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "../sandbox-recovery-store";
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
 import type { SandboxHostCallGateRegistration, SandboxHostResultDelivery } from "./host-call-gate";
+import type { SandboxInlineProgress } from "./inline-progress";
 import { SANDBOX_LIMITS } from "./limits";
 import { SandboxSidecarAdmission, type SandboxAdmissionLease } from "./sidecar-admission";
 import { SandboxSidecarClient } from "./sidecar-client";
@@ -48,6 +49,7 @@ type ProcessKey = {
 type RunResult = {
 	readonly done: DoneFrame;
 	readonly inline: ReadonlyArray<WorkflowReplayJournalEntry>;
+	readonly pendingInline: ReadonlyArray<SandboxInlineProgress>;
 };
 
 export class SidecarGenerationError extends Data.TaggedError("SidecarGenerationError")<{
@@ -413,7 +415,11 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						}
 						run.completed = true;
 						yield* generation.connection.retire(frame.handle);
-						yield* Deferred.succeed(run.result, { done: frame, inline: run.gate.inlineEntries() });
+						yield* Deferred.succeed(run.result, {
+							done: frame,
+							inline: run.gate.inlineEntries(),
+							pendingInline: run.gate.pendingEntries(),
+						});
 						continue;
 					}
 					// An honest sidecar has at most four slotted calls and one blocking inline batch per run.
@@ -801,8 +807,10 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 								message: "Sandbox sidecar returned an invalid execution payload",
 							});
 						}
+						const finished = yield* prepared.finish(result.done);
+						prepared.gate.handoff();
 						yield* prepared.gate.close;
-						return { ...result, finished: yield* prepared.finish(result.done) };
+						return { ...result, finished };
 					}),
 				).pipe(
 					Effect.ensuring(

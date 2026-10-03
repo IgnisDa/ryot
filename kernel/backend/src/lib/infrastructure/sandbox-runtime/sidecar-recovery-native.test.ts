@@ -447,6 +447,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 								lane: "background",
 								workflowExecutionId: "native-recovery-workflow",
 								inlineDurableHost: {
+									cancel: () => Effect.void,
 									capabilities: ["getCachedValue"],
 									settle: (requests) =>
 										Effect.sync(() => {
@@ -484,6 +485,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 								replayJournal: prefix,
 								workflowExecutionId: "native-recovery-workflow",
 								inlineDurableHost: {
+									cancel: () => Effect.void,
 									capabilities: ["getCachedValue"],
 									settle: (requests) => {
 										expect(requests).toMatchObject([

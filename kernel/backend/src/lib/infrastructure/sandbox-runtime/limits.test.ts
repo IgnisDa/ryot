@@ -23,6 +23,7 @@ describe("sandbox limits", () => {
 		expect(SANDBOX_LIMITS).toEqual({
 			journalBytes: 104_857_600,
 			ryotqlResultBytes: 1_048_576,
+			replay: { shortWaitMs: 1_000 },
 			hostCalls: { http: 50, total: 1_000 },
 			diagnostics: { messageBytes: 65_536 },
 			logs: { entryCount: 500, entryBytes: 8_192, totalBytes: 262_144 },
