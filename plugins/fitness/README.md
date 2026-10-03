@@ -22,6 +22,14 @@ through RyotQL scoping, and `userId` identifies their origin. Omitting a target 
 Authenticated entity and relationship create operations support manual additions; provider taxonomy
 migration remains pending.
 
+Private exercise notes are `review` events on `exercise` entities, written only through the
+`exercise-note-create`, `exercise-note-update`, and `exercise-note-delete` operations. Create
+requires a visible entity whose schema is `exercise`. Update and delete require the event to be a
+`review` joined to an `exercise` entity, because the `review` slug is shared with media and
+collection schemas and the operation's RyotQL sees every event of the user. Updates patch only
+`text` and `rating`. Note text is trimmed and limited to 2000 characters at the operation input;
+the stored schema stays unbounded for migrated notes.
+
 ## Imports
 
 Fitness imports append history and cannot be reversed. A separate import can duplicate existing

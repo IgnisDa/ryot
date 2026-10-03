@@ -6,7 +6,8 @@ import {
 // V1 review.entity_id (generated COALESCE of the entity FK columns) equals the V2 entity.id since
 // legacy ids are preserved; reviews whose entity was not migrated are skipped via INNER JOIN.
 // Ratings are clamped to 100 via a CASE guard — LEAST(NULL, 100) returns 100, not NULL. Manga
-// chapter is a rust_decimal JSON string, extracted with ->> before ::float8. Dropped: visibility,
+// chapter is a rust_decimal JSON string, extracted with ->> before ::float8. Exercise reviews keep
+// only rating and text because their event schema rejects unknown keys. Dropped: visibility,
 // comments (no V2 equivalent).
 import { buildRequireLegacyTableSql, buildAnomalyReportSql, buildReportSql } from "./shared";
 
@@ -106,14 +107,17 @@ BEGIN
 			COALESCE(r.show_episode_entity_id, r.podcast_episode_entity_id, r.entity_id),
 			'review',
 			r.entity_schema_plugin_id,
-			jsonb_strip_nulls(jsonb_build_object(
+			CASE WHEN r.entity_schema_slug = 'exercise' THEN jsonb_strip_nulls(jsonb_build_object(
+				'rating', CASE WHEN r.rating IS NOT NULL THEN LEAST(r.rating, 100) END,
+				'text',   NULLIF(r.text, '')
+			)) ELSE jsonb_strip_nulls(jsonb_build_object(
 				'rating',       CASE WHEN r.rating IS NOT NULL THEN LEAST(r.rating, 100) END,
 				'text',         NULLIF(r.text, ''),
 				'isSpoiler',    r.is_spoiler,
 				'animeEpisode', (r.anime_extra_information ->> 'episode')::int,
 				'mangaVolume',  (r.manga_extra_information ->> 'volume')::int,
 				'mangaChapter', NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
-			)),
+			)) END,
 			r.posted_on,
 			r.posted_on
 		FROM rows r
