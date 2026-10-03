@@ -10,6 +10,14 @@ workout presentation query. List recipes share input types with pagination deriv
 inputs. The shared sources use the neutral Plugin Kit imports so both plugin compilers can resolve
 them.
 
+## Imports
+
+Fitness imports append history and cannot be reversed. A separate import can duplicate existing
+activity. Run reports count workouts or measurements in their source-owned units, not internal
+chunks. Activities describe source reading, exercise resolution, and writing separately from actual
+created, updated, unchanged, skipped, or unsuccessful outcomes. Active recovery retains inputs and
+execution pins until terminal cleanup; cancelling keeps committed results.
+
 ## Automations
 
 `fitness.ensure-fitness-library-membership` is a required, user-scoped after hook on exercise

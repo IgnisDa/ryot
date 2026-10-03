@@ -15,7 +15,7 @@ import {
 } from "./helpers";
 import type { MediaImportAdapterFailure } from "./schemas";
 
-const AnilistList = Schema.Struct({
+export const AnilistList = Schema.Struct({
 	id: Schema.Int,
 	score: Schema.Finite,
 	progress: Schema.Int,
@@ -115,8 +115,13 @@ const parseCustomListIds = (value: string | null | undefined) => {
 		: [];
 };
 
-export const adaptAnilistExport = (jsonText: string, timezone: string) => {
-	const importedAt = nowIso();
+export const adaptAnilistExport = (
+	jsonText: string,
+	timezone: string,
+	importedAt = nowIso(),
+	coverageStart = 0,
+	coverageLimit = Number.MAX_SAFE_INTEGER,
+) => {
 	const failures: MediaImportAdapterFailure[] = [];
 	const data = decodeRoot(JSON.parse(jsonText) as unknown);
 	const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
@@ -135,6 +140,11 @@ export const adaptAnilistExport = (jsonText: string, timezone: string) => {
 			continue;
 		}
 		const item = parsed.success;
+		if (!Number.isSafeInteger(item.progress) || item.progress < 0) {
+			failures.push({ itemIndex, message: "AniList progress count is invalid" });
+			itemIndex++;
+			continue;
+		}
 		const target = getSeriesTarget(item.series_type);
 		if (!target) {
 			failures.push({
@@ -158,7 +168,11 @@ export const adaptAnilistExport = (jsonText: string, timezone: string) => {
 			},
 			itemIndex,
 		);
-		for (let progress = 1; progress <= item.progress; progress++) {
+		for (
+			let progress = coverageStart + 1;
+			progress <= Math.min(item.progress, coverageStart + coverageLimit);
+			progress++
+		) {
 			group.events.push({
 				occurredAt,
 				eventSchemaSlug: "progress",
@@ -167,6 +181,10 @@ export const adaptAnilistExport = (jsonText: string, timezone: string) => {
 						? { progressPercent: 100, animeEpisode: progress }
 						: { progressPercent: 100, mangaChapter: progress },
 			});
+		}
+		if (coverageStart + coverageLimit < item.progress) {
+			itemIndex++;
+			continue;
 		}
 		const lifecycle = getLifecycle(item.status);
 		if (lifecycle === "progress") {

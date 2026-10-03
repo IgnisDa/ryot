@@ -15,7 +15,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "media-trending",
 	name: "Media Trending Refresh",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
 	capabilities: [
 		"log",
 		"httpCall",

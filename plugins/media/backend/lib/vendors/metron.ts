@@ -17,7 +17,7 @@ export const getIdentifier = (value: unknown) => {
 export const getMetronCredentials = (host: MetronHost) =>
 	Effect.gen(function* () {
 		const { metronUsername: usernameValue, metronPassword: passwordValue } = yield* host
-			.getPluginConfig(["metronUsername", "metronPassword"])
+			.getPluginConfig({ required: ["metronUsername", "metronPassword"] })
 			.pipe(
 				Effect.mapError((error) => ({
 					...error,

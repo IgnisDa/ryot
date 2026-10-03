@@ -8,7 +8,6 @@ export const manifest = defineManifest({
 	name: "Metron Person Search",
 	slug: "person.metron.search",
 	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
 });
 
 export default defineProvider({ manifest, run: search.run, operation: "search" });

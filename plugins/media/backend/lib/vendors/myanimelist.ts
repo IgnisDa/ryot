@@ -16,7 +16,7 @@ export type MyAnimeListHost = SandboxHost<
 const MAL_API_BASE_URL = "https://api.myanimelist.net/v2";
 
 export const getMalClientId = (host: MyAnimeListHost) =>
-	host.getPluginConfig(["malClientId"]).pipe(
+	host.getPluginConfig({ required: ["malClientId"] }).pipe(
 		Effect.map(({ malClientId }) => malClientId),
 		Effect.mapError((error) => ({
 			...error,

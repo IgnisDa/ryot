@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "Listen Notes",
 	slug: "podcast.listennotes",
-	requiredPluginConfigKeys: ["listennotesApiKey"],
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 type ListennotesHost = SandboxHost<typeof manifest.capabilities>;
@@ -56,7 +55,7 @@ const getIsoDateFromTimestamp = (value: unknown) => {
 const getSourceUrl = (title: string, externalId: string) =>
 	`https://www.listennotes.com/podcasts/${trimmedString(title)}-${externalId}`;
 const getApiKey = (host: ListennotesHost) =>
-	host.getPluginConfig(["listennotesApiKey"]).pipe(
+	host.getPluginConfig({ required: ["listennotesApiKey"] }).pipe(
 		Effect.map(({ listennotesApiKey }) => listennotesApiKey),
 		Effect.flatMap((value) => {
 			const apiKey = typeof value === "string" ? value.trim() : "";
