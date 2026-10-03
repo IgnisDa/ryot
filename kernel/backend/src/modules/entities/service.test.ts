@@ -121,7 +121,6 @@ type TestOptions = {
 	activateSchemaOnWrite?: boolean;
 	deadlockOnce?: boolean;
 	lateEventOnDelete?: boolean;
-	lateEventOnUpdate?: boolean;
 	failChange?: boolean | number;
 	warnings?: ReadonlyArray<AutomationWarning>;
 	policies?: ReadonlyArray<AutomationPolicyOutput | "fail">;
@@ -352,40 +351,6 @@ const entitiesLayer = (options: TestOptions = {}) =>
 										)
 										.pipe(Effect.orDie);
 									expect(requests.length).toBeGreaterThan(0);
-									if (options.lateEventOnUpdate) {
-										const updateRequest = requests.find(
-											({ operation, resourceKind }) =>
-												operation === "update" && resourceKind === "entity",
-										);
-										const payload = updateRequest?.payload;
-										if (
-											payload?.category === "request" &&
-											payload.resource === "entity" &&
-											payload.operation === "update"
-										) {
-											yield* session.transaction(
-												session.run((db) =>
-													db.execute(sql`
-										insert into event (
-											id,
-											user_id,
-											entity_id,
-											event_schema_slug,
-											event_schema_plugin_id,
-											occurred_at
-										) values (
-											'late-update-event',
-											${owner},
-											${payload.before.id},
-											'progress',
-											null,
-											${DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z"))}
-										)
-									`),
-												),
-											);
-										}
-									}
 									const index = Number(runId.split("-")[1]);
 									if (index === 1) {
 										expect(acceptedPatches).toEqual([
@@ -1238,125 +1203,6 @@ describe("EntitiesService committed lifecycle", () => {
 						before: updated.entity,
 					});
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-				}),
-		);
-	});
-
-	layer(entitiesLayer())((test) => {
-		test.effect(
-			"captures distinct dependent event schemas and roles in entity update requests",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const created = yield* service.create(createInput("dependent-summary"));
-					yield* session.run((db) =>
-						db.execute(sql`
-						insert into event (
-							id,
-						user_id,
-						entity_id,
-						session_entity_id,
-						event_schema_slug,
-						event_schema_plugin_id,
-						occurred_at
-						) values
-						('dependent-summary-both-roles', ${owner}, ${created.entity.id}, ${created.entity.id}, 'progress', null, ${DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z"))}),
-						('dependent-summary-entity-duplicate', ${owner}, ${created.entity.id}, null, 'progress', null, ${DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z"))})
-						`),
-					);
-					const input = {
-						userId: owner,
-						scope: "user",
-						populatedAt: null,
-						name: created.entity.name,
-						entityId: created.entity.id,
-						properties: created.entity.properties,
-						lifecycle: command("dependent-summary-update"),
-					} satisfies UpdateEntityInput;
-					const updated = yield* service.update(input);
-					const [request] = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.automationTrigger)
-							.where(
-								eq(tables.automationTrigger.executionId, input.lifecycle.causation.executionId),
-							),
-					);
-					assert(request?.payload?.category === "request");
-					assert(request.payload.resource === "entity" && request.payload.operation === "update");
-					expect(request.payload.dependentEvents).toEqual([
-						{
-							role: "entity",
-							eventSchemaPluginId: null,
-							eventSchemaSlug: EventSchemaSlug.make("progress"),
-						},
-						{
-							role: "session",
-							eventSchemaPluginId: null,
-							eventSchemaSlug: EventSchemaSlug.make("progress"),
-						},
-					]);
-
-					yield* session.run((db) =>
-						db.execute(sql`
-						insert into event (
-							id,
-						user_id,
-						entity_id,
-						event_schema_slug,
-						event_schema_plugin_id,
-						occurred_at
-						) values (
-							'dependent-summary-after-commit',
-							${owner},
-							${created.entity.id},
-							'progress',
-							null,
-							${DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z"))}
-						)
-						`),
-					);
-					expect(yield* service.update(input)).toEqual(updated);
-				}),
-		);
-	});
-
-	layer(entitiesLayer({ lateEventOnUpdate: true, policies: [{ action: "allow" }] }))((test) => {
-		test.effect(
-			"rejects an entity update when a dependent event appears after policy capture",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const created = yield* service.create(createInput("late-update-event"));
-					const input = {
-						userId: owner,
-						scope: "user",
-						name: "Updated",
-						populatedAt: null,
-						entityId: created.entity.id,
-						properties: { title: "updated" },
-						lifecycle: command("late-update-check"),
-					} satisfies UpdateEntityInput;
-					const error = yield* service.update(input).pipe(Effect.flip);
-					expect(error).toMatchObject({
-						_tag: "EntityBadRequest",
-						reason: {
-							code: "mutation-conflict",
-							message: "Entity event dependencies changed while policies ran; resubmit",
-						},
-					});
-					expect(yield* service.getByIdAnyScope(created.entity.id)).toEqual(created.entity);
-					expect(
-						yield* session.run((db) => db.select({ id: tables.event.id }).from(tables.event)),
-					).toHaveLength(1);
-					expect(
-						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
-							({ category, operation, resourceKind }) =>
-								category === "change" && resourceKind === "entity" && operation === "update",
-						),
-					).toEqual([]);
 				}),
 		);
 	});

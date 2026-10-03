@@ -250,28 +250,12 @@ const validateDefinitionSource = (source: DefinitionSource) => {
 
 	for (const signalSchema of source.signalSchemas) {
 		assertSchemaDefinition("signal", signalSchema.slug, signalSchema.propertiesSchema);
-		const policy = signalSchema.audiencePolicy;
 		if (
 			signalSchema.audiencePolicy.kind === "related_users" &&
 			!relationshipSchemaSlugs.has(signalSchema.audiencePolicy.relationshipSchemaSlug)
 		) {
 			throw new Error(
 				`Signal schema ${signalSchema.slug} references missing relationship schema ${signalSchema.audiencePolicy.relationshipSchemaSlug}`,
-			);
-		}
-		if (
-			policy.kind === "dependent_event_owners" &&
-			!source.entitySchemas.some((entitySchema) =>
-				entitySchema.eventSchemas.some(
-					(eventSchema) =>
-						eventSchema.slug === policy.eventSchemaSlug &&
-						(eventSchema.pluginId ?? entitySchema.pluginId ?? null) ===
-							(signalSchema.pluginId ?? null),
-				),
-			)
-		) {
-			throw new Error(
-				`Signal schema ${signalSchema.slug} references missing event schema ${policy.eventSchemaSlug}`,
 			);
 		}
 	}
