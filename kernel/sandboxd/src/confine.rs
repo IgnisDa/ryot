@@ -171,7 +171,7 @@ pub fn lock_down() -> Result<(), String> {
         libc::SYS_setpriority,
         vec![rule(&[
             (0, Dword, Eq, libc::PRIO_PROCESS as u64),
-            (2, Dword, Eq, 10),
+            (2, Dword, Eq, 19),
         ])?],
     );
     rules.insert(
