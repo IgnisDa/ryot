@@ -10,7 +10,7 @@ import { entity } from "@ryot-app/kernel-backend/schema/tables/entities";
 import { event } from "@ryot-app/kernel-backend/schema/tables/events";
 import { CryptoHasher } from "bun";
 import { eq, sql } from "drizzle-orm";
-import { Effect, Stream } from "effect";
+import { Clock, Effect, Stream } from "effect";
 
 import { buildReportSql, type ReportEntry } from "./shared";
 
@@ -29,6 +29,7 @@ type LegacyS3AssetMigrationResult = {
 	deleted: number;
 	deletionFailures: number;
 	discovered: number;
+	elapsedSeconds: number;
 	managedAssetRows: number;
 	referencesMigrated: number;
 	updatedRows: number;
@@ -155,6 +156,7 @@ const migrateAsset = (
 	}).pipe(Effect.catchCause(() => Effect.succeed(null)));
 
 export const migrateLegacyS3Assets = Effect.gen(function* () {
+	const startedAt = yield* Clock.currentTimeMillis;
 	const session = yield* DatabaseSession;
 	const s3 = yield* S3Service;
 	const repository = yield* ManagedAssetsRepository;
@@ -241,10 +243,12 @@ export const migrateLegacyS3Assets = Effect.gen(function* () {
 		}
 	}
 
+	const elapsedSeconds = ((yield* Clock.currentTimeMillis) - startedAt) / 1000;
 	return {
 		deleted,
 		unresolved,
 		updatedRows,
+		elapsedSeconds,
 		deletionFailures,
 		discovered: references.size,
 		referencesMigrated: replacements.size,
@@ -286,7 +290,7 @@ export const buildLegacyS3AssetReportSql = (result: LegacyS3AssetMigrationResult
 	}
 	return `
 		DO $$
-		DECLARE started_at timestamptz := clock_timestamp();
+		DECLARE started_at timestamptz := clock_timestamp() - (${result.elapsedSeconds} * interval '1 second');
 		BEGIN
 			${buildReportSql("legacy S3 assets -> managed_asset", entries)}
 		END $$;

@@ -7,7 +7,7 @@ import {
 	normalizeWorkoutMeasurements,
 	type WorkoutRecordMaxima,
 } from "@ryot-app/fitness-plugin/workout-records";
-import { Effect, Schema } from "effect";
+import { Clock, Effect, Schema } from "effect";
 import type * as SqlConnection from "effect/sql/SqlConnection";
 
 import type { QualifiedSchema } from "./migration-resolution";
@@ -265,6 +265,7 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 		exerciseEntitySchema: QualifiedSchema;
 	},
 ) {
+	const startedAt = yield* Clock.currentTimeMillis;
 	const { eventSchema, workoutEntitySchema, exerciseEntitySchema } = schemas;
 	let streamCursor: WorkoutStream | undefined;
 	let eventsRead = 0;
@@ -413,18 +414,9 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 		}
 	}
 
+	const elapsedSeconds = ((yield* Clock.currentTimeMillis) - startedAt) / 1000;
 	return yield* insertReportRows(connection, [
-		{
-			count: eventsRead,
-			phase: reportPhase,
-			elapsedSeconds: null,
-			message: "set event(s) examined",
-		},
-		{
-			phase: reportPhase,
-			count: eventsUpdated,
-			elapsedSeconds: null,
-			message: "set event(s) updated",
-		},
+		{ elapsedSeconds, count: eventsRead, phase: reportPhase, message: "set event(s) examined" },
+		{ elapsedSeconds, phase: reportPhase, count: eventsUpdated, message: "set event(s) updated" },
 	]);
 });
