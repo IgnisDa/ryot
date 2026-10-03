@@ -14,6 +14,7 @@ export const MigrationReportAnomalyCode = Schema.Literals([
 	"exercise-ownerless-unreferenced",
 	"asset-locator-unresolved",
 	"asset-deletion-failed",
+	"workout-set-completion-outside-session",
 ]);
 
 export type MigrationReportAnomalyCode = Schema.Schema.Type<typeof MigrationReportAnomalyCode>;
@@ -69,6 +70,16 @@ export const MigrationReportDetail = Schema.Union([
 		legacyRecordId: Schema.String,
 		creatorUserId: Schema.NullOr(Schema.String),
 		code: Schema.Literal("exercise-ownerless-unreferenced"),
+	}),
+	Schema.Struct({
+		userId: Schema.String,
+		workoutId: Schema.String,
+		startedAt: Schema.String,
+		endedAt: Schema.NullOr(Schema.String),
+		setOrder: Schema.NullOr(Schema.Finite),
+		confirmedAt: Schema.NullOr(Schema.String),
+		exerciseOrder: Schema.NullOr(Schema.Finite),
+		code: Schema.Literal("workout-set-completion-outside-session"),
 	}),
 ]);
 

@@ -179,6 +179,80 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 			).toBe("RYOT_CAPABILITY");
 		}),
 	);
+	test.effect(
+		"records event-stream requests as automation capabilities and script dependencies",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compilePluginSandboxSourceEntries(
+					{
+						"backend/processor.sandbox.ts": `
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { EventStreamStepInput, EventStreamStepOutput } from "@ryot-app/sandbox-sdk/event-streams";
+
+export const manifest = defineManifest({ kind: "script", name: "Stream processor", slug: "stream-processor" });
+export default defineScript({
+  manifest,
+  input: EventStreamStepInput,
+  output: EventStreamStepOutput,
+  run: () => Effect.succeed({ done: true, checkpoint: null, updates: [] }),
+});
+`,
+						"backend/automation.sandbox.ts": `
+import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { EventStreamStepInput } from "@ryot-app/sandbox-sdk/event-streams";
+import { defineScriptReference } from "@ryot-app/sandbox-sdk/workflow";
+
+const processor = defineScriptReference({
+  scriptSlug: "stream-processor",
+  input: EventStreamStepInput,
+  output: Schema.Unknown,
+});
+const event = Schema.decodeUnknownSync(EventStreamStepInput)({
+  entityId: "entity-1",
+  eventSchemaSlug: "event-stream",
+  dirtyFrom: null,
+  checkpoint: null,
+});
+
+export const manifest = defineManifest({
+  kind: "automation",
+  name: "Stream request",
+  slug: "stream-request",
+  automationType: "automation",
+  inputProjection: { event: { properties: [], compareProperties: [] } },
+});
+export default defineAutomation({
+  manifest,
+  run: (_input, host) => host.requestEventStreamWork({
+    entityId: event.entityId,
+    eventSchemaSlug: event.eventSchemaSlug,
+    outputProperties: ["value"],
+  }, processor).pipe(Effect.as(null)),
+});
+`,
+					},
+					[
+						{ kind: "automation", entry: "backend/automation.sandbox.ts" },
+						{ kind: "script", entry: "backend/processor.sandbox.ts" },
+					],
+				);
+				const automation = compiled.find(({ entry }) => entry === "backend/automation.sandbox.ts")
+					?.compiled.manifest;
+				expect(automation).toMatchObject({
+					capabilities: ["requestEventStreamWork"],
+					executableDependencies: [{ kind: "script", slug: "stream-processor" }],
+				});
+				if (automation?.kind !== "automation") {
+					throw new Error("Expected a compiled automation manifest");
+				}
+				expect(
+					validateCompiledSandboxManifest({ ...automation, automationType: "policy" })?.code,
+				).toBe("RYOT_CAPABILITY");
+			}),
+	);
 	test.effect.each(["source", "package"] as const)(
 		"rejects workflow filesystem capabilities through the $0 entrypoint",
 		(entrypoint) =>
