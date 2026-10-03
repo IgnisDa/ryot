@@ -1,5 +1,6 @@
 import { DateTime, Result, Option } from "@ryot-app/sandbox-sdk/effect";
 
+import { normalizeWorkoutMeasurements } from "../../shared/workout-records";
 import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
 	determineWorkoutExerciseKind,
@@ -143,21 +144,17 @@ const toWorkoutSet = (row: HevyRow): WorkoutImportSet => {
 		warmup: "warm_up",
 		failure: "failure",
 	};
-	const set: WorkoutImportSet = { setLot: setLots[row.setType] ?? "normal" };
+	const set: WorkoutImportSet = {
+		...normalizeWorkoutMeasurements({
+			reps: row.reps,
+			weight: row.weight,
+			duration: row.durationSeconds,
+			distance: row.distanceMeters !== undefined ? row.distanceMeters / 1000 : undefined,
+		}),
+		setLot: setLots[row.setType] ?? "normal",
+	};
 	if (row.exerciseNotes) {
 		set.note = row.exerciseNotes;
-	}
-	if (row.reps !== undefined) {
-		set.reps = row.reps;
-	}
-	if (row.weight !== undefined) {
-		set.weight = row.weight || 1;
-	}
-	if (row.durationSeconds !== undefined) {
-		set.duration = row.durationSeconds / 60;
-	}
-	if (row.distanceMeters !== undefined) {
-		set.distance = row.distanceMeters / 1000;
 	}
 	return set;
 };
