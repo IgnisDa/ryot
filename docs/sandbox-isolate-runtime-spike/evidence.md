@@ -1,6 +1,7 @@
 # Spike evidence
 
 Measurements and pitfalls behind [the isolate runtime plan](plan.md).
+Production-path latency, SQL cost and tenant fairness measurements are in [S3 results](s3.md#results).
 
 A spike compared today's model (fresh `deno run` per execution with production flags) against a
 `deno_core` 0.412 sidecar that restores a startup snapshot of the runtime payload and creates one
