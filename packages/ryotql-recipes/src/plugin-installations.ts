@@ -1,6 +1,16 @@
 import { PluginConfigSchema } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import {
+	PluginInstallationHealth,
+	PluginInstallationIncompatibilityReason,
+	PluginInstallationWriteResult,
+} from "@ryot-app/contract/modules/plugins/schemas";
+import {
+	PluginId,
+	PluginPackageId,
+	PluginRevisionId,
+	PluginSlug,
+} from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	and,
@@ -39,10 +49,12 @@ export const pluginInstallationsRecipe = defineRecipe(
 					ascending(column(installation, "id")),
 				],
 				selection: {
+					pluginId: selectedField(column(plugin, "id"), PluginId),
 					slug: selectedField(column(plugin, "slug"), PluginSlug),
 					icon: selectedField(column(plugin, "icon"), Schema.String),
 					name: selectedField(column(plugin, "name"), Schema.String),
 					version: selectedField(column(plugin, "version"), Schema.String),
+					packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
 					sourceHash: selectedField(column(plugin, "sourceHash"), Schema.String),
 					description: selectedField(column(plugin, "description"), Schema.String),
 					isHidden: selectedField(column(installation, "isHidden"), Schema.Boolean),
@@ -51,6 +63,8 @@ export const pluginInstallationsRecipe = defineRecipe(
 					health: selectedField(column(installation, "health"), PluginInstallationHealth),
 					configSchema: selectedField(column(plugin, "configSchema"), PluginConfigSchema),
 					scope: selectedField(column(plugin, "scope"), Schema.Literals(["system", "user"])),
+					isInitialized: selectedField(column(installation, "isInitialized"), Schema.Boolean),
+					activeRevisionId: selectedField(column(plugin, "activeRevisionId"), PluginRevisionId),
 					config: selectedField(
 						column(installation, "config"),
 						Schema.Record(Schema.String, JsonValue),
@@ -59,13 +73,21 @@ export const pluginInstallationsRecipe = defineRecipe(
 						column(installation, "healthReason"),
 						Schema.NullOr(Schema.String),
 					),
+					installationId: selectedField(
+						column(installation, "id"),
+						PluginInstallationWriteResult.fields.id,
+					),
+					homeSavedView: selectedField(
+						column(installation, "homeSavedView"),
+						Schema.NullOr(SavedViewReference),
+					),
 					configuredSecrets: selectedField(
 						column(installation, "configuredSecrets"),
 						Schema.Array(Schema.String),
 					),
-					homeSavedViewSlug: selectedField(
-						column(installation, "homeSavedViewSlug"),
-						Schema.NullOr(Schema.String),
+					incompatibilityReason: selectedField(
+						column(installation, "incompatibilityReason"),
+						Schema.NullOr(PluginInstallationIncompatibilityReason),
 					),
 				},
 			}),

@@ -1,5 +1,11 @@
+import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginId,
+	SandboxProviderId,
+} from "@ryot-app/contract/schema/brands";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
 	ascending,
@@ -42,6 +48,10 @@ export const entityReadRecipe = defineRecipe(
 							column(entity, "providerId"),
 							Schema.NullOr(SandboxProviderId),
 						),
+						entitySchemaPluginId: selectedField(
+							column(entity, "entitySchemaPluginId"),
+							Schema.NullOr(PluginId),
+						),
 					},
 				}),
 			},
@@ -50,6 +60,7 @@ export const entityReadRecipe = defineRecipe(
 );
 
 export const eventReadRecipe = (input: {
+	readonly owner: PluginIdentityReference | { readonly kind: "kernel" };
 	readonly eventSchemaSlug: string;
 	readonly entitySchemaSlug: string;
 	readonly after?: string | undefined;
@@ -57,6 +68,7 @@ export const eventReadRecipe = (input: {
 	readonly sessionEntityId?: string | undefined;
 }) =>
 	eventHistoryRecipe({
+		owner: input.owner,
 		after: input.after,
 		entityId: input.entityId,
 		sessionEntityId: input.sessionEntityId,

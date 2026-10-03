@@ -1,3 +1,4 @@
+import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -17,6 +18,7 @@ const item = {
 	pluginSlug: "media",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
+	reference: { kind: "custom", savedViewId: "view-1" },
 	renderer: { kind: "kernel", name: "entity-browser" },
 };
 const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
@@ -28,8 +30,8 @@ describe("saved-view record recipes", () => {
 			savedViewRecordsRecipe({
 				limit: 7,
 				after: "cursor",
-				pluginSlug: "media",
 				includeHidden: false,
+				pluginId: "media-owner",
 			}).document.queries.savedViews,
 		);
 
@@ -43,6 +45,7 @@ describe("saved-view record recipes", () => {
 			"sortOrder",
 			"isBuiltin",
 			"renderer",
+			"reference",
 			"pluginSlug",
 			"createdAt",
 			"updatedAt",
@@ -52,18 +55,22 @@ describe("saved-view record recipes", () => {
 		expect(query.where).toMatchObject({
 			predicates: [
 				{ right: { value: false }, left: { field: "isHidden" } },
-				{ right: { value: "media" }, left: { field: "pluginSlug" } },
+				{ left: { field: "pluginId" }, right: { value: "media-owner" } },
 			],
 		});
 	});
 
 	it("prepares optional detail with cardinality limit two", () => {
 		const query = requireRowsQuery(
-			savedViewRecordRecipe({ slug: "view-one" }).document.queries.savedView,
+			savedViewRecordRecipe({ kind: "custom", savedViewId: SavedViewId.make("view-1") }).document
+				.queries.savedView,
 		);
 
 		expect(query.output.pagination).toEqual({ limit: 2 });
-		expect(query.where).toMatchObject({ left: { field: "slug" }, right: { value: "view-one" } });
+		expect(query.where).toMatchObject({
+			left: { field: "reference" },
+			right: { value: { kind: "custom", savedViewId: "view-1" } },
+		});
 	});
 
 	it("decodes plain records, page info, nulls, and normalized dates", () => {
@@ -87,7 +94,10 @@ describe("saved-view record recipes", () => {
 	});
 
 	it("decodes optional detail and rejects excess cardinality", () => {
-		const recipe = savedViewRecordRecipe({ slug: "view-one" });
+		const recipe = savedViewRecordRecipe({
+			kind: "custom",
+			savedViewId: SavedViewId.make("view-1"),
+		});
 
 		expect(Result.getOrThrow(recipe.decode({ data: { savedView: rows([], 2) } }))).toBeUndefined();
 		expect(Result.isFailure(recipe.decode({ data: { savedView: rows([item, item], 2) } }))).toBe(

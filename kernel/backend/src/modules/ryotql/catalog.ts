@@ -4,6 +4,8 @@ import type { AccessClass } from "@ryot-app/contract/oauth";
 import { sql } from "drizzle-orm";
 
 import { automationRunRetryEligibility } from "#lib/infrastructure/db/automation-retry-eligibility";
+import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import type { DefinitionReadContext } from "#modules/definition-registry/read-context";
 import { ingestionReadinessMetadataSql } from "#modules/plugins/ingestion-readiness-projection";
 
 import { ingestionActivitiesSql, ingestionSummarySql } from "./ingestion-projection";
@@ -46,7 +48,12 @@ type CatalogVisibility = {
 	readonly plugin?:
 		| { readonly type: "eventDefinition" }
 		| {
+				readonly type: "schemaDefinition";
+				readonly kind: "entity" | "event" | "relationship" | "signal";
+		  }
+		| {
 				readonly column: string;
+				readonly ownerColumn: string;
 				readonly globalOnly: boolean;
 				readonly type: "discriminator";
 				readonly ownership: "entitySchemaSlugs" | "relationshipSchemaSlugs";
@@ -61,17 +68,13 @@ type UserExecutionScope = {
 	readonly language: string | null;
 	readonly audience: RyotQLAudience;
 	readonly accessClass: AccessClass;
+	readonly definitionContext?: DefinitionReadContext | undefined;
 };
 
-type PluginExecutionScope = {
+type PluginExecutionScope = SandboxPluginRevision["schemaScope"] & {
 	readonly type: "plugin";
-	readonly pluginSlug: string;
-	readonly entitySchemaSlugs: readonly string[];
-	readonly relationshipSchemaSlugs: readonly string[];
-	readonly eventSchemas: readonly {
-		readonly eventSchemaSlug: string;
-		readonly entitySchemaSlug: string;
-	}[];
+	readonly pluginId: SandboxPluginRevision["id"];
+	readonly pluginRevisionId: SandboxPluginRevision["revisionId"];
 };
 
 export type RyotQLExecutionScope =
@@ -212,6 +215,7 @@ const entity: CatalogTable = {
 			type: "discriminator",
 			column: "entity_schema_slug",
 			ownership: "entitySchemaSlugs",
+			ownerColumn: "entity_schema_plugin_id",
 		},
 	},
 	fields: {
@@ -298,6 +302,7 @@ const relationship: CatalogTable = {
 			type: "discriminator",
 			column: "relationship_schema_slug",
 			ownership: "relationshipSchemaSlugs",
+			ownerColumn: "relationship_schema_plugin_id",
 		},
 	},
 	fields: {
@@ -308,6 +313,7 @@ const relationship: CatalogTable = {
 		sourceEntityId: physicalField("source_entity_id", "text", false),
 		targetEntityId: physicalField("target_entity_id", "text", false),
 		relationshipSchemaSlug: physicalField("relationship_schema_slug", "text", false),
+		relationshipSchemaPluginId: physicalField("relationship_schema_plugin_id", "text"),
 	},
 };
 
@@ -326,6 +332,7 @@ const plugin: CatalogTable = {
 		slug: physicalField("slug", "text", false),
 		status: physicalField("status", "text", false),
 		description: pluginMetadataField("description"),
+		packageId: physicalField("package_id", "text", false),
 		activationId: physicalField("activation_id", "text", false),
 		activeRevisionId: physicalField("active_revision_id", "text"),
 		ingestedAt: pluginActiveRevisionField("revision.created_at", "date", true),
@@ -375,16 +382,20 @@ const usableHomeSavedView = (
 	ELSE false
 END`;
 
-const effectiveHomeSavedViewSlug: CatalogField = {
-	kind: "text",
+const effectiveHomeSavedView: CatalogField = {
+	kind: "json",
 	nullable: true,
 	resolve: ({ sqlAlias }) =>
 		sql.raw(`COALESCE(
-			(SELECT home_selected.slug FROM user_saved_view_effective home_selected
-				WHERE home_selected.slug = ${sqlAlias}.home_saved_view_slug
+			(SELECT ${sqlAlias}.home_saved_view FROM user_saved_view_effective home_selected
+				WHERE CASE ${sqlAlias}.home_saved_view ->> 'kind'
+					WHEN 'custom' THEN NOT home_selected.is_builtin AND home_selected.id = ${sqlAlias}.home_saved_view ->> 'savedViewId'
+					WHEN 'kernel' THEN home_selected.is_builtin AND home_selected.plugin_id IS NULL AND home_selected.slug = ${sqlAlias}.home_saved_view ->> 'slug'
+					WHEN 'plugin' THEN home_selected.is_builtin AND home_selected.plugin_id = ${sqlAlias}.home_saved_view ->> 'pluginId' AND home_selected.slug = ${sqlAlias}.home_saved_view ->> 'slug'
+					ELSE false END
 					AND home_selected.user_id = ${sqlAlias}.user_id
 					AND ${usableHomeSavedView("home_selected", `${sqlAlias}.user_id`)}),
-			(SELECT home_fallback.slug FROM plugin home_plugin
+			(SELECT jsonb_build_object('kind', 'plugin', 'pluginId', home_plugin.id, 'slug', home_fallback.slug) FROM plugin home_plugin
 				INNER JOIN plugin_revision home_revision ON home_revision.id = home_plugin.active_revision_id
 				INNER JOIN user_saved_view_effective home_fallback ON home_fallback.slug = home_revision.manifest -> 'client' ->> 'homeView'
 				WHERE home_plugin.id = ${sqlAlias}.plugin_id
@@ -392,6 +403,7 @@ const effectiveHomeSavedViewSlug: CatalogField = {
 					AND (home_plugin.owner_user_id IS NULL OR home_plugin.owner_user_id = ${sqlAlias}.user_id)
 					AND home_fallback.user_id = ${sqlAlias}.user_id
 					AND home_fallback.is_builtin
+					AND home_fallback.plugin_id = home_plugin.id
 					AND home_fallback.plugin_installation_id = ${sqlAlias}.id
 					AND ${usableHomeSavedView("home_fallback", `${sqlAlias}.user_id`)})
 		)`),
@@ -411,8 +423,8 @@ const pluginInstallation: CatalogTable = {
 		},
 	},
 	fields: {
+		homeSavedView: effectiveHomeSavedView,
 		id: physicalField("id", "text", false),
-		homeSavedViewSlug: effectiveHomeSavedViewSlug,
 		health: physicalField("health", "text", false),
 		pluginId: physicalField("plugin_id", "text", false),
 		healthReason: physicalField("health_reason", "text"),
@@ -420,9 +432,19 @@ const pluginInstallation: CatalogTable = {
 		updatedAt: physicalField("updated_at", "date", false),
 		isHidden: physicalField("is_hidden", "boolean", false),
 		sortOrder: physicalField("sort_order", "number", false),
+		isInitialized: physicalField("is_initialized", "boolean", false),
+		incompatibilityReason: physicalField("incompatibility_reason", "text"),
 		config: withAccess(physicalField("client_config", "json", false), "kernel"),
 		userSettings: withAccess(physicalField("user_settings", "json", false), "kernel"),
 		configuredSecrets: withAccess(textArrayField("configured_secret_paths"), "kernel"),
+		conflictingSystemPluginId: {
+			kind: "text",
+			nullable: true,
+			resolve: ({ sqlAlias }) =>
+				sql.raw(
+					`(SELECT system_plugin.id FROM plugin private_plugin JOIN plugin system_plugin ON system_plugin.package_id = private_plugin.package_id AND system_plugin.owner_user_id IS NULL AND system_plugin.status = 'active' WHERE private_plugin.id = ${sqlAlias}.plugin_id AND private_plugin.owner_user_id IS NOT NULL AND ${sqlAlias}.incompatibility_reason = 'package-identity-conflict')`,
+				),
+		},
 	},
 };
 
@@ -431,6 +453,8 @@ const definitionFields = {
 	slug: physicalField("slug", "text", false),
 	name: physicalField("name", "text", false),
 	pluginId: physicalField("plugin_id", "text"),
+	packageId: physicalField("package_id", "text"),
+	pluginRevisionId: physicalField("plugin_revision_id", "text"),
 	propertiesSchema: physicalField("properties_schema", "json", false),
 };
 
@@ -447,7 +471,10 @@ const effectiveDefinitionVisibility: CatalogVisibility = {
 const entitySchema: CatalogTable = {
 	primaryKey: ["id"],
 	name: "user_entity_schema",
-	visibility: effectiveDefinitionVisibility,
+	visibility: {
+		...effectiveDefinitionVisibility,
+		plugin: { kind: "entity", type: "schemaDefinition" },
+	},
 	fields: {
 		...definitionFields,
 		icon: physicalField("icon", "text", false),
@@ -460,7 +487,10 @@ const entitySchema: CatalogTable = {
 const eventSchema: CatalogTable = {
 	primaryKey: ["id"],
 	name: "user_event_schema",
-	visibility: effectiveDefinitionVisibility,
+	visibility: {
+		...effectiveDefinitionVisibility,
+		plugin: { kind: "event", type: "schemaDefinition" },
+	},
 	fields: {
 		...definitionFields,
 		entitySchemaSlug: physicalField("entity_schema_slug", "text", false),
@@ -476,7 +506,10 @@ const eventSchema: CatalogTable = {
 const relationshipSchema: CatalogTable = {
 	primaryKey: ["id"],
 	name: "user_relationship_schema",
-	visibility: effectiveDefinitionVisibility,
+	visibility: {
+		...effectiveDefinitionVisibility,
+		plugin: { kind: "relationship", type: "schemaDefinition" },
+	},
 	fields: {
 		...definitionFields,
 		pluginSlug: physicalField("plugin_slug", "text"),
@@ -488,7 +521,10 @@ const relationshipSchema: CatalogTable = {
 const signalSchema: CatalogTable = {
 	primaryKey: ["id"],
 	name: "user_signal_schema",
-	visibility: effectiveDefinitionVisibility,
+	visibility: {
+		...effectiveDefinitionVisibility,
+		plugin: { kind: "signal", type: "schemaDefinition" },
+	},
 	fields: {
 		...definitionFields,
 		pluginSlug: physicalField("plugin_slug", "text"),
@@ -505,6 +541,8 @@ const executableDefinitionFields = {
 	id: physicalField("id", "text", false),
 	slug: physicalField("slug", "text", false),
 	name: physicalField("name", "text", false),
+	pluginId: physicalField("plugin_id", "text"),
+	packageId: physicalField("package_id", "text"),
 	pluginSlug: physicalField("plugin_slug", "text"),
 	pluginScope: physicalField("plugin_scope", "text"),
 	installationId: physicalField("installation_id", "text"),
@@ -515,7 +553,7 @@ const pluginConfigEnvironmentSegment = (value: string) =>
 	`upper(regexp_replace(regexp_replace(regexp_replace(${value}, '([a-z0-9])([A-Z])', '\\1_\\2', 'g'), '[^a-zA-Z0-9]+', '_', 'g'), '^_+|_+$', '', 'g'))`;
 
 const missingPluginConfigKeys = (sqlAlias: string) => `COALESCE((
-		SELECT jsonb_agg(CASE WHEN ${sqlAlias}.plugin_scope = 'system' THEN 'RYOT_PLUGIN_' || ${pluginConfigEnvironmentSegment(`${sqlAlias}.plugin_slug`)} || '_' || ${pluginConfigEnvironmentSegment("required_key.key")} ELSE required_key.key END ORDER BY required_key.position)
+		SELECT jsonb_agg(CASE WHEN ${sqlAlias}.plugin_scope = 'system' THEN 'RYOT_PLUGIN_' || upper(replace(${sqlAlias}.package_id, '-', '')) || '_' || ${pluginConfigEnvironmentSegment("required_key.key")} ELSE required_key.key END ORDER BY required_key.position)
 		FROM unnest(${sqlAlias}.required_plugin_config_keys) WITH ORDINALITY required_key(key, position)
 		WHERE NOT COALESCE(${ingestionReadinessMetadataSql(sqlAlias)}->'availableConfigKeys', '[]'::jsonb) ? required_key.key
 	), '[]'::jsonb)`;
@@ -606,6 +644,7 @@ const sandboxProvider: CatalogTable = {
 		slug: physicalField("slug", "text", false),
 		name: physicalField("name", "text", false),
 		pluginId: physicalField("plugin_id", "text", false),
+		packageId: physicalField("package_id", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
 		information: physicalField("information", "json", false),
@@ -620,7 +659,9 @@ const sandboxProviderOperation: CatalogTable = {
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	},
 	fields: {
+		pluginId: physicalField("plugin_id", "text", false),
 		operation: physicalField("operation", "text", false),
+		packageId: physicalField("package_id", "text", false),
 		optionsSchema: physicalField("options_schema", "json"),
 		providerId: physicalField("provider_id", "text", false),
 	},
@@ -638,14 +679,26 @@ const savedView: CatalogTable = {
 		slug: physicalField("slug", "text", false),
 		name: physicalField("name", "text", false),
 		icon: physicalField("icon", "text", false),
+		pluginId: physicalField("plugin_id", "text"),
+		packageId: physicalField("package_id", "text"),
 		createdAt: physicalField("created_at", "date"),
 		updatedAt: physicalField("updated_at", "date"),
 		renderer: physicalField("renderer", "json", false),
 		settings: physicalField("settings", "json", false),
 		dataSources: physicalField("data_sources", "json"),
+		revision: physicalField("revision", "number", false),
 		isHidden: physicalField("is_hidden", "boolean", false),
 		sortOrder: physicalField("sort_order", "number", false),
 		isBuiltin: physicalField("is_builtin", "boolean", false),
+		pluginInstallationId: physicalField("plugin_installation_id", "text"),
+		reference: {
+			kind: "json",
+			nullable: false,
+			resolve: ({ sqlAlias }) =>
+				sql.raw(
+					`CASE WHEN NOT ${sqlAlias}.is_builtin THEN jsonb_build_object('kind', 'custom', 'savedViewId', ${sqlAlias}.id) WHEN ${sqlAlias}.plugin_id IS NULL THEN jsonb_build_object('kind', 'kernel', 'slug', ${sqlAlias}.slug) ELSE jsonb_build_object('kind', 'plugin', 'pluginId', ${sqlAlias}.plugin_id, 'slug', ${sqlAlias}.slug) END`,
+				),
+		},
 	},
 };
 
@@ -679,6 +732,7 @@ const notificationSubscription: CatalogTable = {
 		isActive: physicalField("is_active", "boolean", false),
 		signalSchemaSlug: physicalField("signal_schema_slug", "text", false),
 		userId: withAccess(physicalField("user_id", "text", false), "admin"),
+		signalSchemaPluginId: physicalField("signal_schema_plugin_id", "text"),
 	},
 };
 
@@ -706,6 +760,14 @@ const integration: CatalogTable = {
 		providerSpecifics: standardOnly(
 			withAccess(physicalField("client_provider_specifics", "json", false), "kernel"),
 		),
+		pluginId: {
+			kind: "text",
+			nullable: true,
+			resolve: ({ sqlAlias }) =>
+				sql.raw(
+					`(SELECT installation.plugin_id FROM plugin_installation installation WHERE installation.id = ${sqlAlias}.plugin_installation_id AND installation.user_id = ${sqlAlias}.user_id)`,
+				),
+		},
 	},
 };
 

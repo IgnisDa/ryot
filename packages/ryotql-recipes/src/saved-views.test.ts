@@ -85,6 +85,7 @@ describe("saved-view recipes", () => {
 				limit: 2,
 				after: "cursor",
 				type: "generated",
+				owner: { kind: "self" },
 				fields: projections.table.fields,
 				entitySchemaSlugs: ["smartphone", "tablet"],
 				orderBy: [ascending(column(entity, "createdAt"))],
@@ -102,9 +103,18 @@ describe("saved-view recipes", () => {
 				type: "and",
 				predicates: [
 					{
-						type: "in",
-						values: [{ value: "smartphone" }, { value: "tablet" }],
-						expr: { tableAlias: "entity", field: "entitySchemaSlug" },
+						type: "and",
+						predicates: [
+							{
+								type: "in",
+								values: [{ value: "smartphone" }, { value: "tablet" }],
+								expr: { tableAlias: "entity", field: "entitySchemaSlug" },
+							},
+							{
+								left: { field: "entitySchemaPluginId" },
+								right: { type: "pluginId", reference: { kind: "self" } },
+							},
+						],
 					},
 					{ operator: "eq", type: "comparison", right: { value: "active" } },
 				],
@@ -115,7 +125,12 @@ describe("saved-view recipes", () => {
 	it("decodes every table display kind and preserves null as a value state", () => {
 		const prepared = savedViewRecipe({
 			layout: { type: "table", mapping: projections.table.mappings },
-			source: { type: "generated", entitySchemaSlugs: ["book"], fields: projections.table.fields },
+			source: {
+				type: "generated",
+				owner: { kind: "self" },
+				entitySchemaSlugs: ["book"],
+				fields: projections.table.fields,
+			},
 		});
 		const decoded = Result.getOrThrow(
 			prepared.decode({
@@ -158,7 +173,12 @@ describe("saved-view recipes", () => {
 	it("rejects malformed plain values according to display metadata", () => {
 		const prepared = savedViewRecipe({
 			layout: { type: "table", mapping: projections.table.mappings },
-			source: { type: "generated", entitySchemaSlugs: ["book"], fields: projections.table.fields },
+			source: {
+				type: "generated",
+				owner: { kind: "self" },
+				entitySchemaSlugs: ["book"],
+				fields: projections.table.fields,
+			},
 		});
 
 		expect(

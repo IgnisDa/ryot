@@ -7,15 +7,17 @@ import { requireRowsQuery, rowsResult } from "./test-utils";
 const entry = {
 	sortOrder: 0,
 	icon: "puzzle",
+	scope: "system",
 	name: "Fixture",
 	slug: "fixture",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
+	homeSavedView: null,
 	pluginId: "plugin-1",
-	homeSavedViewSlug: null,
 	sourceHash: "source-hash",
 	installationId: "installation-1",
+	packageId: "2eed98ed-dcb6-4aa1-aa43-c09d481e4cbe",
 };
 
 const response = {
