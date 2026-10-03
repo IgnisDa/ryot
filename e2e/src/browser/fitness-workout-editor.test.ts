@@ -15,6 +15,7 @@ import {
 	draftHeading,
 	findFitnessEntitySchema,
 	openFitnessPage,
+	overlay,
 	readWorkoutDetails,
 	renameDraft,
 	saveDraft,
@@ -41,11 +42,7 @@ it.live("dismisses a workout overlay with an edge swipe without leaving the draf
 		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill("Swipe recovery");
 		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
-		const picker = frame.getByRole("dialog", {
-			exact: true,
-			includeHidden: true,
-			name: "Add exercises",
-		});
+		const picker = overlay(frame, "Add exercises");
 		yield* picker.waitFor({ state: "visible" });
 		yield* page.getByTestId("edge-gesture").waitFor({ state: "visible" });
 		yield* page.use((raw) => raw.mouse.move(8, 400));
@@ -108,7 +105,7 @@ it.live("keeps independently saved zero measurements when the workout is discard
 		yield* frame.getByRole("button", { exact: true, name: "Log measurement" }).click();
 		const measurement = frame.getByRole("dialog", { exact: true, name: "Log measurement" });
 		yield* measurement.getByLabel("Weight (kg)", { exact: true }).fill("0");
-		yield* measurement.getByLabel(/Comment\s*\(optional\)/).fill("Saved independently");
+		yield* measurement.getByLabel("Comment (optional)").fill("Saved independently");
 		yield* measurement.getByRole("button", { exact: true, name: "Save" }).click();
 		yield* measurement.waitFor({ state: "hidden" });
 		yield* discardDraft(frame);
@@ -139,11 +136,7 @@ it.live("retries a committed workout after a lost response and reload without du
 		yield* frame.getByRole("button", { exact: true, name: "Add" }).click();
 		yield* renameDraft(frame, WORKOUT_DETAILS, name);
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
-		const picker = frame.getByRole("dialog", {
-			exact: true,
-			includeHidden: true,
-			name: "Add exercises",
-		});
+		const picker = overlay(frame, "Add exercises");
 		for (const exerciseName of [first, second]) {
 			yield* picker.getByRole("searchbox", { name: "Search exercises" }).fill(exerciseName);
 			yield* picker.getByRole("checkbox", { exact: true, name: exerciseName }).check();
@@ -158,11 +151,7 @@ it.live("retries a committed workout after a lost response and reload without du
 			expect(yield* exercise.textContent()).toContain("1/1 done");
 		}
 		yield* frame.getByRole("button", { exact: true, name: "Reorder" }).click();
-		const reorder = frame.getByRole("dialog", {
-			exact: true,
-			includeHidden: true,
-			name: "Reorder exercises",
-		});
+		const reorder = overlay(frame, "Reorder exercises");
 		yield* reorder.getByRole("button", { exact: true, name: `Reorder ${second}` }).press("ArrowUp");
 		yield* reorder.waitFor({ state: "hidden" });
 		yield* page.goto(`${getFrontendUrl()}/settings/import-data`);
