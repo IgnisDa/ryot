@@ -470,6 +470,8 @@ function NodeControl(props: NodeProps) {
 					value={value}
 					label={property.label}
 					onChange={props.onChange}
+					className="max-w-full overflow-x-auto"
+					optionClassName="shrink-0 whitespace-nowrap px-3"
 					options={choices.map((choice) => ({
 						value: choice.value,
 						label: schemaChoiceLabel(choice),
