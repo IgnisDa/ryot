@@ -4,6 +4,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import {
 	getImagesSortedBySize,
 	SPOTIFY_SEARCH_PAGE_SIZE,
@@ -74,7 +75,10 @@ export const details = defineProvider({
 			}
 
 			const parts = numberValue(album?.["total_tracks"]);
-			const description = stringValue(album?.["description"]);
+			const description = yield* normalizeRichDescription(
+				album?.["description"],
+				"https://open.spotify.com",
+			);
 			const tracksRecord = asRecord(album?.["tracks"]);
 			const trackItems = Array.isArray(tracksRecord?.["items"]) ? tracksRecord["items"] : [];
 			const relatedEntities = trackItems.flatMap((item, index) => {

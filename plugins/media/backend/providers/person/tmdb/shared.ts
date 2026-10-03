@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { getUserAllowNsfw } from "../../../lib/host";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import {
 	type UnknownRecord,
 	asRecord,
@@ -194,8 +195,8 @@ export const details = defineProvider({
 						website: stringValue(personData["homepage"]),
 						birthDate: stringValue(personData["birthday"]),
 						deathDate: stringValue(personData["deathday"]),
-						description: stringValue(personData["biography"]),
 						birthPlace: stringValue(personData["place_of_birth"]),
+						description: normalizePlainDescription(personData["biography"]),
 						sourceUrl: `https://www.themoviedb.org/person/${input.externalId}`,
 						images: [...imageUrls].map((url) => ({
 							url,
@@ -232,7 +233,9 @@ export const translate = defineProvider({
 			Effect.map(([translationsData, imagesData]) => {
 				const candidates = orderedTranslationCandidates(translationsData, langCode, region);
 				const name = firstTranslationValue(candidates, (data) => data["name"]);
-				const description = firstTranslationValue(candidates, (data) => data["biography"]);
+				const description = normalizePlainDescription(
+					firstTranslationValue(candidates, (data) => data["biography"]),
+				);
 				const imageUrl = getLocalizedImageUrl(imagesData, "profiles", langCode);
 				const properties: Record<
 					string,

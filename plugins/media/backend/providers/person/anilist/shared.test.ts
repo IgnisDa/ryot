@@ -148,7 +148,7 @@ describe("person.anilist sandbox script", () => {
 		);
 	});
 
-	it("formats fuzzy dates and cleans the biography HTML", () => {
+	it("formats fuzzy dates and preserves biography line breaks", () => {
 		const host = makeHost(() =>
 			httpSuccess({
 				data: {
@@ -158,11 +158,11 @@ describe("person.anilist sandbox script", () => {
 						homeTown: "Tokyo, Japan",
 						name: { full: "Creator" },
 						dateOfDeath: { month: 12, year: 2020 },
-						description: "First line<br>Second line",
 						image: { large: "https://img/creator.jpg" },
 						dateOfBirth: { day: 9, month: 2, year: 1970 },
 						staffMedia: { edges: [], pageInfo: { hasNextPage: false } },
 						characterMedia: { edges: [], pageInfo: { hasNextPage: false } },
+						description: 'First line<br><span class="markdown_spoiler">Second line</span>',
 					},
 				},
 			}),
@@ -177,8 +177,8 @@ describe("person.anilist sandbox script", () => {
 					alternateNames: [],
 					birthDate: "1970-02-09",
 					birthPlace: "Tokyo, Japan",
-					description: "First line\nSecond line",
 					sourceUrl: "https://anilist.co/staff/9",
+					description: "First line\\\n:spoiler[Second line]",
 					images: [{ type: "remote", purpose: "profile", url: "https://img/creator.jpg" }],
 				});
 				return undefined;

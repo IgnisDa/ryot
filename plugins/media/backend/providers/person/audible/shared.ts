@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, stringValue } from "../../../lib/records";
 import { audibleFetchJson } from "../../../lib/vendors/audible";
 
@@ -65,8 +66,7 @@ export const details = defineProvider({
 					throw new Error("Audnex returned no author name");
 				}
 				const image = stringValue(record?.["image"]);
-				const description =
-					typeof record?.["description"] === "string" ? record["description"] : null;
+				const description = normalizePlainDescription(record?.["description"]);
 				return {
 					name,
 					properties: {

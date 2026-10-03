@@ -2,6 +2,22 @@
 	"name": "@ryot-app/media-plugin",
 	"private": true,
 	"exports": {
+		"./backend/lib/anilist-description": {
+			"types": "./backend/lib/anilist-description.ts",
+			"default": "./backend/lib/anilist-description.ts"
+		},
+		"./backend/lib/plain-description": {
+			"types": "./backend/lib/plain-description.ts",
+			"default": "./backend/lib/plain-description.ts"
+		},
+		"./backend/lib/rich-description": {
+			"types": "./backend/lib/rich-description.ts",
+			"default": "./backend/lib/rich-description.ts"
+		},
+		"./backend/lib/vndb-description": {
+			"types": "./backend/lib/vndb-description.ts",
+			"default": "./backend/lib/vndb-description.ts"
+		},
 		".": {
 			"types": "./host/plugin.ts",
 			"default": "./host/plugin.ts"

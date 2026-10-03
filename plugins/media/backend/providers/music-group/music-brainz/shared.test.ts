@@ -98,7 +98,7 @@ describe("music-group.music-brainz sandbox script", () => {
 					expect(result.properties).toEqual({
 						parts: 3,
 						images: [],
-						description: "Album - Live - deluxe",
+						description: "Album \\- Live \\- deluxe",
 						sourceUrl: "https://musicbrainz.org/release-group/g1",
 					});
 				}),

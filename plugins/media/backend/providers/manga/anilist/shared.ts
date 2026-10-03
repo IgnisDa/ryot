@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
-import { cleanHtmlDescription } from "../../../lib/clean-html-description";
+import { normalizeAnilistDescription } from "../../../lib/anilist-description";
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { numberValue, stringValue } from "../../../lib/records";
@@ -43,7 +43,7 @@ query MediaDetailsQuery($id: Int!) {
     volumes
     isAdult
     chapters
-    description
+    description(asHtml: true)
     bannerImage
     averageScore
     tags { name }
@@ -95,12 +95,15 @@ export const details = defineProvider({
 					publishYear: parsePublishYear(media["startDate"]),
 					providerRating: numberValue(media["averageScore"]),
 					genres: collectGenres(media["genres"], media["tags"]),
-					description: cleanHtmlDescription(media["description"]),
 					productionStatus: statusValue ? toTitleCase(statusValue) : null,
 					images: collectImages(media["coverImage"], media["bannerImage"]),
 					isNsfw: typeof media["isAdult"] === "boolean" ? media["isAdult"] : null,
 					volumes: volumesValue === null ? null : Math.max(0, Math.trunc(volumesValue)),
 					sourceUrl: `https://anilist.co/manga/${payloadIdentifier}/${encodeURIComponent(title)}`,
+					description: yield* normalizeAnilistDescription(
+						media["description"],
+						"https://anilist.co",
+					),
 				},
 			};
 		});

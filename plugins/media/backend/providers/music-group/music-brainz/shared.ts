@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
 import { buildLuceneQuery, fetchCoverArtUrl, mbGet } from "../../../lib/vendors/music-brainz";
 
@@ -182,7 +183,7 @@ export const details = defineProvider({
 					message: "MusicBrainz release-group is missing title",
 				});
 			}
-			const description = releaseGroupDescription(releaseGroup);
+			const description = normalizePlainDescription(releaseGroupDescription(releaseGroup));
 
 			const browseValue = yield* mbGet(host, "release", {
 				limit: "10",

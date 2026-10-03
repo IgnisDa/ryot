@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider, type ProviderDetailsRelatedEntity } from "@ryot-app/sandbox-sdk/provider";
 
-import { cleanHtmlDescription } from "../../../lib/clean-html-description";
+import { normalizeAnilistDescription } from "../../../lib/anilist-description";
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
@@ -42,7 +42,7 @@ query MediaDetailsQuery($id: Int!) {
     status
     isAdult
     episodes
-    description
+    description(asHtml: true)
     bannerImage
     averageScore
     tags { name }
@@ -178,13 +178,16 @@ export const details = defineProvider({
 					publishYear: parsePublishYear(media["startDate"]),
 					providerRating: numberValue(media["averageScore"]),
 					genres: collectGenres(media["genres"], media["tags"]),
-					description: cleanHtmlDescription(media["description"]),
 					productionStatus: statusValue ? toTitleCase(statusValue) : null,
 					images: collectImages(media["coverImage"], media["bannerImage"]),
 					isNsfw: typeof media["isAdult"] === "boolean" ? media["isAdult"] : null,
 					episodes: episodesValue === null ? null : Math.max(0, Math.trunc(episodesValue)),
 					sourceUrl: `https://anilist.co/anime/${payloadIdentifier}/${encodeURIComponent(title)}`,
 					airingSchedule: parseAiringSchedule(media["airingSchedule"], media["nextAiringEpisode"]),
+					description: yield* normalizeAnilistDescription(
+						media["description"],
+						"https://anilist.co",
+					),
 				},
 			};
 		});

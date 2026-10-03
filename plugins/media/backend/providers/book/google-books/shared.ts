@@ -6,6 +6,7 @@ import { strictStruct } from "@ryot-app/sandbox-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { decodeJsonResponse } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import { toTitleCase } from "../../../lib/title-case";
 
 type GoogleBooksHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
@@ -242,11 +243,13 @@ export const details = defineProvider({
 					publishYear: parsePublishYear(volumeInfo?.["publishedDate"]),
 					sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
 					genres: collectGenres(volumeInfo?.["categories"], volumeInfo?.["mainCategory"]),
-					description:
-						typeof volumeInfo?.["description"] === "string" ? volumeInfo["description"] : null,
 					unlinkedCreators: collectUnlinkedCreators(
 						volumeInfo?.["authors"],
 						volumeInfo?.["publisher"],
+					),
+					description: yield* normalizeRichDescription(
+						volumeInfo?.["description"],
+						"https://books.google.com",
 					),
 					images: collectImages(volumeInfo?.["imageLinks"]).map((url) => ({
 						url,

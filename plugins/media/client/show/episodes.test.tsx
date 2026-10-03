@@ -181,6 +181,40 @@ afterEach(() => {
 });
 
 describe("show season browser", () => {
+	it.live("uses a two-line plain season preview without exposing spoilers or markup", () =>
+		Effect.gen(function* () {
+			const view = renderTab(
+				showAdapter({
+					seasons: [
+						{
+							...showSeasonRow,
+							description:
+								"**Season** *preview* [source](https://example.test). :spoiler[Hidden ending]\n\n:::spoiler\nHidden block\n:::\n\n<div>raw tags</div>",
+						},
+					],
+				}),
+			);
+			try {
+				yield* Effect.promise(() => flushRyotClient());
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(view.container.querySelector(".line-clamp-2")?.textContent).toBe(
+							"Season preview source.",
+						),
+					),
+				);
+				expect(
+					view.container.querySelector(".line-clamp-2")?.classList.contains("text-[13px]"),
+				).toBe(true);
+				expect(view.container.textContent).not.toContain("Hidden ending");
+				expect(view.container.textContent).not.toContain("Hidden block");
+				expect(view.container.textContent).not.toContain("raw tags");
+				expect(view.container.querySelector("details")).toBeNull();
+			} finally {
+				view.unmount();
+			}
+		}),
+	);
 	it.live("heads the season with the counts the season query reports, not the loaded page", () =>
 		Effect.gen(function* () {
 			const view = renderTab(

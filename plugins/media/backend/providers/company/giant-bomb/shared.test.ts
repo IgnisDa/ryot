@@ -94,8 +94,8 @@ describe("company.giant-bomb sandbox script", () => {
 					foundedYear: 1995,
 					headquarters: "Kyoto, Japan",
 					website: "https://studiox.com",
+					description: "Maker\\.\n\ndesc",
 					alternateNames: ["StudioX", "SX"],
-					description: "Maker.\n\n<p>desc</p>",
 					sourceUrl: "https://www.giantbomb.com/studiox/",
 					images: [{ type: "remote", purpose: "logo", url: "https://img/c.jpg" }],
 				});

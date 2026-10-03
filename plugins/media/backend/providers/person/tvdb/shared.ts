@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
 import {
@@ -72,7 +73,7 @@ export const details = defineProvider({
 				const firstBiography = Array.isArray(biographies)
 					? stringValue(asRecord(biographies[0])?.["biography"])
 					: null;
-				const description = translation.description ?? firstBiography;
+				const description = normalizePlainDescription(translation.description ?? firstBiography);
 				const slug = stringValue(person["slug"]);
 				const movieById = new Map<string, RoleRelatedEntity>();
 				const showById = new Map<string, RoleRelatedEntity>();
@@ -149,6 +150,16 @@ export const translate = defineProvider({
 		return tvdbGetOptional(
 			host,
 			`/people/${input.externalId}/translations/${providerLanguage}`,
-		).pipe(Effect.map((translationData) => buildTranslationResult(translationData, null)));
+		).pipe(
+			Effect.map((translationData) => {
+				const result = buildTranslationResult(translationData, null);
+				const description = normalizePlainDescription(result.properties?.["description"]);
+				if (!description) {
+					return result;
+				}
+				const properties = { description };
+				return result.name === undefined ? { properties } : { properties, name: result.name };
+			}),
+		);
 	},
 });

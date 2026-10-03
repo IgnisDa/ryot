@@ -115,7 +115,7 @@ describe("person.giant-bomb sandbox script", () => {
 					alternateNames: [],
 					birthPlace: "Tokyo",
 					birthDate: "1980-05-02",
-					description: "A dev.\n\n<p>bio</p>",
+					description: "A dev\\.\n\nbio",
 					sourceUrl: "https://www.giantbomb.com/jane/",
 					images: [{ type: "remote", purpose: "profile", url: "https://img/p.jpg" }],
 				});

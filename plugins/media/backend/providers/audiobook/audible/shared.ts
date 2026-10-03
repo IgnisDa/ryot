@@ -2,9 +2,9 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
-import { cleanHtmlDescription } from "../../../lib/clean-html-description";
 import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import { toTitleCase } from "../../../lib/title-case";
 import {
@@ -261,8 +261,9 @@ export const details = defineProvider({
 					images: imageUrl
 						? [{ url: imageUrl, type: "remote" as const, purpose: "cover" as const }]
 						: [],
-					description: cleanHtmlDescription(
+					description: yield* normalizeRichDescription(
 						product["publisher_summary"] ?? product["merchandising_summary"] ?? null,
+						"https://www.audible.com",
 					),
 				},
 				relatedEntityGroups: [

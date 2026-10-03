@@ -311,6 +311,17 @@ Provider details normalize source data into common properties and relationship g
 not branch on provider identity. Supported relationship categories emit authoritative empty groups so
 refresh can remove stale relationships.
 
+All provider descriptions are nullable canonical `restrictedMarkdown` strings, including translations,
+seasons, episodes, episode-order summaries, groups, people, and companies. Plain-text sources are
+escaped as literal prose; HTML and Markdown sources are normalized at the provider boundary. VNDB
+BBCode is converted there as well. AniList converts `.markdown_spoiler` HTML and legacy `~!…!~`
+spoilers before rich normalization. The format supports basic paragraphs, line breaks, emphasis,
+lists, quotes, safe links, and inline `:spoiler[...]` or block `:::spoiler` directives. Raw HTML
+is not part of the stored contract. Relative links resolve against the source site, and unsafe link
+targets are removed while their labels remain. Missing or empty descriptions become `null`; empty
+translations omit the description property. Clients render this explicit format without guessing
+the source syntax or provider.
+
 ## Operations
 
 Sandbox scripts and providers import Effect from `@ryot-app/sandbox-sdk/effect`; deterministic
