@@ -18,6 +18,7 @@ fn fail(code: i32, message: &str) -> ! {
 }
 
 fn main() {
+    ryot_sandboxd::execute::abort_on_panic();
     let config =
         Config::parse(std::env::args().skip(1)).unwrap_or_else(|error| fail(EXIT_USAGE, &error));
 
