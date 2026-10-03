@@ -40,6 +40,12 @@ panic = "abort"
 lto = "thin"
 codegen-units = 4
 
+[profile.dev.package.base64]
+opt-level = 3
+
+[profile.dev.package.serde_json]
+opt-level = 3
+
 [profile.test]
 panic = "abort"
 
