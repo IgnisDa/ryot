@@ -1,9 +1,10 @@
+import type { ContractPayload } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { PluginId } from "@ryot-app/contract/schema/brands";
 import {
 	EntityId,
 	EntitySchemaSlug,
-	PluginSlug,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import {
@@ -54,6 +55,16 @@ import { describe, expect, it } from "~/support/effect-test";
 type PluginScript = TestPluginScript & { readonly entry: string };
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 type PluginRelationshipSchema = PluginManifest["relationshipSchemas"][number];
+
+const entitySchemaReference = (pluginId: PluginId, slug: string) => ({
+	slug: EntitySchemaSlug.make(slug),
+	owner: { pluginId, kind: "plugin" as const },
+});
+
+const relationshipSchemaReference = (pluginId: PluginId, slug: string) => ({
+	slug: RelationshipSchemaSlug.make(slug),
+	owner: { pluginId, kind: "plugin" as const },
+});
 
 type AuthorizationProbe = {
 	readonly slug: string;
@@ -222,7 +233,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 				},
 			];
 
-			yield* Effect.acquireRelease(
+			const foreignInstalled = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					scope: "system",
 					pluginSlug: foreignPluginSlug,
@@ -500,7 +511,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 				});
 			}) satisfies readonly AuthorizationProbe[];
 
-			yield* Effect.acquireRelease(
+			const installed = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					pluginSlug,
 					entitySchemas,
@@ -576,7 +587,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const createGlobalEntity = (input: {
 				readonly name: string;
 				readonly externalId: string;
-				readonly entitySchemaSlug: string;
+				readonly entitySchema: ContractPayload<"testSupport", "createGlobalEntity">["entitySchema"];
 				readonly properties?: Record<string, unknown>;
 			}) =>
 				api.call(
@@ -585,8 +596,8 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 							payload: {
 								name: input.name,
 								externalId: input.externalId,
+								entitySchema: input.entitySchema,
 								properties: input.properties ?? {},
-								entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
 							},
 						}),
 					adminHeaders(),
@@ -595,40 +606,40 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			const globalRoot = yield* createGlobalEntity({
 				name: "Global root",
 				properties: { score: 10 },
-				entitySchemaSlug: rootSlug,
 				externalId: `global-root-${suffix}`,
+				entitySchema: entitySchemaReference(installed.pluginId, rootSlug),
 			});
 			const globalTarget = yield* createGlobalEntity({
 				name: "Global target",
-				entitySchemaSlug: targetSlug,
 				externalId: `global-target-${suffix}`,
+				entitySchema: entitySchemaReference(installed.pluginId, targetSlug),
 			});
 			const foreignRoot = yield* createGlobalEntity({
 				name: "Foreign root",
-				entitySchemaSlug: foreignRootSlug,
 				externalId: `foreign-root-${suffix}`,
+				entitySchema: entitySchemaReference(foreignInstalled.pluginId, foreignRootSlug),
 			});
 			const foreignTarget = yield* createGlobalEntity({
 				name: "Foreign target",
-				entitySchemaSlug: foreignTargetSlug,
 				externalId: `foreign-target-${suffix}`,
+				entitySchema: entitySchemaReference(foreignInstalled.pluginId, foreignTargetSlug),
 			});
 			globalEntityIds.push(globalRoot.id, globalTarget.id, foreignRoot.id, foreignTarget.id);
 
 			const userARoot = yield* createEntity(userA.client, {
 				name: "User A root",
 				properties: { score: 100 },
-				entitySchemaSlug: EntitySchemaSlug.make(rootSlug),
+				entitySchema: entitySchemaReference(installed.pluginId, rootSlug),
 			});
 			const userBRoot = yield* createEntity(userB.client, {
 				name: "User B root",
 				properties: { score: 200 },
-				entitySchemaSlug: EntitySchemaSlug.make(rootSlug),
+				entitySchema: entitySchemaReference(installed.pluginId, rootSlug),
 			});
 			const userATarget = yield* createEntity(userA.client, {
 				properties: {},
 				name: "User A target",
-				entitySchemaSlug: EntitySchemaSlug.make(targetSlug),
+				entitySchema: entitySchemaReference(installed.pluginId, targetSlug),
 			});
 
 			yield* createEventFixture(userA.client, {
@@ -653,25 +664,28 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 				properties: { rank: 1 },
 				sourceEntityId: globalRoot.id,
 				targetEntityId: globalTarget.id,
-				relationshipSchemaSlug: RelationshipSchemaSlug.make(relationshipSlug),
+				relationshipSchema: relationshipSchemaReference(installed.pluginId, relationshipSlug),
 			});
 			yield* createRelationship(userB.client, {
 				properties: { rank: 2 },
 				sourceEntityId: globalRoot.id,
 				targetEntityId: globalTarget.id,
-				relationshipSchemaSlug: RelationshipSchemaSlug.make(relationshipSlug),
+				relationshipSchema: relationshipSchemaReference(installed.pluginId, relationshipSlug),
 			});
 			yield* createRelationship(userA.client, {
 				properties: { rank: 3 },
 				sourceEntityId: globalRoot.id,
 				targetEntityId: userATarget.id,
-				relationshipSchemaSlug: RelationshipSchemaSlug.make(relationshipSlug),
+				relationshipSchema: relationshipSchemaReference(installed.pluginId, relationshipSlug),
 			});
 			yield* createRelationship(userB.client, {
 				properties: { rank: 9 },
 				sourceEntityId: foreignRoot.id,
 				targetEntityId: foreignTarget.id,
-				relationshipSchemaSlug: RelationshipSchemaSlug.make(foreignRelationshipSlug),
+				relationshipSchema: relationshipSchemaReference(
+					foreignInstalled.pluginId,
+					foreignRelationshipSlug,
+				),
 			});
 
 			const runProbe = (probe: AuthorizationProbe) =>
@@ -679,7 +693,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					const trigger = yield* api.call(
 						(c) =>
 							c.testSupport.triggerPluginCron({
-								payload: { cronSlug: probe.cronSlug, pluginSlug: PluginSlug.make(pluginSlug) },
+								payload: { cronSlug: probe.cronSlug, pluginId: installed.pluginId },
 							}),
 						adminHeaders(),
 					);

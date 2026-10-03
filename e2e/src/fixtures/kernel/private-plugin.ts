@@ -1,6 +1,5 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { ContractPathParams, ContractPayload } from "@ryot-app/contract/client";
+import { type PluginId, PluginSlug } from "@ryot-app/contract/schema/brands";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
@@ -20,7 +19,7 @@ export { uploadPrivatePluginPackage };
 
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
 type UpdatePluginPayload = ContractPayload<"plugins", "update">;
-type PrivatePluginManifest = PluginManifest;
+type PrivatePluginManifest = ContractPayload<"testSupport", "installSystemPlugin">["manifest"];
 const encoder = new TextEncoder();
 
 export type PrivatePluginPackage = PluginPackageInput & {
@@ -32,6 +31,7 @@ type PrivatePluginPackageInput = {
 	readonly transform?: string;
 	readonly configKey?: string;
 	readonly pluginSlug?: string;
+	readonly packageId?: PrivatePluginManifest["metadata"]["packageId"];
 	readonly operationSlug?: string;
 	readonly savedViews?: PrivatePluginManifest["savedViews"];
 	readonly configSchema?: PrivatePluginManifest["configSchema"];
@@ -76,6 +76,7 @@ export const privatePluginPackage = (
 	});
 	const manifest = testPluginManifest({
 		pluginSlug,
+		packageId: input.packageId,
 		savedViews: input.savedViews,
 		configSchema: input.configSchema ?? privatePluginConfigSchema,
 		scripts: [
@@ -106,12 +107,17 @@ export const privatePluginPackage = (
 	};
 };
 
-export const settledPrivateInstallation = (client: Client, pluginSlug: PluginSlug) =>
+export const settledPrivateInstallation = (
+	client: Client,
+	installationId: ContractPathParams<"plugins", "update">["installationId"],
+) =>
 	pollUntil(
-		`installation of private plugin '${pluginSlug}'`,
+		`plugin installation '${installationId}'`,
 		listInstalledPlugins(client, { includeHidden: true }).pipe(
 			Effect.map((installations) => {
-				const installed = installations.find((entry) => entry.slug === pluginSlug);
+				const installed = installations.find(
+					(entry) => entry.installationId === installationId && entry.scope === "user",
+				);
 				return installed && installed.health !== "installing" ? installed : null;
 			}),
 		),
@@ -149,8 +155,14 @@ export const installPrivatePlugin = (
 			pluginPackage: plugin,
 			baseUrl: input.baseUrl,
 		});
-		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
-		return { ...plugin, installation, activationId: installed.activationId };
+		const installation = yield* settledPrivateInstallation(input.client, installed.id);
+		return {
+			...plugin,
+			installation,
+			pluginId: installed.pluginId,
+			installationId: installed.id,
+			activationId: installed.activationId,
+		};
 	});
 
 export type PrivateBootstrapPluginPackage = {
@@ -218,11 +230,11 @@ export const invokePrivatePluginOperation = (input: {
 	readonly client: Client;
 	readonly sourceHash?: string;
 	readonly operationSlug: string;
-	readonly pluginSlug: PluginSlug;
+	readonly pluginId: PluginId;
 }) =>
 	input.client.call((c) =>
 		c.plugins.invoke({
-			params: { pluginSlug: input.pluginSlug, operationSlug: input.operationSlug },
+			params: { pluginId: input.pluginId, operationSlug: input.operationSlug },
 			payload: {
 				payload: { prefix: input.prefix },
 				...(input.sourceHash === undefined ? {} : { sourceHash: input.sourceHash }),
@@ -233,8 +245,9 @@ export const invokePrivatePluginOperation = (input: {
 export const updatePrivatePlugin = (input: {
 	readonly client: Client;
 	readonly baseUrl?: string;
-	readonly pluginSlug: PluginSlug;
-	readonly payload: Omit<UpdatePluginPayload, "uploadToken"> &
+	readonly installationId: ContractPathParams<"plugins", "update">["installationId"];
+	readonly expectedSourceHash: string;
+	readonly payload: Omit<UpdatePluginPayload, "uploadToken" | "sourceHash"> &
 		(PluginPackageInput | PluginArchivePackage);
 }) =>
 	Effect.gen(function* () {
@@ -246,9 +259,10 @@ export const updatePrivatePlugin = (input: {
 		);
 		return yield* input.client.call((c) =>
 			c.plugins.update({
-				params: { pluginSlug: input.pluginSlug },
+				params: { installationId: input.installationId },
 				payload: {
 					uploadToken,
+					sourceHash: input.expectedSourceHash,
 					...(config === undefined ? {} : { config }),
 					...(unsetConfigKeys === undefined ? {} : { unsetConfigKeys }),
 				},
@@ -430,8 +444,14 @@ export const installPrivateImportPlugin = (
 			client: input.client,
 			pluginPackage: plugin,
 		});
-		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
-		return { ...plugin, installation, activationId: installed.activationId };
+		const installation = yield* settledPrivateInstallation(input.client, installed.id);
+		return {
+			...plugin,
+			installation,
+			pluginId: installed.pluginId,
+			installationId: installed.id,
+			activationId: installed.activationId,
+		};
 	});
 
 export const installPrivateIntegrationPlugin = (
@@ -444,8 +464,14 @@ export const installPrivateIntegrationPlugin = (
 			client: input.client,
 			pluginPackage: plugin,
 		});
-		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
-		return { ...plugin, installation, activationId: installed.activationId };
+		const installation = yield* settledPrivateInstallation(input.client, installed.id);
+		return {
+			...plugin,
+			installation,
+			pluginId: installed.pluginId,
+			installationId: installed.id,
+			activationId: installed.activationId,
+		};
 	});
 
 export const invokePrivateIntegrationOperation = (input: {
@@ -453,11 +479,11 @@ export const invokePrivateIntegrationOperation = (input: {
 	readonly sourceHash?: string;
 	readonly integrationId: string;
 	readonly operationSlug: string;
-	readonly pluginSlug: PluginSlug;
+	readonly pluginId: PluginId;
 }) =>
 	input.client.call((c) =>
 		c.plugins.invoke({
-			params: { pluginSlug: input.pluginSlug, operationSlug: input.operationSlug },
+			params: { pluginId: input.pluginId, operationSlug: input.operationSlug },
 			payload: {
 				payload: { integrationId: input.integrationId },
 				...(input.sourceHash === undefined ? {} : { sourceHash: input.sourceHash }),
@@ -467,21 +493,24 @@ export const invokePrivateIntegrationOperation = (input: {
 
 export const uninstallPrivatePlugin = (
 	client: Client,
-	pluginSlug: PluginSlug,
+	installationId: ContractPathParams<"plugins", "uninstall">["installationId"],
 	activationId: string,
-) => client.call((c) => c.plugins.uninstall({ params: { pluginSlug, activationId } }));
+) => client.call((c) => c.plugins.uninstall({ params: { activationId, installationId } }));
 
-export const releasePrivatePlugin = (client: Client, pluginSlug: PluginSlug) =>
+export const releasePrivatePlugin = (
+	client: Client,
+	installationId: ContractPathParams<"plugins", "uninstall">["installationId"],
+) =>
 	Effect.gen(function* () {
 		const installation = (yield* listInstalledPlugins(client, { includeHidden: true })).find(
-			(entry) => entry.slug === pluginSlug && entry.scope === "user",
+			(entry) => entry.installationId === installationId && entry.scope === "user",
 		);
 		if (!installation) {
 			return;
 		}
 		yield* pollUntil(
-			`uninstall of private plugin '${pluginSlug}'`,
-			uninstallPrivatePlugin(client, pluginSlug, installation.activationId).pipe(
+			`uninstall of private plugin installation '${installationId}'`,
+			uninstallPrivatePlugin(client, installation.installationId, installation.activationId).pipe(
 				Effect.as(true),
 				Effect.catchTag("PluginConflictError", (error) =>
 					Effect.succeed(error.reason.code === "workflow-referenced" ? null : true),

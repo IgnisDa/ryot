@@ -14,7 +14,6 @@ import {
 	createRelationship,
 	enqueueProviderEntityImport,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
 	getApiClient,
 	getEntity,
 	openInterestWebSocketScoped,
@@ -22,7 +21,8 @@ import {
 } from "~/fixtures/kernel";
 import { uninstallTestPlugin } from "~/fixtures/kernel/test-plugin";
 import {
-	findBuiltinRelationshipSchemaSlug,
+	findFitnessEntitySchema,
+	findFitnessRelationshipSchema,
 	installFitnessTaxonomyProviderFixture,
 } from "~/fixtures/plugins/fitness";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
@@ -34,47 +34,47 @@ describe("Fitness taxonomy E2E", () => {
 			const owner = yield* createAuthenticatedClient();
 			const otherUser = yield* createAuthenticatedClient();
 			const [
-				{ schema: exerciseSchema },
+				{ pluginId, schema: exerciseSchema },
 				{ schema: targetSchema },
 				{ schema: equipmentSchema },
-				targetRelationshipSchemaSlug,
-				equipmentRelationshipSchemaSlug,
+				targetRelationshipSchema,
+				equipmentRelationshipSchema,
 			] = yield* Effect.all([
-				findBuiltinSchemaBySlug(owner.client, "exercise"),
-				findBuiltinSchemaBySlug(owner.client, "exercise-target"),
-				findBuiltinSchemaBySlug(owner.client, "exercise-equipment"),
-				findBuiltinRelationshipSchemaSlug(owner.client, "exercise-targets"),
-				findBuiltinRelationshipSchemaSlug(owner.client, "exercise-uses-equipment"),
+				findFitnessEntitySchema(owner.client, "exercise"),
+				findFitnessEntitySchema(owner.client, "exercise-target"),
+				findFitnessEntitySchema(owner.client, "exercise-equipment"),
+				findFitnessRelationshipSchema(owner.client, "exercise-targets"),
+				findFitnessRelationshipSchema(owner.client, "exercise-uses-equipment"),
 			]);
 			const suffix = crypto.randomUUID();
 			const exercise = yield* createEntity(owner.client, {
-				entitySchemaSlug: exerciseSchema.id,
+				entitySchema: exerciseSchema.reference,
 				properties: { kind: "reps_and_weight" },
 				name: `Private Taxonomy Exercise ${suffix}`,
 			});
 			const pelvicFloor = yield* createEntity(owner.client, {
 				name: "Pelvic floor",
-				entitySchemaSlug: targetSchema.id,
+				entitySchema: targetSchema.reference,
 				properties: { kind: "muscle_region" },
 			});
 			const plantarFascia = yield* createEntity(owner.client, {
 				name: "Plantar fascia",
 				properties: { kind: "fascia" },
-				entitySchemaSlug: targetSchema.id,
+				entitySchema: targetSchema.reference,
 			});
 			const anchoredBands = yield* createEntity(owner.client, {
 				properties: {},
 				name: "Bands with door anchor",
-				entitySchemaSlug: equipmentSchema.id,
+				entitySchema: equipmentSchema.reference,
 			});
 			const workoutMat = yield* createEntity(owner.client, {
 				properties: {},
 				name: `Workout mat ${suffix}`,
-				entitySchemaSlug: equipmentSchema.id,
+				entitySchema: equipmentSchema.reference,
 			});
 			const foreignTarget = yield* createEntity(otherUser.client, {
 				properties: { kind: "region" },
-				entitySchemaSlug: targetSchema.id,
+				entitySchema: targetSchema.reference,
 				name: `Other user's private target ${suffix}`,
 			});
 
@@ -82,33 +82,33 @@ describe("Fitness taxonomy E2E", () => {
 				sourceEntityId: exercise.id,
 				targetEntityId: pelvicFloor.id,
 				properties: { role: "stabilizer" },
-				relationshipSchemaSlug: targetRelationshipSchemaSlug,
+				relationshipSchema: targetRelationshipSchema.reference,
 			});
 			const secondTargetLink = yield* createRelationship(owner.client, {
 				sourceEntityId: exercise.id,
 				targetEntityId: plantarFascia.id,
-				relationshipSchemaSlug: targetRelationshipSchemaSlug,
+				relationshipSchema: targetRelationshipSchema.reference,
 			});
 			const firstEquipmentLink = yield* createRelationship(owner.client, {
 				sourceEntityId: exercise.id,
 				targetEntityId: anchoredBands.id,
-				relationshipSchemaSlug: equipmentRelationshipSchemaSlug,
+				relationshipSchema: equipmentRelationshipSchema.reference,
 			});
 			const secondEquipmentLink = yield* createRelationship(owner.client, {
 				sourceEntityId: exercise.id,
 				targetEntityId: workoutMat.id,
-				relationshipSchemaSlug: equipmentRelationshipSchemaSlug,
+				relationshipSchema: equipmentRelationshipSchema.reference,
 			});
 			const duplicateTargetLink = yield* createRelationship(owner.client, {
 				sourceEntityId: exercise.id,
 				targetEntityId: pelvicFloor.id,
 				properties: { role: "stabilizer" },
-				relationshipSchemaSlug: targetRelationshipSchemaSlug,
+				relationshipSchema: targetRelationshipSchema.reference,
 			});
 			const duplicateEquipmentLink = yield* createRelationship(owner.client, {
 				sourceEntityId: exercise.id,
 				targetEntityId: anchoredBands.id,
-				relationshipSchemaSlug: equipmentRelationshipSchemaSlug,
+				relationshipSchema: equipmentRelationshipSchema.reference,
 			});
 
 			expect(firstTargetLink.wasInserted).toBe(true);
@@ -121,15 +121,37 @@ describe("Fitness taxonomy E2E", () => {
 			expect(duplicateEquipmentLink.id).toBe(firstEquipmentLink.id);
 
 			const [ownerTargets, ownerFascia, ownerEquipment, ownerMat] = yield* Effect.all([
-				executeRyotQLRecipe(owner.client, targetListRecipe({ limit: 1, name: "Pelvic floor" })),
-				executeRyotQLRecipe(owner.client, targetListRecipe({ limit: 1, name: "Plantar fascia" })),
 				executeRyotQLRecipe(
 					owner.client,
-					equipmentListRecipe({ limit: 1, name: "Bands with door anchor" }),
+					targetListRecipe({
+						limit: 1,
+						name: "Pelvic floor",
+						reference: { pluginId, kind: "local" },
+					}),
 				),
 				executeRyotQLRecipe(
 					owner.client,
-					equipmentListRecipe({ limit: 1, name: `Workout mat ${suffix}` }),
+					targetListRecipe({
+						limit: 1,
+						name: "Plantar fascia",
+						reference: { pluginId, kind: "local" },
+					}),
+				),
+				executeRyotQLRecipe(
+					owner.client,
+					equipmentListRecipe({
+						limit: 1,
+						name: "Bands with door anchor",
+						reference: { pluginId, kind: "local" },
+					}),
+				),
+				executeRyotQLRecipe(
+					owner.client,
+					equipmentListRecipe({
+						limit: 1,
+						name: `Workout mat ${suffix}`,
+						reference: { pluginId, kind: "local" },
+					}),
 				),
 			]);
 			const privateTarget = requirePresent(
@@ -157,19 +179,35 @@ describe("Fitness taxonomy E2E", () => {
 				yield* Effect.all([
 					executeRyotQLRecipe(
 						otherUser.client,
-						targetListRecipe({ limit: 1, name: "Pelvic floor" }),
+						targetListRecipe({
+							limit: 1,
+							name: "Pelvic floor",
+							reference: { pluginId, kind: "local" },
+						}),
 					),
 					executeRyotQLRecipe(
 						otherUser.client,
-						targetListRecipe({ limit: 1, name: "Plantar fascia" }),
+						targetListRecipe({
+							limit: 1,
+							name: "Plantar fascia",
+							reference: { pluginId, kind: "local" },
+						}),
 					),
 					executeRyotQLRecipe(
 						otherUser.client,
-						equipmentListRecipe({ limit: 1, name: "Bands with door anchor" }),
+						equipmentListRecipe({
+							limit: 1,
+							name: "Bands with door anchor",
+							reference: { pluginId, kind: "local" },
+						}),
 					),
 					executeRyotQLRecipe(
 						otherUser.client,
-						equipmentListRecipe({ limit: 1, name: `Workout mat ${suffix}` }),
+						equipmentListRecipe({
+							limit: 1,
+							name: `Workout mat ${suffix}`,
+							reference: { pluginId, kind: "local" },
+						}),
 					),
 				]);
 			expect(otherUserTargets.items).toEqual([]);
@@ -180,18 +218,30 @@ describe("Fitness taxonomy E2E", () => {
 			const graphBeforeRejections = yield* Effect.all([
 				executeRyotQLRecipe(
 					owner.client,
-					exerciseTargetsRecipe({ limit: 100, exerciseId: exercise.id }),
+					exerciseTargetsRecipe({
+						limit: 100,
+						exerciseId: exercise.id,
+						reference: { pluginId, kind: "local" },
+					}),
 				),
 				executeRyotQLRecipe(
 					owner.client,
-					exerciseEquipmentRecipe({ limit: 100, exerciseId: exercise.id }),
+					exerciseEquipmentRecipe({
+						limit: 100,
+						exerciseId: exercise.id,
+						reference: { pluginId, kind: "local" },
+					}),
 				),
 			]);
 			expect(graphBeforeRejections.map(({ items }) => items.length)).toEqual([2, 2]);
 			const listedExercise = requirePresent(
 				(yield* executeRyotQLRecipe(
 					owner.client,
-					exerciseListRecipe({ limit: 1, entityId: exercise.id }),
+					exerciseListRecipe({
+						limit: 1,
+						entityId: exercise.id,
+						reference: { pluginId, kind: "local" },
+					}),
 				)).items[0],
 				"Expected the exercise with its equipment links",
 			);
@@ -210,7 +260,7 @@ describe("Fitness taxonomy E2E", () => {
 						payload: {
 							sourceEntityId: exercise.id,
 							targetEntityId: foreignTarget.id,
-							relationshipSchemaSlug: targetRelationshipSchemaSlug,
+							relationshipSchema: targetRelationshipSchema.reference,
 						},
 					}),
 				),
@@ -225,7 +275,7 @@ describe("Fitness taxonomy E2E", () => {
 							sourceEntityId: exercise.id,
 							properties: { role: "tertiary" },
 							targetEntityId: plantarFascia.id,
-							relationshipSchemaSlug: targetRelationshipSchemaSlug,
+							relationshipSchema: targetRelationshipSchema.reference,
 						},
 					}),
 				),
@@ -236,11 +286,19 @@ describe("Fitness taxonomy E2E", () => {
 			const graphAfterRejections = yield* Effect.all([
 				executeRyotQLRecipe(
 					owner.client,
-					exerciseTargetsRecipe({ limit: 100, exerciseId: exercise.id }),
+					exerciseTargetsRecipe({
+						limit: 100,
+						exerciseId: exercise.id,
+						reference: { pluginId, kind: "local" },
+					}),
 				),
 				executeRyotQLRecipe(
 					owner.client,
-					exerciseEquipmentRecipe({ limit: 100, exerciseId: exercise.id }),
+					exerciseEquipmentRecipe({
+						limit: 100,
+						exerciseId: exercise.id,
+						reference: { pluginId, kind: "local" },
+					}),
 				),
 			]);
 			expect(graphAfterRejections).toEqual(graphBeforeRejections);
@@ -254,17 +312,17 @@ describe("Fitness taxonomy E2E", () => {
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
 			const [
-				{ schema: exerciseSchema },
+				{ pluginId, schema: exerciseSchema },
 				{ schema: targetSchema },
 				{ schema: equipmentSchema },
-				targetRelationshipSchemaSlug,
-				equipmentRelationshipSchemaSlug,
+				targetRelationshipSchema,
+				equipmentRelationshipSchema,
 			] = yield* Effect.all([
-				findBuiltinSchemaBySlug(client, "exercise"),
-				findBuiltinSchemaBySlug(client, "exercise-target"),
-				findBuiltinSchemaBySlug(client, "exercise-equipment"),
-				findBuiltinRelationshipSchemaSlug(client, "exercise-targets"),
-				findBuiltinRelationshipSchemaSlug(client, "exercise-uses-equipment"),
+				findFitnessEntitySchema(client, "exercise"),
+				findFitnessEntitySchema(client, "exercise-target"),
+				findFitnessEntitySchema(client, "exercise-equipment"),
+				findFitnessRelationshipSchema(client, "exercise-targets"),
+				findFitnessRelationshipSchema(client, "exercise-uses-equipment"),
 			]);
 			const seeded = yield* getApiClient().call(
 				(c) =>
@@ -274,7 +332,7 @@ describe("Fitness taxonomy E2E", () => {
 							name: provider.exerciseName,
 							providerId: provider.providerId,
 							externalId: provider.exerciseName,
-							entitySchemaSlug: exerciseSchema.id,
+							entitySchema: exerciseSchema.reference,
 							properties: { images: [], kind: "reps", instructions: [] },
 						},
 					}),
@@ -290,23 +348,23 @@ describe("Fitness taxonomy E2E", () => {
 			const privateTarget = yield* createEntity(client, {
 				name: privateTargetName,
 				properties: { kind: "region" },
-				entitySchemaSlug: targetSchema.id,
+				entitySchema: targetSchema.reference,
 			});
 			const privateEquipment = yield* createEntity(client, {
 				properties: {},
 				name: privateEquipmentName,
-				entitySchemaSlug: equipmentSchema.id,
+				entitySchema: equipmentSchema.reference,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: root.id,
 				targetEntityId: privateTarget.id,
 				properties: { role: "stabilizer" },
-				relationshipSchemaSlug: targetRelationshipSchemaSlug,
+				relationshipSchema: targetRelationshipSchema.reference,
 			});
 			yield* createRelationship(client, {
 				sourceEntityId: root.id,
 				targetEntityId: privateEquipment.id,
-				relationshipSchemaSlug: equipmentRelationshipSchemaSlug,
+				relationshipSchema: equipmentRelationshipSchema.reference,
 			});
 
 			const socket = yield* openInterestWebSocketScoped(auth);
@@ -331,7 +389,11 @@ describe("Fitness taxonomy E2E", () => {
 
 			const ownerTargets = yield* executeRyotQLRecipe(
 				client,
-				exerciseTargetsRecipe({ limit: 100, exerciseId: root.id }),
+				exerciseTargetsRecipe({
+					limit: 100,
+					exerciseId: root.id,
+					reference: { pluginId, kind: "local" },
+				}),
 			);
 			const chest = requirePresent(
 				ownerTargets.items.find(({ name }) => name === "Chest"),
@@ -352,18 +414,26 @@ describe("Fitness taxonomy E2E", () => {
 				sourceEntityId: root.id,
 				targetEntityId: chest.id,
 				properties: { role: "secondary" },
-				relationshipSchemaSlug: targetRelationshipSchemaSlug,
+				relationshipSchema: targetRelationshipSchema.reference,
 			});
 			expect(
 				(yield* executeRyotQLRecipe(
 					client,
-					exerciseTargetsRecipe({ limit: 100, exerciseId: root.id }),
+					exerciseTargetsRecipe({
+						limit: 100,
+						exerciseId: root.id,
+						reference: { pluginId, kind: "local" },
+					}),
 				)).items.filter(({ id }) => id === chest.id),
 			).toEqual([chest]);
 
 			const ownerEquipment = yield* executeRyotQLRecipe(
 				client,
-				exerciseEquipmentRecipe({ limit: 100, exerciseId: root.id }),
+				exerciseEquipmentRecipe({
+					limit: 100,
+					exerciseId: root.id,
+					reference: { pluginId, kind: "local" },
+				}),
 			);
 			const barbell = requirePresent(
 				ownerEquipment.items.find(({ name }) => name === "Barbell"),
@@ -379,11 +449,19 @@ describe("Fitness taxonomy E2E", () => {
 			const otherUser = yield* createAuthenticatedClient();
 			const otherUserTargets = yield* executeRyotQLRecipe(
 				otherUser.client,
-				exerciseTargetsRecipe({ limit: 100, exerciseId: root.id }),
+				exerciseTargetsRecipe({
+					limit: 100,
+					exerciseId: root.id,
+					reference: { pluginId, kind: "local" },
+				}),
 			);
 			const otherUserEquipment = yield* executeRyotQLRecipe(
 				otherUser.client,
-				exerciseEquipmentRecipe({ limit: 100, exerciseId: root.id }),
+				exerciseEquipmentRecipe({
+					limit: 100,
+					exerciseId: root.id,
+					reference: { pluginId, kind: "local" },
+				}),
 			);
 			expect(otherUserTargets.items.map(({ name }) => name)).toEqual(
 				expect.arrayContaining(["Chest", "Triceps"]),
@@ -403,11 +481,19 @@ describe("Fitness taxonomy E2E", () => {
 
 			const reimportedTargets = yield* executeRyotQLRecipe(
 				client,
-				exerciseTargetsRecipe({ limit: 100, exerciseId: root.id }),
+				exerciseTargetsRecipe({
+					limit: 100,
+					exerciseId: root.id,
+					reference: { pluginId, kind: "local" },
+				}),
 			);
 			const reimportedEquipment = yield* executeRyotQLRecipe(
 				client,
-				exerciseEquipmentRecipe({ limit: 100, exerciseId: root.id }),
+				exerciseEquipmentRecipe({
+					limit: 100,
+					exerciseId: root.id,
+					reference: { pluginId, kind: "local" },
+				}),
 			);
 			expect(reimportedTargets).toEqual(ownerTargets);
 			expect(reimportedEquipment).toEqual(ownerEquipment);

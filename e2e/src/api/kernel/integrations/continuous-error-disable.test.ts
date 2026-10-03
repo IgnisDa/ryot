@@ -1,9 +1,11 @@
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Duration, Effect, Option } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createIntegration,
 	createNotificationChannel,
+	findPluginInstallationByPackage,
 	getIntegration,
 	pollUntil,
 	postIntegrationWebhookAndWait,
@@ -30,6 +32,10 @@ describe("integration auto-disable on continuous errors", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
+				const media = yield* findPluginInstallationByPackage(client, {
+					scope: "system",
+					packageId: mediaPlugin.metadata.packageId,
+				});
 
 				yield* createNotificationChannel(client, {
 					channel: "apprise",
@@ -42,9 +48,9 @@ describe("integration auto-disable on continuous errors", () => {
 				});
 
 				const integration = yield* createIntegration(client, {
-					provider: "kodi",
 					providerSpecifics: { kind: "kodi" },
 					extraSettings: { disableOnContinuousErrors: true },
+					provider: { slug: "kodi", owner: { kind: "plugin", pluginId: media.pluginId } },
 				});
 
 				for (let attempt = 0; attempt < 5; attempt++) {

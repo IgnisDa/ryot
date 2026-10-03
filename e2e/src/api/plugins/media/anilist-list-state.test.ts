@@ -9,33 +9,42 @@ import {
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQLRecipe,
-	getBuiltinEntitySchemaSlug,
 	listEventSchemas,
 	listEventsForEntity,
 	requireEventSchemaBySlug,
 	type Client,
 } from "~/fixtures/kernel";
-import { insertLibraryMembership, seedMediaEntity } from "~/fixtures/plugins/media";
+import {
+	findMediaEntitySchema,
+	insertLibraryMembership,
+	seedMediaEntity,
+} from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
+type MediaReference = Parameters<typeof animeRecipes.summaryRecipe>[0]["reference"];
+
 const loadListStateSchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const [animeSchemaId, mangaSchemaId] = yield* Effect.all([
-			getBuiltinEntitySchemaSlug(client, "anime"),
-			getBuiltinEntitySchemaSlug(client, "manga"),
+		const [anime, manga] = yield* Effect.all([
+			findMediaEntitySchema(client, "anime"),
+			findMediaEntitySchema(client, "manga"),
 		]);
 		const [animeEvents, mangaEvents] = yield* Effect.all([
-			listEventSchemas(client, animeSchemaId),
-			listEventSchemas(client, mangaSchemaId),
+			listEventSchemas(client, anime.schema.reference),
+			listEventSchemas(client, manga.schema.reference),
 		]);
+		const animeReference: MediaReference = { kind: "local", pluginId: anime.pluginId };
+		const mangaReference: MediaReference = { kind: "local", pluginId: manga.pluginId };
 		return {
 			manga: {
-				schemaId: mangaSchemaId,
+				schemaId: manga.schema.id,
+				reference: mangaReference,
 				listState: requireEventSchemaBySlug(mangaEvents, "list-state").id,
 			},
 			anime: {
-				schemaId: animeSchemaId,
+				schemaId: anime.schema.id,
+				reference: animeReference,
 				onHold: requireEventSchemaBySlug(animeEvents, "on_hold").id,
 				progress: requireEventSchemaBySlug(animeEvents, "progress").id,
 				listState: requireEventSchemaBySlug(animeEvents, "list-state").id,
@@ -53,11 +62,11 @@ const createListStateSnapshot = (
 	},
 ) => createEventFixture(client, input);
 
-const readAnimeSummary = (client: Client, entityId: string) =>
+const readAnimeSummary = (client: Client, reference: MediaReference, entityId: string) =>
 	Effect.gen(function* () {
 		const result = yield* executeRyotQLRecipe(
 			client,
-			animeRecipes.summaryRecipe({ entityId, collectionLimit: 1 }),
+			animeRecipes.summaryRecipe({ entityId, reference, collectionLimit: 1 }),
 		);
 		assertPresent(result.summary, "Expected an anime summary row");
 		return result.summary;
@@ -70,6 +79,8 @@ describe("AniList list-state media queries", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const schemas = yield* loadListStateSchemas(client);
+				const animeReference = schemas.anime.reference;
+				const mangaReference = schemas.manga.reference;
 				const suffix = crypto.randomUUID();
 				const [anime, manga] = yield* Effect.all([
 					seedMediaEntity({
@@ -131,11 +142,15 @@ describe("AniList list-state media queries", () => {
 					},
 				});
 
-				const animeSummary = yield* readAnimeSummary(client, anime.id);
+				const animeSummary = yield* readAnimeSummary(client, animeReference, anime.id);
 				expect(animeSummary).toMatchObject({ state: "in_progress", progressPercent: null });
 				const initialFlat = yield* executeRyotQLRecipe(
 					client,
-					flatByLifecycleStateRecipe({ limit: 20, states: ["in_progress", "on_hold"] }),
+					flatByLifecycleStateRecipe({
+						limit: 20,
+						reference: animeReference,
+						states: ["in_progress", "on_hold"],
+					}),
 				);
 				const initialAnime = initialFlat.items.find((item) => item.id === anime.id);
 				const initialManga = initialFlat.items.find((item) => item.id === manga.id);
@@ -154,13 +169,13 @@ describe("AniList list-state media queries", () => {
 					eventSchemaSlug: schemas.anime.onHold,
 					occurredAt: "2026-01-02T12:00:00.000Z",
 				});
-				expect(yield* readAnimeSummary(client, anime.id)).toMatchObject({
+				expect(yield* readAnimeSummary(client, animeReference, anime.id)).toMatchObject({
 					state: "on_hold",
 					progressPercent: null,
 				});
 				const heldFlat = yield* executeRyotQLRecipe(
 					client,
-					flatByLifecycleStateRecipe({ limit: 20, states: ["on_hold"] }),
+					flatByLifecycleStateRecipe({ limit: 20, states: ["on_hold"], reference: animeReference }),
 				);
 				expect(heldFlat.items.find((item) => item.id === anime.id)).toMatchObject({
 					animeEpisode: 0,
@@ -174,11 +189,15 @@ describe("AniList list-state media queries", () => {
 					eventSchemaSlug: schemas.anime.progress,
 					properties: { animeEpisode: 3, progressPercent: 25 },
 				});
-				const resumedSummary = yield* readAnimeSummary(client, anime.id);
+				const resumedSummary = yield* readAnimeSummary(client, animeReference, anime.id);
 				expect(resumedSummary).toMatchObject({ progressPercent: 25, state: "in_progress" });
 				const resumedFlat = yield* executeRyotQLRecipe(
 					client,
-					flatByLifecycleStateRecipe({ limit: 20, states: ["in_progress"] }),
+					flatByLifecycleStateRecipe({
+						limit: 20,
+						states: ["in_progress"],
+						reference: animeReference,
+					}),
 				);
 				const resumedAnime = resumedFlat.items.find((item) => item.id === anime.id);
 				assertPresent(resumedAnime, "Expected the resumed anime in the flat lifecycle list");
@@ -198,11 +217,15 @@ describe("AniList list-state media queries", () => {
 						sourceUpdatedAt: "2020-01-01T00:00:00.000Z",
 					},
 				});
-				const completedSummary = yield* readAnimeSummary(client, anime.id);
+				const completedSummary = yield* readAnimeSummary(client, animeReference, anime.id);
 				expect(completedSummary).toMatchObject({ state: "complete", progressPercent: null });
 				const completedFlat = yield* executeRyotQLRecipe(
 					client,
-					flatByLifecycleStateRecipe({ limit: 20, states: ["complete"] }),
+					flatByLifecycleStateRecipe({
+						limit: 20,
+						states: ["complete"],
+						reference: animeReference,
+					}),
 				);
 				const completedAnime = completedFlat.items.find((item) => item.id === anime.id);
 				assertPresent(completedAnime, "Expected the completed anime in the flat lifecycle list");
@@ -213,6 +236,7 @@ describe("AniList list-state media queries", () => {
 					listStateSnapshotsRecipe({
 						limit: 20,
 						sourceAccountId: "acct",
+						reference: animeReference,
 						sourceEntryIds: ["entry", "manga-entry"],
 					}),
 				);
@@ -244,6 +268,7 @@ describe("AniList list-state media queries", () => {
 					client,
 					listStateSnapshotsRecipe({
 						limit: 20,
+						reference: animeReference,
 						sourceAccountId: "other-account",
 						sourceEntryIds: ["entry", "manga-entry"],
 					}),
@@ -257,6 +282,7 @@ describe("AniList list-state media queries", () => {
 							eventLimit: 20,
 							entityId: anime.id,
 							collectionEventLimit: 20,
+							reference: animeReference,
 						}),
 					),
 					executeRyotQLRecipe(
@@ -265,6 +291,7 @@ describe("AniList list-state media queries", () => {
 							eventLimit: 20,
 							entityId: manga.id,
 							collectionEventLimit: 20,
+							reference: mangaReference,
 						}),
 					),
 				]);

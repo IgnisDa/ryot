@@ -1,4 +1,4 @@
-import type { ContractSuccess } from "@ryot-app/contract/client";
+import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
 import { Effect, Option } from "effect";
@@ -46,6 +46,7 @@ const unkeyEnvelope = (data: { valid: boolean; code: string; meta?: Record<strin
 
 let keyedClient: Client;
 let providerSlug: string;
+let providerReference: ContractPayload<"integrations", "create">["provider"];
 let existingIntegration: ContractSuccess<"integrations", "create">;
 
 let keyedApiUrl: string;
@@ -125,12 +126,16 @@ beforeAll(
 					90,
 				);
 
-				const { providerSlug: slug } = yield* installTestIntegrationProvider(settingsSchema, {
-					requiresProKey: true,
-					baseUrl: keyedApiUrl,
-				});
+				const { plugin, providerSlug: slug } = yield* installTestIntegrationProvider(
+					settingsSchema,
+					{ requiresProKey: true, baseUrl: keyedApiUrl },
+				);
 				const { client } = yield* createAuthenticatedClient(keyedApiUrl);
-				const integration = yield* createIntegration(client, { provider: slug, providerSpecifics });
+				providerReference = { slug, owner: { kind: "plugin", pluginId: plugin.pluginId } };
+				const integration = yield* createIntegration(client, {
+					providerSpecifics,
+					provider: providerReference,
+				});
 				providerSlug = slug;
 				keyedClient = client;
 				existingIntegration = integration;
@@ -204,7 +209,7 @@ describe("Without a valid Pro Key", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(keylessApiUrl);
 			const error = yield* Effect.flip(
-				createIntegration(client, { providerSpecifics, provider: providerSlug }),
+				createIntegration(client, { providerSpecifics, provider: providerReference }),
 			);
 			assertTaggedError(error, "IntegrationRequestError");
 			expect(error.reason).toEqual({ provider: providerSlug, code: "pro-key-required" });
@@ -251,7 +256,7 @@ describe("With a valid Pro Key", () => {
 		Effect.gen(function* () {
 			const integration = yield* createIntegration(keyedClient, {
 				providerSpecifics,
-				provider: providerSlug,
+				provider: providerReference,
 			});
 			const detail = requirePresent(
 				Option.getOrUndefined(yield* getIntegration(keyedClient, integration.id)),

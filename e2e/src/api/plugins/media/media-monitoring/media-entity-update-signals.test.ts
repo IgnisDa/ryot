@@ -4,7 +4,6 @@ import {
 	createAuthenticatedClient,
 	createNotificationChannel,
 	fakeProviderDetailsResult,
-	getBuiltinEntitySchemaSlug,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
 	installTestProvider,
@@ -13,6 +12,7 @@ import {
 } from "~/fixtures/kernel";
 import {
 	enableMediaMonitoring,
+	findMediaEntitySchema,
 	seedMediaEntity,
 	triggerCronAndWaitForEntity,
 } from "~/fixtures/plugins/media";
@@ -56,7 +56,8 @@ describe("hierarchical media entity-update signals", () => {
 				});
 
 			const { client } = yield* createAuthenticatedClient();
-			const animeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "anime");
+			const { schema: animeSchema } = yield* findMediaEntitySchema(client, "anime");
+			const animeSchemaId = animeSchema.id;
 			const animeProvider = yield* installTestProvider({
 				client,
 				scope: "system",
@@ -176,7 +177,8 @@ describe("hierarchical media entity-update signals", () => {
 					});
 
 				const { client } = yield* createAuthenticatedClient();
-				const showSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show");
+				const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
+				const showSchemaId = showSchema.id;
 				const showProvider = yield* installTestProvider({
 					client,
 					slug: showSlug,

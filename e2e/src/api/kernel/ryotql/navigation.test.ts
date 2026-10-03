@@ -1,4 +1,3 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { navigationRecipe } from "@ryot-app/ryotql-recipes/navigation";
 import { Effect } from "effect";
 
@@ -11,6 +10,8 @@ import {
 	reorderSavedViews,
 	updateSavedView,
 } from "~/fixtures/kernel";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
+import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("RyotQL navigation", () => {
@@ -21,25 +22,30 @@ describe("RyotQL navigation", () => {
 			const firstViewName = `First Navigation View ${crypto.randomUUID()}`;
 			const orderedViewName = `Ordered Navigation View ${crypto.randomUUID()}`;
 			const secondViewName = `Second Navigation View ${crypto.randomUUID()}`;
+			const { builtinPlugin: selectedMediaWorkspace } = yield* findMediaEntitySchema(
+				first.client,
+				"book",
+			);
+			assertPresent(selectedMediaWorkspace, "System media workspace installation missing");
 
 			const firstCreated = yield* createSavedView(first.client, {
 				name: firstViewName,
-				workspacePluginSlug: PluginSlug.make("media"),
+				workspaceInstallationId: selectedMediaWorkspace.installationId,
 			});
 			const orderedCreated = yield* createSavedView(first.client, {
 				name: orderedViewName,
-				workspacePluginSlug: PluginSlug.make("media"),
+				workspaceInstallationId: selectedMediaWorkspace.installationId,
 			});
 			const firstView = yield* findSavedViewById(first.client, firstCreated.id);
 			const orderedView = yield* findSavedViewById(first.client, orderedCreated.id);
-			yield* updateSavedView(first.client, firstView.slug, {
+			yield* updateSavedView(first.client, firstView.reference, {
 				isHidden: true,
 				name: firstViewName,
-				workspacePluginSlug: PluginSlug.make("media"),
+				workspaceInstallationId: selectedMediaWorkspace.installationId,
 			});
 			yield* reorderSavedViews(first.client, {
-				pluginSlug: PluginSlug.make("media"),
-				viewSlugs: [orderedView.slug, firstView.slug],
+				installationId: selectedMediaWorkspace.installationId,
+				references: [orderedView.reference, firstView.reference],
 			});
 			yield* createSavedView(second.client, { name: secondViewName });
 			const firstCollection = yield* createCollection(first.client, {

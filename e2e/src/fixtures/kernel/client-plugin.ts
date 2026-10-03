@@ -1,14 +1,18 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { PluginPackageId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import { readPluginArchive } from "@ryot-app/plugin-archive";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { Client } from "./auth";
 import { compilePluginPackage } from "./compiled-package";
+import { findPluginInstallationByPackage } from "./plugins";
 import {
 	installPrivatePluginPackage,
 	settledPrivateInstallation,
 	updatePrivatePlugin,
 } from "./private-plugin";
+
+const fixturePackageIds = new Map<string, PluginPackageId>();
 
 export const FIXTURE_CLIENT_PLUGIN_SLUG = PluginSlug.make("fixture");
 export const FIXTURE_CLIENT_REVISION_MARKERS = {
@@ -16,7 +20,10 @@ export const FIXTURE_CLIENT_REVISION_MARKERS = {
 	B: "Fixture plugin revision B",
 } as const;
 
-const archiveUrl = new URL("../../../../plugins/fixture/dist/fixture.zip", import.meta.url);
+const archiveUrl = new URL(
+	`../../../../plugins/fixture/dist/${fixturePlugin.metadata.packageId}.zip`,
+	import.meta.url,
+);
 const authoringUrl = new URL("../../../../plugins/fixture/", import.meta.url);
 const homeEntry = "client/home.tsx";
 const pokemonPresentationEntry = "client/pokemon-presentation.tsx";
@@ -38,6 +45,11 @@ export const fixtureClientPluginPackage = (
 		}
 		const archive = yield* Effect.promise(() => file.bytes());
 		const pluginPackage = yield* readPluginArchive(archive);
+		let packageId = fixturePackageIds.get(pluginSlug);
+		if (!packageId) {
+			packageId = PluginPackageId.make(crypto.randomUUID());
+			fixturePackageIds.set(pluginSlug, packageId);
+		}
 		const files = Object.fromEntries(
 			yield* Effect.forEach(
 				new Bun.Glob("{client,shared}/**/*").scanSync({
@@ -78,6 +90,7 @@ export const fixtureClientPluginPackage = (
 				...pluginPackage.manifest,
 				metadata: {
 					...pluginPackage.manifest.metadata,
+					packageId,
 					slug: pluginSlug,
 					version: revision === "A" ? "1.0.0" : "2.0.0",
 				},
@@ -85,6 +98,9 @@ export const fixtureClientPluginPackage = (
 			files: {
 				...files,
 				[homeEntry]: new TextEncoder().encode(revisionHome),
+				"shared/plugin-identity.ts": new TextEncoder().encode(
+					`export const PLUGIN_PACKAGE_ID = ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(packageId)};`,
+				),
 				...(presentationEvaluationSignal && presentationBytes
 					? {
 							[pokemonPresentationEntry]: new TextEncoder().encode(
@@ -110,8 +126,13 @@ export const installFixtureClientPlugin = (
 			FIXTURE_CLIENT_PLUGIN_SLUG,
 			presentationEvaluationSignal,
 		);
-		yield* installPrivatePluginPackage({ client, baseUrl, config: {}, pluginPackage });
-		return yield* settledPrivateInstallation(client, FIXTURE_CLIENT_PLUGIN_SLUG);
+		const installed = yield* installPrivatePluginPackage({
+			client,
+			baseUrl,
+			config: {},
+			pluginPackage,
+		});
+		return yield* settledPrivateInstallation(client, installed.id);
 	});
 
 export const updateFixtureClientPlugin = (
@@ -122,10 +143,15 @@ export const updateFixtureClientPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const pluginPackage = yield* fixtureClientPluginPackage(revision, variant);
+		const current = yield* findPluginInstallationByPackage(client, {
+			scope: "user",
+			packageId: pluginPackage.manifest.metadata.packageId,
+		});
 		return yield* updatePrivatePlugin({
 			client,
 			baseUrl,
 			payload: pluginPackage,
-			pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+			installationId: current.installationId,
+			expectedSourceHash: current.sourceHash,
 		});
 	});

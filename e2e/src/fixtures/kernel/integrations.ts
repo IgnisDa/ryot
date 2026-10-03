@@ -1,6 +1,7 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { integrationRecipe, integrationsRecipe } from "@ryot-app/ryotql-recipes/integrations";
 import { Effect, Option } from "effect";
 
@@ -8,6 +9,7 @@ import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
 import { pollImportRunUntilTerminal } from "./imports";
+import { findPluginInstallationByPackage } from "./plugins";
 import { collectRyotQLRecipeItems, executeRyotQLRecipe } from "./ryotql";
 
 type CreateIntegrationBody = ContractPayload<"integrations", "create">;
@@ -16,18 +18,36 @@ export const createIntegration = (client: Client, body: CreateIntegrationBody) =
 	client.call((c) => c.integrations.create({ payload: body }));
 
 export const createKodiIntegration = (client: Client) =>
-	createIntegration(client, { provider: "kodi", providerSpecifics: { kind: "kodi" } });
+	Effect.gen(function* () {
+		const installation = yield* findPluginInstallationByPackage(client, {
+			scope: "system",
+			packageId: mediaPlugin.metadata.packageId,
+		});
+		return yield* createIntegration(client, {
+			providerSpecifics: { kind: "kodi" },
+			provider: { slug: "kodi", owner: { kind: "plugin", pluginId: installation.pluginId } },
+		});
+	});
 
 export const createAudiobookshelfIntegration = (client: Client) =>
-	createIntegration(client, {
-		name: "ABS",
-		isDisabled: true,
-		provider: "audiobookshelf",
-		providerSpecifics: {
-			token: "test-token",
-			kind: "audiobookshelf",
-			baseUrl: "https://abs.example.com",
-		},
+	Effect.gen(function* () {
+		const installation = yield* findPluginInstallationByPackage(client, {
+			scope: "system",
+			packageId: mediaPlugin.metadata.packageId,
+		});
+		return yield* createIntegration(client, {
+			name: "ABS",
+			isDisabled: true,
+			provider: {
+				slug: "audiobookshelf",
+				owner: { kind: "plugin", pluginId: installation.pluginId },
+			},
+			providerSpecifics: {
+				token: "test-token",
+				kind: "audiobookshelf",
+				baseUrl: "https://abs.example.com",
+			},
+		});
 	});
 
 export const listIntegrations = (

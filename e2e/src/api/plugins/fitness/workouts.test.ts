@@ -7,12 +7,9 @@ import {
 	createEntity,
 	executeRyotQL,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
-	findBuiltinPluginBySlug,
 	getSavedView,
 	getEntity,
 	insertRelationshipRow,
-	listEntitySchemas,
 	listSavedViews,
 	waitForCreateEvents,
 	waitForEventCount,
@@ -22,7 +19,8 @@ import {
 import {
 	createWorkoutEntityFixture,
 	createExerciseEntityFixture,
-	findBuiltinRelationshipSchemaSlug,
+	findFitnessEntitySchema,
+	findFitnessRelationshipSchema,
 	findWorkoutSetEventSchema,
 	waitForSessionEventCount,
 } from "~/fixtures/plugins/fitness";
@@ -38,21 +36,18 @@ describe("Workouts E2E", () => {
 	it.live("links the built-in workout schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: fitnessPlugin.slug });
-			const workoutSchema = schemas.find((schema) => schema.slug === "workout");
+			const { pluginId, schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 
-			expect(workoutSchema).toBeDefined();
-			expect(workoutSchema?.name).toBe("Workout");
-			expect(workoutSchema?.pluginSlug).toBe(fitnessPlugin.slug);
-			expect(workoutSchema?.isBuiltin).toBe(true);
+			expect(workoutSchema.name).toBe("Workout");
+			expect(workoutSchema.pluginId).toBe(pluginId);
+			expect(workoutSchema.isBuiltin).toBe(true);
 		}),
 	);
 
 	it.live("exposes the workout schema properties", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 
 			expect(workoutSchema.propertiesSchema.fields).toMatchObject({
 				images: { type: "array", label: "Images", description: "Images attached to this workout" },
@@ -84,7 +79,7 @@ describe("Workouts E2E", () => {
 	it.live("rejects a workout without a start time", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
@@ -92,7 +87,7 @@ describe("Workouts E2E", () => {
 						payload: {
 							properties: {},
 							name: "Workout without start",
-							entitySchemaSlug: workoutSchema.id,
+							entitySchema: workoutSchema.reference,
 						},
 					}),
 				),
@@ -106,7 +101,7 @@ describe("Workouts E2E", () => {
 	it.live("rejects invalid recorded duration and energy without inventing unknown values", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 			const startedAt = "2026-04-27T10:00:00Z";
 			for (const properties of [
 				{ startedAt, activeDuration: -1 },
@@ -117,7 +112,7 @@ describe("Workouts E2E", () => {
 					createEntity(client, {
 						properties,
 						name: "Invalid workout",
-						entitySchemaSlug: workoutSchema.id,
+						entitySchema: workoutSchema.reference,
 					}),
 				);
 				assertTaggedError(error, "EntityBadRequest");
@@ -126,7 +121,7 @@ describe("Workouts E2E", () => {
 			const workout = yield* createEntity(client, {
 				properties: { startedAt },
 				name: "Unknown duration workout",
-				entitySchemaSlug: workoutSchema.id,
+				entitySchema: workoutSchema.reference,
 			});
 			const stored = yield* getEntity(client, workout.id);
 			expect(stored.properties).not.toHaveProperty("activeDuration");
@@ -139,9 +134,9 @@ describe("Workouts E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+				const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 				const workout = yield* createEntity(client, {
-					entitySchemaSlug: workoutSchema.id,
+					entitySchema: workoutSchema.reference,
 					name: `Workout ${crypto.randomUUID()}`,
 					properties: {
 						caloriesBurnt: 150,
@@ -168,8 +163,8 @@ describe("Workouts E2E", () => {
 	it.live("creates the built-in All Workouts saved view with workout defaults", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-			const views = yield* listSavedViews(client, { pluginSlug: fitnessPlugin.slug });
+			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
+			const views = yield* listSavedViews(client, { pluginId });
 			const allWorkoutsView = views.find((view) => view.name === "All Workouts");
 			assertPresent(allWorkoutsView, "Expected the built-in All Workouts saved view");
 			const dataSources = requirePresent(
@@ -184,9 +179,9 @@ describe("Workouts E2E", () => {
 			);
 
 			expect(allWorkoutsView).toMatchObject({
+				pluginId,
 				isBuiltin: true,
 				name: "All Workouts",
-				pluginSlug: fitnessPlugin.slug,
 				renderer: { kind: "kernel", name: "entity-browser" },
 				settings: {
 					defaultLayout: "grid",
@@ -198,8 +193,8 @@ describe("Workouts E2E", () => {
 					entitySchemaSlugField: "entitySchemaSlug",
 					addAction: {
 						type: "provider-search",
+						ownerPluginId: pluginId,
 						entitySchemaSlug: "workout",
-						ownerPluginId: expect.any(String),
 					},
 					tableColumns: [
 						{ label: "Name", field: "column0", displayKind: "text" },
@@ -237,7 +232,7 @@ describe("Workouts E2E", () => {
 						]),
 					}),
 					expect.objectContaining({
-						right: { type: "literal", value: expect.any(String) },
+						right: { type: "literal", value: pluginId },
 						left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 					}),
 				]),
@@ -265,6 +260,7 @@ describe("Workouts E2E", () => {
 	it.live("sorts All Workouts by ended time descending", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 			const { workoutId: alphaWorkoutId } = yield* createWorkoutEntityFixture(client, {
 				name: "Alpha",
 				endedAt: "2026-01-01T11:00:00Z",
@@ -281,7 +277,11 @@ describe("Workouts E2E", () => {
 				startedAt: "2026-03-01T10:00:00Z",
 			});
 
-			const savedView = yield* getSavedView(client, "all-workouts");
+			const savedView = yield* getSavedView(client, {
+				pluginId,
+				kind: "plugin",
+				slug: "all-workouts",
+			});
 			const dataSources = requirePresent(
 				savedView.dataSources,
 				"All Workouts saved view has no data sources",
@@ -319,9 +319,13 @@ describe("Workouts E2E", () => {
 	it.live("shows workout entities through the All Workouts saved-view defaults", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
 			yield* createWorkoutEntityFixture(client);
 
-			const result = yield* executeRyotQLRecipe(client, workoutListRecipe({}));
+			const result = yield* executeRyotQLRecipe(
+				client,
+				workoutListRecipe({ reference: { pluginId, kind: "local" } }),
+			);
 
 			const firstWorkout = result.items[0];
 			assertPresent(firstWorkout, "Expected at least one workout item");
@@ -462,21 +466,21 @@ describe("Workouts E2E", () => {
 			const { workoutId: originalWorkoutId } = yield* createWorkoutEntityFixture(client);
 			const { workoutId: copiedWorkoutId } = yield* createWorkoutEntityFixture(client);
 
-			const relationshipSchemaSlug = yield* findBuiltinRelationshipSchemaSlug(
+			const relationshipSchema = yield* findFitnessRelationshipSchema(
 				client,
 				"workout-repeated-from",
 			);
 
 			const relationship = yield* insertRelationshipRow(client, {
-				relationshipSchemaSlug,
 				sourceEntityId: copiedWorkoutId,
 				targetEntityId: originalWorkoutId,
+				relationshipSchema: relationshipSchema.reference,
 			});
 
 			expect(relationship.wasInserted).toBe(true);
 			expect(relationship.sourceEntityId).toBe(copiedWorkoutId);
 			expect(relationship.targetEntityId).toBe(originalWorkoutId);
-			expect(relationship.relationshipSchemaSlug).toBe(relationshipSchemaSlug);
+			expect(relationship.relationshipSchemaSlug).toBe(relationshipSchema.id);
 		}),
 	);
 });

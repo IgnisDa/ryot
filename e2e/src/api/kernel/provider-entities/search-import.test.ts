@@ -8,7 +8,6 @@ import {
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
-	findBuiltinSchemaBySlug,
 	getApiClient,
 	pollProviderEntityImportResult,
 	searchProviderEntities,
@@ -16,6 +15,7 @@ import {
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import {
+	findMediaEntitySchema,
 	getVisibleEntityByProvenance,
 	getRelationshipBySchemaSlug,
 	queryInMediaLibraryRelationship,
@@ -45,9 +45,9 @@ beforeAll(() =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
-			const { schema: companySchema } = yield* findBuiltinSchemaBySlug(client, "company");
-			const { schema: animeSchema } = yield* findBuiltinSchemaBySlug(client, "anime");
-			const { schema: bookSchema } = yield* findBuiltinSchemaBySlug(client, "book");
+			const { schema: companySchema } = yield* findMediaEntitySchema(client, "company");
+			const { schema: animeSchema } = yield* findMediaEntitySchema(client, "anime");
+			const { schema: bookSchema } = yield* findMediaEntitySchema(client, "book");
 
 			companyProvider = yield* installTestProvider({
 				client,
@@ -229,7 +229,7 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 		"returns entity with populated properties and related entities in the completed result",
 		() =>
 			Effect.gen(function* () {
-				const { schema: companySchema } = yield* findBuiltinSchemaBySlug(providerClient, "company");
+				const { schema: companySchema } = yield* findMediaEntitySchema(providerClient, "company");
 
 				const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
 					externalId: "e2e-anime-1",

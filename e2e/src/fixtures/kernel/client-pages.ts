@@ -1,11 +1,12 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
+import type { PluginId } from "@ryot-app/contract/schema/brands";
+import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import {
 	aggregate,
 	and,
 	ascending,
 	column,
-	defineRecipe,
 	document,
 	eq,
 	field,
@@ -16,16 +17,14 @@ import {
 	literal,
 	measure,
 	rows,
-	selectedField,
-	selectedRows,
 	table,
 	timeSeries,
 } from "@ryot-app/ryotql";
 import { normalizeSlug } from "@ryot-app/ts-utils/slug";
-import { Effect, Result } from "effect";
+import { Effect } from "effect";
 
 import type { Client } from "./auth";
-import { executeRyotQLRecipe } from "./ryotql";
+import { findPluginInstallationByPackage } from "./plugins";
 
 type CreateSavedViewRequest = ContractRequest<"savedViews", "create">;
 type CreateSavedViewPayload = CreateSavedViewRequest["payload"];
@@ -42,40 +41,24 @@ type SavedViewClientPageTarget = Extract<
 	{ kind: "saved-view" }
 >;
 
-const pluginTable = table("plugin", "clientPagePlugin");
-const pluginInstallationTable = table("pluginInstallation", "clientPageInstallation");
-const pluginIdBySlugRecipe = defineRecipe((input: { readonly slug: string }) => ({
-	map: ({ plugins }) => Result.succeed(plugins.items[0]?.id ?? null),
-	queries: {
-		plugins: selectedRows(pluginTable, {
-			limit: 1,
-			orderBy: [ascending(column(pluginTable, "slug"))],
-			selection: { id: selectedField(column(pluginTable, "id"), PluginId) },
-			where: and(
-				eq(column(pluginTable, "slug"), literal(input.slug)),
-				eq(column(pluginTable, "scope"), literal("user")),
-			),
-			joins: [
-				join(
-					"inner",
-					pluginInstallationTable,
-					eq(column(pluginInstallationTable, "pluginId"), column(pluginTable, "id")),
-				),
-			],
-		}),
-	},
-}));
-
-export const findPluginIdBySlug = (client: Client, slug: string) => {
+export const findPluginIdByPackage = (
+	client: Client,
+	reference: PluginPackageReference & { readonly scope: "user" },
+) => {
 	if (!client.userId) {
 		throw new Error("Cannot find a user plugin without an authenticated user");
 	}
-	return executeRyotQLRecipe(client, pluginIdBySlugRecipe({ slug }));
+	return findPluginInstallationByPackage(client, reference).pipe(
+		Effect.map(({ pluginId }) => pluginId),
+	);
 };
 
-export const prepareClientPage = (client: Client, slug: SavedViewClientPageTarget["slug"]) =>
+export const prepareClientPage = (
+	client: Client,
+	reference: SavedViewClientPageTarget["reference"],
+) =>
 	client.call((contract) =>
-		contract.clientPages.prepare({ payload: { target: { slug, kind: "saved-view" } } }),
+		contract.clientPages.prepare({ payload: { target: { reference, kind: "saved-view" } } }),
 	);
 
 export const checkClientPageFreshness = (
@@ -105,14 +88,20 @@ export const createPluginSavedView = (
 	const payload = buildPluginSavedViewPayload(renderer, settings, overrides);
 	return client
 		.call((contract) => contract.savedViews.create({ payload }))
-		.pipe(Effect.map((result) => ({ ...result, slug: normalizeSlug(payload.name) })));
+		.pipe(
+			Effect.map((result) => ({
+				...result,
+				slug: normalizeSlug(payload.name),
+				reference: { savedViewId: result.id, kind: "custom" as const },
+			})),
+		);
 };
 
 export const buildEntityBrowserSavedViewPayload = (
 	overrides: Partial<KernelSavedViewPayload> = {},
 	entityIds: readonly string[] = [],
 	entitySchemaSlug?: string,
-	ownerPluginId?: string,
+	ownerPluginId?: PluginId,
 ): KernelSavedViewPayload => {
 	const entity = table("entity", "browserEntity");
 	const predicates = [
@@ -172,7 +161,7 @@ export const createEntityBrowserSavedView = (
 	overrides: Partial<KernelSavedViewPayload> = {},
 	entityIds: readonly string[] = [],
 	entitySchemaSlug?: string,
-	ownerPluginId?: string,
+	ownerPluginId?: PluginId,
 ) => {
 	const payload = buildEntityBrowserSavedViewPayload(
 		overrides,
@@ -182,7 +171,13 @@ export const createEntityBrowserSavedView = (
 	);
 	return client
 		.call((contract) => contract.savedViews.create({ payload }))
-		.pipe(Effect.map((result) => Object.assign(result, { slug: normalizeSlug(payload.name) })));
+		.pipe(
+			Effect.map((result) => ({
+				...result,
+				slug: normalizeSlug(payload.name),
+				reference: { savedViewId: result.id, kind: "custom" as const },
+			})),
+		);
 };
 
 export const createResultsTableSavedView = (
@@ -191,43 +186,51 @@ export const createResultsTableSavedView = (
 ) => {
 	const event = table("event", "resultEvent");
 	const entity = table("entity", "resultEntity");
-	return client.call((contract) =>
-		contract.savedViews.create({
-			payload: {
-				icon: "table",
-				name: `Results table ${crypto.randomUUID()}`,
-				renderer: { kind: "kernel", name: "results-table" },
-				settings: {
-					pageSize: 10,
-					sourceName: "events",
-					rowKeyFields: ["entityId", "occurredAt"],
-					entityLink: { entityIdField: "entityId" },
-					columns: [
-						{ field: "note", label: "Note", displayKind: "text" },
-						{ label: "Occurred", field: "occurredAt", displayKind: "date" },
-						{ field: "missing", label: "Missing", displayKind: "managed-asset" },
-					],
-				},
-				dataSources: document({
-					events: rows(event, {
-						limit: 10,
-						orderBy: [ascending(column(event, "occurredAt"))],
-						joins: [join("inner", entity, eq(column(entity, "id"), column(event, "entityId")))],
-						where: and(
-							eq(column(event, "entityId"), literal(input.entityId)),
-							eq(column(event, "eventSchemaSlug"), literal(input.eventSchemaSlug)),
-						),
-						fields: [
-							field("entityId", column(entity, "id")),
-							field("occurredAt", column(event, "occurredAt")),
-							field("note", jsonPath(column(event, "properties"), "note")),
-							field("missing", jsonPath(column(event, "properties"), "missing")),
+	return client
+		.call((contract) =>
+			contract.savedViews.create({
+				payload: {
+					icon: "table",
+					name: `Results table ${crypto.randomUUID()}`,
+					renderer: { kind: "kernel", name: "results-table" },
+					settings: {
+						pageSize: 10,
+						sourceName: "events",
+						rowKeyFields: ["entityId", "occurredAt"],
+						entityLink: { entityIdField: "entityId" },
+						columns: [
+							{ field: "note", label: "Note", displayKind: "text" },
+							{ label: "Occurred", field: "occurredAt", displayKind: "date" },
+							{ field: "missing", label: "Missing", displayKind: "managed-asset" },
 						],
+					},
+					dataSources: document({
+						events: rows(event, {
+							limit: 10,
+							orderBy: [ascending(column(event, "occurredAt"))],
+							joins: [join("inner", entity, eq(column(entity, "id"), column(event, "entityId")))],
+							where: and(
+								eq(column(event, "entityId"), literal(input.entityId)),
+								eq(column(event, "eventSchemaSlug"), literal(input.eventSchemaSlug)),
+							),
+							fields: [
+								field("entityId", column(entity, "id")),
+								field("occurredAt", column(event, "occurredAt")),
+								field("note", jsonPath(column(event, "properties"), "note")),
+								field("missing", jsonPath(column(event, "properties"), "missing")),
+							],
+						}),
 					}),
+				},
+			}),
+		)
+		.pipe(
+			Effect.map((result) =>
+				Object.assign({}, result, {
+					reference: { savedViewId: result.id, kind: "custom" as const },
 				}),
-			},
-		}),
-	);
+			),
+		);
 };
 
 export const buildNamedDataSources = (
@@ -265,8 +268,8 @@ export const buildNamedDataSources = (
 
 export const collectionWorkflowRendererSource = `
 import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
-import { EntityResults, usePageContext, usePageRefresh } from "@ryot-app/client-sdk/plugin";
-import { createRyotMutation, createRyotQuery, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
+import { EntityResults, PluginPackageId, usePageContext, usePageRefresh } from "@ryot-app/client-sdk/plugin";
+import { createRyotMutation, createRyotQuery, usePluginIdentity, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal, selectedAggregate, selectedField, selectedMeasure, selectedRows, table, type Recipe } from "@ryot-app/client-sdk/ryotql";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
@@ -375,13 +378,6 @@ const schemaLabel = (group: CollectionPageData["grouped"][number]) => {
   return group.ownerPluginName === null ? group.schemaSlug : group.ownerPluginName + " / " + group.schemaSlug;
 };
 
-const greetingMutation = createRyotMutation(({ client }) => client.operations.invoke({
-  slug: "greet",
-  input: { name: "Media collection page" },
-  output: Greeting,
-  pluginSlug: "fixture",
-}));
-
 const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [generation, setGeneration] = useState(0);
@@ -407,6 +403,13 @@ const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {
   useEffect(() => () => replay.current?.complete(), []);
   const queryInput = JSON.stringify([collectionId, pageSize, cursor, generation]);
   const page = useRyotQuery(collectionPageQuery, queryInput, { refreshOnMutation: false });
+  const fixtureIdentity = usePluginIdentity(PluginPackageId.make(${JSON.stringify(fixturePlugin.metadata.packageId)}));
+  const greetingMutation = createRyotMutation(({ client }) => client.operations.invoke({
+    slug: "greet",
+    input: { name: "Media collection page" },
+    output: Greeting,
+    pluginId: fixtureIdentity.pluginId,
+  }));
   const greeting = useRyotMutation(greetingMutation);
   useEffect(() => {
     const response = page.data;

@@ -4,10 +4,11 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
 	insertGlobalRelationship,
+	listRelationshipSchemas,
+	requireRelationshipSchemaBySlug,
 } from "~/fixtures/kernel";
-import { seedMediaEntity } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 const OVERVIEW_INPUT = {
@@ -23,7 +24,20 @@ describe("Video game relationships", () => {
 	it.live("keeps ports and remakes in the derivatives rail beyond a long run of DLC", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "video-game");
+			const { schema, pluginId } = yield* findMediaEntitySchema(client, "video-game");
+			const reference: Parameters<typeof videoGameRecipes.overviewRecipe>[0]["reference"] = {
+				pluginId,
+				kind: "local",
+			};
+			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				owner: schema.reference.owner,
+				slugs: ["video-game-to-video-game"],
+			});
+			const relationshipSchema = requireRelationshipSchemaBySlug(
+				relationshipSchemas,
+				"video-game-to-video-game",
+				schema.reference.owner,
+			);
 			const suffix = crypto.randomUUID();
 			const seed = (name: string, publishYear: number) =>
 				seedMediaEntity({
@@ -53,18 +67,18 @@ describe("Video game relationships", () => {
 						properties: { kind },
 						targetEntityId: child.id,
 						sourceEntityId: parent.id,
-						relationshipSchemaSlug: "video-game-to-video-game",
+						relationshipSchema: relationshipSchema.reference,
 					}),
 				{ concurrency: 10 },
 			);
 
 			const parentOverview = yield* executeRyotQLRecipe(
 				client,
-				videoGameRecipes.overviewRecipe({ ...OVERVIEW_INPUT, entityId: parent.id }),
+				videoGameRecipes.overviewRecipe({ ...OVERVIEW_INPUT, reference, entityId: parent.id }),
 			);
 			const childOverview = yield* executeRyotQLRecipe(
 				client,
-				videoGameRecipes.overviewRecipe({ ...OVERVIEW_INPUT, entityId: port.id }),
+				videoGameRecipes.overviewRecipe({ ...OVERVIEW_INPUT, reference, entityId: port.id }),
 			);
 
 			expect(parentOverview.derivatives.items).toHaveLength(60);

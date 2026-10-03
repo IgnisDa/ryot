@@ -38,6 +38,7 @@ export * from "./saved-views";
 export * from "./server-logs";
 export * from "./plugins";
 export * from "./plugin-catalog-events";
+export * from "./plugin-namespaces";
 export * from "./translations";
 export * from "./user-settings";
 export * from "./user-state";

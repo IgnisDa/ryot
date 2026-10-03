@@ -46,7 +46,7 @@ describe("RyotQL JSON array operators", () => {
 			yield* Effect.all([
 				createEntityFixture(client, {
 					name: "Show Early",
-					entitySchemaSlug: schema.schemaId,
+					entitySchema: schema.reference,
 					properties: schedule([
 						{ episode: 1, airingAt: "2026-08-01T00:00:00.000Z" },
 						{ episode: 2, airingAt: "2026-09-05T00:00:00.000Z" },
@@ -55,32 +55,32 @@ describe("RyotQL JSON array operators", () => {
 				}),
 				createEntityFixture(client, {
 					name: "Show First",
-					entitySchemaSlug: schema.schemaId,
+					entitySchema: schema.reference,
 					properties: schedule([{ episode: 1, airingAt: "2026-09-02T00:00:00.000Z" }]),
 				}),
 				createEntityFixture(client, {
 					name: "Show Past",
-					entitySchemaSlug: schema.schemaId,
+					entitySchema: schema.reference,
 					properties: schedule([{ episode: 1, airingAt: "2026-08-01T00:00:00.000Z" }]),
 				}),
 				createEntityFixture(client, {
 					name: "Show Empty",
 					properties: schedule([]),
-					entitySchemaSlug: schema.schemaId,
+					entitySchema: schema.reference,
 				}),
 				createEntityFixture(client, {
 					properties: {},
 					name: "Show Missing",
-					entitySchemaSlug: schema.schemaId,
+					entitySchema: schema.reference,
 				}),
 				createEntityFixture(client, {
 					name: "Show Broken",
-					entitySchemaSlug: schema.schemaId,
+					entitySchema: schema.reference,
 					properties: { airingSchedule: "not-an-array" },
 				}),
 				createEntityFixture(client, {
 					name: "Show Malformed",
-					entitySchemaSlug: schema.schemaId,
+					entitySchema: schema.reference,
 					properties: schedule([
 						{ episode: 1, airingAt: "not-a-date" },
 						{ episode: 2, airingAt: "2026-09-10T00:00:00.000Z" },

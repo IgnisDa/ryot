@@ -5,7 +5,6 @@ import {
 	createAuthenticatedClient,
 	createIntegration,
 	createKodiIntegration,
-	findBuiltinSchemaBySlug,
 	getIntegration,
 	listEventSlugs,
 	listEventsForEntity,
@@ -15,7 +14,11 @@ import {
 	waitForEventSlugs,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
-import { seedGlobalShowEpisodeTree, seedMediaEntity } from "~/fixtures/plugins/media";
+import {
+	findMediaEntitySchema,
+	seedGlobalShowEpisodeTree,
+	seedMediaEntity,
+} from "~/fixtures/plugins/media";
 import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { webRequest } from "~/support/web-request";
@@ -64,11 +67,11 @@ describe("Webhook routes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const integration = yield* createIntegration(client, {
-				provider: "plex_sink",
 				providerSpecifics: { kind: "plex_sink" },
+				provider: { slug: "plex_sink", owner: { kind: "kernel" } },
 			});
 
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
+			const { schema } = yield* findMediaEntitySchema(client, "movie");
 			const provider = requirePresent(
 				schema.providers.find((candidate) => candidate.name === "TMDB"),
 				"Expected TMDB movie provider",
@@ -130,9 +133,9 @@ describe("Progress normalization", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const integration = yield* createIntegration(client, {
-					provider: "kodi",
 					maximumProgress: 90,
 					providerSpecifics: { kind: "kodi" },
+					provider: { slug: "kodi", owner: { kind: "kernel" } },
 				});
 
 				const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
@@ -174,9 +177,9 @@ describe("Progress normalization", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const integration = yield* createIntegration(client, {
-					provider: "kodi",
 					minimumProgress: 10,
 					providerSpecifics: { kind: "kodi" },
+					provider: { slug: "kodi", owner: { kind: "kernel" } },
 				});
 
 				const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {

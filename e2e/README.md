@@ -49,6 +49,13 @@ The SSE catalog and entity-interest WebSocket fixtures validate transport header
 
 ## Assertions
 
+`pluginNamespacePackages` creates independent Whiskey packages A/B with identical metadata and
+local declarations. A2 preserves A's package identity and adds an optional field; Claim deliberately
+uses A's identity with different executable content. Each case gets fresh package identities and
+external IDs. Select installations, definitions, operations and routes by exact owner, never by
+the shared `whiskey` slug. Provider graphs use offline compiled scripts; suspended-writer cases
+use a scoped fake upstream. The fixture is available through `~/fixtures/kernel`.
+
 Assert the transport tag or category, module-owned kebab-case reason code, and structured parameters. Never assert server English, localized copy, or diagnostic prose. Raw compiler/runtime diagnostics may be asserted only on plugin-author, admin, or test surfaces that explicitly expose them.
 
 ## Capacity

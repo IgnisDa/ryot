@@ -2,7 +2,6 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	listEventsForEntity,
 	listEventSchemas,
@@ -15,6 +14,7 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createBuiltinMediaLifecycleFixture,
+	findMediaEntitySchema,
 	seedGlobalShowEpisodeTree,
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
@@ -298,30 +298,35 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const podcastSchemaId = yield* getBuiltinEntitySchemaSlug(client, "podcast");
-			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "podcast-episode");
-			const eventSchemas = yield* listEventSchemas(client, podcastEpisodeSchemaId);
+			const { schema: podcastSchema } = yield* findMediaEntitySchema(client, "podcast");
+			const { schema: podcastEpisodeSchema } = yield* findMediaEntitySchema(
+				client,
+				"podcast-episode",
+			);
+			const eventSchemas = yield* listEventSchemas(client, podcastEpisodeSchema.reference);
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				owner: podcastSchema.reference.owner,
 				slugs: ["podcast-to-podcast-episode"],
 			});
 			const podcastEpisodeRelationship = requireRelationshipSchemaBySlug(
 				relationshipSchemas,
 				"podcast-to-podcast-episode",
+				podcastSchema.reference.owner,
 			);
 			const podcast = yield* seedMediaEntity({
 				userId: null,
 				properties: {},
 				providerId: null,
 				name: "Podcast with Episode 1",
-				entitySchemaSlug: podcastSchemaId,
+				entitySchemaSlug: podcastSchema.id,
 				externalId: `podcast-${crypto.randomUUID()}`,
 			});
 			const entity = yield* seedMediaEntity({
 				userId: null,
 				providerId: null,
 				name: "Podcast Episode 1",
-				entitySchemaSlug: podcastEpisodeSchemaId,
+				entitySchemaSlug: podcastEpisodeSchema.id,
 				externalId: `podcast-episode-${crypto.randomUUID()}`,
 				properties: {
 					runtime: null,
@@ -333,7 +338,7 @@ describe("Event automations", () => {
 			yield* insertGlobalRelationship({
 				targetEntityId: entity.id,
 				sourceEntityId: podcast.id,
-				relationshipSchemaSlug: podcastEpisodeRelationship.id,
+				relationshipSchema: podcastEpisodeRelationship.reference,
 			});
 
 			yield* client.call((c) =>
@@ -362,8 +367,8 @@ describe("Event automations", () => {
 			const { showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
 				showName: "Show Episode Completion",
 			});
-			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-episode");
-			const eventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
+			const { schema: showEpisodeSchema } = yield* findMediaEntitySchema(client, "show-episode");
+			const eventSchemas = yield* listEventSchemas(client, showEpisodeSchema.reference);
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 
 			yield* client.call((c) =>

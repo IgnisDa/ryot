@@ -1,4 +1,4 @@
-import { PluginSlug, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -7,7 +7,6 @@ import {
 	type Client,
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
-	findBuiltinSchemaBySlug,
 	getApiClient,
 	getEntity,
 	installTestPluginBundle,
@@ -20,7 +19,7 @@ import {
 	type InstalledTestPlugin,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
-import { trendingSandboxSource } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, trendingSandboxSource } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import {
 	afterAll,
@@ -50,7 +49,7 @@ const TRENDING_SOURCE = trendingSandboxSource({
 let providerId: string;
 let queryClient: Client;
 let movieSchemaId: string;
-let trendingPluginSlug: string;
+let trendingPluginId: InstalledTestPlugin["pluginId"];
 let mediaTrendingSchemaId: string;
 let trendingPlugin: InstalledTestPlugin | undefined;
 
@@ -61,14 +60,16 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				const { client } = yield* createAuthenticatedClient();
 				queryClient = client;
 
-				const [{ schema: movieSchema }, relationshipSchemas] = yield* Effect.all([
-					findBuiltinSchemaBySlug(client, "movie"),
-					listRelationshipSchemas(client, { slugs: ["media-trending"] }),
-				]);
+				const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
+				const relationshipSchemas = yield* listRelationshipSchemas(client, {
+					slugs: ["media-trending"],
+					owner: movieSchema.reference.owner,
+				});
 				movieSchemaId = movieSchema.id;
 				mediaTrendingSchemaId = requireRelationshipSchemaBySlug(
 					relationshipSchemas,
 					"media-trending",
+					movieSchema.reference.owner,
 				).id;
 
 				const detailsEntry = `backend/providers/${PROVIDER_SLUG}/details.sandbox.ts`;
@@ -139,7 +140,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				assertPresent(directScript, "Trending direct script was not stored");
 				assertPresent(directScript.providerId, "Trending script provider was not stored");
 				providerId = directScript.providerId;
-				trendingPluginSlug = installed.manifest.metadata.slug;
+				trendingPluginId = installed.pluginId;
 				trendingPlugin = installed;
 			}),
 		),
@@ -154,10 +155,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 			const missing = yield* Effect.flip(
 				client.call((c) =>
 					c.testSupport.triggerPluginCron({
-						payload: {
-							cronSlug: "e2e-test-trending",
-							pluginSlug: PluginSlug.make(trendingPluginSlug),
-						},
+						payload: { pluginId: trendingPluginId, cronSlug: "e2e-test-trending" },
 					}),
 				),
 			);
@@ -167,10 +165,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				client.call(
 					(c) =>
 						c.testSupport.triggerPluginCron({
-							payload: {
-								cronSlug: "e2e-test-trending",
-								pluginSlug: PluginSlug.make(trendingPluginSlug),
-							},
+							payload: { pluginId: trendingPluginId, cronSlug: "e2e-test-trending" },
 						}),
 					adminAccessTokenHeaders("wrong-token"),
 				),
@@ -184,10 +179,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 			const result = yield* getApiClient().call(
 				(c) =>
 					c.testSupport.triggerPluginCron({
-						payload: {
-							cronSlug: "e2e-test-trending",
-							pluginSlug: PluginSlug.make(trendingPluginSlug),
-						},
+						payload: { pluginId: trendingPluginId, cronSlug: "e2e-test-trending" },
 					}),
 				adminHeaders(),
 			);

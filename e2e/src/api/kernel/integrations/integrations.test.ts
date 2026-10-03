@@ -5,6 +5,7 @@ import {
 	IntegrationId,
 	IntegrationWebhookToken,
 } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
 import { Effect, Option, Schema } from "effect";
 
@@ -15,16 +16,17 @@ import {
 	createIntegration,
 	createKodiIntegration,
 	deleteIntegration,
-	getIntegration,
+	findPluginInstallationByPackage,
 	getImportRun,
+	getIntegration,
 	installTestIntegrationProvider,
 	listIntegrationImportRuns,
 	listIntegrations,
 	listManualImportRuns,
-	postIntegrationWebhookAndWait,
-	postIntegrationWebhook,
-	pollUntil,
 	pollImportRunUntilTerminal,
+	pollUntil,
+	postIntegrationWebhook,
+	postIntegrationWebhookAndWait,
 	syncIntegrations,
 	updateUserSettingsPreferences,
 	uninstallTestPluginStrict,
@@ -49,7 +51,7 @@ const testSettingsSchema = {
 describe("Integration CRUD", () => {
 	it.live("cancels an integration-owned import without recording integration completion", () =>
 		Effect.gen(function* () {
-			const { providerSlug } = yield* Effect.acquireRelease(
+			const { plugin, providerSlug } = yield* Effect.acquireRelease(
 				installTestIntegrationProvider(testSettingsSchema, { delayMs: 30_000 }),
 				({ plugin: installed }) => uninstallTestPluginStrict(installed).pipe(Effect.orDie),
 			);
@@ -57,8 +59,8 @@ describe("Integration CRUD", () => {
 			const integration = yield* Effect.acquireRelease(
 				createIntegration(client, {
 					providerSpecifics: {},
-					provider: providerSlug,
 					extraSettings: { disableOnContinuousErrors: true },
+					provider: { slug: providerSlug, owner: { kind: "plugin", pluginId: plugin.pluginId } },
 				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
@@ -162,8 +164,12 @@ describe("Integration CRUD", () => {
 	it.live("creates a push integration without an integration script", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const media = yield* findPluginInstallationByPackage(client, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
 			const { id } = yield* createIntegration(client, {
-				provider: "radarr",
+				provider: { slug: "radarr", owner: { kind: "plugin", pluginId: media.pluginId } },
 				providerSpecifics: {
 					kind: "radarr",
 					profileId: "1",
@@ -190,15 +196,19 @@ describe("Integration CRUD", () => {
 	it.live("rejects minimumProgress > maximumProgress", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const media = yield* findPluginInstallationByPackage(client, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.integrations.create({
 						payload: {
-							provider: "kodi",
 							minimumProgress: 80,
 							maximumProgress: 20,
 							providerSpecifics: { kind: "kodi" },
+							provider: { slug: "kodi", owner: { kind: "plugin", pluginId: media.pluginId } },
 						},
 					}),
 				),
@@ -216,11 +226,18 @@ describe("Integration CRUD", () => {
 	it.live("rejects provider !== providerSpecifics.kind", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const media = yield* findPluginInstallationByPackage(client, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.integrations.create({
-						payload: { provider: "emby", providerSpecifics: { kind: "kodi" } },
+						payload: {
+							providerSpecifics: { kind: "kodi" },
+							provider: { slug: "emby", owner: { kind: "plugin", pluginId: media.pluginId } },
+						},
 					}),
 				),
 			);
@@ -349,8 +366,16 @@ describe("Integration sync", () => {
 		Effect.gen(function* () {
 			const { client: clientA } = yield* createAuthenticatedClient();
 			const { client: clientB } = yield* createAuthenticatedClient();
+			const mediaA = yield* findPluginInstallationByPackage(clientA, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
+			const mediaB = yield* findPluginInstallationByPackage(clientB, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
+			});
 			const enabled = yield* createIntegration(clientA, {
-				provider: "audiobookshelf",
+				provider: { slug: "audiobookshelf", owner: { kind: "plugin", pluginId: mediaA.pluginId } },
 				providerSpecifics: {
 					token: "test-token",
 					kind: "audiobookshelf",
@@ -359,7 +384,7 @@ describe("Integration sync", () => {
 			});
 			const disabled = yield* createAudiobookshelfIntegration(clientA);
 			const otherUser = yield* createIntegration(clientB, {
-				provider: "audiobookshelf",
+				provider: { slug: "audiobookshelf", owner: { kind: "plugin", pluginId: mediaB.pluginId } },
 				providerSpecifics: {
 					token: "test-token",
 					kind: "audiobookshelf",

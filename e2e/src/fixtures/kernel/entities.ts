@@ -1,6 +1,11 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginId,
+	SandboxProviderId,
+} from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect, Schema } from "effect";
 
@@ -55,6 +60,7 @@ export const getEntity = (client: Client, entityId: string) =>
 						field("updatedAt", column(entityTable, "updatedAt")),
 						field("properties", column(entityTable, "properties")),
 						field("entitySchemaSlug", column(entityTable, "entitySchemaSlug")),
+						field("entitySchemaPluginId", column(entityTable, "entitySchemaPluginId")),
 						field("externalId", column(entityTable, "externalId")),
 						field("populatedAt", column(entityTable, "populatedAt")),
 						field("providerId", column(entityTable, "providerId")),
@@ -95,6 +101,10 @@ export const getEntity = (client: Client, entityId: string) =>
 			translationStatus: yield* Schema.decodeUnknownEffect(TranslationStatus)(
 				requireRyotQLText(row, "translationStatus"),
 			),
+			entitySchemaPluginId:
+				optionalText("entitySchemaPluginId") === null
+					? null
+					: PluginId.make(requireRyotQLText(row, "entitySchemaPluginId")),
 		};
 	});
 
@@ -110,10 +120,10 @@ export const setEntityPopulatedAt = (entityId: string, populatedAt: string | nul
 
 export const createPluginSchemaAndEntity = (client: Client) =>
 	Effect.gen(function* () {
-		const { slug, schemaId } = yield* createPluginSchema(client);
+		const { slug, reference } = yield* createPluginSchema(client);
 		const entity = yield* createEntity(client, {
 			name: "Test Entity",
-			entitySchemaSlug: schemaId,
+			entitySchema: reference,
 			properties: { title: "Test Title" },
 		});
 		return { slug, entityId: entity.id };

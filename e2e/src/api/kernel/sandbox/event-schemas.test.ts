@@ -20,12 +20,12 @@ describe("sandbox event schema reads", () => {
 			const second = yield* createPluginSchema(client, { name: "Second schema" });
 			const firstEvent = yield* createEventSchema(client, {
 				name: "First event",
-				entitySchemaSlug: first.schemaId,
+				entitySchema: first.reference,
 				slug: `first-event-${crypto.randomUUID()}`,
 			});
 			const secondEvent = yield* createEventSchema(client, {
 				name: "Second event",
-				entitySchemaSlug: second.schemaId,
+				entitySchema: second.reference,
 				slug: `second-event-${crypto.randomUUID()}`,
 			});
 			const slug = `list-event-schemas-${crypto.randomUUID()}`;

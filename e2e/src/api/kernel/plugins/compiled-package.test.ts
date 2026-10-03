@@ -42,7 +42,7 @@ it.live("rejects a system built-in slug already owned by another user's custom v
 		);
 		assertTaggedError(error, "PluginRequestError");
 		expect(error.reason.code).toBe("validation-failed");
-		expect((yield* getSavedView(owner.client, custom.slug)).id).toBe(custom.id);
+		expect((yield* getSavedView(owner.client, custom.reference)).id).toBe(custom.id);
 		expect((yield* listAdminSystemPlugins).some(({ slug }) => slug === pluginSlug)).toBe(false);
 	}),
 );
@@ -103,10 +103,7 @@ it.live(
 							.call(
 								(c) =>
 									c.testSupport.uninstallSystemPlugin({
-										params: {
-											activationId: installed.activationId,
-											pluginSlug: PluginSlug.make(pluginSlug),
-										},
+										params: { pluginId: installed.pluginId, activationId: installed.activationId },
 									}),
 								adminHeaders(),
 							)
@@ -126,7 +123,7 @@ it.live(
 				{ kind: "plugin", exportName: "fixture-page", pluginId: installed.pluginId },
 				{},
 			);
-			const page = yield* prepareClientPage(client, view.slug);
+			const page = yield* prepareClientPage(client, view.reference);
 			const document = yield* client.call((contract) =>
 				contract.clientPages.document({ payload: { identity: page.identity } }),
 			);
@@ -149,10 +146,7 @@ it.live(
 			const removed = yield* getApiClient().call(
 				(c) =>
 					c.testSupport.uninstallSystemPlugin({
-						params: {
-							activationId: installed.activationId,
-							pluginSlug: PluginSlug.make(pluginSlug),
-						},
+						params: { pluginId: installed.pluginId, activationId: installed.activationId },
 					}),
 				adminHeaders(),
 			);

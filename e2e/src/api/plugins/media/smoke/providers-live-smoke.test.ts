@@ -5,7 +5,6 @@ import {
 	countEntityTranslations,
 	createAuthenticatedClient,
 	enqueueProviderEntityImport,
-	findBuiltinSchemaBySlug,
 	getEntity,
 	openInterestWebSocketScoped,
 	pollProviderEntityImportResult,
@@ -13,7 +12,7 @@ import {
 	searchProviderEntities,
 	setUserLanguage,
 } from "~/fixtures/kernel";
-import { seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
 import { assertCompleted, assertCondition, assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -35,7 +34,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schema } = yield* findBuiltinSchemaBySlug(client, "book");
+				const { schema } = yield* findMediaEntitySchema(client, "book");
 				const provider = schemaProvider(schema, "OpenLibrary");
 				const search = yield* searchProviderEntities(client, {
 					page: 1,
@@ -70,7 +69,7 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 			Effect.gen(function* () {
 				const auth = yield* createAuthenticatedClient();
 				const { client } = auth;
-				const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
+				const { schema } = yield* findMediaEntitySchema(client, "movie");
 				const provider = schemaProvider(schema, "TMDB");
 
 				const movie = yield* seedPopulatedProviderEntity({

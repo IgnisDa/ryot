@@ -7,13 +7,17 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
 	getImportRun,
 	listManualImportRuns,
 	pollImportRunUntilTerminal,
 	uploadImportFile,
 } from "~/fixtures/kernel";
-import { runOpenScaleImportFixture, startOpenScaleImport } from "~/fixtures/plugins/fitness";
+import {
+	createFitnessImportRun,
+	runOpenScaleImportFixture,
+	startOpenScaleImport,
+	findFitnessEntitySchema,
+} from "~/fixtures/plugins/fitness";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -21,17 +25,20 @@ describe("OpenScale Import E2E", () => {
 	it.live("reuses a manually created weight metric", () =>
 		Effect.gen(function* () {
 			const { token, client } = yield* createAuthenticatedClient();
-			const { schema: metricSchema } = yield* findBuiltinSchemaBySlug(client, "measurement-metric");
+			const { pluginId, schema: metricSchema } = yield* findFitnessEntitySchema(
+				client,
+				"measurement-metric",
+			);
 			const weight = yield* createEntity(client, {
 				name: "Weight",
-				entitySchemaSlug: metricSchema.id,
+				entitySchema: metricSchema.reference,
 				properties: { unit: "kg", key: "weight" },
 			});
 			yield* runOpenScaleImportFixture(client, token);
 
 			const readings = yield* executeRyotQLRecipe(
 				client,
-				measurementReadingListRecipe({ limit: 20 }),
+				measurementReadingListRecipe({ limit: 20, reference: { pluginId, kind: "local" } }),
 			);
 			const weightReadings = readings.items.filter(({ metricKey }) => metricKey === "weight");
 			expect(weightReadings).toHaveLength(3);
@@ -44,7 +51,10 @@ describe("OpenScale Import E2E", () => {
 
 			const summary = yield* executeRyotQLRecipe(
 				client,
-				measurementSummaryRecipe({ rangeStart: "1970-01-01T00:00:00.000Z" }),
+				measurementSummaryRecipe({
+					rangeStart: "1970-01-01T00:00:00.000Z",
+					reference: { pluginId, kind: "local" },
+				}),
 			);
 			expect(summary.items.filter(({ key }) => key === "weight").map(({ id }) => id)).toEqual([
 				weight.id,
@@ -55,6 +65,7 @@ describe("OpenScale Import E2E", () => {
 	it.live("completes an OpenScale import and creates measurement metrics and readings", () =>
 		Effect.gen(function* () {
 			const { token, client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
 			const { runId, completedRun } = yield* runOpenScaleImportFixture(client, token);
 
 			expect(completedRun.id).toBe(ImportRunId.make(runId));
@@ -91,7 +102,7 @@ describe("OpenScale Import E2E", () => {
 
 			const result = yield* executeRyotQLRecipe(
 				client,
-				measurementReadingListRecipe({ limit: 20 }),
+				measurementReadingListRecipe({ limit: 20, reference: { pluginId, kind: "local" } }),
 			);
 			expect(result.items).toHaveLength(15);
 			expect(new Set(result.items.map(({ metricId }) => metricId)).size).toBe(5);
@@ -151,11 +162,13 @@ describe("OpenScale Import E2E", () => {
 	it.live("rejects an invalid upload token", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
 
 			const error = yield* Effect.flip(
-				client.call((c) =>
-					c.imports.createRun({ payload: { source: "open_scale", uploadToken: "bogus-token" } }),
-				),
+				createFitnessImportRun(client, pluginId, {
+					source: "open_scale",
+					uploadToken: "bogus-token",
+				}),
 			);
 
 			assertTaggedError(error, "ImportRequestError");
@@ -165,6 +178,7 @@ describe("OpenScale Import E2E", () => {
 	it.live("rejects a non-CSV file extension", () =>
 		Effect.gen(function* () {
 			const { token, client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
 
 			const uploadToken = yield* uploadImportFile(
 				token,
@@ -174,7 +188,7 @@ describe("OpenScale Import E2E", () => {
 			);
 
 			const error = yield* Effect.flip(
-				client.call((c) => c.imports.createRun({ payload: { uploadToken, source: "open_scale" } })),
+				createFitnessImportRun(client, pluginId, { uploadToken, source: "open_scale" }),
 			);
 
 			assertTaggedError(error, "ImportRequestError");
@@ -197,12 +211,13 @@ describe("OpenScale Import E2E", () => {
 	it.live("returns failures for a run with bad rows", () =>
 		Effect.gen(function* () {
 			const { token, client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
 
 			const badCsv = `dateTime,weight\n2026-01-01 08:00:00,75.0\n,invalid-no-date\n2026-01-03 08:00:00,not-a-number\n`;
 
 			const uploadToken = yield* uploadImportFile(token, badCsv, "openscale-bad.csv", "text/csv");
 
-			const runId = yield* startOpenScaleImport(client, uploadToken);
+			const runId = yield* startOpenScaleImport(client, pluginId, { uploadToken });
 			const completedRun = yield* pollImportRunUntilTerminal(client, runId);
 
 			expect(completedRun.status).toBe("completed");

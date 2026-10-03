@@ -1,4 +1,5 @@
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { Effect, Schema } from "effect";
@@ -25,12 +26,13 @@ import {
 	uninstallTestPluginStrict,
 	uploadImportFile,
 } from "~/fixtures/kernel";
-import { assertPresent, assertTaggedError } from "~/support/assertions";
+import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 let fixtureImportPlugin: InstalledTestPlugin | undefined;
+let fixtureImportSourceReference: DeclarationReference | undefined;
 
 const uninstallWhenReleased = (installed: InstalledTestPlugin) =>
 	pollUntil(
@@ -48,6 +50,10 @@ describe("Plugin Import Public Boundary", () => {
 		runPromise(
 			Effect.gen(function* () {
 				fixtureImportPlugin = yield* installTestImportPlugin;
+				fixtureImportSourceReference = {
+					slug: FIXTURE_IMPORT_SOURCE,
+					owner: { kind: "plugin", pluginId: fixtureImportPlugin.pluginId },
+				};
 			}),
 		),
 	);
@@ -81,7 +87,10 @@ describe("Plugin Import Public Boundary", () => {
 				isStartable: false,
 				pluginSlug: fixtureImportPlugin.pluginSlug,
 				missingPluginConfigKeys: [
-					pluginConfigEnvironmentKey(fixtureImportPlugin.pluginSlug, "fixtureToken"),
+					pluginConfigEnvironmentKey(
+						fixtureImportPlugin.manifest.metadata.packageId,
+						"fixtureToken",
+					),
 				],
 			});
 		}),
@@ -97,7 +106,15 @@ describe("Plugin Import Public Boundary", () => {
 				"text/csv",
 			);
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { archiveUploadToken, source: FIXTURE_IMPORT_SOURCE } }),
+				c.imports.createRun({
+					payload: {
+						archiveUploadToken,
+						source: requirePresent(
+							fixtureImportSourceReference,
+							"Fixture import source is missing",
+						),
+					},
+				}),
 			);
 
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
@@ -120,7 +137,13 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const { client } = yield* createAuthenticatedClient();
 
-			const created = yield* client.call((c) => c.imports.createRun({ payload: { source } }));
+			const created = yield* client.call((c) =>
+				c.imports.createRun({
+					payload: {
+						source: { slug: source, owner: { kind: "plugin", pluginId: plugin.pluginId } },
+					},
+				}),
+			);
 
 			yield* uninstallTestPluginStrict(plugin);
 
@@ -132,14 +155,20 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("lets an authenticated owner repeatedly cancel and delete an active import", () =>
 		Effect.gen(function* () {
-			const { source } = yield* Effect.acquireRelease(
+			const { plugin, source } = yield* Effect.acquireRelease(
 				installTestImportPinningPlugin,
 				({ plugin: installedPlugin }) =>
 					uninstallWhenReleased(installedPlugin).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
-			const created = yield* owner.client.call((c) => c.imports.createRun({ payload: { source } }));
+			const created = yield* owner.client.call((c) =>
+				c.imports.createRun({
+					payload: {
+						source: { slug: source, owner: { kind: "plugin", pluginId: plugin.pluginId } },
+					},
+				}),
+			);
 			yield* pollUntil(
 				`Import run '${created.id}' to start`,
 				Effect.gen(function* () {
@@ -177,13 +206,19 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("cancels a newly accepted import before it can finish", () =>
 		Effect.gen(function* () {
-			const { source } = yield* Effect.acquireRelease(
+			const { plugin, source } = yield* Effect.acquireRelease(
 				installTestImportPinningPlugin,
 				({ plugin: installedPlugin }) =>
 					uninstallWhenReleased(installedPlugin).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const { client } = yield* createAuthenticatedClient();
-			const created = yield* client.call((c) => c.imports.createRun({ payload: { source } }));
+			const created = yield* client.call((c) =>
+				c.imports.createRun({
+					payload: {
+						source: { slug: source, owner: { kind: "plugin", pluginId: plugin.pluginId } },
+					},
+				}),
+			);
 			yield* client.call((c) =>
 				c.imports.cancelRun({ params: { runId: ImportRunId.make(created.id) } }),
 			);
@@ -199,7 +234,14 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const { client } = yield* createAuthenticatedClient();
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { source: fixture.source } }),
+				c.imports.createRun({
+					payload: {
+						source: {
+							slug: fixture.source,
+							owner: { kind: "plugin", pluginId: fixture.plugin.pluginId },
+						},
+					},
+				}),
 			);
 			const checkpoint = yield* pollUntil(
 				`Import run '${created.id}' to persist its ten-item checkpoint`,
@@ -237,13 +279,22 @@ describe("Plugin Import Public Boundary", () => {
 
 	it.live("downloads every stored import failure for the owning user", () =>
 		Effect.gen(function* () {
-			yield* Effect.acquireRelease(installTestHarvestHandleImportPlugin(101), (installed) =>
-				uninstallWhenReleased(installed).pipe(Effect.asVoid, Effect.orDie),
+			const installed = yield* Effect.acquireRelease(
+				installTestHarvestHandleImportPlugin(101),
+				(registeredPlugin) =>
+					uninstallWhenReleased(registeredPlugin).pipe(Effect.asVoid, Effect.orDie),
 			);
 			const { client } = yield* createAuthenticatedClient();
 
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { source: FIXTURE_HANDLE_IMPORT_SOURCE } }),
+				c.imports.createRun({
+					payload: {
+						source: {
+							slug: FIXTURE_HANDLE_IMPORT_SOURCE,
+							owner: { kind: "plugin", pluginId: installed.pluginId },
+						},
+					},
+				}),
 			);
 			const completed = yield* pollImportRunUntilTerminal(client, created.id);
 
@@ -314,7 +365,14 @@ describe("Plugin Import Public Boundary", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.imports.createRun({
-						payload: { archiveUploadToken, undeclaredUploadToken, source: FIXTURE_IMPORT_SOURCE },
+						payload: {
+							archiveUploadToken,
+							undeclaredUploadToken,
+							source: requirePresent(
+								fixtureImportSourceReference,
+								"Fixture import source is missing",
+							),
+						},
 					}),
 				),
 			);
@@ -338,8 +396,11 @@ describe("Plugin Import Public Boundary", () => {
 					c.imports.createRun({
 						payload: {
 							archiveUploadToken,
-							source: FIXTURE_IMPORT_SOURCE,
 							integrationScriptSlug: "integration.spoofed",
+							source: requirePresent(
+								fixtureImportSourceReference,
+								"Fixture import source is missing",
+							),
 						},
 					}),
 				),
@@ -351,11 +412,14 @@ describe("Plugin Import Public Boundary", () => {
 				client.call((c) =>
 					c.imports.createRun({
 						payload: {
-							source: FIXTURE_IMPORT_SOURCE,
 							archiveUploadToken: {
 								token: archiveUploadToken,
 								expiresAt: "2026-08-23T00:00:00.000Z",
 							},
+							source: requirePresent(
+								fixtureImportSourceReference,
+								"Fixture import source is missing",
+							),
 						},
 					}),
 				),
@@ -363,7 +427,15 @@ describe("Plugin Import Public Boundary", () => {
 			assertTaggedError(schemaError, "ImportRequestError");
 
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { archiveUploadToken, source: FIXTURE_IMPORT_SOURCE } }),
+				c.imports.createRun({
+					payload: {
+						archiveUploadToken,
+						source: requirePresent(
+							fixtureImportSourceReference,
+							"Fixture import source is missing",
+						),
+					},
+				}),
 			);
 			expect((yield* pollImportRunUntilTerminal(client, created.id)).status).toBe("completed");
 		}),
@@ -373,7 +445,16 @@ describe("Plugin Import Public Boundary", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const error = yield* Effect.flip(
-				client.call((c) => c.imports.createRun({ payload: { source: FIXTURE_IMPORT_SOURCE } })),
+				client.call((c) =>
+					c.imports.createRun({
+						payload: {
+							source: requirePresent(
+								fixtureImportSourceReference,
+								"Fixture import source is missing",
+							),
+						},
+					}),
+				),
 			);
 
 			assertTaggedError(error, "ImportRequestError");
@@ -391,7 +472,15 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.imports.createRun({ payload: { archiveUploadToken, source: FIXTURE_IMPORT_SOURCE } }),
+					c.imports.createRun({
+						payload: {
+							archiveUploadToken,
+							source: requirePresent(
+								fixtureImportSourceReference,
+								"Fixture import source is missing",
+							),
+						},
+					}),
 				),
 			);
 
@@ -411,7 +500,10 @@ describe("Plugin Import Public Boundary", () => {
 			const error = yield* Effect.flip(
 				client.call((c) =>
 					c.imports.createRun({
-						payload: { archiveUploadToken, source: "e2e_missing_import_source" },
+						payload: {
+							archiveUploadToken,
+							source: { owner: { kind: "kernel" }, slug: "e2e_missing_import_source" },
+						},
 					}),
 				),
 			);
@@ -419,7 +511,15 @@ describe("Plugin Import Public Boundary", () => {
 			expect((yield* listManualImportRuns(client, undefined, 20)).items).toEqual([]);
 
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { archiveUploadToken, source: FIXTURE_IMPORT_SOURCE } }),
+				c.imports.createRun({
+					payload: {
+						archiveUploadToken,
+						source: requirePresent(
+							fixtureImportSourceReference,
+							"Fixture import source is missing",
+						),
+					},
+				}),
 			);
 			expect((yield* pollImportRunUntilTerminal(client, created.id)).status).toBe("completed");
 		}),
@@ -430,7 +530,18 @@ describe("Plugin Import Public Boundary", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.imports.createRun({ payload: { source: FIXTURE_CONFIG_IMPORT_SOURCE } }),
+					c.imports.createRun({
+						payload: {
+							source: {
+								slug: FIXTURE_CONFIG_IMPORT_SOURCE,
+								owner: {
+									kind: "plugin",
+									pluginId: requirePresent(fixtureImportPlugin, "Fixture import plugin is missing")
+										.pluginId,
+								},
+							},
+						},
+					}),
 				),
 			);
 
@@ -452,13 +563,25 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.imports.createRun({ payload: { archiveUploadToken, source: FIXTURE_IMPORT_SOURCE } }),
+					c.imports.createRun({
+						payload: {
+							archiveUploadToken,
+							source: requirePresent(
+								fixtureImportSourceReference,
+								"Fixture import source is missing",
+							),
+						},
+					}),
 				),
 			);
 			assertTaggedError(error, "ImportRequestError");
 			expect((yield* listManualImportRuns(client, undefined, 20)).items).toEqual([]);
 
 			fixtureImportPlugin = yield* installTestImportPlugin;
+			fixtureImportSourceReference = {
+				slug: FIXTURE_IMPORT_SOURCE,
+				owner: { kind: "plugin", pluginId: fixtureImportPlugin.pluginId },
+			};
 			const reinstalled = yield* createAuthenticatedClient();
 			const reinstalledToken = yield* uploadImportFile(
 				reinstalled.token,
@@ -468,7 +591,13 @@ describe("Plugin Import Public Boundary", () => {
 			);
 			const created = yield* reinstalled.client.call((c) =>
 				c.imports.createRun({
-					payload: { source: FIXTURE_IMPORT_SOURCE, archiveUploadToken: reinstalledToken },
+					payload: {
+						archiveUploadToken: reinstalledToken,
+						source: requirePresent(
+							fixtureImportSourceReference,
+							"Fixture import source is missing",
+						),
+					},
 				}),
 			);
 			expect((yield* pollImportRunUntilTerminal(reinstalled.client, created.id)).status).toBe(

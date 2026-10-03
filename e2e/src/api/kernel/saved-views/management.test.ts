@@ -10,9 +10,11 @@ import {
 	findSavedViewById,
 	getSavedView,
 	listSavedViews,
+	listInstalledPlugins,
 	reorderSavedViews,
 	updateSavedView,
 } from "~/fixtures/kernel";
+import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("saved views management", () => {
@@ -23,7 +25,7 @@ describe("saved views management", () => {
 				name: `Clone Source ${crypto.randomUUID()}`,
 			});
 			const source = yield* findSavedViewById(client, sourceCreated.id);
-			const cloned = yield* cloneSavedView(client, source.slug);
+			const cloned = yield* cloneSavedView(client, source.reference);
 			const clone = yield* findSavedViewById(client, cloned.id);
 
 			expect(clone.id).not.toBe(source.id);
@@ -32,11 +34,11 @@ describe("saved views management", () => {
 			expect(clone.settings).toEqual(source.settings);
 			expect(clone.dataSources).toEqual(source.dataSources);
 
-			yield* updateSavedView(client, clone.slug, {
+			yield* updateSavedView(client, clone.reference, {
 				name: `${clone.name} Updated`,
 				settings: { ...clone.settings, pageSize: 5 },
 			});
-			const unchangedSource = yield* getSavedView(client, source.slug);
+			const unchangedSource = yield* getSavedView(client, source.reference);
 			expect(unchangedSource.name).toBe(source.name);
 			expect(unchangedSource.settings).toEqual(source.settings);
 		}),
@@ -49,11 +51,11 @@ describe("saved views management", () => {
 			if (!builtin) {
 				throw new Error("All Movies saved view not found");
 			}
-			const cloned = yield* cloneSavedView(client, builtin.slug);
+			const cloned = yield* cloneSavedView(client, builtin.reference);
 			const clone = yield* findSavedViewById(client, cloned.id);
-			yield* deleteSavedView(client, clone.slug);
+			yield* deleteSavedView(client, clone.reference);
 
-			expect((yield* getSavedView(client, builtin.slug)).id).toBe(builtin.id);
+			expect((yield* getSavedView(client, builtin.reference)).id).toBe(builtin.id);
 			expect((yield* listSavedViews(client)).map((view) => view.id)).not.toContain(clone.id);
 		}),
 	);
@@ -61,30 +63,36 @@ describe("saved views management", () => {
 	it.live("filters and reorders canonical views within a workspace", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, pluginSlug } = yield* createPluginEntitySchema(client, {
+			const { schemaId, pluginId, pluginSlug } = yield* createPluginEntitySchema(client, {
 				schemaName: `Saved View Workspace ${crypto.randomUUID()}`,
 			});
-			const dataSources = buildSavedViewDataSources([schemaId]);
+			const workspace = requirePresent(
+				(yield* listInstalledPlugins(client)).find((row) => row.pluginId === pluginId),
+				"Workspace missing",
+			);
+			const dataSources = buildSavedViewDataSources([schemaId], { pluginId, kind: "local" });
 			const firstCreated = yield* createSavedView(client, {
 				dataSources,
-				workspacePluginSlug: pluginSlug,
 				name: `Workspace A ${crypto.randomUUID()}`,
+				workspaceInstallationId: workspace.installationId,
 			});
 			const secondCreated = yield* createSavedView(client, {
 				dataSources,
-				workspacePluginSlug: pluginSlug,
 				name: `Workspace B ${crypto.randomUUID()}`,
+				workspaceInstallationId: workspace.installationId,
 			});
 			const first = yield* findSavedViewById(client, firstCreated.id);
 			const second = yield* findSavedViewById(client, secondCreated.id);
 
 			const reordered = yield* reorderSavedViews(client, {
-				pluginSlug,
-				viewSlugs: [second.slug, first.slug],
+				installationId: workspace.installationId,
+				references: [second.reference, first.reference],
 			});
-			const workspaceViews = yield* listSavedViews(client, { pluginSlug });
+			const workspaceViews = yield* listSavedViews(client, {
+				installationId: workspace.installationId,
+			});
 
-			expect(reordered.viewSlugs.slice(0, 2)).toEqual([second.slug, first.slug]);
+			expect(reordered.references.slice(0, 2)).toEqual([second.reference, first.reference]);
 			expect(workspaceViews.map((view) => view.slug).slice(0, 2)).toEqual([
 				second.slug,
 				first.slug,
@@ -100,8 +108,8 @@ describe("saved views management", () => {
 				name: `Disable Definition ${crypto.randomUUID()}`,
 			});
 			const before = yield* findSavedViewById(client, created.id);
-			const disabled = yield* updateSavedView(client, before.slug, { isHidden: true });
-			const after = yield* getSavedView(client, before.slug);
+			const disabled = yield* updateSavedView(client, before.reference, { isHidden: true });
+			const after = yield* getSavedView(client, before.reference);
 
 			expect(disabled.id).toBe(created.id);
 			expect(after.isHidden).toBe(true);

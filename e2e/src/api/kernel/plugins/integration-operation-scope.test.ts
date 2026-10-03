@@ -18,16 +18,19 @@ describe("integration authenticated operation scope", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const declaring = yield* Effect.acquireRelease(
 				installPrivateIntegrationPlugin({ client }),
-				({ pluginSlug }) => releasePrivatePlugin(client, pluginSlug),
+				({ installationId }) => releasePrivatePlugin(client, installationId),
 			);
 			const other = yield* Effect.acquireRelease(
 				installPrivateIntegrationPlugin({ client }),
-				({ pluginSlug }) => releasePrivatePlugin(client, pluginSlug),
+				({ installationId }) => releasePrivatePlugin(client, installationId),
 			);
 			const integration = yield* Effect.acquireRelease(
 				createIntegration(client, {
-					provider: declaring.providerSlug,
 					providerSpecifics: { endpoint: "https://private.example.com" },
+					provider: {
+						slug: declaring.providerSlug,
+						owner: { kind: "plugin", pluginId: declaring.pluginId },
+					},
 				}),
 				({ id }) =>
 					deleteIntegration(client, id).pipe(
@@ -47,8 +50,8 @@ describe("integration authenticated operation scope", () => {
 			expect(
 				(yield* invokePrivateIntegrationOperation({
 					client,
+					pluginId: declaring.pluginId,
 					integrationId: integration.id,
-					pluginSlug: declaring.pluginSlug,
 					operationSlug: declaring.operationSlug,
 				})).result,
 			).toEqual({ integrationId: integration.id });
@@ -56,15 +59,15 @@ describe("integration authenticated operation scope", () => {
 			const foreignPrivate = yield* Effect.flip(
 				invokePrivateIntegrationOperation({
 					client,
-					pluginSlug: other.pluginSlug,
+					pluginId: other.pluginId,
 					integrationId: integration.id,
 					operationSlug: other.operationSlug,
 				}),
 			);
 			assertTaggedError(foreignPrivate, "PluginNotFoundError");
 			expect(foreignPrivate.reason).toEqual({
+				pluginId: other.pluginId,
 				code: "operation-not-found",
-				pluginSlug: other.pluginSlug,
 				operationSlug: other.operationSlug,
 			});
 
@@ -72,13 +75,13 @@ describe("integration authenticated operation scope", () => {
 				invokePrivateIntegrationOperation({
 					client,
 					integrationId: kodi.id,
-					pluginSlug: declaring.pluginSlug,
+					pluginId: declaring.pluginId,
 					operationSlug: declaring.operationSlug,
 				}),
 			);
 			assertTaggedError(foreignSystem, "PluginNotFoundError");
 			expect(foreignSystem.reason).toEqual({
-				pluginSlug: declaring.pluginSlug,
+				pluginId: declaring.pluginId,
 				code: "operation-scope-not-found",
 				operationSlug: declaring.operationSlug,
 			});

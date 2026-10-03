@@ -266,7 +266,7 @@ describe("RyotQL correlated expressions", () => {
 	it.live("returns null for invalid arithmetic and division by zero", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
+			const { slug, reference } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLArithmeticCourse",
 				propertiesSchema: {
 					fields: {
@@ -277,7 +277,7 @@ describe("RyotQL correlated expressions", () => {
 			});
 			yield* createEntityFixture(client, {
 				name: "Empty Course",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				properties: { total: 0, completed: 0 },
 			});
 
@@ -363,11 +363,11 @@ describe("RyotQL correlated expressions", () => {
 			});
 			const ownEntity = yield* createEntityFixture(owner.client, {
 				name: "Visible Root",
-				entitySchemaSlug: ownerSchema.schemaId,
+				entitySchema: ownerSchema.reference,
 			});
 			const hiddenEntity = yield* createEntityFixture(other.client, {
 				name: "Hidden Child",
-				entitySchemaSlug: otherSchema.schemaId,
+				entitySchema: otherSchema.reference,
 			});
 
 			const root = table("entity", "root");
@@ -432,16 +432,16 @@ describe("RyotQL correlated expressions", () => {
 	it.live("compares dates against a correlated maximum in one query", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginEntitySchema(client, {
+			const { reference } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLMaximumDate",
 			});
 			const eventSchema = yield* createEventSchema(client, {
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				name: "RyotQL Maximum Date Event",
 				slug: `ryotql-maximum-date-${crypto.randomUUID()}`,
 			});
 			const entity = yield* createEntityFixture(client, {
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				name: "Maximum Date Entity",
 			});
 			const latestAt = "2026-05-03T00:00:00.000Z";

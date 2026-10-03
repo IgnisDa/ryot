@@ -1,4 +1,4 @@
-import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { and, column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import {
@@ -16,7 +16,11 @@ import {
 	savePluginUserSettings,
 } from "~/fixtures/kernel/plugin-user-settings";
 import { getUserSettings, setUserLanguage } from "~/fixtures/kernel/user-settings";
-import { createExerciseEntityFixture } from "~/fixtures/plugins/fitness";
+import {
+	createExerciseEntityFixture,
+	findFitnessEntitySchema,
+	findFitnessRelationshipSchema,
+} from "~/fixtures/plugins/fitness";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -77,6 +81,8 @@ describe("Fitness preferences", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { exerciseId } = yield* createExerciseEntityFixture(client, { kind: "duration" });
+			const { pluginId } = yield* findFitnessEntitySchema(client, "fitness-library");
+			const relationshipSchema = yield* findFitnessRelationshipSchema(client, "in-fitness-library");
 			const library = table("entity", "fitnessLibrary");
 			const result = yield* executeRyotQL(
 				client,
@@ -84,7 +90,10 @@ describe("Fitness preferences", () => {
 					library: rows(library, {
 						limit: 1,
 						fields: [field("id", column(library, "id"))],
-						where: eq(column(library, "entitySchemaSlug"), literal("fitness-library")),
+						where: and(
+							eq(column(library, "entitySchemaPluginId"), literal(pluginId)),
+							eq(column(library, "entitySchemaSlug"), literal("fitness-library")),
+						),
 					}),
 				}),
 			);
@@ -98,7 +107,7 @@ describe("Fitness preferences", () => {
 			const identity = {
 				targetEntityId: libraryId,
 				sourceEntityId: exerciseId,
-				relationshipSchemaSlug: "in-fitness-library",
+				relationshipSchema: relationshipSchema.reference,
 			};
 			const properties = { dropRestTime: 22, normalRestTime: 0, defaultDurationUnit: "seconds" };
 			expect(

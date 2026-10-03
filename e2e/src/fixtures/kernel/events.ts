@@ -66,13 +66,13 @@ export const waitForCreateEvents = (
 
 export const createEventTestFixture = (client: Client) =>
 	Effect.gen(function* () {
-		const { schemaId: entitySchemaSlug } = yield* createPluginSchema(client, {
+		const { reference, schemaId: entitySchemaSlug } = yield* createPluginSchema(client, {
 			name: "Test Item",
 			slug: `item-${crypto.randomUUID()}`,
 		});
 		const eventSchema = yield* createEventSchema(client, {
-			entitySchemaSlug,
 			name: "Finished",
+			entitySchema: reference,
 			slug: `finished-${crypto.randomUUID()}`,
 			propertiesSchema: {
 				fields: {
@@ -86,22 +86,28 @@ export const createEventTestFixture = (client: Client) =>
 			},
 		});
 		const entity = yield* createEntity(client, {
-			entitySchemaSlug,
 			name: "Test Book",
+			entitySchema: reference,
 			properties: { title: "Test" },
 		});
-		return { entitySchemaSlug, entityId: entity.id, eventSchemaSlug: eventSchema.id };
+		return {
+			entitySchemaSlug,
+			entityId: entity.id,
+			eventSchemaSlug: eventSchema.id,
+			entitySchemaReference: reference,
+			eventSchemaReference: eventSchema.reference,
+		};
 	});
 
 export const createRuleEventFixture = (client: Client) =>
 	Effect.gen(function* () {
-		const { schemaId: entitySchemaSlug } = yield* createPluginSchema(client, {
+		const { reference } = yield* createPluginSchema(client, {
 			name: "Rule Test Item",
 			slug: `rule-item-${crypto.randomUUID()}`,
 		});
 		const eventSchema = yield* createEventSchema(client, {
-			entitySchemaSlug,
 			name: "Progress Log",
+			entitySchema: reference,
 			slug: `progress-log-${crypto.randomUUID()}`,
 			propertiesSchema: {
 				rules: [
@@ -128,11 +134,15 @@ export const createRuleEventFixture = (client: Client) =>
 			},
 		});
 		const entity = yield* createEntity(client, {
-			entitySchemaSlug,
 			name: "Rule Test Book",
+			entitySchema: reference,
 			properties: { title: "Rule Test" },
 		});
-		return { entityId: entity.id, eventSchemaSlug: eventSchema.id };
+		return {
+			entityId: entity.id,
+			eventSchemaSlug: eventSchema.id,
+			eventSchemaReference: eventSchema.reference,
+		};
 	});
 
 export const listEventsForEntity = (

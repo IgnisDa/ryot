@@ -1,5 +1,7 @@
+import type { ContractPayload } from "@ryot-app/contract/client";
 import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
-import { NotificationSubscriptionId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { SignalSchemaReference } from "@ryot-app/contract/modules/plugins/references";
+import { NotificationSubscriptionId } from "@ryot-app/contract/schema/brands";
 import {
 	column,
 	defineRecipe,
@@ -61,12 +63,10 @@ export const listNotificationSubscriptions = (
 export const getNotificationSubscription = (client: Client, ruleId: string) =>
 	executeRyotQLRecipe(client, notificationSubscriptionRecipe({ id: ruleId }));
 
-export const installNotificationRule = (client: Client, signalSchemaSlug: string) =>
-	client.call((c) =>
-		c.automations.installRule({
-			payload: { signalSchemaSlug: SignalSchemaSlug.make(signalSchemaSlug) },
-		}),
-	);
+export const installNotificationRule = (
+	client: Client,
+	signalSchema: ContractPayload<"automations", "installRule">["signalSchema"],
+) => client.call((c) => c.automations.installRule({ payload: { signalSchema } }));
 
 export const setNotificationRuleActive = (client: Client, ruleId: string, isActive: boolean) => {
 	const params = { ruleId: NotificationSubscriptionId.make(ruleId) };
@@ -115,8 +115,9 @@ type SignalPayload = Extract<
 >;
 type SignalTrigger = AutomationTrigger & { readonly payload: SignalPayload };
 
-export type SignalTriggerFilter = Pick<SignalPayload, "signalSchemaSlug"> &
-	Partial<Pick<SignalPayload, "actorUserId" | "subjectEntityId">>;
+export type SignalTriggerFilter = { signalSchema: SignalSchemaReference } & Partial<
+	Pick<SignalPayload, "actorUserId" | "subjectEntityId">
+>;
 
 const isSignalTrigger = (trigger: AutomationTrigger): trigger is SignalTrigger =>
 	trigger.payload?.category === "signal";
@@ -127,7 +128,11 @@ export const listSignalTriggers = (filter: SignalTriggerFilter) =>
 			triggers.filter(
 				(trigger): trigger is SignalTrigger =>
 					isSignalTrigger(trigger) &&
-					trigger.payload.signalSchemaSlug === filter.signalSchemaSlug &&
+					trigger.payload.signalSchemaSlug === filter.signalSchema.slug &&
+					trigger.payload.signalSchemaPluginId ===
+						(filter.signalSchema.owner.kind === "kernel"
+							? null
+							: filter.signalSchema.owner.pluginId) &&
 					(filter.actorUserId === undefined ||
 						trigger.payload.actorUserId === filter.actorUserId) &&
 					(filter.subjectEntityId === undefined ||
@@ -152,7 +157,7 @@ export const pollAutomationTriggerRecipients = (
 
 export const pollSignalTrigger = (filter: SignalTriggerFilter) =>
 	pollUntil(
-		`signal trigger for '${filter.signalSchemaSlug}'`,
+		`signal trigger for '${filter.signalSchema.slug}'`,
 		Effect.gen(function* () {
 			const [trigger] = yield* listSignalTriggers(filter);
 			return trigger ?? null;
@@ -161,7 +166,7 @@ export const pollSignalTrigger = (filter: SignalTriggerFilter) =>
 
 export const pollSignalTriggerWithRecipientCount = (filter: SignalTriggerFilter, count: number) =>
 	pollUntil(
-		`${count} recipient(s) for signal trigger '${filter.signalSchemaSlug}'`,
+		`${count} recipient(s) for signal trigger '${filter.signalSchema.slug}'`,
 		Effect.gen(function* () {
 			const triggers = yield* listSignalTriggers(filter);
 			for (const trigger of triggers) {

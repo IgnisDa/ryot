@@ -1,5 +1,5 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
-import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -23,13 +23,13 @@ export const insertRelationshipRow = (
 	input: {
 		sourceEntityId: string;
 		targetEntityId: string;
-		relationshipSchemaSlug: string;
+		relationshipSchema: CreateRelationshipBody["relationshipSchema"];
 		properties?: Record<string, unknown>;
 	},
 ) =>
 	createRelationship(client, {
 		properties: input.properties,
+		relationshipSchema: input.relationshipSchema,
 		sourceEntityId: EntityId.make(input.sourceEntityId),
 		targetEntityId: EntityId.make(input.targetEntityId),
-		relationshipSchemaSlug: RelationshipSchemaSlug.make(input.relationshipSchemaSlug),
 	});

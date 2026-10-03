@@ -8,6 +8,8 @@ import {
 	listEntitySchemas,
 	listEventSchemas,
 } from "~/fixtures/kernel";
+import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
+import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -15,9 +17,9 @@ describe("GET /event-schemas", () => {
 	it.live("returns seeded built-in media lifecycle event schemas", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: mediaSchema } = yield* findBuiltinSchemaBySlug(client, "book");
+			const { schema: mediaSchema } = yield* findMediaEntitySchema(client, "book");
 
-			const eventSchemas = yield* listEventSchemas(client, mediaSchema.id);
+			const eventSchemas = yield* listEventSchemas(client, mediaSchema.reference);
 
 			expect(sortBy(eventSchemas.map((schema) => schema.slug))).toEqual([
 				"add-to-media-library",
@@ -35,9 +37,9 @@ describe("GET /event-schemas", () => {
 	it.live("returns the seeded workout-set and review event schemas for exercise", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: exerciseSchema } = yield* findBuiltinSchemaBySlug(client, "exercise");
+			const { schema: exerciseSchema } = yield* findFitnessEntitySchema(client, "exercise");
 
-			const eventSchemas = yield* listEventSchemas(client, exerciseSchema.id);
+			const eventSchemas = yield* listEventSchemas(client, exerciseSchema.reference);
 
 			expect(eventSchemas.map((schema) => schema.slug)).toEqual(["review", "workout-set"]);
 			const workoutSetSchema = eventSchemas.find((schema) => schema.slug === "workout-set");
@@ -129,9 +131,11 @@ describe("GET /event-schemas", () => {
 	it.live("returns the seeded review event schema for collection", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: collectionSchema } = yield* findBuiltinSchemaBySlug(client, "collection");
+			const { schema: collectionSchema } = yield* findBuiltinSchemaBySlug(client, "collection", {
+				kind: "kernel",
+			});
 
-			const eventSchemas = yield* listEventSchemas(client, collectionSchema.id);
+			const eventSchemas = yield* listEventSchemas(client, collectionSchema.reference);
 
 			expect(eventSchemas.map((schema) => schema.slug)).toEqual([
 				"add-entity-to-collection",
@@ -166,13 +170,15 @@ describe("GET /event-schemas", () => {
 	it.live("exposes lifecycle schemas for each supported built-in media schema", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: "media" });
+			const { builtinPlugin } = yield* findMediaEntitySchema(client, "book");
+			assertPresent(builtinPlugin, "System media fixture installation missing");
+			const schemas = yield* listEntitySchemas(client, { pluginId: builtinPlugin.pluginId });
 			const eventSchemasBySlug = yield* Effect.forEach(["book", "anime", "manga"], (slug) =>
 				Effect.gen(function* () {
 					const mediaSchema = schemas.find((schema) => schema.slug === slug);
 					assertPresent(mediaSchema, `Missing built-in ${slug} schema`);
 
-					return { slug, eventSchemas: yield* listEventSchemas(client, mediaSchema.id) };
+					return { slug, eventSchemas: yield* listEventSchemas(client, mediaSchema.reference) };
 				}),
 			);
 
@@ -325,14 +331,23 @@ describe("GET /event-schemas", () => {
 	it.live("exposes per-entity progress schema variants for episodic media", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: "media" });
+			const { builtinPlugin, schema: mediaFixtureSchema } = yield* findMediaEntitySchema(
+				client,
+				"book",
+			);
+			assertPresent(builtinPlugin, "System media fixture installation missing");
+			const mediaOwner = mediaFixtureSchema.reference.owner;
+			const schemas = yield* listEntitySchemas(client, { pluginId: builtinPlugin.pluginId });
 
 			const getProgressSchema = (slug: string) =>
 				Effect.gen(function* () {
 					const schemaId =
 						schemas.find((schema) => schema.slug === slug)?.id ??
-						(yield* getBuiltinEntitySchemaSlug(client, slug));
-					const eventSchemas = yield* listEventSchemas(client, schemaId);
+						(yield* getBuiltinEntitySchemaSlug(client, slug, mediaOwner));
+					const eventSchemas = yield* listEventSchemas(client, {
+						slug: schemaId,
+						owner: mediaOwner,
+					});
 					const progressSchema = eventSchemas.find((schema) => schema.slug === "progress");
 					assertPresent(progressSchema, `Missing built-in progress schema for ${slug}`);
 
@@ -341,11 +356,11 @@ describe("GET /event-schemas", () => {
 
 			const showSchema = schemas.find((schema) => schema.slug === "show");
 			assertPresent(showSchema, "Missing built-in show schema");
-			const showEventSchemas = yield* listEventSchemas(client, showSchema.id);
+			const showEventSchemas = yield* listEventSchemas(client, showSchema.reference);
 			expect(showEventSchemas.some((schema) => schema.slug === "progress")).toBe(false);
 			const podcastSchema = schemas.find((schema) => schema.slug === "podcast");
 			assertPresent(podcastSchema, "Missing built-in podcast schema");
-			const podcastEventSchemas = yield* listEventSchemas(client, podcastSchema.id);
+			const podcastEventSchemas = yield* listEventSchemas(client, podcastSchema.reference);
 			expect(podcastEventSchemas.some((schema) => schema.slug === "progress")).toBe(false);
 
 			const animeProgressSchema = yield* getProgressSchema("anime");
@@ -426,7 +441,9 @@ describe("GET /event-schemas", () => {
 	it.live("exposes per-entity dropped and on_hold schema variants extending progress", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: "media" });
+			const { builtinPlugin } = yield* findMediaEntitySchema(client, "book");
+			assertPresent(builtinPlugin, "System media fixture installation missing");
+			const schemas = yield* listEntitySchemas(client, { pluginId: builtinPlugin.pluginId });
 			const sessionFields = {
 				startedOn: {
 					type: "datetime",
@@ -446,7 +463,7 @@ describe("GET /event-schemas", () => {
 					const mediaSchema = schemas.find((schema) => schema.slug === entitySlug);
 					assertPresent(mediaSchema, `Missing built-in ${entitySlug} schema`);
 
-					const eventSchemas = yield* listEventSchemas(client, mediaSchema.id);
+					const eventSchemas = yield* listEventSchemas(client, mediaSchema.reference);
 					const schema = eventSchemas.find((s) => s.slug === eventSlug);
 					assertPresent(schema, `Missing built-in ${eventSlug} schema for ${entitySlug}`);
 

@@ -59,7 +59,10 @@ describe("V1 backup archive validation", () => {
 			const source = yield* createAuthenticatedClient();
 			const target = yield* createAuthenticatedClient();
 			const before = yield* inspectAccount(target.client);
-			yield* createIntegration(source.client, { provider: "data-json", providerSpecifics: {} });
+			yield* createIntegration(source.client, {
+				providerSpecifics: {},
+				provider: { slug: "data-json", owner: { kind: "kernel" } },
+			});
 			const entries = unzipSync((yield* exportAndDownloadBackup(source.client)).bytes);
 			const manifestBytes = requirePresent(entries["manifest.json"], "Expected backup manifest");
 			const integrationBytes = requirePresent(

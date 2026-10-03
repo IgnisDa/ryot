@@ -3,7 +3,6 @@ import { Effect, Schema } from "effect";
 import {
 	createAuthenticatedClient,
 	createKodiIntegration,
-	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listEventsForEntity,
@@ -16,7 +15,11 @@ import {
 	waitForEventCount,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
-import { seedGlobalShowEpisodeTree, seedMediaEntity } from "~/fixtures/plugins/media";
+import {
+	findMediaEntitySchema,
+	seedGlobalShowEpisodeTree,
+	seedMediaEntity,
+} from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Episodic lifecycle sessions", () => {
@@ -26,8 +29,8 @@ describe("Episodic lifecycle sessions", () => {
 			const { showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
 				showName: "Regular Episode Session Show",
 			});
-			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-episode");
-			const eventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
+			const { schema: showEpisodeSchema } = yield* findMediaEntitySchema(client, "show-episode");
+			const eventSchemas = yield* listEventSchemas(client, showEpisodeSchema.reference);
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 
 			yield* client.call((c) =>
@@ -57,26 +60,29 @@ describe("Episodic lifecycle sessions", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const suffix = crypto.randomUUID();
-			const [showSchemaId, seasonSchemaId, episodeSchemaId, relationshipSchemas] =
+			const [{ schema: showSchema }, { schema: seasonSchema }, { schema: episodeSchema }] =
 				yield* Effect.all([
-					getBuiltinEntitySchemaSlug(client, "show"),
-					getBuiltinEntitySchemaSlug(client, "show-season"),
-					getBuiltinEntitySchemaSlug(client, "show-episode"),
-					listRelationshipSchemas(client, {
-						slugs: ["show-to-show-season", "show-season-to-show-episode"],
-					}),
+					findMediaEntitySchema(client, "show"),
+					findMediaEntitySchema(client, "show-season"),
+					findMediaEntitySchema(client, "show-episode"),
 				]);
+			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				owner: showSchema.reference.owner,
+				slugs: ["show-to-show-season", "show-season-to-show-episode"],
+			});
 			const showToSeason = requireRelationshipSchemaBySlug(
 				relationshipSchemas,
 				"show-to-show-season",
+				showSchema.reference.owner,
 			);
 			const seasonToEpisode = requireRelationshipSchemaBySlug(
 				relationshipSchemas,
 				"show-season-to-show-episode",
+				showSchema.reference.owner,
 			);
 			const show = yield* seedMediaEntity({
 				providerId: null,
-				entitySchemaSlug: showSchemaId,
+				entitySchemaSlug: showSchema.id,
 				name: `Special Session Show ${suffix}`,
 				externalId: `special-session-show-${suffix}`,
 				properties: { totalSeasons: 0, totalEpisodes: 0 },
@@ -84,13 +90,13 @@ describe("Episodic lifecycle sessions", () => {
 			const season = yield* seedMediaEntity({
 				providerId: null,
 				properties: { seasonNumber: 0 },
-				entitySchemaSlug: seasonSchemaId,
+				entitySchemaSlug: seasonSchema.id,
 				name: `Special Session Season ${suffix}`,
 				externalId: `special-session-season-${suffix}`,
 			});
 			const episode = yield* seedMediaEntity({
 				providerId: null,
-				entitySchemaSlug: episodeSchemaId,
+				entitySchemaSlug: episodeSchema.id,
 				name: `Special Session Episode ${suffix}`,
 				externalId: `special-session-episode-${suffix}`,
 				properties: { seasonNumber: 0, episodeNumber: 1 },
@@ -98,14 +104,14 @@ describe("Episodic lifecycle sessions", () => {
 			yield* insertGlobalRelationship({
 				sourceEntityId: show.id,
 				targetEntityId: season.id,
-				relationshipSchemaSlug: showToSeason.id,
+				relationshipSchema: showToSeason.reference,
 			});
 			yield* insertGlobalRelationship({
 				sourceEntityId: season.id,
 				targetEntityId: episode.id,
-				relationshipSchemaSlug: seasonToEpisode.id,
+				relationshipSchema: seasonToEpisode.reference,
 			});
-			const eventSchemas = yield* listEventSchemas(client, episodeSchemaId);
+			const eventSchemas = yield* listEventSchemas(client, episodeSchema.reference);
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 
 			yield* client.call((c) =>
@@ -131,18 +137,19 @@ describe("Episodic lifecycle sessions", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const suffix = crypto.randomUUID();
-			const [showSchemaId, seasonSchemaId, episodeSchemaId, relationshipSchemas] =
+			const [{ schema: showSchema }, { schema: seasonSchema }, { schema: episodeSchema }] =
 				yield* Effect.all([
-					getBuiltinEntitySchemaSlug(client, "show"),
-					getBuiltinEntitySchemaSlug(client, "show-season"),
-					getBuiltinEntitySchemaSlug(client, "show-episode"),
-					listRelationshipSchemas(client, {
-						slugs: ["show-to-show-season", "show-season-to-show-episode"],
-					}),
+					findMediaEntitySchema(client, "show"),
+					findMediaEntitySchema(client, "show-season"),
+					findMediaEntitySchema(client, "show-episode"),
 				]);
+			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				owner: showSchema.reference.owner,
+				slugs: ["show-to-show-season", "show-season-to-show-episode"],
+			});
 			const show = yield* seedMediaEntity({
 				providerId: null,
-				entitySchemaSlug: showSchemaId,
+				entitySchemaSlug: showSchema.id,
 				name: `Aired Coverage Show ${suffix}`,
 				externalId: `aired-coverage-show-${suffix}`,
 				properties: { totalSeasons: 1, totalEpisodes: 2, productionStatus: "Ended" },
@@ -150,23 +157,24 @@ describe("Episodic lifecycle sessions", () => {
 			const season = yield* seedMediaEntity({
 				providerId: null,
 				properties: { seasonNumber: 1 },
-				entitySchemaSlug: seasonSchemaId,
+				entitySchemaSlug: seasonSchema.id,
 				name: `Aired Coverage Season ${suffix}`,
 				externalId: `aired-coverage-season-${suffix}`,
 			});
 			yield* insertGlobalRelationship({
 				sourceEntityId: show.id,
 				targetEntityId: season.id,
-				relationshipSchemaSlug: requireRelationshipSchemaBySlug(
+				relationshipSchema: requireRelationshipSchemaBySlug(
 					relationshipSchemas,
 					"show-to-show-season",
-				).id,
+					showSchema.reference.owner,
+				).reference,
 			});
 			const episodes = [];
 			for (const [index, publishDate] of ["2020-01-01", "2999-01-01"].entries()) {
 				const episode = yield* seedMediaEntity({
 					providerId: null,
-					entitySchemaSlug: episodeSchemaId,
+					entitySchemaSlug: episodeSchema.id,
 					name: `Aired Coverage Episode ${index + 1} ${suffix}`,
 					externalId: `aired-coverage-episode-${index + 1}-${suffix}`,
 					properties: { publishDate, seasonNumber: 1, episodeNumber: index + 1 },
@@ -174,10 +182,11 @@ describe("Episodic lifecycle sessions", () => {
 				yield* insertGlobalRelationship({
 					sourceEntityId: season.id,
 					targetEntityId: episode.id,
-					relationshipSchemaSlug: requireRelationshipSchemaBySlug(
+					relationshipSchema: requireRelationshipSchemaBySlug(
 						relationshipSchemas,
 						"show-season-to-show-episode",
-					).id,
+						showSchema.reference.owner,
+					).reference,
 				});
 				episodes.push(episode);
 			}
@@ -185,7 +194,7 @@ describe("Episodic lifecycle sessions", () => {
 			if (airedEpisode === undefined) {
 				throw new Error("Expected the aired episode");
 			}
-			const eventSchemas = yield* listEventSchemas(client, episodeSchemaId);
+			const eventSchemas = yield* listEventSchemas(client, episodeSchema.reference);
 
 			yield* client.call((c) =>
 				c.events.create({
@@ -211,12 +220,12 @@ describe("Episodic lifecycle sessions", () => {
 			const { client } = yield* createAuthenticatedClient();
 
 			for (const entitySchemaSlug of ["show", "podcast"] as const) {
-				const schemaId = yield* getBuiltinEntitySchemaSlug(client, entitySchemaSlug);
-				const eventSchemas = yield* listEventSchemas(client, schemaId);
+				const { schema } = yield* findMediaEntitySchema(client, entitySchemaSlug);
+				const eventSchemas = yield* listEventSchemas(client, schema.reference);
 				const entity = yield* seedMediaEntity({
 					properties: {},
 					providerId: null,
-					entitySchemaSlug: schemaId,
+					entitySchemaSlug: schema.id,
 					name: `Parent Session ${entitySchemaSlug}`,
 					externalId: `parent-session-${entitySchemaSlug}-${crypto.randomUUID()}`,
 				});
@@ -296,6 +305,7 @@ describe("Episodic lifecycle sessions", () => {
 	it.live("assigns the parent show session to import-origin episode progress", () =>
 		Effect.gen(function* () {
 			const { token, client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findMediaEntitySchema(client, "show");
 			const { tmdbId, showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
 				showName: "Import Episode Session Show",
 			});
@@ -323,7 +333,12 @@ describe("Episodic lifecycle sessions", () => {
 				"application/json",
 			);
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { uploadToken, source: "watcharr" } }),
+				c.imports.createRun({
+					payload: {
+						uploadToken,
+						source: { slug: "watcharr", owner: { pluginId, kind: "plugin" } },
+					},
+				}),
 			);
 			const completedRun = yield* pollImportRunUntilTerminal(client, created.id);
 			const progressEvent = yield* waitForEventWithSchema(client, episodeId, "progress");

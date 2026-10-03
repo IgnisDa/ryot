@@ -1,4 +1,5 @@
 import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
+import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -7,7 +8,6 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	FIXTURE_CLIENT_REVISION_MARKERS,
-	FIXTURE_CLIENT_PLUGIN_SLUG,
 	installFixtureClientPlugin,
 	installPrivatePluginPackage,
 	encodePluginSourceFiles,
@@ -181,17 +181,14 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const installed = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
 		const pokemonSchema = requirePresent(
-			(yield* listEntitySchemas(client, {
-				slugs: ["pokemon"],
-				pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
-			}))[0],
+			(yield* listEntitySchemas(client, { slugs: ["pokemon"], pluginId: installed.pluginId }))[0],
 			"Fixture Pokemon schema was not registered",
 		);
 		const pokemon = yield* createEntity(client, {
-			entitySchemaSlug: pokemonSchema.id,
 			name: "E2E deterministic Bulbasaur",
+			entitySchema: pokemonSchema.reference,
 			properties: {
 				height: 7,
 				weight: 69,
@@ -501,11 +498,13 @@ export default function Home() {
 				}),
 			},
 		});
-		yield* settledPrivateInstallation(client, pluginSlug);
+		const installed = yield* settledPrivateInstallation(client, pluginSlug);
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
-		yield* signInThroughHostedOAuth(page, email, password, { entryPath: `/${pluginSlug}` });
-		yield* page.goto(`${frontendUrl}/${pluginSlug}`);
+		yield* signInThroughHostedOAuth(page, email, password, {
+			entryPath: pluginPath(installed.pluginId),
+		});
+		yield* page.goto(`${frontendUrl}${pluginPath(installed.pluginId)}`);
 		const frame = page.locator('main > div:not([aria-hidden="true"]) iframe');
 		yield* frame
 			.contentFrame()

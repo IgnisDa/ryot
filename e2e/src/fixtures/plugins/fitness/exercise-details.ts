@@ -5,8 +5,8 @@ import { Effect } from "effect";
 import { waitForCreateEvents } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
-import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 
+import { findFitnessEntitySchema } from "./exercises";
 import { findWorkoutSetEventSchema } from "./workouts";
 
 export const seedExerciseWorkout = (
@@ -21,11 +21,11 @@ export const seedExerciseWorkout = (
 	},
 ) =>
 	Effect.gen(function* () {
-		const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+		const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 		const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 		const workout = yield* createEntity(client, {
 			name: input.name,
-			entitySchemaSlug: workoutSchema.id,
+			entitySchema: workoutSchema.reference,
 			properties: {
 				endedAt: input.endedAt,
 				startedAt: input.startedAt,

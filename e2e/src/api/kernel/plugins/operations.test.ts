@@ -1,4 +1,4 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -43,7 +43,7 @@ const installEchoOperationPlugin = (client: Client) => {
 	});
 	return Effect.acquireRelease(
 		Effect.gen(function* () {
-			yield* installPrivatePluginPackage({
+			const installed = yield* installPrivatePluginPackage({
 				client,
 				config: {},
 				pluginPackage: {
@@ -55,10 +55,10 @@ const installEchoOperationPlugin = (client: Client) => {
 					},
 				},
 			});
-			yield* settledPrivateInstallation(client, pluginSlug);
-			return { pluginSlug };
+			yield* settledPrivateInstallation(client, installed.id);
+			return { pluginSlug, installationId: installed.id, pluginId: installed.pluginId };
 		}),
-		() => releasePrivatePlugin(client, pluginSlug),
+		({ installationId }) => releasePrivatePlugin(client, installationId),
 	);
 };
 
@@ -71,7 +71,7 @@ describe("plugin operations", () => {
 			const { result } = yield* client.call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { titles: ["dune", "arcane"] } },
-					params: { operationSlug: "echo", pluginSlug: plugin.pluginSlug },
+					params: { operationSlug: "echo", pluginId: plugin.pluginId },
 				}),
 			);
 
@@ -79,7 +79,7 @@ describe("plugin operations", () => {
 		}),
 	);
 
-	it.live("rejects unknown plugin and operation slugs", () =>
+	it.live("rejects unknown plugin identities and operation slugs", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const plugin = yield* installEchoOperationPlugin(client);
@@ -90,30 +90,26 @@ describe("plugin operations", () => {
 						payload: { payload: { titles: [] } },
 						params: {
 							operationSlug: "echo",
-							pluginSlug: PluginSlug.make(`missing-${crypto.randomUUID()}`),
+							pluginId: PluginId.make(`missing-${crypto.randomUUID()}`),
 						},
 					}),
 				),
 			);
 			assertTaggedError(unknownPlugin, "PluginNotFoundError");
-			expect(unknownPlugin.reason).toEqual({
-				operationSlug: "echo",
-				code: "operation-not-found",
-				pluginSlug: unknownPlugin.reason.pluginSlug,
-			});
+			expect(unknownPlugin.reason.code).toBe("operation-not-found");
 
 			const unknownOperation = yield* Effect.flip(
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { titles: [] } },
-						params: { pluginSlug: plugin.pluginSlug, operationSlug: "not-an-operation" },
+						params: { pluginId: plugin.pluginId, operationSlug: "not-an-operation" },
 					}),
 				),
 			);
 			assertTaggedError(unknownOperation, "PluginNotFoundError");
 			expect(unknownOperation.reason).toEqual({
+				pluginId: plugin.pluginId,
 				code: "operation-not-found",
-				pluginSlug: plugin.pluginSlug,
 				operationSlug: "not-an-operation",
 			});
 		}),
@@ -128,7 +124,7 @@ describe("plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { titles: "dune" } },
-						params: { operationSlug: "echo", pluginSlug: plugin.pluginSlug },
+						params: { operationSlug: "echo", pluginId: plugin.pluginId },
 					}),
 				),
 			);
@@ -150,7 +146,7 @@ describe("plugin operations", () => {
 				getApiClient().call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { titles: ["dune"] } },
-						params: { operationSlug: "echo", pluginSlug: plugin.pluginSlug },
+						params: { operationSlug: "echo", pluginId: plugin.pluginId },
 					}),
 				),
 			);

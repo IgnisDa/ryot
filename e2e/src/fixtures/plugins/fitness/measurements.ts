@@ -1,5 +1,4 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { ContractPayload, ContractPathParams } from "@ryot-app/contract/client";
 import {
 	measurementMetricCreateRecipe,
 	measurementMetricPinRecipe,
@@ -7,68 +6,87 @@ import {
 	measurementReadingLogRecipe,
 	measurementReadingUpdateRecipe,
 } from "@ryot-app/fitness-plugin/contracts/operation-recipes";
-import type { OperationRecipe } from "@ryot-app/plugin-kit/operations";
-import { Effect, Schema } from "effect";
+import { invokeOperationRecipe, type OperationRecipe } from "@ryot-app/plugin-kit/operations";
+import type { PluginId } from "@ryot-app/plugin-kit/schema";
+import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
-import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
 
-const invokeMeasurementOperation = <Input extends JsonValue, InputEncoded, Output, OutputEncoded>(
+import { findFitnessEntitySchema, fitnessFixtureInstallation } from "./exercises";
+
+type InvokePayload = ContractPayload<"plugins", "invoke">["payload"];
+
+const invokeMeasurementOperation = <
+	Input,
+	InputEncoded extends InvokePayload,
+	Output,
+	OutputEncoded,
+>(
 	client: Client,
-	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
+	recipe: (pluginId: PluginId) => OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
 	input: Input,
 ) =>
-	client
-		.call((contract) =>
-			contract.plugins.invoke({
-				payload: { payload: input },
-				params: {
-					operationSlug: recipe.operationSlug,
-					pluginSlug: PluginSlug.make(recipe.pluginSlug),
-				},
-			}),
-		)
-		.pipe(Effect.flatMap(({ result }) => Schema.decodeUnknownEffect(recipe.output)(result)));
+	fitnessFixtureInstallation.pipe(
+		Effect.flatMap(({ id }) =>
+			invokeOperationRecipe(
+				recipe(id),
+				input,
+				(request: ContractPathParams<"plugins", "invoke"> & { readonly payload: InputEncoded }) =>
+					client
+						.call((contract) =>
+							contract.plugins.invoke({
+								payload: { payload: request.payload },
+								params: { pluginId: request.pluginId, operationSlug: request.operationSlug },
+							}),
+						)
+						.pipe(Effect.map(({ result }) => result)),
+			),
+		),
+	);
+
+type RecipeInput<
+	Recipe extends (pluginId: PluginId) => { readonly input: { readonly Type: unknown } },
+> = ReturnType<Recipe>["input"]["Type"];
 
 export const createMeasurementMetric = (
 	client: Client,
-	input: typeof measurementMetricCreateRecipe.input.Type,
+	input: RecipeInput<typeof measurementMetricCreateRecipe>,
 ) => invokeMeasurementOperation(client, measurementMetricCreateRecipe, input);
 
 export const pinMeasurementMetric = (
 	client: Client,
-	input: typeof measurementMetricPinRecipe.input.Type,
+	input: RecipeInput<typeof measurementMetricPinRecipe>,
 ) => invokeMeasurementOperation(client, measurementMetricPinRecipe, input);
 
 export const logMeasurementReadings = (
 	client: Client,
-	input: typeof measurementReadingLogRecipe.input.Type,
+	input: RecipeInput<typeof measurementReadingLogRecipe>,
 ) => invokeMeasurementOperation(client, measurementReadingLogRecipe, input);
 
 export const updateMeasurementReadings = (
 	client: Client,
-	input: typeof measurementReadingUpdateRecipe.input.Type,
+	input: RecipeInput<typeof measurementReadingUpdateRecipe>,
 ) => invokeMeasurementOperation(client, measurementReadingUpdateRecipe, input);
 
 export const deleteMeasurementReadings = (
 	client: Client,
-	input: typeof measurementReadingDeleteRecipe.input.Type,
+	input: RecipeInput<typeof measurementReadingDeleteRecipe>,
 ) => invokeMeasurementOperation(client, measurementReadingDeleteRecipe, input);
 
 export const createMeasurementReadingFixture = (client: Client) =>
 	Effect.gen(function* () {
-		const { schema: metricSchema } = yield* findBuiltinSchemaBySlug(client, "measurement-metric");
+		const { schema: metricSchema } = yield* findFitnessEntitySchema(client, "measurement-metric");
 		const readingSchema = requireEventSchemaBySlug(
-			yield* listEventSchemas(client, metricSchema.id),
+			yield* listEventSchemas(client, metricSchema.reference),
 			"measurement-reading",
 		);
 
 		const metric = yield* createEntity(client, {
 			name: "Weight",
-			entitySchemaSlug: metricSchema.id,
+			entitySchema: metricSchema.reference,
 			properties: { unit: "kg", key: "weight" },
 		});
 		yield* waitForCreateEvents(

@@ -306,13 +306,19 @@ describe("automation recursion budgets", () => {
 
 			const source = yield* createEntity(client, {
 				properties: {},
-				entitySchemaSlug,
 				name: "Recursion source",
+				entitySchema: {
+					slug: entitySchemaSlug,
+					owner: { kind: "plugin" as const, pluginId: plugin.pluginId },
+				},
 			});
 			const target = yield* createEntity(client, {
 				properties: {},
-				entitySchemaSlug,
 				name: "Recursion target",
+				entitySchema: {
+					slug: entitySchemaSlug,
+					owner: { kind: "plugin" as const, pluginId: plugin.pluginId },
+				},
 			});
 			const chainId = `chain-${crypto.randomUUID()}`;
 			expect(
@@ -499,7 +505,7 @@ describe("automation recursion budgets", () => {
 					],
 				})),
 			];
-			yield* Effect.acquireRelease(
+			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					hooks,
 					client,
@@ -542,8 +548,11 @@ describe("automation recursion budgets", () => {
 
 			const entity = yield* createEntity(client, {
 				properties: {},
-				entitySchemaSlug,
 				name: "Fanout entity",
+				entitySchema: {
+					slug: entitySchemaSlug,
+					owner: { kind: "plugin" as const, pluginId: plugin.pluginId },
+				},
 			});
 			expect(
 				yield* client.call((c) =>

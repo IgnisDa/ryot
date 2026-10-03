@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	executeRyotQLRecipe,
+	getEntity,
 	listEventsForEntity,
 	pollUntil,
 	waitForCreateEvents,
@@ -19,9 +20,22 @@ import { assertCondition, assertTaggedError, requirePresent } from "~/support/as
 import { describe, expect, it } from "~/support/effect-test";
 
 const workoutDetails = (client: Client, workoutId: string) =>
-	executeRyotQLRecipe(client, workoutDetailsRecipe({ workoutId })).pipe(
-		Effect.map((workout) => requirePresent(workout, `Expected workout ${workoutId}`)),
-	);
+	Effect.gen(function* () {
+		const workoutEntity = yield* getEntity(client, workoutId);
+		const pluginId = requirePresent(
+			workoutEntity.entitySchemaPluginId,
+			"Expected a Fitness workout owner",
+		);
+		const reference: Parameters<typeof workoutDetailsRecipe>[0]["reference"] = {
+			pluginId,
+			kind: "local",
+		};
+		const workout = yield* executeRyotQLRecipe(
+			client,
+			workoutDetailsRecipe({ reference, workoutId }),
+		);
+		return requirePresent(workout, `Expected workout ${workoutId}`);
+	});
 
 const waitForReadyWorkoutSets = (
 	client: Client,

@@ -62,16 +62,16 @@ describe("sandbox integration reads", () => {
 				deleteIntegration(client, integration.id).pipe(Effect.asVoid, Effect.orDie);
 			const current = yield* Effect.acquireRelease(
 				createIntegration(client, {
-					provider: providerSlug,
 					providerSpecifics: { endpoint: "https://integration-read.example.com" },
+					provider: { slug: providerSlug, owner: { kind: "plugin", pluginId: plugin.pluginId } },
 				}),
 				release,
 			);
 			yield* Effect.acquireRelease(
 				createIntegration(client, {
 					isDisabled: true,
-					provider: providerSlug,
 					providerSpecifics: { endpoint: "https://integration-read.example.com" },
+					provider: { slug: providerSlug, owner: { kind: "plugin", pluginId: plugin.pluginId } },
 				}),
 				release,
 			);
@@ -79,7 +79,7 @@ describe("sandbox integration reads", () => {
 			const { result } = yield* client.call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { integrationId: current.id } },
-					params: { operationSlug: "read", pluginSlug: plugin.pluginSlug },
+					params: { operationSlug: "read", pluginId: plugin.pluginId },
 				}),
 			);
 
@@ -91,7 +91,7 @@ describe("sandbox integration reads", () => {
 			const unauthenticated = yield* getApiClient().call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { integrationId: current.id } },
-					params: { operationSlug: "read", pluginSlug: plugin.pluginSlug },
+					params: { operationSlug: "read", pluginId: plugin.pluginId },
 				}),
 			);
 			expect(unauthenticated.result).toEqual(result);
@@ -99,7 +99,7 @@ describe("sandbox integration reads", () => {
 			const stale = yield* Effect.flip(
 				getApiClient().call((c) =>
 					c.plugins.invoke({
-						params: { operationSlug: "read", pluginSlug: plugin.pluginSlug },
+						params: { operationSlug: "read", pluginId: plugin.pluginId },
 						payload: { sourceHash: "stale-source-hash", payload: { integrationId: current.id } },
 					}),
 				),

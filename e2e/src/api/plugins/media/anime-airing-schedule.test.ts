@@ -5,11 +5,11 @@ import {
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
 	listEventSchemas,
 	requireEventSchemaBySlug,
 } from "~/fixtures/kernel";
 import {
+	findMediaEntitySchema,
 	insertLibraryMembership,
 	insertMediaMonitoring,
 	seedMediaEntity,
@@ -17,6 +17,7 @@ import {
 import { describe, expect, it } from "~/support/effect-test";
 
 type ScheduleEntry = { readonly episode: number; readonly airingAt: string };
+type MediaReference = Parameters<typeof animeAiringSoonRecipe>[0]["reference"];
 
 const animeProperties = (
 	airingSchedule: readonly ScheduleEntry[],
@@ -39,9 +40,10 @@ describe("Anime airing schedule", () => {
 	it.live("lists followed anime by the next episode airing inside the window", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "anime");
+			const { schema, pluginId } = yield* findMediaEntitySchema(client, "anime");
+			const reference: MediaReference = { pluginId, kind: "local" };
 			const progressSlug = requireEventSchemaBySlug(
-				yield* listEventSchemas(client, schema.id),
+				yield* listEventSchemas(client, schema.reference),
 				"progress",
 			).id;
 			const seedAnime = (
@@ -96,6 +98,7 @@ describe("Anime airing schedule", () => {
 			const airing = yield* executeRyotQLRecipe(
 				client,
 				animeAiringSoonRecipe({
+					reference,
 					fromDate: "2026-09-01",
 					untilDate: "2026-09-15",
 					now: "2026-09-01T00:00:00.000Z",
@@ -119,6 +122,7 @@ describe("Anime airing schedule", () => {
 			const advanced = yield* executeRyotQLRecipe(
 				client,
 				animeAiringSoonRecipe({
+					reference,
 					fromDate: "2026-09-11",
 					untilDate: "2026-09-25",
 					now: "2026-09-11T00:00:00.000Z",
@@ -134,7 +138,7 @@ describe("Anime airing schedule", () => {
 			const westOfUtcDay = (day: string, now: string, until: string) =>
 				executeRyotQLRecipe(
 					client,
-					animeAiringSoonRecipe({ now, until, fromDate: day, untilDate: day }),
+					animeAiringSoonRecipe({ now, until, reference, fromDate: day, untilDate: day }),
 				).pipe(Effect.map((items) => items.map((item) => item.entity.id)));
 			expect(
 				yield* westOfUtcDay("2026-09-11", "2026-09-11T04:00:00.000Z", "2026-09-12T04:00:00.000Z"),

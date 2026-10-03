@@ -26,40 +26,45 @@ import {
 	measurementReadingUpdateOperationSlug,
 } from "../../shared/measurement-reading-operations";
 
-export const measurementMetricCreateRecipe = defineOperationRecipe({
-	pluginSlug: "fitness",
-	input: MeasurementMetricCreateInput,
-	output: MeasurementMetricCreateOutput,
-	operationSlug: measurementMetricCreateOperationSlug,
-});
+export const measurementMetricCreateRecipe = (pluginId: PluginId) =>
+	defineOperationRecipe({
+		pluginId,
+		input: MeasurementMetricCreateInput,
+		output: MeasurementMetricCreateOutput,
+		operationSlug: measurementMetricCreateOperationSlug,
+	});
 
-export const measurementMetricPinRecipe = defineOperationRecipe({
-	pluginSlug: "fitness",
-	input: MeasurementMetricPinInput,
-	output: MeasurementMetricPinOutput,
-	operationSlug: measurementMetricPinOperationSlug,
-});
+export const measurementMetricPinRecipe = (pluginId: PluginId) =>
+	defineOperationRecipe({
+		pluginId,
+		input: MeasurementMetricPinInput,
+		output: MeasurementMetricPinOutput,
+		operationSlug: measurementMetricPinOperationSlug,
+	});
 
-export const measurementReadingLogRecipe = defineOperationRecipe({
-	pluginSlug: "fitness",
-	output: MeasurementReadingOutput,
-	input: MeasurementReadingLogInput,
-	operationSlug: measurementReadingLogOperationSlug,
-});
+export const measurementReadingLogRecipe = (pluginId: PluginId) =>
+	defineOperationRecipe({
+		pluginId,
+		output: MeasurementReadingOutput,
+		input: MeasurementReadingLogInput,
+		operationSlug: measurementReadingLogOperationSlug,
+	});
 
-export const measurementReadingUpdateRecipe = defineOperationRecipe({
-	pluginSlug: "fitness",
-	output: MeasurementReadingOutput,
-	input: MeasurementReadingUpdateInput,
-	operationSlug: measurementReadingUpdateOperationSlug,
-});
+export const measurementReadingUpdateRecipe = (pluginId: PluginId) =>
+	defineOperationRecipe({
+		pluginId,
+		output: MeasurementReadingOutput,
+		input: MeasurementReadingUpdateInput,
+		operationSlug: measurementReadingUpdateOperationSlug,
+	});
 
-export const measurementReadingDeleteRecipe = defineOperationRecipe({
-	pluginSlug: "fitness",
-	output: MeasurementReadingOutput,
-	input: MeasurementReadingDeleteInput,
-	operationSlug: measurementReadingDeleteOperationSlug,
-});
+export const measurementReadingDeleteRecipe = (pluginId: PluginId) =>
+	defineOperationRecipe({
+		pluginId,
+		output: MeasurementReadingOutput,
+		input: MeasurementReadingDeleteInput,
+		operationSlug: measurementReadingDeleteOperationSlug,
+	});
 
 export const exerciseNoteCreateRecipe = (pluginId: PluginId) =>
 	defineOperationRecipe({

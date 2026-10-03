@@ -6,7 +6,6 @@ import {
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
 	fakeProviderTranslations,
-	findBuiltinSchemaBySlug,
 	getEntity,
 	getEntityTranslationRow,
 	enqueueSandboxScript,
@@ -20,7 +19,11 @@ import {
 	type Client,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
-import { seedMediaEntity, seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
+import {
+	seedMediaEntity,
+	seedPopulatedProviderEntity,
+	findMediaEntitySchema,
+} from "~/fixtures/plugins/media";
 import { assertPresent, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
@@ -35,7 +38,7 @@ let providerUserId: string;
 
 const seedPopulatedMovie = (client: Client, name: string) =>
 	Effect.gen(function* () {
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
+		const { schema } = yield* findMediaEntitySchema(client, "movie");
 		return yield* seedPopulatedProviderEntity({
 			name,
 			entitySchemaSlug: schema.id,
@@ -59,7 +62,7 @@ describe("entity translation via client-declared interest", () => {
 				const { client, userId } = yield* createAuthenticatedClient();
 				providerClient = client;
 				providerUserId = userId;
-				const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
+				const { schema } = yield* findMediaEntitySchema(client, "movie");
 				provider = yield* installTestProvider({
 					client,
 					rootEntitySchemaSlug: schema.id,
@@ -230,7 +233,7 @@ describe("entity translation via client-declared interest", () => {
 		Effect.gen(function* () {
 			const auth = { client: providerClient };
 			const { client } = auth;
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "movie");
+			const { schema } = yield* findMediaEntitySchema(client, "movie");
 			const provenance = {
 				entitySchemaSlug: schema.slug,
 				providerId: provider.providerId,

@@ -1,3 +1,4 @@
+import type { ContractPayload } from "@ryot-app/contract/client";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
@@ -8,23 +9,24 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createEventSchema,
-	createRelationship,
 	createPluginSchema,
 	createPluginSchemaAndEntity,
+	createRelationship,
 	executeRyotQL,
 	getApiClient,
 	listEventSchemas,
 	listRelationshipSchemas,
 	mergeUserState,
 	queryUserEntityStateCounts,
-	requireRyotQLText,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
+	requireRyotQLText,
 	pollUntil,
 	requireRows,
 } from "~/fixtures/kernel";
 import {
 	createGlobalBookEntityFixture,
+	findMediaEntitySchema,
 	queryInMediaLibraryRelationship,
 } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
@@ -33,25 +35,26 @@ import { describe, expect, it } from "~/support/effect-test";
 const insertUserRelationship = (input: {
 	sourceEntityId: string;
 	targetEntityId: string;
-	relationshipSchemaSlug: string;
+	relationshipSchema: ContractPayload<"relationships", "create">["relationshipSchema"];
 	properties?: Record<string, unknown>;
 	client: Client;
 }) =>
-	Effect.gen(function* () {
-		const schemas = yield* listRelationshipSchemas(input.client, {
-			slugs: [input.relationshipSchemaSlug],
-		});
-		const relationshipSchema = requireRelationshipSchemaBySlug(
-			schemas,
-			input.relationshipSchemaSlug,
-		);
+	createRelationship(input.client, {
+		properties: input.properties,
+		relationshipSchema: input.relationshipSchema,
+		sourceEntityId: EntityId.make(input.sourceEntityId),
+		targetEntityId: EntityId.make(input.targetEntityId),
+	});
 
-		yield* createRelationship(input.client, {
-			properties: input.properties,
-			relationshipSchemaSlug: relationshipSchema.id,
-			sourceEntityId: EntityId.make(input.sourceEntityId),
-			targetEntityId: EntityId.make(input.targetEntityId),
+const mediaSuggestionSchemaReference = (client: Client) =>
+	Effect.gen(function* () {
+		const { schema } = yield* findMediaEntitySchema(client, "book");
+		const schemas = yield* listRelationshipSchemas(client, {
+			slugs: ["media-suggestion"],
+			owner: schema.reference.owner,
 		});
+		return requireRelationshipSchemaBySlug(schemas, "media-suggestion", schema.reference.owner)
+			.reference;
 	});
 
 const getMediaLibraryEntityId = (client: Client) =>
@@ -79,9 +82,14 @@ describe("DELETE /user-state/clear/:id", () => {
 			const userA = yield* createAuthenticatedClient();
 			const userB = yield* createAuthenticatedClient();
 			const { entity, schema } = yield* createGlobalBookEntityFixture(userA.client);
+			const ownerPluginId =
+				schema.reference.owner.kind === "plugin" ? schema.reference.owner.pluginId : undefined;
+			assertPresent(ownerPluginId, "Media schema must have a plugin owner");
+			const eventHistoryOwner = { kind: "local" as const, pluginId: ownerPluginId };
 
-			const eventSchemas = yield* listEventSchemas(userA.client, schema.id);
+			const eventSchemas = yield* listEventSchemas(userA.client, schema.reference);
 			const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
+			const mediaSuggestionSchema = yield* mediaSuggestionSchemaReference(userA.client);
 			const { entity: extraTarget } = yield* createGlobalBookEntityFixture(userA.client);
 			const inLibraryRelationship = {
 				sourceSchema: schema.slug,
@@ -101,6 +109,7 @@ describe("DELETE /user-state/clear/:id", () => {
 					relationships,
 					client: auth.client,
 					entityId: entity.id,
+					owner: eventHistoryOwner,
 					entitySchemaSlugs: [schema.slug],
 					eventSchemaSlugs: [reviewEventSchema.slug],
 				});
@@ -131,7 +140,7 @@ describe("DELETE /user-state/clear/:id", () => {
 				client: userA.client,
 				sourceEntityId: entity.id,
 				targetEntityId: extraTarget.id,
-				relationshipSchemaSlug: "media-suggestion",
+				relationshipSchema: mediaSuggestionSchema,
 			});
 
 			yield* pollUntil(
@@ -222,33 +231,38 @@ describe("POST /user-state/merge", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const entitySchemaSlug = `merge-schema-${crypto.randomUUID()}`;
 			const eventSchemaSlug = `merged-event-${crypto.randomUUID()}`;
-			const { schemaId } = yield* createPluginSchema(client, { slug: entitySchemaSlug });
+			const { reference } = yield* createPluginSchema(client, { slug: entitySchemaSlug });
+			const ownerPluginId =
+				reference.owner.kind === "plugin" ? reference.owner.pluginId : undefined;
+			assertPresent(ownerPluginId, "User schema must have a plugin owner");
 			const eventSchema = yield* createEventSchema(client, {
 				name: "Merged Event",
 				slug: eventSchemaSlug,
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 			});
 			const source = yield* createEntity(client, {
 				name: "Source Entity",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				properties: { title: "Source" },
 			});
 			const target = yield* createEntity(client, {
 				name: "Target Entity",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				properties: { title: "Target" },
 			});
 			const related = yield* createEntity(client, {
 				name: "Related Entity",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				properties: { title: "Related" },
 			});
+			const mediaSuggestionSchema = yield* mediaSuggestionSchemaReference(client);
 			const queryCounts = (entityId: string) =>
 				queryUserEntityStateCounts({
 					client,
 					entityId,
 					eventSchemaSlugs: [eventSchemaSlug],
 					entitySchemaSlugs: [entitySchemaSlug],
+					owner: { kind: "local", pluginId: ownerPluginId },
 					relationships: [
 						{
 							schema: "media-suggestion",
@@ -269,13 +283,13 @@ describe("POST /user-state/merge", () => {
 				client,
 				sourceEntityId: source.id,
 				targetEntityId: related.id,
-				relationshipSchemaSlug: "media-suggestion",
+				relationshipSchema: mediaSuggestionSchema,
 			});
 			yield* insertUserRelationship({
 				client,
 				sourceEntityId: target.id,
 				targetEntityId: related.id,
-				relationshipSchemaSlug: "media-suggestion",
+				relationshipSchema: mediaSuggestionSchema,
 			});
 			yield* pollUntil(
 				"source event setup",

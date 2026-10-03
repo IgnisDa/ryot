@@ -1,6 +1,12 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
+	definitionOwner,
+	type DefinitionOwner,
+	type PluginPackageReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
+	type PluginId,
 	PluginSlug,
 	type SandboxProviderId,
 	type SandboxScriptId,
@@ -12,14 +18,18 @@ import { assertPresent, requirePresent } from "~/support/assertions";
 
 import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
 import type { Client } from "./auth";
-import { createPluginScope, listInstalledPlugins } from "./plugins";
+import {
+	createPluginScope,
+	findPluginInstallationByPackage,
+	findPluginInstallationByPluginId,
+} from "./plugins";
 import { pollUntil } from "./polling";
 import { collectRyotQLRecipeItems } from "./ryotql";
 import { installTestDefinitions } from "./test-plugin";
 
 type SearchProviderEntitiesBody = ContractPayload<"providerEntities", "search">;
 type ImportProviderEntityBody = ContractPayload<"providerEntities", "import">;
-type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
+type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchema"]["slug"];
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 
 export const makeEntitySchemaSlug = Brand.nominal<EntitySchemaInputSlug>();
@@ -39,18 +49,24 @@ export const createEntitySchema = (client: Client, options: CreateEntitySchemaOp
 			},
 		} = options;
 		const schema = { icon, name, slug, propertiesSchema, eventSchemas: [] };
-		yield* installTestDefinitions({ client, pluginSlug, entitySchemas: [schema] });
+		const installed = yield* installTestDefinitions({
+			client,
+			pluginSlug,
+			entitySchemas: [schema],
+		});
 		const schemaSlug = makeEntitySchemaSlug(slug);
 		return {
 			slug: schemaSlug,
 			schemaId: schemaSlug,
+			pluginId: installed.pluginId,
+			reference: { slug: schemaSlug, owner: definitionOwner(installed.pluginId) },
 			data: { ...schema, id: schemaSlug, pluginSlug: PluginSlug.make(pluginSlug) },
 		};
 	});
 
 export const listEntitySchemas = (
 	client: Client,
-	options: { slugs?: string[]; pluginSlug?: string },
+	options: { slugs?: string[]; pluginId?: PluginId },
 ) =>
 	Effect.gen(function* () {
 		const [schemas, scripts] = yield* Effect.all([
@@ -78,76 +94,79 @@ export const listEntitySchemas = (
 				continue;
 			}
 			const providerSlug = script.slug.slice(0, -(providerOperation.length + 1));
-			const provider = providers.get(providerSlug) ?? {
+			const provider = providers.get(script.providerId) ?? {
 				providerSlug,
 				name: script.name,
 				providerId: script.providerId,
 			};
 			provider[`${providerOperation}ScriptId`] = script.id;
-			providers.set(providerSlug, provider);
+			providers.set(script.providerId, provider);
 		}
 		return schemas
 			.filter((schema) => !options.slugs || options.slugs.includes(schema.slug))
-			.filter((schema) => !options.pluginSlug || schema.pluginSlug === options.pluginSlug)
+			.filter((schema) => !options.pluginId || schema.pluginId === options.pluginId)
 			.map((schema) =>
 				Object.assign({}, schema, {
 					isBuiltin: true,
 					id: makeEntitySchemaSlug(schema.slug),
-					providers: [...providers.values()]
-						.filter((provider) => provider.providerSlug.startsWith(`${schema.slug}.`))
-						.map((provider) =>
-							Object.assign({}, provider, {
-								name:
-									schema.providers.items.find(
-										({ providerId }) => providerId === provider.providerId,
-									)?.name ?? provider.name,
-							}),
-						),
+					reference: {
+						owner: definitionOwner(schema.pluginId),
+						slug: makeEntitySchemaSlug(schema.slug),
+					},
+					providers: schema.providers.items.map(({ name, providerId }) => ({
+						...requirePresent(providers.get(providerId), "Provider scripts missing"),
+						name,
+					})),
 				}),
 			);
 	});
 
-export const getEntitySchema = (client: Client, entitySchemaSlug: string) =>
+export const getEntitySchema = (
+	client: Client,
+	reference: ContractPayload<"entities", "create">["entitySchema"],
+) =>
 	Effect.gen(function* () {
-		const schemas = yield* listEntitySchemas(client, { slugs: [entitySchemaSlug] });
-		return requirePresent(schemas[0], `Entity schema '${entitySchemaSlug}' not found`);
+		const schemas = yield* listEntitySchemas(client, { slugs: [reference.slug] });
+		const owner = reference.owner.kind === "kernel" ? null : reference.owner.pluginId;
+		return requirePresent(
+			schemas.find((schema) => schema.pluginId === owner),
+			`Entity schema '${reference.slug}' not found`,
+		);
 	});
 
-export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>
+export const findBuiltinSchemaBySlug = (client: Client, slug: string, owner: DefinitionOwner) =>
 	Effect.gen(function* () {
-		const schemas = yield* listEntitySchemas(client, { slugs: [slug] });
-		const schema = schemas.find((candidate) => candidate.pluginSlug === null);
-		if (schema) {
-			return { schema, builtinPlugin: null };
-		}
-		const plugins = yield* listInstalledPlugins(client, { includeHidden: true });
-
-		for (const builtinPlugin of plugins) {
-			const pluginSchema = schemas.find((candidate) => candidate.pluginSlug === builtinPlugin.slug);
-			if (pluginSchema) {
-				return { builtinPlugin, schema: pluginSchema };
-			}
-		}
-
-		throw new Error(`Built-in entity schema '${slug}' not found`);
+		const schema = yield* getEntitySchema(client, { owner, slug: makeEntitySchemaSlug(slug) });
+		const builtinPlugin =
+			owner.kind === "kernel"
+				? null
+				: yield* findPluginInstallationByPluginId(client, owner.pluginId);
+		return { schema, builtinPlugin };
 	});
 
-export const getBuiltinEntitySchemaSlug = (client: Client, slug: string) =>
+export const getBuiltinEntitySchemaSlug = (client: Client, slug: string, owner: DefinitionOwner) =>
 	Effect.gen(function* () {
 		const schemas = yield* collectRyotQLRecipeItems(client, (after) =>
 			entityDefinitionsRecipe({ after, limit: 100 }),
 		);
-		const schema = schemas.find((candidate) => candidate.slug === slug);
+		const pluginId = owner.kind === "kernel" ? null : owner.pluginId;
+		const schema = schemas.find(
+			(candidate) => candidate.slug === slug && candidate.pluginId === pluginId,
+		);
 		assertPresent(schema, `Expected builtin entity schema '${slug}'`);
 		return makeEntitySchemaSlug(schema.slug);
 	});
 
-export const listBuiltinEntitySchemas = (client: Client) =>
+export const listBuiltinEntitySchemas = (
+	client: Client,
+	selection: PluginId | PluginPackageReference,
+) =>
 	Effect.gen(function* () {
-		const plugins = yield* listInstalledPlugins(client, { includeHidden: true });
-		const builtinPlugin = plugins[0];
-		assertPresent(builtinPlugin, "Built-in plugin not found");
-		const schemas = yield* listEntitySchemas(client, { pluginSlug: builtinPlugin.slug });
+		const builtinPlugin =
+			typeof selection === "string"
+				? yield* findPluginInstallationByPluginId(client, selection)
+				: yield* findPluginInstallationByPackage(client, selection);
+		const schemas = yield* listEntitySchemas(client, { pluginId: builtinPlugin.pluginId });
 		return { schemas, builtinPlugin };
 	});
 
@@ -187,6 +206,6 @@ export const createPluginSchema = (
 ) =>
 	Effect.gen(function* () {
 		const pluginSlug = createPluginScope();
-		const { slug, schemaId } = yield* createEntitySchema(client, { ...options, pluginSlug });
-		return { slug, schemaId };
+		const schema = yield* createEntitySchema(client, { ...options, pluginSlug });
+		return { ...schema, pluginSlug };
 	});
