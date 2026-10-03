@@ -48,7 +48,11 @@ const eventContextPolicy = (host: AutomationHost, payload: EventPayload) =>
 		}
 		const context = yield* executeRyotqlRecipe(
 			host.executeRyotql,
-			workoutSetContextRecipe({ workoutId, exerciseId: payload.draft.entityId }),
+			workoutSetContextRecipe({
+				workoutId,
+				reference: { kind: "self" },
+				exerciseId: payload.draft.entityId,
+			}),
 		);
 		const startedAt = context.workout?.startedAt;
 		if (startedAt === null || startedAt === undefined) {

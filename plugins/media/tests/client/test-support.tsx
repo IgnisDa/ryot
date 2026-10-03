@@ -2,9 +2,12 @@ import type { RyotClientAdapter } from "@ryot-app/client-sdk";
 import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
 import { RyotProvider } from "@ryot-app/client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { fireEvent } from "@testing-library/dom";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
+
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 type LocalDateTimeParts = {
 	readonly day: number;
@@ -26,7 +29,15 @@ declare global {
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
-	const { client, runtime, advance, setTime, dispose } = createTestRyotClock(adapter);
+	const { client, runtime, advance, setTime, dispose } = createTestRyotClock({
+		pluginIdentity: (packageId) => {
+			if (packageId !== PLUGIN_PACKAGE_ID) {
+				throw new Error("Unexpected contributor package");
+			}
+			return { kind: "local", pluginId: PluginId.make("media-installation") };
+		},
+		...adapter,
+	});
 	const container = document.createElement("div");
 	document.body.append(container);
 	const root: Root = createRoot(container);

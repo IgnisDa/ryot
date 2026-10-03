@@ -1,4 +1,5 @@
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { PluginId } from "@ryot-app/plugin-kit/schema";
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import type { CreateEventItem } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
@@ -21,6 +22,7 @@ const completeSchema = {
 	propertiesSchema: {},
 	id: "complete-schema",
 	entitySchemaSlug: "entity-schema-1",
+	pluginId: PluginId.make("media-owner"),
 };
 
 const createHost = (options: {
@@ -142,7 +144,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 						[
 							{
 								entityId: "entity-1",
-								eventSchemaSlug: "complete-schema",
+								eventSchemaSlug: "complete",
 								occurredAt: "2026-02-03T04:05:06.000Z",
 								properties: {
 									consumedOn: "Jellyfin",

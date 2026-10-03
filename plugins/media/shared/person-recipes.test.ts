@@ -23,7 +23,11 @@ describe("media person query recipes", () => {
 	it("selects the biography fields the person schema declares", () => {
 		expect(
 			keys(
-				personRecipes.summaryRecipe({ collectionLimit: 6, entityId: "person-1" }),
+				personRecipes.summaryRecipe({
+					collectionLimit: 6,
+					entityId: "person-1",
+					reference: { kind: "self" },
+				}),
 				"summary",
 			).slice(-7),
 		).toEqual([
@@ -39,7 +43,13 @@ describe("media person query recipes", () => {
 
 	it("carries the character on media credits", () => {
 		expect(
-			movieCreditKeys(personRecipes.overviewRecipe({ creditLimit: 12, entityId: "person-1" })),
+			movieCreditKeys(
+				personRecipes.overviewRecipe({
+					creditLimit: 12,
+					entityId: "person-1",
+					reference: { kind: "self" },
+				}),
+			),
 		).toContain("character");
 	});
 });

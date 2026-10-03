@@ -10,6 +10,9 @@ export const FLAT_OVERVIEW_INPUT = {
 	companyLimit: 6,
 	entityId: "media-1",
 	recommendationLimit: 12,
+	reference: { kind: "self" } satisfies Parameters<
+		typeof flatFixtureRecipes.overviewRecipe
+	>[0]["reference"],
 };
 
 export const fixtureOverviewRecipe = flatFixtureRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT);

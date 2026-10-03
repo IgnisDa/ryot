@@ -6,6 +6,7 @@ import { rowsResult } from "../query-result-fixture";
 export const showSummaryFixtureRecipe = showRecipes.summaryRecipe({
 	collectionLimit: 6,
 	entityId: "show-1",
+	reference: { kind: "self" },
 });
 
 export const showSummaryRow = {

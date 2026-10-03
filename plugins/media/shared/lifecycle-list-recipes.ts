@@ -1,6 +1,7 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
+	entitySchemaPredicate,
 	column,
 	defineRecipe,
 	descending,
@@ -15,12 +16,13 @@ import {
 	selectedRows,
 	table,
 	type Recipe,
+	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	entityId,
 	entityIdentitySelection,
-	entitySchema,
 	libraryLinkExists,
 	propertyJson,
 	propertyNumber,
@@ -65,6 +67,7 @@ const isOneOf = (expression: Parameters<typeof inArray>[0], values: readonly str
  */
 export const episodicByLifecycleStateRecipe = defineRecipe(
 	(input: {
+		readonly reference: PluginIdentityReference;
 		readonly limit: number;
 		readonly config: EpisodicKindConfig;
 		readonly after?: string | undefined;
@@ -94,7 +97,7 @@ export const episodicByLifecycleStateRecipe = defineRecipe(
 						latestActivityAt: selectedField(latestActivityAt, Schema.NullOr(IsoDateString)),
 					},
 					where: and(
-						entitySchema(entity, input.config.parentSchemaSlug),
+						entitySchemaPredicate(entity, input.config.parentSchemaSlug, input.reference),
 						libraryLinkExists(entity, "listLibrary", "in-media-library"),
 						isOneOf(lifecycle.state, input.states),
 						...(input.entityId === undefined ? [] : [entityId(entity, input.entityId)]),
@@ -123,7 +126,11 @@ export type EpisodicByLifecycleStateResult = Recipe.Success<typeof episodicByLif
  * first, with the position from the latest progress event or list-state snapshot.
  */
 export const flatByLifecycleStateRecipe = defineRecipe(
-	(input: { readonly limit: number; readonly states: NonEmpty<MediaLifecycleState> }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly limit: number;
+		readonly states: NonEmpty<MediaLifecycleState>;
+	}) => {
 		const entity = table("entity", "entity");
 		const lifecycle = mediaLifecycleExpressions(entity, "listLifecycle");
 		const latestActivityAt = lifecycle.latestSignal.occurredAt;
@@ -146,6 +153,7 @@ export const flatByLifecycleStateRecipe = defineRecipe(
 					limit: input.limit,
 					orderBy: [descending(latestActivityAt), descending(column(entity, "id"))],
 					where: and(
+						schemaOwnerPredicate(entity, "entitySchemaPluginId", input.reference),
 						isOneOf(column(entity, "entitySchemaSlug"), flatMediaSchemaSlugs),
 						libraryLinkExists(entity, "listLibrary", "in-media-library"),
 						isOneOf(lifecycle.state, input.states),
@@ -168,7 +176,7 @@ export const flatByLifecycleStateRecipe = defineRecipe(
 export type FlatByLifecycleStateResult = Recipe.Success<typeof flatByLifecycleStateRecipe>;
 
 /** How many builtin media entities are in the library; the `media-library` entity is not one. */
-export const libraryMediaCountRecipe = defineRecipe(() => {
+export const libraryMediaCountRecipe = defineRecipe((reference: PluginIdentityReference) => {
 	const entity = table("entity", "entity");
 	return {
 		map: ({ library }) => Result.succeed(library.count),
@@ -176,6 +184,7 @@ export const libraryMediaCountRecipe = defineRecipe(() => {
 			library: selectedAggregate(entity, {
 				measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
 				where: and(
+					schemaOwnerPredicate(entity, "entitySchemaPluginId", reference),
 					isOneOf(column(entity, "entitySchemaSlug"), builtinMediaEntitySchemaSlugs),
 					libraryLinkExists(entity, "countLibrary", "in-media-library"),
 				),

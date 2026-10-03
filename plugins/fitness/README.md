@@ -3,6 +3,11 @@
 Generic package, manifest, and sandbox authoring rules belong to the
 [Plugin Kit](../../packages/plugin-kit/README.md).
 
+`shared/plugin-identity.ts` owns the permanent package UUID. Recipes take explicit schema owners;
+authored views and trusted sandbox scripts use `self`, client queries use the contributor binding,
+and presentation loaders use the selected entity's stored owner. System and private installations
+share these recipes without merging equal local schema names from independent packages.
+
 Fitness list and detail recipes live in `shared/query-recipes.ts`; the user-library recipe and
 library-link predicate live in `shared/library-recipes.ts`. Shared entity selections in
 `shared/entity-selections.ts` and their table-neutral property expressions are reused by the archived

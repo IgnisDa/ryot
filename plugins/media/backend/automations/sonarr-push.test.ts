@@ -59,6 +59,8 @@ const schema = entitySchemaRecord({
 const createAutomation = (properties: Record<string, string>) =>
 	eventAutomationContext({
 		entityId: "collection-1",
+		eventSchemaPluginId: null,
+		entitySchemaPluginId: null,
 		entitySchemaSlug: "collection",
 		eventSchemaSlug: "add-entity-to-collection",
 		properties: { relationshipId: "rel-1", relationshipProperties: {}, ...properties },

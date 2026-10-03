@@ -7,6 +7,7 @@ const ACTIVITY_RECIPE = mangaRecipes.activityRecipe({
 	eventLimit: 60,
 	entityId: "manga-1",
 	collectionEventLimit: 60,
+	reference: { kind: "self" },
 });
 
 const rowFields = (recipe: PreparedRecipe<unknown>, name: string) => {
@@ -31,7 +32,11 @@ const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
 describe("media manga query recipes", () => {
 	it("selects the chapter and volume counts the manga schema declares", () => {
 		const summary = keys(
-			mangaRecipes.summaryRecipe({ collectionLimit: 6, entityId: "manga-1" }),
+			mangaRecipes.summaryRecipe({
+				collectionLimit: 6,
+				entityId: "manga-1",
+				reference: { kind: "self" },
+			}),
 			"summary",
 		);
 
@@ -71,6 +76,7 @@ describe("media manga query recipes", () => {
 			companyLimit: 6,
 			entityId: "manga-1",
 			recommendationLimit: 12,
+			reference: { kind: "self" },
 		});
 
 		expect(Object.keys(overview.document.queries)).toEqual([

@@ -110,6 +110,10 @@
 			"types": "./shared/company-recipes.ts",
 			"default": "./shared/company-recipes.ts"
 		},
+		"./shared/plugin-identity": {
+			"types": "./shared/plugin-identity.ts",
+			"default": "./shared/plugin-identity.ts"
+		},
 		"./import-sources": {
 			"types": "./host/import-sources.ts",
 			"default": "./host/import-sources.ts"

@@ -169,7 +169,13 @@ const getProgressEventPage = (
 ) =>
 	executeRyotqlRecipe(
 		host.executeRyotql,
-		eventReadRecipe({ after, entityId, entitySchemaSlug, eventSchemaSlug: "progress" }),
+		eventReadRecipe({
+			after,
+			entityId,
+			entitySchemaSlug,
+			owner: { kind: "self" },
+			eventSchemaSlug: "progress",
+		}),
 	);
 
 const getProgressEvents = (host: AutomationHost, entityId: string, entitySchemaSlug: string) =>
@@ -214,7 +220,7 @@ const completionEvent = (
 	return {
 		occurredAt,
 		entityId: event.entityId,
-		eventSchemaSlug: completeSchema.id,
+		eventSchemaSlug: completeSchema.slug,
 		...(source.sessionEntityId === undefined || source.sessionEntityId === null
 			? {}
 			: { sessionEntityId: source.sessionEntityId }),

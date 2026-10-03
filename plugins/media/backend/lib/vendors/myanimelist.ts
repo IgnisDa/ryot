@@ -23,9 +23,7 @@ export const getMalClientId = (host: MyAnimeListHost) =>
 		Effect.flatMap((value) => {
 			const clientId = typeof value === "string" ? value.trim() : "";
 			if (!clientId) {
-				return Effect.fail(
-					new MediaSandboxError({ message: "RYOT_PLUGIN_MEDIA_MAL_CLIENT_ID is not configured" }),
-				);
+				return Effect.fail(new MediaSandboxError({ message: "malClientId is not configured" }));
 			}
 			return Effect.succeed(clientId);
 		}),

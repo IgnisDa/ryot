@@ -10,6 +10,7 @@ const OVERVIEW_RECIPE = audiobookRecipes.overviewRecipe({
 	companyLimit: 6,
 	entityId: "audiobook-1",
 	recommendationLimit: 12,
+	reference: { kind: "self" },
 });
 
 const singleRows = (items: readonly Record<string, unknown>[]) =>
@@ -37,7 +38,11 @@ const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
 describe("media audiobook query recipes", () => {
 	it("selects the runtime the audiobook schema declares", () => {
 		const summary = keys(
-			audiobookRecipes.summaryRecipe({ collectionLimit: 6, entityId: "audiobook-1" }),
+			audiobookRecipes.summaryRecipe({
+				collectionLimit: 6,
+				entityId: "audiobook-1",
+				reference: { kind: "self" },
+			}),
 			"summary",
 		);
 
@@ -50,6 +55,7 @@ describe("media audiobook query recipes", () => {
 			eventLimit: 60,
 			entityId: "audiobook-1",
 			collectionEventLimit: 60,
+			reference: { kind: "self" },
 		});
 
 		expect(fieldExpr(activity, "totals", "consumedAmount")).toMatchObject({
@@ -65,9 +71,25 @@ describe("media audiobook query recipes", () => {
 	it("reaches the series from the group side of audiobook-group-to-audiobook", () => {
 		expect(OVERVIEW_RECIPE.document.queries["group"]?.where).toMatchObject({
 			predicates: [
-				{ right: { type: "literal", value: "audiobook-group" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "audiobook-group" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{},
-				{ right: { type: "literal", value: "audiobook-group-to-audiobook" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "audiobook-group-to-audiobook" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 	});

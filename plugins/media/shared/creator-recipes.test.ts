@@ -6,7 +6,10 @@ import { creatorFixtureRecipes, creatorPlainFixtureRecipes } from "../tests/clie
 
 const OVERVIEW_INPUT = { creditLimit: 12, entityId: "creator-1" };
 
-const OVERVIEW_RECIPE = creatorFixtureRecipes.overviewRecipe(OVERVIEW_INPUT);
+const OVERVIEW_RECIPE = creatorFixtureRecipes.overviewRecipe({
+	...OVERVIEW_INPUT,
+	reference: { kind: "self" },
+});
 
 const rowsQuery = (recipe: PreparedRecipe<unknown>, name: string) => {
 	const query = recipe.document.queries[name];
@@ -35,6 +38,7 @@ describe("media creator recipes", () => {
 		const recipe = creatorFixtureRecipes.summaryRecipe({
 			collectionLimit: 6,
 			entityId: "creator-1",
+			reference: { kind: "self" },
 		});
 
 		expect(Object.keys(recipe.document.queries)).toEqual(["requested", "summary"]);
@@ -52,7 +56,18 @@ describe("media creator recipes", () => {
 			"alternateNames",
 		]);
 		expect(rowsQuery(recipe, "summary").where).toMatchObject({
-			predicates: [{ right: { type: "literal", value: "creator" } }, {}],
+			predicates: [
+				{
+					predicates: [
+						{ right: { type: "literal", value: "creator" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
+				{},
+			],
 		});
 	});
 
@@ -63,7 +78,15 @@ describe("media creator recipes", () => {
 		expect(credits.from).toMatchObject({ table: "entity", alias: "creatorCreditCreator" });
 		expect(credits.where).toMatchObject({
 			predicates: [
-				{ right: { type: "literal", value: "creator" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "creator" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{ right: { type: "literal", value: "creator-1" } },
 			],
 		});
@@ -100,6 +123,14 @@ describe("media creator recipes", () => {
 				predicates: [
 					{ right: { value: "movie", type: "literal" } },
 					{
+						left: { field: "entitySchemaPluginId" },
+						right: { field: "entitySchemaPluginId", tableAlias: "creatorCreditCreator" },
+					},
+					{
+						left: { field: "relationshipSchemaPluginId" },
+						right: { field: "entitySchemaPluginId", tableAlias: "creatorCreditCreator" },
+					},
+					{
 						right: { field: "id", type: "column", tableAlias: "creatorCreditCreator" },
 						left: { field: "sourceEntityId", tableAlias: "creatorCreditRelationship3" },
 					},
@@ -110,6 +141,14 @@ describe("media creator recipes", () => {
 		expect(creditInclude(OVERVIEW_RECIPE, "music-group").where).toMatchObject({
 			predicates: [
 				{ right: { type: "literal", value: "music-group" } },
+				{
+					left: { field: "entitySchemaPluginId" },
+					right: { field: "entitySchemaPluginId", tableAlias: "creatorCreditCreator" },
+				},
+				{
+					left: { field: "relationshipSchemaPluginId" },
+					right: { field: "entitySchemaPluginId", tableAlias: "creatorCreditCreator" },
+				},
 				{},
 				{ right: { type: "literal", value: "creator-to-music-group" } },
 			],
@@ -141,7 +180,13 @@ describe("media creator recipes", () => {
 		]);
 		expect(creditKeys(OVERVIEW_RECIPE, "music-group")).not.toContain("character");
 		expect(
-			creditKeys(creatorPlainFixtureRecipes.overviewRecipe(OVERVIEW_INPUT), "movie"),
+			creditKeys(
+				creatorPlainFixtureRecipes.overviewRecipe({
+					...OVERVIEW_INPUT,
+					reference: { kind: "self" },
+				}),
+				"movie",
+			),
 		).not.toContain("character");
 	});
 

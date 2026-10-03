@@ -30,7 +30,7 @@ export const getApiKey = (host: GiantBombHost) =>
 				return Effect.fail(
 					new MediaSandboxError({
 						message:
-							"GiantBomb API key is not configured. Set RYOT_PLUGIN_MEDIA_GIANT_BOMB_API_KEY in your environment.",
+							"GiantBomb API key is not configured. Set giantBombApiKey in the plugin configuration.",
 					}),
 				);
 			}

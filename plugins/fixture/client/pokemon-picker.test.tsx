@@ -4,6 +4,7 @@ import { disposePluginBridges, mountPluginPage, routeLocation } from "@ryot-app/
 import { EntityId, RelationshipId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 
+import { fixtureRoutePageContext } from "../tests/client/page-context";
 import { PokemonPicker } from "./pokemon-picker";
 
 const rows = (items: readonly Record<string, unknown>[]) => ({
@@ -44,7 +45,10 @@ describe("PokemonPicker", () => {
 
 	it.live("cancels a locally pushed choice without writing and pops host history", () =>
 		Effect.gen(function* () {
-			const page = mountPluginPage(PokemonPicker, { location: routeLocation("/", "keep=1") });
+			const page = mountPluginPage(PokemonPicker, {
+				page: fixtureRoutePageContext(),
+				location: routeLocation("/", "keep=1"),
+			});
 			yield* replyChoices(page);
 
 			fireEvent.click(screen.getByRole("button", { name: "Add Charmander to collection" }));
@@ -101,6 +105,7 @@ describe("PokemonPicker", () => {
 		() =>
 			Effect.gen(function* () {
 				const page = mountPluginPage(PokemonPicker, {
+					page: fixtureRoutePageContext(),
 					location: routeLocation("/", "keep=1&dialog=add-to-collection&entityId=pokemon-2"),
 				});
 				yield* replyChoices(page);
@@ -159,6 +164,7 @@ describe("PokemonPicker", () => {
 						warnings: [],
 						memberOf: {
 							properties: {},
+							relationshipSchemaPluginId: null,
 							createdAt: "2026-09-08T00:00:00.000Z",
 							id: RelationshipId.make("membership-1"),
 							sourceEntityId: EntityId.make("pokemon-2"),

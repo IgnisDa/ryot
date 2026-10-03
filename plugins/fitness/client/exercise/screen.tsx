@@ -1,4 +1,4 @@
-import { usePluginLocation, useRyotViewport } from "@ryot-app/client-sdk/plugin";
+import { usePluginLocation, useRyotViewport, PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
@@ -11,6 +11,7 @@ import clsx from "clsx";
 import { useMemo, useState } from "react";
 
 import { exerciseDetailsRecipe, type ExerciseDetails } from "../../shared/exercise-details-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { managedAssetBatch } from "../asset-urls";
 import { dedupeWorkoutNotes, type ExerciseRecord } from "./details-model";
 import { HistorySection, RecentSessions } from "./history";
@@ -23,7 +24,11 @@ const exerciseDetailsQuery = createRyotQuery<
 >(
 	({ input, client }) =>
 		client.data.query(
-			exerciseDetailsRecipe({ timeZone: input.timeZone, exerciseId: input.entityId }),
+			exerciseDetailsRecipe({
+				timeZone: input.timeZone,
+				exerciseId: input.entityId,
+				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+			}),
 		),
 	{ entityInterest: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );

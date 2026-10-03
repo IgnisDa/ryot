@@ -22,12 +22,15 @@ const page = (items: readonly unknown[], limit: number) =>
 
 describe("latest completion suggestions recipe", () => {
 	it("validates the document", () => {
-		const recipe = latestCompletionSuggestionsRecipe({ limit: 20 });
+		const recipe = latestCompletionSuggestionsRecipe({ limit: 20, reference: { kind: "self" } });
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
 	});
 
 	it("resolves the items against the same source the source query reads", () => {
-		const { queries } = latestCompletionSuggestionsRecipe({ limit: 20 }).document;
+		const { queries } = latestCompletionSuggestionsRecipe({
+			limit: 20,
+			reference: { kind: "self" },
+		}).document;
 		const sourceFirst = queries["source"]?.where;
 		const itemsWhere = queries["items"]?.where;
 		if (sourceFirst?.type !== "comparison" || itemsWhere?.type !== "and") {
@@ -41,15 +44,19 @@ describe("latest completion suggestions recipe", () => {
 	});
 
 	it("reports no source when nothing was completed", () => {
-		const decoded = latestCompletionSuggestionsRecipe({ limit: 20 }).decode({
-			data: { source: page([], 2), items: page([], 20) },
-		});
+		const decoded = latestCompletionSuggestionsRecipe({
+			limit: 20,
+			reference: { kind: "self" },
+		}).decode({ data: { source: page([], 2), items: page([], 20) } });
 
 		expect(Result.getOrThrow(decoded)).toEqual({ items: [], source: null });
 	});
 
 	it("returns the source beside its suggestions", () => {
-		const decoded = latestCompletionSuggestionsRecipe({ limit: 20 }).decode({
+		const decoded = latestCompletionSuggestionsRecipe({
+			limit: 20,
+			reference: { kind: "self" },
+		}).decode({
 			data: { source: page([mediaRow("source")], 2), items: page([mediaRow("target")], 20) },
 		});
 
@@ -65,14 +72,18 @@ describe("trending latest media recipe", () => {
 		const recipe = trendingLatestMediaRecipe({
 			limit: 20,
 			after: "cursor",
+			reference: { kind: "self" },
 			entitySchemaSlugs: ["movie", "show"],
 		});
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
 	});
 
 	it("keys the latest batch on each row's schema and interleaves by rank", () => {
-		const query = trendingLatestMediaRecipe({ limit: 20, entitySchemaSlugs: ["movie", "show"] })
-			.document.queries["trending"];
+		const query = trendingLatestMediaRecipe({
+			limit: 20,
+			reference: { kind: "self" },
+			entitySchemaSlugs: ["movie", "show"],
+		}).document.queries["trending"];
 		if (query?.output.type !== "rows" || query.where?.type !== "and") {
 			throw new Error("Expected the filtered trending rows query");
 		}

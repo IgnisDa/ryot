@@ -4,9 +4,9 @@ import {
 	ascending,
 	column,
 	defineRecipe,
-	eq,
+	entitySchemaPredicate,
 	executeRyotqlRecipe,
-	literal,
+	relationshipSchemaPredicate,
 	selectedField,
 	selectedRows,
 	table,
@@ -30,7 +30,7 @@ const pinnedMetricIdsRecipe = defineRecipe(() => {
 			pins: selectedRows(pin, {
 				limit: 100,
 				orderBy: [ascending(column(pin, "id"))],
-				where: eq(column(pin, "relationshipSchemaSlug"), literal(pinRelationshipSchemaSlug)),
+				where: relationshipSchemaPredicate(pin, pinRelationshipSchemaSlug, { kind: "self" }),
 				selection: { metricId: selectedField(column(pin, "sourceEntityId"), Schema.String) },
 			}),
 		},
@@ -46,7 +46,7 @@ const metricIdsRecipe = defineRecipe((limit: number) => {
 				limit,
 				orderBy: [ascending(column(metric, "id"))],
 				selection: { id: selectedField(column(metric, "id"), Schema.String) },
-				where: eq(column(metric, "entitySchemaSlug"), literal("measurement-metric")),
+				where: entitySchemaPredicate(metric, "measurement-metric", { kind: "self" }),
 			}),
 		},
 	};
@@ -65,7 +65,7 @@ export const changeMeasurementMetricPin = (
 	Effect.gen(function* () {
 		const fitnessLibrary = yield* executeRyotqlRecipe(
 			host.executeRyotql,
-			userFitnessLibraryRecipe(),
+			userFitnessLibraryRecipe({ kind: "self" }),
 		);
 		const identity = {
 			sourceEntityId: input.metricId,

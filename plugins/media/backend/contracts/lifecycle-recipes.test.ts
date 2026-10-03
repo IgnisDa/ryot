@@ -7,7 +7,11 @@ import {
 	readEpisodicLifecycleSnapshot,
 } from "./lifecycle-recipes";
 
-const input = { parentEntityId: "show-1", config: showEpisodicKindConfig };
+const input = {
+	parentEntityId: "show-1",
+	reference: { kind: "self" },
+	config: showEpisodicKindConfig,
+} satisfies Parameters<typeof episodicLifecycleSnapshotRecipe>[0];
 
 describe("media lifecycle recipes", () => {
 	it("builds the episodic snapshot as one parent query without pagination", () => {

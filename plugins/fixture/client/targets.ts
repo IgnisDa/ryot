@@ -1,8 +1,7 @@
-export const FIXTURE_PLUGIN_SLUG = "fixture" as const;
+import type { PluginId } from "@ryot-app/client-sdk/plugin";
 
-export const fixtureRoute = (path: string, search?: Record<string, string>) => ({
-	path,
-	search,
-	kind: "plugin-route" as const,
-	pluginSlug: FIXTURE_PLUGIN_SLUG,
-});
+export const fixtureRoute = (
+	pluginId: PluginId,
+	path: string,
+	search?: Record<string, string>,
+) => ({ path, search, pluginId, kind: "plugin-route" as const });

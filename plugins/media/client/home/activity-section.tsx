@@ -1,8 +1,10 @@
+import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery, useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { CalendarHeatmap, RankedBarList } from "@ryot-app/client-ui-sdk/charts";
 import clsx from "clsx";
 
 import { mediaActivityRecipe, type MediaActivity } from "../../shared/activity-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { MediaActivitySummaryFigures } from "../media/activity-rows";
 import { formatDateOnlyLabel } from "../media/date";
 import { MediaSectionFrame, type MediaRailStatus } from "../media/entity-rail";
@@ -24,7 +26,12 @@ type MediaActivityInput = ActivityWindow & { readonly timeZone: string };
 
 const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivity>(({ input, client }) =>
 	client.data.query(
-		mediaActivityRecipe({ from: input.from, until: input.until, timeZone: input.timeZone }),
+		mediaActivityRecipe({
+			from: input.from,
+			until: input.until,
+			timeZone: input.timeZone,
+			reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+		}),
 	),
 );
 

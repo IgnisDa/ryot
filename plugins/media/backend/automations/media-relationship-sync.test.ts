@@ -22,7 +22,12 @@ const input = (overrides: {
 	const population: Population = {
 		rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
 		...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
-		scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
+		scopeEntity: {
+			id: "show-1",
+			name: "Severance",
+			entitySchemaSlug: "show",
+			entitySchemaPluginId: "media-owner",
+		},
 		batch: {
 			id: "batch-1",
 			isLeader: true,
@@ -45,6 +50,7 @@ const input = (overrides: {
 			targetEntityId: `target-${id}`,
 			createdAt: "2026-07-20T10:00:00.000Z",
 			updatedAt: "2026-07-20T10:00:00.000Z",
+			relationshipSchemaPluginId: "media-owner",
 			relationshipSchemaSlug: overrides.relationshipSchemaSlug ?? "show-to-show-season",
 		},
 	});
@@ -112,6 +118,7 @@ it("emits aggregate episode discovery with the created count and season", () =>
 				name: "Season 2",
 				properties: { seasonNumber: 2 },
 				entitySchemaSlug: "show-season",
+				entitySchemaPluginId: "media-owner",
 			},
 		}),
 	).pipe(
@@ -139,6 +146,7 @@ it("does not treat a podcast parent as season context", () =>
 				name: "Special Podcast",
 				entitySchemaSlug: "podcast",
 				properties: { seasonNumber: 0 },
+				entitySchemaPluginId: "media-owner",
 			},
 		}),
 	).pipe(
@@ -168,6 +176,7 @@ it("stays silent without the leader, on first population, without net changes, a
 							name: "Season Zero",
 							properties: { seasonNumber: 0 },
 							entitySchemaSlug: "show-season",
+							entitySchemaPluginId: "media-owner",
 						},
 					}),
 				),
@@ -178,6 +187,7 @@ it("stays silent without the leader, on first population, without net changes, a
 							properties: { seasonNumber: 2 },
 							entitySchemaSlug: "show-season",
 							name: "Bonus Specials Collection",
+							entitySchemaPluginId: "media-owner",
 						},
 					}),
 				),

@@ -32,6 +32,7 @@ const input = (overrides: InputOverrides = {}) => {
 		targetEntityId: "associated-1",
 		createdAt: "2026-07-20T10:00:00.000Z",
 		updatedAt: "2026-07-20T10:00:00.000Z",
+		relationshipSchemaPluginId: "media-owner",
 		relationshipSchemaSlug: `${subjectKind}-to-${targetKind}`,
 	});
 	let relationshipSource;
@@ -50,6 +51,7 @@ const input = (overrides: InputOverrides = {}) => {
 		scopeEntity: {
 			name: "Barbie",
 			entitySchemaSlug: targetKind,
+			entitySchemaPluginId: "media-owner",
 			id: overrides.rootEntityId ?? "associated-1",
 		},
 	};
@@ -87,6 +89,7 @@ const credit = (sourceEntityId: string, role: string) => ({
 		id: `relationship-${sourceEntityId}`,
 		createdAt: "2026-07-20T10:00:00.000Z",
 		updatedAt: "2026-07-20T10:00:00.000Z",
+		relationshipSchemaPluginId: "media-owner",
 		relationshipSchemaSlug: "person-to-movie",
 	},
 });

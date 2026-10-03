@@ -21,7 +21,9 @@ import {
 	selectedMeasure,
 	table,
 	type Recipe,
+	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { propertyNumber, type Table } from "./entity-selections";
 import {
@@ -75,7 +77,12 @@ const DAY_LIMIT = 400;
  * builtin media type, with the type's schema name.
  */
 export const mediaActivityRecipe = defineRecipe(
-	(input: { readonly from: string; readonly until: string; readonly timeZone: string }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly from: string;
+		readonly until: string;
+		readonly timeZone: string;
+	}) => {
 		const scoped = (alias: string, eventSlugs: readonly string[]) => {
 			const event = table("event", `${alias}Event`);
 			const entity = table("entity", `${alias}Entity`);
@@ -84,6 +91,8 @@ export const mediaActivityRecipe = defineRecipe(
 				entity,
 				joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
 				where: and(
+					schemaOwnerPredicate(entity, "entitySchemaPluginId", input.reference),
+					schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
 					eventSlugIsOneOf(event, eventSlugs),
 					slugIsOneOf(entity, activityEntitySlugs),
 					gte(column(event, "occurredAt"), castDate(literal(input.from))),
@@ -124,23 +133,6 @@ export const mediaActivityRecipe = defineRecipe(
 						),
 					},
 				}),
-				mediaTypes: selectedAggregate(types.event, {
-					where: types.where,
-					limit: builtinMediaEntitySchemaSlugs.length,
-					orderBy: [measureDescending("events"), groupAscending("slug")],
-					measures: { events: selectedMeasure({ function: "count" }, Schema.Finite) },
-					joins: [
-						...types.joins,
-						join("inner", typeSchema, eq(column(typeSchema, "slug"), mediaTypeOf(types.entity))),
-					],
-					groupBy: {
-						label: selectedField(column(typeSchema, "name"), Schema.String),
-						slug: selectedField(
-							mediaTypeOf(types.entity),
-							Schema.Literals(builtinMediaEntitySchemaSlugs),
-						),
-					},
-				}),
 				figures: selectedAggregate(figures.event, {
 					joins: figures.joins,
 					where: figures.where,
@@ -164,6 +156,30 @@ export const mediaActivityRecipe = defineRecipe(
 							Schema.NullOr(Schema.Finite),
 						),
 					},
+				}),
+				mediaTypes: selectedAggregate(types.event, {
+					where: types.where,
+					limit: builtinMediaEntitySchemaSlugs.length,
+					orderBy: [measureDescending("events"), groupAscending("slug")],
+					measures: { events: selectedMeasure({ function: "count" }, Schema.Finite) },
+					groupBy: {
+						label: selectedField(column(typeSchema, "name"), Schema.String),
+						slug: selectedField(
+							mediaTypeOf(types.entity),
+							Schema.Literals(builtinMediaEntitySchemaSlugs),
+						),
+					},
+					joins: [
+						...types.joins,
+						join(
+							"inner",
+							typeSchema,
+							and(
+								eq(column(typeSchema, "slug"), mediaTypeOf(types.entity)),
+								schemaOwnerPredicate(typeSchema, "pluginId", input.reference),
+							),
+						),
+					],
 				}),
 			},
 		};

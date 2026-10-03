@@ -18,7 +18,10 @@ import {
 	selectedRows,
 	table,
 	type Recipe,
+	entitySchemaPredicate,
+	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	entityIdentitySelection,
@@ -29,13 +32,17 @@ import {
 import { exerciseEquipmentInclude } from "./taxonomy-recipes";
 
 type Table = ReturnType<typeof table>;
-type EntityFilterInput = { entityId?: string | undefined; name?: string | undefined };
+type EntityFilterInput = {
+	readonly reference: PluginIdentityReference;
+	entityId?: string | undefined;
+	name?: string | undefined;
+};
 type EntityListInput = Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> &
-	Pick<EntityFilterInput, "entityId">;
+	Pick<EntityFilterInput, "entityId" | "reference">;
 
 const entityWhere = (entity: Table, schemaSlug: string, input: EntityFilterInput) =>
 	and(
-		eq(column(entity, "entitySchemaSlug"), literal(schemaSlug)),
+		entitySchemaPredicate(entity, schemaSlug, input.reference),
 		...(input.entityId ? [eq(column(entity, "id"), literal(input.entityId))] : []),
 		...(input.name ? [eq(column(entity, "name"), literal(input.name))] : []),
 	);
@@ -67,6 +74,11 @@ export const workoutTemplateInclude = (parent: Table, limit: number) => {
 			join("inner", template, eq(column(relationship, "targetEntityId"), column(template, "id"))),
 		],
 		where: and(
+			eq(column(template, "entitySchemaPluginId"), column(parent, "entitySchemaPluginId")),
+			eq(
+				column(relationship, "relationshipSchemaPluginId"),
+				column(parent, "entitySchemaPluginId"),
+			),
 			eq(column(relationship, "sourceEntityId"), column(parent, "id")),
 			eq(column(relationship, "relationshipSchemaSlug"), literal("workout-to-workout-template")),
 			eq(column(template, "entitySchemaSlug"), literal("workout-template")),
@@ -85,6 +97,11 @@ const workoutInclude = (parent: Table, limit: number) => {
 			join("inner", workout, eq(column(relationship, "sourceEntityId"), column(workout, "id"))),
 		],
 		where: and(
+			eq(column(workout, "entitySchemaPluginId"), column(parent, "entitySchemaPluginId")),
+			eq(
+				column(relationship, "relationshipSchemaPluginId"),
+				column(parent, "entitySchemaPluginId"),
+			),
 			eq(column(relationship, "targetEntityId"), column(parent, "id")),
 			eq(column(relationship, "relationshipSchemaSlug"), literal("workout-to-workout-template")),
 			eq(column(workout, "entitySchemaSlug"), literal("workout")),
@@ -145,6 +162,7 @@ export const workoutListRecipe = defineRecipe((input: EntityListInput) => {
 export const measurementReadingListRecipe = defineRecipe(
 	(
 		input: Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
+			readonly reference: PluginIdentityReference;
 			startAt?: string | undefined;
 		},
 	) => {
@@ -163,6 +181,8 @@ export const measurementReadingListRecipe = defineRecipe(
 						ascending(column(event, "id")),
 					],
 					where: and(
+						schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
+						schemaOwnerPredicate(metric, "entitySchemaPluginId", input.reference),
 						eq(column(event, "eventSchemaSlug"), literal("measurement-reading")),
 						eq(column(metric, "entitySchemaSlug"), literal("measurement-metric")),
 						...(input.startAt === undefined
@@ -202,7 +222,11 @@ export const workoutTemplateListRecipe = defineRecipe((input: EntityListInput) =
 });
 
 export const workoutDetailRecipe = defineRecipe(
-	(input: { entityId: string; templateLimit: number }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		entityId: string;
+		templateLimit: number;
+	}) => {
 		const entity = table("entity", "entity");
 		return {
 			map: ({ workout }) => Result.succeed(workout ?? null),
@@ -219,7 +243,11 @@ export const workoutDetailRecipe = defineRecipe(
 );
 
 export const workoutTemplateDetailRecipe = defineRecipe(
-	(input: { entityId: string; workoutLimit: number }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		entityId: string;
+		workoutLimit: number;
+	}) => {
 		const entity = table("entity", "entity");
 		return {
 			map: ({ workoutTemplate }) => Result.succeed(workoutTemplate ?? null),

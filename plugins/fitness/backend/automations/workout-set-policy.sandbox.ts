@@ -152,7 +152,11 @@ export default defineAutomationPolicy({
 		return Effect.gen(function* () {
 			const context = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutSetContextRecipe({ workoutId, exerciseId: payload.draft.entityId }),
+				workoutSetContextRecipe({
+					workoutId,
+					reference: { kind: "self" },
+					exerciseId: payload.draft.entityId,
+				}),
 			);
 			const exerciseKind = recorded?.success ?? context.exercise?.kind;
 			if (

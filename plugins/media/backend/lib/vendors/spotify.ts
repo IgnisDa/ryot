@@ -93,7 +93,7 @@ export const getCredentials = (host: SpotifyHost) =>
 				return Effect.fail(
 					new MediaSandboxError({
 						message:
-							"Spotify client ID is not configured. Set RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_ID in your environment.",
+							"Spotify client ID is not configured. Set spotifyClientId in the plugin configuration.",
 					}),
 				);
 			}
@@ -101,7 +101,7 @@ export const getCredentials = (host: SpotifyHost) =>
 				return Effect.fail(
 					new MediaSandboxError({
 						message:
-							"Spotify client secret is not configured. Set RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_SECRET in your environment.",
+							"Spotify client secret is not configured. Set spotifyClientSecret in the plugin configuration.",
 					}),
 				);
 			}

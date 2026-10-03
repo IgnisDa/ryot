@@ -1,5 +1,6 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import type { MediaPresentationSource } from "../../../shared/entity-presentations";
 import { creatorActivityData } from "../creator/activity-fixture";
@@ -31,6 +32,7 @@ export const groupSummaryRow = {
 export const decodeGroupSummaryOf = <Summary>(
 	recipes: {
 		readonly summaryRecipe: (input: {
+			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly collectionLimit: number;
 		}) => PreparedRecipe<{
@@ -41,7 +43,7 @@ export const decodeGroupSummaryOf = <Summary>(
 	overrides: Record<string, unknown> = {},
 ) => {
 	const { summary } = decodeMediaSummaryResult(
-		recipes.summaryRecipe({ collectionLimit: 6, entityId: "group-1" }),
+		recipes.summaryRecipe({ collectionLimit: 6, entityId: "group-1", reference: { kind: "self" } }),
 		{ requested: [{ schemaSlug: "movie-group" }], summary: [{ ...groupSummaryRow, ...overrides }] },
 	);
 	if (summary === null) {
@@ -104,6 +106,7 @@ export const groupLabelCreditRow = {
 
 export const decodeCreditGroupOverviewOf = <Overview>(recipes: {
 	readonly overviewRecipe: (input: {
+		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
 		readonly peopleLimit: number;
 		readonly companyLimit: number;
@@ -111,7 +114,12 @@ export const decodeCreditGroupOverviewOf = <Overview>(recipes: {
 }) =>
 	Result.getOrThrow(
 		recipes
-			.overviewRecipe({ peopleLimit: 12, companyLimit: 6, entityId: "group-1" })
+			.overviewRecipe({
+				peopleLimit: 12,
+				companyLimit: 6,
+				entityId: "group-1",
+				reference: { kind: "self" },
+			})
 			.decode({
 				data: {
 					people: creditRows([groupArtistCreditRow]),
@@ -136,6 +144,11 @@ export const decodeGroupPresentation = <Presentation>(
 export const decodeGroupActivity = (input: Parameters<typeof creatorActivityData>[0] = {}) =>
 	Result.getOrThrow(
 		groupFixtureRecipes
-			.activityRecipe({ eventLimit: 60, entityId: "group-1", collectionEventLimit: 60 })
+			.activityRecipe({
+				eventLimit: 60,
+				entityId: "group-1",
+				collectionEventLimit: 60,
+				reference: { kind: "self" },
+			})
 			.decode({ data: creatorActivityData(input) }),
 	);

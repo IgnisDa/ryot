@@ -53,7 +53,12 @@ const mangaSummary = (overrides: Record<string, unknown> = {}) =>
 const mangaActivity = (events: readonly Record<string, unknown>[] = [PROGRESS_EVENT]) =>
 	Result.getOrThrow(
 		mangaRecipes
-			.activityRecipe({ eventLimit: 60, entityId: "manga-1", collectionEventLimit: 60 })
+			.activityRecipe({
+				eventLimit: 60,
+				entityId: "manga-1",
+				collectionEventLimit: 60,
+				reference: { kind: "self" },
+			})
 			.decode({
 				data: {
 					events: rowsResult(events, { limit: 60, hasMore: false, nextCursor: null }),

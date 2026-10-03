@@ -1,3 +1,5 @@
+import type { AuthoredEntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { ascending, castJson, castNumber, column, field, jsonPath, table } from "@ryot-app/ryotql";
 import {
 	buildSavedViewLayoutProjections,
@@ -24,6 +26,7 @@ const buildDefinition = (
 		source: {
 			type: "generated",
 			orderBy: [orderBy],
+			owner: { kind: "self" },
 			entitySchemaSlugs: [entitySchemaSlug],
 			fields: [
 				...projections.table.fields,
@@ -46,7 +49,10 @@ const buildDefinition = (
 			ownerPluginIdField: "ownerPluginId",
 			entitySchemaSlugField: "entitySchemaSlug",
 			layouts: ["grid", "list", "table"] as const,
-			addAction: { entitySchemaSlug, ownerPluginId: "fixture", type: "provider-search" as const },
+			addAction: {
+				type: "provider-search",
+				schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(entitySchemaSlug) },
+			} satisfies AuthoredEntityBrowserAddAction,
 			tableColumns: [
 				...(projections.table.mappings.imageField === null
 					? []
@@ -104,7 +110,6 @@ export const fixtureSavedViews = [
 		icon: "sparkles",
 		name: "All Pokemon",
 		slug: "all-pokemon",
-		pluginSlug: "fixture",
 		...buildDefinition(
 			"pokemon",
 			ascending(castNumber(property("pokedexNumber"))),
@@ -117,7 +122,6 @@ export const fixtureSavedViews = [
 		sortOrder: 1,
 		name: "All Moves",
 		slug: "all-moves",
-		pluginSlug: "fixture",
 		...buildDefinition("move", ascending(name), moveProjections, movePresentationSource().fields),
 	},
 ] as const;

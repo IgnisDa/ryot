@@ -5,9 +5,15 @@ import { flatFixtureRecipes, flatUngroupedFixtureRecipes } from "./recipes";
 
 const ACTIVITY_INPUT = { eventLimit: 60, entityId: "media-1", collectionEventLimit: 60 };
 
-const fixtureActivityRecipe = flatFixtureRecipes.activityRecipe(ACTIVITY_INPUT);
+const fixtureActivityRecipe = flatFixtureRecipes.activityRecipe({
+	...ACTIVITY_INPUT,
+	reference: { kind: "self" },
+});
 
-const ungroupedActivityRecipe = flatUngroupedFixtureRecipes.activityRecipe(ACTIVITY_INPUT);
+const ungroupedActivityRecipe = flatUngroupedFixtureRecipes.activityRecipe({
+	...ACTIVITY_INPUT,
+	reference: { kind: "self" },
+});
 
 const emptyEventProperties = {
 	text: null,

@@ -1,5 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
-import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";
+import type { EntityRendererProps, PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
@@ -115,6 +115,7 @@ export type MediaEpisodicSchemaDescriptor<
 > = {
 	readonly recipes: {
 		readonly summaryRecipe: (input: {
+			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly collectionLimit: number;
 		}) => PreparedRecipe<EpisodicSummaryResult<Summary>>;
@@ -196,6 +197,7 @@ export const defineEpisodicMediaSchema = <
 			recipes.overviewRecipe({
 				entityId: input.entityId,
 				peopleLimit: PEOPLE_LIMIT,
+				reference: input.reference,
 				companyLimit: COMPANY_LIMIT,
 				recommendationLimit: RECOMMENDATION_LIMIT,
 			}),
@@ -209,6 +211,7 @@ export const defineEpisodicMediaSchema = <
 		(input) =>
 			recipes.activityRecipe({
 				entityId: input.entityId,
+				reference: input.reference,
 				coverageLimit: ACTIVITY_COVERAGE_LIMIT,
 				watchDayLimit: ACTIVITY_WATCH_DAY_LIMIT,
 				parentEventLimit: ACTIVITY_PARENT_EVENT_LIMIT,

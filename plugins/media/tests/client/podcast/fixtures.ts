@@ -9,6 +9,7 @@ const rows = (items: readonly Record<string, unknown>[]) =>
 const podcastSummaryFixtureRecipe = podcastRecipes.summaryRecipe({
 	collectionLimit: 6,
 	entityId: "podcast-1",
+	reference: { kind: "self" },
 });
 
 const podcastOverviewFixtureRecipe = podcastRecipes.overviewRecipe({
@@ -16,6 +17,7 @@ const podcastOverviewFixtureRecipe = podcastRecipes.overviewRecipe({
 	companyLimit: 6,
 	entityId: "podcast-1",
 	recommendationLimit: 12,
+	reference: { kind: "self" },
 });
 
 const podcastActivityFixtureRecipe = podcastRecipes.activityRecipe({
@@ -27,6 +29,7 @@ const podcastActivityFixtureRecipe = podcastRecipes.activityRecipe({
 	episodeEventLimit: 100,
 	collectionEventLimit: 60,
 	episodeProgressLimit: 100,
+	reference: { kind: "self" },
 });
 
 export const podcastSummaryRow = {
