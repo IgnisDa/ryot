@@ -4,14 +4,13 @@ import {
 	Card,
 	CellInput,
 	IconButton,
-	Menu,
+	MenuButton,
 	Tooltip,
-	type MenuItem,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { EXERCISES, type ExerciseFixture, type SetFixture } from "#/modules/design-system/fixtures";
 import { useEdge } from "#/modules/shell/authenticated-shell-context";
@@ -23,71 +22,12 @@ const SET_KINDS = [
 	{ tag: "F", key: "failure", label: "Failure", tone: "text-danger" },
 ] as const;
 
+const noop = () => {};
+
 const setGrid = (compact: boolean) =>
 	compact
 		? "grid grid-cols-[1.75rem_minmax(0,1fr)_4.25rem_4.25rem_2.75rem] items-center gap-1.5 px-1.5"
 		: "grid grid-cols-[2.25rem_minmax(4rem,1fr)_5.5rem_5.5rem_2.75rem_2.25rem] items-center gap-2 px-2 pointer-coarse:grid-cols-[2.25rem_minmax(3rem,1fr)_4.5rem_4.5rem_2.75rem_2.75rem]";
-
-function MenuButton(props: {
-	readonly label: string;
-	readonly menuLabel?: string;
-	readonly content?: ReactNode;
-	readonly triggerClassName?: string;
-	readonly items: ReadonlyArray<Omit<MenuItem, "onSelect"> & { readonly onSelect?: () => void }>;
-}) {
-	const triggerRef = useRef<HTMLButtonElement>(null);
-	const [open, setOpen] = useState(false);
-	const [activeIndex, setActiveIndex] = useState(0);
-	return (
-		<>
-			{props.content === undefined ? (
-				<IconButton
-					size="sm"
-					ref={triggerRef}
-					label={props.label}
-					aria-haspopup="menu"
-					aria-expanded={open}
-					onClick={() => setOpen(true)}
-				>
-					<AppIcon size={16} name="more-horizontal" />
-				</IconButton>
-			) : (
-				<button
-					type="button"
-					ref={triggerRef}
-					aria-haspopup="menu"
-					aria-expanded={open}
-					aria-label={props.label}
-					onClick={() => setOpen(true)}
-					className={props.triggerClassName}
-				>
-					{props.content}
-				</button>
-			)}
-			{open && (
-				<Menu
-					triggerRef={triggerRef}
-					activeIndex={activeIndex}
-					onActiveIndexChange={setActiveIndex}
-					label={props.menuLabel ?? props.label}
-					onClose={(restoreFocus) => {
-						setOpen(false);
-						if (restoreFocus) {
-							triggerRef.current?.focus();
-						}
-					}}
-					items={props.items.map((item) => ({
-						...item,
-						onSelect: () => {
-							item.onSelect?.();
-							setOpen(false);
-						},
-					}))}
-				/>
-			)}
-		</>
-	);
-}
 
 function SetKindButton(props: {
 	readonly index: number;
@@ -97,21 +37,28 @@ function SetKindButton(props: {
 	const kind = SET_KINDS.find((candidate) => candidate.key === props.kind) ?? SET_KINDS[0];
 	return (
 		<MenuButton
-			menuLabel="Set type"
-			content={kind.tag ?? props.index}
 			label={`Set ${props.index}, ${kind.label}. Change set type`}
-			triggerClassName={clsx(
-				"h-7 min-w-7 justify-self-start rounded-sm px-1.5 text-[13px] font-semibold tabular-nums hover:bg-hover",
-				kind.tone,
-			)}
 			items={[
 				...SET_KINDS.map((candidate) => ({
 					key: candidate.key,
 					onSelect: () => props.onChange(candidate.key),
 					label: candidate.key === props.kind ? `${candidate.label} ✓` : candidate.label,
 				})),
-				{ key: "delete", destructive: true, label: "Delete set" },
+				{ key: "delete", onSelect: noop, destructive: true, label: "Delete set" },
 			]}
+			renderTrigger={(trigger) => (
+				<button
+					{...trigger}
+					type="button"
+					aria-label={`Set ${props.index}, ${kind.label}. Change set type`}
+					className={clsx(
+						"h-7 min-w-7 justify-self-start rounded-sm px-1.5 text-[13px] font-semibold tabular-nums hover:bg-hover",
+						kind.tone,
+					)}
+				>
+					{kind.tag ?? props.index}
+				</button>
+			)}
 		/>
 	);
 }
@@ -275,12 +222,13 @@ function ExerciseCard(props: {
 				)}
 				<MenuButton
 					label={`${exercise.name} actions`}
+					icon={<AppIcon size={16} name="more-horizontal" />}
 					items={[
-						{ key: "history", label: "History" },
-						{ key: "defaults", label: "Exercise defaults" },
-						{ key: "instructions", label: "Instructions and notes" },
-						{ key: "replace", label: "Replace exercise" },
-						{ key: "remove", destructive: true, label: "Remove exercise" },
+						{ key: "history", onSelect: noop, label: "History" },
+						{ onSelect: noop, key: "defaults", label: "Exercise defaults" },
+						{ onSelect: noop, key: "instructions", label: "Instructions and notes" },
+						{ key: "replace", onSelect: noop, label: "Replace exercise" },
+						{ key: "remove", onSelect: noop, destructive: true, label: "Remove exercise" },
 					]}
 				/>
 			</header>
@@ -579,9 +527,10 @@ export function WorkoutExample() {
 						<Button size="sm">Finish</Button>
 						<MenuButton
 							label="Workout actions"
+							icon={<AppIcon size={16} name="more-horizontal" />}
 							items={[
-								{ key: "details", label: "Name and reflection" },
-								{ key: "cancel", destructive: true, label: "Cancel workout" },
+								{ key: "details", onSelect: noop, label: "Name and reflection" },
+								{ key: "cancel", onSelect: noop, destructive: true, label: "Cancel workout" },
 							]}
 						/>
 					</div>

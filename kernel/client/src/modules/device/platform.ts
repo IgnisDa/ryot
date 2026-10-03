@@ -2,16 +2,16 @@ import { KeepAwake } from "@capacitor-community/keep-awake";
 import { App } from "@capacitor/app";
 import { Capacitor } from "@capacitor/core";
 import { LocalNotifications } from "@capacitor/local-notifications";
-import { Clock, Effect, Fiber, Layer, Schema } from "effect";
+import { Clock, Effect, Fiber, Layer } from "effect";
 
-import { synchronizeNativeAlerts } from "#/modules/device/native-alert-lifecycle";
-import { cancelNativeAlert, scheduleNativeAlert } from "#/modules/device/native-alerts";
-import { DevicePlatform, DevicePlatformError, DeviceState } from "#/modules/device/service";
+import {
+	cancelNativeAlert,
+	removeDeliveredNativeAlerts,
+	scheduleNativeAlert,
+} from "#/modules/device/native-alerts";
+import { DevicePlatform, DevicePlatformError } from "#/modules/device/service";
 import { lightImpact } from "#/modules/navigation/haptics";
 
-const storageKey = "ryot:device-alerts";
-const decodeState = Schema.decodeUnknownSync(Schema.fromJsonString(DeviceState));
-const encodeState = Schema.encodeSync(Schema.fromJsonString(DeviceState));
 const platformError = (cause: unknown) => new DevicePlatformError({ cause });
 
 export const DevicePlatformLive = Layer.effect(
@@ -38,22 +38,10 @@ export const DevicePlatformLive = Layer.effect(
 		};
 		return {
 			haptic: lightImpact,
-			write: (state) =>
-				Effect.try({
-					catch: platformError,
-					try: () => localStorage.setItem(storageKey, encodeState(state)),
-				}),
 			cancel: (id) =>
 				native
 					? cancelNativeAlert(LocalNotifications, id).pipe(Effect.mapError(platformError))
 					: Effect.sync(() => cancelWeb(id)),
-			read: Effect.try({
-				catch: platformError,
-				try: () => {
-					const value = localStorage.getItem(storageKey);
-					return value === null ? { nextId: 1, alerts: [], shortcuts: [] } : decodeState(value);
-				},
-			}),
 			awake: (enabled) =>
 				Effect.gen(function* () {
 					awakeWanted = enabled;
@@ -131,9 +119,12 @@ export const DevicePlatformLive = Layer.effect(
 				const visibility = () => {
 					const active = nativeActive && document.visibilityState === "visible";
 					foreground(active);
+					if (!active) {
+						return;
+					}
 					if (native) {
-						runFork(synchronizeNativeAlerts(LocalNotifications, active).pipe(Effect.ignore));
-					} else if (active) {
+						runFork(removeDeliveredNativeAlerts(LocalNotifications).pipe(Effect.ignore));
+					} else {
 						for (const notification of delivered.values()) {
 							notification.close();
 						}

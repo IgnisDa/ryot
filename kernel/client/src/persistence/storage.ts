@@ -13,10 +13,12 @@ import { Context, Data, Effect, Layer, Option, Schema } from "effect";
 
 import { parseServerOrigin, type ServerOrigin } from "#/api/origin";
 import { apiScopeKey, type ApiScope } from "#/api/scope";
+import { DeviceState, emptyDeviceState } from "#/modules/device/state";
 import { isThemePreference, type ThemePreference } from "#/modules/theme/preference";
 
 export const RYOT_STORAGE_PREFIX = "ryot:";
 export const THEME_PREFERENCE_KEY = `${RYOT_STORAGE_PREFIX}theme`;
+export const DEVICE_STATE_KEY = `${RYOT_STORAGE_PREFIX}device-alerts`;
 export const SERVER_SELECTION_KEY = `${RYOT_STORAGE_PREFIX}server-url`;
 export const lastWorkspaceKey = (scope: ApiScope) =>
 	`${RYOT_STORAGE_PREFIX}workspace:${apiScopeKey(scope)}`;
@@ -33,6 +35,10 @@ export class PluginStorageAccessError extends Data.TaggedError("PluginStorageAcc
 	readonly cause: unknown;
 }> {}
 
+export class DeviceStateAccessError extends Data.TaggedError("DeviceStateAccessError")<{
+	readonly cause: unknown;
+}> {}
+
 export type BrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">;
 
 const browserStorage = () => {
@@ -45,6 +51,8 @@ const browserStorage = () => {
 const isPluginId = Schema.is(PluginId);
 const isSavedViewLayout = Schema.is(EntityBrowserLayout);
 const isSandboxProviderId = Schema.is(SandboxProviderId);
+const decodeDeviceState = Schema.decodeUnknownSync(Schema.fromJsonString(DeviceState));
+const encodeDeviceState = Schema.encodeSync(Schema.fromJsonString(DeviceState));
 const decodePluginValue = Schema.decodeUnknownOption(Schema.fromJsonString(JsonValue));
 const encodePluginValue = Schema.encodeSync(Schema.fromJsonString(JsonValue));
 const unavailablePluginStorageError = () =>
@@ -79,6 +87,11 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 			const value = storage?.getItem(lastWorkspaceKey(scope));
 			return isPluginId(value) ? value : null;
 		}),
+	setDeviceState: (state) =>
+		Effect.try({
+			catch: (cause) => new DeviceStateAccessError({ cause }),
+			try: () => storage?.setItem(DEVICE_STATE_KEY, encodeDeviceState(state)),
+		}),
 	getSavedViewLayout: (scope, slug) =>
 		Effect.sync(() => {
 			const value = storage?.getItem(savedViewLayoutKey(scope, slug));
@@ -104,6 +117,13 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 		}
 		const result = parseServerOrigin(value);
 		return result.ok ? result.origin : null;
+	}),
+	getDeviceState: Effect.try({
+		catch: (cause) => new DeviceStateAccessError({ cause }),
+		try: () => {
+			const value = storage?.getItem(DEVICE_STATE_KEY);
+			return value === null || value === undefined ? emptyDeviceState : decodeDeviceState(value);
+		},
 	}),
 	setPluginValue: (scope, pluginId, key, value) => {
 		if (!storage) {
@@ -139,9 +159,11 @@ export class ClientStorage extends Context.Service<
 	ClientStorage,
 	{
 		readonly clearServerSelection: Effect.Effect<void>;
+		readonly getDeviceState: Effect.Effect<DeviceState, DeviceStateAccessError>;
 		readonly getThemePreference: Effect.Effect<ThemePreference>;
 		readonly getServerSelection: Effect.Effect<ServerOrigin | null>;
 		readonly remove: (keys: readonly string[]) => Effect.Effect<void>;
+		readonly setDeviceState: (state: DeviceState) => Effect.Effect<void, DeviceStateAccessError>;
 		readonly setServerSelection: (origin: ServerOrigin) => Effect.Effect<void>;
 		readonly getLastWorkspace: (scope: ApiScope) => Effect.Effect<PluginId | null>;
 		readonly setLastWorkspace: (scope: ApiScope, pluginId: PluginId) => Effect.Effect<void>;

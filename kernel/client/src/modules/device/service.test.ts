@@ -5,12 +5,10 @@ import type { PluginDeviceRequest, PluginNavigationTarget } from "@ryot-app/plug
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
-import {
-	DevicePlatform,
-	DevicePlatformError,
-	DeviceService,
-	type DeviceState,
-} from "#/modules/device/service";
+import { DevicePlatform, DeviceService } from "#/modules/device/service";
+import { emptyDeviceState, type DeviceState } from "#/modules/device/state";
+import { DeviceStateAccessError } from "#/persistence/storage";
+import { makeClientStorage } from "#/persistence/storage.test-layer";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
 const otherScope = { ...scope, userId: "user-2" };
@@ -42,7 +40,7 @@ const schedule: PluginDeviceRequest = {
 	deadline: "2026-10-15T10:00:00.000Z",
 };
 
-const harness = (initial: DeviceState = { nextId: 1, alerts: [], shortcuts: [] }) => {
+const harness = (initial: DeviceState = emptyDeviceState) => {
 	let stored = initial;
 	const cancelled: number[] = [];
 	const scheduled: number[] = [];
@@ -54,11 +52,6 @@ const harness = (initial: DeviceState = { nextId: 1, alerts: [], shortcuts: [] }
 	let listens = 0;
 	const platform = Layer.succeed(DevicePlatform, {
 		haptic: Effect.void,
-		read: Effect.sync(() => stored),
-		write: (state) =>
-			Effect.sync(() => {
-				stored = state;
-			}),
 		cancel: (id) =>
 			Effect.sync(() => {
 				cancelled.push(id);
@@ -91,7 +84,18 @@ const harness = (initial: DeviceState = { nextId: 1, alerts: [], shortcuts: [] }
 		tap: (id: number) => tap?.(id),
 		delivered: (id: number) => delivered?.(id),
 		foreground: (active: boolean) => foreground?.(active),
-		layer: DeviceService.layer.pipe(Layer.provide(platform)),
+		layer: DeviceService.layer.pipe(
+			Layer.provide(platform),
+			Layer.provide(
+				makeClientStorage({
+					getDeviceState: Effect.sync(() => stored),
+					setDeviceState: (state) =>
+						Effect.sync(() => {
+							stored = state;
+						}),
+				}),
+			),
+		),
 	};
 };
 
@@ -215,13 +219,17 @@ describe("device authority", () => {
 		cancel: () => Effect.void,
 		listen: () => Effect.succeed(() => {}),
 		schedule: () => Effect.die("must not schedule"),
-		read: Effect.fail(new DevicePlatformError({ cause: "corrupt" })),
-		write: () =>
+	});
+	const unreadableStorage = makeClientStorage({
+		setDeviceState: () =>
 			Effect.sync(() => {
 				unreadableWrites++;
 			}),
+		getDeviceState: Effect.fail(new DeviceStateAccessError({ cause: "corrupt" })),
 	});
-	layer(DeviceService.layer.pipe(Layer.provide(unreadablePlatform)))((test) => {
+	layer(
+		DeviceService.layer.pipe(Layer.provide(unreadablePlatform), Layer.provide(unreadableStorage)),
+	)((test) => {
 		test.effect("does not overwrite unreadable metadata or schedule without durable identity", () =>
 			Effect.gen(function* () {
 				const service = yield* DeviceService;
@@ -240,9 +248,7 @@ describe("device authority", () => {
 	let tapDuringScheduling: ((id: number) => void) | undefined;
 	const serializationPlatform = Layer.succeed(DevicePlatform, {
 		haptic: Effect.void,
-		write: () => Effect.void,
 		awake: () => Effect.void,
-		read: Effect.succeed({ nextId: 1, alerts: [], shortcuts: [] }),
 		cancel: (id) =>
 			Effect.sync(() => {
 				cancelledDuringScheduling.push(id);
@@ -258,7 +264,12 @@ describe("device authority", () => {
 				Effect.as({ status: "scheduled" } as const),
 			),
 	});
-	layer(DeviceService.layer.pipe(Layer.provide(serializationPlatform)))((test) => {
+	layer(
+		DeviceService.layer.pipe(
+			Layer.provide(serializationPlatform),
+			Layer.provide(makeClientStorage()),
+		),
+	)((test) => {
 		test.effect(
 			"finishes interrupted native scheduling before cancelling the departing scope",
 			() =>

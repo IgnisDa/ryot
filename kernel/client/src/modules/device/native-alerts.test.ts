@@ -3,7 +3,11 @@ import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PluginDeviceRequest } from "@ryot-app/plugin-client-contract";
 import { DateTime, Effect } from "effect";
 
-import { cancelNativeAlert, scheduleNativeAlert } from "#/modules/device/native-alerts";
+import {
+	cancelNativeAlert,
+	removeDeliveredNativeAlerts,
+	scheduleNativeAlert,
+} from "#/modules/device/native-alerts";
 
 type NativeAlerts = Parameters<typeof scheduleNativeAlert>[0];
 const request: Extract<PluginDeviceRequest, { action: "schedule" }> = {
@@ -41,6 +45,39 @@ it.effect("cancels both pending and delivered instances of a native alert", () =
 		);
 		expect(pending).toEqual([{ notifications: [{ id: 7 }] }]);
 		expect(delivered).toEqual([{ ids: [7] }]);
+	}),
+);
+
+const deliveredHarness = (notifications: { id: number; title: string; body: string }[]) => {
+	const removedIds: number[][] = [];
+	return {
+		removedIds,
+		platform: {
+			getDeliveredNotifications: () => Promise.resolve({ notifications }),
+			removeDeliveredNotificationsById: ({ ids }: { ids: number[] }) => {
+				removedIds.push(ids);
+				return Promise.resolve();
+			},
+		},
+	};
+};
+
+it.effect("removes every delivered native notification", () =>
+	Effect.gen(function* () {
+		const state = deliveredHarness([
+			{ id: 7, title: "Delivered 7", body: "Delivered notification" },
+			{ id: 8, title: "Delivered 8", body: "Delivered notification" },
+		]);
+		yield* removeDeliveredNativeAlerts(state.platform);
+		expect(state.removedIds).toEqual([[7, 8]]);
+	}),
+);
+
+it.effect("does not call removal when there are no delivered notifications", () =>
+	Effect.gen(function* () {
+		const state = deliveredHarness([]);
+		yield* removeDeliveredNativeAlerts(state.platform);
+		expect(state.removedIds).toEqual([]);
 	}),
 );
 

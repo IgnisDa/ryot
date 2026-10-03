@@ -7,28 +7,41 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
 import { DeviceScope, ReturnShortcutBar } from "#/modules/device/lifecycle";
-import { DevicePlatform, DeviceService, type DeviceState } from "#/modules/device/service";
+import { DevicePlatform, DeviceService } from "#/modules/device/service";
+import { emptyDeviceState, type DeviceState } from "#/modules/device/state";
+import { makeClientStorage } from "#/persistence/storage.test-layer";
+
+const storage = (read: () => DeviceState, write: (state: DeviceState) => void) =>
+	makeClientStorage({
+		getDeviceState: Effect.sync(read),
+		setDeviceState: (state) => Effect.sync(() => write(state)),
+	});
 
 it.live("does not cancel alerts when navigation replaces an equivalent scope object", () =>
 	Effect.gen(function* () {
-		let stored: DeviceState = { nextId: 1, alerts: [], shortcuts: [] };
+		let stored: DeviceState = emptyDeviceState;
 		const cancelled: number[] = [];
 		const platform = Layer.succeed(DevicePlatform, {
 			haptic: Effect.void,
 			awake: () => Effect.void,
-			read: Effect.sync(() => stored),
 			listen: () => Effect.succeed(() => {}),
 			schedule: () => Effect.succeed({ status: "scheduled" }),
-			write: (state) =>
-				Effect.sync(() => {
-					stored = state;
-				}),
 			cancel: (id) =>
 				Effect.sync(() => {
 					cancelled.push(id);
 				}),
 		});
-		const runtime = ManagedRuntime.make(DeviceService.layer.pipe(Layer.provide(platform)));
+		const runtime = ManagedRuntime.make(
+			DeviceService.layer.pipe(
+				Layer.provide(platform),
+				Layer.provide(
+					storage(
+						() => stored,
+						(state) => (stored = state),
+					),
+				),
+			),
+		);
 		const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
 		const pluginId = PluginId.make("fitness");
 		const packageId = PluginPackageId.make("ryot/fitness");
@@ -77,21 +90,26 @@ it.live(
 	"restores return shortcuts only for their authenticated scope, hides them on their target, and clears them explicitly",
 	() =>
 		Effect.gen(function* () {
-			let stored: DeviceState = { nextId: 1, alerts: [], shortcuts: [] };
+			let stored: DeviceState = emptyDeviceState;
 			const platform = Layer.succeed(DevicePlatform, {
 				haptic: Effect.void,
 				awake: () => Effect.void,
 				cancel: () => Effect.void,
-				read: Effect.sync(() => stored),
 				listen: () => Effect.succeed(() => {}),
 				schedule: () => Effect.succeed({ status: "unsupported" }),
-				write: (state) =>
-					Effect.sync(() => {
-						stored = state;
-					}),
 			});
 			const makeRuntime = () =>
-				ManagedRuntime.make(DeviceService.layer.pipe(Layer.provide(platform)));
+				ManagedRuntime.make(
+					DeviceService.layer.pipe(
+						Layer.provide(platform),
+						Layer.provide(
+							storage(
+								() => stored,
+								(state) => (stored = state),
+							),
+						),
+					),
+				);
 			const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://one.test") };
 			const pluginId = PluginId.make("fitness");
 			const packageId = PluginPackageId.make("ryot/fitness");

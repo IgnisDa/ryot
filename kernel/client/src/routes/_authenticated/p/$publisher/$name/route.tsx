@@ -1,12 +1,6 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import type {
-	PluginBridgeProviderSearchScreen,
-	ProviderSearchScreenOutcome,
-} from "@ryot-app/plugin-client-contract";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import { Effect } from "effect";
-import { useRef, useState } from "react";
 
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
@@ -19,6 +13,7 @@ import type { ClientPagePreparation } from "#/modules/pages/preparation/prepare"
 import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
+import { useProviderSearchSession } from "#/modules/provider-add/search-session";
 import { AppScreen } from "#/modules/shell/app-screen";
 
 export const Route = createFileRoute("/_authenticated/p/$publisher/$name")({
@@ -44,55 +39,14 @@ export function PluginRoutePage({
 }
 
 function PluginDocument(props: { readonly title: string; readonly prepared: PreparedClientPage }) {
-	const pendingProviderSearch = useRef<((outcome: ProviderSearchScreenOutcome) => void) | null>(
-		null,
-	);
-	const [providerSearch, setProviderSearch] = useState<{
-		readonly complete: (outcome: ProviderSearchScreenOutcome) => void;
-		readonly request: PluginBridgeProviderSearchScreen;
-	} | null>(null);
-	const openProviderSearch = (request: PluginBridgeProviderSearchScreen) =>
-		Effect.callback<ProviderSearchScreenOutcome>((resume) => {
-			if (pendingProviderSearch.current !== null) {
-				resume(Effect.succeed<ProviderSearchScreenOutcome>({ kind: "cancelled" }));
-				return Effect.void;
-			}
-			let completed = false;
-			const clear = () => {
-				if (pendingProviderSearch.current !== complete) {
-					return;
-				}
-				pendingProviderSearch.current = null;
-				setProviderSearch((current) => (current?.complete === complete ? null : current));
-			};
-			const complete = (outcome: ProviderSearchScreenOutcome) => {
-				if (completed) {
-					return;
-				}
-				completed = true;
-				clear();
-				resume(Effect.succeed(outcome));
-			};
-			pendingProviderSearch.current = complete;
-			setProviderSearch({ request, complete });
-			return Effect.sync(() => {
-				if (pendingProviderSearch.current === complete) {
-					completed = true;
-					clear();
-				}
-			});
-		});
-	useClientPageDocument({
-		...props,
-		inert: providerSearch !== null,
-		onProviderSearch: openProviderSearch,
-	});
-	return providerSearch === null ? null : (
+	const { open, session } = useProviderSearchSession();
+	useClientPageDocument({ ...props, onProviderSearch: open, inert: session !== null });
+	return session === null ? null : (
 		<ProviderAddModal
-			onComplete={providerSearch.complete}
-			schema={providerSearch.request.schema}
-			initialQuery={providerSearch.request.initialQuery}
-			onClose={() => providerSearch.complete({ kind: "cancelled" })}
+			onComplete={session.complete}
+			schema={session.request.schema}
+			initialQuery={session.request.initialQuery}
+			onClose={() => session.complete({ kind: "cancelled" })}
 		/>
 	);
 }
