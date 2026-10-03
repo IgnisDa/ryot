@@ -1,10 +1,13 @@
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import { measurementSummaryRecipe } from "@ryot-app/fitness-plugin/measurement-recipes";
 import { measurementReadingListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
+	createEntity,
 	executeRyotQLRecipe,
+	findBuiltinSchemaBySlug,
 	getImportRun,
 	listManualImportRuns,
 	pollImportRunUntilTerminal,
@@ -15,6 +18,40 @@ import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("OpenScale Import E2E", () => {
+	it.live("reuses a manually created weight metric", () =>
+		Effect.gen(function* () {
+			const { token, client } = yield* createAuthenticatedClient();
+			const { schema: metricSchema } = yield* findBuiltinSchemaBySlug(client, "measurement-metric");
+			const weight = yield* createEntity(client, {
+				name: "Weight",
+				entitySchemaSlug: metricSchema.id,
+				properties: { unit: "kg", key: "weight" },
+			});
+			yield* runOpenScaleImportFixture(client, token);
+
+			const readings = yield* executeRyotQLRecipe(
+				client,
+				measurementReadingListRecipe({ limit: 20 }),
+			);
+			const weightReadings = readings.items.filter(({ metricKey }) => metricKey === "weight");
+			expect(weightReadings).toHaveLength(3);
+			expect(weightReadings.map(({ metricId }) => metricId)).toEqual([
+				weight.id,
+				weight.id,
+				weight.id,
+			]);
+			expect(weightReadings.map(({ unit }) => unit)).toEqual(["kg", "kg", "kg"]);
+
+			const summary = yield* executeRyotQLRecipe(
+				client,
+				measurementSummaryRecipe({ rangeStart: "1970-01-01T00:00:00.000Z" }),
+			);
+			expect(summary.items.filter(({ key }) => key === "weight").map(({ id }) => id)).toEqual([
+				weight.id,
+			]);
+		}),
+	);
+
 	it.live("completes an OpenScale import and creates measurement metrics and readings", () =>
 		Effect.gen(function* () {
 			const { token, client } = yield* createAuthenticatedClient();

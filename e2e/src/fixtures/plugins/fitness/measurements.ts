@@ -1,10 +1,32 @@
-import { Effect } from "effect";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { measurementMetricCreateRecipe } from "@ryot-app/fitness-plugin/contracts/operation-recipes";
+import { Effect, Schema } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { findBuiltinSchemaBySlug } from "~/fixtures/kernel/entity-schemas";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
+
+export const createMeasurementMetric = (
+	client: Client,
+	input: typeof measurementMetricCreateRecipe.input.Type,
+) =>
+	client
+		.call((contract) =>
+			contract.plugins.invoke({
+				payload: { payload: input },
+				params: {
+					operationSlug: measurementMetricCreateRecipe.operationSlug,
+					pluginSlug: PluginSlug.make(measurementMetricCreateRecipe.pluginSlug),
+				},
+			}),
+		)
+		.pipe(
+			Effect.flatMap(({ result }) =>
+				Schema.decodeUnknownEffect(measurementMetricCreateRecipe.output)(result),
+			),
+		);
 
 export const createMeasurementReadingFixture = (client: Client) =>
 	Effect.gen(function* () {
