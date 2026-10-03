@@ -31,6 +31,7 @@ const automationSubject = (
 	runId: "run-1",
 	stage: "after",
 	executionUserId,
+	delivery: "required",
 	type: "automation-run",
 	triggerId: "trigger-1",
 	pluginId: plugin?.id ?? null,

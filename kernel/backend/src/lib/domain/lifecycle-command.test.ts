@@ -57,17 +57,21 @@ describe("lifecycle commands", () => {
 			initiator: { id: null, kind: "system" },
 			executionId: AutomationExecutionId.make("root"),
 		});
-		const write = (stage: "after" | "before") =>
+		const write = (delivery: "async" | "policy" | "required") =>
 			automationLifecycleCausation(
 				{
-					stage,
+					delivery,
 					causation,
-					runId: AutomationRunId.make(`${stage}-run`),
+					runId: AutomationRunId.make(`${delivery}-run`),
 					triggerId: AutomationTriggerId.make("trigger"),
 				},
-				AutomationExecutionId.make(`${stage}-write`),
+				AutomationExecutionId.make(`${delivery}-write`),
 			).lane;
-		expect([write("before"), write("after")]).toEqual(["interactive", "background"]);
+		expect([write("policy"), write("required"), write("async")]).toEqual([
+			"interactive",
+			"interactive",
+			"background",
+		]);
 	});
 	it("preserves causal metadata and changes trigger identity by resource or item", () => {
 		const executionId = AutomationExecutionId.make("execution-1");

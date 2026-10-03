@@ -601,6 +601,7 @@ describe("sandbox file service", () => {
 							makeInput({ artifactPath: namedSource }, ["artifact-read", "scratch"], {
 								pluginId: null,
 								stage: "before",
+								delivery: "policy",
 								executionUserId: null,
 								type: "automation-run",
 								pluginRevisionId: null,

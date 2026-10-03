@@ -87,6 +87,7 @@ const runInput = (
 			stage: "after",
 			pluginId: null,
 			executionUserId,
+			delivery: "required",
 			type: "automation-run",
 			pluginRevisionId: null,
 			causation: parentCausation,

@@ -217,6 +217,7 @@ const automationSubject = (
 	({
 		stage: "after",
 		pluginId: null,
+		delivery: "required",
 		type: "automation-run",
 		pluginRevisionId: null,
 		pluginConfigRevisionId: null,

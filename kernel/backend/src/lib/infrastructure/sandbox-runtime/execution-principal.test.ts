@@ -26,6 +26,7 @@ const principal = {
 	subject: {
 		runId: "run-1",
 		stage: "after",
+		delivery: "required",
 		pluginId: "plugin-1",
 		type: "automation-run",
 		triggerId: "trigger-1",

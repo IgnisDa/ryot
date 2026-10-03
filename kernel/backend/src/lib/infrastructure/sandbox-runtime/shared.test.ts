@@ -85,6 +85,7 @@ const automationSubject = (
 	pluginConfigRevisionId: null,
 	runId: AutomationRunId.make("run_1"),
 	triggerId: AutomationTriggerId.make("trigger_1"),
+	delivery: stage === "before" ? "policy" : "required",
 	accountGeneration:
 		executionUserId === null ? null : { userId: executionUserId, token: "test-account-generation" },
 	causation: {
