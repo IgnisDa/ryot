@@ -16,7 +16,6 @@ export const defineClientConfig = ({
 	const client: ViteUserConfig = {
 		test: {
 			...(maxWorkers === undefined ? {} : { maxWorkers }),
-			...(testTimeout === undefined ? {} : { testTimeout }),
 			projects: [
 				{
 					test: {
