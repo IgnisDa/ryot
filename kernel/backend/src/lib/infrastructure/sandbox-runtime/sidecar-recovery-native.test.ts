@@ -508,7 +508,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 							context: victim.context,
 							principal: victim.principal,
 							startedAt: victim.startedAt,
-							journal: victim.replayJournal,
+							journal: victim.replayJournal?.entries,
 							workflowExecutionId: victim.workflowExecutionId,
 						}),
 					);

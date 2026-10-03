@@ -46,6 +46,7 @@ import {
 } from "./sidecar-protocol";
 import { SandboxSidecarQuarantine } from "./sidecar-quarantine";
 import { SandboxSidecarSupervisor, type SandboxSidecarRun } from "./sidecar-supervisor";
+import { memoryPinnedJournal } from "./workflow-journal.test-support";
 
 type Connection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
 type ConnectSettings = Parameters<SandboxSidecarClient["Service"]["connect"]>[0];
@@ -615,7 +616,7 @@ const startRun = (
 	Effect.scoped(
 		Effect.gen(function* () {
 			const principal = options.principal ?? makePrincipal(runtimeImports);
-			const lease = yield* supervisor.reserve(principal, 2);
+			const lease = yield* supervisor.reserve(principal);
 			if (options.leaseAcquired !== undefined) {
 				yield* Deferred.succeed(options.leaseAcquired, undefined);
 			}
@@ -1374,7 +1375,7 @@ supervisorTest("global_admission_bounds_all_tiers_grants_and_recovery", () =>
 			yield* Effect.yieldNow;
 			expect(admission.snapshot()).toMatchObject({ runs: 2, waiting: 2 });
 			const overflow = yield* Effect.flip(
-				Effect.scoped(supervisor.reserve(makePrincipal([], "user-overflow"), 2)),
+				Effect.scoped(supervisor.reserve(makePrincipal([], "user-overflow"))),
 			);
 			expect(overflow.kind).toBe("resource-unavailable");
 			expect(overflow.message).toBe("Sandbox ephemeral admission queue is full");
@@ -1455,9 +1456,9 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 			const input: SandboxRunInput = {
 				context: {},
 				compiledFormat: 1,
-				replayJournal: [],
 				compiledCode: moduleSource,
 				executionId: "inline-budget",
+				replayJournal: memoryPinnedJournal([]),
 				workflowExecutionId: "inline-budget-workflow",
 				principal: {
 					...makePrincipal([], "inline-budget"),
@@ -1586,9 +1587,9 @@ supervisorTest("per_handle_bounds_admit_honest_maximum_concurrency", () =>
 			const input: SandboxRunInput = {
 				context: {},
 				compiledFormat: 1,
-				replayJournal: [],
 				compiledCode: moduleSource,
 				executionId: "pending-bound",
+				replayJournal: memoryPinnedJournal([]),
 				workflowExecutionId: "pending-bound-workflow",
 				principal: {
 					...makePrincipal([], "pending-bound"),

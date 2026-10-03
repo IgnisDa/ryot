@@ -224,25 +224,22 @@ layer(workflowLoadLayer())((test) => {
 });
 
 const journalReads: string[] = [];
-const projections = new Map<string, Record<string, string>>([
-	[redisKeys.sandboxWorkflowJournal("valid"), { "0": "first", "1": "second" }],
-	[redisKeys.sandboxWorkflowJournal("longest"), { "0": "a", "1": "b", "2": "c" }],
-	[redisKeys.sandboxWorkflowJournal("hole"), { "0": "first", "2": "third" }],
-	[redisKeys.sandboxWorkflowJournal("missing-first"), { "1": "second" }],
-	[redisKeys.sandboxWorkflowJournal("stray"), { "0": "first", other: "value" }],
-	[
-		`${redisKeys.sandboxWorkflowJournal("valid")}:unrelated`,
-		{ "0": "a", "1": "b", "2": "c", "3": "d" },
-	],
+const projections = new Map<string, ReadonlyArray<string>>([
+	[redisKeys.sandboxWorkflowJournal("valid"), ["m:0", "c:0:0", "m:1", "c:1:0", "c:1:1"]],
+	[redisKeys.sandboxWorkflowJournal("longest"), ["m:0", "c:0:0", "m:1", "c:1:0", "m:2", "c:2:0"]],
+	[redisKeys.sandboxWorkflowJournal("hole"), ["m:0", "c:0:0", "m:2", "c:2:0"]],
+	[redisKeys.sandboxWorkflowJournal("missing-first"), ["m:1", "c:1:0"]],
+	[redisKeys.sandboxWorkflowJournal("stray"), ["m:0", "c:0:0", "other"]],
+	[`${redisKeys.sandboxWorkflowJournal("valid")}:unrelated`, ["m:0", "m:1", "m:2", "m:3"]],
 ]);
 
 layer(
 	workflowLoadLayer({
 		redis: makeRedisService({
 			client: Object.assign(Object.create(null), {
-				hgetall: (key: string) => {
+				hkeys: (key: string) => {
 					journalReads.push(key);
-					return Promise.resolve(projections.get(key) ?? {});
+					return Promise.resolve(projections.get(key) ?? []);
 				},
 			}),
 		}),

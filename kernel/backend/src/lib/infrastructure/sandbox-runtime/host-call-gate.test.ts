@@ -1,4 +1,4 @@
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import {
@@ -34,6 +34,7 @@ import { MiB, SANDBOX_LIMITS } from "./limits";
 import type { BoundHostFunction, SandboxRunInput } from "./shared";
 import type { SidecarHostResultFrame } from "./sidecar-protocol";
 import { base64DecodedLength, SidecarHostCallFrame } from "./sidecar-protocol";
+import { memoryPinnedJournal } from "./workflow-journal.test-support";
 
 type HostCallFrame = typeof SidecarHostCallFrame.Type;
 type HostResultFrame = typeof SidecarHostResultFrame.Type;
@@ -130,6 +131,14 @@ const makeOptions = (
 	apiFunctions,
 });
 
+const cachedValueRequest = (index: number) =>
+	Schema.decodeSync(workflowHostRequestSchema)({
+		index,
+		kind: "host",
+		name: "getCachedValue",
+		args: { args: [], capability: "getCachedValue" },
+	});
+
 const gateLayer = Layer.mergeAll(SandboxHostCallGate.layer, TestClock.layer());
 
 const permitBytes = (frame: HostCallFrame, resultBytes: number) =>
@@ -150,7 +159,7 @@ const inlineInput = (
 	settled: { count: number },
 ) =>
 	makeInput([...capabilities], {
-		replayJournal: [],
+		replayJournal: memoryPinnedJournal([]),
 		workflowExecutionId: "memory-workflow",
 		inlineDurableHost: {
 			capabilities: [...capabilities],
@@ -188,7 +197,7 @@ layer(gateLayer)((test) => {
 				const releaseSettlement = yield* Deferred.make<void>();
 				const result: WorkflowDurableResult = { value: null, state: "success" };
 				const input = makeInput(["getCachedValue"], {
-					replayJournal: [],
+					replayJournal: memoryPinnedJournal([]),
 					workflowExecutionId: "budget-workflow",
 					inlineDurableHost: {
 						capabilities: ["getCachedValue"],
@@ -409,7 +418,7 @@ layer(gateLayer)((test) => {
 					parentSpan,
 					makeInput(["getCachedValue"], {
 						workflowExecutionId: "journal-workflow",
-						replayJournal: [{ value: null, request: journalRequest }],
+						replayJournal: memoryPinnedJournal([{ value: null, request: journalRequest }]),
 					}),
 					{ getCachedValue: successHostFunction() },
 					makeFiles(),
@@ -631,8 +640,8 @@ layer(gateLayer)((test) => {
 			let settlementCalls = 0;
 			const settlementStarted = yield* Deferred.make<void>();
 			const input = makeInput(["getCachedValue"], {
-				replayJournal: [],
 				workflowExecutionId: "gate-workflow",
+				replayJournal: memoryPinnedJournal([]),
 				inlineDurableHost: {
 					capabilities: ["getCachedValue"],
 					settle: (requests) =>
@@ -705,8 +714,8 @@ layer(gateLayer)((test) => {
 			expect(frameValue(expiredAfterExtension)).toMatchObject({ success: false });
 
 			const committedInput = makeInput(["getCachedValue"], {
-				replayJournal: inlineEntries,
 				workflowExecutionId: "gate-workflow",
+				replayJournal: memoryPinnedJournal(inlineEntries),
 			});
 			const replay = yield* gate.register(
 				makeOptions(parentSpan, committedInput, {}, makeFiles(), "replay-handle"),
@@ -745,7 +754,7 @@ layer(gateLayer)((test) => {
 			const parentSpan = yield* Effect.currentSpan;
 			let settlements = 0;
 			const input = makeInput(["httpCall"], {
-				replayJournal: [],
+				replayJournal: memoryPinnedJournal([]),
 				workflowExecutionId: "gate-budget-workflow",
 				inlineDurableHost: {
 					capabilities: ["httpCall"],
@@ -1083,5 +1092,76 @@ layer(gateLayer)((test) => {
 			yield* Scope.close(scope, Exit.void);
 			expect(gate.transientMemory()).toEqual({ used: 0, waiting: 0 });
 		}).pipe(Effect.withSpan("host-call-gate.inline-evidence")),
+	);
+	test.effect("lazy_journal_reads_charge_fetched_chunks_and_fail_closed", () =>
+		Effect.gen(function* () {
+			const gate = yield* SandboxHostCallGate;
+			const parentSpan = yield* Effect.currentSpan;
+			const journal = memoryPinnedJournal([
+				{ value: "small", request: cachedValueRequest(0) },
+				{ value: "日本語".repeat(300_000), request: cachedValueRequest(1) },
+			]);
+			const [small, large] = journal.entries;
+			assert(small !== undefined && large !== undefined);
+			const [smallBytes] = small;
+			const [largeBytes, largeChunks] = large;
+			expect(largeChunks).toBe(Math.ceil(largeBytes / MiB));
+			const register = (handle: string, replayJournal = journal) =>
+				gate.register(
+					makeOptions(
+						parentSpan,
+						makeInput(["getCachedValue"], { replayJournal, workflowExecutionId: "lazy-journal" }),
+						{},
+						makeFiles(),
+						handle,
+					),
+				);
+			const read = (
+				registration: Effect.Success<ReturnType<typeof register>>,
+				seq: number,
+				handle: string,
+				offset: number,
+				length: number,
+			) =>
+				registration
+					.dispatch(makeFrame(seq, "journalRead", { offset, length }, { handle }))
+					.pipe(Effect.map(frameValue));
+
+			const tail = yield* register("tail-handle");
+			const chunkEnd = smallBytes + MiB;
+			const remainder = yield* read(tail, 0, "tail-handle", chunkEnd - 10, MiB);
+			expect(remainder).toMatchObject({
+				offset: chunkEnd - 10,
+				totalBytes: smallBytes + largeBytes,
+			});
+			assert(typeof remainder === "object" && remainder !== null);
+			const data = Reflect.get(remainder, "data");
+			assert(typeof data === "string");
+			expect(base64DecodedLength(data)).toBe(10);
+
+			const budget = yield* register("budget-handle");
+			const fetchedLimit = SANDBOX_LIMITS.journalReads.totalBytes / MiB;
+			for (let seq = 0; seq < fetchedLimit; seq += 1) {
+				expect(yield* read(budget, seq, "budget-handle", smallBytes, 1)).toMatchObject({
+					offset: smallBytes,
+				});
+			}
+			expect(yield* read(budget, fetchedLimit, "budget-handle", smallBytes, 1)).toEqual({
+				success: false,
+				error: "Sandbox workflow journal read budget exceeded",
+			});
+
+			const unavailable = yield* register("unavailable-handle", {
+				...journal,
+				readChunk: () => Effect.succeed(null),
+			});
+			expect(yield* read(unavailable, 0, "unavailable-handle", 0, MiB)).toEqual({
+				success: false,
+				error: "Sandbox workflow journal projection is unavailable",
+			});
+			expect(yield* read(unavailable, 1, "unavailable-handle", smallBytes + largeBytes, 1)).toEqual(
+				{ success: false, error: "Sandbox workflow journal range is outside its pinned prefix" },
+			);
+		}).pipe(Effect.withSpan("host-call-gate.lazy-journal")),
 	);
 });

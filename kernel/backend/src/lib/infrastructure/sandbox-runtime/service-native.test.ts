@@ -27,6 +27,7 @@ import { nativeConfigLayer, unusedSandboxHostImplementations } from "./runner-na
 import { SandboxService } from "./service";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
+import { memoryPinnedJournal } from "./workflow-journal.test-support";
 
 type RecordedHostCall = {
 	readonly args: ReadonlyArray<unknown>;
@@ -583,7 +584,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 				const runGranted = (executionId: string, named: boolean) =>
 					service.run({
 						...makeRunInput(compiled, executionId, { named }, ownerId, { artifactPath }),
-						replayJournal: [],
+						replayJournal: memoryPinnedJournal([]),
 						workflowExecutionId: `${executionId}-workflow`,
 						inlineDurableHost: {
 							capabilities: ["getCachedValue"],

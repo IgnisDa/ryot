@@ -142,15 +142,18 @@ const makeHarness = () => {
 			RedisService,
 			makeRedisService({
 				client: Object.assign(Object.create(null), {
-					eval: (
+					callBuffer: (
+						_command: string,
 						_script: string,
-						_keys: number,
+						_keys: string,
 						_key: string,
 						_ttl: string,
 						firstIndex: string,
-						...entries: string[]
+						...entries: Array<string | Buffer>
 					) => {
-						appends.push(`${firstIndex}:${entries.length}`);
+						appends.push(
+							`${firstIndex}:${entries.filter((entry) => typeof entry === "string").length}`,
+						);
 						return Promise.resolve(1);
 					},
 				}),
