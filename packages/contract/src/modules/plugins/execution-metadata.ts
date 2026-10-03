@@ -13,12 +13,20 @@ export const ExecutableDependency = strictStruct({
 	),
 });
 
-export const SandboxExecutionMetadata = strictStruct({
+export const SandboxSourceExecutionMetadata = strictStruct({
 	oauthConnectionFields: Schema.Array(name),
 	requiredPluginConfigKeys: Schema.Array(name),
 	optionalPluginConfigKeys: Schema.Array(name),
 	executableDependencies: Schema.Array(ExecutableDependency),
 	capabilities: Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES])),
+});
+
+export type SandboxSourceExecutionMetadata = Schema.Schema.Type<
+	typeof SandboxSourceExecutionMetadata
+>;
+
+export const SandboxExecutionMetadata = strictStruct({
+	...SandboxSourceExecutionMetadata.fields,
 	runtimeImports: Schema.Array(name).pipe(
 		Schema.check(
 			Schema.makeFilter(

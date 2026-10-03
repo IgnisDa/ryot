@@ -1,4 +1,4 @@
-import type { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
+import type { SandboxSourceExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import {
 	SANDBOX_HOST_CAPABILITIES,
 	type SandboxHostCapability,
@@ -17,8 +17,6 @@ import {
 	sandboxDiagnosticAt,
 } from "./compiler-diagnostics";
 import { SANDBOX_COMPILER_LIMITS } from "./limits";
-
-type SandboxSourceExecutionMetadata = Omit<SandboxExecutionMetadata, "runtimeImports">;
 
 const checkerQuery = <A>(call: () => Promise<A>) => Effect.tryPromise(call);
 
@@ -128,7 +126,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 			})),
 		);
 		const oauth = new Set<string>();
-		const executables: SandboxExecutionMetadata["executableDependencies"][number][] = [];
+		const executables: SandboxSourceExecutionMetadata["executableDependencies"][number][] = [];
 		const analyzedMethods = new Set([
 			"getPluginConfig",
 			"activity",
@@ -288,7 +286,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 					continue;
 				}
 				const selectionType = yield* propertyType(member, "selection", reference);
-				let selection: SandboxExecutionMetadata["executableDependencies"][number]["selection"];
+				let selection: SandboxSourceExecutionMetadata["executableDependencies"][number]["selection"];
 				if (selectionType && !(selectionType.flags & TypeFlags.Undefined)) {
 					const id = yield* stringValues(yield* propertyType(selectionType, "id", reference));
 					const key = yield* stringValues(yield* propertyType(selectionType, "key", reference));
