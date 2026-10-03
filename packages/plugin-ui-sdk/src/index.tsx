@@ -1,5 +1,6 @@
 export { ActionForm } from "./action-form";
 export { Menu } from "./menu";
+export { MenuButton } from "./menu-button";
 export { Chip } from "./chips";
 export { Badge } from "./badge";
 export { Button, IconButton } from "./button";

@@ -18,6 +18,7 @@ import {
 	Card,
 	Dialog,
 	EmptyState,
+	MenuButton,
 	Notice,
 	RowGroup,
 	ScreenBarButton,
@@ -77,7 +78,6 @@ import { historySetForOccurrence, previousSetIndex } from "./history-model";
 import { ExerciseNotesSheet } from "./instructions";
 import { WorkoutMediaOverlay } from "./media";
 import { removeDraftMedia, type WorkoutMediaTarget } from "./media-state";
-import { MenuButton } from "./menu-button";
 import {
 	BulkDeleteOverlay,
 	HistoryOverlay,

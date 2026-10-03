@@ -14,6 +14,7 @@ import {
 	Dialog,
 	EmptyState,
 	Field,
+	MenuButton,
 	MultiSelect,
 	Notice,
 	Skeleton,
@@ -33,7 +34,6 @@ import {
 	type WorkoutExercisePickerResult,
 } from "../../shared/workout-exercise-recipes";
 import { managedAssetBatch, useAssetUrl } from "../asset-urls";
-import { MenuButton } from "./menu-button";
 import { readEditorExercises, readEditorPages } from "./queries";
 
 const exerciseForces = ["pull", "push", "static"] as const;
