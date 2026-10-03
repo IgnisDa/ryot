@@ -200,30 +200,26 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 			containerClassName="md:items-center md:justify-center md:p-6"
 			className="flex w-full flex-1 flex-col overflow-hidden bg-bg pt-[env(safe-area-inset-top)] md:max-h-[85%] md:max-w-2xl md:flex-initial md:rounded-xl md:border md:border-border md:bg-surface md:shadow-card md:pt-0"
 		>
-			<div className="min-h-0 flex-1 overflow-y-auto">
-				<div className="p-4">
-					<ProviderSearchPanel
-						search={search}
-						onClose={close}
-						uploadFile={uploadFile}
-						providers={state.providers}
-						importEntity={importEntity}
-						onSelectProvider={selectProvider}
-						initialQuery={props.initialQuery}
-						loadEntityLinks={loadEntityLinks}
-						entitySchemaSlug={entitySchemaSlug}
-						loadSearchOptions={loadSearchOptions}
-						selectedProviderId={state.selectedProviderId}
-						relationshipSlug={props.library.relationshipSlug}
-						librarySchemaSlug={props.library.librarySchemaSlug}
-						onCreateCustom={createRoute === undefined ? undefined : createCustom}
-						onImported={(entityId: EntityId) => {
-							imported.current = true;
-							complete({ kind: "added", entityIds: [entityId] });
-						}}
-					/>
-				</div>
-			</div>
+			<ProviderSearchPanel
+				search={search}
+				onClose={close}
+				uploadFile={uploadFile}
+				providers={state.providers}
+				importEntity={importEntity}
+				onSelectProvider={selectProvider}
+				initialQuery={props.initialQuery}
+				loadEntityLinks={loadEntityLinks}
+				entitySchemaSlug={entitySchemaSlug}
+				loadSearchOptions={loadSearchOptions}
+				selectedProviderId={state.selectedProviderId}
+				relationshipSlug={props.library.relationshipSlug}
+				librarySchemaSlug={props.library.librarySchemaSlug}
+				onCreateCustom={createRoute === undefined ? undefined : createCustom}
+				onImported={(entityId: EntityId) => {
+					imported.current = true;
+					complete({ kind: "added", entityIds: [entityId] });
+				}}
+			/>
 		</Modal>
 	);
 }
