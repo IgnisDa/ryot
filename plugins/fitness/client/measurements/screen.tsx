@@ -7,14 +7,13 @@ import {
 	type RyotQueryResult,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, EmptyState, SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useMemo, useRef, useState } from "react";
 
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
-import { AddMetricDialog } from "./add-metric";
-import { LogMeasurementDialog } from "./log-measurement-dialog";
+import { MeasurementDialogs, type MeasurementDialogState } from "./measurement-logger";
 import { MetricsTable } from "./metrics-table";
 import {
 	buildMetricRows,
@@ -178,12 +177,11 @@ function MeasurementsBody(props: {
 	}
 	if (result.data.length === 0) {
 		return (
-			<div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-border p-6 font-ui">
-				<h2 className="font-display text-[22px] font-semibold text-text">No measurements yet</h2>
-				<p className="text-[14px] text-text-muted">
-					Add a metric to track, or import your history from OpenScale, to get started.
-				</p>
-			</div>
+			<EmptyState
+				className="font-ui"
+				title="No measurements yet"
+				description="Add a metric to track, or import your history from OpenScale, to get started."
+			/>
 		);
 	}
 	return <MeasurementsContent {...props} summaries={result.data} />;
@@ -200,11 +198,15 @@ export default function MeasurementsPage() {
 	);
 	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
 	const [range, setRange] = useState<RangeKey>("1Y");
-	const [addingMetric, setAddingMetric] = useState(false);
-	const [logging, setLogging] = useState<readonly MeasurementSummary[] | null>(null);
+	const [dialog, setDialog] = useState<MeasurementDialogState>();
 	const addMetricTrigger = useRef<HTMLButtonElement>(null);
 	const logTrigger = useRef<HTMLButtonElement>(null);
 	const result = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt(range, now) });
+	const openDialog = (kind: MeasurementDialogState["kind"]) => {
+		if (result.data !== undefined) {
+			setDialog({ kind, metrics: result.data });
+		}
+	};
 	const controls = (
 		<div className={clsx("flex flex-wrap items-center gap-2.5", compact && "pb-4")}>
 			<SegmentedControl
@@ -217,7 +219,7 @@ export default function MeasurementsPage() {
 			<Button
 				ref={logTrigger}
 				className="min-h-9 px-3.5 py-1.5"
-				onClick={() => setLogging(result.data ?? null)}
+				onClick={() => openDialog("log")}
 				disabled={result.data === undefined || result.data.length === 0}
 			>
 				Log measurement
@@ -226,7 +228,7 @@ export default function MeasurementsPage() {
 				variant="secondary"
 				ref={addMetricTrigger}
 				className="min-h-9 px-3 py-1.5"
-				onClick={() => setAddingMetric(true)}
+				onClick={() => openDialog("add-metric")}
 				disabled={result.data === undefined || result.isFetching || result.isError}
 			>
 				Add metric
@@ -249,20 +251,11 @@ export default function MeasurementsPage() {
 				compact={compact}
 				timeZone={timeZone}
 			/>
-			{addingMetric && result.data !== undefined ? (
-				<AddMetricDialog
-					metrics={result.data}
-					triggerRef={addMetricTrigger}
-					onClose={() => setAddingMetric(false)}
-				/>
-			) : null}
-			{logging !== null ? (
-				<LogMeasurementDialog
-					metrics={logging}
-					triggerRef={logTrigger}
-					onClose={() => setLogging(null)}
-				/>
-			) : null}
+			<MeasurementDialogs
+				dialog={dialog}
+				onClose={() => setDialog(undefined)}
+				trigger={dialog?.kind === "log" ? logTrigger : addMetricTrigger}
+			/>
 		</PluginScreenFrame>
 	);
 }

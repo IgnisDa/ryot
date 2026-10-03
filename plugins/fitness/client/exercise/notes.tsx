@@ -1,5 +1,5 @@
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import type { Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -9,7 +9,7 @@ import {
 	TextArea,
 } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type RefObject } from "react";
 
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
 import {
@@ -28,21 +28,18 @@ type Note = ExerciseDetails["notes"][number];
 
 const maxNoteLength = 2000;
 
-const noteMutation = <A, I>(slug: string, schema: Schema.Codec<A, I>) =>
-	createRyotMutation<{ readonly note: A; readonly onSuccess: () => void }, ExerciseNoteOutput>(
-		({ client, input: { note, onSuccess } }) =>
-			Schema.encodeEffect(Schema.toCodecJson(schema))(note).pipe(
-				Effect.mapError(() => new RyotClientError("invalid-input")),
-				Effect.flatMap((payload) =>
-					client.operations.invoke({
-						slug,
-						input: payload,
-						output: ExerciseNoteOutput,
-						packageId: PLUGIN_PACKAGE_ID,
-					}),
-				),
-				Effect.tap(() => Effect.sync(onSuccess)),
-			),
+const noteMutation = <Input extends Schema.Codec<unknown, unknown>>(
+	slug: string,
+	inputSchema: Input,
+) =>
+	createRyotMutation<Input["Type"], ExerciseNoteOutput>(({ input, client }) =>
+		client.operations.invoke({
+			slug,
+			input,
+			inputSchema,
+			output: ExerciseNoteOutput,
+			packageId: PLUGIN_PACKAGE_ID,
+		}),
 	);
 
 const createNoteMutation = noteMutation(exerciseNoteOperationSlugs.create, ExerciseNoteCreateInput);
@@ -103,24 +100,23 @@ function Stars(props: { readonly rating: number }) {
 	);
 }
 
-function NoteComposer(props: { readonly exerciseId: string; readonly onChanged: () => void }) {
+function NoteComposer(props: { readonly exerciseId: string; readonly onSaved: () => void }) {
+	const { onSaved } = props;
 	const inputId = useId();
 	const [text, setText] = useState("");
 	const [stars, setStars] = useState<number | undefined>();
 	const create = useRyotMutation(createNoteMutation);
+	useEffect(() => {
+		if (create.data !== undefined) {
+			onSaved();
+		}
+	}, [create.data, onSaved]);
 	const trimmed = text.trim();
 	const save = () =>
 		create.mutate({
-			onSuccess: () => {
-				setText("");
-				setStars(undefined);
-				props.onChanged();
-			},
-			note: {
-				text: trimmed,
-				exerciseId: props.exerciseId,
-				...(stars === undefined ? {} : { rating: starsToRating(stars) }),
-			},
+			text: trimmed,
+			exerciseId: props.exerciseId,
+			...(stars === undefined ? {} : { rating: starsToRating(stars) }),
 		});
 	const message = failureMessage(create.error);
 	return (
@@ -156,15 +152,18 @@ function NoteEditor(props: {
 	const [text, setText] = useState(props.note.text ?? "");
 	const [stars, setStars] = useState(ratingToStars(props.note.rating) ?? undefined);
 	const update = useRyotMutation(updateNoteMutation);
+	const { onChanged } = props;
+	useEffect(() => {
+		if (update.data !== undefined) {
+			onChanged();
+		}
+	}, [update.data, onChanged]);
 	const trimmed = text.trim();
 	const save = () =>
 		update.mutate({
-			onSuccess: props.onChanged,
-			note: {
-				text: trimmed,
-				noteId: props.note.id,
-				rating: stars === undefined ? null : starsToRating(stars),
-			},
+			text: trimmed,
+			noteId: props.note.id,
+			rating: stars === undefined ? null : starsToRating(stars),
 		});
 	const message = failureMessage(update.error);
 	return (
@@ -193,12 +192,39 @@ function NoteEditor(props: {
 	);
 }
 
+function DeleteNoteConfirmation(props: {
+	readonly noteId: string;
+	readonly onClose: () => void;
+	readonly onDeleted: () => void;
+	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+}) {
+	const { onDeleted } = props;
+	const remove = useRyotMutation(deleteNoteMutation);
+	useEffect(() => {
+		if (remove.data !== undefined) {
+			onDeleted();
+		}
+	}, [remove.data, onDeleted]);
+	return (
+		<DestructiveConfirmation
+			title="Delete note?"
+			onClose={props.onClose}
+			pendingLabel="Deleting…"
+			actionLabel="Delete note"
+			pending={remove.isPending}
+			triggerRef={props.triggerRef}
+			errorMessage={failureMessage(remove.error)}
+			detail="This private note will be removed permanently."
+			onConfirm={() => remove.mutate({ noteId: props.noteId })}
+		/>
+	);
+}
+
 function NoteRow(props: { readonly note: Note; readonly onChanged: () => void }) {
 	const { note, onChanged } = props;
 	const deleteTrigger = useRef<HTMLButtonElement>(null);
 	const [editing, setEditing] = useState(false);
 	const [confirming, setConfirming] = useState(false);
-	const remove = useRyotMutation(deleteNoteMutation);
 	const hasText = note.text !== null && note.text.trim() !== "";
 	if (editing) {
 		return (
@@ -242,24 +268,14 @@ function NoteRow(props: { readonly note: Note; readonly onChanged: () => void })
 				</Button>
 			</div>
 			{confirming ? (
-				<DestructiveConfirmation
-					title="Delete note?"
-					pendingLabel="Deleting…"
-					actionLabel="Delete note"
-					pending={remove.isPending}
+				<DeleteNoteConfirmation
+					noteId={note.id}
 					triggerRef={deleteTrigger}
 					onClose={() => setConfirming(false)}
-					errorMessage={failureMessage(remove.error)}
-					detail="This private note will be removed permanently."
-					onConfirm={() =>
-						remove.mutate({
-							note: { noteId: note.id },
-							onSuccess: () => {
-								setConfirming(false);
-								onChanged();
-							},
-						})
-					}
+					onDeleted={() => {
+						setConfirming(false);
+						onChanged();
+					}}
 				/>
 			) : null}
 		</li>
@@ -304,6 +320,7 @@ export function NotesSection(props: {
 	readonly notes: ExerciseDetails["notes"];
 	readonly workoutNotes: readonly WorkoutNote[];
 }) {
+	const [composerKey, setComposerKey] = useState(0);
 	return (
 		<section
 			aria-label="Your notes"
@@ -313,7 +330,14 @@ export function NotesSection(props: {
 				<h2 className={sectionHeadingClass}>Your notes</h2>
 				<span className="text-[13px] text-text-muted">Private to you</span>
 			</div>
-			<NoteComposer onChanged={props.onChanged} exerciseId={props.exerciseId} />
+			<NoteComposer
+				key={composerKey}
+				exerciseId={props.exerciseId}
+				onSaved={() => {
+					setComposerKey((key) => key + 1);
+					props.onChanged();
+				}}
+			/>
 			{props.notes.length === 0 ? null : (
 				<ul className="flex flex-col gap-3">
 					{props.notes.map((note) => (

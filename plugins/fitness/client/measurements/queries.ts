@@ -1,4 +1,4 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { readCursorPages } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
@@ -11,40 +11,32 @@ import {
 } from "../../shared/measurement-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { measurementReadingListRecipe } from "../../shared/query-recipes";
-import { chunk, type MeasurementReading } from "./model";
+import type { MeasurementReading } from "./model";
 
 const READING_PAGE_SIZE = 100;
+
+const chunk = <T>(items: readonly T[], size: number): readonly (readonly T[])[] =>
+	Array.from({ length: Math.ceil(items.length / size) }, (_, index) =>
+		items.slice(index * size, (index + 1) * size),
+	);
 
 export const summaryQuery = createRyotQuery<
 	{ readonly rangeStart: string },
 	readonly MeasurementSummary[]
 >(({ input, client }) =>
-	Effect.gen(function* () {
-		const summaries: MeasurementSummary[] = [];
-		const cursors = new Set<string>();
-		let after: string | undefined;
-		for (;;) {
-			const page = yield* client.data.query(
+	Effect.map(
+		readCursorPages((after) =>
+			client.data.query(
 				measurementSummaryRecipe({
 					...input,
 					after,
 					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 				}),
-			);
-			summaries.push(...page.items);
-			if (!page.pageInfo.hasMore) {
-				return summaries;
-			}
-			const next = page.pageInfo.nextCursor;
-			if (next === null || cursors.has(next)) {
-				return yield* new RyotClientError("malformed-result");
-			}
-			cursors.add(next);
-			after = next;
-		}
-	}),
+			),
+		),
+		({ items }) => items,
+	),
 );
-
 export const seriesQuery = createRyotQuery<
 	{
 		readonly endAt: string;
@@ -75,32 +67,16 @@ export const readingsQuery = createRyotQuery<
 	{ readonly startAt: string; readonly pages: number },
 	{ readonly hasMore: boolean; readonly items: readonly MeasurementReading[] }
 >(({ input, client }) =>
-	Effect.gen(function* () {
-		const items: MeasurementReading[] = [];
-		let after: string | undefined;
-		let hasMore = false;
-		const cursors = new Set<string>();
-		for (let page = 0; page < input.pages; page += 1) {
-			const result = yield* client.data.query(
+	readCursorPages(
+		(after) =>
+			client.data.query(
 				measurementReadingListRecipe({
 					after,
 					startAt: input.startAt,
 					limit: READING_PAGE_SIZE,
 					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 				}),
-			);
-			items.push(...result.items);
-			hasMore = result.pageInfo.hasMore;
-			if (!hasMore) {
-				break;
-			}
-			const next = result.pageInfo.nextCursor;
-			if (next === null || cursors.has(next)) {
-				return yield* new RyotClientError("malformed-result");
-			}
-			cursors.add(next);
-			after = next;
-		}
-		return { items, hasMore };
-	}),
+			),
+		{ maxPages: input.pages },
+	),
 );

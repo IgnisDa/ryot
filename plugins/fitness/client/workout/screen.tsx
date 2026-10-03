@@ -26,12 +26,13 @@ import { WorkoutComment, WorkoutHeader, WorkoutSession, WorkoutSummaryRow } from
 import { workoutDetailsQuery } from "./queries";
 
 export function WorkoutDetailsView(props: {
-	readonly settings?: Pick<WorkoutPreferenceSettings, "unitSystem" | "energyUnit">;
-	readonly proAvailable?: boolean;
+	readonly settings: Pick<WorkoutPreferenceSettings, "unitSystem" | "energyUnit">;
+	readonly proAvailable: boolean;
 	readonly compact: boolean;
 	readonly workout: WorkoutDetails;
 }) {
 	const { compact, workout } = props;
+	const imperial = props.settings.unitSystem === "imperial";
 	const view = useMemo(() => {
 		const groups = buildExerciseGroups(workout);
 		const summary = summarizeWorkout(workout, groups);
@@ -48,17 +49,13 @@ export function WorkoutDetailsView(props: {
 			assets={managedAssetBatch(workout.exercises.items.map((exercise) => exercise.images?.[0]))}
 		>
 			<div className={clsx("mx-auto flex w-full max-w-6xl flex-col", compact ? "gap-5" : "gap-7")}>
-				<WorkoutHeader
-					compact={compact}
-					workout={workout}
-					proAvailable={props.proAvailable ?? false}
-				/>
+				<WorkoutHeader compact={compact} workout={workout} proAvailable={props.proAvailable} />
 				<WorkoutSummaryRow
 					compact={compact}
 					workout={workout}
+					imperial={imperial}
 					summary={view.summary}
-					energyUnit={props.settings?.energyUnit ?? "kcal"}
-					imperial={props.settings?.unitSystem === "imperial"}
+					energyUnit={props.settings.energyUnit}
 				/>
 				<WorkoutSession
 					compact={compact}
@@ -82,9 +79,9 @@ export function WorkoutDetailsView(props: {
 					</div>
 					<ExerciseGroups
 						compact={compact}
+						imperial={imperial}
 						groups={view.groups}
 						workoutStartedAt={workout.startedAt}
-						imperial={props.settings?.unitSystem === "imperial"}
 					/>
 				</section>
 			</div>

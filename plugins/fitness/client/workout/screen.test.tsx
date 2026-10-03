@@ -13,9 +13,17 @@ import { WorkoutDetailsView } from "./screen";
 afterEach(disposePluginBridges);
 
 const renderDetails = (workout: Parameters<typeof WorkoutDetailsView>[0]["workout"]) =>
-	mountPluginPage(() => <WorkoutDetailsView compact={false} workout={workout} />, {
-		location: routeLocation("/"),
-	});
+	mountPluginPage(
+		() => (
+			<WorkoutDetailsView
+				compact={false}
+				workout={workout}
+				proAvailable={false}
+				settings={{ energyUnit: "kcal", unitSystem: "metric" }}
+			/>
+		),
+		{ location: routeLocation("/") },
+	);
 
 describe("workout details view", () => {
 	it.live(
@@ -45,6 +53,7 @@ describe("workout details view", () => {
 						<WorkoutDetailsView
 							compact={false}
 							workout={workout}
+							proAvailable={false}
 							settings={{ energyUnit: "kJ", unitSystem: "imperial" }}
 						/>
 					),

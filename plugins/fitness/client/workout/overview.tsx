@@ -7,7 +7,11 @@ import { useState } from "react";
 
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
-import { kilogramsToPounds } from "../../shared/workout-units";
+import {
+	kilocaloriesToEnergy,
+	kilogramsToPounds,
+	type EnergyUnit,
+} from "../../shared/workout-units";
 import { AdjustWorkoutTime } from "./adjust-time";
 import { AddWorkoutToCollection } from "./collections";
 import { DeleteWorkout } from "./delete";
@@ -115,7 +119,7 @@ function LinkedWorkout(props: {
 }
 
 export function WorkoutHeader(props: {
-	readonly proAvailable?: boolean;
+	readonly proAvailable: boolean;
 	readonly compact: boolean;
 	readonly workout: WorkoutDetails;
 }) {
@@ -160,7 +164,7 @@ export function WorkoutHeader(props: {
 				name={workout.name}
 				entityId={workout.id}
 				compact={props.compact}
-				proAvailable={props.proAvailable ?? false}
+				proAvailable={props.proAvailable}
 			/>
 		</header>
 	);
@@ -178,7 +182,7 @@ const summaryStats = (
 	workout: WorkoutDetails,
 	summary: WorkoutSummary,
 	imperial: boolean,
-	energyUnit: "kcal" | "kJ",
+	energyUnit: EnergyUnit,
 ) => {
 	const stats: ReadonlyArray<Stat | null> = [
 		{
@@ -225,7 +229,7 @@ const summaryStats = (
 			? {
 					label: "Energy",
 					unit: energyUnit,
-					value: formatNumber(workout.caloriesBurnt * (energyUnit === "kJ" ? 4.184 : 1)),
+					value: formatNumber(kilocaloriesToEnergy(workout.caloriesBurnt, energyUnit)),
 				}
 			: null,
 	];
@@ -233,8 +237,8 @@ const summaryStats = (
 };
 
 export function WorkoutSummaryRow(props: {
-	readonly imperial?: boolean;
-	readonly energyUnit?: "kcal" | "kJ";
+	readonly imperial: boolean;
+	readonly energyUnit: EnergyUnit;
 	readonly compact: boolean;
 	readonly summary: WorkoutSummary;
 	readonly workout: WorkoutDetails;
@@ -247,12 +251,7 @@ export function WorkoutSummaryRow(props: {
 				props.compact ? "grid-cols-3" : "grid-cols-[repeat(auto-fit,minmax(9rem,1fr))]",
 			)}
 		>
-			{summaryStats(
-				props.workout,
-				props.summary,
-				props.imperial ?? false,
-				props.energyUnit ?? "kcal",
-			).map((stat) => (
+			{summaryStats(props.workout, props.summary, props.imperial, props.energyUnit).map((stat) => (
 				<div key={stat.label} className="flex flex-col gap-1 bg-surface p-4 font-ui">
 					<span className="text-[13px] text-text-muted">{stat.label}</span>
 					<span
