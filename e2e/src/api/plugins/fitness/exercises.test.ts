@@ -50,10 +50,7 @@ describe("Exercises E2E", () => {
 				exerciseSchema?.providers.find(
 					({ providerSlug }) => providerSlug === "exercise.free-exercise-db",
 				),
-			).toMatchObject({
-				name: "Free Exercise DB",
-				providerId: expect.any(String),
-			});
+			).toMatchObject({ name: "Free Exercise DB", providerId: expect.any(String) });
 			expect(exerciseSchema?.propertiesSchema.fields.images).toMatchObject({
 				type: "array",
 				label: "Images",
