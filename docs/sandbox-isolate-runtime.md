@@ -435,7 +435,7 @@ all five tests, including x32 and namespace-clone denial and in-sidecar Landlock
 ### S2 — Backend integration
 
 - **Outcome:** every sandbox execution runs through `ryot-sandboxd`; the Deno path is deleted.
-- **Status:** proposed contract; implementation starts only after explicit approval.
+- **Status:** approved contract.
 - **Prerequisites:** S1 and approval of this contract. The three open S1 follow-ups below are part of S2.
 - **Scope:** backend transport, supervision, admission, host-call and file policy, runner bootstrap,
   compiler-derived snapshot routing, single-architecture builds, crash recovery, metrics, and Deno
@@ -445,6 +445,31 @@ all five tests, including x32 and namespace-clone denial and in-sidecar Landlock
   deployment/cgroup sizing; S5 new short-wait settlement; S6 source-built V8; fan-out reduction. S2
   sends runs on the `interactive` lane and enforces admission for both protocol lanes. It preserves
   today's activity-only inline settlement, including HTTP policy deferral.
+
+#### Completion requirements for runtime bindings and limits
+
+S2 cannot be marked complete until these requirements hold in the integrated execution path:
+
+- **Database connection binding:** `db/session.ts` must use supported connection/driver APIs for
+  physical connection reservation and nested reuse. Do not fabricate a `PgClient` with
+  `Object.assign`, copy its identity onto a generic `SqlClient`, or supply stubbed methods. Prove
+  pool headroom through `sandbox_dispatch_preserves_database_pool_headroom`.
+- **Dependency bootstrap:** `sandbox-sdk/src/dependency-runtime.ts` must fail closed when its trusted
+  binding is missing. Remove the direct-operation fallback. Ordinary execution retains OS-backed
+  randomness through the configured non-workflow binding. Verify missing initialization and the
+  existing determinism behavior.
+- **Filesystem binding:** replace `isolate-invocation.ts`'s configurable
+  `globalThis[Symbol.for("@ryot-app/sandbox-sdk/filesystem")]` bridge with a sealed, execution-scoped
+  SDK binding. Keep artifact/scratch authority in the backend gate and preserve the approved global
+  surface. Verify binding replacement rejection and execution isolation through real definitions.
+- **Memory ceilings:** use allocation accounting and boundary tests for journal replay and artifact
+  assembly. Fixed per-entry, cache, or artifact-size ceilings cannot substitute for that proof.
+  Preserve the existing journal/response
+  contracts; reject an individual value only when it cannot fit its reserved memory. Cover split
+  entries, escaped/multibyte values, concurrent reassembly, and cleanup under the approved budgets.
+- **Deno removal:** complete the deletion inventory, including duplicate runner/payload generation,
+  runtime materialization, configuration, tooling and tests. No Deno execution fallback or retained
+  compatibility path may remain.
 
 #### Module and ownership contract
 
@@ -492,8 +517,12 @@ stay only where the new runtime or compiler uses them.
 4. Before importing the plugin, install the workflow determinism guard and the approved-dependency
    deterministic wrapper. Keep today's rejection of ambient `Date()`/`new Date()`, random APIs,
    `performance.now` and `Temporal.Now` where present, `Date.now()` returning zero, the Effect Clock
-   pinned to `startedAt`, and the wrapper's execution-seeded randomness and fixed time. Do not weaken
-   the guard to accommodate a library. Ordinary non-workflow execution retains OS-backed randomness.
+    pinned to `startedAt`, and the wrapper's execution-seeded randomness and fixed time. Do not weaken
+    the guard to accommodate a library. Ordinary non-workflow execution retains OS-backed randomness.
+    The SDK dependency wrapper and trusted runner share the sealed
+    `@ryot-app/sandbox-sdk/dependency-runtime` module in every snapshot. The compiler externalizes this
+    binding; snapshot bootstrap configures it once before any plugin can execute. Scripts cannot replace
+    it. It adds no global property, Symbol bridge, native op or ambient authority.
 5. Import only the inline module and covering snapshot modules. Check the default definition shape,
    authored manifest against persisted metadata, and execution metadata. Decode input with its
    Effect Schema, call `definition.run(input, host, execution)`, require an Effect, distinguish typed
@@ -594,6 +623,11 @@ reads. No arbitrary synchronous RPC, path access, network API or native buffer b
   kernel script. A null plugin revision alone is not proof of source zero. User-scope revisions and
   uploaded standalone code always use `user`, even when invoked by an administrator or system job.
   First-party scripts acting for a user still use system trust; their executing-user attribution stays.
+- Standalone uploads persist the authenticated uploader on the script row and carry that identity in
+  execution pins. Kernel scripts and plugin revisions do not carry a standalone uploader fact.
+  Uploaders are never inferred from the executing subject; identical standalone content has separate
+  uploader-owned rows and a shared content quarantine key. Kernel persistence cannot adopt an uploaded
+  row or change its uploader.
 - One process per trust × snapshot key by default; the supervisor key includes a user shard so an
   explicit per-user sharding setting can partition the user tier without changing grants. Both `core`
   keys stay resident. Start `data`/`full` only on demand, share one pending startup per key, await a
@@ -616,6 +650,11 @@ reads. No arbitrary synchronous RPC, path access, network API or native buffer b
   take this shared permit, including inline dispatch, so four calls per execution do not multiply
   pool occupancy. Never acquire a second permit while holding one. Test the actual queue/host paths,
   not only the arithmetic; an unbounded or nested connection path is a Stop.
+- The configured database ceiling covers both pools: the primary pool has `4 + G` connections and
+  sandbox dispatch has at most `DATABASE_POOL_MAX - 4 - G` leased native single-connection clients.
+  Nested queries and transactions reuse the leased client. Idle host clients expire after 60 s;
+  there is no fabricated driver facade, extra pool capacity, or transaction used merely to pin a
+  non-transactional operation.
 - Add `SANDBOX_MEMORY_BUDGET_MIB`, default 1536, as an aggregate reservation ceiling across backend
   sandbox buffers and all sidecars; validate it against effective host/cgroup memory with at least
   half that memory reserved for the backend, database and other work. Per run use a 256 MiB heap,
@@ -691,8 +730,19 @@ reads. No arbitrary synchronous RPC, path access, network API or native buffer b
   privileged prelude accepts only the configured backend UID, fixed installed executable/snapshot
   paths and a connected inherited socket, clears supplementary groups and sets real/effective/saved
   UID/GID to 1002 before executing the sidecar. It closes every other descriptor and clears the env.
-  It reads no protocol/module data and performs no privileged V8 work. Validate descriptor type,
-  peer and argument limits; no arbitrary executable, path or UID option is exposed.
+   It reads no protocol/module data and performs no privileged V8 work. Validate descriptor type,
+   peer and argument limits; no arbitrary executable, path or UID option is exposed.
+- The launcher also provides a fixed `SIGKILL` termination operation for the backend's disposal
+  backstop. It accepts only the configured backend UID and a direct child of that caller whose
+  real/effective/saved UID/GID are 1002 and whose executable is the fixed installed sidecar. Open
+  a Linux `pidfd` before checking the target, then signal through that descriptor so PID reuse cannot
+  redirect termination. Root-owned launch attestations bind the fixed executable, caller and child
+  process start times; runtime confinement prevents executable replacement. This identity proof must
+  work with Docker's default capabilities, which deny executable-link inspection of non-dumpable
+  processes. Unknown targets, other parents, identities or executables fail closed.
+  Termination grants no general signal or process-management authority, reads no protocol/module
+  data and leaves no privileged resident process. Backend shutdown uses this path to reap children
+  when closing the socket or cancellation does not confirm disposal.
 - The sidecar loads/verifies its snapshot, sets non-dumpable/no-core/`no_new_privs`, applies Landlock
   and seccomp before runtime workers, then emits `ready`. Set high `oom_score_adj` (1000) through
   the launcher before dropping privilege. Do not share backend UID, inherit secrets or relax Docker
@@ -786,7 +836,7 @@ semantics. No module mocks, spies, fake timers or assertions that only mirror sc
 | Integrated protocol         | `client_handles_partial_writes_chunk_interleaving_and_desync`: bounded buffers, `drain`, multibyte fragmentation, fair chunks, isolated invalid payload, unknown handles, duplicate/late results, reserved control space and generation restart.                                                                                                                                                                                                                                                                                                                                                                                            |
 | Crash recovery              | `restart_backoff_survives_short_lived_generations`; `unattributed_crash_candidates_probe_one_at_a_time`; `collateral_recovery_preserves_retry_budgets_and_committed_work`: kill a sidecar mid-import, then verify pinned replay, cancellation, stable exclusive probes, durable collateral suspension and no repeat of committed dispatch.                                                                                                                                                                                                                                                                                                  |
 | Quarantine/rotation         | `crash_quarantine_blocks_uploader_plugin_rotation`; `crash_quarantine_blocks_identical_plugins_across_accounts`; `quarantine_probation_and_system_jobs_preserve_healthy_work`: real attributed-crash fixtures plus atomic policy tests cover three crashes, repacking/renaming, different plugins/accounts, backend restart, store failure, TTL and exclusive probation. Unrelated executions finish without exhausted retries.                                                                                                                                                                                                             |
-| Privileged launch           | `launcher_rejects_untrusted_callers_paths_and_descriptors`: no arbitrary setuid execution, inherited secrets/FDs or retained saved-root IDs; UID-drop and no-core failures fail closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Privileged launch           | `launcher_rejects_untrusted_callers_paths_and_descriptors`: no arbitrary setuid execution, inherited secrets/FDs or retained saved-root IDs; UID-drop and no-core failures fail closed. `launcher_termination_is_bound_to_caller_child_identity_and_pidfd`: only the caller's fixed UID-1002 sidecar can be killed; foreign parents, executables and identities fail, and PID reuse cannot redirect the signal. |
 | Docker confinement          | `docker_default_seccomp_runs_all_confined_tiers`: release image, Docker default profile, all six keys, native file/socket/syscall denial, in-process Landlock verification, installed filter and real definition/host calls; no privileged container or seccomp override.                                                                                                                                                                                                                                                                                                                                                                   |
 | Build/cache/removal         | `local_test_and_e2e_build_restore_native_runtime`; `runtime_build_has_no_deno_executable_dependency`: delete outputs and restore from cache, run backend/e2e setup without Deno installed, audit the deletion inventory and run smoke preparation.                                                                                                                                                                                                                                                                                                                                                                                          |
 | Affected e2e                | `sandbox_sidecar_recovers_mid_import`; `youtube_music_provider_runs_on_full_sidecar`: add focused kernel recovery/provider tests and run affected existing kernel sandbox, media provider/import and fitness import files. Record the exact file list and results; never run the entire e2e suite.                                                                                                                                                                                                                                                                                                                                          |
