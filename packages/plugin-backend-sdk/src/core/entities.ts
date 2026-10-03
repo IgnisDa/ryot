@@ -1,3 +1,7 @@
+import {
+	EntityEditorSaveOutput,
+	EntityEditorSubmission,
+} from "@ryot-app/contract/modules/entities/editor";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
@@ -122,6 +126,25 @@ export const updateUserEntityArgsSchema = Schema.Tuple([
 export const updateUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
 export const entityStaleReasonSchema = EntityStale.fields.reason;
 export const updateUserEntityResultSchema = hostResultSchema(updateUserEntityDataSchema);
+export const saveUserEntityArgsSchema = Schema.Tuple([
+	EntityEditorSubmission,
+	optionalSubmissionOptions,
+]);
+export const saveUserEntityDataSchema = EntityEditorSaveOutput;
+export const saveUserEntityResultSchema = hostResultSchema(saveUserEntityDataSchema);
+export const mergeUserEntityDataArgsSchema = Schema.Tuple([
+	strictStruct({
+		mergeFrom: sandboxIdSchema,
+		mergeInto: sandboxIdSchema,
+		entitySchemaSlug: nonEmptyString,
+	}),
+	optionalSubmissionOptions,
+]);
+export const mergeUserEntityDataDataSchema = strictStruct({
+	movedEventsCount: Schema.Finite,
+	movedRelationshipsCount: Schema.Finite,
+});
+export const mergeUserEntityDataResultSchema = hostResultSchema(mergeUserEntityDataDataSchema);
 export const upsertGlobalEntitiesArgsSchema = Schema.Tuple([
 	Schema.Array(upsertGlobalEntityItemSchema).pipe(
 		Schema.check(Schema.isMaxLength(GLOBAL_WRITE_SANDBOX_LIMITS.entityItems)),

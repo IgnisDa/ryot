@@ -11,7 +11,7 @@ import type {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
-import { EntityId } from "@ryot-app/contract/schema/brands";
+import { EntityId, type EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -22,7 +22,7 @@ import {
 } from "#modules/automations/lifecycle/planning";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import { DomainWriteConflict, type DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
 import {
 	EventsService,
@@ -57,6 +57,8 @@ const relationshipFailure =
 				new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }),
 			),
 		);
+
+type MergeAuthority = { readonly entitySchemaSlug: EntitySchemaSlug };
 
 export class EntityUserDataService extends Context.Service<EntityUserDataService>()(
 	"EntityUserDataService",
@@ -314,9 +316,10 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			});
 
 			const mergeEntityUserData = Effect.fn("EntityUserDataService.mergeEntityUserData")(function* (
-				user: CurrentUserValue,
+				userId: UserId,
 				payload: MergeEntityUserDataBody,
 				command: DomainLifecycleCommand,
+				authority?: MergeAuthority,
 			) {
 				const trimmedMergeFrom = trimToNull(payload.mergeFrom);
 				const trimmedMergeInto = trimToNull(payload.mergeInto);
@@ -339,8 +342,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				const mergeInto = EntityId.make(trimmedMergeInto);
 				const identity = mutationReceiptIdentity({
 					command,
-					ownerUserId: user.id,
-					scopeUserId: user.id,
+					ownerUserId: userId,
+					scopeUserId: userId,
 					input: { mergeFrom, mergeInto },
 					commandKind: "entity-user-data:merge",
 				});
@@ -353,13 +356,45 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				}
 
 				const [fromScope, intoScope] = yield* Effect.all([
-					entitiesRepository.getEntityMergeScopeForUser({ userId: user.id, entityId: mergeFrom }),
-					entitiesRepository.getEntityMergeScopeForUser({ userId: user.id, entityId: mergeInto }),
+					entitiesRepository.getEntityMergeScopeForUser({ userId: userId, entityId: mergeFrom }),
+					entitiesRepository.getEntityMergeScopeForUser({ userId: userId, entityId: mergeInto }),
 				]);
 				if (!fromScope || !intoScope) {
 					return yield* new EntityUserDataNotFound({
 						reason: { code: "entity-not-found", entityIds: [mergeFrom, mergeInto] },
 					});
+				}
+				if (authority) {
+					const plugin = command.writeContext?.pluginRevision;
+					if (!plugin) {
+						return yield* new DbError({ message: "Entity merge requires a pinned plugin" });
+					}
+					if (
+						fromScope.entitySchemaSlug !== authority.entitySchemaSlug ||
+						intoScope.entitySchemaSlug !== authority.entitySchemaSlug
+					) {
+						return yield* new EntityUserDataBadRequest({
+							reason: { code: "entity-schema-mismatch" },
+						});
+					}
+					for (const scope of [fromScope, intoScope]) {
+						if (scope.entitySchemaPluginId !== plugin.id) {
+							return yield* new DomainWriteConflict({
+								message: "Entity merge belongs to another definition owner",
+								reason: {
+									code: "owner-mismatch",
+									expected: definitionOwner(plugin.id),
+									actual: definitionOwner(scope.entitySchemaPluginId),
+								},
+							});
+						}
+					}
+					if (fromScope.entityUserId !== userId) {
+						return yield* new DomainWriteConflict({
+							reason: { code: "global-scope-forbidden" },
+							message: "Entity merge requires a user-owned source",
+						});
+					}
 				}
 				const fromEntitySchemaReference = {
 					slug: fromScope.entitySchemaSlug,
@@ -370,7 +405,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					owner: definitionOwner(intoScope.entitySchemaPluginId),
 				};
 				const entitySchemas = yield* definitions
-					.findUserEntitySchemas(user.id, [fromEntitySchemaReference, intoEntitySchemaReference])
+					.findUserEntitySchemas(userId, [fromEntitySchemaReference, intoEntitySchemaReference])
 					.pipe(Effect.orDie);
 				const fromEntitySchema =
 					entitySchemas[
@@ -407,13 +442,13 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					}
 				}
 				const eventIds = yield* eventsRepository.listUserEventIdsForEntity({
-					userId: user.id,
+					userId: userId,
 					entityId: mergeFrom,
 				});
 				const preparedEvents: PreparedEventMoveReferences[] = [];
 				for (const eventId of eventIds) {
 					const prepared = yield* events.prepareMoveReferences(
-						{ eventId, mergeFrom, mergeInto, userId: user.id },
+						{ eventId, mergeFrom, mergeInto, userId: userId },
 						itemCommand(command, `event:${eventId}:update`),
 					);
 					if (prepared) {
@@ -422,7 +457,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				}
 				const relationshipRows =
 					yield* relationshipsRepository.listUserRelationshipsForEntityWithProvenance({
-						userId: user.id,
+						userId: userId,
 						entityId: mergeFrom,
 					});
 				const preparedRelationships: Array<{
@@ -436,7 +471,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							mergeFrom,
 							mergeInto,
 							relationship,
-							userId: user.id,
+							userId: userId,
 						}),
 					);
 				}
@@ -449,13 +484,13 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						}
 						yield* planner.prepareBatch({
 							command,
+							scopes: [userId],
 							resource: "event",
-							scopes: [user.id],
 							identity: ["events"],
 						});
 						yield* planner.prepareBatch({
 							command,
-							scopes: [user.id],
+							scopes: [userId],
 							resource: "relationship",
 							identity: ["relationships"],
 						});
@@ -525,9 +560,20 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					payload: MergeEntityUserDataBody,
 					command: LifecycleCommand,
 				) =>
-					mergeEntityUserData(user, payload, { ...command, writeContext: null }).pipe(
+					mergeEntityUserData(user.id, payload, { ...command, writeContext: null }).pipe(
 						Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure),
 					),
+				mergeEntityUserDataForCommand: (
+					userId: UserId,
+					payload: MergeEntityUserDataBody & MergeAuthority,
+					command: DomainLifecycleCommand,
+				) =>
+					mergeEntityUserData(
+						userId,
+						{ mergeFrom: payload.mergeFrom, mergeInto: payload.mergeInto },
+						command,
+						{ entitySchemaSlug: payload.entitySchemaSlug },
+					).pipe(Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure)),
 			};
 		}),
 	},

@@ -24,9 +24,11 @@ type SandboxCapabilityRequirement = {
 const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	scratch: { subjects: [], bridge: false },
 	"artifact-read": { subjects: [], bridge: false },
+	saveUserEntity: { bridge: true, subjects: ["user"] as const },
 	createUserEntity: { bridge: true, subjects: ["user"] as const },
 	deleteUserEntity: { bridge: true, subjects: ["user"] as const },
 	updateUserEntity: { bridge: true, subjects: ["user"] as const },
+	mergeUserEntityData: { bridge: true, subjects: ["user"] as const },
 	getOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
 	invalidateOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
 	sendNotification: { bridge: true, subjects: ["automation-run"] as const },

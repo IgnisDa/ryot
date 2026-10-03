@@ -482,6 +482,40 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 
 				return rows.map(toRelationship);
 			});
+			const listUserOutgoingRelationships = Effect.fn(
+				"RelationshipsRepository.listUserOutgoingRelationships",
+			)(function* (input: {
+				userId: UserId;
+				lock: boolean;
+				sourceEntityId: EntityId;
+				pluginId: string | null;
+				relationshipSchemaSlugs: ReadonlyArray<RelationshipSchemaSlug>;
+			}) {
+				if (input.relationshipSchemaSlugs.length === 0) {
+					return [];
+				}
+				const rows = yield* session.run((db) => {
+					const query = db
+						.select(relationshipSnapshotSelection)
+						.from(schema.relationship)
+						.where(
+							and(
+								eq(schema.relationship.userId, input.userId),
+								eq(schema.relationship.sourceEntityId, input.sourceEntityId),
+								relationshipSchemaPluginWhere(input.pluginId),
+								inArray(schema.relationship.relationshipSchemaSlug, [
+									...input.relationshipSchemaSlugs,
+								]),
+							),
+						)
+						.orderBy(
+							asc(schema.relationship.relationshipSchemaSlug),
+							asc(schema.relationship.targetEntityId),
+						);
+					return input.lock ? query.for("update") : query;
+				});
+				return rows.map(toRelationship);
+			});
 			const listUserRelationshipsForEntityWithProvenance = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForEntityWithProvenance",
 			)(function* (input: { userId: UserId; entityId: EntityId }) {
@@ -572,6 +606,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				deleteUserRelationshipById,
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,
+				listUserOutgoingRelationships,
 				listUserRelationshipsForEntity,
 				listUserRelationshipsForBackup,
 				listRelationshipsForReconciliation,

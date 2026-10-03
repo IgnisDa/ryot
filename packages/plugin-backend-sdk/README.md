@@ -70,6 +70,16 @@ receipts use the normal entity service. Scripts cannot set ownership, global sco
 provenance, or `populatedAt`. `ensureUserEntities` remains a bootstrap-only singleton operation,
 not a metric creation path.
 
+`saveUserEntity(submission, options?)` creates or updates one user-owned entity together with its
+outgoing user relationships in one transaction. The submission is an `EntityEditorSubmission` and the
+result is an `EntityEditorSaveOutput`: `{ kind: "saved", entityId }`, `{ kind: "stale" }`, or
+`{ kind: "invalid", message }`. It requires a user-subject execution and entity and relationship schemas
+owned by the executing plugin.
+
+`mergeUserEntityData({ mergeFrom, mergeInto, entitySchemaSlug }, options?)` moves the user's events
+and relationships from one user-owned entity to another of the same plugin-owned schema and returns
+`{ movedEventsCount, movedRelationshipsCount }`. It requires a user-subject execution.
+
 `createEvents(items, options?)`, `updateEvents(items, options?)`, `deleteEvents(ids, options?)`, and
 `changeUserRelationships(batches, options?)` accept the same optional submission options:
 `{ submittedAt, idempotencyKey }`. For stable retries, user-plugin writes require a key of 1–128

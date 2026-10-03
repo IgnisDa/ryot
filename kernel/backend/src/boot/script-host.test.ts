@@ -43,9 +43,14 @@ import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";
+import { EntityEditorService } from "#modules/entities/editor/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import { EntityUserDataService } from "#modules/entities/user-data/service";
+import {
+	DomainWriteChecksLive,
+	type DomainLifecycleCommand,
+} from "#modules/entities/write-context";
 import { toSandboxCreateEventsResult } from "#modules/events/script-host";
 import { EventsService } from "#modules/events/service";
 import { EventStreamWorkService } from "#modules/events/stream-work";
@@ -314,10 +319,17 @@ const builtinEntityScope = ({ entityId }: { userId: UserId; entityId: EntityId }
 		entitySchemaSlug: EntitySchemaSlug.make(entityId === "collection-1" ? "collection" : "entity"),
 	});
 
+type RecordedUserDataMerge = {
+	readonly userId: UserId;
+	readonly command: DomainLifecycleCommand;
+	readonly payload: { mergeFrom: string; mergeInto: string; entitySchemaSlug: string };
+};
+
 class HostFunctionCalls extends Context.Service<
 	HostFunctionCalls,
 	{
 		readonly createdEntities: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly userDataMerges: Effect.Effect<ReadonlyArray<RecordedUserDataMerge>>;
 		readonly ensuredEntities: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly eventMutations: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly ryotqlUserCalls: Effect.Effect<ReadonlyArray<unknown>>;
@@ -372,6 +384,7 @@ const hostFunctionsLayer = (
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const createdEntities = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const userDataMerges = yield* Ref.make<ReadonlyArray<RecordedUserDataMerge>>([]);
 			const ensuredEntities = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const ryotqlUserCalls = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const ryotqlPluginCalls = yield* Ref.make<ReadonlyArray<unknown>>([]);
@@ -431,6 +444,7 @@ const hostFunctionsLayer = (
 				Layer.succeed(HostFunctionCalls, {
 					lookupOrder: Ref.get(lookupOrder),
 					eventMutations: Ref.get(eventMutations),
+					userDataMerges: Ref.get(userDataMerges),
 					createdEntities: Ref.get(createdEntities),
 					ensuredEntities: Ref.get(ensuredEntities),
 					ryotqlUserCalls: Ref.get(ryotqlUserCalls),
@@ -516,6 +530,18 @@ const hostFunctionsLayer = (
 											},
 								),
 							),
+						),
+				}),
+				Layer.mock(EntityEditorService)({ save: () => Effect.die("unused entity editor") }),
+				Layer.mock(EntityUserDataService)({
+					mergeEntityUserDataForCommand: (userId, payload, command) =>
+						append(userDataMerges, { userId, payload, command }).pipe(
+							Effect.as({
+								...payload,
+								warnings: [],
+								movedEventsCount: 2,
+								movedRelationshipsCount: 3,
+							}),
 						),
 				}),
 				Layer.mock(OAuthConnectionsService)({
@@ -1949,6 +1975,135 @@ describe("createUserEntity", () => {
 				const error = yield* Effect.flip(runCreateUserEntity({}, true));
 				expect(error.message).toBe("Lifecycle writes require a trusted durable host call");
 				expect(yield* (yield* HostFunctionCalls).createdEntities).toEqual([]);
+			}),
+		);
+	});
+});
+
+const runMergeUserEntityData = (
+	overrides: Partial<ScriptRunInput> = {},
+	item: { mergeFrom: string; mergeInto: string; entitySchemaSlug: string } = {
+		mergeFrom: "from-1",
+		mergeInto: "into-1",
+		entitySchemaSlug: "workspace",
+	},
+) =>
+	makeAdditionalScriptHostFunctions.pipe(
+		Effect.flatMap((functions) =>
+			functions.mergeUserEntityData(
+				{
+					...runInput(
+						{
+							type: "user",
+							userId: UserId.make("trusted-user"),
+							accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
+						},
+						["mergeUserEntityData"],
+						{
+							pluginRevision: {
+								...systemPluginRevision,
+								schemaScope: {
+									...systemPluginRevision.schemaScope,
+									entitySchemaSlugs: ["workspace"],
+								},
+							},
+						},
+					),
+					...overrides,
+				},
+				item,
+			),
+		),
+	);
+
+describe("mergeUserEntityData", () => {
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect("merges under the sandbox principal as a kernel collection command", () =>
+			Effect.gen(function* () {
+				const functions = yield* makeAdditionalScriptHostFunctions;
+				const input = runInput(
+					{
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
+					},
+					["mergeUserEntityData"],
+					{
+						pluginRevision: {
+							...systemPluginRevision,
+							schemaScope: {
+								...systemPluginRevision.schemaScope,
+								entitySchemaSlugs: ["workspace"],
+							},
+						},
+					},
+				);
+				expect(
+					yield* functions.mergeUserEntityData(input, {
+						mergeFrom: "from-1",
+						mergeInto: "into-1",
+						entitySchemaSlug: "workspace",
+					}),
+				).toEqual({ movedEventsCount: 2, movedRelationshipsCount: 3 });
+				const [merge] = yield* (yield* HostFunctionCalls).userDataMerges;
+				expect(merge).toMatchObject({
+					userId: "trusted-user",
+					command: { kernelCollection: true, itemIdentity: "mergeUserEntityData" },
+					payload: { mergeFrom: "from-1", mergeInto: "into-1", entitySchemaSlug: "workspace" },
+				});
+				expect(merge?.command.writeContext).toBe(input.principal);
+			}),
+		);
+	});
+
+	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
+		test.effect("rejects undeclared, system, unpinned and foreign-schema merges", () =>
+			Effect.gen(function* () {
+				const subject = {
+					type: "user",
+					userId: UserId.make("trusted-user"),
+					accountGeneration: testAccountGeneration(UserId.make("trusted-user")),
+				} as const;
+				const pinned = {
+					...systemPluginRevision,
+					schemaScope: { ...systemPluginRevision.schemaScope, entitySchemaSlugs: ["workspace"] },
+				};
+				for (const principal of [
+					runInput(subject, [], { pluginRevision: pinned }).principal,
+					runInput({ type: "system" }, ["mergeUserEntityData"], { pluginRevision: pinned })
+						.principal,
+				]) {
+					const error = yield* Effect.flip(runMergeUserEntityData({ principal }));
+					expect(error.data).toEqual({
+						code: "unavailable-operation",
+						operation: "mergeUserEntityData",
+					});
+				}
+				const unpinned = yield* Effect.flip(
+					runMergeUserEntityData({
+						principal: runInput(subject, ["mergeUserEntityData"]).principal,
+					}),
+				);
+				expect(unpinned).toEqual({ message: "Entity merge requires a pinned plugin" });
+				for (const entitySchemaSlug of ["collection", "other"]) {
+					const error = yield* Effect.flip(
+						runMergeUserEntityData(
+							{},
+							{ entitySchemaSlug, mergeFrom: "from-1", mergeInto: "into-1" },
+						),
+					);
+					expect(error.data).toEqual({
+						code: "unavailable-operation",
+						operation: "mergeUserEntityData",
+					});
+				}
+				yield* (yield* HostFunctionCalls).useDefinitions(workspaceDefinitions("foreign-plugin"));
+				const foreign = yield* Effect.flip(runMergeUserEntityData());
+				expect(foreign.data).toEqual({
+					code: "unavailable-operation",
+					operation: "mergeUserEntityData",
+				});
+				expect(yield* (yield* HostFunctionCalls).userDataMerges).toEqual([]);
 			}),
 		);
 	});
