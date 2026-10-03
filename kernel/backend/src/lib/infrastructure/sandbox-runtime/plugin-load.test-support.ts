@@ -1,13 +1,11 @@
 import { BunServices } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import type { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
-import { derivePluginSandboxScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 
-import { loadPluginSource, PluginSourceError } from "#modules/plugins/source.test-support";
+import { loadPluginSandboxScripts } from "#modules/plugins/source.test-support";
 
 import { materializeSandboxCompiledModule } from "./compiled-modules";
 import { materializeShippedSandboxRuntime } from "./dependencies";
@@ -16,14 +14,10 @@ import { sandboxRunnerSource } from "./runner.generated";
 
 const encodeRequest = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeResponse = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
-const decoder = new TextDecoder("utf-8", { fatal: true });
 
 export const pluginLoadLayer = Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer);
 
-export const verifyPluginSandboxScriptsLoad = (
-	packageRoot: string,
-	manifest: AuthoredPluginManifest,
-) =>
+export const verifyPluginSandboxScriptsLoad = (packageRoot: string) =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
@@ -34,20 +28,7 @@ export const verifyPluginSandboxScriptsLoad = (
 			yield* fs.writeFileString(runnerPath, sandboxRunnerSource);
 			yield* Effect.addFinalizer(() => fs.chmod(runtime.directory, 0o755).pipe(Effect.ignore));
 
-			const source = yield* loadPluginSource(packageRoot, manifest);
-			const backendFiles = Object.fromEntries(
-				yield* Effect.forEach(
-					Object.entries(source.files).filter(
-						([filePath]) => filePath.startsWith("backend/") || filePath.startsWith("shared/"),
-					),
-					([filePath, contents]) =>
-						Effect.try({
-							try: () => [filePath, decoder.decode(contents)] as const,
-							catch: (error) => new PluginSourceError({ message: String(error) }),
-						}),
-				),
-			);
-			const outputs = yield* derivePluginSandboxScripts(backendFiles);
+			const outputs = yield* loadPluginSandboxScripts(packageRoot);
 			yield* Effect.forEach(
 				outputs,
 				({ compiled }) =>

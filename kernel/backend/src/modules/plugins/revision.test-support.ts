@@ -214,13 +214,9 @@ export const revisionPackage = (
 	return {
 		manifest,
 		sourceHash: `${slug}-${version}`,
-		files: Object.fromEntries(
-			manifest.scripts.map(({ entry }) => [entry, new TextEncoder().encode(version)]),
-		),
 		scripts: manifest.scripts.map(({ entry, ...metadata }) => ({
 			entry,
 			metadata,
-			source: version,
 			compiledFormat: 1,
 			slug: metadata.slug,
 			name: metadata.name,
@@ -318,10 +314,8 @@ export const oauthRevisionPackage = (slug: string, integrationProviderSlug: stri
 		manifest,
 		sourceHash: pluginSourceHash(
 			manifest,
-			plugin.files,
-			plugin.scripts.map(({ entry, source, compiledCode, compiledFormat }) => ({
+			plugin.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
 				entry,
-				source,
 				format: compiledFormat,
 				javascript: compiledCode,
 			})),

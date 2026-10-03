@@ -120,7 +120,7 @@ export const settledPrivateInstallation = (client: Client, pluginSlug: PluginSlu
 export const installPrivatePluginPackage = (input: {
 	readonly client: Client;
 	readonly baseUrl?: string;
-	readonly pluginPackage: PluginPackageInput;
+	readonly pluginPackage: PluginPackageInput | PluginArchivePackage;
 	readonly config: InstallPluginPayload["config"];
 }) =>
 	Effect.gen(function* () {
@@ -234,24 +234,24 @@ export const updatePrivatePlugin = (input: {
 	readonly client: Client;
 	readonly baseUrl?: string;
 	readonly pluginSlug: PluginSlug;
-	readonly payload: Omit<UpdatePluginPayload, "uploadToken"> & PluginPackageInput;
+	readonly payload: Omit<UpdatePluginPayload, "uploadToken"> &
+		(PluginPackageInput | PluginArchivePackage);
 }) =>
 	Effect.gen(function* () {
-		const { files, manifest, compiledClient, compiledScripts, ...payload } = input.payload;
+		const { config, unsetConfigKeys } = input.payload;
 		const uploadToken = yield* uploadPrivatePluginPackage(
 			input.client,
-			{
-				files,
-				manifest,
-				...(compiledScripts === undefined ? {} : { compiledScripts }),
-				...(compiledClient === undefined ? {} : { compiledClient }),
-			},
+			input.payload,
 			input.baseUrl,
 		);
 		return yield* input.client.call((c) =>
 			c.plugins.update({
-				payload: { ...payload, uploadToken },
 				params: { pluginSlug: input.pluginSlug },
+				payload: {
+					uploadToken,
+					...(config === undefined ? {} : { config }),
+					...(unsetConfigKeys === undefined ? {} : { unsetConfigKeys }),
+				},
 			}),
 		);
 	});
@@ -311,7 +311,7 @@ export type PrivateImportPluginPackage = {
 	readonly sourceSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: PluginArchivePackage["files"];
+	readonly files: PluginPackageInput["files"];
 };
 
 export type PrivateIntegrationPluginPackage = {
@@ -319,7 +319,7 @@ export type PrivateIntegrationPluginPackage = {
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
 	readonly manifest: PrivatePluginManifest;
-	readonly files: PluginArchivePackage["files"];
+	readonly files: PluginPackageInput["files"];
 };
 
 export const privateIntegrationSettingsSchema: PrivatePluginManifest["integrationProviders"][number]["settingsSchema"] =

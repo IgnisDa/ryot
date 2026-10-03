@@ -8,7 +8,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { writePluginArchive } from "@ryot-app/plugin-archive";
+import { PLUGIN_ARCHIVE_LIMITS, writePluginArchive } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref, Stream } from "effect";
 
@@ -36,7 +36,6 @@ import { PluginSavedViewReferences } from "./saved-view-references";
 import { validateSystemPluginSet } from "./system-set";
 import { fixtureManifest } from "./test-support";
 import type { StoredPlugin } from "./types";
-import { PLUGIN_PACKAGE_LIMITS } from "./validation";
 
 const userId = UserId.make("user-1");
 const bytes = (value: string) => new TextEncoder().encode(value);
@@ -47,8 +46,7 @@ const compiledScriptsFor = (
 	manifest.scripts.map(({ entry }) => ({
 		entry,
 		format: 1,
-		javascript: "export {};",
-		source: files[entry] ? new TextDecoder("utf-8", { fatal: true }).decode(files[entry]) : "",
+		javascript: `export const fixture = ${JSON.stringify(files[entry] ? new TextDecoder("utf-8", { fatal: true }).decode(files[entry]) : "")};`,
 	}));
 type HomeSavedView = Effect.Success<
 	ReturnType<PluginInstallationRepository["Service"]["findHomeSavedView"]>
@@ -541,7 +539,7 @@ const systemEntry = (manifest: PluginManifest): StoredPlugin => ({
 layer(
 	makeLayer({
 		deleteUploadFails: true,
-		archiveBytes: writePluginArchive({ files: {}, manifest: privateManifest() }),
+		archiveBytes: writePluginArchive({ compiledScripts: [], manifest: privateManifest() }),
 	}),
 )((test) => {
 	test.effect("claims, reads, and best-effort deletes an uploaded plugin archive", () => {
@@ -599,6 +597,28 @@ layer(makeLayer({ archiveBytes: new Uint8Array([1, 2, 3]) }))((test) => {
 	);
 });
 
+layer(makeLayer({ archiveBytes: new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompressedBytes + 1) }))(
+	(test) => {
+		test.effect("rejects a private upload beyond archive container limits before persistence", () =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const exit = yield* Effect.exit(
+					service.installPrivatePlugin({ userId, config: {}, uploadToken: "oversized" }),
+				);
+				const failure = failureOf(exit);
+				assert(failure instanceof PluginRequestError);
+				expect(failure.reason).toEqual({
+					code: "package-archive-invalid",
+					issue: "compressed-bytes-exceeded",
+				});
+				expect(yield* fake.persisted).toEqual([]);
+				expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
+			}),
+		);
+	},
+);
+
 layer(makeLayer({ openUploadFails: true }))((test) => {
 	test.effect("maps an unavailable archive object and deletes the claimed upload", () =>
 		Effect.gen(function* () {
@@ -635,28 +655,34 @@ layer(makeLayer())((test) => {
 	);
 });
 
-layer(makeLayer())((test) => {
-	test.effect("rejects an oversized package before persistence", () => {
-		const files = Object.fromEntries(
-			Array.from({ length: PLUGIN_PACKAGE_LIMITS.fileCount + 1 }, (_unused, index) => [
-				`scripts/file-${index}.ts`,
-				bytes("this is not valid typescript {{{"),
-			]),
-		);
+const manyScriptsManifest = privateManifest({
+	scripts: Array.from({ length: 33 }, (_unused, index) => ({
+		kind: "script",
+		capabilities: [],
+		slug: `task-${index}`,
+		name: `Task ${index}`,
+		oauthConnectionFields: [],
+		executableDependencies: [],
+		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
+		entry: `backend/task-${index}.sandbox.ts`,
+	})),
+});
+
+layer(
+	makeLayer({
+		archiveBytes: writePluginArchive({
+			manifest: manyScriptsManifest,
+			compiledScripts: compiledScriptsFor(manyScriptsManifest, {}),
+		}),
+	}),
+)((test) => {
+	test.effect("accepts more than 32 compiled scripts within archive container limits", () => {
 		return Effect.gen(function* () {
+			const fake = yield* FakeInstallationDependencies;
 			const service = yield* PluginInstallationService;
-			const exit = yield* Effect.exit(
-				service.installPrivatePlugin({
-					files,
-					userId,
-					config: {},
-					compiledScripts: [],
-					manifest: privateManifest(),
-				}),
-			);
-			const failure = failureOf(exit);
-			assert(failure instanceof PluginRequestError);
-			expect(failure.reason).toEqual({ limit: "file-count", code: "package-limit-exceeded" });
+			yield* service.installPrivatePlugin({ userId, config: {}, uploadToken: "many-scripts" });
+			expect(yield* fake.persisted).toHaveLength(1);
 		});
 	});
 });
@@ -691,7 +717,6 @@ layer(makeLayer())((test) => {
 			);
 			const exit = yield* Effect.exit(
 				service.installPrivatePlugin({
-					files,
 					userId,
 					manifest,
 					config: {},
@@ -723,7 +748,6 @@ layer(
 			const exit = yield* Effect.exit(
 				service.installPrivatePlugin({
 					userId,
-					files: {},
 					config: {},
 					compiledScripts: [],
 					manifest: privateManifest({
@@ -746,13 +770,7 @@ layer(makeLayer({ systemSlugAddedOnLock: privateManifest().metadata.slug }))((te
 			const service = yield* PluginInstallationService;
 			const failure = failureOf(
 				yield* Effect.exit(
-					service.installPrivatePlugin({
-						userId,
-						manifest,
-						files: {},
-						config: {},
-						compiledScripts: [],
-					}),
+					service.installPrivatePlugin({ userId, manifest, config: {}, compiledScripts: [] }),
 				),
 			);
 			assert(failure instanceof PluginRequestError);
@@ -785,7 +803,6 @@ layer(makeLayer())((test) => {
 			const service = yield* PluginInstallationService;
 			const installed = yield* service.installPrivatePlugin({
 				userId,
-				files: {},
 				compiledScripts: [],
 				manifest: configuredManifest,
 				config: { token: "secret-value" },
@@ -813,7 +830,6 @@ layer(makeLayer())((test) => {
 			const exit = yield* Effect.exit(
 				service.installPrivatePlugin({
 					userId,
-					files: {},
 					config: {},
 					compiledScripts: [],
 					manifest: configuredManifest,
@@ -837,7 +853,6 @@ layer(makeLayer({ privatePlugins: [privatePlugin] }))((test) => {
 			const exit = yield* Effect.exit(
 				service.installPrivatePlugin({
 					userId,
-					files: {},
 					config: {},
 					compiledScripts: [],
 					manifest: privateManifest(),
@@ -1032,7 +1047,6 @@ layer(
 				service.updateInstallation(userId, privatePlugin.slug, { sortOrder: 1 }),
 				service.updatePrivatePlugin({
 					userId,
-					files: {},
 					compiledScripts: [],
 					manifest: privateManifest(),
 					pluginSlug: privatePlugin.slug,
@@ -1390,7 +1404,6 @@ layer(
 					manifest: nextManifest,
 					config: { region: "ca" },
 					pluginSlug: upgradedOperationPlugin.slug,
-					files: { [operationScript.entry]: bytes(operationScriptSource) },
 					compiledScripts: compiledScriptsFor(nextManifest, {
 						[operationScript.entry]: bytes(operationScriptSource),
 					}),
@@ -1439,7 +1452,6 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 					yield* Effect.exit(
 						service.updatePrivatePlugin({
 							userId,
-							files: {},
 							compiledScripts: [],
 							pluginSlug: configuredPlugin.slug,
 							manifest: {
@@ -1457,7 +1469,6 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 
 				const invalidConfig = yield* service.updatePrivatePlugin({
 					userId,
-					files: {},
 					compiledScripts: [],
 					manifest: nextManifest,
 					pluginSlug: configuredPlugin.slug,
@@ -1563,7 +1574,6 @@ layer(makeLayer())((test) => {
 					yield* Effect.exit(
 						service.updatePrivatePlugin({
 							userId,
-							files: {},
 							compiledScripts: [],
 							pluginSlug: exampleSystemPlugin.slug,
 							manifest: exampleSystemPlugin.manifest,
@@ -1579,7 +1589,6 @@ layer(makeLayer())((test) => {
 					yield* Effect.exit(
 						service.updatePrivatePlugin({
 							userId,
-							files: {},
 							compiledScripts: [],
 							pluginSlug: "foreign",
 							manifest: configuredManifest,
@@ -1614,7 +1623,6 @@ layer(makeLayer())((test) => {
 			const service = yield* PluginInstallationService;
 			const exit = yield* Effect.exit(
 				service.installPrivatePlugin({
-					files,
 					userId,
 					manifest,
 					config: {},
@@ -1648,7 +1656,6 @@ layer(makeLayer())((test) => {
 			const service = yield* PluginInstallationService;
 			const exit = yield* Effect.exit(
 				service.installPrivatePlugin({
-					files,
 					userId,
 					manifest,
 					config: {},
@@ -1691,7 +1698,6 @@ layer(makeLayer())((test) => {
 				const installed = yield* service.installPrivatePlugin({
 					userId,
 					config: {},
-					files: operationFiles,
 					manifest: operationManifest,
 					compiledScripts: operationCompiledScripts,
 				});
@@ -1718,7 +1724,6 @@ layer(
 			const installed = yield* service.installPrivatePlugin({
 				userId,
 				config: {},
-				files: operationFiles,
 				manifest: operationManifest,
 				compiledScripts: operationCompiledScripts,
 			});
@@ -1750,7 +1755,6 @@ layer(makeLayer({ privatePlugins: [privatePlugin], installations: [privateInstal
 				const failure = failureOf(
 					yield* Effect.exit(
 						service.updatePrivatePlugin({
-							files,
 							userId,
 							manifest: nextManifest,
 							pluginSlug: privatePlugin.slug,
@@ -2017,7 +2021,6 @@ layer(makeLayer({ privatePlugins: [privatePlugin], installations: [incompatibleI
 				const service = yield* PluginInstallationService;
 				const result = yield* service.updatePrivatePlugin({
 					userId,
-					files: {},
 					compiledScripts: [],
 					pluginSlug: privatePlugin.slug,
 					manifest: privateManifest({

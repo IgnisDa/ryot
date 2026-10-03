@@ -120,6 +120,16 @@ export const installTestImportPlugin = Effect.suspend(() => {
 				},
 			},
 		},
+		files: {
+			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
+			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
+			"backend/scripts/configured.sandbox.ts": `
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+export const manifest = defineManifest({ kind: "script", slug: "import.e2e-configured", name: "Configured import" });
+export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Number, run: (_input, host) => host.getPluginConfig({ required: ["fixtureToken"] }).pipe(Effect.as(1)) });
+`,
+		},
 		scripts: [
 			{
 				kind: "script",
@@ -146,16 +156,6 @@ export const installTestImportPlugin = Effect.suspend(() => {
 				slug: "import.e2e-validate-archive",
 			},
 		],
-		files: {
-			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
-			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
-			"backend/scripts/configured.sandbox.ts": `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-export const manifest = defineManifest({ kind: "script", slug: "import.e2e-configured", name: "Configured import" });
-export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Number, run: (_input, host) => host.getPluginConfig({ required: ["fixtureToken"] }).pipe(Effect.as(1)) });
-`,
-		},
 		importSources: [
 			{
 				name: "E2E archive",

@@ -2,12 +2,10 @@ import {
 	PluginClientArtifact,
 	PluginClientArtifactMetadata,
 	isPluginClientArtifactContentType,
-	isPluginClientTextSource,
 	isPluginSourceFile,
 	type PluginClientArtifact as PluginClientArtifactType,
 } from "@ryot-app/client-plugin-contract";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
@@ -18,7 +16,6 @@ import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate } from "fflate";
 export const PLUGIN_ARCHIVE_LIMITS = {
 	maxPathBytes: 256,
 	maxEntryCount: 1024,
-	maxSourceBytes: 256 * 1024,
 	maxCompiledClientFiles: 128,
 	maxManifestBytes: 4 * 1024 * 1024,
 	maxCompressedBytes: 32 * 1024 * 1024,
@@ -51,8 +48,6 @@ export const PluginArchiveErrorReason = Schema.Literals([
 	"path-bytes-exceeded",
 	"path-non-utf8",
 	"path-noncanonical",
-	"source-bytes-exceeded",
-	"source-non-utf8",
 	"total-uncompressed-bytes-exceeded",
 	"unexpected-entry",
 	"unsupported-compression",
@@ -67,14 +62,12 @@ export class PluginArchiveError extends Schema.TaggedError<PluginArchiveError>()
 
 export type PluginArchiveCompiledScript = {
 	readonly entry: string;
-	readonly source: string;
 	readonly javascript: string;
 	readonly format: number;
 };
 
 export type PluginArchivePackage = {
 	readonly manifest: PluginManifest;
-	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly compiledScripts: ReadonlyArray<PluginArchiveCompiledScript>;
 	readonly compiledClient?: PluginClientArtifactType;
 };
@@ -124,19 +117,6 @@ const compareCodeUnits = (left: string, right: string) => {
 
 const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
 	left.byteLength === right.byteLength && left.every((byte, index) => byte === right[index]);
-
-const sourcePathRank = (path: string) => {
-	if (path.startsWith("backend/")) {
-		return 0;
-	}
-	if (path.startsWith("shared/")) {
-		return 1;
-	}
-	if (path.startsWith("client/")) {
-		return 2;
-	}
-	return 3;
-};
 
 const failure = (reason: PluginArchiveErrorReason) => new PluginArchiveError({ reason });
 
@@ -198,7 +178,6 @@ const encodeCompiledScriptText = (text: string) => {
 
 const validateCompiledScripts = (
 	manifest: PluginArchivePackage["manifest"],
-	files: Readonly<Record<string, Uint8Array>>,
 	compiledScripts: ReadonlyArray<PluginArchiveCompiledScript>,
 ) => {
 	const expectedEntries = new Set<string>();
@@ -222,21 +201,6 @@ const validateCompiledScripts = (
 			throw failure("compiled-script-invalid");
 		}
 		compiledEntries.add(script.entry);
-
-		const sourceBytes = files[script.entry];
-		if (sourceBytes === undefined) {
-			throw failure("compiled-script-invalid");
-		}
-		try {
-			if (decoder.decode(sourceBytes) !== script.source) {
-				throw failure("compiled-script-invalid");
-			}
-		} catch {
-			throw failure("compiled-script-invalid");
-		}
-		if (encoder.encode(script.source).byteLength > PLUGIN_ARCHIVE_LIMITS.maxSourceBytes) {
-			throw failure("source-bytes-exceeded");
-		}
 
 		const javascriptBytes = encodeCompiledScriptText(script.javascript);
 		if (javascriptBytes.byteLength > PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendJavascriptBytes) {
@@ -332,32 +296,14 @@ const validateEntryBytes = (path: string, entryBytes: number, totalBytes: number
 		entryLimit = PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes;
 		entryLimitReason = "compiled-client-bytes-exceeded";
 	} else {
-		entryLimit = PLUGIN_ARCHIVE_LIMITS.maxSourceBytes;
-		entryLimitReason = "source-bytes-exceeded";
+		entryLimit = PLUGIN_ARCHIVE_LIMITS.maxTotalUncompressedBytes;
+		entryLimitReason = "total-uncompressed-bytes-exceeded";
 	}
 	if (entryBytes > entryLimit) {
 		throw failure(entryLimitReason);
 	}
 	if (totalBytes > PLUGIN_ARCHIVE_LIMITS.maxTotalUncompressedBytes) {
 		throw failure("total-uncompressed-bytes-exceeded");
-	}
-};
-
-const validateSourceEncoding = (path: string, bytes: Uint8Array) => {
-	if (
-		isCompiledBackendFilePath(path) ||
-		path === compiledBackendMetadataPath ||
-		isCompiledClientFilePath(path) ||
-		path === compiledClientMetadataPath
-	) {
-		return;
-	}
-	if (path.startsWith("backend/") || isPluginSharedSource(path) || isPluginClientTextSource(path)) {
-		try {
-			decoder.decode(bytes);
-		} catch {
-			throw failure("source-non-utf8");
-		}
 	}
 };
 
@@ -382,8 +328,7 @@ class ArchivePathValidator {
 			path !== compiledBackendMetadataPath &&
 			!isCompiledBackendFilePath(path) &&
 			path !== compiledClientMetadataPath &&
-			!isCompiledClientFilePath(path) &&
-			!isPluginSourceFile(path)
+			!isCompiledClientFilePath(path)
 		) {
 			throw failure("unexpected-entry");
 		}
@@ -476,7 +421,6 @@ const validateEntries = (entries: ReadonlyArray<readonly [string, Uint8Array]>) 
 				throw failure("compiled-script-bytes-exceeded");
 			}
 		}
-		validateSourceEncoding(path, bytes);
 	}
 	paths.finish();
 };
@@ -687,7 +631,6 @@ class PluginArchiveReader {
 		} catch {
 			throw failure("manifest-invalid");
 		}
-		const files: Record<string, Uint8Array> = {};
 		const compiledBackendFiles = new Map<string, Uint8Array>();
 		const compiledClientFiles = new Map<string, Uint8Array>();
 		for (const [path, entry] of this.#entries) {
@@ -709,13 +652,10 @@ class PluginArchiveReader {
 				compiledClientFiles.set(path, bytes);
 				continue;
 			}
-			validateSourceEncoding(path, bytes);
-			files[path] = bytes;
 		}
-		const compiledScripts = this.#readCompiledScripts(compiledBackendFiles, files, manifest);
+		const compiledScripts = this.#readCompiledScripts(compiledBackendFiles, manifest);
 		const compiledClient = this.#readCompiledClient(compiledClientFiles);
 		return {
-			files,
 			manifest,
 			compiledScripts,
 			...(compiledClient === undefined ? {} : { compiledClient }),
@@ -724,7 +664,6 @@ class PluginArchiveReader {
 
 	#readCompiledScripts(
 		compiledBackendFiles: ReadonlyMap<string, Uint8Array>,
-		sourceFiles: Readonly<Record<string, Uint8Array>>,
 		manifest: PluginArchivePackage["manifest"],
 	): ReadonlyArray<PluginArchiveCompiledScript> {
 		const metadataEntry = this.#entries.get(compiledBackendMetadataPath);
@@ -784,18 +723,12 @@ class PluginArchiveReader {
 			expectedFiles.add(javascriptPath);
 
 			let javascript: string;
-			let source: string;
 			try {
 				javascript = decodeExecutableText(javascriptBytes);
-				const sourceBytes = sourceFiles[entry];
-				if (sourceBytes === undefined) {
-					throw failure("compiled-script-invalid");
-				}
-				source = decoder.decode(sourceBytes);
 			} catch {
 				throw failure("compiled-script-invalid");
 			}
-			return { entry, source, format, javascript };
+			return { entry, format, javascript };
 		});
 		if (
 			compiledEntries.size !== expectedEntries.size ||
@@ -859,17 +792,9 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 		} catch {
 			throw failure("manifest-invalid");
 		}
-		const sourceFiles = Object.entries(pluginPackage.files).sort(([left], [right]) => {
-			const rankDifference = sourcePathRank(left) - sourcePathRank(right);
-			return rankDifference === 0 ? compareCodeUnits(left, right) : rankDifference;
-		});
-		const entries: Array<readonly [string, Uint8Array]> = [
-			["manifest.json", manifestBytes],
-			...sourceFiles,
-		];
+		const entries: Array<readonly [string, Uint8Array]> = [["manifest.json", manifestBytes]];
 		const compiledScripts = validateCompiledScripts(
 			pluginPackage.manifest,
-			pluginPackage.files,
 			pluginPackage.compiledScripts ?? [],
 		);
 		if (compiledScripts.scripts.length > 0) {

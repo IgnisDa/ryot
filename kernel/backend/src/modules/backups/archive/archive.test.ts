@@ -1,13 +1,23 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
+import { CLIENT_API_VERSION, clientArtifactMetadata } from "@ryot-app/client-plugin-contract";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, FileSystem, Schema, Stream } from "effect";
 import { unzipSync, Zip, zipSync, ZipPassThrough } from "fflate";
 
+import { pluginSourceHash } from "#modules/plugins/pipeline";
+import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
+import { fixtureManifest } from "#modules/plugins/test-support";
+
 import { createArchiveStream, validateArchive, type CreateArchiveInput } from "./archive";
 import { BackupArchiveError } from "./error";
-import { ArchiveEvent, ArchiveManifest, type ArchiveRecords } from "./schemas";
+import {
+	ArchiveEvent,
+	ArchiveManifest,
+	ArchivePrivatePlugin,
+	type ArchiveRecords,
+} from "./schemas";
 import { encodeNdjson, IncrementalSha256 } from "./streaming";
 
 const timestamp = "2026-08-23T12:00:00.000Z";
@@ -229,6 +239,62 @@ const excludedAccountArchiveSections = [
 ] as const;
 
 layer(BunFileSystem.layer)((test) => {
+	test.effect("round-trips source-free compiled packages and binary client assets", () =>
+		Effect.gen(function* () {
+			const manifest = {
+				...fixtureManifest(),
+				client: {
+					homeView: null,
+					apiVersion: CLIENT_API_VERSION,
+					exports: {
+						card: {
+							entry: "client/card.tsx",
+							kind: "component" as const,
+							automaticEntityPresentations: false,
+						},
+					},
+				},
+			};
+			const files = [
+				...fixtureClientArtifact(manifest.metadata.name).files,
+				{
+					name: "asset.png",
+					contentType: "image/png",
+					contents: new Uint8Array([0x00, 0xff, 0x80, 0x41]),
+				},
+			];
+			const compiledClient = { ...clientArtifactMetadata(manifest.metadata.name, files), files };
+			const compiledScripts = manifest.scripts.map(({ entry }) => ({
+				entry,
+				format: 1,
+				javascript: "export {};",
+			}));
+			const sourceHash = pluginSourceHash(manifest, compiledScripts, compiledClient);
+			const privatePlugin = {
+				manifest,
+				sourceHash,
+				compiledClient,
+				compiledScripts,
+				slug: manifest.metadata.slug,
+				version: manifest.metadata.version,
+				key: `user:${manifest.metadata.slug}:${sourceHash}`,
+			};
+			const archive = yield* archiveBytes(
+				input({ records: { ...records, privatePlugins: [privatePlugin] } }),
+			);
+			const section = unzipSync(archive)["private-plugins.ndjson"];
+			assert(section);
+			const text = new TextDecoder().decode(section);
+			const decoded = yield* Schema.decodeEffect(Schema.fromJsonString(ArchivePrivatePlugin))(text);
+			expect(decoded).not.toHaveProperty("files");
+			expect(decoded.compiledScripts).toEqual(compiledScripts);
+			expect(text).not.toContain('"source":');
+			expect(text).toContain('"contents":"AP+AQQ=="');
+			const validated = yield* validateArchive(asChunks(archive));
+			expect(validated.records.privatePlugins).toEqual([privatePlugin]);
+		}).pipe(Effect.scoped),
+	);
+
 	test.effect("creates deterministic V1 archives and validates the round trip", () =>
 		Effect.gen(function* () {
 			const first = yield* archiveBytes();
@@ -509,7 +575,6 @@ layer(BunFileSystem.layer)((test) => {
 							version: "1.0.0",
 							compiledScripts: [],
 							sourceHash: "a".repeat(64),
-							files: { "backend/main.ts": "Zg" },
 							key: `user:fixture:${"a".repeat(64)}`,
 						})}\n`,
 					),
