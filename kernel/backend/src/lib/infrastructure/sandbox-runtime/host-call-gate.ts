@@ -76,10 +76,26 @@ const decodeArtifactReadRangeArgs = Schema.decodeUnknownOption(
 );
 const decodeScratchWriteArgs = Schema.decodeUnknownOption(scratchWriteArgsSchema, strictOptions);
 const decodeSidecarJson = Schema.decodeUnknownOption(Schema.Json, strictOptions);
+const decodeArgsJson = Schema.decodeUnknownOption(
+	Schema.fromJsonString(Schema.Json),
+	strictOptions,
+);
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const encodeJsonBytes = (value: unknown) => encoder.encode(encodeUnknownJson(value));
 const failureMessage = "Sandbox host call failed";
+
+const decodeFrameArgs = (encoded: string) => {
+	const bytes = Base64.decode(encoded);
+	if (bytes._tag === "Failure") {
+		return Option.none();
+	}
+	try {
+		return decodeArgsJson(decoder.decode(bytes.success));
+	} catch {
+		return Option.none();
+	}
+};
 
 type SidecarHostCallFrameType = typeof SidecarHostCallFrame.Type;
 type SidecarHostResultFrameType = typeof SidecarHostResultFrame.Type;
@@ -413,13 +429,13 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						Effect.withParentSpan(parentSpan),
 					);
 
-				const journalRead = (frame: SidecarHostCallFrameType) =>
+				const journalRead = (frame: SidecarHostCallFrameType, frameArgs: unknown) =>
 					Effect.sync(() => {
 						if (readCount >= SANDBOX_LIMITS.journalReads.count) {
 							return frameFailure(frame, "Sandbox workflow journal read budget exceeded");
 						}
 						readCount += 1;
-						const decodedArgs = decodeJournalReadArgs(frame.args);
+						const decodedArgs = decodeJournalReadArgs(frameArgs);
 						if (Option.isNone(decodedArgs)) {
 							return frameFailure(frame, "Sandbox workflow journal range is invalid");
 						}
@@ -468,9 +484,9 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						Effect.withParentSpan(parentSpan),
 					);
 
-				const dispatchInlineBatch = (frame: SidecarHostCallFrameType) =>
+				const dispatchInlineBatch = (frame: SidecarHostCallFrameType, frameArgs: unknown) =>
 					Effect.gen(function* () {
-						const decoded = decodeInlineBatch(frame.args);
+						const decoded = decodeInlineBatch(frameArgs);
 						if (Option.isNone(decoded)) {
 							return frameFailure(frame, "Sandbox inline durable batch is invalid");
 						}
@@ -607,9 +623,9 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						Effect.withParentSpan(parentSpan),
 					);
 
-				const ordinaryDispatch = (frame: SidecarHostCallFrameType) =>
+				const ordinaryDispatch = (frame: SidecarHostCallFrameType, frameArgs: unknown) =>
 					Effect.gen(function* () {
-						const decodedArgs = decodeHostCallArgs(frame.args);
+						const decodedArgs = decodeHostCallArgs(frameArgs);
 						if (Option.isNone(decodedArgs)) {
 							return frameFailure(frame, "Sandbox host call arguments are invalid");
 						}
@@ -640,20 +656,20 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						return yield* boundedHostCall(frame, frame.name, fn(parsed));
 					});
 
-				const fileControl = (frame: SidecarHostCallFrameType) =>
+				const fileControl = (frame: SidecarHostCallFrameType, frameArgs: unknown) =>
 					Effect.gen(function* () {
 						const files = gateFiles;
 						if (!files) {
 							return frameFailure(frame, "Sandbox file session is unavailable");
 						}
 						if (frame.name === "artifactReadRange") {
-							const args = decodeArtifactReadRangeArgs(frame.args);
+							const args = decodeArtifactReadRangeArgs(frameArgs);
 							if (Option.isNone(args)) {
 								return frameFailure(frame, "Sandbox artifact range arguments are invalid");
 							}
 							return yield* boundedHostCall(frame, frame.name, files.artifactReadRange(args.value));
 						}
-						const args = decodeScratchWriteArgs(frame.args);
+						const args = decodeScratchWriteArgs(frameArgs);
 						if (Option.isNone(args)) {
 							return frameFailure(frame, "Sandbox scratch write arguments are invalid");
 						}
@@ -679,13 +695,13 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						if (frame.name === "replayJournal") {
 							return frameFailure(frame, "Sandbox host function is not available");
 						}
-						let action = ordinaryDispatch(frame);
+						let action = ordinaryDispatch;
 						if (frame.name === "journalRead") {
-							action = journalRead(frame);
+							action = journalRead;
 						} else if (frame.name === "inlineBatch") {
-							action = dispatchInlineBatch(frame);
+							action = dispatchInlineBatch;
 						} else if (frame.name === "artifactReadRange" || frame.name === "scratchWrite") {
-							action = fileControl(frame);
+							action = fileControl;
 						}
 						const permits =
 							frame.name === "inlineBatch" ? SANDBOX_LIMITS.bridge.concurrentHostCalls : 1;
@@ -695,7 +711,14 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 								permits,
 								Effect.gen(function* () {
 									const invalidAfterQueue = yield* checkFrame(frame);
-									return invalidAfterQueue ?? (yield* action);
+									if (invalidAfterQueue) {
+										return invalidAfterQueue;
+									}
+									const args = decodeFrameArgs(frame.args);
+									if (Option.isNone(args)) {
+										return frameFailure(frame, "Sandbox host call arguments are invalid");
+									}
+									return yield* action(frame, args.value);
 								}),
 							).pipe(
 								Effect.map((response) =>

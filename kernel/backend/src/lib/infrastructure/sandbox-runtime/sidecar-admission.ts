@@ -12,7 +12,10 @@ import { SIDECAR_PROTOCOL_LIMITS, SidecarLane } from "./sidecar-protocol";
 
 const processBytes = 128 * MiB;
 const defaultMemoryBudgetBytes = 1536 * MiB;
-const isolateBytes = SANDBOX_LIMITS.isolate.heapBytes + SANDBOX_LIMITS.isolate.externalBytes;
+const isolateBytes =
+	SANDBOX_LIMITS.isolate.heapBytes +
+	SANDBOX_LIMITS.isolate.externalBytes +
+	SANDBOX_LIMITS.sidecar.heapHeadroomBytes;
 const resident = (instance: string) => instance === "system/core" || instance === "user/core";
 const journalCopies = 3;
 const runBytes =

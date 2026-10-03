@@ -11,7 +11,7 @@ use tokio::sync::Semaphore;
 
 use crate::admission::MemoryBudget;
 use crate::config::Config;
-use crate::execute::{Executor, set_escalation, set_running};
+use crate::execute::{Executor, HEAP_HEADROOM_BYTES, set_escalation, set_running};
 use crate::os::{ResidentMemory, lower_thread_priority};
 use crate::outbox::Outbox;
 use crate::protocol::{
@@ -139,6 +139,7 @@ fn spawn_workers(
                     };
                     set_running(Some(entry.handle.clone()));
                     let reserve = run.limits.heap_bytes
+                        + HEAP_HEADROOM_BYTES
                         + run.limits.external_bytes
                         + (run.module.source.len() + run.input.get().len()) as u64;
                     let (outcome, console, usage) = match shared.budget.reserve(reserve) {
@@ -303,7 +304,7 @@ impl Reader {
                 };
                 match self.assemble(part) {
                     Ok(None) => {}
-                    Ok(Some(bytes)) => match decode_inbound(&bytes) {
+                    Ok(Some(bytes)) => match decode_inbound(bytes) {
                         Ok(inner) if inbound_type(&inner) == Some(frame_type) => {
                             let matches = match &inner {
                                 Inbound::Run(run) => run.handle == handle && run.seq == seq,
@@ -321,7 +322,7 @@ impl Reader {
                             }
                         }
                         Ok(_) => rejected(self, "chunked frame has the wrong type".to_owned()),
-                        Err(error) => rejected(self, error.0),
+                        Err(rejection) => rejected(self, rejection.error.0),
                     },
                     Err(message) => rejected(self, message),
                 }
@@ -333,9 +334,9 @@ impl Reader {
         loop {
             match read_frame(&mut socket) {
                 Ok(None) => return self.shared.exit_status(0),
-                Ok(Some(payload)) => match decode_inbound(&payload) {
+                Ok(Some(payload)) => match decode_inbound(payload) {
                     Ok(frame) => self.dispatch(frame),
-                    Err(error) => self.reject(&payload, error.0),
+                    Err(rejection) => self.reject(&rejection.payload, rejection.error.0),
                 },
                 Err(error) => {
                     let detail = match error {
@@ -410,6 +411,7 @@ pub fn serve(
     }
     outbox.control(&Outbound::Ready {
         generation: shared.config.generation,
+        heap_headroom_bytes: HEAP_HEADROOM_BYTES,
     });
     let reader = Reader {
         shared,
