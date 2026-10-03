@@ -2,12 +2,15 @@ import type {
 	PluginIntegrationProvider,
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import * as fitnessPluginIdentity from "@ryot-app/fitness-plugin/shared/plugin-identity";
 import * as schema from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/snapshot";
 import { PluginRepository } from "@ryot-app/kernel-backend/modules/plugins/repository";
+import * as mediaPluginIdentity from "@ryot-app/media-plugin/shared/plugin-identity";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -45,11 +48,14 @@ type ActivePackage = {
 	configRevisionId: string | null;
 };
 
-const requireSystemPlugin = Effect.fn(function* (slug: "fitness" | "media") {
-	const plugin = yield* (yield* PluginRepository).findActiveSystemPlugin(slug);
+const requireSystemPlugin = Effect.fn(function* (
+	name: "Fitness" | "Media",
+	packageId: PluginPackageId,
+) {
+	const plugin = yield* (yield* PluginRepository).findActiveSystemPluginByPackageId(packageId);
 	if (!plugin) {
 		throw new Error(
-			`Legacy bootstrap: this build has 0 active trusted system "${slug}" plugins, and the migration resolves every schema and provider through exactly one. Use a build with a single system "${slug}" plugin, then start the server again.`,
+			`Legacy bootstrap: no active trusted system ${name} plugin has package identity "${packageId}", and the migration needs it to resolve legacy data. Use a build that includes this package, then start the server again.`,
 		);
 	}
 	return plugin;
@@ -115,8 +121,14 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 ) {
 	const session = yield* DatabaseSession;
 	const definitions = yield* (yield* DefinitionRepository).getGlobalSnapshot;
-	const media = yield* requireSystemPlugin("media");
-	const fitness = yield* requireSystemPlugin("fitness");
+	const media = yield* requireSystemPlugin(
+		"Media",
+		PluginPackageId.make(mediaPluginIdentity.PLUGIN_PACKAGE_ID),
+	);
+	const fitness = yield* requireSystemPlugin(
+		"Fitness",
+		PluginPackageId.make(fitnessPluginIdentity.PLUGIN_PACKAGE_ID),
+	);
 	const pluginIds = [media.id, fitness.id];
 
 	const persistedPlugins = yield* session.run((database) =>

@@ -1,4 +1,5 @@
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Config } from "effect";
 import { ConfigProvider, Effect, Option, Redacted } from "effect";
@@ -15,6 +16,8 @@ import {
 	renderConfigReference,
 	stringField,
 } from "./index";
+
+const packageId = PluginPackageId.make("bcad4408-a7e7-465e-accb-c1a553c78090");
 
 const load = <A>(config: Config.Config<A>, values: Record<string, string>) =>
 	Effect.runSync(
@@ -72,19 +75,19 @@ describe("config definitions", () => {
 	});
 
 	it("derives plugin environment names without field overrides", () => {
-		const definition = definePluginConfig("media-tracker", {
+		const definition = definePluginConfig(packageId, {
 			apiToken: stringField({
 				label: "API token",
 				description: "Plugin token",
 				validation: { required: true },
 			}),
 		});
-		expect(pluginConfigEnvironmentKey("media-tracker", "apiToken")).toBe(
-			"RYOT_PLUGIN_MEDIA_TRACKER_API_TOKEN",
+		expect(pluginConfigEnvironmentKey(packageId, "apiToken")).toBe(
+			"RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_API_TOKEN",
 		);
-		expect(load(definition.config, { RYOT_PLUGIN_MEDIA_TRACKER_API_TOKEN: "token" })).toEqual({
-			apiToken: "token",
-		});
+		expect(
+			load(definition.config, { RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_API_TOKEN: "token" }),
+		).toEqual({ apiToken: "token" });
 	});
 
 	it("loads a runtime AppSchema with a caller-owned environment resolver", () => {
@@ -103,6 +106,27 @@ describe("config definitions", () => {
 		} satisfies AppSchema;
 		const config = configFromAppSchema(schema, (path) => `PLUGIN_${path.join("_").toUpperCase()}`);
 		expect(load(config, { PLUGIN_PROVIDER: "remote" })).toEqual({ retries: 2, provider: "remote" });
+	});
+
+	it("loads equal local config keys independently for different packages", () => {
+		const otherPackageId = PluginPackageId.make("9167bc09-c77a-4b8d-80cd-76f387c5c43f");
+		const fields = {
+			apiToken: stringField({
+				label: "Token",
+				description: "Provider token",
+				validation: { required: true },
+			}),
+		};
+		const values = {
+			RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_API_TOKEN: "first",
+			RYOT_PLUGIN_9167BC09C77A4B8D80CD76F387C5C43F_API_TOKEN: "second",
+		};
+		expect(load(definePluginConfig(packageId, fields).config, values)).toEqual({
+			apiToken: "first",
+		});
+		expect(load(definePluginConfig(otherPackageId, fields).config, values)).toEqual({
+			apiToken: "second",
+		});
 	});
 
 	it("reports the environment key and allowed values for invalid enums", () => {
@@ -143,7 +167,7 @@ describe("config reference", () => {
 				},
 			),
 		});
-		const plugin = definePluginConfig("media", {
+		const plugin = definePluginConfig(packageId, {
 			token: stringField({
 				secret: true,
 				label: "Token",
@@ -152,7 +176,7 @@ describe("config reference", () => {
 			}),
 		});
 		const markdown = renderConfigReference(core, [
-			{ name: "Media", slug: "media", schema: plugin },
+			{ packageId, name: "Media", slug: "media", schema: plugin },
 		]);
 
 		expect(markdown).toContain("# App Backend Configuration Reference");
@@ -161,7 +185,7 @@ describe("config reference", () => {
 			"| `timezone` | `TZ` | Application timezone | No | No | `Etc/GMT` |",
 		);
 		expect(markdown).toContain(
-			"| `media.token` | `RYOT_PLUGIN_MEDIA_TOKEN` | Token | Plugin token | No | Yes | `token` |",
+			"| `media.token` | `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TOKEN` | Token | Plugin token | No | Yes | `token` |",
 		);
 		expect(markdown).not.toContain("HIDDEN");
 	});

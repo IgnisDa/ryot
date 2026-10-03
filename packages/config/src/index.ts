@@ -1,4 +1,6 @@
+import type { PluginMetadata } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	type AppChoice,
 	type AppBooleanProperty,
@@ -103,9 +105,7 @@ export type ConfigEnvironmentKeyResolver = (
 	field: AppPropertyDefinition,
 ) => string;
 
-export type ConfigReferencePlugin = {
-	readonly name: string;
-	readonly slug: string;
+export type ConfigReferencePlugin = Pick<PluginMetadata, "name" | "packageId" | "slug"> & {
 	readonly schema: AppSchema | ConfigDefinition;
 };
 
@@ -310,15 +310,10 @@ type PluginFields<F extends ConfigFields> =
 		: never;
 
 export const definePluginConfig = <const F extends ConfigFields>(
-	pluginSlug: string,
+	packageId: PluginPackageId,
 	fields: PluginFields<F>,
 ) =>
-	define(
-		fields,
-		undefined,
-		(path) => pluginConfigEnvironmentKey(pluginSlug, path.join("_")),
-		false,
-	);
+	define(fields, undefined, (path) => pluginConfigEnvironmentKey(packageId, path.join("_")), false);
 
 const isDefinition = (value: AppSchema | ConfigDefinition): value is ConfigDefinition =>
 	"schema" in value && "fields" in value;
@@ -410,7 +405,7 @@ export const renderConfigReference = (
 			...fields.map(([key, field]) => {
 				const fallback =
 					field.defaultValue === undefined ? "—" : `\`${formatDefaultValue(field.defaultValue)}\``;
-				return `| \`${plugin.slug}.${key}\` | \`${pluginConfigEnvironmentKey(plugin.slug, key)}\` | ${field.label} | ${field.description} | ${isAppPropertyRequired(field) ? "Yes" : "No"} | ${field.secret === true ? "Yes" : "No"} | ${fallback} |`;
+				return `| \`${plugin.slug}.${key}\` | \`${pluginConfigEnvironmentKey(plugin.packageId, key)}\` | ${field.label} | ${field.description} | ${isAppPropertyRequired(field) ? "Yes" : "No"} | ${field.secret === true ? "Yes" : "No"} | ${fallback} |`;
 			}),
 			"",
 		);
