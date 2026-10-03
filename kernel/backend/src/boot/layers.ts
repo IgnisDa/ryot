@@ -1,6 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
+import { PersistedQueue } from "effect/persistence";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
@@ -16,7 +17,7 @@ import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { SandboxDurableHostServicesLive } from "#lib/infrastructure/sandbox-runtime/layer";
 import { ServerRun } from "#lib/infrastructure/server-run";
-import { PersistedQueueLive, WorkflowEngineLive } from "#lib/infrastructure/workflow";
+import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { AuthServiceLive } from "#modules/auth/layer";
 import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
 import {
@@ -108,6 +109,7 @@ import {
 } from "#modules/provider-entities/layer";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { RyotQLService } from "#modules/ryotql/service";
+import { SandboxExecutionQueueStoreLive } from "#modules/sandbox/durable-queues";
 import { EventStreamProcessorLive } from "#modules/sandbox/event-stream-processor";
 import {
 	RuntimeSandboxServiceLive,
@@ -170,6 +172,8 @@ const BaseInfrastructureServicesLive = Layer.provideMerge(
 const CoreInfrastructureDependenciesLive = BaseInfrastructureServicesLive.pipe(
 	Layer.provideMerge(ConfigLive),
 );
+
+const PersistedQueueLive = PersistedQueue.layer.pipe(Layer.provide(SandboxExecutionQueueStoreLive));
 
 const ApplicationInfrastructureLive = Layer.merge(PersistedQueueLive, WorkflowEngineLive).pipe(
 	Layer.provideMerge(CoreInfrastructureDependenciesLive),

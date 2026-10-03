@@ -3,10 +3,11 @@ import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle"
 import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/sandbox-sdk/workflow";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Effect, Layer, Schema } from "effect";
+import { Duration, Effect, Layer, Schema } from "effect";
 import { DurableQueue } from "effect/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import { fairQueueStoreLayer } from "#lib/infrastructure/fair-queue-store";
 import { RedisService } from "#lib/infrastructure/redis";
 import {
 	inspectSandboxJournal,
@@ -25,6 +26,7 @@ import {
 import { SandboxExecutionResult } from "./execution-result";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
+import { sandboxSchedulingKey } from "./scheduling-key";
 
 const SandboxExecutionQueuePayload = Schema.Struct({
 	lane: ExecutionLane,
@@ -217,5 +219,21 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 export const SandboxExecutionQueueWorkerLive = Layer.unwrap(
 	Effect.map(AppConfig, (config) =>
 		makeSandboxExecutionQueueWorkerLive(config.sandbox.workerConcurrency),
+	),
+);
+
+export const sandboxLaneCapacity = (workerConcurrency: number) => ({
+	total: workerConcurrency,
+	background: Math.max(1, Math.floor(workerConcurrency / 2)),
+});
+
+export const SandboxExecutionQueueStoreLive = Layer.unwrap(
+	Effect.map(AppConfig, (config) =>
+		fairQueueStoreLayer({
+			prefix: "ryot:sq:",
+			flowOf: sandboxSchedulingKey,
+			pollInterval: Duration.millis(25),
+			capacity: sandboxLaneCapacity(config.sandbox.workerConcurrency),
+		}),
 	),
 );
