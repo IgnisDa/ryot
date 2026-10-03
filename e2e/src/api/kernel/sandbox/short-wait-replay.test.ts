@@ -1,6 +1,6 @@
 import { type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Clock, Effect } from "effect";
+import { Config, Clock, Effect } from "effect";
 
 import {
 	adminHeaders,
@@ -100,6 +100,10 @@ const runBenchmarkWorkload = (input: {
 	sourceHash: string;
 }) =>
 	Effect.gen(function* () {
+		const backendPid = yield* Config.Int("E2E_SERVER_PID");
+		yield* Effect.logInfo(
+			`sandbox-replay-benchmark-start ${stableStringify({ backendPid, workload: input.workload })}`,
+		);
 		const before = yield* sampleOperationalPressure([`${input.workload}-baseline`]);
 		const startedAt = yield* Clock.currentTimeMillis;
 		const job = yield* enqueueTrustedSandbox(input.userId, input.scriptId);
@@ -345,6 +349,17 @@ describe.skipIf(process.env.SANDBOX_REPLAY_BENCHMARK !== "1")("sandbox replay be
 						requirePresent(requestTimestamps[index - 1], "Missing previous request timestamp"),
 				).toBeGreaterThanOrEqual(40);
 			}
+			yield* Effect.logInfo(
+				`sandbox-replay-benchmark-http-spacing ${stableStringify({
+					spacingMs: requestTimestamps
+						.slice(1)
+						.map(
+							(timestamp, index) =>
+								timestamp -
+								requirePresent(requestTimestamps[index], "Missing previous request timestamp"),
+						),
+				})}`,
+			);
 		}),
 	);
 });
