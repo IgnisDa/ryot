@@ -1,5 +1,4 @@
-// Effect's extra-descriptor API is directional; this boundary needs one inherited duplex socket.
-// TODO: Use ChildProcessSpawner once https://github.com/Effect-TS/effect/issues/8902 is resolved.
+// TODO: Use ChildProcessSpawner once it can pass one duplex socket (https://github.com/Effect-TS/effect/issues/8902).
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import { spawn } from "node:child_process";
 
@@ -13,9 +12,12 @@ import {
 	recordSandboxSidecarEvent,
 	recordSandboxSidecarProcesses,
 } from "../runtime-metrics";
+import { SANDBOX_LIMITS } from "./limits";
 import { parseProcStatusRssBytes } from "./process-sampling";
 import { makeSidecarFrameReader, makeSidecarFrameWriter } from "./sidecar-framing";
 import { SidecarTier, SidecarOutboundFrame, type SidecarInboundFrame } from "./sidecar-protocol";
+
+export const SANDBOX_LAUNCHER_PATH = "/usr/local/libexec/ryot-sandbox-launcher";
 
 const installationSchema = Schema.Union([
 	Schema.Struct({ launcher: Schema.String }),
@@ -32,7 +34,7 @@ export class SandboxSidecarInstallation extends Context.Service<
 			const config = yield* AppConfig;
 			const path = yield* Path.Path;
 			if (process.platform === "linux") {
-				return { launcher: path.resolve(config.sandbox.launcherPath) };
+				return { launcher: SANDBOX_LAUNCHER_PATH };
 			}
 			const directory = path.resolve(config.sandbox.runtimeDirectory);
 			return {
@@ -64,6 +66,8 @@ const exitSchema = Schema.Struct({
 });
 
 const diagnosticBytes = 64 * 1024;
+const queueFailure = () =>
+	new SidecarClientError({ reason: "transport", message: "Could not queue sidecar frame" });
 const decoder = new TextDecoder();
 const sidecarClientEvent = Schema.Union([
 	SidecarOutboundFrame,
@@ -127,26 +131,25 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 				settings: typeof processSettingsSchema.Type,
 			) {
 				const linux = process.platform === "linux";
-				const command = yield* Effect.try({
-					catch: () =>
-						new SidecarClientError({
-							reason: "startup",
-							message: "Sandbox installation does not match the host platform",
-						}),
-					try: () => {
-						if (linux && "launcher" in installation) {
-							return { suffix: [], prefix: ["launch"], executable: installation.launcher };
-						}
-						if (!linux && "executable" in installation) {
-							return {
-								prefix: [],
-								executable: installation.executable,
-								suffix: ["--snapshots", installation.snapshots],
-							};
-						}
-						throw new Error("Sandbox installation does not match the host platform");
-					},
-				});
+				let command: {
+					readonly executable: string;
+					readonly prefix: ReadonlyArray<string>;
+					readonly suffix: ReadonlyArray<string>;
+				};
+				if (linux && "launcher" in installation) {
+					command = { suffix: [], prefix: ["launch"], executable: installation.launcher };
+				} else if (!linux && "executable" in installation) {
+					command = {
+						prefix: [],
+						executable: installation.executable,
+						suffix: ["--snapshots", installation.snapshots],
+					};
+				} else {
+					return yield* new SidecarClientError({
+						reason: "startup",
+						message: "Sandbox installation does not match the host platform",
+					});
+				}
 				if (
 					!Number.isSafeInteger(settings.generation) ||
 					settings.generation < 0 ||
@@ -324,7 +327,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					}
 					yield* Deferred.await(exited).pipe(
 						Effect.timeoutOrElse({
-							duration: "2 seconds",
+							duration: SANDBOX_LIMITS.sidecar.disposalMs,
 							orElse: () =>
 								Effect.fail(
 									new SidecarClientError({
@@ -404,6 +407,18 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 							reader.retire(handle);
 							writer.retire(handle);
 						}),
+					send: (frame: SidecarInboundFrame) =>
+						Effect.suspend(() =>
+							closed
+								? Effect.fail(queueFailure())
+								: Effect.try({
+										catch: queueFailure,
+										try: () => {
+											writer.enqueue(frame);
+											writer.flush();
+										},
+									}),
+						),
 					register: Effect.fnUntraced(function* (handle: string) {
 						if (closed || handles.has(handle) || handles.size >= settings.threads * 2) {
 							return yield* new SidecarClientError({
@@ -414,21 +429,6 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 						handles.add(handle);
 						return undefined;
 					}),
-					send: (frame: SidecarInboundFrame) =>
-						Effect.try({
-							catch: () =>
-								new SidecarClientError({
-									reason: "transport",
-									message: "Could not queue sidecar frame",
-								}),
-							try: () => {
-								if (closed) {
-									throw new Error("closed");
-								}
-								writer.enqueue(frame);
-								writer.flush();
-							},
-						}),
 				};
 			});
 			return { connect };

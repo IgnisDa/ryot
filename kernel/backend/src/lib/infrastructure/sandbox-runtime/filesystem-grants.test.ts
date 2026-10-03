@@ -6,14 +6,11 @@ import { Cause, Effect, Option, type Scope, FileSystem, Path } from "effect";
 import { assert, describe, expect, it as vitestIt } from "vitest";
 
 import {
-	acquireSandboxScratchDirectory,
 	decodeSandboxScratchManifest,
-	harvestSandboxScratchChunks,
 	measureSandboxScratchBytes,
 	sandboxArtifactGrant,
 	sandboxGrantPathError,
 } from "./filesystem-grants";
-import { SANDBOX_LIMITS, sandboxScratchQuotaError } from "./limits";
 import { selectSandboxHostFunctions } from "./service";
 
 const unusedHostFunction = () => Effect.die("host function must not be called");
@@ -92,64 +89,44 @@ describe("sandbox grant path validation", () => {
 	});
 });
 
-describe("sandbox scratch quota", () => {
+describe("sandbox scratch measurement", () => {
 	layer(BunServices.layer)((test) => {
-		test.effect("passes under the quota and fails the execution above it", () =>
+		test.effect("sums regular files in the flat scratch directory", () =>
 			withTempRoot((root) =>
 				Effect.gen(function* () {
 					const path = yield* Path.Path;
 					const fs = yield* FileSystem.FileSystem;
-					const scratch = yield* acquireSandboxScratchDirectory(root);
-					yield* fs.makeDirectory(path.join(scratch, "nested"));
-					yield* fs.writeFile(path.join(scratch, "chunk-0.json"), new Uint8Array(1024));
-					yield* fs.writeFile(path.join(scratch, "nested", "chunk-1.json"), new Uint8Array(2048));
+					yield* fs.writeFile(path.join(root, "chunk-0.json"), new Uint8Array(1024));
+					yield* fs.writeFile(path.join(root, "chunk-1.json"), new Uint8Array(2048));
 
-					expect(yield* measureSandboxScratchBytes(scratch)).toBe(3072);
-					expect(sandboxScratchQuotaError(3072)).toBeNull();
-
-					yield* fs.writeFile(
-						path.join(scratch, "chunk-2.json"),
-						new Uint8Array(SANDBOX_LIMITS.scratch.totalBytes),
-					);
-					const usedBytes = yield* measureSandboxScratchBytes(scratch);
-					expect(usedBytes).toBeGreaterThan(SANDBOX_LIMITS.scratch.totalBytes);
-					expect(sandboxScratchQuotaError(usedBytes)).toBe(
-						`Sandbox scratch directory uses ${usedBytes} bytes and exceeds the ${SANDBOX_LIMITS.scratch.totalBytes} byte quota`,
-					);
+					expect(yield* measureSandboxScratchBytes(root)).toBe(3072);
 				}),
 			),
 		);
 
-		test.effect("rejects symbolic links and bounds directory depth", () =>
+		test.effect("rejects directories and symbolic links", () =>
 			withTempRoot((root) =>
 				Effect.gen(function* () {
 					const path = yield* Path.Path;
 					const fs = yield* FileSystem.FileSystem;
-					const scratch = yield* acquireSandboxScratchDirectory(root);
-					const nested = path.join(scratch, "nested");
-					const cycle = path.join(nested, "cycle");
+					const nested = path.join(root, "nested");
 					yield* fs.makeDirectory(nested);
-					yield* fs.symlink(scratch, cycle);
+					const directory = yield* Effect.exit(measureSandboxScratchBytes(root));
+					assert(directory._tag === "Failure");
+					expect(Cause.findErrorOption(directory.cause)).toEqual(
+						Option.some(
+							`Sandbox scratch entry "${nested}" must be a regular file (found Directory)`,
+						),
+					);
+					yield* fs.remove(nested, { recursive: true });
 
-					const symlinked = yield* Effect.exit(measureSandboxScratchBytes(scratch));
+					const link = path.join(root, "link");
+					yield* fs.symlink(root, link);
+					const symlinked = yield* Effect.exit(measureSandboxScratchBytes(root));
 					assert(symlinked._tag === "Failure");
 					expect(Cause.findErrorOption(symlinked.cause)).toEqual(
 						Option.some(
-							`Sandbox scratch entry "${cycle}" must be a regular file or directory (found SymbolicLink)`,
-						),
-					);
-					yield* fs.remove(cycle);
-
-					let current = scratch;
-					for (let depth = 0; depth <= SANDBOX_LIMITS.scratch.maxDepth; depth += 1) {
-						current = path.join(current, `level-${depth}`);
-						yield* fs.makeDirectory(current);
-					}
-					const tooDeep = yield* Effect.exit(measureSandboxScratchBytes(scratch));
-					assert(tooDeep._tag === "Failure");
-					expect(Cause.findErrorOption(tooDeep.cause)).toEqual(
-						Option.some(
-							`Sandbox scratch directory exceeds ${SANDBOX_LIMITS.scratch.maxDepth} directory levels`,
+							`Sandbox scratch entry "${link}" must be a regular file (found SymbolicLink)`,
 						),
 					);
 				}),
@@ -158,182 +135,12 @@ describe("sandbox scratch quota", () => {
 	});
 });
 
-describe("sandbox scratch chunk harvest", () => {
-	layer(BunServices.layer)((test) => {
-		test.effect("copies only the named chunks into kernel-owned storage", () =>
-			withTempRoot((root) =>
-				Effect.gen(function* () {
-					const path = yield* Path.Path;
-					const fs = yield* FileSystem.FileSystem;
-					const scratch = yield* acquireSandboxScratchDirectory(root);
-					const destination = path.join(root, "harvest");
-					yield* fs.writeFileString(path.join(scratch, "chunk-0.json"), "[0]");
-					yield* fs.writeFileString(path.join(scratch, "chunk-1.json"), "[1]");
-					yield* fs.writeFileString(path.join(scratch, "leftover.tmp"), "ignored");
-
-					const chunkPaths = yield* harvestSandboxScratchChunks({
-						destination,
-						scratchDirectory: scratch,
-						chunkFiles: ["chunk-0.json", "chunk-1.json"],
-					});
-
-					const [firstChunkPath] = chunkPaths;
-					assert(firstChunkPath !== undefined);
-					expect(chunkPaths).toEqual([
-						path.join(destination, "chunk-0.json"),
-						path.join(destination, "chunk-1.json"),
-					]);
-					expect(yield* fs.readFileString(firstChunkPath)).toBe("[0]");
-					expect((yield* fs.readDirectory(destination)).sort()).toEqual([
-						"chunk-0.json",
-						"chunk-1.json",
-					]);
-				}),
-			),
+describe("sandbox scratch manifest", () => {
+	vitestIt("harvests only when the returned value carries a chunk manifest", () => {
+		expect(decodeSandboxScratchManifest({ groups: 12, chunkFiles: ["chunk-0.json"] })).toEqual(
+			Option.some({ chunkFiles: ["chunk-0.json"] }),
 		);
-
-		test.effect("fails on a manifest naming a missing or escaping chunk", () =>
-			withTempRoot((root) =>
-				Effect.gen(function* () {
-					const path = yield* Path.Path;
-					const fs = yield* FileSystem.FileSystem;
-					const scratch = yield* acquireSandboxScratchDirectory(root);
-					const destination = path.join(root, "harvest");
-					yield* fs.writeFileString(path.join(root, "outside.json"), "[9]");
-
-					const missing = yield* Effect.exit(
-						harvestSandboxScratchChunks({
-							destination,
-							scratchDirectory: scratch,
-							chunkFiles: ["chunk-0.json"],
-						}),
-					);
-					assert(missing._tag === "Failure");
-					expect(Cause.findErrorOption(missing.cause)).toEqual(
-						Option.some('Sandbox scratch manifest names a missing chunk file "chunk-0.json"'),
-					);
-
-					const escaping = yield* Effect.exit(
-						harvestSandboxScratchChunks({
-							destination,
-							scratchDirectory: scratch,
-							chunkFiles: ["../outside.json"],
-						}),
-					);
-					assert(escaping._tag === "Failure");
-					expect(Cause.findErrorOption(escaping.cause)).toEqual(
-						Option.some(
-							'Sandbox scratch manifest entry "../outside.json" escapes the scratch directory',
-						),
-					);
-				}),
-			),
-		);
-
-		test.effect("rejects symlinked chunk sources before copying", () =>
-			withTempRoot((root) =>
-				Effect.gen(function* () {
-					const path = yield* Path.Path;
-					const fs = yield* FileSystem.FileSystem;
-					const scratch = yield* acquireSandboxScratchDirectory(root);
-					const destination = path.join(root, "harvest");
-					const outside = path.join(root, "outside.json");
-					const source = path.join(scratch, "chunk-0.json");
-					yield* fs.writeFileString(outside, "secret");
-					yield* fs.symlink(outside, source);
-
-					const result = yield* Effect.exit(
-						harvestSandboxScratchChunks({
-							destination,
-							scratchDirectory: scratch,
-							chunkFiles: ["chunk-0.json"],
-						}),
-					);
-					assert(result._tag === "Failure");
-					expect(Cause.findErrorOption(result.cause)).toEqual(
-						Option.some(`Sandbox scratch entry "${source}" must not be a symbolic link`),
-					);
-					expect(yield* fs.exists(path.join(destination, "chunk-0.json"))).toBe(false);
-				}),
-			),
-		);
-
-		test.effect("rejects duplicate manifest entries before publishing chunks", () =>
-			withTempRoot((root) =>
-				Effect.gen(function* () {
-					const path = yield* Path.Path;
-					const fs = yield* FileSystem.FileSystem;
-					const scratch = yield* acquireSandboxScratchDirectory(root);
-					const destination = path.join(root, "harvest");
-					yield* fs.writeFileString(path.join(scratch, "chunk-0.json"), "[]");
-
-					const result = yield* Effect.exit(
-						harvestSandboxScratchChunks({
-							destination,
-							scratchDirectory: scratch,
-							chunkFiles: ["chunk-0.json", "chunk-0.json"],
-						}),
-					);
-					assert(result._tag === "Failure");
-					expect(Cause.findErrorOption(result.cause)).toEqual(
-						Option.some('Sandbox scratch manifest contains duplicate chunk file "chunk-0.json"'),
-					);
-					expect(yield* fs.exists(destination)).toBe(false);
-				}),
-			),
-		);
-
-		vitestIt("harvests only when the returned value carries a chunk manifest", () => {
-			expect(decodeSandboxScratchManifest({ groups: 12, chunkFiles: ["chunk-0.json"] })).toEqual(
-				Option.some({ chunkFiles: ["chunk-0.json"] }),
-			);
-			expect(Option.isNone(decodeSandboxScratchManifest({ groups: 12 }))).toBe(true);
-			expect(Option.isNone(decodeSandboxScratchManifest(null))).toBe(true);
-		});
-	});
-});
-
-describe("sandbox scratch cleanup", () => {
-	layer(BunServices.layer)((test) => {
-		test.effect("removes the scratch directory when the execution scope closes cleanly", () =>
-			withTempRoot((root) =>
-				Effect.gen(function* () {
-					const fs = yield* FileSystem.FileSystem;
-					const scratch = yield* Effect.scoped(
-						acquireSandboxScratchDirectory(root).pipe(
-							Effect.tap((directory) => fs.writeFileString(`${directory}/chunk-0.json`, "[0]")),
-						),
-					);
-
-					expect(yield* fs.exists(scratch)).toBe(false);
-				}),
-			),
-		);
-
-		test.effect("removes the scratch directory when the execution fails or dies", () =>
-			withTempRoot((root) =>
-				Effect.gen(function* () {
-					const fs = yield* FileSystem.FileSystem;
-					const captured: string[] = [];
-					// A quota rejection, a script failure, and a killed process all leave the same scope
-					// abnormally; cleanup must not depend on which one happened.
-					const runAborted = (abort: Effect.Effect<never, string>) =>
-						Effect.scoped(
-							acquireSandboxScratchDirectory(root).pipe(
-								Effect.tap((directory) => Effect.sync(() => captured.push(directory))),
-								Effect.andThen(abort),
-							),
-						).pipe(Effect.exit);
-
-					yield* runAborted(Effect.fail("scratch quota exceeded"));
-					yield* runAborted(Effect.die("sandbox process killed"));
-
-					expect(captured).toHaveLength(2);
-					for (const directory of captured) {
-						expect(yield* fs.exists(directory)).toBe(false);
-					}
-				}),
-			),
-		);
+		expect(Option.isNone(decodeSandboxScratchManifest({ groups: 12 }))).toBe(true);
+		expect(Option.isNone(decodeSandboxScratchManifest(null))).toBe(true);
 	});
 });

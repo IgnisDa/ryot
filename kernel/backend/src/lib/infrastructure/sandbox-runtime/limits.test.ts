@@ -23,11 +23,13 @@ describe("sandbox limits", () => {
 		expect(SANDBOX_LIMITS).toEqual({
 			journalBytes: 104_857_600,
 			hostCalls: { http: 50, total: 1_000 },
-			diagnostics: { stderrLines: 20, stderrBytes: 65_536 },
+			diagnostics: { messageBytes: 65_536 },
 			logs: { entryCount: 500, entryBytes: 8_192, totalBytes: 262_144 },
-			scratch: { maxDepth: 32, maxEntries: 4_096, totalBytes: 5_242_880 },
 			cache: { keyBytes: 256, valueBytes: 262_144, ttlSeconds: 2_592_000 },
+			scratch: { maxEntries: 4_096, chunkBytes: 262_144, totalBytes: 5_242_880 },
 			observability: { entryCount: 500, entryBytes: 8_192, totalBytes: 262_144 },
+			isolate: { cpuMs: 30_000, heapBytes: 268_435_456, externalBytes: 67_108_864 },
+			journalReads: { count: 2_048, sliceBytes: 1_048_576, totalBytes: 209_715_200 },
 			http: { timeoutMs: 8_000, requestBytes: 1_048_576, responseBytes: 10_485_760 },
 			userRelationshipWrites: { batches: 50, changesTotal: 500, changesPerBatch: 100 },
 			execution: {
@@ -35,6 +37,13 @@ describe("sandbox limits", () => {
 				contextBytes: 65_536,
 				resultBytes: 4_194_304,
 				requestBytes: 2_097_152,
+			},
+			sidecar: {
+				idleMs: 60_000,
+				startupMs: 10_000,
+				disposalMs: 2_000,
+				absoluteMs: 300_000,
+				settlementMs: 30_000,
 			},
 			globalWrites: {
 				entityItems: 500,

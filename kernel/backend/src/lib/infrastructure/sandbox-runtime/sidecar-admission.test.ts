@@ -1,17 +1,16 @@
-import { expect, layer } from "@effect/vitest";
+import { expect, it, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { Deferred, Effect, Exit, Fiber, Layer, Scope } from "effect";
+import { Deferred, Effect, Exit, Fiber, Layer, Option, Result, Scope } from "effect";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
-import { SANDBOX_LIMITS } from "./limits";
-import { SandboxSidecarAdmission } from "./sidecar-admission";
+import { MiB, SANDBOX_LIMITS } from "./limits";
+import { SandboxSidecarAdmission, sandboxMemoryBudgetBytes } from "./sidecar-admission";
 import { SIDECAR_PROTOCOL_LIMITS } from "./sidecar-protocol";
 
 const admissionLayer = Layer.effect(SandboxSidecarAdmission, SandboxSidecarAdmission.make).pipe(
 	Layer.provide(makeAppConfigLayer()),
 );
-const MiB = 1024 * 1024;
 const acquireScope = Effect.acquireRelease(Scope.make(), (scope) => Scope.close(scope, Exit.void));
 
 layer(admissionLayer)((test) => {
@@ -203,7 +202,9 @@ layer(admissionLayer)((test) => {
 
 				const tightConfig = yield* Layer.build(
 					makeAppConfigLayer({
-						sandbox: { memoryBudgetMiB: Math.ceil((idle + 128 * MiB + runBytes) / MiB) },
+						sandbox: {
+							memoryBudgetMiB: Option.some(Math.ceil((idle + 128 * MiB + runBytes) / MiB)),
+						},
 					}),
 				);
 				const tight = yield* SandboxSidecarAdmission.make.pipe(Effect.provideContext(tightConfig));
@@ -245,4 +246,30 @@ layer(admissionLayer)((test) => {
 			}),
 		),
 	);
+});
+
+const GiB = 1024 * MiB;
+const budgetFailure = (result: Result.Result<number, SandboxRunError>) =>
+	Result.isFailure(result)
+		? { kind: result.failure.kind, message: result.failure.message }
+		: result;
+
+it("sandbox_memory_budget_derives_from_effective_memory", () => {
+	expect(sandboxMemoryBudgetBytes(Option.none(), 8 * GiB)).toEqual(Result.succeed(1536 * MiB));
+	expect(sandboxMemoryBudgetBytes(Option.none(), 2 * GiB)).toEqual(Result.succeed(GiB));
+	expect(sandboxMemoryBudgetBytes(Option.some(2048), 8 * GiB)).toEqual(Result.succeed(2 * GiB));
+	expect(budgetFailure(sandboxMemoryBudgetBytes(Option.some(2049), 4 * GiB))).toEqual({
+		kind: "resource-unavailable",
+		message: "Sandbox memory budget exceeds half the effective host memory",
+	});
+	expect(budgetFailure(sandboxMemoryBudgetBytes(Option.none(), 256 * MiB))).toEqual({
+		kind: "resource-unavailable",
+		message: "Sandbox memory budget cannot fit resident core processes and a run",
+	});
+	for (const effectiveMemory of [0, -1, Number.NaN, Number.MAX_SAFE_INTEGER + 2, 1.5]) {
+		expect(budgetFailure(sandboxMemoryBudgetBytes(Option.none(), effectiveMemory))).toEqual({
+			kind: "resource-unavailable",
+			message: "Sandbox effective host memory is unavailable",
+		});
+	}
 });

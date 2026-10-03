@@ -242,10 +242,12 @@ describe("sandbox file service", () => {
 							"back\\slash",
 							"nul\0name",
 						]) {
-							const invalidName = yield* Effect.exit(
+							const invalidName = yield* Effect.flip(
 								files.scratchWrite({ name, data: "", offset: 0, final: true }),
 							);
-							expect(Exit.isFailure(invalidName)).toBe(true);
+							expect(invalidName).toEqual({
+								message: "Sandbox scratch chunk name must be a plain file name",
+							});
 						}
 						expect(yield* scratchBytesIn(root)).toBe(0);
 						yield* writeBytes(files, "large.bin", new Uint8Array(4 * MiB).fill(0x61), true);

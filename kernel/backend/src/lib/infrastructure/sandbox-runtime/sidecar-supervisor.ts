@@ -27,6 +27,7 @@ import {
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "../sandbox-recovery-store";
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
 import type { SandboxHostCallGateRegistration } from "./host-call-gate";
+import { SANDBOX_LIMITS } from "./limits";
 import { SandboxSidecarAdmission, type SandboxAdmissionLease } from "./sidecar-admission";
 import { SandboxSidecarClient } from "./sidecar-client";
 import type { SidecarDoneFrame, SidecarRunFrame, SidecarTier } from "./sidecar-protocol";
@@ -103,7 +104,7 @@ type Instance = {
 	healthyEpoch: string | undefined;
 };
 
-export type SandboxSidecarRun = {
+export type SandboxSidecarRun<A = void> = {
 	readonly executionId: string;
 	readonly pinHash: string;
 	readonly principal: SandboxExecutionPrincipal;
@@ -117,7 +118,7 @@ export type SandboxSidecarRun = {
 			readonly gate: SandboxHostCallGateRegistration;
 			readonly input: RunFrame["input"];
 			readonly module: RunFrame["module"];
-			readonly finish: (done: DoneFrame) => Effect.Effect<void, SandboxRunError | TimeoutError>;
+			readonly finish: (done: DoneFrame) => Effect.Effect<A, SandboxRunError | TimeoutError>;
 		},
 		SandboxRunError,
 		Scope.Scope
@@ -515,7 +516,9 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 													128 * 1024 * 1024 + admission.isolateMemoryBytes,
 												),
 											});
-											const ready = yield* connection.next.pipe(Effect.timeout("10 seconds"));
+											const ready = yield* connection.next.pipe(
+												Effect.timeout(SANDBOX_LIMITS.sidecar.startupMs),
+											);
 											if (ready.type !== "ready" || ready.generation !== generationId) {
 												return yield* startupError();
 											}
@@ -579,7 +582,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 										entry.recovery === undefined &&
 										generation.runs.size === 0 &&
 										entry.waiting === 0 &&
-										(yield* Clock.currentTimeMillis) - generation.lastActiveAt >= 60_000
+										(yield* Clock.currentTimeMillis) - generation.lastActiveAt >=
+											SANDBOX_LIMITS.sidecar.idleMs
 									) {
 										yield* scheduleClose(entry, generation);
 										return;
@@ -591,8 +595,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 					}),
 				);
 			});
-			const attempt = Effect.fn("SandboxSidecarSupervisor.attempt")(function* (
-				options: SandboxSidecarRun,
+			const attempt = Effect.fn("SandboxSidecarSupervisor.attempt")(function* <A>(
+				options: SandboxSidecarRun<A>,
 				key: ProcessKey,
 				entry: Instance,
 				logical: LogicalRun,
@@ -646,8 +650,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 								Effect.as(true),
 								Effect.orElseSucceed(() => true),
 								Effect.timeoutOrElse({
-									duration: "2 seconds",
 									orElse: () => Effect.succeed(false),
+									duration: SANDBOX_LIMITS.sidecar.disposalMs,
 								}),
 							);
 							if (!disposed) {
@@ -708,9 +712,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 										module: prepared.module,
 										generation: generation.connection.generation,
 										limits: {
-											cpuMs: 30_000,
-											heapBytes: 256 * 1024 * 1024,
-											externalBytes: 64 * 1024 * 1024,
+											...SANDBOX_LIMITS.isolate,
 											deadlineMs: Math.max(1, Math.ceil(budget.remainingMs)),
 										},
 									})
@@ -730,7 +732,9 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						yield* Effect.gen(function* () {
 							while (!(yield* Deferred.isDone(active.result))) {
 								const budget = yield* prepared.gate.scriptBudget;
-								const absolute = 300_000 - ((yield* Clock.currentTimeMillis) - startedAt);
+								const absolute =
+									SANDBOX_LIMITS.sidecar.absoluteMs -
+									((yield* Clock.currentTimeMillis) - startedAt);
 								if (budget.remainingMs <= 0 || absolute <= 0) {
 									return yield* cancel;
 								}
@@ -752,8 +756,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							});
 						}
 						yield* prepared.gate.close;
-						yield* prepared.finish(result.done);
-						return result;
+						return { ...result, finished: yield* prepared.finish(result.done) };
 					}),
 				).pipe(
 					Effect.ensuring(
@@ -797,7 +800,9 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				return lease;
 			});
 
-			const run = Effect.fn("SandboxSidecarSupervisor.run")(function* (options: SandboxSidecarRun) {
+			const run = Effect.fn("SandboxSidecarSupervisor.run")(function* <A>(
+				options: SandboxSidecarRun<A>,
+			) {
 				const key = yield* locate(options.principal);
 				const entry = yield* getInstance(key);
 				const protectedLease = protections.get(options.lease);

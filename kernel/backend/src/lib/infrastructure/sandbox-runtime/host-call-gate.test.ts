@@ -10,17 +10,15 @@ import type { Tracer } from "effect";
 import { Deferred, Duration, Effect, Exit, Fiber, Layer, Queue, Schema, Scope } from "effect";
 import { TestClock } from "effect/testing";
 
-import type { SandboxFileService } from "./file-service";
+import type { SandboxFileAccess } from "./file-service";
 import { SandboxHostCallGate, type SandboxHostCallGateOptions } from "./host-call-gate";
-import { SANDBOX_LIMITS } from "./limits";
+import { MiB, SANDBOX_LIMITS } from "./limits";
 import type { BoundHostFunction, SandboxRunInput } from "./shared";
 import type { SidecarHostResultFrame } from "./sidecar-protocol";
 import { SidecarHostCallFrame } from "./sidecar-protocol";
 
-type SandboxFileSession = Effect.Success<ReturnType<SandboxFileService["Service"]["open"]>>;
 type HostCallFrame = typeof SidecarHostCallFrame.Type;
 type HostResultFrame = typeof SidecarHostResultFrame.Type;
-const MiB = 1024 * 1024;
 const encodeUnknownJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeUnknownJson = Schema.decodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeJournalEntryJson = Schema.decodeSync(
@@ -60,10 +58,10 @@ const makeInput = (
 });
 
 const makeFiles = (
-	artifactReadRange: SandboxFileSession["artifactReadRange"] = (args) =>
+	artifactReadRange: SandboxFileAccess["artifactReadRange"] = (args) =>
 		Effect.succeed({ size: 0, data: "", offset: args.offset }),
-	scratchWrite: SandboxFileSession["scratchWrite"] = () => Effect.succeed(null),
-): SandboxFileSession => ({
+	scratchWrite: SandboxFileAccess["scratchWrite"] = () => Effect.succeed(null),
+): SandboxFileAccess => ({
 	scratchWrite,
 	artifactReadRange,
 	harvest: () => Effect.succeed(null),
@@ -100,7 +98,7 @@ const makeOptions = (
 	apiFunctions: Readonly<Record<string, BoundHostFunction>> = {
 		getCachedValue: successHostFunction(),
 	},
-	files: SandboxFileSession = makeFiles(),
+	files: SandboxFileAccess = makeFiles(),
 	handle = "gate-handle",
 	instance = "gate-instance",
 	generation = 1,
@@ -677,5 +675,49 @@ layer(gateLayer)((test) => {
 			);
 			expect(journalEntry).toEqual({ request, value: durableResult });
 		}).pipe(Effect.withSpan("host-call-gate.inline-records")),
+	);
+
+	test.effect("inline_batch_over_budget_is_deferred_and_still_charged", () =>
+		Effect.gen(function* () {
+			const gate = yield* SandboxHostCallGate;
+			const parentSpan = yield* Effect.currentSpan;
+			let settlements = 0;
+			const input = makeInput(["httpCall"], {
+				replayJournal: [],
+				workflowExecutionId: "gate-budget-workflow",
+				inlineDurableHost: {
+					capabilities: ["httpCall"],
+					settle: (requests) =>
+						Effect.sync(() => {
+							settlements += 1;
+							return requests.map(() => ({ value: null, state: "success" as const }));
+						}),
+				},
+			});
+			const registration = yield* gate.register(
+				makeOptions(parentSpan, input, { httpCall: successHostFunction() }, makeFiles(), "budget"),
+			);
+			const requests = Array.from({ length: SANDBOX_LIMITS.hostCalls.http + 1 }, (_, index) => ({
+				index,
+				kind: "host",
+				name: "httpCall",
+				args: { capability: "httpCall", args: ["GET", "https://example.com/budget"] },
+			}));
+			const deferred = yield* registration.dispatch(
+				makeFrame(0, "inlineBatch", { requests }, { handle: "budget" }),
+			);
+			expect(frameValue(deferred)).toEqual({ defer: true });
+			expect(settlements).toBe(0);
+			expect(registration.inlineEntries()).toEqual([]);
+
+			const charged = yield* registration.dispatch(
+				makeFrame(1, "httpCall", ["GET", "https://example.com/after"], { handle: "budget" }),
+			);
+			expect(frameValue(charged)).toMatchObject({
+				success: false,
+				data: { operation: "httpCall", code: "execution-limit" },
+				error: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`,
+			});
+		}).pipe(Effect.withSpan("host-call-gate.inline-budget")),
 	);
 });

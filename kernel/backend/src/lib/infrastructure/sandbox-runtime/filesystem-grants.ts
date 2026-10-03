@@ -4,11 +4,10 @@ import {
 } from "@ryot-app/sandbox-sdk/core";
 import { sandboxScratchManifestSchema } from "@ryot-app/sandbox-sdk/filesystem";
 import { Effect, Schema, FileSystem, Path } from "effect";
-import type { PlatformError } from "effect/PlatformError";
 
 import { SANDBOX_LIMITS } from "./limits";
 
-const SANDBOX_SCRATCH_DIRECTORY_PREFIX = "ryot-sandbox-scratch-";
+export const SANDBOX_SCRATCH_DIRECTORY_PREFIX = "ryot-sandbox-scratch-";
 export const SANDBOX_HARVEST_DIRECTORY_PREFIX = "ryot-sandbox-harvest-";
 
 export const sanitizeSandboxExecutionSegment = (executionId: string) =>
@@ -50,143 +49,34 @@ export const sandboxGrantPathError = (
 	return null;
 };
 
-// Cleanup is kernel-owned and unconditional: the finalizer is registered with the directory, so the
-// scratch directory disappears on success, on quota failure, on script error, on timeout, and on
-// process kill alike.
-export const acquireSandboxScratchDirectory = Effect.fn("sandbox.acquireScratchDirectory")(
-	function* (tempRoot: string) {
-		const fs = yield* FileSystem.FileSystem;
-		const directory = yield* fs.makeTempDirectory({
-			directory: tempRoot,
-			prefix: SANDBOX_SCRATCH_DIRECTORY_PREFIX,
-		});
-		yield* Effect.addFinalizer(() =>
-			fs.remove(directory, { force: true, recursive: true }).pipe(Effect.ignore),
-		);
-		return directory;
-	},
-);
-
-const inspectSandboxScratchEntry = (fs: FileSystem.FileSystem, entryPath: string) =>
-	fs.readLink(entryPath).pipe(
-		Effect.as({ type: "SymbolicLink" as const }),
-		Effect.catch(() => fs.stat(entryPath)),
-	);
-
-const sandboxScratchEntryError = (entryPath: string, type: string) =>
-	`Sandbox scratch entry "${entryPath}" must be a regular file or directory (found ${type})`;
-
 export const measureSandboxScratchBytes = Effect.fn("sandbox.measureScratchBytes")(function* (
 	directory: string,
 ) {
 	const path = yield* Path.Path;
 	const fs = yield* FileSystem.FileSystem;
-	let entryCount = 0;
-	const walk = (current: string, depth: number): Effect.Effect<number, PlatformError | string> =>
-		Effect.gen(function* () {
-			if (depth > SANDBOX_LIMITS.scratch.maxDepth) {
-				return yield* Effect.fail(
-					`Sandbox scratch directory exceeds ${SANDBOX_LIMITS.scratch.maxDepth} directory levels`,
-				);
-			}
-
-			let total = 0;
-			for (const entry of yield* fs.readDirectory(current)) {
-				entryCount += 1;
-				if (entryCount > SANDBOX_LIMITS.scratch.maxEntries) {
-					return yield* Effect.fail(
-						`Sandbox scratch directory exceeds ${SANDBOX_LIMITS.scratch.maxEntries} entries`,
-					);
-				}
-
-				const entryPath = path.join(current, entry);
-				const info = yield* inspectSandboxScratchEntry(fs, entryPath);
-				if (info.type === "Directory") {
-					total += yield* walk(entryPath, depth + 1);
-				} else if (info.type === "File") {
-					total += Number(info.size);
-				} else {
-					return yield* Effect.fail(sandboxScratchEntryError(entryPath, info.type));
-				}
-			}
-			return total;
-		});
-
-	return yield* walk(directory, 0);
+	const entries = yield* fs.readDirectory(directory);
+	if (entries.length > SANDBOX_LIMITS.scratch.maxEntries) {
+		return yield* Effect.fail(
+			`Sandbox scratch directory exceeds ${SANDBOX_LIMITS.scratch.maxEntries} entries`,
+		);
+	}
+	let total = 0;
+	for (const entry of entries) {
+		const entryPath = path.join(directory, entry);
+		const info = yield* fs.readLink(entryPath).pipe(
+			Effect.as({ type: "SymbolicLink" as const }),
+			Effect.catch(() => fs.stat(entryPath)),
+		);
+		if (info.type !== "File") {
+			return yield* Effect.fail(
+				`Sandbox scratch entry "${entryPath}" must be a regular file (found ${info.type})`,
+			);
+		}
+		total += Number(info.size);
+	}
+	return total;
 });
 
 export const decodeSandboxScratchManifest = Schema.decodeUnknownOption(
 	sandboxScratchManifestSchema,
-);
-
-// Only files the returned manifest names are harvested; anything else left in the scratch directory
-// is ignored and disappears with the unconditional cleanup.
-export const harvestSandboxScratchChunks = Effect.fn("sandbox.harvestScratchChunks")(
-	function* (input: {
-		readonly destination: string;
-		readonly scratchDirectory: string;
-		readonly chunkFiles: readonly string[];
-	}) {
-		const path = yield* Path.Path;
-		const fs = yield* FileSystem.FileSystem;
-		const scratchRoot = path.resolve(input.scratchDirectory);
-		const sources: Array<{ source: string; relative: string }> = [];
-		const seen = new Set<string>();
-		for (const chunkFile of input.chunkFiles) {
-			if (seen.has(chunkFile)) {
-				return yield* Effect.fail(
-					`Sandbox scratch manifest contains duplicate chunk file "${chunkFile}"`,
-				);
-			}
-			seen.add(chunkFile);
-			const source = path.resolve(scratchRoot, chunkFile);
-			if (!source.startsWith(scratchRoot + path.sep)) {
-				return yield* Effect.fail(
-					`Sandbox scratch manifest entry "${chunkFile}" escapes the scratch directory`,
-				);
-			}
-			if (!(yield* fs.exists(source))) {
-				return yield* Effect.fail(
-					`Sandbox scratch manifest names a missing chunk file "${chunkFile}"`,
-				);
-			}
-
-			const relativeParts = path.relative(scratchRoot, source).split(path.sep).filter(Boolean);
-			let current = scratchRoot;
-			for (const [index, part] of relativeParts.entries()) {
-				current = path.join(current, part);
-				const info = yield* inspectSandboxScratchEntry(fs, current);
-				if (info.type === "SymbolicLink") {
-					return yield* Effect.fail(
-						`Sandbox scratch entry "${current}" must not be a symbolic link`,
-					);
-				}
-				if (index < relativeParts.length - 1 && info.type !== "Directory") {
-					return yield* Effect.fail(sandboxScratchEntryError(current, info.type));
-				}
-				if (index === relativeParts.length - 1 && info.type !== "File") {
-					return yield* Effect.fail(sandboxScratchEntryError(current, info.type));
-				}
-			}
-
-			if (relativeParts.length === 0) {
-				return yield* Effect.fail(
-					`Sandbox scratch manifest names an invalid chunk file "${chunkFile}"`,
-				);
-			}
-
-			sources.push({ source, relative: path.relative(scratchRoot, source) });
-		}
-
-		yield* fs.makeDirectory(input.destination, { recursive: true });
-		const chunkPaths: string[] = [];
-		for (const { source, relative } of sources) {
-			const target = path.join(input.destination, relative);
-			yield* fs.makeDirectory(path.dirname(target), { recursive: true });
-			yield* fs.copyFile(source, target);
-			chunkPaths.push(target);
-		}
-
-		return chunkPaths;
-	},
 );

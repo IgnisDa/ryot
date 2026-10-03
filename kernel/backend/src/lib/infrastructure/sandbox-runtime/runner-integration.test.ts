@@ -3,6 +3,7 @@ import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/pl
 import { hostFailure, hostSuccess } from "@ryot-app/sandbox-sdk/wire";
 import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
+import { Base64 } from "effect/encoding";
 
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
@@ -382,6 +383,105 @@ export default defineWorkflow({
 				expect(second.response.value).toEqual(first.response.value);
 				expect(other.response.value).not.toEqual(first.response.value);
 			}
+		}),
+	);
+
+	test.effect("workflow_date_guard_survives_approved_dependency_calls", () =>
+		Effect.gen(function* () {
+			const compiled = yield* (yield* SandboxCompiler).compile(
+				definition(
+					`(_input, host) => createYoutubeMusicClient(host, undefined, {
+  retrievePlayer: false, retrieveInnertubeConfig: false,
+}).pipe(Effect.flatMap(() => Effect.sync(() => new Date().toISOString())))`,
+					{
+						output: "Schema.String",
+						imports: 'import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";',
+					},
+				),
+			);
+			const { response } = yield* runNative(
+				compiled,
+				{},
+				{ workflowExecutionId: "youtubei-date-guard" },
+			);
+			expect(response).toMatchObject({
+				success: false,
+				error: { phase: "execute", message: expect.stringContaining("new Date()") },
+			});
+		}),
+	);
+
+	test.effect("native_runner_rejects_decoded_ranges_longer_than_requested", () =>
+		Effect.gen(function* () {
+			const artifact = yield* (yield* SandboxCompiler).compile(
+				definition(
+					"() => readArtifactRange(0, 4).pipe(Effect.map((range) => range.bytes.length))",
+					{ imports: 'import { readArtifactRange } from "@ryot-app/sandbox-sdk/filesystem";' },
+				),
+			);
+			for (const bytes of [4, 5]) {
+				const { response } = yield* runNative(
+					artifact,
+					{},
+					{
+						filesystem: { artifact: true },
+						reply: (frame) =>
+							frame.name === "artifactReadRange"
+								? {
+										status: "success",
+										value: { size: 8, offset: 0, data: Base64.encode(new Uint8Array(bytes)) },
+									}
+								: undefined,
+					},
+				);
+				if (bytes === 4) {
+					expect(response).toMatchObject({ value: 4, success: true });
+				} else {
+					expect(response).toMatchObject({
+						success: false,
+						error: { message: expect.stringContaining("Sandbox artifact range length is invalid") },
+					});
+				}
+			}
+
+			const journal = yield* (yield* SandboxCompiler).compile(
+				definition('(input, host) => host.getCachedValue("recorded")', { kind: "operation" }),
+			);
+			const recorded = {
+				workflowExecutionId: "oversized-journal-range",
+				replayJournal: [
+					{ request: cachedRequest(0, "recorded"), value: { value: "ok", state: "success" } },
+				],
+			} as const;
+			expect((yield* runNative(journal, {}, recorded)).response).toMatchObject({
+				success: true,
+				value: { output: "ok", state: "completed" },
+			});
+			const { response, controls } = yield* runNative(
+				journal,
+				{},
+				{
+					...recorded,
+					reply: (frame) => {
+						if (frame.name !== "journalRead") {
+							return undefined;
+						}
+						const args = Schema.decodeUnknownSync(
+							Schema.Struct({ length: Schema.Finite, offset: Schema.Finite }),
+						)(frame.args);
+						return {
+							status: "success",
+							value: {
+								offset: args.offset,
+								totalBytes: args.offset + args.length,
+								data: Base64.encode(new Uint8Array(args.length + 1)),
+							},
+						};
+					},
+				},
+			);
+			expect(response).toMatchObject({ success: true, value: { state: "failed" } });
+			expect(controls).toEqual(["journalRead"]);
 		}),
 	);
 

@@ -1,5 +1,4 @@
-// Effect FileSystem.open has no O_NOFOLLOW flags for pinned descriptor operations.
-// TODO: Use FileSystem.open once https://github.com/Effect-TS/effect/issues/8898 is resolved.
+// TODO: Use FileSystem.open once it supports O_NOFOLLOW (https://github.com/Effect-TS/effect/issues/8898).
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import { constants } from "node:fs";
 // oxlint-disable-next-line effecttsgo/node-builtin-import
@@ -9,7 +8,19 @@ import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 import type { Scope } from "effect";
-import { Context, Effect, Exit, FileSystem, Layer, Option, Path, Schema, Semaphore } from "effect";
+import {
+	Context,
+	Effect,
+	Exit,
+	FileSystem,
+	Layer,
+	Option,
+	Path,
+	Result,
+	Schema,
+	Semaphore,
+} from "effect";
+import { Base64 } from "effect/encoding";
 
 import { AppConfig } from "../config/service";
 import { ServerRun } from "../server-run";
@@ -20,6 +31,7 @@ import {
 	declaresSandboxFilesystemGrant,
 	measureSandboxScratchBytes,
 	SANDBOX_HARVEST_DIRECTORY_PREFIX,
+	SANDBOX_SCRATCH_DIRECTORY_PREFIX,
 	sandboxArtifactGrant,
 	sandboxGrantPathError,
 	sanitizeSandboxExecutionSegment,
@@ -28,15 +40,12 @@ import { SANDBOX_LIMITS } from "./limits";
 import { toSandboxHostError, type SandboxRunInput } from "./shared";
 import {
 	artifactReadRangeArgsSchema,
+	base64DecodedLength,
 	scratchWriteArgsSchema,
 	type artifactReadRangeResultSchema,
-	type SandboxInvocation,
 } from "./sidecar-protocol";
 
 const strictOptions = { onExcessProperty: "error" } as const;
-const maxScratchChunkBytes = 256 * 1024;
-const scratchDirectoryPrefix = "ryot-sandbox-scratch-";
-const base64Pattern = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 const decodeArtifactReadRangeArgs = Schema.decodeUnknownEffect(
 	artifactReadRangeArgsSchema,
 	strictOptions,
@@ -86,33 +95,6 @@ const isPlainFileName = (name: string) =>
 	!name.includes("\\") &&
 	!name.includes("\0");
 
-const decodedBase64Length = (data: string) => {
-	let padding = 0;
-	if (data.endsWith("==")) {
-		padding = 2;
-	} else if (data.endsWith("=")) {
-		padding = 1;
-	}
-	return (data.length / 4) * 3 - padding;
-};
-
-const decodeBase64 = (data: string) => {
-	const binary = atob(data);
-	const bytes = new Uint8Array(binary.length);
-	for (let index = 0; index < binary.length; index += 1) {
-		bytes[index] = binary.charCodeAt(index);
-	}
-	return bytes;
-};
-
-const encodeBase64 = (bytes: Uint8Array) => {
-	let binary = "";
-	for (let index = 0; index < bytes.length; index += 32_768) {
-		binary += String.fromCharCode(...bytes.subarray(index, index + 32_768));
-	}
-	return btoa(binary);
-};
-
 const samePathIdentity = (
 	before: ReadonlyArray<PathSnapshot>,
 	after: ReadonlyArray<PathSnapshot>,
@@ -129,25 +111,6 @@ const samePathIdentity = (
 		);
 	});
 
-type SandboxFileAccess = {
-	readonly filesystem: NonNullable<SandboxInvocation["filesystem"]>;
-	readonly artifactReadRange: (
-		args: typeof artifactReadRangeArgsSchema.Type,
-	) => Effect.Effect<typeof artifactReadRangeResultSchema.Type, SandboxHostError>;
-	readonly scratchWrite: (
-		args: typeof scratchWriteArgsSchema.Type,
-	) => Effect.Effect<null, SandboxHostError>;
-	readonly harvest: (
-		output: unknown,
-	) => Effect.Effect<{ readonly chunkHandles: ReadonlyArray<string> } | null, SandboxRunError>;
-};
-
-type SandboxFileServiceApi = {
-	readonly open: (
-		input: SandboxRunInput,
-	) => Effect.Effect<SandboxFileAccess, SandboxRunError, Scope.Scope>;
-};
-
 export class SandboxFileService extends Context.Service<SandboxFileService>()(
 	"SandboxFileService",
 	{
@@ -159,6 +122,23 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 			const artifacts = yield* SandboxArtifactStore;
 			const staging = yield* Effect.serviceOption(SandboxArtifactStaging);
 			const localTempRoot = yield* fs.realPath(config.fileStorage.localTempDir).pipe(Effect.orDie);
+
+			const isSymbolicLink = (candidate: string) =>
+				fs.readLink(candidate).pipe(
+					Effect.as(true),
+					Effect.orElseSucceed(() => false),
+				);
+
+			const acquireTemporaryDirectory = (prefix: string, executionId: string) =>
+				Effect.acquireRelease(
+					fs
+						.makeTempDirectory({
+							directory: localTempRoot,
+							prefix: `${prefix}${serverRun.id}-${sanitizeSandboxExecutionSegment(executionId)}-`,
+						})
+						.pipe(Effect.mapError((error) => sandboxFailure(error, "infrastructure"))),
+					(directory) => fs.remove(directory, { force: true, recursive: true }).pipe(Effect.ignore),
+				);
 
 			const inspectPath = Effect.fnUntraced(function* (
 				candidate: string,
@@ -182,11 +162,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 
 				const snapshots: PathSnapshot[] = [];
 				for (const [index, ancestor] of ancestors.entries()) {
-					const isSymbolicLink = yield* fs.readLink(ancestor).pipe(
-						Effect.as(true),
-						Effect.orElseSucceed(() => false),
-					);
-					if (isSymbolicLink) {
+					if (yield* isSymbolicLink(ancestor)) {
 						return yield* new SandboxRunError({
 							kind: "invalid-input",
 							message: `${label} must not contain symbolic links`,
@@ -300,9 +276,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 					}),
 				);
 
-			const open = Effect.fn("SandboxFileService.open")(function* (
-				input: SandboxRunInput,
-			): Effect.fn.Return<SandboxFileAccess, SandboxRunError, Scope.Scope> {
+			const open = Effect.fn("SandboxFileService.open")(function* (input: SandboxRunInput) {
 				const declaredCapabilities = (input.principal.metadata.capabilities ?? []).filter(
 					(capability) =>
 						input.principal.subject.type !== "automation-run" ||
@@ -328,16 +302,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 				}
 
 				const scratchDirectory = scratchAllowed
-					? yield* Effect.acquireRelease(
-							fs
-								.makeTempDirectory({
-									directory: localTempRoot,
-									prefix: `${scratchDirectoryPrefix}${serverRun.id}-${sanitizeSandboxExecutionSegment(input.executionId)}-`,
-								})
-								.pipe(Effect.mapError((error) => sandboxFailure(error, "infrastructure"))),
-							(directory) =>
-								fs.remove(directory, { force: true, recursive: true }).pipe(Effect.ignore),
-						)
+					? yield* acquireTemporaryDirectory(SANDBOX_SCRATCH_DIRECTORY_PREFIX, input.executionId)
 					: undefined;
 				if (scratchDirectory !== undefined) {
 					yield* inspectPath(scratchDirectory, "Sandbox scratch directory", "Directory");
@@ -348,6 +313,10 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 				let reservedBytes = 0;
 				let temporaryIndex = 0;
 				let harvested = false;
+				const quotaFailure = (bytes: number) =>
+					reservedBytes + bytes > SANDBOX_LIMITS.scratch.totalBytes
+						? failedHostRequest("Sandbox scratch write exceeds its 5 MiB quota")
+						: undefined;
 
 				const removeUpload = Effect.fnUntraced(function* (upload: ScratchUpload) {
 					const currentPath = upload.complete ? upload.targetPath : upload.temporaryPath;
@@ -423,7 +392,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 					return {
 						size: info.size,
 						offset: args.offset,
-						data: encodeBase64(bytes.subarray(0, read.bytesRead)),
+						data: Base64.encode(bytes.subarray(0, read.bytesRead)),
 					} satisfies typeof artifactReadRangeResultSchema.Type;
 				});
 
@@ -444,16 +413,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 					if (harvested) {
 						return yield* Effect.fail(failedHostRequest("Sandbox scratch execution has ended"));
 					}
-					const decodedBytes = decodedBase64Length(args.data);
-					if (
-						!base64Pattern.test(args.data) ||
-						decodedBytes < 0 ||
-						decodedBytes > maxScratchChunkBytes
-					) {
-						return yield* Effect.fail(
-							failedHostRequest("Scratch data exceeds 256 KiB or is not base64"),
-						);
-					}
+					const decodedBytes = base64DecodedLength(args.data);
 
 					return yield* semaphore.withPermits(1)(
 						Effect.uninterruptibleMask((restore) =>
@@ -471,11 +431,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 										);
 									} else {
 										const targetPath = path.join(scratchDirectory, args.name);
-										const linked = yield* fs.readLink(targetPath).pipe(
-											Effect.as(true),
-											Effect.orElseSucceed(() => false),
-										);
-										if (linked || (yield* fs.exists(targetPath))) {
+										if ((yield* isSymbolicLink(targetPath)) || (yield* fs.exists(targetPath))) {
 											return yield* Effect.fail(
 												failedHostRequest("Sandbox scratch target already exists"),
 											);
@@ -486,10 +442,9 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 											failedHostRequest("Sandbox scratch directory exceeds 4096 entries"),
 										);
 									}
-									if (reservedBytes + decodedBytes > SANDBOX_LIMITS.scratch.totalBytes) {
-										return yield* Effect.fail(
-											failedHostRequest("Sandbox scratch write exceeds its 5 MiB quota"),
-										);
+									const quotaExceeded = quotaFailure(decodedBytes);
+									if (quotaExceeded) {
+										return yield* Effect.fail(quotaExceeded);
 									}
 									temporaryIndex += 1;
 									const targetPath = path.join(scratchDirectory, args.name);
@@ -513,23 +468,23 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 										failedHostRequest("Sandbox scratch write offset is not sequential"),
 									);
 								}
-								if (reservedBytes + decodedBytes > SANDBOX_LIMITS.scratch.totalBytes) {
+								const quotaExceeded = quotaFailure(decodedBytes);
+								if (quotaExceeded) {
 									if (args.offset !== 0) {
 										yield* rollbackUpload(upload);
 									}
-									return yield* Effect.fail(
-										failedHostRequest("Sandbox scratch write exceeds its 5 MiB quota"),
-									);
+									return yield* Effect.fail(quotaExceeded);
 								}
 								upload.bytes += decodedBytes;
 								reservedBytes += decodedBytes;
 
 								const activeUpload = upload;
 								const write = Effect.gen(function* () {
-									const bytes = yield* Effect.try({
-										catch: hostFailure,
-										try: () => decodeBase64(args.data),
-									});
+									const decoded = Base64.decode(args.data);
+									if (Result.isFailure(decoded)) {
+										return yield* Effect.fail(hostFailure(decoded.failure));
+									}
+									const bytes = decoded.success;
 									yield* fs
 										.writeFile(activeUpload.temporaryPath, bytes, {
 											mode: 0o600,
@@ -541,14 +496,10 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 										const info = yield* fs
 											.stat(activeUpload.temporaryPath)
 											.pipe(Effect.mapError(hostFailure));
-										const linked = yield* fs.readLink(activeUpload.targetPath).pipe(
-											Effect.as(true),
-											Effect.orElseSucceed(() => false),
-										);
 										if (
 											info.type !== "File" ||
 											Number(info.size) !== activeUpload.bytes ||
-											linked ||
+											(yield* isSymbolicLink(activeUpload.targetPath)) ||
 											(yield* fs.exists(activeUpload.targetPath))
 										) {
 											return yield* Effect.fail(
@@ -634,15 +585,9 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 								});
 							}
 
-							const harvestDirectory = yield* Effect.acquireRelease(
-								fs
-									.makeTempDirectory({
-										directory: localTempRoot,
-										prefix: `${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}-${sanitizeSandboxExecutionSegment(input.executionId)}-`,
-									})
-									.pipe(Effect.mapError((error) => sandboxFailure(error, "infrastructure"))),
-								(directory) =>
-									fs.remove(directory, { force: true, recursive: true }).pipe(Effect.ignore),
+							const harvestDirectory = yield* acquireTemporaryDirectory(
+								SANDBOX_HARVEST_DIRECTORY_PREFIX,
+								input.executionId,
 							);
 							const sources: string[] = [];
 							for (const name of chunkFiles) {
@@ -700,7 +645,7 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 					},
 				};
 			});
-			return { open } satisfies SandboxFileServiceApi;
+			return { open };
 		}),
 	},
 ) {
@@ -708,3 +653,5 @@ export class SandboxFileService extends Context.Service<SandboxFileService>()(
 		Layer.provide(SandboxArtifactStore.layer),
 	);
 }
+
+export type SandboxFileAccess = Effect.Success<ReturnType<SandboxFileService["Service"]["open"]>>;

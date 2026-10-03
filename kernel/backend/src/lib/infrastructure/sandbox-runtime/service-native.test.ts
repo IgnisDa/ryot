@@ -17,13 +17,12 @@ import {
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { ServerRun } from "#lib/infrastructure/server-run";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
-import { sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
+import { deleteRedisKeysOnExit, testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
 import { SandboxHostImplementations } from "./host-implementations";
+import { nativeConfigLayer, unusedSandboxHostImplementations } from "./runner-native.test-support";
 import { SandboxService } from "./service";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
@@ -56,51 +55,18 @@ const makeUserSubject = (userId: UserId): SandboxExecutionPrincipal["subject"] =
 	accountGeneration: { userId, token: `native-service-account-generation-${userId}` },
 });
 
-const unusedEffect = () => Effect.die("Unused native sandbox host implementation");
-const unusedValue = (): never => {
-	throw new Error("Unused native sandbox lifecycle host implementation");
-};
-
 const withRecoveryCleanup = <A, E, R>(
 	executionIds: ReadonlyArray<string>,
 	effect: Effect.Effect<A, E, R>,
 ) =>
 	Effect.scoped(
-		Effect.gen(function* () {
-			const redis = yield* RedisService;
-			yield* Effect.addFinalizer(() => redis.del(...executionIds.map(redisKeys.sandboxRecovery)));
-			return yield* effect;
-		}),
+		deleteRedisKeysOnExit(() => executionIds.map(redisKeys.sandboxRecovery)).pipe(
+			Effect.andThen(effect),
+		),
 	);
 
-const makeHostImplementations = (
-	control: NativeServiceControlValue,
-): SandboxHostImplementations["Service"] => ({
-	automation: { emitSignal: unusedEffect, sendNotification: unusedEffect },
-	additional: {
-		deleteEvents: unusedEffect,
-		createEvents: unusedEffect,
-		updateEvents: unusedEffect,
-		executeRyotql: unusedEffect,
-		getPluginConfig: unusedEffect,
-		getUserSettings: unusedEffect,
-		listIntegrations: unusedEffect,
-		listEventSchemas: unusedEffect,
-		getEntitySchemas: unusedEffect,
-		getUserPreferences: unusedEffect,
-		ensureUserEntities: unusedEffect,
-		getOAuthAccessToken: unusedEffect,
-		upsertGlobalEntities: unusedEffect,
-		getCurrentIntegration: unusedEffect,
-		requestEventStreamWork: unusedEffect,
-		changeUserRelationships: unusedEffect,
-		upsertGlobalRelationships: unusedEffect,
-	},
-	runtime: {
-		httpCall: unusedEffect,
-		setCachedValue: unusedEffect,
-		getPersistentValue: unusedEffect,
-		claimPersistentValue: unusedEffect,
+const makeHostImplementations = (control: NativeServiceControlValue) =>
+	unusedSandboxHostImplementations({
 		getCachedValue: (input, key) => {
 			control.calls.push({ args: [key], subject: input.principal.subject });
 			if (key !== "block") {
@@ -112,33 +78,7 @@ const makeHostImplementations = (
 				Effect.ensuring(Deferred.succeed(control.hostCompleted, undefined)),
 			);
 		},
-	},
-	lifecycle: {
-		updateEvents: { commit: unusedEffect, validate: unusedEffect },
-		deleteEvents: { commit: unusedEffect, validate: unusedEffect },
-		upsertGlobalEntities: {
-			value: unusedValue,
-			commit: unusedEffect,
-			prepare: unusedEffect,
-			validate: unusedEffect,
-			applyPolicies: unusedEffect,
-		},
-		changeUserRelationships: {
-			value: unusedValue,
-			commit: unusedEffect,
-			prepare: unusedEffect,
-			validate: unusedEffect,
-			applyPolicies: unusedEffect,
-		},
-		upsertGlobalRelationships: {
-			value: unusedValue,
-			commit: unusedEffect,
-			prepare: unusedEffect,
-			validate: unusedEffect,
-			applyPolicies: unusedEffect,
-		},
-	},
-});
+	});
 
 const nativeServiceLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -147,7 +87,6 @@ const nativeServiceLayer = Layer.unwrap(
 			prefix: "ryot-sandbox-native-service-",
 		});
 		const root = yield* fs.realPath(temporaryRoot);
-		const runtimeDirectory = yield* sandboxRuntimeDirectory;
 		const control: NativeServiceControlValue = {
 			calls: [],
 			hostStarted: yield* Deferred.make<void>(),
@@ -155,8 +94,7 @@ const nativeServiceLayer = Layer.unwrap(
 			hostInterrupted: yield* Deferred.make<void>(),
 			releaseHost: yield* Deferred.make<{ readonly key: string; readonly source: string }>(),
 		};
-		const appConfig = makeAppConfigLayer({
-			sandbox: { runtimeDirectory },
+		const appConfig = nativeConfigLayer({
 			fileStorage: { localTempDir: root },
 			redisUrl: Redacted.make(testRedisUrl()),
 		});

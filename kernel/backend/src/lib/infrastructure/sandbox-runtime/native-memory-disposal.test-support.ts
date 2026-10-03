@@ -1,28 +1,30 @@
-import { BunServices } from "@effect/platform-bun";
-import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Context, Deferred, Effect, FileSystem, Layer, Queue, Redacted } from "effect";
+import { Context, Deferred, Effect, FileSystem, Layer, Option, Queue, Redacted } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
 import { SandboxRecoveryStore } from "#lib/infrastructure/sandbox-recovery-store";
 import { ServerRun } from "#lib/infrastructure/server-run";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { testRedisUrl } from "#lib/test-utils/redis";
-import { sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxExecutionAuthority } from "./execution-principal";
 import { SandboxFileService } from "./file-service";
 import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./host-call-gate";
 import { SandboxHostImplementations } from "./host-implementations";
+import {
+	nativeConfigLayer,
+	nativePlatformLayer,
+	recordingSidecarClient,
+	unusedSandboxHostImplementations,
+	type SidecarRecorder,
+} from "./runner-native.test-support";
 import { SandboxService } from "./service";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
-import { SandboxSidecarClient } from "./sidecar-client";
-import type {
-	SidecarDoneFrame,
-	SidecarHostCallFrame,
-	SidecarInboundFrame,
-	SidecarRunFrame,
+import {
+	base64DecodedLength,
+	type SidecarDoneFrame,
+	type SidecarHostCallFrame,
+	type SidecarRunFrame,
 } from "./sidecar-protocol";
 import { SandboxSidecarQuarantine } from "./sidecar-quarantine";
 import { SandboxSidecarSupervisor } from "./sidecar-supervisor";
@@ -77,154 +79,83 @@ export class NativeMemoryEvidence extends Context.Service<NativeMemoryEvidence>(
 	},
 ) {}
 
-const unused = () => Effect.die("Unexpected native memory host dispatch");
-const unusedValue = (): never => {
-	throw new Error("Unexpected native memory lifecycle value");
-};
-const lifecycle = {
-	commit: unused,
-	prepare: unused,
-	validate: unused,
-	value: unusedValue,
-	applyPolicies: unused,
-};
-
 const hosts = Layer.effect(
 	SandboxHostImplementations,
 	Effect.gen(function* () {
 		const evidence = yield* NativeMemoryEvidence;
-		return {
-			automation: { emitSignal: unused, sendNotification: unused },
-			lifecycle: {
-				upsertGlobalEntities: lifecycle,
-				changeUserRelationships: lifecycle,
-				upsertGlobalRelationships: lifecycle,
-				updateEvents: { commit: unused, validate: unused },
-				deleteEvents: { commit: unused, validate: unused },
-			},
-			additional: {
-				deleteEvents: unused,
-				createEvents: unused,
-				updateEvents: unused,
-				executeRyotql: unused,
-				getPluginConfig: unused,
-				getUserSettings: unused,
-				listIntegrations: unused,
-				listEventSchemas: unused,
-				getEntitySchemas: unused,
-				getUserPreferences: unused,
-				ensureUserEntities: unused,
-				getOAuthAccessToken: unused,
-				upsertGlobalEntities: unused,
-				getCurrentIntegration: unused,
-				requestEventStreamWork: unused,
-				changeUserRelationships: unused,
-				upsertGlobalRelationships: unused,
-			},
-			runtime: {
-				httpCall: unused,
-				setCachedValue: unused,
-				getPersistentValue: unused,
-				claimPersistentValue: unused,
-				getCachedValue: (input, key) =>
-					Effect.gen(function* () {
-						const block = evidence.blocked.get(key);
-						if (block === undefined) {
-							return "native-host";
-						}
-						evidence.activeHosts.add(input.executionId);
-						return yield* Deferred.succeed(block.started, undefined).pipe(
-							Effect.andThen(Effect.never),
-							Effect.onInterrupt(() => Deferred.succeed(block.interrupted, undefined)),
-							Effect.ensuring(Effect.sync(() => evidence.activeHosts.delete(input.executionId))),
-						);
-					}),
-			},
-		} satisfies SandboxHostImplementations["Service"];
+		return unusedSandboxHostImplementations({
+			getCachedValue: (input, key) =>
+				Effect.gen(function* () {
+					const block = evidence.blocked.get(key);
+					if (block === undefined) {
+						return "native-host";
+					}
+					evidence.activeHosts.add(input.executionId);
+					return yield* Deferred.succeed(block.started, undefined).pipe(
+						Effect.andThen(Effect.never),
+						Effect.onInterrupt(() => Deferred.succeed(block.interrupted, undefined)),
+						Effect.ensuring(Effect.sync(() => evidence.activeHosts.delete(input.executionId))),
+					);
+				}),
+		});
 	}),
 );
 
-const recordingClient = Layer.effect(
-	SandboxSidecarClient,
+const recordingClient = recordingSidecarClient(
 	Effect.gen(function* () {
-		const real = yield* SandboxSidecarClient;
 		const evidence = yield* NativeMemoryEvidence;
 		const admission = yield* SandboxSidecarAdmission;
 		return {
-			connect: Effect.fnUntraced(function* (settings: Parameters<typeof real.connect>[0]) {
-				const connection = yield* real.connect(settings);
-				return {
-					...connection,
-					retire: (handle: string) =>
-						connection.retire(handle).pipe(
-							Effect.tap(() =>
-								Effect.sync(() => {
-									evidence.retired.add(handle);
-								}),
-							),
-						),
-					next: connection.next.pipe(
-						Effect.tap((frame) =>
-							Effect.sync(() => {
-								if (frame.type === "hostCall") {
-									const args =
-										frame.name === "scratchWrite" && isObjectRecord(frame.args)
-											? { final: frame.args["final"] ?? null, offset: frame.args["offset"] ?? null }
-											: frame.args;
-									evidence.calls.push({ args, name: frame.name, handle: frame.handle });
-									evidence.reservations.push(admission.snapshot());
-									Queue.offerUnsafe(evidence.events, { name: frame.name, handle: frame.handle });
-								}
-								if (frame.type === "done") {
-									evidence.done.set(frame.handle, frame.outcome);
-								}
-							}),
-						),
-					),
-					send: (frame: SidecarInboundFrame) => {
-						if (frame.type === "run") {
-							const input = frame.input;
-							if (isObjectRecord(input)) {
-								const executionId = input["executionId"];
-								if (typeof executionId === "string") {
-									evidence.runs.set(executionId, {
-										handle: frame.handle,
-										limits: frame.limits,
-										generation: frame.generation,
-									});
-								}
-							}
+			retired: (handle: string) => {
+				evidence.retired.add(handle);
+			},
+			received: (frame) => {
+				if (frame.type === "hostCall") {
+					const args =
+						frame.name === "scratchWrite" && isObjectRecord(frame.args)
+							? { final: frame.args["final"] ?? null, offset: frame.args["offset"] ?? null }
+							: frame.args;
+					evidence.calls.push({ args, name: frame.name, handle: frame.handle });
+					evidence.reservations.push(admission.snapshot());
+					Queue.offerUnsafe(evidence.events, { name: frame.name, handle: frame.handle });
+				}
+				if (frame.type === "done") {
+					evidence.done.set(frame.handle, frame.outcome);
+				}
+			},
+			sent: (frame) => {
+				if (frame.type === "run" && isObjectRecord(frame.input)) {
+					const executionId = frame.input["executionId"];
+					if (typeof executionId === "string") {
+						evidence.runs.set(executionId, {
+							handle: frame.handle,
+							limits: frame.limits,
+							generation: frame.generation,
+						});
+					}
+				}
+				if (frame.type === "hostResult" && frame.result.status === "success") {
+					const value = frame.result.value;
+					if (isObjectRecord(value)) {
+						if (value["success"] === false && typeof value["error"] === "string") {
+							evidence.failures.push({ handle: frame.handle, error: value["error"] });
 						}
-						if (frame.type === "hostResult" && frame.result.status === "success") {
-							const value = frame.result.value;
-							if (isObjectRecord(value)) {
-								if (value["success"] === false && typeof value["error"] === "string") {
-									evidence.failures.push({ handle: frame.handle, error: value["error"] });
-								}
-								const data = value["data"];
-								const offset = value["offset"];
-								if (typeof data === "string" && typeof offset === "number") {
-									let padding = 0;
-									if (data.endsWith("==")) {
-										padding = 2;
-									} else if (data.endsWith("=")) {
-										padding = 1;
-									}
-									evidence.ranges.push({
-										offset,
-										handle: frame.handle,
-										bytes: (data.length / 4) * 3 - padding,
-									});
-								}
-							}
+						const data = value["data"];
+						const offset = value["offset"];
+						if (typeof data === "string" && typeof offset === "number") {
+							evidence.ranges.push({
+								offset,
+								handle: frame.handle,
+								bytes: base64DecodedLength(data),
+							});
 						}
-						return connection.send(frame);
-					},
-				};
-			}),
-		};
+					}
+				}
+				return frame;
+			},
+		} satisfies SidecarRecorder;
 	}),
-).pipe(Layer.provide(SandboxSidecarClient.layer));
+);
 
 const recordingGate = Layer.effect(
 	SandboxHostCallGate,
@@ -263,11 +194,10 @@ const recordingFiles = Layer.effect(
 export const nativeMemoryLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const evidence = yield* NativeMemoryEvidence;
-		const runtimeDirectory = yield* sandboxRuntimeDirectory;
-		const config = makeAppConfigLayer({
+		const config = nativeConfigLayer({
 			redisUrl: Redacted.make(testRedisUrl()),
 			fileStorage: { localTempDir: evidence.root },
-			sandbox: { runtimeDirectory, memoryBudgetMiB: 2048 },
+			sandbox: { memoryBudgetMiB: Option.some(2048) },
 		});
 		const dependencies = Layer.mergeAll(
 			recordingClient,
@@ -291,5 +221,5 @@ export const nativeMemoryLayer = Layer.unwrap(
 	}),
 ).pipe(
 	Layer.provideMerge(Layer.effect(NativeMemoryEvidence, NativeMemoryEvidence.make)),
-	Layer.provideMerge(Layer.mergeAll(BunServices.layer, sandboxCompilerPlatformLayer)),
+	Layer.provideMerge(nativePlatformLayer),
 );

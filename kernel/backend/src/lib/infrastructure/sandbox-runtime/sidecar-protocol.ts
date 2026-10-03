@@ -6,28 +6,35 @@ import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import { workflowHostRequestSchema } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
-import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "./limits";
+import { KiB, MiB, SANDBOX_LIMITS } from "./limits";
 
-const KiB = 1024;
-const MiB = 1024 * KiB;
 const maxContextBytes = SANDBOX_LIMITS.execution.contextBytes;
-const maxScratchChunkBytes = 256 * KiB;
 
 const numberIsSafeInteger = Number.isSafeInteger.bind(Number);
 const jsonStringify = JSON.stringify.bind(JSON);
 const encoder = new TextEncoder();
 const encodeText = encoder.encode.bind(encoder);
 const stringEndsWithMethod = Object.getOwnPropertyDescriptor(String.prototype, "endsWith")?.value;
-const regexpTestMethod = Object.getOwnPropertyDescriptor(RegExp.prototype, "test")?.value;
+const regexpExecMethod = Object.getOwnPropertyDescriptor(RegExp.prototype, "exec")?.value;
 const boundStringEndsWith = stringEndsWithMethod.call.bind(stringEndsWithMethod);
-const boundRegExpTest = regexpTestMethod.call.bind(regexpTestMethod);
+const boundRegExpExec = regexpExecMethod.call.bind(regexpExecMethod);
 const stringEndsWith = (value: string, part: string) => {
 	const result: unknown = boundStringEndsWith(value, part);
 	return typeof result === "boolean" && result;
 };
-const testRegExp = (expression: RegExp, value: string) => {
-	const result: unknown = boundRegExpTest(expression, value);
-	return typeof result === "boolean" && result;
+const base64Pattern = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
+export const isBase64 = (value: string) =>
+	value.length % 4 === 0 && boundRegExpExec(base64Pattern, value) !== null;
+
+export const base64DecodedLength = (value: string) => {
+	let padding = 0;
+	if (stringEndsWith(value, "==")) {
+		padding = 2;
+	} else if (stringEndsWith(value, "=")) {
+		padding = 1;
+	}
+	return (value.length / 4) * 3 - padding;
 };
 
 const safeNonNegativeInteger = Schema.Finite.pipe(
@@ -88,21 +95,6 @@ const journalSchema = Schema.Struct({
 	),
 );
 
-const canonicalRunnerLimitsSchema = Schema.Struct({
-	resultBytes: Schema.Literal(SANDBOX_RUNNER_LIMITS.resultBytes),
-	hostCallCount: Schema.Literal(SANDBOX_RUNNER_LIMITS.hostCallCount),
-	httpCallCount: Schema.Literal(SANDBOX_RUNNER_LIMITS.httpCallCount),
-	logEntryBytes: Schema.Literal(SANDBOX_RUNNER_LIMITS.logEntryBytes),
-	logEntryCount: Schema.Literal(SANDBOX_RUNNER_LIMITS.logEntryCount),
-	logTotalBytes: Schema.Literal(SANDBOX_RUNNER_LIMITS.logTotalBytes),
-	bridgeRequestBytes: Schema.Literal(SANDBOX_RUNNER_LIMITS.bridgeRequestBytes),
-	bridgeResponseBytes: Schema.Literal(SANDBOX_RUNNER_LIMITS.bridgeResponseBytes),
-	logTruncationMarker: Schema.Literal(SANDBOX_RUNNER_LIMITS.logTruncationMarker),
-	hostCallLimitMessage: Schema.Literal(SANDBOX_RUNNER_LIMITS.hostCallLimitMessage),
-	httpCallLimitMessage: Schema.Literal(SANDBOX_RUNNER_LIMITS.httpCallLimitMessage),
-	durableBridgeResponseBytes: Schema.Literal(SANDBOX_RUNNER_LIMITS.durableBridgeResponseBytes),
-});
-
 const filesystemHintsSchema = Schema.Struct({
 	scratch: Schema.Boolean,
 	artifact: Schema.Boolean,
@@ -116,7 +108,6 @@ export const SandboxInvocationSchema = Schema.Struct({
 	metadata: SandboxScriptMetadata,
 	compiledFormat: Schema.Literal(1),
 	mode: Schema.Literal("definition"),
-	limits: canonicalRunnerLimitsSchema,
 	journal: Schema.optional(journalSchema),
 	apiFunctions: Schema.Array(Schema.String),
 	filesystem: Schema.optional(filesystemHintsSchema),
@@ -150,20 +141,7 @@ export const journalReadArgsSchema = Schema.Struct({
 	length: rangeLength,
 	offset: safeNonNegativeInteger,
 });
-export type JournalReadArgs = Schema.Schema.Type<typeof journalReadArgsSchema>;
 
-const isBase64 = (value: string) =>
-	value.length % 4 === 0 &&
-	testRegExp(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/, value);
-const base64DecodedLength = (value: string) => {
-	let padding = 0;
-	if (stringEndsWith(value, "==")) {
-		padding = 2;
-	} else if (stringEndsWith(value, "=")) {
-		padding = 1;
-	}
-	return (value.length / 4) * 3 - padding;
-};
 const base64RangeData = Schema.String.pipe(
 	Schema.check(
 		Schema.makeFilter(
@@ -178,27 +156,24 @@ export const journalReadResultSchema = Schema.Struct({
 	offset: safeNonNegativeInteger,
 	totalBytes: safeNonNegativeInteger,
 });
-export type JournalReadResult = Schema.Schema.Type<typeof journalReadResultSchema>;
 
 export const artifactReadRangeArgsSchema = Schema.Struct({
 	length: rangeLength,
 	offset: safeNonNegativeInteger,
 	key: Schema.optional(Schema.String),
 });
-export type ArtifactReadRangeArgs = Schema.Schema.Type<typeof artifactReadRangeArgsSchema>;
 
 export const artifactReadRangeResultSchema = Schema.Struct({
 	data: base64RangeData,
 	size: safeNonNegativeInteger,
 	offset: safeNonNegativeInteger,
 });
-export type ArtifactReadRangeResult = Schema.Schema.Type<typeof artifactReadRangeResultSchema>;
 
 const scratchData = Schema.String.pipe(
 	Schema.check(
 		Schema.makeFilter(
 			(value) =>
-				(isBase64(value) && base64DecodedLength(value) <= maxScratchChunkBytes) ||
+				(isBase64(value) && base64DecodedLength(value) <= SANDBOX_LIMITS.scratch.chunkBytes) ||
 				"Scratch data exceeds 256 KiB or is not base64",
 		),
 	),
@@ -209,18 +184,15 @@ export const scratchWriteArgsSchema = Schema.Struct({
 	final: Schema.Boolean,
 	offset: safeNonNegativeInteger,
 });
-export type ScratchWriteArgs = Schema.Schema.Type<typeof scratchWriteArgsSchema>;
 
 export const InlineBatchSchema = Schema.Struct({
 	requests: Schema.NonEmptyArray(workflowHostRequestSchema),
 });
-export type InlineBatch = Schema.Schema.Type<typeof InlineBatchSchema>;
 
 export const InlineBatchReplySchema = Schema.Union([
 	Schema.Struct({ defer: Schema.Literal(true) }),
 	Schema.Struct({ results: Schema.Array(jsonValueSchema) }),
 ]);
-export type InlineBatchReply = Schema.Schema.Type<typeof InlineBatchReplySchema>;
 
 export const SandboxInvocationResponseSchema = Schema.Union([
 	Schema.Struct({
@@ -257,9 +229,7 @@ const boundedInt = (range: { readonly minimum: number; readonly maximum: number 
 
 const Handle = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,64}$/));
 const Sha256 = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/));
-const Base64 = Schema.String.check(
-	Schema.isPattern(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),
-);
+const Base64 = Schema.String.check(Schema.isPattern(base64Pattern));
 const Seq = boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER });
 const Generation = boundedInt({ minimum: 0, maximum: 4_294_967_295 });
 

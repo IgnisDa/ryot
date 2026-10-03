@@ -49,8 +49,8 @@
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
-| `sandbox.memoryBudgetMiB` | `SANDBOX_MEMORY_BUDGET_MIB` | Aggregate memory reservation budget for sandbox processes and execution buffers | No | No | `1536` |
 | `sandbox.workerConcurrency` | `SANDBOX_WORKER_CONCURRENCY` | Global sandbox execution concurrency across trust and snapshot tiers; keep it within available database and memory headroom | No | No | `2` |
+| `sandbox.memoryBudgetMiB` | `SANDBOX_MEMORY_BUDGET_MIB` | Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset | No | No | — |
 | `sandbox.perUserSidecars` | `SANDBOX_PER_USER_SIDECARS` | Run each uploader's user-tier scripts in their own sidecar processes instead of shared ones; use when mutually untrusted users share an instance | No | No | `false` |
 | `sandbox.importConcurrency` | `SANDBOX_IMPORT_CONCURRENCY` | Maximum provider imports running at once across all instances; the rest wait in a queue. Keep it equal to the total SANDBOX_WORKER_CONCURRENCY of all instances | No | No | `2` |
 

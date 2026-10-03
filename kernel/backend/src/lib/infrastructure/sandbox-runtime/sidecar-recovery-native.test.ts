@@ -23,6 +23,7 @@ import { SandboxInvocationSchema, type SidecarRunFrame } from "./sidecar-protoco
 import { SandboxSidecarQuarantine } from "./sidecar-quarantine";
 import {
 	killNativeConnection,
+	compileTightenedNative,
 	NativeRecoveryEvidence,
 	nativeInput,
 	nativeRecoveryLayer,
@@ -160,9 +161,7 @@ const probationRenewsOnFatalAndClearsOnSuccess = Effect.scoped(
 	Effect.gen(function* () {
 		const redis = yield* RedisService;
 		const track = yield* trackNativeKeys;
-		const compiled = yield* (yield* SandboxCompiler).compile(
-			crashSource(testExecutionId("probation")),
-		);
+		const compiled = yield* compileTightenedNative(crashSource(testExecutionId("probation")));
 		const base = withUploader(
 			nativeInput(compiled, testExecutionId("probation"), { mode: "crash" }),
 			UserId.make(testExecutionId("uploader")),
@@ -242,7 +241,7 @@ const systemJobQuarantineSparesOtherWork = Effect.scoped(
 		const compiler = yield* SandboxCompiler;
 		const track = yield* trackNativeKeys;
 		const supervisor = yield* SandboxSidecarSupervisor.make;
-		const compiled = yield* compiler.compile(crashSource(testExecutionId("system-fatal")));
+		const compiled = yield* compileTightenedNative(crashSource(testExecutionId("system-fatal")));
 		const user = UserId.make(testExecutionId("system-trigger"));
 		const base = nativeInput(compiled, testExecutionId("system-crash"), { mode: "crash" });
 		const crash: SandboxRunInput = {
@@ -359,7 +358,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 				const supervisor = yield* SandboxSidecarSupervisor.make;
 				const uploader = UserId.make(testExecutionId("uploader"));
 				const other = UserId.make(testExecutionId("other-uploader"));
-				const compiled = yield* compiler.compile(crashSource(testExecutionId("fatal")));
+				const compiled = yield* compileTightenedNative(crashSource(testExecutionId("fatal")));
 				const crash = asPlugin(
 					nativeInput(compiled, testExecutionId("crash"), { mode: "crash" }),
 					uploader,
@@ -401,7 +400,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 				const uploader = UserId.make(testExecutionId("uploader"));
 				const other = UserId.make(testExecutionId("other-uploader"));
 				const third = UserId.make(testExecutionId("third-uploader"));
-				const compiled = yield* compiler.compile(crashSource(testExecutionId("fatal")));
+				const compiled = yield* compileTightenedNative(crashSource(testExecutionId("fatal")));
 				const crash = asPlugin(
 					nativeInput(compiled, testExecutionId("crash"), { mode: "crash" }),
 					uploader,
@@ -548,7 +547,7 @@ layer(nativeRecoveryLayer, { excludeTestServices: true })((test) => {
 							const fiber = yield* runSupervisedNative(supervisor, victim).pipe(Effect.forkScoped);
 							for (let index = 0; index < 4; index++) {
 								yield* Queue.take(parked);
-								const culpritCompiled = yield* compiler.compile(
+								const culpritCompiled = yield* compileTightenedNative(
 									crashSource(testExecutionId("culprit")),
 								);
 								const culprit = withUploader(
