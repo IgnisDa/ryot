@@ -15,7 +15,7 @@ it.each([
 	expect(selectWorkoutSetMeasurements(kind, measurements)).toEqual(expected);
 });
 
-it("builds workout-set properties with zero values, RPE, and canonical statistics", () => {
+it("builds workout-set properties with zero values and RPE but no derived statistics", () => {
 	expect(
 		buildWorkoutSetEventProperties({
 			rpe: 8,
@@ -32,9 +32,7 @@ it("builds workout-set properties with zero values, RPE, and canonical statistic
 	).toEqual({
 		rpe: 8,
 		reps: 5,
-		oneRm: 0,
 		weight: 0,
-		volume: 0,
 		restTime: 0,
 		setOrder: 3,
 		note: "Last set",

@@ -7,9 +7,9 @@ import type {
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
+import { executeMeasurementRyotql } from "./in-memory-ryotql.test-support";
 import logDefinition, { manifest } from "./measurement-reading-log.sandbox";
 import { MeasurementMetricNotFoundError } from "./measurement-readings";
-import { executeMeasurementRyotql } from "./measurement-readings.test-support";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 const occurredAt = "2026-04-27T08:00:00.000Z";
@@ -72,7 +72,13 @@ describe("measurement reading log operation", () => {
 							return options.length === 1
 								? Effect.fail({
 										message: "Event creation failed",
-										data: { count: 1, partial: true },
+										data: {
+											count: 1,
+											partial: true,
+											outcomes: [
+												{ index: 0, status: "written", eventId: EventId.make("created-event-0") },
+											],
+										},
 									})
 								: Effect.succeed({
 										count: items.length,

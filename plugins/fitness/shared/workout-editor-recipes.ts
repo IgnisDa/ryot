@@ -21,9 +21,12 @@ import {
 import { EntityId, EventId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { decodeWorkoutEditorJson, encodeWorkoutEditorJson } from "./workout-editor-codec";
+import { workoutSetEditableFields } from "./workout-set";
+
+export const WORKOUT_EDITOR_PAGE_SIZE = 100;
 
 export const WorkoutEditorPropertiesSchema = Schema.Record(Schema.String, JsonValue);
-export const WorkoutEditorEntitySchema = Schema.Struct({
+const WorkoutEditorEntitySchema = Schema.Struct({
 	id: EntityId,
 	name: Schema.String,
 	updatedAt: Schema.String,
@@ -82,8 +85,8 @@ export const workoutEditorSetsRecipe = defineRecipe(
 			map: ({ sets }) => Result.succeed(sets),
 			queries: {
 				sets: selectedRows(event, {
-					limit: 100,
 					after: input.after,
+					limit: WORKOUT_EDITOR_PAGE_SIZE,
 					orderBy: [ascending(column(event, "id"))],
 					where: and(
 						schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
@@ -114,8 +117,8 @@ export const workoutEditorExercisesRecipe = defineRecipe(
 			map: ({ exercises }) => Result.succeed(exercises),
 			queries: {
 				exercises: selectedRows(exercise, {
-					limit: 100,
 					after: input.after,
+					limit: WORKOUT_EDITOR_PAGE_SIZE,
 					orderBy: [ascending(column(exercise, "id"))],
 					where: and(
 						entitySchemaPredicate(exercise, "exercise", input.reference),
@@ -145,7 +148,7 @@ export const workoutEditorEventIdentitiesRecipe = defineRecipe(
 			map: ({ identities }) => Result.succeed(identities.items),
 			queries: {
 				identities: selectedRows(event, {
-					limit: 100,
+					limit: WORKOUT_EDITOR_PAGE_SIZE,
 					orderBy: [ascending(column(event, "id"))],
 					where: and(
 						schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
@@ -197,7 +200,7 @@ export const workoutEditorLinksRecipe = defineRecipe(
 			map: ({ links }) => Result.succeed(links),
 			queries: {
 				links: selectedRows(link, {
-					limit: 100,
+					limit: WORKOUT_EDITOR_PAGE_SIZE,
 					orderBy: [ascending(column(link, "id"))],
 					selection: {
 						id: selectedField(column(link, "id"), Schema.String),
@@ -218,9 +221,9 @@ export const workoutEditorLinksRecipe = defineRecipe(
 	},
 );
 
-const derivedSetFields = new Set(["oneRm", "pace", "personalBests", "volume"]);
+const editableSetFields: ReadonlySet<string> = new Set(workoutSetEditableFields);
 export const workoutEditableSetProperties = (properties: WorkoutEditorEvent["properties"]) =>
-	Object.fromEntries(Object.entries(properties).filter(([key]) => !derivedSetFields.has(key)));
+	Object.fromEntries(Object.entries(properties).filter(([key]) => editableSetFields.has(key)));
 
 export const encodeWorkoutEditorBaseline = (baseline: WorkoutEditorBaseline) => {
 	return encodeWorkoutEditorJson(

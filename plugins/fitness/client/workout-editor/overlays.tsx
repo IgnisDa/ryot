@@ -15,17 +15,13 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useRef, useState } from "react";
 
+import { supersetColor, supersetColors, type SupersetColor } from "../../shared/superset-colors";
 import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type {
 	WorkoutHistoryResult,
 	WorkoutHistorySetResult,
 } from "../../shared/workout-history-recipes";
-import {
-	supersetColor,
-	supersetColors,
-	supersetColorVariable,
-	supersetSoftColorVariable,
-} from "../group-colors";
+import { supersetColorVariable, supersetSoftColorVariable } from "../group-colors";
 import { removeWorkoutItems } from "./actions";
 import { editorHistoryQuery, readHistorySets } from "./queries";
 import { supersetNames } from "./superset-group";
@@ -402,7 +398,7 @@ export function BulkDeleteOverlay(props: DraftOverlayProps) {
 export function SupersetOverlay(props: DraftOverlayProps) {
 	const [editing, setEditing] = useState<string>();
 	const [selected, setSelected] = useState<readonly string[]>([]);
-	const [color, setColor] = useState<(typeof supersetColors)[number]>("blue");
+	const [color, setColor] = useState<SupersetColor>("blue");
 	const groups = supersetNames(props.draft);
 	const memberNames = (occurrenceIds: readonly string[]) =>
 		occurrenceIds

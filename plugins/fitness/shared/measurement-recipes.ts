@@ -7,8 +7,11 @@ import {
 	count,
 	defineRecipe,
 	eq,
+	eventSchemaPredicate,
 	first,
 	gte,
+	inArray,
+	join,
 	latestEventField,
 	literal,
 	minimum,
@@ -26,6 +29,8 @@ import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import { property, propertyNumber } from "./entity-selections";
 
 export const MEASUREMENT_SERIES_BATCH_SIZE = 5;
+
+export const measurementPinRelationshipSchemaSlug = "measurement-metric-pinned";
 
 const nullableString = Schema.NullOr(Schema.String);
 
@@ -89,7 +94,11 @@ export const measurementSummaryRecipe = defineRecipe(
 								orderBy: [ascending(column(pin, "createdAt"))],
 								where: and(
 									eq(column(pin, "sourceEntityId"), column(metric, "id")),
-									relationshipSchemaPredicate(pin, "measurement-metric-pinned", input.reference),
+									relationshipSchemaPredicate(
+										pin,
+										measurementPinRelationshipSchemaSlug,
+										input.reference,
+									),
 								),
 							}),
 							nullableString,
@@ -164,3 +173,78 @@ export const measurementSeriesRecipe = defineRecipe((input: SeriesInput) => ({
 
 export type MeasurementSummary = Recipe.Success<typeof measurementSummaryRecipe>["items"][number];
 export type MeasurementSeries = Recipe.Success<typeof measurementSeriesRecipe>[number];
+
+export const measurementReadingsRecipe = defineRecipe((readingIds: readonly string[]) => {
+	const reading = table("event", "reading");
+	const metric = table("entity", "metric");
+	return {
+		map: ({ readings }) => Result.succeed(readings.items),
+		queries: {
+			readings: selectedRows(reading, {
+				limit: readingIds.length,
+				orderBy: [ascending(column(reading, "id"))],
+				joins: [join("inner", metric, eq(column(reading, "entityId"), column(metric, "id")))],
+				selection: {
+					id: selectedField(column(reading, "id"), Schema.String),
+					metricId: selectedField(column(metric, "id"), Schema.String),
+				},
+				where: and(
+					inArray(column(reading, "id"), readingIds.map(literal)),
+					eventSchemaPredicate(reading, metric, "measurement-metric", "measurement-reading", {
+						kind: "self",
+					}),
+				),
+			}),
+		},
+	};
+});
+
+export const measurementMetricIdsRecipe = defineRecipe((metricIds: readonly string[]) => {
+	const metric = table("entity", "metric");
+	return {
+		map: ({ metrics }) => Result.succeed(metrics.items.map(({ id }) => id)),
+		queries: {
+			metrics: selectedRows(metric, {
+				limit: metricIds.length,
+				orderBy: [ascending(column(metric, "id"))],
+				selection: { id: selectedField(column(metric, "id"), Schema.String) },
+				where: and(
+					inArray(column(metric, "id"), metricIds.map(literal)),
+					entitySchemaPredicate(metric, "measurement-metric", { kind: "self" }),
+				),
+			}),
+		},
+	};
+});
+
+export const pinnedMeasurementMetricIdsRecipe = defineRecipe(() => {
+	const pin = table("relationship", "pin");
+	return {
+		map: ({ pins }) => Result.succeed(pins.items.map(({ metricId }) => metricId)),
+		queries: {
+			pins: selectedRows(pin, {
+				limit: 100,
+				orderBy: [ascending(column(pin, "id"))],
+				selection: { metricId: selectedField(column(pin, "sourceEntityId"), Schema.String) },
+				where: relationshipSchemaPredicate(pin, measurementPinRelationshipSchemaSlug, {
+					kind: "self",
+				}),
+			}),
+		},
+	};
+});
+
+export const allMeasurementMetricIdsRecipe = defineRecipe((limit: number) => {
+	const metric = table("entity", "metric");
+	return {
+		map: ({ metrics }) => Result.succeed(metrics.items.map(({ id }) => id)),
+		queries: {
+			metrics: selectedRows(metric, {
+				limit,
+				orderBy: [ascending(column(metric, "id"))],
+				selection: { id: selectedField(column(metric, "id"), Schema.String) },
+				where: entitySchemaPredicate(metric, "measurement-metric", { kind: "self" }),
+			}),
+		},
+	};
+});

@@ -2,8 +2,8 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
-import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { applyWorkoutTimes } from "../../shared/workout-editor-properties";
 import {
 	decodeWorkoutEditorBaseline,
 	workoutEditorEntityRecipe,
@@ -45,20 +45,7 @@ export default defineOperation({
 				return { kind: "conflict" } as const;
 			}
 			const { entity } = decoded.success;
-			const properties: Record<string, JsonValue> = {
-				...entity.properties,
-				startedAt: input.startedAt,
-			};
-			delete properties["endedAt"];
-			if (input.endedAt !== undefined) {
-				properties["endedAt"] = input.endedAt;
-			}
-			if (input.activeDuration.kind === "clear") {
-				delete properties["activeDuration"];
-			}
-			if (input.activeDuration.kind === "set") {
-				properties["activeDuration"] = input.activeDuration.seconds;
-			}
+			const properties = applyWorkoutTimes(entity.properties, input);
 			const saved = yield* host
 				.updateUserEntity(
 					{

@@ -7,6 +7,7 @@ import {
 import { executeRyotqlRecipe, IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { jsonValueEquals } from "../shared/json-value-equals";
 import {
 	workoutRecordRowsRecipe,
 	type WorkoutRecordRowsResult,
@@ -68,13 +69,6 @@ const measurementsOf = (row: WorkoutRecordRow) => ({
 	distance: row.distance ?? undefined,
 });
 
-const sameJsonValue = (left: unknown, right: unknown) =>
-	left === right ||
-	(Array.isArray(left) &&
-		Array.isArray(right) &&
-		left.length === right.length &&
-		left.every((value, index) => value === right[index]));
-
 const outputProperties = (
 	row: WorkoutRecordRow,
 	statistics: ReturnType<typeof calculateWorkoutSetStatistics>,
@@ -93,7 +87,7 @@ const outputProperties = (
 			if (current !== null) {
 				remove.push(key);
 			}
-		} else if (!sameJsonValue(current, value)) {
+		} else if (!jsonValueEquals(current, value)) {
 			set[key] = value;
 		}
 	}

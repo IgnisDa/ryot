@@ -7,28 +7,6 @@ import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Effect, FileSystem, Layer } from "effect";
 
 const bytes = (contents: string) => new TextEncoder().encode(contents);
-const sharedFiles = [
-	"exercise-kinds.ts",
-	"workout-editor-draft.ts",
-	"workout-editor-codec.ts",
-	"workout-editor-operations.ts",
-	"workout-editor-preferences.ts",
-	"workout-editor-transformations.ts",
-	"workout-records.ts",
-	"workout-set.ts",
-	"workout-units.ts",
-	"workout-editor-recipes.ts",
-	"workout-editor-source.ts",
-	"workout-exercise-recipes.ts",
-	"workout-history-recipes.ts",
-	"workout-details-recipes.ts",
-	"entity-selections.ts",
-	"query-recipes.ts",
-	"taxonomy-recipes.ts",
-	"taxonomy.ts",
-	"library-recipes.ts",
-] as const;
-
 const compilerLayer = Layer.mergeAll(
 	BunPath.layer,
 	BunFileSystem.layer,
@@ -61,6 +39,9 @@ layer(compilerLayer)((test) =>
 	test.effect("compiles editor shared modules under the client shared-source policy", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
+			const sharedFiles = (yield* fs.readDirectory("shared")).filter(
+				(file) => file.endsWith(".ts") && !file.includes(".test."),
+			);
 			const sharedSources = yield* Effect.forEach(sharedFiles, (file) =>
 				fs
 					.readFile(`shared/${file}`)

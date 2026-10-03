@@ -2,21 +2,15 @@ import { Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId, EventId, LocalAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "./exercise-kinds";
+import { IsoTimestamp, NonEmptyString, NonNegativeNumber } from "./fitness-primitives";
+import { SupersetColorSchema } from "./superset-colors";
 import { decodeWorkoutEditorJson, encodeWorkoutEditorJson } from "./workout-editor-codec";
 import { WorkoutEditorSaveInputSchema } from "./workout-editor-operations";
 import { WorkoutEditorMediaSchema, WorkoutSetLotSchema } from "./workout-set";
+import { DurationUnitSchema, EnergyUnitSchema } from "./workout-units";
 
-const nonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 const nonEmptyEntityId = EntityId.pipe(Schema.check(Schema.isMinLength(1)));
 const nonEmptyEventId = EventId.pipe(Schema.check(Schema.isMinLength(1)));
-const nonNegativeNumber = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
-const timestamp = Schema.String.pipe(
-	Schema.check(
-		Schema.makeFilter(
-			(value) => Number.isFinite(Date.parse(value)) || "Expected a valid timestamp",
-		),
-	),
-);
 
 export const WorkoutEditorSourceSchema = Schema.Union([
 	Schema.Struct({ entityId: nonEmptyEntityId, kind: Schema.Literal("template") }),
@@ -30,7 +24,7 @@ export const WorkoutEditorModeSchema = Schema.Union([
 	}),
 	Schema.Struct({
 		entityId: nonEmptyEntityId,
-		conflictToken: nonEmptyString,
+		conflictToken: NonEmptyString,
 		kind: Schema.Literal("historical"),
 	}),
 	Schema.Struct({
@@ -39,15 +33,15 @@ export const WorkoutEditorModeSchema = Schema.Union([
 	}),
 	Schema.Struct({
 		entityId: nonEmptyEntityId,
-		conflictToken: nonEmptyString,
+		conflictToken: NonEmptyString,
 		kind: Schema.Literal("template-edit"),
 	}),
 ]);
 
 export const WorkoutEditorDisplaySchema = Schema.Struct({
+	durationUnit: DurationUnitSchema,
 	weightUnit: Schema.Literals(["kg", "lb"]),
 	distanceUnit: Schema.Literals(["km", "mi"]),
-	durationUnit: Schema.Literals(["seconds", "minutes"]),
 });
 
 export const WorkoutEditorLocalPreferencesSchema = Schema.Struct({
@@ -62,25 +56,25 @@ export const WorkoutEditorRestChoiceSchema = Schema.Union([
 ]);
 
 export const WorkoutEditorSetSchema = Schema.Struct({
-	clientId: nonEmptyString,
+	clientId: NonEmptyString,
 	included: Schema.Boolean,
 	setLot: WorkoutSetLotSchema,
 	exerciseKind: exerciseKindSchema,
 	rpe: Schema.optional(Schema.String),
 	note: Schema.optional(Schema.String),
 	reps: Schema.optional(Schema.String),
-	occurredAt: Schema.optional(timestamp),
 	weight: Schema.optional(Schema.String),
-	confirmedAt: Schema.optional(timestamp),
 	distance: Schema.optional(Schema.String),
 	duration: Schema.optional(Schema.String),
+	occurredAt: Schema.optional(IsoTimestamp),
 	eventId: Schema.optional(nonEmptyEventId),
 	restChoice: WorkoutEditorRestChoiceSchema,
-	restTimerStartedAt: Schema.optional(timestamp),
+	confirmedAt: Schema.optional(IsoTimestamp),
+	restTimerStartedAt: Schema.optional(IsoTimestamp),
 });
 
 export const WorkoutEditorOccurrenceSchema = Schema.Struct({
-	clientId: nonEmptyString,
+	clientId: NonEmptyString,
 	isCollapsed: Schema.Boolean,
 	exerciseId: nonEmptyEntityId,
 	exerciseKind: exerciseKindSchema,
@@ -89,46 +83,46 @@ export const WorkoutEditorOccurrenceSchema = Schema.Struct({
 	notes: Schema.Array(Schema.String),
 	sets: Schema.Array(WorkoutEditorSetSchema),
 	display: Schema.optional(WorkoutEditorDisplaySchema),
-	sourceExerciseOrder: Schema.optional(nonNegativeNumber),
+	sourceExerciseOrder: Schema.optional(NonNegativeNumber),
 });
 
 export const WorkoutEditorSupersetSchema = Schema.Struct({
-	color: Schema.String,
-	clientId: nonEmptyString,
-	occurrenceIds: Schema.Array(nonEmptyString),
+	clientId: NonEmptyString,
+	color: SupersetColorSchema,
+	occurrenceIds: Schema.Array(NonEmptyString),
 });
 
 export const WorkoutEditorCountdownSchema = Schema.Struct({
-	deadline: timestamp,
-	setId: nonEmptyString,
-	clientId: nonEmptyString,
-	occurrenceId: nonEmptyString,
+	setId: NonEmptyString,
+	deadline: IsoTimestamp,
+	clientId: NonEmptyString,
+	occurrenceId: NonEmptyString,
 	exerciseId: nonEmptyEntityId,
-	durationSeconds: nonNegativeNumber,
-	pausedRemainingSeconds: Schema.optional(nonNegativeNumber),
+	durationSeconds: NonNegativeNumber,
+	pausedRemainingSeconds: Schema.optional(NonNegativeNumber),
 });
 
 export const WorkoutEditorDraftSchema = Schema.Struct({
 	name: Schema.String,
-	draftId: nonEmptyString,
+	draftId: NonEmptyString,
 	mode: WorkoutEditorModeSchema,
 	images: WorkoutEditorMediaSchema,
 	videos: WorkoutEditorMediaSchema,
-	endedAt: Schema.optional(timestamp),
-	startedAt: Schema.optional(timestamp),
+	displayEnergyUnit: EnergyUnitSchema,
+	endedAt: Schema.optional(IsoTimestamp),
 	comment: Schema.optional(Schema.String),
-	activeSetId: Schema.optional(nonEmptyString),
+	startedAt: Schema.optional(IsoTimestamp),
+	activeSetId: Schema.optional(NonEmptyString),
 	caloriesBurnt: Schema.optional(Schema.String),
 	kind: Schema.Literal("fitness-workout-editor"),
-	stopwatchStartedAt: Schema.optional(timestamp),
-	displayEnergyUnit: Schema.Literals(["kcal", "kJ"]),
-	activeDuration: Schema.optional(nonNegativeNumber),
-	activeDurationStartedAt: Schema.optional(timestamp),
-	activeOccurrenceId: Schema.optional(nonEmptyString),
+	stopwatchStartedAt: Schema.optional(IsoTimestamp),
+	activeDuration: Schema.optional(NonNegativeNumber),
+	activeOccurrenceId: Schema.optional(NonEmptyString),
 	supersets: Schema.Array(WorkoutEditorSupersetSchema),
+	activeDurationStartedAt: Schema.optional(IsoTimestamp),
 	occurrences: Schema.Array(WorkoutEditorOccurrenceSchema),
 	submission: Schema.optional(WorkoutEditorSaveInputSchema),
-	pausedStopwatchSeconds: Schema.optional(nonNegativeNumber),
+	pausedStopwatchSeconds: Schema.optional(NonNegativeNumber),
 	restCountdown: Schema.optional(WorkoutEditorCountdownSchema),
 	executionCountdown: Schema.optional(WorkoutEditorCountdownSchema),
 	activeDurationIntent: Schema.Literals(["preserve", "set", "clear"]),
@@ -136,9 +130,9 @@ export const WorkoutEditorDraftSchema = Schema.Struct({
 	uploadedAssets: Schema.optional(Schema.Array(Schema.Union([LocalAssetLocator, S3AssetLocator]))),
 	pendingRest: Schema.optional(
 		Schema.Struct({
-			setId: nonEmptyString,
-			seconds: nonNegativeNumber,
-			occurrenceId: nonEmptyString,
+			setId: NonEmptyString,
+			seconds: NonNegativeNumber,
+			occurrenceId: NonEmptyString,
 			exerciseId: nonEmptyEntityId,
 		}),
 	),

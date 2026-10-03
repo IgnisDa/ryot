@@ -1,5 +1,7 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
+import { energyUnits, unitSystems } from "../../shared/workout-units";
+
 export const fitnessUserSettingsSchema: AppSchema = {
 	unknownKeys: "strict",
 	fields: {
@@ -65,8 +67,8 @@ export const fitnessUserSettingsSchema: AppSchema = {
 			defaultValue: "kcal",
 			label: "Energy unit",
 			validation: { required: true },
-			choices: { kind: "static", values: [{ value: "kcal" }, { value: "kJ" }] },
 			description: "Display energy in kcal or kJ; recorded energy stays in kcal",
+			choices: { kind: "static", values: energyUnits.map((value) => ({ value })) },
 		},
 		unitSystem: {
 			position: 0,
@@ -74,7 +76,7 @@ export const fitnessUserSettingsSchema: AppSchema = {
 			defaultValue: "metric",
 			label: "Display units",
 			validation: { required: true },
-			choices: { kind: "static", values: [{ value: "metric" }, { value: "imperial" }] },
+			choices: { kind: "static", values: unitSystems.map((value) => ({ value })) },
 			description:
 				"Display weights and distances in metric or imperial units; storage stays metric",
 		},

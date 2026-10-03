@@ -7,8 +7,6 @@ import {
 	buildWorkoutEditorSaveInput,
 	cloneWorkoutEditorSource,
 	includedWorkoutOccurrences,
-	indexWorkoutOccurrences,
-	isMeaningfulTemplateSet,
 	replaceWorkoutOccurrence,
 	validateWorkoutDraft,
 } from "./workout-editor-transformations";
@@ -227,17 +225,13 @@ it("repeats reusable data with fresh identities and clears session-only state", 
 	]);
 });
 
-it("keeps repeated exercise occurrences distinct when indexing and selecting sets", () => {
+it("keeps repeated exercise occurrences distinct when selecting sets", () => {
 	const workout = makeDraft({
 		occurrences: [
 			occurrence("first", [set("first-set")], { exerciseId: "shared-exercise" }),
 			occurrence("second", [set("second-set")], { exerciseId: "shared-exercise" }),
 		],
 	});
-	expect(indexWorkoutOccurrences(workout.occurrences)).toEqual([
-		{ order: 0, clientId: "first" },
-		{ order: 1, clientId: "second" },
-	]);
 	expect(includedWorkoutOccurrences(workout).map(({ occurrence: item }) => item.clientId)).toEqual([
 		"first",
 		"second",
@@ -262,14 +256,6 @@ it("retains meaningful template sets and exercise-only entries but omits empty r
 			]),
 		],
 	});
-	const [exerciseOnly, plannedZero, plannedRest] = plan.occurrences.map((item) => item.sets[0]);
-
-	assert(exerciseOnly);
-	assert(plannedZero);
-	assert(plannedRest);
-	expect(isMeaningfulTemplateSet(exerciseOnly)).toBe(false);
-	expect(isMeaningfulTemplateSet(plannedZero)).toBe(true);
-	expect(isMeaningfulTemplateSet(plannedRest)).toBe(true);
 	expect(
 		includedWorkoutOccurrences(plan).map(({ sets, occurrence: item }) => [
 			item.clientId,
