@@ -1,4 +1,8 @@
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { Base64 } from "effect/encoding";
+
 import {
+	base64DecodedLength,
 	decodeSidecarOutboundLogicalMessage,
 	encodeSidecarInboundLogicalMessage,
 	SIDECAR_PROTOCOL_LIMITS,
@@ -53,21 +57,6 @@ const validateLimit = (name: string, value: number, minimum = 0) => {
 	}
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isWriteResult = (
-	value: unknown,
-): value is { readonly written: number; readonly blocked: boolean } =>
-	isRecord(value) && typeof value["written"] === "number" && typeof value["blocked"] === "boolean";
-
-const requireWriteResult = (value: unknown, fail: (error: SidecarProtocolError) => never) => {
-	if (!isWriteResult(value)) {
-		return fail(protocolError("framing", "writer returned an invalid write result"));
-	}
-	return value;
-};
-
 const readEnvelope = (
 	value: unknown,
 ): {
@@ -75,7 +64,7 @@ const readEnvelope = (
 	readonly generation: unknown;
 	readonly type: unknown;
 } => {
-	if (!isRecord(value)) {
+	if (!isObjectRecord(value)) {
 		return { type: undefined, handle: undefined, generation: undefined };
 	}
 	return {
@@ -83,75 +72,6 @@ const readEnvelope = (
 		generation: value["generation"],
 		handle: typeof value["handle"] === "string" ? value["handle"] : undefined,
 	};
-};
-
-const decodeBase64 = (value: string) => {
-	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	const padding = base64Padding(value);
-	const bytes = new Uint8Array((value.length / 4) * 3 - padding);
-	let outputIndex = 0;
-	for (let index = 0; index < value.length; index += 4) {
-		const first = alphabet.indexOf(value[index] ?? "");
-		const second = alphabet.indexOf(value[index + 1] ?? "");
-		const third = value[index + 2] === "=" ? 0 : alphabet.indexOf(value[index + 2] ?? "");
-		const fourth = value[index + 3] === "=" ? 0 : alphabet.indexOf(value[index + 3] ?? "");
-		const word = (first << 18) | (second << 12) | (third << 6) | fourth;
-		if (outputIndex < bytes.byteLength) {
-			bytes[outputIndex] = (word >> 16) & 255;
-			outputIndex += 1;
-		}
-		if (outputIndex < bytes.byteLength) {
-			bytes[outputIndex] = (word >> 8) & 255;
-			outputIndex += 1;
-		}
-		if (outputIndex < bytes.byteLength) {
-			bytes[outputIndex] = word & 255;
-			outputIndex += 1;
-		}
-	}
-	return bytes;
-};
-
-const decodedBase64Length = (value: string) => (value.length / 4) * 3 - base64Padding(value);
-
-function base64Padding(value: string) {
-	if (value.endsWith("==")) {
-		return 2;
-	}
-	return value.endsWith("=") ? 1 : 0;
-}
-
-const encodeBase64 = (bytes: Uint8Array) => {
-	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	let output = "";
-	for (let index = 0; index < bytes.byteLength; index += 3) {
-		const first = bytes[index] ?? 0;
-		const second = bytes[index + 1];
-		const third = bytes[index + 2];
-		const word = (first << 16) | ((second ?? 0) << 8) | (third ?? 0);
-		output += alphabet[(word >> 18) & 63];
-		output += alphabet[(word >> 12) & 63];
-		output += second === undefined ? "=" : alphabet[(word >> 6) & 63];
-		output += third === undefined ? "=" : alphabet[word & 63];
-	}
-	return output;
-};
-
-const utf8Length = (text: string) => {
-	let bytes = 0;
-	for (const character of text) {
-		const codePoint = character.codePointAt(0) ?? 0;
-		if (codePoint <= 0x7f) {
-			bytes += 1;
-		} else if (codePoint <= 0x7ff) {
-			bytes += 2;
-		} else if (codePoint <= 0xffff) {
-			bytes += 3;
-		} else {
-			bytes += 4;
-		}
-	}
-	return bytes;
 };
 
 const framePayload = (payload: Uint8Array) => {
@@ -260,7 +180,7 @@ export const makeSidecarFrameReader = ({
 			invalidActive(frame.handle, "part does not continue its logical message", key);
 			return;
 		}
-		const partLength = decodedBase64Length(frame.data);
+		const partLength = base64DecodedLength(frame.data);
 		const expectedBytes = Math.min(maximumPartBytes, assembly.byteLength - assembly.bytes);
 		if (partLength === 0 || partLength !== expectedBytes) {
 			invalidActive(frame.handle, "part data has the wrong decoded length", key);
@@ -269,16 +189,17 @@ export const makeSidecarFrameReader = ({
 		if (bufferedBytes + partLength > maximumBufferedBytes) {
 			fail(protocolError("framing", `pending bytes exceed ${maximumBufferedBytes}`));
 		}
-		const part = decodeBase64(frame.data);
+		const decoded = Base64.decode(frame.data);
+		if (decoded._tag === "Failure") {
+			invalidActive(frame.handle, "part data is not base64", key);
+			return;
+		}
+		const part = decoded.success;
 		assembly.chunks.push(part);
 		assembly.bytes += part.byteLength;
 		assembly.index += 1;
 		bufferedBytes += part.byteLength;
 		if (assembly.index < assembly.count) {
-			return;
-		}
-		if (assembly.bytes !== assembly.byteLength) {
-			invalidActive(frame.handle, "assembled message length does not match byteLength", key);
 			return;
 		}
 		if (bufferedBytes + assembly.byteLength > maximumBufferedBytes) {
@@ -345,14 +266,8 @@ export const makeSidecarFrameReader = ({
 		if (frame === undefined) {
 			return;
 		}
-		if (frame.generation !== generation) {
-			return;
-		}
 		if (frame.type === "part") {
 			processPart(frame);
-			return;
-		}
-		if ("handle" in frame && !isActive(frame.handle)) {
 			return;
 		}
 		onFrame(frame);
@@ -465,7 +380,7 @@ const messageCategory = (frame: SidecarInboundFrame): "run" | "control" => {
 			throw protocolError("payload", `inbound part type ${frame.frameType} is not supported`);
 		}
 		const maximumBytes = SIDECAR_PROTOCOL_LIMITS.messageBytes[frame.frameType];
-		const partLength = decodedBase64Length(frame.data);
+		const partLength = base64DecodedLength(frame.data);
 		const expectedCount = Math.ceil(frame.byteLength / maximumPartBytes);
 		const expectedPartLength = Math.min(
 			maximumPartBytes,
@@ -487,19 +402,13 @@ const messageCategory = (frame: SidecarInboundFrame): "run" | "control" => {
 	return "control";
 };
 
-const encodeMessageFrames = (
-	frame: SidecarInboundFrame,
-	logicalJson: string,
-	logicalBytes: number,
-) => {
-	if (frame.type === "part") {
-		const encoded = encoder.encode(logicalJson);
-		return [framePayload(encoded)];
+const encodeMessageFrames = (frame: SidecarInboundFrame, payload: Uint8Array) => {
+	if (
+		(frame.type !== "run" && frame.type !== "hostResult") ||
+		payload.byteLength <= maximumFrameBytes
+	) {
+		return [framePayload(payload)];
 	}
-	if ((frame.type !== "run" && frame.type !== "hostResult") || logicalBytes <= maximumFrameBytes) {
-		return [framePayload(encoder.encode(logicalJson))];
-	}
-	const payload = encoder.encode(logicalJson);
 	const count = Math.ceil(payload.byteLength / maximumPartBytes);
 	const frames: Uint8Array[] = [];
 	for (let index = 0; index < count; index += 1) {
@@ -511,46 +420,13 @@ const encodeMessageFrames = (
 			seq: frame.seq,
 			handle: frame.handle,
 			frameType: frame.type,
-			data: encodeBase64(chunk),
+			data: Base64.encode(chunk),
 			generation: frame.generation,
 			byteLength: payload.byteLength,
 		};
-		const partJson = encodeSidecarInboundLogicalMessage(part);
-		const partBytes = encoder.encode(partJson);
-		frames.push(framePayload(partBytes));
+		frames.push(framePayload(encoder.encode(encodeSidecarInboundLogicalMessage(part))));
 	}
 	return frames;
-};
-
-const estimateMessageBytes = (frame: SidecarInboundFrame, logicalBytes: number) => {
-	if (
-		frame.type === "part" ||
-		(frame.type !== "run" && frame.type !== "hostResult") ||
-		logicalBytes <= maximumFrameBytes
-	) {
-		return logicalBytes + frameHeaderBytes;
-	}
-	const count = Math.ceil(logicalBytes / maximumPartBytes);
-	let total = 0;
-	for (let index = 0; index < count; index += 1) {
-		const partBytes = Math.min(maximumPartBytes, logicalBytes - index * maximumPartBytes);
-		const padding = (3 - (partBytes % 3)) % 3;
-		const dataLength = Math.ceil(partBytes / 3) * 4;
-		const data = `${"A".repeat(dataLength - padding)}${"=".repeat(padding)}`;
-		const part: SidecarInboundFrame = {
-			data,
-			count,
-			index,
-			type: "part",
-			seq: frame.seq,
-			handle: frame.handle,
-			frameType: frame.type,
-			byteLength: logicalBytes,
-			generation: frame.generation,
-		};
-		total += utf8Length(encodeSidecarInboundLogicalMessage(part)) + frameHeaderBytes;
-	}
-	return total;
 };
 
 export const makeSidecarFrameWriter = ({
@@ -583,7 +459,7 @@ export const makeSidecarFrameWriter = ({
 		}
 	};
 
-	const fail = (error: SidecarProtocolError): never => {
+	const reset = () => {
 		closed = true;
 		runQueue.length = 0;
 		controlQueue.length = 0;
@@ -591,7 +467,21 @@ export const makeSidecarFrameWriter = ({
 		controlMessages = 0;
 		queuedBytes = 0;
 		current = undefined;
+	};
+
+	const fail = (error: SidecarProtocolError): never => {
+		reset();
 		throw error;
+	};
+
+	const writeFrame = (bytes: Uint8Array) => {
+		try {
+			return write(bytes);
+		} catch (error) {
+			return fail(
+				protocolError("framing", error instanceof Error ? error.message : "write failed"),
+			);
+		}
 	};
 
 	const takeNext = () => controlQueue.shift() ?? runQueue.shift();
@@ -624,20 +514,12 @@ export const makeSidecarFrameWriter = ({
 	};
 
 	return {
+		close: reset,
 		retire(handle: string) {
 			if (closed) {
 				return;
 			}
 			removeQueuedRuns(handle);
-		},
-		close() {
-			closed = true;
-			runQueue.length = 0;
-			controlQueue.length = 0;
-			runMessages = 0;
-			controlMessages = 0;
-			queuedBytes = 0;
-			current = undefined;
 		},
 		flush() {
 			if (closed) {
@@ -657,13 +539,7 @@ export const makeSidecarFrameWriter = ({
 					current = { bytes, message, offset: 0 };
 				}
 				const frame = current;
-				let writeResult: unknown;
-				try {
-					writeResult = write(frame.bytes.slice(frame.offset));
-				} catch (error) {
-					fail(protocolError("framing", error instanceof Error ? error.message : "write failed"));
-				}
-				const result = requireWriteResult(writeResult, fail);
+				const result = writeFrame(frame.bytes.slice(frame.offset));
 				const remaining = frame.bytes.byteLength - frame.offset;
 				if (
 					!Number.isSafeInteger(result.written) ||
@@ -703,14 +579,14 @@ export const makeSidecarFrameWriter = ({
 					error instanceof Error ? error.message : "invalid inbound frame",
 				);
 			}
-			const logicalBytes = utf8Length(logicalJson);
+			const payload = encoder.encode(logicalJson);
 			let logicalCap = maximumFrameBytes;
 			if (frame.type === "run") {
 				logicalCap = SIDECAR_PROTOCOL_LIMITS.messageBytes.run;
 			} else if (frame.type === "hostResult") {
 				logicalCap = SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult;
 			}
-			if (logicalBytes > logicalCap) {
+			if (payload.byteLength > logicalCap) {
 				throw protocolError("payload", `logical ${frame.type} message exceeds ${logicalCap} bytes`);
 			}
 			const category = messageCategory(frame);
@@ -721,14 +597,10 @@ export const makeSidecarFrameWriter = ({
 			if (messageLimitReached) {
 				fail(protocolError("framing", `queued ${category} message count is full`));
 			}
-			const retainedBytes = estimateMessageBytes(frame, logicalBytes);
-			if (queuedBytes + retainedBytes > maximumQueuedBytes) {
-				fail(protocolError("framing", `queued bytes exceed ${maximumQueuedBytes}`));
-			}
-			const frames = encodeMessageFrames(frame, logicalJson, logicalBytes);
+			const frames = encodeMessageFrames(frame, payload);
 			const encodedBytes = frames.reduce((total, bytes) => total + bytes.byteLength, 0);
-			if (encodedBytes !== retainedBytes) {
-				fail(protocolError("framing", "encoded queue size did not match its reservation"));
+			if (queuedBytes + encodedBytes > maximumQueuedBytes) {
+				fail(protocolError("framing", `queued bytes exceed ${maximumQueuedBytes}`));
 			}
 			const message: QueuedMessage = {
 				frames,
@@ -737,7 +609,7 @@ export const makeSidecarFrameWriter = ({
 				retired: false,
 				handle: frame.handle,
 			};
-			queuedBytes += retainedBytes;
+			queuedBytes += encodedBytes;
 			if (category === "run") {
 				runMessages += 1;
 				runQueue.push(message);

@@ -3,7 +3,7 @@ import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/exe
 import type { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { sandboxManifestSchema } from "@ryot-app/sandbox-sdk/core";
+import { sandboxManifestSchema, type SandboxWorkflowReference } from "@ryot-app/sandbox-sdk/core";
 import { Clock, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	configureSandboxFilesystem,
@@ -27,17 +27,17 @@ import {
 import {
 	createLogCollector,
 	executionError,
-	failureKind,
-	failurePhase,
 	isRecord,
 	type SandboxLogCollector,
 } from "./isolate-utilities";
-import { SANDBOX_LIMITS } from "./limits";
+import { MiB, SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "./limits";
 import {
 	artifactReadRangeArgsSchema,
 	artifactReadRangeResultSchema,
+	base64DecodedLength,
 	InlineBatchReplySchema,
 	InlineBatchSchema,
+	isBase64,
 	journalReadResultSchema,
 	SandboxInvocationResponseSchema,
 	SandboxInvocationSchema,
@@ -48,11 +48,9 @@ import {
 
 const strictOptions = { onExcessProperty: "error" } as const;
 const maxInvocationBytes = SANDBOX_LIMITS.execution.requestBytes;
-const MiB = 1024 * 1024;
-const journalReadLimit = 2_048;
-const journalReadBytesLimit = 200 * MiB;
-const isolateExternalLimitBytes = 64 * MiB;
-const maxScratchChunkBytes = 256 * 1024;
+const journalReads = SANDBOX_LIMITS.journalReads;
+const scratchChunkBytes = SANDBOX_LIMITS.scratch.chunkBytes;
+const consoleMethods = ["log", "info", "warn", "debug", "error"] as const;
 let filesystemBinding: SandboxFilesystemBinding | undefined;
 configureSandboxFilesystem(() => filesystemBinding);
 
@@ -75,12 +73,10 @@ const objectHasOwn = Object.hasOwn;
 const jsonParse = JSON.parse.bind(JSON);
 const jsonStringify = JSON.stringify.bind(JSON);
 const base64Encode = globalThis.btoa.bind(globalThis);
-const base64Decode = globalThis.atob.bind(globalThis);
 const performanceNow = globalThis.performance.now.bind(globalThis.performance);
 const arrayIsArray = nativeArray.isArray;
 const arraySortMethod = Object.getOwnPropertyDescriptor(nativeArray.prototype, "sort")?.value;
 const uint8ArrayPrototype = Object.getPrototypeOf(nativeUint8Array.prototype);
-const uint8ArraySetMethod = Object.getOwnPropertyDescriptor(uint8ArrayPrototype, "set")?.value;
 const uint8ArraySubarrayMethod = Object.getOwnPropertyDescriptor(
 	uint8ArrayPrototype,
 	"subarray",
@@ -100,30 +96,25 @@ const stringCharCodeAtMethod = Object.getOwnPropertyDescriptor(
 	"charCodeAt",
 )?.value;
 const stringIncludesMethod = Object.getOwnPropertyDescriptor(String.prototype, "includes")?.value;
-const regexpTestMethod = Object.getOwnPropertyDescriptor(RegExp.prototype, "test")?.value;
+const regexpExecMethod = Object.getOwnPropertyDescriptor(RegExp.prototype, "exec")?.value;
+const decodeRangeInto = (data: string, target: Uint8Array, offset: number) =>
+	decodeBase64Into(data, target, offset)
+		? Effect.void
+		: Effect.fail(createFailure("Sandbox bridge returned invalid base64"));
 const boundArraySort = arraySortMethod.call.bind(arraySortMethod);
 const arrayFrom = nativeArray.from.bind(nativeArray);
-const boundUint8ArraySet = uint8ArraySetMethod.call.bind(uint8ArraySetMethod);
 const boundUint8ArraySubarray = uint8ArraySubarrayMethod.call.bind(uint8ArraySubarrayMethod);
 const boundStringCharCodeAt = stringCharCodeAtMethod.call.bind(stringCharCodeAtMethod);
 const boundStringIncludes = stringIncludesMethod.call.bind(stringIncludesMethod);
 const stringFromCharCode = String.fromCharCode.bind(String);
-const boundRegExpTest = regexpTestMethod.call.bind(regexpTestMethod);
+const boundRegExpExec = regexpExecMethod.call.bind(regexpExecMethod);
+const mathCeil = Math.ceil;
 const mathMin = Math.min;
 const numberIsFinite = nativeNumber.isFinite.bind(nativeNumber);
-const copyBinary = (target: Uint8Array, binary: string, offset: number) => {
-	for (let index = 0; index < binary.length; index++) {
-		target[offset + index] = nativeNumber(boundStringCharCodeAt(binary, index));
-	}
-};
 const decodeInvocation = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(SandboxInvocationSchema),
 	strictOptions,
 );
-
-const isBase64 = (value: string) =>
-	value.length % 4 === 0 &&
-	testRegExp(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/, value);
 
 export type SandboxInvocationBridge = {
 	readonly call: (name: string, args: JsonValue) => Promise<JsonValue>;
@@ -137,6 +128,10 @@ type RunnerPhaseFailure = {
 	readonly kind?: SandboxExecutionError["kind"];
 };
 type HostBudget = { http: number; total: number };
+type DurableWorkflowReference = Pick<
+	SandboxWorkflowReference<Schema.ConstraintDecoder<unknown>, Schema.ConstraintDecoder<unknown>>,
+	"input" | "output" | "workflowSlug"
+>;
 type SandboxDefinition<
 	Input extends Schema.ConstraintDecoder<unknown> = Schema.ConstraintDecoder<unknown>,
 	Output extends Schema.ConstraintDecoder<unknown> = Schema.ConstraintDecoder<unknown>,
@@ -166,6 +161,12 @@ const decodeJournalEntry = Schema.decodeUnknownEffect(
 	strictOptions,
 );
 const decodeDurableResult = Schema.decodeUnknownEffect(workflowDurableResultSchema, strictOptions);
+const decodeJournalReadResult = Schema.decodeUnknownEffect(journalReadResultSchema, strictOptions);
+const decodeArtifactReadRangeResult = Schema.decodeUnknownEffect(
+	artifactReadRangeResultSchema,
+	strictOptions,
+);
+const decodeScratchWriteArgs = Schema.decodeEffect(scratchWriteArgsSchema, strictOptions);
 const decodeInvocationResponse = Schema.decodeUnknownSync(
 	SandboxInvocationResponseSchema,
 	strictOptions,
@@ -228,13 +229,6 @@ const stringCharCodeAt = (value: string, index: number) => {
 	}
 	return result;
 };
-const testRegExp = (expression: RegExp, value: string) => {
-	const result: unknown = boundRegExpTest(expression, value);
-	return typeof result === "boolean" && result;
-};
-const setBytes = (target: Uint8Array, source: ArrayLike<number>, offset: number) => {
-	boundUint8ArraySet(target, source, offset);
-};
 const subarrayBytes = (bytes: Uint8Array, start: number, end: number) => {
 	const result: unknown = boundUint8ArraySubarray(bytes, start, end);
 	if (!(result instanceof nativeUint8Array)) {
@@ -248,36 +242,39 @@ const createFailure = (message: string, data?: JsonValue): SandboxHostError =>
 	data === undefined ? { message } : { data, message };
 
 const base64Alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-const base64Values = new nativeArray<number>(128).fill(0);
+const base64Values = new nativeArray<number>(128).fill(-1);
 for (let index = 0; index < base64Alphabet.length; index += 1) {
 	base64Values[stringCharCodeAt(base64Alphabet, index)] = index;
 }
+const base64Value = (value: string, index: number) => {
+	const code = stringCharCodeAt(value, index);
+	return code === 61 && index >= value.length - 2 ? 0 : (base64Values[code] ?? -1);
+};
 
-const decodeBase64 = (value: string) => {
-	if (!isBase64(value)) {
-		throw new nativeError("Sandbox bridge returned invalid base64");
+const decodeBase64Into = (value: string, target: Uint8Array, offset: number) => {
+	const end = offset + base64DecodedLength(value);
+	if (!isBase64(value) || end > target.byteLength) {
+		return false;
 	}
-	let padding = 0;
-	if (value.length > 0 && stringCharCodeAt(value, value.length - 1) === 61) {
-		padding = stringCharCodeAt(value, value.length - 2) === 61 ? 2 : 1;
-	}
-	const bytes = new nativeUint8Array((value.length / 4) * 3 - padding);
-	let output = 0;
-	for (let offset = 0; offset < value.length; offset += 4) {
-		const bits =
-			((base64Values[stringCharCodeAt(value, offset)] ?? 0) << 18) |
-			((base64Values[stringCharCodeAt(value, offset + 1)] ?? 0) << 12) |
-			((base64Values[stringCharCodeAt(value, offset + 2)] ?? 0) << 6) |
-			(base64Values[stringCharCodeAt(value, offset + 3)] ?? 0);
-		bytes[output++] = bits >>> 16;
-		if (output < bytes.length) {
-			bytes[output++] = bits >>> 8;
+	let output = offset;
+	for (let index = 0; index < value.length; index += 4) {
+		const first = base64Value(value, index);
+		const second = base64Value(value, index + 1);
+		const third = base64Value(value, index + 2);
+		const fourth = base64Value(value, index + 3);
+		if (first < 0 || second < 0 || third < 0 || fourth < 0) {
+			return false;
 		}
-		if (output < bytes.length) {
-			bytes[output++] = bits;
+		const bits = (first << 18) | (second << 12) | (third << 6) | fourth;
+		target[output++] = bits >>> 16;
+		if (output < end) {
+			target[output++] = bits >>> 8;
+		}
+		if (output < end) {
+			target[output++] = bits;
 		}
 	}
-	return bytes;
+	return true;
 };
 
 const encodeBase64 = (bytes: Uint8Array) => {
@@ -324,39 +321,67 @@ const transportArguments = (fnName: string, args: ReadonlyArray<unknown>) => {
 		return args;
 	}
 	const reference = args[1];
-	if (
-		args.length !== 2 ||
-		!isRecord(reference) ||
-		reference["referenceKind"] !== "script" ||
-		typeof reference["scriptSlug"] !== "string" ||
-		reference["scriptSlug"].length === 0
-	) {
+	if (args.length !== 2 || !isRecord(reference) || reference["referenceKind"] !== "script") {
 		return null;
 	}
-	return [args[0], { referenceKind: "script", scriptSlug: reference["scriptSlug"] }];
+	const scriptSlug = reference["scriptSlug"];
+	if (typeof scriptSlug !== "string" || scriptSlug.length === 0) {
+		return null;
+	}
+	return [args[0], { scriptSlug, referenceKind: "script" }];
+};
+
+const readErrorField = (error: unknown, field: "data" | "message"): unknown => {
+	try {
+		return isRecord(error) ? error[field] : undefined;
+	} catch {
+		return undefined;
+	}
+};
+
+const errorMessage = (error: unknown) => {
+	const message = readErrorField(error, "message");
+	return typeof message === "string" ? message : nativeString(error);
 };
 
 const asSandboxHostError = (error: unknown): SandboxHostError => {
-	const message =
-		isRecord(error) && typeof error["message"] === "string"
-			? error["message"]
-			: nativeString(error);
-	let data: JsonValue | undefined;
-	if (isRecord(error) && error["data"] !== undefined) {
-		try {
-			data = jsonClone(error["data"], "Sandbox host error data");
-		} catch {
-			data = undefined;
-		}
+	const message = errorMessage(error);
+	const data = readErrorField(error, "data");
+	if (data === undefined) {
+		return createFailure(message);
 	}
-	return createFailure(message, data);
+	try {
+		return createFailure(message, jsonClone(data, "Sandbox host error data"));
+	} catch {
+		return createFailure(message);
+	}
+};
+
+const chargeHostCall = (budget: HostBudget, name: string): SandboxHostError | undefined => {
+	budget.total += 1;
+	if (name === "httpCall") {
+		budget.http += 1;
+	}
+	if (budget.total > SANDBOX_RUNNER_LIMITS.hostCallCount) {
+		return createFailure(SANDBOX_RUNNER_LIMITS.hostCallLimitMessage, {
+			operation: name,
+			code: "execution-limit",
+		});
+	}
+	if (budget.http > SANDBOX_RUNNER_LIMITS.httpCallCount) {
+		return createFailure(SANDBOX_RUNNER_LIMITS.httpCallLimitMessage, {
+			operation: name,
+			code: "execution-limit",
+		});
+	}
+	return undefined;
 };
 
 const missingGrant = (message: string, operation: string): SandboxHostError =>
 	createFailure(message, { operation, code: "missing-artifact-grant" });
 
 const hostFailureKind = (error: unknown): SandboxExecutionError["kind"] | undefined => {
-	const data = isRecord(error) ? error["data"] : undefined;
+	const data = readErrorField(error, "data");
 	return isRecord(data) && data["code"] === "external-uncertain" ? "external-uncertain" : undefined;
 };
 
@@ -393,7 +418,7 @@ const isSandboxDefinition = (value: unknown): value is SandboxDefinition =>
 	Schema.isSchema(value["output"]);
 
 const importCompiledModule = (specifier: string) => {
-	if (!/^ryot-module:\/[a-f0-9]{64}\.js$/.test(specifier)) {
+	if (boundRegExpExec(/^ryot-module:\/[a-f0-9]{64}\.js$/, specifier) === null) {
 		return Effect.fail({
 			phase: "load",
 			error: "Compiled sandbox module specifier is invalid",
@@ -434,10 +459,10 @@ const createLazyJournalReader = (
 				);
 			}
 			const entryBytes = end - start;
-			const estimatedReads = Math.ceil(entryBytes / MiB);
+			const estimatedReads = mathCeil(entryBytes / journalReads.sliceBytes);
 			if (
-				reservedReads + estimatedReads > journalReadLimit ||
-				reservedReadBytes + entryBytes > journalReadBytesLimit
+				reservedReads + estimatedReads > journalReads.count ||
+				reservedReadBytes + entryBytes > journalReads.totalBytes
 			) {
 				return Effect.fail(
 					createFailure("Sandbox workflow journal entry exceeds its reserved replay budget"),
@@ -451,8 +476,12 @@ const createLazyJournalReader = (
 					if (position >= end) {
 						return Effect.void;
 					}
-					const length = mathMin(MiB, end - position, journalReadBytesLimit - decodedBytes);
-					if (length < 1 || reads >= journalReadLimit) {
+					const length = mathMin(
+						journalReads.sliceBytes,
+						end - position,
+						journalReads.totalBytes - decodedBytes,
+					);
+					if (length < 1 || reads >= journalReads.count) {
 						return Effect.fail(createFailure("Sandbox workflow journal read budget exceeded"));
 					}
 					const args = { length, offset: position };
@@ -462,10 +491,7 @@ const createLazyJournalReader = (
 						try: () => bridge.call("journalRead", jsonClone(args, "Journal read arguments")),
 					}).pipe(
 						Effect.flatMap((response) =>
-							Schema.decodeUnknownEffect(
-								journalReadResultSchema,
-								strictOptions,
-							)(response).pipe(
+							decodeJournalReadResult(response).pipe(
 								Effect.mapError((error) =>
 									createFailure(
 										"Sandbox workflow journal range is invalid: " + nativeString(error),
@@ -479,26 +505,21 @@ const createLazyJournalReader = (
 									createFailure("Sandbox workflow journal range identity mismatch"),
 								);
 							}
-							let chunk: Uint8Array;
-							try {
-								chunk = decodeBase64(response.data);
-							} catch (error) {
-								return Effect.fail(asSandboxHostError(error));
-							}
+							const chunkBytes = base64DecodedLength(response.data);
 							if (
-								chunk.byteLength === 0 ||
-								chunk.byteLength > length ||
-								decodedBytes + chunk.byteLength > journalReadBytesLimit
+								chunkBytes === 0 ||
+								chunkBytes > length ||
+								decodedBytes + chunkBytes > journalReads.totalBytes
 							) {
 								return Effect.fail(
 									createFailure("Sandbox workflow journal range length is invalid"),
 								);
 							}
-							decodedBytes += chunk.byteLength;
-							const nextPosition = position + chunk.byteLength;
-							setBytes(bytes, chunk, position - start);
-							releaseBytes(chunk);
-							return readRange(nextPosition);
+							if (!decodeBase64Into(response.data, bytes, position - start)) {
+								return Effect.fail(createFailure("Sandbox bridge returned invalid base64"));
+							}
+							decodedBytes += chunkBytes;
+							return readRange(position + chunkBytes);
 						}),
 					);
 				});
@@ -578,10 +599,7 @@ const createFilesystemBinding = (
 			catch: asSandboxHostError,
 			try: () => bridge.call("artifactReadRange", jsonClone(args, "Artifact range arguments")),
 		});
-		const range = yield* Schema.decodeUnknownEffect(
-			artifactReadRangeResultSchema,
-			strictOptions,
-		)(response).pipe(
+		const range = yield* decodeArtifactReadRangeResult(response).pipe(
 			Effect.mapError((error) =>
 				createFailure("Sandbox artifact range is invalid: " + nativeString(error)),
 			),
@@ -591,41 +609,38 @@ const createFilesystemBinding = (
 				createFailure("Sandbox artifact range is outside its memory grant"),
 			);
 		}
-		const binary = yield* Effect.try({
-			catch: asSandboxHostError,
-			try: () => base64Decode(range.data),
-		});
+		const byteLength = base64DecodedLength(range.data);
 		const remainingBytes = range.size > offset ? range.size - offset : 0;
-		if (binary.length > length || binary.length > remainingBytes) {
+		if (byteLength > length || byteLength > remainingBytes) {
 			return yield* Effect.fail(createFailure("Sandbox artifact range length is invalid"));
 		}
-		return { binary, size: range.size };
+		return { byteLength, data: range.data, size: range.size };
 	});
 
 	const readRange = Effect.fnUntraced(function* (offset: number, length: number, key?: string) {
 		const range = yield* loadRange(offset, length, key);
-		const bytes = new nativeUint8Array(range.binary.length);
-		copyBinary(bytes, range.binary, 0);
+		const bytes = new nativeUint8Array(range.byteLength);
+		yield* decodeRangeInto(range.data, bytes, 0);
 		return { bytes, size: range.size };
 	});
 
 	const readWholeArtifact = Effect.fnUntraced(function* (key?: string) {
 		const first = yield* loadRange(0, MiB, key);
-		if (first.size > isolateExternalLimitBytes) {
+		if (first.size > SANDBOX_LIMITS.isolate.externalBytes) {
 			return yield* Effect.fail(
 				createFailure("Sandbox artifact exceeds its reserved isolate memory"),
 			);
 		}
 		const bytes = new nativeUint8Array(first.size);
-		copyBinary(bytes, first.binary, 0);
-		let offset = first.binary.length;
+		yield* decodeRangeInto(first.data, bytes, 0);
+		let offset = first.byteLength;
 		while (offset < first.size) {
 			const range = yield* loadRange(offset, mathMin(MiB, first.size - offset), key);
-			if (range.size !== first.size || range.binary.length === 0) {
+			if (range.size !== first.size || range.byteLength === 0) {
 				return yield* Effect.fail(createFailure("Sandbox artifact range is incomplete"));
 			}
-			copyBinary(bytes, range.binary, offset);
-			offset += range.binary.length;
+			yield* decodeRangeInto(range.data, bytes, offset);
+			offset += range.byteLength;
 		}
 		return bytes;
 	});
@@ -662,8 +677,10 @@ const createFilesystemBinding = (
 						);
 					}
 					const names: string[] = [];
-					for (const chunk of chunks) {
+					for (let index = 0; index < chunks.length; index += 1) {
+						const chunk = chunks[index];
 						if (
+							chunk === undefined ||
 							chunk.name.length === 0 ||
 							chunk.name === "." ||
 							chunk.name === ".." ||
@@ -679,37 +696,39 @@ const createFilesystemBinding = (
 						}
 						pushArray(names, chunk.name);
 					}
-					for (const chunk of chunks) {
-						if (chunk.contents.byteLength === 0) {
-							const args = yield* Schema.decodeEffect(
-								scratchWriteArgsSchema,
-								strictOptions,
-							)({ data: "", offset: 0, final: true, name: chunk.name });
-							yield* writeScratch(args);
+					for (let index = 0; index < chunks.length; index += 1) {
+						const chunk = chunks[index];
+						if (chunk === undefined) {
 							continue;
 						}
-						for (
-							let offset = 0;
-							offset < chunk.contents.byteLength;
-							offset += maxScratchChunkBytes
-						) {
-							const end = mathMin(chunk.contents.byteLength, offset + maxScratchChunkBytes);
+						if (chunk.contents.byteLength === 0) {
+							yield* writeScratch(
+								yield* decodeScratchWriteArgs({
+									data: "",
+									offset: 0,
+									final: true,
+									name: chunk.name,
+								}),
+							);
+							continue;
+						}
+						for (let offset = 0; offset < chunk.contents.byteLength; offset += scratchChunkBytes) {
+							const end = mathMin(chunk.contents.byteLength, offset + scratchChunkBytes);
 							const data = encodeBase64(subarrayBytes(chunk.contents, offset, end));
-							const args = yield* Schema.decodeEffect(
-								scratchWriteArgsSchema,
-								strictOptions,
-							)({ data, offset, name: chunk.name, final: end === chunk.contents.byteLength });
-							yield* writeScratch(args);
+							yield* writeScratch(
+								yield* decodeScratchWriteArgs({
+									data,
+									offset,
+									name: chunk.name,
+									final: end === chunk.contents.byteLength,
+								}),
+							);
 						}
 					}
 					return void 0;
 				}),
 			),
 	};
-};
-
-const installFilesystem = (invocation: SandboxInvocation, bridge: SandboxInvocationBridge) => {
-	filesystemBinding = createFilesystemBinding(invocation, bridge);
 };
 
 const responseBytes = (value: unknown) => {
@@ -725,25 +744,9 @@ const createHost = (
 	const host: Record<string, unknown> = objectCreate(null);
 	const budget: HostBudget = { http: 0, total: 0 };
 	const callHost = (name: string, args: ReadonlyArray<unknown>) => {
-		budget.total += 1;
-		if (name === "httpCall") {
-			budget.http += 1;
-		}
-		if (budget.total > invocation.limits.hostCallCount) {
-			return Effect.fail(
-				createFailure(invocation.limits.hostCallLimitMessage, {
-					operation: name,
-					code: "execution-limit",
-				}),
-			);
-		}
-		if (budget.http > invocation.limits.httpCallCount) {
-			return Effect.fail(
-				createFailure(invocation.limits.httpCallLimitMessage, {
-					operation: name,
-					code: "execution-limit",
-				}),
-			);
+		const budgetError = chargeHostCall(budget, name);
+		if (budgetError) {
+			return Effect.fail(budgetError);
 		}
 		const transported = transportArguments(name, args);
 		if (!transported) {
@@ -755,10 +758,12 @@ const createHost = (
 		} catch (error) {
 			return Effect.fail(asSandboxHostError(error));
 		}
-		if (responseBytes({ args: jsonArgs }) > invocation.limits.bridgeRequestBytes) {
+		if (responseBytes({ args: jsonArgs }) > SANDBOX_RUNNER_LIMITS.bridgeRequestBytes) {
 			return Effect.fail(
 				createFailure(
-					"Sandbox bridge request exceeds " + invocation.limits.bridgeRequestBytes + " UTF-8 bytes",
+					"Sandbox bridge request exceeds " +
+						SANDBOX_RUNNER_LIMITS.bridgeRequestBytes +
+						" UTF-8 bytes",
 				),
 			);
 		}
@@ -767,11 +772,11 @@ const createHost = (
 			try: () => bridge.call(name, jsonArgs),
 		}).pipe(
 			Effect.flatMap((response) => {
-				if (responseBytes(response) > invocation.limits.bridgeResponseBytes) {
+				if (responseBytes(response) > SANDBOX_RUNNER_LIMITS.bridgeResponseBytes) {
 					return Effect.fail(
 						createFailure(
 							"Sandbox bridge response exceeds " +
-								invocation.limits.bridgeResponseBytes +
+								SANDBOX_RUNNER_LIMITS.bridgeResponseBytes +
 								" UTF-8 bytes",
 						),
 					);
@@ -789,8 +794,9 @@ const createHost = (
 	if (journal) {
 		host["replayJournal"] = () => Effect.succeed(journal);
 	}
-	for (const name of invocation.apiFunctions) {
-		if (name === "replayJournal") {
+	for (let index = 0; index < invocation.apiFunctions.length; index += 1) {
+		const name = invocation.apiFunctions[index];
+		if (name === undefined || name === "replayJournal") {
 			continue;
 		}
 		host[name] = (...args: unknown[]) => callHost(name, args);
@@ -814,34 +820,10 @@ const createDurableHost = (
 	const requests: Array<Schema.Schema.Type<typeof workflowDurableCallRequestSchema>> = [];
 	const calls: DurableCall[] = [];
 	const inlineValues: Array<JsonValue | undefined> = [];
-	const inlineGet = (index: number) => inlineValues[index];
-	const inlineSet = (index: number, value: JsonValue) => {
-		inlineValues[index] = value;
-	};
 	const inlineCapabilities = invocation.inlineDurableCapabilities ?? [];
 	const budget: HostBudget = { http: 0, total: 0 };
 	let pendingObserved = false;
 	let settledJournalLength = journal.length;
-
-	const consumeBudget = (name: string) => {
-		budget.total += 1;
-		if (name === "httpCall") {
-			budget.http += 1;
-		}
-		if (budget.total > invocation.limits.hostCallCount) {
-			return {
-				message: invocation.limits.hostCallLimitMessage,
-				reason: { operation: name, code: "execution-limit" },
-			};
-		}
-		if (budget.http > invocation.limits.httpCallCount) {
-			return {
-				message: invocation.limits.httpCallLimitMessage,
-				reason: { operation: name, code: "execution-limit" },
-			};
-		}
-		return undefined;
-	};
 
 	const settleInline = () =>
 		Effect.suspend(() => {
@@ -850,14 +832,15 @@ const createDurableHost = (
 				return Effect.succeed(false);
 			}
 			const inlineRequests: Array<Schema.Schema.Type<typeof workflowHostRequestSchema>> = [];
-			for (const request of batch) {
+			for (let index = 0; index < batch.length; index += 1) {
+				const request = batch[index];
 				if (
-					request.kind !== "host" ||
+					request?.kind !== "host" ||
 					!includesArray(inlineCapabilities, request.args.capability)
 				) {
 					return Effect.succeed(false);
 				}
-				inlineRequests[inlineRequests.length] = request;
+				pushArray(inlineRequests, request);
 			}
 			const decoded = Schema.decodeUnknownResult(
 				InlineBatchSchema,
@@ -866,7 +849,10 @@ const createDurableHost = (
 			if (decoded._tag === "Failure") {
 				return Effect.die(decoded.failure);
 			}
-			if (responseBytes({ inline: decoded.success }) + 1 > invocation.limits.bridgeRequestBytes) {
+			if (
+				responseBytes({ inline: decoded.success }) + 1 >
+				SANDBOX_RUNNER_LIMITS.bridgeRequestBytes
+			) {
 				return Effect.succeed(false);
 			}
 			let rawReply: JsonValue;
@@ -892,7 +878,7 @@ const createDurableHost = (
 					for (let offset = 0; offset < inlineRequests.length; offset += 1) {
 						const result = reply.results[offset];
 						if (result !== undefined) {
-							inlineSet(settledJournalLength + offset, result);
+							inlineValues[settledJournalLength + offset] = result;
 						}
 					}
 					settledJournalLength += inlineRequests.length;
@@ -907,86 +893,67 @@ const createDurableHost = (
 		output?: Output,
 	): Effect.Effect<unknown, unknown, Output["DecodingServices"]> => {
 		if (pendingObserved) {
-			return Effect.fail(durablePending).pipe(Effect.mapError((error): unknown => error));
+			return Effect.fail(durablePending);
 		}
 		const decodedRequest = Schema.decodeUnknownResult(
 			workflowDurableCallRequestSchema,
 			strictOptions,
 		)(requestValue);
 		if (decodedRequest._tag === "Failure") {
-			return Effect.fail(decodedRequest.failure).pipe(Effect.mapError((error): unknown => error));
+			return Effect.fail(decodedRequest.failure);
 		}
 		const request = decodedRequest.success;
 		const call: DurableCall = { request, started: false, settled: false };
-		calls.push(call);
-		requests.push(request);
-		return Effect.suspend(() => {
+		pushArray(calls, call);
+		pushArray(requests, request);
+		return Effect.gen(function* () {
 			call.started = true;
-			type RecordedEntry =
-				| { readonly state: "recorded"; readonly entry: WorkflowReplayJournalEntry }
-				| { readonly state: "missing" };
-			const recorded: Effect.Effect<RecordedEntry, SandboxHostError> =
-				index < journal.length
-					? journal.read(index).pipe(Effect.map((entry) => ({ entry, state: "recorded" }) as const))
-					: Effect.succeed({ state: "missing" as const });
-			return recorded.pipe(
-				Effect.flatMap((loaded) => {
-					if (loaded.state === "recorded") {
-						const entry = loaded.entry;
-						if (stableJson(entry.request) !== stableJson(request)) {
-							return Effect.fail(
-								createFailure("Sandbox durable journal identity mismatch at index " + index),
-							).pipe(Effect.mapError((error): unknown => error));
-						}
-						return Effect.succeed(entry.value);
-					}
-					const inlineValue = inlineGet(index);
-					if (inlineValue !== undefined) {
-						return Effect.succeed(inlineValue);
-					}
-					return settleInline().pipe(
-						Effect.map(() => inlineGet(index)),
-						Effect.mapError((error): unknown => error),
+			let value: JsonValue | undefined;
+			if (index < journal.length) {
+				const entry = yield* journal.read(index);
+				if (stableJson(entry.request) !== stableJson(request)) {
+					return yield* Effect.fail(
+						createFailure("Sandbox durable journal identity mismatch at index " + index),
 					);
-				}),
-				Effect.flatMap((value) => {
-					if (value === undefined) {
-						pendingObserved = true;
-						call.settled = true;
-						return Effect.yieldNow.pipe(
-							Effect.andThen(Effect.fail(durablePending)),
-							Effect.mapError((error): unknown => error),
-						);
-					}
-					return decodeDurableResult(value).pipe(
-						Effect.mapError((error) =>
-							createFailure("Recorded sandbox durable result is invalid: " + nativeString(error)),
-						),
-						Effect.flatMap((result) => {
-							call.settled = true;
-							if (result.state === "failure") {
-								return Effect.fail(result.error);
-							}
-							return output
-								? Schema.decodeEffect(output)(result.value).pipe(
-										Effect.mapError((error) =>
-											createFailure(
-												"Recorded workflow child output is invalid: " + nativeString(error),
-											),
-										),
-									)
-								: Effect.succeed(result.value);
-						}),
-						Effect.mapError((error): unknown => error),
-					);
-				}),
+				}
+				value = entry.value;
+			} else {
+				value = inlineValues[index];
+				if (value === undefined) {
+					yield* settleInline();
+					value = inlineValues[index];
+				}
+			}
+			if (value === undefined) {
+				pendingObserved = true;
+				call.settled = true;
+				yield* Effect.yieldNow;
+				return yield* Effect.fail(durablePending);
+			}
+			const result = yield* decodeDurableResult(value).pipe(
+				Effect.mapError((error) =>
+					createFailure("Recorded sandbox durable result is invalid: " + nativeString(error)),
+				),
+			);
+			call.settled = true;
+			if (result.state === "failure") {
+				return yield* Effect.fail(result.error);
+			}
+			if (!output) {
+				return result.value;
+			}
+			return yield* Schema.decodeEffect(output)(result.value).pipe(
+				Effect.mapError((error) =>
+					createFailure("Recorded workflow child output is invalid: " + nativeString(error)),
+				),
 			);
 		});
 	};
 
 	const host: Record<string, unknown> = objectCreate(null);
-	for (const name of executionMetadata.capabilities) {
-		if (name === "artifact-read" || name === "scratch") {
+	for (let index = 0; index < executionMetadata.capabilities.length; index += 1) {
+		const name = executionMetadata.capabilities[index];
+		if (name === undefined || name === "artifact-read" || name === "scratch") {
 			continue;
 		}
 		if (name === "log" || name === "span") {
@@ -997,23 +964,23 @@ const createDurableHost = (
 			continue;
 		}
 		host[name] = (...args: unknown[]) => {
-			const budgetError = consumeBudget(name);
+			const budgetError = chargeHostCall(budget, name);
 			if (budgetError) {
-				return Effect.fail(createFailure(budgetError.message, budgetError.reason));
+				return Effect.fail(budgetError);
 			}
 			const transported = transportArguments(name, args);
 			if (!transported) {
 				return Effect.fail(createFailure("requestEventStreamWork requires a script reference"));
 			}
-			const index = requests.length;
+			const requestIndex = requests.length;
 			return register(
 				{
 					name,
-					index,
 					kind: "host",
+					index: requestIndex,
 					args: { capability: name, args: jsonClone(transported, name + " arguments") },
 				},
-				index,
+				requestIndex,
 			);
 		};
 	}
@@ -1033,9 +1000,9 @@ const createDurableHost = (
 					createFailure("executeWorkflow input is invalid: " + nativeString(decodedInput.failure)),
 				);
 			}
-			const budgetError = consumeBudget("executeWorkflow");
+			const budgetError = chargeHostCall(budget, "executeWorkflow");
 			if (budgetError) {
-				return Effect.fail(createFailure(budgetError.message, budgetError.reason));
+				return Effect.fail(budgetError);
 			}
 			const index = requests.length;
 			return register(
@@ -1065,8 +1032,9 @@ const createDurableHost = (
 				: undefined,
 		startedRequests: () => {
 			const started: Array<Schema.Schema.Type<typeof workflowDurableCallRequestSchema>> = [];
-			for (const call of calls) {
-				if (!call.started) {
+			for (let index = 0; index < calls.length; index += 1) {
+				const call = calls[index];
+				if (call === undefined || !call.started) {
 					break;
 				}
 				pushArray(started, call.request);
@@ -1076,18 +1044,18 @@ const createDurableHost = (
 	};
 };
 
-type DurableWorkflowReference = {
-	readonly workflowSlug: string;
-	readonly input: Schema.ConstraintDecoder<unknown>;
-	readonly output: Schema.ConstraintDecoder<unknown>;
+const isDurableWorkflowReference = (value: unknown): value is DurableWorkflowReference => {
+	if (!isRecord(value)) {
+		return false;
+	}
+	const workflowSlug = value["workflowSlug"];
+	return (
+		typeof workflowSlug === "string" &&
+		workflowSlug.length > 0 &&
+		Schema.isSchema(value["input"]) &&
+		Schema.isSchema(value["output"])
+	);
 };
-
-const isDurableWorkflowReference = (value: unknown): value is DurableWorkflowReference =>
-	isRecord(value) &&
-	typeof value["workflowSlug"] === "string" &&
-	value["workflowSlug"].length > 0 &&
-	Schema.isSchema(value["input"]) &&
-	Schema.isSchema(value["output"]);
 
 const executeDefinition = Effect.fnUntraced(function* (
 	definitionValue: unknown,
@@ -1138,14 +1106,14 @@ const executeDefinition = Effect.fnUntraced(function* (
 
 	setPhase("execute");
 	let durable: ReturnType<typeof createDurableHost> | undefined;
-	if (invocation.workflowExecutionId !== undefined && manifest.kind !== "workflow" && journal) {
+	if (invocation.workflowExecutionId !== undefined && manifest.kind !== "workflow") {
+		if (!journal) {
+			return yield* Effect.fail({
+				phase: "input",
+				error: "Sandbox workflow journal is unavailable",
+			} satisfies RunnerPhaseFailure);
+		}
 		durable = createDurableHost(invocation, metadata, bridge, journal);
-	}
-	if (invocation.workflowExecutionId !== undefined && manifest.kind !== "workflow" && !durable) {
-		return yield* Effect.fail({
-			phase: "input",
-			error: "Sandbox workflow journal is unavailable",
-		} satisfies RunnerPhaseFailure);
 	}
 	const host = durable?.host ?? createHost(invocation, bridge, journal);
 	const execution = yield* Effect.try({
@@ -1205,12 +1173,9 @@ const executeDefinition = Effect.fnUntraced(function* (
 			return {
 				state: "failed",
 				requests: durable.requests,
+				error: errorMessage(outcome.error),
 				journalLength: durable.journalLength,
 				kind: hostFailureKind(outcome.error) ?? "script-failure",
-				error:
-					isRecord(outcome.error) && typeof outcome.error["message"] === "string"
-						? outcome.error["message"]
-						: nativeString(outcome.error),
 			};
 		}
 		setPhase("output");
@@ -1233,10 +1198,7 @@ const executeDefinition = Effect.fnUntraced(function* (
 				kind: "invalid-output",
 				requests: durable.requests,
 				journalLength: durable.journalLength,
-				error:
-					isRecord(outputResult.error) && typeof outputResult.error.message === "string"
-						? outputResult.error.message
-						: nativeString(outputResult.error),
+				error: errorMessage(outputResult.error),
 			};
 		}
 		return {
@@ -1275,19 +1237,24 @@ const serializeResponse = (response: SandboxInvocationResponse) => {
 	return serialized;
 };
 
+type ConsoleMethods = Record<(typeof consoleMethods)[number], (...args: unknown[]) => void>;
+
 type InvocationState = {
 	readonly startedAt: number;
-	readonly previousConsole: {
-		readonly log: typeof console.log;
-		readonly info: typeof console.info;
-		readonly warn: typeof console.warn;
-		readonly debug: typeof console.debug;
-		readonly error: typeof console.error;
-	};
+	readonly previousConsole: ConsoleMethods;
 	phase: SandboxRunnerPhase;
 	invocation?: SandboxInvocation;
 	logs: SandboxLogCollector;
 	restoreWorkflowGlobals?: () => void;
+};
+
+const installConsole = (methods: ConsoleMethods) => {
+	for (let index = 0; index < consoleMethods.length; index += 1) {
+		const name = consoleMethods[index];
+		if (name !== undefined) {
+			console[name] = methods[name];
+		}
+	}
 };
 
 const isRunnerPhase = (
@@ -1310,23 +1277,21 @@ const isRunnerPhase = (
 
 const failureResponse = (error: unknown, state: InvocationState, specifier: string) => {
 	const phaseFailure = isRecord(error) && isRunnerPhase(error) ? error : undefined;
-	const errorPhase = phaseFailure?.phase ?? failurePhase(error, state.phase);
+	const phase = phaseFailure?.phase ?? state.phase;
 	const runnerError = executionError(
 		phaseFailure?.error ?? error,
-		errorPhase,
+		phase,
 		state.invocation,
 		specifier,
-		phaseFailure?.kind ?? failureKind(error, phaseFailureKinds[errorPhase]),
+		phaseFailure?.kind ?? phaseFailureKinds[phase],
 	);
-	const response: SandboxInvocationResponse = {
-		success: false,
-		error: runnerError,
-		logs: state.logs.logs,
-		timing: { executionMs: performanceNow() - state.startedAt },
-	};
 	try {
-		const serialized = serializeResponse(response);
-		return typeof serialized === "string" ? serialized : "{}";
+		return serializeResponse({
+			success: false,
+			error: runnerError,
+			logs: state.logs.logs,
+			timing: { executionMs: performanceNow() - state.startedAt },
+		});
 	} catch {
 		return (
 			'{"success":false,"logs":[],"error":' +
@@ -1352,13 +1317,9 @@ const runInvocation = Effect.fnUntraced(function* (
 		Effect.mapError((error) => ({ error, phase: "input" }) satisfies RunnerPhaseFailure),
 	);
 	state.invocation = invocation;
-	state.logs = createLogCollector(invocation.limits);
-	console.log = state.logs.console.log;
-	console.info = state.logs.console.info;
-	console.warn = state.logs.console.warn;
-	console.debug = state.logs.console.debug;
-	console.error = state.logs.console.error;
-	installFilesystem(invocation, bridge);
+	state.logs = createLogCollector(SANDBOX_RUNNER_LIMITS);
+	installConsole(state.logs.console);
+	filesystemBinding = createFilesystemBinding(invocation, bridge);
 	disableCodeGeneration();
 	state.phase = "load";
 	approvedDependencyRuntime.configure(invocation);
@@ -1391,10 +1352,11 @@ const runInvocation = Effect.fnUntraced(function* (
 			error: "Sandbox definition result is not JSON-serializable",
 		} satisfies RunnerPhaseFailure);
 	}
-	if (bytesOf(serializedValue) > invocation.limits.resultBytes) {
+	if (bytesOf(serializedValue) > SANDBOX_RUNNER_LIMITS.resultBytes) {
 		return yield* Effect.fail({
 			phase: "output",
-			error: "Sandbox definition result exceeds " + invocation.limits.resultBytes + " UTF-8 bytes",
+			error:
+				"Sandbox definition result exceeds " + SANDBOX_RUNNER_LIMITS.resultBytes + " UTF-8 bytes",
 		} satisfies RunnerPhaseFailure);
 	}
 	return serializeResponse({
@@ -1437,11 +1399,7 @@ export const executeSandboxInvocation = async (
 	} finally {
 		filesystemBinding = undefined;
 		state.restoreWorkflowGlobals?.();
-		console.log = state.previousConsole.log;
-		console.info = state.previousConsole.info;
-		console.warn = state.previousConsole.warn;
-		console.debug = state.previousConsole.debug;
-		console.error = state.previousConsole.error;
+		installConsole(state.previousConsole);
 	}
 };
 

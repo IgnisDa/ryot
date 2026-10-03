@@ -8,11 +8,23 @@ import {
 	type WorkflowReplayJournalEntry,
 } from "@ryot-app/sandbox-sdk/workflow";
 import type { Scope, Tracer } from "effect";
-import { Cause, Clock, Context, Data, Deferred, Effect, Layer, Schema, Semaphore } from "effect";
+import {
+	Cause,
+	Clock,
+	Context,
+	Data,
+	Deferred,
+	Effect,
+	Layer,
+	Option,
+	Schema,
+	Semaphore,
+} from "effect";
+import { Base64 } from "effect/encoding";
 
 import { recordSandboxHostCall, sandboxMetricHostFunction } from "../runtime-metrics";
 import { isSandboxCapability } from "./capability-policy";
-import type { SandboxFileService } from "./file-service";
+import type { SandboxFileAccess } from "./file-service";
 import { consumeSandboxHostCall, SANDBOX_LIMITS } from "./limits";
 import { isSandboxCapabilityAllowed, type BoundHostFunction, type SandboxRunInput } from "./shared";
 import {
@@ -26,12 +38,8 @@ import {
 	type SidecarHostResultFrame,
 } from "./sidecar-protocol";
 
-const KiB = 1024;
-const MiB = 1024 * KiB;
-const initialExpiryMs = 30_000 + 2_000;
-const maximumSequenceCount = SANDBOX_LIMITS.hostCalls.total + 2_048 + 4;
-const maximumJournalReadCount = 2_048;
-const maximumJournalReadBytes = 200 * MiB;
+const initialExpiryMs = SANDBOX_LIMITS.execution.timeoutMs + SANDBOX_LIMITS.sidecar.disposalMs;
+const maximumSequenceCount = SANDBOX_LIMITS.hostCalls.total + SANDBOX_LIMITS.journalReads.count + 4;
 const dispatchQueueFull = Symbol("dispatchQueueFull");
 const strictOptions = { onExcessProperty: "error" } as const;
 const encodeUnknownJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
@@ -55,13 +63,24 @@ const decodeJournalEntry = Schema.decodeUnknownSync(
 	workflowReplayJournalEntrySchema,
 	strictOptions,
 );
-const decodeSidecarJson = Schema.decodeUnknownSync(Schema.Json);
+const decodeJournalPrefixEntry = Schema.decodeUnknownEffect(
+	workflowReplayJournalEntrySchema,
+	strictOptions,
+);
+const decodeJournalReadArgs = Schema.decodeUnknownOption(journalReadArgsSchema, strictOptions);
+const decodeInlineBatch = Schema.decodeUnknownOption(InlineBatchSchema, strictOptions);
+const decodeHostCallArgs = Schema.decodeUnknownOption(Schema.Array(jsonValueSchema), strictOptions);
+const decodeArtifactReadRangeArgs = Schema.decodeUnknownOption(
+	artifactReadRangeArgsSchema,
+	strictOptions,
+);
+const decodeScratchWriteArgs = Schema.decodeUnknownOption(scratchWriteArgsSchema, strictOptions);
+const decodeSidecarJson = Schema.decodeUnknownOption(Schema.Json, strictOptions);
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const encodeJsonBytes = (value: unknown) => encoder.encode(encodeUnknownJson(value));
 const failureMessage = "Sandbox host call failed";
 
-type SandboxFileSession = Effect.Success<ReturnType<SandboxFileService["Service"]["open"]>>;
 type SidecarHostCallFrameType = typeof SidecarHostCallFrame.Type;
 type SidecarHostResultFrameType = typeof SidecarHostResultFrame.Type;
 type SandboxInvocationJournal = (typeof SandboxInvocationSchema.Type)["journal"];
@@ -77,7 +96,7 @@ export type SandboxHostCallGateOptions = {
 	readonly handle: string;
 	readonly input: SandboxRunInput;
 	readonly apiFunctions: Readonly<Record<string, BoundHostFunction>>;
-	readonly files: SandboxFileSession;
+	readonly files: SandboxFileAccess;
 	readonly parentSpan: Tracer.AnySpan;
 };
 
@@ -106,12 +125,12 @@ type JournalPrefix = {
 
 const gateError = (reason: string) => new GateError({ reason });
 
-const encodeJournalPrefix = (
+const encodeJournalPrefix = Effect.fnUntraced(function* (
 	entries: ReadonlyArray<WorkflowReplayJournalEntry> | undefined,
-): JournalPrefix => {
+): Effect.fn.Return<JournalPrefix, GateError> {
 	const source = entries ?? [];
 	if (source.length > SANDBOX_LIMITS.hostCalls.total) {
-		throw gateError("Sandbox workflow journal length is invalid");
+		return yield* gateError("Sandbox workflow journal length is invalid");
 	}
 
 	const encodedEntries: EncodedJournalEntry[] = [];
@@ -119,14 +138,16 @@ const encodeJournalPrefix = (
 	let totalBytes = 0;
 	let jsonBytes = 2;
 	for (const [index, rawEntry] of source.entries()) {
-		const entry = decodeJournalEntry(rawEntry);
+		const entry = yield* decodeJournalPrefixEntry(rawEntry).pipe(
+			Effect.mapError(() => gateError("Sandbox workflow journal prefix is invalid")),
+		);
 		if (entry.request.index !== index) {
-			throw gateError("Sandbox workflow journal prefix is invalid");
+			return yield* gateError("Sandbox workflow journal prefix is invalid");
 		}
 		const bytes = encodeJsonBytes(entry);
 		const nextJsonBytes = jsonBytes + bytes.byteLength + (index === 0 ? 0 : 1);
 		if (nextJsonBytes > SANDBOX_LIMITS.journalBytes) {
-			throw gateError("Sandbox workflow journal exceeds its byte limit");
+			return yield* gateError("Sandbox workflow journal exceeds its byte limit");
 		}
 		const start = totalBytes;
 		totalBytes += bytes.byteLength;
@@ -141,7 +162,7 @@ const encodeJournalPrefix = (
 		journal:
 			entries === undefined ? undefined : { offsets, totalBytes, length: encodedEntries.length },
 	};
-};
+});
 
 const serializedJson = (value: unknown) => {
 	if (!isJsonValue(value)) {
@@ -166,6 +187,22 @@ const safeHostFailure = (error: unknown) => {
 	return isJsonValue(data) ? hostFailure(message, data) : hostFailure(message);
 };
 
+const resultBytes = (frame: SidecarHostResultFrameType) => {
+	const encoded = serializedJson(frame);
+	return encoded === undefined ? Number.POSITIVE_INFINITY : utf8ByteLength(encoded);
+};
+
+const resultFrame = (
+	frame: SidecarHostCallFrameType,
+	result: SidecarHostResultFrameType["result"],
+): SidecarHostResultFrameType => ({
+	result,
+	seq: frame.seq,
+	type: "hostResult",
+	handle: frame.handle,
+	generation: frame.generation,
+});
+
 const hostResultFrame = (
 	frame: SidecarHostCallFrameType,
 	value: unknown,
@@ -175,54 +212,29 @@ const hostResultFrame = (
 		serialized === undefined ||
 		utf8ByteLength(serialized) > SANDBOX_LIMITS.bridge.responseBytes
 	) {
-		return {
-			seq: frame.seq,
-			type: "hostResult",
-			handle: frame.handle,
-			generation: frame.generation,
-			result: {
-				status: "success",
-				value: hostFailure(
-					serialized === undefined
-						? "Sandbox host result is not valid JSON"
-						: `Sandbox bridge response exceeds ${SANDBOX_LIMITS.bridge.responseBytes} UTF-8 bytes`,
-				),
-			},
-		};
+		return resultFrame(frame, {
+			status: "success",
+			value: hostFailure(
+				serialized === undefined
+					? "Sandbox host result is not valid JSON"
+					: `Sandbox bridge response exceeds ${SANDBOX_LIMITS.bridge.responseBytes} UTF-8 bytes`,
+			),
+		});
 	}
-	let jsonValue: ReturnType<typeof decodeSidecarJson>;
-	try {
-		jsonValue = decodeSidecarJson(value);
-	} catch {
-		return {
-			seq: frame.seq,
-			type: "hostResult",
-			handle: frame.handle,
-			generation: frame.generation,
-			result: { status: "success", value: hostFailure("Sandbox host result is not valid JSON") },
-		};
+	const jsonValue = decodeSidecarJson(value);
+	if (Option.isNone(jsonValue)) {
+		return resultFrame(frame, {
+			status: "success",
+			value: hostFailure("Sandbox host result is not valid JSON"),
+		});
 	}
-	const result = {
-		seq: frame.seq,
-		type: "hostResult",
-		handle: frame.handle,
-		generation: frame.generation,
-		result: { value: jsonValue, status: "success" },
-	} satisfies SidecarHostResultFrameType;
-	const resultBytes = serializedJson(result);
-	return resultBytes !== undefined &&
-		utf8ByteLength(resultBytes) <= SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult
+	const result = resultFrame(frame, { status: "success", value: jsonValue.value });
+	return resultBytes(result) <= SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult
 		? result
-		: {
-				seq: frame.seq,
-				type: "hostResult",
-				handle: frame.handle,
-				generation: frame.generation,
-				result: {
-					status: "success",
-					value: hostFailure("Sandbox host result exceeds the sidecar protocol limit"),
-				},
-			};
+		: resultFrame(frame, {
+				status: "success",
+				value: hostFailure("Sandbox host result exceeds the sidecar protocol limit"),
+			});
 };
 
 const frameFailure = (
@@ -232,21 +244,8 @@ const frameFailure = (
 ): SidecarHostResultFrameType =>
 	hostResultFrame(frame, isJsonValue(data) ? hostFailure(message, data) : hostFailure(message));
 
-const resultBytes = (frame: SidecarHostResultFrameType) => {
-	const encoded = serializedJson(frame);
-	return encoded === undefined ? Number.POSITIVE_INFINITY : utf8ByteLength(encoded);
-};
-
 const ownerKey = (options: SandboxHostCallGateOptions) =>
 	encodeUnknownJson([options.instance, options.generation, options.handle]);
-
-const encodeBase64 = (bytes: Uint8Array) => {
-	let binary = "";
-	for (let offset = 0; offset < bytes.byteLength; offset += 32 * KiB) {
-		binary += String.fromCharCode(...bytes.subarray(offset, offset + 32 * KiB));
-	}
-	return btoa(binary);
-};
 
 const errorResponse = (frame: SidecarHostCallFrameType, error: unknown) =>
 	hostResultFrame(frame, safeHostFailure(error));
@@ -257,26 +256,12 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 	"SandboxHostCallGate",
 	{
 		make: Effect.sync(() => {
-			type ActiveRegistration = {
-				readonly owner: string;
-				readonly close: Effect.Effect<void>;
-				readonly dispatch: SandboxHostCallGateRegistration["dispatch"];
-				readonly inlineEntries: () => ReadonlyArray<WorkflowReplayJournalEntry>;
-				readonly journal: SandboxInvocationJournal;
-				readonly extend: SandboxHostCallGateRegistration["extend"];
-			};
-			const registrations = new Map<string, ActiveRegistration>();
+			const registrations = new Map<string, Effect.Effect<void>>();
 
 			const register = Effect.fn("SandboxHostCallGate.register")(function* (
 				options: SandboxHostCallGateOptions,
 			): Effect.fn.Return<SandboxHostCallGateRegistration, GateError, Scope.Scope> {
-				const prefix = yield* Effect.try({
-					try: () => encodeJournalPrefix(options.input.replayJournal),
-					catch: (error) =>
-						error instanceof GateError
-							? error
-							: gateError("Sandbox workflow journal prefix is invalid"),
-				});
+				const prefix = yield* encodeJournalPrefix(options.input.replayJournal);
 				if (options.input.workflowExecutionId !== undefined && prefix.journal === undefined) {
 					return yield* gateError("Workflow executions require a host-pinned journal prefix");
 				}
@@ -287,7 +272,6 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 				const seenSequences = new Set<number>();
 				const inlineEncodedEntries: Uint8Array[] = [];
 				const prefixEntries = [...prefix.entries];
-				const journalEntries = [...prefixEntries];
 				const hasJournalPrefix = prefix.journal !== undefined;
 				const journalPrefixBytes = prefixEntries.at(-1)?.end ?? 0;
 				let readCount = 0;
@@ -300,7 +284,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 				let waiting = 0;
 				let isClosed = false;
 				let gateInput: SandboxRunInput | undefined = options.input;
-				let gateFiles: SandboxFileSession | undefined = options.files;
+				let gateFiles: SandboxFileAccess | undefined = options.files;
 				let gateFunctions: Readonly<Record<string, BoundHostFunction>> | undefined =
 					options.apiFunctions;
 				const generation = options.generation;
@@ -308,19 +292,15 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 				const executionId = options.input.executionId;
 				const parentSpan = options.parentSpan;
 				const key = ownerKey(options);
-				let active: ActiveRegistration | undefined;
 
 				const clearBuffers = () => {
 					for (const entry of prefixEntries) {
 						entry.bytes.fill(0);
 					}
-					for (const entry of journalEntries) {
-						entry.bytes.fill(0);
-					}
 					for (const bytes of inlineEncodedEntries) {
 						bytes.fill(0);
 					}
-					journalEntries.length = 0;
+					prefixEntries.length = 0;
 					inlineEncodedEntries.length = 0;
 					seenSequences.clear();
 					gateInput = undefined;
@@ -329,13 +309,13 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 					pendingExtensionMs = 0;
 				};
 
-				const close = Effect.sync(() => {
+				const close: Effect.Effect<void> = Effect.sync(() => {
 					if (!isClosed) {
 						isClosed = true;
 						Deferred.doneUnsafe(closed, Effect.void);
 						clearBuffers();
 					}
-					if (active !== undefined && registrations.get(key) === active) {
+					if (registrations.get(key) === close) {
 						registrations.delete(key);
 					}
 				});
@@ -391,8 +371,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							.pipe(
 								Effect.ensuring(
 									Effect.sync(() => {
-										if (acquired) {
-										} else {
+										if (!acquired) {
 											waiting -= 1;
 										}
 									}),
@@ -435,20 +414,16 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 					);
 
 				const journalRead = (frame: SidecarHostCallFrameType) =>
-					Effect.gen(function* () {
-						if (readCount >= maximumJournalReadCount) {
+					Effect.sync(() => {
+						if (readCount >= SANDBOX_LIMITS.journalReads.count) {
 							return frameFailure(frame, "Sandbox workflow journal read budget exceeded");
 						}
 						readCount += 1;
-						const args = yield* Schema.decodeUnknownEffect(
-							journalReadArgsSchema,
-							strictOptions,
-						)(frame.args).pipe(
-							Effect.match({ onFailure: () => undefined, onSuccess: (value) => value }),
-						);
-						if (args === undefined) {
+						const decodedArgs = decodeJournalReadArgs(frame.args);
+						if (Option.isNone(decodedArgs)) {
 							return frameFailure(frame, "Sandbox workflow journal range is invalid");
 						}
+						const args = decodedArgs.value;
 						const totalBytes = hasJournalPrefix ? journalPrefixBytes : undefined;
 						if (
 							totalBytes === undefined ||
@@ -462,7 +437,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						}
 						if (
 							readBytes + Math.min(args.length, totalBytes - args.offset) >
-							maximumJournalReadBytes
+							SANDBOX_LIMITS.journalReads.totalBytes
 						) {
 							return frameFailure(frame, "Sandbox workflow journal read budget exceeded");
 						}
@@ -485,7 +460,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							bytes.fill(0);
 							return frameFailure(frame, "Sandbox workflow journal range is incomplete");
 						}
-						const result = { totalBytes, offset: args.offset, data: encodeBase64(bytes) };
+						const result = { totalBytes, offset: args.offset, data: Base64.encode(bytes) };
 						bytes.fill(0);
 						return hostResultFrame(frame, result);
 					}).pipe(
@@ -495,21 +470,17 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 
 				const dispatchInlineBatch = (frame: SidecarHostCallFrameType) =>
 					Effect.gen(function* () {
-						const decoded = yield* Schema.decodeUnknownEffect(
-							InlineBatchSchema,
-							strictOptions,
-						)(frame.args).pipe(
-							Effect.match({ onFailure: () => undefined, onSuccess: (value) => value }),
-						);
-						if (!decoded) {
+						const decoded = decodeInlineBatch(frame.args);
+						if (Option.isNone(decoded)) {
 							return frameFailure(frame, "Sandbox inline durable batch is invalid");
 						}
+						const requests = decoded.value.requests;
 						const input = gateInput;
 						const inline = input?.inlineDurableHost;
 						if (!input || !inline) {
 							return hostResultFrame(frame, { defer: true });
 						}
-						const inlineJson = serializedJson({ inline: decoded });
+						const inlineJson = serializedJson({ inline: decoded.value });
 						if (
 							inlineJson === undefined ||
 							utf8ByteLength(`${inlineJson}\n`) > SANDBOX_LIMITS.bridge.requestBytes
@@ -517,40 +488,35 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							return hostResultFrame(frame, { defer: true });
 						}
 						const firstIndex = (input.replayJournal?.length ?? 0) + inlineEncodedEntries.length;
-						const trustedRequests = decoded.requests.map((request) =>
-							decodeHostRequestJson(encodeHostRequestJson(request)),
-						);
 						const invalidRequest =
-							trustedRequests.some(
+							requests.some(
 								(request, index) =>
 									request.index !== firstIndex + index ||
 									!inline.capabilities.includes(request.args.capability) ||
 									!isSandboxCapabilityAllowed(input, request.args.capability),
-							) || firstIndex + trustedRequests.length > SANDBOX_LIMITS.hostCalls.total;
+							) || firstIndex + requests.length > SANDBOX_LIMITS.hostCalls.total;
 						if (invalidRequest) {
 							return hostResultFrame(frame, { defer: true });
 						}
-						const requestBytes = trustedRequests.map((request) => encodeHostRequestJson(request));
+						const requestBytes = requests.map((request) => encodeHostRequestJson(request));
 
-						const tentativeBudget = { ...hostCallBudget };
 						let budgetExceeded = false;
-						for (const request of trustedRequests) {
-							if (consumeSandboxHostCall(tentativeBudget, request.args.capability)) {
+						for (const request of requests) {
+							if (consumeSandboxHostCall(hostCallBudget, request.args.capability)) {
 								budgetExceeded = true;
 							}
 						}
 						if (budgetExceeded) {
-							hostCallBudget.http = tentativeBudget.http;
-							hostCallBudget.total = tentativeBudget.total;
 							return hostResultFrame(frame, { defer: true });
 						}
-						hostCallBudget.http = tentativeBudget.http;
-						hostCallBudget.total = tentativeBudget.total;
 
 						const settledAtStart = yield* Clock.currentTimeMillis;
 						settlementStartedAt = settledAtStart;
-						const settled = yield* inline.settle(trustedRequests).pipe(
-							Effect.timeoutOrElse({ duration: "30 seconds", orElse: () => Effect.succeed(null) }),
+						const settled = yield* inline.settle(requests).pipe(
+							Effect.timeoutOrElse({
+								orElse: () => Effect.succeed(null),
+								duration: SANDBOX_LIMITS.sidecar.settlementMs,
+							}),
 							Effect.match({ onFailure: () => null, onSuccess: (value) => value }),
 							Effect.catchCauseIf(
 								(cause) => !Cause.hasInterrupts(cause),
@@ -569,7 +535,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 								),
 							),
 						);
-						if (settled === null || settled.length !== trustedRequests.length || isClosed) {
+						if (settled === null || settled.length !== requests.length || isClosed) {
 							return hostResultFrame(frame, { defer: true });
 						}
 
@@ -595,13 +561,15 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							if (requestJson === undefined) {
 								return hostResultFrame(frame, { defer: true });
 							}
-							const request = decodeHostRequestJson(requestJson);
 							const journalEntry = decodeJournalEntry({
-								request,
-								value: decodeSidecarJson(result),
+								value: result,
+								request: decodeHostRequestJson(requestJson),
 							});
 							const bytes = encoder.encode(encodeJournalEntryJson(journalEntry));
-							const separatorBytes = journalEntries.length + encodedEntries.length === 0 ? 0 : 1;
+							const separatorBytes =
+								prefixEntries.length + inlineEncodedEntries.length + encodedEntries.length === 0
+									? 0
+									: 1;
 							nextJournalJsonBytes += bytes.byteLength + separatorBytes;
 							if (nextJournalJsonBytes > SANDBOX_LIMITS.journalBytes) {
 								for (const encoded of encodedEntries) {
@@ -612,13 +580,10 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							encodedEntries.push(bytes);
 						}
 						const replyValue = decodeSidecarJson(inlineReply);
-						const totalResult = {
-							seq: frame.seq,
-							type: "hostResult",
-							handle: frame.handle,
-							generation: frame.generation,
-							result: { status: "success", value: replyValue },
-						} satisfies SidecarHostResultFrameType;
+						if (Option.isNone(replyValue)) {
+							return hostResultFrame(frame, { defer: true });
+						}
+						const totalResult = resultFrame(frame, { status: "success", value: replyValue.value });
 						if (resultBytes(totalResult) > SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult) {
 							for (const encoded of encodedEntries) {
 								encoded.fill(0);
@@ -626,12 +591,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							return hostResultFrame(frame, { defer: true });
 						}
 
-						for (const encoded of encodedEntries) {
-							inlineEncodedEntries.push(encoded);
-							const start = journalEntries[journalEntries.length - 1]?.end ?? 0;
-							const end = start + encoded.byteLength;
-							journalEntries.push({ end, start, bytes: encoded });
-						}
+						inlineEncodedEntries.push(...encodedEntries);
 						totalJournalJsonBytes = nextJournalJsonBytes;
 						return totalResult;
 					}).pipe(
@@ -647,15 +607,11 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 
 				const ordinaryDispatch = (frame: SidecarHostCallFrameType) =>
 					Effect.gen(function* () {
-						const parsed = yield* Schema.decodeUnknownEffect(
-							Schema.Array(jsonValueSchema),
-							strictOptions,
-						)(frame.args).pipe(
-							Effect.match({ onFailure: () => undefined, onSuccess: (value) => value }),
-						);
-						if (!parsed) {
+						const decodedArgs = decodeHostCallArgs(frame.args);
+						if (Option.isNone(decodedArgs)) {
 							return frameFailure(frame, "Sandbox host call arguments are invalid");
 						}
+						const parsed = decodedArgs.value;
 						const serializedArgs = serializedJson({ args: parsed });
 						if (
 							serializedArgs === undefined ||
@@ -689,27 +645,17 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							return frameFailure(frame, "Sandbox file session is unavailable");
 						}
 						if (frame.name === "artifactReadRange") {
-							const args = yield* Schema.decodeUnknownEffect(
-								artifactReadRangeArgsSchema,
-								strictOptions,
-							)(frame.args).pipe(
-								Effect.match({ onFailure: () => undefined, onSuccess: (value) => value }),
-							);
-							if (!args) {
+							const args = decodeArtifactReadRangeArgs(frame.args);
+							if (Option.isNone(args)) {
 								return frameFailure(frame, "Sandbox artifact range arguments are invalid");
 							}
-							return yield* boundedHostCall(frame, frame.name, files.artifactReadRange(args));
+							return yield* boundedHostCall(frame, frame.name, files.artifactReadRange(args.value));
 						}
-						const args = yield* Schema.decodeUnknownEffect(
-							scratchWriteArgsSchema,
-							strictOptions,
-						)(frame.args).pipe(
-							Effect.match({ onFailure: () => undefined, onSuccess: (value) => value }),
-						);
-						if (!args) {
+						const args = decodeScratchWriteArgs(frame.args);
+						if (Option.isNone(args)) {
 							return frameFailure(frame, "Sandbox scratch write arguments are invalid");
 						}
-						return yield* boundedHostCall(frame, frame.name, files.scratchWrite(args));
+						return yield* boundedHostCall(frame, frame.name, files.scratchWrite(args.value));
 					});
 
 				const dispatch: SandboxHostCallGateRegistration["dispatch"] = (frame) =>
@@ -779,14 +725,13 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						return yield* Effect.void;
 					});
 
-				active = { close, extend, dispatch, owner: key, inlineEntries, journal: prefix.journal };
 				yield* Effect.acquireRelease(
 					Effect.gen(function* () {
 						const previous = registrations.get(key);
 						if (previous) {
-							yield* previous.close;
+							yield* previous;
 						}
-						registrations.set(key, active);
+						registrations.set(key, close);
 					}),
 					() => close,
 				);
@@ -796,7 +741,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						? 0
 						: Math.max(
 								0,
-								30_000 -
+								SANDBOX_LIMITS.execution.timeoutMs -
 									(now -
 										scriptStartedAt -
 										settledMs -

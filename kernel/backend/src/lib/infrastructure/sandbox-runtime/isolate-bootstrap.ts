@@ -34,6 +34,52 @@ const blockedWorkflowNondeterminism = (name: string) => () => {
 	throw new nativeError("Workflow code cannot use ambient nondeterminism: " + name);
 };
 
+const makeGlobalReplacements = () => {
+	const restores: Array<() => void> = [];
+	return {
+		restore: () => {
+			for (let index = restores.length - 1; index >= 0; index -= 1) {
+				restores[index]?.();
+			}
+			restores.length = 0;
+		},
+		replace: (target: object, name: PropertyKey, value: unknown) => {
+			const descriptor = objectGetOwnPropertyDescriptor(target, name);
+			objectDefineProperty(target, name, {
+				value,
+				configurable: true,
+				enumerable: descriptor?.enumerable ?? false,
+			});
+			restores[restores.length] = () => {
+				if (descriptor) {
+					objectDefineProperty(target, name, descriptor);
+				} else {
+					reflectDeleteProperty(target, name);
+				}
+			};
+		},
+	};
+};
+
+const makeDateProxy = (
+	call: () => string,
+	construct: NonNullable<ProxyHandler<() => string>["construct"]>,
+	now: () => number,
+) => {
+	const date = new nativeProxy(
+		function () {
+			return call();
+		},
+		{ construct },
+	);
+	objectSetPrototypeOf(date.prototype, nativeDate.prototype);
+	objectDefineProperty(date.prototype, "constructor", { value: date });
+	objectDefineProperty(date, "now", { value: now });
+	objectDefineProperty(date, "UTC", { value: nativeDateUtc });
+	objectDefineProperty(date, "parse", { value: nativeDateParse });
+	return date;
+};
+
 type ApprovedDependencyRuntime = {
 	readonly configure: (invocation: SandboxInvocation) => void;
 	readonly withGlobals: <A>(operation: () => Promise<A>) => Promise<A>;
@@ -44,7 +90,7 @@ const makeApprovedDependencyRuntime = (): ApprovedDependencyRuntime => {
 	let randomState = 2_166_136_261;
 	let active = 0;
 	let enabled = false;
-	let restoreGlobals: Array<() => void> | undefined;
+	let globals: ReturnType<typeof makeGlobalReplacements> | undefined;
 
 	const configure = (invocation: SandboxInvocation) => {
 		enabled =
@@ -62,36 +108,12 @@ const makeApprovedDependencyRuntime = (): ApprovedDependencyRuntime => {
 		return (randomState >>> 0) / 4_294_967_296;
 	};
 
-	const deterministicDate = new Proxy(
-		function () {
-			return nativeString(dateToString(new nativeDate(startedAt)));
-		},
-		{
-			construct: (_target, args, newTarget) =>
-				reflectConstruct(nativeDate, args.length === 0 ? [startedAt] : args, newTarget),
-		},
+	const deterministicDate = makeDateProxy(
+		() => nativeString(dateToString(new nativeDate(startedAt))),
+		(_target, args, newTarget) =>
+			reflectConstruct(nativeDate, args.length === 0 ? [startedAt] : args, newTarget),
+		() => nativeDateParse(startedAt),
 	);
-	objectSetPrototypeOf(deterministicDate.prototype, nativeDate.prototype);
-	objectDefineProperty(deterministicDate.prototype, "constructor", { value: deterministicDate });
-	objectDefineProperty(deterministicDate, "now", { value: () => nativeDateParse(startedAt) });
-	objectDefineProperty(deterministicDate, "UTC", { value: nativeDateUtc });
-	objectDefineProperty(deterministicDate, "parse", { value: nativeDateParse });
-
-	const restore = (target: object, name: PropertyKey, value: unknown) => {
-		const descriptor = objectGetOwnPropertyDescriptor(target, name);
-		objectDefineProperty(target, name, {
-			value,
-			configurable: true,
-			enumerable: descriptor?.enumerable ?? false,
-		});
-		return () => {
-			if (descriptor) {
-				objectDefineProperty(target, name, descriptor);
-			} else {
-				reflectDeleteProperty(target, name);
-			}
-		};
-	};
 
 	// oxlint-disable-next-line effecttsgo/async-function -- The SDK approved-dependency callback is Promise-native.
 	const withGlobals = async <A>(operation: () => Promise<A>) => {
@@ -99,35 +121,34 @@ const makeApprovedDependencyRuntime = (): ApprovedDependencyRuntime => {
 			return await operation();
 		}
 		if (active === 0) {
-			restoreGlobals = [
-				restore(globalThis, "Date", deterministicDate),
-				restore(nativeMath, "random", nextRandom),
-				restore(nativeCrypto, "randomUUID", () => {
-					const bytes = new nativeUint8Array(16);
-					for (let index = 0; index < bytes.length; index += 1) {
-						bytes[index] = mathFloor(nextRandom() * 256);
+			globals = makeGlobalReplacements();
+			globals.replace(globalThis, "Date", deterministicDate);
+			globals.replace(nativeMath, "random", nextRandom);
+			globals.replace(nativeCrypto, "randomUUID", () => {
+				const bytes = new nativeUint8Array(16);
+				for (let index = 0; index < bytes.length; index += 1) {
+					bytes[index] = mathFloor(nextRandom() * 256);
+				}
+				bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
+				bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+				let uuid = "";
+				for (let index = 0; index < bytes.length; index += 1) {
+					if (index === 4 || index === 6 || index === 8 || index === 10) {
+						uuid += "-";
 					}
-					bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
-					bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
-					let uuid = "";
-					for (let index = 0; index < bytes.length; index += 1) {
-						if (index === 4 || index === 6 || index === 8 || index === 10) {
-							uuid += "-";
-						}
-						uuid += nativeString(
-							stringPadStart(nativeString(numberToString(bytes[index] ?? 0, 16)), 2, "0"),
-						);
-					}
-					return uuid;
-				}),
-				restore(nativeCrypto, "getRandomValues", (value: ArrayBufferView) => {
-					const bytes = new nativeUint8Array(value.buffer, value.byteOffset, value.byteLength);
-					for (let index = 0; index < bytes.length; index += 1) {
-						bytes[index] = mathFloor(nextRandom() * 256);
-					}
-					return value;
-				}),
-			];
+					uuid += nativeString(
+						stringPadStart(nativeString(numberToString(bytes[index] ?? 0, 16)), 2, "0"),
+					);
+				}
+				return uuid;
+			});
+			globals.replace(nativeCrypto, "getRandomValues", (value: ArrayBufferView) => {
+				const bytes = new nativeUint8Array(value.buffer, value.byteOffset, value.byteLength);
+				for (let index = 0; index < bytes.length; index += 1) {
+					bytes[index] = mathFloor(nextRandom() * 256);
+				}
+				return value;
+			});
 		}
 		active += 1;
 		try {
@@ -135,10 +156,8 @@ const makeApprovedDependencyRuntime = (): ApprovedDependencyRuntime => {
 		} finally {
 			active -= 1;
 			if (active === 0) {
-				for (let index = (restoreGlobals?.length ?? 0) - 1; index >= 0; index -= 1) {
-					restoreGlobals?.[index]?.();
-				}
-				restoreGlobals = undefined;
+				globals?.restore();
+				globals = undefined;
 			}
 		}
 	};
@@ -151,7 +170,7 @@ const asyncFunction = Object.getPrototypeOf(approvedDependencyRuntime.withGlobal
 configureApprovedDependencyRuntime(approvedDependencyRuntime.withGlobals);
 
 export const disableCodeGeneration = () => {
-	for (const name of ["Deno", "eval", "Function", "Worker", "SharedWorker"]) {
+	for (const name of ["eval", "Function", "Worker", "SharedWorker"]) {
 		if (name in globalThis) {
 			objectDefineProperty(globalThis, name, {
 				writable: false,
@@ -173,53 +192,32 @@ export const disableCodeGeneration = () => {
 };
 
 export const installWorkflowDeterminismGuard = () => {
-	const restore: Array<() => void> = [];
-	const replace = (target: object, name: PropertyKey, replacement: PropertyDescriptor) => {
-		const descriptor = objectGetOwnPropertyDescriptor(target, name);
-		objectDefineProperty(target, name, {
-			...replacement,
-			configurable: true,
-			enumerable: descriptor?.enumerable ?? false,
-		});
-		restore.push(() => {
-			if (descriptor) {
-				objectDefineProperty(target, name, descriptor);
-			} else {
-				reflectDeleteProperty(target, name);
-			}
-		});
-	};
-	const workflowDate = new Proxy(
-		function () {
+	const globals = makeGlobalReplacements();
+	const workflowDate = makeDateProxy(
+		() => {
 			throw new nativeError("Workflow code cannot call ambient Date()");
 		},
-		{
-			construct: (_target, args, newTarget) => {
-				if (args.length === 0) {
-					throw new nativeError(
-						"Workflow code cannot construct an ambient current date with new Date()",
-					);
-				}
-				return reflectConstruct(nativeDate, args, newTarget);
-			},
+		(_target, args, newTarget) => {
+			if (args.length === 0) {
+				throw new nativeError(
+					"Workflow code cannot construct an ambient current date with new Date()",
+				);
+			}
+			return reflectConstruct(nativeDate, args, newTarget);
 		},
+		() => 0,
 	);
-	objectSetPrototypeOf(workflowDate.prototype, nativeDate.prototype);
-	objectDefineProperty(workflowDate.prototype, "constructor", { value: workflowDate });
-	objectDefineProperty(workflowDate, "now", { value: () => 0 });
-	objectDefineProperty(workflowDate, "UTC", { value: nativeDateUtc });
-	objectDefineProperty(workflowDate, "parse", { value: nativeDateParse });
 
 	try {
-		replace(globalThis, "Date", { value: workflowDate });
-		replace(nativeMath, "random", { value: blockedWorkflowNondeterminism("Math.random") });
-		replace(nativeCrypto, "randomUUID", {
-			value: blockedWorkflowNondeterminism("crypto.randomUUID"),
-		});
-		replace(nativeCrypto, "getRandomValues", {
-			value: blockedWorkflowNondeterminism("crypto.getRandomValues"),
-		});
-		replace(nativePerformance, "now", { value: blockedWorkflowNondeterminism("performance.now") });
+		globals.replace(globalThis, "Date", workflowDate);
+		globals.replace(nativeMath, "random", blockedWorkflowNondeterminism("Math.random"));
+		globals.replace(nativeCrypto, "randomUUID", blockedWorkflowNondeterminism("crypto.randomUUID"));
+		globals.replace(
+			nativeCrypto,
+			"getRandomValues",
+			blockedWorkflowNondeterminism("crypto.getRandomValues"),
+		);
+		globals.replace(nativePerformance, "now", blockedWorkflowNondeterminism("performance.now"));
 
 		const temporal = reflectGet(globalThis, "Temporal");
 		if (isRecord(temporal)) {
@@ -232,19 +230,13 @@ export const installWorkflowDeterminismGuard = () => {
 						return typeof value === "function" ? blockedTemporalNow : value;
 					},
 				});
-				replace(temporal, "Now", { value: workflowTemporalNow });
+				globals.replace(temporal, "Now", workflowTemporalNow);
 			}
 		}
 	} catch (error) {
-		for (let index = restore.length - 1; index >= 0; index -= 1) {
-			restore[index]?.();
-		}
+		globals.restore();
 		throw error instanceof nativeError ? error : new nativeError(nativeString(error));
 	}
 
-	return () => {
-		for (let index = restore.length - 1; index >= 0; index -= 1) {
-			restore[index]?.();
-		}
-	};
+	return globals.restore;
 };

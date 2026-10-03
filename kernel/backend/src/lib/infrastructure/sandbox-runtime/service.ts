@@ -36,7 +36,6 @@ import { SandboxAdmissionLease } from "./sidecar-admission";
 import {
 	SandboxInvocationResponseSchema,
 	SandboxInvocationSchema,
-	type SandboxInvocationResponse,
 	type SidecarDoneFrame,
 } from "./sidecar-protocol";
 import {
@@ -49,7 +48,6 @@ const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Json));
 const decodeResponse = Schema.decodeUnknownEffect(SandboxInvocationResponseSchema, {
 	onExcessProperty: "error",
 });
-type Harvest = Effect.Success<ReturnType<SandboxFileService["Service"]["open"]>>["harvest"];
 
 export const selectSandboxHostFunctions = (
 	boundApiFunctions: Readonly<Record<string, BoundHostFunction>>,
@@ -137,8 +135,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						),
 						input,
 					);
-					let response: SandboxInvocationResponse | undefined;
-					let harvest: Effect.Success<ReturnType<Harvest>> = null;
 					const result = yield* supervisor.run({
 						lease,
 						principal: input.principal,
@@ -177,7 +173,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 								})({
 									context,
 									mode: "definition",
-									limits: SANDBOX_RUNNER_LIMITS,
 									executionId: input.executionId,
 									metadata: input.principal.metadata,
 									scriptId: input.principal.scriptId,
@@ -237,7 +232,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 												message: outcome.message,
 											});
 										}
-										response = yield* decodeResponse(outcome.value).pipe(
+										const response = yield* decodeResponse(outcome.value).pipe(
 											Effect.mapError(
 												() =>
 													new SandboxRunError({
@@ -246,24 +241,19 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 													}),
 											),
 										);
-										if (response.success) {
-											const completed =
-												isObjectRecord(response.value) && response.value["state"] === "completed"
-													? response.value["output"]
-													: response.value;
-											harvest = yield* access.harvest(completed);
+										if (!response.success) {
+											return { response, harvest: null };
 										}
-										return undefined;
+										const completed =
+											isObjectRecord(response.value) && response.value["state"] === "completed"
+												? response.value["output"]
+												: response.value;
+										return { response, harvest: yield* access.harvest(completed) };
 									}),
 								};
 							}),
 					});
-					if (response === undefined) {
-						return yield* new SandboxRunError({
-							kind: "infrastructure",
-							message: "Sandbox sidecar response is missing",
-						});
-					}
+					const { harvest, response } = result.finished;
 					const totalMs = Math.max(1, (yield* Clock.currentTimeMillis) - executionStartedAt);
 					terminal = {
 						durationMs: totalMs,
@@ -278,11 +268,11 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						consoleLogs.push(SANDBOX_RUNNER_LIMITS.logTruncationMarker);
 					}
 					return {
+						harvest,
 						inline: result.inline,
 						recovery: result.recovery,
 						success: response.success,
 						executionId: input.executionId,
-						harvest: yield* Effect.sync(() => harvest),
 						value: response.success ? response.value : null,
 						error: response.success ? null : response.error,
 						logs: mergeSandboxExecutionLogs(consoleLogs, collector),

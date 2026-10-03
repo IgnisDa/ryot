@@ -10,10 +10,18 @@ import { sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxHostCallGate } from "./host-call-gate";
-import { SANDBOX_RUNNER_LIMITS } from "./limits";
+import type { SandboxHostImplementationMaps } from "./host-implementations";
+import { SANDBOX_LIMITS } from "./limits";
+import type { RuntimeSandboxHostImplementationMap } from "./runtime-host-functions";
 import type { BoundHostFunction, SandboxRunInput } from "./shared";
 import { SandboxSidecarClient } from "./sidecar-client";
-import { SandboxInvocationResponseSchema, SandboxInvocationSchema } from "./sidecar-protocol";
+import {
+	SandboxInvocationResponseSchema,
+	SandboxInvocationSchema,
+	type SidecarHostCallFrame,
+	type SidecarHostResultFrame,
+	type SidecarInboundFrame,
+} from "./sidecar-protocol";
 import { selectSnapshotTier } from "./snapshot-tier";
 
 export type RunnerCompiled = Effect.Success<ReturnType<SandboxCompiler["Service"]["compile"]>>;
@@ -22,19 +30,120 @@ export type RunnerOptions = Partial<
 		SandboxRunInput,
 		"executionId" | "workflowExecutionId" | "replayJournal" | "inlineDurableHost"
 	>
-> & { readonly functions?: Readonly<Record<string, BoundHostFunction>> };
+> & {
+	readonly functions?: Readonly<Record<string, BoundHostFunction>>;
+	readonly filesystem?: { readonly artifact: boolean };
+	readonly reply?: (
+		frame: typeof SidecarHostCallFrame.Type,
+	) => (typeof SidecarHostResultFrame.Type)["result"] | undefined;
+};
+
+type SidecarSettings = Parameters<SandboxSidecarClient["Service"]["connect"]>[0];
+type SidecarConnection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
+export type SidecarRecorder = {
+	readonly connected?: (settings: SidecarSettings, connection: SidecarConnection) => void;
+	readonly received?: (
+		frame: Effect.Success<SidecarConnection["next"]>,
+		settings: SidecarSettings,
+	) => void;
+	readonly sent?: (frame: SidecarInboundFrame, settings: SidecarSettings) => SidecarInboundFrame;
+	readonly retired?: (handle: string) => void;
+};
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
+const unusedHostCall = () => Effect.die("Unexpected native sandbox host dispatch");
+const unusedLifecycleValue = (): never => {
+	throw new Error("Unexpected native sandbox lifecycle value");
+};
+const unusedLifecycleSteps = {
+	commit: unusedHostCall,
+	prepare: unusedHostCall,
+	validate: unusedHostCall,
+	value: unusedLifecycleValue,
+	applyPolicies: unusedHostCall,
+};
 
-export const runnerNativeLayer = Layer.unwrap(
-	Effect.map(sandboxRuntimeDirectory, (runtimeDirectory) =>
-		Layer.mergeAll(
-			SandboxSidecarClient.layer,
-			SandboxCompiler.layer,
-			SandboxHostCallGate.layer,
-		).pipe(Layer.provideMerge(makeAppConfigLayer({ sandbox: { runtimeDirectory } }))),
-	),
-).pipe(Layer.provideMerge(Layer.mergeAll(BunServices.layer, sandboxCompilerPlatformLayer)));
+export const nativePlatformLayer = Layer.mergeAll(BunServices.layer, sandboxCompilerPlatformLayer);
+
+export const nativeConfigLayer = (overrides: Parameters<typeof makeAppConfigLayer>[0] = {}) =>
+	Layer.unwrap(
+		Effect.map(sandboxRuntimeDirectory, (runtimeDirectory) =>
+			makeAppConfigLayer({ ...overrides, sandbox: { ...overrides.sandbox, runtimeDirectory } }),
+		),
+	);
+
+export const unusedSandboxHostImplementations = (
+	runtime: Partial<RuntimeSandboxHostImplementationMap> = {},
+): SandboxHostImplementationMaps => ({
+	automation: { emitSignal: unusedHostCall, sendNotification: unusedHostCall },
+	runtime: {
+		httpCall: unusedHostCall,
+		setCachedValue: unusedHostCall,
+		getCachedValue: unusedHostCall,
+		getPersistentValue: unusedHostCall,
+		claimPersistentValue: unusedHostCall,
+		...runtime,
+	},
+	lifecycle: {
+		upsertGlobalEntities: unusedLifecycleSteps,
+		changeUserRelationships: unusedLifecycleSteps,
+		upsertGlobalRelationships: unusedLifecycleSteps,
+		updateEvents: { commit: unusedHostCall, validate: unusedHostCall },
+		deleteEvents: { commit: unusedHostCall, validate: unusedHostCall },
+	},
+	additional: {
+		deleteEvents: unusedHostCall,
+		createEvents: unusedHostCall,
+		updateEvents: unusedHostCall,
+		executeRyotql: unusedHostCall,
+		getPluginConfig: unusedHostCall,
+		getUserSettings: unusedHostCall,
+		listIntegrations: unusedHostCall,
+		listEventSchemas: unusedHostCall,
+		getEntitySchemas: unusedHostCall,
+		getUserPreferences: unusedHostCall,
+		ensureUserEntities: unusedHostCall,
+		getOAuthAccessToken: unusedHostCall,
+		upsertGlobalEntities: unusedHostCall,
+		getCurrentIntegration: unusedHostCall,
+		requestEventStreamWork: unusedHostCall,
+		changeUserRelationships: unusedHostCall,
+		upsertGlobalRelationships: unusedHostCall,
+	},
+});
+
+export const recordingSidecarClient = <R>(makeRecorder: Effect.Effect<SidecarRecorder, never, R>) =>
+	Layer.effect(
+		SandboxSidecarClient,
+		Effect.gen(function* () {
+			const real = yield* SandboxSidecarClient;
+			const recorder = yield* makeRecorder;
+			return {
+				connect: Effect.fnUntraced(function* (settings: SidecarSettings) {
+					const connection = yield* real.connect(settings);
+					recorder.connected?.(settings, connection);
+					return {
+						...connection,
+						send: (frame: SidecarInboundFrame) =>
+							connection.send(recorder.sent?.(frame, settings) ?? frame),
+						next: connection.next.pipe(
+							Effect.tap((frame) => Effect.sync(() => recorder.received?.(frame, settings))),
+						),
+						retire: (handle: string) =>
+							connection
+								.retire(handle)
+								.pipe(Effect.tap(() => Effect.sync(() => recorder.retired?.(handle)))),
+					};
+				}),
+			};
+		}),
+	).pipe(Layer.provide(SandboxSidecarClient.layer));
+
+export const runnerNativeLayer = Layer.mergeAll(
+	SandboxSidecarClient.layer,
+	SandboxCompiler.layer,
+	SandboxHostCallGate.layer,
+).pipe(Layer.provideMerge(nativeConfigLayer()), Layer.provideMerge(nativePlatformLayer));
 
 export const makeRunnerInput = (
 	compiled: RunnerCompiled,
@@ -100,7 +209,11 @@ export const runNative = Effect.fnUntraced(function* (
 			});
 			const ready = yield* connection.next;
 			assert(ready.type === "ready");
-			const filesystem = { scratch: false, artifact: false, namedArtifacts: [] };
+			const filesystem = {
+				scratch: false,
+				namedArtifacts: [],
+				artifact: options.filesystem?.artifact ?? false,
+			};
 			const registration = yield* gate.register({
 				input,
 				handle,
@@ -122,7 +235,6 @@ export const runNative = Effect.fnUntraced(function* (
 				filesystem,
 				mode: "definition",
 				startedAt: input.startedAt,
-				limits: SANDBOX_RUNNER_LIMITS,
 				executionId: input.executionId,
 				compiledFormat: compiled.format,
 				metadata: input.principal.metadata,
@@ -144,19 +256,25 @@ export const runNative = Effect.fnUntraced(function* (
 				input: jsonInput,
 				lane: "interactive",
 				module: { source: compiled.javascript, sha256: input.principal.contentHash },
-				limits: {
-					cpuMs: 30_000,
-					deadlineMs: 30_000,
-					heapBytes: 256 * 1024 * 1024,
-					externalBytes: 64 * 1024 * 1024,
-				},
+				limits: { ...SANDBOX_LIMITS.isolate, deadlineMs: SANDBOX_LIMITS.execution.timeoutMs },
 			});
 			const controls: string[] = [];
 			for (;;) {
 				const event = yield* connection.next;
 				if (event.type === "hostCall") {
 					controls.push(event.name);
-					yield* connection.send(yield* registration.dispatch(event));
+					const result = options.reply?.(event);
+					yield* connection.send(
+						result === undefined
+							? yield* registration.dispatch(event)
+							: {
+									result,
+									seq: event.seq,
+									type: "hostResult",
+									handle: event.handle,
+									generation: event.generation,
+								},
+					);
 					continue;
 				}
 				assert(event.type === "done", encodeJson(event));
