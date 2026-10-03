@@ -141,7 +141,7 @@ const applyCase = (chunk: GenericImportChunk, cancelled = false) =>
 		const replay = yield* runProcessGenericImportChunksWorkflow(payload, "batch-owner").pipe(
 			Effect.provideContext(yield* Layer.build(dependencies)),
 		);
-		return { first, replay, batches, registrations, definitionReads };
+		return { first, replay, issues, batches, outcomes, registrations, definitionReads };
 	});
 
 it.effect("projects source failures once and reuses the applied projection on replay", () =>
@@ -154,7 +154,17 @@ it.effect("projects source failures once and reuses the applied projection on re
 					unit: "plays",
 					recordKind: "play",
 					sourceLabel: "Export",
+					operationId: "play-4",
 					message: "invalid input",
+					sourceIdentifier: "record-4",
+				},
+				{
+					itemIndex: 4,
+					unit: "plays",
+					recordKind: "play",
+					sourceLabel: "Export",
+					message: "invalid input",
+					operationId: "play-4-again",
 					sourceIdentifier: "record-4",
 				},
 			],
@@ -163,11 +173,13 @@ it.effect("projects source failures once and reuses the applied projection on re
 			{
 				unit: "plays",
 				recordKind: "play",
-				counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
+				counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 2 },
 			},
 		]);
 		expect(result.replay).toEqual(result.first);
-		expect(result.registrations).toHaveLength(1);
+		expect(result.registrations).toEqual([["play-4", "play-4-again"]]);
+		expect([...result.outcomes.keys()]).toEqual(["play-4", "play-4-again"]);
+		expect([...result.issues.keys()]).toEqual(["play-4", "play-4-again"]);
 		expect(result.definitionReads).toBe(1);
 		expect(result.first.issues[0]?.attribution).toEqual({
 			recordId: "4",
@@ -229,6 +241,7 @@ it.effect("keeps original event attribution when preparation fails a grouped ite
 				counts: { created: 0, updated: 0, skipped: 0, unchanged: 0, unsuccessful: 1 },
 			},
 		]);
+		expect(result.registrations).toEqual([["support", "play-1"]]);
 		expect(result.first.issues[0]?.attribution?.recordId).toBe("original-play");
 		expect(result.first.confirmed).toEqual([]);
 	}),

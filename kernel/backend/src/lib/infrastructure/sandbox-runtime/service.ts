@@ -25,7 +25,6 @@ import {
 } from "effect";
 
 import { AppConfig } from "../config/service";
-import { RedisService } from "../redis";
 import {
 	recordSandboxExecution,
 	sandboxMetricKind,
@@ -190,12 +189,13 @@ const inlineDeferredLine = `${encodeInlineDurableReply({ defer: true })}\n`;
  */
 const settleInlineDurableBatch = (
 	inline: SandboxInlineDurableHost,
+	replayJournalLength: number,
 	settled: { readonly entries: Array<WorkflowReplayJournalEntry>; bytes: number },
 	line: string,
 	requests: ReadonlyArray<WorkflowHostRequest>,
 ) =>
 	Effect.gen(function* () {
-		const firstIndex = inline.journalLength + settled.entries.length;
+		const firstIndex = replayJournalLength + settled.entries.length;
 		if (
 			utf8ByteLength(line) > SANDBOX_LIMITS.bridge.requestBytes ||
 			requests.some(
@@ -234,7 +234,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 	make: Effect.gen(function* () {
 		const path = yield* Path.Path;
 		const config = yield* AppConfig;
-		const redis = yield* RedisService;
 		const serverRun = yield* ServerRun;
 		const bridge = yield* BridgeService;
 		const fs = yield* FileSystem.FileSystem;
@@ -278,10 +277,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						};
 						const boundApiFunctions: Readonly<Record<string, BoundHostFunction>> = {
 							...bindSandboxHostFunctions(executionApiFunctions, input),
-							replayJournal: makeWorkflowReplayJournalHostFunction(
-								input.workflowExecutionId,
-								redis,
-							),
+							replayJournal: makeWorkflowReplayJournalHostFunction(input.replayJournal),
 						};
 						const selectedApiFunctions = selectSandboxHostFunctions(boundApiFunctions, input);
 						const declaredCapabilities = (input.principal.metadata.capabilities ?? []).filter(
@@ -481,6 +477,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							}
 							const reply = yield* settleInlineDurableBatch(
 								inline,
+								input.replayJournal?.length ?? 0,
 								inlineSettled,
 								line,
 								batch.value.inline.requests,

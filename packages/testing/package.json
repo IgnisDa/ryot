@@ -15,6 +15,10 @@
 			"types": "./src/postgres-container.ts",
 			"default": "./src/postgres-container.ts"
 		},
+		"./redis-container": {
+			"types": "./src/redis-container.ts",
+			"default": "./src/redis-container.ts"
+		},
 		"./jsdom-blob-clone": {
 			"types": "./src/jsdom-blob-clone.ts",
 			"default": "./src/jsdom-blob-clone.ts"

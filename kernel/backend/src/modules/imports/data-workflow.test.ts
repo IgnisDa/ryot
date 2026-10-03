@@ -39,6 +39,7 @@ import {
 	ingestionTestRun,
 	ingestionTestScope,
 } from "./ingestion.test-support";
+import { ingestionItemIdentity } from "./outcomes";
 import { ImportsRepository } from "./repository";
 
 const snapshot = buildDefinitionSnapshot({
@@ -200,16 +201,15 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite = false) {
 						unit: "events",
 						recordKind: "event",
 						operationId: `data:event:${item.record.key}`,
+						itemIdentity: ingestionItemIdentity(
+							ingestionTestScope.runId,
+							`data:event:${item.record.key}`,
+						),
 						attribution: {
 							sourceLabel: "data-json",
 							recordId: item.record.key,
 							sourceIdentifier: item.record.key,
 						},
-						itemIdentity: stableStringify([
-							"ingestion",
-							ingestionTestScope.runId,
-							`data:event:${item.record.key}`,
-						]),
 					})),
 				}),
 		}),
@@ -240,8 +240,8 @@ it.effect(
 			expect(first.failedKeys).toEqual(["failed-dependency"]);
 			expect(replay).toEqual(first);
 			expect(test.receipts.map((receipt) => receipt.itemIdentity)).toEqual([
-				stableStringify(["ingestion", ingestionTestScope.runId, "data:event:written"]),
-				stableStringify(["ingestion", ingestionTestScope.runId, "data:event:independent"]),
+				ingestionItemIdentity(ingestionTestScope.runId, "data:event:written"),
+				ingestionItemIdentity(ingestionTestScope.runId, "data:event:independent"),
 			]);
 			expect(test.submitted[0]?.payload[0]?.properties).toEqual({
 				related: { entity: "related-id" },

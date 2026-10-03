@@ -138,9 +138,9 @@ export const TestSupportWorkflowLoadGateResult = Schema.Struct({
 export const TestSupportOperationalPressure = Schema.Struct({
 	locks: Schema.Struct({ advisoryLocks: Schema.Finite, waitingAdvisoryLocks: Schema.Finite }),
 	redis: Schema.Struct({
-		maxHighWater: Schema.Finite,
 		projectionCount: Schema.Finite,
 		projectionErrors: Schema.Finite,
+		maxJournalEntries: Schema.Finite,
 	}),
 	sandbox: Schema.Struct({
 		totalExecutions: Schema.Finite,

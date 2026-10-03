@@ -95,6 +95,7 @@ export const genericImportFailureSchema = strictStruct({
 	unit: Schema.NonEmptyString,
 	sourceIdentifier: Schema.String,
 	recordKind: Schema.NonEmptyString,
+	operationId: Schema.NonEmptyString,
 	entitySchemaSlug: Schema.optional(Schema.String),
 	stage: Schema.optional(
 		Schema.Literals([
@@ -172,22 +173,33 @@ export const genericImportWriteItemSchema = strictStruct({
 	),
 });
 
-export const genericImportChunkSchema = strictStruct({
+const genericImportChunkShape = strictStruct({
 	items: Schema.Array(genericImportWriteItemSchema).pipe(Schema.check(Schema.isMaxLength(100))),
 	failures: Schema.Array(genericImportFailureSchema).pipe(Schema.check(Schema.isMaxLength(100))),
-}).pipe(
+});
+
+export const genericImportItemIntents = (item: GenericImportWriteItem) => [
+	...item.entities,
+	...item.relationships,
+	...item.events,
+	...(item.collectionMemberships ?? []),
+];
+
+export const genericImportChunkOperationIds = (
+	chunk: Schema.Schema.Type<typeof genericImportChunkShape>,
+) => [
+	...chunk.items.flatMap((item) =>
+		genericImportItemIntents(item).map(({ operationId }) => operationId),
+	),
+	...chunk.failures.map((failure) => failure.operationId),
+];
+
+export const genericImportChunkSchema = genericImportChunkShape.pipe(
 	Schema.check(
 		Schema.makeFilter((chunk) => {
-			const ids = chunk.items.flatMap((item) =>
-				[
-					...item.entities,
-					...item.events,
-					...item.relationships,
-					...(item.collectionMemberships ?? []),
-				].map((intent) => intent.operationId),
-			);
+			const ids = genericImportChunkOperationIds(chunk);
 			return (
-				(ids.length + chunk.failures.length <= 1000 &&
+				(ids.length <= 1000 &&
 					new Set(ids).size === ids.length &&
 					new Set(chunk.items.map((item) => item.recordId)).size === chunk.items.length) ||
 				"Ingestion chunk identities must be unique and bounded"

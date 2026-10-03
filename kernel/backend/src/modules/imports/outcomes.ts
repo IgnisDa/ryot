@@ -5,12 +5,17 @@ import type {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 
+export const ingestionItemIdentity = (
+	runId: LifecycleCommand["causation"]["importRunId"],
+	operationId: string,
+) => stableStringify(["ingestion", runId, operationId]);
+
 export const ingestionOperationCommand = (
 	command: LifecycleCommand,
 	operationId: string,
 ): LifecycleCommand => ({
 	...command,
-	itemIdentity: stableStringify(["ingestion", command.causation.importRunId, operationId]),
+	itemIdentity: ingestionItemIdentity(command.causation.importRunId, operationId),
 });
 
 export const summarizeIngestionOutcomes = (

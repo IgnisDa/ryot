@@ -57,7 +57,7 @@ import {
 	runImportWriteStep,
 } from "./generic-import-workflow";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
-import { ingestionOperationCommand } from "./outcomes";
+import { ingestionItemIdentity, ingestionOperationCommand } from "./outcomes";
 import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 
@@ -65,7 +65,7 @@ const dataOperation = (scope: IngestionScope, item: DataGraphRecord): IngestionO
 	recordKind: item.kind,
 	operationId: `data:${item.kind}:${item.record.key}`,
 	unit: { event: "events", entity: "entities", relationship: "relationships" }[item.kind],
-	itemIdentity: stableStringify(["ingestion", scope.runId, `data:${item.kind}:${item.record.key}`]),
+	itemIdentity: ingestionItemIdentity(scope.runId, `data:${item.kind}:${item.record.key}`),
 	attribution: {
 		recordId: item.record.key,
 		sourceLabel: dataJsonSource,
