@@ -176,7 +176,7 @@ BEGIN
 			)),
 			r.event_ts,
 			CASE
-				WHEN r.is_completion_state AND r.is_episodic THEN
+				WHEN r.is_completion_state THEN
 					LEAST(r.event_ts, COALESCE(r.finished_on, r.updated_at[r.n_ts]))
 				ELSE r.event_ts
 			END
@@ -362,7 +362,10 @@ BEGIN
 						'mangaChapter',    NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
 					))
 			END,
-			r.updated_at[r.n_ts],
+			r.updated_at[r.n_ts] + CASE
+				WHEN r.terminal_slug = 'complete' THEN interval '1 microsecond'
+				ELSE interval '0 microseconds'
+			END,
 			CASE
 				WHEN r.terminal_slug = 'complete' THEN COALESCE(r.finished_on, r.updated_at[r.n_ts])
 				ELSE r.updated_at[r.n_ts]
