@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { useId, type ReactNode, type RefObject } from "react";
 
 import { IconButton } from "./button";
+import { AppIcon } from "./icon";
 import { Modal } from "./modal";
 
 const sizeClasses = { sm: "max-w-sm", md: "max-w-md", lg: "max-w-2xl" } as const;
@@ -17,6 +18,8 @@ const panelClasses = {
 	sheet: "max-h-[92%] rounded-t-xl",
 	center: "max-h-[min(90%,48rem)] rounded-xl",
 } as const;
+
+const defaultCloseIcon = <AppIcon name="x" size={18} />;
 
 export function Dialog(props: {
 	readonly title: string;
@@ -36,6 +39,7 @@ export function Dialog(props: {
 }) {
 	const titleId = useId();
 	const placement = props.placement ?? "center";
+	const closeIcon = props.closeIcon === undefined ? defaultCloseIcon : props.closeIcon;
 	return (
 		<Modal
 			labelledBy={titleId}
@@ -79,7 +83,7 @@ export function Dialog(props: {
 						<div className="mt-1 text-sm text-text-muted">{props.description}</div>
 					)}
 				</div>
-				{props.closeIcon !== undefined && (
+				{closeIcon !== null && (
 					<IconButton
 						size="sm"
 						className="-mt-1 -mr-2"
@@ -91,7 +95,7 @@ export function Dialog(props: {
 							}
 						}}
 					>
-						{props.closeIcon}
+						{closeIcon}
 					</IconButton>
 				)}
 			</header>

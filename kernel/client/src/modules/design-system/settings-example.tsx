@@ -249,7 +249,6 @@ export function SettingsExample() {
 					title="Disconnect Trakt?"
 					triggerRef={disconnectRef}
 					onClose={() => setConfirming(false)}
-					closeIcon={<AppIcon name="x" size={16} />}
 					description="Ryot stops syncing your watch history from Trakt. The 1,284 items it already imported stay in your library."
 					footer={
 						<>

@@ -45,3 +45,20 @@ describe("Dialog sheet placement", () => {
 		expect(screen.getByRole("dialog", { name: "Set 1" })).toBeTruthy();
 	});
 });
+
+describe("Dialog close button", () => {
+	it("shows a close button beside the backdrop by default and omits it for a null icon", () => {
+		const closes: Array<string> = [];
+		const { rerender } = render(
+			<Dialog title="Sheet" closeLabel="Close sheet" onClose={() => closes.push("close")} />,
+		);
+
+		const buttons = screen.getAllByRole("button", { name: "Close sheet" });
+		expect(buttons).toHaveLength(2);
+		fireEvent.click(buttons[1]!);
+		expect(closes).toEqual(["close"]);
+
+		rerender(<Dialog title="Sheet" closeIcon={null} onClose={() => {}} closeLabel="Close sheet" />);
+		expect(screen.getAllByRole("button", { name: "Close sheet" })).toHaveLength(1);
+	});
+});
