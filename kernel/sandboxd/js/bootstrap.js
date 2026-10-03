@@ -1026,7 +1026,7 @@
 		configurable: true,
 		value: (userTier) => {
 			coarseTime = userTier;
-			Error.stackTraceLimit = 10;
+			Error.stackTraceLimit = Infinity;
 			definitionRunner = globalThis["__ryotDefinitionRunner"];
 			for (const name of [
 				"__ryotLockdown",

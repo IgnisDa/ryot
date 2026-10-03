@@ -758,9 +758,9 @@ export default defineScript({
 			const entry = "backend/scripts/entry.sandbox.ts";
 			const outputs = yield* compilePluginSandboxSourceEntries(
 				{
-					"backend/helpers/failure.ts": `export const failAuthored = () => {
-  const message = "nested authored defect";
-  throw new Error(message);
+					"backend/helpers/failure.ts": `export const failAuthored = (depth = 16): never => {
+  if (depth > 0) return failAuthored(depth - 1);
+  throw new Error("nested authored defect");
 };`,
 					[entry]: `import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
@@ -785,6 +785,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				message: "nested authored defect",
 				stack: expect.stringContaining("    at backend/helpers/failure.ts:3:9"),
 			});
+			expect(response.error.stack?.split("\n").length).toBeGreaterThan(10);
 			expect(response.error.stack).not.toContain("ryot-module:");
 			expect(response.error.stack).not.toContain("ryot-runtime:");
 		}),
