@@ -1,0 +1,49 @@
+name: Sandbox Sidecar
+
+on:
+  push:
+    paths: &paths
+      - "kernel/sandboxd/**"
+      - "kernel/backend/src/lib/infrastructure/sandbox-runtime/sidecar-protocol.ts"
+      - "kernel/backend/tooling/**"
+      - "packages/sandbox-sdk/**"
+      - "plugins/media/**"
+      - "plugins/fitness/**"
+      - ".github/workflows/sandboxd.yml"
+  pull_request:
+    paths: *paths
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.2"
+      - name: Install the pinned Rust toolchain
+        working-directory: kernel/sandboxd
+        run: rustup toolchain install
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build the runtime payload and plugin archives
+        run: bun turbo build --filter=@ryot-app/kernel-backend --filter=@ryot-app/media-plugin --filter=@ryot-app/fitness-plugin
+      - name: Replay the runtime payload from the turbo cache
+        run: |
+          rm -rf kernel/sandboxd/payload
+          bun turbo build --filter=@ryot-app/kernel-backend | tee turbo-replay.log
+          grep -q "FULL TURBO" turbo-replay.log
+          test -f kernel/sandboxd/payload/runtime-metadata.json
+      - name: Test the sidecar
+        working-directory: kernel/sandboxd
+        run: cargo test
