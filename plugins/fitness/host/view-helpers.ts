@@ -23,17 +23,10 @@ const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 			{ label: "Ended At", ...date(entityProperty("endedAt")) },
 		];
 	}
-	if (slug === "workout-template") {
-		return [
-			name,
-			{ label: "Created At", ...date(entityColumn("createdAt")) },
-			{ label: "Comment", ...text(entityProperty("comment")) },
-		];
-	}
 	return [
 		name,
+		{ label: "Created At", ...date(entityColumn("createdAt")) },
 		{ label: "Comment", ...text(entityProperty("comment")) },
-		{ label: "Recorded At", ...date(entityProperty("recordedAt")) },
 	];
 };
 
