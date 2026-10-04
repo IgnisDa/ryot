@@ -1,9 +1,17 @@
-// oxlint-disable-next-line effecttsgo/node-builtin-import -- This synchronous fixture read runs during Vitest module setup.
-import { readFileSync } from "node:fs";
-
+import { BunFileSystem } from "@effect/platform-bun";
+import { Context, Effect, FileSystem, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 
-const paletteCss = readFileSync(`${import.meta.dirname}/palette.css`, "utf8");
+const paletteCss = await Effect.runPromise(
+	Effect.scoped(
+		Effect.gen(function* () {
+			const context = yield* Layer.build(BunFileSystem.layer);
+			return yield* Context.get(context, FileSystem.FileSystem).readFileString(
+				`${import.meta.dirname}/palette.css`,
+			);
+		}),
+	),
+);
 
 const blockAt = (marker: string) => {
 	const start = paletteCss.indexOf(marker);
