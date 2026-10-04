@@ -9,6 +9,7 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { appendWorkflowJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
+import { readPinnedJournal } from "#lib/infrastructure/sandbox-runtime/workflow-journal.test-support";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
 import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
@@ -49,10 +50,7 @@ const recoveryIdentity = (executionId: string) => ({
 
 class RecordedRuns extends Context.Service<
 	RecordedRuns,
-	{
-		readonly runs: Effect.Effect<ReadonlyArray<RuntimeRunInput>>;
-		readonly journalReservations: Effect.Effect<ReadonlyArray<number>>;
-	}
+	{ readonly runs: Effect.Effect<ReadonlyArray<RuntimeRunInput>> }
 >()("test/RecordedRuns") {}
 
 const runtimeSandboxLayer = (
@@ -61,7 +59,6 @@ const runtimeSandboxLayer = (
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const runs = yield* Ref.make<ReadonlyArray<RuntimeRunInput>>([]);
-			const journalReservations = yield* Ref.make<ReadonlyArray<number>>([]);
 			const runtime = stubRuntimeSandboxService((input) =>
 				Ref.update(runs, (all) => [...all, input]).pipe(
 					Effect.andThen(respond(input)),
@@ -69,17 +66,8 @@ const runtimeSandboxLayer = (
 				),
 			);
 			return Layer.merge(
-				Layer.succeed(RuntimeSandboxService, {
-					...runtime,
-					reserve: (principal, bytes) =>
-						Ref.update(journalReservations, (all) => [...all, bytes]).pipe(
-							Effect.andThen(runtime.reserve(principal, bytes)),
-						),
-				}),
-				Layer.succeed(RecordedRuns, {
-					runs: Ref.get(runs),
-					journalReservations: Ref.get(journalReservations),
-				}),
+				Layer.succeed(RuntimeSandboxService, runtime),
+				Layer.succeed(RecordedRuns, { runs: Ref.get(runs) }),
 			);
 		}),
 	);
@@ -399,12 +387,11 @@ layer(
 		),
 	),
 )((test) => {
-	test.effect("durable_replay_reserves_inspected_journal_bytes_before_loading_values", () =>
+	test.effect("durable_replay_pins_inspected_journal_without_loading_values", () =>
 		Effect.gen(function* () {
 			const workflowExecutionId = testExecutionId("inspected-replay");
 			const journal = [{ value: { output: "日本語" }, request: { ...inlineRequest, index: 0 } }];
 			yield* appendWorkflowJournal(workflowExecutionId, 0, journal);
-			const before = (yield* (yield* RecordedRuns).journalReservations).length;
 			yield* executeSandboxExecution({
 				...queuedReplay,
 				context: {},
@@ -413,10 +400,10 @@ layer(
 				principal: inlinePrincipal([]),
 				executionId: `${workflowExecutionId}-replay-1`,
 			});
-			expect((yield* (yield* RecordedRuns).journalReservations).slice(before)).toEqual([
-				utf8ByteLength(encodeJson(journal)),
-			]);
-			expect((yield* (yield* RecordedRuns).runs).at(-1)?.replayJournal).toEqual(journal);
+			const pinned = (yield* (yield* RecordedRuns).runs).at(-1)?.replayJournal;
+			assert(pinned !== undefined);
+			expect(pinned.bytes).toBe(utf8ByteLength(encodeJson(journal)));
+			expect(yield* readPinnedJournal(pinned)).toEqual(journal);
 		}),
 	);
 
@@ -450,7 +437,7 @@ layer(
 			);
 
 			expect(offered).toEqual([["getCachedValue"], null]);
-			expect(runs.map((run) => run.replayJournal?.length)).toEqual([3, 0]);
+			expect(runs.map((run) => run.replayJournal?.entries.length)).toEqual([3, 0]);
 			expect(yield* (yield* RecordedSettlements).settlements).toEqual([
 				{
 					context: { item: 1 },
@@ -460,6 +447,63 @@ layer(
 			]);
 		});
 	});
+
+	test.effect("durable_replay_reports_projection_faults_over_the_script_outcome", () =>
+		Effect.gen(function* () {
+			const redis = yield* RedisService;
+			const replay = Effect.fnUntraced(function* (
+				label: string,
+				fault: (key: string) => Promise<unknown>,
+			) {
+				const workflowExecutionId = testExecutionId(label);
+				const key = redisKeys.sandboxWorkflowJournal(workflowExecutionId);
+				yield* appendWorkflowJournal(workflowExecutionId, 0, [
+					{ value: "small", request: { ...inlineRequest, index: 0 } },
+				]);
+				const runtime = stubRuntimeSandboxService((input) =>
+					Effect.gen(function* () {
+						yield* Effect.promise(() => fault(key));
+						expect(
+							yield* input.replayJournal?.readChunk(0, 0) ?? Effect.die("unpinned"),
+						).toBeNull();
+						return {
+							logs: [],
+							inline: [],
+							error: null,
+							success: true,
+							harvest: null,
+							executionId: input.executionId,
+							value: "script caught the failed read",
+							timing: { totalMs: 1, executionMs: 1 },
+							recovery: recoveryIdentity(input.executionId),
+						};
+					}),
+				);
+				return yield* executeSandboxExecution({
+					...queuedReplay,
+					context: {},
+					journalLength: 1,
+					workflowExecutionId,
+					principal: inlinePrincipal([]),
+					executionId: `${workflowExecutionId}-replay-1`,
+				}).pipe(Effect.provideService(RuntimeSandboxService, runtime), Effect.result);
+			});
+
+			const changed = yield* replay("projection-changed", (key) =>
+				redis.client.hset(key, "c:0:0", "x".repeat(1024)),
+			);
+			assert(changed._tag === "Failure" && changed.failure instanceof SandboxRunError);
+			expect(changed.failure).toMatchObject({
+				kind: "infrastructure",
+				message: "Sandbox workflow journal changed after inspection",
+			});
+			const missing = yield* replay("projection-lost", (key) => redis.client.del(key));
+			expect(missing).toMatchObject({
+				_tag: "Success",
+				success: { status: "completed", projectionMissing: true },
+			});
+		}),
+	);
 });
 
 layer(
@@ -491,45 +535,6 @@ layer(
 				projectionMissing: true,
 			});
 			expect(yield* (yield* RecordedRuns).runs).toEqual([]);
-			expect(yield* (yield* RecordedRuns).journalReservations).toEqual([]);
 		}),
-	);
-
-	test.effect(
-		"durable_replay_rejects_prefix_growth_during_admission_before_loading_or_running",
-		() =>
-			Effect.gen(function* () {
-				const redis = yield* RedisService;
-				const workflowExecutionId = testExecutionId("admission-prefix-growth");
-				yield* appendWorkflowJournal(workflowExecutionId, 0, [
-					{ value: "small", request: { ...inlineRequest, index: 0 } },
-				]);
-				const runtime = stubRuntimeSandboxService(() => Effect.die("sandbox must not start"));
-				const error = yield* Effect.flip(
-					executeSandboxExecution({
-						...queuedReplay,
-						context: {},
-						journalLength: 1,
-						workflowExecutionId,
-						principal: inlinePrincipal([]),
-						executionId: `${workflowExecutionId}-replay-1`,
-					}).pipe(
-						Effect.provideService(RuntimeSandboxService, {
-							...runtime,
-							reserve: (principal, bytes) =>
-								Effect.promise(() =>
-									redis.client.hset(
-										redisKeys.sandboxWorkflowJournal(workflowExecutionId),
-										"0",
-										"x".repeat(1024),
-									),
-								).pipe(Effect.andThen(runtime.reserve(principal, bytes))),
-						}),
-					),
-				);
-				assert(error instanceof SandboxRunError);
-				expect(error.kind).toBe("infrastructure");
-				expect(error.message).toBe("Sandbox workflow journal changed after inspection");
-			}),
 	);
 });

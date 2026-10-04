@@ -259,18 +259,24 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				let projectionErrors = 0;
 				let maxJournalEntries = 0;
 				for (const executionId of executionIds) {
-					const fields = yield* Effect.tryPromise(() =>
-						redis.client.hgetall(redisKeys.sandboxWorkflowJournal(executionId)),
-					).pipe(Effect.orDie);
-					if (Object.keys(fields).length === 0) {
+					const fields = new Set(
+						yield* Effect.tryPromise(() =>
+							redis.client.hkeys(redisKeys.sandboxWorkflowJournal(executionId)),
+						).pipe(Effect.orDie),
+					);
+					if (fields.size === 0) {
 						continue;
 					}
 					projectionCount += 1;
 					let entries = 0;
-					while (fields[String(entries)] !== undefined) {
+					while (fields.has(`m:${entries}`)) {
 						entries += 1;
 					}
-					if (entries !== Object.keys(fields).length) {
+					const stray = [...fields].some((field) => {
+						const index = /^(?:m:(\d+)|c:(\d+):\d+)$/.exec(field);
+						return index === null || Number(index[1] ?? index[2]) >= entries;
+					});
+					if (stray) {
 						projectionErrors += 1;
 					} else {
 						maxJournalEntries = Math.max(maxJournalEntries, entries);
