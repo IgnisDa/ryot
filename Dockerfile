@@ -1,4 +1,4 @@
-FROM oven/bun:1.4.2-debian AS base
+FROM oven/bun:1.4.3-debian AS base
 WORKDIR /app
 
 FROM rust:1.93.1-bookworm AS rust-toolchain
