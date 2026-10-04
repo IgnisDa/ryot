@@ -5,11 +5,7 @@ export {
 	PluginId,
 	PluginPackageId,
 } from "@ryot-app/contract/schema/brands";
-export {
-	DefinitionOwner,
-	EntitySchemaReference,
-	PluginIdentityReference,
-} from "@ryot-app/contract/modules/plugins/references";
+export { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 export { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
 export {
 	LocalAssetLocator,

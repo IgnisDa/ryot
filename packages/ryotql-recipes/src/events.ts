@@ -1,4 +1,4 @@
-import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+import type { QueryOwnerReference } from "@ryot-app/contract/modules/plugins/references";
 import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityId,
@@ -30,7 +30,7 @@ export { eventIsAfter, eventOrderDescending, latestEventField } from "./event-ex
 
 export const eventHistoryRecipe = defineRecipe(
 	(input: {
-		readonly owner: PluginIdentityReference | { readonly kind: "kernel" };
+		readonly owner: QueryOwnerReference;
 		readonly after?: string | undefined;
 		readonly limit?: number | undefined;
 		readonly entityId?: string | undefined;

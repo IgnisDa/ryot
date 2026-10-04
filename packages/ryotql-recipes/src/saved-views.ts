@@ -1,9 +1,9 @@
-import { ClientPageTarget } from "@ryot-app/contract/modules/client-pages/schemas";
+import { SavedViewClientPageTarget } from "@ryot-app/contract/modules/client-pages/schemas";
 import {
 	EntitySyncState,
 	type EntitySyncState as EntitySyncStateValue,
 } from "@ryot-app/contract/modules/entities/schemas";
-import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+import type { QueryOwnerReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	JsonValue,
 	RyotQLDocument,
@@ -119,7 +119,7 @@ type SavedViewMapping = {
 };
 
 type SavedViewGeneratedSource = {
-	readonly owner: PluginIdentityReference | { readonly kind: "kernel" };
+	readonly owner: QueryOwnerReference;
 	readonly type: "generated";
 	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
@@ -411,7 +411,7 @@ export const SavedViewPageIdentity = Schema.Struct({ icon: Schema.String, name: 
 
 export const EntityBrowserPageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
-	target: ClientPageTarget.members[0],
+	target: SavedViewClientPageTarget,
 	settings: EntityBrowserSavedViewSettings,
 	view: Schema.NullOr(SavedViewPageIdentity),
 });
@@ -658,7 +658,7 @@ export const entityBrowserCountRecipe = (
 
 export const ResultsTablePageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
-	target: ClientPageTarget.members[0],
+	target: SavedViewClientPageTarget,
 	settings: ResultsTableSavedViewSettings,
 	view: Schema.NullOr(SavedViewPageIdentity),
 });

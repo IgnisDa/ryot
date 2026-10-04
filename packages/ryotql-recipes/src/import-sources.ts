@@ -9,7 +9,7 @@ import {
 	PluginImportSource,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
-	definitionKey,
+	sameDeclaration,
 	definitionOwner,
 	type DeclarationReference,
 } from "@ryot-app/contract/modules/plugins/references";
@@ -43,12 +43,7 @@ export const importSourcesRecipe = defineRecipe(
 				items: sources.items.map((item) => {
 					const reference = { slug: item.slug, owner: definitionOwner(item.pluginId) };
 					const selected =
-						input.selected !== undefined &&
-						definitionKey(
-							"import-source",
-							input.selected.reference.owner,
-							input.selected.reference.slug,
-						) === definitionKey("import-source", reference.owner, reference.slug)
+						input.selected !== undefined && sameDeclaration(input.selected.reference, reference)
 							? input.selected
 							: undefined;
 					const readiness =

@@ -2,10 +2,10 @@ import { Result, Schema } from "effect";
 
 import type { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
-import type { DeclarationReference } from "../plugins/references";
 import {
+	DeclarationReference,
 	EntitySchemaReference,
-	ProviderReference,
+	KernelDefinitionOwner,
 	RelationshipSchemaReference,
 } from "../plugins/references";
 import { jsonValueSchema } from "../sandbox/wire";
@@ -54,8 +54,8 @@ export const DataJsonEntity = Schema.Union([
 	}),
 	strictStruct({
 		...entityReferenceFields,
-		provider: ProviderReference,
 		value: Schema.NonEmptyString,
+		provider: DeclarationReference,
 		kind: Schema.Literal("provider"),
 		identifierType: Schema.NonEmptyString,
 	}),
@@ -89,10 +89,7 @@ export type DataJsonDocument = typeof DataJsonDocument.Type;
 export const DataJsonImportBody = strictStruct({
 	uploadToken: Schema.NonEmptyString,
 	submissionKey: Schema.optional(Schema.NonEmptyString),
-	source: strictStruct({
-		slug: Schema.Literal(dataJsonSource),
-		owner: strictStruct({ kind: Schema.Literal("kernel") }),
-	}),
+	source: strictStruct({ owner: KernelDefinitionOwner, slug: Schema.Literal(dataJsonSource) }),
 });
 
 export const dataJsonImportInputSchema: AppSchema = {

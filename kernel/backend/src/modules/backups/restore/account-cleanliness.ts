@@ -5,6 +5,7 @@ import {
 } from "@ryot-app/contract/modules/backups/schemas";
 import {
 	definitionKey,
+	builtinSavedViewReference,
 	definitionOwner,
 	type SignalSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
@@ -164,10 +165,7 @@ export const classifyAccountCleanliness = (
 			renderer: view.renderer,
 			settings: view.settings,
 			sortOrder: view.sortOrder,
-			reference:
-				ownerPluginId === null
-					? { kind: "kernel", slug: view.slug }
-					: { kind: "plugin", slug: view.slug, pluginId: ownerPluginId },
+			reference: builtinSavedViewReference(ownerPluginId, view.slug),
 			pluginInstallationId:
 				ownerPluginId === null
 					? null

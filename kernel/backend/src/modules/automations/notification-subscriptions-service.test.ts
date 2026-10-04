@@ -4,6 +4,7 @@ import {
 	AutomationNotFoundError,
 	InstallNotificationRuleBody,
 } from "@ryot-app/contract/modules/automations/schemas";
+import { definitionOwnerPluginId } from "@ryot-app/contract/modules/plugins/references";
 import {
 	NotificationSubscriptionId,
 	PluginId,
@@ -104,8 +105,7 @@ const notificationStoreLayer = (
 								all.find(
 									(signal) =>
 										signal.slug === reference.slug &&
-										signal.pluginId ===
-											(reference.owner.kind === "plugin" ? reference.owner.pluginId : null),
+										signal.pluginId === definitionOwnerPluginId(reference.owner),
 								) ?? null,
 						),
 				}),

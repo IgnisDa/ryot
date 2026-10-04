@@ -1,5 +1,5 @@
 import type { DbError } from "@ryot-app/contract/errors";
-import { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
+import { PluginInstallationUnavailableReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Schema, type Effect } from "effect";
 
@@ -8,7 +8,7 @@ export const PluginIngestionRetirementPolicy = Schema.Union([
 	Schema.Struct({
 		kind: Schema.Literal("quarantine"),
 		reason: Schema.Struct({
-			...ImportRunFailureReason.members[0].fields,
+			...PluginInstallationUnavailableReason.fields,
 			code: Schema.Literal("package-identity-conflict"),
 		}),
 	}),

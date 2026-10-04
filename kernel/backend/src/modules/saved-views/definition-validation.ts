@@ -1,3 +1,4 @@
+import { definitionOwnerPluginId } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	FieldSelection,
 	NamedQuery,
@@ -166,9 +167,7 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 				query.where,
 				entityAlias,
 				"entitySchemaPluginId",
-				settings.addAction.schema.owner.kind === "plugin"
-					? settings.addAction.schema.owner.pluginId
-					: null,
+				definitionOwnerPluginId(settings.addAction.schema.owner),
 			) ||
 			!hasFixedEntityValue(
 				query.where,

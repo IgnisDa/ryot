@@ -1,7 +1,8 @@
 import { Schema } from "effect";
 
-import { EntitySchemaSlug, EventSchemaSlug, ImportRunId, PluginId } from "../../schema/brands";
+import { EntitySchemaSlug, EventSchemaSlug, ImportRunId } from "../../schema/brands";
 import { DeclarationReference } from "../plugins/references";
+import { PluginInstallationUnavailableReason } from "../sandbox/boundary-reason";
 import { jsonValueSchema } from "../sandbox/wire";
 import { importRunFailureStages } from "./types";
 
@@ -72,11 +73,7 @@ export class ImportConflictError extends Schema.TaggedError<ImportConflictError>
 ) {}
 
 export const ImportRunFailureReason = Schema.Union([
-	Schema.Struct({
-		pluginId: PluginId,
-		installationId: Schema.String,
-		code: Schema.Literals(["installation-unavailable", "package-identity-conflict"]),
-	}),
+	PluginInstallationUnavailableReason,
 	Schema.Struct({ code: Schema.Literal("captured-input-unavailable") }),
 	Schema.Struct({ code: Schema.Literal("captured-input-corrupt") }),
 	Schema.Struct({ code: Schema.Literal("pro-key-required") }),

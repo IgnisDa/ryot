@@ -317,5 +317,5 @@ export const buildClientRuntime = Effect.gen(function* () {
 	}
 	const metadata = clientRuntimeArtifactMetadata(CLIENT_RUNTIME_ARTIFACT_NAME, files);
 	const artifact: ClientRuntimeArtifact = { ...metadata, files };
-	return { entries, artifact, kind: "kernel" as const };
+	return { entries, artifact };
 }).pipe(Effect.scoped);

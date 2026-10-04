@@ -1,4 +1,4 @@
-import type { ProviderReference } from "@ryot-app/contract/modules/plugins/references";
+import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
@@ -24,7 +24,7 @@ export const makeProviderExecutionReads = (session: DatabaseSession["Service"]) 
 		return row ? { ...row, id: SandboxScriptId.make(row.id) } : null;
 	});
 	const findPinnedProvider = Effect.fnUntraced(function* (
-		reference: ProviderReference,
+		reference: DeclarationReference,
 		revisionId: string,
 	) {
 		if (reference.owner.kind === "kernel") {

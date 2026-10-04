@@ -10,7 +10,8 @@ import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/t
 import {
 	definitionOwner,
 	type EntitySchemaReference,
-	type ProviderReference,
+	type DeclarationReference,
+	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
@@ -203,8 +204,7 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 			if (
 				!existing ||
 				existing.entitySchemaSlug !== reference.slug ||
-				existing.entitySchemaPluginId !==
-					(reference.owner.kind === "plugin" ? reference.owner.pluginId : null)
+				existing.entitySchemaPluginId !== definitionOwnerPluginId(reference.owner)
 			) {
 				return yield* new ImportRunError({
 					message: "Import entity id is unavailable or has the wrong schema",
@@ -280,7 +280,7 @@ const resolveGenericImportProvider = (
 	userId: UserId,
 	executionId: string,
 	entitySchema: EntitySchemaReference,
-	reference: ProviderReference,
+	reference: DeclarationReference,
 ) =>
 	makeActivity({
 		error: ImportRunError,
@@ -321,7 +321,7 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 	command: DomainLifecycleCommand,
 	executionId: string,
 	entitySchema: EntitySchemaReference,
-	reference: ProviderReference,
+	reference: DeclarationReference,
 ) {
 	const descriptor = intent.providerResolution;
 	if (!descriptor) {

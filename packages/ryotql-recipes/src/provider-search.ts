@@ -1,4 +1,7 @@
-import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
+import {
+	type EntitySchemaReference,
+	ownerIdentityReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { Recipe } from "@ryot-app/ryotql";
@@ -39,13 +42,7 @@ export const providerSearchRecipe = defineRecipe(
 					],
 					where: and(
 						eq(column(provider, "rootEntitySchemaSlug"), literal(input.schema.slug)),
-						schemaOwnerPredicate(
-							provider,
-							"pluginId",
-							input.schema.owner.kind === "kernel"
-								? input.schema.owner
-								: { kind: "local", pluginId: input.schema.owner.pluginId },
-						),
+						schemaOwnerPredicate(provider, "pluginId", ownerIdentityReference(input.schema.owner)),
 						eq(column(operation, "operation"), literal("search")),
 						eq(column(plugin, "status"), literal("active")),
 					),

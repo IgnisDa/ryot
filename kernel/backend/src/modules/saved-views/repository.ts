@@ -1,6 +1,9 @@
-import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import {
+	builtinSavedViewReference,
+	type SavedViewReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
-import { SavedViewId, type UserId, PluginId } from "@ryot-app/contract/schema/brands";
+import { SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { Context, Effect, Layer } from "effect";
@@ -61,16 +64,13 @@ const toListedSavedView = (row: ListedSavedViewRow): ListedSavedView => {
 	};
 };
 
-export const savedViewReference = (
+const savedViewReference = (
 	row: Pick<ListedSavedViewRow, "id" | "isBuiltin" | "pluginId" | "slug">,
 ): SavedViewReference => {
 	if (!row.isBuiltin) {
 		return { kind: "custom", savedViewId: SavedViewId.make(row.id) };
 	}
-	if (row.pluginId === null) {
-		return { kind: "kernel", slug: row.slug };
-	}
-	return { kind: "plugin", slug: row.slug, pluginId: PluginId.make(row.pluginId) };
+	return builtinSavedViewReference(row.pluginId, row.slug);
 };
 
 const referencePredicate = (reference: SavedViewReference) =>

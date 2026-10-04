@@ -1,5 +1,5 @@
 import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
-import { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
+import { PluginClientDependencies } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 
@@ -18,8 +18,8 @@ const commonInputFields = {
 	name: Schema.String,
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
 	files: Schema.Record(Schema.String, Schema.Uint8Array),
+	pluginDependencies: Schema.optional(PluginClientDependencies),
 	publicExports: Schema.Record(Schema.String, ClientPluginCompilerPackageExport),
-	pluginDependencies: Schema.optional(Schema.Record(Schema.String, PluginPackageReference)),
 };
 export const ClientPluginCompilerPackageInput = Schema.Union([
 	Schema.Struct({

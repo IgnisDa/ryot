@@ -1,7 +1,7 @@
 import { pluginPackageSegments, type PluginPackageId } from "../../schema/brands";
 import type { SavedViewReference } from "./references";
 
-export type SavedViewPathReference =
+type SavedViewPathReference =
 	| Exclude<SavedViewReference, { readonly kind: "plugin" }>
 	| { readonly kind: "plugin"; readonly packageId: PluginPackageId; readonly slug: string };
 

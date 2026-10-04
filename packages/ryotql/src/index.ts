@@ -1,6 +1,6 @@
 import type {
-	DefinitionOwner,
 	PluginIdentityReference,
+	QueryOwnerReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	AggregateMeasure,
@@ -89,7 +89,7 @@ export const pluginId = (reference: PluginIdentityReference): PluginIdExpression
 export const schemaOwnerPredicate = (
 	from: TableReference,
 	ownerField: string,
-	owner: PluginIdentityReference | Extract<DefinitionOwner, { kind: "kernel" }>,
+	owner: QueryOwnerReference,
 ): Predicate =>
 	owner.kind === "kernel"
 		? isNull(column(from, ownerField))
@@ -98,7 +98,7 @@ export const schemaOwnerPredicate = (
 export const entitySchemaPredicate = (
 	from: TableReference,
 	slug: string,
-	owner: PluginIdentityReference | Extract<DefinitionOwner, { kind: "kernel" }>,
+	owner: QueryOwnerReference,
 ): Predicate =>
 	and(
 		eq(column(from, "entitySchemaSlug"), literal(slug)),
@@ -108,7 +108,7 @@ export const entitySchemaPredicate = (
 export const relationshipSchemaPredicate = (
 	from: TableReference,
 	slug: string,
-	owner: PluginIdentityReference | Extract<DefinitionOwner, { kind: "kernel" }>,
+	owner: QueryOwnerReference,
 ): Predicate =>
 	and(
 		eq(column(from, "relationshipSchemaSlug"), literal(slug)),
@@ -120,7 +120,7 @@ export const eventSchemaPredicate = (
 	entity: TableReference,
 	entitySlug: string,
 	eventSlug: string,
-	owner: PluginIdentityReference | Extract<DefinitionOwner, { kind: "kernel" }>,
+	owner: QueryOwnerReference,
 ): Predicate =>
 	and(
 		eq(column(from, "entityId"), column(entity, "id")),
@@ -128,13 +128,6 @@ export const eventSchemaPredicate = (
 		schemaOwnerPredicate(from, "eventSchemaPluginId", owner),
 		entitySchemaPredicate(entity, entitySlug, owner),
 	);
-
-export const signalSchemaPredicate = (
-	from: TableReference,
-	slug: string,
-	owner: PluginIdentityReference | Extract<DefinitionOwner, { kind: "kernel" }>,
-): Predicate =>
-	and(eq(column(from, "slug"), literal(slug)), schemaOwnerPredicate(from, "pluginId", owner));
 
 export const schemaOwnerJoin = (
 	left: TableReference,
@@ -145,37 +138,6 @@ export const schemaOwnerJoin = (
 	or(
 		and(isNull(column(left, leftOwnerField)), isNull(column(right, rightOwnerField))),
 		eq(column(left, leftOwnerField), column(right, rightOwnerField)),
-	);
-
-export const entityDefinitionJoin = (
-	entity: TableReference,
-	definition: TableReference,
-): Predicate =>
-	and(
-		eq(column(entity, "entitySchemaSlug"), column(definition, "slug")),
-		schemaOwnerJoin(entity, "entitySchemaPluginId", definition, "pluginId"),
-	);
-
-export const eventDefinitionJoin = (
-	event: TableReference,
-	entity: TableReference,
-	definition: TableReference,
-): Predicate =>
-	and(
-		eq(column(event, "entityId"), column(entity, "id")),
-		eq(column(event, "eventSchemaSlug"), column(definition, "slug")),
-		eq(column(entity, "entitySchemaSlug"), column(definition, "entitySchemaSlug")),
-		schemaOwnerJoin(event, "eventSchemaPluginId", definition, "pluginId"),
-		schemaOwnerJoin(entity, "entitySchemaPluginId", definition, "pluginId"),
-	);
-
-export const relationshipDefinitionJoin = (
-	relationship: TableReference,
-	definition: TableReference,
-): Predicate =>
-	and(
-		eq(column(relationship, "relationshipSchemaSlug"), column(definition, "slug")),
-		schemaOwnerJoin(relationship, "relationshipSchemaPluginId", definition, "pluginId"),
 	);
 
 export const jsonPath = (

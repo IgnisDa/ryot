@@ -6,7 +6,7 @@ import type {
 import {
 	definitionOwner,
 	type EntitySchemaReference,
-	type ProviderReference,
+	type DeclarationReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
@@ -647,7 +647,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 			const findProviderAvailableToUserByReference = Effect.fn(function* (
 				userId: UserId,
-				reference: ProviderReference,
+				reference: DeclarationReference,
 			) {
 				if (reference.owner.kind === "kernel") {
 					return null;
@@ -695,7 +695,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 			const findActiveProviderById = (id: SandboxProviderId) =>
 				findActiveProvider(eq(schema.sandboxProvider.id, id));
-			const findSchemaProviderByReference = Effect.fn(function* (reference: ProviderReference) {
+			const findSchemaProviderByReference = Effect.fn(function* (reference: DeclarationReference) {
 				if (reference.owner.kind === "kernel") {
 					return null;
 				}

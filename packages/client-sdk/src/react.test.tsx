@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
 import { act, useEffect, type ReactNode } from "react";
@@ -288,7 +289,11 @@ describe("Effect-native React definitions", () => {
 			const clock = makeClock({ accessStorage: storage.accessStorage });
 			const schema = Schema.Struct({ order: Schema.Literals(["aired", "dvd"]) });
 			const View = () => {
-				const value = usePluginStorage({ schema, key: "order", pluginId: "fixture" });
+				const value = usePluginStorage({
+					schema,
+					key: "order",
+					pluginId: PluginId.make("fixture"),
+				});
 				return value.status === "ready" ? (
 					<button type="button" onClick={() => void value.set({ order: "aired" })}>
 						{value.value?.order ?? "unset"}

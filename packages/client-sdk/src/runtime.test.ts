@@ -145,9 +145,10 @@ describe("plugin Effect request engine", () => {
 			const { runtime, messages } = yield* openRuntime(page);
 			expect(runtime.client.pluginIdentity(packageId)).toEqual({ pluginId, kind: "local" });
 			expect(() => runtime.client.pluginIdentity(otherPackageId)).toThrow(RyotClientError);
-			expect((yield* Effect.flip(runtime.client.storage.get("foreign-owner", "key"))).reason).toBe(
-				"invalid-request",
-			);
+			expect(
+				(yield* Effect.flip(runtime.client.storage.get(PluginId.make("foreign-owner"), "key")))
+					.reason,
+			).toBe("invalid-request");
 			expect(sent(messages, "storage-request")).toEqual([]);
 			runtime.dispose();
 			expect(() => runtime.client.pluginIdentity(packageId)).toThrow(RyotClientError);
@@ -332,9 +333,10 @@ describe("plugin Effect request engine", () => {
 				}),
 				{ startImmediately: true },
 			);
-			const storage = yield* Effect.forkChild(runtime.client.storage.get("fixture", "key"), {
-				startImmediately: true,
-			});
+			const storage = yield* Effect.forkChild(
+				runtime.client.storage.get(PluginId.make("fixture"), "key"),
+				{ startImmediately: true },
+			);
 			const upload = yield* Effect.forkChild(
 				runtime.client.uploads.uploadTemporary({
 					fileName: "data.txt",
@@ -387,7 +389,7 @@ describe("plugin Effect request engine", () => {
 			});
 			expect(yield* Fiber.join(upload)).toMatchObject({ token: "upload-token" });
 			const storage = yield* Effect.forkChild(
-				Effect.result(runtime.client.storage.get("fixture", "key")),
+				Effect.result(runtime.client.storage.get(PluginId.make("fixture"), "key")),
 				{ startImmediately: true },
 			);
 			yield* waitForMessagePortMacrotask;
