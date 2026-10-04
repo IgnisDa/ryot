@@ -3,7 +3,7 @@
 `@ryot-app/vite-compiler` is private, concrete infrastructure shared by Ryot's compiler workers. It
 owns scoped `source/`, `generated/`, and `output/` filesystem workspaces, sanitized worker
 environments, protected programmatic Vite 8 invocation, normalized diagnostics, deterministic
-in-memory collection of every emitted file, and Ryot's shared Deno ESM build profile.
+in-memory collection of every emitted file, and Ryot's shared Sandbox ESM build profile.
 
 Every build receives its target compiler's self-contained TypeScript project options. Vite and
 Rolldown use the runtime-relevant transform options without discovering `tsconfig.json` files from
@@ -20,7 +20,7 @@ Vite plugin transform hook itself follows Vite's Promise callback API. Public fa
 and output collection return Effect `Result` values; they do not throw. Bun callers provide the
 standard `BunFileSystem.layer` (or their existing Bun services Layer) to workspace Effects.
 
-`buildDenoEsm` emits exactly one unminified ES2022 ESM file with an inline source map containing
+`buildSandboxEsm` emits exactly one unminified ES2022 ESM file with an inline source map containing
 normalized source paths and mappings but no `sourcesContent`. It accepts
 either staged source files and a relative entry or an external/absolute entry through a generated
 re-export. Callers provide exact aliases, the output filename, and the approved external import set.
@@ -29,13 +29,13 @@ normalizes source-map paths, and rejects Node, Bun, URL, npm, and jsr imports, u
 CommonJS output, and browser-only Vite helpers. It infers its TypeScript transform configuration and
 does not discover tsconfig files.
 
-`buildDenoEsmPackage` applies that same profile to many entries of one source tree. It stages the
+`buildSandboxEsmPackage` applies that same profile to many entries of one source tree. It stages the
 tree once and builds each entry against the shared workspace at the caller's concurrency, so a
 package with many entries pays for staging once instead of once per entry. It returns one module per
 requested entry, in request order.
 
 The package does not own plugin source, TypeScript analysis,
-artifact limits, hashing, publication, worker supervision, or client and Deno artifact contracts.
+artifact limits, hashing, publication, worker supervision, or client and sandbox artifact contracts.
 Those decisions remain with the target compiler and its parent supervisor. The package does not
 load caller Vite, environment, public-directory, or PostCSS configuration and does not install or
 execute dependencies from staged sources.

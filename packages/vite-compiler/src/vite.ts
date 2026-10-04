@@ -1,9 +1,5 @@
-// Vite's synchronous diagnostic hooks normalize native filesystem paths.
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { isAbsolute, relative, resolve, sep } from "node:path";
-
 import type { TypeScriptProjectConfiguration } from "@ryot-app/typescript-compiler";
-import { Context, Effect, Layer, Predicate } from "effect";
+import { Context, Effect, Layer, Path, Predicate } from "effect";
 import { build, createLogger, transformWithOxc } from "vite";
 import type { InlineConfig, LogErrorOptions, LogOptions, Logger, Plugin } from "vite";
 
@@ -51,33 +47,38 @@ const boundedPosition = (value: unknown) =>
 		? Math.min(value, 2_147_483_647)
 		: undefined;
 
-const normalizeFile = (value: unknown, workspace: CompilerWorkspace, root: string) => {
+const normalizeFile = (
+	path: Path.Path,
+	value: unknown,
+	workspace: CompilerWorkspace,
+	root: string,
+) => {
 	if (typeof value !== "string" || value.length === 0) {
 		return undefined;
 	}
-	const absolute = isAbsolute(value) ? value : resolve(root, value);
-	const logical = relative(workspace.rootPath, absolute);
+	const absolute = path.isAbsolute(value) ? value : path.resolve(root, value);
+	const logical = path.relative(workspace.rootPath, absolute);
 	const outsideWorkspace =
-		logical === ".." || logical.startsWith(`..${sep}`) || isAbsolute(logical);
+		logical === ".." || logical.startsWith(`..${path.sep}`) || path.isAbsolute(logical);
 	return boundedText(outsideWorkspace ? value : logical, 1024);
 };
 
 const normalizeDiagnostic = (
+	path: Path.Path,
 	severity: ViteDiagnostic["severity"],
 	value: unknown,
 	workspace: CompilerWorkspace,
 	root: string,
 ): ViteDiagnostic => {
 	const record = Predicate.isObject(value) ? value : {};
-	const location =
-		"loc" in record && Predicate.isObject(record["loc"])
-			? record["loc"]
-			: ({} as Readonly<Record<PropertyKey, unknown>>);
+	const location: Readonly<Record<PropertyKey, unknown>> =
+		"loc" in record && Predicate.isObject(record["loc"]) ? record["loc"] : {};
 	const line = boundedPosition(location["line"] ?? ("line" in record ? record["line"] : undefined));
 	const column = boundedPosition(
 		location["column"] ?? ("column" in record ? record["column"] : undefined),
 	);
 	const file = normalizeFile(
+		path,
 		location["file"] ?? ("id" in record ? record["id"] : undefined),
 		workspace,
 		root,
@@ -99,6 +100,7 @@ const normalizeDiagnostic = (
 };
 
 const diagnosticLogger = (
+	path: Path.Path,
 	workspace: CompilerWorkspace,
 	root: string,
 	diagnostics: ViteDiagnostic[],
@@ -110,7 +112,7 @@ const diagnosticLogger = (
 		options?: LogOptions | LogErrorOptions,
 	) => {
 		const error = options && "error" in options ? options.error : undefined;
-		diagnostics.push(normalizeDiagnostic(severity, error ?? { message }, workspace, root));
+		diagnostics.push(normalizeDiagnostic(path, severity, error ?? { message }, workspace, root));
 	};
 	logger.info = () => undefined;
 	logger.warn = (message, options) => capture("warning", message, options);
@@ -120,11 +122,16 @@ const diagnosticLogger = (
 	return logger;
 };
 
-const thrownDiagnostics = (error: unknown, workspace: CompilerWorkspace, root: string) => {
+const thrownDiagnostics = (
+	path: Path.Path,
+	error: unknown,
+	workspace: CompilerWorkspace,
+	root: string,
+) => {
 	if (Predicate.isObject(error) && "errors" in error && Array.isArray(error["errors"])) {
-		return error["errors"].map((item) => normalizeDiagnostic("error", item, workspace, root));
+		return error["errors"].map((item) => normalizeDiagnostic(path, "error", item, workspace, root));
 	}
-	return [normalizeDiagnostic("error", error, workspace, root)];
+	return [normalizeDiagnostic(path, "error", error, workspace, root)];
 };
 
 const typeScriptTransformPlugin = (
@@ -159,7 +166,12 @@ export const buildWithVite = Effect.fn("buildWithVite")(function* ({
 	config,
 	workspace,
 	typeScriptProject,
-}: ViteCompilerOptions): Effect.fn.Return<ViteCompilerResult, ViteCompilerError, ViteBuildService> {
+}: ViteCompilerOptions): Effect.fn.Return<
+	ViteCompilerResult,
+	ViteCompilerError,
+	Path.Path | ViteBuildService
+> {
+	const path = yield* Path.Path;
 	if (root !== undefined && root !== workspace.generatedPath) {
 		return yield* viteCompilerError(
 			"invalid-input",
@@ -169,13 +181,13 @@ export const buildWithVite = Effect.fn("buildWithVite")(function* ({
 	const viteRoot = root ?? workspace.rootPath;
 	const viteBuild = yield* ViteBuildService;
 	const diagnostics: ViteDiagnostic[] = [];
-	const customLogger = diagnosticLogger(workspace, viteRoot, diagnostics);
+	const customLogger = diagnosticLogger(path, workspace, viteRoot, diagnostics);
 	const configuredOxc = config.oxc === false ? {} : config.oxc;
 	const rolldownOptions = {
 		...config.build?.rolldownOptions,
 		onLog(level, log) {
 			if (level === "warn") {
-				diagnostics.push(normalizeDiagnostic("warning", log, workspace, viteRoot));
+				diagnostics.push(normalizeDiagnostic(path, "warning", log, workspace, viteRoot));
 			}
 		},
 	} satisfies NonNullable<NonNullable<InlineConfig["build"]>["rolldownOptions"]>;
@@ -192,7 +204,7 @@ export const buildWithVite = Effect.fn("buildWithVite")(function* ({
 		clearScreen: false,
 		logLevel: "silent",
 		css: { ...config.css, postcss: { plugins: [] } },
-		cacheDir: resolve(workspace.generatedPath, "vite-cache"),
+		cacheDir: path.resolve(workspace.generatedPath, "vite-cache"),
 		plugins: [
 			typeScriptTransformPlugin(typeScriptProject, configuredOxc),
 			...(config.plugins ?? []),
@@ -208,7 +220,10 @@ export const buildWithVite = Effect.fn("buildWithVite")(function* ({
 	const result = yield* viteBuild.build(protectedConfig).pipe(
 		Effect.mapError((cause) => {
 			const originalCause = cause.cause ?? cause;
-			const normalized = [...diagnostics, ...thrownDiagnostics(originalCause, workspace, viteRoot)];
+			const normalized = [
+				...diagnostics,
+				...thrownDiagnostics(path, originalCause, workspace, viteRoot),
+			];
 			return viteCompilerError(
 				"vite-build",
 				normalized.at(-1)?.message ?? "Vite build failed",
@@ -220,6 +235,6 @@ export const buildWithVite = Effect.fn("buildWithVite")(function* ({
 	if (Predicate.isObject(result) && "close" in result) {
 		return yield* viteCompilerError("vite-build", "Vite unexpectedly returned a build watcher");
 	}
-	const files = yield* Effect.fromResult(collectViteOutputs(result));
+	const files = yield* Effect.fromResult(collectViteOutputs(path, result));
 	return { files, diagnostics };
 });

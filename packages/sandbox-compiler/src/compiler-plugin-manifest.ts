@@ -36,6 +36,7 @@ export const pluginScriptCompileMismatchIssue = (error: PluginScriptCompileMisma
 
 export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetadata => {
 	const execution = {
+		runtimeImports: script.runtimeImports,
 		oauthConnectionFields: script.oauthConnectionFields,
 		executableDependencies: script.executableDependencies,
 		optionalPluginConfigKeys: script.optionalPluginConfigKeys,

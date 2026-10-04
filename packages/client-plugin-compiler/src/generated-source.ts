@@ -1,8 +1,5 @@
-// Compiler-generated @source paths use native paths at the Tailwind/Vite boundary.
-// oxlint-disable-next-line effecttsgo/node-builtin-import
-import { relative as relativePath, resolve as resolvePath } from "node:path";
-
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import type { Path } from "effect";
 
 import type { ClientPluginCompilerPackageExport, ClientPluginExportKind } from "./input";
 
@@ -61,6 +58,7 @@ export const runtimeStylesheet = `${layerOrder}
 }`;
 
 export const compilerStylesheet = (
+	paths: Path.Path,
 	reachableSources: readonly string[],
 	sourcePath: string,
 	generatedPath: string,
@@ -68,7 +66,7 @@ export const compilerStylesheet = (
 	uiSdkRoot: string,
 ) => {
 	const source = (path: string) =>
-		`@source ${JSON.stringify(relativePath(generatedPath, path).replaceAll("\\", "/"))};`;
+		`@source ${JSON.stringify(paths.relative(generatedPath, path).split(paths.sep).join("/"))};`;
 	return [
 		layerOrder,
 		'@import "tailwindcss/theme.css" layer(theme) theme(reference);',
@@ -76,7 +74,7 @@ export const compilerStylesheet = (
 		'@import "@ryot-app/client-ui-sdk/theme.css" reference;',
 		...reachableSources
 			.filter((path) => /\.tsx?$/.test(path))
-			.map((path) => source(resolvePath(sourcePath, path))),
+			.map((path) => source(paths.resolve(sourcePath, path))),
 		source(clientSdkRoot),
 		source(uiSdkRoot),
 	].join("\n");
