@@ -56,7 +56,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
 			const concurrency = config.sandbox.workerConcurrency;
-			const served = servedLanes(yield* serverRole(config.server.lanes));
+			const served = servedLanes(yield* serverRole(config.server));
 			const plan = yield* Effect.fromResult(
 				sandboxMemoryPlan(config.sandbox.memoryBudgetMiB, process.constrainedMemory(), served),
 			);

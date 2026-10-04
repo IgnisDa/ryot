@@ -439,71 +439,104 @@ describe("automation configuration", () => {
 	});
 });
 
-const lanesEnvironmentLayer = (lanes: string | undefined, socketDir: string | undefined) =>
+const serverEnvironmentLayer = (
+	options: {
+		readonly lanes?: string;
+		readonly processRole?: string;
+		readonly socketDir?: string;
+	} = {},
+) =>
 	makeConfigProviderLayer({
 		REDIS_URL: "unused",
 		DATABASE_URL: "unused",
 		SERVER_ADMIN_ACCESS_TOKEN: "unused",
-		...(lanes === undefined ? {} : { SERVER_LANES: lanes }),
-		...(socketDir === undefined ? {} : { SERVER_RUNNER_SOCKET_DIR: socketDir }),
+		...(options.lanes === undefined ? {} : { SERVER_LANES: options.lanes }),
+		...(options.processRole === undefined ? {} : { RYOT_SERVER_ROLE: options.processRole }),
+		...(options.socketDir === undefined ? {} : { RYOT_RUNNER_SOCKET_DIR: options.socketDir }),
 	});
 
-describe("SERVER_LANES validation", () => {
-	for (const [lanes, socketDir, expected] of [
-		[undefined, undefined, "all"],
-		["all", undefined, "all"],
-		["interactive", "/run/ryot", "interactive"],
-		["background", "/run/ryot", "background"],
-		["split", "/run/ryot", "split"],
-	] as const) {
-		layer(lanesEnvironmentLayer(lanes, socketDir))((test) => {
-			test.effect(`loads SERVER_LANES=${lanes ?? "(unset)"}`, () =>
+describe("server process configuration", () => {
+	layer(serverEnvironmentLayer())((test) => {
+		test.effect("defaults to one process running all work without a runner socket directory", () =>
+			Effect.gen(function* () {
+				const result = yield* loaded;
+				assert(Exit.isSuccess(result));
+				expect(result.value.server.lanes).toBe("all");
+				expect(result.value.server.processRole).toBe("all");
+				expect(result.value.server.runnerSocketDir).toEqual(Option.none());
+			}),
+		);
+	});
+
+	for (const lanes of ["all", "split"] as const) {
+		layer(serverEnvironmentLayer({ lanes }))((test) => {
+			test.effect(`accepts SERVER_LANES=${lanes} without a runner socket directory`, () =>
 				Effect.gen(function* () {
 					const result = yield* loaded;
 					assert(Exit.isSuccess(result));
-					expect(result.value.server.lanes).toBe(expected);
+					expect(result.value.server.lanes).toBe(lanes);
+					expect(result.value.server.runnerSocketDir).toEqual(Option.none());
 				}),
 			);
 		});
 	}
 
-	for (const [lanes, socketDir, message] of [
-		["batch", undefined, "SERVER_LANES must be one of: all, interactive, background, split"],
-		[
-			"interactive",
-			undefined,
-			"SERVER_LANES=interactive requires SERVER_RUNNER_SOCKET_DIR to be an absolute path.",
-		],
-		[
-			"background",
-			"run/ryot",
-			"SERVER_LANES=background requires SERVER_RUNNER_SOCKET_DIR to be an absolute path.",
-		],
-		[
-			"split",
-			undefined,
-			"SERVER_LANES=split requires SERVER_RUNNER_SOCKET_DIR to be an absolute path.",
-		],
-		[
-			"all",
-			"/run/ryot",
-			"SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is a role or split.",
-		],
-		[
-			undefined,
-			"/run/ryot",
-			"SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is a role or split.",
-		],
-	] as const) {
-		layer(lanesEnvironmentLayer(lanes, socketDir))((test) => {
+	for (const lanes of ["interactive", "background", "batch"] as const) {
+		layer(serverEnvironmentLayer({ lanes }))((test) => {
+			test.effect(`rejects public SERVER_LANES=${lanes}`, () =>
+				Effect.gen(function* () {
+					const result = yield* loaded;
+					assert(Exit.isFailure(result));
+					expect(Cause.pretty(result.cause)).toContain("SERVER_LANES must be one of: all, split");
+				}),
+			);
+		});
+	}
+
+	for (const processRole of ["interactive", "background"] as const) {
+		layer(serverEnvironmentLayer({ processRole, lanes: "all", socketDir: "/run/ryot" }))((test) => {
 			test.effect(
-				`rejects SERVER_LANES=${lanes ?? "(unset)"} with ${socketDir ?? "no"} socket directory`,
+				`accepts internal RYOT_SERVER_ROLE=${processRole} with an absolute socket directory`,
 				() =>
 					Effect.gen(function* () {
 						const result = yield* loaded;
-						assert(Exit.isFailure(result));
-						expect(Cause.pretty(result.cause)).toContain(message);
+						assert(Exit.isSuccess(result));
+						expect(result.value.server.processRole).toBe(processRole);
+						expect(result.value.server.runnerSocketDir).toEqual(Option.some("/run/ryot"));
 					}),
+			);
+		});
+	}
+
+	for (const [options, message] of [
+		[
+			{ lanes: "all", processRole: "interactive" },
+			"RYOT_SERVER_ROLE=interactive requires RYOT_RUNNER_SOCKET_DIR to be an absolute path.",
+		],
+		[
+			{ lanes: "all", socketDir: "run/ryot", processRole: "background" },
+			"RYOT_SERVER_ROLE=background requires RYOT_RUNNER_SOCKET_DIR to be an absolute path.",
+		],
+		[
+			{ lanes: "split", socketDir: "/run/ryot", processRole: "interactive" },
+			"RYOT_SERVER_ROLE=interactive requires SERVER_LANES=all.",
+		],
+		[
+			{ lanes: "split", socketDir: "/run/ryot", processRole: "background" },
+			"RYOT_SERVER_ROLE=background requires SERVER_LANES=all.",
+		],
+		[
+			{ lanes: "split", socketDir: "/run/ryot" },
+			"RYOT_RUNNER_SOCKET_DIR is only valid when RYOT_SERVER_ROLE is interactive or background.",
+		],
+	] as const) {
+		layer(serverEnvironmentLayer(options))((test) => {
+			test.effect(`rejects invalid server process configuration ${JSON.stringify(options)}`, () =>
+				Effect.gen(function* () {
+					const result = yield* loaded;
+					assert(Exit.isFailure(result));
+					expect(Cause.pretty(result.cause)).toContain(message);
+				}),
 			);
 		});
 	}

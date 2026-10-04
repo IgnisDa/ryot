@@ -1,8 +1,8 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it, layer } from "@effect/vitest";
-import { Effect, Path } from "effect";
+import { Cause, Effect, Exit, Path } from "effect";
 
-import { roleLogPath, servedLanes } from "./server-role";
+import { roleLogPath, servedLanes, serverRole } from "./server-role";
 
 layer(BunServices.layer)((test) => {
 	test.effect("places a role log beside the configured file", () =>
@@ -24,3 +24,16 @@ it("serves both lanes only in a process running everything", () => {
 	expect(servedLanes("interactive")).toEqual(["interactive"]);
 	expect(servedLanes("background")).toEqual(["background"]);
 });
+
+it.effect("uses the internal process role unless the server supervises both roles", () =>
+	Effect.gen(function* () {
+		for (const processRole of ["interactive", "background"] as const) {
+			expect(yield* serverRole({ processRole, lanes: "all" })).toBe(processRole);
+		}
+		const result = yield* Effect.exit(serverRole({ lanes: "split", processRole: "all" }));
+		expect(Exit.isFailure(result)).toBe(true);
+		if (Exit.isFailure(result)) {
+			expect(Cause.pretty(result.cause)).toContain("SERVER_LANES=split");
+		}
+	}),
+);

@@ -107,7 +107,11 @@ describe("lane-pinned roles", () => {
 						s3BucketName: S3_BUCKET_NAME,
 						redisUrl: infrastructure.redisUrl,
 						s3Endpoint: infrastructure.s3Endpoint,
-						extraEnv: { SERVER_LANES: role, SERVER_RUNNER_SOCKET_DIR: socketDirectory },
+						extraEnv: {
+							SERVER_LANES: "all",
+							RYOT_SERVER_ROLE: role,
+							RYOT_RUNNER_SOCKET_DIR: socketDirectory,
+						},
 					});
 				const interactiveEnv = roleEnv("interactive", interactivePort);
 				const backgroundEnv = roleEnv("background", backgroundPort);

@@ -37,21 +37,36 @@ export const shardingConfigFor = (lanes: ServerRole) =>
 		...(lanes === "all" ? {} : { runnerAddress: Option.some(RunnerAddress.make(lanes, 0)) }),
 	}) satisfies Partial<ShardingConfig.ShardingConfig["Service"]>;
 
-const runnerLayer = (lanes: ServerRole, runnerSocketDir: Option.Option<string>) => {
-	if (lanes === "all" || Option.isNone(runnerSocketDir)) {
+const runnerLayer = (role: ServerRole, runnerSocketDir: Option.Option<string>) => {
+	if (role === "all") {
 		return Sharding.layer.pipe(
 			Layer.provideMerge(Runners.layerNoop),
 			Layer.provide(RunnerHealth.layerNoop),
 		);
 	}
-	const clientProtocol = runnerSocketClientProtocolLayer(runnerSocketDir.value);
-	return SocketRunner.layer.pipe(
-		Layer.provide(
-			RunnerHealth.layerPing.pipe(Layer.provide(Runners.layerRpc), Layer.provide(clientProtocol)),
-		),
-		Layer.provide([runnerSocketServerLayer(runnerSocketDir.value, lanes), clientProtocol]),
-		Layer.provide(RpcSerialization.layerNdjson),
-	);
+	return Option.match(runnerSocketDir, {
+		onNone: () =>
+			Layer.effectDiscard(
+				Effect.die(
+					new Error(
+						"RYOT_RUNNER_SOCKET_DIR is required when RYOT_SERVER_ROLE is interactive or background.",
+					),
+				),
+			),
+		onSome: (socketDir) => {
+			const clientProtocol = runnerSocketClientProtocolLayer(socketDir);
+			return SocketRunner.layer.pipe(
+				Layer.provide(
+					RunnerHealth.layerPing.pipe(
+						Layer.provide(Runners.layerRpc),
+						Layer.provide(clientProtocol),
+					),
+				),
+				Layer.provide([runnerSocketServerLayer(socketDir, role), clientProtocol]),
+				Layer.provide(RpcSerialization.layerNdjson),
+			);
+		},
+	});
 };
 
 export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
@@ -59,11 +74,11 @@ export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
 		Layer.unwrap(
 			Effect.gen(function* () {
 				const { server } = yield* AppConfig;
-				const lanes = yield* serverRole(server.lanes);
-				return runnerLayer(lanes, server.runnerSocketDir).pipe(
+				const role = yield* serverRole(server);
+				return runnerLayer(role, server.runnerSocketDir).pipe(
 					Layer.provideMerge(WorkflowGarbageCollectionStorageLive),
 					Layer.provide(Layer.orDie(SqlRunnerStorage.layer)),
-					Layer.provide(ShardingConfig.layer(shardingConfigFor(lanes))),
+					Layer.provide(ShardingConfig.layer(shardingConfigFor(role))),
 				);
 			}),
 		),

@@ -81,10 +81,12 @@ does not. Measurements and the pitfalls the spike found are in [evidence.md](evi
 ### Process topology
 
 One sidecar process runs per trust tier × snapshot tier, each with its own memory budget. Each backend
-process owns its sidecars; a split deployment runs an interactive and a background backend process
-against one Postgres and Redis ([s3.md](s3.md#process-separation)). A sidecar
-loads exactly one snapshot and rejects runs for any other tier. `core` sidecars stay resident; `data`
-and `full` sidecars start lazily and stop after an idle period.
+process owns its sidecars. `SERVER_LANES=all` (the default) runs one backend process; `SERVER_LANES=split`
+starts a supervisor that runs migrations first, then starts interactive and background role children
+against one Postgres and Redis ([s3.md](s3.md#process-separation)). The supervisor creates a private
+mode-0700 temporary directory for role sockets (mode 0600) and removes it after both roles stop. A
+sidecar loads exactly one snapshot and rejects runs for any other tier. `core` sidecars stay resident;
+`data` and `full` sidecars start lazily and stop after an idle period.
 
 ### Sidecar isolate surface
 

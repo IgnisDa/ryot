@@ -240,7 +240,7 @@ const makeOtlpLayer = (config: AppConfigValue, role: ServerRole) => {
 export const ObservabilityLive = Layer.unwrap(
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
-		const role = yield* serverRole(config.server.lanes);
+		const role = yield* serverRole(config.server);
 		const logger = makeLoggerLayer(config, role);
 		const logLevel = config.observability.logging.level;
 		const runtimeMinimum = LogLevel.isLessThanOrEqualTo(logLevel, "Info") ? logLevel : "Info";

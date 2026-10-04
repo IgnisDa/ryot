@@ -1,5 +1,5 @@
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import { Effect, Option, Result, Runtime, Schema } from "effect";
+import { Effect, FileSystem, Option, Result, Runtime, Schema, Scope } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { AppConfig, configError } from "./config/service";
@@ -20,7 +20,6 @@ export class SplitSupervisorError extends Schema.TaggedError<SplitSupervisorErro
 	}
 }
 
-/** The command that starts this program again; every supervised process runs it. */
 export type SplitEntry = { readonly executable: string; readonly args: ReadonlyArray<string> };
 
 export const splitMemoryBudget = (
@@ -56,10 +55,20 @@ export const migrationCommand = (entry: SplitEntry) =>
 	ChildProcess.make(entry.executable, entry.args, {
 		...inherited,
 		extendEnv: true,
-		env: { SERVER_LANES: "all", RUN_MIGRATION_ONLY: "true", SERVER_RUNNER_SOCKET_DIR: undefined },
+		env: {
+			SERVER_LANES: "all",
+			RUN_MIGRATION_ONLY: "true",
+			RYOT_SERVER_ROLE: undefined,
+			RYOT_RUNNER_SOCKET_DIR: undefined,
+		},
 	});
 
-export const roleCommand = (entry: SplitEntry, role: ExecutionLane, roleMiB: number) =>
+export const roleCommand = (
+	entry: SplitEntry,
+	role: ExecutionLane,
+	roleMiB: number,
+	socketDirectory: string,
+) =>
 	ChildProcess.make(
 		role === "background" ? "nice" : entry.executable,
 		role === "background"
@@ -70,7 +79,13 @@ export const roleCommand = (entry: SplitEntry, role: ExecutionLane, roleMiB: num
 			extendEnv: true,
 			killSignal: "SIGTERM",
 			forceKillAfter: roleShutdownGrace,
-			env: { SERVER_LANES: role, SANDBOX_MEMORY_BUDGET_MIB: String(roleMiB) },
+			env: {
+				SERVER_LANES: "all",
+				RYOT_SERVER_ROLE: role,
+				RUN_MIGRATION_ONLY: undefined,
+				RYOT_RUNNER_SOCKET_DIR: socketDirectory,
+				SANDBOX_MEMORY_BUDGET_MIB: String(roleMiB),
+			},
 		},
 	);
 
@@ -79,6 +94,7 @@ export const runSplitSupervisor = Effect.fn("runSplitSupervisor")(function* (inp
 	readonly effectiveMemory: number;
 }) {
 	const config = yield* AppConfig;
+	const fs = yield* FileSystem.FileSystem;
 	const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 	const budget = yield* Effect.fromResult(
 		splitMemoryBudget(config.sandbox.memoryBudgetMiB, input.effectiveMemory),
@@ -100,26 +116,26 @@ export const runSplitSupervisor = Effect.fn("runSplitSupervisor")(function* (inp
 				}),
 		),
 	);
+	const socketDirectory = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-" });
+	yield* fs.chmod(socketDirectory, 0o700);
 	yield* Effect.logInfo("Split supervisor starting roles").pipe(
 		Effect.annotateLogs({ roleBudgetMiB: budget.roleMiB, totalBudgetMiB: budget.totalMiB }),
 	);
 
+	const roleScope = yield* Scope.fork(yield* Effect.scope, "parallel");
 	const handles = yield* Effect.forEach(roles, (role) =>
-		spawner.spawn(roleCommand(input.entry, role, budget.roleMiB)),
-	);
-	yield* Effect.addFinalizer(() =>
-		Effect.forEach(handles, (handle) => handle.kill({ forceKillAfter: roleShutdownGrace }), {
-			concurrency: "unbounded",
-		}).pipe(Effect.ignore),
-	);
-	const exits = handles.map((handle, index) =>
+		spawner.spawn(roleCommand(input.entry, role, budget.roleMiB, socketDirectory)).pipe(
+			Effect.map((handle) => ({ handle, role })),
+		),
+	).pipe(Scope.provide(roleScope));
+	const exits = handles.map(({ handle, role }) =>
 		handle.exitCode.pipe(
-			Effect.map((exitCode) => ({ exitCode, role: roles[index] })),
+			Effect.map((exitCode) => ({ exitCode, role })),
 			Effect.mapError(
 				(error) =>
 					new SplitSupervisorError({
 						exitCode: 1,
-						message: `The ${roles[index]} role stopped: ${error.message}`,
+						message: `The ${role} role stopped: ${error.message}`,
 					}),
 			),
 		),

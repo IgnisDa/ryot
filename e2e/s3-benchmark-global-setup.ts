@@ -130,25 +130,13 @@ const startMetricsSink = Effect.gen(function* () {
 		}).pipe(Effect.orDie),
 	);
 	pending.requests = sink.requests;
-	const socketDirectory = yield* fs.makeTempDirectory({ prefix: "ryot-s3-runner-" });
-	return {
-		sink,
-		metricsFile,
-		socketDirectory,
-		serverEnv: yield* Schema.encodeEffect(ServerEnv)(pinnedServerEnv),
-	};
+	return { sink, metricsFile, serverEnv: yield* Schema.encodeEffect(ServerEnv)(pinnedServerEnv) };
 });
 
 // oxlint-disable-next-line effecttsgo/async-function -- Vitest globalSetup owns the Promise-returning setup contract.
 export default async () => {
-	const { sink, serverEnv, metricsFile, socketDirectory } = await runPromise(
-		startMetricsSink.pipe(Effect.orDie),
-	);
-	const stopServer = await setupE2e({
-		...pinnedServerEnv,
-		OTEL_EXPORTER_OTLP_ENDPOINT: sink.url,
-		SERVER_RUNNER_SOCKET_DIR: socketDirectory,
-	});
+	const { sink, serverEnv, metricsFile } = await runPromise(startMetricsSink.pipe(Effect.orDie));
+	const stopServer = await setupE2e({ ...pinnedServerEnv, OTEL_EXPORTER_OTLP_ENDPOINT: sink.url });
 	process.env.S3_BENCHMARK_SERVER_ENV = serverEnv;
 	process.env.S3_BENCHMARK_OTLP_FILE = metricsFile;
 	return () =>
@@ -156,8 +144,6 @@ export default async () => {
 			Effect.gen(function* () {
 				yield* Effect.promise(stopServer);
 				yield* Effect.promise(sink.stop);
-				const fs = yield* FileSystem.FileSystem;
-				yield* fs.remove(socketDirectory, { force: true, recursive: true });
 			}),
 		);
 };
