@@ -667,6 +667,29 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 		).toBe(false);
 	});
 
+	it.each([
+		["__proto__", "toString"],
+		["settings", "__proto__", "toString"],
+	])("does not delete inherited properties while omitting hidden defaults %j", (...path) => {
+		const descriptor = Object.getOwnPropertyDescriptor(Object.prototype, "toString");
+		const s = schema(
+			{ settings: objectProp({}), enabled: bool({ defaultValue: false }) },
+			{ rules: [visibilityRule(path, { value: false, operator: "eq", path: ["enabled"] })] },
+		);
+		let result;
+		let remainingDescriptor;
+		try {
+			result = parseAppSchemaPropertiesSafe({ propertiesSchema: s, properties: { settings: {} } });
+			remainingDescriptor = Object.getOwnPropertyDescriptor(Object.prototype, "toString");
+		} finally {
+			if (descriptor) {
+				Reflect.defineProperty(Object.prototype, "toString", descriptor);
+			}
+		}
+		expect(result).toEqual({ success: true, data: { settings: {}, enabled: false } });
+		expect(remainingDescriptor).toEqual(descriptor);
+	});
+
 	it("evaluates visibility from defaults and omits a hidden generated default", () => {
 		const s = schema(
 			{ status: str({ defaultValue: "hidden" }), secret: str({ defaultValue: "generated" }) },
@@ -809,6 +832,17 @@ describe("validateAppSchemaDefinition", () => {
 		);
 		expect(validateAppSchemaDefinition(s)).toEqual([]);
 	});
+
+	it.each([["__proto__", "toString"], ["constructor"], ["settings", "toString"]])(
+		"rejects inherited visibility target paths %j",
+		(...path) => {
+			const s = schema(
+				{ enabled: bool(), settings: objectProp({}) },
+				{ rules: [visibilityRule(path, { value: false, operator: "eq", path: ["enabled"] })] },
+			);
+			expect(validateAppSchemaDefinition(s)).toHaveLength(1);
+		},
+	);
 
 	it("returns an issue when the rule path points to a missing field", () => {
 		const s = schema(
