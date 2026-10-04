@@ -1,6 +1,7 @@
 import { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
 import { SavedViewClientPageTarget } from "@ryot-app/contract/modules/pages/schemas";
+import { ownerIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RyotQLDocument,
 	rowsResultSchema,
@@ -9,6 +10,7 @@ import {
 	type OrderBy,
 	type Predicate,
 	type RowsOutput,
+	type TableReference,
 	type ScalarExpression,
 } from "@ryot-app/contract/modules/ryotql/language";
 import {
@@ -16,6 +18,7 @@ import {
 	type EntityBrowserSavedViewSettings as EntityBrowserSavedViewSettingsValue,
 	ResultsTableSavedViewSettings,
 	SavedViewDisplayValue,
+	type SavedViewSubject,
 	type ResultsTableSavedViewSettings as ResultsTableSavedViewSettingsValue,
 	type SavedViewDisplayKind,
 } from "@ryot-app/contract/modules/saved-views/schemas";
@@ -28,6 +31,7 @@ import {
 	contains,
 	defineRecipe,
 	descending,
+	entitySchemaPredicate,
 	field,
 	literal,
 	or,
@@ -212,7 +216,7 @@ const browserOrderBy = (
 	source: RowsQuery,
 	settings: EntityBrowserSavedViewSettingsValue,
 	sortChoice: string | undefined,
-	entityId: FieldSelection,
+	entityId: ScalarExpression,
 ): Result.Result<readonly OrderBy[], Error> => {
 	const fields = selectedFields(source);
 	const choice =
@@ -234,42 +238,49 @@ const browserOrderBy = (
 			ordering.direction === "asc" ? ascending(selection.expr) : descending(selection.expr),
 		);
 	}
-	return Result.succeed([
-		...(choice ? configured : source.output.orderBy),
-		ascending(entityId.expr),
-	]);
+	return Result.succeed([...(choice ? configured : source.output.orderBy), ascending(entityId)]);
 };
+
+const subjectSchemaPredicate = (subject: SavedViewSubject, entity: TableReference) =>
+	or(
+		...subject.schemas.map(({ slug, owner }) =>
+			entitySchemaPredicate(entity, slug, ownerIdentityReference(owner)),
+		),
+	);
 
 export const entityBrowserRecipe = (
 	input: EntityBrowserRecipeInput,
 ): Result.Result<PreparedRecipe<EntityBrowserResult>, Error> =>
 	Result.flatMap(getNamedRowsQuery(input.queryDocument, input.settings.sourceName), (source) => {
 		const fields = selectedFields(source);
-		const entityId = fields.find(({ key }) => key === input.settings.entityIdField);
-		if (entityId?.expr.type !== "column") {
-			return Result.fail(
-				new Error(
-					`Entity-browser ID field '${input.settings.entityIdField}' must be a column projection`,
-				),
-			);
-		}
+		const entity = table("entity", input.settings.subject.entityAlias);
 		const searchResult = browserSearchPredicate(source, input.settings, input.searchText);
 		if (Result.isFailure(searchResult)) {
 			return Result.fail(searchResult.failure);
 		}
-		const orderByResult = browserOrderBy(source, input.settings, input.sortChoice, entityId);
+		const orderByResult = browserOrderBy(
+			source,
+			input.settings,
+			input.sortChoice,
+			column(entity, "id"),
+		);
 		if (Result.isFailure(orderByResult)) {
 			return Result.fail(orderByResult.failure);
 		}
 		const search = searchResult.success;
 		const orderBy = orderByResult.success;
 		const nameField = unusedFieldKey(fields, "__entityBrowserName");
+		const idField = unusedFieldKey(fields, "__entityBrowserId");
+		const ownerField = unusedFieldKey(fields, "__entityBrowserOwnerPluginId");
+		const schemaSlugField = unusedFieldKey(fields, "__entityBrowserSchemaSlug");
 		const populationField = unusedFieldKey(fields, "__entityBrowserPopulationStatus");
 		const translationField = unusedFieldKey(fields, "__entityBrowserTranslationStatus");
-		const entity = table("entity", entityId.expr.tableAlias);
 		const query = {
 			...source,
-			where: combineWhere(source.where, search),
+			where: combineWhere(
+				combineWhere(source.where, subjectSchemaPredicate(input.settings.subject, entity)),
+				search,
+			),
 			output: {
 				...source.output,
 				orderBy,
@@ -279,6 +290,9 @@ export const entityBrowserRecipe = (
 				},
 				fields: [
 					...source.output.fields,
+					field(idField, column(entity, "id")),
+					field(ownerField, column(entity, "entitySchemaPluginId")),
+					field(schemaSlugField, column(entity, "entitySchemaSlug")),
 					field(nameField, column(entity, "name")),
 					field(populationField, column(entity, populationStatusField)),
 					field(translationField, column(entity, translationStatusField)),
@@ -313,16 +327,10 @@ export const entityBrowserRecipe = (
 													cells,
 													presentation: row,
 													name: yield* textField(row, nameField),
-													entityId: yield* textField(row, input.settings.entityIdField),
+													entityId: yield* textField(row, idField),
+													entitySchemaSlug: yield* textField(row, schemaSlugField),
+													ownerPluginId: yield* nullableTextField(row, ownerField),
 													sync: yield* syncFields(row, populationField, translationField),
-													entitySchemaSlug: yield* textField(
-														row,
-														input.settings.entitySchemaSlugField,
-													),
-													ownerPluginId: yield* nullableTextField(
-														row,
-														input.settings.ownerPluginIdField,
-													),
 												};
 												return yield* Schema.decodeResult(EntityBrowserResultItem)(item);
 											}),
@@ -350,22 +358,11 @@ export const entityBrowserRecipe = (
 
 export const entityBrowserCountRecipe = (
 	queryDocument: RyotQLDocument,
-	settings: Pick<
-		EntityBrowserSavedViewSettingsValue,
-		"sourceName" | "entityIdField" | "searchFields"
-	>,
+	settings: Pick<EntityBrowserSavedViewSettingsValue, "sourceName" | "subject" | "searchFields">,
 	input: { readonly searchText?: string | undefined } = {},
 ): Result.Result<PreparedRecipe<number>, Error> =>
 	Result.flatMap(getNamedRowsQuery(queryDocument, settings.sourceName), (query) => {
-		const selection = query.output.fields.find(
-			(fieldSelection): fieldSelection is FieldSelection =>
-				"key" in fieldSelection && fieldSelection.key === settings.entityIdField,
-		);
-		if (!selection) {
-			return Result.fail(
-				new Error(`Entity-browser ID field '${settings.entityIdField}' is missing or unusable`),
-			);
-		}
+		const entity = table("entity", settings.subject.entityAlias);
 		const searchResult = browserSearchPredicate(query, settings, input.searchText);
 		if (Result.isFailure(searchResult)) {
 			return Result.fail(searchResult.failure);
@@ -376,10 +373,13 @@ export const entityBrowserCountRecipe = (
 			queries: {
 				entityBrowserCount: selectedAggregate(query.from, {
 					joins: query.joins,
-					where: combineWhere(query.where, search),
+					where: combineWhere(
+						combineWhere(query.where, subjectSchemaPredicate(settings.subject, entity)),
+						search,
+					),
 					measures: {
 						total: selectedMeasure(
-							{ expr: selection.expr, function: "countDistinct" },
+							{ function: "countDistinct", expr: column(entity, "id") },
 							Schema.Finite,
 						),
 					},

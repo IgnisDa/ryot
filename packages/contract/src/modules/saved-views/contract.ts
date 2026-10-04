@@ -12,7 +12,7 @@ import {
 	ReorderSavedViewsResponse,
 	SavedViewBadRequest,
 	SavedViewNotFound,
-	UpdateSavedViewBody,
+	updateSavedViewBody,
 } from "./schemas";
 
 export const SavedViewsGroup = HttpApiGroup.make("savedViews")
@@ -30,7 +30,7 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 	.add(
 		AuthenticatedMutationEndpoint.put("protected")("update", "/saved-views", {
 			success: SavedViewCommandResponse,
-			payload: strictStruct({ reference: SavedViewReference, ...UpdateSavedViewBody.fields }),
+			payload: updateSavedViewBody({ reference: SavedViewReference }),
 			error: [
 				RyotQLBadRequest.pipe(HttpApiSchema.status(400)),
 				SavedViewBadRequest.pipe(HttpApiSchema.status(400)),

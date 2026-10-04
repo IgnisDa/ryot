@@ -6,7 +6,26 @@ import {
 	ResultsTableSavedViewSettings,
 	CreateSavedViewBody,
 	SavedViewDisplayValue,
+	SavedViewRendererConfig,
+	UpdateSavedViewBody,
 } from "./schemas";
+
+const browserSettings = {
+	pageSize: 25,
+	sortChoices: [],
+	addAction: null,
+	layouts: ["grid"],
+	tableColumns: null,
+	defaultLayout: "grid",
+	sourceName: "entities",
+	searchFields: ["name"],
+	subject: {
+		entityAlias: "entity",
+		schemas: [{ slug: "movie", owner: { kind: "plugin", pluginId: "media-plugin" } }],
+	},
+} as const;
+
+const emptyDocument = { queries: {} };
 
 describe("saved-view schemas", () => {
 	it("rejects removed layout payloads", () => {
@@ -45,14 +64,15 @@ describe("saved-view schemas", () => {
 			sourceName: "entities",
 			defaultLayout: "table",
 			searchFields: ["name"],
-			entityIdField: "entityId",
 			layouts: ["grid", "table"],
-			ownerPluginIdField: "ownerPluginId",
-			entitySchemaSlugField: "entitySchemaSlug",
 			tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
 			sortChoices: [
 				{ name: "newest", label: "Newest", orderBy: [{ direction: "desc", field: "createdAt" }] },
 			],
+			subject: {
+				entityAlias: "entity",
+				schemas: [{ slug: "movie", owner: { kind: "plugin", pluginId: "media-plugin" } }],
+			},
 			addAction: {
 				type: "provider-search",
 				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-plugin" } },
@@ -83,5 +103,93 @@ describe("saved-view schemas", () => {
 				),
 			).toBe(true);
 		}
+	});
+
+	it("requires an entity-browser subject and rejects removed provenance fields", () => {
+		const { subject: _subject, ...withoutSubject } = browserSettings;
+		expect(
+			Result.isFailure(Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)(withoutSubject)),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)({
+					...browserSettings,
+					entityIdField: "id",
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)({
+					...browserSettings,
+					subject: { ...browserSettings.subject, schemas: [] },
+				}),
+			),
+		).toBe(true);
+	});
+
+	it("types renderer config by renderer", () => {
+		const entityBrowser = { kind: "kernel", name: "entity-browser" } as const;
+		expect(
+			Result.isSuccess(
+				Schema.decodeResult(SavedViewRendererConfig)({
+					renderer: entityBrowser,
+					settings: browserSettings,
+					dataSources: emptyDocument,
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(SavedViewRendererConfig)({
+					renderer: entityBrowser,
+					dataSources: emptyDocument,
+					settings: { ...browserSettings, subject: undefined },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				Schema.decodeResult(SavedViewRendererConfig)({
+					dataSources: null,
+					settings: { anything: [1, "two"] },
+					renderer: { pluginId: "p", kind: "plugin", exportName: "view" },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(CreateSavedViewBody)({
+					icon: "table",
+					name: "Browser",
+					renderer: entityBrowser,
+					dataSources: emptyDocument,
+					settings: { pageSize: 10 },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				Schema.decodeUnknownResult(CreateSavedViewBody)({
+					icon: "table",
+					name: "Browser",
+					dataSources: null,
+					renderer: entityBrowser,
+					settings: browserSettings,
+				}),
+			),
+		).toBe(true);
+	});
+
+	it("accepts update bodies with no config or a full config and rejects partial configs", () => {
+		const decode = Schema.decodeUnknownResult(UpdateSavedViewBody);
+		const renderer = { pluginId: "p", kind: "plugin", exportName: "view" } as const;
+		expect(Result.isSuccess(decode({ isHidden: true, name: "Renamed" }))).toBe(true);
+		expect(
+			Result.isSuccess(decode({ renderer, settings: {}, isHidden: false, dataSources: null })),
+		).toBe(true);
+		expect(Result.isFailure(decode({ renderer, isHidden: false }))).toBe(true);
+		expect(Result.isFailure(decode({ settings: {}, isHidden: false }))).toBe(true);
+		expect(Result.isFailure(decode({ renderer, settings: {}, isHidden: false }))).toBe(true);
 	});
 });
