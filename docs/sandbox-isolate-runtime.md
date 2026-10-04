@@ -435,33 +435,396 @@ all five tests, including x32 and namespace-clone denial and in-sidecar Landlock
 ### S2 — Backend integration
 
 - **Outcome:** every sandbox execution runs through `ryot-sandboxd`; the Deno path is deleted.
-- **Scope:**
-  - sidecar client, host-call gate, and backend file service;
-  - supervisor with restart backoff, one-at-a-time re-runs of unattributed crashes, collateral retry
-    protection, and quarantine;
-  - runner bootstrap port: definition invocation, input and output validation, durable replay;
-  - per-script tier selection from compiler-derived runtime imports;
-  - tier routing from the execution principal;
-  - routing runs on trust tier × snapshot tier, with lazy start and idle stop of `data` and `full`
-    sidecars;
-  - a global execution bound and memory-budget admission preserving database pool headroom;
-  - building `ryot-sandboxd` and its snapshots in the single-arch image and in the local build used by
-    backend tests and e2e, with the sidecar UID so confinement applies;
-  - metrics, and removal of Deno from the image along with Deno services, the generated runner, and limits.
-- **Non-goals:** lanes, per-user fairness, short-wait settlement, multi-arch and deployment sizing,
-  fan-out reduction.
-- **Prerequisites:** S1.
-- **Acceptance:** every row in [Carried Protections](#carried-protections) has a named test; a
-  user-scope revision cannot reach the system sidecar; `bun run check` and
-  `bun turbo --filter='!@ryot-app/e2e' test` are clean; affected sandbox, media, and fitness e2e files
-  pass, including YouTube Music provider scripts; killing a sidecar mid-import recovers durably; a user
-  plugin that repeatedly crashes the user sidecar is quarantined without exhausting other users'
-  executions, including when one user rotates the crash through many plugins and the same plugin is
-  uploaded from many accounts; the built image, run by Docker with its default seccomp profile, starts
-  every sidecar with Landlock enforced and the seccomp filter installed and runs sandbox scripts; a fresh 2 vCPU / 4 GB host runs the standard
-  provider import with identical business rows, lower wall time, and lower peak memory than today.
-- **Rollback:** revert the slice.
-- **Stops:** a sandbox capability that cannot be expressed within the surface allowlist.
+- **Status:** proposed contract; implementation starts only after explicit approval.
+- **Prerequisites:** S1 and approval of this contract. The three open S1 follow-ups below are part of S2.
+- **Scope:** backend transport, supervision, admission, host-call and file policy, runner bootstrap,
+  compiler-derived snapshot routing, single-architecture builds, crash recovery, metrics, and Deno
+  removal. Existing workflows, capability policy, host implementations, artifact ownership, and
+  database/Redis replay persistence remain the authorities.
+- **Non-goals:** S3 lane classification, fairness or HTTP scheduling; S4 multi-architecture images and
+  deployment/cgroup sizing; S5 new short-wait settlement; S6 source-built V8; fan-out reduction. S2
+  sends runs on the `interactive` lane and enforces admission for both protocol lanes. It preserves
+  today's activity-only inline settlement, including HTTP policy deferral.
+
+#### Module and ownership contract
+
+All backend modules below live in `kernel/backend/src/lib/infrastructure/sandbox-runtime/`.
+Services use Effect constructors and feature-owned Layers; platform socket/process callbacks are
+the native Promise boundary. `layer.ts` composes them; server boot only supplies installation paths.
+
+| Module                  | Responsibility and replacement                                                                                                                                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `sidecar-protocol.ts`   | Sole wire schema, strict codecs, bounded bootstrap/control payloads and fixtures; Rust consumes matching fixtures. No protocol or artifact version bump.                                                                                                                        |
+| `sidecar-client.ts`     | One socketpair connection per generation; incremental framing, chunk assembly, bounded fair writes, partial-write remainder and `drain`, handle/sequence demultiplexing and cancellation. Replaces stdin/stdout and localhost HTTP transport in `runtime.ts`.                   |
+| `sidecar-supervisor.ts` | `SandboxSidecarSupervisor`: trust × snapshot processes, generation ownership, lazy start, idle stop, drain/recycle, deadlines, crash probes, restart backoff and quarantine. Replaces `SandboxProcessManager` and its single-use/warm pools.                                    |
+| `sidecar-admission.ts`  | Global execution and byte reservations, plus per-instance/per-lane outstanding counters. No second durable job queue.                                                                                                                                                           |
+| `host-call-gate.ts`     | `SandboxHostCallGate`: trusted execution registrations, function selection, budgets, expiry, four concurrent calls, inline validation/settlement and host-owned inline records. Replaces `BridgeService`, bearer tokens and HTTP status handling.                               |
+| `file-service.ts`       | `SandboxFileService`: execution-scoped artifact descriptors, bounded range reads, quota-reserved scratch writes and named harvest. Uses `filesystem-grants.ts`, `artifacts.ts` and `artifact-staging.ts`; replaces captured Deno file APIs and post-run-only quota enforcement. |
+| `snapshot-tier.ts`      | Maps audited per-script runtime imports onto the smallest covering kernel snapshot; no capability or trust elevation.                                                                                                                                                           |
+| `service.ts`            | Keeps `SandboxService.run` and its structured result, diagnostics and timing surface; prepares a trusted registration, admits and invokes the supervisor, validates results and harvests files.                                                                                 |
+
+`PackageCacheManager`, `RunnerFile`, runtime dependency materialization/repair and execution module
+hard links disappear. Module bytes come from the pinned database artifact and are hash-checked before
+send and inside Rust. Garbage collection keeps database script/reference liveness but deletes its
+compiled-file cache dependency and file sweep. Snapshot verification belongs to sidecar startup;
+there is no replacement runtime package cache. Generic process sampling and bounded stream helpers
+stay only where the new runtime or compiler uses them.
+
+#### Execution and runner contract
+
+1. `SandboxService` validates the pinned principal, context and compiled format, verifies module SHA-256,
+   selects the tier, and prepares grants without opening a transaction across execution. The backend
+   creates a fresh opaque handle, scoped to one sidecar generation and replay attempt. JavaScript
+   never chooses that handle, grants, trust tier, limits, uploader or plugin identity.
+2. A run carries the existing module, tier, lane and limits plus a schema-validated invocation in
+   `input`: context, script ID, persisted manifest/execution metadata, compiled format, pinned start
+   time, optional workflow ID, selected function names, inline-capability hints and journal length.
+   It contains no token, API URL, filesystem path, credential or full journal. Keep the invocation
+   at 2 MiB, the complete context at 64 KiB and module source at 1 MiB; the encoded run must also fit
+   S1's 4 MiB message cap. Wire/chunk/base64 overhead is counted separately in admission.
+3. Port reusable runner logic into `kernel/backend/src/lib/infrastructure/sandbox-runtime/isolate-bootstrap.ts`
+   and `isolate-utilities.ts`; tooling bundles it into generated `kernel/sandboxd/payload/runner.mjs`.
+   `kernel/sandboxd/build.rs` includes that trusted bootstrap in each snapshot. Capture trusted
+   intrinsics at snapshot build, but configure all mutable state per isolate at run time. Preserve
+   the `Error.stackTraceLimit` deletion before snapshot creation. Do not snapshot execution data or
+   native resources. S1's function-default fixture entry point stays confined to standalone tests;
+   production requires a format-1 `ryot:sandbox-script` definition.
+4. Before importing the plugin, install the workflow determinism guard and the approved-dependency
+   deterministic wrapper. Keep today's rejection of ambient `Date()`/`new Date()`, random APIs,
+   `performance.now` and `Temporal.Now` where present, `Date.now()` returning zero, the Effect Clock
+   pinned to `startedAt`, and the wrapper's execution-seeded randomness and fixed time. Do not weaken
+   the guard to accommodate a library. Ordinary non-workflow execution retains OS-backed randomness.
+5. Import only the inline module and covering snapshot modules. Check the default definition shape,
+   authored manifest against persisted metadata, and execution metadata. Decode input with its
+   Effect Schema, call `definition.run(input, host, execution)`, require an Effect, distinguish typed
+   failure from defects, decode output and require JSON. Preserve `load`, `input`, `execute` and
+   `output` diagnostics and durable `completed`/`failed`/`pending` envelopes, request prefixes,
+   detached-work rejection, journal-length checks and child input/output validation. S1 infrastructure
+   failures remain separate from runner failures; the backend maps them to structured existing error
+   surfaces and never trusts a sidecar's proposed authority.
+6. Keep stable request identity and argument hashing, recorded successes and failures, pinned child
+   targets, deferred completion slots, projection-missing repair and exactly the enqueued journal
+   prefix. Recorded calls never repeat dispatch. PostgreSQL remains authoritative; Redis remains
+   reconstructible. Preserve at-least-once external mutation semantics across the uncommitted crash
+   window rather than claiming exactly-once delivery.
+7. Serve the validated, already-loaded replay prefix through internal `journalRead` requests for
+   bounded UTF-8 byte slices (at most 1 MiB decoded per response), with total length and entry offsets
+   pinned by the host. The bootstrap reads entries on demand; an individual large entry may span
+   requests. Keep the 100 MiB journal ceiling without enlarging the 12 MiB host-result cap. Requests
+   cannot name another journal or read a suffix. Bound this internal channel to 2,048 reads and
+   200 MiB decoded bytes per replay; reject repeated-read abuse without dispatching a script call.
+   Account for the retained backend prefix, encoded
+   copies and isolate reassembly; inability to fit one legal entry in its reserved heap fails that
+   execution before dispatch. Internal journal reads have bounded sequences/bytes, not a new SDK
+   capability or another charge against the script's 1,000 durable-step budget.
+8. Add an allowlisted synchronous `inlineBatch` host op, backed by the existing framed call/result
+   channel. It blocks the isolate's OS thread without running JavaScript, microtasks, timers or
+   Effect fibers; Rust releases its CPU-active slot and script-time meter while parked. The socket
+   reader and host dispatcher remain independent of that thread, and cancellation wakes it. The
+   backend validates indices, identities, argument hashes, bytes, allowlist, budgets and activity-only
+   dispatch with the existing `dispatchSandboxHostActivity` path. Matched or unresolved HTTP policy,
+   non-activity work, over-limit batches and dispatch failure defer the whole batch as today.
+   Grants no longer disable inline settlement. Eligibility hints from the isolate never authorize it.
+9. The backend records inline entries itself and returns only settlement values/defer to the isolate.
+   The final sidecar value cannot supply or overwrite inline evidence. The workflow validates the
+   host-recorded entries against the returned requests before journaling them. A crash discards
+   uncommitted inline records and replays from durable state; committed entries are not redispatched.
+10. Keep the 30 s script-time budget and pause it during validated inline settlement. S1 currently
+    excludes all host waits: S2 narrows this to inline settlement only, so ordinary host calls,
+    journal reads and timers still use today's wall/script-time budget. CPU metering continues to
+    exclude parked time. Both Rust and backend enforce the same remaining script-time budget;
+    cancellation is followed by a 2 s termination grace and process kill if disposal is not confirmed.
+    Inline batches have a separate 30 s settlement ceiling and the run a finite 5 minute absolute
+    backstop that never pauses. Gate expiry moves only by actual validated inline settlement time.
+11. Keep bounded console/log/span collection, the truncation marker, output size checks before native
+    serialization, source-mapped authored paths and stack sanitization. Strip inline module URLs,
+    runtime/bootstrap paths, handles, IDs and secrets. Success, pending, failure, timeout and cancel
+    all retire the handle, interrupt host calls, discard late frames and dispose the isolate before
+    releasing admission; uncertain disposal kills the generation.
+
+The registered-op inventory and protocol fixtures must include synchronous settlement and journal
+reads. No arbitrary synchronous RPC, path access, network API or native buffer bypass is added.
+
+#### Host-call and file contract
+
+- The gate binds `(instance, generation, handle)` to the trusted principal, selected functions,
+  grants, deadlines, diagnostic collector and inline records. Unknown, foreign, expired, retired or
+  cancelled handles never dispatch. A replaced registration's finalizer cannot close its successor.
+  At most one result is accepted per issued sequence; duplicate/reordered calls cannot repeat a
+  dispatch. All pending work is interrupted when registration closes.
+- Carry forward `selectSandboxHostFunctions`, trusted-subject overrides, script-kind and before-policy
+  ceilings, plugin/provider/schema ownership, pinned config keys, OAuth fields and executable facts.
+  Keep 1,000 calls, 50 HTTP calls, four concurrent dispatches per execution, 1 MiB ordinary host
+  request, 10 MiB ordinary host response and existing HTTP/observability limits. Charge inline
+  requests using the same budgets; internal control calls cannot be used to smuggle ordinary calls.
+  Excess parallel calls wait in bounded queues; limit violations do not allocate oversized buffers.
+- `artifactReadRange` takes only a granted logical key, safe nonnegative offset and length in
+  `1..1048576`, and returns bytes plus size; bytes are encoded in bounded frames. `readArtifact` and
+  `readNamedArtifact` in the SDK assemble these ranges under isolate memory limits. An absent
+  capability/resource returns `missing-artifact-grant`. Backend paths must be absolute, normalized,
+  under the real temp root, and free of symlink traversal; open pinned regular-file descriptors with
+  no-follow checks, so path replacement cannot redirect later reads. No script-selected path reaches
+  an open call. Validate trusted named grants as strictly as the unnamed artifact.
+- `scratchWrite` takes a plain name, upload-local offset/final marker and at most 256 KiB decoded
+  bytes. The SDK splits `writeScratchChunks`; partial files are not harvestable. Reject slash,
+  backslash, NUL, dot names, duplicate names within a call, symlinks and non-regular files. Serialize
+  per-execution reservations: committed plus pending bytes never exceed 5 MiB, including concurrent
+  writes and replacement growth. Reserve before decoding/writing the chunk, refund failed/removed
+  bytes, and atomically expose a completed file. Retain 4,096-entry/depth-32 traversal limits for
+  backend inspection; script-created files are flat. No write can temporarily exceed the quota.
+- Harvest only unique names in the validated completed-output manifest, after all file calls stop.
+  Copy only completed regular files to workflow storage, retain parent-execution ownership, expose
+  only opaque handles, omit harvest metadata from public results and clean scratch/partial/harvest
+  directories on every exit path. A new replay gets new scratch state; grants never select a dedicated
+  sidecar or widen its OS permissions.
+
+#### Routing, admission and lifecycle contract
+
+- Add required, sorted, unique `runtimeImports` to the canonical `SandboxExecutionMetadata` schema.
+  Derive it from the final emitted JavaScript audit, including re-exports and literal dynamic imports,
+  not authored source declarations or capabilities. Reject nonliteral dynamic imports in plugin
+  output. Plugin archives, kernel generation and stored pins carry the facts without changing format
+  constants. Ingestion audits the archived module bytes and requires exact agreement; this is output
+  validation, not recompilation or a claim of source provenance. No absent-metadata/full-tier fallback.
+- Effect and RyotQL aliases map to `core`; fflate, papaparse, fast-xml-parser and cheerio require `data`;
+  youtubei requires `full`. Include the kernel bootstrap's imports in every covering tier. Empty
+  runtime imports select `core`; unknown imports fail closed. Rust independently rejects imports
+  outside its process snapshot. Archives can narrow capabilities but cannot choose trust or snapshots.
+- Use `system` only for a validated pinned system-scope plugin revision or a verified source-zero
+  kernel script. A null plugin revision alone is not proof of source zero. User-scope revisions and
+  uploaded standalone code always use `user`, even when invoked by an administrator or system job.
+  First-party scripts acting for a user still use system trust; their executing-user attribution stays.
+- One process per trust × snapshot key by default; the supervisor key includes a user shard so an
+  explicit per-user sharding setting can partition the user tier without changing grants. Both `core`
+  keys stay resident. Start `data`/`full` only on demand, share one pending startup per key, await a
+  validated `ready` within 10 s, and stop after 60 s with no running, queued, control or recovery work.
+  Idle/start/drain races never send a run to a closing generation. No script-controlled argv or env.
+- `SANDBOX_WORKER_CONCURRENCY` remains the global bound `G`, default 2, across every tier, grant,
+  recovery probe and shard. No sidecar gets an independent multiplication of it. Excess jobs stay in
+  the existing durable queue; ephemeral waiters and transport queues are bounded by `G`. Do not hold
+  a transaction while waiting. Each instance starts with `threads=G`, `queue=G` per lane, an explicit
+  CPU-active cap of `min(G, available cores)`, and S1's platform-pool cap.
+- For each instance/lane, count a run from reservation before its first byte through `done`/confirmed
+  disposal, including queued, CPU-parked and host-parked isolates. Never send more than `threads + queue`
+  outstanding runs. Control traffic has reserved queue space and priority over new runs; round-robin
+  chunk writes, reads and partial-write flushing cannot block host results or cancels behind run
+  admission. Counters are generation-owned and cannot underflow during crash/late-done races.
+- Boot rejects `G > DATABASE_POOL_MAX - 4`: reserve one cluster SQL-runner connection, two always-on
+  durable queue-worker connections and at least one application connection. In addition, cap sandbox
+  host database dispatch globally at `DATABASE_POOL_MAX - 4 - G`; require this number to be at least
+  one. Reuse the existing DatabaseSession connection when present; calls needing another connection
+  take this shared permit, including inline dispatch, so four calls per execution do not multiply
+  pool occupancy. Never acquire a second permit while holding one. Test the actual queue/host paths,
+  not only the arithmetic; an unbounded or nested connection path is a Stop.
+- Add `SANDBOX_MEMORY_BUDGET_MIB`, default 1536, as an aggregate reservation ceiling across backend
+  sandbox buffers and all sidecars; validate it against effective host/cgroup memory with at least
+  half that memory reserved for the backend, database and other work. Per run use a 256 MiB heap,
+  64 MiB external cap and 30 s CPU cap. Reserve the full heap/external caps, encoded module/invocation
+  and chunk copies, retained backend journal and its encoding, maximum in-flight host response and
+  result buffers, bounded diagnostics, scratch staging buffers and worker stacks. Lazy journal
+  reassembly consumes the reserved isolate heap rather than an unmetered native store. Reserve the
+  maximum prefix allowance before the queue worker loads/decodes Redis entries, then reduce it to
+  actual retained bytes; moving allocation ahead of admission is not permitted.
+- Reserve each started process's snapshot/RSS baseline and thread/platform stacks, at least 128 MiB
+  per process, against that same budget; use the larger measured baseline when necessary. Pass Rust
+  its assigned isolate-memory budget including run-frame storage, and separately account for
+  transport reassembly/control buffers on both sides. Atomically reserve a lazy process and its first
+  run; concurrent startups cannot oversubscribe. Release only after disposal/exit and buffer cleanup.
+  Fits-later work waits durably; work that cannot fit an otherwise idle required topology fails with a
+  structured execution-limit reason before dispatch. Validate resident core capacity at boot.
+- Preserve recycling at 10,000 runs or 1,536 MiB process RSS (bounded further by its assigned budget).
+  Drain before replacement; do not overlap generations without reserving both baselines. Sample
+  aggregate RSS and budget pressure; budget reservations are admission bounds, not claims of hard
+  OS enforcement. S4 adds deployment cgroup enforcement.
+
+#### Crash and quarantine contract
+
+- A validated `fatal` handle attributes the culprit; unexpected exit, socket desync, missed backstop
+  or abort without that evidence is unattributed. Close the generation and interrupt all its calls
+  before restart. Normal idle stops and recycling are not crash strikes. Snapshot/confinement/usage
+  startup failures fail closed instead of restarting forever.
+- Restart with exponential backoff `1, 2, 4, 8, 16, 30` seconds, capped at 30 s; reset only after 60 s
+  healthy service, not on `ready`. At most one startup/recovery loop owns a key. Cancelled workflows
+  are never resurrected, and shutdown cancels recovery and reaps every child.
+- For an unattributed crash, freeze fresh admissions on that key and rerun its surviving candidates
+  in stable handle order, one at a time, with no unrelated work in the probe generation. Reload the
+  same pinned input and committed replay prefix, with a new handle/generation and fresh grants.
+  A second unattributed execution crash in this exclusive probe attributes that candidate; a survivor
+  returns its result normally. After one probe per candidate, release healthy work. Known administrative
+  kills, startup failures and proven host-wide OOM do not blame a script. Repeated unclassifiable
+  failures that cannot yield attribution reach the Stop instead of unbounded probing.
+- Recovery is supervisor-owned infrastructure retry: collateral executions do not consume script,
+  host HTTP, durable-step or job retry budgets merely because their neighbour died. An attributed
+  culprit is not immediately rerun as collateral. Cap each logical replay at three collateral crash
+  recoveries; after that suspend it in the durable queue under the quarantined/recovering key until
+  the key is healthy, without charging its ordinary retry count. Keep recovery state durable across
+  backend restart. No in-memory retry bypass can loop indefinitely or duplicate committed host work.
+- Persist crash windows/quarantine in Redis infrastructure with atomic updates and TTL; restoration
+  fails closed for user execution if the quarantine store is unavailable. Three attributed crashes
+  within 10 minutes quarantine for 1 hour. Increment both the trusted uploader-user key and the
+  canonical plugin-content key, not just a revision or uploader/plugin pair. The content key is the
+  digest of sorted backend module hashes and applies across accounts, archive repacking, revisions
+  and slug changes with the same executable set. Standalone uploads use their module hash.
+  Uploader-wide quarantine blocks rotation through different plugins; content-wide quarantine blocks
+  the same plugin uploaded by different accounts. Upload/install does not erase these keys.
+- Quarantine fails affected new/pending executions with a structured reason before sidecar admission;
+  healthy users and plugins continue. User-less system crashes quarantine the pinned job/script key;
+  user-attributed system work also charges that triggering user's system-job key, never globally
+  disables a first-party plugin. System and user quarantine namespaces are separate. Expiry allows
+  one exclusive probation run; failure renews quarantine and success clears probation atomically.
+- Metrics cover trust/snapshot key, live processes, starts/stops, admission waits/bytes, outstanding
+  runs, host calls, disposal, limits, restart reason/backoff, probes, collateral recoveries and
+  quarantine. Keep script/user IDs out of metric labels and module bytes, tokens and host arguments
+  out of lifecycle logs. Bound process-level startup diagnostics separately from execution console.
+
+#### Build and confinement contract
+
+- `kernel/sandboxd` gains a release build task emitting `dist/ryot-sandboxd`, snapshots and digest
+  manifest. Split payload generation from Rust-dependent backend checks/tests so Turbo has no
+  backend ↔ sidecar build cycle: payload/backend generation precedes Rust, then backend tests/server
+  assembly depend explicitly on Rust artifacts. Cache keys include bootstrap, payload, protocol,
+  crate and pinned toolchain; cached outputs restore the executable and every snapshot.
+- The single-architecture Linux image builds the crate from source with the pinned toolchain and
+  copies artifacts read-only into `/home/ryot/sandboxd/`. Create backend UID 1001 and sidecar UID/GID
+  1002 with no sidecar home/login. The backend remains UID 1001. Use a small root-owned native
+  setuid launcher built in `kernel/sandboxd`, installed outside backend-writable directories; its
+  privileged prelude accepts only the configured backend UID, fixed installed executable/snapshot
+  paths and a connected inherited socket, clears supplementary groups and sets real/effective/saved
+  UID/GID to 1002 before executing the sidecar. It closes every other descriptor and clears the env.
+  It reads no protocol/module data and performs no privileged V8 work. Validate descriptor type,
+  peer and argument limits; no arbitrary executable, path or UID option is exposed.
+- The sidecar loads/verifies its snapshot, sets non-dumpable/no-core/`no_new_privs`, applies Landlock
+  and seccomp before runtime workers, then emits `ready`. Set high `oom_score_adj` (1000) through
+  the launcher before dropping privilege. Do not share backend UID, inherit secrets or relax Docker
+  seccomp. Linux startup fails when the launcher, identity drop, limits or confinement is unavailable.
+  A deployment with `nosuid` or `no-new-privileges` preventing launch is a Stop, not an unconfined mode.
+- Backend tests, plugin-load checks, server dev assembly and e2e global setup all build and locate the
+  same release executable/snapshots. Linux test setup provisions the same separate UID and trusted
+  launcher via an explicit privileged setup step; absence fails with a setup error. macOS uses a
+  directly spawned unprivileged executable and explicitly reports unconfined development. Local
+  builds never silently switch to Deno or skip runtime tests.
+- Replace `apps/server/tooling/prepare-sandbox-runtime.ts` with a sidecar smoke check through the real
+  supervisor and gate. Docker smoke/confinement runs start all six trust × snapshot keys under the
+  default seccomp profile, verify UID/env/FDs, in-process Landlock denial and filter installation, and
+  run real definitions and host calls. Test the native launcher's rejection paths separately.
+  `.github/workflows/sandboxd.yml` includes changed bootstrap/compiler inputs; a Linux image job
+  covers the release launch and default-Docker-confinement path. macOS S1 and backend tests still run.
+
+#### Deno deletion inventory
+
+Delete the following runtime code and update their callers/tests in the same slice:
+
+- `runtime.ts`: `BridgeService`, `RunnerFile`, `PackageCacheManager`, `SandboxProcessManager`, Deno
+  spawn/permission flags, warm/dedicated pool, bearer-token HTTP listener, stdin/stdout line queues,
+  stderr-tail transport and Deno-only process metrics. Delete `runtime-flags.test.ts` and
+  `runtime-stderr.test.ts`; port behavioral coverage in runtime concurrency/limits/host tests.
+- `runner-source.sandbox.ts`, `runner-utilities.sandbox.ts`, `runner.generated.ts` and `deno.json`,
+  after porting owned runner behavior and utility tests. Remove `sandbox:check-runner` from
+  `kernel/backend/package.json`; type-check the bootstrap through the normal build/check surface.
+- `dependencies.ts` and Deno runtime materialize/repair/cache tests; `compiled-modules.ts` and its
+  file-cache tests; generated runtime-payload TypeScript byte embeds and their runtime-only metadata
+  reader. Keep build-time trusted payload assembly, digest verification and kernel-script generation;
+  update `tooling/sandbox-runtime.ts` and watcher inputs/outputs accordingly.
+- Deno-only branches of `service.ts`, `filesystem-grants.ts`, runner/plugin-load test harnesses and
+  server runtime smoke preparation. Remove module URL/path plumbing, dedicated-grant launching and
+  post-execution-only scratch measurement. Keep descriptor/grant/harvest validation in the file service.
+- `SANDBOX_DENO_DIR`, `sandboxDenoDirConfig`, `sandbox.denoDir`, `SANDBOX_PROCESS_MODE`,
+  `sandbox.processMode`, `denoHeapMiB` and their config/limit/test-support defaults and tests.
+  Keep `SANDBOX_WORKER_CONCURRENCY` and import concurrency with updated descriptions/validation.
+- `PackageCacheManager` wiring in automations and garbage collection, compiled-file liveness/sweep
+  code, and all remaining imports of deleted services. Update sandbox e2e stderr expectations to
+  structured sidecar failure plus bounded diagnostics.
+- Deno tool/version requirements in `.prototools` and maintained setup/contributing documentation;
+  `SANDBOX_DENO_VERSION` and `denoVersion` payload metadata. Keep format and other version constants
+  unchanged. Rename the Deno-named ESM profile/API in `packages/vite-compiler/src/deno.ts`, exports,
+  compiler/tooling callers, input fingerprints and tests to sandbox ESM. Replace its Deno resolution
+  condition with the explicit supported worker/browser module conditions and verify payload imports.
+  Move youtubei's registry mapping from `platform/deno.js` to its supported web/browser entry;
+  required library behavior must pass on the full surface, not retain a Deno platform adapter.
+- Docker's `DENO_VERSION`, architecture/checksum selection, Deno release download, unzip/install,
+  cache/materialization and Deno smoke steps. Remove download-only image packages where no longer
+  needed; preserve backend TLS certificates. Build, copy and smoke-check native artifacts instead.
+
+Acceptance audits tracked runtime, tooling, config, image and maintained docs for stale Deno paths.
+`deno_core`, Rust crate dependencies, rejected-import fixtures and the retained reference spike are
+not the Deno executable path; they are not deleted by this inventory.
+
+#### Acceptance
+
+Every item below must have its named passing test. Backend tests use injected Layers/recording
+functions and TestClock for policy branches; real sidecar tests cover transport/disposal/runner
+semantics. No module mocks, spies, fake timers or assertions that only mirror schemas.
+
+**One test per Carried Protections row:**
+
+| Carried protection                                                | Named test and required proof                                                                                                                                                                                                                                |
+| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| One process per replay, killed on every exit path                 | `replay_exit_paths_dispose_isolates_and_retire_handles`: success, pending, failure, timeout, cancellation and interrupted inline/file calls leave no isolate, host work or scratch state; a later isolate cannot observe prior globals.                      |
+| Deno denies run, env, FFI, write, npm, remote, config             | `integrated_isolate_has_no_ambient_authority`: real definitions probe absent globals, string generation, forbidden imports and native escapes in the confined image; inventory has only approved ops.                                                        |
+| Read and network limited to grants and bridge                     | `files_and_http_require_execution_bound_grants`: forged keys/paths/handles fail; only pinned artifact reads and allowed `httpCall` dispatch succeed, including full-tier fetch.                                                                              |
+| Environment limited to PATH and DENO_DIR                          | `sidecar_identity_environment_and_descriptors_are_confined`: all six image processes use UID/GID 1002, empty env, expected descriptors only, with no backend-secret access.                                                                                  |
+| Bridge token, expiry, budget, concurrency, caps, allowlist, close | `host_call_gate_preserves_session_protections`: foreign/retired generations, expiry, 1,000/50 budgets, four concurrent calls, request/response caps, forbidden functions, duplicates and replacement-finalizer races fail safely; close interrupts dispatch. |
+| 30 s script-time timeout pausing during inline settlement         | `inline_settlement_freezes_fibers_and_pauses_only_script_time`: timers/fibers cannot run during settlement; ordinary host waits count, inline waits pause, expiry extends equally, absolute/settlement ceilings and kill backstop still fire.                |
+| Grant validation, scratch quota, symlinks, named harvest          | `file_service_enforces_write_time_quota_and_named_harvest`: concurrent/replacement/partial writes cannot exceed 5 MiB at any instant; traversal, symlink races and unlisted/incomplete/duplicate harvest fail; cleanup and parent ownership hold.            |
+| Bounded stderr tail, OOM-victim preference                        | `sidecar_diagnostics_are_bounded_and_oom_preferred`: console and startup/crash diagnostics stay bounded and sanitized; truncation marker survives; Linux process has oom_score_adj 1000.                                                                     |
+| Request 2 MiB, context 64 KiB, result 4 MiB                       | `integration_enforces_invocation_context_and_result_caps`: exact boundaries and excess multibyte/escaped payloads fail before oversized allocation or partial output, including chunked transport.                                                           |
+| Module SHA-256 and runtime payload verification                   | `integration_rejects_module_and_snapshot_tampering`: altered pinned bytes fail before invocation; modified snapshot/manifest fails startup, including restored build artifacts.                                                                              |
+
+**Remaining acceptance:**
+
+| Area                        | Named tests and required proof                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runner port                 | `definitions_preserve_validation_manifests_and_failure_phases`; `workflow_guard_and_dependency_wrapper_preserve_determinism`; `durable_replay_preserves_requests_failures_children_and_detached_work`: port current runner fixtures through actual isolates; all definition kinds, input/output errors, manifest mismatch, typed failure/defect, pinned Clock, guarded top-level code, replay identity mismatch and detached work behave as specified.                                                                                                                                                                                      |
+| Journal and inline evidence | `journal_reads_preserve_large_pinned_prefixes_with_bounded_frames`; `inline_records_are_host_owned_and_survive_committed_replay`; `granted_executions_settle_inline_without_permission_elevation`: include a prefix above the run/host-result caps, split large entries, forged offsets/lengths/evidence, missing/corrupt projection repair, HTTP/non-activity deferral and replay after commit.                                                                                                                                                                                                                                            |
+| Compiler/tier facts         | `runtime_import_facts_match_emitted_module_audit`; `snapshot_routing_uses_smallest_covering_import_set`: aliases, re-exports, literal dynamic imports, tree-shaken imports, nonliteral/unknown imports, archive mismatch and all built media/fitness modules.                                                                                                                                                                                                                                                                                                                                                                               |
+| Trust routing               | `user_revisions_and_unverified_null_principals_cannot_reach_system_sidecars`: forged archive scope, admin invocations, user uploads, source-zero proof and pinned first-party-on-user-behalf execution.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Startup/lifecycle           | `lazy_tiers_start_once_and_stop_only_when_idle`; `drain_and_recycle_respect_generation_and_memory_reservations`: startup/idle/new-run/cancel races, healthy drain, shutdown, pending control/recovery and non-overlapping replacement.                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Admission/headroom          | `global_admission_bounds_all_tiers_grants_and_recovery`; `memory_admission_counts_journals_frames_startups_and_buffers`; `sandbox_dispatch_preserves_database_pool_headroom`: exercise real queue/host dispatch with four calls per execution, multiple keys, large journal, exhausted memory and incompatible boot settings.                                                                                                                                                                                                                                                                                                               |
+| S1 lane follow-up           | `lane_outstanding_bound_keeps_host_results_and_cancels_flowing`: saturate both lanes through threads plus queue; further runs stay in backend admission while parked workers still receive results/cancels; include partial writes and late/crash releases.                                                                                                                                                                                                                                                                                                                                                                                 |
+| S1 import-phase follow-up   | `caught_dynamic_import_does_not_poison_later_error_phase`: caught rejected import followed by evaluation and execution errors reports the actual later phase; an uncaught resolution error still reports resolution. Associate resolution failure with its error, not an isolate-global sticky flag.                                                                                                                                                                                                                                                                                                                                        |
+| S1 name-length follow-up    | `host_call_name_length_matches_utf16_on_both_sides`: Rust uses `encode_utf16().count()` to match TypeScript's 128 UTF-16-code-unit limit; shared fixtures cover ASCII, BMP, astral pairs and limits. No numeric cap change.                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| Integrated protocol         | `client_handles_partial_writes_chunk_interleaving_and_desync`: bounded buffers, `drain`, multibyte fragmentation, fair chunks, isolated invalid payload, unknown handles, duplicate/late results, reserved control space and generation restart.                                                                                                                                                                                                                                                                                                                                                                                            |
+| Crash recovery              | `restart_backoff_survives_short_lived_generations`; `unattributed_crash_candidates_probe_one_at_a_time`; `collateral_recovery_preserves_retry_budgets_and_committed_work`: kill a sidecar mid-import, then verify pinned replay, cancellation, stable exclusive probes, durable collateral suspension and no repeat of committed dispatch.                                                                                                                                                                                                                                                                                                  |
+| Quarantine/rotation         | `crash_quarantine_blocks_uploader_plugin_rotation`; `crash_quarantine_blocks_identical_plugins_across_accounts`; `quarantine_probation_and_system_jobs_preserve_healthy_work`: real attributed-crash fixtures plus atomic policy tests cover three crashes, repacking/renaming, different plugins/accounts, backend restart, store failure, TTL and exclusive probation. Unrelated executions finish without exhausted retries.                                                                                                                                                                                                             |
+| Privileged launch           | `launcher_rejects_untrusted_callers_paths_and_descriptors`: no arbitrary setuid execution, inherited secrets/FDs or retained saved-root IDs; UID-drop and no-core failures fail closed.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Docker confinement          | `docker_default_seccomp_runs_all_confined_tiers`: release image, Docker default profile, all six keys, native file/socket/syscall denial, in-process Landlock verification, installed filter and real definition/host calls; no privileged container or seccomp override.                                                                                                                                                                                                                                                                                                                                                                   |
+| Build/cache/removal         | `local_test_and_e2e_build_restore_native_runtime`; `runtime_build_has_no_deno_executable_dependency`: delete outputs and restore from cache, run backend/e2e setup without Deno installed, audit the deletion inventory and run smoke preparation.                                                                                                                                                                                                                                                                                                                                                                                          |
+| Affected e2e                | `sandbox_sidecar_recovers_mid_import`; `youtube_music_provider_runs_on_full_sidecar`: add focused kernel recovery/provider tests and run affected existing kernel sandbox, media provider/import and fitness import files. Record the exact file list and results; never run the entire e2e suite.                                                                                                                                                                                                                                                                                                                                          |
+| Fresh-host benchmark        | `standard_provider_import_matches_rows_and_improves_time_and_memory`: on a fresh 2 vCPU / 4 GB x86_64 Linux host, capture today's complete Deno import baseline before replacement, then run the same pinned provider/dataset under S2 against fresh equivalent DB/Redis state. Require identical normalized business rows, lower median wall time and lower peak combined backend/child-process RSS across at least three runs of each; also report database/container peak memory, replay count and admitted concurrency. Compare at the same concurrency/config, without retuning pools. S1's no-op numbers are not the import baseline. |
+
+`bun run check`, `bun turbo --filter='!@ryot-app/e2e' test`, affected e2e files and the slice's CI
+jobs must be clean. Run `.agents/skills/codebase-cleanup` in the main session after implementation.
+Record **S2 results** here only after Phase 2: map every acceptance item to test/file and result,
+include Docker confinement and both crash-rotation scenarios, baseline/S2 fresh-host numbers and
+business-row comparison, exact build/CI commands, all unproved items and every deviation. The host
+must be fresh and match the benchmark specification; confirm that before measuring.
+
+#### Rollback and Stops
+
+- **Rollback:** revert the complete slice as one source change, including bootstrap/protocol fixtures,
+  compiler metadata, build graph, launcher/image/config and Deno deletion. Rebuild binary/snapshots,
+  plugin archives and image together; do not mix S1/S2 artifacts or keep a runtime Deno fallback.
+  Greenfield state needs no compatibility migration. Preserve the separately approved S1 changes.
+- **Stops:** stop and report, without a workaround or scope expansion, if:
+  - a required sandbox capability/library behavior needs an op/global outside the approved metered
+    surface, including youtubei's browser entry;
+  - synchronous settlement cannot freeze every script fiber, wake on cancel, and keep the socket
+    reader/control path live;
+  - legal journal/response handling cannot stay within wire, heap and aggregate memory budgets without
+    lowering an existing contract limit or introducing unmetered native storage;
+  - execution trust/uploader/content identity cannot be established from trusted pins, or crash
+    attribution/quarantine cannot protect collateral retries under either rotation scenario;
+  - real queue/host database paths cannot meet the stated headroom without changing workflow/pool
+    ownership or e2e sizing;
+  - lane bounds cannot prevent the S1 reader from blocking host results/cancels;
+  - the native UID launcher or Linux confinement cannot run with Docker's default seccomp profile,
+    or privileged Linux test provisioning is unavailable; never share backend UID or disable confinement;
+  - a required target lacks the prebuilt V8/toolchain support, or bootstrap snapshot restore requires
+    workarounds beyond S1's documented ones;
+  - the supplied benchmark host is unavailable/not fresh/not the reference size, or the standard import
+    baseline/dataset cannot be reproduced; request the missing input before proceeding;
+  - any acceptance test or fresh-host performance threshold remains unmet and satisfying it would
+    require work outside this contract. Report evidence and request a revised contract.
 
 ### S3 — Scheduling and fairness
 
@@ -502,10 +865,6 @@ S2, when workflow-engine rows become the dominant per-import cost.
 - S6: V8 sandbox and pointer compression on a source-built V8.
 - Fan-out reduction track after S2.
 - Switch the user tier to per-user sidecars if a deployment hosts mutually untrusted users.
-- S2 must keep each lane's outstanding runs within its threads plus queue: the sidecar stops reading
-  while a lane queue is full, which also holds back host results and cancels.
-- A caught rejected dynamic import makes a later evaluation error report the `resolution` phase.
-- Rust counts host-call name length in code points and TypeScript in UTF-16 units.
 
 ## Open Risks
 
