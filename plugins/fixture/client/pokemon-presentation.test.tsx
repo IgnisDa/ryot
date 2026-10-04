@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { Effect, Result } from "@ryot-app/client-sdk/effect";
 import {
-	createTestRyotClock,
 	disposePluginBridges,
 	entityLocation,
 	entityPageContext,
@@ -11,21 +10,19 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { useState } from "react";
 
 import {
-	loadPokemonPresentations,
 	PokemonCard,
 	PokemonRow,
+	preparePokemonPresentations,
 	type PokemonPresentationViewData,
 } from "./pokemon-presentation";
-import { pokemonPresentationRecipe } from "./pokemon-presentation-query";
 
 const bulbasaur: PokemonPresentationViewData = {
 	height: 7,
 	weight: 69,
-	id: "pokemon-1",
 	name: "Bulbasaur",
 	types: ["Grass", "Poison"],
 	abilities: ["Overgrow", "Chlorophyll"],
-	artwork: [{ type: "local", key: "pokemon/bulbasaur.png" }],
+	artwork: { type: "local", key: "pokemon/bulbasaur.png" },
 	batchAssets: [{ type: "local", key: "pokemon/bulbasaur.png" }],
 };
 
@@ -36,7 +33,6 @@ const missingno: PokemonPresentationViewData = {
 	artwork: null,
 	abilities: null,
 	batchAssets: [],
-	id: "pokemon-2",
 	name: "MissingNo",
 };
 
@@ -49,10 +45,18 @@ const reference = (entityId: string, name: string) => ({
 	translationStatus: "ready" as const,
 });
 
-const rows = (items: readonly Record<string, unknown>[]) => ({
-	items,
-	type: "rows",
-	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+const presentationSource = (
+	id: string,
+	name: string,
+	artwork: PokemonPresentationViewData["artwork"],
+) => ({
+	presentationId: id,
+	presentationHeight: 7,
+	presentationName: name,
+	presentationWeight: 69,
+	presentationTypes: ["Grass"],
+	presentationArtwork: artwork,
+	presentationAbilities: ["Overgrow"],
 });
 
 const ExpansionPage = () => (
@@ -81,135 +85,73 @@ const ReplacementPage = () => {
 describe("Pokemon presentations", () => {
 	afterEach(disposePluginBridges);
 
-	it.live("loads Pokemon once and shares one deduplicated managed-artwork list", () =>
-		Effect.gen(function* () {
-			const documents: unknown[] = [];
-			const clock = createTestRyotClock({
-				query: (document) => {
-					documents.push(document);
-					return Effect.succeed({
-						data: {
-							pokemon: rows([
-								{ ...bulbasaur, artwork: [{ type: "local", key: "pokemon/shared.png" }] },
-								{
-									...bulbasaur,
-									id: "pokemon-2",
-									name: "Ivysaur",
-									artwork: [{ type: "local", key: "pokemon/shared.png" }],
-								},
-								{
-									...bulbasaur,
-									id: "pokemon-3",
-									name: "Venusaur",
-									artwork: [{ type: "s3", key: "pokemon/venusaur.png" }],
-								},
-								{
-									...bulbasaur,
-									id: "pokemon-4",
-									name: "Charmander",
-									artwork: [{ type: "remote", url: "https://images.test/charmander.png" }],
-								},
-							]),
-						},
-					});
-				},
-			});
-			const loaded = yield* loadPokemonPresentations({
-				client: clock.client,
-				references: [
-					reference("pokemon-4", "Charmander"),
-					reference("pokemon-1", "Bulbasaur"),
-					reference("pokemon-2", "Ivysaur"),
-					reference("pokemon-3", "Venusaur"),
-					reference("pokemon-1", "Bulbasaur"),
-				],
-			});
+	it("prepares saved-view rows and shares one deduplicated managed-artwork list", () => {
+		const references = [
+			reference("pokemon-1", "Bulbasaur"),
+			reference("pokemon-2", "Ivysaur"),
+			reference("pokemon-3", "Venusaur"),
+			reference("pokemon-4", "Charmander"),
+		];
+		const prepared = Result.getOrThrow(
+			preparePokemonPresentations({
+				references,
+				sources: new Map([
+					[
+						"pokemon-1",
+						presentationSource("pokemon-1", "Bulbasaur", {
+							type: "local",
+							key: "pokemon/shared.png",
+						}),
+					],
+					[
+						"pokemon-2",
+						presentationSource("pokemon-2", "Ivysaur", {
+							type: "local",
+							key: "pokemon/shared.png",
+						}),
+					],
+					[
+						"pokemon-3",
+						presentationSource("pokemon-3", "Venusaur", {
+							type: "s3",
+							key: "pokemon/venusaur.png",
+						}),
+					],
+					[
+						"pokemon-4",
+						presentationSource("pokemon-4", "Charmander", {
+							type: "remote",
+							url: "https://images.test/charmander.png",
+						}),
+					],
+				]),
+			}),
+		);
 
-			expect(documents).toHaveLength(1);
-			expect(Object.keys(loaded).sort()).toEqual([
-				"pokemon-1",
-				"pokemon-2",
-				"pokemon-3",
-				"pokemon-4",
-			]);
-			expect(loaded["pokemon-1"]?.batchAssets).toEqual([
-				{ type: "local", key: "pokemon/shared.png" },
-				{ type: "s3", key: "pokemon/venusaur.png" },
-			]);
-			for (const pokemon of Object.values(loaded)) {
-				expect(pokemon.batchAssets).toBe(loaded["pokemon-1"]?.batchAssets);
-			}
-			yield* Effect.promise(() => clock.dispose());
-		}),
-	);
+		expect(Object.keys(prepared).sort()).toEqual([
+			"pokemon-1",
+			"pokemon-2",
+			"pokemon-3",
+			"pokemon-4",
+		]);
+		expect(prepared["pokemon-1"]?.batchAssets).toEqual([
+			{ type: "local", key: "pokemon/shared.png" },
+			{ type: "s3", key: "pokemon/venusaur.png" },
+		]);
+		for (const pokemon of Object.values(prepared)) {
+			expect(pokemon.batchAssets).toBe(prepared["pokemon-1"]?.batchAssets);
+		}
+	});
 
-	it.live("interrupts an in-flight presentation query with its loader Effect", () =>
-		Effect.gen(function* () {
-			let started = false;
-			let interrupted = false;
-			const clock = createTestRyotClock({
-				query: () =>
-					Effect.sync(() => {
-						started = true;
-					}).pipe(
-						Effect.andThen(Effect.never),
-						Effect.ensuring(
-							Effect.sync(() => {
-								interrupted = true;
-							}),
-						),
-					),
-			});
-			yield* Effect.race(
-				loadPokemonPresentations({
-					client: clock.client,
+	it("fails preparation when a saved-view row is missing", () => {
+		expect(
+			Result.isFailure(
+				preparePokemonPresentations({
+					sources: new Map(),
 					references: [reference("pokemon-1", "Bulbasaur")],
 				}),
-				Effect.promise(() => waitFor(() => expect(started).toBe(true))),
-			);
-			expect(interrupted).toBe(true);
-			yield* Effect.promise(() => clock.dispose());
-		}),
-	);
-
-	it("selects all presentation fields in one deterministic batch query", () => {
-		const recipe = pokemonPresentationRecipe(["pokemon-2", "pokemon-1"]);
-		expect(Object.keys(recipe.document.queries)).toEqual(["pokemon"]);
-		const pokemon = recipe.document.queries.pokemon;
-		if (pokemon?.output.type !== "rows") {
-			throw new Error("Pokemon presentation did not produce rows");
-		}
-		expect(
-			pokemon.output.fields
-				.map((field) => ("key" in field ? field.key : null))
-				.sort((left, right) => String(left).localeCompare(String(right))),
-		).toEqual(["abilities", "artwork", "height", "id", "name", "types", "weight"]);
-
-		const decoded = recipe.decode({
-			data: {
-				pokemon: rows([
-					{
-						height: 7,
-						weight: 69,
-						id: "pokemon-1",
-						name: "Bulbasaur",
-						abilities: ["Overgrow"],
-						types: ["Grass", "Poison"],
-						artwork: [{ type: "local", key: "pokemon/bulbasaur.png" }],
-					},
-				]),
-			},
-		});
-		expect(decoded).toMatchObject({
-			success: [
-				{
-					height: 7,
-					weight: 69,
-					abilities: ["Overgrow"],
-					artwork: [{ type: "local", key: "pokemon/bulbasaur.png" }],
-				},
-			],
-		});
+			),
+		).toBe(true);
 	});
 
 	it.live("renders artwork and keeps expansion local to each entity item", () =>

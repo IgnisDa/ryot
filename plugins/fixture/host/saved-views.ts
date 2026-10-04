@@ -4,6 +4,8 @@ import {
 	savedViewRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
 
+import { movePresentationSource, pokemonPresentationSource } from "../shared/entity-presentations";
+
 const entity = table("entity", "entity");
 const name = column(entity, "name");
 const property = (key: string) => jsonPath(column(entity, "properties"), key);
@@ -15,6 +17,7 @@ const buildDefinition = (
 	entitySchemaSlug: string,
 	orderBy: ReturnType<typeof ascending>,
 	projections: ReturnType<typeof buildSavedViewLayoutProjections>,
+	presentationFields: ReturnType<typeof pokemonPresentationSource>["fields"],
 ) => {
 	const dataSources = savedViewRecipe({
 		layout: { type: "table", mapping: projections.table.mappings },
@@ -26,6 +29,7 @@ const buildDefinition = (
 				...projections.table.fields,
 				field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+				...presentationFields,
 			],
 		},
 	}).document;
@@ -105,6 +109,7 @@ export const fixtureSavedViews = [
 			"pokemon",
 			ascending(castNumber(property("pokedexNumber"))),
 			pokemonProjections,
+			pokemonPresentationSource().fields,
 		),
 	},
 	{
@@ -113,6 +118,6 @@ export const fixtureSavedViews = [
 		name: "All Moves",
 		slug: "all-moves",
 		pluginSlug: "fixture",
-		...buildDefinition("move", ascending(name), moveProjections),
+		...buildDefinition("move", ascending(name), moveProjections, movePresentationSource().fields),
 	},
 ] as const;
