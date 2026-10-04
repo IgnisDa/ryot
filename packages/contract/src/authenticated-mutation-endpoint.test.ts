@@ -5,6 +5,7 @@ import { AuthMiddleware } from "./auth-middleware";
 import { AppContract } from "./contract";
 import { DemoAccessPolicy } from "./http-annotations";
 import { LocalUploadsGroup, UploadsGroup } from "./modules/assets/contract";
+import { EntitiesGroup } from "./modules/entities/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
 import { AdminRyotQLGroup, RyotQLGroup } from "./modules/ryotql/contract";
@@ -33,6 +34,9 @@ describe("authenticated mutation endpoints", () => {
 			"allowed",
 		);
 		expect(Context.get(UploadsGroup.endpoints.cleanup.annotations, DemoAccessPolicy)).toBe(
+			"protected",
+		);
+		expect(Context.get(EntitiesGroup.endpoints.saveEditor.annotations, DemoAccessPolicy)).toBe(
 			"protected",
 		);
 	});

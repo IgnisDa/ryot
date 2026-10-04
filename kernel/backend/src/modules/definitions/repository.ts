@@ -94,6 +94,7 @@ const toEntitySchema = (
 	pluginId: row.pluginId,
 	propertiesSchema: row.propertiesSchema,
 	mergeIdentityProperties: row.mergeIdentityProperties,
+	...(row.editor ? { editor: row.editor } : {}),
 	...(row.userState ? { userState: row.userState } : {}),
 	eventSchemas: Object.fromEntries(
 		eventSchemas.map((event) => [event.slug, toEventSchema({ ...event, pluginId: row.pluginId })]),
@@ -265,6 +266,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										icon: definition.icon,
 										name: definition.name,
 										slug: definition.slug,
+										editor: definition.editor ?? null,
 										userState: definition.userState ?? null,
 										propertiesSchema: definition.propertiesSchema,
 										mergeIdentityProperties: [...definition.mergeIdentityProperties],
@@ -445,6 +447,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 												name: definition.name,
 												slug: definition.slug,
 												pluginRevisionId: null,
+												editor: definition.editor ?? null,
 												userState: definition.userState ?? null,
 												propertiesSchema: definition.propertiesSchema,
 												mergeIdentityProperties: [...(definition.mergeIdentityProperties ?? [])],
@@ -458,6 +461,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 											set: {
 												icon: sql`excluded.icon`,
 												name: sql`excluded.name`,
+												editor: sql`excluded.editor`,
 												position: sql`excluded.position`,
 												userState: sql`excluded.user_state`,
 												propertiesSchema: sql`excluded.properties_schema`,

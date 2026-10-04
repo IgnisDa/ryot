@@ -253,6 +253,14 @@ const scripts = [
 
 const manifest = { ...authoredManifest, scripts };
 
+const editorRelationship = (slug: string, sourceEntitySchemaSlug: string | null) => ({
+	slug,
+	name: slug,
+	sourceEntitySchemaSlug,
+	propertiesSchema: { fields: {} },
+	targetEntitySchemaSlug: "target.test",
+});
+
 describe("definePlugin", () => {
 	it("accepts after hooks on plugin-owned collection reviews and membership", () => {
 		const decoded = Schema.decodeUnknownSync(PluginManifest)({
@@ -765,6 +773,41 @@ describe("definePlugin", () => {
 		});
 
 		expect(decoded.entitySchemas[0]?.mergeIdentityProperties).toEqual(["kind"]);
+	});
+
+	it("accepts editors naming owned relationships from their schema and rejects others", () => {
+		const target = {
+			icon: "box",
+			name: "Target",
+			eventSchemas: [],
+			slug: "target.test",
+			propertiesSchema: { fields: {} },
+		};
+		const withEditor = (relationships: readonly string[]) => ({
+			...manifest,
+			entitySchemas: [{ ...manifest.entitySchemas[0], editor: { relationships } }, target],
+			relationshipSchemas: [
+				editorRelationship("entity-targets", "entity.test"),
+				editorRelationship("target-links", "target.test"),
+				editorRelationship("loose-targets", null),
+			],
+		});
+
+		const decoded = Schema.decodeSync(PluginManifest)(withEditor(["entity-targets"]));
+		expect(decoded.entitySchemas[0]?.editor).toEqual({ relationships: ["entity-targets"] });
+		expect(decoded.entitySchemas[1]?.editor).toBeUndefined();
+		expect(Schema.decodeSync(PluginManifest)(withEditor([])).entitySchemas[0]?.editor).toEqual({
+			relationships: [],
+		});
+		for (const relationships of [
+			["undeclared"],
+			["target-links"],
+			["loose-targets"],
+			["entity-targets", "entity-targets"],
+			[""],
+		]) {
+			expect(() => Schema.decodeSync(PluginManifest)(withEditor(relationships))).toThrow();
+		}
 	});
 
 	it("decodes optional entity entity-user-data restrictions with permissive absence", () => {

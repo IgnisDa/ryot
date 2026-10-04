@@ -23,7 +23,7 @@ export const pinnedDefinitionSource = (
 	let columns: SQL;
 	switch (kind) {
 		case "entity":
-			columns = sql`d.icon, d.user_state, d.merge_identity_properties`;
+			columns = sql`d.icon, d.user_state, d.editor, d.merge_identity_properties`;
 			break;
 		case "event":
 			columns = sql`d.entity_schema_id, parent.slug as entity_schema_slug`;

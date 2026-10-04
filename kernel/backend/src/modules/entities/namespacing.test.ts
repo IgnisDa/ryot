@@ -51,7 +51,6 @@ import { RedisService } from "#platform/redis";
 import * as tables from "#schema/tables/combined";
 import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
 
-import { EntityEditorService } from "./editor/service";
 import { EntitiesRepository } from "./repository";
 import { makeEntityScriptHost } from "./script-host";
 import { EntitiesService, type UpsertEntityInput } from "./service";
@@ -256,9 +255,6 @@ layer(relationshipDatabaseLayer())((test) => {
 								SandboxSubmissionCommands,
 								SandboxSubmissionCommands.make,
 							),
-							Effect.provideService(EntityEditorService, {
-								save: () => Effect.die("Entity editor is not used by this test"),
-							}),
 							Effect.provideServiceEffect(EntityUserDataService, userDataService),
 						)),
 					},

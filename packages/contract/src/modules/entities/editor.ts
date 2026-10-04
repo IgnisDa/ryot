@@ -1,7 +1,9 @@
 import { Schema } from "effect";
 
 import { EntityId } from "../../schema/brands";
-import { strictStruct } from "../../schema/utils";
+import { IsoUtcString, strictStruct } from "../../schema/utils";
+import { AutomationWarning } from "../automations/lifecycle";
+import { EntitySchemaReference } from "../plugins/references";
 
 const properties = Schema.Record(Schema.String, Schema.Unknown);
 
@@ -10,7 +12,7 @@ export type EntityEditorRelationshipTarget = typeof EntityEditorRelationshipTarg
 
 export const EntityEditorSubmission = strictStruct({
 	properties,
-	entitySchemaSlug: Schema.String,
+	entitySchema: EntitySchemaReference,
 	name: Schema.String.pipe(
 		Schema.check(Schema.makeFilter((name) => name.trim().length > 0 || "Expected a name")),
 	),
@@ -31,6 +33,25 @@ export const EntityEditorSubmission = strictStruct({
 });
 export type EntityEditorSubmission = typeof EntityEditorSubmission.Type;
 
+export const EntityEditorSaveRequest = strictStruct({
+	submittedAt: IsoUtcString,
+	submission: EntityEditorSubmission,
+	idempotencyKey: Schema.String.pipe(
+		Schema.check(Schema.isMinLength(1)),
+		Schema.check(Schema.isMaxLength(128)),
+	),
+});
+export type EntityEditorSaveRequest = typeof EntityEditorSaveRequest.Type;
+
+export const retryableEntityEditorSaveRequest = (
+	previous: EntityEditorSaveRequest | undefined,
+	submission: EntityEditorSubmission,
+	now: Date,
+): EntityEditorSaveRequest =>
+	previous !== undefined && JSON.stringify(previous.submission) === JSON.stringify(submission)
+		? previous
+		: { submission, submittedAt: now.toISOString(), idempotencyKey: crypto.randomUUID() };
+
 export const EntityEditorSaveOutput = Schema.Union([
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("saved") }),
 	strictStruct({ kind: Schema.Literal("stale") }),
@@ -38,19 +59,13 @@ export const EntityEditorSaveOutput = Schema.Union([
 ]);
 export type EntityEditorSaveOutput = typeof EntityEditorSaveOutput.Type;
 
-export type EntityEditorAllowlist = Readonly<Record<string, ReadonlyArray<string>>>;
+export const EntityEditorSaveResult = Schema.Struct({
+	output: EntityEditorSaveOutput,
+	warnings: Schema.Array(AutomationWarning),
+});
+export type EntityEditorSaveResult = typeof EntityEditorSaveResult.Type;
 
-export const isEntityEditorSubmissionAllowed = (
-	allowlist: EntityEditorAllowlist,
-	submission: EntityEditorSubmission,
-) => {
-	const relationshipSlugs = Object.hasOwn(allowlist, submission.entitySchemaSlug)
-		? allowlist[submission.entitySchemaSlug]
-		: undefined;
-	return (
-		relationshipSlugs !== undefined &&
-		submission.relationships.every(({ relationshipSchemaSlug }) =>
-			relationshipSlugs.includes(relationshipSchemaSlug),
-		)
-	);
-};
+export class EntityEditorRefused extends Schema.TaggedError<
+	EntityEditorRefused,
+	{ readonly brand: unique symbol }
+>()("EntityEditorRefused", { message: Schema.String }) {}

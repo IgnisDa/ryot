@@ -120,6 +120,25 @@ it("rejects event reparenting without changing its local event name", () => {
 	expect(error.issues.some(({ code }) => code === "schema_removed")).toBe(true);
 });
 
+it("accepts adding, changing, and removing entity editors", () => {
+	const initial = fixtureManifest();
+	const entity = initial.entitySchemas[0];
+	assert(entity);
+	const withEditor = (relationships: readonly string[]) => ({
+		...initial,
+		entitySchemas: [{ ...entity, editor: { relationships } }],
+	});
+	for (const [previous, next] of [
+		[initial, withEditor([])],
+		[withEditor([]), withEditor(["fixture-link"])],
+		[withEditor(["fixture-link"]), initial],
+	] as const) {
+		expect(
+			Exit.isSuccess(Effect.runSyncExit(validateAdditiveSchemaEvolution(previous, next))),
+		).toBe(true);
+	}
+});
+
 it("rejects merge identity and relationship endpoint changes", () => {
 	const previous = fixtureManifest();
 	const entity = previous.entitySchemas[0];

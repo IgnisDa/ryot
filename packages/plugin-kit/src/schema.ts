@@ -13,10 +13,3 @@ export {
 	S3AssetLocator,
 } from "@ryot-app/contract/modules/assets/schemas";
 export { roundHalfUp } from "@ryot-app/contract/schema/numeric-normalization";
-export {
-	EntityEditorRelationshipTarget,
-	EntityEditorSaveOutput,
-	EntityEditorSubmission,
-	isEntityEditorSubmissionAllowed,
-	type EntityEditorAllowlist,
-} from "@ryot-app/contract/modules/entities/editor";

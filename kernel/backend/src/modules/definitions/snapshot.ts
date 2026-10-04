@@ -1,4 +1,5 @@
 import {
+	PluginEntityEditor,
 	PluginEntityUserStatePolicy,
 	PluginSignalAudiencePolicy,
 } from "@ryot-app/contract/modules/plugins/manifest";
@@ -43,6 +44,7 @@ export const EntitySchemaDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
+	editor: Schema.optional(PluginEntityEditor),
 	eventSchemas: Schema.Array(EventSchemaDefinition),
 	mergeIdentityProperties: Schema.Array(Schema.String),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
@@ -259,6 +261,17 @@ const validateDefinitionSource = (
 			if (!Object.hasOwn(entitySchema.propertiesSchema.fields, property)) {
 				throw new Error(
 					`Entity schema ${entitySchema.slug} merge identity property '${property}' is not defined in its properties schema`,
+				);
+			}
+		}
+		for (const relationshipSlug of entitySchema.editor?.relationships ?? []) {
+			const relationship = source.relationshipSchemas.find(
+				(candidate) =>
+					candidate.slug === relationshipSlug && candidate.pluginId === entitySchema.pluginId,
+			);
+			if (relationship?.sourceEntitySchemaSlug !== entitySchema.slug) {
+				throw new Error(
+					`Entity schema ${entitySchema.slug} editor relationship ${relationshipSlug} must be an owned relationship from it`,
 				);
 			}
 		}

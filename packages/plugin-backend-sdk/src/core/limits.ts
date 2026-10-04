@@ -10,10 +10,6 @@ export const USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS = {
 	changesTotal: 500,
 	changesPerBatch: 100,
 } as const;
-export const ENTITY_EDITOR_SANDBOX_LIMITS = {
-	relationshipTargets: 200,
-	relationshipChanges: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS.changesPerBatch,
-} as const;
 export const USER_ENTITY_WRITE_SANDBOX_LIMITS = {
 	items: GLOBAL_WRITE_SANDBOX_LIMITS.entityItems,
 } as const;
