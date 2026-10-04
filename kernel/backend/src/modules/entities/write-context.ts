@@ -82,16 +82,6 @@ type DeclarationSlugs = {
 	readonly relationship: string;
 	readonly event: { readonly entitySchemaSlug: string; readonly eventSchemaSlug: string };
 };
-const declarationLookup: {
-	readonly [K in keyof DeclarationSlugs]: (slug: DeclarationSlugs[K]) => {
-		readonly slug: string;
-		readonly entitySchemaSlug?: string;
-	};
-} = {
-	entity: (slug) => ({ slug }),
-	relationship: (slug) => ({ slug }),
-	event: ({ eventSchemaSlug, entitySchemaSlug }) => ({ entitySchemaSlug, slug: eventSchemaSlug }),
-};
 
 export const assertStableUnder = <E>(
 	kind: string,
@@ -295,12 +285,17 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 			}
 			return provider;
 		});
-		const findPinnedDeclaration = <K extends keyof DeclarationSlugs>(
+		const findPinnedDeclaration = Effect.fnUntraced(function* <K extends keyof DeclarationSlugs>(
 			kind: K,
 			revisionId: string,
 			slug: DeclarationSlugs[K],
-		) =>
-			definitions.findRevisionDeclaration({ kind, revisionId, ...declarationLookup[kind](slug) });
+		) {
+			const lookup =
+				typeof slug === "string"
+					? { slug }
+					: { slug: slug.eventSchemaSlug, entitySchemaSlug: slug.entitySchemaSlug };
+			return yield* definitions.findRevisionDeclaration({ kind, revisionId, ...lookup });
+		});
 		const resolvePinnedDeclaration = Effect.fnUntraced(function* <K extends keyof DeclarationSlugs>(
 			kind: K,
 			pin: DomainWritePin | null,
