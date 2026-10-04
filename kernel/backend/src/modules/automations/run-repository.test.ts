@@ -11,7 +11,7 @@ import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { and, eq } from "drizzle-orm";
-import { DateTime, Effect, Layer, Schema } from "effect";
+import { DateTime, Duration, Effect, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { assert, describe, it as unit } from "vitest";
 
@@ -428,20 +428,53 @@ describe("AutomationRunRepository", () => {
 							expect(yield* repo.insertQueued(pinned, payload)).toEqual(pinned);
 							expect(yield* repo.insertQueued(pinned, payload)).toEqual(pinned);
 							expect(yield* repo.listByTrigger(trigger.id)).toEqual([pinned]);
-							expect(yield* repo.listQueuedCandidates({ now, limit: 1 })).toEqual([pinned]);
+							expect(
+								yield* repo.listQueuedCandidates({ now, limit: 1, initialQueuedBefore: now }),
+							).toEqual([pinned]);
 							expect(
 								yield* repo.listQueuedCandidates({
 									limit: 1,
 									now: DateTime.toDate(DateTime.makeUnsafe(0)),
+									initialQueuedBefore: DateTime.toDate(DateTime.makeUnsafe(0)),
 								}),
 							).toEqual([]);
+							const beforeQueued = DateTime.toDate(
+								DateTime.subtractDuration(
+									DateTime.makeUnsafe(trigger.createdAt),
+									Duration.millis(1),
+								),
+							);
+							expect(
+								yield* repo.listQueuedCandidates({
+									now,
+									limit: 1,
+									initialQueuedBefore: beforeQueued,
+								}),
+							).toEqual([]);
+							yield* db
+								.update(automationRun)
+								.set({ attemptCount: 1 })
+								.where(eq(automationRun.id, pinned.id));
+							expect(
+								yield* repo.listQueuedCandidates({
+									now,
+									limit: 1,
+									initialQueuedBefore: beforeQueued,
+								}),
+							).toEqual([{ ...pinned, attemptCount: 1 }]);
+							yield* db
+								.update(automationRun)
+								.set({ attemptCount: 0 })
+								.where(eq(automationRun.id, pinned.id));
 							yield* db
 								.update(automationRun)
 								.set({
 									nextAttemptAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-16T00:00:00.000Z")),
 								})
 								.where(eq(automationRun.id, pinned.id));
-							expect(yield* repo.listQueuedCandidates({ now, limit: 10 })).toEqual([]);
+							expect(
+								yield* repo.listQueuedCandidates({ now, limit: 10, initialQueuedBefore: now }),
+							).toEqual([]);
 							yield* db
 								.update(automationRun)
 								.set({ startedAt: now, attemptCount: 1, finishedAt: now, status: "succeeded" })
@@ -455,7 +488,9 @@ describe("AutomationRunRepository", () => {
 									.insertQueued({ ...pinned, scriptContentHash: "changed" }, payload)
 									.pipe(Effect.flip),
 							).toMatchObject({ _tag: "DbError" });
-							expect(yield* repo.listQueuedCandidates({ now, limit: 10 })).toEqual([]);
+							expect(
+								yield* repo.listQueuedCandidates({ now, limit: 10, initialQueuedBefore: now }),
+							).toEqual([]);
 							expect(yield* repo.findById(pinned.id)).toMatchObject({ status: "succeeded" });
 							const identity = {
 								kind: trigger.kind,
@@ -524,10 +559,9 @@ describe("AutomationRunRepository", () => {
 								delivery: "policy",
 							});
 							yield* repo.insertQueued(policy, payload);
-							expect(yield* repo.listQueuedCandidates({ now, limit: 10 })).toEqual([
-								disabledUserRun,
-								pluginRun,
-							]);
+							expect(
+								yield* repo.listQueuedCandidates({ now, limit: 10, initialQueuedBefore: now }),
+							).toEqual([disabledUserRun, pluginRun]);
 						}),
 					);
 				}),

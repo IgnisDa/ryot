@@ -1,6 +1,6 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import type { AutomationRun } from "@ryot-app/contract/modules/automations/lifecycle";
-import { Context, DateTime, Effect, Layer } from "effect";
+import { Context, DateTime, Duration, Effect, Layer } from "effect";
 
 import type { CronTask } from "#modules/scheduler/types";
 
@@ -19,6 +19,7 @@ export class AutomationReconciliationOperations extends Context.Service<
 		listQueuedCandidates: (input: {
 			now: Date;
 			limit: number;
+			initialQueuedBefore: Date;
 		}) => Effect.Effect<ReadonlyArray<Pick<AutomationRun, "id" | "attemptCount">>, DbError>;
 		submit: AutomationExecutionOperations["Service"]["submit"];
 	}
@@ -42,10 +43,16 @@ export class AutomationReconciliation extends Context.Service<AutomationReconcil
 		make: Effect.gen(function* () {
 			const operations = yield* AutomationReconciliationOperations;
 			const reconcile = Effect.fn("AutomationReconciliation.reconcile")(function* () {
-				const now = DateTime.toDate(yield* DateTime.now);
+				const current = yield* DateTime.now;
+				const now = DateTime.toDate(current);
 				const candidates = yield* operations.listQueuedCandidates({
 					now,
 					limit: AUTOMATION_RECONCILIATION_BATCH_SIZE,
+					// The committing workflow submits a new run through its observer, which must become the run's
+					// parent to be woken by its exit, so a first attempt is reconciled only after that wait ends.
+					initialQueuedBefore: DateTime.toDate(
+						DateTime.subtractDuration(current, Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS)),
+					),
 				});
 				yield* Effect.forEach(
 					candidates,

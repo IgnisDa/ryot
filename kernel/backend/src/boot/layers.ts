@@ -22,6 +22,7 @@ import { AuthServiceLive } from "#modules/auth/layer";
 import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
 import {
 	AutomationHistoryServiceLive,
+	AutomationObservationWorkflowDefinitionsProvidedLive,
 	AutomationReconciliationLive,
 	AutomationRetentionLive,
 	AutomationRunWorkflowOperationsServiceLive,
@@ -257,6 +258,7 @@ const ServicesWithTestSupportLive = Layer.merge(
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	AddEntityToCollectionWorkflowDefinitionsLive,
+	AutomationObservationWorkflowDefinitionsProvidedLive,
 	AutomationRunWorkflowDefinitionsLive,
 	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	EntityImportWorkflowDefinitionsLive,
