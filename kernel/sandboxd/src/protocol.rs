@@ -274,6 +274,13 @@ pub struct Console {
     pub truncated: bool,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Usage {
+    pub heap_bytes: u64,
+    pub external_bytes: u64,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct DoneFrame {
@@ -284,6 +291,7 @@ struct DoneFrame {
     seq: u64,
     outcome: OutcomeBody,
     console: Console,
+    usage: Usage,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -326,6 +334,7 @@ pub enum Outbound {
         seq: u64,
         outcome: Outcome,
         console: Console,
+        usage: Usage,
     },
     Draining {
         generation: u32,
@@ -558,6 +567,7 @@ pub fn decode_outbound(payload: &[u8]) -> Result<Outbound, PayloadError> {
                 seq: frame.seq,
                 outcome,
                 console: frame.console,
+                usage: frame.usage,
             })
         }
         FrameType::Part => {
@@ -658,6 +668,7 @@ pub fn encode_outbound(frame: &Outbound) -> Vec<u8> {
             seq,
             outcome,
             console,
+            usage,
         } => {
             let empty = OutcomeBody {
                 status: OutcomeStatus::Completed,
@@ -695,6 +706,7 @@ pub fn encode_outbound(frame: &Outbound) -> Vec<u8> {
                 seq: *seq,
                 outcome,
                 console: console.clone(),
+                usage: *usage,
             })
         }
         Outbound::Part(part) => to_json(part),

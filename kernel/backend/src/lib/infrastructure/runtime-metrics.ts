@@ -135,6 +135,23 @@ const sandboxSidecarEvents = Metric.counter("ryot.sandbox.sidecar.events", {
 	attributes: { unit: "{event}" },
 });
 
+const EXECUTION_MEMORY_BOUNDARIES = [
+	262_144, 1_048_576, 4_194_304, 8_388_608, 16_777_216, 33_554_432, 67_108_864, 134_217_728,
+	201_326_592, 268_435_456, 335_544_320,
+] as const;
+
+const sandboxExecutionPeakHeap = Metric.histogram("ryot.sandbox.execution.peak_heap", {
+	attributes: { unit: BYTES },
+	boundaries: [...EXECUTION_MEMORY_BOUNDARIES],
+	description: "Peak used V8 heap of one sandbox execution, sampled before each collection",
+});
+
+const sandboxExecutionPeakExternal = Metric.histogram("ryot.sandbox.execution.peak_external", {
+	attributes: { unit: BYTES },
+	boundaries: [...EXECUTION_MEMORY_BOUNDARIES],
+	description: "Peak ArrayBuffer and V8 external memory of one sandbox execution",
+});
+
 const sandboxSidecarDuration = Metric.histogram("ryot.sandbox.sidecar.duration", {
 	attributes: { unit: MILLISECONDS },
 	boundaries: [...DURATION_BOUNDARIES],
@@ -317,6 +334,32 @@ export const recordSandboxHostCall = (input: {
 		}),
 		1,
 	);
+
+export const recordSandboxExecutionUsage = (input: {
+	readonly kind: SandboxMetricKind;
+	readonly trust: typeof SandboxTrust.Type;
+	readonly tier: typeof SidecarTier.Type;
+	readonly outcome: "completed" | "cancelled" | "limit" | "failed";
+	readonly heapBytes: number;
+	readonly externalBytes: number;
+}) => {
+	const attributes = {
+		kind: input.kind,
+		trust: input.trust,
+		snapshot: input.tier,
+		outcome: input.outcome,
+	};
+	return Effect.all(
+		[
+			Metric.update(Metric.withAttributes(sandboxExecutionPeakHeap, attributes), input.heapBytes),
+			Metric.update(
+				Metric.withAttributes(sandboxExecutionPeakExternal, attributes),
+				input.externalBytes,
+			),
+		],
+		{ discard: true },
+	);
+};
 
 export const recordSandboxSidecarHostCall = (input: {
 	readonly trust: typeof SandboxTrust.Type;
