@@ -1,3 +1,4 @@
+import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import { exerciseListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import {
 	equipmentListRecipe,
@@ -19,14 +20,31 @@ import {
 	openInterestWebSocketScoped,
 	pollProviderEntityImportResult,
 } from "~/fixtures/kernel";
-import { uninstallTestPlugin } from "~/fixtures/kernel/test-plugin";
+import { shippedPluginTestProviders } from "~/fixtures/kernel/sandbox-provider";
 import {
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,
-	installFitnessTaxonomyProviderFixture,
+	attachFitnessTaxonomyProvider,
 } from "~/fixtures/plugins/fitness";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
-import { describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
+import { startIsolatedHarness } from "~/support/isolated-harness";
+
+let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let fitnessProviders: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
+
+beforeAll(
+	() =>
+		runPromise(
+			Effect.gen(function* () {
+				harness = yield* startIsolatedHarness("Fitness Taxonomy");
+				fitnessProviders = yield* shippedPluginTestProviders(fitnessPlugin.metadata.packageId);
+			}),
+		),
+	300_000,
+);
+
+afterAll(() => runPromise(harness?.stop ?? Effect.void));
 
 describe("Fitness taxonomy E2E", () => {
 	it.live("keeps private taxonomy ownership and validates exercise links", () =>
@@ -307,8 +325,7 @@ describe("Fitness taxonomy E2E", () => {
 
 	it.live("populates Free Exercise DB taxonomy and preserves user links", () =>
 		Effect.gen(function* () {
-			const provider = yield* installFitnessTaxonomyProviderFixture;
-			yield* Effect.addFinalizer(() => uninstallTestPlugin(provider.installed));
+			const provider = yield* attachFitnessTaxonomyProvider(fitnessProviders);
 			const auth = yield* createAuthenticatedClient();
 			const { client } = auth;
 			const [
