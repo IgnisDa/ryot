@@ -18,6 +18,18 @@ export const SANDBOX_RUNTIME_REGISTRY = [
 	},
 	{
 		aliases: [],
+		name: "dependency-runtime",
+		packageName: "@ryot-app/sandbox-sdk",
+		sdkImport: "@ryot-app/sandbox-sdk/dependency-runtime",
+	},
+	{
+		aliases: [],
+		name: "filesystem",
+		packageName: "@ryot-app/sandbox-sdk",
+		sdkImport: SANDBOX_SDK_FILESYSTEM_IMPORT,
+	},
+	{
+		aliases: [],
 		name: "cheerio",
 		packageName: "cheerio",
 		sdkImport: "@ryot-app/sandbox-sdk/cheerio",
@@ -28,7 +40,7 @@ export const SANDBOX_RUNTIME_REGISTRY = [
 		packageName: "youtubei.js",
 		sdkImport: "@ryot-app/sandbox-sdk/youtubei",
 		sourceAliases: [
-			{ specifier: "youtubei.js/web", entryRelativePath: "dist/src/platform/deno.js" },
+			{ specifier: "youtubei.js/web", entryRelativePath: "dist/src/platform/web.js" },
 		],
 	},
 	{ aliases: [], name: "fflate", packageName: "fflate", sdkImport: "@ryot-app/sandbox-sdk/fflate" },

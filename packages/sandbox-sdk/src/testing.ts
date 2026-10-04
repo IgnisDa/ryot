@@ -6,7 +6,11 @@ import type {
 	ScriptHost,
 } from "./core";
 import { Effect, Schema } from "./effect";
-import type { WorkflowReplayHost } from "./workflow";
+import {
+	workflowReplayJournalEntrySchema,
+	type WorkflowReplayHost,
+	type WorkflowReplayJournal,
+} from "./workflow";
 
 type HostForManifest<Manifest extends SandboxManifest> = Manifest extends {
 	readonly kind: "workflow";
@@ -28,6 +32,17 @@ export function defineSandboxTestHost<const Manifest extends SandboxManifest>(
 export function defineSandboxTestHost(_manifest: SandboxManifest, host: unknown): unknown {
 	return host;
 }
+
+export const makeWorkflowReplayHost = (entries: ReadonlyArray<unknown>): WorkflowReplayHost => ({
+	replayJournal: () =>
+		Effect.succeed({
+			length: entries.length,
+			read: (index): ReturnType<WorkflowReplayJournal["read"]> =>
+				Schema.decodeUnknownEffect(workflowReplayJournalEntrySchema)(entries[index]).pipe(
+					Effect.mapError((error) => ({ message: String(error) })),
+				),
+		}),
+});
 
 export const runSandboxTestScript = <
 	Input extends Schema.Codec<unknown, unknown>,

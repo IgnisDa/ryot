@@ -26,7 +26,7 @@ type ScriptExecution<
 };
 
 export const defineManifest = <const Manifest extends SandboxManifest>(
-	manifest: Manifest & { readonly capabilities?: never },
+	manifest: Manifest & { readonly capabilities?: never; readonly runtimeImports?: never },
 ): Manifest => manifest;
 
 export const SANDBOX_SCRIPT_DEFINITION = "ryot:sandbox-script" as const;

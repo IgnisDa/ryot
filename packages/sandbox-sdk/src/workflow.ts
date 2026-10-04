@@ -1,4 +1,3 @@
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/sandbox/wire";
 import { Effect as RuntimeEffect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
@@ -103,11 +102,15 @@ export const workflowReplayEnvelopeSchema = Schema.Union([
 ]);
 export type WorkflowReplayEnvelope = Schema.Schema.Type<typeof workflowReplayEnvelopeSchema>;
 
+export type WorkflowReplayJournal = {
+	readonly length: number;
+	readonly read: (
+		index: number,
+	) => RuntimeEffect.Effect<WorkflowReplayJournalEntry, SandboxHostError>;
+};
+
 export type WorkflowReplayHost = {
-	readonly replayJournal: () => RuntimeEffect.Effect<
-		ReadonlyArray<JsonValue | WorkflowReplayJournalEntry>,
-		SandboxHostError
-	>;
+	readonly replayJournal: () => RuntimeEffect.Effect<WorkflowReplayJournal, SandboxHostError>;
 };
 
 export type WorkflowScriptReference<
@@ -207,7 +210,11 @@ class WorkflowJournalMismatchError extends Error {
 	readonly _tag = "WorkflowJournalMismatchError";
 }
 
-type WorkflowReplayFailure = Schema.SchemaError | WorkflowJournalMismatchError | typeof pending;
+type WorkflowReplayFailure =
+	| SandboxHostError
+	| Schema.SchemaError
+	| WorkflowJournalMismatchError
+	| typeof pending;
 
 export type WorkflowReplay = {
 	readonly activity: <
@@ -292,29 +299,32 @@ const stableJson = (value: unknown): string => {
 };
 
 const makeWorkflowReplay = (
-	journal: ReadonlyArray<JsonValue | WorkflowReplayJournalEntry>,
+	journal: WorkflowReplayJournal,
 	requests: WorkflowDurableCallRequest[],
 ): WorkflowReplay => {
 	const resolve = <Output extends Schema.ConstraintDecoder<unknown>>(
 		request: WorkflowDurableCallRequest,
 		output: Output,
 	): RuntimeEffect.Effect<Output["Type"], WorkflowReplayFailure> => {
-		const recorded = journal[request.index];
-		if (recorded === undefined) {
-			return RuntimeEffect.fail(pending);
-		}
-		const entry = Schema.decodeUnknownResult(workflowReplayJournalEntrySchema)(recorded);
-		if (entry._tag === "Failure") {
-			return Schema.decodeEffect(output)(recorded);
-		}
-		if (stableJson(entry.success.request) !== stableJson(request)) {
-			return RuntimeEffect.fail(
-				new WorkflowJournalMismatchError(
-					`Sandbox workflow journal identity mismatch at index ${request.index}`,
-				),
-			);
-		}
-		return Schema.decodeEffect(output)(entry.success.value);
+		return RuntimeEffect.suspend(() => {
+			if (request.index >= journal.length) {
+				return RuntimeEffect.fail(pending);
+			}
+			return journal
+				.read(request.index)
+				.pipe(
+					RuntimeEffect.flatMap(
+						(entry): RuntimeEffect.Effect<Output["Type"], WorkflowReplayFailure> =>
+							stableJson(entry.request) !== stableJson(request)
+								? RuntimeEffect.fail(
+										new WorkflowJournalMismatchError(
+											`Sandbox workflow journal identity mismatch at index ${request.index}`,
+										),
+									)
+								: Schema.decodeEffect(output)(entry.value),
+					),
+				);
+		});
 	};
 	const register = <Output extends Schema.ConstraintDecoder<unknown>>(
 		request: WorkflowDurableCallRequest,
