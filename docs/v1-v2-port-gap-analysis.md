@@ -82,6 +82,8 @@ media-monitoring changes are implemented. The remaining gaps are notification-pr
 
 - **Data export** — job serializing a user's data into a downloadable archive, plus a listing query and a download URL. V1 exports 8 categories (people, metadata, workouts, exercises, collections, measurements, metadata groups, workout templates) paginated at 1000 items/page, tags the resulting file with start/end timestamps as S3 object metadata, and skips exercises that have neither reviews nor collection memberships. None of this exists in V2 — no exporter module, no job, no listing endpoint.
   - V1: `deploy_export_job`, `user_exports` (`crates/resolvers/exporter`); `PerformExport` job; `crates/services/exporter/*`.
+- **Genres as entities** — V2 stores genres as a plain string array on each media entity (`plugins/media/manifest/schemas/property.ts`), so saved-view filters use a typed `contains` input and there is no canonical genre record to pick, page, or garbage-collect. V1 modelled them as `genre` rows joined through `metadata_to_genre`, which enabled a picker, exact filtering, and orphan cleanup. Model genres as entities again.
+  - V1: `crates/models/database/src/genre.rs`, `crates/migrations/sql/src/m20230502_create_genre.rs`.
 
 #### Collections management completeness
 
