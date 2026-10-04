@@ -256,10 +256,9 @@ it.live("edits the name, targets, and images while keeping the kind read-only", 
 		yield* frame.getByLabel("Name", { exact: true }).fill(`Edited ${id}`);
 
 		yield* frame.getByRole("button", { exact: true, name: "Add Exercise Targets" }).click();
-		yield* frame
-			.getByRole("dialog", { name: "Add Exercise Targets" })
-			.getByRole("button", { exact: true, name: `Edit target ${id}` })
-			.click();
+		const picker = page.getByRole("dialog", { exact: true, name: "Choose Exercise Target" });
+		yield* picker.getByLabel("Search", { exact: true }).fill(`Edit target ${id}`);
+		yield* picker.getByRole("button", { exact: true, name: `Edit target ${id}` }).click();
 		yield* visible(frame.getByText(`Edit target ${id}`, { exact: true }));
 		yield* frame.getByRole("radio", { exact: true, name: "primary" }).click();
 
