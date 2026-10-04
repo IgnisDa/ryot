@@ -8,6 +8,10 @@ The isolate runtime plan and its records:
 - [`security-review.md`](security-review.md): pre-approval security findings and their owners.
 - [`evidence.md`](evidence.md): spike measurements and pitfalls.
 
+[S3 results](s3.md#results) compare the six-pair split-lane baseline with the provider request
+reductions. Details latency is lower, but both loaded/unloaded ratios miss E2; root workflow
+completion delivery remains deferred to Effect #9003.
+
 The rest of this directory is throwaway spike code behind that evidence. It is not production code: it skips the op allowlist, OS confinement, protocol framing, the backend
 host-call gate, and every other hardening the plan requires. Use it to see working `deno_core` API
 usage and to reproduce measurements, not as a starting point to copy.
