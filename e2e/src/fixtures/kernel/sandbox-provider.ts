@@ -2,10 +2,13 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
+	type PluginPackageId,
+	pluginPackageSegments,
 	type SandboxProviderId,
 	type SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { readPluginArchive } from "@ryot-app/plugin-archive";
 import type {
 	ProviderDetailsResult,
 	ProviderResolveResult,
@@ -18,14 +21,19 @@ import { Effect, Record } from "effect";
 import { requirePresent } from "~/support/assertions";
 
 import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
+import { listAdminSystemPlugins } from "./admin-system-plugins";
 import type { Client } from "./auth";
+import { compilePluginPackage } from "./compiled-package";
 import {
+	encodePluginSourceFiles,
 	installTestPluginBundle,
 	reinstallTestPluginScript,
 	testPluginEntitySchema,
+	testPluginManifest,
 	type InstalledTestPlugin,
 	type TestPluginScript,
 	uninstallTestPlugin,
+	updateTestSupportSystemPlugin,
 } from "./test-plugin";
 
 type PluginProviderInformation = PluginManifest["providers"][number]["information"];
@@ -49,6 +57,18 @@ export type InstalledTestProvider = Omit<InstalledTestPlugin, "scriptId" | "slug
 	translateScriptId?: SandboxScriptId;
 	searchOptionsScriptId?: SandboxScriptId;
 };
+
+export type AttachedTestProvider = Pick<
+	InstalledTestProvider,
+	| "pluginId"
+	| "providerId"
+	| "providerSlug"
+	| "searchScriptId"
+	| "detailsScriptId"
+	| "resolveScriptId"
+	| "translateScriptId"
+	| "searchOptionsScriptId"
+>;
 
 type TestProviderSpec = {
 	slug?: string;
@@ -74,7 +94,15 @@ type TestProviderPlugin = {
 	relationshipSchemas?: PluginManifest["relationshipSchemas"];
 };
 
-const testProviderDeclaration = (input: TestProviderSpec) => {
+type TestPluginManifestInput = Parameters<typeof testPluginManifest>[0];
+
+export type TestProviderDeclaration = {
+	readonly files: Readonly<Record<string, string>>;
+	readonly scripts: NonNullable<TestPluginManifestInput["scripts"]>;
+	readonly provider: NonNullable<TestPluginManifestInput["providers"]>[number];
+};
+
+const testProviderDeclaration = (input: TestProviderSpec): TestProviderDeclaration => {
 	const name = input.name ?? "E2E Provider Script";
 	const providerSlug = input.slug ?? `e2e-provider-${crypto.randomUUID()}`;
 	const operations: Array<{
@@ -224,6 +252,104 @@ export const installTestProviders = <Key extends string>(
 			...installed,
 			...provider,
 		}));
+	});
+
+export const shippedPluginTestProviders = (packageId: PluginPackageId) =>
+	Effect.gen(function* () {
+		const archiveUrl = new URL(
+			`../../../../plugins/${pluginPackageSegments(packageId).name}/dist/${packageId}.zip`,
+			import.meta.url,
+		);
+		const shipped = yield* readPluginArchive(
+			yield* Effect.promise(() => Bun.file(archiveUrl).bytes()),
+		);
+		const pluginId = requirePresent(
+			(yield* listAdminSystemPlugins).find((plugin) => plugin.packageId === packageId),
+			`Shipped plugin '${packageId}' is not installed`,
+		).id;
+		const specs = new Map<string, TestProviderSpec>();
+		const attached = new Map<string, TestProviderDeclaration>();
+		const publish = Effect.gen(function* () {
+			const declarations = Record.fromEntries(attached);
+			const compiled = yield* compilePluginPackage({
+				files: encodePluginSourceFiles(
+					Object.assign({}, ...Record.values(declarations).map(({ files }) => files)),
+				),
+				manifest: testPluginManifest({
+					pluginSlug: `attached-providers-${crypto.randomUUID()}`,
+					scripts: Record.values(declarations).flatMap(({ scripts }) => scripts),
+					providers: Record.values(declarations).map(({ provider }) => provider),
+					entitySchemas: [
+						...new Set(
+							Record.values(declarations).map(({ provider }) => provider.rootEntitySchemaSlug),
+						),
+					].map((slug) => testPluginEntitySchema({ slug })),
+				}),
+			});
+			const current = requirePresent(
+				(yield* listAdminSystemPlugins).find(({ id }) => id === pluginId),
+				`Shipped plugin '${packageId}' is not installed`,
+			);
+			const updated = yield* updateTestSupportSystemPlugin({
+				...shipped,
+				pluginId,
+				compiledScripts: [...shipped.compiledScripts, ...compiled.compiledScripts],
+				sourceHash: requirePresent(current.sourceHash, "Shipped plugin has no source hash"),
+				manifest: {
+					...shipped.manifest,
+					scripts: [...shipped.manifest.scripts, ...compiled.manifest.scripts],
+					providers: [...shipped.manifest.providers, ...compiled.manifest.providers],
+				},
+			});
+			return yield* resolveTestProviders(declarations, {
+				activePluginRevisionId: updated.activePluginRevisionId,
+				scriptIds: Object.fromEntries(updated.scripts.map(({ id, slug }) => [slug, id])),
+			});
+		});
+		const attachDeclarations = <Key extends string>(
+			providers: Readonly<Record<Key, TestProviderDeclaration>>,
+		) =>
+			Effect.gen(function* () {
+				for (const declaration of Record.values(providers)) {
+					attached.set(declaration.provider.slug, declaration);
+				}
+				const published = yield* publish;
+				return Record.map(providers, ({ provider }): AttachedTestProvider => ({
+					...requirePresent(
+						published[provider.slug],
+						`Provider '${provider.slug}' was not published`,
+					),
+					pluginId,
+				}));
+			});
+		const attach = <Key extends string>(providers: Readonly<Record<Key, TestProviderSpec>>) =>
+			attachDeclarations(
+				Record.map(providers, (provider) => {
+					const providerSlug = provider.slug ?? `e2e-provider-${crypto.randomUUID()}`;
+					specs.set(providerSlug, { ...provider, slug: providerSlug });
+					return testProviderDeclaration({ ...provider, slug: providerSlug });
+				}),
+			);
+		return {
+			attach,
+			attachDeclarations,
+			attachProvider: (provider: TestProviderSpec) =>
+				attach({ provider }).pipe(Effect.map(({ provider: attachedProvider }) => attachedProvider)),
+			update: (providerSlug: string, changes: Partial<TestProviderSpec>) =>
+				Effect.suspend(() => {
+					const spec = {
+						...requirePresent(
+							specs.get(providerSlug),
+							`Provider '${providerSlug}' is not attached`,
+						),
+						...changes,
+						slug: providerSlug,
+					};
+					specs.set(providerSlug, spec);
+					attached.set(providerSlug, testProviderDeclaration(spec));
+					return publish;
+				}).pipe(Effect.asVoid),
+		};
 	});
 
 export const installTestProvider = (input: TestProviderPlugin & TestProviderSpec) =>
