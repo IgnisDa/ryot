@@ -34,12 +34,11 @@ export const pluginClientCatalogRecipe = defineRecipe(
 				),
 				orderBy: [
 					ascending(column(installation, "sortOrder")),
-					ascending(column(plugin, "slug")),
+					ascending(column(plugin, "packageId")),
 					ascending(column(installation, "id")),
 				],
 				selection: {
 					name: selectedField(column(plugin, "name"), Schema.String),
-					slug: selectedField(column(plugin, "slug"), Schema.String),
 					icon: selectedField(column(plugin, "icon"), Schema.String),
 					pluginId: selectedField(column(plugin, "id"), Schema.String),
 					packageId: selectedField(column(plugin, "packageId"), PluginPackageId),

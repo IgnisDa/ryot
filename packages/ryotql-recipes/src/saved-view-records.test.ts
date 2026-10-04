@@ -15,7 +15,7 @@ const item = {
 	icon: "bookmark",
 	isBuiltin: false,
 	dataSources: null,
-	pluginSlug: "media",
+	packageId: "ryot/media",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 	reference: { kind: "custom", savedViewId: "view-1" },
@@ -46,9 +46,9 @@ describe("saved-view record recipes", () => {
 			"isBuiltin",
 			"renderer",
 			"reference",
-			"pluginSlug",
 			"createdAt",
 			"updatedAt",
+			"packageId",
 			"dataSources",
 			"settings",
 		]);
@@ -87,10 +87,10 @@ describe("saved-view record recipes", () => {
 		expect(
 			Result.getOrThrow(
 				savedViewRecordsRecipe({ limit: 2 }).decode({
-					data: { savedViews: rows([{ ...item, pluginSlug: null }]) },
+					data: { savedViews: rows([{ ...item, packageId: null }]) },
 				}),
 			).items[0],
-		).toMatchObject({ pluginSlug: null });
+		).toMatchObject({ packageId: null });
 	});
 
 	it("decodes optional detail and rejects excess cardinality", () => {

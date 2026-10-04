@@ -5,12 +5,7 @@ import {
 	PluginInstallationIncompatibilityReason,
 	PluginInstallationWriteResult,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import {
-	PluginId,
-	PluginPackageId,
-	PluginRevisionId,
-	PluginSlug,
-} from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	and,
@@ -45,12 +40,11 @@ export const pluginInstallationsRecipe = defineRecipe(
 				),
 				orderBy: [
 					ascending(column(installation, "sortOrder")),
-					ascending(column(plugin, "slug")),
+					ascending(column(plugin, "packageId")),
 					ascending(column(installation, "id")),
 				],
 				selection: {
 					pluginId: selectedField(column(plugin, "id"), PluginId),
-					slug: selectedField(column(plugin, "slug"), PluginSlug),
 					icon: selectedField(column(plugin, "icon"), Schema.String),
 					name: selectedField(column(plugin, "name"), Schema.String),
 					version: selectedField(column(plugin, "version"), Schema.String),

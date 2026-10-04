@@ -6,7 +6,7 @@ generic rows.
 
 Exact domain recipes take an explicit `PluginIdentityReference`. Authored saved views and trusted
 sandbox calls may use `self`. Browser contributors supply their prepared local identity binding;
-portable ad-hoc requests select a permanent package UUID and explicit `system` or `user` scope.
+portable ad-hoc requests select a permanent `publisher/name` package ID and explicit `system` or `user` scope.
 Definition joins compare both the local name and exact owner, with explicit null equality for kernel
 definitions. A missing owner is not a kernel selector.
 

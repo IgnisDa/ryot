@@ -8,7 +8,7 @@ import { integrationProvidersRecipe } from "./integration-providers";
 import { rowsResult } from "./test-utils";
 
 const owner = { kind: "plugin", pluginId: PluginId.make("plugin-owner") } satisfies DefinitionOwner;
-const packageId = PluginPackageId.make("73ced48b-030a-4367-8fc9-a24b3810c50f");
+const packageId = PluginPackageId.make("ryot/media");
 
 const script = (slug: string, keys: ReadonlyArray<string> = []) => ({
 	slug,
@@ -31,7 +31,6 @@ it("uses the same catalog snapshot for unconditional and settings-selected impor
 					exportHelp: null,
 					isStartable: true,
 					pluginScope: "user",
-					pluginSlug: "plugin",
 					description: "Source",
 					workflowSlug: "import",
 					pluginId: owner.pluginId,
@@ -117,12 +116,7 @@ it("uses the same catalog snapshot for unconditional and settings-selected impor
 				sources: rowsResult(
 					[
 						first,
-						{
-							...first,
-							id: "foreign-source",
-							pluginId: foreignPluginId,
-							packageId: "8bf3044f-1b6c-4430-88f1-0b75351c8dd5",
-						},
+						{ ...first, id: "foreign-source", packageId: "test/other", pluginId: foreignPluginId },
 					],
 					{ limit: 2, hasMore: false, nextCursor: null },
 				),
@@ -163,7 +157,6 @@ it("matches selected OAuth connections to their settings field, provider and int
 					name: "Provider",
 					scriptSlug: "root",
 					pluginScope: "user",
-					pluginSlug: "plugin",
 					requiresProKey: false,
 					description: "Provider",
 					pluginId: owner.pluginId,
@@ -256,7 +249,6 @@ it("uses the provider plan to select settings-dependent executable requirements"
 					slug: "conditional",
 					name: "Conditional",
 					pluginScope: "user",
-					pluginSlug: "plugin",
 					requiresProKey: false,
 					pluginId: owner.pluginId,
 					readinessConnections: [],

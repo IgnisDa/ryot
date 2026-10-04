@@ -2,12 +2,7 @@ import {
 	IntegrationProvider,
 	IntegrationSnapshot,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import {
-	IntegrationId,
-	IntegrationWebhookToken,
-	PluginId,
-	PluginSlug,
-} from "@ryot-app/contract/schema/brands";
+import { IntegrationId, IntegrationWebhookToken, PluginId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,
@@ -39,7 +34,6 @@ const selection = {
 	syncOwnership: selectedField(column(integration, "syncOwnership"), Schema.Boolean),
 	minimumProgress: selectedField(column(integration, "minimumProgress"), Schema.Finite),
 	maximumProgress: selectedField(column(integration, "maximumProgress"), Schema.Finite),
-	pluginSlug: selectedField(column(integration, "pluginSlug"), Schema.NullOr(PluginSlug)),
 	lastFinishedAt: selectedField(
 		column(integration, "lastFinishedAt"),
 		Schema.NullOr(IsoDateString),
