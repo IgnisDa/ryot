@@ -36,6 +36,7 @@ import {
 	readLegacyIntegrationProgressCache,
 } from "./integration-progress-cache-mapping";
 import { buildLegacyS3AssetReportSql, migrateLegacyS3Assets } from "./legacy-asset-migration";
+import { migrateLegacyMediaGenres } from "./media-genre-mapping";
 import { builtinMediaEntitySchemaSlugs } from "./media-schema-slugs";
 import {
 	buildMetadataGroupEntityMigrationSql,
@@ -476,6 +477,19 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			yield* connection.executeRaw(buildReferencedGlobalEntityIdsSql(), []);
 			yield* connection.executeRaw(buildPopulatedMetadataIdsSql(), []);
 			yield* connection.executeRaw(buildMetadataMigrationSql(resolvedMetadataTargets), []);
+			yield* migrateLegacyMediaGenres(connection, {
+				pluginId: mediaPluginId,
+				genreSchema: entitySchema(mediaPluginId, "genre"),
+				providerId: requireMapped(
+					resolution.providers,
+					mediaPluginId,
+					"genre.media-catalog",
+					"provider",
+				),
+				relationships: builtinMediaEntitySchemaSlugs.map((slug) =>
+					relationshipSchema(mediaPluginId, `${slug}-to-genre`),
+				),
+			});
 			reportSequence = yield* logReportRows(connection, reportSequence);
 			yield* connection.executeRaw(
 				buildLegacyEpisodicSubEntityMigrationSql({

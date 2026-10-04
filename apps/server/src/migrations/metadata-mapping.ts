@@ -49,12 +49,6 @@ const buildMetadataCommonPropertiesSql = () => `
 COALESCE(
 	jsonb_strip_nulls(jsonb_build_object(
 		'images', ${buildLegacyImageArraySql("metadata")},
-		'genres', COALESCE((
-			SELECT jsonb_agg(genre.name ORDER BY genre.name)
-			FROM metadata_to_genre metadata_genre
-			INNER JOIN genre ON genre.id = metadata_genre.genre_id
-			WHERE metadata_genre.metadata_id = metadata.id
-		), '[]'::jsonb),
 		'publishYear', metadata.publish_year,
 		'isNsfw', metadata.is_nsfw,
 		'publishDate', to_char(metadata.publish_date, 'YYYY-MM-DD'),
