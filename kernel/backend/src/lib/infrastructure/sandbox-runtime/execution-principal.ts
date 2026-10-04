@@ -17,6 +17,13 @@ import { Context, Schema } from "effect";
 
 export const SandboxTrust = Schema.Literals(["system", "user"]);
 
+export const sandboxSubjectUserId = (subject: SandboxExecutionSubject) => {
+	if (subject.type === "user") {
+		return subject.userId;
+	}
+	return subject.type === "automation-run" ? subject.executionUserId : null;
+};
+
 export const SandboxPluginRevision = Schema.Struct({
 	id: PluginId,
 	slug: Schema.String,
@@ -63,10 +70,7 @@ export const SandboxExecutionPrincipal = Schema.Struct({
 			) {
 				return "Automation ownership must match the exact plugin and config pin";
 			}
-			let userId = subject.type === "user" ? subject.userId : null;
-			if (subject.type === "automation-run") {
-				userId = subject.executionUserId;
-			}
+			const userId = sandboxSubjectUserId(subject);
 			return (
 				pluginRevision === null ||
 				(pluginRevision.scope === "system"

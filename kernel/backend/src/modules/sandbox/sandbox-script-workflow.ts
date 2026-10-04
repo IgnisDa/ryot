@@ -17,18 +17,7 @@ import {
 } from "@ryot-app/sandbox-sdk/workflow";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import {
-	Cause,
-	Clock,
-	Context,
-	DateTime,
-	Duration,
-	Effect,
-	Exit,
-	Layer,
-	Option,
-	Schema,
-} from "effect";
+import { Cause, Clock, Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
 import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -40,7 +29,10 @@ import {
 } from "#lib/infrastructure/runtime-metrics";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { isDeclaredExecutableCall } from "#lib/infrastructure/sandbox-runtime/executable-dependencies";
-import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import {
+	SandboxExecutionPrincipal,
+	sandboxSubjectUserId,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
 import type { SandboxHttpProgress } from "#lib/infrastructure/sandbox-runtime/http-progress";
 import type { SandboxInlineProgress } from "#lib/infrastructure/sandbox-runtime/inline-progress";
@@ -48,6 +40,7 @@ import {
 	SANDBOX_LIMITS,
 	sandboxWorkflowJournalByteError,
 } from "#lib/infrastructure/sandbox-runtime/limits";
+import { sandboxStartedAt } from "#lib/infrastructure/sandbox-runtime/shared";
 import {
 	hashWorkflowCallArgs,
 	appendWorkflowJournal,
@@ -74,6 +67,7 @@ import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import {
+	type PinnedSandboxScriptWorkflowPayload,
 	SandboxScriptWorkflowPayload,
 	type SandboxScriptWorkflowPayload as SandboxScriptWorkflowPayloadValue,
 } from "./sandbox-script-workflow-payload";
@@ -184,8 +178,8 @@ const pinningOwnership = (payload: SandboxScriptWorkflowPayloadValue) => {
 	if (subject.type !== "automation-run") {
 		return {
 			conflicts: false,
+			userId: sandboxSubjectUserId(subject),
 			expectedRevision: payload.pluginRevision,
-			userId: subject.type === "user" ? subject.userId : null,
 		};
 	}
 	return {
@@ -547,7 +541,7 @@ const observeWorkflowReplay = Effect.fnUntraced(function* (
 export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRequest")(function* (
 	request: WorkflowDurableCallRequest,
 	targetScriptId: SandboxScriptId | undefined,
-	payload: SandboxScriptWorkflowPayloadValue,
+	payload: PinnedSandboxScriptWorkflowPayload,
 	principal: SandboxExecutionPrincipal,
 	executionId: string,
 	progress?: SandboxHttpProgress,
@@ -828,7 +822,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		success: SandboxWorkflowPin,
 		name: "pin-sandbox-workflow-script",
 		execute: Effect.gen(function* () {
-			const startedAt = DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
+			const startedAt = yield* sandboxStartedAt;
 			const pinning = yield* SandboxWorkflowPinning;
 			const { principal } = yield* pinning.establish(payload, executionId);
 			const artifacts = yield* SandboxArtifactStore;

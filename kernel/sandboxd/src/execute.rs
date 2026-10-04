@@ -31,9 +31,9 @@ use crate::surface::{
 };
 
 const RESULT_BYTES: usize = ChunkedType::Done.message_bytes();
-const HOST_ARGS_BYTES: usize = 1024 * 1024;
-const HOST_CALLS: u32 = 1_000;
-const CONCURRENT_HOST_CALLS: usize = 4;
+pub const HOST_ARGS_BYTES: usize = 1024 * 1024;
+pub const HOST_CALLS: u32 = 1_000;
+pub const CONCURRENT_HOST_CALLS: usize = 4;
 const HEAP_HEADROOM: usize = 32 * 1024 * 1024;
 const HEAP_EXTENSIONS: usize = 2;
 /// Heap V8 may still allocate after the limit while termination unwinds.

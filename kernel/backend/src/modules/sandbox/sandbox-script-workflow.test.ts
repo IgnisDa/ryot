@@ -1623,6 +1623,7 @@ layer(
 					lane: "interactive",
 					resolutionMode: "exact",
 					executionId: `${importRunId}-import`,
+					startedAt: "2026-01-01T00:00:00.000Z",
 					scriptId: SandboxScriptId.make("workflow-script"),
 				},
 				{

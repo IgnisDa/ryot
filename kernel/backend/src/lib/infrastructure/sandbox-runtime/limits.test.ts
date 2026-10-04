@@ -12,7 +12,6 @@ import {
 	sandboxCacheValueError,
 	sandboxContextError,
 	sandboxHttpRequestBodyError,
-	sandboxRunnerRequestError,
 	SANDBOX_LIMITS,
 	SANDBOX_RUNNER_LIMITS,
 	sandboxWorkflowJournalByteError,
@@ -53,6 +52,7 @@ describe("sandbox limits", () => {
 			},
 			bridge: {
 				concurrentHostCalls: 4,
+				outstandingHostCalls: 5,
 				requestBytes: 1_048_576,
 				responseBytes: 10_485_760,
 				durableResponseBytes: 12_582_912,
@@ -76,6 +76,9 @@ describe("sandbox limits", () => {
 				disposalMs: 2_000,
 				absoluteMs: 300_000,
 				settlementMs: 30_000,
+				monitorIntervalMs: 1_000,
+				restartBackoffMs: 30_000,
+				probationAdmissionMs: 20_000,
 				heapHeadroomBytes: 67_108_864,
 				rssOverheadBytes: 134_217_728,
 				rssCeilingBytes: 1_610_612_736,
@@ -117,10 +120,6 @@ describe("sandbox limits", () => {
 		expect(
 			sandboxHttpRequestBodyError("🙂".repeat(SANDBOX_LIMITS.http.requestBytes / 4 + 1)),
 		).toContain("1048576 UTF-8 bytes");
-		expect(sandboxRunnerRequestError("a".repeat(SANDBOX_LIMITS.execution.requestBytes))).toBeNull();
-		expect(
-			sandboxRunnerRequestError("🙂".repeat(SANDBOX_LIMITS.execution.requestBytes / 4 + 1)),
-		).toContain("2097152 UTF-8 bytes");
 		const exactContext = "a".repeat(SANDBOX_LIMITS.execution.contextBytes - 2);
 		const oversizedContext = `${exactContext}a`;
 		expect(jsonByteLength(exactContext)).toBe(65_536);

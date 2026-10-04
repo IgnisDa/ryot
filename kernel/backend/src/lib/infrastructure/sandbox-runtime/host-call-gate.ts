@@ -8,28 +8,18 @@ import {
 	type WorkflowReplayJournalEntry,
 } from "@ryot-app/sandbox-sdk/workflow";
 import type { Scope, Tracer } from "effect";
-import {
-	Cause,
-	Clock,
-	Context,
-	Data,
-	Deferred,
-	Effect,
-	Layer,
-	Option,
-	Schema,
-	Semaphore,
-} from "effect";
+import { Clock, Context, Data, Deferred, Effect, Layer, Option, Schema, Semaphore } from "effect";
 import { Base64 } from "effect/encoding";
 
 import { recordSandboxHostCall, sandboxMetricHostFunction } from "../runtime-metrics";
 import { SANDBOX_JOURNAL_CHUNK_BYTES } from "../sandbox-journal-store";
 import { isSandboxCapability } from "./capability-policy";
+import { catchNonInterrupt } from "./catch-non-interrupt";
 import type { SandboxFileAccess } from "./file-service";
 import { sandboxHostResultBytes, sandboxHostResultWireBytes } from "./host-execution-policy";
 import { SandboxInlineProgress } from "./inline-progress";
 import { encodedJsonBytes } from "./json-bytes";
-import { consumeSandboxHostCall, SANDBOX_LIMITS } from "./limits";
+import { consumeSandboxHostCall, KiB, SANDBOX_LIMITS } from "./limits";
 import { isSandboxCapabilityAllowed, type BoundHostFunction, type SandboxRunInput } from "./shared";
 import { makeSandboxShortWait } from "./short-wait";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
@@ -173,9 +163,7 @@ type SidecarHostResultFrameType = typeof SidecarHostResultFrame.Type;
 type SandboxInvocationJournal = (typeof SandboxInvocationSchema.Type)["journal"];
 const scriptBudgetSchema = Schema.Struct({ settledMs: Schema.Finite, remainingMs: Schema.Finite });
 
-export class GateError extends Data.TaggedError("SandboxHostCallGateError")<{
-	readonly reason: string;
-}> {}
+class GateError extends Data.TaggedError("SandboxHostCallGateError")<{ readonly reason: string }> {}
 
 export type SandboxHostCallGateOptions = {
 	readonly instance: string;
@@ -293,12 +281,10 @@ type GateAction = (
 	retain: (bytes: number) => void,
 ) => Effect.Effect<SidecarHostResultFrameType, GateError>;
 
-const releaseOnReturn: SandboxHostResultDelivery = (_reply, released) => Effect.sync(released);
-
-const errorResponse = (frame: SidecarHostCallFrameType, error: unknown) =>
-	hostResultFrame(frame, safeHostFailure(error));
 const closeResult = (frame: SidecarHostCallFrameType) =>
 	frameFailure(frame, "Sandbox execution is no longer active");
+
+const releaseOnReturn: SandboxHostResultDelivery = (_reply, released) => Effect.sync(released);
 
 export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 	"SandboxHostCallGate",
@@ -494,10 +480,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 										outcome: exit._tag === "Success" ? "success" : "failure",
 									}),
 						),
-						Effect.catchCauseIf(
-							(cause) => !Cause.hasInterrupts(cause),
-							() => Effect.succeed(hostFailure(failureMessage)),
-						),
+						catchNonInterrupt(() => Effect.succeed(hostFailure(failureMessage))),
 						Effect.map((value) => hostResultFrame(frame, value)),
 						Effect.withSpan(`sandbox.host.${name}`, {
 							attributes: { executionId, functionName: name },
@@ -625,7 +608,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							progressBoundBytes +=
 								Math.min(wireBytes, SANDBOX_LIMITS.bridge.responseBytes) +
 								2 * encoder.encode(encodeHostRequestJson(request)).byteLength +
-								8 * 1024;
+								8 * KiB;
 						}
 						if (
 							valueBytes > SANDBOX_TRANSIENT_MEMORY.inlineValueBytes ||
@@ -665,10 +648,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 								duration: SANDBOX_LIMITS.sidecar.settlementMs,
 							}),
 							Effect.match({ onFailure: () => null, onSuccess: (value) => value }),
-							Effect.catchCauseIf(
-								(cause) => !Cause.hasInterrupts(cause),
-								() => Effect.succeed(null),
-							),
+							catchNonInterrupt(() => Effect.succeed(null)),
 							Effect.ensuring(
 								Clock.currentTimeMillis.pipe(
 									Effect.flatMap((endedAt) =>
@@ -743,10 +723,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						);
 						return totalResult;
 					}).pipe(
-						Effect.catchCauseIf(
-							(cause) => !Cause.hasInterrupts(cause),
-							() => Effect.succeed(hostResultFrame(frame, { defer: true })),
-						),
+						catchNonInterrupt(() => Effect.succeed(hostResultFrame(frame, { defer: true }))),
 						Effect.withSpan("sandbox.host.inlineBatch", {
 							attributes: { executionId, functionName: "inlineBatch" },
 						}),
@@ -820,9 +797,6 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							if (budgetError) {
 								return frameFailure(frame, budgetError.message, budgetError.reason);
 							}
-						}
-						if (frame.name === "replayJournal") {
-							return frameFailure(frame, "Sandbox host function is not available");
 						}
 						const argsBytes = base64DecodedLength(frame.args);
 						if (argsBytes > SANDBOX_LIMITS.bridge.requestBytes) {
@@ -917,9 +891,8 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							? frameFailure(frame, "Sandbox host call queue is full")
 							: response;
 					}).pipe(
-						Effect.catchCauseIf(
-							(cause) => !Cause.hasInterrupts(cause),
-							(cause) => Effect.succeed(errorResponse(frame, cause)),
+						catchNonInterrupt((cause) =>
+							Effect.succeed(hostResultFrame(frame, safeHostFailure(cause))),
 						),
 					);
 

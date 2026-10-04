@@ -15,9 +15,8 @@ import {
 	runBytes,
 	sandboxMemoryPlan,
 } from "./memory-plan";
+import { isResidentInstance } from "./sidecar-instance";
 import { SIDECAR_PROTOCOL_LIMITS } from "./sidecar-protocol";
-
-const resident = (instance: string) => instance === "system/core" || instance === "user/core";
 
 const laneSchema = Schema.Struct({
 	lane: ExecutionLane,
@@ -190,7 +189,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				const current = {
 					bytes: 0,
 					generation,
-					lane: resident(instance) ? undefined : lease?.lane,
+					lane: isResidentInstance(instance) ? undefined : lease?.lane,
 				};
 				const startup =
 					lease === undefined ? undefined : encodeLane({ instance, generation, lane: lease.lane });
@@ -201,7 +200,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 				yield* Effect.addFinalizer(() =>
 					Effect.sync(() => {
 						if (instances.get(instance) === current) {
-							if (!resident(instance)) {
+							if (!isResidentInstance(instance)) {
 								state.bytes -= current.bytes;
 							}
 							instances.delete(instance);
@@ -212,10 +211,13 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 						}
 					}),
 				);
-				const credit = Math.min(lease?.startupBytes ?? 0, resident(instance) ? 0 : processBytes);
+				const credit = Math.min(
+					lease?.startupBytes ?? 0,
+					isResidentInstance(instance) ? 0 : processBytes,
+				);
 				yield* reserveBytes(
 					lease?.lane,
-					(resident(instance) ? 0 : processBytes) - credit,
+					(isResidentInstance(instance) ? 0 : processBytes) - credit,
 					() => {
 						current.bytes = processBytes;
 						if (lease !== undefined) {
@@ -267,7 +269,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 									return yield* limitError("Sandbox reservation owner closed while waiting");
 								}
 								const startupBytes =
-									resident(runInstance) || (instances.get(runInstance)?.bytes ?? 0) > 0
+									isResidentInstance(runInstance) || (instances.get(runInstance)?.bytes ?? 0) > 0
 										? 0
 										: processBytes;
 								const amount = runBytes + startupBytes;

@@ -21,7 +21,7 @@ import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } 
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 import type { WorkflowDurableResult, WorkflowInlineRequest } from "@ryot-app/sandbox-sdk/workflow";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Effect, PlatformError, Schema } from "effect";
+import { Clock, DateTime, Effect, PlatformError, Schema } from "effect";
 
 import {
 	lifecycleActor,
@@ -34,11 +34,9 @@ import {
 	sandboxCapabilityRequirement,
 	type SANDBOX_CAPABILITY_REQUIREMENTS,
 } from "./capability-policy";
-import type { SandboxExecutionPrincipal } from "./execution-principal";
+import { sandboxSubjectUserId, type SandboxExecutionPrincipal } from "./execution-principal";
 import type { SandboxInlineProgress } from "./inline-progress";
 import type { SandboxShortWait } from "./short-wait";
-
-export { isJsonValue } from "@ryot-app/contract/schema/json";
 
 export type SandboxInlineDurableHost = {
 	readonly capabilities: ReadonlyArray<SandboxHostCapability>;
@@ -53,7 +51,7 @@ export type SandboxInlineDurableHost = {
 export type SandboxRunInput = {
 	readonly lane: ExecutionLane;
 	readonly context: unknown;
-	readonly startedAt?: string;
+	readonly startedAt: string;
 	readonly executionId: string;
 	readonly compiledCode: string;
 	readonly compiledFormat: number;
@@ -79,13 +77,13 @@ export type UserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput>
 	};
 };
 
-export type DirectUserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
+type DirectUserSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
 	readonly principal: Input["principal"] & {
 		readonly subject: Extract<SandboxExecutionPrincipal["subject"], { readonly type: "user" }>;
 	};
 };
 
-export type SystemSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
+type SystemSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
 	readonly principal: Input["principal"] & {
 		readonly subject:
 			| Extract<SandboxExecutionPrincipal["subject"], { readonly type: "system" }>
@@ -95,7 +93,7 @@ export type SystemSandboxRunInput<Input extends SandboxRunInput = SandboxRunInpu
 	};
 };
 
-export type SystemProviderSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> =
+type SystemProviderSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> =
 	SystemSandboxRunInput<Input> & {
 		readonly principal: Input["principal"] & {
 			readonly providerId: NonNullable<SandboxExecutionPrincipal["providerId"]>;
@@ -171,13 +169,12 @@ export const sandboxHostEffect = <A, E>(effect: Effect.Effect<A, E>) =>
 export const toSandboxJsonValue = (value: unknown): JsonValue =>
 	isJsonValue(value) ? value : null;
 
-export const sandboxRunUserId = (input: SandboxRunInput) => {
-	const subject = input.principal.subject;
-	if (subject.type === "automation-run") {
-		return subject.executionUserId;
-	}
-	return subject.type === "user" ? subject.userId : null;
-};
+export const sandboxStartedAt = Effect.map(Clock.currentTimeMillis, (millis) =>
+	DateTime.formatIso(DateTime.makeUnsafe(millis)),
+);
+
+export const sandboxRunUserId = (input: SandboxRunInput) =>
+	sandboxSubjectUserId(input.principal.subject);
 
 export const sandboxRunIntegrationId = (input: UserSandboxRunInput) => {
 	if (input.principal.subject.type === "user") {
@@ -237,7 +234,7 @@ export const sandboxLifecycleCommand = (
 		);
 		const integrationId = subject.type === "user" ? subject.integrationId : undefined;
 		const actor = lifecycleActor(subject.type === "user" ? subject : null);
-		return yield* Schema.decodeUnknownEffect(LifecycleCommand)({
+		return yield* Schema.decodeEffect(LifecycleCommand)({
 			itemIdentity,
 			occurredAt: input.startedAt,
 			accountGeneration: actor.accountGeneration,
@@ -264,15 +261,14 @@ export const reportSandboxLifecycleWarnings = (
 				Effect.annotateLogs({ capability, warnings: JSON.stringify(warnings) }),
 			);
 
-export type AutomationRunSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> =
-	Input & {
-		readonly principal: Input["principal"] & {
-			readonly subject: Extract<
-				SandboxExecutionPrincipal["subject"],
-				{ readonly type: "automation-run" }
-			>;
-		};
+type AutomationRunSandboxRunInput<Input extends SandboxRunInput = SandboxRunInput> = Input & {
+	readonly principal: Input["principal"] & {
+		readonly subject: Extract<
+			SandboxExecutionPrincipal["subject"],
+			{ readonly type: "automation-run" }
+		>;
 	};
+};
 
 type CapabilitySubject<Capability extends SandboxHostCapability> =
 	(typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability]["subjects"][number];
@@ -285,7 +281,7 @@ type SandboxRunInputForSubject<Input extends SandboxRunInput, Subject> = Subject
 			? SystemSandboxRunInput<Input>
 			: never;
 
-export type SandboxRunInputForCapability<
+type SandboxRunInputForCapability<
 	Capability extends SandboxHostCapability,
 	Input extends SandboxRunInput = SandboxRunInput,
 > = (typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability] extends { readonly requiresProvider: true }
@@ -293,14 +289,6 @@ export type SandboxRunInputForCapability<
 	: "system" extends CapabilitySubject<Capability>
 		? SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>
 		: SandboxRunInputForSubject<Input, CapabilitySubject<Capability>> & UserSandboxRunInput<Input>;
-
-export const sandboxMetadataKind = (metadata: unknown) =>
-	typeof metadata === "object" &&
-	metadata !== null &&
-	"kind" in metadata &&
-	typeof metadata.kind === "string"
-		? metadata.kind
-		: undefined;
 
 const sandboxCapabilityError = (
 	input: Pick<SandboxRunInput, "principal">,
@@ -330,9 +318,7 @@ const sandboxCapabilityError = (
 		}
 		if (
 			requirement.systemKinds &&
-			!requirement.systemKinds.some(
-				(kind) => kind === sandboxMetadataKind(input.principal.metadata),
-			)
+			!requirement.systemKinds.some((kind) => kind === input.principal.metadata.kind)
 		) {
 			return `${capability} is not available to this system execution`;
 		}
@@ -364,7 +350,7 @@ const sandboxCapabilityError = (
 	return undefined;
 };
 
-export const isSandboxCapabilityInput = <
+const isSandboxCapabilityInput = <
 	Capability extends SandboxHostCapability,
 	Input extends SandboxRunInput,
 >(
