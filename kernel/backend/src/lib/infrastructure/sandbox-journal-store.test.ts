@@ -27,7 +27,7 @@ const entry = (index: number, value: string) => ({
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 layer(testRedisServiceLayer)((test) => {
-	test.effect("journal_inspection_pins_exact_prefix_bytes_without_returning_values", () =>
+	test.effect("journal inspection pins exact prefix bytes without returning values", () =>
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
 			const executionId = testExecutionId("inspect-prefix");
@@ -50,7 +50,7 @@ layer(testRedisServiceLayer)((test) => {
 		}),
 	);
 
-	test.effect("journal_inspection_bounds_reply_before_loading_values", () =>
+	test.effect("journal inspection bounds reply before loading values", () =>
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
 			const executionId = testExecutionId("oversized-inspection");
@@ -73,7 +73,7 @@ layer(testRedisServiceLayer)((test) => {
 		}),
 	);
 
-	test.effect("lazy_journal_reads_serve_pinned_chunks_without_backend_prefix", () =>
+	test.effect("lazy journal reads serve pinned chunks without backend prefix", () =>
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
 			const executionId = testExecutionId("chunked");
@@ -118,7 +118,7 @@ layer(testRedisServiceLayer)((test) => {
 		}),
 	);
 
-	test.effect("journal_chunk_reads_hold_cancellation_until_the_reply_lands", () =>
+	test.effect("journal chunk reads hold cancellation until the reply lands", () =>
 		Effect.gen(function* () {
 			const started = yield* Deferred.make<void>();
 			const pending = Promise.withResolvers<unknown>();
@@ -145,7 +145,7 @@ layer(testRedisServiceLayer)((test) => {
 		}),
 	);
 
-	test.effect("journal_projection_rejects_divergent_chunk_appends", () =>
+	test.effect("journal projection rejects divergent chunk appends", () =>
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
 			const executionId = testExecutionId("divergent");
@@ -176,7 +176,7 @@ layer(testRedisServiceLayer)((test) => {
 		}),
 	);
 
-	test.effect("journal_inspection_rejects_invalid_lengths_and_unavailable_state", () =>
+	test.effect("journal inspection rejects invalid lengths and unavailable state", () =>
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
 			const executionId = testExecutionId("invalid-inspection");

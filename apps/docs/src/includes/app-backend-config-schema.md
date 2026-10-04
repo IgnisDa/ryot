@@ -51,16 +51,16 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `sandbox.workerConcurrency` | `SANDBOX_WORKER_CONCURRENCY` | Global sandbox execution concurrency across trust and snapshot tiers; keep it within available database and memory headroom | No | No | `2` |
+| `sandbox.memoryBudgetMiB` | `SANDBOX_MEMORY_BUDGET_MIB` | Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset | No | No | — |
 | `sandbox.perUserSidecars` | `SANDBOX_PER_USER_SIDECARS` | Run each plugin owner's user-tier scripts in their own sidecar processes instead of shared ones; use when mutually untrusted users share an instance | No | No | `false` |
 | `sandbox.importConcurrency` | `SANDBOX_IMPORT_CONCURRENCY` | Maximum provider imports running at once across all instances; the rest wait in a queue. Keep it equal to the total SANDBOX_WORKER_CONCURRENCY of all instances | No | No | `2` |
-| `sandbox.memoryBudgetMiB` | `SANDBOX_MEMORY_BUDGET_MIB` | Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset | No | No | — |
 
 ### PostgreSQL connection settings
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `database.url` | `DATABASE_URL` | PostgreSQL connection string | Yes | Yes | — |
-| `database.poolMax` | `DATABASE_POOL_MAX` | Maximum number of PostgreSQL connections shared by application and workflow operations | No | No | `10` |
+| `database.poolMax` | `DATABASE_POOL_MAX` | Total PostgreSQL connections one process may open: SANDBOX_WORKER_CONCURRENCY + 4 for application and workflow work, and the remainder for sandbox host database calls | No | No | `10` |
 | `database.connectionTimeoutMs` | `DATABASE_CONNECTION_TIMEOUT_MS` | Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool | No | No | `10000` |
 
 ### Frontend display settings

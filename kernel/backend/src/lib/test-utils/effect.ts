@@ -164,17 +164,16 @@ export const makeAppConfigLayer = (
 			retryWindowDays: 7,
 			historyRetentionDays: 30,
 		},
-		scheduler: {
-			disableDispatchers: false,
-			infrequentCronJobsSchedule: "0 0 * * *",
-			frequentCronJobsSchedule: "every 5 minutes",
-		},
 		sandbox: {
 			importConcurrency: 2,
 			workerConcurrency: 2,
 			perUserSidecars: false,
 			memoryBudgetMiB: Option.none(),
-			runtimeDirectory: "./sandboxd",
+		},
+		scheduler: {
+			disableDispatchers: false,
+			infrequentCronJobsSchedule: "0 0 * * *",
+			frequentCronJobsSchedule: "every 5 minutes",
 		},
 		observability: {
 			otlp: { headers: Option.none(), endpoint: Option.none() },
