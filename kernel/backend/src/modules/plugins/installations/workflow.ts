@@ -1,13 +1,13 @@
 import { InternalError, internalError } from "@ryot-app/contract/errors";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/workflow";
 import { WorkflowEngine, type WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";

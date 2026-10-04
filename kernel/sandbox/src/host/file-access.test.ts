@@ -158,9 +158,7 @@ const makeInput = (
 	principal: {
 		subject,
 		contentHash: "",
-		providerId: null,
 		pluginRevision: null,
-		scriptSlug: "file-service-script",
 		scriptId: SandboxScriptId.make("file-service-script"),
 		metadata: { kind: "script", runtimeImports: [], capabilities: [...capabilities] },
 	},

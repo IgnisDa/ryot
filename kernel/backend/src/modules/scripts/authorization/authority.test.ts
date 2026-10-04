@@ -4,7 +4,6 @@ import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/s
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { nativeRecoveryLayer } from "@ryot-app/sandbox/host/recovery-native.test-support";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
@@ -25,6 +24,7 @@ import { ScriptExecutionWorkflowPayload } from "../executions/workflow-payload";
 import { SandboxPluginScriptResolver } from "../registry/plugin-script-resolver";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxExecutionAuthorityLive } from "./authority";
+import { ScriptExecutionPrincipal } from "./principal";
 
 type PersistedScript = Parameters<PluginRepository["Service"]["persistKernelScript"]>[0];
 

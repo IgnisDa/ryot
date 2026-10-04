@@ -8,9 +8,7 @@ import { SandboxSidecarAdmission } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { SandboxHostCallScope } from "@ryot-app/sandbox/host/config";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
-import { makeUserPluginRevision } from "@ryot-app/sandbox/host/executor.test-support";
 import { sandboxRedisKeys } from "@ryot-app/sandbox/host/redis";
-import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { sql } from "drizzle-orm";
 import {
@@ -31,6 +29,8 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { WorkflowEngineLive } from "#boot/workflow-engine";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { makeUserPluginRevision } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import { unusedSandboxHostImplementations } from "#modules/scripts/host/host-implementations.test-support";
 import {

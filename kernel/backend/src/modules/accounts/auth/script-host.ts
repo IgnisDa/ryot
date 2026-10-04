@@ -1,11 +1,11 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
-import {
-	requireSandboxCapabilityInput,
-	sandboxHostEffect,
-	type AdditionalSandboxHostImplementationMap,
-} from "@ryot-app/sandbox/host/invocation";
+import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
+import {
+	type AdditionalScriptHostImplementationMap,
+	requireSandboxCapabilityInput,
+} from "#modules/scripts/authorization/capabilities";
 import { userSandboxRunUserId } from "#modules/scripts/host/execution-context";
 
 import { AuthRepository } from "./repository";
@@ -35,5 +35,5 @@ export const makeAuthScriptHost = Effect.gen(function* () {
 				Effect.flatMap((input) => readUserPreferences(UserId.make(userSandboxRunUserId(input)))),
 				sandboxHostEffect,
 			),
-	} satisfies Pick<AdditionalSandboxHostImplementationMap, "getUserPreferences">;
+	} satisfies Pick<AdditionalScriptHostImplementationMap, "getUserPreferences">;
 });

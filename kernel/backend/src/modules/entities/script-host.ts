@@ -2,21 +2,20 @@ import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugi
 import { EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { createUserEntityArgsSchema } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
-import {
-	requireSandboxCapabilityInput,
-	sandboxHostEffect,
-	sandboxHostFailure,
-	type AdditionalSandboxHostImplementationMap,
-	type SandboxRunInput,
-} from "@ryot-app/sandbox/host/invocation";
+import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Schema } from "effect";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { runLifecycleWriteInline } from "#modules/automations/lifecycle/write-step";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { readScriptEntitySchemas } from "#modules/definitions/script-host";
+import {
+	type AdditionalScriptHostImplementationMap,
+	requireSandboxCapabilityInput,
+	type ScriptRunInput,
+} from "#modules/scripts/authorization/capabilities";
+import { principalOwner } from "#modules/scripts/authorization/principal";
 import {
 	reportSandboxLifecycleWarnings,
 	sandboxLifecycleCommand,
@@ -78,7 +77,7 @@ export const entityLifecycleHostSteps = (entities: EntitiesService["Service"]) =
 						: { status: result.status, entityId: result.entityId, wasInserted: result.wasInserted },
 				),
 			validate: (
-				rawInput: SandboxRunInput,
+				rawInput: ScriptRunInput,
 				items: LifecycleHostInput<"UpsertGlobalEntities">["items"],
 				options: LifecycleHostInput<"UpsertGlobalEntities">["options"] | undefined,
 			): Effect.Effect<LifecycleHostInput<"UpsertGlobalEntities">, SandboxHostError> =>
@@ -224,7 +223,7 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 				}),
 			),
 	} satisfies Pick<
-		AdditionalSandboxHostImplementationMap,
+		AdditionalScriptHostImplementationMap,
 		"createUserEntity" | "ensureUserEntities" | "upsertGlobalEntities"
 	>;
 });

@@ -2,17 +2,18 @@
 
 The sandbox isolates script activations. It owns the `ryot-sandboxd` daemon and its launcher
 (`native/`), the trusted guest runner evaluated inside each isolate (`src/guest`), the parent/daemon
-messages, runtime limits, and invocation principal (`src/protocol`), and the backend-side host that
+messages and runtime limits (`src/protocol`), and the backend-side host that
 supervises daemons, admits runs, validates host calls, and bounds execution files (`src/host`).
 
-`SandboxExecutor.run` executes one validated activation. The host never loads plugins, resolves
-authority, or implements product capabilities; the backend provides them through these ports:
+`SandboxExecutor.run` executes one validated activation for a `SandboxPrincipal`, the runtime-facing
+part of the backend's execution principal. The host never loads plugins, resolves authority, decides
+product eligibility, or implements product capabilities; the backend provides them through these ports:
 
 | Port                        | Supplies                                                                                |
 | --------------------------- | --------------------------------------------------------------------------------------- |
 | `SandboxHostConfig`         | Run identity, temporary directory, worker concurrency, memory budget, per-user sidecars |
 | `SandboxHostCallScope`      | The bound that host-call work runs under (the backend's database lease)                 |
-| `SandboxHostFunctions`      | Host-function implementations keyed by capability                                       |
+| `SandboxHostFunctions`      | Per-run host functions, bound to the execution and limited to its eligible capabilities |
 | `SandboxExecutionAuthority` | The trust tier of a principal, reloaded from persisted authority                        |
 | `SandboxRedis`              | The client for recovery, quarantine, and crash state under `ryot:sandbox:*` keys        |
 
@@ -28,19 +29,12 @@ Every execution carries a lane, `interactive` or `background`, chosen by its ini
 
 On Linux, the launcher path is fixed at `/usr/local/libexec/ryot-sandbox-launcher`. The launcher, executable, and snapshots are fixed and root-owned; runtime UIDs are 1001/1002, with isolates running as UID 1002. Isolates are non-dumpable, have core dumps disabled and no environment, and inherit only the socket. Landlock and seccomp enforce deny-all policies. The launcher verifies pidfd identity and attestation before terminating a child; there is no fallback when a required control fails. On non-Linux systems, the sidecar runs from `dist/` and execution is explicitly unconfined.
 
-## Capability Ceiling
+## Capability Selection
 
-The role table is the runtime policy ceiling. A script receives only methods permitted for its trusted principal and present in its pinned compiled capability list. `scratch` and `artifact-read` are filesystem grants, not host calls.
-
-| Principal or role                 | Available bridge capabilities                                                                                                                                                            |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| All valid subjects                | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPersistentValue`, `getPluginConfig`, `claimPersistentValue`                                                           |
-| User or user automation run       | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
-| Designated user-bootstrap script  | `ensureUserEntities` for that plugin's entity schemas, in either plugin scope                                                                                                            |
-| User-subject plugin script        | `createUserEntity` for one user-owned entity whose schema belongs to that plugin                                                                                                         |
-| Pinned system-scope plugin script | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                             |
-| User or system automation run     | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                               |
-| Integration run of its own plugin | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                             |
+A run binds only declared capabilities that the backend supplied for it, then drops filesystem grants,
+workflow-dispatched and unbounded-result capabilities from live executions. Inline durable requests
+are limited to the capabilities the backend lists for the run. Each bound call re-resolves authority
+before it runs.
 
 ## Execution Files
 

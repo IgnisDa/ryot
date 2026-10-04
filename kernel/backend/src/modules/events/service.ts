@@ -27,7 +27,6 @@ import type {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import {
 	Cause,
@@ -72,6 +71,7 @@ import {
 	catalogDefinitionFingerprint,
 	type CatalogDefinitionFingerprint,
 } from "#modules/plugins/catalog/runtime-resolver";
+import { principalOwner } from "#modules/scripts/authorization/principal";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import {

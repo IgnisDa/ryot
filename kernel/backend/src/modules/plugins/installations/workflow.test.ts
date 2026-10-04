@@ -1,11 +1,11 @@
 import { expect, it, layer } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { makeUserPluginRevision } from "@ryot-app/sandbox/host/executor.test-support";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { makeUserPluginRevision } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";

@@ -1,4 +1,5 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
+import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import { jsonByteLength, utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
@@ -18,8 +19,7 @@ import {
 } from "../protocol/messages";
 import { SandboxAdmissionLease } from "./admission";
 import { SandboxExecutionAuthority } from "./authority";
-import { bindSandboxHostFunctions } from "./bridge-adapter";
-import { isSandboxCapability } from "./capability-policy";
+import { bindObservabilityHostFunctions } from "./bridge-adapter";
 import { ExecutionFiles } from "./file-access";
 import { isSandboxFilesystemGrantCapability } from "./filesystem-grants";
 import { SandboxHostCallGate } from "./host-call-gate";
@@ -29,7 +29,6 @@ import {
 } from "./host-execution-policy";
 import { SandboxHostFunctions } from "./host-functions";
 import {
-	isSandboxCapabilityAllowed,
 	toSandboxHostError,
 	sandboxPlatformFailureKind,
 	type BoundHostFunction,
@@ -68,12 +67,11 @@ export const selectSandboxHostFunctions = (
 		input.workflowExecutionId !== undefined || input.principal.metadata.kind === "workflow";
 	for (const name of input.principal.metadata.capabilities ?? []) {
 		if (
-			!isSandboxCapability(name) ||
+			!isSandboxHostCapability(name) ||
 			isSandboxFilesystemGrantCapability(name) ||
 			(workflow && name !== "log" && name !== "span") ||
 			!resourceFreeStrategies.has(sandboxDurableHostDispatchStrategy(name)) ||
-			sandboxHostResultBytes(name) === null ||
-			!isSandboxCapabilityAllowed(input, name)
+			sandboxHostResultBytes(name) === null
 		) {
 			continue;
 		}
@@ -90,7 +88,7 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()("Sandbox
 		const supervisor = yield* SandboxSidecarSupervisor;
 		const gate = yield* SandboxHostCallGate;
 		const files = yield* ExecutionFiles;
-		const apiFunctions = yield* SandboxHostFunctions;
+		const hostFunctions = yield* SandboxHostFunctions;
 		const authority = yield* SandboxExecutionAuthority;
 		const run = Effect.fn("SandboxExecutor.run")(function* (input: SandboxRunInput) {
 			const executionStartedAt = yield* Clock.currentTimeMillis;
@@ -126,10 +124,13 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()("Sandbox
 					const parentSpan = yield* Effect.currentSpan;
 					const collector = makeSandboxObservabilityCollector();
 					const selected = selectSandboxHostFunctions(
-						bindSandboxHostFunctions(
-							{ ...apiFunctions, ...makeObservabilitySandboxApiFunctions(collector) },
-							input,
-						),
+						{
+							...(yield* hostFunctions.bind(input)),
+							...bindObservabilityHostFunctions(
+								makeObservabilitySandboxApiFunctions(collector),
+								input,
+							),
+						},
 						input,
 					);
 					const result = yield* supervisor.run({

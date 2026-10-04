@@ -1,10 +1,13 @@
-import { Context } from "effect";
+import type { SandboxRunError } from "@ryot-app/contract/errors";
+import { Context, type Effect } from "effect";
 
-import type { SandboxHostImplementationMap } from "./invocation";
-
-export type SandboxHostFunctionMap = Omit<SandboxHostImplementationMap, "log" | "span">;
+import type { BoundHostFunction, SandboxRunInput } from "./invocation";
 
 export class SandboxHostFunctions extends Context.Service<
 	SandboxHostFunctions,
-	SandboxHostFunctionMap
+	{
+		readonly bind: (
+			input: SandboxRunInput,
+		) => Effect.Effect<Readonly<Record<string, BoundHostFunction>>, SandboxRunError>;
+	}
 >()("SandboxHostFunctions") {}

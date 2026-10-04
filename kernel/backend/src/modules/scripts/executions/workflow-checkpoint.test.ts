@@ -9,7 +9,6 @@ import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import {
 	Cause,
@@ -33,6 +32,7 @@ import {
 	WorkflowInstance,
 } from "effect/workflow/WorkflowEngine";
 
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
 import { RedisService } from "#platform/redis";
 import { implementWorkflow } from "#platform/workflow/scope";

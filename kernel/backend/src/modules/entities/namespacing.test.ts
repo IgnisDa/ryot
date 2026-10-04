@@ -10,7 +10,6 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { and, eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -40,6 +39,7 @@ import {
 import { testPluginPackageId } from "#modules/plugins/test-support";
 import { relationshipDatabaseLayer } from "#modules/relationships/lifecycle.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";

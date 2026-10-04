@@ -1,13 +1,12 @@
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import {
-	requireSandboxCapabilityInput,
-	sandboxHostEffect,
-	sandboxHostFailure,
-	type AdditionalSandboxHostImplementationMap,
-} from "@ryot-app/sandbox/host/invocation";
+import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect, Schema } from "effect";
 
+import {
+	type AdditionalScriptHostImplementationMap,
+	requireSandboxCapabilityInput,
+} from "#modules/scripts/authorization/capabilities";
 import {
 	sandboxDefinitionReadContext,
 	sandboxRunUserId,
@@ -74,5 +73,5 @@ export const makeRyotQLScriptHost = Effect.gen(function* () {
 					);
 				}),
 			),
-	} satisfies Pick<AdditionalSandboxHostImplementationMap, "executeRyotql">;
+	} satisfies Pick<AdditionalScriptHostImplementationMap, "executeRyotql">;
 });

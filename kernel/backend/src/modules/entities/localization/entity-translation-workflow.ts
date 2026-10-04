@@ -2,12 +2,12 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#boot/workflow-engine";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 
 export const TranslateEntityWorkflowPayload = Schema.Struct({
 	userId: UserId,

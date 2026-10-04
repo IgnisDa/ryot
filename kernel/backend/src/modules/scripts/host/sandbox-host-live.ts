@@ -1,6 +1,9 @@
 import { PgClient } from "@effect/sql-pg";
+import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
+import { bindSandboxHostFunctions } from "@ryot-app/sandbox/host/bridge-adapter";
 import { SandboxHostCallScope, SandboxHostConfig } from "@ryot-app/sandbox/host/config";
 import { SandboxHostFunctions } from "@ryot-app/sandbox/host/host-functions";
+import type { SandboxRunInput } from "@ryot-app/sandbox/host/invocation";
 import { SandboxRedis } from "@ryot-app/sandbox/host/redis";
 import { Effect, Layer, Pool } from "effect";
 import { Reactivity } from "effect/reactivity";
@@ -10,6 +13,8 @@ import { DatabaseConnectionLimit } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
 import { ServerRun } from "#platform/server-run";
 
+import { isSandboxCapabilityAllowed } from "../authorization/capabilities";
+import { decodeScriptExecutionPrincipal } from "../authorization/principal";
 import { ScriptHostImplementations } from "./host-implementations";
 
 export const SandboxHostConfigLive = Layer.effect(
@@ -60,6 +65,18 @@ export const SandboxHostFunctionsLive = Layer.effect(
 	SandboxHostFunctions,
 	Effect.gen(function* () {
 		const { runtime, additional, automation } = yield* ScriptHostImplementations;
-		return { ...runtime, ...additional, ...automation };
+		const implementations = { ...runtime, ...additional, ...automation };
+		const bind = Effect.fn("SandboxHostFunctions.bind")(function* (input: SandboxRunInput) {
+			const principal = yield* decodeScriptExecutionPrincipal(input.principal);
+			const scriptInput = { ...input, principal };
+			return Object.fromEntries(
+				Object.entries(bindSandboxHostFunctions(implementations, scriptInput)).filter(
+					([capability]) =>
+						isSandboxHostCapability(capability) &&
+						isSandboxCapabilityAllowed(scriptInput, capability),
+				),
+			);
+		});
+		return { bind };
 	}),
 );

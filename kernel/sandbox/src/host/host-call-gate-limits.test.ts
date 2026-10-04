@@ -43,9 +43,7 @@ layer(sandboxGateLayer())((test) => {
 						startedAt: "2026-01-01T00:00:00.000Z",
 						principal: {
 							contentHash: "",
-							providerId: null,
 							pluginRevision: null,
-							scriptSlug: "boundary",
 							subject: { type: "system" },
 							scriptId: SandboxScriptId.make("boundary"),
 							metadata: { runtimeImports: [], capabilities: ["getCachedValue"] },

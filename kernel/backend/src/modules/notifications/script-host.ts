@@ -1,12 +1,12 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { AutomationSandboxHostImplementationMap } from "@ryot-app/plugin-backend-sdk/core";
+import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
+import { Effect } from "effect";
+
 import {
 	requireSandboxCapabilityInput,
-	sandboxHostEffect,
-	sandboxHostFailure,
-	type SandboxRunInput,
-} from "@ryot-app/sandbox/host/invocation";
-import { Effect } from "effect";
+	type ScriptRunInput,
+} from "#modules/scripts/authorization/capabilities";
 
 import { NotificationsService } from "./service";
 
@@ -31,5 +31,5 @@ export const makeNotificationScriptHost = Effect.gen(function* () {
 					);
 				}),
 			),
-	} satisfies Pick<AutomationSandboxHostImplementationMap<SandboxRunInput>, "sendNotification">;
+	} satisfies Pick<AutomationSandboxHostImplementationMap<ScriptRunInput>, "sendNotification">;
 });

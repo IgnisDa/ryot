@@ -2,11 +2,12 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
-import type { SandboxRunInput } from "@ryot-app/sandbox/host/invocation";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Cache, Context, Duration, Effect, Exit, Layer } from "effect";
+
+import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 
 import { infrastructureRunError } from "../executions/run-error";
 import { SandboxRepository } from "./repository";
@@ -16,7 +17,7 @@ class SandboxCompiledArtifactScriptId extends Context.Service<
 	SandboxScriptId
 >()("SandboxCompiledArtifactScriptId") {}
 
-type CompiledArtifact = Pick<SandboxRunInput, "compiledCode" | "compiledFormat">;
+type CompiledArtifact = Pick<ScriptRunInput, "compiledCode" | "compiledFormat">;
 
 const missingArtifact = () =>
 	new SandboxRunError({

@@ -1,14 +1,13 @@
 import { OAuthConnectionId } from "@ryot-app/contract/schema/brands";
-import {
-	requireSandboxCapabilityInput,
-	sandboxHostEffect,
-	sandboxHostFailure,
-	type AdditionalSandboxHostImplementationMap,
-	type SandboxRunInput,
-} from "@ryot-app/sandbox/host/invocation";
+import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
 import { makeAdmittedExecutionStateLoader } from "#modules/imports/script-host";
+import {
+	type AdditionalScriptHostImplementationMap,
+	requireSandboxCapabilityInput,
+	type ScriptRunInput,
+} from "#modules/scripts/authorization/capabilities";
 
 import { OAuthConnectionsService } from "./service";
 
@@ -16,7 +15,7 @@ export const makeOAuthConnectionScriptHost = Effect.gen(function* () {
 	const oauthConnections = yield* OAuthConnectionsService;
 	const loadExecutionState = yield* makeAdmittedExecutionStateLoader;
 	const loadOAuthIntegrationRun = Effect.fn("loadOAuthIntegrationRun")(function* (
-		rawInput: SandboxRunInput,
+		rawInput: ScriptRunInput,
 		operation: "getOAuthAccessToken" | "invalidateOAuthAccessToken",
 		field: string,
 	) {
@@ -88,7 +87,7 @@ export const makeOAuthConnectionScriptHost = Effect.gen(function* () {
 				}),
 			),
 	} satisfies Pick<
-		AdditionalSandboxHostImplementationMap,
+		AdditionalScriptHostImplementationMap,
 		"getOAuthAccessToken" | "invalidateOAuthAccessToken"
 	>;
 });

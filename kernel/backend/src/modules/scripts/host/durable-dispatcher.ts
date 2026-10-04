@@ -23,14 +23,14 @@ import {
 	normalizeOptionalNull,
 } from "@ryot-app/sandbox/host/bridge-adapter";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
-import { requireSandboxCapabilityInput } from "@ryot-app/sandbox/host/invocation";
 import type { SandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Context, Effect, Option, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import type { PluginHttpRateLimitAuthority } from "#modules/plugins/catalog/http-rate-limit-authority";
+import { requireSandboxCapabilityInput } from "#modules/scripts/authorization/capabilities";
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { sandboxLifecycleCommand, sandboxRunUserId } from "#modules/scripts/host/execution-context";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import type { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
@@ -146,13 +146,7 @@ export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivit
 ) {
 	const { input } = yield* loadDispatchInput(request, scope);
 	const boundFunctions = bindSandboxHostFunctions(
-		{
-			...implementations.runtime,
-			...implementations.additional,
-			...implementations.automation,
-			log: () => Effect.succeed(null),
-			span: () => Effect.succeed(null),
-		},
+		{ ...implementations.runtime, ...implementations.additional, ...implementations.automation },
 		input,
 	);
 	const bound = Object.entries(boundFunctions).find(

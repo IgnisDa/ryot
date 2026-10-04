@@ -1,12 +1,12 @@
 import type { FieldSelection, RowSelection } from "@ryot-app/contract/modules/ryotql/language";
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
-import type { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { sql } from "drizzle-orm";
 
 import { automationRunRetryEligibility } from "#modules/automations/retry-eligibility";
 import type { DefinitionReadContext } from "#modules/definitions/read-context";
 import { ingestionReadinessMetadataSql } from "#modules/plugins/catalog/readiness-projection";
+import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 
 import { ingestionActivitiesSql, ingestionSummarySql } from "./ingestion-projection";
 

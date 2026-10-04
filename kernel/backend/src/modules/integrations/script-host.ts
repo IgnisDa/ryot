@@ -1,10 +1,8 @@
 import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import {
-	requireSandboxCapabilityInput,
 	sandboxHostEffect,
 	sandboxHostFailure,
 	toSandboxJsonValue,
-	type AdditionalSandboxHostImplementationMap,
 } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
@@ -12,6 +10,10 @@ import {
 	admittedImportRunId,
 	makeAdmittedExecutionStateLoader,
 } from "#modules/imports/script-host";
+import {
+	type AdditionalScriptHostImplementationMap,
+	requireSandboxCapabilityInput,
+} from "#modules/scripts/authorization/capabilities";
 import {
 	sandboxRunIntegrationId,
 	userSandboxRunUserId,
@@ -85,7 +87,7 @@ export const makeIntegrationScriptHost = Effect.gen(function* () {
 				}),
 			),
 	} satisfies Pick<
-		AdditionalSandboxHostImplementationMap,
+		AdditionalScriptHostImplementationMap,
 		"getCurrentIntegration" | "listIntegrations"
 	>;
 });

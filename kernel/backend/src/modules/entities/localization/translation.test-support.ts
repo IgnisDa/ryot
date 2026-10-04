@@ -5,9 +5,9 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { makeUserPluginRevision } from "@ryot-app/sandbox/host/executor.test-support";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { makeUserPluginRevision } from "#modules/scripts/authorization/principal.test-support";
 
 import type {
 	TranslateEntityWorkflowPayload,

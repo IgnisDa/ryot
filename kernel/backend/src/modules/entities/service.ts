@@ -18,7 +18,6 @@ import {
 	EntitySchemaSlug,
 	type SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
-import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -53,6 +52,7 @@ import {
 	MutationReceipts,
 } from "#modules/mutations/receipts";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
+import { principalOwner } from "#modules/scripts/authorization/principal";
 import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
 import { runRootTransaction } from "#platform/db/transaction";
 import { trimToNull } from "#platform/validation";

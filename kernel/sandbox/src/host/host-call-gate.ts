@@ -1,4 +1,5 @@
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
+import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { hostFailure, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
@@ -24,16 +25,11 @@ import {
 	type SidecarHostResultFrame,
 } from "../protocol/messages";
 import { SandboxSidecarAdmission } from "./admission";
-import { isSandboxCapability } from "./capability-policy";
 import { catchNonInterrupt } from "./catch-non-interrupt";
 import type { SandboxFileAccess } from "./file-access";
 import { sandboxHostResultBytes, sandboxHostResultWireBytes } from "./host-execution-policy";
 import { SandboxInlineProgress } from "./inline-progress";
-import {
-	isSandboxCapabilityAllowed,
-	type BoundHostFunction,
-	type SandboxRunInput,
-} from "./invocation";
+import type { BoundHostFunction, SandboxRunInput } from "./invocation";
 import { encodedJsonBytes } from "./json-bytes";
 import { recordSandboxHostCall, sandboxMetricHostFunction } from "./metrics";
 import { SANDBOX_JOURNAL_CHUNK_BYTES } from "./pinned-journal";
@@ -549,9 +545,7 @@ const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retai
 			requests.some(
 				(request, index) =>
 					request.index !== firstIndex + index ||
-					(request.kind === "host" &&
-						(!inline.capabilities.includes(request.args.capability) ||
-							!isSandboxCapabilityAllowed(input, request.args.capability))),
+					(request.kind === "host" && !inline.capabilities.includes(request.args.capability)),
 			) || firstIndex + requests.length > SANDBOX_LIMITS.hostCalls.total;
 		if (invalidRequest) {
 			return hostResultFrame(frame, { defer: true });
@@ -715,12 +709,7 @@ const ordinaryDispatch: GateAction = (state, options, frame, frameArgs) =>
 		const functions = state.gateFunctions;
 		const fn =
 			functions && Object.hasOwn(functions, frame.name) ? functions[frame.name] : undefined;
-		if (
-			!input ||
-			!fn ||
-			!isSandboxCapability(frame.name) ||
-			!isSandboxCapabilityAllowed(input, frame.name)
-		) {
+		if (!input || !fn || !isSandboxHostCapability(frame.name)) {
 			return frameFailure(frame, "Sandbox host function is not available");
 		}
 		return yield* boundedHostCall(options, frame, frame.name, fn(parsed));

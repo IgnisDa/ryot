@@ -6,7 +6,6 @@ import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Context, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Path, Schema } from "effect";
 
 import { SANDBOX_LIMITS } from "../protocol/limits";
-import type { ScriptExecutionPrincipal } from "../protocol/principal";
 import { SandboxSidecarAdmission } from "./admission";
 import { SandboxExecutionAuthority } from "./authority";
 import { compileTestScript } from "./compile.test-support";
@@ -24,12 +23,13 @@ import {
 } from "./host.test-support";
 import type { SandboxRunInput } from "./invocation";
 import { memoryPinnedJournal } from "./pinned-journal.test-support";
+import type { SandboxPrincipal } from "./principal";
 import { sandboxRedisKeys } from "./redis";
 import { makeUserSubject } from "./run-input.test-support";
 
 type RecordedHostCall = {
 	readonly args: ReadonlyArray<unknown>;
-	readonly subject: ScriptExecutionPrincipal["subject"];
+	readonly subject: SandboxPrincipal["subject"];
 };
 
 type NativeServiceControlValue = {
@@ -288,15 +288,12 @@ const makeRunInput = (
 	compiledCode: compiled.javascript,
 	startedAt: "2026-01-01T00:00:00.000Z",
 	principal: {
-		providerId: null,
 		metadata: compiled.manifest,
 		subject: makeUserSubject(ownerId),
-		scriptSlug: compiled.manifest.slug,
 		scriptId: SandboxScriptId.make(executionId),
 		contentHash: sha256Hex(compiled.javascript),
 		pluginRevision: makeUserPluginRevision({
 			ownerId,
-			slug: `${executionId}-plugin`,
 			compiledHashes: { [compiled.manifest.slug]: sha256Hex(compiled.javascript) },
 		}),
 	},
