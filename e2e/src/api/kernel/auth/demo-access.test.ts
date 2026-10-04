@@ -12,6 +12,7 @@ import {
 	type OAuthClientId,
 } from "@ryot-app/contract/oauth";
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { integrationRecipe } from "@ryot-app/ryotql-recipes/integrations";
 import { Effect, Option, Result, Schema } from "effect";
@@ -40,6 +41,7 @@ import {
 	updateUserSettingsPreferences,
 	waitForCreateEvents,
 	type PendingOAuth,
+	findPluginInstallationByPackage,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import {
@@ -50,6 +52,7 @@ import {
 	requireString,
 } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
+import { retargetHarness } from "~/support/isolated-harness";
 import {
 	buildApiEnv,
 	spawnApiProcess,
@@ -74,6 +77,7 @@ let integrationId: string;
 let integrationWebhookUrl: string;
 let ownerSessionCookie: string;
 let infrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let restoreHarnessTarget: Effect.Effect<void> = Effect.void;
 
 const authControlPlaneRequests = (accountId: string, apiKeyId: string) =>
 	[
@@ -115,19 +119,19 @@ const startApi = (extraEnv: Record<string, string | undefined>) =>
 			infrastructure,
 			"Demo access test infrastructure is not initialised",
 		);
-		apiProcess = spawnApiProcess(
-			buildApiEnv({
-				extraEnv,
-				frontendUrl: apiOrigin,
-				s3BucketName: S3_BUCKET_NAME,
-				label: "Demo access acceptance",
-				dbUrl: activeInfrastructure.dbUrl,
-				port: Number(new URL(apiOrigin).port),
-				redisUrl: activeInfrastructure.redisUrl,
-				s3Endpoint: activeInfrastructure.s3Endpoint,
-			}),
-		);
+		const env = buildApiEnv({
+			extraEnv,
+			frontendUrl: apiOrigin,
+			s3BucketName: S3_BUCKET_NAME,
+			label: "Demo access acceptance",
+			dbUrl: activeInfrastructure.dbUrl,
+			port: Number(new URL(apiOrigin).port),
+			redisUrl: activeInfrastructure.redisUrl,
+			s3Endpoint: activeInfrastructure.s3Endpoint,
+		});
+		apiProcess = spawnApiProcess(env);
 		yield* waitForHealthCheck(`${apiUrl}/system/health`, "Demo access acceptance", apiProcess, 90);
+		return env;
 	});
 
 const exchangeTokens = (
@@ -247,7 +251,15 @@ beforeAll(
 
 				yield* stopApiProcess(apiProcess);
 				apiProcess = undefined;
-				yield* startApi({ USERS_ALLOW_REGISTRATION: "false", USERS_DEMO_ACCOUNT_ID: demoUserId });
+				const env = yield* startApi({
+					USERS_ALLOW_REGISTRATION: "false",
+					USERS_DEMO_ACCOUNT_ID: demoUserId,
+				});
+				restoreHarnessTarget = yield* retargetHarness({
+					origin: apiOrigin,
+					serverLogFile: env.SERVER_LOG_FILE,
+					adminAccessToken: requirePresent(env.SERVER_ADMIN_ACCESS_TOKEN, "Admin token missing"),
+				});
 			}),
 		),
 	300_000,
@@ -256,6 +268,7 @@ beforeAll(
 afterAll(() =>
 	runPromise(
 		Effect.gen(function* () {
+			yield* restoreHarnessTarget;
 			yield* stopApiProcess(apiProcess);
 			yield* stopCoreTestInfrastructure(infrastructure);
 		}),
@@ -288,11 +301,20 @@ describe("shared demo access acceptance", () => {
 				_tag: "DemoOperationProtected",
 				reason: { code: "demo-operation-protected" },
 			});
-			const pluginStateResponse = yield* webRequest(`${apiUrl}/plugins/media/state`, {
-				method: "PATCH",
-				headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ isHidden: true }),
+			const mediaInstallation = yield* findPluginInstallationByPackage(demoClient, {
+				scope: "system",
+				packageId: mediaPlugin.metadata.packageId,
 			});
+			const pluginStateResponse = yield* webRequest(
+				`${apiUrl}/plugins/installations/${mediaInstallation.installationId}/state`,
+				{
+					method: "PATCH",
+					headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+					body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+						isHidden: true,
+					}),
+				},
+			);
 			expect(pluginStateResponse.status).toBe(403);
 			expect(yield* Effect.promise(() => pluginStateResponse.json())).toEqual({
 				_tag: "DemoOperationProtected",
