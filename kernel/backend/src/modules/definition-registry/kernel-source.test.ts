@@ -22,6 +22,7 @@ it("keeps source zero limited to generic kernel definitions", () => {
 		{ key: "column0" },
 		{ key: "populationStatus" },
 		{ key: "translationStatus" },
+		{ key: "presentationMemberCount" },
 		{ key: "ownerPluginId" },
 		{ key: "entitySchemaSlug" },
 	]);
