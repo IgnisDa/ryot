@@ -46,7 +46,7 @@ it("declares the complete fitness-owned source", () => {
 		"exercise-equipment",
 		"workout",
 		"workout-template",
-		"measurement",
+		"measurement-metric",
 	]);
 	expect(fitnessPlugin.relationshipSchemas.map(({ slug }) => slug)).toEqual([
 		"in-fitness-library",
@@ -60,8 +60,8 @@ it("declares the complete fitness-owned source", () => {
 		homeView: null,
 		apiVersion: CLIENT_API_VERSION,
 		entities: {
-			measurement: { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			"workout-template": { listPresentation: "entity-row", gridPresentation: "entity-card" },
+			"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			exercise: {
 				detailPage: "exercise-detail",
 				listPresentation: "entity-row",
@@ -99,6 +99,12 @@ it("declares the complete fitness-owned source", () => {
 				settingsSchema: { fields: {} },
 				entry: "client/workout/screen.tsx",
 				automaticEntityPresentations: false,
+			},
+			measurements: {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/measurements/screen.tsx",
 			},
 			"exercise-detail": {
 				kind: "page",
@@ -288,17 +294,11 @@ it("declares the complete fitness-owned source", () => {
 		slug: "bootstrap.fitness-workspace",
 	});
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
-	expect(
-		fitnessPlugin.savedViews.map(({ name, settings }) => ({
-			name,
-			entitySchemaSlug: (settings["addAction"] as { readonly entitySchemaSlug: string })
-				.entitySchemaSlug,
-		})),
-	).toEqual([
-		{ name: "All Exercises", entitySchemaSlug: "exercise" },
-		{ name: "All Workouts", entitySchemaSlug: "workout" },
-		{ name: "All Measurements", entitySchemaSlug: "measurement" },
-		{ name: "All Workout Templates", entitySchemaSlug: "workout-template" },
+	expect(fitnessPlugin.savedViews.map(({ name, renderer }) => ({ name, renderer }))).toEqual([
+		{ name: "All Exercises", renderer: { kind: "kernel", name: "entity-browser" } },
+		{ name: "All Workouts", renderer: { kind: "kernel", name: "entity-browser" } },
+		{ name: "All Measurements", renderer: { kind: "plugin", exportName: "measurements" } },
+		{ name: "All Workout Templates", renderer: { kind: "kernel", name: "entity-browser" } },
 	]);
 });
 

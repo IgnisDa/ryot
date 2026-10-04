@@ -16,15 +16,15 @@ Touch-layout text inputs stay at least 16px to prevent persistent iOS page zoom.
 
 Heavy or optional surfaces remain on subpaths:
 
-| Subpath         | Contents                                             |
-| --------------- | ---------------------------------------------------- |
-| `./schema-form` | `AppSchema` form and its contract/form dependencies  |
-| `./table`       | Generic data table and column contract               |
-| `./charts`      | Calendar heatmap and ranked bar list                 |
-| `./icon`        | The complete registered product icon set             |
-| `./sync`        | Entity population and translation marks              |
-| `./tint`        | Best-effort image tint extraction                    |
-| `./markdown`    | Safe Markdown content and spoiler-free plain preview |
+| Subpath         | Contents                                              |
+| --------------- | ----------------------------------------------------- |
+| `./schema-form` | `AppSchema` form and its contract/form dependencies   |
+| `./table`       | Generic data table and column contract                |
+| `./charts`      | Heatmap, ranked bars, sparkline and time-series chart |
+| `./icon`        | The complete registered product icon set              |
+| `./sync`        | Entity population and translation marks               |
+| `./tint`        | Best-effort image tint extraction                     |
+| `./markdown`    | Safe Markdown content and spoiler-free plain preview  |
 
 Do not re-export these from the root barrel. Components accept icons as `ReactNode` and schema forms
 accept upload transport as a prop, keeping this package independent of auth, servers, and client
@@ -52,7 +52,15 @@ and splits positive values into five equal bands of the maximum (`--chart-seq-1.
 uses the portal extension because the heatmap sits in its own horizontal scroller, which would clip
 an in-chart tooltip. `RankedBarList` is plain HTML so labels and values stay wrapping-aware text in
 text tokens. `theme.css` maps the TanStack `--ts-chart-*` variables at `:root` so portaled tooltips
-still resolve them. Level 0 and level 1 in the light ramp differ mostly by hue, not luminance.
+still resolve them.
+
+`Sparkline` is a fixed 96x28 chrome-free line with an area fill and emphasised last
+point. `TimeSeriesChart` draws on linear scales over epoch milliseconds, because the pinned alpha ships no
+time scale, with calendar ticks computed in the component. Readings own focus and the tooltip; the band,
+trend, and compare marks are decorative. The caller computes trends, and the compare series gets its own
+right axis in `--info`.
+
+Level 0 and level 1 in the light heatmap ramp differ mostly by hue, not luminance.
 
 ## Sync Marks
 
