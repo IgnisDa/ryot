@@ -8,7 +8,7 @@ import { fitnessRoute } from "../../shared/workout-editor-routes";
 import type { WorkoutSummary } from "../../shared/workout-list-recipes";
 import type { ActiveEditorDraft } from "../exercise/active-draft";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
-import { summaryWindows, type WorkoutCard } from "../workouts/model";
+import type { WorkoutCard } from "../workouts/model";
 import { workoutSummaryQuery } from "../workouts/queries";
 import { buildWeekProgress, draftBanner } from "./model";
 import {
@@ -72,7 +72,7 @@ export function WeekGoalSection(props: {
 }) {
 	const { now, timeZone } = props;
 	const context = useRyotQuery(workoutEditorContextQuery);
-	const summary = useRyotQuery(workoutSummaryQuery, { timeZone, ...summaryWindows("7D", now) });
+	const summary = useRyotQuery(workoutSummaryQuery, { timeZone, period: "7D" });
 	const goal = context.data?.settings.weeklyWorkoutGoal ?? undefined;
 	if (context.data !== undefined && goal === undefined) {
 		return <SetGoalCard />;

@@ -100,15 +100,7 @@ const queryData = (queries: Record<string, unknown>, metricRows: typeof metrics)
 const logMetrics = [{ unit: "kg", id: "weight", name: "Weight" }];
 
 function ReadingLogPage() {
-	return (
-		<ReadingLog
-			range="All"
-			timeZone="UTC"
-			metrics={logMetrics}
-			columns={logMetrics}
-			startAt="1970-01-01T00:00:00.000Z"
-		/>
-	);
+	return <ReadingLog range="All" timeZone="UTC" metrics={logMetrics} columns={logMetrics} />;
 }
 
 function MeasurementLoggerPage() {

@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	createTestRyotClock,
 	disposePluginBridges,
 	mountPluginPage,
 	pluginContributor,
@@ -178,9 +179,10 @@ const respond = (
 	);
 };
 
-const openHome = (scenario: Scenario) => {
+const openHome = (scenario: Scenario, clock?: ReturnType<typeof createTestRyotClock>) => {
 	const page = mountPluginPage(FitnessHomePage, {
 		page: pageContext,
+		bootstrap: clock?.bootstrap,
 		location: routeLocation("/"),
 	});
 	const answered = new Set<string>();
@@ -242,6 +244,65 @@ const settle = (assert: () => void) =>
 	);
 
 describe("fitness home", () => {
+	it.live("keeps loaded panels visible while foreground refresh uses current rolling windows", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			const now = DateTime.toEpochMillis(yield* DateTime.now);
+			yield* Effect.promise(() => clock.setTime(now));
+			yield* Effect.gen(function* () {
+				const { page, answerPending } = openHome(
+					{ goal: 5, workouts: true, metrics: [pinnedMetric] },
+					clock,
+				);
+				answerCurrent = answerPending;
+				yield* settle(() => {
+					expect(body.getByText("3 in the last 30 days")).toBeTruthy();
+					expect(
+						within(body.getByRole("region", { name: "Weekly goal" })).getByText("of 5 workouts"),
+					).toBeTruthy();
+					expect(
+						body.getByText(
+							"From logged sets. A set counts 1 toward primary targets and ½ toward secondary; stabilizers excluded.",
+						),
+					).toBeTruthy();
+				});
+				const count = page.queryRequests().length;
+				const previous = page
+					.queryRequests()
+					.findLast((request) => "groups" in request.document.queries);
+				yield* Effect.promise(() => clock.advance(HOUR_MS));
+				page.send({ type: "page-refresh" });
+				yield* Effect.promise(() => clock.advance(0));
+				yield* Effect.promise(() => clock.advance(250));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.queryRequests().length).toBeGreaterThan(count)),
+				);
+				expect(
+					body.queryByText(/Loading (weekly goal|muscle activity|personal bests|measurements)/),
+				).toBeNull();
+				expect(body.getByText("3 in the last 30 days")).toBeTruthy();
+				expect(
+					within(body.getByRole("region", { name: "Weekly goal" })).getByText("of 5 workouts"),
+				).toBeTruthy();
+				const refreshed = page
+					.queryRequests()
+					.slice(count)
+					.filter((request) => "groups" in request.document.queries);
+				expect(refreshed).toHaveLength(1);
+				expect(refreshed[0]?.document).not.toEqual(previous?.document);
+				answerPending();
+				yield* settle(() => expect(body.getByText("3 in the last 30 days")).toBeTruthy());
+			}).pipe(
+				Effect.ensuring(
+					Effect.promise(() => {
+						disposePluginBridges();
+						return clock.dispose();
+					}),
+				),
+			);
+		}),
+	);
+
 	it.live("invites a new user to set up, with checklist progress from their data", () =>
 		Effect.gen(function* () {
 			answerCurrent = openHome({ goal: 4, workouts: false, metrics: [pinnedMetric] }).answerPending;
