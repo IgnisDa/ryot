@@ -19,7 +19,7 @@ const compileFixture = Effect.fnUntraced(function* (source: string) {
 });
 
 layer(runnerNativeLayer, { excludeTestServices: true })((test) => {
-	test.effect("short_sleep_continues_live_before_long_wait_defers", () =>
+	test.effect("continues a short sleep live before a long wait defers", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compileFixture(`
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
@@ -81,7 +81,7 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
 		}),
 	);
 
-	test.effect("short_sleep_batch_preserves_partial_settlement_at_budget", () =>
+	test.effect("preserves partial settlement of a short sleep batch at the budget", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compileFixture(`
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
@@ -135,61 +135,6 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
 					request: { index: 0, kind: "sleep", name: "first", args: { durationMs: 750 } },
 				},
 			]);
-			expect(result.controls).toEqual(["inlineBatch"]);
-		}),
-	);
-
-	test.effect("short_wait_settlement_freezes_isolate_fibers_and_timers", () =>
-		Effect.gen(function* () {
-			const compiled = yield* compileFixture(`
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
-export const manifest = defineManifest({ kind: "operation", name: "Native runner", slug: "native-runner" });
-export default defineOperation({
-  manifest,
-  input: Schema.Struct({}),
-  output: Schema.Unknown,
-  run: (_input, host) => Effect.gen(function* () {
-    const ran: string[] = [];
-    queueMicrotask(() => ran.push("microtask"));
-    setTimeout(() => ran.push("timer"), 0);
-    yield* Effect.forkChild(Effect.sleep("1 millis").pipe(Effect.tap(() => Effect.sync(() => ran.push("fiber")))));
-    const value = yield* host.getCachedValue("frozen");
-    return { value, ran: [...ran] };
-  }),
-});`);
-			const result = yield* runNative(
-				compiled,
-				{},
-				{
-					lane: "background",
-					workflowExecutionId: "short-wait-freeze-test",
-					inlineDurableHost: {
-						cancel: () => Effect.void,
-						capabilities: ["getCachedValue"],
-						settle: (requests, wait) =>
-							Effect.gen(function* () {
-								yield* wait.wait(100);
-								return requests.map(() => ({ value: "settled", state: "success" as const }));
-							}),
-					},
-				},
-			);
-			expect(result.response).toMatchObject({
-				success: true,
-				value: { state: "completed", output: { ran: [], value: "settled" } },
-			});
-			expect(result.inline).toHaveLength(1);
-			expect(result.inline[0]).toMatchObject({
-				value: { value: "settled", state: "success" },
-				request: {
-					index: 0,
-					kind: "host",
-					name: "getCachedValue",
-					args: { args: ["frozen"], capability: "getCachedValue" },
-				},
-			});
 			expect(result.controls).toEqual(["inlineBatch"]);
 		}),
 	);

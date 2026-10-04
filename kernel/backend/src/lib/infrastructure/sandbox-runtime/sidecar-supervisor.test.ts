@@ -24,6 +24,7 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { CRASH_WINDOW_MS } from "#lib/infrastructure/sandbox-crash-store";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
+import { makeUserPrincipal, makeUserSubject } from "#lib/test-utils/sandbox-run-input";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "../sandbox-recovery-store";
@@ -31,6 +32,7 @@ import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./exe
 import { hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./host-call-gate";
 import { MiB, SANDBOX_LIMITS } from "./limits";
+import { idleBytes } from "./sandbox-admission.test-support";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
 import { SandboxSidecarClient } from "./sidecar-client";
@@ -318,8 +320,6 @@ const makeRecordingHarness = Effect.gen(function* () {
 	} satisfies HarnessService;
 });
 
-const idleBytes = (admission: SandboxSidecarAdmission["Service"]) =>
-	admission.plan.budget - admission.plan.dynamicBytes;
 const configLayer = makeAppConfigLayer({ sandbox: { memoryBudgetMiB: Option.some(1904) } });
 const harnessLayer = Layer.effect(SupervisorTestHarness, makeRecordingHarness);
 const clientLayer = Layer.effect(
@@ -505,19 +505,14 @@ const sentRunFrames = (connection: RecordedConnection) =>
 const makePrincipal = (
 	runtimeImports: ReadonlyArray<string>,
 	scriptSlug = "supervisor-script",
-): SandboxExecutionPrincipal => ({
-	scriptSlug,
-	providerId: null,
-	pluginRevision: null,
-	contentHash: sha256Hex(moduleSource),
-	scriptId: SandboxScriptId.make(scriptSlug),
-	metadata: { kind: "script", runtimeImports },
-	subject: {
-		userId,
-		type: "user",
-		accountGeneration: { userId, token: "supervisor-account-generation" },
-	},
-});
+): SandboxExecutionPrincipal =>
+	makeUserPrincipal({
+		scriptSlug,
+		subject: makeUserSubject(userId),
+		contentHash: sha256Hex(moduleSource),
+		scriptId: SandboxScriptId.make(scriptSlug),
+		metadata: { kind: "script", runtimeImports },
+	});
 
 const makePrepare =
 	(harness: HarnessService, input: RunFrame["input"] = null): SandboxSidecarRun["prepare"] =>
@@ -669,7 +664,7 @@ const supervisorTest = <A, E>(
 	effect: () => Effect.Effect<A, E, Layer.Success<typeof dependencyLayer> | Scope.Scope>,
 ) => layer(Layer.fresh(dependencyLayer))((test) => test.effect(name, effect));
 
-supervisorTest("lazy_tiers_start_once_and_stop_only_when_idle", () =>
+supervisorTest("starts lazy tiers once and stops them only when idle", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
 			expect(harness.connections.map((connection) => connection.instance)).toEqual([
@@ -800,7 +795,7 @@ supervisorTest(
 		),
 );
 
-supervisorTest("drain_and_recycle_respect_generation_and_memory_reservations", () =>
+supervisorTest("respects generation and memory reservations when draining and recycling", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
 			const firstFiber = yield* startRun(supervisor, harness, dataRuntimeImports).pipe(
@@ -870,7 +865,7 @@ supervisorTest("drain_and_recycle_respect_generation_and_memory_reservations", (
 	),
 );
 
-supervisorTest("restart_backoff_survives_short_lived_generations", () =>
+supervisorTest("keeps restart backoff across short-lived generations", () =>
 	withSupervisor(({ harness }) =>
 		Effect.gen(function* () {
 			const first = getConnection(harness, "user/core");
@@ -918,7 +913,7 @@ supervisorTest("restart_backoff_survives_short_lived_generations", () =>
 	),
 );
 
-supervisorTest("cancellation_before_prepare_completes_does_not_cancel_or_kill_a_generation", () =>
+supervisorTest("does not cancel or kill a generation when cancelled before prepare completes", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
 			const resident = getConnection(harness, "user/core");
@@ -948,7 +943,7 @@ supervisorTest("cancellation_before_prepare_completes_does_not_cancel_or_kill_a_
 );
 
 supervisorTest(
-	"a_cancel_without_done_disposes_the_generation_after_grace_until_exit_confirmation",
+	"disposes the generation after grace when a cancel gets no done until exit is confirmed",
 	() =>
 		withSupervisor(({ harness, admission, supervisor }) =>
 			Effect.gen(function* () {
@@ -989,7 +984,7 @@ supervisorTest(
 		),
 );
 
-supervisorTest("unattributed_crash_candidates_probe_one_at_a_time", () =>
+supervisorTest("probes unattributed crash candidates one at a time", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
 			const principalA = makePrincipal([], "recovery-candidate-a");
@@ -1076,7 +1071,7 @@ supervisorTest("unattributed_crash_candidates_probe_one_at_a_time", () =>
 	),
 );
 
-supervisorTest("exclusive_probe_attributes_only_its_crashing_candidate", () =>
+supervisorTest("attributes an exclusive probe only to its crashing candidate", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
 			const principalA = makePrincipal([], "exclusive-candidate-a");
@@ -1172,7 +1167,7 @@ supervisorTest("exclusive_probe_attributes_only_its_crashing_candidate", () =>
 	),
 );
 
-supervisorTest("collateral_recovery_preserves_retry_budgets_and_committed_work", () =>
+supervisorTest("preserves retry budgets and committed work in collateral recovery", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
 			const victimPrincipal = makePrincipal([], `recovery-victim-${crypto.randomUUID()}`);
@@ -1364,7 +1359,7 @@ supervisorTest("collateral_recovery_preserves_retry_budgets_and_committed_work",
 	),
 );
 
-supervisorTest("global_admission_bounds_all_tiers_grants_and_recovery", () =>
+supervisorTest("bounds all tiers, grants, and recovery with global admission", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
 			const completed = new Set<string>();
@@ -1478,144 +1473,155 @@ const inlineBatch = (run: RunFrame, seq: number, index: number) =>
 		}),
 	});
 
-supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_backstop", () =>
-	withSupervisor(({ harness, supervisor }) =>
-		Effect.gen(function* () {
-			const gate = yield* SandboxHostCallGate.make;
-			const parentSpan = yield* Effect.currentSpan;
-			const releaseOrdinary = yield* Deferred.make<void>();
-			const settlements = yield* Queue.unbounded<Deferred.Deferred<void>>();
-			const registrations: Array<SandboxHostCallGateRegistration> = [];
-			const input: SandboxRunInput = {
-				context: {},
-				compiledFormat: 1,
-				lane: "background",
-				compiledCode: moduleSource,
-				executionId: "inline-budget",
-				startedAt: "2026-01-01T00:00:00.000Z",
-				replayJournal: memoryPinnedJournal([]),
-				workflowExecutionId: "inline-budget-workflow",
-				principal: {
-					...makePrincipal([], "inline-budget"),
-					metadata: { kind: "workflow", runtimeImports: [], capabilities: ["getCachedValue"] },
-				},
-				inlineDurableHost: {
-					cancel: () => Effect.void,
-					capabilities: ["getCachedValue"],
-					settle: (requests) =>
-						Effect.gen(function* () {
-							const release = yield* Deferred.make<void>();
-							yield* Queue.offer(settlements, release);
-							yield* Deferred.await(release);
-							return requests.map(() => ({ value: null, state: "success" as const }));
-						}),
-				},
-			};
-			const prepare: SandboxSidecarRun["prepare"] = (identity) =>
-				Effect.gen(function* () {
-					const registration = yield* gate
-						.register({
-							...identity,
-							input,
-							parentSpan,
-							apiFunctions: {
-								getCachedValue: () =>
-									Deferred.await(releaseOrdinary).pipe(Effect.as(hostSuccess(null))),
-							},
-							files: {
-								harvest: () => Effect.succeed(null),
-								scratchWrite: () => Effect.die("Unexpected scratch write"),
-								artifactReadRange: () => Effect.die("Unexpected artifact read"),
-								filesystem: { scratch: false, artifact: false, namedArtifacts: [] },
-							},
-						})
-						.pipe(Effect.orDie);
-					registrations.push(registration);
-					return {
-						input: null,
-						gate: registration,
-						finish: () => Effect.void,
-						module: { source: moduleSource, sha256: sha256Hex(moduleSource) },
-					};
+supervisorTest(
+	"pauses only script time during inline settlement with ceilings and a backstop",
+	() =>
+		withSupervisor(({ harness, supervisor }) =>
+			Effect.gen(function* () {
+				const gate = yield* SandboxHostCallGate.make;
+				const parentSpan = yield* Effect.currentSpan;
+				const releaseOrdinary = yield* Deferred.make<void>();
+				const settlements = yield* Queue.unbounded<Deferred.Deferred<void>>();
+				const registrations: Array<SandboxHostCallGateRegistration> = [];
+				const input: SandboxRunInput = {
+					context: {},
+					compiledFormat: 1,
+					lane: "background",
+					compiledCode: moduleSource,
+					executionId: "inline-budget",
+					startedAt: "2026-01-01T00:00:00.000Z",
+					replayJournal: memoryPinnedJournal([]),
+					workflowExecutionId: "inline-budget-workflow",
+					principal: {
+						...makePrincipal([], "inline-budget"),
+						metadata: { kind: "workflow", runtimeImports: [], capabilities: ["getCachedValue"] },
+					},
+					inlineDurableHost: {
+						cancel: () => Effect.void,
+						capabilities: ["getCachedValue"],
+						settle: (requests) =>
+							Effect.gen(function* () {
+								const release = yield* Deferred.make<void>();
+								yield* Queue.offer(settlements, release);
+								yield* Deferred.await(release);
+								return requests.map(() => ({ value: null, state: "success" as const }));
+							}),
+					},
+				};
+				const prepare: SandboxSidecarRun["prepare"] = (identity) =>
+					Effect.gen(function* () {
+						const registration = yield* gate
+							.register({
+								...identity,
+								input,
+								parentSpan,
+								apiFunctions: {
+									getCachedValue: () =>
+										Deferred.await(releaseOrdinary).pipe(Effect.as(hostSuccess(null))),
+								},
+								files: {
+									harvest: () => Effect.succeed(null),
+									scratchWrite: () => Effect.die("Unexpected scratch write"),
+									artifactReadRange: () => Effect.die("Unexpected artifact read"),
+									filesystem: { scratch: false, artifact: false, namedArtifacts: [] },
+								},
+							})
+							.pipe(Effect.orDie);
+						registrations.push(registration);
+						return {
+							input: null,
+							gate: registration,
+							finish: () => Effect.void,
+							module: { source: moduleSource, sha256: sha256Hex(moduleSource) },
+						};
+					});
+				const runFiber = yield* startRun(supervisor, harness, [], {
+					prepare,
+					lane: "background",
+					principal: input.principal,
+				}).pipe(Effect.forkScoped({ startImmediately: true }));
+				const connection = getConnection(harness, "user/core");
+				const run = yield* Queue.take(connection.nextRun);
+				const registration = registrations[0];
+				assert(registration !== undefined);
+				expect(run.limits.deadlineMs).toBe(30_000);
+
+				const ordinaryCall = yield* Schema.decodeEffect(SidecarHostCallFrame)({
+					seq: 1,
+					type: "hostCall",
+					handle: run.handle,
+					name: "getCachedValue",
+					generation: run.generation,
+					args: hostCallArgs({ args: ["key"] }),
 				});
-			const runFiber = yield* startRun(supervisor, harness, [], {
-				prepare,
-				lane: "background",
-				principal: input.principal,
-			}).pipe(Effect.forkScoped({ startImmediately: true }));
-			const connection = getConnection(harness, "user/core");
-			const run = yield* Queue.take(connection.nextRun);
-			const registration = registrations[0];
-			assert(registration !== undefined);
-			expect(run.limits.deadlineMs).toBe(30_000);
+				yield* harness.emit(run.generation, ordinaryCall);
+				yield* TestClock.adjust("4 seconds");
+				expect(yield* registration.scriptBudget).toEqual({ settledMs: 0, remainingMs: 26_000 });
+				yield* Deferred.succeed(releaseOrdinary, undefined);
+				expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({ seq: 1 });
 
-			const ordinaryCall = yield* Schema.decodeEffect(SidecarHostCallFrame)({
-				seq: 1,
-				type: "hostCall",
-				handle: run.handle,
-				name: "getCachedValue",
-				generation: run.generation,
-				args: hostCallArgs({ args: ["key"] }),
-			});
-			yield* harness.emit(run.generation, ordinaryCall);
-			yield* TestClock.adjust("4 seconds");
-			expect(yield* registration.scriptBudget).toEqual({ settledMs: 0, remainingMs: 26_000 });
-			yield* Deferred.succeed(releaseOrdinary, undefined);
-			expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({ seq: 1 });
+				yield* harness.emit(run.generation, inlineBatch(run, 2, 0));
+				const firstSettlement = yield* Queue.take(settlements);
+				yield* TestClock.adjust("5 seconds");
+				expect(yield* registration.scriptBudget).toEqual({ settledMs: 0, remainingMs: 26_000 });
+				yield* Deferred.succeed(firstSettlement, undefined);
+				expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({
+					seq: 2,
+					result: { status: "success", value: { results: [{ value: null, state: "success" }] } },
+				});
+				expect(yield* registration.scriptBudget).toEqual({ settledMs: 5_000, remainingMs: 26_000 });
 
-			yield* harness.emit(run.generation, inlineBatch(run, 2, 0));
-			const firstSettlement = yield* Queue.take(settlements);
-			yield* TestClock.adjust("5 seconds");
-			expect(yield* registration.scriptBudget).toEqual({ settledMs: 0, remainingMs: 26_000 });
-			yield* Deferred.succeed(firstSettlement, undefined);
-			expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({
-				seq: 2,
-				result: { status: "success", value: { results: [{ value: null, state: "success" }] } },
-			});
-			expect(yield* registration.scriptBudget).toEqual({ settledMs: 5_000, remainingMs: 26_000 });
+				yield* harness.emit(run.generation, inlineBatch(run, 3, 1));
+				yield* Queue.take(settlements);
+				yield* TestClock.adjust("30 seconds");
+				expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({
+					seq: 3,
+					result: { status: "success", value: { defer: true } },
+				});
+				expect(yield* registration.scriptBudget).toEqual({
+					settledMs: 35_000,
+					remainingMs: 26_000,
+				});
 
-			yield* harness.emit(run.generation, inlineBatch(run, 3, 1));
-			yield* Queue.take(settlements);
-			yield* TestClock.adjust("30 seconds");
-			expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({
-				seq: 3,
-				result: { status: "success", value: { defer: true } },
-			});
-			expect(yield* registration.scriptBudget).toEqual({ settledMs: 35_000, remainingMs: 26_000 });
-
-			for (let index = 0; index < 8; index++) {
-				yield* harness.emit(run.generation, inlineBatch(run, 4 + index, 1 + index));
-				const settlement = yield* Queue.take(settlements);
-				yield* TestClock.adjust("29 seconds");
-				yield* Deferred.succeed(settlement, undefined);
-				expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({ seq: 4 + index });
-			}
-			expect(yield* registration.scriptBudget).toEqual({ settledMs: 267_000, remainingMs: 26_000 });
-			yield* harness.emit(run.generation, inlineBatch(run, 12, 9));
-			const lastSettlement = yield* Queue.take(settlements);
-			yield* TestClock.adjust("28 seconds");
-			yield* Deferred.succeed(lastSettlement, undefined);
-			expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({ seq: 12 });
-			expect(connection.sent.filter((frame) => frame.type === "cancel")).toEqual([]);
-			yield* TestClock.adjust("1 second");
-			expect(yield* Queue.take(connection.nextCancel)).toMatchObject({ handle: run.handle });
-			expect(yield* registration.scriptBudget).toEqual({ settledMs: 295_000, remainingMs: 25_000 });
-			yield* harness.emit(run.generation, {
-				seq: 0,
-				type: "done",
-				handle: run.handle,
-				generation: run.generation,
-				outcome: { status: "cancelled" },
-				console: { entries: [], truncated: false },
-				usage: { cpuWaitMs: 0, heapBytes: 0, externalBytes: 0 },
-			});
-			expect((yield* Fiber.join(runFiber)).done.outcome).toEqual({ status: "cancelled" });
-			expect(connection.finalized).toBe(false);
-		}),
-	).pipe(Effect.withSpan("sandbox.supervisor.inline-budget-test")),
+				for (let index = 0; index < 8; index++) {
+					yield* harness.emit(run.generation, inlineBatch(run, 4 + index, 1 + index));
+					const settlement = yield* Queue.take(settlements);
+					yield* TestClock.adjust("29 seconds");
+					yield* Deferred.succeed(settlement, undefined);
+					expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({ seq: 4 + index });
+				}
+				expect(yield* registration.scriptBudget).toEqual({
+					settledMs: 267_000,
+					remainingMs: 26_000,
+				});
+				yield* harness.emit(run.generation, inlineBatch(run, 12, 9));
+				const lastSettlement = yield* Queue.take(settlements);
+				yield* TestClock.adjust("28 seconds");
+				yield* Deferred.succeed(lastSettlement, undefined);
+				expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({ seq: 12 });
+				expect(connection.sent.filter((frame) => frame.type === "cancel")).toEqual([]);
+				yield* TestClock.adjust("1 second");
+				expect(yield* Queue.take(connection.nextCancel)).toMatchObject({ handle: run.handle });
+				expect(yield* registration.scriptBudget).toEqual({
+					settledMs: 295_000,
+					remainingMs: 25_000,
+				});
+				yield* harness.emit(run.generation, {
+					seq: 0,
+					type: "done",
+					handle: run.handle,
+					generation: run.generation,
+					outcome: { status: "cancelled" },
+					console: { entries: [], truncated: false },
+					usage: { cpuWaitMs: 0, heapBytes: 0, externalBytes: 0 },
+				});
+				expect((yield* Fiber.join(runFiber)).done.outcome).toEqual({ status: "cancelled" });
+				expect(connection.finalized).toBe(false);
+			}),
+		).pipe(Effect.withSpan("sandbox.supervisor.inline-budget-test")),
 );
 
-supervisorTest("per_handle_bounds_admit_honest_maximum_concurrency", () =>
+supervisorTest("admits honest maximum concurrency under per-handle bounds", () =>
 	withSupervisor(({ harness, supervisor }) =>
 		Effect.gen(function* () {
 			const gate = yield* SandboxHostCallGate.make;
@@ -1720,7 +1726,7 @@ const owned = (owner: string | null, scriptSlug: string): SandboxExecutionPrinci
 	};
 };
 
-supervisorTest("per_user_sharding_rejects_missing_owner", () =>
+supervisorTest("rejects per-user sharding without an owner", () =>
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
 		yield* withSupervisor(({ supervisor }) =>
@@ -1744,7 +1750,7 @@ supervisorTest("per_user_sharding_rejects_missing_owner", () =>
 	}),
 );
 
-supervisorTest("per_user_sidecars_shard_the_user_tier_by_owner", () =>
+supervisorTest("shards the user tier into per-user sidecars by owner", () =>
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
 		yield* withSupervisor(({ harness, supervisor }) =>
@@ -1841,7 +1847,7 @@ const exitedBefore = (harness: HarnessService, exited: number, connected: number
 	) <
 	harness.events.findIndex((event) => event.type === "connect" && event.generation === connected);
 
-supervisorTest("lazy_processes_preserve_interactive_headroom", () =>
+supervisorTest("preserves interactive headroom with lazy processes", () =>
 	withLaneSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
 			const shared = getConnection(harness, "user/core");
@@ -1889,7 +1895,7 @@ supervisorTest("lazy_processes_preserve_interactive_headroom", () =>
 	),
 );
 
-supervisorTest("memory_lock_order_prevents_admission_deadlock", () =>
+supervisorTest("prevents admission deadlock through memory lock order", () =>
 	withLaneSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
 			const gate = yield* SandboxHostCallGate.make;
@@ -1993,7 +1999,7 @@ supervisorTest("memory_lock_order_prevents_admission_deadlock", () =>
 	),
 );
 
-supervisorTest("done_decode_reuses_disposed_isolate_reservation", () =>
+supervisorTest("reuses the disposed isolate reservation on done decode", () =>
 	withSupervisor(({ harness, admission, supervisor }) =>
 		Effect.gen(function* () {
 			const finished: Array<ReturnType<typeof admission.snapshot>> = [];
@@ -2032,7 +2038,7 @@ supervisorTest("done_decode_reuses_disposed_isolate_reservation", () =>
 	),
 );
 
-supervisorTest("isolate_reservation_includes_near_heap_limit_headroom", () =>
+supervisorTest("includes near-heap-limit headroom in the isolate reservation", () =>
 	Effect.gen(function* () {
 		const harness = yield* SupervisorTestHarness;
 		const admission = yield* SandboxSidecarAdmission;

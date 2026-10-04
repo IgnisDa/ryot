@@ -1,11 +1,12 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, MutableRef, Ref } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
 import { type EgressPolicy, withEgressPolicy } from "#lib/infrastructure/egress/http-client";
 import { makeRedisService } from "#lib/test-utils/effect";
+import { makeUserRunInput } from "#lib/test-utils/sandbox-run-input";
 import { sandboxHttpRedirectClassifier } from "#modules/sandbox/durable-host-dispatcher";
 
 import { RedisService } from "../redis";
@@ -15,7 +16,6 @@ import {
 	SANDBOX_HTTP_REDIRECT_STOPPED_MESSAGE,
 	type SandboxHttpClassify,
 } from "./runtime-host-functions";
-import type { SandboxRunInput } from "./shared";
 
 const publicEgressPolicy: EgressPolicy = {
 	allowedNetworks: [],
@@ -32,27 +32,7 @@ const hostWith = (client: HttpClient.HttpClient, classify: SandboxHttpClassify =
 		Effect.provideService(HttpClient.HttpClient, client),
 	);
 
-const input = {
-	context: {},
-	compiledCode: "",
-	compiledFormat: 1,
-	lane: "interactive",
-	executionId: "execution-1",
-	startedAt: "2026-01-01T00:00:00.000Z",
-	principal: {
-		contentHash: "",
-		providerId: null,
-		pluginRevision: null,
-		scriptSlug: "script",
-		metadata: { runtimeImports: [] },
-		scriptId: SandboxScriptId.make("script-1"),
-		subject: {
-			type: "user",
-			userId: UserId.make("user-1"),
-			accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-		},
-	},
-} as const satisfies SandboxRunInput;
+const input = makeUserRunInput();
 
 const runtimeHostLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -202,7 +182,7 @@ describe("runtime sandbox host functions", () => {
 		);
 	});
 
-	describe("sandbox_http_redirects_admit_every_matched_hop", () => {
+	describe("sandbox HTTP redirects admit every matched hop", () => {
 		type Sent = Readonly<{
 			url: string;
 			method: string;
