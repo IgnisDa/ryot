@@ -89,6 +89,10 @@ fn setup() {
         status.lines().any(|line| line == "NoNewPrivs:\t0"),
         "launcher tests must not enable no_new_privs on the container"
     );
+    assert!(
+        status.lines().any(|line| line == "Seccomp:\t2"),
+        "launcher tests must run under Docker's default seccomp profile"
+    );
 }
 
 fn launch_args() -> Vec<String> {
