@@ -1,10 +1,10 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { sandboxRuntimeInputs } from "@ryot-app/sandbox-compiler/runtime-build/inputs";
-import { buildSandboxRuntimePayload } from "@ryot-app/sandbox-compiler/runtime-build/payload";
-import { walkSourceFiles } from "@ryot-app/sandbox-compiler/runtime-build/source-tree";
-import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
+import { sandboxRuntimeInputs } from "@ryot-app/plugin-backend-compiler/runtime-build/inputs";
+import { buildSandboxRuntimePayload } from "@ryot-app/plugin-backend-compiler/runtime-build/payload";
+import { walkSourceFiles } from "@ryot-app/plugin-backend-compiler/runtime-build/source-tree";
+import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/plugin-backend-sdk/runtime-registry";
 import { canonicalFileSetHash } from "@ryot-app/ts-utils/crypto";
 import { buildSandboxEsm, ViteBuildService } from "@ryot-app/vite-compiler";
 import { Data, Effect, FileSystem, Layer, Path, Ref } from "effect";
@@ -13,7 +13,6 @@ class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
 	message: string;
 }> {}
 
-// The trusted guest runner: everything the isolate evaluates before the script module.
 const GUEST_SOURCE_FILES = [
 	"guest/invocation.ts",
 	"guest/bootstrap.ts",
@@ -47,16 +46,16 @@ const compileTrustedRunner = (sandboxDirectory: string) =>
 			})),
 			aliases: [
 				{
-					find: "@ryot-app/sandbox-sdk/core",
-					replacement: Bun.resolveSync("@ryot-app/sandbox-sdk/core", import.meta.dir),
+					find: "@ryot-app/plugin-backend-sdk/core",
+					replacement: Bun.resolveSync("@ryot-app/plugin-backend-sdk/core", import.meta.dir),
 				},
 				{
-					find: "@ryot-app/sandbox-sdk/workflow",
-					replacement: Bun.resolveSync("@ryot-app/sandbox-sdk/workflow", import.meta.dir),
+					find: "@ryot-app/plugin-backend-sdk/workflow",
+					replacement: Bun.resolveSync("@ryot-app/plugin-backend-sdk/workflow", import.meta.dir),
 				},
 				{
-					find: "@ryot-app/sandbox-compiler/limits",
-					replacement: Bun.resolveSync("@ryot-app/sandbox-compiler/limits", import.meta.dir),
+					find: "@ryot-app/plugin-backend-compiler/limits",
+					replacement: Bun.resolveSync("@ryot-app/plugin-backend-compiler/limits", import.meta.dir),
 				},
 				{
 					find: /^@ryot-app\/contract\/(.+)$/,
