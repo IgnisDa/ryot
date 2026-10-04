@@ -13,10 +13,10 @@
 		"**/.wxt/**",
 		"**/build/**",
 		"**/.vitepress/**",
-		"apps/frontend/app/styles/*.css",
-		"kernel/sandbox/src/host/test-fixtures/*.sandbox.ts",
 		"kernel/sandbox/native/**",
-		"kernel/sandbox/protocol-fixtures/**"
+		"apps/frontend/app/styles/*.css",
+		"kernel/sandbox/protocol-fixtures/**",
+		"kernel/sandbox/src/host/test-fixtures/*.sandbox.ts"
 	],
 	"rules": {
 		"curly": "error",
