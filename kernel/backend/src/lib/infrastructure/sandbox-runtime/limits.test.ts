@@ -74,6 +74,7 @@ describe("sandbox limits", () => {
 				disposalMs: 2_000,
 				absoluteMs: 300_000,
 				settlementMs: 30_000,
+				heapHeadroomBytes: 67_108_864,
 				rssOverheadBytes: 134_217_728,
 				rssCeilingBytes: 1_610_612_736,
 				queuedBytesPerThread: 54_525_952,
