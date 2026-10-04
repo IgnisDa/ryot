@@ -369,12 +369,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 					`Legacy bootstrap: no stored script matches active revision "${plugin.id}/${plugin.revisionId}/${script.slug}", so persistent integration claims would be written under the wrong key. Let system plugin ingestion finish, or use the build that activated this revision, then start the server again.`,
 				);
 			}
-			addUnique(
-				scripts,
-				qualifiedKey(plugin.id, script.slug),
-				{ slug: script.slug },
-				"script",
-			);
+			addUnique(scripts, qualifiedKey(plugin.id, script.slug), { slug: script.slug }, "script");
 		}
 	}
 
