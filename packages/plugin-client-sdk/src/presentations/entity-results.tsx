@@ -27,6 +27,7 @@ import {
 
 import type { RyotClient } from "../client/client";
 import { RyotClientError } from "../client/errors";
+import { isComponentType } from "../component-type";
 import { PluginLink, usePluginScreenSurface } from "../navigation/routing";
 import { createRyotQuery, type RyotQuery } from "../queries/definitions";
 import { useRyotQuery } from "../queries/hooks";
@@ -65,6 +66,18 @@ export type EntityPresentationDefinition = {
 	readonly prepare: EntityPresentationPrepare;
 	readonly component: ComponentType<EntityPresentationComponentProps<unknown>>;
 };
+
+export const isEntityPresentationDefinition = (
+	value: unknown,
+): value is EntityPresentationDefinition =>
+	typeof value === "object" &&
+	value !== null &&
+	"loader" in value &&
+	typeof value.loader === "function" &&
+	"prepare" in value &&
+	typeof value.prepare === "function" &&
+	"component" in value &&
+	isComponentType(value.component);
 
 export const defineEntityPresentation = <Data,>(definition: {
 	readonly loader: EntityPresentationLoader<Data>;
@@ -177,14 +190,7 @@ const createPresentationRuntime = (registrations: readonly EntityPresentationReg
 					void Effect.runFork(
 						Effect.tryPromise(registration.load).pipe(
 							Effect.flatMap((definition) =>
-								Effect.try(() => {
-									if (
-										typeof definition.loader !== "function" ||
-										typeof definition.prepare !== "function" ||
-										typeof definition.component !== "function"
-									) {
-										throw new Error("Invalid entity presentation definition");
-									}
+								Effect.sync(() => {
 									const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
 										({ input, client }) => {
 											const references = referencesFromBatchInput(input);
