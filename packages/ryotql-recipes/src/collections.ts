@@ -4,11 +4,8 @@ import {
 	type KeyedCollectionField,
 } from "@ryot-app/contract/modules/collections/fields";
 import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
+import type { QueryFilterField } from "@ryot-app/contract/modules/filters/schemas";
 import type { Predicate } from "@ryot-app/contract/modules/ryotql/language";
-import type {
-	FilterField,
-	RelationshipFilterField,
-} from "@ryot-app/contract/modules/saved-views/filters";
 import {
 	SavedViewDisplayValue,
 	type SavedViewTableColumn,
@@ -53,8 +50,12 @@ import {
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
+import {
+	compileOptionalFilter,
+	type FilterInput,
+	type QueryRelationshipFilterField,
+} from "./filters";
 import { propertyFilterFields } from "./property-filter-fields";
-import { compileOptionalFilter, type FilterInput } from "./saved-view-filters";
 
 const MembershipProperties = Schema.Record(Schema.String, JsonValue);
 
@@ -112,7 +113,7 @@ const collectionMemberTypeValue = (group: {
 	readonly ownerPluginId: string | null;
 }) => `${group.ownerPluginId ?? ""}/${group.entitySchemaSlug}`;
 
-const alsoInCollectionField: RelationshipFilterField = {
+const alsoInCollectionField: QueryRelationshipFilterField = {
 	key: "collections",
 	kind: "relationship",
 	direction: "outgoing",
@@ -123,7 +124,7 @@ const alsoInCollectionField: RelationshipFilterField = {
 export const collectionMemberFilterFields = (input: {
 	readonly groups: CollectionMembersAggregateResult;
 	readonly membershipPropertiesSchema: AppSchemaValue | null;
-}): readonly FilterField[] => {
+}): readonly QueryFilterField[] => {
 	const [firstType, ...otherTypes] = input.groups.items.map((group) => ({
 		label: group.typeLabel,
 		value: collectionMemberTypeValue(group),
@@ -157,7 +158,7 @@ export const collectionMemberFilterFields = (input: {
 
 const collectionMemberFilter = (
 	tables: ReturnType<typeof collectionMembershipTables>,
-	fields: readonly FilterField[],
+	fields: readonly QueryFilterField[],
 	input: FilterInput,
 ) => {
 	const { entity, membership, entityJoin, ownerPluginJoin } = tables;
@@ -485,7 +486,7 @@ export const collectionMembersRecipe = defineRecipe(
 			readonly collectionId: string;
 			readonly searchText?: string | undefined;
 			readonly sort?: CollectionMemberSort | undefined;
-			readonly filterFields?: readonly FilterField[] | undefined;
+			readonly filterFields?: readonly QueryFilterField[] | undefined;
 			readonly membershipPropertiesSchema: AppSchemaValue | null;
 		},
 	) => {
@@ -562,7 +563,7 @@ export const collectionMembersCountRecipe = defineRecipe(
 		input: FilterInput & {
 			readonly collectionId: string;
 			readonly searchText?: string | undefined;
-			readonly filterFields?: readonly FilterField[] | undefined;
+			readonly filterFields?: readonly QueryFilterField[] | undefined;
 		},
 	) => {
 		const tables = collectionMembershipTables();

@@ -45,7 +45,8 @@ export const PluginIdentityReference = Schema.Union([
 ]);
 export type PluginIdentityReference = typeof PluginIdentityReference.Type;
 
-export type QueryOwnerReference = PluginIdentityReference | typeof KernelDefinitionOwner.Type;
+export const QueryOwnerReference = Schema.Union([PluginIdentityReference, KernelDefinitionOwner]);
+export type QueryOwnerReference = typeof QueryOwnerReference.Type;
 
 export const EntitySchemaReference = strictStruct({
 	owner: DefinitionOwner,
@@ -71,6 +72,12 @@ export const AuthoredRelationshipSchemaReference = strictStruct({
 	owner: AuthoredDefinitionOwner,
 });
 export type AuthoredRelationshipSchemaReference = typeof AuthoredRelationshipSchemaReference.Type;
+
+export const QueryRelationshipSchemaReference = strictStruct({
+	owner: QueryOwnerReference,
+	slug: RelationshipSchemaSlug,
+});
+export type QueryRelationshipSchemaReference = typeof QueryRelationshipSchemaReference.Type;
 
 export const SignalSchemaReference = strictStruct({
 	owner: DefinitionOwner,

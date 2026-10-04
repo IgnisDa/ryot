@@ -1,6 +1,19 @@
 import {
+	Filter as FilterSchema,
+	FilterRule as FilterRuleSchema,
+	filterOperators,
+	relationshipFilterOperators,
+	type Filter,
+	mapFilterFieldReference,
+	type FilterField,
+	type FilterOperator,
+	type FilterRule,
+	type QueryFilterField,
+	type ValueFilterField,
+} from "@ryot-app/contract/modules/filters/schemas";
+import {
 	ownerIdentityReference,
-	RelationshipSchemaReference,
+	QueryRelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	FieldSelection,
@@ -9,18 +22,6 @@ import type {
 	RowsOutput,
 	ScalarExpression,
 } from "@ryot-app/contract/modules/ryotql/language";
-import {
-	Filter as FilterSchema,
-	FilterRule as FilterRuleSchema,
-	filterOperators,
-	relationshipFilterOperators,
-	type Filter,
-	type FilterField,
-	type FilterOperator,
-	type FilterRule,
-	type RelationshipFilterField,
-	type ValueFilterField,
-} from "@ryot-app/contract/modules/saved-views/filters";
 import type { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { Recipe } from "@ryot-app/ryotql";
@@ -60,7 +61,12 @@ import { Base64Url } from "effect/encoding";
 
 export type RowsQuery = NamedQuery & { readonly output: RowsOutput };
 
-const collectionsFilterField: RelationshipFilterField = {
+export type QueryRelationshipFilterField = Extract<
+	QueryFilterField,
+	{ readonly kind: "relationship" }
+>;
+
+export const collectionsFilterField: QueryRelationshipFilterField = {
 	key: "collections",
 	label: "Collections",
 	kind: "relationship",
@@ -73,8 +79,13 @@ export const reservedFilterFieldKeys: readonly string[] = [collectionsFilterFiel
 export const effectiveFilterFields = (
 	renderer: KernelSavedViewRendererName,
 	settings: { readonly filterFields?: readonly FilterField[] | undefined },
-): readonly FilterField[] => [
-	...(settings.filterFields ?? []),
+): readonly QueryFilterField[] => [
+	...(settings.filterFields ?? []).map((field) =>
+		mapFilterFieldReference(field, ({ slug, owner }) => ({
+			slug,
+			owner: ownerIdentityReference(owner),
+		})),
+	),
 	...(renderer === "results-table" ? [] : [collectionsFilterField]),
 ];
 
@@ -86,7 +97,7 @@ type CompileInput = {
 	readonly now: DateTime.Utc;
 	readonly filter: Filter;
 	readonly source: RowsQuery;
-	readonly fields: readonly FilterField[];
+	readonly fields: readonly QueryFilterField[];
 	readonly subject: { readonly entityAlias: string } | undefined;
 };
 
@@ -115,7 +126,7 @@ const isoDate = (value: string) => castDate(literal(value));
 const compileRelationship = (
 	context: CompileContext,
 	rule: FilterRule,
-	spec: RelationshipFilterField,
+	spec: QueryRelationshipFilterField,
 ): Result.Result<Predicate, Error> => {
 	if (!context.subject) {
 		return failure(`Relationship filter field '${spec.key}' requires a view subject`);
@@ -129,11 +140,7 @@ const compileRelationship = (
 		const alias = table("relationship", unusedAlias(context.aliases, "relationship"));
 		return exists(alias, {
 			where: and(
-				relationshipSchemaPredicate(
-					alias,
-					spec.relationship.slug,
-					ownerIdentityReference(spec.relationship.owner),
-				),
+				relationshipSchemaPredicate(alias, spec.relationship.slug, spec.relationship.owner),
 				eq(column(alias, ownColumn), entityId),
 				...extra.map((predicate) => predicate(alias)),
 			),
@@ -340,7 +347,7 @@ export const compileFilter = ({
 
 export const NullableFilter = Schema.NullOr(FilterSchema);
 
-export const filterOperatorsFor = (field: FilterField): readonly FilterOperator[] =>
+export const filterOperatorsFor = (field: QueryFilterField): readonly FilterOperator[] =>
 	field.kind === "relationship" ? relationshipFilterOperators : filterOperators[field.type];
 
 const decodeRule = Schema.decodeUnknownResult(FilterRuleSchema);
@@ -348,7 +355,7 @@ const decodeRule = Schema.decodeUnknownResult(FilterRuleSchema);
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 
-const leniently = (node: unknown, fields: readonly FilterField[]): Filter | undefined => {
+const leniently = (node: unknown, fields: readonly QueryFilterField[]): Filter | undefined => {
 	if (!isRecord(node)) {
 		return undefined;
 	}
@@ -378,7 +385,7 @@ const leniently = (node: unknown, fields: readonly FilterField[]): Filter | unde
 
 export const decodeFilterParam = (
 	raw: string | null | undefined,
-	fields: readonly FilterField[],
+	fields: readonly QueryFilterField[],
 ): Filter | undefined => {
 	if (raw === null || raw === undefined || raw === "") {
 		return undefined;
@@ -438,7 +445,7 @@ export type FilterDraft = {
 	readonly values: readonly string[];
 };
 
-export const newFilterDraft = (field: FilterField): FilterDraft => ({
+export const newFilterDraft = (field: QueryFilterField): FilterDraft => ({
 	text: "",
 	second: "",
 	values: [],
@@ -513,8 +520,8 @@ export const draftRule = (draft: FilterDraft): FilterRule | undefined => {
 const filterChoicePageSize = 50;
 
 export const RelationshipFilterChoicesInput = Schema.Struct({
-	relationship: RelationshipSchemaReference,
 	searchText: Schema.optionalKey(Schema.String),
+	relationship: QueryRelationshipSchemaReference,
 	ids: Schema.optionalKey(Schema.Array(Schema.String)),
 	direction: Schema.Literals(["outgoing", "incoming"]),
 });
@@ -539,11 +546,7 @@ export const relationshipFilterChoicesRecipe = defineRecipe(
 						name: selectedField(column(far, "name"), Schema.String),
 					},
 					where: and(
-						relationshipSchemaPredicate(
-							link,
-							input.relationship.slug,
-							ownerIdentityReference(input.relationship.owner),
-						),
+						relationshipSchemaPredicate(link, input.relationship.slug, input.relationship.owner),
 						...(input.ids === undefined
 							? []
 							: [inArray(column(far, "id"), textLiterals(input.ids))]),

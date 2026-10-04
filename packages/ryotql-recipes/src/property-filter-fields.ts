@@ -1,4 +1,4 @@
-import type { ValueFilterField } from "@ryot-app/contract/modules/saved-views/filters";
+import type { ValueFilterField } from "@ryot-app/contract/modules/filters/schemas";
 import type {
 	AppChoices,
 	AppPropertyDefinition,

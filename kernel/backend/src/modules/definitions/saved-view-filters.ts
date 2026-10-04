@@ -1,7 +1,7 @@
+import type { FilterField } from "@ryot-app/contract/modules/filters/schemas";
 import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/language";
-import type { FilterField } from "@ryot-app/contract/modules/saved-views/filters";
 import type { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
-import { reservedFilterFieldKeys } from "@ryot-app/ryotql-recipes/saved-view-filters";
+import { reservedFilterFieldKeys } from "@ryot-app/ryotql-recipes/filters";
 
 export const filterFieldIssues = ({
 	query,

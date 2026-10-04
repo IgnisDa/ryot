@@ -1,4 +1,12 @@
 import {
+	activeFiltersPhrase,
+	FilterChips,
+	FilterRules,
+	ViewFiltersSheet,
+	type ViewFilter,
+	type ViewFilterField,
+} from "@ryot-app/plugin-client-sdk/filters";
+import {
 	EntityResults,
 	usePageShortcut,
 	usePluginLocation,
@@ -26,7 +34,6 @@ import {
 import {
 	Badge,
 	Button,
-	Modal,
 	ScreenBarButton,
 	SearchField,
 	SegmentedControl,
@@ -39,7 +46,7 @@ import {
 	activeRuleCount,
 	decodeFilterParam,
 	encodeFilterParam,
-} from "@ryot-app/ryotql-recipes/saved-view-filters";
+} from "@ryot-app/ryotql-recipes/filters";
 import type {
 	EntityBrowserResultItem,
 	SavedViewResult,
@@ -55,12 +62,6 @@ import {
 } from "react";
 
 import {
-	FilterChips,
-	FilterRules,
-	type BrowserFilter,
-	type BrowserFilterField,
-} from "./browser-filters";
-import {
 	BrowserEmpty,
 	BrowserInlineError,
 	BrowserNoMatches,
@@ -75,7 +76,7 @@ export type BrowserQueryPage<Meta> = { readonly result: BrowserResult; readonly 
 
 type BrowserControls = {
 	readonly sort: string;
-	readonly filter: BrowserFilter | undefined;
+	readonly filter: ViewFilter | undefined;
 	readonly search: string;
 	readonly layout: EntityBrowserLayout;
 };
@@ -98,11 +99,11 @@ type EntityBrowserControllerProps<Meta> = {
 	readonly count?:
 		| ((input: {
 				readonly searchText: string;
-				readonly filter: BrowserFilter | undefined;
+				readonly filter: ViewFilter | undefined;
 				readonly onTotal: (total: number | undefined) => void;
 		  }) => ReactNode)
 		| undefined;
-	readonly filterFields: readonly BrowserFilterField[];
+	readonly filterFields: readonly ViewFilterField[];
 	readonly defaultLayout: EntityBrowserLayout;
 	readonly defaultSortLabel?: string | undefined;
 	readonly emptyMessage?: string | undefined;
@@ -133,7 +134,7 @@ const browserIdentity = (
 	key: string,
 	search: string,
 	sort: string,
-	filter: BrowserFilter | undefined,
+	filter: ViewFilter | undefined,
 ) => JSON.stringify([key, search, sort, encodeFilterParam(filter)]);
 
 export function EntityBrowserController<Meta>({
@@ -326,7 +327,7 @@ export function EntityBrowserController<Meta>({
 		};
 		setControls(next);
 	};
-	const setFilter = (next: BrowserFilter | undefined) => setQueryControls({ filter: next });
+	const setFilter = (next: ViewFilter | undefined) => setQueryControls({ filter: next });
 	const commitSearch = (value: string) => setQueryControls({ search: normalizeViewSearch(value) });
 	const commitDraftSearch = useEffectEvent((value: string) => commitSearch(value));
 	const setLayout = (value: string) => {
@@ -467,7 +468,7 @@ export function EntityBrowserController<Meta>({
 							ref={optionsTrigger}
 							className="text-text-muted"
 							onClick={() => setOptionsOpen(true)}
-							label={`View options, ${filterCount} active ${filterCount === 1 ? "filter" : "filters"}`}
+							label={`View options, ${activeFiltersPhrase(filterCount)}`}
 						>
 							<AppIcon size={22} name="sliders-horizontal" />
 						</ScreenBarButton>
@@ -580,23 +581,12 @@ export function EntityBrowserController<Meta>({
 				</section>
 			</PluginScreenFrame>
 			{optionsOpen && (
-				<Modal
+				<ViewFiltersSheet
+					compact={compact}
 					onClose={() => setOptionsOpen(false)}
-					label={compact ? "View options" : "Filters"}
+					title={compact ? "View options" : "Filters"}
 					triggerRef={compact ? optionsTrigger : filtersTrigger}
-					closeLabel={compact ? "Close view options" : "Close filters"}
-					containerClassName={
-						compact ? "items-end justify-center" : "items-center justify-center p-4"
-					}
-					className={
-						compact
-							? "max-h-[90%] w-full overflow-y-auto rounded-t-xl border-t border-border bg-surface p-5"
-							: "max-h-[90%] w-full max-w-xl overflow-y-auto rounded-xl border border-border bg-surface p-5"
-					}
 				>
-					<h2 className="font-display text-lg font-semibold text-text">
-						{compact ? "View options" : "Filters"}
-					</h2>
 					{compact && (
 						<div className="mt-4 flex items-center justify-between gap-3">
 							<span className="text-[15px] text-text">View as</span>
@@ -630,7 +620,7 @@ export function EntityBrowserController<Meta>({
 						onChange={setFilter}
 						fields={filterFields}
 					/>
-				</Modal>
+				</ViewFiltersSheet>
 			)}
 		</ManagedAssetProvider>
 	);

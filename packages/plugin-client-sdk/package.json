@@ -19,6 +19,10 @@
 			"types": "./src/entity-editor/entity-editor.tsx",
 			"default": "./src/entity-editor/entity-editor.tsx"
 		},
+		"./filters": {
+			"types": "./src/filters.tsx",
+			"default": "./src/filters.tsx"
+		},
 		"./plugin": {
 			"types": "./src/plugin.tsx",
 			"default": "./src/plugin.tsx"
@@ -58,6 +62,7 @@
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/plugin-ui-sdk": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
 		"effect": "4.0.5",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0"

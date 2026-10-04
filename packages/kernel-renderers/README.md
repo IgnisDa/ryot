@@ -48,10 +48,10 @@ unmounts.
 ## Filters
 
 Entity and collection browsers filter through the effective filter fields of their settings (the
-view's `filterFields` plus the automatic Collections relationship). `browser-filters.tsx` owns the
-rules panel, the chips row, and the relationship choices queries; `entity-browser-controller.tsx`
-composes them and owns the state. Renderer sources import filter helpers only from
-`@ryot-app/ryotql-recipes/saved-view-filters`, never from the contract.
+view's `filterFields` plus the automatic Collections relationship). The rules panel, the chips row, the
+filters sheet, and the relationship choices queries come from `@ryot-app/plugin-client-sdk/filters`;
+`entity-browser-controller.tsx` composes them and owns the state. Renderer sources import filter
+helpers only from `@ryot-app/ryotql-recipes/filters`, never from the contract.
 
 The results table reuses the panel and chips for its authored value `filterFields` only (no Collections
 relationship, sort, or layout) and reads the `filters` parameter straight from the page location.

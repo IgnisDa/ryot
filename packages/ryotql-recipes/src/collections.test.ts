@@ -1,5 +1,5 @@
 import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
-import type { Filter } from "@ryot-app/contract/modules/saved-views/filters";
+import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { DateTime, Result, Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
@@ -16,7 +16,7 @@ import {
 	collectionMembershipRecipe,
 	type CollectionMemberSort,
 } from "./collections";
-import type { FilterInput } from "./saved-view-filters";
+import type { FilterInput } from "./filters";
 
 const pageInfo = { limit: 7, hasMore: false, nextCursor: null };
 

@@ -1,35 +1,24 @@
 import { DateTime, Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
-	PluginLink,
-	usePageContext,
-	usePluginLocation,
-	useRyotViewport,
-} from "@ryot-app/plugin-client-sdk/plugin";
+	FilterChips,
+	FilterRules,
+	filtersLabel,
+	useViewFilter,
+	ViewFiltersSheet,
+} from "@ryot-app/plugin-client-sdk/filters";
+import { PluginLink, usePageContext, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
 	createRyotQuery,
-	useRyot,
 	useRyotInfiniteQuery,
 	nextPageCursor,
 	paginationItems,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame, ViewFiltersButton } from "@ryot-app/plugin-client-sdk/screen";
-import {
-	Button,
-	LoadMoreButton,
-	Modal,
-	ScreenBarButton,
-	StatusMessage,
-} from "@ryot-app/plugin-ui-sdk";
+import { Button, LoadMoreButton, ScreenBarButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
-import {
-	activeRuleCount,
-	decodeFilterParam,
-	effectiveFilterFields,
-	encodeFilterParam,
-	NullableFilter,
-} from "@ryot-app/ryotql-recipes/saved-view-filters";
+import { effectiveFilterFields, NullableFilter } from "@ryot-app/ryotql-recipes/filters";
 import {
 	ResultsTablePageInput,
 	resultsTableRecipe,
@@ -37,7 +26,6 @@ import {
 } from "@ryot-app/ryotql-recipes/saved-views";
 import { useRef, useState } from "react";
 
-import { FilterChips, FilterRules, type BrowserFilter } from "./browser-filters";
 import { BrowserNoMatches } from "./browser-states";
 import { CellValue, cellText, managedCellAssets } from "./display-value";
 
@@ -72,20 +60,12 @@ const resultsTableColumns = (
 const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.Type }) => {
 	const viewName = input.view?.name ?? "Results table";
 	const viewIcon = input.view?.icon ?? "table";
-	const ryot = useRyot();
-	const location = usePluginLocation();
 	const { compact } = useRyotViewport();
 	const [filtersOpen, setFiltersOpen] = useState(false);
 	const optionsTrigger = useRef<HTMLButtonElement>(null);
 	const filtersTrigger = useRef<HTMLButtonElement>(null);
 	const filterFields = effectiveFilterFields("results-table", input.settings);
-	const filter = decodeFilterParam(
-		new URLSearchParams(location.search).get("filters"),
-		filterFields,
-	);
-	const filterCount = activeRuleCount(filter);
-	const setFilter = (next: BrowserFilter | undefined) =>
-		ryot.navigation.pageSearch.replace({ filters: encodeFilterParam(next) });
+	const { filter, setFilter, activeCount } = useViewFilter(filterFields);
 	const [query] = useState(() =>
 		createRyotQuery<string, ResultsTableResult>(
 			({ client, input: serialized }) =>
@@ -136,7 +116,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 				actions={
 					<ViewFiltersButton
 						ref={filtersTrigger}
-						activeCount={filterCount}
+						activeCount={activeCount}
 						onClick={() => setFiltersOpen(true)}
 					/>
 				}
@@ -144,8 +124,8 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 					<ScreenBarButton
 						ref={optionsTrigger}
 						className="text-text-muted"
+						label={filtersLabel(activeCount)}
 						onClick={() => setFiltersOpen(true)}
-						label={`Filters, ${filterCount} active ${filterCount === 1 ? "filter" : "filters"}`}
 					>
 						<AppIcon size={22} name="sliders-horizontal" />
 					</ScreenBarButton>
@@ -233,28 +213,19 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 				</section>
 			</PluginScreenFrame>
 			{filtersOpen && (
-				<Modal
-					label="Filters"
-					closeLabel="Close filters"
+				<ViewFiltersSheet
+					title="Filters"
+					compact={compact}
 					onClose={() => setFiltersOpen(false)}
 					triggerRef={compact ? optionsTrigger : filtersTrigger}
-					containerClassName={
-						compact ? "items-end justify-center" : "items-center justify-center p-4"
-					}
-					className={
-						compact
-							? "max-h-[90%] w-full overflow-y-auto rounded-t-xl border-t border-border bg-surface p-5"
-							: "max-h-[90%] w-full max-w-xl overflow-y-auto rounded-xl border border-border bg-surface p-5"
-					}
 				>
-					<h2 className="font-display text-lg font-semibold text-text">Filters</h2>
 					<FilterRules
 						filter={filter}
 						compact={compact}
 						onChange={setFilter}
 						fields={filterFields}
 					/>
-				</Modal>
+				</ViewFiltersSheet>
 			)}
 		</ManagedAssetProvider>
 	);

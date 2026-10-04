@@ -1,4 +1,4 @@
-import type { FilterField } from "@ryot-app/contract/modules/saved-views/filters";
+import type { FilterField } from "@ryot-app/contract/modules/filters/schemas";
 import type { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { column, document, field, jsonPath, rows, table } from "@ryot-app/ryotql";

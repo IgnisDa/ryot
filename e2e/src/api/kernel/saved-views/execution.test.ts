@@ -1,5 +1,5 @@
+import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import type { Filter } from "@ryot-app/contract/modules/saved-views/filters";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	ascending,

@@ -47,7 +47,11 @@ count, and results-table recipes accept `filter` with `now` and AND the predicat
 
 `propertyFilterFields` builds value fields from an `AppSchema` for plugin authors.
 
-`saved-view-filters` also owns the URL codec used by the kernel browsers (`decodeFilterParam`,
+Runtime compile, decode, and choices paths take `QueryFilterField`, whose relationship owner is a
+`QueryOwnerReference`; `effectiveFilterFields` maps a view's stored fields to it, and
+`collectionsFilterField` is the kernel Collections field for plugin screens.
+
+`filters` also owns the URL codec used by the kernel browsers (`decodeFilterParam`,
 `encodeFilterParam`, `editableGroup`, `activeRuleCount`, the draft helpers) and
 `relationshipFilterChoicesRecipe`, which lists far-side entities by id and name for a relationship
 field (optionally narrowed by search text or explicit ids).

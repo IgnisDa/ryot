@@ -1,5 +1,5 @@
 import { castText, column, inArray, jsonPath, literal, table } from "@ryot-app/ryotql";
-import { compileFilter } from "@ryot-app/ryotql-recipes/saved-view-filters";
+import { compileFilter } from "@ryot-app/ryotql-recipes/filters";
 import { DateTime, Result } from "effect";
 import { describe, expect, it } from "vitest";
 
