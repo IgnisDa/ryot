@@ -540,7 +540,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 				) {
 					return yield* unavailable;
 				}
-				const provider = bound.manifest.integrationProviders.find(
+				const provider = bound.integrationProviders.find(
 					({ slug }) => slug === bound.integrationProviderSlug,
 				);
 				if (
@@ -554,7 +554,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					installationId: bound.pluginInstallationId,
 					configContext: {
 						kind: "revision",
-						configSchema: bound.manifest.configSchema,
+						configSchema: bound.configSchema,
 						pluginRevisionId: bound.pins.pluginRevisionId,
 						pluginConfigRevisionId: bound.pins.pluginConfigRevisionId,
 						ownerUserId: bound.pluginOwnerId === null ? null : UserId.make(bound.pluginOwnerId),

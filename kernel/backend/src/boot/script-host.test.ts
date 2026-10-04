@@ -484,8 +484,8 @@ const hostFunctionsLayer = (
 									options.installationUnavailable
 										? null
 										: {
+												userSettingsSchema,
 												installationId: "installation-1",
-												manifest: { ...fixtureManifest(), userSettingsSchema },
 												userSettings:
 													typeof options.liveUserSettings === "function"
 														? options.liveUserSettings()

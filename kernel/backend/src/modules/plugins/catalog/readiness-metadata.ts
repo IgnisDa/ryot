@@ -37,7 +37,9 @@ export const availablePluginConfigKeys = (
 };
 
 export const ingestionReadinessMetadata = (
-	manifest: PluginManifest,
+	manifest: Pick<PluginManifest, "configSchema" | "scripts" | "workflows"> & {
+		readonly oauthProviders?: PluginManifest["oauthProviders"] | null;
+	},
 	configuredKeys: ReadonlyArray<string>,
 	hasConfigRevision: boolean,
 ): IngestionReadinessMetadata => ({

@@ -48,11 +48,9 @@ type TransactionCatalogMemo = {
 };
 
 const plannerPluginFields = {
-	hooks: sql<PluginManifest["hooks"]>`${tables.pluginRevision.manifest} -> 'hooks'`,
-	scripts: sql<PluginManifest["scripts"]>`${tables.pluginRevision.manifest} -> 'scripts'`,
-	signalSchemas: sql<
-		PluginManifest["signalSchemas"]
-	>`${tables.pluginRevision.manifest} -> 'signalSchemas'`,
+	hooks: tables.pluginRevision.hooks,
+	scripts: tables.pluginRevision.scripts,
+	signalSchemas: tables.pluginRevision.signalSchemas,
 };
 
 type LifecyclePayload = NonNullable<AutomationTrigger["payload"]>;

@@ -1,8 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
-import {
-	PluginManifest,
-	type PluginHttpRateLimit,
-} from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	type PluginPackageId,
@@ -93,7 +90,7 @@ type RevisionRow = Pick<
 	"id" | "manifest" | "pluginId" | "contentHash"
 > & { readonly packageId: PluginPackageId };
 
-export const decodeStoredManifest = (manifest: unknown, packageId: string) =>
+const decodeStoredManifest = (manifest: unknown, packageId: string) =>
 	Schema.decodeUnknownEffect(PluginManifest)(manifest).pipe(
 		Effect.mapError(
 			() => new DbError({ message: `Plugin ${packageId} has an invalid retained manifest` }),
@@ -333,9 +330,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.select({
 							id: schema.plugin.id,
 							packageId: schema.plugin.packageId,
-							httpRateLimits: sql<
-								ReadonlyArray<PluginHttpRateLimit>
-							>`${schema.pluginRevision.manifest} -> 'httpRateLimits'`,
+							httpRateLimits: schema.pluginRevision.httpRateLimits,
 						})
 						.from(schema.plugin)
 						.innerJoin(

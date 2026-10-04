@@ -33,15 +33,17 @@ import {
 	revisionDatabaseLayer,
 } from "#modules/plugins/packages/revision.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
-import { LifecyclePlannerServiceLive } from "./layer";
+import { AutomationRunWorkflowOperationsServiceLive, LifecyclePlannerServiceLive } from "./layer";
 import { triggerFixture } from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
 import { AutomationPlannerResolver } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
+import { AutomationRunWorkflowOperations } from "./run-workflow-live";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 const nested = <A, E, R>(body: Effect.Effect<A, E, R>) =>
@@ -1812,6 +1814,60 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				expect(dispatch.flatMap(({ runs }) => runs).map(({ hookSlug }) => hookSlug)).toEqual([
 					"fixture.media-batch",
 				]);
+			}),
+		);
+	});
+});
+
+const preparationPackage = (version: string) => {
+	const value = hookPackage(version);
+	const name = `Automation ${version}`;
+	return {
+		...value,
+		scripts: value.scripts.map((script) =>
+			script.slug === "fixture.automation"
+				? Object.assign(script, { name, metadata: Object.assign(script.metadata, { name }) })
+				: script,
+		),
+		manifest: {
+			...value.manifest,
+			scripts: value.manifest.scripts.map((script) =>
+				script.slug === "fixture.automation" ? Object.assign(script, { name }) : script,
+			),
+			hooks: value.manifest.hooks.map((hook) =>
+				hook.slug === "fixture.changed" ? Object.assign(hook, { metadata: { version } }) : hook,
+			),
+		},
+	};
+};
+
+describe("automation preparation", () => {
+	layer(
+		Layer.mergeAll(
+			plannerLayer(),
+			AutomationRunWorkflowOperationsServiceLive.pipe(
+				Layer.provide(Layer.mock(ScriptExecutionService)({})),
+			),
+		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
+	)((test) => {
+		test.effect("prepares from the pinned hooks and scripts after a plugin update", () =>
+			Effect.gen(function* () {
+				const planner = yield* LifecyclePlanner;
+				const operations = yield* AutomationRunWorkflowOperations;
+				const installed = yield* installRevisionPackage(preparationPackage("v1"));
+				const planned = yield* planner.plan({
+					trigger: entityTrigger(installed.pluginId, "pinned-preparation"),
+				});
+				const run = planned.runs.find(({ hookSlug }) => hookSlug === "fixture.changed");
+				assert(run);
+				yield* installRevisionPackage(preparationPackage("v2"));
+				const prepared = yield* operations.prepare({
+					runId: run.id,
+					attemptNumber: 1,
+					acceptedPatches: [],
+				});
+				expect(prepared.input.automation.hookMetadata).toEqual({ version: "v1" });
+				expect(prepared.subject).toMatchObject({ pluginRevisionId: installed.revisionId });
 			}),
 		);
 	});

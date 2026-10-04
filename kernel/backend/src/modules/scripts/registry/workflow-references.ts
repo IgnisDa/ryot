@@ -1,4 +1,3 @@
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -124,9 +123,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 							id: schema.sandboxScript.id,
 							slug: schema.sandboxScript.slug,
 							metadata: schema.sandboxScript.metadata,
-							userBootstrap: sql<
-								PluginManifest["userBootstrap"]
-							>`${schema.pluginRevision.manifest}->'userBootstrap'`,
+							userBootstrap: schema.pluginRevision.userBootstrap,
 						})
 						.from(schema.sandboxScript)
 						.innerJoin(

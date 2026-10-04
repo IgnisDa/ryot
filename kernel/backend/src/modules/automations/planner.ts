@@ -94,15 +94,18 @@ export const LifecyclePlannerLive = Layer.effect(
 			];
 			const revisions = ids.length
 				? yield* session.run((db) =>
-						db.select().from(tables.pluginRevision).where(inArray(tables.pluginRevision.id, ids)),
+						db
+							.select({ id: tables.pluginRevision.id, hooks: tables.pluginRevision.hooks })
+							.from(tables.pluginRevision)
+							.where(inArray(tables.pluginRevision.id, ids)),
 					)
 				: [];
 			const declarations = yield* Effect.forEach(revisions, (revision) =>
 				decodeStoredSchema(
-					revision.manifest,
-					PluginManifest,
+					revision.hooks,
+					PluginManifest.fields.hooks,
 					`Invalid pinned manifest ${revision.id}`,
-				).pipe(Effect.map((manifest) => ({ manifest, id: revision.id }))),
+				).pipe(Effect.map((hooks) => ({ hooks, id: revision.id }))),
 			);
 			const policies: LifecyclePlannedPolicy[] = [];
 			for (const run of values) {
@@ -111,7 +114,7 @@ export const LifecyclePlannerLive = Layer.effect(
 				}
 				const hook = declarations
 					.find(({ id }) => id === run.pluginRevisionId)
-					?.manifest.hooks.find(({ slug }) => slug === run.hookSlug);
+					?.hooks.find(({ slug }) => slug === run.hookSlug);
 				if (hook?.stage !== "before") {
 					return yield* new DbError({ message: `Missing pinned policy declaration for ${run.id}` });
 				}

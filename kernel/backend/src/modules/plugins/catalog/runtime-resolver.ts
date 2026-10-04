@@ -1,6 +1,7 @@
-import type {
+import {
+	type PluginConfigSchema,
 	PluginManifest,
-	PluginProviderOperation,
+	type PluginProviderOperation,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import type {
 	EntitySchemaReference,
@@ -14,6 +15,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import type { PluginClientImport } from "@ryot-app/plugin-client-contract";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -30,7 +32,7 @@ import {
 	type PluginInstallationHealth,
 } from "../installations/repository";
 import { storedScriptFields } from "../packages/persisted-projections";
-import { decodeStoredManifest, PluginRepository } from "../packages/repository";
+import { PluginRepository } from "../packages/repository";
 
 export class UnsupportedProviderOperationError extends Data.TaggedError(
 	"UnsupportedProviderOperationError",
@@ -40,6 +42,13 @@ export class UnsupportedProviderOperationError extends Data.TaggedError(
 	readonly operation: PluginProviderOperation;
 	readonly reason: "inactive_provider" | "unsupported_operation" | "script_unavailable";
 }> {}
+
+const AvailablePluginSections = Schema.Struct({
+	client: PluginManifest.fields.client,
+	workflows: PluginManifest.fields.workflows,
+	operations: PluginManifest.fields.operations,
+	metadata: Schema.Struct({ name: PluginManifest.fields.metadata.fields.name }),
+});
 
 export type AvailablePlugin = {
 	readonly id: string;
@@ -53,7 +62,7 @@ export type AvailablePlugin = {
 	readonly installationId: string;
 	readonly scope: "system" | "user";
 	readonly ownerUserId: UserId | null;
-	readonly manifest: PluginManifest;
+	readonly manifest: typeof AvailablePluginSections.Type;
 	readonly health: PluginInstallationHealth;
 	readonly compiledHashes: Readonly<Record<string, string>>;
 };
@@ -72,21 +81,24 @@ export const catalogDefinitionFingerprint = (definition: {
 		digest: sha256Base64Url(stableStringify(definition)),
 	});
 
-export const pluginConfigContextFor = (plugin: AvailablePlugin) => ({
+export const pluginConfigContextFor = (
+	plugin: Pick<AvailablePlugin, "ownerUserId" | "pluginConfigRevisionId" | "pluginRevisionId">,
+	configSchema: PluginConfigSchema,
+) => ({
+	configSchema,
 	kind: "revision" as const,
 	ownerUserId: plugin.ownerUserId,
 	pluginRevisionId: plugin.pluginRevisionId,
-	configSchema: plugin.manifest.configSchema,
 	pluginConfigRevisionId: plugin.pluginConfigRevisionId,
 });
 
-const manifestField = <Key extends keyof PluginManifest>(key: Key) =>
-	sql<PluginManifest[Key]>`${schema.pluginRevision.manifest} -> ${sql.raw(`'${key}'`)}`;
+const revisionSection = <Key extends "crons" | "userBootstrap">(key: Key) =>
+	sql<PluginManifest[Key]>`${schema.pluginRevision[key]}`;
 
 const activeSystemPlugin = and(eq(schema.plugin.status, "active"), isNull(schema.plugin.ownerId));
 
 const declaresProvider = exists(
-	sql`(select 1 from jsonb_array_elements(${schema.pluginRevision.manifest} -> 'providers') m where m ->> 'slug' = ${schema.sandboxProvider.slug})`,
+	sql`(select 1 from jsonb_array_elements(${schema.pluginRevision.providers}) m where m ->> 'slug' = ${schema.sandboxProvider.slug})`,
 );
 
 export const findRevisionScriptForSession = (database: DatabaseSession["Service"]) =>
@@ -107,10 +119,10 @@ export const findRevisionScriptForSession = (database: DatabaseSession["Service"
 	});
 
 const findSystemManifestFieldForSession = (database: DatabaseSession["Service"]) =>
-	Effect.fn(function* <Key extends keyof PluginManifest>(pluginId: string, key: Key) {
+	Effect.fn(function* <Key extends "crons" | "userBootstrap">(pluginId: string, key: Key) {
 		const [row] = yield* database.run((db) =>
 			db
-				.select({ value: manifestField(key), revisionId: schema.pluginRevision.id })
+				.select({ value: revisionSection(key), revisionId: schema.pluginRevision.id })
 				.from(schema.plugin)
 				.innerJoin(
 					schema.pluginRevision,
@@ -123,12 +135,12 @@ const findSystemManifestFieldForSession = (database: DatabaseSession["Service"])
 	});
 
 const listSystemManifestFieldForSession = (database: DatabaseSession["Service"]) =>
-	Effect.fn(function* <Key extends keyof PluginManifest>(key: Key) {
+	Effect.fn(function* <Key extends "crons" | "userBootstrap">(key: Key) {
 		return yield* database.run((db) =>
 			db
 				.select({
-					value: manifestField(key),
 					pluginId: schema.plugin.id,
+					value: revisionSection(key),
 					packageId: schema.plugin.packageId,
 				})
 				.from(schema.plugin)
@@ -184,10 +196,13 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							id: schema.userPlugin.pluginId,
 							scope: schema.userPlugin.scope,
 							health: schema.userPlugin.health,
+							name: schema.pluginRevision.name,
 							isHidden: schema.userPlugin.isHidden,
+							client: schema.pluginRevision.client,
 							packageId: schema.userPlugin.packageId,
-							manifest: schema.pluginRevision.manifest,
+							workflows: schema.pluginRevision.workflows,
 							ownerUserId: schema.userPlugin.ownerUserId,
+							operations: schema.pluginRevision.operations,
 							contentHash: schema.pluginRevision.contentHash,
 							installationId: schema.userPlugin.installationId,
 							pluginRevisionId: schema.userPlugin.activeRevisionId,
@@ -219,15 +234,21 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							),
 						),
 				);
-				const result = yield* Effect.forEach(rows, (row) =>
-					Effect.map(
-						decodeStoredManifest(row.manifest, row.packageId),
-						(manifest): AvailablePlugin => ({
-							...row,
-							manifest,
-							ownerUserId: row.ownerUserId ? UserId.make(row.ownerUserId) : null,
-						}),
-					),
+				const result = yield* Effect.forEach(
+					rows,
+					({ name, client, workflows, operations, ...row }) =>
+						Effect.map(
+							decodeStoredSchema(
+								{ workflows, operations, metadata: { name }, ...(client ? { client } : {}) },
+								AvailablePluginSections,
+								`Plugin ${row.packageId} has an invalid retained manifest`,
+							),
+							(manifest): AvailablePlugin => ({
+								...row,
+								manifest,
+								ownerUserId: row.ownerUserId ? UserId.make(row.ownerUserId) : null,
+							}),
+						),
 				);
 				return result.sort((a, b) => a.packageId.localeCompare(b.packageId));
 			});
@@ -400,8 +421,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				const rows = yield* database.run((db) =>
 					db
 						.select({
-							crons: manifestField("crons"),
 							userId: schema.userPlugin.userId,
+							crons: schema.pluginRevision.crons,
 							pluginId: schema.userPlugin.pluginId,
 							packageId: schema.userPlugin.packageId,
 							installationId: schema.userPlugin.installationId,
@@ -427,8 +448,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				const [row] = yield* database.run((db) =>
 					db
 						.select({
-							crons: manifestField("crons"),
 							userId: schema.userPlugin.userId,
+							crons: schema.pluginRevision.crons,
 							packageId: schema.userPlugin.packageId,
 							revisionId: schema.userPlugin.activeRevisionId,
 						})
@@ -463,7 +484,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 						.select({
 							revisionId: schema.pluginRevision.id,
 							activationId: schema.plugin.activationId,
-							userBootstrap: manifestField("userBootstrap"),
+							userBootstrap: schema.pluginRevision.userBootstrap,
 							scope: sql<
 								"system" | "user"
 							>`case when ${schema.plugin.ownerId} is null then 'system' else 'user' end`,
@@ -647,7 +668,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 					}
 					const [revision] = yield* database.run((db) =>
 						db
-							.select({ id: schema.pluginRevision.id, providers: manifestField("providers") })
+							.select({ id: schema.pluginRevision.id, providers: schema.pluginRevision.providers })
 							.from(schema.plugin)
 							.innerJoin(
 								schema.pluginRevision,

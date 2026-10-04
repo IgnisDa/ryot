@@ -1,9 +1,6 @@
 import type { SourcePlan } from "@ryot-app/contract/modules/plugins/execution";
 import type { IngestionReadinessMetadata } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
-import type {
-	PluginConfigSchema,
-	PluginIntegrationProvider,
-} from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginIntegrationProvider } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionOwner,
 	type DeclarationReference,
@@ -58,13 +55,17 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 					scriptSlug: provider.scriptSlug,
 					pluginScope: provider.pluginScope,
 					description: provider.description,
+					scripts: schema.pluginRevision.scripts,
 					installationId: provider.installationId,
 					requiresProKey: provider.requiresProKey,
 					settingsSchema: provider.settingsSchema,
-					manifest: schema.pluginRevision.manifest,
+					workflows: schema.pluginRevision.workflows,
+					packageId: schema.pluginRevision.packageId,
 					pluginRevisionId: provider.pluginRevisionId,
 					configRevisionId: provider.configRevisionId,
-					configSchema: sql<PluginConfigSchema>`${schema.pluginRevision.manifest} -> 'configSchema'`,
+					configSchema: schema.pluginRevision.configSchema,
+					oauthProviders: schema.pluginRevision.oauthProviders,
+					integrationProviders: schema.pluginRevision.integrationProviders,
 					configuredKeys: sql<
 						ReadonlyArray<string>
 					>`coalesce(${schema.pluginConfigRevision.configuredKeys}, '{}')`,
@@ -93,14 +94,17 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 			.flatMap(
 				({
 					script,
-					manifest,
+					scripts,
 					pluginId,
+					workflows,
 					pluginScope,
 					configSchema,
 					configuredKeys,
 					installationId,
+					oauthProviders,
 					configRevisionId,
 					pluginRevisionId,
+					integrationProviders,
 					...row
 				}): ReadonlyArray<{
 					readonly script: CatalogScript | null;
@@ -122,11 +126,11 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 						script: script && { ...script, pluginId, id: SandboxScriptId.make(script.id) },
 						provider: {
 							readinessMetadata: ingestionReadinessMetadata(
-								manifest,
+								{ scripts, workflows, configSchema, oauthProviders },
 								configuredKeys,
 								configRevisionId !== null,
 							),
-							plan: manifest.integrationProviders.flatMap((declared) =>
+							plan: integrationProviders.flatMap((declared) =>
 								declared.slug === row.slug && declared.lot !== "push" && declared.plan
 									? [declared.plan]
 									: [],
@@ -135,7 +139,6 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 							pluginId,
 							pluginScope,
 							installationId,
-							packageId: manifest.metadata.packageId,
 							reference: { slug: row.slug, owner: definitionOwner(pluginId) },
 							configContext: {
 								configSchema,
