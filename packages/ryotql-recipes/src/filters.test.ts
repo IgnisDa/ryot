@@ -5,6 +5,7 @@ import type {
 } from "@ryot-app/contract/modules/filters/schemas";
 import {
 	EntitySchemaSlug,
+	EventSchemaSlug,
 	PluginId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
@@ -18,6 +19,7 @@ import {
 	contains,
 	document,
 	eq,
+	eventSchemaPredicate,
 	exists,
 	field,
 	gte,
@@ -26,6 +28,7 @@ import {
 	isNull,
 	jsonArrayExists,
 	jsonElement,
+	join,
 	jsonPath,
 	literal,
 	lte,
@@ -50,8 +53,9 @@ import {
 	encodeFilterParam,
 	filterOperatorsFor,
 	groupFilter,
+	linkedFilterChoicesInput,
+	linkedFilterChoicesRecipe,
 	newFilterDraft,
-	relationshipFilterChoicesRecipe,
 } from "./filters";
 import { entityBrowserCountRecipe, entityBrowserRecipe, resultsTableRecipe } from "./saved-views";
 import { requireRowsQuery } from "./test-utils";
@@ -89,6 +93,17 @@ const valueField = (
 		? { key, type, label: key, field: key, kind: "value", choices: [{ value: "a", label: "A" }] }
 		: { key, type, label: key, field: key, kind: "value" };
 
+const sessionEventField: QueryFilterField = {
+	key: "exercises",
+	label: "Exercises",
+	kind: "session-event",
+	event: {
+		owner: { kind: "kernel" },
+		slug: EventSchemaSlug.make("workout-set"),
+		entitySchemaSlug: EntitySchemaSlug.make("exercise"),
+	},
+};
+
 const fields: readonly QueryFilterField[] = [
 	valueField("name", "text"),
 	valueField("level", "enum"),
@@ -97,6 +112,7 @@ const fields: readonly QueryFilterField[] = [
 	valueField("reps", "number"),
 	valueField("done", "boolean"),
 	valueField("added", "date"),
+	sessionEventField,
 	...effectiveFilterFields("entity-browser", {}),
 ];
 
@@ -143,6 +159,26 @@ const linked = (alias: string, ids: readonly string[]) => {
 				: [
 						inArray(
 							column(rel, "targetEntityId"),
+							ids.map((id) => literal(id)),
+						),
+					]),
+		),
+	});
+};
+
+const logged = (alias: string, entityAlias: string, ids: readonly string[]) => {
+	const event = table("event", alias);
+	const logEntity = table("entity", entityAlias);
+	return exists(event, {
+		joins: [join("inner", logEntity, eq(column(logEntity, "id"), column(event, "entityId")))],
+		where: and(
+			eventSchemaPredicate(event, logEntity, "exercise", "workout-set", { kind: "kernel" }),
+			eq(column(event, "sessionEntityId"), column(entity, "id")),
+			...(ids.length === 0
+				? []
+				: [
+						inArray(
+							column(event, "entityId"),
 							ids.map((id) => literal(id)),
 						),
 					]),
@@ -286,6 +322,32 @@ describe("filter compiler", () => {
 			compile({ field: "parents", operator: "notEmpty" }, { fields: [incoming] }),
 		);
 		expect(JSON.stringify(result)).toContain('"field":"targetEntityId"');
+	});
+
+	it("compiles session-event rules through the joined event entity", () => {
+		expect(compiled({ operator: "anyOf", field: "exercises", values: ["x1", "x2"] })).toEqual(
+			logged("event", "eventEntity", ["x1", "x2"]),
+		);
+		expect(compiled({ values: ["x1"], operator: "noneOf", field: "exercises" })).toEqual(
+			not(logged("event", "eventEntity", ["x1"])),
+		);
+		expect(compiled({ field: "exercises", operator: "notEmpty" })).toEqual(
+			logged("event", "eventEntity", []),
+		);
+		expect(compiled({ operator: "empty", field: "exercises" })).toEqual(
+			not(logged("event", "eventEntity", [])),
+		);
+		expect(compiled({ operator: "allOf", field: "exercises", values: ["x1", "x2"] })).toEqual(
+			and(logged("event", "eventEntity", ["x1"]), logged("_event", "_eventEntity", ["x2"])),
+		);
+		expect(
+			Result.isFailure(compile({ value: "a", field: "exercises", operator: "contains" })),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				compile({ field: "exercises", operator: "notEmpty" }, { subject: undefined }),
+			),
+		).toBe(true);
 	});
 
 	it("fails for unknown fields, disallowed operators and relationship fields without a subject", () => {
@@ -455,7 +517,11 @@ describe("filter URL codec", () => {
 	};
 
 	it("round-trips filters through a URL-safe string that never looks like JSON", () => {
-		for (const filter of [group, { field: "done", operator: "isTrue" } satisfies Filter]) {
+		for (const filter of [
+			group,
+			{ field: "done", operator: "isTrue" } satisfies Filter,
+			{ operator: "allOf", field: "exercises", values: ["x1", "x2"] } satisfies Filter,
+		]) {
 			const encoded = encodeFilterParam(filter);
 			expect(encoded).toMatch(/^[A-Za-z0-9_-]+$/);
 			expect(encoded?.[0]).not.toBe("{");
@@ -563,35 +629,62 @@ describe("filter URL codec", () => {
 	});
 });
 
-describe("relationship filter choices recipe", () => {
+const choices = (
+	linkField: Parameters<typeof linkedFilterChoicesInput>[0],
+	input: { readonly searchText?: string; readonly ids?: readonly string[] } = {},
+) => {
+	const query = linkedFilterChoicesRecipe(linkedFilterChoicesInput(linkField, input)).document
+		.queries["choices"];
+	const output = query?.output;
+	if (query === undefined || output?.type !== "aggregate") {
+		throw new Error("Expected aggregate choices query");
+	}
+	return { ...query, output };
+};
+
+describe("linked filter choices recipe", () => {
 	const relationship = effectiveCollections().relationship;
-	const choices = (input: Partial<Parameters<typeof relationshipFilterChoicesRecipe>[0]> = {}) => {
-		const query = relationshipFilterChoicesRecipe({ relationship, direction: "outgoing", ...input })
-			.document.queries["choices"];
-		const output = query?.output;
-		if (query === undefined || output?.type !== "aggregate") {
-			throw new Error("Expected aggregate choices query");
-		}
-		return { ...query, output };
-	};
+	const collections = (direction: "outgoing" | "incoming" = "outgoing") =>
+		({
+			direction,
+			relationship,
+			key: "collections",
+			label: "Collections",
+			kind: "relationship",
+		}) as const;
 
 	it("groups far-side entities by id and name ordered by name and limits the page", () => {
-		const query = choices();
-		expect(query.output.groupBy?.map(({ key }) => key)).toEqual(["id", "name"]);
+		const query = choices(collections());
+		expect(query.output.groupBy?.map(({ key }: { readonly key: string }) => key)).toEqual([
+			"id",
+			"name",
+		]);
 		expect(query.output.orderBy).toEqual([
 			{ key: "name", direction: "asc" },
 			{ key: "id", direction: "asc" },
 		]);
 		expect(query.output.limit).toBe(50);
 		expect(JSON.stringify(query.joins)).toContain("targetEntityId");
-		expect(JSON.stringify(choices({ direction: "incoming" }).joins)).toContain("sourceEntityId");
+		expect(JSON.stringify(choices(collections("incoming")).joins)).toContain("sourceEntityId");
 	});
 
 	it("narrows by search text and by explicit entity ids", () => {
-		expect(JSON.stringify(choices().where)).not.toContain('"contains"');
-		expect(JSON.stringify(choices({ searchText: " ab " }).where)).toContain('"value":"ab"');
-		const byIds = JSON.stringify(choices({ ids: ["x1", "x2"] }).where);
+		expect(JSON.stringify(choices(collections()).where)).not.toContain('"contains"');
+		expect(JSON.stringify(choices(collections(), { searchText: " ab " }).where)).toContain(
+			'"value":"ab"',
+		);
+		const byIds = JSON.stringify(choices(collections(), { ids: ["x1", "x2"] }).where);
 		expect(byIds).toContain('"value":"x1"');
 		expect(byIds).toContain('"value":"x2"');
+	});
+
+	it("lists session-event entities through the event schema identity", () => {
+		const query = choices(sessionEventField, { searchText: "bench" });
+		expect(JSON.stringify(query.joins)).toContain('"entityId"');
+		const where = JSON.stringify(query.where);
+		expect(where).toContain('"value":"workout-set"');
+		expect(where).toContain('"value":"exercise"');
+		expect(where).toContain('"value":"bench"');
+		expect(where).toContain("sessionEntityId");
 	});
 });

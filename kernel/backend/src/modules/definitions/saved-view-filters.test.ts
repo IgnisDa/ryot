@@ -1,6 +1,10 @@
 import type { FilterField } from "@ryot-app/contract/modules/filters/schemas";
 import type { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
-import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { column, document, field, jsonPath, rows, table } from "@ryot-app/ryotql";
 import { expect, it } from "vitest";
 
@@ -32,14 +36,25 @@ const related: FilterField = {
 	relationship: { owner: { kind: "kernel" }, slug: RelationshipSchemaSlug.make("tagged") },
 };
 
+const logged: FilterField = {
+	key: "exercises",
+	label: "Exercises",
+	kind: "session-event",
+	event: {
+		owner: { kind: "kernel" },
+		slug: EventSchemaSlug.make("workout-set"),
+		entitySchemaSlug: EntitySchemaSlug.make("exercise"),
+	},
+};
+
 const issue = (
 	filterFields: readonly FilterField[] | undefined,
 	renderer: KernelSavedViewRendererName = "entity-browser",
 ) => filterFieldIssues({ query, renderer, settings: { filterFields } });
 
-it("accepts absent, value and relationship filter fields", () => {
+it("accepts absent, value, relationship and session-event filter fields", () => {
 	expect(issue(undefined)).toBeUndefined();
-	expect(issue([level, related])).toBeUndefined();
+	expect(issue([level, related, logged])).toBeUndefined();
 	expect(issue([related], "collection-browser")).toBeUndefined();
 	expect(issue([level], "results-table")).toBeUndefined();
 });
@@ -74,5 +89,11 @@ it("rejects duplicate enum choices", () => {
 it("rejects relationship fields on results tables", () => {
 	expect(issue([related], "results-table")).toBe(
 		"Filter field 'tags' cannot be a relationship on a results table",
+	);
+});
+
+it("rejects session-event fields on results tables", () => {
+	expect(issue([logged], "results-table")).toBe(
+		"Filter field 'exercises' cannot be a session-event on a results table",
 	);
 });

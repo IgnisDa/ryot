@@ -1,7 +1,7 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import {
 	mapFilterFieldReference,
-	type FilterFieldWith,
+	type ValueFilterField,
 } from "@ryot-app/contract/modules/filters/schemas";
 import {
 	pluginPackageKey,
@@ -36,7 +36,6 @@ import { archiveError, type BackupArchiveError } from "./error";
 import {
 	isArchiveJsonObject,
 	ArchiveEntityBrowserSavedViewSettings,
-	type ArchiveEntitySchemaReference,
 	decodeArchiveJsonObject,
 	type ArchiveRecords,
 	type ArchiveEvent,
@@ -46,12 +45,21 @@ import {
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
 
-const relationshipFieldReferences = <Reference>(
-	filterFields: readonly FilterFieldWith<Reference>[] | undefined,
+const linkedFieldReferences = <Relationship, Event>(
+	filterFields:
+		| readonly (
+				| ValueFilterField
+				| { readonly kind: "relationship"; readonly relationship: Relationship }
+				| { readonly kind: "session-event"; readonly event: Event }
+		  )[]
+		| undefined,
 ) =>
-	(filterFields ?? []).flatMap((filterField) =>
-		filterField.kind === "relationship" ? [filterField.relationship] : [],
-	);
+	(filterFields ?? []).flatMap((filterField): readonly (Relationship | Event)[] => {
+		if (filterField.kind === "value") {
+			return [];
+		}
+		return filterField.kind === "relationship" ? [filterField.relationship] : [filterField.event];
+	});
 
 export const exportRendererSettings = Effect.fn(function* (
 	renderer: { readonly kind: string; readonly name?: string },
@@ -68,7 +76,7 @@ export const exportRendererSettings = Effect.fn(function* (
 	const references = [
 		...decoded.subject.schemas,
 		...(action?.type === "provider-search" ? [action.schema] : []),
-		...relationshipFieldReferences(decoded.filterFields),
+		...linkedFieldReferences(decoded.filterFields),
 	];
 	if (references.some(({ owner }) => owner.kind === "plugin" && !pluginKeys.has(owner.pluginId))) {
 		return yield* archiveError(
@@ -76,11 +84,11 @@ export const exportRendererSettings = Effect.fn(function* (
 			"Backup renderer references unavailable plugin",
 		);
 	}
-	const toArchive = ({
+	const toArchive = <Slug extends string>({
 		slug,
 		owner,
 	}: {
-		readonly slug: string;
+		readonly slug: Slug;
 		readonly owner: DefinitionOwner;
 	}) => ({
 		slug,
@@ -117,7 +125,7 @@ export const importRendererSettings = Effect.fn(function* (
 	const references = [
 		...decoded.subject.schemas,
 		...(action?.type === "provider-search" ? [action.schema] : []),
-		...relationshipFieldReferences(decoded.filterFields),
+		...linkedFieldReferences(decoded.filterFields),
 	];
 	if (references.some(({ pluginKey }) => pluginKey != null && !pluginIds.has(pluginKey))) {
 		return yield* archiveError(
@@ -125,7 +133,13 @@ export const importRendererSettings = Effect.fn(function* (
 			"Backup renderer plugin mapping is incomplete",
 		);
 	}
-	const toLocal = ({ slug, pluginKey }: ArchiveEntitySchemaReference) => ({
+	const toLocal = <Slug extends string>({
+		slug,
+		pluginKey,
+	}: {
+		readonly slug: Slug;
+		readonly pluginKey: string | null;
+	}) => ({
 		slug,
 		owner: definitionOwner(pluginKey == null ? null : (pluginIds.get(pluginKey) ?? null)),
 	});
@@ -282,10 +296,7 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 			const { subject, addAction, filterFields } = Schema.decodeUnknownSync(
 				ArchiveEntityBrowserSavedViewSettings,
 			)(view.settings);
-			for (const { pluginKey } of [
-				...subject.schemas,
-				...relationshipFieldReferences(filterFields),
-			]) {
+			for (const { pluginKey } of [...subject.schemas, ...linkedFieldReferences(filterFields)]) {
 				add(pluginKey);
 			}
 			if (addAction?.type === "provider-search") {

@@ -1,7 +1,11 @@
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { ViewFilter, ViewFilterField } from "@ryot-app/plugin-client-sdk/filters";
-import { RelationshipSchemaSlug } from "@ryot-app/plugin-client-sdk/plugin";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	RelationshipSchemaSlug,
+} from "@ryot-app/plugin-client-sdk/plugin";
 import { compileOptionalFilter, collectionsFilterField } from "@ryot-app/ryotql-recipes/filters";
 
 import { workoutFilterScope } from "../../shared/workout-list-recipes";
@@ -13,9 +17,9 @@ export const workoutFilterFields = (reference: Reference): readonly ViewFilterFi
 	{
 		kind: "value",
 		type: "number",
-		label: "Exercises",
 		key: "exerciseCount",
 		field: "exerciseCount",
+		label: "Exercise count",
 	},
 	{ kind: "value", label: "Sets", type: "number", key: "setCount", field: "setCount" },
 	{
@@ -33,6 +37,16 @@ export const workoutFilterFields = (reference: Reference): readonly ViewFilterFi
 		relationship: {
 			owner: reference,
 			slug: RelationshipSchemaSlug.make("workout-to-workout-template"),
+		},
+	},
+	{
+		key: "exercises",
+		label: "Exercises",
+		kind: "session-event",
+		event: {
+			owner: reference,
+			slug: EventSchemaSlug.make("workout-set"),
+			entitySchemaSlug: EntitySchemaSlug.make("exercise"),
 		},
 	},
 	collectionsFilterField,

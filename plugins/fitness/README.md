@@ -109,14 +109,21 @@ The `workouts` page uses page-context name/icon, URL-backed layout/search, and s
 - `workoutCardsRecipe` pages newest workouts with server aggregate counts/volume and bounded sets for
   best-set previews. Comparison origin is the repeated workout or latest earlier use of the template.
 - Comparison/target recipes batch data for loaded workouts; muscle totals exclude stabilizers.
-- `workoutWeeksRecipe` aggregates the loaded span with the same search, preserving complete week
-  totals across split pages.
+- `workoutWeeksRecipe` aggregates the loaded span with the same search and filter, preserving
+  complete week totals across split pages. The cards, count, and weeks recipes take an optional
+  compiled filter predicate; the summary recipe ignores search and filters.
 - `workoutSummaryRecipe` compares selected rolling periods and supplies personal bests and daily
   consistency totals. `workoutCountRecipe` counts all search matches on demand.
 
 Cards, rows, and tables share the same model and entity presentations. They prefer recorded active
 duration, otherwise explicitly labeled elapsed duration, and apply display units. No origin means no
-comparison. Filters are not implemented.
+comparison.
+
+Filters (started, exercise count, exercises, sets, personal records, template, collections) use the
+SDK filter UI and URL state. `client/workouts/filters.ts` declares the fields and compiles the filter
+on the client, because plugin `shared/` code may only import plugin-kit and cannot reach the filter
+compiler. The Exercises field is a `session-event` field over `workout-set` events on `exercise`
+entities.
 
 ## Home
 

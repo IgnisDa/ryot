@@ -3,7 +3,7 @@ import { sourcePlanConfigKeys } from "@ryot-app/contract/modules/plugins/executi
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	type AuthoredEntitySchemaReference,
-	type AuthoredRelationshipSchemaReference,
+	type AuthoredDefinitionOwner,
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
 import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
@@ -72,10 +72,13 @@ export const materializeSavedView = (
 			slug,
 			owner: owner.kind === "self" ? definitionOwner(pluginId) : owner,
 		});
-		const resolveRelationship = ({ slug, owner }: AuthoredRelationshipSchemaReference) => ({
+		const resolveFilterReference = <Slug extends string>({
 			slug,
-			owner: owner.kind === "self" ? definitionOwner(pluginId) : owner,
-		});
+			owner,
+		}: {
+			readonly slug: Slug;
+			readonly owner: AuthoredDefinitionOwner;
+		}) => ({ slug, owner: owner.kind === "self" ? definitionOwner(pluginId) : owner });
 		const { subject, addAction, filterFields } = decoded.success;
 		settings = {
 			...decoded.success,
@@ -84,7 +87,7 @@ export const materializeSavedView = (
 			...(filterFields
 				? {
 						filterFields: filterFields.map((filterField) =>
-							mapFilterFieldReference(filterField, resolveRelationship),
+							mapFilterFieldReference(filterField, resolveFilterReference),
 						),
 					}
 				: {}),

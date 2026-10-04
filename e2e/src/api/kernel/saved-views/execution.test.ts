@@ -1,6 +1,7 @@
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -12,6 +13,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { linkedFilterChoicesRecipe } from "@ryot-app/ryotql-recipes/filters";
 import {
 	entityBrowserCountRecipe,
 	entityBrowserRecipe,
@@ -24,6 +26,8 @@ import {
 	createAuthenticatedClient,
 	createCollection,
 	createEntityFixture,
+	createEventFixture,
+	createEventSchema,
 	createPluginEntitySchema,
 	createSavedView,
 	entityBrowserSettings,
@@ -340,6 +344,162 @@ describe("saved views execution", () => {
 					],
 				}),
 			).toEqual(expected(second, fourth));
+		}),
+	);
+
+	it.live("executes session-event filters scoped to the event's entity schema", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const workoutSchema = yield* createPluginEntitySchema(client, {
+				schemaName: `Session Workout ${crypto.randomUUID()}`,
+			});
+			const { pluginId, pluginSlug } = workoutSchema;
+			const exerciseSchema = yield* createPluginEntitySchema(client, {
+				pluginSlug,
+				schemaName: `Session Exercise ${crypto.randomUUID()}`,
+			});
+			const otherSchema = yield* createPluginEntitySchema(client, {
+				pluginSlug,
+				schemaName: `Session Other ${crypto.randomUUID()}`,
+			});
+			const eventSlug = `logged-${crypto.randomUUID()}`;
+			for (const { reference } of [exerciseSchema, otherSchema]) {
+				yield* createEventSchema(client, {
+					name: "Logged",
+					slug: eventSlug,
+					entitySchema: reference,
+				});
+			}
+			const workspace = requirePresent(
+				(yield* listInstalledPlugins(client)).find((plugin) => plugin.pluginId === pluginId),
+				"Saved-view workspace installation is missing",
+			);
+			const create = (name: string, entitySchema: typeof workoutSchema.reference) =>
+				createEntityFixture(client, { entitySchema, name: `${name} ${crypto.randomUUID()}` });
+			const bench = yield* create("Bench", exerciseSchema.reference);
+			const squat = yield* create("Squat", exerciseSchema.reference);
+			const stray = yield* create("Stray", otherSchema.reference);
+			const upper = yield* create("Upper", workoutSchema.reference);
+			const lower = yield* create("Lower", workoutSchema.reference);
+			const strayOnly = yield* create("Stray only", workoutSchema.reference);
+			const rest = yield* create("Rest", workoutSchema.reference);
+			yield* Effect.forEach(
+				[
+					[bench, upper],
+					[squat, upper],
+					[bench, lower],
+					[stray, strayOnly],
+				] as const,
+				([exercise, session]) =>
+					createEventFixture(client, {
+						entityId: exercise.id,
+						eventSchemaSlug: eventSlug,
+						sessionEntityId: session.id,
+					}),
+			);
+
+			const event = {
+				slug: EventSchemaSlug.make(eventSlug),
+				owner: { pluginId, kind: "plugin" as const },
+				entitySchemaSlug: EntitySchemaSlug.make(exerciseSchema.slug),
+			};
+			const entity = table("entity", "entity");
+			const base = buildSavedViewDataSources([workoutSchema.schemaId], { pluginId, kind: "local" });
+			const query = requirePresent(base.queries.savedView, "Saved-view query is missing");
+			const dataSources = document({
+				savedView: rows(entity, {
+					limit: 20,
+					where: query.where,
+					fields: rowsFields,
+					orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
+				}),
+			});
+			const created = yield* createSavedView(client, {
+				dataSources,
+				name: `Saved View Session ${crypto.randomUUID()}`,
+				workspaceInstallationId: workspace.installationId,
+				settings: {
+					...entityBrowserSettings(pluginId),
+					pageSize: 50,
+					filterFields: [
+						{ event, key: "exercises", label: "Exercises", kind: "session-event" as const },
+					],
+					subject: {
+						entityAlias: "entity",
+						schemas: [
+							{ slug: workoutSchema.schemaId, owner: { pluginId, kind: "plugin" as const } },
+						],
+					},
+				},
+			});
+			const persisted = yield* findSavedViewById(client, created.id);
+			const persistedSettings = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(
+				persisted.settings,
+			);
+			const persistedSources = requirePresent(
+				persisted.dataSources,
+				"Saved view has no data sources",
+			);
+			const now = yield* DateTime.now;
+
+			const matching = Effect.fn(function* (filter: Filter) {
+				const page = yield* resultToEffect(
+					entityBrowserRecipe({
+						now,
+						filter,
+						settings: persistedSettings,
+						queryDocument: persistedSources,
+					}),
+				);
+				const count = yield* resultToEffect(
+					entityBrowserCountRecipe(persistedSources, persistedSettings, { now, filter }),
+				);
+				const ids = (yield* executeRyotQLRecipe(client, page)).items.map(
+					({ entityId }) => entityId,
+				);
+				expect(yield* executeRyotQLRecipe(client, count)).toBe(ids.length);
+				return sortBy(ids);
+			});
+
+			expect(
+				yield* matching({ operator: "anyOf", field: "exercises", values: [bench.id] }),
+			).toEqual(expected(upper, lower));
+			expect(
+				yield* matching({ operator: "allOf", field: "exercises", values: [bench.id, squat.id] }),
+			).toEqual(expected(upper));
+			expect(
+				yield* matching({ operator: "noneOf", field: "exercises", values: [bench.id] }),
+			).toEqual(expected(strayOnly, rest));
+			expect(yield* matching({ field: "exercises", operator: "notEmpty" })).toEqual(
+				expected(upper, lower),
+			);
+			expect(yield* matching({ operator: "empty", field: "exercises" })).toEqual(
+				expected(strayOnly, rest),
+			);
+			expect(
+				yield* matching({ operator: "anyOf", field: "exercises", values: [stray.id] }),
+			).toEqual([]);
+
+			const choiceList = (input: {
+				readonly searchText?: string;
+				readonly ids?: readonly string[];
+			}) =>
+				executeRyotQLRecipe(
+					client,
+					linkedFilterChoicesRecipe({
+						...input,
+						link: {
+							kind: "session-event",
+							event: { ...event, owner: { pluginId, kind: "local" } },
+						},
+					}),
+				);
+			expect(sortBy((yield* choiceList({})).map(({ value }) => value))).toEqual(
+				expected(bench, squat),
+			);
+			expect(yield* choiceList({ ids: [stray.id, squat.id] })).toEqual([
+				{ value: squat.id, label: squat.name },
+			]);
 		}),
 	);
 });

@@ -20,11 +20,12 @@ import {
 	filterOperatorsFor,
 	groupFilter,
 	newFilterDraft,
-	RelationshipFilterChoicesInput,
-	relationshipFilterChoicesRecipe,
+	LinkedFilterChoicesInput,
+	linkedFilterChoicesInput,
+	linkedFilterChoicesRecipe,
 	type effectiveFilterFields,
 	type FilterDraft,
-	type RelationshipFilterChoices,
+	type LinkedFilterChoices,
 } from "@ryot-app/ryotql-recipes/filters";
 import { Effect, Schema } from "effect";
 import { useDeferredValue, useState, type ReactNode, type RefObject } from "react";
@@ -38,7 +39,7 @@ export type ViewFilterField = ReturnType<typeof effectiveFilterFields>[number];
 export type ViewFilter = NonNullable<ReturnType<typeof decodeFilterParam>>;
 type ViewFilterRule = NonNullable<ReturnType<typeof draftRule>>;
 type FilterOperator = ReturnType<typeof filterOperatorsFor>[number];
-type RelationshipField = Extract<ViewFilterField, { readonly kind: "relationship" }>;
+type LinkedField = Exclude<ViewFilterField, { readonly kind: "value" }>;
 type RuleGroup = NonNullable<ReturnType<typeof editableGroup>>;
 
 export const activeFiltersPhrase = (count: number) =>
@@ -91,20 +92,20 @@ export function ViewFiltersSheet({
 }
 
 const decodeChoicesInput = Schema.decodeUnknownSync(
-	Schema.fromJsonString(RelationshipFilterChoicesInput),
+	Schema.fromJsonString(LinkedFilterChoicesInput),
 );
 
-const choicesQuery = createRyotQuery<string, RelationshipFilterChoices>(({ input, client }) => {
+const choicesQuery = createRyotQuery<string, LinkedFilterChoices>(({ input, client }) => {
 	const request = decodeChoicesInput(input);
 	return request.ids?.length === 0
-		? Effect.succeed<RelationshipFilterChoices>([])
-		: client.data.query(relationshipFilterChoicesRecipe(request));
+		? Effect.succeed<LinkedFilterChoices>([])
+		: client.data.query(linkedFilterChoicesRecipe(request));
 });
 
 const choicesKey = (
-	field: RelationshipField,
+	field: LinkedField,
 	extra: { readonly ids?: readonly string[]; readonly searchText?: string },
-) => JSON.stringify({ ...extra, direction: field.direction, relationship: field.relationship });
+) => JSON.stringify(linkedFilterChoicesInput(field, extra));
 
 const operatorLabels: Readonly<Record<FilterOperator, string>> = {
 	is: "is",
@@ -133,7 +134,7 @@ const listOperatorLabels: Partial<Record<FilterOperator, string>> = {
 };
 
 const operatorLabel = (field: ViewFilterField, operator: FilterOperator) =>
-	(field.kind === "relationship" || field.type === "enum-list"
+	(field.kind !== "value" || field.type === "enum-list"
 		? listOperatorLabels[operator]
 		: undefined) ?? operatorLabels[operator];
 
@@ -181,12 +182,12 @@ const stateFilter = (state: PanelState) =>
 		}),
 	});
 
-function RelationshipValueEditor({
+function LinkedValueEditor({
 	field,
 	selected,
 	onChange,
 }: {
-	readonly field: RelationshipField;
+	readonly field: LinkedField;
 	readonly selected: readonly string[];
 	readonly onChange: (values: readonly string[]) => void;
 }) {
@@ -303,9 +304,9 @@ function ValueEditor({
 		/>
 	);
 	if (listOperators.has(operator)) {
-		if (field.kind === "relationship") {
+		if (field.kind !== "value") {
 			return (
-				<RelationshipValueEditor
+				<LinkedValueEditor
 					field={field}
 					selected={draft.values}
 					onChange={(values) => onChange({ values })}
@@ -560,7 +561,7 @@ function FilterChip({
 	);
 }
 
-function RelationshipRuleChip({
+function LinkedRuleChip({
 	ids,
 	rule,
 	field,
@@ -568,7 +569,7 @@ function RelationshipRuleChip({
 	onRemove,
 }: {
 	readonly ids: readonly string[];
-	readonly field: RelationshipField;
+	readonly field: LinkedField;
 	readonly rule: ViewFilterRule;
 	readonly onOpen: () => void;
 	readonly onRemove: () => void;
@@ -639,9 +640,9 @@ export function FilterChips({
 						return null;
 					}
 					const key = JSON.stringify([index, rule]);
-					if (field.kind === "relationship") {
+					if (field.kind !== "value") {
 						return (
-							<RelationshipRuleChip
+							<LinkedRuleChip
 								key={key}
 								rule={rule}
 								field={field}

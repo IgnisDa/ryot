@@ -2,7 +2,12 @@ import { DateTime, Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
-import { createWorkoutEntityFixture, openFitnessPage } from "~/fixtures/plugins/fitness";
+import {
+	createExerciseEntityFixture,
+	createWorkoutEntityFixture,
+	openFitnessPage,
+	seedExerciseWorkout,
+} from "~/fixtures/plugins/fitness";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
@@ -83,5 +88,51 @@ it.live("narrows the workouts list by a Started filter and keeps it after reload
 			.waitFor({ state: "visible" });
 		yield* frame.getByRole("link", { exact: true, name: recent }).waitFor({ state: "visible" });
 		yield* frame.getByRole("link", { name: old, exact: true }).waitFor({ state: "detached" });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("narrows the workouts list by an Exercises filter", () =>
+	Effect.gen(function* () {
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const suffix = crypto.randomUUID();
+		const startedAt = DateTime.formatIso(DateTime.subtract(yield* DateTime.now, { days: 1 }));
+		const sets = [{ occurredAt: startedAt, properties: { reps: 5, weight: 100 } }];
+		const squat = yield* createExerciseEntityFixture(client, { name: `Squat ${suffix}` });
+		const press = yield* createExerciseEntityFixture(client, { name: `Press ${suffix}` });
+		const legs = `Legs workout ${suffix}`;
+		const push = `Push workout ${suffix}`;
+		yield* seedExerciseWorkout(client, {
+			sets,
+			startedAt,
+			name: legs,
+			exerciseId: squat.exerciseId,
+		});
+		yield* seedExerciseWorkout(client, {
+			sets,
+			startedAt,
+			name: push,
+			exerciseId: press.exerciseId,
+		});
+		const page = yield* (yield* Playwright.Browser).newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		const frame = yield* openFitnessPage(page, "/v/p/ryot/fitness/all-workouts");
+		yield* frame.getByRole("link", { name: legs, exact: true }).waitFor({ state: "visible" });
+		yield* frame.getByRole("link", { name: push, exact: true }).waitFor({ state: "visible" });
+		yield* frame.getByRole("button", { name: /^Filters/ }).click();
+		const dialog = frame.getByRole("dialog", { exact: true, name: "Filters" });
+		yield* dialog.getByRole("button", { name: /^Add filter/ }).click();
+		yield* frame.getByRole("radio", { exact: true, name: "Exercises" }).click();
+		yield* dialog.getByRole("button", { name: /^Exercises values/ }).click();
+		const picker = frame.getByRole("dialog", { exact: true, name: "Exercises" });
+		yield* picker.getByRole("textbox", { name: "Search Exercises" }).fill(suffix);
+		yield* picker.getByRole("checkbox", { name: squat.exercise.name }).check();
+		yield* picker.getByRole("button", { exact: true, name: "Done" }).click();
+		yield* page.keyboard.press("Escape");
+		yield* dialog.waitFor({ state: "hidden" });
+		yield* frame
+			.getByRole("button", { exact: true, name: "Filters, 1 active filter" })
+			.waitFor({ state: "visible" });
+		yield* frame.getByRole("link", { name: push, exact: true }).waitFor({ state: "detached" });
+		yield* frame.getByRole("link", { name: legs, exact: true }).waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

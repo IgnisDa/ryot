@@ -3,7 +3,7 @@ import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 
 import { workoutCardsRecipe, workoutWeeksRecipe } from "../../shared/workout-list-recipes";
-import { compileWorkoutFilter } from "./filters";
+import { compileWorkoutFilter, workoutFilterFields } from "./filters";
 
 const serialize = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const reference = { kind: "local", pluginId: PluginId.make("fitness-owner") } as const;
@@ -49,4 +49,23 @@ describe("compileWorkoutFilter", () => {
 			expect(error.message).toBe("Unknown filter field 'volume'");
 		}),
 	);
+
+	it.effect("compiles an exercises rule against workout sets of exercise entities", () =>
+		Effect.gen(function* () {
+			const filter = { operator: "anyOf", field: "exercises", values: ["exercise-1"] } as const;
+			const cards = workoutCardsRecipe({ reference, search: "", filter: yield* compile(filter) });
+			const text = serialize(cards.document);
+			expect(text).toContain("exercise-1");
+			expect(text).toContain("workout-set");
+			expect(text).toContain("sessionEntityId");
+		}),
+	);
+});
+
+describe("workoutFilterFields", () => {
+	it("declares unique keys and labels", () => {
+		const fields = workoutFilterFields(reference);
+		expect(new Set(fields.map(({ key }) => key)).size).toBe(fields.length);
+		expect(new Set(fields.map(({ label }) => label)).size).toBe(fields.length);
+	});
 });
