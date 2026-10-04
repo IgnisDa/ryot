@@ -16,7 +16,7 @@ import {
 } from "@ryot-app/sandbox-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 
-import type { ExerciseNoteUpdateInput } from "../contracts/operations";
+import type { ExerciseNoteUpdateInput } from "../../shared/exercise-note-operations";
 
 type ExecuteRyotql = (document: RyotQLDocument) => Effect.Effect<unknown, SandboxHostError>;
 

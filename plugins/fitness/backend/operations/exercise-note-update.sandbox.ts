@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
 
-import { ExerciseNoteOutput, ExerciseNoteUpdateInput } from "../contracts/operations";
+import { ExerciseNoteOutput, ExerciseNoteUpdateInput } from "../../shared/exercise-note-operations";
 import { exerciseNotePropertiesPatch, requireExerciseNote } from "./exercise-notes";
 
 export const manifest = defineManifest({
