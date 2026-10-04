@@ -7,9 +7,10 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	EventSchemaSlug,
+	RelationshipId,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
-import { and, eq, isNull, or } from "drizzle-orm";
+import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -51,6 +52,14 @@ const toCollectionResponse = (row: CollectionRow) => ({
 	providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
 });
 
+const membershipWhere = (input: { userId: UserId; collectionId: EntityId }) =>
+	and(
+		eq(schema.relationship.userId, input.userId),
+		eq(schema.relationship.targetEntityId, input.collectionId),
+		eq(schema.relationship.relationshipSchemaSlug, "member-of"),
+		isNull(schema.relationship.relationshipSchemaPluginId),
+	);
+
 export class CollectionsRepository extends Context.Service<CollectionsRepository>()(
 	"CollectionsRepository",
 	{
@@ -79,7 +88,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 
 			const findCollectionByNameForUser = Effect.fn(
 				"CollectionsRepository.findCollectionByNameForUser",
-			)(function* (input: { name: string; userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
+			)(function* (input: { name: string; userId: UserId }) {
 				const [row] = yield* session.run((db) =>
 					db
 						.select(collectionSelection)
@@ -88,9 +97,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 							and(
 								eq(schema.entity.name, input.name),
 								eq(schema.entity.userId, input.userId),
-								isNull(schema.entity.externalId),
-								isNull(schema.entity.providerId),
-								eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
+								eq(schema.entity.entitySchemaSlug, "collection"),
 								isNull(schema.entity.entitySchemaPluginId),
 							),
 						)
@@ -99,6 +106,41 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 
 				return row ? toCollectionResponse(row) : null;
 			});
+
+			const findMembership = Effect.fn("CollectionsRepository.findMembership")(function* (input: {
+				userId: UserId;
+				entityId: EntityId;
+				collectionId: EntityId;
+			}) {
+				const [row] = yield* session.run((db) =>
+					db
+						.select({ id: schema.relationship.id, properties: schema.relationship.properties })
+						.from(schema.relationship)
+						.where(
+							and(membershipWhere(input), eq(schema.relationship.sourceEntityId, input.entityId)),
+						)
+						.limit(1),
+				);
+
+				return row ? { ...row, id: RelationshipId.make(row.id) } : null;
+			});
+
+			const findLowestMemberRank = Effect.fn("CollectionsRepository.findLowestMemberRank")(
+				function* (input: { userId: UserId; collectionId: EntityId }) {
+					const [row] = yield* session.run((db) =>
+						db
+							.select({
+								rank: sql<
+									number | null
+								>`min(case when jsonb_typeof(${schema.relationship.properties} -> 'rank') = 'number' then (${schema.relationship.properties} ->> 'rank')::double precision end)`,
+							})
+							.from(schema.relationship)
+							.where(membershipWhere(input)),
+					);
+
+					return row?.rank ?? null;
+				},
+			);
 
 			const getCollectionById = Effect.fn("CollectionsRepository.getCollectionById")(function* (
 				collectionId: EntityId,
@@ -154,7 +196,9 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 			});
 
 			return {
+				findMembership,
 				getCollectionById,
+				findLowestMemberRank,
 				getEntityForMembership,
 				getBuiltinCollectionSchema,
 				findCollectionByNameForUser,

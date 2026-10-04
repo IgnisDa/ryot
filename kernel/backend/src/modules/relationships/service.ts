@@ -238,7 +238,21 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 						relationship: result.relationship,
 					})),
 				);
+			const createUser = (
+				userId: UserId,
+				input: UserRelationshipIdentity & { properties?: unknown },
+				command: DomainLifecycleCommand,
+			) =>
+				single(
+					prepareSingleWithCatalog(
+						relationshipIdentity({ ...input, userId, scope: "user" }),
+						command,
+						"upsert",
+						input.properties ?? {},
+					),
+				);
 			return {
+				createUser,
 				commitSingle,
 				applyPolicies: mutations.applyPolicies,
 				prepareUserCreate: mutations.prepareUserCreate,
@@ -326,19 +340,14 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					command: DomainLifecycleCommand,
 					allBatches?: ReadonlyArray<ChangeUserRelationshipBatch>,
 				) => mutations.prepareChangeUserBatch(userId, batch, index, command, allBatches),
-				createUser: (
+				createFromApi: (
 					userId: UserId,
 					input: UserRelationshipIdentity & { properties?: unknown },
 					command: DomainLifecycleCommand,
 				) =>
-					single(
-						prepareSingleWithCatalog(
-							relationshipIdentity({ ...input, userId, scope: "user" }),
-							command,
-							"upsert",
-							input.properties ?? {},
-						),
-					),
+					input.relationshipSchema.owner.kind === "kernel"
+						? Effect.fail(new RelationshipBadRequest({ reason: { code: "kernel-owned-schema" } }))
+						: createUser(userId, input, command),
 			};
 		}),
 	},

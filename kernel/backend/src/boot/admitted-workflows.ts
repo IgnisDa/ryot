@@ -2,7 +2,7 @@ import { Layer } from "effect";
 
 import { UserBootstrapWorkflow } from "#modules/accounts/provisioning/workflow";
 import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
-import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
+import { CollectionMembershipWorkflow } from "#modules/collections/collection-membership-workflow";
 import { EntityImportWorkflow } from "#modules/entities/providers/entity-import-workflow";
 import { ProviderEntityPopulationWorkflow } from "#modules/entities/providers/provider-entity-population-workflow";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
@@ -35,7 +35,7 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		IntegrationSyncWorkflow,
 		ScriptExecutionWorkflow,
 		SandboxDurableHostServiceWorkflow,
-		AddEntityToCollectionWorkflow,
+		CollectionMembershipWorkflow,
 		UserBootstrapWorkflow,
 	]),
 );

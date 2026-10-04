@@ -3,8 +3,14 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CollectionBadRequest,
+	CollectionNotFound,
 	type CreateMembershipBody,
 } from "@ryot-app/contract/modules/collections/schemas";
+import {
+	EntityBadRequest,
+	EntityNotFound,
+	EntityStale,
+} from "@ryot-app/contract/modules/entities/schemas";
 import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -38,17 +44,16 @@ import {
 	kernelCollectionLifecycleCommand,
 	type DomainLifecycleCommand,
 } from "#modules/entities/write-context";
-import { EventsService } from "#modules/events/service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { makeWorkflowActivityEngine, type MockOverrides } from "#testing/effect";
 
-import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";
+import { CollectionMembershipWorkflow } from "./collection-membership-workflow";
 import {
-	AddEntityToCollectionWorkflowOperationsLive,
-	runAddEntityToCollectionWorkflow,
-} from "./add-entity-to-collection-workflow-live";
+	CollectionMembershipWorkflowOperationsLive,
+	runCollectionMembershipWorkflow,
+} from "./collection-membership-workflow-live";
 import { CollectionsRepository } from "./repository";
 import { childCollectionLifecycleCommand, CollectionsService } from "./service";
 
@@ -137,6 +142,14 @@ const removeEventSchema = {
 	slug: "remove-entity-from-collection",
 	id: EventSchemaSlug.make("remove-event-schema-id"),
 };
+const noteSchema = {
+	unknownKeys: "strict",
+	fields: { note: { position: 0, label: "Note", type: "string", description: "Note" } },
+};
+const noteCollection = {
+	...collectionEntity,
+	properties: { description: "Notes", membershipPropertiesSchema: noteSchema },
+};
 
 const membershipPlan = {
 	runs: [],
@@ -150,14 +163,30 @@ const committedRelationship: Effect.Success<
 	dispatch: [membershipPlan],
 	result: { operation: "create", relationship: { ...membership, updatedAt: now } },
 };
+const committedDeletion: Effect.Success<
+	ReturnType<RelationshipsService["Service"]["prepareDeleteUserRelationshipById"]>
+> = {
+	_tag: "Committed" as const,
+	dispatch: [membershipPlan],
+	result: {
+		operation: "delete",
+		relationship: {
+			...membership,
+			updatedAt: now,
+			wasInserted: false,
+			properties: { rank: 3, note: "kept" },
+		},
+	},
+};
 
 const mockCollections = Layer.mock(CollectionsRepository);
 const mockEntities = Layer.mock(EntitiesService);
-const mockEvents = Layer.mock(EventsService);
 const mockRelationships = Layer.mock(RelationshipsService);
 const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
 
 type EntityCreateInput = Parameters<EntitiesService["Service"]["create"]>[0];
+type EntityUpdateInput = Parameters<EntitiesService["Service"]["update"]>[0];
+type EntityDeleteCall = Parameters<EntitiesService["Service"]["deleteByIds"]>;
 type RelationshipCreateInput = Parameters<RelationshipsService["Service"]["prepareCreate"]>[0];
 type WorkflowDispatch = { readonly executionId: string; readonly payload: unknown };
 
@@ -165,6 +194,8 @@ class CollectionCalls extends Context.Service<
 	CollectionCalls,
 	{
 		readonly createdEntities: Effect.Effect<ReadonlyArray<EntityCreateInput>>;
+		readonly updatedEntities: Effect.Effect<ReadonlyArray<EntityUpdateInput>>;
+		readonly deletedEntities: Effect.Effect<ReadonlyArray<EntityDeleteCall>>;
 		readonly relationshipInputs: Effect.Effect<ReadonlyArray<RelationshipCreateInput>>;
 		readonly workflowDispatches: Effect.Effect<ReadonlyArray<WorkflowDispatch>>;
 		readonly lifecycleCommands: Effect.Effect<Readonly<Record<string, DomainLifecycleCommand>>>;
@@ -172,12 +203,11 @@ class CollectionCalls extends Context.Service<
 	}
 >()("test/CollectionCalls") {}
 
-const addWorkflowExecutionId = "add-workflow-execution-id";
+const membershipWorkflowExecutionId = "membership-workflow-execution-id";
 
 const makeServiceLayer = (
 	options: {
 		readonly entities?: MockOverrides<typeof mockEntities>;
-		readonly events?: MockOverrides<typeof mockEvents>;
 		readonly relationships?: MockOverrides<typeof mockRelationships>;
 		readonly collections?: MockOverrides<typeof mockCollections>;
 		readonly workflow?: {
@@ -190,6 +220,8 @@ const makeServiceLayer = (
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const createdEntities = yield* Ref.make<ReadonlyArray<EntityCreateInput>>([]);
+			const updatedEntities = yield* Ref.make<ReadonlyArray<EntityUpdateInput>>([]);
+			const deletedEntities = yield* Ref.make<ReadonlyArray<EntityDeleteCall>>([]);
 			const relationshipInputs = yield* Ref.make<ReadonlyArray<RelationshipCreateInput>>([]);
 			const workflowDispatches = yield* Ref.make<ReadonlyArray<WorkflowDispatch>>([]);
 			const lifecycleCommands = yield* Ref.make<Readonly<Record<string, DomainLifecycleCommand>>>(
@@ -201,26 +233,20 @@ const makeServiceLayer = (
 			const recordCommand = (operation: string, command: DomainLifecycleCommand) =>
 				Ref.update(lifecycleCommands, (all) => ({ ...all, [operation]: command }));
 			const entities = {
+				deleteByIds: () => Effect.succeed({ warnings: [], deletedCount: 1 }),
 				create: () => Effect.succeed({ warnings: [], entity: collectionEntity }),
+				update: () => Effect.succeed({ warnings: [], entity: collectionEntity }),
 				...options.entities,
-			};
-			const events = {
-				create: () => Effect.succeed({ count: 1, warnings: [], outcomes: [], failure: null }),
-				...options.events,
 			};
 			const relationships = {
 				prepareCreate: () => Effect.succeed(committedRelationship),
-				create: () => Effect.succeed({ warnings: [], relationship: membership }),
-				delete: () => Effect.succeed({ warnings: [], relationship: membership }),
-				prepareDeleteUserRelationshipById: () => Effect.succeed(committedRelationship),
-				deleteUserRelationshipById: () =>
-					Effect.succeed({ warnings: [], relationship: membership }),
+				prepareDeleteUserRelationshipById: () => Effect.succeed(committedDeletion),
 				...options.relationships,
 			};
 			const workflow = options.workflow ?? {};
 			const instance = WorkflowInstance.initial(
-				AddEntityToCollectionWorkflow,
-				addWorkflowExecutionId,
+				CollectionMembershipWorkflow,
+				membershipWorkflowExecutionId,
 			);
 			const engine = makeWorkflowActivityEngine(instance, {
 				execute: (_workflow, execution) =>
@@ -256,20 +282,18 @@ const makeServiceLayer = (
 						Ref.update(createdEntities, (all) => [...all, input]).pipe(
 							Effect.andThen(entities.create(input)),
 						),
-				}),
-				mockEvents({
-					...events,
-					create: (input, lifecycle) =>
-						recordCommand("events.create", lifecycle).pipe(
-							Effect.andThen(events.create(input, lifecycle)),
+					update: (input) =>
+						Ref.update(updatedEntities, (all) => [...all, input]).pipe(
+							Effect.andThen(entities.update(input)),
 						),
+					deleteByIds: (ids, lifecycle, target) =>
+						Ref.update(deletedEntities, (all): ReadonlyArray<EntityDeleteCall> => [
+							...all,
+							[ids, lifecycle, target],
+						]).pipe(Effect.andThen(entities.deleteByIds(ids, lifecycle, target))),
 				}),
 				mockRelationships({
 					...relationships,
-					delete: (input, lifecycle) =>
-						recordCommand("relationships.delete", lifecycle).pipe(
-							Effect.andThen(relationships.delete(input, lifecycle)),
-						),
 					prepareCreate: (input, lifecycle) =>
 						Ref.update(relationshipInputs, (all) => [...all, input]).pipe(
 							Effect.andThen(recordCommand("relationships.prepareCreate", lifecycle)),
@@ -283,6 +307,8 @@ const makeServiceLayer = (
 						),
 				}),
 				mockCollections({
+					findMembership: () => Effect.succeed(null),
+					findLowestMemberRank: () => Effect.succeed(null),
 					findCollectionByNameForUser: () => Effect.succeed(null),
 					getCollectionById: () => Effect.succeed(collectionEntity),
 					getBuiltinCollectionSchema: () => Effect.succeed(collectionEntitySchema),
@@ -304,13 +330,15 @@ const makeServiceLayer = (
 				Layer.succeed(WorkflowInstance, instance),
 				Layer.succeed(CollectionCalls, {
 					createdEntities: Ref.get(createdEntities),
+					updatedEntities: Ref.get(updatedEntities),
+					deletedEntities: Ref.get(deletedEntities),
 					lifecycleCommands: Ref.get(lifecycleCommands),
 					relationshipInputs: Ref.get(relationshipInputs),
 					workflowDispatches: Ref.get(workflowDispatches),
 					dispatchedTriggers: Ref.get(dispatchedTriggers),
 				}),
 			);
-			return AddEntityToCollectionWorkflowOperationsLive.pipe(
+			return CollectionMembershipWorkflowOperationsLive.pipe(
 				Layer.provideMerge(CollectionsService.layer),
 				Layer.provideMerge(dependencies),
 				Layer.provideMerge(mutationAdmissionTestLayer),
@@ -361,35 +389,155 @@ const sandboxWriteContext = {
 	},
 } satisfies ScriptExecutionPrincipal;
 
-const runAddWorkflowWithCommand = (
-	lifecycle: DomainLifecycleCommand,
-	mode?: CreateMembershipBody["mode"],
+const runMembershipWorkflow = (
+	options: {
+		readonly lifecycle?: DomainLifecycleCommand;
+		readonly mode?: CreateMembershipBody["mode"];
+		readonly properties?: unknown;
+		readonly operation?: "add" | "remove";
+	} = {},
 ) =>
-	runAddEntityToCollectionWorkflow(
+	runCollectionMembershipWorkflow(
 		{
 			entityId,
 			collectionId,
 			userId: user.id,
-			command: lifecycle,
-			...(mode === undefined ? {} : { mode }),
-			executionId: addWorkflowExecutionId,
+			operation: options.operation ?? "add",
+			executionId: membershipWorkflowExecutionId,
+			command: options.lifecycle ?? command(membershipWorkflowExecutionId),
+			...(options.mode === undefined ? {} : { mode: options.mode }),
+			...(options.properties === undefined ? {} : { properties: options.properties }),
 		},
-		addWorkflowExecutionId,
+		membershipWorkflowExecutionId,
 	);
 
-const runAddWorkflow = runAddWorkflowWithCommand(command(addWorkflowExecutionId));
+const createCommand = command("collection:create", "collection:create");
+const updateCommand = command("collection:update", "collection:update");
+const deleteCommand = command("collection:delete", "collection:delete");
+
+const updatePayload = {
+	collectionId,
+	name: "Renamed",
+	description: "Fresh description",
+	fields: [{ label: "Rating", required: false, type: "number" as const }],
+};
 
 layer(makeServiceLayer())((test) => {
 	test.effect("rejects creating a collection with an empty name", () =>
 		Effect.gen(function* () {
 			const service = yield* CollectionsService;
-			const exit = yield* Effect.exit(
-				service.create(user, { name: "  " }, command("collection:create", "collection:create")),
-			);
+			const exit = yield* Effect.exit(service.create(user, { name: "  " }, createCommand));
 			assertExitFails(
 				exit,
 				new CollectionBadRequest({ reason: { field: "name", code: "name-required" } }),
 			);
+		}),
+	);
+
+	test.effect("compiles member fields into a strict membership schema on create", () =>
+		Effect.gen(function* () {
+			yield* (yield* CollectionsService).create(
+				user,
+				{
+					name: "  Wishlist  ",
+					description: "Things to get",
+					fields: [
+						{ type: "date", required: true, label: "Owned On" },
+						{
+							type: "choice",
+							label: "Format",
+							required: false,
+							defaultValue: "Vinyl",
+							choices: [" Vinyl ", "CD"],
+						},
+					],
+				},
+				createCommand,
+			);
+			const [input] = yield* (yield* CollectionCalls).createdEntities;
+			expect(input?.name).toBe("Wishlist");
+			expect(input?.properties).toEqual({
+				description: "Things to get",
+				membershipPropertiesSchema: {
+					unknownKeys: "strict",
+					fields: {
+						"owned-on": {
+							position: 0,
+							type: "date",
+							label: "Owned On",
+							description: "Owned On",
+							validation: { required: true },
+						},
+						format: {
+							position: 1,
+							type: "enum",
+							label: "Format",
+							defaultValue: "Vinyl",
+							description: "Format",
+							choices: { kind: "static", values: [{ value: "Vinyl" }, { value: "CD" }] },
+						},
+					},
+				},
+			});
+		}),
+	);
+
+	test.effect("rejects reserved, invented, and unsupported member fields on create", () =>
+		Effect.gen(function* () {
+			const service = yield* CollectionsService;
+			const calls = yield* CollectionCalls;
+			const before = yield* calls.createdEntities;
+			const create = (fields: Parameters<typeof service.create>[1]["fields"]) =>
+				Effect.exit(service.create(user, { fields, name: "Fields" }, createCommand));
+			assertExitFails(
+				yield* create([{ key: "rank", label: "Rank", type: "number", required: false }]),
+				new CollectionBadRequest({
+					reason: { code: "reserved-field-key", paths: [["fields", "0", "key"]] },
+				}),
+			);
+			assertExitFails(
+				yield* create([{ type: "text", label: "Note", key: "invented", required: false }]),
+				new CollectionBadRequest({
+					reason: { code: "invalid-fields", paths: [["fields", "0", "key"]] },
+				}),
+			);
+			assertExitFails(
+				yield* create([
+					{ type: "choice", label: "Format", required: false },
+					{ type: "text", label: "Note", choices: ["a"], required: false },
+					{ type: "text", required: false, label: "x".repeat(101) },
+					{ label: "Tags", required: false, type: "multi-choice", choices: ["a", " a"] },
+					{ label: "Count", type: "number", required: false, defaultValue: "many" },
+				]),
+				new CollectionBadRequest({
+					reason: {
+						code: "invalid-fields",
+						paths: [
+							["fields", "0", "choices"],
+							["fields", "1", "choices"],
+							["fields", "2", "label"],
+							["fields", "3", "choices"],
+						],
+					},
+				}),
+			);
+			assertExitFails(
+				yield* create([{ label: "Count", type: "number", required: false, defaultValue: "many" }]),
+				new CollectionBadRequest({
+					reason: { code: "invalid-fields", paths: [["fields", "0", "defaultValue"]] },
+				}),
+			);
+			assertExitFails(
+				yield* create(
+					Array.from({ length: 51 }, (_, index) => ({
+						required: false,
+						type: "text" as const,
+						label: `Field ${index}`,
+					})),
+				),
+				new CollectionBadRequest({ reason: { paths: [["fields"]], code: "invalid-fields" } }),
+			);
+			expect(yield* calls.createdEntities).toEqual(before);
 		}),
 	);
 
@@ -401,10 +549,20 @@ layer(makeServiceLayer())((test) => {
 				{ entityId, collectionId, mode: "add-if-absent" },
 				command("membership-execution", "collection:add-membership"),
 			);
-			const [dispatch] = yield* (yield* CollectionCalls).workflowDispatches;
-			expect(dispatch?.payload).toMatchObject({
+			yield* service.removeFromCollection(
+				user,
+				{ entityId, collectionId },
+				command("removal-execution", "collection:remove-membership"),
+			);
+			const [add, remove] = yield* (yield* CollectionCalls).workflowDispatches;
+			expect(add?.payload).toMatchObject({
+				operation: "add",
 				mode: "add-if-absent",
 				command: { writeContext: null },
+			});
+			expect(remove).toMatchObject({
+				executionId: "removal-execution",
+				payload: { entityId, collectionId, operation: "remove" },
 			});
 		}),
 	);
@@ -412,9 +570,11 @@ layer(makeServiceLayer())((test) => {
 	test.effect("preserves sandbox authority for membership definition writes", () =>
 		Effect.gen(function* () {
 			const calls = yield* CollectionCalls;
-			yield* runAddWorkflowWithCommand({
-				...command("sandbox-membership-execution", "collection:add-membership"),
-				writeContext: sandboxWriteContext,
+			yield* runMembershipWorkflow({
+				lifecycle: {
+					...command("sandbox-membership-execution", "collection:add-membership"),
+					writeContext: sandboxWriteContext,
+				},
 			});
 			const relationshipCommand = (yield* calls.lifecycleCommands)["relationships.prepareCreate"];
 			expect(relationshipCommand).toMatchObject({
@@ -439,6 +599,33 @@ layer(makeServiceLayer())((test) => {
 			});
 		}),
 	);
+
+	test.effect("rejects client ranks and unknown member keys, including without fields", () =>
+		Effect.gen(function* () {
+			const calls = yield* CollectionCalls;
+			const before = yield* calls.relationshipInputs;
+			for (const properties of [{ rank: -100 }, { anything: "value" }]) {
+				assertExitFails(
+					yield* Effect.exit(runMembershipWorkflow({ properties })),
+					new CollectionBadRequest({
+						reason: {
+							code: "invalid-membership-properties",
+							paths: [[Object.keys(properties)[0] ?? ""]],
+						},
+					}),
+				);
+			}
+			expect(yield* calls.relationshipInputs).toEqual(before);
+		}),
+	);
+
+	test.effect("places a new member first with rank 0 in an empty collection", () =>
+		Effect.gen(function* () {
+			yield* runMembershipWorkflow();
+			const relationshipInput = (yield* (yield* CollectionCalls).relationshipInputs).at(-1);
+			expect(relationshipInput?.properties).toEqual({ rank: 0 });
+		}),
+	);
 });
 
 layer(
@@ -451,11 +638,12 @@ layer(
 			const result = yield* (yield* CollectionsService).create(
 				user,
 				{ name: "Favorites" },
-				command("collection:create", "collection:create"),
+				createCommand,
 			);
 			const [input] = yield* (yield* CollectionCalls).createdEntities;
 			const { populatedAt: _populatedAt, ...expected } = collectionEntity;
 			expect(result).toEqual({ ...expected, warnings: [warning] });
+			expect(input?.properties).toEqual({});
 			expect(input?.lifecycle.causation).toMatchObject({
 				depth: 0,
 				source: "api",
@@ -467,6 +655,210 @@ layer(
 				owner: { kind: "kernel" },
 				slug: EntitySchemaSlug.make("collection"),
 			});
+		}),
+	);
+});
+
+layer(
+	makeServiceLayer({
+		collections: {
+			findCollectionByNameForUser: () =>
+				Effect.succeed({ ...collectionEntity, id: EntityId.make("other-collection") }),
+		},
+	}),
+)((test) => {
+	test.effect("rejects duplicate names on create and update before writing", () =>
+		Effect.gen(function* () {
+			const service = yield* CollectionsService;
+			const taken = new CollectionBadRequest({ reason: { field: "name", code: "name-taken" } });
+			assertExitFails(
+				yield* Effect.exit(service.create(user, { name: "Favorites" }, createCommand)),
+				taken,
+			);
+			assertExitFails(
+				yield* Effect.exit(service.update(user, updatePayload, updateCommand)),
+				taken,
+			);
+			const calls = yield* CollectionCalls;
+			expect(yield* calls.createdEntities).toEqual([]);
+			expect(yield* calls.updatedEntities).toEqual([]);
+		}),
+	);
+});
+
+layer(
+	makeServiceLayer({
+		entities: {
+			create: () =>
+				Effect.fail(new EntityBadRequest({ reason: { code: "duplicate-collection-name" } })),
+			update: () =>
+				Effect.fail(new EntityBadRequest({ reason: { code: "duplicate-collection-name" } })),
+		},
+	}),
+)((test) => {
+	test.effect("maps a concurrent duplicate-name write to name-taken", () =>
+		Effect.gen(function* () {
+			const service = yield* CollectionsService;
+			const taken = new CollectionBadRequest({ reason: { field: "name", code: "name-taken" } });
+			assertExitFails(
+				yield* Effect.exit(service.create(user, { name: "Favorites" }, createCommand)),
+				taken,
+			);
+			assertExitFails(
+				yield* Effect.exit(service.update(user, updatePayload, updateCommand)),
+				taken,
+			);
+		}),
+	);
+});
+
+layer(makeServiceLayer({ collections: { getCollectionById: () => Effect.succeed(null) } }))(
+	(test) => {
+		test.effect("treats global, non-collection, and foreign ids as missing on update", () =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit(
+					(yield* CollectionsService).update(user, updatePayload, updateCommand),
+				);
+				assertExitFails(
+					exit,
+					new CollectionNotFound({ reason: { collectionId, code: "collection-not-found" } }),
+				);
+				expect(yield* (yield* CollectionCalls).updatedEntities).toEqual([]);
+			}),
+		);
+	},
+);
+
+layer(
+	makeServiceLayer({
+		collections: {
+			getCollectionById: () => Effect.succeed(noteCollection),
+			findCollectionByNameForUser: () => Effect.succeed(noteCollection),
+		},
+	}),
+)((test) => {
+	test.effect("replaces fields wholesale with an owner guard and the read as the expectation", () =>
+		Effect.gen(function* () {
+			yield* (yield* CollectionsService).update(
+				user,
+				{
+					collectionId,
+					name: "Favorites",
+					description: null,
+					fields: [
+						{ key: "note", type: "text", required: true, label: "Comment" },
+						{ label: "Note", type: "boolean", required: false },
+					],
+				},
+				updateCommand,
+			);
+			const calls = yield* CollectionCalls;
+			const [input] = yield* calls.updatedEntities;
+			expect(input).toMatchObject({
+				scope: "user",
+				userId: user.id,
+				entityId: collectionId,
+				requireUserOwned: true,
+				lifecycle: { kernelCollection: true },
+				expected: { updatedAt: now, name: "Favorites", properties: noteCollection.properties },
+				properties: {
+					membershipPropertiesSchema: {
+						unknownKeys: "strict",
+						fields: {
+							"note-2": { position: 1, label: "Note", type: "boolean", description: "Note" },
+							note: {
+								position: 0,
+								type: "string",
+								label: "Comment",
+								description: "Comment",
+								validation: { required: true },
+							},
+						},
+					},
+				},
+			});
+			expect(input?.properties).not.toHaveProperty("description");
+			expect(yield* calls.relationshipInputs).toEqual([]);
+		}),
+	);
+});
+
+layer(
+	makeServiceLayer({
+		entities: {
+			update: () =>
+				Effect.fail(new EntityStale({ reason: { code: "entity-stale", entityId: collectionId } })),
+		},
+	}),
+)((test) => {
+	test.effect("reports a collection changed since it was read as stale", () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* Effect.exit((yield* CollectionsService).update(user, updatePayload, updateCommand)),
+				new CollectionBadRequest({ reason: { collectionId, code: "collection-stale" } }),
+			);
+		}),
+	);
+});
+
+layer(makeServiceLayer())((test) => {
+	test.effect("deletes only the caller's kernel collection through the entity delete path", () =>
+		Effect.gen(function* () {
+			const result = yield* (yield* CollectionsService).delete(
+				user,
+				{ collectionId },
+				deleteCommand,
+			);
+			expect(result).toEqual({ warnings: [], id: collectionId });
+			const [[ids, lifecycle, target] = []] = yield* (yield* CollectionCalls).deletedEntities;
+			expect(ids).toEqual([collectionId]);
+			expect(lifecycle).toMatchObject({
+				kernelCollection: true,
+				itemIdentity: "collection:delete",
+			});
+			expect(target).toEqual({
+				userId: user.id,
+				entitySchema: collectionEntitySchema.entitySchema,
+			});
+		}),
+	);
+});
+
+layer(
+	makeServiceLayer({
+		entities: { deleteByIds: () => Effect.succeed({ warnings: [], deletedCount: 0 }) },
+	}),
+)((test) => {
+	test.effect("reports a missing collection when nothing was deleted", () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* Effect.exit(
+					(yield* CollectionsService).delete(user, { collectionId }, deleteCommand),
+				),
+				new CollectionNotFound({ reason: { collectionId, code: "collection-not-found" } }),
+			);
+		}),
+	);
+});
+
+layer(
+	makeServiceLayer({
+		entities: {
+			deleteByIds: () =>
+				Effect.fail(
+					new EntityNotFound({ reason: { entityId: collectionId, code: "entity-not-found" } }),
+				),
+		},
+	}),
+)((test) => {
+	test.effect("reports foreign, global, and non-collection ids as missing on delete", () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* Effect.exit(
+					(yield* CollectionsService).delete(user, { collectionId }, deleteCommand),
+				),
+				new CollectionNotFound({ reason: { collectionId, code: "collection-not-found" } }),
+			);
 		}),
 	);
 });
@@ -489,10 +881,7 @@ layer(
 )((test) => {
 	test.effect("does not dispatch an added event for an existing membership", () =>
 		Effect.gen(function* () {
-			const result = yield* runAddWorkflowWithCommand(
-				command(addWorkflowExecutionId),
-				"add-if-absent",
-			);
+			const result = yield* runMembershipWorkflow({ mode: "add-if-absent" });
 			const [relationshipInput] = yield* (yield* CollectionCalls).relationshipInputs;
 			expect(result.memberOf.id).toBe(relationshipId);
 			expect(relationshipInput?.ifAbsent).toBe(true);
@@ -512,7 +901,7 @@ layer(
 	test.effect("accepts cross-plugin collection members with the kernel membership schema", () =>
 		Effect.gen(function* () {
 			const calls = yield* CollectionCalls;
-			const result = yield* runAddWorkflow;
+			const result = yield* runMembershipWorkflow();
 			const membershipCommand = (yield* calls.lifecycleCommands)["relationships.prepareCreate"];
 			const [relationshipInput] = yield* calls.relationshipInputs;
 			expect(result.warnings).toEqual([warning, eventWarning]);
@@ -522,11 +911,8 @@ layer(
 				slug: RelationshipSchemaSlug.make("member-of"),
 			});
 			const [dispatch] = yield* calls.workflowDispatches;
-			if (!dispatch) {
-				throw new Error("Expected an event workflow dispatch");
-			}
-			expect(dispatch.executionId).toBe("collection-membership-added-relationship-id");
-			expect(dispatch.payload).toMatchObject({
+			expect(dispatch?.executionId).toBe("collection-membership-added-relationship-id");
+			expect(dispatch?.payload).toMatchObject({
 				payload: [{ properties: { entitySchemaSlug: "record" } }],
 				command: {
 					writeContext: null,
@@ -543,7 +929,7 @@ layer(
 layer(makeServiceLayer({ workflow: { eventFailure: new Error("failed") } }))((test) => {
 	test.effect("compensates with a stable identity derived from the original lifecycle fact", () =>
 		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runAddWorkflow);
+			const exit = yield* Effect.exit(runMembershipWorkflow());
 			assertExitFails(
 				exit,
 				new CollectionBadRequest({ reason: { code: "membership-event-failed" } }),
@@ -556,8 +942,8 @@ layer(makeServiceLayer({ workflow: { eventFailure: new Error("failed") } }))((te
 					"compensation:relationship-id",
 				]),
 				causation: {
-					executionId: "add-workflow-execution-id",
-					rootExecutionId: "add-workflow-execution-id",
+					executionId: "membership-workflow-execution-id",
+					rootExecutionId: "membership-workflow-execution-id",
 				},
 			});
 		}),
@@ -566,44 +952,195 @@ layer(makeServiceLayer({ workflow: { eventFailure: new Error("failed") } }))((te
 
 layer(
 	makeServiceLayer({
-		relationships: {
-			delete: () => Effect.succeed({ warnings: [warning], relationship: membership }),
-		},
-		events: {
-			create: () =>
-				Effect.succeed({ count: 1, outcomes: [], failure: null, warnings: [eventWarning] }),
+		collections: { findMembership: () => Effect.succeed({ properties: {}, id: relationshipId }) },
+		workflow: {
+			warnings: [warning],
+			eventResult: { count: 1, outcomes: [], failure: null, warnings: [eventWarning] },
 		},
 	}),
 )((test) => {
-	test.effect("unwraps deletion results and combines relationship and event warnings", () =>
+	test.effect("removes a membership durably and records the removal event", () =>
 		Effect.gen(function* () {
-			const result = yield* (yield* CollectionsService).removeFromCollection(
-				user,
-				{ entityId, collectionId },
-				command("collection:remove-membership", "collection:remove-membership"),
-			);
-			const commands = yield* (yield* CollectionCalls).lifecycleCommands;
-			const relationshipCommand = commands["relationships.delete"];
-			const eventCommand = commands["events.create"];
+			const lifecycle = command(membershipWorkflowExecutionId, "collection:remove-membership");
+			const result = yield* runMembershipWorkflow({ lifecycle, operation: "remove" });
+			const calls = yield* CollectionCalls;
+			const commands = yield* calls.lifecycleCommands;
+			const relationshipCommand = commands["relationships.prepareDeleteUserRelationshipById"];
 			expect(result).toEqual({
+				operation: "delete",
 				warnings: [warning, eventWarning],
 				memberOf: {
 					createdAt: now,
-					properties: {},
+					updatedAt: now,
 					id: relationshipId,
 					sourceEntityId: entityId,
 					targetEntityId: collectionId,
 					relationshipSchemaPluginId: null,
+					properties: { rank: 3, note: "kept" },
 					relationshipSchemaSlug: RelationshipSchemaSlug.make("member-of"),
 				},
 			});
-			expect(eventCommand?.causation).toEqual(relationshipCommand?.causation);
 			expect(relationshipCommand).toMatchObject({ writeContext: null, kernelCollection: true });
-			expect(eventCommand).toMatchObject({ writeContext: null, kernelCollection: true });
-			expect(eventCommand?.occurredAt).toBe(relationshipCommand?.occurredAt);
-			expect(eventCommand?.itemIdentity).toBe(
-				stableStringify(["collection:remove-membership", "event:relationship-id"]),
-			);
+			const [dispatch] = yield* calls.workflowDispatches;
+			expect(dispatch?.executionId).toBe("collection-membership-removed-relationship-id");
+			expect(dispatch?.payload).toMatchObject({
+				payload: [
+					{
+						entityId: collectionId,
+						eventSchemaSlug: removeEventSchema.id,
+						properties: { relationshipProperties: { rank: 3, note: "kept" } },
+					},
+				],
+				command: {
+					kernelCollection: true,
+					causation: relationshipCommand?.causation,
+					occurredAt: relationshipCommand?.occurredAt,
+					itemIdentity: stableStringify(["collection:remove-membership", "event:relationship-id"]),
+				},
+			});
 		}),
 	);
 });
+
+layer(
+	makeServiceLayer({
+		workflow: { eventFailure: new Error("failed") },
+		collections: { findMembership: () => Effect.succeed({ properties: {}, id: relationshipId }) },
+	}),
+)((test) => {
+	test.effect(
+		"restores the removed membership with its prior properties when the event fails",
+		() =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit(
+					runMembershipWorkflow({
+						operation: "remove",
+						lifecycle: command(membershipWorkflowExecutionId, "collection:remove-membership"),
+					}),
+				);
+				assertExitFails(
+					exit,
+					new CollectionBadRequest({ reason: { code: "membership-event-failed" } }),
+				);
+				const calls = yield* CollectionCalls;
+				const [restored] = yield* calls.relationshipInputs;
+				expect(restored).toMatchObject({
+					userId: user.id,
+					sourceEntityId: entityId,
+					targetEntityId: collectionId,
+					properties: { rank: 3, note: "kept" },
+				});
+				expect((yield* calls.lifecycleCommands)["relationships.prepareCreate"]).toMatchObject({
+					itemIdentity: stableStringify([
+						"collection:remove-membership",
+						"compensation:relationship-id",
+					]),
+				});
+			}),
+	);
+});
+
+layer(makeServiceLayer())((test) => {
+	test.effect("reports a missing membership on removal without deleting", () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* Effect.exit(runMembershipWorkflow({ operation: "remove" })),
+				new CollectionNotFound({
+					reason: { entityId, collectionId, code: "membership-not-found" },
+				}),
+			);
+			const commands = yield* (yield* CollectionCalls).lifecycleCommands;
+			expect(commands["relationships.prepareDeleteUserRelationshipById"]).toBeUndefined();
+		}),
+	);
+});
+
+layer(
+	makeServiceLayer({
+		collections: {
+			getCollectionById: () => Effect.succeed(noteCollection),
+			findMembership: () =>
+				Effect.succeed({ id: relationshipId, properties: { rank: 5, note: "old" } }),
+		},
+	}),
+)((test) => {
+	test.effect("keeps the stored rank when member fields of an existing membership change", () =>
+		Effect.gen(function* () {
+			yield* runMembershipWorkflow({ properties: { note: "new" } });
+			const [relationshipInput] = yield* (yield* CollectionCalls).relationshipInputs;
+			expect(relationshipInput?.properties).toEqual({ rank: 5, note: "new" });
+		}),
+	);
+});
+
+layer(
+	makeServiceLayer({
+		collections: {
+			findLowestMemberRank: () => Effect.succeed(-2),
+			getCollectionById: () => Effect.succeed(noteCollection),
+		},
+	}),
+)((test) => {
+	test.effect("places a new member before the current first member", () =>
+		Effect.gen(function* () {
+			yield* runMembershipWorkflow({ properties: { note: "first" } });
+			const [relationshipInput] = yield* (yield* CollectionCalls).relationshipInputs;
+			expect(relationshipInput?.properties).toEqual({ rank: -3, note: "first" });
+		}),
+	);
+});
+
+const catastrophicPattern = "^(a+)+$";
+
+for (const [name, membershipPropertiesSchema] of [
+	[
+		"a user-supplied pattern",
+		{
+			unknownKeys: "strict",
+			fields: {
+				note: {
+					label: "Note",
+					type: "string",
+					description: "Note",
+					validation: { pattern: catastrophicPattern },
+				},
+			},
+		},
+	],
+	[
+		"dynamic choices",
+		{
+			unknownKeys: "strict",
+			fields: {
+				format: {
+					type: "enum",
+					label: "Format",
+					description: "Format",
+					choices: { kind: "dynamic", source: "formats" },
+				},
+			},
+		},
+	],
+	["an undecodable value", { fields: "not-an-object" }],
+] as const) {
+	layer(
+		makeServiceLayer({
+			collections: {
+				getCollectionById: () =>
+					Effect.succeed({ ...collectionEntity, properties: { membershipPropertiesSchema } }),
+			},
+		}),
+	)((test) => {
+		test.effect(`rejects members of a stored schema with ${name} without evaluating it`, () =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* Effect.exit(
+						runMembershipWorkflow({ properties: { format: "x", note: `${"a".repeat(64)}!` } }),
+					),
+					new CollectionBadRequest({ reason: { code: "invalid-collection-schema" } }),
+				);
+				expect(yield* (yield* CollectionCalls).relationshipInputs).toEqual([]);
+			}),
+		);
+	});
+}

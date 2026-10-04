@@ -8,8 +8,11 @@ import {
 	CollectionResponse,
 	CreateCollectionBody,
 	CreateMembershipBody,
+	DeleteCollectionBody,
+	DeleteCollectionResponse,
 	DeleteMembershipBody,
 	MembershipResponse,
+	UpdateCollectionBody,
 } from "./schemas";
 
 export const CollectionsGroup = HttpApiGroup.make("collections")
@@ -20,6 +23,29 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 			success: CollectionResponse.pipe(HttpApiSchema.status(201)),
 			error: [CollectionBadRequest.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Creates a collection"),
+	)
+	.add(
+		AuthenticatedMutationEndpoint.patch("allowed")("update", "/collections", {
+			success: CollectionResponse,
+			payload: UpdateCollectionBody,
+			error: [
+				CollectionBadRequest.pipe(HttpApiSchema.status(400)),
+				CollectionNotFound.pipe(HttpApiSchema.status(404)),
+			],
+		}).annotate(
+			OpenApi.Description,
+			"Replaces a collection's name, description, and member fields",
+		),
+	)
+	.add(
+		AuthenticatedMutationEndpoint.delete("allowed")("delete", "/collections", {
+			payload: DeleteCollectionBody,
+			success: DeleteCollectionResponse,
+			error: [
+				CollectionBadRequest.pipe(HttpApiSchema.status(400)),
+				CollectionNotFound.pipe(HttpApiSchema.status(404)),
+			],
+		}).annotate(OpenApi.Description, "Deletes a collection and its memberships"),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.post("allowed")("createMembership", "/collections/memberships", {

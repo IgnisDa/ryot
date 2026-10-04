@@ -11,11 +11,14 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Ref, Result } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { EntitySchemaSnapshot } from "#modules/definitions/snapshot";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
 
 import { CollectionsRepository } from "./repository";
@@ -163,11 +166,7 @@ layer(collectionQueriesLayer)((test) => {
 			const repository = yield* CollectionsRepository;
 			const userId = UserId.make("user");
 			expect(
-				yield* repository.findCollectionByNameForUser({
-					userId,
-					name: "Favorites",
-					entitySchemaSlug: EntitySchemaSlug.make("collection"),
-				}),
+				yield* repository.findCollectionByNameForUser({ userId, name: "Favorites" }),
 			).toBeNull();
 			expect(
 				yield* repository.getCollectionById(EntityId.make("plugin-collection"), userId),
@@ -181,11 +180,100 @@ layer(collectionQueriesLayer)((test) => {
 				entitySchemaPluginId: "foreign-plugin",
 			});
 			const [byName, byId, membership] = yield* (yield* CollectionQueries).entries;
-			expect(byName?.sql).toContain("entity_schema_plugin_id");
-			expect(byName?.sql).toContain("is null");
+			expect(byName?.sql).toContain('"entity"."entity_schema_slug" = $');
+			expect(byName?.sql).toContain('"entity"."entity_schema_plugin_id" is null');
+			expect(byName?.sql).not.toContain("external_id");
+			expect(byName?.sql).not.toContain("provider_id");
 			expect(byId?.sql).toContain("entity_schema_plugin_id");
 			expect(byId?.sql).toContain("is null");
 			expect(membership?.columns).toContain("entitySchemaPluginId");
+		}),
+	);
+});
+
+const insertCollectionRows = Effect.gen(function* () {
+	const session = yield* DatabaseSession;
+	yield* session.run((db) =>
+		Effect.gen(function* () {
+			yield* db
+				.insert(tables.plugin)
+				.values({ status: "inactive", id: "collection-plugin", packageId: testPluginPackageId() });
+			yield* db.insert(tables.entity).values([
+				{ id: "shelf", name: "Shelf", userId: "owner", entitySchemaSlug: "collection" },
+				{ id: "empty", name: "Empty", userId: "owner", entitySchemaSlug: "collection" },
+				{ name: "A", id: "member-a", userId: "owner", entitySchemaSlug: "record" },
+				{ name: "B", id: "member-b", userId: "owner", entitySchemaSlug: "record" },
+				{ name: "C", id: "member-c", userId: "owner", entitySchemaSlug: "record" },
+			]);
+			const membership = {
+				userId: "owner",
+				targetEntityId: "shelf",
+				relationshipSchemaSlug: "member-of",
+			};
+			yield* db.insert(tables.relationship).values([
+				{ ...membership, id: "a", properties: { rank: -2 }, sourceEntityId: "member-a" },
+				{ ...membership, id: "b", sourceEntityId: "member-b", properties: { rank: "-99" } },
+				{ ...membership, id: "c", sourceEntityId: "member-c", properties: { note: "unranked" } },
+			]);
+		}),
+	);
+});
+
+layer(CollectionsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+	test.effect("reads memberships and the lowest numeric member rank of one collection", () =>
+		Effect.gen(function* () {
+			yield* insertCollectionRows;
+			const repository = yield* CollectionsRepository;
+			const userId = UserId.make("owner");
+			const shelf = EntityId.make("shelf");
+			expect(yield* repository.findLowestMemberRank({ userId, collectionId: shelf })).toBe(-2);
+			expect(
+				yield* repository.findLowestMemberRank({ userId, collectionId: EntityId.make("empty") }),
+			).toBeNull();
+			expect(
+				yield* repository.findLowestMemberRank({
+					collectionId: shelf,
+					userId: UserId.make("recipient"),
+				}),
+			).toBeNull();
+			expect(
+				yield* repository.findMembership({
+					userId,
+					collectionId: shelf,
+					entityId: EntityId.make("member-c"),
+				}),
+			).toEqual({ id: "c", properties: { note: "unranked" } });
+			expect(
+				yield* repository.findCollectionByNameForUser({ userId, name: "Shelf" }),
+			).toMatchObject({ id: shelf });
+		}),
+	);
+
+	test.effect("enforces unique kernel collection names per user only", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const insert = (row: Partial<typeof tables.entity.$inferInsert> & { id: string }) =>
+				Effect.result(
+					session.transaction(
+						session.run((db) =>
+							db
+								.insert(tables.entity)
+								.values({ name: "Shelf", userId: "owner", entitySchemaSlug: "collection", ...row }),
+						),
+					),
+				);
+			const duplicate = yield* insert({ id: "duplicate" });
+			expect(Result.isFailure(duplicate) && duplicate.failure).toMatchObject({
+				code: "23505",
+				constraint: "entity_collection_name_unique",
+			});
+			for (const row of [
+				{ id: "other-user", userId: "recipient" },
+				{ id: "record", entitySchemaSlug: "record" },
+				{ id: "plugin", entitySchemaPluginId: "collection-plugin" },
+			]) {
+				expect(Result.isSuccess(yield* insert(row))).toBe(true);
+			}
 		}),
 	);
 });

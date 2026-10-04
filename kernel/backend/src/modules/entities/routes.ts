@@ -32,7 +32,7 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 				};
 
 				return yield* service
-					.create({
+					.createFromApi({
 						lifecycle,
 						scope: "user",
 						userId: user.id,

@@ -31,6 +31,11 @@ export const entity = snakeCase.table(
 		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),
 		index("entity_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
 		index("entity_properties_idx").using("gin", table.properties),
+		uniqueIndex("entity_collection_name_unique")
+			.on(table.userId, table.name)
+			.where(
+				sql`${table.entitySchemaSlug} = 'collection' and ${table.entitySchemaPluginId} is null`,
+			),
 		uniqueIndex("entity_external_identity_unique")
 			.on(
 				table.externalId,

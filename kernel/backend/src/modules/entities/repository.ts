@@ -864,6 +864,26 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return rows.flat().map(toListedEntity);
 			});
 
+			const hasUserCollectionNamed = Effect.fn("EntitiesRepository.hasUserCollectionNamed")(
+				function* (input: { userId: UserId; name: string }) {
+					const [row] = yield* session.run((db) =>
+						db
+							.select({ id: schema.entity.id })
+							.from(schema.entity)
+							.where(
+								and(
+									eq(schema.entity.name, input.name),
+									eq(schema.entity.userId, input.userId),
+									eq(schema.entity.entitySchemaSlug, "collection"),
+									isNull(schema.entity.entitySchemaPluginId),
+								),
+							)
+							.limit(1),
+					);
+					return row !== undefined;
+				},
+			);
+
 			const updateEntity = Effect.fn("EntitiesRepository.updateEntity")(function* (
 				input: UpdateEntityInput,
 			) {
@@ -979,6 +999,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getMutationEntities,
 				findGlobalEntityById,
 				getEntityScopeForUser,
+				hasUserCollectionNamed,
 				findEntityByExternalId,
 				getEntityScopesForUser,
 				findEntitySchemaForUser,
