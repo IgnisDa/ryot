@@ -11,7 +11,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, FileSystem, Schema, Stream } from "effect";
 import { unzipSync, Zip, zipSync, ZipPassThrough } from "fflate";
 
-import { pluginSourceHash } from "#modules/plugins/pipeline";
+import { pluginContentHash } from "#modules/plugins/packages/pipeline";
 import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
@@ -105,7 +105,7 @@ const input = (overrides: Partial<CreateArchiveInput> = {}): CreateArchiveInput 
 			{
 				packageId,
 				version: "1.0.0",
-				sourceHash: "a".repeat(64),
+				contentHash: "a".repeat(64),
 				definitionContract: archivePluginDefinitionContract(fixtureManifest()),
 			},
 		],
@@ -294,10 +294,10 @@ layer(BunFileSystem.layer)((test) => {
 				format: 1,
 				javascript: "export {};",
 			}));
-			const sourceHash = pluginSourceHash(manifest, compiledScripts, compiledClient);
+			const contentHash = pluginContentHash(manifest, compiledScripts, compiledClient);
 			const privatePlugin = {
 				manifest,
-				sourceHash,
+				contentHash,
 				compiledClient,
 				compiledScripts,
 				version: manifest.metadata.version,
@@ -363,7 +363,7 @@ layer(BunFileSystem.layer)((test) => {
 								compiledScripts,
 								version: manifest.metadata.version,
 								packageId: manifest.metadata.packageId,
-								sourceHash: pluginSourceHash(manifest, compiledScripts),
+								contentHash: pluginContentHash(manifest, compiledScripts),
 							},
 						],
 					},
@@ -660,7 +660,7 @@ layer(BunFileSystem.layer)((test) => {
 							manifest: {},
 							version: "1.0.0",
 							compiledScripts: [],
-							sourceHash: "a".repeat(64),
+							contentHash: "a".repeat(64),
 							key: pluginPackageKey({ packageId, scope: "user" }),
 						})}\n`,
 					),

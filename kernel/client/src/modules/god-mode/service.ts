@@ -32,121 +32,124 @@ export class GodModeResetResultMissing extends Data.TaggedError("GodModeResetRes
 	readonly operationId: string;
 }> {}
 
-export class GodModeService extends Context.Service<GodModeService>()("GodModeService", {
-	make: Effect.gen(function* () {
-		const api = yield* GodModeApi;
-		const sessions = yield* GodModeSessionService;
-		const credentials = Effect.fn("GodModeService.credentials")(function* (sessionId: string) {
-			const session = yield* sessions.get(sessionId);
-			if (session === null) {
-				return yield* new GodModeSessionNotFound({ sessionId });
-			}
-			return session;
-		});
-		const listLogs = Effect.fn("GodModeService.listLogs")(function* (
-			sessionId: string,
-			after: string | undefined,
-			limit: number,
-		) {
-			const { token, origin } = yield* credentials(sessionId);
-			return yield* api.listLogs(origin, token, after, limit);
-		});
-		const downloadLogs = Effect.fn("GodModeService.downloadLogs")(function* (
-			sessionId: string,
-			file?: GodModeLogs["files"][number],
-		) {
-			const { token, origin } = yield* credentials(sessionId);
-			yield* api.downloadLogs(origin, token, file);
-		});
-		const listUsers = Effect.fn("GodModeService.listUsers")(function* (
-			sessionId: string,
-			search: string,
-			after: string | undefined,
-			limit: number,
-		) {
-			const { token, origin } = yield* credentials(sessionId);
-			return yield* api.query(origin, token, godModeUsersRecipe({ limit, after, search }));
-		});
-		const getMigrationReport = Effect.fn("GodModeService.getMigrationReport")(function* (
-			sessionId: string,
-			after?: string,
-		) {
-			const { token, origin } = yield* credentials(sessionId);
-			return yield* api.query(origin, token, migrationReportRecipe({ after, limit: 50 }));
-		});
-		const resetUserPassword = Effect.fn("GodModeService.resetUserPassword")(function* (
-			sessionId: string,
-			userId: string,
-		) {
-			const { token, origin } = yield* credentials(sessionId);
-			return yield* api.resetUserPassword(origin, token, {
-				params: { userId: UserId.make(userId) },
+export class InstanceAdminService extends Context.Service<InstanceAdminService>()(
+	"InstanceAdminService",
+	{
+		make: Effect.gen(function* () {
+			const api = yield* GodModeApi;
+			const sessions = yield* GodModeSessionService;
+			const credentials = Effect.fn("InstanceAdminService.credentials")(function* (
+				sessionId: string,
+			) {
+				const session = yield* sessions.get(sessionId);
+				if (session === null) {
+					return yield* new GodModeSessionNotFound({ sessionId });
+				}
+				return session;
 			});
-		});
-		const setUserDisabled = Effect.fn("GodModeService.setUserDisabled")(function* (
-			sessionId: string,
-			userId: string,
-			disabled: boolean,
-		) {
-			const { token, origin } = yield* credentials(sessionId);
-			return yield* api.setUserDisabled(origin, token, {
-				payload: { disabled },
-				params: { userId: UserId.make(userId) },
+			const listLogs = Effect.fn("InstanceAdminService.listLogs")(function* (
+				sessionId: string,
+				after: string | undefined,
+				limit: number,
+			) {
+				const { token, origin } = yield* credentials(sessionId);
+				return yield* api.listLogs(origin, token, after, limit);
 			});
-		});
-		const startUserImpersonation = Effect.fn("GodModeService.startUserImpersonation")(function* (
-			sessionId: string,
-			userId: string,
-			authorization: ImpersonationAuthorization,
-		) {
-			const { token, origin } = yield* credentials(sessionId);
-			return yield* api.startUserImpersonation(origin, token, {
-				payload: authorization,
-				params: { userId: UserId.make(userId) },
+			const downloadLogs = Effect.fn("InstanceAdminService.downloadLogs")(function* (
+				sessionId: string,
+				file?: GodModeLogs["files"][number],
+			) {
+				const { token, origin } = yield* credentials(sessionId);
+				yield* api.downloadLogs(origin, token, file);
 			});
-		});
-		const lifecycle = Effect.fn("GodModeService.lifecycle")(function* (
-			sessionId: string,
-			userId: string,
-			kind: "delete" | "reset",
-		) {
-			const { token, origin } = yield* credentials(sessionId);
-			const params = { userId: UserId.make(userId) };
-			return yield* runUserLifecycleOperation({
-				poll: (operationId) =>
-					api.query(origin, token, userLifecycleOperationRecipe({ id: operationId })),
-				start:
-					kind === "delete"
-						? api.deleteUser(origin, token, { params })
-						: api.resetUser(origin, token, { params }),
+			const listUsers = Effect.fn("InstanceAdminService.listUsers")(function* (
+				sessionId: string,
+				search: string,
+				after: string | undefined,
+				limit: number,
+			) {
+				const { token, origin } = yield* credentials(sessionId);
+				return yield* api.query(origin, token, godModeUsersRecipe({ limit, after, search }));
 			});
-		});
-		const deleteUser = Effect.fn("GodModeService.deleteUser")((sessionId: string, userId: string) =>
-			lifecycle(sessionId, userId, "delete"),
-		);
-		const resetUser = Effect.fn("GodModeService.resetUser")(function* (
-			sessionId: string,
-			userId: string,
-		) {
-			const operation = yield* lifecycle(sessionId, userId, "reset");
-			if (operation.resetResult === null) {
-				return yield* new GodModeResetResultMissing({ operationId: operation.id });
-			}
-			return operation.resetResult satisfies GodModeUserResetResult;
-		});
+			const getMigrationReport = Effect.fn("InstanceAdminService.getMigrationReport")(function* (
+				sessionId: string,
+				after?: string,
+			) {
+				const { token, origin } = yield* credentials(sessionId);
+				return yield* api.query(origin, token, migrationReportRecipe({ after, limit: 50 }));
+			});
+			const resetUserPassword = Effect.fn("InstanceAdminService.resetUserPassword")(function* (
+				sessionId: string,
+				userId: string,
+			) {
+				const { token, origin } = yield* credentials(sessionId);
+				return yield* api.resetUserPassword(origin, token, {
+					params: { userId: UserId.make(userId) },
+				});
+			});
+			const setUserDisabled = Effect.fn("InstanceAdminService.setUserDisabled")(function* (
+				sessionId: string,
+				userId: string,
+				disabled: boolean,
+			) {
+				const { token, origin } = yield* credentials(sessionId);
+				return yield* api.setUserDisabled(origin, token, {
+					payload: { disabled },
+					params: { userId: UserId.make(userId) },
+				});
+			});
+			const startUserImpersonation = Effect.fn("InstanceAdminService.startUserImpersonation")(
+				function* (sessionId: string, userId: string, authorization: ImpersonationAuthorization) {
+					const { token, origin } = yield* credentials(sessionId);
+					return yield* api.startUserImpersonation(origin, token, {
+						payload: authorization,
+						params: { userId: UserId.make(userId) },
+					});
+				},
+			);
+			const lifecycle = Effect.fn("InstanceAdminService.lifecycle")(function* (
+				sessionId: string,
+				userId: string,
+				kind: "delete" | "reset",
+			) {
+				const { token, origin } = yield* credentials(sessionId);
+				const params = { userId: UserId.make(userId) };
+				return yield* runUserLifecycleOperation({
+					poll: (operationId) =>
+						api.query(origin, token, userLifecycleOperationRecipe({ id: operationId })),
+					start:
+						kind === "delete"
+							? api.deleteUser(origin, token, { params })
+							: api.resetUser(origin, token, { params }),
+				});
+			});
+			const deleteUser = Effect.fn("InstanceAdminService.deleteUser")(
+				(sessionId: string, userId: string) => lifecycle(sessionId, userId, "delete"),
+			);
+			const resetUser = Effect.fn("InstanceAdminService.resetUser")(function* (
+				sessionId: string,
+				userId: string,
+			) {
+				const operation = yield* lifecycle(sessionId, userId, "reset");
+				if (operation.resetResult === null) {
+					return yield* new GodModeResetResultMissing({ operationId: operation.id });
+				}
+				return operation.resetResult satisfies GodModeUserResetResult;
+			});
 
-		return {
-			listLogs,
-			listUsers,
-			resetUser,
-			deleteUser,
-			downloadLogs,
-			setUserDisabled,
-			resetUserPassword,
-			getMigrationReport,
-			startUserImpersonation,
-		};
-	}),
-}) {
+			return {
+				listLogs,
+				listUsers,
+				resetUser,
+				deleteUser,
+				downloadLogs,
+				setUserDisabled,
+				resetUserPassword,
+				getMigrationReport,
+				startUserImpersonation,
+			};
+		}),
+	},
+) {
 	static readonly layer = Layer.effect(this, this.make);
 }

@@ -1,9 +1,9 @@
 import { Layer } from "effect";
 
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
-import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { BackupRestorePersistence } from "./persistence";
 

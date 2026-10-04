@@ -25,7 +25,7 @@ const workspace = (
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
-	sourceHash: "source-media",
+	contentHash: "source-media",
 	installationId: "installation-media",
 	...overrides,
 	scope: overrides.scope ?? "system",
@@ -233,7 +233,7 @@ describe("mobile drawer", () => {
 			const journal = workspace({
 				sortOrder: 1,
 				name: "Journal",
-				sourceHash: "source-journal",
+				contentHash: "source-journal",
 				installationId: "installation-journal",
 				pluginId: PluginId.make("plugin-journal"),
 				packageId: PluginPackageId.make("test/journal"),

@@ -6,9 +6,9 @@ import { MiB, SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Deferred, Effect, Fiber, Schema } from "effect";
 
-import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
+import { redisKeys, RedisService } from "#platform/redis";
+import { testExecutionId, testRedisServiceLayer } from "#testing/redis";
 
-import { redisKeys, RedisService } from "../../../lib/infrastructure/redis";
 import { appendWorkflowJournalWithRedis } from "./journal";
 import { inspectSandboxJournal, pinSandboxJournal } from "./journal-store";
 

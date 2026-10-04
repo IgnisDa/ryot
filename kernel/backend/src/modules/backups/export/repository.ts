@@ -2,8 +2,8 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import { asc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 export class BackupExportRepository extends Context.Service<BackupExportRepository>()(
 	"BackupExportRepository",

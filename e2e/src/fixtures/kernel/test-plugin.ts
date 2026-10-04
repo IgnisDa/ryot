@@ -83,7 +83,7 @@ export type InstalledTestPlugin = {
 	activationId: string;
 	pluginSlug: string;
 	scope: "system" | "user";
-	sourceHash: string;
+	contentHash: string;
 	scriptId: SandboxScriptId;
 	installationId: string | null;
 	configRevisionId: PluginConfigRevisionId | null;
@@ -100,7 +100,7 @@ type TestDefinitionRegistration = {
 	manifest: TestPluginManifest;
 	pluginId: PluginId;
 	pluginSlug: string;
-	sourceHash: string;
+	contentHash: string;
 };
 
 const encoder = new TextEncoder();
@@ -141,7 +141,7 @@ export const installTestSupportSystemPlugin = (
 export const updateTestSupportSystemPlugin = (
 	input: (PluginPackageInput | PluginArchivePackage) & {
 		readonly pluginId: PluginId;
-		readonly sourceHash: string;
+		readonly contentHash: string;
 		readonly baseUrl?: string;
 	},
 ) =>
@@ -152,7 +152,7 @@ export const updateTestSupportSystemPlugin = (
 				contract.testSupport.updateSystemPlugin({
 					params: { pluginId: input.pluginId },
 					payload: {
-						sourceHash: input.sourceHash,
+						contentHash: input.contentHash,
 						manifest: pluginPackage.manifest,
 						compiledScripts: pluginPackage.compiledScripts,
 						...(pluginPackage.compiledClient === undefined
@@ -269,7 +269,7 @@ const installedSourceHash = (
 				plugins.find(({ id }) => id === pluginId),
 				`System plugin '${pluginId}' was not found after installation`,
 			);
-			return requirePresent(plugin.sourceHash, `System plugin '${pluginId}' has no source hash`);
+			return requirePresent(plugin.contentHash, `System plugin '${pluginId}' has no source hash`);
 		}
 		const owner = requirePresent(client, "User test plugin has no client");
 		const plugins = yield* listInstalledPlugins(owner, { includeHidden: true });
@@ -280,7 +280,7 @@ const installedSourceHash = (
 			),
 			`Private plugin installation '${installationId}' was not found after installation`,
 		);
-		return plugin.sourceHash;
+		return plugin.contentHash;
 	});
 
 const requireFixtureUserId = (client: Client) =>
@@ -355,7 +355,7 @@ export const installTestPlugin = (
 			scriptIds[input.script.slug],
 			`Installed test plugin script '${input.script.slug}' was not returned`,
 		);
-		const sourceHash = yield* installedSourceHash(
+		const contentHash = yield* installedSourceHash(
 			input.scope === "system" ? "system" : "user",
 			operationResult.pluginId,
 			operationResult.installationId,
@@ -366,8 +366,8 @@ export const installTestPlugin = (
 			manifest,
 			scriptId,
 			scriptIds,
-			sourceHash,
 			pluginSlug,
+			contentHash,
 			active: true,
 			client: input.client,
 			slug: input.script.slug,
@@ -473,7 +473,7 @@ export const installTestPluginBundle = (
 		if (!scriptId) {
 			return yield* Effect.die(new Error("Test plugin bundle requires at least one script"));
 		}
-		const sourceHash = yield* installedSourceHash(
+		const contentHash = yield* installedSourceHash(
 			input.scope === "system" ? "system" : "user",
 			operationResult.pluginId,
 			operationResult.installationId,
@@ -485,8 +485,8 @@ export const installTestPluginBundle = (
 			manifest,
 			scriptId,
 			scriptIds,
-			sourceHash,
 			pluginSlug,
+			contentHash,
 			active: true,
 			client: input.client,
 			pluginId: operationResult.pluginId,
@@ -537,7 +537,7 @@ export const installTestDefinitions = (input: {
 			const updated = yield* input.client.call((c) =>
 				c.plugins.update({
 					params: { installationId: current.installationId },
-					payload: { uploadToken, sourceHash: current.sourceHash },
+					payload: { uploadToken, contentHash: current.contentHash },
 				}),
 			);
 			installationId = updated.id;
@@ -573,7 +573,7 @@ export const installTestDefinitions = (input: {
 			client: input.client,
 			pluginId: exactPluginId,
 			pluginSlug: input.pluginSlug,
-			sourceHash: settled.sourceHash,
+			contentHash: settled.contentHash,
 			installationId: exactInstallationId,
 		});
 		return { ...manifest, pluginId: exactPluginId };
@@ -613,7 +613,7 @@ export const reinstallTestPluginScript = (
 				files,
 				manifest,
 				pluginId: installed.pluginId,
-				sourceHash: installed.sourceHash,
+				contentHash: installed.contentHash,
 			});
 		} else {
 			const client = requirePresent(installed.client, "User test plugin has no client");
@@ -621,7 +621,7 @@ export const reinstallTestPluginScript = (
 			operationResult = yield* getApiClient().call(
 				(c) =>
 					c.testSupport.updatePrivatePlugin({
-						payload: { uploadToken, sourceHash: installed.sourceHash },
+						payload: { uploadToken, contentHash: installed.contentHash },
 						params: {
 							userId: requireFixtureUserId(client),
 							installationId: requirePresent(
@@ -639,7 +639,7 @@ export const reinstallTestPluginScript = (
 			`Updated test plugin script '${script.slug}' was not returned`,
 		);
 		const updatesPrimaryScript = installed.scriptId === installed.scriptIds[targetSlug];
-		const sourceHash = yield* installedSourceHash(
+		const contentHash = yield* installedSourceHash(
 			installed.scope,
 			operationResult.pluginId,
 			operationResult.installationId,
@@ -649,7 +649,7 @@ export const reinstallTestPluginScript = (
 			...installed,
 			files,
 			manifest,
-			sourceHash,
+			contentHash,
 			scriptIds: nextScriptIds,
 			pluginSlug: installed.pluginSlug,
 			pluginId: operationResult.pluginId,

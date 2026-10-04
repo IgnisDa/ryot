@@ -7,7 +7,7 @@ import {
 	automationTrigger,
 	automationTriggerRecipient,
 	notificationSubscription,
-} from "#lib/infrastructure/db/schema/tables/automations";
+} from "#schema/tables/automations";
 
 const dialect = new PgDialect();
 

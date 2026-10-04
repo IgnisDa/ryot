@@ -839,7 +839,7 @@ describe("plugin client bridge contract", () => {
 					operationSlug: "greet",
 					packageId: "test/fixture",
 					type: "operation-request",
-					sourceHash: "plugin-controlled-source-hash",
+					contentHash: "plugin-controlled-source-hash",
 				}),
 			),
 		).toBe(true);

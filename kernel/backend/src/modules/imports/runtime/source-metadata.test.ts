@@ -3,7 +3,7 @@ import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/p
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
-import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
+import type { RegisteredImportSource } from "#modules/plugins/catalog/import-sources";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
 import {

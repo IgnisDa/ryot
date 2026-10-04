@@ -13,39 +13,43 @@ import {
 } from "effect/http";
 import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/http-api";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { logHttpResponseAtRoot } from "#lib/infrastructure/http-response-logger";
-import { RequestLogUrl } from "#lib/infrastructure/request-log-url";
-import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
+import {
+	AdminMiddlewareLive,
+	AuthMiddlewareLive,
+	AuthService,
+} from "#modules/accounts/auth/service";
+import { UserSettingsRoutesLive } from "#modules/accounts/preferences/routes";
+import { LocalUploadsRoutesLive, UploadsRoutesLive } from "#modules/assets/routes";
 import { AutomationHistoryRoutesLive } from "#modules/automations/history-routes";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupDownloadsRoutesLive, BackupsRoutesLive } from "#modules/backups/routes";
-import { ClientAssetsRoutesLive } from "#modules/client-artifacts/routes";
-import { ClientPagesRoutesLive } from "#modules/client-pages/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
+import { ProviderEntitiesRoutesLive } from "#modules/entities/providers/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
-import { InterestRoutesLive } from "#modules/entity-interest/routes";
-import { InterestSocketRouteLive } from "#modules/entity-interest/socket-route";
+import { EntityUserDataRoutesLive } from "#modules/entities/user-data/routes";
+import { InterestRoutesLive } from "#modules/entities/watches/routes";
+import { InterestSocketRouteLive } from "#modules/entities/watches/socket-route";
 import { EventsRoutesLive } from "#modules/events/routes";
+import { ImportDownloadsRoutesLive, ImportsRoutesLive } from "#modules/imports/routes";
 import {
-	GodModeRoutesLive,
+	InstanceAdminRoutesLive,
 	ServerLogDownloadsRoutesLive,
 	ServerLogsRoutesLive,
-} from "#modules/god-mode/routes";
-import { ImportDownloadsRoutesLive, ImportsRoutesLive } from "#modules/imports/routes";
+} from "#modules/instance-admin/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { OAuthConnectionsRoutesLive } from "#modules/oauth-connections/routes";
+import { ClientAssetsRoutesLive } from "#modules/pages/bundles/routes";
+import { ClientPagesRoutesLive } from "#modules/pages/preparation/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
-import { ProviderEntitiesRoutesLive } from "#modules/provider-entities/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
 import { AdminRyotQLRoutesLive, RyotQLRoutesLive } from "#modules/ryotql/routes";
 import { SavedViewsRoutesLive } from "#modules/saved-views/routes";
 import { SystemRoutesLive } from "#modules/system/routes";
 import { TestSupportRoutesLive } from "#modules/test-support/routes";
-import { LocalUploadsRoutesLive, UploadsRoutesLive } from "#modules/uploads/routes";
-import { UserSettingsRoutesLive } from "#modules/user-settings/routes";
-import { UserStateRoutesLive } from "#modules/user-state/routes";
+import { AppConfig } from "#platform/config/service";
+import { RequestLogUrl } from "#platform/http/request-log-url";
+import { logHttpResponseAtRoot } from "#platform/http/response-logger";
 
 const mimeTypes: Record<string, string> = {
 	ttf: "font/ttf",
@@ -101,7 +105,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(RelationshipsRoutesLive),
 	Layer.provide(EntitiesRoutesLive),
 	Layer.provide(ProviderEntitiesRoutesLive),
-	Layer.provide(Layer.mergeAll(UserStateRoutesLive, UserSettingsRoutesLive)),
+	Layer.provide(Layer.mergeAll(EntityUserDataRoutesLive, UserSettingsRoutesLive)),
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),
 	Layer.provide(LocalUploadsRoutesLive),
@@ -112,7 +116,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	),
 	Layer.provide(
 		Layer.mergeAll(
-			GodModeRoutesLive,
+			InstanceAdminRoutesLive,
 			ServerLogsRoutesLive,
 			ServerLogDownloadsRoutesLive,
 			AdminRyotQLRoutesLive,

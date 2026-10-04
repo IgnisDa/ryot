@@ -3,8 +3,8 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import { importRun } from "#lib/infrastructure/db/schema/tables/imports";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { DatabaseSession } from "#platform/db/session";
+import { importRun } from "#schema/tables/imports";
 
 export class OperationalGateRepository extends Context.Service<OperationalGateRepository>()(
 	"OperationalGateRepository",

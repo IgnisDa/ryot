@@ -105,7 +105,7 @@ export const ClientPageCodeContributor = Schema.Union([
 	strictStruct({
 		pluginId: PluginId,
 		revisionId: Schema.String,
-		sourceHash: Schema.String,
+		contentHash: Schema.String,
 		packageId: PluginPackageId,
 		installationId: Schema.String,
 		kind: Schema.Literal("plugin"),
@@ -115,7 +115,7 @@ export type ClientPageCodeContributor = typeof ClientPageCodeContributor.Type;
 
 export const ClientPageOperationTarget = strictStruct({
 	pluginId: PluginId,
-	sourceHash: Schema.String,
+	contentHash: Schema.String,
 	packageId: PluginPackageId,
 	installationId: Schema.String,
 });
@@ -201,8 +201,8 @@ export const ClientPageCompositionIdentity = strictStruct({
 			strictStruct({
 				pluginId: PluginId,
 				namespace: Schema.String,
-				sourceHash: Schema.String,
 				revisionId: Schema.String,
+				contentHash: Schema.String,
 				packageId: PluginPackageId,
 				kind: Schema.Literal("plugin"),
 				clientArtifactHash: Schema.String,
@@ -258,8 +258,8 @@ export const PreparedClientPageIdentity = Schema.Union([
 		pluginId: Schema.String,
 		savedViewId: SavedViewId,
 		viewRevision: Schema.Int,
-		sourceHash: Schema.String,
 		exportName: Schema.String,
+		contentHash: Schema.String,
 		installationId: Schema.String,
 		target: SavedViewOrRouteClientPageTarget,
 		kind: Schema.Literal("plugin-saved-view"),
@@ -267,8 +267,8 @@ export const PreparedClientPageIdentity = Schema.Union([
 	strictStruct({
 		...PreparedClientPageIdentityBase,
 		pluginId: Schema.String,
-		sourceHash: Schema.String,
 		exportName: Schema.String,
+		contentHash: Schema.String,
 		installationId: Schema.String,
 		target: PluginClientPageTarget,
 		kind: Schema.Literal("plugin-page"),

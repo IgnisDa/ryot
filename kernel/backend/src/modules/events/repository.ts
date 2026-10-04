@@ -15,9 +15,9 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 import { EventStreamRepository, type StreamKey } from "./stream-repository";
 

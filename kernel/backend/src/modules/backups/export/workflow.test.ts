@@ -5,9 +5,9 @@ import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeAppConfigLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
-import { ObjectStorageService } from "#modules/uploads/object-storage/service";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import { DatabaseSession } from "#platform/db/session";
+import { makeAppConfigLayer, makeWorkflowActivityEngine } from "#testing/effect";
 
 import { BackupsRepository } from "../runs/repository";
 import { BackupExportSnapshot } from "./snapshot";

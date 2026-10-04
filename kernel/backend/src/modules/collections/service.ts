@@ -26,12 +26,12 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import type {
 	LifecycleCommittedStep,
 	LifecyclePreparedStep,
-} from "#lib/infrastructure/lifecycle-workflow-step";
+} from "#modules/automations/lifecycle/write-step";
 import {
 	parseAppSchemaProperties,
 	parseLabeledPropertySchemaInput,
-} from "#lib/property-schema/property-schema-runtime";
-import { trimToNull } from "#lib/shared/validation";
+} from "#modules/definitions/properties/runtime";
+import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import type { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesService, type PendingEntityMutation } from "#modules/entities/service";
 import {
@@ -41,12 +41,12 @@ import {
 import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import {
 	PendingRelationshipMutations,
 	RelationshipSingleResult,
 } from "#modules/relationships/mutation-pipeline";
 import { RelationshipsService } from "#modules/relationships/service";
+import { trimToNull } from "#platform/validation";
 
 import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";
 import { CollectionsRepository } from "./repository";
@@ -114,7 +114,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			const repository = yield* CollectionsRepository;
 			const relationships = yield* RelationshipsService;
 			const receipts = yield* MutationReceipts.make;
-			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
+			const relationshipSchemasRepository = yield* RelationshipSchemaReader;
 			const memberOfSchema = yield* Effect.cached(
 				relationshipSchemasRepository
 					.findKernelBySlug("member-of")

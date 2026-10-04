@@ -14,10 +14,10 @@ import {
 } from "#modules/imports/script-host";
 import { userSandboxRunUserId } from "#modules/scripts/host/execution-context";
 
-import { getPluginConfig } from "./config-access";
-import { PluginInstallationRepository } from "./installation-repository";
-import { PluginRuntimeResolver } from "./runtime-resolver";
-import { resolveStoredPluginUserSettings } from "./user-settings";
+import { PluginRuntimeResolver } from "./catalog/runtime-resolver";
+import { getPluginConfig } from "./configuration/access";
+import { PluginInstallationRepository } from "./installations/repository";
+import { resolveStoredPluginUserSettings } from "./preferences/user-settings";
 
 const normalizeConfigKeys = (
 	rawKeys: ReadonlyArray<string>,

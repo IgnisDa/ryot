@@ -17,7 +17,6 @@ import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Data, DateTime, Effect, Exit, Layer, Schema } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	genericIngestionBatchResult,
 	reconcileGenericIngestionBatch,
@@ -32,11 +31,12 @@ import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-st
 import { ImportRunError } from "#modules/imports/runtime/workflow-errors";
 import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { resolveStoredPluginUserSettings } from "#modules/plugins/user-settings";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { resolveStoredPluginUserSettings } from "#modules/plugins/preferences/user-settings";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxPluginScriptResolver } from "#modules/scripts/registry/plugin-script-resolver";
+import { DatabaseSession } from "#platform/db/session";
 
 import type { IntegrationWebhookDelivery } from "./jobs";
 import type { IntegrationRecord } from "./repository";

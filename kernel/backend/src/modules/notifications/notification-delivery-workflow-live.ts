@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { Effect, Layer, Schema } from "effect";
 
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { deliverEnabledChannels } from "./deliver-enabled-channels";
 import {

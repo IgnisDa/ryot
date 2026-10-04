@@ -14,26 +14,26 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { RedisService } from "#lib/infrastructure/redis";
-import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
-import { AuthService } from "#modules/auth/service";
+import { AuthService } from "#modules/accounts/auth/service";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
+import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { InterestService } from "#modules/entities/watches/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { InterestService } from "#modules/entity-interest/service";
-import { TranslationsRepository } from "#modules/entity-translation/repository";
-import { PluginInstallationService } from "#modules/plugins/installation-service";
-import { PluginRepository } from "#modules/plugins/repository";
-import { PluginIngestionService } from "#modules/plugins/service";
+import { PluginInstallationService } from "#modules/plugins/installations/service";
+import { PluginIngestionService } from "#modules/plugins/packages/ingestion-service";
+import { PluginRepository } from "#modules/plugins/packages/repository";
+import type { PluginSource } from "#modules/plugins/packages/types";
 import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
-import type { PluginSource } from "#modules/plugins/types";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { RedisService } from "#platform/redis";
+import { databaseLayer, makeRedisService, type MockOverrides } from "#testing/effect";
 
 import { TestSupportService } from "./service";
 
@@ -56,7 +56,7 @@ const mockPluginCrons = Layer.mock(PluginCronService);
 const mockSandbox = Layer.mock(ScriptExecutionService);
 const mockTranslations = Layer.mock(TranslationsRepository);
 const mockRelationships = Layer.mock(RelationshipsService);
-const mockRelationshipSchemas = Layer.mock(RelationshipSchemasRepository);
+const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
 const makeServiceLayer = (
 	overrides: {
 		sandbox?: MockOverrides<typeof mockSandbox>;
@@ -165,7 +165,7 @@ assert(systemPluginClient);
 
 type SystemPluginObservation =
 	| { kind: "install"; input: PluginSource }
-	| { kind: "update"; input: PluginSource & { pluginId: string; sourceHash: string } }
+	| { kind: "update"; input: PluginSource & { pluginId: string; contentHash: string } }
 	| {
 			identity: Parameters<PluginRepository["Service"]["findTestSupportOperationResult"]>[0];
 			kind: "result";
@@ -245,10 +245,10 @@ layer(systemPluginIngestion.layer)((test) => {
 			{ format: 1, javascript: "compiled update", entry: "backend/automations/fixture.sandbox.ts" },
 		];
 		const pluginId = PluginId.make("plugin-id");
-		const sourceHash = "current-source-hash";
+		const contentHash = "current-source-hash";
 		return Effect.gen(function* () {
 			const result = yield* (yield* TestSupportService).updateSystemPlugin(pluginId, {
-				sourceHash,
+				contentHash,
 				compiledScripts,
 				manifest: systemPluginManifest,
 				compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
@@ -260,7 +260,7 @@ layer(systemPluginIngestion.layer)((test) => {
 					kind: "update",
 					input: {
 						pluginId,
-						sourceHash,
+						contentHash,
 						compiledClient,
 						compiledScripts,
 						manifest: systemPluginManifest,
@@ -317,7 +317,7 @@ layer(privatePluginOperations.layer)((test) => {
 			assert(installationId);
 			const updated = yield* service.updatePrivatePlugin(UserId.make("owner"), installationId, {
 				uploadToken: "update-upload",
-				sourceHash: "current-source-hash",
+				contentHash: "current-source-hash",
 			});
 			expect(yield* privatePluginOperations.recorded).toEqual([
 				{ kind: "install" },

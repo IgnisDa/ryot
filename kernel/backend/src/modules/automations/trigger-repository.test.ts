@@ -4,9 +4,9 @@ import { eq, sql } from "drizzle-orm";
 import { Data, DateTime, Effect, Layer } from "effect";
 import { describe } from "vitest";
 
-import { automationTrigger } from "#lib/infrastructure/db/schema/tables/automations";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { revisionDatabaseLayer } from "#modules/plugins/revision.test-support";
+import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import { DatabaseSession } from "#platform/db/session";
+import { automationTrigger } from "#schema/tables/automations";
 
 import { triggerFixture } from "./lifecycle.test-support";
 import { AutomationTriggerRepository } from "./trigger-repository";

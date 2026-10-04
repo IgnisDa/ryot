@@ -30,19 +30,22 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import { rootLifecycleCommand, childLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { AuthService } from "#modules/auth/service";
+import { AuthService } from "#modules/accounts/auth/service";
+import {
+	rootLifecycleCommand,
+	childLifecycleCommand,
+} from "#modules/automations/lifecycle/command";
+import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
+import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { InterestService } from "#modules/entity-interest/service";
-import { TranslationsRepository } from "#modules/entity-translation/repository";
-import { PluginInstallationService } from "#modules/plugins/installation-service";
-import { PluginRepository } from "#modules/plugins/repository";
-import { PluginIngestionService } from "#modules/plugins/service";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { InterestService } from "#modules/entities/watches/service";
+import { PluginInstallationService } from "#modules/plugins/installations/service";
+import { PluginIngestionService } from "#modules/plugins/packages/ingestion-service";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { redisKeys, RedisService } from "#platform/redis";
 
 type CreateGlobalEntityInput = {
 	readonly name: string;
@@ -128,7 +131,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const pluginIngestion = yield* PluginIngestionService;
 			const pluginInstallations = yield* PluginInstallationService;
 			const pluginRepository = yield* PluginRepository;
-			const relationshipSchemas = yield* RelationshipSchemasRepository;
+			const relationshipSchemas = yield* RelationshipSchemaReader;
 			const getPluginOperationResult = Effect.fn("TestSupportService.getPluginOperationResult")(
 				function* (
 					identity: Parameters<PluginRepository["Service"]["findTestSupportOperationResult"]>[0],
@@ -178,7 +181,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				const updated = yield* pluginIngestion.updatePlugin({
 					pluginId,
 					manifest: input.manifest,
-					sourceHash: input.sourceHash,
+					contentHash: input.contentHash,
 					compiledScripts: input.compiledScripts,
 					...(compiledClient === undefined ? {} : { compiledClient }),
 				});

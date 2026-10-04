@@ -6,9 +6,9 @@ import type { SQL } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import type { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import * as tables from "#schema/tables/combined";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { isWorkflowCallTargetKind, SandboxRepository } from "./repository";
 

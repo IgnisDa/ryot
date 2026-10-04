@@ -15,8 +15,8 @@ import {
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Exit, Layer, Result, Schema, Semaphore } from "effect";
 
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { loadPluginSandboxScripts } from "#modules/plugins/source.test-support";
+import { makeAppConfigLayer } from "#testing/effect";
 
 type SnapshotTier = typeof SidecarTier.Type;
 type SidecarHostCall = Extract<SidecarOutboundFrame, { readonly type: "hostCall" }>;

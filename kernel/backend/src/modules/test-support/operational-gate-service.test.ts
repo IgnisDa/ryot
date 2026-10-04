@@ -11,18 +11,18 @@ import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { createPluginConfigEncryption } from "#lib/infrastructure/config/plugin-config-encryption";
-import type { DatabaseSession } from "#lib/infrastructure/db/session";
-import { RedisService, redisKeys } from "#lib/infrastructure/redis";
-import { fakeDatabaseSession, makeRedisService } from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { createPluginConfigEncryption } from "#platform/config/plugin-config-encryption";
+import type { DatabaseSession } from "#platform/db/session";
+import { RedisService, redisKeys } from "#platform/redis";
+import { fakeDatabaseSession, makeRedisService } from "#testing/effect";
 
 import { OperationalGateRepository } from "./operational-gate-repository";
 import { OperationalGateService } from "./operational-gate-service";
@@ -76,7 +76,7 @@ const availablePlugin = {
 	scope: "system" as const,
 	health: "ready" as const,
 	manifest: pluginManifest,
-	sourceHash: "source-hash",
+	contentHash: "source-hash",
 	incompatibilityReason: null,
 	id: "fixture-plugin-plugin-id",
 	pluginRevisionId: "fixture-plugin-revision",

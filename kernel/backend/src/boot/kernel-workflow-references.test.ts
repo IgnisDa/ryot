@@ -27,15 +27,15 @@ import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { EventStreamRepository } from "#modules/events/stream-repository";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { ingestionTestRevision, ingestionTestRun } from "#modules/imports/ingestion.test-support";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 

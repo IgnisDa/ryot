@@ -3,8 +3,8 @@ import { PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands"
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { savedView } from "#lib/infrastructure/db/schema/tables/views";
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
+import { savedView } from "#schema/tables/views";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { SavedViewsRepository } from "./repository";
 

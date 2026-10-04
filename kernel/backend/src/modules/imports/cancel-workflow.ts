@@ -3,8 +3,8 @@ import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import type { DurableSchema } from "#boot/workflow-engine";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { ImportRunExecutionController } from "./execution-controller";
 import { ImportsRepository } from "./repository";

@@ -3,13 +3,13 @@ import { DbError } from "@ryot-app/contract/errors";
 import { EntityId, EventId, EventSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
 import { EventStreamRepository } from "#modules/events/stream-repository";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { fakeDatabaseSession } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { BACKUP_EVENT_PAGE_SIZE, EventsRepository } from "./repository";
 

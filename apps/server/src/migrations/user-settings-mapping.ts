@@ -1,8 +1,8 @@
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
-import { formatPropertyIssues } from "@ryot-app/kernel-backend/lib/property-schema/property-schema-runtime";
-import { resolvePluginUserSettings } from "@ryot-app/kernel-backend/modules/plugins/user-settings";
+import { formatPropertyIssues } from "@ryot-app/kernel-backend/modules/definitions/properties/runtime";
+import { resolvePluginUserSettings } from "@ryot-app/kernel-backend/modules/plugins/preferences/user-settings";
+import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import { sql } from "drizzle-orm";
 import { Clock, Effect, Schema } from "effect";
 

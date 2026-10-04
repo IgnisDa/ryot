@@ -1,6 +1,6 @@
 import type { ScriptInstallationInitialization } from "@ryot-app/sandbox/protocol/principal";
 
-import type * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import type * as schema from "#schema/tables/combined";
 
 type InstallationExecutionState = {
 	readonly [

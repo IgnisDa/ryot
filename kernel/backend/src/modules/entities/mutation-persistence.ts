@@ -13,14 +13,17 @@ import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 
-import { toLifecycleDispatchPlan, type LifecyclePlanner } from "#lib/domain/lifecycle";
-import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
+import {
+	toLifecycleDispatchPlan,
+	type LifecyclePlanner,
+} from "#modules/automations/lifecycle/planning";
 import {
 	MutationReceiptIdentity,
 	MutationReceiptIdentityConflict,
 	type MutationReceipts,
 } from "#modules/mutations/receipts";
-import { CatalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
+import { CatalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
 import type { EntitiesRepository } from "./repository";
 import { DomainLifecycleCommand } from "./write-context";

@@ -7,7 +7,7 @@ import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { BackupsRepository } from "./repository";
 

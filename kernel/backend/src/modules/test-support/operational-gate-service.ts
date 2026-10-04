@@ -10,14 +10,14 @@ import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
 import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { DatabaseSession } from "#platform/db/session";
+import { RedisService, redisKeys } from "#platform/redis";
 
 import { OperationalGateRepository } from "./operational-gate-repository";
 

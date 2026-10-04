@@ -36,8 +36,8 @@ const entry = {
 	clientApiVersion: 1,
 	homeSavedView: null,
 	pluginId: "plugin-1",
-	sourceHash: "source-hash",
 	packageId: "test/fixture",
+	contentHash: "source-hash",
 	installationId: "installation-1",
 } as const;
 

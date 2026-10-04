@@ -27,7 +27,7 @@ describe("precompiled client plugin artifacts", () => {
 				isHidden: false,
 				packageId: pluginPackage.manifest.metadata.packageId,
 			});
-			expect(installation.sourceHash).toMatch(/^[0-9a-f]{64}$/);
+			expect(installation.contentHash).toMatch(/^[0-9a-f]{64}$/);
 		}),
 	);
 });

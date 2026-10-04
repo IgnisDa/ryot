@@ -2,9 +2,9 @@ import { expect, layer } from "@effect/vitest";
 import { Effect } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { FrequentCronWorkflow } from "#modules/scheduler/cron-workflow";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { integrationsFrequentTask } from "./frequent-task";
 

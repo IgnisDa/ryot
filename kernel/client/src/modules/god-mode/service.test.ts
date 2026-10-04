@@ -8,7 +8,7 @@ import { TestClock } from "effect/testing";
 
 import { decodeServerOrigin, type ServerOrigin } from "#/api/origin";
 import { makeGodModeApi } from "#/api/ports.test-layer";
-import { GodModeService, GodModeSessionNotFound } from "#/modules/god-mode/service";
+import { InstanceAdminService, GodModeSessionNotFound } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import type { GodModeUserLifecycleOperation } from "#/modules/god-mode/user-lifecycle";
 
@@ -165,7 +165,7 @@ const godModeLayer = () =>
 					}),
 			});
 			return Layer.mergeAll(
-				GodModeService.layer.pipe(Layer.provide(godMode), Layer.provide(session)),
+				InstanceAdminService.layer.pipe(Layer.provide(godMode), Layer.provide(session)),
 				session,
 				Layer.succeed(FakeGodModeApi, {
 					calls: Ref.get(calls),
@@ -182,7 +182,7 @@ describe("God Mode service", () => {
 				const sessions = yield* GodModeSessionService;
 				const api = yield* FakeGodModeApi;
 				const sessionId = yield* sessions.create(origin, "admin-secret");
-				const service = yield* GodModeService;
+				const service = yield* InstanceAdminService;
 
 				const users = yield* service.listUsers(sessionId, "reader", undefined, 25);
 				expect(users).toMatchObject({ total: 1, items: [{ email: "reader@example.com" }] });
@@ -239,7 +239,7 @@ describe("God Mode service", () => {
 			Effect.gen(function* () {
 				const sessions = yield* GodModeSessionService;
 				const sessionId = yield* sessions.create(origin, "admin-secret");
-				const service = yield* GodModeService;
+				const service = yield* InstanceAdminService;
 				const api = yield* FakeGodModeApi;
 
 				expect(yield* service.startUserImpersonation(sessionId, "user-1", authorization)).toEqual({
@@ -263,7 +263,7 @@ describe("God Mode service", () => {
 			Effect.gen(function* () {
 				const sessions = yield* GodModeSessionService;
 				const sessionId = yield* sessions.create(origin, "admin-secret");
-				const service = yield* GodModeService;
+				const service = yield* InstanceAdminService;
 				const api = yield* FakeGodModeApi;
 
 				expect((yield* service.listLogs(sessionId, undefined, 25)).files).toEqual([]);
@@ -283,7 +283,7 @@ describe("God Mode service", () => {
 			return Effect.gen(function* () {
 				const api = yield* FakeGodModeApi;
 				const sessionId = yield* (yield* GodModeSessionService).create(origin, "admin-secret");
-				const service = yield* GodModeService;
+				const service = yield* InstanceAdminService;
 				const fiber = yield* Effect.forkChild(service.resetUser(sessionId, "user-1"));
 
 				yield* TestClock.adjust("2 seconds");
@@ -302,7 +302,7 @@ describe("God Mode service", () => {
 	layer(godModeLayer())((test) => {
 		test.effect("fails before impersonation transport when the session is missing", () => {
 			return Effect.gen(function* () {
-				const service = yield* GodModeService;
+				const service = yield* InstanceAdminService;
 				const error = yield* Effect.flip(
 					service.startUserImpersonation("missing-session", "user-1", authorization),
 				);

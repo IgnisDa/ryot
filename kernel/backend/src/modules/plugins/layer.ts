@@ -1,7 +1,8 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { Effect, Layer } from "effect";
 
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/assets/layer";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { ScriptGarbageCollectorLive } from "#modules/garbage-collection/layer";
 import { IngestionRetirementLive } from "#modules/imports/layer";
 import { IngestionRetirement } from "#modules/imports/retirement-service";
@@ -11,27 +12,26 @@ import {
 } from "#modules/integrations/repository";
 import { SavedViewPluginReferencesProvidedLive } from "#modules/saved-views/layer";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
-import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/uploads/layer";
 
-import { PluginBackupRestore } from "./backup-restore";
-import { SystemPluginBootstrap } from "./boot";
 import {
 	PluginCatalogInvalidator,
 	PluginCatalogInvalidatorLive,
 	PluginCatalogHub,
 	PluginInvalidationSubscriber,
-} from "./catalog-events";
-import { PluginIngestionLock } from "./ingestion-lock";
-import { PluginIngestionRetirement } from "./ingestion-retirement";
-import { PluginInstallationRepository } from "./installation-repository";
-import { PluginInstallationService } from "./installation-service";
+} from "./catalog/events";
+import { PluginInstallationRepository } from "./installations/repository";
+import { PluginInstallationService } from "./installations/service";
 import {
 	PluginInstallationLifecycleDispatcher,
 	PluginInstallationLifecycleDispatcherLive,
-} from "./installation-workflow";
-import { PluginRepository } from "./repository";
-import { PluginIngestionService } from "./service";
-import { SystemPlugins } from "./system";
+} from "./installations/workflow";
+import { PluginBackupRestore } from "./packages/backup-restore";
+import { PluginIngestionLock } from "./packages/ingestion-lock";
+import { PluginIngestionRetirement } from "./packages/ingestion-retirement";
+import { PluginIngestionService } from "./packages/ingestion-service";
+import { PluginRepository } from "./packages/repository";
+import { SystemPlugins } from "./packages/system";
+import { SystemPluginBootstrap } from "./packages/system-bootstrap";
 
 export const PluginRevisionActivationLive = IntegrationPluginRevisionActivationLive.pipe(
 	Layer.provide(IntegrationsRepository.layer),

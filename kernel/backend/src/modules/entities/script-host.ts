@@ -13,10 +13,10 @@ import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Schema } from "effect";
 
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { runLifecycleWriteInline } from "#lib/infrastructure/lifecycle-workflow-step";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { readScriptEntitySchemas } from "#modules/definition-registry/script-host";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { runLifecycleWriteInline } from "#modules/automations/lifecycle/write-step";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { readScriptEntitySchemas } from "#modules/definitions/script-host";
 import {
 	reportSandboxLifecycleWarnings,
 	sandboxLifecycleCommand,

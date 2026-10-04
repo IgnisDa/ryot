@@ -7,8 +7,8 @@ import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { expect as vitestExpect } from "vitest";
 
-import { databaseLayer } from "#lib/test-utils/effect";
 import { ImportsRepository } from "#modules/imports/repository";
+import { databaseLayer } from "#testing/effect";
 
 import { IntegrationsRepository } from "./repository";
 import { IntegrationsService } from "./service";

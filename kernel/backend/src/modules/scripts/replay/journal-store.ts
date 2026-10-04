@@ -1,15 +1,17 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import { type SandboxJournalInspection,
+import {
+	type SandboxJournalInspection,
 	SANDBOX_JOURNAL_CHUNK_BYTES,
 	chunkSandboxJournalEntry,
 	SandboxJournalPins,
 	type SandboxJournalFault,
 	type SandboxJournalPin,
-	type SandboxPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal";
+	type SandboxPinnedJournal,
+} from "@ryot-app/sandbox/host/pinned-journal";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect, Schema } from "effect";
 
-import { redisKeys, type RedisService } from "../../../lib/infrastructure/redis";
+import { redisKeys, type RedisService } from "#platform/redis";
 
 type JournalRedis = {
 	readonly client: Pick<RedisService["Service"]["client"], "callBuffer" | "eval">;

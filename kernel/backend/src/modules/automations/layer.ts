@@ -1,10 +1,10 @@
 import { Layer } from "effect";
 
-import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { WorkflowEngineLive } from "#boot/workflow-engine";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
-import { PluginRepositoryLive } from "#modules/plugins/repository-layer";
+import { PluginRepositoryLive } from "#modules/plugins/packages/repository-layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 

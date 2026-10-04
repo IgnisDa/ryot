@@ -11,16 +11,16 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { LifecyclePlanner, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
-import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner, toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { PluginRepository } from "#modules/plugins/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { DatabaseSession } from "#platform/db/session";
 
 import { AutomationTriggerRepository } from "./trigger-repository";
 

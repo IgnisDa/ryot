@@ -1,8 +1,8 @@
 import { Layer } from "effect";
 
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
-import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
-import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
+import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 
 import { OAuthConnectionsRepository } from "./repository";
 import { OAuthConnectionsService } from "./service";

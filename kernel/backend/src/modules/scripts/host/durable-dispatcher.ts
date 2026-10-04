@@ -30,7 +30,7 @@ import { Context, Effect, Option, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import type { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
+import type { PluginHttpRateLimitAuthority } from "#modules/plugins/catalog/http-rate-limit-authority";
 import { sandboxLifecycleCommand, sandboxRunUserId } from "#modules/scripts/host/execution-context";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import type { SandboxHttpProgress } from "#modules/scripts/host/http-progress";

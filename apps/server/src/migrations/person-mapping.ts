@@ -1,4 +1,4 @@
-import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
+import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 

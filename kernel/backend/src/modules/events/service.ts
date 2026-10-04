@@ -43,33 +43,21 @@ import {
 } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	type CommittedLifecycleWork,
 	type LifecycleDispatchPlan,
 	LifecyclePersistenceError,
 	LifecyclePlanner,
 	toLifecycleDispatchPlan,
-} from "#lib/domain/lifecycle";
-import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+} from "#modules/automations/lifecycle/planning";
 import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
-} from "#lib/domain/lifecycle-policy-patch";
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	awaitWorkflowSettled,
-	WorkflowExecutionNotifications,
-} from "#lib/infrastructure/workflow-execution-notifications";
-import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import {
-	createWorkflowJobId,
-	deriveJobIdSecret,
-	resolveWorkflowJob,
-	type WorkflowJob,
-} from "#lib/shared/job-id";
-import { toWorkflowRunResult } from "#lib/shared/workflow-result";
+} from "#modules/automations/lifecycle/policy-patch";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	DomainLifecycleCommand,
@@ -78,13 +66,25 @@ import {
 	DomainWriteChecks,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { MutationReceiptIdentityConflict, MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	catalogDefinitionFingerprint,
 	type CatalogDefinitionFingerprint,
-} from "#modules/plugins/runtime-resolver";
+} from "#modules/plugins/catalog/runtime-resolver";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import {
+	awaitWorkflowSettled,
+	WorkflowExecutionNotifications,
+} from "#platform/workflow/execution-notifications";
+import {
+	createWorkflowJobId,
+	deriveJobIdSecret,
+	resolveWorkflowJob,
+	type WorkflowJob,
+} from "#platform/workflow/job-id";
+import { toWorkflowRunResult } from "#platform/workflow/result";
 
 import { enqueueEventCreate, EventCreateWorkflow } from "./event-create-workflow";
 import {
@@ -241,7 +241,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		);
 		const repository = yield* EventsRepository;
 		const entities = yield* EntitiesRepository;
-		const eventSchemas = yield* EventSchemasRepository;
+		const eventSchemas = yield* EventSchemaReader;
 		const session = yield* DatabaseSession;
 		const writeChecks = yield* DomainWriteChecks;
 		const authorizeEventDelete = Effect.fnUntraced(function* (
@@ -473,7 +473,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			resolveEventCreateItemScopes(input).pipe(
 				Effect.provideService(DomainWriteChecks, writeChecks),
 				Effect.provideService(EntitiesRepository, entities),
-				Effect.provideService(EventSchemasRepository, eventSchemas),
+				Effect.provideService(EventSchemaReader, eventSchemas),
 			);
 		const resolveEditContext = Effect.fnUntraced(function* (
 			userId: UserId,

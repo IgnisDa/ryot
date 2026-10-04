@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import type { DurableSchema } from "#lib/infrastructure/workflow";
+import type { DurableSchema } from "#boot/workflow-engine";
 
 import { IntegrationRunError, IntegrationRunJobData } from "./jobs";
 

@@ -13,11 +13,11 @@ import { Context, Deferred, Effect, Fiber, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { assert } from "vitest";
 
-import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import type { PluginRevision, StoredPluginIdentity } from "#modules/plugins/packages/types";
 import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
-import type { PluginRevision, StoredPluginIdentity } from "#modules/plugins/types";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
 import {
 	pluginCronExecutionId,
@@ -91,7 +91,7 @@ const normalizedPlugin = (
 		id: `${pluginSlug}-id`,
 		scope: "system" as const,
 		manifest: normalizedManifest,
-		sourceHash: `${pluginSlug}-source`,
+		contentHash: `${pluginSlug}-source`,
 		packageId: manifest.metadata.packageId,
 		activationId: `${pluginSlug}-activation`,
 		scripts: [

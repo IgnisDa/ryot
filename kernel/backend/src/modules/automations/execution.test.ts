@@ -7,19 +7,22 @@ import { TestClock } from "effect/testing";
 import { DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { LifecyclePersistenceError, type LifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import {
 	AutomationPolicyExecutionError,
 	LifecycleExecution,
-} from "#lib/domain/lifecycle-execution";
-import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+} from "#modules/automations/lifecycle/execution";
+import {
+	LifecyclePersistenceError,
+	type LifecycleDispatchPlan,
+} from "#modules/automations/lifecycle/planning";
+import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 import {
 	databaseLayer,
 	makeWorkflowActivityEngine,
 	workflowEngineTestLayer,
-} from "#lib/test-utils/effect";
+} from "#testing/effect";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import {

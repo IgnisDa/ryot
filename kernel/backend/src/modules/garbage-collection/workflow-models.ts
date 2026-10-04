@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { WorkflowIdentity } from "#lib/infrastructure/workflow-identity";
+import { WorkflowIdentity } from "#platform/workflow/identity";
 
 export const workflowEntityPrefix = "Workflow/";
 export const workflowClockEntityType = "Workflow/-/DurableClock";

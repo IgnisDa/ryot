@@ -10,16 +10,16 @@ import { Reactivity } from "effect/reactivity";
 import { DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { HmacSigner } from "#lib/infrastructure/hmac-signer";
-import { LocalStorageService } from "#lib/infrastructure/local-storage";
-import { S3Service } from "#lib/infrastructure/s3";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { IngestionPayloads } from "#modules/uploads/object-storage/ingestion-payloads";
+import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
+import { DatabaseSession } from "#platform/db/session";
+import { HmacSigner } from "#platform/storage/hmac-signer";
+import { LocalStorageService } from "#platform/storage/local-storage";
+import { S3Service } from "#platform/storage/s3";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionCaptureWorkflowDefinitionsLive } from "./capture-write-workflow";

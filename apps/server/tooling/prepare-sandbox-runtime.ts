@@ -10,10 +10,10 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { appConfigDefinition } from "@ryot-app/kernel-backend/lib/infrastructure/config/definition";
-import { AppConfig } from "@ryot-app/kernel-backend/lib/infrastructure/config/service";
-import { ServerRun } from "@ryot-app/kernel-backend/lib/infrastructure/server-run";
 import { SandboxHostConfigLive } from "@ryot-app/kernel-backend/modules/scripts/host/sandbox-host-live";
+import { appConfigDefinition } from "@ryot-app/kernel-backend/platform/config/definition";
+import { AppConfig } from "@ryot-app/kernel-backend/platform/config/service";
+import { ServerRun } from "@ryot-app/kernel-backend/platform/server-run";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
 import { SandboxSidecarAdmission } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";

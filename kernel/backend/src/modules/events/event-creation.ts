@@ -13,9 +13,9 @@ import {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Option, Schema } from "effect";
 
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecks, type DomainLifecycleCommand } from "#modules/entities/write-context";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
 export const CapturedEventReferences = Schema.Record(EntityId, Schema.String);
 
@@ -113,7 +113,7 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 		readonly command: DomainLifecycleCommand;
 		readonly commit?: boolean;
 	}) {
-		const eventSchemasRepository = yield* EventSchemasRepository;
+		const eventSchemasRepository = yield* EventSchemaReader;
 		const checks = yield* DomainWriteChecks;
 		const rawEntityId = input.item.entityId.trim();
 		if (!rawEntityId) {

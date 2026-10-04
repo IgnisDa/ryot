@@ -24,27 +24,27 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
-	LifecyclePlanner,
-	lifecycleRunId,
-	type LifecyclePlannedPolicy,
-} from "#lib/domain/lifecycle";
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import {
-	AutomationPolicyExecutionError,
-	LifecycleExecution,
-} from "#lib/domain/lifecycle-execution";
-import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch";
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import {
+	AutomationPolicyExecutionError,
+	LifecycleExecution,
+} from "#modules/automations/lifecycle/execution";
+import {
+	LifecyclePlanner,
+	lifecycleRunId,
+	type LifecyclePlannedPolicy,
+} from "#modules/automations/lifecycle/planning";
+import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/policy-patch";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
+import { DatabaseSession } from "#platform/db/session";
+import { user } from "#schema/tables/auth";
+import { makeWorkflowEngine } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { EventCreateWorkflow, type EventCreateWorkflowPayload } from "./event-create-workflow";
 import { runEventCreateWorkflow } from "./event-create-workflow-live";
@@ -460,7 +460,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 									},
 						),
 				}),
-				Layer.mock(EventSchemasRepository)({
+				Layer.mock(EventSchemaReader)({
 					lockCatalog: () =>
 						update(({ options, triggers }) => ({
 							schemaActivated:

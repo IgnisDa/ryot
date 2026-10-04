@@ -1,8 +1,20 @@
 # Plugins
 
+Plugins own package and installation state; `definitions` exposes their declarations and `scripts`
+executes their code.
+
+| Directory        | Owns                                                                          |
+| ---------------- | ----------------------------------------------------------------------------- |
+| `packages/`      | Archive validation, ingestion, system package sync, and immutable revisions   |
+| `installations/` | Per-user installation lifecycle and availability                              |
+| `configuration/` | Encrypted execution configuration and its revisions                           |
+| `preferences/`   | Non-secret per-user settings                                                  |
+| `catalog/`       | Resolved availability, readiness, rate-limit policy, and catalog invalidation |
+| `operations/`    | Product-facing plugin operation entrypoints                                   |
+
 ## Repository composition
 
-`repository-layer.ts` owns `PluginRepositoryLive`, which provides the repository's client-artifact dependency. Automations planner, retention, and signal Layers use this focused composition without importing the plugins runtime Layer. Reusing the Layer preserves Effect's shared-resource composition.
+`packages/repository-layer.ts` owns `PluginRepositoryLive`, which provides the repository's client-artifact dependency. Automations planner, retention, and signal Layers use this focused composition without importing the plugins runtime Layer. Reusing the Layer preserves Effect's shared-resource composition.
 
 ## Plugin artifacts and revision identity
 
@@ -12,7 +24,7 @@ hash. Archives contain no authoring source files or compiled `script.source`. In
 archive structure and artifact hashes without compiler workers or source-provenance proof; hashes
 establish internal consistency only.
 
-Plugin revisions have no source file table. Their `sourceHash` fingerprints the manifest, exact compiled
+Plugin revisions have no source file table. Their `contentHash` fingerprints the manifest, exact compiled
 backend entry/format/JavaScript, and exact compiled client content. It identifies package content, not
 proof that the metadata was derived from authoring source.
 

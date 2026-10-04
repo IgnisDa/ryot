@@ -3,19 +3,22 @@ import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, Redacted } from "effect";
 
-import { lockPluginIngestionShared } from "#lib/infrastructure/db/advisory-locks";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
-import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
-import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRepository } from "#modules/plugins/repository";
-import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
+import { PluginRepository } from "#modules/plugins/packages/repository";
+import {
+	installRevisionPackage,
+	revisionPackage,
+} from "#modules/plugins/packages/revision.test-support";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { ScriptGarbageCollector } from "./scripts";
 

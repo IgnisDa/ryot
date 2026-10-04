@@ -151,6 +151,6 @@ export const updateFixtureClientPlugin = (
 			baseUrl,
 			payload: pluginPackage,
 			installationId: current.installationId,
-			expectedSourceHash: current.sourceHash,
+			expectedContentHash: current.contentHash,
 		});
 	});

@@ -8,7 +8,7 @@ import {
 	installRevisionPackage,
 	revisionPackage,
 	revisionDatabaseLayer,
-} from "#modules/plugins/revision.test-support";
+} from "#modules/plugins/packages/revision.test-support";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import { AutomationsRepository } from "./repository";

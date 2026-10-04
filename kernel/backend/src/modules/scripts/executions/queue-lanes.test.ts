@@ -11,11 +11,11 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { expect, it } from "vitest";
 
-import { fairQueueKeys, fairQueueStoreLayer } from "#lib/infrastructure/fair-queue-store";
-import { RedisService } from "#lib/infrastructure/redis";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
-import { makeAppConfigLayer, workflowEngineTestLayer } from "#lib/test-utils/effect";
-import { testRedisServiceLayer } from "#lib/test-utils/redis";
+import { RedisService } from "#platform/redis";
+import { fairQueueKeys, fairQueueStoreLayer } from "#platform/workflow/fair-queue-store";
+import { implementWorkflow } from "#platform/workflow/scope";
+import { makeAppConfigLayer, workflowEngineTestLayer } from "#testing/effect";
+import { testRedisServiceLayer } from "#testing/redis";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import {

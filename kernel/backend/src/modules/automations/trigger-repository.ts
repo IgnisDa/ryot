@@ -9,12 +9,12 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, gt, inArray, isNotNull, lte, notExists, or } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
+import { DatabaseSession } from "#platform/db/session";
 import {
 	automationRun,
 	automationTrigger as table,
 	automationTriggerRecipient as recipientTable,
-} from "#lib/infrastructure/db/schema/tables/automations";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+} from "#schema/tables/automations";
 
 const decodeRow = (row: typeof table.$inferSelect) =>
 	decodeStoredSchema(

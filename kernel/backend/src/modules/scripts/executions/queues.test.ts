@@ -12,10 +12,10 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
-import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { databaseLayer } from "#lib/test-utils/effect";
-import { testExecutionId, testRedisServiceLayer } from "#lib/test-utils/redis";
 import { appendWorkflowJournal } from "#modules/scripts/replay/journal";
+import { redisKeys, RedisService } from "#platform/redis";
+import { databaseLayer } from "#testing/effect";
+import { testExecutionId, testRedisServiceLayer } from "#testing/redis";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { SandboxPluginScriptResolver } from "../registry/plugin-script-resolver";

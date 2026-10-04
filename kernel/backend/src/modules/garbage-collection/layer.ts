@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 
-import { PluginRepository } from "#modules/plugins/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 
 import { ScriptGarbageCollector } from "./scripts";
 

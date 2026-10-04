@@ -16,8 +16,8 @@ import { Effect, Schema } from "effect";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
-} from "#lib/property-schema/property-schema-runtime";
-import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
+} from "#modules/definitions/properties/runtime";
+import type { RegisteredImportSource } from "#modules/plugins/catalog/import-sources";
 
 export type ImportSourceFileInput = {
 	key: string;

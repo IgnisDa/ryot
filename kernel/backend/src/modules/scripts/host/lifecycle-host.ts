@@ -11,11 +11,11 @@ import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { toSandboxHostError, type UserSandboxRunInput } from "@ryot-app/sandbox/host/invocation";
 import { Effect, Schema } from "effect";
 
-import type { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import type { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	runLifecycleWriteInline,
 	type LifecyclePreparedStep,
-} from "#lib/infrastructure/lifecycle-workflow-step";
+} from "#modules/automations/lifecycle/write-step";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import type { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";
 

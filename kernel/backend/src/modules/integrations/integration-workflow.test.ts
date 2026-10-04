@@ -12,8 +12,6 @@ import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import {
@@ -22,7 +20,9 @@ import {
 	ingestionTestSource,
 } from "#modules/imports/ingestion.test-support";
 import { ImportsRepository } from "#modules/imports/repository";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { IntegrationConfirmationError, IntegrationIngestion } from "./ingestion";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";

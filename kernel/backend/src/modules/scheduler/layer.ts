@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 
-import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
+import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 
 import { PluginCronSchedulerLive, PluginCronService } from "./plugin-cron";
 

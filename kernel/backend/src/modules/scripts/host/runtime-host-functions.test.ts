@@ -11,13 +11,13 @@ import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Layer, MutableRef, Ref, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
-import { type EgressPolicy, withEgressPolicy } from "#lib/infrastructure/egress/http-client";
-import { makeRedisService } from "#lib/test-utils/effect";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
+import { type EgressPolicy, withEgressPolicy } from "#platform/egress/http-client";
+import { RedisService } from "#platform/redis";
+import { ServerRun } from "#platform/server-run";
+import { makeRedisService } from "#testing/effect";
 
-import { RedisService } from "../../../lib/infrastructure/redis";
-import { ServerRun } from "../../../lib/infrastructure/server-run";
 import {
 	executeSandboxHttp,
 	makeRuntimeSandboxApiFunctions,

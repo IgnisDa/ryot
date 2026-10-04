@@ -17,14 +17,14 @@ import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import type { PortableUserProfile } from "#modules/auth/repository";
+import type { PortableUserProfile } from "#modules/accounts/auth/repository";
 import { redactIntegrationForClient } from "#modules/integrations/client-redaction";
-import { redactPluginConfig } from "#modules/plugins/config-redaction";
-import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { upsertSavedViewOverride } from "#modules/saved-views/repository";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 type RestoreEntityInput = Pick<
 	typeof schema.entity.$inferInsert,

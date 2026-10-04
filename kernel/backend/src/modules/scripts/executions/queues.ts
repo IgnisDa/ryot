@@ -12,11 +12,11 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Duration, Effect, Layer, Schema } from "effect";
 import { DurableQueue } from "effect/workflow";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { fairQueueStoreLayer } from "#lib/infrastructure/fair-queue-store";
-import { RedisService } from "#lib/infrastructure/redis";
 import { ScriptInlineProgress } from "#modules/scripts/host/http-progress";
 import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
+import { AppConfig } from "#platform/config/service";
+import { RedisService } from "#platform/redis";
+import { fairQueueStoreLayer } from "#platform/workflow/fair-queue-store";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { ExecutableArtifacts } from "../registry/executable-artifacts";

@@ -5,14 +5,14 @@ import { PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands"
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
-import type { MockOverrides } from "#lib/test-utils/effect";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import type { MockOverrides } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { SavedViewsRepository } from "./repository";
 import { SavedViewsService } from "./service";
@@ -191,7 +191,7 @@ layer(
 				compiledHashes: {},
 				id: "fixture-plugin-id",
 				manifest: pluginManifest,
-				sourceHash: "source-hash",
+				contentHash: "source-hash",
 				pluginRevisionId: "fixture-revision",
 				pluginConfigRevisionId: "fixture-config",
 				installationId: "fixture-installation-id",

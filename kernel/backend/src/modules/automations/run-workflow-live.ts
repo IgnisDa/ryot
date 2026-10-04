@@ -31,15 +31,15 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import { automationRunLane } from "#lib/domain/lifecycle-command";
-import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch";
-import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { automationRunLane } from "#modules/automations/lifecycle/command";
+import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/policy-patch";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { DatabaseSession } from "#platform/db/session";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import { pluginRevision } from "#schema/tables/core";
 
 import {
 	AutomationAttemptRepository,

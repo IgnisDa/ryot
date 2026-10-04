@@ -10,10 +10,10 @@ import {
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
-import { user } from "#lib/infrastructure/db/schema/tables/auth";
-import { mutationReceipt } from "#lib/infrastructure/db/schema/tables/mutations";
-import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { user } from "#schema/tables/auth";
+import { mutationReceipt } from "#schema/tables/mutations";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { ingestionItemIdentity } from "./outcomes";
 

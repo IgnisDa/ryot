@@ -18,7 +18,7 @@ const current: PluginClientCatalogEntry = {
 	scope: "system",
 	clientApiVersion: 1,
 	homeSavedView: null,
-	sourceHash: "source-media",
+	contentHash: "source-media",
 	installationId: "installation-media",
 	pluginId: PluginId.make("plugin-media"),
 	packageId: PluginPackageId.make("ryot/media"),

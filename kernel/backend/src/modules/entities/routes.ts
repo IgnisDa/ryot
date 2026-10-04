@@ -7,7 +7,7 @@ import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 
 import { EntitiesService } from "./service";
 

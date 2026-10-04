@@ -8,15 +8,15 @@ import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";
 
+import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	LifecyclePersistenceError,
 	type LifecyclePlan,
 	type LifecyclePlanner,
 	toLifecycleDispatchPlan,
-} from "#lib/domain/lifecycle";
-import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import type { DatabaseSession } from "#lib/infrastructure/db/session";
+} from "#modules/automations/lifecycle/planning";
+import type { DatabaseSession } from "#platform/db/session";
 
 export const withLifecycleBatchPlanning = (
 	planner: Pick<LifecyclePlanner["Service"], "plan">,

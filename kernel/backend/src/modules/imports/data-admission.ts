@@ -21,12 +21,12 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
+import { UploadIntentsService } from "#modules/assets/uploads/intents";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
-import { UploadIntentsService } from "#modules/uploads/intents/service";
-import { IngestionPayloads } from "#modules/uploads/object-storage/ingestion-payloads";
+import { DatabaseSession } from "#platform/db/session";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionExecution } from "./execution-service";

@@ -6,14 +6,14 @@ import type { IngestionCapture } from "@ryot-app/contract/modules/imports/ingest
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, FileSystem, Layer } from "effect";
 
-import { createPluginConfigEncryption } from "#lib/infrastructure/config/plugin-config-encryption";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import {
 	IngestionPayloadError,
 	IngestionPayloads,
 	ingestionPayloadDigest,
-} from "#modules/uploads/object-storage/ingestion-payloads";
+} from "#modules/assets/storage/ingestion-payloads";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { createPluginConfigEncryption } from "#platform/config/plugin-config-encryption";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "../capture-service";
 import { ingestionTestScope, ingestionTestSource } from "../ingestion.test-support";

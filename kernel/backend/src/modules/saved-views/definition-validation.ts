@@ -18,7 +18,7 @@ import { Effect, Result, Schema } from "effect";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
-} from "#lib/property-schema/property-schema-runtime";
+} from "#modules/definitions/properties/runtime";
 import { getCatalogTable } from "#modules/ryotql/catalog";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 

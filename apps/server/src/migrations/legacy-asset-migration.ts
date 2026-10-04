@@ -3,11 +3,11 @@ import {
 	uploadContentTypes,
 } from "@ryot-app/contract/modules/uploads/upload-policy";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { entity } from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/entities";
-import { event } from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/events";
-import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
-import { S3Service } from "@ryot-app/kernel-backend/lib/infrastructure/s3";
-import { ManagedAssetsRepository } from "@ryot-app/kernel-backend/modules/uploads/managed-assets/repository";
+import { ManagedAssetsRepository } from "@ryot-app/kernel-backend/modules/assets/storage/managed-assets-repository";
+import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
+import { S3Service } from "@ryot-app/kernel-backend/platform/storage/s3";
+import { entity } from "@ryot-app/kernel-backend/schema/tables/entities";
+import { event } from "@ryot-app/kernel-backend/schema/tables/events";
 import { CryptoHasher } from "bun";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Stream } from "effect";

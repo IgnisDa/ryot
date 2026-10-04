@@ -3,14 +3,14 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, FileSystem, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
-import { MutationReceipts } from "#modules/mutations/receipts";
-import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	IngestionPayloads,
 	ingestionPayloadDigest,
-} from "#modules/uploads/object-storage/ingestion-payloads";
+} from "#modules/assets/storage/ingestion-payloads";
+import { MutationReceipts } from "#modules/mutations/receipts";
+import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
+import { DatabaseSession } from "#platform/db/session";
+import { implementWorkflow } from "#platform/workflow/scope";
 
 import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";

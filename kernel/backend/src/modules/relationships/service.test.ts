@@ -18,21 +18,24 @@ import { eq } from "drizzle-orm";
 import { Cause, DateTime, Effect, Exit } from "effect";
 import { assert, describe } from "vitest";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import {
-	AutomationPolicyExecutionError,
-	LifecycleExecution,
-} from "#lib/domain/lifecycle-execution";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { AutomationAttemptRepository } from "#modules/automations/attempt-repository";
 import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
+import {
+	AutomationPolicyExecutionError,
+	LifecycleExecution,
+} from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
+import {
+	installRevisionPackage,
+	revisionPackage,
+} from "#modules/plugins/packages/revision.test-support";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 
 import {
 	baseInput,

@@ -6,9 +6,9 @@ import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/uploads/upload
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
-import { IngestionPayloads } from "#modules/uploads/object-storage/ingestion-payloads";
+import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { AppConfig } from "#platform/config/service";
 
 import { IngestionCaptures } from "../capture-service";
 import { ImportsRepository } from "../repository";

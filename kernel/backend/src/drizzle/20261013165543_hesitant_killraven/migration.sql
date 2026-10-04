@@ -801,7 +801,7 @@ CREATE TABLE "plugin_installation" (
 CREATE TABLE "plugin_revision" (
 	"client_artifact_hash" text,
 	"plugin_id" text NOT NULL,
-	"source_hash" text NOT NULL,
+	"content_hash" text NOT NULL,
 	"manifest" jsonb NOT NULL,
 	"client_config_schema" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
@@ -810,7 +810,7 @@ CREATE TABLE "plugin_revision" (
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"description" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'description') STORED,
 	"package_id" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'packageId') STORED NOT NULL,
-	CONSTRAINT "plugin_revision_plugin_source_unique" UNIQUE("plugin_id","source_hash"),
+	CONSTRAINT "plugin_revision_plugin_content_unique" UNIQUE("plugin_id","content_hash"),
 	CONSTRAINT "plugin_revision_id_plugin_unique" UNIQUE("id","plugin_id")
 );
 --> statement-breakpoint

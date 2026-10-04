@@ -10,20 +10,17 @@ import { eq, sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, Redacted, type Tracer } from "effect";
 import { assert, describe } from "vitest";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { setLocalStatementTimeout, DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	applyBaselineMigration,
-	baselineMigrationStatements,
-} from "#lib/test-utils/baseline-migration";
-import { testDatabaseUrl } from "#lib/test-utils/database";
-import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
-import { PluginRepository } from "#modules/plugins/repository";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { setLocalStatementTimeout, DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
+import { testDatabaseUrl } from "#testing/database";
+import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
 
 import { LifecyclePlannerServiceLive } from "./layer";
 import { triggerFixture } from "./lifecycle.test-support";
@@ -105,7 +102,7 @@ const seedCatalog = (statements: readonly string[]) =>
 					.values({
 						pluginId,
 						id: "fixture-revision",
-						sourceHash: "fixture-source",
+						contentHash: "fixture-source",
 						clientConfigSchema: { fields: {} },
 						manifest: { ...fixtureManifest(), hooks: [], scripts: [], signalSchemas: [] },
 					});
