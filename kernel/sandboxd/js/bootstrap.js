@@ -8,6 +8,7 @@
 		op_ryot_url_parse,
 		op_ryot_host_call,
 		op_ryot_inline_batch,
+		op_ryot_last_resolution_rejection,
 		op_ryot_utf8_length,
 		op_ryot_random_fill,
 		op_ryot_utf8_decode,
@@ -950,8 +951,13 @@
 
 	const host = ObjectFreeze({ inlineBatch, call: hostCall });
 
-	const isResolutionError = (error) =>
-		error instanceof TypeError_ && error.message.startsWith("ryot-resolution: ");
+	const isResolutionError = (error) => {
+		if (!(error instanceof TypeError_)) {
+			return false;
+		}
+		const rejection = op_ryot_last_resolution_rejection();
+		return rejection !== null && error.message === rejection;
+	};
 
 	// Results cross into Rust as one primitive string, which no script can make thenable: a
 	// status letter followed by the payload.
@@ -967,10 +973,7 @@
 				return "eTrusted sandbox definition runner is unavailable";
 			}
 			try {
-				const response = await ReflectApply(definitionRunner, undefined, [specifier, input, {
-					inlineBatch,
-					call: (name, args) => hostCall(name, args),
-				}]);
+				const response = await ReflectApply(definitionRunner, undefined, [specifier, input, host]);
 				if (uncaught !== null) {
 					return `x${uncaught}`;
 				}
@@ -1004,7 +1007,7 @@
 			if (encoded === undefined) {
 				return "rResult is not JSON-serializable";
 			}
-			return encoded.length > RESULT_BYTES
+			return op_ryot_utf8_length(encoded) > RESULT_BYTES
 				? `rResult exceeds ${RESULT_BYTES} bytes`
 				: `c${encoded}`;
 		} catch (error) {
