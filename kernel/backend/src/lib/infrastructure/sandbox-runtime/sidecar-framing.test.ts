@@ -1,8 +1,10 @@
-import { Effect, Schema } from "effect";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
+import { Effect, Option, Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { hostCallArgs } from "./host-call-args.test-support";
-import { SANDBOX_LIMITS } from "./limits";
+import { MiB, SANDBOX_LIMITS } from "./limits";
+import { sandboxMemoryPlan } from "./sidecar-admission";
 import { makeSidecarFrameReader, makeSidecarFrameWriter } from "./sidecar-framing";
 import {
 	sidecarInboundFrames,
@@ -13,6 +15,7 @@ import {
 	type SidecarInboundFrame as InboundFrame,
 	type SidecarOutboundFrame as OutboundFrame,
 } from "./sidecar-protocol";
+import { sandboxTransientPermitBytes } from "./transient-memory";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -205,6 +208,7 @@ describe("sidecar framing", () => {
 		let blockNext = true;
 		const writer = makeSidecarFrameWriter({
 			maximumRunMessages: 1,
+			lane: () => "interactive",
 			maximumControlMessages: 4,
 			maximumQueuedBytes: 4 * 1024 * 1024,
 			write: (bytes) => {
@@ -423,6 +427,7 @@ describe("sidecar framing", () => {
 		let firstWrite = true;
 		const writer = makeSidecarFrameWriter({
 			maximumRunMessages: 2,
+			lane: () => "interactive",
 			maximumControlMessages: 2,
 			maximumQueuedBytes: 2 * 1024 * 1024,
 			write: (bytes) => {
@@ -446,8 +451,8 @@ describe("sidecar framing", () => {
 			handle: "first",
 			frameType: "run",
 		});
-		expect(writtenFrames[1]).toMatchObject({ handle: "first", type: "hostResult" });
-		expect(writtenFrames[2]).toMatchObject({ type: "cancel", handle: "second" });
+		expect(writtenFrames[1]).toMatchObject({ type: "cancel", handle: "second" });
+		expect(writtenFrames[2]).toMatchObject({ handle: "first", type: "hostResult" });
 		expect(writtenFrames[3]).toMatchObject({ type: "run", handle: "second" });
 		expect(writtenFrames[4]).toMatchObject({
 			index: 1,
@@ -468,6 +473,7 @@ describe("sidecar framing", () => {
 		const hostResultOutput: Uint8Array[] = [];
 		const hostResultWriter = makeSidecarFrameWriter({
 			maximumRunMessages: 1,
+			lane: () => "interactive",
 			maximumControlMessages: 1,
 			maximumQueuedBytes: 1024 * 1024,
 			write: (bytes) => {
@@ -494,6 +500,7 @@ describe("sidecar framing", () => {
 		let retireWrite = true;
 		const retirementWriter = makeSidecarFrameWriter({
 			maximumRunMessages: 1,
+			lane: () => "interactive",
 			maximumControlMessages: 1,
 			maximumQueuedBytes: 1024 * 1024,
 			write: (bytes) => {
@@ -519,6 +526,7 @@ describe("sidecar framing", () => {
 		const overflowWriter = makeSidecarFrameWriter({
 			maximumRunMessages: 1,
 			maximumQueuedBytes: 10,
+			lane: () => "interactive",
 			maximumControlMessages: 1,
 			write: (bytes) => ({ blocked: false, written: bytes.byteLength }),
 		});
@@ -531,6 +539,7 @@ describe("sidecar framing", () => {
 		const invalidWriteWriter = makeSidecarFrameWriter({
 			maximumRunMessages: 1,
 			maximumQueuedBytes: 1024,
+			lane: () => "interactive",
 			maximumControlMessages: 1,
 			write: (bytes) => ({ blocked: false, written: bytes.byteLength + 1 }),
 		});
@@ -540,6 +549,7 @@ describe("sidecar framing", () => {
 		const capsWriter = makeSidecarFrameWriter({
 			maximumRunMessages: 1,
 			maximumQueuedBytes: 1024,
+			lane: () => "interactive",
 			maximumControlMessages: 1,
 			write: (bytes) => ({ blocked: false, written: bytes.byteLength }),
 		});
@@ -569,4 +579,79 @@ describe("sidecar framing", () => {
 		invalidWriteWriter.close();
 		capsWriter.close();
 	});
+});
+
+it("lane_pools_keep_rust_assemblies_within_connection_bound", () => {
+	const maximumText = "x".repeat(SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult - 1024);
+	const sliceText = "x".repeat(Math.ceil((4 * MiB) / 3));
+	const runText = "x".repeat(SIDECAR_PROTOCOL_LIMITS.messageBytes.run - 4096);
+	let largestQueue = 0;
+	for (const budget of [854, 1094, 1363, 1536, 1904]) {
+		const plan = Result.getOrThrow(sandboxMemoryPlan(Option.some(budget), 8 * 1024 * MiB));
+		const pools: ReadonlyArray<readonly [ExecutionLane, number]> =
+			plan.mode === "lane"
+				? [
+						["interactive", plan.pools.interactive],
+						["background", plan.pools.background],
+					]
+				: [["interactive", plan.pools.interactive]];
+		const lanes = new Map<string, ExecutionLane>([
+			["run-interactive", "interactive"],
+			["run-background", "background"],
+		]);
+		const frames: InboundFrame[] = [
+			runFrame("run-interactive", 0, runText),
+			runFrame("run-background", 0, runText),
+		];
+		let queuedBytes = 2 * runText.length;
+		for (const [lane, pool] of pools) {
+			const ordinary = sandboxTransientPermitBytes("httpCall", 0);
+			const maximum = Math.floor(pool / ordinary);
+			const slices = Math.floor(
+				(pool - maximum * ordinary) / sandboxTransientPermitBytes("journalRead", 0),
+			);
+			for (let seq = 0; seq < maximum + slices; seq += 1) {
+				const text = seq < maximum ? maximumText : sliceText;
+				lanes.set(`${lane}-${seq}`, lane);
+				frames.push(hostResultFrame(`${lane}-${seq}`, seq, text));
+				queuedBytes += text.length;
+			}
+		}
+		let reserved = 0;
+		let peak = 0;
+		let writes = 0;
+		let released = 0;
+		const writer = makeSidecarFrameWriter({
+			maximumRunMessages: 2,
+			maximumControlMessages: 64,
+			maximumQueuedBytes: 256 * MiB,
+			lane: (handle) => lanes.get(handle),
+			write: (bytes) => {
+				for (const frame of decodeInboundBytes(bytes)) {
+					if (frame.type === "part" && frame.index === 0) {
+						reserved += frame.byteLength;
+						peak = Math.max(peak, reserved);
+					}
+					if (frame.type === "part" && frame.index === frame.count - 1) {
+						reserved -= frame.byteLength;
+					}
+				}
+				writes += 1;
+				return { written: bytes.byteLength, blocked: writes % 7 === 0 };
+			},
+		});
+		for (const frame of frames) {
+			writer.enqueue(frame, () => {
+				released += 1;
+			});
+			writer.flush();
+		}
+		while (released < frames.length) {
+			writer.flush();
+		}
+		expect(peak).toBeLessThanOrEqual(SIDECAR_PROTOCOL_LIMITS.assemblyBytes);
+		expect(reserved).toBe(0);
+		largestQueue = Math.max(largestQueue, queuedBytes);
+	}
+	expect(largestQueue).toBeGreaterThan(SIDECAR_PROTOCOL_LIMITS.assemblyBytes);
 });

@@ -20,7 +20,7 @@ import { testExecutionId } from "#lib/test-utils/redis";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { hostCallArgs } from "./host-call-args.test-support";
-import { SANDBOX_TRANSIENT_MEMORY, SandboxHostCallGate } from "./host-call-gate";
+import { SandboxHostCallGate } from "./host-call-gate";
 import { SANDBOX_LIMITS } from "./limits";
 import { NativeMemoryEvidence, nativeMemoryLayer } from "./native-memory-disposal.test-support";
 import { makeRunnerInput } from "./runner-native.test-support";
@@ -177,9 +177,14 @@ const assertDisposed = Effect.fnUntraced(function* (executionId: string) {
 	expect(admission.snapshot()).toMatchObject({
 		runs: 0,
 		waiting: 0,
-		bytes: 256 * MiB + SANDBOX_TRANSIENT_MEMORY.poolBytes,
+		bytes: admission.plan.budget - admission.plan.dynamicBytes,
 	});
-	expect((yield* SandboxHostCallGate).transientMemory()).toEqual({ used: 0, waiting: 0 });
+	for (const lane of ["interactive", "background"] as const) {
+		expect((yield* SandboxHostCallGate).transientMemory(lane)).toMatchObject({
+			used: 0,
+			waiting: 0,
+		});
+	}
 	expect(supervisor.snapshot()).toMatchObject({ activeExecutions: 0 });
 	expect(
 		(yield* fs.readDirectory(evidence.root)).filter(
@@ -551,6 +556,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 						mode === "cancel-inline"
 							? {
 									...input,
+									lane: "background" as const,
 									inlineDurableHost: {
 										capabilities: ["getCachedValue"] as const,
 										settle: () =>

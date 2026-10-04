@@ -2,6 +2,7 @@
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import { spawn } from "node:child_process";
 
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Context, Data, Deferred, Effect, FileSystem, Layer, Path, Queue, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -186,7 +187,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 				);
 				const exited = yield* Deferred.make<typeof exitSchema.Type>();
 				const failed = yield* Deferred.make<never, SidecarClientError>();
-				const handles = new Set<string>();
+				const handles = new Map<string, ExecutionLane>();
 				let closed = false;
 				const monitorIsActive = Effect.gen(function* () {
 					if (closed) {
@@ -368,6 +369,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 				});
 				const writer = makeSidecarFrameWriter({
 					maximumRunMessages: settings.threads,
+					lane: (handle) => handles.get(handle),
 					maximumControlMessages: settings.threads * 5 + 1,
 					write: (bytes) => ({ written: bytes.byteLength, blocked: !socket.write(bytes) }),
 					maximumQueuedBytes: settings.threads * SANDBOX_LIMITS.sidecar.queuedBytesPerThread,
@@ -422,14 +424,14 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 										},
 									}),
 						),
-					register: Effect.fnUntraced(function* (handle: string) {
+					register: Effect.fnUntraced(function* (handle: string, lane: ExecutionLane) {
 						if (closed || handles.has(handle) || handles.size >= settings.threads * 2) {
 							return yield* new SidecarClientError({
 								reason: "transport",
 								message: "Sidecar handle registration rejected",
 							});
 						}
-						handles.add(handle);
+						handles.set(handle, lane);
 						return undefined;
 					}),
 				};

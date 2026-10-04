@@ -509,6 +509,7 @@ export default defineWorkflow({
 				compiled,
 				{},
 				{
+					lane: "background",
 					workflowExecutionId: "freeze-test",
 					inlineDurableHost: {
 						capabilities: ["getCachedValue"],
@@ -1015,7 +1016,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 			const live = yield* runNative(
 				compiled,
 				{ mode: "replay" },
-				{ inlineDurableHost, workflowExecutionId: "durable-parent" },
+				{ inlineDurableHost, lane: "background", workflowExecutionId: "durable-parent" },
 			);
 			expect(batches).toEqual([["getCachedValue"], ["getCachedValue"]]);
 			expect(live.response).toMatchObject({
@@ -1030,7 +1031,12 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 			const replay = yield* runNative(
 				compiled,
 				{ mode: "replay" },
-				{ inlineDurableHost, replayJournal: live.inline, workflowExecutionId: "durable-parent" },
+				{
+					inlineDurableHost,
+					lane: "background",
+					replayJournal: live.inline,
+					workflowExecutionId: "durable-parent",
+				},
 			);
 			expect(replay.response).toMatchObject({
 				success: true,
@@ -1052,6 +1058,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 					compiled,
 					{ mode: "parallel" },
 					{
+						lane: "background",
 						workflowExecutionId: "durable-parent",
 						inlineDurableHost: {
 							capabilities: ["getCachedValue"],
@@ -1085,6 +1092,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 					compiled,
 					{ mode: "parallel" },
 					{
+						lane: "background",
 						workflowExecutionId: "durable-parent",
 						inlineDurableHost: {
 							capabilities,
