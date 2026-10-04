@@ -108,6 +108,7 @@ const toRelationshipSchema = (row: RelationshipSchemaRow): RelationshipSchemaDef
 	propertiesSchema: row.propertiesSchema,
 	sourceEntitySchemaSlug: row.sourceEntitySchemaSlug,
 	targetEntitySchemaSlug: row.targetEntitySchemaSlug,
+	...(row.userWritePolicy === null ? {} : { userWritePolicy: row.userWritePolicy }),
 });
 
 const toSignalSchema = (row: SignalSchemaRow): SignalSchemaDefinition => ({
@@ -304,6 +305,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										name: definition.name,
 										slug: definition.slug,
 										propertiesSchema: definition.propertiesSchema,
+										userWritePolicy: definition.userWritePolicy ?? null,
 										sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug,
 										targetEntitySchemaSlug: definition.targetEntitySchemaSlug,
 									})),
@@ -534,6 +536,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										slug: definition.slug,
 										pluginRevisionId: null,
 										propertiesSchema: definition.propertiesSchema,
+										userWritePolicy: definition.userWritePolicy ?? null,
 										sourceEntitySchemaSlug: definition.sourceEntitySchemaSlug,
 										targetEntitySchemaSlug: definition.targetEntitySchemaSlug,
 									})),
@@ -546,6 +549,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									set: {
 										name: sql`excluded.name`,
 										position: sql`excluded.position`,
+										userWritePolicy: sql`excluded.user_write_policy`,
 										propertiesSchema: sql`excluded.properties_schema`,
 										sourceEntitySchemaSlug: sql`excluded.source_entity_schema_slug`,
 										targetEntitySchemaSlug: sql`excluded.target_entity_schema_slug`,
@@ -910,6 +914,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 							.select({
 								name: schema.definitionRelationshipSchema.name,
 								slug: schema.definitionRelationshipSchema.slug,
+								userWritePolicy: schema.definitionRelationshipSchema.userWritePolicy,
 								propertiesSchema: schema.definitionRelationshipSchema.propertiesSchema,
 								sourceEntitySchemaSlug: schema.definitionRelationshipSchema.sourceEntitySchemaSlug,
 								targetEntitySchemaSlug: schema.definitionRelationshipSchema.targetEntitySchemaSlug,
@@ -923,7 +928,11 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 							)
 							.limit(1),
 					);
-					return row;
+					if (!row) {
+						return undefined;
+					}
+					const { userWritePolicy, ...definition } = row;
+					return { ...definition, ...(userWritePolicy === null ? {} : { userWritePolicy }) };
 				}),
 			};
 			const findRevisionDeclaration = Effect.fn("DefinitionRepository.findRevisionDeclaration")(

@@ -227,6 +227,81 @@ describe("definition views", () => {
 				).toEqual(["z-link", "a-link"]);
 			}),
 		);
+
+		test.effect("round-trips relationship user write policy through revision and definitions", () =>
+			Effect.gen(function* () {
+				const definitions = yield* DefinitionRepository;
+				yield* seedKernelDefinitions();
+				const installed = yield* installRevisionPackage(
+					withRelationshipSchemas(
+						revisionPackage("policy", "v1", "policy-entity", PluginPackageId.make("test/policy")),
+						[
+							{
+								...relationshipSchema("policy-link", "policy-entity", "policy-entity"),
+								userWritePolicy: "source-owner",
+							},
+							relationshipSchema("annotation-link", "policy-entity", "policy-entity"),
+						],
+					),
+				);
+				const relationshipKey = definitionKey(
+					"relationship",
+					definitionOwner(installed.pluginId),
+					"policy-link",
+				);
+				const annotationRelationshipKey = definitionKey(
+					"relationship",
+					definitionOwner(installed.pluginId),
+					"annotation-link",
+				);
+
+				const revisionDeclaration = yield* definitions.findRevisionDeclaration({
+					slug: "policy-link",
+					kind: "relationship",
+					revisionId: installed.revisionId,
+				});
+				expect(revisionDeclaration?.userWritePolicy).toBe("source-owner");
+				const annotationRevisionDeclaration = yield* definitions.findRevisionDeclaration({
+					kind: "relationship",
+					slug: "annotation-link",
+					revisionId: installed.revisionId,
+				});
+				assert(annotationRevisionDeclaration);
+				expect(annotationRevisionDeclaration).not.toHaveProperty("userWritePolicy");
+
+				const session = yield* DatabaseSession;
+				const [annotationRow] = yield* session.run((db) =>
+					db
+						.select({ userWritePolicy: tables.definitionRelationshipSchema.userWritePolicy })
+						.from(tables.definitionRelationshipSchema)
+						.where(
+							and(
+								eq(tables.definitionRelationshipSchema.pluginRevisionId, installed.revisionId),
+								eq(tables.definitionRelationshipSchema.slug, "annotation-link"),
+							),
+						),
+				);
+				expect(annotationRow?.userWritePolicy).toBeNull();
+
+				const globalSnapshot = yield* definitions.getGlobalSnapshot;
+				const userSnapshot = yield* definitions.getUserSnapshot(owner, effective);
+				const pinnedSnapshot = yield* definitions.getSnapshotForContext(
+					{
+						pluginId: PluginId.make(installed.pluginId),
+						pluginRevisionId: PluginRevisionId.make(installed.revisionId),
+					},
+					owner,
+				);
+				for (const snapshot of [globalSnapshot, userSnapshot, pinnedSnapshot]) {
+					expect(snapshot.relationshipSchemas[relationshipKey]?.userWritePolicy).toBe(
+						"source-owner",
+					);
+					const annotationRelationship = snapshot.relationshipSchemas[annotationRelationshipKey];
+					assert(annotationRelationship);
+					expect(annotationRelationship).not.toHaveProperty("userWritePolicy");
+				}
+			}),
+		);
 	});
 
 	layer(revisionDatabaseLayer)((test) => {

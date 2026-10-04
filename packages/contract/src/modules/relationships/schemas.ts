@@ -18,6 +18,7 @@ const RelationshipBadRequestReason = Schema.Union([
 	}),
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
+	Schema.Struct({ sourceEntityId: EntityId, code: Schema.Literal("source-not-owned") }),
 	Schema.Struct({ code: Schema.Literal("kernel-owned-schema") }),
 	Schema.Struct({
 		runId: AutomationRunId,

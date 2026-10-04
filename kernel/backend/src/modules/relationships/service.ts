@@ -149,6 +149,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 						),
 						input,
 						definition,
+						input.userId,
 					);
 				}
 				return yield* prepareSingle(

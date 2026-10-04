@@ -266,12 +266,18 @@ export const validateUserRelationshipEntities = Effect.fnUntraced(function* (
 	scopes: UserEntityScopes,
 	input: Pick<UserRelationshipIdentity, "sourceEntityId" | "targetEntityId">,
 	definition: RelationshipSchemaDefinition,
+	userId: UserId,
 ) {
 	const source = scopes.get(input.sourceEntityId);
 	const target = scopes.get(input.targetEntityId);
 	if (!source || !target) {
 		return yield* new RelationshipNotFound({
 			reason: { code: "entity-not-found", entityIds: [input.sourceEntityId, input.targetEntityId] },
+		});
+	}
+	if (definition.userWritePolicy === "source-owner" && source.entityUserId !== userId) {
+		return yield* new RelationshipBadRequest({
+			reason: { code: "source-not-owned", sourceEntityId: input.sourceEntityId },
 		});
 	}
 	if (

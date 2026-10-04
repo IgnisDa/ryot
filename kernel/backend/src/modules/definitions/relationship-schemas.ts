@@ -1,3 +1,4 @@
+import type { PluginRelationshipUserWritePolicy } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	definitionKey,
 	type DefinitionOwner,
@@ -24,6 +25,7 @@ type RelationshipSchemaScope = {
 	readonly pluginId: string | null;
 	readonly sourceEntitySchemaSlug: EntitySchemaSlug | null;
 	readonly targetEntitySchemaSlug: EntitySchemaSlug | null;
+	readonly userWritePolicy?: PluginRelationshipUserWritePolicy | undefined;
 };
 
 const toNullableScope = (definition: RelationshipSchemaDefinition | null | undefined) =>
@@ -88,6 +90,9 @@ const toScope = (definition: RelationshipSchemaDefinition): RelationshipSchemaSc
 	targetEntitySchemaSlug: definition.targetEntitySchemaSlug
 		? EntitySchemaSlug.make(definition.targetEntitySchemaSlug)
 		: null,
+	...(definition.userWritePolicy === undefined
+		? {}
+		: { userWritePolicy: definition.userWritePolicy }),
 });
 
 const ownerMatches = (left: DefinitionOwner, right: DefinitionOwner) =>

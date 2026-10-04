@@ -218,6 +218,7 @@ export const relationshipDatabaseLayer = (
 		readonly activateSchemaOnWrite?: boolean;
 		readonly omitSchemaBeforeWrite?: boolean;
 		readonly mutableRelationshipSchema?: boolean;
+		readonly userWritePolicy?: DefinitionSource["relationshipSchemas"][number]["userWritePolicy"];
 	} = {},
 ) =>
 	Layer.unwrap(
@@ -240,6 +241,7 @@ export const relationshipDatabaseLayer = (
 				slug: relationshipSchemaSlug,
 				sourceEntitySchemaSlug: null,
 				targetEntitySchemaSlug: null,
+				...(options.userWritePolicy ? { userWritePolicy: options.userWritePolicy } : {}),
 			};
 			const source: DefinitionSource = {
 				savedViews: [],
