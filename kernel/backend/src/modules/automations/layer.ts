@@ -1,6 +1,5 @@
 import { Layer } from "effect";
 
-import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
@@ -101,9 +100,7 @@ export const AutomationRetentionLive = AutomationRetention.layer.pipe(
 			AutomationAttemptRepository.layer,
 			AutomationRunRepository.layer,
 			AutomationTriggerRepository.layer,
-			ScriptGarbageCollector.layer.pipe(
-				Layer.provide(Layer.merge(PluginRepositoryLive, PackageCacheManager.layer)),
-			),
+			ScriptGarbageCollector.layer.pipe(Layer.provide(PluginRepositoryLive)),
 		),
 	),
 );

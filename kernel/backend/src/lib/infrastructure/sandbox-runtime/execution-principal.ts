@@ -1,3 +1,4 @@
+import type { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	SandboxExecutionSubject,
 	SandboxScriptMetadata,
@@ -11,7 +12,8 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Schema } from "effect";
+import type { Effect } from "effect";
+import { Context, Schema } from "effect";
 
 export const SandboxPluginRevision = Schema.Struct({
 	id: PluginId,
@@ -42,11 +44,22 @@ export const SandboxExecutionPrincipal = Schema.Struct({
 	metadata: SandboxScriptMetadata,
 	subject: SandboxExecutionSubject,
 	providerId: Schema.NullOr(SandboxProviderId),
+	standaloneUploaderId: Schema.optional(UserId),
+	kernelScript: Schema.optional(Schema.Literal(true)),
 	pluginRevision: Schema.NullOr(SandboxPluginRevision),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter((principal) => {
-			const { subject, pluginRevision } = principal;
+			if (
+				principal.kernelScript === true &&
+				(principal.pluginRevision !== null || principal.standaloneUploaderId !== undefined)
+			) {
+				return "Kernel identity cannot accompany uploaded script ownership";
+			}
+			const { subject, pluginRevision, standaloneUploaderId } = principal;
+			if (pluginRevision !== null && standaloneUploaderId !== undefined) {
+				return "Standalone uploader identity cannot accompany a plugin revision";
+			}
 			if (
 				subject.type === "automation-run" &&
 				(subject.pluginId !== (pluginRevision?.id ?? null) ||
@@ -71,3 +84,12 @@ export const SandboxExecutionPrincipal = Schema.Struct({
 );
 
 export type SandboxExecutionPrincipal = Schema.Schema.Type<typeof SandboxExecutionPrincipal>;
+
+export class SandboxExecutionAuthority extends Context.Service<
+	SandboxExecutionAuthority,
+	{
+		readonly resolve: (
+			principal: SandboxExecutionPrincipal,
+		) => Effect.Effect<"system" | "user", SandboxRunError>;
+	}
+>()("SandboxExecutionAuthority") {}
