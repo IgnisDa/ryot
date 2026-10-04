@@ -1,8 +1,8 @@
-import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import type { AutomationSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "effect";
 
+import { principalOwner } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import {
 	requireSandboxCapabilityInput,
 	reportSandboxLifecycleWarnings,
@@ -54,8 +54,8 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 								command,
 								properties: request.properties,
 								reference: {
+									owner: principalOwner(input.principal),
 									slug: SignalSchemaSlug.make(request.schemaSlug),
-									owner: definitionOwner(input.principal.pluginRevision?.id ?? null),
 								},
 								...(request.subjectEntityId
 									? { subjectEntityId: EntityId.make(request.subjectEntityId) }

@@ -455,7 +455,7 @@ connections require reconnecting. The optional `anilistClientId` and `anilistCli
 configuration fields are required for authorization; the client secret is marked secret. Their
 environment names are `RYOT_PLUGIN__RYOT__MEDIA__ANILIST_CLIENT_ID` and
 `RYOT_PLUGIN__RYOT__MEDIA__ANILIST_CLIENT_SECRET`. Register exactly
-`<FRONTEND_URL>/api/oauth-connections/providers/media/anilist/callback` as the callback URL.
+`<FRONTEND_URL>/api/oauth-connections/providers/ryot/media/anilist/callback` as the callback URL.
 
 The collector reads `MediaListCollection` in 100-entry chunks through the captured-window pipeline.
 Each window captures its list-state records and continuation; the records commit before the checkpoint

@@ -3,6 +3,7 @@ import type {
 	ImportRunId,
 	IntegrationId,
 	OAuthConnectionId,
+	PluginPackageId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { and, count, eq, gt, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
@@ -31,6 +32,7 @@ const connectionSelection = {
 	accessTokenExpiresAt: connection.accessTokenExpiresAt,
 	integrationProviderSlug: connection.integrationProviderSlug,
 	pluginId: sql<string>`(select ${schema.pluginInstallation.pluginId} from ${schema.pluginInstallation} where ${schema.pluginInstallation.id} = ${connection.pluginInstallationId} and ${schema.pluginInstallation.userId} = ${connection.userId})`,
+	packageId: sql<PluginPackageId>`(select ${schema.plugin.packageId} from ${schema.pluginInstallation} join ${schema.plugin} on ${schema.plugin.id} = ${schema.pluginInstallation.pluginId} where ${schema.pluginInstallation.id} = ${connection.pluginInstallationId} and ${schema.pluginInstallation.userId} = ${connection.userId})`,
 };
 
 const unexpiredAt = (now: Date) => gt(connection.expiresAt, now);

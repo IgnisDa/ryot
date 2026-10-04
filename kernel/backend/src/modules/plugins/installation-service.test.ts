@@ -378,7 +378,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 						),
 					persist: (plugin, identity) =>
 						record(recordings, "persisted", { identity, plugin: plugin.manifest }).pipe(
-							Effect.as(identity.pluginId ?? `${identity.packageId}-plugin-id`),
+							Effect.as(identity.pluginId ?? `${plugin.manifest.metadata.packageId}-plugin-id`),
 						),
 					listCompiledPackageArtifacts: () =>
 						Effect.gen(function* () {
@@ -1529,11 +1529,7 @@ layer(
 				expect(persisted).toHaveLength(1);
 				expect(persisted[0]).toMatchObject({
 					plugin: { metadata: { version: "2.0.0" } },
-					identity: {
-						scope: "user",
-						ownerId: userId,
-						packageId: upgradedOperationPlugin.packageId,
-					},
+					identity: { scope: "user", ownerId: userId },
 				});
 				expect((yield* fake.updated)[0]).toMatchObject({
 					id: installation.id,
@@ -2223,7 +2219,7 @@ layer(
 				]);
 				expect((yield* fake.persisted)[0]).toMatchObject({
 					plugin: privatePlugin.manifest,
-					identity: { pluginId: privatePlugin.id, packageId: privatePlugin.packageId },
+					identity: { pluginId: privatePlugin.id },
 				});
 			}),
 	);

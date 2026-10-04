@@ -11,7 +11,7 @@ on every sync and records each new play as a completed song with its play time a
 2. Add this redirect URI to the app exactly:
 
    ```txt
-   <FRONTEND_URL>/api/oauth-connections/providers/media/spotify/callback
+   <FRONTEND_URL>/api/oauth-connections/providers/ryot/media/spotify/callback
    ```
 
    Spotify accepts only HTTPS redirect URIs or the loopback addresses `http://127.0.0.1` and

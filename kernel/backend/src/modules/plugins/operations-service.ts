@@ -21,7 +21,10 @@ import type { Headers as PlatformHeaders } from "effect/http";
 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import {
+	samePluginPin,
+	type SandboxPluginRevision,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { AuthService } from "#modules/auth/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -196,8 +199,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				if (
 					!pin?.pluginRevision ||
 					pin.pluginRevision.id !== resolved.plugin.id ||
-					pin.pluginRevision.revisionId !== resolved.plugin.pluginRevisionId ||
-					pin.pluginRevision.configRevisionId !== resolved.plugin.pluginConfigRevisionId ||
+					!samePluginPin(pin.pluginRevision, resolved.plugin) ||
 					pin.pluginRevision.packageId !== resolved.plugin.packageId ||
 					pin.contentHash !== resolved.script.contentHash ||
 					pin.scriptSlug !== resolved.operation.scriptSlug ||

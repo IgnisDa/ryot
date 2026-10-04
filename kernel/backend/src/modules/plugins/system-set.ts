@@ -10,11 +10,7 @@ import { mergeManifestDefinitions } from "#modules/definition-registry/source";
 
 import { buildHttpRateLimitLookups } from "./http-rate-limits";
 
-type SystemSetPlugin = {
-	readonly id: string;
-	readonly manifest: PluginManifest;
-	readonly scripts: ReadonlyArray<{ readonly slug: string }>;
-};
+type SystemSetPlugin = { readonly id: string; readonly manifest: PluginManifest };
 
 export const validateSystemPluginSet = (
 	kernel: DefinitionSource,
@@ -38,7 +34,6 @@ export const validateSystemPluginSet = (
 	}
 	buildHttpRateLimitLookups(
 		plugins.map(({ id, manifest }) => ({
-			scope: "system",
 			owner: definitionOwner(id),
 			packageId: manifest.metadata.packageId,
 			httpRateLimits: manifest.httpRateLimits,

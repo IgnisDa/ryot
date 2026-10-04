@@ -14,12 +14,7 @@ const emptySource = {
 const systemPlugin = (id: string) => {
 	const packageId = testPluginPackageId();
 	const manifest = fixtureManifest(packageId);
-	return {
-		...fixturePluginIdentity("fixture", packageId),
-		id,
-		manifest,
-		scripts: manifest.scripts,
-	};
+	return { ...fixturePluginIdentity("fixture", packageId), id, manifest };
 };
 
 const withConfig = (id: string) => {

@@ -3,7 +3,7 @@ import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
+import { lockPluginIngestionShared } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type {
@@ -39,11 +39,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			const lockIngestionShared = Effect.fn(
 				"SandboxWorkflowReferenceRepository.lockIngestionShared",
 			)(function* () {
-				yield* database.run((db) =>
-					db.execute(
-						sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
-					),
-				);
+				yield* lockPluginIngestionShared(database);
 			});
 
 			const registerInTransaction = Effect.fn(

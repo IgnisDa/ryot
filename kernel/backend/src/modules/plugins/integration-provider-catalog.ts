@@ -4,9 +4,11 @@ import type {
 	PluginConfigSchema,
 	PluginIntegrationProvider,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import {
-	PluginId,
+	definitionOwner,
+	type DeclarationReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
 	SandboxScriptId,
 	type PluginPackageId,
 	type UserId,
@@ -15,6 +17,7 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { and, eq, sql, type SQL } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import { installationSlugWhere, referenceWhere } from "#lib/infrastructure/db/definition-owner";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
@@ -133,10 +136,7 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 							pluginScope,
 							installationId,
 							packageId: manifest.metadata.packageId,
-							reference: {
-								slug: row.slug,
-								owner: { kind: "plugin", pluginId: PluginId.make(pluginId) },
-							},
+							reference: { slug: row.slug, owner: definitionOwner(pluginId) },
 							configContext: {
 								configSchema,
 								pluginRevisionId,
@@ -156,9 +156,6 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 			);
 	});
 
-const ownedBy = (providerSlug: string, installationId: string) =>
-	and(eq(provider.slug, providerSlug), eq(provider.installationId, installationId));
-
 export class IntegrationProviderCatalog extends Context.Service<IntegrationProviderCatalog>()(
 	"IntegrationProviderCatalog",
 	{
@@ -172,19 +169,16 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 				userId: UserId,
 				reference: DeclarationReference,
 			) {
-				if (reference.owner.kind === "kernel") {
-					return null;
-				}
-				const [resolved] = yield* queryProviders(
-					userId,
-					and(eq(provider.slug, reference.slug), eq(provider.pluginId, reference.owner.pluginId)),
-				);
+				const [resolved] = yield* queryProviders(userId, referenceWhere(provider, reference));
 				return resolved?.provider ?? null;
 			});
 
 			const resolveOwnedForUser = Effect.fn("IntegrationProviderCatalog.resolveOwnedForUser")(
 				function* (userId: UserId, providerSlug: string, installationId: string) {
-					const [resolved] = yield* queryProviders(userId, ownedBy(providerSlug, installationId));
+					const [resolved] = yield* queryProviders(
+						userId,
+						installationSlugWhere(provider, providerSlug, installationId),
+					);
 					return resolved ?? null;
 				},
 			);

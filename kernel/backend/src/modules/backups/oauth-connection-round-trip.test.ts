@@ -3,7 +3,12 @@ import { assert, expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { IntegrationId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	IntegrationId,
+	PluginId,
+	pluginPackageSegments,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { and, eq } from "drizzle-orm";
 import { ConfigProvider, Effect, FileSystem, Layer, Schema, Stream } from "effect";
@@ -157,7 +162,10 @@ layer(roundTripLayer)((test) => {
 				const state = new URL(authorizeUrl).searchParams.get("state");
 				assert(state);
 				const location = yield* connections.callback(
-					{ pluginId, oauthProviderSlug: "account" },
+					{
+						...pluginPackageSegments(packageValue.manifest.metadata.packageId),
+						oauthProviderSlug: "account",
+					},
 					{ state, code: "backup-auth-code" },
 				);
 				const secret = new URLSearchParams(location.split("#")[1] ?? "").get("secret");

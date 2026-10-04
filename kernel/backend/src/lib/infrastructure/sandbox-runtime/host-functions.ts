@@ -42,6 +42,10 @@ import {
 } from "#lib/infrastructure/lifecycle-workflow-step";
 import { getPluginConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
 import { isDeclaredExecutableCall } from "#lib/infrastructure/sandbox-runtime/executable-dependencies";
+import {
+	sameRevisionPin,
+	principalOwner,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	type AdditionalSandboxHostImplementationMap,
@@ -284,8 +288,8 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 					properties: item.properties,
 					populatedAt: item.populatedAt === null ? null : new Date(item.populatedAt),
 					entitySchema: {
+						owner: principalOwner(input.command.writeContext),
 						slug: EntitySchemaSlug.make(item.entitySchemaSlug),
-						owner: definitionOwner(input.command.writeContext?.pluginRevision?.id ?? null),
 					},
 				})),
 				input.providerId,
@@ -560,14 +564,14 @@ const toReconcileGroup = (
 	group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
 	command: DomainLifecycleCommand,
 ) => ({
+	relationshipSchema: {
+		owner: principalOwner(command.writeContext),
+		slug: RelationshipSchemaSlug.make(group.relationshipSchemaSlug),
+	},
 	selector:
 		group.selector.type === "self"
 			? group.selector
 			: { ...group.selector, anchorEntityId: EntityId.make(group.selector.anchorEntityId) },
-	relationshipSchema: {
-		slug: RelationshipSchemaSlug.make(group.relationshipSchemaSlug),
-		owner: definitionOwner(command.writeContext?.pluginRevision?.id ?? null),
-	},
 	relationships: group.relationships.map((relationship) => ({
 		...relationship,
 		sourceEntityId: EntityId.make(relationship.sourceEntityId),
@@ -622,8 +626,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			!plugin ||
 			state.pluginId !== plugin.id ||
 			state.pluginRevision.id !== plugin.id ||
-			state.pluginRevision.revisionId !== plugin.revisionId ||
-			state.pluginRevision.configRevisionId !== plugin.configRevisionId
+			!sameRevisionPin(state.pluginRevision, plugin)
 		) {
 			return yield* Effect.fail("Admitted ingestion execution settings are unavailable");
 		}
@@ -1030,11 +1033,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 									Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
 										const entitySchema =
 											entitySchemas[
-												definitionKey(
-													"entity",
-													definitionOwner(input.principal.pluginRevision?.id ?? null),
-													entitySchemaSlug,
-												)
+												definitionKey("entity", principalOwner(input.principal), entitySchemaSlug)
 											];
 										return entitySchema
 											? Effect.succeed(
@@ -1177,11 +1176,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 									Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
 										const definition =
 											entitySchemas[
-												definitionKey(
-													"entity",
-													definitionOwner(input.principal.pluginRevision?.id ?? null),
-													entitySchemaSlug,
-												)
+												definitionKey("entity", principalOwner(input.principal), entitySchemaSlug)
 											];
 										if (!definition) {
 											return Effect.fail("Entity schema not found");
@@ -1195,7 +1190,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 											userId: userSandboxRunUserId(input),
 											entitySchemas: resolvedEntitySchemaSlugs.map((slug) => ({
 												slug: EntitySchemaSlug.make(slug),
-												owner: definitionOwner(input.principal.pluginRevision?.id ?? null),
+												owner: principalOwner(input.principal),
 											})),
 										});
 										const providersBySchema = new Map<
@@ -1203,9 +1198,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 											Array<{ name: string; providerId: string }>
 										>();
 										for (const { provider, entitySchemaSlug } of links) {
-											if (provider.pluginId !== input.principal.pluginRevision?.id) {
-												continue;
-											}
 											const providers = providersBySchema.get(entitySchemaSlug) ?? [];
 											providers.push({ name: provider.name, providerId: provider.id });
 											providersBySchema.set(entitySchemaSlug, providers);

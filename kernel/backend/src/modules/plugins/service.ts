@@ -4,7 +4,7 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -12,7 +12,11 @@ import { kernelDefinitionSource, kernelScripts } from "#modules/definition-regis
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
-import { PluginIngestionRetirement } from "./ingestion-retirement";
+import {
+	PluginIngestionRetirement,
+	quarantinePackageConflicts,
+	retireQuarantinedInstallations,
+} from "./ingestion-retirement";
 import { PluginInstallationRepository } from "./installation-repository";
 import {
 	normalizePluginPackage,
@@ -154,30 +158,17 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								yield* repository.resolveEnvironmentConfig(authoritative);
 							}
 							yield* invalidator.recordAll;
-							const quarantined =
-								yield* installations.quarantinePackageIdentityConflicts(packageId);
-							for (const installation of quarantined) {
-								yield* invalidator.recordUser(UserId.make(installation.userId));
-							}
+							const quarantined = yield* quarantinePackageConflicts(
+								installations,
+								invalidator,
+								packageId,
+							);
 							return { quarantined, authoritative };
 						}),
 					);
 					if (committed) {
 						yield* invalidator.all;
-						for (const installation of committed.quarantined) {
-							yield* retirement.retire({
-								pluginInstallationId: installation.id,
-								userId: UserId.make(installation.userId),
-								policy: {
-									kind: "quarantine",
-									reason: {
-										installationId: installation.id,
-										code: "package-identity-conflict",
-										pluginId: PluginId.make(installation.pluginId),
-									},
-								},
-							});
-						}
+						yield* retireQuarantinedInstallations(retirement, committed.quarantined);
 						return committed.authoritative;
 					}
 				}
@@ -225,7 +216,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							}
 						}
 						const pluginId = yield* repository.persist(normalized, {
-							packageId,
 							...(target ? { pluginId: target.pluginId } : {}),
 							ownerId: null,
 							scope: "system",
@@ -243,28 +233,16 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							yield* repository.resolveEnvironmentConfig(entry);
 						}
 						yield* invalidator.recordAll;
-						const quarantined = yield* installations.quarantinePackageIdentityConflicts(packageId);
-						for (const installation of quarantined) {
-							yield* invalidator.recordUser(UserId.make(installation.userId));
-						}
+						const quarantined = yield* quarantinePackageConflicts(
+							installations,
+							invalidator,
+							packageId,
+						);
 						return { entry, quarantined };
 					}),
 				);
 				yield* invalidator.all;
-				for (const installation of stored.quarantined) {
-					yield* retirement.retire({
-						pluginInstallationId: installation.id,
-						userId: UserId.make(installation.userId),
-						policy: {
-							kind: "quarantine",
-							reason: {
-								installationId: installation.id,
-								code: "package-identity-conflict",
-								pluginId: PluginId.make(installation.pluginId),
-							},
-						},
-					});
-				}
+				yield* retireQuarantinedInstallations(retirement, stored.quarantined);
 				return stored.entry;
 			});
 			const ingestSystemPluginSource = (

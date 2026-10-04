@@ -6,7 +6,8 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Effect, Schema, Struct } from "effect";
 
-import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
+import { lockPluginIngestionShared } from "#lib/infrastructure/db/advisory-locks";
+import { ownerWhere } from "#lib/infrastructure/db/definition-owner";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
@@ -96,11 +97,7 @@ export const makeDomainWriteChecks = (session: DatabaseSession["Service"]) => {
 					() => new DbError({ message: "Domain authority commit checks require a transaction" }),
 				),
 			);
-			yield* session.run((db) =>
-				db.execute(
-					sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
-				),
-			);
+			yield* lockPluginIngestionShared(session);
 		}
 		const principal = command.writeContext;
 		if (principal === null) {
@@ -271,9 +268,7 @@ export const makeDomainWriteChecks = (session: DatabaseSession["Service"]) => {
 				.where(
 					and(
 						eq(tables.sandboxProvider.id, providerId),
-						owner.kind === "plugin"
-							? eq(tables.sandboxProvider.pluginId, owner.pluginId)
-							: sql`false`,
+						ownerWhere(tables.sandboxProvider.pluginId, owner),
 					),
 				)
 				.limit(1),

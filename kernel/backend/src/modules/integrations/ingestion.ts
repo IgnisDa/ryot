@@ -17,6 +17,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Data, DateTime, Effect, Exit, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { samePluginPin } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import {
 	genericIngestionBatchResult,
 	reconcileGenericIngestionBatch,
@@ -109,8 +110,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 				const integrationContext = yield* admittedContext(scope);
 				if (
 					state.workflowScriptId !== run.pins.scriptId ||
-					state.pluginRevision.revisionId !== run.pins.pluginRevisionId ||
-					state.pluginRevision.configRevisionId !== run.pins.pluginConfigRevisionId
+					!samePluginPin(state.pluginRevision, run.pins)
 				) {
 					return yield* new ImportRunError({
 						message: "Integration confirmation does not match its retained pins",
@@ -427,8 +427,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 				const state = yield* states.materialize(scope);
 				if (
 					state.workflowScriptId !== run.pins.scriptId ||
-					state.pluginRevision.revisionId !== run.pins.pluginRevisionId ||
-					state.pluginRevision.configRevisionId !== run.pins.pluginConfigRevisionId ||
+					!samePluginPin(state.pluginRevision, run.pins) ||
 					run.pins.executionId !== `${scope.runId}-import`
 				) {
 					return yield* new ImportRunError({

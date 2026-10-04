@@ -1,32 +1,30 @@
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { describe, expect, it } from "vitest";
 
 import { redisKeys } from "./redis";
 
+const persistentKey = (userId: string | null) =>
+	redisKeys.sandboxPersistentCache(userId, ["kernel"], ["kernel", "script-1"], "key");
+
 describe("sandbox cache keys", () => {
-	it("includes the executing user in sandbox cache keys", () => {
-		expect(redisKeys.sandboxCache("user-1", "script-1", "key")).toBe(
-			"ryot:sandbox:cache:user:user-1:script-1:key",
-		);
+	it("isolates persistent cache keys between executing users", () => {
+		expect(persistentKey("user-1")).not.toBe(persistentKey("user-2"));
+		expect(persistentKey(null)).not.toBe(persistentKey("user-1"));
 	});
 
-	it("isolates the same script cache key between executing users", () => {
-		expect(redisKeys.sandboxCache("user-2", "script-1", "key")).not.toBe(
-			redisKeys.sandboxCache("user-1", "script-1", "key"),
-		);
-	});
-
-	it("keeps userless kernel executions in a distinct partition", () => {
-		expect(redisKeys.sandboxCache(null, "script-1", "key")).toBe(
-			"ryot:sandbox:cache:kernel:script-1:key",
-		);
+	it("trims persistent cache keys", () => {
+		expect(
+			redisKeys.sandboxPersistentCache("user-1", ["kernel"], ["kernel", "script-1"], " key "),
+		).toBe(redisKeys.sandboxPersistentCache("user-1", ["kernel"], ["kernel", "script-1"], "key"));
 	});
 
 	it("adds a server-run partition to transient sandbox cache keys", () => {
-		expect(redisKeys.sandboxRunCache("run-1", "user-1", "script-1", "key")).toBe(
-			"ryot:sandbox:cache:run:run-1:user:user-1:script-1:key",
+		const tuple = identityTupleKey("user-1", "key");
+		expect(redisKeys.sandboxRunCacheNamespace("run-1", tuple)).toBe(
+			`ryot:sandbox:cache:run:run-1:${tuple}`,
 		);
-		expect(redisKeys.sandboxRunCache("run-2", "user-1", "script-1", "key")).not.toBe(
-			redisKeys.sandboxRunCache("run-1", "user-1", "script-1", "key"),
+		expect(redisKeys.sandboxRunCacheNamespace("run-2", tuple)).not.toBe(
+			redisKeys.sandboxRunCacheNamespace("run-1", tuple),
 		);
 	});
 

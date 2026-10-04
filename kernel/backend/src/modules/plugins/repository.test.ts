@@ -95,11 +95,7 @@ describe("plugin repository revisions", () => {
 						Effect.gen(function* () {
 							yield* repository.lockIngestion();
 							return yield* Effect.forEach([first, second], (plugin) =>
-								repository.persist(plugin, {
-									ownerId: null,
-									scope: "system",
-									packageId: plugin.manifest.metadata.packageId,
-								}),
+								repository.persist(plugin, { ownerId: null, scope: "system" }),
 							);
 						}),
 					);
@@ -117,12 +113,7 @@ describe("plugin repository revisions", () => {
 					};
 					expect(
 						yield* session.transaction(
-							repository.persist(renamed, {
-								ownerId: null,
-								scope: "system",
-								pluginId: firstId,
-								packageId: first.manifest.metadata.packageId,
-							}),
+							repository.persist(renamed, { ownerId: null, scope: "system", pluginId: firstId }),
 						),
 					).toBe(firstId);
 					expect(
@@ -152,21 +143,12 @@ describe("plugin repository revisions", () => {
 				const repository = yield* PluginRepository;
 				const first = revisionPackage("identity-target");
 				const pluginId = yield* session.transaction(
-					repository.persist(first, {
-						ownerId: null,
-						scope: "system",
-						packageId: first.manifest.metadata.packageId,
-					}),
+					repository.persist(first, { ownerId: null, scope: "system" }),
 				);
 				const claim = revisionPackage("identity-target", "v2");
 				const result = yield* Effect.result(
 					session.transaction(
-						repository.persist(claim, {
-							pluginId,
-							ownerId: null,
-							scope: "system",
-							packageId: claim.manifest.metadata.packageId,
-						}),
+						repository.persist(claim, { pluginId, ownerId: null, scope: "system" }),
 					),
 				);
 				expect(Result.isFailure(result)).toBe(true);
@@ -183,11 +165,9 @@ describe("plugin repository revisions", () => {
 				const repository = yield* PluginRepository;
 				const installations = yield* PluginInstallationRepository;
 				const pluginPackage = revisionPackage("retry-identity", "v1");
-				const identity = {
-					ownerId: null,
-					scope: "system",
-					packageId: pluginPackage.manifest.metadata.packageId,
-				} satisfies Parameters<PluginRepository["Service"]["persist"]>[1];
+				const identity = { ownerId: null, scope: "system" } satisfies Parameters<
+					PluginRepository["Service"]["persist"]
+				>[1];
 				const id = yield* session.transaction(repository.persist(pluginPackage, identity));
 				const first = yield* repository.findActiveSystemPluginById(id);
 				assert(first);
@@ -292,11 +272,7 @@ describe("plugin repository revisions", () => {
 					}),
 				};
 				const pluginId = yield* session.transaction(
-					repository.persist(plugin, {
-						scope: "user",
-						ownerId: owner,
-						packageId: manifest.metadata.packageId,
-					}),
+					repository.persist(plugin, { scope: "user", ownerId: owner }),
 				);
 				yield* session.run((db) =>
 					db

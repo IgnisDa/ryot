@@ -26,6 +26,7 @@ import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
+	sameRevisionPin,
 	SandboxExecutionPrincipal,
 	SandboxPluginRevision,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
@@ -107,9 +108,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 				if (
 					!input.command.writeContext?.pluginRevision ||
 					input.command.writeContext.pluginRevision.id !== input.pluginPin.id ||
-					input.command.writeContext.pluginRevision.revisionId !== input.pluginPin.revisionId ||
-					input.command.writeContext.pluginRevision.configRevisionId !==
-						input.pluginPin.configRevisionId
+					!sameRevisionPin(input.command.writeContext.pluginRevision, input.pluginPin)
 				) {
 					return yield* new DbError({
 						message: "Event stream request requires its exact persisted execution authority",

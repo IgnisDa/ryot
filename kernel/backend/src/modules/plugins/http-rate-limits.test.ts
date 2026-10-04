@@ -17,14 +17,8 @@ const declaration = {
 
 it("accepts identical declarations across plugins and builds canonical lookups", () => {
 	const lookups = buildHttpRateLimitLookups([
+		{ packageId: "test/first", httpRateLimits: [declaration], owner: definitionOwner("first") },
 		{
-			scope: "system",
-			packageId: "test/first",
-			httpRateLimits: [declaration],
-			owner: definitionOwner("first"),
-		},
-		{
-			scope: "system",
 			packageId: "test/second",
 			owner: definitionOwner("second"),
 			httpRateLimits: [{ ...declaration, origins: [...declaration.origins].toReversed() }],
@@ -65,18 +59,8 @@ it("rejects conflicting keys within an owner and quotas at a shared origin", () 
 	for (const { second, ownerId, expected } of cases) {
 		expect(() =>
 			buildHttpRateLimitLookups([
-				{
-					scope: "system",
-					packageId: "test/first",
-					httpRateLimits: [declaration],
-					owner: definitionOwner("first"),
-				},
-				{
-					scope: "system",
-					packageId: "test/second",
-					httpRateLimits: [second],
-					owner: definitionOwner(ownerId),
-				},
+				{ packageId: "test/first", httpRateLimits: [declaration], owner: definitionOwner("first") },
+				{ packageId: "test/second", httpRateLimits: [second], owner: definitionOwner(ownerId) },
 			]),
 		).toThrow(expected);
 	}
@@ -84,14 +68,8 @@ it("rejects conflicting keys within an owner and quotas at a shared origin", () 
 
 it("allows independent local labels while sharing compatible origin quotas", () => {
 	const lookups = buildHttpRateLimitLookups([
+		{ packageId: "test/first", httpRateLimits: [declaration], owner: definitionOwner("first") },
 		{
-			scope: "system",
-			packageId: "test/first",
-			httpRateLimits: [declaration],
-			owner: definitionOwner("first"),
-		},
-		{
-			scope: "system",
 			packageId: "test/second",
 			owner: definitionOwner("second"),
 			httpRateLimits: [{ ...declaration, key: "other", origins: ["https://one.example.com"] }],
@@ -105,24 +83,9 @@ it("allows independent local labels while sharing compatible origin quotas", () 
 		identityTupleKey("http-origin", "https://one.example.com"),
 	);
 	const firstOnly = buildHttpRateLimitLookups([
-		{
-			scope: "system",
-			packageId: "test/first",
-			httpRateLimits: [declaration],
-			owner: definitionOwner("first"),
-		},
+		{ packageId: "test/first", httpRateLimits: [declaration], owner: definitionOwner("first") },
 	]);
 	expect(lookups.byOrigin["https://one.example.com"]).toEqual(
 		firstOnly.byOrigin["https://one.example.com"],
 	);
-	expect(() =>
-		buildHttpRateLimitLookups([
-			{
-				scope: "user",
-				packageId: "test/private",
-				httpRateLimits: [declaration],
-				owner: definitionOwner("private"),
-			},
-		]),
-	).toThrow("Private plugins cannot declare deployment HTTP policies");
 });

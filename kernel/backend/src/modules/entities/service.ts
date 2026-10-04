@@ -42,6 +42,7 @@ import {
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
+import { principalOwner } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { trimToNull } from "#lib/shared/validation";
 import { EventsRepository } from "#modules/events/repository";
@@ -290,7 +291,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						yield* writeChecks
 							.check(
 								input.lifecycle,
-								definitionOwner(input.lifecycle.writeContext?.pluginRevision?.id ?? null),
+								principalOwner(input.lifecycle.writeContext),
 								input.userId,
 								true,
 							)
@@ -1212,12 +1213,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						scopeUserId = writeContext.pluginRevision.ownerId;
 					}
 					yield* writeChecks
-						.check(
-							lifecycle,
-							definitionOwner(lifecycle.writeContext?.pluginRevision?.id ?? null),
-							scopeUserId,
-							true,
-						)
+						.check(lifecycle, principalOwner(lifecycle.writeContext), scopeUserId, true)
 						.pipe(Effect.mapError(writeFailure));
 					for (const entityId of orderedIds) {
 						yield* repository.getMutationEntity(entityId, true);
@@ -1291,11 +1287,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		) {
 			yield* assertOwner;
 			yield* writeChecks
-				.check(
-					lifecycle,
-					definitionOwner(lifecycle.writeContext?.pluginRevision?.id ?? null),
-					userId,
-				)
+				.check(lifecycle, principalOwner(lifecycle.writeContext), userId)
 				.pipe(Effect.mapError(writeFailure));
 			for (const item of items) {
 				yield* writeChecks
@@ -1631,7 +1623,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		) {
 			yield* assertOwner;
 			yield* writeChecks
-				.check(lifecycle, definitionOwner(lifecycle.writeContext?.pluginRevision?.id ?? null), null)
+				.check(lifecycle, principalOwner(lifecycle.writeContext), null)
 				.pipe(Effect.mapError(writeFailure));
 			for (const item of items) {
 				yield* writeChecks

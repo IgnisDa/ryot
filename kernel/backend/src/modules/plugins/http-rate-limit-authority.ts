@@ -2,7 +2,7 @@ import type { DbError } from "@ryot-app/contract/errors";
 import type { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
 import { Context, Effect, Layer, Result } from "effect";
 
-import { buildHttpRateLimitLookups } from "./http-rate-limits";
+import { buildHttpRateLimitLookups, canonicalOrigin } from "./http-rate-limits";
 import { PluginRepository } from "./repository";
 import { PluginValidationError } from "./validation";
 
@@ -26,14 +26,10 @@ const requestOrigin = (
 	if (parsed.success.protocol !== "http:" && parsed.success.protocol !== "https:") {
 		return { matched: false, reason: "non-http-url" };
 	}
-	// The URL parser lowercases hosts, drops default ports and canonicalizes IP literals, but keeps
-	// a fully qualified name's trailing dot, which reaches the same host.
-	const hostname = parsed.success.hostname.replace(/\.+$/, "");
-	if (hostname.length === 0) {
+	if (/^\.+$/.test(parsed.success.hostname)) {
 		return { matched: false, reason: "invalid-url" };
 	}
-	parsed.success.hostname = hostname;
-	return { origin: parsed.success.origin };
+	return { origin: canonicalOrigin(parsed.success) };
 };
 
 export class PluginHttpRateLimitAuthority extends Context.Service<PluginHttpRateLimitAuthority>()(

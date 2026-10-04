@@ -8,6 +8,7 @@ import {
 	type PluginManifest as PluginManifestValue,
 	type PluginScript,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { pluginPackageSegments, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Cron, Data, Effect, Result, Schema } from "effect";
@@ -26,9 +27,6 @@ export class PluginValidationError extends Data.TaggedError("PluginValidationErr
 
 const reservedPluginPublisher = "ryot";
 const fail = (issue: string) => new PluginValidationError({ issues: [issue] });
-const encodeEventSchemaReference = Schema.encodeSync(
-	Schema.fromJsonString(Schema.Tuple([Schema.String, Schema.String])),
-);
 
 const assertSlug = (kind: string, slug: string) =>
 	slug.includes("/") ? Effect.fail(fail(`${kind} slug cannot contain '/': ${slug}`)) : Effect.void;
@@ -272,9 +270,7 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 
 		const eventSchemaSlugs = new Set(
 			manifest.entitySchemas.flatMap((entitySchema) =>
-				entitySchema.eventSchemas.map(({ slug }) =>
-					encodeEventSchemaReference([entitySchema.slug, slug]),
-				),
+				entitySchema.eventSchemas.map(({ slug }) => identityTupleKey(entitySchema.slug, slug)),
 			),
 		);
 		for (const hook of manifest.hooks) {
@@ -294,7 +290,7 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 				if (target.resource === "event") {
 					yield* assertReference(
 						"Automation hook",
-						encodeEventSchemaReference([target.entitySchemaSlug, target.eventSchemaSlug]),
+						identityTupleKey(target.entitySchemaSlug, target.eventSchemaSlug),
 						eventSchemaSlugs,
 					);
 				}
