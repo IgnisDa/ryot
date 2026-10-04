@@ -8,6 +8,7 @@ import { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/ent
 import {
 	definitionKey,
 	definitionOwner,
+	type DefinitionOwner,
 	type EntitySchemaReference,
 	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
@@ -267,13 +268,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 		const entitySchema = Effect.fnUntraced(function* (
 			scopeUserId: UserId | null,
-			entitySchemaSlug: EntitySchemaSlug,
-			entitySchemaPluginId: string | null,
+			reference: EntitySchemaReference,
 		) {
-			const reference: EntitySchemaReference = {
-				slug: entitySchemaSlug,
-				owner: definitionOwner(entitySchemaPluginId),
-			};
 			const definition = yield* scopeUserId === null
 				? repository.findSystemEntitySchemaByReference(reference)
 				: repository.findEntitySchemaForUser({ userId: scopeUserId, entitySchema: reference });
@@ -329,10 +325,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				properties: unknown;
 			},
 			scopeUserId: UserId | null,
-			entitySchemaPluginId: string | null,
+			owner: DefinitionOwner,
 			lifecycle: DomainLifecycleCommand,
 			commit = false,
 		) {
+			const entitySchemaPluginId = definitionOwnerPluginId(owner);
 			if (
 				lifecycle.writeContext?.pluginRevision &&
 				lifecycle.kernelCollection === true &&
@@ -348,7 +345,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				});
 			}
 			const pinnedManifest = yield* writeChecks
-				.check(lifecycle, definitionOwner(entitySchemaPluginId), scopeUserId, commit)
+				.check(lifecycle, owner, scopeUserId, commit)
 				.pipe(Effect.mapError(writeFailure));
 			const activeDeclaration =
 				pinnedManifest && entitySchemaPluginId !== null
@@ -368,10 +365,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						pluginId: entitySchemaPluginId,
 						propertiesSchema: activeDeclaration.propertiesSchema,
 					}
-				: yield* entitySchema(scopeUserId, draft.entitySchemaSlug, entitySchemaPluginId);
+				: yield* entitySchema(scopeUserId, { owner, slug: draft.entitySchemaSlug });
 			if (draft.providerId !== null) {
 				yield* writeChecks
-					.checkProvider(draft.providerId, definitionOwner(entitySchemaPluginId))
+					.checkProvider(draft.providerId, owner)
 					.pipe(Effect.mapError((error) => bad("mutation-conflict", error.message)));
 			}
 			const pinnedDeclaration = pinnedManifest?.entitySchemas.find(
@@ -448,7 +445,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const parsed = yield* validateDraft(
 				draftOf(snapshot(entity)),
 				scopeUserId,
-				entity.entitySchemaPluginId,
+				definitionOwner(entity.entitySchemaPluginId),
 				lifecycle,
 			).pipe(
 				Effect.mapError(() =>
@@ -571,7 +568,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						const validated = yield* validateDraft(
 							patched.request.draft,
 							pending.scopeUserId,
-							pending.entitySchemaPluginId,
+							definitionOwner(pending.entitySchemaPluginId),
 							pending.lifecycle,
 						);
 						const successor = { ...patched.request, draft: validated.draft };
@@ -601,7 +598,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					? draftOf(pending.request.draft)
 					: pending.request.draft,
 				pending.scopeUserId,
-				pending.entitySchemaPluginId,
+				definitionOwner(pending.entitySchemaPluginId),
 				pending.lifecycle,
 			);
 			if (
@@ -711,7 +708,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 				},
 				scopeUserId,
-				definitionOwnerPluginId(input.entitySchema.owner),
+				input.entitySchema.owner,
 				input.lifecycle,
 			);
 			const { externalId, providerId } = input;
@@ -883,7 +880,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 				},
 				scopeUserId,
-				definitionOwnerPluginId(input.entitySchema.owner),
+				input.entitySchema.owner,
 				input.lifecycle,
 			);
 			const identity = {
@@ -1061,7 +1058,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					populatedAt: input.populatedAt?.toISOString() ?? null,
 				},
 				current.userId,
-				current.entity.entitySchemaPluginId,
+				definitionOwner(current.entity.entitySchemaPluginId),
 				input.lifecycle,
 			);
 			const pendingInput = {
@@ -1180,7 +1177,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					const validated = yield* validateDraft(
 						draftOf(before),
 						current.userId,
-						current.entity.entitySchemaPluginId,
+						definitionOwner(current.entity.entitySchemaPluginId),
 						command,
 					);
 					yield* writeChecks
@@ -1710,11 +1707,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					pending = result.pending;
 				}
 				const prepared = pending ? yield* acceptedMutation(pending) : null;
-				const definition = yield* entitySchema(
-					null,
-					item.entitySchema.slug,
-					definitionOwnerPluginId(item.entitySchema.owner),
-				);
+				const definition = yield* entitySchema(null, item.entitySchema);
 				planned.push({
 					receipt,
 					prepared,

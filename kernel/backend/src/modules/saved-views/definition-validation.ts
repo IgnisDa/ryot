@@ -206,6 +206,13 @@ type CustomRendererRecord = {
 
 type PluginPageRecord = { readonly settingsSchema: AppSchema };
 
+export const isEntityBrowserRenderer = (renderer: {
+	readonly kind: string;
+	readonly name?: string;
+}) =>
+	renderer.kind === "kernel" &&
+	(renderer.name === "entity-browser" || renderer.name === "collection-browser");
+
 export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinition")(function* (
 	renderer: SavedViewRenderer,
 	settings: Readonly<Record<string, unknown>>,
@@ -213,10 +220,7 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 	customRenderer: CustomRendererRecord | null,
 	pluginPage: PluginPageRecord | null = null,
 ) {
-	if (
-		renderer.kind === "kernel" &&
-		(renderer.name === "entity-browser" || renderer.name === "collection-browser")
-	) {
+	if (isEntityBrowserRenderer(renderer)) {
 		yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
 		return null;
 	}

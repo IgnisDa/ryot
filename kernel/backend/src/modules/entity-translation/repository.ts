@@ -1,5 +1,4 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { EntityId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
@@ -37,48 +36,6 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				});
 				return row ?? null;
 			});
-			const lockActivePluginOwner = Effect.fn("TranslationsRepository.lockActivePluginOwner")(
-				function* (pluginId: string) {
-					yield* session.requireTransaction.pipe(
-						Effect.mapError(
-							() => new DbError({ message: "Translation authority requires a transaction" }),
-						),
-					);
-					yield* session.run((db) =>
-						db.execute(
-							sql`select pg_advisory_xact_lock_shared(hashtext(${`plugin-config:${pluginId}`}))`,
-						),
-					);
-					const [row] = yield* session.run((db) =>
-						db
-							.select({ ownerId: schema.plugin.ownerId })
-							.from(schema.plugin)
-							.where(and(eq(schema.plugin.id, pluginId), eq(schema.plugin.status, "active")))
-							.limit(1),
-					);
-					return row ?? null;
-				},
-			);
-			const requireActiveAccount = Effect.fn("TranslationsRepository.requireActiveAccount")(
-				function* (userId: UserId, generation: AccountGeneration | null) {
-					const [account] = yield* session.run((db) =>
-						db
-							.select({ disabledAt: schema.user.disabledAt, token: schema.user.accountGeneration })
-							.from(schema.user)
-							.where(eq(schema.user.id, userId))
-							.limit(1)
-							.for("share"),
-					);
-					if (
-						account?.disabledAt !== null ||
-						(generation !== null &&
-							(generation.userId !== userId || generation.token !== account.token))
-					) {
-						return yield* new DbError({ message: "Translation account authority is unavailable" });
-					}
-					return yield* Effect.void;
-				},
-			);
 			const findEntityForUser = Effect.fn("TranslationsRepository.findEntityForUser")(function* (
 				input: { entityId: EntityId; userId: UserId },
 				lock = false,
@@ -152,15 +109,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				return (yield* auth.getUserPreferences(userId))?.language ?? null;
 			});
 
-			return {
-				upsertOverlay,
-				listForBackup,
-				findEntityById,
-				findUserLanguage,
-				findEntityForUser,
-				requireActiveAccount,
-				lockActivePluginOwner,
-			};
+			return { upsertOverlay, listForBackup, findEntityById, findUserLanguage, findEntityForUser };
 		}),
 	},
 ) {

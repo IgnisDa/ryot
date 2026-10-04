@@ -19,7 +19,6 @@ import {
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
-	DomainWriteConflict,
 	makeDomainWriteChecks,
 	type DomainLifecycleCommand,
 } from "#modules/entities/write-context";
@@ -57,6 +56,7 @@ import {
 	type ReconcileGlobalRelationshipGroup,
 	type UpdateRelationshipInput,
 	type UserRelationshipIdentity,
+	relationshipWriteFailure,
 } from "./mutation-support";
 import { RelationshipsRepository, type RelationshipIdentityInput } from "./repository";
 
@@ -108,17 +108,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				const reference = relationshipSchemaReference(input);
 				yield* writes
 					.check(command, reference.owner, input.scope === "user" ? input.userId : null)
-					.pipe(
-						Effect.mapError(
-							(error) =>
-								new RelationshipBadRequest({
-									reason:
-										error instanceof DomainWriteConflict
-											? error.reason
-											: { code: "concurrent-relationship-change" },
-								}),
-						),
-					);
+					.pipe(Effect.mapError(relationshipWriteFailure));
 				const replay = yield* mutations.committedReplay(input, command, mode, properties);
 				if (replay) {
 					const batch = yield* transaction(

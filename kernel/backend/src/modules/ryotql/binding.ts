@@ -8,6 +8,7 @@ import {
 	type RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import type { InferSelectViewModel } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -20,10 +21,20 @@ export type PluginBinding = Pick<
 	"pluginId" | "packageId" | "scope"
 >;
 
+export const definitionReadContext = (scope: RyotQLExecutionScope) => {
+	if (scope.type === "plugin") {
+		return scope;
+	}
+	if (scope.type === "user") {
+		return scope.definitionContext;
+	}
+	return undefined;
+};
+
 export const pluginIdentityReferences = (document: RyotQLDocument) => {
 	const references = new Map<string, PluginIdentityReference>();
 	mapPluginIdentityReferences(document, (reference) => {
-		references.set(JSON.stringify(reference), reference);
+		references.set(stableStringify(reference), reference);
 		return reference;
 	});
 	return [...references.values()];
@@ -41,15 +52,7 @@ export const bindRyotQLDocument = Effect.fn("bindRyotQLDocument")(function* (
 			entry.pluginId,
 		]),
 	);
-	const self = (() => {
-		if (scope.type === "plugin") {
-			return scope;
-		}
-		if (scope.type === "user") {
-			return scope.definitionContext;
-		}
-		return undefined;
-	})();
+	const self = definitionReadContext(scope);
 	const unresolvedIssue = (
 		reference: PluginIdentityReference,
 	): Extract<RyotQLBadRequest["reason"], { code: "unresolved-query-owner" }>["issue"] => {
@@ -70,14 +73,8 @@ export const bindRyotQLDocument = Effect.fn("bindRyotQLDocument")(function* (
 		}
 		return "missing";
 	};
-	const bindings = new Map<string, PluginIdentityReference>();
 	let diagnostic: RyotQLBadRequest["reason"] | undefined;
 	const bound = mapPluginIdentityReferences(document, (reference) => {
-		const key = JSON.stringify(reference);
-		const cached = bindings.get(key);
-		if (cached) {
-			return cached;
-		}
 		let pluginId: string | undefined;
 		if (reference.kind === "local") {
 			pluginId = reference.pluginId;
@@ -94,9 +91,7 @@ export const bindRyotQLDocument = Effect.fn("bindRyotQLDocument")(function* (
 			};
 			return reference;
 		}
-		const resolved = { kind: "local", pluginId: PluginId.make(pluginId) } as const;
-		bindings.set(key, resolved);
-		return resolved;
+		return { kind: "local", pluginId: PluginId.make(pluginId) } as const;
 	});
 	if (diagnostic) {
 		return yield* new RyotQLBadRequest({ reason: diagnostic });
