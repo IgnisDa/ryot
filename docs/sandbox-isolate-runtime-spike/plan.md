@@ -1,7 +1,9 @@
 # Sandbox Isolate Runtime Plan
 
 **Status:** S1, S2, and S4 are implemented (see [S1](s1.md), [S2](s2.md), and [S4](s4.md));
-S3 is in progress ([s3.md](s3.md)); S5 and S6 need separate review and approval before they start.
+S3 awaits an E2 decision ([s3.md](s3.md)); S5 is implemented with benchmark and hosted CI pending
+([s5.md](s5.md));
+S6 is separate.
 Replaces the single-use Deno process per replay with V8 isolates hosted by long-lived, OS-confined
 native sidecars.
 
@@ -232,8 +234,8 @@ result, any acceptance item you could not prove, and every deviation from this d
 
 ## Slices
 
-Each slice is approved separately. S4 is independent of S3's remaining E2 measurement; S5 and S6
-are outlines requiring review before implementation.
+Each slice is approved separately. S4 and S5 are independent of S3's unmet E2 criterion;
+S6 requires separate review.
 
 ### S1 — Sidecar runtime
 
@@ -268,6 +270,8 @@ are outlines requiring review before implementation.
 
 ### S5 — Replay tuning
 
+- **Status:** implemented; local acceptance verified; benchmark and hosted CI pending. Contract and acceptance:
+  [s5.md](s5.md).
 - **Outcome:** waits shorter than a threshold, including matched HTTP rate-limit slots, settle in the
   live isolate.
 
