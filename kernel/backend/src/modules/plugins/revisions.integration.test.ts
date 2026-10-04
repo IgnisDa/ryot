@@ -7,6 +7,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { and, eq, sql } from "drizzle-orm";
 import { ConfigProvider, Context, Effect, Layer, Redacted, Ref, Result } from "effect";
 import { assert, describe } from "vitest";
@@ -113,14 +114,9 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										...baseManifest.scripts,
 										{
 											kind: "workflow",
-											capabilities: [],
-											runtimeImports: [],
+											...emptySandboxExecutionMetadata,
 											slug: "fixture.workflow",
 											name: "Fixture workflow",
-											oauthConnectionFields: [],
-											executableDependencies: [],
-											requiredPluginConfigKeys: [],
-											optionalPluginConfigKeys: [],
 											entry: "backend/workflow.sandbox.ts",
 										},
 									],
@@ -359,15 +355,10 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										compiledCode: "kernel",
 										name: "Kernel notification",
 										metadata: {
-											capabilities: [],
+											...emptySandboxExecutionMetadata,
 											kind: "automation",
-											runtimeImports: [],
 											slug: "kernel.notify",
-											oauthConnectionFields: [],
-											executableDependencies: [],
 											name: "Kernel notification",
-											requiredPluginConfigKeys: [],
-											optionalPluginConfigKeys: [],
 										},
 									});
 								const kernelRun = {

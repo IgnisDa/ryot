@@ -4,14 +4,13 @@ import type {
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import {
-	configureSandboxFilesystem,
-	type SandboxFilesystemBinding,
-} from "@ryot-app/sandbox-sdk/filesystem";
-import {
 	genericImportChunkSchema,
 	genericImportKernelInputSchema,
 } from "@ryot-app/sandbox-sdk/imports";
-import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
+import {
+	installSandboxTestFilesystem,
+	makeWorkflowReplayHost,
+} from "@ryot-app/sandbox-sdk/testing";
 import { jsonValueSchema, type JsonValue } from "@ryot-app/sandbox-sdk/wire";
 import type {
 	WorkflowReplayEnvelope,
@@ -28,11 +27,8 @@ import { FitnessSettingsInput } from "./settings";
 import settingsScript from "./settings.sandbox";
 import { runFitnessStage } from "./shared";
 
-let filesystemBinding: SandboxFilesystemBinding | undefined;
-configureSandboxFilesystem(() => filesystemBinding);
-afterEach(() => {
-	filesystemBinding = undefined;
-});
+installSandboxTestFilesystem(undefined);
+afterEach(() => installSandboxTestFilesystem(undefined));
 
 const command = Schema.decodeSync(LifecycleCommand)({
 	occurredAt: "2026-09-16T00:00:00.000Z",
@@ -86,7 +82,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 			counts: { ...dimension.counts, [result]: dimension.counts[result] + 1 },
 		};
 	};
-	filesystemBinding = {
+	installSandboxTestFilesystem({
 		readArtifact: () => Promise.resolve(primary),
 		writeScratchChunks: (scratch) => {
 			files = [...scratch];
@@ -112,7 +108,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 			}
 			return Promise.resolve({ size: bytes.length, bytes: bytes.slice(offset, offset + length) });
 		},
-	};
+	});
 	let parser = "import.open-scale";
 	if (source === "hevy") {
 		parser = "import.hevy";
