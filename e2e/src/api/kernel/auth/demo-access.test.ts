@@ -13,7 +13,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
-import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { and, column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { integrationRecipe } from "@ryot-app/ryotql-recipes/integrations";
 import { Effect, Option, Result, Schema } from "effect";
 import getPort from "get-port";
@@ -29,10 +29,12 @@ import {
 	getTwoFactorStatus,
 	getUserSettings,
 	listEventSchemas,
+	listRelationshipSchemas,
 	makeSession,
 	mergeEntityUserData,
 	prepareOAuth,
 	requireEventSchemaBySlug,
+	requireRelationshipSchemaBySlug,
 	requireRows,
 	requireRyotQLText,
 	responseCookie,
@@ -204,6 +206,15 @@ const expectDemoSession = (sessionCookie: string) =>
 		expect(yield* Effect.promise(() => response.json())).toMatchObject({
 			user: { id: demoUserId },
 			session: { userId: demoUserId, accessClass: "demo" },
+		});
+	});
+
+const signInOwnerClient = () =>
+	Effect.gen(function* () {
+		const ownerSignIn = yield* signInWithPassword(demoEmail, demoPassword, apiUrl);
+		expect(ownerSignIn.error).toBeNull();
+		return makeSession(apiUrl, {
+			Authorization: `Bearer ${requirePresent(ownerSignIn.token, "Owner sign-in returned no token")}`,
 		});
 	});
 
@@ -457,13 +468,14 @@ describe("shared demo access acceptance", () => {
 				assertTaggedError(importError, "ProviderEntityNotFound");
 				expect(importError.reason.code).toBe("provider-not-found");
 
-				const { schema } = yield* findMediaEntitySchema(demoClient, "book");
-				const mergeFrom = yield* createEntity(demoClient, {
+				const ownerClient = yield* signInOwnerClient();
+				const { schema } = yield* findMediaEntitySchema(ownerClient, "book");
+				const mergeFrom = yield* createEntity(ownerClient, {
 					properties: {},
 					name: "Demo merge source",
 					entitySchema: schema.reference,
 				});
-				const mergeInto = yield* createEntity(demoClient, {
+				const mergeInto = yield* createEntity(ownerClient, {
 					properties: {},
 					name: "Demo merge target",
 					entitySchema: schema.reference,
@@ -490,6 +502,79 @@ describe("shared demo access acceptance", () => {
 					mergeInto: mergeInto.id,
 				});
 			}),
+	);
+
+	it.live("protects raw entity and relationship creation from demo users", () =>
+		Effect.gen(function* () {
+			const sessionCookie = yield* signInDemo();
+			const token = yield* getDemoToken(sessionCookie);
+			const demoClient = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+			const ownerClient = yield* signInOwnerClient();
+
+			const { schema } = yield* findMediaEntitySchema(ownerClient, "book");
+			const source = yield* createEntity(ownerClient, {
+				properties: {},
+				entitySchema: schema.reference,
+				name: "Demo relationship source",
+			});
+			const target = yield* createEntity(ownerClient, {
+				properties: {},
+				entitySchema: schema.reference,
+				name: "Demo relationship target",
+			});
+			const relationshipSchema = requireRelationshipSchemaBySlug(
+				yield* listRelationshipSchemas(ownerClient, { slugs: ["media-suggestion"] }),
+				"media-suggestion",
+				schema.reference.owner,
+			);
+
+			const entityName = `Demo protected entity ${crypto.randomUUID()}`;
+			const entityError = yield* Effect.flip(
+				createEntity(demoClient, {
+					properties: {},
+					name: entityName,
+					entitySchema: schema.reference,
+				}),
+			);
+			expect(entityError).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+			const relationshipError = yield* Effect.flip(
+				demoClient.call((c) =>
+					c.relationships.create({
+						payload: {
+							sourceEntityId: source.id,
+							targetEntityId: target.id,
+							relationshipSchema: relationshipSchema.reference,
+						},
+					}),
+				),
+			);
+			expect(relationshipError).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+
+			const entityTable = table("entity", "entity");
+			const relationshipTable = table("relationship", "relationship");
+			const result = yield* executeRyotQL(
+				ownerClient,
+				document({
+					entities: rows(entityTable, {
+						fields: [field("id", column(entityTable, "id"))],
+						where: eq(column(entityTable, "name"), literal(entityName)),
+					}),
+					relationships: rows(relationshipTable, {
+						fields: [field("id", column(relationshipTable, "id"))],
+						where: and(
+							eq(column(relationshipTable, "sourceEntityId"), literal(source.id)),
+							eq(column(relationshipTable, "targetEntityId"), literal(target.id)),
+						),
+					}),
+				}),
+			);
+			expect(requireRows(result.data.entities, "entities").items).toHaveLength(0);
+			expect(requireRows(result.data.relationships, "relationships").items).toHaveLength(0);
+		}),
 	);
 
 	it.live(

@@ -15,7 +15,7 @@ import {
 export const EntitiesGroup = HttpApiGroup.make("entities")
 	.annotate(OpenApi.Description, "Create entities.")
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("create", "/entities", {
+		AuthenticatedMutationEndpoint.post("protected")("create", "/entities", {
 			payload: CreateEntityBody,
 			success: EntityMutationResult.pipe(HttpApiSchema.status(201)),
 			error: [

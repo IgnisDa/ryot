@@ -8,6 +8,7 @@ import { LocalUploadsGroup, UploadsGroup } from "./modules/assets/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
 import { IntegrationsGroup } from "./modules/integrations/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
+import { RelationshipsGroup } from "./modules/relationships/contract";
 import { AdminRyotQLGroup, RyotQLGroup } from "./modules/ryotql/contract";
 
 describe("authenticated mutation endpoints", () => {
@@ -37,6 +38,12 @@ describe("authenticated mutation endpoints", () => {
 			"protected",
 		);
 		expect(Context.get(EntitiesGroup.endpoints.saveEditor.annotations, DemoAccessPolicy)).toBe(
+			"protected",
+		);
+		expect(Context.get(EntitiesGroup.endpoints.create.annotations, DemoAccessPolicy)).toBe(
+			"protected",
+		);
+		expect(Context.get(RelationshipsGroup.endpoints.create.annotations, DemoAccessPolicy)).toBe(
 			"protected",
 		);
 	});
