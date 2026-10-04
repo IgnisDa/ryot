@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "ba6944d2-9d8a-449b-8e05-353b4091916b",
+	"id": "cb8c6a1b-65f7-4195-bc99-141eb017d4b8",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -1482,6 +1482,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_trigger"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "lane",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "automation_trigger"
@@ -14391,7 +14404,7 @@
 			"table": "automation_trigger"
 		},
 		{
-			"value": "\"depth\" >= 0 and \"initiator_kind\" in ('user', 'integration', 'system') and \"source\" in ('api', 'import', 'integration', 'bootstrap', 'provider-refresh', 'automation') and (\"source\" <> 'automation' or (\"parent_run_id\" is not null and \"parent_trigger_id\" is not null and \"depth\" > 0))",
+			"value": "\"depth\" >= 0 and \"lane\" in ('interactive', 'background') and \"initiator_kind\" in ('user', 'integration', 'system') and \"source\" in ('api', 'import', 'integration', 'bootstrap', 'provider-refresh', 'automation') and (\"source\" <> 'automation' or (\"parent_run_id\" is not null and \"parent_trigger_id\" is not null and \"depth\" > 0))",
 			"name": "automation_trigger_causation_check",
 			"entityType": "checks",
 			"schema": "public",

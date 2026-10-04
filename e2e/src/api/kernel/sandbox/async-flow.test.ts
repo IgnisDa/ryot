@@ -83,7 +83,7 @@ describe("sandbox async flow", () => {
 				name: "Plain value",
 			});
 			const { scriptId } = script;
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 
@@ -100,7 +100,10 @@ describe("sandbox async flow", () => {
 				name: "Plain value",
 				requiredPluginConfigKeys: [],
 			});
-			const updatedJob = yield* enqueueSandboxScript(userId, { scriptId: reinstalled.scriptId });
+			const updatedJob = yield* enqueueSandboxScript(userId, {
+				lane: "interactive",
+				scriptId: reinstalled.scriptId,
+			});
 			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, updatedJob.jobId))).toBe(
 				43,
 			);
@@ -118,7 +121,7 @@ describe("sandbox async flow", () => {
 				capabilities: ["httpCall"],
 				source: httpCallSandboxSource({ slug, name: "http-call", url: httpServerUrl }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const value = requireObjectRecord(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
@@ -153,7 +156,7 @@ describe("sandbox async flow", () => {
 					name: "http-call-error",
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId))).toMatchObject({
 				success: false,
@@ -204,7 +207,7 @@ describe("sandbox async flow", () => {
 					})(),
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const value = requireArray(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
@@ -236,7 +239,7 @@ describe("sandbox async flow", () => {
 					keys: ["fixtureValue", "fixtureLimit"],
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const value = requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId));
 			expect(value).toEqual({ fixtureLimit: 17, fixtureValue: "sandbox-plugin-config-value" });
@@ -263,7 +266,7 @@ describe("sandbox async flow", () => {
 					name: "undeclared-plugin-config",
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId))).toEqual({});
 		}),
@@ -280,7 +283,7 @@ describe("sandbox async flow", () => {
 				capabilities: ["getUserPreferences"],
 				source: userPreferencesSandboxSource({ slug, name: "get-user-prefs" }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const prefs = requireObjectRecord(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId)),
@@ -300,7 +303,7 @@ describe("sandbox async flow", () => {
 				name: "throws-error",
 				source: throwingSandboxSource({ slug, name: "throws-error", message: "intentional" }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 
@@ -333,7 +336,7 @@ describe("sandbox async flow", () => {
 					message: "deep intentional",
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 

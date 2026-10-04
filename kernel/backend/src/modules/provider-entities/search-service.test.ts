@@ -268,6 +268,7 @@ layer(
 			});
 			expect(executions).toHaveLength(1);
 			expect(executions[0]).toMatchObject({
+				lane: "interactive",
 				scriptId: "search-script-id",
 				input: { page: 2, pageSize: 10, query: "record", options: { passRawQuery: true } },
 				subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
@@ -350,6 +351,7 @@ layer(
 			expect(executions).toHaveLength(1);
 			expect(executions[0]).toMatchObject({
 				input: {},
+				lane: "interactive",
 				scriptId: searchOptionsScript.id,
 				subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
 			});

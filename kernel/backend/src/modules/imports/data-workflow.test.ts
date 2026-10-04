@@ -81,6 +81,7 @@ const snapshot = buildDefinitionSnapshot({
 });
 const command = rootLifecycleCommand({
 	source: "import",
+	lane: "background",
 	itemIdentity: "root",
 	importRunId: ingestionTestScope.runId,
 	occurredAt: IsoUtcString.make(ingestionTestNow),
@@ -293,6 +294,7 @@ it.effect(
 			const integrationId = IntegrationId.make("integration");
 			const integrationCommand = rootLifecycleCommand({
 				integrationId,
+				lane: "background",
 				itemIdentity: "root",
 				source: "integration",
 				importRunId: ingestionTestScope.runId,

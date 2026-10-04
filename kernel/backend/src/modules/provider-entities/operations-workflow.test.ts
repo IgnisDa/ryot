@@ -155,6 +155,7 @@ layer(
 			const commands: LifecycleCommand[] = [
 				rootLifecycleCommand({
 					occurredAt: now,
+					lane: "background",
 					source: "provider-refresh",
 					itemIdentity: "provider-refresh-item",
 					initiator: { id: userId, kind: "user" },
@@ -165,6 +166,7 @@ layer(
 				rootLifecycleCommand({
 					occurredAt: now,
 					source: "import",
+					lane: "background",
 					itemIdentity: "import-item",
 					initiator: { id: userId, kind: "user" },
 					importRunId: ImportRunId.make("import-1"),
@@ -173,6 +175,7 @@ layer(
 				}),
 				rootLifecycleCommand({
 					occurredAt: now,
+					lane: "background",
 					source: "integration",
 					itemIdentity: "integration-item",
 					importRunId: ImportRunId.make("import-2"),

@@ -54,6 +54,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 							entitySchemaSlug: row.entitySchemaSlug,
 							command: rootLifecycleCommand({
 								source: "api",
+								lane: "interactive",
 								itemIdentity: executionId,
 								accountGeneration: principal.accountGeneration,
 								initiator: { kind: "user", id: principal.userId },
@@ -72,6 +73,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 						) {
 							yield* translations.requestFill({
 								entityId: row.id,
+								lane: "interactive",
 								userId: principal.userId,
 								externalId: row.externalId,
 								properties: row.properties,

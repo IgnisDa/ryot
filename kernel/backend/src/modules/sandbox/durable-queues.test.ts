@@ -50,7 +50,10 @@ const recoveryIdentity = (executionId: string) => ({
 
 class RecordedRuns extends Context.Service<
 	RecordedRuns,
-	{ readonly runs: Effect.Effect<ReadonlyArray<RuntimeRunInput>> }
+	{
+		readonly runs: Effect.Effect<ReadonlyArray<RuntimeRunInput>>;
+		readonly reserved: Effect.Effect<ReadonlyArray<string>>;
+	}
 >()("test/RecordedRuns") {}
 
 const runtimeSandboxLayer = (
@@ -59,20 +62,28 @@ const runtimeSandboxLayer = (
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const runs = yield* Ref.make<ReadonlyArray<RuntimeRunInput>>([]);
-			const runtime = stubRuntimeSandboxService((input) =>
+			const reserved = yield* Ref.make<ReadonlyArray<string>>([]);
+			const stub = stubRuntimeSandboxService((input) =>
 				Ref.update(runs, (all) => [...all, input]).pipe(
 					Effect.andThen(respond(input)),
 					Effect.map((result) => ({ ...result, recovery: recoveryIdentity(input.executionId) })),
 				),
 			);
+			const runtime = {
+				...stub,
+				reserve: (principal: RuntimeRunInput["principal"], lane: RuntimeRunInput["lane"]) =>
+					Ref.update(reserved, (all) => [...all, lane]).pipe(
+						Effect.andThen(stub.reserve(principal, lane)),
+					),
+			};
 			return Layer.merge(
 				Layer.succeed(RuntimeSandboxService, runtime),
-				Layer.succeed(RecordedRuns, { runs: Ref.get(runs) }),
+				Layer.succeed(RecordedRuns, { runs: Ref.get(runs), reserved: Ref.get(reserved) }),
 			);
 		}),
 	);
 
-type InlineSettlement = { executionId: string; startedAt: string; context: unknown };
+type InlineSettlement = { lane: string; context: unknown; startedAt: string; executionId: string };
 
 class RecordedSettlements extends Context.Service<
 	RecordedSettlements,
@@ -85,10 +96,11 @@ const settlingDispatcherLayer = Layer.unwrap(
 		return Layer.merge(
 			Layer.succeed(SandboxDurableHostDispatcher, {
 				dispatch: () => Effect.die("durable dispatch is not expected"),
-				settleInline: (requests, context, _principal, executionId, startedAt) =>
-					Ref.update(settlements, (all) => [...all, { context, startedAt, executionId }]).pipe(
-						Effect.as(requests.map(() => ({ value: "cached", state: "success" as const }))),
-					),
+				settleInline: (requests, context, _principal, lane, executionId, startedAt) =>
+					Ref.update(settlements, (all) => [
+						...all,
+						{ lane, context, startedAt, executionId },
+					]).pipe(Effect.as(requests.map(() => ({ value: "cached", state: "success" as const })))),
 			}),
 			Layer.succeed(RecordedSettlements, { settlements: Ref.get(settlements) }),
 		);
@@ -153,6 +165,7 @@ it("uses the sandbox execution id as the durable queue identity", () => {
 		context: {},
 		journalLength: 0,
 		executionId: "execution-id",
+		lane: "interactive" as const,
 		workflowExecutionId: "workflow-id",
 		startedAt: "2026-01-01T00:00:00.000Z",
 		principal: {
@@ -229,6 +242,7 @@ layer(
 				};
 				const pending = yield* executeSandboxExecution({
 					principal,
+					lane: "interactive",
 					...queuedReplay,
 					context: pinned.context,
 					executionId: "execution-id-replay-0",
@@ -238,6 +252,7 @@ layer(
 				yield* (yield* ActiveScript).activate(activeScriptId);
 				const replayed = yield* executeSandboxExecution({
 					principal,
+					lane: "interactive",
 					...queuedReplay,
 					context: pinned.context,
 					executionId: "execution-id-replay-1",
@@ -294,6 +309,7 @@ layer(
 	test.effect("executes the exact queued row and preserves provider identity", () =>
 		Effect.gen(function* () {
 			const result = yield* executeSandboxExecution({
+				lane: "interactive",
 				...queuedReplay,
 				context: {},
 				executionId: "execution-id",
@@ -308,6 +324,7 @@ layer(
 				},
 			});
 			yield* executeSandboxExecution({
+				lane: "interactive",
 				...queuedReplay,
 				context: {},
 				executionId: "kernel-execution-id",
@@ -393,6 +410,7 @@ layer(
 			const journal = [{ value: { output: "日本語" }, request: { ...inlineRequest, index: 0 } }];
 			yield* appendWorkflowJournal(workflowExecutionId, 0, journal);
 			yield* executeSandboxExecution({
+				lane: "interactive",
 				...queuedReplay,
 				context: {},
 				journalLength: 1,
@@ -410,6 +428,7 @@ layer(
 	test.effect("offers inline settlement only for declared activity capabilities", () => {
 		return Effect.gen(function* () {
 			const before = (yield* (yield* RecordedRuns).runs).length;
+			const reservedBefore = (yield* (yield* RecordedRuns).reserved).length;
 			yield* appendWorkflowJournal(
 				inlineWorkflowId,
 				0,
@@ -417,6 +436,7 @@ layer(
 			);
 			yield* executeSandboxExecution({
 				journalLength: 3,
+				lane: "background",
 				context: { item: 1 },
 				workflowExecutionId: inlineWorkflowId,
 				startedAt: "2026-01-01T00:00:00.000Z",
@@ -426,6 +446,7 @@ layer(
 			yield* executeSandboxExecution({
 				context: {},
 				journalLength: 0,
+				lane: "interactive",
 				workflowExecutionId: "other-id",
 				executionId: "other-id-replay-0",
 				startedAt: "2026-01-01T00:00:00.000Z",
@@ -438,8 +459,14 @@ layer(
 
 			expect(offered).toEqual([["getCachedValue"], null]);
 			expect(runs.map((run) => run.replayJournal?.entries.length)).toEqual([3, 0]);
+			expect(runs.map((run) => run.lane)).toEqual(["background", "interactive"]);
+			expect((yield* (yield* RecordedRuns).reserved).slice(reservedBefore)).toEqual([
+				"background",
+				"interactive",
+			]);
 			expect(yield* (yield* RecordedSettlements).settlements).toEqual([
 				{
+					lane: "background",
 					context: { item: 1 },
 					executionId: inlineWorkflowId,
 					startedAt: "2026-01-01T00:00:00.000Z",
@@ -480,6 +507,7 @@ layer(
 					}),
 				);
 				return yield* executeSandboxExecution({
+					lane: "interactive",
 					...queuedReplay,
 					context: {},
 					journalLength: 1,
@@ -519,6 +547,7 @@ layer(
 	test.effect("reports a lost journal projection without starting the sandbox", () =>
 		Effect.gen(function* () {
 			const result = yield* executeSandboxExecution({
+				lane: "interactive",
 				...queuedReplay,
 				context: {},
 				journalLength: 2,

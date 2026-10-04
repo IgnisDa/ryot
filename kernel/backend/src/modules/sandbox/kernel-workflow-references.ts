@@ -1,4 +1,5 @@
 import type { SandboxRunError } from "@ryot-app/contract/errors";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	SandboxExecutionSubject,
@@ -20,6 +21,7 @@ export class KernelWorkflowReferences extends Context.Service<
 			workflowSlug: string,
 			input: JsonValue,
 			subject: SandboxExecutionSubject,
+			lane: ExecutionLane,
 			executionId: string,
 			parentExecutionId: string,
 			callerScriptId: SandboxScriptId,

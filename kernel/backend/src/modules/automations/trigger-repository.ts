@@ -28,6 +28,7 @@ const decodeRow = (row: typeof table.$inferSelect) =>
 			payloadPrunedAt: row.payloadPrunedAt?.toISOString() ?? null,
 			kind: { category: row.category, operation: row.operation, resource: row.resourceKind },
 			causation: {
+				lane: row.lane,
 				depth: row.depth,
 				source: row.source,
 				executionId: row.executionId,

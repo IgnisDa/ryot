@@ -1,11 +1,10 @@
 import { expect, layer } from "@effect/vitest";
 import type { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
-import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
-import { TranslationsService } from "#modules/entity-translation/service";
+import { type RequestFillInput, TranslationsService } from "#modules/entity-translation/service";
 import { RyotQLService } from "#modules/ryotql/service";
 
 import { InterestReconciler } from "./reconciler";
@@ -52,7 +51,9 @@ class FakeInterestFollowUps extends Context.Service<
 	FakeInterestFollowUps,
 	{
 		readonly populationRequests: Effect.Effect<ReadonlyArray<unknown>>;
-		readonly translationEntityIds: Effect.Effect<ReadonlyArray<EntityId>>;
+		readonly translationRequests: Effect.Effect<
+			ReadonlyArray<Pick<RequestFillInput, "entityId" | "lane">>
+		>;
 	}
 >()("test/FakeInterestFollowUps") {}
 
@@ -60,7 +61,9 @@ const reconcilerLayer = (items: readonly InterestItem[]) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const populationRequests = yield* Ref.make<ReadonlyArray<unknown>>([]);
-			const translationEntityIds = yield* Ref.make<ReadonlyArray<EntityId>>([]);
+			const translationRequests = yield* Ref.make<
+				ReadonlyArray<Pick<RequestFillInput, "entityId" | "lane">>
+			>([]);
 			return InterestReconciler.layer.pipe(
 				Layer.provide(
 					Layer.mergeAll(
@@ -71,15 +74,15 @@ const reconcilerLayer = (items: readonly InterestItem[]) =>
 							request: (input) => Ref.update(populationRequests, (all) => [...all, input]),
 						}),
 						Layer.mock(TranslationsService)({
-							requestFill: ({ entityId }) =>
-								Ref.update(translationEntityIds, (all) => [...all, entityId]),
+							requestFill: ({ lane, entityId }) =>
+								Ref.update(translationRequests, (all) => [...all, { lane, entityId }]),
 						}),
 					),
 				),
 				Layer.merge(
 					Layer.succeed(FakeInterestFollowUps, {
 						populationRequests: Ref.get(populationRequests),
-						translationEntityIds: Ref.get(translationEntityIds),
+						translationRequests: Ref.get(translationRequests),
 					}),
 				),
 			);
@@ -95,7 +98,9 @@ layer(
 			const result = yield* reconciler.reconcile(principal, ["entity-1", "missing-entity"]);
 
 			expect(result).toEqual({ terminal: [], reconciledEntityIds: ["entity-1"] });
-			expect(yield* (yield* FakeInterestFollowUps).populationRequests).toHaveLength(1);
+			expect(yield* (yield* FakeInterestFollowUps).populationRequests).toMatchObject([
+				{ command: { causation: { lane: "interactive" } } },
+			]);
 		}),
 	);
 });
@@ -108,7 +113,9 @@ layer(reconcilerLayer([row("entity-1"), row("entity-2", { translationStatus: "pe
 				const result = yield* reconciler.reconcile(principal, ["entity-1", "entity-2"]);
 
 				expect(result.terminal).toEqual([{ entityId: "entity-1", reason: "translated" }]);
-				expect(yield* (yield* FakeInterestFollowUps).translationEntityIds).toEqual(["entity-2"]);
+				expect(yield* (yield* FakeInterestFollowUps).translationRequests).toEqual([
+					{ lane: "interactive", entityId: "entity-2" },
+				]);
 			}),
 		);
 	},

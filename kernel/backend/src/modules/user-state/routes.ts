@@ -19,6 +19,7 @@ export const UserStateRoutesLive = HttpApiBuilder.group(AppContract, "userState"
 				const service = yield* UserStateService;
 				const command = rootLifecycleCommand({
 					source: "api",
+					lane: "interactive",
 					itemIdentity: "user-state:clear",
 					initiator: { id: user.id, kind: "user" },
 					accountGeneration: user.accountGeneration,
@@ -34,6 +35,7 @@ export const UserStateRoutesLive = HttpApiBuilder.group(AppContract, "userState"
 				const service = yield* UserStateService;
 				const command = rootLifecycleCommand({
 					source: "api",
+					lane: "interactive",
 					itemIdentity: "user-state:merge",
 					initiator: { id: user.id, kind: "user" },
 					accountGeneration: user.accountGeneration,

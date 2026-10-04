@@ -187,6 +187,7 @@ layer(workflowLoadLayer())((test) => {
 			expect(yield* (yield* FakeWorkflowLoad).enqueued).toEqual([
 				{
 					executingUserId,
+					lane: "background",
 					pluginId: availablePlugin.id,
 					workflowSlug: gateInput.workflowSlug,
 					executionId: `${runId}-workflow-load-0`,
@@ -207,6 +208,7 @@ layer(workflowLoadLayer())((test) => {
 										depth: 0,
 										source: "import",
 										parentRunId: null,
+										lane: "background",
 										importRunId: runId,
 										parentTriggerId: null,
 										executionId: `${runId}-workflow-load`,

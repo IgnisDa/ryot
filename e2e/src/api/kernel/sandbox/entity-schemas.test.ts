@@ -27,6 +27,7 @@ describe("sandbox entity schema reads", () => {
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
+				lane: "interactive",
 				context: { slugs: [second.slug, first.slug, second.slug] },
 			});
 
@@ -40,6 +41,7 @@ describe("sandbox entity schema reads", () => {
 
 			const { jobId: emptyJobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
+				lane: "interactive",
 				context: { slugs: [] },
 			});
 			const emptyResult = yield* pollSandboxResult(userId, emptyJobId);
@@ -62,6 +64,7 @@ describe("sandbox entity schema reads", () => {
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
+				lane: "interactive",
 				context: { slugs: ["missing-schema"] },
 			});
 

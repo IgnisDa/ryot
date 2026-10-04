@@ -98,6 +98,8 @@ export const AutomationSource = Schema.Literals([
 	"automation",
 ]);
 export type AutomationSource = typeof AutomationSource.Type;
+export const ExecutionLane = Schema.Literals(["interactive", "background"]);
+export type ExecutionLane = typeof ExecutionLane.Type;
 export const AutomationInitiator = Schema.Union([
 	strictStruct({ id: UserId, kind: Schema.Literal("user") }),
 	strictStruct({ id: IntegrationId, kind: Schema.Literal("integration") }),
@@ -106,6 +108,7 @@ export const AutomationInitiator = Schema.Union([
 export type AutomationInitiator = typeof AutomationInitiator.Type;
 export const AutomationCausation = strictStruct({
 	depth: natural,
+	lane: ExecutionLane,
 	source: AutomationSource,
 	initiator: AutomationInitiator,
 	executionId: AutomationExecutionId,

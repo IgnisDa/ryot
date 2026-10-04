@@ -26,7 +26,7 @@ describe("sandbox filesystem grants", () => {
 					name: "Scratch entry limit",
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 
@@ -50,7 +50,7 @@ describe("sandbox filesystem grants", () => {
 					name: "Scratch result boundary",
 				}),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 			const result = yield* pollSandboxResult(userId, jobId);
 
 			assertCompleted(result, "scratch result boundary");

@@ -13,6 +13,7 @@ import { rootLifecycleCommand } from "./lifecycle-command";
 
 const command = rootLifecycleCommand({
 	source: "api",
+	lane: "interactive",
 	itemIdentity: "population",
 	occurredAt: "2026-09-15T00:00:00.000Z",
 	executionId: AutomationExecutionId.make("execution-1"),

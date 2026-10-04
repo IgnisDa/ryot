@@ -23,7 +23,7 @@ describe("sandbox result observability", () => {
 				capabilities: ["log", "span"],
 				source: observabilitySandboxSource({ slug, name: "Observability check" }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "sandbox job");
@@ -56,7 +56,7 @@ describe("sandbox native failures", () => {
 				name: "Process failure",
 				source: processFailureSandboxSource({ slug, name: "Process failure" }),
 			});
-			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
+			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
 
 			const result = yield* pollSandboxResult(userId, jobId);
 			assertCompleted(result, "sandbox job");

@@ -154,7 +154,7 @@ layer(makeServiceLayer({ repository: installedScriptRepository }))((test) => {
 	test.effect("executes an installed script as the explicit user", () =>
 		Effect.gen(function* () {
 			const service = yield* SandboxExecutionService;
-			yield* service.enqueue(executingUserId, { scriptId, context: {} });
+			yield* service.enqueue(executingUserId, { scriptId, context: {}, lane: "interactive" });
 			const execution = (yield* (yield* SandboxServiceCalls).executions).at(-1);
 
 			expect(execution?.workflow).toBe(SandboxScriptWorkflow);
@@ -186,7 +186,7 @@ layer(
 	test.effect("executes provider scripts through the universal workflow", () =>
 		Effect.gen(function* () {
 			const service = yield* SandboxExecutionService;
-			yield* service.enqueue(executingUserId, { scriptId, context: {} });
+			yield* service.enqueue(executingUserId, { scriptId, context: {}, lane: "interactive" });
 			const execution = (yield* (yield* SandboxServiceCalls).executions).at(-1);
 
 			expect(execution?.workflow).toBe(SandboxScriptWorkflow);
@@ -217,6 +217,7 @@ layer(
 			const result = yield* service.executeScript({
 				scriptId,
 				input: {},
+				lane: "interactive",
 				executionId: "script-execution",
 				subject: {
 					type: "user",
@@ -248,7 +249,9 @@ layer(
 	test.effect("rejects inactive plugin scripts before starting the workflow", () =>
 		Effect.gen(function* () {
 			const service = yield* SandboxExecutionService;
-			const exit = yield* Effect.exit(service.enqueue(executingUserId, { scriptId, context: {} }));
+			const exit = yield* Effect.exit(
+				service.enqueue(executingUserId, { scriptId, context: {}, lane: "interactive" }),
+			);
 
 			assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
 			expect(yield* (yield* SandboxServiceCalls).executions).toHaveLength(0);
@@ -266,7 +269,7 @@ layer(
 		const otherUserId = UserId.make("user-2");
 		return Effect.gen(function* () {
 			const service = yield* SandboxExecutionService;
-			const { jobId } = yield* service.enqueue(executingUserId, { scriptId });
+			const { jobId } = yield* service.enqueue(executingUserId, { scriptId, lane: "interactive" });
 
 			expect(yield* service.getResult(executingUserId, jobId)).toEqual({ status: "pending" });
 			assertExitFails(
@@ -301,7 +304,7 @@ layer(
 	test.effect("returns the completed public result without internal workflow fields", () =>
 		Effect.gen(function* () {
 			const service = yield* SandboxExecutionService;
-			const { jobId } = yield* service.enqueue(executingUserId, { scriptId });
+			const { jobId } = yield* service.enqueue(executingUserId, { scriptId, lane: "interactive" });
 
 			expect(yield* service.getResult(executingUserId, jobId)).toEqual({
 				logs: ["completed"],
@@ -348,6 +351,7 @@ layer(
 			});
 			const result = yield* service.executeWorkflow({
 				executionId,
+				lane: "interactive",
 				scriptId: resolvedScriptId,
 				input: { items: [], scriptId: "attempted-override" },
 				subject: {
@@ -389,6 +393,7 @@ layer(makeServiceLayer({ repository: mockRepository({}) }))((test) => {
 			const exit = yield* Effect.exit(
 				service.executeWorkflow({
 					scriptId,
+					lane: "interactive",
 					input: oversizedInput,
 					executionId: "oversized-workflow",
 					subject: {
@@ -486,6 +491,7 @@ layer(makeServiceLayer({ repository: revisionPinRepository }))((test) => {
 				yield* service.executeWorkflow({
 					scriptId,
 					input: {},
+					lane: "interactive",
 					executionId: "pre-registered-workflow",
 					pluginRevision: preRegistered.pluginRevision,
 					subject: {
@@ -554,6 +560,7 @@ layer(makeServiceLayer(pluginWorkflowOptions))((test) => {
 				yield* service.enqueuePluginWorkflow({
 					input: {},
 					executingUserId,
+					lane: "interactive",
 					pluginId: "fixture",
 					workflowSlug: "workflow",
 					executionId: "queued-workflow",
@@ -577,6 +584,7 @@ layer(makeServiceLayer({ ...pluginWorkflowOptions, execute: () => Effect.fail("e
 					service.enqueuePluginWorkflow({
 						input: {},
 						executingUserId,
+						lane: "interactive",
 						pluginId: "fixture",
 						workflowSlug: "workflow",
 						executionId: "failed-enqueue",

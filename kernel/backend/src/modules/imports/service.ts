@@ -143,6 +143,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const sandboxExecutionId = `${runId}-import`;
 			const command = rootLifecycleCommand({
 				source: "import",
+				lane: "background",
 				importRunId: runId,
 				initiator: { id: user.id, kind: "user" },
 				accountGeneration: user.accountGeneration,
@@ -564,6 +565,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				}
 				const command = rootLifecycleCommand({
 					source: "import",
+					lane: "background",
 					importRunId: runId,
 					accountGeneration: scope.accountGeneration,
 					initiator: { kind: "user", id: scope.userId },

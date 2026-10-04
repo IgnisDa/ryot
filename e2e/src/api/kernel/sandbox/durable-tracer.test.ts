@@ -175,6 +175,7 @@ describe("universal durable sandbox tracer", () => {
 			);
 			const { jobId, executionId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
+				lane: "interactive",
 				context: {
 					entityId: fixture.entityId,
 					successUrl: `${http.url}/success`,

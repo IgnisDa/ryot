@@ -105,6 +105,7 @@ const automationSubject = {
 		parentRunId: null,
 		parentTriggerId: null,
 		source: "api" as const,
+		lane: "background" as const,
 		initiator: { id: null, kind: "system" as const },
 		executionId: AutomationExecutionId.make("execution-1"),
 		rootExecutionId: AutomationExecutionId.make("execution-1"),
@@ -205,6 +206,7 @@ layer(
 				JSON.stringify({
 					input: {},
 					pluginRevision,
+					lane: "background",
 					resolutionMode: "active",
 					executionId: "execution-1",
 					subject: automationSubject,
@@ -294,6 +296,7 @@ layer(
 		const payload = {
 			input: {},
 			executionId: "kernel-run",
+			lane: "background" as const,
 			resolutionMode: "active" as const,
 			scriptId: SandboxScriptId.make("kernel-notification-v1"),
 			subject: {
@@ -504,6 +507,7 @@ const hotSwapLayer = recordingLayer(
 					_workflowSlug,
 					_input,
 					_subject,
+					_lane,
 					_executionId,
 					_parentExecutionId,
 					callerScriptId,
@@ -521,6 +525,7 @@ layer(withWorkflowPinning(hotSwapLayer))((test) => {
 		const payload = {
 			input: {},
 			executionId,
+			lane: "interactive" as const,
 			scriptId: historicalScriptId,
 			resultMode: "execution" as const,
 			resolutionMode: "active" as const,
@@ -625,6 +630,7 @@ layer(
 						scriptId,
 						input: {},
 						executionId,
+						lane: "interactive",
 						resolutionMode: "exact",
 						subject: { type: "system" },
 					},
@@ -757,6 +763,7 @@ layer(
 		const payload = {
 			input: {},
 			executionId,
+			lane: "interactive" as const,
 			scriptId: interruptedScriptId,
 			resolutionMode: "exact" as const,
 			subject: {
@@ -851,6 +858,7 @@ layer(
 						scriptId,
 						input: {},
 						executionId,
+						lane: "interactive",
 						resolutionMode: "exact",
 						subject: { type: "system" },
 					},
@@ -919,6 +927,7 @@ layer(
 						scriptId,
 						input: {},
 						executionId,
+						lane: "interactive",
 						resolutionMode: "exact",
 						subject: { type: "system" },
 					},
@@ -1178,6 +1187,7 @@ const runInlineWorkflow = <R>(
 		{
 			input: {},
 			executionId,
+			lane: "interactive",
 			resolutionMode: "exact",
 			scriptId: inlineScriptId,
 			subject: { type: "system" },
@@ -1407,7 +1417,14 @@ layer(
 		return Effect.gen(function* () {
 			const calls = yield* WorkflowTestCalls;
 			const result = yield* runSandboxScriptWorkflowBody(
-				{ scriptId, input: {}, executionId, resolutionMode: "exact", subject: { type: "system" } },
+				{
+					scriptId,
+					input: {},
+					executionId,
+					lane: "interactive",
+					resolutionMode: "exact",
+					subject: { type: "system" },
+				},
 				executionId,
 				(sandboxPayload) => {
 					if (sandboxPayload.executionId === `${executionId}-replay-0`) {
@@ -1444,6 +1461,53 @@ layer(
 			]);
 		});
 	});
+
+	test.effect(
+		"scheduling_lane_survives_durable_boundaries: every replay is queued in the workflow lane",
+		() => {
+			const executionId = "background-lane-workflow";
+			const requests = [0, 1].map((index) => ({
+				index,
+				name: `lane-${index}`,
+				kind: "activity" as const,
+				args: { input: {}, scriptSlug: "activity.first" },
+			}));
+			return Effect.gen(function* () {
+				const lanes: Array<string> = [];
+				yield* runSandboxScriptWorkflowBody(
+					{
+						input: {},
+						executionId,
+						lane: "background",
+						resolutionMode: "exact",
+						scriptId: batchedScriptId,
+						subject: { type: "system" },
+					},
+					executionId,
+					(sandboxPayload) => {
+						lanes.push(sandboxPayload.lane);
+						return Effect.succeed({
+							logs: [],
+							inline: [],
+							error: null,
+							harvest: null,
+							status: "completed" as const,
+							value:
+								sandboxPayload.journalLength === 0
+									? { requests, journalLength: 0, state: "pending" as const }
+									: {
+											requests,
+											journalLength: 2,
+											output: { done: true },
+											state: "completed" as const,
+										},
+						});
+					},
+				);
+				expect(lanes).toEqual(["background", "background"]);
+			});
+		},
+	);
 });
 
 it.effect("accepts completion output only after the encountered trace matches the journal", () => {
@@ -1505,6 +1569,7 @@ layer(
 				{
 					input: {},
 					pluginRevision,
+					lane: "background",
 					executionId: "parent",
 					resolutionMode: "active",
 					subject: automationSubject,
@@ -1517,6 +1582,7 @@ layer(
 			expect((yield* calls.entries("execute-options")).at(-1)).toMatchObject({
 				executionId: "parent-child-events-import-v1-2",
 				payload: {
+					lane: "background",
 					resolutionMode: "exact",
 					scriptId: "child-script",
 					subject: automationSubject,
@@ -1551,6 +1617,7 @@ layer(
 				{
 					subject,
 					input: {},
+					lane: "interactive",
 					resolutionMode: "exact",
 					executionId: `${importRunId}-import`,
 					scriptId: SandboxScriptId.make("workflow-script"),
@@ -1571,6 +1638,7 @@ layer(
 			expect((yield* (yield* WorkflowTestCalls).entries("execute-options")).at(-1)).toMatchObject({
 				executionId: "run-1-import-child-collect-0",
 				payload: {
+					lane: "interactive",
 					resolutionMode: "exact",
 					scriptId: "import-script",
 					subject: { type: "user", userId: "user-1", importRunId: "run-1" },
@@ -1597,9 +1665,18 @@ layer(
 				const calls = yield* WorkflowTestCalls;
 				return Layer.succeed(KernelWorkflowReferences, {
 					resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
-					execute: (workflowSlug, input, subject, executionId, parentExecutionId, callerScriptId) =>
+					execute: (
+						workflowSlug,
+						input,
+						subject,
+						lane,
+						executionId,
+						parentExecutionId,
+						callerScriptId,
+					) =>
 						calls
 							.record("kernel-calls", {
+								lane,
 								input,
 								subject,
 								executionId,
@@ -1626,6 +1703,7 @@ layer(
 				undefined,
 				{
 					input: {},
+					lane: "interactive",
 					executionId: "parent",
 					resolutionMode: "active",
 					scriptId: SandboxScriptId.make("parent-script"),
@@ -1644,6 +1722,7 @@ layer(
 			expect(result).toEqual({ status: "completed", entity: { id: "entity-1" } });
 			expect(yield* (yield* WorkflowTestCalls).entries("kernel-calls")).toEqual([
 				{
+					lane: "interactive",
 					parentExecutionId: "parent",
 					callerScriptId: "parent-script",
 					input: { externalId: "record-1" },

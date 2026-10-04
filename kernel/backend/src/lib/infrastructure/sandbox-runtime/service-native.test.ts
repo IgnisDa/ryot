@@ -297,6 +297,7 @@ const makeRunInput = (
 ): SandboxRunInput => ({
 	context,
 	executionId,
+	lane: "interactive",
 	compiledFormat: compiled.format,
 	compiledCode: compiled.javascript,
 	principal: {

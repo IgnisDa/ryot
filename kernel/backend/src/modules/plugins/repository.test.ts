@@ -337,6 +337,7 @@ describe("plugin repository revisions", () => {
 								source: "api",
 								operation: "emit",
 								category: "signal",
+								lane: "interactive",
 								occurredAt: expired,
 								id: "kernel-trigger",
 								resourceKind: "signal",

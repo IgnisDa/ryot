@@ -66,6 +66,7 @@ layer(serviceLayer)((test) => {
 		Effect.gen(function* () {
 			const command = rootLifecycleCommand({
 				source: "import",
+				lane: "background",
 				itemIdentity: "import:item",
 				initiator: { id: userId, kind: "user" },
 				executionId: AutomationExecutionId.make("import"),
@@ -98,6 +99,7 @@ layer(serviceLayer)((test) => {
 			Effect.gen(function* () {
 				const command = rootLifecycleCommand({
 					source: "api",
+					lane: "interactive",
 					itemIdentity: "events",
 					initiator: { id: userId, kind: "user" },
 					executionId: AutomationExecutionId.make("http-request"),

@@ -239,6 +239,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										payload: null,
 										operation: "emit",
 										category: "signal",
+										lane: "interactive",
 										id: "shared-trigger",
 										occurredAt: timestamp,
 										executionId: "command",

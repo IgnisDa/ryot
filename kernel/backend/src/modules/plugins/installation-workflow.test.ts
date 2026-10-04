@@ -149,6 +149,7 @@ const workflowLayer = (input: {
 						executeScript: (payload) => {
 							const message = input.scriptErrors?.[payload.scriptId];
 							const execution = {
+								lane: payload.lane,
 								subject: payload.subject,
 								scriptId: payload.scriptId,
 								executionId: payload.executionId,
@@ -185,6 +186,7 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 			expect(yield* fake.order).toEqual(["health:ready", "invalidate"]);
 			expect(yield* fake.executions).toEqual([
 				{
+					lane: "background",
 					scriptId: "first-id",
 					executionId: pluginInstallationBootstrapExecutionId(
 						installationId,
@@ -198,6 +200,7 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 					},
 				},
 				{
+					lane: "background",
 					scriptId: "second-id",
 					executionId: pluginInstallationBootstrapExecutionId(
 						installationId,

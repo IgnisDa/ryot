@@ -1,5 +1,6 @@
 import type { TimeoutError } from "@ryot-app/contract/errors";
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import {
@@ -107,6 +108,7 @@ type Instance = {
 };
 
 export type SandboxSidecarRun<A = void> = {
+	readonly lane: ExecutionLane;
 	readonly executionId: string;
 	readonly pinHash: string;
 	readonly principal: SandboxExecutionPrincipal;
@@ -150,7 +152,11 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 			const recoveryStore = yield* SandboxRecoveryStore;
 			const protections = new WeakMap<
 				SandboxAdmissionLease["Service"],
-				{ readonly principal: string; readonly protection: Protection }
+				{
+					readonly lane: ExecutionLane;
+					readonly principal: string;
+					readonly protection: Protection;
+				}
 			>();
 			const parent = yield* Effect.scope;
 			const instances = new Map<string, Instance>();
@@ -623,7 +629,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						const scope = yield* Effect.scope;
 						const generation = yield* ensure(entry, options.lease);
 						yield* options.lease.enter({
-							lane: "interactive",
+							lane: options.lane,
 							instance: key.instance,
 							generation: generation.connection.generation,
 						});
@@ -723,7 +729,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 										seq: 0,
 										type: "run",
 										tier: key.tier,
-										lane: "interactive",
+										lane: options.lane,
 										input: prepared.input,
 										module: prepared.module,
 										generation: generation.connection.generation,
@@ -801,6 +807,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 			});
 			const reserve = Effect.fn("SandboxSidecarSupervisor.reserve")(function* (
 				principal: SandboxExecutionPrincipal,
+				lane: ExecutionLane,
 			) {
 				const key = yield* locate(principal);
 				const protection = yield* quarantine
@@ -813,7 +820,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				if (protection.probation) {
 					yield* recordSandboxSidecarEvent({ ...key, reason: "opened", event: "probation" });
 				}
-				const reservation = admission.reserveRun(key.instance);
+				const reservation = admission.reserveRun(key.instance, lane);
 				const lease = yield* protection.probation
 					? reservation.pipe(
 							Effect.timeoutOrElse({
@@ -828,7 +835,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							}),
 						)
 					: reservation;
-				protections.set(lease, { protection, principal: stableStringify(principal) });
+				protections.set(lease, { lane, protection, principal: stableStringify(principal) });
 				return lease;
 			});
 
@@ -840,6 +847,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				const protectedLease = protections.get(options.lease);
 				if (
 					protectedLease === undefined ||
+					protectedLease.lane !== options.lane ||
 					protectedLease.principal !== stableStringify(options.principal)
 				) {
 					return yield* new SandboxRunError({

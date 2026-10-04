@@ -141,6 +141,7 @@ const makeInput = (
 	context: {},
 	compiledCode: "",
 	compiledFormat: 1,
+	lane: "interactive",
 	executionId: "file-service-execution",
 	workflowExecutionId: "child-workflow-execution",
 	principal: {
@@ -568,6 +569,7 @@ describe("sandbox file service", () => {
 									depth: 0,
 									source: "api",
 									parentRunId: null,
+									lane: "interactive",
 									parentTriggerId: null,
 									initiator: { id: null, kind: "system" },
 									executionId: AutomationExecutionId.make("before-execution"),
