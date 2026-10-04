@@ -29,10 +29,7 @@ import { principalOwner } from "#lib/infrastructure/sandbox-runtime/execution-pr
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
-import {
-	makeDomainWriteChecks,
-	type DomainLifecycleCommand,
-} from "#modules/entities/write-context";
+import { DomainWriteChecks, type DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
 	mutationReceiptIdentity,
 	mutationReceiptOwner,
@@ -189,7 +186,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			const runtime = yield* PluginRuntimeResolver;
 			const definitions = yield* DefinitionRepository;
 			const session = yield* DatabaseSession;
-			const writes = makeDomainWriteChecks(session);
+			const writes = yield* DomainWriteChecks;
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
 			const receipts = yield* MutationReceipts.make;
@@ -199,6 +196,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					.lookup(identity, RelationshipRecordedResult)
 					.pipe(Effect.mapError(classifyRelationshipReceiptConflict));
 			const dependencies = {
+				writes,
 				session,
 				planner,
 				runtime,

@@ -18,10 +18,7 @@ import {
 } from "#lib/infrastructure/lifecycle-workflow-step";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import {
-	makeDomainWriteChecks,
-	type DomainLifecycleCommand,
-} from "#modules/entities/write-context";
+import { DomainWriteChecks, type DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
 	mutationReceiptIdentity,
 	MutationReceipts,
@@ -69,7 +66,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 			const entities = yield* EntitiesRepository;
 			const definitions = yield* DefinitionRepository;
 			const session = yield* DatabaseSession;
-			const writes = makeDomainWriteChecks(session);
+			const writes = yield* DomainWriteChecks;
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
 			const receipts = yield* MutationReceipts.make;

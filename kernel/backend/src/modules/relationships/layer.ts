@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { LifecycleServicesLive } from "#modules/automations/layer";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 
 import { RelationshipMutationPipeline } from "./mutation-pipeline";
@@ -12,6 +13,7 @@ import { RelationshipsService } from "./service";
 const dependencies = Layer.mergeAll(
 	RelationshipsRepository.layer,
 	EntitiesRepositoryLive,
+	DomainWriteChecksLive,
 	LifecycleServicesLive,
 );
 

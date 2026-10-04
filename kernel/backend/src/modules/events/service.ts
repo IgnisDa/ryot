@@ -74,7 +74,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	DomainLifecycleCommand,
 	DomainWriteConflict,
-	makeDomainWriteChecks,
+	DomainWriteChecks,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -242,7 +242,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const entities = yield* EntitiesRepository;
 		const eventSchemas = yield* EventSchemasRepository;
 		const session = yield* DatabaseSession;
-		const writeChecks = makeDomainWriteChecks(session);
+		const writeChecks = yield* DomainWriteChecks;
 		const authorizeEventDelete = Effect.fnUntraced(function* (
 			command: DomainLifecycleCommand,
 			input: EventIdentityInput,
@@ -476,7 +476,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		) => findReceipt(input, command, mutation, lock).pipe(Effect.mapError(receiptConflict));
 		const resolveEventScopes = (input: Parameters<typeof resolveEventCreateItemScopes>[0]) =>
 			resolveEventCreateItemScopes(input).pipe(
-				Effect.provideService(DatabaseSession, session),
+				Effect.provideService(DomainWriteChecks, writeChecks),
 				Effect.provideService(EntitiesRepository, entities),
 				Effect.provideService(EventSchemasRepository, eventSchemas),
 			);

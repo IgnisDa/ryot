@@ -32,6 +32,7 @@ import type { RelationshipSchemaDefinition } from "#modules/definition-registry/
 import type { EntitiesRepository } from "#modules/entities/repository";
 import {
 	DomainLifecycleCommand,
+	type DomainWriteChecks,
 	DomainWriteConflict,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
@@ -335,6 +336,7 @@ export const relationshipIdentity = (
 });
 
 export type RelationshipMutationDependencies = {
+	readonly writes: DomainWriteChecks["Service"];
 	readonly session: DatabaseSession["Service"];
 	readonly execution: LifecycleExecution["Service"];
 	readonly planner: LifecyclePlanner["Service"];

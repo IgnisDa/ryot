@@ -37,6 +37,8 @@ import {
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
+import type { DomainWriteChecks } from "#modules/entities/write-context";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { ImportsRepository } from "#modules/imports/repository";
 import { MutationReceipts, MutationReceiptIdentity } from "#modules/mutations/receipts";
@@ -303,6 +305,7 @@ const lifecycleDatabaseLayer = (
 					Layer.mergeAll(
 						WorkflowExecutionNotifications.layer,
 						EventsRepository.layer.pipe(Layer.provideMerge(databaseSession)),
+						DomainWriteChecksLive.pipe(Layer.provide(databaseSession)),
 						Layer.mock(EntitiesRepository)({
 							lockEntityReferencesByIds: () => Effect.void,
 							getEntityScopeForUser: ({ entityId: requestedEntityId }) =>
@@ -1303,6 +1306,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					});
 					const sourceContext = (yield* Effect.context<
 						| DatabaseSession
+						| DomainWriteChecks
 						| EntitiesRepository
 						| EventSchemasRepository
 						| EventsRepository

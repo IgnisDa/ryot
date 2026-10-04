@@ -53,6 +53,7 @@ import {
 } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
 import { EventStreamWorkService } from "#modules/events/stream-work";
 import {
@@ -385,6 +386,7 @@ const hostFunctionsLayer = (
 			const dependencies = Layer.mergeAll(
 				hostDatabaseLayer,
 				AuthRepository.layer.pipe(Layer.provide(hostDatabaseLayer)),
+				DomainWriteChecksLive.pipe(Layer.provide(hostDatabaseLayer)),
 				makeAppConfigLayer(),
 				Layer.succeed(RedisService, makeRedisService()),
 				Layer.mock(EventsService)({
