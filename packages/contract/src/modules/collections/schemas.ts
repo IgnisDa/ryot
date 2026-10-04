@@ -87,10 +87,14 @@ export const MembershipResponse = Schema.Struct({
 
 export type MembershipResponse = typeof MembershipResponse.Type;
 
+export const maximumCollectionNameLength = 200;
+
 const CollectionName = Schema.String.pipe(
 	Schema.check(
 		Schema.makeFilter(
-			(value) => value.trim().length <= 200 || "Collection names are at most 200 characters",
+			(value) =>
+				value.trim().length <= maximumCollectionNameLength ||
+				`Collection names are at most ${maximumCollectionNameLength} characters`,
 		),
 	),
 );
