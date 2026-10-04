@@ -249,7 +249,6 @@ export const PluginMetadata = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
 	version: Schema.String,
-	slug: pluginManifestSlug,
 	packageId: PluginPackageId,
 	description: Schema.String,
 });

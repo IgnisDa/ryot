@@ -11,7 +11,7 @@ import {
 	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
 import { Modal } from "@ryot-app/client-ui-sdk";
-import { EntityId, EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { useEffect, useState } from "react";
@@ -66,7 +66,12 @@ const replacementPage = (label: string): ClientPageContext => ({
 	settings: { label },
 	route: { params: {} },
 	renderer: { kind: "kernel", name: "fixture" },
-	target: { path: "/", search: "", kind: "plugin-route", pluginId: PluginId.make("fixture") },
+	target: {
+		path: "/",
+		search: "",
+		kind: "plugin-route",
+		packageId: PluginPackageId.make("test/fixture"),
+	},
 });
 let channels: MessageChannel[] = [];
 let bootstraps: Array<{ dispose: () => void }> = [];
@@ -81,8 +86,8 @@ const Home = () => {
 				ryot.operations.invoke({
 					input: {},
 					slug: "greet",
-					pluginId: "fixture",
 					output: Schema.String,
+					packageId: "test/fixture",
 				}),
 				(greeting) => Effect.sync(() => setResult(greeting)),
 			),
@@ -96,7 +101,7 @@ const StaticHome = () => <p>Mounted</p>;
 const PageContextHome = () => {
 	const { target, renderer } = usePageContext();
 	return (
-		<p>{`${target.kind}:${renderer.kind}:${target.kind === "plugin-route" ? target.pluginId : ""}`}</p>
+		<p>{`${target.kind}:${renderer.kind}:${target.kind === "plugin-route" ? target.packageId : ""}`}</p>
 	);
 };
 
@@ -489,7 +494,7 @@ describe("bootstrapClientPlugin", () => {
 								path: "/",
 								search: "tab=stats",
 								kind: "plugin-route",
-								pluginId: PluginId.make("plugin-1"),
+								packageId: PluginPackageId.make("test/plugin-1"),
 							},
 						},
 					},
@@ -507,7 +512,9 @@ describe("bootstrapClientPlugin", () => {
 
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(document.getElementById("app")?.textContent).toBe("plugin-route:plugin:plugin-1"),
+					expect(document.getElementById("app")?.textContent).toBe(
+						"plugin-route:plugin:test/plugin-1",
+					),
 				),
 			);
 		}),
@@ -527,7 +534,7 @@ describe("bootstrapClientPlugin", () => {
 						search: "tab=stats",
 						kind: "plugin-route",
 						path: "/details/item-1",
-						pluginId: PluginId.make("plugin-1"),
+						packageId: PluginPackageId.make("test/plugin-1"),
 					},
 				},
 				routeLocation("/details/item-1", "tab=stats"),
@@ -618,7 +625,7 @@ describe("bootstrapClientPlugin", () => {
 						search: "",
 						path: "/missing",
 						kind: "plugin-route",
-						pluginId: PluginId.make("plugin-1"),
+						packageId: PluginPackageId.make("test/plugin-1"),
 					},
 				},
 				routeLocation("/missing"),

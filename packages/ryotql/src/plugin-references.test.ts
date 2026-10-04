@@ -168,7 +168,7 @@ describe("RyotQL plugin identity references", () => {
 		const packageReference: PluginIdentityReference = {
 			kind: "package",
 			scope: "system",
-			packageId: PluginPackageId.make("ee8040dd-5a40-42a1-916d-58190c1a06e8"),
+			packageId: PluginPackageId.make("test/primary"),
 		};
 		const targetOwner: PluginIdentityReference = {
 			kind: "local",

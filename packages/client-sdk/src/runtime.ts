@@ -36,7 +36,7 @@ import {
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
-import { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Match, Result, Schema } from "effect";
 
@@ -302,7 +302,7 @@ export const createPluginRuntime = (
 					input: operation.input,
 					type: "operation-request",
 					operationSlug: operation.slug,
-					pluginId: PluginId.make(operation.pluginId),
+					packageId: PluginPackageId.make(operation.packageId),
 				}) satisfies PluginBridgeOperationRequest,
 		);
 
@@ -363,10 +363,10 @@ export const createPluginRuntime = (
 			throw new RyotClientError(terminalReason ?? "transport");
 		}
 		const target = Match.value(to).pipe(
-			Match.when({ kind: "plugin-route" }, ({ path, search, pluginId }) => ({
+			Match.when({ kind: "plugin-route" }, ({ path, search, packageId }) => ({
 				path,
 				kind: "plugin-route" as const,
-				pluginId: PluginId.make(pluginId),
+				packageId: PluginPackageId.make(packageId),
 				search: search === undefined ? "" : new URLSearchParams(search).toString(),
 			})),
 			Match.when({ kind: "entity" }, ({ entityId }) => ({

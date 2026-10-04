@@ -98,7 +98,7 @@ const PluginRequestFailureReason = Schema.Union([
 		issues: Schema.Array(PluginSchemaEvolutionIssue),
 	}),
 	Schema.Struct({
-		pluginId: PluginId,
+		packageId: PluginPackageId,
 		operationSlug: Schema.String,
 		code: Schema.Literal("invalid-operation-scope"),
 	}),
@@ -142,12 +142,12 @@ const PluginNotFoundReason = Schema.Union([
 	Schema.Struct({ pluginId: PluginId, code: Schema.Literal("plugin-not-found") }),
 	Schema.Struct({ installationId: Schema.String, code: Schema.Literal("installation-not-found") }),
 	Schema.Struct({
-		pluginId: PluginId,
+		packageId: PluginPackageId,
 		operationSlug: Schema.String,
 		code: Schema.Literal("operation-not-found"),
 	}),
 	Schema.Struct({
-		pluginId: PluginId,
+		packageId: PluginPackageId,
 		operationSlug: Schema.String,
 		code: Schema.Literal("operation-scope-not-found"),
 	}),

@@ -198,8 +198,8 @@ describe("Effect-native React definitions", () => {
 			yield* clock.client.operations.invoke({
 				input: {},
 				slug: "save",
-				pluginId: "fixture",
 				output: Schema.String,
+				packageId: "test/fixture",
 			});
 			yield* Effect.promise(() => clock.advance(249));
 			expect(calls).toBe(1);
@@ -220,14 +220,14 @@ describe("Effect-native React definitions", () => {
 					const first = yield* client.operations.invoke({
 						input,
 						slug: "first",
-						pluginId: "fixture",
 						output: Schema.String,
+						packageId: "test/fixture",
 					});
 					return yield* client.operations.invoke({
 						input: first,
 						slug: "second",
-						pluginId: "fixture",
 						output: Schema.String,
+						packageId: "test/fixture",
 					});
 				}),
 			);

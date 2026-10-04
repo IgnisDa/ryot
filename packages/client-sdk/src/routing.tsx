@@ -9,7 +9,7 @@ import { useShortcut, type Hotkey } from "@ryot-app/client-ui-sdk";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Schema, Effect, Fiber, Match } from "effect";
 import {
 	Fragment,
@@ -164,15 +164,16 @@ type PluginLinkProps = { readonly to: RyotNavigationTarget } & Omit<
 
 const navigationTargetHref = (target: RyotNavigationTarget) =>
 	Match.value(target).pipe(
-		Match.when({ kind: "plugin-route" }, ({ path, search, pluginId }) => {
+		Match.when({ kind: "plugin-route" }, ({ path, search, packageId }) => {
 			const searchString = search === undefined ? "" : new URLSearchParams(search).toString();
-			const route = pluginPath(PluginId.make(pluginId), path);
+			const route = pluginPath(PluginPackageId.make(packageId), path);
 			return searchString ? `${route}?${searchString}` : route;
 		}),
 		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
-		Match.when({ kind: "saved-view" }, ({ reference }) =>
-			savedViewPath(Schema.decodeSync(SavedViewReference)(reference)),
-		),
+		Match.when({ kind: "saved-view" }, ({ reference }) => {
+			const decoded = Schema.decodeSync(SavedViewReference)(reference);
+			return decoded.kind === "plugin" ? undefined : savedViewPath(decoded);
+		}),
 		Match.when({ kind: "kernel-page" }, ({ page }) => kernelPagePaths[page]),
 		Match.exhaustive,
 	);

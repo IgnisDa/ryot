@@ -131,7 +131,6 @@ export const IntegrationSnapshot = Schema.Struct({
 	maximumProgress: Schema.Finite,
 	name: Schema.NullOr(Schema.String),
 	extraSettings: IntegrationExtraSettings,
-	pluginSlug: Schema.NullOr(Schema.String),
 	lastFinishedAt: Schema.NullOr(Schema.String),
 	providerSpecifics: IntegrationProviderSettings,
 });
