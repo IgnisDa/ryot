@@ -15,7 +15,7 @@ const entryPin = Schema.Tuple([
 ]);
 const entryPins = Schema.Array(entryPin).check(Schema.isMaxLength(SANDBOX_LIMITS.hostCalls.total));
 
-export const SandboxJournalInspection = Schema.Struct({
+const SandboxJournalInspection = Schema.Struct({
 	entries: entryPins,
 	bytes: Schema.Int.check(Schema.isBetween({ minimum: 2, maximum: SANDBOX_LIMITS.journalBytes })),
 });
@@ -110,7 +110,7 @@ export const inspectSandboxJournal = Effect.fn("inspectSandboxJournal")(function
 	journalLength: number,
 ) {
 	if (journalLength === 0) {
-		return { bytes: 2, entries: [] } satisfies SandboxJournalInspection;
+		return { bytes: 2, entries: [] };
 	}
 	const response = yield* execute(redis, executionId, journalLength, "inspect");
 	if (response[0] === "missing") {
