@@ -4,6 +4,7 @@ import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, MutableRef, Ref } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
+import { withEgressPolicy } from "#lib/infrastructure/egress/http-client";
 import { makeRedisService } from "#lib/test-utils/effect";
 import { sandboxHttpRedirectClassifier } from "#modules/sandbox/durable-host-dispatcher";
 
@@ -296,6 +297,39 @@ describe("runtime sandbox host functions", () => {
 
 					expect(error).toEqual({ message: "httpCall may not set the Host header" });
 					expect(yield* sent).toEqual([]);
+				}),
+			);
+		});
+
+		layer(runtimeHostLayer)((test) => {
+			test.effect("denies a non-HTTP destination before any request", () =>
+				Effect.gen(function* () {
+					const { sent, client } = yield* redirecting({});
+					const host = yield* hostWith(withEgressPolicy(client));
+					const error = yield* host.httpCall(input, "GET", "file:///etc/passwd").pipe(Effect.flip);
+
+					expect(error).toEqual({
+						data: { code: "destination-denied" },
+						message: "httpCall destination is not allowed",
+					});
+					expect(yield* sent).toEqual([]);
+				}),
+			);
+		});
+
+		layer(runtimeHostLayer)((test) => {
+			test.effect("refuses a redirect to a non-HTTP location without requesting it", () =>
+				Effect.gen(function* () {
+					const { sent, client } = yield* redirecting({
+						"https://open.test/start": redirect(302, "file:///etc/passwd"),
+					});
+					const host = yield* hostWith(withEgressPolicy(client));
+					const error = yield* host
+						.httpCall(input, "GET", "https://open.test/start")
+						.pipe(Effect.flip);
+
+					expect(error).toEqual({ message: "httpCall redirect location is not an HTTP(S) URL" });
+					expect((yield* sent).map(({ url }) => url)).toEqual(["https://open.test/start"]);
 				}),
 			);
 		});
