@@ -29,7 +29,9 @@ Exercise note operations require a visible exercise and a `review` event on that
 the shared review slug. Updates patch only text/rating. Input text is trimmed/bounded, while stored
 text remains unbounded for migrated notes. `workout-delete` removes the workout, events, and
 relationships, queues surviving exercise record recalculation, and leaves exercises/templates and
-separately logged measurements intact. Collection additions preserve existing membership properties.
+separately logged measurements intact. `workout-template-delete` removes the template and its
+relationships, leaving workouts started from it intact. Collection additions preserve existing
+membership properties.
 
 Mutating inputs carry the stable `SubmissionEnvelope` identity and timestamp. Writers send editable
 set properties only; policies own derived statistics and personal-best badges. Retried writes keep
