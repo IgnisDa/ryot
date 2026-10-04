@@ -7,7 +7,6 @@ import {
 } from "@ryot-app/contract/modules/entities/editor";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
-	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
 	PluginId,
@@ -19,7 +18,6 @@ import { and, eq } from "drizzle-orm";
 import { DateTime, Effect, Layer, Ref, Schema } from "effect";
 import { assert, describe } from "vitest";
 
-import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -173,19 +171,6 @@ const editorPackage = (options: { readonly policy?: boolean } = {}) => {
 	};
 };
 
-const commandFor = (executionId: string): DomainLifecycleCommand => ({
-	...rootLifecycleCommand({
-		source: "api",
-		lane: "interactive",
-		itemIdentity: "entity-editor",
-		occurredAt: "2026-10-13T00:00:00.000Z",
-		initiator: { id: userId, kind: "user" },
-		executionId: AutomationExecutionId.make(executionId),
-		accountGeneration: { userId, token: "test-account-generation" },
-	}),
-	writeContext: null,
-});
-
 const setup = Effect.fnUntraced(function* (options: { readonly policy?: boolean } = {}) {
 	const session = yield* DatabaseSession;
 	yield* session.run((db) =>
@@ -258,6 +243,17 @@ const submission = (
 	...input,
 });
 
+const submitEdit = (
+	editor: EntityEditorService["Service"],
+	idempotencyKey: string,
+	input: EntityEditorSubmission,
+) =>
+	editor.submit({
+		userId,
+		accountGeneration: { userId, token: "test-account-generation" },
+		request: { idempotencyKey, submission: input, submittedAt: "2026-10-13T00:00:00.000Z" },
+	});
+
 const target = (id: string, role?: string) => ({
 	entityId: EntityId.make(id),
 	properties: role === undefined ? {} : { role },
@@ -310,7 +306,6 @@ describe("EntityEditorService", () => {
 			yield* insert("part-b", part, userId);
 			const log = yield* dispatched;
 			const editor = yield* makeEditor({ execution: { dispatch: log.dispatch } });
-			const command = commandFor("create-with-relationships");
 			const input = submission(owner, {
 				target: { kind: "create" },
 				relationships: [
@@ -320,7 +315,7 @@ describe("EntityEditorService", () => {
 					},
 				],
 			});
-			const first = yield* editor.save({ owner, userId, submission: input, lifecycle: command });
+			const first = yield* submitEdit(editor, "create-with-relationships", input);
 			assert(first.output.kind === "saved");
 			const savedId = first.output.entityId;
 			const state = yield* tablesState;
@@ -338,7 +333,7 @@ describe("EntityEditorService", () => {
 			]);
 			expect(state.editorReceipts).toHaveLength(1);
 
-			const replay = yield* editor.save({ owner, userId, submission: input, lifecycle: command });
+			const replay = yield* submitEdit(editor, "create-with-relationships", input);
 			expect(replay.output).toEqual(first.output);
 			const after = yield* tablesState;
 			expect(after.entityRows).toHaveLength(state.entityRows.length);
@@ -348,9 +343,10 @@ describe("EntityEditorService", () => {
 			expect(calls[1]).toEqual(calls[0]);
 			expect(calls[0]?.length).toBeGreaterThan(0);
 
-			const conflict = yield* editor
-				.save({ owner, userId, lifecycle: command, submission: { ...input, name: "Different" } })
-				.pipe(Effect.flip);
+			const conflict = yield* submitEdit(editor, "create-with-relationships", {
+				...input,
+				name: "Different",
+			}).pipe(Effect.flip);
 			expect(conflict).toBeInstanceOf(EntityEditorRefused);
 		}),
 	);
@@ -365,11 +361,10 @@ describe("EntityEditorService", () => {
 				yield* insert(id, part, userId);
 			}
 			const editor = yield* makeEditor();
-			const created = yield* editor.save({
-				owner,
-				userId,
-				lifecycle: commandFor("diff-seed"),
-				submission: submission(owner, {
+			const created = yield* submitEdit(
+				editor,
+				"diff-seed",
+				submission(owner, {
 					target: { kind: "create" },
 					relationships: [
 						{
@@ -378,7 +373,7 @@ describe("EntityEditorService", () => {
 						},
 					],
 				}),
-			});
+			);
 			assert(created.output.kind === "saved");
 			const session = yield* DatabaseSession;
 			const sourceId = created.output.entityId;
@@ -386,11 +381,10 @@ describe("EntityEditorService", () => {
 				db.select().from(tables.entity).where(eq(tables.entity.id, sourceId)),
 			);
 			assert(stored);
-			const updated = yield* editor.save({
-				owner,
-				userId,
-				lifecycle: commandFor("diff-update"),
-				submission: submission(owner, {
+			const updated = yield* submitEdit(
+				editor,
+				"diff-update",
+				submission(owner, {
 					name: "Renamed",
 					properties: { code: "c", title: "Renamed" },
 					relationships: [
@@ -409,7 +403,7 @@ describe("EntityEditorService", () => {
 						}),
 					},
 				}),
-			});
+			);
 			expect(updated.output).toEqual({ kind: "saved", entityId: sourceId });
 			const state = yield* tablesState;
 			expect(state.entityRows.find(({ id }) => id === sourceId)?.name).toBe("Renamed");
@@ -432,18 +426,17 @@ describe("EntityEditorService", () => {
 			const entity = yield* insert("stale-item", item, userId, "Stale");
 			assert(entity);
 			const editor = yield* makeEditor();
-			const result = yield* editor.save({
-				owner,
-				userId,
-				lifecycle: commandFor("stale-update"),
-				submission: submission(owner, {
+			const result = yield* submitEdit(
+				editor,
+				"stale-update",
+				submission(owner, {
 					target: {
 						kind: "update",
 						entityId: entity.id,
 						expected: { name: "Old", properties: { code: "c" }, updatedAt: entity.updatedAt },
 					},
 				}),
-			});
+			);
 			expect(result.output).toEqual({ kind: "stale" });
 			expect((yield* tablesState).editorReceipts).toHaveLength(0);
 		}),
@@ -457,15 +450,14 @@ describe("EntityEditorService", () => {
 			assert(entity);
 			const editor = yield* makeEditor();
 			const update = (id: string, properties: Record<string, unknown>) =>
-				editor.save({
-					owner,
-					userId,
-					lifecycle: commandFor(id),
-					submission: submission(owner, {
+				submitEdit(
+					editor,
+					id,
+					submission(owner, {
 						properties,
 						target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
 					}),
-				});
+				);
 			for (const [id, properties] of [
 				["immutable-changed", { title: "x", code: "other" }],
 				["immutable-omitted", { title: "x" }],
@@ -486,8 +478,7 @@ describe("EntityEditorService", () => {
 		Effect.gen(function* () {
 			const { owner } = yield* setup();
 			const editor = yield* makeEditor();
-			const run = (id: string, input: EntityEditorSubmission) =>
-				editor.save({ owner, userId, submission: input, lifecycle: commandFor(id) });
+			const run = (id: string, input: EntityEditorSubmission) => submitEdit(editor, id, input);
 			for (const slug of ["nope", "part"]) {
 				const result = yield* run(
 					`schema-${slug}`,
@@ -537,14 +528,11 @@ describe("EntityEditorService", () => {
 			assert(global && wrongSchema && foreign);
 			const editor = yield* makeEditor();
 			const run = (id: string, entityId: EntityId, expected: ReturnType<typeof expectedOf>) =>
-				editor
-					.save({
-						owner,
-						userId,
-						lifecycle: commandFor(id),
-						submission: submission(owner, { target: { entityId, expected, kind: "update" } }),
-					})
-					.pipe(Effect.flip);
+				submitEdit(
+					editor,
+					id,
+					submission(owner, { target: { entityId, expected, kind: "update" } }),
+				).pipe(Effect.flip);
 			for (const entity of [global, wrongSchema]) {
 				const error = yield* run(`refused-${entity.id}`, entity.id, expectedOf(entity));
 				expect(error).toMatchObject({ _tag: "EntityNotFound" });
@@ -567,8 +555,7 @@ describe("EntityEditorService", () => {
 		Effect.gen(function* () {
 			const { owner, insert } = yield* setup();
 			const editor = yield* makeEditor();
-			const run = (id: string, input: EntityEditorSubmission) =>
-				editor.save({ owner, userId, submission: input, lifecycle: commandFor(id) });
+			const run = (id: string, input: EntityEditorSubmission) => submitEdit(editor, id, input);
 			const many = Array.from({ length: 201 }, (_, index) => target(`cap-${index}`));
 			const overCap = yield* run(
 				"over-cap",
@@ -669,15 +656,14 @@ describe("EntityEditorService", () => {
 				]),
 			);
 			const editor = yield* makeEditor();
-			const result = yield* editor.save({
-				owner,
-				userId,
-				lifecycle: commandFor("incoming"),
-				submission: submission(owner, {
+			const result = yield* submitEdit(
+				editor,
+				"incoming",
+				submission(owner, {
 					relationships: [{ targets: [], relationshipSchemaSlug: "item-link" }],
 					target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
 				}),
-			});
+			);
 			expect(result.output.kind).toBe("saved");
 			const links = (yield* tablesState).relationshipRows.map(
 				({ sourceEntityId, targetEntityId, relationshipSchemaSlug }) =>
@@ -725,22 +711,18 @@ describe("EntityEditorService", () => {
 				target: { kind: "create" },
 				relationships: [{ targets: [target("atomic-part")], relationshipSchemaSlug: "item-part" }],
 			});
-			expect(
-				yield* failing
-					.save({ owner, userId, submission: create, lifecycle: commandFor("atomic-create") })
-					.pipe(Effect.flip),
-			).toMatchObject({ message: "injected create failure" });
+			expect(yield* submitEdit(failing, "atomic-create", create).pipe(Effect.flip)).toMatchObject({
+				message: "injected create failure",
+			});
 			const update = submission(owner, {
 				name: "After",
 				properties: { code: "c", title: "After" },
 				target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
 				relationships: [{ targets: [target("atomic-part")], relationshipSchemaSlug: "item-part" }],
 			});
-			expect(
-				yield* failing
-					.save({ owner, userId, submission: update, lifecycle: commandFor("atomic-update") })
-					.pipe(Effect.flip),
-			).toMatchObject({ message: expect.stringContaining("injected") });
+			expect(yield* submitEdit(failing, "atomic-update", update).pipe(Effect.flip)).toMatchObject({
+				message: expect.stringContaining("injected"),
+			});
 			const after = yield* tablesState;
 			expect(after.entityRows).toEqual(before.entityRows);
 			expect(after.relationshipRows).toEqual(before.relationshipRows);
@@ -781,17 +763,16 @@ describe("EntityEditorService", () => {
 				},
 			});
 			const before = yield* tablesState;
-			const result = yield* editor.save({
-				owner,
-				userId,
-				lifecycle: commandFor("drift"),
-				submission: submission(owner, {
+			const result = yield* submitEdit(
+				editor,
+				"drift",
+				submission(owner, {
 					name: "Drifted",
 					properties: { code: "c", title: "Drifted" },
 					relationships: [{ targets: [], relationshipSchemaSlug: "item-part" }],
 					target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
 				}),
-			});
+			);
 			expect(result.output).toEqual({ kind: "stale" });
 			const after = yield* tablesState;
 			expect(after.entityRows).toEqual(before.entityRows);
@@ -819,19 +800,16 @@ describe("EntityEditorService", () => {
 						),
 				},
 			});
-			const command = commandFor("crash-replay");
 			const input = submission(owner, {
 				target: { kind: "create" },
 				relationships: [{ targets: [target("crash-part")], relationshipSchemaSlug: "item-part" }],
 			});
-			expect(
-				yield* editor
-					.save({ owner, userId, submission: input, lifecycle: command })
-					.pipe(Effect.flip),
-			).toMatchObject({ message: "crashed" });
+			expect(yield* submitEdit(editor, "crash-replay", input).pipe(Effect.flip)).toMatchObject({
+				message: "crashed",
+			});
 			const committed = yield* tablesState;
 			expect(committed.editorReceipts).toHaveLength(1);
-			const replay = yield* editor.save({ owner, userId, submission: input, lifecycle: command });
+			const replay = yield* submitEdit(editor, "crash-replay", input);
 			expect(replay.output.kind).toBe("saved");
 			const calls = yield* log.calls;
 			expect(calls).toHaveLength(2);
@@ -862,17 +840,16 @@ describe("EntityEditorService", () => {
 						),
 				},
 			});
-			yield* editor.save({
-				owner,
-				userId,
-				lifecycle: commandFor("context"),
-				submission: submission(owner, {
+			yield* submitEdit(
+				editor,
+				"context",
+				submission(owner, {
 					target: { kind: "create" },
 					relationships: [
 						{ targets: [target("context-part")], relationshipSchemaSlug: "item-part" },
 					],
 				}),
-			});
+			);
 			const commands = yield* Ref.get(seen);
 			expect(commands).toHaveLength(2);
 			for (const command of commands) {
@@ -890,17 +867,16 @@ describe("EntityEditorService", () => {
 			const { owner, insert } = yield* setup();
 			yield* insert("hidden-part", part, otherUser);
 			const editor = yield* makeEditor();
-			const result = yield* editor.save({
-				owner,
-				userId,
-				lifecycle: commandFor("hidden-target"),
-				submission: submission(owner, {
+			const result = yield* submitEdit(
+				editor,
+				"hidden-target",
+				submission(owner, {
 					target: { kind: "create" },
 					relationships: [
 						{ targets: [target("hidden-part")], relationshipSchemaSlug: "item-part" },
 					],
 				}),
-			});
+			);
 			expect(result.output).toMatchObject({ kind: "invalid" });
 			expect((yield* tablesState).entityRows.filter(({ name }) => name === "Item")).toEqual([]);
 		}),
@@ -912,17 +888,16 @@ describe("EntityEditorService", () => {
 			const { owner, insert } = yield* setup();
 			yield* insert("wrong-target", item, userId);
 			const editor = yield* makeEditor();
-			const result = yield* editor.save({
-				owner,
-				userId,
-				lifecycle: commandFor("wrong-target"),
-				submission: submission(owner, {
+			const result = yield* submitEdit(
+				editor,
+				"wrong-target",
+				submission(owner, {
 					target: { kind: "create" },
 					relationships: [
 						{ targets: [target("wrong-target")], relationshipSchemaSlug: "item-part" },
 					],
 				}),
-			});
+			);
 			expect(result.output).toMatchObject({ kind: "invalid" });
 		}),
 	);
@@ -946,14 +921,13 @@ describe("EntityEditorService", () => {
 				},
 			});
 			const before = yield* tablesState;
-			const result = yield* editor.save({
-				owner,
-				userId,
-				lifecycle: commandFor("policy-immutable"),
-				submission: submission(owner, {
+			const result = yield* submitEdit(
+				editor,
+				"policy-immutable",
+				submission(owner, {
 					target: { kind: "update", entityId: entity.id, expected: expectedOf(entity) },
 				}),
-			});
+			);
 			expect(result.output).toEqual({
 				kind: "invalid",
 				message: "code cannot be changed after creation",
@@ -971,22 +945,10 @@ describe("EntityEditorService", () => {
 			const editor = yield* makeEditor();
 			const foreignOwner = PluginId.make(foreign.pluginId);
 			const run = (id: string, pluginId: PluginId) =>
-				editor.save({
-					userId,
-					owner: pluginId,
-					lifecycle: commandFor(id),
-					submission: submission(pluginId, { target: { kind: "create" } }),
-				});
+				submitEdit(editor, id, submission(pluginId, { target: { kind: "create" } }));
 			expect((yield* run("foreign-private", foreignOwner)).output).toMatchObject({
 				kind: "invalid",
 			});
-			const mismatched = yield* editor.save({
-				owner,
-				userId,
-				lifecycle: commandFor("owner-mismatch"),
-				submission: submission(foreignOwner, { target: { kind: "create" } }),
-			});
-			expect(mismatched.output).toMatchObject({ kind: "invalid" });
 
 			const installation = and(
 				eq(tables.pluginInstallation.userId, userId),
@@ -1033,15 +995,14 @@ describe("EntityEditorService", () => {
 					entitySchemaPluginId: installed.pluginId,
 				},
 			]);
-			const late = yield* uninstalling.save({
-				owner,
-				userId,
-				lifecycle: commandFor("late-unavailable"),
-				submission: submission(owner, {
+			const late = yield* submitEdit(
+				uninstalling,
+				"late-unavailable",
+				submission(owner, {
 					target: { kind: "create" },
 					relationships: [{ targets: [target("late-part")], relationshipSchemaSlug: "item-part" }],
 				}),
-			});
+			);
 			expect(late.output).toMatchObject({ kind: "invalid" });
 			const state = yield* tablesState;
 			expect(state.entityRows.filter(({ name }) => name === "Item")).toEqual([]);
@@ -1174,15 +1135,14 @@ describe("EntityEditorService", () => {
 			]);
 			const editor = yield* makeEditor();
 			const save = (id: string, relationshipSchemaSlug: string) =>
-				editor.save({
-					owner,
-					userId,
-					lifecycle: commandFor(id),
-					submission: submission(owner, {
+				submitEdit(
+					editor,
+					id,
+					submission(owner, {
 						target: { kind: "create" },
 						relationships: [{ relationshipSchemaSlug, targets: [target("catalog-part")] }],
 					}),
-				});
+				);
 			expect((yield* save("catalog-declared", "item-part")).output).toMatchObject({
 				kind: "saved",
 			});
