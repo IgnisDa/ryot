@@ -47,6 +47,7 @@ const triggerLayer = (
 	scope: "system" | "user",
 	options: {
 		readonly unavailable?: boolean;
+		readonly globalEntity?: boolean;
 		readonly systemSubject?: boolean;
 		readonly enqueueFails?: boolean;
 	} = {},
@@ -136,8 +137,8 @@ const triggerLayer = (
 				providerId: provider.id,
 				entityId: EntityId.make("entity-1"),
 				entitySchemaPluginId: installed.pluginId,
-				userId: options.systemSubject ? null : userId,
 				entitySchemaSlug: EntitySchemaSlug.make("record"),
+				userId: options.systemSubject || options.globalEntity ? null : userId,
 			};
 			const executions = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
 			const engine = makeWorkflowEngine({
@@ -186,6 +187,24 @@ layer(triggerLayer("system"))((test) => {
 			expect(execution?.payload).toMatchObject({
 				entityScope: { userId, type: "global" },
 				pluginId: fixture.request.entitySchemaPluginId,
+				command: {
+					writeContext: {
+						pluginRevision: { scope: "system", id: fixture.request.entitySchemaPluginId },
+					},
+				},
+			});
+		}),
+	);
+});
+
+layer(triggerLayer("system", { globalEntity: true }))((test) => {
+	test.effect("populates a global entity as the interested user", () =>
+		Effect.gen(function* () {
+			const fixture = yield* PopulationFixture;
+			yield* (yield* EntityPopulationTrigger).request(fixture.request);
+			const [execution] = yield* fixture.executions;
+			expect(execution?.payload).toMatchObject({
+				entityScope: { userId: null, type: "global" },
 				command: {
 					writeContext: {
 						pluginRevision: { scope: "system", id: fixture.request.entitySchemaPluginId },

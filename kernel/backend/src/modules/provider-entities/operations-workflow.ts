@@ -22,6 +22,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
+import { preRegisterProviderDetails } from "./details-principal";
 import { makeProviderExecutionReads } from "./execution-reads";
 import type { EntityImportPayload, ProviderEntityImportWorkflowPayload } from "./schemas";
 
@@ -50,6 +51,15 @@ type EntityImportWorkflowOperationsValue = {
 		importedEntity: ListedEntity,
 		executionId: string,
 	) => Effect.Effect<void, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	preRegisterProviderImport: (
+		input: {
+			readonly userId: UserId;
+			readonly pluginId: string;
+			readonly providerId: SandboxProviderId;
+			readonly accountGeneration: AccountGeneration | null;
+		},
+		executionId: string,
+	) => Effect.Effect<SandboxExecutionPrincipal, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 };
 
 /** @effect-expect-leaking WorkflowEngine | WorkflowInstance */
@@ -287,7 +297,29 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 				return yield* Effect.void;
 			});
 
+		const preRegisterProviderImport: EntityImportWorkflowOperationsValue["preRegisterProviderImport"] =
+			(input, executionId) =>
+				makeActivity({
+					error: SandboxRunError,
+					success: SandboxExecutionPrincipal,
+					name: `pre-register-provider-import-${executionId}`,
+					execute: Effect.gen(function* () {
+						if (input.accountGeneration === null) {
+							return yield* new SandboxRunError({
+								kind: "invalid-input",
+								message: "Provider account generation is missing",
+							});
+						}
+						const pin = yield* preRegisterProviderDetails(
+							{ sandbox, pluginRuntime },
+							{ ...input, executionId, accountGeneration: input.accountGeneration },
+						);
+						return pin.principal;
+					}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
+				});
+
 		return {
+			preRegisterProviderImport,
 			completeProviderEntityImport,
 			processSandbox: processSandboxEntityDetails,
 			processProviderResolve: processSandboxProviderResolve,
