@@ -13,6 +13,7 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	SandboxExecutionAuthority,
+	isUserBootstrapPrincipal,
 	SandboxExecutionPrincipal,
 	sandboxSubjectUserId,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
@@ -260,7 +261,8 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 					return lock ? query.for("share") : query;
 				});
 				if (
-					account?.disabledAt !== null ||
+					!account ||
+					(account.disabledAt !== null && !isUserBootstrapPrincipal(principal)) ||
 					principal.subject.type === "system" ||
 					account.token !== principal.subject.accountGeneration?.token
 				) {

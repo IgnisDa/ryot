@@ -119,6 +119,10 @@ export const SandboxExecutionPrincipal = Schema.Struct({
 
 export type SandboxExecutionPrincipal = Schema.Schema.Type<typeof SandboxExecutionPrincipal>;
 
+export const isUserBootstrapPrincipal = (principal: SandboxExecutionPrincipal) =>
+	principal.metadata.kind === "script" &&
+	principal.pluginRevision?.userBootstrapScriptSlugs.includes(principal.scriptSlug) === true;
+
 export class SandboxExecutionAuthority extends Context.Service<
 	SandboxExecutionAuthority,
 	{
