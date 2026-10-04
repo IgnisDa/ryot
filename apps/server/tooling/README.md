@@ -10,10 +10,9 @@ hashes, compiles the client runtime and kernel renderers, and writes `plugins/cl
 It also copies the canonical native executable, launcher, and snapshots to `sandboxd/`.
 Run it with `bun run assemble` from `apps/server`; its output matches the `/home/ryot` image layout.
 
-`prepare-sandbox-runtime.ts` is bundled into `dist/prepare-sandbox-runtime.js`. During image creation it
-loads the precompiled fixtures and executes real definitions through the supervisor and host-call
+`prepare-sandbox-runtime.ts` is bundled into `dist/prepare-sandbox-runtime.js`. CI runs it in the
+built release image with no network. It loads the precompiled fixtures and executes real definitions through the supervisor and host-call
 gate on all six trust × snapshot keys. It verifies alias identity and mediated host calls without
 loading compiler workers. Linux uses the root-owned installation and separate sidecar UID; macOS
-reports unconfined development. The image
-runs this entrypoint before setting `NODE_ENV=production`. `apps/server/dev.ts` coordinates local
+reports unconfined development. `apps/server/dev.ts` coordinates local
 rebuilds and server restarts.
