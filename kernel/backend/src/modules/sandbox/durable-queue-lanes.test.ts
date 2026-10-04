@@ -50,7 +50,7 @@ const LaneWorkflow = Workflow.make("DurableQueueLaneWorkflow", {
 	payload: { lane: ExecutionLane, executionId: Schema.String },
 });
 
-const laneWorkflow = implementWorkflow(LaneWorkflow, ({ lane, executionId }) =>
+const queueWorkflowLive = implementWorkflow(LaneWorkflow, ({ lane, executionId }) =>
 	processSandboxExecutionQueue({
 		lane,
 		context: {},
@@ -121,7 +121,7 @@ const artifactLayer = Layer.effect(SandboxCompiledArtifacts, SandboxCompiledArti
 );
 
 const queueLayer = Layer.mergeAll(
-	laneWorkflow,
+	queueWorkflowLive,
 	artifactLayer,
 	Layer.succeed(SandboxDurableHostDispatcher, {
 		cancelInline: () => Effect.void,
@@ -140,8 +140,7 @@ const queueLayer = Layer.mergeAll(
 					prefix,
 					pollInterval: "10 millis",
 					flowOf: sandboxSchedulingKey,
-					lanes: ["interactive", "background"],
-					capacity: sandboxLaneCapacity(2, ["interactive", "background"]),
+					capacity: sandboxLaneCapacity(2),
 				}),
 			),
 		),
@@ -207,15 +206,7 @@ layer(queueLayer, { excludeTestServices: true })((test) => {
 	);
 });
 
-it("gives a process serving one lane the whole worker capacity", () => {
-	expect(sandboxLaneCapacity(4, ["interactive", "background"])).toEqual({
-		total: 4,
-		background: 2,
-	});
-	expect(sandboxLaneCapacity(1, ["interactive", "background"])).toEqual({
-		total: 1,
-		background: 1,
-	});
-	expect(sandboxLaneCapacity(4, ["background"])).toEqual({ total: 4, background: 4 });
-	expect(sandboxLaneCapacity(4, ["interactive"])).toEqual({ total: 4, background: 4 });
+it("reserves half the workers for background work, at least one", () => {
+	expect(sandboxLaneCapacity(4)).toEqual({ total: 4, background: 2 });
+	expect(sandboxLaneCapacity(1)).toEqual({ total: 1, background: 1 });
 });

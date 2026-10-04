@@ -1,8 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type {
-	AutomationWarning,
-	ExecutionLane,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Context, Duration, Effect, Layer, Option, Schedule, Schema } from "effect";
 import { DurableClock, DurableDeferred } from "effect/workflow";
@@ -34,10 +31,7 @@ export const AUTOMATION_IMMEDIATE_CONCURRENCY = 8;
 
 export type AutomationDispatchState = "claimed" | "closed" | "fresh";
 
-export type AutomationDispatch = {
-	readonly lane: ExecutionLane;
-	readonly state: AutomationDispatchState;
-};
+export type AutomationDispatch = { readonly state: AutomationDispatchState };
 
 const dispatchStateOf = (
 	row: { readonly attemptCount: number; readonly status: string } | undefined,
@@ -82,7 +76,7 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 						return new Map(
 							runIds.map((runId): [AutomationRunId, AutomationDispatch] => {
 								const row = rowsById.get(runId);
-								return [runId, { state: dispatchStateOf(row), lane: row?.lane ?? "background" }];
+								return [runId, { state: dispatchStateOf(row) }];
 							}),
 						);
 					}),
@@ -109,7 +103,7 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 					payload.runId,
 					payload.attemptNumber,
 				).workflowExecutionId;
-				const { lane, account } = yield* session
+				const account = yield* session
 					.transaction(
 						Effect.gen(function* () {
 							const run = yield* runs.findById(payload.runId);
@@ -118,13 +112,13 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 								return yield* new DbError({ message: "Automation run is unavailable" });
 							}
 							if (run.executionUserId === null) {
-								return { account: null, lane: dispatch.lane };
+								return null;
 							}
 							const currentAccount = yield* receipts.currentAccount(run.executionUserId);
 							if (!(yield* runs.findById(payload.runId))) {
 								return yield* new DbError({ message: "Automation run is unavailable" });
 							}
-							return { lane: dispatch.lane, account: currentAccount };
+							return currentAccount;
 						}),
 					)
 					.pipe(
@@ -136,7 +130,7 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 				return yield* dispatchAdmittedWorkflow(
 					receipts,
 					engine,
-					AutomationRunWorkflow.forLane(lane),
+					AutomationRunWorkflow,
 					account,
 					{ payload, executionId, discard: true },
 					(admission) =>
@@ -172,11 +166,7 @@ const requireWorkflowBody = (operation: string) =>
 
 const OUTSIDE_WORKFLOW_RECHECK = Duration.millis(50);
 
-type RequiredRun = {
-	readonly awaited: boolean;
-	readonly lane: ExecutionLane;
-	readonly payload: AutomationRunWorkflowPayload;
-};
+type RequiredRun = { readonly awaited: boolean; readonly payload: AutomationRunWorkflowPayload };
 
 export const LifecycleExecutionLive = Layer.effect(
 	LifecycleExecution,
@@ -215,10 +205,7 @@ export const LifecycleExecutionLive = Layer.effect(
 			return yield* Effect.forEach(
 				payloads,
 				(payload) => {
-					const { lane, state } = states.get(payload.runId) ?? {
-						state: "closed",
-						lane: "background",
-					};
+					const { state } = states.get(payload.runId) ?? { state: "closed" };
 					const awaited =
 						state === "fresh"
 							? operations.submit(payload).pipe(
@@ -229,7 +216,7 @@ export const LifecycleExecutionLive = Layer.effect(
 									),
 								)
 							: Effect.succeed(state === "claimed");
-					return Effect.map(awaited, (value) => ({ lane, awaited: value }));
+					return Effect.map(awaited, (value) => ({ awaited: value }));
 				},
 				{ concurrency: AUTOMATION_IMMEDIATE_CONCURRENCY },
 			);
@@ -259,9 +246,9 @@ export const LifecycleExecutionLive = Layer.effect(
 				effects: [
 					Effect.forEach(
 						required.filter(({ awaited }) => awaited),
-						({ lane, payload }) =>
+						({ payload }) =>
 							engine
-								.execute(AutomationRunWorkflow.forLane(lane), {
+								.execute(AutomationRunWorkflow, {
 									payload,
 									executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
 										.workflowExecutionId,

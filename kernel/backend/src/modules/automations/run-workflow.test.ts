@@ -227,10 +227,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 
 const execute = (executionId: string = identity.workflowExecutionId) =>
 	Effect.suspend(() => {
-		const instance = WorkflowInstance.initial(
-			AutomationRunWorkflow.background,
-			identity.workflowExecutionId,
-		);
+		const instance = WorkflowInstance.initial(AutomationRunWorkflow, identity.workflowExecutionId);
 		return runAutomationRunWorkflow(payload, executionId).pipe(
 			Effect.provideService(WorkflowInstance, instance),
 			Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),

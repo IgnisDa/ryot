@@ -129,7 +129,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				yield* dispatchAdmittedWorkflow(
 					receipts,
 					engine,
-					SandboxScriptWorkflow.forLane(lane),
+					SandboxScriptWorkflow,
 					resolvedPayload.subject.type === "system"
 						? null
 						: resolvedPayload.subject.accountGeneration,
@@ -152,7 +152,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 
 				return {
 					executionId,
-					jobId: createWorkflowJobId(jobIdSecret, { lane, executionId }, executingUserId),
+					jobId: createWorkflowJobId(jobIdSecret, { executionId }, executingUserId),
 				};
 			});
 
@@ -171,9 +171,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				}
 
 				return toSandboxRunResult(
-					Option.getOrUndefined(
-						yield* engine.poll(SandboxScriptWorkflow.forLane(job.lane), job.executionId),
-					),
+					Option.getOrUndefined(yield* engine.poll(SandboxScriptWorkflow, job.executionId)),
 				);
 			});
 
@@ -235,7 +233,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					return yield* dispatchAdmittedWorkflow(
 						receipts,
 						engine,
-						SandboxScriptWorkflow.forLane(input.lane),
+						SandboxScriptWorkflow,
 						input.subject.type === "system" ? null : input.subject.accountGeneration,
 						{
 							executionId: input.executionId,
@@ -387,7 +385,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					yield* dispatchAdmittedWorkflow(
 						receipts,
 						engine,
-						SandboxScriptWorkflow.forLane(input.lane),
+						SandboxScriptWorkflow,
 						input.accountGeneration,
 						{
 							discard: true,
@@ -418,9 +416,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 			const getPluginWorkflowResult = Effect.fn("SandboxExecutionService.getPluginWorkflowResult")(
 				function* (executionId: string) {
 					return toPluginWorkflowResult(
-						Option.getOrUndefined(
-							yield* engine.poll(SandboxScriptWorkflow.background, executionId),
-						),
+						Option.getOrUndefined(yield* engine.poll(SandboxScriptWorkflow, executionId)),
 					);
 				},
 			);

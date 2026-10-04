@@ -24,7 +24,6 @@ import {
 import { createStream, type RotatingFileStream } from "rotating-file-stream";
 
 import { AppConfig, type AppConfigValue, parseOtlpHeaders } from "./config/service";
-import { roleLogPath, type ServerRole, serverRole } from "./server-role";
 
 const stdoutLogfmtLogger = Logger.formatLogFmt.pipe(
 	Logger.map((line) => globalThis.console.log(line)),
@@ -104,12 +103,12 @@ const writeToRotatingStream = (logFile: string, stream: RotatingFileStream, line
 		});
 	});
 
-const makeRotatingFileLogger = (config: AppConfigValue, role: ServerRole) =>
+const makeRotatingFileLogger = (config: AppConfigValue) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
 		const file = config.observability.logging.file;
-		const logFile = roleLogPath(path, file.path, role);
+		const logFile = file.path;
 		const logDirectory = path.dirname(logFile);
 		yield* fs.makeDirectory(logDirectory, { recursive: true });
 		const stream = yield* Effect.acquireRelease(
@@ -122,13 +121,13 @@ const makeRotatingFileLogger = (config: AppConfigValue, role: ServerRole) =>
 		});
 	});
 
-const makeLoggerLayer = (config: AppConfigValue, role: ServerRole) => {
+const makeLoggerLayer = (config: AppConfigValue) => {
 	const level = config.observability.logging.level;
 	const stdoutLogger =
 		config.nodeEnv === "production" ? stdoutLogfmtLogger : Logger.consolePretty();
 	return Logger.layer([
 		filterLogger(stdoutLogger, "Info"),
-		Effect.map(makeRotatingFileLogger(config, role), (logger) => filterLogger(logger, level)),
+		Effect.map(makeRotatingFileLogger(config), (logger) => filterLogger(logger, level)),
 	]);
 };
 
@@ -185,7 +184,7 @@ const otlpHeaders = (headers: Option.Option<Redacted.Redacted>) =>
 		onSome: (value) => Result.getOrUndefined(parseOtlpHeaders(Redacted.value(value))),
 	});
 
-const makeOtlpLayer = (config: AppConfigValue, role: ServerRole) => {
+const makeOtlpLayer = (config: AppConfigValue) => {
 	const { otlp, logging } = config.observability;
 	const inner = Option.match(otlp.endpoint, {
 		onNone: () => Layer.empty,
@@ -194,7 +193,7 @@ const makeOtlpLayer = (config: AppConfigValue, role: ServerRole) => {
 			const headers = otlpHeaders(otlp.headers);
 			const resource = {
 				serviceName: "ryot-backend",
-				attributes: { "ryot.server.role": role, "deployment.environment": config.nodeEnv },
+				attributes: { "deployment.environment": config.nodeEnv },
 			};
 			const logs = Logger.layer(
 				[
@@ -240,15 +239,14 @@ const makeOtlpLayer = (config: AppConfigValue, role: ServerRole) => {
 export const ObservabilityLive = Layer.unwrap(
 	Effect.gen(function* () {
 		const config = yield* AppConfig;
-		const role = yield* serverRole(config.server);
-		const logger = makeLoggerLayer(config, role);
+		const logger = makeLoggerLayer(config);
 		const logLevel = config.observability.logging.level;
 		const runtimeMinimum = LogLevel.isLessThanOrEqualTo(logLevel, "Info") ? logLevel : "Info";
 		const logging = Layer.mergeAll(
 			Layer.succeed(References.MinimumLogLevel, runtimeMinimum),
 			logger,
 		);
-		const otlp = makeOtlpLayer(config, role).pipe(Layer.provide(logging));
+		const otlp = makeOtlpLayer(config).pipe(Layer.provide(logging));
 		return Layer.mergeAll(logging, otlp);
 	}),
 );

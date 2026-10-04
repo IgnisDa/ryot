@@ -31,8 +31,6 @@ export type FairQueueOptions = {
 	readonly lockRefreshInterval?: Duration.Input;
 	/** Per-process limits: `total` runs at once, of which at most `background` are background. */
 	readonly capacity: { readonly total: number; readonly background: number };
-	/** Lanes this process serves; items of any other lane are left for another process. */
-	readonly lanes: ReadonlyArray<ExecutionLane>;
 	readonly flowOf: (element: unknown) => Effect.Effect<FairQueueFlow, Schema.SchemaError>;
 };
 
@@ -452,9 +450,6 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 			: [interactive, background];
 	};
 
-	const allowedLanes = (state: QueueState) =>
-		orderedLanes(state).filter((lane) => options.lanes.includes(lane));
-
 	const handOff = (name: string, state: QueueState, taken: Taken) => {
 		const taker = state.takers.shift();
 		if (taker === undefined) {
@@ -475,7 +470,7 @@ export const makeFairQueueStore = Effect.fnUntraced(function* (options: FairQueu
 	const dispatchOnce = Effect.fnUntraced(function* (name: string, state: QueueState) {
 		const keys = fairQueueKeys(options.prefix, name);
 		state.kick.closeUnsafe();
-		const lanes = allowedLanes(state);
+		const lanes = orderedLanes(state);
 		if (lanes.length === 0) {
 			yield* state.kick.await;
 			return;

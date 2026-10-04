@@ -160,7 +160,7 @@ const completedServiceLayer = EventsService.layer.pipe(
 			WorkflowEngine,
 			makeWorkflowEngine({
 				poll: (workflow, executionId) =>
-					workflow._tag === EventCreateWorkflow.interactive._tag && executionId === "http-request"
+					workflow._tag === EventCreateWorkflow._tag && executionId === "http-request"
 						? Effect.succeedSome(new Workflow.Complete({ exit: Exit.succeed(result) }))
 						: Effect.succeedNone,
 			}),
@@ -169,11 +169,11 @@ const completedServiceLayer = EventsService.layer.pipe(
 );
 
 layer(completedServiceLayer)((test) => {
-	test.effect("reads an interactive operation from the interactive event workflow", () =>
+	test.effect("reads a completed operation from the event workflow", () =>
 		Effect.gen(function* () {
 			const operationId = createWorkflowJobId(
 				deriveJobIdSecret("test-admin-token", "events-operation-id"),
-				{ lane: "interactive", executionId: "http-request:1" },
+				{ itemCount: 1, executionId: "http-request" },
 				userId,
 			);
 			expect(yield* (yield* EventsService).getCreateOperation(userId, operationId)).toEqual({

@@ -10,12 +10,10 @@ import {
 	type LatencyTrialRecord,
 	type MetricSnapshot,
 	percentile,
-	type RoleMetrics,
 } from "../../../e2e/s3-benchmark-records";
 
 const E2_RATIOS = { search: 1.25, details: 1.6 } as const;
 const INVARIANT_KEYS = [
-	"SERVER_LANES",
 	"SERVER_LOG_LEVEL",
 	"DATABASE_POOL_MAX",
 	"SANDBOX_WORKER_CONCURRENCY",
@@ -111,8 +109,8 @@ const metricDelta = (snapshots: ReadonlyArray<MetricSnapshot>, name: string) => 
 	});
 };
 
-const maxGauge = (roleMetrics: RoleMetrics, name: string) => {
-	const values = Object.values(roleMetrics).flatMap((snapshots) => snapshots).flatMap(({ metrics }) =>
+const maxGauge = (snapshots: ReadonlyArray<MetricSnapshot>, name: string) => {
+	const values = snapshots.flatMap(({ metrics }) =>
 		(metrics[name] ?? []).flatMap(({ value }) => (value === null ? [] : [value])),
 	);
 	return values.length === 0 ? null : Math.max(...values);
@@ -144,11 +142,10 @@ const histogramSummary = (histogram: Histogram) => ({
 	p95UpperBoundMs: histogram.count === 0 ? null : histogramQuantile(histogram, 95),
 });
 
-// Each role exports its own cumulative stream, so deltas are taken per role and then summed.
-const pooledMetric = (records: ReadonlyArray<{ metrics: RoleMetrics }>, name: string) =>
-	records.flatMap((record) =>
-		Object.values(record.metrics).map((snapshots) => metricDelta(snapshots, name)),
-	);
+const pooledMetric = (
+	records: ReadonlyArray<{ metrics: ReadonlyArray<MetricSnapshot> }>,
+	name: string,
+) => records.map((record) => metricDelta(record.metrics, name));
 
 const byLane = (windows: ReadonlyArray<ReadonlyArray<SeriesWindow>>) =>
 	Object.fromEntries(
@@ -284,15 +281,13 @@ const decodeFile = <A>(
 	}
 };
 
-const metricsErrors = (label: string, metrics: RoleMetrics) => {
-	const roles = Object.entries(metrics);
-	return roles.length === 0
-		? [`${label}: no OTel metrics window was recorded`]
-		: roles.flatMap(([role, snapshots]) =>
-				snapshots.length < 2
-					? [`${label}: the ${role} role's OTel metrics window has fewer than two snapshots`]
-					: [],
-			);
+const metricsErrors = (label: string, metrics: ReadonlyArray<MetricSnapshot>) => {
+	if (metrics.length === 0) {
+		return [`${label}: no OTel metrics window was recorded`];
+	}
+	return metrics.length < 2
+		? [`${label}: the OTel metrics window has fewer than two snapshots`]
+		: [];
 };
 
 const equalJson = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
@@ -486,7 +481,6 @@ export const summarize = (directory: string, overrides: Partial<Options> = {}) =
 		verdict,
 		errors,
 		options,
-		topology: reference?.configuration["SERVER_LANES"] ?? "all",
 		e2: { limits: E2_RATIOS, pass: e2Pass, endpoints: endpointReport },
 		percentileDefinition: "nearest-rank",
 		perPair,
@@ -531,8 +525,6 @@ const renderMarkdown = (summary: Summary) => {
 	}
 	lines.push(
 		"## E2 (pooled p95, loaded versus unloaded)",
-		"",
-		`Topology: SERVER_LANES=${summary.topology}.`,
 		"",
 		"| Endpoint | Unloaded n | Unloaded p50 ms | Unloaded p95 ms | Loaded n | Loaded p50 ms | Loaded p95 ms | Ratio | Limit | Result |",
 		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",

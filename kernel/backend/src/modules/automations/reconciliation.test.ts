@@ -126,7 +126,7 @@ layer(liveSubmissionLayer)((test) => {
 				};
 				expect(yield* (yield* ReconciliationCalls).reads).toEqual([read, read]);
 				const expected = [
-					{ ...candidate("missed"), workflowName: "AutomationRunWorkflowInteractive" },
+					{ ...candidate("missed"), workflowName: "AutomationRunWorkflow" },
 					{ ...candidate("retry", 3), workflowName: "AutomationRunWorkflow" },
 				].map(({ workflowName, ...run }) => ({
 					workflowName,
