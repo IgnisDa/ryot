@@ -6,6 +6,7 @@ import type { ImportSourceItem } from "#/modules/imports/service";
 import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
 
 import { ingestionReadinessRequirement } from "./readiness-presentation";
+import { importRunSourceKey } from "./run-presentation";
 
 export type ImportWizardSource = Pick<
 	ImportSourceItem,
@@ -53,7 +54,9 @@ export const importSourceChooseLabel = (entry: CatalogEntry) =>
 	entry.isAvailable ? `Import from ${entry.name}` : `${entry.name} is unavailable`;
 
 export const importSourceNames = (sources: readonly ImportSourceItem[]) =>
-	new Map(sources.map((source) => [importSourceKey(source), source.name]));
+	new Map(
+		sources.map((source) => [importRunSourceKey(source.installationId, source.slug), source.name]),
+	);
 
 export const importSourceKey = (source: Pick<ImportSourceItem, "reference">) =>
 	definitionKey("import-source", source.reference.owner, source.reference.slug);

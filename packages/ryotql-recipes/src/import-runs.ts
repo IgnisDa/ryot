@@ -28,6 +28,10 @@ const runSelection = (source: typeof importRun) => ({
 	createdAt: selectedField(column(source, "createdAt"), IsoDateString),
 	updatedAt: selectedField(column(source, "updatedAt"), IsoDateString),
 	inputSummary: selectedField(column(source, "inputSummary"), inputSummary),
+	pluginInstallationId: selectedField(
+		column(source, "pluginInstallationId"),
+		Schema.NullOr(Schema.String),
+	),
 	summary: selectedField(column(source, "summary"), IngestionRun.fields.summary),
 	status: selectedField(column(source, "status"), ListedImportRun.fields.status),
 	startedAt: selectedField(column(source, "startedAt"), Schema.NullOr(IsoDateString)),

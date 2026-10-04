@@ -785,6 +785,7 @@ const importRun: CatalogTable = {
 		integrationId: physicalField("integration_id", "text"),
 		blockReasons: physicalField("block_reasons", "json", false),
 		inputSummary: physicalField("input_summary", "json", false),
+		pluginInstallationId: physicalField("plugin_installation_id", "text"),
 		summary: {
 			kind: "json",
 			nullable: false,

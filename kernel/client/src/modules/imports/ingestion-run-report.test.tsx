@@ -16,6 +16,7 @@ const run: ImportRunSummary = {
 	expiryReason: null,
 	failureReason: null,
 	blockDeadline: null,
+	pluginInstallationId: null,
 	id: ImportRunId.make("run"),
 	createdAt: "2026-10-01T00:00:00.000Z",
 	updatedAt: "2026-10-01T00:01:00.000Z",

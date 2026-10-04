@@ -22,6 +22,7 @@ const runItem = {
 	updatedAt: "2026-01-02T01:00:00+02:00",
 	startedAt: "2026-01-01T01:05:00+02:00",
 	inputSummary: { filename: "items.csv" },
+	pluginInstallationId: "installation-1",
 	finishedAt: "2026-01-01T01:10:00+02:00",
 	failureReason: { code: "input-transformation-failed" },
 };
@@ -57,6 +58,7 @@ describe("import-run recipes", () => {
 			"createdAt",
 			"updatedAt",
 			"inputSummary",
+			"pluginInstallationId",
 			"summary",
 			"status",
 			"startedAt",
