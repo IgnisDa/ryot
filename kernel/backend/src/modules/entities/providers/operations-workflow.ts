@@ -59,7 +59,7 @@ type EntityImportWorkflowOperationsValue = {
 			readonly accountGeneration: AccountGeneration | null;
 		},
 		executionId: string,
-	) => Effect.Effect<SandboxExecutionPrincipal, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	) => Effect.Effect<ScriptExecutionPrincipal, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 };
 
 /** @effect-expect-leaking WorkflowEngine | WorkflowInstance */
@@ -301,7 +301,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			(input, executionId) =>
 				makeActivity({
 					error: SandboxRunError,
-					success: SandboxExecutionPrincipal,
+					success: ScriptExecutionPrincipal,
 					name: `pre-register-provider-import-${executionId}`,
 					execute: Effect.gen(function* () {
 						if (input.accountGeneration === null) {
