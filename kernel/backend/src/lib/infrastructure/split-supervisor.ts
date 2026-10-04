@@ -4,7 +4,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { AppConfig, configError } from "./config/service";
 import { MiB } from "./sandbox-runtime/limits";
-import { sharedModeMinimumBudgetBytes } from "./sandbox-runtime/sidecar-admission";
+import { sharedModeMinimumBudgetBytes } from "./sandbox-runtime/memory-plan";
 
 const roles = ["interactive", "background"] as const satisfies ReadonlyArray<ExecutionLane>;
 const backgroundNiceness = "19";

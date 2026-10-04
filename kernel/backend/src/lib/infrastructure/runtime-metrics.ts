@@ -3,7 +3,7 @@ import { sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Metric } from "effect";
 
 import type { SandboxTrust } from "./sandbox-runtime/execution-principal";
-import type { SandboxMemoryPlan } from "./sandbox-runtime/sidecar-admission";
+import type { SandboxMemoryPlan } from "./sandbox-runtime/memory-plan";
 import { SIDECAR_INTERNAL_HOST_CALLS, type SidecarTier } from "./sandbox-runtime/sidecar-protocol";
 
 // Effect metrics carry no dedicated unit field; `OtlpMetrics` reads the OTLP unit from a `unit`
