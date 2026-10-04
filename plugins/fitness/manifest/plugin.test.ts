@@ -138,6 +138,12 @@ it("declares the complete fitness-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/workouts/screen.tsx",
 			},
+			"fitness-home": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/home/screen.tsx",
+				automaticEntityPresentations: false,
+			},
 			"workout-detail": {
 				kind: "page",
 				settingsSchema: { fields: {} },

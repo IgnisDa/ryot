@@ -1,6 +1,7 @@
 import { PLUGIN_PACKAGE_ID } from "./plugin-identity";
 
 export const fitnessClientRoutes = {
+	"/": "fitness-home",
 	"/workouts/new": "workout-editor",
 	"/templates/new": "workout-editor",
 	"/exercises/new": "exercise-editor",
