@@ -1712,6 +1712,69 @@ layer(gateLayer)((test) => {
 		),
 	);
 
+	test.effect("rejects malformed file control arguments before reaching the file session", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const gate = yield* SandboxHostCallGate;
+				let reads = 0;
+				let writes = 0;
+				const registration = yield* gate.register(
+					makeOptions(
+						makeInput(),
+						{ getCachedValue: successHostFunction() },
+						makeFiles(
+							(args) =>
+								Effect.sync(() => {
+									reads += 1;
+									return { size: 0, data: "", offset: args.offset };
+								}),
+							() =>
+								Effect.sync(() => {
+									writes += 1;
+									return null;
+								}),
+						),
+					),
+				);
+				const write = { data: "", offset: 0, final: true, name: "out" };
+				const oversized = Buffer.alloc(SANDBOX_LIMITS.scratch.chunkBytes + 1).toString("base64");
+				const rejectedReads = [
+					{ offset: 0, length: 1, extra: true },
+					{ offset: 0, length: 0 },
+					{ offset: 0, length: MiB + 1 },
+					{ offset: 0, length: 1.5 },
+					{ length: 1, offset: -1 },
+					{ key: 7, offset: 0, length: 1 },
+				];
+				const rejectedWrites = [
+					{ ...write, extra: true },
+					{ ...write, data: "not base64!" },
+					{ ...write, data: oversized },
+					{ ...write, offset: -1 },
+					{ ...write, offset: 0.5 },
+					{ ...write, name: 7 },
+				];
+				for (const [index, args] of rejectedReads.entries()) {
+					const reply = yield* registration.dispatch(makeFrame(index, "artifactReadRange", args));
+					expect(frameValue(reply)).toMatchObject({
+						success: false,
+						error: "Sandbox artifact range arguments are invalid",
+					});
+				}
+				for (const [index, args] of rejectedWrites.entries()) {
+					const reply = yield* registration.dispatch(
+						makeFrame(rejectedReads.length + index, "scratchWrite", args),
+					);
+					expect(frameValue(reply)).toMatchObject({
+						success: false,
+						error: "Sandbox scratch write arguments are invalid",
+					});
+				}
+				expect({ reads, writes }).toEqual({ reads: 0, writes: 0 });
+			}),
+		),
+	);
+
 	test.effect("releases permits and propagates when a dispatch is interrupted mid host call", () =>
 		Effect.scoped(
 			Effect.gen(function* () {

@@ -1,5 +1,6 @@
 import { configureApprovedDependencyRuntime } from "@ryot-app/sandbox-sdk/dependency-runtime";
 
+import { isString, uncurry } from "./isolate-primordials";
 import { isRecord } from "./isolate-utilities";
 import type { SandboxInvocation } from "./sidecar-protocol";
 
@@ -14,12 +15,9 @@ const nativeDateParse = nativeDate.parse.bind(nativeDate);
 const nativeDateUtc = nativeDate.UTC.bind(nativeDate);
 const mathFloor = Math.floor;
 const mathImul = Math.imul;
-const stringPadStartMethod = Object.getOwnPropertyDescriptor(String.prototype, "padStart")?.value;
-const stringPadStart = stringPadStartMethod.call.bind(stringPadStartMethod);
-const dateToStringMethod = Object.getOwnPropertyDescriptor(nativeDate.prototype, "toString")?.value;
-const dateToString = dateToStringMethod.call.bind(dateToStringMethod);
-const numberToStringMethod = Object.getOwnPropertyDescriptor(Number.prototype, "toString")?.value;
-const numberToString = numberToStringMethod.call.bind(numberToStringMethod);
+const stringPadStart = uncurry(String.prototype, "padStart", isString);
+const dateToString = uncurry(nativeDate.prototype, "toString", isString);
+const numberToString = uncurry(Number.prototype, "toString", isString);
 const nativeFunction = globalThis.Function;
 const nativeProxy = globalThis.Proxy;
 const reflectConstruct = Reflect.construct;

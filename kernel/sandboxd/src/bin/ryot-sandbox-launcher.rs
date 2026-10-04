@@ -344,11 +344,10 @@ mod linux {
         if text.is_empty() || !text.iter().all(u8::is_ascii_digit) {
             return Err(DecimalError::Invalid);
         }
-        text.iter()
-            .try_fold(0_u64, |value, digit| {
-                value.checked_mul(10)?.checked_add(u64::from(digit - b'0'))
-            })
-            .ok_or(DecimalError::Overflow)
+        std::str::from_utf8(text)
+            .map_err(|_| DecimalError::Invalid)?
+            .parse()
+            .map_err(|_| DecimalError::Overflow)
     }
 
     fn positive_u64(value: &str, flag: &str) -> Result<u64, String> {
@@ -1512,6 +1511,52 @@ mod linux {
                 b"99999999999999999999999",
             ] {
                 assert!(record_pid(name).is_err(), "{name:?}");
+            }
+        }
+
+        #[test]
+        fn flag_values_must_be_positive_decimal_integers() {
+            assert_eq!(positive_u64("12", "--threads"), Ok(12));
+            assert_eq!(
+                positive_u64("18446744073709551615", "--threads"),
+                Ok(u64::MAX)
+            );
+            assert_eq!(
+                positive_u64("0", "--threads"),
+                Err("--threads must be positive".to_owned())
+            );
+            assert_eq!(
+                positive_u64("000", "--threads"),
+                Err("--threads must be positive".to_owned())
+            );
+            assert_eq!(
+                positive_u64("18446744073709551616", "--threads"),
+                Err("--threads is out of range".to_owned())
+            );
+            for value in ["+1", "-1", "", " 1", "1 ", "0x10", "1_0", "12a", "१२"] {
+                assert_eq!(
+                    positive_u64(value, "--threads"),
+                    Err("--threads requires a positive decimal integer".to_owned()),
+                    "{value:?}"
+                );
+            }
+        }
+
+        #[test]
+        fn attestation_numbers_must_be_decimal_integers() {
+            assert_eq!(number("0"), Ok(0));
+            assert_eq!(number("0042"), Ok(42));
+            assert_eq!(number("18446744073709551615"), Ok(u64::MAX));
+            assert_eq!(
+                number("18446744073709551616"),
+                Err("attestation number is out of range".to_owned())
+            );
+            for value in ["+1", "-1", "", " 1", "1 ", "0x10", "1_0", "12a", "१२"] {
+                assert_eq!(
+                    number(value),
+                    Err("invalid attestation number".to_owned()),
+                    "{value:?}"
+                );
             }
         }
 

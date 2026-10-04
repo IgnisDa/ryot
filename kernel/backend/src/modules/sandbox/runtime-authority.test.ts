@@ -22,8 +22,11 @@ import {
 } from "#modules/plugins/revision.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
+import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import { SandboxExecutionAuthorityLive } from "./runtime-authority";
+import { SandboxWorkflowPinning } from "./sandbox-script-workflow";
+import { SandboxScriptWorkflowPayload } from "./sandbox-script-workflow-payload";
 
 type PersistedScript = Parameters<PluginRepository["Service"]["persistKernelScript"]>[0];
 
@@ -259,6 +262,45 @@ describe("sandbox execution authority", () => {
 					expect(yield* sandbox.getScriptPin(SandboxScriptId.make(row.id))).toBeNull();
 				}),
 		);
+		test.effect(
+			"rejects tampered, swapped and ownership-violating principals as an invalid pin",
+			() =>
+				Effect.gen(function* () {
+					const authority = yield* SandboxExecutionAuthority;
+					const sandbox = yield* SandboxRepository;
+					const session = yield* DatabaseSession;
+					const slug = `authority-negative-${crypto.randomUUID()}`;
+					const installed = yield* installRevisionPackage(revisionPackage(slug), owner);
+					const rows = yield* session.run((db) =>
+						db
+							.select({ id: tables.sandboxScript.id })
+							.from(tables.sandboxScript)
+							.where(eq(tables.sandboxScript.pluginRevisionId, installed.revisionId)),
+					);
+					const [first, second] = rows;
+					assert(first && second);
+					const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(first.id));
+					assert(pin?.pluginRevision);
+					const principal = yield* principalFor(pin);
+					expect(yield* authority.resolve(principal)).toBe("user");
+					yield* assertRejected(authority, [
+						{ ...principal, metadata: { ...principal.metadata, capabilities: ["httpCall"] } },
+						{ ...principal, scriptId: SandboxScriptId.make(second.id) },
+						{ ...principal, scriptId: SandboxScriptId.make("missing-script") },
+						{ ...principal, subject: { type: "system" } },
+						{
+							...principal,
+							subject: {
+								type: "user",
+								userId: UserId.make("recipient"),
+								accountGeneration: { token: "other", userId: UserId.make("recipient") },
+							},
+						},
+						{ ...principal, kernelScript: true as const },
+					]);
+				}),
+		);
+
 		test.effect("resolves stored kernel scripts as system-owned", () =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -459,6 +501,53 @@ describe("sandbox execution authority", () => {
 						bootstrapScriptSlug,
 					]);
 					yield* locatesTo({ ...firstPartyPin, subject: ownerSubject }, "system/core");
+				}),
+			),
+		);
+	});
+
+	layer(
+		Layer.mergeAll(
+			nativeRecoveryLayer,
+			SandboxExecutionAuthorityLive,
+			SandboxWorkflowPinning.layer.pipe(
+				Layer.provide(
+					Layer.mock(SandboxPluginScriptResolver)({
+						findActiveScriptById: () => Effect.die("Exact pins must not resolve active scripts"),
+					}),
+				),
+			),
+		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
+		{ excludeTestServices: true },
+	)((test) => {
+		test.effect("locates the principal that the workflow pinning step produces", () =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const pinning = yield* SandboxWorkflowPinning;
+					const session = yield* DatabaseSession;
+					const supervisor = yield* SandboxSidecarSupervisor.make;
+					const slug = `authority-workflow-${crypto.randomUUID()}`;
+					yield* installRevisionPackage(revisionPackage(slug), owner);
+					const [row] = yield* session.run((db) =>
+						db
+							.select({ id: tables.sandboxScript.id })
+							.from(tables.sandboxScript)
+							.where(eq(tables.sandboxScript.slug, `${slug}.details`))
+							.limit(1),
+					);
+					assert(row);
+					const executionId = `authority-workflow-${crypto.randomUUID()}`;
+					const payload = yield* Schema.decodeEffect(SandboxScriptWorkflowPayload)({
+						input: {},
+						executionId,
+						lane: "interactive",
+						subject: ownerSubject,
+						resolutionMode: "exact",
+						scriptId: SandboxScriptId.make(row.id),
+					});
+					const { principal } = yield* pinning.establish(payload, executionId);
+					expect(principal.metadata).toHaveProperty("providerOperation", "details");
+					expect(yield* supervisor.locate(principal)).toMatchObject({ instance: "user/core" });
 				}),
 			),
 		);

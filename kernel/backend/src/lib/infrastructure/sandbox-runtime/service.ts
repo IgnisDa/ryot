@@ -22,7 +22,7 @@ import {
 } from "./host-execution-policy";
 import { SandboxHostImplementations } from "./host-implementations";
 import { encodedJsonBytes } from "./json-bytes";
-import { sandboxContextError, SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "./limits";
+import { sandboxContextError, SANDBOX_LIMITS, SANDBOX_LOG_TRUNCATION_MARKER } from "./limits";
 import {
 	makeObservabilitySandboxApiFunctions,
 	makeSandboxObservabilityCollector,
@@ -264,7 +264,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 						...result.done.console.entries.map((entry) => entry.message),
 					];
 					if (result.done.console.truncated) {
-						consoleLogs.push(SANDBOX_RUNNER_LIMITS.logTruncationMarker);
+						consoleLogs.push(SANDBOX_LOG_TRUNCATION_MARKER);
 					}
 					return {
 						harvest,

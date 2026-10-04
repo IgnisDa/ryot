@@ -2,7 +2,17 @@ import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/bounda
 import type { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
 import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
-import { SANDBOX_LIMITS } from "./limits";
+import {
+	isBoolean,
+	isNumber,
+	isString,
+	isStringArray,
+	regExpExec,
+	stringIncludes,
+	uint8ArraySubarray,
+	uncurry,
+} from "./isolate-primordials";
+import { SANDBOX_LIMITS, SANDBOX_LOG_TRUNCATION_MARKER } from "./limits";
 
 export type SandboxLogCollector = {
 	readonly logs: string[];
@@ -16,38 +26,25 @@ export type SandboxLogCollector = {
 };
 
 const arrayIsArray = Array.isArray;
-const arrayJoinMethod = Object.getOwnPropertyDescriptor(Array.prototype, "join")?.value;
-const arrayPushMethod = Object.getOwnPropertyDescriptor(Array.prototype, "push")?.value;
-const arraySomeMethod = Object.getOwnPropertyDescriptor(Array.prototype, "some")?.value;
-const regexpExecMethod = Object.getOwnPropertyDescriptor(RegExp.prototype, "exec")?.value;
-const regexpTestMethod = Object.getOwnPropertyDescriptor(RegExp.prototype, "test")?.value;
-const stringTrimMethod = Object.getOwnPropertyDescriptor(String.prototype, "trim")?.value;
-const stringSplitMethod = Object.getOwnPropertyDescriptor(String.prototype, "split")?.value;
-const stringSliceMethod = Object.getOwnPropertyDescriptor(String.prototype, "slice")?.value;
-const stringStartsWithMethod = Object.getOwnPropertyDescriptor(
-	String.prototype,
-	"startsWith",
-)?.value;
-const stringIncludesMethod = Object.getOwnPropertyDescriptor(String.prototype, "includes")?.value;
-const stringReplaceMethod = Object.getOwnPropertyDescriptor(String.prototype, "replace")?.value;
-const uint8ArrayPrototype = Object.getPrototypeOf(Uint8Array.prototype);
-const uint8ArraySubarrayMethod = Object.getOwnPropertyDescriptor(
-	uint8ArrayPrototype,
-	"subarray",
-)?.value;
-const boundArrayJoin = arrayJoinMethod.call.bind(arrayJoinMethod);
-const boundArrayPush = arrayPushMethod.call.bind(arrayPushMethod);
-const boundArraySome = arraySomeMethod.call.bind(arraySomeMethod);
-const boundRegExpExec = regexpExecMethod.call.bind(regexpExecMethod);
-const boundRegExpTest = regexpTestMethod.call.bind(regexpTestMethod);
-const boundStringTrim = stringTrimMethod.call.bind(stringTrimMethod);
-const boundStringSplit = stringSplitMethod.call.bind(stringSplitMethod);
-const boundStringSlice = stringSliceMethod.call.bind(stringSliceMethod);
-const boundStringStartsWith = stringStartsWithMethod.call.bind(stringStartsWithMethod);
-const boundStringIncludes = stringIncludesMethod.call.bind(stringIncludesMethod);
-const boundStringReplace = stringReplaceMethod.call.bind(stringReplaceMethod);
-const boundUint8ArraySubarray = uint8ArraySubarrayMethod.call.bind(uint8ArraySubarrayMethod);
-const nativeError = globalThis.Error;
+const some = (
+	values: ReadonlyArray<string | undefined>,
+	predicate: (value: string | undefined) => boolean,
+) => {
+	for (let index = 0; index < values.length; index += 1) {
+		if (predicate(values[index])) {
+			return true;
+		}
+	}
+	return false;
+};
+const join = uncurry(Array.prototype, "join", isString);
+const push = uncurry(Array.prototype, "push", isNumber);
+const testRegExp = uncurry(RegExp.prototype, "test", isBoolean);
+const trim = uncurry(String.prototype, "trim", isString);
+const split = uncurry(String.prototype, "split", isStringArray);
+const slice = uncurry(String.prototype, "slice", isString);
+const startsWith = uncurry(String.prototype, "startsWith", isBoolean);
+const replace = uncurry(String.prototype, "replace", isString);
 const nativeNumber = globalThis.Number;
 const nativeString = globalThis.String;
 const textEncoder = new TextEncoder();
@@ -63,91 +60,6 @@ const decodeBoundaryReason = Schema.decodeUnknownSync(SandboxBoundaryReason, {
 });
 const stackFramePattern = /(?:^|[\s(])([^\s()]+):(\d+):(\d+)\)?$/;
 const diagnosticLimit = SANDBOX_LIMITS.diagnostics.messageBytes;
-
-const join = (values: readonly unknown[], separator: string): string => {
-	const result: unknown = boundArrayJoin(values, separator);
-	if (typeof result !== "string") {
-		throw new nativeError("Sandbox runner could not join diagnostic values");
-	}
-	return result;
-};
-const push = <T>(values: T[], value: T): number => {
-	const result: unknown = boundArrayPush(values, value);
-	if (typeof result !== "number") {
-		throw new nativeError("Sandbox runner could not append a diagnostic value");
-	}
-	return result;
-};
-const some = <T>(values: readonly T[], predicate: (value: T) => boolean): boolean => {
-	const result: unknown = boundArraySome(values, predicate);
-	if (typeof result !== "boolean") {
-		throw new nativeError("Sandbox runner could not inspect source-map paths");
-	}
-	return result;
-};
-const replace = (value: string, pattern: string | RegExp, replacement: string): string => {
-	const result: unknown = boundStringReplace(value, pattern, replacement);
-	if (typeof result !== "string") {
-		throw new nativeError("Sandbox runner could not sanitize diagnostics");
-	}
-	return result;
-};
-const split = (value: string, separator: string | RegExp): string[] => {
-	const result: unknown = boundStringSplit(value, separator);
-	if (!arrayIsArray(result)) {
-		throw new nativeError("Sandbox runner could not split diagnostics");
-	}
-	return result;
-};
-const slice = (value: string, start?: number, end?: number): string => {
-	const result: unknown = boundStringSlice(value, start, end);
-	if (typeof result !== "string") {
-		throw new nativeError("Sandbox runner could not read diagnostic paths");
-	}
-	return result;
-};
-const startsWith = (value: string, search: string): boolean => {
-	const result: unknown = boundStringStartsWith(value, search);
-	if (typeof result !== "boolean") {
-		throw new nativeError("Sandbox runner could not inspect a diagnostic path");
-	}
-	return result;
-};
-const includes = (value: string, search: string): boolean => {
-	const result: unknown = boundStringIncludes(value, search);
-	if (typeof result !== "boolean") {
-		throw new nativeError("Sandbox runner could not inspect a diagnostic path");
-	}
-	return result;
-};
-const trim = (value: string): string => {
-	const result: unknown = boundStringTrim(value);
-	if (typeof result !== "string") {
-		throw new nativeError("Sandbox runner could not trim a diagnostic line");
-	}
-	return result;
-};
-const execRegExp = (expression: RegExp, value: string) => {
-	const result: unknown = boundRegExpExec(expression, value);
-	if (result === null || arrayIsArray(result)) {
-		return result;
-	}
-	throw new nativeError("Sandbox runner could not parse a diagnostic frame");
-};
-const testRegExp = (expression: RegExp, value: string) => {
-	const result: unknown = boundRegExpTest(expression, value);
-	if (typeof result !== "boolean") {
-		throw new nativeError("Sandbox runner could not inspect a diagnostic frame");
-	}
-	return result;
-};
-const uint8ArraySubarray = (bytes: Uint8Array, begin: number, end: number) => {
-	const result: unknown = boundUint8ArraySubarray(bytes, begin, end);
-	if (!(result instanceof Uint8Array)) {
-		throw new nativeError("Sandbox runner could not truncate UTF-8 bytes");
-	}
-	return result;
-};
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
 	value !== null && typeof value === "object" && !arrayIsArray(value);
@@ -182,16 +94,17 @@ const truncateUtf8 = (value: string, maximumBytes: number): string => {
 	return "";
 };
 
-export const createLogCollector = (limits: {
-	readonly logEntryBytes: number;
-	readonly logEntryCount: number;
-	readonly logTotalBytes: number;
-	readonly logTruncationMarker: string;
-}): SandboxLogCollector => {
+export const createLogCollector = (
+	limits: {
+		readonly entryBytes: number;
+		readonly entryCount: number;
+		readonly totalBytes: number;
+	} = SANDBOX_LIMITS.logs,
+): SandboxLogCollector => {
 	const logs: string[] = [];
 	let totalBytes = 0;
 	let truncated = false;
-	const marker = limits.logTruncationMarker;
+	const marker = SANDBOX_LOG_TRUNCATION_MARKER;
 	const markerBytes = encodeText(marker).byteLength;
 
 	const appendMarker = () => {
@@ -206,14 +119,14 @@ export const createLogCollector = (limits: {
 		if (truncated) {
 			return;
 		}
-		if (logs.length >= limits.logEntryCount - 1) {
+		if (logs.length >= limits.entryCount - 1) {
 			appendMarker();
 			return;
 		}
 		const entryBytes = encodeText(entry).byteLength;
 		if (
-			entryBytes <= limits.logEntryBytes &&
-			totalBytes + entryBytes + markerBytes <= limits.logTotalBytes
+			entryBytes <= limits.entryBytes &&
+			totalBytes + entryBytes + markerBytes <= limits.totalBytes
 		) {
 			push(logs, entry);
 			totalBytes += entryBytes;
@@ -221,7 +134,7 @@ export const createLogCollector = (limits: {
 		}
 		const availableBytes = mathMax(
 			0,
-			mathMin(limits.logEntryBytes, limits.logTotalBytes - totalBytes - markerBytes),
+			mathMin(limits.entryBytes, limits.totalBytes - totalBytes - markerBytes),
 		);
 		const prefix = truncateUtf8(entry, availableBytes);
 		if (prefix) {
@@ -292,7 +205,7 @@ const authoredPath = (source: string, specifier: string) => {
 	if (
 		!path ||
 		startsWith(path, "/") ||
-		includes(path, "\\") ||
+		stringIncludes(path, "\\") ||
 		hasTraversal ||
 		startsWith(path, "external/") ||
 		startsWith(path, "runtime/") ||
@@ -363,7 +276,7 @@ export const executionError = (
 	const rawStack = safeErrorProperty(error, "stack") ?? "";
 	const frames: Array<{ path: string; line: number; column: number }> = [];
 	for (const line of split(rawStack, "\n")) {
-		const match = execRegExp(stackFramePattern, trim(line));
+		const match = regExpExec(stackFramePattern, trim(line));
 		if (!match?.[1] || !match[2] || !match[3]) {
 			continue;
 		}
@@ -375,7 +288,7 @@ export const executionError = (
 			some(
 				[invocation?.executionId, invocation?.scriptId, invocation?.workflowExecutionId],
 				(identifier) =>
-					identifier !== undefined && identifier.length > 0 && includes(path, identifier),
+					identifier !== undefined && identifier.length > 0 && stringIncludes(path, identifier),
 			);
 		if (path && !containsIdentifier && mappedLine > 0 && mappedColumn > 0) {
 			push(frames, { path, line: mappedLine, column: mappedColumn });
