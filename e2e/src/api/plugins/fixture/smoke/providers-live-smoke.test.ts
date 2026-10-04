@@ -334,11 +334,16 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 					}),
 				]),
 			});
-			expect(view.settings["tableColumns"]).toEqual(
-				["Name", "Type", "Damage Class", "Power", "Accuracy", "PP", "Priority", "Generation"].map(
-					(label, index) => expect.objectContaining({ label, field: `column${index}` }),
-				),
-			);
+			expect(view.settings["tableColumns"]).toEqual([
+				{ field: "name", label: "Name", displayKind: "text" },
+				{ field: "type", label: "Type", displayKind: "text" },
+				{ displayKind: "text", field: "damageClass", label: "Damage Class" },
+				{ field: "power", label: "Power", displayKind: "number" },
+				{ field: "accuracy", label: "Accuracy", displayKind: "number" },
+				{ field: "pp", label: "PP", displayKind: "number" },
+				{ field: "priority", label: "Priority", displayKind: "number" },
+				{ field: "generation", label: "Generation", displayKind: "text" },
+			]);
 			expect(source.output.fields.map((selection) => "key" in selection && selection.key)).toEqual(
 				expect.arrayContaining(["entityId", "name", "ownerPluginId", "entitySchemaSlug"]),
 			);

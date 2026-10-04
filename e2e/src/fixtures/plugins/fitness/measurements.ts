@@ -13,24 +13,31 @@ import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/ev
 import { waitForCreateEvents } from "~/fixtures/kernel/events";
 
 import { findFitnessEntitySchema } from "./exercises";
-import { invokeFitnessOperation, type RecipeInput } from "./operation-transport";
+import {
+	invokeEncodedFitnessOperation,
+	invokeFitnessOperation,
+	type RecipeEncodedInput,
+	type RecipeInput,
+} from "./operation-transport";
 
 export const createMeasurementMetric = (
 	client: Client,
-	input: RecipeInput<typeof measurementMetricCreateRecipe>,
-) => invokeFitnessOperation(client, measurementMetricCreateRecipe, input);
+	input: RecipeEncodedInput<typeof measurementMetricCreateRecipe>,
+) => invokeEncodedFitnessOperation(client, measurementMetricCreateRecipe, input);
 
 export const pinMeasurementMetric = (
 	client: Client,
 	input: RecipeInput<typeof measurementMetricPinRecipe>,
 ) => invokeFitnessOperation(client, measurementMetricPinRecipe, input);
 
+type SubmissionKeys = "submissionId" | "submittedAt";
+type ReadingLogInput = RecipeEncodedInput<typeof measurementReadingLogRecipe>;
+
 export const logMeasurementReadings = (
 	client: Client,
-	input: Omit<RecipeInput<typeof measurementReadingLogRecipe>, "submissionId" | "submittedAt"> &
-		Partial<Pick<RecipeInput<typeof measurementReadingLogRecipe>, "submissionId" | "submittedAt">>,
+	input: Omit<ReadingLogInput, SubmissionKeys> & Partial<Pick<ReadingLogInput, SubmissionKeys>>,
 ) =>
-	invokeFitnessOperation(client, measurementReadingLogRecipe, {
+	invokeEncodedFitnessOperation(client, measurementReadingLogRecipe, {
 		...input,
 		submissionId: input.submissionId ?? crypto.randomUUID(),
 		submittedAt: input.submittedAt ?? new Date().toISOString(),
