@@ -17,6 +17,7 @@ import { makeAppConfigLayer, workflowEngineTestLayer } from "#lib/test-utils/eff
 import { testRedisServiceLayer } from "#lib/test-utils/redis";
 import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 
+import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
 	processSandboxExecutionQueue,
@@ -31,6 +32,8 @@ const BACKGROUND_BACKLOG = 100;
 const prefix = `ryot:test:lanes:${crypto.randomUUID()}:`;
 const queueKeys = fairQueueKeys(prefix, "DurableQueue/SandboxExecutionQueue");
 const scriptId = SandboxScriptId.make("lane-script");
+const scriptCode = "lane";
+const scriptContentHash = sha256Hex(scriptCode);
 
 class LaneControl extends Context.Service<
 	LaneControl,
@@ -60,8 +63,8 @@ const laneWorkflow = implementWorkflow(LaneWorkflow, ({ lane, executionId }) =>
 			providerId: null,
 			scriptSlug: "lane",
 			pluginRevision: null,
-			contentHash: "lane-hash",
 			subject: { type: "system" },
+			contentHash: scriptContentHash,
 			metadata: { runtimeImports: [] },
 		},
 	}).pipe(Effect.asVoid),
@@ -101,8 +104,24 @@ const runtimeLayer = Layer.effect(
 	}),
 );
 
+const repositoryLayer = Layer.mock(SandboxRepository)({
+	getScript: (id) =>
+		Effect.succeed({
+			id,
+			providerId: null,
+			compiledFormat: 1,
+			compiledCode: scriptCode,
+			contentHash: scriptContentHash,
+			metadata: { runtimeImports: [] },
+		}),
+});
+const artifactLayer = Layer.effect(SandboxCompiledArtifacts, SandboxCompiledArtifacts.make).pipe(
+	Layer.provideMerge(repositoryLayer),
+);
+
 const queueLayer = Layer.mergeAll(
 	laneWorkflow,
+	artifactLayer,
 	Layer.succeed(SandboxDurableHostDispatcher, {
 		dispatch: () => Effect.die("durable dispatch is not expected"),
 		settleInline: () => Effect.die("inline dispatch is not expected"),
@@ -110,17 +129,6 @@ const queueLayer = Layer.mergeAll(
 	Layer.succeed(KernelWorkflowReferences, {
 		execute: () => Effect.die("kernel dispatch is not expected"),
 		resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
-	}),
-	Layer.mock(SandboxRepository)({
-		getScript: (id) =>
-			Effect.succeed({
-				id,
-				providerId: null,
-				compiledFormat: 1,
-				compiledCode: "lane",
-				contentHash: "lane-hash",
-				metadata: { runtimeImports: [] },
-			}),
 	}),
 ).pipe(
 	Layer.provideMerge(
