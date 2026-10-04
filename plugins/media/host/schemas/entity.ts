@@ -360,18 +360,16 @@ const buildMediaGroupEntitySchema = (slug: string, name: string, icon: string) =
 	slug,
 	name,
 	icon,
-	pluginSlug: "media",
 	propertiesSchema: mediaGroupPropertiesSchema,
 	eventSchemas: mediaLifecycleEventSchemas(slug).filter(
 		(s) => s.slug === "review" || s.slug === "add-to-media-library",
 	),
 });
 
-export const builtinEntitySchemas = () => [
+export const mediaEntitySchemas = () => [
 	{
 		icon: "library",
 		eventSchemas: [],
-		pluginSlug: "media",
 		slug: "media-library",
 		name: "Media Library",
 		propertiesSchema: { fields: {} },
@@ -381,7 +379,6 @@ export const builtinEntitySchemas = () => [
 		icon: "user",
 		slug: "person",
 		name: "Person",
-		pluginSlug: "media",
 		propertiesSchema: personPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("person").filter(
 			(schema) => schema.slug === "review" || schema.slug === "add-to-media-library",
@@ -391,7 +388,6 @@ export const builtinEntitySchemas = () => [
 		slug: "company",
 		name: "Company",
 		icon: "building-2",
-		pluginSlug: "media",
 		propertiesSchema: companyPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("company").filter(
 			(schema) => schema.slug === "review" || schema.slug === "add-to-media-library",
@@ -407,7 +403,6 @@ export const builtinEntitySchemas = () => [
 		slug: "book",
 		name: "Book",
 		icon: "book-open",
-		pluginSlug: "media",
 		propertiesSchema: bookPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("book"),
 	},
@@ -415,7 +410,6 @@ export const builtinEntitySchemas = () => [
 		icon: "book-image",
 		slug: "comic-book",
 		name: "Comic Book",
-		pluginSlug: "media",
 		propertiesSchema: comicBookPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("comic-book"),
 	},
@@ -423,14 +417,12 @@ export const builtinEntitySchemas = () => [
 		icon: "tv",
 		slug: "anime",
 		name: "Anime",
-		pluginSlug: "media",
 		propertiesSchema: animePropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("anime"),
 	},
 	{
 		slug: "movie",
 		name: "Movie",
-		pluginSlug: "media",
 		icon: "clapperboard",
 		propertiesSchema: moviePropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("movie"),
@@ -438,7 +430,6 @@ export const builtinEntitySchemas = () => [
 	{
 		slug: "show",
 		name: "Show",
-		pluginSlug: "media",
 		icon: "monitor-play",
 		propertiesSchema: showPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("show").filter((schema) => schema.slug !== "progress"),
@@ -447,7 +438,6 @@ export const builtinEntitySchemas = () => [
 		icon: "list-video",
 		slug: "show-season",
 		name: "Show Season",
-		pluginSlug: undefined,
 		propertiesSchema: showSeasonPropertiesSchema,
 		eventSchemas: [
 			lifecycleEventSchemaBySlug("review"),
@@ -458,7 +448,6 @@ export const builtinEntitySchemas = () => [
 		icon: "play-square",
 		slug: "show-episode",
 		name: "Show Episode",
-		pluginSlug: undefined,
 		propertiesSchema: showEpisodePropertiesSchema,
 		eventSchemas: [
 			lifecycleEventSchemaBySlug("progress"),
@@ -471,7 +460,6 @@ export const builtinEntitySchemas = () => [
 		icon: "book",
 		slug: "manga",
 		name: "Manga",
-		pluginSlug: "media",
 		propertiesSchema: mangaPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("manga"),
 	},
@@ -479,7 +467,6 @@ export const builtinEntitySchemas = () => [
 		slug: "audiobook",
 		name: "Audiobook",
 		icon: "headphones",
-		pluginSlug: "media",
 		propertiesSchema: audiobookPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("audiobook"),
 	},
@@ -487,7 +474,6 @@ export const builtinEntitySchemas = () => [
 		slug: "podcast",
 		name: "Podcast",
 		icon: "podcast",
-		pluginSlug: "media",
 		propertiesSchema: podcastPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("podcast").filter(
 			(schema) => schema.slug !== "progress",
@@ -495,7 +481,6 @@ export const builtinEntitySchemas = () => [
 	},
 	{
 		icon: "radio",
-		pluginSlug: undefined,
 		slug: "podcast-episode",
 		name: "Podcast Episode",
 		propertiesSchema: podcastEpisodePropertiesSchema,
@@ -510,7 +495,6 @@ export const builtinEntitySchemas = () => [
 		icon: "gamepad-2",
 		slug: "video-game",
 		name: "Video Game",
-		pluginSlug: "media",
 		propertiesSchema: videoGamePropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("video-game"),
 	},
@@ -518,19 +502,14 @@ export const builtinEntitySchemas = () => [
 		slug: "music",
 		name: "Music",
 		icon: "music",
-		pluginSlug: "media",
 		propertiesSchema: musicPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("music"),
 	},
 	{
 		icon: "book-heart",
-		pluginSlug: "media",
 		slug: "visual-novel",
 		name: "Visual Novel",
 		propertiesSchema: visualNovelPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("visual-novel"),
 	},
 ];
-
-export const mediaEntitySchemas = () =>
-	builtinEntitySchemas().map(({ pluginSlug: _pluginSlug, ...schema }) => schema);

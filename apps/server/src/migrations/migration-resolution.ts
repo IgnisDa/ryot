@@ -42,7 +42,7 @@ const installationKey = (userId: string, pluginId: string) => `${userId}\0${plug
 
 type ActivePackage = {
 	id: string;
-	slug: string;
+	packageId: string;
 	revisionId: string;
 	manifest: PluginManifest;
 	configRevisionId: string | null;
@@ -135,7 +135,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 		database
 			.select({
 				id: schema.plugin.id,
-				slug: schema.plugin.slug,
+				packageId: schema.plugin.packageId,
 				revisionId: schema.pluginRevision.id,
 				manifest: schema.pluginRevision.manifest,
 				configRevisionId: schema.plugin.environmentConfigRevisionId,
@@ -159,16 +159,16 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 	const activePackages = new Map<string, ActivePackage>();
 	for (const expected of [media, fitness]) {
 		const matches = persistedPlugins.filter(
-			(plugin) => plugin.id === expected.id && plugin.slug === expected.slug,
+			(plugin) => plugin.id === expected.id && plugin.packageId === expected.packageId,
 		);
 		if (matches.length !== 1) {
 			throw new Error(
-				`Legacy bootstrap: the loaded "${expected.slug}" system plugin does not match exactly one active plugin row in this database. Plugin rows and loaded plugins must agree before legacy data can be attributed to them. Use a build whose plugin set matches this database, or start from an empty database.`,
+				`Legacy bootstrap: the loaded "${expected.packageId}" system plugin does not match exactly one active plugin row in this database. Plugin rows and loaded plugins must agree before legacy data can be attributed to them. Use a build whose plugin set matches this database, or start from an empty database.`,
 			);
 		}
 		const match = matches[0];
 		if (!match) {
-			throw new Error(`Expected one active revision for system plugin "${expected.slug}"`);
+			throw new Error(`Expected one active revision for system plugin "${expected.packageId}"`);
 		}
 		activePackages.set(expected.id, match);
 	}
@@ -237,7 +237,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 			state.encryptionKeyId !== encryptionKeys[0]?.id
 		) {
 			throw new Error(
-				`Legacy bootstrap: the active "${plugin.slug}" revision does not have exactly one active encrypted environment configuration backed by the database singleton key. System plugin ingestion must establish matching package and configuration revisions before legacy data migration; keep the dump and report this startup-order defect.`,
+				`Legacy bootstrap: the active "${plugin.packageId}" revision does not have exactly one active encrypted environment configuration backed by the database singleton key. System plugin ingestion must establish matching package and configuration revisions before legacy data migration; keep the dump and report this startup-order defect.`,
 			);
 		}
 	}

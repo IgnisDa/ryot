@@ -7,11 +7,7 @@ import {
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
-import {
-	builtinMediaEntitySchemaSlugs,
-	mediaGroupSlugs,
-	mediaPluginSlug,
-} from "../shared/media-schema-slugs";
+import { builtinMediaEntitySchemaSlugs, mediaGroupSlugs } from "../shared/media-schema-slugs";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { mediaConfigSchema } from "./config";
 import { mediaSavedViews } from "./saved-views";
@@ -616,6 +612,14 @@ export const mediaPlugin = definePlugin({
 			description: "Initialize the user's media workspace",
 		},
 	],
+	metadata: {
+		icon: "film",
+		name: "Media",
+		version: "1.0.0",
+		packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
+		description:
+			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
+	},
 	userSettingsSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -627,15 +631,6 @@ export const mediaPlugin = definePlugin({
 				description: "Allow providers to include adult metadata and results.",
 			},
 		},
-	},
-	metadata: {
-		icon: "film",
-		name: "Media",
-		version: "1.0.0",
-		slug: mediaPluginSlug,
-		packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
-		description:
-			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},
 	httpRateLimits: [
 		{ requests: 30, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },

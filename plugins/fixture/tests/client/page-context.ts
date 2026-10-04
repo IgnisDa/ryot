@@ -27,5 +27,10 @@ export const fixtureRoutePageContext = () =>
 		dataSources: null,
 		route: { params: {} },
 		renderer: { kind: "plugin", exportName: "home", pluginId: "fixture" },
-		target: { path: "/", search: "", kind: "plugin-route", pluginId: PluginId.make("fixture") },
+		target: {
+			path: "/",
+			search: "",
+			kind: "plugin-route",
+			packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
+		},
 	});

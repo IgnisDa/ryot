@@ -66,19 +66,18 @@ export const fitnessPlugin = definePlugin({
 			description: "Initialize the user's fitness workspace",
 		},
 	],
-	workflows: [
-		{ slug: "import", scriptSlug: "workflow.import" },
-		{ slug: "import-application", scriptSlug: "workflow.import-application" },
-		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
-	],
 	metadata: {
 		name: "Fitness",
-		slug: "fitness",
 		version: "1.0.0",
 		icon: "heart-pulse",
 		packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
 		description: "Track workouts, measurements, and progress.",
 	},
+	workflows: [
+		{ slug: "import", scriptSlug: "workflow.import" },
+		{ slug: "import-application", scriptSlug: "workflow.import-application" },
+		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
+	],
 	providers: [
 		{
 			name: "Free Exercise DB",

@@ -287,7 +287,7 @@ describe("measurements page", () => {
 			const [pinRequest] = requests();
 			assert(pinRequest?.type === "operation-request");
 			expect(pinRequest).toMatchObject({
-				pluginId: "fitness-owner",
+				packageId: PLUGIN_PACKAGE_ID,
 				operationSlug: "measurement-metric-pin",
 				input: { pinned: true, metricId: "sugar" },
 			});
@@ -401,7 +401,7 @@ describe("measurements page", () => {
 			const request = page.clientMessages().find(({ type }) => type === "operation-request");
 			assert(request?.type === "operation-request");
 			expect(request).toMatchObject({
-				pluginId: "fitness-owner",
+				packageId: PLUGIN_PACKAGE_ID,
 				operationSlug: "measurement-metric-create",
 				input: { unit: "mmHg", name: "Blood Pressure" },
 			});
@@ -463,7 +463,7 @@ describe("measurements page", () => {
 			const [failed] = requests();
 			assert(failed?.type === "operation-request");
 			expect(failed).toMatchObject({
-				pluginId: "fitness-owner",
+				packageId: PLUGIN_PACKAGE_ID,
 				input: { readingIds: ["r1", "r2"] },
 				operationSlug: "measurement-reading-delete",
 			});
@@ -726,7 +726,7 @@ describe("measurements page", () => {
 			const [failed] = requests();
 			assert(failed?.type === "operation-request");
 			expect(failed).toMatchObject({
-				pluginId: "fitness-owner",
+				packageId: PLUGIN_PACKAGE_ID,
 				operationSlug: "measurement-reading-log",
 				input: {
 					comment: "Fasted",
@@ -808,7 +808,7 @@ describe("measurements page", () => {
 			const [request] = requests();
 			assert(request?.type === "operation-request");
 			expect(request).toMatchObject({
-				pluginId: "fitness-owner",
+				packageId: PLUGIN_PACKAGE_ID,
 				operationSlug: "measurement-reading-update",
 				input: {
 					comment: "",
