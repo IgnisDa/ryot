@@ -2,14 +2,16 @@ import type { OrderBy } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	and,
 	ascending,
+	castDate,
 	column,
 	countDistinct,
 	descending,
-	castDate,
+	document,
 	eq,
 	field,
 	jsonPath,
 	literal,
+	rows,
 	table,
 } from "@ryot-app/ryotql";
 import {
@@ -17,6 +19,10 @@ import {
 	savedViewRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
 
+import {
+	fitnessPresentationSource,
+	workoutPresentationSource,
+} from "../shared/entity-presentations";
 import { fitnessLibraryLinkExists } from "../shared/library-recipes";
 import { fitnessEntitySchemas } from "./schemas/entity";
 import { buildViewExpressions } from "./view-helpers";
@@ -75,21 +81,34 @@ export const fitnessSavedViews = () => {
 		const projections = buildSavedViewLayoutProjections({
 			table: { ...expressions.table, entity },
 		});
+		const presentation =
+			input.entitySchemaSlug === "workout"
+				? workoutPresentationSource()
+				: fitnessPresentationSource(input.entitySchemaSlug);
+		const fields = [
+			...projections.table.fields,
+			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
+			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+			...presentation.fields,
+		];
+		const where = and(
+			eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+			...(input.entitySchemaSlug === "exercise"
+				? [fitnessLibraryLinkExists(entity, "fitnessLibrary")]
+				: []),
+		);
 		const dataSources = savedViewRecipe({
 			layout: { type: "table", mapping: projections.table.mappings },
 			source: {
-				type: "generated",
-				orderBy: input.orderBy,
-				entitySchemaSlugs: [input.entitySchemaSlug],
-				where:
-					input.entitySchemaSlug === "exercise"
-						? fitnessLibraryLinkExists(entity, "fitnessLibrary")
-						: undefined,
-				fields: [
-					...projections.table.fields,
-					field("ownerPluginId", column(entity, "entitySchemaPluginId")),
-					field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-				],
+				type: "persisted",
+				queryDocument: document({
+					savedView: rows(entity, {
+						where,
+						fields,
+						orderBy: input.orderBy,
+						...(presentation.include === undefined ? {} : { include: presentation.include }),
+					}),
+				}),
 			},
 		}).document;
 		return {
