@@ -3,7 +3,7 @@ import { useRef, useState } from "react";
 
 type HostScreenOutcome = { readonly kind: string };
 
-export type HostScreenSession<Request, Outcome extends HostScreenOutcome> = {
+type HostScreenSession<Request, Outcome extends HostScreenOutcome> = {
 	readonly request: Request;
 	readonly complete: (outcome: Outcome) => void;
 };

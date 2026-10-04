@@ -38,7 +38,7 @@ export const hasDefaultValue = (type: CollectionFieldType) =>
 	type === "date" ||
 	type === "choice";
 
-export const choiceLines = (choices: string) =>
+const choiceLines = (choices: string) =>
 	choices
 		.split("\n")
 		.map((choice) => choice.trim())
