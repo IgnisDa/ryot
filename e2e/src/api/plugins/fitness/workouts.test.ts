@@ -189,8 +189,17 @@ describe("Workouts E2E", () => {
 				type: "and",
 				predicates: expect.arrayContaining([
 					expect.objectContaining({
-						right: { type: "literal", value: "workout" },
-						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+						type: "and",
+						predicates: expect.arrayContaining([
+							expect.objectContaining({
+								right: { type: "literal", value: "workout" },
+								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+							}),
+						]),
+					}),
+					expect.objectContaining({
+						right: { type: "literal", value: expect.any(String) },
+						left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 					}),
 				]),
 			});
@@ -205,6 +214,11 @@ describe("Workouts E2E", () => {
 				"translationStatus",
 				"ownerPluginId",
 				"entitySchemaSlug",
+				"presentationId",
+				"presentationName",
+				"presentationEndedAt",
+				"presentationStartedAt",
+				"presentationExerciseNotes",
 			]);
 		}),
 	);

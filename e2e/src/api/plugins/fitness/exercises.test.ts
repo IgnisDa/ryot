@@ -166,6 +166,14 @@ describe("Exercises E2E", () => {
 				"translationStatus",
 				"ownerPluginId",
 				"entitySchemaSlug",
+				"presentationId",
+				"presentationName",
+				"presentationPrimary",
+				"presentationCallout",
+				"presentationSecondary",
+				"presentationImage",
+				"presentationLatestValue",
+				"presentationLatestAt",
 			]);
 		}),
 	);
