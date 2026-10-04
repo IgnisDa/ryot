@@ -1,5 +1,6 @@
 #[cfg(target_os = "linux")]
 mod linux {
+    use std::convert::Infallible;
     use std::ffi::{CStr, CString};
     use std::io;
     use std::os::fd::{AsRawFd, FromRawFd, IntoRawFd, OwnedFd, RawFd};
@@ -14,6 +15,8 @@ mod linux {
     const MAX_ARGUMENT_BYTES: usize = 64;
     const MAX_RECORD_BYTES: usize = 256;
     const MAX_RECORDS: usize = 4096;
+    const MAX_EXECUTIONS: &str = "10000";
+    const GRACE_MS: &str = "2000";
     const EXECUTABLE_PATH: &CStr = c"/home/ryot/sandboxd/ryot-sandboxd";
     const SNAPSHOT_PATH: &CStr = c"/home/ryot/sandboxd/snapshots";
     const LAUNCHER_PATH: &CStr = c"/usr/local/libexec/ryot-sandbox-launcher";
@@ -41,14 +44,13 @@ mod linux {
         max_rss: u64,
     }
 
-    #[derive(Clone, Debug, PartialEq, Eq)]
     struct Attestation {
         caller_pid: libc::pid_t,
         caller_start: u64,
         child_pid: libc::pid_t,
         child_start: u64,
-        executable_dev: u64,
-        executable_ino: u64,
+        executable_dev: libc::dev_t,
+        executable_ino: libc::ino_t,
     }
 
     struct StoredAttestation {
@@ -57,13 +59,60 @@ mod linux {
         inode: libc::ino_t,
     }
 
-    struct ProcessInfo {
-        pid: libc::pid_t,
+    struct ProcessStat {
+        state: u8,
         parent: libc::pid_t,
         start: u64,
-        state: u8,
+    }
+
+    struct ProcessInfo {
+        stat: ProcessStat,
         uids: [u32; 4],
         gids: [u32; 4],
+    }
+
+    /// Only a process whose proc entry no longer exists is gone; every other failure to read or
+    /// parse its identity is an error.
+    enum ProcessError {
+        Gone(String),
+        Failed(String),
+    }
+
+    impl ProcessError {
+        fn message(self) -> String {
+            match self {
+                Self::Gone(message) | Self::Failed(message) => message,
+            }
+        }
+    }
+
+    impl From<String> for ProcessError {
+        fn from(message: String) -> Self {
+            Self::Failed(message)
+        }
+    }
+
+    enum Permissions {
+        Exact(&'static [libc::mode_t]),
+        Without(libc::mode_t),
+    }
+
+    enum DecimalError {
+        Invalid,
+        Overflow,
+    }
+
+    struct DirectoryLock {
+        _fd: OwnedFd,
+    }
+
+    struct DirGuard(*mut libc::DIR);
+
+    impl Drop for DirGuard {
+        fn drop(&mut self) {
+            // SAFETY: the stream came from a successful fdopendir and is closed exactly once.
+            unsafe { libc::closedir(self.0) };
+        }
     }
 
     fn last_error(context: &str) -> String {
@@ -78,6 +127,14 @@ mod linux {
         Ok(unsafe { OwnedFd::from_raw_fd(fd) })
     }
 
+    fn duplicate_above_slots(fd: RawFd, context: &str) -> Result<OwnedFd, String> {
+        // SAFETY: F_DUPFD_CLOEXEC returns a fresh descriptor above the fixed launcher slots.
+        owned_fd(
+            unsafe { libc::fcntl(fd, libc::F_DUPFD_CLOEXEC, 6) },
+            context,
+        )
+    }
+
     fn fstat(fd: RawFd, context: &str) -> Result<libc::stat, String> {
         // SAFETY: fstat writes to the valid output structure.
         let mut stat = unsafe { std::mem::zeroed::<libc::stat>() };
@@ -88,13 +145,34 @@ mod linux {
         Ok(stat)
     }
 
+    fn stat_matches(
+        stat: &libc::stat,
+        uid: libc::uid_t,
+        gid: Option<libc::gid_t>,
+        kind: libc::mode_t,
+        permissions: Permissions,
+        links: Option<libc::nlink_t>,
+    ) -> bool {
+        stat.st_uid == uid
+            && gid.is_none_or(|gid| stat.st_gid == gid)
+            && stat.st_mode & libc::S_IFMT == kind
+            && match permissions {
+                Permissions::Exact(modes) => modes.contains(&(stat.st_mode & 0o7777)),
+                Permissions::Without(mask) => stat.st_mode & mask == 0,
+            }
+            && links.is_none_or(|links| stat.st_nlink == links)
+    }
+
     fn validate_directory(fd: RawFd, context: &str) -> Result<(), String> {
         let stat = fstat(fd, context)?;
-        if stat.st_uid != 0
-            || stat.st_gid != 0
-            || stat.st_mode & libc::S_IFMT != libc::S_IFDIR
-            || stat.st_mode & 0o022 != 0
-        {
+        if !stat_matches(
+            &stat,
+            0,
+            Some(0),
+            libc::S_IFDIR,
+            Permissions::Without(0o022),
+            None,
+        ) {
             return Err(format!(
                 "{context} must be a root-owned, non-writable directory"
             ));
@@ -104,11 +182,14 @@ mod linux {
 
     fn validate_private_directory(fd: RawFd) -> Result<(), String> {
         let stat = fstat(fd, "attestation directory")?;
-        if stat.st_uid != 0
-            || stat.st_gid != 0
-            || stat.st_mode & libc::S_IFMT != libc::S_IFDIR
-            || !matches!(stat.st_mode & 0o7777, 0o700 | 0o750)
-        {
+        if !stat_matches(
+            &stat,
+            0,
+            Some(0),
+            libc::S_IFDIR,
+            Permissions::Exact(&[0o700, 0o750]),
+            None,
+        ) {
             return Err(
                 "attestation directory must be root-owned and private (0700 or 0750)".to_owned(),
             );
@@ -118,11 +199,14 @@ mod linux {
 
     fn validate_regular(fd: RawFd, context: &str) -> Result<libc::stat, String> {
         let stat = fstat(fd, context)?;
-        if stat.st_uid != 0
-            || stat.st_mode & libc::S_IFMT != libc::S_IFREG
-            || stat.st_mode & 0o022 != 0
-            || stat.st_nlink != 1
-        {
+        if !stat_matches(
+            &stat,
+            0,
+            None,
+            libc::S_IFREG,
+            Permissions::Without(0o022),
+            Some(1),
+        ) {
             return Err(format!(
                 "{context} must be a root-owned, non-writable regular file"
             ));
@@ -131,10 +215,6 @@ mod linux {
     }
 
     fn open_absolute(path: &CStr, final_flags: libc::c_int) -> Result<OwnedFd, String> {
-        let bytes = path.to_bytes();
-        if bytes.first() != Some(&b'/') {
-            return Err("trusted path must be absolute".to_owned());
-        }
         let mut directory = owned_fd(
             // SAFETY: the path is a static absolute C string.
             unsafe {
@@ -146,17 +226,12 @@ mod linux {
             "open root directory",
         )?;
         validate_directory(directory.as_raw_fd(), "root directory")?;
-        let components = bytes
+        let components = path
+            .to_bytes()
             .split(|byte| *byte == b'/')
-            .filter(|component| !component.is_empty());
-        let components = components.collect::<Vec<_>>();
-        if components.is_empty() {
-            return Err("trusted path must name a file or directory".to_owned());
-        }
+            .filter(|component| !component.is_empty())
+            .collect::<Vec<_>>();
         for (index, component) in components.iter().enumerate() {
-            if *component == b"." || *component == b".." {
-                return Err("trusted path contains a relative component".to_owned());
-            }
             let name = CString::new(*component).map_err(|_| "invalid trusted path component")?;
             let final_component = index + 1 == components.len();
             let flags = if final_component {
@@ -177,14 +252,6 @@ mod linux {
         Ok(directory)
     }
 
-    fn file_identity(fd: RawFd, executable: bool, context: &str) -> Result<(u64, u64), String> {
-        let stat = validate_regular(fd, context)?;
-        if executable && stat.st_mode & 0o100 == 0 {
-            return Err(format!("{context} is not executable by its owner"));
-        }
-        Ok((stat.st_dev as u64, stat.st_ino as u64))
-    }
-
     fn verify_launcher() -> Result<(), String> {
         let launcher = open_absolute(LAUNCHER_PATH, libc::O_PATH)?;
         let stat = validate_regular(launcher.as_raw_fd(), "installed launcher")?;
@@ -202,7 +269,7 @@ mod linux {
         Ok(())
     }
 
-    fn open_sidecar() -> Result<(OwnedFd, (u64, u64)), String> {
+    fn validate_snapshots() -> Result<(), String> {
         let snapshots = open_absolute(SNAPSHOT_PATH, libc::O_RDONLY | libc::O_DIRECTORY)?;
         validate_directory(snapshots.as_raw_fd(), "snapshot directory")?;
         for name in SNAPSHOT_FILES {
@@ -219,9 +286,16 @@ mod linux {
             )?;
             validate_regular(file.as_raw_fd(), "installed snapshot")?;
         }
+        Ok(())
+    }
+
+    fn sidecar_identity() -> Result<(OwnedFd, (libc::dev_t, libc::ino_t)), String> {
         let executable = open_absolute(EXECUTABLE_PATH, libc::O_PATH)?;
-        let identity = file_identity(executable.as_raw_fd(), true, "installed sidecar")?;
-        Ok((executable, identity))
+        let stat = validate_regular(executable.as_raw_fd(), "installed sidecar")?;
+        if stat.st_mode & 0o100 == 0 {
+            return Err("installed sidecar is not executable by its owner".to_owned());
+        }
+        Ok((executable, (stat.st_dev, stat.st_ino)))
     }
 
     fn credentials() -> Result<([libc::uid_t; 3], [libc::gid_t; 3]), String> {
@@ -266,17 +340,26 @@ mod linux {
         Ok(())
     }
 
+    fn decimal(text: &[u8]) -> Result<u64, DecimalError> {
+        if text.is_empty() || !text.iter().all(u8::is_ascii_digit) {
+            return Err(DecimalError::Invalid);
+        }
+        text.iter()
+            .try_fold(0_u64, |value, digit| {
+                value.checked_mul(10)?.checked_add(u64::from(digit - b'0'))
+            })
+            .ok_or(DecimalError::Overflow)
+    }
+
     fn positive_u64(value: &str, flag: &str) -> Result<u64, String> {
-        if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
-            return Err(format!("{flag} requires a positive decimal integer"));
+        match decimal(value.as_bytes()) {
+            Err(DecimalError::Invalid) => {
+                Err(format!("{flag} requires a positive decimal integer"))
+            }
+            Err(DecimalError::Overflow) => Err(format!("{flag} is out of range")),
+            Ok(0) => Err(format!("{flag} must be positive")),
+            Ok(parsed) => Ok(parsed),
         }
-        let parsed = value
-            .parse::<u64>()
-            .map_err(|_| format!("{flag} is out of range"))?;
-        if parsed == 0 {
-            return Err(format!("{flag} must be positive"));
-        }
-        Ok(parsed)
     }
 
     fn parse_launch(args: &[String]) -> Result<LaunchConfig, String> {
@@ -285,15 +368,11 @@ mod linux {
         }
         let mut values = std::collections::HashMap::with_capacity(LAUNCH_FLAGS.len());
         for pair in args[1..].chunks_exact(2) {
-            let flag = &pair[0];
-            let value = &pair[1];
-            if flag.len() > MAX_ARGUMENT_BYTES
-                || value.len() > MAX_ARGUMENT_BYTES
-                || !LAUNCH_FLAGS.contains(&flag.as_str())
-            {
+            let flag = pair[0].as_str();
+            if !LAUNCH_FLAGS.contains(&flag) {
                 return Err(format!("unsupported launcher argument {flag:?}"));
             }
-            if values.insert(flag.as_str(), value.as_str()).is_some() {
+            if values.insert(flag, pair[1].as_str()).is_some() {
                 return Err(format!("{flag} must appear exactly once"));
             }
         }
@@ -332,57 +411,34 @@ mod linux {
         })
     }
 
+    fn sockopt_int(option: libc::c_int) -> Option<libc::c_int> {
+        let mut value: libc::c_int = 0;
+        let mut length = std::mem::size_of_val(&value) as libc::socklen_t;
+        // SAFETY: getsockopt writes at most length bytes into value.
+        let result = unsafe {
+            libc::getsockopt(
+                SOCKET_FD,
+                libc::SOL_SOCKET,
+                option,
+                (&mut value as *mut libc::c_int).cast(),
+                &mut length,
+            )
+        };
+        (result == 0).then_some(value)
+    }
+
     fn check_socket() -> Result<(), String> {
         let stat = fstat(SOCKET_FD, "inspect descriptor 3")?;
         if stat.st_mode & libc::S_IFMT != libc::S_IFSOCK {
             return Err("descriptor 3 must be a connected AF_UNIX stream socket".to_owned());
         }
-        let mut value = 0;
-        let mut length = std::mem::size_of_val(&value) as libc::socklen_t;
-        // SAFETY: getsockopt writes an integer into value.
-        if unsafe {
-            libc::getsockopt(
-                SOCKET_FD,
-                libc::SOL_SOCKET,
-                libc::SO_DOMAIN,
-                (&mut value as *mut libc::c_int).cast(),
-                &mut length,
-            )
-        } != 0
-            || value != libc::AF_UNIX
-        {
+        if sockopt_int(libc::SO_DOMAIN) != Some(libc::AF_UNIX) {
             return Err("descriptor 3 must use AF_UNIX".to_owned());
         }
-        value = 0;
-        length = std::mem::size_of_val(&value) as libc::socklen_t;
-        // SAFETY: getsockopt writes an integer into value.
-        if unsafe {
-            libc::getsockopt(
-                SOCKET_FD,
-                libc::SOL_SOCKET,
-                libc::SO_TYPE,
-                (&mut value as *mut libc::c_int).cast(),
-                &mut length,
-            )
-        } != 0
-            || value != libc::SOCK_STREAM
-        {
+        if sockopt_int(libc::SO_TYPE) != Some(libc::SOCK_STREAM) {
             return Err("descriptor 3 must be SOCK_STREAM".to_owned());
         }
-        value = 0;
-        length = std::mem::size_of_val(&value) as libc::socklen_t;
-        // SAFETY: getsockopt writes an integer into value.
-        if unsafe {
-            libc::getsockopt(
-                SOCKET_FD,
-                libc::SOL_SOCKET,
-                libc::SO_ACCEPTCONN,
-                (&mut value as *mut libc::c_int).cast(),
-                &mut length,
-            )
-        } != 0
-            || value != 0
-        {
+        if sockopt_int(libc::SO_ACCEPTCONN) != Some(0) {
             return Err("descriptor 3 must be connected, not listening".to_owned());
         }
         let mut peer = unsafe { std::mem::zeroed::<libc::sockaddr_storage>() };
@@ -400,7 +456,7 @@ mod linux {
             return Err("descriptor 3 must have a connected AF_UNIX peer".to_owned());
         }
         let mut credentials = unsafe { std::mem::zeroed::<libc::ucred>() };
-        length = std::mem::size_of_val(&credentials) as libc::socklen_t;
+        let mut length = std::mem::size_of_val(&credentials) as libc::socklen_t;
         // SAFETY: getsockopt writes a ucred into credentials.
         if unsafe {
             libc::getsockopt(
@@ -434,35 +490,19 @@ mod linux {
         Ok(())
     }
 
-    fn process_bytes(path: &str, limit: usize) -> Result<Vec<u8>, String> {
-        let path = CString::new(path).map_err(|_| "invalid proc path")?;
-        // SAFETY: path is a nul-terminated proc path.
-        let fd = owned_fd(
-            unsafe {
-                libc::open(
-                    path.as_ptr(),
-                    libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
-                )
-            },
-            "open process identity",
-        )?;
+    fn read_bounded(fd: RawFd, limit: usize, context: &str) -> Result<Vec<u8>, String> {
         let mut bytes = vec![0; limit + 1];
         let mut count = 0;
         while count < bytes.len() {
             // SAFETY: the remaining slice is writable and fd is open.
-            let read = unsafe {
-                libc::read(
-                    fd.as_raw_fd(),
-                    bytes[count..].as_mut_ptr().cast(),
-                    bytes.len() - count,
-                )
-            };
+            let read =
+                unsafe { libc::read(fd, bytes[count..].as_mut_ptr().cast(), bytes.len() - count) };
             if read < 0 {
                 let error = io::Error::last_os_error();
                 if error.kind() == io::ErrorKind::Interrupted {
                     continue;
                 }
-                return Err(format!("read process identity: {error}"));
+                return Err(format!("read {context}: {error}"));
             }
             if read == 0 {
                 bytes.truncate(count);
@@ -470,46 +510,79 @@ mod linux {
             }
             count += read as usize;
         }
-        Err("process identity exceeds the launcher limit".to_owned())
+        Err(format!("{context} exceeds the launcher limit"))
     }
 
-    fn process_start(pid: libc::pid_t) -> Result<u64, io::Error> {
-        let text = std::fs::read(format!("/proc/{pid}/stat"))?;
-        if text.len() > 4096 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "process stat exceeds the launcher limit",
-            ));
+    fn process_file(pid: libc::pid_t, name: &str, limit: usize) -> Result<Vec<u8>, ProcessError> {
+        let path = CString::new(format!("/proc/{pid}/{name}"))
+            .map_err(|_| "invalid proc path".to_owned())?;
+        // SAFETY: path is a nul-terminated proc path.
+        let raw = unsafe {
+            libc::open(
+                path.as_ptr(),
+                libc::O_RDONLY | libc::O_CLOEXEC | libc::O_NOFOLLOW,
+            )
+        };
+        if raw < 0 {
+            let error = io::Error::last_os_error();
+            let message = format!("open process identity: {error}");
+            return Err(if error.kind() == io::ErrorKind::NotFound {
+                ProcessError::Gone(message)
+            } else {
+                ProcessError::Failed(message)
+            });
         }
-        let text = std::str::from_utf8(&text).map_err(|_| {
-            io::Error::new(io::ErrorKind::InvalidData, "invalid process stat encoding")
-        })?;
-        let fields = text
+        let fd = owned_fd(raw, "open process identity")?;
+        read_bounded(fd.as_raw_fd(), limit, "process identity").map_err(ProcessError::Failed)
+    }
+
+    fn parse_stat(bytes: &[u8], pid: libc::pid_t) -> Result<ProcessStat, String> {
+        let text = std::str::from_utf8(bytes).map_err(|_| "invalid process stat encoding")?;
+        let close = text
             .rfind(')')
-            .map(|close| text[close + 1..].trim_start())
-            .ok_or_else(|| {
-                io::Error::new(io::ErrorKind::InvalidData, "invalid process stat format")
-            })?
+            .ok_or_else(|| "invalid process stat format".to_owned())?;
+        let reported_pid = text[..close]
+            .split_ascii_whitespace()
+            .next()
+            .and_then(|value| value.parse::<libc::pid_t>().ok())
+            .ok_or_else(|| "invalid process stat PID".to_owned())?;
+        let fields = text[close + 1..]
             .split_ascii_whitespace()
             .collect::<Vec<_>>();
-        fields
-            .get(19)
-            .ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    "process stat is missing its start time",
-                )
-            })?
-            .parse::<u64>()
-            .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid process start time"))
+        if reported_pid != pid || fields.len() <= 19 {
+            return Err("process stat does not match the requested PID".to_owned());
+        }
+        Ok(ProcessStat {
+            state: fields[0]
+                .as_bytes()
+                .first()
+                .copied()
+                .ok_or_else(|| "invalid process state".to_owned())?,
+            parent: fields[1]
+                .parse()
+                .map_err(|_| "invalid process parent PID".to_owned())?,
+            start: fields[19]
+                .parse()
+                .map_err(|_| "invalid process start time".to_owned())?,
+        })
+    }
+
+    fn process_stat(pid: libc::pid_t) -> Result<ProcessStat, ProcessError> {
+        let bytes = process_file(pid, "stat", 4096)?;
+        parse_stat(&bytes, pid).map_err(ProcessError::Failed)
+    }
+
+    fn is_stale(stat: Result<ProcessStat, ProcessError>, child_start: u64) -> Result<bool, String> {
+        match stat {
+            Ok(stat) => Ok(stat.start != child_start),
+            Err(ProcessError::Gone(_)) => Ok(true),
+            Err(ProcessError::Failed(error)) => Err(error),
+        }
     }
 
     fn record_is_stale(pid: libc::pid_t, stored: &StoredAttestation) -> Result<bool, String> {
-        match process_start(pid) {
-            Ok(start) => Ok(start != stored.value.child_start),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(true),
-            Err(error) => Err(format!("cannot verify attested PID {pid}: {error}")),
-        }
+        is_stale(process_stat(pid), stored.value.child_start)
+            .map_err(|error| format!("cannot verify attested PID {pid}: {error}"))
     }
 
     fn parse_four(line: &str, name: &str) -> Result<[u32; 4], String> {
@@ -525,36 +598,8 @@ mod linux {
     }
 
     fn process_info(pid: libc::pid_t) -> Result<ProcessInfo, String> {
-        let stat_text = process_bytes(&format!("/proc/{pid}/stat"), 4096)?;
-        let stat_text =
-            std::str::from_utf8(&stat_text).map_err(|_| "invalid process stat encoding")?;
-        let close = stat_text
-            .rfind(')')
-            .ok_or_else(|| "invalid process stat format".to_owned())?;
-        let reported_pid = stat_text[..close]
-            .split_ascii_whitespace()
-            .next()
-            .ok_or_else(|| "invalid process stat PID".to_owned())?
-            .parse::<libc::pid_t>()
-            .map_err(|_| "invalid process stat PID".to_owned())?;
-        let stat_fields = stat_text[close + 1..]
-            .split_ascii_whitespace()
-            .collect::<Vec<_>>();
-        if reported_pid != pid || stat_fields.len() <= 19 {
-            return Err("process stat does not match the requested PID".to_owned());
-        }
-        let state = stat_fields[0]
-            .as_bytes()
-            .first()
-            .copied()
-            .ok_or_else(|| "invalid process state".to_owned())?;
-        let parent = stat_fields[1]
-            .parse::<libc::pid_t>()
-            .map_err(|_| "invalid process parent PID".to_owned())?;
-        let start = stat_fields[19]
-            .parse::<u64>()
-            .map_err(|_| "invalid process start time".to_owned())?;
-        let status = process_bytes(&format!("/proc/{pid}/status"), 8192)?;
+        let stat = process_stat(pid).map_err(ProcessError::message)?;
+        let status = process_file(pid, "status", 8192).map_err(ProcessError::message)?;
         let status = std::str::from_utf8(&status).map_err(|_| "invalid process status encoding")?;
         let mut status_pid = None;
         let mut status_parent = None;
@@ -585,14 +630,11 @@ mod linux {
         let status_pid = status_pid.ok_or_else(|| "process status is missing PID".to_owned())?;
         let status_parent =
             status_parent.ok_or_else(|| "process status is missing parent PID".to_owned())?;
-        if status_pid != pid || status_parent != parent {
+        if status_pid != pid || status_parent != stat.parent {
             return Err("process status changed while reading identity".to_owned());
         }
         Ok(ProcessInfo {
-            pid,
-            parent,
-            start,
-            state,
+            stat,
             uids: uids.ok_or_else(|| "process status is missing UIDs".to_owned())?,
             gids: gids.ok_or_else(|| "process status is missing GIDs".to_owned())?,
         })
@@ -607,16 +649,17 @@ mod linux {
         if !is_backend(&info) {
             return Err("launcher parent must have UID 1001 in all process ID slots".to_owned());
         }
-        Ok(info.start)
+        Ok(info.stat.start)
     }
 
     fn number(value: &str) -> Result<u64, String> {
-        if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
-            return Err("invalid attestation number".to_owned());
-        }
-        value
-            .parse::<u64>()
-            .map_err(|_| "attestation number is out of range".to_owned())
+        decimal(value.as_bytes()).map_err(|error| {
+            match error {
+                DecimalError::Invalid => "invalid attestation number",
+                DecimalError::Overflow => "attestation number is out of range",
+            }
+            .to_owned()
+        })
     }
 
     fn encode_attestation(value: &Attestation) -> Vec<u8> {
@@ -677,33 +720,7 @@ mod linux {
     }
 
     fn pid_name(pid: libc::pid_t) -> Result<CString, String> {
-        if pid <= 0 {
-            return Err("PID must be positive".to_owned());
-        }
         CString::new(pid.to_string()).map_err(|_| "invalid PID filename".to_owned())
-    }
-
-    fn read_fd(fd: RawFd, maximum: usize) -> Result<Vec<u8>, String> {
-        let mut bytes = vec![0; maximum + 1];
-        let mut used = 0;
-        while used < bytes.len() {
-            // SAFETY: the output slice is writable and fd is open.
-            let count =
-                unsafe { libc::read(fd, bytes[used..].as_mut_ptr().cast(), bytes.len() - used) };
-            if count < 0 {
-                let error = io::Error::last_os_error();
-                if error.kind() == io::ErrorKind::Interrupted {
-                    continue;
-                }
-                return Err(format!("read launch attestation: {error}"));
-            }
-            if count == 0 {
-                bytes.truncate(used);
-                return Ok(bytes);
-            }
-            used += count as usize;
-        }
-        Err("launch attestation exceeds the launcher limit".to_owned())
     }
 
     fn read_record_at(dirfd: RawFd, pid: libc::pid_t) -> Result<Option<StoredAttestation>, String> {
@@ -725,16 +742,19 @@ mod linux {
         }
         let fd = owned_fd(raw, "open launch attestation")?;
         let stat = fstat(fd.as_raw_fd(), "inspect launch attestation")?;
-        if stat.st_uid != 0
-            || stat.st_mode & libc::S_IFMT != libc::S_IFREG
-            || stat.st_mode & 0o7777 != 0o600
-            || stat.st_nlink != 1
-        {
+        if !stat_matches(
+            &stat,
+            0,
+            None,
+            libc::S_IFREG,
+            Permissions::Exact(&[0o600]),
+            Some(1),
+        ) {
             return Err(
                 "launch attestation must be a root-owned mode-0600 regular file".to_owned(),
             );
         }
-        let bytes = read_fd(fd.as_raw_fd(), MAX_RECORD_BYTES)?;
+        let bytes = read_bounded(fd.as_raw_fd(), MAX_RECORD_BYTES, "launch attestation")?;
         let value = decode_attestation(&bytes)?;
         if value.child_pid != pid {
             return Err("launch attestation filename does not match its child PID".to_owned());
@@ -752,7 +772,7 @@ mod linux {
         Ok(directory)
     }
 
-    fn lock_directory(dirfd: RawFd) -> Result<OwnedFd, String> {
+    fn lock_directory(dirfd: RawFd) -> Result<DirectoryLock, String> {
         // SAFETY: dirfd is a verified directory and the lock name is fixed.
         let fd = owned_fd(
             unsafe {
@@ -766,87 +786,79 @@ mod linux {
             "open attestation lock",
         )?;
         let stat = fstat(fd.as_raw_fd(), "inspect attestation lock")?;
-        if stat.st_uid != 0
-            || stat.st_gid != 0
-            || stat.st_mode & libc::S_IFMT != libc::S_IFREG
-            || stat.st_mode & 0o7777 != 0o600
-            || stat.st_nlink != 1
-        {
+        if !stat_matches(
+            &stat,
+            0,
+            Some(0),
+            libc::S_IFREG,
+            Permissions::Exact(&[0o600]),
+            Some(1),
+        ) {
             return Err("attestation lock must be a root-owned mode-0600 regular file".to_owned());
         }
         // SAFETY: flock only operates on the open lock descriptor.
         if unsafe { libc::flock(fd.as_raw_fd(), libc::LOCK_EX) } != 0 {
             return Err(last_error("lock attestation directory"));
         }
-        Ok(fd)
+        Ok(DirectoryLock { _fd: fd })
+    }
+
+    fn record_pid(name: &[u8]) -> Result<Option<libc::pid_t>, String> {
+        if matches!(name, b"." | b".." | b".lock") {
+            return Ok(None);
+        }
+        let pid = match decimal(name) {
+            Ok(pid) => {
+                libc::pid_t::try_from(pid).map_err(|_| "invalid attestation filename".to_owned())?
+            }
+            Err(DecimalError::Invalid) => {
+                return Err("attestation directory contains an unexpected entry".to_owned());
+            }
+            Err(DecimalError::Overflow) => return Err("invalid attestation filename".to_owned()),
+        };
+        if pid <= 0 {
+            return Err("invalid attestation filename".to_owned());
+        }
+        Ok(Some(pid))
     }
 
     fn directory_entries(dirfd: RawFd) -> Result<Vec<libc::pid_t>, String> {
-        // SAFETY: dup returns a new descriptor for the open directory.
-        let duplicate = owned_fd(
-            unsafe { libc::fcntl(dirfd, libc::F_DUPFD_CLOEXEC, 6) },
-            "duplicate attestation directory",
-        )?;
-        // SAFETY: fdopendir takes ownership of the duplicate descriptor on success.
-        let duplicate = duplicate.into_raw_fd();
-        let stream = unsafe { libc::fdopendir(duplicate) };
+        let duplicate = duplicate_above_slots(dirfd, "duplicate attestation directory")?;
+        // SAFETY: fdopendir takes ownership of the descriptor only when it succeeds.
+        let stream = unsafe { libc::fdopendir(duplicate.as_raw_fd()) };
         if stream.is_null() {
-            let error = last_error("read attestation directory");
-            // SAFETY: fdopendir did not take ownership on failure.
-            unsafe { libc::close(duplicate) };
-            return Err(error);
+            return Err(last_error("read attestation directory"));
         }
+        let _ = duplicate.into_raw_fd();
+        let stream = DirGuard(stream);
         let mut pids = Vec::new();
         let mut entries = 0;
         loop {
             // SAFETY: errno is thread-local and writable on Linux targets.
             unsafe { *libc::__errno_location() = 0 };
-            // SAFETY: stream is a valid DIR pointer owned by duplicate.
-            let entry = unsafe { libc::readdir(stream) };
+            // SAFETY: the stream stays open until the guard drops.
+            let entry = unsafe { libc::readdir(stream.0) };
             if entry.is_null() {
                 // SAFETY: errno is thread-local and writable on Linux targets.
                 let error = unsafe { *libc::__errno_location() };
-                // SAFETY: stream remains valid and is closed exactly once here.
-                unsafe { libc::closedir(stream) };
                 if error != 0 {
                     return Err(io::Error::from_raw_os_error(error).to_string());
                 }
-                break;
+                return Ok(pids);
             }
             entries += 1;
             if entries > MAX_RECORDS + 3 {
-                // SAFETY: stream remains valid and is closed exactly once here.
-                unsafe { libc::closedir(stream) };
                 return Err("attestation directory exceeds the record limit".to_owned());
             }
             // SAFETY: d_name is a nul-terminated directory entry name.
             let name = unsafe { CStr::from_ptr((*entry).d_name.as_ptr()) }.to_bytes();
-            if name == b"." || name == b".." || name == b".lock" {
-                continue;
+            if let Some(pid) = record_pid(name)? {
+                if pids.len() == MAX_RECORDS {
+                    return Err("attestation directory exceeds the record limit".to_owned());
+                }
+                pids.push(pid);
             }
-            if name.is_empty() || !name.iter().all(u8::is_ascii_digit) {
-                // SAFETY: stream remains valid and is closed exactly once here.
-                unsafe { libc::closedir(stream) };
-                return Err("attestation directory contains an unexpected entry".to_owned());
-            }
-            let Ok(text) = std::str::from_utf8(name) else {
-                // SAFETY: stream remains valid and is closed exactly once here.
-                unsafe { libc::closedir(stream) };
-                return Err("invalid attestation filename".to_owned());
-            };
-            let Ok(pid) = text.parse::<libc::pid_t>() else {
-                // SAFETY: stream remains valid and is closed exactly once here.
-                unsafe { libc::closedir(stream) };
-                return Err("invalid attestation filename".to_owned());
-            };
-            if pid <= 0 || pids.len() == MAX_RECORDS {
-                // SAFETY: stream remains valid and is closed exactly once here.
-                unsafe { libc::closedir(stream) };
-                return Err("attestation directory exceeds the record limit".to_owned());
-            }
-            pids.push(pid);
         }
-        Ok(pids)
     }
 
     fn unlink_record(
@@ -874,9 +886,14 @@ mod linux {
         }
         if current.st_dev != stored.device
             || current.st_ino != stored.inode
-            || current.st_uid != 0
-            || current.st_mode & libc::S_IFMT != libc::S_IFREG
-            || current.st_mode & 0o7777 != 0o600
+            || !stat_matches(
+                &current,
+                0,
+                None,
+                libc::S_IFREG,
+                Permissions::Exact(&[0o600]),
+                None,
+            )
         {
             return Err("launch attestation changed before removal".to_owned());
         }
@@ -891,8 +908,7 @@ mod linux {
         Ok(())
     }
 
-    fn sweep_stale_records(dirfd: RawFd) -> Result<(), String> {
-        let _lock = lock_directory(dirfd)?;
+    fn sweep_locked(dirfd: RawFd, _lock: &DirectoryLock) -> Result<(), String> {
         for pid in directory_entries(dirfd)? {
             let Some(stored) = read_record_at(dirfd, pid)? else {
                 continue;
@@ -902,6 +918,11 @@ mod linux {
             }
         }
         Ok(())
+    }
+
+    fn sweep_stale_records(dirfd: RawFd) -> Result<(), String> {
+        let lock = lock_directory(dirfd)?;
+        sweep_locked(dirfd, &lock)
     }
 
     fn write_all(fd: RawFd, bytes: &[u8]) -> Result<(), String> {
@@ -926,15 +947,8 @@ mod linux {
     }
 
     fn create_attestation(dirfd: RawFd, value: &Attestation) -> Result<(), String> {
-        let _lock = lock_directory(dirfd)?;
-        for pid in directory_entries(dirfd)? {
-            let Some(stored) = read_record_at(dirfd, pid)? else {
-                continue;
-            };
-            if record_is_stale(pid, &stored)? {
-                unlink_record(dirfd, pid, &stored)?;
-            }
-        }
+        let lock = lock_directory(dirfd)?;
+        sweep_locked(dirfd, &lock)?;
         let name = pid_name(value.child_pid)?;
         // SAFETY: name is a PID basename in the verified private root-owned directory.
         let raw = unsafe {
@@ -1024,48 +1038,6 @@ mod linux {
         Ok(())
     }
 
-    fn duplicate_to_slots(
-        executable: RawFd,
-        directory: RawFd,
-        pid: libc::pid_t,
-    ) -> Result<(), String> {
-        // SAFETY: F_DUPFD_CLOEXEC returns fresh descriptors above the fixed launcher slots.
-        let executable = match owned_fd(
-            unsafe { libc::fcntl(executable, libc::F_DUPFD_CLOEXEC, 6) },
-            "duplicate sidecar executable",
-        ) {
-            Ok(executable) => executable,
-            Err(error) => {
-                remove_created_record(directory, pid);
-                return Err(error);
-            }
-        };
-        // SAFETY: F_DUPFD_CLOEXEC returns a fresh directory descriptor above the fixed slots.
-        let directory = match owned_fd(
-            unsafe { libc::fcntl(directory, libc::F_DUPFD_CLOEXEC, 6) },
-            "duplicate attestation directory",
-        ) {
-            Ok(directory) => directory,
-            Err(error) => {
-                remove_created_record(directory, pid);
-                return Err(error);
-            }
-        };
-        // SAFETY: dup3 replaces only the reserved executable descriptor and keeps it close-on-exec.
-        if unsafe { libc::dup3(executable.as_raw_fd(), EXECUTABLE_FD, libc::O_CLOEXEC) } < 0 {
-            let error = last_error("prepare sidecar executable descriptor");
-            remove_created_record(directory.as_raw_fd(), pid);
-            return Err(error);
-        }
-        // SAFETY: dup3 replaces only the reserved attestation descriptor and keeps it close-on-exec.
-        if unsafe { libc::dup3(directory.as_raw_fd(), ATTESTATION_FD, libc::O_CLOEXEC) } < 0 {
-            let error = last_error("prepare attestation descriptor");
-            remove_created_record(directory.as_raw_fd(), pid);
-            return Err(error);
-        }
-        Ok(())
-    }
-
     fn close_unrelated_descriptors() -> Result<(), String> {
         // SAFETY: close_range closes only descriptors outside the fixed launcher set.
         if unsafe { libc::syscall(libc::SYS_close_range, 6_u32, u32::MAX, 0_u32) } != 0 {
@@ -1125,11 +1097,11 @@ mod linux {
             "--memory-budget".to_owned(),
             config.memory_budget.to_string(),
             "--max-executions".to_owned(),
-            "10000".to_owned(),
+            MAX_EXECUTIONS.to_owned(),
             "--max-rss".to_owned(),
             config.max_rss.to_string(),
             "--grace-ms".to_owned(),
-            "2000".to_owned(),
+            GRACE_MS.to_owned(),
         ];
         values
             .into_iter()
@@ -1145,6 +1117,54 @@ mod linux {
         }
     }
 
+    /// Runs everything after the attestation exists. `record_directory` names the descriptor that
+    /// cleanup must use: the verified attestation directory until its copy occupies the reserved
+    /// slot, then that slot.
+    fn exec_sidecar(
+        executable: RawFd,
+        directory: RawFd,
+        caller_pid: libc::pid_t,
+        values: &[CString],
+        record_directory: &mut RawFd,
+    ) -> Result<Infallible, String> {
+        let (uids, _) = credentials()?;
+        if uids != [BACKEND_UID, 0, 0] || unsafe { libc::getppid() } != caller_pid {
+            return Err("launcher identity changed before sidecar exec".to_owned());
+        }
+        let executable = duplicate_above_slots(executable, "duplicate sidecar executable")?;
+        let directory = duplicate_above_slots(directory, "duplicate attestation directory")?;
+        // SAFETY: dup3 replaces only the reserved attestation descriptor and keeps it close-on-exec.
+        if unsafe { libc::dup3(directory.as_raw_fd(), ATTESTATION_FD, libc::O_CLOEXEC) } < 0 {
+            return Err(last_error("prepare attestation descriptor"));
+        }
+        *record_directory = ATTESTATION_FD;
+        // SAFETY: dup3 replaces only the reserved executable descriptor and keeps it close-on-exec.
+        if unsafe { libc::dup3(executable.as_raw_fd(), EXECUTABLE_FD, libc::O_CLOEXEC) } < 0 {
+            return Err(last_error("prepare sidecar executable descriptor"));
+        }
+        drop((executable, directory));
+        close_unrelated_descriptors()?;
+        drop_privileges()?;
+        let mut pointers = values
+            .iter()
+            .map(|value| value.as_ptr())
+            .collect::<Vec<_>>();
+        pointers.push(std::ptr::null());
+        let environment: [*const libc::c_char; 1] = [std::ptr::null()];
+        // SAFETY: fd 4 is the verified fixed ELF executable; argv and the empty environment are nul-terminated.
+        unsafe {
+            libc::syscall(
+                libc::SYS_execveat,
+                EXECUTABLE_FD,
+                c"".as_ptr(),
+                pointers.as_ptr(),
+                environment.as_ptr(),
+                libc::AT_EMPTY_PATH,
+            )
+        };
+        Err(last_error("execute fixed sidecar"))
+    }
+
     fn launch(args: &[String]) -> Result<(), String> {
         let caller_pid = validate_privileged_caller()?;
         clear_environment()?;
@@ -1155,9 +1175,12 @@ mod linux {
         let caller_start = verify_peer_process(caller_pid)?;
         set_core_limit()?;
         set_oom_score()?;
-        let (executable, (executable_dev, executable_ino)) = open_sidecar()?;
+        validate_snapshots()?;
+        let (executable, (executable_dev, executable_ino)) = sidecar_identity()?;
         let child_pid = unsafe { libc::getpid() };
-        let child_start = process_start(child_pid).map_err(|error| error.to_string())?;
+        let child_start = process_stat(child_pid)
+            .map_err(ProcessError::message)?
+            .start;
         let directory = open_attestation_directory()?;
         create_attestation(
             directory.as_raw_fd(),
@@ -1170,42 +1193,16 @@ mod linux {
                 executable_ino,
             },
         )?;
-        let (uids, _) = credentials()?;
-        if uids != [BACKEND_UID, 0, 0] || unsafe { libc::getppid() } != caller_pid {
-            remove_created_record(directory.as_raw_fd(), child_pid);
-            return Err("launcher identity changed before sidecar exec".to_owned());
-        }
-        duplicate_to_slots(executable.as_raw_fd(), directory.as_raw_fd(), child_pid)?;
-        if let Err(error) = close_unrelated_descriptors() {
-            remove_created_record(ATTESTATION_FD, child_pid);
-            return Err(error);
-        }
-        if let Err(error) = drop_privileges() {
-            remove_created_record(ATTESTATION_FD, child_pid);
-            return Err(error);
-        }
-        let mut pointers = values
-            .iter()
-            .map(|value| value.as_ptr())
-            .collect::<Vec<_>>();
-        pointers.push(std::ptr::null());
-        let environment: [*const libc::c_char; 1] = [std::ptr::null()];
-        // SAFETY: fd 4 is the verified fixed ELF executable; argv and the empty environment are nul-terminated.
-        let result = unsafe {
-            libc::syscall(
-                libc::SYS_execveat,
-                EXECUTABLE_FD,
-                c"".as_ptr(),
-                pointers.as_ptr(),
-                environment.as_ptr(),
-                libc::AT_EMPTY_PATH,
-            )
-        };
-        if result != 0 {
-            remove_created_record(ATTESTATION_FD, child_pid);
-            return Err(last_error("execute fixed sidecar"));
-        }
-        unreachable!("execveat replaces the launcher process")
+        let mut record_directory = directory.as_raw_fd();
+        let Err(error) = exec_sidecar(
+            executable.as_raw_fd(),
+            directory.as_raw_fd(),
+            caller_pid,
+            &values,
+            &mut record_directory,
+        );
+        remove_created_record(record_directory, child_pid);
+        Err(error)
     }
 
     fn pidfd_exited(pidfd: RawFd) -> Result<bool, String> {
@@ -1236,21 +1233,19 @@ mod linux {
         let caller = process_info(caller_pid)?;
         if !is_backend(&caller)
             || stored.value.caller_pid != caller_pid
-            || stored.value.caller_start != caller.start
+            || stored.value.caller_start != caller.stat.start
         {
             return Err("exited target attestation does not match its backend caller".to_owned());
         }
-        match process_start(pid) {
-            Ok(start) if start == stored.value.child_start => {
-                unlink_record(directory.as_raw_fd(), pid, &stored)?;
+        match process_stat(pid) {
+            Ok(stat) if stat.start != stored.value.child_start => Ok(()),
+            Ok(_) | Err(ProcessError::Gone(_)) => {
+                unlink_record(directory.as_raw_fd(), pid, &stored)
             }
-            Ok(_) => return Ok(()),
-            Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                unlink_record(directory.as_raw_fd(), pid, &stored)?;
+            Err(ProcessError::Failed(error)) => {
+                Err(format!("cannot verify exited target PID {pid}: {error}"))
             }
-            Err(error) => return Err(format!("cannot verify exited target PID {pid}: {error}")),
         }
-        Ok(())
     }
 
     fn terminate(pid_text: &str) -> Result<(), String> {
@@ -1284,12 +1279,10 @@ mod linux {
             return Err("target has no trusted launcher attestation".to_owned());
         };
         let record = &stored.value;
-        if target.pid != pid
-            || target.parent != caller_pid
+        if target.stat.parent != caller_pid
             || target.uids != [SIDECAR_UID; 4]
             || target.gids != [SIDECAR_GID; 4]
-            || target.start != record.child_start
-            || record.child_pid != pid
+            || target.stat.start != record.child_start
             || record.caller_pid != caller_pid
         {
             return Err(
@@ -1298,7 +1291,7 @@ mod linux {
         }
         let caller = process_info(caller_pid)?;
         if !is_backend(&caller)
-            || caller.start != record.caller_start
+            || caller.stat.start != record.caller_start
             || unsafe { libc::getppid() } != caller_pid
         {
             return Err(
@@ -1306,14 +1299,11 @@ mod linux {
             );
         }
         verify_launcher()?;
-        let (executable, identity) = open_sidecar()?;
-        drop(executable);
-        if identity != (record.executable_dev, record.executable_ino)
-            || EXECUTABLE_PATH.to_bytes() != b"/home/ryot/sandboxd/ryot-sandboxd"
-        {
+        let (_, identity) = sidecar_identity()?;
+        if identity != (record.executable_dev, record.executable_ino) {
             return Err("target executable identity does not match the fixed sidecar".to_owned());
         }
-        if target.state == b'Z' || target.state == b'X' {
+        if target.stat.state == b'Z' || target.stat.state == b'X' {
             unlink_record(directory.as_raw_fd(), pid, &stored)?;
             return Ok(());
         }
@@ -1377,64 +1367,152 @@ mod linux {
 
         use super::*;
 
+        fn launch_args() -> Vec<String> {
+            [
+                "launch",
+                "--generation",
+                "9",
+                "--tier",
+                "data",
+                "--trust",
+                "system",
+                "--threads",
+                "3",
+                "--queue",
+                "4",
+                "--max-active",
+                "2",
+                "--memory-budget",
+                "8192",
+                "--max-rss",
+                "16384",
+            ]
+            .map(str::to_owned)
+            .to_vec()
+        }
+
+        fn stat_line(pid: libc::pid_t, start: &str) -> String {
+            format!("{pid} (ryot sandboxd) S 7 {}{start} 0", "0 ".repeat(17))
+        }
+
         #[test]
-        fn launch_injects_fixed_paths_and_lifecycle_limits() {
-            let config = parse_launch(
-                &[
-                    "launch",
-                    "--generation",
-                    "9",
-                    "--tier",
-                    "data",
-                    "--trust",
-                    "system",
-                    "--threads",
-                    "3",
-                    "--queue",
-                    "4",
-                    "--max-active",
-                    "2",
-                    "--memory-budget",
-                    "8192",
-                    "--max-rss",
-                    "16384",
-                ]
-                .map(str::to_owned),
-            )
-            .expect("valid launch configuration");
-            let values = arguments(&config).expect("sidecar arguments");
-            let actual = values
+        fn launch_passes_flags_through_and_injects_fixed_ones() {
+            let args = launch_args();
+            for flag in ["--snapshots", "--max-executions", "--grace-ms"] {
+                let mut injected = args.clone();
+                injected[3] = flag.to_owned();
+                assert!(
+                    parse_launch(&injected)
+                        .is_err_and(|error| error.starts_with("unsupported launcher argument")),
+                    "{flag}"
+                );
+            }
+            let mut duplicate = args.clone();
+            duplicate[3] = "--generation".to_owned();
+            assert!(
+                parse_launch(&duplicate)
+                    .is_err_and(|error| error == "--generation must appear exactly once")
+            );
+
+            let values = arguments(&parse_launch(&args).expect("valid launch configuration"))
+                .expect("sidecar arguments");
+            let values = values
                 .iter()
                 .map(|value| value.to_str().expect("UTF-8 argument"))
                 .collect::<Vec<_>>();
+            assert_eq!(values[0], EXECUTABLE_PATH.to_str().expect("static path"));
+            let value_of = |flag: &str| {
+                let index = values
+                    .iter()
+                    .position(|value| *value == flag)
+                    .expect("sidecar flag");
+                values[index + 1]
+            };
+            for pair in args[1..].chunks_exact(2) {
+                assert_eq!(value_of(pair[0].as_str()), pair[1]);
+            }
             assert_eq!(
-                actual,
-                [
-                    "/home/ryot/sandboxd/ryot-sandboxd",
-                    "--generation",
-                    "9",
-                    "--snapshots",
-                    "/home/ryot/sandboxd/snapshots",
-                    "--tier",
-                    "data",
-                    "--trust",
-                    "system",
-                    "--threads",
-                    "3",
-                    "--queue",
-                    "4",
-                    "--max-active",
-                    "2",
-                    "--memory-budget",
-                    "8192",
-                    "--max-executions",
-                    "10000",
-                    "--max-rss",
-                    "16384",
-                    "--grace-ms",
-                    "2000",
-                ]
+                value_of("--snapshots"),
+                SNAPSHOT_PATH.to_str().expect("static path")
             );
+            assert_eq!(value_of("--max-executions"), MAX_EXECUTIONS);
+            assert_eq!(value_of("--grace-ms"), GRACE_MS);
+        }
+
+        #[test]
+        fn trusted_paths_are_absolute_without_relative_components() {
+            for path in [
+                EXECUTABLE_PATH,
+                SNAPSHOT_PATH,
+                LAUNCHER_PATH,
+                ATTESTATION_PATH,
+            ] {
+                let bytes = path.to_bytes();
+                assert_eq!(bytes.first(), Some(&b'/'), "{path:?}");
+                let components = bytes
+                    .split(|byte| *byte == b'/')
+                    .filter(|component| !component.is_empty())
+                    .collect::<Vec<_>>();
+                assert!(!components.is_empty(), "{path:?}");
+                assert!(
+                    components
+                        .iter()
+                        .all(|component| *component != b"." && *component != b".."),
+                    "{path:?}"
+                );
+            }
+        }
+
+        #[test]
+        fn only_a_missing_process_makes_a_record_stale() {
+            let stat = parse_stat(stat_line(42, "99").as_bytes(), 42).expect("process stat");
+            assert_eq!((stat.state, stat.parent, stat.start), (b'S', 7, 99));
+            assert!(matches!(is_stale(Ok(stat), 99), Ok(false)));
+            let restarted = parse_stat(stat_line(42, "100").as_bytes(), 42);
+            assert!(matches!(
+                is_stale(restarted.map_err(ProcessError::Failed), 99),
+                Ok(true)
+            ));
+            assert!(matches!(
+                is_stale(Err(ProcessError::Gone("gone".to_owned())), 99),
+                Ok(true)
+            ));
+            assert!(matches!(
+                process_stat(libc::pid_t::MAX),
+                Err(ProcessError::Gone(_))
+            ));
+
+            for (text, pid) in [
+                (stat_line(43, "99"), 42),
+                (stat_line(42, "soon"), 42),
+                ("42 (ryot sandboxd) S 7".to_owned(), 42),
+            ] {
+                let parsed = parse_stat(text.as_bytes(), pid);
+                assert!(
+                    is_stale(parsed.map_err(ProcessError::Failed), 99).is_err(),
+                    "{text}"
+                );
+            }
+        }
+
+        #[test]
+        fn attestation_directory_entries_must_be_positive_pids() {
+            assert!(matches!(record_pid(b"12"), Ok(Some(12))));
+            for name in [b".".as_slice(), b"..", b".lock"] {
+                assert!(matches!(record_pid(name), Ok(None)));
+            }
+            for name in [
+                b"0".as_slice(),
+                b"000",
+                b"+1",
+                b"-1",
+                b"",
+                b"12a",
+                b"99999999999",
+                b"99999999999999999999999",
+            ] {
+                assert!(record_pid(name).is_err(), "{name:?}");
+            }
         }
 
         #[test]
