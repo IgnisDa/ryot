@@ -21,10 +21,7 @@ import {
 	type RelationshipFilterField,
 	type ValueFilterField,
 } from "@ryot-app/contract/modules/saved-views/filters";
-import type {
-	KernelSavedViewRendererName,
-	SavedViewSubject,
-} from "@ryot-app/contract/modules/saved-views/schemas";
+import type { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
@@ -90,7 +87,7 @@ type CompileInput = {
 	readonly filter: Filter;
 	readonly source: RowsQuery;
 	readonly fields: readonly FilterField[];
-	readonly subject: SavedViewSubject | undefined;
+	readonly subject: { readonly entityAlias: string } | undefined;
 };
 
 type CompileContext = Omit<CompileInput, "filter"> & { readonly aliases: Set<string> };
@@ -494,7 +491,7 @@ const draftRuleInput = (draft: FilterDraft): Record<string, unknown> => {
 		case "notEmpty":
 		case "isTrue":
 		case "isFalse":
-			return {};
+			break;
 	}
 	return {};
 };
