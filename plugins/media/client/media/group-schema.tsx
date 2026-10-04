@@ -265,7 +265,8 @@ export const defineGroupMediaSchema = <
 					query={membersQuery}
 					key={props.entityId}
 					assets={memberAssets}
-					input={(after) => ({ after, entityId: props.entityId })}
+					input={{ entityId: props.entityId }}
+					getPageInput={(input, after) => ({ ...input, after })}
 					renderPage={(items) => {
 						const batchAssets = memberAssets(items);
 						return (

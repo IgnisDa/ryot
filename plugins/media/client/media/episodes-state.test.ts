@@ -5,8 +5,6 @@ import {
 	episodicEpisode,
 	episodicEpisodeRow,
 } from "../../tests/client/episodic/episodes-fixture";
-import { readyQueryResult } from "../../tests/client/query-result-fixture";
-import { mapMediaCursorPage } from "./cursor-page-state";
 import {
 	mediaEpisodeAirDateLabel,
 	mediaEpisodeNumberLabel,
@@ -18,11 +16,8 @@ import {
 
 const STATE_LABELS = { complete: "Played", untracked: undefined, in_progress: "In progress" };
 
-const readyEpisodes = (episodes: readonly Record<string, unknown>[]) => {
-	const state = mapMediaCursorPage(readyQueryResult(decodeEpisodicEpisodePage({ episodes })));
-	assert(state.status === "ready");
-	return state.items;
-};
+const readyEpisodes = (episodes: readonly Record<string, unknown>[]) =>
+	decodeEpisodicEpisodePage({ episodes }).items;
 
 describe("media episode state", () => {
 	it("formats the metadata a provider recorded and omits the rest", () => {

@@ -39,8 +39,9 @@ come from the [client SDK](../../packages/plugin-client-sdk/README.md) and
 
 Show and Podcast derive parent state from episodes through `EpisodicKindConfig`. Shows traverse
 seasons; podcasts traverse episodes directly. Episode lists are top-level cursor-paged queries,
-never includes. Each page owns its query/assets; container counts come from aggregates rather than
-loaded pages. Show episodes ascend; podcast episodes are newest first. Next-up resolves server-side
+never includes. Shared SDK pagination appends individual requests and preserves page-local asset
+scopes; container counts come from aggregates rather than loaded pages. Show episodes ascend;
+podcast episodes are newest first. Next-up resolves server-side
 independently of loaded pages.
 
 Show episode orders affect presentation only. A device-local `episode-order:<entityId>` preference

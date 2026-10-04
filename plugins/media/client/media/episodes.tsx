@@ -30,7 +30,6 @@ export type MediaEpisodeRender<Episode extends MediaEpisode> = {
 
 export type MediaEpisodePagesCopy = MediaCursorPagesCopy;
 
-/** A page request; `Scope` carries whatever else a caller's query needs beyond the container. */
 export type MediaEpisodePageInput<Scope extends object = Record<never, never>> = Scope & {
 	readonly after: string | null;
 	readonly entityId: string;
@@ -184,13 +183,9 @@ export function MediaEpisodePages<
 			copy={props.copy}
 			query={props.query}
 			key={props.containerId}
+			getPageInput={(input, after) => ({ ...input, after })}
 			assets={(episodes) => mediaEpisodesManagedAssets(episodes, render.purpose)}
-			input={(after) => ({
-				...props.scope,
-				after,
-				entityId: props.entityId,
-				containerId: props.containerId,
-			})}
+			input={{ ...props.scope, entityId: props.entityId, containerId: props.containerId }}
 			renderPage={(episodes, index) => {
 				return (
 					<>
