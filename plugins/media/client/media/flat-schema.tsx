@@ -4,6 +4,7 @@ import type {
 	PluginIdentityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
@@ -63,7 +64,6 @@ import {
 	type MediaSummaryState,
 	type MediaSummaryValue,
 } from "./summary-state";
-import type { MediaTab } from "./tabs";
 
 const GROUP_LIMIT = 20;
 const PEOPLE_LIMIT = 12;
@@ -192,9 +192,9 @@ const MARKER_TONE: Record<MediaFlatSchemaRow["type"], string> = {
 	collection: "bg-transparent",
 };
 
-const TABS: readonly MediaTab<"overview" | "activity">[] = [
-	{ key: "overview", label: "Overview" },
-	{ key: "activity", label: "Activity" },
+const TABS: readonly TabOption<"overview" | "activity">[] = [
+	{ value: "overview", label: "Overview" },
+	{ value: "activity", label: "Activity" },
 ];
 
 const lifecycleLabel = (media: { readonly state: MediaLifecycleState }) =>
@@ -357,11 +357,7 @@ export const defineFlatMediaSchema = <
 		emptyAction: "log-activity",
 	});
 
-	const header = mediaSummaryHeaderDetail({
-		lifecycleLabel,
-		facts: descriptor.facts,
-		progress: summaryProgress,
-	});
+	const header = mediaSummaryHeaderDetail({ facts: descriptor.facts, progress: summaryProgress });
 
 	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({ compact, overview }) => {
 		const groupCopy = descriptor.group;
@@ -423,7 +419,6 @@ export const defineFlatMediaSchema = <
 				compact={props.compact}
 				settled={props.settled}
 				refresh={props.refresh}
-				typeLabel={nouns.title}
 				overview={props.overview}
 				loading={summaryState.loading}
 				safeAreaTop={props.safeAreaTop}

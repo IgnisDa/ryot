@@ -4,6 +4,7 @@ import type {
 	PluginIdentityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
@@ -66,7 +67,6 @@ import {
 	type MediaSummaryState,
 	type MediaSummaryValue,
 } from "./summary-state";
-import type { MediaTab } from "./tabs";
 
 const PEOPLE_LIMIT = 12;
 const COMPANY_LIMIT = 6;
@@ -126,7 +126,6 @@ export type MediaEpisodicSchemaDescriptor<
 		readonly activityRecipe: (input: EpisodicActivityInput) => PreparedRecipe<Activity>;
 		readonly presentationSource: MediaPresentationSource<Presentation>;
 	};
-	readonly typeLabel: string;
 	readonly aspect: MediaArtworkAspect;
 	readonly creditCopy: MediaCreditCopy;
 	readonly overviewLoadingDetail: string;
@@ -167,10 +166,10 @@ const MARKER_TONE: Record<MediaEpisodicRow["type"], string> = {
 	collection: "bg-transparent",
 };
 
-const TABS: readonly MediaTab<"overview" | "episodes" | "activity">[] = [
-	{ key: "overview", label: "Overview" },
-	{ key: "episodes", label: "Episodes" },
-	{ key: "activity", label: "Activity" },
+const TABS: readonly TabOption<"overview" | "episodes" | "activity">[] = [
+	{ value: "overview", label: "Overview" },
+	{ value: "episodes", label: "Episodes" },
+	{ value: "activity", label: "Activity" },
 ];
 
 const lifecycleLabel = (media: { readonly state: EpisodicLifecycleState }) =>
@@ -306,7 +305,6 @@ export const defineEpisodicMediaSchema = <
 	});
 
 	const header = mediaSummaryHeaderDetail({
-		lifecycleLabel,
 		facts: (summary: Summary) =>
 			[...descriptor.facts(summary), mediaEpisodicAiredFact(summary)].filter(
 				(fact) => fact !== undefined,
@@ -350,7 +348,6 @@ export const defineEpisodicMediaSchema = <
 				overview={props.overview}
 				loading={summaryState.loading}
 				safeAreaTop={props.safeAreaTop}
-				typeLabel={descriptor.typeLabel}
 				overviewIsEmpty={overviewIsEmpty}
 				overviewRelations={overviewRelations}
 				refreshOverview={props.refreshOverview}

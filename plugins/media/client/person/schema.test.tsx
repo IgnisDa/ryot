@@ -107,7 +107,6 @@ describe("person schema", () => {
 		expect(
 			container.querySelector('img[src="https://images.test/edward.jpg"]')?.className,
 		).toContain("aspect-2/3");
-		expect(container.textContent).toContain("Person");
 		expect(container.textContent).toContain("Movies");
 		expect(container.textContent).toContain("Albums");
 		expect(container.textContent).toContain("as The Narrator");

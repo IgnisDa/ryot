@@ -31,7 +31,7 @@ afterEach(() => {
 describe("audiobook schema", () => {
 	it("lists the length and drops it when unrecorded", () => {
 		expect(audiobookSummaryFacts(audiobookSummary())).toEqual([
-			{ icon: "clock", label: "Length", value: "12h 30m" },
+			{ inline: true, icon: "clock", label: "Length", value: "12h 30m" },
 		]);
 		expect(audiobookSummaryFacts(audiobookSummary({ runtime: null }))).toEqual([]);
 	});
@@ -45,7 +45,6 @@ describe("audiobook schema", () => {
 			}),
 		);
 
-		expect(container.textContent).toContain("Audiobook");
 		expect(container.textContent).toContain("Authors & narrators");
 		expect(container.textContent).toContain("Nia Voice");
 		expect(container.textContent).toContain(`Part of ${flatGroupRow.name}`);

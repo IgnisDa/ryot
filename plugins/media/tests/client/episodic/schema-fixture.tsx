@@ -35,7 +35,6 @@ export const episodicFixtureCoverage = (
 export const episodicFixtureSchema = defineEpisodicMediaSchema({
 	facts: () => [],
 	aspect: "square",
-	typeLabel: "Fixture",
 	EpisodesTab: () => null,
 	presentationFacts: () => [],
 	recipes: episodicFixtureRecipes,

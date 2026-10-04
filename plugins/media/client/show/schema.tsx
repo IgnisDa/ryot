@@ -101,7 +101,6 @@ export const showPresentationDetail = (show: ShowPresentation) => {
 };
 
 export const showSchema = defineEpisodicMediaSchema({
-	typeLabel: "TV Show",
 	recipes: showRecipes,
 	facts: showSummaryFacts,
 	EpisodesTab: ShowEpisodesTab,

@@ -5,6 +5,7 @@ import type {
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
@@ -49,8 +50,8 @@ import {
 	type MediaEntitySummaryValue,
 	type MediaSummaryHeaderDetail,
 	type MediaSummaryState,
+	type MediaStatusTone,
 } from "./summary-state";
-import type { MediaTab } from "./tabs";
 
 const MEMBER_PAGE_LIMIT = 20;
 const PEOPLE_LIMIT = 12;
@@ -153,6 +154,13 @@ const groupProgressLabel = (progress: GroupProgress, verb: string) =>
 		? undefined
 		: `${progress.completedMemberCount} of ${progress.memberCount} ${verb}`;
 
+const groupProgressTone = (progress: GroupProgress): MediaStatusTone => {
+	if (progress.completedMemberCount === progress.memberCount) {
+		return "success";
+	}
+	return progress.completedMemberCount > 0 ? "accent" : "neutral";
+};
+
 const memberAssets = (items: readonly MediaSavedViewPresentationSubject[]) =>
 	collectManagedAssetLocators(items.map(({ image }) => image ?? undefined));
 
@@ -173,10 +181,10 @@ export const defineGroupMediaSchema = <
 	const creditCopy = descriptor.creditCopy;
 	const overviewRecipe = recipes.overviewRecipe;
 
-	const tabs: readonly MediaTab<GroupTabKey>[] = [
-		{ key: "members", label: members.tab },
-		{ key: "overview", label: "Overview" },
-		{ key: "activity", label: "Activity" },
+	const tabs: readonly TabOption<GroupTabKey>[] = [
+		{ value: "members", label: members.tab },
+		{ value: "overview", label: "Overview" },
+		{ value: "activity", label: "Activity" },
 	];
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
@@ -242,6 +250,7 @@ export const defineGroupMediaSchema = <
 						? undefined
 						: {
 								label: status,
+								tone: groupProgressTone(summary),
 								progress: { percent: (summary.completedMemberCount / summary.memberCount) * 100 },
 							},
 			},
@@ -325,7 +334,6 @@ export const defineGroupMediaSchema = <
 				compact={props.compact}
 				settled={props.settled}
 				refresh={props.refresh}
-				typeLabel={nouns.title}
 				overview={props.overview}
 				loading={summaryState.loading}
 				safeAreaTop={props.safeAreaTop}

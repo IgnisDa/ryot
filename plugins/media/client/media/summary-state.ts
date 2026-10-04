@@ -54,6 +54,7 @@ export type MediaSummaryFact = {
 	readonly value: string;
 	readonly suffix?: string | undefined;
 	readonly iconClass?: string;
+	readonly inline?: boolean;
 };
 
 export type MediaSummaryArtwork = {
@@ -76,11 +77,17 @@ export const mediaSourceLinks = (entity: {
 		href !== null && /^https?:\/\//i.test(href) ? [{ href, label }] : [],
 	);
 
+export type MediaStatusTone = "accent" | "danger" | "neutral" | "success" | "warning";
+
 export type MediaStatusRailConfig = {
 	readonly logActivity: boolean;
 	readonly ownership?: { readonly owned: boolean | null } | undefined;
 	readonly status?:
-		| { readonly label: string; readonly progress: { readonly percent: number } | undefined }
+		| {
+				readonly label: string;
+				readonly tone: MediaStatusTone;
+				readonly progress: { readonly percent: number } | undefined;
+		  }
 		| undefined;
 };
 
@@ -215,6 +222,16 @@ const MEDIA_EPISODIC_LIFECYCLE_LABELS: Record<EpisodicLifecycleState, string> = 
 export const mediaEpisodicLifecycleLabel = (state: EpisodicLifecycleState) =>
 	MEDIA_EPISODIC_LIFECYCLE_LABELS[state];
 
+const MEDIA_LIFECYCLE_TONES: Record<EpisodicLifecycleState, MediaStatusTone> = {
+	dropped: "danger",
+	backlog: "neutral",
+	on_hold: "warning",
+	complete: "success",
+	untracked: "neutral",
+	caught_up: "success",
+	in_progress: "accent",
+};
+
 export const mediaOwnershipLabel = (owned: boolean | null) => {
 	if (owned === null) {
 		return "Not recorded";
@@ -239,7 +256,12 @@ export const mediaCountFact = (
 ): MediaSummaryFact | undefined =>
 	count === null
 		? undefined
-		: { icon, value: String(count), label: count === 1 ? singular : `${singular}s` };
+		: {
+				icon,
+				inline: true,
+				label: count === 1 ? singular : `${singular}s`,
+				value: mediaCountLabel(count, singular.toLowerCase()),
+			};
 
 /** Episode progress over the aired set, e.g. "10/10 aired · 3 upcoming". */
 export const mediaEpisodicAiredLabel = (counts: {
@@ -264,7 +286,9 @@ export const mediaEpisodicAiredFact = (summary: {
 		watched: summary.watchedEpisodes,
 		upcoming: summary.upcomingEpisodes,
 	});
-	return value === undefined ? undefined : { value, label: "Progress", icon: "circle-check" };
+	return value === undefined
+		? undefined
+		: { value, inline: true, label: "Progress", icon: "circle-check" };
 };
 
 export const mediaCountLabels = (count: number | null, singular: string) =>
@@ -273,7 +297,7 @@ export const mediaCountLabels = (count: number | null, singular: string) =>
 export const mediaDurationFact = (duration: number | null, label: string) =>
 	duration === null
 		? undefined
-		: { label, icon: "clock", value: mediaActivityDurationLabel(duration) };
+		: { label, inline: true, icon: "clock", value: mediaActivityDurationLabel(duration) };
 
 export const mediaDurationLabels = (duration: number | null) =>
 	duration === null ? [] : [mediaActivityDurationLabel(duration)];
@@ -289,8 +313,7 @@ export const mediaCollectionsLabel = ({ items, pageInfo }: MediaCollectionList) 
 
 /** The media header: rating first and production status last around the descriptor's facts, genres as chips. */
 export const mediaSummaryHeaderDetail =
-	<Summary extends MediaSummaryValue>(input: {
-		readonly lifecycleLabel: (summary: Summary) => string;
+	<Summary extends MediaSummaryValue & { readonly state: EpisodicLifecycleState }>(input: {
 		readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 		readonly progress?:
 			| ((summary: Summary) => { readonly percent: number } | undefined)
@@ -308,6 +331,10 @@ export const mediaSummaryHeaderDetail =
 		rail: {
 			logActivity: true,
 			ownership: { owned: summary.owned },
-			status: { progress: input.progress?.(summary), label: input.lifecycleLabel(summary) },
+			status: {
+				progress: input.progress?.(summary),
+				tone: MEDIA_LIFECYCLE_TONES[summary.state],
+				label: mediaEpisodicLifecycleLabel(summary.state),
+			},
 		},
 	});

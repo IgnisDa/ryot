@@ -32,7 +32,6 @@ it.live(
 				<MediaSummaryHeader
 					media={media}
 					compact={false}
-					typeLabel="Film"
 					settled={undefined}
 					artwork={{ purpose: "cover", aspect: "poster" }}
 					detail={{

@@ -47,7 +47,6 @@ describe("company schema", () => {
 		);
 		const logo = container.querySelector('img[src="https://images.test/logo.png"]');
 
-		expect(container.textContent).toContain("Company");
 		expect(logo?.className).toContain("aspect-square");
 		expect(logo?.className).toContain("object-contain");
 		unmount();

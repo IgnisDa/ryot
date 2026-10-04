@@ -96,7 +96,7 @@ describe("group detail screen", () => {
 		expect(container.textContent).toContain("Your status");
 		expect(container.textContent).toContain("2 of 5 done");
 		expect(container.querySelector('[style="width: 40%;"]')).not.toBeNull();
-		expect(container.textContent).toContain("5items");
+		expect(container.textContent).toContain("5 items");
 		unmount();
 	});
 

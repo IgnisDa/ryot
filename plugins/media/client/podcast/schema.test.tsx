@@ -69,7 +69,7 @@ afterEach(() => {
 describe("podcast schema", () => {
 	it("lists the published episode count", () => {
 		expect(podcastSummaryFacts(decodePodcastSummary())).toEqual([
-			{ value: "412", icon: "podcast", label: "Episodes" },
+			{ inline: true, icon: "podcast", label: "Episodes", value: "412 episodes" },
 		]);
 		expect(podcastSummaryFacts(decodePodcastSummary({ totalEpisodes: null }))).toEqual([]);
 	});
@@ -97,7 +97,6 @@ describe("podcast schema", () => {
 	it("titles the credits as hosts and networks and offers no where to watch", () => {
 		const { unmount, container } = renderOverview();
 
-		expect(container.textContent).toContain("Podcast");
 		expect(container.textContent).toContain("Hosts & guests");
 		expect(container.textContent).toContain("Networks & publishers");
 		expect(container.textContent).not.toContain("Where to watch");

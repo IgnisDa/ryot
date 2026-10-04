@@ -15,7 +15,12 @@ export const musicSummaryFacts = (music: MusicSummary): readonly MediaSummaryFac
 	[
 		music.duration === null
 			? undefined
-			: { icon: "clock", label: "Length", value: mediaTrackLengthLabel(music.duration) },
+			: {
+					inline: true,
+					icon: "clock",
+					label: "Length",
+					value: mediaTrackLengthLabel(music.duration),
+				},
 		music.byVariousArtists === null
 			? undefined
 			: { icon: "users", label: "Various artists", value: music.byVariousArtists ? "Yes" : "No" },

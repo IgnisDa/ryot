@@ -33,7 +33,7 @@ afterEach(() => {
 describe("comic book schema", () => {
 	it("lists the pages and drops them when unrecorded", () => {
 		expect(comicBookSummaryFacts(comicBookSummary())).toEqual([
-			{ value: "32", label: "Pages", icon: "book-open" },
+			{ inline: true, label: "Pages", value: "32 pages", icon: "book-open" },
 		]);
 		expect(comicBookSummaryFacts(comicBookSummary({ pages: null }))).toEqual([]);
 	});

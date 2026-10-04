@@ -31,7 +31,7 @@ afterEach(() => {
 describe("visual novel schema", () => {
 	it("lists the length and drops it when unrecorded", () => {
 		expect(visualNovelSummaryFacts(visualNovelSummary())).toEqual([
-			{ icon: "clock", label: "Length", value: "12h 30m" },
+			{ inline: true, icon: "clock", label: "Length", value: "12h 30m" },
 		]);
 		expect(visualNovelSummaryFacts(visualNovelSummary({ lengthMinutes: null }))).toEqual([]);
 	});
@@ -43,7 +43,6 @@ describe("visual novel schema", () => {
 			decodeFlatOverview(visualNovelRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
 		);
 
-		expect(container.textContent).toContain("Visual Novel");
 		expect(container.textContent).toContain("Developers");
 		expect(container.textContent).toContain(flatPersonRow.name);
 		expect(container.textContent).not.toContain("Part of");

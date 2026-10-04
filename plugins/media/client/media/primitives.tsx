@@ -21,14 +21,6 @@ export function MediaRefreshStatus(props: { readonly result: RyotQueryResult<unk
 	);
 }
 
-export function MediaChip(props: { readonly label: string }) {
-	return (
-		<span className="rounded-pill border border-border bg-surface-2 px-2.5 py-1 font-ui text-[12px] text-text-muted">
-			{props.label}
-		</span>
-	);
-}
-
 export function MediaFact(props: {
 	readonly label: string;
 	readonly value: string;
@@ -36,13 +28,13 @@ export function MediaFact(props: {
 }) {
 	return (
 		<div className="min-w-20">
-			<p className="font-ui font-semibold text-[15px] text-text">
+			<p className="text-sm font-semibold text-text tabular-nums">
 				{props.value}
 				{props.suffix === undefined ? null : (
-					<span className="font-ui text-[13px]">{props.suffix}</span>
+					<span className="text-xs font-normal text-text-muted">{props.suffix}</span>
 				)}
 			</p>
-			<p className="font-ui text-[12px] text-text">{props.label}</p>
+			<p className="text-xs text-text-muted">{props.label}</p>
 		</div>
 	);
 }
@@ -98,35 +90,6 @@ export function MediaProgressBar(props: { readonly percent: number }) {
 			className="max-w-md"
 			value={props.percent}
 		/>
-	);
-}
-
-export function MediaRailRow(props: {
-	readonly icon: string;
-	readonly title: string;
-	readonly compact: boolean;
-	readonly detail?: string;
-	readonly divided?: boolean;
-	readonly trailing?: ReactNode;
-}) {
-	return (
-		<div
-			className={clsx(
-				"flex flex-col gap-2.5 px-4 py-3.5",
-				props.divided !== false && "border-b border-border",
-			)}
-		>
-			<div className="flex items-center gap-3">
-				{props.compact && <AppIcon size={18} name={props.icon} className="text-text-subtle" />}
-				<div className="min-w-0 flex-1">
-					<p className="font-ui font-medium text-[14px] text-text">{props.title}</p>
-					{props.detail === undefined ? null : (
-						<p className="font-ui text-[12px] text-text-subtle">{props.detail}</p>
-					)}
-				</div>
-				{props.trailing}
-			</div>
-		</div>
 	);
 }
 
@@ -251,35 +214,6 @@ export function MediaExternalLink(props: { readonly href: string; readonly label
 				</span>
 			)}
 		</>
-	);
-}
-
-export function MediaActionButton(props: {
-	readonly label: string;
-	readonly compact: boolean;
-	readonly onClick: () => void;
-	readonly variant: "primary" | "secondary";
-}) {
-	const isPrimary = props.variant === "primary";
-	return (
-		<button
-			type="button"
-			onClick={props.onClick}
-			className={clsx(
-				"flex items-center justify-center rounded-md",
-				props.compact ? "h-12 flex-1" : "h-8 w-full flex-none",
-				isPrimary ? "bg-accent" : "border border-border bg-surface-2",
-			)}
-		>
-			<span
-				className={clsx(
-					"font-ui font-semibold text-[14px]",
-					isPrimary ? "text-accent-ink" : "text-text",
-				)}
-			>
-				{props.label}
-			</span>
-		</button>
 	);
 }
 
