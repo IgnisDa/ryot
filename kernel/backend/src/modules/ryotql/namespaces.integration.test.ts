@@ -4,6 +4,7 @@ import {
 	definitionKey,
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
+import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	PluginId,
 	type PluginPackageId,
@@ -89,7 +90,7 @@ const namespacePackage = (version = "v1", packageId = testPluginPackageId()) => 
 						rowKeyFields: ["id"],
 						sourceName: "bottles",
 						columns: [{ field: "id", label: "ID", displayKind: "text" }],
-					},
+					} satisfies ResultsTableSavedViewSettings,
 				},
 			],
 		},

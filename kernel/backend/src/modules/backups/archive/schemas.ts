@@ -272,14 +272,24 @@ const savedViewFields = {
 	]),
 };
 
+export const ArchiveEntitySchemaReference = strictStruct({
+	slug: Schema.String,
+	pluginKey: Schema.NullOr(Schema.String),
+});
+export type ArchiveEntitySchemaReference = typeof ArchiveEntitySchemaReference.Type;
+
 export const ArchiveEntityBrowserSavedViewSettings = strictStruct({
 	...EntityBrowserSavedViewSettings.fields,
+	subject: strictStruct({
+		entityAlias: Schema.NonEmptyString,
+		schemas: Schema.NonEmptyArray(ArchiveEntitySchemaReference),
+	}),
 	addAction: Schema.NullOr(
 		Schema.Union([
 			strictStruct({
 				library: ProviderLibraryMembership,
+				schema: ArchiveEntitySchemaReference,
 				type: Schema.Literal("provider-search"),
-				schema: strictStruct({ slug: Schema.String, pluginKey: Schema.NullOr(Schema.String) }),
 			}),
 			EntityBrowserPluginRouteAddAction,
 		]),

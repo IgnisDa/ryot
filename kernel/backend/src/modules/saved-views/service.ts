@@ -6,12 +6,13 @@ import {
 import {
 	SavedViewBadRequest,
 	SavedViewNotFound,
+	SavedViewRendererConfig,
 	type CreateSavedViewBody,
 	type ReorderSavedViewsBody,
 	type UpdateSavedViewBody,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
@@ -182,9 +183,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							if (
 								payload.name !== undefined ||
 								payload.icon !== undefined ||
-								payload.renderer !== undefined ||
-								payload.settings !== undefined ||
-								payload.dataSources !== undefined ||
+								"renderer" in payload ||
 								payload.workspaceInstallationId !== undefined
 							) {
 								return yield* immutable(reference);
@@ -207,20 +206,11 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 								reason: { field: "name", code: "required-field" },
 							});
 						}
-						const renderer = payload.renderer ?? current.renderer;
-						const settings = payload.settings ?? current.settings;
-						const definitionChanged =
-							payload.renderer !== undefined ||
-							payload.settings !== undefined ||
-							payload.dataSources !== undefined;
+						const config = "renderer" in payload ? payload : current;
+						const { renderer, settings } = config;
 						const dataSources =
-							definitionChanged || (!payload.isHidden && current.isHidden)
-								? yield* prepareDefinition(
-										user.id,
-										renderer,
-										settings,
-										payload.dataSources === undefined ? current.dataSources : payload.dataSources,
-									)
+							"renderer" in payload || (!payload.isHidden && current.isHidden)
+								? yield* prepareDefinition(user.id, renderer, settings, config.dataSources)
 								: current.dataSources;
 						let pluginInstallationId: string | null;
 						if (payload.workspaceInstallationId === undefined) {
@@ -283,12 +273,25 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		});
 		const clone = Effect.fn(function* (user: CurrentUserValue, reference: SavedViewReference) {
 			const source = yield* requireSavedView(user.id, reference);
-			return yield* create(user, {
-				icon: source.icon,
+			const config = yield* Schema.decodeUnknownEffect(SavedViewRendererConfig)({
 				renderer: source.renderer,
 				settings: source.settings,
-				name: `${source.name} (Copy)`,
 				dataSources: source.dataSources,
+			}).pipe(
+				Effect.mapError(
+					() =>
+						new SavedViewBadRequest({
+							reason: {
+								code: "settings-incompatible",
+								message: "Saved view definition is invalid",
+							},
+						}),
+				),
+			);
+			return yield* create(user, {
+				...config,
+				icon: source.icon,
+				name: `${source.name} (Copy)`,
 				...(source.pluginInstallationId
 					? { workspaceInstallationId: source.pluginInstallationId }
 					: {}),

@@ -1,6 +1,9 @@
 import { sourcePlanConfigKeys } from "@ryot-app/contract/modules/plugins/execution";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	type AuthoredEntitySchemaReference,
+	definitionOwner,
+} from "@ryot-app/contract/modules/plugins/references";
 import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	AuthoredEntityBrowserSavedViewSettings,
@@ -8,7 +11,7 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
-import { Result, Schema } from "effect";
+import { Array as Arr, Result, Schema } from "effect";
 
 import { formatPropertyIssues } from "#modules/definitions/properties/runtime";
 
@@ -63,13 +66,15 @@ export const materializeSavedView = (
 				`Invalid saved view ${definition.slug}: invalid ${definition.renderer.name} settings`,
 			);
 		}
-		const addAction = decoded.success.addAction;
+		const resolveSchema = ({ slug, owner }: AuthoredEntitySchemaReference) => ({
+			slug,
+			owner: owner.kind === "self" ? definitionOwner(pluginId) : owner,
+		});
+		const { subject, addAction } = decoded.success;
 		settings = {
 			...decoded.success,
-			addAction: mapEntityBrowserAddActionSchema(addAction, ({ slug, owner }) => ({
-				slug,
-				owner: owner.kind === "self" ? definitionOwner(pluginId) : owner,
-			})),
+			addAction: mapEntityBrowserAddActionSchema(addAction, resolveSchema),
+			subject: { ...subject, schemas: Arr.map(subject.schemas, resolveSchema) },
 		};
 	}
 	return { ...definition, pluginId, settings, dataSources, renderer: definition.renderer };

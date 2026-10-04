@@ -79,3 +79,46 @@ layer(SavedViewsRepository.layer.pipe(Layer.provideMerge(recordingDatabaseLayer)
 		});
 	});
 });
+
+const customRow = (id: string, settings: Record<string, unknown>) => ({
+	id,
+	settings,
+	name: id,
+	slug: id,
+	icon: "box",
+	sortOrder: 0,
+	pluginId: null,
+	isHidden: false,
+	isBuiltin: false,
+	dataSources: null,
+	pluginInstallationId: null,
+	createdAt: new Date("2026-01-01T00:00:00.000Z"),
+	updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+	renderer: { kind: "kernel", name: "entity-browser" },
+});
+
+const listingDatabaseLayer = fakeDatabaseSession(
+	Object.assign(Object.create(null), {
+		select: () => ({
+			from: () => ({
+				where: () => ({
+					orderBy: () =>
+						Effect.succeed([customRow("valid", { pageSize: 20 }), customRow("legacy", {})]),
+				}),
+			}),
+		}),
+	}),
+);
+
+layer(SavedViewsRepository.layer.pipe(Layer.provideMerge(listingDatabaseLayer)))((test) => {
+	test.effect("lists views whose settings the renderer schema rejects without decoding them", () =>
+		Effect.gen(function* () {
+			const repository = yield* SavedViewsRepository;
+			const views = yield* repository.listByUser(UserId.make("user-1"), { includeHidden: true });
+			expect(views.map(({ slug, settings }) => [slug, settings])).toEqual([
+				["valid", { pageSize: 20 }],
+				["legacy", {}],
+			]);
+		}),
+	);
+});

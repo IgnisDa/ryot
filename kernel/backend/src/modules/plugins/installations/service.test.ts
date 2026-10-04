@@ -7,12 +7,13 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
+import { AuthoredSavedViewRendererConfig } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { PLUGIN_ARCHIVE_LIMITS, writePluginArchive } from "@ryot-app/plugin-archive";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Cause, Context, Effect, Exit, Layer, Option, Ref, Stream } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Option, Ref, Schema, Stream } from "effect";
 
 import {
 	insertManagedAsset,
@@ -2033,8 +2034,18 @@ layer(makeLayer({ privateInstallations: [surfaceConflictRow, definitionConflictR
 const sharedSavedView = (() => {
 	const kernelView = kernelDefinitionSource().savedViews[0];
 	assert(kernelView);
-	assert(kernelView.renderer.kind === "kernel");
-	return { ...kernelView, name: "Shared View", slug: "shared-view", renderer: kernelView.renderer };
+	const config = Schema.decodeUnknownSync(AuthoredSavedViewRendererConfig)({
+		renderer: kernelView.renderer,
+		settings: kernelView.settings,
+		dataSources: kernelView.dataSources,
+	});
+	return {
+		...config,
+		sortOrder: 0,
+		name: "Shared View",
+		slug: "shared-view",
+		icon: kernelView.icon,
+	};
 })();
 const withSharedSavedView = () =>
 	privateManifest({

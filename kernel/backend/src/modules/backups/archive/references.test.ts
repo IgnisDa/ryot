@@ -64,11 +64,15 @@ it.effect("rewrites the known renderer schema reference but preserves opaque plu
 			searchFields: [],
 			layouts: ["grid"],
 			tableColumns: null,
-			entityIdField: "id",
 			sourceName: "records",
 			defaultLayout: "grid",
-			ownerPluginIdField: "owner",
-			entitySchemaSlugField: "schema",
+			subject: {
+				entityAlias: "entity",
+				schemas: [
+					{ slug: "bottle", owner: { kind: "plugin", pluginId: "source-owner" } },
+					{ slug: "collection", owner: { kind: "kernel" } },
+				],
+			},
 			addAction: {
 				type: "provider-search",
 				schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "source-owner" } },
@@ -86,11 +90,27 @@ it.effect("rewrites the known renderer schema reference but preserves opaque plu
 			schema: { pluginKey: key, slug: "bottle" },
 			library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 		});
+		expect(exported["subject"]).toEqual({
+			entityAlias: "entity",
+			schemas: [
+				{ pluginKey: key, slug: "bottle" },
+				{ pluginKey: null, slug: "collection" },
+			],
+		});
+		const unmapped = yield* exportRendererSettings(renderer, settings, new Map()).pipe(Effect.flip);
+		expect(unmapped.reason).toBe("missing_reference_mapping");
 		const restored = yield* importRendererSettings(
 			renderer,
 			exported,
 			new Map([[key, "destination-owner"]]),
 		);
+		expect(restored["subject"]).toEqual({
+			entityAlias: "entity",
+			schemas: [
+				{ slug: "bottle", owner: { kind: "plugin", pluginId: "destination-owner" } },
+				{ slug: "collection", owner: { kind: "kernel" } },
+			],
+		});
 		expect(restored["addAction"]).toEqual({
 			type: "provider-search",
 			schema: { slug: "bottle", owner: { kind: "plugin", pluginId: "destination-owner" } },
@@ -117,11 +137,9 @@ it.effect("round-trips plugin-route add actions without remapping their package 
 			searchFields: [],
 			layouts: ["grid"],
 			tableColumns: null,
-			entityIdField: "id",
 			sourceName: "records",
 			defaultLayout: "grid",
-			ownerPluginIdField: "owner",
-			entitySchemaSlugField: "schema",
+			subject: { entityAlias: "entity", schemas: [{ slug: "bottle", owner: { kind: "kernel" } }] },
 		};
 		const renderer = { kind: "kernel", name: "entity-browser" };
 		const exported = yield* exportRendererSettings(renderer, settings, new Map());

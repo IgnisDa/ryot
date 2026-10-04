@@ -3,6 +3,7 @@ import {
 	pluginPackageKey,
 	type PluginIdentityReference,
 	type PluginPackageReference,
+	type EntitySchemaReference,
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -17,7 +18,7 @@ import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Effect, Schema } from "effect";
+import { Array as Arr, Effect, Schema } from "effect";
 
 import {
 	requiredReference,
@@ -31,6 +32,7 @@ import { archiveError, type BackupArchiveError } from "./error";
 import {
 	isArchiveJsonObject,
 	ArchiveEntityBrowserSavedViewSettings,
+	type ArchiveEntitySchemaReference,
 	decodeArchiveJsonObject,
 	type ArchiveRecords,
 	type ArchiveEvent,
@@ -52,20 +54,24 @@ export const exportRendererSettings = Effect.fn(function* (
 		Effect.mapError((error) => archiveError("invalid_entry", error.message)),
 	);
 	const action = decoded.addAction;
-	const owner = action?.type === "provider-search" ? action.schema.owner : undefined;
-	const key = owner?.kind === "plugin" ? pluginKeys.get(owner.pluginId) : null;
-	if (owner?.kind === "plugin" && !key) {
+	const schemas = [
+		...decoded.subject.schemas,
+		...(action?.type === "provider-search" ? [action.schema] : []),
+	];
+	if (schemas.some(({ owner }) => owner.kind === "plugin" && !pluginKeys.has(owner.pluginId))) {
 		return yield* archiveError(
 			"missing_reference_mapping",
 			"Backup renderer references unavailable plugin",
 		);
 	}
+	const toArchive = ({ slug, owner }: EntitySchemaReference) => ({
+		slug,
+		pluginKey: (owner.kind === "plugin" ? pluginKeys.get(owner.pluginId) : null) ?? null,
+	});
 	const encoded = yield* Schema.encodeEffect(ArchiveEntityBrowserSavedViewSettings)({
 		...decoded,
-		addAction: mapEntityBrowserAddActionSchema(action, ({ slug }) => ({
-			slug,
-			pluginKey: key ?? null,
-		})),
+		addAction: mapEntityBrowserAddActionSchema(action, toArchive),
+		subject: { ...decoded.subject, schemas: Arr.map(decoded.subject.schemas, toArchive) },
 	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 	return decodeArchiveJsonObject(encoded);
 });
@@ -82,20 +88,24 @@ export const importRendererSettings = Effect.fn(function* (
 		settings,
 	).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 	const action = decoded.addAction;
-	const key = action?.type === "provider-search" ? action.schema.pluginKey : null;
-	const id = key == null ? null : pluginIds.get(key);
-	if (key != null && !id) {
+	const schemas = [
+		...decoded.subject.schemas,
+		...(action?.type === "provider-search" ? [action.schema] : []),
+	];
+	if (schemas.some(({ pluginKey }) => pluginKey != null && !pluginIds.has(pluginKey))) {
 		return yield* archiveError(
 			"missing_reference_mapping",
 			"Backup renderer plugin mapping is incomplete",
 		);
 	}
+	const toLocal = ({ slug, pluginKey }: ArchiveEntitySchemaReference) => ({
+		slug,
+		owner: definitionOwner(pluginKey == null ? null : (pluginIds.get(pluginKey) ?? null)),
+	});
 	const encoded = yield* Schema.encodeUnknownEffect(EntityBrowserSavedViewSettings)({
 		...decoded,
-		addAction: mapEntityBrowserAddActionSchema(action, ({ slug }) => ({
-			slug,
-			owner: definitionOwner(id ?? null),
-		})),
+		addAction: mapEntityBrowserAddActionSchema(action, toLocal),
+		subject: { ...decoded.subject, schemas: Arr.map(decoded.subject.schemas, toLocal) },
 	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 	return decodeArchiveJsonObject(encoded);
 });
@@ -235,11 +245,14 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 			addQueryPackages(view.dataSources);
 		}
 		if (view.kind === "custom" && isEntityBrowserRenderer(view.renderer)) {
-			const action = Schema.decodeUnknownSync(ArchiveEntityBrowserSavedViewSettings)(
-				view.settings,
-			).addAction;
-			if (action?.type === "provider-search") {
-				add(action.schema.pluginKey);
+			const { subject, addAction } = Schema.decodeUnknownSync(
+				ArchiveEntityBrowserSavedViewSettings,
+			)(view.settings);
+			for (const { pluginKey } of subject.schemas) {
+				add(pluginKey);
+			}
+			if (addAction?.type === "provider-search") {
+				add(addAction.schema.pluginKey);
 			}
 		}
 	}
