@@ -27,7 +27,6 @@ import { FitnessSettingsInput } from "./settings";
 import settingsScript from "./settings.sandbox";
 import { runFitnessStage } from "./shared";
 
-installSandboxTestFilesystem(undefined);
 afterEach(() => installSandboxTestFilesystem(undefined));
 
 const command = Schema.decodeSync(LifecycleCommand)({

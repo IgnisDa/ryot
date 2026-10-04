@@ -1,5 +1,5 @@
 import { encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
-import { posixExtname } from "@ryot-app/ts-utils/path";
+import { posixPath } from "@ryot-app/ts-utils/path";
 import { Predicate, Result } from "effect";
 
 import { viteCompilerError } from "./error";
@@ -89,7 +89,8 @@ export const collectViteOutputs = (
 			files.push({
 				path,
 				bytes,
-				contentType: contentTypes[posixExtname(path).toLowerCase()] ?? "application/octet-stream",
+				contentType:
+					contentTypes[posixPath.extname(path).toLowerCase()] ?? "application/octet-stream",
 			});
 		}
 	}

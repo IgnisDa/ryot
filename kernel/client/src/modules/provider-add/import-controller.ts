@@ -72,14 +72,11 @@ const pollProviderEntityImport = Effect.fnUntraced(function* (
 ) {
 	let runningElapsedMillis = 0;
 	let runningSinceNanos: bigint | undefined;
+	const elapsedAt = (nanos: bigint) =>
+		runningElapsedMillis +
+		(runningSinceNanos === undefined ? 0 : Number(nanos - runningSinceNanos) / 1_000_000);
 	for (;;) {
-		const now = yield* Clock.monotonicTimeNanos;
-		const elapsedMillis =
-			runningElapsedMillis +
-			(runningSinceNanos === undefined ? 0 : Number(now - runningSinceNanos) / 1_000_000);
-		if (runningSinceNanos !== undefined && elapsedMillis >= PROVIDER_IMPORT_TIMEOUT_MILLIS) {
-			return failedEntry(PROVIDER_IMPORT_TIMEOUT_MESSAGE);
-		}
+		const elapsedMillis = elapsedAt(yield* Clock.monotonicTimeNanos);
 		const polling =
 			runningSinceNanos === undefined
 				? poll(jobId).pipe(Effect.asSome)
@@ -90,8 +87,7 @@ const pollProviderEntityImport = Effect.fnUntraced(function* (
 		const observedAtNanos = yield* Clock.monotonicTimeNanos;
 		if (
 			runningSinceNanos !== undefined &&
-			runningElapsedMillis + Number(observedAtNanos - runningSinceNanos) / 1_000_000 >=
-				PROVIDER_IMPORT_TIMEOUT_MILLIS
+			elapsedAt(observedAtNanos) >= PROVIDER_IMPORT_TIMEOUT_MILLIS
 		) {
 			return failedEntry(PROVIDER_IMPORT_TIMEOUT_MESSAGE);
 		}
@@ -108,7 +104,7 @@ const pollProviderEntityImport = Effect.fnUntraced(function* (
 		if (entry.status === "importing") {
 			runningSinceNanos ??= observedAtNanos;
 		} else if (runningSinceNanos !== undefined) {
-			runningElapsedMillis += Number(observedAtNanos - runningSinceNanos) / 1_000_000;
+			runningElapsedMillis = elapsedAt(observedAtNanos);
 			runningSinceNanos = undefined;
 		}
 		onProgress(entry);

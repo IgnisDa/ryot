@@ -4,8 +4,6 @@ import { installSandboxTestFilesystem } from "@ryot-app/sandbox-sdk/testing";
 
 import { MediaSourceRecord, type MediaSourceInput } from "./collection-schemas";
 
-installSandboxTestFilesystem(undefined);
-
 export const resetMediaFilesystem = () => installSandboxTestFilesystem(undefined);
 export const mediaImportTestCommand = (integrationId?: string) =>
 	Schema.decodeSync(LifecycleCommand)({

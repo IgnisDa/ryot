@@ -6,9 +6,10 @@ import { Effect } from "effect";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
-import type { Client } from "./auth";
+import { type Client, createAuthenticatedClient } from "./auth";
 import { getApiClient } from "./contract-client";
 import { pollUntil } from "./polling";
+import { httpCallFailureSandboxSource } from "./sandbox-source";
 import { installTestPlugin, type TestPluginScript, uninstallTestPlugin } from "./test-plugin";
 
 type SandboxExecutionError = NonNullable<CompletedSandboxResult["error"]>;
@@ -115,3 +116,18 @@ export function requireCompletedSandboxValue(result: SandboxResult, label = "san
 	}
 	return result.value;
 }
+
+export const runSandboxHttpCall = (label: string, url: string) =>
+	Effect.gen(function* () {
+		const { client, userId } = yield* createAuthenticatedClient();
+		const slug = `${label}-${crypto.randomUUID()}`;
+		const { scriptId } = yield* installSandboxScriptScoped({
+			slug,
+			client,
+			name: label,
+			capabilities: ["httpCall"],
+			source: httpCallFailureSandboxSource({ url, slug, name: label }),
+		});
+		const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
+		return requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId));
+	});

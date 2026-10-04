@@ -1,5 +1,5 @@
 import { pluginClientAssetMimeType } from "@ryot-app/client-plugin-contract";
-import { canonicalRelativePosixPathIssue, posixDirname, posixJoin } from "@ryot-app/ts-utils/path";
+import { canonicalRelativePosixPathIssue, posixPath } from "@ryot-app/ts-utils/path";
 import { parse } from "postcss";
 import valueParser from "postcss-value-parser";
 
@@ -22,7 +22,7 @@ const sourceRoot = (path: string) => {
 const isSharedSource = (path: string) => path.startsWith("shared/") || path.includes("/shared/");
 
 const resolveRelative = (importer: string, specifier: string) =>
-	posixJoin(posixDirname(importer), specifier);
+	posixPath.join(posixPath.dirname(importer), specifier);
 
 const allowedRelativeRoot = (importer: string, resolved: string) => {
 	const root = sourceRoot(importer);
@@ -35,7 +35,7 @@ const traversesSourceRoot = (importer: string, specifier: string) => {
 	const rootDepth =
 		sourceRoot(importer).split("/").filter(Boolean).length +
 		(isSharedSource(importer) || importer.endsWith(".css") ? 1 : 0);
-	let depth = posixDirname(importer).split("/").filter(Boolean).length;
+	let depth = posixPath.dirname(importer).split("/").filter(Boolean).length;
 	for (const part of specifier.split("/")) {
 		if (part === "..") {
 			depth -= 1;

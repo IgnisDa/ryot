@@ -3,33 +3,14 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createNotificationChannel,
-	enqueueSandboxScript,
-	httpCallFailureSandboxSource,
-	installSandboxScriptScoped,
-	pollSandboxResult,
 	pollUntil,
-	requireCompletedSandboxValue,
+	runSandboxHttpCall,
 	testNotificationChannels,
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const METADATA_URL = "http://169.254.169.254/latest/meta-data/";
-
-const runHttpCall = (url: string) =>
-	Effect.gen(function* () {
-		const { client, userId } = yield* createAuthenticatedClient();
-		const slug = `egress-address-${crypto.randomUUID()}`;
-		const { scriptId } = yield* installSandboxScriptScoped({
-			slug,
-			client,
-			name: "egress-address",
-			capabilities: ["httpCall"],
-			source: httpCallFailureSandboxSource({ url, slug, name: "egress-address" }),
-		});
-		const { jobId } = yield* enqueueSandboxScript(userId, { scriptId, lane: "interactive" });
-		return requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId));
-	});
 
 const redirectingServer = startFakeHttpServerScoped((url) => {
 	if (url.pathname.endsWith("/metadata")) {
@@ -53,7 +34,7 @@ describe("outbound HTTP address policy", () => {
 				`http://0.0.0.0:${port}/`,
 				`${server.url}/metadata`,
 			]) {
-				expect([url, yield* runHttpCall(url)]).toMatchObject([
+				expect([url, yield* runSandboxHttpCall("egress-address", url)]).toMatchObject([
 					url,
 					{ success: false, data: { code: "destination-denied" } },
 				]);
@@ -66,7 +47,7 @@ describe("outbound HTTP address policy", () => {
 		Effect.gen(function* () {
 			const server = yield* redirectingServer;
 
-			expect(yield* runHttpCall(`${server.url}/plain`)).toMatchObject({
+			expect(yield* runSandboxHttpCall("egress-address", `${server.url}/plain`)).toMatchObject({
 				success: true,
 				data: { status: 200, body: "reached" },
 			});
