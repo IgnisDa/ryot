@@ -253,7 +253,6 @@ BEGIN
 		END LOOP;
 	END LOOP;
 
-	-- Preserve the established positional full-pass behavior for anime and manga.
 	CREATE TEMP TABLE _seen_flat_progress_coverage ON COMMIT DROP AS
 	SELECT
 		ev.id AS event_id,
@@ -330,10 +329,7 @@ BEGIN
 					"occurred_at"
 				)
 				VALUES (
-					md5(
-						entity_rec.user_id || ':' || entity_rec.entity_id
-						|| ':episodic-complete:' || event_rec.event_id
-					),
+					event_rec.event_id || ':episodic-complete',
 					entity_rec.user_id,
 					entity_rec.entity_id,
 					'complete',
