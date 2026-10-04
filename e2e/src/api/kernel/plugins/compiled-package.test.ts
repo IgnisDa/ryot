@@ -9,7 +9,6 @@ import {
 	prepareClientPage,
 } from "~/fixtures/kernel";
 import { adminHeaders } from "~/fixtures/kernel/admin";
-import { listAdminSystemPlugins } from "~/fixtures/kernel/admin-system-plugins";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { literalSandboxSource } from "~/fixtures/kernel/sandbox-source";
@@ -20,34 +19,34 @@ import {
 	testPluginSavedView,
 	testPluginPackageId,
 } from "~/fixtures/kernel/test-plugin";
-import { assertTaggedError } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
-it.live("rejects a system built-in slug already owned by another user's custom view", () =>
+it.live("installs a system built-in view whose slug matches another user's custom view", () =>
 	Effect.gen(function* () {
 		const owner = yield* createAuthenticatedClient();
 		const view = yield* createSavedView(owner.client, { name: `Collision ${crypto.randomUUID()}` });
 		const custom = yield* findSavedViewById(owner.client, view.id);
-		const pluginSlug = `e2e-collision-${crypto.randomUUID()}`;
-		const packageId = testPluginPackageId();
-		const error = yield* Effect.flip(
+		const installed = yield* Effect.acquireRelease(
 			installTestSupportSystemPlugin({
 				files: {},
 				manifest: testPluginManifest({
-					packageId,
-					pluginSlug,
+					packageId: testPluginPackageId(),
+					pluginSlug: `e2e-collision-${crypto.randomUUID()}`,
 					savedViews: [testPluginSavedView({ slug: custom.slug })],
 				}),
 			}),
+			({ pluginId, activationId }) =>
+				getApiClient()
+					.call(
+						(c) => c.testSupport.uninstallSystemPlugin({ params: { pluginId, activationId } }),
+						adminHeaders(),
+					)
+					.pipe(Effect.orDie),
 		);
-		assertTaggedError(error, "PluginRequestError");
-		expect(error.reason.code).toBe("validation-failed");
 		expect((yield* getSavedView(owner.client, custom.reference)).id).toBe(custom.id);
-		expect(
-			(yield* listAdminSystemPlugins).some((candidate) => candidate.packageId === packageId),
-		).toBe(false);
+		expect(installed.activePluginRevisionId).toEqual(expect.any(String));
 	}),
 );
 
