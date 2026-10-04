@@ -9,6 +9,7 @@ import time
 SETUP_LIMIT_SECONDS = 15 * 60
 STALL_LIMIT_SECONDS = 5 * 60
 TRIAL_LIMIT_SECONDS = 40 * 60
+SAMPLE_INTERVAL_MS = 200
 
 
 def process_memory(root_pid):
@@ -146,12 +147,11 @@ def run_trial(repository, output, runtime, trial):
                         except FileNotFoundError:
                             continue
                         container_peaks[image] = max(container_peaks.get(image, 0), current)
-                time.sleep(0.2)
-    if result is None:
-        for line in log_path.read_text().splitlines():
-            completed = benchmark_payload(line, "sandbox-import-benchmark-result ")
-            if completed is not None:
-                result = completed
+                time.sleep(SAMPLE_INTERVAL_MS / 1000)
+            for line in (pending + reader.read()).splitlines():
+                completed = benchmark_payload(line, "sandbox-import-benchmark-result ")
+                if completed is not None:
+                    result = completed
     metrics = {
         "trial": trial,
         "runtime": runtime,
@@ -159,7 +159,7 @@ def run_trial(repository, output, runtime, trial):
         "result": result,
         "peakBackendAndChildrenRssBytes": peak_rss,
         "peakContainerMemoryBytes": container_peaks,
-        "sampleIntervalMs": 200,
+        "sampleIntervalMs": SAMPLE_INTERVAL_MS,
     }
     metrics_path.write_text(json.dumps(metrics, sort_keys=True) + "\n")
     print(json.dumps({**metrics, "result": None}), flush=True)
@@ -169,7 +169,7 @@ def run_trial(repository, output, runtime, trial):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--runtime", required=True, choices=["deno", "sidecar"])
+    parser.add_argument("--runtime", required=True, choices=["sidecar"])
     parser.add_argument("--output", required=True, type=Path)
     arguments = parser.parse_args()
     arguments.output.mkdir(parents=True, exist_ok=True)
