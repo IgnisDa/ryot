@@ -92,15 +92,15 @@ describe("Exercises E2E", () => {
 				settings: {
 					pageSize: 20,
 					defaultLayout: "grid",
+					searchFields: ["name"],
 					sourceName: "savedView",
 					entityIdField: "entityId",
-					searchFields: ["column0"],
 					layouts: ["grid", "list", "table"],
 					ownerPluginIdField: "ownerPluginId",
 					entitySchemaSlugField: "entitySchemaSlug",
 					tableColumns: [
-						{ label: "Name", field: "column0" },
-						{ label: "Level", field: "column1" },
+						{ label: "Name", field: "name" },
+						{ label: "Level", field: "level" },
 					],
 					addAction: {
 						type: "provider-search",
@@ -160,10 +160,8 @@ describe("Exercises E2E", () => {
 			).toEqual([
 				"entityId",
 				"image",
-				"column0",
-				"column1",
-				"populationStatus",
-				"translationStatus",
+				"name",
+				"level",
 				"ownerPluginId",
 				"entitySchemaSlug",
 				"presentationId",
@@ -220,7 +218,7 @@ describe("Exercises E2E", () => {
 					sourceName,
 				);
 				const savedViewExercise = savedViewResult.items.find(
-					(item) => requireRyotQLValue(item, "column0") === exerciseName,
+					(item) => requireRyotQLValue(item, "name") === exerciseName,
 				);
 				expect(savedViewExercise).toBeDefined();
 			}),

@@ -14,15 +14,14 @@ Generic cross-plugin entity reads and browser results remain broad. They carry e
 stored owner so presentation dispatch does not use the current workspace's identity. Kernel
 collections and memberships are selected with explicit kernel predicates.
 
-Generated saved-view sources require an owner. Runtime provider search takes an `EntitySchemaReference`.
+Runtime provider search takes an `EntitySchemaReference`.
 Saved-view detail lookups take a tagged `SavedViewReference`; list filters use local plugin IDs, not
 display slugs. Plugin catalogs expose permanent package IDs, local IDs, scope, and typed home views.
 
-## Saved-View Projections
+## Saved-View Recipes
 
-Layouts project one table shape; registered entity presentations supply cards. Projections select
-`populationStatus` and `translationStatus` under reserved keys declared in `saved-views.ts` and
-decode them into each item's `sync`. These fields are intrinsic entity state, not configurable slots:
-layouts neither map nor omit them. `validateMappedFields` checks only mapped fields, allowing the
-extra selections. Projection helpers take the entity `TableReference` so sync columns use the same
-table alias as the selected row.
+Saved-view documents are authored RyotQL with descriptive field keys; settings name the source,
+entity ID, search, sort, and table-column fields. The entity-browser recipe appends the entity name,
+`populationStatus`, and `translationStatus` under unused keys from the named source's `TableReference`
+and decodes them into each item, so authored sources neither select nor map sync state. Registered
+entity presentations supply cards.

@@ -1,24 +1,15 @@
-import {
-	AssetLocator,
-	type AssetLocator as AssetLocatorType,
-} from "@ryot-app/contract/modules/assets/schemas";
-import {
-	EntitySyncState,
-	type EntitySyncState as EntitySyncStateValue,
-} from "@ryot-app/contract/modules/entities/schemas";
+import { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
 import { SavedViewClientPageTarget } from "@ryot-app/contract/modules/pages/schemas";
-import type { QueryOwnerReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RyotQLDocument,
 	rowsResultSchema,
 	type FieldSelection,
-	type Include,
 	type NamedQuery,
 	type OrderBy,
 	type Predicate,
 	type RowsOutput,
 	type ScalarExpression,
-	type TableReference,
 } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityBrowserSavedViewSettings,
@@ -27,7 +18,6 @@ import {
 	SavedViewDisplayValue,
 	type ResultsTableSavedViewSettings as ResultsTableSavedViewSettingsValue,
 	type SavedViewDisplayKind,
-	type SavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
@@ -38,117 +28,19 @@ import {
 	contains,
 	defineRecipe,
 	descending,
-	document,
-	eq,
 	field,
-	inArray,
 	literal,
 	or,
 	type PreparedRecipe,
-	rows,
 	selectedAggregate,
 	selectedMeasure,
-	schemaOwnerPredicate,
 	table,
 } from "@ryot-app/ryotql";
 import { DateTime, Option, Result, Schema } from "effect";
 
-export type SavedViewTableMapping = {
-	readonly imageField: string | null;
-	readonly columns: readonly [SavedViewTableColumn, ...SavedViewTableColumn[]];
-};
-
-type TableColumnExpression = Omit<SavedViewTableMapping["columns"][number], "field"> & {
-	readonly expression: ScalarExpression;
-};
-
-type TableProjectionInput = {
-	readonly entity: TableReference;
-	readonly image: ScalarExpression | null;
-	readonly columns: readonly [TableColumnExpression, ...TableColumnExpression[]];
-};
-
 const populationStatusField = "populationStatus";
 
 const translationStatusField = "translationStatus";
-
-const syncSelections = (entity: TableReference) =>
-	[
-		field(populationStatusField, column(entity, populationStatusField)),
-		field(translationStatusField, column(entity, translationStatusField)),
-	] satisfies readonly FieldSelection[];
-
-export type SavedViewLayoutProjectionsInput = { readonly table: TableProjectionInput };
-
-const tableProjection = (input: TableProjectionInput) => {
-	const entityId = "entityId";
-	const image = "image";
-	const [firstTableColumn, ...remainingTableColumns] = input.columns;
-	const columns = [
-		{ field: "column0", label: firstTableColumn.label, displayKind: firstTableColumn.displayKind },
-		...remainingTableColumns.map((tableColumn, index) => ({
-			label: tableColumn.label,
-			field: `column${index + 1}`,
-			displayKind: tableColumn.displayKind,
-		})),
-	] as const;
-
-	return {
-		mappings: {
-			columns,
-			entityIdField: entityId,
-			imageField: input.image === null ? null : image,
-		} satisfies SavedViewTableMapping & { readonly entityIdField: string },
-		fields: [
-			field(entityId, column(input.entity, "id")),
-			...(input.image === null ? [] : [field(image, input.image)]),
-			...input.columns.map((tableColumn, index) => field(`column${index}`, tableColumn.expression)),
-			...syncSelections(input.entity),
-		] satisfies readonly FieldSelection[],
-	};
-};
-
-export const buildSavedViewLayoutProjections = (input: SavedViewLayoutProjectionsInput) => ({
-	table: tableProjection(input.table),
-});
-
-type SavedViewMapping = {
-	readonly type: "table";
-	readonly mapping: SavedViewTableMapping & { readonly entityIdField: string };
-};
-
-type SavedViewGeneratedSource = {
-	readonly owner: QueryOwnerReference;
-	readonly type: "generated";
-	readonly after?: string | undefined;
-	readonly limit?: number | undefined;
-	readonly where?: Predicate | undefined;
-	readonly fields: readonly FieldSelection[];
-	readonly orderBy?: readonly OrderBy[] | undefined;
-	readonly entitySchemaSlugs: readonly [string, ...string[]];
-	readonly include?: readonly [Include, ...Include[]] | undefined;
-};
-
-type SavedViewPersistedSource = {
-	readonly type: "persisted";
-	readonly queryDocument: RyotQLDocument;
-};
-
-type SavedViewRecipeInput = {
-	readonly layout: SavedViewMapping;
-	readonly source: SavedViewGeneratedSource | SavedViewPersistedSource;
-};
-
-export type SavedViewTableResultItem = {
-	readonly entityId: string;
-	readonly sync: EntitySyncStateValue;
-	readonly image: AssetLocatorType | null | undefined;
-	readonly cells: readonly {
-		readonly key: string;
-		readonly label: string;
-		readonly value: SavedViewDisplayValue;
-	}[];
-};
 
 export type SavedViewResult<Item> = {
 	readonly items: readonly Item[];
@@ -157,48 +49,6 @@ export type SavedViewResult<Item> = {
 		readonly hasMore: boolean;
 		readonly nextCursor: string | null;
 	};
-};
-
-const generatedDocument = (input: SavedViewGeneratedSource) => {
-	const entity = table("entity", "entity");
-	const schema = column(entity, "entitySchemaSlug");
-	const slugFilter =
-		input.entitySchemaSlugs.length === 1
-			? eq(schema, literal(input.entitySchemaSlugs[0]))
-			: inArray(
-					schema,
-					input.entitySchemaSlugs.map((slug) => literal(slug)),
-				);
-	const schemaFilter = and(
-		slugFilter,
-		schemaOwnerPredicate(entity, "entitySchemaPluginId", input.owner),
-	);
-
-	return document({
-		savedView: rows(entity, {
-			after: input.after,
-			limit: input.limit,
-			fields: input.fields,
-			include: input.include,
-			orderBy: input.orderBy ?? [ascending(column(entity, "name"))],
-			where: input.where ? and(schemaFilter, input.where) : schemaFilter,
-		}),
-	});
-};
-
-const getOnlyRowsQuery = (queryDocument: RyotQLDocument) => {
-	const queries = Object.values(queryDocument.queries);
-	if (queries.length !== 1) {
-		return Result.fail(new Error("Saved-view document must contain exactly one query"));
-	}
-	const [query] = queries;
-	if (!query) {
-		return Result.fail(new Error("Saved-view document must contain one query"));
-	}
-	if (query.output.type !== "rows") {
-		return Result.fail(new Error("Saved-view document query must produce rows"));
-	}
-	return Result.succeed({ ...query, output: query.output });
 };
 
 const displayValue = (
@@ -251,24 +101,12 @@ const textField = (row: SavedViewRawRow, fieldName: string) =>
 			: Result.fail(new Error(`Saved-view field '${fieldName}' must be text`)),
 	);
 
-const imageField = (row: SavedViewRawRow, fieldName: string | null) => {
-	if (fieldName === null) {
-		return Result.succeed(undefined);
-	}
-	return Result.flatMap(rawField(row, fieldName), (value) =>
-		value === null ? Result.succeed(null) : Schema.decodeUnknownResult(AssetLocator)(value),
-	);
-};
-
 const syncFields = (row: SavedViewRawRow, populationField: string, translationField: string) =>
 	Result.flatMap(
 		Result.all([rawField(row, populationField), rawField(row, translationField)]),
 		([populationStatus, translationStatus]) =>
 			Schema.decodeUnknownResult(EntitySyncState)({ populationStatus, translationStatus }),
 	);
-
-const syncField = (row: SavedViewRawRow) =>
-	syncFields(row, populationStatusField, translationStatusField);
 
 const nullableTextField = (row: SavedViewRawRow, fieldName: string) =>
 	Result.flatMap(rawField(row, fieldName), (value) =>
@@ -277,111 +115,7 @@ const nullableTextField = (row: SavedViewRawRow, fieldName: string) =>
 			: Result.fail(new Error(`Saved-view field '${fieldName}' must be nullable text`)),
 	);
 
-const tableItem = (
-	row: SavedViewRawRow,
-	mapping: SavedViewTableMapping & { readonly entityIdField: string },
-) =>
-	Result.gen(function* () {
-		const sync = yield* syncField(row);
-		const entityId = yield* textField(row, mapping.entityIdField);
-		const image = yield* imageField(row, mapping.imageField);
-		const cells = yield* Result.all(
-			mapping.columns.map(({ label, displayKind, field: fieldName }) =>
-				Result.flatMap(rawField(row, fieldName), (value) =>
-					Result.map(displayValue(value, displayKind, fieldName), (decoded) => ({
-						label,
-						key: fieldName,
-						value: decoded,
-					})),
-				),
-			),
-		);
-		return { sync, image, cells, entityId };
-	});
-
 const savedViewRows = rowsResultSchema(Schema.Record(Schema.String, JsonValue));
-
-const mappedFields = (layout: SavedViewMapping) => [
-	layout.mapping.entityIdField,
-	...(layout.mapping.imageField === null ? [] : [layout.mapping.imageField]),
-	...layout.mapping.columns.map(({ field: fieldName }) => fieldName),
-];
-
-const validateMappedFields = (
-	query: RyotQLDocument["queries"][string],
-	layout: SavedViewMapping,
-) => {
-	const selectedFields = new Set(
-		query.output.type === "rows"
-			? query.output.fields.flatMap((selection) => ("key" in selection ? [selection.key] : []))
-			: [],
-	);
-	const missing = mappedFields(layout).filter((fieldName) => !selectedFields.has(fieldName));
-	if (missing.length > 0) {
-		throw new TypeError(`Saved-view layout references unselected fields: ${missing.join(", ")}`);
-	}
-};
-
-const savedViewQuery = (query: RyotQLDocument["queries"][string], layout: SavedViewMapping) => ({
-	document: query,
-	decodeResult: (result: unknown) =>
-		Result.flatMap(Schema.decodeUnknownResult(savedViewRows)(result), ({ items, pageInfo }) =>
-			Result.map(
-				Result.all(items.map((row) => tableItem(row, layout.mapping))),
-				(decodedItems) => ({ pageInfo, items: decodedItems }),
-			),
-		),
-});
-
-export function savedViewRecipe(
-	input: SavedViewRecipeInput,
-): PreparedRecipe<SavedViewResult<SavedViewTableResultItem>> {
-	const queryDocument =
-		input.source.type === "generated"
-			? generatedDocument(input.source)
-			: input.source.queryDocument;
-	const query = Result.getOrThrow(getOnlyRowsQuery(queryDocument));
-	validateMappedFields(query, input.layout);
-	const recipe = defineRecipe(() => ({
-		map: ({ savedView }) => Result.succeed(savedView),
-		queries: { savedView: savedViewQuery(query, input.layout) },
-	}));
-	return recipe();
-}
-
-export const savedViewCountRecipe = (
-	queryDocument: RyotQLDocument,
-	entityIdField: string,
-): Result.Result<PreparedRecipe<number>, Error> =>
-	Result.flatMap(getOnlyRowsQuery(queryDocument), (query) =>
-		Result.gen(function* () {
-			const selection = query.output.fields.find(
-				(outSelection): outSelection is FieldSelection =>
-					"key" in outSelection && outSelection.key === entityIdField,
-			);
-			if (selection === undefined) {
-				return yield* Result.fail(
-					new Error(`Saved-view count field '${entityIdField}' is missing or unusable`),
-				);
-			}
-			const recipe = defineRecipe(() => ({
-				map: ({ savedViewCount }) => Result.succeed(savedViewCount.total),
-				queries: {
-					savedViewCount: selectedAggregate(query.from, {
-						where: query.where,
-						joins: query.joins,
-						measures: {
-							total: selectedMeasure(
-								{ expr: selection.expr, function: "countDistinct" },
-								Schema.Finite,
-							),
-						},
-					}),
-				},
-			}));
-			return recipe();
-		}),
-	);
 
 export const EntityBrowserResultItem = Schema.Struct({
 	name: Schema.String,

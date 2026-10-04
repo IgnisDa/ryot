@@ -16,10 +16,6 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
-import {
-	buildSavedViewLayoutProjections,
-	savedViewRecipe,
-} from "@ryot-app/ryotql-recipes/saved-views";
 
 import { fitnessPresentationSource } from "../shared/entity-presentations";
 import { fitnessLibraryMembership, fitnessLibraryLinkExists } from "../shared/library-recipes";
@@ -81,13 +77,14 @@ export const fitnessSavedViews = () => {
 		},
 	];
 	const entityBrowserViews = inputs.map((input) => {
-		const expressions = buildViewExpressions(input.entitySchemaSlug);
-		const projections = buildSavedViewLayoutProjections({
-			table: { ...expressions.table, entity },
-		});
+		const { table: tableExpressions } = buildViewExpressions(input.entitySchemaSlug);
 		const presentation = fitnessPresentationSource(input.entitySchemaSlug);
 		const fields = [
-			...projections.table.fields,
+			field("entityId", column(entity, "id")),
+			...(tableExpressions.image === null ? [] : [field("image", tableExpressions.image)]),
+			...tableExpressions.columns.map((tableColumn) =>
+				field(tableColumn.field, tableColumn.expression),
+			),
 			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 			...presentation.fields,
@@ -98,15 +95,9 @@ export const fitnessSavedViews = () => {
 				? [fitnessLibraryLinkExists(entity, "fitnessLibrary")]
 				: []),
 		);
-		const dataSources = savedViewRecipe({
-			layout: { type: "table", mapping: projections.table.mappings },
-			source: {
-				type: "persisted",
-				queryDocument: document({
-					savedView: rows(entity, { where, fields, orderBy: input.orderBy }),
-				}),
-			},
-		}).document;
+		const dataSources = document({
+			savedView: rows(entity, { where, fields, orderBy: input.orderBy }),
+		});
 		return {
 			dataSources,
 			name: input.name,
@@ -118,14 +109,16 @@ export const fitnessSavedViews = () => {
 				pageSize: 20,
 				sortChoices: [],
 				defaultLayout: "grid",
+				searchFields: ["name"],
 				sourceName: "savedView",
 				entityIdField: "entityId",
-				searchFields: ["column0"],
 				layouts: ["grid", "list", "table"],
 				ownerPluginIdField: "ownerPluginId",
 				entitySchemaSlugField: "entitySchemaSlug",
 				addAction: addAction(input.entitySchemaSlug),
-				tableColumns: projections.table.mappings.columns,
+				tableColumns: tableExpressions.columns.map(
+					({ expression: _, ...tableColumn }) => tableColumn,
+				),
 			},
 		};
 	});

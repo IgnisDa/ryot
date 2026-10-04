@@ -8,11 +8,8 @@ describe("fitness saved-view presentations", () => {
 			if (view.dataSources === null) {
 				continue;
 			}
-			const query = view.dataSources.queries.savedView;
-			if (query?.output.type !== "rows") {
-				throw new Error("Expected saved-view rows query");
-			}
-			const fields = query.output.fields.flatMap((selection) =>
+			const { output } = view.dataSources.queries.savedView;
+			const fields = output.fields.flatMap((selection) =>
 				"key" in selection ? [selection.key] : [],
 			);
 			expect(fields).toEqual(
@@ -24,7 +21,7 @@ describe("fitness saved-view presentations", () => {
 					"presentationCallout",
 				]),
 			);
-			expect(query.output.include).toBeUndefined();
+			expect(output.include).toBeUndefined();
 		}
 	});
 

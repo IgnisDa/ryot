@@ -1,7 +1,7 @@
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { column, inArray, literal, table } from "@ryot-app/ryotql";
-import { savedViewCountRecipe } from "@ryot-app/ryotql-recipes/saved-views";
+import { entityBrowserCountRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { Effect, Schema } from "effect";
 
 import {
@@ -32,7 +32,7 @@ const countSavedView = Effect.fn(function* (
 ) {
 	const settings = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(view.settings);
 	const dataSources = requirePresent(view.dataSources, "Saved view has no data sources");
-	const recipe = yield* resultToEffect(savedViewCountRecipe(dataSources, settings.entityIdField));
+	const recipe = yield* resultToEffect(entityBrowserCountRecipe(dataSources, settings));
 	return yield* executeRyotQLRecipe(client, recipe);
 });
 

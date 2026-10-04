@@ -100,7 +100,7 @@ are rendered.
 
 ### Home And Refresh
 
-Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns saved-view recipes.
+Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns saved-view data sources.
 
 - `lifecycle-list-recipes.ts` lists library media by current state and recent activity, reusing
   canonical episodic next-up and flat progress.

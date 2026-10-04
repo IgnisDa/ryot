@@ -5,54 +5,48 @@ import {
 	relationshipSchemaPredicate,
 	and,
 	column,
+	document,
 	eq,
 	exists,
 	join,
+	rows,
 	table,
 } from "@ryot-app/ryotql";
-import { savedViewRecipe, type SavedViewTableMapping } from "@ryot-app/ryotql-recipes/saved-views";
 
-export const defaultMediaSavedViewRecipe = (input: {
+export const mediaSavedViewDataSources = (input: {
+	readonly schema: string;
+	readonly orderBy: readonly OrderBy[];
 	readonly reference: PluginIdentityReference;
-	readonly after?: string | undefined;
-	readonly limit?: number | undefined;
 	readonly fields: readonly FieldSelection[];
 	readonly include?: readonly [Include, ...Include[]] | undefined;
-	readonly schemas: readonly [string, ...string[]];
-	readonly orderBy?: readonly OrderBy[] | undefined;
-	readonly layout: {
-		readonly type: "table";
-		readonly mapping: SavedViewTableMapping & { entityIdField: string };
-	};
 }) => {
 	const entity = table("entity", "entity");
 	const mediaLibrary = table("entity", "mediaLibrary");
 	const membership = table("relationship", "inMediaLibrary");
 
-	const source = {
-		type: "generated",
-		after: input.after,
-		limit: input.limit,
-		fields: input.fields,
-		owner: input.reference,
-		include: input.include,
-		orderBy: input.orderBy,
-		entitySchemaSlugs: input.schemas,
-		where: exists(membership, {
-			joins: [
-				join(
-					"inner",
-					mediaLibrary,
-					eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
-				),
-			],
+	return document({
+		savedView: rows(entity, {
+			fields: input.fields,
+			include: input.include,
+			orderBy: input.orderBy,
 			where: and(
-				eq(column(membership, "sourceEntityId"), column(entity, "id")),
-				relationshipSchemaPredicate(membership, "in-media-library", input.reference),
-				entitySchemaPredicate(mediaLibrary, "media-library", input.reference),
-				eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
+				entitySchemaPredicate(entity, input.schema, input.reference),
+				exists(membership, {
+					joins: [
+						join(
+							"inner",
+							mediaLibrary,
+							eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
+						),
+					],
+					where: and(
+						eq(column(membership, "sourceEntityId"), column(entity, "id")),
+						relationshipSchemaPredicate(membership, "in-media-library", input.reference),
+						entitySchemaPredicate(mediaLibrary, "media-library", input.reference),
+						eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
+					),
+				}),
 			),
 		}),
-	} as const;
-	return savedViewRecipe({ source, layout: input.layout });
+	});
 };

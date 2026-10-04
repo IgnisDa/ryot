@@ -2,17 +2,24 @@ import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type {
 	PluginIdentityReference,
+	QueryOwnerReference,
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import {
+	and,
 	ascending,
 	castJson,
 	column,
 	defineRecipe,
+	document,
 	field,
+	inArray,
 	jsonPath,
+	literal,
+	rows,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
 	table,
@@ -21,10 +28,6 @@ import {
 	savedViewRecordRecipe,
 	savedViewRecordsRecipe,
 } from "@ryot-app/ryotql-recipes/saved-view-records";
-import {
-	buildSavedViewLayoutProjections,
-	savedViewRecipe,
-} from "@ryot-app/ryotql-recipes/saved-views";
 import { Data, Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -46,38 +49,33 @@ class SavedViewFixtureError extends Data.TaggedError("SavedViewFixtureError")<{
 
 const entity = table("entity", "entity");
 const properties = column(entity, "properties");
-const projections = buildSavedViewLayoutProjections({
-	table: {
-		entity,
-		image: castJson(jsonPath(properties, "images", 0)),
-		columns: [
-			{ label: "Name", displayKind: "text", expression: column(entity, "name") },
-			{ label: "Year", displayKind: "number", expression: jsonPath(properties, "publishYear") },
-		],
-	},
-});
-
 export const rowsFields = [
-	...projections.table.fields,
+	field("entityId", column(entity, "id")),
+	field("image", castJson(jsonPath(properties, "images", 0))),
+	field("name", column(entity, "name")),
+	field("year", jsonPath(properties, "publishYear")),
 	field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 	field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 ];
 
 export const buildSavedViewDataSources = (
 	entitySchemaSlugs: readonly [string, ...string[]],
-	owner: Extract<Parameters<typeof savedViewRecipe>[0]["source"], { type: "generated" }>["owner"],
+	owner: QueryOwnerReference,
 ): NonNullable<SavedViewDataSources> =>
-	savedViewRecipe({
-		layout: { type: "table", mapping: projections.table.mappings },
-		source: {
-			owner,
+	document({
+		savedView: rows(entity, {
 			limit: 2,
-			type: "generated",
-			entitySchemaSlugs,
 			fields: rowsFields,
 			orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
-		},
-	}).document;
+			where: and(
+				inArray(
+					column(entity, "entitySchemaSlug"),
+					entitySchemaSlugs.map((slug) => literal(slug)),
+				),
+				schemaOwnerPredicate(entity, "entitySchemaPluginId", owner),
+			),
+		}),
+	});
 
 const mediaPluginOwner: PluginIdentityReference = {
 	kind: "package",
@@ -92,13 +90,16 @@ export const entityBrowserSettings = {
 	addAction: null,
 	sortChoices: [],
 	defaultLayout: "grid",
+	searchFields: ["name"],
 	sourceName: "savedView",
-	searchFields: ["column0"],
 	entityIdField: "entityId",
 	layouts: ["grid", "list", "table"],
 	ownerPluginIdField: "ownerPluginId",
 	entitySchemaSlugField: "entitySchemaSlug",
-	tableColumns: projections.table.mappings.columns,
+	tableColumns: [
+		{ label: "Name", field: "name", displayKind: "text" },
+		{ label: "Year", field: "year", displayKind: "number" },
+	],
 } satisfies SavedViewSettings;
 
 export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): CreateSavedViewBody {

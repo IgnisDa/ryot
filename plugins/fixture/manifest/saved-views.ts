@@ -1,109 +1,118 @@
-import type { AuthoredEntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import type {
+	AuthoredEntityBrowserAddAction,
+	SavedViewTableColumn,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import { ascending, castJson, castNumber, column, field, jsonPath, table } from "@ryot-app/ryotql";
 import {
-	buildSavedViewLayoutProjections,
-	savedViewRecipe,
-} from "@ryot-app/ryotql-recipes/saved-views";
+	ascending,
+	castJson,
+	castNumber,
+	column,
+	document,
+	entitySchemaPredicate,
+	field,
+	jsonPath,
+	rows,
+	table,
+} from "@ryot-app/ryotql";
 
 import { movePresentationSource, pokemonPresentationSource } from "../shared/entity-presentations";
 
 const entity = table("entity", "entity");
 const name = column(entity, "name");
 const property = (key: string) => jsonPath(column(entity, "properties"), key);
-const json = (key: string) => ({ expression: property(key), displayKind: "json" as const });
-const text = (key: string) => ({ expression: property(key), displayKind: "text" as const });
-const number = (key: string) => ({ expression: property(key), displayKind: "number" as const });
+const json = (key: string) => ({
+	field: key,
+	expression: property(key),
+	displayKind: "json" as const,
+});
+const text = (key: string) => ({
+	field: key,
+	expression: property(key),
+	displayKind: "text" as const,
+});
+const number = (key: string) => ({
+	field: key,
+	expression: property(key),
+	displayKind: "number" as const,
+});
+
+type TableColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
 
 const buildDefinition = (
 	entitySchemaSlug: string,
 	orderBy: ReturnType<typeof ascending>,
-	projections: ReturnType<typeof buildSavedViewLayoutProjections>,
+	image: ScalarExpression | null,
+	columns: readonly TableColumn[],
 	presentationFields: ReturnType<typeof pokemonPresentationSource>["fields"],
 ) => {
-	const dataSources = savedViewRecipe({
-		layout: { type: "table", mapping: projections.table.mappings },
-		source: {
-			type: "generated",
+	const dataSources = document({
+		savedView: rows(entity, {
 			orderBy: [orderBy],
-			owner: { kind: "self" },
-			entitySchemaSlugs: [entitySchemaSlug],
+			where: entitySchemaPredicate(entity, entitySchemaSlug, { kind: "self" }),
 			fields: [
-				...projections.table.fields,
+				field("entityId", column(entity, "id")),
+				...(image === null ? [] : [field("image", image)]),
+				...columns.map((tableColumn) => field(tableColumn.field, tableColumn.expression)),
 				field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 				...presentationFields,
 			],
-		},
-	}).document;
+		}),
+	});
 	return {
 		dataSources,
 		renderer: { kind: "kernel", name: "entity-browser" } as const,
 		settings: {
 			pageSize: 20,
 			sortChoices: [],
+			searchFields: ["name"],
 			sourceName: "savedView",
-			searchFields: ["column0"],
 			entityIdField: "entityId",
 			defaultLayout: "grid" as const,
 			ownerPluginIdField: "ownerPluginId",
 			entitySchemaSlugField: "entitySchemaSlug",
 			layouts: ["grid", "list", "table"] as const,
+			tableColumns: [
+				...(image === null
+					? []
+					: [{ label: "Image", field: "image", displayKind: "managed-asset" as const }]),
+				...columns.map(({ expression: _, ...tableColumn }) => tableColumn),
+			],
 			addAction: {
 				type: "provider-search",
 				schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(entitySchemaSlug) },
 				library: { librarySchemaSlug: "fixture-library", relationshipSlug: "in-fixture-library" },
 			} satisfies AuthoredEntityBrowserAddAction,
-			tableColumns: [
-				...(projections.table.mappings.imageField === null
-					? []
-					: [
-							{
-								label: "Image",
-								displayKind: "managed-asset" as const,
-								field: projections.table.mappings.imageField,
-							},
-						]),
-				...projections.table.mappings.columns,
-			],
 		},
 	};
 };
 
 const pokemonImage = castJson(jsonPath(column(entity, "properties"), "images", 0));
 
-const pokemonProjections = buildSavedViewLayoutProjections({
-	table: {
-		entity,
-		image: pokemonImage,
-		columns: [
-			{ label: "Name", expression: name, displayKind: "text" },
-			{ label: "Pokedex Number", ...number("pokedexNumber") },
-			{ label: "Types", ...json("types") },
-			{ label: "Abilities", ...json("abilities") },
-			{ label: "Height (dm)", ...number("height") },
-			{ label: "Weight (hg)", ...number("weight") },
-			{ label: "Base Experience", ...number("baseExperience") },
-		],
-	},
-});
+const nameColumn = { field: "name", label: "Name", expression: name, displayKind: "text" } as const;
 
-const moveProjections = buildSavedViewLayoutProjections({
-	table: {
-		entity,
-		image: null,
-		columns: [
-			{ label: "Name", expression: name, displayKind: "text" },
-			{ label: "Type", ...text("type") },
-			{ label: "Damage Class", ...text("damageClass") },
-			{ label: "Power", ...number("power") },
-			{ label: "Accuracy", ...number("accuracy") },
-			{ label: "PP", ...number("pp") },
-			{ label: "Priority", ...number("priority") },
-			{ label: "Generation", ...text("generation") },
-		],
-	},
-});
+const pokemonColumns = [
+	nameColumn,
+	{ label: "Pokedex Number", ...number("pokedexNumber") },
+	{ label: "Types", ...json("types") },
+	{ label: "Abilities", ...json("abilities") },
+	{ label: "Height (dm)", ...number("height") },
+	{ label: "Weight (hg)", ...number("weight") },
+	{ label: "Base Experience", ...number("baseExperience") },
+];
+
+const moveColumns = [
+	nameColumn,
+	{ label: "Type", ...text("type") },
+	{ label: "Damage Class", ...text("damageClass") },
+	{ label: "Power", ...number("power") },
+	{ label: "Accuracy", ...number("accuracy") },
+	{ label: "PP", ...number("pp") },
+	{ label: "Priority", ...number("priority") },
+	{ label: "Generation", ...text("generation") },
+];
 
 export const fixtureSavedViews = [
 	{
@@ -114,7 +123,8 @@ export const fixtureSavedViews = [
 		...buildDefinition(
 			"pokemon",
 			ascending(castNumber(property("pokedexNumber"))),
-			pokemonProjections,
+			pokemonImage,
+			pokemonColumns,
 			pokemonPresentationSource().fields,
 		),
 	},
@@ -123,6 +133,6 @@ export const fixtureSavedViews = [
 		sortOrder: 1,
 		name: "All Moves",
 		slug: "all-moves",
-		...buildDefinition("move", ascending(name), moveProjections, movePresentationSource().fields),
+		...buildDefinition("move", ascending(name), null, moveColumns, movePresentationSource().fields),
 	},
 ] as const;

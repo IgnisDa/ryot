@@ -20,7 +20,6 @@ import {
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
 } from "@ryot-app/ryotql";
-import { buildSavedViewLayoutProjections } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { animeRecipes } from "../shared/anime-recipes";
 import { audiobookGroupRecipes } from "../shared/audiobook-group-recipes";
@@ -48,7 +47,7 @@ import { slugify } from "../shared/slug";
 import { videoGameGroupRecipes } from "../shared/video-game-group-recipes";
 import { videoGameRecipes } from "../shared/video-game-recipes";
 import { visualNovelRecipes } from "../shared/visual-novel-recipes";
-import { defaultMediaSavedViewRecipe } from "./query-recipes";
+import { mediaSavedViewDataSources } from "./query-recipes";
 import { mediaEntitySchemas } from "./schemas/entity";
 import { buildViewExpressions } from "./view-helpers";
 
@@ -199,14 +198,15 @@ export const mediaSavedViews = () => {
 		if (!schema) {
 			throw new Error(`Missing media entity schema: ${view.entitySchemaSlug}`);
 		}
-		const expressions = buildViewExpressions(view.entitySchemaSlug);
-		const projections = buildSavedViewLayoutProjections({
-			table: { ...expressions.table, entity },
-		});
+		const { table: tableExpressions } = buildViewExpressions(view.entitySchemaSlug);
 		const presentation = presentationProjection(view.entitySchemaSlug);
 		const fields = mergePresentationFields(
 			[
-				...projections.table.fields,
+				field("entityId", column(entity, "id")),
+				field("image", tableExpressions.image),
+				...tableExpressions.columns.map((tableColumn) =>
+					field(tableColumn.field, tableColumn.expression),
+				),
 				field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 			],
@@ -218,20 +218,19 @@ export const mediaSavedViews = () => {
 			slug: view.slug,
 			icon: schema.icon,
 			renderer: { kind: "kernel", name: "entity-browser" } as const,
-			dataSources: defaultMediaSavedViewRecipe({
+			dataSources: mediaSavedViewDataSources({
 				fields,
 				reference: { kind: "self" },
 				include: presentation.include,
-				schemas: [view.entitySchemaSlug],
+				schema: view.entitySchemaSlug,
 				orderBy: savedViewOrderBy(view.entitySchemaSlug),
-				layout: { type: "table", mapping: projections.table.mappings },
-			}).document,
+			}),
 			settings: {
 				pageSize: 20,
 				sortChoices: [],
 				defaultLayout: "grid",
+				searchFields: ["name"],
 				sourceName: "savedView",
-				searchFields: ["column0"],
 				entityIdField: "entityId",
 				layouts: ["grid", "list", "table"],
 				ownerPluginIdField: "ownerPluginId",
@@ -242,16 +241,8 @@ export const mediaSavedViews = () => {
 					schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(view.entitySchemaSlug) },
 				},
 				tableColumns: [
-					...(projections.table.mappings.imageField === null
-						? []
-						: [
-								{
-									label: "Image",
-									displayKind: "managed-asset" as const,
-									field: projections.table.mappings.imageField,
-								},
-							]),
-					...projections.table.mappings.columns,
+					{ label: "Image", field: "image", displayKind: "managed-asset" as const },
+					...tableExpressions.columns.map(({ expression: _, ...tableColumn }) => tableColumn),
 				],
 			},
 		};
