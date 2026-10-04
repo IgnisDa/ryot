@@ -75,8 +75,8 @@ export const makeCompilerWorkerRunner = <E>(options: {
 							{
 								stdout: "pipe",
 								stderr: "pipe",
-								env: environment,
 								stdin: Stream.succeed(encoder.encode(input)),
+								env: { ...environment, GOMEMLIMIT: String(Math.floor(options.memoryBytes / 2)) },
 							},
 						),
 					);

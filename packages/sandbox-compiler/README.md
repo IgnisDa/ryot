@@ -123,6 +123,8 @@ diagnostics into its public diagnostic model and enforces the compiled-size limi
 
 Bun is used for the worker host, dependency resolution, filesystem Layer, and worker packaging. The
 compiled sandbox module executes in a fresh V8 isolate inside `ryot-sandboxd`.
+Worker dependencies resolve from the installed sandbox-compiler package, including when the worker
+is bundled into a different directory.
 
 The parent supervisor creates a UUID job directory, passes its path and job ID to the worker, and
 removes that directory with scoped acquire/use/release cleanup after success, failure, cancellation,
@@ -130,3 +132,6 @@ timeout, or forced termination. The worker is run with no orphan processes and i
 
 Compiler limits are two concurrent jobs, a 5-second timeout, 384 MiB sampled Linux process-tree
 memory, 256 KiB source, 1 MiB compiled JavaScript, 100 diagnostics, and 256 KiB diagnostic output.
+The supervisor sets the native TypeScript child's `GOMEMLIMIT` to half the process-tree budget
+(192 MiB), leaving room for the Bun worker, bundling, and mapped pages. This is a soft Go GC budget;
+the parent still kills the worker when the full process tree exceeds the hard memory limit.

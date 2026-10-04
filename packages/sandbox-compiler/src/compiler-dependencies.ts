@@ -13,7 +13,7 @@ export const resolveSandboxCompilerDependencies = Effect.try({
 			),
 		]),
 	try: () => {
-		const from = Bun.fileURLToPath(new URL(".", import.meta.url));
+		const from = Bun.resolveSync("@ryot-app/sandbox-compiler/worker", import.meta.url);
 		const sdkEntries = Object.fromEntries(
 			SANDBOX_SDK_IMPORTS.map((specifier) => {
 				const entry = Bun.resolveSync(specifier, from);
