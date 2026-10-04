@@ -293,4 +293,40 @@ layer(live, { excludeTestServices: true })((test) => {
 			}),
 		),
 	);
+
+	test.effect("live_process_gauge_totals_every_sidecar_sharing_its_labels", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const client = yield* SandboxSidecarClient;
+				const liveUserCore = Effect.map(Metric.snapshot, (snapshots) => {
+					const gauge = snapshots.find(
+						(metric) =>
+							metric.id === "ryot.sandbox.sidecar.live_processes" &&
+							metric.attributes?.["trust"] === "user" &&
+							metric.attributes["snapshot"] === "core",
+					);
+					return gauge !== undefined && "value" in gauge.state ? gauge.state.value : undefined;
+				});
+				const connect = (generation: number) =>
+					client.connect({
+						generation,
+						threads: 1,
+						tier: "core",
+						maxActive: 1,
+						trust: "user",
+						maxRss: 256 * 1024 * 1024,
+						memoryBudget: 128 * 1024 * 1024,
+					});
+				const first = yield* connect(21);
+				const second = yield* connect(22);
+				expect(yield* first.next).toEqual({ type: "ready", generation: 21 });
+				expect(yield* second.next).toEqual({ type: "ready", generation: 22 });
+				expect(yield* liveUserCore).toBe(2);
+				yield* first.close;
+				expect(yield* liveUserCore).toBe(1);
+				yield* second.close;
+				expect(yield* liveUserCore).toBe(0);
+			}),
+		).pipe(Effect.provideService(Metric.MetricRegistry, new Map())),
+	);
 });
