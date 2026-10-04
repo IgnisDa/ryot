@@ -279,13 +279,19 @@ readinessProbe:
 # -- Pod-level security context for the Ryot pod.
 podSecurityContext: {}
 
-# -- Container security context. The image already runs as the unprivileged
-# user 1001 (ryot).
+# -- Container security context. The UID 1001 backend needs the root-owned
+# setuid launcher to drop sidecars to UID 1002, so privilege escalation must
+# remain enabled.
 securityContext:
   runAsNonRoot: true
   runAsUser: 1001
+  runAsGroup: 1001
+  allowPrivilegeEscalation: true
+  readOnlyRootFilesystem: false
+  seccompProfile:
+    type: RuntimeDefault
 
-# -- Ryot container resources.
+# -- Ryot scheduling requests. No default CPU or memory limits are set.
 resources:
   requests:
     cpu: 500m
