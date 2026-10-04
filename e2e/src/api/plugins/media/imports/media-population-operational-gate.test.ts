@@ -1,3 +1,4 @@
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { MediaImportPopulationWorkflowOutput } from "@ryot-app/media-plugin/contracts/workflows";
 import { Clock, Effect, Schema } from "effect";
 
@@ -5,11 +6,12 @@ import {
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
 	getMediaPopulationGateResult,
-	installTestProvider,
+	shippedPluginTestProviders,
 	sampleOperationalPressure,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema, startMediaPopulationGate } from "~/fixtures/plugins/media";
-import { describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 
 const ITEM_COUNT = 1_001;
 const GATE_TIMEOUT_MS = 900_000;
@@ -19,6 +21,22 @@ const RUN_OPERATIONAL_GATES =
 	process.env.RUN_OPERATIONAL_GATES === "1" || process.env.RUN_OPERATIONAL_GATES === "true";
 
 describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () => {
+	let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+	let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
+
+	beforeAll(
+		() =>
+			runPromise(
+				Effect.gen(function* () {
+					harness = yield* startIsolatedHarness("Media Population Operational Gate");
+					media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+				}),
+			),
+		300_000,
+	);
+
+	afterAll(() => runPromise(harness?.stop ?? Effect.void));
+
 	it.live(
 		"completes two concurrent full-size imports through durable infrastructure",
 		() =>
@@ -26,16 +44,14 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				const firstUser = yield* createAuthenticatedClient();
 				const secondUser = yield* createAuthenticatedClient();
 				const { schema } = yield* findMediaEntitySchema(firstUser.client, "book");
-				const provider = yield* installTestProvider({
-					client: firstUser.client,
+				const provider = yield* media.attachProvider({
 					rootEntitySchemaSlug: schema.id,
 					details: fakeProviderDetailsResult({
 						properties: {},
 						name: "Phase 3 Operational Gate Book",
 					}),
 				});
-				const secondProvider = yield* installTestProvider({
-					client: secondUser.client,
+				const secondProvider = yield* media.attachProvider({
 					rootEntitySchemaSlug: schema.id,
 					details: fakeProviderDetailsResult({
 						properties: {},
