@@ -242,7 +242,6 @@ export const sandboxScript = snakeCase.table(
 		compiledFormat: smallint().notNull().default(1),
 		metadata: jsonb().$type<SandboxScriptMetadata>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		uploaderId: text().references(() => user.id, { onDelete: "cascade" }),
 		providerId: text().references(() => sandboxProvider.id, { onDelete: "cascade" }),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "cascade" }),
 		id: text()
@@ -255,20 +254,13 @@ export const sandboxScript = snakeCase.table(
 			"sandbox_script_source_owner_check",
 			sql`(${table.pluginRevisionId} is null) = (${table.source} is not null)`,
 		),
-		check(
-			"sandbox_script_uploader_owner_check",
-			sql`${table.uploaderId} is null or ${table.pluginRevisionId} is null`,
-		),
 		index("sandbox_script_provider_id_idx").on(table.providerId),
 		unique("sandbox_script_id_revision_unique").on(table.id, table.pluginRevisionId),
 		index("sandbox_script_plugin_revision_id_idx").on(table.pluginRevisionId),
 		unique("sandbox_script_revision_slug_unique").on(table.pluginRevisionId, table.slug),
 		uniqueIndex("sandbox_script_kernel_slug_content_hash_unique")
 			.on(table.slug, table.contentHash)
-			.where(sql`${table.pluginRevisionId} is null and ${table.uploaderId} is null`),
-		uniqueIndex("sandbox_script_uploader_slug_content_hash_unique")
-			.on(table.uploaderId, table.slug, table.contentHash)
-			.where(sql`${table.uploaderId} is not null`),
+			.where(sql`${table.pluginRevisionId} is null`),
 	],
 );
 

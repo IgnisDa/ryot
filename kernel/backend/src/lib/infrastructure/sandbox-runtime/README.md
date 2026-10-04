@@ -8,7 +8,7 @@ Plugin ingestion validates precompiled format-1 JavaScript from plugin archives 
 
 Build tooling emits the trusted isolate runner and runtime modules into `kernel/sandboxd/payload`, and generates the kernel-script sources and compiled files. Runner and dependency modules use `@ryot-app/vite-compiler`'s `buildSandboxEsm` profile. The release task emits the `dist` executable, launcher, three snapshots, and digest manifest.
 
-Before each invocation, `SandboxService` reloads persisted authority and verifies the compiled script's SHA-256. It chooses the smallest audited isolate tier required. System authority is allowed only for a verified kernel script or verified system-scope plugin. Uploaded scripts run as standalone user scripts with their authenticated uploader as the user principal.
+Before each invocation, `SandboxService` reloads persisted authority and verifies the compiled script's SHA-256. It chooses the smallest audited isolate tier required. System authority is allowed only for a verified kernel script or verified system-scope plugin. User-scope plugin scripts run with user authority under their owning user.
 
 ## Isolation And Capacity
 
@@ -16,7 +16,7 @@ The Rust sidecar runs each invocation in a fresh isolate. The sidecar and backen
 
 `G` is global sandbox concurrency and defaults to 2. Pool sizing reserves `4 + G` connections for primary database work. Native host-call leases are capped at `poolMax - 4 - G`, which configuration validation requires to be at least 1; nested calls reuse their parent lease.
 
-Without `SANDBOX_MEMORY_BUDGET_MIB`, the sidecar memory budget is the smaller of 1536 MiB and half of effective memory; an explicit budget cannot exceed half of effective memory, and startup fails when effective memory is unknown. It reserves each replay's journal allowance before decoding Redis data. Each isolate has a 256 MiB heap, 64 MiB external-memory limit, and 30-second CPU limit. Two shared core sidecars stay resident; data and full tiers load lazily. With `SANDBOX_PER_USER_SIDECARS`, each uploader's user-tier scripts run in that owner's own lazily started sidecars instead of the shared ones. Startup is limited to 10 seconds, idle time to 60 seconds, and an isolate drains and recycles at 10,000 executions or its assigned RSS limit.
+Without `SANDBOX_MEMORY_BUDGET_MIB`, the sidecar memory budget is the smaller of 1536 MiB and half of effective memory; an explicit budget cannot exceed half of effective memory, and startup fails when effective memory is unknown. It reserves each replay's journal allowance before decoding Redis data. Each isolate has a 256 MiB heap, 64 MiB external-memory limit, and 30-second CPU limit. Two shared core sidecars stay resident; data and full tiers load lazily. With `SANDBOX_PER_USER_SIDECARS`, each owner's user-tier scripts run in that owner's own lazily started sidecars instead of the shared ones. Startup is limited to 10 seconds, idle time to 60 seconds, and an isolate drains and recycles at 10,000 executions or its assigned RSS limit.
 
 On Linux, the launcher path is fixed at `/usr/local/libexec/ryot-sandbox-launcher`. The launcher, executable, and snapshots are fixed and root-owned; runtime UIDs are 1001/1002, with isolates running as UID 1002. Isolates are non-dumpable, have core dumps disabled and no environment, and inherit only the socket. Landlock and seccomp enforce deny-all policies. The launcher verifies pidfd identity and attestation before terminating a child; there is no fallback when a required control fails. On non-Linux systems, `runtimeDirectory` defaults to `./sandboxd` and execution is explicitly unconfined.
 
@@ -122,7 +122,7 @@ HTTP logs contain only workflow execution ID, policy key, normalized origin, sta
 
 ## Recovery
 
-Redis stores sidecar recovery state with a failure count capped at three. Reaching the cap suspends the queue until a healthy epoch. Recovery uses stable, exclusive probes. An uploader/content pair is quarantined for one hour after three failures in ten minutes; probation probes run exclusively. System recovery state has a separate namespace. User-store failures fail closed.
+Redis stores sidecar recovery state with a failure count capped at three. Reaching the cap suspends the queue until a healthy epoch. Recovery uses stable, exclusive probes. An owner/content pair is quarantined for one hour after three failures in ten minutes; probation probes run exclusively. System recovery state has a separate namespace. User-store failures fail closed.
 
 ## Failures
 
