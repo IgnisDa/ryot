@@ -22,6 +22,7 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	span: { permit: "small", resultBytes: KiB, dispatch: "diagnostic" },
 	deleteEvents: { resultBytes: null, dispatch: "lifecycle-workflow" },
 	updateEvents: { resultBytes: null, dispatch: "lifecycle-workflow" },
+	createUserEntity: { resultBytes: null, dispatch: "service-workflow" },
 	invalidateOAuthAccessToken: { resultBytes: KiB, dispatch: "activity" },
 	ensureUserEntities: { resultBytes: null, dispatch: "service-workflow" },
 	sendNotification: { resultBytes: null, dispatch: "notification-workflow" },

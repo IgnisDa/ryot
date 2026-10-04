@@ -90,6 +90,7 @@ The role table is the runtime policy ceiling. A script receives only methods per
 | All valid subjects                  | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPersistentValue`, `getPluginConfig`, `claimPersistentValue`                                                           |
 | User or user automation run         | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getUserSettings`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
 | System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                                    |
+| User-subject plugin script          | `createUserEntity` for one user-owned entity whose schema belongs to that plugin                                                                                                         |
 | Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                                             |
 | User or system automation run       | `emitSignal`; `sendNotification` is available only to user automation runs                                                                                                               |
 | Integration run of its own plugin   | `getOAuthAccessToken` and `invalidateOAuthAccessToken` for OAuth fields its current settings schema declares                                                                             |
@@ -97,6 +98,11 @@ The role table is the runtime policy ceiling. A script receives only methods per
 `scratch` and `artifact-read` are not host calls. System elevation requires persisted authority for a verified kernel or system-scope plugin. User capabilities require a trusted user subject. `getEntitySchemas` uses that user's effective ready, enabled plugin catalog. Entity and event data reads use RyotQL; schema calls expose metadata only.
 
 `upsertGlobalEntities` additionally requires provider association. `ensureUserEntities` is available only to the declared user-bootstrap script and remains scoped to entity schemas owned by that plugin.
+
+`createUserEntity` uses the service-workflow dispatch path and the entity service's mutation receipts.
+Schema ownership must match both the pinned plugin scope and the user's effective definition. Scripts
+cannot choose a user, global scope, or provider provenance; before-stage policies and system subjects
+cannot create user entities through this capability.
 
 Plugin config reads use compiler-generated required and optional key allowlists against the pinned
 revision. Required reads fail when missing; optional reads omit unavailable values. Undeclared reads

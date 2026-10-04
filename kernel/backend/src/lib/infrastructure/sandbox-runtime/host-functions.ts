@@ -23,6 +23,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	EVENT_MUTATION_SANDBOX_LIMITS,
 	changeUserRelationshipBatchSchema,
+	createUserEntityArgsSchema,
 	deleteEventsArgsSchema,
 	upsertGlobalEntitiesOptionsSchema,
 	upsertGlobalEntityItemSchema,
@@ -924,6 +925,42 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					),
 				),
 				sandboxHostEffect,
+			),
+		createUserEntity: (rawInput, rawItem) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "createUserEntity");
+					const [item] = yield* Schema.decodeEffect(createUserEntityArgsSchema)([rawItem]);
+					const revision = input.principal.pluginRevision;
+					const userId = UserId.make(userSandboxRunUserId(input));
+					const schemas = yield* definitions.findUserEntitySchemas(userId, [item.entitySchemaSlug]);
+					const definition = schemas[item.entitySchemaSlug];
+					if (
+						!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
+						!definition ||
+						definition.pluginId !== revision.id
+					) {
+						return yield* sandboxHostFailure("Entity schema is not owned by the executing plugin", {
+							code: "unavailable-operation",
+							operation: "createUserEntity",
+						});
+					}
+					const command = yield* sandboxLifecycleCommand(
+						input,
+						userLifecycleSource(input),
+						"createUserEntity",
+					);
+					const { entity, warnings } = yield* entities.create({
+						userId,
+						scope: "user",
+						name: item.name,
+						lifecycle: command,
+						properties: item.properties,
+						entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+					});
+					yield* reportSandboxLifecycleWarnings("createUserEntity", warnings);
+					return { entityId: entity.id };
+				}),
 			),
 		ensureUserEntities: (rawInput, items) =>
 			sandboxHostEffect(

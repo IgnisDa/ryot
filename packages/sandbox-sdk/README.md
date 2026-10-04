@@ -60,6 +60,13 @@ calls are mapped by canonical module and export in `src/intrinsics.ts`; `readArt
 `readArtifactRange`, and `readNamedArtifact` map to `artifact-read`. Compiler analysis checks the
 declaring module identity, not an import alias.
 
+`createUserEntity({ name, entitySchemaSlug, properties })` creates one user-owned entity and returns
+`{ entityId }`. It requires a user-subject execution and a schema owned by the executing plugin in
+both its pinned scope and the user's current definitions. The host binds ownership and derives a
+durable lifecycle command; entity validation, policy hooks, and mutation receipts use the normal
+entity service. It does not accept ownership, global scope, or provider provenance from scripts.
+`ensureUserEntities` remains a bootstrap-only singleton operation, not a metric creation path.
+
 ## Boundary Errors
 
 `SandboxHostError` and `SandboxFilesystemError` carry a readable `message` and optional structured
