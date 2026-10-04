@@ -164,7 +164,9 @@ it.live("reorders and disables workspaces, and keeps both across a reload", () =
 
 		yield* page.getByRole("button", { name: "Reorder Media" }).focus();
 		yield* page.keyboard.press("End");
-		yield* page.getByRole("switch", { name: "Show Media in sidebar" }).click();
+		yield* workspaceList(page)
+			.getByRole("switch", { name: /^Show Media\b/ })
+			.click();
 		yield* page.getByRole("button", { name: "Save sidebar changes" }).click();
 		yield* page.waitForURL((url) => url.pathname !== "/customize-sidebar");
 
@@ -175,8 +177,8 @@ it.live("reorders and disables workspaces, and keeps both across a reload", () =
 		const rows = yield* workspaceList(page).getByRole("listitem").allInnerTexts();
 		expect(rows.at(-1)).toContain("Media");
 		expect(
-			yield* page
-				.getByRole("switch", { name: "Show Media in sidebar" })
+			yield* workspaceList(page)
+				.getByRole("switch", { name: /^Show Media\b/ })
 				.getAttribute("aria-checked"),
 		).toBe("false");
 	}).pipe(PlaywrightSpawner.withBrowser),
