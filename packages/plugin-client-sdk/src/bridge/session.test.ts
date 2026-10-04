@@ -13,10 +13,10 @@ import {
 import { Effect, Fiber, Result, Schema } from "effect";
 import { createElement, Fragment } from "react";
 
-import { RyotClientError } from "./index";
-import { createPluginNavigationStore } from "./navigation/store";
-import { createPluginRuntime } from "./runtime";
-import { waitForMessagePortMacrotask } from "./testing";
+import { RyotClientError } from "../client/errors";
+import { createPluginNavigationStore } from "../navigation/store";
+import { waitForMessagePortMacrotask } from "../testing";
+import { createPluginRuntime } from "./session";
 
 const metadata: ClientCompositionMetadata = {
 	hash: "composition-hash",

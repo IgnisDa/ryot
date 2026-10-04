@@ -1,9 +1,16 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import type { EntityWatch } from "@ryot-app/plugin-client-contract";
 import { fireEvent } from "@testing-library/dom";
 import { Effect, Result } from "effect";
 import { act, type ReactNode, useState, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
+import type { EntityUpdate, RyotClientAdapter } from "../client/adapter";
+import { createPluginRouteResolver, PluginRouter } from "../navigation/routing";
+import { createPluginNavigationStore } from "../navigation/store";
+import { RyotProvider } from "../queries/provider";
+import { usePageRefresh } from "../refresh/page-registry";
+import { createTestRyotClock } from "../testing";
 import {
 	defineEntityPresentation,
 	EntityPresentationRegistryProvider,
@@ -12,11 +19,6 @@ import {
 	type EntityPresentationSource,
 	type EntityReference,
 } from "./entity-results";
-import type { EntityWatch, EntityUpdate, RyotClientAdapter } from "./index";
-import { createPluginNavigationStore } from "./navigation/store";
-import { RyotProvider, usePageRefresh } from "./react";
-import { createPluginRouteResolver, PluginRouter } from "./routing";
-import { createTestRyotClock } from "./testing";
 
 (
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }

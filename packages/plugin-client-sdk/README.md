@@ -124,7 +124,7 @@ boundary. Batch drain delays continue to use `RyotSchedule` and its TestClock-ba
 
 Every SDK delay goes through `RyotSchedule` (`now`, `after`), built by `RyotScheduleService` from
 the Effect `Clock` in its layer, and distributed to components by `RyotProvider` alongside the
-client. `makeRyotRuntime(client)` assembles the live runtime; `createTestRyotClock` from
+client. `makeRyotRuntime(client)` from `./runtime` assembles the live runtime; `createTestRyotClock` from
 `./testing` assembles a `TestClock`-backed one, so tests advance time with `advance(ms)` instead of
 faking timers. Bootstrapped page tests pass the harness's `bootstrap` to `mountPluginPage` or call its
 `bootstrapClientPage` / `bootstrapClientPlugin` method. `RyotSchedule` keeps synchronous callback registration for React and router code;
@@ -133,7 +133,7 @@ captured clock and returns a synchronous cancel; a throw inside the callback is 
 microtask so the plugin fatal path still sees it. `run` executes refresh Effects on that same scoped
 runtime and returns an interrupt function. Disposing a refresh interrupts in-flight work.
 
-`makeRyotPluginLayer` assembles client, navigation, and an explicit schedule layer for both live
+`makeRyotPluginLayer` from `./runtime` assembles client, navigation, and an explicit schedule layer for both live
 and test runtimes. Construction stays synchronous. Each page builds its own schedule scope against
 the harness clock; per-screen React contexts remain separate from these runtime services.
 

@@ -4,7 +4,7 @@ import { Match } from "effect";
 import type { ComponentProps, ReactNode } from "react";
 import { createPortal } from "react-dom";
 
-import { usePluginChrome, usePluginScreenSurface, usePluginTitle } from "./routing";
+import { usePluginChrome, usePluginScreenSurface, usePluginTitle } from "./navigation/routing";
 
 type PluginScreenFrameProps = {
 	readonly meta?: ReactNode;

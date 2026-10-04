@@ -11,6 +11,7 @@ Rationale lives in `README.md`.
 - Derive visibility from rendered screen roles. Limit imperative writes to transition transforms and scrim opacity.
 - Keep transition ownership with its initiator. Animate pops only for compact layouts without reduced motion; retention is unconditional.
 - Keep reconciliation and gesture recognition DOM-free. Add no animation or gesture dependency.
+- `index.ts`, `react.tsx`, and `plugin.tsx` are the package's aggregation points: they only re-export from defining modules. Internal modules import from defining modules, never from these entries.
 - Keep `PluginScreenFrame` on `./screen`; keep frame-independent plugin APIs on `./plugin`.
 - `./plugin` is the public aggregation point for canonical `PluginId`, `PluginPackageId`, `EntitySchemaSlug`, and `PluginIdentityReference` from the contract's defining modules.
 - Use only bridged `compact` and safe-area values for plugin layout. Publish titles only from the active screen and current entry.

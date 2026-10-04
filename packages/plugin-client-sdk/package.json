@@ -23,6 +23,10 @@
 			"types": "./src/react.tsx",
 			"default": "./src/react.tsx"
 		},
+		"./runtime": {
+			"types": "./src/runtime/runtime.ts",
+			"default": "./src/runtime/runtime.ts"
+		},
 		"./schedule": {
 			"types": "./src/schedule.ts",
 			"default": "./src/schedule.ts"

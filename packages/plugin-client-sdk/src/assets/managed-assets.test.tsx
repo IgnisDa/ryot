@@ -1,17 +1,16 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { waitFor } from "@testing-library/dom";
 import { Effect } from "effect";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-import { RyotClientError, type ManagedAssetLocator, type RyotClientAdapter } from "./index";
-import {
-	ManagedAssetProvider,
-	managedAssetBatches,
-	RyotProvider,
-	useManagedAssetUrl,
-} from "./react";
-import { createTestRyotClock } from "./testing";
+import type { RyotClientAdapter } from "../client/adapter";
+import { RyotClientError } from "../client/errors";
+import { RyotProvider } from "../queries/provider";
+import { createTestRyotClock } from "../testing";
+import { managedAssetBatches } from "./keys";
+import { ManagedAssetProvider, useManagedAssetUrl } from "./provider";
 
 type TestClock = ReturnType<typeof createTestRyotClock>;
 
