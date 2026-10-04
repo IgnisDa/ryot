@@ -16,6 +16,10 @@ const program = Effect.gen(function* () {
 	const source = path.join(client, "assets/icon-only.png");
 	const resources = path.join(client, "android/app/src/main/res");
 	const catalog = path.join(client, "ios/App/App/Assets.xcassets");
+	const activityLogo = path.join(
+		client,
+		"ios/App/RyotLiveActivities/Assets.xcassets/RyotLogo.imageset",
+	);
 	const bin = path.join(client, "node_modules/.bin/capacitor-assets");
 	const generate = Effect.fn("generateNativeAssets")(function* (
 		background: string,
@@ -43,6 +47,29 @@ const program = Effect.gen(function* () {
 		}
 		return undefined;
 	});
+
+	yield* fs.makeDirectory(activityLogo, { recursive: true });
+	yield* Effect.forEach([1, 2, 3], (scale) =>
+		Effect.tryPromise(() =>
+			sharp(path.join(client, "assets/logo.png"))
+				.trim()
+				.resize(24 * scale, 24 * scale, { fit: "contain", background: "#00000000" })
+				.png()
+				.toFile(path.join(activityLogo, `ryot-logo@${scale}x.png`)),
+		),
+	);
+	yield* fs.writeFileString(
+		path.join(activityLogo, "Contents.json"),
+		encodeJson({
+			info: { version: 1, author: "xcode" },
+			properties: { "template-rendering-intent": "template" },
+			images: [1, 2, 3].map((scale) => ({
+				idiom: "universal",
+				scale: `${scale}x`,
+				filename: `ryot-logo@${scale}x.png`,
+			})),
+		}),
+	);
 
 	// `icon-only.png` bakes the brand orange into its pixels, so no background colour can move the iOS
 	// icon off brand. The debug icon comes from `assets/dev`, where the transparent mark is the only
