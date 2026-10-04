@@ -74,6 +74,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	DomainLifecycleCommand,
 	DomainWriteConflict,
+	assertStableUnder,
 	DomainWriteChecks,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
@@ -280,36 +281,30 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			if (!manifest || before.eventSchemaPluginId === null) {
 				return yield* Effect.void;
 			}
-			const propertiesSchema = manifest.entitySchemas
-				.find(({ slug }) => slug === before.entitySchemaSlug)
-				?.eventSchemas.find(({ slug }) => slug === before.eventSchemaSlug)?.propertiesSchema;
-			if (!propertiesSchema) {
+			const { pinned, active } = yield* writeChecks.resolvePinnedDeclaration(
+				"event",
+				manifest,
+				definitionOwner(before.eventSchemaPluginId),
+				{ eventSchemaSlug: before.eventSchemaSlug, entitySchemaSlug: before.entitySchemaSlug },
+			);
+			if (!pinned) {
 				return yield* eventBadRequest(
 					"mutation-conflict",
 					"Event schema conflict: the pinned event definition is unavailable",
 				);
 			}
-			const pinned = yield* parseAppSchemaProperties({
-				kind: "Event",
-				properties: before.properties,
-				propertiesSchema: writerPropertiesSchema(propertiesSchema),
-			}).pipe(
-				Effect.mapError(() =>
+			yield* assertStableUnder(
+				"Event",
+				writerPropertiesSchema(pinned.propertiesSchema),
+				before.properties,
+				(reason) =>
 					eventBadRequest(
 						"mutation-conflict",
-						"Event schema conflict: current event cannot be processed by the pinned writer",
+						reason === "invalid"
+							? "Event schema conflict: current event cannot be processed by the pinned writer"
+							: "Event schema conflict: pinned constraints would change the current stored value",
 					),
-				),
 			);
-			if (stableStringify(pinned) !== stableStringify(before.properties)) {
-				return yield* eventBadRequest(
-					"mutation-conflict",
-					"Event schema conflict: pinned constraints would change the current stored value",
-				);
-			}
-			const active = (yield* writeChecks.activeManifest(before.eventSchemaPluginId)).entitySchemas
-				.find(({ slug }) => slug === before.entitySchemaSlug)
-				?.eventSchemas.find(({ slug }) => slug === before.eventSchemaSlug);
 			if (!active) {
 				return yield* eventBadRequest(
 					"mutation-conflict",
@@ -544,47 +539,34 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				),
 			);
 			if (command.writeContext?.pluginRevision) {
-				const stored = yield* parseAppSchemaProperties({
-					kind: "Event",
-					properties: before.properties,
-					propertiesSchema: writerPropertiesSchema(propertiesSchema),
-				}).pipe(
-					Effect.mapError(() =>
+				yield* assertStableUnder(
+					"Event",
+					writerPropertiesSchema(propertiesSchema),
+					before.properties,
+					(reason) =>
 						eventBadRequest(
 							"mutation-conflict",
-							"Current event cannot be processed by the pinned writer",
+							reason === "invalid"
+								? "Current event cannot be processed by the pinned writer"
+								: "Pinned event constraints would change the current stored value",
 						),
-					),
 				);
-				if (stableStringify(stored) !== stableStringify(before.properties)) {
-					return yield* eventBadRequest(
-						"mutation-conflict",
-						"Pinned event constraints would change the current stored value",
-					);
-				}
 			}
 			if (commit) {
-				const stored = yield* parseAppSchemaProperties({
+				yield* assertStableUnder(
+					"Event",
+					command.writeContext?.pluginRevision && before.eventSchemaPluginId !== null
+						? writerPropertiesSchema(scope.activePropertiesSchema)
+						: scope.activePropertiesSchema,
 					properties,
-					kind: "Event",
-					propertiesSchema:
-						command.writeContext?.pluginRevision && before.eventSchemaPluginId !== null
-							? writerPropertiesSchema(scope.activePropertiesSchema)
-							: scope.activePropertiesSchema,
-				}).pipe(
-					Effect.mapError(() =>
+					(reason) =>
 						eventBadRequest(
 							"mutation-conflict",
-							"Pinned event payload violates active storage constraints",
+							reason === "invalid"
+								? "Pinned event payload violates active storage constraints"
+								: "Active event constraints would change the pinned payload",
 						),
-					),
 				);
-				if (stableStringify(stored) !== stableStringify(properties)) {
-					return yield* eventBadRequest(
-						"mutation-conflict",
-						"Active event constraints would change the pinned payload",
-					);
-				}
 			}
 			const draft = yield* Schema.decodeUnknownEffect(AutomationEventDraft)({
 				...draftInput,

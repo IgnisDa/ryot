@@ -34,7 +34,11 @@ import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { DomainWriteChecks, writerPropertiesSchema } from "#modules/entities/write-context";
+import {
+	assertStableUnder,
+	DomainWriteChecks,
+	writerPropertiesSchema,
+} from "#modules/entities/write-context";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { type MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -299,19 +303,14 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 				reason: { code: "event-schema-not-found", eventSchemaSlug: draft.eventSchemaSlug },
 			});
 		}
-		const storedProperties = yield* parseAppSchemaProperties({
-			kind: "Event",
-			properties: draft.properties,
-			propertiesSchema:
-				command.writeContext?.pluginRevision && currentScope.eventSchemaScope.pluginId !== null
-					? writerPropertiesSchema(currentScope.activePropertiesSchema)
-					: currentScope.activePropertiesSchema,
-		}).pipe(
-			Effect.mapError(() => new EventCreateItemError({ reason: { code: "invalid-properties" } })),
+		yield* assertStableUnder(
+			"Event",
+			command.writeContext?.pluginRevision && currentScope.eventSchemaScope.pluginId !== null
+				? writerPropertiesSchema(currentScope.activePropertiesSchema)
+				: currentScope.activePropertiesSchema,
+			draft.properties,
+			() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
 		);
-		if (stableStringify(storedProperties) !== stableStringify(draft.properties)) {
-			return yield* new EventCreateItemError({ reason: { code: "invalid-properties" } });
-		}
 		yield* validateCapturedEventReferences(payload.userId, draft, prepared.capturedReferences);
 		const event = yield* repository.createEvent({
 			...draft,
