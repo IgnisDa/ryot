@@ -810,6 +810,8 @@ fn launcher_orphan_probe_child() {
         .read_line(&mut line)
         .expect("read orphan probe command");
     assert_eq!(line, "exit\n");
+    // The launcher must outlive this probe so that exiting orphans it.
+    std::mem::forget(launcher);
 }
 
 #[test]
