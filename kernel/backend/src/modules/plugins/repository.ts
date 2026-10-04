@@ -1,8 +1,4 @@
-import {
-	clientArtifactMetadata,
-	clientDeclarationHash,
-	PluginClientArtifact,
-} from "@ryot-app/client-plugin-contract";
+import { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	PluginManifest,
@@ -44,7 +40,7 @@ import { revisionDefinitions } from "#modules/definition-registry/source";
 import { redactPluginConfig } from "./config-redaction";
 import { PluginConfigRevisions } from "./config-revisions";
 import { pluginPointerFields, storedScriptFields } from "./persisted-projections";
-import { normalizePluginSource } from "./pipeline";
+import { normalizePluginSource, verifyPluginClientArtifact } from "./pipeline";
 import type {
 	NormalizedPlugin,
 	NormalizedPluginScript,
@@ -920,25 +916,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				if (
 					!("packageId" in artifact) ||
 					!Schema.is(PluginClientArtifact)(artifact) ||
-					artifact.packageId !== manifest.metadata.packageId ||
-					artifact.clientDeclarationHash !== clientDeclarationHash(manifest.client) ||
-					artifact.imports.some(
-						({ reference }) =>
-							!Object.values(manifest.client?.pluginDependencies ?? {}).some(
-								(dependency) =>
-									dependency.packageId === reference.packageId &&
-									dependency.scope === reference.scope,
-							),
-					) ||
-					clientArtifactMetadata(
-						manifest.metadata.name,
-						manifest.metadata.packageId,
-						artifact.files,
-						{
-							imports: artifact.imports,
-							clientDeclarationHash: clientDeclarationHash(manifest.client),
-						},
-					).hash !== artifact.hash
+					!verifyPluginClientArtifact(manifest, artifact)
 				) {
 					return yield* new DbError({
 						message: `Plugin ${revision.packageId} retained client artifact hash does not match its contents`,
@@ -1088,33 +1066,12 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				});
 			}
 			if (plugin.compiledClient) {
-				const client = plugin.manifest.client;
-				if (!client) {
+				if (!plugin.manifest.client) {
 					return yield* new DbError({
 						message: "Plugin client artifact has no client declaration",
 					});
 				}
-				if (
-					plugin.compiledClient.packageId !== plugin.manifest.metadata.packageId ||
-					plugin.compiledClient.clientDeclarationHash !== clientDeclarationHash(client) ||
-					plugin.compiledClient.imports.some(
-						({ reference }) =>
-							!Object.values(client.pluginDependencies ?? {}).some(
-								(dependency) =>
-									dependency.packageId === reference.packageId &&
-									dependency.scope === reference.scope,
-							),
-					) ||
-					clientArtifactMetadata(
-						plugin.manifest.metadata.name,
-						plugin.manifest.metadata.packageId,
-						plugin.compiledClient.files,
-						{
-							imports: plugin.compiledClient.imports,
-							clientDeclarationHash: clientDeclarationHash(client),
-						},
-					).hash !== plugin.compiledClient.hash
-				) {
+				if (!verifyPluginClientArtifact(plugin.manifest, plugin.compiledClient)) {
 					return yield* new DbError({
 						message: "Plugin client artifact metadata hash does not match its contents",
 					});

@@ -100,6 +100,31 @@ export const pluginSourceHash = (
 		}),
 	);
 
+export const verifyPluginClientArtifact = (
+	manifest: PluginManifest,
+	artifact: PluginClientArtifact,
+) => {
+	if (!manifest.client) {
+		return false;
+	}
+	const declarationHash = clientDeclarationHash(manifest.client);
+	const dependencies = Object.values(manifest.client.pluginDependencies ?? {});
+	return (
+		artifact.packageId === manifest.metadata.packageId &&
+		artifact.clientDeclarationHash === declarationHash &&
+		artifact.imports.every(({ reference }) =>
+			dependencies.some(
+				(dependency) =>
+					dependency.packageId === reference.packageId && dependency.scope === reference.scope,
+			),
+		) &&
+		clientArtifactMetadata(manifest.metadata.name, manifest.metadata.packageId, artifact.files, {
+			imports: artifact.imports,
+			clientDeclarationHash: declarationHash,
+		}).hash === artifact.hash
+	);
+};
+
 export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSource")(function* (
 	source: PluginSource,
 ) {
@@ -209,22 +234,7 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 				});
 			}
 		}
-		if (
-			compiledClient.imports.some(
-				({ reference }) =>
-					!Object.values(client.pluginDependencies ?? {}).some(
-						(dependency) =>
-							dependency.packageId === reference.packageId && dependency.scope === reference.scope,
-					),
-			) ||
-			compiledClient.hash !==
-				clientArtifactMetadata(
-					manifest.metadata.name,
-					manifest.metadata.packageId,
-					compiledClient.files,
-					{ imports: compiledClient.imports, clientDeclarationHash: clientDeclarationHash(client) },
-				).hash
-		) {
+		if (!verifyPluginClientArtifact(manifest, compiledClient)) {
 			return yield* new PluginValidationError({
 				issues: ["Plugin compiled client artifact content hash is invalid"],
 			});
