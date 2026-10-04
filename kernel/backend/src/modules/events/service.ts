@@ -51,6 +51,10 @@ import {
 } from "#lib/domain/lifecycle-policy-patch";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import {
+	awaitWorkflowSettled,
+	WorkflowExecutionNotifications,
+} from "#lib/infrastructure/workflow-execution-notifications";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import {
 	createWorkflowJobId,
@@ -220,6 +224,7 @@ const indexedCommand = (command: LifecycleCommand, index: number): LifecycleComm
 export class EventsService extends Context.Service<EventsService>()("EventsService", {
 	make: Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
+		const notifications = yield* WorkflowExecutionNotifications;
 		const config = yield* AppConfig;
 		const operationSecret = deriveJobIdSecret(
 			Redacted.value(config.server.adminAccessToken),
@@ -332,18 +337,13 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				(dispatch) => dispatch.pipe(Effect.uninterruptible),
 			);
 			const remaining = Math.max(0, 35_000 - ((yield* Clock.currentTimeMillis) - started));
-			const observed = yield* Effect.gen(function* () {
-				for (;;) {
-					const state = yield* operationState(input.userId, job);
-					if (state.status === "completed" || state.status === "failed") {
-						return state;
-					}
-					yield* Effect.sleep(Duration.millis(500));
-				}
-			}).pipe(Effect.timeoutOption(Duration.millis(remaining)));
-			const state = Option.isSome(observed)
-				? observed.value
-				: yield* operationState(input.userId, job);
+			const state = yield* awaitWorkflowSettled({
+				backstop: "500 millis",
+				timeout: Duration.millis(remaining),
+				read: operationState(input.userId, job),
+				isSettled: (value) => value.status === "completed" || value.status === "failed",
+				identities: [{ executionId: job.executionId, workflowName: EventCreateWorkflow._tag }],
+			}).pipe(Effect.provideService(WorkflowExecutionNotifications, notifications));
 			yield* verifyCreateBatchInput(input, command);
 			if (state.status === "completed") {
 				return state.result;

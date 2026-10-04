@@ -3,6 +3,7 @@ import { Deferred, Effect, Fiber, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
@@ -27,6 +28,7 @@ it.effect(
 				idempotencyKey: () => ingestionTestScope.runId,
 			});
 			const dependencies = Layer.mergeAll(
+				WorkflowExecutionNotifications.layer,
 				mutationAdmissionTestLayer,
 				Layer.succeed(AdmittedWorkflowCatalogue, [root]),
 				Layer.mock(IngestionCaptures)({}),

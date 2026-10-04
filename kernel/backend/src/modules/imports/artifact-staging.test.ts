@@ -15,6 +15,7 @@ import { HmacSigner } from "#lib/infrastructure/hmac-signer";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxArtifactStaging } from "#lib/infrastructure/sandbox-runtime/artifact-staging";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
@@ -110,6 +111,7 @@ layer(
 					Layer.provideMerge(IngestionPayloads.layer),
 					Layer.provideMerge(LocalStorageService.layer),
 					Layer.provideMerge(engineLayer),
+					Layer.provideMerge(WorkflowExecutionNotifications.layer),
 					Layer.provideMerge(infrastructure),
 				);
 				const staging = IngestionArtifactStagingProvidedLive.pipe(Layer.provideMerge(services));

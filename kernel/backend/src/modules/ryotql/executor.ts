@@ -1145,7 +1145,7 @@ const TIME_SERIES_BUCKET_STEPS: Record<TimeSeriesOutput["time"]["bucket"], strin
 
 const pgDialect = new PgDialect();
 
-export type RyotQLResultBudget = { readonly limitBytes: number; remainingBytes: number };
+type RyotQLResultBudget = { readonly limitBytes: number; remainingBytes: number };
 
 // PostgreSQL measures the result as JSON text and withholds every row once the budget is exceeded,
 // so oversized results never reach the backend.

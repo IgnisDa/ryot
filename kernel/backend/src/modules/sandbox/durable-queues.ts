@@ -1,4 +1,4 @@
-import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/sandbox-sdk/workflow";
@@ -25,6 +25,7 @@ import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { SandboxExecutionResult } from "./execution-result";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
+import { infrastructureRunError } from "./run-error";
 import { sandboxSchedulingKey } from "./scheduling-key";
 
 const SandboxExecutionQueuePayload = Schema.Struct({
@@ -41,42 +42,40 @@ const SandboxExecutionQueuePayload = Schema.Struct({
 });
 export type SandboxExecutionQueuePayload = Schema.Schema.Type<typeof SandboxExecutionQueuePayload>;
 
-/**
- * One replay's result, plus the durable host results it settled without ending. A replay whose
- * journal projection entries were lost never ran the script and sets `projectionMissing`.
- */
 const SandboxReplayResult = Schema.Struct({
 	recovery: Schema.optional(SandboxRecoveryIdentity),
-	recoverySuspended: Schema.optional(Schema.Literal(true)),
 	...SandboxExecutionResult.fields,
 	pendingInline: Schema.Array(SandboxInlineProgress),
 	inline: Schema.Array(workflowReplayJournalEntrySchema),
-	projectionMissing: Schema.optional(Schema.Literal(true)),
 });
 export type SandboxReplayResult = Schema.Schema.Type<typeof SandboxReplayResult>;
+
+export class SandboxRecoverySuspended extends Schema.TaggedError<SandboxRecoverySuspended>()(
+	"SandboxRecoverySuspended",
+	{ instance: Schema.String },
+) {}
+
+/** The replay's journal projection entries were lost, so the script never ran. */
+export class SandboxProjectionMissing extends Schema.TaggedError<SandboxProjectionMissing>()(
+	"SandboxProjectionMissing",
+	{},
+) {}
 
 export const sandboxRecoveryExecutionId = (executionId: string, attempt: number) =>
 	`${executionId}-recovery-${attempt}`;
 
-const toSandboxRunError = (error: unknown) =>
-	error instanceof SandboxRunError
+const toQueueError = (error: unknown) =>
+	error instanceof SandboxRunError ||
+	error instanceof SandboxRecoverySuspended ||
+	error instanceof SandboxProjectionMissing
 		? error
-		: new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) });
-
-const emptyReplayResult = () => ({
-	logs: [],
-	inline: [],
-	error: null,
-	value: null,
-	pendingInline: [],
-	status: "completed" as const,
-});
+		: infrastructureRunError(error);
 
 export const SandboxExecutionQueue = DurableQueue.make({
-	error: SandboxRunError,
 	success: SandboxReplayResult,
 	name: "SandboxExecutionQueue",
 	payload: SandboxExecutionQueuePayload,
+	error: Schema.Union([SandboxRunError, SandboxRecoverySuspended, SandboxProjectionMissing]),
 	idempotencyKey: ({ executionId, recoveryAttempt }) =>
 		recoveryAttempt === undefined || recoveryAttempt === 0
 			? executionId
@@ -87,7 +86,7 @@ export const processSandboxExecutionQueue = Effect.fn("processSandboxExecutionQu
 	payload: SandboxExecutionQueuePayload,
 ) {
 	const result = yield* DurableQueue.process(SandboxExecutionQueue, payload).pipe(
-		Effect.mapError(toSandboxRunError),
+		Effect.mapError(toQueueError),
 	);
 	if (result.recovery !== undefined) {
 		const runtime = yield* RuntimeSandboxService;
@@ -118,7 +117,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 				payload.journalLength,
 			);
 			if (inspection === null) {
-				return { ...emptyReplayResult(), projectionMissing: true as const };
+				return yield* new SandboxProjectionMissing();
 			}
 			const lease = yield* sandbox.reserve(payload.principal, payload.lane);
 			const replayJournal = pinSandboxJournal(redis, payload.workflowExecutionId, inspection);
@@ -171,7 +170,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			// A lost or rewritten projection decides the replay, whatever the script made of the failed read.
 			const fault = replayJournal.fault();
 			if (fault === "missing") {
-				return { ...emptyReplayResult(), projectionMissing: true as const };
+				return yield* new SandboxProjectionMissing();
 			}
 			if (fault !== undefined) {
 				return yield* new SandboxRunError({
@@ -198,7 +197,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		}).pipe(
 			Effect.catchIf(
 				(error) => error instanceof SidecarRecoverySuspended,
-				() => Effect.succeed({ ...emptyReplayResult(), recoverySuspended: true as const }),
+				(error) => new SandboxRecoverySuspended({ instance: error.instance }),
 			),
 		),
 	);
@@ -207,7 +206,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 	DurableQueue.worker(
 		SandboxExecutionQueue,
-		(payload) => executeSandboxExecution(payload).pipe(Effect.mapError(toSandboxRunError)),
+		(payload) => executeSandboxExecution(payload).pipe(Effect.mapError(toQueueError)),
 		{ concurrency },
 	);
 

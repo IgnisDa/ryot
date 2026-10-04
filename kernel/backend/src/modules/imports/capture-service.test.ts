@@ -7,6 +7,7 @@ import { TestClock } from "effect/testing";
 import { layerMemory } from "effect/workflow/WorkflowEngine";
 
 import type { importPayloadReservation } from "#lib/infrastructure/db/schema/tables/imports";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import {
@@ -60,6 +61,7 @@ const fixture = Effect.fnUntraced(function* (
 		};
 	}
 	const dependencies = Layer.mergeAll(
+		WorkflowExecutionNotifications.layer,
 		ingestionTestDatabase(),
 		BunFileSystem.layer,
 		makeAppConfigLayer(),

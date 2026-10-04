@@ -24,12 +24,12 @@ import { EntitiesService } from "#modules/entities/service";
 
 import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
 
-export const ProcessedChildEntity = Schema.Struct({
+const ProcessedChildEntity = Schema.Struct({
 	entity: ListedEntity,
 	entitySchemaSlug: EntitySchemaSlug,
 });
 
-export type ProcessedChildEntity = typeof ProcessedChildEntity.Type;
+type ProcessedChildEntity = typeof ProcessedChildEntity.Type;
 
 const RelationshipReconciliationResult = Schema.Struct({
 	created: Schema.Finite,

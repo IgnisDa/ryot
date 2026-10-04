@@ -584,7 +584,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								}),
 						),
 					);
-					const normalized = yield* normalizePluginPackage(normalizedSource);
+					const normalized = normalizePluginPackage(normalizedSource);
 					yield* validatePluginExecutableScripts(normalized);
 					const installed = yield* Effect.uninterruptible(
 						transaction(
@@ -701,7 +701,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							]);
 							yield* validatePluginManifestReferences(manifest, effectiveDefinitions);
 							yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
-							const normalized = yield* normalizePluginPackage(normalizedSource);
+							const normalized = normalizePluginPackage(normalizedSource);
 							yield* validatePluginExecutableScripts(normalized);
 
 							const updated = yield* Effect.uninterruptible(

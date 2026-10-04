@@ -60,6 +60,7 @@ import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/work
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
 	processSandboxExecutionQueue,
+	type SandboxProjectionMissing,
 	sandboxRecoveryExecutionId,
 	type SandboxExecutionQueuePayload,
 	type SandboxExecutionResolutionMode,
@@ -81,7 +82,7 @@ import {
 	SandboxWorkflowReferenceRepository,
 } from "./workflow-reference-repository";
 
-export const SANDBOX_WORKFLOW_MAX_STEPS = 1_000;
+const SANDBOX_WORKFLOW_MAX_STEPS = 1_000;
 const SANDBOX_WORKFLOW_MAX_PROJECTION_REBUILDS = 2;
 
 const SandboxWorkflowPin = Schema.Struct({
@@ -123,6 +124,16 @@ export const SandboxScriptWorkflow = Workflow.make("SandboxScriptWorkflow", {
 const sandboxFailure = (kind: SandboxFailureKind, message: string) =>
 	new SandboxRunError({ kind, message });
 
+const decodeDurableResult = (value: unknown) =>
+	Schema.decodeUnknownEffect(jsonValueSchema)(value).pipe(
+		Effect.mapError((error) =>
+			sandboxFailure(
+				"invalid-output",
+				`Sandbox workflow durable result is invalid: ${unknownToMessage(error)}`,
+			),
+		),
+	);
+
 // An already-classified failure keeps its kind; only unclassified causes take the fallback.
 const rethrowSandboxFailure = (fallback: SandboxFailureKind) => (error: unknown) =>
 	error instanceof SandboxRunError
@@ -131,6 +142,20 @@ const rethrowSandboxFailure = (fallback: SandboxFailureKind) => (error: unknown)
 				error instanceof SandboxWorkflowReferenceRegistrationError ? "missing-artifact" : fallback,
 				unknownToMessage(error),
 			);
+
+const accountGenerationOf = ({ subject }: SandboxScriptWorkflowPayloadValue) =>
+	subject.type === "system" ? null : subject.accountGeneration;
+
+const artifactOwnerOf = (payload: SandboxScriptWorkflowPayloadValue, executionId: string) =>
+	payload.grants?.artifactOwnerExecutionId ?? executionId;
+
+const withHarvestedChunks = (
+	output: Record<string, unknown>,
+	chunkHandles: ReadonlyArray<string>,
+) => {
+	const { chunkFiles: _chunkFiles, ...rest } = output;
+	return { ...rest, chunkHandles };
+};
 
 const toSandboxExecutionResult = (
 	result: SandboxExecutionResult,
@@ -153,6 +178,33 @@ const toSandboxExecutionResult = (
 					...(error.column === undefined ? {} : { column: error.column }),
 				},
 });
+
+const pinningOwnership = (payload: SandboxScriptWorkflowPayloadValue) => {
+	const { subject } = payload;
+	if (subject.type !== "automation-run") {
+		return {
+			conflicts: false,
+			expectedRevision: payload.pluginRevision,
+			userId: subject.type === "user" ? subject.userId : null,
+		};
+	}
+	return {
+		userId: subject.executionUserId,
+		expectedRevision:
+			subject.pluginId === null
+				? undefined
+				: {
+						id: subject.pluginId,
+						revisionId: subject.pluginRevisionId,
+						configRevisionId: subject.pluginConfigRevisionId,
+					},
+		conflicts:
+			payload.pluginRevision !== undefined &&
+			(payload.pluginRevision.id !== subject.pluginId ||
+				payload.pluginRevision.revisionId !== subject.pluginRevisionId ||
+				payload.pluginRevision.configRevisionId !== subject.pluginConfigRevisionId),
+	};
+};
 
 export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinning>()(
 	"SandboxWorkflowPinning",
@@ -200,28 +252,11 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 							yield* admitWorkflow(
 								receipts,
 								SandboxScriptWorkflow,
-								subject.type === "system" ? null : subject.accountGeneration,
+								accountGenerationOf(payload),
 								executionId,
 							);
-							let expectedRevision: Parameters<typeof repository.getScriptPin>[1] =
-								payload.pluginRevision;
-							if (subject.type === "automation-run") {
-								expectedRevision =
-									subject.pluginId === null
-										? undefined
-										: {
-												id: subject.pluginId,
-												revisionId: subject.pluginRevisionId,
-												configRevisionId: subject.pluginConfigRevisionId,
-											};
-							}
-							if (
-								subject.type === "automation-run" &&
-								payload.pluginRevision &&
-								(payload.pluginRevision.id !== subject.pluginId ||
-									payload.pluginRevision.revisionId !== subject.pluginRevisionId ||
-									payload.pluginRevision.configRevisionId !== subject.pluginConfigRevisionId)
-							) {
+							const ownership = pinningOwnership(payload);
+							if (ownership.conflicts) {
 								return yield* sandboxFailure(
 									"script-failure",
 									"Sandbox workflow pin conflicts with automation ownership",
@@ -239,7 +274,10 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 									? "exact"
 									: payload.resolutionMode,
 							);
-							const pinned = yield* repository.getScriptPin(resolved.scriptId, expectedRevision);
+							const pinned = yield* repository.getScriptPin(
+								resolved.scriptId,
+								ownership.expectedRevision,
+							);
 							if (!pinned) {
 								return yield* sandboxFailure(
 									"missing-artifact",
@@ -256,10 +294,7 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 									"Kernel automation requires a source-zero script",
 								);
 							}
-							let userId = subject.type === "user" ? subject.userId : null;
-							if (subject.type === "automation-run") {
-								userId = subject.executionUserId;
-							}
+							const { userId } = ownership;
 							if (
 								pinned.pluginRevision?.scope === "user" &&
 								pinned.pluginRevision.ownerId !== userId
@@ -309,9 +344,15 @@ const processPinnedSandbox = Effect.fn("processPinnedSandbox")(function* (
 	payload: SandboxExecutionQueuePayload,
 ) {
 	for (let attempt = 0; ; attempt++) {
-		const result = yield* processSandboxExecutionQueue({ ...payload, recoveryAttempt: attempt });
-		if (result.recoverySuspended !== true) {
-			return result;
+		const result = yield* processSandboxExecutionQueue({
+			...payload,
+			recoveryAttempt: attempt,
+		}).pipe(
+			Effect.asSome,
+			Effect.catchTag("SandboxRecoverySuspended", () => Effect.succeedNone),
+		);
+		if (Option.isSome(result)) {
+			return result.value;
 		}
 		yield* DurableClock.sleep({
 			duration: "60 seconds",
@@ -572,7 +613,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 		request.name,
 		request.index,
 	);
-	const artifactOwnerExecutionId = payload.grants?.artifactOwnerExecutionId ?? executionId;
+	const artifactOwnerExecutionId = artifactOwnerOf(payload, executionId);
 	const kernel = request.args.workflowSlug.startsWith("kernel:");
 	if (!kernel && !targetScriptId) {
 		return yield* sandboxFailure("missing-artifact", "Child workflow script was not resolved");
@@ -617,7 +658,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 								receipts,
 								engine,
 								SandboxScriptWorkflow,
-								payload.subject.type === "system" ? null : payload.subject.accountGeneration,
+								accountGenerationOf(payload),
 								{
 									executionId: childExecutionId,
 									payload: {
@@ -651,7 +692,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 	executionId: string,
 	processReplay: (
 		payload: SandboxExecutionQueuePayload,
-	) => Effect.Effect<SandboxReplayResult, SandboxRunError, R>,
+	) => Effect.Effect<SandboxReplayResult, SandboxRunError | SandboxProjectionMissing, R>,
 ) {
 	const pin = yield* makeActivity({
 		error: SandboxRunError,
@@ -662,7 +703,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			const pinning = yield* SandboxWorkflowPinning;
 			const { principal } = yield* pinning.establish(payload, executionId);
 			const artifacts = yield* SandboxArtifactStore;
-			yield* artifacts.retain(payload.grants?.artifactOwnerExecutionId ?? executionId, executionId);
+			yield* artifacts.retain(artifactOwnerOf(payload, executionId), executionId);
 			return { startedAt, principal };
 		}).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure"))),
 	});
@@ -672,10 +713,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		name: "release-sandbox-workflow-reference",
 		execute: Effect.gen(function* () {
 			const artifacts = yield* SandboxArtifactStore;
-			yield* artifacts.release(
-				payload.grants?.artifactOwnerExecutionId ?? executionId,
-				executionId,
-			);
+			yield* artifacts.release(artifactOwnerOf(payload, executionId), executionId);
 			if (pin.principal.pluginRevision) {
 				const references = yield* SandboxWorkflowReferenceRepository;
 				yield* references.release(executionId);
@@ -724,14 +762,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 								pending?._tag === "Http" ? pending.progress : undefined,
 							).pipe(Effect.provideService(WorkflowInstance, originalInstance)),
 				);
-				const jsonValue = yield* Schema.decodeUnknownEffect(jsonValueSchema)(value).pipe(
-					Effect.mapError((error) =>
-						sandboxFailure(
-							"invalid-output",
-							`Sandbox workflow durable result is invalid: ${unknownToMessage(error)}`,
-						),
-					),
-				);
+				const jsonValue = yield* decodeDurableResult(value);
 				// A sibling suspension must not interrupt the completion write after dispatch has returned.
 				yield* engine
 					.deferredDone(deferred, {
@@ -757,14 +788,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		let replayStartedAt = 0;
 		const appendJournalEntry = (request: WorkflowDurableCallRequest, value: unknown) =>
 			Effect.gen(function* () {
-				const journalValue = yield* Schema.decodeUnknownEffect(jsonValueSchema)(value).pipe(
-					Effect.mapError((error) =>
-						sandboxFailure(
-							"invalid-output",
-							`Sandbox workflow durable result is invalid: ${unknownToMessage(error)}`,
-						),
-					),
-				);
+				const journalValue = yield* decodeDurableResult(value);
 				const entryBytes = jsonByteLength({ request, value: journalValue });
 				if (entryBytes === null) {
 					return yield* sandboxFailure(
@@ -810,7 +834,19 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					workflowExecutionId: executionId,
 					...(payload.grants ? { grants: payload.grants } : {}),
 				}),
-			);
+			).pipe(Effect.catchTag("SandboxProjectionMissing", () => Effect.void));
+			if (replay === undefined) {
+				yield* finishReplay("missing");
+				projectionRebuilds += 1;
+				if (projectionRebuilds > SANDBOX_WORKFLOW_MAX_PROJECTION_REBUILDS) {
+					return yield* sandboxFailure(
+						"resource-unavailable",
+						`Sandbox workflow projection remained missing after ${SANDBOX_WORKFLOW_MAX_PROJECTION_REBUILDS} consecutive rebuilds`,
+					);
+				}
+				projected = 0;
+				continue;
+			}
 			const dispatcher = yield* SandboxDurableHostDispatcher;
 			const cancelPending =
 				replay.pendingInline.length === 0
@@ -823,18 +859,6 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				yield* Workflow.addFinalizer(() =>
 					originalInstance.interrupted ? cancelPending : Effect.void,
 				);
-			}
-			if (replay.projectionMissing) {
-				yield* finishReplay("missing");
-				projectionRebuilds += 1;
-				if (projectionRebuilds > SANDBOX_WORKFLOW_MAX_PROJECTION_REBUILDS) {
-					return yield* sandboxFailure(
-						"resource-unavailable",
-						`Sandbox workflow projection remained missing after ${SANDBOX_WORKFLOW_MAX_PROJECTION_REBUILDS} consecutive rebuilds`,
-					);
-				}
-				projected = 0;
-				continue;
 			}
 			projectionRebuilds = 0;
 			yield* Effect.forEach(
@@ -917,19 +941,12 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				yield* finishReplay("completed");
 				const observedOutput =
 					replay.harvest && isObjectRecord(observed.output)
-						? (() => {
-								const { chunkFiles: _chunkFiles, ...value } = observed.output;
-								return { ...value, chunkHandles: replay.harvest.chunkHandles };
-							})()
+						? withHarvestedChunks(observed.output, replay.harvest.chunkHandles)
 						: observed.output;
 				if (payload.resultMode === "execution") {
 					return toSandboxExecutionResult(replay, observedOutput);
 				}
-				if (replay.harvest && isObjectRecord(observed.output)) {
-					const { chunkFiles: _chunkFiles, ...output } = observed.output;
-					return { ...output, chunkHandles: replay.harvest.chunkHandles };
-				}
-				return observed.output;
+				return observedOutput;
 			}
 			yield* finishReplay("pending");
 			if (journal.length + observed.requests.length > SANDBOX_WORKFLOW_MAX_STEPS) {
@@ -980,7 +997,7 @@ export const runSandboxScriptWorkflow = Effect.fn("SandboxScriptWorkflow")(funct
 	yield* admitWorkflow(
 		receipts,
 		SandboxScriptWorkflow,
-		payload.subject.type === "system" ? null : payload.subject.accountGeneration,
+		accountGenerationOf(payload),
 		executionId,
 	).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
 	return yield* runSandboxScriptWorkflowBody(payload, executionId, processPinnedSandbox);
@@ -995,7 +1012,7 @@ export const executeSandboxScriptWorkflow = Effect.fn("executeSandboxScriptWorkf
 		receipts,
 		engine,
 		SandboxScriptWorkflow,
-		payload.subject.type === "system" ? null : payload.subject.accountGeneration,
+		accountGenerationOf(payload),
 		{ payload, executionId: payload.executionId },
 		(admission) => admission.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure"))),
 		(execution) => execution,

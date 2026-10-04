@@ -1,4 +1,4 @@
-import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
@@ -10,6 +10,7 @@ import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
 
 import { SandboxRepository } from "./repository";
+import { infrastructureRunError } from "./run-error";
 
 class SandboxCompiledArtifactScriptId extends Context.Service<
 	SandboxCompiledArtifactScriptId,
@@ -39,12 +40,7 @@ export class SandboxCompiledArtifacts extends Context.Service<
 				const scriptId = yield* SandboxCompiledArtifactScriptId;
 				const script = yield* repository
 					.getScript(scriptId)
-					.pipe(
-						Effect.mapError(
-							(error) =>
-								new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
-						),
-					);
+					.pipe(Effect.mapError(infrastructureRunError));
 				if (
 					!script ||
 					script.contentHash !== contentHash ||

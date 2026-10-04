@@ -220,23 +220,23 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 	};
 });
 
-export const normalizePluginPackage = Effect.fn("PluginPipeline.normalizePluginPackage")(
-	(input: Effect.Success<ReturnType<typeof normalizePluginSource>>) =>
-		Effect.succeed({
-			manifest: input.manifest,
-			sourceHash: input.sourceHash,
-			...(input.compiledClient ? { compiledClient: input.compiledClient } : {}),
-			scripts: input.scripts.map(({ declared, compiled }): NormalizedPluginScript => ({
-				slug: declared.slug,
-				name: declared.name,
-				entry: declared.entry,
-				compiledFormat: compiled.format,
-				compiledCode: compiled.javascript,
-				contentHash: digest(compiled.javascript),
-				metadata: declaredScriptMetadata(declared),
-			})),
-		} satisfies NormalizedPlugin),
-);
+export const normalizePluginPackage = (
+	input: Effect.Success<ReturnType<typeof normalizePluginSource>>,
+) =>
+	({
+		manifest: input.manifest,
+		sourceHash: input.sourceHash,
+		...(input.compiledClient ? { compiledClient: input.compiledClient } : {}),
+		scripts: input.scripts.map(({ declared, compiled }): NormalizedPluginScript => ({
+			slug: declared.slug,
+			name: declared.name,
+			entry: declared.entry,
+			compiledFormat: compiled.format,
+			compiledCode: compiled.javascript,
+			contentHash: digest(compiled.javascript),
+			metadata: declaredScriptMetadata(declared),
+		})),
+	}) satisfies NormalizedPlugin;
 
 export const validationDiagnostics = (error: PluginValidationError) =>
 	error.issues.map((message) => ({

@@ -12,6 +12,7 @@ import {
 	LifecycleExecution,
 } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
@@ -26,6 +27,7 @@ import {
 	AutomationExecutionOperations,
 	AutomationExecutionOperationsLive,
 	LifecycleExecutionLive,
+	OUTSIDE_WORKFLOW_BACKSTOP,
 } from "./execution";
 import { triggerFixture, queuedRunFixture } from "./lifecycle.test-support";
 import {
@@ -114,6 +116,7 @@ const executionLayer = Layer.mergeAll(parentLive, runWorkflowLive).pipe(
 	),
 	Layer.provideMerge(operationsLive),
 	Layer.provideMerge(workflowEngineTestLayer),
+	Layer.provideMerge(WorkflowExecutionNotifications.layer),
 	Layer.provideMerge(runControlLayer(AUTOMATION_IMMEDIATE_TIMEOUT_MS + 1_000)),
 );
 
@@ -125,19 +128,19 @@ const settled = <A, E>(fiber: Fiber.Fiber<A, E>) =>
 		return fiber.pollUnsafe();
 	});
 
-// Outside a workflow instance the caller re-reads unsettled attempts every 50 ms, so one step of that
+// Outside a workflow instance the caller re-reads unsettled attempts every backstop interval, so one step of that
 // length must deliver an outcome that is already decided.
 const outside = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.gen(function* () {
 		const fiber = yield* Effect.forkChild(effect);
-		yield* TestClock.adjust(50);
+		yield* TestClock.adjust(OUTSIDE_WORKFLOW_BACKSTOP);
 		yield* settled(fiber);
 		return fiber;
 	});
 const passDeadline = <A, E>(fiber: Fiber.Fiber<A, E>) =>
 	TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS).pipe(Effect.andThen(outsideRecheck(fiber)));
 const outsideRecheck = <A, E>(fiber: Fiber.Fiber<A, E>) =>
-	TestClock.adjust(50).pipe(Effect.andThen(settled(fiber)));
+	TestClock.adjust(OUTSIDE_WORKFLOW_BACKSTOP).pipe(Effect.andThen(settled(fiber)));
 
 const startParent = (
 	id: string,
@@ -405,12 +408,12 @@ layer(
 					Effect.succeed(
 						(
 							[
-								{ id: "claimed", attemptCount: 1, status: "running", lane: "interactive" },
-								{ id: "retried", attemptCount: 1, status: "queued", lane: "background" },
-								{ id: "fresh", attemptCount: 0, status: "queued", lane: "interactive" },
-								{ id: "skipped", attemptCount: 0, status: "skipped", lane: "background" },
-								{ id: "required", attemptCount: 0, status: "queued", lane: "interactive" },
-								{ id: "async", attemptCount: 0, status: "queued", lane: "background" },
+								{ id: "claimed", attemptCount: 1, status: "running" },
+								{ id: "retried", attemptCount: 1, status: "queued" },
+								{ id: "fresh", attemptCount: 0, status: "queued" },
+								{ id: "skipped", attemptCount: 0, status: "skipped" },
+								{ id: "required", attemptCount: 0, status: "queued" },
+								{ id: "async", attemptCount: 0, status: "queued" },
 							] as const
 						).filter(({ id }) => ids.includes(AutomationRunId.make(id))),
 					),

@@ -15,6 +15,7 @@ import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import {
 	makeAppConfigLayer,
 	makeConfigProviderLayer,
@@ -250,7 +251,13 @@ export const relationshipDatabaseLayer = (
 			);
 			const eventsService = EventsService.layer.pipe(
 				Layer.provide(
-					Layer.mergeAll(ownerDependencies, eventsRepository, eventSchemasRepository, eventEngine),
+					Layer.mergeAll(
+						ownerDependencies,
+						eventsRepository,
+						eventSchemasRepository,
+						eventEngine,
+						WorkflowExecutionNotifications.layer,
+					),
 				),
 			);
 			const services = Layer.mergeAll(RelationshipsService.layer, EntitiesService.layer).pipe(

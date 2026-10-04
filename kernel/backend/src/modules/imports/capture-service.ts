@@ -2,11 +2,13 @@ import type { IngestionScope } from "@ryot-app/contract/modules/imports/ingestio
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, FileSystem, Layer, Option } from "effect";
+import { Context, Effect, FileSystem, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
+import { interruptWorkflowAndWait } from "#lib/infrastructure/workflow-interruption";
 import { ActivityBody } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -23,6 +25,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
 		const engine = yield* WorkflowEngine;
+		const notifications = yield* WorkflowExecutionNotifications;
 		const fs = yield* FileSystem.FileSystem;
 		const database = yield* DatabaseSession;
 		const payloads = yield* IngestionPayloads;
@@ -258,14 +261,12 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()("Ing
 					continue;
 				}
 				const executionId = captureWriteExecutionId(scope, reservation.id);
-				yield* engine.interrupt(ProcessIngestionCaptureWorkflow, executionId);
-				for (;;) {
-					const result = yield* engine.poll(ProcessIngestionCaptureWorkflow, executionId);
-					if (Option.isSome(result) && result.value._tag === "Complete") {
-						break;
-					}
-					yield* Effect.sleep("100 millis");
-				}
+				yield* interruptWorkflowAndWait(ProcessIngestionCaptureWorkflow, executionId, {
+					requireReply: true,
+				}).pipe(
+					Effect.provideService(WorkflowEngine, engine),
+					Effect.provideService(WorkflowExecutionNotifications, notifications),
+				);
 			}
 		});
 		const cleanup = Effect.fn("IngestionCaptures.cleanup")(function* (scope: IngestionScope) {
