@@ -17,6 +17,7 @@ import {
 } from "effect";
 import { TestClock } from "effect/testing";
 
+import { AppConfig } from "#lib/infrastructure/config/service";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { SandboxRecoveryStore } from "../sandbox-recovery-store";
@@ -313,7 +314,7 @@ const clientLayer = Layer.effect(
 	Effect.map(SupervisorTestHarness, ({ connect }) => ({ connect })),
 ).pipe(Layer.provideMerge(harnessLayer));
 const admissionLayer = Layer.effect(SandboxSidecarAdmission, SandboxSidecarAdmission.make).pipe(
-	Layer.provide(configLayer),
+	Layer.provideMerge(configLayer),
 );
 const authorityLayer = Layer.succeed(SandboxExecutionAuthority, {
 	resolve: (_principal: SandboxExecutionPrincipal) => Effect.succeed("user"),
@@ -1552,4 +1553,62 @@ supervisorTest("inline_settlement_pauses_only_script_time_with_ceilings_and_back
 			expect(connection.finalized).toBe(false);
 		}),
 	).pipe(Effect.withSpan("sandbox.supervisor.inline-budget-test")),
+);
+
+const owned = (owner: string, scriptSlug: string): SandboxExecutionPrincipal => ({
+	...makePrincipal([], scriptSlug),
+	standaloneUploaderId: UserId.make(owner),
+});
+
+supervisorTest("per_user_sidecars_shard_the_user_tier_by_owner", () =>
+	Effect.gen(function* () {
+		const config = yield* AppConfig;
+		yield* withSupervisor(({ harness, supervisor }) =>
+			Effect.gen(function* () {
+				expect(yield* supervisor.locate(owned("alice", "alice-script"))).toMatchObject({
+					tier: "core",
+					trust: "user",
+					instance: "user/core/alice",
+				});
+				expect(yield* supervisor.locate(makePrincipal([], "system-script"))).toMatchObject({
+					instance: "system/core",
+				});
+				const shared = getConnection(harness, "user/core");
+				const aliceFiber = yield* startRun(supervisor, harness, [], {
+					principal: owned("alice", "alice-script"),
+				}).pipe(Effect.forkScoped({ startImmediately: true }));
+				const alice = yield* awaitConnection(harness, "user/core", shared.generation);
+				const aliceRun = yield* Queue.take(alice.nextRun);
+				const bobFiber = yield* startRun(supervisor, harness, [], {
+					principal: owned("bob", "bob-script"),
+				}).pipe(Effect.forkScoped({ startImmediately: true }));
+				const bob = yield* awaitConnection(harness, "user/core", alice.generation);
+				const bobRun = yield* Queue.take(bob.nextRun);
+				expect(harness.connections).toHaveLength(4);
+				expect(shared.sent).toEqual([]);
+				expect([alice.settings, bob.settings]).toMatchObject([
+					{ tier: "core", trust: "user" },
+					{ tier: "core", trust: "user" },
+				]);
+				expect(alice.generation).not.toBe(bob.generation);
+				yield* harness.complete(alice, aliceRun);
+				yield* harness.complete(bob, bobRun);
+				yield* Fiber.join(aliceFiber);
+				yield* Fiber.join(bobFiber);
+				yield* TestClock.adjust("61 seconds");
+				yield* Deferred.await(alice.exitConfirmed);
+				yield* Deferred.await(bob.exitConfirmed);
+				expect(shared.finalized).toBe(false);
+			}),
+		).pipe(
+			Effect.provideService(SandboxExecutionAuthority, {
+				resolve: (principal: SandboxExecutionPrincipal) =>
+					Effect.succeed(principal.scriptSlug.startsWith("system-") ? "system" : "user"),
+			}),
+			Effect.provideService(AppConfig, {
+				...config,
+				sandbox: { ...config.sandbox, perUserSidecars: true },
+			}),
+		);
+	}),
 );
