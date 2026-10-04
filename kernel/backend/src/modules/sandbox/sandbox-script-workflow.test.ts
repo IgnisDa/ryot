@@ -279,9 +279,9 @@ layer(
 										scriptId,
 										providerId: null,
 										pluginRevision: null,
-										kernelScript: true as const,
 										contentHash: "kernel-v1",
 										scriptSlug: "notification",
+										kernelScript: true as const,
 										metadata: { runtimeImports: [], kind: "automation" as const },
 									}),
 								),
@@ -316,8 +316,8 @@ layer(
 			expect(result).toMatchObject({
 				registrationStatus: "not-required",
 				principal: {
-					pluginRevision: null,
 					kernelScript: true,
+					pluginRevision: null,
 					subject: payload.subject,
 					scriptId: "kernel-notification-v1",
 				},
