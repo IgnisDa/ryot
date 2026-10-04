@@ -53,7 +53,9 @@ const MAX_RETAINED_FRAMES = 3;
 const pluginRouteIds = new Set<string>([
 	"/_authenticated/p/$publisher/$name",
 	"/_authenticated/e/$entityId",
-	"/_authenticated/v/$",
+	"/_authenticated/v/c/$savedViewId",
+	"/_authenticated/v/k/$slug",
+	"/_authenticated/v/p/$publisher/$name/$slug",
 ] satisfies ReadonlyArray<keyof FileRoutesById>);
 const searchString = (value: string) => (value.startsWith("?") ? value.slice(1) : value);
 const digest = (value: unknown) =>

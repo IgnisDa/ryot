@@ -38,7 +38,6 @@ import { Route as AuthenticatedSettingsNotificationChannelsRouteImport } from '.
 import { Route as AuthenticatedSettingsOauthReturnRouteImport } from './routes/_authenticated/settings/oauth-return'
 import { Route as AuthenticatedSettingsPluginsRouteImport } from './routes/_authenticated/settings/plugins'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
-import { Route as AuthenticatedVSplatRouteImport } from './routes/_authenticated/v/$'
 import { Route as AuthLogoutCallbackRouteImport } from './routes/auth_.logout.callback'
 import { Route as AuthenticatedPPublisherNameRouteRouteImport } from './routes/_authenticated/p/$publisher/$name/route'
 import { Route as AuthenticatedSettingsAutomationHistoryIndexRouteImport } from './routes/_authenticated/settings/automation-history/index'
@@ -49,8 +48,11 @@ import { Route as AuthenticatedSettingsIntegrationsIndexRouteImport } from './ro
 import { Route as AuthenticatedSettingsIntegrationsIntegrationIdRouteImport } from './routes/_authenticated/settings/integrations/$integrationId'
 import { Route as AuthenticatedSettingsPluginPreferencesIndexRouteImport } from './routes/_authenticated/settings/plugin-preferences/index'
 import { Route as AuthenticatedSettingsPluginPreferencesInstallationIdRouteImport } from './routes/_authenticated/settings/plugin-preferences/$installationId'
+import { Route as AuthenticatedVCSavedViewIdRouteImport } from './routes/_authenticated/v/c/$savedViewId'
+import { Route as AuthenticatedVKSlugRouteImport } from './routes/_authenticated/v/k/$slug'
 import { Route as AuthenticatedPPublisherNameIndexRouteImport } from './routes/_authenticated/p/$publisher/$name/index'
 import { Route as AuthenticatedPPublisherNameSplatRouteImport } from './routes/_authenticated/p/$publisher/$name/$'
+import { Route as AuthenticatedVPPublisherNameSlugRouteImport } from './routes/_authenticated/v/p/$publisher/$name/$slug'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -208,11 +210,6 @@ const AuthenticatedSettingsPreferencesRoute =
     path: '/preferences',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
-const AuthenticatedVSplatRoute = AuthenticatedVSplatRouteImport.update({
-  id: '/v/$',
-  path: '/v/$',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthLogoutCallbackRoute = AuthLogoutCallbackRouteImport.update({
   id: '/auth_/logout/callback',
   path: '/auth/logout/callback',
@@ -272,6 +269,17 @@ const AuthenticatedSettingsPluginPreferencesInstallationIdRoute =
     path: '/plugin-preferences/$installationId',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedVCSavedViewIdRoute =
+  AuthenticatedVCSavedViewIdRouteImport.update({
+    id: '/v/c/$savedViewId',
+    path: '/v/c/$savedViewId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedVKSlugRoute = AuthenticatedVKSlugRouteImport.update({
+  id: '/v/k/$slug',
+  path: '/v/k/$slug',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPPublisherNameIndexRoute =
   AuthenticatedPPublisherNameIndexRouteImport.update({
     id: '/',
@@ -283,6 +291,12 @@ const AuthenticatedPPublisherNameSplatRoute =
     id: '/$',
     path: '/$',
     getParentRoute: () => AuthenticatedPPublisherNameRouteRoute,
+  } as any)
+const AuthenticatedVPPublisherNameSlugRoute =
+  AuthenticatedVPPublisherNameSlugRouteImport.update({
+    id: '/v/p/$publisher/$name/$slug',
+    path: '/v/p/$publisher/$name/$slug',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -313,7 +327,6 @@ export interface FileRoutesByFullPath {
   '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
-  '/v/$': typeof AuthenticatedVSplatRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/p/$publisher/$name': typeof AuthenticatedPPublisherNameRouteRouteWithChildren
@@ -321,12 +334,15 @@ export interface FileRoutesByFullPath {
   '/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
   '/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
   '/settings/plugin-preferences/$installationId': typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
+  '/v/c/$savedViewId': typeof AuthenticatedVCSavedViewIdRoute
+  '/v/k/$slug': typeof AuthenticatedVKSlugRoute
   '/settings/automation-history/': typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   '/settings/import-data/': typeof AuthenticatedSettingsImportDataIndexRoute
   '/settings/integrations/': typeof AuthenticatedSettingsIntegrationsIndexRoute
   '/settings/plugin-preferences/': typeof AuthenticatedSettingsPluginPreferencesIndexRoute
   '/p/$publisher/$name/$': typeof AuthenticatedPPublisherNameSplatRoute
   '/p/$publisher/$name/': typeof AuthenticatedPPublisherNameIndexRoute
+  '/v/p/$publisher/$name/$slug': typeof AuthenticatedVPPublisherNameSlugRoute
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
@@ -354,19 +370,21 @@ export interface FileRoutesByTo {
   '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
-  '/v/$': typeof AuthenticatedVSplatRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/settings/automation-history/$runId': typeof AuthenticatedSettingsAutomationHistoryRunIdRoute
   '/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
   '/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
   '/settings/plugin-preferences/$installationId': typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
+  '/v/c/$savedViewId': typeof AuthenticatedVCSavedViewIdRoute
+  '/v/k/$slug': typeof AuthenticatedVKSlugRoute
   '/settings/automation-history': typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   '/settings/import-data': typeof AuthenticatedSettingsImportDataIndexRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsIndexRoute
   '/settings/plugin-preferences': typeof AuthenticatedSettingsPluginPreferencesIndexRoute
   '/p/$publisher/$name/$': typeof AuthenticatedPPublisherNameSplatRoute
   '/p/$publisher/$name': typeof AuthenticatedPPublisherNameIndexRoute
+  '/v/p/$publisher/$name/$slug': typeof AuthenticatedVPPublisherNameSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -398,7 +416,6 @@ export interface FileRoutesById {
   '/_authenticated/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/_authenticated/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
-  '/_authenticated/v/$': typeof AuthenticatedVSplatRoute
   '/auth_/logout/callback': typeof AuthLogoutCallbackRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/p/$publisher/$name': typeof AuthenticatedPPublisherNameRouteRouteWithChildren
@@ -406,12 +423,15 @@ export interface FileRoutesById {
   '/_authenticated/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
   '/_authenticated/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
   '/_authenticated/settings/plugin-preferences/$installationId': typeof AuthenticatedSettingsPluginPreferencesInstallationIdRoute
+  '/_authenticated/v/c/$savedViewId': typeof AuthenticatedVCSavedViewIdRoute
+  '/_authenticated/v/k/$slug': typeof AuthenticatedVKSlugRoute
   '/_authenticated/settings/automation-history/': typeof AuthenticatedSettingsAutomationHistoryIndexRoute
   '/_authenticated/settings/import-data/': typeof AuthenticatedSettingsImportDataIndexRoute
   '/_authenticated/settings/integrations/': typeof AuthenticatedSettingsIntegrationsIndexRoute
   '/_authenticated/settings/plugin-preferences/': typeof AuthenticatedSettingsPluginPreferencesIndexRoute
   '/_authenticated/p/$publisher/$name/$': typeof AuthenticatedPPublisherNameSplatRoute
   '/_authenticated/p/$publisher/$name/': typeof AuthenticatedPPublisherNameIndexRoute
+  '/_authenticated/v/p/$publisher/$name/$slug': typeof AuthenticatedVPPublisherNameSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -443,7 +463,6 @@ export interface FileRouteTypes {
     | '/settings/oauth-return'
     | '/settings/plugins'
     | '/settings/preferences'
-    | '/v/$'
     | '/auth/logout/callback'
     | '/settings/'
     | '/p/$publisher/$name'
@@ -451,12 +470,15 @@ export interface FileRouteTypes {
     | '/settings/import-data/$runId'
     | '/settings/integrations/$integrationId'
     | '/settings/plugin-preferences/$installationId'
+    | '/v/c/$savedViewId'
+    | '/v/k/$slug'
     | '/settings/automation-history/'
     | '/settings/import-data/'
     | '/settings/integrations/'
     | '/settings/plugin-preferences/'
     | '/p/$publisher/$name/$'
     | '/p/$publisher/$name/'
+    | '/v/p/$publisher/$name/$slug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
@@ -484,19 +506,21 @@ export interface FileRouteTypes {
     | '/settings/oauth-return'
     | '/settings/plugins'
     | '/settings/preferences'
-    | '/v/$'
     | '/auth/logout/callback'
     | '/settings'
     | '/settings/automation-history/$runId'
     | '/settings/import-data/$runId'
     | '/settings/integrations/$integrationId'
     | '/settings/plugin-preferences/$installationId'
+    | '/v/c/$savedViewId'
+    | '/v/k/$slug'
     | '/settings/automation-history'
     | '/settings/import-data'
     | '/settings/integrations'
     | '/settings/plugin-preferences'
     | '/p/$publisher/$name/$'
     | '/p/$publisher/$name'
+    | '/v/p/$publisher/$name/$slug'
   id:
     | '__root__'
     | '/_authenticated'
@@ -527,7 +551,6 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/oauth-return'
     | '/_authenticated/settings/plugins'
     | '/_authenticated/settings/preferences'
-    | '/_authenticated/v/$'
     | '/auth_/logout/callback'
     | '/_authenticated/settings/'
     | '/_authenticated/p/$publisher/$name'
@@ -535,12 +558,15 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/import-data/$runId'
     | '/_authenticated/settings/integrations/$integrationId'
     | '/_authenticated/settings/plugin-preferences/$installationId'
+    | '/_authenticated/v/c/$savedViewId'
+    | '/_authenticated/v/k/$slug'
     | '/_authenticated/settings/automation-history/'
     | '/_authenticated/settings/import-data/'
     | '/_authenticated/settings/integrations/'
     | '/_authenticated/settings/plugin-preferences/'
     | '/_authenticated/p/$publisher/$name/$'
     | '/_authenticated/p/$publisher/$name/'
+    | '/_authenticated/v/p/$publisher/$name/$slug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -763,13 +789,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsPreferencesRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/v/$': {
-      id: '/_authenticated/v/$'
-      path: '/v/$'
-      fullPath: '/v/$'
-      preLoaderRoute: typeof AuthenticatedVSplatRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
     '/auth_/logout/callback': {
       id: '/auth_/logout/callback'
       path: '/auth/logout/callback'
@@ -840,6 +859,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsPluginPreferencesInstallationIdRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/v/c/$savedViewId': {
+      id: '/_authenticated/v/c/$savedViewId'
+      path: '/v/c/$savedViewId'
+      fullPath: '/v/c/$savedViewId'
+      preLoaderRoute: typeof AuthenticatedVCSavedViewIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/v/k/$slug': {
+      id: '/_authenticated/v/k/$slug'
+      path: '/v/k/$slug'
+      fullPath: '/v/k/$slug'
+      preLoaderRoute: typeof AuthenticatedVKSlugRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/p/$publisher/$name/': {
       id: '/_authenticated/p/$publisher/$name/'
       path: '/'
@@ -853,6 +886,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/p/$publisher/$name/$'
       preLoaderRoute: typeof AuthenticatedPPublisherNameSplatRouteImport
       parentRoute: typeof AuthenticatedPPublisherNameRouteRoute
+    }
+    '/_authenticated/v/p/$publisher/$name/$slug': {
+      id: '/_authenticated/v/p/$publisher/$name/$slug'
+      path: '/v/p/$publisher/$name/$slug'
+      fullPath: '/v/p/$publisher/$name/$slug'
+      preLoaderRoute: typeof AuthenticatedVPPublisherNameSlugRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
   }
 }
@@ -940,8 +980,10 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCustomizeSidebarRoute: typeof AuthenticatedCustomizeSidebarRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedEEntityIdRoute: typeof AuthenticatedEEntityIdRoute
-  AuthenticatedVSplatRoute: typeof AuthenticatedVSplatRoute
   AuthenticatedPPublisherNameRouteRoute: typeof AuthenticatedPPublisherNameRouteRouteWithChildren
+  AuthenticatedVCSavedViewIdRoute: typeof AuthenticatedVCSavedViewIdRoute
+  AuthenticatedVKSlugRoute: typeof AuthenticatedVKSlugRoute
+  AuthenticatedVPPublisherNameSlugRoute: typeof AuthenticatedVPPublisherNameSlugRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -949,9 +991,11 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCustomizeSidebarRoute: AuthenticatedCustomizeSidebarRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedEEntityIdRoute: AuthenticatedEEntityIdRoute,
-  AuthenticatedVSplatRoute: AuthenticatedVSplatRoute,
   AuthenticatedPPublisherNameRouteRoute:
     AuthenticatedPPublisherNameRouteRouteWithChildren,
+  AuthenticatedVCSavedViewIdRoute: AuthenticatedVCSavedViewIdRoute,
+  AuthenticatedVKSlugRoute: AuthenticatedVKSlugRoute,
+  AuthenticatedVPPublisherNameSlugRoute: AuthenticatedVPPublisherNameSlugRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

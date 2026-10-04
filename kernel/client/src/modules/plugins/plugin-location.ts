@@ -22,7 +22,7 @@ const dropTrailingSlash = (path: string) =>
 export const catalogPackageId = (catalog: PluginClientCatalog, pluginId: string) =>
 	catalog.find((entry) => entry.pluginId === pluginId)?.packageId;
 
-export const effectiveCatalogPlugin = (catalog: PluginClientCatalog, packageId: string) =>
+export const effectiveCatalogPlugin = (catalog: PluginClientCatalog, packageId: PluginPackageId) =>
 	catalog.find((entry) => entry.packageId === packageId && entry.health !== "incompatible");
 
 export const savedViewHref = (
