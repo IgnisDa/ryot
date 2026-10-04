@@ -11,6 +11,7 @@ export const interruptWorkflowAndWait = Effect.fn("workflow.interruptAndWait")(f
 		error: Schema.Unknown,
 		success: Schema.Unknown,
 		payload: Schema.Struct({}),
+		annotations: workflow.annotations,
 		idempotencyKey: () => executionId,
 	});
 	yield* engine.interrupt(workflow, executionId);

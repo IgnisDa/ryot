@@ -56,7 +56,7 @@ layer(BunServices.layer)((test) => {
 			]);
 
 			expect(sandboxService).toMatch(
-				/dispatchAdmittedWorkflow\(\s*receipts,\s*engine,\s*SandboxScriptWorkflow,/,
+				/dispatchAdmittedWorkflow\(\s*receipts,\s*engine,\s*SandboxScriptWorkflow\.forLane\(/,
 			);
 			expect(durableQueues).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
 			expect(automationRunWorkflow).toContain("SandboxExecutionService");
@@ -65,7 +65,7 @@ layer(BunServices.layer)((test) => {
 			);
 			expect(sandboxWorkflow).toContain("SandboxScriptWorkflow");
 			expect(entityImportWorkflow).toMatch(
-				/dispatchAdmittedWorkflow\(\s*receipts,\s*engine,\s*ProviderEntityPopulationWorkflow,/,
+				/dispatchAdmittedWorkflow\(\s*receipts,\s*engine,\s*ProviderEntityPopulationWorkflow\.forLane\(/,
 			);
 		}),
 	);
@@ -112,7 +112,7 @@ layer(BunServices.layer)((test) => {
 			expect(collectionsService).not.toContain("EventCreateWorkflow");
 			expect(
 				collectionsAddWorkflow.match(
-					/dispatchAdmittedWorkflow\(\s*receipts,\s*engine,\s*EventCreateWorkflow,/g,
+					/dispatchAdmittedWorkflow\(\s*receipts,\s*engine,\s*EventCreateWorkflow\.forLane\(/g,
 				)?.length ?? 0,
 			).toBe(1);
 		}),

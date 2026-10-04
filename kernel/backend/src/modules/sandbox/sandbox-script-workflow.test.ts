@@ -141,7 +141,7 @@ const recordingLayer = <A, E, R, R2>(build: Effect.Effect<Layer.Layer<A, E, R>, 
 const activityEngineLayer = (executionId: string, overrides?: WorkflowEngineOverrides) =>
 	Layer.unwrap(
 		Effect.sync(() => {
-			const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+			const instance = WorkflowInstance.initial(SandboxScriptWorkflow.background, executionId);
 			return Layer.merge(
 				Layer.succeed(WorkflowInstance, instance),
 				Layer.succeed(
@@ -160,7 +160,7 @@ const withWorkflowPinning = <A, E, R>(dependencies: Layer.Layer<A, E, R>) =>
 	SandboxWorkflowPinning.layer.pipe(Layer.provideMerge(dependencies));
 
 const parentInstanceLayer = Layer.sync(WorkflowInstance, () =>
-	WorkflowInstance.initial(SandboxScriptWorkflow, "parent"),
+	WorkflowInstance.initial(SandboxScriptWorkflow.background, "parent"),
 );
 
 layer(
@@ -800,7 +800,7 @@ layer(
 			const calls = yield* WorkflowTestCalls;
 			const engines = yield* RestartingEngine;
 			const onFreshInstance = <A, E, R>(workflow: Effect.Effect<A, E, R>) => {
-				const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+				const instance = WorkflowInstance.initial(SandboxScriptWorkflow.background, executionId);
 				return workflow.pipe(
 					Effect.provideService(WorkflowInstance, instance),
 					Effect.provideService(WorkflowEngine, engines.engineFor(instance)),
@@ -1581,7 +1581,9 @@ layer(
 				"parent",
 			);
 			expect(result).toEqual({ child: true });
-			expect((yield* calls.entries("executed-workflows")).at(-1)).toBe(SandboxScriptWorkflow);
+			expect((yield* calls.entries("executed-workflows")).at(-1)).toBe(
+				SandboxScriptWorkflow.background,
+			);
 			expect((yield* calls.entries("execute-options")).at(-1)).toMatchObject({
 				executionId: "parent-child-events-import-v1-2",
 				payload: {

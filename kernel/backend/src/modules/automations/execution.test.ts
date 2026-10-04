@@ -195,7 +195,7 @@ const submissions = (runId: string) =>
 	);
 const runExists = (runId: string) =>
 	Effect.flatMap(WorkflowEngine, (engine) =>
-		engine.poll(AutomationRunWorkflow, executionIdOf(runId)),
+		engine.poll(AutomationRunWorkflow.interactive, executionIdOf(runId)),
 	).pipe(Effect.map(Option.isSome));
 
 layer(executionLayer)((test) => {
@@ -401,13 +401,19 @@ layer(
 		Layer.provide(
 			Layer.mock(AutomationRunRepository)({
 				findById: (id) => Effect.succeed(queuedRunFixture(id)),
-				listDispatchStates: () =>
-					Effect.succeed([
-						{ id: "claimed", attemptCount: 1, status: "running" },
-						{ id: "retried", attemptCount: 1, status: "queued" },
-						{ id: "fresh", attemptCount: 0, status: "queued" },
-						{ id: "skipped", attemptCount: 0, status: "skipped" },
-					]),
+				listDispatchStates: (ids) =>
+					Effect.succeed(
+						(
+							[
+								{ id: "claimed", attemptCount: 1, status: "running", lane: "interactive" },
+								{ id: "retried", attemptCount: 1, status: "queued", lane: "background" },
+								{ id: "fresh", attemptCount: 0, status: "queued", lane: "interactive" },
+								{ id: "skipped", attemptCount: 0, status: "skipped", lane: "background" },
+								{ id: "required", attemptCount: 0, status: "queued", lane: "interactive" },
+								{ id: "async", attemptCount: 0, status: "queued", lane: "background" },
+							] as const
+						).filter(({ id }) => ids.includes(AutomationRunId.make(id))),
+					),
 			}),
 		),
 		Layer.provide(AutomationAttemptRepository.layer),
@@ -422,11 +428,11 @@ layer(
 			);
 			const states = yield* (yield* AutomationExecutionOperations).dispatchStates(runIds);
 			expect(runIds.map((id) => states.get(id))).toEqual([
-				"claimed",
-				"claimed",
-				"fresh",
-				"closed",
-				"closed",
+				{ state: "claimed", lane: "interactive" },
+				{ state: "claimed", lane: "background" },
+				{ state: "fresh", lane: "interactive" },
+				{ state: "closed", lane: "background" },
+				{ state: "closed", lane: "background" },
 			]);
 		}),
 	);
@@ -445,7 +451,13 @@ layer(
 				runId: AutomationRunId.make("async"),
 			});
 			expect(yield* yield* RunWorkflowSubmissions).toEqual(
-				["required", "async"].map((id) => ({
+				(
+					[
+						["required", "AutomationRunWorkflowInteractive"],
+						["async", "AutomationRunWorkflow"],
+					] as const
+				).map(([id, workflowName]) => ({
+					workflowName,
 					discard: true,
 					executionId: executionIdOf(id),
 					payload: { runId: id, attemptNumber: 1, acceptedPatches: [] },

@@ -72,7 +72,7 @@ export class ProviderImportAdmissionRepository extends Context.Service<ProviderI
 			}) {
 				const [row] = yield* session.run((db) =>
 					db
-						.select({ status: table.status })
+						.select({ status: table.status, payload: table.payload })
 						.from(table)
 						.where(and(eq(table.id, input.id), eq(table.userId, input.userId)))
 						.limit(1),

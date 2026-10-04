@@ -1,4 +1,11 @@
-import { booleanField, defineConfig, group, integerField, stringField } from "@ryot-app/config";
+import {
+	booleanField,
+	defineConfig,
+	enumField,
+	group,
+	integerField,
+	stringField,
+} from "@ryot-app/config";
 
 const scheduler = group(
 	{ label: "Scheduler", description: "Scheduler settings" },
@@ -345,11 +352,28 @@ const server = group(
 			description:
 				"Directory containing deployment-controlled system plugin archives; archives are not cryptographically authenticated",
 		}),
+		runnerSocketDir: stringField({
+			label: "Runner socket directory",
+			envKey: "SERVER_RUNNER_SOCKET_DIR",
+			description:
+				"Absolute path of the private directory holding the Unix sockets both roles use to deliver workflow messages to each other; required when SERVER_LANES is interactive or background and rejected otherwise",
+		}),
 		egressAllowedNetworks: stringField({
 			label: "Egress allowed networks",
 			envKey: "SERVER_EGRESS_ALLOWED_NETWORKS",
 			description:
 				"Comma-separated CIDR networks that outbound requests from plugins, notifications, and OAuth may reach although they are loopback, private, or otherwise special-purpose, such as 192.168.1.0/24; link-local, metadata, multicast, and unspecified ranges cannot be allowed",
+		}),
+		lanes: enumField({
+			label: "Lanes",
+			defaultValue: "all",
+			envKey: "SERVER_LANES",
+			choices: {
+				kind: "static",
+				values: [{ value: "all" }, { value: "interactive" }, { value: "background" }],
+			},
+			description:
+				"Work this process runs: all of it, or one role of a two-process deployment on one host where interactive serves HTTP and interactive-lane work and background runs everything else",
 		}),
 	},
 );

@@ -1,11 +1,17 @@
+import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { hmacSha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { Schema } from "effect";
 
 const separator = ".";
 const keyDomain = "sandbox-job-id";
 const textEncoder = new TextEncoder();
 
-const createSignature = (secret: string, executionId: string, userId: string) =>
-	hmacSha256Base64Url(secret, `${executionId}:${userId}`);
+export type WorkflowJob = { readonly lane: ExecutionLane; readonly executionId: string };
+
+const isExecutionLane = Schema.is(ExecutionLane);
+
+const createSignature = (secret: string, job: WorkflowJob, userId: string) =>
+	hmacSha256Base64Url(secret, `${job.lane}:${job.executionId}:${userId}`);
 
 const signaturesMatch = (actual: string, expected: string) => {
 	const actualBytes = textEncoder.encode(actual);
@@ -23,18 +29,26 @@ const signaturesMatch = (actual: string, expected: string) => {
 export const deriveJobIdSecret = (adminAccessToken: string, domain: string = keyDomain) =>
 	hmacSha256Base64Url(adminAccessToken, domain);
 
-export const createWorkflowJobId = (secret: string, executionId: string, userId: string) =>
-	`${executionId}${separator}${createSignature(secret, executionId, userId)}`;
+export const createWorkflowJobId = (secret: string, job: WorkflowJob, userId: string) =>
+	`${job.lane}${separator}${job.executionId}${separator}${createSignature(secret, job, userId)}`;
 
-export const resolveWorkflowExecutionId = (secret: string, userId: string, jobId: string) => {
-	const separatorIndex = jobId.lastIndexOf(separator);
-	if (separatorIndex <= 0 || separatorIndex === jobId.length - 1) {
+export const resolveWorkflowJob = (
+	secret: string,
+	userId: string,
+	jobId: string,
+): WorkflowJob | null => {
+	const laneEnd = jobId.indexOf(separator);
+	const signatureStart = jobId.lastIndexOf(separator);
+	if (laneEnd <= 0 || signatureStart <= laneEnd + 1 || signatureStart === jobId.length - 1) {
 		return null;
 	}
 
-	const executionId = jobId.slice(0, separatorIndex);
-	const signature = jobId.slice(separatorIndex + 1);
-	const expectedSignature = createSignature(secret, executionId, userId);
+	const lane = jobId.slice(0, laneEnd);
+	if (!isExecutionLane(lane)) {
+		return null;
+	}
+	const job = { lane, executionId: jobId.slice(laneEnd + 1, signatureStart) };
+	const signature = jobId.slice(signatureStart + 1);
 
-	return signaturesMatch(signature, expectedSignature) ? executionId : null;
+	return signaturesMatch(signature, createSignature(secret, job, userId)) ? job : null;
 };
