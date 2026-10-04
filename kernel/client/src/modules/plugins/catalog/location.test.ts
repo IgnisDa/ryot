@@ -114,4 +114,29 @@ describe("plugin logical locations", () => {
 			),
 		).toBeUndefined();
 	});
+
+	it("resolves plugin preferences against the current workspace installation", () => {
+		const target = {
+			kind: "plugin-preferences" as const,
+			packageId: PluginPackageId.make("test/owner"),
+		};
+		expect(toNavigationRequest({ target, mode: "push", type: "navigate" }, catalog)).toEqual({
+			replace: false,
+			href: "/settings/plugin-preferences/installation",
+		});
+		expect(
+			toNavigationRequest(
+				{ target, mode: "replace", type: "navigate" },
+				catalog.map((entry) => ({
+					...entry,
+					isHidden: true,
+					installationId: "another/installation",
+				})),
+			),
+		).toEqual({ replace: true, href: "/settings/plugin-preferences/another%2Finstallation" });
+		expect(toNavigationRequest({ target, mode: "push", type: "navigate" }, [])).toBeUndefined();
+		expect(toGlobalHref({ kind: "kernel-page", page: "plugin-preferences" }, catalog)).toBe(
+			"/settings/plugin-preferences",
+		);
+	});
 });

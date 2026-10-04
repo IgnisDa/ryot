@@ -202,6 +202,10 @@ const openChannel = (
 	};
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
 		const target: PluginBridgeNavigate["target"] = Match.value(to).pipe(
+			Match.when({ kind: "plugin-preferences" }, ({ packageId: targetPackage }) => ({
+				kind: "plugin-preferences" as const,
+				packageId: PluginPackageId.make(targetPackage),
+			})),
 			Match.when({ kind: "plugin-route" }, ({ path, search, packageId: targetPackage }) => ({
 				path,
 				kind: "plugin-route" as const,
@@ -701,6 +705,40 @@ describe("PluginRouter", () => {
 				mode: "push",
 				type: "navigate",
 				target: { kind: "kernel-page", page: "import-data" },
+			} satisfies PluginBridgeNavigate,
+		]);
+	});
+
+	it("dispatches plugin preferences without inventing an installation href", () => {
+		const channel = openChannel();
+		const container = document.createElement("div");
+		document.body.append(container);
+		const root = createRoot(container);
+		roots.push(root);
+		act(() => {
+			root.render(
+				<RyotProvider runtime={channel.clock.runtime}>
+					<PluginLink to={{ packageId, kind: "plugin-preferences" }}>Preferences</PluginLink>
+				</RyotProvider>,
+			);
+		});
+		const link = container.querySelector("a");
+		if (!link) {
+			throw new Error("expected a rendered plugin link");
+		}
+		expect(link.getAttribute("href")).toBeNull();
+		expect(link.getAttribute("role")).toBe("link");
+		expect(link.tabIndex).toBe(0);
+		act(() => {
+			link.dispatchEvent(
+				new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
+			);
+		});
+		expect(channel.messages).toEqual([
+			{
+				mode: "push",
+				type: "navigate",
+				target: { kind: "plugin-preferences", packageId: PluginPackageId.make(packageId) },
 			} satisfies PluginBridgeNavigate,
 		]);
 	});

@@ -164,6 +164,7 @@ type PluginLinkProps = { readonly to: RyotNavigationTarget } & Omit<
 
 const navigationTargetHref = (target: RyotNavigationTarget) =>
 	Match.value(target).pipe(
+		Match.when({ kind: "plugin-preferences" }, () => undefined),
 		Match.when({ kind: "plugin-route" }, ({ path, search, packageId }) => {
 			const searchString = search === undefined ? "" : new URLSearchParams(search).toString();
 			const route = pluginPath(PluginPackageId.make(packageId), path);
@@ -178,7 +179,14 @@ const navigationTargetHref = (target: RyotNavigationTarget) =>
 		Match.exhaustive,
 	);
 
-export const PluginLink = ({ to, onClick, children, onAuxClick, ...rest }: PluginLinkProps) => {
+export const PluginLink = ({
+	to,
+	onClick,
+	children,
+	onKeyDown,
+	onAuxClick,
+	...rest
+}: PluginLinkProps) => {
 	const client = useRyot();
 	const href = navigationTargetHref(to);
 
@@ -201,7 +209,21 @@ export const PluginLink = ({ to, onClick, children, onAuxClick, ...rest }: Plugi
 	};
 
 	return (
-		<a {...rest} href={href} onClick={handleClick} onAuxClick={handleAuxClick}>
+		<a
+			tabIndex={href === undefined ? 0 : undefined}
+			role={href === undefined ? "link" : undefined}
+			{...rest}
+			href={href}
+			onClick={handleClick}
+			onAuxClick={handleAuxClick}
+			onKeyDown={(event) => {
+				onKeyDown?.(event);
+				if (href === undefined && event.key === "Enter" && !event.defaultPrevented) {
+					event.preventDefault();
+					event.currentTarget.click();
+				}
+			}}
+		>
 			{children}
 		</a>
 	);

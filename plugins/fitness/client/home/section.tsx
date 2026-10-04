@@ -18,7 +18,10 @@ export const secondaryLinkClass = clsx(actionLinkClass, "bg-surface-2 font-mediu
 
 export const compactLinkClass = clsx(secondaryLinkClass, "min-h-8 px-3 text-[13px]");
 
-export const goalPreferencesTarget = { kind: "kernel-page", page: "plugin-preferences" } as const;
+export const goalPreferencesTarget = {
+	kind: "plugin-preferences",
+	packageId: PLUGIN_PACKAGE_ID,
+} as const;
 
 export function SavedViewLink(props: { readonly slug: string; readonly children: ReactNode }) {
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
