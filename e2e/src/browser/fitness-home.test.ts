@@ -94,6 +94,6 @@ it.live("guides a new user, then shows the launchpad once a workout exists", () 
 		expect(yield* frame.getByRole("heading", { name: "Your training starts here" }).count).toBe(0);
 
 		yield* frame.getByRole("link", { exact: true, name: "Choose a goal" }).click();
-		yield* page.waitForURL((url) => url.pathname === "/settings/plugin-preferences");
+		yield* page.waitForURL((url) => /^\/settings\/plugin-preferences\/[^/]+$/.test(url.pathname));
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
