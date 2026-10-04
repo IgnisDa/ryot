@@ -29,6 +29,7 @@ struct RyotLiveActivityWidget: Widget {
                 }
                 DynamicIslandExpandedRegion(.bottom) {
                     ActivityDetails(context: context)
+                        .padding(.horizontal, 8)
                 }
             } compactLeading: {
                 ActivityBrandMark(tone: context.state.tone)
@@ -40,6 +41,7 @@ struct RyotLiveActivityWidget: Widget {
             } minimal: {
                 ActivityBrandMark(tone: context.state.tone)
             }
+            .contentMargins(.bottom, 16, for: .expanded)
         }
     }
 }
