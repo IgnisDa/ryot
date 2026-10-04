@@ -4,7 +4,6 @@
 	"scripts": {
 		"test": "cargo test",
 		"build": "cargo build --release --bins && cargo run --release --bin ryot-sandbox-artifacts -- dist",
-		"bench": "cargo bench --bench noop",
 		"protocol:fixtures": "bun ../backend/tooling/sidecar-protocol-fixtures.ts",
 		"check": "bun ../backend/tooling/sidecar-protocol-fixtures.ts --check && cargo fmt --check && cargo clippy --all-targets -- -D warnings"
 	},

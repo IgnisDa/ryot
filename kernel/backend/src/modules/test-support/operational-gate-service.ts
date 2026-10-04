@@ -25,9 +25,6 @@ const WORKFLOW_LOAD_GATE_CHUNK_SIZE = 1_000;
 
 type PressureRow = {
 	deadlocks: number;
-	advisory_locks: number;
-	total_connections: number;
-	active_connections: number;
 	waiting_advisory_locks: number;
 	lock_waiting_connections: number;
 };
@@ -244,9 +241,6 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 						sql`
 						SELECT
 							(SELECT deadlocks::int FROM pg_stat_database WHERE datname = current_database()) AS deadlocks,
-							(SELECT count(*)::int FROM pg_locks WHERE locktype = 'advisory') AS advisory_locks,
-							(SELECT count(*)::int FROM pg_stat_activity WHERE datname = current_database()) AS total_connections,
-							(SELECT count(*)::int FROM pg_stat_activity WHERE datname = current_database() AND state = 'active') AS active_connections,
 							(SELECT count(*)::int FROM pg_locks WHERE locktype = 'advisory' AND NOT granted) AS waiting_advisory_locks,
 							(SELECT count(*)::int FROM pg_stat_activity WHERE datname = current_database() AND wait_event_type = 'Lock') AS lock_waiting_connections
 					`,
@@ -288,14 +282,9 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				return {
 					sandbox: supervisor.snapshot(),
 					redis: { projectionCount, projectionErrors, maxJournalEntries },
-					locks: {
-						advisoryLocks: pressure.advisory_locks,
-						waitingAdvisoryLocks: pressure.waiting_advisory_locks,
-					},
+					locks: { waitingAdvisoryLocks: pressure.waiting_advisory_locks },
 					database: {
 						deadlocks: pressure.deadlocks,
-						totalConnections: pressure.total_connections,
-						activeConnections: pressure.active_connections,
 						lockWaitingConnections: pressure.lock_waiting_connections,
 					},
 				};

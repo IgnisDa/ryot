@@ -45,8 +45,3 @@ opt-level = 3
 
 [profile.dev.package.serde_json]
 opt-level = 3
-
-[[bench]]
-name = "noop"
-path = "bench/noop.rs"
-harness = false
