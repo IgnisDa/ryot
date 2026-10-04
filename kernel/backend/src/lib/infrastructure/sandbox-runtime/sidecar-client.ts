@@ -256,9 +256,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 					);
 				};
 				const events = yield* Schema.decodeUnknownEffect(nativeEvents)(child);
-				events.once("exit", (code: number | null, signal: string | null) => {
-					Deferred.doneUnsafe(exited, Effect.succeed({ code, signal }));
-				});
+				// "exit" can fire before stderr is drained; "close" follows the stdio streams ending.
 				events.once("close", (code: number | null, signal: string | null) => {
 					Deferred.doneUnsafe(exited, Effect.succeed({ code, signal }));
 				});
