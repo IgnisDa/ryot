@@ -7,17 +7,13 @@ import {
 	workoutTemplatePropertiesSchema,
 } from "./property";
 
-const reviewPropertiesSchema = {
+const exerciseReviewPropertiesSchema = {
+	unknownKeys: "strict" as const,
 	fields: {
 		text: {
-			label: "Review",
+			label: "Note",
 			type: "string" as const,
-			description: "Your written thoughts or notes about this media",
-		},
-		isSpoiler: {
-			label: "Is Spoiler?",
-			type: "boolean" as const,
-			description: "Whether this review contains spoilers",
+			description: "Your private note about this exercise",
 		},
 		rating: {
 			label: "Rating",
@@ -46,7 +42,7 @@ const fitnessEntitySchemaDefinitions = [
 		propertiesSchema: exercisePropertiesSchema,
 		eventSchemas: [
 			{ name: "Workout Set", slug: "workout-set", propertiesSchema: workoutSetPropertiesSchema },
-			{ name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
+			{ name: "Review", slug: "review", propertiesSchema: exerciseReviewPropertiesSchema },
 		],
 	},
 	{
