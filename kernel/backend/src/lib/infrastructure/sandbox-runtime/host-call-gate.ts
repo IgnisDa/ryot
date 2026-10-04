@@ -21,14 +21,17 @@ import {
 } from "effect";
 import { Base64 } from "effect/encoding";
 
+import { sandboxHostResultBytes } from "#modules/sandbox/durable-host-dispatcher";
+
 import { recordSandboxHostCall, sandboxMetricHostFunction } from "../runtime-metrics";
 import { isSandboxCapability } from "./capability-policy";
 import type { SandboxFileAccess } from "./file-service";
-import { encodedJsonBytes } from "./json-bytes";
-import { consumeSandboxHostCall, SANDBOX_LIMITS } from "./limits";
+import { encodedJsonBytes, SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
+import { consumeSandboxHostCall, MiB, SANDBOX_LIMITS } from "./limits";
 import { isSandboxCapabilityAllowed, type BoundHostFunction, type SandboxRunInput } from "./shared";
 import {
 	artifactReadRangeArgsSchema,
+	base64DecodedLength,
 	InlineBatchSchema,
 	journalReadArgsSchema,
 	scratchWriteArgsSchema,
@@ -81,6 +84,99 @@ const decodeArgsJson = Schema.decodeUnknownOption(
 	Schema.fromJsonString(Schema.Json),
 	strictOptions,
 );
+// Each permit covers the decoded argument graph plus the unit's result term; inline batches also
+// cover their evidence until the run ends. The pool leaves 60 MiB of evidence beside one inline
+// batch and admits at most four maximum results, keeping Rust assemblies below 64 MiB.
+export const SANDBOX_TRANSIENT_MEMORY = {
+	evidenceCopies: 3,
+	smallBytes: 8 * MiB,
+	ordinaryBytes: 56 * MiB,
+	journalReadBytes: 8 * MiB,
+	inlineValueBytes: 80 * MiB,
+	inlineBatchBytes: 145 * MiB,
+	poolBytes: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.bridge.requestBytes + 205 * MiB,
+} as const;
+const smallCapabilities = new Set([
+	"log",
+	"span",
+	"scratchWrite",
+	"getCachedValue",
+	"setCachedValue",
+	"artifactReadRange",
+]);
+const permitBytes = (name: string, argsBytes: number) => {
+	let resultBytes: number = SANDBOX_TRANSIENT_MEMORY.ordinaryBytes;
+	if (name === "inlineBatch") {
+		resultBytes = SANDBOX_TRANSIENT_MEMORY.inlineBatchBytes;
+	} else if (name === "journalRead") {
+		resultBytes = SANDBOX_TRANSIENT_MEMORY.journalReadBytes;
+	} else if (smallCapabilities.has(name)) {
+		resultBytes = SANDBOX_TRANSIENT_MEMORY.smallBytes;
+	}
+	return SANDBOX_JSON_GRAPH_FACTOR * argsBytes + resultBytes;
+};
+
+type TransientPermit = { readonly release: () => void; readonly shrink: (bytes: number) => void };
+
+const makeTransientPool = (capacity: number) => {
+	let used = 0;
+	const waiters: Array<{ readonly bytes: number; readonly granted: Deferred.Deferred<void> }> = [];
+	const grant = () => {
+		for (let head = waiters[0]; head !== undefined && used + head.bytes <= capacity;) {
+			waiters.shift();
+			used += head.bytes;
+			Deferred.doneUnsafe(head.granted, Effect.void);
+			head = waiters[0];
+		}
+	};
+	const permit = (bytes: number): TransientPermit => {
+		let held = bytes;
+		const shrink = (next: number) => {
+			if (next < held) {
+				used -= held - next;
+				held = next;
+				grant();
+			}
+		};
+		return { shrink, release: () => shrink(0) };
+	};
+	const tryAcquire = (bytes: number) => {
+		if (waiters.length > 0 || used + bytes > capacity) {
+			return undefined;
+		}
+		used += bytes;
+		return permit(bytes);
+	};
+	// Runs uninterruptibly except for the wait, so the caller owns the permit as soon as it returns.
+	const acquire = (
+		bytes: number,
+		restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>,
+	) =>
+		Effect.gen(function* () {
+			const immediate = tryAcquire(bytes);
+			if (immediate) {
+				return immediate;
+			}
+			const waiter = { bytes, granted: yield* Deferred.make<void>() };
+			waiters.push(waiter);
+			yield* restore(Deferred.await(waiter.granted)).pipe(
+				Effect.onInterrupt(() =>
+					Effect.sync(() => {
+						const index = waiters.indexOf(waiter);
+						if (index === -1) {
+							used -= bytes;
+						} else {
+							waiters.splice(index, 1);
+						}
+						grant();
+					}),
+				),
+			);
+			return permit(bytes);
+		});
+	return { acquire, tryAcquire, snapshot: () => ({ used, waiting: waiters.length }) };
+};
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const encodeJsonBytes = (value: unknown) => encoder.encode(encodeUnknownJson(value));
@@ -117,10 +213,17 @@ export type SandboxHostCallGateOptions = {
 	readonly parentSpan: Tracer.AnySpan;
 };
 
+// Takes ownership of `released`, which must run once the reply is written or will never be.
+export type SandboxHostResultDelivery = (
+	reply: SidecarHostResultFrameType,
+	released: () => void,
+) => Effect.Effect<void>;
+
 export type SandboxHostCallGateRegistration = {
 	readonly scriptBudget: Effect.Effect<typeof scriptBudgetSchema.Type>;
 	readonly dispatch: (
 		frame: SidecarHostCallFrameType,
+		deliver?: SandboxHostResultDelivery,
 	) => Effect.Effect<SidecarHostResultFrameType, GateError>;
 	readonly inlineEntries: () => ReadonlyArray<WorkflowReplayJournalEntry>;
 	readonly journal: SandboxInvocationJournal;
@@ -241,6 +344,14 @@ const frameFailure = (
 const ownerKey = (options: SandboxHostCallGateOptions) =>
 	encodeUnknownJson([options.instance, options.generation, options.handle]);
 
+type GateAction = (
+	frame: SidecarHostCallFrameType,
+	frameArgs: unknown,
+	retain: (bytes: number) => void,
+) => Effect.Effect<SidecarHostResultFrameType, GateError>;
+
+const releaseOnReturn: SandboxHostResultDelivery = (_reply, released) => Effect.sync(released);
+
 const errorResponse = (frame: SidecarHostCallFrameType, error: unknown) =>
 	hostResultFrame(frame, safeHostFailure(error));
 const closeResult = (frame: SidecarHostCallFrameType) =>
@@ -251,6 +362,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 	{
 		make: Effect.sync(() => {
 			const registrations = new Map<string, Effect.Effect<void>>();
+			const pool = makeTransientPool(SANDBOX_TRANSIENT_MEMORY.poolBytes);
 
 			const register = Effect.fn("SandboxHostCallGate.register")(function* (
 				options: SandboxHostCallGateOptions,
@@ -276,7 +388,10 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 				let settlementStartedAt: number | undefined;
 				const scriptStartedAt = yield* Clock.currentTimeMillis;
 				let waiting = 0;
+				let outstanding = 0;
 				let isClosed = false;
+				const drained = yield* Deferred.make<void>();
+				const evidence: TransientPermit[] = [];
 				let gateInput: SandboxRunInput | undefined = options.input;
 				let gateFiles: SandboxFileAccess | undefined = options.files;
 				let gateFunctions: Readonly<Record<string, BoundHostFunction>> | undefined =
@@ -308,6 +423,9 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						isClosed = true;
 						Deferred.doneUnsafe(closed, Effect.void);
 						clearBuffers();
+						if (outstanding === 0) {
+							Deferred.doneUnsafe(drained, Effect.void);
+						}
 					}
 					if (registrations.get(key) === close) {
 						registrations.delete(key);
@@ -344,11 +462,11 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 					return undefined;
 				};
 
-				const withPermits = <A>(
+				const withPermits = <A, E>(
 					permits: number,
-					effect: Effect.Effect<A>,
-				): Effect.Effect<A | typeof dispatchQueueFull> =>
-					Effect.suspend((): Effect.Effect<A | typeof dispatchQueueFull> => {
+					effect: Effect.Effect<A, E>,
+				): Effect.Effect<A | typeof dispatchQueueFull, E> =>
+					Effect.suspend((): Effect.Effect<A | typeof dispatchQueueFull, E> => {
 						if (waiting >= SANDBOX_LIMITS.bridge.concurrentHostCalls) {
 							return Effect.succeed(dispatchQueueFull);
 						}
@@ -372,6 +490,27 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 								),
 							);
 					});
+
+				const track = (permit: TransientPermit) => {
+					outstanding += 1;
+					let held = true;
+					return (retainedBytes = 0) => {
+						if (!held) {
+							return;
+						}
+						held = false;
+						if (retainedBytes > 0 && !isClosed) {
+							permit.shrink(retainedBytes);
+							evidence.push(permit);
+						} else {
+							permit.release();
+						}
+						outstanding -= 1;
+						if (outstanding === 0 && isClosed) {
+							Deferred.doneUnsafe(drained, Effect.void);
+						}
+					};
+				};
 
 				const raceClosed = (
 					frame: SidecarHostCallFrameType,
@@ -462,7 +601,11 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						Effect.withParentSpan(parentSpan),
 					);
 
-				const dispatchInlineBatch = (frame: SidecarHostCallFrameType, frameArgs: unknown) =>
+				const dispatchInlineBatch = (
+					frame: SidecarHostCallFrameType,
+					frameArgs: unknown,
+					retain: (bytes: number) => void,
+				) =>
 					Effect.gen(function* () {
 						const decoded = decodeInlineBatch(frameArgs);
 						if (Option.isNone(decoded)) {
@@ -499,6 +642,17 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 							}
 						}
 						if (budgetExceeded) {
+							return hostResultFrame(frame, { defer: true });
+						}
+						let valueBytes = 0;
+						for (const request of requests) {
+							const resultBytes = sandboxHostResultBytes(request.args.capability);
+							if (resultBytes === null) {
+								return hostResultFrame(frame, { defer: true });
+							}
+							valueBytes += resultBytes;
+						}
+						if (valueBytes > SANDBOX_TRANSIENT_MEMORY.inlineValueBytes) {
 							return hostResultFrame(frame, { defer: true });
 						}
 
@@ -578,6 +732,10 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 
 						inlineEncodedEntries.push(...encodedEntries);
 						totalJournalJsonBytes = nextJournalJsonBytes;
+						retain(
+							SANDBOX_TRANSIENT_MEMORY.evidenceCopies *
+								encodedEntries.reduce((sum, bytes) => sum + bytes.byteLength, 0),
+						);
 						return totalResult;
 					}).pipe(
 						Effect.catchCauseIf(
@@ -639,7 +797,10 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						return yield* boundedHostCall(frame, frame.name, files.scratchWrite(args.value));
 					});
 
-				const dispatch: SandboxHostCallGateRegistration["dispatch"] = (frame) =>
+				const dispatch: SandboxHostCallGateRegistration["dispatch"] = (
+					frame,
+					deliver = releaseOnReturn,
+				) =>
 					Effect.gen(function* () {
 						const invalid = yield* checkFrame(frame);
 						if (invalid) {
@@ -658,7 +819,14 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						if (frame.name === "replayJournal") {
 							return frameFailure(frame, "Sandbox host function is not available");
 						}
-						let action = ordinaryDispatch;
+						const argsBytes = base64DecodedLength(frame.args);
+						if (argsBytes > SANDBOX_LIMITS.bridge.requestBytes) {
+							return frameFailure(
+								frame,
+								`Sandbox bridge request exceeds ${SANDBOX_LIMITS.bridge.requestBytes} UTF-8 bytes`,
+							);
+						}
+						let action: GateAction = ordinaryDispatch;
 						if (frame.name === "journalRead") {
 							action = journalRead;
 						} else if (frame.name === "inlineBatch") {
@@ -666,31 +834,79 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						} else if (frame.name === "artifactReadRange" || frame.name === "scratchWrite") {
 							action = fileControl;
 						}
+						const bytes = permitBytes(frame.name, argsBytes);
 						const permits =
 							frame.name === "inlineBatch" ? SANDBOX_LIMITS.bridge.concurrentHostCalls : 1;
-						return yield* raceClosed(
-							frame,
-							withPermits(
-								permits,
+						const response = yield* withPermits(
+							permits,
+							Effect.uninterruptibleMask((restore) =>
 								Effect.gen(function* () {
-									const invalidAfterQueue = yield* checkFrame(frame);
-									if (invalidAfterQueue) {
-										return invalidAfterQueue;
+									let permit: TransientPermit | undefined;
+									if (frame.name === "inlineBatch") {
+										permit = pool.tryAcquire(bytes);
+									} else {
+										permit = yield* pool.acquire(bytes, restore);
 									}
-									const args = decodeFrameArgs(frame.args);
-									if (Option.isNone(args)) {
-										return frameFailure(frame, "Sandbox host call arguments are invalid");
+									if (permit === undefined) {
+										const reply = hostResultFrame(frame, { defer: true });
+										yield* deliver(reply, () => undefined);
+										return reply;
 									}
-									return yield* action(frame, args.value);
+									const release = track(permit);
+									let retainedBytes = 0;
+									// The permit outlives a closed race until the host work and the reply write both end.
+									let obligations = 2;
+									const settle = () => {
+										obligations -= 1;
+										if (obligations === 0) {
+											release(retainedBytes);
+										}
+									};
+									let workState: "pending" | "running" | "settled" = "pending";
+									const settleWork = () => {
+										if (workState !== "settled") {
+											workState = "settled";
+											settle();
+										}
+									};
+									const body = Effect.gen(function* () {
+										const invalidAfterQueue = yield* checkFrame(frame);
+										if (invalidAfterQueue) {
+											return invalidAfterQueue;
+										}
+										const args = decodeFrameArgs(frame.args);
+										if (Option.isNone(args)) {
+											return frameFailure(frame, "Sandbox host call arguments are invalid");
+										}
+										return yield* action(frame, args.value, (retained) => {
+											retainedBytes = retained;
+										});
+									});
+									const work = Effect.suspend(() => {
+										if (workState === "settled") {
+											return Effect.succeed(closeResult(frame));
+										}
+										workState = "running";
+										return body;
+									}).pipe(Effect.ensuring(Effect.sync(settleWork)));
+									const reply = yield* restore(raceClosed(frame, work)).pipe(
+										Effect.onExit(() =>
+											Effect.sync(() => {
+												if (workState === "pending") {
+													settleWork();
+												}
+											}),
+										),
+										Effect.onError(() => Effect.sync(settle)),
+									);
+									yield* deliver(reply, settle);
+									return reply;
 								}),
-							).pipe(
-								Effect.map((response) =>
-									response === dispatchQueueFull
-										? frameFailure(frame, "Sandbox host call queue is full")
-										: response,
-								),
 							),
 						);
+						return response === dispatchQueueFull
+							? frameFailure(frame, "Sandbox host call queue is full")
+							: response;
 					}).pipe(
 						Effect.catchCauseIf(
 							(cause) => !Cause.hasInterrupts(cause),
@@ -721,7 +937,17 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						}
 						registrations.set(key, close);
 					}),
-					() => close,
+					() =>
+						close.pipe(
+							Effect.andThen(Deferred.await(drained)),
+							Effect.andThen(
+								Effect.sync(() => {
+									for (const permit of evidence.splice(0)) {
+										permit.release();
+									}
+								}),
+							),
+						),
 				);
 				const scriptBudget = Effect.map(Clock.currentTimeMillis, (now) => ({
 					settledMs,
@@ -741,7 +967,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 				return { close, extend, dispatch, scriptBudget, inlineEntries, journal: prefix.journal };
 			});
 
-			return { register };
+			return { register, transientMemory: pool.snapshot };
 		}),
 	},
 ) {

@@ -92,8 +92,15 @@ const SandboxHeadroomReplayWorkflow = Workflow.make("SandboxHeadroomReplayWorkfl
 	error: SandboxRunError,
 	payload: SandboxScriptWorkflowPayload,
 	idempotencyKey: ({ executionId }) => executionId,
-	success: Schema.Array(Schema.Array(workflowReplayJournalEntrySchema)),
+	success: Schema.Array(
+		Schema.Struct({
+			completed: Schema.Boolean,
+			inline: Schema.Array(workflowReplayJournalEntrySchema),
+		}),
+	),
 });
+
+const isCompleted = Schema.is(Schema.Struct({ state: Schema.Literal("completed") }));
 
 const unusedEffect = () => Effect.die("Unused sandbox host implementation");
 const unusedValue = (): never => {
@@ -422,8 +429,11 @@ const makeHeadroomLayer = Layer.unwrap(
 								executionId: `${payload.executionId}-replay-${slot}`,
 								workflowExecutionId: `${payload.executionId}-slot-${slot}`,
 							});
-							expect(result.value).toMatchObject({ state: "completed", output: [1, 2, 3, 4] });
-							return result.inline;
+							const completed = isCompleted(result.value);
+							expect(result.value).toMatchObject(
+								completed ? { output: [1, 2, 3, 4] } : { state: "pending" },
+							);
+							return { completed, inline: result.inline };
 						}),
 					{ concurrency: 2 },
 				);
@@ -501,12 +511,9 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 				);
 				yield* Deferred.await(control.fourCallbacksStarted);
 				yield* Deferred.await(control.firstRootEntered);
-				expect(control.batches.length).toBeGreaterThanOrEqual(1);
-				expect(control.batches.length).toBeLessThanOrEqual(2);
-				expect(control.activeBatches).toBeGreaterThanOrEqual(1);
-				expect(control.maximumActiveBatches).toBeLessThanOrEqual(2);
-				expect(control.callbackStarts.length).toBeGreaterThanOrEqual(4);
-				expect(control.callbackStarts.length).toBeLessThanOrEqual(8);
+				expect(control.batches).toHaveLength(1);
+				expect(control.activeBatches).toBe(1);
+				expect(control.callbackStarts).toHaveLength(4);
 				const blockedExecutionId =
 					control.batches[0] ?? (yield* Effect.die("Inline dispatch batch did not start"));
 				expect(
@@ -514,8 +521,6 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 				).toHaveLength(4);
 				expect(control.rootPids).toHaveLength(1);
 				expect(control.activeHostCallbacks).toBe(1);
-				expect(control.activeBatches).toBeGreaterThanOrEqual(1);
-				expect(control.activeBatches).toBeLessThanOrEqual(2);
 				expect(admission.snapshot().runs).toBeGreaterThanOrEqual(1);
 				expect(admission.snapshot().runs).toBeLessThanOrEqual(2);
 				expect(yield* Deferred.isDone(control.releaseFirstRoot)).toBe(false);
@@ -537,14 +542,23 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 				expect(connectionsWhileHeld).toBeLessThanOrEqual(7);
 				expect(yield* Deferred.isDone(control.releaseFirstRoot)).toBe(false);
 				yield* Deferred.succeed(control.releaseFirstRoot, undefined);
-				const outputs = yield* Fiber.join(fiber);
-				expect(outputs).toHaveLength(2);
+				const slots = yield* Fiber.join(fiber);
+				expect(slots).toHaveLength(2);
+				const settledExecutionIds = inlineExecutionIds.filter(
+					(_, slot) => slots[slot]?.completed === true,
+				);
+				const outputs = slots.filter((slot) => slot.completed).map((slot) => slot.inline);
+				expect(settledExecutionIds).toContain(blockedExecutionId);
 				expect(control.activeBatches).toBe(0);
+				expect(control.maximumActiveBatches).toBe(1);
 				expect(control.activeHostCallbacks).toBe(0);
 				expect(control.maximumActiveHostCallbacks).toBe(1);
-				expect(control.callbackStarts).toHaveLength(8);
-				expect(sortBy(control.batches)).toEqual(sortBy(inlineExecutionIds));
-				for (const executionId of inlineExecutionIds) {
+				expect(control.callbackStarts).toHaveLength(4 * settledExecutionIds.length);
+				expect(sortBy(control.batches)).toEqual(sortBy(settledExecutionIds));
+				for (const slot of slots.filter((candidate) => !candidate.completed)) {
+					expect(slot.inline).toEqual([]);
+				}
+				for (const executionId of settledExecutionIds) {
 					expect(control.batches.filter((batch) => batch === executionId)).toHaveLength(1);
 					expect(
 						sortBy(
@@ -553,7 +567,7 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 						).map((call) => call.index),
 					).toEqual([0, 1, 2, 3]);
 				}
-				expect(control.pidPairs).toHaveLength(8);
+				expect(control.pidPairs).toHaveLength(4 * settledExecutionIds.length);
 				for (const pair of control.pidPairs) {
 					expect(pair.nested).toBe(pair.root);
 				}

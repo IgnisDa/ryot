@@ -23,6 +23,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 		const executeWithScope = Effect.fn("RyotQLService.executeWithScope")(function* (
 			scope: RyotQLExecutionScope,
 			document: RyotQLDocument,
+			resultBytes?: number,
 		) {
 			const validationError = validateRyotQLDocument(document, scope);
 			if (validationError) {
@@ -41,9 +42,16 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 							yield* transaction.execute(
 								sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true)`,
 							);
+							const budget =
+								resultBytes === undefined
+									? undefined
+									: { limitBytes: resultBytes, remainingBytes: resultBytes };
 							const results: Array<readonly [string, RyotQLResult]> = [];
 							for (const [name, query] of Object.entries(normalizedDocument.queries)) {
-								results.push([name, yield* executeNamedQuery(scope, query, name, transaction)]);
+								results.push([
+									name,
+									yield* executeNamedQuery(scope, query, name, transaction, budget),
+								]);
 							}
 							return { data: Object.fromEntries(results) };
 						}),
@@ -85,9 +93,10 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			audience: RyotQLAudience,
 			document: RyotQLDocument,
 			accessClass: AccessClass = "standard",
+			resultBytes?: number,
 		) => {
 			const scope = { userId, language, audience, accessClass, type: "user" } as const;
-			return executeWithScope(scope, document).pipe(
+			return executeWithScope(scope, document, resultBytes).pipe(
 				Effect.catchIf(
 					(error): boolean =>
 						error instanceof RyotQLBadRequest &&
@@ -102,7 +111,8 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 		const executeForPlugin = (
 			scope: Omit<Extract<RyotQLExecutionScope, { type: "plugin" }>, "type">,
 			document: RyotQLDocument,
-		) => executeWithScope({ ...scope, type: "plugin" }, document);
+			resultBytes: number,
+		) => executeWithScope({ ...scope, type: "plugin" }, document, resultBytes);
 
 		const executeForAdmin = (document: RyotQLDocument) =>
 			executeWithScope({ type: "admin" }, document);

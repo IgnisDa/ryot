@@ -21,6 +21,8 @@ import {
 import { Effect, PlatformError } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { sandboxHostResultBytes } from "#modules/sandbox/durable-host-dispatcher";
+
 import type { SandboxExecutionPrincipal } from "./execution-principal";
 import { selectSandboxHostFunctions } from "./service";
 import {
@@ -159,9 +161,9 @@ describe("requireSandboxCapabilityInput", () => {
 			]),
 		);
 		expect(Object.keys(selectSandboxHostFunctions(functions, input))).toEqual(
-			[...POLICY_SAFE_SANDBOX_CAPABILITIES].sort(
-				(a, b) => SANDBOX_HOST_CAPABILITIES.indexOf(a) - SANDBOX_HOST_CAPABILITIES.indexOf(b),
-			),
+			POLICY_SAFE_SANDBOX_CAPABILITIES.filter(
+				(capability) => sandboxHostResultBytes(capability) !== null,
+			).sort((a, b) => SANDBOX_HOST_CAPABILITIES.indexOf(a) - SANDBOX_HOST_CAPABILITIES.indexOf(b)),
 		);
 		expect(
 			selectSandboxHostFunctions(functions, { ...input, workflowExecutionId: "workflow" }),
@@ -205,7 +207,9 @@ describe("requireSandboxCapabilityInput", () => {
 			"createEvents",
 			"updateEvents",
 			"deleteEvents",
+			"listIntegrations",
 			"sendNotification",
+			"getEntitySchemas",
 			"changeUserRelationships",
 		] as const) {
 			expect(isSandboxCapabilityAllowed(input, capability)).toBe(true);
