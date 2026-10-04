@@ -3,14 +3,10 @@ import { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecy
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Exit, Fiber, Layer, Option, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
-import { Workflow } from "effect/workflow";
+import { DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import {
-	LifecycleDispatchRun,
-	LifecyclePersistenceError,
-	type LifecycleDispatchPlan,
-} from "#lib/domain/lifecycle";
+import { LifecyclePersistenceError, type LifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import {
 	AutomationPolicyExecutionError,
 	LifecycleExecution,
@@ -29,7 +25,6 @@ import {
 	AUTOMATION_IMMEDIATE_TIMEOUT_MS,
 	AutomationExecutionOperations,
 	AutomationExecutionOperationsLive,
-	AutomationObservationWorkflowDefinitionsLive,
 	LifecycleExecutionLive,
 } from "./execution";
 import { triggerFixture, queuedRunFixture } from "./lifecycle.test-support";
@@ -39,35 +34,38 @@ import {
 	policyOutput,
 	policyPatch,
 	release,
+	requiredRun,
 	RunControl,
 	runControlLayer,
 	runWorkflowLive,
-} from "./observation.test-support";
+} from "./required-hooks.test-support";
 import { AutomationRunRepository } from "./run-repository";
+import { AutomationRunWorkflow } from "./run-workflow";
 import {
 	RunWorkflowSubmissions,
 	recordingRunWorkflowEngineLayer,
 } from "./run-workflow-engine.test-support";
 
 const trigger = triggerFixture();
-const run = (id: string, delivery: "required" | "async" = "required") =>
-	Schema.decodeSync(LifecycleDispatchRun)({
-		id,
-		delivery,
-		hookSlug: id,
-		stage: "after",
-		status: "queued",
-		triggerId: trigger.id,
-	});
-const ObservationParent = Workflow.make("LifecycleObservationParent", {
+const laterTrigger = triggerFixture("trigger-later");
+const run = (id: string, delivery: "required" | "async" = "required", triggerId = trigger.id) =>
+	requiredRun(id, triggerId, delivery);
+const ParentWorkflow = Workflow.make("LifecycleRequiredHooksParent", {
 	idempotencyKey: ({ id }) => id,
 	success: Schema.Array(AutomationWarning),
-	payload: { id: Schema.String, holdMs: Schema.Finite, runs: Schema.Array(Schema.String) },
+	payload: {
+		id: Schema.String,
+		gated: Schema.Boolean,
+		holdMs: Schema.Finite,
+		runs: Schema.Array(Schema.String),
+		laterRuns: Schema.Array(Schema.String),
+	},
 });
+const Gate = DurableDeferred.make("gate", { success: Schema.Void });
 
 const parentLive = Layer.unwrap(
 	Effect.map(LifecycleExecution, (service) =>
-		implementWorkflow(ObservationParent, ({ runs, holdMs, id: parentId }) =>
+		implementWorkflow(ParentWorkflow, ({ runs, gated, holdMs, laterRuns, id: parentId }) =>
 			Effect.gen(function* () {
 				yield* Ref.update((yield* RunControl).parentStarts, (all) =>
 					new Map(all).set(parentId, (all.get(parentId) ?? 0) + 1),
@@ -75,18 +73,26 @@ const parentLive = Layer.unwrap(
 				const warnings = yield* service
 					.after({ triggerId: trigger.id, runs: runs.map((id) => run(id)) })
 					.pipe(Effect.orDie);
+				const laterWarnings =
+					laterRuns.length === 0
+						? []
+						: yield* service
+								.after({
+									triggerId: laterTrigger.id,
+									runs: laterRuns.map((id) => run(id, "required", laterTrigger.id)),
+								})
+								.pipe(Effect.orDie);
+				if (gated) {
+					yield* DurableDeferred.await(Gate);
+				}
 				yield* Effect.sleep(holdMs);
-				return warnings;
+				return [...warnings, ...laterWarnings];
 			}),
 		),
 	),
 );
 
-const executionLayer = Layer.mergeAll(
-	parentLive,
-	runWorkflowLive,
-	AutomationObservationWorkflowDefinitionsLive,
-).pipe(
+const executionLayer = Layer.mergeAll(parentLive, runWorkflowLive).pipe(
 	Layer.provideMerge(
 		LifecycleExecutionLive.pipe(
 			Layer.provide(
@@ -119,8 +125,8 @@ const settled = <A, E>(fiber: Fiber.Fiber<A, E>) =>
 		return fiber.pollUnsafe();
 	});
 
-// Outside a workflow instance the engine re-checks a suspended observer every 50 ms, so one step of
-// that length must deliver an outcome that is already decided.
+// Outside a workflow instance the caller re-reads unsettled attempts every 50 ms, so one step of that
+// length must deliver an outcome that is already decided.
 const outside = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.gen(function* () {
 		const fiber = yield* Effect.forkChild(effect);
@@ -133,19 +139,37 @@ const passDeadline = <A, E>(fiber: Fiber.Fiber<A, E>) =>
 const outsideRecheck = <A, E>(fiber: Fiber.Fiber<A, E>) =>
 	TestClock.adjust(50).pipe(Effect.andThen(settled(fiber)));
 
-const startParent = (id: string, runs: ReadonlyArray<string>, holdMs = 0) =>
+const startParent = (
+	id: string,
+	runs: ReadonlyArray<string>,
+	options: { gated?: boolean; holdMs?: number; laterRuns?: ReadonlyArray<string> } = {},
+) =>
 	Effect.flatMap(WorkflowEngine, (engine) =>
-		engine.execute(ObservationParent, {
+		engine.execute(ParentWorkflow, {
 			discard: true,
 			executionId: id,
-			payload: { id, runs, holdMs },
+			payload: {
+				id,
+				runs,
+				holdMs: options.holdMs ?? 0,
+				gated: options.gated ?? false,
+				laterRuns: options.laterRuns ?? [],
+			},
 		}),
 	);
+const openGate = (id: string) =>
+	DurableDeferred.succeed(Gate, {
+		value: undefined,
+		token: DurableDeferred.tokenFromExecutionId(Gate, {
+			executionId: id,
+			workflow: ParentWorkflow,
+		}),
+	});
 const parentResult = (id: string) =>
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
 		for (let index = 0; index < 50; index += 1) {
-			const polled = Option.getOrUndefined(yield* engine.poll(ObservationParent, id));
+			const polled = Option.getOrUndefined(yield* engine.poll(ParentWorkflow, id));
 			if (polled?._tag === "Complete") {
 				return polled.exit;
 			}
@@ -158,8 +182,21 @@ const parentStarts = (id: string) =>
 		Effect.flatMap(Ref.get),
 		Effect.map((all) => all.get(id) ?? 0),
 	);
-const ownRuns = (submitted: ReadonlyArray<string>, runIds: ReadonlyArray<string>) =>
-	runIds.filter((id) => submitted.includes(id));
+
+const pendingWarning = (runId: string) => ({
+	runId,
+	hookSlug: runId,
+	code: "required-hook-pending" as const,
+});
+const submissions = (runId: string) =>
+	Effect.map(RunControl, (control) => control.submitted).pipe(
+		Effect.flatMap(Ref.get),
+		Effect.map((all) => all.filter((id) => id === runId).length),
+	);
+const runExists = (runId: string) =>
+	Effect.flatMap(WorkflowEngine, (engine) =>
+		engine.poll(AutomationRunWorkflow, executionIdOf(runId)),
+	).pipe(Effect.map(Option.isSome));
 
 layer(executionLayer)((test) => {
 	test.effect(
@@ -174,6 +211,7 @@ layer(executionLayer)((test) => {
 							run("success"),
 							run("retry-failed"),
 							run("submission-failed"),
+							run("skipped-outside"),
 							run("held-async", "async"),
 							run("submission-failed-async", "async"),
 						],
@@ -182,33 +220,16 @@ layer(executionLayer)((test) => {
 				expect(fiber.pollUnsafe()).toEqual(
 					Exit.succeed([
 						{ runId: "retry-failed", hookSlug: "retry-failed", code: "required-hook-failed" },
-						{
-							runId: "submission-failed",
-							hookSlug: "submission-failed",
-							code: "required-hook-pending",
-						},
+						pendingWarning("submission-failed"),
+						pendingWarning("skipped-outside"),
 					]),
 				);
-				expect(
-					(yield* Ref.get((yield* RunControl).submitted)).filter((id) => id.includes("async")),
-				).toEqual(["held-async", "submission-failed-async"]);
-			}),
-	);
-
-	test.effect(
-		"records a pending hook at the deadline and keeps that outcome after it completes",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* LifecycleExecution;
-				const after = service.after({ triggerId: trigger.id, runs: [run("held-deadline")] });
-				const fiber = yield* outside(after);
-				expect(fiber.pollUnsafe()).toBeUndefined();
-				const pending = Exit.succeed([
-					{ runId: "held-deadline", hookSlug: "held-deadline", code: "required-hook-pending" },
+				const submitted = yield* Ref.get((yield* RunControl).submitted);
+				expect(submitted.filter((id) => id.includes("async"))).toEqual([
+					"held-async",
+					"submission-failed-async",
 				]);
-				expect(yield* passDeadline(fiber)).toEqual(pending);
-				yield* release("held-deadline");
-				expect((yield* outside(after)).pollUnsafe()).toEqual(pending);
+				expect(submitted).not.toContain("skipped-outside");
 			}),
 	);
 
@@ -225,32 +246,50 @@ layer(executionLayer)((test) => {
 	);
 
 	test.effect(
-		"resumes a waiting workflow when each required hook completes, without advancing the clock",
+		"resumes a waiting workflow when each required hook completes and submits each hook once",
 		() =>
 			Effect.gen(function* () {
-				const control = yield* RunControl;
 				yield* startParent("wake", ["held-first", "held-second"]);
 				expect(yield* parentResult("wake")).toBeUndefined();
-				expect(ownRuns(yield* Ref.get(control.submitted), ["held-first", "held-second"])).toEqual([
-					"held-first",
-					"held-second",
-				]);
 				const starts = yield* parentStarts("wake");
 				yield* release("held-second");
 				expect(yield* parentResult("wake")).toBeUndefined();
 				expect(yield* parentStarts("wake")).toBeGreaterThan(starts);
 				yield* release("held-first");
 				expect(yield* parentResult("wake")).toEqual(Exit.succeed([]));
+				expect([yield* submissions("held-first"), yield* submissions("held-second")]).toEqual([
+					1, 1,
+				]);
 			}),
 	);
 
-	test.effect("does not replay a running workflow when an observer's deadline passes later", () =>
+	test.effect("records a pending hook at the deadline and keeps that outcome on replay", () =>
 		Effect.gen(function* () {
-			yield* startParent(
-				"no-spurious-wake",
-				["success-before-deadline"],
-				2 * AUTOMATION_IMMEDIATE_TIMEOUT_MS,
+			yield* startParent("deadline", ["held-deadline"], { gated: true });
+			yield* TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS);
+			yield* release("held-deadline");
+			const starts = yield* parentStarts("deadline");
+			yield* openGate("deadline");
+			expect(yield* parentResult("deadline")).toEqual(
+				Exit.succeed([pendingWarning("held-deadline")]),
 			);
+			expect(yield* parentStarts("deadline")).toBeGreaterThan(starts);
+		}),
+	);
+
+	test.effect("counts a hook whose attempt finished before the deadline it lost the race to", () =>
+		Effect.gen(function* () {
+			yield* startParent("late-exit", ["late-in-workflow"]);
+			yield* TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS);
+			expect(yield* parentResult("late-exit")).toEqual(Exit.succeed([]));
+		}),
+	);
+
+	test.effect("does not replay a running workflow when its hook deadline passes later", () =>
+		Effect.gen(function* () {
+			yield* startParent("no-spurious-wake", ["success-before-deadline"], {
+				holdMs: 2 * AUTOMATION_IMMEDIATE_TIMEOUT_MS,
+			});
 			expect(yield* parentResult("no-spurious-wake")).toBeUndefined();
 			const starts = yield* parentStarts("no-spurious-wake");
 			yield* TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS + 1_000);
@@ -258,6 +297,31 @@ layer(executionLayer)((test) => {
 			yield* TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS);
 			expect(yield* parentResult("no-spurious-wake")).toEqual(Exit.succeed([]));
 			expect(yield* parentStarts("no-spurious-wake")).toBe(starts);
+		}),
+	);
+
+	test.effect("never starts a hook whose submission failed or was closed before it", () =>
+		Effect.gen(function* () {
+			yield* startParent("unsubmitted", ["submission-failed-wf", "skipped-wf", "success-wf"]);
+			expect(yield* parentResult("unsubmitted")).toEqual(
+				Exit.succeed([pendingWarning("submission-failed-wf"), pendingWarning("skipped-wf")]),
+			);
+			expect([
+				yield* runExists("submission-failed-wf"),
+				yield* runExists("skipped-wf"),
+				yield* runExists("success-wf"),
+			]).toEqual([false, false, true]);
+			expect(yield* submissions("skipped-wf")).toBe(0);
+		}),
+	);
+
+	test.effect("gives each wait in one workflow its own deadline", () =>
+		Effect.gen(function* () {
+			yield* startParent("two-waits", ["held-two-waits"], { laterRuns: ["success-later"] });
+			yield* TestClock.adjust(AUTOMATION_IMMEDIATE_TIMEOUT_MS);
+			expect(yield* parentResult("two-waits")).toEqual(
+				Exit.succeed([pendingWarning("held-two-waits")]),
+			);
 		}),
 	);
 
@@ -272,7 +336,7 @@ layer(executionLayer)((test) => {
 			expect((yield* outside(policy("policy-accepted"))).pollUnsafe()).toEqual(
 				Exit.succeed(policyOutput),
 			);
-			for (const runId of ["policy-failed", "submission-failed-policy"]) {
+			for (const runId of ["policy-failed", "submission-failed-policy", "skipped-policy"]) {
 				assertExitFails(
 					yield* Fiber.await(yield* outside(policy(runId))),
 					new AutomationPolicyExecutionError({
@@ -281,6 +345,7 @@ layer(executionLayer)((test) => {
 					}),
 				);
 			}
+			expect(yield* submissions("skipped-policy")).toBe(0);
 			const held = yield* outside(policy("held-policy"));
 			yield* passDeadline(held);
 			assertExitFails(
@@ -308,7 +373,7 @@ layer(executionLayer)((test) => {
 					{ blockedReason, triggerId: trigger.id, runs: [run("second-failed")] },
 				];
 				const service = yield* LifecycleExecution;
-				expect((yield* outside(service.dispatch(plans))).pollUnsafe()).toEqual(
+				expect(yield* outsideRecheck(yield* outside(service.dispatch(plans)))).toEqual(
 					Exit.succeed([
 						{ runId: "first-failed", hookSlug: "first-failed", code: "required-hook-failed" },
 						{ ...blockedReason, triggerId: trigger.id },
@@ -336,6 +401,13 @@ layer(
 		Layer.provide(
 			Layer.mock(AutomationRunRepository)({
 				findById: (id) => Effect.succeed(queuedRunFixture(id)),
+				listDispatchStates: () =>
+					Effect.succeed([
+						{ id: "claimed", attemptCount: 1, status: "running" },
+						{ id: "retried", attemptCount: 1, status: "queued" },
+						{ id: "fresh", attemptCount: 0, status: "queued" },
+						{ id: "skipped", attemptCount: 0, status: "skipped" },
+					]),
 			}),
 		),
 		Layer.provide(AutomationAttemptRepository.layer),
@@ -343,6 +415,22 @@ layer(
 		Layer.provideMerge(recordingRunWorkflowEngineLayer()),
 	),
 )((test) => {
+	test.effect("only treats runs that were never claimed and are still queued as unsubmitted", () =>
+		Effect.gen(function* () {
+			const runIds = ["claimed", "retried", "fresh", "skipped", "missing"].map((id) =>
+				AutomationRunId.make(id),
+			);
+			const states = yield* (yield* AutomationExecutionOperations).dispatchStates(runIds);
+			expect(runIds.map((id) => states.get(id))).toEqual([
+				"claimed",
+				"claimed",
+				"fresh",
+				"closed",
+				"closed",
+			]);
+		}),
+	);
+
 	test.effect("submits deterministic workflow IDs without waiting for either delivery", () =>
 		Effect.gen(function* () {
 			const operations = yield* AutomationExecutionOperations;

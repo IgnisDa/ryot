@@ -1,5 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Context, Duration, Effect, Layer, Option, Schedule, Schema } from "effect";
 import { DurableClock, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -12,34 +13,45 @@ import {
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { startWorkflowDeadline } from "#lib/infrastructure/workflow-deadline";
-import { ActivityBody, implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { ActivityBody, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 import { AutomationAttemptRepository, automationAttemptIdentity } from "./attempt-repository";
 import { AutomationRunRepository } from "./run-repository";
 import {
-	AutomationObservation,
-	AutomationObservationWorkflow,
-	type AutomationObservationWorkflowPayload,
+	AutomationRunSettlement,
 	AutomationRunWorkflow,
 	type AutomationRunWorkflowPayload,
-	automationObservationExecutionId,
 	settledAutomationRunResult,
 } from "./run-workflow";
 
 export const AUTOMATION_IMMEDIATE_TIMEOUT_MS = SANDBOX_LIMITS.execution.timeoutMs + 5_000;
 export const AUTOMATION_IMMEDIATE_CONCURRENCY = 8;
 
+export type AutomationDispatchState = "claimed" | "closed" | "fresh";
+
+const dispatchStateOf = (
+	row: { readonly attemptCount: number; readonly status: string } | undefined,
+): AutomationDispatchState => {
+	if (!row || (row.attemptCount === 0 && row.status !== "queued")) {
+		return "closed";
+	}
+	return row.attemptCount > 0 ? "claimed" : "fresh";
+};
+
 export class AutomationExecutionOperations extends Context.Service<
 	AutomationExecutionOperations,
 	{
+		dispatchStates: (
+			runIds: ReadonlyArray<AutomationRunId>,
+		) => Effect.Effect<ReadonlyMap<AutomationRunId, AutomationDispatchState>, DbError>;
 		skipQueuedPolicies: LifecycleExecution["Service"]["skipQueuedPolicies"];
 		submit: (payload: AutomationRunWorkflowPayload) => Effect.Effect<void, DbError>;
 		settle: (
 			payload: AutomationRunWorkflowPayload,
 			deadline: number,
-		) => Effect.Effect<AutomationObservation, DbError>;
+		) => Effect.Effect<AutomationRunSettlement, DbError>;
 	}
 >()("AutomationExecutionOperations") {}
 
@@ -53,11 +65,25 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 		const receipts = yield* MutationReceipts.make;
 		return AutomationExecutionOperations.of({
 			skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
+			dispatchStates: (runIds) =>
+				runs
+					.listDispatchStates(runIds)
+					.pipe(
+						Effect.map(
+							(rows) =>
+								new Map(
+									runIds.map((runId): [AutomationRunId, AutomationDispatchState] => [
+										runId,
+										dispatchStateOf(rows.find(({ id }) => id === runId)),
+									]),
+								),
+						),
+					),
 			settle: (payload, deadline) =>
 				Effect.gen(function* () {
 					const attempt = yield* attempts.findAttempt(payload.runId, payload.attemptNumber);
 					if (!attempt?.finishedAt || Date.parse(attempt.finishedAt) >= deadline) {
-						return { _tag: "expired" } as const;
+						return { _tag: "pending" } as const;
 					}
 					const run = yield* runs.findById(payload.runId);
 					if (!run) {
@@ -134,59 +160,9 @@ const requireWorkflowBody = (operation: string) =>
 			: Effect.void,
 	);
 
-const runPayload = (
-	payload: AutomationObservationWorkflowPayload,
-): AutomationRunWorkflowPayload => ({
-	runId: payload.runId,
-	attemptNumber: payload.attemptNumber,
-	acceptedPatches: payload.acceptedPatches,
-});
+const OUTSIDE_WORKFLOW_RECHECK = Duration.millis(50);
 
-export const AutomationObservationWorkflowDefinitionsLive = implementWorkflow(
-	AutomationObservationWorkflow,
-	Effect.fnUntraced(function* (payload) {
-		const operations = yield* AutomationExecutionOperations;
-		const engine = yield* WorkflowEngine;
-		const run = runPayload(payload);
-		yield* operations.submit(run);
-		const remaining = payload.deadline - (yield* Clock.currentTimeMillis);
-		yield* DurableDeferred.raceAll({
-			name: "observation",
-			error: Schema.Never,
-			success: Schema.Void,
-			effects: [
-				engine
-					.execute(AutomationRunWorkflow, {
-						payload: run,
-						executionId: automationAttemptIdentity(run.runId, run.attemptNumber)
-							.workflowExecutionId,
-					})
-					.pipe(Effect.ignore),
-				// A durable clock with a positive duration suspends on every replay, so a run whose reply
-				// already exists always wins the race.
-				DurableClock.sleep({
-					name: "deadline",
-					inMemoryThreshold: Duration.zero,
-					duration: Duration.millis(Math.max(remaining, 1)),
-				}),
-			],
-		});
-		return yield* makeActivity({
-			error: DbError,
-			name: "settle-observation",
-			success: AutomationObservation,
-			execute: operations.settle(run, payload.deadline),
-		});
-	}),
-);
-
-const observation = (payload: AutomationRunWorkflowPayload, deadline: number) => ({
-	payload: { ...payload, deadline },
-	executionId: automationObservationExecutionId(payload.runId, payload.attemptNumber),
-});
-
-// Outside a workflow instance the engine re-sends a suspended observer's run request on this schedule.
-const OUTSIDE_WORKFLOW_RECHECK = Schedule.spaced(Duration.millis(50));
+type RequiredRun = { readonly awaited: boolean; readonly payload: AutomationRunWorkflowPayload };
 
 export const LifecycleExecutionLive = Layer.effect(
 	LifecycleExecution,
@@ -194,25 +170,121 @@ export const LifecycleExecutionLive = Layer.effect(
 		const operations = yield* AutomationExecutionOperations;
 		const session = yield* DatabaseSession;
 		const engine = yield* WorkflowEngine;
+		const inWorkflow = <A, E>(
+			instance: WorkflowInstance["Service"],
+			effect: Effect.Effect<A, E, WorkflowEngine | WorkflowInstance>,
+		) =>
+			effect.pipe(
+				Effect.provideService(WorkflowInstance, instance),
+				Effect.provideService(WorkflowEngine, engine),
+			);
 		const startDeadline = Effect.fnUntraced(function* (name: string) {
 			const instance = yield* Effect.serviceOption(WorkflowInstance);
 			return Option.isSome(instance)
-				? yield* startWorkflowDeadline(name, AUTOMATION_IMMEDIATE_TIMEOUT_MS).pipe(
-						Effect.provideService(WorkflowInstance, instance.value),
-						Effect.provideService(WorkflowEngine, engine),
+				? yield* inWorkflow(
+						instance.value,
+						startWorkflowDeadline(name, AUTOMATION_IMMEDIATE_TIMEOUT_MS),
 					)
 				: (yield* Clock.currentTimeMillis) + AUTOMATION_IMMEDIATE_TIMEOUT_MS;
 		});
-		const dispatchObservation = (payload: AutomationRunWorkflowPayload, deadline: number) =>
-			engine.execute(AutomationObservationWorkflow, {
-				...observation(payload, deadline),
-				discard: true,
+		// Only an admitted submission starts a run, so a run is awaited only when it was claimed or its
+		// submission succeeded here. Parent replays read run states instead of submitting again.
+		const dispatchRuns = (payloads: ReadonlyArray<AutomationRunWorkflowPayload>) =>
+			Effect.gen(function* () {
+				const states = yield* operations.dispatchStates(payloads.map(({ runId }) => runId)).pipe(
+					Effect.catchCauseIf(
+						(cause) => !Cause.hasInterruptsOnly(cause),
+						() => Effect.succeed(new Map<AutomationRunId, AutomationDispatchState>()),
+					),
+				);
+				return yield* Effect.forEach(
+					payloads,
+					(payload) => {
+						const state = states.get(payload.runId) ?? "closed";
+						return state === "fresh"
+							? operations.submit(payload).pipe(
+									Effect.as(true),
+									Effect.catchCauseIf(
+										(cause) => !Cause.hasInterruptsOnly(cause),
+										() => Effect.succeed(false),
+									),
+								)
+							: Effect.succeed(state === "claimed");
+					},
+					{ concurrency: AUTOMATION_IMMEDIATE_CONCURRENCY },
+				);
 			});
-		const awaitObservation = (payload: AutomationRunWorkflowPayload, deadline: number) =>
-			engine.execute(AutomationObservationWorkflow, {
-				...observation(payload, deadline),
-				suspendedRetrySchedule: OUTSIDE_WORKFLOW_RECHECK,
+		const settleAll = (required: ReadonlyArray<RequiredRun>, deadline: number) =>
+			Effect.forEach(required, ({ awaited, payload }) =>
+				awaited
+					? operations.settle(payload, deadline)
+					: Effect.succeed({ _tag: "pending" } as const),
+			);
+		// The winner of the race is journaled, so a run exiting after the deadline or a clock firing after
+		// the runs cannot change a recorded outcome.
+		const awaitInWorkflow = (
+			name: string,
+			required: ReadonlyArray<RequiredRun>,
+			deadline: number,
+		) =>
+			Effect.gen(function* () {
+				const instance = yield* WorkflowInstance;
+				const deadlineClock = DurableClock.make({
+					name: `hook-wait-${name}`,
+					duration: Duration.millis(Math.max(deadline - (yield* Clock.currentTimeMillis), 1)),
+				});
+				yield* DurableDeferred.raceAll({
+					error: Schema.Never,
+					success: Schema.Void,
+					name: `hooks-${name}`,
+					effects: [
+						Effect.forEach(
+							required.filter(({ awaited }) => awaited),
+							({ payload }) =>
+								engine
+									.execute(AutomationRunWorkflow, {
+										payload,
+										executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
+											.workflowExecutionId,
+									})
+									.pipe(Effect.ignore),
+							{ discard: true, concurrency: "unbounded" },
+						),
+						DurableClock.sleep({
+							name: deadlineClock.name,
+							inMemoryThreshold: Duration.zero,
+							duration: deadlineClock.duration,
+						}),
+					],
+				});
+				// The engine cannot cancel a losing clock; once the race is settled the run stops awaiting it,
+				// so its later firing does not preempt the running workflow.
+				instance.awaitedDeferreds.delete(deadlineClock.deferred.name);
+				return yield* makeActivity({
+					error: DbError,
+					name: `settle-${name}`,
+					execute: settleAll(required, deadline),
+					success: Schema.Array(AutomationRunSettlement),
+				});
 			});
+		const awaitOutside = (required: ReadonlyArray<RequiredRun>, deadline: number) =>
+			Effect.all([settleAll(required, deadline), Clock.currentTimeMillis]).pipe(
+				Effect.repeat({
+					schedule: Schedule.spaced(OUTSIDE_WORKFLOW_RECHECK),
+					until: ([settlements, now]) =>
+						now >= deadline ||
+						settlements.every(
+							(settlement, index) => settlement._tag === "completed" || !required[index]?.awaited,
+						),
+				}),
+				Effect.map(([settlements]) => settlements),
+			);
+		const settleRequired = (name: string, required: ReadonlyArray<RequiredRun>, deadline: number) =>
+			Effect.flatMap(Effect.serviceOption(WorkflowInstance), (instance) =>
+				Option.isSome(instance)
+					? inWorkflow(instance.value, awaitInWorkflow(name, required, deadline))
+					: awaitOutside(required, deadline),
+			);
 		const after: LifecycleExecution["Service"]["after"] = ({ runs, triggerId }) =>
 			Effect.gen(function* () {
 				yield* requireWorkflowBody("after");
@@ -223,55 +295,33 @@ export const LifecycleExecutionLive = Layer.effect(
 					return [];
 				}
 				const deadline = yield* startDeadline(`after-${triggerId}`);
-				const payloadOf = (run: (typeof eligible)[number]): AutomationRunWorkflowPayload => ({
-					runId: run.id,
-					attemptNumber: 1,
-					acceptedPatches: [],
+				const entries = eligible.map((run) => ({
+					run,
+					payload: { runId: run.id, attemptNumber: 1, acceptedPatches: [] },
+				}));
+				const awaited = yield* dispatchRuns(entries.map(({ payload }) => payload));
+				const required = entries.flatMap(({ run, payload }, index) =>
+					run.delivery === "async" ? [] : [{ run, payload, awaited: awaited[index] === true }],
+				);
+				if (required.length === 0) {
+					return [];
+				}
+				const settlements = yield* settleRequired(`after-${triggerId}`, required, deadline);
+				return required.flatMap(({ run }, index): Array<AutomationWarning> => {
+					const settlement = settlements[index];
+					const status =
+						settlement?._tag === "completed" ? settlement.result.attempt?.status : undefined;
+					if (status === "succeeded") {
+						return [];
+					}
+					return [
+						{
+							runId: run.id,
+							hookSlug: run.hookSlug,
+							code: status === "failed" ? "required-hook-failed" : "required-hook-pending",
+						},
+					];
 				});
-				// Every run is dispatched before any wait, so a waiting run's suspension cannot interrupt a
-				// sibling's dispatch.
-				yield* Effect.forEach(
-					eligible,
-					(run) =>
-						(run.delivery === "async"
-							? operations.submit(payloadOf(run))
-							: dispatchObservation(payloadOf(run), deadline)
-						).pipe(
-							Effect.catchCauseIf(
-								(cause) => !Cause.hasInterruptsOnly(cause),
-								() => Effect.void,
-							),
-						),
-					{ discard: true, concurrency: AUTOMATION_IMMEDIATE_CONCURRENCY },
-				);
-				const warnings = yield* Effect.forEach(
-					eligible.filter((run) => run.delivery !== "async"),
-					(run) => {
-						const warning = (
-							code: "required-hook-pending" | "required-hook-failed",
-						): AutomationWarning => ({ code, runId: run.id, hookSlug: run.hookSlug });
-						return awaitObservation(payloadOf(run), deadline).pipe(
-							Effect.map((observed) => {
-								if (observed._tag === "expired") {
-									return warning("required-hook-pending");
-								}
-								const status = observed.result.attempt?.status;
-								if (status === "succeeded") {
-									return null;
-								}
-								return warning(
-									status === "failed" ? "required-hook-failed" : "required-hook-pending",
-								);
-							}),
-							Effect.catchCauseIf(
-								(cause) => !Cause.hasInterruptsOnly(cause),
-								() => Effect.succeed(warning("required-hook-pending")),
-							),
-						);
-					},
-					{ concurrency: AUTOMATION_IMMEDIATE_CONCURRENCY },
-				);
-				return warnings.filter((warning) => warning !== null);
 			});
 		return LifecycleExecution.of({
 			after,
@@ -298,11 +348,16 @@ export const LifecycleExecutionLive = Layer.effect(
 						Effect.gen(function* () {
 							const payload = { runId, acceptedPatches, attemptNumber: 1 };
 							const deadline = yield* startDeadline(`policy-${runId}`);
-							const observed = yield* awaitObservation(payload, deadline);
-							return observed._tag === "completed" &&
-								observed.result.attempt?.status === "succeeded" &&
-								observed.result.policyOutput !== null
-								? observed.result.policyOutput
+							const [awaited] = yield* dispatchRuns([payload]);
+							const [settlement] = yield* settleRequired(
+								`policy-${runId}`,
+								[{ payload, awaited: awaited === true }],
+								deadline,
+							);
+							return settlement?._tag === "completed" &&
+								settlement.result.attempt?.status === "succeeded" &&
+								settlement.result.policyOutput !== null
+								? settlement.result.policyOutput
 								: yield* new AutomationPolicyExecutionError({
 										runId,
 										code: "policy-execution-failed",
