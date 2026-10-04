@@ -24,6 +24,10 @@ export class CollectionsApi extends Context.Service<CollectionsApi>()("Collectio
 		return {
 			create: (scope: ApiScope, request: ContractRequest<"collections", "create">) =>
 				api.run(scope, (client) => client.collections.create(request)),
+			update: (scope: ApiScope, request: ContractRequest<"collections", "update">) =>
+				api.run(scope, (client) => client.collections.update(request)),
+			delete: (scope: ApiScope, request: ContractRequest<"collections", "delete">) =>
+				api.run(scope, (client) => client.collections.delete(request)),
 			createMembership: (
 				scope: ApiScope,
 				request: ContractRequest<"collections", "createMembership">,

@@ -1,3 +1,4 @@
+import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Result, Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
@@ -88,32 +89,88 @@ describe("collections recipes", () => {
 		).toEqual({ pageInfo, items: [{ name: "Favorites", id: "collection-1" }] });
 	});
 
-	it("decodes the collection header and declared membership schema", () => {
+	it("decodes the collection header with its fields and rebuilt member schema", () => {
 		const recipe = collectionHeaderRecipe({ collectionId: "collection-1" });
 		const query = recipe.document.queries.collection;
 		assert(query);
 		expect(query.output).toMatchObject({ pagination: { limit: 2 } });
 		expect(query.where).toMatchObject({ type: "and" });
-
-		expect(
+		const fields = [{ key: "notes", type: "text", label: "Notes", required: true }] as const;
+		const decodeHeader = (properties: Record<string, unknown>) =>
 			Result.getOrThrow(
 				recipe.decode({
 					data: {
 						collection: {
 							type: "rows",
 							pageInfo: { ...pageInfo, limit: 2 },
-							items: [
-								{
-									name: "Favorites",
-									entityId: "collection-1",
-									properties: { membershipPropertiesSchema },
-								},
-							],
+							items: [{ properties, name: "Favorites", entityId: "collection-1" }],
 						},
 					},
 				}),
-			),
-		).toEqual({ name: "Favorites", entityId: "collection-1", membershipPropertiesSchema });
+			);
+
+		expect(
+			decodeHeader({
+				description: "Shelf",
+				membershipPropertiesSchema: collectionFieldsToAppSchema(fields),
+			}),
+		).toEqual({
+			fields,
+			name: "Favorites",
+			description: "Shelf",
+			entityId: "collection-1",
+			membershipPropertiesSchema: collectionFieldsToAppSchema(fields),
+		});
+		expect(decodeHeader({})).toEqual({
+			fields: [],
+			description: null,
+			name: "Favorites",
+			entityId: "collection-1",
+			membershipPropertiesSchema: null,
+		});
+		expect(decodeHeader({ membershipPropertiesSchema })).toEqual({
+			fields: null,
+			description: null,
+			name: "Favorites",
+			entityId: "collection-1",
+			membershipPropertiesSchema: null,
+		});
+	});
+
+	it("renders member values that no longer match their field as empty cells", () => {
+		const recipe = collectionMembersRecipe({
+			collectionId: "collection-1",
+			membershipPropertiesSchema: collectionFieldsToAppSchema([
+				{ key: "score", label: "Score", type: "number", required: false },
+				{ key: "notes", type: "text", label: "Notes", required: false },
+			]),
+		});
+		const result = Result.getOrThrow(
+			recipe.decode({
+				data: {
+					members: {
+						pageInfo,
+						type: "rows",
+						items: [
+							{
+								name: "Dune",
+								entityId: "book-1",
+								ownerPluginId: null,
+								ownerPluginName: null,
+								entitySchemaSlug: "book",
+								populationStatus: "ready",
+								translationStatus: "none",
+								properties: { notes: "Kept", score: "high" },
+							},
+						],
+					},
+				},
+			}),
+		);
+		expect(result.items[0]?.cells.slice(2)).toEqual([
+			{ key: "score", label: "Score", value: { value: null, displayKind: "number" } },
+			{ key: "notes", label: "Notes", value: { value: "Kept", displayKind: "text" } },
+		]);
 	});
 
 	it("maps member rows to entity-browser fields and schema-declared cells", () => {

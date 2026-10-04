@@ -132,6 +132,7 @@ describe("collection detail", () => {
 					name: "Road Trips",
 					groupsHaveMore: true,
 					membershipPropertiesSchema: {
+						unknownKeys: "strict",
 						fields: {
 							template: {
 								position: 0,
@@ -211,6 +212,7 @@ describe("collection detail", () => {
 			yield* answerCollection(page, {
 				name: "Empty",
 				membershipPropertiesSchema: {
+					unknownKeys: "strict",
 					fields: {
 						notes: { position: 0, type: "string", label: "Notes", description: "Membership notes" },
 					},

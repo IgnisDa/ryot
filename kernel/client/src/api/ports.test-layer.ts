@@ -46,6 +46,8 @@ export const makeRyotQLApi = (overrides: Partial<RyotQLApi["Service"]> = {}) =>
 export const makeCollectionsApi = (overrides: Partial<CollectionsApi["Service"]> = {}) =>
 	Layer.succeed(CollectionsApi, {
 		create: unused,
+		update: unused,
+		delete: unused,
 		createMembership: unused,
 		deleteMembership: unused,
 		...overrides,

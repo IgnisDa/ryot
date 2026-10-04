@@ -615,10 +615,9 @@ function ClientPageFrame(props: {
 			onCollection={(request) => {
 				const operation = Effect.gen(function* () {
 					if (request.action === "create") {
-						return {
-							outcome: "success",
-							response: yield* ryot.collections.create(request.input),
-						} as const;
+						const response = yield* ryot.collections.create(request.input);
+						yield* Effect.tryPromise(() => router.invalidate()).pipe(Effect.ignore);
+						return { response, outcome: "success" } as const;
 					}
 					if (request.action === "upsert-membership") {
 						return {
