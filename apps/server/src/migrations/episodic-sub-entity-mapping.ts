@@ -1,3 +1,4 @@
+import { buildCaptureLegacyDescriptionsSql } from "./description-normalization";
 import type { QualifiedSchema } from "./migration-resolution";
 import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
 
@@ -429,6 +430,36 @@ BEGIN
 			"populated_at" = EXCLUDED."populated_at",
 			"updated_at" = EXCLUDED."updated_at";
 	GET DIAGNOSTICS podcast_episodes_inserted = ROW_COUNT;
+
+	${[
+		{ value: "value", schema: input.showSeasonEntitySchema, table: "_legacy_show_season_entities" },
+		{
+			value: "episode_value",
+			schema: input.showEpisodeEntitySchema,
+			table: "_legacy_show_episode_entities",
+		},
+		{
+			value: "value",
+			schema: input.podcastEpisodeEntitySchema,
+			table: "_legacy_podcast_episode_entities",
+		},
+	]
+		.map(({ table, value, schema }) =>
+			buildCaptureLegacyDescriptionsSql(`
+		SELECT child.entity_id AS "entityId", child.${value} ->> 'overview' AS "description",
+			metadata.source::text AS "source", metadata.source_url AS "baseUrl"
+		FROM ${table} child
+		INNER JOIN "metadata" metadata ON metadata.id = child.parent_entity_id
+		INNER JOIN "entity" entity ON entity.id = child.entity_id
+			AND entity.entity_schema_slug = ${quoteSqlString(schema.slug)}
+			AND entity.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(schema.pluginId)}
+			AND entity.provider_id IS NOT DISTINCT FROM child.provider_id
+			AND entity.external_id IS NOT DISTINCT FROM child.external_id
+			AND entity.user_id IS NOT DISTINCT FROM child.user_id
+		WHERE entity.properties ? 'description'
+	`),
+		)
+		.join("\n")}
 
 	INSERT INTO "relationship" (
 		"id",

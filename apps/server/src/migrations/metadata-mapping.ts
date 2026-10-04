@@ -2,6 +2,7 @@ import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
+import { buildCaptureLegacyDescriptionsSql } from "./description-normalization";
 import { metadataMigrationTargets } from "./metadata-mapping-targets";
 import {
 	type ResolvedLotEntityMigrationTarget,
@@ -331,6 +332,27 @@ BEGIN
 				"user_id" = COALESCE(entity."user_id", EXCLUDED."user_id")
 			WHERE entity."properties" = '{}'::jsonb OR entity."user_id" IS NULL;
 		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+
+		${buildCaptureLegacyDescriptionsSql(`
+			WITH metadata_targets (lot, source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
+				VALUES ${buildLotEntityTargetValuesSql(targets)}
+			)
+			SELECT metadata.id::text AS "entityId", metadata.description AS "description",
+				metadata.source::text AS "source", metadata.source_url AS "baseUrl"
+			FROM "metadata" metadata
+			INNER JOIN metadata_targets target ON target.lot = metadata.lot AND target.source = metadata.source
+			INNER JOIN "entity" entity ON entity.id = metadata.id
+				AND entity.entity_schema_slug = target.entity_schema_slug
+				AND entity.entity_schema_plugin_id IS NOT DISTINCT FROM target.entity_schema_plugin_id
+				AND entity.provider_id IS NOT DISTINCT FROM target.provider_id
+				AND entity.external_id IS NOT DISTINCT FROM metadata.identifier
+				AND entity.user_id IS NOT DISTINCT FROM metadata.created_by_user_id
+			WHERE metadata.id::text > cursor_id AND metadata.id::text <= next_cursor_id
+				AND (target.provider_id IS NULL OR EXISTS (
+					SELECT 1 FROM _populated_metadata_ids populated WHERE populated.id = metadata.id::text
+				))
+				AND entity.properties ? 'description'
+		`)}
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
