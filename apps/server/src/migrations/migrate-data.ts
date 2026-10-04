@@ -252,7 +252,13 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		"collection",
 		"add-entity-to-collection",
 	);
-	const measurementEntitySchema = entitySchema(fitnessPluginId, "measurement");
+	const measurementMetricEntitySchema = entitySchema(fitnessPluginId, "measurement-metric");
+	const measurementReadingEventSchema = requireEventSchema(
+		resolution,
+		fitnessPluginId,
+		"measurement-metric",
+		"measurement-reading",
+	);
 	const workoutEntitySchema = entitySchema(fitnessPluginId, "workout");
 	const workoutTemplateEntitySchema = entitySchema(fitnessPluginId, "workout-template");
 	const workoutSetEventSchema = requireEventSchema(
@@ -505,7 +511,13 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				}),
 				[],
 			);
-			yield* connection.executeRaw(buildMeasurementMigrationSql(measurementEntitySchema), []);
+			yield* connection.executeRaw(
+				buildMeasurementMigrationSql({
+					metricEntitySchema: measurementMetricEntitySchema,
+					readingEventSchema: measurementReadingEventSchema,
+				}),
+				[],
+			);
 			yield* connection.executeRaw(
 				buildWorkoutTemplateMigrationSql(workoutTemplateEntitySchema),
 				[],

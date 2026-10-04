@@ -255,7 +255,11 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 									) {
 										result = "unsuccessful";
 									}
-									if (item.itemIndex === 2 && intent === item.events[0]) {
+									if (
+										item.itemIndex === 2 &&
+										intent === item.events[0] &&
+										intent.eventSchemaSlug === "workout-set"
+									) {
 										result = "skipped";
 									}
 									add(intent.outcome.recordKind, intent.outcome.unit, result);
@@ -465,6 +469,60 @@ it("keeps failures of one workout distinct when its only exercise cannot be impo
 		),
 	));
 
+it("writes one metric entity and one reading event per OpenScale value and counts the row once", () =>
+	Effect.runPromise(
+		runImport(
+			"open_scale",
+			[
+				"dateTime,Weight,Fat,comment",
+				"2026-01-01T08:00:00Z,72.5,18,Morning",
+				"2026-01-02T08:00:00Z,,,",
+			].join("\n"),
+		).pipe(
+			Effect.map((result) => {
+				const items = result.chunks.flatMap((chunk) => chunk.items);
+				expect(items).toHaveLength(1);
+				expect(items[0]?.subjectEntityAlias).toBe("metric-0");
+				expect(items[0]?.entities).toMatchObject([
+					{
+						scope: "user",
+						name: "Weight",
+						entitySchemaSlug: "measurement-metric",
+						properties: { unit: "kg", key: "weight" },
+						match: { name: "Weight", nameNormalization: "slug", properties: { key: "weight" } },
+					},
+					{
+						name: "Fat",
+						properties: { unit: "%", key: "fat" },
+						match: { name: "Fat", nameNormalization: "slug", properties: { key: "fat" } },
+					},
+				]);
+				expect(items[0]?.entities.some((entity) => "outcome" in entity)).toBe(false);
+				expect(items[0]?.events).toMatchObject([
+					{
+						entityAlias: "metric-0",
+						occurredAt: "2026-01-01T08:00:00.000Z",
+						eventSchemaSlug: "measurement-reading",
+						properties: { value: 72.5, comment: "Morning" },
+						outcome: { unit: "measurements", recordKind: "measurements" },
+					},
+					{ entityAlias: "metric-1", properties: { value: 18, comment: "Morning" } },
+				]);
+				expect(items[0]?.events[1]).not.toHaveProperty("outcome");
+				expect(result.chunks.flatMap((chunk) => chunk.failures)).toMatchObject([
+					{
+						itemIndex: 1,
+						unit: "measurements",
+						message: "OpenScale row has no measurement values",
+					},
+				]);
+				expect(result.output).toMatchObject({
+					summary: [{ unit: "measurements", counts: { created: 1, unsuccessful: 1 } }],
+				});
+			}),
+		),
+	));
+
 it("keeps OpenScale failures distinct when rows share a timestamp", () =>
 	Effect.runPromise(
 		runImport(
@@ -512,8 +570,8 @@ it("restores a quoted measurement record across source and JSON capture windows 
 			Effect.map((result) => {
 				const items = result.chunks.flatMap((chunk) => chunk.items);
 				expect(items.map((item) => item.itemIndex)).toEqual([0, 1]);
-				expect(items[0]?.entities[0]?.properties["comment"]).toBe(comment);
-				expect(items[1]?.entities[0]?.properties["comment"]).toBe("end");
+				expect(items[0]?.events[0]?.properties["comment"]).toBe(comment);
+				expect(items[1]?.events[0]?.properties["comment"]).toBe("end");
 				expect(result.collectionOffsets.length).toBeGreaterThan(1);
 				expect(result.output).toMatchObject({
 					summary: [{ unit: "measurements", counts: { created: 2 } }],

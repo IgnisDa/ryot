@@ -9,7 +9,8 @@ import {
 
 import { parseCsvText, readCsvCell } from "./csv";
 import { adaptHevyRows } from "./hevy";
-import { fitnessFailureOperationId, measurementOperationId, measurementRecordId } from "./identity";
+import { fitnessFailureOperationId } from "./identity";
+import { toMeasurementWriteItem } from "./measurement";
 import { adaptOpenScaleRows } from "./open-scale";
 import type { FitnessStageInput, FitnessStageOutput } from "./schemas";
 import { FitnessRecord } from "./schemas";
@@ -361,33 +362,7 @@ const normalize = Effect.fn(function* (
 		}
 		for (const item of result.items) {
 			const writeItem =
-				"exercises" in item
-					? toWorkoutWriteItem(item)
-					: {
-							events: [],
-							relationships: [],
-							itemIndex: item.itemIndex,
-							sourceLabel: item.sourceLabel,
-							subjectEntityAlias: "measurement",
-							sourceIdentifier: item.sourceIdentifier,
-							recordId: measurementRecordId(item.itemIndex),
-							entities: [
-								{
-									alias: "measurement",
-									entitySchemaSlug: "measurement",
-									outcome: { unit, recordKind: unit },
-									name: `Measurement - ${item.sourceLabel}`,
-									operationId: measurementOperationId(item.itemIndex),
-									properties: {
-										recordedAt: item.properties.recordedAt,
-										statistics: item.properties.statistics,
-										...(item.properties.comment !== undefined
-											? { comment: item.properties.comment }
-											: {}),
-									},
-								},
-							],
-						};
+				"exercises" in item ? toWorkoutWriteItem(item) : toMeasurementWriteItem(item);
 			if (
 				genericImportItemIntents(writeItem).length > 1000 ||
 				encoder.encode(encodeItem(writeItem)).length > RECORD_BYTES
