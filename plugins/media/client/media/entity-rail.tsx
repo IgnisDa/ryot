@@ -37,7 +37,7 @@ export function MediaEntityTile(props: {
 			aria-label={`Open ${item.name}`}
 			to={{ kind: "entity", entityId: item.id }}
 			className={clsx(
-				"flex flex-col gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-accent",
+				"group flex flex-col gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-accent",
 				mediaRailWidthClass({ aspect: props.aspect, compact: props.compact }),
 			)}
 		>
@@ -46,20 +46,19 @@ export function MediaEntityTile(props: {
 					asset={art}
 					monogram={item.name}
 					state={fieldSyncState(art, item)}
-					className={mediaArtworkClass({
-						layout: "rail",
-						aspect: props.aspect,
-						compact: props.compact,
-					})}
+					className={clsx(
+						"shadow-sm transition-transform duration-150 group-hover:-translate-y-0.5 motion-reduce:transition-none",
+						mediaArtworkClass({ layout: "rail", aspect: props.aspect, compact: props.compact }),
+					)}
 				/>
 				{props.overlay === undefined ? null : (
 					<div className="pointer-events-none absolute inset-0">{props.overlay}</div>
 				)}
 			</div>
-			<p className="line-clamp-2 font-ui text-[12px] leading-4.25 text-text">{item.name}</p>
+			<p className="line-clamp-2 text-[13px] leading-[18px] font-medium text-text">{item.name}</p>
 			{(props.lines ?? []).map((line) =>
 				line === undefined ? null : (
-					<p key={line} className="line-clamp-1 font-ui text-[11px] leading-3.75 text-text-subtle">
+					<p key={line} className="line-clamp-1 text-xs text-text-muted">
 						{line}
 					</p>
 				),
