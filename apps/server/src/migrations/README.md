@@ -24,7 +24,7 @@ Legacy tables are renamed before Drizzle creates V2 tables; copying starts after
 
 Copied media descriptions are normalized to Markdown after bulk copying on the same reserved connection. Each mapping stages original legacy text, source, format, base URL, and target entity ID in `_legacy_description_inputs`, a connection-local temporary table preserved across commits. Only custom or populated metadata, groups/people/companies whose descriptions are copied, and selected season/episode/podcast child inventories contribute; empty-property skeletons do not. Child selection keeps the mapping's latest-row choice. TMDB, TVDB, and IGDB use plain-text normalization; VNDB uses its markup converter; AniList converts native HTML and legacy `~!…!~` spoilers before rich normalization; other supported legacy sources use rich normalization for mixed HTML/Markdown. Bounded keyset batches patch only `properties.description`, retain historical timestamps and other fields, and report counts by source and format. Conversion or target failures abort startup. The staging table is dropped before releasing the connection, including on failure; restart rebuilds it from original legacy text so converted descriptions are never escaped twice. This bootstrap does not repair existing installations or migrate legacy translations.
 
-Users are inserted first. Deterministic IDs, exact installation identities, conflict guards, active revision/configuration validation, and persistent claims make completed work safe to encounter after restart; claims created by an earlier attempt are not replaced. Media NSFW preferences are written after exact installations resolve, validated against the persisted active Media settings schema. The preference phase and its report commit together; a completed report prevents restart from replacing user choices. Normal bootstrap then creates built-in views and default notification subscriptions from signal identity and its declared notification hook, with plugin user-bootstrap dispatch disabled. Only documented omissions and restart guards may skip data; all other unexpected state fails the migration.
+Users are inserted first. Deterministic IDs, exact installation identities, conflict guards, active revision/configuration validation, and persistent claims make completed work safe to encounter after restart; claims created by an earlier attempt are not replaced. Media NSFW and Fitness preferences are written after exact installations resolve, with every mapped record validated against its persisted active settings schema. The preference phase and its report commit together; a completed report prevents restart from replacing user choices. Normal bootstrap then creates built-in views and default notification subscriptions from signal identity and its declared notification hook, with plugin user-bootstrap dispatch disabled. Only documented omissions and restart guards may skip data; all other unexpected state fails the migration.
 
 ## Mappings And Omissions
 
@@ -45,7 +45,29 @@ Plugin-owned definitions and views retain qualified stable plugin provenance; ke
 
 Completed seen rows keep their recorded finish date. Generated progress never occurs after that completion, and completion sorts after its own progress when timestamps tie. Backfilled episodic parent completions sort directly after the event that closes coverage.
 
-Workout exercise notes live in workout `exerciseNotes`, keyed by zero-based `exerciseOrder` and separate from set `note`; templates keep exercise notes. Workout and template set durations convert legacy minutes to seconds, imperial workout weights and distances convert to kilograms and kilometers, and rest times remain unchanged in seconds. Each workout set stores its V1 workout exercise `lot` as `exerciseKind`; a missing or unsupported lot aborts. Workout-set `pace`, `oneRm`, `volume`, and `personalBests` are recalculated from normalized measurements with the fitness plugin's shared workout-record rules, tracking bests per exercise and kind; copied legacy derived values are not trusted.
+Workout exercise notes live in workout `exerciseNotes`, keyed by zero-based `exerciseOrder` and separate from set `note`; templates keep exercise notes. Workout and template set durations convert legacy minutes to seconds, imperial workout and template weights and distances convert to kilograms and kilometers using each stored exercise's unit system, and rest times remain unchanged in seconds, including zero. Template measurements round to the Fitness schema scales. Missing or unsupported template unit systems and invalid template rest values abort. Each workout set stores its V1 workout exercise `lot` as `exerciseKind`; a missing or unsupported lot aborts. Workout-set `pace`, `oneRm`, `volume`, and `personalBests` are recalculated from normalized measurements with the fitness plugin's shared workout-record rules, tracking bests per exercise and kind; copied legacy derived values are not trusted.
+
+Workouts copy nonnegative V1 `duration` directly to `activeDuration` in seconds, without recomputing it
+from timestamps or constraining it to the recorded interval. Negative durations and energy values are
+omitted as unknown and reported with original values, user/workout identity, units, and timestamps.
+Start/end timestamps remain unchanged, including reversed intervals. Energy uses canonical kcal; a
+missing legacy energy preference uses V1's kcal default. Nonnegative energy history with a non-kcal
+preference aborts because V1 recorded no per-workout unit: the operator must confirm and convert the
+source values to kcal, not simply relabel unknown history. Workout/template entity completion reports
+guard their phases against repeat writes and duplicate duration/energy anomaly reports.
+
+Fitness settings flatten V1 display units, four set-type rest durations, sound mute, rest prompting,
+duration countdown, and energy unit onto the exact installation. Missing preference blocks use V1
+defaults; unset rests in an existing rest-settings object become zero. Null non-rest choices and
+unsupported values abort active-schema validation. Exercise rest overrides and duration units belong
+to the user-owned `in-fitness-library` relationship, never provider exercise properties. Missing/null
+overrides remain absent and inherit; stored zero and default-looking values are preserved. Invalid
+exercise overrides abort. Omit `exclude_from_analytics` intentionally; no equivalent behavior exists.
+
+The canonical nonnegative kcal field definition is for fresh installs and restored V1 databases.
+Already migrated development databases cannot upgrade an older Fitness field definition through the
+additive schema checker; restore a V1 dump into a separate fresh database instead. No repair or upgrade
+path is synthesized.
 
 When legacy debounce rows collapse to one V2 claim, preserve the longest remaining expiry. The claim namespace includes the migrated integration ID, resolved entity ID and schema, progress kind, normalized legacy consumption provider, and subitem signature, and the Redis key uses the active media `import.write-chunks` script. Normalize known provider labels and resolve show/podcast markers to episode IDs; zero or multiple matching integrations, ambiguous browser-extension, removed-provider, and unresolved targets are reported omissions. A pending YouTube Music row creates `seen`; a completed row creates both `seen` and `completed`.
 
@@ -81,6 +103,11 @@ A `RAISE EXCEPTION` rolls back its own `DO $$` block, so an abort can leave noth
 
 Restore a legacy dump, run migration-only mode, then inspect logs, `migration_report`, and migrated rows in the same database:
 
+Use disposable PostgreSQL, Redis, and object storage. `just restore-db` clears its configured database,
+Redis, and S3 bucket; the asset phase also deletes copied legacy keys after commit. Never use production
+storage for validation. Rebuild shipped plugin archives and run server assembly before migration-only
+mode; `run-migration` builds the kernel runtime and renderers, not the Fitness archive.
+
 ```bash
 just restore-db 'tmp/file.sql'
 cd 'apps/server' && bun run run-migration
@@ -89,3 +116,11 @@ cd 'apps/server' && bun run run-migration
 The god-mode Migration Report shows warnings first, then newest rows. Validate both normal and larger available dumps; generated-SQL tests do not exercise startup orchestration, external assets, or realistic volume.
 
 For each restored dump, also verify that `plugin.active_revision_id` and the encrypted environment `plugin_config_revision` agree for media and fitness, deterministic migrated installations are ready, existing notification subscriptions remain, and `automation_trigger`, `automation_trigger_recipient`, `automation_run`, and `automation_run_attempt` are empty. Check migrated workouts retain fractional start/end seconds, set values use metric units with seconds-based duration, derived statistics and personal bests match the shared fitness rules, and every out-of-session confirmation appears in `migration_report_detail` without a changed `occurred_at`. Restart migration-only mode once against the migrated database to verify idempotence.
+
+Also compare recorded active duration with V1 `duration`, template rest times and canonical imperial
+conversions with their source sets, exact Fitness installation preferences with V1 settings, and
+per-exercise overrides with V1 exercise settings. Invalid duration/energy properties must be absent,
+with one detail per offending value retaining its original text. Keep recorded zero values and reversed
+intervals unchanged. Exercise memberships without settings must remain free of invented overrides.
+For an interrupted-run check, stop after the preference phase commits, change a stored choice in that
+isolated database, and restart with legacy tables present; the completed phase must not replace it.

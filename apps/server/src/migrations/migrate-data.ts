@@ -91,7 +91,7 @@ import {
 	buildLegacyUserLibraryMigrationSql,
 } from "./user-auth-mapping";
 import { buildMeasurementMigrationSql } from "./user-measurement-mapping";
-import { buildLegacyUserSettingsMigrationSql } from "./user-settings-mapping";
+import { migrateLegacyUserSettings } from "./user-settings-mapping";
 import { buildUserToEntityInLibraryMigrationSql } from "./user-to-entity-mapping";
 import {
 	buildWorkoutMigrationSql,
@@ -324,12 +324,17 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		mediaInstallations.map(({ userId, installationId }) => [userId, installationId]),
 	);
 	if (mediaInstallations.length > 0) {
-		yield* withReservedConnection((connection) =>
-			connection.executeRaw(
-				buildLegacyUserSettingsMigrationSql(mediaInstallations, mediaPluginId),
-				[],
-			),
-		);
+		yield* migrateLegacyUserSettings({
+			mediaPluginId,
+			fitnessPluginId,
+			mediaSettingsSchema: resolution.mediaUserSettingsSchema,
+			fitnessSettingsSchema: resolution.fitnessUserSettingsSchema,
+			installations: mediaInstallations.map(({ userId, installationId }) => ({
+				userId,
+				mediaInstallationId: installationId,
+				fitnessInstallationId: requireInstallation(resolution, userId, fitnessPluginId),
+			})),
+		});
 	}
 	const integrationProgressScript = requireMapped(
 		resolution.scripts,
