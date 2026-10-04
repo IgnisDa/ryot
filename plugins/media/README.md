@@ -5,16 +5,9 @@ and authored lifecycle hooks. Generic package layout, manifest, and sandbox rule
 [Plugin Kit](../../packages/plugin-kit/README.md). Provider declarations identify their root entity
 schema; saved views do not declare sandbox scripts.
 
-`shared/plugin-identity.ts` holds the `ryot/media` package ID used by the manifest, configuration,
-and client bindings. Domain recipes take an explicit owner; authored views and trusted sandbox work
-use `self`, browser queries use the contributor binding, and presentation loaders use the selected
-entity's stored owner. Equal schema names from another package never select Media data.
-
-Media observes kernel collection membership and review events through explicit kernel-owned after-hook
-targets, executed for the user. These observers retain membership, review notifications, and
-Radarr/Sonarr collection pushes. They do not grant foreign-plugin writes or global authority; Media
-membership changes still select Media-owned entities. Before hooks and ordinary domain targets remain
-local to Media.
+`shared/plugin-identity.ts` holds the `ryot/media` package ID. Media observes kernel collection
+membership and review events through kernel-owned after-hook targets for membership, review
+notifications, and Radarr/Sonarr collection pushes.
 
 ## Client
 
