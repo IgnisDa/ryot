@@ -17,7 +17,7 @@ const reviewAbsentDetailSql = buildEpisodeAbsentDetailSql("review-episode-absent
 
 const reviewAmbiguousDetailSql = buildEpisodeAmbiguousDetailSql("review-episode-ambiguous", "u");
 
-export const buildReviewMigrationSql = () => `
+export const buildReviewMigrationSql = (mediaPluginId: string) => `
 DO $$
 DECLARE
 	batch_size constant int := 10000;
@@ -32,7 +32,7 @@ DECLARE
 BEGIN
 	${buildRequireLegacyTableSql("review -> event", "review")}
 
-	${buildEpisodeResolutionFallbackSql()}
+	${buildEpisodeResolutionFallbackSql(mediaPluginId)}
 
 	LOOP
 		WITH batch AS (

@@ -1,3 +1,4 @@
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
 
@@ -60,7 +61,17 @@ export const redisKeys = {
 		`ryot:sandbox:cache:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
 	sandboxRunCache: (serverRunId: string, userId: string | null, scriptId: string, key: string) =>
 		`ryot:sandbox:cache:run:${serverRunId}:${userId === null ? "kernel" : `user:${userId}`}:${scriptId}:${key}`,
-	// One hash tag per policy keeps every key a ticket script declares in one cluster slot.
+	sandboxPersistentCache: (
+		userId: string | null,
+		pluginScope: readonly ["plugin", string] | readonly ["kernel"],
+		operationScope: readonly [string, string],
+		key: string,
+	): string =>
+		redisKeys.sandboxCache(
+			null,
+			"namespace",
+			identityTupleKey(userId, pluginScope, operationScope, key.trim()),
+		),
 	providerHttpAdmission: (policyKey: string) => {
 		const base = `ryot:http-tickets:{${encodeURIComponent(policyKey)}}`;
 		return {

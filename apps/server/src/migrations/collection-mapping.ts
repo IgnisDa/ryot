@@ -106,6 +106,7 @@ BEGIN
 			AND src_entity.external_id IS NOT NULL
 			AND src_entity.provider_id IS NOT NULL
 			AND src_entity.entity_schema_slug IN (${input.monitorableEntitySchemaSlugs.map(quoteSqlString).join(", ")})
+			AND src_entity.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.libraryEntitySchema.pluginId)}
 			AND NOT EXISTS (
 				SELECT 1
 				FROM "entity" library_entity
@@ -151,6 +152,7 @@ BEGIN
 		AND src_entity.external_id IS NOT NULL
 		AND src_entity.provider_id IS NOT NULL
 		AND src_entity.entity_schema_slug IN (${input.monitorableEntitySchemaSlugs.map(quoteSqlString).join(", ")})
+		AND src_entity.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.libraryEntitySchema.pluginId)}
 	ON CONFLICT DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;

@@ -543,7 +543,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				buildWorkoutRepeatedFromRelationshipMigrationSql(workoutRepeatedFromRelationshipSchema),
 				[],
 			);
-			yield* connection.executeRaw(buildReviewMigrationSql(), []);
+			yield* connection.executeRaw(buildReviewMigrationSql(mediaPluginId), []);
 			yield* connection.executeRaw(buildSeenMigrationSql(mediaPluginId), []);
 			yield* connection.executeRaw(buildSeenEpisodicCompletionMigrationSql(mediaPluginId), []);
 			yield* connection.executeRaw(
@@ -613,7 +613,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				[],
 			);
 			yield* normalizeLegacyDescriptions(connection);
-			return yield* readLegacyIntegrationProgressCache(connection);
+			return yield* readLegacyIntegrationProgressCache(connection, mediaPluginId);
 		}).pipe(
 			Effect.ensuring(connection.executeRaw(dropLegacyDescriptionInputsSql, []).pipe(Effect.orDie)),
 		),
@@ -667,13 +667,15 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
 	yield* session.transaction(integrations.refreshClientProviderSpecificsForPlugin(mediaPluginId));
 	yield* migrateIntegrationProgressCache({
-		scriptId: integrationProgressScript.id,
+		pluginId: mediaPluginId,
+		scriptSlug: integrationProgressScript.slug,
 		cacheRows: legacyIntegrationProgressCache,
 		installationIdsByUserId: mediaInstallationIdsByUserId,
 		integrations: integrationSettings.map(({ id, userId, provider }) => ({ id, userId, provider })),
 	});
 	yield* migrateYoutubeMusicCache({
-		scriptId: youtubeMusicScript.id,
+		pluginId: mediaPluginId,
+		scriptSlug: youtubeMusicScript.slug,
 		installationIds: mediaInstallations.map(({ installationId }) => installationId),
 	});
 	yield* withReservedConnection((connection) =>

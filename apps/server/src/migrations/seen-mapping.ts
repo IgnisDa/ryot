@@ -51,7 +51,7 @@ DECLARE
 BEGIN
 	${buildRequireLegacyTableSql("seen -> event", "seen")}
 
-	${buildEpisodeResolutionFallbackSql()}
+	${buildEpisodeResolutionFallbackSql(mediaPluginId)}
 
 	LOOP
 		WITH batch AS (
