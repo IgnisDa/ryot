@@ -5,6 +5,7 @@ import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { nativeRecoveryLayer } from "@ryot-app/sandbox/host/recovery-native.test-support";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 import { assert, describe } from "vitest";
@@ -24,6 +25,7 @@ import { ScriptExecutionWorkflowPayload } from "../executions/workflow-payload";
 import { SandboxPluginScriptResolver } from "../registry/plugin-script-resolver";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxExecutionAuthorityLive } from "./authority";
+import { pluginSandboxAuthority } from "./plugin-authority";
 import { ScriptExecutionPrincipal } from "./principal";
 
 type PersistedScript = Parameters<PluginRepository["Service"]["persistKernelScript"]>[0];
@@ -144,13 +146,9 @@ describe("sandbox execution authority", () => {
 						db
 							.select({
 								manifest: tables.pluginRevision.manifest,
-								sandboxAuthority: tables.pluginRevisionSandboxAuthority.sandboxAuthority,
+								sandboxAuthority: tables.pluginRevision.sandboxAuthority,
 							})
 							.from(tables.pluginRevision)
-							.innerJoin(
-								tables.pluginRevisionSandboxAuthority,
-								eq(tables.pluginRevisionSandboxAuthority.id, tables.pluginRevision.id),
-							)
 							.where(eq(tables.pluginRevision.id, installed.revisionId))
 							.limit(1),
 					);
@@ -187,6 +185,9 @@ describe("sandbox execution authority", () => {
 						},
 					};
 					expect(revision.sandboxAuthority).toEqual(expectedSandboxAuthority);
+					expect(stableStringify(pluginSandboxAuthority(revision.manifest))).toBe(
+						stableStringify(expectedSandboxAuthority),
+					);
 					expect(revision.manifest.providers[0]?.information.source.length).toBeGreaterThan(10_000);
 					const savedViewPayload = revision.manifest.savedViews[0]?.settings["payload"];
 					assert(typeof savedViewPayload === "string");

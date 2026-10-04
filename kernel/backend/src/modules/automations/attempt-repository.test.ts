@@ -9,6 +9,7 @@ import { DateTime, Effect, Layer } from "effect";
 import { assert, describe, expect, it as unit } from "vitest";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { automationRun, automationRunAttempt, automationTrigger } from "#schema/tables/automations";
@@ -441,6 +442,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 									contentHash: "source",
 									manifest: fixtureManifest(),
 									clientConfigSchema: { fields: {} },
+									sandboxAuthority: pluginSandboxAuthority(fixtureManifest()),
 								});
 							yield* db
 								.insert(pluginConfigRevision)

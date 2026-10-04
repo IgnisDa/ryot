@@ -130,7 +130,7 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 			entityId,
 			code: "entity-not-found",
 		});
-		const manifest = yield* checks
+		const pin = yield* checks
 			.check(
 				input.command,
 				definitionOwner(entityScope.entitySchemaPluginId),
@@ -153,10 +153,13 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 				reason: { eventSchemaSlug, code: "event-schema-not-found" },
 			});
 		}
-		const declaration = manifest?.entitySchemas
-			.find(({ slug }) => slug === entityScope.entitySchemaSlug)
-			?.eventSchemas.find(({ slug }) => slug === eventSchemaSlug);
-		if (manifest && !declaration) {
+		const declaration = pin
+			? yield* checks.findPinnedDeclaration("event", pin.id, {
+					eventSchemaSlug,
+					entitySchemaSlug: entityScope.entitySchemaSlug,
+				})
+			: undefined;
+		if (pin && !declaration) {
 			return yield* new EventCreateItemError({
 				reason: { eventSchemaSlug, code: "event-schema-not-found" },
 			});
@@ -176,7 +179,7 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 				code: "session-entity-not-found",
 				entityId: requestedSessionEntityId,
 			});
-			if (manifest && sessionScope.entitySchemaPluginId !== entityScope.entitySchemaPluginId) {
+			if (pin && sessionScope.entitySchemaPluginId !== entityScope.entitySchemaPluginId) {
 				return yield* new EventCreateItemError({
 					reason: { code: "session-entity-not-found", entityId: requestedSessionEntityId },
 				});

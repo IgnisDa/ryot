@@ -128,19 +128,15 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						activeRevisionId: schema.plugin.activeRevisionId,
 						providerPluginId: schema.sandboxProvider.pluginId,
 						pluginRevisionId: schema.sandboxScript.pluginRevisionId,
+						sandboxAuthority: schema.pluginRevision.sandboxAuthority,
 						environmentConfigRevisionId: schema.plugin.environmentConfigRevisionId,
 						sourcePresent: sql<boolean>`${schema.sandboxScript.source} is not null`,
-						sandboxAuthority: schema.pluginRevisionSandboxAuthority.sandboxAuthority,
 					})
 					.from(schema.sandboxScript)
 					.leftJoin(schema.kernelScript, eq(schema.kernelScript.scriptId, schema.sandboxScript.id))
 					.leftJoin(
 						schema.pluginRevision,
 						eq(schema.pluginRevision.id, schema.sandboxScript.pluginRevisionId),
-					)
-					.leftJoin(
-						schema.pluginRevisionSandboxAuthority,
-						eq(schema.pluginRevisionSandboxAuthority.id, schema.pluginRevision.id),
 					)
 					.leftJoin(schema.plugin, eq(schema.plugin.id, schema.pluginRevision.pluginId))
 					.leftJoin(
