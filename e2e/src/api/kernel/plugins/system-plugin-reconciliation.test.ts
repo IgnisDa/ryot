@@ -22,13 +22,13 @@ import {
 	pollUntil,
 	PRIVATE_PLUGIN_CONFIG_KEY,
 	PRIVATE_PLUGIN_SECRET_KEY,
-	releasePrivatePlugin,
 	requireRows,
 	requireRyotQLText,
 	testPluginManifest,
 	testPluginPackageId,
 	testPluginSavedView,
 	installTestSupportSystemPlugin,
+	updatePrivatePlugin,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
@@ -208,7 +208,7 @@ afterAll(() =>
 );
 
 describe("system plugin reconciliation", () => {
-	it.live("marks a shadowed private installation incompatible and restores it when clear", () =>
+	it.live("keeps a shadowed private installation quarantined until it is explicitly updated", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
 			const packageId = testPluginPackageId();
@@ -239,7 +239,17 @@ describe("system plugin reconciliation", () => {
 			yield* uninstallShippedPlugin(shipped.pluginId, shipped.activationId);
 			yield* reconcilePluginInstallations();
 
-			const restored = yield* ownedInstallation(client, packageId);
+			const quarantined = yield* ownedInstallation(client, packageId);
+			expect(quarantined.health).toBe("incompatible");
+			yield* updatePrivatePlugin({
+				client,
+				baseUrl: apiUrl(),
+				installationId: plugin.installationId,
+				expectedSourceHash: quarantined.sourceHash,
+				payload: { files: plugin.files, manifest: plugin.manifest },
+			});
+
+			const restored = yield* settledInstallation(client, packageId, "user");
 			expect(restored).toMatchObject({ health: "ready", healthReason: null });
 			const [recovered] = yield* installationRows(client, packageId, "user");
 			expect(
@@ -284,46 +294,40 @@ describe("system plugin reconciliation", () => {
 		}),
 	);
 
-	it.live("marks a private installation incompatible when a shipped plugin claims its view", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient(apiUrl());
-			const viewSlug = `e2e-shared-view-${crypto.randomUUID()}`;
-			const savedViews = [testPluginSavedView({ slug: viewSlug })];
-			const packageId = testPluginPackageId();
-			const shippedPackageId = testPluginPackageId();
-			const plugin = yield* installPrivatePlugin({
-				client,
-				packageId,
-				savedViews,
-				baseUrl: apiUrl(),
-				config: privateConfig,
-			});
-			expect(plugin.installation).toMatchObject({ health: "ready", healthReason: null });
-			expect(
-				(yield* listSavedViews(client))
-					.filter((view) => view.slug === viewSlug)
-					.map(({ packageId: owner }) => owner),
-			).toEqual([packageId]);
+	it.live(
+		"keeps a private installation ready when a shipped plugin declares the same view slug",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient(apiUrl());
+				const viewSlug = `e2e-shared-view-${crypto.randomUUID()}`;
+				const savedViews = [testPluginSavedView({ slug: viewSlug })];
+				const packageId = testPluginPackageId();
+				const shippedPackageId = testPluginPackageId();
+				const plugin = yield* installPrivatePlugin({
+					client,
+					packageId,
+					savedViews,
+					baseUrl: apiUrl(),
+					config: privateConfig,
+				});
+				expect(plugin.installation).toMatchObject({ health: "ready", healthReason: null });
 
-			yield* installShippedPlugin(shippedPackageId, savedViews);
-			yield* reconcilePluginInstallations();
+				yield* installShippedPlugin(shippedPackageId, savedViews);
+				yield* reconcilePluginInstallations();
 
-			const conflicted = yield* ownedInstallation(client, packageId);
-			expect(conflicted.health).toBe("incompatible");
-			expect(conflicted.healthReason).not.toBeNull();
-			expect(yield* settledInstallation(client, shippedPackageId, "system")).toMatchObject({
-				health: "ready",
-			});
-			expect(
-				(yield* listSavedViews(client))
-					.filter((view) => view.slug === viewSlug)
-					.map(({ packageId: owner }) => owner),
-			).toEqual([shippedPackageId]);
-			// The shipped plugin is uninstalled when this test's scope closes, which would otherwise
-			// return the private installation to `ready` inside a later reconcile while the shipped
-			// plugin's generated view row still owns the shared slug.
-			yield* releasePrivatePlugin(client, plugin.installationId);
-		}),
+				expect(yield* ownedInstallation(client, packageId)).toMatchObject({
+					health: "ready",
+					healthReason: null,
+				});
+				expect(yield* settledInstallation(client, shippedPackageId, "system")).toMatchObject({
+					health: "ready",
+				});
+				expect(
+					(yield* listSavedViews(client))
+						.filter((view) => view.slug === viewSlug)
+						.map(({ packageId: owner }) => owner),
+				).toEqual(expect.arrayContaining([packageId, shippedPackageId]));
+			}),
 	);
 
 	it.live("provisions an installation for an existing user when a shipped plugin appears", () =>
