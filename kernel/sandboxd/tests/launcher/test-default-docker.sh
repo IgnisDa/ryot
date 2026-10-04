@@ -10,6 +10,7 @@ docker run --rm \
 	--workdir /workspace/kernel/sandboxd \
 	"$image" \
 	bash -euo pipefail -c '
+		export CARGO_BUILD_JOBS=1
 		export CARGO_TARGET_DIR=/tmp/ryot-sandboxd-launcher-target
 		cargo build --release --bins
 		cargo test --bin ryot-sandbox-launcher -- --test-threads=1
