@@ -32,9 +32,9 @@ it("keeps relative script imports inside their client or shared source root", ()
 	}
 	expect(
 		diagnose({
-			"client/a.ts": 'import "../shared/x"; import "./b";',
-			"client/nested/c.ts": 'import "..//b";',
 			"shared/y.ts": 'import "./x";',
+			"client/nested/c.ts": 'import "..//b";',
+			"client/a.ts": 'import "../shared/x"; import "./b";',
 		}),
 	).toEqual([]);
 });
