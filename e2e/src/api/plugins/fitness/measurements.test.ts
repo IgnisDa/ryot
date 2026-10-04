@@ -1,3 +1,4 @@
+import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { measurementSummaryRecipe } from "@ryot-app/fitness-plugin/measurement-recipes";
 import { measurementReadingListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
@@ -83,7 +84,7 @@ describe("Measurements E2E", () => {
 					dataSources: null,
 					name: "All Measurements",
 					renderer: { kind: "plugin", exportName: "measurements" },
-					reference: { pluginId, kind: "plugin", slug: "all-measurements" },
+					reference: builtinSavedViewReference(pluginId, "all-measurements"),
 				});
 			}),
 	);

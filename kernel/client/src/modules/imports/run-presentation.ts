@@ -1,4 +1,3 @@
-import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	IngestionActivity,
 	IngestionBlockReason,
@@ -8,6 +7,7 @@ import type {
 	ImportRunFailureReason,
 	ImportRunStatus,
 } from "@ryot-app/contract/modules/imports/schemas";
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { Match } from "effect";
 
@@ -188,7 +188,7 @@ export const importRunSourceKey = (installationId: string | null, slug: string) 
 	identityTupleKey(installationId, slug);
 
 export const importSourceName = (
-	run: { readonly source: string; readonly pluginInstallationId: string | null },
+	run: Pick<ImportRunSummary, "source" | "pluginInstallationId">,
 	names: ReadonlyMap<string, string>,
 ) =>
 	names.get(importRunSourceKey(run.pluginInstallationId, run.source)) ??

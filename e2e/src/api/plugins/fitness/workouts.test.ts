@@ -1,3 +1,7 @@
+import {
+	builtinSavedViewReference,
+	definitionOwner,
+} from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { workoutListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
@@ -182,7 +186,7 @@ describe("Workouts E2E", () => {
 				isBuiltin: true,
 				name: "All Workouts",
 				renderer: { kind: "kernel", name: "entity-browser" },
-				reference: { pluginId, kind: "plugin", slug: "all-workouts" },
+				reference: builtinSavedViewReference(pluginId, "all-workouts"),
 				settings: {
 					defaultLayout: "grid",
 					sourceName: "savedView",
@@ -193,7 +197,7 @@ describe("Workouts E2E", () => {
 					entitySchemaSlugField: "entitySchemaSlug",
 					addAction: {
 						type: "provider-search",
-						schema: { slug: "workout", owner: { pluginId, kind: "plugin" } },
+						schema: { slug: "workout", owner: definitionOwner(pluginId) },
 					},
 					tableColumns: [
 						{ label: "Name", field: "column0", displayKind: "text" },
