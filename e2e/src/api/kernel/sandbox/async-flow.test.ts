@@ -33,7 +33,7 @@ let httpServerUrl: string;
 let httpErrorServerUrl: string;
 let httpServer: FakeHttpServer;
 
-const configFixturePluginSlug = "e2e-sandbox-config-9d6f4b2a";
+const configFixturePluginName = "e2e-sandbox-config-9d6f4b2a";
 const configFixtureSchema = {
 	unknownKeys: "strict",
 	fields: {
@@ -226,7 +226,7 @@ describe("sandbox async flow", () => {
 				name: "get-plugin-config",
 				configSchema: configFixtureSchema,
 				capabilities: ["getPluginConfig"],
-				pluginSlug: configFixturePluginSlug,
+				pluginSlug: configFixturePluginName,
 				requiredPluginConfigKeys: ["fixtureValue", "fixtureLimit"],
 				config: { fixtureLimit: 17, fixtureValue: "sandbox-plugin-config-value" },
 				source: pluginConfigSandboxSource({
@@ -253,7 +253,7 @@ describe("sandbox async flow", () => {
 				name: "undeclared-plugin-config",
 				capabilities: ["getPluginConfig"],
 				configSchema: configFixtureSchema,
-				pluginSlug: configFixturePluginSlug,
+				pluginSlug: configFixturePluginName,
 				config: { fixtureValue: "sandbox-plugin-config-value" },
 				source: pluginConfigSandboxSource({
 					slug,

@@ -1,4 +1,4 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
@@ -23,6 +23,7 @@ import {
 	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
+	testPluginPackageId,
 	updatePluginState,
 	updatePrivatePlugin,
 	uploadPrivatePluginPackage,
@@ -32,22 +33,22 @@ import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const mediaSlug = PluginSlug.make("media");
+const mediaPackageId = mediaPlugin.metadata.packageId;
 
 const listPlugins = (client: Client) =>
 	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
 
 describe("private plugins", () => {
 	it.live(
-		"retries an uninstall without targeting a private plugin reinstalled under the same slug",
+		"retries an uninstall without targeting a private plugin reinstalled under the same package identity",
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const pluginSlug = PluginSlug.make(`e2e-private-uninstall-retry-${crypto.randomUUID()}`);
+				const packageId = testPluginPackageId();
 				const install = () =>
 					installPrivatePlugin({
 						client,
-						pluginSlug,
+						packageId,
 						config: {
 							[PRIVATE_PLUGIN_CONFIG_KEY]: "alpha",
 							[PRIVATE_PLUGIN_SECRET_KEY]: "token-alpha",
@@ -68,7 +69,7 @@ describe("private plugins", () => {
 				expect(replacement.activationId).not.toBe(first.activationId);
 				expect(yield* uninstall(first.installationId, first.activationId)).toEqual(removed);
 				expect(
-					(yield* listPlugins(client)).find(({ slug }) => slug === pluginSlug)?.activationId,
+					(yield* listPlugins(client)).find((entry) => entry.packageId === packageId)?.activationId,
 				).toBe(replacement.activationId);
 			}),
 	);
@@ -90,7 +91,7 @@ describe("private plugins", () => {
 							],
 							fields: [
 								field("health", column(installation, "health")),
-								field("pluginSlug", column(plugin, "slug")),
+								field("packageId", column(plugin, "packageId")),
 								field("sortOrder", column(installation, "sortOrder")),
 								field("isHidden", column(installation, "isHidden")),
 							],
@@ -98,11 +99,11 @@ describe("private plugins", () => {
 					}),
 				);
 				return requireRows(result.data.installations, "installations").items.filter((item) =>
-					["fitness", "media"].includes(requireRyotQLText(item, "pluginSlug")),
+					["ryot/fitness", "ryot/media"].includes(requireRyotQLText(item, "packageId")),
 				);
 			});
 			const items = yield* pollUntil(
-				"ready system installations for 'fitness' and 'media'",
+				"ready system installations for 'ryot/fitness' and 'ryot/media'",
 				readShipped.pipe(
 					Effect.map((candidates) => {
 						const settled = candidates.filter(
@@ -111,17 +112,16 @@ describe("private plugins", () => {
 								requireRyotQLValue(item, "sortOrder") === 0 &&
 								requireRyotQLValue(item, "isHidden") === false,
 						);
-						return sortBy(settled.map((item) => requireRyotQLText(item, "pluginSlug"))).join(
-							",",
-						) === "fitness,media"
+						return sortBy(settled.map((item) => requireRyotQLText(item, "packageId"))).join(",") ===
+							"ryot/fitness,ryot/media"
 							? candidates
 							: null;
 					}),
 				),
 			);
 
-			const bySlug = items.map((item) => requireRyotQLText(item, "pluginSlug"));
-			expect(sortBy(bySlug)).toEqual(["fitness", "media"]);
+			const byPackageId = items.map((item) => requireRyotQLText(item, "packageId"));
+			expect(sortBy(byPackageId)).toEqual(["ryot/fitness", "ryot/media"]);
 			for (const item of items) {
 				expect({
 					health: requireRyotQLText(item, "health"),
@@ -150,7 +150,7 @@ describe("private plugins", () => {
 				isHidden: false,
 				version: "1.0.0",
 				healthReason: null,
-				slug: plugin.pluginSlug,
+				packageId: plugin.manifest.metadata.packageId,
 			});
 			expect(plugin.installation.sourceHash).toMatch(/^[0-9a-f]{64}$/);
 		}),
@@ -170,7 +170,7 @@ describe("private plugins", () => {
 			const installations = yield* listPlugins(client);
 
 			const listed = requirePresent(
-				installations.find((entry) => entry.slug === plugin.pluginSlug),
+				installations.find((entry) => entry.packageId === plugin.manifest.metadata.packageId),
 				"Private plugin installation was not listed",
 			);
 			expect(listed).toMatchObject({
@@ -201,8 +201,8 @@ describe("private plugins", () => {
 			const { result } = yield* invokePrivatePluginOperation({
 				client,
 				prefix: "run",
-				pluginId: plugin.pluginId,
 				operationSlug: plugin.operationSlug,
+				packageId: plugin.manifest.metadata.packageId,
 			});
 
 			expect(result).toEqual({ label: "run:alpha" });
@@ -225,7 +225,9 @@ describe("private plugins", () => {
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta" },
 			});
 			const persisted = requirePresent(
-				(yield* listPlugins(client)).find(({ slug }) => slug === plugin.pluginSlug),
+				(yield* listPlugins(client)).find(
+					({ packageId }) => packageId === plugin.manifest.metadata.packageId,
+				),
 				"Patched private plugin was not found",
 			);
 			expect(persisted).toMatchObject({
@@ -243,8 +245,8 @@ describe("private plugins", () => {
 				(yield* invokePrivatePluginOperation({
 					client,
 					prefix: "run",
-					pluginId: plugin.pluginId,
 					operationSlug: plugin.operationSlug,
+					packageId: plugin.manifest.metadata.packageId,
 				})).result,
 			).toEqual({ label: "run:beta" });
 
@@ -253,8 +255,8 @@ describe("private plugins", () => {
 				invokePrivatePluginOperation({
 					client,
 					prefix: "run",
-					pluginId: plugin.pluginId,
 					operationSlug: plugin.operationSlug,
+					packageId: plugin.manifest.metadata.packageId,
 				}),
 			);
 			assertTaggedError(failure, "PluginNotFoundError");
@@ -264,8 +266,8 @@ describe("private plugins", () => {
 				(yield* invokePrivatePluginOperation({
 					client,
 					prefix: "run",
-					pluginId: plugin.pluginId,
 					operationSlug: plugin.operationSlug,
+					packageId: plugin.manifest.metadata.packageId,
 				})).result,
 			).toEqual({ label: "run:beta" });
 		}),
@@ -288,7 +290,10 @@ describe("private plugins", () => {
 					client,
 					document({
 						plugins: rows(plugin, {
-							where: eq(column(plugin, "slug"), literal(installed.pluginSlug)),
+							where: eq(
+								column(plugin, "packageId"),
+								literal(installed.manifest.metadata.packageId),
+							),
 							fields: [
 								field("pluginId", column(plugin, "id")),
 								field("installationId", column(installation, "id")),
@@ -329,7 +334,9 @@ describe("private plugins", () => {
 			);
 
 			const persisted = requirePresent(
-				(yield* listPlugins(client)).find(({ slug }) => slug === installed.pluginSlug),
+				(yield* listPlugins(client)).find(
+					({ packageId }) => packageId === installed.manifest.metadata.packageId,
+				),
 				"Updated private plugin was not found",
 			);
 			expect(after).toEqual(before);
@@ -347,9 +354,9 @@ describe("private plugins", () => {
 				invokePrivatePluginOperation({
 					client,
 					prefix: "run",
-					pluginId: installed.pluginId,
 					operationSlug: installed.operationSlug,
 					sourceHash: installed.installation.sourceHash,
+					packageId: installed.manifest.metadata.packageId,
 				}),
 			);
 			assertTaggedError(stale, "PluginConflictError");
@@ -358,9 +365,9 @@ describe("private plugins", () => {
 				(yield* invokePrivatePluginOperation({
 					client,
 					prefix: "run",
-					pluginId: installed.pluginId,
 					sourceHash: persisted.sourceHash,
 					operationSlug: installed.operationSlug,
+					packageId: installed.manifest.metadata.packageId,
 				})).result,
 			).toEqual({ label: "run:BETA" });
 		}),
@@ -393,7 +400,7 @@ describe("private plugins", () => {
 
 			const media = requirePresent(
 				(yield* listNamespaceInstallations(owner.client)).find(
-					({ slug, scope }) => slug === mediaSlug && scope === "system",
+					({ scope, packageId }) => packageId === mediaPackageId && scope === "system",
 				),
 				"Media installation missing",
 			);
@@ -403,21 +410,21 @@ describe("private plugins", () => {
 		}),
 	);
 
-	it.live("isolates two users installing different packages under the same slug", () =>
+	it.live("isolates two users installing different packages under the same package identity", () =>
 		Effect.gen(function* () {
 			const first = yield* createAuthenticatedClient();
 			const second = yield* createAuthenticatedClient();
-			const sharedSlug = `e2e-private-shared-${crypto.randomUUID()}`;
+			const sharedPackageId = testPluginPackageId();
 
 			const firstPlugin = yield* installPrivatePlugin({
 				client: first.client,
-				pluginSlug: sharedSlug,
+				packageId: sharedPackageId,
 				transform: "value.toUpperCase()",
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha", [PRIVATE_PLUGIN_SECRET_KEY]: "token-a" },
 			});
 			const secondPlugin = yield* installPrivatePlugin({
 				client: second.client,
-				pluginSlug: sharedSlug,
+				packageId: sharedPackageId,
 				transform: "value + '-suffix'",
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta", [PRIVATE_PLUGIN_SECRET_KEY]: "token-b" },
 			});
@@ -427,14 +434,14 @@ describe("private plugins", () => {
 			const firstResult = yield* invokePrivatePluginOperation({
 				prefix: "run",
 				client: first.client,
-				pluginId: firstPlugin.pluginId,
 				operationSlug: firstPlugin.operationSlug,
+				packageId: firstPlugin.manifest.metadata.packageId,
 			});
 			const secondResult = yield* invokePrivatePluginOperation({
 				prefix: "run",
 				client: second.client,
-				pluginId: secondPlugin.pluginId,
 				operationSlug: secondPlugin.operationSlug,
+				packageId: secondPlugin.manifest.metadata.packageId,
 			});
 
 			expect(firstResult.result).toEqual({ label: "run:ALPHA" });
@@ -458,19 +465,21 @@ describe("private plugins", () => {
 				invokePrivatePluginOperation({
 					prefix: "run",
 					client: outsider.client,
-					pluginId: plugin.pluginId,
 					operationSlug: plugin.operationSlug,
+					packageId: plugin.manifest.metadata.packageId,
 				}),
 			);
 			assertTaggedError(failure, "PluginNotFoundError");
 			expect(failure.reason).toEqual({
-				pluginId: plugin.pluginId,
 				code: "operation-not-found",
 				operationSlug: plugin.operationSlug,
+				packageId: plugin.manifest.metadata.packageId,
 			});
 
 			const installations = yield* listPlugins(outsider.client);
-			expect(installations.map((entry) => entry.slug)).not.toContain(plugin.pluginSlug);
+			expect(installations.map((entry) => entry.packageId)).not.toContain(
+				plugin.manifest.metadata.packageId,
+			);
 		}),
 	);
 
@@ -480,11 +489,10 @@ describe("private plugins", () => {
 			const failure = yield* Effect.flip(
 				installPrivatePlugin({
 					client,
-					pluginSlug: mediaSlug,
 					config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha" },
 					packageId: requirePresent(
 						(yield* listNamespaceInstallations(client)).find(
-							({ slug, scope }) => slug === mediaSlug && scope === "system",
+							({ scope, packageId }) => packageId === mediaPackageId && scope === "system",
 						),
 						"Media installation missing",
 					).packageId,
@@ -568,7 +576,7 @@ describe("private plugins", () => {
 
 			const media = requirePresent(
 				(yield* listNamespaceInstallations(owner.client)).find(
-					({ slug, scope }) => slug === mediaSlug && scope === "system",
+					({ scope, packageId }) => packageId === mediaPackageId && scope === "system",
 				),
 				"Media installation missing",
 			);
@@ -600,13 +608,15 @@ describe("private plugins", () => {
 					params: { activationId: plugin.activationId, installationId: plugin.installationId },
 				}),
 			);
-			expect((yield* listPlugins(client)).map(({ slug }) => slug)).not.toContain(plugin.pluginSlug);
+			expect((yield* listPlugins(client)).map(({ packageId }) => packageId)).not.toContain(
+				plugin.manifest.metadata.packageId,
+			);
 			const failure = yield* Effect.flip(
 				invokePrivatePluginOperation({
 					client,
 					prefix: "run",
-					pluginId: plugin.pluginId,
 					operationSlug: plugin.operationSlug,
+					packageId: plugin.manifest.metadata.packageId,
 				}),
 			);
 			assertTaggedError(failure, "PluginNotFoundError");

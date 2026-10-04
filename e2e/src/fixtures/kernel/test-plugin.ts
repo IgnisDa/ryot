@@ -6,7 +6,6 @@ import {
 	type PluginId,
 	PluginPackageId,
 	type PluginRevisionId,
-	PluginSlug,
 	type SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
@@ -70,7 +69,7 @@ type TestPluginManifestInput = Partial<
 	scripts?: ReadonlyArray<FixtureScript>;
 	providers?: ReadonlyArray<PluginProvider>;
 	clientDefinition?: TestPluginManifest["client"];
-	pluginSlug: TestPluginManifest["metadata"]["slug"];
+	pluginSlug: string;
 	packageId?: TestPluginManifest["metadata"]["packageId"];
 };
 
@@ -82,7 +81,7 @@ export type InstalledTestPlugin = {
 	active: boolean;
 	pluginId: PluginId;
 	activationId: string;
-	pluginSlug: PluginSlug;
+	pluginSlug: string;
 	scope: "system" | "user";
 	sourceHash: string;
 	scriptId: SandboxScriptId;
@@ -107,6 +106,8 @@ type TestDefinitionRegistration = {
 const encoder = new TextEncoder();
 const installedByScriptId = new Map<string, InstalledScriptRegistration>();
 const definitionManifests = new Map<string, TestDefinitionRegistration>();
+
+export const testPluginPackageId = () => PluginPackageId.make(`test/${crypto.randomUUID()}`);
 
 export const encodePluginSourceFiles = (files: Readonly<Record<string, string>>) =>
 	Object.fromEntries(
@@ -216,10 +217,9 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 	metadata: {
 		version: "1.0.0",
 		icon: "flask-conical",
-		slug: input.pluginSlug,
 		name: "E2E Test Plugin",
+		packageId: input.packageId ?? testPluginPackageId(),
 		description: "Generic plugin fixture for end-to-end tests",
-		packageId: input.packageId ?? PluginPackageId.make(crypto.randomUUID()),
 	},
 });
 
@@ -276,6 +276,7 @@ export const installTestPlugin = (
 	input: {
 		source: string;
 		pluginSlug?: string;
+		packageId?: TestPluginManifest["metadata"]["packageId"];
 		script: TestPluginScript;
 		crons?: TestPluginManifest["crons"];
 		config?: InstallPluginPayload["config"];
@@ -293,6 +294,7 @@ export const installTestPlugin = (
 		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${crypto.randomUUID()}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
+			packageId: input.packageId,
 			providers: input.providers ?? [],
 			configSchema: input.configSchema,
 			httpRateLimits: input.httpRateLimits,
@@ -351,11 +353,11 @@ export const installTestPlugin = (
 			scriptId,
 			scriptIds,
 			sourceHash,
+			pluginSlug,
 			active: true,
 			client: input.client,
 			slug: input.script.slug,
 			pluginId: operationResult.pluginId,
-			pluginSlug: PluginSlug.make(pluginSlug),
 			activationId: operationResult.activationId,
 			installationId: operationResult.installationId,
 			configRevisionId: operationResult.configRevisionId,
@@ -370,6 +372,7 @@ export const installTestPluginBundle = (
 	input: {
 		baseUrl?: string;
 		pluginSlug?: string;
+		packageId?: TestPluginManifest["metadata"]["packageId"];
 		crons?: TestPluginManifest["crons"];
 		hooks?: TestPluginManifest["hooks"];
 		scripts: ReadonlyArray<FixtureScript>;
@@ -396,6 +399,7 @@ export const installTestPluginBundle = (
 			crons: input.crons,
 			hooks: input.hooks,
 			scripts: input.scripts,
+			packageId: input.packageId,
 			workflows: input.workflows,
 			savedViews: input.savedViews,
 			providers: input.providers ?? [],
@@ -466,10 +470,10 @@ export const installTestPluginBundle = (
 			scriptId,
 			scriptIds,
 			sourceHash,
+			pluginSlug,
 			active: true,
 			client: input.client,
 			pluginId: operationResult.pluginId,
-			pluginSlug: PluginSlug.make(pluginSlug),
 			activationId: operationResult.activationId,
 			installationId: operationResult.installationId,
 			configRevisionId: operationResult.configRevisionId,

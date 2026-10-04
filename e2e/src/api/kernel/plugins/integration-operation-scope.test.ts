@@ -50,40 +50,40 @@ describe("integration authenticated operation scope", () => {
 			expect(
 				(yield* invokePrivateIntegrationOperation({
 					client,
-					pluginId: declaring.pluginId,
 					integrationId: integration.id,
 					operationSlug: declaring.operationSlug,
+					packageId: declaring.manifest.metadata.packageId,
 				})).result,
 			).toEqual({ integrationId: integration.id });
 
 			const foreignPrivate = yield* Effect.flip(
 				invokePrivateIntegrationOperation({
 					client,
-					pluginId: other.pluginId,
 					integrationId: integration.id,
 					operationSlug: other.operationSlug,
+					packageId: other.manifest.metadata.packageId,
 				}),
 			);
 			assertTaggedError(foreignPrivate, "PluginNotFoundError");
 			expect(foreignPrivate.reason).toEqual({
-				pluginId: other.pluginId,
 				code: "operation-not-found",
 				operationSlug: other.operationSlug,
+				packageId: other.manifest.metadata.packageId,
 			});
 
 			const foreignSystem = yield* Effect.flip(
 				invokePrivateIntegrationOperation({
 					client,
 					integrationId: kodi.id,
-					pluginId: declaring.pluginId,
 					operationSlug: declaring.operationSlug,
+					packageId: declaring.manifest.metadata.packageId,
 				}),
 			);
 			assertTaggedError(foreignSystem, "PluginNotFoundError");
 			expect(foreignSystem.reason).toEqual({
-				pluginId: declaring.pluginId,
 				code: "operation-scope-not-found",
 				operationSlug: declaring.operationSlug,
+				packageId: declaring.manifest.metadata.packageId,
 			});
 		}),
 	);

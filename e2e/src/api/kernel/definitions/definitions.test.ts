@@ -110,13 +110,14 @@ describe("Definitions E2E", () => {
 	it.live("includes the built-in collection definition", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const schemas = yield* listEntities(client);
+			const [schemas, plugins] = yield* Effect.all([listEntities(client), listPlugins(client)]);
+			const mediaPlugin = plugins.find(({ packageId }) => packageId === "ryot/media");
 			const collectionSchema = schemas.find((schema) => schema.slug === "collection");
 			const movieSchema = schemas.find((schema) => schema.slug === "movie");
 
 			expect(collectionSchema).toBeDefined();
-			expect(collectionSchema?.pluginSlug).toBeNull();
-			expect(movieSchema?.pluginSlug).toBe("media");
+			expect(collectionSchema?.pluginId).toBeNull();
+			expect(movieSchema?.pluginId).toBe(mediaPlugin?.pluginId);
 			expect(collectionSchema).toMatchObject({
 				icon: "folders",
 				name: "Collection",
@@ -152,14 +153,16 @@ describe("Definitions E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const [schemas, plugins] = yield* Effect.all([listEntities(client), listPlugins(client)]);
-			const selected = plugins.filter((plugin) => ["media", "fitness"].includes(plugin.slug));
+			const selected = plugins.filter((plugin) =>
+				["ryot/media", "ryot/fitness"].includes(plugin.packageId),
+			);
 
-			expect(selected.map((plugin) => plugin.slug)).toEqual(
-				expect.arrayContaining(["fitness", "media"]),
+			expect(selected.map((plugin) => plugin.packageId)).toEqual(
+				expect.arrayContaining(["ryot/fitness", "ryot/media"]),
 			);
 			expect(selected).toHaveLength(2);
 			expect(
-				selected.every((plugin) => schemas.some((schema) => schema.pluginSlug === plugin.slug)),
+				selected.every((plugin) => schemas.some((schema) => schema.pluginId === plugin.pluginId)),
 			).toBe(true);
 		}),
 	);

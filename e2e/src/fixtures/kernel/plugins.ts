@@ -1,6 +1,6 @@
 import type { ContractPathParams, ContractPayload } from "@ryot-app/contract/client";
 import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
-import { type PluginId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
 
@@ -9,7 +9,7 @@ import { requirePresent } from "~/support/assertions";
 import type { Client } from "./auth";
 import { collectRyotQLRecipeItems } from "./ryotql";
 
-export const createPluginScope = (slug = `plugin-${crypto.randomUUID()}`) => PluginSlug.make(slug);
+export const createPluginScope = (slug = `plugin-${crypto.randomUUID()}`) => slug;
 
 export const listInstalledPlugins = (client: Client, options: { includeHidden?: boolean } = {}) =>
 	collectRyotQLRecipeItems(client, (after) =>

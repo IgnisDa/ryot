@@ -190,13 +190,18 @@ describe("plugin namespace authority", () => {
 				Schema.toCodecJson(genericImportSealInputSchema),
 			)(request);
 			const denied = yield* Effect.flip(
-				invokeNamespaceOperation(client, a.pluginId, { kernelInput, action: "kernel-child" }),
+				invokeNamespaceOperation(client, a.installation.packageId, {
+					kernelInput,
+					action: "kernel-child",
+				}),
 			);
 			assertTaggedError(denied, "PluginInvocationError");
 			expect(denied.reason.code).toBe("runtime-failed");
 			yield* Deferred.succeed(release, undefined);
 			expect((yield* pollImportRunUntilTerminal(client, run.id)).status).toBe("completed");
-			expect((yield* invokeNamespaceOperation(client, a.pluginId)).result).toEqual({ label: "A1" });
+			expect((yield* invokeNamespaceOperation(client, a.installation.packageId)).result).toEqual({
+				label: "A1",
+			});
 		}),
 	);
 	it.live("matches policies, hooks and same-name signals only within their exact owner", () =>
@@ -227,7 +232,7 @@ describe("plugin namespace authority", () => {
 					))[0],
 					"Owned bottle missing",
 				);
-				yield* invokeNamespaceOperation(client, installed.pluginId, {
+				yield* invokeNamespaceOperation(client, installed.installation.packageId, {
 					entityId: bottle.id,
 					action: "create-event",
 				});
@@ -294,7 +299,7 @@ describe("plugin namespace authority", () => {
 				)).find(({ schema }) => schema === "distillery"),
 				"B distillery missing",
 			);
-			yield* invokeNamespaceOperation(client, b.pluginId, {
+			yield* invokeNamespaceOperation(client, b.installation.packageId, {
 				entityId: foreign.id,
 				action: "create-event",
 			});
@@ -310,7 +315,9 @@ describe("plugin namespace authority", () => {
 				{ entityId: own.id, action: "relationship", targetEntityId: foreignDistillery.id },
 			];
 			for (const payload of attacks) {
-				const error = yield* Effect.flip(invokeNamespaceOperation(client, a.pluginId, payload));
+				const error = yield* Effect.flip(
+					invokeNamespaceOperation(client, a.installation.packageId, payload),
+				);
 				assertTaggedError(error, "PluginInvocationError");
 				expect(error.reason.code).toBe("runtime-failed");
 			}

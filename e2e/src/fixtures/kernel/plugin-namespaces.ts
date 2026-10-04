@@ -6,6 +6,7 @@ import {
 import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/schemas";
 import {
 	PluginPackageId,
+	pluginPackageSegments,
 	PluginId,
 	EntityId,
 	SandboxProviderId,
@@ -32,7 +33,7 @@ import { installPrivatePluginPackage } from "./private-plugin";
 import { executeRyotQLRecipe } from "./ryotql";
 import { providerSandboxSource } from "./sandbox-provider";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
-import { encodePluginSourceFiles, testPluginManifest } from "./test-plugin";
+import { encodePluginSourceFiles, testPluginManifest, testPluginPackageId } from "./test-plugin";
 
 type NamespaceInstallResult = ContractSuccess<"plugins", "install">;
 type NamespaceInvocation = ContractPayload<"plugins", "invoke">;
@@ -55,7 +56,6 @@ export const namespaceInstallationsRecipe = defineRecipe(() => ({
 			selection: {
 				pluginId: selectedField(column(plugin, "id"), PluginId),
 				name: selectedField(column(plugin, "name"), Schema.String),
-				slug: selectedField(column(plugin, "slug"), Schema.String),
 				version: selectedField(column(plugin, "version"), Schema.String),
 				id: selectedField(column(installationTable, "id"), Schema.String),
 				packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
@@ -441,10 +441,10 @@ const clientSource = (label: string, packageId: PluginPackageId, contributor: bo
 import { Schema } from "@ryot-app/client-sdk/effect";
 import { createRyotMutation, createRyotQuery, usePluginIdentity, usePluginStorage, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { PluginId, PluginPackageId, type PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
+import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import { contributorBottlesRecipe } from "../shared/query-recipes";
 ${contributor ? 'import Contributor from "@ryot-app/plugins/whiskey/catalog";' : ""}
-const invoke = createRyotMutation<{ pluginId: typeof PluginId.Type }, { label: string }>(({ input, client }) => client.operations.invoke({ pluginId: input.pluginId, slug: "inspect", input: {}, output: Schema.Struct({ label: Schema.String }) }));
+const invoke = createRyotMutation<{ packageId: typeof PluginPackageId.Type }, { label: string }>(({ input, client }) => client.operations.invoke({ packageId: input.packageId, slug: "inspect", input: {}, output: Schema.Struct({ label: Schema.String }) }));
 const bottlesQuery = createRyotQuery<PluginIdentityReference, readonly string[]>(({ input, client }) => client.data.query(contributorBottlesRecipe(input)));
 export const Catalog = () => {
   const identity = usePluginIdentity(PluginPackageId.make(${JSON.stringify(packageId)}));
@@ -456,7 +456,7 @@ export const Catalog = () => {
     <p data-testid="storage-value">{storage.status === "ready" ? storage.value ?? "empty" : "loading"}</p>
     <p data-testid="bottle-names">{bottles.data?.join(",") ?? "loading"}</p>
     <button disabled={storage.status !== "ready"} onClick={() => { if (storage.status === "ready") void storage.set(${JSON.stringify(label)}); }}>Store ${label}</button>
-    <button onClick={() => operation.mutate({ pluginId: identity.pluginId })}>Invoke ${label}</button>
+    <button onClick={() => operation.mutate({ packageId: PluginPackageId.make(${JSON.stringify(packageId)}) })}>Invoke ${label}</button>
     <p data-testid="operation-result">{operation.data?.label ?? "idle"}</p>
   </section>;
 };
@@ -940,8 +940,8 @@ const namespacePackage = (input: {
 };
 
 export const pluginNamespacePackages = (options: { readonly compose?: boolean } = {}) => {
-	const aId = PluginPackageId.make(crypto.randomUUID());
-	const bId = PluginPackageId.make(crypto.randomUUID());
+	const aId = testPluginPackageId();
+	const bId = testPluginPackageId();
 	const externalId = `namespace-${crypto.randomUUID()}`;
 	const commonA = {
 		packageId: aId,
@@ -975,7 +975,7 @@ export const pluginNamespacePackages = (options: { readonly compose?: boolean } 
 			opaque: externalId,
 			label: "Contributor",
 			uniqueSchema: "warehouse",
-			packageId: PluginPackageId.make(crypto.randomUUID()),
+			packageId: testPluginPackageId(),
 		}),
 	};
 };
@@ -1006,14 +1006,14 @@ export const installNamespacePackage = (
 
 export const invokeNamespaceOperation = (
 	client: Client,
-	targetPluginId: PluginId,
+	targetPackageId: PluginPackageId,
 	payload: NamespaceInvocation["payload"] = {},
 	sourceHash?: string,
 ) =>
 	client.call((contract) =>
 		contract.plugins.invoke({
 			payload: { payload, ...(sourceHash ? { sourceHash } : {}) },
-			params: { pluginId: targetPluginId, operationSlug: "inspect" },
+			params: { ...pluginPackageSegments(targetPackageId), operationSlug: "inspect" },
 		}),
 	);
 

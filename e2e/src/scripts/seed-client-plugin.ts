@@ -4,7 +4,7 @@
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
-import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import dotenv from "dotenv";
 
@@ -22,7 +22,7 @@ import {
 	findPluginInstallationById,
 	setPluginHomeView,
 } from "../fixtures/kernel/plugins";
-import { findSavedViewById } from "../fixtures/kernel/saved-views";
+import { findSavedViewById, savedViewRecordPath } from "../fixtures/kernel/saved-views";
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
@@ -86,12 +86,12 @@ async function main() {
 
 	console.log(`Email: ${email}`);
 	console.log(`Password: ${password}`);
-	console.log(`Plugin URL: ${appBaseUrl}${pluginPath(installation.pluginId)}`);
-	console.log(`Home URL: ${appBaseUrl}${pluginPath(media.pluginId)}`);
+	console.log(`Plugin URL: ${appBaseUrl}${pluginPath(installation.packageId)}`);
+	console.log(`Home URL: ${appBaseUrl}${pluginPath(media.packageId)}`);
 	const primaryRecord = await runPromise(findSavedViewById(client, primaryView.id));
 	const secondaryRecord = await runPromise(findSavedViewById(client, secondaryView.id));
-	console.log(`Primary URL: ${appBaseUrl}${savedViewPath(primaryRecord.reference)}`);
-	console.log(`Secondary URL: ${appBaseUrl}${savedViewPath(secondaryRecord.reference)}`);
+	console.log(`Primary URL: ${appBaseUrl}${savedViewRecordPath(primaryRecord)}`);
+	console.log(`Secondary URL: ${appBaseUrl}${savedViewRecordPath(secondaryRecord)}`);
 	console.log("Saved-view renderer: fixture/fixture-home");
 
 	const input = createInterface({ input: process.stdin, output: process.stdout });

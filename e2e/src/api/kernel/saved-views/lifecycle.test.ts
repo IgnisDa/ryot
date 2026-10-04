@@ -358,9 +358,9 @@ describe("Saved views lifecycle E2E", () => {
 				expect(new Set(listedViews.map((v) => v.id))).toEqual(
 					new Set([disabledTracked.id, enabledTracked.id]),
 				);
-				expect(listedViews.map((v) => v.pluginSlug)).toEqual([
-					workspace.pluginSlug,
-					workspace.pluginSlug,
+				expect(listedViews.map((v) => v.packageId)).toEqual([
+					workspace.installation.packageId,
+					workspace.installation.packageId,
 				]);
 				expect(listedViews.some((v) => v.isHidden)).toBe(true);
 			}),
@@ -455,7 +455,7 @@ describe("Saved views lifecycle E2E", () => {
 			});
 
 			expect(updatedView.id).toBe(movedView.id);
-			expect(fetchedView.pluginSlug).toBeNull();
+			expect(fetchedView.packageId).toBeNull();
 			expect(topLevelViews.map((v) => v.id)).toContain(movedView.id);
 			expect(pluginViews.map((v) => v.id)).not.toContain(movedView.id);
 		}),
@@ -466,7 +466,7 @@ describe("Saved views lifecycle E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinView = requirePresent(
 				(yield* listSavedViews(client, { includeHidden: true })).find(
-					(view) => view.isBuiltin && view.pluginSlug === null,
+					(view) => view.isBuiltin && view.packageId === null,
 				),
 				"Top-level built-in saved view not found",
 			);
@@ -487,7 +487,7 @@ describe("Saved views lifecycle E2E", () => {
 			]);
 			expect(
 				topLevelViews
-					.filter((view) => view.pluginSlug === null)
+					.filter((view) => view.packageId === null)
 					.map((view) => view.slug)
 					.slice(0, 2),
 			).toEqual([customView.slug, builtinView.slug]);

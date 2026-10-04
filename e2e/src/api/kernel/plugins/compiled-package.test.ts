@@ -1,4 +1,3 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -19,6 +18,7 @@ import {
 	installTestSupportSystemPlugin,
 	testPluginManifest,
 	testPluginSavedView,
+	testPluginPackageId,
 } from "~/fixtures/kernel/test-plugin";
 import { assertTaggedError } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
@@ -30,11 +30,13 @@ it.live("rejects a system built-in slug already owned by another user's custom v
 		const owner = yield* createAuthenticatedClient();
 		const view = yield* createSavedView(owner.client, { name: `Collision ${crypto.randomUUID()}` });
 		const custom = yield* findSavedViewById(owner.client, view.id);
-		const pluginSlug = PluginSlug.make(`e2e-collision-${crypto.randomUUID()}`);
+		const pluginSlug = `e2e-collision-${crypto.randomUUID()}`;
+		const packageId = testPluginPackageId();
 		const error = yield* Effect.flip(
 			installTestSupportSystemPlugin({
 				files: {},
 				manifest: testPluginManifest({
+					packageId,
 					pluginSlug,
 					savedViews: [testPluginSavedView({ slug: custom.slug })],
 				}),
@@ -43,7 +45,9 @@ it.live("rejects a system built-in slug already owned by another user's custom v
 		assertTaggedError(error, "PluginRequestError");
 		expect(error.reason.code).toBe("validation-failed");
 		expect((yield* getSavedView(owner.client, custom.reference)).id).toBe(custom.id);
-		expect((yield* listAdminSystemPlugins).some(({ slug }) => slug === pluginSlug)).toBe(false);
+		expect(
+			(yield* listAdminSystemPlugins).some((candidate) => candidate.packageId === packageId),
+		).toBe(false);
 	}),
 );
 
@@ -55,7 +59,7 @@ it.live(
 			const scriptSlug = `${pluginSlug}.fixture`;
 			const entry = "backend/scripts/fixture.sandbox.ts";
 			const manifest = testPluginManifest({
-				pluginSlug: PluginSlug.make(pluginSlug),
+				pluginSlug: pluginSlug,
 				scripts: [
 					{
 						entry,

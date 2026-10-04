@@ -16,6 +16,7 @@ import {
 	jsonPath,
 	literal,
 	measure,
+	pluginId,
 	rows,
 	table,
 	timeSeries,
@@ -49,7 +50,7 @@ export const findPluginIdByPackage = (
 		throw new Error("Cannot find a user plugin without an authenticated user");
 	}
 	return findPluginInstallationByPackage(client, reference).pipe(
-		Effect.map(({ pluginId }) => pluginId),
+		Effect.map((installation) => installation.pluginId),
 	);
 };
 
@@ -118,7 +119,12 @@ export const buildEntityBrowserSavedViewPayload = (
 			: [eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug))]),
 		...(ownerPluginId === undefined
 			? []
-			: [eq(column(entity, "entitySchemaPluginId"), literal(ownerPluginId))]),
+			: [
+					eq(
+						column(entity, "entitySchemaPluginId"),
+						pluginId({ kind: "local", pluginId: ownerPluginId }),
+					),
+				]),
 	];
 	return {
 		icon: "library",
@@ -269,7 +275,7 @@ export const buildNamedDataSources = (
 export const collectionWorkflowRendererSource = `
 import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
 import { EntityResults, PluginPackageId, usePageContext, usePageRefresh } from "@ryot-app/client-sdk/plugin";
-import { createRyotMutation, createRyotQuery, usePluginIdentity, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
+import { createRyotMutation, createRyotQuery, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal, selectedAggregate, selectedField, selectedMeasure, selectedRows, table, type Recipe } from "@ryot-app/client-sdk/ryotql";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
@@ -337,7 +343,7 @@ const collectionPageRecipe = defineRecipe((input: CollectionPageInput) => {
         groupBy: {
           ownerPluginId: selectedField(column(entity, "entitySchemaPluginId"), Schema.NullOr(Schema.String)),
           ownerPluginName: selectedField(column(ownerPlugin, "name"), Schema.NullOr(Schema.String)),
-          ownerPluginSlug: selectedField(column(ownerPlugin, "slug"), Schema.NullOr(Schema.String)),
+          ownerPackageId: selectedField(column(ownerPlugin, "packageId"), Schema.NullOr(Schema.String)),
           schemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
         },
         measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
@@ -373,7 +379,7 @@ const collectionPageQuery = createRyotQuery<string, CollectionQueryPage>(async (
 });
 
 const schemaLabel = (group: CollectionPageData["grouped"][number]) => {
-  if (group.ownerPluginSlug === "fixture" && group.schemaSlug === "pokemon") return "Pokemon";
+  if (group.ownerPackageId === ${JSON.stringify(fixturePlugin.metadata.packageId)} && group.schemaSlug === "pokemon") return "Pokemon";
   if (group.ownerPluginId === null && group.schemaSlug === "collection") return "Collections";
   return group.ownerPluginName === null ? group.schemaSlug : group.ownerPluginName + " / " + group.schemaSlug;
 };
@@ -403,12 +409,11 @@ const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {
   useEffect(() => () => replay.current?.complete(), []);
   const queryInput = JSON.stringify([collectionId, pageSize, cursor, generation]);
   const page = useRyotQuery(collectionPageQuery, queryInput, { refreshOnMutation: false });
-  const fixtureIdentity = usePluginIdentity(PluginPackageId.make(${JSON.stringify(fixturePlugin.metadata.packageId)}));
   const greetingMutation = createRyotMutation(({ client }) => client.operations.invoke({
     slug: "greet",
     input: { name: "Media collection page" },
     output: Greeting,
-    pluginId: fixtureIdentity.pluginId,
+    packageId: PluginPackageId.make(${JSON.stringify(fixturePlugin.metadata.packageId)}),
   }));
   const greeting = useRyotMutation(greetingMutation);
   useEffect(() => {

@@ -1,4 +1,3 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect } from "effect";
 import getPort from "get-port";
@@ -10,7 +9,6 @@ import {
 	encodePluginSourceFiles,
 	executeRyotQLRecipe,
 	fixtureClientPluginPackage,
-	FIXTURE_CLIENT_PLUGIN_SLUG,
 	installPrivatePluginPackage,
 	installTestSupportSystemPlugin,
 	literalSandboxSource,
@@ -45,7 +43,7 @@ const fixtureCatalogEntry = (client: Parameters<typeof executeRyotQLRecipe>[0]) 
 	Effect.gen(function* () {
 		const catalog = yield* executeRyotQLRecipe(client, pluginClientCatalogRecipe());
 		return requirePresent(
-			catalog.items.find((entry) => entry.slug === FIXTURE_CLIENT_PLUGIN_SLUG),
+			catalog.items.find((entry) => entry.scope === "user"),
 			"Fixture client plugin was not listed in the client catalog",
 		);
 	});
@@ -140,7 +138,7 @@ describe("plugin catalog events", () => {
 			yield* reconnected.waitForConnected();
 			expect((yield* fixtureCatalogEntry(owner.client)).sourceHash).not.toBe(after.sourceHash);
 
-			const pluginSlug = PluginSlug.make(`e2e-catalog-system-${crypto.randomUUID()}`);
+			const pluginSlug = `e2e-catalog-system-${crypto.randomUUID()}`;
 			const scriptSlug = `e2e-catalog-system-script-${crypto.randomUUID()}`;
 			const entry = "backend/scripts/catalog-events.sandbox.ts";
 			const name = "E2E catalog events system plugin";

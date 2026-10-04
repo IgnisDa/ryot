@@ -1,4 +1,5 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -129,13 +130,12 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 				description: "A deterministic browser tracer show.",
 			},
 		});
-		const { pluginId } = yield* findMediaEntitySchema(client, "show");
 		yield* insertLibraryMembership(client, { mediaEntityId: showId });
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(
-			`${frontendUrl}${savedViewPath({ pluginId, kind: "plugin", slug: "all-shows" })}`,
+			`${frontendUrl}${savedViewPath({ kind: "plugin", slug: "all-shows", packageId: mediaPlugin.metadata.packageId })}`,
 		);
 		yield* page
 			.locator("iframe")
@@ -215,7 +215,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 
 		yield* page.goBack();
 		yield* page.waitForURL(
-			`${frontendUrl}${savedViewPath({ pluginId, kind: "plugin", slug: "all-shows" })}`,
+			`${frontendUrl}${savedViewPath({ kind: "plugin", slug: "all-shows", packageId: mediaPlugin.metadata.packageId })}`,
 		);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
