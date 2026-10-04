@@ -11,7 +11,7 @@
 	"scripts": {
 		"build": "ryot plugin build",
 		"test": "bun --bun run vitest run",
-		"check": "tsc && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",

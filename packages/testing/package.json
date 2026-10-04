@@ -25,7 +25,7 @@
 		}
 	},
 	"scripts": {
-		"check": "tsc && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@effect/platform-bun": "4.0.0",
