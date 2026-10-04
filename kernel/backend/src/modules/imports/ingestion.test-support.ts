@@ -115,6 +115,22 @@ export const ingestionTestDatabase = (
 					const fingerprint = typeof id === "string" ? (fingerprints.get(id) ?? null) : null;
 					return Effect.succeed([{ fingerprint, retiring: false }]);
 				},
+				select: () => ({
+					from: (table: unknown) => ({
+						where: () => {
+							const rows = Effect.sync(() => {
+								if (table === user) {
+									return [{ token: ingestionTestScope.accountGeneration.token }];
+								}
+								if (table !== mutationReceipt) {
+									return [];
+								}
+								return [...read()];
+							});
+							return Object.assign(rows, { for: () => rows, limit: () => rows });
+						},
+					}),
+				}),
 				insert: () => ({
 					values: (
 						input: Pick<typeof mutationReceipt.$inferInsert, "id" | "inputFingerprint">,
@@ -129,27 +145,6 @@ export const ingestionTestDatabase = (
 									return [{ fingerprint: input.inputFingerprint }];
 								}),
 						}),
-					}),
-				}),
-				select: (fields?: Readonly<Record<string, unknown>>) => ({
-					from: (table: unknown) => ({
-						where: (condition: Parameters<PgDialect["sqlToQuery"]>[0]) => {
-							const rows = Effect.sync(() => {
-								if (table === user) {
-									return [{ token: ingestionTestScope.accountGeneration.token }];
-								}
-								if (table !== mutationReceipt) {
-									return [];
-								}
-								if (fields && "fingerprint" in fields) {
-									const [id] = dialect.sqlToQuery(condition).params;
-									const fingerprint = typeof id === "string" ? fingerprints.get(id) : undefined;
-									return fingerprint === undefined ? [] : [{ fingerprint }];
-								}
-								return [...read()];
-							});
-							return Object.assign(rows, { for: () => rows, limit: () => rows });
-						},
 					}),
 				}),
 			});

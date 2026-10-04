@@ -24,7 +24,8 @@ import {
 	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
-import type { PluginSandboxAuthority as canonicalPluginSandboxAuthority } from "../../../sandbox-runtime/plugin-authority";
+import type { PluginSandboxAuthority } from "#lib/infrastructure/sandbox-runtime/plugin-authority";
+
 import { user } from "./auth";
 import { clientArtifact } from "./client-artifacts";
 
@@ -112,7 +113,7 @@ export const pluginRevision = snakeCase.table(
 			.notNull()
 			.references((): AnyPgColumn => plugin.id, { onDelete: "cascade" }),
 		sandboxAuthority: jsonb()
-			.$type<canonicalPluginSandboxAuthority>()
+			.$type<PluginSandboxAuthority>()
 			.notNull()
 			.generatedAlwaysAs(sql`plugin_sandbox_authority(manifest)`),
 	},
