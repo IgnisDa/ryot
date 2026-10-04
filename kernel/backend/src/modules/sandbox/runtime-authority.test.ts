@@ -52,6 +52,29 @@ const missingArtifact = () =>
 		message: "Sandbox execution pin does not match its stored authority",
 	});
 
+const owner = UserId.make("owner");
+const ownerSubject = {
+	type: "user",
+	userId: owner,
+	accountGeneration: { userId: owner, token: "test-account-generation" },
+} as const;
+
+type ScriptPin = NonNullable<
+	Effect.Success<ReturnType<SandboxRepository["Service"]["getScriptPin"]>>
+>;
+
+const principalFor = (pin: ScriptPin) =>
+	Schema.decodeEffect(SandboxExecutionPrincipal)({ ...pin, subject: ownerSubject });
+
+const assertRejected = Effect.fnUntraced(function* (
+	authority: SandboxExecutionAuthority["Service"],
+	principals: ReadonlyArray<SandboxExecutionPrincipal>,
+) {
+	for (const principal of principals) {
+		assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
+	}
+});
+
 describe("sandbox execution authority", () => {
 	layer(SandboxExecutionAuthorityLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
 		test.effect(
@@ -62,7 +85,6 @@ describe("sandbox execution authority", () => {
 					const sandbox = yield* SandboxRepository;
 					const session = yield* DatabaseSession;
 					const slug = `runtime-authority-provider-${crypto.randomUUID()}`;
-					const owner = UserId.make("owner");
 					const sourcePackage = revisionPackage(slug);
 					const [entitySchema] = sourcePackage.manifest.entitySchemas;
 					assert(entitySchema);
@@ -187,16 +209,9 @@ describe("sandbox execution authority", () => {
 						configSchema: expectedSandboxAuthority.configSchema,
 						workflowScripts: expectedSandboxAuthority.workflowScripts,
 					});
-					const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({
-						...pin,
-						subject: {
-							type: "user",
-							userId: owner,
-							accountGeneration: { userId: owner, token: "test-account-generation" },
-						},
-					});
+					const principal = yield* principalFor(pin);
 					expect(yield* authority.resolve(principal)).toBe("user");
-					for (const changed of [
+					yield* assertRejected(authority, [
 						{ ...principal, providerId: SandboxProviderId.make("foreign-provider") },
 						{ ...principal, contentHash: "foreign-content" },
 						{ ...principal, scriptSlug: "foreign-slug" },
@@ -223,9 +238,7 @@ describe("sandbox execution authority", () => {
 							...principal,
 							metadata: { ...principal.metadata, optionalPluginConfigKeys: ["token"] },
 						},
-					] satisfies ReadonlyArray<SandboxExecutionPrincipal>) {
-						assertExitFails(yield* Effect.exit(authority.resolve(changed)), missingArtifact());
-					}
+					]);
 					yield* session.run((db) =>
 						db
 							.update(tables.sandboxScript)
@@ -234,7 +247,7 @@ describe("sandbox execution authority", () => {
 							})
 							.where(eq(tables.sandboxScript.id, row.id)),
 					);
-					assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
+					yield* assertRejected(authority, [principal]);
 					yield* session.run((db) =>
 						db
 							.update(tables.sandboxScript)
@@ -280,7 +293,6 @@ describe("sandbox execution authority", () => {
 					const authority = yield* SandboxExecutionAuthority;
 					const sandbox = yield* SandboxRepository;
 					const session = yield* DatabaseSession;
-					const owner = UserId.make("owner");
 					const pluginPackage = revisionPackage(`authority-declarations-${crypto.randomUUID()}`);
 					const installed = yield* installRevisionPackage(pluginPackage, owner);
 					const [script] = yield* session.run((db) =>
@@ -293,14 +305,7 @@ describe("sandbox execution authority", () => {
 					assert(script);
 					const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(script.id));
 					assert(pin);
-					const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({
-						...pin,
-						subject: {
-							type: "user",
-							userId: owner,
-							accountGeneration: { userId: owner, token: "test-account-generation" },
-						},
-					});
+					const principal = yield* principalFor(pin);
 					for (const manifest of [
 						sql`${tables.pluginRevision.manifest} - 'scripts'`,
 						sql`${tables.pluginRevision.manifest} - 'workflows'`,
@@ -325,7 +330,7 @@ describe("sandbox execution authority", () => {
 								.set({ manifest })
 								.where(eq(tables.pluginRevision.id, installed.revisionId)),
 						);
-						assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
+						yield* assertRejected(authority, [principal]);
 					}
 				}),
 		);
@@ -350,20 +355,10 @@ describe("sandbox execution authority", () => {
 					assert(pin);
 					expect(pin).not.toHaveProperty("kernelScript");
 
-					const owner = UserId.make("owner");
-					for (const principal of [
+					yield* assertRejected(authority, [
 						{ ...pin, subject: { type: "system" } },
-						{
-							...pin,
-							subject: {
-								type: "user",
-								userId: owner,
-								accountGeneration: { userId: owner, token: "test-account-generation" },
-							},
-						},
-					] satisfies ReadonlyArray<SandboxExecutionPrincipal>) {
-						assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
-					}
+						{ ...pin, subject: ownerSubject },
+					]);
 				}),
 			),
 		);
@@ -384,12 +379,6 @@ describe("sandbox execution authority", () => {
 					const sandbox = yield* SandboxRepository;
 					const session = yield* DatabaseSession;
 					const supervisor = yield* SandboxSidecarSupervisor.make;
-					const owner = UserId.make("owner");
-					const ownerSubject = {
-						type: "user",
-						userId: owner,
-						accountGeneration: { userId: owner, token: "test-account-generation" },
-					} as const;
 					const scriptPin = Effect.fnUntraced(function* (scriptSlug: string) {
 						const [row] = yield* session.run((db) =>
 							db

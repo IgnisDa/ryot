@@ -54,7 +54,12 @@ import {
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
-import { compiledArtifactsLayer } from "./sandbox-fixtures.test-support";
+import {
+	compiledArtifactsLayer,
+	hotSwapScript,
+	scriptRepositoryLayer,
+	unusedKernelWorkflowReferencesLayer,
+} from "./sandbox-fixtures.test-support";
 import {
 	performSandboxWorkflowChild,
 	performSandboxWorkflowRequest,
@@ -341,7 +346,7 @@ const controlledWorkflowDependencies = Layer.mergeAll(
 	Layer.succeed(RedisService, makeProjectionRedis()),
 	Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
 	Layer.mock(SandboxPluginScriptResolver)({ findActiveScriptById: () => Effect.die("unused") }),
-	Layer.mock(KernelWorkflowReferences)({ execute: () => Effect.die("unused") }),
+	unusedKernelWorkflowReferencesLayer,
 	Layer.mock(SandboxDurableHostDispatcher)({
 		cancelInline: () => Effect.void,
 		dispatch: () => Effect.die("unused"),
@@ -370,34 +375,19 @@ else
 fi
 `;
 const replacementContent = `printf '{"state":"completed","journalLength":0,"requests":[],"output":{"content":"active-v2","journal":[]}}'`;
-const historicalContentHash = sha256Hex(historicalContent);
-const replacementContentHash = sha256Hex(replacementContent);
-const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => ({
-	id,
-	compiledCode,
-	slug: "workflow",
+const hotSwapMetadata = {
 	name: "Workflow",
-	providerId: null,
-	compiledFormat: 1,
-	pluginSlug: "plugin",
-	source: compiledCode,
-	createdAt: new Date(0),
-	updatedAt: new Date(0),
-	contentHash: id === historicalScriptId ? historicalContentHash : replacementContentHash,
-	metadata: {
-		name: "Workflow",
-		slug: "workflow",
-		capabilities: [],
-		runtimeImports: [],
-		kind: "workflow" as const,
-		oauthConnectionFields: [],
-		requiredPluginConfigKeys: [],
-		optionalPluginConfigKeys: [],
-		executableDependencies: [{ kind: "workflow" as const, slug: hotSwapRequest.args.workflowSlug }],
-	},
-});
-const historicalScript = hotSwapScript(historicalScriptId, historicalContent);
-const replacementScript = hotSwapScript(replacementScriptId, replacementContent);
+	slug: "workflow",
+	capabilities: [],
+	runtimeImports: [],
+	kind: "workflow" as const,
+	oauthConnectionFields: [],
+	requiredPluginConfigKeys: [],
+	optionalPluginConfigKeys: [],
+	executableDependencies: [{ kind: "workflow" as const, slug: hotSwapRequest.args.workflowSlug }],
+};
+const historicalScript = hotSwapScript(historicalScriptId, historicalContent, hotSwapMetadata);
+const replacementScript = hotSwapScript(replacementScriptId, replacementContent, hotSwapMetadata);
 const hotSwapExecutionId = testExecutionId("workflow-execution");
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const decodeEnvelope = Schema.decodeUnknownEffect(
@@ -422,25 +412,26 @@ const hotSwapLayer = recordingLayer(
 						providerId: null,
 						scriptSlug: "workflow",
 						scriptId: historicalScriptId,
-						contentHash: historicalContentHash,
 						metadata: historicalScript.metadata,
+						contentHash: historicalScript.contentHash,
 					}
 				: {
 						pluginRevision,
 						providerId: null,
 						scriptSlug: "workflow",
 						scriptId: replacementScriptId,
-						contentHash: replacementContentHash,
 						metadata: replacementScript.metadata,
+						contentHash: replacementScript.contentHash,
 					};
-		const repositoryLayer = Layer.mock(SandboxRepository)({
-			resolveWorkflowCallScript: () => Effect.succeed(null),
-			isPluginScript: () => calls.record("pin-events", "resolve-owned").pipe(Effect.as(true)),
-			getScriptPin: (scriptId) =>
-				calls.record("pin-events", "pin").pipe(Effect.as(pinOf(scriptId))),
-			getScript: (scriptId) =>
-				Effect.succeed(scriptId === historicalScriptId ? historicalScript : replacementScript),
-		});
+		const repositoryLayer = scriptRepositoryLayer(
+			(scriptId) => (scriptId === historicalScriptId ? historicalScript : replacementScript),
+			{
+				resolveWorkflowCallScript: () => Effect.succeed(null),
+				isPluginScript: () => calls.record("pin-events", "resolve-owned").pipe(Effect.as(true)),
+				getScriptPin: (scriptId) =>
+					calls.record("pin-events", "pin").pipe(Effect.as(pinOf(scriptId))),
+			},
+		);
 		const artifactsLayer = compiledArtifactsLayer(repositoryLayer);
 		return Layer.mergeAll(
 			mutationAdmissionTestLayer,
@@ -574,7 +565,7 @@ layer(withWorkflowPinning(hotSwapLayer))((test) => {
 					executionId,
 					pluginId: "plugin",
 					scriptId: historicalScriptId,
-					contentHash: historicalContentHash,
+					contentHash: historicalScript.contentHash,
 				},
 			]);
 			expect(yield* calls.entries("releases")).toEqual([executionId]);
@@ -699,7 +690,7 @@ layer(
 					Layer.mock(SandboxPluginScriptResolver)({
 						findActiveScriptById: () => Effect.die("unused"),
 					}),
-					Layer.mock(KernelWorkflowReferences)({ execute: () => Effect.die("unused") }),
+					unusedKernelWorkflowReferencesLayer,
 					Layer.mock(SandboxRepository)({
 						resolveWorkflowCallScript: () => Effect.succeed(null),
 						getScriptPin: () =>
@@ -1109,7 +1100,7 @@ const inlineWorkflowLayer = (executionId: string) =>
 					Layer.mock(SandboxPluginScriptResolver)({
 						findActiveScriptById: () => Effect.die("unused"),
 					}),
-					Layer.mock(KernelWorkflowReferences)({ execute: () => Effect.die("unused") }),
+					unusedKernelWorkflowReferencesLayer,
 					Layer.succeed(
 						RedisService,
 						makeRedisService({
@@ -1564,10 +1555,7 @@ layer(
 		mutationAdmissionTestLayer,
 		parentInstanceLayer,
 		Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
-		Layer.succeed(KernelWorkflowReferences, {
-			execute: () => Effect.die("unused"),
-			resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
-		}),
+		unusedKernelWorkflowReferencesLayer,
 	),
 )((test) => {
 	test.effect("dispatches plugin children as child workflows with an exact script pin", () =>
