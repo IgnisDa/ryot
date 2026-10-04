@@ -93,6 +93,7 @@ const pluginRevision = {
 const automationSubject = {
 	stage: "after" as const,
 	pluginId: pluginRevision.id,
+	delivery: "required" as const,
 	type: "automation-run" as const,
 	runId: AutomationRunId.make("run-1"),
 	executionUserId: UserId.make("user-1"),
