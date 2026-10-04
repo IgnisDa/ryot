@@ -11,6 +11,8 @@ import type {
 	SandboxPluginRevision,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
+import { installationExecutionGate } from "./installation-execution-gate";
+
 type WorkflowReferenceRow = typeof schema.sandboxWorkflowReference.$inferSelect;
 
 type SandboxWorkflowReference = Omit<WorkflowReferenceRow, "scriptId"> & {
@@ -99,22 +101,17 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 					});
 				}
 				const initialization = input.initialization;
-				const initializer =
-					initialization !== undefined &&
-					input.userId !== undefined &&
-					initialization.installationId === plugin.installationId &&
-					initialization.activationId === plugin.activationId &&
-					plugin.health === "installing" &&
-					!plugin.isInitialized;
 				if (
-					(initialization && !initializer) ||
-					(input.userId &&
-						(!plugin.installationId ||
-							(plugin.isHidden && !initializer) ||
-							plugin.uninstalledAt ||
-							plugin.incompatibilityReason !== null ||
-							(!["ready", "installing"].includes(plugin.health ?? "") &&
-								!(input.expectedRevision && plugin.health === "needs-configuration"))))
+					input.userId
+						? !plugin.installationId ||
+							!installationExecutionGate({
+								initialization,
+								bootstrapScript: true,
+								activationId: plugin.activationId,
+								exactPin: input.expectedRevision !== undefined,
+								installation: { ...plugin, id: plugin.installationId },
+							})
+						: initialization !== undefined
 				) {
 					return yield* new SandboxWorkflowReferenceRegistrationError({
 						reason: "plugin-inactive",

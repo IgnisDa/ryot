@@ -23,6 +23,8 @@ import {
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { PluginSandboxAuthority } from "#lib/infrastructure/sandbox-runtime/plugin-authority";
 
+import { installationExecutionGate } from "./installation-execution-gate";
+
 type SandboxScriptPin = Omit<SandboxExecutionPrincipal, "subject">;
 
 const sandboxScriptPin = <T extends SandboxScriptPin>(pin: T) => pin;
@@ -240,24 +242,18 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				) {
 					return null;
 				}
-				const initializer =
-					initialization !== undefined &&
-					executionUserId !== null &&
-					initialization.installationId === state.id &&
-					initialization.activationId === row.activationId &&
-					state.health === "installing" &&
-					!state.isInitialized &&
-					row.metadata.kind === "script" &&
-					authority.userBootstrapScriptSlugs.includes(row.slug);
 				if (
-					(initialization !== undefined && !initializer) ||
+					!installationExecutionGate({
+						initialization,
+						installation: state,
+						activationId: row.activationId,
+						exactPin: expectedRevision !== undefined,
+						bootstrapScript:
+							row.metadata.kind === "script" &&
+							authority.userBootstrapScriptSlugs.includes(row.slug),
+					}) ||
 					(pluginScope === "user" && row.pluginStatus !== "active") ||
-					state.disabledAt !== null ||
-					state.incompatibilityReason !== null ||
-					(state.isHidden && !initializer) ||
-					state.uninstalledAt ||
-					(!["ready", "installing"].includes(state.health) &&
-						!(expectedRevision && state.health === "needs-configuration"))
+					state.disabledAt !== null
 				) {
 					return yield* new SandboxRunError({
 						kind: "script-failure",
