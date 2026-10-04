@@ -311,6 +311,54 @@ describe("OTEL_EXPORTER_OTLP_ENDPOINT validation", () => {
 	}
 });
 
+const egressAllowedNetworksLayer = (value: string) =>
+	makeAppConfigLayer({ server: { egressAllowedNetworks: Option.some(value) } });
+
+describe("SERVER_EGRESS_ALLOWED_NETWORKS validation", () => {
+	layer(
+		makeConfigProviderLayer({
+			REDIS_URL: "unused",
+			DATABASE_URL: "unused",
+			SERVER_ADMIN_ACCESS_TOKEN: "unused",
+			SERVER_EGRESS_ALLOWED_NETWORKS: " 127.0.0.1/32, ::1/128 ,10.0.0.0/8,fd00::/8,0.0.0.0/0",
+		}),
+	)((test) => {
+		test.effect("loads a comma-separated list of CIDR networks", () =>
+			Effect.gen(function* () {
+				const result = yield* loaded;
+				assert(Exit.isSuccess(result));
+				expect(result.value.server.egressAllowedNetworks).toEqual(
+					Option.some(" 127.0.0.1/32, ::1/128 ,10.0.0.0/8,fd00::/8,0.0.0.0/0"),
+				);
+			}),
+		);
+	});
+
+	for (const [value, message] of [
+		["localhost", "'localhost' is not a CIDR network"],
+		["10.0.0.1", "'10.0.0.1' is not a CIDR network"],
+		["10.0.0.1/8", "'10.0.0.1/8' is not a CIDR network"],
+		[
+			"127.0.0.1/32,169.254.169.254/32",
+			"'169.254.169.254/32' is inside a range that cannot be allowed",
+		],
+		["fe80::/64", "'fe80::/64' is inside a range that cannot be allowed"],
+		["::/128", "'::/128' is inside a range that cannot be allowed"],
+	] as const) {
+		layer(egressAllowedNetworksLayer(value))((test) => {
+			test.effect(`rejects ${value}`, () =>
+				Effect.gen(function* () {
+					const result = yield* validated;
+					assert(Exit.isFailure(result));
+					expect(Cause.pretty(result.cause)).toContain(
+						`SERVER_EGRESS_ALLOWED_NETWORKS is invalid: ${message}.`,
+					);
+				}),
+			);
+		});
+	}
+});
+
 describe("OTEL_EXPORTER_OTLP_HEADERS validation", () => {
 	it("parses comma-separated pairs and keeps separators inside values", () => {
 		const parsed = parseOtlpHeaders("x-honeycomb-team=abc123 , authorization=Basic dXNlcj1wdw==");

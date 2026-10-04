@@ -201,6 +201,7 @@ export const makeAppConfigLayer = (
 			clientDir: "./client",
 			disableNotifications: false,
 			pluginsSystemDir: "./plugins",
+			egressAllowedNetworks: Option.none(),
 			proKeyVerificationUrl: "https://api.unkey.com",
 			adminAccessToken: Redacted.make("test-admin-token"),
 			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },

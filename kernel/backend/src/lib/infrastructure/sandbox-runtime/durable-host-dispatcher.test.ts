@@ -32,7 +32,7 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { withEgressPolicy } from "#lib/infrastructure/egress/http-client";
+import { type EgressPolicy, withEgressPolicy } from "#lib/infrastructure/egress/http-client";
 import {
 	ProviderHttpAdmissionService,
 	ProviderHttpAdmissionUnavailable,
@@ -59,6 +59,11 @@ import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
 
 import { SandboxDurableHostDispatcherLive } from "./durable-host-dispatcher";
+
+const publicEgressPolicy: EgressPolicy = {
+	allowedNetworks: [],
+	resolver: { resolve: () => Effect.succeed(["93.184.215.14"]) },
+};
 
 const unused = () => Effect.fail({ message: "unused" });
 const unusedStep = {
@@ -565,7 +570,7 @@ const httpDispatchLayer = (options: {
 					engine,
 					resolve,
 					instance,
-					httpClient: withEgressPolicy(httpClient),
+					httpClient: withEgressPolicy(httpClient, publicEgressPolicy),
 					script: { ...script, metadata: { ...script.metadata, capabilities: ["httpCall"] } },
 					admission: {
 						cancel: (declaration, ticket) =>
