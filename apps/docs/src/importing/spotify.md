@@ -2,7 +2,7 @@
 
 ::: warning
 
-- Set `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_SPOTIFY_CLIENT_ID` and `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_SPOTIFY_CLIENT_SECRET` before
+- Set `RYOT_PLUGIN__RYOT__MEDIA__SPOTIFY_CLIENT_ID` and `RYOT_PLUGIN__RYOT__MEDIA__SPOTIFY_CLIENT_SECRET` before
   import. Ryot uses them to fetch track metadata.
 - Only the **Extended streaming history** export is supported. The basic **Account data** export
   does not contain every play and is rejected.

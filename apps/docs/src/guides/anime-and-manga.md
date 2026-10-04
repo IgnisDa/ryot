@@ -9,4 +9,4 @@ Register a MyAnimeList application to get a client ID.
 3. Select **Create ID** and use the `Web` app type. The redirect and homepage URLs can be any
    valid URLs; Ryot does not use them.
 4. Submit the application and copy the approved client ID.
-5. Set `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_MAL_CLIENT_ID`.
+5. Set `RYOT_PLUGIN__RYOT__MEDIA__MAL_CLIENT_ID`.

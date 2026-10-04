@@ -1,7 +1,7 @@
 # Hardcover
 
 ::: info
-Set `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_HARDCOVER_API_KEY` before import. See the [books guide](../guides/books.md).
+Set `RYOT_PLUGIN__RYOT__MEDIA__HARDCOVER_API_KEY` before import. See the [books guide](../guides/books.md).
 :::
 
 ## Imported data

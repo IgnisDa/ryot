@@ -18,9 +18,9 @@ These are requirements, not questions to reopen during implementation.
 
 | Area | Required behavior |
 |---|---|
-| Portable identity | A permanent manifest-assigned UUID identifies an authored package independently of registry, author display name, archive filename, or installation. |
+| Portable identity | A permanent manifest-assigned `publisher/name` package ID identifies an authored package independently of registry, author display name, archive filename, or installation. |
 | Local identity | Keep the local `plugin.id`. It identifies one system-owned or user-owned plugin record, not the portable package. Keep installation identity separate. |
-| Names | Package name and slug are metadata. Declaration slugs are local to their owner and declaration kind. They are not globally unique. |
+| Names | The package display name is metadata. Plugins have no separate slug. Declaration slugs are local to their owner and declaration kind. They are not globally unique. |
 | System versions | One active revision per system-owned plugin on a Ryot instance, shared by all its user installations. |
 | Private versions | Each user's private plugin record has its own selected revision. Users installing the same package can use different revisions. |
 | Data scope | Private plugins never create or mutate global domain data. System plugins may create authorized global data and user-owned data. Personal events/progress remain user-owned. |
@@ -85,13 +85,13 @@ Specific existing traps to remove together:
 
 ### 3.1 Package identity
 
-Add `PluginPackageId`, a branded canonical lowercase UUIDv4 string, in the contract brands/identity surface. Add required `metadata.packageId` to authored and archived manifests. Reject missing, malformed, noncanonical, nil, and changed-on-update IDs. Use `crypto.randomUUID()` only at identity creation, never in a manifest getter, build, installation, or source-hash calculation.
+`PluginPackageId` is a branded `publisher/name` string in the contract brands surface. Each segment matches `[a-z0-9]+(-[a-z0-9]+)*` and is 1–64 characters, with exactly one `/`. `PLUGIN_PACKAGE_ID_PATTERN` is the single source for the TypeScript brand and the database `plugin_package_id_format_check`. `pluginPackageSegments` and `pluginPackageIdFromSegments` convert between the ID and its segments. Manifests require `metadata.packageId`; installation rejects missing, malformed, and changed-on-update IDs. A package ID is a claim, not an authority grant, until signing exists.
 
-Keep `metadata.slug` and `metadata.name`; allow them to change on an update without changing the package's logical identity. Keep existing local-slug syntax and source-path validation. Removing global uniqueness does not permit invalid paths or arbitrary import specifiers.
+`metadata.name` may change on an update without changing the package's logical identity. Keep existing local-slug syntax and source-path validation. Removing global uniqueness does not permit invalid paths or arbitrary import specifiers.
 
-Each first-party plugin gets one committed constant in `plugins/<plugin>/shared/plugin-identity.ts`; its host manifest and shared/client/backend recipes import that same constant. Generate one fixed ID each for media, fitness, and fixture. Do not derive these IDs from mutable names or from build output. Test factories preserve package identity for a revision update and generate a different identity only when they mean a different package.
+The `ryot` publisher is reserved for bundled plugins. Private installs and updates whose publisher is `ryot` fail with `PluginPackageReservedError`, as do private claims of any present system package ID; bundled system ingestion is exempt. A fork that should install independently chooses a new package ID.
 
-Add a small CLI command `ryot plugin init-identity` that exclusively creates `shared/plugin-identity.ts` in the current package with the generated exported constant. Fail if the file exists; do not rewrite arbitrary TypeScript or create an entire project scaffold. `plugin build` continues to be read-only with respect to authored identity. Document copying the constant into the manifest and assigning a fresh identity to an independently installable fork.
+Each first-party plugin has one committed constant in `plugins/<plugin>/shared/plugin-identity.ts` (`ryot/media`, `ryot/fitness`, `ryot/fixture`); its host manifest and shared/client/backend recipes import that same constant. Authors write `metadata.packageId` directly; `plugin build` is read-only with respect to authored identity. Test factories preserve package identity for a revision update and generate a different identity only when they mean a different package.
 
 ### 3.2 Local runtime ownership
 
@@ -124,7 +124,7 @@ Portable plugin selection:
 { packageId: PluginPackageId, scope: "system" | "user" }
 ```
 
-The `user` scope means the importing/executing user, never an arbitrary user ID embedded in a portable document. Explicit scope prevents a formerly private reference from binding to a newly introduced system copy with the same claimed UUID. This is a selection discriminator, not an authority grant.
+The `user` scope means the importing/executing user, never an arbitrary user ID embedded in a portable document. Explicit scope prevents a formerly private reference from binding to a newly introduced system copy with the same claimed package ID. This is a selection discriminator, not an authority grant.
 
 Authored declarations remain local: `rootEntitySchemaSlug`, event nesting, relationship endpoints, hook targets, signal formatter hooks, scripts, workflow targets and `client.entities` resolve against the declaring plugin. Validate them locally. Do not add cross-package schema dependency syntax for those fields.
 
@@ -159,7 +159,7 @@ Expose owner-aware helpers for exact entity, event, relationship and signal sele
 
 ### 3.5 Stable URL and saved-view identity
 
-Use one canonical plugin route family for system and private plugins: `/p/<localPluginId>/...`. Entity URLs remain `/e/<entityId>`. Do not retain bare-slug routes, system-only short routes, redirects, collision suffixes, or user-managed routing aliases.
+Use one canonical plugin route family for system and private plugins: `/p/<publisher>/<name>/...`. A route resolves the package to the user's effective installation through `PluginRuntimeResolver.resolveUserPackage`: a package-identity-quarantined private copy is skipped, so the route switches to the system copy, and a remaining quarantined copy alone makes the page unavailable. Operations use the same selection, so pages and operations never pick different rows. Entity URLs remain `/e/<entityId>`. Do not retain system-only short routes, redirects, collision suffixes, or user-managed routing aliases.
 
 Replace saved-view slug targets with a tagged `SavedViewReference`:
 
@@ -169,7 +169,7 @@ Replace saved-view slug targets with a tagged `SavedViewReference`:
 { kind: "plugin", pluginId, slug }
 ```
 
-Canonical saved-view paths are `/v/c/<savedViewId>`, `/v/k/<slug>`, and `/v/p/<pluginId>/<slug>`. Route construction belongs in shared navigation helpers. `ClientPageTarget` uses the reference, and `homeSavedView` stores it instead of a bare slug. Authored plugin `client.homeView` remains a local slug and materializes to its owner-qualified reference.
+Canonical saved-view paths are `/v/c/<savedViewId>`, `/v/k/<slug>`, and `/v/p/<publisher>/<name>/<slug>`. Route construction belongs in shared navigation helpers; callers map a persisted reference's local `pluginId` to its package ID through the plugin catalog they hold. `ClientPageTarget` uses the reference, and `homeSavedView` stores it instead of a bare slug. Authored plugin `client.homeView` remains a local slug and materializes to its owner-qualified reference.
 
 Custom views remain in their own user namespace; their `pluginInstallationId` is workspace association, not proof that they are plugin-defined. Preserve that distinction in grouping, editing, export and ownership checks. Existing custom-view local uniqueness may remain within the custom namespace; it must not reserve names in a plugin's declaration namespace.
 
@@ -197,7 +197,7 @@ Thread package identity through CLI client compiler input and artifact metadata.
 
 Preserve one archive reader/writer for system and private packages. Require the new manifest field and regenerate existing first-party/test archives. Reject old malformed development archives rather than invent an ID at install time. Keep archive limits and version constants; test production-sized first-party archives under existing limits instead of raising them to mask a representation problem.
 
-For default output/assembly filenames and any artifact map keyed by package slug, use package ID (and content digest where the output represents a revision) to prevent two same-slug artifacts overwriting each other. Authored script/provider source paths remain local within their archive; do not prefix every filesystem path with a UUID.
+For default output/assembly filenames and any artifact map keyed by package slug, use package ID (and content digest where the output represents a revision) to prevent two same-slug artifacts overwriting each other. Authored script/provider source paths remain local within their archive; do not prefix every filesystem path with a package ID.
 
 **Exit:** the same authored package builds deterministically with the same identity; two same-name packages produce independent archives; ID-changing updates and manifest/client mismatches fail explicitly.
 
@@ -268,7 +268,7 @@ Restoring a backup containing a conflicting private package also preserves it as
 
 Keep uninstall's existing reference checks. Do not introduce destructive uninstall, force deletion, private package rekeying or data migration. Management must explain that referenced data prevents removal; backups remain available. Account deletion remains the existing deliberate complete-user cleanup path. Do not cascade global system data when one user changes their installation.
 
-**Exit:** no ordinary user can veto system activation by claiming its UUID; quarantine does not retarget or delete data; direct and retained execution both respect it; unaffected same-name packages remain executable.
+**Exit:** no ordinary user can veto system activation by claiming its package ID; quarantine does not retarget or delete data; direct and retained execution both respect it; unaffected same-name packages remain executable.
 
 ### Phase 5 — RyotQL binding, owner-aware SQL, and recipes
 
@@ -359,12 +359,12 @@ For crons/bootstrap/user schedules, keys contain local plugin or installation ID
 Change system environment config naming to an unambiguous identity-based mapping:
 
 ```text
-RYOT_PLUGIN_<PACKAGE_UUID_WITHOUT_HYPHENS_UPPERCASE>_<NORMALIZED_CONFIG_KEY>
+RYOT_PLUGIN__<PUBLISHER>__<NAME>__<NORMALIZED_CONFIG_KEY>
 ```
 
-Canonical UUID normalization is injective. Continue detecting normalized **config-key** collisions within a package. Update `pluginConfigEnvironmentKey`, manifest validation, configuration loading/errors, deployment examples, first-party docs and test environment fixtures in one cutover. Do not retain `RYOT_PLUGIN_MEDIA_*` as a fallback or add a separate first-party alias path. Private config never consults these environment variables.
+Package segments are uppercased with `-` mapped to `_`. The mapping is injective because `__` cannot occur inside a segment or a normalized key. The RyotQL catalog derives the same key in SQL for missing-configuration reporting. Continue detecting normalized **config-key** collisions within a package. Update `pluginConfigEnvironmentKey`, manifest validation, configuration loading/errors, deployment examples, first-party docs and test environment fixtures in one cutover. Do not retain `RYOT_PLUGIN_MEDIA_*` as a fallback or add a separate first-party alias path. Private config never consults these environment variables.
 
-Environment configuration remains server-controlled and pinned into exact encrypted config revisions. Do not bind secrets by a user-supplied display slug or archive claim. Preserve OAuth owner/installation checks and declared-field access; qualify any provider keys and dynamic settings choices that are genuinely plugin declarations. External upstream OAuth/provider names are not automatically Ryot plugin identities and should not be mechanically UUID-prefixed.
+Environment configuration remains server-controlled and pinned into exact encrypted config revisions. Do not bind secrets by a user-supplied display slug or archive claim. Preserve OAuth owner/installation checks and declared-field access; qualify any provider keys and dynamic settings choices that are genuinely plugin declarations. External upstream OAuth/provider names are not automatically Ryot plugin identities and should not be mechanically package-prefixed.
 
 Keep real global HTTP admission by normalized upstream origin and existing deployment policy. Qualify plugin-local policy labels/IDs so labels do not collide, but do not split a real shared upstream quota into independent per-plugin allowances. Equal compatible policies may coexist under the existing policy rules; genuine conflicting limits for the same resource remain a policy error, not a namespace bug. Private plugins still cannot install deployment-global HTTP policies.
 
@@ -467,7 +467,7 @@ The final implementation report records changed surfaces, exact commands/results
 
 ## 5. HTTP/API cutover decisions
 
-Keep existing endpoint names where practical so callers migrate through the generated typed contract. Change identifier semantics explicitly; do not reuse a parameter called `pluginSlug` for an ID.
+Keep existing endpoint names where practical so callers migrate through the generated typed contract. Change identifier semantics explicitly; do not reuse a parameter name for a different identifier.
 
 | Existing action | Target contract |
 |---|---|
@@ -477,7 +477,7 @@ Keep existing endpoint names where practical so callers migrate through the gene
 | Installation state | `PATCH /plugins/installations/:installationId/state`; current-owner checks and explicit quarantine recovery validation. |
 | Workspace home | `PUT /plugins/installations/:installationId/home-view` with tagged saved-view reference or null. |
 | User preferences | Existing `/plugins/installations/:installationId/user-settings` paths remain exact-installation-based. |
-| Operation invocation | `POST /plugins/:pluginId/operations/:operationSlug`; resolve the verified user/integration context and exact local target; retain source-hash expectation where the client supplies it. |
+| Operation invocation | `POST /plugins/:publisher/:name/operations/:operationSlug`; resolve the verified user/integration context, map the package to that user's effective local plugin, and return the package-identity conflict when only a quarantined private copy claims it; retain source-hash expectation where the client supplies it. Operation recipes are static and name their package. |
 | Catalog stream | Existing `/plugins/events`; do not change stream semantics merely for namespacing. |
 | Deployment system actions | Existing admin group, with local `pluginId` targets and explicit update expectations. Admin installation of an already-present package does not silently update it. |
 
@@ -497,7 +497,7 @@ Add most narrow cases to existing colocated tests. Add the named e2e suites in s
 | I2 | Install A then B versus B then A | Same resolved ownership and behavior; no precedence by order. |
 | I3 | Same package uploaded twice for one owner | No second installation; explicit conflict/idempotent retry semantics. |
 | I4 | Same package installed privately by two users at different revisions | Distinct local plugin/config/data identities and independent active revisions. |
-| I5 | Missing/invalid/noncanonical package UUID | Rejected before persistence; build/install never invents one. |
+| I5 | Missing/invalid package ID, or a private `ryot/` publisher | Rejected before persistence; build/install never invents one. |
 | I6 | Metadata rename versus package-ID change on update | Rename retains identity; package-ID change rejects. |
 | I7 | Same version string, different archive bytes | Immutable revisions stay distinct; no overwrite by label. |
 | I8 | Manifest/client artifact package mismatch or tampered hash | Rejected using shared archive/artifact checks. |
@@ -565,7 +565,7 @@ Add most narrow cases to existing colocated tests. Add the named e2e suites in s
 | U4 | Same device-storage key in A and B | Independent values; compatible A update preserves A's value. |
 | U5 | Built-in view overrides and homes share a local slug | Correct owner/override/home; stable IDs across revisions. |
 | U6 | Same import/integration/provider/cron local names | All appropriate choices appear and execute independently. |
-| U7 | System environment config uses same metadata slug in two packages | UUID-based names do not collide; private upload cannot read them. |
+| U7 | System environment config uses same metadata slug in two packages | Package-ID-based names do not collide; private upload cannot read them. |
 | U8 | Backup two same-slug packages; restore under new local/user IDs | Correct domain/provider/view/renderer/query/subscription bindings. |
 | U9 | Backup private package conflicts with destination system package ID | Retained private quarantine, not global data adoption or system replacement. |
 | U10 | System backup dependency missing/incompatible at destination | Preflight failure before account replacement; no system version/config change. |
@@ -650,7 +650,7 @@ After `.agents/skills/codebase-cleanup/SKILL.md` is executed, rerun final gates 
 
 ## 8. Mechanical completion audit
 
-Use these searches as an inventory, not as instructions to replace every local slug with a UUID. Local declaration names and human metadata remain valid.
+Use these searches as an inventory, not as instructions to replace every local slug with a package ID. Local declaration names and human metadata remain valid.
 
 ```bash
 rg -n 'pluginSlug|entitySchemaSlug|eventSchemaSlug|relationshipSchemaSlug|signalSchemaSlug' \
