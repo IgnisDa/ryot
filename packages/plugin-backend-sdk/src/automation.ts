@@ -6,7 +6,7 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import type { SandboxManifest } from "./core";
+import type { SandboxManifest } from "./core/script-manifest";
 import { type GenericScriptDefinition, SANDBOX_SCRIPT_DEFINITION } from "./driver";
 
 export {

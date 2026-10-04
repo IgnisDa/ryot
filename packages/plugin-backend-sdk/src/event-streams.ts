@@ -5,7 +5,7 @@ import {
 import { KERNEL_EVENT_STREAM_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import { defineWorkflowReference } from "./workflow";
+import { defineWorkflowReference } from "./workflow/references";
 
 export { EventStreamStepInput, EventStreamStepOutput };
 
