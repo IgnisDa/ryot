@@ -7,7 +7,6 @@ import {
 	WorkflowInstance,
 } from "effect/workflow/WorkflowEngine";
 
-import { appConfigDefinition } from "#lib/infrastructure/config/definition";
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import {
@@ -120,13 +119,6 @@ type DeepPartial<T> = T extends ConfigLeafValue
 		? { [K in keyof T]?: DeepPartial<T[K]> }
 		: T;
 
-const requiredStringDefault = (value: unknown, name: string): string => {
-	if (typeof value !== "string") {
-		throw new Error(`${name} must have a string default`);
-	}
-	return value;
-};
-
 export const makeAppConfigLayer = (
 	overrides?: DeepPartial<AppConfigValue>,
 ): Layer.Layer<AppConfig> => {
@@ -155,6 +147,13 @@ export const makeAppConfigLayer = (
 			infrequentCronJobsSchedule: "0 0 * * *",
 			frequentCronJobsSchedule: "every 5 minutes",
 		},
+		sandbox: {
+			importConcurrency: 2,
+			workerConcurrency: 2,
+			perUserSidecars: false,
+			memoryBudgetMiB: Option.none(),
+			runtimeDirectory: "./sandboxd",
+		},
 		observability: {
 			otlp: { headers: Option.none(), endpoint: Option.none() },
 			logging: {
@@ -170,20 +169,6 @@ export const makeAppConfigLayer = (
 			bucketName: Option.none(),
 			accessKeyId: Option.none(),
 			secretAccessKey: Option.none(),
-		},
-		sandbox: {
-			importConcurrency: 2,
-			workerConcurrency: 2,
-			memoryBudgetMiB: 1536,
-			perUserSidecars: false,
-			launcherPath: requiredStringDefault(
-				appConfigDefinition.fields.sandbox.fields.launcherPath.schema.defaultValue,
-				"SANDBOX_LAUNCHER_PATH",
-			),
-			runtimeDirectory: requiredStringDefault(
-				appConfigDefinition.fields.sandbox.fields.runtimeDirectory.schema.defaultValue,
-				"SANDBOX_RUNTIME_DIRECTORY",
-			),
 		},
 		server: {
 			proKey: Option.none(),

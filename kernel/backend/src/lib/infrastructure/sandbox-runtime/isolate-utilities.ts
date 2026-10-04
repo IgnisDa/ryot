@@ -15,8 +15,6 @@ export type SandboxLogCollector = {
 	};
 };
 
-export type SandboxRunnerError = SandboxExecutionError;
-
 const arrayIsArray = Array.isArray;
 const arrayJoinMethod = Object.getOwnPropertyDescriptor(Array.prototype, "join")?.value;
 const arrayPushMethod = Object.getOwnPropertyDescriptor(Array.prototype, "push")?.value;
@@ -52,7 +50,6 @@ const boundUint8ArraySubarray = uint8ArraySubarrayMethod.call.bind(uint8ArraySub
 const nativeError = globalThis.Error;
 const nativeNumber = globalThis.Number;
 const nativeString = globalThis.String;
-const objectDefineProperty = Object.defineProperty;
 const textEncoder = new TextEncoder();
 const encodeText = textEncoder.encode.bind(textEncoder);
 const fatalDecoder = new TextDecoder("utf-8", { fatal: true });
@@ -64,14 +61,8 @@ const decodeComponent = globalThis.decodeURIComponent;
 const decodeBoundaryReason = Schema.decodeUnknownSync(SandboxBoundaryReason, {
 	onExcessProperty: "error",
 });
-const failureKinds = new WeakMap<object, SandboxExecutionError["kind"]>();
-const failurePhases = new WeakMap<object, SandboxExecutionError["phase"]>();
-const getFailureKind = failureKinds.get.bind(failureKinds);
-const setFailureKind = failureKinds.set.bind(failureKinds);
-const getFailurePhase = failurePhases.get.bind(failurePhases);
-const setFailurePhase = failurePhases.set.bind(failurePhases);
 const stackFramePattern = /(?:^|[\s(])([^\s()]+):(\d+):(\d+)\)?$/;
-const diagnosticLimit = SANDBOX_LIMITS.diagnostics.stderrBytes;
+const diagnosticLimit = SANDBOX_LIMITS.diagnostics.messageBytes;
 
 const join = (values: readonly unknown[], separator: string): string => {
 	const result: unknown = boundArrayJoin(values, separator);
@@ -260,41 +251,6 @@ export const createLogCollector = (limits: {
 	};
 };
 
-export const throwPhase = (
-	phase: SandboxExecutionError["phase"],
-	error: unknown,
-	kind?: SandboxExecutionError["kind"],
-): never => {
-	const failure =
-		error instanceof nativeError
-			? error
-			: new nativeError(
-					isRecord(error) && typeof error["message"] === "string"
-						? error["message"]
-						: nativeString(error),
-				);
-	if (!(error instanceof nativeError) && isRecord(error) && error["data"] !== undefined) {
-		objectDefineProperty(failure, "data", { value: error["data"] });
-	}
-	setFailurePhase(failure, phase);
-	if (kind !== undefined) {
-		setFailureKind(failure, kind);
-	}
-	throw failure;
-};
-
-export const failurePhase = (
-	error: unknown,
-	fallback: SandboxExecutionError["phase"],
-): SandboxExecutionError["phase"] =>
-	isRecord(error) ? (getFailurePhase(error) ?? fallback) : fallback;
-
-export const failureKind = (
-	error: unknown,
-	fallback: SandboxExecutionError["kind"],
-): SandboxExecutionError["kind"] =>
-	isRecord(error) ? (getFailureKind(error) ?? fallback) : fallback;
-
 const safeErrorProperty = (error: unknown, property: string): string | undefined => {
 	try {
 		const value = isRecord(error) ? error[property] : undefined;
@@ -457,5 +413,3 @@ export const executionError = (
 		...(stack ? { stack } : {}),
 	};
 };
-
-export const utf8ByteLength = (value: string) => encodeText(value).byteLength;
