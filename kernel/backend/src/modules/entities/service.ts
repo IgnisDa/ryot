@@ -18,6 +18,7 @@ import {
 	EntitySchemaSlug,
 	type SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
+import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -43,7 +44,6 @@ import {
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
-import { principalOwner } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { trimToNull } from "#lib/shared/validation";
 import { EventsRepository } from "#modules/events/repository";

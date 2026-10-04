@@ -11,7 +11,7 @@ import { DomainWriteChecks } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
 import { preRegisterProviderDetails } from "./details-principal";
@@ -36,7 +36,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const engine = yield* WorkflowEngine;
 			const repository = yield* ProviderImportAdmissionRepository;
 			const receipts = yield* MutationReceipts.make;
-			const sandbox = yield* SandboxExecutionService;
+			const sandbox = yield* ScriptExecutionService;
 			const runtime = yield* PluginRuntimeResolver;
 			const checks = yield* DomainWriteChecks;
 			const notifications = yield* WorkflowExecutionNotifications;

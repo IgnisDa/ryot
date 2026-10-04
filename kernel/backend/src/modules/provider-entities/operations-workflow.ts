@@ -4,6 +4,7 @@ import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
+import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Context, Effect, Layer, Schema } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -15,12 +16,11 @@ import {
 import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { preRegisterProviderDetails } from "./details-principal";
 import { makeProviderExecutionReads } from "./execution-reads";
@@ -33,7 +33,7 @@ type ProviderResolveOperationInput = {
 	readonly identifierType: string;
 	readonly providerId: SandboxProviderId;
 	readonly accountGeneration: AccountGeneration | null;
-	readonly writeContext: SandboxExecutionPrincipal | null;
+	readonly writeContext: ScriptExecutionPrincipal | null;
 };
 
 type EntityImportWorkflowOperationsValue = {
@@ -74,7 +74,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		const session = yield* DatabaseSession;
 		const planner = yield* LifecyclePlanner;
 		const execution = yield* LifecycleExecution;
-		const sandbox = yield* SandboxExecutionService;
+		const sandbox = yield* ScriptExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const writes = yield* DomainWriteChecks;
 		const reads = makeProviderExecutionReads(session);
@@ -168,7 +168,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 				}
 				const principal = yield* makeActivity({
 					error: SandboxRunError,
-					success: SandboxExecutionPrincipal,
+					success: ScriptExecutionPrincipal,
 					name: `resolve-provider-resolve-script-${executionId}`,
 					execute: Effect.gen(function* () {
 						const caller = input.writeContext;
@@ -180,7 +180,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 								command: { writeContext: caller },
 								pluginRevision: caller.pluginRevision,
 							});
-							return yield* Schema.decodeEffect(SandboxExecutionPrincipal)({
+							return yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
 								...caller,
 								scriptId: script.id,
 								scriptSlug: script.slug,

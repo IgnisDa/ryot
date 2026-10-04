@@ -1,9 +1,8 @@
 import { expect, layer } from "@effect/vitest";
 import { NotFound } from "@ryot-app/contract/errors";
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect } from "effect";
-
-import { assertExitFails } from "#lib/test-utils/assertions";
 
 import { LocalInterestSessions, type LocalInterestSessionEnqueue } from "./connections";
 

@@ -14,6 +14,8 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { makeSandboxObservabilityCollector } from "@ryot-app/sandbox/host/observability";
+import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, inArray, isNull, lte, notInArray, sql } from "drizzle-orm";
@@ -27,8 +29,6 @@ import {
 	automationRunAttempt as table,
 } from "#lib/infrastructure/db/schema/tables/automations";
 import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
-import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
-import { makeSandboxObservabilityCollector } from "#lib/infrastructure/sandbox-runtime/observability-host-functions";
 
 import { automaticRetryAt, isRetryableAutomationFailure } from "./retry-policy";
 

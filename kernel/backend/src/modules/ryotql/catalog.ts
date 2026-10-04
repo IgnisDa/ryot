@@ -1,10 +1,10 @@
 import type { FieldSelection, RowSelection } from "@ryot-app/contract/modules/ryotql/language";
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
+import type { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { sql } from "drizzle-orm";
 
 import { automationRunRetryEligibility } from "#lib/infrastructure/db/automation-retry-eligibility";
-import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DefinitionReadContext } from "#modules/definition-registry/read-context";
 import { ingestionReadinessMetadataSql } from "#modules/plugins/ingestion-readiness-projection";
 
@@ -71,10 +71,10 @@ type UserExecutionScope = {
 	readonly definitionContext?: DefinitionReadContext | undefined;
 };
 
-type PluginExecutionScope = SandboxPluginRevision["schemaScope"] & {
+type PluginExecutionScope = ScriptPluginRevision["schemaScope"] & {
 	readonly type: "plugin";
-	readonly pluginId: SandboxPluginRevision["id"];
-	readonly pluginRevisionId: SandboxPluginRevision["revisionId"];
+	readonly pluginId: ScriptPluginRevision["id"];
+	readonly pluginRevisionId: ScriptPluginRevision["revisionId"];
 };
 
 export type RyotQLExecutionScope =

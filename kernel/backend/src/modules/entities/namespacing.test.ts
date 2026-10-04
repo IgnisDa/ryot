@@ -10,6 +10,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { and, eq } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -19,7 +20,6 @@ import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
-import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { makeRedisService, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -41,7 +41,7 @@ import {
 } from "#modules/provider-entities/provider-entity-population-workflow";
 import { relationshipDatabaseLayer } from "#modules/relationships/lifecycle.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { EntitiesRepository } from "./repository";
 import { EntitiesService } from "./service";
@@ -120,7 +120,7 @@ const admittedCommand = Effect.fnUntraced(function* (
 	};
 	const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, subject);
 	assert(pin?.pluginRevision);
-	const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({ ...pin, subject });
+	const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 	const command: DomainLifecycleCommand = {
 		...rootLifecycleCommand({
 			source: "api",
@@ -830,10 +830,7 @@ layer(relationshipDatabaseLayer())((test) => {
 				const repository = yield* SandboxRepository.make;
 				const pin = yield* repository.getScriptPin(script.id, undefined, subject, binding);
 				assert(pin?.pluginRevision);
-				const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({
-					...pin,
-					subject,
-				});
+				const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 				const command: DomainLifecycleCommand = {
 					...rootLifecycleCommand({
 						lane: "background",

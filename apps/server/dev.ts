@@ -19,7 +19,8 @@ const serverRoot = `${repositoryRoot}/apps/server`;
 
 const rendererSourceRoot = `${repositoryRoot}/packages/kernel-renderers/src`;
 
-const sandboxRuntimeGenerator = `${repositoryRoot}/kernel/backend/tooling/sandbox-runtime.ts`;
+const sandboxRuntimeGenerator = `${repositoryRoot}/kernel/sandbox/tooling/runtime.ts`;
+const kernelScriptsGenerator = `${repositoryRoot}/kernel/backend/tooling/kernel-scripts.ts`;
 
 const runCommand = (
 	[executable, ...args]: ProcessCommand,
@@ -66,7 +67,7 @@ const program = Effect.gen(function* () {
 	const version = yield* resolveVersion;
 
 	const generated = yield* runCommand(
-		turboBuild("@ryot-app/sandboxd", "@ryot-app/kernel-renderers"),
+		turboBuild("@ryot-app/sandbox", "@ryot-app/kernel-backend", "@ryot-app/kernel-renderers"),
 	);
 	if (generated !== 0) {
 		yield* failWith(generated);
@@ -117,6 +118,7 @@ const program = Effect.gen(function* () {
 
 	const exitCode = yield* Effect.raceAllFirst([
 		runCommand([process.execPath, "run", sandboxRuntimeGenerator, "--watch", "--skip-initial"]),
+		runCommand([process.execPath, "run", kernelScriptsGenerator, "--watch", "--skip-initial"]),
 		watchRenderers.pipe(Effect.as(0)),
 		...plugins.map(({ root }) => runCommand(buildPlugin(root, "--watch", "--skip-initial"))),
 		runServer,

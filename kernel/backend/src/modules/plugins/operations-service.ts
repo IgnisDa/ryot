@@ -15,23 +15,20 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
+import { samePluginPin, type ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Result } from "effect";
 import type { Headers as PlatformHeaders } from "effect/http";
 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	samePluginPin,
-	type SandboxPluginRevision,
-} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { AuthService } from "#modules/auth/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
-import { SandboxRepository } from "#modules/sandbox/repository";
-import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
-import { SandboxExecutionService } from "#modules/sandbox/service";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 
 import { PluginRepository } from "./repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
@@ -57,7 +54,7 @@ type DispatchInput = {
 	readonly payload: JsonValue;
 	readonly pluginId: PluginId;
 	readonly executionId: string;
-	readonly pluginRevision: SandboxPluginRevision;
+	readonly pluginRevision: ScriptPluginRevision;
 	readonly operationSlug: string;
 	readonly scriptId: SandboxScriptId;
 	readonly integrationId?: IntegrationId;
@@ -69,7 +66,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 		const database = yield* DatabaseSession;
 		const repository = yield* PluginRepository;
 		const runtime = yield* PluginRuntimeResolver;
-		const sandbox = yield* SandboxExecutionService;
+		const sandbox = yield* ScriptExecutionService;
 		const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
 		const receipts = yield* MutationReceipts.make;
 		const scripts = yield* SandboxRepository;
@@ -209,7 +206,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				}
 				yield* admitWorkflow(
 					receipts,
-					SandboxScriptWorkflow,
+					ScriptExecutionWorkflow,
 					dispatchInput.accountGeneration,
 					executionId,
 				);

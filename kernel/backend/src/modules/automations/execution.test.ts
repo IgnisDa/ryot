@@ -1,6 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Cause, Effect, Exit, Fiber, Layer, Option, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { DurableDeferred, Workflow } from "effect/workflow";
@@ -14,7 +15,6 @@ import {
 import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import {
 	databaseLayer,
 	makeWorkflowActivityEngine,

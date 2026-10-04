@@ -9,7 +9,7 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 
 type PluginCronTarget = {
 	readonly cronSlug: string;
@@ -86,7 +86,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 				dispatchAdmittedWorkflow(
 					receipts,
 					engine,
-					SandboxScriptWorkflow,
+					ScriptExecutionWorkflow,
 					resolved.subject.type === "system" ? null : resolved.subject.accountGeneration,
 					{
 						executionId,

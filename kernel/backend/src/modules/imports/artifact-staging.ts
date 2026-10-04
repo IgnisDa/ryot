@@ -1,15 +1,14 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import { ExecutionFileStaging } from "@ryot-app/sandbox/host/execution-file-staging";
+import { sandboxSubjectUserId } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, FileSystem, Layer } from "effect";
-
-import { SandboxArtifactStaging } from "#lib/infrastructure/sandbox-runtime/artifact-staging";
-import { sandboxSubjectUserId } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 import { IngestionCaptures } from "./capture-service";
 import { ImportsRepository } from "./repository";
 
 export const IngestionArtifactStagingLive = Layer.effect(
-	SandboxArtifactStaging,
+	ExecutionFileStaging,
 	Effect.gen(function* () {
 		const repository = yield* ImportsRepository;
 		const captures = yield* IngestionCaptures;

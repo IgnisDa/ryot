@@ -25,7 +25,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installation-repo
 import { PluginRepository } from "#modules/plugins/repository";
 import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
+import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
 import { ProviderImportAdmission } from "./admission";
 import { admissionDatabaseLayer, alice, bob } from "./admission.test-support";
@@ -145,7 +145,7 @@ const fixturesLayer = Layer.effect(
 ).pipe(Layer.provideMerge(catalogueLayer));
 
 const admissionLayer = ProviderImportAdmission.layer.pipe(
-	Layer.provide(Layer.merge(SandboxExecutionServiceLive, DomainWriteChecksLive)),
+	Layer.provide(Layer.merge(ScriptExecutionServiceLive, DomainWriteChecksLive)),
 	Layer.provide(makeAppConfigLayer()),
 	Layer.provideMerge(recordingEngineLayer),
 	Layer.provideMerge(WorkflowExecutionNotifications.layer),

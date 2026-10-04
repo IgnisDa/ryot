@@ -2,10 +2,10 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
+import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 
@@ -28,7 +28,7 @@ export type TranslateEntityWorkflowPayload = typeof TranslateEntityWorkflowPaylo
 
 export const TranslationExecution = Schema.Struct({
 	properties: Schema.Unknown,
-	principal: SandboxExecutionPrincipal,
+	principal: ScriptExecutionPrincipal,
 	entityScopeUserId: Schema.NullOr(UserId),
 });
 export type TranslationExecution = typeof TranslationExecution.Type;

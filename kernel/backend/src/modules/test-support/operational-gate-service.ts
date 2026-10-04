@@ -5,19 +5,19 @@ import {
 } from "@ryot-app/contract/modules/test-support/schemas";
 import { AutomationExecutionId, type ImportRunId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
+import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
 import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
-import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
-import { SandboxSidecarSupervisor } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { OperationalGateRepository } from "./operational-gate-repository";
 
@@ -39,7 +39,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 			const repository = yield* ImportsRepository;
 			const ingestion = yield* IngestionExecution;
 			const gateRepository = yield* OperationalGateRepository;
-			const sandbox = yield* SandboxExecutionService;
+			const sandbox = yield* ScriptExecutionService;
 			const supervisor = yield* SandboxSidecarSupervisor;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const receipts = yield* MutationReceipts.make;

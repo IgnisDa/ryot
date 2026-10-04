@@ -8,7 +8,7 @@
 	},
 	"scripts": {
 		"test": "bun --bun run vitest run",
-		"build": "bun run tooling/sandbox-runtime.ts",
+		"build": "bun run tooling/kernel-scripts.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
@@ -29,6 +29,7 @@
 		"@ryot-app/plugin-archive": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@ryot-app/sandbox": "workspace:*",
 		"@ryot-app/sandbox-compiler": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
 		"@ryot-app/transactional": "workspace:*",

@@ -1,0 +1,332 @@
+import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
+import { jsonByteLength, utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
+import { Cause, Clock, Context, Effect, Layer, Option, Schema } from "effect";
+
+import {
+	sandboxContextError,
+	SANDBOX_LIMITS,
+	SANDBOX_LOG_TRUNCATION_MARKER,
+} from "../protocol/limits";
+import {
+	SandboxInvocationResponseSchema,
+	SandboxInvocationSchema,
+	type SidecarDoneFrame,
+} from "../protocol/messages";
+import { SandboxAdmissionLease } from "./admission";
+import { SandboxExecutionAuthority } from "./authority";
+import { bindSandboxHostFunctions } from "./bridge-adapter";
+import { isSandboxCapability } from "./capability-policy";
+import { ExecutionFiles } from "./file-access";
+import { isSandboxFilesystemGrantCapability } from "./filesystem-grants";
+import { SandboxHostCallGate } from "./host-call-gate";
+import {
+	sandboxDurableHostDispatchStrategy,
+	sandboxHostResultBytes,
+} from "./host-execution-policy";
+import { SandboxHostFunctions } from "./host-functions";
+import {
+	isSandboxCapabilityAllowed,
+	toSandboxHostError,
+	sandboxPlatformFailureKind,
+	type BoundHostFunction,
+	type SandboxRunInput,
+} from "./invocation";
+import { encodedJsonBytes } from "./json-bytes";
+import { recordSandboxExecution, sandboxMetricKind, type SandboxExecutionOutcome } from "./metrics";
+import {
+	makeObservabilitySandboxApiFunctions,
+	makeSandboxObservabilityCollector,
+	mergeSandboxExecutionLogs,
+} from "./observability";
+import {
+	SandboxSidecarSupervisor,
+	SidecarGenerationError,
+	SidecarRecoverySuspended,
+} from "./supervisor";
+
+const decodeResponse = Schema.decodeUnknownEffect(SandboxInvocationResponseSchema, {
+	onExcessProperty: "error",
+});
+
+// Workflow-dispatched capabilities may wait for nested sandbox runs, and unbounded results cannot be
+// charged to transient memory, so live executions never bind them while holding a slot and memory.
+const resourceFreeStrategies = new Set<ReturnType<typeof sandboxDurableHostDispatchStrategy>>([
+	"activity",
+	"diagnostic",
+]);
+
+export const selectSandboxHostFunctions = (
+	boundApiFunctions: Readonly<Record<string, BoundHostFunction>>,
+	input: Pick<SandboxRunInput, "principal" | "workflowExecutionId">,
+) => {
+	const selected: Record<string, BoundHostFunction> = {};
+	const workflow =
+		input.workflowExecutionId !== undefined || input.principal.metadata.kind === "workflow";
+	for (const name of input.principal.metadata.capabilities ?? []) {
+		if (
+			!isSandboxCapability(name) ||
+			isSandboxFilesystemGrantCapability(name) ||
+			(workflow && name !== "log" && name !== "span") ||
+			!resourceFreeStrategies.has(sandboxDurableHostDispatchStrategy(name)) ||
+			sandboxHostResultBytes(name) === null ||
+			!isSandboxCapabilityAllowed(input, name)
+		) {
+			continue;
+		}
+		const fn = boundApiFunctions[name];
+		if (fn !== undefined) {
+			selected[name] = fn;
+		}
+	}
+	return selected;
+};
+
+export class SandboxExecutor extends Context.Service<SandboxExecutor>()("SandboxExecutor", {
+	make: Effect.gen(function* () {
+		const supervisor = yield* SandboxSidecarSupervisor;
+		const gate = yield* SandboxHostCallGate;
+		const files = yield* ExecutionFiles;
+		const apiFunctions = yield* SandboxHostFunctions;
+		const authority = yield* SandboxExecutionAuthority;
+		const run = Effect.fn("SandboxExecutor.run")(function* (input: SandboxRunInput) {
+			const executionStartedAt = yield* Clock.currentTimeMillis;
+			const kind = sandboxMetricKind(input.principal.metadata);
+			let terminal:
+				| {
+						readonly durationMs: number;
+						readonly responseBytes: number;
+						readonly outcome: SandboxExecutionOutcome;
+				  }
+				| undefined;
+			return yield* Effect.scoped(
+				Effect.gen(function* () {
+					const existingLease = yield* Effect.serviceOption(SandboxAdmissionLease);
+					const lease = Option.isSome(existingLease)
+						? existingLease.value
+						: yield* supervisor.reserve(input.principal, input.lane);
+					const context = input.context ?? {};
+					const contextError = sandboxContextError(context);
+					if (contextError !== null) {
+						return yield* new SandboxRunError({ kind: "invalid-input", message: contextError });
+					}
+					if (
+						input.compiledFormat !== SANDBOX_COMPILED_FORMAT ||
+						utf8ByteLength(input.compiledCode) > SANDBOX_LIMITS.compiler.javascriptBytes ||
+						sha256Hex(input.compiledCode) !== input.principal.contentHash
+					) {
+						return yield* new SandboxRunError({
+							kind: "missing-artifact",
+							message: "Sandbox compiled module does not match its pinned artifact",
+						});
+					}
+					const parentSpan = yield* Effect.currentSpan;
+					const collector = makeSandboxObservabilityCollector();
+					const selected = selectSandboxHostFunctions(
+						bindSandboxHostFunctions(
+							{ ...apiFunctions, ...makeObservabilitySandboxApiFunctions(collector) },
+							input,
+						),
+						input,
+					);
+					const result = yield* supervisor.run({
+						lease,
+						lane: input.lane,
+						principal: input.principal,
+						executionId: input.executionId,
+						pinHash: sha256Hex(
+							stableStringify({
+								context,
+								principal: input.principal,
+								startedAt: input.startedAt,
+								journal: input.replayJournal?.entries,
+								workflowExecutionId: input.workflowExecutionId,
+							}),
+						),
+						prepare: (identity) =>
+							Effect.gen(function* () {
+								const access = yield* files.open(input);
+								const registration = yield* gate
+									.register({
+										...identity,
+										input,
+										parentSpan,
+										files: access,
+										apiFunctions: Object.fromEntries(
+											Object.entries(selected).map(([name, host]) => [
+												name,
+												(args: ReadonlyArray<unknown>) =>
+													authority
+														.resolve(input.principal)
+														.pipe(Effect.mapError(toSandboxHostError), Effect.andThen(host(args))),
+											]),
+										),
+									})
+									.pipe(
+										Effect.mapError(
+											() =>
+												new SandboxRunError({
+													kind: "invalid-input",
+													message: "Sandbox host registration is invalid",
+												}),
+										),
+									);
+								const invocation = yield* Schema.decodeUnknownEffect(SandboxInvocationSchema, {
+									onExcessProperty: "error",
+								})({
+									context,
+									mode: "definition",
+									startedAt: input.startedAt,
+									executionId: input.executionId,
+									metadata: input.principal.metadata,
+									scriptId: input.principal.scriptId,
+									apiFunctions: Object.keys(selected),
+									compiledFormat: SANDBOX_COMPILED_FORMAT,
+									...(registration.journal === undefined ? {} : { journal: registration.journal }),
+									...(input.workflowExecutionId === undefined
+										? {}
+										: { workflowExecutionId: input.workflowExecutionId }),
+									...(input.inlineDurableHost === undefined
+										? {}
+										: { inlineDurableCapabilities: input.inlineDurableHost.capabilities }),
+									filesystem: access.filesystem,
+								}).pipe(
+									Effect.mapError(
+										() =>
+											new SandboxRunError({
+												kind: "invalid-input",
+												message: "Sandbox invocation is invalid",
+											}),
+									),
+								);
+								const json = yield* Schema.decodeUnknownEffect(Schema.Json)(invocation).pipe(
+									Effect.mapError(
+										() =>
+											new SandboxRunError({
+												kind: "invalid-input",
+												message: "Sandbox invocation is not JSON",
+											}),
+									),
+								);
+								if (
+									encodedJsonBytes(json, SANDBOX_LIMITS.execution.requestBytes) >
+									SANDBOX_LIMITS.execution.requestBytes
+								) {
+									return yield* new SandboxRunError({
+										kind: "invalid-input",
+										message: "Sandbox invocation exceeds its byte limit",
+									});
+								}
+								return {
+									input: json,
+									gate: registration,
+									module: { source: input.compiledCode, sha256: input.principal.contentHash },
+									finish: Effect.fnUntraced(function* (done: typeof SidecarDoneFrame.Type) {
+										const outcome = done.outcome;
+										if (
+											outcome.status === "cancelled" ||
+											(outcome.status === "limit" &&
+												(outcome.limit === "cpu" || outcome.limit === "deadline"))
+										) {
+											return yield* new TimeoutError({
+												message: "Sandbox execution exceeded its time budget",
+											});
+										}
+										if (outcome.status !== "completed") {
+											return yield* new SandboxRunError({
+												kind: "script-failure",
+												message: outcome.message,
+											});
+										}
+										const response = yield* decodeResponse(outcome.value).pipe(
+											Effect.mapError(
+												() =>
+													new SandboxRunError({
+														kind: "infrastructure",
+														message: "Sandbox sidecar returned an invalid invocation response",
+													}),
+											),
+										);
+										if (!response.success) {
+											return { response, harvest: null };
+										}
+										const completed =
+											isObjectRecord(response.value) && response.value["state"] === "completed"
+												? response.value["output"]
+												: response.value;
+										return { response, harvest: yield* access.harvest(completed) };
+									}),
+								};
+							}),
+					});
+					const { harvest, response } = result.finished;
+					const totalMs = Math.max(1, (yield* Clock.currentTimeMillis) - executionStartedAt);
+					terminal = {
+						durationMs: totalMs,
+						responseBytes: jsonByteLength(response) ?? 0,
+						outcome: response.success ? "success" : "failure",
+					};
+					const consoleLogs = [
+						...response.logs,
+						...result.done.console.entries.map((entry) => entry.message),
+					];
+					if (result.done.console.truncated) {
+						consoleLogs.push(SANDBOX_LOG_TRUNCATION_MARKER);
+					}
+					return {
+						harvest,
+						inline: result.inline,
+						recovery: result.recovery,
+						success: response.success,
+						executionId: input.executionId,
+						pendingInline: result.pendingInline,
+						value: response.success ? response.value : null,
+						error: response.success ? null : response.error,
+						logs: mergeSandboxExecutionLogs(consoleLogs, collector),
+						timing: { totalMs, executionMs: response.timing.executionMs },
+					};
+				}),
+			).pipe(
+				Effect.mapError((error) =>
+					error instanceof TimeoutError ||
+					error instanceof SandboxRunError ||
+					error instanceof SidecarGenerationError ||
+					error instanceof SidecarRecoverySuspended
+						? error
+						: new SandboxRunError({
+								message: unknownToMessage(error),
+								kind: sandboxPlatformFailureKind(error),
+							}),
+				),
+				Effect.onExit((exit) =>
+					Effect.gen(function* () {
+						const error =
+							exit._tag === "Failure" ? Cause.findErrorOption(exit.cause) : Option.none();
+						yield* recordSandboxExecution({
+							kind,
+							...(terminal ?? {
+								responseBytes: 0,
+								durationMs: Math.max(1, (yield* Clock.currentTimeMillis) - executionStartedAt),
+								outcome:
+									Option.isSome(error) && error.value instanceof TimeoutError
+										? "timeout"
+										: "failure",
+							}),
+						});
+						return undefined;
+					}),
+				),
+			);
+		}, Effect.withSpan("sandbox.execution"));
+		return { run, reserve: supervisor.reserve, completeRecovery: supervisor.completeRecovery };
+	}),
+}) {
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provideMerge(SandboxHostCallGate.layer),
+		Layer.provide(ExecutionFiles.layer),
+		Layer.provideMerge(SandboxSidecarSupervisor.layer),
+	);
+}

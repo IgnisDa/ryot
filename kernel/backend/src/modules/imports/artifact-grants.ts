@@ -5,11 +5,10 @@ import type {
 } from "@ryot-app/contract/modules/sandbox/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { ingestionArtifactsSchema } from "@ryot-app/sandbox-sdk/imports";
+import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
+import { sandboxSubjectUserId } from "@ryot-app/sandbox/protocol/principal";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
-
-import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
-import { sandboxSubjectUserId } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 import { IngestionCaptures } from "./capture-service";
 import { ImportsRepository } from "./repository";
@@ -63,7 +62,7 @@ export const ingestionArtifactGrants = Effect.fn("imports.ingestionArtifactGrant
 			);
 			return { ...grants, artifactPath };
 		}
-		const artifacts = yield* SandboxArtifactStore;
+		const artifacts = yield* ExecutionFileStore;
 		const [artifactPath] = yield* artifacts.resolveOutputs(grants.artifactOwnerExecutionId, [
 			input["artifactHandle"],
 		]);

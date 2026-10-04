@@ -7,13 +7,13 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { createPluginConfigEncryption } from "#lib/infrastructure/config/plugin-config-encryption";
 import type { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
-import { SandboxSidecarSupervisor } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { fakeDatabaseSession, makeRedisService } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -22,7 +22,7 @@ import { ImportsService } from "#modules/imports/service";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { OperationalGateRepository } from "./operational-gate-repository";
 import { OperationalGateService } from "./operational-gate-service";
@@ -30,7 +30,7 @@ import { OperationalGateService } from "./operational-gate-service";
 const runId = ImportRunId.make("run-id");
 const executingUserId = UserId.make("user-id");
 const mockImports = Layer.mock(ImportsService);
-const mockSandbox = Layer.mock(SandboxExecutionService);
+const mockSandbox = Layer.mock(ScriptExecutionService);
 const pluginConfigEncryptionKey = Layer.succeed(
 	PluginConfigEncryptionKey,
 	PluginConfigEncryptionKey.of({

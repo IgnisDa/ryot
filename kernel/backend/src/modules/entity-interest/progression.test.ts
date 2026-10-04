@@ -7,10 +7,10 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Clock, Context, Duration, Effect, Layer, Ref } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeRedisService } from "#lib/test-utils/effect";
 import { EntitiesService } from "#modules/entities/service";
 import { TranslationsService, type RequestFillInput } from "#modules/entity-translation/service";

@@ -3,10 +3,10 @@ import { tmpdir } from "node:os";
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
 import type { IngestionCapture } from "@ryot-app/contract/modules/imports/ingestion";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, FileSystem, Layer } from "effect";
 
 import { createPluginConfigEncryption } from "#lib/infrastructure/config/plugin-config-encryption";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import {

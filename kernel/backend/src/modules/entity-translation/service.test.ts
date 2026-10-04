@@ -1,6 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
@@ -8,12 +9,11 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { fakeDatabaseSession, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
 import { TranslationsService } from "./service";
@@ -266,11 +266,11 @@ const makeServiceLayer = (
 					),
 			});
 			const sandbox = Layer.effect(
-				SandboxExecutionService,
+				ScriptExecutionService,
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
 					return yield* Effect.succeed(
-						SandboxExecutionService.of({
+						ScriptExecutionService.of({
 							enqueue: () => Effect.die("unused"),
 							getResult: () => Effect.die("unused"),
 							executeScript: () => Effect.die("unused"),

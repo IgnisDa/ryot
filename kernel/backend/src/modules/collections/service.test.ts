@@ -20,6 +20,8 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -27,8 +29,6 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeWorkflowActivityEngine, type MockOverrides } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -356,7 +356,7 @@ const sandboxWriteContext = {
 			relationshipSchemaSlugs: [],
 		},
 	},
-} satisfies SandboxExecutionPrincipal;
+} satisfies ScriptExecutionPrincipal;
 
 const runAddWorkflowWithCommand = (lifecycle: DomainLifecycleCommand) =>
 	runAddEntityToCollectionWorkflow(

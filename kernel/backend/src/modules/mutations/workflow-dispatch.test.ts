@@ -1,10 +1,10 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { dispatchAdmittedWorkflow } from "./workflow-dispatch";

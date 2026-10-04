@@ -1,7 +1,7 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { hasValidExecutableDependencies } from "@ryot-app/contract/modules/plugins/execution";
-import { pluginLoadLayer } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/plugin-load.test-support";
 import { loadPluginSandboxScripts } from "@ryot-app/kernel-backend/modules/plugins/source.test-support";
+import { pluginLoadLayer } from "@ryot-app/kernel-backend/modules/scripts/plugin-load.test-support";
 import { Effect } from "effect";
 
 import mediaPlugin from "./plugin";

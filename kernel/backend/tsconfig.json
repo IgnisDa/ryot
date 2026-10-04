@@ -1,9 +1,5 @@
 {
-	"exclude": [
-		"node_modules",
-		"src/modules/plugins/test-fixtures/**/*.sandbox.ts",
-		"src/lib/infrastructure/sandbox-runtime/*.sandbox.ts"
-	],
+	"exclude": ["node_modules", "src/modules/plugins/test-fixtures/**/*.sandbox.ts"],
 	"compilerOptions": {
 		"noEmit": true,
 		"strict": true,

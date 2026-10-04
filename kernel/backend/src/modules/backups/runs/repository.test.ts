@@ -2,11 +2,11 @@ import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { BackupConflict } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
 import { BackupsRepository } from "./repository";

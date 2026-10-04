@@ -10,7 +10,7 @@ import type * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import {
 	TranslateEntityWorkflow,
@@ -45,7 +45,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 			const repository = yield* TranslationsRepository;
 			const session = yield* DatabaseSession;
 			const runtime = yield* PluginRuntimeResolver;
-			const sandbox = yield* SandboxExecutionService;
+			const sandbox = yield* ScriptExecutionService;
 			const checks = yield* DomainWriteChecks;
 			const requestFill = Effect.fn("TranslationsService.requestFill")(function* (
 				input: RequestFillInput,

@@ -14,7 +14,9 @@
 		"**/build/**",
 		"**/.vitepress/**",
 		"apps/frontend/app/styles/*.css",
-		"**/lib/infrastructure/sandbox-runtime/*.sandbox.ts"
+		"kernel/sandbox/src/host/test-fixtures/*.sandbox.ts",
+		"kernel/sandbox/native/**",
+		"kernel/sandbox/protocol-fixtures/**"
 	],
 	"rules": {
 		"curly": "error",

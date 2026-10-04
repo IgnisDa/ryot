@@ -6,6 +6,7 @@ import {
 	EntitySchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { eq } from "drizzle-orm";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -13,7 +14,6 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import {
 	EntityPopulationTrigger,
@@ -27,8 +27,8 @@ import {
 	revisionPackage,
 } from "#modules/plugins/revision.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { EntityPopulationTriggerLive } from "./population-trigger-live";
 
@@ -107,10 +107,7 @@ const triggerLayer = (
 				const subject = { type: "system" as const };
 				const pin = yield* (yield* SandboxRepository).getScriptPin(script.id, undefined, subject);
 				assert(pin?.pluginRevision);
-				const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({
-					...pin,
-					subject,
-				});
+				const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 				command = {
 					...rootLifecycleCommand({
 						lane: "background",
@@ -148,7 +145,7 @@ const triggerLayer = (
 					),
 			});
 			return EntityPopulationTriggerLive.pipe(
-				Layer.provide(Layer.merge(SandboxExecutionServiceLive, DomainWriteChecksLive)),
+				Layer.provide(Layer.merge(ScriptExecutionServiceLive, DomainWriteChecksLive)),
 				Layer.provideMerge(Layer.succeed(WorkflowEngine, engine)),
 				Layer.merge(Layer.succeed(PopulationFixture, { request, executions: Ref.get(executions) })),
 			);

@@ -7,13 +7,13 @@ import type {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { genericImportChunkOperationIds } from "@ryot-app/sandbox-sdk/imports";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";

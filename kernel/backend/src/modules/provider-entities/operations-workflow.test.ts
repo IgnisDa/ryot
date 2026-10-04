@@ -35,7 +35,7 @@ import {
 } from "#modules/automations/lifecycle.test-support";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { EntityImportWorkflow } from "./entity-import-workflow";
 import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
@@ -143,7 +143,7 @@ const operationsLayer = EntityImportWorkflowOperationsLive.pipe(
 			databaseLayer,
 			Layer.succeed(LifecyclePlanner, planner),
 			Layer.succeed(LifecycleExecution, execution),
-			Layer.mock(SandboxExecutionService)({}),
+			Layer.mock(ScriptExecutionService)({}),
 			Layer.mock(PluginRuntimeResolver)({}),
 			DomainWriteChecksLive.pipe(Layer.provide(databaseLayer)),
 		),

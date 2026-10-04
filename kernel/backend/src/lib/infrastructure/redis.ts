@@ -43,19 +43,11 @@ export const redisKeys = {
 	entityInterestSession: (sessionId: string) => `ryot:entity-interest:session:${sessionId}`,
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
 	entityInterestSessions: (entityId: string) => `ryot:entity-interest:entity:${entityId}:sessions`,
-	sandboxCrashWindow: (identity: string) => `ryot:sandbox:crashes:${encodeURIComponent(identity)}`,
-	sandboxProbation: (identity: string) => `ryot:sandbox:probation:${encodeURIComponent(identity)}`,
 	entityInterestProgressionLease: (entityId: string) => `ryot:entity-interest:progress:${entityId}`,
-	sandboxQuarantine: (identity: string) =>
-		`ryot:sandbox:quarantine:${encodeURIComponent(identity)}`,
-	sandboxRecovery: (executionId: string) =>
-		`ryot:sandbox:recovery:${encodeURIComponent(executionId)}`,
 	entityInterestSessionEntities: (sessionId: string) =>
 		`ryot:entity-interest:session:${sessionId}:entities`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
-	sandboxProbationLease: (identity: string) =>
-		`ryot:sandbox:probation-lease:${encodeURIComponent(identity)}`,
 	sandboxRunCacheNamespace: (serverRunId: string, tuple: string) =>
 		`ryot:sandbox:cache:run:${serverRunId}:${tuple}`,
 	providerSearchOptions: (providerId: string, scriptId: string) =>

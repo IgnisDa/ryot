@@ -1,10 +1,10 @@
 import { expect, layer } from "@effect/vitest";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeMemoizingWorkflowEngine } from "#lib/test-utils/effect";
 
 import { runLifecycleWriteStep, type LifecyclePreparedStep } from "./lifecycle-workflow-step";
