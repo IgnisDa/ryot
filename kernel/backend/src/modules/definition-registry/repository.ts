@@ -19,6 +19,7 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import type {
+	EntityRelationshipDefinitions,
 	DefinitionSnapshot,
 	DefinitionSource,
 	EntitySchemaSnapshot,
@@ -146,6 +147,23 @@ const toSnapshot = Effect.fn(function* (rows: DefinitionRows) {
 			rows.entitySchemas.map((row) => toEntitySchema(row, events.get(row.id) ?? [])),
 		),
 	} satisfies DefinitionSnapshot;
+});
+
+const toEntityRelationshipDefinitions = Effect.fn(function* (rows: {
+	readonly entitySchemas: ReadonlyArray<Pick<EntitySchemaRow, "pluginId" | "slug">>;
+	readonly relationshipSchemas: ReadonlyArray<Omit<RelationshipSchemaRow, "pluginSlug">>;
+}) {
+	const definitions: EntityRelationshipDefinitions = {
+		relationshipSchemas: yield* recordBySlug(
+			"relationship schema",
+			rows.relationshipSchemas.map(toRelationshipSchema),
+		),
+		entitySchemas: yield* recordBySlug(
+			"entity schema",
+			rows.entitySchemas.map(({ slug, pluginId }) => ({ slug, pluginId })),
+		),
+	};
+	return definitions;
 });
 
 const toSource = (snapshot: DefinitionSnapshot): DefinitionSource => ({
@@ -786,6 +804,66 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				return yield* recordBySlug("relationship schema", rows.map(toRelationshipSchema));
 			});
 
+			const findGlobalRelationshipSchemas = Effect.fn(
+				"DefinitionRepository.findGlobalRelationshipSchemas",
+			)(function* (slugs: ReadonlyArray<string>) {
+				if (slugs.length === 0) {
+					return {};
+				}
+				const rows = yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.globalRelationshipSchema)
+						.where(inArray(schema.globalRelationshipSchema.slug, [...slugs]))
+						.orderBy(...globalDefinitionOrder(schema.globalRelationshipSchema, true)),
+				);
+				return yield* recordBySlug("relationship schema", rows.map(toRelationshipSchema));
+			});
+
+			const getUserEntityRelationshipDefinitions = Effect.fn(
+				"DefinitionRepository.getUserEntityRelationshipDefinitions",
+			)(function* (userId: UserId) {
+				const entitySchemas = yield* session.run((db) =>
+					db
+						.select({
+							slug: schema.userEntitySchema.slug,
+							pluginId: schema.userEntitySchema.pluginId,
+						})
+						.from(schema.userEntitySchema)
+						.where(userWhere(schema.userEntitySchema, userId, effective))
+						.orderBy(...userDefinitionOrder(schema.userEntitySchema)),
+				);
+				const relationshipSchemas = yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.userRelationshipSchema)
+						.where(userWhere(schema.userRelationshipSchema, userId, effective))
+						.orderBy(...userDefinitionOrder(schema.userRelationshipSchema, true)),
+				);
+				return yield* toEntityRelationshipDefinitions({ entitySchemas, relationshipSchemas });
+			});
+
+			const getGlobalEntityRelationshipDefinitions = Effect.fn(
+				"DefinitionRepository.getGlobalEntityRelationshipDefinitions",
+			)(function* () {
+				const entitySchemas = yield* session.run((db) =>
+					db
+						.select({
+							slug: schema.globalEntitySchema.slug,
+							pluginId: schema.globalEntitySchema.pluginId,
+						})
+						.from(schema.globalEntitySchema)
+						.orderBy(...globalDefinitionOrder(schema.globalEntitySchema)),
+				);
+				const relationshipSchemas = yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.globalRelationshipSchema)
+						.orderBy(...globalDefinitionOrder(schema.globalRelationshipSchema, true)),
+				);
+				return yield* toEntityRelationshipDefinitions({ entitySchemas, relationshipSchemas });
+			});
+
 			const listUserSignalSchemas = Effect.fn("DefinitionRepository.listUserSignalSchemas")(
 				function* (userId: UserId, options: ListedOption = effective) {
 					const rows = yield* session.run((db) =>
@@ -887,6 +965,25 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				);
 			});
 
+			const findGlobalRelationshipSchemaByEndpoints = Effect.fn(
+				"DefinitionRepository.findGlobalRelationshipSchemaByEndpoints",
+			)(function* (sourceEntitySchemaSlug: string, targetEntitySchemaSlug: string) {
+				const [row] = yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.globalRelationshipSchema)
+						.where(
+							and(
+								eq(schema.globalRelationshipSchema.sourceEntitySchemaSlug, sourceEntitySchemaSlug),
+								eq(schema.globalRelationshipSchema.targetEntitySchemaSlug, targetEntitySchemaSlug),
+							),
+						)
+						.orderBy(...globalDefinitionOrder(schema.globalRelationshipSchema, true))
+						.limit(1),
+				);
+				return row ? toRelationshipSchema(row) : null;
+			});
+
 			const findGlobalSignalSchema = Effect.fn("DefinitionRepository.findGlobalSignalSchema")(
 				function* (slug: string) {
 					const rows = yield* session.run((db) =>
@@ -925,8 +1022,12 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				writeRevisionDefinitions,
 				findUserRelationshipSchemas,
 				findGlobalRelationshipSchema,
+				findGlobalRelationshipSchemas,
 				readKernelSource: readKernelRows(),
+				getUserEntityRelationshipDefinitions,
+				findGlobalRelationshipSchemaByEndpoints,
 				getGlobalSnapshot: Effect.flatMap(readGlobalRows(), toSnapshot),
+				getGlobalEntityRelationshipDefinitions: getGlobalEntityRelationshipDefinitions(),
 				getUserSnapshot: (userId: UserId, options: ListedOption) =>
 					Effect.flatMap(readUserRows(userId, options), toSnapshot),
 			};

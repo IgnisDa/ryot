@@ -28,7 +28,7 @@ import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementLaneWorkflow, laneWorkflow } from "#lib/infrastructure/workflow-lane";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import { EntityRelationshipDefinitions } from "#modules/definition-registry/snapshot";
 import { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -91,13 +91,13 @@ const resolveProviderEntityDefinitions = (
 	makeActivity({
 		name: "resolve-provider-entity-definitions",
 		error: SandboxRunError satisfies DurableSchema,
-		success: DefinitionSnapshot satisfies DurableSchema,
+		success: EntityRelationshipDefinitions satisfies DurableSchema,
 		execute: Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;
 			return yield* (
 				entityScope.scope === "user"
-					? definitions.getUserSnapshot(entityScope.userId, { listed: false })
-					: definitions.getGlobalSnapshot
+					? definitions.getUserEntityRelationshipDefinitions(entityScope.userId)
+					: definitions.getGlobalEntityRelationshipDefinitions
 			).pipe(mapDbErrorToSandbox);
 		}),
 	});
@@ -105,7 +105,7 @@ const resolveProviderEntityDefinitions = (
 const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	payload: EntityImportPayload,
 	entityScope: { scope: "global" } | { scope: "user"; userId: UserId },
-	definitions: DefinitionSnapshot,
+	definitions: EntityRelationshipDefinitions,
 ) {
 	const repository = yield* EntitiesRepository;
 	const schema = definitions.entitySchemas[payload.entitySchemaSlug];
@@ -238,7 +238,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 
 const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupScope")(function* (
 	payload: EntityImportPayload,
-	definitions: DefinitionSnapshot,
+	definitions: EntityRelationshipDefinitions,
 	entity: ListedEntity,
 	group: ProviderDetailsRelatedEntityGroup,
 	index: number,
@@ -269,7 +269,7 @@ const syncRelatedEntityGroupScope = Effect.fn("syncProviderRelatedEntityGroupSco
 
 const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function* (
 	payload: EntityImportPayload,
-	definitions: DefinitionSnapshot,
+	definitions: EntityRelationshipDefinitions,
 	options: SynchronizeOptions,
 	scope: ChildEntitySetScope,
 	rootPreviouslyPopulated: boolean,
@@ -374,7 +374,7 @@ const toSandboxJsonObject = (value: unknown) =>
 
 const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 	payload: EntityImportPayload,
-	definitions: DefinitionSnapshot,
+	definitions: EntityRelationshipDefinitions,
 	options: SynchronizeOptions,
 	rootPreviouslyPopulated: boolean,
 	rootScope: ChildEntitySetScope,
@@ -415,7 +415,7 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 
 const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	payload: EntityImportPayload,
-	definitions: DefinitionSnapshot,
+	definitions: EntityRelationshipDefinitions,
 	executionId: string,
 	options: SynchronizeOptions,
 	existing: ListedEntity | null,

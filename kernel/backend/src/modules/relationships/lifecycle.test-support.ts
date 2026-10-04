@@ -79,9 +79,10 @@ export class RelationshipFixture extends Context.Service<
 	RelationshipFixture,
 	{
 		readonly observer: Client;
+		readonly runLimitedPlanner: LifecyclePlanner["Service"];
+		readonly globalRelationshipSchemaCalls: Effect.Effect<ReadonlyArray<ReadonlyArray<string>>>;
 		readonly updateRelationshipSchema: Effect.Effect<void>;
 		readonly disableRelationshipSchema: Effect.Effect<void>;
-		readonly runLimitedPlanner: LifecyclePlanner["Service"];
 	}
 >()("test/RelationshipFixture") {}
 
@@ -156,6 +157,7 @@ export const relationshipDatabaseLayer = (
 			);
 			const schemaActivated = yield* Ref.make(false);
 			const schemaState = yield* Ref.make<"active" | "disabled" | "updated">("active");
+			const globalRelationshipSchemaCalls = yield* Ref.make<Array<ReadonlyArray<string>>>([]);
 			const runtimeOnly =
 				options.activateSchemaOnWrite ||
 				options.omitSchemaBeforeWrite ||
@@ -164,35 +166,50 @@ export const relationshipDatabaseLayer = (
 							Layer.mock(PluginRuntimeResolver)({
 								lockCatalog: () => Ref.set(schemaActivated, options.activateSchemaOnWrite ?? false),
 							}),
-							Layer.mock(DefinitionRepository)({
-								findUserRelationshipSchemas: (_userId, slugs) =>
-									Effect.gen(function* () {
-										const state = yield* Ref.get(schemaState);
-										const activated = yield* Ref.get(schemaActivated);
-										return options.omitSchemaBeforeWrite ||
-											state === "disabled" ||
-											!slugs.includes(relationshipSchemaSlug)
-											? {}
-											: {
-													[relationshipSchemaSlug]:
-														activated || state === "updated"
-															? {
-																	...relationshipSchema,
-																	propertiesSchema: {
-																		fields: {
-																			...relationshipSchema.propertiesSchema.fields,
-																			activated: {
-																				label: "Activated",
-																				type: "boolean" as const,
-																				description: "Activated",
+							Layer.effect(
+								DefinitionRepository,
+								Effect.gen(function* () {
+									const definitions = yield* DefinitionRepository.make;
+									return {
+										...definitions,
+										findGlobalRelationshipSchemas: (slugs) =>
+											Effect.gen(function* () {
+												yield* Ref.update(globalRelationshipSchemaCalls, (calls) => [
+													...calls,
+													[...slugs],
+												]);
+												return yield* definitions.findGlobalRelationshipSchemas(slugs);
+											}),
+										findUserRelationshipSchemas: (_userId, slugs) =>
+											Effect.gen(function* () {
+												const state = yield* Ref.get(schemaState);
+												const activated = yield* Ref.get(schemaActivated);
+												return options.omitSchemaBeforeWrite ||
+													state === "disabled" ||
+													!slugs.includes(relationshipSchemaSlug)
+													? {}
+													: {
+															[relationshipSchemaSlug]:
+																activated || state === "updated"
+																	? {
+																			...relationshipSchema,
+																			propertiesSchema: {
+																				fields: {
+																					...relationshipSchema.propertiesSchema.fields,
+																					activated: {
+																						label: "Activated",
+																						type: "boolean" as const,
+																						description: "Activated",
+																					},
+																				},
 																			},
-																		},
-																	},
-																}
-															: relationshipSchema,
-												};
-									}),
-							}),
+																		}
+																	: relationshipSchema,
+														};
+											}),
+									};
+								}),
+							),
 						)
 					: Layer.merge(
 							PluginRuntimeResolver.layer.pipe(Layer.provide(dependencies)),
@@ -272,6 +289,7 @@ export const relationshipDatabaseLayer = (
 						runLimitedPlanner: yield* LifecyclePlanner,
 						updateRelationshipSchema: Ref.set(schemaState, "updated"),
 						disableRelationshipSchema: Ref.set(schemaState, "disabled"),
+						globalRelationshipSchemaCalls: Ref.get(globalRelationshipSchemaCalls),
 					};
 				}),
 			).pipe(

@@ -90,7 +90,7 @@ export const makePlannedRelationshipReconciliation = (
 		const schemas =
 			scope.scope === "user"
 				? yield* definitions.findUserRelationshipSchemas(scope.userId, slugs)
-				: (yield* definitions.getGlobalSnapshot).relationshipSchemas;
+				: yield* definitions.findGlobalRelationshipSchemas(slugs);
 		const dispatch: LifecycleDispatchPlan[] = [];
 		const result: Array<PlannedRelationshipReconciliationResult[number]> = [];
 		for (const [groupIndex, group] of groups.entries()) {

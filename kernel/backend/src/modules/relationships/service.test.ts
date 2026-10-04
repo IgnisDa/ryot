@@ -217,6 +217,32 @@ describe("Relationships lifecycle owner", () => {
 		);
 	});
 
+	layer(relationshipDatabaseLayer({ mutableRelationshipSchema: true }))((test) => {
+		test.effect("loads only requested global schemas for planned reconciliation", () =>
+			Effect.gen(function* () {
+				const fixture = yield* RelationshipFixture;
+				const service = yield* RelationshipsService;
+				const session = yield* DatabaseSession;
+				yield* session.transaction(
+					service.persistPlannedReconciliation(
+						[
+							{
+								relationshipSchemaSlug,
+								selector: { type: "self" },
+								relationships: [
+									{ sourceEntityId, properties: { rank: 1 }, targetEntityId: sourceEntityId },
+								],
+							},
+						],
+						command("planned-global-schema"),
+						{ scope: "global" },
+					),
+				);
+				expect(yield* fixture.globalRelationshipSchemaCalls).toEqual([[relationshipSchemaSlug]]);
+			}),
+		);
+	});
+
 	layer(relationshipDatabaseLayer())((test) => {
 		test.effect("replays no-hook merge, update, and delete by ID without automation history", () =>
 			Effect.gen(function* () {
