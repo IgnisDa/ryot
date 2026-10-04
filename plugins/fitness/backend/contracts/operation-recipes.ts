@@ -18,6 +18,7 @@ import {
 import {
 	MeasurementReadingDeleteInput,
 	MeasurementReadingLogInput,
+	MeasurementReadingLogOutput,
 	MeasurementReadingOutput,
 	MeasurementReadingUpdateInput,
 	measurementReadingDeleteOperationSlug,
@@ -44,8 +45,8 @@ export const measurementMetricPinRecipe = defineOperationRecipe({
 
 export const measurementReadingLogRecipe = defineOperationRecipe({
 	packageId,
-	output: MeasurementReadingOutput,
 	input: MeasurementReadingLogInput,
+	output: MeasurementReadingLogOutput,
 	operationSlug: measurementReadingLogOperationSlug,
 });
 

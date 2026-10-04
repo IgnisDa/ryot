@@ -1,6 +1,10 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { AutomationHookIdentity } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { CreateEventItem, UpdateEventItem } from "@ryot-app/contract/modules/events/schemas";
+import {
+	EventCreateItemError,
+	type CreateEventItem,
+	type UpdateEventItem,
+} from "@ryot-app/contract/modules/events/schemas";
 import { EventId, type UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
@@ -10,6 +14,7 @@ import {
 	MutationReceiptIdentityConflict,
 } from "#modules/mutations/receipts";
 
+import type { EventCreateWorkflowPayload } from "./event-create-workflow";
 import type { EventIdentityInput, UpdateEventEntityReferencesInput } from "./repository";
 
 export const EventCreateReceiptResult = Schema.Struct({
@@ -43,21 +48,19 @@ export const eventCreateBatchInput = (input: {
 	},
 });
 
-export const eventCreateItemCommand = (
-	command: DomainLifecycleCommand,
+export const eventCreateWriteCommand = (
+	payload: EventCreateWorkflowPayload,
 	index: number,
-	itemIdentity?: string,
-): DomainLifecycleCommand => ({
-	...command,
-	itemIdentity: itemIdentity ?? `${command.itemIdentity}:event:${index}`,
-});
+): DomainLifecycleCommand => {
+	const command = payload.writeCommand ?? payload.command;
+	return {
+		...command,
+		itemIdentity: payload.itemIdentities?.[index] ?? `${command.itemIdentity}:event:${index}`,
+	};
+};
 
 export const eventCreateReceiptIdentity = (
-	input: {
-		userId: UserId;
-		command: DomainLifecycleCommand;
-		itemIdentities?: ReadonlyArray<string> | undefined;
-	},
+	input: EventCreateWorkflowPayload,
 	index: number,
 	submittedItem: CreateEventItem,
 ) =>
@@ -65,8 +68,12 @@ export const eventCreateReceiptIdentity = (
 		ownerUserId: input.userId,
 		scopeUserId: input.userId,
 		commandKind: "event:create",
-		input: { item: submittedItem, writeContext: input.command.writeContext },
-		command: eventCreateItemCommand(input.command, index, input.itemIdentities?.[index]),
+		command: eventCreateWriteCommand(input, index),
+		input: {
+			item: submittedItem,
+			writeContext: input.command.writeContext,
+			...(input.writeCommand ? { payload: input.payload } : {}),
+		},
 	});
 
 export const eventMutationReceiptIdentity = (
@@ -119,4 +126,9 @@ export const eventMutationBatchReceiptIdentity = (input: {
 export const eventReceiptError = (error: DbError | MutationReceiptIdentityConflict) =>
 	error instanceof MutationReceiptIdentityConflict
 		? new DbError({ message: "Conflicting event command identity" })
+		: error;
+
+export const eventCreateReceiptError = (error: DbError | MutationReceiptIdentityConflict) =>
+	error instanceof MutationReceiptIdentityConflict
+		? new EventCreateItemError({ reason: { code: "mutation-conflict" } })
 		: error;

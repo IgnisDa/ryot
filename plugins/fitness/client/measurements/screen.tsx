@@ -1,6 +1,9 @@
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageContext, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	useRyotMutation,
+	useRyotSubmission,
+	usePageRefresh,
 	useRyotQuery,
 	type RyotQueryResult,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -8,7 +11,7 @@ import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { useMemo, useRef, useState, type RefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
 import { AddMetricDialog } from "./add-metric";
@@ -34,8 +37,15 @@ function LogMeasurementDialog(props: {
 	readonly metrics: readonly MeasurementSummary[];
 	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
-	const { metrics } = props;
-	const log = useRyotMutation(logReadingsMutation);
+	const { metrics, onClose } = props;
+	const log = useRyotSubmission(logReadingsMutation, {
+		isComplete: (result) => result.status === "saved",
+	});
+	useEffect(() => {
+		if (log.data?.status === "saved") {
+			onClose();
+		}
+	}, [log.data, onClose]);
 	const [initial] = useState(() => {
 		const pinned = selectPinnedMetrics(metrics);
 		return {
@@ -51,15 +61,21 @@ function LogMeasurementDialog(props: {
 		<MeasurementDialog
 			initial={initial}
 			metrics={metrics}
+			onClose={onClose}
 			submitLabel="Save"
+			onRetry={log.retry}
 			onChange={log.reset}
+			onSubmit={log.submit}
 			pendingLabel="Saving…"
 			label="Log measurement"
-			onClose={props.onClose}
 			pending={log.isPending}
 			triggerRef={props.triggerRef}
-			errorMessage={readingFailureMessage(log.error, "log")}
-			onSubmit={(readings) => log.mutate({ readings, onSuccess: props.onClose })}
+			retained={log.status === "retained"}
+			errorMessage={
+				log.status === "retained"
+					? "Some readings may already be saved. Retry the same submission to finish without duplicates. Cancel closes this form but does not undo saved readings."
+					: readingFailureMessage(log.error, "log")
+			}
 		/>
 	);
 }
@@ -225,11 +241,16 @@ function MeasurementsBody(props: {
 export default function MeasurementsPage() {
 	const { view } = usePageContext();
 	const { compact } = useRyotViewport();
-	const [now] = useState(() => new Date());
+	const [now, setNow] = useState(() => new Date());
+	usePageRefresh(() =>
+		DateTime.now.pipe(
+			Effect.flatMap((currentTime) => Effect.sync(() => setNow(DateTime.toDate(currentTime)))),
+		),
+	);
 	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
 	const [range, setRange] = useState<RangeKey>("1Y");
 	const [addingMetric, setAddingMetric] = useState(false);
-	const [logging, setLogging] = useState(false);
+	const [logging, setLogging] = useState<readonly MeasurementSummary[] | null>(null);
 	const addMetricTrigger = useRef<HTMLButtonElement>(null);
 	const logTrigger = useRef<HTMLButtonElement>(null);
 	const result = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt(range, now) });
@@ -244,8 +265,8 @@ export default function MeasurementsPage() {
 			/>
 			<Button
 				ref={logTrigger}
-				onClick={() => setLogging(true)}
 				className="min-h-9 px-3.5 py-1.5"
+				onClick={() => setLogging(result.data ?? null)}
 				disabled={result.data === undefined || result.data.length === 0}
 			>
 				Log measurement
@@ -284,11 +305,11 @@ export default function MeasurementsPage() {
 					onClose={() => setAddingMetric(false)}
 				/>
 			) : null}
-			{logging && result.data !== undefined ? (
+			{logging !== null ? (
 				<LogMeasurementDialog
-					metrics={result.data}
+					metrics={logging}
 					triggerRef={logTrigger}
-					onClose={() => setLogging(false)}
+					onClose={() => setLogging(null)}
 				/>
 			) : null}
 		</PluginScreenFrame>

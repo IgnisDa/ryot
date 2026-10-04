@@ -3,10 +3,10 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
+import { measurementReadingProperties } from "../../shared/measurement-properties";
 import {
 	MeasurementReadingOutput,
 	MeasurementReadingUpdateInput,
-	measurementReadingProperties,
 } from "../../shared/measurement-reading-operations";
 import { requireMeasurementMetrics, requireMeasurementReadings } from "./measurement-readings";
 

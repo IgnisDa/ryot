@@ -1,5 +1,10 @@
-import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { SandboxRunError, unknownToMessage, type DbError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	AutomationExecutionId,
+	type PluginId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/plugin-backend-compiler/protocol";
 import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
@@ -24,7 +29,9 @@ import {
 } from "@ryot-app/sandbox/host/bridge-adapter";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import type { SandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
-import { Context, Effect, Option, Schema } from "effect";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Context, DateTime, Effect, Option, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -225,6 +232,7 @@ export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(functi
 export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents")(function* (
 	request: HostRequest,
 	scope: HostCallScope,
+	findInstallation: (userId: UserId, pluginId: PluginId) => Effect.Effect<string | null, DbError>,
 ) {
 	const { input } = yield* loadDispatchInput(request, scope);
 	const { principal } = scope;
@@ -255,7 +263,39 @@ export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents"
 			(error) => new SandboxRunError({ kind: "script-failure", message: error.message }),
 		),
 	);
-	return { userId, command, payload: args[0] };
+	const [items, options] = args;
+	if (options === undefined) {
+		return { userId, command, payload: items };
+	}
+	const submittedAt = DateTime.make(options.submittedAt);
+	if (
+		principal.subject.type !== "user" ||
+		principal.pluginRevision === null ||
+		Option.isNone(submittedAt)
+	) {
+		return yield* new SandboxRunError({
+			kind: "invalid-input",
+			message: "Idempotent event creation requires a user plugin and valid submission timestamp",
+		});
+	}
+	const installationId = yield* findInstallation(userId, principal.pluginRevision.id).pipe(
+		Effect.mapError(infrastructureRunError),
+	);
+	if (!installationId) {
+		return yield* new SandboxRunError({
+			kind: "script-failure",
+			message: "Event write installation is unavailable",
+		});
+	}
+	const executionId = AutomationExecutionId.make(
+		`plugin-event-write-${sha256Base64Url(stableStringify([principal.subject.accountGeneration, installationId, principal.scriptSlug, options.idempotencyKey]))}`,
+	);
+	const writeCommand = {
+		...command,
+		occurredAt: DateTime.formatIso(submittedAt.value),
+		causation: { ...command.causation, executionId, rootExecutionId: executionId },
+	};
+	return { userId, command, writeCommand, payload: items };
 });
 
 export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecycleHostInput")(

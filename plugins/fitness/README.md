@@ -124,7 +124,15 @@ dialogs close only on success, and the mutation completion refreshes the page qu
 Log measurement prefills the pinned metrics (or the first metric when there are none) and offers the
 rest through Add metric value. `measurement-reading-log` checks every metric ID is a
 `measurement-metric` visible to the caller, then writes all readings in one `createEvents` call.
-Retrying after a lost response writes the readings again; operations have no replay identity yet.
+The client SDK's retained submission keeps one ID, submission timestamp, and immutable input across
+attempts. `createEvents` uses that identity with existing mutation receipts to replay committed
+readings and retry unfinished ones without duplication. Conflicting reuse is rejected. Partial or
+skipped writes return an incomplete result; the composer retains its input and offers Retry save.
+Cancelling closes the form but does not undo committed readings. Page refresh advances the chart's
+time window without unmounting a retained log form.
+
+`shared/measurement-properties.ts` builds metric and reading properties for both interactive writes
+and imports. OpenScale retains ownership of source parsing, units, dates, identities, and attribution.
 
 Edit on a log row opens the composer with the row's loaded values and sends its reading IDs to
 `measurement-reading-update`. The operation verifies the readings and any newly added metrics, then

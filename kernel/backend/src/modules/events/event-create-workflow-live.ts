@@ -62,9 +62,9 @@ import { runEventCreatePolicies } from "./event-policy-engine";
 import {
 	EventCreateReceiptResult,
 	eventCreateBatchInput,
-	eventCreateItemCommand,
+	eventCreateWriteCommand,
 	eventCreateReceiptIdentity,
-	eventReceiptError,
+	eventCreateReceiptError,
 } from "./mutation-receipts";
 import { EventsRepository } from "./repository";
 import { eventRootTransaction } from "./transaction";
@@ -136,7 +136,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				const identity = eventCreateReceiptIdentity(payload, index, item);
 				const replay = yield* receipts
 					.lookup(identity, EventCreateReceiptResult)
-					.pipe(Effect.mapError(eventReceiptError));
+					.pipe(Effect.mapError(eventCreateReceiptError));
 				if (replay) {
 					return { _tag: "Committed" as const, ...replay };
 				}
@@ -147,7 +147,7 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 						...item,
 						occurredAt:
 							item.occurredAt === undefined || item.occurredAt === ""
-								? payload.command.occurredAt
+								? (payload.writeCommand ?? payload.command).occurredAt
 								: item.occurredAt,
 					},
 				});
@@ -168,11 +168,12 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 				const capturedReferences = yield* capturedEventReferences(payload.userId, draft);
 				const plan = yield* planner.plan({
 					excludedOncePerSubjectPolicies: excluded,
-					trigger: lifecycleTrigger(
-						eventCreateItemCommand(payload.command, index, payload.itemIdentities?.[index]),
-						payload.userId,
-						{ draft, resource: "event", category: "request", operation: "create" },
-					),
+					trigger: lifecycleTrigger(eventCreateWriteCommand(payload, index), payload.userId, {
+						draft,
+						resource: "event",
+						category: "request",
+						operation: "create",
+					}),
 				});
 				const pending = {
 					draft,
@@ -252,7 +253,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const session = yield* DatabaseSession;
 	const writes = yield* DomainWriteChecks;
 	const receipts = yield* MutationReceipts.make;
-	const command = eventCreateItemCommand(payload.command, index, payload.itemIdentities?.[index]);
+	const command = eventCreateWriteCommand(payload, index);
 	const item = payload.payload[index];
 	if (!item) {
 		return yield* Effect.die("Missing event batch item");
@@ -273,7 +274,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 		if (!inline) {
 			const replay = yield* receipts
 				.lookup(identity, EventCreateReceiptResult)
-				.pipe(Effect.mapError(eventReceiptError));
+				.pipe(Effect.mapError(eventCreateReceiptError));
 			if (replay) {
 				return { ...replay.result, dispatch: replay.dispatch };
 			}
@@ -403,7 +404,7 @@ const hasPreparedEventBatch = Effect.fnUntraced(function* (payload: EventCreateW
 						: null,
 			}),
 		)
-		.pipe(Effect.mapError(eventReceiptError));
+		.pipe(Effect.mapError(eventCreateReceiptError));
 });
 
 export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function* (
