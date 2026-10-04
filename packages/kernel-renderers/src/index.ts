@@ -10,6 +10,7 @@ const encoder = new TextEncoder();
 const SHARED_PATHS = ["client/display-value.tsx"] as const satisfies readonly KernelRendererPath[];
 
 const BROWSER_PATHS = [
+	"client/browser-filters.tsx",
 	"client/browser-states.tsx",
 	"client/browser-table.tsx",
 	"client/entity-browser-controller.tsx",

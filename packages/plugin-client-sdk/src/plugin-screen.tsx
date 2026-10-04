@@ -118,8 +118,10 @@ export const viewResultLabel = (input: {
 export function ViewFiltersButton({
 	ref,
 	onClick,
+	activeCount,
 }: {
 	readonly onClick: () => void;
+	readonly activeCount: number;
 	readonly ref?: Ref<HTMLButtonElement> | undefined;
 }) {
 	return (
@@ -127,12 +129,12 @@ export function ViewFiltersButton({
 			ref={ref}
 			type="button"
 			onClick={onClick}
-			aria-label="Filters, 0 active filters"
+			aria-label={`Filters, ${activeCount} active ${activeCount === 1 ? "filter" : "filters"}`}
 			className="flex h-8.5 items-center gap-2 rounded-md border border-border-strong bg-bg px-3"
 		>
 			<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
 			<span className="text-[13px] text-text">Filters</span>
-			<Badge aria-hidden="true">0</Badge>
+			<Badge aria-hidden="true">{activeCount}</Badge>
 		</button>
 	);
 }

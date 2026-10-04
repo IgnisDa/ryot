@@ -35,6 +35,11 @@ import {
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
+import {
+	activeRuleCount,
+	decodeFilterParam,
+	encodeFilterParam,
+} from "@ryot-app/ryotql-recipes/saved-view-filters";
 import type {
 	EntityBrowserResultItem,
 	SavedViewResult,
@@ -50,6 +55,12 @@ import {
 } from "react";
 
 import {
+	FilterChips,
+	FilterRules,
+	type BrowserFilter,
+	type BrowserFilterField,
+} from "./browser-filters";
+import {
 	BrowserEmpty,
 	BrowserInlineError,
 	BrowserNoMatches,
@@ -64,6 +75,7 @@ export type BrowserQueryPage<Meta> = { readonly result: BrowserResult; readonly 
 
 type BrowserControls = {
 	readonly sort: string;
+	readonly filter: BrowserFilter | undefined;
 	readonly search: string;
 	readonly layout: EntityBrowserLayout;
 };
@@ -84,8 +96,13 @@ type EntityBrowserControllerProps<Meta> = {
 	readonly add?: AddAction | undefined;
 	readonly canSearch?: boolean | undefined;
 	readonly count?:
-		| ((search: string, onTotal: (total: number | undefined) => void) => ReactNode)
+		| ((input: {
+				readonly searchText: string;
+				readonly filter: BrowserFilter | undefined;
+				readonly onTotal: (total: number | undefined) => void;
+		  }) => ReactNode)
 		| undefined;
+	readonly filterFields?: readonly BrowserFilterField[] | undefined;
 	readonly defaultLayout: EntityBrowserLayout;
 	readonly defaultSortLabel?: string | undefined;
 	readonly emptyMessage?: string | undefined;
@@ -111,8 +128,12 @@ const syncSummary = (items: BrowserResult["items"]) => ({
 	translating: items.filter(({ sync }) => sync.translationStatus === "pending").length,
 });
 
-const browserIdentity = (key: string, search: string, sort: string) =>
-	JSON.stringify([key, search, sort]);
+const browserIdentity = (
+	key: string,
+	search: string,
+	sort: string,
+	filter: BrowserFilter | undefined,
+) => JSON.stringify([key, search, sort, encodeFilterParam(filter)]);
 
 export function EntityBrowserController<Meta>({
 	add,
@@ -128,6 +149,7 @@ export function EntityBrowserController<Meta>({
 	errorMessage,
 	emptyMessage,
 	headerAction,
+	filterFields,
 	renderResults,
 	renderSummary,
 	defaultLayout,
@@ -146,6 +168,7 @@ export function EntityBrowserController<Meta>({
 	const requestedSearch = params.get("search") ?? "";
 	const requestedControls: BrowserControls = {
 		search: canSearch ? requestedSearch : "",
+		filter: decodeFilterParam(params.get("filters"), filterFields ?? []),
 		sort: sortChoices.some(({ value }) => value === requestedSort) ? requestedSort : "",
 		layout: availableLayouts.find((candidate) => candidate === requestedLayout) ?? defaultLayout,
 	};
@@ -160,7 +183,8 @@ export function EntityBrowserController<Meta>({
 		  }
 		| undefined
 	>(undefined);
-	const { layout, sort: sortChoice, search: searchText } = controls;
+	const { layout, filter, sort: sortChoice, search: searchText } = controls;
+	const filterCount = activeRuleCount(filter);
 	const [showCount, setShowCount] = useState(false);
 	const [total, setTotal] = useState<number>();
 	const [searchOpen, setSearchOpen] = useState(false);
@@ -169,15 +193,20 @@ export function EntityBrowserController<Meta>({
 	const searchTrigger = useRef<HTMLButtonElement>(null);
 	const optionsTrigger = useRef<HTMLButtonElement>(null);
 	const filtersTrigger = useRef<HTMLButtonElement>(null);
-	const identity = browserIdentity(identityKey, searchText, sortChoice);
+	const identity = browserIdentity(identityKey, searchText, sortChoice, filter);
 	const result = useRyotInfiniteQuery(
 		query,
-		{ searchText, sortChoice, identityKey },
+		{ searchText, sortChoice, identityKey, filter: filter ?? null },
 		{
 			initialPageParam: null,
 			getNextPageParam: (page) => nextPageCursor(page.result),
 			getPageInput: (selection, cursor: string | null) =>
-				JSON.stringify([selection.searchText, selection.sortChoice, cursor]),
+				JSON.stringify({
+					cursor,
+					filter: selection.filter,
+					searchText: selection.searchText,
+					sortChoice: selection.sortChoice,
+				}),
 		},
 	);
 	const state = useMemo(
@@ -200,6 +229,7 @@ export function EntityBrowserController<Meta>({
 		requestedControls.layout,
 		requestedControls.search,
 		requestedControls.sort,
+		encodeFilterParam(requestedControls.filter),
 	]);
 	useValueChange(requestedKey, () => {
 		setControls(requestedControls);
@@ -265,19 +295,35 @@ export function EntityBrowserController<Meta>({
 		blocked: transitioning || result.isFetching,
 	});
 
-	const setQueryControls = (update: Partial<Pick<BrowserControls, "search" | "sort">>) => {
+	const setQueryControls = (
+		update: Partial<Pick<BrowserControls, "search" | "sort" | "filter">>,
+	) => {
 		const next = { ...controlsRef.current, ...update };
-		if (next.search === controlsRef.current.search && next.sort === controlsRef.current.sort) {
+		const nextIdentity = browserIdentity(identityKey, next.search, next.sort, next.filter);
+		if (
+			nextIdentity ===
+			browserIdentity(
+				identityKey,
+				controlsRef.current.search,
+				controlsRef.current.sort,
+				controlsRef.current.filter,
+			)
+		) {
 			return;
 		}
 		controlsRef.current = next;
 		pendingSearch.current = {
 			requestedKey,
-			identity: browserIdentity(identityKey, next.search, next.sort),
-			update: { sort: next.sort || null, search: next.search || null },
+			identity: nextIdentity,
+			update: {
+				sort: next.sort || null,
+				search: next.search || null,
+				filters: encodeFilterParam(next.filter),
+			},
 		};
 		setControls(next);
 	};
+	const setFilter = (next: BrowserFilter | undefined) => setQueryControls({ filter: next });
 	const commitSearch = (value: string) => setQueryControls({ search: normalizeViewSearch(value) });
 	const commitDraftSearch = useEffectEvent((value: string) => commitSearch(value));
 	const setLayout = (value: string) => {
@@ -323,13 +369,15 @@ export function EntityBrowserController<Meta>({
 		);
 	} else if (initial && result.isPending) {
 		content = searchText === "" ? null : <BrowserSearching />;
-	} else if (!hasItems && searchText !== "") {
+	} else if (!hasItems && (searchText !== "" || filter !== undefined)) {
 		content = (
 			<BrowserNoMatches
 				name={viewName}
 				query={searchText}
 				canAdd={add !== undefined}
+				filtered={filter !== undefined}
 				onAdd={() => add?.open(searchText)}
+				onClearFilters={() => setFilter(undefined)}
 			/>
 		);
 	} else if (!hasItems) {
@@ -391,32 +439,6 @@ export function EntityBrowserController<Meta>({
 						</button>
 					) : undefined
 				}
-				meta={
-					<div
-						role="status"
-						className="flex h-10 items-center gap-2 text-xs text-text-muted @2xl:text-sm"
-					>
-						<span>
-							{viewResultLabel({
-								total,
-								loaded: current.items.length,
-								hasMore: current.pageInfo?.hasMore ?? false,
-							})}
-						</span>
-						{current.pageInfo?.hasMore && !showCount && count && (
-							<Button
-								variant="ghost"
-								onClick={() => setShowCount(true)}
-								className="text-sm text-accent-text"
-							>
-								Count all
-							</Button>
-						)}
-						{current.pageInfo?.hasMore && showCount && count?.(searchText, setTotal)}
-						<SyncCountLine populating={summary.populating} translating={summary.translating} />
-						{transitioning && <span>Updating...</span>}
-					</div>
-				}
 				barActions={
 					<>
 						{headerAction && (
@@ -442,10 +464,48 @@ export function EntityBrowserController<Meta>({
 							ref={optionsTrigger}
 							className="text-text-muted"
 							onClick={() => setOptionsOpen(true)}
-							label="View options, 0 active filters"
+							label={`View options, ${filterCount} active ${filterCount === 1 ? "filter" : "filters"}`}
 						>
 							<AppIcon size={22} name="sliders-horizontal" />
 						</ScreenBarButton>
+					</>
+				}
+				meta={
+					<>
+						<div
+							role="status"
+							className="flex h-10 items-center gap-2 text-xs text-text-muted @2xl:text-sm"
+						>
+							<span>
+								{viewResultLabel({
+									total,
+									loaded: current.items.length,
+									hasMore: current.pageInfo?.hasMore ?? false,
+								})}
+							</span>
+							{current.pageInfo?.hasMore && !showCount && count && (
+								<Button
+									variant="ghost"
+									onClick={() => setShowCount(true)}
+									className="text-sm text-accent-text"
+								>
+									Count all
+								</Button>
+							)}
+							{current.pageInfo?.hasMore &&
+								showCount &&
+								count?.({ filter, searchText, onTotal: setTotal })}
+							<SyncCountLine populating={summary.populating} translating={summary.translating} />
+							{transitioning && <span>Updating...</span>}
+						</div>
+						{filterFields !== undefined && (
+							<FilterChips
+								filter={filter}
+								onChange={setFilter}
+								fields={filterFields}
+								onOpen={() => setOptionsOpen(true)}
+							/>
+						)}
 					</>
 				}
 				actions={
@@ -457,7 +517,11 @@ export function EntityBrowserController<Meta>({
 							onChange={setLayout}
 							label={`${viewName} layout`}
 						/>
-						<ViewFiltersButton ref={filtersTrigger} onClick={() => setOptionsOpen(true)} />
+						<ViewFiltersButton
+							ref={filtersTrigger}
+							activeCount={filterCount}
+							onClick={() => setOptionsOpen(true)}
+						/>
 						{headerAction && (
 							<Button variant="secondary" onClick={headerAction.run}>
 								<AppIcon size={15} name={headerAction.icon} />
@@ -524,8 +588,8 @@ export function EntityBrowserController<Meta>({
 					}
 					className={
 						compact
-							? "w-full rounded-t-xl border-t border-border bg-surface p-5"
-							: "w-full max-w-md rounded-xl border border-border bg-surface p-5"
+							? "max-h-[90%] w-full overflow-y-auto rounded-t-xl border-t border-border bg-surface p-5"
+							: "max-h-[90%] w-full max-w-xl overflow-y-auto rounded-xl border border-border bg-surface p-5"
 					}
 				>
 					<h2 className="font-display text-lg font-semibold text-text">
@@ -558,7 +622,16 @@ export function EntityBrowserController<Meta>({
 							/>
 						</div>
 					)}
-					<p className="mt-4 text-xs text-text-subtle">Filters are not available yet.</p>
+					{filterFields === undefined ? (
+						<p className="mt-4 text-xs text-text-subtle">Filters are not available yet.</p>
+					) : (
+						<FilterRules
+							filter={filter}
+							compact={compact}
+							onChange={setFilter}
+							fields={filterFields}
+						/>
+					)}
 				</Modal>
 			)}
 		</ManagedAssetProvider>

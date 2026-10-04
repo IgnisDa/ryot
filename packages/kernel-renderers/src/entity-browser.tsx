@@ -1,4 +1,4 @@
-import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageContext } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { effectiveFilterFields, NullableFilter } from "@ryot-app/ryotql-recipes/saved-view-filters";
 import {
 	EntityBrowserPageInput,
 	entityBrowserCountRecipe,
@@ -22,32 +23,45 @@ import {
 	type AddAction,
 } from "./entity-browser-controller";
 
-const QueryInput = Schema.Tuple([Schema.String, Schema.String, Schema.NullOr(Schema.String)]);
+const QueryInput = Schema.Struct({
+	filter: NullableFilter,
+	searchText: Schema.String,
+	sortChoice: Schema.String,
+	cursor: Schema.NullOr(Schema.String),
+});
 const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
+
+const CountInput = Schema.Struct({ filter: NullableFilter, searchText: Schema.String });
+const decodeCountInput = Schema.decodeUnknownSync(Schema.fromJsonString(CountInput));
 
 const BrowserCount = ({
 	input,
+	filter,
 	onTotal,
 	searchText,
 }: {
 	readonly searchText: string;
+	readonly filter: typeof NullableFilter.Type;
 	readonly input: typeof EntityBrowserPageInput.Type;
 	readonly onTotal: (total: number | undefined) => void;
 }) => {
 	const [query] = useState(() =>
-		createRyotQuery<string, number>(({ client, input: search }) =>
-			client.data.query(
-				Result.getOrThrow(
-					entityBrowserCountRecipe(
-						input.dataSources,
-						input.settings,
-						search === "" ? {} : { searchText: search },
+		createRyotQuery<string, number>(({ client, input: serialized }) =>
+			Effect.gen(function* () {
+				const { filter: applied, searchText: search } = decodeCountInput(serialized);
+				const now = yield* DateTime.now;
+				return yield* client.data.query(
+					Result.getOrThrow(
+						entityBrowserCountRecipe(input.dataSources, input.settings, {
+							...(search === "" ? {} : { searchText: search }),
+							...(applied === null ? {} : { now, filter: applied }),
+						}),
 					),
-				),
-			),
+				);
+			}),
 		),
 	);
-	const result = useRyotQuery(query, searchText);
+	const result = useRyotQuery(query, JSON.stringify({ filter, searchText }));
 	const report = useEffectEvent((total: number | undefined) => onTotal(total));
 	useEffect(() => report(result.data), [result.data]);
 	if (result.isPending) {
@@ -81,23 +95,24 @@ const Browser = ({
 	const schedule = useRyotSchedule();
 	const [query] = useState(() =>
 		createRyotQuery<string, BrowserQueryPage<null>>(
-			({ client, input: serialized }) => {
-				const [search, sort, after] = decodeQueryInput(serialized);
-				return Effect.map(
-					client.data.query(
+			({ client, input: serialized }) =>
+				Effect.gen(function* () {
+					const { filter, cursor, searchText, sortChoice } = decodeQueryInput(serialized);
+					const now = yield* DateTime.now;
+					const result = yield* client.data.query(
 						Result.getOrThrow(
 							entityBrowserRecipe({
 								settings: input.settings,
 								queryDocument: input.dataSources,
-								...(search === "" ? {} : { searchText: search }),
-								...(sort === "" ? {} : { sortChoice: sort }),
-								...(after === null ? {} : { after }),
+								...(searchText === "" ? {} : { searchText }),
+								...(sortChoice === "" ? {} : { sortChoice }),
+								...(cursor === null ? {} : { after: cursor }),
+								...(filter === null ? {} : { now, filter }),
 							}),
 						),
-					),
-					(result) => ({ result, meta: null }),
-				);
-			},
+					);
+					return { result, meta: null };
+				}),
 			{ cancelOnUnmount: true },
 		),
 	);
@@ -116,6 +131,7 @@ const Browser = ({
 			viewContext={{ savedView: input.target.reference }}
 			identityKey={JSON.stringify(input.target.reference)}
 			errorMessage="The saved view results could not be loaded."
+			filterFields={effectiveFilterFields("entity-browser", input.settings)}
 			sortChoices={input.settings.sortChoices.map(({ name, label }) => ({ label, value: name }))}
 			defaultLayout={
 				input.settings.layouts.includes(input.settings.defaultLayout)
@@ -123,12 +139,13 @@ const Browser = ({
 					: input.settings.layouts[0]
 			}
 			// oxlint-disable-next-line react/no-unstable-nested-components -- The slot needs this saved-view input.
-			count={(search, onTotal) => (
+			count={({ filter, onTotal, searchText }) => (
 				<BrowserCount
 					input={input}
 					onTotal={onTotal}
-					searchText={search}
-					key={JSON.stringify([input.target.reference, search])}
+					filter={filter ?? null}
+					searchText={searchText}
+					key={JSON.stringify([input.target.reference, searchText, filter])}
 				/>
 			)}
 			add={

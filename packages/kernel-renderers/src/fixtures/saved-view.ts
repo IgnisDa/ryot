@@ -9,6 +9,7 @@ export const browserDataSources = document({
 		fields: [
 			field("name", column(entity, "name")),
 			field("year", jsonPath(column(entity, "properties"), "publishYear")),
+			field("status", jsonPath(column(entity, "properties"), "status")),
 			field("image", jsonPath(column(entity, "properties"), "images", 0)),
 		],
 	}),
@@ -35,6 +36,27 @@ export const browserSettings = {
 		schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
 		library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 	},
+	filterFields: [
+		{
+			type: "enum",
+			key: "status",
+			kind: "value",
+			label: "Status",
+			field: "status",
+			choices: [
+				{ value: "read", label: "Read" },
+				{ value: "unread", label: "Unread" },
+			],
+		},
+		{ key: "year", kind: "value", label: "Year", field: "year", type: "number" },
+		{
+			key: "authors",
+			label: "Authors",
+			kind: "relationship",
+			direction: "outgoing",
+			relationship: { slug: "book-to-person", owner: { kind: "plugin", pluginId: "media" } },
+		},
+	],
 };
 
 export const browserRow = (entityId: string, name: string) => ({

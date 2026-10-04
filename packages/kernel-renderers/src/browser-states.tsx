@@ -48,18 +48,34 @@ export function BrowserNoMatches({
 	query,
 	onAdd,
 	canAdd,
+	filtered,
+	onClearFilters,
 }: {
 	readonly name: string;
 	readonly query: string;
 	readonly canAdd: boolean;
+	readonly filtered: boolean;
 	readonly onAdd: () => void;
+	readonly onClearFilters: () => void;
 }) {
+	const searched = query !== "";
+	let message = "No items in this view match the current filters.";
+	if (searched) {
+		message = filtered
+			? `Nothing in this view matches “${query}” with the current filters.`
+			: `Nothing in this view matches “${query}”.`;
+	}
 	return (
 		<section className={panel}>
 			<AppIcon size={36} name="search-x" className="text-text-subtle" />
 			<h2 className="text-xl font-semibold">No matches in {name}</h2>
-			<p className="text-sm text-text-muted">Nothing in this view matches “{query}”.</p>
-			{canAdd && (
+			<p className="text-sm text-text-muted">{message}</p>
+			{filtered && (
+				<Button className="mt-2" variant="secondary" onClick={onClearFilters}>
+					Clear filters
+				</Button>
+			)}
+			{canAdd && searched && (
 				<div className="mt-2 grid w-full max-w-md justify-items-center gap-2">
 					<button
 						type="button"

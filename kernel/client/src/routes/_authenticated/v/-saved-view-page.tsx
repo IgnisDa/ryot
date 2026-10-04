@@ -50,6 +50,7 @@ const validateSavedViewSearch = (search: Record<string, unknown>) => ({
 	layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
 	search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
 	dialog: typeof search.dialog === "string" && search.dialog !== "" ? search.dialog : undefined,
+	filters: typeof search.filters === "string" && search.filters !== "" ? search.filters : undefined,
 	entityId:
 		typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
 });

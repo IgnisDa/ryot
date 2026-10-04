@@ -160,7 +160,7 @@ describe("entity browser", () => {
 			const dialog = yield* Effect.promise(() =>
 				waitFor(() => screen.getByRole("dialog", { name: "Filters" })),
 			);
-			expect(dialog.textContent).toContain("Filters are not available yet.");
+			expect(dialog.textContent).toContain("Add filter");
 			expect(screen.queryByRole("button", { name: /^Sort results/ })).toBeNull();
 			expect(dialog.textContent).not.toContain("View as");
 		}),
@@ -433,7 +433,7 @@ describe("entity browser", () => {
 			const sheet = yield* Effect.promise(() =>
 				waitFor(() => screen.getByRole("dialog", { name: "View options" })),
 			);
-			expect(sheet.textContent).toContain("Filters are not available yet.");
+			expect(sheet.textContent).toContain("Add filter");
 
 			fireEvent.click(screen.getByRole("button", { name: "Close view options" }));
 			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
@@ -473,7 +473,7 @@ describe("entity browser", () => {
 					expect(page.clientMessages()).toContainEqual({
 						mode: "replace",
 						type: "page-search",
-						update: { sort: null, search: "pir" },
+						update: { sort: null, filters: null, search: "pir" },
 					}),
 				),
 			);
@@ -703,6 +703,302 @@ describe("entity browser", () => {
 				waitFor(() => expect(secondPage.container?.textContent).toContain("New mount refreshed")),
 			);
 			expect(secondPage.queryRequests("entityBrowser")).toHaveLength(2);
+		}),
+	);
+});
+
+const statusRule = { field: "status", values: ["read"], operator: "anyOf" } as const;
+const yearRule = { min: 1990, max: 2000, field: "year", operator: "between" } as const;
+
+const filtersParam = (filter: unknown) =>
+	`filters=${Buffer.from(JSON.stringify(filter)).toString("base64url")}`;
+
+const pageSearchUpdates = (page: ReturnType<typeof mountPluginPage>) =>
+	page.clientMessages().flatMap((message) => (message.type === "page-search" ? [message] : []));
+
+const lastFiltersUpdate = (page: ReturnType<typeof mountPluginPage>) =>
+	pageSearchUpdates(page)
+		.map(({ update }) => update["filters"])
+		.at(-1);
+
+const decodeFiltersUpdate = (encoded: string | null | undefined): unknown =>
+	typeof encoded === "string"
+		? JSON.parse(Buffer.from(encoded, "base64url").toString("utf8"))
+		: encoded;
+
+const openFilters = (name = "Filters") =>
+	Effect.gen(function* () {
+		fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${name}`) }));
+		return yield* Effect.promise(() => waitFor(() => screen.getByRole("dialog", { name })));
+	});
+
+const addFilter = (field: string, position = 1) =>
+	Effect.gen(function* () {
+		fireEvent.click(screen.getByRole("button", { name: /^Add filter/ }));
+		fireEvent.click(
+			yield* Effect.promise(() => waitFor(() => screen.getByRole("radio", { name: field }))),
+		);
+		return yield* Effect.promise(() =>
+			waitFor(() => screen.getByRole("group", { name: `Filter ${position}` })),
+		);
+	});
+
+const replyChoices = (
+	page: ReturnType<typeof mountPluginPage>,
+	requestId: string,
+	items: readonly { readonly id: string; readonly name: string }[],
+) =>
+	page.replyQuery(requestId, {
+		outcome: "success",
+		response: {
+			data: { choices: { type: "aggregate", items: items.map((item) => ({ ...item, links: 1 })) } },
+		},
+	});
+
+describe("entity browser filters", () => {
+	afterEach(() => disposePluginBridges());
+
+	it.live("applies a completed rule to the query, the URL and the badge", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openBrowser();
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* openFilters();
+			yield* addFilter("Status");
+			fireEvent.click(screen.getByRole("button", { name: "Status values" }));
+			fireEvent.click(
+				yield* Effect.promise(() => waitFor(() => screen.getByRole("checkbox", { name: "Read" }))),
+			);
+
+			const filtered = yield* browserRequest(page, 1);
+			const document = yield* encodeJson(filtered.document);
+			expect(document).toContain('"read"');
+			expect(document).toContain("status");
+			replyBrowser(page, filtered.requestId, [browserRow("book-2", "Two")]);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(statusRule)),
+			);
+			expect(pageSearchUpdates(page).at(-1)?.mode).toBe("replace");
+			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+			expect(
+				screen.getByRole("button", { name: "Filters, 1 active filter" }).textContent,
+			).toContain("1");
+			expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+				"Status is any of Read",
+			);
+		}),
+	);
+
+	it.live("keeps an incomplete rule out of the query", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openBrowser();
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* openFilters();
+			yield* addFilter("Year");
+			expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+			expect(lastFiltersUpdate(page)).toBeUndefined();
+			expect(screen.getByRole("button", { name: "Filters, 0 active filters" })).toBeTruthy();
+		}),
+	);
+
+	it.live("removes a rule from its chip and clears every filter", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openBrowser({
+				search: filtersParam({ type: "and", filters: [statusRule, yearRule] }),
+			});
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+						"Year is between 1990 and 2000",
+					),
+				),
+			);
+			expect(screen.getByRole("button", { name: "Filters, 2 active filters" })).toBeTruthy();
+
+			fireEvent.click(screen.getByRole("button", { name: "Remove Status filter" }));
+			const single = yield* browserRequest(page, 1);
+			replyBrowser(page, single.requestId, [browserRow("book-1", "One")]);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(yearRule)),
+			);
+
+			fireEvent.click(screen.getByRole("button", { name: "Clear" }));
+			const cleared = yield* browserRequest(page, 2);
+			replyBrowser(page, cleared.requestId, [browserRow("book-1", "One")]);
+			yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
+			expect(screen.queryByRole("group", { name: "Active filters" })).toBeNull();
+		}),
+	);
+
+	it.live("toggles the group between match all and match any", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openBrowser({
+				search: filtersParam({ type: "and", filters: [statusRule, yearRule] }),
+			});
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* openFilters();
+			fireEvent.click(screen.getByRole("radio", { name: "Match any" }));
+			const request = yield* browserRequest(page, 1);
+			replyBrowser(page, request.requestId, [browserRow("book-1", "One")]);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual({
+						type: "or",
+						filters: [statusRule, yearRule],
+					}),
+				),
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+			expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+				"Match any",
+			);
+		}),
+	);
+
+	it.live("offers Clear filters when the applied filters match nothing", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openBrowser({ search: filtersParam(statusRule) });
+			yield* Effect.promise(() => answerBrowser(page, answered, []));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("heading", { name: "No matches in All Books" })).toBeTruthy(),
+				),
+			);
+			expect(page.container?.textContent).toContain("match the current filters");
+			fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+			const request = yield* browserRequest(page, 1);
+			replyBrowser(page, request.requestId, [browserRow("book-1", "One")]);
+			yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
+		}),
+	);
+
+	it.live("sends the applied filter with Count all", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openBrowser({ search: filtersParam(statusRule) });
+			yield* Effect.promise(() =>
+				answerBrowser(page, answered, [browserRow("book-1", "One")], true, "cursor-1"),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getByRole("button", { name: "Count all" })).toBeTruthy()),
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Count all" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.queryRequests("entityBrowserCount")).toHaveLength(1)),
+			);
+			const count = page.queryRequests("entityBrowserCount")[0];
+			const document = yield* encodeJson(count?.document);
+			expect(document).toContain('"read"');
+			expect(document).toContain("status");
+		}),
+	);
+
+	it.live("shows a nested filter as one removable custom chip", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openBrowser({
+				search: filtersParam({
+					type: "and",
+					filters: [statusRule, { type: "or", filters: [yearRule, statusRule] }],
+				}),
+			});
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getByRole("button", { name: "Custom filter" })).toBeTruthy()),
+			);
+			expect(screen.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
+			fireEvent.click(screen.getByRole("button", { name: "Remove custom filter" }));
+			const request = yield* browserRequest(page, 1);
+			replyBrowser(page, request.requestId, [browserRow("book-1", "One")]);
+			yield* Effect.promise(() => waitFor(() => expect(lastFiltersUpdate(page)).toBeNull()));
+		}),
+	);
+
+	it.live("labels relationship chips with resolved names and the count form while pending", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openBrowser({
+				search: filtersParam({ field: "authors", operator: "anyOf", values: ["p-1", "p-2"] }),
+			});
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			const lookup = yield* Effect.promise(() =>
+				waitFor(() => {
+					const found = page.queryRequests("choices").at(-1);
+					if (!found) {
+						throw new Error("No choices lookup was issued");
+					}
+					return found;
+				}),
+			);
+			const document = yield* encodeJson(lookup.document);
+			expect(document).toContain("p-1");
+			expect(document).toContain("p-2");
+			expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+				"Authors: 2 selected",
+			);
+			expect(page.container?.textContent).not.toContain("p-1");
+			replyChoices(page, lookup.requestId, [
+				{ id: "p-1", name: "Ann" },
+				{ id: "p-2", name: "Bo" },
+			]);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(
+						"Authors includes any of Ann, Bo",
+					),
+				),
+			);
+		}),
+	);
+
+	it.live("lists relationship choices from the choices recipe in the rule editor", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openBrowser();
+			yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("book-1", "One")]));
+			yield* openFilters();
+			yield* addFilter("Authors");
+			fireEvent.click(screen.getByRole("button", { name: /^Authors values/ }));
+			const lookup = yield* Effect.promise(() =>
+				waitFor(() => {
+					const found = page.queryRequests("choices").at(-1);
+					if (!found) {
+						throw new Error("No choices request");
+					}
+					return found;
+				}),
+			);
+			replyChoices(page, lookup.requestId, [{ id: "p-1", name: "Ann" }]);
+			fireEvent.click(
+				yield* Effect.promise(() => waitFor(() => screen.getByRole("checkbox", { name: "Ann" }))),
+			);
+			const request = yield* browserRequest(page, 1);
+			replyBrowser(page, request.requestId, [browserRow("book-1", "One")]);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual({
+						values: ["p-1"],
+						field: "authors",
+						operator: "anyOf",
+					}),
+				),
+			);
+		}),
+	);
+
+	it.live("offers the automatic Collections field on a collection browser", () =>
+		Effect.gen(function* () {
+			const page = openCollectionBrowser();
+			const request = yield* browserRequest(page, 0);
+			replyBrowser(page, request.requestId, [collectionBrowserRow("c-1", "Favorites")]);
+			yield* openFilters();
+			const rule = yield* addFilter("Collections");
+			expect(rule.textContent).toContain("Collections");
 		}),
 	);
 });
