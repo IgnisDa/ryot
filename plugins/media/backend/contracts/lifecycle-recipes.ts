@@ -1,6 +1,5 @@
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
-import type { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
 	ascending,
@@ -28,8 +27,9 @@ import {
 	type Recipe,
 	type RyotQLDocument,
 	entitySchemaPredicate,
-} from "@ryot-app/sandbox-sdk/ryotql";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	entitySchemaIs,

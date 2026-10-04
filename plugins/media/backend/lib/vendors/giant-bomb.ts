@@ -1,5 +1,5 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "../failures";
 import { normalizePlainDescription } from "../plain-description";

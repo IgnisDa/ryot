@@ -1,9 +1,9 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderSearchInput,
-} from "@ryot-app/sandbox-sdk/provider";
+} from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../failures";
 import { getUserAllowNsfw } from "../host";

@@ -1,4 +1,4 @@
-import { DateTime, Option } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Option } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { isValidIsbn, normalizeIsbn } from "../lib/isbn";
 import { parseCsvText } from "./csv";

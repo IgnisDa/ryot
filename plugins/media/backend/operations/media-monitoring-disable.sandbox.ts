@@ -1,6 +1,6 @@
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 import { MediaMonitoringDisableInput, MediaMonitoringOutput } from "../contracts/operations";
 import {

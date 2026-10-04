@@ -1,5 +1,5 @@
-import { Result, Schema } from "@ryot-app/client-sdk/effect";
-import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
+import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import type { PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	and,
 	ascending,
@@ -15,7 +15,7 @@ import {
 	table,
 	type Recipe,
 	entitySchemaPredicate,
-} from "@ryot-app/client-sdk/ryotql";
+} from "@ryot-app/plugin-client-sdk/ryotql";
 
 const plugin = table("plugin", "plugin");
 const installation = table("pluginInstallation", "installation");

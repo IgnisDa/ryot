@@ -1,5 +1,5 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { normalizeMarkdown } from "@ryot-app/sandbox-sdk/markdown";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { normalizeMarkdown } from "@ryot-app/plugin-backend-sdk/markdown";
 
 import { MediaSandboxError } from "./failures";
 

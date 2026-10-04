@@ -1,4 +1,4 @@
-import { Button } from "@ryot-app/client-ui-sdk";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createErrorVisibility, useForm } from "@tanstack/react-form";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";

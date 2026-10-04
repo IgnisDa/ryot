@@ -1,10 +1,10 @@
-import { createRyotMutation } from "@ryot-app/client-sdk/react";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import {
 	OAUTH_CONNECTION_RETURN_PATH,
 	OAuthConnectionReturnFragment,
 } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import type { OAuthConnectionId } from "@ryot-app/contract/schema/brands";
+import { createRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";

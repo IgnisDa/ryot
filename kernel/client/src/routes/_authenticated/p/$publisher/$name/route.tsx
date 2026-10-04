@@ -1,20 +1,20 @@
-import type { PluginBridgeProviderSearchScreen } from "@ryot-app/client-plugin-contract";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { PluginBridgeProviderSearchScreen } from "@ryot-app/plugin-client-contract";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useState } from "react";
 
+import { AppScreen } from "#/modules/navigation/app-screen";
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
 	useClearClientPageDocument,
 	useClientPageDocument,
 	useHasPublishedClientPageDocument,
-} from "#/modules/client-pages/document";
-import type { ClientPagePreparation } from "#/modules/client-pages/preparation";
-import { AppScreen } from "#/modules/navigation/app-screen";
-import { usePageTitle } from "#/modules/navigation/page-title";
-import { mainContentProps } from "#/modules/navigation/skip-link";
-import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
-import { effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
+} from "#/modules/pages/documents/state";
+import type { ClientPagePreparation } from "#/modules/pages/preparation/prepare";
+import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
+import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
 
 export const Route = createFileRoute("/_authenticated/p/$publisher/$name")({

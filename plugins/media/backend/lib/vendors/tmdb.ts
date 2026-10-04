@@ -1,6 +1,6 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import type { ProviderDetailsRelatedEntity } from "@ryot-app/sandbox-sdk/provider";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { ProviderDetailsRelatedEntity } from "@ryot-app/plugin-backend-sdk/provider";
 
 import type { WatchProviderOffer } from "../../../shared/watch-provider";
 import { MediaSandboxError } from "../failures";

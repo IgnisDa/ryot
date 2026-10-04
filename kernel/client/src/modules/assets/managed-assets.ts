@@ -1,8 +1,3 @@
-import type {
-	PluginAssetBridgeErrorReason,
-	PluginAssetOutcome,
-	PluginManagedAssetResolution,
-} from "@ryot-app/client-plugin-contract";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import {
 	type DownloadResolutionResponse,
@@ -10,6 +5,11 @@ import {
 	UploadBadRequest,
 	UploadInternalError,
 } from "@ryot-app/contract/modules/uploads/schemas";
+import type {
+	PluginAssetBridgeErrorReason,
+	PluginAssetOutcome,
+	PluginManagedAssetResolution,
+} from "@ryot-app/plugin-client-contract";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";

@@ -2,13 +2,13 @@ import {
 	genericImportActivityReference,
 	genericImportApplyReference,
 	genericImportCaptureReference,
-} from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineManifest,
 	defineWorkflow,
 	Effect,
 	selectExecutable,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { fitnessParsers } from "../imports/references";
 import { FitnessApplicationInput, FitnessApplicationOutput } from "../imports/schemas";

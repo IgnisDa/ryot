@@ -1,5 +1,5 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import type { ProviderSearchOptionsResult } from "@ryot-app/sandbox-sdk/provider";
+import type { ProviderSearchOptionsResult } from "@ryot-app/plugin-backend-sdk/provider";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";

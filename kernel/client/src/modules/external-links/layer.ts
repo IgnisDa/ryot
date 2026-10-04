@@ -1,5 +1,5 @@
 import { Browser } from "@capacitor/browser";
-import { RyotClientError } from "@ryot-app/client-sdk";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Layer } from "effect";
 
 import { ExternalLinkPlatform, ExternalLinks } from "#/modules/external-links/service";

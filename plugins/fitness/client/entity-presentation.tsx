@@ -1,5 +1,5 @@
-import { RyotClientError, type ManagedAssetLocator } from "@ryot-app/client-sdk";
-import { Effect, Result } from "@ryot-app/client-sdk/effect";
+import { RyotClientError, type ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	PluginId,
 	defineEntityPresentation,
@@ -9,15 +9,15 @@ import {
 	type EntityPresentationLoader,
 	type EntityPresentationPrepare,
 	type EntityReference,
-} from "@ryot-app/client-sdk/plugin";
-import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
-import { defineRecipe } from "@ryot-app/client-sdk/ryotql";
+} from "@ryot-app/plugin-client-sdk/plugin";
+import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { defineRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import {
 	EntityArtWell,
 	fieldSyncState,
 	isTitleProvisional,
 	SyncPip,
-} from "@ryot-app/client-ui-sdk/sync";
+} from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
 import {

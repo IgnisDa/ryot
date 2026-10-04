@@ -1,5 +1,5 @@
-import { AssetLocator } from "@ryot-app/client-sdk";
-import { Schema } from "@ryot-app/client-sdk/effect";
+import { AssetLocator } from "@ryot-app/plugin-client-sdk";
+import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 
 export const PokemonArtworkSchema = AssetLocator;
 export const PokemonNumberSchema = Schema.NullOr(Schema.Finite);

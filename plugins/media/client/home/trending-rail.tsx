@@ -1,4 +1,4 @@
-import { useRyotQuery } from "@ryot-app/client-sdk/react";
+import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { trendingLatestMediaRecipe } from "../../shared/discovery-recipes";
 import { mediaAspectOf } from "../schema-aspects";

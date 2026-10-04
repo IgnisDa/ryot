@@ -1,10 +1,10 @@
-import { useRyot } from "@ryot-app/client-sdk/react";
-import { Modal } from "@ryot-app/client-ui-sdk";
 import {
 	definitionKey,
 	type EntitySchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { Modal } from "@ryot-app/plugin-ui-sdk";
 import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ComponentProps } from "react";

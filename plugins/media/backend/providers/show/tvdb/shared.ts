@@ -1,7 +1,7 @@
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
-import type { ProviderTranslateInput } from "@ryot-app/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import type { ProviderTranslateInput } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";

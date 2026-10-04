@@ -1,4 +1,4 @@
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { loadMediaApiState, type MediaApiTask, writeMediaApiState } from "./api-collection";
 import { episodeNumber, Item, itemRef, Libraries, Listing } from "./audiobookshelf";

@@ -1,8 +1,8 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type {
 	ProviderDetailsChildEntity,
 	ProviderDetailsInput,
-} from "@ryot-app/sandbox-sdk/provider";
+} from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { parsePublishYear } from "../../../lib/parse-publish-year";

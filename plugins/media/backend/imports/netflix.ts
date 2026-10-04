@@ -1,4 +1,4 @@
-import { Result } from "@ryot-app/sandbox-sdk/effect";
+import { Result } from "@ryot-app/plugin-backend-sdk/effect";
 
 import {
 	extractMetadataLookupBaseTitle,

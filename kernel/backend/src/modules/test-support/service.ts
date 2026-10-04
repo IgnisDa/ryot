@@ -1,5 +1,4 @@
 import { createLocalAccountIssuer, createOAuthAccountIssuer } from "@better-auth/core/db";
-import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import type { ContractPayload } from "@ryot-app/contract/client";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
@@ -26,6 +25,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";

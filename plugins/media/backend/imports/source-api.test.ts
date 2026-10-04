@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { stubHttpHost } from "../../tests/backend/imports/source-test-utils";
 import { normalizeSourceApiUrl, sourceApiUrl, withSourceRequestOptions } from "./source-api";

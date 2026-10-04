@@ -1,5 +1,4 @@
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
-import { Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
 	ascending,
@@ -17,7 +16,8 @@ import {
 	table,
 	type Recipe,
 	schemaOwnerPredicate,
-} from "@ryot-app/sandbox-sdk/ryotql";
+} from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 

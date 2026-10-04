@@ -1,4 +1,4 @@
-import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
+import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";

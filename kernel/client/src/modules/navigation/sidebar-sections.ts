@@ -1,6 +1,6 @@
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
 
-import { savedViewHref } from "#/modules/plugins/plugin-location";
+import { savedViewHref } from "#/modules/plugins/catalog/location";
 
 type NavigationCollection = NavigationData["collections"][number];
 

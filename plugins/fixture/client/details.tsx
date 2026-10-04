@@ -1,7 +1,7 @@
-import { usePluginParams, usePluginSearch } from "@ryot-app/client-sdk/plugin";
-import { useRyot } from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { Button } from "@ryot-app/client-ui-sdk";
+import { usePluginParams, usePluginSearch } from "@ryot-app/plugin-client-sdk/plugin";
+import { useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 
 import { fixtureRoute } from "./targets";
 

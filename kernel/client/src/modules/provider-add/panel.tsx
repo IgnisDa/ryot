@@ -1,20 +1,3 @@
-import {
-	Button,
-	Chip,
-	RadioGroup,
-	StatusMessage,
-	useFieldEscape,
-	useValueChange,
-} from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import {
-	initialSchemaFormValues,
-	SchemaForm,
-	type SchemaFileUpload,
-	type SchemaFormIcons,
-	toSchemaFormPayload,
-	useSchemaForm,
-} from "@ryot-app/client-ui-sdk/schema-form";
 import type {
 	SearchProviderEntitiesBody,
 	SearchProviderEntitiesResponse,
@@ -25,6 +8,23 @@ import type {
 	EntitySchemaSlug,
 	SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
+import {
+	Button,
+	Chip,
+	RadioGroup,
+	StatusMessage,
+	useFieldEscape,
+	useValueChange,
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import {
+	initialSchemaFormValues,
+	SchemaForm,
+	type SchemaFileUpload,
+	type SchemaFormIcons,
+	toSchemaFormPayload,
+	useSchemaForm,
+} from "@ryot-app/plugin-ui-sdk/schema-form";
 import clsx from "clsx";
 import { Effect, Match } from "effect";
 import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";

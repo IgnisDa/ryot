@@ -1,6 +1,6 @@
-import type { ExecutionMetadata } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { ExecutionMetadata } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import {

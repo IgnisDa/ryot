@@ -13,8 +13,8 @@
 	"dependencies": {
 		"@effect/platform-bun": "4.0.0",
 		"@ryot-app/contract": "workspace:*",
-		"@ryot-app/sandbox-compiler": "workspace:*",
-		"@ryot-app/sandbox-sdk": "workspace:*",
+		"@ryot-app/plugin-backend-compiler": "workspace:*",
+		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/vite-compiler": "workspace:*",
 		"effect": "4.0.0",

@@ -1,4 +1,4 @@
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useSyncExternalStore } from "react";
 

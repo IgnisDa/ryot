@@ -1,5 +1,3 @@
-import type { PluginBridgeProviderSearchScreen } from "@ryot-app/client-plugin-contract";
-import { Button } from "@ryot-app/client-ui-sdk";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import {
 	sameDeclaration,
@@ -9,20 +7,22 @@ import {
 	EntityBrowserLayout,
 	EntityBrowserSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { PluginBridgeProviderSearchScreen } from "@ryot-app/plugin-client-contract";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router";
 import { Effect, Result, Schema } from "effect";
 import { useEffect, useRef } from "react";
 
 import { ClientPagesApi } from "#/api/client-pages";
 import type { ApiScope } from "#/api/scope";
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
 	useClearClientPageDocument,
 	useClientPageDocument,
 	useHasPublishedClientPageDocument,
-} from "#/modules/client-pages/document";
-import { mergePageSearch } from "#/modules/client-pages/page-host";
-import { usePageTitle } from "#/modules/navigation/page-title";
-import { mainContentProps } from "#/modules/navigation/skip-link";
+} from "#/modules/pages/documents/state";
+import { mergePageSearch } from "#/modules/pages/runtime/document-host";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
 import { ClientStorage } from "#/persistence/storage";
 

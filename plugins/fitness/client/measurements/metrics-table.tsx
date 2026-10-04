@@ -1,6 +1,6 @@
-import { SegmentedControl, StatusMessage } from "@ryot-app/client-ui-sdk";
-import { Sparkline } from "@ryot-app/client-ui-sdk/charts";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { SegmentedControl, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Sparkline } from "@ryot-app/plugin-ui-sdk/charts";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";

@@ -1,7 +1,7 @@
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import type { IntegrationRecord } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import type { IntegrationRecord } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import {
 	collectionSyncMatches,

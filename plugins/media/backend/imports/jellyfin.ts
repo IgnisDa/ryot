@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 const AUTH = 'MediaBrowser Client="ryot", Device="ryot", DeviceId="ryot-import", Version="1.0.0"';
 const ProviderIds = Schema.optional(

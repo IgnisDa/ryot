@@ -1,7 +1,7 @@
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
-import { createUserEntityArgsSchema } from "@ryot-app/sandbox-sdk/core";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import { createUserEntityArgsSchema } from "@ryot-app/plugin-backend-sdk/core";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	requireSandboxCapabilityInput,
 	sandboxHostEffect,

@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { RyotClientError, type RyotClientAdapter } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
-import { createTestPluginStorage } from "@ryot-app/client-sdk/testing";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import { RyotClientError, type RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { createTestPluginStorage } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, waitFor } from "@testing-library/dom";
 
 import { rowsResult } from "../../tests/client/query-result-fixture";

@@ -1,5 +1,5 @@
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import { sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
+import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Metric } from "effect";
 
 import { SIDECAR_INTERNAL_HOST_CALLS, type SidecarTier } from "../protocol/messages";

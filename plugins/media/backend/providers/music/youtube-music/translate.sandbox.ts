@@ -1,6 +1,6 @@
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { createYoutubeMusicClient } from "../../../lib/vendors/youtube-music";
 import { buildTrackTranslate } from "./shared";

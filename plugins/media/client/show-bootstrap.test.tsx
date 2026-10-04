@@ -6,10 +6,10 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
-} from "@ryot-app/client-plugin-contract";
-import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
-import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
-import { createTestRyotClock, pluginContributor } from "@ryot-app/client-sdk/testing";
+} from "@ryot-app/plugin-client-contract";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bootstrapClientPage } from "@ryot-app/plugin-client-sdk/plugin";
+import { createTestRyotClock, pluginContributor } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { act } from "react";
 

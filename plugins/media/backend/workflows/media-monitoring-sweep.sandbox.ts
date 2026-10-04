@@ -5,7 +5,7 @@ import {
 	defineWorkflowReference,
 	Effect,
 	Schema,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	MediaMonitoringSweepWorkflowInput,

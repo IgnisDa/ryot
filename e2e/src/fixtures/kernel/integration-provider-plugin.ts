@@ -16,8 +16,8 @@ export const installTestIntegrationProvider = (
 	const workflowScriptSlug = `workflow.e2e-integration-${suffix}`;
 	const name = "E2E integration sink";
 	const source = `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -37,8 +37,8 @@ import {
   genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { defineExecutableAlternatives, defineManifest, defineScriptReference, defineWorkflow, Effect, Schema, selectExecutable } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { defineExecutableAlternatives, defineManifest, defineScriptReference, defineWorkflow, Effect, Schema, selectExecutable } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",

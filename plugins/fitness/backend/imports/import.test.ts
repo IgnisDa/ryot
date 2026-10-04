@@ -6,16 +6,16 @@ import type {
 import {
 	genericImportChunkSchema,
 	genericImportKernelInputSchema,
-} from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	installSandboxTestFilesystem,
 	makeWorkflowReplayHost,
-} from "@ryot-app/sandbox-sdk/testing";
-import { jsonValueSchema, type JsonValue } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/testing";
+import { jsonValueSchema, type JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { Effect, Schema } from "effect";
 import { afterEach, assert, expect, it } from "vitest";
 

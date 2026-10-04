@@ -3,7 +3,7 @@ import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-in
 import {
 	providerTranslateResultSchema,
 	type ProviderTranslateResult,
-} from "@ryot-app/sandbox-sdk/provider";
+} from "@ryot-app/plugin-backend-sdk/provider";
 import { DateTime, Effect, Schema } from "effect";
 
 import type { DurableSchema } from "#boot/workflow-engine";

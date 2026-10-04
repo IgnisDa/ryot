@@ -1,5 +1,5 @@
-import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
-import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
+import type { PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
+import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 
 import {
 	podcastEpisodicKindConfig,

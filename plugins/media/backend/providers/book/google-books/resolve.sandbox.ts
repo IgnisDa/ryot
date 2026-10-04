@@ -1,5 +1,5 @@
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { resolve } from "./shared";
 

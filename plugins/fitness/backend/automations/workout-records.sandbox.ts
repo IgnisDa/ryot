@@ -1,14 +1,14 @@
-import { defineAutomation, type AutomationInput } from "@ryot-app/sandbox-sdk/automation";
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomation, type AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	EventStreamStepInput,
 	EventStreamStepOutput,
 	kernelDispatch,
-} from "@ryot-app/sandbox-sdk/event-streams";
-import { executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
-import { defineScriptReference } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/event-streams";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineScriptReference } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	existingExerciseIdsRecipe,

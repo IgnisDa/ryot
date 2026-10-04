@@ -1,8 +1,8 @@
-import type { ExecutionMetadata, ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { ListStatePropertiesSchema, type ListStateProperties } from "../../../shared/list-state";
 import { listStateSnapshotsRecipe } from "../../../shared/list-state-recipes";

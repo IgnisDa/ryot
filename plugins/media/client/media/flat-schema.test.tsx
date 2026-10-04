@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import type { RyotClientAdapter } from "@ryot-app/client-sdk";
-import { Effect, Result } from "@ryot-app/client-sdk/effect";
-import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
+import type { RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
+import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
 import { fireEvent, waitFor } from "@testing-library/dom";
 
 import {

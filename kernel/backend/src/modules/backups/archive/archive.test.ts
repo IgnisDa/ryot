@@ -1,11 +1,11 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
+import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	CLIENT_API_VERSION,
 	clientArtifactMetadata,
 	clientDeclarationHash,
-} from "@ryot-app/client-plugin-contract";
-import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
+} from "@ryot-app/plugin-client-contract";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, FileSystem, Schema, Stream } from "effect";

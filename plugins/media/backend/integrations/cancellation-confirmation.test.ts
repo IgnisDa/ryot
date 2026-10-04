@@ -28,13 +28,13 @@ import { ScriptExecutionService } from "@ryot-app/kernel-backend/modules/scripts
 import { SandboxPluginScriptResolver } from "@ryot-app/kernel-backend/modules/scripts/registry/plugin-script-resolver";
 import { WorkflowExecutionNotifications } from "@ryot-app/kernel-backend/platform/workflow/execution-notifications";
 import { makeWorkflowEngine } from "@ryot-app/kernel-backend/testing/effect";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	defineSandboxTestHost,
 	makeWorkflowReplayHost,
 	runSandboxTestScript,
-} from "@ryot-app/sandbox-sdk/testing";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/testing";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Layer } from "effect";
 import { TestClock } from "effect/testing";

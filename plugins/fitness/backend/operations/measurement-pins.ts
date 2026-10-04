@@ -1,5 +1,5 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	ascending,
 	column,
@@ -10,7 +10,7 @@ import {
 	selectedField,
 	selectedRows,
 	table,
-} from "@ryot-app/sandbox-sdk/ryotql";
+} from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { userFitnessLibraryRecipe } from "../../shared/library-recipes";
 

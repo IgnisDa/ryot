@@ -1,5 +1,5 @@
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { AutomationRunStatus } from "@ryot-app/contract/modules/automations/lifecycle";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
 const statuses = {

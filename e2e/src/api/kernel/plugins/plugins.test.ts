@@ -152,10 +152,10 @@ describe("plugins", () => {
 				result: fakeProviderSearchResult([{ externalId, title: "Lifecycle Entity" }]),
 			});
 			const automationSource = `
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 const isJsonObject = (value: JsonValue): value is Readonly<Record<string, JsonValue>> =>
   typeof value === "object" && value !== null && !Array.isArray(value);

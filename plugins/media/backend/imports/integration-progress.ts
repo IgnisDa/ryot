@@ -1,7 +1,7 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { eventReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { eventReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../lib/failures";
 import type { MediaProgressEvent } from "../lib/ryotql";

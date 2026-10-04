@@ -1,4 +1,4 @@
-import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
+import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { decodeMediaSummaryResult } from "../summary-fixture";
 import { flatFixtureRecipes } from "./recipes";

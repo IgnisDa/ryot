@@ -1,11 +1,11 @@
 import { assert, expect, it } from "@effect/vitest";
-import { genericImportKernelInputSchema } from "@ryot-app/sandbox-sdk/imports";
-import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+import { genericImportKernelInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
+import { makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import { mediaImportTestCommand } from "../imports/ingestion.test-support";

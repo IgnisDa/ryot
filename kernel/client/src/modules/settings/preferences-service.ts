@@ -1,7 +1,7 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
 import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 import { Effect } from "effect";
 

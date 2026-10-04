@@ -24,7 +24,7 @@
 		"@react-router/node": "7.16.0",
 		"@react-router/serve": "7.16.0",
 		"@ryot-app/contract": "workspace:*",
-		"@ryot-app/transactional": "workspace:*",
+		"@ryot-app/email-templates": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@tailwindcss/vite": "4.3.0",
 		"@tanstack/react-query": "5.100.14",

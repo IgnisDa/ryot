@@ -1,4 +1,4 @@
-import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
+import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 
 import { measurementMetricUnit } from "../../shared/measurement-metrics";
 import { measurementReadingProperties } from "../../shared/measurement-reading-operations";

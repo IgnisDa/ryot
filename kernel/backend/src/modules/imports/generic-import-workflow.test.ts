@@ -6,7 +6,7 @@ import type {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import type { GenericImportChunk } from "@ryot-app/sandbox-sdk/imports";
+import type { GenericImportChunk } from "@ryot-app/plugin-backend-sdk/imports";
 import type { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";

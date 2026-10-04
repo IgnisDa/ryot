@@ -1,7 +1,7 @@
-import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { ContractRequest } from "@ryot-app/contract/client";
 import { sameDeclaration } from "@ryot-app/contract/modules/plugins/references";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	importRunRecipe,
 	importIssuesRecipe,

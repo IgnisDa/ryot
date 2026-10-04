@@ -1,4 +1,4 @@
-import { ImageTintOverlay, useImageTint } from "@ryot-app/client-ui-sdk/tint";
+import { ImageTintOverlay, useImageTint } from "@ryot-app/plugin-ui-sdk/tint";
 
 import type { MediaImagePurposes, MediaImages } from "./image";
 import { useManagedAssetUrl } from "./managed-assets";

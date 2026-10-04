@@ -1,4 +1,4 @@
-import { usePageRefreshRequest, useRyotSchedule } from "@ryot-app/client-sdk/react";
+import { usePageRefreshRequest, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useEffect, useState } from "react";
 
 import { formatLocalDateKey } from "../media/date";

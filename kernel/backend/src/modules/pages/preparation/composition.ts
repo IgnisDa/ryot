@@ -1,10 +1,10 @@
-import { pluginExportSpecifier } from "@ryot-app/client-plugin-contract";
 import type {
 	ClientArtifactFileReference,
 	ClientCompositionModuleReference,
 	ClientPageCompositionIdentity,
 	ClientPageCompositionManifest,
 } from "@ryot-app/contract/modules/client-pages/schemas";
+import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 
 export type ArtifactDescription = {
 	readonly files: ReadonlyArray<{ readonly name: string; readonly contentType: string }>;

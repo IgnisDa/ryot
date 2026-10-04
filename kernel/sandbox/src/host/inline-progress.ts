@@ -1,8 +1,8 @@
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	workflowHostRequestSchema,
 	workflowInlineRequestSchema,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { Schema } from "effect";
 
 // The host keeps HTTP continuation state opaque; the host functions that produce it validate it

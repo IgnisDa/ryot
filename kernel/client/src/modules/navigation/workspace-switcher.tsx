@@ -1,11 +1,11 @@
-import { KERNEL_SHORTCUTS } from "@ryot-app/client-plugin-contract";
+import { KERNEL_SHORTCUTS } from "@ryot-app/plugin-client-contract";
 import {
 	OverlayScope,
 	useDismissOnOutside,
 	useShortcut,
 	useValueChange,
-} from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,

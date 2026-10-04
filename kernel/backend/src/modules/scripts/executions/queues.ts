@@ -1,9 +1,9 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
-import { workflowReplayJournalEntrySchema } from "@ryot-app/sandbox-sdk/workflow";
+import { workflowReplayJournalEntrySchema } from "@ryot-app/plugin-backend-sdk/workflow";
 import { SandboxAdmissionLease } from "@ryot-app/sandbox/host/admission";
-import { SandboxExecutor as RuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor";
+import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { sandboxInlineDurableCapabilities } from "@ryot-app/sandbox/host/host-execution-policy";
 import { SandboxRecoveryIdentity } from "@ryot-app/sandbox/host/recovery-store";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
@@ -86,7 +86,7 @@ export const processSandboxExecutionQueue = Effect.fn("processSandboxExecutionQu
 		Effect.mapError(toQueueError),
 	);
 	if (result.recovery !== undefined) {
-		const runtime = yield* RuntimeSandboxExecutor;
+		const runtime = yield* SandboxExecutor;
 		yield* runtime.completeRecovery(result.recovery);
 	}
 	return result;
@@ -103,7 +103,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		...("userId" in payload.principal.subject ? { userId: payload.principal.subject.userId } : {}),
 	});
 	const artifacts = yield* ExecutableArtifacts;
-	const sandbox = yield* RuntimeSandboxExecutor;
+	const sandbox = yield* SandboxExecutor;
 	const dispatcher = yield* SandboxDurableHostDispatcher;
 	return yield* Effect.scoped(
 		Effect.gen(function* () {

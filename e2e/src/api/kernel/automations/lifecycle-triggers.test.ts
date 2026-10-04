@@ -124,9 +124,9 @@ const automationScript = (
 });
 
 const policySource = `
-import { defineAutomationPolicy } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomationPolicy } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "automation",
@@ -169,9 +169,9 @@ const afterSource = (input: {
 	readonly slug: string;
 	readonly body: string;
 }) => `
-import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "automation",
@@ -192,9 +192,9 @@ export default defineAutomation({
 `;
 
 const replayOperationSource = `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 export const manifest = defineManifest({
   kind: "operation",
@@ -229,7 +229,7 @@ export default defineOperation({
 `;
 
 const replayPauseSource = `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",

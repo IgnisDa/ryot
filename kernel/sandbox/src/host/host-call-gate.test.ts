@@ -1,12 +1,12 @@
 import { assert, expect, it, layer } from "@effect/vitest";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { hostFailure, hostSuccess } from "@ryot-app/sandbox-sdk/wire";
+import { hostFailure, hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	workflowHostRequestSchema,
 	workflowReplayJournalEntrySchema,
 	type WorkflowDurableResult,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import {
 	Cause,
 	Deferred,

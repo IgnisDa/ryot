@@ -1,7 +1,7 @@
-import { Effect } from "@ryot-app/client-sdk/effect";
-import { useRyot, type RyotQueryResult } from "@ryot-app/client-sdk/react";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { useRyot, type RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { useState, type ReactNode, type Ref } from "react";
 

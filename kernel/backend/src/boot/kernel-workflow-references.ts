@@ -20,8 +20,8 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { genericImportKernelInputSchema } from "@ryot-app/sandbox-sdk/imports";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { genericImportKernelInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import {

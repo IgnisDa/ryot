@@ -1,5 +1,5 @@
-import type { ExecutionMetadata, ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import type {
 	ImportEntityRef,

@@ -1,4 +1,4 @@
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 const Guid = Schema.Struct({ id: Schema.String });
 const Directory = Schema.Struct({ key: Schema.String, type: Schema.String, title: Schema.String });

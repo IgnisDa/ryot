@@ -23,7 +23,7 @@ const workflowSource = (input: {
 		.map((duration, index) => `yield* replay.sleep("sleep-${index + 1}", ${duration});`)
 		.join("\n");
 	return `
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -49,8 +49,8 @@ const httpScriptSource = (input: {
 	url: string;
 	requestCount: number;
 }) => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",

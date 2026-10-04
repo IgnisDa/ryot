@@ -1,4 +1,4 @@
-import { StatusMessage } from "@ryot-app/client-ui-sdk";
+import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { useSyncExternalStore } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/service";

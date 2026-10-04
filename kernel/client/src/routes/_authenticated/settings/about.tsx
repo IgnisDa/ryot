@@ -1,5 +1,5 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 

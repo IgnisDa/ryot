@@ -1,6 +1,6 @@
-import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 import type { AutomationHistoryRetryResult } from "@ryot-app/contract/modules/automations/history-schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 
 import type { AutomationRunDetail } from "#/modules/automation-history/service";
 import { AutomationStatusPill } from "#/modules/automation-history/status";

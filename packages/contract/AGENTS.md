@@ -6,7 +6,7 @@ shared wire schemas, plugin manifests, shared errors, auth middleware, and wire-
 `kernel/backend`.
 
 The iframe bridge protocol, client artifact model and format, client source file policy, and shared
-client-plugin capability payloads belong to `@ryot-app/client-plugin-contract`, not this package.
+client-plugin capability payloads belong to `@ryot-app/plugin-client-contract`, not this package.
 
 - Never import backend code or runtime-only dependencies here, including through `import type`. This includes database, Redis, auth-server, Node, and Bun modules.
 - Define shared boundary types here and import them from backend consumers, never the reverse.

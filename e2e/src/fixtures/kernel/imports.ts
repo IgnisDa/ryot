@@ -2,6 +2,7 @@ import { IngestionIssue } from "@ryot-app/contract/modules/imports/ingestion";
 import { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { TemporaryUploadToken } from "@ryot-app/contract/modules/uploads/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	ascending,
 	column,
@@ -18,7 +19,6 @@ import {
 	integrationImportRunsRecipe,
 	manualImportRunsRecipe,
 } from "@ryot-app/ryotql-recipes/import-runs";
-import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
 import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -50,8 +50,8 @@ import {
   genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { Effect, Schema, defineExecutableAlternatives, defineManifest, defineScriptReference, defineWorkflow, defineWorkflowReference, selectExecutable } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { Effect, Schema, defineExecutableAlternatives, defineManifest, defineScriptReference, defineWorkflow, defineWorkflowReference, selectExecutable } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -86,9 +86,9 @@ export default defineWorkflow({
 `;
 
 const FIXTURE_IMPORT_VALIDATE_SOURCE = `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { readNamedArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -120,16 +120,6 @@ export const installTestImportPlugin = Effect.suspend(() => {
 				},
 			},
 		},
-		files: {
-			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
-			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
-			"backend/scripts/configured.sandbox.ts": `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-export const manifest = defineManifest({ kind: "script", slug: "import.e2e-configured", name: "Configured import" });
-export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Number, run: (_input, host) => host.getPluginConfig({ required: ["fixtureToken"] }).pipe(Effect.as(1)) });
-`,
-		},
 		scripts: [
 			{
 				kind: "script",
@@ -156,6 +146,16 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 				slug: "import.e2e-validate-archive",
 			},
 		],
+		files: {
+			[entry]: FIXTURE_IMPORT_WORKFLOW_SOURCE,
+			[validateEntry]: FIXTURE_IMPORT_VALIDATE_SOURCE,
+			"backend/scripts/configured.sandbox.ts": `
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+export const manifest = defineManifest({ kind: "script", slug: "import.e2e-configured", name: "Configured import" });
+export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Number, run: (_input, host) => host.getPluginConfig({ required: ["fixtureToken"] }).pipe(Effect.as(1)) });
+`,
+		},
 		importSources: [
 			{
 				name: "E2E archive",
@@ -195,8 +195,8 @@ import {
   genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -247,9 +247,9 @@ const fixtureHandleImportChunkSource = (failureCount: number) => {
 		sourceLabel: `Harvest fixture ${index + 1}`,
 	}));
 	return `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -326,8 +326,8 @@ import {
   genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -370,9 +370,9 @@ const partialResultCancellationChunkSource = (
 	chunkScriptSlug: string,
 	items: GenericImportWriteItem[],
 ) => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -567,8 +567,8 @@ import {
   genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { Effect, defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { Effect, defineManifest, defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",

@@ -1,4 +1,4 @@
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { waitFor } from "@testing-library/dom";
 import { createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";

@@ -1,6 +1,6 @@
-import type { ExecutionMetadata } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import type { SandboxScratchManifest } from "@ryot-app/sandbox-sdk/filesystem";
+import type { ExecutionMetadata } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { SandboxScratchManifest } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 import type { MediaSourceRecord } from "../imports/collection-schemas";
 import { mediaFilesystem } from "../imports/ingestion.test-support";

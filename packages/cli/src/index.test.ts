@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it, layer } from "@effect/vitest";
-import { clientDeclarationHash } from "@ryot-app/client-plugin-contract";
 import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive } from "@ryot-app/plugin-archive";
+import { clientDeclarationHash } from "@ryot-app/plugin-client-contract";
 import { Data, Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -100,8 +100,8 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 			yield* fs.writeFileString(
 				path.join(plugin, "backend/main.sandbox.ts"),
 				`
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "script", slug: "main", name: "Main" });
 export default defineScript({ manifest, input: Schema.Unknown, output: Schema.String, run: (_input, host) => Effect.gen(function* () {
   yield* host.getPluginConfig({ required: ["token"], optional: ["threshold"] });
@@ -113,7 +113,7 @@ export default defineScript({ manifest, input: Schema.Unknown, output: Schema.St
 			yield* fs.writeFileString(
 				path.join(plugin, "backend/root.sandbox.ts"),
 				`
-import { defineManifest, defineWorkflow, defineWorkflowReference, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, defineWorkflowReference, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 const target = defineWorkflowReference({ workflowSlug: "kernel:event-create", input: Schema.Unknown, output: Schema.String });
 export const manifest = defineManifest({ kind: "workflow", slug: "root", name: "Root" });
 export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.String, run: (input, replay) => replay.child("write", target, input) });
@@ -150,9 +150,9 @@ export default defineWorkflow({ manifest, input: Schema.Unknown, output: Schema.
 				yield* fs.writeFileString(
 					path.join(plugin, "backend", `${automationType}.sandbox.ts`),
 					`
-import { ${helper} } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { ${helper} } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({
   kind: "automation", automationType: "${automationType}", slug: "${automationType}", name: "${automationType}",
   inputProjection: ${automationType === "policy" ? "{ event: { properties: [] } }" : "{ signal: { properties: [] } }"},

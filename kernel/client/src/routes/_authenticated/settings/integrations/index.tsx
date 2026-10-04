@@ -1,4 +1,4 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import type { IntegrationList } from "@ryot-app/ryotql-recipes/integrations";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";

@@ -1,5 +1,5 @@
-import { LifecycleCommand } from "@ryot-app/sandbox-sdk/imports";
-import { Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { LifecycleCommand } from "@ryot-app/plugin-backend-sdk/imports";
+import { Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const MediaImportResolutionActivityInput = Schema.Struct({
 	value: Schema.String,

@@ -1,7 +1,7 @@
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
-import { genericImportWorkflowInputSchema } from "@ryot-app/sandbox-sdk/imports";
+import { genericImportWorkflowInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schema } from "effect";

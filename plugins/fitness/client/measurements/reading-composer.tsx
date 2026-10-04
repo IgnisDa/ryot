@@ -7,8 +7,8 @@ import {
 	StatusMessage,
 	TextArea,
 	TextField,
-} from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useId, useRef, useState, type RefObject } from "react";
 
 import type { MeasurementReadingLogInput } from "../../shared/measurement-reading-operations";

@@ -3,9 +3,9 @@ import { Effect, FileSystem, Path } from "effect";
 import type { shippedPluginTestProviders } from "~/fixtures/kernel/sandbox-provider";
 
 const detailsSource = (input: { exerciseName: string; slug: string }) => `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { getExerciseDetails } from "../free-exercise-db/shared";
 

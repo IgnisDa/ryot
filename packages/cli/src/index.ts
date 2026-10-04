@@ -2,16 +2,6 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import {
-	clientPluginCompilerPlatformLayer,
-	compileClientPluginModule,
-} from "@ryot-app/client-plugin-compiler";
-import {
-	clientDeclarationHash,
-	isPluginSourceFile,
-	pluginClientFileExtension,
-	type PluginClientArtifact,
-} from "@ryot-app/client-plugin-contract";
-import {
 	AuthoredPluginManifest as AuthoredPluginManifestSchema,
 	PluginManifest as PluginManifestSchema,
 } from "@ryot-app/contract/modules/plugins/manifest";
@@ -20,12 +10,22 @@ import {
 	writePluginArchive,
 	type PluginArchivePackage,
 } from "@ryot-app/plugin-archive";
-import type { SandboxCompilerDiagnostic } from "@ryot-app/sandbox-compiler/diagnostics";
-import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
+import type { PluginBackendCompilerDiagnostic } from "@ryot-app/plugin-backend-compiler/diagnostics";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import {
 	derivePluginSandboxScripts,
 	pluginScriptCompileMismatchIssue,
-} from "@ryot-app/sandbox-compiler/plugin-manifest";
+} from "@ryot-app/plugin-backend-compiler/plugin-manifest";
+import {
+	pluginClientCompilerPlatformLayer,
+	compileClientPluginModule,
+} from "@ryot-app/plugin-client-compiler";
+import {
+	clientDeclarationHash,
+	isPluginSourceFile,
+	pluginClientFileExtension,
+	type PluginClientArtifact,
+} from "@ryot-app/plugin-client-contract";
 import { Clock, Data, Effect, FileSystem, Layer, Option, Path, Schema, Stream } from "effect";
 import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
@@ -130,7 +130,7 @@ const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 
 const backendDecoder = new TextDecoder("utf-8", { fatal: true });
 
-const formatDiagnostic = (diagnostic: SandboxCompilerDiagnostic) =>
+const formatDiagnostic = (diagnostic: PluginBackendCompilerDiagnostic) =>
 	`  ${diagnostic.file}:${diagnostic.line}:${diagnostic.column} ${diagnostic.severity} ${diagnostic.code}: ${diagnostic.message}`;
 
 const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
@@ -153,7 +153,7 @@ const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 		Effect.catchTags({
 			PluginScriptCompileMismatch: (error) =>
 				new BuildError({ message: pluginScriptCompileMismatchIssue(error) }),
-			SandboxCompilerFailure: (error) =>
+			PluginBackendCompilerFailure: (error) =>
 				new BuildError({
 					message: [`${error.message}:`, ...error.diagnostics.map(formatDiagnostic)].join("\n"),
 				}),
@@ -201,7 +201,7 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 	}).pipe(
 		Effect.map(({ artifact }) => artifact),
 		Effect.catchTag(
-			"ClientPluginCompilerFailure",
+			"PluginClientCompilerFailure",
 			(error) =>
 				new BuildError({
 					message: [`${error.message}:`, ...error.diagnostics.map(formatDiagnostic)].join("\n"),
@@ -406,8 +406,8 @@ if (import.meta.main) {
 			Effect.provide(
 				Layer.mergeAll(
 					BunServices.layer,
-					sandboxCompilerPlatformLayer,
-					clientPluginCompilerPlatformLayer,
+					pluginBackendCompilerPlatformLayer,
+					pluginClientCompilerPlatformLayer,
 				),
 			),
 		),

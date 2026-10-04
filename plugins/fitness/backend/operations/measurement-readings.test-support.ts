@@ -1,6 +1,6 @@
 import { assert } from "@effect/vitest";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 type StoredRow = Readonly<Record<string, string>>;
 type Rows = Readonly<Record<string, StoredRow>>;

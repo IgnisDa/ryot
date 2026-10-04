@@ -2,7 +2,7 @@ import { layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { SandboxExecutor as RuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor";
+import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Deferred, Effect, Layer, Schedule, Schema } from "effect";
@@ -80,7 +80,7 @@ const controlLayer = Layer.effect(
 const recoveryPinHash = sha256Hex("durable-queue-lane-test-recovery-pin");
 
 const runtimeLayer = Layer.effect(
-	RuntimeSandboxExecutor,
+	SandboxExecutor,
 	Effect.gen(function* () {
 		const { gate, starts } = yield* LaneControl;
 		return stubRuntimeSandboxExecutor((input) =>

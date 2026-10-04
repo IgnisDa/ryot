@@ -1,9 +1,9 @@
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	workflowDurableResultSchema,
 	workflowHostRequestSchema,
 	workflowInlineRequestSchema,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { Schema } from "effect";
 
 import { HttpRateLimitPolicyDeclaration } from "#modules/plugins/catalog/http-rate-limits";

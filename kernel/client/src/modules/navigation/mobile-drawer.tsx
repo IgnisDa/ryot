@@ -1,4 +1,4 @@
-import { OverlayScope, useFocusTrap, useScrollLock, useValueChange } from "@ryot-app/client-ui-sdk";
+import { OverlayScope, useFocusTrap, useScrollLock, useValueChange } from "@ryot-app/plugin-ui-sdk";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,

@@ -14,7 +14,7 @@ sandbox runner compiler.
 
 Renderers obey the client plugin import allowlist, so they may only reach React, `clsx`, the client
 SDKs, and the matching `@ryot-app/ryotql-recipes` entrypoints. Tests mount them through `mountPluginPage` from
-`@ryot-app/client-sdk/testing`, which boots a real bridge handshake, so a test asserts on the
+`@ryot-app/plugin-client-sdk/testing`, which boots a real bridge handshake, so a test asserts on the
 messages the renderer actually puts on the port.
 
 The browser owns its own screen chrome inside the iframe: the saved view's name and icon, search,

@@ -1,6 +1,6 @@
 import { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
 import type { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
-import { Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { SANDBOX_LIMITS, SANDBOX_LOG_TRUNCATION_MARKER } from "../protocol/limits";
 import {

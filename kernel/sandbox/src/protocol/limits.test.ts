@@ -1,8 +1,8 @@
 import {
 	limitSandboxCompilationDiagnostics,
-	sandboxCompilerDiagnostic,
-} from "@ryot-app/sandbox-compiler/diagnostics";
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+	pluginBackendCompilerDiagnostic,
+} from "@ryot-app/plugin-backend-compiler/diagnostics";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -108,7 +108,7 @@ describe("sandbox limits", () => {
 
 	it("bounds diagnostics by both entry count and serialized UTF-8 bytes", () => {
 		const diagnostics = Array.from({ length: 150 }, (_, index) =>
-			sandboxCompilerDiagnostic(`RYOT_${index}`, "🙂".repeat(10_000)),
+			pluginBackendCompilerDiagnostic(`RYOT_${index}`, "🙂".repeat(10_000)),
 		);
 		const bounded = limitSandboxCompilationDiagnostics(diagnostics);
 

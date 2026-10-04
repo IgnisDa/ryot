@@ -270,8 +270,8 @@ async function installSeedDefinitions(
 async function seedSandboxScript(apiClient: APIClient, executingUserId: string) {
 	const value = `seed-script-${Date.now()}`;
 	const source = `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",

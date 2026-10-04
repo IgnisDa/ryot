@@ -4,7 +4,7 @@ import {
 	SandboxScriptMetadata,
 } from "@ryot-app/contract/modules/sandbox/schemas";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
-import { workflowInlineRequestSchema } from "@ryot-app/sandbox-sdk/workflow";
+import { workflowInlineRequestSchema } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Schema } from "effect";
 
 import { isBoolean, regExpExec, uncurry } from "../guest/primordials";

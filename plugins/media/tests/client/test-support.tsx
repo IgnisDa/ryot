@@ -1,8 +1,8 @@
-import type { RyotClientAdapter } from "@ryot-app/client-sdk";
-import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
-import { RyotProvider } from "@ryot-app/client-sdk/react";
-import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import type { RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
+import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent } from "@testing-library/dom";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";

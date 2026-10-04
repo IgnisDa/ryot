@@ -4,7 +4,7 @@ import {
 	Effect,
 	Schema,
 	selectExecutable,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { applyMediaSegment } from "../imports/application-segment";
 import {

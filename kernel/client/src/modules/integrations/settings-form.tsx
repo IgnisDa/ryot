@@ -4,7 +4,7 @@ import {
 	type SchemaOAuthConnect,
 	type SchemaFormApi,
 	type SchemaFormMode,
-} from "@ryot-app/client-ui-sdk/schema-form";
+} from "@ryot-app/plugin-ui-sdk/schema-form";
 
 import { integrationLotDetail } from "#/modules/integrations/provider-selection";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";

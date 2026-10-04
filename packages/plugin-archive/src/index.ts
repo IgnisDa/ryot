@@ -1,3 +1,5 @@
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { strictStruct } from "@ryot-app/contract/schema/utils";
 import {
 	PluginClientArtifact,
 	PluginClientArtifactMetadata,
@@ -6,9 +8,7 @@ import {
 	isPluginClientArtifactContentType,
 	isPluginSourceFile,
 	type PluginClientArtifact as PluginClientArtifactType,
-} from "@ryot-app/client-plugin-contract";
-import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { strictStruct } from "@ryot-app/contract/schema/utils";
+} from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";

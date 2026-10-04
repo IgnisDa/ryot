@@ -1,9 +1,9 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
-import type { httpCallOptionsSchema } from "@ryot-app/sandbox-sdk/core";
-import { httpCallResponseSchema } from "@ryot-app/sandbox-sdk/core";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import type { httpCallOptionsSchema } from "@ryot-app/plugin-backend-sdk/core";
+import { httpCallResponseSchema } from "@ryot-app/plugin-backend-sdk/core";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	sandboxHostEffect,
 	sandboxHostFailure,

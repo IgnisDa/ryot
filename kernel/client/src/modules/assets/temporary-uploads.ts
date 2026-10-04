@@ -1,14 +1,14 @@
-import type {
-	PluginUploadBridgeErrorReason,
-	PluginUploadOutcome,
-	PluginUploadRequest,
-} from "@ryot-app/client-plugin-contract";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import {
 	TemporaryUploadToken,
 	UploadBadRequest,
 	UploadInternalError,
 } from "@ryot-app/contract/modules/uploads/schemas";
+import type {
+	PluginUploadBridgeErrorReason,
+	PluginUploadOutcome,
+	PluginUploadRequest,
+} from "@ryot-app/plugin-client-contract";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";

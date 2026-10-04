@@ -52,8 +52,8 @@ import {
   genericImportSealReference,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { Effect, Schema, defineManifest, defineScriptReference, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { Effect, Schema, defineManifest, defineScriptReference, defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -142,8 +142,8 @@ export default defineWorkflow({
 `;
 
 const configActivitySource = (activityScriptSlug: string) => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -167,9 +167,9 @@ export default defineScript({
 `;
 
 const readSourceActivity = (activityScriptSlug: string) => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { readArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",

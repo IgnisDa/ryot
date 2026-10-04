@@ -1,12 +1,12 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { createEventItemSchema, sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { createEventItemSchema, sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	type WorkflowDurableResult,
 	workflowDurableResultSchema,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { sandboxDurableHostDispatchStrategy } from "@ryot-app/sandbox/host/host-execution-policy";
 import { toSandboxHostError } from "@ryot-app/sandbox/host/invocation";

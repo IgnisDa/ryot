@@ -1,8 +1,4 @@
 import { Browser } from "@capacitor/browser";
-import type {
-	SchemaOAuthConnect,
-	SchemaOAuthConnectOutcome,
-} from "@ryot-app/client-ui-sdk/schema-form";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import {
 	OAUTH_CONNECTION_RETURN_PATH,
@@ -12,6 +8,10 @@ import {
 } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
 import type { IntegrationId, OAuthConnectionId } from "@ryot-app/contract/schema/brands";
+import type {
+	SchemaOAuthConnect,
+	SchemaOAuthConnectOutcome,
+} from "@ryot-app/plugin-ui-sdk/schema-form";
 import { useRouteContext } from "@tanstack/react-router";
 import {
 	Context,

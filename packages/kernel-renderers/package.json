@@ -18,10 +18,10 @@
 	},
 	"devDependencies": {
 		"@effect/vitest": "4.0.0",
-		"@ryot-app/client-plugin-contract": "workspace:*",
-		"@ryot-app/client-sdk": "workspace:*",
-		"@ryot-app/client-ui-sdk": "workspace:*",
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-client-contract": "workspace:*",
+		"@ryot-app/plugin-client-sdk": "workspace:*",
+		"@ryot-app/plugin-ui-sdk": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/testing": "workspace:*",

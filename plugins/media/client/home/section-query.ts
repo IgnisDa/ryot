@@ -1,7 +1,7 @@
-import { Result } from "@ryot-app/client-sdk/effect";
-import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
-import { createRyotQuery } from "@ryot-app/client-sdk/react";
-import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
+import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import type { PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
+import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 

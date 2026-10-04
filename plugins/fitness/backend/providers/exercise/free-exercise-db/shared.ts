@@ -1,11 +1,11 @@
-import type { ExecutionMetadata, ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type {
 	ProviderDetailsInput,
 	ProviderResolveInput,
 	ProviderSearchInput,
-} from "@ryot-app/sandbox-sdk/provider";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/provider";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { exerciseKindSchema } from "../../../../shared/exercise-kinds";
 import { exerciseEquipmentCatalog, exerciseTargetCatalog } from "../../../../shared/taxonomy";

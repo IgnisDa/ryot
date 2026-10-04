@@ -1,6 +1,6 @@
-import { Effect } from "@ryot-app/client-sdk/effect";
-import type { usePluginLocation } from "@ryot-app/client-sdk/plugin";
-import { usePluginSearch } from "@ryot-app/client-sdk/plugin";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import type { usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
+import { usePluginSearch } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -8,8 +8,8 @@ import {
 	useRyot,
 	useRyotMutation,
 	useRyotQuery,
-} from "@ryot-app/client-sdk/react";
-import { Button, Modal, RadioGroup, StatusMessage, useValueChange } from "@ryot-app/client-ui-sdk";
+} from "@ryot-app/plugin-client-sdk/react";
+import { Button, Modal, RadioGroup, StatusMessage, useValueChange } from "@ryot-app/plugin-ui-sdk";
 import { useEffect, useEffectEvent, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";

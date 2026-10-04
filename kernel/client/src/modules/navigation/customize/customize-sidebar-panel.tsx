@@ -1,4 +1,4 @@
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 
 import { DemoProtectionMessage } from "#/modules/demo-protection";

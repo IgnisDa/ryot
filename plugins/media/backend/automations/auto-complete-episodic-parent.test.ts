@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
-import type { CreateEventItem } from "@ryot-app/sandbox-sdk/core";
-import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
-import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
-import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+import type { AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
+import type { CreateEventItem } from "@ryot-app/plugin-backend-sdk/core";
+import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import {

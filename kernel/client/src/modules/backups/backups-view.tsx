@@ -1,5 +1,5 @@
-import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { BackupRunItem } from "@ryot-app/ryotql-recipes/backups";
 import clsx from "clsx";
 

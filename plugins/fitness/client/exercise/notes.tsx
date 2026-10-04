@@ -1,13 +1,13 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { Effect, Schema } from "@ryot-app/client-sdk/effect";
-import { createRyotMutation, useRyotMutation } from "@ryot-app/client-sdk/react";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	DestructiveConfirmation,
 	RadioGroup,
 	StatusMessage,
 	TextArea,
-} from "@ryot-app/client-ui-sdk";
+} from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useId, useRef, useState } from "react";
 

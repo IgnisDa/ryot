@@ -37,10 +37,10 @@ export const preferencePluginUserSettingsSchema = {
 const encoder = new TextEncoder();
 
 const userSettingsOperationSource = (input: { readonly name: string; readonly slug: string }) => `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
-import { Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "operation",

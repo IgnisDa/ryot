@@ -1,4 +1,4 @@
-import { Result } from "@ryot-app/client-sdk/effect";
+import { Result } from "@ryot-app/plugin-client-sdk/effect";
 
 import type { MediaPresentationSource } from "../../../shared/entity-presentations";
 

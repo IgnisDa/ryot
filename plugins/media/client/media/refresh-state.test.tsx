@@ -1,5 +1,5 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { fireEvent, getByRole } from "@testing-library/dom";
 import { assert, describe, expect, it } from "vitest";
 

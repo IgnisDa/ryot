@@ -1,4 +1,4 @@
-import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
+import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { Effect, Schema } from "effect";
 
 import { adminHeaders } from "./admin";
@@ -156,17 +156,17 @@ export const installSidecarRecoveryImport = (client: Client, checkpointUrl: stri
 					name: "Sidecar recovery resolve",
 				}),
 				[chunkEntry]: `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Schema } from "@ryot-app/sandbox-sdk/effect";
-import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { sandboxScratchManifestSchema, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
 export const manifest = defineManifest({ kind: "script", name: "Sidecar recovery chunks", slug: ${encodeJson(chunkSlug)} });
 export default defineScript({ manifest, input: Schema.Struct({}), output: sandboxScratchManifestSchema,
   run: () => writeScratchChunks(${encodeJson(chunks)}),
 });`,
 				[detailsEntry]: `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 export const manifest = defineManifest({ kind: "provider", name: "Sidecar recovery details", slug: ${encodeJson(detailsSlug)} });
 export default defineProvider({ manifest, operation: "details",
   run: (input, host, execution) => Effect.gen(function* () {
@@ -181,8 +181,8 @@ export default defineProvider({ manifest, operation: "details",
 import {
   genericImportApplyReference, genericImportCaptureReference, genericImportSealReference,
   genericImportWorkflowInputSchema, genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
-import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "workflow", name: "Sidecar recovery import", slug: ${encodeJson(workflowScriptSlug)} });
 const chunks = defineScriptReference({ scriptSlug: ${encodeJson(chunkSlug)}, input: Schema.Struct({}), output: Schema.Struct({ chunkHandles: Schema.Array(Schema.String) }) });
 export default defineWorkflow({ manifest, input: genericImportWorkflowInputSchema, output: genericImportWorkflowResultSchema,

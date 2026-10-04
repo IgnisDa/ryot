@@ -1,5 +1,5 @@
-import { ManagedAssetProvider, type RyotQuery } from "@ryot-app/client-sdk/react";
-import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
+import { ManagedAssetProvider, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
 import type { MediaCursorPage } from "./cursor-page-state";

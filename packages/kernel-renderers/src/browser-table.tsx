@@ -1,12 +1,12 @@
-import type { EntitySettle } from "@ryot-app/client-sdk";
-import { PluginLink } from "@ryot-app/client-sdk/plugin";
+import type { EntitySettle } from "@ryot-app/plugin-client-sdk";
+import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	fieldSyncState,
 	isTitleProvisional,
 	SettleHighlight,
 	SyncPip,
-} from "@ryot-app/client-ui-sdk/sync";
-import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
+} from "@ryot-app/plugin-ui-sdk/sync";
+import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import type {
 	EntityBrowserPageInput,
 	EntityBrowserResult,

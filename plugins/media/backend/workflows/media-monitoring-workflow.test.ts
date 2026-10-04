@@ -1,6 +1,6 @@
 import { assert, expect, it } from "@effect/vitest";
-import { driveWorkflowReplay } from "@ryot-app/sandbox-sdk/testing";
-import type { WorkflowReplayEnvelope } from "@ryot-app/sandbox-sdk/workflow";
+import { driveWorkflowReplay } from "@ryot-app/plugin-backend-sdk/testing";
+import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import workflow from "./media-monitoring-sweep.sandbox";

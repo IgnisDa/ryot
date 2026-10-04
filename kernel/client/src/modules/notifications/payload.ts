@@ -1,13 +1,13 @@
 import {
-	initialSchemaFormValues,
-	toSchemaFormPayload,
-	type SchemaFormValues,
-} from "@ryot-app/client-ui-sdk/schema-form";
-import {
 	NotificationChannelSpecifics,
 	type CreateNotificationChannelBody,
 } from "@ryot-app/contract/modules/notifications/schemas";
 import type { NotificationChannelKind } from "@ryot-app/contract/modules/notifications/types";
+import {
+	initialSchemaFormValues,
+	toSchemaFormPayload,
+	type SchemaFormValues,
+} from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Result, Schema } from "effect";
 
 import { notificationChannelDefinition } from "#/modules/notifications/channel-catalog";

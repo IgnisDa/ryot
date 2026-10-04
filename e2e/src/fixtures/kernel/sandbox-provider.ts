@@ -15,7 +15,7 @@ import type {
 	ProviderSearchResult,
 	ProviderSearchOptionsResult,
 	ProviderTranslateResult,
-} from "@ryot-app/sandbox-sdk/provider";
+} from "@ryot-app/plugin-backend-sdk/provider";
 import { Effect, Record } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -459,9 +459,9 @@ export function providerSandboxSource(input: {
 			: `\n  searchOptionsSchema: ${JSON.stringify(input.searchOptionsSchema)},`;
 
 	const source = `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider, ${isTranslate ? "providerTranslateResultSchema" : resultSchema} } from "@ryot-app/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider, ${isTranslate ? "providerTranslateResultSchema" : resultSchema} } from "@ryot-app/plugin-backend-sdk/provider";
 
 export const manifest = defineManifest({
   kind: "provider",

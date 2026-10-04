@@ -11,7 +11,7 @@ import {
 	sortWorkspaces,
 	visibleWorkspaces,
 } from "#/modules/navigation/workspace-state";
-import { effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
+import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
 
 const workspace = (
 	overrides: Partial<PluginClientCatalogEntry> = {},
