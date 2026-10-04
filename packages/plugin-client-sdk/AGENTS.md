@@ -23,4 +23,5 @@ Rationale lives in `README.md`.
 - Layers construct shared values; React context distributes them. Per-screen values (`RouterContext`, `PluginScreenContext`, `ActiveScreenContext`) cannot be Layers, because `PluginRouter` mounts several `Screen`s at once with different locations.
 - Keep every SDK layer synchronously constructible; `RyotProvider` resolves its services with `runtime.runSync` during render.
 - Keep asynchronous client capabilities and React query/mutation definitions as Effects. Run them as Promises only at React/framework boundaries. Preserve the existing RyotQL and asset cancel messages on fiber interruption.
+- Query inputs identify cached data. Keep rolling-window inputs semantic and stable; read the supplied `schedule.now()` inside each query execution, not while building its input. Refresh the same query to retain its loaded data; never carry data across unrelated query identities by default.
 - Use retained submissions only with retry-safe writes. A submission keeps one immutable input and write identity across attempts; bridge request IDs are transport correlation, not write identities.

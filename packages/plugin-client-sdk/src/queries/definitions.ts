@@ -5,6 +5,7 @@ import * as AtomRegistry from "effect/reactivity/AtomRegistry";
 
 import type { RyotClient } from "../client/client";
 import type { RyotClientError } from "../client/errors";
+import type { RyotSchedule } from "../schedule";
 
 const staleTime = 30 * 1_000;
 export const idleTTL = 5 * 60 * 1_000;
@@ -14,6 +15,7 @@ const mutationTypeId = Symbol("@ryot-app/plugin-client-sdk/react/mutation");
 export type QueryContext<Input, HostServices> = {
 	readonly input: Input;
 	readonly client: RyotClient;
+	readonly schedule: RyotSchedule;
 	readonly hostServices: HostServices;
 };
 
@@ -95,6 +97,7 @@ export class QueryDefinition<Input, Data, HostServices, Failure extends Error> i
 		readonly atom: (
 			registry: AtomRegistry.AtomRegistry,
 			client: RyotClient,
+			schedule: RyotSchedule,
 			hostServices: HostServices,
 			input: Input,
 		) => ReturnType<typeof makeQueryAtom<Data, Failure>>,
@@ -138,12 +141,13 @@ export function createRyotQuery<
 	options?: RyotQueryOptions<Input, Data>,
 ) {
 	type ClientQueries = {
+		schedule: RyotSchedule;
 		hostServices: HostServices;
 		readonly inputs: (input: Input) => ReturnType<typeof makeQueryAtom<Data, Failure>>;
 	};
 	const registries = new WeakMap<AtomRegistry.AtomRegistry, WeakMap<RyotClient, ClientQueries>>();
 	return new QueryDefinition<Input, Data, HostServices, Failure>(
-		(registry, client, hostServices, input) => {
+		(registry, client, schedule, hostServices, input) => {
 			let clients = registries.get(registry);
 			if (!clients) {
 				clients = new WeakMap();
@@ -152,11 +156,17 @@ export function createRyotQuery<
 			let clientQueries = clients.get(client);
 			if (!clientQueries) {
 				const current: ClientQueries = {
+					schedule,
 					hostServices,
 					inputs: Atom.family((familyInput: Input) =>
 						makeQueryAtom<Data, Failure>(
 							Effect.suspend(() =>
-								query({ client, input: familyInput, hostServices: current.hostServices }),
+								query({
+									client,
+									input: familyInput,
+									schedule: current.schedule,
+									hostServices: current.hostServices,
+								}),
 							),
 							options?.initialData?.(familyInput),
 							options?.cancelOnUnmount,
@@ -168,6 +178,7 @@ export function createRyotQuery<
 				clients.set(client, clientQueries);
 			}
 			clientQueries.hostServices = hostServices;
+			clientQueries.schedule = schedule;
 			return clientQueries.inputs(input);
 		},
 		options?.entityWatch,
