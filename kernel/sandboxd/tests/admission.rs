@@ -263,8 +263,8 @@ fn worker_priorities(pid: u32) -> Vec<(String, i32)> {
 fn background_lane_threads_run_at_lower_priority() {
     let sidecar = support::spawn(Tier::Core, &["--threads", "2"]);
     let expected = vec![
-        ("background-0".to_owned(), 10),
-        ("background-1".to_owned(), 10),
+        ("background-0".to_owned(), 19),
+        ("background-1".to_owned(), 19),
         ("interactive-0".to_owned(), 0),
         ("interactive-1".to_owned(), 0),
     ];

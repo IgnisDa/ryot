@@ -99,6 +99,15 @@ fn confinement_probe_child() {
         report.insert("enable_dumping", errno(result, result < 0));
         let result = libc::syscall(libc::SYS_tgkill, libc::getpid() + 1, 0, 0);
         report.insert("foreign_signal", errno(result, result < 0));
+        for (name, which, nice) in [
+            ("setpriority_stale_nice", libc::PRIO_PROCESS, 10),
+            ("setpriority_out_of_range_nice", libc::PRIO_PROCESS, 20),
+            ("setpriority_user", libc::PRIO_USER, 19),
+            ("setpriority_background_nice", libc::PRIO_PROCESS, 19),
+        ] {
+            let result = libc::syscall(libc::SYS_setpriority, which, 0, nice);
+            report.insert(name, errno(result, result < 0));
+        }
         let result = libc::open(path.as_ptr(), libc::O_WRONLY | libc::O_CREAT, 0o600);
         report.insert("open_write", errno(result, result < 0));
         let result = libc::open(path.as_ptr(), libc::O_PATH);
@@ -238,6 +247,9 @@ fn confinement_denies_files_sockets_and_dangerous_syscalls() {
         "foreign_signal",
         "open_write",
         "open_path",
+        "setpriority_stale_nice",
+        "setpriority_out_of_range_nice",
+        "setpriority_user",
         "clone_process",
         "clone_no_vm",
         "clone_no_sighand",
@@ -272,6 +284,7 @@ fn confinement_denies_files_sockets_and_dangerous_syscalls() {
         assert_eq!(report[denied], json!(libc::EPERM), "{denied}: {report}");
     }
     assert_eq!(report["clone3"], json!(libc::ENOSYS));
+    assert_eq!(report["setpriority_background_nice"], json!("allowed"));
     assert_eq!(report["thread_created"], json!(true));
     #[cfg(target_arch = "x86_64")]
     for denied in ["x32_getpid", "x32_ptrace", "x32_unknown"] {
