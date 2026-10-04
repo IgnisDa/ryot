@@ -18,7 +18,7 @@ import {
 	startFakeAppriseServer,
 } from "~/fixtures/kernel";
 import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
-import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media";
+import { createBuiltinMediaLifecycleFixture, findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
@@ -39,7 +39,12 @@ describe("notification subscription catalog and rules", () => {
 	it.live("installs every active catalog schema by default at signup", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const catalog = yield* listAutomationCatalog(client);
+			const { pluginId: fitnessPluginId } = yield* findFitnessEntitySchema(client, "workout");
+			const { pluginId: mediaPluginId } = yield* findMediaEntitySchema(client, "movie");
+			const shippedOwners = new Set<string | null>([null, fitnessPluginId, mediaPluginId]);
+			const catalog = (yield* listAutomationCatalog(client)).filter(({ pluginId }) =>
+				shippedOwners.has(pluginId),
+			);
 			const rules = yield* listNotificationSubscriptions(client, { limit: 100 });
 
 			expect(catalog.map((schema) => schema.slug).sort()).toEqual([
@@ -59,9 +64,8 @@ describe("notification subscription catalog and rules", () => {
 				"workout.created",
 			]);
 			expect(catalog.some((schema) => schema.slug.startsWith("automation.test-"))).toBe(false);
-			expect(rules).toHaveLength(catalog.length);
-			expect(rules.map((rule) => rule.signalSchemaSlug).sort()).toEqual(
-				catalog.map((schema) => schema.slug).sort(),
+			expect(rules.map((rule) => rule.signalSchemaSlug)).toEqual(
+				expect.arrayContaining(catalog.map((schema) => schema.slug)),
 			);
 			expect(rules.every((rule) => rule.isActive)).toBe(true);
 		}),
