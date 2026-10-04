@@ -60,7 +60,7 @@ The remaining allowed operations have argument restrictions:
   with `EACCES`, including the mandatory post-lockdown `/` self-check. Write/create and `O_PATH`
   opens are rejected by seccomp. No new filesystem descriptor is obtained.
 - `prctl` permits only `PR_SET_NAME` for worker names; changing dumpability, privilege settings, or
-  VMA annotations is denied. `setpriority` permits only `PRIO_PROCESS` with nice value 19 for the
+  VMA annotations is denied. `setpriority` permits only `PRIO_PROCESS` with nice value 10 for the
   background lane. `tgkill` permits only this sidecar's process ID for crash termination.
 
 Trace presence alone does not grant access: optional VMA naming and executable-path lookups remain denied.
