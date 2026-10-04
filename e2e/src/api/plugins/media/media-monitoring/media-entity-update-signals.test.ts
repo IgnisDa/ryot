@@ -219,13 +219,15 @@ describe("hierarchical media entity-update signals", () => {
 				).toEqual([]);
 
 				fakeApprise.requests.length = 0;
-				yield* media.update(showProvider.providerSlug, { details: buildDetails({
-							specialName: "Special 1 Renamed",
-							episodeName: "Episode 1 Renamed",
-							episodePublishDate: "2026-02-01",
-							specialPublishDate: "2026-02-01",
-							episodeImageUrl: "https://example.com/entity-update-after.jpg",
-						}) });
+				yield* media.update(showProvider.providerSlug, {
+					details: buildDetails({
+						specialName: "Special 1 Renamed",
+						episodeName: "Episode 1 Renamed",
+						episodePublishDate: "2026-02-01",
+						specialPublishDate: "2026-02-01",
+						episodeImageUrl: "https://example.com/entity-update-after.jpg",
+					}),
+				});
 				yield* triggerCronAndWaitForEntity(monitor, show.id);
 
 				const delivered = yield* pollNotificationBodies("show-episode-monitor", 3);

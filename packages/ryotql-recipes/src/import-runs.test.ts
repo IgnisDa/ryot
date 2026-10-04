@@ -21,8 +21,8 @@ const runItem = {
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 	startedAt: "2026-01-01T01:05:00+02:00",
-	inputSummary: { filename: "items.csv" },
 	pluginInstallationId: "installation-1",
+	inputSummary: { filename: "items.csv" },
 	finishedAt: "2026-01-01T01:10:00+02:00",
 	failureReason: { code: "input-transformation-failed" },
 };
@@ -58,7 +58,6 @@ describe("import-run recipes", () => {
 			"createdAt",
 			"updatedAt",
 			"inputSummary",
-			"pluginInstallationId",
 			"summary",
 			"status",
 			"startedAt",
@@ -67,6 +66,7 @@ describe("import-run recipes", () => {
 			"blockDeadline",
 			"blockReasons",
 			"expiryReason",
+			"pluginInstallationId",
 			"failureReason",
 		]);
 		expect(manual.where).toMatchObject({ type: "isNull", expr: { field: "integrationId" } });
