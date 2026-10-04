@@ -13,9 +13,6 @@ pub const FULL_JS: &str = include_str!("../js/full.js");
 pub const OP_INVENTORY: &str = include_str!("../ops.inventory");
 
 const URL_BYTES: usize = 1 << 20;
-const CONSOLE_ENTRY_BYTES: usize = 8 * 1024;
-const CONSOLE_ENTRIES: usize = 500;
-const CONSOLE_BYTES: usize = 256 * 1024;
 
 pub fn op_inventory() -> impl Iterator<Item = (bool, &'static str)> {
     OP_INVENTORY
@@ -43,40 +40,11 @@ fn restrict(op: OpDecl) -> OpDecl {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ConsoleLevel {
-    Debug,
-    Info,
-    Log,
-    Warn,
-    Error,
+pub trait ConsoleSink {
+    fn push(&mut self, level: &str, message: String);
 }
 
-#[derive(Default)]
-pub struct ConsoleCollector {
-    pub entries: Vec<(ConsoleLevel, String)>,
-    pub truncated: bool,
-    bytes: usize,
-}
-
-impl ConsoleCollector {
-    fn push(&mut self, level: ConsoleLevel, mut message: String) {
-        if message.len() > CONSOLE_ENTRY_BYTES {
-            let mut end = CONSOLE_ENTRY_BYTES;
-            while !message.is_char_boundary(end) {
-                end -= 1;
-            }
-            message.truncate(end);
-            self.truncated = true;
-        }
-        if self.entries.len() >= CONSOLE_ENTRIES || self.bytes + message.len() > CONSOLE_BYTES {
-            self.truncated = true;
-            return;
-        }
-        self.bytes += message.len();
-        self.entries.push((level, message));
-    }
-}
+pub struct ConsoleSinkHandle(pub Rc<RefCell<dyn ConsoleSink>>);
 
 pub struct ExecutionClock(pub Instant);
 
@@ -103,15 +71,8 @@ fn bridge(state: &RefCell<OpState>) -> Result<Rc<dyn HostBridge>, JsErrorBox> {
 
 #[op2(fast)]
 fn op_ryot_console(state: &mut OpState, #[string] level: &str, #[string] message: String) {
-    let level = match level {
-        "debug" => ConsoleLevel::Debug,
-        "info" => ConsoleLevel::Info,
-        "warn" => ConsoleLevel::Warn,
-        "error" => ConsoleLevel::Error,
-        _ => ConsoleLevel::Log,
-    };
-    if let Some(collector) = state.try_borrow_mut::<ConsoleCollector>() {
-        collector.push(level, message);
+    if let Some(sink) = state.try_borrow::<ConsoleSinkHandle>() {
+        sink.0.borrow_mut().push(level, message);
     }
 }
 

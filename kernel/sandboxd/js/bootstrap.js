@@ -104,6 +104,8 @@
 		}
 	};
 
+	const MESSAGE_LENGTH = 8192;
+
 	const format = (args) => {
 		let message = "";
 		for (let index = 0; index < args.length; index++) {
@@ -111,8 +113,8 @@
 				message += " ";
 			}
 			message += inspect(args[index], new Set());
-			if (message.length > 8192) {
-				return message.slice(0, 8192);
+			if (message.length > MESSAGE_LENGTH) {
+				return message.slice(0, MESSAGE_LENGTH);
 			}
 		}
 		return message;
@@ -410,7 +412,6 @@
 	const timerHandles = new Map();
 	let nextTimerId = 1;
 
-	const MESSAGE_LENGTH = 8192;
 	const Error_ = Error;
 	const StringPrototypeSlice = String.prototype.slice;
 	const nativeQueueMicrotask = globalThis.queueMicrotask;
@@ -959,6 +960,8 @@
 		return rejection !== null && error.message === rejection;
 	};
 
+	const failure = (error, status) => `${isResolutionError(error) ? "d" : status}${describe(error)}`;
+
 	// Results cross into Rust as one primitive string, which no script can make thenable: a
 	// status letter followed by the payload.
 	const run = async (specifier, input) => {
@@ -981,14 +984,14 @@
 					? `c${response}`
 					: "rTrusted sandbox definition runner returned no response";
 			} catch (error) {
-				return `${isResolutionError(error) ? "d" : "x"}${describe(error)}`;
+				return failure(error, "x");
 			}
 		}
 		let namespace;
 		try {
 			namespace = await import(specifier);
 		} catch (error) {
-			return `${isResolutionError(error) ? "d" : "e"}${describe(error)}`;
+			return failure(error, "e");
 		}
 		const entry = namespace.default;
 		let value = null;
@@ -996,7 +999,7 @@
 			try {
 				value = await entry(parsedInput, host);
 			} catch (error) {
-				return `${isResolutionError(error) ? "d" : "x"}${describe(error)}`;
+				return failure(error, "x");
 			}
 		}
 		if (uncaught !== null) {

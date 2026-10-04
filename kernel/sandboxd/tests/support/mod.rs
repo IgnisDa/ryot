@@ -18,10 +18,17 @@ use serde_json::value::RawValue;
 use sha2::{Digest, Sha256};
 
 pub const GENERATION: u32 = 1;
-const MIB: u64 = 1024 * 1024;
+pub const MIB: u64 = 1024 * 1024;
 
 pub fn snapshots() -> &'static str {
     env!("OUT_DIR")
+}
+
+pub fn large_heap_limits() -> Limits {
+    Limits {
+        heap_bytes: 256 * MIB,
+        ..limits()
+    }
 }
 
 pub fn limits() -> Limits {
@@ -44,8 +51,8 @@ pub fn raw(value: Value) -> Box<RawValue> {
     RawValue::from_string(value.to_string()).expect("json")
 }
 
-pub fn run_frame(handle: &str, tier: Tier, source: &str, input: Value, limits: Limits) -> Inbound {
-    Inbound::Run(Box::new(Run::new(
+pub fn run(handle: &str, tier: Tier, source: &str, input: Value, limits: Limits) -> Box<Run> {
+    Box::new(Run::new(
         GENERATION,
         handle.to_owned(),
         tier,
@@ -53,7 +60,11 @@ pub fn run_frame(handle: &str, tier: Tier, source: &str, input: Value, limits: L
         raw(input),
         module(source),
         limits,
-    )))
+    ))
+}
+
+pub fn run_frame(handle: &str, tier: Tier, source: &str, input: Value, limits: Limits) -> Inbound {
+    Inbound::Run(run(handle, tier, source, input, limits))
 }
 
 pub struct Sidecar {
@@ -92,14 +103,6 @@ impl Done {
     }
 }
 
-pub fn tier_name(tier: Tier) -> &'static str {
-    match tier {
-        Tier::Core => "core",
-        Tier::Data => "data",
-        Tier::Full => "full",
-    }
-}
-
 pub fn command(tier: Tier, extra: &[&str]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_ryot-sandboxd"));
     command
@@ -109,7 +112,7 @@ pub fn command(tier: Tier, extra: &[&str]) -> Command {
             "--snapshots",
             snapshots(),
         ])
-        .args(["--tier", tier_name(tier)])
+        .args(["--tier", tier.as_str()])
         .args(extra)
         .env_clear()
         .stdin(Stdio::null())
@@ -275,6 +278,18 @@ impl Sidecar {
         }
     }
 
+    pub fn start(&mut self, handle: &str, source: &str) {
+        self.start_limited(handle, source, limits());
+    }
+
+    pub fn start_limited(&mut self, handle: &str, source: &str, limits: Limits) {
+        self.send(&run_frame(handle, Tier::Core, source, Value::Null, limits));
+    }
+
+    pub fn finish_plain(&mut self, handle: &str) -> Done {
+        self.finish(handle, |name, _| panic!("unexpected host call {name}"))
+    }
+
     pub fn execute(&mut self, tier: Tier, source: &str, input: Value) -> Done {
         self.execute_with(tier, source, input, limits())
     }
@@ -282,7 +297,7 @@ impl Sidecar {
     pub fn execute_with(&mut self, tier: Tier, source: &str, input: Value, limits: Limits) -> Done {
         let handle = format!("h{:x}", rand_suffix());
         self.send(&run_frame(&handle, tier, source, input, limits));
-        self.finish(&handle, |name, _| panic!("unexpected host call {name}"))
+        self.finish_plain(&handle)
     }
 
     pub fn wait(&mut self, timeout: Duration) -> Option<ExitStatus> {

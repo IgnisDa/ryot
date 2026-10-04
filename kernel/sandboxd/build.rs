@@ -14,7 +14,7 @@ use deno_error::JsErrorBox;
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 
-const TIERS: [(&str, &[&str]); 3] = [
+const TIER_ADDITIONS: [(&str, &[&str]); 3] = [
     (
         "core",
         &["effect", "ryotql", "dependency-runtime", "filesystem"],
@@ -22,10 +22,6 @@ const TIERS: [(&str, &[&str]); 3] = [
     (
         "data",
         &[
-            "effect",
-            "ryotql",
-            "dependency-runtime",
-            "filesystem",
             "fflate",
             "papaparse",
             "fast-xml-parser",
@@ -33,21 +29,7 @@ const TIERS: [(&str, &[&str]); 3] = [
             "markdown",
         ],
     ),
-    (
-        "full",
-        &[
-            "effect",
-            "ryotql",
-            "dependency-runtime",
-            "filesystem",
-            "fflate",
-            "papaparse",
-            "fast-xml-parser",
-            "cheerio",
-            "markdown",
-            "youtubei",
-        ],
-    ),
+    ("full", &["youtubei"]),
 ];
 
 const TRUSTED_RUNNER_SPECIFIER: &str = "ryot-bootstrap:/runner.mjs";
@@ -190,7 +172,7 @@ fn main() {
     let dependencies = metadata["dependencies"]
         .as_array()
         .expect("runtime dependencies");
-    let tiered: BTreeSet<&str> = TIERS
+    let tiered: BTreeSet<&str> = TIER_ADDITIONS
         .iter()
         .flat_map(|(_, names)| names.iter().copied())
         .collect();
@@ -203,10 +185,12 @@ fn main() {
         );
     }
 
-    for (tier, names) in TIERS {
+    let mut names: Vec<&str> = vec![];
+    for (tier, additions) in TIER_ADDITIONS {
+        names.extend(additions);
         let mut imports = BTreeMap::new();
         let mut modules = Vec::new();
-        for name in names {
+        for name in &names {
             let dependency = dependencies
                 .iter()
                 .find(|dependency| dependency["name"] == *name)

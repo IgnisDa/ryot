@@ -1,10 +1,9 @@
 use std::error::Error;
 use std::fs;
 use std::io;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 const OUT_DIR: &str = env!("OUT_DIR");
-const SNAPSHOT_FILES: [&str; 3] = ["core.snap", "data.snap", "full.snap"];
 
 fn export() -> Result<(), Box<dyn Error>> {
     let mut args = std::env::args_os().skip(1);
@@ -34,8 +33,14 @@ fn export() -> Result<(), Box<dyn Error>> {
         fs::copy(release_dir.join(name), output.join(name))?;
     }
 
-    for filename in SNAPSHOT_FILES {
-        fs::copy(Path::new(OUT_DIR).join(filename), snapshots.join(filename))?;
+    for file in fs::read_dir(OUT_DIR)? {
+        let path = file?.path();
+        if path
+            .extension()
+            .is_some_and(|extension| extension == "snap")
+        {
+            fs::copy(&path, snapshots.join(path.file_name().expect("file name")))?;
+        }
     }
 
     Ok(())

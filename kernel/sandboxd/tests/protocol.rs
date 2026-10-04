@@ -98,7 +98,7 @@ fn cancel_discards_partial_run_assemblies() {
     });
     sidecar.send(&run);
     assert_eq!(
-        sidecar.finish("restarted", |_, _| unreachable!()).value(),
+        sidecar.finish_plain("restarted").value(),
         json!("restarted")
     );
 }
@@ -152,19 +152,10 @@ fn forged_retired_and_foreign_generation_frames_are_dropped() {
     });
     sidecar.send(&host_result("live", seq + 7, json!("unknown call")));
     sidecar.send(&host_result("live", seq, json!("answered")));
-    assert_eq!(
-        sidecar.finish("live", |_, _| unreachable!()).value(),
-        json!("answered")
-    );
+    assert_eq!(sidecar.finish_plain("live").value(), json!("answered"));
 
     sidecar.send(&host_result("live", seq, json!("retired")));
-    sidecar.send(&support::run_frame(
-        "live",
-        Tier::Core,
-        "export default () => 'reused'",
-        Value::Null,
-        support::limits(),
-    ));
+    sidecar.start("live", "export default () => 'reused'");
     assert!(
         sidecar.recv_within(Duration::from_millis(300)).is_none(),
         "a retired handle produced frames"
@@ -198,7 +189,7 @@ fn late_frames_after_cancel_are_discarded() {
         generation: support::GENERATION,
         handle: "cancelled".to_owned(),
     });
-    let done = sidecar.finish("cancelled", |_, _| unreachable!());
+    let done = sidecar.finish_plain("cancelled");
     assert!(
         matches!(done.outcome, ryot_sandboxd::protocol::Outcome::Cancelled),
         "{:?}",
@@ -215,13 +206,7 @@ fn late_frames_after_cancel_are_discarded() {
 #[test]
 fn duplicate_results_are_dropped() {
     let mut sidecar = support::spawn(Tier::Core, &[]);
-    sidecar.send(&support::run_frame(
-        "twice",
-        Tier::Core,
-        "export default async (_input, host) => [await host.call('first', null), await host.call('second', null)]",
-        Value::Null,
-        support::limits(),
-    ));
+    sidecar.start("twice", "export default async (_input, host) => [await host.call('first', null), await host.call('second', null)]");
     let Outbound::HostCall { seq: first, .. } = sidecar.recv() else {
         panic!("expected the first call");
     };
@@ -232,10 +217,7 @@ fn duplicate_results_are_dropped() {
     };
     sidecar.send(&host_result("twice", second, json!("two")));
     sidecar.send(&host_result("twice", second, json!("duplicate")));
-    assert_eq!(
-        sidecar.finish("twice", |_, _| unreachable!()).value(),
-        json!(["one", "two"])
-    );
+    assert_eq!(sidecar.finish_plain("twice").value(), json!(["one", "two"]));
 }
 
 #[test]
@@ -295,25 +277,19 @@ fn a_well_framed_invalid_payload_fails_only_its_execution() {
     invalid["module"]["sha256"] = json!("not-a-digest");
     sidecar.write_raw(&frame(invalid.to_string().as_bytes()));
     sidecar.write_raw(&frame(b"{\"type\":\"cancel\",\"handle\":"));
-    let broken = sidecar.finish("broken", |_, _| unreachable!());
+    let broken = sidecar.finish_plain("broken");
     assert_eq!(broken.failure().0, Phase::Protocol);
     sidecar.send(&host_result("healthy", seq, json!("ok")));
-    assert_eq!(
-        sidecar.finish("healthy", |_, _| unreachable!()).value(),
-        json!("ok")
-    );
+    assert_eq!(sidecar.finish_plain("healthy").value(), json!("ok"));
 }
 
 #[test]
 fn bounded_queues_apply_backpressure() {
     let mut sidecar = support::spawn(Tier::Core, &["--threads", "1", "--queue", "1"]);
-    sidecar.send(&support::run_frame(
+    sidecar.start(
         "blocker",
-        Tier::Core,
         "export default () => new Promise((resolve) => setTimeout(() => resolve('blocker'), 2000))",
-        Value::Null,
-        support::limits(),
-    ));
+    );
     let source = format!(
         "export default () => 'queued'; // {}",
         "x".repeat(60 * 1024)
@@ -339,10 +315,7 @@ fn bounded_queues_apply_backpressure() {
         finished.recv_timeout(Duration::from_millis(1000)).is_err(),
         "the sidecar buffered every queued run instead of pushing back"
     );
-    assert_eq!(
-        sidecar.finish("blocker", |_, _| unreachable!()).value(),
-        json!("blocker")
-    );
+    assert_eq!(sidecar.finish_plain("blocker").value(), json!("blocker"));
     let mut done = 0;
     while done < 20 {
         if let Outbound::Done { outcome, .. } = sidecar.recv() {
@@ -369,13 +342,10 @@ fn a_chunked_large_payload_does_not_delay_another_executions_frames() {
         input,
         support::limits(),
     ));
-    sidecar.send(&support::run_frame(
+    sidecar.start(
         "small",
-        Tier::Core,
         "export default () => new Promise((resolve) => setTimeout(() => resolve('small'), 400))",
-        Value::Null,
-        support::limits(),
-    ));
+    );
     let raw = sidecar.raw_socket();
     let mut order = Vec::new();
     let mut reader = raw.try_clone().expect("socket");
@@ -456,4 +426,47 @@ fn interleaved_executions_are_attributed_correctly() {
             expected
         );
     }
+}
+
+#[test]
+fn startup_rejects_a_snapshot_whose_digest_does_not_match() {
+    let directory =
+        std::env::temp_dir().join(format!("ryot-sandboxd-tampered-{}", std::process::id()));
+    std::fs::create_dir_all(&directory).expect("temp dir");
+    let mut snapshot =
+        std::fs::read(Path::new(support::snapshots()).join("core.snap")).expect("snapshot");
+    let middle = snapshot.len() / 2;
+    snapshot[middle] ^= 0xff;
+    std::fs::write(directory.join("core.snap"), snapshot).expect("tampered snapshot");
+
+    let mut command = support::command(Tier::Core, &[]);
+    command.args(["--snapshots", directory.to_str().expect("utf-8 path")]);
+    let output = command.output().expect("run sidecar");
+    std::fs::remove_dir_all(&directory).ok();
+    assert_eq!(output.status.code(), Some(66));
+    assert!(
+        String::from_utf8_lossy(&output.stderr).contains("does not match the manifest digest"),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn a_run_whose_module_hash_does_not_match_fails() {
+    let mut sidecar = support::spawn(Tier::Core, &[]);
+    let mut run = support::run(
+        "tampered",
+        Tier::Core,
+        "export default () => 'expected'",
+        Value::Null,
+        support::limits(),
+    );
+    run.module.source = "export default () => 'substituted'".to_owned();
+    sidecar.send(&Inbound::Run(run));
+    let done = sidecar.finish_plain("tampered");
+    assert_eq!(done.failure().0, Phase::Integrity);
+    assert!(
+        sidecar.wait(Duration::from_millis(50)).is_none(),
+        "the sidecar keeps serving"
+    );
 }

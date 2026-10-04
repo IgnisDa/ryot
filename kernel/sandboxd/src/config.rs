@@ -56,12 +56,12 @@ impl Config {
                 }
                 "--snapshots" => snapshots = Some(PathBuf::from(&value)),
                 "--tier" => {
-                    tier = Some(match value.as_str() {
-                        "core" => Tier::Core,
-                        "data" => Tier::Data,
-                        "full" => Tier::Full,
-                        _ => return Err("--tier must be core, data, or full".to_owned()),
-                    })
+                    tier = Some(
+                        Tier::ALL
+                            .into_iter()
+                            .find(|tier| tier.as_str() == value)
+                            .ok_or("--tier must be core, data, or full")?,
+                    )
                 }
                 "--trust" => {
                     config.user_tier = match value.as_str() {
