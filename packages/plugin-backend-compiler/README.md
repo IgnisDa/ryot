@@ -48,22 +48,12 @@ aliases are unsupported. Non-finite host indexing, reflection or type-erasure of
 host escape to unresolved or external functions are rejected rather than guessed. Finite dependency
 targets and OAuth fields are checked from their call arguments.
 
-The analysis caches symbol, type, alias, and declaration queries and has a project-local step limit
-of 100,000. If traversal or checker queries exhaust the limit, compilation fails with
-`RYOT_ANALYSIS_LIMIT`; it never emits partial metadata.
+Analysis is project-bounded; exhausting its 100,000-step limit fails with `RYOT_ANALYSIS_LIMIT`,
+never partial metadata.
 
-SDK intrinsic capabilities use canonical module and declaration identity, as summarized by
-`SANDBOX_SDK_INTRINSICS` in `@ryot-app/plugin-backend-sdk/src/intrinsics.ts`:
-
-| SDK source file     | Exported functions                                       | Inferred capability |
-| ------------------- | -------------------------------------------------------- | ------------------- |
-| `src/youtubei.ts`   | `createYoutubeMusicClient`, `createYoutubeHistoryClient` | `httpCall`          |
-| `src/filesystem.ts` | `readArtifact`, `readArtifactRange`, `readNamedArtifact` | `artifact-read`     |
-| `src/filesystem.ts` | `writeScratchChunks`                                     | `scratch`           |
-
-Keep those source filenames and exports aligned with the intrinsic map. Tests in
-`src/compiler-capabilities.test.ts` cover canonical SDK identity, helper forwarding, per-entry
-metadata, and analysis-limit failures.
+`SANDBOX_SDK_INTRINSICS` in the backend SDK maps filesystem/network helpers to capabilities by
+canonical module/declaration identity, not local aliases. `src/compiler-capabilities.test.ts` covers
+that identity, forwarding, per-entry metadata, and analysis limits.
 
 A build acquires a scoped workspace through `@ryot-app/vite-compiler` and stages the package under
 `source/`. A workspace may use the supervisor's `parentPath` and `jobId`, and its scope removes the
@@ -71,43 +61,19 @@ workspace. A standalone user script builds its single entry with `buildSandboxEs
 manifests build every validated entry of one package with `buildSandboxEsmPackage`, which stages the
 package once and reuses that workspace for each entry.
 
-The shared Sandbox ESM profile emits exactly one `sandbox.mjs` module as unminified ES2022 ESM with an inline
-source map and no CSS, module preload, or code splitting. Runner and trusted runtime generation use
-the same `buildSandboxEsm` API with their own output filenames.
-
-Plugin archives contain compiled backend entries and emitted client assets, not authoring source files
-or compiled `script.source`. Retained source maps preserve authored paths and line mappings but omit
-`sourcesContent`. Source-based authoring and compiler checks remain part of local plugin builds; runtime
-installation does not run this compiler. Archive hashes establish internal consistency, not source
-provenance.
+The [Sandbox ESM profile](../vite-compiler/README.md) owns single-module ES2022 emission and output
+auditing. Plugin source maps retain relative authored paths/line mappings without `sourcesContent`;
+runtime frames resolve against the compiled module. Archives contain compiled artifacts, not source,
+and installation never invokes this compiler or proves source provenance.
 
 The sandbox's `tooling/runtime.ts` assembles the trusted runner and runtime payload; the backend's `tooling/kernel-scripts.ts` generates kernel script files.
 `src/runtime-build/` owns the generic registry and deterministic payload construction, bounded source
 watch inputs, and process capture for the production runtime-image verification. The compiler package
 does not depend on kernel modules.
 
-Because source-map paths stay relative to the staged package, a mapped runtime stack frame names the
-authored source (`script.ts` for a user script, `backend/...` for a plugin entry) and the sandbox
-runner reports frames under the compiled module's own directory.
-
-Only the following runtime-registry specifiers remain external in a sandbox module:
-
-- `@ryot-app/plugin-backend-sdk/effect`
-- `effect`
-- `@ryot-app/plugin-kit/effect`
-- `@ryot-app/plugin-backend-sdk/cheerio`
-- `@ryot-app/plugin-backend-sdk/markdown`
-- `@ryot-app/plugin-backend-sdk/youtubei`
-- `@ryot-app/plugin-backend-sdk/fflate`
-- `@ryot-app/plugin-backend-sdk/papaparse`
-- `@ryot-app/plugin-backend-sdk/fast-xml-parser`
-- `@ryot-app/plugin-backend-sdk/ryotql`
-- `@ryot-app/plugin-kit/ryotql`
-
-`SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS` is derived from `SANDBOX_RUNTIME_REGISTRY` in
-`@ryot-app/plugin-backend-sdk`. Other approved SDK entry points remain compiler-bundled through exact aliases.
-Runtime aliases for Effect and RyotQL resolve to the same files, so SDK and plugin-kit imports keep one
-module identity.
+`SANDBOX_RUNTIME_REGISTRY` in the backend SDK is the authority for external runtime specifiers;
+`SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS` is derived from it. Other approved SDK entries are bundled via
+exact aliases. Effect/RyotQL aliases share module identity across SDK and Plugin Kit imports.
 
 `@ryot-app/plugin-backend-sdk/markdown` is a data-tier runtime module. The dependency-free
 `@ryot-app/plugin-backend-sdk/markdown-text` entry point is compiler-bundled and does not raise the snapshot tier.

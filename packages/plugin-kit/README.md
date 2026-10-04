@@ -84,13 +84,11 @@ provider-associated ordinary scripts.
 
 ## Script Discovery
 
-Every local `backend/**/*.sandbox.ts` file is an entrypoint. `ryot plugin build` reads its direct
-definition, compiles it, and derives `scripts`, including entry path and provider identity, into archive
-`manifest.json`. The archive contains compiled backend JavaScript and metadata, plus emitted client
-assets when declared; it contains no authoring source files or compiled `script.source`. Installation
-validates archive structure and hashes but does not recompile sources or prove metadata provenance.
-Hashes establish artifact consistency, not that metadata was derived from the source. Renaming a script
-slug requires updating all manifest references.
+`ryot plugin build` compiles every local `backend/**/*.sandbox.ts` entry and derives `scripts` in the
+archive manifest. Archives contain compiled backend/client artifacts, not authored sources.
+Installation validates structure and hashes without recompilation or source-provenance proof.
+Renaming a script slug requires updating its manifest references. See the
+[archive format](../plugin-archive/README.md).
 
 Each entry default-exports exactly one direct definition with static manifest, input schema, output
 schema, and Effect-returning `run`. `defineManifest` contains the script identity and kind plus its
@@ -128,15 +126,10 @@ shim remains environment-neutral and does not export `Effect`.
 `@ryot-app/plugin-kit/schema`; relative imports remain inside `shared/`.
 The plugin client and backend compilers enforce the same rule and reject client-only or backend-only SDK imports.
 
-The `ryotql` shim exports RyotQL, `IsoDateString`, and the four event expression helpers. It must not
-re-export `@ryot-app/ryotql-recipes`, which brings in the contract runtime. The `effect` shim exports
-only `DateTime`, `Option`, `Result`, `Schema`, and `SchemaGetter`. Backend compilation aliases these
-neutral shims to existing runtime modules where possible to avoid charging duplicate libraries to
-each script's 1 MiB budget.
-The `schema` shim exports shared contract schemas and brands, plus `roundHalfUp` for canonical
-decimal-scale rounding.
-The `compression` shim exports only `deflateSync` and `inflateSync` from `fflate` 0.8.3 as a pure,
-environment-neutral compression path.
+The `ryotql` shim exports query builders, `IsoDateString`, and event expressions, not application
+recipes. The `effect` shim exports `DateTime`, `Option`, `Result`, `Schema`, and `SchemaGetter`, not
+`Effect`. The `schema` shim supplies shared schemas/brands and `roundHalfUp`; `compression` supplies
+`deflateSync`/`inflateSync`. Backend compilation reuses runtime modules to avoid duplicate bundles.
 
 Only sources reachable from a declared client or sandbox entry are checked. A plugin with no client
 entry can therefore leave otherwise unreachable shared files unchecked.
@@ -201,19 +194,14 @@ whose data an invocation uses and does not widen plugin privilege. Kernel dispat
 script input. Private plugins may initialize their own user entities through `userBootstrap`; they
 cannot write global domain data or declare deployment-owned `httpRateLimits` or `oauthProviders`.
 
-The compiler follows each entry's used execution graph, including ordinary helpers, closures, direct
-host-method references, and local forwarding methods. It records that entry's used host capabilities
-in sorted compiled metadata, which local builds derive from source. Runtime installation validates
-declared metadata and archive hashes but does not rerun source analysis or prove source provenance.
-Executable dependencies do not merge authority: a parent keeps only its local capabilities, each child
-is checked against its own compiled metadata, and workflow replay has no local host capabilities.
+The compiler derives local host capabilities from each entry's reachable code, including helpers,
+closures, and forwarding methods. Executable dependencies do not merge authority: children use their
+own metadata and workflow replay has no local host capabilities.
 
-Ordinary scripts receive `ScriptHost`. Before-stage policies receive `PolicyHost`, whose type exposes
-only the policy-safe host methods. A helper typed as `Pick<ScriptHost, ...>` narrows TypeScript usage;
-it does not grant authorization. The runtime checks pinned compiled metadata against operation policy
-for script kind, subject, plugin scope, provider association, and bootstrap designation. Domain
-modules still enforce ownership. Filesystem capabilities are derived from SDK filesystem use; the
-kernel supplies any resource paths separately.
+Ordinary scripts receive `ScriptHost`; policies receive `PolicyHost`. Narrowing a helper's host type
+does not grant authority. Runtime checks combine pinned metadata, script kind, subject, plugin scope,
+provider association, and bootstrap designation; domain services still enforce ownership. Filesystem
+use derives capability requirements, but trusted paths are separately kernel-supplied.
 
 Subject follows the dispatch path: cron uses system; user bootstrap uses the initialized user;
 user operations, imports, and user-triggered provider calls use the caller; integration operations add
@@ -259,25 +247,17 @@ array order and multiplicity. `unordered-array` compares arrays as sets of canon
 ignoring order and duplicate multiplicity; non-arrays use JSON equality. Missing and present values,
 including `null`, remain distinct. Compared properties need not also be selected into snapshots.
 
-Do not query omitted or historical invocation data back through RyotQL. RyotQL describes current
-state under the trusted principal, which can differ from the complete trigger-time evidence.
-Plugins never own database tables or direct persistence; writes use kernel host functions.
-`host.changeUserRelationships` requires `propertiesMode: "merge" | "replace"` on each create entry.
-Merge preserves unspecified properties and unions array values; replace replaces the full property
-record. Membership-only writes use merge so that repeated imports do not clear user annotations.
-User-scoped event writes use `host.updateEvents(items)` and `host.deleteEvents(eventIds)`. Each call
-accepts at most 100 items and commits as one atomic batch. An update item is `{ eventId, patch }`;
-the patch may set `properties` with `{ remove, set }`, `occurredAt`, `entityId`, or
-`sessionEntityId` (use `null` to clear the session reference).
+RyotQL reads current state, not omitted trigger-time evidence. Plugins write through kernel host
+functions, never direct persistence. Relationship writes must choose merge or replace; membership
+upserts use merge to preserve annotations. Event updates/deletes are atomic per host batch, not across
+calls. Exact patch shapes, limits, and replay identities are in
+[Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
 
-User scripts and automations can register event-stream work with
-`host.requestEventStreamWork({ entityId, eventSchemaSlug, outputProperties }, processorReference)`.
-The processor reference must name a script in the same plugin revision, and the event schema must
-belong to that plugin. Export `EventStreamStepInput` and `EventStreamStepOutput` from
-`@ryot-app/plugin-backend-sdk/event-streams` to type the processor. Registration only persists work; dispatch
-it with `host.executeWorkflow("event-stream-work", kernelDispatch, { id: workId })`, where
-`kernelDispatch` is the reference from that SDK entry. The kernel checks event ownership and only
-allows updates to the declared output properties.
+Event-stream processors use `EventStreamStepInput`/`EventStreamStepOutput` from
+`@ryot-app/plugin-backend-sdk/event-streams`. `requestEventStreamWork` registers an owned schema and
+same-revision processor with declared output properties; registration does not dispatch. Start work
+with `host.executeWorkflow("event-stream-work", kernelDispatch, { id: workId })` using that SDK's
+reference. The kernel restricts updates to those properties.
 
 Exact host-function and filesystem limits are in the
 [sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md).
@@ -381,19 +361,13 @@ compares it against the run's `executionUserId`, so a `user` hook is never plann
 and a `global` hook is never planned for a user-scoped one. Per-recipient signal hooks keep working
 because each recipient's run carries that user.
 
-An after hook may also declare `frequency: "item" | "batch"`; omission means `item`. Every
-change-producing write emits one batch trigger per resource in addition to its item change triggers,
-even when a single item changed. An item hook matches only item triggers and a batch hook matches only
-batch triggers, so each hook sees every change exactly once. The retained trigger keeps complete item
-evidence; a batch run receives its script's projection of every item as `payload.items` with
-`operation: "batch"` and must filter those items itself. The batch matches the hook when any item
-matches a declared target. Batch frequency requires entity, event, or relationship targets. Large
-writes are split into deterministic retained chunks by item count, so a batch hook can run more than
-once for one write and must stay idempotent per item. A batch hook may set `batchMaxItems` to a positive
-safe integer up to 1000. For a source write, the kernel uses the lower of the global item limit and the
-declared limits of pinned batch hooks that match at least one committed item; a non-matching hook does
-not lower the limit. The runtime separately enforces the 64 KiB invocation limit after projection and
-may use smaller chunks to fit it.
+After-hook `frequency` defaults to `"item"`; `"batch"` requires entity/event/relationship targets.
+Item and batch hooks match separate triggers. A batch matches when any item matches, but receives
+projected `payload.items` with `operation: "batch"` and must filter the items itself. Large writes
+produce deterministic chunks, so processing must remain idempotent per item. `batchMaxItems` may be
+1–1000; the lowest matching pinned hook/global limit applies, not limits from unmatched hooks.
+Projected invocations must also fit 64 KiB and may be chunked smaller. Complete evidence remains
+retained independently of the projection.
 
 Omitted `retry` means `{ maxAttempts: 1, initialDelayMs: 1000, maxDelayMs: 60000,
 externalIdempotency: "none" }`. Attempts include the first attempt and are bounded to 1–10.
@@ -406,14 +380,13 @@ require this declaration when the hook's reachable executable dependencies use `
 deduplication and receives `automation.runId` as its idempotency key. All attempts share that logical
 run ID; external exactly-once delivery is not guaranteed.
 
-`causationSources` is an optional non-empty allowlist of `api`, `import`, `integration`, `bootstrap`,
-`provider-refresh`, or `automation`. Causation retains `initiator`, `executionId`, `rootExecutionId`,
-nullable `parentTriggerId`/`parentRunId`, `depth`, `lane` (`interactive` or `background`, the lane of
-the command that created the trigger), and optional `integrationId`, `importRunId`, and
-`providerExecutionId`. Kernel host writes derive child parents from the trusted run, preserve root
-attribution, set source to `automation`, and increment depth. Plugin input cannot set these parents.
-Depth and shared run budgets are kernel-enforced. Blocked policy planning rejects the write;
-blocked post-write planning retains the source mutation.
+`causationSources` optionally allows `api`, `import`, `integration`, `bootstrap`, `provider-refresh`,
+or `automation`. Kernel-owned causation carries execution/root/parent attribution, depth, lane, and
+source context. Child writes preserve the root, derive parents from the trusted run, and increment
+depth; plugin input cannot choose parentage. Budget-blocked policies reject writes; blocked after-hook
+planning preserves committed mutations.
+
+## Configuration Access And Ingestion
 
 `getPluginConfig({ required: ["token"], optional: ["threshold"] })` reads only the requested keys
 from the pinned configuration revision. The compiler derives required and optional keys from the
@@ -445,29 +418,17 @@ Ingestion setup uses `importSourcesRecipe({ selected: { reference, settings }, l
 Picker readiness covers unconditional requirements. Selected settings refine branch and account
 connection requirements; backend admission rechecks them. Presence does not validate remote credentials.
 
-Run reports use the schemas in `@ryot-app/contract/modules/imports/ingestion`. Give every activity
-its real `unit`, `completed`, optional `exactTotal`, `lastAdvancedAt`, and known `wait`. Concurrent
-activities keep distinct IDs. Batch summaries use `recordKind`, `unit`, and committed counts for
-`created`, `updated`, `unchanged`, `skipped`, and `unsuccessful`. Provider preparation is supporting
-work, not saved history. Issues carry a structured reason and source-record attribution; expected
-skips remain separate from errors.
+Run reports use `@ryot-app/contract/modules/imports/ingestion`: each activity has its own ID, real unit,
+completed count, optional exact total, last advancement, and wait. Batch outcomes count committed
+records, never transport partitions or provider preparation. Issues retain structured reasons and
+source/operation attribution without credentials, capture locators, raw bodies, or execution pins.
+Run/issue recipes expose these reports and setup blocking directly. See
+[imports](../../kernel/backend/src/modules/imports/README.md) for capture, expiry, cancellation, and
+recovery lifetimes.
 
-`manualImportRunsRecipe`, `integrationImportRunsRecipe`, and `importRunRecipe` select activities,
-semantic batch summaries, setup block reasons, the fixed block deadline, and expiry reason. They do
-not infer committed counts from requests or transport partitions. `importIssuesRecipe` pages
-client-safe issues by run and issue identity. Downloaded reports contain `runId`, `source`,
-`failureReason`, and canonical `issues`, including operation IDs and source attribution. Do not put
-credentials, capture locators, raw source bodies, or execution pins in issue fields.
-
-Independent manual imports append history and can duplicate earlier activity. Stable run-local
-identities protect replay of the same run. Active recovery retains captured inputs and execution
-pins; terminal cleanup releases them while preserving reports. Blocked webhook deliveries expire
-seven days after acceptance if setup remains unavailable; readiness checks do not extend that deadline.
-
-Commands with no matching hooks still commit and replay from a mutation receipt; they do not create
-automation trigger history. Batch hooks pin their script and configuration before the first item
-write and receive committed changes in stable chunks after the batch seals. A later plugin change
-does not add hooks to an already committed command.
+Mutation receipts replay commands even with no matching hooks. Batch candidates pin code/config
+before writing; sealed committed chunks determine their runs. Later plugin changes cannot add hooks
+to an already committed command. See [automations](../../kernel/backend/src/modules/automations/README.md).
 
 ## HTTP Rate Limits
 

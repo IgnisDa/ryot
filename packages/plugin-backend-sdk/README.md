@@ -17,10 +17,9 @@ schema or journal errors or signal a pending call. The workflow definition conve
 to a failed replay envelope; its host-facing `run` fails with `SandboxHostError` when the replay
 journal cannot be read.
 
-`replay.sleep` may settle inline with host requests. The backend applies an inclusive 1,000 ms
-per-wait limit and a shared 1,000 ms cumulative allowance per replay, including waits in `httpCall`
-admission. Longer waits or waits without remaining allowance use durable replay. An inline sleep
-returns raw `null`; host requests keep their typed success or failure results.
+`replay.sleep` may settle inline with host requests, returning raw null; host results remain typed.
+Longer/exhausted waits use durable replay. Exact allowance and settlement rules belong to the
+[runtime](../../kernel/backend/src/modules/scripts/README.md#inline-durable-calls).
 
 Shared plugin sources use the environment-neutral `@ryot-app/plugin-kit/effect` shim. It does not
 export `Effect`; import the sandbox Effect surface in backend-only sources.
@@ -51,24 +50,18 @@ surface but does not grant host access. `defineManifest` describes static identi
 kind-specific authored fields; capability metadata comes from the compiler, not the authored
 manifest.
 
-`sandboxHostContracts` in `src/core/host-contracts.ts` owns bridge argument and result schemas. The contract package
-owns `SANDBOX_HOST_CAPABILITIES` and its policy-safe subset in
-`@ryot-app/contract/modules/scripts/wire`. Kernel `SANDBOX_CAPABILITY_REQUIREMENTS` and
-`SANDBOX_HOST_EXECUTION_POLICY` (including its `dispatch` field) are exhaustive records; a bridge
-operation change must keep both covered. SDK functions whose effects are not visible as direct host
-calls are mapped by canonical module and export in `src/intrinsics.ts`; `readArtifact`,
-`readArtifactRange`, and `readNamedArtifact` map to `artifact-read`. Compiler analysis checks the
-declaring module identity, not an import alias.
+`src/core/host-contracts.ts` owns argument/result schemas; `src/intrinsics.ts` maps non-host SDK
+helpers to capabilities by canonical module/export, not import alias. Contract wire schemas own the
+capability vocabulary; kernel requirements/execution-policy records must exhaustively cover changes.
 
 `createUserEntity(item, options?)` creates one user-owned entity and returns `{ entityId }`. The item
 contains `name`, `entitySchemaSlug`, and `properties`. `updateUserEntity(item, options?)` takes
 `entityId`, `name`, `properties`, and the expected current `{ name, updatedAt, properties }`; it also
-returns `{ entityId }`. Both require a user-subject execution and a schema owned by the executing
-plugin in its pinned scope and the user's current definitions. Updates are limited to exact
-user-owned entities. The host binds ownership; entity validation, policy hooks, and mutation
-receipts use the normal entity service. Scripts cannot set ownership, global scope, provider
-provenance, or `populatedAt`. `ensureUserEntities` remains a bootstrap-only singleton operation,
-not a metric creation path.
+returns `{ entityId }`. These require a user subject, owned schema, and exact user-owned target;
+the host binds ownership and normal service validation/hooks/receipts. Scripts cannot set ownership,
+global scope, provider provenance, or `populatedAt`. `ensureUserEntities` is bootstrap-only, not
+general entity creation. Runtime authorization is detailed in
+[Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
 
 `saveUserEntity(submission, options?)` creates or updates one user-owned entity together with its
 outgoing user relationships in one transaction. The submission is an `EntityEditorSubmission` and the

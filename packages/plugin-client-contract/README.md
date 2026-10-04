@@ -9,8 +9,8 @@ Artifact metadata includes content hash, artifact format, client API version, co
 bridge version. Bridge init establishes a runtime identity from a random bridge session ID and the
 composition hash and version metadata. Ready repeats it, and the kernel accepts only an exact match.
 The iframe reports metadata embedded in the composition document rather than treating echoed kernel
-input as proof. Later document messages replace the page context and remount its page tree without
-closing the bridge. The kernel retains up to three iframe runtimes by composition hash.
+input as proof. Document replacement and retained-frame policy belong to the
+[kernel host](../../kernel/client/README.md#ownership-and-isolation).
 
 Internal modules split the package: `src/source-policy.ts` (file extensions, content types, source
 predicates), `src/navigation.ts` (page targets and context, locations, navigation targets, shortcuts),
@@ -32,12 +32,9 @@ carries renderer identity, settings, optional named data sources, and route para
 HTTP preparation returns no capability; the authenticated document request issues private artifact
 grants inside the `srcdoc` document. No grant crosses the bridge in page context.
 
-Installed plugin archive client executables are trusted. Archive validation checks integrity and
-compatibility, not provenance. Image-owned artifact hashes are public; all other hashes require a
-capability regardless of plugin scope. Compiled code uses one static URL form,
-`/api/page-bundles/:artifactHash/:accessKey/*`. Compositions reference immutable artifacts; the
-kernel renders each composition document into a sandboxed `srcdoc` frame from an authenticated
-request.
+Archive validation checks integrity/compatibility, not executable provenance. Static file grants and
+visibility belong to [artifact delivery](../../kernel/backend/src/modules/pages/bundles/README.md),
+not bridge page context.
 
 Entity interest uses strict state messages with at most 500 selected IDs: plugins send foreground and
 visible IDs, and the kernel sends entity ID plus `populated` or `translated`. These messages have no
@@ -48,13 +45,11 @@ The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `tran
 `asset-failed`, `collection-failed`, `query-failed`, `invalid-input`, `operation-failed`,
 `malformed-result`, `unsupported-capability`, `invalid-request`, and `quota`.
 
-Plugin storage is a per-device key/value capability for the opaque-origin iframe, which has no
-`localStorage` of its own. A `storage-request` names a local plugin ID, a key of 1 to
-`PLUGIN_STORAGE_KEY_MAX_LENGTH` (128) characters, and a `get`, `set`, or `remove` action; only `set`
-carries a JSON `value`. The `storage-result` succeeds with the stored value or `null` (always `null`
-for `set` and `remove`) or fails with `invalid-request`, `quota`, or `transport`. The serialized value
-limit, `PLUGIN_STORAGE_VALUE_MAX_BYTES` (65536 UTF-8 bytes), is host policy and yields
-`invalid-request`.
+`storage-request` carries local plugin ID, bounded key, and get/set/remove action; only set carries
+JSON value. Result success returns the value or null (always null for set/remove); failures use
+`invalid-request`, `quota`, or `transport`. `PLUGIN_STORAGE_KEY_MAX_LENGTH` is wire policy;
+`PLUGIN_STORAGE_VALUE_MAX_BYTES` is host policy. Scope, persistence, and hook behavior belong to the
+[SDK storage API](../plugin-client-sdk/README.md#capabilities).
 
 Reserved kernel shortcuts are semantic bridge messages, not public `RyotClient` capabilities. Raw
 keyboard events never cross the boundary. Page shortcuts are declarative and two-way: a document
