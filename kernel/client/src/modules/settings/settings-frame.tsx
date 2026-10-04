@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-import { AppScreen } from "#/modules/navigation/app-screen";
+import { AppScreen } from "#/modules/shell/app-screen";
 
 type SettingsFrameProps = {
 	readonly title: string;

@@ -2,8 +2,8 @@ import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
 import type { SettledAuthSession } from "#/modules/auth/service";
-import { Avatar } from "#/modules/navigation/avatar";
 import { SettingsSection } from "#/modules/settings/settings-section";
+import { Avatar } from "#/modules/shell/avatar";
 
 type AccountProfileProps = {
 	readonly identity: SettledAuthSession | undefined;

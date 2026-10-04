@@ -10,7 +10,10 @@ import userEvent from "@testing-library/user-event";
 import { Effect } from "effect";
 import { useState } from "react";
 
-import { WorkspaceSwitcher as WorkspaceSwitcherView } from "#/modules/navigation/workspace-switcher";
+import {
+	workspacePickerSummary,
+	WorkspaceSwitcher as WorkspaceSwitcherView,
+} from "#/modules/navigation/workspace-switcher";
 
 type WorkspaceSwitcherProps = Omit<
 	Parameters<typeof WorkspaceSwitcherView>[0],
@@ -52,6 +55,28 @@ const view = (name: string, sortOrder: number): NavigationData["savedViews"][num
 	slug: name.toLowerCase(),
 	pluginInstallationId: null,
 	reference: { kind: "custom", savedViewId: SavedViewId.make(name.toLowerCase()) },
+});
+
+const mediaPackage = PluginPackageId.make("ryot/media");
+const fitnessPackage = PluginPackageId.make("ryot/fitness");
+
+const pickerView = (
+	overrides: Partial<NavigationData["savedViews"][number]> = {},
+): NavigationData["savedViews"][number] => ({
+	name: "View",
+	slug: "view",
+	icon: "list",
+	sortOrder: 0,
+	isHidden: false,
+	packageId: null,
+	...overrides,
+	reference: overrides.reference ?? {
+		kind: "custom",
+		savedViewId: SavedViewId.make(overrides.slug ?? "view"),
+	},
+	pluginInstallationId:
+		overrides.pluginInstallationId ??
+		(overrides.packageId ? `installation-${overrides.packageId}` : null),
 });
 
 describe("workspace switcher", () => {
@@ -569,4 +594,45 @@ describe("workspace switcher", () => {
 			);
 		}),
 	);
+});
+
+describe("workspace picker summary", () => {
+	it("formats a workspace picker summary from enabled views in sort order", () => {
+		const data: NavigationData = {
+			collections: [],
+			savedViews: [
+				pickerView({ sortOrder: 4, name: "Fourth", slug: "fourth", packageId: mediaPackage }),
+				pickerView({
+					sortOrder: 0,
+					name: "Hidden",
+					isHidden: true,
+					slug: "disabled",
+					packageId: mediaPackage,
+				}),
+				pickerView({ sortOrder: 2, name: "Second", slug: "second", packageId: mediaPackage }),
+				pickerView({ sortOrder: 1, name: "Other", slug: "other", packageId: fitnessPackage }),
+				pickerView({ sortOrder: 1, name: "First", slug: "first", packageId: mediaPackage }),
+			],
+		};
+
+		expect(workspacePickerSummary(data, "installation-ryot/media")).toBe("First, Second, Fourth");
+		expect(workspacePickerSummary(data, "installation-ryot/fitness")).toBe("Other");
+	});
+
+	it("adds the remaining count and handles empty workspaces", () => {
+		const data: NavigationData = {
+			collections: [],
+			savedViews: [
+				pickerView({ sortOrder: 0, name: "First", slug: "first", packageId: mediaPackage }),
+				pickerView({ sortOrder: 1, name: "Second", slug: "second", packageId: mediaPackage }),
+				pickerView({ sortOrder: 2, name: "Third", slug: "third", packageId: mediaPackage }),
+				pickerView({ sortOrder: 3, name: "Fourth", slug: "fourth", packageId: mediaPackage }),
+			],
+		};
+
+		expect(workspacePickerSummary(data, "installation-ryot/media")).toBe("First, Second, Third +1");
+		expect(workspacePickerSummary(data, "installation-ryot/fitness")).toBe(
+			"Custom workspace · 0 views",
+		);
+	});
 });

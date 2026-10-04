@@ -15,7 +15,7 @@ import {
 	moveCustomizeItem,
 	toggleCustomizeItem,
 	type CustomizeDraft,
-} from "#/modules/navigation/customize/customize-state";
+} from "#/modules/shell/customize/customize-state";
 
 const viewReference = (slug: string) => ({
 	kind: "custom" as const,

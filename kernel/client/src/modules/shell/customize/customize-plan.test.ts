@@ -1,8 +1,8 @@
 import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
-import { buildCustomizePlan } from "#/modules/navigation/customize/customize-plan";
-import type { CustomizeDraft } from "#/modules/navigation/customize/customize-state";
+import { buildCustomizePlan } from "#/modules/shell/customize/customize-plan";
+import type { CustomizeDraft } from "#/modules/shell/customize/customize-state";
 
 const reference = (slug: string) => ({
 	kind: "custom" as const,

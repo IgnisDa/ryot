@@ -7,7 +7,6 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import type { AuthService } from "#/modules/auth/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import type { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import {
 	makePluginOperations,
 	makePluginQueries,
@@ -15,6 +14,7 @@ import {
 } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { PluginCatalogService } from "#/modules/plugins/catalog/service";
+import type { CustomizeSidebarService } from "#/modules/shell/customize/service";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {

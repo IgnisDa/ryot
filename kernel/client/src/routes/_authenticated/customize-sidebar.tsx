@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { useCustomizeController } from "#/modules/navigation/authenticated-shell-context";
-import { useIsDesktop } from "#/modules/navigation/breakpoint";
-import { CustomizeScreen } from "#/modules/navigation/customize/customize-screen";
-import { customizeSearchSection } from "#/modules/navigation/customize/customize-state";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
+import { useCustomizeController } from "#/modules/shell/authenticated-shell-context";
+import { useIsDesktop } from "#/modules/shell/breakpoint";
+import { CustomizeScreen } from "#/modules/shell/customize/customize-screen";
+import { customizeSearchSection } from "#/modules/shell/customize/customize-state";
 
 export const Route = createFileRoute("/_authenticated/customize-sidebar")({
 	component: CustomizeSidebarRoute,

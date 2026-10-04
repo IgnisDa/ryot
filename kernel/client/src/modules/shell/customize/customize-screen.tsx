@@ -1,9 +1,9 @@
 import clsx from "clsx";
 
 import { DemoProtectionMessage } from "#/modules/demo-protection";
-import { CustomizePanel } from "#/modules/navigation/customize/customize-panel";
-import type { CustomizeSection } from "#/modules/navigation/customize/customize-state";
-import type { CustomizeDraftState } from "#/modules/navigation/customize/use-customize-draft";
+import { CustomizePanel } from "#/modules/shell/customize/customize-panel";
+import type { CustomizeSection } from "#/modules/shell/customize/customize-state";
+import type { CustomizeDraftState } from "#/modules/shell/customize/use-customize-draft";
 
 export function CustomizeScreen(props: {
 	readonly onSave: () => void;

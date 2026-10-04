@@ -1,32 +1,31 @@
 import type { KernelShortcut } from "@ryot-app/plugin-client-contract";
 import { createContext, useContext, type RefObject } from "react";
 
-import type { CustomizeDraftState } from "#/modules/navigation/customize/use-customize-draft";
 import type { EdgeResolution } from "#/modules/navigation/edge-intent";
-import type { SafeAreaInsets } from "#/modules/navigation/safe-area";
-import type { PluginScreenReadiness } from "#/modules/pages/bridge/session";
-import type { PluginHeaderPublication } from "#/modules/pages/runtime/iframe-host";
+import type { CustomizeDraftState } from "#/modules/shell/customize/use-customize-draft";
+import type { PageHeaderPublication, PageScreenReadiness } from "#/modules/shell/page-presentation";
+import type { SafeAreaInsets } from "#/modules/shell/safe-area";
 
 export const RememberedWorkspaceContext = createContext<string | null | undefined>(undefined);
 
-export type PluginHeaderState = PluginHeaderPublication & { readonly owner: string };
+export type PluginHeaderState = PageHeaderPublication & { readonly owner: string };
 
 export type PluginHeaderController = {
 	readonly clear: (owner: string) => void;
 	readonly activate: (owner: string) => void;
-	readonly publish: (owner: string, header: PluginHeaderPublication) => void;
+	readonly publish: (owner: string, header: PageHeaderPublication) => void;
 };
 
 export const PluginHeaderContext = createContext<PluginHeaderController | undefined>(undefined);
 
 export const PluginTitleContext = createContext<string | null | undefined>(undefined);
 
-export type ClientPageScreenState = PluginScreenReadiness & { readonly owner: string };
+export type ClientPageScreenState = PageScreenReadiness & { readonly owner: string };
 
 export type ClientPageScreenController = {
 	readonly clear: (owner: string) => void;
 	readonly activate: (owner: string) => void;
-	readonly publish: (owner: string, state: PluginScreenReadiness | null) => void;
+	readonly publish: (owner: string, state: PageScreenReadiness | null) => void;
 };
 
 export type ClientPageOverlayController = {

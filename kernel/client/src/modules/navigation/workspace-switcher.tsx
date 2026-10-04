@@ -14,7 +14,6 @@ import type {
 import clsx from "clsx";
 import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 
-import { workspacePickerSummary } from "#/modules/navigation/sidebar-sections";
 import { visibleWorkspaces, type WorkspaceTarget } from "#/modules/navigation/workspace-state";
 import { pluginInstallationLabel } from "#/modules/ui/catalog/selection";
 
@@ -31,6 +30,19 @@ type WorkspaceSwitcherProps = {
 };
 
 const WORKSPACE_SHORTCUT_LABEL = "⌘⇧Space";
+
+export function workspacePickerSummary(data: NavigationData, installationId: string) {
+	const views = data.savedViews
+		.filter((item) => item.pluginInstallationId === installationId && !item.isHidden)
+		.sort((a, b) => a.sortOrder - b.sortOrder);
+	if (views.length === 0) {
+		return "Custom workspace · 0 views";
+	}
+
+	const names = views.slice(0, 3).map((item) => item.name);
+	const remaining = views.length - names.length;
+	return `${names.join(", ")}${remaining > 0 ? ` +${remaining}` : ""}`;
+}
 
 function WorkspaceShortcut(props: { readonly enabled: boolean; readonly onOpen: () => void }) {
 	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, props.onOpen, { enabled: props.enabled });

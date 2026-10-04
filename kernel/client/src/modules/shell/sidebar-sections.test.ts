@@ -5,9 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
 	sidebarItemKey,
 	sidebarSections,
-	workspacePickerSummary,
 	workspaceSummary,
-} from "#/modules/navigation/sidebar-sections";
+} from "#/modules/shell/sidebar-sections";
 
 const media = PluginPackageId.make("ryot/media");
 const fitness = PluginPackageId.make("ryot/fitness");
@@ -83,38 +82,5 @@ describe("sidebar sections", () => {
 
 		expect(sections.views.map(sidebarItemKey)).toEqual(["home"]);
 		expect(workspaceSummary(sections)).toBe("1 view");
-	});
-
-	it("formats a workspace picker summary from enabled views in sort order", () => {
-		const data: NavigationData = {
-			collections: [],
-			savedViews: [
-				view({ sortOrder: 4, name: "Fourth", slug: "fourth", packageId: media }),
-				view({ sortOrder: 0, name: "Hidden", isHidden: true, slug: "disabled", packageId: media }),
-				view({ sortOrder: 2, name: "Second", slug: "second", packageId: media }),
-				view({ sortOrder: 1, name: "Other", slug: "other", packageId: fitness }),
-				view({ sortOrder: 1, name: "First", slug: "first", packageId: media }),
-			],
-		};
-
-		expect(workspacePickerSummary(data, "installation-ryot/media")).toBe("First, Second, Fourth");
-		expect(workspacePickerSummary(data, "installation-ryot/fitness")).toBe("Other");
-	});
-
-	it("adds the remaining count and handles empty workspaces", () => {
-		const data: NavigationData = {
-			collections: [],
-			savedViews: [
-				view({ sortOrder: 0, name: "First", slug: "first", packageId: media }),
-				view({ sortOrder: 1, name: "Second", slug: "second", packageId: media }),
-				view({ sortOrder: 2, name: "Third", slug: "third", packageId: media }),
-				view({ sortOrder: 3, name: "Fourth", slug: "fourth", packageId: media }),
-			],
-		};
-
-		expect(workspacePickerSummary(data, "installation-ryot/media")).toBe("First, Second, Third +1");
-		expect(workspacePickerSummary(data, "installation-ryot/fitness")).toBe(
-			"Custom workspace · 0 views",
-		);
 	});
 });
