@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -183,16 +184,20 @@ describe("authenticated route gate", () => {
 				expect(view.interestEvents).toEqual(["acquire", "release"]);
 			}),
 	);
-	it.live.each(["/", "/p/plugin-1", "/settings", "/settings/preferences", "/settings/account"])(
-		"redirects an unauthenticated visitor from %s to /auth",
-		(path) =>
-			Effect.gen(function* () {
-				const view = mountView(path, undefined, undefined, makeAuthStub({}, unauthenticated));
-				yield* Effect.promise(() =>
-					waitFor(() => expect(view.router.state.location.pathname).toBe("/auth")),
-				);
-				expect(view.router.state.location.search.redirect).toBe(path);
-			}),
+	it.live.each([
+		"/",
+		"/p/test/plugin-1",
+		"/settings",
+		"/settings/preferences",
+		"/settings/account",
+	])("redirects an unauthenticated visitor from %s to /auth", (path) =>
+		Effect.gen(function* () {
+			const view = mountView(path, undefined, undefined, makeAuthStub({}, unauthenticated));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/auth")),
+			);
+			expect(view.router.state.location.search.redirect).toBe(path);
+		}),
 	);
 });
 
@@ -277,7 +282,7 @@ describe("settings navigation", () => {
 
 	it.live("navigates with replace when selecting a section from the desktop sidebar", () =>
 		Effect.gen(function* () {
-			const view = mountView(["/p/plugin-1", "/settings/preferences"]);
+			const view = mountView(["/p/test/plugin-1", "/settings/preferences"]);
 			const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
 
 			fireEvent.click(within(sidebar).getByRole("link", { name: "Account" }));
@@ -287,7 +292,7 @@ describe("settings navigation", () => {
 
 			view.router.history.back();
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
 			);
 		}),
 	);
@@ -368,7 +373,7 @@ describe("settings navigation", () => {
 		"returns to the previous entry when back is used after navigating into a detail route",
 		() =>
 			Effect.gen(function* () {
-				const view = mountView(["/p/plugin-1", "/settings"]);
+				const view = mountView(["/p/test/plugin-1", "/settings"]);
 				yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Settings" }));
 				const sections = screen.getByTestId("settings-index-sections");
 
@@ -404,7 +409,7 @@ describe("settings navigation", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
 			);
 			expect(view.router.history.canGoBack()).toBe(false);
 		}),
@@ -419,13 +424,13 @@ describe("settings navigation", () => {
 					...catalog[0],
 					sortOrder: 1,
 					name: "Journal",
-					slug: "journal",
 					pluginId: "plugin-2",
 					installationId: "installation-2",
+					packageId: PluginPackageId.make("test/plugin-2"),
 				},
 			];
 			const view = mountView(
-				"/p/plugin-1",
+				"/p/test/plugin-1",
 				"plugin-1",
 				entries,
 				undefined,
@@ -448,7 +453,7 @@ describe("settings navigation", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-2")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-2")),
 			);
 			expect(view.router.history.canGoBack()).toBe(false);
 		}),
@@ -463,13 +468,13 @@ describe("settings navigation", () => {
 					...catalog[0],
 					sortOrder: 1,
 					name: "Journal",
-					slug: "journal",
 					pluginId: "plugin-2",
 					installationId: "installation-2",
+					packageId: PluginPackageId.make("test/plugin-2"),
 				},
 			];
 			const view = mountView(
-				"/p/plugin-1",
+				"/p/test/plugin-1",
 				"plugin-1",
 				entries,
 				undefined,
@@ -478,7 +483,9 @@ describe("settings navigation", () => {
 			);
 			yield* Effect.promise(() => screen.findByTitle("Fixture plugin"));
 
-			yield* Effect.promise(() => view.router.navigate({ replace: true, href: "/p/plugin-2" }));
+			yield* Effect.promise(() =>
+				view.router.navigate({ replace: true, href: "/p/test/plugin-2" }),
+			);
 			yield* Effect.promise(() => screen.findByTitle("Journal plugin"));
 			expect(recorder.setCalls).toEqual([]);
 
@@ -487,7 +494,7 @@ describe("settings navigation", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1")),
 			);
 		}),
 	);

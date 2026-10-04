@@ -6,12 +6,20 @@ import {
 	type PluginLogicalLocation,
 	type PluginOperationRequest,
 } from "@ryot-app/client-plugin-contract";
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import { RyotProvider } from "@ryot-app/client-sdk/react";
+import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Effect, Schema } from "effect";
+import { Effect, Layer, ManagedRuntime, Schema } from "effect";
+import type { ReactNode } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
+import { decodeServerOrigin } from "#/api/origin";
+import type { ApiScope } from "#/api/scope";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
+import { PluginCatalogService } from "#/modules/plugins/catalog";
+import { PluginCatalogProvider } from "#/modules/plugins/catalog-provider";
+import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import type { PluginOperationDispatchOutcome } from "#/modules/plugins/operations";
 import { PluginFrame } from "#/modules/plugins/plugin-host";
 import type { ThemeStore } from "#/modules/theme/store";
@@ -23,6 +31,8 @@ const theme: ThemeStore = {
 	subscribe: () => () => undefined,
 	getSnapshot: () => ({ resolvedMode: "light" }),
 };
+const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const ryot = createTestRyotClock();
 const home: PluginLogicalLocation = { path: "/", kind: "route", search: "keep=1" };
 const srcDoc = '<!doctype html><html><body><div id="app"></div></body></html>';
 
@@ -38,6 +48,19 @@ function mount(
 	} = {},
 ) {
 	const backInterceptors = createBackInterceptors();
+	const catalogRuntime = ManagedRuntime.make(
+		Layer.mergeAll(
+			makePluginCatalogEventsTestLayer().layer,
+			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed([]) }),
+		),
+	);
+	const withCatalog = (children: ReactNode) => (
+		<RyotProvider runtime={ryot.runtime} hostServices={{ scope, runtime: catalogRuntime }}>
+			<PluginCatalogProvider scope={scope} initialCatalog={[]} runtime={catalogRuntime}>
+				{children}
+			</PluginCatalogProvider>
+		</RyotProvider>
+	);
 	let documentLoads = 0;
 	const onLoadDocument = () => {
 		documentLoads += 1;
@@ -129,11 +152,11 @@ function mount(
 				search: "",
 				path: pageKey,
 				kind: "plugin-route" as const,
-				pluginId: PluginId.make("fixture"),
+				packageId: PluginPackageId.make("test/fixture"),
 			},
 		},
 	});
-	const view = render(<PluginFrame {...props(home, 0)} />);
+	const view = render(withCatalog(<PluginFrame {...props(home, 0)} />));
 	return {
 		...view,
 		states,
@@ -144,11 +167,14 @@ function mount(
 		backInterceptors,
 		refresh: mutationCompleted.hint,
 		documentLoads: () => documentLoads,
-		setActive: (active: boolean) => view.rerender(<PluginFrame {...props(home, 0, 0, active)} />),
+		setActive: (active: boolean) =>
+			view.rerender(withCatalog(<PluginFrame {...props(home, 0, 0, active)} />)),
 		replace: (pageKey: string) =>
-			view.rerender(<PluginFrame {...props(home, 0, 0, true, pageKey)} />),
+			view.rerender(withCatalog(<PluginFrame {...props(home, 0, 0, true, pageKey)} />)),
 		move: (location: PluginLogicalLocation, index: number, freshnessCheckRevision = 0) =>
-			view.rerender(<PluginFrame {...props(location, index, freshnessCheckRevision)} />),
+			view.rerender(
+				withCatalog(<PluginFrame {...props(location, index, freshnessCheckRevision)} />),
+			),
 	};
 }
 
@@ -312,7 +338,7 @@ describe("PluginFrame", () => {
 			bridge.port.postMessage({
 				mode: "push",
 				type: "navigate",
-				target: { search: "q=x", path: "/shows", pluginId: "media", kind: "plugin-route" },
+				target: { search: "q=x", path: "/shows", kind: "plugin-route", packageId: "ryot/media" },
 			});
 			bridge.port.postMessage({
 				type: "provider-search-screen",
@@ -326,8 +352,8 @@ describe("PluginFrame", () => {
 			bridge.port.postMessage({
 				input: null,
 				requestId: "op-1",
-				pluginId: "fixture",
 				operationSlug: "greet",
+				packageId: "test/fixture",
 				type: "operation-request",
 			});
 			bridge.port.postMessage({
@@ -338,7 +364,7 @@ describe("PluginFrame", () => {
 			});
 
 			yield* Effect.promise(() => waitFor(() => expect(host.operations).toHaveLength(1)));
-			expect(host.navigations).toEqual([{ replace: false, href: "/p/media/shows?q=x" }]);
+			expect(host.navigations).toEqual([{ replace: false, href: "/p/ryot/media/shows?q=x" }]);
 			expect(host.searches).toEqual([
 				{ mode: "replace", type: "page-search", update: { q: "dune", dialog: null } },
 			]);
@@ -349,7 +375,7 @@ describe("PluginFrame", () => {
 				},
 			]);
 			expect(host.operations).toEqual([
-				{ input: null, operationSlug: "greet", pluginId: PluginId.make("fixture") },
+				{ input: null, operationSlug: "greet", packageId: PluginPackageId.make("test/fixture") },
 			]);
 			expect(host.states).toContainEqual({ index: 0, key: "k0", hasPreviousScreen: true });
 		}),
@@ -580,8 +606,8 @@ describe("PluginFrame", () => {
 
 			bridge.port.postMessage({
 				input: null,
-				pluginId: "fixture",
 				operationSlug: "mutate",
+				packageId: "test/fixture",
 				type: "operation-request",
 				requestId: "stale-operation",
 			});

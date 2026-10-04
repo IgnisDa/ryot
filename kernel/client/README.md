@@ -29,8 +29,8 @@ are reported internally; interrupted and stale work has no reply.
 
 The opaque-origin iframe has no `localStorage`, so the kernel stores plugin storage values in its own
 `localStorage` through `ClientStorage`, one JSON entry per
-`ryot:plugin-storage:<api scope>:<plugin slug>:<key>`. Logout does not clear them. The kernel accepts
-only slugs of plugin contributors in the frame's prepared composition; it cannot tell same-realm
+`ryot:plugin-storage:<api scope>:<plugin ID>:<key>`. Logout does not clear them. The kernel accepts
+only IDs of plugin contributors in the frame's prepared composition; it cannot tell same-realm
 plugins apart, so that check bounds the frame, not an individual plugin.
 
 Client artifacts are immutable, content-addressed outputs of a compile-only contributor graph.
@@ -48,7 +48,8 @@ changed page or plugin state and offers an explicit reload. There is no plugin-o
 selection or grant route.
 
 The kernel resolves every committed URL explicitly. Kernel routes render kernel surfaces;
-`/:pluginSlug/*`, `/v/:viewSlug`, and `/e/:entityId` resolve to client-page targets for plugin routes,
+`/p/<publisher>/<name>/*`, `/v/p/<publisher>/<name>/<slug>`, `/v/c/<savedViewId>`, `/v/k/<slug>`, and
+`/e/:entityId` resolve to client-page targets for plugin routes,
 saved views, and persisted entity provenance. A workspace home resolves to its selected saved-view
 target while retaining the workspace URL. The shell retains up to three iframe runtimes keyed by
 artifact hash. A different page using the same artifact replaces the document context and remounts

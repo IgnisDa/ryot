@@ -5,7 +5,9 @@ import {
 	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
 import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Match } from "effect";
 
 export type PluginNavigationRequest = { readonly href: string; readonly replace: boolean };
@@ -17,12 +19,28 @@ const safePath = /^\/[\w\-.~!$&'()*+,;=:@%/]*$/;
 const dropTrailingSlash = (path: string) =>
 	path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
 
+export const catalogPackageId = (catalog: PluginClientCatalog, pluginId: string) =>
+	catalog.find((entry) => entry.pluginId === pluginId)?.packageId;
+
+export const effectiveCatalogPlugin = (catalog: PluginClientCatalog, packageId: string) =>
+	catalog.find((entry) => entry.packageId === packageId && entry.health !== "incompatible");
+
+export const savedViewHref = (
+	reference: SavedViewReference,
+	packageId: PluginPackageId | null | undefined,
+) => {
+	if (reference.kind !== "plugin") {
+		return savedViewPath(reference);
+	}
+	return packageId ? savedViewPath({ packageId, kind: "plugin", slug: reference.slug }) : undefined;
+};
+
 export function toPluginLocation(
-	pluginId: string,
+	packageId: PluginPackageId,
 	pathname: string,
 	searchStr: string,
 ): PluginRouteLocation {
-	const remainder = pathname.slice(pluginPath(PluginId.make(pluginId)).length);
+	const remainder = pathname.slice(pluginPath(packageId).length);
 	const path = remainder.startsWith("/") ? dropTrailingSlash(remainder) : "/";
 	return {
 		path,
@@ -31,14 +49,19 @@ export function toPluginLocation(
 	};
 }
 
-export function toGlobalHref(target: PluginNavigationTarget) {
+export function toGlobalHref(target: PluginNavigationTarget, catalog: PluginClientCatalog) {
 	return Match.value(target).pipe(
 		Match.when({ kind: "plugin-route" }, (location) => {
 			const search = location.search === "" ? "" : `?${location.search}`;
-			return `${pluginPath(location.pluginId, location.path)}${search}`;
+			return `${pluginPath(location.packageId, location.path)}${search}`;
 		}),
 		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
-		Match.when({ kind: "saved-view" }, ({ reference }) => savedViewPath(reference)),
+		Match.when({ kind: "saved-view" }, ({ reference }) =>
+			savedViewHref(
+				reference,
+				reference.kind === "plugin" ? catalogPackageId(catalog, reference.pluginId) : null,
+			),
+		),
 		Match.when({ kind: "kernel-page" }, ({ page }) => kernelPagePaths[page]),
 		Match.exhaustive,
 	);
@@ -57,10 +80,11 @@ export function validatePluginLocation(location: PluginRouteLocation) {
 
 export function toNavigationRequest(
 	request: PluginBridgeNavigate,
+	catalog: PluginClientCatalog,
 ): PluginNavigationRequest | undefined {
 	const target = Match.value(request.target).pipe(
 		Match.when({ kind: "plugin-route" }, (route) => {
-			if (route.pluginId.length === 0) {
+			if (route.packageId.length === 0) {
 				return undefined;
 			}
 			const location = validatePluginLocation({
@@ -87,7 +111,6 @@ export function toNavigationRequest(
 		Match.when({ kind: "kernel-page" }, (page) => page),
 		Match.exhaustive,
 	);
-	return target === undefined
-		? undefined
-		: { href: toGlobalHref(target), replace: request.mode === "replace" };
+	const href = target === undefined ? undefined : toGlobalHref(target, catalog);
+	return href === undefined ? undefined : { href, replace: request.mode === "replace" };
 }

@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { ManagedPluginInstallation, PluginManagementAction } from "./management";
 
 const label = (installation: ManagedPluginInstallation) =>
-	`${installation.name} · ${installation.scope === "system" ? "System" : "Private"} · ${installation.packageId.slice(0, 8)}`;
+	`${installation.name} · ${installation.scope === "system" ? "System" : "Private"} · ${installation.packageId}`;
 
 function InstallationDetails(props: {
 	readonly installation: ManagedPluginInstallation;

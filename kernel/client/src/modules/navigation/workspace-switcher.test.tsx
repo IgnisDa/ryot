@@ -28,7 +28,6 @@ const workspace = (
 	icon: "film",
 	sortOrder: 0,
 	name: "Media",
-	slug: "media",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
@@ -37,8 +36,8 @@ const workspace = (
 	...overrides,
 	scope: overrides.scope ?? "system",
 	homeSavedView: overrides.homeSavedView ?? null,
-	pluginId: overrides.pluginId ?? `plugin-${overrides.slug ?? "media"}`,
-	packageId: overrides.packageId ?? PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+	packageId: overrides.packageId ?? PluginPackageId.make("ryot/media"),
+	pluginId: overrides.pluginId ?? `plugin-${overrides.packageId?.split("/")[1] ?? "media"}`,
 });
 
 const navigation: NavigationData = { savedViews: [], collections: [] };
@@ -48,7 +47,7 @@ const view = (name: string, sortOrder: number): NavigationData["savedViews"][num
 	sortOrder,
 	icon: "list",
 	isHidden: false,
-	pluginSlug: null,
+	packageId: null,
 	slug: name.toLowerCase(),
 	pluginInstallationId: null,
 	reference: { kind: "custom", savedViewId: SavedViewId.make(name.toLowerCase()) },
@@ -62,22 +61,22 @@ describe("workspace switcher", () => {
 				sortOrder: -1,
 				name: "Hidden",
 				isHidden: true,
-				slug: "disabled",
 				installationId: "installation-disabled",
+				packageId: PluginPackageId.make("test/disabled"),
 			}),
 			workspace({
 				sortOrder: 3,
-				slug: "failed",
 				name: "Failed",
 				health: "failed",
 				installationId: "installation-failed",
+				packageId: PluginPackageId.make("test/failed"),
 			}),
 			workspace({
 				sortOrder: 2,
-				slug: "incompatible",
 				name: "Incompatible",
 				health: "incompatible",
 				installationId: "installation-incompatible",
+				packageId: PluginPackageId.make("test/incompatible"),
 			}),
 			current,
 		];
@@ -99,7 +98,7 @@ describe("workspace switcher", () => {
 			within(menu)
 				.getAllByRole("menuitemradio")
 				.map((item) => item.getAttribute("aria-label")),
-		).toEqual(["Switch to Media · System · ff9c9ec6 workspace"]);
+		).toEqual(["Switch to Media · System · ryot/media workspace"]);
 		expect(within(menu).queryByRole("menuitemradio", { name: /^Switch to Hidden / })).toBeNull();
 	});
 
@@ -108,8 +107,8 @@ describe("workspace switcher", () => {
 		const fitness = workspace({
 			sortOrder: 1,
 			name: "Fitness",
-			slug: "fitness",
 			installationId: "installation-fitness",
+			packageId: PluginPackageId.make("test/fitness"),
 		});
 		render(
 			<WorkspaceSwitcher
@@ -165,8 +164,8 @@ describe("workspace switcher", () => {
 			const fitness = workspace({
 				sortOrder: 1,
 				name: "Fitness",
-				slug: "fitness",
 				installationId: "installation-fitness",
+				packageId: PluginPackageId.make("test/fitness"),
 			});
 			render(
 				<WorkspaceSwitcher
@@ -223,14 +222,14 @@ describe("workspace switcher", () => {
 			const fitness = workspace({
 				sortOrder: 1,
 				name: "Fitness",
-				slug: "fitness",
 				installationId: "installation-fitness",
+				packageId: PluginPackageId.make("test/fitness"),
 			});
 			const journal = workspace({
 				sortOrder: 2,
 				name: "Journal",
-				slug: "journal",
 				installationId: "installation-journal",
+				packageId: PluginPackageId.make("test/journal"),
 			});
 			const props = {
 				current,
@@ -375,10 +374,6 @@ describe("workspace switcher", () => {
 					current={current}
 					summary="2 views"
 					navigation={navigation}
-					catalog={[
-						current,
-						workspace({ name: "Fitness", slug: "fitness", installationId: "installation-fitness" }),
-					]}
 					onSelect={(slug) => {
 						observations.push({
 							slug,
@@ -386,6 +381,14 @@ describe("workspace switcher", () => {
 							focused: document.activeElement === trigger,
 						});
 					}}
+					catalog={[
+						current,
+						workspace({
+							name: "Fitness",
+							installationId: "installation-fitness",
+							packageId: PluginPackageId.make("test/fitness"),
+						}),
+					]}
 				/>,
 			);
 			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });
@@ -437,14 +440,14 @@ describe("workspace switcher", () => {
 						workspace({
 							sortOrder: 1,
 							name: "Fitness",
-							slug: "fitness",
 							installationId: "installation-fitness",
+							packageId: PluginPackageId.make("test/fitness"),
 						}),
 						workspace({
 							sortOrder: 2,
 							name: "Journal",
-							slug: "journal",
 							installationId: "installation-journal",
+							packageId: PluginPackageId.make("test/journal"),
 						}),
 					]}
 				/>,

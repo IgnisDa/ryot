@@ -13,13 +13,13 @@ import {
 const source = (input: {
 	name: string;
 	slug: string;
-	pluginSlug: string;
+	packageId: PluginPackageId;
 	description?: string;
 	isAvailable?: boolean;
 }) => ({
 	name: input.name,
 	slug: input.slug,
-	pluginSlug: input.pluginSlug,
+	packageId: input.packageId,
 	isAvailable: input.isAvailable ?? true,
 	description: input.description ?? `${input.name} description`,
 });
@@ -28,18 +28,18 @@ it("distinguishes equal plugin names with exact owner keys and scoped package la
 	const first = pluginCatalogGroup({
 		name: "Whiskey",
 		scope: "system",
-		packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+		packageId: PluginPackageId.make("acme/whiskey"),
 		reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make("owner-a") } },
 	});
 	const second = pluginCatalogGroup({
 		scope: "user",
 		name: "Whiskey",
-		packageId: PluginPackageId.make("570e77e1-e450-40ea-b1cb-6e2ae3223bb3"),
+		packageId: PluginPackageId.make("home/whiskey"),
 		reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make("owner-b") } },
 	});
 	expect(first.key).not.toBe(second.key);
-	expect(first.heading).toBe("Whiskey · System · ff9c9ec6");
-	expect(second.heading).toBe("Whiskey · Private · 570e77e1");
+	expect(first.heading).toBe("Whiskey · System · acme/whiskey");
+	expect(second.heading).toBe("Whiskey · Private · home/whiskey");
 });
 
 const toEntry = (item: ReturnType<typeof source>): CatalogEntry => ({
@@ -49,35 +49,37 @@ const toEntry = (item: ReturnType<typeof source>): CatalogEntry => ({
 	description: item.description,
 	isAvailable: item.isAvailable,
 	requirement: item.isAvailable ? undefined : "Not ready.",
-	group: { key: item.pluginSlug, heading: pluginHeading(item.pluginSlug) },
+	group: { key: item.packageId, heading: pluginHeading(item.packageId) },
 });
 
+const media = PluginPackageId.make("ryot/media");
+const fitnessTracker = PluginPackageId.make("test/fitness-tracker");
+
 const sources = [
-	source({ name: "Netflix", slug: "netflix", pluginSlug: "media" }),
-	source({ name: "Audible", slug: "audible", isAvailable: false, pluginSlug: "media" }),
-	source({ name: "Strava", slug: "strava", pluginSlug: "fitness-tracker" }),
+	source({ name: "Netflix", slug: "netflix", packageId: media }),
+	source({ name: "Audible", slug: "audible", packageId: media, isAvailable: false }),
+	source({ name: "Strava", slug: "strava", packageId: fitnessTracker }),
 ];
 
 describe("catalog selection", () => {
-	it("titles plugin headings from their slug", () => {
-		expect(pluginHeading("media")).toBe("Media");
-		expect(pluginHeading("my-other_plugin")).toBe("My Other Plugin");
-		expect(pluginHeading("")).toBe("Other");
+	it("titles plugin headings from the package name", () => {
+		expect(pluginHeading(media)).toBe("Media");
+		expect(pluginHeading(PluginPackageId.make("test/my-other-plugin"))).toBe("My Other Plugin");
 	});
 
 	it("groups by the group each entry names and sorts entries by name", () => {
 		const groups = groupCatalogEntries(sources, "", toEntry);
 
 		expect(groups.map((group) => group.heading)).toEqual(["Media", "Fitness Tracker"]);
-		expect(groups.map((group) => group.key)).toEqual(["media", "fitness-tracker"]);
+		expect(groups.map((group) => group.key)).toEqual(["ryot/media", "test/fitness-tracker"]);
 		expect(groups[0]?.entries.map((entry) => entry.name)).toEqual(["Audible", "Netflix"]);
 	});
 
 	it("keeps groups that share a key together under one heading", () => {
 		const categorised = groupCatalogEntries(
 			[
-				source({ name: "Ntfy", slug: "ntfy", pluginSlug: "ignored" }),
-				source({ name: "Discord", slug: "discord", pluginSlug: "ignored" }),
+				source({ name: "Ntfy", slug: "ntfy", packageId: media }),
+				source({ name: "Discord", slug: "discord", packageId: media }),
 			],
 			"",
 			(item): CatalogEntry => ({

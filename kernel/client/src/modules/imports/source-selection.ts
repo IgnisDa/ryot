@@ -57,7 +57,7 @@ export const importSourceEntry = (source: ImportSourceItem): CatalogEntry => ({
 					scope: source.pluginScope,
 					reference: source.reference,
 					packageId: source.packageId,
-					name: source.pluginSlug === null ? source.name : pluginHeading(source.pluginSlug),
+					name: source.packageId === null ? source.name : pluginHeading(source.packageId),
 				}),
 });
 

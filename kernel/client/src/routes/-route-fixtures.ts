@@ -70,14 +70,13 @@ export const catalog: PluginClientCatalog = [
 		scope: "system",
 		name: "Fixture",
 		health: "ready",
-		slug: "fixture",
 		isHidden: false,
 		clientApiVersion: 1,
 		homeSavedView: null,
 		pluginId: "plugin-1",
 		sourceHash: "source-hash",
 		installationId: "installation-1",
-		packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+		packageId: PluginPackageId.make("test/plugin-1"),
 	},
 ];
 
@@ -87,7 +86,7 @@ export const navigationData: NavigationData = {
 			sortOrder: 0,
 			reference: null,
 			isHidden: false,
-			pluginSlug: null,
+			packageId: null,
 			icon: "layers-3",
 			slug: "collection-1",
 			pluginInstallationId: null,
@@ -101,15 +100,15 @@ export const navigationData: NavigationData = {
 			isHidden: false,
 			name: "Fixture View",
 			slug: "fixture-view",
-			pluginSlug: "fixture",
 			pluginInstallationId: "installation-1",
+			packageId: PluginPackageId.make("test/plugin-1"),
 			reference: { kind: "plugin", slug: "fixture-view", pluginId: PluginId.make("plugin-1") },
 		},
 		{
 			sortOrder: 0,
 			isHidden: false,
+			packageId: null,
 			icon: "bookmark",
-			pluginSlug: null,
 			name: "Global View",
 			slug: "global-view",
 			pluginInstallationId: null,
@@ -364,19 +363,20 @@ export const ProviderAddRouteStubs = makeProviderAddStub();
 export const preparePluginPage = (
 	target: Exclude<PreparedClientPage["identity"]["target"], { readonly kind: "saved-view" }>,
 ): PreparedClientPage => {
-	const pluginId = PluginId.make(target.kind === "plugin-route" ? target.pluginId : "plugin-1");
+	const pluginId = PluginId.make("plugin-1");
+	const packageId = PluginPackageId.make("test/plugin-1");
 	const contributors: PreparedClientPage["identity"]["contributors"] = [
 		{
 			pluginId,
+			packageId,
 			kind: "plugin",
 			revisionId: "revision",
 			sourceHash: "source-hash",
 			installationId: "installation-1",
-			packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 		},
 	];
 	const operationTargets = [
-		{ pluginId, sourceHash: "source-hash", installationId: "installation-1" },
+		{ pluginId, packageId, sourceHash: "source-hash", installationId: "installation-1" },
 	];
 	return {
 		composition: {

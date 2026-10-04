@@ -1,6 +1,7 @@
-import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
+
+import { savedViewHref } from "#/modules/plugins/plugin-location";
 
 export type SidebarItem = Omit<NavigationView, "reference"> & {
 	readonly reference: SavedViewReference | null;
@@ -21,7 +22,7 @@ const homeItem = {
 	icon: "house",
 	isHidden: false,
 	reference: null,
-	pluginSlug: null,
+	packageId: null,
 	pluginInstallationId: null,
 } satisfies SidebarItem;
 
@@ -75,18 +76,33 @@ export function workspacePickerSummary(data: NavigationData, installationId: str
 	return `${names.join(", ")}${remaining > 0 ? ` +${remaining}` : ""}`;
 }
 
+export const navigationViewHref = (
+	reference: SavedViewReference,
+	packageId: NavigationView["packageId"],
+) => {
+	const href = savedViewHref(reference, packageId);
+	if (href === undefined) {
+		throw new Error("Plugin saved view is missing its package identity");
+	}
+	return href;
+};
+
+export const sidebarItemHref = (item: Pick<SidebarItem, "packageId" | "reference">) =>
+	item.reference === null ? undefined : navigationViewHref(item.reference, item.packageId);
+
 export const sidebarItemKey = (item: SidebarItem) => {
 	if (item.kind === "home") {
 		return "home";
 	}
-	if (item.reference !== null) {
-		return `view:${savedViewPath(item.reference)}`;
+	const href = sidebarItemHref(item);
+	if (href !== undefined) {
+		return `view:${href}`;
 	}
 	return `collection:${item.slug}`;
 };
 
 export function activeSidebarKey(pathname: string) {
-	const view = pathname.match(/^\/v\/(?:[ck]\/[^/]+|p\/[^/]+\/[^/]+)(?:\/|$)/)?.[0];
+	const view = pathname.match(/^\/v\/(?:[ck]\/[^/]+|p\/[^/]+\/[^/]+\/[^/]+)(?:\/|$)/)?.[0];
 	if (view !== undefined) {
 		return `view:${view.replace(/\/$/, "")}`;
 	}
