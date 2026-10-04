@@ -1,10 +1,6 @@
 import type { ExerciseRecord } from "../../client/exercise/details-model";
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
-
-const page = <Item>(items: readonly Item[]) => ({
-	items,
-	pageInfo: { limit: 100, hasMore: false },
-});
+import { page } from "./workout-fixtures";
 
 export const emptyTotals: ExerciseDetails["totals"] = {
 	sets: 0,

@@ -28,7 +28,6 @@ import {
 	table,
 	type Recipe,
 } from "@ryot-app/plugin-kit/ryotql";
-import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
 
 import {
 	property,
@@ -39,7 +38,7 @@ import {
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
 import { exerciseEquipmentInclude, exerciseTargetInclude } from "./taxonomy-recipes";
-import { ExerciseNotesSchema } from "./workout-details-recipes";
+import { ExerciseNotesSchema, ImageLocatorsSchema } from "./workout-details-recipes";
 import { PersonalBestSchema } from "./workout-records";
 
 type Table = ReturnType<typeof table>;
@@ -47,10 +46,6 @@ type Table = ReturnType<typeof table>;
 const rowLimit = 100;
 const nullableNumber = Schema.NullOr(Schema.Finite);
 const nullableString = Schema.NullOr(Schema.String);
-
-const ImageLocatorsSchema = Schema.Array(
-	Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]),
-);
 
 const bestWeightRepThresholds = [1, 5, 8, 12, 30] as const;
 
