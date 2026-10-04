@@ -25,6 +25,7 @@ import {
 	parseAppSchemaProperties,
 	validateAppSchemaDefinition,
 } from "#modules/definitions/properties/runtime";
+import { filterFieldIssues } from "#modules/definitions/saved-view-filters";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
 const pluginIdField = { pluginId: Schema.NullOr(Schema.String) };
@@ -233,6 +234,14 @@ const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
 		throw new Error(
 			`Invalid saved view ${savedView.slug}: source '${decoded.success.sourceName}' must produce rows`,
 		);
+	}
+	const filterIssue = filterFieldIssues({
+		query: source,
+		settings: decoded.success,
+		renderer: savedView.renderer.name,
+	});
+	if (filterIssue) {
+		throw new Error(`Invalid saved view ${savedView.slug}: ${filterIssue}`);
 	}
 };
 

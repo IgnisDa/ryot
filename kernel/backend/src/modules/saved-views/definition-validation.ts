@@ -18,6 +18,7 @@ import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
 } from "#modules/definitions/properties/runtime";
+import { filterFieldIssues } from "#modules/definitions/saved-view-filters";
 import { getCatalogTable } from "#modules/ryotql/catalog";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
@@ -137,6 +138,10 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 				`Entity-browser configured field '${field}' must be a projected scalar field`,
 			);
 		}
+	}
+	const filterIssue = filterFieldIssues({ query, settings, renderer: "entity-browser" });
+	if (filterIssue) {
+		return yield* invalidEntityBrowserDefinition(filterIssue);
 	}
 	return undefined;
 });
@@ -289,6 +294,10 @@ export const validateResultsTableSavedViewDefinition = Effect.fn(
 				`Results-table entity link field '${settings.entityLink.entityIdField}' must project entity.id`,
 			);
 		}
+	}
+	const filterIssue = filterFieldIssues({ query, settings, renderer: "results-table" });
+	if (filterIssue) {
+		return yield* invalidResultsTableDefinition(filterIssue);
 	}
 	return undefined;
 });

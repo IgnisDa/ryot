@@ -1,5 +1,9 @@
 import type { AuthoredEntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	PluginPackageId,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { column, field, pluginId, rows, table } from "@ryot-app/ryotql";
 import { assert, expect, it } from "vitest";
 
@@ -180,4 +184,52 @@ it("keeps plugin-route add actions portable while materializing saved views", ()
 	}).savedViews[0];
 	assert(view);
 	expect(view.settings["addAction"]).toEqual(addAction);
+});
+
+it("resolves self relationship owners on filter fields", () => {
+	const browserView = {
+		icon: "box",
+		sortOrder: 0,
+		name: "Bottles",
+		slug: "bottles",
+		dataSources: { queries: {} },
+		renderer: { kind: "kernel", name: "entity-browser" } as const,
+		settings: {
+			...browserSettings,
+			filterFields: [
+				{ key: "name", type: "text", label: "Name", kind: "value", field: "name" },
+				{
+					key: "tags",
+					label: "Tags",
+					kind: "relationship",
+					direction: "incoming",
+					relationship: { owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("tagged") },
+				},
+				{
+					key: "labels",
+					label: "Labels",
+					kind: "relationship",
+					direction: "outgoing",
+					relationship: {
+						owner: { kind: "kernel" },
+						slug: RelationshipSchemaSlug.make("labelled"),
+					},
+				},
+			],
+		} satisfies AuthoredEntityBrowserSavedViewSettings,
+	};
+	const view = revisionDefinitions("plugin-a", {
+		...fixtureManifest(),
+		client,
+		savedViews: [browserView],
+	}).savedViews[0];
+	assert(view);
+	expect(view.settings["filterFields"]).toEqual([
+		browserView.settings.filterFields[0],
+		{
+			...browserView.settings.filterFields[1],
+			relationship: { slug: "tagged", owner: { kind: "plugin", pluginId: "plugin-a" } },
+		},
+		browserView.settings.filterFields[2],
+	]);
 });
