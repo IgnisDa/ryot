@@ -477,12 +477,13 @@ describe("client page routes", () => {
 								sortChoices: [],
 								searchFields: [],
 								tableColumns: null,
-								entityIdField: "id",
 								sourceName: "items",
 								defaultLayout: "list",
 								layouts: ["grid", "list"],
-								ownerPluginIdField: "owner",
-								entitySchemaSlugField: "schema",
+								subject: {
+									entityAlias: "entity",
+									schemas: [{ slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } }],
+								},
 								addAction: {
 									type: "provider-search",
 									schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
@@ -562,6 +563,31 @@ describe("client page routes", () => {
 		}),
 	);
 
+	it.live("shows the saved-view error state when entity-browser settings are undecodable", () =>
+		Effect.gen(function* () {
+			mount({
+				entry: "/v/c/fixture-view",
+				prepare: (_scope, request) => {
+					const target = request.payload.target;
+					if (target.kind !== "saved-view") {
+						return Effect.die("not used");
+					}
+					const prepared = preparedSavedView(SavedViewId.make("internal-id"));
+					return Effect.succeed({
+						...prepared,
+						context: {
+							...prepared.context,
+							target,
+							settings: { pageSize: 20 },
+							renderer: { kind: "kernel", name: "Entity browser" },
+						},
+					});
+				},
+			});
+			expect(yield* Effect.promise(() => screen.findByText("Saved view unavailable"))).toBeTruthy();
+		}),
+	);
+
 	it.live("does not open provider search from add route state for a plugin-route action", () =>
 		Effect.gen(function* () {
 			const routeAction = {
@@ -583,19 +609,20 @@ describe("client page routes", () => {
 						context: {
 							...prepared.context,
 							target,
-							renderer: { kind: "kernel", name: "entity-browser" },
+							renderer: { kind: "kernel", name: "Entity browser" },
 							settings: {
 								pageSize: 20,
 								sortChoices: [],
 								searchFields: [],
 								tableColumns: null,
-								entityIdField: "id",
 								sourceName: "items",
 								defaultLayout: "list",
 								addAction: routeAction,
 								layouts: ["grid", "list"],
-								ownerPluginIdField: "owner",
-								entitySchemaSlugField: "schema",
+								subject: {
+									entityAlias: "entity",
+									schemas: [{ slug: "book", owner: { kind: "kernel" } }],
+								},
 							},
 						},
 					});

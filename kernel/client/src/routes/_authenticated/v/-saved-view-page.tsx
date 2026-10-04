@@ -31,14 +31,14 @@ import { EntityPickerModal } from "#/modules/provider-add/modal";
 import { useEntityPickerSession } from "#/modules/provider-add/picker-session";
 import { ClientStorage } from "#/persistence/storage";
 
+const entityBrowserRendererNames = new Set(["Entity browser", "Collection browser"]);
+
 const entityBrowserSettings = (prepared: PreparedClientPage) => {
-	if (prepared.context.renderer.kind !== "kernel") {
+	const { renderer, settings } = prepared.context;
+	if (renderer.kind !== "kernel" || !entityBrowserRendererNames.has(renderer.name)) {
 		return null;
 	}
-	const decoded = Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)(
-		prepared.context.settings,
-	);
-	return Result.isSuccess(decoded) ? decoded.success : null;
+	return Schema.decodeUnknownSync(EntityBrowserSavedViewSettings)(settings);
 };
 
 type SavedViewSearch = ReturnType<typeof validateSavedViewSearch>;

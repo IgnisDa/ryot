@@ -7,12 +7,9 @@ export const browserDataSources = document({
 		limit: 2,
 		orderBy: [ascending(column(entity, "name"))],
 		fields: [
-			field("entityId", column(entity, "id")),
 			field("name", column(entity, "name")),
 			field("year", jsonPath(column(entity, "properties"), "publishYear")),
 			field("image", jsonPath(column(entity, "properties"), "images", 0)),
-			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
-			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 		],
 	}),
 });
@@ -23,10 +20,11 @@ export const browserSettings = {
 	defaultLayout: "grid",
 	searchFields: ["name"],
 	sourceName: "savedView",
-	entityIdField: "entityId",
 	layouts: ["grid", "list", "table"],
-	ownerPluginIdField: "ownerPluginId",
-	entitySchemaSlugField: "entitySchemaSlug",
+	subject: {
+		entityAlias: "entity",
+		schemas: [{ slug: "book", owner: { kind: "plugin", pluginId: "media" } }],
+	},
 	tableColumns: [
 		{ label: "Image", field: "image", displayKind: "managed-asset" },
 		{ label: "Name", field: "name", displayKind: "text" },
@@ -41,12 +39,12 @@ export const browserSettings = {
 
 export const browserRow = (entityId: string, name: string) => ({
 	name,
-	entityId,
 	year: 2026,
 	image: null,
-	ownerPluginId: "media",
-	entitySchemaSlug: "book",
 	__entityBrowserName: name,
+	__entityBrowserId: entityId,
+	__entityBrowserSchemaSlug: "book",
+	__entityBrowserOwnerPluginId: "media",
 	__entityBrowserPopulationStatus: "ready",
 	__entityBrowserTranslationStatus: "ready",
 });
