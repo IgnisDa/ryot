@@ -46,14 +46,15 @@ import { toPluginLocation } from "#/modules/plugins/plugin-location";
 import { PluginQueriesService } from "#/modules/plugins/queries";
 import { PluginStorage } from "#/modules/plugins/storage";
 import type { ThemeStore } from "#/modules/theme/store";
+import type { FileRoutesById } from "#/routeTree.gen";
 import type { ClientRuntime } from "#/runtime";
 
 const MAX_RETAINED_FRAMES = 3;
-const pluginRouteIds = new Set([
+const pluginRouteIds = new Set<string>([
 	"/_authenticated/p/$publisher/$name",
 	"/_authenticated/e/$entityId",
-	"/_authenticated/v",
-]);
+	"/_authenticated/v/$",
+] satisfies ReadonlyArray<keyof FileRoutesById>);
 const searchString = (value: string) => (value.startsWith("?") ? value.slice(1) : value);
 const digest = (value: unknown) =>
 	Array.from(sha256(new TextEncoder().encode(stableStringify(value))), (byte) =>
