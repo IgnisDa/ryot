@@ -78,8 +78,10 @@ describe("Saved views lifecycle E2E", () => {
 			expect(collectionsView?.renderer).toEqual({ kind: "kernel", name: "collection-browser" });
 			expect(collectionsView?.settings).toMatchObject({
 				sourceName: "savedView",
-				entityIdField: "entityId",
-				entitySchemaSlugField: "entitySchemaSlug",
+				subject: {
+					entityAlias: "entity",
+					schemas: [{ slug: "collection", owner: { kind: "kernel" } }],
+				},
 			});
 			expect(collectionsView?.dataSources).toMatchObject({
 				queries: {
@@ -210,11 +212,12 @@ describe("Saved views lifecycle E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinView = yield* findAllMoviesView(client);
+			const { pluginId } = yield* findMediaEntitySchema(client, "book");
 			const invalidUpdateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
 						payload: {
-							...buildUpdatedSavedViewBody({ isHidden: true, name: "Attempted Rename" }),
+							...buildUpdatedSavedViewBody(pluginId, { isHidden: true, name: "Attempted Rename" }),
 							reference: builtinView.reference,
 						},
 					}),
@@ -249,11 +252,12 @@ describe("Saved views lifecycle E2E", () => {
 	it.live("returns 404 for missing views across update, clone, and delete", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findMediaEntitySchema(client, "book");
 
 			const updateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
-						payload: { ...buildUpdatedSavedViewBody(), reference: missingViewReference },
+						payload: { ...buildUpdatedSavedViewBody(pluginId), reference: missingViewReference },
 					}),
 				),
 			);

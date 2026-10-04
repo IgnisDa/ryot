@@ -10,6 +10,7 @@ import {
 	createEntityFixture,
 	createPluginEntitySchema,
 	createSavedView,
+	entityBrowserSettings,
 	executeRyotQLRecipe,
 	findSavedViewById,
 	getSavedView,
@@ -72,10 +73,18 @@ describe("saved views execution", () => {
 					},
 				},
 			};
+			const settings = entityBrowserSettings(pluginId);
 			const created = yield* createSavedView(client, {
 				dataSources,
 				name: `Saved View Count ${crypto.randomUUID()}`,
 				workspaceInstallationId: workspace.installationId,
+				settings: {
+					...settings,
+					subject: {
+						...settings.subject,
+						schemas: [{ slug: schemaId, owner: { pluginId, kind: "plugin" } }],
+					},
+				},
 			});
 			const persisted = yield* findSavedViewById(client, created.id);
 

@@ -132,10 +132,11 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			expect(view.settings).toMatchObject({
 				defaultLayout: "grid",
 				sourceName: "savedView",
-				entityIdField: "entityId",
 				layouts: ["grid", "list", "table"],
-				ownerPluginIdField: "ownerPluginId",
-				entitySchemaSlugField: "entitySchemaSlug",
+				subject: {
+					entityAlias: "entity",
+					schemas: [{ slug: schema.id, owner: definitionOwner(pluginId) }],
+				},
 				addAction: {
 					type: "provider-search",
 					schema: { slug: schema.id, owner: definitionOwner(pluginId) },
@@ -298,10 +299,11 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			expect(view.settings).toMatchObject({
 				defaultLayout: "grid",
 				sourceName: "savedView",
-				entityIdField: "entityId",
 				layouts: ["grid", "list", "table"],
-				ownerPluginIdField: "ownerPluginId",
-				entitySchemaSlugField: "entitySchemaSlug",
+				subject: {
+					entityAlias: "entity",
+					schemas: [{ slug: schema.id, owner: definitionOwner(pluginId) }],
+				},
 				addAction: {
 					type: "provider-search",
 					schema: { slug: schema.id, owner: definitionOwner(pluginId) },

@@ -22,7 +22,7 @@ import { getApiClient } from "./contract-client";
 import { listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
 import { collectAdminRyotQLRecipeItems } from "./ryotql";
-import { entityBrowserSettings, rowsDataSources } from "./saved-views";
+import { authoredEntityBrowserSettings, rowsDataSources } from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 
 type TestPluginManifest = ContractPayload<"testSupport", "installSystemPlugin">["manifest"];
@@ -245,8 +245,8 @@ export const testPluginSavedView = (input: {
 	sortOrder: 0,
 	slug: input.slug,
 	dataSources: rowsDataSources,
-	settings: entityBrowserSettings,
 	name: input.name ?? "E2E Plugin View",
+	settings: authoredEntityBrowserSettings,
 	renderer: { kind: "kernel", name: "entity-browser" },
 });
 

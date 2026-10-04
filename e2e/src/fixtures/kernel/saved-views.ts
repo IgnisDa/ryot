@@ -5,7 +5,16 @@ import type {
 	QueryOwnerReference,
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type {
+	AuthoredEntityBrowserSavedViewSettings,
+	EntityBrowserSavedViewSettings,
+} from "@ryot-app/contract/modules/saved-views/schemas";
+import {
+	EntitySchemaSlug,
+	type PluginId,
+	type PluginPackageId,
+} from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import {
 	and,
@@ -33,15 +42,10 @@ import { Data, Effect, Result, Schema } from "effect";
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
+import { findPluginInstallationByPackage } from "./plugins";
 import { executeRyotQLRecipe } from "./ryotql";
 
-type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
-type UpdateSavedViewBody = Omit<ContractPayload<"savedViews", "update">, "reference">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
-type SavedViewDataSources = CreateSavedViewBody["dataSources"];
-type SavedViewSettings = CreateSavedViewBody["settings"];
-type CreateSavedViewInput = Partial<CreateSavedViewBody>;
-type UpdateSavedViewInput = Partial<UpdateSavedViewBody>;
 
 class SavedViewFixtureError extends Data.TaggedError("SavedViewFixtureError")<{
 	readonly message: string;
@@ -61,7 +65,7 @@ export const rowsFields = [
 export const buildSavedViewDataSources = (
 	entitySchemaSlugs: readonly [string, ...string[]],
 	owner: QueryOwnerReference,
-): NonNullable<SavedViewDataSources> =>
+): RyotQLDocument =>
 	document({
 		savedView: rows(entity, {
 			limit: 2,
@@ -85,57 +89,129 @@ const mediaPluginOwner: PluginIdentityReference = {
 
 export const rowsDataSources = buildSavedViewDataSources(["book"], mediaPluginOwner);
 
-export const entityBrowserSettings = {
+const entityBrowserSettingsBase = {
 	pageSize: 2,
 	addAction: null,
 	sortChoices: [],
 	defaultLayout: "grid",
 	searchFields: ["name"],
 	sourceName: "savedView",
-	entityIdField: "entityId",
 	layouts: ["grid", "list", "table"],
-	ownerPluginIdField: "ownerPluginId",
-	entitySchemaSlugField: "entitySchemaSlug",
 	tableColumns: [
 		{ label: "Name", field: "name", displayKind: "text" },
 		{ label: "Year", field: "year", displayKind: "number" },
 	],
-} satisfies SavedViewSettings;
+} satisfies Omit<EntityBrowserSavedViewSettings, "subject">;
 
-export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): CreateSavedViewBody {
+export const entityBrowserSettings = (pluginId: PluginId, schemaSlug = "book") =>
+	({
+		...entityBrowserSettingsBase,
+		subject: {
+			entityAlias: "entity",
+			schemas: [
+				{ slug: EntitySchemaSlug.make(schemaSlug), owner: { pluginId, kind: "plugin" as const } },
+			],
+		},
+	}) satisfies EntityBrowserSavedViewSettings;
+
+export const authoredEntityBrowserSettings = {
+	...entityBrowserSettingsBase,
+	subject: {
+		entityAlias: "entity",
+		schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("book") }],
+	},
+} satisfies AuthoredEntityBrowserSavedViewSettings;
+
+type CreatePayload = ContractPayload<"savedViews", "create">;
+type UpdatePayload = Omit<ContractPayload<"savedViews", "update">, "reference">;
+type EntityBrowserCreatePayload = Extract<
+	CreatePayload,
+	{ renderer: { name: "collection-browser" | "entity-browser" } }
+>;
+type ResultsTableCreatePayload = Extract<CreatePayload, { renderer: { name: "results-table" } }>;
+type EntityBrowserUpdatePayload = UpdatePayload &
+	Pick<EntityBrowserCreatePayload, "dataSources" | "renderer" | "settings">;
+
+type CommonOverrides = { icon?: string; name?: string; workspaceInstallationId?: string };
+type ConfigOverrides = { dataSources?: RyotQLDocument; settings?: EntityBrowserSavedViewSettings };
+type UpdateOverrides = Partial<{ isHidden: boolean; workspaceInstallationId: string | null }> &
+	Omit<CommonOverrides, "workspaceInstallationId"> &
+	ConfigOverrides;
+
+const entityBrowserRenderer = { kind: "kernel", name: "entity-browser" } as const;
+
+const withWorkspace = (workspaceInstallationId: string | undefined) =>
+	workspaceInstallationId === undefined ? {} : { workspaceInstallationId };
+
+export function buildSavedViewBody(
+	pluginId: PluginId,
+	overrides: CommonOverrides & ConfigOverrides = {},
+): EntityBrowserCreatePayload {
 	return {
-		icon: "star",
-		dataSources: rowsDataSources,
-		settings: entityBrowserSettings,
-		name: `Saved View ${crypto.randomUUID()}`,
-		renderer: { kind: "kernel", name: "entity-browser" },
-		...overrides,
+		icon: overrides.icon ?? "star",
+		renderer: entityBrowserRenderer,
+		dataSources: overrides.dataSources ?? rowsDataSources,
+		name: overrides.name ?? `Saved View ${crypto.randomUUID()}`,
+		settings: overrides.settings ?? entityBrowserSettings(pluginId),
+		...withWorkspace(overrides.workspaceInstallationId),
 	};
 }
 
 export function buildUpdatedSavedViewBody(
-	overrides: UpdateSavedViewInput = {},
-): UpdateSavedViewBody {
+	pluginId: PluginId,
+	overrides: UpdateOverrides = {},
+): EntityBrowserUpdatePayload {
 	return {
-		icon: "heart",
-		isHidden: false,
-		dataSources: rowsDataSources,
-		settings: entityBrowserSettings,
-		name: `Updated View ${crypto.randomUUID()}`,
-		renderer: { kind: "kernel", name: "entity-browser" },
-		...overrides,
+		icon: overrides.icon ?? "heart",
+		renderer: entityBrowserRenderer,
+		isHidden: overrides.isHidden ?? false,
+		dataSources: overrides.dataSources ?? rowsDataSources,
+		name: overrides.name ?? `Updated View ${crypto.randomUUID()}`,
+		settings: overrides.settings ?? entityBrowserSettings(pluginId),
+		...(overrides.workspaceInstallationId === undefined
+			? {}
+			: { workspaceInstallationId: overrides.workspaceInstallationId }),
 	};
 }
 
-export const createSavedView = (client: Client, overrides: CreateSavedViewInput = {}) =>
-	client
-		.call((c) => c.savedViews.create({ payload: buildSavedViewBody(overrides) }))
-		.pipe(
-			Effect.map((created) => ({
-				...created,
-				reference: { kind: "custom" as const, savedViewId: created.id },
-			})),
+const mediaPluginId = (client: Client) =>
+	findPluginInstallationByPackage(client, {
+		scope: "system",
+		packageId: mediaPlugin.metadata.packageId,
+	}).pipe(Effect.map(({ pluginId }) => pluginId));
+
+const customViewResult = (result: {
+	readonly id: ContractSuccess<"savedViews", "create">["id"];
+}) => ({ ...result, reference: { savedViewId: result.id, kind: "custom" as const } });
+
+export const createSavedView = (
+	client: Client,
+	overrides: CommonOverrides & ConfigOverrides = {},
+) =>
+	Effect.gen(function* () {
+		const pluginId = yield* mediaPluginId(client);
+		return customViewResult(
+			yield* client.call((c) =>
+				c.savedViews.create({ payload: buildSavedViewBody(pluginId, overrides) }),
+			),
 		);
+	});
+
+export const createTableSavedView = (
+	client: Client,
+	input: Omit<ResultsTableCreatePayload, "renderer" | "icon"> & { readonly icon?: string },
+) =>
+	client
+		.call((c) =>
+			c.savedViews.create({
+				payload: {
+					...input,
+					icon: input.icon ?? "star",
+					renderer: { kind: "kernel", name: "results-table" },
+				},
+			}),
+		)
+		.pipe(Effect.map(customViewResult));
 
 const workspaceView = table("savedView", "workspaceView");
 export const workspaceSavedViewRecordsRecipe = defineRecipe(() => ({
@@ -224,10 +300,24 @@ export const getSavedView = (client: Client, reference: SavedViewReference) =>
 export const updateSavedView = (
 	client: Client,
 	reference: SavedViewReference,
-	overrides: UpdateSavedViewInput = {},
+	overrides: UpdateOverrides = {},
+) =>
+	Effect.gen(function* () {
+		const pluginId = yield* mediaPluginId(client);
+		return yield* client.call((c) =>
+			c.savedViews.update({
+				payload: { ...buildUpdatedSavedViewBody(pluginId, overrides), reference },
+			}),
+		);
+	});
+
+export const updateSavedViewMetadata = (
+	client: Client,
+	reference: SavedViewReference,
+	input: Omit<UpdatePayload, "isHidden"> & { readonly isHidden?: boolean },
 ) =>
 	client.call((c) =>
-		c.savedViews.update({ payload: { ...buildUpdatedSavedViewBody(overrides), reference } }),
+		c.savedViews.update({ payload: { ...input, reference, isHidden: input.isHidden ?? false } }),
 	);
 
 export const cloneSavedView = (client: Client, reference: SavedViewReference) =>
