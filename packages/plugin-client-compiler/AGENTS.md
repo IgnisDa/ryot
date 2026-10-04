@@ -1,12 +1,7 @@
 # Client Plugin Compiler
 
-Rationale lives in `README.md`.
-
-- Keep import policy, limits, protocol, output model, and public API independent from `@ryot-app/plugin-backend-compiler`; share only generic infrastructure through `@ryot-app/typescript-compiler`.
-- Treat `CLIENT_DEPENDENCY_REGISTRY` in `src/dependencies.ts` as the only authority for trusted and neutral imports and their TypeScript entries. Derive every policy view from it; reject bare imports absent from it.
-- Resolve trusted packages through their public exports and normal Vite filesystem resolution. Do not add package-specific bundler repairs.
-- Restrict `shared/**` bare imports to the approved plugin-kit neutral shims and relative imports to `shared/`. Keep this policy aligned with the sandbox compiler.
-- Inject the official Tailwind Vite entry once with automatic scanning disabled. Emit plugin CSS before compiler-owned fonts, theme, palette, and base styles.
-- Scan plugin client sources plus both SDKs for Tailwind classes. Visual code may live in either SDK; never rely on incidental class overlap.
-- Hash every emitted module file, name, imported target, and package identity (or explicit kernel identity). Authored artifacts also hash the full client declaration; sort final artifact files by name.
-- Embed artifact identity in the compiler, never plugin source. Reuse cache only when all current artifact metadata matches; do not add stale fallback.
+- Keep compiler policy and artifacts independent of the backend compiler; share only `@ryot-app/typescript-compiler` infrastructure.
+- `CLIENT_DEPENDENCY_REGISTRY` in `src/dependencies.ts` is the sole import-policy authority. Resolve trusted packages through public exports; never add package-specific bundler repairs.
+- Keep `shared/**` imports aligned with sandbox policy: approved neutral shims and relative imports within `shared/` only.
+- Scan client sources and both SDKs for Tailwind classes; disable automatic scanning. Preserve compiler-owned CSS ordering.
+- The compiler embeds artifact identity. Hash all emitted files, imports, identity, and authored client declarations; reuse cache only on an exact metadata match. See `README.md` before changing emission or identity.

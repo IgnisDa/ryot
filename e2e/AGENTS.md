@@ -1,15 +1,9 @@
-# Tests
+# E2E Tests
 
-- Read `README.md` before changing runner, shared harness, pool sizing, or opt-in gates.
-- Place generic platform suites under `src/api/kernel/` and plugin behavior under its `src/api/plugins/<plugin>/` tree. Split mixed ownership and use descriptive filenames.
-- Fixtures live under `src/fixtures/kernel` (generic platform fixtures) and `src/fixtures/plugins/<plugin>` (fixtures owned by that plugin), each with its own barrel (`~/fixtures/kernel`, `~/fixtures/plugins/<plugin>`); do not add an aggregate barrel spanning both. Keep cross-cutting harness code in `src/support`; avoid generic catch-all helpers.
-- Derive HTTP payload, query, path, success, and nested plugin manifest types from `@ryot-app/contract/client`; compose deliberate fixture transformations with indexed access, `Pick`, `Omit`, `Partial`, or mapped types instead of writing structural mirrors.
-- Import test APIs only from `~/support/effect-test`. Test bodies use `Effect.gen` under `it.live`; `it.live` supplies per-test Scope without TestClock; never use `it.effect` because test clock deadlocks real-time waits. Keep Vitest hooks plain and run their Effect programs with its `runPromise`; scripts and global setup use `runPromise` from `~/support/e2e-runtime`. Fixtures declare the shared services they need instead of providing them.
-- Prefer scoped Effect support/fixtures (including fake HTTP servers); run Effects at plain Vitest setup/teardown boundaries. Native Promises belong at external callback APIs and browser-realm Playwright callbacks.
-- Keep provider tests hermetic except `providers-live-smoke.test.ts`.
-- Seed through typed `testSupport` operations and production service paths; do not mutate stored rows or add public script-execution fixtures.
-- Shared-API fixtures need collision-free external IDs and fresh package identities per case. Namespace acceptance fixtures deliberately reuse metadata and declaration slugs; select their owners by exact local or package identity.
-- Use `assertCompleted` and `requireCompletedSandboxValue` for async job results.
-- Do not refactor `src/scripts/seed.ts` unless explicitly requested.
-- Change worker, sandbox, or database pool settings only with fresh load evidence.
-- `src/api/kernel/user-settings.test.ts` verifies application preference reads after updates with a warm authentication session and checks that malformed patch bodies and direct Better Auth user updates cannot modify preferences.
+- Import test APIs from `~/support/effect-test` and use `it.live`, not `it.effect`: real I/O must not run under TestClock. Hooks use its `runPromise`; scripts and global setup use `~/support/e2e-runtime`.
+- Keep platform suites and fixtures under their kernel trees and domain suites and fixtures under their plugin trees. Use `src/support` for cross-cutting harness code, not an aggregate fixture barrel.
+- Derive HTTP fixture types from `@ryot-app/contract/client`, not handwritten mirrors.
+- Keep providers hermetic except `providers-live-smoke.test.ts`. Seed through typed `testSupport` operations and production services, never raw row writes or public script-execution fixtures.
+- Give shared-server cases collision-free external IDs and fresh package identities. Resolve declarations by exact owner and local slug, never display names.
+- Use `assertCompleted` and `requireCompletedSandboxValue` for asynchronous job results.
+- Read `README.md` before changing the harness or capacity. Pool and worker changes require fresh load evidence. Do not refactor `src/scripts/seed.ts` without an explicit request.

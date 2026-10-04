@@ -23,6 +23,16 @@ use `PluginLink` so the kernel resolves canonical entity routes.
 
 `client/media/` owns everything the screens share and carries no schema copy.
 
+Schema extensions configure the shared recipe factory and client descriptor rather than copying
+their engines. Engine behavior tests live in `client/media/` and the corresponding shared recipe
+test; schema-specific tests cover descriptor output. `shared/media-schema-slugs.ts` owns the builtin,
+group-member, and creator-group slug sets. `client/media/activity-copy.ts` owns per-verb activity
+vocabulary, including row/card progress verbs; descriptors supply only schema-specific labels.
+
+Flat descriptor `overviewRails` derives extra relationship rails from the decoded overview. The
+engine includes their items in visible IDs, managed assets, and the emptiness check. Cross-schema
+home recipes live in `shared/`; `manifest/query-recipes.ts` owns only the saved-view recipe.
+
 Show and Podcast are episodic: the parent's state, coverage, and activity derive from its episodes.
 Each is one `mediaEpisodicRecipes` config in `shared/<slug>-recipes.ts` and one
 `defineEpisodicMediaSchema` descriptor in `client/<slug>/schema.tsx`, and gets a fixed

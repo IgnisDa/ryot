@@ -266,3 +266,14 @@ requested; screen retention is unconditional.
 
 The kernel supplies `compact`, safe-area insets, and history identity. Plugins must not substitute
 iframe media queries or browser history inference for those values.
+
+Screen shells own transition transforms; scroll containers live inside them so fixed descendants do
+not inherit an unintended transformed containing block. Pinned chrome uses
+`PluginScreenFrame.floatingAction`. Visibility comes from rendered screen roles; imperative writes
+are limited to transition transforms and scrim opacity. Shared focused-field visibility is installed
+in every plugin document because the host cannot inspect sandboxed focus.
+
+Shared Layers construct synchronously and React context distributes their services. Location,
+screen, and active-screen contexts remain per-screen because several retained screens coexist.
+`RyotNavigationService` exists only in plugin artifact runtimes; drawer requests and title publication
+belong to router navigation rather than public `RyotClient` capabilities.

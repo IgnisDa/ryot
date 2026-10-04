@@ -1,6 +1,5 @@
 # Client Plugin Contract
 
-- Own the client plugin bridge protocol, artifact model, source file policy, and shared client capability payloads here.
-- Keep the dependency on `@ryot-app/contract` one-way. The HTTP contract must never import this package.
-- Keep runtime implementation policy in the owning runtime unless both bridge peers must enforce it.
-- Derive transport artifact representations from `PluginClientArtifact` metadata and file policy; transform canonical Base64 to `Uint8Array` at the schema boundary.
+- Dependency on `@ryot-app/contract` is one-way; the HTTP contract must not import this package.
+- Share policy here only when both bridge peers must enforce it; keep runtime implementation policy with its runtime.
+- Derive transport artifacts from canonical `PluginClientArtifact` metadata and file policy, not parallel representations.

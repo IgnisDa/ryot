@@ -1,7 +1,6 @@
-# Backup Module Rules
+# Backups
 
-- Archive schemas and rewrites are wire surfaces. Changes require fixture and round-trip coverage.
-- Embedded entity and relationship IDs are collected and rewritten from property schema metadata.
-- `events` is the only streaming section. Never introduce a structure that is O(n) in event count on either the export or the restore path, and never move another section onto the streaming path without the same leaf analysis.
-- Bootstrap vocabulary exceptions use explicit, exact kernel purity allowlist entries.
-- Keep historical restore writes in `restore/persistence.ts`, under the restore writer's transaction; do not expose them through ordinary repositories.
+- Archive schema or rewrite changes require fixtures and round-trip coverage. Derive embedded ID rewrites from property schema metadata.
+- Only `events` streams. Keep export and restore memory independent of event count; expanding streaming requires the same leaf analysis.
+- Use exact kernel-purity allowlist entries for bootstrap vocabulary exceptions.
+- Historical restore writes belong only in `restore/persistence.ts`, under the restore transaction; ordinary repositories expose no restore methods.

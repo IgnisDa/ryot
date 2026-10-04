@@ -25,6 +25,11 @@ maintain it (`platform/db/user-plugin-state.ts`) because its inputs are written 
 package, and configuration repositories, backup restore, raw-SQL one-time migrations, and foreign key
 cascades; only triggers observe all of them.
 
+`user_plugin.is_listed` includes hidden and installing installations, but excludes incompatible ones.
+User-scoped provider listings read `user_sandbox_provider`. Catalog operations resolve one
+`listPluginsAvailableToUser` snapshot and thread it through multi-row work rather than rereading
+different catalog states or holding process-local catalog state.
+
 ## Plugin artifacts and revision identity
 
 System archives and private uploads contain a manifest, compiled backend JavaScript artifacts, and
@@ -70,6 +75,12 @@ Callers must not add a separate boot-time environment resolution pass.
 System config uses `RYOT_PLUGIN__<PUBLISHER>__<NAME>__<NORMALIZED_KEY>`, with package ID segments uppercased and `-` replaced by `_`.
 Private config never reads environment values. All replicas must use the same server release and
 deployment configuration; the persisted catalog is authoritative and ingestion is serialized.
+
+Boot resolution sets `plugin.environment_config_revision_id` under the ingestion lock; all nodes
+must share environment values because the last booting node wins. Installation configuration pointer
+activation uses the same ingestion lock. Retained executions use exact revision/configuration pins,
+not current environment values. Automation hooks use stable plugin ID and authored hook slug;
+scripts resolve by immutable revision ID, script slug, and content hash.
 
 ## User preferences
 
