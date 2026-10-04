@@ -11,7 +11,7 @@ import {
 	type WorkflowDurableResult,
 	workflowDurableResultSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
-import { Cause, Clock, Duration, Effect, Layer, Schema } from "effect";
+import { Cause, Clock, Duration, Effect, Layer, Ref, Schema } from "effect";
 import { HttpClient } from "effect/http";
 import { DurableClock, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -92,14 +92,17 @@ const PreparedSandboxSendNotification = Schema.Struct({
 	executionId: Schema.String,
 });
 
+const MatchedHttpRateLimitResolution = Schema.Struct({
+	hash: Schema.String,
+	origin: Schema.String,
+	durationMs: Schema.Int,
+	matched: Schema.Literal(true),
+	declaration: PluginHttpRateLimit,
+});
+type MatchedHttpRateLimitResolution = typeof MatchedHttpRateLimitResolution.Type;
+
 const HttpRateLimitResolution = Schema.Union([
-	Schema.Struct({
-		hash: Schema.String,
-		origin: Schema.String,
-		durationMs: Schema.Int,
-		matched: Schema.Literal(true),
-		declaration: PluginHttpRateLimit,
-	}),
+	MatchedHttpRateLimitResolution,
 	Schema.Struct({
 		durationMs: Schema.Int,
 		matched: Schema.Literal(false),
@@ -108,11 +111,6 @@ const HttpRateLimitResolution = Schema.Union([
 	}),
 ]);
 
-type MatchedHttpRateLimitResolution = Extract<
-	typeof HttpRateLimitResolution.Type,
-	{ readonly matched: true }
->;
-
 const AdmissionTiming = Schema.Struct({ grantedAtMs: Schema.Int, registeredAtMs: Schema.Int });
 type AdmissionTiming = typeof AdmissionTiming.Type;
 
@@ -120,8 +118,11 @@ const HttpAdmission = Schema.Union([
 	Schema.TaggedStruct("Settled", {
 		resolution: HttpRateLimitResolution,
 		timing: Schema.NullOr(AdmissionTiming),
+		cleanupPolicy: Schema.NullOr(MatchedHttpRateLimitResolution),
 	}),
-	Schema.TaggedStruct("Interrupted", {}),
+	Schema.TaggedStruct("Interrupted", {
+		cleanupPolicy: Schema.NullOr(MatchedHttpRateLimitResolution),
+	}),
 ]);
 
 const timed = <A, E>(effect: Effect.Effect<A, E>) =>
@@ -437,9 +438,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						}),
 					);
 
-				const resolvePolicy = (url: string) =>
-					coordinate("resolve", HttpRateLimitResolution, () => resolveNow(executionId, url));
-
 				const block = (policy: MatchedHttpRateLimit, delayMs: number) =>
 					coordinate("block", ProviderHttpAdmissionBlockResult, () =>
 						admission
@@ -447,11 +445,18 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							.pipe(Effect.catchTags(admissionFailure("block"))),
 					);
 
-				const cancelOnInterrupt = (policy: MatchedHttpRateLimit, ticket: ProviderHttpTicket) => {
+				const cancelOnInterrupt = (
+					policy: Ref.Ref<MatchedHttpRateLimit | null>,
+					ticket: ProviderHttpTicket,
+				) => {
 					const name = `sandbox-http-${request.index}-cancel-registration-${registrationAttempt++}`;
 					return Workflow.addFinalizer(() =>
 						Effect.flatMap(WorkflowInstance, (instance) =>
-							instance.interrupted ? cancelTicket(name, executionId, policy, ticket) : Effect.void,
+							instance.interrupted
+								? Effect.flatMap(Ref.get(policy), (current) =>
+										current ? cancelTicket(name, executionId, current, ticket) : Effect.void,
+									)
+								: Effect.void,
 						),
 					);
 				};
@@ -463,6 +468,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					initial: MatchedHttpRateLimitResolution,
 					url: string,
 					ticket: ProviderHttpTicket,
+					activePolicy: Ref.Ref<MatchedHttpRateLimit | null>,
 				) =>
 					Effect.suspend(() => {
 						let policy = initial;
@@ -480,8 +486,9 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							let overloadStreak = 0;
 							let registeredAtMs: number | undefined;
 							registration: for (;;) {
+								yield* Ref.set(activePolicy, policy);
 								if (yield* cancelIfInterrupted()) {
-									return { _tag: "Interrupted" as const };
+									return { cleanupPolicy: policy, _tag: "Interrupted" as const };
 								}
 								const { value: registered, atMs: registerAtMs } = yield* coordinateNow(
 									"register",
@@ -502,7 +509,12 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 									);
 									const resolution = yield* resolve();
 									if (!resolution.matched) {
-										return { resolution, timing: null, _tag: "Settled" as const };
+										return {
+											resolution,
+											timing: null,
+											cleanupPolicy: policy,
+											_tag: "Settled" as const,
+										};
 									}
 									policy = resolution;
 									continue registration;
@@ -513,7 +525,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								for (;;) {
 									if (nonce === null) {
 										if (yield* cancelIfInterrupted()) {
-											return { _tag: "Interrupted" as const };
+											return { cleanupPolicy: policy, _tag: "Interrupted" as const };
 										}
 										const { value: polled, atMs: polledAtMs } = yield* coordinateNow("poll", () =>
 											timed(
@@ -544,7 +556,12 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 											if (!resolution.matched || !samePolicy(policy, resolution)) {
 												yield* cancelNow(executionId, policy, ticket);
 												if (!resolution.matched) {
-													return { resolution, timing: null, _tag: "Settled" as const };
+													return {
+														resolution,
+														timing: null,
+														cleanupPolicy: policy,
+														_tag: "Settled" as const,
+													};
 												}
 												policy = resolution;
 												continue registration;
@@ -574,6 +591,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 										);
 										return {
 											resolution: policy,
+											cleanupPolicy: policy,
 											_tag: "Settled" as const,
 											timing: { grantedAtMs, registeredAtMs },
 										};
@@ -584,29 +602,40 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								}
 								const resolution = yield* resolve();
 								if (!resolution.matched) {
-									return { resolution, timing: null, _tag: "Settled" as const };
+									return {
+										resolution,
+										timing: null,
+										cleanupPolicy: policy,
+										_tag: "Settled" as const,
+									};
 								}
 								policy = resolution;
 							}
 						});
 					});
 
-				const admit = (
-					initial: MatchedHttpRateLimitResolution,
-					url: string,
-					identity: { readonly hop: number; readonly attempt: number },
-				) =>
+				const admit = (url: string, identity: { readonly hop: number; readonly attempt: number }) =>
 					Effect.gen(function* () {
 						const ticket: ProviderHttpTicket = {
 							...scheduling,
 							id: providerHttpTicketId({ ...identity, executionId, requestIndex: request.index }),
 						};
-						yield* cancelOnInterrupt(initial, ticket);
-						const admitted = yield* makeActivity({
-							success: HttpAdmission,
-							execute: admitInMemory(initial, url, ticket),
-							name: `sandbox-http-${request.index}-admission-${admissionAttempt++}`,
-						});
+						const activePolicy = yield* Ref.make<MatchedHttpRateLimit | null>(null);
+						yield* cancelOnInterrupt(activePolicy, ticket);
+						const admitted = yield* coordinateDurably("admission", () =>
+							makeActivity({
+								success: HttpAdmission,
+								error: HttpAdmissionCoordinationError,
+								name: `sandbox-http-${request.index}-admission-${admissionAttempt++}`,
+								execute: Effect.gen(function* () {
+									const resolution = yield* resolveNow(executionId, url);
+									return resolution.matched
+										? yield* admitInMemory(resolution, url, ticket, activePolicy)
+										: { resolution, timing: null, cleanupPolicy: null, _tag: "Settled" as const };
+								}),
+							}),
+						);
+						yield* Ref.set(activePolicy, admitted.cleanupPolicy);
 						if (admitted._tag === "Interrupted") {
 							return yield* Workflow.suspend(yield* WorkflowInstance);
 						}
@@ -698,16 +727,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				let hop = 0;
 				let attempt = 0;
 				let redirect: SandboxHttpRedirect | null = null;
-				let resolution = yield* resolvePolicy(url);
 				for (;;) {
 					let policy: MatchedHttpRateLimit | null = null;
 					let timing: AdmissionTiming | null = null;
-					if (resolution.matched) {
-						const admitted = yield* admit(resolution, url, { hop, attempt });
-						if (admitted.resolution.matched) {
-							policy = admitted.resolution;
-							timing = admitted.timing;
-						}
+					const admitted = yield* admit(url, { hop, attempt });
+					if (admitted.resolution.matched) {
+						policy = admitted.resolution;
+						timing = admitted.timing;
 					}
 					if (policy === null && terminalRateLimit) {
 						return terminalRateLimit;
@@ -723,7 +749,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						hop = redirect.hop;
 						attempt = 0;
 						terminalRateLimit = undefined;
-						resolution = yield* resolvePolicy(url);
 						continue;
 					}
 					const result = attempted.outcome.result;
@@ -759,7 +784,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						);
 					}
 					attempt += 1;
-					resolution = yield* resolvePolicy(url);
 				}
 			});
 
