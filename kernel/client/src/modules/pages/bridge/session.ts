@@ -33,7 +33,6 @@ import {
 	type PluginBridgePageRefresh,
 	type PluginBridgePageShortcutPress,
 	type PluginBridgePickEntityScreen,
-	type PluginBridgePickEntityScreenCancel,
 	type PluginBridgeTheme,
 	type PluginBridgeViewport,
 	type PluginBridgeOperationRequest,
@@ -59,6 +58,10 @@ import {
 	type PluginIosLiveActivityRequest,
 	type PluginIosLiveActivityOutcome,
 	type PickEntityOutcome,
+	type AddToCollectionOutcome,
+	type AddToCollectionRequest,
+	type EditCollectionOutcome,
+	type EditCollectionRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
 import { Cause, Effect, Fiber, Match, Option, Result, Schema } from "effect";
@@ -94,9 +97,12 @@ export type PluginBridgeSession = {
 
 type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
+type HostScreenType = "add-to-collection-screen" | "edit-collection-screen" | "pick-entity-screen";
+
 type PendingRequest = {
 	readonly fiber: Fiber.Fiber<unknown, unknown>;
 	readonly type:
+		| HostScreenType
 		| "device"
 		| "asset"
 		| "collection"
@@ -104,11 +110,16 @@ type PendingRequest = {
 		| "external-link"
 		| "ios-live-activity"
 		| "operation"
-		| "pick-entity-screen"
 		| "ryotql"
 		| "storage"
 		| "upload";
 };
+
+const hostScreenTypes: ReadonlySet<PendingRequest["type"]> = new Set<HostScreenType>([
+	"pick-entity-screen",
+	"edit-collection-screen",
+	"add-to-collection-screen",
+]);
 
 type PluginBridgeOptions = {
 	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
@@ -139,6 +150,12 @@ type PluginBridgeOptions = {
 	readonly onPickEntity: (
 		request: PluginBridgePickEntityScreen,
 	) => Effect.Effect<PickEntityOutcome>;
+	readonly onEditCollection: (
+		request: EditCollectionRequest,
+	) => Effect.Effect<EditCollectionOutcome>;
+	readonly onAddToCollection: (
+		request: AddToCollectionRequest,
+	) => Effect.Effect<AddToCollectionOutcome>;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onRyotQL: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
 	readonly onOperation: (request: PluginOperationRequest) => Effect.Effect<PluginOperationOutcome>;
@@ -575,9 +592,22 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		Effect.runFork(Fiber.interrupt(current.fiber));
 	}
 
-	function handlePickEntityCancel(request: PluginBridgePickEntityScreenCancel) {
-		const current = pending.get(request.requestId);
-		if (current?.type !== "pick-entity-screen" || !pending.delete(request.requestId)) {
+	function openHostScreen(
+		requestId: string,
+		type: HostScreenType,
+		open: () => Effect.Effect<{ readonly kind: string }>,
+	) {
+		const busy = [...pending.values()].some((request) => hostScreenTypes.has(request.type));
+		runRequest(requestId, type, () =>
+			(busy ? Effect.succeed({ kind: "cancelled" }) : open()).pipe(
+				Effect.map((value) => ({ value, outcome: "success" })),
+			),
+		);
+	}
+
+	function handleHostScreenCancel(type: HostScreenType, requestId: string) {
+		const current = pending.get(requestId);
+		if (current?.type !== type || !pending.delete(requestId)) {
 			return;
 		}
 		Effect.runFork(Fiber.interrupt(current.fiber));
@@ -642,8 +672,14 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							}
 						}),
 						Match.when({ type: "asset-cancel" }, (request) => handleAssetCancel(request)),
-						Match.when({ type: "pick-entity-screen-cancel" }, (request) =>
-							handlePickEntityCancel(request),
+						Match.when({ type: "pick-entity-screen-cancel" }, ({ requestId }) =>
+							handleHostScreenCancel("pick-entity-screen", requestId),
+						),
+						Match.when({ type: "edit-collection-screen-cancel" }, ({ requestId }) =>
+							handleHostScreenCancel("edit-collection-screen", requestId),
+						),
+						Match.when({ type: "add-to-collection-screen-cancel" }, ({ requestId }) =>
+							handleHostScreenCancel("add-to-collection-screen", requestId),
 						),
 						Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
 						Match.when({ type: "navigate-back" }, () => {
@@ -673,11 +709,23 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
 						Match.when({ type: "page-search" }, (request) => options.onPageSearch(request)),
 						Match.when({ type: "pick-entity-screen" }, (request) =>
-							runRequest(request.requestId, "pick-entity-screen", () =>
-								options
-									.onPickEntity(request)
-									.pipe(Effect.map((value) => ({ value, outcome: "success" }))),
+							openHostScreen(request.requestId, "pick-entity-screen", () =>
+								options.onPickEntity(request),
 							),
+						),
+						Match.when(
+							{ type: "edit-collection-screen" },
+							({ requestId, type: _type, ...request }) =>
+								openHostScreen(requestId, "edit-collection-screen", () =>
+									options.onEditCollection(request),
+								),
+						),
+						Match.when(
+							{ type: "add-to-collection-screen" },
+							({ requestId, type: _type, ...request }) =>
+								openHostScreen(requestId, "add-to-collection-screen", () =>
+									options.onAddToCollection(request),
+								),
 						),
 						Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
 						Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),

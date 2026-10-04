@@ -1,7 +1,11 @@
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import { CLIENT_BRIDGE_BOOTSTRAP_READY } from "@ryot-app/plugin-client-contract";
 import type {
+	AddToCollectionOutcome,
+	AddToCollectionRequest,
 	ClientPageContext,
+	EditCollectionOutcome,
+	EditCollectionRequest,
 	ExternalLinkOutcome,
 	ExternalLinkRequest,
 	KernelShortcut,
@@ -112,6 +116,12 @@ export function PageIframeHost(props: {
 	readonly onPickEntity: (
 		request: PluginBridgePickEntityScreen,
 	) => Effect.Effect<PickEntityOutcome>;
+	readonly onEditCollection: (
+		request: EditCollectionRequest,
+	) => Effect.Effect<EditCollectionOutcome>;
+	readonly onAddToCollection: (
+		request: AddToCollectionRequest,
+	) => Effect.Effect<AddToCollectionOutcome>;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
 	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
@@ -389,6 +399,8 @@ export function PageIframeHost(props: {
 			onEntitySave: (request) => latest.current.onEntitySave(request),
 			onPickEntity: (request) => latest.current.onPickEntity(request),
 			onExternalLink: (request) => latest.current.onExternalLink(request),
+			onEditCollection: (request) => latest.current.onEditCollection(request),
+			onAddToCollection: (request) => latest.current.onAddToCollection(request),
 			onIosLiveActivity: (request) => latest.current.onIosLiveActivity(request),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),

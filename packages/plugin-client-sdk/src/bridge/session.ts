@@ -10,13 +10,19 @@ import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	PLUGIN_HEADER_TITLE_MAX,
 	PluginBridgeHostMessage,
+	type AddToCollectionRequest,
+	type EditCollectionRequest,
 	type PluginDeviceRequest,
 	type PluginIosLiveActivityRequest,
+	type PluginBridgeAddToCollectionScreen,
+	type PluginBridgeAddToCollectionScreenCancel,
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
 	type PluginBridgeCollectionRequest,
 	type PluginBridgeEntitySaveRequest,
 	type PluginBridgeDismissOverlayResult,
+	type PluginBridgeEditCollectionScreen,
+	type PluginBridgeEditCollectionScreenCancel,
 	type PluginBridgeHeader,
 	type PluginBridgeInit,
 	type PluginBridgeLocation,
@@ -65,8 +71,10 @@ type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed"
 type RequestType =
 	| "device"
 	| "ios-live-activity"
+	| "add-to-collection-screen"
 	| "asset"
 	| "collection"
+	| "edit-collection-screen"
 	| "entity-editor-save"
 	| "external-link"
 	| "operation"
@@ -442,6 +450,37 @@ export const createPluginRuntime = (
 				}) satisfies PluginBridgePickEntityScreenCancel,
 		);
 
+	const editCollection = (request: EditCollectionRequest) =>
+		sendRequest(
+			"edit-collection-screen",
+			(requestId) =>
+				({
+					...request,
+					requestId,
+					type: "edit-collection-screen",
+				}) satisfies PluginBridgeEditCollectionScreen,
+			(requestId) =>
+				({
+					requestId,
+					type: "edit-collection-screen-cancel",
+				}) satisfies PluginBridgeEditCollectionScreenCancel,
+		);
+	const addToCollection = (request: AddToCollectionRequest) =>
+		sendRequest(
+			"add-to-collection-screen",
+			(requestId) =>
+				({
+					...request,
+					requestId,
+					type: "add-to-collection-screen",
+				}) satisfies PluginBridgeAddToCollectionScreen,
+			(requestId) =>
+				({
+					requestId,
+					type: "add-to-collection-screen-cancel",
+				}) satisfies PluginBridgeAddToCollectionScreenCancel,
+		);
+
 	const client = createRyotClient({
 		query,
 		upload,
@@ -450,6 +489,8 @@ export const createPluginRuntime = (
 		pickEntity,
 		resolveAssets,
 		accessStorage,
+		editCollection,
+		addToCollection,
 		invokeOperation,
 		mutateCollection,
 		navigatePageSearch,
@@ -692,6 +733,12 @@ export const createPluginRuntime = (
 					return;
 				case "pick-entity-screen-result":
 					settle("pick-entity-screen", message.requestId, message);
+					return;
+				case "edit-collection-screen-result":
+					settle("edit-collection-screen", message.requestId, message);
+					return;
+				case "add-to-collection-screen-result":
+					settle("add-to-collection-screen", message.requestId, message);
 					return;
 				case "external-link-result":
 					settle(

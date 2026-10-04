@@ -37,7 +37,7 @@ import {
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { waitFor } from "@testing-library/dom";
-import { Effect, Fiber, Schema } from "effect";
+import { Deferred, Effect, Fiber, Schema } from "effect";
 
 import { openPluginBridge, type PluginBridgeSession } from "#/modules/pages/bridge/session";
 import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
@@ -156,6 +156,8 @@ const connect = (
 		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
 		readonly onStorage?: Parameters<typeof openPluginBridge>[0]["onStorage"];
 		readonly onPickEntity?: Parameters<typeof openPluginBridge>[0]["onPickEntity"];
+		readonly onEditCollection?: Parameters<typeof openPluginBridge>[0]["onEditCollection"];
+		readonly onAddToCollection?: Parameters<typeof openPluginBridge>[0]["onAddToCollection"];
 		readonly onDiagnostic?: Parameters<typeof openPluginBridge>[0]["onDiagnostic"];
 	} = {},
 ) => {
@@ -171,6 +173,8 @@ const connect = (
 	let init: PluginBridgeInit | undefined;
 	const shortcuts: KernelShortcut[] = [];
 	const entityPicks: unknown[] = [];
+	const collectionEdits: unknown[] = [];
+	const collectionAdds: unknown[] = [];
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
 	const screenStates: PageScreenReadiness[] = [];
@@ -213,6 +217,14 @@ const connect = (
 		onPickEntity: (request) => {
 			entityPicks.push(request);
 			return options.onPickEntity?.(request) ?? Effect.succeed({ kind: "cancelled" as const });
+		},
+		onEditCollection: (request) => {
+			collectionEdits.push(request);
+			return options.onEditCollection?.(request) ?? Effect.succeed({ kind: "cancelled" as const });
+		},
+		onAddToCollection: (request) => {
+			collectionAdds.push(request);
+			return options.onAddToCollection?.(request) ?? Effect.succeed({ kind: "cancelled" as const });
 		},
 		onIosLiveActivity:
 			options.onIosLiveActivity ??
@@ -286,7 +298,9 @@ const connect = (
 		pageSearches,
 		pageShortcuts,
 		overlayStates,
+		collectionAdds,
 		operationCalls,
+		collectionEdits,
 		pluginPort: testPort,
 	};
 };
@@ -685,6 +699,249 @@ describe("bridge page screens", () => {
 		}),
 	);
 
+	it.live("dispatches ID-only collection screens and returns their minimal outcomes", () =>
+		Effect.gen(function* () {
+			const { init, received, failures, pluginPort, collectionAdds, collectionEdits } = connect({
+				onAddToCollection: () => Effect.succeed({ kind: "removed" as const }),
+				onEditCollection: () =>
+					Effect.succeed({ kind: "saved" as const, collectionId: EntityId.make("collection-2") }),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+
+			pluginPort.postMessage({
+				collectionId: "collection-1",
+				type: "edit-collection-screen",
+				requestId: "edit-collection-screen-1",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			pluginPort.postMessage({
+				entityId: "entity-1",
+				type: "add-to-collection-screen",
+				requestId: "add-to-collection-screen-2",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
+
+			expect(collectionEdits).toEqual([{ collectionId: "collection-1" }]);
+			expect(collectionAdds).toEqual([{ entityId: "entity-1" }]);
+			expect(received.slice(1)).toEqual([
+				{
+					outcome: "success",
+					requestId: "edit-collection-screen-1",
+					type: "edit-collection-screen-result",
+					value: { kind: "saved", collectionId: "collection-2" },
+				},
+				{
+					outcome: "success",
+					value: { kind: "removed" },
+					requestId: "add-to-collection-screen-2",
+					type: "add-to-collection-screen-result",
+				},
+			]);
+			expect(failures).toEqual([]);
+		}),
+	);
+
+	it.live("sanitizes a collection screen outcome that carries more than its kind", () =>
+		Effect.gen(function* () {
+			const diagnostics: unknown[] = [];
+			const saved = { kind: "saved" as const, properties: { note: "x" } };
+			const { init, received, failures, pluginPort } = connect({
+				onAddToCollection: () => Effect.succeed(saved),
+				onDiagnostic: (diagnostic) => diagnostics.push(diagnostic.type),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+			pluginPort.postMessage({
+				entityId: "entity-1",
+				type: "add-to-collection-screen",
+				requestId: "add-to-collection-screen-1",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(received[1]).toEqual({
+				outcome: "failure",
+				reason: "malformed-result",
+				requestId: "add-to-collection-screen-1",
+				type: "add-to-collection-screen-result",
+			});
+			expect(diagnostics).toEqual(["add-to-collection-screen"]);
+			expect(failures).toEqual([]);
+		}),
+	);
+
+	it.live("fails the document before dispatching a collection screen with extra fields", () =>
+		Effect.gen(function* () {
+			for (const request of [
+				{ name: "Renamed", collectionId: "collection-1", type: "edit-collection-screen" },
+				{ action: "delete", collectionId: "collection-1", type: "edit-collection-screen" },
+				{ entityId: "entity-1", properties: { note: "x" }, type: "add-to-collection-screen" },
+				{ collectionId: "collection-1", type: "add-to-collection-screen" },
+			]) {
+				const { init, received, failures, pluginPort, collectionAdds, collectionEdits } = connect();
+				pluginPort.postMessage(readyFor(init));
+				yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+				pluginPort.postMessage({ ...request, requestId: "screen-1" });
+				yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
+				expect(collectionEdits).toEqual([]);
+				expect(collectionAdds).toEqual([]);
+				expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
+			}
+		}),
+	);
+
+	it.live("keeps one pending host screen per frame across screen types", () =>
+		Effect.gen(function* () {
+			const release = yield* Deferred.make<void>();
+			const { init, received, pluginPort, entityPicks, collectionAdds, collectionEdits } = connect({
+				onEditCollection: () =>
+					Deferred.await(release).pipe(Effect.as({ kind: "deleted" as const })),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+			pluginPort.postMessage({ requestId: "edit-1", type: "edit-collection-screen" });
+			yield* Effect.promise(() => waitFor(() => expect(collectionEdits).toHaveLength(1)));
+
+			pluginPort.postMessage({ requestId: "edit-2", type: "edit-collection-screen" });
+			pluginPort.postMessage({
+				requestId: "add-1",
+				entityId: "entity-1",
+				type: "add-to-collection-screen",
+			});
+			pluginPort.postMessage({
+				requestId: "pick-1",
+				type: "pick-entity-screen",
+				schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
+			});
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(4)));
+			expect(received.slice(1)).toEqual([
+				{
+					outcome: "success",
+					requestId: "edit-2",
+					value: { kind: "cancelled" },
+					type: "edit-collection-screen-result",
+				},
+				{
+					requestId: "add-1",
+					outcome: "success",
+					value: { kind: "cancelled" },
+					type: "add-to-collection-screen-result",
+				},
+				{
+					outcome: "success",
+					requestId: "pick-1",
+					value: { kind: "cancelled" },
+					type: "pick-entity-screen-result",
+				},
+			]);
+			expect(collectionEdits).toHaveLength(1);
+			expect(collectionAdds).toEqual([]);
+			expect(entityPicks).toEqual([]);
+
+			yield* Deferred.succeed(release, undefined);
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(5)));
+			expect(received[4]).toEqual({
+				outcome: "success",
+				requestId: "edit-1",
+				value: { kind: "deleted" },
+				type: "edit-collection-screen-result",
+			});
+			pluginPort.postMessage({
+				requestId: "add-2",
+				entityId: "entity-1",
+				type: "add-to-collection-screen",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(collectionAdds).toHaveLength(1)));
+		}),
+	);
+
+	it.live("interrupts a collection screen only on its own plugin cancel message", () =>
+		Effect.gen(function* () {
+			const interrupted: string[] = [];
+			const pendingScreen = (name: string) =>
+				Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => interrupted.push(name))));
+			const { init, received, pluginPort, collectionAdds, collectionEdits } = connect({
+				onEditCollection: () => pendingScreen("edit"),
+				onAddToCollection: () => pendingScreen("add"),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+
+			pluginPort.postMessage({ requestId: "edit-1", type: "edit-collection-screen" });
+			yield* Effect.promise(() => waitFor(() => expect(collectionEdits).toHaveLength(1)));
+			pluginPort.postMessage({ requestId: "edit-1", type: "add-to-collection-screen-cancel" });
+			pluginPort.postMessage({ requestId: "edit-1", type: "pick-entity-screen-cancel" });
+			yield* Effect.promise(() => delay(20));
+			expect(interrupted).toEqual([]);
+			pluginPort.postMessage({ requestId: "edit-1", type: "edit-collection-screen-cancel" });
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toEqual(["edit"])));
+
+			pluginPort.postMessage({
+				requestId: "add-1",
+				entityId: "entity-1",
+				type: "add-to-collection-screen",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(collectionAdds).toHaveLength(1)));
+			pluginPort.postMessage({ requestId: "add-1", type: "add-to-collection-screen-cancel" });
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toEqual(["edit", "add"])));
+			yield* Effect.promise(() => delay(20));
+			expect(received).toEqual([at()]);
+		}),
+	);
+
+	it.live("cancels collection screens on document navigation and close without stale replies", () =>
+		Effect.gen(function* () {
+			const interrupted: string[] = [];
+			const release = yield* Deferred.make<void>();
+			const { init, session, received, pluginPort, collectionAdds, collectionEdits } = connect({
+				onAddToCollection: () =>
+					Effect.never.pipe(Effect.onInterrupt(() => Effect.sync(() => interrupted.push("add")))),
+				onEditCollection: () =>
+					Effect.uninterruptible(Deferred.await(release)).pipe(
+						Effect.as({ kind: "deleted" as const }),
+						Effect.onInterrupt(() => Effect.sync(() => interrupted.push("edit"))),
+					),
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
+
+			pluginPort.postMessage({ requestId: "edit-1", type: "edit-collection-screen" });
+			yield* Effect.promise(() => waitFor(() => expect(collectionEdits).toHaveLength(1)));
+			const page = {
+				view: null,
+				settings: {},
+				contributors: [],
+				dataSources: null,
+				route: { params: {} },
+				renderer: { name: "fixture", kind: "kernel" as const },
+				target: {
+					search: "",
+					path: "/other",
+					kind: "plugin-route" as const,
+					packageId: PluginPackageId.make("test/fixture"),
+				},
+			};
+			session.sendDocument("page-2", page, nav());
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			yield* Deferred.succeed(release, undefined);
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toEqual(["edit"])));
+
+			pluginPort.postMessage({
+				requestId: "add-1",
+				entityId: "entity-1",
+				type: "add-to-collection-screen",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(collectionAdds).toHaveLength(1)));
+			session.close();
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toEqual(["edit", "add"])));
+			yield* Effect.promise(() => delay(20));
+			expect(received).toEqual([
+				at(),
+				{ page, type: "document", navigation: at(), documentKey: "page-2" },
+				{ reason: "disposed", type: "lifecycle-close" },
+			]);
+		}),
+	);
+
 	it.live("registers only allowlisted page shortcuts and sends presses back down", () =>
 		Effect.gen(function* () {
 			const { init, session, received, pluginPort, pageShortcuts } = connect();
@@ -951,6 +1208,8 @@ describe("plugin bridge", () => {
 				onDevice: () => Effect.succeed(invalidDeviceRequest),
 				watchEntities: () => ({ update: () => {}, dispose: () => {} }),
 				onPickEntity: () => Effect.succeed({ kind: "cancelled" as const }),
+				onEditCollection: () => Effect.succeed({ kind: "cancelled" as const }),
+				onAddToCollection: () => Effect.succeed({ kind: "cancelled" as const }),
 				target: {
 					postMessage: () => {
 						throw new Error("transfer failed");

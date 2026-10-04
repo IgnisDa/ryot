@@ -47,6 +47,63 @@ describe("Effect-native client capabilities", () => {
 			unsubscribe();
 		}),
 	);
+	it.live("validates collection screen requests before the adapter and decodes outcomes", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const client = createRyotClient(
+				createTestRyotAdapter({
+					addToCollection: (request) =>
+						Effect.sync(() => {
+							calls.push(request);
+							return { kind: "removed" };
+						}),
+					editCollection: (request) =>
+						Effect.sync(() => {
+							calls.push(request);
+							return { kind: "saved", collectionId: "collection-1" };
+						}),
+				}),
+			);
+
+			expect(yield* client.screens.editCollection({})).toEqual({
+				kind: "saved",
+				collectionId: "collection-1",
+			});
+			expect(
+				yield* client.screens.addToCollection({ collectionId: "c-1", entityId: "entity-1" }),
+			).toEqual({ kind: "removed" });
+			expect(calls).toEqual([{}, { collectionId: "c-1", entityId: "entity-1" }]);
+			const renamed = { name: "Renamed", collectionId: "c-1" };
+			const withProperties = { properties: {}, entityId: "entity-1" };
+			expect(yield* Effect.flip(client.screens.editCollection(renamed))).toMatchObject({
+				reason: "invalid-input",
+			});
+			expect(yield* Effect.flip(client.screens.addToCollection(withProperties))).toMatchObject({
+				reason: "invalid-input",
+			});
+			expect(calls).toHaveLength(2);
+
+			const missing = createRyotClient(createTestRyotAdapter());
+			expect(yield* Effect.flip(missing.screens.editCollection({}))).toMatchObject({
+				reason: "unsupported-capability",
+			});
+			expect(
+				yield* Effect.flip(missing.screens.addToCollection({ entityId: "entity-1" })),
+			).toMatchObject({ reason: "unsupported-capability" });
+			const malformed = createRyotClient(
+				createTestRyotAdapter({
+					addToCollection: () => Effect.succeed({ kind: "deleted" }),
+					editCollection: () => Effect.succeed({ kind: "saved", name: "Renamed" }),
+				}),
+			);
+			expect(yield* Effect.flip(malformed.screens.editCollection({}))).toMatchObject({
+				reason: "malformed-result",
+			});
+			expect(
+				yield* Effect.flip(malformed.screens.addToCollection({ entityId: "entity-1" })),
+			).toMatchObject({ reason: "malformed-result" });
+		}),
+	);
 	it.live("validates external links before adapter access and decodes launch results", () =>
 		Effect.gen(function* () {
 			const calls: unknown[] = [];
