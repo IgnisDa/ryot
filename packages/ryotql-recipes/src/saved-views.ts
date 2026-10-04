@@ -6,10 +6,8 @@ import {
 	RyotQLDocument,
 	rowsResultSchema,
 	type FieldSelection,
-	type NamedQuery,
 	type OrderBy,
 	type Predicate,
-	type RowsOutput,
 	type TableReference,
 	type ScalarExpression,
 } from "@ryot-app/contract/modules/ryotql/language";
@@ -41,6 +39,13 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { DateTime, Option, Result, Schema } from "effect";
+
+import {
+	compileOptionalFilter,
+	effectiveFilterFields,
+	type FilterInput,
+	type RowsQuery,
+} from "./saved-view-filters";
 
 const populationStatusField = "populationStatus";
 
@@ -136,7 +141,7 @@ export type EntityBrowserResultItem = typeof EntityBrowserResultItem.Type;
 
 export type EntityBrowserResult = SavedViewResult<EntityBrowserResultItem>;
 
-type EntityBrowserRecipeInput = {
+type EntityBrowserRecipeInput = FilterInput & {
 	readonly after?: string | undefined;
 	readonly queryDocument: RyotQLDocument;
 	readonly searchText?: string | undefined;
@@ -152,8 +157,6 @@ export const EntityBrowserPageInput = Schema.Struct({
 	settings: EntityBrowserSavedViewSettings,
 	view: Schema.NullOr(SavedViewPageIdentity),
 });
-
-type RowsQuery = NamedQuery & { readonly output: RowsOutput };
 
 const getNamedRowsQuery = (
 	queryDocument: RyotQLDocument,
@@ -267,6 +270,14 @@ export const entityBrowserRecipe = (
 		if (Result.isFailure(orderByResult)) {
 			return Result.fail(orderByResult.failure);
 		}
+		const filterResult = compileOptionalFilter(input, {
+			source,
+			subject: input.settings.subject,
+			fields: effectiveFilterFields("entity-browser", input.settings),
+		});
+		if (Result.isFailure(filterResult)) {
+			return Result.fail(filterResult.failure);
+		}
 		const search = searchResult.success;
 		const orderBy = orderByResult.success;
 		const nameField = unusedFieldKey(fields, "__entityBrowserName");
@@ -278,8 +289,11 @@ export const entityBrowserRecipe = (
 		const query = {
 			...source,
 			where: combineWhere(
-				combineWhere(source.where, subjectSchemaPredicate(input.settings.subject, entity)),
-				search,
+				combineWhere(
+					combineWhere(source.where, subjectSchemaPredicate(input.settings.subject, entity)),
+					search,
+				),
+				filterResult.success,
 			),
 			output: {
 				...source.output,
@@ -358,8 +372,11 @@ export const entityBrowserRecipe = (
 
 export const entityBrowserCountRecipe = (
 	queryDocument: RyotQLDocument,
-	settings: Pick<EntityBrowserSavedViewSettingsValue, "sourceName" | "subject" | "searchFields">,
-	input: { readonly searchText?: string | undefined } = {},
+	settings: Pick<
+		EntityBrowserSavedViewSettingsValue,
+		"sourceName" | "subject" | "searchFields" | "filterFields"
+	>,
+	input: FilterInput & { readonly searchText?: string | undefined } = {},
 ): Result.Result<PreparedRecipe<number>, Error> =>
 	Result.flatMap(getNamedRowsQuery(queryDocument, settings.sourceName), (query) => {
 		const entity = table("entity", settings.subject.entityAlias);
@@ -367,22 +384,33 @@ export const entityBrowserCountRecipe = (
 		if (Result.isFailure(searchResult)) {
 			return Result.fail(searchResult.failure);
 		}
+		const filterResult = compileOptionalFilter(input, {
+			source: query,
+			subject: settings.subject,
+			fields: effectiveFilterFields("entity-browser", settings),
+		});
+		if (Result.isFailure(filterResult)) {
+			return Result.fail(filterResult.failure);
+		}
 		const search = searchResult.success;
 		const recipe = defineRecipe(() => ({
 			map: ({ entityBrowserCount }) => Result.succeed(entityBrowserCount.total),
 			queries: {
 				entityBrowserCount: selectedAggregate(query.from, {
 					joins: query.joins,
-					where: combineWhere(
-						combineWhere(query.where, subjectSchemaPredicate(settings.subject, entity)),
-						search,
-					),
 					measures: {
 						total: selectedMeasure(
 							{ function: "countDistinct", expr: column(entity, "id") },
 							Schema.Finite,
 						),
 					},
+					where: combineWhere(
+						combineWhere(
+							combineWhere(query.where, subjectSchemaPredicate(settings.subject, entity)),
+							search,
+						),
+						filterResult.success,
+					),
 				}),
 			},
 		}));
@@ -408,7 +436,7 @@ export type ResultsTableResultItem = {
 
 export type ResultsTableResult = SavedViewResult<ResultsTableResultItem>;
 
-type ResultsTableRecipeInput = {
+type ResultsTableRecipeInput = FilterInput & {
 	readonly after?: string | undefined;
 	readonly queryDocument: RyotQLDocument;
 	readonly settings: ResultsTableSavedViewSettingsValue;
@@ -465,9 +493,18 @@ const resultsTableItem = (row: SavedViewRawRow, settings: ResultsTableSavedViewS
 export const resultsTableRecipe = (
 	input: ResultsTableRecipeInput,
 ): Result.Result<PreparedRecipe<ResultsTableResult>, Error> =>
-	Result.map(getNamedRowsQuery(input.queryDocument, input.settings.sourceName), (source) => {
+	Result.flatMap(getNamedRowsQuery(input.queryDocument, input.settings.sourceName), (source) => {
+		const filterResult = compileOptionalFilter(input, {
+			source,
+			subject: undefined,
+			fields: effectiveFilterFields("results-table", input.settings),
+		});
+		if (Result.isFailure(filterResult)) {
+			return Result.fail(filterResult.failure);
+		}
 		const query = {
 			...source,
+			where: combineWhere(source.where, filterResult.success),
 			output: {
 				...source.output,
 				pagination: {
@@ -504,5 +541,5 @@ export const resultsTableRecipe = (
 				},
 			},
 		}));
-		return recipe();
+		return Result.succeed(recipe());
 	});

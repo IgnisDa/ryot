@@ -28,3 +28,21 @@ unused keys from the subject alias and decodes them into each item; both the pag
 AND an owner-qualified subject-schema predicate into `where`, and the count uses `countDistinct` of the
 subject alias ID. Authored sources therefore neither select nor map provenance or sync state, and the
 schema constraint holds by construction. Registered entity presentations supply cards.
+
+### Filters
+
+Entity-browser and results-table settings may declare `filterFields`: typed value fields that name a
+projected output field, and relationship fields (entity and collection browsers only). The kernel
+owns the operators, fixed per field type in `filterOperators`. `effectiveFilterFields` adds the
+reserved kernel `collections` relationship field (kernel `member-of`, outgoing) to entity and
+collection browsers; results tables get authored fields only.
+
+`compileFilter` turns a nested `Filter` (`and`, `or`, `not`, field rules) into one `Predicate`.
+Operands are cast to the kind of their literals so the RyotQL validator accepts them. Relationship
+rules compile to correlated `exists` queries on aliases that avoid every source alias, `noneOf`
+and list `empty` include missing values, and `withinLastDays` derives its bound from the supplied
+`now`. Callers read `now` from the Effect `Clock` when the query runs and key rolling queries by the
+filter JSON. Unknown fields, operators outside the field type, and inverted ranges fail. The page,
+count, and results-table recipes accept `filter` with `now` and AND the predicate into `where`.
+
+`propertyFilterFields` builds value fields from an `AppSchema` for plugin authors.
