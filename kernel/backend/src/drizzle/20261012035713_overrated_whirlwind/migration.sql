@@ -800,7 +800,6 @@ CREATE TABLE "plugin_revision" (
 	"icon" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'icon') STORED,
 	"description" text GENERATED ALWAYS AS (manifest -> 'metadata' ->> 'description') STORED,
 	"plugin_id" text NOT NULL,
-	"sandbox_authority" jsonb GENERATED ALWAYS AS (plugin_sandbox_authority(manifest)) STORED NOT NULL,
 	CONSTRAINT "plugin_revision_plugin_source_unique" UNIQUE("plugin_id","source_hash"),
 	CONSTRAINT "plugin_revision_id_plugin_unique" UNIQUE("id","plugin_id")
 );
@@ -1267,6 +1266,82 @@ CREATE VIEW "global_signal_schema" AS (
 			left join "global_plugin" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
 			where d.plugin_revision_id is null or g.plugin_id is not null
 		);--> statement-breakpoint
+CREATE VIEW "plugin_revision_sandbox_authority" AS (
+		select id, case
+			when jsonb_typeof(manifest->'scripts') is distinct from 'array'
+				or jsonb_typeof(manifest->'workflows') is distinct from 'array'
+				or jsonb_typeof(manifest->'userBootstrap') is distinct from 'array'
+				or jsonb_typeof(manifest->'entitySchemas') is distinct from 'array'
+				or jsonb_typeof(manifest->'relationshipSchemas') is distinct from 'array'
+			then 'null'::jsonb
+			when exists (
+				select 1
+				from jsonb_array_elements(manifest->'entitySchemas') as entities(entity_schema)
+				where jsonb_typeof(entity_schema->'eventSchemas') is distinct from 'array'
+			)
+			then 'null'::jsonb
+			else jsonb_build_object(
+				'configSchema', manifest->'configSchema',
+				'workflowScripts', coalesce(
+					(
+						select jsonb_object_agg(workflow->>'slug', workflow->'scriptSlug')
+						from jsonb_array_elements(manifest->'workflows') as workflows(workflow)
+					),
+					'{}'::jsonb
+				),
+				'userBootstrapScriptSlugs', coalesce(
+					(
+						select jsonb_agg(bootstrap->'scriptSlug' order by bootstrap_position)
+						from jsonb_array_elements(manifest->'userBootstrap')
+							with ordinality as bootstraps(bootstrap, bootstrap_position)
+					),
+					'[]'::jsonb
+				),
+				'schemaScope', jsonb_build_object(
+					'entitySchemaSlugs', coalesce(
+						(
+							select jsonb_agg(entity_schema->'slug' order by entity_position)
+							from jsonb_array_elements(manifest->'entitySchemas')
+								with ordinality as entities(entity_schema, entity_position)
+						),
+						'[]'::jsonb
+					),
+					'relationshipSchemaSlugs', coalesce(
+						(
+							select jsonb_agg(relationship_schema->'slug' order by relationship_position)
+							from jsonb_array_elements(manifest->'relationshipSchemas')
+								with ordinality as relationships(relationship_schema, relationship_position)
+						),
+						'[]'::jsonb
+					),
+					'eventSchemas', coalesce(
+						(
+							select jsonb_agg(
+								jsonb_build_object(
+									'eventSchemaSlug', event_schema->'slug',
+									'entitySchemaSlug', entity_schema->'slug'
+								)
+								order by entity_position, event_position
+							)
+							from jsonb_array_elements(manifest->'entitySchemas')
+								with ordinality as entities(entity_schema, entity_position)
+							cross join lateral jsonb_array_elements(entity_schema->'eventSchemas')
+								with ordinality as events(event_schema, event_position)
+						),
+						'[]'::jsonb
+					)
+				),
+				'scriptKinds', coalesce(
+					(
+						select jsonb_object_agg(script->>'slug', script->'kind')
+						from jsonb_array_elements(manifest->'scripts') as scripts(script)
+					),
+					'{}'::jsonb
+				)
+			)
+		end as sandbox_authority
+		from "plugin_revision"
+	);--> statement-breakpoint
 CREATE VIEW "user_entity_schema" AS (
 			select u.id as user_id, d.id, null::text as plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective
 			from definition_entity_schema d

@@ -122,9 +122,13 @@ describe("sandbox execution authority", () => {
 						db
 							.select({
 								manifest: tables.pluginRevision.manifest,
-								sandboxAuthority: tables.pluginRevision.sandboxAuthority,
+								sandboxAuthority: tables.pluginRevisionSandboxAuthority.sandboxAuthority,
 							})
 							.from(tables.pluginRevision)
+							.innerJoin(
+								tables.pluginRevisionSandboxAuthority,
+								eq(tables.pluginRevisionSandboxAuthority.id, tables.pluginRevision.id),
+							)
 							.where(eq(tables.pluginRevision.id, installed.revisionId))
 							.limit(1),
 					);
@@ -270,7 +274,7 @@ describe("sandbox execution authority", () => {
 		);
 
 		test.effect(
-			"rejects missing declarations and non-string workflow targets in persisted authority",
+			"rejects malformed declarations and non-string workflow targets in persisted authority",
 			() =>
 				Effect.gen(function* () {
 					const authority = yield* SandboxExecutionAuthority;
@@ -303,7 +307,10 @@ describe("sandbox execution authority", () => {
 						sql`${tables.pluginRevision.manifest} - 'userBootstrap'`,
 						sql`${tables.pluginRevision.manifest} - 'entitySchemas'`,
 						sql`${tables.pluginRevision.manifest} - 'relationshipSchemas'`,
+						sql`jsonb_set(${tables.pluginRevision.manifest}, '{scripts}', '{}'::jsonb)`,
+						sql`jsonb_set(${tables.pluginRevision.manifest}, '{entitySchemas}', '{}'::jsonb)`,
 						sql`jsonb_set(${tables.pluginRevision.manifest}, '{entitySchemas,0}', (${tables.pluginRevision.manifest}->'entitySchemas'->0) - 'eventSchemas')`,
+						sql`jsonb_set(${tables.pluginRevision.manifest}, '{entitySchemas,0,eventSchemas}', 'null'::jsonb)`,
 						sql`jsonb_set(${tables.pluginRevision.manifest}, '{workflows,0,scriptSlug}', '42'::jsonb)`,
 					]) {
 						yield* session.run((db) =>
