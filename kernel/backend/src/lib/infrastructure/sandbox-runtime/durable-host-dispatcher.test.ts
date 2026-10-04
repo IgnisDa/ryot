@@ -20,14 +20,17 @@ import {
 	Duration,
 	Effect,
 	Exit,
+	Fiber,
 	Layer,
 	Logger,
 	MutableRef,
+	Option,
 	References,
 	Ref,
 	Scope,
 } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
+import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -462,6 +465,7 @@ class HttpDispatchHarness extends Context.Service<
 		readonly clockNames: Effect.Effect<ReadonlyArray<string>>;
 		readonly activityNames: Effect.Effect<ReadonlyArray<string>>;
 		readonly clockDurations: Effect.Effect<ReadonlyArray<number>>;
+		readonly requestInterrupt: Effect.Effect<void>;
 		readonly registered: Effect.Effect<ReadonlyArray<ProviderHttpTicket>>;
 	}
 >()("test/HttpDispatchHarness") {}
@@ -490,6 +494,7 @@ const httpDispatchLayer = (options: {
 			const activityNames = yield* Ref.make<ReadonlyArray<string>>([]);
 			const clockDurations = yield* Ref.make<ReadonlyArray<number>>([]);
 			const registered = yield* Ref.make<ReadonlyArray<ProviderHttpTicket>>([]);
+			const interruptRequested = yield* Ref.make(false);
 			const httpCalls = yield* Ref.make(0);
 			const pollIndex = yield* Ref.make(0);
 			const claimIndex = yield* Ref.make(0);
@@ -510,11 +515,16 @@ const httpDispatchLayer = (options: {
 			const instance = WorkflowInstance.initial(SandboxScriptWorkflow.background, httpExecutionId);
 			let engine: WorkflowEngine["Service"];
 			engine = makeWorkflowActivityEngine(instance, {
-				deferredResult: () => Effect.succeedSome(Exit.void),
 				scheduleClock: (_workflow, scheduled) =>
 					append(clockNames, scheduled.clock.name).pipe(
 						Effect.andThen(append(clockDurations, Duration.toMillis(scheduled.clock.duration))),
 					),
+				deferredResult: (deferred) =>
+					deferred.name === "Workflow/InterruptSignal"
+						? Effect.map(Ref.get(interruptRequested), (requested) =>
+								requested ? Option.some(Exit.void) : Option.none(),
+							)
+						: Effect.succeedSome(Exit.void),
 				activityExecute: (activity) =>
 					Effect.gen(function* () {
 						yield* append(activityNames, activity.name);
@@ -614,6 +624,7 @@ const httpDispatchLayer = (options: {
 					registered: Ref.get(registered),
 					activityNames: Ref.get(activityNames),
 					clockDurations: Ref.get(clockDurations),
+					requestInterrupt: Ref.set(interruptRequested, true),
 				}),
 				Logger.layer([logger]),
 				Layer.succeed(References.MinimumLogLevel, "Trace"),
@@ -640,6 +651,13 @@ const runHttpDispatch = (
 			principal,
 			httpExecutionId,
 		);
+	});
+
+const runHttpDispatchOver = (elapsed: Duration.Input, url?: string) =>
+	Effect.gen(function* () {
+		const fiber = yield* Effect.forkChild(runHttpDispatch(url));
+		yield* TestClock.adjust(elapsed);
+		return yield* Fiber.join(fiber);
 	});
 
 const httpEvents = (events: ReadonlyArray<string>) =>
@@ -674,9 +692,7 @@ layer(httpDispatchLayer({ resolutions: matchedOnly, outcomes: [{ status: 200 }] 
 			]);
 			expect(yield* harness.activityNames).toEqual([
 				"sandbox-http-7-resolve-0",
-				"sandbox-http-7-register-1",
-				"sandbox-http-7-poll-2",
-				"sandbox-http-7-claim-3",
+				"sandbox-http-7-admission-0",
 				"sandbox-http-7-network-1",
 			]);
 			const events = yield* harness.events;
@@ -738,16 +754,21 @@ layer(
 		],
 	}),
 )((test) => {
-	test.effect("sleeps the wake hint, re-resolves and polls again without re-registering", () =>
+	test.effect("waits the wake hint inside one admission Activity without re-registering", () =>
 		Effect.gen(function* () {
 			const harness = yield* HttpDispatchHarness;
-			yield* runHttpDispatch();
+			const fiber = yield* Effect.forkChild(runHttpDispatch());
+			yield* TestClock.adjust("1999 millis");
+			expect(httpEvents(yield* harness.events)).toEqual([]);
+			yield* TestClock.adjust("1 milli");
+			yield* Fiber.join(fiber);
 			expect(yield* harness.registered).toHaveLength(1);
-			expect(yield* harness.clockNames).toEqual([
-				"sandbox-http-7-admission-wait-0",
-				"sandbox-http-7-coordination-backoff-0",
+			expect(yield* harness.clockNames).toEqual([]);
+			expect(yield* harness.activityNames).toEqual([
+				"sandbox-http-7-resolve-0",
+				"sandbox-http-7-admission-0",
+				"sandbox-http-7-network-1",
 			]);
-			expect(yield* harness.clockDurations).toEqual([1_000, 1_000]);
 			expect((yield* harness.events).filter((event) => event.startsWith("resolve:"))).toEqual([
 				`resolve:${providerOrigin}:ok`,
 				`resolve:${providerOrigin}:ok`,
@@ -769,7 +790,7 @@ layer(
 	test.effect("cancels the ticket and registers under the live policy when it changes", () =>
 		Effect.gen(function* () {
 			const harness = yield* HttpDispatchHarness;
-			yield* runHttpDispatch();
+			yield* runHttpDispatchOver("1 second");
 			expect(
 				(yield* harness.events).filter(
 					(event) => event.startsWith("register:") || event.startsWith("cancel:"),
@@ -793,7 +814,7 @@ layer(
 	test.effect("cancels the ticket and runs once when the policy becomes unmatched", () =>
 		Effect.gen(function* () {
 			const harness = yield* HttpDispatchHarness;
-			yield* runHttpDispatch();
+			yield* runHttpDispatchOver("1 second");
 			const events = yield* harness.events;
 			expect(httpEvents(events)).toHaveLength(1);
 			expect(events.filter((event) => event.startsWith("claim:"))).toEqual([]);
@@ -950,17 +971,15 @@ describe("http_fair_tickets_preserve_durable_admission_protections", () => {
 		test.effect("never dispatches while Redis is unavailable or the policy is overloaded", () =>
 			Effect.gen(function* () {
 				const harness = yield* HttpDispatchHarness;
-				expect(yield* runHttpDispatch()).toMatchObject({ state: "success" });
+				const fiber = yield* Effect.forkChild(runHttpDispatch());
+				yield* TestClock.adjust("4999 millis");
+				expect(httpEvents(yield* harness.events)).toEqual([]);
+				yield* TestClock.adjust("1 milli");
+				expect(yield* Fiber.join(fiber)).toMatchObject({ state: "success" });
 				const events = yield* harness.events;
 				expect(httpEvents(events)).toHaveLength(1);
 				expect(events.indexOf("claim:admitted")).toBe(events.length - 2);
-				expect(yield* harness.clockNames).toEqual([
-					"sandbox-http-7-coordination-backoff-0",
-					"sandbox-http-7-overload-wait-0",
-					"sandbox-http-7-coordination-backoff-1",
-					"sandbox-http-7-coordination-backoff-2",
-				]);
-				expect(yield* harness.clockDurations).toEqual([1_000, 1_000, 1_000, 2_000]);
+				expect(yield* harness.clockNames).toEqual([]);
 			}),
 		);
 	});
@@ -1007,16 +1026,25 @@ describe("http_fair_tickets_preserve_durable_admission_protections", () => {
 			],
 		}),
 	)((test) => {
-		test.effect("bounds activities per request by the wait over the wake hint", () =>
+		test.effect("journals one admission Activity per attempt however long it waits", () =>
 			Effect.gen(function* () {
 				const harness = yield* HttpDispatchHarness;
-				expect(yield* runHttpDispatch()).toMatchObject({ state: "success" });
-				const activities = yield* harness.activityNames;
-				const clocks = yield* harness.clockDurations;
-				expect(clocks).toEqual([3_600_000, ...Array<number>(30).fill(60_000)]);
-				expect(activities.filter((name) => name.includes("-poll-"))).toHaveLength(32);
-				expect(activities.filter((name) => name.includes("-resolve-"))).toHaveLength(32);
-				expect(activities).toHaveLength(32 * 2 + 2 * 2 + 1 + 2);
+				const fiber = yield* Effect.forkChild(runHttpDispatch());
+				yield* TestClock.adjust("2 hours");
+				expect(yield* Fiber.join(fiber)).toMatchObject({ state: "success" });
+				expect(yield* harness.clockDurations).toEqual([3_600_000]);
+				expect(yield* harness.activityNames).toEqual([
+					"sandbox-http-7-resolve-0",
+					"sandbox-http-7-admission-0",
+					"sandbox-http-7-network-1",
+					"sandbox-http-7-block-1",
+					"sandbox-http-7-resolve-2",
+					"sandbox-http-7-admission-1",
+					"sandbox-http-7-network-2",
+				]);
+				expect((yield* harness.events).filter((event) => event.startsWith("poll:"))).toHaveLength(
+					32,
+				);
 			}),
 		);
 	});
@@ -1030,6 +1058,32 @@ describe("http_fair_tickets_preserve_durable_admission_protections", () => {
 				harness.instance.interrupted = true;
 				yield* Scope.close(harness.instance.scope, Exit.void);
 				expect((yield* harness.events).filter((event) => event.startsWith("cancel:"))).toEqual([
+					`cancel:provider:${ticketId(0, 0)}`,
+				]);
+			}),
+		);
+	});
+
+	layer(
+		httpDispatchLayer({
+			resolutions: matchedOnly,
+			outcomes: [{ status: 200 }],
+			polls: [{ waitMs: 60_000, status: "wait" }],
+		}),
+	)((test) => {
+		test.effect("cancels a waiting ticket and suspends when the workflow interrupt arrives", () =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const fiber = yield* Effect.forkChild(runHttpDispatch());
+				yield* TestClock.adjust("1 minute");
+				yield* harness.requestInterrupt;
+				yield* TestClock.adjust("1 minute");
+				const exit = yield* Fiber.await(fiber);
+				expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true);
+				expect(harness.instance.suspended).toBe(true);
+				const events = yield* harness.events;
+				expect(httpEvents(events)).toEqual([]);
+				expect(events.filter((event) => event.startsWith("cancel:"))).toEqual([
 					`cancel:provider:${ticketId(0, 0)}`,
 				]);
 			}),
