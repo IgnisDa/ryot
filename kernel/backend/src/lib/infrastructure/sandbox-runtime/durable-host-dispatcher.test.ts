@@ -143,6 +143,7 @@ const script = {
 	metadata: {
 		name: "Dispatcher",
 		slug: "dispatcher",
+		runtimeImports: [],
 		oauthConnectionFields: [],
 		executableDependencies: [],
 		kind: "automation" as const,

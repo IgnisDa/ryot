@@ -1,5 +1,6 @@
 import { expect, it, layer } from "@effect/vitest";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
@@ -33,6 +34,12 @@ const kernelReferencesLayer = Layer.succeed(KernelWorkflowReferences, {
 
 type RuntimeRunInput = Parameters<RuntimeSandboxService["Service"]["run"]>[0];
 type RuntimeRunResult = Effect.Success<ReturnType<RuntimeSandboxService["Service"]["run"]>>;
+const recoveryPinHash = sha256Hex("durable-queue-test-recovery-pin");
+const recoveryIdentity = (executionId: string) => ({
+	executionId,
+	instance: "system/core",
+	pinHash: recoveryPinHash,
+});
 
 class RecordedRuns extends Context.Service<
 	RecordedRuns,
@@ -40,16 +47,31 @@ class RecordedRuns extends Context.Service<
 >()("test/RecordedRuns") {}
 
 const runtimeSandboxLayer = (
-	respond: (input: RuntimeRunInput) => Effect.Effect<RuntimeRunResult>,
+	respond: (input: RuntimeRunInput) => Effect.Effect<Omit<RuntimeRunResult, "recovery">>,
 ) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const runs = yield* Ref.make<ReadonlyArray<RuntimeRunInput>>([]);
 			return Layer.merge(
-				Layer.mock(RuntimeSandboxService)({
-					run: (input) =>
-						Ref.update(runs, (all) => [...all, input]).pipe(Effect.andThen(respond(input))),
-				}),
+				Layer.succeed(
+					RuntimeSandboxService,
+					RuntimeSandboxService.of({
+						completeRecovery: () => Effect.void,
+						reserve: () =>
+							Effect.succeed({
+								retainJournal: () => Effect.void,
+								enter: () => Effect.as(Effect.void, undefined),
+							}),
+						run: (input) =>
+							Ref.update(runs, (all) => [...all, input]).pipe(
+								Effect.andThen(respond(input)),
+								Effect.map((result) => ({
+									...result,
+									recovery: recoveryIdentity(input.executionId),
+								})),
+							),
+					}),
+				),
 				Layer.succeed(RecordedRuns, { runs: Ref.get(runs) }),
 			);
 		}),
@@ -103,6 +125,7 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 		capabilities: [],
 		name: "Workflow",
 		slug: "workflow",
+		runtimeImports: [],
 		kind: "workflow" as const,
 		oauthConnectionFields: [],
 		executableDependencies: [],
@@ -143,11 +166,11 @@ it("uses the sandbox execution id as the durable queue identity", () => {
 		workflowExecutionId: "workflow-id",
 		startedAt: "2026-01-01T00:00:00.000Z",
 		principal: {
-			metadata: {},
 			providerId: null,
 			pluginRevision: null,
 			scriptSlug: "workflow",
 			contentHash: "historical-hash",
+			metadata: { runtimeImports: [] },
 			subject: { type: "system" as const },
 			scriptId: SandboxScriptId.make("historical-script-id"),
 		},
@@ -237,6 +260,7 @@ layer(
 					"historical-hash",
 					"historical-hash",
 				]);
+				expect(replayed).toMatchObject({ recovery: recoveryIdentity("execution-id-replay-1") });
 				expect(executedContent).not.toContain(replacementContent);
 			});
 		},
@@ -256,9 +280,9 @@ layer(
 			getScript: (scriptId) =>
 				Effect.succeed({
 					id: scriptId,
-					metadata: {},
 					compiledFormat: 1,
 					compiledCode: "queued-version",
+					metadata: { runtimeImports: [] },
 					providerId: scriptId === queuedScriptId ? "provider-id" : null,
 					contentHash: scriptId === queuedScriptId ? "queued-hash" : "kernel-hash",
 				}),
@@ -284,12 +308,12 @@ layer(
 				context: {},
 				executionId: "execution-id",
 				principal: {
-					metadata: {},
 					scriptSlug: "queued",
 					pluginRevision: null,
 					scriptId: queuedScriptId,
 					contentHash: "queued-hash",
 					subject: { type: "system" },
+					metadata: { runtimeImports: [] },
 					providerId: SandboxProviderId.make("provider-id"),
 				},
 			});
@@ -298,13 +322,13 @@ layer(
 				context: {},
 				executionId: "kernel-execution-id",
 				principal: {
-					metadata: {},
 					providerId: null,
 					scriptSlug: "kernel",
 					pluginRevision: null,
 					scriptId: kernelScriptId,
 					contentHash: "kernel-hash",
 					subject: { type: "system" },
+					metadata: { runtimeImports: [] },
 				},
 			});
 			const runs = yield* (yield* RecordedRuns).runs;
@@ -326,7 +350,7 @@ const inlinePrincipal = (capabilities: ReadonlyArray<string>) => ({
 	scriptId: inlineScriptId,
 	contentHash: "inline-hash",
 	subject: { type: "system" as const },
-	metadata: { capabilities: [...capabilities] },
+	metadata: { runtimeImports: [], capabilities: [...capabilities] },
 });
 const inlineWorkflowId = testExecutionId("workflow-id");
 const inlineRequest = {
@@ -345,12 +369,12 @@ layer(
 		Layer.mock(SandboxRepository)({
 			getScript: () =>
 				Effect.succeed({
-					metadata: {},
 					providerId: null,
 					compiledFormat: 1,
 					id: inlineScriptId,
 					compiledCode: "code",
 					contentHash: "inline-hash",
+					metadata: { runtimeImports: [] },
 				}),
 		}),
 		runtimeSandboxLayer((input) =>

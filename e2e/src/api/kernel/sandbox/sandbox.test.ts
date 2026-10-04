@@ -45,8 +45,8 @@ describe("sandbox result observability", () => {
 	);
 });
 
-describe("sandbox process failures", () => {
-	it.live("includes Deno stderr when process exits before returning a result", () =>
+describe("sandbox native failures", () => {
+	it.live("returns a structured script failure with bounded UTF-8 diagnostics", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `process-failure-${crypto.randomUUID()}`;
@@ -59,11 +59,23 @@ describe("sandbox process failures", () => {
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const result = yield* pollSandboxResult(userId, jobId);
-			if (result.status !== "failed") {
-				throw new Error(`Expected process failure, got '${result.status}'`);
-			}
-			expect(result.error).toContain("Sandbox process exited before returning a response");
-			expect(result.error).toContain("Sandbox stderr:");
+			assertCompleted(result, "sandbox job");
+			assertPresent(result.error, "Expected a structured sandbox failure");
+			expect(result.value).toBeNull();
+			expect(result.error.kind).toBe("script-failure");
+			expect(result.error.phase).toBe("execute");
+			expect(result.error.message).toMatch(/^native sandbox failure: 診断/);
+			expect(result.error.message).not.toContain(":diagnostic-end");
+			expect(result.error.message).not.toContain("\uFFFD");
+			const encoder = new TextEncoder();
+			expect(encoder.encode(result.error.message).byteLength).toBeLessThanOrEqual(32 * 1024);
+			expect(encoder.encode(result.error.message).byteLength).toBeGreaterThan(31 * 1024);
+			assertPresent(result.error.stack, "Expected authored diagnostic frames");
+			expect(encoder.encode(result.error.stack).byteLength).toBeLessThanOrEqual(32 * 1024);
+			expect(result.logs).toEqual(["before sandbox failure"]);
+			assertPresent(result.timing, "Expected failure timing to be present");
+			expect(result.timing.totalMs).toBeGreaterThan(0);
+			expect(result.timing.executionMs).toBeGreaterThanOrEqual(0);
 		}),
 	);
 });

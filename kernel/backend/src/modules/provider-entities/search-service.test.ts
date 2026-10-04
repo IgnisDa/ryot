@@ -78,6 +78,7 @@ const searchScript = {
 	id: SandboxScriptId.make("search-script-id"),
 	metadata: {
 		capabilities: [],
+		runtimeImports: [],
 		name: "Records search",
 		slug: "records.search",
 		kind: "provider" as const,

@@ -10,9 +10,17 @@ it.layer(BunServices.layer)("resolveSandboxRuntimeRegistry", (test) => {
 		Effect.gen(function* () {
 			const dependencies = yield* resolveSandboxRuntimeRegistry(Bun.fileURLToPath(import.meta.url));
 			const byName = new Map(dependencies.map((dependency) => [dependency.name, dependency]));
-			expect([...byName.keys()].sort()).toEqual(
-				SANDBOX_RUNTIME_REGISTRY.map(({ name }) => name).sort(),
-			);
+			expect([...byName.keys()].sort()).toEqual([
+				"cheerio",
+				"dependency-runtime",
+				"effect",
+				"fast-xml-parser",
+				"fflate",
+				"filesystem",
+				"papaparse",
+				"ryotql",
+				"youtubei",
+			]);
 			for (const entry of SANDBOX_RUNTIME_REGISTRY) {
 				const dependency = byName.get(entry.name);
 				expect(dependency, entry.name).toBeDefined();
@@ -23,6 +31,9 @@ it.layer(BunServices.layer)("resolveSandboxRuntimeRegistry", (test) => {
 					sdkImport: entry.sdkImport,
 					packageName: entry.packageName,
 				});
+				if (entry.packageName === "@ryot-app/sandbox-sdk") {
+					expect(dependency?.packageEntrypoint).toBe(dependency?.entrypoint);
+				}
 			}
 		}),
 	);

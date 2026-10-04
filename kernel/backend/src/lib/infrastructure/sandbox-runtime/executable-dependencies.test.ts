@@ -4,6 +4,7 @@ import { isDeclaredExecutableCall } from "./executable-dependencies";
 
 it("restricts activities and child workflows to generated targets", () => {
 	const metadata = {
+		runtimeImports: [],
 		executableDependencies: [
 			{ slug: "collect", kind: "script" as const },
 			{ slug: "apply", kind: "workflow" as const },
@@ -22,7 +23,7 @@ it("restricts activities and child workflows to generated targets", () => {
 			args: { ...activity.args, scriptSlug: "other" },
 		}),
 	).toBe(false);
-	expect(isDeclaredExecutableCall({}, activity)).toBe(false);
+	expect(isDeclaredExecutableCall({ runtimeImports: [] }, activity)).toBe(false);
 	expect(
 		isDeclaredExecutableCall(metadata, {
 			index: 1,

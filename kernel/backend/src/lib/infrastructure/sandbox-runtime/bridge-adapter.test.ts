@@ -12,11 +12,11 @@ const input: SandboxRunInput = {
 	compiledFormat: 1,
 	executionId: "execution-1",
 	principal: {
-		metadata: {},
 		contentHash: "",
 		providerId: null,
 		scriptSlug: "script",
 		pluginRevision: null,
+		metadata: { runtimeImports: [] },
 		scriptId: SandboxScriptId.make("script-1"),
 		subject: {
 			type: "user",

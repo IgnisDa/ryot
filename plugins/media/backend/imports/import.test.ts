@@ -1,10 +1,11 @@
 import { assert, expect, it } from "@effect/vitest";
 import { genericImportKernelInputSchema } from "@ryot-app/sandbox-sdk/imports";
+import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 import {
 	selectExecutable,
 	type WorkflowReplayEnvelope,
-	type WorkflowReplayHost,
+	type WorkflowReplayJournalEntry,
 } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
@@ -47,8 +48,10 @@ it.live(
 				command: mediaImportTestCommand(),
 				plan: { operation: "import", selection: { "source-parser": "goodreads" } },
 			};
-			const journal: JsonValue[] = [];
+			const journal: WorkflowReplayJournalEntry[] = [];
 			const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
+			const record = (request: WorkflowReplayEnvelope["requests"][number], value: JsonValue) =>
+				journal.push({ value, request });
 			const summary = [
 				{
 					unit: "events",
@@ -59,11 +62,10 @@ it.live(
 			let collections = 0;
 			let envelope: WorkflowReplayEnvelope;
 			for (;;) {
-				envelope = yield* workflow.run(
-					input,
-					{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
-					{ metadata: {}, sandboxScriptId: "media-import" },
-				);
+				envelope = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
+					metadata: {},
+					sandboxScriptId: "media-import",
+				});
 				if (envelope.state !== "pending") {
 					break;
 				}
@@ -72,12 +74,12 @@ it.live(
 				requests.push(request);
 				if (request.kind === "activity") {
 					assert(request.args.scriptSlug === "import.control");
-					journal.push({ next: null, entries: [], settings: {} });
+					record(request, { next: null, entries: [], settings: {} });
 				} else {
 					assert(request.kind === "child");
 					if (request.args.workflowSlug === "media-import-collection") {
 						collections++;
-						journal.push({
+						record(request, {
 							eventOffset: 0,
 							step: collections,
 							header: "Title,ISBN",
@@ -90,7 +92,7 @@ it.live(
 							run: { pages: 1, prefix: `source-${collections}` },
 						});
 					} else if (request.args.workflowSlug === "media-import-merge") {
-						journal.push({
+						record(request, {
 							page: 2,
 							done: true,
 							leftPage: 0,
@@ -100,7 +102,7 @@ it.live(
 							rightOffset: 1,
 						});
 					} else if (request.args.workflowSlug === "media-import-application") {
-						journal.push({
+						record(request, {
 							page: 2,
 							batch: 4,
 							offset: 0,
@@ -115,15 +117,15 @@ it.live(
 							request.args.input,
 						);
 						if (operation.action === "capture") {
-							journal.push({
+							record(request, {
 								handle: operation.handle,
 								captureId: operation.captureId,
 								inputFingerprint: "fingerprint",
 							});
 						} else if (operation.action === "seal") {
-							journal.push({ summary, sealed: true });
+							record(request, { summary, sealed: true });
 						} else {
-							journal.push({ recorded: true });
+							record(request, { recorded: true });
 						}
 					}
 				}

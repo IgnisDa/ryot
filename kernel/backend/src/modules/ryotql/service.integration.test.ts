@@ -132,6 +132,7 @@ const manifest = (slug: string, homeView: string | null): PluginManifest => ({
 			name: "Import",
 			capabilities: [],
 			kind: "workflow",
+			runtimeImports: [],
 			oauthConnectionFields: [],
 			executableDependencies: [],
 			optionalPluginConfigKeys: [],
@@ -193,10 +194,10 @@ const script = (id: string, slug: string, pluginRevisionId: string | null) => ({
 	id,
 	slug,
 	name: slug,
-	metadata: {},
 	pluginRevisionId,
 	contentHash: "hash",
 	compiledCode: "private-code",
+	metadata: { runtimeImports: [] },
 	source: pluginRevisionId === null ? "private-source" : null,
 });
 

@@ -2,12 +2,12 @@ import { afterEach, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { gzipSync } from "@ryot-app/sandbox-sdk/fflate";
 
-import { mediaFilesystem, mediaFilesystemKey, mediaStageInput } from "./ingestion.test-support";
+import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
 import movary from "./movary.sandbox";
 import myanimelist from "./myanimelist.sandbox";
 
 const encoder = new TextEncoder();
-afterEach(() => Reflect.deleteProperty(globalThis, mediaFilesystemKey));
+afterEach(resetMediaFilesystem);
 it.live("collects each Movary file once and preserves cross-file source indices", () =>
 	Effect.gen(function* () {
 		const fs = mediaFilesystem({
