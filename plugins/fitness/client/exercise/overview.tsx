@@ -1,8 +1,7 @@
 import type { AssetLocator } from "@ryot-app/plugin-client-sdk";
 import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
-import { Button, MenuButton } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useState, type ComponentProps } from "react";
 
@@ -10,6 +9,7 @@ import { WorkoutExerciseOverridesSchema } from "../../shared/workout-editor-pref
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { AssetArtWell } from "../asset-urls";
 import { AddEntityToCollection } from "../collections";
+import { HeaderActionsMenu } from "../header-actions-menu";
 import { ExerciseDefaultsSheet } from "../workout-editor/preferences";
 import { addToDraftLabel, type ActiveEditorDraft } from "./active-draft";
 import {
@@ -102,13 +102,8 @@ function ExerciseActions(props: {
 			<Button variant="secondary" onClick={() => setAction("collections")}>
 				Add to collection
 			</Button>
-			<MenuButton
+			<HeaderActionsMenu
 				label="More exercise actions"
-				renderTrigger={(trigger) => (
-					<Button {...trigger} variant="secondary" aria-label="More exercise actions">
-						<AppIcon size={18} name="more-horizontal" />
-					</Button>
-				)}
 				items={[
 					{
 						key: "preferences",

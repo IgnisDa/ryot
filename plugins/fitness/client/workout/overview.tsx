@@ -1,7 +1,6 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Card, MenuButton } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { Button, Card } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
 
@@ -13,8 +12,9 @@ import {
 	type EnergyUnit,
 } from "../../shared/workout-units";
 import { AddEntityToCollection } from "../collections";
+import { DeleteFitnessEntity } from "../entity-delete";
+import { HeaderActionsMenu } from "../header-actions-menu";
 import { AdjustWorkoutTime } from "./adjust-time";
-import { DeleteWorkout } from "./delete";
 import type {
 	MuscleCount,
 	TimelineSegment,
@@ -52,13 +52,8 @@ function WorkoutActions(props: {
 			<Button variant="secondary" onClick={openEditor("edit")}>
 				Edit
 			</Button>
-			<MenuButton
+			<HeaderActionsMenu
 				label="More workout actions"
-				renderTrigger={(trigger) => (
-					<Button {...trigger} variant="secondary" aria-label="More workout actions">
-						<AppIcon size={18} name="more-horizontal" />
-					</Button>
-				)}
 				items={[
 					{ key: "adjust-time", label: "Adjust time", onSelect: () => setAdjustingTime(true) },
 					{
@@ -86,7 +81,8 @@ function WorkoutActions(props: {
 				<AddEntityToCollection entityId={props.entityId} onClose={() => setAction(undefined)} />
 			) : null}
 			{action === "delete" ? (
-				<DeleteWorkout
+				<DeleteFitnessEntity
+					kind="workout"
 					name={props.name}
 					entityId={props.entityId}
 					onClose={() => setAction(undefined)}
