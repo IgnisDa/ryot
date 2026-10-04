@@ -79,42 +79,52 @@ const makeServiceLayer = (
 			};
 			const db = {
 				execute: () => Effect.void,
-				select: (selection?: Record<string, unknown>) => ({
+				select: () => ({
 					from: (table: unknown) => {
 						let predicate: SQLWrapper | undefined;
-						const scriptList =
-							table === tables.sandboxScript &&
-							Object.keys(selection ?? {}).length === 2 &&
-							"contentHash" in (selection ?? {});
 						const rows = Effect.gen(function* () {
-							if (table === tables.sandboxScript && scriptList) {
-								return [
-									{
-										slug: execution.principal.scriptSlug,
-										contentHash: execution.principal.contentHash,
-									},
-								];
-							}
 							if (table === tables.sandboxScript) {
+								const quarantine = yield* Ref.get(quarantined);
 								return [
 									{
 										kernelSlug: null,
 										sandboxAuthority,
 										sourcePresent: true,
 										pluginStatus: "active",
+										accountDisabledAt: null,
+										accountId: payload.userId,
+										configPayloadPresent: true,
+										installationIsHidden: false,
+										installationDisabledAt: null,
+										installationIsInitialized: true,
+										installationUninstalledAt: null,
 										id: execution.principal.scriptId,
+										installationUserId: payload.userId,
 										slug: execution.principal.scriptSlug,
 										pluginId: principal.pluginRevision.id,
 										metadata: execution.principal.metadata,
+										installationId: "existing-installation",
 										activationId: "existing-principal-state",
 										providerId: execution.principal.providerId,
 										contentHash: execution.principal.contentHash,
 										providerPluginId: principal.pluginRevision.id,
 										pluginOwnerId: principal.pluginRevision.ownerId,
+										accountGeneration: payload.accountGeneration.token,
+										configId: principal.pluginRevision.configRevisionId,
+										configOwnerUserId: principal.pluginRevision.ownerId,
 										pluginPackageId: principal.pluginRevision.packageId,
 										activeRevisionId: principal.pluginRevision.revisionId,
 										pluginRevisionId: principal.pluginRevision.revisionId,
+										installationHealth: quarantine ? "incompatible" : "ready",
+										configPluginRevisionId: principal.pluginRevision.revisionId,
 										environmentConfigRevisionId: principal.pluginRevision.configRevisionId,
+										installationActiveConfigRevisionId: principal.pluginRevision.configRevisionId,
+										installationIncompatibilityReason: quarantine
+											? "package-identity-conflict"
+											: null,
+										compiledHashes: {
+											[execution.principal.scriptSlug]: execution.principal.contentHash,
+										},
 									},
 								];
 							}
@@ -174,7 +184,7 @@ const makeServiceLayer = (
 							innerJoin: () => query,
 							where: (condition: SQLWrapper) => {
 								predicate = condition;
-								return scriptList ? rows : query;
+								return query;
 							},
 							limit: () => {
 								const selectedRows =
