@@ -1,4 +1,4 @@
-import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { LoadMoreButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { AutomationHistoryRunsPage } from "@ryot-app/ryotql-recipes/automation-history";
 import { Link } from "@tanstack/react-router";
@@ -23,10 +23,11 @@ export type AutomationHistoryListState =
 
 type AutomationHistoryViewProps = {
 	readonly nowMs: number;
+	readonly isFetching?: boolean;
 	readonly state: AutomationHistoryListState;
 	readonly onRetry: () => void;
 	readonly onShowOlder: () => void;
-	readonly isLoadingOlder: boolean;
+	readonly isFetchingNextPage: boolean;
 	readonly olderLoadFailed: boolean;
 };
 
@@ -117,15 +118,17 @@ export function AutomationHistoryView(props: AutomationHistoryViewProps) {
 					</StatusMessage>
 				) : null}
 				{props.state.nextCursor === null ? null : (
-					<Button
+					<LoadMoreButton
 						type="button"
 						variant="ghost"
+						label="Show older runs"
 						onClick={props.onShowOlder}
-						disabled={props.isLoadingOlder}
+						disabled={props.isFetching}
+						aria-label="Show older runs"
+						loadingLabel="Loading older runs..."
+						isFetchingNextPage={props.isFetchingNextPage}
 						className="self-start text-sm text-accent-text"
-					>
-						{props.isLoadingOlder ? "Loading older runs..." : "Show older runs"}
-					</Button>
+					/>
 				)}
 			</div>
 		</div>

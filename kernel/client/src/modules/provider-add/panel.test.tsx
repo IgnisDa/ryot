@@ -1,4 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
+import type {
+	SearchProviderEntitiesBody,
+	SearchProviderEntitiesResponse,
+} from "@ryot-app/contract/modules/entity-providers/schemas";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect } from "effect";
@@ -19,27 +23,42 @@ const provider = (index: number): ProviderSearchSummary => ({
 
 const providers = [provider(1), provider(2)];
 
-const renderPanel = (onCreateCustom?: (query: string) => void) =>
+const renderPanel = (
+	options: {
+		readonly onCreateCustom?: (query: string) => void;
+		readonly search?: (
+			payload: SearchProviderEntitiesBody,
+		) => Effect.Effect<SearchProviderEntitiesResponse>;
+	} = {},
+) =>
 	render(
 		<ProviderSearchPanel
 			renderAsset={() => null}
 			onClose={() => undefined}
 			entitySchemaSlug={bookSlug}
 			onImported={() => undefined}
-			onCreateCustom={onCreateCustom}
 			librarySchemaSlug="media-library"
 			onSelectProvider={() => undefined}
 			relationshipSlug="in-media-library"
+			onCreateCustom={options.onCreateCustom}
 			providers={{ providers, status: "ready" }}
 			selectedProviderId={providers[0].providerId}
-			search={() => Effect.die(new Error("not used"))}
 			importEntity={() => Effect.die(new Error("not used"))}
 			uploadFile={() => Promise.reject(new Error("not used"))}
 			uploadAsset={() => Promise.reject(new Error("not used"))}
-			loadEntityLinks={() => Effect.die(new Error("not used"))}
 			loadSearchOptions={() => Effect.die(new Error("not used"))}
+			loadEntityLinks={() => Effect.succeed(new Map<string, never>())}
+			search={options.search ?? (() => Effect.die(new Error("not used")))}
 		/>,
 	);
+
+const searchResponse = (page: number): SearchProviderEntitiesResponse => ({
+	rootEntitySchemaSlug: bookSlug,
+	providerId: providers[0].providerId,
+	providerName: providers[0].providerName,
+	details: { totalItems: 2, nextPage: page === 1 ? 2 : null },
+	items: [{ title: `Result ${page}`, externalId: `item-${page}` }],
+});
 
 describe("provider search panel", () => {
 	it.live("exposes the providers as a single-tab-stop radiogroup", () =>
@@ -67,7 +86,7 @@ describe("provider search panel", () => {
 		withoutHandler.unmount();
 
 		const queries: string[] = [];
-		renderPanel((query) => queries.push(query));
+		renderPanel({ onCreateCustom: (query) => queries.push(query) });
 		fireEvent.change(screen.getByRole("textbox", { name: "Search providers" }), {
 			target: { value: "  Dune  " },
 		});
@@ -75,6 +94,32 @@ describe("provider search panel", () => {
 
 		expect(queries).toEqual(["Dune"]);
 	});
+
+	it.live("loads numbered provider-search pages through shared pagination", () =>
+		Effect.gen(function* () {
+			const requests: SearchProviderEntitiesBody[] = [];
+			renderPanel({
+				search: (payload) => {
+					requests.push(payload);
+					return Effect.succeed(searchResponse(payload.page));
+				},
+			});
+
+			fireEvent.change(screen.getByRole("textbox", { name: "Search providers" }), {
+				target: { value: "Dune" },
+			});
+			expect(requests).toEqual([]);
+
+			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
+			expect(requests[0]).toMatchObject({ page: 1, query: "Dune" });
+			expect(screen.getByText("Result 1")).toBeTruthy();
+
+			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
+			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(2)));
+			expect(requests.map((request) => request.page)).toEqual([1, 2]);
+			expect(screen.getByText("Result 2")).toBeTruthy();
+		}),
+	);
 
 	it.live("passes an axe pass on the rendered panel", () =>
 		Effect.gen(function* () {

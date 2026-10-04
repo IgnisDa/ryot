@@ -1,10 +1,12 @@
-import { Button } from "@ryot-app/plugin-ui-sdk";
+import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
+import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { Effect, Exit } from "effect";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import type { Exit } from "effect";
+import { Effect } from "effect";
+import { useState } from "react";
 
-import { isUnauthorizedCause } from "#/modules/instance-admin/errors";
+import { isUnauthorizedCause, readAdminResult } from "#/modules/instance-admin/errors";
 import {
 	buildMigrationReportClipboardText,
 	formatMigrationReportElapsed,
@@ -15,14 +17,6 @@ import { transferMigrationReportDetails } from "#/modules/instance-admin/reset-l
 import type { InstanceAdminMigrationReport } from "#/modules/instance-admin/service";
 
 type MigrationReportEntry = InstanceAdminMigrationReport["items"][number];
-
-type ReportPage =
-	| { readonly after: string | undefined; readonly state: "loading" | "failure" }
-	| {
-			readonly after: string | undefined;
-			readonly state: "success";
-			readonly value: InstanceAdminMigrationReport;
-	  };
 
 const dateTimeFormatter = new Intl.DateTimeFormat("en-US", {
 	day: "numeric",
@@ -192,72 +186,18 @@ export function MigrationReportView(props: {
 		after: string | undefined,
 	) => Effect.Effect<Exit.Exit<InstanceAdminMigrationReport, unknown>>;
 }) {
-	const controller = useRef<AbortController>(null);
-	const [unauthorized, setUnauthorized] = useState(false);
-	const [pages, setPages] = useState<ReadonlyArray<ReportPage>>([
-		{ after: undefined, state: "loading" },
-	]);
-	const applyPage = (
-		after: string | undefined,
-		signal: AbortSignal,
-		result: Exit.Exit<InstanceAdminMigrationReport, unknown>,
-	) => {
-		if (signal.aborted) {
-			return;
-		}
-		if (Exit.isFailure(result) && isUnauthorizedCause(result.cause)) {
-			setUnauthorized(true);
-			props.unauthorized();
-			return;
-		}
-		setPages((current) =>
-			current.map((page) => {
-				if (page.after !== after) {
-					return page;
-				}
-				return Exit.isSuccess(result)
-					? { after, state: "success", value: result.value }
-					: { after, state: "failure" };
-			}),
-		);
-	};
-	const load = (after: string | undefined, signal: AbortSignal) =>
-		Effect.runFork(
-			props.load(after).pipe(Effect.map((result) => applyPage(after, signal, result))),
-			{ signal },
-		);
-	const loadFirstPage = useEffectEvent((signal: AbortSignal) => {
-		load(undefined, signal);
+	const pagination = usePagination<InstanceAdminMigrationReport, string | undefined>({
+		initialPageParam: undefined,
+		getNextPageParam: nextPageCursor,
+		identity: "instance-admin-migration-report",
+		load: (after) => readAdminResult(props.load(after), props.unauthorized),
 	});
-
-	useEffect(() => {
-		const initial = new AbortController();
-		controller.current = initial;
-		loadFirstPage(initial.signal);
-		return () => controller.current?.abort();
-	}, []);
-
-	const request = (after: string | undefined) => {
-		const next = new AbortController();
-		controller.current = next;
-		load(after, next.signal);
-	};
-	const retry = (after: string | undefined) => {
-		setPages((current) =>
-			current.map((page) => (page.after === after ? { after, state: "loading" } : page)),
-		);
-		request(after);
-	};
-	const last = pages.at(-1);
-	const loadMore = () => {
-		if (last?.state !== "success" || last.value.pageInfo.nextCursor === null) {
-			return;
-		}
-		const after = last.value.pageInfo.nextCursor;
-		setPages((current) => [...current, { after, state: "loading" }]);
-		request(after);
-	};
-	const entries = pages.flatMap((page) => (page.state === "success" ? page.value.items : []));
+	const entries = paginationItems(
+		pagination.pages,
+		(page) => page.items,
+		(entry) => String(entry.seq),
+	);
+	const unauthorized = pagination.cause !== null && isUnauthorizedCause(pagination.cause);
 
 	if (unauthorized) {
 		return null;
@@ -271,33 +211,38 @@ export function MigrationReportView(props: {
 			</h1>
 			<p className="ui-subtitle mb-5">Legacy migration activity reported by this server.</p>
 			{entries.length > 0 && <MigrationReportTable entries={entries} />}
-			{entries.length === 0 && pages[0]?.state === "success" && (
+			{entries.length === 0 && pagination.pages.length > 0 && !pagination.isFetching && (
 				<div className="grid justify-items-center gap-2 py-12 text-center">
 					<AppIcon size={36} name="clipboard-list" className="text-text-subtle" />
 					<h2 className="font-display text-lg font-semibold">No migration report</h2>
 					<p className="text-sm text-text-muted">This server has no legacy migration activity.</p>
 				</div>
 			)}
-			{last?.state === "loading" && (
+			{pagination.isPending || pagination.isFetchingNextPage ? (
 				<p role="status" className="py-12 text-center text-sm text-text-muted">
 					Loading migration report...
 				</p>
-			)}
-			{last?.state === "failure" && (
+			) : null}
+			{pagination.errorOperation !== null && (
 				<div className="grid justify-items-center gap-4 py-10 text-center">
 					<p role="alert" className="text-sm text-danger">
 						Could not load the migration report. Check the server and try again.
 					</p>
-					<Button type="button" variant="secondary" onClick={() => retry(last.after)}>
+					<Button type="button" variant="secondary" onClick={pagination.retry}>
 						Retry
 					</Button>
 				</div>
 			)}
-			{last?.state === "success" && last.value.pageInfo.nextCursor !== null && (
+			{pagination.hasNextPage && pagination.errorOperation !== "append" && (
 				<div className="mt-5 flex justify-center">
-					<Button type="button" onClick={loadMore} variant="secondary">
-						Load more reports
-					</Button>
+					<LoadMoreButton
+						type="button"
+						label="Load more reports"
+						onClick={pagination.fetchNextPage}
+						loadingLabel="Loading more reports..."
+						isFetchingNextPage={pagination.isFetchingNextPage}
+						disabled={pagination.isFetching && !pagination.isFetchingNextPage}
+					/>
 				</div>
 			)}
 		</section>

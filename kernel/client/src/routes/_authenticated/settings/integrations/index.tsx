@@ -1,4 +1,8 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	useRyotInfiniteQuery,
+	useRyotMutation,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import type { IntegrationList } from "@ryot-app/ryotql-recipes/integrations";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -29,13 +33,22 @@ import {
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";
 import { StatusState } from "#/modules/ui/status-state";
-import { useLatestListState } from "#/modules/ui/use-latest-defined";
 import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 const listState = (page: IntegrationList): IntegrationListState =>
 	page.items.length === 0
 		? { status: "empty" }
 		: { status: "ready", integrations: page.items, hasMore: page.pageInfo.hasMore };
+
+const queryListState = (
+	page: IntegrationList | undefined,
+	pending: boolean,
+): IntegrationListState | undefined => {
+	if (page !== undefined) {
+		return listState(page);
+	}
+	return pending ? undefined : { status: "failed" };
+};
 
 export const Route = createFileRoute("/_authenticated/settings/integrations/")({
 	component: IntegrationsRoute,
@@ -50,15 +63,20 @@ function IntegrationsRoute() {
 	const navigate = Route.useNavigate();
 	const { create } = Route.useSearch();
 	const [syncSucceeded, setSyncSucceeded] = useState(false);
-	const [limit, setLimit] = useState(INTEGRATIONS_PAGE_SIZE);
 	const [syncDetail, setSyncDetail] = useState<string | undefined>();
-	const listed = useRyotQuery(integrationsQuery, limit);
+	const listed = useRyotInfiniteQuery(integrationsQuery, undefined, {
+		mode: "replace",
+		getPageInput: (_input, limit) => limit,
+		initialPageParam: INTEGRATIONS_PAGE_SIZE,
+		getNextPageParam: (page, limit) =>
+			page.pageInfo.hasMore ? limit + INTEGRATIONS_PAGE_SIZE : null,
+	});
 	const providerQuery = useRyotQuery(integrationProvidersQuery);
 	const sync = useRyotMutation(syncIntegrationsMutation);
 	const preferences = useRyotQuery(preferencesQuery);
 	const updatePreferences = useRyotMutation(updatePreferencesMutation);
 	const [requestedPause, setRequestedPause] = useState<boolean | undefined>();
-	const state = useLatestListState(listed, listState);
+	const state = queryListState(listed.data, listed.isPending);
 	const nowMs = useNowMs(RELATIVE_TIME_REFRESH_MS);
 
 	let providers: IntegrationProviderPickerState = { status: "loading" };
@@ -130,13 +148,20 @@ function IntegrationsRoute() {
 					onRetry={listed.refetch}
 					isSyncing={sync.isPending}
 					syncSucceeded={syncSucceeded}
+					isFetching={listed.isFetching}
 					onSyncAll={() => void syncAll()}
+					isFetchingNextPage={listed.isFetchingNextPage}
 					onPauseChange={(paused) => void changePause(paused)}
-					isLoadingMore={listed.isFetching && limit > INTEGRATIONS_PAGE_SIZE}
-					onShowMore={() => setLimit((current) => current + INTEGRATIONS_PAGE_SIZE)}
 					providerNames={integrationProviderNames(
 						providers.status === "ready" ? providers.sources : [],
 					)}
+					onShowMore={() => {
+						if (listed.errorOperation === "append") {
+							listed.retry();
+						} else {
+							listed.fetchNextPage();
+						}
+					}}
 				/>
 			)}
 			{create === true && !isDemo && (

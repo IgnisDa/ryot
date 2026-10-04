@@ -1,24 +1,18 @@
-import { Button } from "@ryot-app/plugin-ui-sdk";
+import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
+import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { DataTable, type DataTableColumn } from "@ryot-app/plugin-ui-sdk/table";
 import { Cause, Effect, Exit, Option } from "effect";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AdminApiError } from "#/api/admin";
 import { FileDownloadError } from "#/modules/downloads/file";
-import { isUnauthorizedCause } from "#/modules/instance-admin/errors";
+import { isUnauthorizedCause, readAdminResult } from "#/modules/instance-admin/errors";
 import type { InstanceAdminLogs } from "#/modules/instance-admin/service";
 
 const PAGE_SIZE = 25;
 
 type LogFile = InstanceAdminLogs["files"][number];
 type OperationResult<A> = Effect.Effect<Exit.Exit<A, unknown>>;
-type Page =
-	| { readonly after: string | undefined; readonly state: "loading" | "error" }
-	| {
-			readonly after: string | undefined;
-			readonly state: "loaded";
-			readonly value: InstanceAdminLogs;
-	  };
 
 const logColumns: ReadonlyArray<DataTableColumn<LogFile>> = [
 	{ id: "file", header: "Log file", headerClassName: "px-3 py-3 font-semibold" },
@@ -42,93 +36,29 @@ export function ServerLogsView(props: {
 	readonly load: (after: string | undefined, limit: number) => OperationResult<InstanceAdminLogs>;
 	readonly download: (file?: LogFile) => OperationResult<void>;
 }) {
-	const [pages, setPages] = useState<ReadonlyArray<Page>>([{ after: undefined, state: "loading" }]);
 	const [downloadError, setDownloadError] = useState<string>();
 	const [downloading, setDownloading] = useState<string>();
-	const generation = useRef(0);
 	const downloadBusy = useRef(false);
-	const controller = useRef<AbortController>(null);
-
-	const applyPage = (
-		after: string | undefined,
-		version: number,
-		signal: AbortSignal,
-		result: Exit.Exit<InstanceAdminLogs, unknown>,
-	) => {
-		if (signal.aborted || generation.current !== version) {
-			return;
-		}
-		if (Exit.isFailure(result) && isUnauthorizedCause(result.cause)) {
-			props.unauthorized();
-			return;
-		}
-		setPages((current) =>
-			current.map((page) => {
-				if (page.after !== after) {
-					return page;
-				}
-				return Exit.isSuccess(result)
-					? { after, state: "loaded", value: result.value }
-					: { after, state: "error" };
-			}),
-		);
-	};
-	const loadPage = (after: string | undefined, version: number, signal: AbortSignal) =>
-		Effect.runFork(
-			props
-				.load(after, PAGE_SIZE)
-				.pipe(Effect.map((result) => applyPage(after, version, signal, result))),
-			{ signal },
-		);
+	const downloadController = useRef(new AbortController());
+	const pagination = usePagination<InstanceAdminLogs, string | undefined>({
+		initialPageParam: undefined,
+		getNextPageParam: nextPageCursor,
+		identity: "instance-admin-server-logs",
+		load: (after) => readAdminResult(props.load(after, PAGE_SIZE), props.unauthorized),
+	});
+	const files = paginationItems(
+		pagination.pages,
+		(page) => page.files,
+		(file) => file.id,
+	);
+	const loading = pagination.isFetching || pagination.isPending;
+	const unauthorized = pagination.cause !== null && isUnauthorizedCause(pagination.cause);
 	const refresh = () => {
 		if (downloadBusy.current) {
 			return;
 		}
-		const version = generation.current + 1;
-		generation.current = version;
-		controller.current?.abort();
-		const next = new AbortController();
-		controller.current = next;
-		setPages([{ after: undefined, state: "loading" }]);
 		setDownloadError(undefined);
-		loadPage(undefined, version, next.signal);
-	};
-	const initialLoad = useEffectEvent(refresh);
-	useEffect(() => {
-		initialLoad();
-		return () => {
-			generation.current += 1;
-			controller.current?.abort();
-		};
-	}, []);
-
-	const requestPage = (after: string | undefined) => {
-		const signal = controller.current?.signal;
-		if (signal !== undefined) {
-			loadPage(after, generation.current, signal);
-		}
-	};
-	const retry = (after: string | undefined) => {
-		setPages((current) =>
-			current.map((page) => (page.after === after ? { after, state: "loading" } : page)),
-		);
-		requestPage(after);
-	};
-
-	const loadedPages = pages.filter(
-		(page): page is Extract<Page, { readonly state: "loaded" }> => page.state === "loaded",
-	);
-	const files = loadedPages.flatMap((page) => page.value.files);
-	const first = pages[0];
-	const last = pages.at(-1);
-	const loading = pages.some((page) => page.state === "loading");
-	const loadMore = () => {
-		if (last?.state !== "loaded" || last.value.pageInfo.nextCursor === null) {
-			return;
-		}
-		const after = last.value.pageInfo.nextCursor;
-		setPages((current) => [...current, { after, state: "loading" }]);
-		requestPage(after);
+		pagination.refetch();
 	};
 	const download = (file?: LogFile) => {
 		if (downloadBusy.current || loading) {
@@ -137,11 +67,10 @@ export function ServerLogsView(props: {
 		downloadBusy.current = true;
 		setDownloading(file?.id ?? "all");
 		setDownloadError(undefined);
-		const signal = controller.current?.signal;
 		Effect.runFork(
 			props.download(file).pipe(
 				Effect.map((result) => {
-					if (signal?.aborted) {
+					if (downloadController.current.signal.aborted) {
 						return;
 					}
 					downloadBusy.current = false;
@@ -155,9 +84,10 @@ export function ServerLogsView(props: {
 					}
 				}),
 			),
-			{ signal },
+			{ signal: downloadController.current.signal },
 		);
 	};
+	useEffect(() => () => downloadController.current.abort(), []);
 
 	return (
 		<section className="ui-card w-full" aria-labelledby="server-logs-title">
@@ -190,18 +120,20 @@ export function ServerLogsView(props: {
 					{downloading === "all" ? "Downloading all logs..." : "Download all logs"}
 				</Button>
 			</div>
-			{first.state === "loading" && <p role="status">Loading server logs...</p>}
-			{first.state === "error" && (
-				<p role="alert" className="text-danger">
-					Could not load the server logs. Check the server and try again.
-				</p>
-			)}
+			{!unauthorized && pagination.isPending && <p role="status">Loading server logs...</p>}
+			{!unauthorized &&
+				pagination.errorOperation !== null &&
+				pagination.errorOperation !== "append" && (
+					<p role="alert" className="text-danger">
+						Could not load the server logs. Check the server and try again.
+					</p>
+				)}
 			{downloadError && (
 				<p role="alert" className="text-danger">
 					{downloadError}
 				</p>
 			)}
-			{first.state === "loaded" && files.length === 0 && (
+			{pagination.pages.length > 0 && files.length === 0 && !loading && (
 				<p className="py-8 text-center text-sm text-text-muted">No server logs available.</p>
 			)}
 			{files.length > 0 && (
@@ -223,31 +155,33 @@ export function ServerLogsView(props: {
 					/>
 				</div>
 			)}
-			{last?.state === "loading" && loadedPages.length > 0 && (
+			{pagination.isFetchingNextPage && (
 				<p role="status" className="mt-4 text-center text-sm text-text-muted">
 					Loading more logs...
 				</p>
 			)}
-			{last?.state === "error" && loadedPages.length > 0 && (
+			{!unauthorized && pagination.errorOperation === "append" && (
 				<div className="mt-5 grid justify-items-center gap-3">
 					<p role="alert" className="text-sm text-danger">
 						Could not load more server logs. Check the server and try again.
 					</p>
-					<Button type="button" variant="secondary" onClick={() => retry(last.after)}>
+					<Button type="button" variant="secondary" onClick={pagination.retry}>
 						Retry loading logs
 					</Button>
 				</div>
 			)}
-			{last?.state === "loaded" && last.value.pageInfo.nextCursor !== null && (
+			{pagination.hasNextPage && pagination.errorOperation !== "append" && (
 				<div className="mt-5 flex justify-center">
-					<Button
+					<LoadMoreButton
 						type="button"
-						onClick={loadMore}
-						variant="secondary"
-						disabled={downloading !== undefined}
-					>
-						Load more logs
-					</Button>
+						label="Load more logs"
+						onClick={pagination.fetchNextPage}
+						loadingLabel="Loading more logs..."
+						isFetchingNextPage={pagination.isFetchingNextPage}
+						disabled={
+							downloading !== undefined || (pagination.isFetching && !pagination.isFetchingNextPage)
+						}
+					/>
 				</div>
 			)}
 		</section>

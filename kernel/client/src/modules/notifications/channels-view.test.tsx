@@ -20,9 +20,9 @@ const renderView = (isDemoProtected: boolean) => {
 			enabledCount={1}
 			isTesting={false}
 			testSucceeded={false}
-			isLoadingMore={false}
 			testDetail={undefined}
 			onRetry={() => undefined}
+			isFetchingNextPage={false}
 			deleteFailedId={undefined}
 			onShowMore={() => undefined}
 			pendingChannelId={undefined}

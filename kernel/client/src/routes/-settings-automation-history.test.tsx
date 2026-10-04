@@ -20,10 +20,7 @@ import {
 	makeRyotQLApi,
 } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
-import type {
-	AutomationRunDetail,
-	AutomationHistoryPageResult,
-} from "#/modules/automation-history/service";
+import type { AutomationRunDetail } from "#/modules/automation-history/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import {
 	makePluginOperations,
@@ -59,7 +56,9 @@ import {
 } from "#/routes/-route-fixtures";
 
 type AutomationHistoryRun = AutomationHistoryRunsPage["items"][number];
-type AutomationRunPage = AutomationHistoryPageResult["page"];
+type AutomationRunPage = Pick<AutomationHistoryRunsPage, "items"> & {
+	readonly nextCursor: AutomationHistoryRunsPage["pageInfo"]["nextCursor"];
+};
 
 const runId = AutomationRunId.make("automation-run-1");
 const triggerId = AutomationTriggerId.make("automation-trigger-1");
@@ -289,7 +288,63 @@ describe("automation history", () => {
 		}),
 	);
 
-	it.live("refreshes the first page while preserving loaded older runs", () =>
+	it.live("shows append loading only while loading an older cursor page", () =>
+		Effect.gen(function* () {
+			const cursors: Array<string | undefined> = [];
+			const pendingRefresh = Promise.withResolvers<AutomationRunPage>();
+			const pendingOlderPage = Promise.withResolvers<AutomationRunPage>();
+			const activeRun = makeRun({ status: "queued", hookName: "Active history run" });
+			const olderRun = makeRun({
+				status: "succeeded",
+				hookName: "Older cursor run",
+				id: AutomationRunId.make("automation-run-older-pending"),
+			});
+			mountView(
+				"/settings/automation-history",
+				makeAutomationHistoryApi(),
+				undefined,
+				makeAutomationQueries({
+					list: (cursor) => {
+						cursors.push(cursor);
+						if (cursor !== undefined) {
+							return Effect.promise(() => pendingOlderPage.promise);
+						}
+						return cursors.filter((value) => value === undefined).length === 1
+							? Effect.succeed({ items: [activeRun], nextCursor: "opaque-next" })
+							: Effect.promise(() => pendingRefresh.promise);
+					},
+				}),
+			);
+
+			const more = yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Show older runs" }),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(cursors).toEqual([undefined, undefined]), {
+					timeout: RUN_LIST_POLL_MS + 1_000,
+				}),
+			);
+			expect(more.hasAttribute("disabled")).toBe(true);
+			expect(more.getAttribute("aria-busy")).toBe(null);
+
+			pendingRefresh.resolve({
+				nextCursor: "opaque-next",
+				items: [makeRun({ ...activeRun, status: "succeeded" })],
+			});
+			yield* Effect.promise(() => screen.findByText("Succeeded"));
+			fireEvent.click(more);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(cursors).toEqual([undefined, undefined, "opaque-next"])),
+			);
+			expect(more.hasAttribute("disabled")).toBe(true);
+			expect(more.getAttribute("aria-busy")).toBe("true");
+
+			pendingOlderPage.resolve({ nextCursor: null, items: [olderRun] });
+			yield* Effect.promise(() => screen.findByText("Older cursor run"));
+		}),
+	);
+
+	it.live("refreshes retained pages while preserving loaded older runs", () =>
 		Effect.gen(function* () {
 			const cursors: Array<string | undefined> = [];
 			const older = makeRun({
@@ -323,7 +378,7 @@ describe("automation history", () => {
 					() => {
 						expect(screen.getByText("Succeeded")).toBeTruthy();
 						expect(screen.getByText("Library Update Hook")).toBeTruthy();
-						expect(cursors).toEqual([undefined, "opaque-next", undefined]);
+						expect(cursors).toEqual([undefined, "opaque-next", undefined, "opaque-next"]);
 					},
 					{ timeout: RUN_LIST_POLL_MS + 1_000 },
 				),
@@ -331,63 +386,61 @@ describe("automation history", () => {
 		}),
 	);
 
-	it.live(
-		"drops retained pages when first-page insertion and removal changes the cursor boundary",
-		() =>
-			Effect.gen(function* () {
-				const cursors: Array<string | undefined> = [];
-				const first = makeRun({
-					status: "queued",
-					hookName: "First page run",
-					id: AutomationRunId.make("automation-run-first"),
-				});
-				const removed = makeRun({
-					hookName: "Removed at boundary",
-					id: AutomationRunId.make("automation-run-removed"),
-				});
-				const inserted = makeRun({
-					hookName: "Inserted first-page run",
-					id: AutomationRunId.make("automation-run-inserted"),
-				});
-				const staleOlder = makeRun({
-					hookName: "Stale older run",
-					id: AutomationRunId.make("automation-run-stale-older"),
-				});
-				mountView(
-					"/settings/automation-history",
-					makeAutomationHistoryApi(),
-					undefined,
-					makeAutomationQueries({
-						list: (cursor) => {
-							cursors.push(cursor);
-							if (cursor === undefined) {
-								return Effect.succeed(
-									cursors.filter((pageCursor) => pageCursor === undefined).length === 1
-										? { items: [first, removed], nextCursor: "before-insert" }
-										: { items: [inserted, first], nextCursor: "after-insert" },
-								);
-							}
-							return Effect.succeed({ nextCursor: null, items: [staleOlder] });
-						},
-					}),
-				);
+	it.live("refreshes retained pages from the updated first-page cursor boundary", () =>
+		Effect.gen(function* () {
+			const cursors: Array<string | undefined> = [];
+			const first = makeRun({
+				status: "queued",
+				hookName: "First page run",
+				id: AutomationRunId.make("automation-run-first"),
+			});
+			const removed = makeRun({
+				hookName: "Removed at boundary",
+				id: AutomationRunId.make("automation-run-removed"),
+			});
+			const inserted = makeRun({
+				hookName: "Inserted first-page run",
+				id: AutomationRunId.make("automation-run-inserted"),
+			});
+			const staleOlder = makeRun({
+				hookName: "Stale older run",
+				id: AutomationRunId.make("automation-run-stale-older"),
+			});
+			mountView(
+				"/settings/automation-history",
+				makeAutomationHistoryApi(),
+				undefined,
+				makeAutomationQueries({
+					list: (cursor) => {
+						cursors.push(cursor);
+						if (cursor === undefined) {
+							return Effect.succeed(
+								cursors.filter((pageCursor) => pageCursor === undefined).length === 1
+									? { items: [first, removed], nextCursor: "before-insert" }
+									: { items: [inserted, first], nextCursor: "after-insert" },
+							);
+						}
+						return Effect.succeed({ nextCursor: null, items: [staleOlder] });
+					},
+				}),
+			);
 
-				yield* Effect.promise(() => screen.findByText("First page run"));
-				fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
-				yield* Effect.promise(() => screen.findByText("Stale older run"));
-				yield* Effect.promise(() =>
-					waitFor(
-						() => {
-							expect(screen.getByText("Inserted first-page run")).toBeTruthy();
-							expect(screen.getAllByText("First page run")).toHaveLength(1);
-							expect(screen.queryByText("Removed at boundary")).toBeNull();
-							expect(screen.queryByText("Stale older run")).toBeNull();
-							expect(cursors).toEqual([undefined, "before-insert", undefined]);
-						},
-						{ timeout: RUN_LIST_POLL_MS + 1_000 },
-					),
-				);
-			}),
+			yield* Effect.promise(() => screen.findByText("First page run"));
+			fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
+			yield* Effect.promise(() => screen.findByText("Stale older run"));
+			yield* Effect.promise(() =>
+				waitFor(
+					() => {
+						expect(screen.getByText("Inserted first-page run")).toBeTruthy();
+						expect(screen.getAllByText("First page run")).toHaveLength(1);
+						expect(screen.queryByText("Removed at boundary")).toBeNull();
+						expect(screen.getByText("Stale older run")).toBeTruthy();
+						expect(cursors).toEqual([undefined, "before-insert", undefined, "after-insert"]);
+					},
+					{ timeout: RUN_LIST_POLL_MS + 1_000 },
+				),
+			);
+		}),
 	);
 
 	it.live("polls an active older page until the run reaches a terminal state", () =>
