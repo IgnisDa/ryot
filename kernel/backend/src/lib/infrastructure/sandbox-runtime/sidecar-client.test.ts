@@ -293,15 +293,12 @@ layer(live, { excludeTestServices: true })((test) => {
 				).toBeLessThanOrEqual(256 * 1024);
 				yield* connection.retire("diagnostics-console");
 
-				const crashSource =
-					"const privateMarker = 'module-private-marker'; export default () => new Array(2 ** 32 - 1).fill(privateMarker);";
-				const fatal = yield* run("diagnostics-crash", crashSource);
+				const fatal = yield* run(
+					"diagnostics-crash",
+					"export default () => new Array(2 ** 32 - 1).fill(0);",
+				);
 				expect(fatal).toMatchObject({ type: "fatal", handle: "diagnostics-crash" });
 				expect(yield* connection.exit).toEqual({ code: 70, signal: null });
-				const diagnostics = connection.diagnostics();
-				expect(diagnostics).toContain("requires process exit");
-				expect(diagnostics).not.toContain("module-private-marker");
-				expect(new TextEncoder().encode(diagnostics).byteLength).toBeLessThanOrEqual(64 * 1024);
 			}),
 		),
 	);

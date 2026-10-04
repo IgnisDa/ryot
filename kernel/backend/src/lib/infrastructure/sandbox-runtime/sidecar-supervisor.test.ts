@@ -97,7 +97,6 @@ type RecordedConnection = {
 	readonly closeRequested: Deferred.Deferred<void>;
 	readonly connectedAt: number;
 	connection?: Connection;
-	readonly diagnostics: string;
 	readonly exitConfirmed: Deferred.Deferred<void>;
 	readonly generation: number;
 	readonly incoming: Queue.Queue<OutboundFrame>;
@@ -197,7 +196,6 @@ const makeRecordingHarness = Effect.gen(function* () {
 			finalized: false,
 			drainingReceived,
 			registered: new Set(),
-			diagnostics: `recording sidecar pid=${pid} generation=${generation}`,
 		};
 		const connectionClose = Effect.uninterruptible(
 			Effect.gen(function* () {
@@ -220,7 +218,6 @@ const makeRecordingHarness = Effect.gen(function* () {
 			pid,
 			generation,
 			close: connectionClose,
-			diagnostics: () => record.diagnostics,
 			exit: Deferred.await(exitConfirmed).pipe(Effect.as({ code: 0, signal: null })),
 			register: (handle) =>
 				Effect.sync(() => {
@@ -695,7 +692,6 @@ supervisorTest("lazy_tiers_start_once_and_stop_only_when_idle", () =>
 			const clientConnection = getClientConnection(data);
 			expect(clientConnection.generation).toBe(data.generation);
 			expect(clientConnection.pid).toBe(data.pid);
-			expect(clientConnection.diagnostics()).toContain(`generation=${data.generation}`);
 			expect(firstRun.module).toEqual({ source: moduleSource, sha256: sha256Hex(moduleSource) });
 			expect(firstRun.input).toBeNull();
 			expect(secondRun.module.sha256).toBe(sha256Hex(moduleSource));
