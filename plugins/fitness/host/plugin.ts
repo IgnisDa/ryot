@@ -6,6 +6,7 @@ import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity";
 import { fitnessRelationshipSchemas } from "./schemas/relationship";
 import { fitnessSignalSchemas } from "./schemas/signal";
+import { fitnessUserSettingsSchema } from "./schemas/user-settings";
 
 const importDocs = (page: string) => ({ docsUrl: `https://docs.ryot.io/importing/${page}.html` });
 
@@ -45,6 +46,7 @@ export const fitnessPlugin = definePlugin({
 	configSchema: fitnessConfigSchema,
 	entitySchemas: fitnessEntitySchemas(),
 	signalSchemas: fitnessSignalSchemas(),
+	userSettingsSchema: fitnessUserSettingsSchema,
 	relationshipSchemas: fitnessRelationshipSchemas(),
 	metadata: {
 		name: "Fitness",
