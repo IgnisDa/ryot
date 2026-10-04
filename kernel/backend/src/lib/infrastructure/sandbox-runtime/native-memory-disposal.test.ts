@@ -33,7 +33,9 @@ const MiB = 1024 * 1024;
 const token = '"\\\n漢🙂';
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const encodedTokenBytes = new TextEncoder().encode(encodeJson(token)).byteLength - 2;
-const tokenRepetitions = Math.floor((16 * MiB) / encodedTokenBytes);
+const externalBytes = SANDBOX_LIMITS.isolate.externalBytes;
+const journalEntries = 22;
+const tokenRepetitions = Math.floor((4.5 * MiB) / encodedTokenBytes);
 const unusedSettlement = () => Effect.die("Committed journal replay must not settle inline");
 const definition = (run: string, imports = "") => `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
@@ -66,7 +68,7 @@ const journalSource = definition(`(_input, host) => Effect.gen(function* () {
   };
   const first = yield* Effect.all([0, 1, 2].map(i => host.getCachedValue("entry-" + i).pipe(Effect.map(summarize))), { concurrency: 3 });
   const rest = [];
-  for (let i = 3; i < 6; i++) rest.push(summarize(yield* host.getCachedValue("entry-" + i)));
+  for (let i = 3; i < ${journalEntries}; i++) rest.push(summarize(yield* host.getCachedValue("entry-" + i)));
   return [...first, ...rest];
 })`);
 
@@ -150,8 +152,8 @@ const assertDisposed = Effect.fnUntraced(function* (executionId: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const run = evidence.runs.get(executionId);
 	assert(run !== undefined);
-	expect(run.limits.heapBytes).toBe(256 * MiB);
-	expect(run.limits.externalBytes).toBe(64 * MiB);
+	expect(run.limits.heapBytes).toBe(SANDBOX_LIMITS.isolate.heapBytes);
+	expect(run.limits.externalBytes).toBe(externalBytes);
 	expect(evidence.retired.has(run.handle)).toBe(true);
 	expect(evidence.done.has(run.handle)).toBe(true);
 	const gate = evidence.registrations.get(run.handle);
@@ -218,17 +220,20 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 				const track = yield* trackNativeKeys;
 				const compiled = yield* compiler.compile(journalSource);
 				const value = token.repeat(tokenRepetitions);
-				const journal: WorkflowReplayJournalEntry[] = Array.from({ length: 6 }, (_, index) => ({
-					request: request(index),
-					value: { value, state: "success" },
-				}));
-				const last = journal[5];
+				const journal: WorkflowReplayJournalEntry[] = Array.from(
+					{ length: journalEntries },
+					(_, index) => ({ request: request(index), value: { value, state: "success" } }),
+				);
+				const last = journal.at(-1);
 				assert(last !== undefined);
 				const remaining =
 					SANDBOX_LIMITS.journalBytes - new TextEncoder().encode(encodeJson(journal)).byteLength;
-				journal[5] = { ...last, value: { state: "success", value: value + "x".repeat(remaining) } };
+				journal[journalEntries - 1] = {
+					...last,
+					value: { state: "success", value: value + "x".repeat(remaining) },
+				};
 				const expected = [
-					...Array.from({ length: 5 }, () => ({
+					...Array.from({ length: journalEntries - 1 }, () => ({
 						padding: 0,
 						last: token,
 						first: token,
@@ -266,7 +271,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 						inline: [],
 						error: null,
 						success: true,
-						value: { journalLength: 6, output: expected, state: "completed" },
+						value: { output: expected, state: "completed", journalLength: journalEntries },
 					});
 					const input = inputs[index];
 					assert(input !== undefined);
@@ -274,7 +279,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 					assert(run !== undefined);
 					const gate = evidence.registrations.get(run.handle);
 					assert(gate?.journal !== undefined);
-					expect(gate.journal.totalBytes + 7).toBe(SANDBOX_LIMITS.journalBytes);
+					expect(gate.journal.totalBytes + journalEntries + 1).toBe(SANDBOX_LIMITS.journalBytes);
 					const calls = evidence.calls.filter((call) => call.handle === run.handle);
 					expect(calls.length).toBeGreaterThan(100);
 					expect(calls.every((call) => call.name === "journalRead")).toBe(true);
@@ -314,9 +319,9 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 				);
 				const fresh = yield* compiler.compile(freshSource);
 				for (const [label, size, cancel] of [
-					["individual", 65 * MiB, false],
-					["concurrent", 22 * MiB, false],
-					["interrupted", 16 * MiB, true],
+					["individual", externalBytes + MiB, false],
+					["concurrent", externalBytes / 2, false],
+					["interrupted", externalBytes / 4, true],
 				] as const) {
 					const journal: WorkflowReplayJournalEntry[] = Array.from({ length: 3 }, (_, index) => ({
 						request: request(index),
@@ -349,7 +354,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 							exit,
 							new SandboxRunError({
 								kind: "script-failure",
-								message: "ArrayBuffer limit of 67108864 bytes exceeded",
+								message: `ArrayBuffer limit of ${externalBytes} bytes exceeded`,
 							}),
 						);
 						expect(
@@ -387,7 +392,14 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 				const track = yield* trackNativeKeys;
 				const compiled = yield* compiler.compile(fileSource);
 				const artifactPath = path.join(evidence.root, "whole.bin");
-				for (const size of [MiB - 1, MiB, MiB + 1, 60 * MiB, 64 * MiB, 64 * MiB + 1]) {
+				for (const size of [
+					MiB - 1,
+					MiB,
+					MiB + 1,
+					externalBytes - 4 * MiB,
+					externalBytes,
+					externalBytes + 1,
+				]) {
 					yield* fs.writeFile(artifactPath, artifactBytes(size));
 					const input = {
 						...makeRunnerInput(
@@ -398,19 +410,19 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 						grants: { artifactPath },
 					};
 					yield* track(input);
-					if (size === 64 * MiB) {
+					if (size === externalBytes) {
 						assertExitFails(
 							yield* Effect.exit(service.run(input)),
 							new SandboxRunError({
 								kind: "script-failure",
-								message: "ArrayBuffer limit of 67108864 bytes exceeded",
+								message: `ArrayBuffer limit of ${externalBytes} bytes exceeded`,
 							}),
 						);
 						yield* assertDisposed(input.executionId);
 						continue;
 					}
 					const result = yield* service.run(input);
-					if (size > 64 * MiB) {
+					if (size > externalBytes) {
 						expect(result).toMatchObject({
 							value: null,
 							success: false,
@@ -432,7 +444,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 					}
 					yield* assertDisposed(input.executionId);
 				}
-				yield* fs.writeFile(artifactPath, artifactBytes(24 * MiB + 1));
+				yield* fs.writeFile(artifactPath, artifactBytes(6 * MiB + 1));
 				const parallel = {
 					...makeRunnerInput(
 						compiled,
@@ -444,7 +456,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 				yield* track(parallel);
 				expect(yield* service.run(parallel)).toMatchObject({
 					success: true,
-					value: Array.from({ length: 2 }, () => ({ chunks: 25, length: 24 * MiB + 1 })),
+					value: Array.from({ length: 2 }, () => ({ chunks: 7, length: 6 * MiB + 1 })),
 				});
 				const parallelCalls = evidence.calls.filter(
 					(call) => call.handle === evidence.runs.get(parallel.executionId)?.handle,
@@ -454,7 +466,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 					{ offset: 0, length: MiB, key: "second" },
 				]);
 				yield* assertDisposed(parallel.executionId);
-				yield* fs.writeFile(artifactPath, artifactBytes(33 * MiB));
+				yield* fs.writeFile(artifactPath, artifactBytes(externalBytes / 2 + MiB));
 				const exhausted = {
 					...parallel,
 					executionId: testExecutionId("native-memory-concurrent-artifact-exhaustion"),
@@ -464,7 +476,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 					yield* Effect.exit(service.run(exhausted)),
 					new SandboxRunError({
 						kind: "script-failure",
-						message: "ArrayBuffer limit of 67108864 bytes exceeded",
+						message: `ArrayBuffer limit of ${externalBytes} bytes exceeded`,
 					}),
 				);
 				yield* assertDisposed(exhausted.executionId);

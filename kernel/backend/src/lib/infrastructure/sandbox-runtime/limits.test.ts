@@ -28,7 +28,7 @@ describe("sandbox limits", () => {
 			cache: { keyBytes: 256, valueBytes: 262_144, ttlSeconds: 2_592_000 },
 			scratch: { maxEntries: 4_096, chunkBytes: 262_144, totalBytes: 5_242_880 },
 			observability: { entryCount: 500, entryBytes: 8_192, totalBytes: 262_144 },
-			isolate: { cpuMs: 30_000, heapBytes: 268_435_456, externalBytes: 67_108_864 },
+			isolate: { cpuMs: 30_000, heapBytes: 67_108_864, externalBytes: 16_777_216 },
 			journalReads: { count: 2_048, sliceBytes: 1_048_576, totalBytes: 209_715_200 },
 			userRelationshipWrites: { batches: 50, changesTotal: 500, changesPerBatch: 100 },
 			execution: {
@@ -53,7 +53,7 @@ describe("sandbox limits", () => {
 				concurrentHostCalls: 4,
 				requestBytes: 1_048_576,
 				responseBytes: 10_485_760,
-				durableResponseBytes: 105_906_176,
+				durableResponseBytes: 12_582_912,
 			},
 			compiler: {
 				concurrency: 2,
@@ -166,14 +166,15 @@ describe("sandbox limits", () => {
 		expect(sandboxContextError("a".repeat(65_535))).toContain("65536 UTF-8 bytes");
 	});
 
-	it("enforces the cumulative journal boundary including array separators", () => {
-		expect(sandboxWorkflowJournalByteError(2, SANDBOX_LIMITS.journalBytes - 2, 0)).toBeNull();
-		expect(sandboxWorkflowJournalByteError(2, SANDBOX_LIMITS.journalBytes - 1, 0)).toContain(
-			"104857600 UTF-8 bytes",
+	it("enforces the per-entry and cumulative journal boundaries including array separators", () => {
+		const entryLimit = SANDBOX_LIMITS.bridge.durableResponseBytes;
+		expect(sandboxWorkflowJournalByteError(2, entryLimit, 0)).toBeNull();
+		expect(sandboxWorkflowJournalByteError(2, entryLimit + 1, 0)).toBe(
+			"Sandbox workflow durable journal entry exceeds 12582912 UTF-8 bytes",
 		);
-		expect(sandboxWorkflowJournalByteError(SANDBOX_LIMITS.journalBytes - 1, 0, 1)).toBeNull();
-		expect(sandboxWorkflowJournalByteError(SANDBOX_LIMITS.journalBytes, 0, 1)).toContain(
-			"104857600 UTF-8 bytes",
+		expect(sandboxWorkflowJournalByteError(SANDBOX_LIMITS.journalBytes - 3, 2, 1)).toBeNull();
+		expect(sandboxWorkflowJournalByteError(SANDBOX_LIMITS.journalBytes - 2, 2, 1)).toBe(
+			"Sandbox workflow durable journal exceeds 104857600 UTF-8 bytes",
 		);
 	});
 
