@@ -393,11 +393,6 @@ export function ClientPageDocumentHost() {
 							operationTargets={frameEntry.operationTargets}
 							onReloadCurrent={() => reloadCurrent(frameEntry.key)}
 							navigation={active && navigation ? navigation : frameEntry.navigation}
-							location={
-								active
-									? { pathname: location.pathname, searchStr: location.searchStr }
-									: frameEntry.location
-							}
 						/>
 					</div>
 				);
@@ -412,23 +407,22 @@ function ClientPageTitle(props: { readonly title: string }) {
 }
 
 function ClientPageFrame(props: {
-	readonly active: boolean;
 	readonly owner: string;
-	readonly document: ClientPageDocument;
-	readonly operationTargets: PreparedClientPage["identity"]["operationTargets"];
-	readonly navigation: PluginBridgeNavigationState;
-	readonly location: { readonly pathname: string; readonly searchStr: string };
-	readonly theme: ThemeStore;
-	readonly runtime: ClientRuntime;
+	readonly active: boolean;
 	readonly scope: ApiScope;
+	readonly theme: ThemeStore;
 	readonly chrome: ShellChrome;
+	readonly runtime: ClientRuntime;
+	readonly edgeLeading: ReactNode;
+	readonly onReloadCurrent: () => void;
+	readonly document: ClientPageDocument;
 	readonly header: PluginHeaderController;
+	readonly freshnessCheckRevision: number;
+	readonly backInterceptors: BackInterceptors;
 	readonly screen: ClientPageScreenController;
 	readonly overlay: ClientPageOverlayController;
-	readonly edgeLeading: ReactNode;
-	readonly backInterceptors: BackInterceptors;
-	readonly freshnessCheckRevision: number;
-	readonly onReloadCurrent: () => void;
+	readonly navigation: PluginBridgeNavigationState;
+	readonly operationTargets: PreparedClientPage["identity"]["operationTargets"];
 }) {
 	const ryot = useRyot();
 	const router = useRouter();
@@ -511,8 +505,9 @@ function ClientPageFrame(props: {
 					.pipe(Effect.map((document) => renderClientDocument(document, props.scope.serverUrl)))
 			}
 			onPageSearch={({ mode, update }) => {
-				const nextSearch = mergePageSearch(props.location.searchStr, update);
-				const href = `${props.location.pathname}${nextSearch === "" ? "" : `?${nextSearch}`}`;
+				const location = router.state.location;
+				const nextSearch = mergePageSearch(location.searchStr, update);
+				const href = `${location.pathname}${nextSearch === "" ? "" : `?${nextSearch}`}`;
 				void navigate({
 					href,
 					replace: mode === "replace",

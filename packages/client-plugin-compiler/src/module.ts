@@ -59,13 +59,13 @@ const viteDiagnostic = (diagnostic: {
 const moduleSource = (input: ClientPluginCompilerPackageInput) => {
 	const imports: string[] = [];
 	const exports: string[] = [];
-	for (const [index, [, declaration]] of sortBy(
+	for (const [index, [exportName, declaration]] of sortBy(
 		Object.entries(input.publicExports),
 		([name]) => name,
 	).entries()) {
 		const binding = `Export${index}`;
 		imports.push(`import ${binding} from ${JSON.stringify(`../source/${declaration.entry}`)};`);
-		exports.push(`export { ${binding} };`);
+		exports.push(`export { ${binding} as ${JSON.stringify(exportName)} };`);
 	}
 	return [...imports, 'import "./styles.css";', ...exports, ""].join("\n");
 };
@@ -185,7 +185,8 @@ export function compileClientPluginModule(
 					rolldownOptions: {
 						preserveEntrySignatures: "strict",
 						input: paths.resolve(workspace.generatedPath, "module.ts"),
-						external: (specifier: string) => trustedModules.has(specifier),
+						external: (specifier: string) =>
+							trustedModules.has(specifier) || pluginDependencies.has(specifier),
 						output: {
 							format: "es",
 							entryFileNames: "module.js",
@@ -201,6 +202,18 @@ export function compileClientPluginModule(
 					{
 						enforce: "pre",
 						name: "ryot-plugin-dependencies",
+						load(id) {
+							const prefix = "\0ryot-plugin-export:";
+							if (!id.startsWith(prefix)) {
+								return null;
+							}
+							const specifier = id.slice(prefix.length);
+							const dependency = pluginDependencies.get(specifier);
+							if (!dependency) {
+								return this.error(`Public plugin import "${specifier}" is missing`);
+							}
+							return `export { ${JSON.stringify(dependency.exportName)} as default } from ${JSON.stringify(specifier)};`;
+						},
 						resolveId(specifier) {
 							if (!specifier.startsWith("@ryot-app/plugins/")) {
 								return null;
@@ -216,7 +229,7 @@ export function compileClientPluginModule(
 							}
 							const id = pluginExportSpecifier(reference, exportName);
 							pluginDependencies.set(id, { reference, exportName });
-							return { id, external: true };
+							return `\0ryot-plugin-export:${id}`;
 						},
 					},
 					tailwindcss(),

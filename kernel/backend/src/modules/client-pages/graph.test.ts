@@ -127,7 +127,7 @@ it.effect("eager wins over presentation-only dependencies", () => {
 	});
 });
 
-it.effect("matches the compiler's export binding order for punctuation in names", () => {
+it.effect("binds exports by their declared names including punctuation", () => {
 	const page = plugin("page", {
 		apiVersion: 1,
 		homeView: null,
@@ -162,7 +162,7 @@ it.effect("matches the compiler's export binding order for punctuation in names"
 		expect(manifest.descriptor.application).toBe("page");
 		if (manifest.descriptor.application === "page") {
 			expect(manifest.descriptor.entry).toEqual({
-				binding: "Export1",
+				binding: "a_b",
 				specifier: pluginExportSpecifier(page, "a_b"),
 			});
 		}
