@@ -85,8 +85,8 @@ describe("media entity presentation preparation", () => {
 					data: {
 						presentation: {
 							type: "rows",
-							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 							items: [source("one", managed), source("two", managed)],
+							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 						},
 					},
 				});
