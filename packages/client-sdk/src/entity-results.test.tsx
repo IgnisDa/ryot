@@ -372,42 +372,48 @@ describe("EntityResults", () => {
 		}),
 	);
 
-	it.live("loads presentation data when embedded sources are unavailable", () =>
-		Effect.gen(function* () {
-			let loads = 0;
-			const registration: EntityPresentationRegistration = {
-				layout: "grid",
-				ownerPluginId: "owner",
-				entitySchemaSlug: "item",
-				load: () =>
-					Promise.resolve(
-						defineEntityPresentation<string>({
-							component: ({ data }) => <p>{data}</p>,
-							prepare: () => Result.fail(new Error("Embedded source was not expected")),
-							loader: ({ references }) => {
-								loads++;
-								return Effect.succeed(
-									Object.fromEntries(
-										references.map(({ entityId }) => [entityId, `Loaded ${entityId}`]),
-									),
-								);
-							},
-						}),
-					),
-			};
-			const { clock, container } = render(
-				[registration],
-				<EntityResults
-					layout="grid"
-					viewContext={null}
-					presentations={new Map()}
-					references={[reference("one")]}
-				/>,
-			);
-			yield* flush(clock);
-			expect(loads).toBe(1);
-			expect(container.textContent).toBe("Loaded one");
-		}),
+	it.live.each(["missing", "incomplete"])(
+		"loads presentation data for %s embedded sources",
+		(source) =>
+			Effect.gen(function* () {
+				let loads = 0;
+				const registration: EntityPresentationRegistration = {
+					layout: "grid",
+					ownerPluginId: "owner",
+					entitySchemaSlug: "item",
+					load: () =>
+						Promise.resolve(
+							defineEntityPresentation<string>({
+								component: ({ data }) => <p>{data}</p>,
+								prepare: () => Result.fail(new Error("Embedded source has no presentation fields")),
+								loader: ({ references }) => {
+									loads++;
+									return Effect.succeed(
+										Object.fromEntries(
+											references.map(({ entityId }) => [entityId, `Loaded ${entityId}`]),
+										),
+									);
+								},
+							}),
+						),
+				};
+				const { clock, container } = render(
+					[registration],
+					<EntityResults
+						layout="grid"
+						viewContext={null}
+						references={[reference("one")]}
+						presentations={
+							source === "missing"
+								? new Map()
+								: presentationSources({ one: { name: "Entity one" } })
+						}
+					/>,
+				);
+				yield* flush(clock);
+				expect(loads).toBe(1);
+				expect(container.textContent).toBe("Loaded one");
+			}),
 	);
 
 	it.live("uses the exact owner, schema, and layout while preserving visible order", () =>
@@ -507,7 +513,7 @@ describe("EntityResults", () => {
 		}),
 	);
 
-	it.live("contains failed, thrown, malformed, and missing preparation results", () =>
+	it.live("contains thrown, malformed, and missing preparation results", () =>
 		Effect.gen(function* () {
 			const registration = {
 				ownerPluginId: "owner",
@@ -520,9 +526,6 @@ describe("EntityResults", () => {
 							component: ({ data }) => <p>{data}</p>,
 							prepare: ({ references }) => {
 								const entityId = references[0]?.entityId ?? "";
-								if (entityId === "failed") {
-									return Result.fail(new Error("invalid source"));
-								}
 								if (entityId === "thrown") {
 									throw new Error("invalid source");
 								}
@@ -534,9 +537,9 @@ describe("EntityResults", () => {
 						}),
 					),
 			};
-			const { draw, clock, container } = render([registration], listFor([reference("failed")]));
+			const { draw, clock, container } = render([registration], listFor([reference("thrown")]));
 			yield* flush(clock);
-			for (const entityId of ["failed", "thrown", "extra", "missing"]) {
+			for (const entityId of ["thrown", "extra", "missing"]) {
 				draw(listFor([reference(entityId)]));
 				expect(container.textContent).toContain("This entity could not be loaded.");
 				expect(container.querySelector("button")).toBeNull();

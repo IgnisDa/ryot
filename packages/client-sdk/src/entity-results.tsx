@@ -684,22 +684,21 @@ export const EntityResults = ({
 						sources.set(reference.entityId, source);
 					}
 				}
-				if (sources.size !== batchReferences.length) {
+				let result: Result.Result<Readonly<Record<string, unknown>>, unknown> | undefined;
+				if (sources.size === batchReferences.length) {
+					try {
+						result = runtime.definition.prepare({ sources, references: batchReferences });
+					} catch {
+						for (const reference of batchReferences) {
+							runtimeData.set(reference.entityId, { success: false });
+						}
+						continue;
+					}
+				}
+				if (result === undefined || Result.isFailure(result)) {
 					const input = encodeBatchInput(batchReferences);
 					for (const reference of batchReferences) {
 						runtimeLoads.set(reference.entityId, input);
-					}
-					continue;
-				}
-				let result: Result.Result<Readonly<Record<string, unknown>>, unknown>;
-				try {
-					result = runtime.definition.prepare({ sources, references: batchReferences });
-				} catch (error) {
-					result = Result.fail(error);
-				}
-				if (Result.isFailure(result)) {
-					for (const reference of batchReferences) {
-						runtimeData.set(reference.entityId, { success: false });
 					}
 					continue;
 				}
