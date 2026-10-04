@@ -170,6 +170,11 @@ baked Tailwind utilities.
 
 ## Controls
 
+`LoadMoreButton` uses `isFetchingNextPage` for its loading label and spinner. Its independent
+`disabled` prop can block interaction during background refresh without claiming that another page
+is loading. Callers supply labels and optional icon content; the component does not depend on query
+or transport services.
+
 `RadioGroup` owns radiogroup semantics, roving focus, and Arrow/Home/End selection. Consumers provide
 visuals through `renderOption`; menus are not radiogroups. `Select` closes on activation, while a
 radio picker stays open for keyboard selection.

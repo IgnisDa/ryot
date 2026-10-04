@@ -17,6 +17,7 @@
 - Resolve dependencies in service constructors and feature-owned Layers; boot Layers compose features. Use `Effect.fn`/`Effect.fnUntraced` for reusable operations and `Effect.gen` for local flow.
 - Derive types from Effect Schema and existing types. Build queries with `@ryot-app/ryotql` and named recipes; colocate result schemas, decoders, and types with recipes. Consumers never parse generic `RowItem` values; reusable wire codecs belong in `@ryot-app/contract`.
 - Key rolling queries by stable selections; compute moving timestamps from the supplied clock during execution.
+- User-facing pagination uses shared SDK primitives; load-more indicators follow `isFetchingNextPage`, never generic `isFetching`.
 - Plugin layouts use bridged `compact` and safe-area values, not iframe media queries or `env()`.
 - Reordering uses shared platform haptics; plugins never invoke native APIs.
 

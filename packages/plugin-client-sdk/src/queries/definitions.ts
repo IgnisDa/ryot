@@ -100,6 +100,7 @@ export class QueryDefinition<Input, Data, HostServices, Failure extends Error> i
 			schedule: RyotSchedule,
 			hostServices: HostServices,
 			input: Input,
+			cancelOnUnmount?: boolean,
 		) => ReturnType<typeof makeQueryAtom<Data, Failure>>,
 		readonly entityWatch?: RyotQueryOptions<Input, Data>["entityWatch"],
 	) {}
@@ -140,14 +141,22 @@ export function createRyotQuery<
 	query: (context: QueryContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
 	options?: RyotQueryOptions<Input, Data>,
 ) {
+	type QuerySelection = { readonly input: Input; readonly cancelOnUnmount: boolean };
 	type ClientQueries = {
 		schedule: RyotSchedule;
 		hostServices: HostServices;
-		readonly inputs: (input: Input) => ReturnType<typeof makeQueryAtom<Data, Failure>>;
+		readonly inputs: (selection: QuerySelection) => ReturnType<typeof makeQueryAtom<Data, Failure>>;
 	};
 	const registries = new WeakMap<AtomRegistry.AtomRegistry, WeakMap<RyotClient, ClientQueries>>();
 	return new QueryDefinition<Input, Data, HostServices, Failure>(
-		(registry, client, schedule, hostServices, input) => {
+		(
+			registry,
+			client,
+			schedule,
+			hostServices,
+			input,
+			cancelOnUnmount = options?.cancelOnUnmount ?? false,
+		) => {
 			let clients = registries.get(registry);
 			if (!clients) {
 				clients = new WeakMap();
@@ -158,18 +167,18 @@ export function createRyotQuery<
 				const current: ClientQueries = {
 					schedule,
 					hostServices,
-					inputs: Atom.family((familyInput: Input) =>
+					inputs: Atom.family((selection: QuerySelection) =>
 						makeQueryAtom<Data, Failure>(
 							Effect.suspend(() =>
 								query({
 									client,
-									input: familyInput,
+									input: selection.input,
 									schedule: current.schedule,
 									hostServices: current.hostServices,
 								}),
 							),
-							options?.initialData?.(familyInput),
-							options?.cancelOnUnmount,
+							options?.initialData?.(selection.input),
+							selection.cancelOnUnmount,
 							options?.entityWatch !== undefined,
 						),
 					),
@@ -179,7 +188,7 @@ export function createRyotQuery<
 			}
 			clientQueries.hostServices = hostServices;
 			clientQueries.schedule = schedule;
-			return clientQueries.inputs(input);
+			return clientQueries.inputs({ input, cancelOnUnmount });
 		},
 		options?.entityWatch,
 	);

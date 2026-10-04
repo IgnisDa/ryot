@@ -47,6 +47,7 @@ export const useEntitySettle = (interest: EntityWatch) => {
 };
 
 export const useEntityRefresh = (options: {
+	readonly enabled?: boolean;
 	readonly blocked: boolean;
 	readonly identity: string;
 	readonly interest: EntityWatch;
@@ -54,7 +55,7 @@ export const useEntityRefresh = (options: {
 }) => {
 	const client = useRyot();
 	const schedule = useRyotSchedule();
-	const active = useContext(ActiveScreenContext);
+	const active = useContext(ActiveScreenContext) && options.enabled !== false;
 	const { settled, tracker } = useSettleTracker();
 	const latest = useRef(options);
 	const previous = useRef({ active, identity: options.identity });

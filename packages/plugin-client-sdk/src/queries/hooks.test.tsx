@@ -15,6 +15,8 @@ import {
 	type RyotMutationResult,
 	type RyotQueryResult,
 } from "./hooks";
+import { nextPageCursor, paginationItems } from "./pagination";
+import { useRyotInfiniteQuery } from "./pagination-hook";
 import { RyotProvider } from "./provider";
 import { usePluginStorage } from "./storage";
 import type { RyotSubmission } from "./submission";
@@ -63,6 +65,143 @@ afterEach(() => {
 });
 
 describe("Effect-native React definitions", () => {
+	it.live(
+		"interrupts superseded pagination requests even when the base query normally stays cached",
+		() =>
+			Effect.gen(function* () {
+				type Page = {
+					readonly items: readonly string[];
+					readonly pageInfo: { readonly nextCursor: string | null };
+				};
+				const requests: Array<{
+					readonly selection: string;
+					readonly signal: AbortSignal;
+					readonly resume: (page: Page) => void;
+				}> = [];
+				const query = createRyotQuery<
+					{ readonly selection: string; readonly after: string | null },
+					Page
+				>(({ input }) =>
+					Effect.callback<Page>((resume, signal) => {
+						requests.push({
+							signal,
+							selection: input.selection,
+							resume: (page) => resume(Effect.succeed(page)),
+						});
+					}),
+				);
+				const View = ({ selection }: { readonly selection: string }) => {
+					const result = useRyotInfiniteQuery(query, selection, {
+						initialPageParam: null,
+						getNextPageParam: nextPageCursor,
+						getPageInput: (input, after: string | null) => ({ after, selection: input }),
+					});
+					return <p>{result.data?.items.join(",") ?? "pending"}</p>;
+				};
+				const { root, clock, container } = render(<View selection="old" />);
+				expect(requests[0]?.selection).toBe("old");
+				act(() => {
+					root.render(
+						<RyotProvider runtime={clock.runtime}>
+							<View selection="new" />
+						</RyotProvider>,
+					);
+				});
+				yield* Effect.promise(() => waitFor(() => expect(requests[0]?.signal.aborted).toBe(true)));
+				expect(requests[1]?.selection).toBe("new");
+				act(() => requests[0]?.resume({ items: ["stale"], pageInfo: { nextCursor: null } }));
+				expect(container.textContent).toBe("pending");
+				act(() => requests[1]?.resume({ items: ["current"], pageInfo: { nextCursor: null } }));
+				yield* Effect.promise(() => waitFor(() => expect(container.textContent).toBe("current")));
+			}),
+	);
+	it.live("keeps pagination idle through an atomic background refresh of all loaded pages", () =>
+		Effect.gen(function* () {
+			type Page = {
+				readonly items: readonly string[];
+				readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: string | null };
+			};
+			const requests: Array<{
+				readonly after: string | null;
+				readonly resume: (page: Page) => void;
+			}> = [];
+			const query = createRyotQuery<string | null, Page>(
+				({ input: after }) =>
+					Effect.callback<Page>((resume) => {
+						requests.push({ after, resume: (page) => resume(Effect.succeed(page)) });
+					}),
+				{ cancelOnUnmount: true },
+			);
+			const View = () => {
+				const result = useRyotInfiniteQuery(query, undefined, {
+					initialPageParam: null,
+					getNextPageParam: nextPageCursor,
+					getPageInput: (_, after: string | null) => after,
+				});
+				return (
+					<>
+						<p>
+							{paginationItems(
+								result.pages,
+								(page) => page.items,
+								(item) => item,
+							).join(",")}
+						</p>
+						<button disabled={result.isFetching} onClick={result.fetchNextPage}>
+							{result.isFetchingNextPage ? "Loading more" : "Load more"}
+						</button>
+						<output>{result.isRefreshing ? "refreshing" : "idle"}</output>
+					</>
+				);
+			};
+			const clock = makeClock();
+			const { container } = render(<View />, clock);
+			act(() =>
+				requests[0]?.resume({ items: ["first"], pageInfo: { hasMore: true, nextCursor: "older" } }),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(container.querySelector("p")?.textContent).toBe("first")),
+			);
+			act(() => {
+				fireEvent.click(getByRole(container, "button", { name: "Load more" }));
+			});
+			expect(getByRole(container, "button", { name: "Loading more" })).toBeTruthy();
+			expect(requests[1]?.after).toBe("older");
+			act(() =>
+				requests[1]?.resume({ items: ["second"], pageInfo: { hasMore: true, nextCursor: "last" } }),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(container.querySelector("p")?.textContent).toBe("first,second")),
+			);
+			clock.client.mutationCompleted.hint();
+			yield* Effect.promise(() => clock.advance(250));
+			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(3)));
+			expect(getByRole(container, "button", { name: "Load more" })).toBeTruthy();
+			expect(container.querySelector("output")?.textContent).toBe("refreshing");
+			act(() =>
+				requests[2]?.resume({
+					items: ["first updated"],
+					pageInfo: { hasMore: true, nextCursor: "fresh" },
+				}),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(4)));
+			expect(requests[3]?.after).toBe("fresh");
+			expect(container.querySelector("p")?.textContent).toBe("first,second");
+			expect(getByRole(container, "button", { name: "Load more" })).toBeTruthy();
+			act(() =>
+				requests[3]?.resume({
+					items: ["second updated"],
+					pageInfo: { hasMore: false, nextCursor: null },
+				}),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(container.querySelector("p")?.textContent).toBe("first updated,second updated"),
+				),
+			);
+			expect(container.querySelector("output")?.textContent).toBe("idle");
+		}),
+	);
 	it.live(
 		"retains a submission through transport and incomplete results before accepting a new one",
 		() =>

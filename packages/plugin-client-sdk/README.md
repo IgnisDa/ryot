@@ -131,6 +131,34 @@ Refreshing an existing query retains loaded data with `isFetching: true` and `is
 failed refreshes also retain the last successful data. A different input selects a different cache
 entry and does not inherit unrelated data. Presentation clocks must not change rolling query keys.
 
+## Pagination
+
+`useRyotInfiniteQuery` composes an existing query with a stable selection, an initial page parameter,
+`getPageInput`, and `getNextPageParam`. Pagination parameters are separate from the selection identity.
+The hook owns page accumulation and registers one refresh handler; callers do not register another
+query refresh for the same collection. Query-declared entity interests cover all loaded pages.
+
+`usePagination` provides the same state machine for Effect-returning loaders outside `RyotProvider`,
+including token-scoped administration and numbered provider searches. Its optional `enabled` flag
+supports explicit search admission. Loaders receive the page parameter and whether a fresh request
+is required. `mode: "replace"` supports increasing-limit queries whose responses contain overlapping
+prefixes; the default appends independent pages. `paginationItems` deduplicates selected items by
+caller-supplied keys, retaining the latest values in first-seen order. Media pages can instead render
+`pages` individually to preserve page-local asset ownership.
+
+`isPending` describes initial loading; `isRefreshing` describes replacement of already loaded pages;
+`isFetchingNextPage` describes an explicit append. `isFetching` covers all three and may disable
+interaction, but must not drive a load-more label. `errorOperation` distinguishes initial, refresh,
+and append failures; `retry` repeats the failed operation without discarding successful pages.
+
+Only one operation runs at a time. Duplicate append requests are ignored, and refresh hints during
+an active request coalesce into a follow-up refresh. Refresh traverses the loaded depth using newly
+returned cursors, publishes the replacement atomically, and never fetches another page beyond that
+depth. Increasing-limit refreshes retain their expanded limit. Failures preserve the previous pages
+and continuation; identity changes and unmount interrupt old work and reject late results.
+`nextPageCursor` and the shared core reject missing, empty, and repeated continuations instead of
+looping. Backend batch traversal remains separate from user-driven pagination.
+
 ## Retryable Submissions
 
 `useRyotSubmission(mutation, { isComplete, createId })` composes an existing mutation whose input is
