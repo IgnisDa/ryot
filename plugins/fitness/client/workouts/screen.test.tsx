@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
 	mountPluginPage,
@@ -7,11 +7,14 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { encodeFilterParam } from "@ryot-app/ryotql-recipes/filters";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { preferenceSettings } from "../../tests/client/draft-fixtures";
 import WorkoutsPage from "./screen";
+
+const serialize = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 afterEach(disposePluginBridges);
 
@@ -154,6 +157,12 @@ const openPage = (answers: Answers = {}, search = "") => {
 	return { page, answerPending };
 };
 
+const exerciseFilter = `?filters=${encodeFilterParam({
+	value: 3,
+	operator: "gte",
+	field: "exerciseCount",
+})}`;
+
 const body = within(document.body);
 const settle = (assert: () => void) =>
 	Effect.promise(() =>
@@ -261,6 +270,46 @@ describe("all workouts page", () => {
 			fireEvent.click(body.getByRole("button", { name: "Start workout" }));
 			yield* settle(() =>
 				expect(page.clientMessages().some(({ type }) => type === "navigate")).toBe(true),
+			);
+		}),
+	);
+
+	it.live(
+		"shows the active filter count and chip and narrows the list, count and week queries",
+		() =>
+			Effect.gen(function* () {
+				const { page, answerPending } = openPage({ total: 4 }, exerciseFilter);
+				answerCurrent = answerPending;
+				yield* settle(() => {
+					expect(body.getByRole("button", { name: "Filters, 1 active filter" })).toBeTruthy();
+					expect(body.getByRole("group", { name: "Active filters" }).textContent).toContain(
+						"Exercises",
+					);
+					expect(body.getByRole("link", { name: "Legs" })).toBeTruthy();
+				});
+				const queried = (name: string) =>
+					page
+						.queryRequests()
+						.filter(({ document }) => name in document.queries)
+						.map(({ document }) => serialize(document.queries[name]).includes("filterTotalsSet"));
+				expect(queried("workouts").some(Boolean)).toBe(true);
+				expect(queried("sets").every(Boolean)).toBe(true);
+			}),
+	);
+
+	it.live("offers to clear the filters when none match", () =>
+		Effect.gen(function* () {
+			const { page, answerPending } = openPage({ list: () => rows([]) }, exerciseFilter);
+			answerCurrent = answerPending;
+			yield* settle(() => expect(body.getByText("No matching workouts")).toBeTruthy());
+			expect(body.queryByText("No workouts yet")).toBeNull();
+			fireEvent.click(body.getByRole("button", { name: "Clear filters" }));
+			yield* settle(() =>
+				expect(
+					page
+						.clientMessages()
+						.flatMap((message) => (message.type === "page-search" ? [message.update] : [])),
+				).toEqual([{ filters: null }]),
 			);
 		}),
 	);

@@ -35,6 +35,7 @@ import {
 	type SelectedAggregateRow,
 	entitySchemaPredicate,
 	relationshipSchemaPredicate,
+	rows,
 	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
@@ -48,6 +49,7 @@ import { PersonalBestSchema } from "./workout-records";
 type Table = ReturnType<typeof table>;
 type Reference = PluginIdentityReference;
 type Range = { readonly startAt: string; readonly endAt: string };
+export type WorkoutFilterPredicate = ReturnType<typeof and>;
 
 export const WORKOUT_LIST_PAGE_SIZE = 20;
 
@@ -67,10 +69,47 @@ const workoutSets = (set: Table, workout: Table) =>
 const personalBestCount = (set: Table) =>
 	jsonArrayCount(jsonPath(column(set, "properties"), "personalBests"));
 
-const workoutWhere = (workout: Table, reference: Reference, search: string) =>
+const workoutTotals = (workout: Table, setAlias: string) => {
+	const set = table("event", setAlias);
+	const sets = workoutSets(set, workout);
+	return {
+		setCount: count(set, { where: sets }),
+		personalBests: sum(set, personalBestCount(set), { where: sets }),
+		exerciseCount: countDistinct(set, column(set, "entityId"), { where: sets }),
+	};
+};
+
+const LIST_WORKOUT_ALIAS = "workout";
+const WEEKS_ALIAS = "weeks";
+const rangeWorkoutAlias = (alias: string) => `${alias}Workout`;
+
+export const workoutFilterScope = (target: "list" | "weeks") => {
+	const alias = target === "list" ? LIST_WORKOUT_ALIAS : rangeWorkoutAlias(WEEKS_ALIAS);
+	const workout = table("entity", alias);
+	const totals = workoutTotals(workout, "filterTotalsSet");
+	return {
+		subject: { entityAlias: alias },
+		source: rows(workout, {
+			fields: [
+				{ key: "startedAt", expr: startedAt(workout) },
+				{ key: "setCount", expr: totals.setCount },
+				{ key: "exerciseCount", expr: totals.exerciseCount },
+				{ key: "personalBests", expr: totals.personalBests },
+			],
+		}),
+	};
+};
+
+const workoutWhere = (
+	workout: Table,
+	reference: Reference,
+	search: string,
+	filter?: WorkoutFilterPredicate,
+) =>
 	and(
 		entitySchemaPredicate(workout, "workout", reference),
 		...(search === "" ? [] : [contains(column(workout, "name"), literal(search))]),
+		...(filter === undefined ? [] : [filter]),
 	);
 
 const inRange = (workout: Table, range: Range) =>
@@ -163,11 +202,11 @@ export const workoutCardsRecipe = defineRecipe(
 		readonly search: string;
 		readonly limit?: number | undefined;
 		readonly after?: string | undefined;
+		readonly filter?: WorkoutFilterPredicate | undefined;
 		readonly workoutIds?: readonly string[] | undefined;
 	}) => {
-		const workout = table("entity", "workout");
-		const set = table("event", "listTotalsSet");
-		const sets = workoutSets(set, workout);
+		const workout = table("entity", LIST_WORKOUT_ALIAS);
+		const totals = workoutTotals(workout, "listTotalsSet");
 		return {
 			map: ({ workouts }) =>
 				Result.succeed({
@@ -188,7 +227,7 @@ export const workoutCardsRecipe = defineRecipe(
 						template: workoutTemplateInclude(workout, 1),
 					},
 					where: and(
-						workoutWhere(workout, input.reference, input.search),
+						workoutWhere(workout, input.reference, input.search, input.filter),
 						...(input.workoutIds === undefined
 							? []
 							: [inArray(column(workout, "id"), input.workoutIds.map(literal))]),
@@ -196,22 +235,16 @@ export const workoutCardsRecipe = defineRecipe(
 					selection: {
 						volume: workoutVolume(workout),
 						id: selectedField(column(workout, "id"), Schema.String),
+						setCount: selectedField(totals.setCount, Schema.Finite),
 						name: selectedField(column(workout, "name"), Schema.String),
 						startedAt: selectedField(startedAt(workout), nullableString),
-						setCount: selectedField(count(set, { where: sets }), Schema.Finite),
+						exerciseCount: selectedField(totals.exerciseCount, Schema.Finite),
+						personalBests: selectedField(totals.personalBests, nullableNumber),
 						endedAt: selectedField(propertyDate(workout, "endedAt"), nullableString),
 						repeatedFromId: selectedField(repeatedFromId(workout, input.reference), nullableString),
 						activeDuration: selectedField(
 							propertyNumber(workout, "activeDuration"),
 							nullableNumber,
-						),
-						personalBests: selectedField(
-							sum(set, personalBestCount(set), { where: sets }),
-							nullableNumber,
-						),
-						exerciseCount: selectedField(
-							countDistinct(set, column(set, "entityId"), { where: sets }),
-							Schema.Finite,
 						),
 						previousTemplateWorkoutId: selectedField(
 							previousTemplateWorkoutId(workout, input.reference),
@@ -225,13 +258,17 @@ export const workoutCardsRecipe = defineRecipe(
 );
 
 export const workoutCountRecipe = defineRecipe(
-	(input: { readonly reference: Reference; readonly search: string }) => {
-		const workout = table("entity", "workout");
+	(input: {
+		readonly search: string;
+		readonly reference: Reference;
+		readonly filter?: WorkoutFilterPredicate | undefined;
+	}) => {
+		const workout = table("entity", LIST_WORKOUT_ALIAS);
 		return {
 			map: ({ total }) => Result.succeed(total.workouts),
 			queries: {
 				total: selectedAggregate(workout, {
-					where: workoutWhere(workout, input.reference, input.search),
+					where: workoutWhere(workout, input.reference, input.search, input.filter),
 					measures: { workouts: selectedMeasure({ function: "count" }, Schema.Finite) },
 				}),
 			},
@@ -301,10 +338,16 @@ const setMeasures = (set: Table) => ({
 	personalBests: sumMeasure(personalBestCount(set)),
 });
 
-const rangeSources = (reference: Reference, range: Range, alias: string, search = "") => {
-	const workout = table("entity", `${alias}Workout`);
+const rangeSources = (
+	reference: Reference,
+	range: Range,
+	alias: string,
+	search = "",
+	filter?: WorkoutFilterPredicate,
+) => {
+	const workout = table("entity", rangeWorkoutAlias(alias));
 	const set = table("event", `${alias}Set`);
-	const workouts = and(workoutWhere(workout, reference, search), inRange(workout, range));
+	const workouts = and(workoutWhere(workout, reference, search, filter), inRange(workout, range));
 	return {
 		set,
 		workout,
@@ -339,10 +382,11 @@ const rangeBuckets = (
 		readonly search: string;
 		readonly timeZone: string;
 		readonly bucket: "day" | "week";
+		readonly filter?: WorkoutFilterPredicate | undefined;
 	},
 	alias: string,
 ) => {
-	const sources = rangeSources(reference, range, alias, range.search);
+	const sources = rangeSources(reference, range, alias, range.search, range.filter);
 	const groupBy = (workout: Table) => ({
 		at: selectedField(
 			dateBucket(startedAt(workout), { bucket: range.bucket, timeZone: range.timeZone }),
@@ -396,9 +440,14 @@ export const workoutWeeksRecipe = defineRecipe(
 			readonly search: string;
 			readonly timeZone: string;
 			readonly reference: Reference;
+			readonly filter?: WorkoutFilterPredicate | undefined;
 		} & Range,
 	) => {
-		const [workouts, sets] = rangeBuckets(input.reference, { ...input, bucket: "week" }, "weeks");
+		const [workouts, sets] = rangeBuckets(
+			input.reference,
+			{ ...input, bucket: "week" },
+			WEEKS_ALIAS,
+		);
 		return {
 			queries: { sets, workouts },
 			map: (results) => Result.succeed(combineBuckets(results.workouts, results.sets)),
