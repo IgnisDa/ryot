@@ -10,7 +10,6 @@ import {
 	adminAccessTokenHeaders,
 	adminHeaders,
 	collectRyotQLRecipeItems,
-	uninstallTestProvider,
 	createAuthenticatedClient,
 	createApiKey,
 	createEntity,
@@ -32,7 +31,7 @@ import {
 	pollSignalTriggerWithRecipientCount,
 	pollUserLifecycleOperation,
 	pollTerminalAutomationRuns,
-	installTestProvider,
+	shippedPluginTestProviders,
 	startFakeAppriseServerScoped,
 	updatePluginState,
 } from "~/fixtures/kernel";
@@ -43,8 +42,9 @@ import {
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
-import { describe, expect, it } from "~/support/effect-test";
+import { runPromise, beforeAll, afterAll, describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 import { webRequest } from "~/support/web-request";
 
 const WRONG_TOKEN = "wrong-token";
@@ -53,6 +53,22 @@ const listPluginsWithHeaders = (headers: Record<string, string>) =>
 	collectRyotQLRecipeItems(makeSession(undefined, headers), (after) =>
 		pluginInstallationsRecipe({ after, limit: 100 }),
 	);
+
+let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
+
+beforeAll(
+	() =>
+		runPromise(
+			Effect.gen(function* () {
+				harness = yield* startIsolatedHarness("Delete User");
+				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			}),
+		),
+	300_000,
+);
+
+afterAll(() => runPromise(harness?.stop ?? Effect.void));
 
 describe("Delete user admin token enforcement", () => {
 	it.live("rejects deletion without an admin token", () =>
@@ -214,43 +230,33 @@ describe("Delete user automation data cleanup", () => {
 					"movie",
 					movieSchema.reference.owner,
 				);
-				const personProvider = yield* Effect.acquireRelease(
-					installTestProvider({
-						scope: "system",
-						client: compilerClient,
-						rootEntitySchemaSlug: personSchemaId,
-						slug: `person.delete-user-e2e-${crypto.randomUUID()}`,
-						details: fakeProviderDetailsResult({ name: personName }),
+				const personProvider = yield* media.attachProvider({
+					rootEntitySchemaSlug: personSchemaId,
+					slug: `person.delete-user-e2e-${crypto.randomUUID()}`,
+					details: fakeProviderDetailsResult({ name: personName }),
+				});
+				const movieProvider = yield* media.attachProvider({
+					rootEntitySchemaSlug: movieSchemaId,
+					slug: `movie.delete-user-e2e-${crypto.randomUUID()}`,
+					details: fakeProviderDetailsResult({
+						name: movieName,
+						relatedEntityGroups: [
+							{
+								direction: "incoming",
+								synchronization: "additive",
+								relationshipSchemaSlug: "person-to-movie",
+								entities: [
+									{
+										name: personName,
+										externalId: personExternalId,
+										providerSlug: personProvider.providerSlug,
+										relationshipProperties: { roles: ["Actor"] },
+									},
+								],
+							},
+						],
 					}),
-					(provider) => uninstallTestProvider(provider),
-				);
-				const movieProvider = yield* Effect.acquireRelease(
-					installTestProvider({
-						scope: "system",
-						client: compilerClient,
-						rootEntitySchemaSlug: movieSchemaId,
-						slug: `movie.delete-user-e2e-${crypto.randomUUID()}`,
-						details: fakeProviderDetailsResult({
-							name: movieName,
-							relatedEntityGroups: [
-								{
-									direction: "incoming",
-									synchronization: "additive",
-									relationshipSchemaSlug: "person-to-movie",
-									entities: [
-										{
-											name: personName,
-											externalId: personExternalId,
-											providerSlug: personProvider.providerSlug,
-											relationshipProperties: { roles: ["Actor"] },
-										},
-									],
-								},
-							],
-						}),
-					}),
-					(provider) => uninstallTestProvider(provider),
-				);
+				});
 
 				const person = yield* seedMediaEntity({
 					properties: {},
