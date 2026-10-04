@@ -3,7 +3,8 @@
 The isolate runtime plan and its records:
 
 - [`plan.md`](plan.md): outcome, decisions, architecture, and slices.
-- [`s1.md`](s1.md) and [`s2.md`](s2.md): slice contracts, acceptance, and results.
+- [`s1.md`](s1.md), [`s2.md`](s2.md), and [`s3.md`](s3.md): slice contracts, acceptance, and results.
+- [`s3-memory.md`](s3-memory.md): the sandbox memory admission model.
 - [`security-review.md`](security-review.md): pre-approval security findings and their owners.
 - [`evidence.md`](evidence.md): spike measurements and pitfalls.
 
