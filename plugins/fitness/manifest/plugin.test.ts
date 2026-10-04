@@ -87,6 +87,15 @@ it("declares the complete fitness-owned source", () => {
 		"workout-repeated-from",
 		"workout-to-workout-template",
 	]);
+	expect(
+		fitnessPlugin.entitySchemas.flatMap((schema) =>
+			"editor" in schema ? [[schema.slug, schema.editor]] : [],
+		),
+	).toEqual([
+		["exercise", { relationships: ["exercise-targets", "exercise-uses-equipment"] }],
+		["exercise-target", { relationships: [] }],
+		["exercise-equipment", { relationships: [] }],
+	]);
 	expect(fitnessPlugin.signalSchemas.map(({ slug }) => slug)).toEqual(["workout.created"]);
 	expect(fitnessPlugin.client).toEqual({
 		homeView: null,

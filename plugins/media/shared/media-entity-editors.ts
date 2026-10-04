@@ -1,5 +1,3 @@
-import type { EntityEditorAllowlist } from "@ryot-app/plugin-kit/schema";
-
 import {
 	builtinMediaEntitySchemaSlugs,
 	creatorGroupTargetSlugs,
@@ -7,14 +5,12 @@ import {
 	mediaGroupSlugs,
 } from "./media-schema-slugs";
 
-export const mediaEntitySaveOperationSlug = "media-entity-save";
-
 const creditRelationshipSlugs = (source: "company" | "person") =>
 	[...builtinMediaEntitySchemaSlugs, ...creatorGroupTargetSlugs].map(
 		(target) => `${source}-to-${target}`,
 	);
 
-export const mediaEntityEditors: EntityEditorAllowlist = {
+export const mediaEntityEditors: Readonly<Record<string, readonly string[]>> = {
 	...Object.fromEntries(builtinMediaEntitySchemaSlugs.map((slug) => [slug, []])),
 	"video-game": ["video-game-to-video-game"],
 	...Object.fromEntries(

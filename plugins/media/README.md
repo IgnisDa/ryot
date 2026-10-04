@@ -148,10 +148,11 @@ operation. `resolve-episodes` instead echoes unique caller indexes; missing, dup
 indexes fail the workflow. Episode lookup uses one database query per reference and resolves only an
 unambiguous visible candidate.
 
-Every editable media/group/creator schema declares `/<schema>/new`. The shared entity editor uses
-`shared/media-entity-editors.ts` to allow only its owned outgoing relationships; seasons, episodes,
-and incoming credits are not editable. `media-entity-save` forwards one submission to atomic
-`saveUserEntity`; the existing creation hook adds library membership.
+Every editable media/group/creator schema declares `/<schema>/new` and a manifest `editor` generated
+from `shared/media-entity-editors.ts`, listing only its owned outgoing relationships; seasons,
+episodes, and incoming credits are not editable. The shared entity editor saves through the kernel
+editor save; the existing creation hook adds library membership. Relationship targets are chosen in
+the kernel entity picker for the target schema.
 
 `metadata-lookup` is restricted to `ryot_browser_extension` and searches TMDB movies before shows.
 IGDB dynamic search options come from its provider and are backend-cached.

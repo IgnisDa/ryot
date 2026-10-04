@@ -40,6 +40,7 @@ export const fitnessEntitySchemas = [
 		name: "Exercise",
 		mergeIdentityProperties: ["kind"],
 		propertiesSchema: exercisePropertiesSchema,
+		editor: { relationships: ["exercise-targets", "exercise-uses-equipment"] },
 		eventSchemas: [
 			{ name: "Workout Set", slug: "workout-set", propertiesSchema: workoutSetPropertiesSchema },
 			{ name: "Review", slug: "review", propertiesSchema: exerciseReviewPropertiesSchema },
@@ -50,6 +51,7 @@ export const fitnessEntitySchemas = [
 		eventSchemas: [],
 		slug: "exercise-target",
 		name: "Exercise Target",
+		editor: { relationships: [] },
 		propertiesSchema: {
 			fields: {
 				description: {
@@ -72,6 +74,7 @@ export const fitnessEntitySchemas = [
 		eventSchemas: [],
 		slug: "exercise-equipment",
 		name: "Exercise Equipment",
+		editor: { relationships: [] },
 		propertiesSchema: {
 			fields: {
 				description: {

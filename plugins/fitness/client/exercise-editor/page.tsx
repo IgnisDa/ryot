@@ -5,7 +5,6 @@ import {
 	usePluginSearch,
 } from "@ryot-app/plugin-client-sdk/plugin";
 
-import { exerciseEditors, exerciseSaveOperationSlug } from "../../shared/exercise-save-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 export default function ExerciseEditorPage() {
@@ -20,8 +19,6 @@ export default function ExerciseEditorPage() {
 		<EntityEditorScreen
 			entitySchemaSlug="exercise"
 			packageId={PLUGIN_PACKAGE_ID}
-			relationshipSlugs={exerciseEditors.exercise}
-			saveOperationSlug={exerciseSaveOperationSlug}
 			mode={
 				editing
 					? { kind: "edit", entityId: exerciseId }

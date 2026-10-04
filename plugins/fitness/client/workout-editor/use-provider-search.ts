@@ -51,7 +51,7 @@ export function useProviderSearch(input: {
 		setNotice(undefined);
 		cancel.current = schedule.run(
 			Effect.gen(function* () {
-				const outcome = yield* client.screens.openProviderSearch({
+				const outcome = yield* client.screens.pickEntity({
 					initialQuery: input.search,
 					library: fitnessLibraryMembership,
 					schema: { owner: { pluginId, kind: "plugin" }, slug: EntitySchemaSlug.make("exercise") },

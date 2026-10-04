@@ -160,7 +160,7 @@ const change = (element: Element, value: string) =>
 	});
 
 const providerRequest = (page: ReturnType<typeof mountPluginPage>) =>
-	page.clientMessages().find((message) => message.type === "provider-search-screen");
+	page.clientMessages().find((message) => message.type === "pick-entity-screen");
 
 const requireProviderRequest = (page: ReturnType<typeof mountPluginPage>) => {
 	const request = providerRequest(page);
@@ -176,15 +176,10 @@ const replyProviderSearch = (
 	outcome:
 		| { readonly kind: "cancelled" }
 		| { readonly kind: "create-requested" }
-		| { readonly kind: "added"; readonly entityIds: readonly EntityId[] },
+		| { readonly kind: "selected"; readonly entityIds: readonly EntityId[] },
 ) =>
 	act(() => {
-		page.send({
-			requestId,
-			value: outcome,
-			outcome: "success",
-			type: "provider-search-screen-result",
-		});
+		page.send({ requestId, value: outcome, outcome: "success", type: "pick-entity-screen-result" });
 	});
 
 afterEach(() => {
@@ -272,7 +267,7 @@ describe("ExercisePicker", () => {
 			const request = yield* Effect.promise(() =>
 				waitFor(() => {
 					const current = requireProviderRequest(page);
-					expect(current.type).toBe("provider-search-screen");
+					expect(current.type).toBe("pick-entity-screen");
 					return current;
 				}),
 			);
@@ -309,7 +304,7 @@ describe("ExercisePicker", () => {
 			const request = yield* Effect.promise(() =>
 				waitFor(() => {
 					const current = requireProviderRequest(page);
-					expect(current.type).toBe("provider-search-screen");
+					expect(current.type).toBe("pick-entity-screen");
 					return current;
 				}),
 			);
@@ -348,7 +343,7 @@ describe("ExercisePicker", () => {
 			const request = yield* Effect.promise(() =>
 				waitFor(() => {
 					const current = requireProviderRequest(page);
-					expect(current.type).toBe("provider-search-screen");
+					expect(current.type).toBe("pick-entity-screen");
 					return current;
 				}),
 			);
@@ -358,7 +353,7 @@ describe("ExercisePicker", () => {
 			});
 			expect(request.initialQuery).toBe("hidden by search");
 			replyProviderSearch(page, request.requestId, {
-				kind: "added",
+				kind: "selected",
 				entityIds: [EntityId.make("exercise-added")],
 			});
 			yield* Effect.promise(() =>
@@ -402,12 +397,12 @@ describe("ExercisePicker", () => {
 			const request = yield* Effect.promise(() =>
 				waitFor(() => {
 					const current = requireProviderRequest(page);
-					expect(current.type).toBe("provider-search-screen");
+					expect(current.type).toBe("pick-entity-screen");
 					return current;
 				}),
 			);
 			replyProviderSearch(page, request.requestId, {
-				kind: "added",
+				kind: "selected",
 				entityIds: [EntityId.make("exercise-reps")],
 			});
 			yield* Effect.promise(() =>

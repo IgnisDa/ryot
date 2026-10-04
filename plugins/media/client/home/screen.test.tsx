@@ -36,16 +36,14 @@ const homeAdapter = (input: {
 }) => {
 	const requested: string[][] = [];
 	const navigations: RyotNavigationTarget[] = [];
-	const providerSearches: unknown[] = [];
+	const entityPicks: unknown[] = [];
 	const adapter: Partial<RyotClientAdapter> = {
 		navigate: (_mode, target) => {
 			navigations.push(target);
 		},
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-		openProviderSearch: (request) =>
-			Effect.sync(() => providerSearches.push(request)).pipe(
-				Effect.as({ kind: "cancelled" as const }),
-			),
+		pickEntity: (request) =>
+			Effect.sync(() => entityPicks.push(request)).pipe(Effect.as({ kind: "cancelled" as const })),
 		query: (document) => {
 			const names = Object.keys(document.queries);
 			requested.push(names);
@@ -63,7 +61,7 @@ const homeAdapter = (input: {
 			});
 		},
 	};
-	return { adapter, requested, navigations, providerSearches };
+	return { adapter, requested, navigations, entityPicks };
 };
 
 const mountHome = (adapter: Partial<RyotClientAdapter>) =>
@@ -264,7 +262,7 @@ describe("first run", () => {
 
 			clickRyotElement(getByRole(view.container, "button", { name: "Add a title" }));
 			clickRyotElement(getByRole(document.body, "menuitem", { name: "Comic book" }));
-			expect(home.providerSearches).toEqual([
+			expect(home.entityPicks).toEqual([
 				{
 					schema: { slug: "comic-book", owner: { kind: "plugin", pluginId: "media-owner" } },
 					library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },

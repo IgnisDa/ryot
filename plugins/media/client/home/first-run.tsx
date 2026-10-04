@@ -43,7 +43,7 @@ export function FirstRun(props: { readonly compact: boolean }) {
 						onSelect: () =>
 							schedule.run(
 								client.screens
-									.openProviderSearch({
+									.pickEntity({
 										library: mediaLibraryMembership,
 										schema: {
 											slug: EntitySchemaSlug.make(slug),
