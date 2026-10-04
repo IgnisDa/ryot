@@ -9,6 +9,7 @@ import {
 	exists,
 	inArray,
 	isNotNull,
+	isNull,
 	literal,
 	selectedField,
 	selectedInclude,
@@ -28,6 +29,7 @@ const mediaMonitorableEntitySchemaSlugs = [
 
 const providerBackedFilter = (entity: ReturnType<typeof table>) =>
 	and(
+		isNull(column(entity, "userId")),
 		isNotNull(column(entity, "externalId")),
 		isNotNull(column(entity, "providerId")),
 		inArray(
