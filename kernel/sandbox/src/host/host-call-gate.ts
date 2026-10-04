@@ -545,7 +545,9 @@ const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retai
 			requests.some(
 				(request, index) =>
 					request.index !== firstIndex + index ||
-					(request.kind === "host" && !inline.capabilities.includes(request.args.capability)),
+					(request.kind === "host" &&
+						(!inline.capabilities.includes(request.args.capability) ||
+							!input.principal.metadata.capabilities?.includes(request.args.capability))),
 			) || firstIndex + requests.length > SANDBOX_LIMITS.hostCalls.total;
 		if (invalidRequest) {
 			return hostResultFrame(frame, { defer: true });
@@ -709,7 +711,12 @@ const ordinaryDispatch: GateAction = (state, options, frame, frameArgs) =>
 		const functions = state.gateFunctions;
 		const fn =
 			functions && Object.hasOwn(functions, frame.name) ? functions[frame.name] : undefined;
-		if (!input || !fn || !isSandboxHostCapability(frame.name)) {
+		if (
+			!input ||
+			!fn ||
+			!isSandboxHostCapability(frame.name) ||
+			!input.principal.metadata.capabilities?.includes(frame.name)
+		) {
 			return frameFailure(frame, "Sandbox host function is not available");
 		}
 		return yield* boundedHostCall(options, frame, frame.name, fn(parsed));
