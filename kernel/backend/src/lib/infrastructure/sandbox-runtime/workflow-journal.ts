@@ -10,7 +10,10 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
+import {
+	readEncodedSandboxJournal,
+	type SandboxJournalInspection,
+} from "#lib/infrastructure/sandbox-journal-store";
 import { type BoundHostFunction, isJsonValue } from "#lib/infrastructure/sandbox-runtime/shared";
 
 const projectionTtlSeconds = 24 * 60 * 60;
@@ -28,10 +31,6 @@ end
 return redis.call('EXPIRE', KEYS[1], ARGV[1])
 `;
 const divergencePattern = /journal-divergence:(\d+)/;
-
-type WorkflowJournalBridgeRedis = {
-	readonly client: { hmget: (key: string, ...fields: string[]) => Promise<Array<string | null>> };
-};
 
 type WorkflowJournalProjectionRedis = {
 	readonly client: {
@@ -100,38 +99,23 @@ export const appendWorkflowJournal = (
 const journalFailure = (message: string) =>
 	new SandboxRunError({ message, kind: "infrastructure" });
 
-/** Resolves to `null` when any of the first `journalLength` entries is absent from the projection. */
+// ioredis cannot abort an in-flight command; its reply must remain reserved through cancellation.
 export const readWorkflowJournal = (
-	redis: WorkflowJournalBridgeRedis,
+	redis: Parameters<typeof readEncodedSandboxJournal>[0],
 	executionId: string,
-	journalLength: number,
+	inspection: SandboxJournalInspection,
 ) =>
 	Effect.gen(function* () {
-		if (
-			!Number.isSafeInteger(journalLength) ||
-			journalLength < 0 ||
-			journalLength > SANDBOX_LIMITS.hostCalls.total
-		) {
-			return yield* journalFailure("Sandbox workflow journal length is invalid");
-		}
-		const fields =
-			journalLength === 0
-				? []
-				: yield* Effect.tryPromise(() =>
-						redis.client.hmget(
-							redisKeys.sandboxWorkflowJournal(executionId),
-							...Array.from({ length: journalLength }, (_, index) => String(index)),
-						),
-					).pipe(Effect.orDie);
-		if (fields.includes(null)) {
+		const fields = yield* readEncodedSandboxJournal(redis, executionId, inspection);
+		if (fields === null) {
 			return null;
 		}
 		const entries: WorkflowReplayJournalEntry[] = [];
 		let encodedBytes = 2;
 		for (const [index, raw] of fields.entries()) {
-			encodedBytes += utf8ByteLength(raw ?? "") + (index === 0 ? 0 : 1);
-			if (encodedBytes > SANDBOX_LIMITS.journalBytes) {
-				return yield* journalFailure("Sandbox workflow journal projection exceeds its byte limit");
+			encodedBytes += utf8ByteLength(raw) + (index === 0 ? 0 : 1);
+			if (encodedBytes > inspection.bytes) {
+				return yield* journalFailure("Sandbox workflow journal exceeds its inspected reservation");
 			}
 			const entry = decodeJournalEntry(raw);
 			if (
@@ -144,7 +128,7 @@ export const readWorkflowJournal = (
 			entries.push(entry.success);
 		}
 		return entries;
-	});
+	}).pipe(Effect.uninterruptible);
 
 export const makeWorkflowReplayJournalHostFunction =
 	(journal: ReadonlyArray<WorkflowReplayJournalEntry> | undefined) =>

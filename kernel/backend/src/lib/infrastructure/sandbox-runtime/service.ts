@@ -83,9 +83,9 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const apiFunctions = { ...hosts.runtime, ...hosts.additional, ...hosts.automation };
 		const reserve = Effect.fn("SandboxService.reserve")(function* (
 			principal: SandboxExecutionPrincipal,
-			journal: boolean,
+			journalBytes: number,
 		) {
-			return yield* supervisor.reserve(principal, journal);
+			return yield* supervisor.reserve(principal, journalBytes);
 		});
 		const run = Effect.fn("SandboxService.run")(function* (input: SandboxRunInput) {
 			const executionStartedAt = yield* Clock.currentTimeMillis;
@@ -102,7 +102,10 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 					const existingLease = yield* Effect.serviceOption(SandboxAdmissionLease);
 					const lease = Option.isSome(existingLease)
 						? existingLease.value
-						: yield* reserve(input.principal, input.replayJournal !== undefined);
+						: yield* reserve(
+								input.principal,
+								input.replayJournal === undefined ? 2 : SANDBOX_LIMITS.journalBytes,
+							);
 					const context = input.context ?? {};
 					const contextError = sandboxContextError(context);
 					if (contextError !== null) {
