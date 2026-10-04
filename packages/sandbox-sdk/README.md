@@ -17,6 +17,11 @@ schema or journal errors or signal a pending call. The workflow definition conve
 to a failed replay envelope; its host-facing `run` fails with `SandboxHostError` when the replay
 journal cannot be read.
 
+`replay.sleep` may settle inline with host requests. The backend applies an inclusive 1,000 ms
+per-wait limit and a shared 1,000 ms cumulative allowance per replay, including waits in `httpCall`
+admission. Longer waits or waits without remaining allowance use durable replay. An inline sleep
+returns raw `null`; host requests keep their typed success or failure results.
+
 Shared plugin sources use the environment-neutral `@ryot-app/plugin-kit/effect` shim. It does not
 export `Effect`; import the sandbox Effect surface in backend-only sources.
 
