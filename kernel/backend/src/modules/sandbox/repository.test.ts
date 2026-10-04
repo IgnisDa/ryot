@@ -7,6 +7,7 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import type { PluginSandboxAuthority } from "#lib/infrastructure/sandbox-runtime/plugin-authority";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
 import { isWorkflowCallTargetKind, SandboxRepository } from "./repository";
@@ -38,32 +39,45 @@ describe("workflow call script resolution", () => {
 	});
 });
 
+const configSchema = {
+	fields: {},
+	unknownKeys: "strict",
+} satisfies PluginSandboxAuthority["configSchema"];
+
 const manifest = {
+	configSchema,
 	entitySchemas: [],
 	relationshipSchemas: [],
-	configSchema: { fields: {}, unknownKeys: "strict" },
 	workflows: [{ slug: "plugin-workflow", scriptSlug: "plugin.workflow" }],
 	scripts: [{ kind: "script", runtimeImports: [], slug: "plugin.script" }],
 	userBootstrap: [{ slug: "bootstrap", description: "Bootstrap", scriptSlug: "plugin.script" }],
 };
 
+const environmentConfigRevisionId = (): string | null => "config-1";
+
+const sandboxAuthority = {
+	configSchema: manifest.configSchema,
+	scriptKinds: { "plugin.script": "script" },
+	userBootstrapScriptSlugs: ["plugin.script"],
+	workflowScripts: { "plugin-workflow": "plugin.workflow" },
+	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+} satisfies PluginSandboxAuthority;
+
 const pluginPinRow = {
 	id: "script-id",
+	sandboxAuthority,
 	pluginOwnerId: null,
 	pluginSlug: "plugin",
 	pluginId: "plugin-id",
 	slug: "plugin.script",
 	pluginStatus: "active",
-	pluginManifest: manifest,
 	providerId: "provider-id",
 	contentHash: "current-hash",
 	providerPluginId: "plugin-id",
 	pluginRevisionId: "revision-1",
 	activeRevisionId: "revision-1",
-	pluginScope: "system" as const,
-	compiledHashes: { "plugin.script": "current-hash" },
-	environmentConfigRevisionId: "config-1" as string | null,
 	metadata: { runtimeImports: [], kind: "script" as const },
+	environmentConfigRevisionId: environmentConfigRevisionId(),
 };
 
 const config = {
@@ -216,18 +230,6 @@ layer(pinRepositoryLayer)((test) => {
 
 const dialect = new PgDialect();
 const rootId = SandboxScriptId.make("workflow-script-id");
-const originalManifest = {
-	...manifest,
-	entitySchemas: [{ eventSchemas: [], slug: "original-entity" }],
-	scripts: [
-		{ kind: "workflow", slug: "plugin.workflow" },
-		{ kind: "workflow", slug: "plugin.child" },
-	],
-	workflows: [
-		{ slug: "root", scriptSlug: "plugin.workflow" },
-		{ slug: "child", scriptSlug: "plugin.child" },
-	],
-};
 const root = {
 	...pluginPinRow,
 	id: rootId,
@@ -235,17 +237,34 @@ const root = {
 	providerPluginId: null,
 	slug: "plugin.workflow",
 	contentHash: "workflow-v1",
-	pluginManifest: originalManifest,
 	metadata: { kind: "workflow" as const },
-	compiledHashes: { "plugin.child": "child-v1", "plugin.workflow": "workflow-v1" },
+	sandboxAuthority: {
+		...sandboxAuthority,
+		scriptKinds: { "plugin.child": "workflow", "plugin.workflow": "workflow" },
+		workflowScripts: Object.fromEntries([
+			["root", "plugin.workflow"],
+			["child", "plugin.child"],
+		]),
+		schemaScope: {
+			eventSchemas: [],
+			relationshipSchemaSlugs: [],
+			entitySchemaSlugs: ["original-entity"],
+		},
+	},
 };
 const replacedRoot = {
 	...root,
-	compiledHashes: { "plugin.child": "child-v2", "plugin.workflow": "workflow-v2" },
-	pluginManifest: {
-		...originalManifest,
-		workflows: [{ slug: "child", scriptSlug: "plugin.replacement" }],
-		entitySchemas: [{ eventSchemas: [], slug: "replacement-entity" }],
+	sandboxAuthority: {
+		...root.sandboxAuthority,
+		workflowScripts: Object.fromEntries([
+			["root", "plugin.workflow"],
+			["child", "plugin.replacement"],
+		]),
+		schemaScope: {
+			eventSchemas: [],
+			relationshipSchemaSlugs: [],
+			entitySchemaSlugs: ["replacement-entity"],
+		},
 	},
 };
 const isChildTarget = (condition: SQLCondition) =>
