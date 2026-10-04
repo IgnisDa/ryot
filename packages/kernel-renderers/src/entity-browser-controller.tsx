@@ -112,6 +112,7 @@ type EntityBrowserControllerProps<Meta> = {
 	readonly errorTitle: string;
 	readonly icon: string;
 	readonly identityKey: string;
+	readonly knownTotal?: number | undefined;
 	readonly layouts: readonly EntityBrowserLayout[];
 	readonly name: (meta: Meta | undefined) => string;
 	readonly query: RyotQuery<string, BrowserQueryPage<Meta>>;
@@ -142,6 +143,7 @@ export function EntityBrowserController<Meta>({
 	query,
 	count,
 	errorTitle,
+	knownTotal,
 	viewContext,
 	sortChoices,
 	identityKey,
@@ -256,6 +258,7 @@ export function EntityBrowserController<Meta>({
 		ryot.navigation.pageSearch.replace(pending.update);
 	}, [identity, requestedKey, ryot, state]);
 
+	const unfiltered = searchText === "" && filter === undefined && knownTotal !== undefined;
 	const transitioning = state?.identity !== identity;
 	const current = transitioning ? { items: [], pageInfo: null, meta: undefined } : state;
 	const initial = current.pageInfo === null;
@@ -478,12 +481,12 @@ export function EntityBrowserController<Meta>({
 						>
 							<span>
 								{viewResultLabel({
-									total,
 									loaded: current.items.length,
+									total: unfiltered ? knownTotal : total,
 									hasMore: current.pageInfo?.hasMore ?? false,
 								})}
 							</span>
-							{current.pageInfo?.hasMore && !showCount && count && (
+							{current.pageInfo?.hasMore && !unfiltered && !showCount && count && (
 								<Button
 									variant="ghost"
 									onClick={() => setShowCount(true)}
@@ -493,6 +496,7 @@ export function EntityBrowserController<Meta>({
 								</Button>
 							)}
 							{current.pageInfo?.hasMore &&
+								!unfiltered &&
 								showCount &&
 								count?.({ filter, searchText, onTotal: setTotal })}
 							<SyncCountLine populating={summary.populating} translating={summary.translating} />

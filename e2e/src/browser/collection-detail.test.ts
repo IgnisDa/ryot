@@ -1,10 +1,13 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient, createCollection } from "~/fixtures/kernel";
+import { createExerciseEntityFixture } from "~/fixtures/plugins/fitness";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
+
+const encodeFilter = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 it.live("opens a kernel-owned collection instead of reporting an unavailable plugin", () =>
 	Effect.gen(function* () {
@@ -176,5 +179,102 @@ it.live("browses collection members with membership properties", () =>
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-asc");
 		yield* rows.nth(0).getByText(alphaName, { exact: true }).waitFor({ state: "visible" });
 		yield* rows.nth(1).getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("filters collection members by type and keeps the filter across reload", () =>
+	Effect.gen(function* () {
+		const frontendUrl = getFrontendUrl();
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const id = crypto.randomUUID();
+		const collection = yield* createCollection(client, { name: `Typed collection ${id}` });
+		const nested = yield* createCollection(client, { name: `Nested collection ${id}` });
+		const { exerciseId } = yield* createExerciseEntityFixture(client, {
+			name: `Exercise member ${id}`,
+		});
+		for (const entityId of [nested.id, exerciseId]) {
+			yield* client.call((contract) =>
+				contract.collections.createMembership({
+					payload: { entityId, collectionId: collection.id },
+				}),
+			);
+		}
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 800 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${frontendUrl}/e/${collection.id}`);
+		const detail = page.locator("iframe").contentFrame();
+		const member = (name: string) => detail.getByText(`${name} ${id}`, { exact: true }).first();
+		yield* member("Nested collection").waitFor({ state: "visible" });
+		yield* member("Exercise member").waitFor({ state: "visible" });
+
+		const filtersDialog = detail.getByRole("dialog", { exact: true, name: "Filters" });
+		yield* detail.getByRole("button", { name: /^Filters/ }).click();
+		yield* filtersDialog.getByRole("button", { name: /^Add filter/ }).click();
+		yield* detail.getByRole("radio", { exact: true, name: "Type" }).click();
+		yield* filtersDialog.getByRole("button", { name: /^Type values/ }).click();
+		yield* detail.getByRole("checkbox", { exact: true, name: "Collections" }).click();
+		yield* detail
+			.getByRole("dialog", { exact: true, name: "Type values" })
+			.getByRole("button", { exact: true, name: "Close options" })
+			.click();
+		yield* page.keyboard.press("Escape");
+		yield* filtersDialog.waitFor({ state: "hidden" });
+
+		yield* detail.getByRole("button", { exact: true, name: "Filters, 1 active filter" }).waitFor();
+		yield* member("Exercise member").waitFor({ state: "detached" });
+		yield* member("Nested collection").waitFor({ state: "visible" });
+		expect(new URL(page.url()).searchParams.get("filters")).not.toBeNull();
+
+		yield* page.reload;
+		const reloaded = page.locator("iframe").contentFrame();
+		yield* reloaded
+			.getByRole("button", { exact: true, name: "Filters, 1 active filter" })
+			.waitFor();
+		yield* reloaded
+			.getByText(`Nested collection ${id}`, { exact: true })
+			.first()
+			.waitFor({ state: "visible" });
+		expect(yield* reloaded.getByText(`Exercise member ${id}`, { exact: true }).count).toBe(0);
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("filters collection members by a membership property from the URL", () =>
+	Effect.gen(function* () {
+		const frontendUrl = getFrontendUrl();
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const id = crypto.randomUUID();
+		const collection = yield* createCollection(client, {
+			name: `Rated collection ${id}`,
+			fields: [{ type: "number", label: "Rating", required: false }],
+		});
+		const high = yield* createCollection(client, { name: `High ${id}` });
+		const low = yield* createCollection(client, { name: `Low ${id}` });
+		for (const [entityId, rating] of [
+			[high.id, 5],
+			[low.id, 2],
+		] as const) {
+			yield* client.call((contract) =>
+				contract.collections.createMembership({
+					payload: { entityId, properties: { rating }, collectionId: collection.id },
+				}),
+			);
+		}
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 800 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+		const filters = Buffer.from(
+			encodeFilter({ value: 4, operator: "gte", field: "membership.rating" }),
+		).toString("base64url");
+		yield* page.goto(`${frontendUrl}/e/${collection.id}?filters=${filters}`);
+		const detail = page.locator("iframe").contentFrame();
+		yield* detail.getByText(`High ${id}`, { exact: true }).first().waitFor({ state: "visible" });
+		yield* detail
+			.getByRole("group", { name: "Active filters" })
+			.getByText("Rating is at least 4")
+			.waitFor({ state: "visible" });
+		expect(yield* detail.getByText(`Low ${id}`, { exact: true }).count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
