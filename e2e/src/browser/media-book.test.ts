@@ -117,7 +117,7 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 		});
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/e/${seeded.book.id}`);
-		const frame = page.locator('iframe[title="media plugin"]');
+		const frame = page.locator('iframe[title="Media plugin"]');
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media
@@ -236,7 +236,7 @@ it.live("renders the Book presentation facts in the canonical saved view", () =>
 		yield* view.getByRole("link", { exact: true, name: bookName }).click();
 		yield* page.waitForURL(`${frontendUrl}/e/${seeded.book.id}`);
 		yield* page
-			.locator('iframe[title="media plugin"]')
+			.locator('iframe[title="Media plugin"]')
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: bookName })
 			.waitFor({ state: "visible", timeout: 150_000 });
