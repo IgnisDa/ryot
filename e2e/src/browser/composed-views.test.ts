@@ -494,6 +494,28 @@ it.live(
 			yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
 			yield* rows.getByText("Third row", { exact: true }).waitFor({ state: "visible" });
 			expect(yield* rows.count).toBe(3);
+
+			const filtersDialog = runtime.getByRole("dialog", { exact: true, name: "Filters" });
+			yield* runtime.getByRole("button", { name: /^Filters/ }).click();
+			yield* filtersDialog.getByRole("button", { name: /^Add filter/ }).click();
+			yield* runtime.getByRole("radio", { exact: true, name: "Note" }).click();
+			yield* filtersDialog.getByRole("textbox", { name: "Note value" }).fill("Second");
+			yield* page.keyboard.press("Escape");
+			yield* filtersDialog.waitFor({ state: "hidden" });
+			yield* runtime
+				.getByRole("button", { exact: true, name: "Filters, 1 active filter" })
+				.waitFor();
+			yield* rows.nth(1).waitFor({ state: "detached" });
+			expect(yield* rows.allInnerTexts()).toEqual([expect.stringContaining("Second row")]);
+			expect(new URL(page.url()).searchParams.get("filters")).not.toBeNull();
+
+			yield* page.reload;
+			yield* runtime.getByRole("heading", { level: 1, name: viewRecord.name }).waitFor();
+			yield* runtime
+				.getByRole("button", { exact: true, name: "Filters, 1 active filter" })
+				.waitFor();
+			yield* rows.getByText("Second row", { exact: true }).waitFor({ state: "visible" });
+			expect(yield* rows.count).toBe(1);
 		}).pipe(PlaywrightSpawner.withBrowser),
 );
 
