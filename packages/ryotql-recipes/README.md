@@ -46,3 +46,8 @@ filter JSON. Unknown fields, operators outside the field type, and inverted rang
 count, and results-table recipes accept `filter` with `now` and AND the predicate into `where`.
 
 `propertyFilterFields` builds value fields from an `AppSchema` for plugin authors.
+
+`saved-view-filters` also owns the URL codec used by the kernel browsers (`decodeFilterParam`,
+`encodeFilterParam`, `editableGroup`, `activeRuleCount`, the draft helpers) and
+`relationshipFilterChoicesRecipe`, which lists far-side entities by id and name for a relationship
+field (optionally narrowed by search text or explicit ids).
