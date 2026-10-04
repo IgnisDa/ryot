@@ -6,6 +6,7 @@ import {
 	normalizeWorkoutMeasurements,
 	recordCandidates,
 } from "./workout-records";
+import { poundsToKilograms } from "./workout-units";
 
 it("normalizes base measurements and calculates only the statistics for the exercise kind", () => {
 	expect(
@@ -82,7 +83,7 @@ it("does not award the Dec22 side lateral 25 x 10 tie and advances in-session ma
 });
 
 it("treats weights that round to the same scale as one maximum and keeps zero and missing values distinct", () => {
-	const unroundedWeight = 10 * 0.45359237;
+	const unroundedWeight = poundsToKilograms(10);
 	const first = awardWorkoutPersonalBests(
 		"reps_and_weight",
 		{ reps: 5, weight: unroundedWeight },

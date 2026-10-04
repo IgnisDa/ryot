@@ -1,5 +1,6 @@
 import { DateTime, Result, Option } from "@ryot-app/plugin-backend-sdk/effect";
 
+import { poundsToKilograms } from "../../shared/workout-units";
 import { parseCsvText, readCsvCell, readOptionalCsvNumber, readRequiredCsvCell } from "./csv";
 import {
 	determineWorkoutExerciseKind,
@@ -25,8 +26,6 @@ type HevyRow = {
 	durationSeconds?: number | undefined;
 };
 
-const POUNDS_TO_KILOGRAMS = 0.45359237;
-
 const readHevyWeight = (row: Record<string, string>) => {
 	const kilograms = readOptionalCsvNumber(row, ["weight_kg", "Weight (kg)"]);
 	if (kilograms !== undefined) {
@@ -34,7 +33,7 @@ const readHevyWeight = (row: Record<string, string>) => {
 	}
 
 	const pounds = readOptionalCsvNumber(row, ["weight_lbs", "Weight (lbs)"]);
-	return pounds !== undefined ? pounds * POUNDS_TO_KILOGRAMS : undefined;
+	return pounds !== undefined ? poundsToKilograms(pounds) : undefined;
 };
 
 const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => {
