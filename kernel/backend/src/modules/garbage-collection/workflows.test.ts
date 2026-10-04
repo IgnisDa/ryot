@@ -485,4 +485,64 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 			expect(yield* counts()).toEqual([{ replies: 0, messages: 0 }]);
 		}),
 	);
+
+	test.effect("rejects a run request whose parent execution is missing", () =>
+		Effect.gen(function* () {
+			const missing = { workflowName: "RootWorkflow", executionId: "missing-parent" };
+			const root = { executionId: "orphan-root", workflowName: "RootWorkflow" };
+			const storage = yield* MessageStorage.MessageStorage;
+			assert(Exit.isFailure(yield* Effect.exit(saveRun(root, missing))));
+			const rootMessage = yield* saveRun(root);
+			assert(
+				Exit.isFailure(yield* Effect.exit(storage.saveRequest(yield* request(root, missing)))),
+			);
+			yield* completeRun(rootMessage);
+			yield* TestClock.adjust("24 hours");
+			expect(yield* (yield* WorkflowGarbageCollector).runBatch()).toEqual({
+				expiredTrees: 1,
+				clearedExecutions: 1,
+			});
+			expect(yield* counts()).toEqual([{ replies: 0, messages: 0 }]);
+		}),
+	);
+
+	test.effect("records replies for entities outside workflow bookkeeping", () =>
+		Effect.gen(function* () {
+			const generator = yield* Snowflake.Generator;
+			const storage = yield* MessageStorage.MessageStorage;
+			const address = EntityAddress.make({
+				entityId: EntityId.make("plain"),
+				shardId: ShardId.make("default", 1),
+				entityType: EntityType.make("PlainEntity"),
+			});
+			const message = new Message.OutgoingRequest({
+				rpc: deferredRpc,
+				context: Context.empty(),
+				respond: () => Effect.void,
+				annotations: Context.empty(),
+				lastReceivedReply: Option.none(),
+				envelope: Envelope.makeRequest<typeof deferredRpc>({
+					address,
+					tag: "deferred",
+					headers: Headers.empty,
+					requestId: generator.nextUnsafe(),
+					payload: deferredRpc.payloadSchema.make({ name: "plain" }),
+				}),
+			});
+			yield* storage.saveRequest(message);
+			yield* storage.saveReply(
+				new Reply.ReplyWithContext({
+					rpc: deferredRpc,
+					context: Context.empty(),
+					reply: new Reply.WithExit<typeof deferredRpc>({
+						exit: Exit.void,
+						id: generator.nextUnsafe(),
+						requestId: message.envelope.requestId,
+					}),
+				}),
+			);
+			expect(yield* counts()).toEqual([{ replies: 1, messages: 1 }]);
+			yield* storage.clearAddress(address);
+		}),
+	);
 });
