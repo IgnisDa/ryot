@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "@effect/vitest";
+import { afterEach, assert, describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	disposePluginBridges,
@@ -42,6 +42,7 @@ const answerCollection = (
 		readonly hasMore?: boolean | undefined;
 		readonly groupsHaveMore?: boolean | undefined;
 		readonly membershipPropertiesSchema?: Record<string, unknown> | undefined;
+		readonly description?: string | undefined;
 		readonly total?: number | undefined;
 	},
 ) =>
@@ -59,9 +60,12 @@ const answerCollection = (
 							{
 								name: input.name,
 								entityId: "col-1",
-								properties: input.membershipPropertiesSchema
-									? { membershipPropertiesSchema: input.membershipPropertiesSchema }
-									: {},
+								properties: {
+									...(input.description === undefined ? {} : { description: input.description }),
+									...(input.membershipPropertiesSchema === undefined
+										? {}
+										: { membershipPropertiesSchema: input.membershipPropertiesSchema }),
+								},
 							},
 						],
 					},
@@ -119,8 +123,79 @@ const answerCollection = (
 		});
 	});
 
+const hostScreenRequest = (
+	page: ReturnType<typeof mountPluginPage>,
+	type: "edit-collection-screen" | "add-to-collection-screen",
+) =>
+	Effect.promise(() =>
+		waitFor(() => {
+			const found = page.clientMessages().find((message) => message.type === type);
+			assert(found?.type === type);
+			return found;
+		}),
+	);
+
+const bookMember = {
+	name: "Dune",
+	properties: {},
+	entityId: "book-1",
+	ownerPluginId: null,
+	ownerPluginName: null,
+	entitySchemaSlug: "book",
+	populationStatus: "ready",
+	translationStatus: "ready",
+};
+
 describe("collection detail", () => {
 	afterEach(disposePluginBridges);
+
+	it.live("shows the description and opens the kernel editor for the collection", () =>
+		Effect.gen(function* () {
+			const page = openCollection();
+			yield* answerCollection(page, { name: "Road Trips", description: "Long drives" });
+			yield* Effect.promise(() => waitFor(() => screen.getByText("Long drives")));
+
+			fireEvent.click(screen.getByRole("button", { name: "Edit collection" }));
+			const edit = yield* hostScreenRequest(page, "edit-collection-screen");
+			expect(edit.collectionId).toBe("col-1");
+			page.send({
+				outcome: "success",
+				requestId: edit.requestId,
+				value: { kind: "deleted" },
+				type: "edit-collection-screen-result",
+			});
+
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(page.clientMessages()).toContainEqual(
+						expect.objectContaining({
+							mode: "replace",
+							type: "navigate",
+							target: { kind: "saved-view", reference: { kind: "kernel", slug: "collections" } },
+						}),
+					),
+				),
+			);
+		}),
+	);
+
+	it.live("opens a member's collection details in the kernel screen", () =>
+		Effect.gen(function* () {
+			const page = openCollection();
+			yield* answerCollection(page, { name: "Road Trips", members: [bookMember] });
+
+			const details = yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Collection details for Dune" }),
+			);
+			fireEvent.click(details);
+			const add = yield* hostScreenRequest(page, "add-to-collection-screen");
+			assert(add.type === "add-to-collection-screen");
+			expect({ entityId: add.entityId, collectionId: add.collectionId }).toEqual({
+				entityId: "book-1",
+				collectionId: "col-1",
+			});
+		}),
+	);
 
 	it.live(
 		"renders heterogeneous members and recipe-supplied template cells in the shared table",
@@ -198,6 +273,7 @@ describe("collection detail", () => {
 							"Name",
 							"Type",
 							"Template",
+							"Actions",
 						]),
 					),
 				);

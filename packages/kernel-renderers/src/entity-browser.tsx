@@ -19,6 +19,7 @@ import {
 	EntityBrowserController,
 	type BrowserQueryPage,
 	type BrowserResultsRenderer,
+	type AddAction,
 } from "./entity-browser-controller";
 
 const QueryInput = Schema.Tuple([Schema.String, Schema.String, Schema.NullOr(Schema.String)]);
@@ -66,13 +67,16 @@ const BrowserCount = ({
 	return null;
 };
 
+type EntityBrowserPageProps = {
+	readonly add?: AddAction | undefined;
+	readonly renderResults?: BrowserResultsRenderer | undefined;
+};
+
 const Browser = ({
+	add,
 	input,
 	renderResults,
-}: {
-	readonly input: typeof EntityBrowserPageInput.Type;
-	readonly renderResults?: BrowserResultsRenderer | undefined;
-}) => {
+}: EntityBrowserPageProps & { readonly input: typeof EntityBrowserPageInput.Type }) => {
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const [query] = useState(() =>
@@ -128,7 +132,8 @@ const Browser = ({
 				/>
 			)}
 			add={
-				addAction === null
+				add ??
+				(addAction === null
 					? undefined
 					: {
 							label: "Add to this view",
@@ -155,21 +160,19 @@ const Browser = ({
 									() => undefined,
 								);
 							},
-						}
+						})
 			}
 		/>
 	);
 };
 
-export default function EntityBrowserPage({
-	renderResults,
-}: { readonly renderResults?: BrowserResultsRenderer | undefined } = {}) {
+export default function EntityBrowserPage({ add, renderResults }: EntityBrowserPageProps = {}) {
 	const page = Schema.decodeUnknownResult(EntityBrowserPageInput)(usePageContext());
 	return Result.isFailure(page) ? (
 		<PluginScreenFrame title="Entity browser">
 			<StatusMessage tone="error">This entity browser configuration is invalid.</StatusMessage>
 		</PluginScreenFrame>
 	) : (
-		<Browser input={page.success} renderResults={renderResults} />
+		<Browser add={add} input={page.success} renderResults={renderResults} />
 	);
 }

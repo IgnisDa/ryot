@@ -11,6 +11,7 @@ import type {
 	EntityBrowserPageInput,
 	EntityBrowserResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
+import type { ReactNode } from "react";
 
 import { CellThumbnail, CellValue, cellText, isAssetCell } from "./display-value";
 
@@ -69,24 +70,44 @@ const browserColumns = (
 			},
 		}));
 
+export type BrowserItemActions = (item: {
+	readonly entityId: string;
+	readonly name: string | null;
+}) => ReactNode;
+
+const actionsColumn = (itemActions: BrowserItemActions): DataTableColumn<BrowserItem> => ({
+	id: "actions",
+	cell: itemActions,
+	headerClassName: "w-12 px-0 py-3",
+	cellClassName: "w-12 px-0 py-1 text-right",
+	header: <span className="sr-only">Actions</span>,
+});
+
 export function BrowserTable({
 	items,
 	settled,
 	columns,
+	renderItemActions,
 }: {
 	readonly settled: EntitySettle;
 	readonly columns: BrowserColumns | null;
 	readonly items: readonly BrowserItem[];
+	readonly renderItemActions?: BrowserItemActions | undefined;
 }) {
+	const declared = browserColumns(columns, settled);
 	return (
 		<div className="w-full max-w-6xl overflow-x-auto">
 			<DataTable
 				data={items}
 				getRowId={(item) => item.entityId}
 				rowClassName="h-15 border-b border-border"
-				columns={browserColumns(columns, settled)}
 				className="w-full border-collapse text-left"
 				headerClassName="border-b border-border text-xs text-text-muted"
+				columns={
+					renderItemActions === undefined
+						? declared
+						: [...declared, actionsColumn(renderItemActions)]
+				}
 			/>
 		</div>
 	);

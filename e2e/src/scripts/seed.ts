@@ -1761,10 +1761,7 @@ async function seedCollections(
 	];
 	for (const entity of showcaseMembers) {
 		// oxlint-disable-next-line no-await-in-loop
-		await addEntityToCollection(client, {
-			entityId: entity.id,
-			collectionId: allStarPicks.id,
-		});
+		await addEntityToCollection(client, { entityId: entity.id, collectionId: allStarPicks.id });
 		membershipCount++;
 	}
 

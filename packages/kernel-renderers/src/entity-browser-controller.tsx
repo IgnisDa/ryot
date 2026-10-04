@@ -56,7 +56,7 @@ import {
 	BrowserPagination,
 	BrowserSearching,
 } from "./browser-states";
-import { BrowserTable, type BrowserColumns } from "./browser-table";
+import { BrowserTable, type BrowserColumns, type BrowserItemActions } from "./browser-table";
 import { managedCellAssets } from "./display-value";
 
 export type BrowserResult = SavedViewResult<EntityBrowserResultItem>;
@@ -70,7 +70,9 @@ type BrowserControls = {
 
 export type BrowserSortChoice = { readonly label: string; readonly value: string };
 
-type AddAction = { readonly label: string; readonly open: (initialQuery?: string) => void };
+export type AddAction = { readonly label: string; readonly open: (initialQuery?: string) => void };
+
+type HeaderAction = { readonly label: string; readonly icon: string; readonly run: () => void };
 
 export type BrowserResultsRenderer = (input: {
 	readonly layout: Exclude<EntityBrowserLayout, "table">;
@@ -87,6 +89,8 @@ type EntityBrowserControllerProps<Meta> = {
 	readonly defaultLayout: EntityBrowserLayout;
 	readonly defaultSortLabel?: string | undefined;
 	readonly emptyMessage?: string | undefined;
+	readonly headerAction?: HeaderAction | undefined;
+	readonly renderItemActions?: BrowserItemActions | undefined;
 	readonly errorMessage: string;
 	readonly errorTitle: string;
 	readonly icon: string;
@@ -123,10 +127,12 @@ export function EntityBrowserController<Meta>({
 	tableColumns,
 	errorMessage,
 	emptyMessage,
+	headerAction,
 	renderResults,
 	renderSummary,
 	defaultLayout,
 	canSearch = true,
+	renderItemActions,
 	layouts: availableLayouts,
 	defaultSortLabel = "Default order",
 }: EntityBrowserControllerProps<Meta>) {
@@ -336,7 +342,14 @@ export function EntityBrowserController<Meta>({
 			/>
 		);
 	} else if (layout === "table") {
-		content = <BrowserTable settled={settled} columns={columns} items={current.items} />;
+		content = (
+			<BrowserTable
+				settled={settled}
+				columns={columns}
+				items={current.items}
+				renderItemActions={renderItemActions}
+			/>
+		);
 	} else {
 		content = renderResults?.({ layout, references, items: current.items }) ?? (
 			<EntityResults
@@ -344,6 +357,7 @@ export function EntityBrowserController<Meta>({
 				references={references}
 				viewContext={viewContext}
 				presentations={presentations}
+				renderItemActions={renderItemActions}
 			/>
 		);
 	}
@@ -377,28 +391,6 @@ export function EntityBrowserController<Meta>({
 						</button>
 					) : undefined
 				}
-				barActions={
-					<>
-						{canSearch && (
-							<ScreenBarButton
-								ref={searchTrigger}
-								label="Search this view"
-								className="text-text-muted"
-								onClick={() => setSearchOpen(true)}
-							>
-								<AppIcon size={22} name="search" />
-							</ScreenBarButton>
-						)}
-						<ScreenBarButton
-							ref={optionsTrigger}
-							className="text-text-muted"
-							onClick={() => setOptionsOpen(true)}
-							label="View options, 0 active filters"
-						>
-							<AppIcon size={22} name="sliders-horizontal" />
-						</ScreenBarButton>
-					</>
-				}
 				meta={
 					<div
 						role="status"
@@ -425,6 +417,37 @@ export function EntityBrowserController<Meta>({
 						{transitioning && <span>Updating...</span>}
 					</div>
 				}
+				barActions={
+					<>
+						{headerAction && (
+							<ScreenBarButton
+								label={headerAction.label}
+								onClick={headerAction.run}
+								className="text-text-muted"
+							>
+								<AppIcon size={22} name={headerAction.icon} />
+							</ScreenBarButton>
+						)}
+						{canSearch && (
+							<ScreenBarButton
+								ref={searchTrigger}
+								label="Search this view"
+								className="text-text-muted"
+								onClick={() => setSearchOpen(true)}
+							>
+								<AppIcon size={22} name="search" />
+							</ScreenBarButton>
+						)}
+						<ScreenBarButton
+							ref={optionsTrigger}
+							className="text-text-muted"
+							onClick={() => setOptionsOpen(true)}
+							label="View options, 0 active filters"
+						>
+							<AppIcon size={22} name="sliders-horizontal" />
+						</ScreenBarButton>
+					</>
+				}
 				actions={
 					<div className="flex flex-wrap items-center justify-end gap-2.5">
 						{canSearch && searchField("h-8.5 w-60")}
@@ -435,6 +458,12 @@ export function EntityBrowserController<Meta>({
 							label={`${viewName} layout`}
 						/>
 						<ViewFiltersButton ref={filtersTrigger} onClick={() => setOptionsOpen(true)} />
+						{headerAction && (
+							<Button variant="secondary" onClick={headerAction.run}>
+								<AppIcon size={15} name={headerAction.icon} />
+								{headerAction.label}
+							</Button>
+						)}
 						{add && (
 							<button
 								type="button"

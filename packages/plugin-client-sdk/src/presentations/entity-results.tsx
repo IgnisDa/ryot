@@ -532,11 +532,13 @@ export const EntityResults = ({
 	references,
 	viewContext,
 	presentations,
+	renderItemActions,
 }: {
 	readonly viewContext: JsonValue;
 	readonly layout: EntityResultsLayout;
 	readonly references: readonly EntityReference[];
 	readonly presentations: ReadonlyMap<string, EntityPresentationSource>;
+	readonly renderItemActions?: ((reference: EntityReference) => ReactNode) | undefined;
 }) => {
 	const registry = useContext(PresentationRegistryContext);
 	if (!registry) {
@@ -760,7 +762,16 @@ export const EntityResults = ({
 						reason={settled.get(item.reference.entityId)}
 					>
 						<ObservedEntity register={register} entityId={item.reference.entityId}>
-							<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
+							{renderItemActions === undefined ? (
+								<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
+							) : (
+								<div className="flex min-w-0 items-start gap-2">
+									<div className="min-w-0 flex-1">
+										<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
+									</div>
+									{renderItemActions(item.reference)}
+								</div>
+							)}
 						</ObservedEntity>
 					</SettleHighlight>
 				))}
