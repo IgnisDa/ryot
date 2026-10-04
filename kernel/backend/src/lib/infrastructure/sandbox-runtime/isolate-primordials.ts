@@ -13,9 +13,9 @@ export const isObject = (value: unknown): value is object =>
 	typeof value === "object" && value !== null;
 export const isArray = (value: unknown): value is unknown[] => arrayIsArray(value);
 export const isStringArray = (value: unknown): value is string[] => arrayIsArray(value);
-export const isExecResult = (value: unknown): value is RegExpExecArray | null =>
+const isExecResult = (value: unknown): value is RegExpExecArray | null =>
 	value === null || arrayIsArray(value);
-export const isUint8Array = (value: unknown): value is Uint8Array => arrayBufferIsView(value);
+const isUint8Array = (value: unknown): value is Uint8Array => arrayBufferIsView(value);
 
 /**
  * Captures a prototype method while module evaluation still precedes script code. The returned

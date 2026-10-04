@@ -7,7 +7,7 @@ export class SandboxRecoveryStoreError extends Schema.TaggedError<SandboxRecover
 	{ message: Schema.String },
 ) {}
 
-export const RECOVERY_LIMIT = 3;
+const RECOVERY_LIMIT = 3;
 
 const recoveryStateSchema = Schema.Struct({
 	suspended: Schema.Boolean,
