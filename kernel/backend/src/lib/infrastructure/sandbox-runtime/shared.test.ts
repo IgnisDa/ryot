@@ -21,9 +21,8 @@ import {
 import { Effect, PlatformError } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { sandboxHostResultBytes } from "#modules/sandbox/durable-host-dispatcher";
-
 import type { SandboxExecutionPrincipal } from "./execution-principal";
+import { sandboxHostResultBytes } from "./host-execution-policy";
 import { selectSandboxHostFunctions } from "./service";
 import {
 	isJsonValue,

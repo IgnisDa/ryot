@@ -56,7 +56,7 @@ const invalidArgumentsMessage = (fnName: string, error: Schema.SchemaError) =>
 const invalidArguments = (fnName: string, error: Schema.SchemaError) =>
 	hostFailure(invalidArgumentsMessage(fnName, error));
 
-const normalizeOptionalNull = (args: ReadonlyArray<unknown>, index: number) => {
+export const normalizeOptionalNull = (args: ReadonlyArray<unknown>, index: number) => {
 	if (args[index] !== null) {
 		return args;
 	}

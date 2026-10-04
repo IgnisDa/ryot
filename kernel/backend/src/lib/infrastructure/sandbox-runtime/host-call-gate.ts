@@ -22,12 +22,11 @@ import {
 } from "effect";
 import { Base64 } from "effect/encoding";
 
-import { sandboxHostResultBytes } from "#modules/sandbox/durable-host-dispatcher";
-
 import { recordSandboxHostCall, sandboxMetricHostFunction } from "../runtime-metrics";
 import { SANDBOX_JOURNAL_CHUNK_BYTES } from "../sandbox-journal-store";
 import { isSandboxCapability } from "./capability-policy";
 import type { SandboxFileAccess } from "./file-service";
+import { sandboxHostResultBytes } from "./host-execution-policy";
 import { encodedJsonBytes } from "./json-bytes";
 import { consumeSandboxHostCall, SANDBOX_LIMITS } from "./limits";
 import { isSandboxCapabilityAllowed, type BoundHostFunction, type SandboxRunInput } from "./shared";

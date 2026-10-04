@@ -1,7 +1,6 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 import { httpCallArgsSchema, sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
 import {
 	hostFailure,
@@ -21,15 +20,13 @@ import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowE
 import {
 	bindSandboxHostFunctions,
 	decodeSandboxHostArguments,
+	normalizeOptionalNull,
 } from "#lib/infrastructure/sandbox-runtime/bridge-adapter";
-import { isSandboxCapability } from "#lib/infrastructure/sandbox-runtime/capability-policy";
 import {
 	SandboxExecutionPrincipal,
 	type SandboxExecutionPrincipal as SandboxExecutionPrincipalValue,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
-import { SANDBOX_JSON_GRAPH_FACTOR } from "#lib/infrastructure/sandbox-runtime/json-bytes";
-import { KiB, SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	executeSandboxHttp,
 	prepareSandboxHttpRequest,
@@ -67,114 +64,10 @@ const failure = (message: string, data?: JsonValue): WorkflowDurableResult => ({
 	error: data === undefined ? { message } : { data, message },
 });
 
-export type SandboxDurableHostDispatchStrategy =
-	| "activity"
-	| "diagnostic"
-	| "event-workflow"
-	| "service-workflow"
-	| "lifecycle-workflow"
-	| "notification-workflow";
-
-export const SANDBOX_DURABLE_HOST_DISPATCH = {
-	log: "diagnostic",
-	span: "diagnostic",
-	httpCall: "activity",
-	executeRyotql: "activity",
-	getCachedValue: "activity",
-	setCachedValue: "activity",
-	getPluginConfig: "activity",
-	getUserSettings: "activity",
-	getEntitySchemas: "activity",
-	listEventSchemas: "activity",
-	listIntegrations: "activity",
-	getPersistentValue: "activity",
-	createEvents: "event-workflow",
-	getUserPreferences: "activity",
-	emitSignal: "service-workflow",
-	getOAuthAccessToken: "activity",
-	claimPersistentValue: "activity",
-	getCurrentIntegration: "activity",
-	requestEventStreamWork: "activity",
-	deleteEvents: "lifecycle-workflow",
-	updateEvents: "lifecycle-workflow",
-	invalidateOAuthAccessToken: "activity",
-	ensureUserEntities: "service-workflow",
-	sendNotification: "notification-workflow",
-	upsertGlobalEntities: "lifecycle-workflow",
-	changeUserRelationships: "lifecycle-workflow",
-	upsertGlobalRelationships: "lifecycle-workflow",
-} as const satisfies Record<keyof typeof sandboxHostContracts, SandboxDurableHostDispatchStrategy>;
-
-// Retained backend memory of a capability's result, bounded before the result materializes; `null`
-// marks results only the workflow body may hold.
-export const SANDBOX_HOST_RESULT_BYTES = {
-	log: KiB,
-	span: KiB,
-	emitSignal: null,
-	createEvents: null,
-	deleteEvents: null,
-	updateEvents: null,
-	setCachedValue: KiB,
-	getPluginConfig: null,
-	getUserSettings: null,
-	getEntitySchemas: null,
-	listEventSchemas: null,
-	listIntegrations: null,
-	sendNotification: null,
-	getUserPreferences: KiB,
-	ensureUserEntities: null,
-	getOAuthAccessToken: null,
-	upsertGlobalEntities: null,
-	getCurrentIntegration: null,
-	requestEventStreamWork: KiB,
-	changeUserRelationships: null,
-	upsertGlobalRelationships: null,
-	invalidateOAuthAccessToken: KiB,
-	httpCall: 2 * SANDBOX_LIMITS.http.responseBytes,
-	executeRyotql: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.ryotqlResultBytes,
-	getCachedValue: SANDBOX_JSON_GRAPH_FACTOR * SANDBOX_LIMITS.cache.valueBytes,
-	getPersistentValue: SANDBOX_JSON_GRAPH_FACTOR * (SANDBOX_LIMITS.cache.valueBytes + KiB),
-	claimPersistentValue: SANDBOX_JSON_GRAPH_FACTOR * (SANDBOX_LIMITS.cache.valueBytes + KiB),
-} as const satisfies Record<keyof typeof sandboxHostContracts, number | null>;
-
-export const sandboxDurableHostDispatchStrategy = (capability: SandboxHostCapability) => {
-	if (capability === "artifact-read" || capability === "scratch") {
-		return null;
-	}
-	return SANDBOX_DURABLE_HOST_DISPATCH[capability];
-};
-
-export const sandboxHostResultBytes = (capability: SandboxHostCapability) => {
-	if (capability === "artifact-read" || capability === "scratch") {
-		return null;
-	}
-	return SANDBOX_HOST_RESULT_BYTES[capability];
-};
-
-/**
- * Declared capabilities whose durable calls a live replay may settle inline: plain activities that
- * neither start workflows nor need another sandbox execution slot, with results bounded before they
- * materialize.
- */
-export const sandboxInlineDurableCapabilities = (principal: SandboxExecutionPrincipalValue) =>
-	(principal.metadata.capabilities ?? []).filter(
-		(capability): capability is SandboxHostCapability =>
-			isSandboxCapability(capability) &&
-			sandboxDurableHostDispatchStrategy(capability) === "activity" &&
-			sandboxHostResultBytes(capability) !== null,
-	);
-
-// The bridge binding reads explicit null options as omitted; policy resolution must read the same
-// URL the request would be sent to.
-const httpCallArgs = (request: HostRequest) => {
-	const args = request.args.args;
-	return args.length === 3 && args[2] === null ? args.slice(0, 2) : args;
-};
-
 export const sandboxDurableHttpRequestUrl = (request: HostRequest) =>
 	Option.getOrNull(
 		Option.map(
-			Schema.decodeUnknownOption(httpCallArgsSchema)(httpCallArgs(request)),
+			Schema.decodeUnknownOption(httpCallArgsSchema)(normalizeOptionalNull(request.args.args, 2)),
 			(args) => args[1],
 		),
 	);
@@ -303,7 +196,9 @@ export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(functi
 		const [method, url, options] = yield* decodeSandboxHostArguments(
 			"httpCall",
 			sandboxHostContracts.httpCall,
-		)(httpCallArgs(request)).pipe(Effect.mapError((error): SandboxHostError => error));
+		)(normalizeOptionalNull(request.args.args, 2)).pipe(
+			Effect.mapError((error): SandboxHostError => error),
+		);
 		const next =
 			redirect === null
 				? yield* prepareSandboxHttpRequest(method, url, options)
