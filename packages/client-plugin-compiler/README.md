@@ -22,6 +22,9 @@ shared files. Declared plugin dependencies stay external and resolve through the
 imports, Vite query and glob imports, escaping asset URLs, and authored Tailwind `@plugin`,
 `@config`, and `@source` directives are rejected.
 
+`@ryot-app/client-ui-sdk/markdown` is an exact trusted registry entry. Its Markdown and directive
+dependencies are private implementation details; plugin sources cannot import them directly.
+
 ## Compilation Stages
 
 Effect schemas in `src/input.ts` define package inputs and public exports. Their derived types are

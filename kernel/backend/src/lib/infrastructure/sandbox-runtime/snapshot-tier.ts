@@ -14,6 +14,7 @@ const tierByRuntimeName = {
 	ryotql: "core",
 	fflate: "data",
 	cheerio: "data",
+	markdown: "data",
 	youtubei: "full",
 	papaparse: "data",
 	filesystem: "core",

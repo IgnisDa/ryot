@@ -219,6 +219,12 @@ it.layer(clientPluginCompilerPlatformLayer)("buildClientRuntime", (test) => {
 				first.artifact.files.map(({ name, contents }) => [name, text(contents)]),
 			);
 			const reactChunks = reachableChunks(reactEntry, fileContents);
+			const markdownEntry = first.entries["@ryot-app/client-ui-sdk/markdown"];
+			assertDefined(markdownEntry);
+			expect(fileContents.get(markdownEntry)).toContain("MarkdownContent");
+			expect(fileContents.get(markdownEntry)).toContain("markdownPlainText");
+			const markdownChunks = reachableChunks(markdownEntry, fileContents);
+			expect([...reactChunks].some((name) => markdownChunks.has(name))).toBe(true);
 			const sdkReactEntry = first.entries["@ryot-app/client-sdk/react"];
 			assertDefined(sdkReactEntry);
 			const sdkChunks = reachableChunks(sdkReactEntry, fileContents);
