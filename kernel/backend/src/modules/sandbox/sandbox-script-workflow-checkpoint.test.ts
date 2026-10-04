@@ -4,10 +4,21 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import type { WorkflowReplayEnvelope } from "@ryot-app/sandbox-sdk/workflow";
-import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option, Schema, type Scope } from "effect";
+import {
+	Cause,
+	Deferred,
+	Duration,
+	Effect,
+	Exit,
+	Fiber,
+	Layer,
+	Option,
+	Schema,
+	type Scope,
+} from "effect";
 import { PersistedQueue } from "effect/persistence";
 import { Reactivity } from "effect/reactivity";
-import { DurableDeferred, Workflow } from "effect/workflow";
+import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
 import {
 	type Encoded,
 	makeUnsafe,
@@ -18,6 +29,9 @@ import {
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import { RedisService } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
+import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import { SandboxHttpProgress } from "#lib/infrastructure/sandbox-runtime/http-progress";
+import type { SandboxInlineProgress } from "#lib/infrastructure/sandbox-runtime/inline-progress";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
@@ -57,6 +71,52 @@ const requestAt = (index: number) => ({
 const firstRequest = requestAt(0);
 const secondRequest = requestAt(1);
 const requests = [firstRequest, secondRequest];
+const sleep0 = { index: 0, name: "sleep-0", kind: "sleep" as const, args: { durationMs: 250 } };
+const sleep1 = { index: 1, name: "sleep-1", kind: "sleep" as const, args: { durationMs: 5_000 } };
+const sleepRequests = [sleep0, sleep1];
+const httpRequest = {
+	index: 0,
+	name: "httpCall",
+	kind: "host" as const,
+	args: { capability: "httpCall" as const, args: ["GET", "https://api.test/start"] },
+};
+const httpProgress = Schema.decodeSync(SandboxHttpProgress)({
+	hop: 1,
+	attempt: 1,
+	networkAttempt: 2,
+	pendingBlock: null,
+	blockWaitAttempt: 3,
+	admissionAttempt: 4,
+	blockedUntilMs: null,
+	registeredAtMs: null,
+	coordinationAttempt: 5,
+	registrationAttempt: 6,
+	terminalRateLimit: null,
+	coordinationBackoffAttempt: 7,
+	url: "https://api.test/redirected",
+	redirect: {
+		hop: 1,
+		headers: {},
+		method: "GET",
+		_tag: "redirected",
+		url: "https://api.test/redirected",
+	},
+	cleanup: {
+		declaration: { requests: 1, intervalMs: 1_000, key: "http:api.test", hash: "checkpoint-hash" },
+		ticket: {
+			lane: "interactive",
+			tenant: "checkpoint-tenant",
+			plugin: "checkpoint-plugin",
+			id: "checkpoint-http-ticket",
+		},
+	},
+});
+const httpPending: SandboxInlineProgress = {
+	_tag: "Http",
+	request: httpRequest,
+	progress: httpProgress,
+};
+const httpResult = { state: "success" as const, value: { body: "ok", status: 200, headers: {} } };
 const executionId = "checkpoint-parent";
 const scriptId = SandboxScriptId.make("checkpoint-script");
 const payload: SandboxScriptWorkflowPayload = {
@@ -68,7 +128,14 @@ const payload: SandboxScriptWorkflowPayload = {
 	subject: { type: "system" },
 };
 
-const makeHarness = () => {
+type SandboxCapabilities = NonNullable<SandboxExecutionPrincipal["metadata"]["capabilities"]>;
+
+type HarnessOptions = {
+	readonly capabilities?: SandboxCapabilities;
+	readonly dispatcher?: SandboxDurableHostDispatcher["Service"];
+};
+
+const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 	const activities = new Map<string, Exit.Exit<unknown, unknown>>();
 	const slots = new Map<string, Exit.Exit<unknown, unknown>>();
 	const childResults = new Map<string, unknown>();
@@ -77,6 +144,7 @@ const makeHarness = () => {
 	const interrupted: string[] = [];
 	const reads: string[] = [];
 	const appends: string[] = [];
+	const clockSchedules: Array<ReturnType<typeof DurableClock.make>> = [];
 	const state: {
 		blocked: boolean;
 		retired: boolean;
@@ -108,9 +176,9 @@ const makeHarness = () => {
 		scriptSlug: "workflow.checkpoint",
 		contentHash: "checkpoint-content",
 		metadata: {
-			capabilities: [],
 			runtimeImports: [],
 			kind: "workflow" as const,
+			capabilities: harnessOptions.capabilities ?? [],
 			executableDependencies: [{ kind: "workflow" as const, slug: firstRequest.args.workflowSlug }],
 		},
 	};
@@ -127,7 +195,12 @@ const makeHarness = () => {
 		}),
 		Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
 		Layer.mock(SandboxWorkflowReferenceRepository)({ release: () => Effect.die("unused") }),
-		Layer.mock(SandboxDurableHostDispatcher)({ dispatch: () => Effect.die("unused") }),
+		harnessOptions.dispatcher
+			? Layer.succeed(SandboxDurableHostDispatcher, harnessOptions.dispatcher)
+			: Layer.mock(SandboxDurableHostDispatcher)({
+					cancelInline: () => Effect.void,
+					dispatch: () => Effect.die("unused"),
+				}),
 		Layer.mock(SandboxRepository)({ resolveWorkflowCallScript: () => Effect.succeed(null) }),
 		Layer.succeed(
 			RedisService,
@@ -183,6 +256,7 @@ const makeHarness = () => {
 	const fresh = (
 		envelope: WorkflowReplayEnvelope = { requests, journalLength: 0, state: "pending" },
 		parentPayload = payload,
+		pendingInline: ReadonlyArray<SandboxInlineProgress> = [],
 	) => {
 		const instance = WorkflowInstance.initial(SandboxScriptWorkflow.background, executionId);
 		function execute<Discard extends boolean>(
@@ -227,11 +301,14 @@ const makeHarness = () => {
 			resume: () => Effect.void,
 			register: () => Effect.void,
 			poll: () => Effect.die("unused"),
-			scheduleClock: () => Effect.void,
 			interruptUnsafe: () => Effect.die("unused"),
 			interrupt: (_workflow, id) =>
 				Effect.sync(() => {
 					interrupted.push(id);
+				}),
+			scheduleClock: (_workflow, scheduled) =>
+				Effect.sync(() => {
+					clockSchedules.push(scheduled.clock);
 				}),
 			deferredResult: (deferred) =>
 				Effect.sync(() => {
@@ -296,6 +373,7 @@ const makeHarness = () => {
 				error: null,
 				harvest: null,
 				status: "completed" as const,
+				pendingInline: replay.executionId.endsWith("-replay-0") ? pendingInline : [],
 				value: replay.executionId.endsWith("-replay-0")
 					? envelope
 					: {
@@ -328,8 +406,151 @@ const makeHarness = () => {
 		interrupted,
 		childStarted,
 		dependencies,
+		clockSchedules,
 	};
 };
+
+const completedSleep0: SandboxInlineProgress = { value: null, request: sleep0, _tag: "Completed" };
+
+it.effect("deferred_inline_batch_reuses_completed_members_before_ordered_append", () =>
+	Effect.gen(function* () {
+		const h = makeHarness();
+		const envelope: WorkflowReplayEnvelope = {
+			journalLength: 0,
+			state: "pending",
+			requests: sleepRequests,
+		};
+		const first = yield* h.fresh(envelope, payload, [completedSleep0]).body;
+		assert(first._tag === "Suspended");
+		expect([...h.slots.keys()]).toEqual(["sandbox-request-0"]);
+		expect(h.clockSchedules.map(({ name }) => name)).toEqual(["sandbox-workflow-sleep-1"]);
+		const scheduledClock = h.clockSchedules[0];
+		assert(scheduledClock !== undefined);
+		expect(Duration.toMillis(scheduledClock.duration)).toBe(5_000);
+		expect(h.appends).toEqual([]);
+
+		const clock = DurableClock.make({
+			name: "sandbox-workflow-sleep-1",
+			duration: Duration.millis(5_000),
+		});
+		h.slots.set(clock.deferred.name, Exit.succeed(undefined));
+		const resumed = yield* h.fresh(envelope).body;
+		assert(resumed._tag === "Complete");
+		expect(yield* resumed.exit).toBe("done");
+		expect(h.clockSchedules.map(({ name }) => name)).not.toContain("sandbox-workflow-sleep-0");
+		expect(h.appends).toEqual(["0:2"]);
+	}),
+);
+
+const invalidInlineProgressCases: ReadonlyArray<{
+	readonly label: string;
+	readonly entries: ReadonlyArray<SandboxInlineProgress>;
+}> = [
+	{
+		label: "changed name",
+		entries: [{ ...completedSleep0, request: { ...sleep0, name: "changed" } }],
+	},
+	{ label: "changed index", entries: [{ ...completedSleep0, request: { ...sleep0, index: 7 } }] },
+	{
+		label: "changed args",
+		entries: [{ ...completedSleep0, request: { ...sleep0, args: { durationMs: 251 } } }],
+	},
+	{ label: "duplicate completed entries", entries: [completedSleep0, completedSleep0] },
+];
+
+it.effect.each(invalidInlineProgressCases)(
+	"deferred_inline_progress_rejects_changed_and_duplicate_request_identity: $label",
+	({ entries }) =>
+		Effect.gen(function* () {
+			const h = makeHarness();
+			const envelope: WorkflowReplayEnvelope = {
+				journalLength: 0,
+				state: "pending",
+				requests: sleepRequests,
+			};
+			const result = yield* h.fresh(envelope, payload, entries).body;
+			assert(result._tag === "Complete");
+			assertExitFails(
+				yield* Effect.exit(result.exit),
+				new SandboxRunError({
+					kind: "script-failure",
+					message: "Sandbox inline progress does not match the pending replay",
+				}),
+			);
+			expect(h.clockSchedules).toEqual([]);
+			expect(h.dispatches).toEqual([]);
+			expect(h.slots.size).toBe(0);
+			expect(h.appends).toEqual([]);
+		}),
+);
+
+it.effect("deferred_inline_http_passes_retained_attempt_to_durable_dispatch", () =>
+	Effect.gen(function* () {
+		const dispatchProgress: Array<SandboxHttpProgress | undefined> = [];
+		const dispatcher = SandboxDurableHostDispatcher.of({
+			cancelInline: () => Effect.void,
+			settleInline: () => Effect.die("unused"),
+			dispatch: (_request, _payload, _principal, _id, progress) =>
+				Effect.sync(() => {
+					dispatchProgress.push(progress);
+				}).pipe(Effect.andThen(Effect.succeed(httpResult))),
+		});
+		const h = makeHarness({ dispatcher, capabilities: ["httpCall"] });
+		const envelope: WorkflowReplayEnvelope = {
+			journalLength: 0,
+			state: "pending",
+			requests: [httpRequest],
+		};
+		const first = yield* h.fresh(envelope, payload, [httpPending]).body;
+		assert(first._tag === "Complete");
+		expect(yield* first.exit).toBe("done");
+		expect(dispatchProgress).toEqual([httpProgress]);
+		const stored = h.slots.get("sandbox-request-0");
+		assert(stored !== undefined);
+		assert(Exit.isSuccess(stored));
+		expect(stored.value).toEqual({
+			targetScriptId: null,
+			entry: { value: httpResult, request: httpRequest },
+		});
+		expect(h.appends).toEqual(["0:1"]);
+
+		const resumed = yield* h.fresh(envelope).body;
+		assert(resumed._tag === "Complete");
+		expect(yield* resumed.exit).toBe("done");
+		expect(dispatchProgress).toEqual([httpProgress]);
+	}),
+);
+
+it.effect("deferred_inline_http_cancels_retained_progress_once_on_parent_interruption", () =>
+	Effect.gen(function* () {
+		const dispatchStarted = Deferred.makeUnsafe<void>();
+		const cancellations: Array<{
+			executionId: string;
+			progress: ReadonlyArray<SandboxInlineProgress>;
+		}> = [];
+		const dispatcher = SandboxDurableHostDispatcher.of({
+			settleInline: () => Effect.die("unused"),
+			dispatch: () =>
+				Deferred.succeed(dispatchStarted, undefined).pipe(Effect.andThen(Effect.never)),
+			cancelInline: (cancelledExecutionId, progress) =>
+				Effect.sync(() => {
+					cancellations.push({ progress, executionId: cancelledExecutionId });
+				}),
+		});
+		const h = makeHarness({ dispatcher, capabilities: ["httpCall"] });
+		const envelope: WorkflowReplayEnvelope = {
+			journalLength: 0,
+			state: "pending",
+			requests: [httpRequest],
+		};
+		const attempt = h.fresh(envelope, payload, [httpPending]);
+		const running = yield* Effect.forkChild(attempt.body);
+		yield* Deferred.await(dispatchStarted);
+		attempt.instance.interrupted = true;
+		yield* Fiber.interrupt(running);
+		expect(cancellations).toEqual([{ executionId, progress: [httpPending] }]);
+	}),
+);
 
 it.effect(
 	"reuses a completed request after its sibling suspends while preserving ordered journal append",
@@ -663,6 +884,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 										inline: [],
 										error: null,
 										harvest: null,
+										pendingInline: [],
 										status: "completed" as const,
 										value: replay.executionId.endsWith("-replay-0")
 											? { requests, journalLength: 0, state: "pending" }
@@ -773,6 +995,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 					const dispatcher = Layer.succeed(
 						SandboxDurableHostDispatcher,
 						SandboxDurableHostDispatcher.of({
+							cancelInline: () => Effect.void,
 							settleInline: () => Effect.die("unused"),
 							dispatch: ({ index }) =>
 								Effect.gen(function* () {
@@ -803,6 +1026,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 										inline: [],
 										error: null,
 										harvest: null,
+										pendingInline: [],
 										status: "completed" as const,
 										value: replay.executionId.endsWith("-replay-0")
 											? { requests: calls, journalLength: 0, state: "pending" }

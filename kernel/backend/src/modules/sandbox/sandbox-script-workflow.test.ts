@@ -342,7 +342,10 @@ const controlledWorkflowDependencies = Layer.mergeAll(
 	Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
 	Layer.mock(SandboxPluginScriptResolver)({ findActiveScriptById: () => Effect.die("unused") }),
 	Layer.mock(KernelWorkflowReferences)({ execute: () => Effect.die("unused") }),
-	Layer.mock(SandboxDurableHostDispatcher)({ dispatch: () => Effect.die("unused") }),
+	Layer.mock(SandboxDurableHostDispatcher)({
+		cancelInline: () => Effect.void,
+		dispatch: () => Effect.die("unused"),
+	}),
 );
 
 it("sanitizes child id names deterministically", () => {
@@ -505,6 +508,7 @@ const hotSwapLayer = recordingLayer(
 							error: null,
 							success: true,
 							harvest: null,
+							pendingInline: [],
 							executionId: input.executionId,
 							value: yield* decodeEnvelope(output),
 							timing: { totalMs: 1, executionMs: 1 },
@@ -524,7 +528,10 @@ const hotSwapLayer = recordingLayer(
 					callerScriptId,
 				) => calls.record("kernel-callers", callerScriptId).pipe(Effect.as({ kernel: "recorded" })),
 			}),
-			Layer.mock(SandboxDurableHostDispatcher)({ dispatch: () => Effect.die("unused") }),
+			Layer.mock(SandboxDurableHostDispatcher)({
+				cancelInline: () => Effect.void,
+				dispatch: () => Effect.die("unused"),
+			}),
 			Layer.succeed(ActiveWorkflowScript, { current: Ref.get(active) }),
 		);
 	}),
@@ -652,6 +659,7 @@ layer(
 							inline: [],
 							error: null,
 							harvest: null,
+							pendingInline: [],
 							status: "completed" as const,
 							value: {
 								journalLength: 0,
@@ -720,6 +728,7 @@ layer(
 						registerInTransaction: () => Effect.die("unused"),
 					}),
 					Layer.mock(SandboxDurableHostDispatcher)({
+						cancelInline: () => Effect.void,
 						dispatch: () =>
 							makeActivity({
 								error: SandboxRunError,
@@ -792,6 +801,7 @@ layer(
 				inline: [],
 				error: null,
 				harvest: null,
+				pendingInline: [],
 				status: "completed" as const,
 				value:
 					sandboxPayload.executionId === `${executionId}-replay-0`
@@ -880,6 +890,7 @@ layer(
 							inline: [],
 							value: null,
 							harvest: null,
+							pendingInline: [],
 							status: "completed" as const,
 							error: {
 								message: "boom",
@@ -1129,6 +1140,7 @@ const inlineWorkflowLayer = (executionId: string) =>
 						}),
 					),
 					Layer.mock(SandboxDurableHostDispatcher)({
+						cancelInline: () => Effect.void,
 						dispatch: (request) =>
 							calls
 								.record("dispatched", request.index)
@@ -1171,6 +1183,7 @@ const cachedEntry = (request: ReturnType<typeof inlineCachedRequest>) => ({
 const replayBase = { logs: [], error: null, harvest: null, status: "completed" as const };
 const firstInlineReplay = {
 	...replayBase,
+	pendingInline: [],
 	inline: [cachedEntry(inlineFirst)],
 	value: { journalLength: 0, state: "pending" as const, requests: [inlineFirst, inlineSecond] },
 };
@@ -1178,6 +1191,7 @@ const projectionMissingReplay = {
 	...replayBase,
 	inline: [],
 	value: null,
+	pendingInline: [],
 	projectionMissing: true as const,
 };
 const findReplayMetric = (outcome: string) =>
@@ -1230,6 +1244,7 @@ layer(inlineWorkflowLayer(inlineIds.ordering))((test) => {
 							? firstInlineReplay
 							: {
 									...replayBase,
+									pendingInline: [],
 									inline: [cachedEntry(inlineThird)],
 									value: {
 										journalLength: 2,
@@ -1276,6 +1291,7 @@ layer(inlineWorkflowLayer(inlineIds.race))((test) => {
 					return {
 						...replayBase,
 						inline: [],
+						pendingInline: [],
 						value: {
 							output: null,
 							journalLength: 2,
@@ -1312,6 +1328,7 @@ layer(inlineWorkflowLayer(inlineIds.missing))((test) => {
 				return Effect.succeed({
 					...replayBase,
 					inline: [],
+					pendingInline: [],
 					value: {
 						journalLength: 2,
 						output: { done: true },
@@ -1444,6 +1461,7 @@ layer(
 							inline: [],
 							error: null,
 							harvest: null,
+							pendingInline: [],
 							status: "completed" as const,
 							value: { journalLength: 0, state: "pending" as const, requests: [first, second] },
 						});
@@ -1453,6 +1471,7 @@ layer(
 						inline: [],
 						error: null,
 						harvest: null,
+						pendingInline: [],
 						status: "completed" as const,
 						value: {
 							journalLength: 2,
@@ -1502,6 +1521,7 @@ layer(
 							inline: [],
 							error: null,
 							harvest: null,
+							pendingInline: [],
 							status: "completed" as const,
 							value:
 								sandboxPayload.journalLength === 0
@@ -1779,6 +1799,7 @@ layer(inlineWorkflowLayer(inlineIds.recurring))((test) => {
 				return Effect.succeed({
 					...replayBase,
 					inline: [],
+					pendingInline: [],
 					value:
 						outcome === "pending"
 							? {

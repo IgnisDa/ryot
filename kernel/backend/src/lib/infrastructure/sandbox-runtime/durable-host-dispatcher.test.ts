@@ -1,4 +1,4 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { assert, describe, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
@@ -62,6 +62,9 @@ import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
 
 import { SandboxDurableHostDispatcherLive } from "./durable-host-dispatcher";
+import type { SandboxHttpProgress } from "./http-progress";
+import type { SandboxInlineProgress } from "./inline-progress";
+import { makeSandboxShortWait } from "./short-wait";
 
 const publicEgressPolicy: EgressPolicy = {
 	allowedNetworks: [],
@@ -486,6 +489,7 @@ const httpDispatchLayer = (options: {
 	readonly registrations?: ReadonlyArray<ProviderHttpRegistration | "fail">;
 	readonly resolutions?: Readonly<Record<string, ReadonlyArray<ScriptedResolution>>>;
 	readonly cancelFailures?: number;
+	readonly blockFailures?: number;
 	readonly cachedInterruptedAdmission?: boolean;
 }) =>
 	Layer.unwrap(
@@ -498,6 +502,7 @@ const httpDispatchLayer = (options: {
 			const registered = yield* Ref.make<ReadonlyArray<ProviderHttpTicket>>([]);
 			const interruptRequested = yield* Ref.make(false);
 			const cancellations = yield* Ref.make(0);
+			const blockCalls = yield* Ref.make(0);
 			const httpCalls = yield* Ref.make(0);
 			const pollIndex = yield* Ref.make(0);
 			const claimIndex = yield* Ref.make(0);
@@ -606,14 +611,6 @@ const httpDispatchLayer = (options: {
 								nonce: "nonce-1",
 								status: "granted" as const,
 							}),
-						block: (_declaration, delayMs) =>
-							record(`block:${delayMs}`).pipe(
-								Effect.as({
-									status: "blocked" as const,
-									observedAtMs: options.blockObservedAtMs ?? 0,
-									blockedUntilMs: (options.blockObservedAtMs ?? 0) + delayMs,
-								}),
-							),
 						cancel: (declaration, ticket) =>
 							Effect.gen(function* () {
 								yield* record(`cancel:${declaration.key}:${ticket.id}`);
@@ -630,6 +627,22 @@ const httpDispatchLayer = (options: {
 										status: "registered" as const,
 									}),
 								),
+							),
+						block: (_declaration, delayMs) =>
+							record(`block:${delayMs}`).pipe(
+								Effect.andThen(
+									Effect.gen(function* () {
+										if ((yield* nextIndex(blockCalls)) < (options.blockFailures ?? 0)) {
+											return yield* unavailable;
+										}
+										return undefined;
+									}),
+								),
+								Effect.as({
+									status: "blocked" as const,
+									observedAtMs: options.blockObservedAtMs ?? 0,
+									blockedUntilMs: (options.blockObservedAtMs ?? 0) + delayMs,
+								}),
 							),
 					},
 				}),
@@ -652,6 +665,7 @@ const httpDispatchLayer = (options: {
 const runHttpDispatch = (
 	url = `${providerOrigin}/private?token=secret`,
 	args: ReadonlyArray<JsonValue> = ["GET", url],
+	progress?: SandboxHttpProgress,
 ) =>
 	Effect.gen(function* () {
 		const dispatcher = yield* SandboxDurableHostDispatcher;
@@ -667,6 +681,7 @@ const runHttpDispatch = (
 			},
 			principal,
 			httpExecutionId,
+			progress,
 		);
 	});
 
@@ -683,6 +698,293 @@ const httpEvents = (events: ReadonlyArray<string>) =>
 const ticketId = (hop: number, attempt: number) => `${httpExecutionId}:7:${hop}:${attempt}`;
 
 const matchedOnly = { [providerOrigin]: [httpPolicy()] };
+
+const runInlineHttp = (url = `${providerOrigin}/private?token=secret`) =>
+	Effect.gen(function* () {
+		const dispatcher = yield* SandboxDurableHostDispatcher;
+		const pending = yield* Ref.make<ReadonlyArray<SandboxInlineProgress>>([]);
+		const result = yield* dispatcher.settleInline(
+			[
+				{
+					index: 7,
+					kind: "host",
+					name: "httpCall",
+					args: { args: ["GET", url], capability: "httpCall" },
+				},
+			],
+			{},
+			principal,
+			"background",
+			httpExecutionId,
+			"1970-01-01T00:00:00.000Z",
+			makeSandboxShortWait(),
+			(entry) => append(pending, entry),
+		);
+		return { result, pending: yield* Ref.get(pending) };
+	});
+
+describe("live_http_settlement_admits_each_matched_hop", () => {
+	layer(
+		httpDispatchLayer({
+			resolutions: matchedOnly,
+			outcomes: [{ status: 200 }],
+			polls: [
+				{ waitMs: 200, status: "wait" },
+				{ waitMs: 300, status: "wait" },
+				{ nonce: "short", status: "granted" },
+			],
+		}),
+	)((test) => {
+		test.effect("settles short admission waits without a workflow activity", () =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const fiber = yield* Effect.forkChild(runInlineHttp());
+				yield* TestClock.adjust("500 millis");
+				const settled = yield* Fiber.join(fiber);
+				expect(settled.result).toMatchObject([{ state: "success" }]);
+				expect(settled.pending.at(-1)?._tag).toBe("Completed");
+				expect(yield* harness.activityNames).toEqual([]);
+				const events = yield* harness.events;
+				expect(events.indexOf("claim:admitted")).toBeLessThan(
+					events.findIndex((event) => event.startsWith("http:")),
+				);
+				expect(yield* harness.registered).toHaveLength(1);
+			}),
+		);
+	});
+	layer(
+		httpDispatchLayer({
+			resolutions: matchedOnly,
+			outcomes: [{ status: 200 }],
+			polls: [
+				{ waitMs: 1_001, status: "wait" },
+				{ nonce: "long", status: "granted" },
+			],
+		}),
+	)((test) => {
+		test.effect("hands a long admission wait back with the same ticket", () =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const deferred = yield* runInlineHttp();
+				expect(deferred.result).toBeNull();
+				expect(httpEvents(yield* harness.events)).toEqual([]);
+				const progress = deferred.pending.at(-1);
+				assert(progress?._tag === "Http");
+				expect(yield* runHttpDispatch(undefined, undefined, progress.progress)).toMatchObject({
+					state: "success",
+				});
+				expect((yield* harness.registered).map((ticket) => ticket.id)).toEqual([
+					ticketId(0, 0),
+					ticketId(0, 0),
+				]);
+				expect(httpEvents(yield* harness.events)).toHaveLength(1);
+				expect((yield* harness.events).filter((event) => event.startsWith("cancel:"))).toEqual([]);
+			}),
+		);
+	});
+});
+
+describe("live_http_settlement_preserves_redirect_and_retry_semantics", () => {
+	const nextOrigin = "https://next-provider.test";
+	const resolutions = {
+		[providerOrigin]: [httpPolicy("first", 100)],
+		[nextOrigin]: [httpPolicy("next", 100, nextOrigin)],
+	};
+	layer(
+		httpDispatchLayer({
+			resolutions,
+			outcomes: [
+				{ status: 302, headers: { Location: `${nextOrigin}/target` } },
+				{ status: 429, headers: { "Retry-After": "0" } },
+				{ status: 200 },
+			],
+			polls: [
+				{ nonce: "first", status: "granted" },
+				{ waitMs: 100, status: "wait" },
+				{ nonce: "next", status: "granted" },
+				{ waitMs: 100, status: "wait" },
+				{ nonce: "retry", status: "granted" },
+			],
+		}),
+	)((test) => {
+		test.effect("admits a matched redirect and short retry in the same live call", () =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const fiber = yield* Effect.forkChild(runInlineHttp());
+				yield* TestClock.adjust("200 millis");
+				expect((yield* Fiber.join(fiber)).result).toMatchObject([{ state: "success" }]);
+				expect((yield* harness.registered).map((ticket) => ticket.id)).toEqual([
+					ticketId(0, 0),
+					ticketId(1, 0),
+					ticketId(1, 1),
+				]);
+				expect(httpEvents(yield* harness.events)).toEqual([
+					`http:GET ${providerOrigin}/private?token=secret`,
+					`http:GET ${nextOrigin}/target`,
+					`http:GET ${nextOrigin}/target`,
+				]);
+				expect((yield* harness.events).filter((event) => event.startsWith("block:"))).toEqual([
+					"block:0",
+				]);
+				expect(yield* harness.activityNames).toEqual([]);
+			}),
+		);
+	});
+	layer(
+		httpDispatchLayer({
+			resolutions,
+			outcomes: [{ status: 302, headers: { Location: `${nextOrigin}/target` } }, { status: 200 }],
+			polls: [
+				{ waitMs: 600, status: "wait" },
+				{ nonce: "first", status: "granted" },
+				{ waitMs: 600, status: "wait" },
+				{ nonce: "next", status: "granted" },
+			],
+		}),
+	)((test) => {
+		test.effect("hands off a redirect when cumulative waits exhaust the replay budget", () =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const fiber = yield* Effect.forkChild(runInlineHttp());
+				yield* TestClock.adjust("600 millis");
+				const deferred = yield* Fiber.join(fiber);
+				expect(deferred.result).toBeNull();
+				const progress = deferred.pending.at(-1);
+				assert(progress?._tag === "Http");
+				expect(progress.progress).toMatchObject({
+					hop: 1,
+					attempt: 0,
+					networkAttempt: 1,
+					url: `${nextOrigin}/target`,
+				});
+				expect(yield* runHttpDispatch(undefined, undefined, progress.progress)).toMatchObject({
+					state: "success",
+				});
+				expect(httpEvents(yield* harness.events)).toEqual([
+					`http:GET ${providerOrigin}/private?token=secret`,
+					`http:GET ${nextOrigin}/target`,
+				]);
+			}),
+		);
+	});
+	layer(
+		httpDispatchLayer({
+			resolutions: matchedOnly,
+			outcomes: [{ status: 429, headers: { "Retry-After": "2" } }, { status: 200 }],
+		}),
+	)((test) => {
+		test.effect("resumes a long 429 delay without repeating its response or global block", () =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const deferred = yield* runInlineHttp();
+				expect(deferred.result).toBeNull();
+				const progress = deferred.pending.at(-1);
+				assert(progress?._tag === "Http");
+				expect(progress.progress).toMatchObject({
+					attempt: 1,
+					networkAttempt: 1,
+					pendingBlock: null,
+					blockedUntilMs: 2_000,
+				});
+				expect(yield* runHttpDispatch(undefined, undefined, progress.progress)).toMatchObject({
+					state: "success",
+				});
+				expect((yield* harness.events).filter((event) => event.startsWith("block:"))).toEqual([
+					"block:2000",
+				]);
+				expect((yield* harness.registered).map((ticket) => ticket.id)).toEqual([
+					ticketId(0, 0),
+					ticketId(0, 1),
+				]);
+				expect(httpEvents(yield* harness.events)).toHaveLength(2);
+				expect(yield* harness.clockDurations).toEqual([2_000]);
+			}),
+		);
+	});
+	layer(
+		httpDispatchLayer({
+			blockFailures: 2,
+			resolutions: matchedOnly,
+			outcomes: [{ status: 429, headers: { "Retry-After": "0" } }, { status: 200 }],
+		}),
+	)((test) => {
+		test.effect("retains an unapplied global block through coordination failure", () =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const fiber = yield* Effect.forkChild(runInlineHttp());
+				yield* TestClock.adjust("1 second");
+				const deferred = yield* Fiber.join(fiber);
+				const progress = deferred.pending.at(-1);
+				assert(progress?._tag === "Http");
+				expect(progress.progress).toMatchObject({
+					attempt: 0,
+					networkAttempt: 1,
+					pendingBlock: { delayMs: 0 },
+				});
+				expect(httpEvents(yield* harness.events)).toHaveLength(1);
+				expect(yield* runHttpDispatch(undefined, undefined, progress.progress)).toMatchObject({
+					state: "success",
+				});
+				expect((yield* harness.registered).map((ticket) => ticket.id)).toEqual([
+					ticketId(0, 0),
+					ticketId(0, 1),
+				]);
+				expect(httpEvents(yield* harness.events)).toHaveLength(2);
+			}),
+		);
+	});
+});
+
+describe("live_http_waits_preserve_cancellation_and_fail_closed_admission", () => {
+	layer(
+		httpDispatchLayer({
+			outcomes: [{ status: 200 }],
+			resolutions: { [providerOrigin]: [httpPolicy("old"), httpPolicy("new")] },
+			polls: [
+				{ waitMs: 100, status: "wait" },
+				{ nonce: "changed", status: "granted" },
+			],
+		}),
+	)((test) => {
+		test.effect("cancels the old binding when live policy changes", () =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const fiber = yield* Effect.forkChild(runInlineHttp());
+				yield* TestClock.adjust("100 millis");
+				expect((yield* Fiber.join(fiber)).result).toMatchObject([{ state: "success" }]);
+				expect((yield* harness.events).filter((event) => event.startsWith("register:"))).toEqual([
+					`register:old:${ticketId(0, 0)}`,
+					`register:new:${ticketId(0, 0)}`,
+				]);
+				expect((yield* harness.events).filter((event) => event.startsWith("cancel:"))).toEqual([
+					`cancel:old:${ticketId(0, 0)}`,
+				]);
+			}),
+		);
+	});
+	layer(
+		httpDispatchLayer({
+			resolutions: matchedOnly,
+			outcomes: [{ status: 200 }],
+			polls: [{ waitMs: 500, status: "wait" }],
+		}),
+	)((test) => {
+		test.effect("cancels a live waiting ticket when its parent interrupt arrives", () =>
+			Effect.gen(function* () {
+				const harness = yield* HttpDispatchHarness;
+				const fiber = yield* Effect.forkChild(runInlineHttp());
+				yield* TestClock.adjust("100 millis");
+				yield* harness.requestInterrupt;
+				yield* TestClock.adjust("400 millis");
+				expect((yield* Fiber.join(fiber)).result).toBeNull();
+				expect(httpEvents(yield* harness.events)).toEqual([]);
+				expect((yield* harness.events).filter((event) => event.startsWith("cancel:"))).toEqual([
+					`cancel:provider:${ticketId(0, 0)}`,
+				]);
+			}),
+		);
+	});
+});
 
 layer(httpDispatchLayer({ outcomes: [{ status: 200 }] }))((test) => {
 	test.effect("skips admission for unmatched HTTP requests and runs once", () =>

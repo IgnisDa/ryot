@@ -267,7 +267,11 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 							replayJournal: journal,
 							workflowExecutionId: `native-memory-parent-${index}`,
 							executionId: testExecutionId(`native-memory-journal-${index}`),
-							inlineDurableHost: { settle: unusedSettlement, capabilities: ["getCachedValue"] },
+							inlineDurableHost: {
+								settle: unusedSettlement,
+								cancel: () => Effect.void,
+								capabilities: ["getCachedValue"],
+							},
 						},
 					),
 				);
@@ -345,7 +349,11 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 							replayJournal: journal,
 							workflowExecutionId: `native-memory-parent-${label}`,
 							executionId: testExecutionId(`native-memory-journal-${label}`),
-							inlineDurableHost: { settle: unusedSettlement, capabilities: ["getCachedValue"] },
+							inlineDurableHost: {
+								settle: unusedSettlement,
+								cancel: () => Effect.void,
+								capabilities: ["getCachedValue"],
+							},
 						},
 					);
 					yield* track(input);
@@ -558,6 +566,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 									...input,
 									lane: "background" as const,
 									inlineDurableHost: {
+										cancel: () => Effect.void,
 										capabilities: ["getCachedValue"] as const,
 										settle: () =>
 											Deferred.succeed(started, undefined).pipe(

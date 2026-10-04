@@ -347,6 +347,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 					error: null,
 					harvest: null,
 					success: true,
+					pendingInline: [],
 					executionId: input.executionId,
 					timing: { totalMs: expect.any(Number), executionMs: expect.any(Number) },
 					value: { count: 7, cached: { key: "shared-key", source: "native-host" } },
@@ -594,6 +595,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 						replayJournal: memoryPinnedJournal([]),
 						workflowExecutionId: `${executionId}-workflow`,
 						inlineDurableHost: {
+							cancel: () => Effect.void,
 							capabilities: ["getCachedValue"],
 							settle: (requests) =>
 								Effect.sync(() => {
