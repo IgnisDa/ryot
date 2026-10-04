@@ -112,7 +112,7 @@ export default defineAutomation({
         }],
       }]),
       host.emitSignal({
-        schemaSlug: "integration.disabled",
+        schemaSlug: "recursion",
         discriminator: chainId + "-depth-1",
         properties: { integrationId: chainId, providerName: "recursion-budget" },
       }),
@@ -140,7 +140,7 @@ export default defineAutomation({
     }
     const depth = automation.causation.depth + 1;
     yield* host.emitSignal({
-      schemaSlug: "integration.disabled",
+      schemaSlug: "recursion",
       discriminator: chainId + "-depth-" + depth,
       properties: { integrationId: chainId, providerName: "recursion-budget" },
     });
@@ -190,6 +190,7 @@ describe("automation recursion budgets", () => {
 			const relationshipSchemaSlug = `recursion-relationship-${suffix}`;
 			const rootHookSlug = AutomationHookSlug.make(`recursion-root-${suffix}`);
 			const recursiveHookSlug = AutomationHookSlug.make(`recursion-signal-${suffix}`);
+			const formatterHookSlug = AutomationHookSlug.make(`recursion-formatter-${suffix}`);
 			const rootScript = automationScript(
 				rootHookSlug,
 				"E2E recursion root",
@@ -202,12 +203,16 @@ describe("automation recursion budgets", () => {
 				["emitSignal"],
 				{ signal: { properties: ["integrationId"] } },
 			);
+			const formatterScript = automationScript(formatterHookSlug, "E2E recursion formatter", [], {
+				signal: { properties: [] },
+			});
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					client,
 					pluginSlug,
-					scripts: [rootScript, recursiveScript],
+					scripts: [rootScript, recursiveScript, formatterScript],
 					files: {
+						[formatterScript.entry]: noOpAutomationSource(formatterScript),
 						[recursiveScript.entry]: recursiveSignalSource(recursiveScript),
 						[rootScript.entry]: recursionRootSource({
 							script: rootScript,
@@ -215,6 +220,19 @@ describe("automation recursion budgets", () => {
 							relationshipSchemaSlug,
 						}),
 					},
+					signalSchemas: [
+						{
+							slug: "recursion",
+							catalogState: "active",
+							name: "E2E recursion signal",
+							audiencePolicy: { kind: "actor" },
+							notificationHookSlug: formatterHookSlug,
+							propertiesSchema: schemaFields({
+								providerName: { type: "string", label: "Provider", description: "Emitter" },
+								integrationId: { type: "string", label: "Chain ID", description: "Chain ID" },
+							}),
+						},
+					],
 					relationshipSchemas: [
 						{
 							slug: relationshipSchemaSlug,
@@ -255,9 +273,15 @@ describe("automation recursion budgets", () => {
 							scriptSlug: recursiveScript.slug,
 							causationSources: ["automation"],
 							name: "E2E recursive signal hook",
-							targets: [
-								{ operation: "emit", resource: "signal", signalSchemaSlug: "integration.disabled" },
-							],
+							targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "recursion" }],
+						},
+						{
+							stage: "after",
+							delivery: "async",
+							slug: formatterHookSlug,
+							name: "E2E recursion formatter",
+							scriptSlug: formatterScript.slug,
+							targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "recursion" }],
 						},
 					],
 					entitySchemas: [
