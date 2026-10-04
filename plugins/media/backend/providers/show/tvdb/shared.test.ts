@@ -226,7 +226,6 @@ describe("show.tvdb sandbox script", () => {
 						totalEpisodes: 3,
 						publishYear: null,
 						description: null,
-						unlinkedCreators: [],
 						productionStatus: "Ended",
 						sourceUrl: "https://thetvdb.com/series/my-show",
 						images: [
@@ -287,7 +286,6 @@ describe("show.tvdb sandbox script", () => {
 						productionStatus: null,
 						description: "Localized Desc",
 						sourceUrl: "https://thetvdb.com/series/123",
-						unlinkedCreators: [{ name: "Bob", role: "Writer" }],
 					});
 					expect(result.relatedEntityGroups).toEqual([
 						{

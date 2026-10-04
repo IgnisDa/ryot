@@ -204,8 +204,6 @@ export const collectSuggestions = (
 
 export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown) => {
 	const relatedEntities = new Map<string, RoleRelatedEntity>();
-	const unlinkedCreators: Array<{ name: string; role: string }> = [];
-	const unlinkedKeys = new Set<string>();
 	const addRelatedEntity = (relatedEntity: RoleRelatedEntity) => {
 		const key = `${relatedEntity.providerSlug}:${relatedEntity.externalId}`;
 		const existing = relatedEntities.get(key);
@@ -223,18 +221,10 @@ export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown)
 			existing.name = relatedEntity.name;
 		}
 	};
-	const addUnlinkedCreator = (name: string, role: string) => {
-		const key = `${name}:${role}`;
-		if (!unlinkedKeys.has(key)) {
-			unlinkedKeys.add(key);
-			unlinkedCreators.push({ name, role });
-		}
-	};
 	const addPerson = (person: UnknownRecord, role: string) => {
 		const name = stringValue(person["name"]) ?? "Loading...";
 		const id = numberValue(person["id"]);
 		if (id === null) {
-			addUnlinkedCreator(name, role);
 			return;
 		}
 		addRelatedEntity({
@@ -258,7 +248,7 @@ export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown)
 			addPerson(member, job);
 		}
 	}
-	return { unlinkedCreators, relatedEntities: [...relatedEntities.values()] };
+	return [...relatedEntities.values()];
 };
 
 export const collectCompanies = (companyGroups: ReadonlyArray<readonly [unknown, string]>) => {

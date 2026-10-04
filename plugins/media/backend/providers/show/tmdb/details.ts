@@ -170,11 +170,7 @@ const buildDetailsResult = (
 	);
 	const voteAverage = numberValue(showData["vote_average"]);
 	const providerRating = voteAverage !== null && voteAverage > 0 ? voteAverage * 10 : null;
-	const { unlinkedCreators, relatedEntities: people } = collectPeople(
-		creditsData["cast"],
-		creditsData["crew"],
-		showData["created_by"],
-	);
+	const people = collectPeople(creditsData["cast"], creditsData["crew"], showData["created_by"]);
 	const genres = collectGenres(showData["genres"]);
 	return {
 		name: title,
@@ -184,7 +180,6 @@ const buildDetailsResult = (
 			totalEpisodes,
 			episodeOrders,
 			providerRating,
-			unlinkedCreators,
 			totalSeasons: childEntities.length,
 			isNsfw: showData["adult"] === true ? true : null,
 			productionStatus: stringValue(showData["status"]),

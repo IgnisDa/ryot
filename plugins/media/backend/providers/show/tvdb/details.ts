@@ -120,14 +120,12 @@ export const getTvdbShowDetails = (
 		const images = collectImages([show["image"]], show["artworks"], "cover");
 		const genres = yield* collectGenres(show["genres"]);
 		const companyTypes = collectCompanyTypes(companyTypesData?.["data"]);
-		const people = collectPeople(show["characters"]);
-		const relatedEntities = people.relatedEntities.map((entity) => ({
+		const relatedEntities = collectPeople(show["characters"]).map((entity) => ({
 			name: entity.name,
 			externalId: entity.externalId,
 			providerSlug: entity.providerSlug,
 			relationshipProperties: entity.relationshipProperties,
 		}));
-		const unlinkedCreators = people.unlinkedCreators;
 		const firstAired = stringValue(show["firstAired"]);
 		const publishYear = parsePublishYear(show["year"]) ?? parsePublishYear(firstAired);
 
@@ -183,7 +181,6 @@ export const getTvdbShowDetails = (
 				sourceUrl,
 				publishYear,
 				totalEpisodes,
-				unlinkedCreators,
 				totalSeasons: childEntities.length,
 				productionStatus: stringValue(asRecord(show["status"])?.["name"]),
 				description: normalizePlainDescription(translation.description ?? show["overview"]),

@@ -89,14 +89,12 @@ export const details = defineProvider({
 					];
 				});
 
-			const people = collectPeople(movie["characters"]);
-			const relatedEntities = people.relatedEntities.map((entity) => ({
+			const relatedEntities = collectPeople(movie["characters"]).map((entity) => ({
 				name: entity.name,
 				externalId: entity.externalId,
 				providerSlug: entity.providerSlug,
 				relationshipProperties: entity.relationshipProperties,
 			}));
-			const unlinkedCreators = people.unlinkedCreators;
 			const companies = collectCompanies(movie["companies"]).map((entity) => ({
 				name: entity.name,
 				externalId: entity.externalId,
@@ -111,7 +109,6 @@ export const details = defineProvider({
 					runtime,
 					sourceUrl,
 					publishYear,
-					unlinkedCreators,
 					description: normalizePlainDescription(translation.description ?? movie["overview"]),
 				},
 				relatedEntityGroups: [
