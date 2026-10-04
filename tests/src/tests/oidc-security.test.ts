@@ -1,12 +1,18 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import {
 	LoginUserDocument,
+	RegisterErrorVariant,
 	RegisterUserDocument,
 	UserDetailsDocument,
 } from "@ryot/generated/graphql/backend/graphql";
 import { parse } from "graphql";
-import { getGraphqlClient, registerAdminUser } from "src/utils";
+import {
+	getGraphqlClient,
+	registerAdminUser,
+	TEST_ADMIN_ACCESS_TOKEN,
+} from "src/utils";
 import { beforeAll, describe, expect, it } from "vitest";
+import { registerPasswordUser } from "../setup/authentication-fixtures";
 
 const GetOidcRedirectUrlDocument = parse(`
 	query GetOidcRedirectUrl {
@@ -108,6 +114,39 @@ async function userIdForOidcSubject(subject: string) {
 	return response.userByOidcIssuerId;
 }
 
+const newOidcIdentity = () => ({
+	issuerId: `subject-${randomUUID()}`,
+	email: `user-${randomUUID()}@example.com`,
+});
+
+const registerOidcUser = (
+	oidc: { email: string; issuerId: string },
+	options: { adminAccessToken?: string; headers?: Record<string, string> } = {},
+) =>
+	client.request(
+		RegisterUserDocument,
+		{ input: { adminAccessToken: options.adminAccessToken, data: { oidc } } },
+		options.headers,
+	);
+
+async function expectVerifiedLoginForRegisteredUser(
+	oidc: { email: string; issuerId: string },
+	userId: string,
+) {
+	const login = await completeOidcLogin(
+		await beginOidcTransaction({ email: oidc.email, subject: oidc.issuerId }),
+	);
+	if (login.completeOidcLogin.__typename !== "ApiKeyResponse")
+		throw new Error("Expected verified OIDC login to succeed");
+	const { userDetails } = await client.request(
+		UserDetailsDocument,
+		{},
+		{ Authorization: `Bearer ${login.completeOidcLogin.apiKey}` },
+	);
+	expect(userDetails).toMatchObject({ id: userId, __typename: "UserDetails" });
+	expect(await userIdForOidcSubject(oidc.issuerId)).toBe(userId);
+}
+
 async function authorizeProviderDirectly() {
 	const verifier = randomBytes(32).toString("base64url");
 	const challenge = createHash("sha256").update(verifier).digest("base64url");
@@ -191,8 +230,10 @@ async function startFrontendFlow() {
 }
 
 describe("OIDC protocol security regressions", () => {
+	let adminApiKey: string;
+
 	beforeAll(async () => {
-		await registerAdminUser(apiUrl);
+		[adminApiKey] = await registerAdminUser(apiUrl);
 	});
 
 	it("registers a verified subject once and rejects subject-only public auth", async () => {
@@ -222,6 +263,62 @@ describe("OIDC protocol security regressions", () => {
 				input: { data: forgedOidc },
 			}),
 		).rejects.toThrow("verified authorization flow");
+	});
+
+	it("lets the admin access token register an OIDC account that verified login reuses", async () => {
+		const oidc = newOidcIdentity();
+		const { registerUser } = await registerOidcUser(oidc, {
+			adminAccessToken: TEST_ADMIN_ACCESS_TOKEN,
+		});
+		if (registerUser.__typename !== "StringIdObject")
+			throw new Error("Expected admin token OIDC registration to succeed");
+		await expectVerifiedLoginForRegisteredUser(oidc, registerUser.id);
+	});
+
+	it("lets an admin session register an OIDC account that verified login reuses", async () => {
+		const oidc = newOidcIdentity();
+		const { registerUser } = await registerOidcUser(oidc, {
+			headers: { Authorization: `Bearer ${adminApiKey}` },
+		});
+		if (registerUser.__typename !== "StringIdObject")
+			throw new Error("Expected admin session OIDC registration to succeed");
+		await expectVerifiedLoginForRegisteredUser(oidc, registerUser.id);
+	});
+
+	it("rejects OIDC registration without administrator authorization", async () => {
+		const normalUser = await registerPasswordUser(client);
+		const attempts = [
+			{},
+			{ adminAccessToken: "wrong-admin-access-token" },
+			{ headers: { Authorization: `Bearer ${normalUser.apiKey}` } },
+		];
+		for (const options of attempts) {
+			const oidc = newOidcIdentity();
+			await expect(registerOidcUser(oidc, options)).rejects.toThrow(
+				"verified authorization flow",
+			);
+			expect(await userIdForOidcSubject(oidc.issuerId)).toBeNull();
+		}
+	});
+
+	it("reports an existing identifier when an admin registers the same OIDC subject twice", async () => {
+		const oidc = newOidcIdentity();
+		const options = { adminAccessToken: TEST_ADMIN_ACCESS_TOKEN };
+		const first = await registerOidcUser(oidc, options);
+		expect(first.registerUser.__typename).toBe("StringIdObject");
+		const second = await registerOidcUser(oidc, options);
+		expect(second.registerUser).toEqual({
+			__typename: "RegisterError",
+			error: RegisterErrorVariant.IdentifierAlreadyExists,
+		});
+	});
+
+	it("rejects admin OIDC registration with an empty issuer ID", async () => {
+		const oidc = { ...newOidcIdentity(), issuerId: "" };
+		await expect(
+			registerOidcUser(oidc, { adminAccessToken: TEST_ADMIN_ACCESS_TOKEN }),
+		).rejects.toThrow("must not be empty");
+		expect(await userIdForOidcSubject(oidc.issuerId)).toBeNull();
 	});
 
 	it("logs concurrent verified callbacks for the same new subject into one account", async () => {

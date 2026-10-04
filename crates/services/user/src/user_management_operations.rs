@@ -144,7 +144,20 @@ pub async fn register_user(
     input: RegisterUserInput,
 ) -> Result<RegisterResult> {
     match &input.data {
-        AuthUserInput::Oidc(_) => bail!("OIDC registration requires a verified authorization flow"),
+        AuthUserInput::Oidc(data) => {
+            if !can_manage_users(
+                ss,
+                requester_user_id.as_ref(),
+                input.admin_access_token.as_deref(),
+            )
+            .await?
+            {
+                bail!("OIDC registration requires a verified authorization flow");
+            }
+            if data.issuer_id.trim().is_empty() || data.email.trim().is_empty() {
+                bail!("OIDC issuer ID and email must not be empty");
+            }
+        }
         AuthUserInput::Password(_) => {
             if ss.config.users.disable_local_auth {
                 bail!("Local authentication is disabled");
