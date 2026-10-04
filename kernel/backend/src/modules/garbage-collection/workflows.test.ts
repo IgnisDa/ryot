@@ -1,7 +1,21 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { and, eq, sql } from "drizzle-orm";
-import { Cause, Context, Effect, Exit, Layer, Option, Redacted, Ref, Result, Schema } from "effect";
+import {
+	Cause,
+	Context,
+	DateTime,
+	Deferred,
+	Effect,
+	Exit,
+	Fiber,
+	Layer,
+	Option,
+	Redacted,
+	Ref,
+	Result,
+	Schema,
+} from "effect";
 import {
 	EntityAddress,
 	EntityId,
@@ -356,6 +370,42 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 			assert(Exit.isFailure(yield* Effect.exit(storage.saveRequest(yield* request(identity)))));
 			expect(yield* collector.runBatch()).toEqual({ expiredTrees: 0, clearedExecutions: 1 });
 			expect(yield* counts()).toEqual([{ replies: 0, messages: 0 }]);
+		}),
+	);
+
+	test.effect("allows concurrent root admissions while fencing tree expiry", () =>
+		Effect.gen(function* () {
+			yield* TestClock.setTime(Date.parse("2026-10-01T00:00:00Z"));
+			const root = { executionId: "admission-fence-root", workflowName: "AdmissionFenceWorkflow" };
+			const rootMessage = yield* saveRun(root);
+			yield* completeRun(rootMessage);
+			const envelopeA = yield* Message.serializeEnvelope(yield* request(root));
+			const envelopeB = yield* Message.serializeEnvelope(yield* request(root));
+			const session = yield* DatabaseSession;
+			const repository = yield* WorkflowGarbageCollectionRepository.make;
+			const admitted = yield* Deferred.make<void>();
+			const release = yield* Deferred.make<void>();
+			const transactionA = yield* Effect.forkScoped(
+				session
+					.transaction(
+						Effect.gen(function* () {
+							yield* repository.admit(envelopeA);
+							yield* Deferred.succeed(admitted, undefined);
+							yield* Deferred.await(release);
+						}),
+					)
+					.pipe(Effect.ensuring(Deferred.succeed(release, undefined))),
+			);
+			yield* Deferred.await(admitted);
+			const admissionB = yield* TestClock.withLive(
+				Effect.timeoutOption(session.transaction(repository.admit(envelopeB)), "5 seconds"),
+			);
+			expect(Option.isSome(admissionB)).toBe(true);
+			const now = DateTime.toDate(DateTime.makeUnsafe("2026-10-03T00:00:00Z"));
+			expect(yield* session.transaction(repository.expireTrees(now, 50))).toBe(0);
+			yield* Deferred.succeed(release, undefined);
+			yield* Fiber.join(transactionA);
+			expect(yield* session.transaction(repository.expireTrees(now, 50))).toBe(1);
 		}),
 	);
 
