@@ -47,7 +47,6 @@ export const podcastSummaryRow = {
 	inProgressEpisodes: 1,
 	schemaSlug: "podcast",
 	isInMediaLibrary: true,
-	genres: ["Technology"],
 	populationStatus: "ready",
 	translationStatus: "none",
 	productionStatus: "Ended",
@@ -57,6 +56,10 @@ export const podcastSummaryRow = {
 	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
 	images: [{ type: "remote", purpose: "cover", url: "https://images.test/reply-all.jpg" }],
+	genres: {
+		pageInfo: { limit: 100, hasMore: false },
+		items: [{ name: "Technology", id: "genre-technology" }],
+	},
 };
 
 export const decodePodcastSummary = (overrides: Record<string, unknown> = {}) => {

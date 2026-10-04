@@ -192,16 +192,16 @@ export const collectImages = (coverImage: unknown, bannerImage: unknown) => {
 	return images;
 };
 
-export const collectGenres = (genres: unknown, tags: unknown) => {
-	const genreSet = new Set<string>();
-	for (const genre of Array.isArray(genres) ? genres : []) {
-		const name = stringValue(genre);
-		if (name) {
-			genreSet.add(name);
-		}
+export const collectGenres = (genres: unknown) => {
+	if (genres === undefined || genres === null) {
+		return null;
 	}
-	for (const tag of Array.isArray(tags) ? tags : []) {
-		const name = stringValue(asRecord(tag)?.["name"]);
+	if (!Array.isArray(genres)) {
+		throw new MediaSandboxError({ message: "AniList genres must be an array" });
+	}
+	const genreSet = new Set<string>();
+	for (const genre of genres) {
+		const name = stringValue(genre);
 		if (name) {
 			genreSet.add(name);
 		}

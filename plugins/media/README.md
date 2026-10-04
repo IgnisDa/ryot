@@ -117,6 +117,28 @@ data renders. Hints do not promise arbitrary realtime updates or freshness for u
 
 ## Images And Providers
 
+### Genres
+
+Root media links to `genre` entities through typed outgoing `<schema>-to-genre` relationships.
+Genres have no lifecycle, library membership, monitoring, artwork, or detail page. Summary chips
+read relationship targets; saved views filter by entity IDs with any/all/none and empty/not-empty
+operators. Choice search uses existing visible links of the selected media type.
+
+All metadata providers use the local `genre.media-catalog` provider. Its identities use Unicode
+NFC, collapsed whitespace, lowercase names, and explicit aliases; punctuation is preserved.
+Display names are deterministic, with canonical names for known genres. Details reconstruct names
+locally without network calls; search offers a small built-in set. Previously unknown names from
+explicit genre fields remain valid. AniList tags, Giant Bomb themes, and MangaUpdates categories
+are not genres. Open Library subjects, VNDB tags, Google Books categories, and Audible category
+ladders contribute only recognized genre labels, without arbitrary compound-name splitting.
+
+Successful genre responses replace links authoritatively, including empty responses. Missing
+classifications do not clear links; malformed data fails population. Genre relationship schemas
+declare `userWritePolicy: source-owner`: user writes require ownership of the source entity, while
+authorized global provider population maintains global links. Custom media uses the shared
+relationship picker, including catalog import and inline private genre creation. Private genres
+remain separate identities even when their names match catalog genres.
+
 `allowNsfw` is an installation preference; entity language is kernel-owned. Images contain remote
 URLs or managed keys plus a declared purpose. Providers prefer foreground art, preserve order within
 purposes, and deduplicate URLs using their first classification. Translation may replace the entire

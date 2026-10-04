@@ -30,12 +30,18 @@ export const showSummaryRow = {
 	translationStatus: "none",
 	productionStatus: "Ended",
 	publishDate: "2025-03-13",
-	genres: ["Drama", "Crime"],
 	description: "A four-part limited series.",
 	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	collections: {
 		pageInfo: { limit: 6, hasMore: false },
 		items: [{ name: "Completed", id: "collection-1" }],
+	},
+	genres: {
+		pageInfo: { limit: 100, hasMore: false },
+		items: [
+			{ name: "Crime", id: "genre-crime" },
+			{ name: "Drama", id: "genre-drama" },
+		],
 	},
 	images: [
 		{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },

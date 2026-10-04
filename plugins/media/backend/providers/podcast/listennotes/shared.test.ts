@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { describe, expect, it } from "vitest";
 
+import { mediaFailureMessage } from "../../../lib/error-message";
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
@@ -79,6 +80,21 @@ describe("podcast.listennotes sandbox script", () => {
 			["podcast.listennotes.search", "search"],
 			["podcast.listennotes.details", "details"],
 		]);
+	});
+
+	it("fails when the genre taxonomy is unavailable", () => {
+		const host = makeHost((_method, requestUrl) => {
+			expect(requestUrl).toContain("/genres");
+			return httpSuccess({ genres: null });
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "pod-1" }, host, execution).pipe(
+				Effect.flip,
+				Effect.map((error) =>
+					expect(mediaFailureMessage(error)).toContain("Listen Notes genres must be an array"),
+				),
+			),
+		);
 	});
 
 	it("loads the API key and sends it in the Listen Notes auth header", () => {
@@ -210,12 +226,19 @@ describe("podcast.listennotes sandbox script", () => {
 								},
 							],
 						},
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "podcast-to-genre",
+							entities: [
+								{ name: "Comedy", externalId: "comedy", providerSlug: "genre.media-catalog" },
+							],
+						},
 					]);
 					expect(result.properties).toMatchObject({
 						isNsfw: true,
 						totalEpisodes: 1,
 						publishYear: 2020,
-						genres: ["Comedy"],
 						providerRating: 62,
 						publishDate: "2020-01-01",
 						description: "A great show.",

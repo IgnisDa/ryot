@@ -7,6 +7,7 @@ import {
 import { strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { type RoleRelatedEntity, createRoleAccumulator } from "../../../lib/role-accumulator";
@@ -455,10 +456,17 @@ export const details = defineProvider({
 							});
 						}
 					}
-					const genres = (Array.isArray(game?.["genres"]) ? game["genres"] : []).flatMap((g) => {
-						const genreName = stringValue(asRecord(g)?.["name"]);
-						return genreName ? [genreName] : [];
-					});
+					const rawGenres = game?.["genres"];
+					if (rawGenres !== undefined && rawGenres !== null && !Array.isArray(rawGenres)) {
+						return yield* new MediaSandboxError({ message: "IGDB genres must be an array" });
+					}
+					const genres =
+						rawGenres === undefined || rawGenres === null
+							? null
+							: rawGenres.flatMap((g) => {
+									const genreName = stringValue(asRecord(g)?.["name"]);
+									return genreName ? [genreName] : [];
+								});
 					const ttbList = ttbResult.data;
 					const ttbEntry =
 						Array.isArray(ttbList) && ttbList.length > 0 ? asRecord(ttbList[0]) : null;
@@ -474,7 +482,6 @@ export const details = defineProvider({
 						name,
 						properties: {
 							images,
-							genres,
 							timeToBeat,
 							gameType: gameTypeName(game),
 							providerRating: numberValue(game?.["rating"]),
@@ -516,6 +523,7 @@ export const details = defineProvider({
 								synchronization: "authoritative" as const,
 								relationshipSchemaSlug: "video-game-to-video-game",
 							},
+							...mediaGenreGroups("video-game", genres),
 						],
 					};
 				}),

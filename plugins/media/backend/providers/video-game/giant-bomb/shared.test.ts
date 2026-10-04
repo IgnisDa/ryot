@@ -63,8 +63,6 @@ describe("video-game.giant-bomb sandbox script", () => {
 				error: "OK",
 				results: {
 					deck: null,
-					genres: [],
-					themes: [],
 					image: null,
 					platforms: [],
 					name: "Source",
@@ -72,6 +70,8 @@ describe("video-game.giant-bomb sandbox script", () => {
 					publishers: [],
 					franchises: [],
 					description: null,
+					genres: [{ name: "Action" }],
+					themes: [{ name: "Shooter" }],
 					original_release_date: "2024-01-01",
 					site_detail_url: "https://www.giantbomb.com/games/source",
 					similar_games: [
@@ -102,6 +102,14 @@ describe("video-game.giant-bomb sandbox script", () => {
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
 								{ name: "Pick One", externalId: "3030-2", providerSlug: "video-game.giant-bomb" },
+							],
+						},
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "video-game-to-genre",
+							entities: [
+								{ name: "Action", externalId: "action", providerSlug: "genre.media-catalog" },
 							],
 						},
 					]);

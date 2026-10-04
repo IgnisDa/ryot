@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -127,7 +128,6 @@ export const details = defineProvider({
 				name: title,
 				properties: {
 					duration,
-					genres: [],
 					publishYear,
 					byVariousArtists,
 					sourceUrl: `https://musicbrainz.org/recording/${input.externalId}`,
@@ -152,6 +152,7 @@ export const details = defineProvider({
 							(entity) => entity.providerSlug === "music-group.music-brainz",
 						),
 					},
+					...mediaGenreGroups("music", []),
 				],
 			};
 		}),

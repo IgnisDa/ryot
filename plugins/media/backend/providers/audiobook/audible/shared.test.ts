@@ -80,13 +80,19 @@ describe("audiobook.audible sandbox script", () => {
 								{ name: "Similar Pick", externalId: "book-3", providerSlug: "audiobook.audible" },
 							],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "audiobook-to-genre",
+						},
 					]);
 					return undefined;
 				}),
 			),
 		);
 	});
-	it("merges author and narrator roles, splits genres and title-cases them", () => {
+	it("merges author and narrator roles and recognizes full category ladder labels", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/mixed-book?")) {
 				return httpSuccess({
@@ -99,9 +105,17 @@ describe("audiobook.audible sandbox script", () => {
 						series: [{ asin: "series-1", title: "The Saga" }],
 						narrators: [{ asin: "person-1", name: "Jane Doe" }],
 						authors: [{ asin: "person-1", name: "Jane Doe" }, { name: "No Asin" }],
-						category_ladders: [{ ladder: [{ name: "science fiction & FANTASY" }] }],
 						product_images: { "2400": "https://img/big.jpg", "500": "https://img/small.jpg" },
 						rating: { num_reviews: 4, overall_distribution: { display_average_rating: "4.5" } },
+						category_ladders: [
+							{
+								ladder: [
+									{ name: "Science Fiction" },
+									{ name: "Fantasy" },
+									{ name: "Mystery & Thriller" },
+								],
+							},
+						],
 					},
 				});
 			}
@@ -139,10 +153,22 @@ describe("audiobook.audible sandbox script", () => {
 						providerRating: 4.5,
 						publishDate: "2020-05-02",
 						description: "Line one\\\nLine two",
-						genres: ["Science Fiction", "Fantasy"],
 						sourceUrl: "https://www.audible.com/pd/mixed-book",
 						unlinkedCreators: [{ role: "Author", name: "No Asin" }],
 						images: [{ type: "remote", purpose: "cover", url: "https://img/big.jpg" }],
+					});
+					expect(result.relatedEntityGroups?.[3]).toEqual({
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "audiobook-to-genre",
+						entities: [
+							{
+								name: "Science Fiction",
+								externalId: "science fiction",
+								providerSlug: "genre.media-catalog",
+							},
+							{ name: "Fantasy", externalId: "fantasy", providerSlug: "genre.media-catalog" },
+						],
 					});
 					return undefined;
 				}),

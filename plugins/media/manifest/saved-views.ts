@@ -1,6 +1,6 @@
 import type { FieldSelection } from "@ryot-app/contract/modules/ryotql/language";
 import type { AuthoredEntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	and,
@@ -143,7 +143,6 @@ const mergePresentationFields = (
 };
 
 const mediaFilterProperties = [
-	{ label: "Genres", property: "genres" },
 	{ label: "Publish year", property: "publishYear" },
 	{ label: "Provider rating", property: "providerRating" },
 	{ property: "isNsfw", label: "Adult content" },
@@ -151,7 +150,7 @@ const mediaFilterProperties = [
 
 const mediaFilterKey = (property: string) => `${property}Value`;
 
-const mediaFilterFields = (schema: { readonly propertiesSchema: AppSchema }) => {
+const mediaValueFilterFields = (schema: { readonly propertiesSchema: AppSchema }) => {
 	const declared = mediaFilterProperties.filter(
 		({ property }) => property in schema.propertiesSchema.fields,
 	);
@@ -165,6 +164,17 @@ const mediaFilterFields = (schema: { readonly propertiesSchema: AppSchema }) => 
 		Object.assign(filterField, { label: labels.get(filterField.key) ?? filterField.label }),
 	);
 };
+
+const mediaGenreRelationshipFilter = (schemaSlug: string) => ({
+	key: "genres",
+	label: "Genres",
+	kind: "relationship" as const,
+	direction: "outgoing" as const,
+	relationship: {
+		owner: { kind: "self" as const },
+		slug: RelationshipSchemaSlug.make(`${schemaSlug}-to-genre`),
+	},
+});
 
 const savedViewOrderBy = (slug: string) => {
 	const entity = table("entity", "entity");
@@ -228,7 +238,13 @@ export const mediaSavedViews = () => {
 		}
 		const { table: tableExpressions } = buildViewExpressions(view.entitySchemaSlug);
 		const presentation = presentationProjection(view.entitySchemaSlug);
-		const filterFields = mediaFilterFields(schema);
+		const valueFilterFields = mediaValueFilterFields(schema);
+		const filterFields = [
+			...valueFilterFields,
+			...(builtinMediaEntitySchemaSlugs.some((slug) => slug === view.entitySchemaSlug)
+				? [mediaGenreRelationshipFilter(view.entitySchemaSlug)]
+				: []),
+		];
 		const fields = mergePresentationFields(
 			[
 				field("entityId", column(entity, "id")),
@@ -238,7 +254,7 @@ export const mediaSavedViews = () => {
 				),
 				field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-				...filterFields.map(({ key }) =>
+				...valueFilterFields.map(({ key }) =>
 					field(mediaFilterKey(key), jsonPath(column(entity, "properties"), key)),
 				),
 			],

@@ -1,6 +1,7 @@
 import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -144,7 +145,6 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 				return {
 					name: title,
 					properties: {
-						genres: [],
 						publishYear,
 						byVariousArtists,
 						duration: duration ?? null,
@@ -178,6 +178,7 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 							synchronization: "authoritative" as const,
 							relationshipSchemaSlug: "media-suggestion",
 						},
+						...mediaGenreGroups("music", []),
 					],
 				};
 			}),

@@ -152,9 +152,14 @@ describe("music.spotify sandbox script", () => {
 								},
 							],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "music-to-genre",
+						},
 					]);
 					expect(result.properties).toEqual({
-						genres: [],
 						isNsfw: true,
 						duration: 215,
 						publishYear: 2019,

@@ -8,7 +8,6 @@ import { findMediaEntitySchema } from "./entity-schemas";
 import { seedMediaEntity } from "./media";
 
 const defaultMediaProperties = {
-	genres: [],
 	isNsfw: null,
 	sourceUrl: null,
 	description: null,

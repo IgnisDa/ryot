@@ -5,6 +5,7 @@ import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { normalizeAnilistDescription } from "../../../lib/anilist-description";
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { numberValue, stringValue } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case-delimiters";
 import {
@@ -46,7 +47,6 @@ query MediaDetailsQuery($id: Int!) {
     description(asHtml: true)
     bannerImage
     averageScore
-    tags { name }
     startDate { year }
     title { english romaji native userPreferred }
     coverImage { extraLarge }
@@ -80,6 +80,10 @@ export const details = defineProvider({
 			}
 			const volumesValue = numberValue(media["volumes"]);
 			const statusValue = stringValue(media["status"]);
+			const genres = yield* Effect.try({
+				try: () => collectGenres(media["genres"]),
+				catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
+			});
 			return {
 				name: title,
 				relatedEntityGroups: [
@@ -89,12 +93,12 @@ export const details = defineProvider({
 						relationshipSchemaSlug: "media-suggestion",
 						entities: collectSuggestions(media["recommendations"], titleLanguage),
 					},
+					...mediaGenreGroups("manga", genres),
 				],
 				properties: {
 					chapters: numberValue(media["chapters"]),
 					publishYear: parsePublishYear(media["startDate"]),
 					providerRating: numberValue(media["averageScore"]),
-					genres: collectGenres(media["genres"], media["tags"]),
 					productionStatus: statusValue ? toTitleCase(statusValue) : null,
 					images: collectImages(media["coverImage"], media["bannerImage"]),
 					isNsfw: typeof media["isAdult"] === "boolean" ? media["isAdult"] : null,

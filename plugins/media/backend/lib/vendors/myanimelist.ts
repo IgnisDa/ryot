@@ -93,9 +93,12 @@ export const collectImages = (mainPicture: unknown) => {
 	return [...urls].map((url) => ({ url, type: "remote" as const, purpose: "cover" as const }));
 };
 
-export const collectGenres = (genres: unknown) => {
+export const collectGenres = Effect.fnUntraced(function* (genres: unknown) {
+	if (genres === undefined || genres === null) {
+		return null;
+	}
 	if (!Array.isArray(genres)) {
-		return [];
+		return yield* new MediaSandboxError({ message: "MyAnimeList genres must be an array" });
 	}
 	const genreSet = new Set<string>();
 	for (const genre of genres) {
@@ -105,7 +108,7 @@ export const collectGenres = (genres: unknown) => {
 		}
 	}
 	return [...genreSet];
-};
+});
 
 export const collectSuggestionItems = (entries: unknown, providerSlug: string) => {
 	if (!Array.isArray(entries)) {

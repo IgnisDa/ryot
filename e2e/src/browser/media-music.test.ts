@@ -15,6 +15,7 @@ import {
 	insertLibraryMembership,
 	seedGlobalMusicWithAlbum,
 } from "~/fixtures/plugins/media";
+import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
@@ -60,10 +61,14 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 				providerRating: 92.5,
 				byVariousArtists: false,
 				productionStatus: "Released",
-				genres: ["Alternative Rock"],
 				description: "A deterministic browser tracer track.",
 				images: [{ type: "remote", purpose: "cover", url: TRACK_COVER_URL }],
 			},
+		});
+		yield* seedGlobalMediaGenres({
+			entityId: seeded.track.id,
+			entitySchemaSlug: "music",
+			names: ["Alternative Rock"],
 		});
 		yield* insertLibraryMembership(client, { mediaEntityId: seeded.track.id });
 		const events = yield* musicEventSchemas(client);

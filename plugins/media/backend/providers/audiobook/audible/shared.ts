@@ -2,11 +2,12 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
+import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
-import { toTitleCase } from "../../../lib/title-case";
 import {
 	audibleFetchJson,
 	type AudibleHost,
@@ -136,22 +137,30 @@ export const search = defineProvider({
 	},
 });
 
-const collectGenres = (categoryLadders: unknown) => {
-	const genreSet = new Set<string>();
-	for (const ladder of Array.isArray(categoryLadders) ? categoryLadders : []) {
+const collectGenres = Effect.fnUntraced(function* (categoryLadders: unknown) {
+	if (categoryLadders === undefined || categoryLadders === null) {
+		return null;
+	}
+	if (!Array.isArray(categoryLadders)) {
+		return yield* new MediaSandboxError({ message: "Audible category ladders must be an array" });
+	}
+	const candidates: string[] = [];
+	for (const ladder of categoryLadders) {
 		const steps = asRecord(ladder)?.["ladder"];
+		if (steps !== undefined && steps !== null && !Array.isArray(steps)) {
+			return yield* new MediaSandboxError({
+				message: "Audible category ladder steps must be an array",
+			});
+		}
 		for (const step of Array.isArray(steps) ? steps : []) {
 			const name = trimmedString(asRecord(step)?.["name"]);
-			for (const part of name.split(" & ")) {
-				const genre = toTitleCase(part.trim());
-				if (genre) {
-					genreSet.add(genre);
-				}
+			if (name) {
+				candidates.push(name);
 			}
 		}
 	}
-	return [...genreSet];
-};
+	return recognizedMediaGenres(candidates);
+});
 
 const collectContributors = (
 	accumulator: ReturnType<typeof createRoleAccumulator>,
@@ -227,6 +236,7 @@ export const details = defineProvider({
 			const runtime = numberValue(product["runtime_length_min"]);
 			const rating = asRecord(product["rating"]);
 			const rawIsNsfw = product["is_adult_product"];
+			const genres = yield* collectGenres(product["category_ladders"]);
 
 			const accumulator = createRoleAccumulator();
 			const unlinkedCreators: Array<{ role: string; name: string }> = [];
@@ -252,7 +262,6 @@ export const details = defineProvider({
 				properties: {
 					unlinkedCreators,
 					providerRating: providerRatingValue(rating),
-					genres: collectGenres(product["category_ladders"]),
 					runtime: runtime === null ? null : Math.trunc(runtime),
 					publishYear: parseReleaseYear(product["release_date"]),
 					publishDate: parseReleaseDate(product["release_date"]),
@@ -289,6 +298,7 @@ export const details = defineProvider({
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "media-suggestion",
 					},
+					...mediaGenreGroups("audiobook", genres),
 				],
 			};
 		});

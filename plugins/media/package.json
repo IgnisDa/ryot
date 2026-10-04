@@ -2,6 +2,10 @@
 	"name": "@ryot-app/media-plugin",
 	"private": true,
 	"exports": {
+		"./shared/media-genres": {
+			"types": "./shared/media-genres.ts",
+			"default": "./shared/media-genres.ts"
+		},
 		"./backend/lib/anilist-description": {
 			"types": "./backend/lib/anilist-description.ts",
 			"default": "./backend/lib/anilist-description.ts"

@@ -4,10 +4,11 @@ import { DateTime, Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/e
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { decodeJsonResponse } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
-import { toTitleCase } from "../../../lib/title-case";
 
 type GoogleBooksHost = Pick<ScriptHost, "httpCall" | "getPluginConfig">;
 
@@ -131,25 +132,29 @@ const collectUnlinkedCreators = (authors: unknown, publisher: unknown) => {
 	return unlinkedCreators;
 };
 
-const collectGenres = (categories: unknown, mainCategory: unknown) => {
-	const genreSet = new Set<string>();
+const collectGenres = Effect.fnUntraced(function* (categories: unknown, mainCategory: unknown) {
+	if (
+		(categories === undefined || categories === null) &&
+		(mainCategory === undefined || mainCategory === null)
+	) {
+		return null;
+	}
+	if (categories !== undefined && categories !== null && !Array.isArray(categories)) {
+		return yield* new MediaSandboxError({ message: "Google Books categories must be an array" });
+	}
+	const candidates: string[] = [];
 	for (const category of Array.isArray(categories) ? categories : []) {
 		if (typeof category !== "string") {
 			continue;
 		}
-		for (const token of category.split(" / ")) {
-			const titleToken = toTitleCase(token.trim());
-			if (titleToken) {
-				genreSet.add(titleToken);
-			}
-		}
+		candidates.push(...category.split(" / ").map((token) => token.trim()));
 	}
 	const trimmedMainCategory = stringValue(mainCategory);
 	if (trimmedMainCategory) {
-		genreSet.add(trimmedMainCategory);
+		candidates.push(trimmedMainCategory);
 	}
-	return [...genreSet];
-};
+	return recognizedMediaGenres(candidates);
+});
 
 export const manifest = defineManifest({
 	kind: "provider",
@@ -233,14 +238,15 @@ export const details = defineProvider({
 			if (!title) {
 				return yield* new MediaSandboxError({ message: "Google Books payload is missing title" });
 			}
+			const genres = yield* collectGenres(volumeInfo?.["categories"], volumeInfo?.["mainCategory"]);
 			const pageCount = numberValue(volumeInfo?.["pageCount"]);
 			return {
 				name: title,
+				...(genres === null ? {} : { relatedEntityGroups: mediaGenreGroups("book", genres) }),
 				properties: {
 					pages: pageCount === null ? null : Math.trunc(pageCount),
 					publishYear: parsePublishYear(volumeInfo?.["publishedDate"]),
 					sourceUrl: `https://www.google.co.in/books/edition/${title}/${externalId}`,
-					genres: collectGenres(volumeInfo?.["categories"], volumeInfo?.["mainCategory"]),
 					unlinkedCreators: collectUnlinkedCreators(
 						volumeInfo?.["authors"],
 						volumeInfo?.["publisher"],

@@ -7,6 +7,7 @@ import type {
 } from "../../shared/lifecycle-expressions";
 import type {
 	MediaEntitySummarySelection,
+	MediaGenresList,
 	MediaSummarySelection,
 } from "../../shared/media-recipes";
 import { mediaActivityDurationLabel } from "./activity-timeline";
@@ -46,7 +47,10 @@ export type MediaEntitySummaryValue = MediaEntitySummaryFields & {
 	readonly collections: MediaCollectionList;
 };
 
-export type MediaSummaryValue = MediaSummaryFields & { readonly collections: MediaCollectionList };
+export type MediaSummaryValue = MediaSummaryFields & {
+	readonly collections: MediaCollectionList;
+	readonly genres: MediaGenresList;
+};
 
 export type MediaSummaryFact = {
 	readonly icon: string;
@@ -321,8 +325,11 @@ export const mediaSummaryHeaderDetail =
 	}) =>
 	(summary: Summary): MediaSummaryHeaderDetail => ({
 		links: [],
-		chips: summary.genres ?? [],
 		identityDetail: mediaReleaseLabel(summary),
+		chips: [
+			...summary.genres.items.map(({ name }) => name),
+			...(summary.genres.pageInfo.hasMore ? ["More genres"] : []),
+		],
 		facts: [
 			mediaRatingFact(summary),
 			...input.facts(summary),

@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
@@ -60,7 +61,7 @@ export const details = defineProvider({
 				movie["artworks"],
 				"cover",
 			);
-			const genres = collectGenres(movie["genres"]);
+			const genres = yield* collectGenres(movie["genres"]);
 			const firstAired = stringValue(movie["firstAired"]);
 			const publishYear = parsePublishYear(movie["year"]) ?? parsePublishYear(firstAired);
 			const averageRuntime = numberValue(movie["averageRuntime"]);
@@ -107,7 +108,6 @@ export const details = defineProvider({
 				name: title,
 				properties: {
 					images,
-					genres,
 					runtime,
 					sourceUrl,
 					publishYear,
@@ -133,6 +133,7 @@ export const details = defineProvider({
 						entities: groupRelatedEntities,
 						relationshipSchemaSlug: "movie-group-to-movie",
 					},
+					...mediaGenreGroups("movie", genres),
 				],
 			};
 		});

@@ -3,6 +3,7 @@ import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -141,7 +142,6 @@ export const details = defineProvider({
 					isNsfw,
 					duration,
 					sourceUrl,
-					genres: [],
 					publishYear,
 					byVariousArtists,
 					providerRating: popularity,
@@ -169,6 +169,7 @@ export const details = defineProvider({
 							(entity) => entity.providerSlug === "music-group.spotify",
 						),
 					},
+					...mediaGenreGroups("music", []),
 				],
 			};
 		}),

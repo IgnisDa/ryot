@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case-delimiters";
@@ -70,6 +71,7 @@ export const details = defineProvider({
 			}
 			const episodesValue = numberValue(payload?.["num_episodes"]);
 			const statusValue = stringValue(payload?.["status"]);
+			const genres = yield* collectGenres(payload?.["genres"]);
 			return {
 				name: title,
 				relatedEntityGroups: [
@@ -83,10 +85,10 @@ export const details = defineProvider({
 							...collectProviderSuggestions(payload?.["recommendations"], "anime.myanimelist"),
 						],
 					},
+					...mediaGenreGroups("anime", genres),
 				],
 				properties: {
 					isNsfw: parseIsNsfw(payload?.["nsfw"]),
-					genres: collectGenres(payload?.["genres"]),
 					providerRating: numberValue(payload?.["mean"]),
 					images: collectImages(payload?.["main_picture"]),
 					publishDate: parsePublishDate(payload?.["start_date"]),

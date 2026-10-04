@@ -126,6 +126,19 @@ describe("visual-novel.vndb sandbox script", () => {
 								},
 							],
 						},
+						{
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "visual-novel-to-genre",
+							entities: [
+								{ name: "Mystery", externalId: "mystery", providerSlug: "genre.media-catalog" },
+								{
+									name: "Science Fiction",
+									externalId: "science fiction",
+									providerSlug: "genre.media-catalog",
+								},
+							],
+						},
 					]);
 					expect(result.properties).toEqual({
 						publishYear: 2002,
@@ -135,7 +148,6 @@ describe("visual-novel.vndb sandbox script", () => {
 						productionStatus: "Finished",
 						sourceUrl: "https://vndb.org/v17",
 						description: "A time-loop mystery.",
-						genres: ["Mystery", "Science Fiction"],
 						images: [
 							{ type: "remote", purpose: "cover", url: "https://i/cover.jpg" },
 							{ type: "remote", purpose: "screenshot", url: "https://i/shot1.jpg" },

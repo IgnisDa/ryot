@@ -8,6 +8,7 @@ import type {
 import type { ShowEpisodeOrder } from "../../../../shared/show-episode-order";
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { type UnknownRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
@@ -174,6 +175,7 @@ const buildDetailsResult = (
 		creditsData["crew"],
 		showData["created_by"],
 	);
+	const genres = collectGenres(showData["genres"]);
 	return {
 		name: title,
 		childEntities,
@@ -184,7 +186,6 @@ const buildDetailsResult = (
 			providerRating,
 			unlinkedCreators,
 			totalSeasons: childEntities.length,
-			genres: collectGenres(showData["genres"]),
 			isNsfw: showData["adult"] === true ? true : null,
 			productionStatus: stringValue(showData["status"]),
 			publishYear: parsePublishYear(showData["first_air_date"]),
@@ -223,6 +224,7 @@ const buildDetailsResult = (
 					nameKeys: ["name", "original_name"],
 				}),
 			},
+			...mediaGenreGroups("show", genres),
 		],
 	};
 };

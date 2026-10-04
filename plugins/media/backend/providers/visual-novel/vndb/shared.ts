@@ -2,7 +2,9 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
+import { recognizedMediaGenres } from "../../../../shared/media-genres";
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import {
 	extractDate,
@@ -144,10 +146,19 @@ export const details = defineProvider({
 				}
 			}
 
-			const genres = (Array.isArray(vn["tags"]) ? vn["tags"] : []).flatMap((tag) => {
-				const tagName = stringValue(asRecord(tag)?.["name"]);
-				return tagName ? [tagName] : [];
-			});
+			const rawTags = vn["tags"];
+			if (rawTags !== undefined && rawTags !== null && !Array.isArray(rawTags)) {
+				return yield* new MediaSandboxError({ message: "VNDB tags must be an array" });
+			}
+			const genres =
+				rawTags === undefined || rawTags === null
+					? null
+					: recognizedMediaGenres(
+							rawTags.flatMap((tag) => {
+								const tagName = stringValue(asRecord(tag)?.["name"]);
+								return tagName ? [tagName] : [];
+							}),
+						);
 
 			const relatedEntities = collectDevelopers(vn["developers"]).map((dev) => ({
 				name: dev.name,
@@ -171,10 +182,10 @@ export const details = defineProvider({
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "person-to-visual-novel",
 					},
+					...mediaGenreGroups("visual-novel", genres),
 				],
 				properties: {
 					images,
-					genres,
 					lengthMinutes,
 					publishDate: extractDate(vn["released"]),
 					publishYear: extractYear(vn["released"]),

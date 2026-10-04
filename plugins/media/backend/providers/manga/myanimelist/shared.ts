@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case-delimiters";
@@ -58,6 +59,7 @@ export const details = defineProvider({
 			}
 			const volumesValue = numberValue(payload?.["num_volumes"]);
 			const statusValue = stringValue(payload?.["status"]);
+			const genres = yield* collectGenres(payload?.["genres"]);
 			return {
 				name: title,
 				relatedEntityGroups: [
@@ -71,10 +73,10 @@ export const details = defineProvider({
 							...collectProviderSuggestions(payload?.["recommendations"], "manga.myanimelist"),
 						],
 					},
+					...mediaGenreGroups("manga", genres),
 				],
 				properties: {
 					isNsfw: parseIsNsfw(payload?.["nsfw"]),
-					genres: collectGenres(payload?.["genres"]),
 					providerRating: numberValue(payload?.["mean"]),
 					chapters: numberValue(payload?.["num_chapters"]),
 					images: collectImages(payload?.["main_picture"]),

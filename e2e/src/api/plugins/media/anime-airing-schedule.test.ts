@@ -24,7 +24,6 @@ const animeProperties = (
 	publishDate: string | null = null,
 ) => ({
 	images: [],
-	genres: [],
 	publishDate,
 	isNsfw: null,
 	sourceUrl: null,

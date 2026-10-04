@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { asRecord, stringValue } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -81,7 +82,6 @@ const FIELD_LIST = [
 	"deck",
 	"image",
 	"genres",
-	"themes",
 	"platforms",
 	"developers",
 	"publishers",
@@ -118,6 +118,11 @@ export const details = defineProvider({
 			if (!name) {
 				return yield* new MediaSandboxError({ message: "GiantBomb game payload is missing name" });
 			}
+			const rawGenres = game["genres"];
+			if (rawGenres !== undefined && rawGenres !== null && !Array.isArray(rawGenres)) {
+				return yield* new MediaSandboxError({ message: "GiantBomb genres must be an array" });
+			}
+			const genres = rawGenres === undefined || rawGenres === null ? null : collectNames(rawGenres);
 
 			const companyAccumulator = createRoleAccumulator();
 			const addCompanies = (items: unknown, role: string) => {
@@ -182,7 +187,6 @@ export const details = defineProvider({
 					publishYear: extractYear(game["original_release_date"]),
 					platformReleases: buildPlatformReleases(game["platforms"]),
 					description: yield* combineDescription(game["deck"], game["description"]),
-					genres: [...collectNames(game["genres"]), ...collectNames(game["themes"])],
 					images: primaryImage
 						? [{ url: primaryImage, type: "remote" as const, purpose: "cover" as const }]
 						: [],
@@ -206,6 +210,7 @@ export const details = defineProvider({
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "media-suggestion",
 					},
+					...mediaGenreGroups("video-game", genres),
 				],
 			};
 		});

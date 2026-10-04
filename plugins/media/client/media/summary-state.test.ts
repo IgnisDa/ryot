@@ -12,6 +12,7 @@ import {
 	mediaRatingFact,
 	mediaRatingLabel,
 	mediaReleaseLabel,
+	mediaSummaryHeaderDetail,
 } from "./summary-state";
 
 const label = (items: readonly { id: string; name: string }[], hasMore = false) =>
@@ -20,6 +21,22 @@ const label = (items: readonly { id: string; name: string }[], hasMore = false) 
 	);
 
 describe("media summary state", () => {
+	it("maps genre names to chips and marks a truncated genre list", () => {
+		const detail = mediaSummaryHeaderDetail({ facts: () => [] });
+
+		expect(detail(decodeShowSummary()).chips).toEqual(["Crime", "Drama"]);
+		expect(
+			detail(
+				decodeShowSummary({
+					genres: {
+						pageInfo: { limit: 100, hasMore: true },
+						items: [{ name: "Crime", id: "genre-crime" }],
+					},
+				}),
+			).chips,
+		).toEqual(["Crime", "More genres"]);
+	});
+
 	it("words episode progress over the aired set and drops empty parts", () => {
 		expect(mediaEpisodicAiredLabel({ aired: 10, watched: 10, upcoming: 3 })).toBe(
 			"10/10 aired · 3 upcoming",

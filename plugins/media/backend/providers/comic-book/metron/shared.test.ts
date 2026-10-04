@@ -123,6 +123,12 @@ describe("comic-book.metron sandbox script", () => {
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [{ name: "Saga #2", externalId: "2", providerSlug: "comic-book.metron" }],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "comic-book-to-genre",
+						},
 					]);
 					return undefined;
 				}),

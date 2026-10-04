@@ -3,6 +3,8 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import {
 	type UnknownRecord,
 	asRecord,
@@ -112,22 +114,25 @@ const extractStatus = (input: unknown) => {
 	return { volumes, productionStatus };
 };
 
-const collectGenres = (genres: unknown, categories: unknown) => {
+const collectGenres = Effect.fnUntraced(function* (genres: unknown) {
+	if (genres === undefined || genres === null) {
+		return null;
+	}
+	if (!Array.isArray(genres)) {
+		return yield* new MediaSandboxError({ message: "MangaUpdates genres must be an array" });
+	}
 	const genreSet = new Set<string>();
-	for (const genreEntry of recordsValue(genres)) {
+	for (const genreEntry of genres.flatMap((value) => {
+		const record = asRecord(value);
+		return record ? [record] : [];
+	})) {
 		const genre = stringValue(genreEntry["genre"]);
 		if (genre) {
 			genreSet.add(genre);
 		}
 	}
-	for (const categoryEntry of recordsValue(categories)) {
-		const category = stringValue(categoryEntry["category"]);
-		if (category) {
-			genreSet.add(category);
-		}
-	}
 	return [...genreSet];
-};
+});
 
 const collectImages = (image: unknown) => {
 	const url = imageUrlValue(image);
@@ -188,6 +193,7 @@ export const details = defineProvider({
 			const { volumes, productionStatus } = extractStatus(payload?.["status"]);
 			const url = payload?.["url"];
 			const description = payload?.["description"];
+			const genres = yield* collectGenres(payload?.["genres"]);
 			const suggestions = yield* collectSuggestions(host, payload);
 			return {
 				name: title,
@@ -198,6 +204,7 @@ export const details = defineProvider({
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "media-suggestion",
 					},
+					...mediaGenreGroups("manga", genres),
 				],
 				properties: {
 					volumes,
@@ -207,7 +214,6 @@ export const details = defineProvider({
 					publishYear: parsePublishYear(payload?.["year"]),
 					chapters: numberValue(payload?.["latest_chapter"]),
 					providerRating: numberValue(payload?.["bayesian_rating"]),
-					genres: collectGenres(payload?.["genres"], payload?.["categories"]),
 					description: yield* normalizeRichDescription(description, "https://www.mangaupdates.com"),
 				},
 			};

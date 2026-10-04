@@ -43,7 +43,6 @@ const ACTIVITY_RECIPE = flatFixtureRecipes.activityRecipe({
 
 const SUMMARY_ROW = {
 	owned: null,
-	genres: null,
 	images: null,
 	id: "media-1",
 	publishYear: 1999,
@@ -60,6 +59,7 @@ const SUMMARY_ROW = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	productionStatus: "Released",
+	genres: { items: [], pageInfo: { limit: 100, hasMore: false } },
 	collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
 };
 
@@ -89,7 +89,6 @@ describe("media flat recipes", () => {
 			"owned",
 			"publishDate",
 			"publishYear",
-			"genres",
 			"providerRating",
 			"productionStatus",
 			"state",
@@ -113,6 +112,59 @@ describe("media flat recipes", () => {
 		});
 	});
 
+	it("includes the subject's genres through its declared relationship", () => {
+		const summary = SUMMARY_RECIPE.document.queries["summary"];
+		if (summary?.output.type !== "rows") {
+			throw new Error("Expected a summary rows query");
+		}
+		const genres = summary.output.include?.find((include) => include.key === "genres");
+		if (genres === undefined || !("fields" in genres)) {
+			throw new Error("Expected the genres include");
+		}
+
+		expect(genres).toMatchObject({ limit: 100, key: "genres" });
+		expect(fieldKeys(genres.fields)).toEqual(["id", "name"]);
+		expect(genres.joins?.[0]).toMatchObject({
+			type: "inner",
+			table: { alias: "genreRelationship" },
+			on: {
+				right: { field: "id", tableAlias: "genre" },
+				left: { field: "targetEntityId", tableAlias: "genreRelationship" },
+			},
+		});
+		expect(genres.orderBy).toMatchObject([
+			{ direction: "asc", expr: { field: "name", tableAlias: "genre" } },
+			{ direction: "asc", expr: { field: "id", tableAlias: "genre" } },
+		]);
+		expect(genres.where).toMatchObject({
+			type: "and",
+			predicates: [
+				{
+					predicates: [
+						{ right: { value: "genre", type: "literal" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
+				{
+					right: { field: "id", tableAlias: "entity" },
+					left: { field: "sourceEntityId", tableAlias: "genreRelationship" },
+				},
+				{
+					predicates: [
+						{ right: { type: "literal", value: "fixture-to-genre" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
+			],
+		});
+	});
+
 	it("decodes a summary with its flat lifecycle state", () => {
 		expect(
 			SUMMARY_RECIPE.decode({
@@ -127,6 +179,22 @@ describe("media flat recipes", () => {
 				summary: { id: "media-1", progressPercent: 42, state: "in_progress" },
 			},
 		});
+	});
+
+	it("maps the bounded genre include and its page info onto the summary", () => {
+		const genres = {
+			pageInfo: { limit: 100, hasMore: true },
+			items: [{ name: "Drama", id: "genre-drama" }],
+		};
+
+		expect(
+			SUMMARY_RECIPE.decode({
+				data: {
+					summary: singleRows([{ ...SUMMARY_ROW, genres }]),
+					requested: singleRows([{ schemaSlug: "fixture" }]),
+				},
+			}),
+		).toMatchObject({ success: { summary: { genres } } });
 	});
 
 	it("rejects a summary whose lifecycle state is episodic", () => {

@@ -147,6 +147,12 @@ describe("movie.tmdb sandbox script", () => {
 								{ externalId: "3", name: "Pick Two", providerSlug: "movie.tmdb" },
 							],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "movie-to-genre",
+						},
 					]);
 					return undefined;
 				}),

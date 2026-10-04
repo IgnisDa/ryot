@@ -38,7 +38,6 @@ describe("anime.anilist sandbox script", () => {
 				data: {
 					Media: {
 						id: 1,
-						tags: [],
 						genres: [],
 						type: "ANIME",
 						isAdult: false,
@@ -78,6 +77,12 @@ describe("anime.anilist sandbox script", () => {
 								{ externalId: "3", name: "Manga Pick", providerSlug: "manga.anilist" },
 							],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "anime-to-genre",
+						},
 					]);
 					return undefined;
 				}),
@@ -98,11 +103,11 @@ describe("anime.anilist sandbox script", () => {
 						startDate: { year: 2020 },
 						status: "NOT_YET_RELEASED",
 						title: { english: "Source" },
-						genres: ["Action", "Action"],
 						bannerImage: "https://img/banner.jpg",
 						tags: [{ name: "Space" }, { name: "" }],
 						coverImage: { extraLarge: "https://img/cover.jpg" },
 						nextAiringEpisode: { episode: 3, airingAt: 1700001200 },
+						genres: ["Action", "Action", "sci-fi", "Science Fiction"],
 						description: 'Line one<br>Line <span class="markdown_spoiler"><i>two</i></span>',
 						studios: {
 							nodes: [
@@ -136,7 +141,6 @@ describe("anime.anilist sandbox script", () => {
 						isNsfw: true,
 						publishYear: 2020,
 						providerRating: 84,
-						genres: ["Action", "Space"],
 						productionStatus: "Not Yet Released",
 						sourceUrl: "https://anilist.co/anime/1/Source",
 						description: "Line one\\\nLine :spoiler[*two*]",
@@ -148,6 +152,19 @@ describe("anime.anilist sandbox script", () => {
 							{ episode: 1, airingAt: "2023-11-14T22:13:20.000Z" },
 							{ episode: 2, airingAt: "2023-11-14T22:23:20.000Z" },
 							{ episode: 3, airingAt: "2023-11-14T22:33:20.000Z" },
+						],
+					});
+					expect(result.relatedEntityGroups?.[2]).toEqual({
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "anime-to-genre",
+						entities: [
+							{ name: "Action", externalId: "action", providerSlug: "genre.media-catalog" },
+							{
+								name: "Science Fiction",
+								externalId: "science fiction",
+								providerSlug: "genre.media-catalog",
+							},
 						],
 					});
 					return undefined;

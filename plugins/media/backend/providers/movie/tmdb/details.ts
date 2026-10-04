@@ -6,6 +6,7 @@ import type {
 
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
+import { mediaGenreGroups } from "../../../lib/media-genres";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
@@ -53,13 +54,13 @@ const buildDetailsResult = (
 		creditsData["cast"],
 		creditsData["crew"],
 	);
+	const genres = collectGenres(movieData["genres"]);
 	return {
 		name: title,
 		properties: {
 			runtime,
 			providerRating,
 			unlinkedCreators,
-			genres: collectGenres(movieData["genres"]),
 			isNsfw: movieData["adult"] === true ? true : null,
 			productionStatus: stringValue(movieData["status"]),
 			publishYear: parsePublishYear(movieData["release_date"]),
@@ -101,6 +102,7 @@ const buildDetailsResult = (
 					nameKeys: ["title", "original_title"],
 				}),
 			},
+			...mediaGenreGroups("movie", genres),
 		],
 	};
 };

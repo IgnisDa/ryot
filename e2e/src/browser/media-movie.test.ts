@@ -15,37 +15,15 @@ import {
 	insertLibraryMembership,
 	seedGlobalMovieWithCollection,
 } from "~/fixtures/plugins/media";
+import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
-import { webRequest } from "~/support/web-request";
 
 const MOVIE_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="90"><rect width="60" height="90" fill="#2563eb"/></svg>`;
 
 const SIBLING_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="60"><rect width="40" height="60" fill="#16a34a"/></svg>`;
-
-const uploadPermanentAsset = (apiUrl: string, client: Client, body: string) =>
-	Effect.gen(function* () {
-		const intent = yield* client.call((c) =>
-			c.uploads.createIntent({
-				payload: { kind: "permanent", fileName: "movie-art.svg", contentType: "image/svg+xml" },
-			}),
-		);
-		const upload = yield* webRequest(new URL(intent.uploadUrl, `${apiUrl}/`), {
-			body,
-			method: intent.method,
-			headers: intent.headers,
-		});
-		expect([200, 204]).toContain(upload.status);
-		const asset = yield* client.call((c) =>
-			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
-		);
-		if (!("key" in asset)) {
-			throw new Error("Expected a permanent asset locator");
-		}
-		return asset;
-	});
 
 const movieEventSchemas = (client: Client) =>
 	Effect.gen(function* () {
@@ -69,8 +47,8 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 		const siblingName = `Browser Tracer Sequel ${suffix}`;
 		const collectionName = `Browser Tracer Collection ${suffix}`;
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const cover = yield* uploadPermanentAsset(apiUrl, client, MOVIE_COVER);
-		const siblingCover = yield* uploadPermanentAsset(apiUrl, client, SIBLING_COVER);
+		const cover = { type: "remote" as const, url: "https://images.test/movie-cover.svg" };
+		const siblingCover = { type: "remote" as const, url: "https://images.test/movie-sibling.svg" };
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName,
 			siblingName,
@@ -82,7 +60,6 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 				publishYear: 1999,
 				providerRating: 86.5,
 				productionStatus: "Released",
-				genres: ["Drama", "Thriller"],
 				images: [{ ...cover, purpose: "cover" }],
 				description: "A deterministic browser tracer movie.",
 				watchProviders: [
@@ -93,6 +70,11 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 					},
 				],
 			},
+		});
+		yield* seedGlobalMediaGenres({
+			entityId: seeded.movie.id,
+			entitySchemaSlug: "movie",
+			names: ["Drama", "Thriller"],
 		});
 		yield* insertLibraryMembership(client, { mediaEntityId: seeded.movie.id });
 		const events = yield* movieEventSchemas(client);
@@ -114,6 +96,20 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 			locale: "en-US",
 			viewport: { width: 1280, height: 900 },
 		});
+		yield* page.use((native) =>
+			native
+				.context()
+				.route(cover.url, (route) =>
+					route.fulfill({ body: MOVIE_COVER, contentType: "image/svg+xml" }),
+				),
+		);
+		yield* page.use((native) =>
+			native
+				.context()
+				.route(siblingCover.url, (route) =>
+					route.fulfill({ body: SIBLING_COVER, contentType: "image/svg+xml" }),
+				),
+		);
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
 		const frame = page.locator('iframe[title="Media plugin"]');
@@ -165,7 +161,7 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 			yield* siblingArt.getAttribute("src"),
 			"Missing collection sibling artwork",
 		);
-		expect(siblingSrc).toContain(siblingCover.key);
+		expect(siblingSrc).toBe(siblingCover.url);
 		expect(new URL(siblingSrc).href).toMatch(/^https?:\/\//);
 		expect(yield* media.getByRole("link", { name: `Open ${movieName}` }).count).toBe(0);
 
@@ -215,7 +211,11 @@ it.live("keeps the collection rail for a Movie with no credits or recommendation
 			.waitFor({ state: "visible", timeout: 150_000 });
 
 		const body = media.locator("body");
-		yield* body.getByText("In progress", { exact: true }).waitFor({ state: "visible" });
+		yield* body
+			.getByText("Your status", { exact: true })
+			.locator("../..")
+			.getByText("In progress", { exact: true })
+			.waitFor({ state: "visible" });
 		yield* media
 			.getByRole("heading", { level: 2, name: `Part of ${collectionName}` })
 			.waitFor({ state: "visible" });

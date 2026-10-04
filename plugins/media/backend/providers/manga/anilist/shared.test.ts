@@ -36,7 +36,6 @@ describe("manga.anilist sandbox script", () => {
 				data: {
 					Media: {
 						id: 1,
-						tags: [],
 						genres: [],
 						type: "MANGA",
 						isAdult: false,
@@ -70,6 +69,12 @@ describe("manga.anilist sandbox script", () => {
 								{ externalId: "3", name: "Manga Pick", providerSlug: "manga.anilist" },
 							],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "manga-to-genre",
+						},
 					]);
 					return undefined;
 				}),
@@ -82,7 +87,6 @@ describe("manga.anilist sandbox script", () => {
 				data: {
 					Media: {
 						id: 4,
-						tags: [],
 						genres: [],
 						type: "MANGA",
 						volumes: 10.9,

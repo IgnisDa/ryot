@@ -130,6 +130,12 @@ describe("show.tmdb sandbox script", () => {
 								{ externalId: "3", name: "Pick Two", providerSlug: "show.tmdb" },
 							],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "show-to-genre",
+						},
 					]);
 					return undefined;
 				}),

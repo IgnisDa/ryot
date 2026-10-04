@@ -31,6 +31,7 @@ import {
 	insertMediaMonitoring,
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
+import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -61,7 +62,6 @@ const seedPodcast = (client: Client, episodeCount: number) =>
 			externalId: `query-recipe-podcast-${crypto.randomUUID()}`,
 			properties: {
 				images: [],
-				genres: [],
 				isNsfw: null,
 				sourceUrl: null,
 				description: null,
@@ -276,7 +276,6 @@ describe("Media RyotQL query recipe results", () => {
 				externalId: `query-recipe-show-${suffix}`,
 				properties: {
 					images: [],
-					genres: [],
 					isNsfw: null,
 					sourceUrl: null,
 					totalSeasons: 3,
@@ -482,13 +481,17 @@ describe("Media RyotQL query recipe results", () => {
 					providerRating: 78.25,
 					publishDate: "2025-03-13",
 					productionStatus: "Ended",
-					genres: ["Drama", "Crime"],
 					description: "A four-part limited series.",
 					images: [
 						{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 						{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
 					],
 				},
+			});
+			const genres = yield* seedGlobalMediaGenres({
+				entityId: show.id,
+				entitySchemaSlug: "show",
+				names: ["Drama", "Crime"],
 			});
 			yield* insertLibraryMembership(client, {
 				mediaEntityId: show.id,
@@ -520,7 +523,9 @@ describe("Media RyotQL query recipe results", () => {
 			expect(summaryRow.providerRating).toBe(78.25);
 			expect(summaryRow.productionStatus).toBe("Ended");
 			expect(summaryRow.publishDate).toBe("2025-03-13");
-			expect(summaryRow.genres).toEqual(["Drama", "Crime"]);
+			expect(summaryRow.genres.items.map(({ name }) => name)).toEqual(
+				genres.map(({ name }) => name).sort(),
+			);
 			expect(summaryRow.description).toBe("A four-part limited series.");
 			expect(summaryRow.images).toEqual([
 				{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
@@ -566,7 +571,6 @@ describe("Media RyotQL query recipe results", () => {
 					externalId: `overview-${crypto.randomUUID()}`,
 					properties: {
 						images,
-						genres: [],
 						isNsfw: null,
 						sourceUrl: null,
 						totalSeasons: 1,
@@ -716,7 +720,6 @@ describe("Media RyotQL query recipe results", () => {
 				externalId: `overview-bare-${suffix}`,
 				properties: {
 					images: [],
-					genres: [],
 					isNsfw: null,
 					sourceUrl: null,
 					totalSeasons: 1,
