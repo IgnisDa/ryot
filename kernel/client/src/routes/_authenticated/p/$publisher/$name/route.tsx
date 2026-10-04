@@ -12,8 +12,8 @@ import {
 import type { ClientPagePreparation } from "#/modules/pages/preparation/prepare";
 import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
-import { ProviderAddModal } from "#/modules/provider-add/modal";
-import { useProviderSearchSession } from "#/modules/provider-add/search-session";
+import { EntityPickerModal } from "#/modules/provider-add/modal";
+import { useEntityPickerSession } from "#/modules/provider-add/picker-session";
 import { AppScreen } from "#/modules/shell/app-screen";
 
 export const Route = createFileRoute("/_authenticated/p/$publisher/$name")({
@@ -40,10 +40,10 @@ export function PluginRoutePage({
 
 function PluginDocument(props: { readonly title: string; readonly prepared: PreparedClientPage }) {
 	const navigate = useNavigate();
-	const { open, session } = useProviderSearchSession();
-	useClientPageDocument({ ...props, onProviderSearch: open, inert: session !== null });
+	const { open, session } = useEntityPickerSession();
+	useClientPageDocument({ ...props, onPickEntity: open, inert: session !== null });
 	return session === null ? null : (
-		<ProviderAddModal
+		<EntityPickerModal
 			onComplete={session.complete}
 			schema={session.request.schema}
 			library={session.request.library}

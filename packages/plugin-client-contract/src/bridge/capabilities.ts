@@ -12,6 +12,10 @@ import {
 	MembershipResponse,
 } from "@ryot-app/contract/modules/collections/schemas";
 import {
+	EntityEditorSaveOutput,
+	EntityEditorSaveRequest,
+} from "@ryot-app/contract/modules/entities/editor";
+import {
 	EntityUpdatedMessage,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-watches/messages";
@@ -60,6 +64,7 @@ export const RyotClientErrorReason = Schema.Literals([
 	"transport",
 	"asset-failed",
 	"collection-failed",
+	"entity-save-failed",
 	"query-failed",
 	"invalid-input",
 	"operation-failed",
@@ -270,6 +275,56 @@ export const PluginBridgeOperationResult = Schema.Union([
 ]);
 
 export type PluginBridgeOperationResult = Schema.Schema.Type<typeof PluginBridgeOperationResult>;
+
+export const PluginEntitySaveBridgeErrorReason = Schema.Literals([
+	"transport",
+	"invalid-request",
+	"entity-save-failed",
+	"malformed-result",
+]);
+
+export type PluginEntitySaveBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginEntitySaveBridgeErrorReason
+>;
+
+export const PluginBridgeEntitySaveRequest = strictStruct({
+	...EntityEditorSaveRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("entity-editor-save-request"),
+});
+
+export type PluginBridgeEntitySaveRequest = Schema.Schema.Type<
+	typeof PluginBridgeEntitySaveRequest
+>;
+
+const pluginEntitySaveSuccessFields = {
+	output: EntityEditorSaveOutput,
+	outcome: Schema.Literal("success"),
+};
+
+const pluginEntitySaveFailureFields = {
+	outcome: Schema.Literal("failure"),
+	reason: PluginEntitySaveBridgeErrorReason,
+};
+
+const pluginBridgeEntitySaveResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("entity-editor-save-result"),
+};
+
+export const PluginEntitySaveOutcome = Schema.Union([
+	strictStruct(pluginEntitySaveSuccessFields),
+	strictStruct(pluginEntitySaveFailureFields),
+]);
+
+export type PluginEntitySaveOutcome = Schema.Schema.Type<typeof PluginEntitySaveOutcome>;
+
+export const PluginBridgeEntitySaveResult = Schema.Union([
+	strictStruct({ ...pluginEntitySaveSuccessFields, ...pluginBridgeEntitySaveResultFields }),
+	strictStruct({ ...pluginEntitySaveFailureFields, ...pluginBridgeEntitySaveResultFields }),
+]);
+
+export type PluginBridgeEntitySaveResult = Schema.Schema.Type<typeof PluginBridgeEntitySaveResult>;
 
 export const PluginStorageBridgeErrorReason = Schema.Literals([
 	"invalid-request",

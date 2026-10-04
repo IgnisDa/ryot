@@ -1,13 +1,5 @@
-import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import {
-	Button,
-	Dialog,
-	FieldMessage,
-	LoadMoreButton,
-	SearchField,
-	StatusMessage,
-} from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { EntitySchemaSlug, type PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	describeSchemaFormFields,
 	SchemaForm,
@@ -15,12 +7,10 @@ import {
 	type SchemaAssetUpload,
 	type SchemaAssetRenderer,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
-import { useDeferredValue, useLayoutEffect, useState } from "react";
+import { Effect } from "effect";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
-import type { RyotClient } from "../client/client";
-import { createRyotQuery } from "../queries/definitions";
-import { nextPageCursor, paginationItems } from "../queries/pagination";
-import { useRyotInfiniteQuery } from "../queries/pagination-hook";
+import { useRyot, useRyotSchedule } from "../queries/provider";
 import {
 	entityFormValues,
 	entityPropertiesPayload,
@@ -28,118 +18,8 @@ import {
 	type EditorRelationshipDefinition,
 	type EditorRelationshipTarget,
 } from "./model";
-import { entityEditorCandidatesRecipe } from "./recipes";
+import { entityEditorTargetsRecipe } from "./recipes";
 import { schemaFormIcons, unsupportedFileUpload } from "./schema-form-icons";
-
-const candidatesQuery = createRyotQuery(
-	({
-		input,
-		client,
-	}: {
-		readonly client: RyotClient;
-		readonly input: {
-			readonly after: string | undefined;
-			readonly search: string;
-			readonly packageId: PluginPackageId;
-			readonly entitySchemaSlug: string;
-		};
-	}) =>
-		client.data.query(
-			entityEditorCandidatesRecipe({
-				after: input.after,
-				search: input.search,
-				entitySchemaSlug: input.entitySchemaSlug,
-				reference: client.pluginIdentity(input.packageId),
-			}),
-		),
-	{ cancelOnUnmount: true },
-);
-
-function TargetPicker(props: {
-	readonly onClose: () => void;
-	readonly packageId: PluginPackageId;
-	readonly selected: ReadonlySet<string>;
-	readonly definition: EditorRelationshipDefinition;
-	readonly onPick: (candidate: Pick<EditorRelationshipTarget, "entityId" | "name">) => void;
-}) {
-	const [search, setSearch] = useState("");
-	const deferredSearch = useDeferredValue(search);
-	const result = useRyotInfiniteQuery(
-		candidatesQuery,
-		{
-			search: deferredSearch,
-			packageId: props.packageId,
-			entitySchemaSlug: props.definition.targetEntitySchemaSlug ?? "",
-		},
-		{
-			initialPageParam: undefined,
-			getNextPageParam: nextPageCursor,
-			getPageInput: (input, after: string | undefined) => ({ ...input, after }),
-		},
-	);
-	const candidates = paginationItems(
-		result.pages,
-		(page) => page.items,
-		(item) => item.id,
-	);
-	return (
-		<Dialog
-			size="md"
-			closeLabel="Close"
-			onClose={props.onClose}
-			title={`Add ${props.definition.name}`}
-		>
-			<div className="flex flex-col gap-3">
-				<SearchField
-					autoFocus
-					value={search}
-					label="Search"
-					icon={<AppIcon size={15} name="search" />}
-					clearIcon={<AppIcon name="x" size={14} />}
-					onChange={(value) => {
-						setSearch(value);
-					}}
-				/>
-				{result.isError ? (
-					<StatusMessage tone="error">Options could not be loaded.</StatusMessage>
-				) : null}
-				{result.data === undefined && !result.isError ? (
-					<StatusMessage tone="pending">Loading…</StatusMessage>
-				) : null}
-				{result.data !== undefined && candidates.length === 0 ? (
-					<StatusMessage tone="pending">Nothing matches.</StatusMessage>
-				) : null}
-				<ul className="m-0 flex list-none flex-col gap-1 p-0">
-					{candidates.map((candidate) => (
-						<li key={candidate.id}>
-							<Button
-								size="sm"
-								variant="ghost"
-								className="w-full justify-start"
-								disabled={props.selected.has(candidate.id)}
-								onClick={() => {
-									props.onPick({ name: candidate.name, entityId: candidate.id });
-									props.onClose();
-								}}
-							>
-								{candidate.name}
-							</Button>
-						</li>
-					))}
-				</ul>
-				{result.hasNextPage ? (
-					<LoadMoreButton
-						size="sm"
-						label="Show more"
-						disabled={result.isFetching}
-						onClick={result.fetchNextPage}
-						isFetchingNextPage={result.isFetchingNextPage}
-					/>
-				) : null}
-			</div>
-		</Dialog>
-	);
-}
 
 function TargetRow(props: {
 	readonly error: string | undefined;
@@ -209,7 +89,53 @@ export function RelationshipSection(props: {
 	readonly onReorder: () => void;
 }) {
 	const { targets, definition } = props;
+	const client = useRyot();
+	const schedule = useRyotSchedule();
+	const cancel = useRef<(() => void) | undefined>(undefined);
 	const [picking, setPicking] = useState(false);
+	const [failed, setFailed] = useState(false);
+	useEffect(() => () => cancel.current?.(), []);
+
+	const pick = () => {
+		const targetSlug = definition.targetEntitySchemaSlug;
+		if (picking || targetSlug === null) {
+			return;
+		}
+		setPicking(true);
+		setFailed(false);
+		const reference = client.pluginIdentity(props.packageId);
+		cancel.current = schedule.run(
+			Effect.gen(function* () {
+				const outcome = yield* client.screens.pickEntity({
+					schema: {
+						slug: EntitySchemaSlug.make(targetSlug),
+						owner: { kind: "plugin", pluginId: reference.pluginId },
+					},
+				});
+				if (outcome.kind !== "selected") {
+					return;
+				}
+				const existing = new Set(targets.map(({ entityId }) => entityId));
+				const entityIds = [...new Set(outcome.entityIds)].filter((id) => !existing.has(id));
+				if (entityIds.length === 0) {
+					return;
+				}
+				const found = yield* client.data.query(
+					entityEditorTargetsRecipe({ reference, entityIds, entitySchemaSlug: targetSlug }),
+				);
+				const names = new Map(found.map(({ id, name }) => [id, name]));
+				props.onChange([
+					...targets,
+					...entityIds.flatMap((entityId) => {
+						const name = names.get(entityId);
+						return name === undefined ? [] : [{ name, entityId, properties: {} }];
+					}),
+				]);
+			}).pipe(Effect.catch(() => Effect.sync(() => setFailed(true)))),
+			() => setPicking(false),
+		);
+	};
+
 	return (
 		<section aria-label={definition.name} className="flex flex-col gap-2">
 			<h3 className="text-sm font-semibold text-text">{definition.name}</h3>
@@ -232,7 +158,9 @@ export function RelationshipSection(props: {
 							onChange={(properties) =>
 								props.onChange(
 									targets.map((current) =>
-										current.entityId === target.entityId ? { ...current, properties } : current,
+										current.entityId === target.entityId
+											? { properties, name: current.name, entityId: current.entityId }
+											: current,
 									),
 								)
 							}
@@ -242,22 +170,15 @@ export function RelationshipSection(props: {
 			)}
 			<Button
 				size="sm"
+				onClick={pick}
+				loading={picking}
 				variant="secondary"
 				className="self-start"
-				onClick={() => setPicking(true)}
 				aria-label={`Add ${definition.name}`}
 			>
 				Add
 			</Button>
-			{picking ? (
-				<TargetPicker
-					definition={definition}
-					packageId={props.packageId}
-					onClose={() => setPicking(false)}
-					selected={new Set(targets.map(({ entityId }) => entityId))}
-					onPick={(candidate) => props.onChange([...targets, { ...candidate, properties: {} }])}
-				/>
-			) : null}
+			{failed ? <FieldMessage>Could not add. Try again.</FieldMessage> : null}
 		</section>
 	);
 }

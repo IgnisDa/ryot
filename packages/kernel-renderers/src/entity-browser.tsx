@@ -144,7 +144,7 @@ const Browser = ({
 								}
 								schedule.run(
 									ryot.screens
-										.openProviderSearch({
+										.pickEntity({
 											schema: addAction.schema,
 											library: addAction.library,
 											...(initialQuery === undefined || initialQuery === ""

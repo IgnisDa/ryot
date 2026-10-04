@@ -1,5 +1,6 @@
 import { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { EntityEditorSubmission } from "@ryot-app/contract/modules/entities/editor";
+import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
@@ -98,7 +99,7 @@ export const unreferencedUploads = (
 
 export const buildSubmission = (input: {
 	name: string;
-	entitySchemaSlug: string;
+	entitySchema: EntitySchemaReference;
 	properties: Record<string, unknown>;
 	target: EntityEditorSubmission["target"];
 	relationships: EditorRelationshipTargets;
@@ -106,7 +107,7 @@ export const buildSubmission = (input: {
 	target: input.target,
 	name: input.name.trim(),
 	properties: input.properties,
-	entitySchemaSlug: input.entitySchemaSlug,
+	entitySchema: input.entitySchema,
 	relationships: Object.entries(input.relationships).map(([relationshipSchemaSlug, targets]) => ({
 		relationshipSchemaSlug,
 		targets: targets.map(({ entityId, properties }) => ({

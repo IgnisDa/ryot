@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import type {
 	ImportEntityRunResult,
 	SearchProviderEntitiesResponse,
@@ -37,7 +38,11 @@ import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { EntitiesService } from "#/modules/entities/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
-import { makePluginQueries, makePluginStorage } from "#/modules/pages/bridge/services.test-layer";
+import {
+	makePluginEntitySaves,
+	makePluginQueries,
+	makePluginStorage,
+} from "#/modules/pages/bridge/services.test-layer";
 import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
 import { PluginCatalogService } from "#/modules/plugins/catalog/service";
@@ -253,6 +258,7 @@ function mount(options: {
 			}),
 			makePluginQueries(),
 			makePluginStorage(),
+			makePluginEntitySaves(),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(
@@ -275,6 +281,9 @@ function mount(options: {
 		getDocumentLoads: () => documentLoads,
 	};
 }
+
+const noProviders = () =>
+	Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } });
 
 function connectFrame(frame: HTMLIFrameElement) {
 	const messages: unknown[] = [];
@@ -464,8 +473,8 @@ describe("client page routes", () => {
 			expect(bridge.init.page?.settings).toMatchObject({ defaultLayout: "grid" });
 			expect(view.router.state.location.pathname).toBe("/v/c/fixture-view");
 			bridge.port.postMessage({
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-1",
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-1",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
@@ -474,8 +483,8 @@ describe("client page routes", () => {
 			);
 			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Add from a provider" }));
 			bridge.port.postMessage({
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-2",
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-2",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
@@ -484,8 +493,8 @@ describe("client page routes", () => {
 					expect(bridge.messages).toContainEqual({
 						outcome: "success",
 						value: { kind: "cancelled" },
-						requestId: "provider-search-screen-2",
-						type: "provider-search-screen-result",
+						requestId: "pick-entity-screen-2",
+						type: "pick-entity-screen-result",
 					}),
 				),
 			);
@@ -503,20 +512,20 @@ describe("client page routes", () => {
 						typeof message === "object" &&
 						message !== null &&
 						"type" in message &&
-						message.type === "provider-search-screen-result",
+						message.type === "pick-entity-screen-result",
 				),
 			).toEqual([
 				{
 					outcome: "success",
 					value: { kind: "cancelled" },
-					requestId: "provider-search-screen-2",
-					type: "provider-search-screen-result",
+					requestId: "pick-entity-screen-2",
+					type: "pick-entity-screen-result",
 				},
 				{
 					outcome: "success",
 					value: { kind: "cancelled" },
-					requestId: "provider-search-screen-1",
-					type: "provider-search-screen-result",
+					requestId: "pick-entity-screen-1",
+					type: "pick-entity-screen-result",
 				},
 			]);
 		}),
@@ -583,8 +592,8 @@ describe("client page routes", () => {
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 			bridge.port.postMessage({
 				initialQuery: "dune",
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-1",
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-1",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
@@ -597,8 +606,8 @@ describe("client page routes", () => {
 			expect(view.targets).toHaveLength(1);
 			bridge.port.postMessage({
 				initialQuery: "new query",
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-2",
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-2",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
@@ -607,8 +616,8 @@ describe("client page routes", () => {
 					expect(bridge.messages).toContainEqual({
 						outcome: "success",
 						value: { kind: "cancelled" },
-						requestId: "provider-search-screen-2",
-						type: "provider-search-screen-result",
+						requestId: "pick-entity-screen-2",
+						type: "pick-entity-screen-result",
 					}),
 				),
 			);
@@ -629,20 +638,20 @@ describe("client page routes", () => {
 						typeof message === "object" &&
 						message !== null &&
 						"type" in message &&
-						message.type === "provider-search-screen-result",
+						message.type === "pick-entity-screen-result",
 				),
 			).toEqual([
 				{
 					outcome: "success",
 					value: { kind: "cancelled" },
-					requestId: "provider-search-screen-2",
-					type: "provider-search-screen-result",
+					requestId: "pick-entity-screen-2",
+					type: "pick-entity-screen-result",
 				},
 				{
 					outcome: "success",
 					value: { kind: "cancelled" },
-					requestId: "provider-search-screen-1",
-					type: "provider-search-screen-result",
+					requestId: "pick-entity-screen-1",
+					type: "pick-entity-screen-result",
 				},
 			]);
 			expect(view.router.state.location.searchStr).toBe("?tab=home");
@@ -661,9 +670,9 @@ describe("client page routes", () => {
 				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 			);
 			bridge.port.postMessage({
+				type: "pick-entity-screen",
 				initialQuery: "dune part two",
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-1",
+				requestId: "pick-entity-screen-1",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
@@ -679,15 +688,15 @@ describe("client page routes", () => {
 			);
 			expect(bridge.messages).toContainEqual({
 				outcome: "success",
+				requestId: "pick-entity-screen-1",
+				type: "pick-entity-screen-result",
 				value: { kind: "create-requested" },
-				requestId: "provider-search-screen-1",
-				type: "provider-search-screen-result",
 			});
 			expect(screen.queryByRole("dialog", { name: "Add from a provider" })).toBeNull();
 		}),
 	);
 
-	it.live("offers no Create custom without a create route for the schema", () =>
+	it.live("offers no Create custom without a create route or editor for the schema", () =>
 		Effect.gen(function* () {
 			mount({
 				entry: "/p/test/plugin-1?tab=home",
@@ -698,8 +707,8 @@ describe("client page routes", () => {
 				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 			);
 			bridge.port.postMessage({
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-1",
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-1",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
@@ -761,8 +770,8 @@ describe("client page routes", () => {
 			);
 			bridge.port.postMessage({
 				initialQuery: "Dune",
-				type: "provider-search-screen",
-				requestId: "provider-search-screen-1",
+				type: "pick-entity-screen",
+				requestId: "pick-entity-screen-1",
 				schema: { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } },
 				library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 			});
@@ -774,9 +783,9 @@ describe("client page routes", () => {
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual({
 						outcome: "success",
-						requestId: "provider-search-screen-1",
-						type: "provider-search-screen-result",
-						value: { kind: "added", entityIds: [entityId] },
+						requestId: "pick-entity-screen-1",
+						type: "pick-entity-screen-result",
+						value: { kind: "selected", entityIds: [entityId] },
 					}),
 				),
 			);
@@ -787,6 +796,184 @@ describe("client page routes", () => {
 			);
 			expect(view.router.state.location.searchStr).toBe("?tab=home");
 		}),
+	);
+
+	const bookSchema = { slug: "book", owner: { kind: "plugin", pluginId: "plugin-1" } } as const;
+	const pickRequest = (initialQuery: string) => ({
+		initialQuery,
+		schema: bookSchema,
+		type: "pick-entity-screen",
+		requestId: "pick-entity-screen-1",
+	});
+	const kindSchema = {
+		fields: {
+			kind: { label: "Kind", type: "string", description: "", validation: { required: true } },
+		},
+	} as const;
+
+	it.live("lists visible entities matching the query and returns the picked ID", () =>
+		Effect.gen(function* () {
+			const queries: string[] = [];
+			const entityId = EntityId.make("entity-dune");
+			mount({
+				entry: "/p/test/plugin-1?tab=home",
+				providerAdd: {
+					loadProviders: noProviders,
+					loadSchema: () =>
+						Effect.succeed({ name: "Book", editor: null, propertiesSchema: { fields: {} } }),
+					loadEntities: (_client, input) => {
+						queries.push(input.query);
+						return Effect.succeed({
+							items: [{ id: entityId, name: "Dune" }],
+							pageInfo: { limit: 30, hasMore: false, nextCursor: null },
+						});
+					},
+				},
+			});
+			const bridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
+			bridge.port.postMessage(pickRequest("Dune"));
+
+			yield* Effect.promise(() => screen.findByRole("dialog", { name: "Choose Book" }));
+			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Dune" })));
+
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual({
+						outcome: "success",
+						requestId: "pick-entity-screen-1",
+						type: "pick-entity-screen-result",
+						value: { kind: "selected", entityIds: [entityId] },
+					}),
+				),
+			);
+			expect(queries).toEqual(["Dune"]);
+			expect(screen.queryByRole("button", { name: /^Create/ })).toBeNull();
+		}),
+	);
+
+	it.live("creates an entity inline through its editor with a stable retry key", () =>
+		Effect.gen(function* () {
+			const requests: EntityEditorSaveRequest[] = [];
+			const entityId = EntityId.make("entity-created");
+			mount({
+				entry: "/p/test/plugin-1?tab=home",
+				providerAdd: {
+					loadProviders: noProviders,
+					loadEntities: () =>
+						Effect.succeed({
+							items: [],
+							pageInfo: { limit: 30, hasMore: false, nextCursor: null },
+						}),
+					loadSchema: () =>
+						Effect.succeed({
+							name: "Book",
+							propertiesSchema: kindSchema,
+							editor: { relationships: [] },
+						}),
+					createEntity: (_scope, request) => {
+						requests.push(request);
+						return requests.length === 1
+							? Effect.succeed({ kind: "invalid" as const, message: "Try that again." })
+							: Effect.succeed({ entityId, kind: "saved" as const });
+					},
+				},
+			});
+			const bridge = connectFrame(
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+			);
+			bridge.port.postMessage(pickRequest("Rotator"));
+
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: 'Create "Rotator"' })),
+			);
+			const form = yield* Effect.promise(() => screen.findByRole("form", { name: "New Book" }));
+			expect(screen.getByRole("textbox", { name: "Name" })).toHaveProperty("value", "Rotator");
+			fireEvent.click(screen.getByRole("button", { name: "Create" }));
+			yield* Effect.promise(() => screen.findByText("Kind is required"));
+			expect(requests).toEqual([]);
+
+			fireEvent.change(screen.getByRole("textbox", { name: "Kind" }), {
+				target: { value: "muscle" },
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Create" }));
+			yield* Effect.promise(() => screen.findByText("Try that again."));
+			fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual({
+						outcome: "success",
+						requestId: "pick-entity-screen-1",
+						type: "pick-entity-screen-result",
+						value: { kind: "selected", entityIds: [entityId] },
+					}),
+				),
+			);
+			expect(form.isConnected).toBe(false);
+			expect(requests).toHaveLength(2);
+			expect(requests[0]?.submission).toEqual({
+				name: "Rotator",
+				relationships: [],
+				entitySchema: bookSchema,
+				target: { kind: "create" },
+				properties: { kind: "muscle" },
+			});
+			expect(requests[1]).toEqual(requests[0]);
+		}),
+	);
+
+	it.live(
+		"creates inline instead of leaving the caller when picking a schema with a create route",
+		() =>
+			Effect.gen(function* () {
+				const entityId = EntityId.make("entity-created");
+				const view = mount({
+					entry: "/p/test/plugin-1?tab=home",
+					entries: [{ ...catalog[0], clientEntities: { book: { createRoute: "/books/new" } } }],
+					providerAdd: {
+						loadProviders: noProviders,
+						createEntity: () => Effect.succeed({ entityId, kind: "saved" as const }),
+						loadEntities: () =>
+							Effect.succeed({
+								items: [],
+								pageInfo: { limit: 30, hasMore: false, nextCursor: null },
+							}),
+						loadSchema: () =>
+							Effect.succeed({
+								name: "Book",
+								propertiesSchema: kindSchema,
+								editor: { relationships: [] },
+							}),
+					},
+				});
+				const bridge = connectFrame(
+					yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
+				);
+				bridge.port.postMessage(pickRequest("dune"));
+
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: 'Create "dune"' })),
+				);
+				yield* Effect.promise(() => screen.findByRole("form", { name: "New Book" }));
+				fireEvent.change(screen.getByRole("textbox", { name: "Kind" }), {
+					target: { value: "novel" },
+				});
+				fireEvent.click(screen.getByRole("button", { name: "Create" }));
+
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(bridge.messages).toContainEqual({
+							outcome: "success",
+							requestId: "pick-entity-screen-1",
+							type: "pick-entity-screen-result",
+							value: { kind: "selected", entityIds: [entityId] },
+						}),
+					),
+				);
+				expect(view.router.state.location.pathname).toBe("/p/test/plugin-1");
+			}),
 	);
 
 	it.live("uses the hydrated parent catalog on plugin navigation", () =>

@@ -1,9 +1,9 @@
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import {
-	EntityEditorSaveOutput,
-	EntityEditorSubmission,
+	type EntityEditorSaveRequest,
+	retryableEntityEditorSaveRequest,
 } from "@ryot-app/contract/modules/entities/editor";
-import { EntityId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { ActionForm, Button, Field, StatusMessage, TextField } from "@ryot-app/plugin-ui-sdk";
 import {
@@ -20,7 +20,6 @@ import { managedAssetKey } from "../assets/keys";
 import { ManagedAssetProvider } from "../assets/provider";
 import { AssetImage } from "../assets/schema-form";
 import type { RyotClient } from "../client/client";
-import type { RyotClientError } from "../client/errors";
 import { PluginScreenFrame } from "../plugin-screen";
 import { readCursorPages } from "../queries/cursor-pages";
 import { createRyotQuery } from "../queries/definitions";
@@ -56,10 +55,6 @@ export type EntityEditorProps = {
 	readonly entitySchemaSlug: string;
 	readonly packageId: PluginPackageId;
 	readonly onSaved: (entityId: string) => void;
-	readonly relationshipSlugs: readonly string[];
-	readonly save: (
-		submission: EntityEditorSubmission,
-	) => Effect.Effect<EntityEditorSaveOutput, RyotClientError>;
 };
 
 const editorTitle = (mode: EntityEditorMode, entityName: string) =>
@@ -68,15 +63,12 @@ const editorTitle = (mode: EntityEditorMode, entityName: string) =>
 const STALE_MESSAGE = "This changed elsewhere. Reload and try again.";
 const SAVE_FAILED_MESSAGE = "Could not save. Try again.";
 
-type DefinitionsInput = {
-	readonly entitySchemaSlug: string;
-	readonly packageId: PluginPackageId;
-	readonly relationshipSlugs: readonly string[];
-};
+type DefinitionsInput = { readonly entitySchemaSlug: string; readonly packageId: PluginPackageId };
 
 type SourceInput = DefinitionsInput & {
-	readonly entityId: string | null;
 	readonly forEdit: boolean;
+	readonly entityId: string | null;
+	readonly relationshipSlugs: readonly string[];
 };
 
 const definitionsQuery = createRyotQuery(
@@ -86,16 +78,14 @@ const definitionsQuery = createRyotQuery(
 			const entity = yield* client.data.query(
 				entityEditorEntityDefinitionRecipe({ reference, slug: input.entitySchemaSlug }),
 			);
+			const relationshipSlugs = entity.editor?.relationships ?? [];
 			const found =
-				input.relationshipSlugs.length === 0
+				relationshipSlugs.length === 0
 					? []
 					: yield* client.data.query(
-							entityEditorRelationshipDefinitionsRecipe({
-								reference,
-								slugs: input.relationshipSlugs,
-							}),
+							entityEditorRelationshipDefinitionsRecipe({ reference, slugs: relationshipSlugs }),
 						);
-			const relationships = input.relationshipSlugs.flatMap((slug) => {
+			const relationships = relationshipSlugs.flatMap((slug) => {
 				const definition = found.find((candidate) => candidate.slug === slug);
 				const target = definition?.targetEntitySchemaSlug ?? null;
 				return definition === undefined || target === null
@@ -190,6 +180,7 @@ function EntityEditorForm(
 		);
 	};
 	const { mode, source, definitions } = props;
+	const attempt = useRef<EntityEditorSaveRequest | undefined>(undefined);
 	const schema = definitions.entity.propertiesSchema;
 	const formMode = mode.kind === "edit" ? "edit" : "create";
 	const stored = source.entity?.properties ?? {};
@@ -248,7 +239,10 @@ function EntityEditorForm(
 			name,
 			properties,
 			relationships,
-			entitySchemaSlug: props.entitySchemaSlug,
+			entitySchema: {
+				slug: EntitySchemaSlug.make(props.entitySchemaSlug),
+				owner: { kind: "plugin", pluginId: client.pluginIdentity(props.packageId).pluginId },
+			},
 			target:
 				mode.kind === "edit" && source.entity !== null
 					? {
@@ -262,8 +256,14 @@ function EntityEditorForm(
 						}
 					: { kind: "create" },
 		});
+		const request = retryableEntityEditorSaveRequest(
+			attempt.current,
+			submission,
+			new Date(schedule.now()),
+		);
+		attempt.current = request;
 		schedule.run(
-			props.save(submission).pipe(
+			client.entities.save(request).pipe(
 				Effect.matchEffect({
 					onFailure: () =>
 						Effect.sync(() => setStatus({ kind: "error", message: SAVE_FAILED_MESSAGE })),
@@ -379,58 +379,68 @@ function EntityEditorForm(
 	);
 }
 
-export function EntityEditor(props: EntityEditorProps) {
-	const { mode, packageId, entitySchemaSlug, relationshipSlugs } = props;
+function EntityEditorSource(
+	props: EntityEditorProps & {
+		readonly definitions: Parameters<typeof EntityEditorForm>[0]["definitions"];
+	},
+) {
+	const { mode, packageId, definitions, entitySchemaSlug } = props;
 	const forEdit = mode.kind === "edit";
 	const entityId = mode.kind === "edit" ? mode.entityId : (mode.seedEntityId ?? null);
-	const definitions = useRyotQuery(definitionsQuery, {
-		packageId,
-		entitySchemaSlug,
-		relationshipSlugs,
-	});
 	const source = useRyotQuery(
 		sourceQuery,
-		{ forEdit, entityId, packageId, entitySchemaSlug, relationshipSlugs },
+		{
+			forEdit,
+			entityId,
+			packageId,
+			entitySchemaSlug,
+			relationshipSlugs: definitions.relationships.map(({ slug }) => slug),
+		},
 		{ refreshOnMutation: false },
 	);
-	if (definitions.isError || source.isError) {
-		return (
-			<div className="flex flex-col items-start gap-3">
-				<StatusMessage tone="error">The editor could not be loaded.</StatusMessage>
-				<Button
-					variant="secondary"
-					onClick={() => {
-						definitions.refetch();
-						source.refetch();
-					}}
-				>
-					Retry
-				</Button>
-			</div>
-		);
+	if (source.isError) {
+		return <LoadFailure onRetry={() => source.refetch()} />;
 	}
-	if (definitions.data === undefined || source.data === undefined) {
+	if (source.data === undefined) {
 		return <StatusMessage tone="pending">Loading…</StatusMessage>;
 	}
 	if (entityId !== null && source.data.entity === null) {
 		return <StatusMessage tone="error">This item is unavailable.</StatusMessage>;
 	}
-	return <EntityEditorForm {...props} source={source.data} definitions={definitions.data} />;
+	return <EntityEditorForm {...props} source={source.data} definitions={definitions} />;
 }
 
-export function EntityEditorScreen(
-	props: Omit<EntityEditorProps, "onCancel" | "onSaved" | "save"> & {
-		readonly saveOperationSlug: string;
-	},
-) {
-	const { mode, packageId, entitySchemaSlug, relationshipSlugs, saveOperationSlug } = props;
+function LoadFailure(props: { readonly onRetry: () => void }) {
+	return (
+		<div className="flex flex-col items-start gap-3">
+			<StatusMessage tone="error">The editor could not be loaded.</StatusMessage>
+			<Button variant="secondary" onClick={props.onRetry}>
+				Retry
+			</Button>
+		</div>
+	);
+}
+
+export function EntityEditor(props: EntityEditorProps) {
+	const { packageId, entitySchemaSlug } = props;
+	const definitions = useRyotQuery(definitionsQuery, { packageId, entitySchemaSlug });
+	if (definitions.isError) {
+		return <LoadFailure onRetry={() => definitions.refetch()} />;
+	}
+	if (definitions.data === undefined) {
+		return <StatusMessage tone="pending">Loading…</StatusMessage>;
+	}
+	if (definitions.data.entity.editor === null) {
+		return <StatusMessage tone="error">This item cannot be edited here.</StatusMessage>;
+	}
+	return <EntityEditorSource {...props} definitions={definitions.data} />;
+}
+
+export function EntityEditorScreen(props: Omit<EntityEditorProps, "onCancel" | "onSaved">) {
+	const { mode, packageId, entitySchemaSlug } = props;
 	const client = useRyot();
 	const navigation = usePluginNavigation();
-	const definitions = useRyotQuery(definitionsQuery, {
-		packageId,
-		entitySchemaSlug,
-		relationshipSlugs,
-	});
+	const definitions = useRyotQuery(definitionsQuery, { packageId, entitySchemaSlug });
 	return (
 		<PluginScreenFrame
 			title={
@@ -441,15 +451,6 @@ export function EntityEditorScreen(
 				{...props}
 				onCancel={() => navigation.back()}
 				onSaved={(entityId) => client.navigation.replace({ entityId, kind: "entity" })}
-				save={(submission) =>
-					client.operations.invoke({
-						packageId,
-						input: submission,
-						slug: saveOperationSlug,
-						output: EntityEditorSaveOutput,
-						inputSchema: EntityEditorSubmission,
-					})
-				}
 			/>
 		</PluginScreenFrame>
 	);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { imagesField } from "@ryot-app/contract/schema/core";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
@@ -95,14 +96,18 @@ describe("entity editor model", () => {
 			name: "  Curl ",
 			properties: { title: "x" },
 			target: { kind: "create" },
-			entitySchemaSlug: "exercise",
 			relationships: { "exercise-targets": [] },
+			entitySchema: {
+				slug: EntitySchemaSlug.make("exercise"),
+				owner: { kind: "plugin", pluginId: PluginId.make("plugin-1") },
+			},
 		});
 
 		expect(submission).toMatchObject({
 			name: "Curl",
 			target: { kind: "create" },
 			relationships: [{ targets: [], relationshipSchemaSlug: "exercise-targets" }],
+			entitySchema: { slug: "exercise", owner: { kind: "plugin", pluginId: "plugin-1" } },
 		});
 	});
 });

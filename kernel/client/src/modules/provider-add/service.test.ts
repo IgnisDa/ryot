@@ -1,16 +1,28 @@
 import { describe, expect, layer } from "@effect/vitest";
+import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import type { ContractSuccess } from "@ryot-app/contract/client";
-import { EntitySchemaSlug, PluginId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import {
+	EntityEditorRefused,
+	type EntityEditorSaveRequest,
+} from "@ryot-app/contract/modules/entities/editor";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	PluginId,
+	SandboxProviderId,
+} from "@ryot-app/contract/schema/brands";
 import { createRyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
+import { EntitiesApi } from "#/api/entities";
 import type { EntityProvidersApi } from "#/api/entity-providers";
 import { decodeServerOrigin } from "#/api/origin";
 import { makeEntityProvidersApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
-import { ProviderAddService } from "#/modules/provider-add/service";
+import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
+import { ENTITY_CREATE_REFUSED_MESSAGE, ProviderAddService } from "#/modules/provider-add/service";
 
 const ownerPluginId = PluginId.make("stable-plugin-id");
 const entitySchemaSlug = EntitySchemaSlug.make("book");
@@ -37,6 +49,32 @@ class FakeEntityProvidersApi extends Context.Service<
 	{ readonly calls: Effect.Effect<ReadonlyArray<ContractCall>> }
 >()("test/FakeEntityProvidersApi") {}
 
+const createRequest: EntityEditorSaveRequest = {
+	idempotencyKey: "create-1",
+	submittedAt: "2026-10-19T00:00:00.000Z",
+	submission: {
+		name: "Item",
+		properties: {},
+		relationships: [],
+		target: { kind: "create" },
+		entitySchema: { slug: entitySchemaSlug, owner: { kind: "plugin", pluginId: ownerPluginId } },
+	},
+};
+
+const createFailures: unknown[] = [];
+
+const entitiesApi = Layer.succeed(EntitiesApi, {
+	saveEditor: () => {
+		const failure = createFailures.shift();
+		return failure === undefined
+			? Effect.succeed({
+					warnings: [],
+					output: { kind: "saved" as const, entityId: EntityId.make("entity-created") },
+				})
+			: Effect.fail(new AuthenticatedApiError({ cause: failure }));
+	},
+});
+
 const providerAddLayer = (offline = false) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -56,6 +94,7 @@ const providerAddLayer = (offline = false) =>
 					);
 			return Layer.merge(
 				ProviderAddService.layer.pipe(
+					Layer.provide(entitiesApi),
 					Layer.provide(
 						makeEntityProvidersApi({
 							import: record("import", { jobId: "job-1" }),
@@ -197,6 +236,35 @@ describe("ProviderAddService", () => {
 				].map((error) => error.stage);
 
 				expect(stages).toEqual(["providers", "links", "options", "search", "import", "import"]);
+			}),
+		);
+	});
+
+	layer(providerAddLayer())((test) => {
+		test.effect("creates through the editor endpoint and treats server refusals as final", () =>
+			Effect.gen(function* () {
+				const service = yield* ProviderAddService;
+				createFailures.push(
+					new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+					new EntityEditorRefused({ message: "No editor" }),
+					"offline",
+				);
+
+				expect(yield* service.createEntity(scope, createRequest)).toEqual({
+					kind: "invalid",
+					message: DEMO_PROTECTION_MESSAGE,
+				});
+				expect(yield* service.createEntity(scope, createRequest)).toEqual({
+					kind: "invalid",
+					message: ENTITY_CREATE_REFUSED_MESSAGE,
+				});
+				expect((yield* Effect.flip(service.createEntity(scope, createRequest))).stage).toBe(
+					"create",
+				);
+				expect(yield* service.createEntity(scope, createRequest)).toEqual({
+					kind: "saved",
+					entityId: EntityId.make("entity-created"),
+				});
 			}),
 		);
 	});

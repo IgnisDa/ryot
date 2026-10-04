@@ -1,27 +1,27 @@
 import type {
-	PluginBridgeProviderSearchScreen,
-	ProviderSearchScreenOutcome,
+	PluginBridgePickEntityScreen,
+	PickEntityOutcome,
 } from "@ryot-app/plugin-client-contract";
 import { Effect } from "effect";
 import { useRef, useState } from "react";
 
-type ProviderSearchSession = {
-	readonly complete: (outcome: ProviderSearchScreenOutcome) => void;
-	readonly request: PluginBridgeProviderSearchScreen;
+type EntityPickerSession = {
+	readonly complete: (outcome: PickEntityOutcome) => void;
+	readonly request: PluginBridgePickEntityScreen;
 };
 
-export function useProviderSearchSession(
+export function useEntityPickerSession(
 	options: {
-		readonly onOpen?: (request: PluginBridgeProviderSearchScreen) => void;
+		readonly onOpen?: (request: PluginBridgePickEntityScreen) => void;
 		readonly onDismiss?: () => void;
 	} = {},
 ) {
-	const pending = useRef<ProviderSearchSession["complete"] | null>(null);
-	const [session, setSession] = useState<ProviderSearchSession | null>(null);
-	const open = (request: PluginBridgeProviderSearchScreen) =>
-		Effect.callback<ProviderSearchScreenOutcome>((resume) => {
+	const pending = useRef<EntityPickerSession["complete"] | null>(null);
+	const [session, setSession] = useState<EntityPickerSession | null>(null);
+	const open = (request: PluginBridgePickEntityScreen) =>
+		Effect.callback<PickEntityOutcome>((resume) => {
 			if (pending.current !== null) {
-				resume(Effect.succeed<ProviderSearchScreenOutcome>({ kind: "cancelled" }));
+				resume(Effect.succeed<PickEntityOutcome>({ kind: "cancelled" }));
 				return Effect.void;
 			}
 			let completed = false;
@@ -32,7 +32,7 @@ export function useProviderSearchSession(
 				pending.current = null;
 				setSession((current) => (current?.complete === complete ? null : current));
 			};
-			const complete = (outcome: ProviderSearchScreenOutcome) => {
+			const complete = (outcome: PickEntityOutcome) => {
 				if (completed) {
 					return;
 				}

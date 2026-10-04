@@ -36,6 +36,7 @@ import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
+import { PluginEntitySaves } from "#/modules/pages/bridge/entity-saves";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 import { PluginQueriesService } from "#/modules/pages/bridge/queries";
 import type { PluginBridgeNavigationState } from "#/modules/pages/bridge/session";
@@ -553,8 +554,13 @@ function ClientPageFrame(props: {
 			onStorage={(request) =>
 				props.runtime.runSync(PluginStorage).outcome(props.scope, identity.contributors, request)
 			}
-			onProviderSearch={(request) =>
-				props.document.onProviderSearch?.(request) ?? Effect.succeed({ kind: "cancelled" as const })
+			onPickEntity={(request) =>
+				props.document.onPickEntity?.(request) ?? Effect.succeed({ kind: "cancelled" as const })
+			}
+			onEntitySave={(request) =>
+				props.runtime
+					.runSync(PluginEntitySaves)
+					.outcome(props.scope, identity.contributors, request)
 			}
 			onDevice={(request) =>
 				props.runtime

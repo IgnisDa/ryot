@@ -31,8 +31,8 @@ import {
 	PluginBridgePageRefresh,
 	type PluginBridgeOverlayState,
 	PluginBridgePageSearch,
-	PluginBridgeProviderSearchScreen,
-	PluginBridgeProviderSearchScreenResult,
+	PluginBridgePickEntityScreen,
+	PluginBridgePickEntityScreenResult,
 	PluginBridgeStorageResult,
 	PluginBridgeUploadResult,
 	PluginBridgeRyotQLCancel,
@@ -478,12 +478,12 @@ describe("plugin client bridge contract", () => {
 		).toBe(true);
 	});
 
-	it("admits only strict semantic provider-search screen requests from the plugin", () => {
-		const decode = Schema.decodeUnknownResult(PluginBridgeProviderSearchScreen);
+	it("admits only strict semantic entity picker requests from the plugin", () => {
+		const decode = Schema.decodeUnknownResult(PluginBridgePickEntityScreen);
 		const request = {
 			initialQuery: "Dune",
-			type: "provider-search-screen",
-			requestId: "provider-search-screen-1",
+			type: "pick-entity-screen",
+			requestId: "pick-entity-screen-1",
 			schema: { slug: "movie", owner: { kind: "plugin", pluginId: "media-installation" } },
 			library: { librarySchemaSlug: "media-library", relationshipSlug: "in-media-library" },
 		};
@@ -498,16 +498,23 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(decode({ ...request, schema: { slug: "movie", owner: { kind: "self" } } })),
 		).toBe(true);
+		const { library: _library, ...pickRequest } = request;
+		expect(Result.isSuccess(decode(pickRequest))).toBe(true);
 		expect(Result.isFailure(decode({ ...request, screen: "arbitrary" }))).toBe(true);
-		const decodeResult = Schema.decodeUnknownResult(PluginBridgeProviderSearchScreenResult);
+		const decodeResult = Schema.decodeUnknownResult(PluginBridgePickEntityScreenResult);
 		const result = {
 			outcome: "success",
-			requestId: "provider-search-screen-1",
-			type: "provider-search-screen-result",
+			requestId: "pick-entity-screen-1",
+			type: "pick-entity-screen-result",
 		};
 		expect(Result.isSuccess(decodeResult({ ...result, value: { kind: "create-requested" } }))).toBe(
 			true,
 		);
+		expect(
+			Result.isSuccess(
+				decodeResult({ ...result, value: { kind: "selected", entityIds: ["entity-1"] } }),
+			),
+		).toBe(true);
 		expect(Result.isFailure(decodeResult({ ...result, value: { kind: "created" } }))).toBe(true);
 		const refresh = { type: "page-refresh" };
 		expect(Result.isSuccess(Schema.decodeUnknownResult(PluginBridgePageRefresh)(refresh))).toBe(
@@ -649,6 +656,41 @@ describe("plugin client bridge contract", () => {
 			Result.isFailure(
 				decode({ document, userId: "user-1", requestId: "request-1", type: "ryotql-request" }),
 			),
+		).toBe(true);
+	});
+
+	it("decodes strict entity editor saves and typed results", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const request = {
+			requestId: "save-1",
+			idempotencyKey: "form-1",
+			submittedAt: "2026-10-19T00:00:00.000Z",
+			type: "entity-editor-save-request" as const,
+			submission: {
+				name: "Item",
+				properties: {},
+				relationships: [],
+				target: { kind: "create" },
+				entitySchema: { slug: "item", owner: { kind: "plugin", pluginId: "plugin-1" } },
+			},
+		};
+
+		expect(Result.isSuccess(decodeClient(request))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, userId: "user-controlled" }))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, submittedAt: "yesterday" }))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, idempotencyKey: "" }))).toBe(true);
+		const result = { requestId: "save-1", type: "entity-editor-save-result" };
+		expect(
+			Result.isSuccess(
+				decodeHost({ ...result, outcome: "success", output: { kind: "saved", entityId: "e-1" } }),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(decodeHost({ ...result, outcome: "failure", reason: "invalid-request" })),
+		).toBe(true);
+		expect(
+			Result.isFailure(decodeHost({ ...result, outcome: "failure", reason: "query-failed" })),
 		).toBe(true);
 	});
 
@@ -920,6 +962,7 @@ describe("plugin client bridge contract", () => {
 			"invalid-input",
 			"asset-failed",
 			"collection-failed",
+			"entity-save-failed",
 			"query-failed",
 			"operation-failed",
 			"malformed-result",

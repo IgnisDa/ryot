@@ -369,10 +369,14 @@ export const NotificationChannelRouteStubs = makeNotificationChannelsStub();
 export const makeProviderAddStub = (overrides: Partial<ProviderAddService["Service"]> = {}) =>
 	Layer.succeed(ProviderAddService, {
 		search: () => Effect.die("not used"),
+		loadSchema: () => Effect.succeed(null),
 		pollImport: () => Effect.die("not used"),
 		startImport: () => Effect.die("not used"),
+		createEntity: () => Effect.die("not used"),
+		loadEntities: () => Effect.die("not used"),
 		loadProviders: () => Effect.die("not used"),
 		loadEntityLinks: () => Effect.die("not used"),
+		loadMaterialized: () => Effect.die("not used"),
 		loadSearchOptions: () => Effect.die("not used"),
 		...overrides,
 	});

@@ -14,8 +14,8 @@ input as proof. Document replacement and retained-frame policy belong to the
 
 Internal modules split the package: `src/source-policy.ts` (file extensions, content types, source
 predicates), `src/navigation.ts` (page targets and context, locations, navigation targets, shortcuts),
-`src/bridge/lifecycle.ts` (init, document, theme, viewport, header, screen, overlay, and close
-messages), `src/bridge/capabilities.ts` (operation, collection, asset, upload, storage, RyotQL,
+`src/bridge/lifecycle.ts` (init, document, theme, viewport, header, screen, entity picker,
+overlay, and close messages), `src/bridge/capabilities.ts` (operation, collection, asset, upload, storage, RyotQL,
 entity-watch, and external-link payloads), and `src/bridge/messages.ts` (the client and host message
 unions). `src/index.ts` only aggregates them.
 
@@ -42,8 +42,14 @@ request IDs, acknowledgements, tickets, credentials, user identity, or server fi
 declaration schema is uncapped; runtimes own aggregation and bounded selection.
 
 The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `transport`,
-`asset-failed`, `collection-failed`, `query-failed`, `invalid-input`, `operation-failed`,
-`malformed-result`, `unsupported-capability`, `invalid-request`, and `quota`.
+`asset-failed`, `collection-failed`, `entity-save-failed`, `query-failed`, `invalid-input`,
+`operation-failed`, `malformed-result`, `unsupported-capability`, `invalid-request`, and `quota`.
+
+`entity-editor-save-request` carries an `EntityEditorSaveRequest` (submission, idempotency key, and
+UTC `submittedAt`). Its result returns the editor output or fails with `invalid-request` (schema owner
+is not a plugin contributor of the document), `entity-save-failed` (declared server refusal),
+`malformed-result`, or `transport`. Both runtimes check the contributor rule; the kernel endpoint
+remains the authority for editor declarations.
 
 `storage-request` carries local plugin ID, bounded key, and get/set/remove action; only set carries
 JSON value. Result success returns the value or null (always null for set/remove); failures use

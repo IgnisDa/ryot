@@ -1,7 +1,7 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type {
-	PluginBridgeProviderSearchScreen,
-	ProviderSearchScreenOutcome,
+	PluginBridgePickEntityScreen,
+	PickEntityOutcome,
 } from "@ryot-app/plugin-client-contract";
 import { Effect } from "effect";
 import {
@@ -19,9 +19,9 @@ export type ClientPageDocument = {
 	readonly title: string;
 	readonly inert?: boolean;
 	readonly prepared: PreparedClientPage;
-	readonly onProviderSearch?: (
-		request: PluginBridgeProviderSearchScreen,
-	) => Effect.Effect<ProviderSearchScreenOutcome>;
+	readonly onPickEntity?: (
+		request: PluginBridgePickEntityScreen,
+	) => Effect.Effect<PickEntityOutcome>;
 };
 
 type ClientPageDocumentState = {
@@ -61,9 +61,8 @@ export function useClientPageDocument(document: ClientPageDocument) {
 			title: document.title,
 			inert: document.inert,
 			prepared: document.prepared,
-			onProviderSearch: (request) =>
-				latest.current.onProviderSearch?.(request) ??
-				Effect.succeed({ kind: "cancelled" as const }),
+			onPickEntity: (request) =>
+				latest.current.onPickEntity?.(request) ?? Effect.succeed({ kind: "cancelled" as const }),
 		}),
 		[document.inert, document.prepared, document.title],
 	);
