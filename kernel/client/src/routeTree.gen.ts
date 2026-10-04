@@ -115,11 +115,12 @@ const InstanceAdminLogsRoute = InstanceAdminLogsRouteImport.update({
   path: '/logs',
   getParentRoute: () => InstanceAdminRouteRoute,
 } as any)
-const InstanceAdminMigrationReportRoute = InstanceAdminMigrationReportRouteImport.update({
-  id: '/migration-report',
-  path: '/migration-report',
-  getParentRoute: () => InstanceAdminRouteRoute,
-} as any)
+const InstanceAdminMigrationReportRoute =
+  InstanceAdminMigrationReportRouteImport.update({
+    id: '/migration-report',
+    path: '/migration-report',
+    getParentRoute: () => InstanceAdminRouteRoute,
+  } as any)
 const InstanceAdminUsersRoute = InstanceAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
@@ -1015,9 +1016,8 @@ const InstanceAdminRouteRouteChildren: InstanceAdminRouteRouteChildren = {
   InstanceAdminIndexRoute: InstanceAdminIndexRoute,
 }
 
-const InstanceAdminRouteRouteWithChildren = InstanceAdminRouteRoute._addFileChildren(
-  InstanceAdminRouteRouteChildren,
-)
+const InstanceAdminRouteRouteWithChildren =
+  InstanceAdminRouteRoute._addFileChildren(InstanceAdminRouteRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
