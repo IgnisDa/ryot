@@ -1,3 +1,4 @@
+export * from "./exercise-details";
 export * from "./exercises";
 export * from "./exercise-notes";
 export * from "./workouts";
