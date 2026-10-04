@@ -241,8 +241,9 @@ Each slice is approved separately. S3–S6 are outlines until their predecessor 
 ### S3 — Scheduling and fairness
 
 - **Status:** lanes, memory admission ([s3-memory.md](s3-memory.md)), fair execution and HTTP
-  admission, and lane-pinned backend processes are implemented and tenant fairness passes; deployment
-  of the two roles and the E2 measurement remain. Contract, acceptance, and results: [s3.md](s3.md).
+  admission, lane-pinned backend processes and the `SERVER_LANES=split` supervisor are implemented and
+  tenant fairness passes; the E2 measurement remains. Contract, acceptance, and results:
+  [s3.md](s3.md).
 - **Outcome:** interactive and background lanes, and per-user and per-plugin fairness for all
   executions and for global HTTP admission slots.
 - **Acceptance:** with background imports saturating the CPU, interactive search and details meet E2
