@@ -34,9 +34,9 @@ const doneFrame = (handle: string, seq: number, text: string, generation = 7) =>
 		handle,
 		generation,
 		type: "done",
-		usage: { heapBytes: 0, externalBytes: 0 },
 		console: { entries: [], truncated: false },
 		outcome: { value: { text }, status: "completed" },
+		usage: { cpuWaitMs: 0, heapBytes: 0, externalBytes: 0 },
 	}) satisfies OutboundFrame;
 
 const hostResultFrame = (handle: string, seq: number, text: string) =>
