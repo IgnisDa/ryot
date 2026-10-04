@@ -561,6 +561,9 @@ describe("entity browser", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
 			const second = yield* browserRequest(page, 1);
+			expect(
+				screen.getByRole("button", { name: "Loading more results" }).getAttribute("aria-busy"),
+			).toBe("true");
 			expect(yield* encodeJson(second.document)).toContain("cursor-1");
 			replyBrowser(page, second.requestId, [browserRow("book-2", "Two")], true, "cursor-2");
 			yield* Effect.promise(() =>
@@ -585,6 +588,11 @@ describe("entity browser", () => {
 
 			page.send({ type: "page-refresh" });
 			const refreshed = yield* browserRequest(page, 1);
+			expect(page.container?.textContent).toContain("Original");
+			expect(
+				screen.getByRole("button", { name: "Load more results" }).getAttribute("aria-busy"),
+			).toBeNull();
+			expect(screen.queryByRole("button", { name: "Loading more results" })).toBeNull();
 			replyBrowser(page, refreshed.requestId, [browserRow("book-2", "Refreshed")], true, "fresh-1");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("Refreshed")),

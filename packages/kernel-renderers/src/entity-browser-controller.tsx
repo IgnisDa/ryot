@@ -1,7 +1,5 @@
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	EntityResults,
-	usePageRefresh,
 	usePageShortcut,
 	usePluginLocation,
 	useRyotViewport,
@@ -12,7 +10,9 @@ import {
 	ManagedAssetProvider,
 	useEntityRefresh,
 	useRyot,
-	useRyotQuery,
+	useRyotInfiniteQuery,
+	nextPageCursor,
+	paginationItems,
 	useRyotSchedule,
 	type RyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -60,28 +60,12 @@ import { BrowserTable, type BrowserColumns } from "./browser-table";
 import { managedCellAssets } from "./display-value";
 
 export type BrowserResult = SavedViewResult<EntityBrowserResultItem>;
-export type BrowserQueryPage<Meta> = {
-	readonly input: string;
-	readonly result: BrowserResult;
-	readonly meta: Meta;
-};
+export type BrowserQueryPage<Meta> = { readonly result: BrowserResult; readonly meta: Meta };
 
 type BrowserControls = {
 	readonly sort: string;
 	readonly search: string;
 	readonly layout: EntityBrowserLayout;
-};
-type BrowserState<Meta> = BrowserResult & {
-	readonly depth: number;
-	readonly identity: string;
-	readonly meta: Meta;
-};
-type RefreshReplay<Meta> = {
-	readonly identity: string;
-	readonly generation: number;
-	readonly targetDepth: number;
-	readonly complete: () => void;
-	readonly pages: readonly BrowserQueryPage<Meta>[];
 };
 
 export type BrowserSortChoice = { readonly label: string; readonly value: string };
@@ -171,63 +155,41 @@ export function EntityBrowserController<Meta>({
 		| undefined
 	>(undefined);
 	const { layout, sort: sortChoice, search: searchText } = controls;
-	const [cursor, setCursor] = useState<string | null>(null);
 	const [showCount, setShowCount] = useState(false);
 	const [total, setTotal] = useState<number>();
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [optionsOpen, setOptionsOpen] = useState(false);
-	const [refreshGeneration, setRefreshGeneration] = useState(0);
-	const refreshGenerationRef = useRef(0);
 	const searchInput = useRef<HTMLInputElement>(null);
 	const searchTrigger = useRef<HTMLButtonElement>(null);
 	const optionsTrigger = useRef<HTMLButtonElement>(null);
 	const filtersTrigger = useRef<HTMLButtonElement>(null);
 	const identity = browserIdentity(identityKey, searchText, sortChoice);
-	const [state, setState] = useState<BrowserState<Meta> | undefined>();
-	const stateRef = useRef(state);
-	const appliedPages = useRef(new Set<string>());
-	const refreshReplay = useRef<RefreshReplay<Meta> | undefined>(undefined);
-	const activeIdentity = useRef(identity);
-	const refresh = () =>
-		Effect.callback<void>((resume) => {
-			const complete = () => resume(Effect.void);
-			refreshReplay.current?.complete();
-			const next = ++refreshGenerationRef.current;
-			refreshReplay.current = {
-				complete,
-				identity,
-				pages: [],
-				generation: next,
-				targetDepth: Math.max(
-					1,
-					stateRef.current?.identity === identity ? stateRef.current.depth : 1,
-				),
-			};
-			appliedPages.current.clear();
-			setCursor(null);
-			setRefreshGeneration(next);
-			const pending = pendingSearch.current;
-			if (pending) {
-				pendingSearch.current = {
-					...pending,
-					identity: browserIdentity(
-						identityKey,
-						controlsRef.current.search,
-						controlsRef.current.sort,
-					),
-				};
-			}
-			return Effect.sync(() => {
-				if (refreshReplay.current?.generation === next) {
-					refreshReplay.current = undefined;
-				}
-			});
-		});
-	usePageRefresh(refresh);
-	useEffect(() => () => refreshReplay.current?.complete(), []);
-
-	const queryInput = JSON.stringify([searchText, sortChoice, cursor, refreshGeneration]);
-	const result = useRyotQuery(query, queryInput, { refreshOnMutation: false });
+	const result = useRyotInfiniteQuery(
+		query,
+		{ searchText, sortChoice, identityKey },
+		{
+			initialPageParam: null,
+			getNextPageParam: (page) => nextPageCursor(page.result),
+			getPageInput: (selection, cursor: string | null) =>
+				JSON.stringify([selection.searchText, selection.sortChoice, cursor]),
+		},
+	);
+	const state = useMemo(
+		() =>
+			result.data === undefined
+				? undefined
+				: {
+						identity,
+						meta: result.data.meta,
+						pageInfo: result.data.result.pageInfo,
+						items: paginationItems(
+							result.pages,
+							(page) => page.result.items,
+							(item) => item.entityId,
+						),
+					},
+		[identity, result.pages, result.data],
+	);
 	const requestedKey = JSON.stringify([
 		requestedControls.layout,
 		requestedControls.search,
@@ -241,83 +203,10 @@ export function EntityBrowserController<Meta>({
 		controlsRef.current = controls;
 	}, [controls]);
 
-	useEffect(() => {
-		if (activeIdentity.current === identity) {
-			return;
-		}
-		activeIdentity.current = identity;
-		refreshReplay.current?.complete();
-		refreshReplay.current = undefined;
-		appliedPages.current.clear();
-		setCursor(null);
+	useValueChange(identity, () => {
 		setShowCount(false);
 		setTotal(undefined);
-		setState(undefined);
-	}, [identity]);
-
-	useEffect(() => {
-		const page = result.data;
-		if (!page || page.input !== queryInput || appliedPages.current.has(page.input)) {
-			return;
-		}
-		appliedPages.current.add(page.input);
-		const replay = refreshReplay.current;
-		if (replay?.identity === identity && replay.generation === refreshGeneration) {
-			const pages = [...replay.pages, page];
-			if (pages.length < replay.targetDepth && page.result.pageInfo.hasMore) {
-				refreshReplay.current = { ...replay, pages };
-				setCursor(page.result.pageInfo.nextCursor);
-				return;
-			}
-			const items = pages.flatMap(({ result: pageResult }) => pageResult.items);
-			const deduped = [...new Map(items.map((item) => [item.entityId, item])).values()];
-			replay.complete();
-			refreshReplay.current = undefined;
-			setState({
-				identity,
-				items: deduped,
-				meta: page.meta,
-				depth: pages.length,
-				pageInfo: page.result.pageInfo,
-			});
-			return;
-		}
-		setState((current) => {
-			if (current && current.identity !== identity) {
-				return current;
-			}
-			const seen = new Set(current?.items.map(({ entityId }) => entityId) ?? []);
-			const items = [...(current?.items ?? [])];
-			for (const item of page.result.items) {
-				if (!seen.has(item.entityId)) {
-					seen.add(item.entityId);
-					items.push(item);
-				}
-			}
-			return {
-				items,
-				identity,
-				meta: page.meta,
-				pageInfo: page.result.pageInfo,
-				depth: (current?.depth ?? 0) + 1,
-			};
-		});
-	}, [identity, queryInput, refreshGeneration, result.data]);
-
-	useEffect(() => {
-		const replay = refreshReplay.current;
-		if (
-			result.isError &&
-			replay?.identity === identity &&
-			replay.generation === refreshGeneration
-		) {
-			replay.complete();
-			refreshReplay.current = { ...replay, complete: () => undefined };
-		}
-	}, [identity, refreshGeneration, result.isError]);
-	useEffect(() => {
-		stateRef.current = state;
-	}, [state]);
+	});
 	useEffect(() => {
 		const pending = pendingSearch.current;
 		if (pending?.requestedKey !== undefined && pending.requestedKey !== requestedKey) {
@@ -365,7 +254,7 @@ export function EntityBrowserController<Meta>({
 	);
 	const { settled } = useEntityRefresh({
 		interest: tableInterest,
-		onRefresh: () => refresh(),
+		onRefresh: result.refresh,
 		identity: `${identity}:${layout}`,
 		blocked: transitioning || result.isFetching,
 	});
@@ -576,7 +465,7 @@ export function EntityBrowserController<Meta>({
 							className="flex items-center justify-center gap-3 text-sm text-danger"
 						>
 							<span>More results could not be loaded.</span>
-							<Button variant="ghost" className="text-sm" onClick={result.refetch}>
+							<Button variant="ghost" className="text-sm" onClick={result.retry}>
 								Retry
 							</Button>
 						</div>
@@ -585,15 +474,11 @@ export function EntityBrowserController<Meta>({
 						<div className="flex w-full flex-col items-center gap-2.5 py-2 @2xl:py-7">
 							<BrowserPagination
 								name={viewName}
+								disabled={result.isFetching}
+								hasMore={result.hasNextPage}
 								loaded={current.items.length}
-								isLoading={result.isFetching}
-								hasMore={current.pageInfo?.hasMore ?? false}
-								onLoadMore={() => {
-									const next = current.pageInfo?.nextCursor;
-									if (next) {
-										setCursor(next);
-									}
-								}}
+								onLoadMore={result.fetchNextPage}
+								isFetchingNextPage={result.isFetchingNextPage}
 							/>
 						</div>
 					)}

@@ -22,7 +22,6 @@ const QueryInput = Schema.Tuple([
 	Schema.String,
 	Schema.Union([Schema.Literal(""), CollectionMemberSort]),
 	Schema.NullOr(Schema.String),
-	Schema.Finite,
 ]);
 const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
 
@@ -98,7 +97,7 @@ const CollectionDetail = ({ collectionId }: { readonly collectionId: string }) =
 					const tableColumns = collectionMemberTableColumns(
 						header?.membershipPropertiesSchema ?? null,
 					);
-					return { input, result: members, meta: { total, groups, header, tableColumns } };
+					return { result: members, meta: { total, groups, header, tableColumns } };
 				}),
 			{ cancelOnUnmount: true },
 		),

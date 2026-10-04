@@ -273,17 +273,16 @@ export const buildNamedDataSources = (
 };
 
 export const collectionWorkflowRendererSource = `
-import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { EntityResults, PluginPackageId, usePageContext, usePageRefresh } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotMutation, createRyotQuery, useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { EntityResults, PluginPackageId, usePageContext } from "@ryot-app/plugin-client-sdk/plugin";
+import { createRyotMutation, createRyotQuery, nextPageCursor, paginationItems, useRyotInfiniteQuery, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal, selectedAggregate, selectedField, selectedMeasure, selectedRows, table, type Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, LoadMoreButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import PokemonPicker from "@ryot-app/plugins/fixture/pokemon-picker";
 import WorkoutRowPresentation from "@ryot-app/plugins/fitness/workout-row";
 import ShowProgress from "@ryot-app/plugins/media/show-progress";
 import ShowRowPresentation from "@ryot-app/plugins/media/show-row";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 const Settings = Schema.Struct({ collectionId: Schema.String, pageSize: Schema.Number });
 const Greeting = Schema.Struct({ greeting: Schema.String });
@@ -292,18 +291,6 @@ type CollectionPageInput = {
   readonly collectionId: string;
   readonly pageSize: number;
   readonly after: string | undefined;
-};
-type CollectionState = {
-  readonly depth: number;
-  readonly grouped: CollectionPageData["grouped"];
-  readonly items: CollectionPageData["members"]["items"];
-  readonly pageInfo: CollectionPageData["members"]["pageInfo"];
-};
-type RefreshReplay = {
-  readonly generation: number;
-  readonly targetDepth: number;
-  readonly pages: readonly CollectionPageData[];
-  readonly complete: () => void;
 };
 const syncStatus = (status: string): "pending" | "ready" | "none" =>
   status === "pending" || status === "ready" ? status : "none";
@@ -366,17 +353,17 @@ const collectionPageRecipe = defineRecipe((input: CollectionPageInput) => {
 });
 
 type CollectionPageData = Recipe.Success<typeof collectionPageRecipe>;
-type CollectionQueryPage = { readonly input: string; readonly result: CollectionPageData };
-const collectionPageQuery = createRyotQuery<string, CollectionQueryPage>(async ({ client, input, signal }) => {
-  const [collectionId, pageSize, after] = JSON.parse(input) as [string, number, string | null, number];
-  return {
-    input,
-    result: await client.data.query(
-      collectionPageRecipe({ collectionId, pageSize, after: after ?? undefined }),
-      { signal },
-    ),
-  };
-});
+const collectionPageQuery = createRyotQuery<CollectionPageInput, CollectionPageData>(
+  ({ client, input }) => client.data.query(collectionPageRecipe(input)),
+  { cancelOnUnmount: true },
+);
+const greetingMutation = createRyotMutation(({ client }) => client.operations.invoke({
+  slug: "greet",
+  input: { name: "Media collection page" },
+  inputSchema: Schema.Struct({ name: Schema.String }),
+  output: Greeting,
+  packageId: PluginPackageId.make(${JSON.stringify(fixturePlugin.metadata.packageId)}),
+}));
 
 const schemaLabel = (group: CollectionPageData["grouped"][number]) => {
   if (group.ownerPackageId === ${JSON.stringify(fixturePlugin.metadata.packageId)} && group.schemaSlug === "pokemon") return "Pokemon";
@@ -385,81 +372,16 @@ const schemaLabel = (group: CollectionPageData["grouped"][number]) => {
 };
 
 const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {
-  const [cursor, setCursor] = useState<string | undefined>(undefined);
-  const [generation, setGeneration] = useState(0);
-  const generationRef = useRef(0);
-  const [state, setState] = useState<CollectionState | undefined>(undefined);
-  const stateRef = useRef(state);
-  const appliedPages = useRef(new Set<string>());
-  const replay = useRef<RefreshReplay | undefined>(undefined);
-  const refresh = useEffectEvent(() => Effect.callback<void>((resume) => {
-    replay.current?.complete();
-    const next = ++generationRef.current;
-    replay.current = {
-      complete: () => resume(Effect.void),
-      generation: next,
-      pages: [],
-      targetDepth: Math.max(1, stateRef.current?.depth ?? 1),
-    };
-    appliedPages.current.clear();
-    setCursor(undefined);
-    setGeneration(next);
-  }));
-  usePageRefresh(refresh);
-  useEffect(() => () => replay.current?.complete(), []);
-  const queryInput = JSON.stringify([collectionId, pageSize, cursor, generation]);
-  const page = useRyotQuery(collectionPageQuery, queryInput, { refreshOnMutation: false });
-  const greetingMutation = createRyotMutation(({ client }) => client.operations.invoke({
-    slug: "greet",
-    input: { name: "Media collection page" },
-    inputSchema: Schema.Struct({ name: Schema.String }),
-    output: Greeting,
-    packageId: PluginPackageId.make(${JSON.stringify(fixturePlugin.metadata.packageId)}),
-  }));
+  const page = useRyotInfiniteQuery(collectionPageQuery, { collectionId, pageSize }, {
+    initialPageParam: undefined,
+    getPageInput: (input, after: string | undefined) => ({ ...input, after }),
+    getNextPageParam: (page) => nextPageCursor(page.members),
+  });
+  const last = page.data;
+  const grouped = last?.grouped;
+  const items = paginationItems(page.pages, (page) => page.members.items, (item) => item.entityId);
   const greeting = useRyotMutation(greetingMutation);
-  useEffect(() => {
-    const response = page.data;
-    if (!response || response.input !== queryInput || appliedPages.current.has(response.input)) return;
-    appliedPages.current.add(response.input);
-    const currentReplay = replay.current;
-    if (currentReplay?.generation === generation) {
-      const pages = [...currentReplay.pages, response.result];
-      if (pages.length < currentReplay.targetDepth && response.result.members.pageInfo.hasMore) {
-        replay.current = { ...currentReplay, pages };
-        setCursor(response.result.members.pageInfo.nextCursor ?? undefined);
-        return;
-      }
-      const items = pages.flatMap(({ members }) => members.items);
-      currentReplay.complete();
-      replay.current = undefined;
-      setState({
-        depth: pages.length,
-        grouped: response.result.grouped,
-        items: [...new Map(items.map((item) => [item.entityId, item])).values()],
-        pageInfo: response.result.members.pageInfo,
-      });
-      return;
-    }
-    setState((current) => {
-      const items = current?.items ?? [];
-      const merged = [...new Map([...items, ...response.result.members.items].map((item) => [item.entityId, item])).values()];
-      return {
-        items: merged,
-        grouped: response.result.grouped,
-        pageInfo: response.result.members.pageInfo,
-        depth: (current?.depth ?? 0) + 1,
-      };
-    });
-  }, [generation, page.data, queryInput]);
-  useEffect(() => {
-    if (!page.isError || replay.current?.generation !== generation) return;
-    replay.current.complete();
-    replay.current = undefined;
-  }, [generation, page.isError]);
-  useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
-  const total = state?.grouped.reduce((sum, group) => sum + group.count, 0) ?? 0;
+  const total = grouped?.reduce((sum, group) => sum + group.count, 0) ?? 0;
   return (
     <PluginScreenFrame title="Collection dashboard">
       <div className="flex flex-col gap-5 text-text" data-domain-presentations={importedDomainPresentations.length}>
@@ -467,20 +389,23 @@ const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {
         <section aria-labelledby="collection-summary">
           <h2 id="collection-summary" className="font-display text-xl">Collection summary</h2>
           <p>{total} total</p>
-          <p>{state?.items.filter((item) => item.populationStatus === "pending" || item.translationStatus === "pending").length ?? 0} syncing</p>
-          {state?.grouped.map((group) => (
+          <p>{items.filter((item) => item.populationStatus === "pending" || item.translationStatus === "pending").length} syncing</p>
+          {grouped?.map((group) => (
             <p key={JSON.stringify([group.ownerPluginId, group.schemaSlug])}>{group.count} {schemaLabel(group)}</p>
           ))}
         </section>
-        {!state && page.status === "pending" ? <StatusMessage tone="pending">Loading collection...</StatusMessage> : null}
+        {!last && page.status === "pending" ? <StatusMessage tone="pending">Loading collection...</StatusMessage> : null}
         {page.status === "error" ? <StatusMessage tone="error">Collection failed to load.</StatusMessage> : null}
-        {state ? (
+        {last ? (
           <>
-            <EntityResults layout="list" references={state.items} viewContext={{ collectionId }} />
-            {state.pageInfo.hasMore && state.pageInfo.nextCursor ? (
-              <Button type="button" variant="secondary" onClick={() => setCursor(state.pageInfo.nextCursor ?? undefined)}>
-                Load next page
-              </Button>
+            <EntityResults layout="list" references={items} viewContext={{ collectionId }} />
+            {page.hasNextPage ? (
+              <LoadMoreButton
+                label="Load next page"
+                isFetchingNextPage={page.isFetchingNextPage}
+                disabled={page.isFetching}
+                onClick={page.fetchNextPage}
+              />
             ) : null}
           </>
         ) : null}

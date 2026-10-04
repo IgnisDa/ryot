@@ -24,10 +24,14 @@ cards come from registered entity presentations, and the table renders entity ar
 `managed-asset` table column. Collection-browser reuses the shared controller and renders kernel
 collection cards with batched member counts.
 
-`entity-browser-controller.tsx` owns the shared browser controls, URL state, refresh replay, chrome,
+`entity-browser-controller.tsx` owns the shared browser controls, URL state, chrome,
 states, and result layouts. Saved views adapt their configured recipe and optional provider Add flow;
 collections adapt the collections recipe, never expose Add, and pass `{ collectionId }` as the entity
 presentation context.
+
+Browser and results-table pagination use the client SDK's shared infinite-query state. Background
+refresh retains all loaded results and refreshes their loaded depth atomically; only an explicit
+next-page request activates the load-more control's loading state.
 
 The provider Add action carries a typed `EntitySchemaReference`, including its exact owner.
 Plugin-authored settings use a self-relative authored reference that materializes to that local

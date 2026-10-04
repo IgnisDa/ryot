@@ -1,4 +1,4 @@
-import { Button } from "@ryot-app/plugin-ui-sdk";
+import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
 const panel = "grid min-h-96 place-content-center justify-items-center gap-2 text-center";
@@ -102,13 +102,15 @@ export function BrowserPagination({
 	name,
 	loaded,
 	hasMore,
-	isLoading,
+	disabled,
 	onLoadMore,
+	isFetchingNextPage,
 }: {
 	readonly name: string;
 	readonly loaded: number;
 	readonly hasMore: boolean;
-	readonly isLoading: boolean;
+	readonly isFetchingNextPage: boolean;
+	readonly disabled: boolean;
 	readonly onLoadMore: () => void;
 }) {
 	if (!hasMore) {
@@ -119,19 +121,14 @@ export function BrowserPagination({
 		);
 	}
 	return (
-		<button
-			type="button"
-			disabled={isLoading}
+		<LoadMoreButton
+			label="Load more"
+			disabled={disabled}
 			onClick={onLoadMore}
-			aria-label={isLoading ? "Loading more results" : "Load more results"}
+			isFetchingNextPage={isFetchingNextPage}
+			icon={<AppIcon size={16} name="chevron-down" className="text-text" />}
+			aria-label={isFetchingNextPage ? "Loading more results" : "Load more results"}
 			className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-surface-2 px-4 text-[15px] text-text disabled:opacity-60 @2xl:h-8.5 @2xl:w-auto @2xl:border @2xl:border-border @2xl:bg-surface @2xl:text-[13px]"
-		>
-			<AppIcon
-				size={16}
-				name="chevron-down"
-				className={isLoading ? "animate-pulse" : "text-text"}
-			/>
-			{isLoading ? "Loading..." : "Load more"}
-		</button>
+		/>
 	);
 }

@@ -21,12 +21,7 @@ import {
 	type BrowserResultsRenderer,
 } from "./entity-browser-controller";
 
-const QueryInput = Schema.Tuple([
-	Schema.String,
-	Schema.String,
-	Schema.NullOr(Schema.String),
-	Schema.Finite,
-]);
+const QueryInput = Schema.Tuple([Schema.String, Schema.String, Schema.NullOr(Schema.String)]);
 const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
 
 const BrowserCount = ({
@@ -96,7 +91,7 @@ const Browser = ({
 							}),
 						),
 					),
-					(result) => ({ result, meta: null, input: serialized }),
+					(result) => ({ result, meta: null }),
 				);
 			},
 			{ cancelOnUnmount: true },
