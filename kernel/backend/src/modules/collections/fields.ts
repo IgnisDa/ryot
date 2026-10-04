@@ -1,6 +1,8 @@
 import {
 	appSchemaToCollectionFields,
+	collectionFieldLimits,
 	collectionFieldsToAppSchema,
+	hasCollectionFieldChoices,
 	reservedCollectionFieldKeys,
 	type CollectionField,
 	type KeyedCollectionField,
@@ -8,13 +10,6 @@ import {
 import { CollectionBadRequest } from "@ryot-app/contract/modules/collections/schemas";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { Result } from "effect";
-
-const maximumFields = 50;
-const maximumChoices = 100;
-const maximumLabelLength = 100;
-const maximumChoiceLength = 100;
-const maximumDescriptionLength = 500;
-const choiceTypes: ReadonlySet<CollectionField["type"]> = new Set(["choice", "multi-choice"]);
 
 const slugOf = (label: string) => {
 	const slug = label
@@ -54,24 +49,24 @@ const normalizeField = (field: CollectionField): CollectionField => {
 const fieldIssues = (field: CollectionField, index: number) => {
 	const path = (...segments: ReadonlyArray<string>) => ["fields", String(index), ...segments];
 	const issues: Array<ReadonlyArray<string>> = [];
-	if (field.label === "" || field.label.length > maximumLabelLength) {
+	if (field.label === "" || field.label.length > collectionFieldLimits.labelLength) {
 		issues.push(path("label"));
 	}
-	if ((field.description?.length ?? 0) > maximumDescriptionLength) {
+	if ((field.description?.length ?? 0) > collectionFieldLimits.descriptionLength) {
 		issues.push(path("description"));
 	}
 	const choices = field.choices;
-	if (choiceTypes.has(field.type)) {
+	if (hasCollectionFieldChoices(field.type)) {
 		if (
 			!choices ||
 			choices.length === 0 ||
-			choices.length > maximumChoices ||
+			choices.length > collectionFieldLimits.choices ||
 			new Set(choices).size !== choices.length
 		) {
 			issues.push(path("choices"));
 		}
 		for (const [choiceIndex, choice] of (choices ?? []).entries()) {
-			if (choice === "" || choice.length > maximumChoiceLength) {
+			if (choice === "" || choice.length > collectionFieldLimits.choiceLength) {
 				issues.push(path("choices", String(choiceIndex)));
 			}
 		}
@@ -107,7 +102,8 @@ export const prepareCollectionFields = (
 		);
 	}
 	const fields = input.map(normalizeField);
-	const issues: Array<ReadonlyArray<string>> = input.length > maximumFields ? [["fields"]] : [];
+	const issues: Array<ReadonlyArray<string>> =
+		input.length > collectionFieldLimits.fields ? [["fields"]] : [];
 	const providedKeys = new Set<string>();
 	for (const [index, field] of fields.entries()) {
 		issues.push(...fieldIssues(field, index));
