@@ -280,7 +280,7 @@ export const notificationChannelEntry =
 		const isAvailable = definition.slug !== "email" || options.smtpEnabled;
 		return {
 			isAvailable,
-			slug: definition.slug,
+			key: definition.slug,
 			name: definition.name,
 			badge: definition.badge,
 			group: definition.group,

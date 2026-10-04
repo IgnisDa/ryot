@@ -84,9 +84,6 @@ export function toNavigationRequest(
 ): PluginNavigationRequest | undefined {
 	const target = Match.value(request.target).pipe(
 		Match.when({ kind: "plugin-route" }, (route) => {
-			if (route.packageId.length === 0) {
-				return undefined;
-			}
 			const location = validatePluginLocation({
 				kind: "route",
 				path: route.path,

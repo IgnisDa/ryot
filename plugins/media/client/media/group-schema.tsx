@@ -1,9 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
-import {
-	type EntityRendererProps,
-	PluginPackageId,
-	type PluginIdentityReference,
-} from "@ryot-app/client-sdk/plugin";
+import type { EntityRendererProps, PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
@@ -205,7 +201,7 @@ export const defineGroupMediaSchema = <
 				recipes.membersRecipe({
 					groupId: input.entityId,
 					limit: MEMBER_PAGE_LIMIT,
-					reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 					...(input.after === null ? {} : { after: input.after }),
 				}),
 			),

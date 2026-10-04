@@ -11,7 +11,6 @@ import {
 	clientArtifactMetadata,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
-import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	ClientImageManifestJson,
 	equalArtifacts,
@@ -26,19 +25,9 @@ import {
 import { readPluginArchive } from "@ryot-app/plugin-archive";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 
-const ShippedPlugins = Schema.fromJsonString(Schema.Array(Schema.String));
+import { readShippedPlugins } from "./shipped-plugins";
+
 const serverRoot = Bun.fileURLToPath(new URL("..", import.meta.url));
-
-const packageRoot = (slug: string) =>
-	Bun.fileURLToPath(new URL(`../../../plugins/${slug}`, import.meta.url));
-
-export const readShippedSlugs = Effect.gen(function* () {
-	const fs = yield* FileSystem.FileSystem;
-	const path = yield* Path.Path;
-	return yield* Schema.decodeEffect(ShippedPlugins)(
-		yield* fs.readFileString(path.join(serverRoot, "shipped-plugins.json")),
-	);
-});
 
 const prepareLayout = Effect.gen(function* () {
 	const fs = yield* FileSystem.FileSystem;
@@ -52,33 +41,15 @@ const prepareLayout = Effect.gen(function* () {
 export const assemble = Effect.gen(function* () {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	const slugs = yield* readShippedSlugs;
+	const plugins = yield* readShippedPlugins;
 	yield* prepareLayout;
 	yield* fs.remove("sandboxd", { force: true, recursive: true });
 	yield* fs.copy(path.resolve(serverRoot, "../../kernel/sandboxd/dist"), "sandboxd");
 	const shippedArtifacts: PluginClientArtifact[] = [];
-	for (const slug of slugs) {
-		const packageJson = yield* fs.readFileString(path.join(packageRoot(slug), "package.json"));
-		const packageEntry = yield* Schema.decodeEffect(
-			Schema.fromJsonString(
-				Schema.Struct({
-					exports: Schema.Struct({ ".": Schema.Struct({ default: Schema.String }) }),
-				}),
-			),
-		)(packageJson);
-		const manifestUrl = yield* path.toFileUrl(
-			path.resolve(packageRoot(slug), packageEntry.exports["."].default),
-		);
-		const manifestModule = yield* Effect.tryPromise(() => import(manifestUrl.href));
-		const authored = yield* Schema.decodeUnknownEffect(AuthoredPluginManifest)(
-			manifestModule.default,
-		);
-		const destination = path.join("plugins", `${authored.metadata.packageId}.zip`);
+	for (const plugin of plugins) {
+		const destination = path.join("plugins", `${plugin.packageId}.zip`);
 		yield* fs.makeDirectory(path.dirname(destination), { recursive: true });
-		yield* fs.copyFile(
-			path.join(packageRoot(slug), `dist/${authored.metadata.packageId}.zip`),
-			destination,
-		);
+		yield* fs.copyFile(plugin.archive, destination);
 		const archive = yield* readPluginArchive(yield* fs.readFile(destination));
 		if (archive.compiledClient) {
 			if (
@@ -93,7 +64,7 @@ export const assemble = Effect.gen(function* () {
 				).hash !== archive.compiledClient.hash
 			) {
 				return yield* Effect.die(
-					new Error(`Shipped plugin ${slug} has an invalid client artifact hash`),
+					new Error(`Shipped plugin ${plugin.packageId} has an invalid client artifact hash`),
 				);
 			}
 			shippedArtifacts.push(archive.compiledClient);

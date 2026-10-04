@@ -1,6 +1,5 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
-import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/client-sdk/react";
 import {
 	ActionForm,
@@ -30,9 +29,9 @@ const createMetricMutation = createRyotMutation<
 		Effect.flatMap((input) =>
 			client.operations.invoke({
 				input,
+				packageId: PLUGIN_PACKAGE_ID,
 				output: MeasurementMetricCreateOutput,
 				slug: measurementMetricCreateOperationSlug,
-				packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
 			}),
 		),
 		Effect.tap(() => Effect.sync(onCreated)),

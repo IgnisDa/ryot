@@ -14,10 +14,12 @@ import { activateLink } from "#/modules/navigation/link-activation";
 import {
 	navigationViewHref,
 	sidebarItemKey,
+	type SidebarEntry,
 	type SidebarItem,
 	type SidebarSections,
 	workspaceSummary,
 } from "#/modules/navigation/sidebar-sections";
+import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
 
 type SidebarNavProps = {
@@ -34,8 +36,8 @@ type SidebarNavProps = {
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly showWorkspaceShortcut?: boolean | undefined;
 	readonly onWorkspaceSwitcherOpenChange: (open: boolean) => void;
-	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
-	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
+	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
+	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
 	readonly onEditSection?: ((section: Exclude<CustomizeSection, "workspaces">) => void) | undefined;
 };
 
@@ -116,9 +118,7 @@ export function SidebarNav(props: SidebarNavProps) {
 		if (item.kind === "home") {
 			return props.current === null ? "/" : pluginPath(props.current.packageId);
 		}
-		return item.reference
-			? navigationViewHref(item.reference, item.packageId)
-			: `/e/${encodeURIComponent(item.slug)}`;
+		return item.kind === "view" ? navigationViewHref(item) : `/e/${encodeURIComponent(item.slug)}`;
 	};
 	const navigate = (item: SidebarItem) =>
 		item.kind === "home" ? props.onNavigateHome() : props.onNavigateItem(item);

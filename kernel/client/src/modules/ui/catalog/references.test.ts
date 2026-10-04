@@ -57,8 +57,8 @@ const rightPackage = PluginPackageId.make("acme/whiskey");
 it("keeps same-name importer option values and groups owner-qualified", () => {
 	const left = source("left-owner", leftPackage);
 	const right = source("right-owner", rightPackage);
-	expect(importSourceEntry(left).slug).toBe(importSourceKey(left));
-	expect(importSourceEntry(left).slug).not.toBe(importSourceEntry(right).slug);
+	expect(importSourceEntry(left).key).toBe(importSourceKey(left));
+	expect(importSourceEntry(left).key).not.toBe(importSourceEntry(right).key);
 	expect(importSourceEntry(left).group.key).not.toBe(importSourceEntry(right).group.key);
 	expect(importSourceEntry(left).group.heading).toContain("Private · home/whiskey");
 });
@@ -66,7 +66,7 @@ it("keeps same-name importer option values and groups owner-qualified", () => {
 it("selects and submits the exact integration owner despite equal provider slugs", () => {
 	const left = provider("left-owner", leftPackage);
 	const right = provider("right-owner", rightPackage);
-	expect(integrationProviderEntry(left).slug).not.toBe(integrationProviderEntry(right).slug);
+	expect(integrationProviderEntry(left).key).not.toBe(integrationProviderEntry(right).key);
 	expect(
 		findOwnedIntegrationProvider([left, right], { provider: "common", pluginId: right.pluginId }),
 	).toBe(right);

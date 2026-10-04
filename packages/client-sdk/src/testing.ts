@@ -15,7 +15,9 @@ import {
 	type PluginRouteLocation,
 	type PluginRyotQLOutcome,
 } from "@ryot-app/client-plugin-contract";
+import { ClientPageCodeContributor } from "@ryot-app/contract/modules/client-pages/schemas";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import * as Clock from "effect/Clock";
 import type * as Duration from "effect/Duration";
@@ -156,6 +158,20 @@ export const entityLocation = (
 	search = "",
 ): PluginEntityLocation =>
 	Schema.decodeSync(PluginEntityLocation)({ search, entityId, kind: "entity", entitySchemaSlug });
+
+export const pluginContributor = (options: {
+	readonly name: string;
+	readonly pluginId: string;
+	readonly packageId: PluginPackageId;
+}) =>
+	Schema.decodeSync(ClientPageCodeContributor)({
+		kind: "plugin",
+		pluginId: options.pluginId,
+		packageId: options.packageId,
+		sourceHash: `${options.name}-source`,
+		revisionId: `${options.name}-revision`,
+		installationId: `${options.name}-installation`,
+	});
 
 export const entityPageContext = (options: {
 	readonly pluginId: string;

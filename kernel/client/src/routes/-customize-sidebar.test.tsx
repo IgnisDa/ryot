@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginPackageId, PluginId } from "@ryot-app/contract/schema/brands";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
@@ -261,8 +261,8 @@ describe("customize sidebar route", () => {
 			...primary,
 			sortOrder: 1,
 			name: "Alternate",
-			pluginId: "plugin-2",
 			installationId: "installation-2",
+			pluginId: PluginId.make("plugin-2"),
 			packageId: PluginPackageId.make("test/plugin-2"),
 		};
 		return Effect.gen(function* () {

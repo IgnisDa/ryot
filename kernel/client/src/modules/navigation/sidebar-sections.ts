@@ -1,17 +1,18 @@
-import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
 
 import { savedViewHref } from "#/modules/plugins/plugin-location";
 
-export type SidebarItem = Omit<NavigationView, "reference"> & {
-	readonly reference: SavedViewReference | null;
-	readonly kind: "home" | "view" | "collection";
-};
+type NavigationCollection = NavigationData["collections"][number];
+
+export type SidebarEntry =
+	| (NavigationView & { readonly kind: "view" })
+	| (NavigationCollection & { readonly kind: "collection" });
+export type SidebarItem = SidebarEntry | (NavigationCollection & { readonly kind: "home" });
 
 export type SidebarSections = {
 	readonly views: readonly SidebarItem[];
-	readonly savedViews: readonly SidebarItem[];
-	readonly collections: readonly SidebarItem[];
+	readonly savedViews: readonly SidebarEntry[];
+	readonly collections: readonly SidebarEntry[];
 };
 
 const homeItem = {
@@ -26,35 +27,31 @@ const homeItem = {
 	pluginInstallationId: null,
 } satisfies SidebarItem;
 
-const enabledItems = (items: readonly SidebarItem[]) =>
-	items.filter((item) => !item.isHidden).sort((a, b) => a.sortOrder - b.sortOrder);
+const viewEntry = (item: NavigationView): SidebarEntry => ({ ...item, kind: "view" });
 
-const withKind = (item: Omit<SidebarItem, "kind">, kind: SidebarItem["kind"]): SidebarItem => ({
+const collectionEntry = (item: NavigationCollection): SidebarEntry => ({
 	...item,
-	kind,
+	kind: "collection",
 });
+
+const enabledItems = <Item extends SidebarItem>(items: readonly Item[]) =>
+	items.filter((item) => !item.isHidden).sort((a, b) => a.sortOrder - b.sortOrder);
 
 export function sidebarSections(props: {
 	readonly data: NavigationData;
 	readonly workspaceInstallationId: string | undefined;
 }): SidebarSections {
 	return {
+		collections: enabledItems(props.data.collections.map(collectionEntry)),
 		savedViews: enabledItems(
-			props.data.savedViews
-				.filter((item) => item.pluginInstallationId === null)
-				.map((item) => withKind(item, "view")),
-		),
-		collections: enabledItems(
-			props.data.collections.map((item) =>
-				withKind({ ...item, reference: null, pluginInstallationId: null }, "collection"),
-			),
+			props.data.savedViews.filter((item) => item.pluginInstallationId === null).map(viewEntry),
 		),
 		views: [
 			homeItem,
 			...enabledItems(
 				props.data.savedViews
 					.filter((item) => item.pluginInstallationId === props.workspaceInstallationId)
-					.map((item) => withKind(item, "view")),
+					.map(viewEntry),
 			),
 		],
 	};
@@ -76,29 +73,19 @@ export function workspacePickerSummary(data: NavigationData, installationId: str
 	return `${names.join(", ")}${remaining > 0 ? ` +${remaining}` : ""}`;
 }
 
-export const navigationViewHref = (
-	reference: SavedViewReference,
-	packageId: NavigationView["packageId"],
-) => {
-	const href = savedViewHref(reference, packageId);
+export const navigationViewHref = (view: Pick<NavigationView, "packageId" | "reference">) => {
+	const href = savedViewHref(view.reference, view.packageId);
 	if (href === undefined) {
 		throw new Error("Plugin saved view is missing its package identity");
 	}
 	return href;
 };
 
-export const sidebarItemHref = (item: Pick<SidebarItem, "packageId" | "reference">) =>
-	item.reference === null ? undefined : navigationViewHref(item.reference, item.packageId);
-
 export const sidebarItemKey = (item: SidebarItem) => {
 	if (item.kind === "home") {
 		return "home";
 	}
-	const href = sidebarItemHref(item);
-	if (href !== undefined) {
-		return `view:${href}`;
-	}
-	return `collection:${item.slug}`;
+	return item.kind === "view" ? `view:${navigationViewHref(item)}` : `collection:${item.slug}`;
 };
 
 export function activeSidebarKey(pathname: string) {
