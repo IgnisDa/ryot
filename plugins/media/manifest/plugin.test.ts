@@ -755,9 +755,7 @@ it("declares the complete media-owned source", () => {
 	});
 	expect(
 		mediaPlugin.savedViews.map(({ name, settings }) => {
-			const addAction = Schema.decodeUnknownSync(AuthoredEntityBrowserAddAction)(
-				settings["addAction"],
-			);
+			const addAction = Schema.decodeSync(AuthoredEntityBrowserAddAction)(settings["addAction"]);
 			assert(addAction.type === "provider-search");
 			return { name, entitySchemaSlug: addAction.schema.slug };
 		}),
