@@ -19,7 +19,7 @@ import {
 	createGlobalBookEntityFixture,
 	queryInMediaLibraryRelationship,
 } from "~/fixtures/plugins/media";
-import { assertTaggedError } from "~/support/assertions";
+import { assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("POST /collections/memberships", () => {
@@ -229,16 +229,10 @@ describe("POST /collections/memberships", () => {
 			const collection = yield* createCollection(client, {
 				name: "Movies with metadata",
 				description: "Movies with recommendation info",
-				membershipPropertiesSchema: {
-					fields: {
-						rating: { type: "integer", label: "Rating", description: "Rating" },
-						recommendedBy: {
-							type: "string",
-							label: "Recommended By",
-							description: "Recommended By",
-						},
-					},
-				},
+				fields: [
+					{ type: "number", label: "Rating", required: false },
+					{ type: "text", required: false, label: "Recommended By" },
+				],
 			});
 
 			const { entityId } = yield* createPluginSchemaAndEntity(client);
@@ -248,12 +242,12 @@ describe("POST /collections/memberships", () => {
 					payload: {
 						entityId,
 						collectionId: collection.id,
-						properties: { rating: 5, recommendedBy: "John" },
+						properties: { rating: 5, "recommended-by": "John" },
 					},
 				}),
 			);
 
-			expect(data.memberOf.properties).toMatchObject({ rating: 5, recommendedBy: "John" });
+			expect(data.memberOf.properties).toEqual({ rank: 0, rating: 5, "recommended-by": "John" });
 		}),
 	);
 
@@ -264,17 +258,16 @@ describe("POST /collections/memberships", () => {
 			const collection = yield* createCollection(client, {
 				name: "Movies with source tracking",
 				description: "Track how movies were added",
-				membershipPropertiesSchema: {
-					fields: {
-						rating: { type: "integer", label: "Rating", description: "Rating" },
-						source: {
-							type: "string",
-							label: "Source",
-							defaultValue: "manual",
-							description: "How this was added",
-						},
+				fields: [
+					{ type: "number", label: "Rating", required: false },
+					{
+						type: "text",
+						label: "Source",
+						required: false,
+						defaultValue: "manual",
+						description: "How this was added",
 					},
-				},
+				],
 			});
 
 			const { entityId } = yield* createPluginSchemaAndEntity(client);
@@ -285,7 +278,7 @@ describe("POST /collections/memberships", () => {
 				}),
 			);
 
-			expect(data.memberOf.properties).toMatchObject({ rating: 4, source: "manual" });
+			expect(data.memberOf.properties).toEqual({ rank: 0, rating: 4, source: "manual" });
 		}),
 	);
 
@@ -295,16 +288,10 @@ describe("POST /collections/memberships", () => {
 
 			const collection = yield* createCollection(client, {
 				name: "Upsert Collection",
-				membershipPropertiesSchema: {
-					fields: {
-						rating: { type: "integer", label: "Rating", description: "Rating" },
-						recommendedBy: {
-							type: "string",
-							label: "Recommended By",
-							description: "Recommended By",
-						},
-					},
-				},
+				fields: [
+					{ type: "number", label: "Rating", required: false },
+					{ type: "text", required: false, label: "Recommended By" },
+				],
 			});
 
 			const { entityId } = yield* createPluginSchemaAndEntity(client);
@@ -314,7 +301,7 @@ describe("POST /collections/memberships", () => {
 					payload: {
 						entityId,
 						collectionId: collection.id,
-						properties: { rating: 4, recommendedBy: "Alice" },
+						properties: { rating: 4, "recommended-by": "Alice" },
 					},
 				}),
 			);
@@ -324,13 +311,62 @@ describe("POST /collections/memberships", () => {
 					payload: {
 						entityId,
 						collectionId: collection.id,
-						properties: { rating: 5, recommendedBy: "Bob" },
+						properties: { rating: 5, "recommended-by": "Bob" },
 					},
 				}),
 			);
 
 			expect(second.memberOf.id).toBe(first.memberOf.id);
-			expect(second.memberOf.properties).toMatchObject({ rating: 5, recommendedBy: "Bob" });
+			expect(second.memberOf.properties).toEqual({
+				rating: 5,
+				"recommended-by": "Bob",
+				rank: requireObjectRecord(first.memberOf.properties, "Expected member properties")["rank"],
+			});
+		}),
+	);
+
+	it.live("places new members before existing ones", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const collection = yield* createCollection(client);
+			const ranks = [];
+			for (const _ of [0, 1, 2]) {
+				const { entityId } = yield* createPluginSchemaAndEntity(client);
+				const added = yield* client.call((c) =>
+					c.collections.createMembership({ payload: { entityId, collectionId: collection.id } }),
+				);
+				ranks.push(
+					requireObjectRecord(added.memberOf.properties, "Expected member properties")["rank"],
+				);
+			}
+
+			expect(ranks).toEqual([0, -1, -2]);
+		}),
+	);
+
+	it.live("rejects client ranks and keys outside the collection fields", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const open = yield* createCollection(client);
+			const fielded = yield* createCollection(client, {
+				fields: [{ type: "text", label: "Note", required: false }],
+			});
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
+
+			for (const [collectionId, properties] of [
+				[open.id, { rank: -1000 }],
+				[open.id, { anything: true }],
+				[fielded.id, { note: "ok", rank: -1000 }],
+				[fielded.id, { invented: "x" }],
+			] as const) {
+				const error = yield* Effect.flip(
+					client.call((c) =>
+						c.collections.createMembership({ payload: { entityId, properties, collectionId } }),
+					),
+				);
+				assertTaggedError(error, "CollectionBadRequest");
+				expect(error.reason).toMatchObject({ code: "invalid-membership-properties" });
+			}
 		}),
 	);
 

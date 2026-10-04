@@ -236,14 +236,12 @@ describe("Collection entity write path — propertiesSchema validation", () => {
 		}),
 	);
 
-	it.live("accepts collection creation with a valid membershipPropertiesSchema", () =>
+	it.live("accepts collection creation with member fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const collection = yield* createCollection(client, {
 				name: "Schema Collection",
-				membershipPropertiesSchema: {
-					fields: { notes: { type: "string", label: "Notes", description: "Notes" } },
-				},
+				fields: [{ type: "text", label: "Notes", required: false }],
 			});
 
 			expect(collection.id).toBeDefined();
@@ -253,21 +251,12 @@ describe("Collection entity write path — propertiesSchema validation", () => {
 });
 
 describe("Collection membership — member-of relationship propertiesSchema validation", () => {
-	it.live("accepts membership add with properties matching the collection schema", () =>
+	it.live("accepts membership add with properties matching the collection fields", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const collection = yield* createCollection(client, {
 				name: "Rated Collection",
-				membershipPropertiesSchema: {
-					fields: {
-						score: {
-							label: "Score",
-							description: "Score",
-							type: "integer" as const,
-							validation: { minimum: 1, maximum: 10 },
-						},
-					},
-				},
+				fields: [{ label: "Score", type: "number", required: true }],
 			});
 			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
@@ -281,51 +270,39 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 		}),
 	);
 
-	it.live(
-		"rejects membership add when properties fail the collection's membershipPropertiesSchema",
-		() =>
-			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
-				const collection = yield* createCollection(client, {
-					name: "Strict Score Collection",
-					membershipPropertiesSchema: {
-						fields: {
-							score: {
-								label: "Score",
-								description: "Score",
-								type: "integer" as const,
-								validation: { minimum: 1, maximum: 10 },
-							},
-						},
-					},
-				});
-				const { entityId } = yield* createPluginSchemaAndEntity(client);
+	it.live("rejects membership add when properties fail the collection fields", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const collection = yield* createCollection(client, {
+				name: "Strict Score Collection",
+				fields: [{ label: "Score", type: "number", required: true }],
+			});
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
-				const error = yield* Effect.flip(
-					client.call((c) =>
-						c.collections.createMembership({
-							payload: { entityId, properties: { score: 999 }, collectionId: collection.id },
-						}),
-					),
-				);
+			const error = yield* Effect.flip(
+				client.call((c) =>
+					c.collections.createMembership({
+						payload: { entityId, collectionId: collection.id, properties: { score: "high" } },
+					}),
+				),
+			);
 
-				assertTaggedError(error, "CollectionBadRequest");
-				expect(error.reason).toMatchObject({
-					paths: [["score"]],
-					code: "invalid-membership-properties",
-				});
-			}),
+			assertTaggedError(error, "CollectionBadRequest");
+			expect(error.reason).toMatchObject({
+				paths: [["score"]],
+				code: "invalid-membership-properties",
+			});
+		}),
 	);
 
-	it.live(
-		"accepts membership add with arbitrary properties when no membershipPropertiesSchema is set",
-		() =>
-			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
-				const collection = yield* createCollection(client, { name: "Open Collection" });
-				const { entityId } = yield* createPluginSchemaAndEntity(client);
+	it.live("rejects membership properties when the collection has no fields", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const collection = yield* createCollection(client, { name: "Open Collection" });
+			const { entityId } = yield* createPluginSchemaAndEntity(client);
 
-				const data = yield* client.call((c) =>
+			const error = yield* Effect.flip(
+				client.call((c) =>
 					c.collections.createMembership({
 						payload: {
 							entityId,
@@ -333,9 +310,11 @@ describe("Collection membership — member-of relationship propertiesSchema vali
 							properties: { number: 42, arbitrary: "any-value" },
 						},
 					}),
-				);
+				),
+			);
 
-				expect(data.memberOf.properties).toMatchObject({ number: 42, arbitrary: "any-value" });
-			}),
+			assertTaggedError(error, "CollectionBadRequest");
+			expect(error.reason).toMatchObject({ code: "invalid-membership-properties" });
+		}),
 	);
 });

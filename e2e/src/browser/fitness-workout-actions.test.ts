@@ -16,16 +16,7 @@ it.live("adds a saved workout to an existing collection and confirms permanent d
 			c.collections.create({
 				payload: {
 					name: `Collection ${crypto.randomUUID()}`,
-					membershipPropertiesSchema: {
-						fields: {
-							note: {
-								label: "Note",
-								type: "string",
-								description: "Workout note",
-								validation: { required: true },
-							},
-						},
-					},
+					fields: [{ type: "text", label: "Note", required: true, description: "Workout note" }],
 				},
 			}),
 		);
