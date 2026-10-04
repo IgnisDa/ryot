@@ -17,7 +17,6 @@ import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedCustomizeSidebarRouteImport } from './routes/_authenticated/customize-sidebar'
-import { Route as AuthenticatedDesignRouteImport } from './routes/_authenticated/design'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
 import { Route as InstanceAdminIndexRouteImport } from './routes/instance-admin/index'
@@ -95,11 +94,6 @@ const AuthenticatedCustomizeSidebarRoute =
     path: '/customize-sidebar',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedDesignRoute = AuthenticatedDesignRouteImport.update({
-  id: '/design',
-  path: '/design',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
 const AuthenticatedSettingsRouteRoute =
   AuthenticatedSettingsRouteRouteImport.update({
     id: '/settings',
@@ -315,7 +309,6 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
-  '/design': typeof AuthenticatedDesignRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
   '/instance-admin/migration-report': typeof InstanceAdminMigrationReportRoute
@@ -358,7 +351,6 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
-  '/design': typeof AuthenticatedDesignRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
   '/instance-admin/migration-report': typeof InstanceAdminMigrationReportRoute
@@ -405,7 +397,6 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
   '/_authenticated/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
-  '/_authenticated/design': typeof AuthenticatedDesignRoute
   '/auth_/callback': typeof AuthCallbackRoute
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
   '/instance-admin/migration-report': typeof InstanceAdminMigrationReportRoute
@@ -454,7 +445,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/settings'
     | '/customize-sidebar'
-    | '/design'
     | '/auth/callback'
     | '/instance-admin/logs'
     | '/instance-admin/migration-report'
@@ -497,7 +487,6 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/customize-sidebar'
-    | '/design'
     | '/auth/callback'
     | '/instance-admin/logs'
     | '/instance-admin/migration-report'
@@ -543,7 +532,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/_authenticated/settings'
     | '/_authenticated/customize-sidebar'
-    | '/_authenticated/design'
     | '/auth_/callback'
     | '/instance-admin/logs'
     | '/instance-admin/migration-report'
@@ -653,13 +641,6 @@ declare module '@tanstack/react-router' {
       path: '/customize-sidebar'
       fullPath: '/customize-sidebar'
       preLoaderRoute: typeof AuthenticatedCustomizeSidebarRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/design': {
-      id: '/_authenticated/design'
-      path: '/design'
-      fullPath: '/design'
-      preLoaderRoute: typeof AuthenticatedDesignRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/settings': {
@@ -998,7 +979,6 @@ const AuthenticatedPPublisherNameRouteRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
   AuthenticatedCustomizeSidebarRoute: typeof AuthenticatedCustomizeSidebarRoute
-  AuthenticatedDesignRoute: typeof AuthenticatedDesignRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedEEntityIdRoute: typeof AuthenticatedEEntityIdRoute
   AuthenticatedPPublisherNameRouteRoute: typeof AuthenticatedPPublisherNameRouteRouteWithChildren
@@ -1010,7 +990,6 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
   AuthenticatedCustomizeSidebarRoute: AuthenticatedCustomizeSidebarRoute,
-  AuthenticatedDesignRoute: AuthenticatedDesignRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedEEntityIdRoute: AuthenticatedEEntityIdRoute,
   AuthenticatedPPublisherNameRouteRoute:
