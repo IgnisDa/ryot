@@ -37,7 +37,7 @@ describe("media movie query recipes", () => {
 			"watchProviders",
 			"runtime",
 		]);
-		expect(keys(movieRecipes.presentationRecipe(["movie-1"]), "rows")).toContain("runtime");
+		expect(movieRecipes.presentationSource.fields.map(({ key }) => key)).toContain("runtime");
 	});
 
 	it("derives flat lifecycle state without any session-scoped predicate", () => {

@@ -52,10 +52,11 @@ describe("media video game query recipes", () => {
 	});
 
 	it("reaches into the nested time to beat for the presentation row", () => {
-		const presentation = videoGameRecipes.presentationRecipe(["video-game-1"]);
+		const presentation = videoGameRecipes.presentationSource;
+		const field = presentation.fields.find(({ key }) => key === "timeToBeatNormally");
 
-		expect(keys(presentation, "rows")).toContain("timeToBeatNormally");
-		expect(fieldExpr(presentation, "rows", "timeToBeatNormally")).toMatchObject({
+		expect(field).toBeDefined();
+		expect(field?.expr).toMatchObject({
 			type: "cast",
 			target: "number",
 			expr: { type: "jsonPath", path: ["timeToBeat", "normally"] },

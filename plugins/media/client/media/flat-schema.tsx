@@ -4,6 +4,7 @@ import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
+import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { MediaLifecycleState } from "../../shared/lifecycle-expressions";
 import type {
 	MediaFlatActivityEvent,
@@ -20,13 +21,13 @@ import {
 	type MediaDetailBodyInput,
 } from "./detail-screen";
 import {
-	createMediaPresentationLoader,
 	defineMediaPresentationPair,
 	MediaCardContent,
 	MediaRowContent,
 	type MediaArtworkAspect,
 	type MediaPresentationSubject,
 	type MediaPresentationViewData,
+	type MediaSavedViewPresentationSubject,
 } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
 import {
@@ -95,7 +96,7 @@ export type MediaOverviewRail = {
 	readonly items: readonly MediaPresentationSubject[];
 };
 
-type FlatPresentation = MediaPresentationSubject & {
+type FlatPresentation = MediaSavedViewPresentationSubject & {
 	readonly state: MediaLifecycleState;
 	readonly publishDate: string | null;
 	readonly publishYear: number | null;
@@ -138,9 +139,7 @@ export type MediaFlatSchemaDescriptor<
 			readonly eventLimit: number;
 			readonly collectionEventLimit: number;
 		}) => PreparedRecipe<MediaFlatActivityResult<NoInfer<Extra>>>;
-		readonly presentationRecipe: (
-			entityIds: readonly string[],
-		) => PreparedRecipe<readonly Presentation[]>;
+		readonly presentationSource: MediaPresentationSource<Presentation>;
 	};
 	readonly aspect: MediaArtworkAspect;
 	readonly heroHeight: (compact: boolean) => number;
@@ -534,7 +533,7 @@ export const defineFlatMediaSchema = <
 	const presentations = defineMediaPresentationPair({
 		Facts,
 		aspect: descriptor.aspect,
-		loader: createMediaPresentationLoader(recipes.presentationRecipe),
+		source: recipes.presentationSource,
 	});
 
 	return {

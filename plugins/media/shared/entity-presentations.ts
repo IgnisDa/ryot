@@ -6,18 +6,24 @@ import {
 	castNumber,
 	castText,
 	column,
+	coalesce,
 	concat,
 	conditional,
 	defineRecipe,
 	eq,
 	inArray,
 	isNotNull,
+	jsonArrayFirst,
+	jsonElement,
 	jsonPath,
 	literal,
 	selectedField,
-	selectedRows,
+	selectedRowsSource,
 	table,
-	type Recipe,
+	type SelectedIncludes,
+	type SelectedRow,
+	type SelectedRowsSource,
+	type SelectedSelection,
 } from "@ryot-app/plugin-kit/ryotql";
 
 import {
@@ -28,7 +34,63 @@ import {
 	propertyText,
 	type Table,
 } from "./entity-selections";
-import { MediaImageListSchema } from "./media-image";
+import { MediaImageAssetSchema } from "./media-image";
+
+export type MediaPresentationSource<Data> = SelectedRowsSource<Data>;
+
+export const selectedPresentationSource = <
+	const Selection extends SelectedSelection,
+	const Includes extends SelectedIncludes = Record<never, never>,
+>(input: {
+	readonly table: Table;
+	readonly selection: Selection;
+	readonly include?: Includes | undefined;
+}): MediaPresentationSource<SelectedRow<Selection, Includes>> => {
+	return selectedRowsSource(input.table, {
+		selection: input.selection,
+		...(input.include === undefined ? {} : { include: input.include }),
+	});
+};
+
+export const mediaPresentationSourceRecipe = <Data>(
+	source: MediaPresentationSource<Data>,
+	input: { readonly entityIds: readonly string[]; readonly entitySchemaSlug: string },
+) => {
+	const entity = table("entity", "entity");
+	return defineRecipe(() => ({
+		map: ({ presentation }) => Result.succeed(presentation.items),
+		queries: {
+			presentation: source.query({
+				limit: 100,
+				orderBy: [ascending(column(entity, "id"))],
+				where: and(
+					entitySchema(entity, input.entitySchemaSlug),
+					inArray(
+						column(entity, "id"),
+						input.entityIds.map((entityId) => literal(entityId)),
+					),
+				),
+			}),
+		},
+	}))();
+};
+
+export const preferredMediaImageExpression = (entity: Table, purpose = "cover") => {
+	const images = propertyJson(entity, "images");
+	const element = jsonElement();
+	return coalesce(
+		jsonArrayFirst(images, {
+			select: element,
+			orderBy: [ascending(literal(0))],
+			where: eq(castText(jsonPath(element, "purpose")), literal(purpose)),
+		}),
+		jsonPath(images, 0),
+	);
+};
+
+export const mediaPresentationImageSelection = (entity: Table) => ({
+	image: selectedField(preferredMediaImageExpression(entity), Schema.NullOr(MediaImageAssetSchema)),
+});
 
 const reviewRatingAverage = (media: Table) => {
 	const review = table("event", "presentationReview");
@@ -80,39 +142,21 @@ const secondaryExpression = (media: Table, slug: string) => {
 	}
 };
 
-export const mediaPresentationRecipe = defineRecipe(
-	(input: { readonly slug: string; readonly entityIds: readonly string[] }) => {
-		const media = table("entity", "presentationMedia");
-		return {
-			map: ({ media: rows }) => Result.succeed(rows.items),
-			queries: {
-				media: selectedRows(media, {
-					limit: 100,
-					orderBy: [ascending(column(media, "id"))],
-					where: and(
-						entitySchema(media, input.slug),
-						inArray(
-							column(media, "id"),
-							input.entityIds.map((entityId) => literal(entityId)),
-						),
-					),
-					selection: {
-						...entityIdentitySelection(media),
-						images: selectedField(propertyJson(media, "images"), MediaImageListSchema),
-						rating: selectedField(reviewRatingAverage(media), Schema.NullOr(Schema.Finite)),
-						primary: selectedField(
-							primaryExpression(media, input.slug),
-							Schema.NullOr(Schema.String),
-						),
-						secondary: selectedField(
-							secondaryExpression(media, input.slug),
-							Schema.NullOr(Schema.String),
-						),
-					},
-				}),
-			},
-		};
-	},
-);
+export const mediaPresentationSource = (slug: string) => {
+	const media = table("entity", "entity");
+	return selectedPresentationSource({
+		table: media,
+		selection: {
+			...entityIdentitySelection(media),
+			...mediaPresentationImageSelection(media),
+			rating: selectedField(reviewRatingAverage(media), Schema.NullOr(Schema.Finite)),
+			primary: selectedField(primaryExpression(media, slug), Schema.NullOr(Schema.String)),
+			secondary: selectedField(secondaryExpression(media, slug), Schema.NullOr(Schema.String)),
+		},
+	});
+};
 
-export type MediaPresentationData = Recipe.Success<typeof mediaPresentationRecipe>[number];
+export type MediaPresentationData =
+	ReturnType<typeof mediaPresentationSource> extends MediaPresentationSource<infer Data>
+		? Data
+		: never;

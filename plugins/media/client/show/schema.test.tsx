@@ -2,7 +2,7 @@ import { Effect } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { showRecipes } from "../../shared/show-recipes";
-import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
+import { readyQueryResult } from "../../tests/client/query-result-fixture";
 import { decodeShowActivity } from "../../tests/client/show/activity-fixture";
 import { decodeShowOverview } from "../../tests/client/show/overview-fixture";
 import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
@@ -34,25 +34,15 @@ const presentationRow = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	productionStatus: "Returning Series",
-	images: [{ type: "remote", purpose: "cover", url: "https://images.test/severance.jpg" }],
+	image: { type: "remote", url: "https://images.test/severance.jpg" },
 };
 
 const presentationData = (overrides: Record<string, unknown> = {}) => {
-	const decoded = showRecipes
-		.presentationRecipe(["show-1"])
-		.decode({
-			data: {
-				rows: rowsResult([{ ...presentationRow, ...overrides }], {
-					limit: 100,
-					hasMore: false,
-					nextCursor: null,
-				}),
-			},
-		});
-	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
+	const decoded = showRecipes.presentationSource.decode({ ...presentationRow, ...overrides });
+	if (decoded._tag === "Failure") {
 		throw new Error("Expected decoded presentation data");
 	}
-	return { ...decoded.success[0], batchAssets: [] };
+	return { ...decoded.success, batchAssets: [] };
 };
 
 afterEach(() => {
