@@ -22,13 +22,14 @@ import { Workflow } from "effect/workflow";
 import { PgClientLive } from "#lib/infrastructure/db/postgres";
 import { workflowExecution } from "#lib/infrastructure/db/schema/tables/workflow-executions";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
+import type { WorkflowIdentity } from "#lib/infrastructure/workflow-identity";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 
 import {
 	workflowClockEntityType,
 	WorkflowExecutionExpired,
-	type WorkflowIdentity,
 	WorkflowParentPayload,
 } from "./workflow-models";
 import { WorkflowGarbageCollectionRepository } from "./workflow-repository";
@@ -171,6 +172,7 @@ const collectorLayer = Layer.unwrap(
 		const database = yield* IsolatedDatabase;
 		return WorkflowGarbageCollector.layer.pipe(
 			Layer.provideMerge(WorkflowGarbageCollectionStorageLive),
+			Layer.provideMerge(WorkflowExecutionNotifications.layer),
 			Layer.provideMerge(DatabaseSession.layer),
 			Layer.provideMerge(PgClientLive),
 			Layer.provideMerge(Snowflake.layerGenerator),

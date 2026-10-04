@@ -1,9 +1,10 @@
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Duration, Effect, Layer, Option, Queue, Schema } from "effect";
+import { Cause, Context, Duration, Effect, FiberMap, Layer, Option, Queue, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
@@ -29,6 +30,8 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const engine = yield* WorkflowEngine;
 			const repository = yield* ProviderImportAdmissionRepository;
 			const receipts = yield* MutationReceipts.make;
+			const notifications = yield* WorkflowExecutionNotifications;
+			const completionWaiters = yield* FiberMap.make<string, void>();
 			const limit = config.sandbox.importConcurrency;
 			const wakeups = yield* Queue.sliding<void>(1);
 			const wake = Queue.offer(wakeups, undefined).pipe(Effect.asVoid);
@@ -48,14 +51,52 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 					),
 				);
 
+			const watchCompletion = Effect.fn("ProviderImportAdmission.watchCompletion")(function* (row: {
+				id: string;
+				payload: unknown;
+			}) {
+				const { command } = yield* decodePayload(row.payload);
+				const workflow = EntityImportWorkflow.forLane(command.causation.lane);
+				yield* FiberMap.run(
+					completionWaiters,
+					row.id,
+					Effect.scoped(
+						Effect.gen(function* () {
+							const awaitHint = yield* notifications.listen({
+								executionId: row.id,
+								workflowName: workflow._tag,
+							});
+							const result = yield* engine.poll(workflow, row.id);
+							if (Option.isNone(result) || result.value._tag !== "Complete") {
+								yield* awaitHint;
+							}
+							yield* wake;
+						}),
+					).pipe(
+						Effect.catchCauseIf(
+							(cause) => !Cause.hasInterruptsOnly(cause),
+							(cause) => Effect.logError("provider import completion watch failed", cause),
+						),
+					),
+					{ onlyIfMissing: true },
+				);
+			});
+
 			/**
 			 * Settles finished imports, restarts admitted imports whose workflow never started, and admits
 			 * queued imports into free slots. Every step is idempotent, so each replica may run it.
 			 */
 			const reconcile = Effect.gen(function* () {
 				const running = yield* repository.listRunning();
+				const runningIds = new Set(running.map(({ id }) => id));
+				for (const [id] of Array.from(completionWaiters)) {
+					if (!runningIds.has(id)) {
+						yield* FiberMap.remove(completionWaiters, id);
+					}
+				}
 				const finished: string[] = [];
 				for (const row of running) {
+					yield* watchCompletion(row);
 					const { command } = yield* decodePayload(row.payload);
 					const result = yield* engine.poll(
 						EntityImportWorkflow.forLane(command.causation.lane),
@@ -68,7 +109,18 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 					}
 				}
 				const admitted = yield* session.transaction(repository.admit({ limit, finished }));
-				yield* Effect.forEach(admitted, start, { discard: true });
+				for (const id of finished) {
+					yield* FiberMap.remove(completionWaiters, id);
+				}
+				for (const row of admitted) {
+					const { command } = yield* decodePayload(row.payload);
+					yield* notifications.publish({
+						executionId: row.id,
+						workflowName: EntityImportWorkflow.forLane(command.causation.lane)._tag,
+					});
+					yield* start(row);
+					yield* watchCompletion(row);
+				}
 				return yield* repository.hasPending();
 			});
 

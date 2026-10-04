@@ -2,6 +2,7 @@ import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
 
 import { AppConfig } from "./config/service";
+import { WorkflowIdentity } from "./workflow-identity";
 
 export const ENTITY_INTEREST_SESSION_TTL_SECONDS = 15 * 60;
 export const ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS = 30;
@@ -10,6 +11,15 @@ export const ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS = 5 * 60;
 
 export const ImpersonationEndedMessage = Schema.fromJsonString(
 	Schema.Struct({ sessionId: Schema.String }),
+);
+
+export const WorkflowExecutionNotificationMessage = Schema.fromJsonString(WorkflowIdentity);
+
+export const encodeWorkflowExecutionNotificationMessage = Schema.encodeSync(
+	WorkflowExecutionNotificationMessage,
+);
+export const decodeWorkflowExecutionNotificationMessage = Schema.decodeUnknownOption(
+	WorkflowExecutionNotificationMessage,
 );
 
 export const redisKeys = {
@@ -23,6 +33,7 @@ export const redisKeys = {
 	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
 	passwordResetToken: (userId: string) => `ryot:auth:password-reset:${userId}`,
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
+	workflowExecutionNotificationChannel: "ryot:workflow:execution-notifications",
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	impersonationHandoff: (ticketHash: string) => `ryot:auth:impersonation:${ticketHash}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
