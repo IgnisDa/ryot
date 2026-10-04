@@ -416,14 +416,14 @@ layer(entityUpdates.layer)((test) => {
 });
 
 const interestMemberships = recordingServiceLayer<unknown>((record) => ({
-	interest: { setEntityInterestMembership: (input) => record(input).pipe(Effect.as(undefined)) },
+	interest: { setEntityWatchMembership: (input) => record(input).pipe(Effect.as(undefined)) },
 }));
 
 layer(interestMemberships.layer)((test) => {
 	test.effect("delegates session membership without reconciliation", () =>
 		Effect.gen(function* () {
 			const service = yield* TestSupportService;
-			yield* service.setEntityInterestMembership({
+			yield* service.setEntityWatchMembership({
 				sessionId: "session-1",
 				entityIds: [EntityId.make("entity-1")],
 			});

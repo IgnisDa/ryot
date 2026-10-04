@@ -157,7 +157,7 @@ describe("plugin client bridge contract", () => {
 		const host = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 		const interest = {
 			foreground: ["root"],
-			type: "entity-interest",
+			type: "entity-watches",
 			visible: Array.from({ length: 499 }, (_, i) => `row-${i}`),
 		};
 		const update = { entityId: "root", reason: "translated", type: "entity-updated" };

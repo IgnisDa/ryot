@@ -10,7 +10,7 @@ import {
 	type DefinitionOwner,
 	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
-import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";

@@ -1,6 +1,6 @@
 import { configFromAppSchema } from "@ryot-app/config";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
-import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
+import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";

@@ -1,8 +1,8 @@
+import { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type {
 	IngestionPayload,
 	IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
-import { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
 

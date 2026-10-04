@@ -39,7 +39,7 @@ function OAuthImpersonate() {
 	const message =
 		error ??
 		(ticket === null
-			? "This impersonation request is missing or invalid. Start it again from God Mode."
+			? "This impersonation request is missing or invalid. Start it again from Instance Admin."
 			: "Continuing through the server's secure sign-in flow...");
 
 	return (

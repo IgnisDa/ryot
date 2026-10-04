@@ -1,9 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
+import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
 import type {
 	CreateIntegrationBody,
 	UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
 import {
 	ImportRunId,
 	IntegrationId,
@@ -16,11 +16,11 @@ import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, type Option } from "effect";
 
+import type { AccountApi } from "#/api/account";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { IntegrationsApi } from "#/api/integrations";
 import { KernelApiTestLayer, makeIntegrationsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
-import type { UserSettingsApi } from "#/api/user-settings";
 import type { AuthService } from "#/modules/auth/service";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { IntegrationsService } from "#/modules/integrations/service";
@@ -41,7 +41,7 @@ import {
 	makeAuthStub,
 	OAuthRouteStubs,
 	makeStorageStubLayer,
-	GodModeRouteStubs,
+	InstanceAdminRouteStubs,
 	makePublicApiStub,
 	CustomizeRouteStubs,
 	SavedViewRouteStubs,
@@ -52,7 +52,7 @@ import {
 	NotificationChannelRouteStubs,
 	makeUserSettingsStub,
 	userSettings,
-	ClientPagesApiRouteStubs,
+	PagesApiRouteStubs,
 	ClientPageSessionsRouteStubs,
 } from "#/routes/-route-fixtures";
 
@@ -323,7 +323,7 @@ const mountView = (
 	integrationsApi: Layer.Layer<IntegrationsApi> = makeIntegrationsApi(),
 	queries: Layer.Layer<RyotQLApi> = makeIntegrationQueries(),
 	auth: Layer.Layer<AuthService> = AuthStub,
-	userSettingsApi: Layer.Layer<UserSettingsApi> = makeUserSettingsStub(),
+	userSettingsApi: Layer.Layer<AccountApi> = makeUserSettingsStub(),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const publicApi = makePublicApiStub();
@@ -332,13 +332,13 @@ const mountView = (
 			ProviderAddRouteStubs,
 			ImportsRouteStubs,
 			auth,
-			GodModeRouteStubs,
+			InstanceAdminRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
 			EntityRouteStubs,
 			publicApi,
 			KernelApiTestLayer,
-			ClientPagesApiRouteStubs,
+			PagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
 			userSettingsApi,
 			events.layer,

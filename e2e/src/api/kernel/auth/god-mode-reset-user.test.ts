@@ -1,6 +1,6 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
-import { godModeUsersRecipe } from "@ryot-app/ryotql-recipes/god-mode";
+import { instanceAdminUsersRecipe } from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
 
@@ -32,7 +32,7 @@ const listPluginsWithHeaders = (headers: Record<string, string>) =>
 		pluginInstallationsRecipe({ after, limit: 100 }),
 	);
 const listUsers = (search: string) =>
-	executeAdminRyotQLRecipe(godModeUsersRecipe({ search, limit: 50 }));
+	executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ search, limit: 50 }));
 const unique = () => crypto.randomUUID();
 
 const getUserIdByEmail = (email: string) =>
@@ -47,7 +47,7 @@ const createNoAccountUser = (name: string) =>
 	Effect.gen(function* () {
 		const email = `${name.toLowerCase()}-${unique()}@example.com`;
 		const { userId } = yield* getApiClient().call(
-			(c) => c.godMode.provisionUser({ payload: { name, email, provider: "credential" } }),
+			(c) => c.instanceAdmin.provisionUser({ payload: { name, email, provider: "credential" } }),
 			adminHeaders(),
 		);
 		return { email, userId: UserId.make(userId) };
@@ -58,7 +58,7 @@ const createOidcUser = (name: string) =>
 		const email = `${name.toLowerCase()}-${unique()}@example.com`;
 		const { userId } = yield* getApiClient().call(
 			(c) =>
-				c.godMode.provisionUser({
+				c.instanceAdmin.provisionUser({
 					payload: { name, email, provider: "oidc", oidcIssuerId: `oidc-sub-${unique()}` },
 				}),
 			adminHeaders(),
@@ -71,7 +71,9 @@ describe("Reset user admin token enforcement", () => {
 		Effect.gen(function* () {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
-				client.call((c) => c.godMode.resetUser({ params: { userId: UserId.make("any-id") } })),
+				client.call((c) =>
+					c.instanceAdmin.resetUser({ params: { userId: UserId.make("any-id") } }),
+				),
 			);
 			assertTaggedError(error, "AuthUnauthorized");
 		}),
@@ -82,7 +84,7 @@ describe("Reset user admin token enforcement", () => {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.resetUser({ params: { userId: UserId.make("any-id") } }),
+					(c) => c.instanceAdmin.resetUser({ params: { userId: UserId.make("any-id") } }),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
@@ -95,11 +97,12 @@ describe("Reset user admin token enforcement", () => {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.resetUser({ params: { userId: UserId.make(`missing-${unique()}`) } }),
+					(c) =>
+						c.instanceAdmin.resetUser({ params: { userId: UserId.make(`missing-${unique()}`) } }),
 					adminHeaders(),
 				),
 			);
-			assertTaggedError(error, "GodModeNotFound");
+			assertTaggedError(error, "InstanceAdminNotFound");
 			expect(error.reason.code).toBe("user-not-found");
 		}),
 	);
@@ -184,7 +187,7 @@ describe("Reset user revokes outstanding reset links", () => {
 			const { email } = yield* createTestUser();
 			const userId = yield* getUserIdByEmail(email);
 			const { resetUrl } = yield* getApiClient().call(
-				(c) => c.godMode.resetUserPassword({ params: { userId } }),
+				(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
 				adminHeaders(),
 			);
 			const token = requirePresent(new URL(resetUrl).searchParams.get("token"), "missing token");
@@ -266,9 +269,9 @@ describe("Reset user for mixed-auth user", () => {
 			);
 
 			const error = yield* Effect.flip(
-				client.call((c) => c.godMode.resetUser({ params: { userId } }), adminHeaders()),
+				client.call((c) => c.instanceAdmin.resetUser({ params: { userId } }), adminHeaders()),
 			);
-			assertTaggedError(error, "GodModeRequestFailure");
+			assertTaggedError(error, "InstanceAdminRequestFailure");
 			expect(error.reason.code).toBe("mixed-auth-reset-unsupported");
 
 			// The reset is rejected before any mutation, so the pre-existing session keeps working.

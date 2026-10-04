@@ -1,6 +1,6 @@
 import { AppContract } from "@ryot-app/contract/contract";
 import { DbError } from "@ryot-app/contract/errors";
-import { GodModeInternalFailure } from "@ryot-app/contract/modules/god-mode/contract";
+import { InstanceAdminInternalFailure } from "@ryot-app/contract/modules/instance-admin/contract";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
@@ -14,50 +14,56 @@ const mapPersistenceFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	effect.pipe(
 		Effect.catchIf(
 			(error): error is Extract<E, DbError> => error instanceof DbError,
-			() => Effect.fail(new GodModeInternalFailure({ reason: { code: "persistence-failed" } })),
+			() =>
+				Effect.fail(new InstanceAdminInternalFailure({ reason: { code: "persistence-failed" } })),
 		),
 	);
 
-export const InstanceAdminRoutesLive = HttpApiBuilder.group(AppContract, "godMode", (handlers) =>
-	handlers
-		.handle("startUserImpersonation", ({ params, payload }) =>
-			Effect.gen(function* () {
-				const service = yield* InstanceAdminService;
-				return yield* mapPersistenceFailure(service.startUserImpersonation(params.userId, payload));
-			}),
-		)
-		.handle("provisionUser", ({ payload }) =>
-			Effect.gen(function* () {
-				const service = yield* InstanceAdminService;
-				return yield* mapPersistenceFailure(service.provisionUser(payload));
-			}),
-		)
-		.handle("resetUserPassword", ({ params }) =>
-			Effect.gen(function* () {
-				const service = yield* InstanceAdminService;
-				return yield* mapPersistenceFailure(service.resetUserPassword(params.userId));
-			}),
-		)
-		.handle("resetUser", ({ params }) =>
-			Effect.gen(function* () {
-				const service = yield* InstanceAdminService;
-				return yield* mapPersistenceFailure(service.resetUser(params.userId));
-			}),
-		)
-		.handle("setUserDisabled", ({ params, payload }) =>
-			Effect.gen(function* () {
-				const service = yield* InstanceAdminService;
-				return yield* mapPersistenceFailure(
-					service.setUserDisabled(params.userId, payload.disabled),
-				);
-			}),
-		)
-		.handle("deleteUser", ({ params }) =>
-			Effect.gen(function* () {
-				const service = yield* InstanceAdminService;
-				return yield* mapPersistenceFailure(service.deleteUser(params.userId));
-			}),
-		),
+export const InstanceAdminRoutesLive = HttpApiBuilder.group(
+	AppContract,
+	"instanceAdmin",
+	(handlers) =>
+		handlers
+			.handle("startUserImpersonation", ({ params, payload }) =>
+				Effect.gen(function* () {
+					const service = yield* InstanceAdminService;
+					return yield* mapPersistenceFailure(
+						service.startUserImpersonation(params.userId, payload),
+					);
+				}),
+			)
+			.handle("provisionUser", ({ payload }) =>
+				Effect.gen(function* () {
+					const service = yield* InstanceAdminService;
+					return yield* mapPersistenceFailure(service.provisionUser(payload));
+				}),
+			)
+			.handle("resetUserPassword", ({ params }) =>
+				Effect.gen(function* () {
+					const service = yield* InstanceAdminService;
+					return yield* mapPersistenceFailure(service.resetUserPassword(params.userId));
+				}),
+			)
+			.handle("resetUser", ({ params }) =>
+				Effect.gen(function* () {
+					const service = yield* InstanceAdminService;
+					return yield* mapPersistenceFailure(service.resetUser(params.userId));
+				}),
+			)
+			.handle("setUserDisabled", ({ params, payload }) =>
+				Effect.gen(function* () {
+					const service = yield* InstanceAdminService;
+					return yield* mapPersistenceFailure(
+						service.setUserDisabled(params.userId, payload.disabled),
+					);
+				}),
+			)
+			.handle("deleteUser", ({ params }) =>
+				Effect.gen(function* () {
+					const service = yield* InstanceAdminService;
+					return yield* mapPersistenceFailure(service.deleteUser(params.userId));
+				}),
+			),
 );
 
 export const ServerLogsRoutesLive = HttpApiBuilder.group(AppContract, "serverLogs", (handlers) =>
@@ -71,7 +77,7 @@ export const ServerLogsRoutesLive = HttpApiBuilder.group(AppContract, "serverLog
 				const ticket = yield* service.createFileDownloadTicket(params.id);
 				return {
 					url: downloadTicketUrl(
-						`/god-mode/logs/files/${encodeURIComponent(params.id)}/download`,
+						`/instance-admin/logs/files/${encodeURIComponent(params.id)}/download`,
 						ticket,
 					),
 				};
@@ -81,7 +87,7 @@ export const ServerLogsRoutesLive = HttpApiBuilder.group(AppContract, "serverLog
 			Effect.gen(function* () {
 				const service = yield* ServerLogs;
 				const ticket = yield* service.createAllDownloadTicket();
-				return { url: downloadTicketUrl("/god-mode/logs/download", ticket) };
+				return { url: downloadTicketUrl("/instance-admin/logs/download", ticket) };
 			}),
 		),
 );

@@ -45,7 +45,7 @@ E2E enforces the normal Effect async, HTTP, JSON, and platform rules. Keep local
 
 Provider fixtures install offline scripts through the real admin plugin endpoint. Best-effort teardown stops on persistent references; tests that assert removal must delete references and use strict uninstall. Admin setup uses typed `testSupport` operations. Resolve plugin-owned definitions by plugin plus local slug because local slugs are not globally unique.
 
-The SSE catalog and entity-interest WebSocket fixtures validate transport headers/frames and support OAuth or API keys. The WebSocket fixture owns ticket authentication, revision acknowledgements, heartbeat replies, completion buffering, and scoped close; protocol details belong in [`kernel/backend/src/modules/entities/watches/README.md`](../kernel/backend/src/modules/entities/watches/README.md).
+The SSE catalog and entity-watches WebSocket fixtures validate transport headers/frames and support OAuth or API keys. The WebSocket fixture owns ticket authentication, revision acknowledgements, heartbeat replies, completion buffering, and scoped close; protocol details belong in [`kernel/backend/src/modules/entities/watches/README.md`](../kernel/backend/src/modules/entities/watches/README.md).
 
 ## Assertions
 

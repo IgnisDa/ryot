@@ -1,4 +1,4 @@
-import type { ClientRendererDefinition } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { ClientRendererDefinition } from "@ryot-app/contract/modules/pages/schemas";
 import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
 
 import { kernelRendererSources } from "./sources.generated";

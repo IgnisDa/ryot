@@ -3,7 +3,7 @@ import {
 	type ClientPageCodeContributor,
 	type ClientPageCompositionIdentity,
 	type ClientRendererDefinition,
-} from "@ryot-app/contract/modules/client-pages/schemas";
+} from "@ryot-app/contract/modules/pages/schemas";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	identityTupleKey,
@@ -108,7 +108,7 @@ const artifactHash = (plugin: GraphPlugin): string => {
 	return plugin.clientArtifactHash;
 };
 
-export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition-graph")(function* (
+export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph")(function* (
 	input: KernelInput | PluginInput,
 ) {
 	const isKernel = "kernel" in input;

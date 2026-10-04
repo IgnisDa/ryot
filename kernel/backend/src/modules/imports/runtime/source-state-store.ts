@@ -1,8 +1,8 @@
+import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/assets/upload-policy";
 import {
 	IngestionPayload,
 	type IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
-import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/uploads/upload-policy";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 

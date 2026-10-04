@@ -8,7 +8,7 @@ import { ClientArtifactStore } from "#modules/pages/bundles/store";
 
 import type { composeClientPage } from "./composition";
 import { ClientPageCompositionService } from "./composition-service";
-import { ClientPagesRepository } from "./repository";
+import { PagesRepository } from "./repository";
 import { descriptions, identity } from "./test-fixtures";
 
 const createdAt = new Date(0);
@@ -46,8 +46,8 @@ const fakeRepositoryLayer = Layer.effectContext(
 		const row = yield* Ref.make<CompositionRow | null>(null);
 		const writes = yield* Ref.make<ReadonlyArray<string>>([]);
 		return Context.make(
-			ClientPagesRepository,
-			ClientPagesRepository.of(
+			PagesRepository,
+			PagesRepository.of(
 				Object.assign(Object.create(null), {
 					findComposition: () => Ref.get(row),
 					createComposition: (input: Omit<CompositionRow, "createdAt">) =>

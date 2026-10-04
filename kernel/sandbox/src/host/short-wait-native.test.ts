@@ -1,5 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { SandboxScriptManifest } from "@ryot-app/contract/modules/sandbox/schemas";
+import { SandboxScriptManifest } from "@ryot-app/contract/modules/scripts/schemas";
 import { compileBuiltInSandboxEntry } from "@ryot-app/plugin-backend-compiler/builtins";
 import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Effect, Schema } from "effect";

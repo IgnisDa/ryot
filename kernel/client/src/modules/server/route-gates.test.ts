@@ -61,26 +61,29 @@ describe("route gates", () => {
 		});
 	});
 
-	it.each(["/god-mode", "/god-mode/users", "/god-mode/migration-report?from=setup"])(
-		"enters a safe God Mode destination directly after connection: %s",
-		(destination) => {
-			expect(decideOnboardingCompletion(destination)).toEqual({
-				to: destination,
-				action: "enter-god-mode",
-			});
-		},
-	);
+	it.each([
+		"/instance-admin",
+		"/instance-admin/users",
+		"/instance-admin/migration-report?from=setup",
+	])("enters a safe Instance Admin destination directly after connection: %s", (destination) => {
+		expect(decideOnboardingCompletion(destination)).toEqual({
+			to: destination,
+			action: "enter-instance-admin",
+		});
+	});
 
-	it.each(["/god-mode-other", "/god-mode/../library", "/library", "https://evil.example"])(
-		"keeps OAuth for non-God Mode destination %s",
-		(destination) => {
-			expect(decideOnboardingCompletion(destination)).toEqual({
-				to: "/auth",
-				action: "start-oauth",
-				redirectTo: destination === "https://evil.example" ? undefined : destination,
-			});
-		},
-	);
+	it.each([
+		"/instance-admin-other",
+		"/instance-admin/../library",
+		"/library",
+		"https://evil.example",
+	])("keeps OAuth for non-Instance Admin destination %s", (destination) => {
+		expect(decideOnboardingCompletion(destination)).toEqual({
+			to: "/auth",
+			action: "start-oauth",
+			redirectTo: destination === "https://evil.example" ? undefined : destination,
+		});
+	});
 
 	it("makes onboarding unreachable on web", () => {
 		expect(decideOnboardingGate(false, null, "/library")).toEqual({

@@ -1,4 +1,4 @@
-import { ClientPageCodeContributor } from "@ryot-app/contract/modules/client-pages/schemas";
+import { ClientPageCodeContributor } from "@ryot-app/contract/modules/pages/schemas";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";

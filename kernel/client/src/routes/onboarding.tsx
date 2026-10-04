@@ -37,7 +37,7 @@ export const Route = createFileRoute("/onboarding")({
 		if (decision.action === "start-oauth") {
 			return redirect({ to: decision.to, search: { redirect: decision.redirectTo } });
 		}
-		if (decision.action === "enter-god-mode") {
+		if (decision.action === "enter-instance-admin") {
 			return redirect({ href: decision.to });
 		}
 		return undefined;
@@ -100,7 +100,7 @@ function Onboarding() {
 				dispatch({ type: "succeeded" });
 				const decision = decideOnboardingCompletion(search.redirect);
 				yield* Effect.promise(() =>
-					decision.action === "enter-god-mode"
+					decision.action === "enter-instance-admin"
 						? navigate({ replace: true, href: decision.to, search: { redirect: undefined } })
 						: navigate({
 								replace: true,

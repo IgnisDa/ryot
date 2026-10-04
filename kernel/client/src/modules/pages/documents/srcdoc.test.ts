@@ -1,10 +1,10 @@
-import type { ClientCompositionDocument } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { ClientCompositionDocument } from "@ryot-app/contract/modules/pages/schemas";
 import { expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";
 import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
 
-const asset = (file: string) => `/api/client-assets/${"a".repeat(64)}/public/${file}`;
+const asset = (file: string) => `/api/page-bundles/${"a".repeat(64)}/public/${file}`;
 
 const document: ClientCompositionDocument = {
 	title: "Page",

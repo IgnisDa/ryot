@@ -1,4 +1,10 @@
 import {
+	AssetLocator,
+	ManagedAssetResolutionBatch,
+	type ManagedAssetLocator as ManagedAssetLocatorValue,
+	TemporaryUploadToken,
+} from "@ryot-app/contract/modules/assets/schemas";
+import {
 	CollectionResponse,
 	type CreateCollectionBody,
 	type CreateMembershipBody,
@@ -10,22 +16,16 @@ import {
 	PopulationStatus,
 	TranslationStatus,
 } from "@ryot-app/contract/modules/entities/schemas";
-import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
+import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import {
 	SavedViewReference,
 	type PluginIdentityReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import {
-	AssetLocator,
-	ManagedAssetResolutionBatch,
-	type ManagedAssetLocator as ManagedAssetLocatorValue,
-	TemporaryUploadToken,
-} from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId, type PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import {
-	EntityInterest,
+	EntityWatch,
 	ExternalLinkRequest,
 	ExternalLinkSuccess,
 	PluginCollectionRequest,
@@ -46,15 +46,15 @@ import { Data, Effect, Result, Schema } from "effect";
 
 export type { EntitySettle, EntitySettleReason } from "./settle";
 export type { RyotClientErrorReason } from "@ryot-app/plugin-client-contract";
-export type { EntityInterest } from "@ryot-app/plugin-client-contract";
+export type { EntityWatch } from "@ryot-app/plugin-client-contract";
 export type EntityUpdate = Schema.Codec.Encoded<typeof EntityUpdatedMessage>;
-export type EntityInterestSubscription = {
+export type EntityWatchSubscription = {
 	readonly dispose: () => void;
-	readonly update: (interest: EntityInterest) => void;
+	readonly update: (interest: EntityWatch) => void;
 };
 
-const normalizeInterest = (interest: EntityInterest): EntityInterest => {
-	const decoded = Schema.decodeResult(EntityInterest)(interest);
+const normalizeInterest = (interest: EntityWatch): EntityWatch => {
+	const decoded = Schema.decodeResult(EntityWatch)(interest);
 	if (Result.isFailure(decoded)) {
 		throw new RyotClientError("invalid-input");
 	}
@@ -66,7 +66,7 @@ const normalizeInterest = (interest: EntityInterest): EntityInterest => {
 export type {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
-} from "@ryot-app/contract/modules/uploads/schemas";
+} from "@ryot-app/contract/modules/assets/schemas";
 export { AssetLocator, EntitySyncState, PopulationStatus, TranslationStatus };
 
 export type RyotThemeSnapshot = PluginThemeSnapshotValue;
@@ -149,9 +149,9 @@ export type RyotClientAdapter = {
 		readonly setDismissHandler: (handler: () => boolean) => void;
 	};
 	readonly watchEntities?: (
-		interest: EntityInterest,
+		interest: EntityWatch,
 		onUpdate: (update: EntityUpdate) => void,
-	) => EntityInterestSubscription;
+	) => EntityWatchSubscription;
 	readonly query: (
 		document: PreparedRecipe<unknown>["document"],
 	) => Effect.Effect<unknown, RyotClientError>;
@@ -447,9 +447,9 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		},
 		entities: {
 			watch: (
-				interest: EntityInterest,
+				interest: EntityWatch,
 				onUpdate: (update: EntityUpdate) => void,
-			): EntityInterestSubscription => {
+			): EntityWatchSubscription => {
 				const normalized = normalizeInterest(interest);
 				if (!adapter.watchEntities) {
 					throw new RyotClientError("unsupported-capability");

@@ -2,16 +2,16 @@ import { describe, expect, it } from "@effect/vitest";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import {
+	UploadBadRequest,
+	UploadInternalError,
+	type UploadIntentResponse,
+} from "@ryot-app/contract/modules/assets/schemas";
+import {
 	CollectionBadRequest,
 	CollectionResponse,
 	MembershipResponse,
 } from "@ryot-app/contract/modules/collections/schemas";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
-import {
-	UploadBadRequest,
-	UploadInternalError,
-	type UploadIntentResponse,
-} from "@ryot-app/contract/modules/uploads/schemas";
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Layer, ManagedRuntime, Result, Schema } from "effect";
@@ -20,7 +20,7 @@ import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
 import {
 	makeCollectionsApi,
-	makeEntityInterestService,
+	makeEntityWatchService,
 	makeRyotQLApi,
 	makeUploadsApi,
 } from "#/api/ports.test-layer";
@@ -57,7 +57,7 @@ const makeRuntime = (cause: unknown) =>
 				),
 			),
 			makeCollectionsApi(),
-			makeEntityInterestService(),
+			makeEntityWatchService(),
 			makeUploadsApi(),
 			makeRyotQLApi({ execute: () => fails(cause) }),
 		),
@@ -113,7 +113,7 @@ const makeUploadsRuntime = (
 	ManagedRuntime.make(
 		Layer.mergeAll(
 			makeCollectionsApi(),
-			makeEntityInterestService(),
+			makeEntityWatchService(),
 			makeRyotQLApi(),
 			makeUploadsApi({
 				putBytes: (_scope, transfer) => {
@@ -156,7 +156,7 @@ describe("kernel Ryot client", () => {
 		const calls: unknown[] = [];
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
-				makeEntityInterestService(),
+				makeEntityWatchService(),
 				makeRyotQLApi(),
 				makeUploadsApi(),
 				makeCollectionsApi({
@@ -217,7 +217,7 @@ describe("kernel Ryot client", () => {
 			] as const) {
 				const runtime = ManagedRuntime.make(
 					Layer.mergeAll(
-						makeEntityInterestService(),
+						makeEntityWatchService(),
 						makeRyotQLApi(),
 						makeUploadsApi(),
 						makeCollectionsApi({ create: () => fails(failure) }),
@@ -254,7 +254,7 @@ describe("kernel Ryot client", () => {
 					makeCollectionsApi(),
 					makeRyotQLApi(),
 					makeUploadsApi(),
-					makeEntityInterestService({
+					makeEntityWatchService({
 						acquire: () => {
 							throw new Error("Client construction must not acquire a session");
 						},
@@ -338,7 +338,7 @@ describe("kernel Ryot client", () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
 				makeCollectionsApi(),
-				makeEntityInterestService(),
+				makeEntityWatchService(),
 				makeUploadsApi(),
 				makeRyotQLApi({ execute: () => Effect.never }),
 			),
@@ -360,7 +360,7 @@ describe("kernel Ryot client", () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
 				makeCollectionsApi(),
-				makeEntityInterestService(),
+				makeEntityWatchService(),
 				makeRyotQLApi(),
 				makeUploadsApi({
 					resolveDownloads: (receivedScope, request) => {
@@ -390,7 +390,7 @@ describe("kernel Ryot client", () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
 				makeCollectionsApi(),
-				makeEntityInterestService(),
+				makeEntityWatchService(),
 				makeUploadsApi({ resolveDownloads: () => Effect.never }),
 				makeRyotQLApi(),
 			),
@@ -420,7 +420,7 @@ describe("kernel Ryot client", () => {
 			const runtime = ManagedRuntime.make(
 				Layer.mergeAll(
 					makeCollectionsApi(),
-					makeEntityInterestService(),
+					makeEntityWatchService(),
 					makeRyotQLApi(),
 					makeUploadsApi({ resolveDownloads: () => fails(failure) }),
 				),
@@ -441,7 +441,7 @@ describe("kernel Ryot client", () => {
 			Layer.mergeAll(
 				makeCollectionsApi(),
 				makeRyotQLApi(),
-				makeEntityInterestService(),
+				makeEntityWatchService(),
 				makeUploadsApi({ resolveDownloads: () => fails(new TypeError("private network detail")) }),
 			),
 		);
@@ -461,7 +461,7 @@ describe("kernel temporary uploads", () => {
 		const runtime = ManagedRuntime.make(
 			Layer.mergeAll(
 				makeCollectionsApi(),
-				makeEntityInterestService(),
+				makeEntityWatchService(),
 				makeRyotQLApi(),
 				makeUploadsApi({
 					createIntent: (_scope, request) => {

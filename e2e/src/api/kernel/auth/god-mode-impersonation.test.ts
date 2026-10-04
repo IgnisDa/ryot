@@ -186,7 +186,7 @@ const runImpersonationClientFlow = (
 		});
 	});
 
-describe("God Mode impersonation", () => {
+describe("Instance Admin impersonation", () => {
 	it.live("requires the admin token and rejects unknown or disabled users", () =>
 		Effect.gen(function* () {
 			const target = yield* createAuthenticatedClient();
@@ -203,19 +203,19 @@ describe("God Mode impersonation", () => {
 			const unknownUser = yield* Effect.flip(
 				startUserImpersonation(`missing-${crypto.randomUUID()}`, authorization),
 			);
-			assertTaggedError(unknownUser, "GodModeNotFound");
+			assertTaggedError(unknownUser, "InstanceAdminNotFound");
 			expect(unknownUser.reason.code).toBe("user-not-found");
 
 			yield* getApiClient().call(
 				(client) =>
-					client.godMode.setUserDisabled({
+					client.instanceAdmin.setUserDisabled({
 						payload: { disabled: true },
 						params: { userId: UserId.make(target.userId) },
 					}),
 				adminHeaders(),
 			);
 			const disabledUser = yield* Effect.flip(startUserImpersonation(target.userId, authorization));
-			assertTaggedError(disabledUser, "GodModeRequestFailure");
+			assertTaggedError(disabledUser, "InstanceAdminRequestFailure");
 			expect(disabledUser.reason.code).toBe("user-disabled");
 		}),
 	);
@@ -297,7 +297,7 @@ describe("God Mode impersonation", () => {
 			);
 			expect(yield* Effect.promise(() => clearedSession.json())).toBeNull();
 
-			const invalidAccessToken = yield* webRequest(`${getApiUrl()}/user-settings/two-factor`, {
+			const invalidAccessToken = yield* webRequest(`${getApiUrl()}/account/two-factor`, {
 				headers: { Authorization: `Bearer ${rotated.access_token}` },
 			});
 			expect(invalidAccessToken.status).toBe(401);

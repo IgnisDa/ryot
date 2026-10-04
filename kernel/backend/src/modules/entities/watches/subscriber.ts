@@ -1,24 +1,24 @@
-import { decodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
+import { decodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { Cause, Context, Effect, FiberSet, Layer, Option, Result, Schema } from "effect";
 
 import { ImpersonationEndedMessage, redisKeys, RedisService } from "#platform/redis";
 
 import { LocalInterestSessions } from "./connections";
-import { EntityInterestProgression } from "./progression";
-import { EntityInterestStore } from "./store";
+import { EntityWatchProgression } from "./progression";
+import { EntityWatchStore } from "./store";
 
-export class EntityInterestSubscriber extends Context.Service<EntityInterestSubscriber>()(
-	"EntityInterestSubscriber",
+export class EntityWatchSubscriber extends Context.Service<EntityWatchSubscriber>()(
+	"EntityWatchSubscriber",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
-			const store = yield* EntityInterestStore;
+			const store = yield* EntityWatchStore;
 			const runFork = yield* FiberSet.makeRuntime();
 			const sessions = yield* LocalInterestSessions;
 			const channels = [redisKeys.entityUpdatedChannel, redisKeys.impersonationEndedChannel];
-			const progression = yield* EntityInterestProgression;
+			const progression = yield* EntityWatchProgression;
 
-			const dispatch = Effect.fn("EntityInterestSubscriber.dispatch")(function* (raw: string) {
+			const dispatch = Effect.fn("EntityWatchSubscriber.dispatch")(function* (raw: string) {
 				const decoded = decodeEntityUpdatedMessage(raw);
 				if (Result.isFailure(decoded)) {
 					return;
@@ -48,7 +48,7 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 				}
 			});
 			const dispatchImpersonationEnded = Effect.fn(
-				"EntityInterestSubscriber.dispatchImpersonationEnded",
+				"EntityWatchSubscriber.dispatchImpersonationEnded",
 			)(function* (raw: string) {
 				const decoded = Schema.decodeOption(ImpersonationEndedMessage)(raw);
 				if (Option.isSome(decoded)) {

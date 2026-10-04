@@ -1,16 +1,16 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	type MergeEntityUserDataBody,
+	EntityUserDataBadRequest,
+	EntityUserDataNotFound,
+} from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
-import {
-	type MergeUserStateBody,
-	UserStateBadRequest,
-	UserStateNotFound,
-} from "@ryot-app/contract/modules/user-state/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -53,7 +53,9 @@ const lifecyclePersistenceFailure = (error: LifecyclePersistenceError) =>
 const relationshipFailure =
 	(operation: "clear" | "merge") => (error: RelationshipBadRequest | RelationshipNotFound) =>
 		Effect.logWarning(`relationship ${operation} failed`, error).pipe(
-			Effect.andThen(new UserStateBadRequest({ reason: { code: "relationship-merge-failed" } })),
+			Effect.andThen(
+				new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }),
+			),
 		);
 
 export class EntityUserDataService extends Context.Service<EntityUserDataService>()(
@@ -84,7 +86,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				(lock ? receipts.lookup(identity, result) : receipts.peek(identity, result)).pipe(
 					Effect.mapError((error) =>
 						error instanceof MutationReceiptIdentityConflict
-							? new UserStateBadRequest({ reason: { code: "command-identity-conflict" } })
+							? new EntityUserDataBadRequest({ reason: { code: "command-identity-conflict" } })
 							: error,
 					),
 				);
@@ -165,14 +167,14 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				return { create, deletion };
 			});
 
-			const clearUserState = Effect.fn("EntityUserDataService.clearUserState")(function* (
+			const clearEntityUserData = Effect.fn("EntityUserDataService.clearEntityUserData")(function* (
 				user: CurrentUserValue,
 				entityIdInput: EntityId,
 				command: DomainLifecycleCommand,
 			) {
 				const trimmedEntityId = trimToNull(entityIdInput);
 				if (!trimmedEntityId) {
-					return yield* new UserStateBadRequest({
+					return yield* new EntityUserDataBadRequest({
 						reason: { field: "entityId", code: "required-field" },
 					});
 				}
@@ -183,7 +185,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					input: { entityId },
 					ownerUserId: user.id,
 					scopeUserId: user.id,
-					commandKind: "user-state:clear",
+					commandKind: "entity-user-data:clear",
 				});
 				const replay = yield* lookup(identity, ClearResult, false);
 				if (replay) {
@@ -197,7 +199,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					userId: user.id,
 				});
 				if (!scope) {
-					return yield* new UserStateNotFound({
+					return yield* new EntityUserDataNotFound({
 						reason: { entityIds: [entityId], code: "entity-not-found" },
 					});
 				}
@@ -212,7 +214,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					definitionKey("entity", entitySchemaReference.owner, entitySchemaReference.slug)
 				];
 				if (entitySchema?.userState?.deniedOperations.includes("clear")) {
-					return yield* new UserStateBadRequest({
+					return yield* new EntityUserDataBadRequest({
 						reason: { operation: "clear", code: "operation-denied" },
 					});
 				}
@@ -311,26 +313,26 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				return { ...committed.result, warnings };
 			});
 
-			const mergeUserState = Effect.fn("EntityUserDataService.mergeUserState")(function* (
+			const mergeEntityUserData = Effect.fn("EntityUserDataService.mergeEntityUserData")(function* (
 				user: CurrentUserValue,
-				payload: MergeUserStateBody,
+				payload: MergeEntityUserDataBody,
 				command: DomainLifecycleCommand,
 			) {
 				const trimmedMergeFrom = trimToNull(payload.mergeFrom);
 				const trimmedMergeInto = trimToNull(payload.mergeInto);
 
 				if (!trimmedMergeFrom) {
-					return yield* new UserStateBadRequest({
+					return yield* new EntityUserDataBadRequest({
 						reason: { field: "mergeFrom", code: "required-field" },
 					});
 				}
 				if (!trimmedMergeInto) {
-					return yield* new UserStateBadRequest({
+					return yield* new EntityUserDataBadRequest({
 						reason: { field: "mergeInto", code: "required-field" },
 					});
 				}
 				if (trimmedMergeFrom === trimmedMergeInto) {
-					return yield* new UserStateBadRequest({ reason: { code: "same-entity-merge" } });
+					return yield* new EntityUserDataBadRequest({ reason: { code: "same-entity-merge" } });
 				}
 
 				const mergeFrom = EntityId.make(trimmedMergeFrom);
@@ -339,8 +341,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					command,
 					ownerUserId: user.id,
 					scopeUserId: user.id,
-					commandKind: "user-state:merge",
 					input: { mergeFrom, mergeInto },
+					commandKind: "entity-user-data:merge",
 				});
 				const replay = yield* lookup(identity, MergeResult, false);
 				if (replay) {
@@ -355,7 +357,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					entitiesRepository.getEntityMergeScopeForUser({ userId: user.id, entityId: mergeInto }),
 				]);
 				if (!fromScope || !intoScope) {
-					return yield* new UserStateNotFound({
+					return yield* new EntityUserDataNotFound({
 						reason: { code: "entity-not-found", entityIds: [mergeFrom, mergeInto] },
 					});
 				}
@@ -382,7 +384,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					fromEntitySchema?.userState?.deniedOperations.includes("merge") ||
 					intoEntitySchema?.userState?.deniedOperations.includes("merge")
 				) {
-					return yield* new UserStateBadRequest({
+					return yield* new EntityUserDataBadRequest({
 						reason: { operation: "merge", code: "operation-denied" },
 					});
 				}
@@ -390,14 +392,16 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 					fromScope.entitySchemaSlug !== intoScope.entitySchemaSlug ||
 					fromScope.entitySchemaPluginId !== intoScope.entitySchemaPluginId
 				) {
-					return yield* new UserStateBadRequest({ reason: { code: "entity-schema-mismatch" } });
+					return yield* new EntityUserDataBadRequest({
+						reason: { code: "entity-schema-mismatch" },
+					});
 				}
 				if (!fromEntitySchema) {
 					return yield* Effect.die("Entity schema not found during entity merge");
 				}
 				for (const property of fromEntitySchema.mergeIdentityProperties) {
 					if (!Bun.deepEquals(fromScope.properties[property], intoScope.properties[property])) {
-						return yield* new UserStateBadRequest({
+						return yield* new EntityUserDataBadRequest({
 							reason: { property, code: "identity-property-mismatch" },
 						});
 					}
@@ -508,16 +512,20 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			});
 
 			return {
-				clearUserState: (user: CurrentUserValue, entityId: EntityId, command: LifecycleCommand) =>
-					clearUserState(user, entityId, { ...command, writeContext: null }).pipe(
-						Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure),
-					),
-				mergeUserState: (
+				clearEntityUserData: (
 					user: CurrentUserValue,
-					payload: MergeUserStateBody,
+					entityId: EntityId,
 					command: LifecycleCommand,
 				) =>
-					mergeUserState(user, payload, { ...command, writeContext: null }).pipe(
+					clearEntityUserData(user, entityId, { ...command, writeContext: null }).pipe(
+						Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure),
+					),
+				mergeEntityUserData: (
+					user: CurrentUserValue,
+					payload: MergeEntityUserDataBody,
+					command: LifecycleCommand,
+				) =>
+					mergeEntityUserData(user, payload, { ...command, writeContext: null }).pipe(
 						Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure),
 					),
 			};

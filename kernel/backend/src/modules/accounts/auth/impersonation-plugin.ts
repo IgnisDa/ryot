@@ -50,13 +50,6 @@ export const impersonationPlugin = (
 						return { authorizationUrl: handoff.authorizationUrl };
 					}).pipe(
 						Effect.catchTags({
-							GodModeNotFound: () =>
-								Effect.fail(
-									APIError.from("FORBIDDEN", {
-										code: "USER_UNAVAILABLE",
-										message: "The user is unavailable.",
-									}),
-								),
 							SchemaError: () =>
 								Effect.fail(
 									APIError.from("BAD_REQUEST", {
@@ -64,14 +57,21 @@ export const impersonationPlugin = (
 										message: "Invalid impersonation request.",
 									}),
 								),
-							GodModeRequestFailure: () =>
+							InstanceAdminNotFound: () =>
 								Effect.fail(
 									APIError.from("FORBIDDEN", {
 										code: "USER_UNAVAILABLE",
 										message: "The user is unavailable.",
 									}),
 								),
-							GodModeInternalFailure: () =>
+							InstanceAdminRequestFailure: () =>
+								Effect.fail(
+									APIError.from("FORBIDDEN", {
+										code: "USER_UNAVAILABLE",
+										message: "The user is unavailable.",
+									}),
+								),
+							InstanceAdminInternalFailure: () =>
 								Effect.fail(
 									APIError.from("SERVICE_UNAVAILABLE", {
 										code: "IMPERSONATION_UNAVAILABLE",

@@ -5,7 +5,7 @@ import { constants } from "node:fs";
 import { open as openDescriptor } from "node:fs/promises";
 
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import type { Scope } from "effect";
 import { Context, Effect, Exit, FileSystem, Layer, Option, Path, Result, Semaphore } from "effect";

@@ -13,12 +13,7 @@ import { Effect, Match, Schema } from "effect";
 import { useEffect, useState, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-import type {
-	RyotClientAdapter,
-	RyotNavigationTarget,
-	EntityInterest,
-	EntityUpdate,
-} from "./index";
+import type { RyotClientAdapter, RyotNavigationTarget, EntityWatch, EntityUpdate } from "./index";
 import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
 import { PluginScreenFrame } from "./plugin-screen";
 import { RyotProvider, useRyot, useEntityRefresh } from "./react";
@@ -327,7 +322,7 @@ describe("PluginRouter", () => {
 				let hint!: (event: EntityUpdate) => void;
 				let watches = 0;
 				let disposals = 0;
-				const watchEntities = (_interest: EntityInterest, listener: typeof hint) => {
+				const watchEntities = (_interest: EntityWatch, listener: typeof hint) => {
 					watches++;
 					hint = listener;
 					return {

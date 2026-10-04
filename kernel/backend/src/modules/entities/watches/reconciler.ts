@@ -1,4 +1,4 @@
-import type { EntityUpdatedReason } from "@ryot-app/contract/modules/entity-interest/messages";
+import type { EntityUpdatedReason } from "@ryot-app/contract/modules/entity-watches/messages";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
 	AutomationExecutionId,
@@ -6,7 +6,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { entityInterestRecipe, type EntityInterestResult } from "@ryot-app/ryotql-recipes/entities";
+import { entityWatchRecipe, type EntityWatchResult } from "@ryot-app/ryotql-recipes/entities";
 import { Context, DateTime, Effect, Layer, Result } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -38,7 +38,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 			const translations = yield* TranslationsService;
 			const populationTrigger = yield* EntityPopulationTrigger;
 
-			const handleRow = (principal: InterestPrincipal, row: EntityInterestResult[number]) =>
+			const handleRow = (principal: InterestPrincipal, row: EntityWatchResult[number]) =>
 				Effect.gen(function* () {
 					if (
 						row.populationStatus === "pending" &&
@@ -114,7 +114,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 					return { terminal: [], reconciledEntityIds: [] } satisfies ReconciliationResult;
 				}
 
-				const recipe = entityInterestRecipe({ entityIds: [firstId, ...restIds] });
+				const recipe = entityWatchRecipe({ entityIds: [firstId, ...restIds] });
 				const response = yield* ryotql.executeForUser(
 					principal.userId,
 					principal.preferredLanguage,

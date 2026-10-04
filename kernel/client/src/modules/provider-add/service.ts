@@ -1,15 +1,15 @@
-import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	ImportEntityBody,
 	SearchProviderEntitiesBody,
-} from "@ryot-app/contract/modules/provider-entities/schemas";
+} from "@ryot-app/contract/modules/entity-providers/schemas";
+import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import type { ProviderSearchResult } from "@ryot-app/ryotql-recipes/provider-search";
 import { Context, Data, Effect, Layer } from "effect";
 
-import { ProviderEntitiesApi } from "#/api/provider-entities";
+import { EntityProvidersApi } from "#/api/entity-providers";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 
@@ -26,7 +26,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 	"ProviderAddService",
 	{
 		make: Effect.gen(function* () {
-			const api = yield* ProviderEntitiesApi;
+			const api = yield* EntityProvidersApi;
 			const loadProviders = Effect.fn("ProviderAddService.loadProviders")(function* (
 				client: ProviderAddClient,
 				rootEntitySchema: EntitySchemaReference,

@@ -9,12 +9,12 @@ import {
 	entityDefinitionsRecipe,
 	relationshipDefinitionsRecipe,
 } from "@ryot-app/ryotql-recipes/definitions";
+import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import {
-	godModeUsersRecipe,
+	instanceAdminUsersRecipe,
 	migrationReportRecipe,
 	userLifecycleOperationRecipe,
-} from "@ryot-app/ryotql-recipes/god-mode";
-import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
+} from "@ryot-app/ryotql-recipes/instance-admin";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
 import { integrationRecipe } from "@ryot-app/ryotql-recipes/integrations";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
@@ -52,7 +52,11 @@ const recipes = [
 		userAccess,
 	],
 	["automation detail", automationHistoryRunRecipe({ id: "run" }).document, userAccess],
-	["god mode users", godModeUsersRecipe({ ...page, search: "example" }).document, adminAccess],
+	[
+		"instance admin users",
+		instanceAdminUsersRecipe({ ...page, search: "example" }).document,
+		adminAccess,
+	],
 	["migration report", migrationReportRecipe(page).document, adminAccess],
 	[
 		"user lifecycle operation",

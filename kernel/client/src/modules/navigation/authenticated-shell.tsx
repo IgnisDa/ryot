@@ -245,7 +245,7 @@ export function AuthenticatedShell(props: {
 		runtime.runFork(
 			waitForImpersonationExpiry(impersonation.expiresAt, awaitDocumentVisible).pipe(
 				Effect.andThen(auth.clearSession(server)),
-				Effect.andThen(Effect.sync(() => window.location.replace("/god-mode/users"))),
+				Effect.andThen(Effect.sync(() => window.location.replace("/instance-admin/users"))),
 			),
 			{ signal: controller.signal },
 		);

@@ -1,6 +1,6 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { integrationRecipe, integrationsRecipe } from "@ryot-app/ryotql-recipes/integrations";
 import { Effect, Option } from "effect";

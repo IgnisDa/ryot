@@ -92,7 +92,7 @@ import {
 	ClientArtifactGrantServiceLive,
 	ClientArtifactStoreLive,
 } from "#modules/pages/bundles/layer";
-import { ClientPagesServiceLive } from "#modules/pages/preparation/layer";
+import { PagesServiceLive } from "#modules/pages/preparation/layer";
 import { PluginCatalogHub, PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
@@ -230,7 +230,7 @@ const ServicesLive = Layer.mergeAll(
 	UserSettingsServiceLive,
 	EntityUserDataServiceLive,
 	UserBootstrapSchedulingLive,
-	ClientPagesServiceLive,
+	PagesServiceLive,
 	ClientArtifactGrantServiceLive,
 	ClientArtifactStoreLive,
 	AutomationReconciliationLive,

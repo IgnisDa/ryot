@@ -1,9 +1,9 @@
 import type {
 	SearchProviderEntitiesBody,
 	SearchProviderEntitiesResponse,
-} from "@ryot-app/contract/modules/provider-entities/schemas";
-import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
+} from "@ryot-app/contract/modules/entity-providers/schemas";
 import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Match } from "effect";
 
 const PROVIDER_SEARCH_PAGE_SIZE = 20;

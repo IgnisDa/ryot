@@ -7,13 +7,13 @@ import { ClientArtifactStore } from "#modules/pages/bundles/store";
 
 import { composeClientPage } from "./composition";
 import type { ResolvedClientPageGraph } from "./graph";
-import { ClientPagesRepository } from "./repository";
+import { PagesRepository } from "./repository";
 
 export class ClientPageCompositionService extends Context.Service<ClientPageCompositionService>()(
 	"ClientPageCompositionService",
 	{
 		make: Effect.gen(function* () {
-			const repository = yield* ClientPagesRepository;
+			const repository = yield* PagesRepository;
 			const store = yield* ClientArtifactStore;
 			const image = yield* ImageClientArtifacts;
 			const find = Effect.fn("ClientPageComposition.find")(function* (

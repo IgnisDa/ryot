@@ -36,7 +36,7 @@ import {
 	FLAT_SUMMARY_INPUT,
 	flatSummaryRow,
 } from "../../tests/client/flat-media/summary-fixture";
-import { declaresEntityInterest } from "../../tests/client/interest-fixture";
+import { declaresEntityWatch } from "../../tests/client/interest-fixture";
 import {
 	malformedQueryResult,
 	pendingQueryResult,
@@ -628,7 +628,7 @@ describe("flat media entity presentations", () => {
 const rows = (items: readonly unknown[]) =>
 	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });
 
-const declaresInterest = declaresEntityInterest("media-1");
+const declaresInterest = declaresEntityWatch("media-1");
 
 describe("flat media query entity interest", () => {
 	declaresInterest(

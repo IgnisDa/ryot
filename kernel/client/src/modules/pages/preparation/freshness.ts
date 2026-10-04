@@ -1,14 +1,14 @@
-import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { Context, Effect, Layer } from "effect";
 
-import { ClientPagesApi } from "#/api/client-pages";
+import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
 
 export class ClientPageFreshness extends Context.Service<ClientPageFreshness>()(
 	"ClientPageFreshness",
 	{
 		make: Effect.gen(function* () {
-			const api = yield* ClientPagesApi;
+			const api = yield* PagesApi;
 			return {
 				check: (scope: ApiScope, identity: PreparedClientPage["identity"]) =>
 					api

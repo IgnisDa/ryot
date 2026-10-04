@@ -8,12 +8,12 @@ import {
 } from "@ryot-app/contract/modules/imports/data-json";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import { jsonValueSchema, type JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
 import {
 	EntityBrowserSavedViewSettings,
 	KernelSavedViewRendererName,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
@@ -259,7 +259,7 @@ const savedViewFields = {
 	pluginKey: Schema.NullOr(Schema.String),
 	dataSources: Schema.NullOr(RyotQLDocument),
 	installationId: Schema.NullOr(Schema.String),
-	settings: Schema.Record(Schema.String, jsonValueSchema),
+	settings: Schema.Record(Schema.String, JsonValue),
 	renderer: Schema.Union([
 		strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
 		strictStruct({
@@ -331,7 +331,7 @@ export type ArchiveIntegration = typeof ArchiveIntegration.Type;
 export const ArchiveNotificationSubscription = strictStruct({
 	isActive: Schema.Boolean,
 	signalSchemaSlug: Schema.String,
-	metadata: Schema.NullOr(jsonValueSchema),
+	metadata: Schema.NullOr(JsonValue),
 	signalSchemaPluginKey: Schema.NullOr(Schema.String),
 });
 export type ArchiveNotificationSubscription = typeof ArchiveNotificationSubscription.Type;

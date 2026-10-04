@@ -74,7 +74,7 @@ describe("user settings", () => {
 				{ disableIntegrations: "true" },
 				{ unknownField: true },
 			]) {
-				const response = yield* webRequest(`${apiUrl}/user-settings/preferences`, {
+				const response = yield* webRequest(`${apiUrl}/account/preferences`, {
 					method: "PATCH",
 					body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(payload),
 					headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },

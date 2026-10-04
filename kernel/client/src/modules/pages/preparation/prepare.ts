@@ -2,10 +2,10 @@ import {
 	ClientPagePreparationError,
 	type ClientPageTarget,
 	type PreparedClientPage,
-} from "@ryot-app/contract/modules/client-pages/schemas";
+} from "@ryot-app/contract/modules/pages/schemas";
 import { Effect, Schema } from "effect";
 
-import { ClientPagesApi } from "#/api/client-pages";
+import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
 
 export type ClientPagePreparation =
@@ -15,7 +15,7 @@ export type ClientPagePreparation =
 const isPreparationError = Schema.is(ClientPagePreparationError);
 
 export const prepareClientPage = (scope: ApiScope, target: ClientPageTarget) =>
-	Effect.flatMap(ClientPagesApi, (api) => api.prepare(scope, { payload: { target } })).pipe(
+	Effect.flatMap(PagesApi, (api) => api.prepare(scope, { payload: { target } })).pipe(
 		Effect.map((prepared): ClientPagePreparation => ({ prepared, kind: "ready" })),
 		Effect.catchTag("AuthenticatedApiError", (error) =>
 			isPreparationError(error.cause)

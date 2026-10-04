@@ -3,7 +3,7 @@ import type {
 	UserLifecycleOperationKind,
 	UserLifecycleOperationStatus,
 	UserResetResult,
-} from "@ryot-app/contract/modules/god-mode/user-lifecycle";
+} from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
 import { sql } from "drizzle-orm";
 import {
 	index,

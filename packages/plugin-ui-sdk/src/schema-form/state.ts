@@ -1,4 +1,4 @@
-import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	type AppChoice,
 	type AppPropertyDefinition,

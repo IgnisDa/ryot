@@ -1,6 +1,6 @@
 import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
-import { ClientAssetNotFound } from "@ryot-app/contract/modules/client-pages/schemas";
+import { PageBundleFileNotFound } from "@ryot-app/contract/modules/pages/schemas";
 import { Effect } from "effect";
 import { HttpServerResponse } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
@@ -9,8 +9,8 @@ import { ClientArtifactGrantService } from "./grant-service";
 import { ClientArtifactStore } from "./store";
 import { canonicalClientArtifactFileName, CLIENT_ARTIFACT_HASH_PATTERN } from "./url";
 
-const missing = () => new ClientAssetNotFound({ reason: { code: "client-asset-not-found" } });
-export const serveClientAsset = Effect.fn("serveClientAsset")(function* (input: {
+const missing = () => new PageBundleFileNotFound({ reason: { code: "client-asset-not-found" } });
+export const servePageBundleFile = Effect.fn("servePageBundleFile")(function* (input: {
 	readonly artifactHash: string;
 	readonly accessKey: string;
 	readonly fileName: string;
@@ -46,15 +46,12 @@ export const serveClientAsset = Effect.fn("serveClientAsset")(function* (input: 
 	});
 });
 
-export const ClientAssetsRoutesLive = HttpApiBuilder.group(
-	AppContract,
-	"clientAssets",
-	(handlers) =>
-		handlers.handleRaw("file", ({ params }) =>
-			serveClientAsset({
-				fileName: params["*"],
-				accessKey: params.accessKey,
-				artifactHash: params.artifactHash,
-			}).pipe(dieOnDbError),
-		),
+export const PageBundlesRoutesLive = HttpApiBuilder.group(AppContract, "pageBundles", (handlers) =>
+	handlers.handleRaw("file", ({ params }) =>
+		servePageBundleFile({
+			fileName: params["*"],
+			accessKey: params.accessKey,
+			artifactHash: params.artifactHash,
+		}).pipe(dieOnDbError),
+	),
 );

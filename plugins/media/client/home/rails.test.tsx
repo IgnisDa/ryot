@@ -1,5 +1,5 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
-import { RyotClientError, type EntityInterest } from "@ryot-app/plugin-client-sdk";
+import { RyotClientError, type EntityWatch } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
@@ -321,14 +321,14 @@ describe("AiringRail", () => {
 
 type QueryResponder = (queries: readonly string[]) => Effect.Effect<unknown, RyotClientError>;
 
-const respondingAdapter = (respond: QueryResponder, interests: EntityInterest[] = []) => ({
+const respondingAdapter = (respond: QueryResponder, interests: EntityWatch[] = []) => ({
 	query: (document: { readonly queries: Readonly<Record<string, unknown>> }) =>
 		respond(Object.keys(document.queries)),
-	watchEntities: (interest: EntityInterest) => {
+	watchEntities: (interest: EntityWatch) => {
 		interests.push(interest);
 		return {
 			dispose: () => undefined,
-			update: (next: EntityInterest) => {
+			update: (next: EntityWatch) => {
 				interests.push(next);
 			},
 		};
@@ -393,7 +393,7 @@ describe("lazily queried rails", () => {
 
 	it.live("titles suggestions after the completion they come from and watches both", () =>
 		Effect.gen(function* () {
-			const interests: EntityInterest[] = [];
+			const interests: EntityWatch[] = [];
 			const view = mountRyotClient(
 				respondingAdapter(
 					respondWith({

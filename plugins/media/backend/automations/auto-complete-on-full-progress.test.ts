@@ -1,4 +1,4 @@
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
 import type { CreateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";

@@ -1,4 +1,4 @@
-import { SandboxScriptKind } from "@ryot-app/contract/modules/sandbox/schemas";
+import { SandboxScriptKind } from "@ryot-app/contract/modules/scripts/schemas";
 import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Schema } from "effect";
 

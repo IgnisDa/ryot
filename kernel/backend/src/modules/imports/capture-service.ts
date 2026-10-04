@@ -1,6 +1,6 @@
 import type { IngestionRun, IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, FileSystem, Layer, Option } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";

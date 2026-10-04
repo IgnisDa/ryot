@@ -2,7 +2,7 @@ import type { SandboxSourceExecutionMetadata } from "@ryot-app/contract/modules/
 import {
 	SANDBOX_HOST_CAPABILITIES,
 	type SandboxHostCapability,
-} from "@ryot-app/contract/modules/sandbox/wire";
+} from "@ryot-app/contract/modules/scripts/wire";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import { SANDBOX_SDK_INTRINSICS } from "@ryot-app/plugin-backend-sdk/intrinsics";
 import type { TypeScriptProjectAccess } from "@ryot-app/typescript-compiler";

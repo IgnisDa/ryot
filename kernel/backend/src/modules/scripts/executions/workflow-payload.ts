@@ -2,7 +2,7 @@ import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle"
 import {
 	SandboxExecutionGrants,
 	SandboxExecutionSubject,
-} from "@ryot-app/contract/modules/sandbox/schemas";
+} from "@ryot-app/contract/modules/scripts/schemas";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {

@@ -1,5 +1,5 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";

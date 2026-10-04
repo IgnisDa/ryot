@@ -1,4 +1,4 @@
-import type { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxExecutionGrants } from "@ryot-app/contract/modules/scripts/schemas";
 import { sha256Base64Url, sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Data, Effect, FileSystem, Layer, Path, PlatformError, Semaphore } from "effect";
 

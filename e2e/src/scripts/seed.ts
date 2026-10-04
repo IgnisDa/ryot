@@ -1386,7 +1386,7 @@ async function importMediaEntity(
 	let jobId: string;
 	try {
 		const importResult = await apiClient.run((c) =>
-			c.providerEntities.import({ payload: { providerId, externalId } }),
+			c.entityProviders.import({ payload: { providerId, externalId } }),
 		);
 		jobId = importResult.jobId;
 	} catch {
@@ -1394,12 +1394,10 @@ async function importMediaEntity(
 	}
 	const startedAt = Date.now();
 	while (true) {
-		let result: ContractSuccess<"providerEntities", "getImportResult">;
+		let result: ContractSuccess<"entityProviders", "getImportResult">;
 		try {
 			// oxlint-disable-next-line no-await-in-loop
-			result = await apiClient.run((c) =>
-				c.providerEntities.getImportResult({ params: { jobId } }),
-			);
+			result = await apiClient.run((c) => c.entityProviders.getImportResult({ params: { jobId } }));
 		} catch {
 			return null;
 		}
@@ -1567,7 +1565,7 @@ async function seedMedia(client: APIClient) {
 			try {
 				// oxlint-disable-next-line no-await-in-loop
 				const searchResult = await client.run((c) =>
-					c.providerEntities.search({
+					c.entityProviders.search({
 						payload: {
 							providerId: selectedProvider.providerId,
 							query: searchConfig.query,

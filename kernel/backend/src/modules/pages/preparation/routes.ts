@@ -1,18 +1,18 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
-import { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { Effect, Schema } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
-import { ClientPagesService } from "./service";
+import { PagesService } from "./service";
 
-export const ClientPagesRoutesLive = HttpApiBuilder.group(AppContract, "clientPages", (handlers) =>
+export const PagesRoutesLive = HttpApiBuilder.group(AppContract, "pages", (handlers) =>
 	handlers
 		.handle("prepare", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				const prepared = yield* (yield* ClientPagesService)
+				const prepared = yield* (yield* PagesService)
 					.prepare(user, payload.target)
 					.pipe(dieOnDbError);
 				return yield* Schema.decodeUnknownEffect(PreparedClientPage)(prepared).pipe(Effect.orDie);
@@ -22,7 +22,7 @@ export const ClientPagesRoutesLive = HttpApiBuilder.group(AppContract, "clientPa
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				return {
-					current: yield* (yield* ClientPagesService)
+					current: yield* (yield* PagesService)
 						.isIdentityCurrent(user.id, payload.identity)
 						.pipe(
 							Effect.catchTags({ ClientPagePreparationError: () => Effect.succeed(false) }),
@@ -34,9 +34,7 @@ export const ClientPagesRoutesLive = HttpApiBuilder.group(AppContract, "clientPa
 		.handle("document", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
-				return yield* (yield* ClientPagesService)
-					.document(user, payload.identity)
-					.pipe(dieOnDbError);
+				return yield* (yield* PagesService).document(user, payload.identity).pipe(dieOnDbError);
 			}),
 		),
 );

@@ -1,26 +1,26 @@
 import { Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 
+import { AccountApi } from "#/api/account";
 import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
 import { AutomationHistoryApi } from "#/api/automation-history";
 import { BackupsApi } from "#/api/backups";
-import { ClientPagesApi } from "#/api/client-pages";
 import { CollectionsApi } from "#/api/collections";
-import { EntityInterestApi } from "#/api/entity-interest";
-import { GodModeApi } from "#/api/god-mode";
+import { EntityProvidersApi } from "#/api/entity-providers";
+import { EntityWatchApi } from "#/api/entity-watches";
 import { ImportsApi } from "#/api/imports";
+import { InstanceAdminApi } from "#/api/instance-admin";
 import { IntegrationsApi } from "#/api/integrations";
 import { NotificationsApi } from "#/api/notifications";
 import { OAuthConnectionsApi } from "#/api/oauth-connections";
+import { PagesApi } from "#/api/pages";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
-import { ProviderEntitiesApi } from "#/api/provider-entities";
 import { PublicApi } from "#/api/public";
 import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
-import { UserSettingsApi } from "#/api/user-settings";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { FileDownloads } from "#/modules/downloads/file";
@@ -38,20 +38,20 @@ export const TransportLive = Layer.mergeAll(
 export const ApiLive = Layer.mergeAll(
 	PublicApi.layer,
 	AutomationHistoryApi.layer,
-	EntityInterestApi.layer,
+	EntityWatchApi.layer,
 	RyotQLApi.layer,
 	BackupsApi.layer,
-	ClientPagesApi.layer,
+	PagesApi.layer,
 	CollectionsApi.layer,
 	UploadsApi.layer,
 	PluginsApi.layer,
 	ImportsApi.layer,
-	GodModeApi.layer,
+	InstanceAdminApi.layer,
 	SavedViewsApi.layer,
-	UserSettingsApi.layer,
+	AccountApi.layer,
 	IntegrationsApi.layer,
 	NotificationsApi.layer,
 	OAuthConnectionsApi.layer,
-	ProviderEntitiesApi.layer,
+	EntityProvidersApi.layer,
 	PluginInstallationsApi.layer,
 ).pipe(Layer.provide(TransportLive));

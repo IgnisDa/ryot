@@ -5,10 +5,10 @@ import Redis from "ioredis";
 import { AppConfig } from "./config/service";
 import { WorkflowIdentity } from "./workflow/identity";
 
-export const ENTITY_INTEREST_SESSION_TTL_SECONDS = 15 * 60;
-export const ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS = 30;
+export const ENTITY_WATCH_SESSION_TTL_SECONDS = 15 * 60;
+export const ENTITY_WATCH_PROGRESSION_LEASE_SECONDS = 30;
 export const PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS = 24 * 60 * 60;
-export const ENTITY_INTEREST_SESSION_RENEWAL_INTERVAL_SECONDS = 5 * 60;
+export const ENTITY_WATCH_SESSION_RENEWAL_INTERVAL_SECONDS = 5 * 60;
 
 export const ImpersonationEndedMessage = Schema.fromJsonString(
 	Schema.Struct({ sessionId: Schema.String }),
@@ -32,20 +32,21 @@ export const redisKeys = {
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,
 	uploadIntent: (intentId: string) => `ryot:upload:intent:${intentId}`,
 	sandboxCacheNamespace: (tuple: string) => `ryot:sandbox:cache:${tuple}`,
-	godModePendingReset: (email: string) => `ryot:god-mode:pending:${email}`,
 	passwordResetToken: (userId: string) => `ryot:auth:password-reset:${userId}`,
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
 	workflowExecutionNotificationChannel: "ryot:workflow:execution-notifications",
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
+	instanceAdminPendingReset: (email: string) => `ryot:instance-admin:pending:${email}`,
 	impersonationHandoff: (ticketHash: string) => `ryot:auth:impersonation:${ticketHash}`,
-	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
-	entityInterestTicket: (ticketHash: string) => `ryot:entity-interest:ticket:${ticketHash}`,
-	entityInterestSession: (sessionId: string) => `ryot:entity-interest:session:${sessionId}`,
+	entityWatchTicket: (ticketHash: string) => `ryot:entity-watches:ticket:${ticketHash}`,
+	entityWatchSession: (sessionId: string) => `ryot:entity-watches:session:${sessionId}`,
+	entityWatchSessions: (entityId: string) => `ryot:entity-watches:entity:${entityId}:sessions`,
+	entityWatchProgressionLease: (entityId: string) => `ryot:entity-watches:progress:${entityId}`,
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,
-	entityInterestSessions: (entityId: string) => `ryot:entity-interest:entity:${entityId}:sessions`,
-	entityInterestProgressionLease: (entityId: string) => `ryot:entity-interest:progress:${entityId}`,
-	entityInterestSessionEntities: (sessionId: string) =>
-		`ryot:entity-interest:session:${sessionId}:entities`,
+	instanceAdminResetChannel: (correlationId: string) =>
+		`ryot:instance-admin:reset:${correlationId}`,
+	entityWatchSessionEntities: (sessionId: string) =>
+		`ryot:entity-watches:session:${sessionId}:entities`,
 	integrationCache: (integrationId: string, key: string) =>
 		`ryot:integrations:cache:${integrationId}:${key}`,
 	sandboxRunCacheNamespace: (serverRunId: string, tuple: string) =>

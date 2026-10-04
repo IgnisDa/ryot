@@ -1,4 +1,4 @@
-import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { PluginBridgeProviderSearchScreen } from "@ryot-app/plugin-client-contract";
 import { createFileRoute, Outlet } from "@tanstack/react-router";

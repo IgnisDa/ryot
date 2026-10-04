@@ -1,5 +1,4 @@
 import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
-import { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -7,6 +6,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { Recipe } from "@ryot-app/ryotql";
 import {
 	ascending,
@@ -22,7 +22,7 @@ import {
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
-export const entityInterestRecipe = defineRecipe(
+export const entityWatchRecipe = defineRecipe(
 	(input: { readonly entityIds: readonly [string, ...string[]] }) => {
 		const entity = table("entity", "entity");
 		return {
@@ -61,7 +61,7 @@ export const entityInterestRecipe = defineRecipe(
 	},
 );
 
-export type EntityInterestResult = Recipe.Success<typeof entityInterestRecipe>;
+export type EntityWatchResult = Recipe.Success<typeof entityWatchRecipe>;
 
 export const entityRouteProvenanceRecipe = defineRecipe((input: { readonly entityId: string }) => {
 	const entity = table("entity", "entity");

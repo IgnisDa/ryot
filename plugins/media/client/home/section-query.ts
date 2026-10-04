@@ -64,7 +64,7 @@ export const createHomeSectionQuery = <Input, Recipes extends SectionRecipes>(
 		({ input, client }) =>
 			client.data.query(sectionRecipe(recipes(input, client.pluginIdentity(PLUGIN_PACKAGE_ID)))),
 		{
-			entityInterest: ({ data }) => ({
+			entityWatch: ({ data }) => ({
 				foreground: [],
 				visible: data === undefined ? [] : visible(data),
 			}),

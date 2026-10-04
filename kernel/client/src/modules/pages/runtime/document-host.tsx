@@ -1,5 +1,5 @@
 import { sha256 } from "@noble/hashes/sha2.js";
-import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginPageSearchUpdate } from "@ryot-app/plugin-client-contract";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { useRyot } from "@ryot-app/plugin-client-sdk/react";
@@ -9,11 +9,11 @@ import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tansta
 import { Effect, Match } from "effect";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { ClientPagesApi } from "#/api/client-pages";
+import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
-import { EntityInterestService, type WatchEntities } from "#/modules/entity-interest/service";
+import { EntityWatchService, type WatchEntities } from "#/modules/entity-watches/service";
 import { ExternalLinks } from "#/modules/external-links/service";
 import { useScreenLeadingControl } from "#/modules/navigation/app-screen";
 import {
@@ -446,7 +446,7 @@ function ClientPageFrame(props: {
 	const watchEntities = useCallback<WatchEntities>(
 		(interest, onUpdate) =>
 			props.runtime.runSync(
-				Effect.map(EntityInterestService, (service) =>
+				Effect.map(EntityWatchService, (service) =>
 					service.watch(props.scope, interest, onUpdate, () => active.current),
 				),
 			),
@@ -455,7 +455,7 @@ function ClientPageFrame(props: {
 	useLayoutEffect(() => {
 		active.current = props.active;
 		props.runtime.runSync(
-			Effect.map(EntityInterestService, (service) => service.refresh(props.scope)),
+			Effect.map(EntityWatchService, (service) => service.refresh(props.scope)),
 		);
 	}, [props.active, props.runtime, props.scope]);
 	const viewport = useMemo(
@@ -509,7 +509,7 @@ function ClientPageFrame(props: {
 			}
 			onLoadDocument={() =>
 				props.runtime
-					.runSync(ClientPagesApi)
+					.runSync(PagesApi)
 					.document(props.scope, { payload: { identity } })
 					.pipe(Effect.map((document) => renderClientDocument(document, props.scope.serverUrl)))
 			}

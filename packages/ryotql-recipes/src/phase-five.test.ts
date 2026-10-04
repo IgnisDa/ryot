@@ -2,8 +2,8 @@ import { Option, Result } from "effect";
 import { expect, it } from "vitest";
 
 import { backupRunRecipe } from "./backups";
-import { godModeUsersRecipe, migrationReportRecipe } from "./god-mode";
 import { importSourcesRecipe } from "./import-sources";
+import { instanceAdminUsersRecipe, migrationReportRecipe } from "./instance-admin";
 import { integrationProvidersRecipe } from "./integration-providers";
 import { rowsResult } from "./test-utils";
 
@@ -140,7 +140,7 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 
 it("keeps admin user count independent of the cursor page and normalizes dates", () => {
 	const decoded = Result.getOrThrow(
-		godModeUsersRecipe({ limit: 2, search: "a" }).decode({
+		instanceAdminUsersRecipe({ limit: 2, search: "a" }).decode({
 			data: {
 				total: { type: "aggregate", items: [{ count: 17 }] },
 				users: page(

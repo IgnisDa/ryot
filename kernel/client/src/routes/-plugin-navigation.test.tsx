@@ -3,7 +3,7 @@ import {
 	ClientPagePreparationError,
 	type ClientPageTarget,
 	type PreparedClientPage,
-} from "@ryot-app/contract/modules/client-pages/schemas";
+} from "@ryot-app/contract/modules/pages/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -27,7 +27,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { ClientPagesApi } from "#/api/client-pages";
+import { PagesApi } from "#/api/pages";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { EntitiesService } from "#/modules/entities/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
@@ -41,7 +41,7 @@ import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
 	CustomizeRouteStubs,
-	GodModeRouteStubs,
+	InstanceAdminRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
 	NavigationRouteStubs,
@@ -163,12 +163,12 @@ function mount(options: {
 	readonly auth?: ReturnType<typeof makeAuthStub>;
 	readonly storage?: ClientStorage["Service"];
 	readonly loadProviders?: ProviderAddService["Service"]["loadProviders"];
-	readonly prepare?: ClientPagesApi["Service"]["prepare"];
+	readonly prepare?: PagesApi["Service"]["prepare"];
 	readonly check?: ClientPageFreshness["Service"]["check"];
 }) {
 	const targets: ClientPageTarget[] = [];
 	let documentLoads = 0;
-	const loadDocument: ClientPagesApi["Service"]["document"] = (_scope, request) => {
+	const loadDocument: PagesApi["Service"]["document"] = (_scope, request) => {
 		documentLoads += 1;
 		return Effect.succeed(
 			clientCompositionDocument(
@@ -180,7 +180,7 @@ function mount(options: {
 	const operations: Parameters<PluginOperationsService["Service"]["invoke"]>[0][] = [];
 	let catalogLoads = 0;
 	const entries = options.entries ?? catalog;
-	const prepare: ClientPagesApi["Service"]["prepare"] =
+	const prepare: PagesApi["Service"]["prepare"] =
 		options.prepare ??
 		((_scope, request) => {
 			targets.push(request.payload.target);
@@ -210,7 +210,7 @@ function mount(options: {
 			IntegrationRouteStubs,
 			NotificationChannelRouteStubs,
 			options.auth ?? makeAuthStub(),
-			GodModeRouteStubs,
+			InstanceAdminRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
 			Layer.succeed(EntitiesService, { loadRouteProvenance: () => Effect.die("not used") }),
@@ -226,7 +226,7 @@ function mount(options: {
 			}),
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			Layer.succeed(ClientPagesApi, {
+			Layer.succeed(PagesApi, {
 				prepare,
 				document: loadDocument,
 				checkFreshness: () => Effect.succeed({ current: true }),

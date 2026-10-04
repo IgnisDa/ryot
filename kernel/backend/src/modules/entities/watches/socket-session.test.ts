@@ -1,9 +1,9 @@
 import { assert, describe, expect, layer } from "@effect/vitest";
-import { EntityInterestTicketFailure } from "@ryot-app/contract/modules/entity-interest/contract";
+import { EntityWatchTicketFailure } from "@ryot-app/contract/modules/entity-watches/contract";
 import {
-	decodeEntityInterestServerMessage,
-	encodeEntityInterestClientMessage,
-} from "@ryot-app/contract/modules/entity-interest/messages";
+	decodeEntityWatchServerMessage,
+	encodeEntityWatchClientMessage,
+} from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Context, Deferred, Effect, Fiber, Layer, Option, Queue, Ref, Result } from "effect";
 import * as Socket from "effect/socket/Socket";
@@ -13,9 +13,9 @@ import { ImpersonationSessions } from "#modules/accounts/auth/impersonation-sess
 
 import { LocalInterestSessions } from "./connections";
 import { InterestService } from "./service";
-import { runEntityInterestSocketSession } from "./socket-session";
-import { EntityInterestStore } from "./store";
-import { EntityInterestInvalidTicket, EntityInterestTicketService } from "./ticket-service";
+import { runEntityWatchSocketSession } from "./socket-session";
+import { EntityWatchStore } from "./store";
+import { EntityWatchInvalidTicket, EntityWatchTicketService } from "./ticket-service";
 
 const makeSocket = Effect.fn(function* (
 	readyWriteGate?: Deferred.Deferred<void>,
@@ -34,11 +34,11 @@ const makeSocket = Effect.fn(function* (
 			}
 			yield* Queue.offer(writes, frame);
 			if (typeof frame === "string" && autoPong) {
-				const decoded = decodeEntityInterestServerMessage(frame);
+				const decoded = decodeEntityWatchServerMessage(frame);
 				if (Result.isSuccess(decoded) && decoded.success.type === "ping") {
 					yield* Queue.offer(
 						inbound,
-						encodeEntityInterestClientMessage({ type: "pong", nonce: decoded.success.nonce }),
+						encodeEntityWatchClientMessage({ type: "pong", nonce: decoded.success.nonce }),
 					);
 				}
 			}
@@ -75,7 +75,7 @@ const makeSocket = Effect.fn(function* (
 		if (typeof frame !== "string") {
 			return yield* Effect.die("socket closed before message");
 		}
-		const decoded = decodeEntityInterestServerMessage(frame);
+		const decoded = decodeEntityWatchServerMessage(frame);
 		return Result.isSuccess(decoded)
 			? decoded.success
 			: yield* Effect.die("server emitted an invalid message");
@@ -119,7 +119,7 @@ const makeLayer = (
 			const replaceStarted = yield* Deferred.make<void>();
 			const record = (entry: string) => Ref.update(activity, (all) => [...all, entry]);
 			return Layer.mergeAll(
-				Layer.mock(EntityInterestTicketService)({
+				Layer.mock(EntityWatchTicketService)({
 					consume: () =>
 						Effect.gen(function* () {
 							const principal = {
@@ -149,7 +149,7 @@ const makeLayer = (
 							),
 						),
 				}),
-				Layer.mock(EntityInterestStore)({
+				Layer.mock(EntityWatchStore)({
 					renewSession: () => Effect.succeed(true),
 					closeSession: (sessionId) => record(`close:${sessionId}`).pipe(Effect.as(true)),
 					openSession: ({ sessionId }) => record(`open:${sessionId}`).pipe(Effect.as(undefined)),
@@ -210,7 +210,7 @@ const obsoleteTokenLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const markAttempted = yield* Deferred.make<void>();
 		return Layer.mergeAll(
-			Layer.mock(EntityInterestTicketService)({
+			Layer.mock(EntityWatchTicketService)({
 				consume: () =>
 					Effect.succeed({
 						preferredLanguage: null,
@@ -219,7 +219,7 @@ const obsoleteTokenLayer = Layer.unwrap(
 					}),
 			}),
 			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
-			Layer.mock(EntityInterestStore)({
+			Layer.mock(EntityWatchStore)({
 				closeSession: () => Effect.succeed(true),
 				renewSession: () => Effect.succeed(true),
 				openSession: () => Effect.void.pipe(Effect.as(undefined)),
@@ -259,12 +259,10 @@ describe("entity interest socket session", () => {
 					Effect.gen(function* () {
 						const fake = yield* FakeSessionDependencies;
 						const socket = yield* makeSocket();
-						const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(
-							Effect.forkChild,
-						);
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 						yield* Deferred.await(socket.opened);
 						yield* socket.send(
-							encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+							encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 						);
 						const ready = yield* socket.nextMessage();
 						if (ready.type !== "ready") {
@@ -272,7 +270,7 @@ describe("entity interest socket session", () => {
 						}
 
 						yield* socket.send(
-							encodeEntityInterestClientMessage({
+							encodeEntityWatchClientMessage({
 								revision: 1,
 								type: "replace",
 								entityIds: ["entity-1"],
@@ -280,7 +278,7 @@ describe("entity interest socket session", () => {
 						);
 						expect(yield* socket.nextMessage()).toEqual({ revision: 1, type: "applied" });
 						yield* socket.send(
-							encodeEntityInterestClientMessage({
+							encodeEntityWatchClientMessage({
 								remove: [],
 								revision: 2,
 								type: "update",
@@ -310,10 +308,10 @@ describe("entity interest socket session", () => {
 				Effect.gen(function* () {
 					const fake = yield* FakeSessionDependencies;
 					const socket = yield* makeSocket();
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 
 					const close = yield* Queue.take(socket.writes);
@@ -335,11 +333,11 @@ describe("entity interest socket session", () => {
 
 	layer(
 		Layer.mergeAll(
-			Layer.mock(EntityInterestTicketService)({
-				consume: () => Effect.fail(new EntityInterestInvalidTicket()),
+			Layer.mock(EntityWatchTicketService)({
+				consume: () => Effect.fail(new EntityWatchInvalidTicket()),
 			}),
 			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
-			Layer.mock(EntityInterestStore)({}),
+			Layer.mock(EntityWatchStore)({}),
 			Layer.mock(InterestService)({}),
 			Layer.mock(LocalInterestSessions)({}),
 		),
@@ -348,10 +346,10 @@ describe("entity interest socket session", () => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const socket = yield* makeSocket();
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "invalid", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "invalid", type: "authenticate" }),
 					);
 					const close = yield* Queue.take(socket.writes);
 					if (!Socket.isCloseEvent(close)) {
@@ -368,14 +366,14 @@ describe("entity interest socket session", () => {
 
 	layer(
 		Layer.mergeAll(
-			Layer.mock(EntityInterestTicketService)({
+			Layer.mock(EntityWatchTicketService)({
 				consume: () =>
 					Effect.fail(
-						new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
+						new EntityWatchTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
 					),
 			}),
 			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
-			Layer.mock(EntityInterestStore)({}),
+			Layer.mock(EntityWatchStore)({}),
 			Layer.mock(InterestService)({}),
 			Layer.mock(LocalInterestSessions)({}),
 		),
@@ -384,10 +382,10 @@ describe("entity interest socket session", () => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const socket = yield* makeSocket();
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					const close = yield* Queue.take(socket.writes);
 					expect(Socket.isCloseEvent(close) && close.code).toBe(1011);
@@ -405,13 +403,13 @@ describe("entity interest socket session", () => {
 					const fake = yield* FakeSessionDependencies;
 					const readyWriteGate = yield* Deferred.make<void>();
 					const socket = yield* makeSocket(readyWriteGate);
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({
+						encodeEntityWatchClientMessage({
 							revision: 1,
 							type: "replace",
 							entityIds: ["entity-1"],
@@ -436,10 +434,10 @@ describe("entity interest socket session", () => {
 				Effect.gen(function* () {
 					const fake = yield* FakeSessionDependencies;
 					const socket = yield* makeSocket(undefined, true);
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					const ready = yield* socket.nextMessage();
 					if (ready.type !== "ready") {
@@ -465,14 +463,14 @@ describe("entity interest socket session", () => {
 				Effect.gen(function* () {
 					const fake = yield* FakeSessionDependencies;
 					const socket = yield* makeSocket();
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* socket.send(
-						encodeEntityInterestClientMessage({
+						encodeEntityWatchClientMessage({
 							remove: [],
 							revision: 1,
 							type: "update",
@@ -480,7 +478,7 @@ describe("entity interest socket session", () => {
 						}),
 					);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 					);
 
 					const close = yield* Queue.take(socket.writes);
@@ -498,17 +496,17 @@ describe("entity interest socket session", () => {
 				Effect.gen(function* () {
 					const fake = yield* FakeSessionDependencies;
 					const socket = yield* makeSocket();
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 					);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 					);
 
 					const close = yield* Queue.take(socket.writes);
@@ -525,14 +523,14 @@ describe("entity interest socket session", () => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const socket = yield* makeSocket();
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 					);
 
 					expect(yield* socket.nextMessage()).toEqual({
@@ -554,14 +552,14 @@ describe("entity interest socket session", () => {
 				Effect.gen(function* () {
 					const activity: string[] = [];
 					const socket = yield* makeSocket();
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* socket.send(
-						encodeEntityInterestClientMessage({
+						encodeEntityWatchClientMessage({
 							revision: 1,
 							type: "replace",
 							entityIds: ["entity-1"],
@@ -583,10 +581,10 @@ describe("entity interest socket session", () => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const socket = yield* makeSocket();
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* TestClock.adjust("25 seconds");
@@ -606,10 +604,10 @@ describe("entity interest socket session", () => {
 				Effect.gen(function* () {
 					const fake = yield* FakeSessionDependencies;
 					const socket = yield* makeSocket(undefined, false, true);
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					const ready = yield* socket.nextMessage();
 					assert(ready.type === "ready");
@@ -650,12 +648,10 @@ describe("entity interest socket session", () => {
 				Effect.scoped(
 					Effect.gen(function* () {
 						const socket = yield* makeSocket();
-						const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(
-							Effect.forkChild,
-						);
+						const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 						yield* Deferred.await(socket.opened);
 						yield* socket.send(
-							encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+							encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 						);
 						assert((yield* socket.nextMessage()).type === "ready");
 						yield* Effect.yieldNow;
@@ -684,18 +680,18 @@ describe("entity interest socket session", () => {
 				Effect.gen(function* () {
 					const fake = yield* FakeSessionDependencies;
 					const socket = yield* makeSocket();
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ ticket: "ticket", type: "authenticate" }),
+						encodeEntityWatchClientMessage({ ticket: "ticket", type: "authenticate" }),
 					);
 					expect((yield* socket.nextMessage()).type).toBe("ready");
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 					);
 					yield* fake.replaceStarted;
 					yield* socket.send(
-						encodeEntityInterestClientMessage({ revision: 2, entityIds: [], type: "replace" }),
+						encodeEntityWatchClientMessage({ revision: 2, entityIds: [], type: "replace" }),
 					);
 
 					yield* TestClock.adjust("25 seconds");
@@ -712,9 +708,9 @@ describe("entity interest socket session", () => {
 
 	layer(
 		Layer.mergeAll(
-			Layer.mock(EntityInterestTicketService)({}),
+			Layer.mock(EntityWatchTicketService)({}),
 			Layer.mock(ImpersonationSessions)({ getActive: () => Effect.succeed(null) }),
-			Layer.mock(EntityInterestStore)({}),
+			Layer.mock(EntityWatchStore)({}),
 			Layer.mock(InterestService)({}),
 			Layer.mock(LocalInterestSessions)({}),
 		),
@@ -723,7 +719,7 @@ describe("entity interest socket session", () => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const socket = yield* makeSocket();
-					const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(Effect.forkChild);
+					const fiber = yield* runEntityWatchSocketSession(socket.socket).pipe(Effect.forkChild);
 					yield* Deferred.await(socket.opened);
 					yield* TestClock.adjust("4999 millis");
 					expect(yield* Queue.poll(socket.writes)).toEqual(Option.none());

@@ -1,4 +1,4 @@
-import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginBridgeProviderSearchScreen } from "@ryot-app/plugin-client-contract";
 import {
 	createContext,

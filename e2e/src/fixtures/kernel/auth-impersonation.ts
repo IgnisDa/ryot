@@ -23,8 +23,8 @@ import { adminHeaders } from "./admin";
 import { type Client, type PendingOAuth, prepareOAuth, responseCookie } from "./auth";
 import { getApiClient, makeSession } from "./contract-client";
 
-type StartUserImpersonationBody = ContractPayload<"godMode", "startUserImpersonation">;
-type StartUserImpersonationResult = ContractSuccess<"godMode", "startUserImpersonation">;
+type StartUserImpersonationBody = ContractPayload<"instanceAdmin", "startUserImpersonation">;
+type StartUserImpersonationResult = ContractSuccess<"instanceAdmin", "startUserImpersonation">;
 
 const ImpersonationRedeemRequest = Schema.Struct({ ticket: Schema.String });
 const ImpersonationRedeemResponse = Schema.Struct({ authorizationUrl: Schema.String });
@@ -72,7 +72,7 @@ export const startUserImpersonation = (
 ) =>
 	getApiClient().call(
 		(client) =>
-			client.godMode.startUserImpersonation({
+			client.instanceAdmin.startUserImpersonation({
 				payload: authorization,
 				params: { userId: UserId.make(userId) },
 			}),

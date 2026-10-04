@@ -371,7 +371,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				upsertGlobalRelationship,
 				reconcilePluginInstallations,
 				getSandboxResult: sandbox.getResult,
-				setEntityInterestMembership: interest.setEntityInterestMembership,
+				setEntityWatchMembership: interest.setEntityWatchMembership,
 				uninstallSystemPlugin: (pluginId: PluginId, activationId: string) =>
 					pluginIngestion.uninstallPlugin(pluginId, activationId),
 				enqueueSandbox: (input: TestSupportEnqueueSandboxBody) => {

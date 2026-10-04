@@ -5,7 +5,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 
 import { InterestReconciler } from "./reconciler";
 import { InterestService } from "./service";
-import { EntityInterestStore } from "./store";
+import { EntityWatchStore } from "./store";
 
 const principal = {
 	preferredLanguage: "es",
@@ -13,7 +13,7 @@ const principal = {
 	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 
-type Store = EntityInterestStore["Service"];
+type Store = EntityWatchStore["Service"];
 type Reply<Method extends (...args: never) => Effect.Effect<unknown, unknown>> = (
 	...args: Parameters<Method>
 ) => Effect.Success<ReturnType<Method>>;
@@ -43,7 +43,7 @@ const serviceLayer = (replies: {
 			);
 			const event = (name: string) => Ref.update(events, (all) => [...all, name]);
 			const { removePending, markReconciled, replaceInterest, getSessionMetadata } = replies;
-			const store = Layer.mock(EntityInterestStore)({
+			const store = Layer.mock(EntityWatchStore)({
 				...(markReconciled && {
 					markReconciled: (input) =>
 						event(`mark:${input.pending.length}`).pipe(
@@ -170,10 +170,7 @@ layer(
 	test.effect("sets test membership without reconciliation", () =>
 		Effect.gen(function* () {
 			const service = yield* InterestService;
-			yield* service.setEntityInterestMembership({
-				sessionId: "session-1",
-				entityIds: ["entity-1"],
-			});
+			yield* service.setEntityWatchMembership({ sessionId: "session-1", entityIds: ["entity-1"] });
 			const calls = yield* FakeInterestCalls;
 			const [reconciled] = yield* calls.reconciled;
 			const [replacement] = yield* calls.replacements;

@@ -1,4 +1,4 @@
-import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/sandbox/wire";
+import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
 import { Effect as RuntimeEffect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import type { ExecutionMetadata, SandboxWorkflowReference, WorkflowManifest } from "./core";

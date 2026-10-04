@@ -2,11 +2,11 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type {
 	SearchProviderEntitiesBody,
 	SearchProviderEntitiesResponse,
-} from "@ryot-app/contract/modules/provider-entities/schemas";
+} from "@ryot-app/contract/modules/entity-providers/schemas";
 import {
 	ProviderEntityBadRequest,
 	ProviderEntityNotFound,
-} from "@ryot-app/contract/modules/provider-entities/schemas";
+} from "@ryot-app/contract/modules/entity-providers/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	materializeAppSchemaChoices,

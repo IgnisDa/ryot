@@ -1,11 +1,11 @@
 import { unknownToMessage, type SandboxFailureKind } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
-import type { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
+import type { SandboxExecutionGrants } from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	POLICY_SAFE_SANDBOX_CAPABILITIES,
 	type SandboxHostCapability,
-} from "@ryot-app/contract/modules/sandbox/wire";
+} from "@ryot-app/contract/modules/scripts/wire";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot-app/plugin-backend-sdk/core";

@@ -19,7 +19,6 @@ import type {
 	JsonArrayExistsExpression,
 	JsonArrayFirstExpression,
 	JsonElementExpression,
-	JsonValue,
 	LiteralExpression,
 	NamedQuery,
 	OrderBy,
@@ -34,6 +33,7 @@ import type {
 	TimeSeriesOutput,
 	WildcardSelection,
 } from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Result, Schema } from "effect";
 
 type CastExpression = Extract<ScalarExpression, { type: "cast" }>;

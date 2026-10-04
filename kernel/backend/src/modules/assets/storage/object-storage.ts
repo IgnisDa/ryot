@@ -1,7 +1,7 @@
 import {
 	type ManagedAssetLocator,
 	UploadBadRequest,
-} from "@ryot-app/contract/modules/uploads/schemas";
+} from "@ryot-app/contract/modules/assets/schemas";
 import { Clock, Context, Effect, Layer, Stream } from "effect";
 
 import { LocalStorageService } from "#platform/storage/local-storage";

@@ -14,7 +14,7 @@ import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { ExecutionLane } from "../automations/lifecycle";
 import { PluginManifest } from "../plugins/manifest";
-import { EnqueueSandboxBody } from "../sandbox/schemas";
+import { EnqueueSandboxBody } from "../scripts/schemas";
 
 const TestSupportDiagnosticReason = Schema.Union([
 	Schema.Struct({ diagnostic: Schema.String, code: Schema.Literal("invalid-request") }),

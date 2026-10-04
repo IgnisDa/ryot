@@ -19,17 +19,17 @@ const runAdmin = <A, E>(program: ContractProgram<A, E>) => {
 	);
 };
 
-export const provisionUser = (payload: ContractPayload<"godMode", "provisionUser">) =>
+export const provisionUser = (payload: ContractPayload<"instanceAdmin", "provisionUser">) =>
 	runAdmin((client) =>
 		payload.provider === "oidc"
-			? client.godMode.provisionUser({ payload })
-			: client.godMode.provisionUser({ payload }),
+			? client.instanceAdmin.provisionUser({ payload })
+			: client.instanceAdmin.provisionUser({ payload }),
 	);
 
 export const resetUserPassword = (userId: UserId) =>
-	runAdmin((client) => client.godMode.resetUserPassword({ params: { userId } }));
+	runAdmin((client) => client.instanceAdmin.resetUserPassword({ params: { userId } }));
 
 export const setUserDisabled = (userId: UserId, disabled: boolean) =>
 	runAdmin((client) =>
-		client.godMode.setUserDisabled({ params: { userId }, payload: { disabled } }),
+		client.instanceAdmin.setUserDisabled({ params: { userId }, payload: { disabled } }),
 	);

@@ -1,5 +1,5 @@
 import { describe, expect, layer } from "@effect/vitest";
-import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { PLUGIN_STORAGE_VALUE_MAX_BYTES } from "@ryot-app/plugin-client-contract";
 import { Effect, Layer } from "effect";

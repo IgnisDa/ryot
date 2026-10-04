@@ -1,4 +1,4 @@
-import { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
+import { SandboxExecutionError } from "@ryot-app/contract/modules/scripts/schemas";
 import { Schema } from "effect";
 
 const SandboxTiming = Schema.Struct({ totalMs: Schema.Finite, executionMs: Schema.Finite });

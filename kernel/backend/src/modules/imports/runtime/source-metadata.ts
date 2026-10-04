@@ -5,8 +5,7 @@ import {
 } from "@ryot-app/contract/modules/imports/schemas";
 import { evaluateIngestionReadiness } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	type AppPropertyDefinition,
 	getOrderedAppSchemaFieldEntries,
@@ -38,7 +37,7 @@ const uploadFields = (source: RegisteredImportSource) =>
 			entry[1].type === "string" && entry[1].format?.kind === "upload",
 	);
 
-const isJsonValue = Schema.is(jsonValueSchema);
+const isJsonValue = Schema.is(JsonValue);
 
 export const parseRegistryImportSourceInput = Effect.fn("parseRegistryImportSourceInput")(
 	function* (source: RegisteredImportSource, body: CreateImportRunBody) {
