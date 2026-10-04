@@ -427,7 +427,6 @@ describe("collection detail", () => {
 				waitFor(() => expect(screen.getByRole("radio", { name: "Recently added" })).toBeTruthy()),
 			);
 			expect(dialog.textContent).toContain("Add filter");
-			expect(dialog.textContent).not.toContain("Filters are not available yet.");
 		}),
 	);
 

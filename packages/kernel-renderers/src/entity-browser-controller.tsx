@@ -102,7 +102,7 @@ type EntityBrowserControllerProps<Meta> = {
 				readonly onTotal: (total: number | undefined) => void;
 		  }) => ReactNode)
 		| undefined;
-	readonly filterFields?: readonly BrowserFilterField[] | undefined;
+	readonly filterFields: readonly BrowserFilterField[];
 	readonly defaultLayout: EntityBrowserLayout;
 	readonly defaultSortLabel?: string | undefined;
 	readonly emptyMessage?: string | undefined;
@@ -170,7 +170,7 @@ export function EntityBrowserController<Meta>({
 	const requestedSearch = params.get("search") ?? "";
 	const requestedControls: BrowserControls = {
 		search: canSearch ? requestedSearch : "",
-		filter: decodeFilterParam(params.get("filters"), filterFields ?? []),
+		filter: decodeFilterParam(params.get("filters"), filterFields),
 		sort: sortChoices.some(({ value }) => value === requestedSort) ? requestedSort : "",
 		layout: availableLayouts.find((candidate) => candidate === requestedLayout) ?? defaultLayout,
 	};
@@ -502,14 +502,12 @@ export function EntityBrowserController<Meta>({
 							<SyncCountLine populating={summary.populating} translating={summary.translating} />
 							{transitioning && <span>Updating...</span>}
 						</div>
-						{filterFields !== undefined && (
-							<FilterChips
-								filter={filter}
-								onChange={setFilter}
-								fields={filterFields}
-								onOpen={() => setOptionsOpen(true)}
-							/>
-						)}
+						<FilterChips
+							filter={filter}
+							onChange={setFilter}
+							fields={filterFields}
+							onOpen={() => setOptionsOpen(true)}
+						/>
 					</>
 				}
 				actions={
@@ -626,16 +624,12 @@ export function EntityBrowserController<Meta>({
 							/>
 						</div>
 					)}
-					{filterFields === undefined ? (
-						<p className="mt-4 text-xs text-text-subtle">Filters are not available yet.</p>
-					) : (
-						<FilterRules
-							filter={filter}
-							compact={compact}
-							onChange={setFilter}
-							fields={filterFields}
-						/>
-					)}
+					<FilterRules
+						filter={filter}
+						compact={compact}
+						onChange={setFilter}
+						fields={filterFields}
+					/>
 				</Modal>
 			)}
 		</ManagedAssetProvider>
