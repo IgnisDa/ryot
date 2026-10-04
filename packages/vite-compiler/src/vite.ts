@@ -235,6 +235,6 @@ export const buildWithVite = Effect.fn("buildWithVite")(function* ({
 	if (Predicate.isObject(result) && "close" in result) {
 		return yield* viteCompilerError("vite-build", "Vite unexpectedly returned a build watcher");
 	}
-	const files = yield* Effect.fromResult(collectViteOutputs(path, result));
+	const files = yield* Effect.fromResult(collectViteOutputs(result));
 	return { files, diagnostics };
 });
