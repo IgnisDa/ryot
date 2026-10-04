@@ -5,6 +5,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 import { MediaSandboxError } from "../../../lib/failures";
 import { getUserAllowNsfw } from "../../../lib/host";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
 	fetchTrendingItems,
@@ -131,7 +132,7 @@ export const translate = defineProvider({
 			const [candidate] = orderedTranslationCandidates(translationsData, langCode, region);
 			const translation = asRecord(candidate?.["data"]);
 			const name = stringValue(translation?.["title"]);
-			const description = stringValue(translation?.["overview"]);
+			const description = normalizePlainDescription(translation?.["overview"]);
 			const imageUrl = getLocalizedImageUrl(imagesData, "posters", langCode);
 			const properties: Record<
 				string,

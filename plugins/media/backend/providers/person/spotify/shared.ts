@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
 import {
 	getFirstImage,
@@ -98,7 +99,9 @@ export const details = defineProvider({
 				const genres = Array.isArray(artist?.["genres"])
 					? artist["genres"].flatMap((genre) => (typeof genre === "string" ? [genre] : []))
 					: [];
-				const description = genres.length > 0 ? `Genres: ${genres.join(", ")}` : null;
+				const description = normalizePlainDescription(
+					genres.length > 0 ? `Genres: ${genres.join(", ")}` : null,
+				);
 				const sourceUrl = stringValue(asRecord(artist?.["external_urls"])?.["spotify"]);
 
 				return fetchArtistAlbums(host, input.externalId, 0, []).pipe(

@@ -31,6 +31,46 @@ const makeHost = (
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("podcast.listennotes sandbox script", () => {
+	it("normalizes podcast and paged episode HTML descriptions", () => {
+		const host = makeHost((_method, url) => {
+			if (url.includes("/recommendations")) {
+				return httpSuccess({ recommendations: [] });
+			}
+			if (url.includes("/genres")) {
+				return httpSuccess({ genres: [] });
+			}
+			const secondPage = new URL(url).searchParams.get("next_episode_pub_date") === "2";
+			return httpSuccess({
+				title: "Podcast",
+				total_episodes: 2,
+				next_episode_pub_date: 2,
+				description: "<p>Show <strong>summary</strong></p>",
+				episodes: [
+					{
+						title: "Episode",
+						pub_date_ms: 1577836800000,
+						id: secondPage ? "e2" : "e1",
+						description: secondPage
+							? "*Markdown* notes"
+							: '<p>HTML <em>notes</em> <a href="/more">more</a></p>',
+					},
+				],
+			});
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "p1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.properties).toMatchObject({ description: "Show **summary**" });
+					expect(result.childEntities).toMatchObject([
+						{
+							properties: { description: "HTML *notes* [more](https://www.listennotes.com/more)" },
+						},
+						{ properties: { description: "*Markdown* notes" } },
+					]);
+				}),
+			),
+		);
+	});
 	it("declares a script for each operation", () => {
 		expect([
 			[searchManifest.slug, search.operation],

@@ -4,6 +4,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
 	bcp47ToTvdb,
@@ -111,7 +112,7 @@ export const details = defineProvider({
 					sourceUrl,
 					publishYear,
 					unlinkedCreators,
-					description: translation.description ?? stringValue(movie["overview"]),
+					description: normalizePlainDescription(translation.description ?? movie["overview"]),
 				},
 				relatedEntityGroups: [
 					{
@@ -161,7 +162,17 @@ export const translate = defineProvider({
 						providerLanguage,
 						"cover",
 					);
-					return buildTranslationResult(translationData, image);
+					const result = buildTranslationResult(translationData, image);
+					const description = normalizePlainDescription(result.properties?.["description"]);
+					if (!description) {
+						return result;
+					}
+					if (image === null) {
+						const properties = { description };
+						return result.name === undefined ? { properties } : { properties, name: result.name };
+					}
+					const properties = { description, images: [image] };
+					return result.name === undefined ? { properties } : { properties, name: result.name };
 				}),
 			);
 		}),

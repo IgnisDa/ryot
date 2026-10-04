@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { buildAlbumDetails } from "./shared";
 
 describe("music-group.youtube-music sandbox script", () => {
-	it("cleans the html description and maps ordered track members", () => {
+	it("preserves description line breaks and maps ordered track members", () => {
 		const client = {
 			music: {
 				getAlbum: () =>
@@ -27,7 +27,7 @@ describe("music-group.youtube-music sandbox script", () => {
 					expect(details.name).toBe("The Album");
 					expect(details.properties).toEqual({
 						parts: 3,
-						description: "Line one\nLine two",
+						description: "Line one\\\nLine two",
 						sourceUrl: "https://music.youtube.com/playlist?list=PL123",
 						images: [{ type: "remote", purpose: "cover", url: "https://img/big.jpg" }],
 					});

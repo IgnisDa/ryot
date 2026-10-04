@@ -23,6 +23,27 @@ const makeHost = (httpCall: GoogleBooksHost["httpCall"]) =>
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("book.google-books sandbox script", () => {
+	it("preserves mixed formatting and removes unsafe description links", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				volumeInfo: {
+					title: "Mixed",
+					description:
+						'<p>A <strong>story</strong> with <a href="/work">details</a>.</p>\n\n*Next* <a href="javascript:alert(1)">read</a>',
+				},
+			}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "mixed" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.properties).toMatchObject({
+						description:
+							"A **story** with [details](https://books.google.com/work).\n\n*Next* read",
+					});
+				}),
+			),
+		);
+	});
 	it("declares one script per operation", () => {
 		expect([
 			[searchManifest.slug, search.operation],

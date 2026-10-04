@@ -4,6 +4,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import {
 	escapeGraphqlString,
 	getHardcoverApiKey,
@@ -142,12 +143,6 @@ export const details = defineProvider({
 			const slug = stringValue(data["slug"]);
 			return {
 				name: title,
-				properties: {
-					images: [],
-					parts: numberValue(data["books_count"]),
-					description: stringValue(data["description"]),
-					sourceUrl: slug ? `https://hardcover.app/series/${slug}` : null,
-				},
 				relatedEntityGroups: [
 					{
 						entities: relatedEntities,
@@ -156,6 +151,15 @@ export const details = defineProvider({
 						relationshipSchemaSlug: "book-group-to-book",
 					},
 				],
+				properties: {
+					images: [],
+					parts: numberValue(data["books_count"]),
+					sourceUrl: slug ? `https://hardcover.app/series/${slug}` : null,
+					description: yield* normalizeRichDescription(
+						data["description"],
+						"https://hardcover.app",
+					),
+				},
 			};
 		}),
 });

@@ -5,6 +5,7 @@ import type { ProviderTranslateInput } from "@ryot-app/sandbox-sdk/provider";
 
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, stringValue } from "../../../lib/records";
 import {
 	bcp47ToTvdb,
@@ -81,7 +82,11 @@ export const translate = defineProvider({
 			const artworks = detailsShow ? (detailsShow["artworks"] ?? detailsShow["artwork"]) : null;
 			const purpose = input.entitySchemaSlug === "show-episode" ? "still" : "cover";
 			const image = getLocalizedArtwork(artworks, providerLanguage, purpose);
-			return buildTranslationResult(translationData, image);
+			const result = buildTranslationResult(translationData, image);
+			const description = normalizePlainDescription(result.properties?.["description"]);
+			return description
+				? { ...result, properties: { ...result.properties, description } }
+				: result;
 		});
 	},
 });

@@ -1,8 +1,9 @@
-import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
+import { Effect } from "@ryot-app/client-sdk/effect";
+import { useRyot, type RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
-import type { ReactNode, Ref } from "react";
+import { useState, type ReactNode, type Ref } from "react";
 
 import type { MediaSummaryFact } from "./summary-state";
 import type { MediaSyncCounts } from "./sync-counts";
@@ -216,16 +217,46 @@ export function MediaLinkButton({
 	);
 }
 
+export function useMediaOpenLink() {
+	const client = useRyot();
+	const [error, setError] = useState<string | null>(null);
+	return {
+		error,
+		openLink: (url: string) => {
+			setError(null);
+			void Effect.runPromise(client.links.open({ url })).catch(() => {
+				setError("Unable to open link. Try again.");
+			});
+		},
+	};
+}
+
 export function MediaExternalLink(props: { readonly href: string; readonly label: string }) {
+	const { error, openLink } = useMediaOpenLink();
 	return (
-		<a
-			target="_blank"
-			rel="noreferrer"
-			href={props.href}
-			className="font-ui font-medium text-[13px] text-accent-text"
-		>
-			{props.label}
-		</a>
+		<>
+			<a
+				href={props.href}
+				className="font-ui font-medium text-[13px] text-accent-text"
+				onClick={(event) => {
+					event.preventDefault();
+					openLink(props.href);
+				}}
+				onAuxClick={(event) => {
+					event.preventDefault();
+					if (event.button === 1) {
+						openLink(props.href);
+					}
+				}}
+			>
+				{props.label}
+			</a>
+			{error === null ? null : (
+				<span role="alert" className="font-ui text-[13px] text-text-muted">
+					{error}
+				</span>
+			)}
+		</>
 	);
 }
 

@@ -3,6 +3,7 @@ import type { ProviderTranslateInput } from "@ryot-app/sandbox-sdk/provider";
 
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, stringValue } from "../../../lib/records";
 import {
 	firstTranslationValue,
@@ -92,7 +93,9 @@ export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost,
 			candidates,
 			(data) => stringValue(data["name"]) ?? data["title"],
 		);
-		const description = firstTranslationValue(candidates, (data) => data["overview"]);
+		const description = normalizePlainDescription(
+			firstTranslationValue(candidates, (data) => data["overview"]),
+		);
 		const imageUrl = getLocalizedImageUrl(imagesData, request.imageKey, langCode);
 		const properties: Record<
 			string,

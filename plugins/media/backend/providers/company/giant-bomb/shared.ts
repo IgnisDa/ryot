@@ -105,76 +105,78 @@ export const details = defineProvider({
 			{ field_list: FIELD_LIST },
 			"GiantBomb company details request failed",
 		).pipe(
-			Effect.map((payload) => {
-				const company = asRecord(payload?.["results"]);
-				if (!company) {
-					throw new Error("GiantBomb returned no company data");
-				}
-				const name = stringValue(company["name"]);
-				if (!name) {
-					throw new Error("GiantBomb company payload is missing name");
-				}
-
-				const primaryImage = getPrioritizedImage(company["image"]);
-				const locationParts = [
-					stringValue(company["location_city"]),
-					stringValue(company["location_state"]),
-					stringValue(company["location_country"]),
-				].filter((part) => part !== null);
-				const headquarters = locationParts.length > 0 ? locationParts.join(", ") : null;
-
-				const aliases = company["aliases"];
-				const alternateNames =
-					typeof aliases === "string" && aliases.trim()
-						? aliases
-								.split("\n")
-								.map((alias) => alias.trim())
-								.filter((alias) => alias.length > 0)
-						: [];
-
-				const accumulator = createRoleAccumulator();
-				const addGames = (games: unknown, role: string) => {
-					for (const game of Array.isArray(games) ? games : []) {
-						const record = asRecord(game);
-						const externalId = getGameGuid(record);
-						const gameName = stringValue(record?.["name"]);
-						if (!externalId || !gameName) {
-							continue;
-						}
-						accumulator.add({
-							externalId,
-							name: gameName,
-							providerSlug: "video-game.giant-bomb",
-							relationshipProperties: { roles: [role] },
-						});
+			Effect.flatMap((payload) =>
+				Effect.gen(function* () {
+					const company = asRecord(payload?.["results"]);
+					if (!company) {
+						throw new Error("GiantBomb returned no company data");
 					}
-				};
-				addGames(company["developed_games"], "Developer");
-				addGames(company["published_games"], "Publisher");
+					const name = stringValue(company["name"]);
+					if (!name) {
+						throw new Error("GiantBomb company payload is missing name");
+					}
 
-				return {
-					name,
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							entities: accumulator.entities,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "company-to-video-game",
+					const primaryImage = getPrioritizedImage(company["image"]);
+					const locationParts = [
+						stringValue(company["location_city"]),
+						stringValue(company["location_state"]),
+						stringValue(company["location_country"]),
+					].filter((part) => part !== null);
+					const headquarters = locationParts.length > 0 ? locationParts.join(", ") : null;
+
+					const aliases = company["aliases"];
+					const alternateNames =
+						typeof aliases === "string" && aliases.trim()
+							? aliases
+									.split("\n")
+									.map((alias) => alias.trim())
+									.filter((alias) => alias.length > 0)
+							: [];
+
+					const accumulator = createRoleAccumulator();
+					const addGames = (games: unknown, role: string) => {
+						for (const game of Array.isArray(games) ? games : []) {
+							const record = asRecord(game);
+							const externalId = getGameGuid(record);
+							const gameName = stringValue(record?.["name"]);
+							if (!externalId || !gameName) {
+								continue;
+							}
+							accumulator.add({
+								externalId,
+								name: gameName,
+								providerSlug: "video-game.giant-bomb",
+								relationshipProperties: { roles: [role] },
+							});
+						}
+					};
+					addGames(company["developed_games"], "Developer");
+					addGames(company["published_games"], "Publisher");
+
+					return {
+						name,
+						relatedEntityGroups: [
+							{
+								direction: "outgoing" as const,
+								entities: accumulator.entities,
+								synchronization: "authoritative" as const,
+								relationshipSchemaSlug: "company-to-video-game",
+							},
+						],
+						properties: {
+							headquarters,
+							alternateNames,
+							website: stringValue(company["website"]),
+							foundedYear: extractYear(company["date_founded"]),
+							sourceUrl: stringValue(company["site_detail_url"]),
+							description: yield* combineDescription(company["deck"], company["description"]),
+							images: primaryImage
+								? [{ url: primaryImage, type: "remote" as const, purpose: "logo" as const }]
+								: [],
 						},
-					],
-					properties: {
-						headquarters,
-						alternateNames,
-						website: stringValue(company["website"]),
-						foundedYear: extractYear(company["date_founded"]),
-						sourceUrl: stringValue(company["site_detail_url"]),
-						description: combineDescription(company["deck"], company["description"]),
-						images: primaryImage
-							? [{ url: primaryImage, type: "remote" as const, purpose: "logo" as const }]
-							: [],
-					},
-				};
-			}),
+					};
+				}),
+			),
 		);
 	},
 });

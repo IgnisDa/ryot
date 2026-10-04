@@ -82,11 +82,12 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 				genres: ["Science Fiction"],
 				productionStatus: "Released",
 				images: [{ ...cover, purpose: "cover" }],
-				description: "A deterministic browser tracer book.",
 				unlinkedCreators: [
 					{ role: "Author", name: unlinkedAuthor },
 					{ role: "Publisher", name: unlinkedPublisher },
 				],
+				description:
+					"A **deterministic** browser tracer book.\n\nAn *expanded* second paragraph.\n\n:::spoiler\nHidden browser story detail.\n:::",
 			},
 		});
 		yield* insertLibraryMembership(client, { mediaEntityId: seeded.book.id });
@@ -119,6 +120,17 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 			.waitFor({ state: "visible", timeout: 150_000 });
 
 		const body = media.locator("body");
+		expect(yield* body.getByText("Hidden browser story detail.", { exact: true }).count).toBe(0);
+		yield* body.getByRole("button", { exact: true, name: "More" }).click();
+		expect(yield* body.locator("strong").getByText("deterministic", { exact: true }).count).toBe(1);
+		expect(yield* body.locator("em").getByText("expanded", { exact: true }).count).toBe(1);
+		const spoiler = body.getByText("Hidden browser story detail.", { exact: true });
+		expect(yield* spoiler.count).toBe(1);
+		yield* spoiler.waitFor({ state: "hidden" });
+		yield* body.getByText("Show spoiler", { exact: true }).click();
+		yield* spoiler.waitFor({ state: "visible" });
+		yield* body.getByRole("button", { exact: true, name: "Less" }).click();
+		expect(yield* body.getByText("Hidden browser story detail.", { exact: true }).count).toBe(0);
 		yield* body.getByText("Book • Hardcover • 1997", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Science Fiction", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Pages", { exact: true }).waitFor({ state: "visible" });

@@ -1,6 +1,7 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
 import { Switch } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { MarkdownContent, markdownPlainText } from "@ryot-app/client-ui-sdk/markdown";
 import {
 	fieldSyncState,
 	isTitleProvisional,
@@ -20,6 +21,7 @@ import {
 	MediaLinkButton,
 	MediaProgressBar,
 	MediaRailRow,
+	useMediaOpenLink,
 } from "./primitives";
 import {
 	mediaCollectionsLabel,
@@ -56,16 +58,23 @@ function MediaDescription(props: {
 	readonly onToggle: () => void;
 	readonly isExpanded: boolean;
 }) {
+	const { error, openLink } = useMediaOpenLink();
 	return (
 		<div className="flex flex-col gap-1 pt-1">
-			<p
-				className={clsx(
-					"font-ui text-[14px] leading-6 text-text",
-					props.isExpanded ? undefined : "line-clamp-3",
-				)}
-			>
-				{props.text}
-			</p>
+			{props.isExpanded ? (
+				<div className="font-ui text-[14px] leading-6 text-text">
+					<MarkdownContent text={props.text} onOpenLink={openLink} />
+				</div>
+			) : (
+				<p className="line-clamp-3 font-ui text-[14px] leading-6 text-text">
+					{markdownPlainText(props.text)}
+				</p>
+			)}
+			{error === null ? null : (
+				<p role="alert" className="font-ui text-[13px] text-text-muted">
+					{error}
+				</p>
+			)}
 			<div className="flex items-start">
 				<MediaLinkButton
 					tone="plain"

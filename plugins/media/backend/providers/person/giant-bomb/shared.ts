@@ -150,48 +150,50 @@ export const details = defineProvider({
 			{ field_list: FIELD_LIST },
 			"GiantBomb person details request failed",
 		).pipe(
-			Effect.map((payload) => {
-				const person = asRecord(payload?.["results"]);
-				if (!person) {
-					throw new Error("GiantBomb returned no person data");
-				}
-				const name = stringValue(person["name"]);
-				if (!name) {
-					throw new Error("GiantBomb person payload is missing name");
-				}
+			Effect.flatMap((payload) =>
+				Effect.gen(function* () {
+					const person = asRecord(payload?.["results"]);
+					if (!person) {
+						throw new Error("GiantBomb returned no person data");
+					}
+					const name = stringValue(person["name"]);
+					if (!name) {
+						throw new Error("GiantBomb person payload is missing name");
+					}
 
-				const primaryImage = getPrioritizedImage(person["image"]);
-				const hometown = stringValue(person["hometown"]);
+					const primaryImage = getPrioritizedImage(person["image"]);
+					const hometown = stringValue(person["hometown"]);
 
-				return {
-					name,
-					properties: {
-						alternateNames: [],
-						birthPlace: hometown,
-						deathDate: formatBirthDate(person["death_date"]),
-						sourceUrl: stringValue(person["site_detail_url"]),
-						description: combineDescription(person["deck"], person["description"]),
-						birthDate: formatBirthDate(person["birth_date"] ?? person["date_of_birth"]),
-						images: primaryImage
-							? [{ url: primaryImage, type: "remote" as const, purpose: "profile" as const }]
-							: [],
-					},
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "person-to-video-game",
-							entities: collectRelated(person["games"], "video-game.giant-bomb"),
+					return {
+						name,
+						properties: {
+							alternateNames: [],
+							birthPlace: hometown,
+							deathDate: formatBirthDate(person["death_date"]),
+							sourceUrl: stringValue(person["site_detail_url"]),
+							birthDate: formatBirthDate(person["birth_date"] ?? person["date_of_birth"]),
+							description: yield* combineDescription(person["deck"], person["description"]),
+							images: primaryImage
+								? [{ url: primaryImage, type: "remote" as const, purpose: "profile" as const }]
+								: [],
 						},
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "person-to-video-game-group",
-							entities: collectRelated(person["franchises"], "video-game-group.giant-bomb"),
-						},
-					],
-				};
-			}),
+						relatedEntityGroups: [
+							{
+								direction: "outgoing" as const,
+								synchronization: "authoritative" as const,
+								relationshipSchemaSlug: "person-to-video-game",
+								entities: collectRelated(person["games"], "video-game.giant-bomb"),
+							},
+							{
+								direction: "outgoing" as const,
+								synchronization: "authoritative" as const,
+								relationshipSchemaSlug: "person-to-video-game-group",
+								entities: collectRelated(person["franchises"], "video-game-group.giant-bomb"),
+							},
+						],
+					};
+				}),
+			),
 		);
 	},
 });

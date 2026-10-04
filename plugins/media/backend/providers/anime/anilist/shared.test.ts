@@ -84,7 +84,7 @@ describe("anime.anilist sandbox script", () => {
 			),
 		);
 	});
-	it("cleans HTML descriptions, title-cases status, and orders the airing schedule", () => {
+	it("preserves description formatting, title-cases status, and orders the airing schedule", () => {
 		const host = makeHost(() =>
 			httpSuccess({
 				data: {
@@ -101,9 +101,9 @@ describe("anime.anilist sandbox script", () => {
 						genres: ["Action", "Action"],
 						bannerImage: "https://img/banner.jpg",
 						tags: [{ name: "Space" }, { name: "" }],
-						description: "Line one<br>Line <i>two</i>",
 						coverImage: { extraLarge: "https://img/cover.jpg" },
 						nextAiringEpisode: { episode: 3, airingAt: 1700001200 },
+						description: 'Line one<br>Line <span class="markdown_spoiler"><i>two</i></span>',
 						studios: {
 							nodes: [
 								{ id: 5, name: "Studio A" },
@@ -137,9 +137,9 @@ describe("anime.anilist sandbox script", () => {
 						publishYear: 2020,
 						providerRating: 84,
 						genres: ["Action", "Space"],
-						description: "Line one\nLine two",
 						productionStatus: "Not Yet Released",
 						sourceUrl: "https://anilist.co/anime/1/Source",
+						description: "Line one\\\nLine :spoiler[*two*]",
 						images: [
 							{ type: "remote", purpose: "cover", url: "https://img/cover.jpg" },
 							{ type: "remote", purpose: "backdrop", url: "https://img/banner.jpg" },

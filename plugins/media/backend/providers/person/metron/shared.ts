@@ -3,6 +3,7 @@ import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import { getIdentifier, loadMetronJson } from "../../../lib/vendors/metron";
 
 export const manifest = defineManifest({ name: "Metron", kind: "provider", slug: "person.metron" });
@@ -77,26 +78,31 @@ export const details = defineProvider({
 			`https://metron.cloud/api/creator/${encodeURIComponent(input.externalId)}/`,
 			"Metron creator details request failed",
 		).pipe(
-			Effect.map((payloadValue) => {
-				const payload = asRecord(payloadValue);
-				const name = stringValue(payload?.["name"]);
-				if (!name) {
-					throw new Error("Metron creator payload is missing name");
-				}
-				const image = stringValue(payload?.["image"]);
-				return {
-					name,
-					properties: {
-						alternateNames: [],
-						birthDate: stringValue(payload?.["birth"]),
-						deathDate: stringValue(payload?.["death"]),
-						description: stringValue(payload?.["desc"]),
-						sourceUrl: `https://metron.cloud/creator/${input.externalId}`,
-						images: image
-							? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
-							: [],
-					},
-				};
-			}),
+			Effect.flatMap((payloadValue) =>
+				Effect.gen(function* () {
+					const payload = asRecord(payloadValue);
+					const name = stringValue(payload?.["name"]);
+					if (!name) {
+						throw new Error("Metron creator payload is missing name");
+					}
+					const image = stringValue(payload?.["image"]);
+					return {
+						name,
+						properties: {
+							alternateNames: [],
+							birthDate: stringValue(payload?.["birth"]),
+							deathDate: stringValue(payload?.["death"]),
+							sourceUrl: `https://metron.cloud/creator/${input.externalId}`,
+							images: image
+								? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
+								: [],
+							description: yield* normalizeRichDescription(
+								payload?.["desc"],
+								"https://metron.cloud",
+							),
+						},
+					};
+				}),
+			),
 		),
 });
