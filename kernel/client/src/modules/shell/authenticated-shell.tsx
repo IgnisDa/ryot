@@ -20,6 +20,7 @@ import { motion, useMotionValue, useTransform } from "motion/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
 import { useAuthenticatedSession } from "#/modules/auth/session-boundary";
+import { CollectionEditor } from "#/modules/collections/collection-editor";
 import { useIsDemoSession } from "#/modules/demo-protection";
 import { impactHaptic } from "#/modules/device/haptics";
 import { DeviceScope, ReturnShortcutBar } from "#/modules/device/lifecycle";
@@ -135,6 +136,7 @@ export function AuthenticatedShell(props: {
 	};
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
+	const [creatingCollection, setCreatingCollection] = useState(false);
 	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
 	const [pluginHeader, setPluginHeader] = useState<PluginHeaderState | null>(null);
 	const [pluginScreenState, setPluginScreenState] = useState<ClientPageScreenState | null>(null);
@@ -395,6 +397,7 @@ export function AuthenticatedShell(props: {
 				onSelectWorkspace={selectWorkspace}
 				onOpenSearch={() => setSearchOpen(true)}
 				workspaceSwitcherOpen={workspaceSwitcherOpen}
+				onCreateCollection={() => setCreatingCollection(true)}
 				onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
 				customizePanel={
@@ -437,6 +440,7 @@ export function AuthenticatedShell(props: {
 				onClose={() => setDrawerOpen(false)}
 				onOpenSearch={() => setSearchOpen(true)}
 				onCustomize={() => openCustomize("workspaces")}
+				onCreateCollection={() => setCreatingCollection(true)}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
 			/>
 			<RememberedWorkspaceContext value={rememberedPluginId}>
@@ -517,6 +521,16 @@ export function AuthenticatedShell(props: {
 						</button>
 					</div>
 				</Modal>
+			)}
+			{creatingCollection && (
+				<CollectionEditor
+					onClose={() => setCreatingCollection(false)}
+					onDeleted={() => setCreatingCollection(false)}
+					onSaved={(collectionId) => {
+						setCreatingCollection(false);
+						void navigate({ href: `/e/${encodeURIComponent(collectionId)}` });
+					}}
+				/>
 			)}
 			{searchOpen && (
 				<Modal

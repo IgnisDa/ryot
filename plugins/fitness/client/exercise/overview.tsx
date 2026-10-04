@@ -8,7 +8,7 @@ import { useState, type ComponentProps } from "react";
 import { WorkoutExerciseOverridesSchema } from "../../shared/workout-editor-preferences";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { AssetArtWell } from "../asset-urls";
-import { AddEntityToCollection } from "../collections";
+import { useAddToCollection } from "../collections";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { ExerciseDefaultsSheet } from "../workout-editor/preferences";
 import { addToDraftLabel, type ActiveEditorDraft } from "./active-draft";
@@ -51,7 +51,8 @@ function ExerciseActions(props: {
 }) {
 	const { draft, exercise } = props;
 	const client = useRyot();
-	const [action, setAction] = useState<"collections" | "merge" | "preferences">();
+	const [action, setAction] = useState<"merge" | "preferences">();
+	const addToCollection = useAddToCollection();
 	const [mergeFailure, setMergeFailure] =
 		useState<ComponentProps<typeof MergeFailureMessage>["failure"]>();
 	const overrides = Schema.decodeResult(WorkoutExerciseOverridesSchema)(
@@ -99,7 +100,7 @@ function ExerciseActions(props: {
 					Edit
 				</Button>
 			) : null}
-			<Button variant="secondary" onClick={() => setAction("collections")}>
+			<Button variant="secondary" onClick={() => addToCollection(exercise.id)}>
 				Add to collection
 			</Button>
 			<HeaderActionsMenu
@@ -133,9 +134,6 @@ function ExerciseActions(props: {
 					onFailed={setMergeFailure}
 					onClose={() => setAction(undefined)}
 				/>
-			) : null}
-			{action === "collections" ? (
-				<AddEntityToCollection entityId={exercise.id} onClose={() => setAction(undefined)} />
 			) : null}
 			{action === "preferences" && exerciseKind !== null && overrides._tag === "Success" ? (
 				<ExerciseDefaultsSheet

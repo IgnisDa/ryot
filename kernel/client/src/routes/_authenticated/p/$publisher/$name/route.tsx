@@ -2,6 +2,7 @@ import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schema
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
 
+import { useCollectionScreens } from "#/modules/collections/screens";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
@@ -41,16 +42,28 @@ export function PluginRoutePage({
 function PluginDocument(props: { readonly title: string; readonly prepared: PreparedClientPage }) {
 	const navigate = useNavigate();
 	const { open, session } = useEntityPickerSession();
-	useClientPageDocument({ ...props, onPickEntity: open, inert: session !== null });
-	return session === null ? null : (
-		<EntityPickerModal
-			onComplete={session.complete}
-			schema={session.request.schema}
-			library={session.request.library}
-			initialQuery={session.request.initialQuery}
-			onCreate={(href) => void navigate({ href })}
-			onClose={() => session.complete({ kind: "cancelled" })}
-		/>
+	const collections = useCollectionScreens();
+	useClientPageDocument({
+		...props,
+		onPickEntity: open,
+		inert: session !== null || collections.open,
+		onEditCollection: collections.onEditCollection,
+		onAddToCollection: collections.onAddToCollection,
+	});
+	return (
+		<>
+			{session === null ? null : (
+				<EntityPickerModal
+					onComplete={session.complete}
+					schema={session.request.schema}
+					library={session.request.library}
+					initialQuery={session.request.initialQuery}
+					onCreate={(href) => void navigate({ href })}
+					onClose={() => session.complete({ kind: "cancelled" })}
+				/>
+			)}
+			{collections.screen}
+		</>
 	);
 }
 

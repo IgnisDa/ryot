@@ -34,6 +34,7 @@ type MobileDrawerProps = {
 	readonly activeSettings: boolean;
 	readonly activeKey: string | null;
 	readonly onOpenSearch: () => void;
+	readonly onCreateCollection: () => void;
 	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
 	readonly navigation: NavigationData;
@@ -130,6 +131,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 							onOpenSearch={() => closeThen(props.onOpenSearch)}
 							onNavigateHome={() => closeThen(props.onNavigateHome)}
 							onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
+							onCreateCollection={() => closeThen(props.onCreateCollection)}
 							onNavigateItem={(item) => closeThen(() => props.onNavigateItem(item))}
 							onSelectWorkspace={(workspace) => closeThen(() => props.onSelectWorkspace(workspace))}
 						/>

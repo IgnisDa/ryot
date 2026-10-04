@@ -26,6 +26,7 @@ type SidebarNavProps = {
 	readonly activeHome: boolean;
 	readonly activeKey: string | null;
 	readonly onOpenSearch: () => void;
+	readonly onCreateCollection: () => void;
 	readonly sections: SidebarSections;
 	readonly navigation: NavigationData;
 	readonly showSearchShortcut: boolean;
@@ -85,6 +86,7 @@ function SidebarSection(props: {
 	readonly children: ReactNode;
 	readonly emptyMessage?: string;
 	readonly onEdit?: (() => void) | undefined;
+	readonly onCreate?: { readonly label: string; readonly run: () => void } | undefined;
 }) {
 	return (
 		<section className="group flex flex-col gap-1">
@@ -103,6 +105,19 @@ function SidebarSection(props: {
 						className="ml-auto rounded px-1.5 py-0.5 text-xs font-medium text-text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
 					>
 						Edit
+					</button>
+				)}
+				{props.onCreate !== undefined && (
+					<button
+						type="button"
+						onClick={props.onCreate.run}
+						aria-label={props.onCreate.label}
+						className={clsx(
+							"rounded p-0.5 text-text-muted hover:text-text",
+							props.onEdit === undefined && "ml-auto",
+						)}
+					>
+						<AppIcon size={14} name="plus" />
 					</button>
 				)}
 			</header>
@@ -205,6 +220,7 @@ export function SidebarNav(props: SidebarNavProps) {
 				emptyMessage="No collections yet."
 				count={props.sections.collections.length}
 				isEmpty={props.sections.collections.length === 0}
+				onCreate={{ label: "New collection", run: props.onCreateCollection }}
 			>
 				{props.sections.collections.map((item) => (
 					<SidebarRow

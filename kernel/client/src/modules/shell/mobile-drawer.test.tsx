@@ -105,6 +105,7 @@ function Harness(props: HarnessProps) {
 				onOpenSearch={() => undefined}
 				onNavigateItem={() => undefined}
 				hasDrawer={props.hasDrawer ?? true}
+				onCreateCollection={() => undefined}
 				onNavigateSettings={() => undefined}
 				catalog={props.catalog ?? [current]}
 				onNavigateHome={() => props.onNavigateHome?.()}

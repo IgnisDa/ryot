@@ -11,6 +11,7 @@ import {
 	collectionMembersCountRecipe,
 	collectionMembersCountsRecipe,
 	collectionMembersRecipe,
+	collectionMembershipRecipe,
 	type CollectionMemberSort,
 } from "./collections";
 
@@ -135,6 +136,21 @@ describe("collections recipes", () => {
 			entityId: "collection-1",
 			membershipPropertiesSchema: null,
 		});
+	});
+
+	it("reads one membership's member values without the server-owned rank", () => {
+		const recipe = collectionMembershipRecipe({ entityId: "book-1", collectionId: "collection-1" });
+		const decodeMembership = (items: ReadonlyArray<{ readonly properties: object }>) =>
+			Result.getOrThrow(
+				recipe.decode({
+					data: { membership: { items, type: "rows", pageInfo: { ...pageInfo, limit: 2 } } },
+				}),
+			);
+
+		expect(decodeMembership([{ properties: { rank: -3, notes: "Kept" } }])).toEqual({
+			properties: { notes: "Kept" },
+		});
+		expect(decodeMembership([])).toBeNull();
 	});
 
 	it("renders member values that no longer match their field as empty cells", () => {

@@ -16,7 +16,7 @@ import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft"
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { durationDisplayUnit } from "../../shared/workout-units";
 import { AssetArtWell, managedAssetBatch } from "../asset-urls";
-import { AddEntityToCollection } from "../collections";
+import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { supersetColorVariable } from "../group-colors";
 import { HeaderActionsMenu } from "../header-actions-menu";
@@ -51,7 +51,8 @@ function TemplateDetails(props: { readonly entityId: string }) {
 	const exercises = useRyotQuery(editorExercisesQuery, {
 		exerciseIds: [...new Set(draft?.occurrences.map(({ exerciseId }) => exerciseId) ?? [])],
 	});
-	const [dialog, setDialog] = useState<"collections" | "delete">();
+	const [dialog, setDialog] = useState<"delete">();
+	const addToCollection = useAddToCollection();
 	const imperial = context.data?.settings.unitSystem === "imperial";
 	const action = (kind: "start" | "edit") =>
 		client.navigation.push(
@@ -134,7 +135,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 									{
 										key: "collections",
 										label: "Add to collection",
-										onSelect: () => setDialog("collections"),
+										onSelect: () => addToCollection(props.entityId),
 									},
 									{
 										key: "delete",
@@ -144,12 +145,6 @@ function TemplateDetails(props: { readonly entityId: string }) {
 									},
 								]}
 							/>
-							{dialog === "collections" ? (
-								<AddEntityToCollection
-									entityId={props.entityId}
-									onClose={() => setDialog(undefined)}
-								/>
-							) : null}
 							{dialog === "delete" ? (
 								<DeleteFitnessEntity
 									kind="template"

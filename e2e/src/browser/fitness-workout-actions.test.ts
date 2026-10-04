@@ -26,8 +26,8 @@ it.live("adds a saved workout to an existing collection and confirms permanent d
 		const frame = page.locator("iframe:visible").contentFrame();
 		yield* frame.getByRole("button", { exact: true, name: "More workout actions" }).click();
 		yield* frame.getByRole("menuitem", { exact: true, name: "Add to collection" }).click();
-		yield* frame.getByRole("button", { exact: true, name: collection.name }).click();
-		const add = frame.getByRole("dialog", { exact: true, name: `Add to ${collection.name}` });
+		yield* page.getByRole("button", { exact: true, name: collection.name }).click();
+		const add = page.getByRole("dialog", { exact: true, name: `Add to ${collection.name}` });
 		yield* add.getByRole("textbox", { exact: true, name: "Note" }).fill("Keep this workout");
 		yield* add.getByRole("button", { exact: true, name: "Add to collection" }).click();
 		yield* add.waitFor({ state: "hidden" });

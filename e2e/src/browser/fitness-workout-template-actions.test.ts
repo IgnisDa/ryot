@@ -22,8 +22,8 @@ it.live("adds a workout template to a collection and confirms permanent deletion
 		const more = frame.getByRole("button", { exact: true, name: "More template actions" });
 		yield* more.click();
 		yield* frame.getByRole("menuitem", { exact: true, name: "Add to collection" }).click();
-		yield* frame.getByRole("button", { exact: true, name: collection.name }).click();
-		const add = frame.getByRole("dialog", { exact: true, name: `Add to ${collection.name}` });
+		yield* page.getByRole("button", { exact: true, name: collection.name }).click();
+		const add = page.getByRole("dialog", { exact: true, name: `Add to ${collection.name}` });
 		yield* add.getByRole("button", { exact: true, name: "Add to collection" }).click();
 		yield* add.waitFor({ state: "hidden" });
 		yield* more.click();

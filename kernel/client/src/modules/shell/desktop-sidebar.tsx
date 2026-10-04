@@ -19,6 +19,7 @@ type DesktopSidebarProps = {
 	readonly activeSettings: boolean;
 	readonly activeKey: string | null;
 	readonly onOpenSearch: () => void;
+	readonly onCreateCollection: () => void;
 	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
 	readonly customizePanel: ReactNode;
@@ -63,6 +64,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 							onNavigateItem={props.onNavigateItem}
 							onSelectWorkspace={props.onSelectWorkspace}
 							showSearchShortcut={props.shortcutsEnabled}
+							onCreateCollection={props.onCreateCollection}
 							showWorkspaceShortcut={props.shortcutsEnabled}
 							workspaceSwitcherOpen={props.workspaceSwitcherOpen}
 							onCustomize={() => props.onEditSection("workspaces")}

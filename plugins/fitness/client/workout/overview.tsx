@@ -11,7 +11,7 @@ import {
 	kilogramsToPounds,
 	type EnergyUnit,
 } from "../../shared/workout-units";
-import { AddEntityToCollection } from "../collections";
+import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { AdjustWorkoutTime } from "./adjust-time";
@@ -38,7 +38,8 @@ function WorkoutActions(props: {
 }) {
 	const client = useRyot();
 	const [adjustingTime, setAdjustingTime] = useState(false);
-	const [action, setAction] = useState<"collections" | "delete">();
+	const [action, setAction] = useState<"delete">();
+	const addToCollection = useAddToCollection();
 	const openEditor = (editorAction: string) => () => {
 		client.navigation.push(
 			fitnessRoute(`/workouts/${encodeURIComponent(props.entityId)}/${editorAction}`),
@@ -64,7 +65,7 @@ function WorkoutActions(props: {
 					{
 						key: "collections",
 						label: "Add to collection",
-						onSelect: () => setAction("collections"),
+						onSelect: () => addToCollection(props.entityId),
 					},
 					{
 						key: "delete",
@@ -76,9 +77,6 @@ function WorkoutActions(props: {
 			/>
 			{adjustingTime ? (
 				<AdjustWorkoutTime entityId={props.entityId} onClose={() => setAdjustingTime(false)} />
-			) : null}
-			{action === "collections" ? (
-				<AddEntityToCollection entityId={props.entityId} onClose={() => setAction(undefined)} />
 			) : null}
 			{action === "delete" ? (
 				<DeleteFitnessEntity
