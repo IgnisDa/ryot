@@ -1,5 +1,16 @@
-import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Card, DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import {
+	nextPageCursor,
+	paginationItems,
+	useRyotInfiniteQuery,
+	useRyotMutation,
+} from "@ryot-app/plugin-client-sdk/react";
+import {
+	Button,
+	Card,
+	DestructiveConfirmation,
+	LoadMoreButton,
+	StatusMessage,
+} from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { Fragment, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 
@@ -312,28 +323,40 @@ export function ReadingLog(props: {
 	readonly metrics: readonly LogMetric[];
 }) {
 	const { range, columns, metrics, timeZone } = props;
-	const [pages, setPages] = useState(1);
-	const result = useRyotQuery(readingsQuery, { pages, range });
-	const [shown, setShown] = useState(result.data);
-	if (result.data !== undefined && result.data !== shown) {
-		setShown(result.data);
-	}
-	const groups = useMemo(() => groupReadings(shown?.items ?? []), [shown]);
+	const result = useRyotInfiniteQuery(
+		readingsQuery,
+		{ range },
+		{
+			initialPageParam: undefined,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after: string | undefined) => ({ ...input, after }),
+		},
+	);
+	const readings = useMemo(
+		() =>
+			paginationItems(
+				result.pages,
+				(page) => page.items,
+				({ id }) => id,
+			),
+		[result.pages],
+	);
+	const groups = useMemo(() => groupReadings(readings), [readings]);
 	const sections = useMemo(() => groupByMonth(groups, timeZone), [groups, timeZone]);
 	return (
 		<section aria-label="Log" className="flex min-w-0 flex-col gap-2.5 font-ui">
 			<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
 				<h2 className={sectionHeadingClass}>Log</h2>
-				{shown === undefined ? null : (
+				{result.pages.length === 0 ? null : (
 					<span className="text-[13px] text-text-muted tabular-nums">
 						{groups.length}
-						{shown.hasMore ? "+" : ""} reading{groups.length === 1 ? "" : "s"} in{" "}
+						{result.hasNextPage ? "+" : ""} reading{groups.length === 1 ? "" : "s"} in{" "}
 						{range === "All" ? "your history" : `the last ${rangePhrase(range)}`}
 					</span>
 				)}
 			</div>
-			{shown === undefined ? (
-				<LogPlaceholder failed={result.isError} onRetry={result.refetch} />
+			{result.pages.length === 0 ? (
+				<LogPlaceholder onRetry={result.retry} failed={result.isError} />
 			) : (
 				<>
 					<ReadingLogTable
@@ -345,20 +368,20 @@ export function ReadingLog(props: {
 					{result.isError ? (
 						<div className="flex flex-col items-start gap-3">
 							<StatusMessage tone="error">More readings couldn't be loaded.</StatusMessage>
-							<Button variant="secondary" onClick={result.refetch} disabled={result.isFetching}>
+							<Button variant="secondary" onClick={result.retry} disabled={result.isFetching}>
 								Try again
 							</Button>
 						</div>
 					) : null}
-					{shown.hasMore && !result.isError ? (
-						<Button
+					{result.hasNextPage && !result.isError ? (
+						<LoadMoreButton
 							variant="secondary"
 							className="self-center"
+							label="Show more readings"
 							disabled={result.isFetching}
-							onClick={() => setPages((current) => current + 1)}
-						>
-							Show more readings
-						</Button>
+							onClick={result.fetchNextPage}
+							isFetchingNextPage={result.isFetchingNextPage}
+						/>
 					) : null}
 				</>
 			)}

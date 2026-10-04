@@ -7,7 +7,14 @@ import {
 	useRyotViewport,
 	type EntityBrowserLayout,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyot, useRyotQuery, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import {
+	nextPageCursor,
+	paginationItems,
+	useRyot,
+	useRyotInfiniteQuery,
+	useRyotQuery,
+	useRyotSchedule,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	normalizeViewSearch,
 	PluginScreenFrame,
@@ -18,6 +25,7 @@ import {
 import {
 	Button,
 	EmptyState,
+	LoadMoreButton,
 	SearchField,
 	SegmentedControl,
 	StatusMessage,
@@ -97,27 +105,56 @@ function WorkoutResults(props: {
 	readonly onLoaded: (loaded: { readonly count: number; readonly hasMore: boolean }) => void;
 }) {
 	const { now, search, imperial, timeZone, onLoaded } = props;
-	const [pages, setPages] = useState(1);
-	useValueChange(search, () => setPages(1));
-	const result = useRyotQuery(workoutsQuery, { pages, search });
-	const [shown, setShown] = useState(result.data);
-	if (result.data !== undefined && result.data !== shown) {
-		setShown(result.data);
-	}
+	const result = useRyotInfiniteQuery(
+		workoutsQuery,
+		{ search },
+		{
+			initialPageParam: undefined,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after: string | undefined) => ({ ...input, after }),
+		},
+	);
+	const items = useMemo(
+		() =>
+			paginationItems(
+				result.pages,
+				(page) => page.items,
+				({ id }) => id,
+			),
+		[result.pages],
+	);
+	const comparisons = useMemo(
+		() =>
+			paginationItems(
+				result.pages,
+				(page) => page.comparisons,
+				({ id }) => id,
+			),
+		[result.pages],
+	);
+	const targets = useMemo(
+		() =>
+			paginationItems(
+				result.pages,
+				(page) => page.targets,
+				({ id }) => id,
+			),
+		[result.pages],
+	);
 	const cards = useMemo(
-		() => (shown === undefined ? [] : buildWorkoutCards({ ...shown, now, imperial, timeZone })),
-		[shown, now, imperial, timeZone],
+		() => buildWorkoutCards({ now, items, targets, imperial, timeZone, comparisons }),
+		[items, comparisons, targets, now, imperial, timeZone],
 	);
 	useEffect(() => {
-		if (shown !== undefined) {
-			onLoaded({ hasMore: shown.hasMore, count: shown.items.length });
+		if (result.pages.length > 0) {
+			onLoaded({ count: items.length, hasMore: result.hasNextPage });
 		}
-	}, [onLoaded, shown]);
-	if (shown === undefined) {
+	}, [items.length, onLoaded, result.hasNextPage, result.pages.length]);
+	if (result.pages.length === 0) {
 		return result.isError ? (
 			<div className="flex flex-col items-start gap-3 font-ui">
 				<StatusMessage tone="error">Your workouts couldn&apos;t be loaded.</StatusMessage>
-				<Button variant="secondary" onClick={result.refetch}>
+				<Button variant="secondary" onClick={result.retry}>
 					Try again
 				</Button>
 			</div>
@@ -161,20 +198,20 @@ function WorkoutResults(props: {
 			{result.isError ? (
 				<div className="flex flex-col items-center gap-3 font-ui">
 					<StatusMessage tone="error">More workouts couldn&apos;t be loaded.</StatusMessage>
-					<Button variant="secondary" onClick={result.refetch} disabled={result.isFetching}>
+					<Button variant="secondary" onClick={result.retry} disabled={result.isFetching}>
 						Try again
 					</Button>
 				</div>
 			) : null}
-			{shown.hasMore && !result.isError ? (
-				<Button
+			{result.hasNextPage && !result.isError ? (
+				<LoadMoreButton
 					variant="secondary"
 					disabled={result.isFetching}
+					onClick={result.fetchNextPage}
 					className="self-center font-ui"
-					onClick={() => setPages((current) => current + 1)}
-				>
-					{props.layout === "table" ? "Load more workouts" : "Show earlier weeks"}
-				</Button>
+					isFetchingNextPage={result.isFetchingNextPage}
+					label={props.layout === "table" ? "Load more workouts" : "Show earlier weeks"}
+				/>
 			) : null}
 		</div>
 	);

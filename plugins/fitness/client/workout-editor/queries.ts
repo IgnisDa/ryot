@@ -19,7 +19,6 @@ import {
 	workoutHistoryRecipe,
 	workoutHistorySetsRecipe,
 } from "../../shared/workout-history-recipes";
-import type { PagedInput } from "./use-cursor-pages";
 
 export const readEditorExercises = Effect.fnUntraced(function* (
 	client: RyotClient,
@@ -127,9 +126,7 @@ export const editorHistoryQuery = createRyotQuery(
 		client,
 	}: {
 		readonly client: RyotClient;
-		readonly input: PagedInput<
-			Omit<Parameters<typeof workoutHistoryRecipe>[0], "reference" | "after">
-		>;
+		readonly input: Omit<Parameters<typeof workoutHistoryRecipe>[0], "reference">;
 	}) =>
 		client.data.query(
 			workoutHistoryRecipe({ ...input, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),

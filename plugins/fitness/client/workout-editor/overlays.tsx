@@ -1,4 +1,11 @@
-import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotQuery,
+	nextPageCursor,
+	paginationItems,
+	PaginationError,
+	useRyotInfiniteQuery,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
 	Card,
@@ -6,6 +13,7 @@ import {
 	Collapse,
 	EmptyState,
 	IconButton,
+	LoadMoreButton,
 	MotionList,
 	MotionPresence,
 	Notice,
@@ -31,7 +39,6 @@ import { pruneSupersets, supersetOf, type DraftChange } from "./draft-ops";
 import { EditorSheet } from "./editor-sheet";
 import { editorHistoryQuery, readHistorySets } from "./queries";
 import { supersetNames } from "./superset-group";
-import { useCursorPages } from "./use-cursor-pages";
 import { ConfirmDialog } from "./workout-sheets";
 
 const historySetsQuery = createRyotQuery<
@@ -183,11 +190,26 @@ export function HistoryOverlay(props: {
 	readonly onClose: () => void;
 	readonly onAppend: (sets: WorkoutHistorySetResult["items"]) => void;
 }) {
-	const history = useCursorPages(editorHistoryQuery, {
-		exerciseId: props.exerciseId,
-		beforeStartedAt: props.beforeStartedAt,
-		excludeWorkoutId: props.excludeWorkoutId,
-	});
+	const history = useRyotInfiniteQuery(
+		editorHistoryQuery,
+		{
+			exerciseId: props.exerciseId,
+			beforeStartedAt: props.beforeStartedAt,
+			excludeWorkoutId: props.excludeWorkoutId,
+		},
+		{
+			initialPageParam: undefined,
+			getNextPageParam: nextPageCursor,
+			getPageInput: (input, after: string | undefined) => ({ ...input, after }),
+		},
+	);
+	const items = paginationItems(
+		history.pages,
+		(page) => page.items,
+		({ id }) => id,
+	);
+	const invalidCursor = history.error instanceof PaginationError;
+	const hasMore = history.hasNextPage || invalidCursor;
 	return (
 		<EditorSheet
 			wide="side"
@@ -196,21 +218,21 @@ export function HistoryOverlay(props: {
 			closeLabel="Close history"
 			description={props.exerciseName}
 			footer={
-				history.hasMore ? (
-					<Button
+				hasMore ? (
+					<LoadMoreButton
 						className="w-full"
 						variant="secondary"
-						onClick={history.showMore}
-						disabled={history.isFetching || history.invalidCursor}
-					>
-						More sessions
-					</Button>
+						label="More sessions"
+						onClick={history.fetchNextPage}
+						isFetchingNextPage={history.isFetchingNextPage}
+						disabled={history.isFetching || history.isError || invalidCursor}
+					/>
 				) : undefined
 			}
 		>
 			<div className="grid gap-3">
 				<MotionList className="grid gap-3 empty:hidden">
-					{history.items.map((session) => (
+					{items.map((session) => (
 						<HistorySession
 							key={session.id}
 							session={session}
@@ -220,7 +242,7 @@ export function HistoryOverlay(props: {
 						/>
 					))}
 				</MotionList>
-				{history.items.length === 0 && history.isSuccess ? (
+				{items.length === 0 && history.isSuccess ? (
 					<EmptyState
 						title="No earlier sessions"
 						icon={<AppIcon size={20} name="history" />}
@@ -233,12 +255,12 @@ export function HistoryOverlay(props: {
 						<Skeleton className="h-24" />
 					</div>
 				) : null}
-				{history.isError ? (
+				{history.isError && !invalidCursor ? (
 					<Notice
 						tone="danger"
 						icon={<AppIcon size={16} name="circle-alert" />}
 						action={
-							<Button size="sm" variant="secondary" onClick={history.refetch}>
+							<Button size="sm" variant="secondary" onClick={history.retry}>
 								Retry history
 							</Button>
 						}
@@ -246,7 +268,7 @@ export function HistoryOverlay(props: {
 						History could not be loaded.
 					</Notice>
 				) : null}
-				{history.invalidCursor ? (
+				{invalidCursor ? (
 					<Notice tone="danger" icon={<AppIcon size={16} name="circle-alert" />}>
 						History pagination could not continue. Retry loading this page.
 					</Notice>
