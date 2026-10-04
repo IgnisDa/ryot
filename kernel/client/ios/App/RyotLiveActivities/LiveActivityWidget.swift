@@ -33,7 +33,7 @@ struct RyotLiveActivityWidget: Widget {
             } compactLeading: {
                 ActivityBrandMark(tone: context.state.tone)
             } compactTrailing: {
-                ActivityPrimaryValue(context: context)
+                ActivityValue(value: context.state.secondary ?? context.state.primary, end: activityEnd(context))
                     .font(.caption).monospacedDigit()
                     .multilineTextAlignment(.trailing)
                     .frame(width: 58, alignment: .trailing)
