@@ -290,14 +290,12 @@ export const defineGroupMediaSchema = <
 
 	const overviewRelations: MediaOverviewRelationsRender<GroupOverview<Overview>> = ({
 		compact,
-		divided,
 		overview,
 	}) =>
 		creditCopy === undefined || !("people" in overview) ? null : (
 			<MediaCreditColumns
 				copy={creditCopy}
 				compact={compact}
-				divided={divided}
 				people={overview.people.items}
 				companies={overview.companies.items}
 				onViewAllPeople={() => console.log(`TODO: open all ${nouns.singular} credits`)}

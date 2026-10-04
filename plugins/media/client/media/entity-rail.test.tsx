@@ -85,7 +85,6 @@ describe("MediaEntityRailSection", () => {
 			<MediaEntityRailSection
 				compact
 				items={items}
-				divided={false}
 				title="Continue"
 				aspect={(item) => (item.id === "episode-1" ? "still" : "poster")}
 			/>,
@@ -103,13 +102,7 @@ describe("MediaEntityRailSection", () => {
 	it("renders nothing without items", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
-			<MediaEntityRailSection
-				compact
-				items={[]}
-				divided={false}
-				title="Continue"
-				aspect={() => "poster"}
-			/>,
+			<MediaEntityRailSection compact items={[]} title="Continue" aspect={() => "poster"} />,
 		);
 
 		expect(container.textContent).toBe("");

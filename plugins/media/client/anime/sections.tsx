@@ -13,17 +13,13 @@ export const animeUpcomingEpisodes = (schedule: AiringScheduleList, now: number 
 		.sort((left, right) => Date.parse(left.airingAt) - Date.parse(right.airingAt))
 		.slice(0, UPCOMING_EPISODE_LIMIT);
 
-export function AnimeAiringScheduleSection(props: {
-	readonly compact: boolean;
-	readonly divided: boolean;
-	readonly schedule: AiringScheduleList;
-}) {
+export function AnimeAiringScheduleSection(props: { readonly schedule: AiringScheduleList }) {
 	const upcoming = animeUpcomingEpisodes(props.schedule);
 	if (upcoming.length === 0) {
 		return null;
 	}
 	return (
-		<MediaOverviewSection title="Airing schedule" divided={props.divided} compact={props.compact}>
+		<MediaOverviewSection title="Airing schedule">
 			<MediaLabeledRows
 				rows={upcoming.map((entry) => ({
 					title: `Episode ${entry.episode}`,
@@ -36,13 +32,5 @@ export function AnimeAiringScheduleSection(props: {
 }
 
 export const animeAiringTrailing = (input: {
-	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly summary: { readonly airingSchedule: AiringScheduleList };
-}): ReactNode => (
-	<AnimeAiringScheduleSection
-		compact={input.compact}
-		divided={input.divided}
-		schedule={input.summary.airingSchedule}
-	/>
-);
+}): ReactNode => <AnimeAiringScheduleSection schedule={input.summary.airingSchedule} />;

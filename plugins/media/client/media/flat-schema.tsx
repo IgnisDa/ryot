@@ -52,11 +52,7 @@ import {
 	type MediaCreditCopy,
 	type MediaOverviewRelationsRender,
 } from "./overview";
-import {
-	mediaRelationsAreEmpty,
-	mediaUnlinkedCreators,
-	type MediaOverviewState,
-} from "./overview-state";
+import { mediaUnlinkedCreators, type MediaOverviewState } from "./overview-state";
 import {
 	mediaFlatLifecycleLabel,
 	mediaPosterAsset,
@@ -183,7 +179,6 @@ export type MediaFlatSchemaDescriptor<
 	readonly overviewTrailing?: (input: {
 		readonly summary: Summary;
 		readonly compact: boolean;
-		readonly divided: boolean;
 	}) => ReactNode;
 };
 
@@ -368,20 +363,13 @@ export const defineFlatMediaSchema = <
 		progress: summaryProgress,
 	});
 
-	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
-		compact,
-		divided,
-		overview,
-	}) => {
+	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({ compact, overview }) => {
 		const groupCopy = descriptor.group;
 		const group = groupCopy === undefined ? null : (overview.group ?? null);
 		const unlinked = mediaUnlinkedCreators(overview);
-		const groupDivided = divided || !mediaRelationsAreEmpty(overview, unlinked);
-		const railsDivided = groupDivided || (group?.members.items.length ?? 0) > 0;
 		return (
 			<MediaOverviewRelations
 				compact={compact}
-				divided={divided}
 				overview={overview}
 				unlinked={unlinked}
 				aspect={descriptor.aspect}
@@ -393,22 +381,18 @@ export const defineFlatMediaSchema = <
 							<MediaPartOfSection
 								group={group}
 								compact={compact}
-								divided={groupDivided}
 								aspect={descriptor.aspect}
 								title={groupCopy.title(group.name)}
 								actionLabel={groupCopy.actionLabel}
 							/>
 						)}
-						{railsOf(overview).map((rail, index, rails) => (
+						{railsOf(overview).map((rail) => (
 							<MediaEntityRailSection
 								key={rail.key}
 								compact={compact}
 								items={rail.items}
 								title={rail.title}
 								aspect={() => descriptor.aspect}
-								divided={
-									railsDivided || rails.slice(0, index).some((above) => above.items.length > 0)
-								}
 							/>
 						))}
 					</>

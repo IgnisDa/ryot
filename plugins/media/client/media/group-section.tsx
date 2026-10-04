@@ -34,7 +34,6 @@ export const mediaGroupOverviewIsEmpty = (
 export function MediaPartOfSection(props: {
 	readonly title: string;
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly actionLabel: string;
 	readonly group: MediaGroup | null;
 	readonly aspect: MediaArtworkAspect;
@@ -47,7 +46,6 @@ export function MediaPartOfSection(props: {
 		<MediaEntityRailSection
 			title={props.title}
 			compact={props.compact}
-			divided={props.divided}
 			aspect={() => props.aspect}
 			items={group.members.items}
 			action={

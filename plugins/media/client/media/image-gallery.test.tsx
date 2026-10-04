@@ -19,14 +19,10 @@ import { mediaRelationsAreEmpty } from "./overview-state";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
 
-const relationsRender: MediaOverviewRelationsRender<MediaOverviewRows> = ({
-	divided,
-	overview,
-}) => (
+const relationsRender: MediaOverviewRelationsRender<MediaOverviewRows> = ({ overview }) => (
 	<MediaOverviewRelations
 		compact
 		aspect="poster"
-		divided={divided}
 		overview={overview}
 		onViewAllPeople={() => undefined}
 		copy={{ notice: "Cast", people: "Cast & crew", companies: "Production companies" }}

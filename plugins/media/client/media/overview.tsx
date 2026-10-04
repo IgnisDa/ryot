@@ -43,9 +43,9 @@ import {
 	type WatchProviderGroup,
 } from "./watch-providers";
 
-const CREDIT_COLUMN_CLASS = "min-w-0 flex-1 border-t-0 pt-0";
+const CREDIT_COLUMN_CLASS = "min-w-0 flex-1";
 
-const COMPANY_COLUMN_CLASS = "w-72 shrink-0 border-t-0 pt-0";
+const COMPANY_COLUMN_CLASS = "w-72 shrink-0";
 
 export type MediaOverviewSubject = Pick<MediaSummaryFields, "name" | "images">;
 
@@ -57,7 +57,6 @@ export type MediaCreditCopy = {
 
 export type MediaOverviewRelationsRender<Overview> = (input: {
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly overview: Overview;
 }) => ReactNode;
 
@@ -65,7 +64,6 @@ export function MediaImageGallerySection(props: {
 	readonly name: string;
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
-	readonly divided: boolean;
 	readonly assets: readonly MediaImageAsset[];
 	readonly images: readonly MediaGalleryImage[];
 }) {
@@ -77,8 +75,6 @@ export function MediaImageGallerySection(props: {
 	return (
 		<MediaOverviewSection
 			title="Images"
-			divided={props.divided}
-			compact={props.compact}
 			action={
 				<MediaLinkButton
 					ref={triggerRef}
@@ -115,7 +111,6 @@ export function MediaImageGallerySection(props: {
 export function MediaWatchProvidersSection(props: {
 	readonly region: string;
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly link: string | undefined;
 	readonly groups: readonly WatchProviderGroup[];
 }) {
@@ -125,8 +120,6 @@ export function MediaWatchProvidersSection(props: {
 	return (
 		<MediaOverviewSection
 			title="Where to watch"
-			divided={props.divided}
-			compact={props.compact}
 			action={
 				props.link === undefined ? null : (
 					<MediaExternalLink href={props.link} label="View all options" />
@@ -167,7 +160,6 @@ export function MediaWatchProvidersSection(props: {
 
 function MediaRegionWatchProvidersSection(props: {
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly media: MediaWatchProviders;
 }) {
 	const region = useMemo(() => viewerRegion(), []);
@@ -178,7 +170,6 @@ function MediaRegionWatchProvidersSection(props: {
 		<MediaWatchProvidersSection
 			region={region}
 			compact={props.compact}
-			divided={props.divided}
 			link={watchProviderLink(props.media, region)}
 			groups={watchProviderGroups(props.media, region)}
 		/>
@@ -187,18 +178,13 @@ function MediaRegionWatchProvidersSection(props: {
 
 export const mediaWatchProvidersTrailing =
 	<Summary,>(select: (summary: Summary) => MediaWatchProviders) =>
-	(input: { readonly summary: Summary; readonly compact: boolean; readonly divided: boolean }) => (
-		<MediaRegionWatchProvidersSection
-			compact={input.compact}
-			divided={input.divided}
-			media={select(input.summary)}
-		/>
+	(input: { readonly summary: Summary; readonly compact: boolean }) => (
+		<MediaRegionWatchProvidersSection compact={input.compact} media={select(input.summary)} />
 	);
 
 export function MediaPeopleSection(props: {
 	readonly title: string;
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly onViewAll: () => void;
 	readonly people: readonly MediaCreditPerson[];
 	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
@@ -210,8 +196,6 @@ export function MediaPeopleSection(props: {
 	return (
 		<MediaOverviewSection
 			title={props.title}
-			divided={props.divided}
-			compact={props.compact}
 			sync={mediaSyncCounts(props.people, mediaPersonAsset)}
 			className={props.compact ? undefined : CREDIT_COLUMN_CLASS}
 			action={<MediaLinkButton label="View all people" onClick={props.onViewAll} />}
@@ -285,7 +269,6 @@ export function MediaPeopleSection(props: {
 export function MediaCompaniesSection(props: {
 	readonly title: string;
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly companies: readonly MediaCompany[];
 	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
 }) {
@@ -296,8 +279,6 @@ export function MediaCompaniesSection(props: {
 	return (
 		<MediaOverviewSection
 			title={props.title}
-			divided={props.divided}
-			compact={props.compact}
 			sync={mediaSyncCounts(props.companies, mediaCompanyAsset)}
 			className={props.compact ? undefined : COMPANY_COLUMN_CLASS}
 		>
@@ -355,14 +336,12 @@ export function MediaCompaniesSection(props: {
 
 export function MediaRecommendationsSection(props: {
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly aspect: MediaArtworkAspect;
 	readonly recommendations: readonly MediaRecommendation[];
 }) {
 	return (
 		<MediaEntityRailSection
 			title="More like this"
-			divided={props.divided}
 			compact={props.compact}
 			aspect={() => props.aspect}
 			items={props.recommendations}
@@ -374,12 +353,10 @@ function MediaOverviewNotice(props: {
 	readonly title: string;
 	readonly status: string;
 	readonly detail: string;
-	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly onRetry?: () => void;
 }) {
 	return (
-		<MediaOverviewSection title={props.title} divided={props.divided} compact={props.compact}>
+		<MediaOverviewSection title={props.title}>
 			<div className="flex flex-col items-start gap-2">
 				<p className="font-ui text-[13px] text-text-muted">{props.status}</p>
 				<p className="max-w-xl font-ui text-[13px] text-text-subtle">{props.detail}</p>
@@ -393,7 +370,6 @@ function MediaOverviewNotice(props: {
 
 export function MediaCreditColumns(props: {
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly copy: MediaCreditCopy;
 	readonly onViewAllPeople: () => void;
 	readonly companies: readonly MediaCompany[];
@@ -401,21 +377,20 @@ export function MediaCreditColumns(props: {
 	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
 }) {
 	const unlinked = mediaUnlinkedCredits(props.unlinked ?? []);
-	const hasPeople = props.people.length > 0 || unlinked.people.length > 0;
-	const hasCredits = hasPeople || props.companies.length > 0 || unlinked.companies.length > 0;
+	if (
+		props.people.length +
+			props.companies.length +
+			unlinked.people.length +
+			unlinked.companies.length ===
+		0
+	) {
+		return null;
+	}
 	return (
-		<div
-			className={clsx(
-				"flex gap-7",
-				props.compact ? "flex-col" : "flex-row gap-10",
-				!props.compact && hasCredits && "pt-5",
-				!props.compact && hasCredits && props.divided && "border-t border-border",
-			)}
-		>
+		<div className={clsx("flex", props.compact ? "flex-col gap-8" : "flex-row gap-10")}>
 			<MediaPeopleSection
 				people={props.people}
 				compact={props.compact}
-				divided={props.divided}
 				title={props.copy.people}
 				unlinked={unlinked.people}
 				onViewAll={props.onViewAllPeople}
@@ -425,7 +400,6 @@ export function MediaCreditColumns(props: {
 				companies={props.companies}
 				title={props.copy.companies}
 				unlinked={unlinked.companies}
-				divided={props.divided || hasPeople}
 			/>
 		</div>
 	);
@@ -433,7 +407,6 @@ export function MediaCreditColumns(props: {
 
 export function MediaOverviewRelations(props: {
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly copy: MediaCreditCopy;
 	readonly trailing?: ReactNode;
 	readonly aspect: MediaArtworkAspect;
@@ -442,15 +415,12 @@ export function MediaOverviewRelations(props: {
 	readonly unlinked?: readonly MediaUnlinkedCreator[] | undefined;
 }) {
 	const { people, companies, recommendations } = props.overview;
-	const hasCredits =
-		people.items.length > 0 || companies.items.length > 0 || (props.unlinked ?? []).length > 0;
 	return (
 		<>
 			<MediaCreditColumns
 				copy={props.copy}
 				people={people.items}
 				compact={props.compact}
-				divided={props.divided}
 				unlinked={props.unlinked}
 				companies={companies.items}
 				onViewAllPeople={props.onViewAllPeople}
@@ -458,7 +428,6 @@ export function MediaOverviewRelations(props: {
 			<MediaRecommendationsSection
 				aspect={props.aspect}
 				compact={props.compact}
-				divided={props.divided || hasCredits}
 				recommendations={recommendations.items}
 			/>
 			{props.trailing}
@@ -468,7 +437,6 @@ export function MediaOverviewRelations(props: {
 
 function MediaOverviewBody<Overview>(props: {
 	readonly compact: boolean;
-	readonly divided: boolean;
 	readonly noticeTitle: string;
 	readonly refresh: () => void;
 	readonly loadingDetail: string;
@@ -479,8 +447,6 @@ function MediaOverviewBody<Overview>(props: {
 	if (state.status === "loading") {
 		return (
 			<MediaOverviewNotice
-				divided={props.divided}
-				compact={props.compact}
 				title={props.noticeTitle}
 				status="Loading details..."
 				detail={props.loadingDetail}
@@ -493,18 +459,12 @@ function MediaOverviewBody<Overview>(props: {
 			<MediaOverviewNotice
 				status={error.title}
 				detail={error.detail}
-				divided={props.divided}
-				compact={props.compact}
 				onRetry={props.refresh}
 				title={props.noticeTitle}
 			/>
 		);
 	}
-	return props.relations({
-		compact: props.compact,
-		divided: props.divided,
-		overview: state.overview,
-	});
+	return props.relations({ compact: props.compact, overview: state.overview });
 }
 
 export function MediaOverview<Overview>(props: {
@@ -519,9 +479,7 @@ export function MediaOverview<Overview>(props: {
 	readonly isEmpty: (overview: Overview) => boolean;
 	readonly overview: MediaOverviewState<Overview>;
 	readonly relations: MediaOverviewRelationsRender<Overview>;
-	readonly trailing?:
-		| ((input: { readonly compact: boolean; readonly divided: boolean }) => ReactNode)
-		| undefined;
+	readonly trailing?: ((input: { readonly compact: boolean }) => ReactNode) | undefined;
 }) {
 	const gallery = mediaGalleryAssets(props.media);
 	const relations = props.overview.status !== "ready" || !props.isEmpty(props.overview.overview);
@@ -534,10 +492,9 @@ export function MediaOverview<Overview>(props: {
 		);
 	}
 	return (
-		<div className={clsx("flex flex-col", props.compact ? "gap-7 pt-6" : "gap-9 pt-8")}>
+		<div className="grid gap-8">
 			{props.refreshStatus}
 			<MediaImageGallerySection
-				divided={false}
 				assets={gallery}
 				name={props.media.name}
 				compact={props.compact}
@@ -548,12 +505,11 @@ export function MediaOverview<Overview>(props: {
 				state={props.overview}
 				compact={props.compact}
 				relations={props.relations}
-				divided={gallery.length > 0}
 				noticeTitle={props.noticeTitle}
 				refresh={props.refreshOverview}
 				loadingDetail={props.loadingDetail}
 			/>
-			{props.trailing?.({ compact: props.compact, divided: gallery.length > 0 || relations })}
+			{props.trailing?.({ compact: props.compact })}
 		</div>
 	);
 }
