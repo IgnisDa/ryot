@@ -1,61 +1,67 @@
-import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
+import {
+	SandboxExecutionMetadata,
+	type SandboxSourceExecutionMetadata,
+} from "@ryot-app/contract/modules/plugins/execution-metadata";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
-import { sandboxManifestSchema, type SandboxManifest } from "@ryot-app/sandbox-sdk/core";
+import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
 import { Result, Schema } from "effect";
 
 import { sandboxCompilerDiagnostic, type SandboxCompilerDiagnostic } from "./compiler-diagnostics";
+import type { CompiledSandboxModule } from "./compiler-protocol";
+import { jsonByteLength, SANDBOX_COMPILER_LIMITS } from "./limits";
 
 const decodeSandboxExecutionMetadata = Schema.decodeUnknownResult(SandboxExecutionMetadata);
-const decodeSandboxManifest = Schema.decodeUnknownResult(sandboxManifestSchema);
 
-export const validateCompiledSandboxManifest = (
-	manifest: SandboxManifest & Schema.Schema.Type<typeof SandboxExecutionMetadata>,
+export const validateSandboxCapabilities = (
+	manifest: SandboxManifest & SandboxSourceExecutionMetadata,
 ): SandboxCompilerDiagnostic | undefined => {
 	if (manifest.kind === "workflow" && manifest.capabilities.length > 0) {
 		return sandboxCompilerDiagnostic("RYOT_CAPABILITY", "Workflows cannot use host capabilities");
 	}
-	if (manifest.kind === "automation" && manifest.automationType === "policy") {
-		const unsafeCapability = manifest.capabilities.find(
-			(capability) => !POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
-		);
-		if (unsafeCapability) {
-			return sandboxCompilerDiagnostic(
-				"RYOT_CAPABILITY",
-				`Automation policies cannot use the host capability "${unsafeCapability}"`,
-			);
-		}
-		if (manifest.executableDependencies.some(({ kind }) => kind === "workflow")) {
-			return sandboxCompilerDiagnostic(
-				"RYOT_CAPABILITY",
-				"Automation policies cannot depend on workflows",
-			);
-		}
+	if (manifest.kind !== "automation" || manifest.automationType !== "policy") {
+		return undefined;
 	}
-	const decoded = decodeSandboxExecutionMetadata({
-		capabilities: manifest.capabilities,
-		runtimeImports: manifest.runtimeImports,
-		oauthConnectionFields: manifest.oauthConnectionFields,
-		executableDependencies: manifest.executableDependencies,
-		optionalPluginConfigKeys: manifest.optionalPluginConfigKeys,
-		requiredPluginConfigKeys: manifest.requiredPluginConfigKeys,
-	});
-	if (Result.isFailure(decoded)) {
-		return sandboxCompilerDiagnostic(
-			"RYOT_METADATA",
-			`Compiled sandbox execution metadata is invalid: ${String(decoded.failure)}`,
-		);
-	}
-	const authoredManifest = Object.fromEntries(
-		Object.entries(manifest).filter(
-			([key]) => !Object.hasOwn(SandboxExecutionMetadata.fields, key),
-		),
+	const unsafeCapability = manifest.capabilities.find(
+		(capability) => !POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
 	);
-	const decodedManifest = decodeSandboxManifest(authoredManifest);
-	if (Result.isFailure(decodedManifest)) {
+	if (unsafeCapability) {
 		return sandboxCompilerDiagnostic(
-			"RYOT_MANIFEST",
-			`Compiled sandbox manifest is invalid: ${String(decodedManifest.failure)}`,
+			"RYOT_CAPABILITY",
+			`Automation policies cannot use the host capability "${unsafeCapability}"`,
+		);
+	}
+	if (manifest.executableDependencies.some(({ kind }) => kind === "workflow")) {
+		return sandboxCompilerDiagnostic(
+			"RYOT_CAPABILITY",
+			"Automation policies cannot depend on workflows",
 		);
 	}
 	return undefined;
+};
+
+export const finalizeCompiledManifest = (
+	authored: SandboxManifest,
+	derived: SandboxExecutionMetadata,
+): Result.Result<CompiledSandboxModule["manifest"], SandboxCompilerDiagnostic> => {
+	const decoded = decodeSandboxExecutionMetadata(derived);
+	if (Result.isFailure(decoded)) {
+		return Result.fail(
+			sandboxCompilerDiagnostic(
+				"RYOT_METADATA",
+				`Compiled sandbox execution metadata is invalid: ${String(decoded.failure)}`,
+			),
+		);
+	}
+	const manifest = { ...authored, ...decoded.success };
+	if (
+		(jsonByteLength(manifest) ?? Number.POSITIVE_INFINITY) > SANDBOX_COMPILER_LIMITS.manifestBytes
+	) {
+		return Result.fail(
+			sandboxCompilerDiagnostic(
+				"RYOT_MANIFEST_SIZE",
+				`Sandbox manifest exceeds ${SANDBOX_COMPILER_LIMITS.manifestBytes} UTF-8 bytes`,
+			),
+		);
+	}
+	return Result.succeed(manifest);
 };
