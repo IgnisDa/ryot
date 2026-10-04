@@ -13,6 +13,11 @@ Production bootstraps construct a live SDK runtime per page. Tests use `createTe
 when mounting a page against that harness's clock; each page owns and disposes its SDK runtime,
 including its schedule scope, while the harness owns the clock. Concurrent harnesses are independent.
 
+The generated entry calls `bootstrapComposition` from `./bootstrap`, which is not importable by plugin
+source. It reads the embedded descriptor, parses it as JSON, and decodes it with the contract
+descriptor schema before dynamically importing the selected modules and calling the page or plugin
+bootstrap; each failure stage has its own error.
+
 The port carries no bearer token, server URL, or user identity. Authenticated page context carries
 nonsecret contributor package, local plugin, revision, and installation identities.
 `usePluginIdentity(packageId)` and the non-React `client.pluginIdentity(packageId)` accessor return

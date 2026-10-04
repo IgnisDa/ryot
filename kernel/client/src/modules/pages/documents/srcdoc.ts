@@ -1,5 +1,6 @@
 import type { ClientCompositionDocument } from "@ryot-app/contract/modules/pages/schemas";
 import {
+	CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID,
 	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	CLIENT_PAGE_ROOT_ELEMENT_ID,
 } from "@ryot-app/plugin-client-contract";
@@ -42,7 +43,7 @@ export const renderClientDocument = (
 		<script type="importmap" id="ryot-client-importmap">${htmlJson(document.importMap)}</script>
 		${links}
 		<script type="application/json" id="${CLIENT_COMPOSITION_METADATA_ELEMENT_ID}">${htmlJson(document.metadata)}</script>
-		<script type="application/json" id="ryot-client-composition">${htmlJson(document.descriptor)}</script>
+		<script type="application/json" id="${CLIENT_COMPOSITION_DESCRIPTOR_ELEMENT_ID}">${htmlJson(document.descriptor)}</script>
 	</head>
 	<body>
 		<div id="${CLIENT_PAGE_ROOT_ELEMENT_ID}"></div>
