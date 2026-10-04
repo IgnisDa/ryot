@@ -8,7 +8,7 @@ import {
 	type PluginManifest as PluginManifestValue,
 	type PluginScript,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { pluginPackageSegments, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Cron, Data, Effect, Result, Schema } from "effect";
 
@@ -24,6 +24,7 @@ export class PluginValidationError extends Data.TaggedError("PluginValidationErr
 	readonly issues: ReadonlyArray<string>;
 }> {}
 
+const reservedPluginPublisher = "ryot";
 const fail = (issue: string) => new PluginValidationError({ issues: [issue] });
 const encodeEventSchemaReference = Schema.encodeSync(
 	Schema.fromJsonString(Schema.Tuple([Schema.String, Schema.String])),
@@ -114,7 +115,10 @@ export const validatePluginManifestPolicy = (
 		if (surfaces.length > 0) {
 			return yield* new PluginSurfaceError({ surfaces });
 		}
-		if (policy.systemPackageIds.has(manifest.metadata.packageId)) {
+		if (
+			policy.systemPackageIds.has(manifest.metadata.packageId) ||
+			pluginPackageSegments(manifest.metadata.packageId).publisher === reservedPluginPublisher
+		) {
 			return yield* new PluginPackageReservedError({ packageId: manifest.metadata.packageId });
 		}
 		return yield* Effect.void;
@@ -148,7 +152,6 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 		const workflowSlugs = new Set<string>();
 		const operationSlugs = new Set<string>();
 		const userBootstrapSlugs = new Set<string>();
-		yield* assertSlug("plugin", manifest.metadata.slug);
 		for (const definition of manifest.entitySchemas) {
 			yield* assertSlug("entity schema", definition.slug);
 			const events = new Set<string>();
@@ -316,7 +319,7 @@ export const validateIntegrationProviderSettingsSchemas = (manifest: PluginManif
 			if (reservedField) {
 				return Effect.fail(
 					fail(
-						`Integration provider ${provider.slug} in plugin ${manifest.metadata.slug} declares reserved settings field: ${reservedField}`,
+						`Integration provider ${provider.slug} in plugin ${manifest.metadata.packageId} declares reserved settings field: ${reservedField}`,
 					),
 				);
 			}
@@ -326,7 +329,7 @@ export const validateIntegrationProviderSettingsSchemas = (manifest: PluginManif
 			).pipe(
 				Effect.mapError((error) =>
 					fail(
-						`Integration provider ${provider.slug} in plugin ${manifest.metadata.slug} has an invalid settingsSchema: ${formatPropertyIssues(error.issues)}`,
+						`Integration provider ${provider.slug} in plugin ${manifest.metadata.packageId} has an invalid settingsSchema: ${formatPropertyIssues(error.issues)}`,
 					),
 				),
 			);
@@ -344,7 +347,7 @@ export const validateImportSourceInputSchemas = (manifest: PluginManifestValue) 
 			if (reservedField) {
 				return Effect.fail(
 					fail(
-						`Import source ${source.slug} in plugin ${manifest.metadata.slug} declares reserved input field: ${reservedField}`,
+						`Import source ${source.slug} in plugin ${manifest.metadata.packageId} declares reserved input field: ${reservedField}`,
 					),
 				);
 			}
@@ -356,7 +359,7 @@ export const validateImportSourceInputSchemas = (manifest: PluginManifestValue) 
 			if (invalidUploadTokenField) {
 				return Effect.fail(
 					fail(
-						`Import source ${source.slug} in plugin ${manifest.metadata.slug} declares upload token field without upload format: ${invalidUploadTokenField}`,
+						`Import source ${source.slug} in plugin ${manifest.metadata.packageId} declares upload token field without upload format: ${invalidUploadTokenField}`,
 					),
 				);
 			}
@@ -365,7 +368,7 @@ export const validateImportSourceInputSchemas = (manifest: PluginManifestValue) 
 				? Effect.void
 				: Effect.fail(
 						fail(
-							`Import source ${source.slug} in plugin ${manifest.metadata.slug} has an invalid inputSchema: ${formatPropertyIssues(issues)}`,
+							`Import source ${source.slug} in plugin ${manifest.metadata.packageId} has an invalid inputSchema: ${formatPropertyIssues(issues)}`,
 						),
 					);
 		},

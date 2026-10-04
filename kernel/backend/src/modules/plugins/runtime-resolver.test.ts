@@ -13,6 +13,7 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
 	PluginId,
+	type PluginPackageId,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
@@ -34,12 +35,13 @@ import {
 	revisionDatabaseLayer,
 } from "./revision.test-support";
 import { PluginRuntimeResolver } from "./runtime-resolver";
+import { testPluginPackageId } from "./test-support";
 
 const owner = UserId.make("owner");
 const other = UserId.make("recipient");
 
-const operationPackage = (version: string) => {
-	const value = revisionPackage("whiskey", version);
+const operationPackage = (version: string, packageId?: PluginPackageId) => {
+	const value = revisionPackage("whiskey", version, undefined, packageId);
 	return {
 		...value,
 		scripts: value.scripts.map((script) =>
@@ -402,7 +404,6 @@ describe("revision-backed runtime resolution", () => {
 
 				expect(privateScript.id).not.toBe(systemScript.id);
 				expect(yield* runtime.findActiveScriptById(privateScript.id, owner)).toMatchObject({
-					pluginSlug: "retained",
 					contentHash: "retained.task-v1",
 					pluginId: privatePlugin.pluginId,
 				});
@@ -469,12 +470,7 @@ describe("revision-backed runtime resolution", () => {
 					yield* (yield* DatabaseSession).transaction(
 						plugins.persist(
 							revisionPackage("notes", "v2", "notes-entity", original.manifest.metadata.packageId),
-							{
-								slug: "notes",
-								scope: "user",
-								ownerId: owner,
-								packageId: original.manifest.metadata.packageId,
-							},
+							{ scope: "user", ownerId: owner, packageId: original.manifest.metadata.packageId },
 						),
 					);
 					expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);
@@ -713,6 +709,110 @@ describe("revision-backed runtime resolution", () => {
 							({ id }) => id === privatePlugin.pluginId,
 						)?.incompatibilityReason,
 					).toBe("package-identity-conflict");
+				}),
+		);
+	});
+});
+
+describe("package selection for a user", () => {
+	const quarantine = Effect.fn(function* (installationId: string) {
+		const installations = yield* PluginInstallationRepository;
+		yield* installations.updateHealth({
+			id: installationId,
+			health: "incompatible",
+			healthReason: "Identity conflict",
+			incompatibilityReason: "package-identity-conflict",
+		});
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("selects a private installation when it is the only claim", () =>
+			Effect.gen(function* () {
+				const runtime = yield* PluginRuntimeResolver;
+				const packageId = testPluginPackageId();
+				const privatePlugin = yield* installRevisionPackage(
+					revisionPackage("whiskey", "v1", undefined, packageId),
+					owner,
+				);
+				expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual({
+					kind: "effective",
+					pluginId: privatePlugin.pluginId,
+				});
+				expect(yield* runtime.resolveUserPackage(other, packageId)).toEqual({ kind: "absent" });
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("switches to the system copy when the private copy is quarantined", () =>
+			Effect.gen(function* () {
+				const runtime = yield* PluginRuntimeResolver;
+				const packageId = testPluginPackageId();
+				const privatePlugin = yield* installRevisionPackage(
+					revisionPackage("whiskey", "private", undefined, packageId),
+					owner,
+				);
+				yield* quarantine(privatePlugin.installation.id);
+				const system = yield* installRevisionPackage(
+					revisionPackage("whiskey", "system", undefined, packageId),
+				);
+				expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual({
+					kind: "effective",
+					pluginId: system.pluginId,
+				});
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("reports a quarantined private copy when nothing else claims the package", () =>
+			Effect.gen(function* () {
+				const runtime = yield* PluginRuntimeResolver;
+				const packageId = testPluginPackageId();
+				const privatePlugin = yield* installRevisionPackage(
+					revisionPackage("whiskey", "v1", undefined, packageId),
+					owner,
+				);
+				yield* quarantine(privatePlugin.installation.id);
+				expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual({
+					kind: "quarantined",
+					pluginId: privatePlugin.pluginId,
+				});
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"selects a hidden system copy over a quarantined private copy without exposing its operations",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const installations = yield* PluginInstallationRepository;
+					const packageId = testPluginPackageId();
+					const privatePlugin = yield* installRevisionPackage(
+						operationPackage("private", packageId),
+						owner,
+					);
+					yield* quarantine(privatePlugin.installation.id);
+					const system = yield* installRevisionPackage(operationPackage("system", packageId));
+					yield* installations.updateState({
+						config: {},
+						sortOrder: 0,
+						isHidden: true,
+						id: system.installation.id,
+					});
+					expect(yield* runtime.resolveUserPackage(owner, packageId)).toEqual({
+						kind: "effective",
+						pluginId: system.pluginId,
+					});
+					expect(
+						yield* runtime.findOperationAvailableToUser({
+							userId: owner,
+							pluginId: system.pluginId,
+							operationSlug: "same-operation",
+						}),
+					).toBeNull();
 				}),
 		);
 	});

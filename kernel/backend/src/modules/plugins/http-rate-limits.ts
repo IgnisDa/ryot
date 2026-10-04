@@ -39,7 +39,7 @@ export const buildHttpRateLimitLookups = (
 	plugins: ReadonlyArray<{
 		readonly owner: DefinitionOwner;
 		readonly scope: "system" | "user";
-		readonly slug: string;
+		readonly packageId: string;
 		readonly httpRateLimits: ReadonlyArray<PluginHttpRateLimit>;
 	}>,
 ): HttpRateLimitLookups => {
@@ -61,19 +61,19 @@ export const buildHttpRateLimitLookups = (
 			const keyed = byKey[key];
 			if (keyed && stableStringify(keyed.declaration) !== stableStringify(canonical)) {
 				throw new Error(
-					`Conflicting HTTP rate limit key '${canonical.key}' in active plugins '${ownerByKey.get(key)}' and '${plugin.slug}'`,
+					`Conflicting HTTP rate limit key '${canonical.key}' in active plugins '${ownerByKey.get(key)}' and '${plugin.packageId}'`,
 				);
 			}
 			for (const origin of canonical.origins) {
 				const originated = byOrigin[origin];
 				if (originated && originated.hash !== policy.hash) {
 					throw new Error(
-						`Conflicting HTTP rate limit origin '${origin}' in active plugins '${ownerByOrigin.get(origin)}' and '${plugin.slug}'`,
+						`Conflicting HTTP rate limit origin '${origin}' in active plugins '${ownerByOrigin.get(origin)}' and '${plugin.packageId}'`,
 					);
 				}
 			}
 			byKey[key] = policy;
-			ownerByKey.set(key, plugin.slug);
+			ownerByKey.set(key, plugin.packageId);
 			for (const origin of canonical.origins) {
 				byOrigin[origin] = {
 					...policy,
@@ -83,7 +83,7 @@ export const buildHttpRateLimitLookups = (
 						key: identityTupleKey("http-origin", origin),
 					},
 				};
-				ownerByOrigin.set(origin, plugin.slug);
+				ownerByOrigin.set(origin, plugin.packageId);
 			}
 		}
 	}

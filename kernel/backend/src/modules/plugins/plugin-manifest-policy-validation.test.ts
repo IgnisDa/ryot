@@ -1,9 +1,14 @@
 import { expect, it } from "@effect/vitest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 
 import { fixtureManifest } from "./test-support";
-import { PluginSurfaceError, validatePluginManifestPolicy } from "./validation";
+import {
+	PluginPackageReservedError,
+	PluginSurfaceError,
+	validatePluginManifestPolicy,
+} from "./validation";
 
 const requireFixtureScript = () => {
 	const script = fixtureManifest().scripts[0];
@@ -96,5 +101,24 @@ it.effect("reserves OAuth providers for system plugins", () =>
 		const failure = Option.getOrThrow(Cause.findErrorOption(rejected.cause));
 		assert(failure instanceof PluginSurfaceError);
 		expect(failure.surfaces).toEqual(["oauthProviders"]);
+	}),
+);
+
+it.effect("reserves the ryot publisher for bundled plugins", () =>
+	Effect.gen(function* () {
+		const manifest = fixtureManifest(PluginPackageId.make("ryot/community"));
+		yield* validatePluginManifestPolicy(manifest, { scope: "system" });
+		yield* validatePluginManifestPolicy(
+			fixtureManifest(PluginPackageId.make("ryot-labs/community")),
+			{ scope: "user", systemPackageIds: new Set() },
+		);
+
+		const rejected = yield* Effect.exit(
+			validatePluginManifestPolicy(manifest, { scope: "user", systemPackageIds: new Set() }),
+		);
+		assert(Exit.isFailure(rejected));
+		const failure = Option.getOrThrow(Cause.findErrorOption(rejected.cause));
+		assert(failure instanceof PluginPackageReservedError);
+		expect(failure.packageId).toBe("ryot/community");
 	}),
 );

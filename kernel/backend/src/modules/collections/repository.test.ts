@@ -25,7 +25,6 @@ const pluginCollectionSchema: EntitySchemaSnapshot = {
 	icon: "collection",
 	name: "Plugin collection",
 	mergeIdentityProperties: [],
-	pluginSlug: "collection-plugin",
 	propertiesSchema: { fields: {} },
 	slug: EntitySchemaSlug.make("collection"),
 	pluginId: PluginId.make("collection-plugin"),

@@ -482,7 +482,6 @@ const portableRow = {
 	properties: {},
 	id: "entity-id",
 	externalId: null,
-	pluginSlug: null,
 	populatedAt: null,
 	providerSlug: null,
 	providerPluginId: null,

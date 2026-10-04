@@ -44,7 +44,7 @@ const countMatchingValues = (value: unknown, key: string, expected: string): num
 	}, 0);
 };
 
-const packageId = PluginPackageId.make("69b8617d-3279-491e-a871-2b4734b6d085");
+const packageId = PluginPackageId.make("test/binding");
 const user = {
 	type: "user",
 	language: null,
@@ -250,7 +250,7 @@ it.effect(
 			const unknownReference = pluginId({
 				scope: "system",
 				kind: "package",
-				packageId: PluginPackageId.make("4fe6a3dd-ec4c-477b-bfa8-924d9ddf6225"),
+				packageId: PluginPackageId.make("test/other-binding"),
 			}).reference;
 			const unknownDocument = {
 				queries: { rows: rows(root, { fields: [field("owner", pluginId(unknownReference))] }) },

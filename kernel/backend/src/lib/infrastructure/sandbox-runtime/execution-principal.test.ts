@@ -13,15 +13,14 @@ const principal = {
 	pluginRevision: {
 		scope: "user",
 		id: "plugin-1",
-		slug: "plugin",
 		ownerId: "user-1",
 		workflowScripts: {},
 		revisionId: "revision-1",
 		configRevisionId: "config-1",
 		userBootstrapScriptSlugs: [],
 		compiledHashes: { script: "hash-1" },
+		packageId: PluginPackageId.make("test/principal"),
 		configSchema: { fields: {}, unknownKeys: "strict" },
-		packageId: PluginPackageId.make("00000000-0000-4000-8000-000000000001"),
 		schemaScope: {
 			eventSchemas: [],
 			signalSchemaSlugs: [],

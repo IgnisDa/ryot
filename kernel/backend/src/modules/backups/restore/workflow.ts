@@ -93,7 +93,6 @@ const restoreFailure = (error: unknown): BackupRunFailureValue => {
 	if (error instanceof RequiredBackupPluginUnavailable) {
 		return {
 			packageId: error.packageId,
-			pluginSlug: error.pluginSlug,
 			code: "required-plugin-unavailable",
 			requiredVersion: error.requiredVersion,
 		};

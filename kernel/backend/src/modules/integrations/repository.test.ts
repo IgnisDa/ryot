@@ -166,12 +166,7 @@ describe("integration client settings projection", () => {
 					yield* (yield* DatabaseSession).transaction(
 						(yield* PluginIngestionLock).persistUserPlugin(
 							providerPackage("v2", true, original.manifest.metadata.packageId),
-							{
-								slug: "notes",
-								scope: "user",
-								ownerId: owner,
-								packageId: original.manifest.metadata.packageId,
-							},
+							{ scope: "user", ownerId: owner, packageId: original.manifest.metadata.packageId },
 						),
 					);
 					expect(yield* client).toEqual({ kind: "notes" });
@@ -252,7 +247,6 @@ describe("integration client settings projection", () => {
 								yield* (yield* PluginIngestionLock).persistUserPlugin(
 									providerPackage("v2", true, original.manifest.metadata.packageId),
 									{
-										slug: "notes",
 										scope: "user",
 										ownerId: owner,
 										packageId: original.manifest.metadata.packageId,

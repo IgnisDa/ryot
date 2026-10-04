@@ -142,7 +142,6 @@ export const definitionForPlugin = <
 
 const privateDefinitionSnapshot = (plugin: {
 	readonly id: string;
-	readonly slug: string;
 	readonly manifest: PluginManifest;
 }): DefinitionSnapshot =>
 	buildDefinitionSnapshot(
@@ -153,11 +152,7 @@ const privateDefinitionSnapshot = (plugin: {
 	);
 
 const privateDefinitionSnapshots = (
-	plugins: ReadonlyArray<{
-		readonly id: string;
-		readonly slug: string;
-		readonly manifest: PluginManifest;
-	}>,
+	plugins: ReadonlyArray<{ readonly id: string; readonly manifest: PluginManifest }>,
 ) => new Map(plugins.map((plugin) => [plugin.id, privateDefinitionSnapshot(plugin)]));
 
 const definitionLookup =
@@ -278,7 +273,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 				const privatePlugins = yield* plugins.listPrivateForUser(userId);
 				const installedPlugins = [...systemPlugins, ...privatePlugins].map((plugin) => ({
 					id: plugin.id,
-					slug: plugin.slug,
 					scope: plugin.scope,
 					manifest: plugin.manifest,
 					sourceHash: plugin.sourceHash,
@@ -431,7 +425,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						if (!view.isBuiltin) {
 							const {
 								reference: _reference,
-								pluginSlug: _pluginSlug,
 								pluginInstallationId: _installationId,
 								...portableView
 							} = view;
@@ -680,7 +673,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								);
 							}
 							return {
-								slug: plugin.slug,
 								manifest: plugin.manifest,
 								sourceHash: plugin.sourceHash,
 								version: plugin.manifest.metadata.version,
@@ -1068,8 +1060,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							(plugin) =>
 								plugin.scope === "system" && referencedPluginKeys.has(pluginPackageKey(plugin)),
 						)
-						.map(({ slug, version, manifest, packageId, sourceHash }) => ({
-							slug,
+						.map(({ version, manifest, packageId, sourceHash }) => ({
 							version,
 							packageId,
 							sourceHash,

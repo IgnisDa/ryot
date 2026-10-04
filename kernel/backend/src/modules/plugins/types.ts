@@ -38,11 +38,7 @@ export type NormalizedPlugin = Omit<PluginRevision, "scripts"> & {
 export type PluginPersistenceIdentity = (
 	| { readonly ownerId: null; readonly scope: "system" }
 	| { readonly ownerId: string; readonly scope: "user" }
-) & {
-	readonly slug: string;
-	readonly packageId: PluginManifest["metadata"]["packageId"];
-	readonly pluginId?: string;
-};
+) & { readonly packageId: PluginManifest["metadata"]["packageId"]; readonly pluginId?: string };
 
 export type StoredPluginIdentity = Omit<
 	PluginPersistenceIdentity,

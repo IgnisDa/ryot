@@ -11,55 +11,54 @@ import { mergeManifestDefinitions } from "./source";
 
 const signalDefinitions = () => {
 	const base = fixtureManifest();
-	const plugin: { readonly id: string; readonly slug: string; readonly manifest: PluginManifest } =
-		{
-			...fixturePluginIdentity(),
-			manifest: {
-				...base,
-				signalSchemas: [
-					{
-						name: "Actor Signal",
-						slug: "fixture.actor",
-						catalogState: "active",
-						audiencePolicy: { kind: "actor" },
-						notificationHookSlug: "fixture.automation",
-						propertiesSchema: {
-							unknownKeys: "strict",
-							fields: {
-								message: {
-									type: "string",
-									label: "Message",
-									description: "Message",
-									validation: { required: true },
-								},
+	const plugin: { readonly id: string; readonly manifest: PluginManifest } = {
+		...fixturePluginIdentity(),
+		manifest: {
+			...base,
+			signalSchemas: [
+				{
+					name: "Actor Signal",
+					slug: "fixture.actor",
+					catalogState: "active",
+					audiencePolicy: { kind: "actor" },
+					notificationHookSlug: "fixture.automation",
+					propertiesSchema: {
+						unknownKeys: "strict",
+						fields: {
+							message: {
+								type: "string",
+								label: "Message",
+								description: "Message",
+								validation: { required: true },
 							},
 						},
 					},
-					{
-						name: "Related Signal",
-						catalogState: "active",
-						slug: "fixture.related",
-						notificationHookSlug: "fixture.automation",
-						audiencePolicy: {
-							kind: "related_users",
-							subjectSide: "source",
-							relationshipSchemaSlug: "fixture-link",
-						},
-						propertiesSchema: {
-							unknownKeys: "strict",
-							fields: {
-								count: {
-									label: "Count",
-									type: "integer",
-									description: "Count",
-									validation: { required: true },
-								},
+				},
+				{
+					name: "Related Signal",
+					catalogState: "active",
+					slug: "fixture.related",
+					notificationHookSlug: "fixture.automation",
+					audiencePolicy: {
+						kind: "related_users",
+						subjectSide: "source",
+						relationshipSchemaSlug: "fixture-link",
+					},
+					propertiesSchema: {
+						unknownKeys: "strict",
+						fields: {
+							count: {
+								label: "Count",
+								type: "integer",
+								description: "Count",
+								validation: { required: true },
 							},
 						},
 					},
-				],
-			},
-		};
+				},
+			],
+		},
+	};
 	return Object.values(
 		buildDefinitionSnapshot(mergeManifestDefinitions(kernelDefinitionSource(), [plugin]))
 			.signalSchemas,

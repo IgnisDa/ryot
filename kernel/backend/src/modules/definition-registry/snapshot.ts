@@ -43,7 +43,6 @@ export const EntitySchemaDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
-	pluginSlug: Schema.NullOr(Schema.String),
 	eventSchemas: Schema.Array(EventSchemaDefinition),
 	mergeIdentityProperties: Schema.Array(Schema.String),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
@@ -85,7 +84,6 @@ export const SavedViewDefinition = Schema.Struct({
 	slug: Schema.String,
 	sortOrder: Schema.Finite,
 	renderer: SavedViewRenderer,
-	pluginSlug: Schema.NullOr(Schema.String),
 	dataSources: Schema.NullOr(RyotQLDocument),
 	settings: Schema.Record(Schema.String, JsonValue),
 });

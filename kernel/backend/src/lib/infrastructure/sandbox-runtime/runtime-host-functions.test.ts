@@ -47,7 +47,6 @@ const pluginInput = makeUserRunInput({
 			ownerId: null,
 			id: "plugin-a",
 			scope: "system",
-			slug: "same-name",
 			compiledHashes: {},
 			workflowScripts: {},
 			revisionId: "revision-1",
@@ -156,9 +155,7 @@ describe("runtime sandbox host functions", () => {
 							pluginRevision: yield* Schema.decodeEffect(SandboxPluginRevision)({
 								...revision,
 								id: "plugin-b",
-								packageId: fixtureManifest(
-									PluginPackageId.make("4a58c0e1-e066-4a6a-b3bb-c8f54e490001"),
-								).metadata.packageId,
+								packageId: fixtureManifest(PluginPackageId.make("test/runtime")).metadata.packageId,
 							}),
 						},
 					};

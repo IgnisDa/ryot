@@ -186,7 +186,7 @@ it.effect(
 				},
 			];
 			const error = yield* resolveRequiredPluginIds(required, installed).pipe(Effect.flip);
-			expect(error).toMatchObject({ packageId, pluginSlug: "system", requiredVersion: "1.0.0" });
+			expect(error).toMatchObject({ packageId, requiredVersion: "1.0.0" });
 		}),
 );
 
@@ -504,7 +504,6 @@ const provenanceRecords = (
 
 const provenanceEntityDefinition: DefinitionSnapshot["entitySchemas"][string] = {
 	icon: "box",
-	pluginSlug: "owner",
 	name: "Owner entity",
 	slug: "owner-entity",
 	pluginId: "owner-id",
@@ -535,6 +534,18 @@ const provenanceDefinitions: DefinitionSnapshot = {
 			targetEntitySchemaSlug: "owner-entity",
 		},
 	},
+	savedViews: {
+		[definitionKey("saved-view", definitionOwner("owner-id"), "owner-view")]: {
+			icon: "list",
+			sortOrder: 0,
+			settings: {},
+			slug: "owner-view",
+			name: "Owner view",
+			pluginId: "owner-id",
+			dataSources: provenanceQuery,
+			renderer: { kind: "kernel", name: "entity-browser" },
+		},
+	},
 	signalSchemas: {
 		[definitionKey("signal", definitionOwner("owner-id"), "owner.signal")]: {
 			pluginId: "owner-id",
@@ -544,19 +555,6 @@ const provenanceDefinitions: DefinitionSnapshot = {
 			propertiesSchema: { fields: {} },
 			audiencePolicy: { kind: "actor" },
 			notificationHookSlug: "owner.notify",
-		},
-	},
-	savedViews: {
-		[definitionKey("saved-view", definitionOwner("owner-id"), "owner-view")]: {
-			icon: "list",
-			sortOrder: 0,
-			settings: {},
-			slug: "owner-view",
-			name: "Owner view",
-			pluginSlug: "owner",
-			pluginId: "owner-id",
-			dataSources: provenanceQuery,
-			renderer: { kind: "kernel", name: "entity-browser" },
 		},
 	},
 };
@@ -691,7 +689,6 @@ it.effect("rejects private-owned global snapshots during preflight", () =>
 					key,
 					packageId,
 					version: "v1",
-					slug: "whiskey",
 					compiledScripts: [],
 					sourceHash: "a".repeat(64),
 					manifest: packageValue.manifest,
@@ -778,7 +775,6 @@ const eventSchema = {
 const bootstrapEntitySchema = {
 	pluginId: null,
 	icon: "record",
-	pluginSlug: "fixture",
 	name: "Bootstrap entity",
 	slug: "bootstrap-entity",
 	mergeIdentityProperties: [],
@@ -1164,7 +1160,6 @@ describe("account backup restore in PostgreSQL", () => {
 					const installedPluginId = yield* session.transaction(
 						plugins.persist(packageValue, {
 							scope: "user",
-							slug: "portable",
 							ownerId: "recipient",
 							packageId: packageValue.manifest.metadata.packageId,
 						}),
@@ -1176,7 +1171,7 @@ describe("account backup restore in PostgreSQL", () => {
 					const snapshot = buildDefinitionSnapshot(
 						mergeManifestDefinitions(
 							{ savedViews: [], signalSchemas: [], entitySchemas: [], relationshipSchemas: [] },
-							[{ slug: "portable", id: installedPluginId, manifest: packageValue.manifest }],
+							[{ id: installedPluginId, manifest: packageValue.manifest }],
 						),
 					);
 					const timestamp = "2026-09-16T00:00:00.000Z";
@@ -1352,12 +1347,7 @@ describe("account backup restore in PostgreSQL", () => {
 				);
 				const packageId = normalized.manifest.metadata.packageId;
 				const id = yield* session.transaction(
-					plugins.persist(normalized, {
-						packageId,
-						ownerId: null,
-						slug: "shared",
-						scope: "system",
-					}),
+					plugins.persist(normalized, { packageId, ownerId: null, scope: "system" }),
 				);
 				const provider = yield* plugins.resolveProviderBySlugs({
 					pluginId: id,
@@ -1406,7 +1396,7 @@ describe("account backup restore in PostgreSQL", () => {
 				const definitions = buildDefinitionSnapshot(
 					mergeManifestDefinitions(
 						{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
-						[{ id, slug: "shared", manifest: normalized.manifest }],
+						[{ id, manifest: normalized.manifest }],
 					),
 				);
 				const required = [
@@ -1535,7 +1525,6 @@ describe("account backup restore in PostgreSQL", () => {
 											plugins.persist(packageValue, {
 												scope: "user",
 												ownerId: sourceUser,
-												slug: manifest.metadata.slug,
 												packageId: manifest.metadata.packageId,
 											}),
 										),
@@ -1724,7 +1713,6 @@ describe("account backup restore in PostgreSQL", () => {
 											plugins.persist(first.packageValue, {
 												ownerId: null,
 												scope: "system",
-												slug: "whiskey",
 												packageId: first.packageValue.manifest.metadata.packageId,
 											}),
 										),

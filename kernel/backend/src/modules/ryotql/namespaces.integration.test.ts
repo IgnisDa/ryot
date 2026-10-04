@@ -6,7 +6,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	PluginId,
-	PluginPackageId,
+	type PluginPackageId,
 	PluginRevisionId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -40,16 +40,14 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/revision.test-support";
+import { testPluginPackageId } from "#modules/plugins/test-support";
 
 import { RyotQLService } from "./service";
 
 const databaseLayer = RyotQLService.layer.pipe(Layer.provideMerge(revisionDatabaseLayer));
 const owner = UserId.make("owner");
 
-const namespacePackage = (
-	version = "v1",
-	packageId = PluginPackageId.make(crypto.randomUUID()),
-) => {
+const namespacePackage = (version = "v1", packageId = testPluginPackageId()) => {
 	const value = revisionPackage("whiskey", version, "bottle", packageId);
 	const entity = table("entity", "entity");
 	return {
@@ -146,7 +144,6 @@ layer(databaseLayer)((test) => {
 							icon: "box",
 							pluginId: null,
 							slug: "bottle",
-							pluginSlug: null,
 							name: "Kernel bottle",
 							propertiesSchema: { fields: {} },
 							eventSchemas: [
@@ -647,7 +644,6 @@ layer(databaseLayer)((test) => {
 								{
 									scope: "user",
 									ownerId: owner,
-									slug: "whiskey",
 									pluginId: installed.pluginId,
 									packageId: value.manifest.metadata.packageId,
 								},

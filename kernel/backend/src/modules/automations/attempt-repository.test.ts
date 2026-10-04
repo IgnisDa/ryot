@@ -434,7 +434,6 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 								.insert(plugin)
 								.values({
 									id: "plugin",
-									slug: "fixture",
 									status: "inactive",
 									packageId: fixtureManifest().metadata.packageId,
 								});

@@ -35,7 +35,6 @@ export const hotSwapScript = <Metadata>(
 	name: "Workflow",
 	providerId: null,
 	compiledFormat: 1,
-	pluginSlug: "plugin",
 	source: compiledCode,
 	createdAt: new Date(0),
 	updatedAt: new Date(0),

@@ -12,7 +12,6 @@ import { buildHttpRateLimitLookups } from "./http-rate-limits";
 
 type SystemSetPlugin = {
 	readonly id: string;
-	readonly slug: string;
 	readonly manifest: PluginManifest;
 	readonly scripts: ReadonlyArray<{ readonly slug: string }>;
 };
@@ -38,10 +37,10 @@ export const validateSystemPluginSet = (
 		}
 	}
 	buildHttpRateLimitLookups(
-		plugins.map(({ id, slug, manifest }) => ({
-			slug,
+		plugins.map(({ id, manifest }) => ({
 			scope: "system",
 			owner: definitionOwner(id),
+			packageId: manifest.metadata.packageId,
 			httpRateLimits: manifest.httpRateLimits,
 		})),
 	);

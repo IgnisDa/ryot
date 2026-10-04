@@ -22,12 +22,16 @@ const withRoot = <A, E>(
 		}),
 	);
 
-const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: string) {
+const writeArchive = Effect.fn("writeArchive")(function* (
+	root: string,
+	name: string,
+	publisher = "test",
+) {
 	const fs = yield* FileSystem.FileSystem;
-	const base = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
+	const base = fixtureManifest(PluginPackageId.make(`${publisher}/${name}`));
 	const manifest = {
 		...base,
-		metadata: { ...base.metadata, slug, name: slug },
+		metadata: { ...base.metadata, name },
 		client: {
 			homeView: null,
 			apiVersion: 1 as const,
@@ -42,21 +46,27 @@ const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: st
 	};
 	const source = yield* loadPluginSource(fixturePackageRoot(), manifest);
 	const compiledManifest = yield* Schema.decodeEffect(PluginManifest)(source.manifest);
+	yield* fs.makeDirectory(`${root}/${publisher}`, { recursive: true });
 	yield* fs.writeFile(
-		`${root}/${slug}.zip`,
+		`${root}/${publisher}/${name}.zip`,
 		writePluginArchive({ ...source, manifest: compiledManifest }),
 	);
 });
 
 layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
-	test.effect("discovers valid archives in sorted filename order", () =>
+	test.effect("discovers valid archives in sorted publisher and filename order", () =>
 		withRoot((root) =>
 			Effect.gen(function* () {
-				yield* writeArchive(root, "zeta");
-				yield* writeArchive(root, "alpha");
+				yield* writeArchive(root, "zeta", "beta");
+				yield* writeArchive(root, "omega", "alpha");
+				yield* writeArchive(root, "alpha", "beta");
 				const sources = yield* discoverSystemPlugins(root);
 
-				expect(sources.map(({ manifest }) => manifest.metadata.slug)).toEqual(["alpha", "zeta"]);
+				expect(sources.map(({ manifest }) => manifest.metadata.packageId)).toEqual([
+					"alpha/omega",
+					"beta/alpha",
+					"beta/zeta",
+				]);
 				expect(sources[0]?.compiledScripts.map(({ entry }) => entry)).toEqual([
 					"backend/automations/fixture.sandbox.ts",
 				]);
@@ -80,7 +90,10 @@ layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
 				Effect.gen(function* () {
 					const fs = yield* FileSystem.FileSystem;
 					yield* writeArchive(root, "first");
-					yield* fs.writeFile(`${root}/second.zip`, yield* fs.readFile(`${root}/first.zip`));
+					yield* fs.writeFile(
+						`${root}/test/second.zip`,
+						yield* fs.readFile(`${root}/test/first.zip`),
+					);
 					const result = yield* Effect.result(discoverSystemPlugins(root));
 					assert(result._tag === "Failure");
 					expect(result.failure).toMatchObject({
@@ -96,7 +109,9 @@ layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				yield* fs.writeFileString(`${root}/notes.txt`, "ignored");
-				yield* fs.makeDirectory(`${root}/directory.zip`);
+				yield* fs.writeFileString(`${root}/loose.zip`, "ignored");
+				yield* fs.makeDirectory(`${root}/test/directory.zip`, { recursive: true });
+				yield* fs.writeFileString(`${root}/test/notes.txt`, "ignored");
 
 				expect(yield* discoverSystemPlugins(root)).toEqual([]);
 			}),
@@ -107,7 +122,8 @@ layer(Layer.merge(BunServices.layer, ViteBuildService.layer))((test) => {
 		withRoot((root) =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
-				yield* fs.writeFileString(`${root}/invalid.zip`, "not a zip");
+				yield* fs.makeDirectory(`${root}/test`);
+				yield* fs.writeFileString(`${root}/test/invalid.zip`, "not a zip");
 				const result = yield* Effect.result(discoverSystemPlugins(root));
 
 				assert(result._tag === "Failure");

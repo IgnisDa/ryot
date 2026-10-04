@@ -53,7 +53,6 @@ export const ingestionTestRun = (overrides: Partial<IngestionRun> = {}): Ingesti
 });
 export const ingestionTestRevision = {
 	ownerId: null,
-	slug: "fixture",
 	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,

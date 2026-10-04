@@ -5,10 +5,12 @@ import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 	new URL(`./test-fixtures/${kind}`, import.meta.url).pathname;
 
-const fixturePackageId = PluginPackageId.make("f6b3b00d-223c-4ae7-98b6-b1d7ba9e02ce");
+const fixturePackageId = PluginPackageId.make("test/fixture");
 
-export const fixturePluginIdentity = (slug = "fixture", packageId = fixturePackageId) =>
-	({ slug, packageId, ownerId: null, scope: "system", id: `${slug}-plugin-id` }) as const;
+export const testPluginPackageId = () => PluginPackageId.make(`test/${crypto.randomUUID()}`);
+
+export const fixturePluginIdentity = (name = "fixture", packageId = fixturePackageId) =>
+	({ packageId, ownerId: null, scope: "system", id: `${name}-plugin-id` }) as const;
 
 export const fixtureManifest = (packageId = fixturePackageId) =>
 	({
@@ -26,7 +28,6 @@ export const fixtureManifest = (packageId = fixturePackageId) =>
 			packageId,
 			icon: "box",
 			name: "Fixture",
-			slug: "fixture",
 			version: "1.0.0",
 			description: "Fixture plugin",
 		},

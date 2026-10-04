@@ -29,7 +29,7 @@ Rows select `{ key, expr }` fields or `{ type: "wildcard", tableAlias }`. A wild
 
 ## Scopes And Visibility
 
-A document cannot provide a user ID, plugin slug, execution scope, or grant. Authorization applies independently to every root, join, include, and correlated query before caller predicates. Visibility is default-deny: a table is readable only in scopes it declares, and restricted fields fail validation as unknown fields and are omitted from wildcards.
+A document cannot provide a user ID, plugin identity, execution scope, or grant. Authorization applies independently to every root, join, include, and correlated query before caller predicates. Visibility is default-deny: a table is readable only in scopes it declares, and restricted fields fail validation as unknown fields and are omitted from wildcards.
 
 | Scope          | Callers                                                                                           | Reads                                                                                                |
 | -------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
@@ -95,7 +95,7 @@ For users with a non-canonical language, entity `name` falls back to canonical t
 
 `populationStatus` is `ready` when `populatedAt` exists, `none` without provider or external ID, and `pending` otherwise. `translationStatus` is `pending` only when populated provider content needs a missing requested translation, `ready` when an overlay exists, and `none` for canonical readers, inapplicable providers, unpopulated entities, or negative-cache translations.
 
-`plugin` revision fields (`name`, `icon`, `description`, `version`, `sourceHash`, `ingestedAt`, `clientApiVersion`, `configSchema`) come from the active revision and are null without one. `savedView.pluginSlug` and `integration.pluginSlug` derive from the exact installation.
+`plugin` revision fields (`name`, `icon`, `description`, `version`, `sourceHash`, `ingestedAt`, `clientApiVersion`, `configSchema`) come from the active revision and are null without one. `savedView.packageId` and `integration.packageId` derive from the exact installation.
 
 `savedView` reads from `user_saved_view_effective`, combining custom user rows with listed built-in definitions and optional per-user order and visibility overrides. A definition change is visible without copying it into each account.
 

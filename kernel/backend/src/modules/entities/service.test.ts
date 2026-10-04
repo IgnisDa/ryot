@@ -167,7 +167,6 @@ const entitiesLayer = (options: TestOptions = {}) =>
 						pluginId: null,
 						name: "Record",
 						icon: "record",
-						pluginSlug: null,
 						eventSchemas: [
 							{
 								pluginId: null,
@@ -1011,7 +1010,6 @@ describe("EntitiesService committed lifecycle", () => {
 					yield* db
 						.insert(tables.plugin)
 						.values({
-							slug: "provider",
 							status: "inactive",
 							id: "provider-plugin",
 							packageId: manifest.metadata.packageId,
@@ -1044,7 +1042,7 @@ describe("EntitiesService committed lifecycle", () => {
 		);
 		yield* (yield* DefinitionRepository.make).writeRevisionDefinitions({
 			pluginRevisionId: "provider-revision",
-			definitions: revisionDefinitions("provider-plugin", "provider", manifest),
+			definitions: revisionDefinitions("provider-plugin", manifest),
 		});
 	});
 	layer(entitiesLayer())((test) => {

@@ -495,7 +495,6 @@ layer(
 						.values({
 							status: "inactive",
 							id: "retiring-plugin",
-							slug: "retiring-plugin",
 							packageId: ingestionTestSource.pluginRevision.packageId,
 						}),
 				);

@@ -38,7 +38,7 @@ import { PluginSavedViewReferences } from "./saved-view-references";
 import { fixtureClientArtifact } from "./source.test-support";
 import { SystemPlugins } from "./system";
 import { validateSystemPluginSet } from "./system-set";
-import { fixtureManifest } from "./test-support";
+import { fixtureManifest, testPluginPackageId } from "./test-support";
 import type { StoredPlugin } from "./types";
 
 const userId = UserId.make("user-1");
@@ -68,7 +68,11 @@ const privateManifest = (overrides: Partial<PluginManifest> = {}): PluginManifes
 	entitySchemas: [],
 	signalSchemas: [],
 	relationshipSchemas: [],
-	metadata: { ...fixtureManifest().metadata, name: "Private", slug: "private-fixture" },
+	metadata: {
+		...fixtureManifest().metadata,
+		name: "Private",
+		packageId: PluginPackageId.make("test/private-fixture"),
+	},
 	...overrides,
 });
 
@@ -78,11 +82,10 @@ const storedPrivatePlugin = (manifest: PluginManifest): StoredPlugin => ({
 	scope: "user",
 	ownerId: userId,
 	status: "active",
-	slug: manifest.metadata.slug,
 	packageId: manifest.metadata.packageId,
-	id: `${manifest.metadata.slug}-plugin-id`,
 	sourceHash: pluginSourceHash(manifest, []),
-	activationId: `${manifest.metadata.slug}-activation`,
+	id: `${manifest.metadata.packageId}-plugin-id`,
+	activationId: `${manifest.metadata.packageId}-activation`,
 });
 
 const installationRow = (
@@ -103,7 +106,6 @@ const installationRow = (
 	updatedAt: new Date(),
 	incompatibilityReason: null,
 	activeConfigRevisionId: null,
-	pluginSlug: "private-fixture",
 	id: `${overrides.pluginId}-installation`,
 	packageId: privateManifest().metadata.packageId,
 	...overrides,
@@ -179,7 +181,7 @@ class InstallationFakeState extends Context.Service<
 			ReadonlyArray<{
 				activationId: string;
 				ownerId: string | null;
-				slug: string;
+				packageId: PluginPackageId;
 				pluginId: string;
 				installationId: string | null;
 			}>
@@ -255,7 +257,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 					ReadonlyArray<{
 						activationId: string;
 						ownerId: string | null;
-						slug: string;
+						packageId: PluginPackageId;
 						pluginId: string;
 						installationId: string | null;
 					}>
@@ -292,7 +294,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 				homeViewTransactionScopes: read("homeViewTransactionScopes"),
 				loadSystemPlugin: (plugin) =>
 					Ref.update(systemPlugins, (current) => {
-						const index = current.findIndex(({ slug }) => slug === plugin.slug);
+						const index = current.findIndex(({ packageId }) => packageId === plugin.packageId);
 						return index === -1
 							? [...current, plugin]
 							: current.map((existing, position) => (position === index ? plugin : existing));
@@ -369,14 +371,14 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 							Ref.get(receipts),
 							(all) => all.find((receipt) => receipt.activationId === activationId) ?? null,
 						),
-					persist: (plugin, identity) =>
-						record(recordings, "persisted", { identity, plugin: plugin.manifest }).pipe(
-							Effect.as(identity.pluginId ?? `${identity.slug}-plugin-id`),
-						),
 					findActiveSystemPluginByPackageId: (packageId) =>
 						Effect.map(
 							Ref.get(systemPlugins),
 							(plugins) => plugins.find((plugin) => plugin.packageId === packageId) ?? null,
+						),
+					persist: (plugin, identity) =>
+						record(recordings, "persisted", { identity, plugin: plugin.manifest }).pipe(
+							Effect.as(identity.pluginId ?? `${identity.packageId}-plugin-id`),
 						),
 					listCompiledPackageArtifacts: () =>
 						Effect.gen(function* () {
@@ -394,8 +396,8 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 						Ref.update(receipts, (all) => [
 							...all,
 							{
-								slug: receipt.slug,
 								pluginId: receipt.pluginId,
+								packageId: receipt.packageId,
 								ownerId: receipt.ownerId ?? null,
 								activationId: receipt.activationId,
 								installationId: receipt.installationId ?? null,
@@ -410,13 +412,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 									: Ref.update(systemPlugins, (plugins) => [
 											...plugins,
 											systemEntry(
-												privateManifest({
-													metadata: {
-														...privateManifest().metadata,
-														packageId,
-														slug: "reserved-system",
-													},
-												}),
+												privateManifest({ metadata: { ...privateManifest().metadata, packageId } }),
 											),
 										]),
 							),
@@ -432,7 +428,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 							}
 							const { persisted } = yield* Ref.get(recordings);
 							const saved = persisted.find(
-								({ plugin }) => `${plugin.metadata.slug}-plugin-id` === pluginId,
+								({ plugin }) => `${plugin.metadata.packageId}-plugin-id` === pluginId,
 							);
 							return (
 								privatePlugins.find(({ id }) => id === pluginId) ??
@@ -468,7 +464,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 						Effect.succeed(
 							(options.pendingLifecycle ?? []).map((installationId) => ({
 								installationId,
-								activationId: "private-fixture-activation",
+								activationId: "test/private-fixture-activation",
 							})),
 						),
 					findByUserAndPlugin: (_user, pluginId) =>
@@ -630,11 +626,10 @@ const systemEntry = (manifest: PluginManifest): StoredPlugin => ({
 	ownerId: null,
 	scope: "system",
 	status: "active",
-	slug: manifest.metadata.slug,
 	packageId: manifest.metadata.packageId,
-	id: `${manifest.metadata.slug}-plugin-id`,
-	sourceHash: `hash-${manifest.metadata.slug}`,
-	activationId: `${manifest.metadata.slug}-activation`,
+	id: `${manifest.metadata.packageId}-plugin-id`,
+	sourceHash: `hash-${manifest.metadata.packageId}`,
+	activationId: `${manifest.metadata.packageId}-activation`,
 });
 
 layer(
@@ -654,9 +649,9 @@ layer(
 				uploadToken: token,
 			});
 			expect(installed).toEqual({
-				pluginId: "private-fixture-plugin-id",
-				activationId: "private-fixture-activation",
-				id: "private-fixture-plugin-id-installation",
+				pluginId: "test/private-fixture-plugin-id",
+				activationId: "test/private-fixture-activation",
+				id: "test/private-fixture-plugin-id-installation",
 			});
 			expect(yield* fake.claimedUploads).toEqual([
 				{ token, userId, claimId: `plugin-package:${sha256Hex(token)}` },
@@ -833,11 +828,7 @@ layer(makeLayer())((test) => {
 
 layer(
 	makeLayer({
-		systemPlugins: [
-			systemEntry(
-				privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
-			),
-		],
+		systemPlugins: [systemEntry(privateManifest({ metadata: { ...privateManifest().metadata } }))],
 	}),
 )((test) => {
 	test.effect("reserves package UUIDs owned by active system plugins", () =>
@@ -848,9 +839,7 @@ layer(
 					userId,
 					config: {},
 					compiledScripts: [],
-					manifest: privateManifest({
-						metadata: { ...privateManifest().metadata, slug: "example" },
-					}),
+					manifest: privateManifest({ metadata: { ...privateManifest().metadata } }),
 				}),
 			);
 			const failure = failureOf(exit);
@@ -917,9 +906,9 @@ layer(makeLayer())((test) => {
 				config: { region: "eu", token: "secret-value" },
 			});
 			expect(installed).toEqual({
-				pluginId: "private-fixture-plugin-id",
-				activationId: "private-fixture-activation",
-				id: "private-fixture-plugin-id-installation",
+				pluginId: "test/private-fixture-plugin-id",
+				activationId: "test/private-fixture-activation",
+				id: "test/private-fixture-plugin-id-installation",
 			});
 			expect(yield* fake.invalidatedUsers).toEqual([userId]);
 		}),
@@ -1147,7 +1136,7 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 					});
 					expect(result).toEqual({
 						pluginId: configuredPlugin.id,
-						id: "private-fixture-plugin-id-installation",
+						id: "test/private-fixture-plugin-id-installation",
 					});
 				}),
 		);
@@ -1216,11 +1205,10 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 );
 
 const exampleSystemPlugin = systemEntry(
-	privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
+	privateManifest({ metadata: { ...privateManifest().metadata } }),
 );
 const exampleSystemInstallation = installationRow({
 	pluginScope: "system",
-	pluginSlug: "example",
 	pluginId: exampleSystemPlugin.id,
 });
 
@@ -1541,7 +1529,11 @@ layer(
 				expect(persisted).toHaveLength(1);
 				expect(persisted[0]).toMatchObject({
 					plugin: { metadata: { version: "2.0.0" } },
-					identity: { scope: "user", ownerId: userId, slug: upgradedOperationPlugin.slug },
+					identity: {
+						scope: "user",
+						ownerId: userId,
+						packageId: upgradedOperationPlugin.packageId,
+					},
 				});
 				expect((yield* fake.updated)[0]).toMatchObject({
 					id: installation.id,
@@ -1589,11 +1581,7 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 							installationId: configuredInstallation.id,
 							manifest: {
 								...configuredManifest,
-								metadata: {
-									...configuredManifest.metadata,
-									slug: "renamed",
-									packageId: PluginPackageId.make(crypto.randomUUID()),
-								},
+								metadata: { ...configuredManifest.metadata, packageId: testPluginPackageId() },
 							},
 						}),
 					),
@@ -1839,20 +1827,23 @@ layer(makeLayer())((test) => {
 					compiledScripts: operationCompiledScripts,
 				});
 				expect(installed).toEqual({
-					pluginId: "private-fixture-plugin-id",
-					activationId: "private-fixture-activation",
-					id: "private-fixture-plugin-id-installation",
+					pluginId: "test/private-fixture-plugin-id",
+					activationId: "test/private-fixture-activation",
+					id: "test/private-fixture-plugin-id-installation",
 				});
 				const created = yield* fake.created;
 				expect(created).toHaveLength(1);
 				expect(created[0]).toMatchObject({ health: "installing" });
-				expect(yield* fake.dispatched).toEqual(["private-fixture-plugin-id-installation"]);
+				expect(yield* fake.dispatched).toEqual(["test/private-fixture-plugin-id-installation"]);
 			}),
 	);
 });
 
 layer(
-	makeLayer({ dispatchFails: true, pendingLifecycle: ["private-fixture-plugin-id-installation"] }),
+	makeLayer({
+		dispatchFails: true,
+		pendingLifecycle: ["test/private-fixture-plugin-id-installation"],
+	}),
 )((test) => {
 	test.effect("keeps a failed dispatch pending for reconciliation", () =>
 		Effect.gen(function* () {
@@ -1869,9 +1860,9 @@ layer(
 			expect(yield* fake.dispatched).toHaveLength(2);
 			expect(yield* fake.healthUpdates).toEqual([]);
 			expect(installed).toEqual({
-				pluginId: "private-fixture-plugin-id",
-				activationId: "private-fixture-activation",
-				id: "private-fixture-plugin-id-installation",
+				pluginId: "test/private-fixture-plugin-id",
+				activationId: "test/private-fixture-activation",
+				id: "test/private-fixture-plugin-id-installation",
 			});
 		}),
 	);
@@ -1915,12 +1906,10 @@ const sharedImportSource = {
 };
 
 const privateInstallationRow = (
-	overrides: Partial<PluginPrivateInstallationRow> & { readonly pluginSlug: string },
+	overrides: Partial<PluginPrivateInstallationRow> & { readonly pluginName: string },
 ): PluginPrivateInstallationRow => {
 	const packageId =
-		overrides.packageId ??
-		overrides.manifest?.metadata.packageId ??
-		PluginPackageId.make(crypto.randomUUID());
+		overrides.packageId ?? overrides.manifest?.metadata.packageId ?? testPluginPackageId();
 	return {
 		userId,
 		packageId,
@@ -1928,28 +1917,24 @@ const privateInstallationRow = (
 		healthReason: null,
 		isInitialized: true,
 		incompatibilityReason: null,
-		pluginId: `${overrides.pluginSlug}-plugin-id`,
-		installationId: `${overrides.pluginSlug}-installation`,
-		manifest: privateManifest({
-			metadata: { ...privateManifest().metadata, packageId, slug: overrides.pluginSlug },
-		}),
+		pluginId: `${overrides.pluginName}-plugin-id`,
+		installationId: `${overrides.pluginName}-installation`,
+		manifest: privateManifest({ metadata: { ...privateManifest().metadata, packageId } }),
 		...overrides,
 	};
 };
 
 const shippedEntry = (overrides: Partial<PluginManifest> = {}) =>
-	systemEntry(
-		privateManifest({ ...overrides, metadata: { ...privateManifest().metadata, slug: "example" } }),
-	);
+	systemEntry(privateManifest({ ...overrides, metadata: { ...privateManifest().metadata } }));
 
 const shadowedBySlug = privateInstallationRow({
-	pluginSlug: "example",
+	pluginName: "example",
 	packageId: shippedEntry().packageId,
 });
 
 layer(
 	makeLayer({
-		privateInstallations: [shadowedBySlug, privateInstallationRow({ pluginSlug: "notes" })],
+		privateInstallations: [shadowedBySlug, privateInstallationRow({ pluginName: "notes" })],
 	}),
 )((test) => {
 	test.effect(
@@ -1975,25 +1960,17 @@ layer(
 });
 
 const surfaceConflictRow = privateInstallationRow({
-	pluginSlug: "notes",
+	pluginName: "notes",
 	manifest: privateManifest({
 		importSources: [sharedImportSource],
-		metadata: {
-			...privateManifest().metadata,
-			slug: "notes",
-			packageId: PluginPackageId.make(crypto.randomUUID()),
-		},
+		metadata: { ...privateManifest().metadata, packageId: testPluginPackageId() },
 	}),
 });
 const definitionConflictRow = privateInstallationRow({
-	pluginSlug: "tasks",
+	pluginName: "tasks",
 	manifest: privateManifest({
 		entitySchemas: fixtureManifest().entitySchemas,
-		metadata: {
-			...privateManifest().metadata,
-			slug: "tasks",
-			packageId: PluginPackageId.make(crypto.randomUUID()),
-		},
+		metadata: { ...privateManifest().metadata, packageId: testPluginPackageId() },
 	}),
 });
 
@@ -2020,18 +1997,14 @@ const sharedSavedView = (() => {
 	assert(kernelView.renderer.kind === "kernel");
 	return { ...kernelView, name: "Shared View", slug: "shared-view", renderer: kernelView.renderer };
 })();
-const withSharedSavedView = (slug: string) =>
+const withSharedSavedView = () =>
 	privateManifest({
 		savedViews: [sharedSavedView],
-		metadata: {
-			...privateManifest().metadata,
-			slug,
-			packageId: PluginPackageId.make(crypto.randomUUID()),
-		},
+		metadata: { ...privateManifest().metadata, packageId: testPluginPackageId() },
 	});
 const shadowedByView = privateInstallationRow({
-	pluginSlug: "notes",
-	manifest: withSharedSavedView("notes"),
+	pluginName: "notes",
+	manifest: withSharedSavedView(),
 });
 
 layer(
@@ -2040,8 +2013,8 @@ layer(
 			shadowedByView,
 			privateInstallationRow({
 				health: "failed",
-				pluginSlug: "tasks",
-				manifest: withSharedSavedView("tasks"),
+				pluginName: "tasks",
+				manifest: withSharedSavedView(),
 			}),
 		],
 	}),
@@ -2058,7 +2031,7 @@ layer(
 });
 
 const recoveredInstallation = privateInstallationRow({
-	pluginSlug: "notes",
+	pluginName: "notes",
 	health: "incompatible",
 	incompatibilityReason: "package-identity-conflict",
 	healthReason: "The package identity is reserved by an active system plugin",
@@ -2069,7 +2042,7 @@ layer(
 		privateInstallations: [
 			recoveredInstallation,
 			privateInstallationRow({
-				pluginSlug: "tasks",
+				pluginName: "tasks",
 				userId: UserId.make("user-2"),
 				installationId: "tasks-installation-other",
 			}),
@@ -2092,19 +2065,19 @@ const unchangedConflictReason = shippedConflict("Shipped plugins already use the
 layer(
 	makeLayer({
 		privateInstallations: [
-			privateInstallationRow({ health: "failed", pluginSlug: "example", installationId: "failed" }),
+			privateInstallationRow({ health: "failed", pluginName: "example", installationId: "failed" }),
 			privateInstallationRow({
 				health: "installing",
-				pluginSlug: "example",
+				pluginName: "example",
 				installationId: "installing",
 			}),
 			privateInstallationRow({
-				pluginSlug: "example",
+				pluginName: "example",
 				health: "needs-configuration",
 				installationId: "unconfigured",
 			}),
 			privateInstallationRow({
-				pluginSlug: "example",
+				pluginName: "example",
 				health: "incompatible",
 				healthReason: unchangedConflictReason,
 				installationId: "already-incompatible",
@@ -2184,7 +2157,7 @@ layer(
 				homeView: null,
 				apiVersion: 1 as const,
 				pluginDependencies: {
-					missing: { scope: "user" as const, packageId: PluginPackageId.make(crypto.randomUUID()) },
+					missing: { scope: "user" as const, packageId: testPluginPackageId() },
 				},
 			};
 			const manifest = privateManifest({ client });
@@ -2263,11 +2236,7 @@ layer(makeLayer({ privatePlugins: [privatePlugin], installations: [privateInstal
 				const fake = yield* FakeInstallationDependencies;
 				const service = yield* PluginInstallationService;
 				yield* fake.loadSystemPlugin(
-					systemEntry(
-						privateManifest({
-							metadata: { ...privateManifest().metadata, slug: privatePlugin.slug },
-						}),
-					),
+					systemEntry(privateManifest({ metadata: { ...privateManifest().metadata } })),
 				);
 				const removed = yield* service.uninstallPlugin(
 					userId,

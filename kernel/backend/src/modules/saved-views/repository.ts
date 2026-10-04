@@ -1,6 +1,6 @@
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
-import { PluginSlug, SavedViewId, type UserId, PluginId } from "@ryot-app/contract/schema/brands";
+import { SavedViewId, type UserId, PluginId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { Context, Effect, Layer } from "effect";
@@ -46,7 +46,6 @@ const toListedSavedView = (row: ListedSavedViewRow): ListedSavedView => {
 		dataSources: row.dataSources,
 		reference: savedViewReference(row),
 		pluginInstallationId: row.pluginInstallationId,
-		pluginSlug: row.pluginSlug === null ? null : PluginSlug.make(row.pluginSlug),
 	};
 	if (row.isBuiltin) {
 		return { ...base, isBuiltin: true, createdAt: null, updatedAt: null };
@@ -153,7 +152,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						.from(schema.userSavedViewEffective)
 						.where(and(...clauses))
 						.orderBy(
-							asc(schema.userSavedViewEffective.pluginSlug),
+							asc(schema.userSavedViewEffective.packageId),
 							asc(schema.userSavedViewEffective.sortOrder),
 							asc(schema.userSavedViewEffective.slug),
 						),

@@ -341,15 +341,14 @@ const sandboxWriteContext = {
 	pluginRevision: {
 		scope: "user",
 		ownerId: user.id,
-		slug: "collection-plugin",
 		configSchema: { fields: {} },
 		userBootstrapScriptSlugs: [],
 		id: PluginId.make("collection-plugin"),
 		compiledHashes: { collection: "collection-hash" },
 		workflowScripts: { collection: "collection-hash" },
+		packageId: PluginPackageId.make("test/collections"),
 		revisionId: PluginRevisionId.make("collection-revision"),
 		configRevisionId: PluginConfigRevisionId.make("collection-config"),
-		packageId: PluginPackageId.make("00000000-0000-4000-8000-000000000001"),
 		schemaScope: {
 			eventSchemas: [],
 			signalSchemaSlugs: [],

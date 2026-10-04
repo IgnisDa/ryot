@@ -16,7 +16,6 @@ export const makeUserPluginRevision = (input: {
 	readonly compiledHashes: Readonly<Record<string, string>>;
 }): SandboxPluginRevision => ({
 	scope: "user",
-	slug: input.slug,
 	workflowScripts: {},
 	ownerId: input.ownerId,
 	userBootstrapScriptSlugs: [],

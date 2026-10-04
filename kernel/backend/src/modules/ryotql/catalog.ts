@@ -118,14 +118,14 @@ const withAccess = (field: CatalogField, access: "admin" | "kernel"): CatalogFie
 
 const standardOnly = (field: CatalogField): CatalogField => ({ ...field, demoReadable: false });
 
-const installationPluginSlug = (nullable: boolean): CatalogField => ({
-	nullable,
+const installationPackageId: CatalogField = {
 	kind: "text",
+	nullable: true,
 	resolve: ({ sqlAlias }) =>
 		sql.raw(
-			`(SELECT plugin.slug FROM plugin_installation installation INNER JOIN plugin ON plugin.id = installation.plugin_id WHERE installation.id = ${sqlAlias}.plugin_installation_id)`,
+			`(SELECT plugin.package_id FROM plugin_installation installation INNER JOIN plugin ON plugin.id = installation.plugin_id WHERE installation.id = ${sqlAlias}.plugin_installation_id)`,
 		),
-});
+};
 
 const pluginActiveRevisionField = (
 	expression: string,
@@ -329,7 +329,6 @@ const plugin: CatalogTable = {
 		name: pluginMetadataField("name"),
 		id: physicalField("id", "text", false),
 		clientApiVersion: pluginClientApiVersion,
-		slug: physicalField("slug", "text", false),
 		status: physicalField("status", "text", false),
 		description: pluginMetadataField("description"),
 		packageId: physicalField("package_id", "text", false),
@@ -479,7 +478,6 @@ const entitySchema: CatalogTable = {
 		...definitionFields,
 		icon: physicalField("icon", "text", false),
 		userState: physicalField("user_state", "json"),
-		pluginSlug: physicalField("plugin_slug", "text"),
 		mergeIdentityProperties: textArrayField("merge_identity_properties"),
 	},
 };
@@ -494,12 +492,6 @@ const eventSchema: CatalogTable = {
 	fields: {
 		...definitionFields,
 		entitySchemaSlug: physicalField("entity_schema_slug", "text", false),
-		pluginSlug: {
-			kind: "text",
-			nullable: true,
-			resolve: ({ sqlAlias }) =>
-				sql.raw(`(SELECT plugin.slug FROM plugin WHERE plugin.id = ${sqlAlias}.plugin_id)`),
-		},
 	},
 };
 
@@ -512,7 +504,6 @@ const relationshipSchema: CatalogTable = {
 	},
 	fields: {
 		...definitionFields,
-		pluginSlug: physicalField("plugin_slug", "text"),
 		sourceEntitySchemaSlug: physicalField("source_entity_schema_slug", "text"),
 		targetEntitySchemaSlug: physicalField("target_entity_schema_slug", "text"),
 	},
@@ -527,7 +518,6 @@ const signalSchema: CatalogTable = {
 	},
 	fields: {
 		...definitionFields,
-		pluginSlug: physicalField("plugin_slug", "text"),
 		catalogState: physicalField("catalog_state", "text", false),
 		audiencePolicy: physicalField("audience_policy", "json", false),
 	},
@@ -543,7 +533,6 @@ const executableDefinitionFields = {
 	name: physicalField("name", "text", false),
 	pluginId: physicalField("plugin_id", "text"),
 	packageId: physicalField("package_id", "text"),
-	pluginSlug: physicalField("plugin_slug", "text"),
 	pluginScope: physicalField("plugin_scope", "text"),
 	installationId: physicalField("installation_id", "text"),
 	description: physicalField("description", "text", false),
@@ -552,8 +541,14 @@ const executableDefinitionFields = {
 const pluginConfigEnvironmentSegment = (value: string) =>
 	`upper(regexp_replace(regexp_replace(regexp_replace(${value}, '([a-z0-9])([A-Z])', '\\1_\\2', 'g'), '[^a-zA-Z0-9]+', '_', 'g'), '^_+|_+$', '', 'g'))`;
 
+const pluginPackageEnvironmentSegment = (value: string, part: 1 | 2) =>
+	`upper(replace(split_part(${value}, '/', ${part}), '-', '_'))`;
+
+export const pluginConfigEnvironmentKeySql = (packageId: string, key: string) =>
+	`'RYOT_PLUGIN__' || ${pluginPackageEnvironmentSegment(packageId, 1)} || '__' || ${pluginPackageEnvironmentSegment(packageId, 2)} || '__' || ${pluginConfigEnvironmentSegment(key)}`;
+
 const missingPluginConfigKeys = (sqlAlias: string) => `COALESCE((
-		SELECT jsonb_agg(CASE WHEN ${sqlAlias}.plugin_scope = 'system' THEN 'RYOT_PLUGIN_' || upper(replace(${sqlAlias}.package_id, '-', '')) || '_' || ${pluginConfigEnvironmentSegment("required_key.key")} ELSE required_key.key END ORDER BY required_key.position)
+		SELECT jsonb_agg(CASE WHEN ${sqlAlias}.plugin_scope = 'system' THEN ${pluginConfigEnvironmentKeySql(`${sqlAlias}.package_id`, "required_key.key")} ELSE required_key.key END ORDER BY required_key.position)
 		FROM unnest(${sqlAlias}.required_plugin_config_keys) WITH ORDINALITY required_key(key, position)
 		WHERE NOT COALESCE(${ingestionReadinessMetadataSql(sqlAlias)}->'availableConfigKeys', '[]'::jsonb) ? required_key.key
 	), '[]'::jsonb)`;
@@ -675,7 +670,6 @@ const savedView: CatalogTable = {
 	},
 	fields: {
 		id: physicalField("id", "text", false),
-		pluginSlug: installationPluginSlug(true),
 		slug: physicalField("slug", "text", false),
 		name: physicalField("name", "text", false),
 		icon: physicalField("icon", "text", false),
@@ -743,10 +737,10 @@ const integration: CatalogTable = {
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	},
 	fields: {
+		packageId: installationPackageId,
 		name: physicalField("name", "text"),
 		id: physicalField("id", "text", false),
 		lot: physicalField("lot", "text", false),
-		pluginSlug: installationPluginSlug(true),
 		provider: physicalField("provider", "text", false),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),

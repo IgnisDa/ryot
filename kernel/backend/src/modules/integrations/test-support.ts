@@ -22,7 +22,6 @@ export const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): Int
 	syncOwnership: false,
 	lastFinishedAt: null,
 	providerSpecifics: {},
-	pluginSlug: "fixture",
 	provider: "test-provider",
 	userId: UserId.make("user_1"),
 	pluginInstallationId: "inst_1",

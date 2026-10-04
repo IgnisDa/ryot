@@ -26,7 +26,6 @@ export type RegisteredImportSource = PluginImportSource & {
 	readonly pluginId: string;
 	readonly packageId: PluginPackageId;
 	readonly reference: DeclarationReference;
-	readonly pluginSlug: string;
 	readonly installationId: string;
 	readonly pluginScope: "system" | "user";
 	readonly configSchema: PluginConfigSchema;
@@ -47,7 +46,6 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 					pluginId: view.pluginId,
 					script: catalogScriptFields,
 					exportHelp: view.exportHelp,
-					pluginSlug: view.pluginSlug,
 					pluginScope: view.pluginScope,
 					description: view.description,
 					inputSchema: view.inputSchema,
@@ -90,7 +88,6 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 					manifest,
 					pluginId,
 					exportHelp,
-					pluginSlug,
 					pluginScope,
 					installationId,
 					configRevisionId,
@@ -102,7 +99,6 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 				}> => {
 					if (
 						pluginId === null ||
-						pluginSlug === null ||
 						installationId === null ||
 						pluginRevisionId === null ||
 						pluginScope === null
@@ -124,7 +120,6 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 							...(plan ? { plan } : {}),
 							...row,
 							pluginId,
-							pluginSlug,
 							pluginScope,
 							installationId,
 							packageId: manifest.metadata.packageId,
@@ -147,7 +142,7 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 			)
 			.sort(
 				(left, right) =>
-					left.source.pluginSlug.localeCompare(right.source.pluginSlug) ||
+					left.source.packageId.localeCompare(right.source.packageId) ||
 					left.source.slug.localeCompare(right.source.slug),
 			);
 	});

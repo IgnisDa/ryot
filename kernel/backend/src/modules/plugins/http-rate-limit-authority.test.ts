@@ -1,6 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { definitionOwner, identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";
@@ -8,10 +9,10 @@ import { databaseLayer } from "#lib/test-utils/effect";
 import { PluginHttpRateLimitAuthority } from "./http-rate-limit-authority";
 import { PluginRepository } from "./repository";
 
-const declarations = (slug: string, key: string, origin: string) => ({
-	slug,
+const declarations = (name: string, key: string, origin: string) => ({
 	scope: "system" as const,
-	owner: definitionOwner(slug),
+	owner: definitionOwner(name),
+	packageId: PluginPackageId.make(`test/${name}`),
 	httpRateLimits: [{ key, requests: 5, origins: [origin], intervalMs: 1_000 }],
 });
 

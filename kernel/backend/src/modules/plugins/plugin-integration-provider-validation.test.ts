@@ -28,7 +28,7 @@ it.effect("rejects an integration provider whose settingsSchema declares no prop
 			}),
 		);
 
-		expect(error.issues.join("; ")).toMatch(/Integration provider lambda in plugin fixture/);
+		expect(error.issues.join("; ")).toMatch(/Integration provider lambda in plugin test\/fixture/);
 	}),
 );
 

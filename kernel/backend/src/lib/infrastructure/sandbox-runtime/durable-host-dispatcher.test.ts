@@ -127,7 +127,6 @@ const script = {
 	contentHash: "hash",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	pluginSlug: "test-plugin",
 	metadata: {
 		name: "Dispatcher",
 		slug: "dispatcher",
@@ -152,7 +151,6 @@ const principal = {
 		compiledHashes: {},
 		workflowScripts: {},
 		id: subject.pluginId,
-		slug: script.pluginSlug,
 		scope: "system" as const,
 		userBootstrapScriptSlugs: [],
 		revisionId: subject.pluginRevisionId,

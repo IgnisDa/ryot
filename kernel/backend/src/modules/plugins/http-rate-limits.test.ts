@@ -19,13 +19,13 @@ it("accepts identical declarations across plugins and builds canonical lookups",
 	const lookups = buildHttpRateLimitLookups([
 		{
 			scope: "system",
-			slug: "whiskey",
+			packageId: "test/first",
 			httpRateLimits: [declaration],
 			owner: definitionOwner("first"),
 		},
 		{
-			slug: "whiskey",
 			scope: "system",
+			packageId: "test/second",
 			owner: definitionOwner("second"),
 			httpRateLimits: [{ ...declaration, origins: [...declaration.origins].toReversed() }],
 		},
@@ -66,14 +66,14 @@ it("rejects conflicting keys within an owner and quotas at a shared origin", () 
 		expect(() =>
 			buildHttpRateLimitLookups([
 				{
-					slug: "first",
 					scope: "system",
+					packageId: "test/first",
 					httpRateLimits: [declaration],
 					owner: definitionOwner("first"),
 				},
 				{
-					slug: "second",
 					scope: "system",
+					packageId: "test/second",
 					httpRateLimits: [second],
 					owner: definitionOwner(ownerId),
 				},
@@ -86,13 +86,13 @@ it("allows independent local labels while sharing compatible origin quotas", () 
 	const lookups = buildHttpRateLimitLookups([
 		{
 			scope: "system",
-			slug: "whiskey",
+			packageId: "test/first",
 			httpRateLimits: [declaration],
 			owner: definitionOwner("first"),
 		},
 		{
 			scope: "system",
-			slug: "whiskey",
+			packageId: "test/second",
 			owner: definitionOwner("second"),
 			httpRateLimits: [{ ...declaration, key: "other", origins: ["https://one.example.com"] }],
 		},
@@ -107,7 +107,7 @@ it("allows independent local labels while sharing compatible origin quotas", () 
 	const firstOnly = buildHttpRateLimitLookups([
 		{
 			scope: "system",
-			slug: "whiskey",
+			packageId: "test/first",
 			httpRateLimits: [declaration],
 			owner: definitionOwner("first"),
 		},
@@ -119,7 +119,7 @@ it("allows independent local labels while sharing compatible origin quotas", () 
 		buildHttpRateLimitLookups([
 			{
 				scope: "user",
-				slug: "whiskey",
+				packageId: "test/private",
 				httpRateLimits: [declaration],
 				owner: definitionOwner("private"),
 			},

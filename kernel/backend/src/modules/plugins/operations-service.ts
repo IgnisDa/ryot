@@ -10,6 +10,7 @@ import type { AccountGeneration } from "@ryot-app/contract/schema/account-genera
 import {
 	PluginId,
 	type IntegrationId,
+	type PluginPackageId,
 	type SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -29,7 +30,6 @@ import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow"
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
-import { PluginInstallationRepository } from "./installation-repository";
 import { PluginRepository } from "./repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
@@ -65,7 +65,6 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 		const auth = yield* AuthService;
 		const database = yield* DatabaseSession;
 		const repository = yield* PluginRepository;
-		const installations = yield* PluginInstallationRepository;
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
 		const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
@@ -128,12 +127,12 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 
 		const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
 			readonly payload: JsonValue;
-			readonly pluginId: PluginId;
 			readonly sourceHash?: string;
 			readonly operationSlug: string;
+			readonly packageId: PluginPackageId;
 			readonly headers: PlatformHeaders.Headers;
 		}) {
-			const operation = { pluginId: input.pluginId, operationSlug: input.operationSlug };
+			const operation = { packageId: input.packageId, operationSlug: input.operationSlug };
 			const operationNotFound = new PluginNotFoundError({
 				reason: { code: "operation-not-found", ...operation },
 			});
@@ -141,40 +140,31 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				reason: { code: "operation-scope-not-found", ...operation },
 			});
 			const sourceHash = input.sourceHash;
-			const staleRevision = new PluginConflictError({
-				reason: { pluginId: operation.pluginId, code: "source-revision-stale" },
-			});
-			const resolveOperation = Effect.fn(function* (
-				userId: UserId,
-				checkPrivateQuarantine = false,
-			) {
-				if (checkPrivateQuarantine) {
-					const privatePlugin = yield* repository.findPrivateByIdForUser(input.pluginId, userId);
-					if (privatePlugin) {
-						const installation = yield* installations.findByUserAndPlugin(userId, privatePlugin.id);
-						if (
-							installation?.health === "incompatible" &&
-							installation.incompatibilityReason === "package-identity-conflict" &&
-							installation.uninstalledAt === null
-						) {
-							return yield* new PluginConflictError({
-								reason: {
-									code: "package-identity-conflict",
-									packageId: privatePlugin.packageId,
-									pluginId: PluginId.make(privatePlugin.id),
-								},
-							});
-						}
-					}
+			const resolveOperation = Effect.fn(function* (userId: UserId) {
+				const selected = yield* runtime.resolveUserPackage(userId, input.packageId);
+				if (selected.kind === "absent") {
+					return null;
+				}
+				if (selected.kind === "quarantined") {
+					return yield* new PluginConflictError({
+						reason: {
+							packageId: input.packageId,
+							pluginId: selected.pluginId,
+							code: "package-identity-conflict",
+						},
+					});
 				}
 				const resolved = yield* runtime.findOperationAvailableToUser({
 					userId,
-					pluginId: input.pluginId,
+					pluginId: selected.pluginId,
 					operationSlug: input.operationSlug,
 				});
 				if (sourceHash === undefined || !resolved) {
 					return resolved;
 				}
+				const staleRevision = new PluginConflictError({
+					reason: { pluginId: selected.pluginId, code: "source-revision-stale" },
+				});
 				if (resolved.plugin.sourceHash !== sourceHash) {
 					return yield* staleRevision;
 				}
@@ -191,7 +181,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				Effect.map(Result.succeed),
 				Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
 			);
-			const executionId = `plugin-operation-${input.pluginId}-${input.operationSlug}-${generateId()}`;
+			const executionId = `plugin-operation-${input.packageId}-${input.operationSlug}-${generateId()}`;
 			const pinDispatch = Effect.fn("OperationsService.pinDispatch")(function* (
 				dispatchInput: Omit<DispatchInput, "pluginRevision" | "executionId">,
 				resolved: NonNullable<Effect.Success<ReturnType<typeof resolveOperation>>>,
@@ -205,7 +195,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				const pin = yield* scripts.getScriptPin(dispatchInput.scriptId, undefined, subject);
 				if (
 					!pin?.pluginRevision ||
-					pin.pluginRevision.id !== input.pluginId ||
+					pin.pluginRevision.id !== resolved.plugin.id ||
 					pin.pluginRevision.revisionId !== resolved.plugin.pluginRevisionId ||
 					pin.pluginRevision.configRevisionId !== resolved.plugin.pluginConfigRevisionId ||
 					pin.pluginRevision.packageId !== resolved.plugin.packageId ||
@@ -244,7 +234,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					if (Result.isSuccess(authenticated)) {
 						const { user, authorization } = authenticated.success;
 						const userId = user.id;
-						const resolved = yield* resolveOperation(userId, true);
+						const resolved = yield* resolveOperation(userId);
 						if (resolved?.operation.auth === "user") {
 							if (
 								authorization.accessClass === "demo" &&
@@ -259,10 +249,10 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 								{
 									userId,
 									payload: input.payload,
-									pluginId: input.pluginId,
 									scriptId: resolved.script.id,
 									operationSlug: input.operationSlug,
 									accountGeneration: user.accountGeneration,
+									pluginId: PluginId.make(resolved.plugin.id),
 								},
 								resolved,
 							);
@@ -284,10 +274,10 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 								{
 									userId: scope.userId,
 									payload: input.payload,
-									pluginId: input.pluginId,
 									scriptId: resolved.script.id,
 									integrationId: scope.integrationId,
 									operationSlug: input.operationSlug,
+									pluginId: PluginId.make(resolved.plugin.id),
 									accountGeneration:
 										user.id === scope.userId
 											? user.accountGeneration
@@ -319,10 +309,10 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 						{
 							userId: owner.userId,
 							payload: input.payload,
-							pluginId: input.pluginId,
 							scriptId: resolved.script.id,
 							integrationId: owner.integrationId,
 							operationSlug: input.operationSlug,
+							pluginId: PluginId.make(resolved.plugin.id),
 							accountGeneration: yield* receipts.currentAccount(owner.userId),
 						},
 						resolved,
