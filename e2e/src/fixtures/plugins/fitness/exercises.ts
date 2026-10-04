@@ -33,7 +33,7 @@ export const findFitnessEntitySchema = (client: Client, slug: string) =>
 
 export const createExerciseEntityFixture = (
 	client: Client,
-	options: { name?: string; kind?: ExerciseKind } = {},
+	options: { name?: string; kind?: ExerciseKind; level?: string } = {},
 ) =>
 	Effect.gen(function* () {
 		const { schema: exerciseSchema } = yield* findFitnessEntitySchema(client, "exercise");
@@ -41,7 +41,7 @@ export const createExerciseEntityFixture = (
 			entitySchema: exerciseSchema.reference,
 			name: options.name ?? `Exercise ${crypto.randomUUID()}`,
 			properties: {
-				level: "beginner",
+				level: options.level ?? "beginner",
 				kind: options.kind ?? "reps_and_weight",
 				images: [{ type: "remote", url: "https://example.com/exercise.jpg" }],
 			},

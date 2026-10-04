@@ -7,6 +7,7 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createEntityBrowserSavedView,
+	createRelationship,
 	createSavedView,
 	entityBrowserSettings,
 	fakeProviderDetailsResult,
@@ -22,6 +23,11 @@ import {
 	uninstallTestProvider,
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
+import {
+	createExerciseEntityFixture,
+	findFitnessEntitySchema,
+	findFitnessRelationshipSchema,
+} from "~/fixtures/plugins/fitness";
 import { assertTaggedError } from "~/support/assertions";
 import { signInThroughHostedOAuth, waitForSearchParam } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
@@ -454,7 +460,7 @@ it.live("swaps the desktop add button for the mobile add affordances", () =>
 		yield* runtime.getByRole("button", { name: "View options, 0 active filters" }).click();
 		const sheet = runtime.getByRole("dialog", { name: "View options" });
 		yield* sheet.waitFor({ state: "visible" });
-		expect(yield* sheet.getByText("Filters are not available yet.").isVisible()).toBe(true);
+		expect(yield* sheet.getByRole("button", { name: /^Add filter/ }).isVisible()).toBe(true);
 		yield* runtime.getByRole("button", { name: "Close view options" }).click();
 		yield* sheet.waitFor({ state: "hidden" });
 
@@ -466,4 +472,86 @@ it.live("swaps the desktop add button for the mobile add affordances", () =>
 		yield* openedDialog(page);
 		yield* closedDialog(page);
 	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live(
+	"filters All Exercises by level and muscle, keeps the filters across reload, and clears them",
+	() =>
+		Effect.gen(function* () {
+			const user = yield* createAuthenticatedClient();
+			const { client } = user;
+			const id = crypto.randomUUID();
+			const match = yield* createExerciseEntityFixture(client, { name: `Filter match ${id}` });
+			yield* createExerciseEntityFixture(client, { name: `Filter other muscle ${id}` });
+			yield* createExerciseEntityFixture(client, { level: "expert", name: `Filter expert ${id}` });
+			const [{ schema: targetSchema }, targetRelationshipSchema] = yield* Effect.all([
+				findFitnessEntitySchema(client, "exercise-target"),
+				findFitnessRelationshipSchema(client, "exercise-targets"),
+			]);
+			const muscle = yield* createEntity(client, {
+				name: `Filter chest ${id}`,
+				entitySchema: targetSchema.reference,
+				properties: { kind: "muscle_region" },
+			});
+			yield* createRelationship(client, {
+				targetEntityId: muscle.id,
+				properties: { role: "primary" },
+				sourceEntityId: match.exerciseId,
+				relationshipSchema: targetRelationshipSchema.reference,
+			});
+
+			const browser = yield* Playwright.Browser;
+			const page = yield* browser.newPage({ viewport: { width: 1280, height: 800 } });
+			yield* signInThroughHostedOAuth(page, user.email, user.password);
+			yield* page.goto(`${getFrontendUrl()}/v/p/ryot/fitness/all-exercises`);
+			const runtime = runtimeOf(page);
+			const card = (name: string) => runtime.getByText(`${name} ${id}`, { exact: true });
+			yield* card("Filter match").waitFor();
+			yield* card("Filter other muscle").waitFor();
+			yield* card("Filter expert").waitFor();
+
+			const filtersDialog = runtime.getByRole("dialog", { exact: true, name: "Filters" });
+			const addRule = (field: string) =>
+				Effect.gen(function* () {
+					yield* filtersDialog.getByRole("button", { name: /^Add filter/ }).click();
+					yield* runtime.getByRole("radio", { exact: true, name: field }).click();
+				});
+			yield* runtime.getByRole("button", { name: /^Filters/ }).click();
+			yield* addRule("Level");
+			yield* filtersDialog.getByRole("button", { exact: true, name: "Level values" }).click();
+			yield* runtime.getByRole("checkbox", { exact: true, name: "beginner" }).click();
+			yield* runtime
+				.getByRole("dialog", { exact: true, name: "Level values" })
+				.getByRole("button", { exact: true, name: "Close options" })
+				.click();
+			yield* addRule("Muscles");
+			yield* filtersDialog.getByRole("button", { name: /^Muscles values/ }).click();
+			yield* runtime.getByRole("checkbox", { exact: true, name: `Filter chest ${id}` }).click();
+			yield* runtime.getByRole("button", { exact: true, name: "Done" }).click();
+			yield* page.keyboard.press("Escape");
+			yield* filtersDialog.waitFor({ state: "hidden" });
+
+			const badge = runtime.getByRole("button", { exact: true, name: "Filters, 2 active filters" });
+			yield* badge.waitFor();
+			yield* card("Filter expert").waitFor({ state: "detached" });
+			yield* card("Filter other muscle").waitFor({ state: "detached" });
+			yield* card("Filter match").waitFor();
+			expect(new URL(page.url()).searchParams.get("filters")).not.toBeNull();
+
+			yield* page.reload;
+			yield* runtime
+				.getByRole("button", { exact: true, name: "Filters, 2 active filters" })
+				.waitFor();
+			yield* card("Filter match").waitFor();
+			expect(yield* card("Filter expert").count).toBe(0);
+			expect(yield* card("Filter other muscle").count).toBe(0);
+
+			yield* runtime.getByRole("button", { exact: true, name: "Clear" }).click();
+			yield* card("Filter expert").waitFor();
+			yield* card("Filter other muscle").waitFor();
+			yield* runtime
+				.getByRole("button", { exact: true, name: "Filters, 0 active filters" })
+				.waitFor();
+			expect(new URL(page.url()).searchParams.get("filters")).toBeNull();
+		}).pipe(PlaywrightSpawner.withBrowser),
 );
