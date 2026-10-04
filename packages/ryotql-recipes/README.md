@@ -32,7 +32,7 @@ schema constraint holds by construction. Registered entity presentations supply 
 ### Filters
 
 Entity-browser and results-table settings may declare `filterFields`: typed value fields that name a
-projected output field, and relationship fields (entity and collection browsers only). The kernel
+projected output field, and relationship or session-event fields (entity and collection browsers only). The kernel
 owns the operators, fixed per field type in `filterOperators`. `effectiveFilterFields` adds the
 reserved kernel `collections` relationship field (kernel `member-of`, outgoing) to entity and
 collection browsers; results tables get authored fields only.

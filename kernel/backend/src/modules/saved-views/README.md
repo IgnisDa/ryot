@@ -26,10 +26,10 @@ owners the same way as `addAction` owners.
 
 Entity-browser, collection-browser, and results-table settings may declare optional `filterFields`
 (absent means none). Value fields name a projected output field and carry choices for enum types;
-relationship fields name a relationship schema and a direction. Validation requires unique keys that
+relationship fields name a relationship schema and a direction; session-event fields name an event schema. Validation requires unique keys that
 avoid the reserved kernel key `collections`, projected value-field outputs, and unique choices, and
-rejects relationship fields on results tables. Relationship existence and endpoint compatibility are
-not validated; an unknown relationship matches nothing. Materialization resolves `self` relationship
+rejects relationship and session-event fields on results tables. Reference existence and endpoint
+compatibility are not validated; an unknown reference matches nothing. Materialization resolves `self`
 owners and backups map them like subject schema owners. The reserved `collections` field is synthesized
 by the recipes for entity and collection browsers and is never stored.
 

@@ -113,7 +113,7 @@ The `workouts` page uses page-context name/icon, URL-backed layout/search, and s
   complete week totals across split pages. The cards, count, and weeks recipes take an optional
   compiled filter predicate; the summary recipe ignores search and filters.
 - `workoutSummaryRecipe` compares selected rolling periods and supplies personal bests and daily
-  consistency totals. `workoutCountRecipe` counts all search matches on demand.
+  consistency totals. `workoutCountRecipe` counts all matches on demand.
 
 Cards, rows, and tables share the same model and entity presentations. They prefer recorded active
 duration, otherwise explicitly labeled elapsed duration, and apply display units. No origin means no
