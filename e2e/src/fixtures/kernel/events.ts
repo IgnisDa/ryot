@@ -2,7 +2,13 @@ import type {
 	CreateEventsResponse,
 	EventCreatePending,
 } from "@ryot-app/contract/modules/events/schemas";
-import { EntityId, EventId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	EventId,
+	EventSchemaSlug,
+	type PluginId,
+} from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	column,
@@ -30,6 +36,7 @@ import {
 	requireRyotQLText,
 	requireRyotQLValue,
 } from "./ryotql";
+import { testPluginEntitySchema } from "./test-plugin";
 
 export const waitForEventCount = (client: Client, entityId: string, expectedCount: number) =>
 	pollUntil(
@@ -63,6 +70,36 @@ export const waitForCreateEvents = (
 					),
 				timeoutMs,
 			);
+
+export const ratedItemEntitySchema = {
+	...testPluginEntitySchema({ slug: "item", name: "Rated item" }),
+	eventSchemas: [
+		{
+			name: "Finished",
+			slug: "finished",
+			propertiesSchema: {
+				fields: { rating: { label: "Rating", description: "Rating", type: "number" as const } },
+			},
+		},
+	],
+};
+
+export const createRatedItem = (client: Client, pluginId: PluginId) =>
+	Effect.map(
+		createEntity(client, {
+			properties: {},
+			name: "Rated item",
+			entitySchema: {
+				owner: { pluginId, kind: "plugin" },
+				slug: EntitySchemaSlug.make(ratedItemEntitySchema.slug),
+			},
+		}),
+		(entity) => ({
+			entityId: entity.id,
+			entitySchemaSlug: ratedItemEntitySchema.slug,
+			eventSchemaSlug: EventSchemaSlug.make("finished"),
+		}),
+	);
 
 export const createEventTestFixture = (client: Client) =>
 	Effect.gen(function* () {
