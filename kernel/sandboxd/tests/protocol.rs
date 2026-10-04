@@ -5,8 +5,8 @@ use std::path::Path;
 use std::time::Duration;
 
 use ryot_sandboxd::protocol::{
-    FRAME_BYTES, HostOutcome, Inbound, Outbound, Phase, Tier, decode_inbound, decode_outbound,
-    encode_inbound, encode_outbound, frame, read_frame,
+    ChunkedType, FRAME_BYTES, HostOutcome, Inbound, Outbound, Phase, Tier, decode_inbound,
+    decode_outbound, encode_inbound, encode_outbound, frame, read_frame, split,
 };
 use ryot_sandboxd::server::EXIT_DESYNC;
 use serde::Deserialize;
@@ -64,6 +64,43 @@ fn host_result(handle: &str, seq: u64, value: Value) -> Inbound {
         seq,
         outcome: HostOutcome::Success(support::raw(value).into()),
     }
+}
+
+#[test]
+fn cancel_discards_partial_run_assemblies() {
+    let mut sidecar = support::spawn(Tier::Core, &[]);
+    let source = format!(
+        "// {}\nexport default () => 'restarted'",
+        "x".repeat(2 * ryot_sandboxd::protocol::PART_BYTES)
+    );
+    let run = support::run_frame(
+        "restarted",
+        Tier::Core,
+        &source,
+        Value::Null,
+        support::limits(),
+    );
+    let payload = encode_inbound(&run);
+    let first = split(
+        support::GENERATION,
+        "restarted",
+        0,
+        ChunkedType::Run,
+        &payload,
+    )
+    .into_iter()
+    .next()
+    .expect("first part");
+    sidecar.write_raw(&frame(&encode_inbound(&Inbound::Part(first))));
+    sidecar.send(&Inbound::Cancel {
+        generation: support::GENERATION,
+        handle: "restarted".to_owned(),
+    });
+    sidecar.send(&run);
+    assert_eq!(
+        sidecar.finish("restarted", |_, _| unreachable!()).value(),
+        json!("restarted")
+    );
 }
 
 #[test]

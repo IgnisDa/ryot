@@ -403,22 +403,25 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						yield* Deferred.succeed(run.result, { done: frame, inline: run.gate.inlineEntries() });
 						continue;
 					}
-					if (run.pending >= 8) {
+					// An honest sidecar has at most four slotted calls and one blocking inline batch per run.
+					if (run.pending > SANDBOX_LIMITS.bridge.concurrentHostCalls) {
 						yield* recordSandboxSidecarHostCall({
 							...entry.key,
 							outcome: "failure",
 							function: frame.name,
 						});
-						yield* generation.connection.send({
-							seq: frame.seq,
-							type: "hostResult",
-							handle: frame.handle,
-							generation: frame.generation,
-							result: { status: "failure", message: "Sandbox host call queue is full" },
-						});
+						run.invalid = true;
+						yield* run.cancel.pipe(Effect.forkIn(run.scope));
 						continue;
 					}
 					run.pending++;
+					let pending = true;
+					const settle = Effect.sync(() => {
+						if (pending) {
+							pending = false;
+							run.pending--;
+						}
+					});
 					yield* admission.withDatabaseLimit(run.gate.dispatch(frame)).pipe(
 						Effect.onExit((exit) => {
 							const result = Exit.isSuccess(exit) ? exit.value.result : undefined;
@@ -448,6 +451,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 										yield* run.gate.extend(elapsed);
 										run.extendedMs = budget.settledMs;
 									}
+									yield* settle;
 									if (!generation.closing && !(yield* Deferred.isDone(run.result))) {
 										yield* generation.connection.send(reply);
 									}
@@ -461,11 +465,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 									? Effect.void
 									: scheduleClose(entry, generation, failureFor(entry, generation, "transport")),
 						),
-						Effect.ensuring(
-							Effect.sync(() => {
-								run.pending--;
-							}),
-						),
+						Effect.ensuring(settle),
 						Effect.forkIn(run.scope),
 					);
 				}

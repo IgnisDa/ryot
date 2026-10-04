@@ -1,10 +1,13 @@
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Base64 } from "effect/encoding";
 
+import { SANDBOX_LIMITS } from "./limits";
 import {
 	base64DecodedLength,
+	decodeSidecarOutboundFrame,
 	decodeSidecarOutboundLogicalMessage,
 	encodeSidecarInboundLogicalMessage,
+	parseSidecarOutboundJson,
 	SIDECAR_PROTOCOL_LIMITS,
 	SidecarProtocolError,
 	type SidecarInboundFrame,
@@ -14,8 +17,12 @@ import {
 const frameHeaderBytes = 4;
 const maximumFrameBytes = SIDECAR_PROTOCOL_LIMITS.frameBytes;
 const maximumPartBytes = SIDECAR_PROTOCOL_LIMITS.partBytes;
+// An honest sidecar has at most four slotted calls, one blocking inline batch and one done per run.
+const maximumHandleAssemblies = {
+	done: 1,
+	hostCall: SANDBOX_LIMITS.bridge.concurrentHostCalls + 1,
+};
 const encoder = new TextEncoder();
-const decoder = new TextDecoder("utf-8", { fatal: true });
 
 type SidecarFrameReaderOptions = {
 	readonly generation: number;
@@ -154,6 +161,16 @@ export const makeSidecarFrameReader = ({
 				invalidActive(frame.handle, "a chunked message must start at part 0", key);
 				return;
 			}
+			let pending = 0;
+			for (const other of assemblies.values()) {
+				if (other.envelope.handle === frame.handle && other.frameType === frame.frameType) {
+					pending += 1;
+				}
+			}
+			if (pending >= maximumHandleAssemblies[frame.frameType]) {
+				invalidActive(frame.handle, `too many pending ${frame.frameType} messages`, key);
+				return;
+			}
 			if (assemblies.size >= maximumAssemblies) {
 				fail(protocolError("framing", `pending assembly count exceeds ${maximumAssemblies}`));
 			}
@@ -241,7 +258,7 @@ export const makeSidecarFrameReader = ({
 	const processPayload = (payload: Uint8Array) => {
 		let parsed: unknown;
 		try {
-			parsed = JSON.parse(decoder.decode(payload));
+			parsed = parseSidecarOutboundJson(payload);
 		} catch (error) {
 			fail(
 				protocolError("payload", error instanceof Error ? error.message : "invalid JSON payload"),
@@ -262,7 +279,7 @@ export const makeSidecarFrameReader = ({
 		} else if (!isActive(envelope.handle)) {
 			return;
 		}
-		const frame = decodePayload(payload, envelope.handle);
+		const frame = decodePayload(parsed, payload.byteLength, envelope.handle);
 		if (frame === undefined) {
 			return;
 		}
@@ -274,11 +291,12 @@ export const makeSidecarFrameReader = ({
 	};
 
 	const decodePayload = (
-		payload: Uint8Array,
+		parsed: unknown,
+		byteLength: number,
 		handle: string | undefined,
 	): SidecarOutboundFrame | undefined => {
 		try {
-			return decodeSidecarOutboundLogicalMessage(payload);
+			return decodeSidecarOutboundFrame(parsed, byteLength);
 		} catch (error) {
 			if (handle !== undefined) {
 				invalidActive(handle, error instanceof Error ? error.message : "invalid sidecar payload");
@@ -364,7 +382,10 @@ export const makeSidecarFrameReader = ({
 type QueuedMessage = {
 	readonly handle: string;
 	readonly category: "run" | "control";
-	readonly frames: Uint8Array[];
+	readonly frame: SidecarInboundFrame;
+	readonly payload: Uint8Array;
+	readonly count: number;
+	next: number;
 	counted: boolean;
 	retired: boolean;
 };
@@ -402,31 +423,28 @@ const messageCategory = (frame: SidecarInboundFrame): "run" | "control" => {
 	return "control";
 };
 
-const encodeMessageFrames = (frame: SidecarInboundFrame, payload: Uint8Array) => {
-	if (
-		(frame.type !== "run" && frame.type !== "hostResult") ||
-		payload.byteLength <= maximumFrameBytes
-	) {
-		return [framePayload(payload)];
+const partCount = (frame: SidecarInboundFrame, payload: Uint8Array) =>
+	(frame.type === "run" || frame.type === "hostResult") && payload.byteLength > maximumFrameBytes
+		? Math.ceil(payload.byteLength / maximumPartBytes)
+		: 1;
+
+const encodeFrameAt = (message: QueuedMessage) => {
+	const { next, count, frame, payload } = message;
+	if (count === 1 || (frame.type !== "run" && frame.type !== "hostResult")) {
+		return framePayload(payload);
 	}
-	const count = Math.ceil(payload.byteLength / maximumPartBytes);
-	const frames: Uint8Array[] = [];
-	for (let index = 0; index < count; index += 1) {
-		const chunk = payload.subarray(index * maximumPartBytes, (index + 1) * maximumPartBytes);
-		const part: SidecarInboundFrame = {
-			count,
-			index,
-			type: "part",
-			seq: frame.seq,
-			handle: frame.handle,
-			frameType: frame.type,
-			data: Base64.encode(chunk),
-			generation: frame.generation,
-			byteLength: payload.byteLength,
-		};
-		frames.push(framePayload(encoder.encode(encodeSidecarInboundLogicalMessage(part))));
-	}
-	return frames;
+	const part: SidecarInboundFrame = {
+		count,
+		index: next,
+		type: "part",
+		seq: frame.seq,
+		handle: frame.handle,
+		frameType: frame.type,
+		generation: frame.generation,
+		byteLength: payload.byteLength,
+		data: Base64.encode(payload.subarray(next * maximumPartBytes, (next + 1) * maximumPartBytes)),
+	};
+	return framePayload(encoder.encode(encodeSidecarInboundLogicalMessage(part)));
 };
 
 export const makeSidecarFrameWriter = ({
@@ -447,9 +465,8 @@ export const makeSidecarFrameWriter = ({
 	let closed = false;
 
 	const dropMessage = (message: QueuedMessage) => {
-		queuedBytes -= message.frames.reduce((total, bytes) => total + bytes.byteLength, 0);
-		message.frames.length = 0;
 		if (message.counted) {
+			queuedBytes -= message.payload.byteLength;
 			if (message.category === "run") {
 				runMessages -= 1;
 			} else {
@@ -486,29 +503,16 @@ export const makeSidecarFrameWriter = ({
 
 	const takeNext = () => controlQueue.shift() ?? runQueue.shift();
 
-	const removeQueuedRuns = (handle: string) => {
-		for (let index = runQueue.length - 1; index >= 0; index -= 1) {
-			const message = runQueue[index];
-			if (message?.handle === handle) {
-				runQueue.splice(index, 1);
+	// A started host result is finished so the sidecar never keeps a partial assembly; a started run
+	// stops after its current part because the cancel that precedes retirement discards its assembly.
+	const removable = (message: QueuedMessage) => message.next === 0 || message.category === "run";
+
+	const removeQueued = (queue: QueuedMessage[], handle: string) => {
+		for (let index = queue.length - 1; index >= 0; index -= 1) {
+			const message = queue[index];
+			if (message?.handle === handle && removable(message)) {
+				queue.splice(index, 1);
 				dropMessage(message);
-			}
-		}
-		if (current?.message.category === "run" && current.message.handle === handle) {
-			if (current.offset === 0) {
-				const message = current.message;
-				current = undefined;
-				dropMessage(message);
-			} else {
-				const message = current.message;
-				const remainingFrames = message.frames.slice(1);
-				queuedBytes -= remainingFrames.reduce((total, bytes) => total + bytes.byteLength, 0);
-				message.frames.splice(1);
-				message.retired = true;
-				if (message.counted) {
-					runMessages -= 1;
-					message.counted = false;
-				}
 			}
 		}
 	};
@@ -519,7 +523,11 @@ export const makeSidecarFrameWriter = ({
 			if (closed) {
 				return;
 			}
-			removeQueuedRuns(handle);
+			removeQueued(runQueue, handle);
+			removeQueued(controlQueue, handle);
+			if (current?.message.handle === handle && removable(current.message)) {
+				current.message.retired = true;
+			}
 		},
 		flush() {
 			if (closed) {
@@ -531,15 +539,10 @@ export const makeSidecarFrameWriter = ({
 					if (message === undefined) {
 						return;
 					}
-					const bytes = message.frames[0];
-					if (bytes === undefined) {
-						dropMessage(message);
-						continue;
-					}
-					current = { bytes, message, offset: 0 };
+					current = { message, offset: 0, bytes: encodeFrameAt(message) };
 				}
 				const frame = current;
-				const result = writeFrame(frame.bytes.slice(frame.offset));
+				const result = writeFrame(frame.bytes.subarray(frame.offset));
 				const remaining = frame.bytes.byteLength - frame.offset;
 				if (
 					!Number.isSafeInteger(result.written) ||
@@ -550,15 +553,15 @@ export const makeSidecarFrameWriter = ({
 				}
 				frame.offset += result.written;
 				if (frame.offset === frame.bytes.byteLength) {
-					frame.message.frames.shift();
-					queuedBytes -= frame.bytes.byteLength;
+					const message = frame.message;
+					message.next += 1;
 					current = undefined;
-					if (frame.message.retired || frame.message.frames.length === 0) {
-						dropMessage(frame.message);
-					} else if (frame.message.category === "run") {
-						runQueue.push(frame.message);
+					if (message.retired || message.next === message.count) {
+						dropMessage(message);
+					} else if (message.category === "run") {
+						runQueue.push(message);
 					} else {
-						controlQueue.push(frame.message);
+						controlQueue.push(message);
 					}
 				}
 				if (result.blocked || result.written === 0) {
@@ -597,19 +600,27 @@ export const makeSidecarFrameWriter = ({
 			if (messageLimitReached) {
 				fail(protocolError("framing", `queued ${category} message count is full`));
 			}
-			const frames = encodeMessageFrames(frame, payload);
-			const encodedBytes = frames.reduce((total, bytes) => total + bytes.byteLength, 0);
-			if (queuedBytes + encodedBytes > maximumQueuedBytes) {
+			const count = partCount(frame, payload);
+			if (count === 1 && payload.byteLength > maximumFrameBytes) {
+				throw protocolError(
+					"payload",
+					`frame length ${payload.byteLength} exceeds ${maximumFrameBytes}`,
+				);
+			}
+			if (queuedBytes + payload.byteLength > maximumQueuedBytes) {
 				fail(protocolError("framing", `queued bytes exceed ${maximumQueuedBytes}`));
 			}
 			const message: QueuedMessage = {
-				frames,
+				frame,
+				count,
+				payload,
+				next: 0,
 				category,
 				counted: true,
 				retired: false,
 				handle: frame.handle,
 			};
-			queuedBytes += encodedBytes;
+			queuedBytes += payload.byteLength;
 			if (category === "run") {
 				runMessages += 1;
 				runQueue.push(message);
