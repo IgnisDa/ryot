@@ -36,7 +36,7 @@ const entityBrowserSettings = (prepared: PreparedClientPage) => {
 	return Result.isSuccess(decoded) ? decoded.success : null;
 };
 
-export type SavedViewSearch = ReturnType<typeof validateSavedViewSearch>;
+type SavedViewSearch = ReturnType<typeof validateSavedViewSearch>;
 
 const validateSavedViewSearch = (search: Record<string, unknown>) => ({
 	add: search.add === true || search.add === "true" ? true : undefined,
