@@ -350,14 +350,6 @@ const server = group(
 			envKey: "SERVER_PRO_KEY_VERIFICATION_URL",
 			description: "Base URL used to verify the Pro key",
 		}),
-		lanes: enumField({
-			label: "Lanes",
-			defaultValue: "all",
-			envKey: "SERVER_LANES",
-			choices: { kind: "static", values: [{ value: "all" }, { value: "split" }] },
-			description:
-				"Use all for one server process, or split for separate interactive and background processes managed by the server",
-		}),
 		pluginsSystemDir: stringField({
 			hidden: true,
 			defaultValue: "./plugins",
@@ -365,6 +357,14 @@ const server = group(
 			envKey: "SERVER_PLUGINS_SYSTEM_DIR",
 			description:
 				"Directory containing deployment-controlled system plugin archives; archives are not cryptographically authenticated",
+		}),
+		lanes: enumField({
+			label: "Lanes",
+			defaultValue: "all",
+			envKey: "SERVER_LANES",
+			choices: { kind: "static", values: [{ value: "all" }, { value: "split" }] },
+			description:
+				"Use all for one server process, or split for separate interactive and background processes managed by the server",
 		}),
 		processRole: enumField({
 			hidden: true,

@@ -20,40 +20,34 @@ const MigrationSequenceLive = LegacyTableRenameLive.pipe(
 	Layer.flatMap(() => LegacyDataMigrationLive),
 );
 
-const AppLive = MigrationSequenceLive.pipe(
-	Layer.flatMap(() => RuntimeServerLive),
-);
+const AppLive = MigrationSequenceLive.pipe(Layer.flatMap(() => RuntimeServerLive));
+
+const StartupLive = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const config = yield* AppConfig.make;
+		const migrationOnly = yield* Config.Boolean("RUN_MIGRATION_ONLY").pipe(
+			Config.withDefault(false),
+		);
+		if (!migrationOnly && config.server.lanes === "split") {
+			return yield* runSplitSupervisor({
+				effectiveMemory: process.constrainedMemory(),
+				entry: { args: process.argv.slice(1), executable: process.execPath },
+			}).pipe(Effect.provideService(AppConfig, config));
+		}
+		const runtime = config.server.processRole === "all" ? AppLive : RuntimeServerLive;
+		const layer = (migrationOnly ? MigrationSequenceLive : runtime).pipe(
+			Layer.provide(MigrationInfrastructureLive),
+			Layer.provide(ObservabilityProvidedLive),
+		);
+		if (migrationOnly) {
+			return yield* Layer.build(layer).pipe(Effect.asVoid);
+		}
+		return yield* Layer.launch(layer);
+	}),
+).pipe(Layer.provide(BunServices.layer));
 
 BunRuntime.runMain(
-	Effect.scoped(
-		Effect.gen(function* () {
-			const config = yield* AppConfig.make;
-			const migrationOnly = yield* Config.Boolean("RUN_MIGRATION_ONLY").pipe(
-				Config.withDefault(false),
-			);
-			if (!migrationOnly && config.server.lanes === "split") {
-				return yield* runSplitSupervisor({
-					effectiveMemory: process.constrainedMemory(),
-					entry: { args: process.argv.slice(1), executable: process.execPath },
-				}).pipe(Effect.provideService(AppConfig, config));
-			}
-			const startup = migrationOnly
-				? MigrationSequenceLive
-				: config.server.processRole === "all"
-					? AppLive
-					: RuntimeServerLive;
-			const layer = startup.pipe(
-				Layer.provide(MigrationInfrastructureLive),
-				Layer.provide(ObservabilityProvidedLive),
-			);
-			if (migrationOnly) {
-				yield* Layer.build(layer);
-			} else {
-				yield* Layer.launch(layer);
-			}
-		}),
-	).pipe(
-		Effect.provide(BunServices.layer),
+	Effect.scoped(Layer.build(StartupLive)).pipe(
 		Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnv()),
 	),
 );

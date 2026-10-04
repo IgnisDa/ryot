@@ -51,9 +51,6 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	{ readonly dispatch: string; readonly resultBytes: number | null }
 >;
 
-export type SandboxDurableHostDispatchStrategy =
-	(typeof SANDBOX_HOST_EXECUTION_POLICY)[keyof typeof SANDBOX_HOST_EXECUTION_POLICY]["dispatch"];
-
 export const sandboxDurableHostDispatchStrategy = (capability: SandboxHostCapability) => {
 	if (capability === "artifact-read" || capability === "scratch") {
 		return null;

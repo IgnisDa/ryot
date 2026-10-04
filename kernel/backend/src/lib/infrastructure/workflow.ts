@@ -44,29 +44,15 @@ const runnerLayer = (role: ServerRole, runnerSocketDir: Option.Option<string>) =
 			Layer.provide(RunnerHealth.layerNoop),
 		);
 	}
-	return Option.match(runnerSocketDir, {
-		onNone: () =>
-			Layer.effectDiscard(
-				Effect.die(
-					new Error(
-						"RYOT_RUNNER_SOCKET_DIR is required when RYOT_SERVER_ROLE is interactive or background.",
-					),
-				),
-			),
-		onSome: (socketDir) => {
-			const clientProtocol = runnerSocketClientProtocolLayer(socketDir);
-			return SocketRunner.layer.pipe(
-				Layer.provide(
-					RunnerHealth.layerPing.pipe(
-						Layer.provide(Runners.layerRpc),
-						Layer.provide(clientProtocol),
-					),
-				),
-				Layer.provide([runnerSocketServerLayer(socketDir, role), clientProtocol]),
-				Layer.provide(RpcSerialization.layerNdjson),
-			);
-		},
-	});
+	const socketDir = Option.getOrThrow(runnerSocketDir);
+	const clientProtocol = runnerSocketClientProtocolLayer(socketDir);
+	return SocketRunner.layer.pipe(
+		Layer.provide(
+			RunnerHealth.layerPing.pipe(Layer.provide(Runners.layerRpc), Layer.provide(clientProtocol)),
+		),
+		Layer.provide([runnerSocketServerLayer(socketDir, role), clientProtocol]),
+		Layer.provide(RpcSerialization.layerNdjson),
+	);
 };
 
 export const WorkflowEngineLive = ClusterWorkflowEngine.layer.pipe(
