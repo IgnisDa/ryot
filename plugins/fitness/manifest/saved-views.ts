@@ -3,7 +3,7 @@ import type {
 	AuthoredEntityBrowserAddAction,
 	AuthoredEntityBrowserSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	entitySchemaPredicate,
 	schemaOwnerPredicate,
@@ -15,16 +15,19 @@ import {
 	document,
 	eq,
 	field,
+	jsonPath,
 	literal,
 	rows,
 	table,
 } from "@ryot-app/ryotql";
-import { Array as Arr } from "effect";
+import { propertyFilterFields } from "@ryot-app/ryotql-recipes/property-filter-fields";
+import { Array as Arr, Result } from "effect";
 
 import { fitnessPresentationSource } from "../shared/entity-presentations";
 import { fitnessLibraryMembership, fitnessLibraryLinkExists } from "../shared/library-recipes";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { fitnessEntitySchemas } from "./schemas/entity";
+import { exercisePropertiesSchema } from "./schemas/property";
 import { buildViewExpressions } from "./view-helpers";
 
 const addAction = (slug: string): AuthoredEntityBrowserAddAction =>
@@ -35,6 +38,34 @@ const addAction = (slug: string): AuthoredEntityBrowserAddAction =>
 				schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(slug) },
 			}
 		: { search: {}, type: "plugin-route", path: "/templates/new", packageId: PLUGIN_PACKAGE_ID };
+
+const exerciseFilterProperties = ["level", "force", "mechanic", "kind"] as const;
+
+const exerciseFilterKey = (property: (typeof exerciseFilterProperties)[number]) =>
+	`${property}Value`;
+
+const exerciseRelationshipFilter = (key: string, label: string, slug: string) =>
+	({
+		key,
+		label,
+		kind: "relationship",
+		direction: "outgoing",
+		relationship: { owner: { kind: "self" }, slug: RelationshipSchemaSlug.make(slug) },
+	}) as const;
+
+export const exerciseFilterFields = () => [
+	...Result.getOrThrow(
+		propertyFilterFields(
+			exercisePropertiesSchema,
+			exerciseFilterProperties.map((property) => ({
+				property,
+				field: exerciseFilterKey(property),
+			})),
+		),
+	),
+	exerciseRelationshipFilter("muscles", "Muscles", "exercise-targets"),
+	exerciseRelationshipFilter("equipment", "Equipment", "exercise-uses-equipment"),
+];
 
 export const fitnessSavedViews = () => {
 	const schemas = new Map(fitnessEntitySchemas.map((schema) => [schema.slug, schema]));
@@ -92,6 +123,11 @@ export const fitnessSavedViews = () => {
 			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 			...presentation.fields,
+			...(input.entitySchemaSlug === "exercise"
+				? exerciseFilterProperties.map((property) =>
+						field(exerciseFilterKey(property), jsonPath(column(entity, "properties"), property)),
+					)
+				: []),
 		];
 		const where = and(
 			entitySchemaPredicate(entity, input.entitySchemaSlug, { kind: "self" }),
@@ -117,6 +153,7 @@ export const fitnessSavedViews = () => {
 				sourceName: "savedView",
 				layouts: ["grid", "list", "table"],
 				addAction: addAction(input.entitySchemaSlug),
+				...(input.entitySchemaSlug === "exercise" ? { filterFields: exerciseFilterFields() } : {}),
 				tableColumns: Arr.map(
 					tableExpressions.columns,
 					({ expression: _, ...tableColumn }) => tableColumn,
