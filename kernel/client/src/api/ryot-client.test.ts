@@ -25,6 +25,7 @@ import {
 	makeUploadsApi,
 } from "#/api/ports.test-layer";
 import { createKernelRyotClient, createKernelRyotClientStore } from "#/api/ryot-client";
+import { ExternalLinkPlatform, ExternalLinks } from "#/modules/external-links/service";
 import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientRuntime } from "#/runtime";
 
@@ -45,6 +46,16 @@ const fails = (cause: unknown) => Effect.fail(new AuthenticatedApiError({ cause 
 const makeRuntime = (cause: unknown) =>
 	ManagedRuntime.make(
 		Layer.mergeAll(
+			ExternalLinks.layer.pipe(
+				Layer.provide(
+					Layer.succeed(ExternalLinkPlatform, {
+						isNative: true,
+						isActive: () => false,
+						openBlank: () => null,
+						openNative: () => Effect.void,
+					}),
+				),
+			),
 			makeCollectionsApi(),
 			makeEntityInterestService(),
 			makeUploadsApi(),
@@ -123,6 +134,22 @@ const source = new Blob(["id,title"], { type: "text/csv" });
 const uploadRequest = { source, fileName: "items.csv", contentType: "text/csv" };
 
 describe("kernel Ryot client", () => {
+	it.live("exposes the external-link capability on kernel clients", () => {
+		const calls: unknown[] = [];
+		const runtime = makeRuntime(new Error("unused"));
+		return Effect.gen(function* () {
+			const client = createKernelRyotClient(runtime, scope, theme, (request) =>
+				Effect.sync(() => {
+					calls.push(request);
+					return { outcome: "success" };
+				}),
+			);
+			expect(yield* client.links.open({ url: "https://example.test/path" })).toEqual({
+				outcome: "success",
+			});
+			expect(calls).toEqual([{ url: "https://example.test/path" }]);
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
+	});
 	it.live("routes semantic collection mutations through the scoped collections port", () => {
 		const calls: unknown[] = [];
 		const runtime = ManagedRuntime.make(

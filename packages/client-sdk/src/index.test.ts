@@ -22,6 +22,60 @@ const resolution = {
 };
 
 describe("Effect-native client capabilities", () => {
+	it.live("validates external links before adapter access and decodes launch results", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const client = createRyotClient(
+				createTestRyotAdapter({
+					openExternalLink: (request) =>
+						Effect.sync(() => {
+							calls.push(request);
+							return { outcome: "success" };
+						}),
+				}),
+			);
+			for (const url of [
+				"/relative",
+				"javascript:alert(1)",
+				"data:text/html,hello",
+				"file:///tmp/file",
+				"https://",
+				"",
+			]) {
+				expect(yield* Effect.flip(client.links.open({ url }))).toMatchObject({
+					reason: "invalid-request",
+				});
+			}
+			expect(calls).toEqual([]);
+			for (const url of ["http://example.test/path", "https://example.test/path?q=a#b"]) {
+				expect(yield* client.links.open({ url })).toEqual({ outcome: "success" });
+			}
+			expect(calls).toEqual([
+				{ url: "http://example.test/path" },
+				{ url: "https://example.test/path?q=a#b" },
+			]);
+			const missing = createRyotClient(createTestRyotAdapter());
+			expect(yield* Effect.flip(missing.links.open({ url: "https://example.test" }))).toMatchObject(
+				{ reason: "unsupported-capability" },
+			);
+			const malformed = createRyotClient(
+				createTestRyotAdapter({ openExternalLink: () => Effect.void }),
+			);
+			expect(
+				yield* Effect.flip(malformed.links.open({ url: "https://example.test" })),
+			).toMatchObject({ reason: "malformed-result" });
+			for (const reason of ["activation-required", "link-open-failed"] as const) {
+				const failing = createRyotClient(
+					createTestRyotAdapter({
+						openExternalLink: () => Effect.fail(new RyotClientError(reason)),
+					}),
+				);
+				expect(
+					yield* Effect.flip(failing.links.open({ url: "https://example.test" })),
+				).toMatchObject({ reason });
+			}
+		}),
+	);
 	it.live("sends only the query document and decodes the response", () =>
 		Effect.gen(function* () {
 			const received: unknown[] = [];

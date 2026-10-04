@@ -1,4 +1,6 @@
-import { Effect, Option } from "effect";
+import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
@@ -7,6 +9,10 @@ import {
 	FIXTURE_CLIENT_REVISION_MARKERS,
 	FIXTURE_CLIENT_PLUGIN_SLUG,
 	installFixtureClientPlugin,
+	installPrivatePluginPackage,
+	encodePluginSourceFiles,
+	testPluginManifest,
+	settledPrivateInstallation,
 	listEntitySchemas,
 	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
@@ -18,6 +24,7 @@ import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
 type BridgeObservation = { readonly serialized: string; readonly bridgeSessionId: string | null };
 
+const encodeJsonString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
 const privateAccessKey = /\/api\/client-assets\/[a-f0-9]{64}\/([A-Za-z0-9_-]{43})\//g;
 
 const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObservation[]) =>
@@ -438,5 +445,99 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 			.getByRole("heading", { level: 1, exact: true, name: "E2E deterministic show" })
 			.waitFor({ state: "visible" });
 		yield* expectIsolatedFrame(mediaFrame, apiUrl);
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("opens an external link from a sandbox click through host authority", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const frontendUrl = getFrontendUrl();
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const pluginSlug = PluginSlug.make(`external-link-${crypto.randomUUID()}`);
+		const destination = `${frontendUrl}/e2e-external-link-${crypto.randomUUID()}`;
+		yield* installPrivatePluginPackage({
+			client,
+			config: {},
+			baseUrl: apiUrl,
+			pluginPackage: {
+				manifest: testPluginManifest({
+					pluginSlug,
+					clientDefinition: {
+						entities: {},
+						homeView: null,
+						notFoundPage: "home",
+						routes: { "/": "home" },
+						apiVersion: CLIENT_API_VERSION,
+						exports: {
+							home: {
+								kind: "page",
+								entry: "client/home.tsx",
+								settingsSchema: { fields: {} },
+								automaticEntityPresentations: false,
+							},
+						},
+					},
+				}),
+				files: encodePluginSourceFiles({
+					"client/home.tsx": `
+import { Effect } from "@ryot-app/client-sdk/effect";
+import { useRyot } from "@ryot-app/client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
+import { useState } from "react";
+
+export default function Home() {
+  const client = useRyot();
+  const [outcome, setOutcome] = useState("idle");
+  return <PluginScreenFrame title="External links">
+    <button onClick={() => {
+      void Effect.runPromise(client.links.open({ url: ${encodeJsonString(destination)} }).pipe(
+        Effect.match({ onSuccess: (value) => setOutcome(value.outcome), onFailure: (error) => setOutcome(error.reason) }),
+      ));
+    }}>Open external link</button>
+    <p>{outcome}</p>
+  </PluginScreenFrame>;
+}
+`,
+				}),
+			},
+		});
+		yield* settledPrivateInstallation(client, pluginSlug);
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password, { entryPath: `/${pluginSlug}` });
+		yield* page.goto(`${frontendUrl}/${pluginSlug}`);
+		const frame = page.locator('main > div:not([aria-hidden="true"]) iframe');
+		yield* frame
+			.contentFrame()
+			.getByRole("button", { name: "Open external link" })
+			.waitFor({ state: "visible" });
+		yield* expectIsolatedFrame(frame, apiUrl);
+		const referrers: (string | undefined)[] = [];
+		yield* page.use((nativePage) =>
+			nativePage.context().route(destination, (route) => {
+				referrers.push(route.request().headers()["referer"]);
+				return route.fulfill({
+					contentType: "text/html",
+					body: "<title>External destination</title>",
+				});
+			}),
+		);
+		// oxlint-disable-next-line effecttsgo/async-function -- Playwright requires a Promise callback at this browser boundary.
+		yield* page.use(async (nativePage) => {
+			const opened = nativePage.waitForEvent("popup");
+			await nativePage
+				.locator('main > div:not([aria-hidden="true"]) iframe')
+				.contentFrame()
+				.getByRole("button", { name: "Open external link" })
+				.click();
+			const popup = await opened;
+			await popup.waitForURL(destination);
+			await popup.waitForLoadState("domcontentloaded");
+			expect(await popup.evaluate(() => window.opener)).toBeNull();
+			expect(await popup.evaluate(() => document.referrer)).toBe("");
+			expect(referrers).toEqual([undefined]);
+			await popup.close();
+		});
+		yield* expectVisibleText(frame.contentFrame().locator("body"), "success");
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

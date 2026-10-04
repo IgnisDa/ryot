@@ -18,6 +18,7 @@ import { UploadsApi } from "#/api/uploads";
 import { UserSettingsApi } from "#/api/user-settings";
 import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
 import { EntityInterestService } from "#/modules/entity-interest/service";
+import { ExternalLinks } from "#/modules/external-links/service";
 
 // oxlint-disable-next-line effecttsgo/lazy-effect -- Fills service method slots of any arity
 export const unused = () => Effect.die("not used");
@@ -154,6 +155,10 @@ export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =
 	});
 
 export const KernelApiTestLayer = Layer.mergeAll(
+	Layer.succeed(ExternalLinks, {
+		open: () => Effect.die("Unused external link"),
+		outcome: () => Effect.die("Unused external link"),
+	}),
 	makeAutomationHistoryApi(),
 	makeRyotQLApi(),
 	makeCollectionsApi(),
