@@ -17,7 +17,7 @@ import {
 	installTestProvider,
 	uninstallTestProvider,
 } from "~/fixtures/kernel";
-import { assertPresent } from "~/support/assertions";
+import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const listEntities = (client: Client) =>
@@ -94,16 +94,23 @@ describe("Definitions E2E", () => {
 			const outsider = yield* createAuthenticatedClient();
 			const outsiderSchemas = yield* listEntities(outsider.client);
 			expect(outsiderSchemas.some(({ slug }) => slug === schemaSlug)).toBe(false);
-			const outsiderProviders = yield* executeRyotQLRecipe(
-				outsider.client,
-				providerSearchRecipe({
-					schema: {
-						slug: EntitySchemaSlug.make(schemaSlug),
-						owner: { kind: "plugin" as const, pluginId: provider.pluginId },
-					},
-				}),
+			const outsiderFailure = yield* Effect.flip(
+				executeRyotQLRecipe(
+					outsider.client,
+					providerSearchRecipe({
+						schema: {
+							slug: EntitySchemaSlug.make(schemaSlug),
+							owner: { kind: "plugin" as const, pluginId: provider.pluginId },
+						},
+					}),
+				),
 			);
-			expect(outsiderProviders.items).toEqual([]);
+			assertTaggedError(outsiderFailure, "RyotQLBadRequest");
+			expect(outsiderFailure.reason).toMatchObject({
+				issue: "unavailable",
+				code: "unresolved-query-owner",
+				reference: { kind: "local", pluginId: provider.pluginId },
+			});
 		}),
 	);
 

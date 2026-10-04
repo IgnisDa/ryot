@@ -57,7 +57,10 @@ describe("private integration providers", () => {
 				lot: "push",
 				hasScript: true,
 				slug: plugin.providerSlug,
-				pluginSlug: plugin.pluginSlug,
+				reference: {
+					slug: plugin.providerSlug,
+					owner: { kind: "plugin", pluginId: plugin.pluginId },
+				},
 			});
 			expect(outsiderProviders.map(({ slug }) => slug)).not.toContain(plugin.providerSlug);
 
