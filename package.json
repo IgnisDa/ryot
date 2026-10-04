@@ -15,7 +15,7 @@
 		"prepare": "effect-tsgo patch --no-typescript --oxlint",
 		"docker:up": "docker compose -f ci/dev/docker-compose.yml up",
 		"docker:down": "docker compose -f ci/dev/docker-compose.yml down",
-		"check": "node --test ci/oxlint/ryot-plugin.test.mjs && turbo check"
+		"check": "bun --check && node --test ci/oxlint/ryot-plugin.test.mjs && turbo check"
 	},
 	"devDependencies": {
 		"@effect/tsgo": "0.48.0",
