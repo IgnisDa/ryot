@@ -95,6 +95,7 @@ import { VideoGameSpecificsDisplay } from "~/components/routes/media-item/displa
 import { VideoIframe } from "~/components/routes/media-item/displays/video-iframe";
 import { MergeMetadataModal } from "~/components/routes/media-item/modals/merge-metadata-modal";
 import { DisplayShowSeasonEpisodesModal } from "~/components/routes/media-item/modals/show-season-episodes-modal";
+import { PersonalNote } from "~/components/routes/media-item/personal-note";
 import { MEDIA_DETAILS_HEIGHT, reviewYellow } from "~/lib/shared/constants";
 import { convertTimestampToUtcString, dayjsLib } from "~/lib/shared/date-utils";
 import {
@@ -560,6 +561,7 @@ export default function Page() {
 								%)
 							</Alert>
 						) : null}
+						<PersonalNote metadataId={loaderData.metadataId} />
 						<Tabs variant="outline" value={tab} onChange={(t) => setTab(t)}>
 							<Tabs.List mb="xs">
 								<Tabs.Tab

@@ -1,0 +1,3 @@
+query PersonalNote($metadataId: String!) {
+ personalNote(metadataId: $metadataId) { text metadataId createdAt updatedAt }
+}

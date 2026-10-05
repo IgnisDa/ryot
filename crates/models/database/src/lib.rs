@@ -25,6 +25,7 @@ pub mod metadata_to_metadata_group;
 pub mod metadata_to_person;
 pub mod notification_platform;
 pub mod person;
+pub mod personal_note;
 pub mod review;
 pub mod seen;
 pub mod user;

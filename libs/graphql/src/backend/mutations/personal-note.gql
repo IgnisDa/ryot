@@ -1,0 +1,6 @@
+mutation SetPersonalNote($metadataId: String!, $text: String!) {
+ setPersonalNote(metadataId: $metadataId, text: $text) { text metadataId createdAt updatedAt }
+}
+mutation DeletePersonalNote($metadataId: String!) {
+ deletePersonalNote(metadataId: $metadataId)
+}

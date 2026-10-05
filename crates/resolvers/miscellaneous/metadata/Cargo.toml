@@ -7,6 +7,7 @@ edition = "2024"
 async-graphql = { workspace = true }
 
 common-models = { workspace = true }
+database-models = { workspace = true }
 dependent-models = { workspace = true }
 dependent-details-utils = { workspace = true }
 dependent-entity-list-utils = { workspace = true }

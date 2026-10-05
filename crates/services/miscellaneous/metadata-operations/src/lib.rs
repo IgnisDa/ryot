@@ -1,3 +1,5 @@
+pub mod personal_note;
+
 use std::sync::Arc;
 
 use anyhow::{Result, bail};

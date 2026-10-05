@@ -5,13 +5,16 @@ use chrono::Utc;
 use common_utils::{BULK_DATABASE_UPDATE_OR_DELETE_CHUNK_SIZE, ryot_log};
 use database_models::{
     access_link, application_cache, genre, metadata, metadata_group, metadata_to_genre, person,
+    personal_note,
     prelude::{
         AccessLink, ApplicationCache, Genre, Metadata, MetadataGroup, MetadataToGenre, Person,
         UserToEntity,
     },
     user_to_entity,
 };
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect, UpdateMany, prelude::Expr};
+use sea_orm::{
+    ColumnTrait, EntityTrait, QueryFilter, QuerySelect, UpdateMany, prelude::Expr, sea_query::Query,
+};
 use supporting_service::SupportingService;
 use traits::TraceOk;
 
@@ -21,6 +24,14 @@ pub async fn remove_useless_data(ss: &Arc<SupportingService>) -> Result<()> {
         .column(metadata::Column::Id)
         .left_join(UserToEntity)
         .filter(user_to_entity::Column::MetadataId.is_null())
+        .filter(
+            metadata::Column::Id.not_in_subquery(
+                Query::select()
+                    .column(personal_note::Column::MetadataId)
+                    .from(personal_note::Entity)
+                    .to_owned(),
+            ),
+        )
         .into_tuple::<String>()
         .all(&ss.db)
         .await?;

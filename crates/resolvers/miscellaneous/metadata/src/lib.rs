@@ -13,6 +13,22 @@ impl GraphqlDependencyInjector for MiscellaneousMetadataQueryResolver {}
 
 #[Object]
 impl MiscellaneousMetadataQueryResolver {
+    async fn personal_note(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: String,
+    ) -> Result<Option<database_models::personal_note::Model>> {
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(
+            miscellaneous_metadata_operations_service::personal_note::get(
+                &service.db,
+                user_id,
+                metadata_id,
+            )
+            .await?,
+        )
+    }
+
     /// Get details about a media present in the database.
     async fn metadata_details(
         &self,
@@ -77,6 +93,40 @@ impl GraphqlDependencyInjector for MiscellaneousMetadataMutationResolver {
 
 #[Object]
 impl MiscellaneousMetadataMutationResolver {
+    async fn set_personal_note(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: String,
+        text: String,
+    ) -> Result<database_models::personal_note::Model> {
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(
+            miscellaneous_metadata_operations_service::personal_note::set(
+                &service.db,
+                user_id,
+                metadata_id,
+                text,
+            )
+            .await?,
+        )
+    }
+
+    async fn delete_personal_note(
+        &self,
+        gql_ctx: &Context<'_>,
+        metadata_id: String,
+    ) -> Result<bool> {
+        let (service, user_id) = self.dependency_and_user(gql_ctx).await?;
+        Ok(
+            miscellaneous_metadata_operations_service::personal_note::delete(
+                &service.db,
+                user_id,
+                metadata_id,
+            )
+            .await?,
+        )
+    }
+
     /// Merge a media item into another. This will move all `seen`, `collection`
     /// and `review` associations with to the metadata.
     async fn merge_metadata(
