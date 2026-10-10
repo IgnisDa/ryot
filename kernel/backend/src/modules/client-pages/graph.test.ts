@@ -1,10 +1,10 @@
 import { expect, it } from "@effect/vitest";
 import { pluginExportSpecifier } from "@ryot-app/client-plugin-contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
-import { fixtureManifest } from "#modules/plugins/test-support";
+import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 
 import { composeClientPage } from "./composition";
 import type { GraphPlugin } from "./graph";
@@ -16,7 +16,7 @@ const packageIdFor = (name: string) => {
 	if (existing) {
 		return existing;
 	}
-	const packageId = PluginPackageId.make(crypto.randomUUID());
+	const packageId = testPluginPackageId();
 	packageIds.set(name, packageId);
 	return packageId;
 };
@@ -25,23 +25,22 @@ const dependencyReference = (name: string) => ({
 	packageId: packageIdFor(name),
 });
 
-const plugin = (slug: string, client: NonNullable<PluginManifest["client"]>): GraphPlugin => {
+const plugin = (name: string, client: NonNullable<PluginManifest["client"]>): GraphPlugin => {
 	const manifest = fixtureManifest();
 	return {
-		slug,
 		scope: "user",
 		health: "ready",
 		isHidden: false,
-		id: `${slug}-id`,
+		id: `${name}-id`,
 		clientImports: [],
-		sourceHash: `${slug}-source`,
-		packageId: packageIdFor(slug),
-		clientArtifactHash: `${slug}-hash`,
-		pluginRevisionId: `${slug}-revision`,
+		sourceHash: `${name}-source`,
+		packageId: packageIdFor(name),
+		clientArtifactHash: `${name}-hash`,
+		pluginRevisionId: `${name}-revision`,
 		manifest: {
 			...manifest,
 			client,
-			metadata: { ...manifest.metadata, slug, packageId: packageIdFor(slug) },
+			metadata: { ...manifest.metadata, packageId: packageIdFor(name) },
 		},
 	};
 };
@@ -223,11 +222,7 @@ it.effect("binds equal metadata names and importer-local aliases to independent 
 		});
 		const plugins = Array.from([root, left, right, leftDependency, rightDependency], (entry) => ({
 			...entry,
-			slug: "whiskey",
-			manifest: {
-				...entry.manifest,
-				metadata: { ...entry.manifest.metadata, slug: "whiskey", name: "Whiskey" },
-			},
+			manifest: { ...entry.manifest, metadata: { ...entry.manifest.metadata, name: "Whiskey" } },
 		}));
 		const graph = yield* resolveClientPageGraph({
 			plugins,

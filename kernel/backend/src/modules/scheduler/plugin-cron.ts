@@ -152,7 +152,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 			);
 
 		const dueDispatches = Effect.fnUntraced(function* (
-			entry: { readonly cron: PluginCron; readonly pluginSlug: string },
+			entry: { readonly cron: PluginCron; readonly packageId: string },
 			scheduledAt: number,
 			target: PluginCronTarget,
 			executionId: string,
@@ -164,11 +164,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 			const parsed = Cron.parse(schedule, config.timezone);
 			if (Result.isFailure(parsed)) {
 				yield* Effect.logWarning("plugin cron schedule invalid").pipe(
-					Effect.annotateLogs({
-						schedule,
-						cronSlug: entry.cron.slug,
-						pluginSlug: entry.pluginSlug,
-					}),
+					Effect.annotateLogs({ schedule, cronSlug: entry.cron.slug, packageId: entry.packageId }),
 				);
 				return [];
 			}

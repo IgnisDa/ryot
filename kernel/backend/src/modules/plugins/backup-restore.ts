@@ -55,7 +55,6 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					const manifest = yield* asInvalidBackup(decodePluginManifest(item.manifest));
 					if (
 						manifest.metadata.packageId !== item.packageId ||
-						manifest.metadata.slug !== item.slug ||
 						manifest.metadata.version !== item.version ||
 						stableStringify(manifest) !== stableStringify(item.manifest)
 					) {
@@ -94,7 +93,6 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 				for (const item of prepared) {
 					const pluginId = yield* plugins.persist(item.normalized, {
 						scope: "user",
-						slug: item.slug,
 						ownerId: userId,
 						packageId: item.packageId,
 					});
@@ -114,7 +112,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					if (!id) {
 						return yield* badRequest("Backup private plugin mapping is incomplete");
 					}
-					candidates.push({ id, slug: item.slug, manifest: item.normalized.manifest });
+					candidates.push({ id, manifest: item.normalized.manifest });
 				}
 				return yield* Effect.try({
 					catch: (error) => badRequest(String(error)),

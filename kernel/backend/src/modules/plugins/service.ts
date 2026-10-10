@@ -4,7 +4,7 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginId, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -37,13 +37,12 @@ import {
 	validateSignalSchemaFormatterReferences,
 } from "./validation";
 
-type SystemSetEntry = Pick<StoredPlugin, "id" | "manifest" | "scripts" | "slug">;
+type SystemSetEntry = Pick<StoredPlugin, "id" | "manifest" | "scripts">;
 type EnvironmentResolutionTiming = "deferred" | "immediate";
 
 const toSystemPluginItem = (plugin: Pick<NormalizedPlugin, "manifest" | "sourceHash">) => ({
 	...plugin.manifest.metadata,
 	sourceHash: plugin.sourceHash,
-	slug: PluginSlug.make(plugin.manifest.metadata.slug),
 });
 
 export class PluginIngestionService extends Context.Service<PluginIngestionService>()(
@@ -110,7 +109,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				const { manifest, sourceHash } = normalizedSource;
 				yield* validatePluginManifestPolicy(manifest, { scope: "system" });
 				yield* validatePluginScriptEntries(manifest);
-				const slug = manifest.metadata.slug;
 				const packageId = manifest.metadata.packageId;
 				const installed = yield* repository.listActiveSystemPlugins();
 				const selected = target ? installed.find(({ id }) => id === target.pluginId) : undefined;
@@ -129,13 +127,12 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						...installed.filter((plugin) =>
 							target ? plugin.id !== target.pluginId : plugin.packageId !== packageId,
 						),
-						{ slug, manifest, scripts: [], id: target?.pluginId ?? `pending:${packageId}` },
+						{ manifest, scripts: [], id: target?.pluginId ?? `pending:${packageId}` },
 					],
 					false,
 				);
 
 				const cached = yield* repository.findBySourceHash({
-					slug,
 					packageId,
 					...(target ? { pluginId: target.pluginId } : {}),
 					sourceHash,
@@ -228,7 +225,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							}
 						}
 						const pluginId = yield* repository.persist(normalized, {
-							slug,
 							packageId,
 							...(target ? { pluginId: target.pluginId } : {}),
 							ownerId: null,
@@ -240,7 +236,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						const entry = plugins.find((plugin) => plugin.id === pluginId);
 						if (!entry) {
 							return yield* new PluginValidationError({
-								issues: [`System plugin ${slug} is not active after ingestion`],
+								issues: [`System plugin ${packageId} is not active after ingestion`],
 							});
 						}
 						if (environmentResolution === "immediate") {
@@ -314,7 +310,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					undefined,
 					true,
 				).pipe(structurePluginFailure);
-				return { pluginId: PluginId.make(installed.id), slug: PluginSlug.make(installed.slug) };
+				return { pluginId: PluginId.make(installed.id) };
 			});
 			const updatePlugin = Effect.fn("PluginIngestionService.updatePlugin")(function* (
 				input: PluginSource & { readonly pluginId: string; readonly sourceHash: string },
@@ -323,7 +319,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					pluginId: input.pluginId,
 					expectedSourceHash: input.sourceHash,
 				}).pipe(structurePluginFailure);
-				return { pluginId: PluginId.make(installed.id), slug: PluginSlug.make(installed.slug) };
+				return { pluginId: PluginId.make(installed.id) };
 			});
 
 			const uninstallPlugin = Effect.fn("PluginIngestionService.uninstallPlugin")(function* (
@@ -391,9 +387,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						yield* repository.recordUninstallReceipt({
 							activationId,
 							ownerId: null,
-							slug: plugin.slug,
 							pluginId: plugin.id,
 							installationId: null,
+							packageId: plugin.packageId,
 						});
 						yield* invalidator.recordAll;
 						return plugin.id;

@@ -95,11 +95,7 @@ const isUsableHomeSavedView = (
 
 const buildEffectiveDefinitions = (
 	systemDefinitions: Parameters<typeof definitionSourceFromSnapshot>[0],
-	plugins: ReadonlyArray<{
-		readonly id: string;
-		readonly slug: string;
-		readonly manifest: PluginManifest;
-	}>,
+	plugins: ReadonlyArray<{ readonly id: string; readonly manifest: PluginManifest }>,
 ) =>
 	Effect.try({
 		catch: (error) =>
@@ -356,7 +352,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					...(yield* repository.listPrivateForUser(userId)).filter(
 						(candidate) => candidate.id !== plugin.id,
 					),
-					{ id: plugin.id, slug: plugin.slug, manifest: normalized.manifest },
+					{ id: plugin.id, manifest: normalized.manifest },
 				]);
 				yield* validatePluginManifestReferences(normalized.manifest);
 				yield* validatePluginExecutableScripts(normalized);
@@ -527,7 +523,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				function* (input: DecodedInstallPrivatePluginInput) {
 					const normalizedSource = yield* normalizePluginSource(input);
 					const { manifest } = normalizedSource;
-					const slug = manifest.metadata.slug;
 					const packageId = manifest.metadata.packageId;
 					const systemPlugins = yield* repository.listActiveSystemPlugins();
 					yield* validatePluginManifestPolicy(manifest, {
@@ -547,7 +542,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					}
 					yield* buildEffectiveDefinitions(yield* definitions.getGlobalSnapshot, [
 						...owned,
-						{ slug, manifest, id: "private-plugin-candidate" },
+						{ manifest, id: "private-plugin-candidate" },
 					]);
 					yield* validatePluginManifestReferences(manifest);
 					const config = yield* parseAppSchemaProperties({
@@ -581,7 +576,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								}
 								yield* validateClientDependencies(normalized, input.userId);
 								const pluginId = yield* ingestionLock.persistUserPlugin(normalized, {
-									slug,
 									packageId,
 									scope: "user",
 									ownerId: input.userId,
@@ -674,7 +668,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								...(yield* repository.listPrivateForUser(input.userId)).filter(
 									(candidate) => candidate.id !== plugin.id,
 								),
-								{ manifest, id: plugin.id, slug: plugin.slug },
+								{ manifest, id: plugin.id },
 							]);
 							yield* validatePluginManifestReferences(manifest);
 							yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
@@ -743,7 +737,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 											scope: "user",
 											pluginId: current.id,
 											ownerId: input.userId,
-											slug: manifest.metadata.slug,
 											packageId: current.packageId,
 										});
 										if (persistedId !== current.id) {
@@ -1052,8 +1045,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								yield* repository.recordUninstallReceipt({
 									activationId,
 									ownerId: userId,
-									slug: current.slug,
 									pluginId: current.id,
+									packageId: current.packageId,
 									installationId: removed.result.id,
 								});
 								yield* invalidator.recordUser(userId);

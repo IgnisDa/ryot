@@ -57,7 +57,6 @@ const snapshot = buildDefinitionSnapshot({
 			pluginId: null,
 			name: "Record",
 			slug: "record",
-			pluginSlug: null,
 			propertiesSchema: { fields: {} },
 			eventSchemas: [
 				{

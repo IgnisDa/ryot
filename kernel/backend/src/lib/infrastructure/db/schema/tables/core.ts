@@ -49,7 +49,6 @@ export const pluginConfigEncryptionKey = snakeCase.table(
 export const plugin = snakeCase.table(
 	"plugin",
 	{
-		slug: text().notNull(),
 		status: text().notNull(),
 		activeRevisionId: text(),
 		environmentConfigRevisionId: text(),
@@ -98,9 +97,9 @@ export const plugin = snakeCase.table(
 
 export const pluginUninstallReceipt = snakeCase.table("plugin_uninstall_receipt", {
 	installationId: text(),
-	slug: text().notNull(),
 	pluginId: text().notNull(),
 	activationId: text().primaryKey(),
+	packageId: text().$type<PluginPackageId>().notNull(),
 	ownerId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
 });
 

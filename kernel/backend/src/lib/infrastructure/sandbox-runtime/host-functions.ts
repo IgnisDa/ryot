@@ -185,11 +185,7 @@ const toSandboxIntegrationSettings = (settings: Readonly<Record<string, unknown>
 	);
 
 const toSandboxIntegration = (integration: IntegrationRecord) => {
-	const {
-		pluginSlug: _pluginSlug,
-		pluginInstallationId: _pluginInstallationId,
-		...record
-	} = integration;
+	const { pluginInstallationId: _pluginInstallationId, ...record } = integration;
 	return { ...record, providerSpecifics: toSandboxIntegrationSettings(record.providerSpecifics) };
 };
 
@@ -1190,11 +1186,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 										if (!definition) {
 											return Effect.fail("Entity schema not found");
 										}
-										return Effect.succeed({
-											definition,
-											entitySchemaSlug,
-											pluginSlug: definition.pluginSlug,
-										});
+										return Effect.succeed({ definition, entitySchemaSlug });
 									}),
 								),
 								Effect.flatMap((schemas) =>
@@ -1219,8 +1211,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 											providersBySchema.set(entitySchemaSlug, providers);
 										}
 
-										return schemas.map(({ definition, pluginSlug, entitySchemaSlug }) => ({
-											pluginSlug,
+										return schemas.map(({ definition, entitySchemaSlug }) => ({
 											isBuiltin: true,
 											id: entitySchemaSlug,
 											icon: definition.icon,

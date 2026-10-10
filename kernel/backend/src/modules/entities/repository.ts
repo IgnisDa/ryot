@@ -97,18 +97,11 @@ export type PortableEntityRecord = Pick<
 	| "populatedAt"
 	| "entitySchemaPluginId"
 	| "entitySchemaSlug"
-> & {
-	readonly provider: {
-		readonly pluginId: string;
-		readonly pluginSlug: string;
-		readonly providerSlug: string;
-	} | null;
-};
+> & { readonly provider: { readonly pluginId: string; readonly providerSlug: string } | null };
 
 const portableEntitySelection = {
 	id: schema.entity.id,
 	name: schema.entity.name,
-	pluginSlug: schema.plugin.slug,
 	providerPluginId: schema.plugin.id,
 	createdAt: schema.entity.createdAt,
 	updatedAt: schema.entity.updatedAt,
@@ -123,17 +116,16 @@ const portableEntitySelection = {
 const toPortableEntity = (
 	row: Omit<PortableEntityRecord, "provider"> & {
 		readonly providerPluginId: string | null;
-		readonly pluginSlug: string | null;
 		readonly providerSlug: string | null;
 	},
 ): PortableEntityRecord => {
-	const { pluginSlug, providerSlug, providerPluginId, ...entity } = row;
+	const { providerSlug, providerPluginId, ...entity } = row;
 	return {
 		...entity,
 		provider:
-			pluginSlug === null || providerSlug === null || providerPluginId === null
+			providerSlug === null || providerPluginId === null
 				? null
-				: { pluginSlug, providerSlug, pluginId: providerPluginId },
+				: { providerSlug, pluginId: providerPluginId },
 	};
 };
 

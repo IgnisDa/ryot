@@ -29,7 +29,6 @@ export type PluginPrivateInstallationRow = Pick<
 	"userId" | "health" | "healthReason" | "incompatibilityReason" | "isInitialized"
 > & {
 	readonly pluginId: PluginRow["id"];
-	readonly pluginSlug: PluginRow["slug"];
 	readonly packageId: PluginRow["packageId"];
 	readonly manifest: (typeof schema.pluginRevision.$inferSelect)["manifest"];
 	readonly installationId: PluginInstallationRow["id"];
@@ -37,7 +36,6 @@ export type PluginPrivateInstallationRow = Pick<
 
 export type PluginInstallationState = StoredInstallationRow & {
 	readonly packageId: PluginRow["packageId"];
-	readonly pluginSlug: string;
 	readonly pluginScope: "system" | "user";
 };
 
@@ -66,7 +64,6 @@ const provisionSystemInstallations = (
 
 const privateInstallation = {
 	pluginId: schema.plugin.id,
-	pluginSlug: schema.plugin.slug,
 	packageId: schema.plugin.packageId,
 	manifest: schema.pluginRevision.manifest,
 	userId: schema.pluginInstallation.userId,
@@ -78,7 +75,6 @@ const privateInstallation = {
 };
 
 const installationState = {
-	pluginSlug: schema.plugin.slug,
 	id: schema.pluginInstallation.id,
 	packageId: schema.plugin.packageId,
 	userId: schema.pluginInstallation.userId,
@@ -316,7 +312,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 								isNull(schema.pluginInstallation.uninstalledAt),
 							),
 						)
-						.orderBy(asc(schema.pluginInstallation.sortOrder), asc(schema.plugin.slug)),
+						.orderBy(asc(schema.pluginInstallation.sortOrder), asc(schema.plugin.packageId)),
 				);
 				return rows;
 			});
@@ -342,7 +338,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 									eq(schema.pluginInstallation.userId, userId),
 								),
 							)
-							.orderBy(asc(schema.pluginInstallation.sortOrder), asc(schema.plugin.slug)),
+							.orderBy(asc(schema.pluginInstallation.sortOrder), asc(schema.plugin.packageId)),
 					);
 					return rows;
 				},
@@ -701,7 +697,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 								isNull(schema.pluginInstallation.uninstalledAt),
 							),
 						)
-						.orderBy(asc(schema.pluginInstallation.userId), asc(schema.plugin.slug)),
+						.orderBy(asc(schema.pluginInstallation.userId), asc(schema.plugin.packageId)),
 				);
 				return rows satisfies ReadonlyArray<PluginPrivateInstallationRow>;
 			});
@@ -745,7 +741,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				const [row] = yield* database.run((db) =>
 					db
 						.select({
-							slug: schema.plugin.slug,
+							packageId: schema.plugin.packageId,
 							installation: schema.pluginInstallation,
 							manifest: schema.pluginRevision.manifest,
 						})

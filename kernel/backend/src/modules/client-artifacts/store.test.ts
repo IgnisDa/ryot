@@ -64,8 +64,8 @@ const fakeRepositoryLayer = Layer.effectContext(
 										...metadata,
 										hash,
 										clientDeclarationHash: "d".repeat(64),
+										packageId: PluginPackageId.make("test/store"),
 										files: [{ name: file.name, contentType: file.contentType }],
-										packageId: PluginPackageId.make("34761819-9478-40b4-8217-d2a0c48a4467"),
 									}
 								: null,
 						),

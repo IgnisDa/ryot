@@ -16,8 +16,8 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { makePluginUserBootstrapDispatcher, userBootstrapExecutionId } from "./plugin-dispatch";
 
-const normalizedPlugin = (pluginSlug: string, entries: PluginManifest["userBootstrap"]) => {
-	const base = fixtureManifest(PluginPackageId.make(crypto.randomUUID()));
+const normalizedPlugin = (pluginName: string, entries: PluginManifest["userBootstrap"]) => {
+	const base = fixtureManifest(PluginPackageId.make(`test/${pluginName}`));
 	const declared = base.scripts[0];
 	assert(declared);
 	const scripts = entries.map((entry) => ({
@@ -36,15 +36,16 @@ const normalizedPlugin = (pluginSlug: string, entries: PluginManifest["userBoots
 		signalSchemas: [],
 		userBootstrap: entries,
 		relationshipSchemas: [],
-		metadata: { ...base.metadata, slug: pluginSlug },
+		metadata: { ...base.metadata },
 	};
 	return {
 		manifest,
 		ownerId: null,
-		slug: pluginSlug,
-		id: `${pluginSlug}-id`,
+		name: pluginName,
+		id: `${pluginName}-id`,
 		scope: "system" as const,
-		sourceHash: `${pluginSlug}-source`,
+		packageId: base.metadata.packageId,
+		sourceHash: `${pluginName}-source`,
 		scripts: scripts.map(({ entry, ...metadata }) => ({
 			entry,
 			metadata,
@@ -67,11 +68,10 @@ const plugins = [
 	normalizedPlugin("sample", [{ slug: "only", description: "Only", scriptSlug: "bootstrap.only" }]),
 ];
 
-const systemInstallation = (pluginSlug: string): PluginInstallationState => {
-	const plugin = plugins.find(({ slug }) => slug === pluginSlug);
+const systemInstallation = (pluginName: string): PluginInstallationState => {
+	const plugin = plugins.find(({ name }) => name === pluginName);
 	assert(plugin);
 	return {
-		pluginSlug,
 		sortOrder: 0,
 		health: "ready",
 		isHidden: false,
@@ -85,9 +85,9 @@ const systemInstallation = (pluginSlug: string): PluginInstallationState => {
 		updatedAt: new Date(0),
 		incompatibilityReason: null,
 		activeConfigRevisionId: null,
-		pluginId: `${pluginSlug}-id`,
+		pluginId: `${pluginName}-id`,
 		userId: UserId.make("user-1"),
-		id: `${pluginSlug}-installation`,
+		id: `${pluginName}-installation`,
 		packageId: plugin.manifest.metadata.packageId,
 	};
 };
@@ -102,17 +102,17 @@ const baseLayer = Layer.mergeAll(
 						plugin.manifest.userBootstrap.map((bootstrap) => ({
 							bootstrap,
 							pluginId: plugin.id,
-							pluginSlug: plugin.slug,
+							packageId: plugin.packageId,
 						})),
 					)
 					.sort(
 						(left, right) =>
-							left.pluginSlug.localeCompare(right.pluginSlug) ||
+							left.packageId.localeCompare(right.packageId) ||
 							left.bootstrap.slug.localeCompare(right.bootstrap.slug),
 					),
 			),
 		resolveInstallationBootstrap: (installationId) => {
-			const plugin = plugins.find(({ slug }) => `${slug}-installation` === installationId);
+			const plugin = plugins.find(({ name }) => `${name}-installation` === installationId);
 			return Effect.succeed(
 				plugin
 					? {

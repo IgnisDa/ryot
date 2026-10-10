@@ -40,7 +40,6 @@ const registeredSource = (
 	name: "Nu",
 	slug: "nu",
 	configSchema,
-	pluginSlug: "example",
 	pluginScope: "system",
 	description: "Nu export",
 	workflowSlug: "nu-import",
@@ -317,7 +316,6 @@ it("returns every required key when a private config revision is unavailable", (
 it("reports missing keys even when a private plugin config revision exists", () => {
 	const source = registeredSource({
 		pluginScope: "user",
-		pluginSlug: "my-example",
 		pluginId: "private-plugin-id",
 		installationId: "private-installation",
 		requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],

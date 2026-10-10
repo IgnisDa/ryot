@@ -97,7 +97,6 @@ const seedCatalog = (statements: readonly string[]) =>
 					.insert(tables.plugin)
 					.values({
 						id: pluginId,
-						slug: "fixture",
 						status: "inactive",
 						packageId: fixtureManifest().metadata.packageId,
 					});

@@ -314,12 +314,7 @@ describe("automation retry persistence", () => {
 						const base = fixtureManifest();
 						yield* db
 							.insert(plugin)
-							.values({
-								id: "plugin",
-								slug: "fixture",
-								status: "inactive",
-								packageId: base.metadata.packageId,
-							});
+							.values({ id: "plugin", status: "inactive", packageId: base.metadata.packageId });
 						yield* db.insert(pluginRevision).values([
 							{
 								sourceHash: "old",

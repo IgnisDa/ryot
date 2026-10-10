@@ -46,7 +46,6 @@ const storedWorkflowScript = {
 	name: "Workflow",
 	source: "source",
 	slug: "workflow",
-	pluginSlug: "fixture",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
 	metadata: { runtimeImports: [], kind: "workflow" as const },
@@ -337,7 +336,6 @@ layer(
 			Effect.succeed({
 				...storedScript,
 				source: "source",
-				pluginSlug: "example",
 				createdAt: new Date(0),
 				updatedAt: new Date(0),
 				name: "Example resolution",
@@ -427,7 +425,6 @@ layer(makeServiceLayer({ repository: mockRepository({}) }))((test) => {
 
 const originalRevision = {
 	ownerId: null,
-	slug: "fixture",
 	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,
@@ -545,7 +542,6 @@ const pluginWorkflowPin = {
 	contentHash: storedScript.contentHash,
 	pluginRevision: {
 		ownerId: null,
-		slug: "fixture",
 		compiledHashes: {},
 		workflowScripts: {},
 		scope: "system" as const,

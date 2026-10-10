@@ -140,7 +140,6 @@ const makeDefinitionsLayer = (
 							name: "Record",
 							slug: "record",
 							eventSchemas: [],
-							pluginSlug: null,
 							mergeIdentityProperties,
 							propertiesSchema: {
 								fields: { kind: { label: "Kind", type: "string", description: "Record kind" } },
@@ -157,7 +156,6 @@ const makeDefinitionsLayer = (
 								icon: "box",
 								pluginId: null,
 								eventSchemas: [],
-								pluginSlug: null,
 								userState: { deniedOperations },
 								propertiesSchema: { fields: {} },
 							})),

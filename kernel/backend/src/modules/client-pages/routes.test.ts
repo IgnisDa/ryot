@@ -10,7 +10,7 @@ import {
 	ClientPageDocumentStale,
 	type PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
-import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
@@ -39,7 +39,12 @@ const identity = (compositionHash: string): PreparedClientPage["identity"] => ({
 	pluginId: "plugin-id",
 	installationId: "installation",
 	compositionKey: "composition-key",
-	target: { path: "/", search: "", kind: "plugin-route", pluginId: PluginId.make("plugin-id") },
+	target: {
+		path: "/",
+		search: "",
+		kind: "plugin-route",
+		packageId: PluginPackageId.make("test/page"),
+	},
 });
 
 const document: ClientCompositionDocument = {

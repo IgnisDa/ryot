@@ -1,8 +1,10 @@
 import { expect, it } from "@effect/vitest";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
-import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { document, field, literal, pluginId, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
+
+import { testPluginPackageId } from "#modules/plugins/test-support";
 
 import {
 	exportQueryPluginReferences,
@@ -16,7 +18,7 @@ it.effect(
 	"round-trips typed private query owners without rewriting matching literals or literal objects",
 	() =>
 		Effect.gen(function* () {
-			const packageId = PluginPackageId.make(crypto.randomUUID());
+			const packageId = testPluginPackageId();
 			const sourceId = PluginId.make("source-owner");
 			const destinationId = PluginId.make("destination-unavailable-private-owner");
 			const reference = { pluginId: sourceId, kind: "local" as const };
@@ -56,7 +58,7 @@ it.effect(
 
 it.effect("rewrites the known renderer schema reference but preserves opaque plugin settings", () =>
 	Effect.gen(function* () {
-		const packageId = PluginPackageId.make(crypto.randomUUID());
+		const packageId = testPluginPackageId();
 		const key = pluginPackageKey({ packageId, scope: "user" });
 		const settings = {
 			pageSize: 50,

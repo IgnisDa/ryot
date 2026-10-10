@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import { assert, describe } from "vitest";
 
@@ -10,10 +10,11 @@ import {
 	revisionPackage,
 	revisionDatabaseLayer,
 } from "./revision.test-support";
+import { testPluginPackageId } from "./test-support";
 
 const owner = UserId.make("owner");
-const packageWithProviders = (slug: string, version = "v1") => {
-	const plugin = revisionPackage(slug, version);
+const packageWithProviders = (slug: string, version = "v1", packageId = testPluginPackageId()) => {
+	const plugin = revisionPackage(slug, version, undefined, packageId);
 	const integrationProviders: PluginManifest["integrationProviders"] = [
 		{
 			lot: "push",
@@ -61,8 +62,13 @@ describe("revision-backed integration providers", () => {
 			"lists providers by plugin and slug and resolves each lot's executable declaration",
 			() =>
 				Effect.gen(function* () {
-					yield* installRevisionPackage(packageWithProviders("zebra"));
-					yield* installRevisionPackage(packageWithProviders("apple"), owner);
+					yield* installRevisionPackage(
+						packageWithProviders("zebra", "v1", PluginPackageId.make("test/zebra")),
+					);
+					yield* installRevisionPackage(
+						packageWithProviders("apple", "v1", PluginPackageId.make("test/apple")),
+						owner,
+					);
 					const catalog = yield* IntegrationProviderCatalog.make;
 					const rows = yield* catalog.listResolvedForUser(owner);
 					expect(rows.map(({ provider }) => provider.slug)).toEqual([

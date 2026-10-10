@@ -44,7 +44,7 @@ const configSchema = {
 	unknownKeys: "strict",
 } satisfies PluginSandboxAuthority["configSchema"];
 
-const packageId = PluginPackageId.make("fa771a62-89c1-46f9-a4d6-f98cdfca9ad1");
+const packageId = PluginPackageId.make("test/sandbox");
 
 const manifest = {
 	configSchema,
@@ -75,7 +75,6 @@ const pluginPinRow = {
 	id: "script-id",
 	sandboxAuthority,
 	pluginOwnerId: null,
-	pluginSlug: "plugin",
 	pluginId: "plugin-id",
 	slug: "plugin.script",
 	pluginStatus: "active",
@@ -423,14 +422,8 @@ layer(pinRepositoryLayer)((test) => {
 				{ ...pluginPinRow, pluginStatus: "inactive" },
 				{ ...pluginPinRow, activeRevisionId: "revision-2" },
 				{ ...pluginPinRow, providerPluginId: "foreign-plugin-id" },
-				{
-					...pluginPinRow,
-					pluginPackageId: PluginPackageId.make("77c33129-4f39-4e58-aee5-5f783d98001b"),
-				},
-				{
-					...pluginPinRow,
-					manifestPackageId: PluginPackageId.make("77c33129-4f39-4e58-aee5-5f783d98001b"),
-				},
+				{ ...pluginPinRow, pluginPackageId: PluginPackageId.make("test/mismatched") },
+				{ ...pluginPinRow, manifestPackageId: PluginPackageId.make("test/mismatched") },
 			]) {
 				expect(yield* getPin(row)).toBeNull();
 			}

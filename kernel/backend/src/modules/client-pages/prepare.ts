@@ -1,13 +1,19 @@
+import type { DbError } from "@ryot-app/contract/errors";
 import {
 	ClientPagePreparationError,
 	type ClientPageOperationTarget,
 	type ClientPageTarget,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginId, type EntityId, type EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	PluginId,
+	type EntityId,
+	type EntitySchemaSlug,
+	type PluginPackageId,
+} from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
-import type { AvailablePlugin } from "#modules/plugins/runtime-resolver";
+import type { AvailablePlugin, PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { getKernelEntityRenderer } from "./kernel-renderers";
 
@@ -25,7 +31,8 @@ export const clientPageOperationTargets = (
 ): readonly ClientPageOperationTarget[] =>
 	plugins
 		.filter(({ health }) => health === "ready")
-		.map(({ id, sourceHash, installationId }) => ({
+		.map(({ id, packageId, sourceHash, installationId }) => ({
+			packageId,
 			sourceHash,
 			installationId,
 			pluginId: PluginId.make(id),
@@ -81,19 +88,41 @@ export type ResolvedPluginPageTarget =
 			};
 	  };
 
+type ResolveUserPackage = (
+	packageId: PluginPackageId,
+) => ReturnType<PluginRuntimeResolver["Service"]["resolveUserPackage"]>;
+
+export const resolvePluginRoutePlugin = Effect.fn(function* (input: {
+	readonly packageId: PluginPackageId;
+	readonly plugins: ReadonlyArray<AvailablePlugin>;
+	readonly resolvePackage: ResolveUserPackage;
+}) {
+	const selected = yield* input.resolvePackage(input.packageId);
+	if (selected.kind !== "effective") {
+		return yield* failure({ packageId: input.packageId, code: "plugin-package-unavailable" });
+	}
+	const plugin = input.plugins.find(({ id }) => id === selected.pluginId);
+	if (plugin?.health !== "ready" || !plugin.manifest.client) {
+		return yield* failure({ code: "plugin-unavailable", pluginId: selected.pluginId });
+	}
+	return { plugin, client: plugin.manifest.client };
+});
+
 export const resolvePluginPageTarget = <E, R>(input: {
 	readonly plugins: ReadonlyArray<AvailablePlugin>;
+	readonly resolvePackage: ResolveUserPackage;
 	readonly target: Exclude<ClientPageTarget, { readonly kind: "saved-view" }>;
 	readonly findEntity: (entityId: EntityId) => Effect.Effect<PageEntity | null, E, R>;
-}): Effect.Effect<ResolvedPluginPageTarget, ClientPagePreparationError | E, R> =>
+}): Effect.Effect<ResolvedPluginPageTarget, ClientPagePreparationError | DbError | E, R> =>
 	Effect.gen(function* () {
 		if (input.target.kind === "plugin-route") {
 			const target = input.target;
-			const plugin = input.plugins.find(({ id }) => id === target.pluginId);
-			if (plugin?.health !== "ready" || !plugin.manifest.client) {
-				return yield* failure({ pluginId: target.pluginId, code: "plugin-unavailable" });
-			}
-			for (const [pattern, exportName] of Object.entries(plugin.manifest.client.routes ?? {}).sort(
+			const { plugin, client } = yield* resolvePluginRoutePlugin({
+				plugins: input.plugins,
+				packageId: target.packageId,
+				resolvePackage: input.resolvePackage,
+			});
+			for (const [pattern, exportName] of Object.entries(client.routes ?? {}).sort(
 				([left], [right]) => comparePluginRoutePaths(left, right),
 			)) {
 				const params = matchRoute(pattern, target.path);
@@ -101,7 +130,7 @@ export const resolvePluginPageTarget = <E, R>(input: {
 					return { plugin, params, exportName, entity: null, kind: "plugin" as const };
 				}
 			}
-			const exportName = plugin.manifest.client.notFoundPage;
+			const exportName = client.notFoundPage;
 			if (exportName) {
 				return { plugin, exportName, params: {}, entity: null, kind: "plugin" as const };
 			}

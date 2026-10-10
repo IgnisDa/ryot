@@ -12,14 +12,21 @@ export const discoverSystemPlugins = Effect.fn("discoverSystemPlugins")(function
 		return [];
 	}
 
-	const entries = yield* fs.readDirectory(root);
-	const sources: Array<PluginArchivePackage> = [];
-	for (const filename of entries.filter((entry) => entry.endsWith(".zip")).sort()) {
-		const archivePath = path.join(root, filename);
-		const info = yield* fs.stat(archivePath);
-		if (info.type !== "File") {
+	const archivePaths: Array<string> = [];
+	for (const publisher of (yield* fs.readDirectory(root)).sort()) {
+		const publisherPath = path.join(root, publisher);
+		if ((yield* fs.stat(publisherPath)).type !== "Directory") {
 			continue;
 		}
+		for (const filename of (yield* fs.readDirectory(publisherPath)).sort()) {
+			const archivePath = path.join(publisherPath, filename);
+			if (filename.endsWith(".zip") && (yield* fs.stat(archivePath)).type === "File") {
+				archivePaths.push(archivePath);
+			}
+		}
+	}
+	const sources: Array<PluginArchivePackage> = [];
+	for (const archivePath of archivePaths) {
 		const source = yield* readPluginArchive(yield* fs.readFile(archivePath));
 		if (
 			sources.some(

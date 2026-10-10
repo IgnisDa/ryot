@@ -82,7 +82,7 @@ export const makePluginUserBootstrapDispatcher = (
 				if (!resolved) {
 					return yield* new SandboxRunError({
 						kind: "script-failure",
-						message: `Plugin user bootstrap script not found: ${entry.pluginSlug}/${entry.bootstrap.slug}`,
+						message: `Plugin user bootstrap script not found: ${entry.packageId} ${entry.bootstrap.slug}`,
 					});
 				}
 				const executionId = userBootstrapExecutionId(
@@ -102,14 +102,14 @@ export const makePluginUserBootstrapDispatcher = (
 						(error) =>
 							new SandboxRunError({
 								kind: "script-failure",
-								message: `Plugin user bootstrap failed: ${entry.pluginSlug}/${entry.bootstrap.slug}: ${error.message}`,
+								message: `Plugin user bootstrap failed: ${entry.packageId} ${entry.bootstrap.slug}: ${error.message}`,
 							}),
 					),
 				);
 				if (result.error) {
 					return yield* new SandboxRunError({
 						kind: "script-failure",
-						message: `Plugin user bootstrap failed: ${entry.pluginSlug}/${entry.bootstrap.slug}: ${result.error.message}`,
+						message: `Plugin user bootstrap failed: ${entry.packageId} ${entry.bootstrap.slug}: ${result.error.message}`,
 					});
 				}
 				const captured = initialization.get(entry.pluginId);

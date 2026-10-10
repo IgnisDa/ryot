@@ -1,10 +1,9 @@
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { assert, expect, it } from "vitest";
 
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 
 import { validateSystemPluginSet } from "./system-set";
-import { fixtureManifest, fixturePluginIdentity } from "./test-support";
+import { fixtureManifest, fixturePluginIdentity, testPluginPackageId } from "./test-support";
 
 const emptySource = {
 	savedViews: [],
@@ -13,7 +12,7 @@ const emptySource = {
 	relationshipSchemas: [],
 };
 const systemPlugin = (id: string) => {
-	const packageId = PluginPackageId.make(crypto.randomUUID());
+	const packageId = testPluginPackageId();
 	const manifest = fixtureManifest(packageId);
 	return {
 		...fixturePluginIdentity("fixture", packageId),

@@ -45,7 +45,6 @@ const source: RegisteredImportSource = {
 	slug: "fixture",
 	name: "Fixture",
 	pluginId: "plugin-1",
-	pluginSlug: "fixture",
 	pluginScope: "system",
 	description: "Fixture",
 	workflowSlug: "fixture",

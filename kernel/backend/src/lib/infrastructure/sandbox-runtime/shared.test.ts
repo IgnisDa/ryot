@@ -39,7 +39,6 @@ import type { SandboxRunInput } from "./shared";
 
 const pluginRevision = (isUserBootstrap = false) => ({
 	ownerId: null,
-	slug: "plugin",
 	compiledHashes: {},
 	workflowScripts: {},
 	scope: "system" as const,

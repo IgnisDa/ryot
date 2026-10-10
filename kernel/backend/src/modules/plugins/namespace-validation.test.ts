@@ -31,7 +31,7 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const a = fixtureManifest();
-			const b = fixtureManifest(PluginPackageId.make("0ee3492e-3e0f-49ab-a719-c8cb74d89590"));
+			const b = fixtureManifest(PluginPackageId.make("test/second"));
 			expect(yield* validatePluginManifestReferences(a)).toBeUndefined();
 			expect(yield* validatePluginManifestReferences(b)).toBeUndefined();
 			expect(
@@ -54,7 +54,6 @@ it.effect(
 				...manifest,
 				hooks: [],
 				signalSchemas: [],
-				metadata: { ...manifest.metadata, slug: "settings" },
 				workflows: [{ slug: "import", scriptSlug: "import" }],
 				userBootstrap: [{ slug: "init", scriptSlug: "init", description: "Initialize" }],
 				importSources: [

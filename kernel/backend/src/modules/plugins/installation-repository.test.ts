@@ -93,7 +93,6 @@ describe("installation revision persistence", () => {
 						const pluginId = yield* plugins.persist(plugin, {
 							scope: "user",
 							ownerId: owner,
-							slug: plugin.manifest.metadata.slug,
 							packageId: plugin.manifest.metadata.packageId,
 						});
 						return yield* installations.create({
@@ -113,7 +112,6 @@ describe("installation revision persistence", () => {
 						yield* plugins.persist(plugin, {
 							ownerId: null,
 							scope: "system",
-							slug: plugin.manifest.metadata.slug,
 							packageId: plugin.manifest.metadata.packageId,
 						});
 						return yield* installations.quarantinePackageIdentityConflicts(
@@ -226,7 +224,6 @@ describe("installation revision persistence", () => {
 								plugins.persist(plugin, {
 									ownerId: null,
 									scope: "system",
-									slug: plugin.manifest.metadata.slug,
 									packageId: plugin.manifest.metadata.packageId,
 								}),
 							);
@@ -460,7 +457,6 @@ describe("installation revision persistence", () => {
 					});
 					const pluginId = yield* session.transaction(
 						(yield* PluginIngestionLock).persistUserPlugin(configuredPackage("v2", true), {
-							slug: "notes",
 							scope: "user",
 							ownerId: owner,
 							packageId: fixtureManifest().metadata.packageId,

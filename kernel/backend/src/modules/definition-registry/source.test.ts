@@ -35,7 +35,6 @@ const savedView = {
 	name: "Summary",
 	slug: "summary",
 	dataSources: null,
-	pluginSlug: "fixture",
 	settings: { title: "Fixture" },
 	renderer: { exportName: "summary", kind: "plugin" as const },
 };
@@ -43,15 +42,12 @@ const savedView = {
 it("materializes portable saved-view page exports to stable plugin ids", () => {
 	const manifest = { ...fixtureManifest(), client, savedViews: [savedView] };
 
-	expect(revisionDefinitions("fixture-plugin-id", "fixture", manifest).savedViews[0]).toMatchObject(
-		{
-			pluginSlug: "fixture",
-			pluginId: "fixture-plugin-id",
-			renderer: { kind: "plugin", exportName: "summary", pluginId: "fixture-plugin-id" },
-		},
-	);
+	expect(revisionDefinitions("fixture-plugin-id", manifest).savedViews[0]).toMatchObject({
+		pluginId: "fixture-plugin-id",
+		renderer: { kind: "plugin", exportName: "summary", pluginId: "fixture-plugin-id" },
+	});
 	expect(() =>
-		revisionDefinitions("fixture-plugin-id", "fixture", {
+		revisionDefinitions("fixture-plugin-id", {
 			...manifest,
 			savedViews: [{ ...savedView, settings: {} }],
 		}),
@@ -74,7 +70,7 @@ it("resolves import source workflow scripts from the revision workflows", () => 
 	};
 
 	expect(
-		revisionDefinitions("fixture-plugin-id", "fixture", manifest).importSources.map(
+		revisionDefinitions("fixture-plugin-id", manifest).importSources.map(
 			({ slug, workflowScriptSlug }) => [slug, workflowScriptSlug],
 		),
 	).toEqual([
@@ -108,7 +104,7 @@ it("materializes self expressions uniformly and binds only typed renderer settin
 			addAction: { type: "provider-search", schema: { slug: "bottle", owner: { kind: "self" } } },
 		},
 	};
-	const views = revisionDefinitions("plugin-a", "whiskey", {
+	const views = revisionDefinitions("plugin-a", {
 		...fixtureManifest(),
 		client,
 		savedViews: [pluginView, browserView],

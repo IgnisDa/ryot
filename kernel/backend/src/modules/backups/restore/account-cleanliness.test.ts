@@ -3,7 +3,6 @@ import {
 	EntitySchemaSlug,
 	NotificationSubscriptionId,
 	PluginId,
-	PluginPackageId,
 	SavedViewId,
 	SignalSchemaSlug,
 	UserId,
@@ -24,6 +23,7 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/revision.test-support";
+import { testPluginPackageId } from "#modules/plugins/test-support";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import { type AccountCleanlinessState, classifyAccountCleanliness } from "./account-cleanliness";
@@ -55,7 +55,6 @@ const systemInstallation = (
 		isInitialized: true,
 		uninstalledAt: null,
 		homeSavedView: null,
-		pluginSlug: "example",
 		pluginScope: "system",
 		createdAt: new Date(0),
 		updatedAt: new Date(0),
@@ -63,7 +62,7 @@ const systemInstallation = (
 		activeConfigRevisionId: null,
 		pluginId: "example-plugin-id",
 		userId: UserId.make("user-id"),
-		packageId: PluginPackageId.make(crypto.randomUUID()),
+		packageId: testPluginPackageId(),
 		...overrides,
 	}) as const;
 
@@ -118,7 +117,7 @@ const viewClient = {
 };
 
 const sourceView = (owner = "example-plugin-id", limit = 20) =>
-	materializeSavedView(authoredView(limit), owner, "example", viewClient);
+	materializeSavedView(authoredView(limit), owner, viewClient);
 
 const builtinView = (
 	definition: SavedViewDefinition,
@@ -129,7 +128,6 @@ const builtinView = (
 	isBuiltin: true,
 	createdAt: null,
 	updatedAt: null,
-	pluginSlug: null,
 	id: SavedViewId.make(`builtin-${definition.pluginId}-${definition.slug}`),
 	pluginInstallationId: definition.pluginId === null ? null : installationId,
 	reference:
@@ -252,12 +250,8 @@ describe("classifyAccountCleanliness", () => {
 				cleanState({
 					pluginState: [
 						systemInstallation(),
-						systemInstallation({ pluginSlug: "sample", pluginId: "sample-plugin-id" }),
-						systemInstallation({
-							health: "installing",
-							pluginSlug: "shipped",
-							pluginId: "shipped-plugin-id",
-						}),
+						systemInstallation({ pluginId: "sample-plugin-id" }),
+						systemInstallation({ health: "installing", pluginId: "shipped-plugin-id" }),
 					],
 				}),
 			),
@@ -355,9 +349,7 @@ describe("classifyAccountCleanliness", () => {
 				cleanState({
 					expectedSavedViews: [kernel],
 					pluginState: [systemInstallation()],
-					savedViews: [
-						builtinView({ ...kernel, pluginSlug: "example", pluginId: "example-plugin-id" }),
-					],
+					savedViews: [builtinView({ ...kernel, pluginId: "example-plugin-id" })],
 				}),
 			),
 		).toBe("saved-views");
@@ -455,14 +447,7 @@ describe("classifyAccountCleanliness", () => {
 		["entities", { entities: [{ ...entity(), externalId: "external" }] }],
 		[
 			"entities",
-			{
-				entities: [
-					{
-						...entity(),
-						provider: { pluginId: "plugin", pluginSlug: "media", providerSlug: "movie.tmdb" },
-					},
-				],
-			},
+			{ entities: [{ ...entity(), provider: { pluginId: "plugin", providerSlug: "movie.tmdb" } }] },
 		],
 		[
 			"saved-views",
@@ -475,7 +460,6 @@ describe("classifyAccountCleanliness", () => {
 						slug: "custom",
 						name: "Custom",
 						isHidden: false,
-						pluginSlug: null,
 						isBuiltin: false,
 						dataSources: null,
 						pluginInstallationId: null,
@@ -518,10 +502,7 @@ describe("classifyAccountCleanliness", () => {
 		["plugin-state", { pluginState: [systemInstallation({ config: { unit: "minutes" } })] }],
 		["plugin-state", { pluginState: [systemInstallation({ userSettings: { allowNsfw: true } })] }],
 		["plugin-state", { pluginState: [systemInstallation({ health: "needs-configuration" })] }],
-		[
-			"plugin-state",
-			{ pluginState: [systemInstallation({ pluginScope: "user", pluginSlug: "private" })] },
-		],
+		["plugin-state", { pluginState: [systemInstallation({ pluginScope: "user" })] }],
 		["integrations", { hasIntegrations: true }],
 		["notification-channels", { hasNotificationChannels: true }],
 	] as const)("rejects %s", (category, override) => {

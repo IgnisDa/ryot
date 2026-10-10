@@ -104,7 +104,6 @@ const input = (overrides: Partial<CreateArchiveInput> = {}): CreateArchiveInput 
 		requiredPlugins: [
 			{
 				packageId,
-				slug: "fixture",
 				version: "1.0.0",
 				sourceHash: "a".repeat(64),
 				definitionContract: archivePluginDefinitionContract(fixtureManifest()),
@@ -301,7 +300,6 @@ layer(BunFileSystem.layer)((test) => {
 				sourceHash,
 				compiledClient,
 				compiledScripts,
-				slug: manifest.metadata.slug,
 				version: manifest.metadata.version,
 				packageId: manifest.metadata.packageId,
 				key: pluginPackageKey({ scope: "user", packageId: manifest.metadata.packageId }),
@@ -363,7 +361,6 @@ layer(BunFileSystem.layer)((test) => {
 								key,
 								manifest,
 								compiledScripts,
-								slug: manifest.metadata.slug,
 								version: manifest.metadata.version,
 								packageId: manifest.metadata.packageId,
 								sourceHash: pluginSourceHash(manifest, compiledScripts),
@@ -661,7 +658,6 @@ layer(BunFileSystem.layer)((test) => {
 						`${JSON.stringify({
 							packageId,
 							manifest: {},
-							slug: "fixture",
 							version: "1.0.0",
 							compiledScripts: [],
 							sourceHash: "a".repeat(64),
