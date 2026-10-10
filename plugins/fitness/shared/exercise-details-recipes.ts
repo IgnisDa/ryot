@@ -47,7 +47,7 @@ const rowLimit = 100;
 const nullableNumber = Schema.NullOr(Schema.Finite);
 const nullableString = Schema.NullOr(Schema.String);
 
-const bestWeightRepThresholds = [1, 5, 8, 12, 30] as const;
+export const bestWeightRepThresholds = [1, 5, 8, 12, 30] as const;
 
 const exerciseSets = (set: Table, exerciseId: string) =>
 	and(
