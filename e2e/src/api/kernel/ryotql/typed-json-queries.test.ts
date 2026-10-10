@@ -276,6 +276,7 @@ describe("RyotQL typed JSON entity queries", () => {
 							field("date", castDate(jsonPath(properties, "date"))),
 							field("json", castJson(jsonPath(properties, "json"))),
 							field("missing", castText(jsonPath(properties, "missing"))),
+							field("numberText", castText(number)),
 							field("outOfRange", castNumber(literal("1e400"))),
 							field("nonFinite", castNumber(literal("NaN"))),
 							field("infiniteDate", castDate(literal("infinity"))),
@@ -298,6 +299,7 @@ describe("RyotQL typed JSON entity queries", () => {
 				constant: true,
 				nonFinite: null,
 				outOfRange: null,
+				numberText: null,
 				infiniteDate: null,
 				name: "Cast Invalid",
 			});
@@ -309,6 +311,7 @@ describe("RyotQL typed JSON entity queries", () => {
 				constant: true,
 				nonFinite: null,
 				outOfRange: null,
+				numberText: "12.5",
 				name: "Cast Valid",
 				infiniteDate: null,
 				json: { nested: true },
