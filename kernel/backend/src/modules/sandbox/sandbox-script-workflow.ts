@@ -9,6 +9,7 @@ import {
 	type WorkflowDurableResult,
 	type WorkflowReplayEnvelope,
 	workflowDurableCallRequestSchema,
+	workflowDurableResultSchema,
 	workflowReplayEnvelopeSchema,
 	workflowReplayJournalEntrySchema,
 	type WorkflowDurableCallRequest,
@@ -28,7 +29,7 @@ import {
 	Option,
 	Schema,
 } from "effect";
-import { DurableClock, DurableDeferred } from "effect/workflow";
+import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -41,6 +42,8 @@ import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifa
 import { isDeclaredExecutableCall } from "#lib/infrastructure/sandbox-runtime/executable-dependencies";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sanitizeSandboxExecutionSegment } from "#lib/infrastructure/sandbox-runtime/filesystem-grants";
+import type { SandboxHttpProgress } from "#lib/infrastructure/sandbox-runtime/http-progress";
+import type { SandboxInlineProgress } from "#lib/infrastructure/sandbox-runtime/inline-progress";
 import {
 	SANDBOX_LIMITS,
 	sandboxWorkflowJournalByteError,
@@ -507,6 +510,7 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	payload: SandboxScriptWorkflowPayloadValue,
 	principal: SandboxExecutionPrincipal,
 	executionId: string,
+	progress?: SandboxHttpProgress,
 ) {
 	if (request.kind === "sleep") {
 		yield* DurableClock.sleep({
@@ -518,7 +522,7 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	}
 	if (request.kind === "host") {
 		const dispatcher = yield* SandboxDurableHostDispatcher;
-		return yield* dispatcher.dispatch(request, payload, principal, executionId);
+		return yield* dispatcher.dispatch(request, payload, principal, executionId, progress);
 	}
 	const childPayload = {
 		...payload,
@@ -685,6 +689,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 	const engine = yield* WorkflowEngine;
 	const settleRequest = Effect.fnUntraced(function* (
 		observed: Extract<ObservedWorkflowReplay, { state: "pending" }>["requests"][number],
+		pending: SandboxInlineProgress | undefined,
 	) {
 		const { request, targetScriptId } = observed;
 		const deferred = DurableDeferred.make(`sandbox-request-${request.index}`, {
@@ -709,13 +714,16 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		return yield* Effect.uninterruptibleMask((restore) =>
 			Effect.gen(function* () {
 				const value = yield* restore(
-					performSandboxWorkflowRequest(
-						request,
-						targetScriptId,
-						{ ...payload, startedAt: pin.startedAt, scriptId: pin.principal.scriptId },
-						pin.principal,
-						executionId,
-					).pipe(Effect.provideService(WorkflowInstance, originalInstance)),
+					pending?._tag === "Completed"
+						? Effect.succeed(pending.value)
+						: performSandboxWorkflowRequest(
+								request,
+								targetScriptId,
+								{ ...payload, startedAt: pin.startedAt, scriptId: pin.principal.scriptId },
+								pin.principal,
+								executionId,
+								pending?._tag === "Http" ? pending.progress : undefined,
+							).pipe(Effect.provideService(WorkflowInstance, originalInstance)),
 				);
 				const jsonValue = yield* Schema.decodeUnknownEffect(jsonValueSchema)(value).pipe(
 					Effect.mapError((error) =>
@@ -804,6 +812,19 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					...(payload.grants ? { grants: payload.grants } : {}),
 				}),
 			);
+			const dispatcher = yield* SandboxDurableHostDispatcher;
+			const cancelPending =
+				replay.pendingInline.length === 0
+					? Effect.void
+					: makeActivity({
+							name: `cancel-sandbox-inline-${step}`,
+							execute: dispatcher.cancelInline(executionId, replay.pendingInline),
+						});
+			if (replay.pendingInline.length > 0) {
+				yield* Workflow.addFinalizer(() =>
+					originalInstance.interrupted ? cancelPending : Effect.void,
+				);
+			}
 			if (replay.projectionMissing) {
 				yield* finishReplay("missing");
 				projectionRebuilds += 1;
@@ -826,6 +847,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				{ discard: true },
 			);
 			if (replay.error) {
+				yield* cancelPending;
 				yield* finishReplay("failed");
 				if (payload.resultMode === "execution") {
 					return toSandboxExecutionResult(replay, null, replay.error);
@@ -842,7 +864,36 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				pin.principal.pluginRevision,
 				pin.principal.metadata,
 				step,
-			);
+			).pipe(Effect.onError(() => cancelPending));
+			const pending = new Map<number, SandboxInlineProgress>();
+			for (const entry of replay.pendingInline) {
+				const request =
+					observed.state === "pending"
+						? observed.requests.find((candidate) => candidate.request.index === entry.request.index)
+								?.request
+						: undefined;
+				if (
+					!request ||
+					pending.has(request.index) ||
+					!sameRequestIdentity(request, entry.request) ||
+					(entry._tag === "Http" && entry.request.args.capability !== "httpCall")
+				) {
+					yield* cancelPending;
+					return yield* sandboxFailure(
+						"script-failure",
+						"Sandbox inline progress does not match the pending replay",
+					);
+				}
+				if (entry._tag === "Completed") {
+					yield* Schema.decodeUnknownEffect(
+						request.kind === "sleep" ? Schema.Null : workflowDurableResultSchema,
+					)(entry.value).pipe(
+						Effect.mapError((error) => sandboxFailure("infrastructure", unknownToMessage(error))),
+						Effect.onError(() => cancelPending),
+					);
+				}
+				pending.set(request.index, entry);
+			}
 			if (journal.length + replay.inline.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}
@@ -887,7 +938,8 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			}
 			const values = yield* Effect.forEach(
 				observed.requests,
-				(observedRequest) => settleRequest(observedRequest),
+				(observedRequest) =>
+					settleRequest(observedRequest, pending.get(observedRequest.request.index)),
 				{ concurrency: SANDBOX_LIMITS.bridge.concurrentHostCalls },
 			);
 			for (let index = 0; index < observed.requests.length; index += 1) {

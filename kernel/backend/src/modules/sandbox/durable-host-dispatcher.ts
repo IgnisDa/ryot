@@ -11,6 +11,7 @@ import {
 import {
 	type WorkflowDurableCallRequest,
 	type WorkflowDurableResult,
+	type WorkflowInlineRequest,
 	workflowDurableResultSchema,
 	workflowHostRequestSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
@@ -27,6 +28,8 @@ import {
 	type SandboxExecutionPrincipal as SandboxExecutionPrincipalValue,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
+import type { SandboxHttpProgress } from "#lib/infrastructure/sandbox-runtime/http-progress";
+import type { SandboxInlineProgress } from "#lib/infrastructure/sandbox-runtime/inline-progress";
 import {
 	executeSandboxHttp,
 	prepareSandboxHttpRequest,
@@ -38,6 +41,7 @@ import {
 	sandboxLifecycleCommand,
 	sandboxRunUserId,
 } from "#lib/infrastructure/sandbox-runtime/shared";
+import type { SandboxShortWait } from "#lib/infrastructure/sandbox-runtime/short-wait";
 import { laneWorkflow } from "#lib/infrastructure/workflow-lane";
 import type { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 
@@ -427,19 +431,22 @@ export type SandboxDurableHostDispatcherValue = {
 		payload: SandboxScriptWorkflowPayloadValue,
 		principal: SandboxExecutionPrincipalValue,
 		executionId: string,
+		progress?: SandboxHttpProgress,
 	) => Effect.Effect<WorkflowDurableResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
-	/**
-	 * Settles a whole batch of inline-eligible calls outside the workflow body, or returns `null`
-	 * when any call must be dispatched durably instead (for example a rate-limited HTTP origin).
-	 */
 	readonly settleInline: (
-		requests: ReadonlyArray<HostRequest>,
+		requests: ReadonlyArray<WorkflowInlineRequest>,
 		context: unknown,
 		principal: SandboxExecutionPrincipalValue,
 		lane: ExecutionLane,
 		executionId: string,
 		startedAt: string,
-	) => Effect.Effect<ReadonlyArray<WorkflowDurableResult> | null>;
+		wait: SandboxShortWait,
+		checkpoint: (progress: SandboxInlineProgress) => Effect.Effect<void>,
+	) => Effect.Effect<ReadonlyArray<WorkflowDurableResult | null> | null>;
+	readonly cancelInline: (
+		executionId: string,
+		progress: ReadonlyArray<SandboxInlineProgress>,
+	) => Effect.Effect<void>;
 };
 
 export class SandboxDurableHostDispatcher extends Context.Service<

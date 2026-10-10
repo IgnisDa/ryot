@@ -167,6 +167,7 @@ const inlineInput = (
 		replayJournal: memoryPinnedJournal([]),
 		workflowExecutionId: "memory-workflow",
 		inlineDurableHost: {
+			cancel: () => Effect.void,
 			capabilities: [...capabilities],
 			settle: (requests) =>
 				Effect.sync(() => {
@@ -205,6 +206,7 @@ layer(gateLayer)((test) => {
 					replayJournal: memoryPinnedJournal([]),
 					workflowExecutionId: "budget-workflow",
 					inlineDurableHost: {
+						cancel: () => Effect.void,
 						capabilities: ["getCachedValue"],
 						settle: (requests) =>
 							Deferred.succeed(settlementStarted, undefined).pipe(
@@ -648,6 +650,7 @@ layer(gateLayer)((test) => {
 				workflowExecutionId: "gate-workflow",
 				replayJournal: memoryPinnedJournal([]),
 				inlineDurableHost: {
+					cancel: () => Effect.void,
 					capabilities: ["getCachedValue"],
 					settle: (requests) =>
 						Deferred.succeed(settlementStarted, undefined).pipe(
@@ -762,6 +765,7 @@ layer(gateLayer)((test) => {
 				replayJournal: memoryPinnedJournal([]),
 				workflowExecutionId: "gate-budget-workflow",
 				inlineDurableHost: {
+					cancel: () => Effect.void,
 					capabilities: ["httpCall"],
 					settle: (requests) =>
 						Effect.sync(() => {
@@ -1048,8 +1052,10 @@ layer(gateLayer)((test) => {
 					),
 				).toEqual({ defer: true });
 				expect(settled.count).toBe(0);
-				expect(frameValue(yield* batch(2, httpRequests(allowance)))).toMatchObject({
-					results: Array.from({ length: allowance }, () => ({ value: null, state: "success" })),
+				expect(frameValue(yield* batch(2, httpRequests(allowance)))).toEqual({ defer: true });
+				expect(settled.count).toBe(0);
+				expect(frameValue(yield* batch(3, httpRequests(1)))).toMatchObject({
+					results: [{ value: null, state: "success" }],
 				});
 				expect(settled.count).toBe(1);
 			}),
@@ -1294,6 +1300,7 @@ it.effect("interactive_inline_batch_settles_at_the_lane_edge", () =>
 						replayJournal: memoryPinnedJournal([]),
 						workflowExecutionId: "interactive-inline",
 						inlineDurableHost: {
+							cancel: () => Effect.void,
 							capabilities: ["httpCall"],
 							settle: (requests) =>
 								Effect.sync(() => {
@@ -1363,6 +1370,7 @@ it.effect("interactive_host_calls_progress_while_background_transient_capacity_i
 						replayJournal: memoryPinnedJournal([]),
 						workflowExecutionId: "exhausted-inline",
 						inlineDurableHost: {
+							cancel: () => Effect.void,
 							capabilities: ["httpCall"],
 							settle: (requests) =>
 								Deferred.succeed(settlementStarted, undefined).pipe(

@@ -4,7 +4,7 @@ import {
 	SandboxScriptMetadata,
 } from "@ryot-app/contract/modules/sandbox/schemas";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
-import { workflowHostRequestSchema } from "@ryot-app/sandbox-sdk/workflow";
+import { workflowInlineRequestSchema } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import { KiB, MiB, SANDBOX_LIMITS } from "./limits";
@@ -187,7 +187,7 @@ export const scratchWriteArgsSchema = Schema.Struct({
 });
 
 export const InlineBatchSchema = Schema.Struct({
-	requests: Schema.NonEmptyArray(workflowHostRequestSchema),
+	requests: Schema.NonEmptyArray(workflowInlineRequestSchema),
 });
 
 export const InlineBatchReplySchema = Schema.Union([

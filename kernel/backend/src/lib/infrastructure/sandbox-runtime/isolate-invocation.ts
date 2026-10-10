@@ -793,10 +793,25 @@ const createHost = (
 
 	if (journal) {
 		host["replayJournal"] = () => Effect.succeed(journal);
+		host["settleInline"] = (requests: unknown) =>
+			Effect.gen(function* () {
+				const batch = yield* Schema.decodeUnknownEffect(
+					InlineBatchSchema,
+					strictOptions,
+				)({ requests });
+				if (responseBytes({ inline: batch }) + 1 > SANDBOX_RUNNER_LIMITS.bridgeRequestBytes) {
+					return null;
+				}
+				const reply = yield* Effect.try({
+					catch: asSandboxHostError,
+					try: () => bridge.inlineBatch(jsonClone(batch, "Sandbox inline sleep batch")),
+				}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(InlineBatchReplySchema, strictOptions)));
+				return "defer" in reply ? null : reply.results;
+			}).pipe(Effect.mapError(asSandboxHostError));
 	}
 	for (let index = 0; index < invocation.apiFunctions.length; index += 1) {
 		const name = invocation.apiFunctions[index];
-		if (name === undefined || name === "replayJournal") {
+		if (name === undefined || name === "replayJournal" || name === "settleInline") {
 			continue;
 		}
 		host[name] = (...args: unknown[]) => callHost(name, args);

@@ -289,7 +289,12 @@ export const runNative = Effect.fnUntraced(function* (
 				const response = yield* Schema.decodeUnknownEffect(SandboxInvocationResponseSchema)(
 					event.outcome.value,
 				);
-				return { response, controls, inline: registration.inlineEntries() };
+				return {
+					response,
+					controls,
+					inline: registration.inlineEntries(),
+					pendingInline: registration.pendingEntries(),
+				};
 			}
 		}).pipe(Effect.withSpan("sandbox.native-runner-test")),
 	);

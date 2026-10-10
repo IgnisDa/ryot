@@ -91,6 +91,7 @@ const runtimeLayer = Layer.effect(
 					success: true,
 					harvest: null,
 					value: "done",
+					pendingInline: [],
 					executionId: input.executionId,
 					timing: { totalMs: 1, executionMs: 1 },
 					recovery: {
@@ -123,6 +124,7 @@ const queueLayer = Layer.mergeAll(
 	laneWorkflow,
 	artifactLayer,
 	Layer.succeed(SandboxDurableHostDispatcher, {
+		cancelInline: () => Effect.void,
 		dispatch: () => Effect.die("durable dispatch is not expected"),
 		settleInline: () => Effect.die("inline dispatch is not expected"),
 	}),
