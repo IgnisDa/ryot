@@ -1,3 +1,4 @@
+import { UploadFailureReason } from "@ryot-app/contract/modules/assets/schemas";
 import { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EventBadRequest,
@@ -114,6 +115,17 @@ const writeFailureReason = Schema.Union([
 const preserveWriteFailure = (error: SandboxHostError) =>
 	hostFailure(error.message, Schema.is(writeFailureReason)(error.data) ? error.data : undefined);
 
+const assetFailureReason = Schema.Union([SandboxBoundaryReason, UploadFailureReason]);
+const decodeAssetFailureReason = Schema.decodeUnknownResult(assetFailureReason);
+const encodeAssetFailureReason = Schema.encodeSync(assetFailureReason);
+const preserveAssetFailure = (error: SandboxHostError) => {
+	const decoded = decodeAssetFailureReason(error.data);
+	return hostFailure(
+		error.message,
+		decoded._tag === "Success" ? encodeAssetFailureReason(decoded.success) : undefined,
+	);
+};
+
 const bindHostFunction =
 	<Args extends ReadonlyArray<unknown>, Result, Success>(
 		fnName: string,
@@ -210,6 +222,11 @@ export const bindSandboxHostFunctions = <Input>(
 			coreSandboxHostContracts.getUserPreferences,
 			implementations.getUserPreferences,
 		),
+		getProAvailability: bind(
+			"getProAvailability",
+			coreSandboxHostContracts.getProAvailability,
+			implementations.getProAvailability,
+		),
 		getPersistentValue: bind(
 			"getPersistentValue",
 			coreSandboxHostContracts.getPersistentValue,
@@ -284,6 +301,12 @@ export const bindSandboxHostFunctions = <Input>(
 			"invalidateOAuthAccessToken",
 			domainSandboxHostContracts.invalidateOAuthAccessToken,
 			implementations.invalidateOAuthAccessToken,
+		),
+		verifyManagedAssets: bind(
+			"verifyManagedAssets",
+			coreSandboxHostContracts.verifyManagedAssets,
+			implementations.verifyManagedAssets,
+			{ failure: preserveAssetFailure },
 		),
 		httpCall: bind("httpCall", coreSandboxHostContracts.httpCall, implementations.httpCall, {
 			failure: preserveHttpFailureDetails,

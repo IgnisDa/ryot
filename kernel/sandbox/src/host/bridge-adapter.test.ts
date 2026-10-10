@@ -8,6 +8,19 @@ import { makeUserRunInput } from "./run-input.test-support";
 
 const input = makeUserRunInput();
 
+const managedAssetFailure = (key: string | undefined) => {
+	if (key === "private") {
+		return { code: "asset-forbidden", privateMetadata: "secret" };
+	}
+	if (key === "boundary") {
+		return { code: "unavailable-operation", operation: "verifyManagedAssets" };
+	}
+	if (key === "unknown") {
+		return { code: "private-error", privateMetadata: "secret" };
+	}
+	return { code: "asset-forbidden" };
+};
+
 const makeImplementations = (
 	overrides: Partial<SandboxHostImplementationMap> = {},
 ): SandboxHostImplementationMap => ({
@@ -31,7 +44,9 @@ const makeImplementations = (
 	updateUserEntity: () => Effect.fail({ message: "unused" }),
 	getPersistentValue: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
+	getProAvailability: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
+	verifyManagedAssets: () => Effect.fail({ message: "unused" }),
 	getOAuthAccessToken: () => Effect.fail({ message: "unused" }),
 	claimPersistentValue: () => Effect.fail({ message: "unused" }),
 	upsertGlobalEntities: () => Effect.fail({ message: "unused" }),
@@ -87,6 +102,79 @@ describe("bindSandboxHostFunctions", () => {
 
 			expect(result).toEqual({ data: null, success: true });
 			expect(calls).toEqual([{ expiry: 60, key: "answer", runInput: input, value: { value: 42 } }]);
+		}),
+	);
+
+	it.effect("binds Pro availability and bounded managed asset verification without a user id", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const implementations = makeImplementations({
+				getProAvailability: (runInput) => {
+					calls.push({ runInput, operation: "getProAvailability" });
+					return Effect.succeed(true);
+				},
+				verifyManagedAssets: (runInput, locators) => {
+					calls.push({ locators, runInput, operation: "verifyManagedAssets" });
+					return Effect.succeed(null);
+				},
+			});
+			const bound = bindSandboxHostFunctions(implementations, input);
+			const locators = Array.from({ length: 500 }, (_, index) => ({
+				type: "local" as const,
+				key: `managed/${index}`,
+			}));
+
+			expect(yield* bound.getProAvailability([])).toEqual({ data: true, success: true });
+			expect(yield* bound.verifyManagedAssets([locators])).toEqual({ data: null, success: true });
+			expect(yield* bound.verifyManagedAssets([locators, "caller-selected-user"])).toEqual({
+				success: false,
+				error: "verifyManagedAssets received an invalid number of arguments",
+			});
+			expect(
+				yield* bound.verifyManagedAssets([
+					Array.from({ length: 501 }, (_, index) => ({
+						type: "s3" as const,
+						key: `managed/${index}`,
+					})),
+				]),
+			).toMatchObject({ success: false });
+			expect(calls).toEqual([
+				{ runInput: input, operation: "getProAvailability" },
+				{ locators, runInput: input, operation: "verifyManagedAssets" },
+			]);
+		}),
+	);
+
+	it.effect("preserves only allowlisted managed asset failure data", () =>
+		Effect.gen(function* () {
+			const implementations = makeImplementations({
+				verifyManagedAssets: (_runInput, locators) =>
+					Effect.fail({
+						message: "Asset verification failed",
+						data: managedAssetFailure(locators[0]?.key),
+					}),
+			});
+			const bound = bindSandboxHostFunctions(implementations, input);
+
+			expect(yield* bound.verifyManagedAssets([[{ type: "local", key: "forbidden" }]])).toEqual({
+				success: false,
+				data: { code: "asset-forbidden" },
+				error: "Asset verification failed",
+			});
+			expect(yield* bound.verifyManagedAssets([[{ type: "local", key: "private" }]])).toEqual({
+				success: false,
+				data: { code: "asset-forbidden" },
+				error: "Asset verification failed",
+			});
+			expect(yield* bound.verifyManagedAssets([[{ type: "local", key: "unknown" }]])).toEqual({
+				success: false,
+				error: "Asset verification failed",
+			});
+			expect(yield* bound.verifyManagedAssets([[{ type: "local", key: "boundary" }]])).toEqual({
+				success: false,
+				error: "Asset verification failed",
+				data: { code: "unavailable-operation", operation: "verifyManagedAssets" },
+			});
 		}),
 	);
 

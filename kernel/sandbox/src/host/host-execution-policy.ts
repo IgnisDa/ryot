@@ -13,6 +13,7 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	listEventSchemas: { resultBytes: null, dispatch: "activity" },
 	listIntegrations: { resultBytes: null, dispatch: "activity" },
 	getUserPreferences: { resultBytes: KiB, dispatch: "activity" },
+	getProAvailability: { resultBytes: KiB, dispatch: "activity" },
 	createEvents: { resultBytes: null, dispatch: "event-workflow" },
 	emitSignal: { resultBytes: null, dispatch: "service-workflow" },
 	getOAuthAccessToken: { resultBytes: null, dispatch: "activity" },
@@ -30,6 +31,7 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	setCachedValue: { permit: "small", resultBytes: KiB, dispatch: "activity" },
 	upsertGlobalEntities: { resultBytes: null, dispatch: "lifecycle-workflow" },
 	changeUserRelationships: { resultBytes: null, dispatch: "lifecycle-workflow" },
+	verifyManagedAssets: { wireBytes: KiB, resultBytes: KiB, dispatch: "activity" },
 	upsertGlobalRelationships: { resultBytes: null, dispatch: "lifecycle-workflow" },
 	httpCall: { dispatch: "activity", resultBytes: 2 * SANDBOX_LIMITS.http.responseBytes },
 	executeRyotql: {
