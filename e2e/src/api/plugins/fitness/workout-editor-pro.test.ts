@@ -6,8 +6,7 @@ import {
 	workoutEditorLinksRecipe,
 	workoutEditorSetsRecipe,
 } from "@ryot-app/fitness-plugin/workout-editor-recipes";
-import { DateTime, Effect } from "effect";
-import getPort from "get-port";
+import { DateTime, Effect, Exit, Scope } from "effect";
 
 import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
@@ -15,21 +14,11 @@ import {
 	createExerciseEntityFixture,
 	findFitnessEntitySchema,
 	saveWorkoutEditor,
+	workoutEditorProServer,
 } from "~/fixtures/plugins/fitness";
 import { assertCondition, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
-import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
-import {
-	buildApiEnv,
-	spawnApiProcess,
-	startCoreTestInfrastructure,
-	stopApiProcess,
-	stopCoreTestInfrastructure,
-	waitForHealthCheck,
-} from "~/support/provisioning";
 
-const S3_BUCKET_NAME = "ryot-workout-editor-pro-test";
-const PRO_KEY_ENV_VALUE = "e2e-workout-editor-pro-key";
 const startedAt = "2026-10-01T10:00:00.000Z";
 const occurredAt = "2026-10-01T10:15:00.000Z";
 
@@ -37,12 +26,6 @@ type SaveInput = Parameters<typeof saveWorkoutEditor>[1];
 type WorkoutData = Extract<SaveInput["data"], { kind: "workout" }>;
 type WorkoutSetInput = WorkoutData["occurrences"][number]["sets"][number];
 type TemplateData = Extract<SaveInput["data"], { kind: "template" }>;
-
-const unkeyEnvelope = (data: {
-	readonly valid: boolean;
-	readonly code: string;
-	readonly meta?: Record<string, unknown>;
-}) => Response.json({ data, meta: { requestId: crypto.randomUUID() } });
 
 const workoutReference = (client: Client) =>
 	findFitnessEntitySchema(client, "workout").pipe(
@@ -132,62 +115,22 @@ const operationInput = (
 	submittedAt = new Date().toISOString(),
 ): SaveInput => ({ data, submittedAt, submissionId });
 
+const scope = Scope.makeUnsafe();
 let apiUrl: string;
-let apiProcess: ReturnType<typeof spawnApiProcess> | undefined;
-let fakeUnkey: FakeHttpServer | undefined;
-let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
-			coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
-			const infrastructure = requirePresent(
-				coreInfrastructure,
-				"Workout editor Pro test infrastructure is not initialised",
-			);
-			fakeUnkey = yield* startFakeHttpServer(() =>
-				unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "2030-01-01" } }),
-			);
-			const port = yield* Effect.promise(() => getPort());
-			const apiOrigin = `http://127.0.0.1:${port}`;
-			apiUrl = `${apiOrigin}/api`;
-			apiProcess = spawnApiProcess(
-				buildApiEnv({
-					port,
-					frontendUrl: apiOrigin,
-					label: "Workout editor Pro",
-					dbUrl: infrastructure.dbUrl,
-					s3BucketName: S3_BUCKET_NAME,
-					redisUrl: infrastructure.redisUrl,
-					s3Endpoint: infrastructure.s3Endpoint,
-					extraEnv: {
-						SERVER_PRO_KEY: PRO_KEY_ENV_VALUE,
-						SERVER_PRO_KEY_VERIFICATION_URL: fakeUnkey.url,
-					},
-				}),
-			);
-			yield* waitForHealthCheck(
-				`${apiOrigin}/api/system/health`,
-				"Workout editor Pro setup",
-				apiProcess,
-				90,
-			);
-		}),
+			const server = yield* workoutEditorProServer;
+			apiUrl = server.apiUrl;
+		}).pipe(
+			Effect.provideService(Scope.Scope, scope),
+			Effect.onError(() => Scope.close(scope, Exit.void)),
+		),
 	),
 );
 
-afterAll(() =>
-	runPromise(
-		Effect.gen(function* () {
-			yield* stopApiProcess(apiProcess);
-			const server = fakeUnkey;
-			if (server) {
-				yield* Effect.promise(() => server.stop());
-			}
-			yield* stopCoreTestInfrastructure(coreInfrastructure);
-		}),
-	),
-);
+afterAll(() => runPromise(Scope.close(scope, Exit.void)));
 
 describe("Workout editor with a valid Pro key", () => {
 	it.live(

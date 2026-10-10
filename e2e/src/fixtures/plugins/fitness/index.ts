@@ -4,6 +4,7 @@ export * from "./exercise-notes";
 export * from "./workouts";
 export * from "./workout-templates";
 export * from "./workout-editor";
+export * from "./workout-editor-pro-server";
 export * from "./workout-details";
 export * from "./measurements";
 export * from "./imports";
