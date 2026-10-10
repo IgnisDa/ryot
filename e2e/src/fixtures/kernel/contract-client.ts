@@ -11,6 +11,7 @@ import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 export type ContractSession = {
+	readonly baseUrl: string;
 	readonly userId?: UserId;
 	call: <A, E>(
 		program: ContractProgram<A, E>,
@@ -24,6 +25,7 @@ export const makeSession = (
 	userId?: UserId,
 ): ContractSession => ({
 	userId,
+	baseUrl,
 	call: (program, headers = {}) =>
 		makeContractClient(baseUrl, { ...defaultHeaders, ...headers }).pipe(Effect.flatMap(program)),
 });

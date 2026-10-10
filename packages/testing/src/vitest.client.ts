@@ -11,16 +11,25 @@ import { mergeConfig, type ViteUserConfig } from "vitest/config";
 export const defineClientConfig = ({
 	setupFiles,
 	maxWorkers,
-}: { setupFiles?: string[]; maxWorkers?: number } = {}) => {
+	testTimeout,
+}: { setupFiles?: string[]; maxWorkers?: number; testTimeout?: number } = {}) => {
 	const client: ViteUserConfig = {
 		test: {
 			...(maxWorkers === undefined ? {} : { maxWorkers }),
+			...(testTimeout === undefined ? {} : { testTimeout }),
 			projects: [
-				{ test: { name: "node", include: ["**/*.test.ts"] } },
+				{
+					test: {
+						name: "node",
+						include: ["**/*.test.ts"],
+						...(testTimeout === undefined ? {} : { testTimeout }),
+					},
+				},
 				{
 					test: {
 						name: "dom",
 						environment: "jsdom",
+						...(testTimeout === undefined ? {} : { testTimeout }),
 						include: ["**/*.test.tsx"],
 						...(setupFiles === undefined ? {} : { setupFiles }),
 					},
