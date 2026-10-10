@@ -181,6 +181,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const installed = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const fixtureUrl = `${frontendUrl}${pluginPath(installed.packageId)}`;
 		const pokemonSchema = requirePresent(
 			(yield* listEntitySchemas(client, { slugs: ["pokemon"], pluginId: installed.pluginId }))[0],
 			"Fixture Pokemon schema was not registered",
@@ -207,7 +208,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const observedSrcDocs: string[] = [];
 		yield* observeBridgeMessages(page, bridgeObservations);
 		const frame = page.locator(
-			'main > div:not([aria-hidden="true"]) iframe[title="fixture plugin"]',
+			'main > div:not([aria-hidden="true"]) iframe[title="Fixture plugin"]',
 		);
 		const fixture = frame.contentFrame();
 		const home = fixture.locator("body");
@@ -218,7 +219,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		});
 		// Sign-in lands on the first enabled workspace by (sortOrder, slug), which earlier
 		// suites change by installing system plugins into the shared database.
-		yield* page.waitForURL((url) => /^\/[^/]+$/.test(url.pathname));
+		yield* page.waitForURL((url) => /^\/p\/[^/]+\/[^/]+$/.test(url.pathname));
 		const historyLength = requirePresent(
 			historyLengthBeforeSubmit,
 			"Sign-in history capture was not enabled",
@@ -226,11 +227,15 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* page.evaluate(() => history.length)).toBe(historyLength + 1);
 
 		yield* page.getByRole("button", { name: /workspace,/ }).click();
-		yield* page.getByRole("menuitemradio", { name: "Switch to Fixture workspace" }).click();
-		yield* page.waitForURL(`${frontendUrl}/fixture`);
+		yield* page
+			.getByRole("menuitemradio", {
+				name: `Switch to Fixture · Private · ${installed.packageId} workspace`,
+			})
+			.click();
+		yield* page.waitForURL(fixtureUrl);
 		yield* frame.waitFor({ state: "visible" });
 
-		expect(yield* frame.getAttribute("title")).toBe("fixture plugin");
+		expect(yield* frame.getAttribute("title")).toBe("Fixture plugin");
 		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
 		yield* expectIsolatedFrame(frame, apiUrl);
 		const initialSrcDoc = yield* readSrcDoc(frame);
@@ -296,7 +301,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* installedPlugins.waitFor({ state: "visible" });
 		expect(
 			(yield* installedPlugins.innerText()).replace("Installed client plugins: ", "").split(", "),
-		).toEqual(expect.arrayContaining(["ryot/fitness", "ryot/fixture", "ryot/media"]));
+		).toEqual(expect.arrayContaining(["ryot/fitness", "ryot/media", installed.packageId]));
 		yield* fixture.getByRole("button", { name: "Fetch greeting" }).click();
 		yield* expectVisibleText(home, "Hello, Ryot");
 		yield* fixture.getByRole("button", { name: "Fetch with invalid payload" }).click();
@@ -323,7 +328,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const returnToFixture = (resolvedMode: string) =>
 			Effect.gen(function* () {
 				yield* page.getByRole("link", { name: "Home" }).click();
-				yield* page.waitForURL(`${frontendUrl}/fixture`);
+				yield* page.waitForURL(fixtureUrl);
 				yield* frame.waitFor({ state: "visible" });
 				yield* expectVisibleText(home, `Resolved mode: ${resolvedMode}`);
 				observedSrcDocs.push(yield* readSrcDoc(frame));
@@ -351,19 +356,19 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 			.getByRole("link", { name: "Item 1 details" });
 		yield* detailsLink.scrollIntoViewIfNeeded();
 		yield* detailsLink.click();
-		yield* page.waitForURL(`${frontendUrl}/fixture/details/item-1?tab=stats`);
+		yield* page.waitForURL(`${fixtureUrl}/details/item-1?tab=stats`);
 		yield* expectVisibleText(fixture.locator("body"), "Item item-1, tab stats.");
 
 		yield* page.goBack();
-		yield* page.waitForURL(`${frontendUrl}/fixture`);
+		yield* page.waitForURL(fixtureUrl);
 		yield* expectVisibleText(home, "Greeted 0 times.");
 
 		yield* page.goForward();
-		yield* page.waitForURL(`${frontendUrl}/fixture/details/item-1?tab=stats`);
+		yield* page.waitForURL(`${fixtureUrl}/details/item-1?tab=stats`);
 		yield* expectVisibleText(fixture.locator("body"), "Item item-1, tab stats.");
 
 		yield* fixture.getByRole("button", { name: "Back" }).click();
-		yield* page.waitForURL(`${frontendUrl}/fixture`);
+		yield* page.waitForURL(fixtureUrl);
 		yield* expectVisibleText(home, "Greeted 0 times.");
 		const navigationFrame = Option.getOrThrow(yield* frame.elementHandle());
 		const navigationBridgeSession = yield* waitForFreshBridgeSession(bridgeObservations);
@@ -434,7 +439,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* expectIsolatedFrame(frame, apiUrl);
 
 		yield* page.goto(`${frontendUrl}/e/${showId}`);
-		const mediaFrame = page.locator('iframe[title="media plugin"]');
+		const mediaFrame = page.locator('iframe[title="Media plugin"]');
 		yield* mediaFrame.waitFor({ state: "visible" });
 		const media = mediaFrame.contentFrame();
 		yield* media
@@ -451,7 +456,7 @@ it.live("opens an external link from a sandbox click through host authority", ()
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const pluginSlug = `external-link-${crypto.randomUUID()}`;
 		const destination = `${frontendUrl}/e2e-external-link-${crypto.randomUUID()}`;
-		yield* installPrivatePluginPackage({
+		const { id: installationId } = yield* installPrivatePluginPackage({
 			client,
 			config: {},
 			baseUrl: apiUrl,
@@ -497,7 +502,7 @@ export default function Home() {
 				}),
 			},
 		});
-		const installed = yield* settledPrivateInstallation(client, pluginSlug);
+		const installed = yield* settledPrivateInstallation(client, installationId);
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password, {
