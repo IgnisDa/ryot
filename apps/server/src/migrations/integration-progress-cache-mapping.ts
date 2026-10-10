@@ -101,7 +101,11 @@ ORDER BY cr.user_id, cr.metadata_id, cr.cache_id;
 
 export const readLegacyIntegrationProgressCache = Effect.fn("readLegacyIntegrationProgressCache")(
 	function* (connection: SqlConnection.Connection, mediaPluginId: string) {
-		const rows = yield* connection.execute(integrationProgressCacheRowsSql, [mediaPluginId], undefined);
+		const rows = yield* connection.execute(
+			integrationProgressCacheRowsSql,
+			[mediaPluginId],
+			undefined,
+		);
 		return yield* Effect.orDie(decodeLegacyProgressCacheRows(rows));
 	},
 );
