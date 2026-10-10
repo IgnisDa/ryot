@@ -393,25 +393,7 @@ const buildCommand = Command.make(
 	}),
 );
 
-const initIdentityCommand = Command.make(
-	"init-identity",
-	{},
-	Effect.fn("initPluginIdentity")(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const path = yield* Path.Path;
-		const shared = path.join(process.cwd(), "shared");
-		yield* fs.makeDirectory(shared, { recursive: true });
-		yield* fs.writeFileString(
-			path.join(shared, "plugin-identity.ts"),
-			`export const PLUGIN_PACKAGE_ID = "${crypto.randomUUID()}";\n`,
-			{ flag: "wx" },
-		);
-	}),
-);
-
-const pluginCommand = Command.make("plugin").pipe(
-	Command.withSubcommands([buildCommand, initIdentityCommand]),
-);
+const pluginCommand = Command.make("plugin").pipe(Command.withSubcommands([buildCommand]));
 
 const cli = Command.make("ryot").pipe(Command.withSubcommands([pluginCommand]));
 

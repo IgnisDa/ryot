@@ -1,7 +1,6 @@
 # Ryot CLI
 
-- Keep the CLI limited to `plugin build` and `plugin init-identity`.
-- Identity initialization exclusively creates `shared/plugin-identity.ts`; builds never create or modify authored identity. Default archive filenames use the canonical package ID.
+- Keep the CLI limited to `plugin build`. Default archive paths are `dist/<publisher>/<name>.zip` from the canonical package ID.
 - Treat the current working directory as the plugin package root and validate manifests with the canonical contract schema before replacing output.
 - Derive `scripts` from the compiled `backend/**/*.sandbox.ts` entries; the authored manifest must not declare them.
 - Collect canonical backend, shared, and client files for compiler input. Archive only the manifest and compiled script and client artifacts; authored sources and raw assets must not enter the archive.

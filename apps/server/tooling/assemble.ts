@@ -74,6 +74,7 @@ export const assemble = Effect.gen(function* () {
 			manifestModule.default,
 		);
 		const destination = path.join("plugins", `${authored.metadata.packageId}.zip`);
+		yield* fs.makeDirectory(path.dirname(destination), { recursive: true });
 		yield* fs.copyFile(
 			path.join(packageRoot(slug), `dist/${authored.metadata.packageId}.zip`),
 			destination,
