@@ -1,5 +1,6 @@
 import { layer } from "@effect/vitest";
 import {
+	CalendarSourceSlug,
 	EntitySchemaSlug,
 	NotificationSubscriptionId,
 	PluginId,
@@ -12,11 +13,21 @@ import { column, document, field, pluginId, rows, table } from "@ryot-app/ryotql
 import { Effect, Layer } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
+import { AutomationsRepository } from "#modules/automations/repository";
+import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
+import { CalendarSourcesService } from "#modules/calendar-sources/service";
+import { calendarSourcePackage } from "#modules/calendar-sources/test-support";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { SavedViewDefinition } from "#modules/definitions/snapshot";
 import { materializeSavedView } from "#modules/definitions/source";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
+import { EntitiesRepositoryLive } from "#modules/entities/repository";
+import { EventsRepository } from "#modules/events/repository";
+import { IntegrationsRepository } from "#modules/integrations/repository";
+import { NotificationsRepository } from "#modules/notifications/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
 	installRevisionPackage,
@@ -24,9 +35,15 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
+import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
+import { makeAppConfigLayer } from "#testing/effect";
 
-import { type AccountCleanlinessState, classifyAccountCleanliness } from "./account-cleanliness";
+import {
+	type AccountCleanlinessState,
+	BackupAccountCleanliness,
+	classifyAccountCleanliness,
+} from "./account-cleanliness";
 
 const entity = (id = "entity-id") => ({
 	id,
@@ -77,6 +94,7 @@ const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCl
 	hasManagedAssets: false,
 	notificationSubscriptions: [],
 	hasNotificationChannels: false,
+	hasCalendarSourceOverrides: false,
 	expectedBootstrapRelationships: [],
 	expectedNotificationSubscriptions: [],
 	defaultPreferences: { ...defaultUserPreferences },
@@ -505,7 +523,54 @@ describe("classifyAccountCleanliness", () => {
 		["plugin-state", { pluginState: [systemInstallation({ pluginScope: "user" })] }],
 		["integrations", { hasIntegrations: true }],
 		["notification-channels", { hasNotificationChannels: true }],
+		["calendar-source-overrides", { hasCalendarSourceOverrides: true }],
 	] as const)("rejects %s", (category, override) => {
 		expect(classifyAccountCleanliness(cleanState(override))).toBe(category);
 	});
+});
+
+layer(
+	BackupAccountCleanliness.layer.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				AuthRepository.layer,
+				EventsRepository.layer,
+				EntitiesRepositoryLive,
+				SavedViewsRepository.layer,
+				AutomationsRepository.layer,
+				IntegrationsRepository.layer,
+				RelationshipsRepository.layer,
+				NotificationsRepository.layer,
+				Layer.mock(ManagedAssetsService, { listManagedAssetsForOwner: () => Effect.succeed([]) }),
+			),
+		),
+		Layer.provideMerge(CalendarSourcesServiceLive),
+		Layer.provideMerge(revisionDatabaseLayer),
+		Layer.provide(makeAppConfigLayer()),
+	),
+)((test) => {
+	test.effect("rejects restores onto an account with a calendar source override", () =>
+		Effect.gen(function* () {
+			const cleanliness = yield* BackupAccountCleanliness;
+			const calendar = yield* CalendarSourcesService;
+			const packageValue = calendarSourcePackage("calendar");
+			const installed = yield* installRevisionPackage({
+				...packageValue,
+				manifest: { ...packageValue.manifest, hooks: [], signalSchemas: [] },
+			});
+			yield* cleanliness.assertAccountIsClean(UserId.make("owner"));
+			yield* calendar.setVisibility(
+				{ id: UserId.make("owner") },
+				{
+					isHidden: true,
+					slug: CalendarSourceSlug.make("dates"),
+					pluginId: PluginId.make(installed.pluginId),
+				},
+			);
+			const error = yield* Effect.flip(cleanliness.assertAccountIsClean(UserId.make("owner")));
+			expect(error).toMatchObject({
+				reason: { code: "account-not-clean", category: "calendar-source-overrides" },
+			});
+		}),
+	);
 });

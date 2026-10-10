@@ -174,6 +174,23 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					);
 				},
 			);
+			const restoreCalendarSourceOverride = Effect.fn(
+				"BackupRestorePersistence.restoreCalendarSourceOverride",
+			)(function* (input: typeof schema.calendarSourceOverride.$inferInsert) {
+				yield* session.run((db) =>
+					db
+						.insert(schema.calendarSourceOverride)
+						.values(input)
+						.onConflictDoUpdate({
+							set: { isHidden: input.isHidden },
+							target: [
+								schema.calendarSourceOverride.userId,
+								schema.calendarSourceOverride.pluginId,
+								schema.calendarSourceOverride.slug,
+							],
+						}),
+				);
+			});
 			const restoreNotificationSubscription = Effect.fn(
 				"BackupRestorePersistence.restoreNotificationSubscription",
 			)(function* (input: {
@@ -469,6 +486,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				restoreRelationship,
 				restoreBuiltinOverride,
 				restorePortableProfile,
+				restoreCalendarSourceOverride,
 				restoreNotificationSubscription,
 			};
 		}),

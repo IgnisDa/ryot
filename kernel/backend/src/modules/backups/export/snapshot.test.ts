@@ -3,9 +3,11 @@ import { tmpdir } from "node:os";
 import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it, layer } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
+import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
+	EntitySchemaSlug,
 	NotificationSubscriptionId,
 	SignalSchemaSlug,
 	UserId,
@@ -309,6 +311,25 @@ const privateInstallation = {
 		accounts: [{ label: "primary", token: "array-secret" }],
 	},
 };
+const retainedCalendarSource: PluginCalendarSource = {
+	icon: "calendar",
+	startAt: "startAt",
+	precision: "instant",
+	name: "Retained dates",
+	slug: "retained-dates",
+	subject: {
+		entityAlias: "retained",
+		schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("private-record") }],
+	},
+	query: {
+		from: table("entity", "retained"),
+		output: {
+			type: "rows",
+			fields: [field("startAt", column(table("entity", "retained"), "createdAt"))],
+		},
+	},
+};
+
 const privateManifest = {
 	...fixtureManifest(),
 	crons: [],
@@ -321,6 +342,7 @@ const privateManifest = {
 	userBootstrap: [],
 	relationshipSchemas: [],
 	metadata: fixtureManifest().metadata,
+	calendarSources: [retainedCalendarSource],
 	client: {
 		homeView: null,
 		apiVersion: CLIENT_API_VERSION,
@@ -489,6 +511,7 @@ const effectiveDefinitions = buildDefinitionSnapshot(
 		{
 			savedViews: [],
 			entitySchemas: [],
+			calendarSources: [],
 			relationshipSchemas: [],
 			signalSchemas: [
 				{
@@ -550,6 +573,12 @@ const privateRecordsExportLayer = withExportReads((reads) =>
 								slug: "retained-view",
 								pluginId: "private-plugin-id",
 							},
+						]),
+					listCalendarSourceOverrides: () =>
+						Effect.succeed([
+							{ userId, isHidden: true, slug: "retained-dates", pluginId: "private-plugin-id" },
+							{ userId, isHidden: true, slug: "removed-dates", pluginId: "private-plugin-id" },
+							{ userId, isHidden: true, slug: "retained-dates", pluginId: "removed-plugin-id" },
 						]),
 				}),
 				databaseLayer,
@@ -725,6 +754,9 @@ layer(privateRecordsExportLayer)((test) => {
 						kind: "builtin-override",
 					}),
 				]);
+				expect(prepared.records.calendarSourceOverrides).toEqual([
+					{ isHidden: true, pluginKey: privateKey, slug: "retained-dates" },
+				]);
 				expect(prepared.records.entities).toEqual([
 					expect.objectContaining({
 						id: "private-entity",
@@ -852,7 +884,10 @@ const eventPagesExportLayer = withExportReads((reads) =>
 	Layer.effect(BackupExportSnapshot, BackupExportSnapshot.make).pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				Layer.mock(BackupExportRepository, { listSavedViewOverrides: () => Effect.succeed([]) }),
+				Layer.mock(BackupExportRepository, {
+					listSavedViewOverrides: () => Effect.succeed([]),
+					listCalendarSourceOverrides: () => Effect.succeed([]),
+				}),
 				databaseLayer,
 				BunFileSystem.layer,
 				Layer.mock(DefinitionRepository, {
@@ -860,7 +895,13 @@ const eventPagesExportLayer = withExportReads((reads) =>
 						Effect.succeed(
 							buildDefinitionSnapshot(
 								mergeManifestDefinitions(
-									{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
+									{
+										savedViews: [],
+										entitySchemas: [],
+										signalSchemas: [],
+										calendarSources: [],
+										relationshipSchemas: [],
+									},
 									[{ id: "private-plugin-id", manifest: eventPagesManifest }],
 								),
 							),

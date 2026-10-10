@@ -138,7 +138,13 @@ export const resolveRequiredPluginIds = Effect.fn(function* (
 			try: () =>
 				buildDefinitionSnapshot(
 					mergeManifestDefinitions(
-						{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
+						{
+							savedViews: [],
+							entitySchemas: [],
+							signalSchemas: [],
+							calendarSources: [],
+							relationshipSchemas: [],
+						},
 						[{ id: target.id, manifest: archivedManifest(target, plugin) }],
 					),
 				),
@@ -557,6 +563,15 @@ export const preflightProvenance = Effect.fn(function* (
 			}
 		}
 	}
+	for (const override of records.calendarSourceOverrides) {
+		yield* assertOwner(
+			override.pluginKey,
+			definitions.calendarSources[
+				yield* definition("calendar-source", override.slug, override.pluginKey)
+			],
+			"calendar source",
+		);
+	}
 	for (const view of records.savedViews) {
 		if (view.kind === "builtin-override") {
 			yield* assertOwner(
@@ -717,6 +732,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 									savedViews: source.savedViews.filter(notSystemOwned(systemIds)),
 									entitySchemas: source.entitySchemas.filter(notSystemOwned(systemIds)),
 									signalSchemas: source.signalSchemas.filter(notSystemOwned(systemIds)),
+									calendarSources: source.calendarSources.filter(notSystemOwned(systemIds)),
 									relationshipSchemas: source.relationshipSchemas.filter(notSystemOwned(systemIds)),
 								},
 								archivedCandidates,
@@ -1340,6 +1356,23 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (!restored) {
 						return yield* badRequest("Backup saved view could not be restored");
 					}
+				}
+				for (const override of records.calendarSourceOverrides) {
+					const pluginId = yield* mappedPluginId(pluginIdByKey, override.pluginKey);
+					if (
+						pluginId === null ||
+						!definitions.calendarSources[
+							definitionKey("calendar-source", definitionOwner(pluginId), override.slug)
+						]
+					) {
+						return yield* badRequest("Backup references an unavailable calendar source");
+					}
+					yield* persistence.restoreCalendarSourceOverride({
+						userId,
+						pluginId,
+						slug: override.slug,
+						isHidden: override.isHidden,
+					});
 				}
 				for (const state of records.installations) {
 					if (state.homeSavedView === null) {

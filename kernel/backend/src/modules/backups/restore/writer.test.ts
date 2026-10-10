@@ -10,6 +10,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
+	EntitySchemaSlug,
 	PluginId,
 	SavedViewId,
 	SignalSchemaSlug,
@@ -415,6 +416,7 @@ const provenanceRecords = (
 		readonly dependencyKey?: string | null;
 		readonly relationshipKey?: string | null;
 		readonly subscriptionKey?: string | null;
+		readonly calendarSourceKey?: string;
 	} = {},
 ): ArchiveRecords => ({
 	integrations: [],
@@ -425,6 +427,10 @@ const provenanceRecords = (
 		name: "User",
 		preferences: { language: null, disableIntegrations: false },
 	},
+	calendarSourceOverrides:
+		input.calendarSourceKey === undefined
+			? []
+			: [{ isHidden: true, slug: "owner-dates", pluginKey: input.calendarSourceKey }],
 	notificationSubscriptions: [
 		{
 			metadata: null,
@@ -569,6 +575,34 @@ const provenanceDefinitions: DefinitionSnapshot = {
 			notificationHookSlug: "owner.notify",
 		},
 	},
+	calendarSources: {
+		[definitionKey("calendar-source", definitionOwner("owner-id"), "owner-dates")]: {
+			art: null,
+			done: null,
+			caption: null,
+			icon: "calendar",
+			precision: "date",
+			startAt: "startAt",
+			name: "Owner dates",
+			slug: "owner-dates",
+			pluginId: "owner-id",
+			subject: {
+				entityAlias: "entity",
+				schemas: [
+					{ owner: definitionOwner("owner-id"), slug: EntitySchemaSlug.make("owner-entity") },
+				],
+			},
+			query: {
+				from: { alias: "entity", table: "entity" },
+				output: {
+					type: "rows",
+					fields: [
+						{ key: "startAt", expr: { type: "column", field: "createdAt", tableAlias: "entity" } },
+					],
+				},
+			},
+		},
+	},
 };
 
 const provenanceEvent = (eventSchemaPluginKey: string | null = "owner-key"): ArchiveEvent => ({
@@ -650,6 +684,16 @@ it.effect("preflights all qualified schema provenance including streamed events"
 				records: provenanceRecords(),
 				event: provenanceEvent("undeclared-key"),
 			},
+			{
+				event: provenanceEvent(),
+				name: "calendar source with a foreign owner",
+				records: provenanceRecords({ calendarSourceKey: "foreign-key" }),
+			},
+			{
+				event: provenanceEvent(),
+				name: "calendar source with an unmapped key",
+				records: provenanceRecords({ calendarSourceKey: "unmapped-key" }),
+			},
 		] as const;
 		for (const testCase of cases) {
 			const error = yield* preflightProvenance(
@@ -663,6 +707,13 @@ it.effect("preflights all qualified schema provenance including streamed events"
 				/wrong plugin owner|unmapped plugin key|unavailable/,
 			);
 		}
+		yield* preflightProvenance(
+			provenanceRecords({ calendarSourceKey: "owner-key" }),
+			{ count: 1, sha256: "", read: () => Stream.make(provenanceEvent()) },
+			pluginIds,
+			provenanceDefinitions,
+			[],
+		);
 	}),
 );
 
@@ -820,6 +871,7 @@ const restoreArchivedEvents = (events: ReadonlyArray<ArchiveEvent>) =>
 				relationships: [],
 				privatePlugins: [],
 				entityDependencies: [],
+				calendarSourceOverrides: [],
 				notificationSubscriptions: [],
 				profile: {
 					image: null,
@@ -847,6 +899,7 @@ const restoreArchivedEvents = (events: ReadonlyArray<ArchiveEvent>) =>
 			{
 				savedViews: {},
 				signalSchemas: {},
+				calendarSources: {},
 				relationshipSchemas: {},
 				entitySchemas: {
 					[definitionKey("entity", definitionOwner(null), "bootstrap-entity")]:
@@ -1181,7 +1234,13 @@ describe("account backup restore in PostgreSQL", () => {
 					});
 					const snapshot = buildDefinitionSnapshot(
 						mergeManifestDefinitions(
-							{ savedViews: [], signalSchemas: [], entitySchemas: [], relationshipSchemas: [] },
+							{
+								savedViews: [],
+								signalSchemas: [],
+								entitySchemas: [],
+								calendarSources: [],
+								relationshipSchemas: [],
+							},
 							[{ id: installedPluginId, manifest: packageValue.manifest }],
 						),
 					);
@@ -1191,6 +1250,7 @@ describe("account backup restore in PostgreSQL", () => {
 						integrations: [],
 						privatePlugins: [],
 						entityDependencies: [],
+						calendarSourceOverrides: [],
 						profile: {
 							image: null,
 							name: "Restored",
@@ -1406,7 +1466,13 @@ describe("account backup restore in PostgreSQL", () => {
 				};
 				const definitions = buildDefinitionSnapshot(
 					mergeManifestDefinitions(
-						{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
+						{
+							savedViews: [],
+							entitySchemas: [],
+							signalSchemas: [],
+							calendarSources: [],
+							relationshipSchemas: [],
+						},
 						[{ id, manifest: normalized.manifest }],
 					),
 				);
@@ -1515,6 +1581,26 @@ describe("account backup restore in PostgreSQL", () => {
 											rowKeyFields: ["id"],
 											sourceName: "records",
 											columns: [{ label: "Owner", field: "owner", displayKind: "text" }],
+										},
+									},
+								],
+								calendarSources: [
+									{
+										icon: "calendar",
+										startAt: "startAt",
+										name: "Bottle dates",
+										slug: "bottle-dates",
+										precision: "instant",
+										subject: {
+											entityAlias: "owned",
+											schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("bottle") }],
+										},
+										query: {
+											from: authoredEntity,
+											output: {
+												type: "rows",
+												fields: [field("startAt", column(authoredEntity, "createdAt"))],
+											},
 										},
 									},
 								],
@@ -1648,6 +1734,14 @@ describe("account backup restore in PostgreSQL", () => {
 										isHidden: label === "A",
 										sortOrder: label === "A" ? 4 : 8,
 									});
+									if (label === "A") {
+										yield* persistence.restoreCalendarSourceOverride({
+											isHidden: true,
+											userId: sourceUser,
+											pluginId: sourceId,
+											slug: "bottle-dates",
+										});
+									}
 									const view = yield* persistence.restoreCustomView({
 										name: label,
 										icon: "box",
@@ -1692,6 +1786,15 @@ describe("account backup restore in PostgreSQL", () => {
 								?.isInitialized,
 						).toBe(mode !== "partial-quarantine");
 						expect(new Set(exported.records.privatePlugins.map(({ key }) => key)).size).toBe(2);
+						const firstSource = sources[0];
+						assert(firstSource);
+						const firstKey = pluginPackageKey({
+							scope: "user",
+							packageId: firstSource.packageValue.manifest.metadata.packageId,
+						});
+						expect(exported.records.calendarSourceOverrides).toEqual([
+							{ isHidden: true, pluginKey: firstKey, slug: "bottle-dates" },
+						]);
 						const validated = yield* validateArchiveStream(
 							createArchiveStream({
 								assets: [],
@@ -1768,6 +1871,20 @@ describe("account backup restore in PostgreSQL", () => {
 								incompatibilityReason: index === 0 ? "package-identity-conflict" : null,
 							});
 						}
+						const restoredCalendarOverrides = yield* session.run((db) =>
+							db
+								.select({
+									slug: tables.calendarSourceOverride.slug,
+									isHidden: tables.calendarSourceOverride.isHidden,
+									pluginId: tables.calendarSourceOverride.pluginId,
+								})
+								.from(tables.calendarSourceOverride)
+								.where(eq(tables.calendarSourceOverride.userId, destinationUser)),
+						);
+						expect(restoredCalendarOverrides).toEqual([
+							{ isHidden: true, slug: "bottle-dates", pluginId: ids.get(firstKey) },
+						]);
+						expect(restoredCalendarOverrides[0]?.pluginId).not.toBe(firstSource.sourceId);
 						const restoredEntities = yield* (yield* EntitiesRepository).listUserEntitiesForBackup(
 							destinationUser,
 						);
@@ -1858,6 +1975,9 @@ describe("account backup restore in PostgreSQL", () => {
 								);
 							}
 						}
+						expect(reexported.records.calendarSourceOverrides).toEqual(
+							exported.records.calendarSourceOverrides,
+						);
 						expect(reexported.records.integrations).toHaveLength(2);
 						for (const integration of reexported.records.integrations) {
 							const source = sources[integration.name === "A" ? 0 : 1];
@@ -1954,6 +2074,7 @@ const assetSystemPlugin: StoredPlugin = {
 const assetDefinitions: DefinitionSnapshot = {
 	savedViews: {},
 	signalSchemas: {},
+	calendarSources: {},
 	relationshipSchemas: {},
 	entitySchemas: {
 		[definitionKey("entity", definitionOwner(assetPluginId), assetSchemaSlug)]: {
@@ -2019,6 +2140,7 @@ const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
 	relationships: [],
 	privatePlugins: [],
 	entityDependencies: [],
+	calendarSourceOverrides: [],
 	notificationSubscriptions: [],
 	profile: {
 		image: null,

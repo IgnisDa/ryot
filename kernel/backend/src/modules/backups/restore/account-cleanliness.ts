@@ -34,6 +34,7 @@ import {
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
+import { BackupExportRepository } from "../export/repository";
 import { isDefaultSystemInstallation } from "../installation-state";
 
 type StructuralRelationship = Pick<
@@ -56,6 +57,7 @@ export type AccountCleanlinessState = {
 	readonly hasIntegrations: boolean;
 	readonly hasManagedAssets: boolean;
 	readonly hasNotificationChannels: boolean;
+	readonly hasCalendarSourceOverrides: boolean;
 	readonly profile: PortableUserProfile | null;
 	readonly savedViews: ReadonlyArray<SavedViewRecord>;
 	readonly defaultPreferences: Record<string, unknown>;
@@ -201,6 +203,9 @@ export const classifyAccountCleanliness = (
 	if (!state.pluginState.every(isDefaultSystemInstallation)) {
 		return "plugin-state";
 	}
+	if (state.hasCalendarSourceOverrides) {
+		return "calendar-source-overrides";
+	}
 	if (state.hasIntegrations) {
 		return "integrations";
 	}
@@ -225,6 +230,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 			const relationships = yield* RelationshipsRepository;
 			const notifications = yield* NotificationsRepository;
 			const installations = yield* PluginInstallationRepository;
+			const backupReads = yield* BackupExportRepository;
 
 			const assertAccountIsClean = Effect.fn("BackupAccountCleanliness.assertAccountIsClean")(
 				function* (userId: UserId) {
@@ -241,6 +247,8 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 					const states = yield* installations.listHydratedForUser(userId);
 					const hasIntegrations = yield* integrations.hasAnyForUser(userId);
 					const hasNotificationChannels = yield* notifications.hasAnyForUser(userId);
+					const hasCalendarSourceOverrides =
+						(yield* backupReads.listCalendarSourceOverrides(userId)).length > 0;
 					const snapshot = yield* definitions.getUserSnapshot(userId, { listed: true });
 					const category = classifyAccountCleanliness({
 						profile,
@@ -251,6 +259,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 						pluginState: states,
 						entities: ownedEntities,
 						hasNotificationChannels,
+						hasCalendarSourceOverrides,
 						relationships: ownedRelationships,
 						expectedBootstrapRelationships: [],
 						notificationSubscriptions: subscriptions,
@@ -274,5 +283,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(BackupExportRepository.layer),
+	);
 }

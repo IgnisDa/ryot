@@ -19,6 +19,7 @@ export const BackupAccountDataCategory = Schema.Literals([
 	"managed-assets",
 	"notification-channels",
 	"notification-subscriptions",
+	"calendar-source-overrides",
 ]);
 export type BackupAccountDataCategory = typeof BackupAccountDataCategory.Type;
 
