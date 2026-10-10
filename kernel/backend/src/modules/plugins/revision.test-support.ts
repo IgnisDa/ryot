@@ -1,5 +1,5 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Redacted } from "effect";
 import { assert } from "vitest";
@@ -100,8 +100,9 @@ export const revisionPackage = (
 	slug = "fixture",
 	version = "v1",
 	entitySlug = `${slug}-entity`,
+	packageId = PluginPackageId.make(crypto.randomUUID()),
 ): NormalizedPlugin => {
-	const fixture = fixtureManifest();
+	const fixture = fixtureManifest(packageId);
 	const entity = fixture.entitySchemas[0];
 	assert(entity);
 	const common = {
@@ -231,31 +232,49 @@ export const installRevisionPackage = Effect.fn(function* (
 	packageValue: NormalizedPlugin,
 	owner: UserId | null = null,
 ) {
+	const session = yield* DatabaseSession;
 	const plugins = yield* PluginRepository;
 	const installations = yield* PluginInstallationRepository;
-	const pluginId = yield* plugins.persist(
-		packageValue,
-		owner
-			? { scope: "user", ownerId: owner, slug: packageValue.manifest.metadata.slug }
-			: { ownerId: null, scope: "system", slug: packageValue.manifest.metadata.slug },
-	);
-	const installation = yield* installations.upsertState({
-		pluginId,
-		config: {},
-		sortOrder: 0,
-		health: "ready",
-		isHidden: false,
-		userId: owner ?? UserId.make("owner"),
-	});
-	assert(installation);
-	const [plugin] = yield* (yield* DatabaseSession).run((db) =>
-		db.select().from(tables.plugin).where(eq(tables.plugin.id, pluginId)),
-	);
-	assert(plugin?.activeRevisionId);
-	if (!owner) {
-		yield* plugins.resolveEnvironmentConfigs();
-	}
-	return { pluginId, installation, revisionId: plugin.activeRevisionId };
+	return yield* session
+		.transaction(
+			Effect.gen(function* () {
+				yield* plugins.lockIngestion();
+				const pluginId = yield* plugins.persist(
+					packageValue,
+					owner
+						? {
+								scope: "user",
+								ownerId: owner,
+								slug: packageValue.manifest.metadata.slug,
+								packageId: packageValue.manifest.metadata.packageId,
+							}
+						: {
+								ownerId: null,
+								scope: "system",
+								slug: packageValue.manifest.metadata.slug,
+								packageId: packageValue.manifest.metadata.packageId,
+							},
+				);
+				const installation = yield* installations.upsertState({
+					pluginId,
+					config: {},
+					sortOrder: 0,
+					health: "ready",
+					isHidden: false,
+					userId: owner ?? UserId.make("owner"),
+				});
+				assert(installation);
+				const [plugin] = yield* (yield* DatabaseSession).run((db) =>
+					db.select().from(tables.plugin).where(eq(tables.plugin.id, pluginId)),
+				);
+				assert(plugin?.activeRevisionId);
+				if (!owner) {
+					yield* plugins.resolveEnvironmentConfigs();
+				}
+				return { pluginId, installation, revisionId: plugin.activeRevisionId };
+			}),
+		)
+		.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 });
 
 const oauthConnectionField = (label: string) => ({

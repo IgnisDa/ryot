@@ -1,8 +1,8 @@
 import {
 	clientArtifactMetadata,
-	PluginClientArtifact as PluginClientArtifactSchema,
+	clientDeclarationHash,
+	PluginClientArtifact,
 	isPluginClientArtifactContentType,
-	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
 import type { BadRequest, DbError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -11,7 +11,6 @@ import {
 	type PluginConflictError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import {
 	PLUGIN_ARCHIVE_LIMITS,
 	type PluginArchiveCompiledScript,
@@ -35,9 +34,11 @@ import type {
 } from "./types";
 import {
 	decodePluginManifest,
-	type PluginSlugReservedError,
+	type PluginPackageReservedError,
 	type PluginSurfaceError,
 	PluginValidationError,
+	validateImportSourceInputSchemas,
+	validateIntegrationProviderSettingsSchemas,
 } from "./validation";
 
 export const digest = sha256Hex;
@@ -103,6 +104,8 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 	source: PluginSource,
 ) {
 	const manifest = yield* decodePluginManifest(source.manifest);
+	yield* validateIntegrationProviderSettingsSchemas(manifest);
+	yield* validateImportSourceInputSchemas(manifest);
 	if (!Array.isArray(source.compiledScripts)) {
 		return yield* new PluginValidationError({ issues: ["Plugin compiled scripts are missing"] });
 	}
@@ -164,15 +167,20 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 	}
 	let compiledClient: PluginClientArtifact | undefined;
 	if (source.compiledClient) {
-		compiledClient = yield* Schema.decodeEffect(PluginClientArtifactSchema)(
-			source.compiledClient,
-		).pipe(
+		const client = manifest.client;
+		if (!client) {
+			return yield* new PluginValidationError({
+				issues: ["Plugin client artifact has no client declaration"],
+			});
+		}
+		compiledClient = yield* Schema.decodeEffect(PluginClientArtifact)(source.compiledClient).pipe(
 			Effect.mapError(
 				() => new PluginValidationError({ issues: ["Plugin compiled client artifact is invalid"] }),
 			),
 		);
 		if (
-			compiledClient.apiVersion !== manifest.client?.apiVersion ||
+			compiledClient.packageId !== manifest.metadata.packageId ||
+			compiledClient.clientDeclarationHash !== clientDeclarationHash(client) ||
 			compiledClient.files.length > PLUGIN_ARCHIVE_LIMITS.maxCompiledClientFiles
 		) {
 			return yield* new PluginValidationError({
@@ -202,8 +210,20 @@ export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSo
 			}
 		}
 		if (
+			compiledClient.imports.some(
+				({ reference }) =>
+					!Object.values(client.pluginDependencies ?? {}).some(
+						(dependency) =>
+							dependency.packageId === reference.packageId && dependency.scope === reference.scope,
+					),
+			) ||
 			compiledClient.hash !==
-			clientArtifactMetadata(manifest.metadata.name, compiledClient.files).hash
+				clientArtifactMetadata(
+					manifest.metadata.name,
+					manifest.metadata.packageId,
+					compiledClient.files,
+					{ imports: compiledClient.imports, clientDeclarationHash: clientDeclarationHash(client) },
+				).hash
 		) {
 			return yield* new PluginValidationError({
 				issues: ["Plugin compiled client artifact content hash is invalid"],
@@ -265,9 +285,10 @@ type StructurablePluginFailure =
 	| PluginArchiveError
 	| PluginSurfaceError
 	| PluginConflictError
+	| PluginRequestError
 	| SchemaEvolutionError
 	| PluginValidationError
-	| PluginSlugReservedError;
+	| PluginPackageReservedError;
 
 export const structurePluginFailure = <A, R>(
 	effect: Effect.Effect<A, StructurablePluginFailure, R>,
@@ -296,10 +317,10 @@ export const structurePluginFailure = <A, R>(
 						reason: { code: "validation-failed", diagnostics: validationDiagnostics(error) },
 					}),
 				),
-			PluginSlugReservedError: (error: PluginSlugReservedError) =>
+			PluginPackageReservedError: (error: PluginPackageReservedError) =>
 				Effect.fail(
 					new PluginRequestError({
-						reason: { code: "slug-reserved", pluginSlug: PluginSlug.make(error.pluginSlug) },
+						reason: { packageId: error.packageId, code: "reserved-system-identity" },
 					}),
 				),
 			SchemaEvolutionError: (error: SchemaEvolutionError) =>

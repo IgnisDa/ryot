@@ -1,4 +1,3 @@
-import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import {
 	importInternalPropertyNames,
 	isImportUploadTokenField,
@@ -9,7 +8,7 @@ import {
 	type PluginManifest as PluginManifestValue,
 	type PluginScript,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import { reservedPluginSlugs } from "@ryot-app/contract/modules/plugins/schemas";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Cron, Data, Effect, Result, Schema } from "effect";
 
@@ -26,6 +25,9 @@ export class PluginValidationError extends Data.TaggedError("PluginValidationErr
 }> {}
 
 const fail = (issue: string) => new PluginValidationError({ issues: [issue] });
+const encodeEventSchemaReference = Schema.encodeSync(
+	Schema.fromJsonString(Schema.Tuple([Schema.String, Schema.String])),
+);
 
 const assertSlug = (kind: string, slug: string) =>
 	slug.includes("/") ? Effect.fail(fail(`${kind} slug cannot contain '/': ${slug}`)) : Effect.void;
@@ -64,12 +66,11 @@ export class PluginSurfaceError extends Data.TaggedError("PluginSurfaceError")<{
 	readonly surfaces: ReadonlyArray<string>;
 }> {}
 
-export class PluginSlugReservedError extends Data.TaggedError("PluginSlugReservedError")<{
-	readonly pluginSlug: string;
+export class PluginPackageReservedError extends Data.TaggedError("PluginPackageReservedError")<{
+	readonly packageId: PluginPackageId;
 }> {}
 
 const userRejectedCollections = [
-	"userBootstrap",
 	"httpRateLimits",
 	"oauthProviders",
 ] as const satisfies ReadonlyArray<
@@ -86,10 +87,9 @@ export const validatePluginManifestPolicy = (
 	manifest: PluginManifestValue,
 	policy:
 		| { readonly scope: "system" }
-		| { readonly scope: "user"; readonly systemSlugs: ReadonlySet<string> },
+		| { readonly scope: "user"; readonly systemPackageIds: ReadonlySet<PluginPackageId> },
 ) =>
 	Effect.gen(function* () {
-		const pluginSlug = manifest.metadata.slug;
 		if (manifest.userSettingsSchema) {
 			const definitionIssues = validateAppSchemaDefinition(manifest.userSettingsSchema);
 			if (definitionIssues.length > 0) {
@@ -107,9 +107,6 @@ export const validatePluginManifestPolicy = (
 				);
 			}
 		}
-		if (reservedPluginSlugs.has(pluginSlug)) {
-			return yield* new PluginSlugReservedError({ pluginSlug });
-		}
 		if (policy.scope === "system") {
 			return yield* Effect.void;
 		}
@@ -117,17 +114,35 @@ export const validatePluginManifestPolicy = (
 		if (surfaces.length > 0) {
 			return yield* new PluginSurfaceError({ surfaces });
 		}
-		if (policy.systemSlugs.has(pluginSlug)) {
-			return yield* new PluginSlugReservedError({ pluginSlug });
+		if (policy.systemPackageIds.has(manifest.metadata.packageId)) {
+			return yield* new PluginPackageReservedError({ packageId: manifest.metadata.packageId });
 		}
 		return yield* Effect.void;
 	});
 
-export const validatePluginManifestReferences = (
-	manifest: PluginManifestValue,
-	snapshot: DefinitionSnapshot,
-) =>
+export const validatePluginManifestReferences = (manifest: PluginManifestValue) =>
 	Effect.gen(function* () {
+		const entities = new Set(manifest.entitySchemas.map(({ slug }) => slug));
+		const relationships = new Set(manifest.relationshipSchemas.map(({ slug }) => slug));
+		const signals = new Set(manifest.signalSchemas.map(({ slug }) => slug));
+		for (const [kind, definitions] of [
+			["entity schema", manifest.entitySchemas],
+			["relationship schema", manifest.relationshipSchemas],
+			["signal schema", manifest.signalSchemas],
+			["saved view", manifest.savedViews],
+			["provider", manifest.providers],
+			["hook", manifest.hooks],
+			["import source", manifest.importSources],
+			["integration provider", manifest.integrationProviders],
+		] as const) {
+			const slugs = new Set<string>();
+			for (const { slug } of definitions) {
+				if (slugs.has(slug)) {
+					return yield* fail(`Duplicate ${kind} slug: ${slug}`);
+				}
+				slugs.add(slug);
+			}
+		}
 		const cronSlugs = new Set<string>();
 		const scriptSlugs = new Set<string>();
 		const workflowSlugs = new Set<string>();
@@ -136,15 +151,34 @@ export const validatePluginManifestReferences = (
 		yield* assertSlug("plugin", manifest.metadata.slug);
 		for (const definition of manifest.entitySchemas) {
 			yield* assertSlug("entity schema", definition.slug);
+			const events = new Set<string>();
 			for (const eventSchema of definition.eventSchemas) {
+				if (events.has(eventSchema.slug)) {
+					return yield* fail(
+						`Duplicate event schema slug for ${definition.slug}: ${eventSchema.slug}`,
+					);
+				}
+				events.add(eventSchema.slug);
 				yield* assertSlug("event schema", eventSchema.slug);
 			}
 		}
 		for (const definition of manifest.relationshipSchemas) {
 			yield* assertSlug("relationship schema", definition.slug);
+			for (const slug of [definition.sourceEntitySchemaSlug, definition.targetEntitySchemaSlug]) {
+				if (slug !== null) {
+					yield* assertReference("Relationship endpoint", slug, entities);
+				}
+			}
 		}
 		for (const definition of manifest.signalSchemas) {
 			yield* assertSlug("signal schema", definition.slug);
+			if (definition.audiencePolicy.kind === "related_users") {
+				yield* assertReference(
+					"Signal audience",
+					definition.audiencePolicy.relationshipSchemaSlug,
+					relationships,
+				);
+			}
 			yield* assertReference(
 				"Notification hook",
 				definition.notificationHookSlug,
@@ -159,7 +193,7 @@ export const validatePluginManifestReferences = (
 			yield* assertReference(
 				"Provider root entity schema",
 				provider.rootEntitySchemaSlug,
-				new Set(Object.keys(snapshot.entitySchemas)),
+				entities,
 			);
 		}
 		for (const script of manifest.scripts) {
@@ -216,16 +250,10 @@ export const validatePluginManifestReferences = (
 		}
 
 		for (const source of manifest.importSources) {
-			if (source.slug === dataJsonSource) {
-				return yield* fail("Data import is kernel-owned");
-			}
 			yield* assertSlug("import source", source.slug);
 			yield* assertReference("Import source", source.workflowSlug, workflowSlugs);
 		}
 		for (const provider of manifest.integrationProviders) {
-			if (provider.slug === dataJsonSource) {
-				return yield* fail("Data webhook is kernel-owned");
-			}
 			yield* assertSlug("integration provider", provider.slug);
 			if (provider.lot !== "push") {
 				yield* assertReference("Integration provider", provider.scriptSlug, scriptSlugs);
@@ -240,43 +268,38 @@ export const validatePluginManifestReferences = (
 		}
 
 		const eventSchemaSlugs = new Set(
-			Object.values(snapshot.entitySchemas).flatMap((entitySchema) =>
-				Object.keys(entitySchema.eventSchemas).map(
-					(eventSchemaSlug) => `${entitySchema.slug}:${eventSchemaSlug}`,
+			manifest.entitySchemas.flatMap((entitySchema) =>
+				entitySchema.eventSchemas.map(({ slug }) =>
+					encodeEventSchemaReference([entitySchema.slug, slug]),
 				),
 			),
 		);
 		for (const hook of manifest.hooks) {
+			yield* assertSlug("automation hook", hook.slug);
 			yield* assertReference("Automation hook", hook.scriptSlug, scriptSlugs);
 			yield* assertAutomationScript("Automation hook", hook.scriptSlug, manifest.scripts);
 			for (const target of hook.targets) {
+				if ("owner" in target) {
+					if (hook.stage !== "after" || hook.executionScope === "global") {
+						return yield* fail("Kernel collection observers require user-scoped after hooks");
+					}
+					continue;
+				}
 				if (target.resource === "entity" || target.resource === "provider-entity-import") {
-					yield* assertReference(
-						"Automation hook",
-						target.entitySchemaSlug,
-						new Set(Object.keys(snapshot.entitySchemas)),
-					);
+					yield* assertReference("Automation hook", target.entitySchemaSlug, entities);
 				}
 				if (target.resource === "event") {
 					yield* assertReference(
 						"Automation hook",
-						`${target.entitySchemaSlug}:${target.eventSchemaSlug}`,
+						encodeEventSchemaReference([target.entitySchemaSlug, target.eventSchemaSlug]),
 						eventSchemaSlugs,
 					);
 				}
 				if (target.resource === "relationship") {
-					yield* assertReference(
-						"Automation hook",
-						target.relationshipSchemaSlug,
-						new Set(Object.keys(snapshot.relationshipSchemas)),
-					);
+					yield* assertReference("Automation hook", target.relationshipSchemaSlug, relationships);
 				}
 				if (target.resource === "signal") {
-					yield* assertReference(
-						"Automation hook",
-						target.signalSchemaSlug,
-						new Set(Object.keys(snapshot.signalSchemas)),
-					);
+					yield* assertReference("Automation hook", target.signalSchemaSlug, signals);
 				}
 			}
 		}
@@ -419,15 +442,13 @@ type ScriptDescriptor = Pick<PluginScript, "kind" | "slug">;
 
 export const validateSignalSchemaFormatterReferences = (
 	snapshot: DefinitionSnapshot,
-	pluginScripts: ReadonlyArray<ScriptDescriptor>,
 	kernelScripts: ReadonlyArray<ScriptDescriptor>,
 	kernelSignalSlugs: ReadonlySet<string>,
 ) =>
 	Effect.gen(function* () {
-		const scripts = [...pluginScripts, ...kernelScripts];
 		const kernelScriptSlugs = new Set(kernelScripts.map(({ slug }) => slug));
 		const scriptSlugs = new Set<string>();
-		for (const script of scripts) {
+		for (const script of kernelScripts) {
 			if (scriptSlugs.has(script.slug)) {
 				return yield* fail(`Duplicate script slug: ${script.slug}`);
 			}

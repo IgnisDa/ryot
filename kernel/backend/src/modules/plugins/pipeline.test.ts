@@ -67,10 +67,13 @@ it("hashes manifest metadata, compiled JavaScript, entries, and format into pack
 it("hashes client artifact identity and file contents into package identity", () => {
 	const manifest = fixtureManifest();
 	const artifact: PluginClientArtifact = {
+		imports: [],
 		hash: "artifact-hash",
 		format: CLIENT_ARTIFACT_FORMAT,
 		apiVersion: CLIENT_API_VERSION,
+		packageId: manifest.metadata.packageId,
 		compilerVersion: CLIENT_COMPILER_VERSION,
+		clientDeclarationHash: "client-declaration",
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		files: [
 			{ name: "image.png", contentType: "image/png", contents: new Uint8Array([0, 255, 1]) },
@@ -211,5 +214,70 @@ it.effect("rejects a package with no compiled script collection", () =>
 		const error = yield* Effect.flip(normalizePluginSource({ manifest }));
 
 		expect(error.issues).toEqual(["Plugin compiled scripts are missing"]);
+	}),
+);
+
+it.effect("validates integration and import schemas before normalizing a package", () =>
+	Effect.gen(function* () {
+		const fixture = fixtureManifest();
+		const script = fixture.scripts[0];
+		assert(script);
+		const normalizeFixture = (manifest: unknown) =>
+			normalizePluginSource({
+				manifest,
+				compiledScripts: [{ format: 1, entry: script.entry, javascript: "export {};" }],
+			});
+		const integrationProvider = {
+			slug: "fixture",
+			name: "Fixture",
+			lot: "push" as const,
+			description: "Fixture integration",
+			settingsSchema: { fields: {}, unknownKeys: "strict" as const },
+		};
+		const emptySettings = yield* Effect.flip(
+			normalizeFixture({ ...fixture, integrationProviders: [integrationProvider] }),
+		);
+		expect(emptySettings.issues.join("; ")).toContain("has an invalid settingsSchema");
+
+		const noStrictInputSchema = yield* Effect.flip(
+			normalizeFixture({
+				...fixture,
+				importSources: [
+					{
+						slug: "fixture",
+						name: "Fixture",
+						description: "Fixture import",
+						workflowSlug: "fixture-workflow",
+						inputSchema: {
+							unknownKeys: "strip",
+							fields: {
+								marker: { type: "string", label: "Marker", description: "Fixture marker" },
+							},
+						},
+					},
+				],
+			}),
+		);
+		expect(noStrictInputSchema.issues.join("; ")).toContain(
+			"Expected a strict import input schema",
+		);
+
+		const normalized = yield* normalizeFixture({
+			...fixture,
+			integrationProviders: [
+				{
+					...integrationProvider,
+					settingsSchema: {
+						unknownKeys: "strict" as const,
+						fields: {
+							marker: { label: "Marker", type: "string" as const, description: "Fixture marker" },
+						},
+					},
+				},
+			],
+		});
+		expect(normalized.manifest.integrationProviders[0]?.settingsSchema.fields).toHaveProperty(
+			"marker",
+		);
 	}),
 );

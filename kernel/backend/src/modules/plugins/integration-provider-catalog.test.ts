@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import { assert, describe } from "vitest";
 
@@ -114,14 +114,28 @@ describe("revision-backed integration providers", () => {
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect("switches both script and config references on upgrade", () =>
 			Effect.gen(function* () {
-				const installed = yield* installRevisionPackage(packageWithProviders("notes", "v1"), owner);
+				const original = packageWithProviders("notes", "v1");
+				const installed = yield* installRevisionPackage(original, owner);
 				const catalog = yield* IntegrationProviderCatalog.make;
 				const before = yield* catalog.resolveOwnedForUser(
 					owner,
 					"notes-sink",
 					installed.installation.id,
 				);
-				const updated = yield* installRevisionPackage(packageWithProviders("notes", "v2"), owner);
+				const next = packageWithProviders("notes", "v2");
+				const updated = yield* installRevisionPackage(
+					{
+						...next,
+						manifest: {
+							...next.manifest,
+							metadata: {
+								...next.manifest.metadata,
+								packageId: original.manifest.metadata.packageId,
+							},
+						},
+					},
+					owner,
+				);
 				const after = yield* catalog.resolveOwnedForUser(
 					owner,
 					"notes-sink",
@@ -137,15 +151,30 @@ describe("revision-backed integration providers", () => {
 		);
 	});
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("lets the executable system provider win a private slug clash", () =>
+		test.effect("keeps same-name integration providers and selects their exact installations", () =>
 			Effect.gen(function* () {
-				yield* installRevisionPackage(clashing("notes"), owner);
-				const system = yield* installRevisionPackage(clashing("zebra"));
+				const privatePlugin = yield* installRevisionPackage(clashing("whiskey"), owner);
+				const system = yield* installRevisionPackage(clashing("whiskey"));
 				const catalog = yield* IntegrationProviderCatalog.make;
 				expect(
 					(yield* catalog.listResolvedForUser(owner)).map(({ provider }) => provider.pluginId),
-				).toEqual([system.pluginId, system.pluginId, system.pluginId]);
-				expect((yield* catalog.findForUser(owner, "shared-sink"))?.pluginId).toBe(system.pluginId);
+				).toEqual(expect.arrayContaining([system.pluginId, privatePlugin.pluginId]));
+				expect(yield* catalog.listResolvedForUser(owner)).toHaveLength(6);
+				expect(
+					(yield* catalog.findForUser(owner, {
+						slug: "shared-sink",
+						owner: { kind: "plugin", pluginId: PluginId.make(system.pluginId) },
+					}))?.installationId,
+				).toBe(system.installation.id);
+				expect(
+					(yield* catalog.findForUser(owner, {
+						slug: "shared-sink",
+						owner: { kind: "plugin", pluginId: PluginId.make(privatePlugin.pluginId) },
+					}))?.installationId,
+				).toBe(privatePlugin.installation.id);
+				expect(
+					yield* catalog.findForUser(owner, { slug: "shared-sink", owner: { kind: "kernel" } }),
+				).toBeNull();
 			}),
 		);
 	});

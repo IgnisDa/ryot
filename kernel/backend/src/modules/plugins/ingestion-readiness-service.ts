@@ -84,7 +84,11 @@ export class IngestionReadinessService extends Context.Service<IngestionReadines
 					readonly settings?: Readonly<Record<string, unknown>>;
 					readonly acceptedPlan?: IngestionPlan;
 				}) {
-					const resolved = yield* imports.resolveForUser(input.userId, input.sourceSlug);
+					const resolved = yield* imports.resolveOwnedForUser(
+						input.userId,
+						input.sourceSlug,
+						input.installationId,
+					);
 					if (!resolved?.script || resolved.source.installationId !== input.installationId) {
 						return yield* new IngestionReadinessError({
 							message: "Import source operation is unavailable",

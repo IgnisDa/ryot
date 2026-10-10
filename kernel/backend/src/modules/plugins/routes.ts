@@ -46,8 +46,9 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 					.updatePrivatePlugin({
 						userId: user.id,
 						config: payload.config,
-						pluginSlug: params.pluginSlug,
+						sourceHash: payload.sourceHash,
 						uploadToken: payload.uploadToken,
+						installationId: params.installationId,
 						unsetConfigKeys: payload.unsetConfigKeys,
 					})
 					.pipe(dieOnDbError);
@@ -58,7 +59,7 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				const user = yield* CurrentUser;
 				const service = yield* PluginInstallationService;
 				return yield* service
-					.uninstallPlugin(user.id, params.pluginSlug, params.activationId)
+					.uninstallPlugin(user.id, params.installationId, params.activationId)
 					.pipe(dieOnDbError);
 			}),
 		)
@@ -67,7 +68,7 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				const user = yield* CurrentUser;
 				const service = yield* PluginInstallationService;
 				return yield* service
-					.updateInstallation(user.id, params.pluginSlug, payload)
+					.updateInstallation(user.id, params.installationId, payload)
 					.pipe(dieOnDbError);
 			}),
 		)
@@ -75,7 +76,9 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* PluginInstallationService;
-				return yield* service.setHomeView(user.id, params.pluginSlug, payload).pipe(dieOnDbError);
+				return yield* service
+					.setHomeView(user.id, params.installationId, payload)
+					.pipe(dieOnDbError);
 			}),
 		)
 		.handle("saveUserSettings", ({ params, payload }) =>
@@ -102,7 +105,7 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 					.invoke({
 						payload: payload.payload,
 						headers: request.headers,
-						pluginSlug: params.pluginSlug,
+						pluginId: params.pluginId,
 						operationSlug: params.operationSlug,
 						...(payload.sourceHash === undefined ? {} : { sourceHash: payload.sourceHash }),
 					})

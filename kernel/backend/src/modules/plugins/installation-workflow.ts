@@ -6,10 +6,13 @@ import { Activity, Workflow } from "effect/workflow";
 import { WorkflowEngine, type WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxExecutionService } from "#modules/sandbox/service";
+import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
 import { PluginInstallationRepository } from "./installation-repository";
@@ -24,7 +27,13 @@ type PluginInstallationWorkflowPayload = typeof PluginInstallationWorkflowPayloa
 const PluginInstallationBootstrap = Schema.Struct({
 	userId: UserId,
 	accountGeneration: AccountGeneration,
-	entries: Schema.Array(Schema.Struct({ slug: Schema.String, scriptId: SandboxScriptId })),
+	entries: Schema.Array(
+		Schema.Struct({
+			slug: Schema.String,
+			scriptId: SandboxScriptId,
+			pluginRevision: SandboxPluginRevision,
+		}),
+	),
 });
 type PluginInstallationBootstrap = typeof PluginInstallationBootstrap.Type;
 
@@ -47,6 +56,11 @@ export const pluginInstallationBootstrapExecutionId = (
 	`plugin-installation-bootstrap-${installationId.length}-${installationId}-${activationId.length}-${activationId}-${entrySlug.length}-${entrySlug}`;
 
 type PluginInstallationWorkflowOperationsValue = {
+	releaseBootstrapEntry: (
+		installationId: string,
+		activationId: string,
+		entrySlug: string,
+	) => Effect.Effect<void, InternalError>;
 	complete: (
 		installationId: string,
 		activationId: string,
@@ -68,6 +82,7 @@ type PluginInstallationWorkflowOperationsValue = {
 		readonly installationId: string;
 		readonly activationId: string;
 		readonly scriptId: SandboxScriptId;
+		readonly pluginRevision: SandboxPluginRevision;
 	}) => Effect.Effect<void, InternalError, WorkflowEngine | WorkflowInstance>;
 };
 
@@ -91,6 +106,8 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 	Effect.gen(function* () {
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
+		const sandboxRepository = yield* SandboxRepository;
+		const workflowReferences = yield* SandboxWorkflowReferenceRepository;
 		const invalidator = yield* PluginCatalogInvalidator;
 		const database = yield* DatabaseSession;
 		const installations = yield* PluginInstallationRepository;
@@ -98,26 +115,62 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 
 		const begin = (installationId: string, activationId: string) =>
 			asInternal(
-				Effect.gen(function* () {
-					const resolved = yield* runtime.resolveInstallationBootstrap(installationId);
-					if (resolved?.health !== "installing" || resolved.activationId !== activationId) {
-						return null;
-					}
-					const entries: Array<PluginInstallationBootstrap["entries"][number]> = [];
-					for (const entry of resolved.entries) {
-						if (!entry.scriptId) {
-							return yield* internalError(
-								`Plugin installation bootstrap script is unavailable: ${entry.slug}`,
-							);
-						}
-						entries.push({ slug: entry.slug, scriptId: entry.scriptId });
-					}
-					return {
-						entries,
-						userId: resolved.userId,
-						accountGeneration: yield* receipts.currentAccount(resolved.userId),
-					};
-				}),
+				database.transaction(
+					runtime.lockCatalog().pipe(
+						Effect.andThen(
+							Effect.gen(function* () {
+								const resolved = yield* runtime.resolveInstallationBootstrap(installationId);
+								if (resolved?.health !== "installing" || resolved.activationId !== activationId) {
+									return null;
+								}
+								const entries: Array<PluginInstallationBootstrap["entries"][number]> = [];
+								const accountGeneration = yield* receipts.currentAccount(resolved.userId);
+								const installation = yield* installations.findById(installationId);
+								if (installation?.isInitialized) {
+									return { entries, accountGeneration, userId: resolved.userId };
+								}
+								for (const entry of resolved.entries) {
+									if (!entry.scriptId) {
+										return yield* internalError(
+											`Plugin installation bootstrap script is unavailable: ${entry.slug}`,
+										);
+									}
+									const initialization = { activationId, installationId };
+									const pin = yield* sandboxRepository.getScriptPin(
+										entry.scriptId,
+										undefined,
+										{ type: "user", accountGeneration, userId: resolved.userId },
+										initialization,
+									);
+									if (!pin?.pluginRevision) {
+										return yield* internalError(
+											`Plugin installation bootstrap owner is unavailable: ${entry.slug}`,
+										);
+									}
+									yield* workflowReferences.registerInTransaction({
+										initialization,
+										userId: resolved.userId,
+										scriptId: entry.scriptId,
+										contentHash: pin.contentHash,
+										pluginId: pin.pluginRevision.id,
+										expectedRevision: pin.pluginRevision,
+										executionId: pluginInstallationBootstrapExecutionId(
+											installationId,
+											activationId,
+											entry.slug,
+										),
+									});
+									entries.push({
+										slug: entry.slug,
+										scriptId: entry.scriptId,
+										pluginRevision: pin.pluginRevision,
+									});
+								}
+								return { entries, accountGeneration, userId: resolved.userId };
+							}),
+						),
+					),
+				),
 				"Plugin installation could not be inspected",
 			);
 
@@ -154,16 +207,22 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 			asInternal(
 				Effect.gen(function* () {
 					const changed = yield* database.transaction(
-						installations
-							.updateHealthForActivation({
-								activationId,
-								health: "ready",
-								id: installationId,
-								healthReason: null,
-							})
-							.pipe(
-								Effect.tap((updated) => (updated ? invalidator.recordUser(userId) : Effect.void)),
-							),
+						Effect.gen(function* () {
+							const installation = yield* installations.findById(installationId);
+							if (installation?.userId !== userId) {
+								return false;
+							}
+							return yield* installations
+								.updateHealthForActivation({
+									activationId,
+									health: "ready",
+									id: installationId,
+									healthReason: null,
+								})
+								.pipe(
+									Effect.tap((updated) => (updated ? invalidator.recordUser(userId) : Effect.void)),
+								);
+						}),
 					);
 					if (changed) {
 						yield* invalidator.user(userId);
@@ -181,6 +240,11 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 						input: {},
 						lane: "background",
 						scriptId: input.scriptId,
+						pluginRevision: input.pluginRevision,
+						initialization: {
+							activationId: input.activationId,
+							installationId: input.installationId,
+						},
 						subject: {
 							type: "user",
 							userId: input.userId,
@@ -202,6 +266,13 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 			begin,
 			complete,
 			runBootstrapEntry,
+			releaseBootstrapEntry: (installationId, activationId, entrySlug) =>
+				asInternal(
+					sandbox.releaseWorkflowRegistration(
+						pluginInstallationBootstrapExecutionId(installationId, activationId, entrySlug),
+					),
+					"Plugin installation bootstrap pin could not be released",
+				),
 		} satisfies PluginInstallationWorkflowOperationsValue;
 	}),
 );
@@ -233,7 +304,7 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 		}
 
 		const { userId, entries, accountGeneration } = started.success;
-		for (const entry of entries) {
+		for (const [index, entry] of entries.entries()) {
 			const executed = yield* operations
 				.runBootstrapEntry({
 					userId,
@@ -241,10 +312,23 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 					entrySlug: entry.slug,
 					scriptId: entry.scriptId,
 					activationId: payload.activationId,
+					pluginRevision: entry.pluginRevision,
 					installationId: payload.installationId,
 				})
 				.pipe(Effect.result);
 			if (Result.isFailure(executed)) {
+				for (const skipped of entries.slice(index + 1)) {
+					yield* makeActivity({
+						name: `release-bootstrap-${skipped.slug}`,
+						success: Schema.Void satisfies DurableSchema,
+						error: InternalError satisfies DurableSchema,
+						execute: operations.releaseBootstrapEntry(
+							payload.installationId,
+							payload.activationId,
+							skipped.slug,
+						),
+					}).pipe(Activity.retry({ times: 3 }));
+				}
 				yield* markFailed(`Plugin installation bootstrap failed: ${entry.slug}`);
 				return;
 			}
@@ -272,8 +356,6 @@ export const PluginInstallationWorkflowDefinitionsLive = implementWorkflow(
 export class PluginInstallationLifecycleDispatcher extends Context.Service<PluginInstallationLifecycleDispatcher>()(
 	"PluginInstallationLifecycleDispatcher",
 	{
-		// Migration, legacy bootstrap and shipped-system ingestion never install a private plugin, so
-		// their default dispatcher does nothing and those paths need no `WorkflowEngine`.
 		make: Effect.succeed({
 			dispatch: (_input: PluginInstallationWorkflowPayload): Effect.Effect<void, InternalError> =>
 				Effect.void,

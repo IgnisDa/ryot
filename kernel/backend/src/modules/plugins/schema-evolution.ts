@@ -138,17 +138,47 @@ const compareDefinitions = (
 	}
 };
 
-const eventSchemas = (manifest: PluginManifest) =>
-	manifest.entitySchemas.flatMap((entitySchema) =>
-		entitySchema.eventSchemas.map((eventSchema) => ({
-			...eventSchema,
-			slug: `${entitySchema.slug}:${eventSchema.slug}`,
-		})),
-	);
-
 export const validateAdditiveSchemaEvolution = (previous: PluginManifest, next: PluginManifest) =>
 	Effect.gen(function* () {
 		const issues: Array<SchemaEvolutionIssue> = [];
+		if (previous.metadata.packageId !== next.metadata.packageId) {
+			issues.push({ code: "schema_changed", path: "metadata.packageId" });
+		}
+		for (const entity of previous.entitySchemas) {
+			const candidate = next.entitySchemas.find(({ slug }) => slug === entity.slug);
+			if (
+				candidate &&
+				stableStringify(entity.mergeIdentityProperties ?? []) !==
+					stableStringify(candidate.mergeIdentityProperties ?? [])
+			) {
+				issues.push({
+					code: "schema_changed",
+					path: `entity:${entity.slug}.mergeIdentityProperties`,
+				});
+			}
+		}
+		for (const relationship of previous.relationshipSchemas) {
+			const candidate = next.relationshipSchemas.find(({ slug }) => slug === relationship.slug);
+			if (
+				candidate &&
+				(relationship.sourceEntitySchemaSlug !== candidate.sourceEntitySchemaSlug ||
+					relationship.targetEntitySchemaSlug !== candidate.targetEntitySchemaSlug)
+			) {
+				issues.push({
+					code: "schema_changed",
+					path: `relationship:${relationship.slug}.endpoints`,
+				});
+			}
+		}
+		for (const provider of previous.providers) {
+			const candidate = next.providers.find(({ slug }) => slug === provider.slug);
+			if (candidate && provider.rootEntitySchemaSlug !== candidate.rootEntitySchemaSlug) {
+				issues.push({
+					code: "schema_changed",
+					path: `provider:${provider.slug}.rootEntitySchemaSlug`,
+				});
+			}
+		}
 		if (previous.userSettingsSchema) {
 			if (!next.userSettingsSchema) {
 				issues.push({ path: "userSettings", code: "schema_removed" });
@@ -162,7 +192,15 @@ export const validateAdditiveSchemaEvolution = (previous: PluginManifest, next: 
 			}
 		}
 		compareDefinitions("entity", previous.entitySchemas, next.entitySchemas, issues);
-		compareDefinitions("event", eventSchemas(previous), eventSchemas(next), issues);
+		for (const entity of previous.entitySchemas) {
+			const candidate = next.entitySchemas.find(({ slug }) => slug === entity.slug);
+			compareDefinitions(
+				`event:${entity.slug}`,
+				entity.eventSchemas,
+				candidate?.eventSchemas ?? [],
+				issues,
+			);
+		}
 		compareDefinitions(
 			"relationship",
 			previous.relationshipSchemas,
