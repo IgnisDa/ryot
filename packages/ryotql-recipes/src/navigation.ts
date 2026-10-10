@@ -1,5 +1,6 @@
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { PluginInstallationWriteResult } from "@ryot-app/contract/modules/plugins/schemas";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -24,9 +25,9 @@ export const navigationRecipe = defineRecipe(() => ({
 				reference: null,
 				name: item.name,
 				isHidden: false,
+				packageId: null,
 				sortOrder: index,
 				icon: "layers-3",
-				pluginSlug: null,
 				pluginInstallationId: null,
 			})),
 		}),
@@ -43,7 +44,7 @@ export const navigationRecipe = defineRecipe(() => ({
 		savedViews: selectedRows(savedView, {
 			limit: 100,
 			orderBy: [
-				ascending(column(savedView, "pluginSlug")),
+				ascending(column(savedView, "packageId")),
 				ascending(column(savedView, "sortOrder")),
 				ascending(column(savedView, "slug")),
 			],
@@ -54,7 +55,7 @@ export const navigationRecipe = defineRecipe(() => ({
 				isHidden: selectedField(column(savedView, "isHidden"), Schema.Boolean),
 				sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Finite),
 				reference: selectedField(column(savedView, "reference"), SavedViewReference),
-				pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(Schema.String)),
+				packageId: selectedField(column(savedView, "packageId"), Schema.NullOr(PluginPackageId)),
 				pluginInstallationId: selectedField(
 					column(savedView, "pluginInstallationId"),
 					Schema.NullOr(PluginInstallationWriteResult.fields.id),

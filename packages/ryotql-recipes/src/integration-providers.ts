@@ -102,7 +102,6 @@ export const integrationProvidersRecipe = defineRecipe(
 					lot: selectedField(column(provider, "lot"), Schema.Literals([...integrationLots])),
 					packageId: selectedField(column(provider, "packageId"), Schema.NullOr(PluginPackageId)),
 					scriptSlug: selectedField(column(provider, "scriptSlug"), Schema.NullOr(Schema.String)),
-					pluginSlug: selectedField(column(provider, "pluginSlug"), Schema.NullOr(Schema.String)),
 					installationId: selectedField(
 						column(provider, "installationId"),
 						Schema.NullOr(Schema.String),

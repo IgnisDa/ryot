@@ -83,7 +83,6 @@ export const importSourcesRecipe = defineRecipe(
 					name: selectedField(column(source, "name"), PluginImportSource.fields.name),
 					pluginId: selectedField(column(source, "pluginId"), Schema.NullOr(PluginId)),
 					packageId: selectedField(column(source, "packageId"), Schema.NullOr(PluginPackageId)),
-					pluginSlug: selectedField(column(source, "pluginSlug"), Schema.NullOr(Schema.String)),
 					installationId: selectedField(
 						column(source, "installationId"),
 						Schema.NullOr(Schema.String),
