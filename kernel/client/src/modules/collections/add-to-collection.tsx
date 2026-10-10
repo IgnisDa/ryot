@@ -14,6 +14,7 @@ import {
 	useSchemaAssetUpload,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
+	Badge,
 	Button,
 	DestructiveConfirmation,
 	Dialog,
@@ -22,6 +23,7 @@ import {
 	Notice,
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	initialSchemaFormValues,
 	SchemaForm,
@@ -153,13 +155,17 @@ function CollectionOptions(props: {
 			<ul className="grid gap-2">
 				{items.map((option) => (
 					<li key={option.id}>
-						<Button
-							variant="secondary"
-							className="w-full justify-between"
-							onClick={() => props.onSelect(option)}
-						>
-							<span>{option.name}</span>
-							{option.added ? <span>Added</span> : null}
+						<Button className="w-full" variant="secondary" onClick={() => props.onSelect(option)}>
+							<span className="min-w-0 flex-1 text-left break-words">{option.name}</span>
+							<span className="flex shrink-0 items-center gap-2">
+								{option.added ? (
+									<Badge size="sm" variant="success">
+										<AppIcon size={12} name="check" />
+										Added
+									</Badge>
+								) : null}
+								<AppIcon size={15} name="chevron-right" className="text-text-subtle" />
+							</span>
 						</Button>
 					</li>
 				))}
