@@ -19,6 +19,7 @@ import {
 	jsonArrayCount,
 	jsonArrayExists,
 	jsonArrayFirst,
+	jsonElementsJoin,
 	jsonPath,
 	literal,
 	measure,
@@ -29,7 +30,7 @@ import {
 } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
-import { bindRyotQLDocument } from "./binding";
+import { bindRyotQLDocument, pluginIdentityReferences } from "./binding";
 
 const countMatchingValues = (value: unknown, key: string, expected: string): number => {
 	if (Array.isArray(value)) {
@@ -268,4 +269,50 @@ it.effect(
 			});
 			expect(yield* bindRyotQLDocument(exact, { type: "admin" }, catalog)).toEqual(exact);
 		}),
+);
+
+it.effect("binds self inside JSON elements join expressions", () =>
+	Effect.gen(function* () {
+		const self = pluginId({ kind: "self" });
+		const document = {
+			queries: {
+				rows: rows(root, {
+					fields: [],
+					joins: [
+						jsonElementsJoin(
+							"inner",
+							"element",
+							conditional(
+								eq(self, column(root, "entitySchemaPluginId")),
+								jsonPath(column(root, "properties"), "items"),
+								literal(null),
+							),
+						),
+					],
+				}),
+			},
+		};
+		const bound = yield* bindRyotQLDocument(
+			document,
+			{
+				...user,
+				definitionContext: {
+					pluginId: local.pluginId,
+					pluginRevisionId: PluginRevisionId.make("a-v1"),
+				},
+			},
+			catalog,
+		);
+		expect(bound.queries["rows"]?.joins).toMatchObject([
+			{ expr: { condition: { left: { type: "pluginId", reference: local } } } },
+		]);
+		expect(pluginIdentityReferences(bound)).toEqual([local]);
+		expect(yield* Effect.flip(bindRyotQLDocument(document, user, catalog))).toMatchObject({
+			reason: {
+				issue: "self-unbound",
+				reference: { kind: "self" },
+				code: "unresolved-query-owner",
+			},
+		});
+	}),
 );

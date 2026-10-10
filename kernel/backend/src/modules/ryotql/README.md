@@ -77,17 +77,19 @@ Predicates include `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `in`, `isN
 
 JSON arrays use `jsonElement` plus the `jsonExists`, `jsonFirst`, and `jsonCount` operators. `jsonElement` denotes the current array item and is valid only inside one of those operators. `jsonExists` tests whether any item matches an optional predicate, `jsonFirst` projects the first matching item under an explicit ordering, and `jsonCount` counts matching items. Element expressions reuse the scalar language (`jsonPath`, casts, comparisons, outer table columns) and stay visible inside nested correlated queries. A missing, null, or non-array value behaves as an empty set: `jsonExists` is false, `jsonFirst` is null, and `jsonCount` is zero. `jsonFirst` results carry the selected kind, so a date projection such as the next anime `airingAt` is a first-class filter, order key, and cursor value. Element nesting must not exceed 3.
 
+A `jsonElements` join (`{ type: "jsonElements", mode, alias, expr }`) instead emits one row per item of a JSON array. `expr` must be a JSON expression over aliases already in scope and is field-checked with the same audience and credential rules as any other expression. The alias exposes only `value` (the item, null for a JSON null) and `ordinal` (its 1-based position), wildcards included. With `mode: "inner"`, an empty, missing, null, object, or scalar value yields no rows, so the parent row drops out, including when `expr` reads a left-joined table that matched nothing. With `mode: "left"`, such a parent appears once with `value` and `ordinal` null; non-empty arrays behave as in `inner`. These joins count toward the join limit and are allowed in roots, includes, and correlated queries.
+
 `dateBucket` accepts hour, day, week, or month plus an IANA zone and returns the local boundary as an ISO UTC instant; weeks start Monday and daylight-saving offsets are respected. Invalid zones and non-date inputs fail validation.
 
 `currentDate` takes no operands and returns the server's current UTC day as a date at UTC midnight, the same shape as `castDate` of a date-only string, so `castDate(publishDate) <= currentDate()` is a plain date comparison. It is evaluated once per statement.
 
 ## Joins, Includes, And Pagination
 
-Inner and left joins support any visible catalog tables and normal SQL multiplicity. A join may refer to its new alias and aliases already in scope. Authorization is inside each table occurrence, so an invisible right row in a left join becomes null without removing the left row.
+Inner and left joins support any visible catalog tables and normal SQL multiplicity. A join may refer to its new alias and aliases already in scope. Caller aliases never reach SQL; every table and element alias compiles to a generated name. Authorization is inside each table occurrence, so an invisible right row in a left join becomes null without removing the left row.
 
 Includes are correlated row queries with their own root, optional joins/predicate, fields, non-empty order, explicit limit, and optional nested includes. They return `{ items, pageInfo: { limit, hasMore } }`; no match returns an empty list. Sibling aliases are isolated.
 
-Root rows use `{ limit, after? }` and return `{ items, pageInfo: { limit, hasMore, nextCursor } }`. Pagination is forward-only and cursors are opaque and validated. The backend fetches `limit + 1`, returns at most `limit`, and emits a cursor only when another row exists. Primary-key tie breakers and `NULLS LAST` make multiplied rows deterministic. SDK-built roots default to 20 and primary-key ascending order. Persisted saved-view documents must omit cursors.
+Root rows use `{ limit, after? }` and return `{ items, pageInfo: { limit, hasMore, nextCursor } }`. Pagination is forward-only and cursors are opaque and validated. The backend fetches `limit + 1`, returns at most `limit`, and emits a cursor only when another row exists. Primary-key tie breakers, followed by the `ordinal` of each of the query's own `jsonElements` joins, and `NULLS LAST` make multiplied rows deterministic in roots, includes, and `first`. SDK-built roots default to 20 and primary-key ascending order. Persisted saved-view documents must omit cursors.
 
 ## Derived Fields
 

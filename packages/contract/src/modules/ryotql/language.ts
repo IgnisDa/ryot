@@ -286,11 +286,23 @@ export const Predicate: Schema.Codec<Predicate, unknown> = Schema.suspend(() =>
 	]),
 ).annotate({ identifier: "RyotQLPredicate" });
 
-export const Join = strictStruct({
+const TableJoin = strictStruct({
 	on: Predicate,
 	table: TableReference,
 	type: Schema.Literals(["inner", "left"]),
-}).annotate({ identifier: "RyotQLJoin" });
+}).annotate({ identifier: "RyotQLTableJoin" });
+
+export const JsonElementsJoin = strictStruct({
+	alias: Schema.String,
+	expr: ScalarExpression,
+	type: Schema.Literal("jsonElements"),
+	mode: Schema.Literals(["inner", "left"]),
+}).annotate({ identifier: "RyotQLJsonElementsJoin" });
+export type JsonElementsJoin = typeof JsonElementsJoin.Type;
+
+export const Join = Schema.Union([TableJoin, JsonElementsJoin]).annotate({
+	identifier: "RyotQLJoin",
+});
 export type Join = typeof Join.Type;
 
 export const OutputFieldKey = Schema.NonEmptyString.annotate({
@@ -467,7 +479,10 @@ export const mapPluginIdentityReferences = (
 		expr: expression(value.expr),
 	});
 	const selection = (value: RowSelection): RowSelection => ("expr" in value ? field(value) : value);
-	const join = (value: Join): Join => ({ ...value, on: predicate(value.on) });
+	const join = (value: Join): Join =>
+		value.type === "jsonElements"
+			? { ...value, expr: expression(value.expr) }
+			: { ...value, on: predicate(value.on) };
 	const querySet = <A extends CorrelatedQuerySet>(value: A) => ({
 		...value,
 		...(value.where === undefined ? {} : { where: predicate(value.where) }),

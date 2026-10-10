@@ -39,6 +39,7 @@ import {
 	jsonArrayExists,
 	jsonArrayFirst,
 	jsonElement,
+	jsonElementsJoin,
 	jsonPath,
 	gt,
 	kebabCase,
@@ -1630,6 +1631,80 @@ layer(
 			]);
 		});
 	});
+});
+
+layer(makeServiceLayer())((test) => {
+	test.effect(
+		"compiles JSON elements joins as guarded laterals with internal aliases and ordinal tie-breakers",
+		() => {
+			const entity = table("entity", "entity");
+			const child = table("entity", "child");
+			const peer = table("entity", "peer");
+			const items = (from: typeof entity) => jsonPath(column(from, "properties"), "items");
+			const element = jsonElementsJoin("inner", 'element"; DROP TABLE entity; --)', items(entity));
+			const childElement = jsonElementsJoin("left", "childElement", items(child));
+			const peerElement = jsonElementsJoin("inner", "peerElement", items(peer));
+			const document = {
+				queries: {
+					entities: rows(entity, {
+						joins: [element],
+						include: [
+							include(child, {
+								limit: 5,
+								key: "children",
+								joins: [childElement],
+								orderBy: [ascending(column(child, "id"))],
+								where: eq(column(child, "id"), column(entity, "id")),
+								fields: [field("ordinal", column(childElement, "ordinal"))],
+							}),
+						],
+						fields: [
+							field("value", column(element, "value")),
+							field(
+								"first",
+								first(peer, {
+									joins: [peerElement],
+									select: column(peerElement, "value"),
+									orderBy: [ascending(column(peer, "id"))],
+									where: eq(column(peer, "id"), column(entity, "id")),
+								}),
+							),
+						],
+					}),
+				},
+			} satisfies RyotQLDocument;
+
+			return Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				yield* service.executeForUser("user-1", null, "kernel", document);
+
+				const statement = (yield* (yield* RecordedStatements).statements)[2];
+				expect(statement).not.toContain("DROP TABLE");
+				expect(statement).not.toContain("childElement");
+				expect(statement).not.toContain("peerElement");
+				expect(statement).toContain(
+					"CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(",
+				);
+				expect(statement).toContain(
+					`ELSE '[]'::jsonb END) WITH ORDINALITY AS t1("value", "ordinal")`,
+				);
+				expect(statement).toContain(`NULLIF(t1."value", 'null'::jsonb)`);
+				expect(statement).toMatch(
+					/LEFT JOIN LATERAL jsonb_array_elements\(CASE WHEN jsonb_typeof\(.+ELSE '\[\]'::jsonb END\) WITH ORDINALITY AS i0t1\("value", "ordinal"\) ON true/,
+				);
+				expect(statement).not.toMatch(/LEFT JOIN LATERAL [^\n]+ AS (t1|c\d+_t1)\(/);
+				expect(statement).toMatch(
+					/ORDER BY t0\."id" COLLATE "C" ASC NULLS LAST, t1\."ordinal" ASC NULLS LAST\s+LIMIT \$\d+/,
+				);
+				expect(statement).toMatch(
+					/ORDER BY i0t0\."id" COLLATE "C" ASC NULLS LAST, i0t1\."ordinal" ASC NULLS LAST\s+LIMIT \$\d+/,
+				);
+				expect(statement).toMatch(
+					/ORDER BY c\d+_t0\."id" COLLATE "C" ASC NULLS LAST, c\d+_t1\."ordinal" ASC NULLS LAST LIMIT 1/,
+				);
+			});
+		},
+	);
 });
 
 layer(makeServiceLayer(Effect.fail(new DbError({ code: "57014", message: "statement timeout" }))))(

@@ -31,6 +31,7 @@ import { definitionReadContext, pluginIdentityReferences } from "./binding";
 import {
 	canAccessCatalogTable,
 	getCatalogTable,
+	jsonElementsTable,
 	resolveCatalogField,
 	type CatalogTable,
 	type RyotQLExecutionScope,
@@ -119,17 +120,21 @@ const scopeLanguage = (scope: CompileScope) => {
 const expressionScope = (query: CorrelatedQuerySet, ancestors: CompileScope) => {
 	const executionScope = scopeExecution(ancestors);
 	const scope = new Map(ancestors);
-	for (const [index, reference] of [
-		query.from,
-		...(query.joins ?? []).map((join) => join.table),
-	].entries()) {
-		scope.set(reference.alias, {
-			executionScope,
-			joinedNullable: index > 0,
-			table: requireTable(reference.table),
-			alias: `kind${ancestors.size}_t${index}`,
-		});
-	}
+	scope.set(query.from.alias, {
+		executionScope,
+		joinedNullable: false,
+		alias: `kind${ancestors.size}_t0`,
+		table: requireTable(query.from.table),
+	});
+	(query.joins ?? []).forEach((join, index) => {
+		const alias = `kind${ancestors.size}_t${index + 1}`;
+		scope.set(
+			join.type === "jsonElements" ? join.alias : join.table.alias,
+			join.type === "jsonElements"
+				? { alias, executionScope, table: jsonElementsTable, joinedNullable: join.mode === "left" }
+				: { alias, executionScope, joinedNullable: true, table: requireTable(join.table.table) },
+		);
+	});
 	return scope;
 };
 
@@ -756,9 +761,19 @@ const buildScope = (
 		joinedNullable: false,
 	});
 	(query.joins ?? []).forEach((join, index) => {
+		const alias = `${prefix}t${index + 1}`;
+		if (join.type === "jsonElements") {
+			scope.set(join.alias, {
+				alias,
+				executionScope,
+				table: jsonElementsTable,
+				joinedNullable: join.mode === "left",
+			});
+			return;
+		}
 		scope.set(join.table.alias, {
+			alias,
 			executionScope,
-			alias: `${prefix}t${index + 1}`,
 			joinedNullable: join.type === "left",
 			table: requireTable(join.table.table),
 		});
@@ -775,6 +790,14 @@ const querySetSql = (
 ): SqlFragment => {
 	const root = requireCompileTable(scope, query.from.alias);
 	const joins = (query.joins ?? []).map((join) => {
+		if (join.type === "jsonElements") {
+			const elements = requireCompileTable(scope, join.alias);
+			const array = compileExpression(join.expr, scope);
+			const source = sql`jsonb_array_elements(CASE WHEN jsonb_typeof(${array}) = 'array' THEN ${array} ELSE '[]'::jsonb END) WITH ORDINALITY AS ${sql.raw(elements.alias)}(${identifier("value")}, ${identifier("ordinal")})`;
+			return join.mode === "inner"
+				? sql`CROSS JOIN LATERAL ${source}`
+				: sql`LEFT JOIN LATERAL ${source} ON true`;
+		}
 		const joined = requireCompileTable(scope, join.table.alias);
 		const joinType = join.type === "inner" ? sql`INNER JOIN` : sql`LEFT JOIN`;
 		return sql`${joinType} ${authorizedTable(joined.table, executionScope)} ${sql.raw(joined.alias)} ON ${compilePredicate(join.on, scope)}`;
@@ -819,19 +842,26 @@ const expressionOrderSql = (
 		sql`, `,
 	);
 
-const appendPrimaryKeyOrders = (query: QuerySet, requested: readonly Order[]): Order[] => [
-	...requested,
-	...[...(query.joins ?? []).map((join) => join.table), query.from].flatMap((reference) =>
-		requireTable(reference.table)
-			.primaryKey.filter(
-				(field) => !requested.some((order) => isColumnOrder(order.expr, reference.alias, field)),
-			)
+const appendPrimaryKeyOrders = (query: QuerySet, requested: readonly Order[]): Order[] => {
+	const joins = query.joins ?? [];
+	const keyOrders = (alias: string, table: CatalogTable) =>
+		table.primaryKey
+			.filter((field) => !requested.some((order) => isColumnOrder(order.expr, alias, field)))
 			.map((field) => ({
 				direction: "asc" as const,
-				expr: { field, type: "column" as const, tableAlias: reference.alias },
-			})),
-	),
-];
+				expr: { field, tableAlias: alias, type: "column" as const },
+			}));
+	return [
+		...requested,
+		...[
+			...joins.flatMap((join) => (join.type === "jsonElements" ? [] : [join.table])),
+			query.from,
+		].flatMap((reference) => keyOrders(reference.alias, requireTable(reference.table))),
+		...joins.flatMap((join) =>
+			join.type === "jsonElements" ? keyOrders(join.alias, jsonElementsTable) : [],
+		),
+	];
+};
 
 const cursorError = () => new RyotQLBadRequest({ reason: { code: "invalid-cursor" } });
 

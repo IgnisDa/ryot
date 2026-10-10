@@ -1,7 +1,14 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { OutputFieldKey, Pagination, RyotQLDocument, RyotQLResponse } from "./language";
+import { PluginId } from "../../schema/brands";
+import {
+	mapPluginIdentityReferences,
+	OutputFieldKey,
+	Pagination,
+	RyotQLDocument,
+	RyotQLResponse,
+} from "./language";
 
 const document = {
 	queries: {
@@ -438,6 +445,59 @@ describe("RyotQLDocument", () => {
 			},
 		} as const;
 		expect(Schema.decodeSync(RyotQLResponse)(response)).toEqual(response);
+	});
+
+	it("decodes JSON elements joins and maps plugin identities in their expressions", () => {
+		const elements = {
+			mode: "inner",
+			alias: "element",
+			type: "jsonElements",
+			expr: {
+				type: "conditional",
+				whenFalse: { value: null, type: "literal" },
+				condition: { type: "isNotNull", expr: { type: "pluginId", reference: { kind: "self" } } },
+				whenTrue: {
+					path: ["items"],
+					type: "jsonPath",
+					expr: { type: "column", field: "properties", tableAlias: "collection" },
+				},
+			},
+		} as const;
+		const withElements = {
+			queries: { collections: { ...document.queries.collections, joins: [elements] } },
+		} as const;
+		const decoded = Schema.decodeSync(RyotQLDocument)(withElements);
+		expect(decoded).toEqual(withElements);
+		const leftElements = {
+			queries: {
+				collections: { ...document.queries.collections, joins: [{ ...elements, mode: "left" }] },
+			},
+		} as const;
+		expect(Schema.decodeSync(RyotQLDocument)(leftElements)).toEqual(leftElements);
+
+		const local = { kind: "local", pluginId: PluginId.make("plugin-a") } as const;
+		expect(mapPluginIdentityReferences(decoded, () => local)).toMatchObject({
+			queries: {
+				collections: {
+					joins: [{ expr: { condition: { expr: { type: "pluginId", reference: local } } } }],
+				},
+			},
+		});
+
+		for (const join of [
+			{ ...elements, on: { type: "and", predicates: [] } },
+			{ mode: "inner", alias: "element", type: "jsonElements" },
+			{ mode: "inner", expr: elements.expr, type: "jsonElements" },
+			{ alias: "element", expr: elements.expr, type: "jsonElements" },
+			{ ...elements, mode: "outer" },
+			{ ...elements, type: "cross" },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(RyotQLDocument)({
+					queries: { collections: { ...document.queries.collections, joins: [join] } },
+				}),
+			).toThrow();
+		}
 	});
 
 	it("rejects present empty join and include collections", () => {

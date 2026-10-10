@@ -41,6 +41,7 @@ import {
 	jsonArrayExists,
 	jsonArrayFirst,
 	jsonElement,
+	jsonElementsJoin,
 	jsonPath,
 	literal,
 	lt,
@@ -151,6 +152,31 @@ describe("RyotQL builders", () => {
 			select: airingAt,
 			type: "jsonFirst",
 			orderBy: [{ expr: airingAt, direction: "asc" }],
+		});
+	});
+
+	it("builds JSON elements joins whose alias exposes value and ordinal columns", () => {
+		const entity = table("entity", "entity");
+		const items = jsonPath(column(entity, "properties"), "items");
+		const element = jsonElementsJoin("inner", "element", items);
+
+		expect(element).toEqual({ expr: items, mode: "inner", alias: "element", type: "jsonElements" });
+		expect(jsonElementsJoin("left", "element", items)).toEqual({
+			expr: items,
+			mode: "left",
+			alias: "element",
+			type: "jsonElements",
+		});
+		expect(column(element, "value")).toEqual({
+			field: "value",
+			type: "column",
+			tableAlias: "element",
+		});
+		expect(
+			rows(entity, { joins: [element], fields: [field("ordinal", column(element, "ordinal"))] }),
+		).toMatchObject({
+			joins: [element],
+			output: { fields: [{ key: "ordinal", expr: { field: "ordinal", tableAlias: "element" } }] },
 		});
 	});
 
