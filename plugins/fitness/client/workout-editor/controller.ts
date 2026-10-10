@@ -1,4 +1,9 @@
-import { RyotClientError, type RyotSchedule } from "@ryot-app/plugin-client-sdk";
+import {
+	RyotClientError,
+	type ManagedAssetLocator,
+	type RyotClient,
+	type RyotSchedule,
+} from "@ryot-app/plugin-client-sdk";
 import { Effect, Semaphore } from "@ryot-app/plugin-client-sdk/effect";
 import type {
 	PluginDeviceRequest,
@@ -18,6 +23,14 @@ import type {
 	WorkoutEditorSaveOutput,
 } from "../../shared/workout-editor-operations";
 import { completeWorkoutSet } from "./actions";
+import {
+	attachDraftMedia,
+	draftMedia,
+	sameMedia,
+	targetMedia,
+	type WorkoutMediaKind,
+	type WorkoutMediaTarget,
+} from "./media-state";
 import { invalidateWorkoutCountdowns, reconcileWorkoutTimers } from "./timers";
 
 type WorkoutEditorContext = typeof WorkoutEditorContextOutputSchema.Type;
@@ -49,11 +62,15 @@ type WorkoutEditorControllerSnapshot =
 			readonly draft: WorkoutEditorDraft;
 			readonly persistenceError: unknown;
 			readonly saving: boolean;
+			readonly uploading: boolean;
+			readonly uploadError?: unknown;
 			readonly status: "ready";
 			readonly timerError: unknown;
 	  });
 
 type WorkoutEditorControllerPorts = {
+	readonly upload?: RyotClient["uploads"]["uploadPermanent"];
+	readonly cleanup?: RyotClient["uploads"]["cleanup"];
 	readonly device?:
 		| ((request: PluginDeviceRequest) => Effect.Effect<PluginDeviceResult, unknown>)
 		| undefined;
@@ -71,6 +88,11 @@ type WorkoutEditorControllerPorts = {
 };
 
 type WorkoutEditorController = {
+	readonly uploadMedia: (
+		target: WorkoutMediaTarget,
+		kind: WorkoutMediaKind,
+		file: File,
+	) => Effect.Effect<void, unknown>;
 	readonly beginSubmission: (
 		input: WorkoutEditorSaveInput,
 	) => Effect.Effect<WorkoutEditorSaveInput, unknown>;
@@ -117,6 +139,7 @@ export const createWorkoutEditorController = (
 	const listeners = new Set<() => void>();
 	const loadSemaphore = Semaphore.makeUnsafe(1);
 	const persistenceSemaphore = Semaphore.makeUnsafe(1);
+	const mediaSemaphore = Semaphore.makeUnsafe(1);
 	const timerCallbacks = new Map<
 		TimerName,
 		{ readonly cancel: () => void; readonly snapshot: TimerSnapshot }
@@ -359,7 +382,7 @@ export const createWorkoutEditorController = (
 			),
 		);
 
-	const flush = () =>
+	const flushDraft = () =>
 		persistenceSemaphore.withPermit(
 			Effect.gen(function* () {
 				for (;;) {
@@ -386,6 +409,59 @@ export const createWorkoutEditorController = (
 				}
 			}),
 		);
+	const flush = () =>
+		mediaSemaphore.withPermit(
+			Effect.gen(function* () {
+				yield* flushDraft();
+				yield* cleanupAbandonedMedia();
+			}),
+		);
+
+	const cleanupAssets = (assets: readonly ManagedAssetLocator[]) =>
+		Effect.forEach(assets, (asset) => ports.cleanup?.(asset).pipe(Effect.ignore) ?? Effect.void, {
+			discard: true,
+		});
+
+	const cleanupAbandonedMedia = () =>
+		Effect.gen(function* () {
+			if (
+				disposed ||
+				!isReady(snapshot) ||
+				snapshot.saving ||
+				snapshot.draft.submission !== undefined ||
+				ports.cleanup === undefined
+			) {
+				return;
+			}
+			const draftId = snapshot.draft.draftId;
+			const media = draftMedia(snapshot.draft);
+			const abandoned = (snapshot.draft.uploadedAssets ?? []).filter(
+				(asset) => !media.some((candidate) => sameMedia(candidate, asset)),
+			);
+			if (abandoned.length === 0) {
+				return;
+			}
+			for (const asset of abandoned) {
+				const cleaned = yield* ports
+					.cleanup(asset)
+					.pipe(Effect.match({ onSuccess: () => true, onFailure: () => false }));
+				const latest = getSnapshot();
+				if (
+					cleaned &&
+					isReady(latest) &&
+					latest.draft.draftId === draftId &&
+					latest.draft.submission === undefined
+				) {
+					setDraft({
+						...latest.draft,
+						uploadedAssets: latest.draft.uploadedAssets?.filter(
+							(candidate) => !sameMedia(candidate, asset),
+						),
+					});
+				}
+			}
+			yield* flushDraft();
+		});
 
 	const startFlush = () => {
 		if (
@@ -506,6 +582,7 @@ export const createWorkoutEditorController = (
 					saving: false,
 					alertStatus: {},
 					status: "ready",
+					uploading: false,
 					draft: recovered,
 					timerError: undefined,
 					deviceError: undefined,
@@ -592,7 +669,7 @@ export const createWorkoutEditorController = (
 	const removeDraft = (requiresSubmission: boolean) =>
 		persistenceSemaphore.withPermit(
 			Effect.gen(function* () {
-				if (discarding || (isReady(snapshot) && snapshot.saving)) {
+				if (discarding || (isReady(snapshot) && (snapshot.saving || snapshot.uploading))) {
 					return false;
 				}
 				if (requiresSubmission) {
@@ -607,6 +684,7 @@ export const createWorkoutEditorController = (
 				}
 				discarding = true;
 				const removedDraftId = isReady(snapshot) ? snapshot.draft.draftId : undefined;
+				const uploadedAssets = isReady(snapshot) ? (snapshot.draft.uploadedAssets ?? []) : [];
 				const removed = yield* Effect.match(ports.storage.remove, {
 					onSuccess: () => ({ kind: "success" as const }),
 					onFailure: (error) => ({ error, kind: "failure" as const }),
@@ -628,6 +706,7 @@ export const createWorkoutEditorController = (
 				const contextError = snapshot.contextError;
 				publish({ context, contextError, status: "empty" });
 				yield* synchronize(undefined, removedDraftId);
+				yield* cleanupAssets(uploadedAssets);
 				return true;
 			}).pipe(Effect.uninterruptible),
 		);
@@ -669,7 +748,11 @@ export const createWorkoutEditorController = (
 				return false;
 			}
 			const next = transform(snapshot.draft);
-			return next === snapshot.draft ? false : setDraft(next);
+			if (next === snapshot.draft) {
+				return false;
+			}
+			const changed = setDraft(next);
+			return changed;
 		},
 		rejectSubmission: (result) =>
 			Effect.gen(function* () {
@@ -702,6 +785,7 @@ export const createWorkoutEditorController = (
 					saving: false,
 					alertStatus: {},
 					status: "ready",
+					uploading: false,
 					timerError: undefined,
 					deviceError: undefined,
 					context: snapshot.context,
@@ -713,7 +797,7 @@ export const createWorkoutEditorController = (
 			}),
 		beginSubmission: (input) =>
 			Effect.gen(function* () {
-				if (!isReady(snapshot) || snapshot.saving || discarding) {
+				if (!isReady(snapshot) || snapshot.saving || snapshot.uploading || discarding) {
 					return yield* new RyotClientError("invalid-input");
 				}
 				if (snapshot.draft.submission === undefined) {
@@ -733,5 +817,54 @@ export const createWorkoutEditorController = (
 				yield* flush();
 				return submission;
 			}),
+		uploadMedia: (target, kind, file) =>
+			mediaSemaphore.withPermit(
+				Effect.gen(function* () {
+					const upload = ports.upload;
+					if (
+						disposed ||
+						discarding ||
+						!isReady(snapshot) ||
+						snapshot.saving ||
+						snapshot.draft.submission !== undefined ||
+						upload === undefined ||
+						targetMedia(snapshot.draft, target) === undefined
+					) {
+						return yield* new RyotClientError("invalid-input");
+					}
+					if (target.kind === "workout" && snapshot.context?.proAvailable !== true) {
+						return yield* new RyotClientError("invalid-input");
+					}
+					const draftId = snapshot.draft.draftId;
+					updateReady((current) => ({ ...current, uploading: true, uploadError: undefined }));
+					yield* Effect.gen(function* () {
+						const asset = yield* upload({
+							source: file,
+							fileName: file.name,
+							contentType: file.type,
+						});
+						if (
+							disposed ||
+							!isReady(snapshot) ||
+							snapshot.draft.draftId !== draftId ||
+							snapshot.draft.submission !== undefined ||
+							targetMedia(snapshot.draft, target) === undefined
+						) {
+							yield* cleanupAssets([asset]);
+							return;
+						}
+						setDraft(attachDraftMedia(snapshot.draft, target, kind, asset));
+						yield* flushDraft();
+					}).pipe(
+						Effect.tapError((error) =>
+							Effect.sync(() => updateReady((current) => ({ ...current, uploadError: error }))),
+						),
+						Effect.ensuring(
+							Effect.sync(() => updateReady((current) => ({ ...current, uploading: false }))),
+						),
+					);
+					return undefined;
+				}),
+			),
 	};
 };

@@ -121,6 +121,10 @@ unchanged timestamp keeps the original seconds. Input stays after validation or 
 dialogs close only on success, and the mutation completion refreshes the page queries.
 `client/measurements/mutations.ts` owns the log, update, and delete mutations.
 
+Live workout editors reuse the measurement logging dialog and metric-creation form. Readings save
+independently of the workout, default to the current time, and remain saved if the workout is discarded.
+Historical and template editors do not offer measurement logging.
+
 Log measurement prefills the pinned metrics (or the first metric when there are none) and offers the
 rest through Add metric value. `measurement-reading-log` checks every metric ID is a
 `measurement-metric` visible to the caller, then writes all readings in one `createEvents` call.
@@ -219,6 +223,14 @@ for immediate input, ordered device persistence, and active-screen wake demand. 
 recovery share set progression; prompted rest retains its target in
 the draft. Historical and template modes do not start execution clocks. Finish reviews included and
 omitted sets before freezing the submission. The editor component does not register production routes.
+
+Personal media belongs to the workout or an exercise occurrence, never a set. Workout `exerciseMedia`
+stores occurrence images and videos by `exerciseOrder`; templates store them on their exercise entries.
+Uploads use permanent managed locators. The draft separately retains its newly uploaded locators for
+best-effort abandoned-file cleanup; loaded attachments are never cleaned up by cancelling an edit.
+Removal stays local until Save. Pending submissions retain their media unchanged, and navigation waits
+for in-flight uploads and draft persistence. Signed URLs are renewed through `ManagedAssetProvider`;
+image previews and video controls use the resolved URLs without storing them in the draft.
 
 The Fitness Library picker owns ordered selection, multi-value filters, usage sorting, and bounded
 device-local presets. Provider search returns generic added entity IDs; Fitness reloads them and

@@ -15,6 +15,11 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { act } from "react";
 
 import type { ExerciseKind } from "../../shared/exercise-kinds";
+import {
+	MeasurementReadingLogInput,
+	measurementReadingLogOperationSlug,
+} from "../../shared/measurement-reading-operations";
+import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	workoutEditorContextOperationSlug,
@@ -71,8 +76,6 @@ const editorSet = (
 	overrides: Record<string, unknown> = {},
 ) => ({
 	clientId,
-	images: [],
-	videos: [],
 	included: false,
 	setLot: "normal",
 	exerciseKind: kind,
@@ -133,7 +136,11 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 
 type EditorStorage = { value: JsonValue | null };
 
-const openEditor = (clock: ReturnType<typeof createTestRyotClock>, storage: EditorStorage) => {
+const openEditor = (
+	clock: ReturnType<typeof createTestRyotClock>,
+	storage: EditorStorage,
+	metrics: readonly MeasurementSummary[] = [],
+) => {
 	let respond: (() => void) | undefined;
 	const page = mountPluginPage(() => <WorkoutEditorScreen target={target} />, {
 		page: pageContext,
@@ -143,6 +150,7 @@ const openEditor = (clock: ReturnType<typeof createTestRyotClock>, storage: Edit
 	});
 	const answered = new Set<string>();
 	const saveInputs: JsonValue[] = [];
+	const readingInputs: JsonValue[] = [];
 	const deviceRequests: Array<{ action: string; enabled?: boolean }> = [];
 	const storageActions: string[] = [];
 	type QuerySuccess = Extract<
@@ -185,27 +193,33 @@ const openEditor = (clock: ReturnType<typeof createTestRyotClock>, storage: Edit
 				if (request.operationSlug === workoutEditorSaveOperationSlug) {
 					saveInputs.push(request.input);
 				}
+				if (request.operationSlug === measurementReadingLogOperationSlug) {
+					readingInputs.push(request.input);
+				}
+				let value: JsonValue = { sets: [], kind: "saved", entityId: "saved-workout" };
+				if (request.operationSlug === workoutEditorContextOperationSlug) {
+					value = {
+						proAvailable: true,
+						settings: {
+							dropRestTime: 0,
+							muteSounds: true,
+							warmUpRestTime: 0,
+							failureRestTime: 0,
+							normalRestTime: 20,
+							energyUnit: "kcal",
+							unitSystem: "metric",
+							promptForRestTimer: false,
+							startTimerForDurationExercises: false,
+						},
+					};
+				} else if (request.operationSlug === measurementReadingLogOperationSlug) {
+					value = { count: 2, status: "saved" };
+				}
 				page.send({
+					value,
 					outcome: "success",
 					type: "operation-result",
 					requestId: request.requestId,
-					value:
-						request.operationSlug === workoutEditorContextOperationSlug
-							? {
-									proAvailable: true,
-									settings: {
-										dropRestTime: 0,
-										muteSounds: true,
-										warmUpRestTime: 0,
-										failureRestTime: 0,
-										normalRestTime: 20,
-										energyUnit: "kcal",
-										unitSystem: "metric",
-										promptForRestTimer: false,
-										startTimerForDurationExercises: false,
-									},
-								}
-							: { sets: [], kind: "saved", entityId: "saved-workout" },
 				});
 			} else if (request.type === "ryotql-request") {
 				const data: Record<string, QueryData[string]> = {};
@@ -214,6 +228,8 @@ const openEditor = (clock: ReturnType<typeof createTestRyotClock>, storage: Edit
 						data[queryName] = rows(
 							exerciseDetails.map(({ id, kind, name }) => ({ id, name, properties: { kind } })),
 						);
+					} else if (queryName === "metrics") {
+						data[queryName] = rows(metrics);
 					} else {
 						data[queryName] = rows([]);
 					}
@@ -223,7 +239,7 @@ const openEditor = (clock: ReturnType<typeof createTestRyotClock>, storage: Edit
 		}
 	};
 	respond = answerPending;
-	return { page, saveInputs, answerPending, deviceRequests, storageActions };
+	return { page, saveInputs, readingInputs, answerPending, deviceRequests, storageActions };
 };
 
 const waitForEditor = Effect.fnUntraced(function* (answerPending: () => void) {
@@ -260,6 +276,188 @@ const dismissOverlay = (page: ReturnType<typeof mountPluginPage>, requestId: str
 afterEach(disposePluginBridges);
 
 describe("WorkoutEditorScreen", () => {
+	it.live("saves zero and other measurements independently before discarding the workout", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			try {
+				yield* Effect.promise(() => clock.setTime(startedAtMillis));
+				const metrics: MeasurementSummary[] = [
+					{
+						unit: "kg",
+						id: "weight",
+						key: "weight",
+						firstAt: null,
+						rangeCount: 0,
+						name: "Weight",
+						latestAt: null,
+						latestValue: null,
+						pinnedAt: startedAt,
+					},
+					{
+						unit: "cm",
+						id: "waist",
+						key: "waist",
+						name: "Waist",
+						firstAt: null,
+						rangeCount: 0,
+						latestAt: null,
+						latestValue: null,
+						pinnedAt: startedAt,
+					},
+				];
+				const storage: EditorStorage = {
+					value: encodeWorkoutEditorDraft(editorDraft([editorOccurrence("reps_and_weight")])),
+				};
+				const { page, saveInputs, answerPending, readingInputs } = openEditor(
+					clock,
+					storage,
+					metrics,
+				);
+				yield* waitForEditor(answerPending);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(
+							screen.getByRole("button", { name: "Log measurement" }).hasAttribute("disabled"),
+						).toBe(false);
+					}),
+				);
+				click(screen.getByRole("button", { name: "Log measurement" }));
+				const dialog = screen.getByRole("dialog", { name: "Log measurement" });
+				change(within(dialog).getByRole("textbox", { name: "Weight (kg)" }), "0");
+				change(within(dialog).getByRole("textbox", { name: "Waist (cm)" }), "82");
+				change(
+					within(dialog).getByRole("textbox", { name: "Comment (optional)" }),
+					"During workout",
+				);
+				click(within(dialog).getByRole("button", { name: "Save" }));
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(screen.queryByRole("dialog", { name: "Log measurement" })).toBeNull();
+					}),
+				);
+				expect(readingInputs).toHaveLength(1);
+				const submitted = yield* Schema.decodeUnknownEffect(MeasurementReadingLogInput)(
+					readingInputs[0],
+				);
+				expect(submitted.values).toEqual([
+					{ value: 82, metricId: "waist" },
+					{ value: 0, metricId: "weight" },
+				]);
+				expect(submitted.comment).toBe("During workout");
+				click(screen.getByRole("button", { name: "Cancel and discard" }));
+				click(
+					within(screen.getByRole("dialog", { name: "Discard draft" })).getByRole("button", {
+						name: "Discard draft",
+					}),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => {
+						answerPending();
+						expect(storage.value).toBeNull();
+					}),
+				);
+				expect(readingInputs).toHaveLength(1);
+				expect(saveInputs).toEqual([]);
+				expect(
+					page
+						.clientMessages()
+						.filter((message) => message.type === "operation-request")
+						.map((message) => message.operationSlug),
+				).not.toContain("measurement-reading-delete");
+				page.dispose();
+			} finally {
+				disposePluginBridges();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	);
+	it.live("previews occurrence images, plays videos, and keeps removals local to the draft", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock();
+			try {
+				yield* Effect.promise(() => clock.setTime(startedAtMillis));
+				const image = { type: "remote", url: "https://assets.test/form.jpg" };
+				const video = { type: "remote", url: "https://assets.test/form.mp4" };
+				const storage: EditorStorage = {
+					value: encodeWorkoutEditorDraft(
+						editorDraft([
+							{ ...editorOccurrence("reps_and_weight"), images: [image], videos: [video] },
+						]),
+					),
+				};
+				const { page, saveInputs, answerPending } = openEditor(clock, storage);
+				yield* waitForEditor(answerPending);
+				const exercise = screen.getByRole("region", { name: "Weight exercise" });
+				click(within(exercise).getByRole("button", { name: "Exercise attachments (2)" }));
+				const panel = screen.getByRole("dialog", { name: "Attachments for Weight exercise" });
+				const player = within(panel).getByLabelText("Weight exercise video 2");
+				expect(player.getAttribute("src")).toBe(video.url);
+				expect(player.hasAttribute("controls")).toBe(true);
+				click(within(panel).getByRole("button", { name: "Preview Weight exercise image 1" }));
+				expect(
+					screen.getByRole("dialog", { name: "Preview Weight exercise image 1" }),
+				).toBeTruthy();
+				dismissOverlay(page, "close-image-preview");
+				yield* waitForMessagePortMacrotask;
+				click(within(panel).getByRole("button", { name: "Remove image 1" }));
+				dismissOverlay(page, "close-media-panel");
+				yield* waitForMessagePortMacrotask;
+				for (let turn = 0; turn < 10; turn += 1) {
+					answerPending();
+					yield* waitForMessagePortMacrotask;
+				}
+				const decoded = decodeWorkoutEditorDraft(storage.value);
+				assert(decoded._tag === "Success");
+				expect(decoded.success.occurrences[0]?.images).toEqual([]);
+				expect(decoded.success.occurrences[0]?.videos).toEqual([video]);
+				expect(saveInputs).toEqual([]);
+				expect(
+					page.clientMessages().filter((message) => message.type === "upload-request"),
+				).toEqual([]);
+				page.dispose();
+			} finally {
+				disposePluginBridges();
+				yield* Effect.promise(() => clock.dispose());
+			}
+		}),
+	);
+	it.live(
+		"offers independent measurement logging in live workouts but not historical or template editors",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				try {
+					yield* Effect.promise(() => clock.setTime(startedAtMillis));
+					for (const mode of [
+						{ kind: "live" },
+						{ kind: "historical", entityId: "saved-workout", conflictToken: "baseline" },
+						{ kind: "template-create" },
+					]) {
+						const { page, answerPending } = openEditor(clock, {
+							value: encodeWorkoutEditorDraft(
+								editorDraft([editorOccurrence("reps_and_weight")], { mode }),
+							),
+						});
+						yield* waitForEditor(answerPending);
+						if (mode.kind === "live") {
+							expect(
+								screen.getByText("Measurements save separately from this workout."),
+							).toBeTruthy();
+						} else {
+							expect(
+								screen.queryByText("Measurements save separately from this workout."),
+							).toBeNull();
+						}
+						page.dispose();
+					}
+				} finally {
+					disposePluginBridges();
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+	);
 	it.live("recovers all exercise kinds with their numeric fields accessible", () =>
 		Effect.gen(function* () {
 			const clock = createTestRyotClock();
