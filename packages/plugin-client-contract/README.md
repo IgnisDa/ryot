@@ -12,6 +12,13 @@ The iframe reports metadata embedded in the composition document rather than tre
 input as proof. Later document messages replace the page context and remount its page tree without
 closing the bridge. The kernel retains up to three iframe runtimes by composition hash.
 
+Internal modules split the package: `src/source-policy.ts` (file extensions, content types, source
+predicates), `src/navigation.ts` (page targets and context, locations, navigation targets, shortcuts),
+`src/bridge/lifecycle.ts` (init, document, theme, viewport, header, screen, overlay, and close
+messages), `src/bridge/capabilities.ts` (operation, collection, asset, upload, storage, RyotQL,
+entity-watch, and external-link payloads), and `src/bridge/messages.ts` (the client and host message
+unions). `src/index.ts` only aggregates them.
+
 `src/artifact.ts` defines artifact schemas, exact-byte file copies, and the single metadata hash
 calculation used by the compiler, ingestion, and server assembly. The hash includes the plugin name,
 versions, and sorted file names, MIME types, and byte hashes. The package entry point exports these
