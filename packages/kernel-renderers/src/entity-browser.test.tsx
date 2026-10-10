@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	defineEntityPresentation,
 	type EntityPresentationRegistration,
@@ -235,6 +236,49 @@ describe("entity browser", () => {
 						}),
 					),
 				),
+			);
+		}),
+	);
+
+	it.live("navigates to the configured plugin route instead of opening provider search", () =>
+		Effect.gen(function* () {
+			const answered = new Set<string>();
+			const page = openBrowser({
+				search: "search=ignored-query",
+				settings: {
+					...browserSettings,
+					addAction: {
+						type: "plugin-route",
+						path: "/items/item-1",
+						search: { tab: "history" },
+						packageId: PluginPackageId.make("test/target"),
+					},
+				},
+			});
+			yield* Effect.promise(() => answerBrowser(page, answered, []));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("heading", { name: "No matches in All Books" })).toBeTruthy(),
+				),
+			);
+
+			fireEvent.click(screen.getByRole("button", { name: /Search online for/ }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(page.clientMessages()).toContainEqual({
+						mode: "push",
+						type: "navigate",
+						target: {
+							kind: "plugin-route",
+							path: "/items/item-1",
+							search: "tab=history",
+							packageId: "test/target",
+						},
+					}),
+				),
+			);
+			expect(page.clientMessages()).not.toContainEqual(
+				expect.objectContaining({ type: "provider-search-screen" }),
 			);
 		}),
 	);

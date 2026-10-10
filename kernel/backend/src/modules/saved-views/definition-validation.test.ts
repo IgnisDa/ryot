@@ -4,7 +4,7 @@ import type {
 	ResultsTableSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { SavedViewBadRequest } from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { and, column, document, eq, field, literal, pluginId, rows, table } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect } from "effect";
@@ -83,6 +83,21 @@ it.effect("rejects provider add provenance that does not match the source", () =
 				},
 			}),
 		);
+	}),
+);
+
+it.effect("does not apply entity provenance validation to plugin-route add actions", () =>
+	validateEntityBrowserSavedViewDefinition({
+		dataSources,
+		settings: {
+			...browserSettings,
+			addAction: {
+				type: "plugin-route",
+				path: "/items/item-1",
+				search: { tab: "history" },
+				packageId: PluginPackageId.make("test/target"),
+			},
+		},
 	}),
 );
 

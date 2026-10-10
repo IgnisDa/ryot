@@ -66,8 +66,8 @@ export const materializeSavedView = (
 		settings = {
 			...decoded.success,
 			addAction:
-				addAction === null
-					? null
+				addAction === null || addAction.type === "plugin-route"
+					? addAction
 					: {
 							...addAction,
 							schema: {

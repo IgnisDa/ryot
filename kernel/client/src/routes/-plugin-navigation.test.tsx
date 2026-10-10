@@ -513,6 +513,54 @@ describe("client page routes", () => {
 		}),
 	);
 
+	it.live("does not open provider search from add route state for a plugin-route action", () =>
+		Effect.gen(function* () {
+			const routeAction = {
+				path: "/items/item-1",
+				search: { tab: "history" },
+				type: "plugin-route" as const,
+				packageId: PluginPackageId.make("test/target"),
+			};
+			const view = mount({
+				entry: "/v/c/fixture-view?add=true",
+				prepare: (_scope, request) => {
+					const target = request.payload.target;
+					if (target.kind !== "saved-view") {
+						return Effect.die("not used");
+					}
+					const prepared = preparedSavedView(SavedViewId.make("internal-id"));
+					return Effect.succeed({
+						...prepared,
+						context: {
+							...prepared.context,
+							target,
+							renderer: { kind: "kernel", name: "entity-browser" },
+							settings: {
+								pageSize: 20,
+								sortChoices: [],
+								searchFields: [],
+								tableColumns: null,
+								entityIdField: "id",
+								sourceName: "items",
+								defaultLayout: "list",
+								addAction: routeAction,
+								layouts: ["grid", "list"],
+								ownerPluginIdField: "owner",
+								entitySchemaSlugField: "schema",
+							},
+						},
+					});
+				},
+			});
+			const frame = yield* Effect.promise(() =>
+				screen.findByTitle<HTMLIFrameElement>("Fixture View plugin"),
+			);
+			connectFrame(frame);
+			expect(view.router.state.location.searchStr).toBe("?add=true");
+			expect(screen.queryByRole("dialog", { name: "Add from a provider" })).toBeNull();
+		}),
+	);
+
 	it.live("preserves the active plugin-route provider search on a second request", () =>
 		Effect.gen(function* () {
 			const view = mount({
