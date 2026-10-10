@@ -294,7 +294,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 					if (!installation) {
 						return yield* new ImportRunError({ message: "Plugin installation not found" });
 					}
-					const settingsSchema = installation.manifest.userSettingsSchema;
+					const settingsSchema = installation.userSettingsSchema;
 					const userSettings = settingsSchema
 						? yield* resolveStoredPluginUserSettings(settingsSchema, installation.userSettings)
 						: {};

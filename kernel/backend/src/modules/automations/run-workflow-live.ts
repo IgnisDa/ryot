@@ -328,14 +328,12 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 							if (run.pluginId !== null) {
 								const [revision] = yield* session.run((database) =>
 									database
-										.select({ manifest: pluginRevision.manifest })
+										.select({ hooks: pluginRevision.hooks, scripts: pluginRevision.scripts })
 										.from(pluginRevision)
 										.where(eq(pluginRevision.id, run.pluginRevisionId)),
 								);
-								const hook = revision?.manifest.hooks.find(
-									(candidate) => candidate.slug === run.hookSlug,
-								);
-								const declaration = revision?.manifest.scripts.find(
+								const hook = revision?.hooks.find((candidate) => candidate.slug === run.hookSlug);
+								const declaration = revision?.scripts.find(
 									(candidate) => candidate.slug === run.scriptSlug,
 								);
 								if (!hook || hook.scriptSlug !== run.scriptSlug || hook.stage !== run.stage) {

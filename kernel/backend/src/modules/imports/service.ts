@@ -192,7 +192,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					Result.isFailure(installation) ? installation.failure : "Plugin installation not found",
 				);
 			}
-			const settingsSchema = installation.success.manifest.userSettingsSchema;
+			const settingsSchema = installation.success.userSettingsSchema;
 			const userSettings = settingsSchema
 				? yield* resolveStoredPluginUserSettings(
 						settingsSchema,

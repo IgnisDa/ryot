@@ -20,7 +20,6 @@ import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxPluginScriptResolver } from "#modules/scripts/registry/plugin-script-resolver";
 
@@ -143,13 +142,10 @@ const runCase = (
 					Effect.succeed({
 						installationId: "installation-1",
 						userSettings: { timezone: "Pacific/Auckland" },
-						manifest: {
-							...fixtureManifest(),
-							userSettingsSchema: {
-								unknownKeys: "strict",
-								fields: {
-									timezone: { type: "string", label: "Timezone", description: "Import timezone" },
-								},
+						userSettingsSchema: {
+							unknownKeys: "strict",
+							fields: {
+								timezone: { type: "string", label: "Timezone", description: "Import timezone" },
 							},
 						},
 					}),

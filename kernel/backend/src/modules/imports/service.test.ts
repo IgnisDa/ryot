@@ -138,17 +138,14 @@ const serviceCase = (
 					Effect.succeed({
 						userSettings,
 						installationId: "installation-1",
-						manifest: {
-							...fixtureManifest(),
-							userSettingsSchema: {
-								unknownKeys: "strict",
-								fields: {
-									timezone: {
-										type: "string",
-										label: "Timezone",
-										defaultValue: "UTC",
-										description: "Import timezone",
-									},
+						userSettingsSchema: {
+							unknownKeys: "strict",
+							fields: {
+								timezone: {
+									type: "string",
+									label: "Timezone",
+									defaultValue: "UTC",
+									description: "Import timezone",
 								},
 							},
 						},

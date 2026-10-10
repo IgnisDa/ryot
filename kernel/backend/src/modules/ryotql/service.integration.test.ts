@@ -2,6 +2,7 @@ import { expect, layer } from "@effect/vitest";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CLIENT_API_VERSION,
+	type PluginConfigSchema,
 	type PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
@@ -30,10 +31,12 @@ import {
 	migrationReportRecipe,
 } from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Result, Option } from "effect";
 import { assert } from "vitest";
 
+import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
 import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { DatabaseSession } from "#platform/db/session";
@@ -168,11 +171,15 @@ const insertPlugin = Effect.fn(function* (input: {
 	readonly slug: string;
 	readonly ownerId: string | null;
 	readonly homeView: string | null;
+	readonly configSchema?: PluginConfigSchema;
 }) {
 	const revisionId = `${input.id}-revision`;
 	const packageId =
 		input.slug === systemPluginName ? systemPackageId : PluginPackageId.make(`test/${input.slug}`);
-	const revisionManifest = manifest(input.slug, input.homeView, packageId);
+	const revisionManifest = {
+		...manifest(input.slug, input.homeView, packageId),
+		...(input.configSchema ? { configSchema: input.configSchema } : {}),
+	};
 	const session = yield* DatabaseSession;
 	yield* session.run((db) =>
 		Effect.gen(function* () {
@@ -186,8 +193,10 @@ const insertPlugin = Effect.fn(function* (input: {
 					pluginId: input.id,
 					manifest: revisionManifest,
 					contentHash: `${input.id}-hash`,
-					clientConfigSchema: { fields: {}, unknownKeys: "strict" },
 					sandboxAuthority: pluginSandboxAuthority(revisionManifest),
+					clientConfigSchema: input.configSchema
+						? redactPluginConfig(input.configSchema, {}).configSchema
+						: { fields: {}, unknownKeys: "strict" },
 				});
 			yield* db
 				.update(plugin)
@@ -1094,6 +1103,80 @@ layer(catalogDatabaseLayer)((test) => {
 				config: { visible: "yes" },
 				configuredSecrets: ["token"],
 			});
+		}),
+	);
+});
+
+layer(catalogDatabaseLayer)((test) => {
+	test.effect("never exposes secret config defaults through plugin or readiness reads", () =>
+		Effect.gen(function* () {
+			const secretDefault = "default-secret-value";
+			yield* insertPlugin({
+				slug: "secret",
+				homeView: null,
+				ownerId: "owner",
+				id: "secret-plugin",
+				configSchema: {
+					unknownKeys: "strict",
+					fields: {
+						apiToken: {
+							secret: true,
+							type: "string",
+							label: "API token",
+							description: "API token",
+							defaultValue: secretDefault,
+						},
+					},
+				},
+			});
+			const session = yield* DatabaseSession;
+			yield* session.run((db) =>
+				Effect.gen(function* () {
+					yield* db
+						.insert(pluginInstallation)
+						.values({ userId: "owner", id: "owner-secret", pluginId: "secret-plugin" });
+					yield* db
+						.insert(pluginConfigRevision)
+						.values(
+							configRevision("secret-config", "secret-plugin-revision", ["apiToken"], {
+								ownerUserId: "owner",
+								pluginInstallationId: "owner-secret",
+							}),
+						);
+					yield* db
+						.update(pluginInstallation)
+						.set({ health: "ready", activeConfigRevisionId: "secret-config" })
+						.where(eq(pluginInstallation.id, "owner-secret"));
+					yield* db
+						.insert(definitionImportSource)
+						.values(importSourceDefinition("import-secret", "secret-plugin", [], "private.import"));
+				}),
+			);
+			for (const audience of ["kernel", "plugin"] as const) {
+				const row = (yield* readRows({ audience, userId: "owner" }, "plugin", [
+					"id",
+					"configSchema",
+				])).find((item) => item["id"] === "secret-plugin");
+				expect(row).toEqual({
+					id: "secret-plugin",
+					configSchema: {
+						unknownKeys: "strict",
+						fields: {
+							apiToken: {
+								secret: true,
+								type: "string",
+								label: "API token",
+								description: "API token",
+							},
+						},
+					},
+				});
+			}
+			const source = (yield* readRows(owner, "importSource", ["id", "readinessMetadata"])).find(
+				(item) => item["id"] === "import-secret",
+			);
+			expect(source?.["readinessMetadata"]).toMatchObject({ availableConfigKeys: ["apiToken"] });
+			expect(stableStringify(source)).not.toContain(secretDefault);
 		}),
 	);
 });

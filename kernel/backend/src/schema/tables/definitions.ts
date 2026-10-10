@@ -542,7 +542,7 @@ export const userSandboxProvider = snakeCase
 			from ${userPlugin} p
 			join sandbox_provider s on s.plugin_id = p.plugin_id
 			join plugin_revision r on r.id = p.active_revision_id
-			where p.is_executable and exists (select 1 from jsonb_array_elements(r.manifest -> 'providers') m where m ->> 'slug' = s.slug and m ->> 'rootEntitySchemaSlug' = s.root_entity_schema_slug) and exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
+			where p.is_executable and exists (select 1 from jsonb_array_elements(r.providers) m where m ->> 'slug' = s.slug and m ->> 'rootEntitySchemaSlug' = s.root_entity_schema_slug) and exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
 		`,
 	);
 
@@ -560,7 +560,7 @@ export const userSandboxProviderOperation = snakeCase.view("user_sandbox_provide
 		from ${userSandboxProvider} provider
 		join plugin p on p.id = provider.plugin_id
 		join plugin_revision r on r.id = p.active_revision_id
-		join lateral jsonb_array_elements(r.manifest -> 'providers') as definition(value) on definition.value ->> 'slug' = provider.slug
+		join lateral jsonb_array_elements(r.providers) as definition(value) on definition.value ->> 'slug' = provider.slug
 		join lateral jsonb_each_text(definition.value -> 'operations') as operation(key, value) on true
 		join sandbox_script script on script.plugin_revision_id = r.id
 			and script.slug = operation.value and script.provider_id = provider.id

@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/contract/modules/automations/history-schemas";
 import {
 	AutomationRun,
+	AutomationTriggerPayload,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -17,6 +18,7 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -422,6 +424,116 @@ describe("automation retry persistence", () => {
 							pluginConfigRevisionId: "config",
 							pluginRevisionId: "pinned-revision",
 						});
+					}),
+				);
+			}),
+		);
+	});
+	layer(historyDatabaseLayer())((test) => {
+		test.effect("redacts secret entity properties with the pinned revision schema", () =>
+			Effect.gen(function* () {
+				yield* (yield* DatabaseSession).run((db) =>
+					Effect.gen(function* () {
+						const base = fixtureManifest();
+						const pinnedManifest: PluginManifest = {
+							...base,
+							entitySchemas: base.entitySchemas.map((entity) =>
+								Object.assign({}, entity, {
+									propertiesSchema: {
+										fields: {
+											count: { type: "number", label: "Count", description: "Counter" },
+											token: {
+												secret: true,
+												type: "string",
+												label: "Token",
+												description: "Secret token",
+											},
+										},
+									} satisfies AppSchema,
+								}),
+							),
+						};
+						yield* db
+							.insert(plugin)
+							.values({ id: "plugin", status: "inactive", packageId: base.metadata.packageId });
+						yield* db.insert(pluginRevision).values([
+							{
+								contentHash: "old",
+								pluginId: "plugin",
+								id: "pinned-revision",
+								manifest: pinnedManifest,
+								clientConfigSchema: { fields: {} },
+								sandboxAuthority: pluginSandboxAuthority(pinnedManifest),
+							},
+							{
+								manifest: base,
+								pluginId: "plugin",
+								contentHash: "current",
+								id: "current-revision",
+								clientConfigSchema: { fields: {} },
+								sandboxAuthority: pluginSandboxAuthority(base),
+							},
+						]);
+						yield* db
+							.update(plugin)
+							.set({ activeRevisionId: "current-revision" })
+							.where(eq(plugin.id, "plugin"));
+						yield* db
+							.insert(pluginConfigRevision)
+							.values({
+								id: "config",
+								configuredKeys: [],
+								encryptionKeyId: "key",
+								nonce: Buffer.alloc(12),
+								payloadFingerprint: "fingerprint",
+								encryptedPayload: Buffer.alloc(16),
+								pluginRevisionId: "pinned-revision",
+							});
+						yield* db
+							.update(sandboxScript)
+							.set({ source: null, pluginRevisionId: "pinned-revision" })
+							.where(eq(sandboxScript.id, "script"));
+						const snapshot = {
+							id: "entity",
+							name: "Item",
+							externalId: null,
+							providerId: null,
+							populatedAt: null,
+							entitySchemaPluginId: "plugin",
+							entitySchemaSlug: "fixture-entity",
+							createdAt: "2026-09-15T00:00:00.000Z",
+							updatedAt: "2026-09-15T00:00:00.000Z",
+							properties: { count: 2, token: "hidden" },
+						};
+						yield* db
+							.update(automationTrigger)
+							.set({
+								category: "change",
+								operation: "update",
+								resourceKind: "entity",
+								payload: yield* Schema.decodeEffect(AutomationTriggerPayload)({
+									after: snapshot,
+									before: snapshot,
+									category: "change",
+									resource: "entity",
+									operation: "update",
+								}),
+							})
+							.where(eq(automationTrigger.id, "trigger"));
+						yield* seedRun("pinned", owner.id, "after", {
+							pluginId: "plugin",
+							pluginConfigRevisionId: "config",
+							pluginRevisionId: "pinned-revision",
+						});
+						const [stored] = yield* db
+							.select({ historyPayload: automationRun.historyPayload })
+							.from(automationRun)
+							.where(eq(automationRun.id, "pinned"));
+						expect(stored?.historyPayload).toMatchObject({
+							after: { properties: { count: 2 } },
+							before: { properties: { count: 2 } },
+						});
+						expect(stableStringify(stored?.historyPayload)).not.toContain("hidden");
 					}),
 				);
 			}),

@@ -21,7 +21,7 @@ export const makeProviderExecutionReads = (session: DatabaseSession["Service"]) 
 			db
 				.select({
 					id: tables.sandboxProvider.id,
-					manifest: tables.pluginRevision.manifest,
+					providers: tables.pluginRevision.providers,
 					rootEntitySchemaSlug: tables.sandboxProvider.rootEntitySchemaSlug,
 				})
 				.from(tables.sandboxProvider)
@@ -38,7 +38,7 @@ export const makeProviderExecutionReads = (session: DatabaseSession["Service"]) 
 				)
 				.limit(1),
 		);
-		const declaration = row?.manifest.providers.find(({ slug }) => slug === reference.slug);
+		const declaration = row?.providers.find(({ slug }) => slug === reference.slug);
 		return row && declaration?.rootEntitySchemaSlug === row.rootEntitySchemaSlug
 			? { id: SandboxProviderId.make(row.id), rootEntitySchemaSlug: row.rootEntitySchemaSlug }
 			: null;
