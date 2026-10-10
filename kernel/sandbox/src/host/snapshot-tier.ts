@@ -18,6 +18,7 @@ const tierByRuntimeName = {
 	youtubei: "full",
 	papaparse: "data",
 	filesystem: "core",
+	compression: "data",
 	"fast-xml-parser": "data",
 	"dependency-runtime": "core",
 } as const satisfies Record<(typeof SANDBOX_RUNTIME_REGISTRY)[number]["name"], SnapshotTier>;

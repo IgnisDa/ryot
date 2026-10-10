@@ -4,6 +4,7 @@ import type { PreparedRecipe } from "@ryot-app/ryotql";
 
 export * from "@ryot-app/ryotql";
 export type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+export { JsonValue } from "@ryot-app/contract/schema/json";
 export {
 	entityReadRecipe,
 	eventReadRecipe,

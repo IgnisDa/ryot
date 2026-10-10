@@ -14,6 +14,7 @@ it.layer(BunServices.layer)("resolveSandboxRuntimeRegistry", (test) => {
 			const byName = new Map(dependencies.map((dependency) => [dependency.name, dependency]));
 			expect([...byName.keys()].sort()).toEqual([
 				"cheerio",
+				"compression",
 				"dependency-runtime",
 				"effect",
 				"fast-xml-parser",
