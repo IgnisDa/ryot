@@ -6,10 +6,7 @@ import {
 	type ClientRendererDefinition,
 	type PreparedClientPage,
 } from "@ryot-app/contract/modules/pages/schemas";
-import {
-	builtinSavedViewReference,
-	identityTupleKey,
-} from "@ryot-app/contract/modules/plugins/references";
+import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
@@ -34,26 +31,11 @@ import {
 import { getKernelClientRenderer, getKernelEntityRenderer } from "./kernel-renderers";
 import {
 	clientPageOperationTargets,
+	operationTargetsCurrent,
 	resolvePluginPageTarget,
 	resolvePluginRoutePlugin,
 } from "./prepare";
 import { PagesRepository } from "./repository";
-
-const canonicalOperationTargets = (targets: PreparedClientPage["identity"]["operationTargets"]) =>
-	[...targets].sort((left, right) =>
-		identityTupleKey(left.pluginId, left.installationId).localeCompare(
-			identityTupleKey(right.pluginId, right.installationId),
-		),
-	);
-
-const operationTargetsCurrent = (
-	current: ReadonlyArray<AvailablePlugin>,
-	recorded: PreparedClientPage["identity"]["operationTargets"],
-) =>
-	Bun.deepEquals(
-		canonicalOperationTargets(clientPageOperationTargets(current)),
-		canonicalOperationTargets(recorded),
-	);
 
 const savedViewUnavailable = () =>
 	new ClientPagePreparationError({ reason: { code: "saved-view-unavailable" } });
