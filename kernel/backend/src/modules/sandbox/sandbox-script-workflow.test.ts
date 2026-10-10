@@ -44,6 +44,7 @@ import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { testExecutionId, testRedisClient } from "#lib/test-utils/redis";
 import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 
+import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
 	executeSandboxExecution,
@@ -373,6 +374,8 @@ else
 fi
 `;
 const replacementContent = `printf '{"state":"completed","journalLength":0,"requests":[],"output":{"content":"active-v2","journal":[]}}'`;
+const historicalContentHash = sha256Hex(historicalContent);
+const replacementContentHash = sha256Hex(replacementContent);
 const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => ({
 	id,
 	compiledCode,
@@ -384,7 +387,7 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 	source: compiledCode,
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	contentHash: id === historicalScriptId ? "historical-hash" : "replacement-hash",
+	contentHash: id === historicalScriptId ? historicalContentHash : replacementContentHash,
 	metadata: {
 		name: "Workflow",
 		slug: "workflow",
@@ -423,7 +426,7 @@ const hotSwapLayer = recordingLayer(
 						providerId: null,
 						scriptSlug: "workflow",
 						scriptId: historicalScriptId,
-						contentHash: "historical-hash",
+						contentHash: historicalContentHash,
 						metadata: historicalScript.metadata,
 					}
 				: {
@@ -431,22 +434,27 @@ const hotSwapLayer = recordingLayer(
 						providerId: null,
 						scriptSlug: "workflow",
 						scriptId: replacementScriptId,
-						contentHash: "replacement-hash",
+						contentHash: replacementContentHash,
 						metadata: replacementScript.metadata,
 					};
+		const repositoryLayer = Layer.mock(SandboxRepository)({
+			resolveWorkflowCallScript: () => Effect.succeed(null),
+			isPluginScript: () => calls.record("pin-events", "resolve-owned").pipe(Effect.as(true)),
+			getScriptPin: (scriptId) =>
+				calls.record("pin-events", "pin").pipe(Effect.as(pinOf(scriptId))),
+			getScript: (scriptId) =>
+				Effect.succeed(scriptId === historicalScriptId ? historicalScript : replacementScript),
+		});
+		const artifactsLayer = Layer.effect(
+			SandboxCompiledArtifacts,
+			SandboxCompiledArtifacts.make,
+		).pipe(Layer.provideMerge(repositoryLayer));
 		return Layer.mergeAll(
 			mutationAdmissionTestLayer,
 			activityEngineLayer(hotSwapExecutionId),
 			Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
 			Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
-			Layer.mock(SandboxRepository)({
-				resolveWorkflowCallScript: () => Effect.succeed(null),
-				isPluginScript: () => calls.record("pin-events", "resolve-owned").pipe(Effect.as(true)),
-				getScriptPin: (scriptId) =>
-					calls.record("pin-events", "pin").pipe(Effect.as(pinOf(scriptId))),
-				getScript: (scriptId) =>
-					Effect.succeed(scriptId === historicalScriptId ? historicalScript : replacementScript),
-			}),
+			artifactsLayer,
 			Layer.mock(SandboxPluginScriptResolver)({
 				findActiveScriptById: () =>
 					calls.record("pin-events", "resolve-active").pipe(
@@ -569,7 +577,7 @@ layer(withWorkflowPinning(hotSwapLayer))((test) => {
 					executionId,
 					pluginId: "plugin",
 					scriptId: historicalScriptId,
-					contentHash: "historical-hash",
+					contentHash: historicalContentHash,
 				},
 			]);
 			expect(yield* calls.entries("releases")).toEqual([executionId]);
