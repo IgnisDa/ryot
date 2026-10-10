@@ -119,11 +119,11 @@ const bootstrapClientApplication = (
 			return;
 		}
 		root.render(
-			<RyotProvider runtime={sdkRuntime}>
+			<RyotProvider key={documentKey} runtime={sdkRuntime}>
 				<EntityPresentationRegistryProvider registrations={registrations}>
 					<PageStoreProvider store={pageStore}>
 						<KernelShortcutForwarder runtime={runtime} />
-						<PluginRouter key={documentKey} />
+						<PluginRouter />
 					</PageStoreProvider>
 				</EntityPresentationRegistryProvider>
 			</RyotProvider>,

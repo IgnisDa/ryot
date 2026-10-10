@@ -13,11 +13,14 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { Modal } from "@ryot-app/plugin-ui-sdk";
 import { fireEvent, waitFor } from "@testing-library/dom";
-import { Effect, Layer, ManagedRuntime, Schema } from "effect";
+import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { useEffect, useState } from "react";
 
+import { RyotClientError } from "../client/errors";
 import { usePluginParams, usePluginTitle, type EntityRendererProps } from "../navigation/routing";
 import * as pluginSurface from "../plugin";
+import { createRyotQuery } from "../queries/definitions";
+import { useRyotQuery } from "../queries/hooks";
 import { useRyot, useRyotSchedule, useRyotTheme } from "../queries/provider";
 import { RyotClientService, RyotNavigationService } from "../runtime/runtime";
 import { RyotScheduleService } from "../schedule";
@@ -547,11 +550,20 @@ describe("bootstrapClientPlugin", () => {
 		}),
 	);
 
-	it.live("replaces page context and remounts page state while keeping the runtime client", () =>
+	it.live("replaces page state and cancelled query caches while keeping the runtime client", () =>
 		Effect.gen(function* () {
 			const clients: unknown[] = [];
+			let reads = 0;
+			const pending = Deferred.makeUnsafe<string, RyotClientError>();
+			const query = createRyotQuery(() =>
+				Effect.suspend(() => {
+					reads++;
+					return reads === 1 ? Deferred.await(pending) : Effect.succeed("fresh");
+				}),
+			);
 			const Counter = () => {
 				const client = useRyot();
+				const result = useRyotQuery(query);
 				const { settings } = usePageContext();
 				const [count, setCount] = useState(0);
 				useEffect(() => {
@@ -561,7 +573,7 @@ describe("bootstrapClientPlugin", () => {
 					<button
 						type="button"
 						onClick={() => setCount((value) => value + 1)}
-					>{`${typeof settings.label === "string" ? settings.label : ""}:${count}`}</button>
+					>{`${typeof settings.label === "string" ? settings.label : ""}:${count}:${result.isError ? "disposed" : (result.data ?? "pending")}`}</button>
 				);
 			};
 			document.body.innerHTML = '<div id="app"></div>';
@@ -588,13 +600,13 @@ describe("bootstrapClientPlugin", () => {
 			);
 			channel.port1.postMessage(navigation);
 			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Movies:0")),
+				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Movies:0:pending")),
 			);
 			const button = document.querySelector("button");
 			assert(button);
 			fireEvent.click(button);
 			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Movies:1")),
+				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Movies:1:pending")),
 			);
 			channel.port1.postMessage({
 				navigation,
@@ -602,9 +614,12 @@ describe("bootstrapClientPlugin", () => {
 				documentKey: "page-2",
 				page: replacementPage("Music"),
 			});
+			yield* Effect.promise(() => waitFor(() => expect(clients).toHaveLength(2)));
+			yield* Deferred.fail(pending, new RyotClientError("disposed"));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Music:0")),
+				waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Music:0:fresh")),
 			);
+			expect(reads).toBe(2);
 			expect(clients).toHaveLength(2);
 			expect(clients[1]).toBe(clients[0]);
 		}),
