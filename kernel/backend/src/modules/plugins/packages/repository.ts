@@ -1506,7 +1506,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				function* (input: { now: Date; limit: number; retryWindowDays: number }) {
 					yield* database.run((db) =>
 						db.execute(sql`with candidates as (
-					select i.id from plugin_installation i where i.uninstalled_at <= ${input.now} - ${input.retryWindowDays} * interval '1 day'
+					select i.id from plugin_installation i where i.uninstalled_at <= ${input.now} - ${input.retryWindowDays} * interval '24 hours'
 					and not exists (select 1 from sandbox_workflow_reference w where w.plugin_installation_id = i.id)
 					and not exists (select 1 from automation_run r join plugin_config_revision c on c.id = r.plugin_config_revision_id where c.plugin_installation_id = i.id and (r.status in ('queued', 'running') or r.artifacts_expire_at > ${input.now}))
 					limit ${input.limit}

@@ -32,7 +32,8 @@ import {
 	WorkoutTimeCorrectionInputSchema,
 	WorkoutTimeCorrectionOutputSchema,
 } from "../../shared/workout-time-operations";
-import { fromDateTimeInput, toDateTimeInput } from "../datetime-input";
+import { DateTimeField } from "../datetime-field";
+import { resolveDateTimeInput, toDateTimeInput } from "../datetime-input";
 
 type Correction = Omit<
 	typeof WorkoutTimeCorrectionInputSchema.Type,
@@ -78,6 +79,11 @@ function TimeForm(props: {
 	const { entity, onClose, properties } = props;
 	const [start, setStart] = useState(toDateTimeInput(properties.startedAt));
 	const [end, setEnd] = useState(properties.endedAt ? toDateTimeInput(properties.endedAt) : "");
+	const [startOccurrence, setStartOccurrence] = useState<string>();
+	const [endOccurrence, setEndOccurrence] = useState<string>();
+	const [submitted, setSubmitted] = useState(false);
+	const startResolution = resolveDateTimeInput(start, properties.startedAt, startOccurrence);
+	const endResolution = resolveDateTimeInput(end, properties.endedAt, endOccurrence);
 	const [intent, setIntent] = useState("preserve");
 	const [seconds, setSeconds] = useState(String(properties.activeDuration ?? ""));
 	const [message, setMessage] = useState<string>();
@@ -88,16 +94,12 @@ function TimeForm(props: {
 		}
 	}, [save.data, onClose]);
 	const submit = () => {
-		if (
-			start === "" ||
-			!Number.isFinite(Date.parse(start)) ||
-			(end !== "" && !Number.isFinite(Date.parse(end)))
-		) {
-			setMessage("Enter valid dates and times.");
+		setSubmitted(true);
+		if (startResolution.iso === null || (end !== "" && endResolution.iso === null)) {
 			return;
 		}
-		const startedAt = fromDateTimeInput(start, properties.startedAt);
-		const endedAt = end === "" ? undefined : fromDateTimeInput(end, properties.endedAt);
+		const startedAt = startResolution.iso;
+		const endedAt = end === "" ? undefined : (endResolution.iso ?? undefined);
 		if (
 			(endedAt !== undefined && Date.parse(endedAt) < Date.parse(startedAt)) ||
 			(intent === "set" &&
@@ -151,26 +153,28 @@ function TimeForm(props: {
 					className="grid min-w-0 gap-4 border-0 p-0"
 					disabled={save.isPending || save.status === "retained"}
 				>
-					<Field label="Start time">
-						{(control) => (
-							<TextField
-								{...control}
-								value={start}
-								type="datetime-local"
-								onChange={(event) => setStart(event.target.value)}
-							/>
-						)}
-					</Field>
-					<Field label="End time">
-						{(control) => (
-							<TextField
-								{...control}
-								value={end}
-								type="datetime-local"
-								onChange={(event) => setEnd(event.target.value)}
-							/>
-						)}
-					</Field>
+					<DateTimeField
+						value={start}
+						label="Start time"
+						showError={submitted}
+						resolution={startResolution}
+						onOccurrenceChange={setStartOccurrence}
+						onChange={(value) => {
+							setStart(value);
+							setStartOccurrence(undefined);
+						}}
+					/>
+					<DateTimeField
+						value={end}
+						label="End time"
+						resolution={endResolution}
+						showError={submitted && end !== ""}
+						onOccurrenceChange={setEndOccurrence}
+						onChange={(value) => {
+							setEnd(value);
+							setEndOccurrence(undefined);
+						}}
+					/>
 					<div className="grid gap-1.5">
 						<span className="text-[13px] font-medium">Active duration</span>
 						<SegmentedControl

@@ -9,8 +9,8 @@ import {
 	clientDeclarationHash,
 } from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { and, eq } from "drizzle-orm";
-import { Effect, Result } from "effect";
+import { and, eq, sql } from "drizzle-orm";
+import { DateTime, Effect, Result } from "effect";
 import { assert, describe } from "vitest";
 
 import {
@@ -820,6 +820,77 @@ describe("plugin repository revisions", () => {
 					{ id: installed.pluginId },
 				]);
 				expect(yield* session.run((db) => db.select().from(tables.pluginRevision))).toEqual([]);
+			}),
+		);
+		test.effect("prunes plugin artifacts after 168 elapsed hours across DST transitions", () =>
+			Effect.gen(function* () {
+				const cases = [
+					{ timeZone: "Europe/Berlin", uninstalledAt: "2026-03-25T06:00:00Z" },
+					{ timeZone: "Europe/Berlin", uninstalledAt: "2026-10-22T06:00:00Z" },
+					{ timeZone: "Australia/Lord_Howe", uninstalledAt: "2026-10-01T06:00:00Z" },
+				];
+				const session = yield* DatabaseSession;
+				const repository = yield* PluginRepository;
+				const installations = yield* PluginInstallationRepository;
+				for (const fixture of cases) {
+					const packageSlug = [
+						"dst",
+						fixture.timeZone.toLowerCase().replaceAll("/", "-"),
+						fixture.uninstalledAt.slice(0, 10),
+					].join("-");
+					const installed = yield* installRevisionPackage(revisionPackage(packageSlug), owner);
+					yield* installations.remove(installed.installation.id);
+					yield* repository.deactivate(installed.pluginId);
+					const uninstalledAt = DateTime.makeUnsafe(fixture.uninstalledAt);
+					yield* session.run((db) =>
+						db
+							.update(tables.pluginInstallation)
+							.set({ uninstalledAt: DateTime.toDateUtc(uninstalledAt) })
+							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+					);
+					const beforeExpiry = DateTime.toDateUtc(
+						DateTime.add(uninstalledAt, { hours: 167, minutes: 59, seconds: 59 }),
+					);
+					const expiresAt = DateTime.toDateUtc(DateTime.add(uninstalledAt, { hours: 168 }));
+					const beforeRows = yield* session.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db.execute(sql`select set_config('TimeZone', ${fixture.timeZone}, true)`),
+							);
+							yield* repository.pruneRevisionArtifacts({
+								limit: 500,
+								now: beforeExpiry,
+								retryWindowDays: 7,
+							});
+							return yield* session.run((db) =>
+								db
+									.select()
+									.from(tables.pluginInstallation)
+									.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+							);
+						}),
+					);
+					expect(beforeRows).toHaveLength(1);
+					const expiredRows = yield* session.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db.execute(sql`select set_config('TimeZone', ${fixture.timeZone}, true)`),
+							);
+							yield* repository.pruneRevisionArtifacts({
+								limit: 500,
+								now: expiresAt,
+								retryWindowDays: 7,
+							});
+							return yield* session.run((db) =>
+								db
+									.select()
+									.from(tables.pluginInstallation)
+									.where(eq(tables.pluginInstallation.id, installed.installation.id)),
+							);
+						}),
+					);
+					expect(expiredRows).toHaveLength(0);
+				}
 			}),
 		);
 	});
