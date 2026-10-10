@@ -12,12 +12,13 @@ import { SANDBOX_LIMITS } from "./limits";
 import {
 	defineNativeScript,
 	runNative,
+	runNativeOutcome,
 	runnerNativeLayer,
 	type RunnerCompiled,
 } from "./runner-native.test-support";
 import type { SandboxInlineDurableHost } from "./shared";
 import { SandboxSidecarClient } from "./sidecar-client";
-import { SandboxInvocationSchema } from "./sidecar-protocol";
+import { SandboxInvocationResponseSchema, SandboxInvocationSchema } from "./sidecar-protocol";
 
 const durableSource = defineNativeScript(
 	`(input, host, execution) => Effect.gen(function* () {
@@ -500,6 +501,40 @@ export default defineWorkflow({
 		}),
 	);
 
+	test.effect("surfaces a mismatched inline sleep reply as the SDK's typed journal mismatch", () =>
+		Effect.gen(function* () {
+			const compiled = yield* (yield* SandboxCompiler).compile(`
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+export const manifest = defineManifest({ kind: "workflow", name: "Inline sleep", slug: "inline-sleep" });
+export default defineWorkflow({
+  manifest,
+  input: Schema.Struct({}),
+  output: Schema.Null,
+  run: (_input, replay) => Effect.gen(function* () {
+    yield* replay.sleep("wait", 5);
+    return null;
+  }),
+});`);
+			const { controls, response } = yield* runNative(
+				compiled,
+				{},
+				{
+					replayJournal: [],
+					workflowExecutionId: "inline-mismatch",
+					reply: (frame) =>
+						frame.name === "inlineBatch"
+							? { status: "success", value: { results: [] } }
+							: undefined,
+				},
+			);
+			expect(controls).toEqual(["inlineBatch"]);
+			expect(response).toMatchObject({
+				success: true,
+				value: { state: "failed", error: "Error: Inline sleep results do not match the batch" },
+			});
+		}),
+	);
+
 	test.effect("preserves validation, manifests, and failure phases for definitions", () =>
 		Effect.gen(function* () {
 			{
@@ -719,6 +754,53 @@ export default defineScript({
 			expect(encodeJson(response.error)).not.toContain("data:text/javascript");
 			expect(encodeJson(response.error)).not.toMatch(/[a-f0-9]{64}/);
 		}),
+	);
+
+	test.effect(
+		"keeps failure diagnostics structured when script code poisons built-in prototypes",
+		() =>
+			Effect.gen(function* () {
+				const compiler = yield* SandboxCompiler;
+				const poisons = [
+					["Array.prototype", '"join"'],
+					["Array.prototype", '"push"'],
+					["Array.prototype", '"some"'],
+					["String.prototype", '"split"'],
+					["String.prototype", '"slice"'],
+					["String.prototype", '"trim"'],
+					["String.prototype", '"replace"'],
+					["String.prototype", '"includes"'],
+					["String.prototype", '"startsWith"'],
+					["RegExp.prototype", '"exec"'],
+					["RegExp.prototype", '"test"'],
+					["RegExp.prototype", "Symbol.replace"],
+					["Object.getPrototypeOf(Uint8Array.prototype)", '"subarray"'],
+				] as const;
+				for (const [owner, key] of poisons) {
+					const compiled = yield* compiler.compile(
+						defineNativeScript(
+							`() => Effect.sync(() => {
+  Reflect.defineProperty(${owner}, ${key}, { value: () => undefined });
+  throw new Error("native-runner-execution file:///sandbox/private " + "x".repeat(100000));
+})`,
+							{ output: "Schema.Null" },
+						),
+					);
+					const { outcome } = yield* runNativeOutcome(compiled, {});
+					const evidence = encodeJson(outcome);
+					expect(evidence).not.toContain("native-runner-execution");
+					expect(evidence).not.toContain("sandbox/private");
+					if (outcome.status === "completed") {
+						const response = yield* Schema.decodeUnknownEffect(SandboxInvocationResponseSchema)(
+							outcome.value,
+						);
+						assert(!response.success);
+						expect(response.error.phase).toBe("execute");
+					} else {
+						expect(outcome).toMatchObject({ status: "failed", phase: "execution" });
+					}
+				}
+			}),
 	);
 
 	test.effect("preserves authored relative frames for multi-file compiled defects", () =>

@@ -28,6 +28,7 @@ import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./exe
 import { encodeJson } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { SandboxHostImplementations } from "./host-implementations";
+import { SANDBOX_LIMITS } from "./limits";
 import { SandboxService } from "./service";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
@@ -561,6 +562,33 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 					const oversized = yield* Effect.flip(run({ ...base, pad: `${pad}a` }));
 					expect(oversized).toMatchObject({ kind: "invalid-input" });
 				}
+			}),
+		);
+	});
+
+	test.effect("rejects an invocation over the request byte limit before dispatch", () => {
+		const ownerId = UserId.make(testExecutionId("native-service-owner"));
+		const executionId = testExecutionId("native-service-request-cap");
+		return withRecoveryCleanup(
+			[executionId],
+			Effect.gen(function* () {
+				const compiled = yield* (yield* SandboxCompiler).compile(capsDefinitionSource);
+				const service = yield* SandboxService;
+				const input = makeRunInput(
+					compiled,
+					executionId,
+					{ tail: 0, pad: "", count: 0, unit: "a" },
+					ownerId,
+				);
+
+				const error = yield* Effect.flip(
+					service.run({ ...input, startedAt: "x".repeat(SANDBOX_LIMITS.execution.requestBytes) }),
+				);
+
+				expect(error).toMatchObject({
+					kind: "invalid-input",
+					message: "Sandbox invocation exceeds its byte limit",
+				});
 			}),
 		);
 	});

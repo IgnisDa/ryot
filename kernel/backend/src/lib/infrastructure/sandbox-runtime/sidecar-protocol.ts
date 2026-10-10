@@ -7,26 +7,21 @@ import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import { workflowInlineRequestSchema } from "@ryot-app/sandbox-sdk/workflow";
 import { Schema } from "effect";
 
+import { isBoolean, regExpExec, uncurry } from "./isolate-primordials";
 import { KiB, MiB, SANDBOX_LIMITS } from "./limits";
 
 const maxContextBytes = SANDBOX_LIMITS.execution.contextBytes;
 
 const numberIsSafeInteger = Number.isSafeInteger.bind(Number);
+const mathCeil = Math.ceil;
 const jsonStringify = JSON.stringify.bind(JSON);
 const encoder = new TextEncoder();
 const encodeText = encoder.encode.bind(encoder);
-const stringEndsWithMethod = Object.getOwnPropertyDescriptor(String.prototype, "endsWith")?.value;
-const regexpExecMethod = Object.getOwnPropertyDescriptor(RegExp.prototype, "exec")?.value;
-const boundStringEndsWith = stringEndsWithMethod.call.bind(stringEndsWithMethod);
-const boundRegExpExec = regexpExecMethod.call.bind(regexpExecMethod);
-const stringEndsWith = (value: string, part: string) => {
-	const result: unknown = boundStringEndsWith(value, part);
-	return typeof result === "boolean" && result;
-};
+const stringEndsWith = uncurry(String.prototype, "endsWith", isBoolean);
 const base64Pattern = /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 export const isBase64 = (value: string) =>
-	value.length % 4 === 0 && boundRegExpExec(base64Pattern, value) !== null;
+	value.length % 4 === 0 && regExpExec(base64Pattern, value) !== null;
 
 export const base64DecodedLength = (value: string) => {
 	let padding = 0;
@@ -51,24 +46,20 @@ const rangeLength = Schema.Finite.pipe(
 		Schema.makeFilter(
 			(value) =>
 				(numberIsSafeInteger(value) && value >= 1 && value <= MiB) ||
-				"Expected a range length from 1 through 1048576",
+				`Expected a range length from 1 through ${MiB}`,
 		),
 	),
 );
 
 const journalSchema = Schema.Struct({
-	offsets: Schema.Array(safeNonNegativeInteger).pipe(
-		Schema.check(Schema.isMaxLength(SANDBOX_LIMITS.hostCalls.total + 1)),
-	),
-	length: Schema.Finite.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	length: safeNonNegativeInteger.pipe(
 		Schema.check(Schema.isLessThanOrEqualTo(SANDBOX_LIMITS.hostCalls.total)),
 	),
-	totalBytes: Schema.Finite.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+	totalBytes: safeNonNegativeInteger.pipe(
 		Schema.check(Schema.isLessThanOrEqualTo(SANDBOX_LIMITS.journalBytes)),
+	),
+	offsets: Schema.Array(safeNonNegativeInteger).pipe(
+		Schema.check(Schema.isMaxLength(SANDBOX_LIMITS.hostCalls.total + 1)),
 	),
 }).pipe(
 	Schema.check(
@@ -143,11 +134,13 @@ export const journalReadArgsSchema = Schema.Struct({
 	offset: safeNonNegativeInteger,
 });
 
+const maxRangeBase64Length = mathCeil(MiB / 3) * 4;
 const base64RangeData = Schema.String.pipe(
 	Schema.check(
 		Schema.makeFilter(
 			(value) =>
-				(value.length <= 1_398_104 && isBase64(value)) || "Expected at most 1 MiB of base64 data",
+				(value.length <= maxRangeBase64Length && isBase64(value)) ||
+				`Expected at most ${MiB} decoded bytes of base64 data`,
 		),
 	),
 );
@@ -233,10 +226,10 @@ const boundedInt = (range: { readonly minimum: number; readonly maximum: number 
 const Handle = Schema.String.check(Schema.isPattern(/^[A-Za-z0-9_-]{1,64}$/));
 const Sha256 = Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/));
 const Base64 = Schema.String.check(Schema.isPattern(base64Pattern));
-const Seq = boundedInt({ minimum: 0, maximum: Number.MAX_SAFE_INTEGER });
 export const SIDECAR_GENERATION_MAX = 4_294_967_295;
 const Generation = boundedInt({ minimum: 0, maximum: SIDECAR_GENERATION_MAX });
 
+const Seq = safeNonNegativeInteger;
 const envelope = { seq: Seq, handle: Handle, generation: Generation };
 
 export const SidecarTier = Schema.Literals(["core", "data", "full"]);

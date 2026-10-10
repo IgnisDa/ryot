@@ -79,25 +79,23 @@ export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpCli
 		`httpCall response body exceeds ${SANDBOX_LIMITS.http.responseBytes} bytes`,
 	);
 
-const sandboxCacheInputError = (fnName: string, key: unknown, ttl?: unknown, ttlLabel?: string) => {
+type SandboxCacheTtl = { readonly label: string; readonly seconds: number };
+
+const sandboxCacheInputError = (fnName: string, key: string, ttl?: SandboxCacheTtl) => {
 	const keyError = sandboxCacheKeyError(fnName, key);
 	if (keyError) {
 		return keyError;
 	}
-	if (ttlLabel !== undefined) {
-		return sandboxCacheTtlError(fnName, ttl, ttlLabel);
-	}
-	return null;
+	return ttl === undefined ? null : sandboxCacheTtlError(fnName, ttl.seconds, ttl.label);
 };
 
 const sandboxCacheInputGuard = <A, E>(
 	fnName: string,
-	key: unknown,
+	key: string,
 	effect: () => Effect.Effect<A, E>,
-	ttl?: unknown,
-	ttlLabel?: string,
+	ttl?: SandboxCacheTtl,
 ) => {
-	const error = sandboxCacheInputError(fnName, key, ttl, ttlLabel);
+	const error = sandboxCacheInputError(fnName, key, ttl);
 	return error ? sandboxHostFailure(error) : effect();
 };
 
@@ -177,10 +175,10 @@ export const prepareSandboxHttpRequest = (
 	url: string,
 	options: SandboxHttpOptions | undefined,
 ): Effect.Effect<SandboxHttpRequest, SandboxHostError> => {
-	if (typeof method !== "string" || !method.trim()) {
+	if (!method.trim()) {
 		return sandboxHostFailure("httpCall expects a non-empty method string");
 	}
-	if (typeof url !== "string" || !url.trim()) {
+	if (!url.trim()) {
 		return sandboxHostFailure("httpCall expects a non-empty URL string");
 	}
 	const bodyError = sandboxHttpRequestBodyError(options?.body);
@@ -340,8 +338,7 @@ export const makeRuntimeSandboxApiFunctions = (
 							),
 							sandboxHostEffect,
 						),
-					expiry,
-					"expiry",
+					{ label: "expiry", seconds: expiry },
 				),
 			// Inline and live calls cannot wait for admission, so a stopped redirect fails the call.
 			httpCall: (_input, method, url, options) =>
@@ -448,8 +445,7 @@ export const makeRuntimeSandboxApiFunctions = (
 							);
 						}).pipe(sandboxHostEffect);
 					},
-					ttlSeconds,
-					"TTL",
+					{ label: "TTL", seconds: ttlSeconds },
 				),
 		};
 	});

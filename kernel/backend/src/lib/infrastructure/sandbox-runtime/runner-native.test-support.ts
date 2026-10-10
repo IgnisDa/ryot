@@ -167,7 +167,7 @@ export const makeRunnerInput = (
 	};
 };
 
-export const runNative = Effect.fnUntraced(function* (
+export const runNativeOutcome = Effect.fnUntraced(function* (
 	compiled: RunnerCompiled,
 	context: unknown,
 	options: RunnerOptions = {},
@@ -262,17 +262,26 @@ export const runNative = Effect.fnUntraced(function* (
 					continue;
 				}
 				assert(event.type === "done", encodeJson(event));
-				assert(event.outcome.status === "completed", encodeJson(event.outcome));
-				const response = yield* Schema.decodeUnknownEffect(SandboxInvocationResponseSchema)(
-					event.outcome.value,
-				);
 				return {
-					response,
 					controls,
+					outcome: event.outcome,
 					inline: registration.inlineEntries(),
 					pendingInline: registration.pendingEntries(),
 				};
 			}
 		}).pipe(Effect.withSpan("sandbox.native-runner-test")),
 	);
+});
+
+export const runNative = Effect.fnUntraced(function* (
+	compiled: RunnerCompiled,
+	context: unknown,
+	options: RunnerOptions = {},
+) {
+	const { outcome, ...run } = yield* runNativeOutcome(compiled, context, options);
+	assert(outcome.status === "completed", encodeJson(outcome));
+	const response = yield* Schema.decodeUnknownEffect(SandboxInvocationResponseSchema)(
+		outcome.value,
+	);
+	return { ...run, response };
 });

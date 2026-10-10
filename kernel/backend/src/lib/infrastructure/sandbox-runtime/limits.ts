@@ -87,43 +87,29 @@ const executionLimit = (
 	};
 };
 
-export const SANDBOX_RUNNER_LIMITS = {
-	httpCallCount: SANDBOX_LIMITS.hostCalls.http,
-	logEntryBytes: SANDBOX_LIMITS.logs.entryBytes,
-	logEntryCount: SANDBOX_LIMITS.logs.entryCount,
-	logTotalBytes: SANDBOX_LIMITS.logs.totalBytes,
-	hostCallCount: SANDBOX_LIMITS.hostCalls.total,
-	resultBytes: SANDBOX_LIMITS.execution.resultBytes,
-	logTruncationMarker: SANDBOX_LOG_TRUNCATION_MARKER,
-	bridgeRequestBytes: SANDBOX_LIMITS.bridge.requestBytes,
-	bridgeResponseBytes: SANDBOX_LIMITS.bridge.responseBytes,
-	durableBridgeResponseBytes: SANDBOX_LIMITS.bridge.durableResponseBytes,
-	httpCallLimitMessage: sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http),
-	hostCallLimitMessage: sandboxHostCallLimitMessage(SANDBOX_LIMITS.hostCalls.total),
-};
+export type SandboxHostCallBudget = { http: number; total: number };
 
-type SandboxHostCallBudget = { http: number; total: number };
-
-export const consumeSandboxHostCall = (
-	budget: SandboxHostCallBudget,
-	functionName: string,
-	totalLimit: number = SANDBOX_LIMITS.hostCalls.total,
-) => {
+export const chargeSandboxHostCall = (budget: SandboxHostCallBudget, functionName: string) => {
 	budget.total += 1;
 	if (functionName === "httpCall") {
 		budget.http += 1;
 	}
-	if (budget.total > totalLimit) {
-		return executionLimit(sandboxHostCallLimitMessage(totalLimit), functionName);
+	if (budget.total > SANDBOX_LIMITS.hostCalls.total) {
+		return sandboxHostCallLimitMessage(SANDBOX_LIMITS.hostCalls.total);
 	}
 	if (budget.http > SANDBOX_LIMITS.hostCalls.http) {
-		return executionLimit(sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http), functionName);
+		return sandboxHttpCallLimitMessage(SANDBOX_LIMITS.hostCalls.http);
 	}
 	return null;
 };
 
-export const sandboxCacheKeyError = (fnName: string, key: unknown) => {
-	if (typeof key !== "string" || !key.trim()) {
+export const consumeSandboxHostCall = (budget: SandboxHostCallBudget, functionName: string) => {
+	const message = chargeSandboxHostCall(budget, functionName);
+	return message === null ? null : executionLimit(message, functionName);
+};
+
+export const sandboxCacheKeyError = (fnName: string, key: string) => {
+	if (!key.trim()) {
 		return `${fnName} expects a non-empty key string`;
 	}
 	if (utf8ByteLength(key.trim()) > SANDBOX_LIMITS.cache.keyBytes) {
@@ -132,8 +118,8 @@ export const sandboxCacheKeyError = (fnName: string, key: unknown) => {
 	return null;
 };
 
-export const sandboxCacheTtlError = (fnName: string, ttlSeconds: unknown, label: string) => {
-	if (typeof ttlSeconds !== "number" || !Number.isInteger(ttlSeconds) || ttlSeconds <= 0) {
+export const sandboxCacheTtlError = (fnName: string, ttlSeconds: number, label: string) => {
+	if (ttlSeconds <= 0) {
 		return `${fnName} expects a positive integer ${label} in seconds`;
 	}
 	if (ttlSeconds > SANDBOX_LIMITS.cache.ttlSeconds) {

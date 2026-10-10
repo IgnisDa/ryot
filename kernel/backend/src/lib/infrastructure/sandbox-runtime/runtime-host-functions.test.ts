@@ -12,6 +12,7 @@ import { sandboxHttpRedirectClassifier } from "#modules/sandbox/durable-host-dis
 import { RedisService } from "../redis";
 import { ServerRun } from "../server-run";
 import {
+	executeSandboxHttp,
 	makeRuntimeSandboxApiFunctions,
 	SANDBOX_HTTP_REDIRECT_STOPPED_MESSAGE,
 	type SandboxHttpClassify,
@@ -171,6 +172,17 @@ describe("runtime sandbox host functions", () => {
 	});
 
 	layer(runtimeHostLayer)((test) => {
+		test.effect("rejects a whitespace-only cache key", () =>
+			Effect.gen(function* () {
+				const host = yield* makeRuntimeSandboxApiFunctions(followAll);
+				const error = yield* host.getCachedValue(input, "   ").pipe(Effect.flip);
+
+				expect(error).toEqual({ message: "getCachedValue expects a non-empty key string" });
+			}),
+		);
+	});
+
+	layer(runtimeHostLayer)((test) => {
 		// Port 1 refuses connections, so the request fails without reaching an application.
 		test.effect("marks a failed HTTP request as an uncertain external outcome", () =>
 			Effect.gen(function* () {
@@ -282,6 +294,33 @@ describe("runtime sandbox host functions", () => {
 						.pipe(Effect.flip);
 
 					expect(error).toEqual({ message: "httpCall may not set the Host header" });
+					expect(yield* sent).toEqual([]);
+				}),
+			);
+		});
+
+		layer(runtimeHostLayer)((test) => {
+			test.effect("normalises a lowercase method before sending", () =>
+				Effect.gen(function* () {
+					const { sent, client } = yield* redirecting({});
+					const host = yield* hostWith(client);
+					yield* host.httpCall(input, " get ", "https://a.test/lower");
+
+					expect((yield* sent).map(({ method }) => method)).toEqual(["GET"]);
+				}),
+			);
+		});
+
+		layer(runtimeHostLayer)((test) => {
+			test.effect("rejects a forged persisted redirect with an invalid method", () =>
+				Effect.gen(function* () {
+					const { sent, client } = yield* redirecting({});
+					const error = yield* executeSandboxHttp(
+						{ headers: {}, method: "BREW", url: "https://a.test/forged" },
+						{ hop: 1, classify: followAll, allowInsecureConnections: undefined },
+					).pipe(Effect.provideService(HttpClient.HttpClient, client), Effect.flip);
+
+					expect(error).toEqual({ message: "httpCall method is not a valid HTTP method" });
 					expect(yield* sent).toEqual([]);
 				}),
 			);
