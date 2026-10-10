@@ -4,7 +4,7 @@ import { Effect } from "effect";
 
 import { useInstanceAdmin } from "#/modules/instance-admin/context";
 import { InstanceAdminImpersonationService } from "#/modules/instance-admin/impersonation";
-import { transferResetLink } from "#/modules/instance-admin/reset-link-transfer";
+import { transferAdminLink } from "#/modules/instance-admin/link-transfer";
 import { InstanceAdminService } from "#/modules/instance-admin/service";
 import { UsersAdministration } from "#/modules/instance-admin/users-administration";
 
@@ -33,7 +33,7 @@ function InstanceAdminUsers() {
 			operations={operations}
 			onUnauthorized={unauthorized}
 			backInterceptors={backInterceptors}
-			transferResetLink={transferResetLink}
+			transferAdminLink={transferAdminLink}
 		/>
 	);
 }
