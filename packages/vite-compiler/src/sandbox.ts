@@ -181,14 +181,21 @@ const sourceMapPath = (
 	};
 };
 
-const sandboxConfig = (
-	entry: string,
-	outputFile: string,
-	sourceMap: boolean,
-	aliases: readonly SandboxEsmAlias[],
-	approvedExternalSpecifiers: ReadonlySet<string>,
-	transformSourceMap: ReturnType<typeof sourceMapPath>,
-): InlineConfig => ({
+const sandboxConfig = ({
+	entry,
+	aliases,
+	sourceMap,
+	outputFile,
+	transformSourceMap,
+	approvedExternalSpecifiers,
+}: {
+	entry: string;
+	outputFile: string;
+	sourceMap: boolean;
+	aliases: readonly SandboxEsmAlias[];
+	approvedExternalSpecifiers: ReadonlySet<string>;
+	transformSourceMap: ReturnType<typeof sourceMapPath>;
+}): InlineConfig => ({
 	define: { "globalThis.Bun": "undefined" },
 	resolve: {
 		alias: aliases,
@@ -235,14 +242,19 @@ const buildStagedEntry = Effect.fn("buildSandboxEsmEntry")(function* (
 	const result = yield* buildWithVite({
 		workspace,
 		typeScriptProject,
-		config: sandboxConfig(
+		config: sandboxConfig({
 			entry,
-			options.outputFile,
-			options.sourceMap ?? true,
-			options.aliases ?? [],
-			options.approvedExternalSpecifiers,
-			sourceMapPath(path, canonical.output, canonical.source, canonical.generated),
-		),
+			outputFile: options.outputFile,
+			aliases: options.aliases ?? [],
+			sourceMap: options.sourceMap ?? true,
+			approvedExternalSpecifiers: options.approvedExternalSpecifiers,
+			transformSourceMap: sourceMapPath(
+				path,
+				canonical.output,
+				canonical.source,
+				canonical.generated,
+			),
+		}),
 	});
 	const output = result.files[0];
 	if (result.files.length !== 1 || output?.path !== options.outputFile) {

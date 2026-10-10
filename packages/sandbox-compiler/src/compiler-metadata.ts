@@ -4,11 +4,15 @@ import {
 } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
-import { Result, Schema } from "effect";
+import { Effect, Result, Schema } from "effect";
 
-import { sandboxCompilerDiagnostic, type SandboxCompilerDiagnostic } from "./compiler-diagnostics";
-import type { CompiledSandboxModule } from "./compiler-protocol";
-import { jsonByteLength, SANDBOX_COMPILER_LIMITS } from "./limits";
+import {
+	sandboxCompilationFailure,
+	sandboxCompilerDiagnostic,
+	type SandboxCompilerDiagnostic,
+} from "./compiler-diagnostics";
+import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-protocol";
+import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
 const decodeSandboxExecutionMetadata = Schema.decodeUnknownResult(SandboxExecutionMetadata);
 
@@ -65,3 +69,31 @@ export const finalizeCompiledManifest = (
 	}
 	return Result.succeed(manifest);
 };
+
+export const finalizeCompiledModule = Effect.fnUntraced(function* (input: {
+	javascript: string;
+	manifest: SandboxManifest;
+	metadata: SandboxSourceExecutionMetadata;
+	runtimeImports: SandboxExecutionMetadata["runtimeImports"];
+}) {
+	if (utf8ByteLength(input.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
+		return yield* sandboxCompilationFailure([
+			sandboxCompilerDiagnostic(
+				"RYOT_COMPILED_SIZE",
+				`Compiled sandbox module exceeds ${SANDBOX_COMPILER_LIMITS.javascriptBytes} UTF-8 bytes`,
+			),
+		]);
+	}
+	const manifest = finalizeCompiledManifest(input.manifest, {
+		...input.metadata,
+		runtimeImports: input.runtimeImports,
+	});
+	if (Result.isFailure(manifest)) {
+		return yield* sandboxCompilationFailure([manifest.failure]);
+	}
+	return {
+		manifest: manifest.success,
+		javascript: input.javascript,
+		format: SANDBOX_COMPILED_FORMAT,
+	} satisfies CompiledSandboxModule;
+});

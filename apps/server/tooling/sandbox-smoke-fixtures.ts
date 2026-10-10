@@ -1,5 +1,5 @@
-import { SandboxScriptManifest } from "@ryot-app/contract/modules/sandbox/schemas";
-import { CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
+import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
+import { CompilerWorkerSuccessValue } from "@ryot-app/sandbox-compiler/protocol";
 import { Schema } from "effect";
 
 export const smokeSourceManifest = {
@@ -13,9 +13,10 @@ export const smokeHostCallValue = "mediated-production-smoke";
 export const smokeTiers = ["core", "data", "full"] as const;
 
 const CompiledSmokeDefinition = Schema.Struct({
-	...CompilerWorkerResponse.members[0].fields.value.fields,
+	...CompilerWorkerSuccessValue.fields,
 	manifest: Schema.Struct({
-		...SandboxScriptManifest.members[0].fields,
+		...SandboxExecutionMetadata.fields,
+		kind: Schema.Literal(smokeSourceManifest.kind),
 		name: Schema.Literal(smokeSourceManifest.name),
 		slug: Schema.Literal(smokeSourceManifest.slug),
 		capabilities: Schema.Array(Schema.String).pipe(
