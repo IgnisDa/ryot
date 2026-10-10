@@ -1095,6 +1095,52 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 		}),
 	);
 
+	test.effect(
+		"settles repeated inline calls past the native scheduler budget and replays them",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compileTestScript(
+					defineNativeScript(
+						`(_input, host) => Effect.forEach(Array.from({ length: 200 }, (_, index) => index), (index) => host.getCachedValue(String(index)))`,
+					),
+				);
+				const settled: number[] = [];
+				const inlineDurableHost: SandboxInlineDurableHost = {
+					cancel: () => Effect.void,
+					capabilities: ["getCachedValue"],
+					settle: (requests) =>
+						Effect.sync(() =>
+							requests.map((request) => {
+								settled.push(request.index);
+								return { value: request.index, state: "success" as const };
+							}),
+						),
+				};
+				const live = yield* runNative(
+					compiled,
+					{},
+					{ inlineDurableHost, workflowExecutionId: "repeated-inline" },
+				);
+				const expected = Array.from({ length: 200 }, (_, index) => index);
+				expect(settled).toEqual(expected);
+				expect(live.response).toMatchObject({
+					success: true,
+					value: { output: expected, state: "completed" },
+				});
+				expect(live.inline).toHaveLength(200);
+				const replay = yield* runNative(
+					compiled,
+					{},
+					{ inlineDurableHost, replayJournal: live.inline, workflowExecutionId: "repeated-inline" },
+				);
+				expect(replay.response).toMatchObject({
+					success: true,
+					value: { output: expected, state: "completed", journalLength: 200 },
+				});
+				expect(settled).toEqual(expected);
+			}),
+	);
+
 	test.effect("keeps inline success, failure, and committed replay evidence", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compileTestScript(durableSource);

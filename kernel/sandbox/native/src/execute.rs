@@ -366,15 +366,16 @@ impl HostBridge for HostLink {
             .await_result(seq)
             .ok_or_else(|| "Sandbox execution is stopping".to_owned())?;
         self.lease.park_for_inline();
-        block_on(send_host_call(
+        // This synchronous bridge cannot yield back to the enclosing Tokio task to renew its budget.
+        block_on(tokio::task::unconstrained(send_host_call(
             &self.outbox,
             self.generation,
             &self.entry,
             seq,
             "inlineBatch".to_owned(),
             args,
-        ));
-        let outcome = block_on(receiver);
+        )));
+        let outcome = block_on(tokio::task::unconstrained(receiver));
         self.entry.inline_settlement_finished();
         if !self.lease.resume_after_inline() {
             return Err("Sandbox execution is stopping".to_owned());
