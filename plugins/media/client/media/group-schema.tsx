@@ -12,6 +12,7 @@ import { createElement, type ReactNode } from "react";
 import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { MediaReviewActivityResult } from "../../shared/media-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { type MediaCursorPage, mediaCursorPageError } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
@@ -86,6 +87,7 @@ type GroupSummaryResult<Summary> = {
 type GroupOverview<Overview> = Overview | Record<never, never>;
 
 type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
+	readonly peopleRecipe: MediaCreditsRecipe;
 	readonly summaryRecipe: (input: {
 		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
@@ -180,6 +182,7 @@ export const defineGroupMediaSchema = <
 	const MemberRow = descriptor.member.RowContent;
 	const creditCopy = descriptor.creditCopy;
 	const overviewRecipe = recipes.overviewRecipe;
+	const peopleQuery = createMediaCreditsQuery(recipes.peopleRecipe);
 
 	const tabs: readonly TabOption<GroupTabKey>[] = [
 		{ value: "members", label: members.tab },
@@ -299,7 +302,9 @@ export const defineGroupMediaSchema = <
 
 	const overviewRelations: MediaOverviewRelationsRender<GroupOverview<Overview>> = ({
 		compact,
+		entityId,
 		overview,
+		safeAreaTop,
 	}) =>
 		creditCopy === undefined || !("people" in overview) ? null : (
 			<MediaCreditColumns
@@ -307,7 +312,18 @@ export const defineGroupMediaSchema = <
 				compact={compact}
 				people={overview.people.items}
 				companies={overview.companies.items}
-				onViewAllPeople={() => console.log(`TODO: open all ${nouns.singular} credits`)}
+				peopleAction={
+					<MediaCreditsButton
+						aspect="square"
+						compact={compact}
+						purpose="profile"
+						query={peopleQuery}
+						input={{ entityId }}
+						label="View all people"
+						title={creditCopy.people}
+						safeAreaTop={safeAreaTop}
+					/>
+				}
 			/>
 		);
 

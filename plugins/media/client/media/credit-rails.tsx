@@ -1,9 +1,12 @@
+import type { RyotQuery } from "@ryot-app/plugin-client-sdk/react";
+
 import type { MediaCreatorCredit } from "../../shared/creator-recipes";
+import { MediaCreditsButton } from "./credits";
+import type { MediaCursorPage } from "./cursor-page-state";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
 import { collectManagedAssetLocators } from "./image";
 import { mediaCharacterLabel, mediaRolesLabel } from "./overview-state";
-import { MediaLinkButton } from "./primitives";
 import { mediaPosterAsset } from "./summary-state";
 
 export type MediaCreditSection<Slug extends string> = {
@@ -36,7 +39,12 @@ const creditLines = (credit: MediaCreatorCredit) => [
 ];
 
 export function MediaCreditRails<Slug extends string>(props: {
-	readonly noun: string;
+	readonly entityId: string;
+	readonly safeAreaTop: number;
+	readonly creditsQuery: RyotQuery<
+		{ readonly entityId: string; readonly target: Slug; readonly after: string | null },
+		MediaCursorPage<MediaCreatorCredit>
+	>;
 	readonly compact: boolean;
 	readonly overview: MediaCreditRailsOverview<Slug>;
 	readonly sections: readonly MediaCreditSection<Slug>[];
@@ -53,11 +61,15 @@ export function MediaCreditRails<Slug extends string>(props: {
 				aspect={() => section.aspect}
 				action={
 					credits.pageInfo.hasMore ? (
-						<MediaLinkButton
+						<MediaCreditsButton<{ readonly target: Slug }>
+							purpose="cover"
 							label="View all"
-							onClick={() =>
-								console.log(`TODO: open all ${section.slug} credits for this ${props.noun}`)
-							}
+							title={section.title}
+							compact={props.compact}
+							aspect={section.aspect}
+							query={props.creditsQuery}
+							safeAreaTop={props.safeAreaTop}
+							input={{ target: section.slug, entityId: props.entityId }}
 						/>
 					) : null
 				}

@@ -381,6 +381,43 @@ export type MediaCreditRows<PersonFields extends SelectedSelection> = SelectedQu
 	ReturnType<typeof mediaCreditQueries<PersonFields>>
 >;
 
+export const mediaPeopleRecipe = <const Fields extends SelectedSelection>(config: {
+	readonly slug: string;
+	readonly personFields: (relationship: Table) => Fields;
+}) =>
+	defineRecipe(
+		(input: {
+			readonly reference: PluginIdentityReference;
+			readonly entityId: string;
+			readonly limit: number;
+			readonly after?: string | undefined;
+		}) => {
+			const person = table("entity", "person");
+			const relationship = table("relationship", "personRelationship");
+			return {
+				map: ({ people }) => Result.succeed(people),
+				queries: {
+					people: selectedRows(relationship, {
+						...relatedRows({
+							...input,
+							relationship,
+							related: person,
+							relatedSchemaSlug: "person",
+							relatedSide: "sourceEntityId",
+							relationshipSchemaSlug: `person-to-${config.slug}`,
+							orderBy: [...creditOrder(person, relationship), ascending(column(person, "id"))],
+						}),
+						...(input.after === undefined ? {} : { after: input.after }),
+						selection: {
+							...creditSelection(person, relationship),
+							...config.personFields(relationship),
+						},
+					}),
+				},
+			};
+		},
+	);
+
 export const mediaOverviewQueries = (input: {
 	readonly reference: PluginIdentityReference;
 	readonly slug: string;
@@ -948,6 +985,7 @@ export const mediaFlatRecipes = <
 	const overviewRecipe = defineRecipe((input: MediaFlatOverviewInput) => ({
 		queries: overviewQueries(input),
 	}));
+	const peopleRecipe = mediaPeopleRecipe({ ...config, personFields: creditCharacterSelection });
 
 	const activityRecipe = defineRecipe(
 		(input: {
@@ -1016,6 +1054,7 @@ export const mediaFlatRecipes = <
 	});
 
 	return {
+		peopleRecipe,
 		summaryRecipe,
 		overviewRecipe,
 		activityRecipe,

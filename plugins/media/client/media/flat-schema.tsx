@@ -17,6 +17,7 @@ import type {
 import { MediaActivityReviewDetail, type MediaActivityRowRender } from "./activity-rows";
 import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
 import { decimalLabel, mediaActivitySpanLabel, mediaCollectionRowLabel } from "./activity-timeline";
+import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -53,7 +54,11 @@ import {
 	MediaOverviewRelations,
 	type MediaOverviewRelationsRender,
 } from "./overview";
-import { type MediaOverviewState, mediaUnlinkedCreators } from "./overview-state";
+import {
+	type MediaOverviewState,
+	mediaUnlinkedCreators,
+	mediaUnlinkedCredits,
+} from "./overview-state";
 import {
 	mediaFlatLifecycleLabel,
 	mediaPosterAsset,
@@ -122,6 +127,7 @@ export type MediaFlatSchemaDescriptor<
 	Extra = unknown,
 > = {
 	readonly recipes: {
+		readonly peopleRecipe: MediaCreditsRecipe;
 		readonly summaryRecipe: (input: {
 			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
@@ -216,6 +222,7 @@ export const defineFlatMediaSchema = <
 	const { nouns, recipes, activityCopy } = descriptor;
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
+	const peopleQuery = createMediaCreditsQuery(recipes.peopleRecipe);
 
 	const railsOf = (overview: Overview) => descriptor.overviewRails?.(overview) ?? [];
 
@@ -359,7 +366,12 @@ export const defineFlatMediaSchema = <
 
 	const header = mediaSummaryHeaderDetail({ facts: descriptor.facts, progress: summaryProgress });
 
-	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({ compact, overview }) => {
+	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
+		compact,
+		entityId,
+		overview,
+		safeAreaTop,
+	}) => {
 		const groupCopy = descriptor.group;
 		const group = groupCopy === undefined ? null : (overview.group ?? null);
 		const unlinked = mediaUnlinkedCreators(overview);
@@ -370,7 +382,19 @@ export const defineFlatMediaSchema = <
 				unlinked={unlinked}
 				aspect={descriptor.aspect}
 				copy={descriptor.creditCopy}
-				onViewAllPeople={() => console.log(`TODO: open all ${nouns.singular} credits`)}
+				peopleAction={
+					<MediaCreditsButton
+						aspect="square"
+						compact={compact}
+						purpose="profile"
+						query={peopleQuery}
+						input={{ entityId }}
+						label="View all people"
+						safeAreaTop={safeAreaTop}
+						title={descriptor.creditCopy.people}
+						unlinked={mediaUnlinkedCredits(unlinked).people}
+					/>
+				}
 				trailing={
 					<>
 						{group === null || groupCopy === undefined ? null : (

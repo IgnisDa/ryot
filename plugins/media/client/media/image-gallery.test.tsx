@@ -24,7 +24,7 @@ const relationsRender: MediaOverviewRelationsRender<MediaOverviewRows> = ({ over
 		compact
 		aspect="poster"
 		overview={overview}
-		onViewAllPeople={() => undefined}
+		peopleAction={null}
 		copy={{ notice: "Cast", people: "Cast & crew", companies: "Production companies" }}
 	/>
 );

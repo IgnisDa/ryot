@@ -3,6 +3,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type RefObject, useEffect, useRef, useState } from "react";
 
+import { MediaDetailModal } from "./detail-modal";
 import type { MediaGalleryImage } from "./image";
 import {
 	galleryCountLabel,
@@ -251,80 +252,65 @@ export function MediaImageGallery(props: {
 	};
 
 	return (
-		<Modal
+		<MediaDetailModal
+			title="Images"
+			contentRef={gridRef}
+			compact={props.compact}
 			onClose={props.onClose}
 			closeLabel="Close images"
 			triggerRef={props.triggerRef}
 			label={`${props.name} images`}
-			containerClassName={
-				props.compact ? "items-stretch justify-stretch" : "items-center justify-center p-6"
+			safeAreaTop={props.safeAreaTop}
+			toolbar={<GalleryFilterRow active={filter} images={props.images} onSelect={selectFilter} />}
+			headerAside={
+				<span className="font-ui text-[12px] text-text-muted">
+					{galleryCountLabel(visible.length)}
+				</span>
 			}
-			className={clsx(
-				"flex flex-col overflow-hidden bg-surface",
-				props.compact
-					? "h-full w-full"
-					: "h-full max-h-[46rem] w-full max-w-5xl rounded-xl border border-border",
-			)}
-		>
-			<div
-				className="flex items-center justify-between gap-4 px-4 pt-4 pb-3"
-				style={{ paddingTop: props.compact ? props.safeAreaTop + 16 : undefined }}
-			>
-				<div className="flex min-w-0 items-baseline gap-3">
-					<h2 className="font-display font-semibold text-lg text-text">Images</h2>
-					<span className="font-ui text-[12px] text-text-muted">
-						{galleryCountLabel(visible.length)}
-					</span>
-				</div>
-				<GalleryCloseButton label="Close images" onClick={props.onClose} />
-			</div>
-			<GalleryFilterRow active={filter} images={props.images} onSelect={selectFilter} />
-			<div
-				ref={gridRef}
-				className="min-h-0 flex-1 overflow-y-auto border-border border-t px-4 py-4"
-			>
-				<div className={clsx("grid gap-2.5", galleryTileColumns(filter, props.compact))}>
-					{visible.map((image, index) => (
-						<button
-							type="button"
-							key={imageAssetKey(image)}
-							aria-label={`View image ${index + 1}`}
-							className="rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
-							onClick={(event) => {
-								tileRef.current = event.currentTarget;
-								setLightbox(index);
-							}}
-						>
-							<ManagedAssetImage
-								asset={image}
-								state="ready"
-								monogram={props.name}
-								fit={galleryTileFit(filter)}
-								className={clsx("w-full", galleryTileAspect(filter))}
-							/>
-						</button>
-					))}
-				</div>
-			</div>
-			{lightbox === undefined ? null : (
-				<Modal
-					triggerRef={tileRef}
-					closeLabel="Close image"
-					onClose={() => setLightbox(undefined)}
-					className="flex h-full w-full flex-col bg-bg"
-					label={`Image ${lightbox + 1} of ${visible.length}`}
-				>
-					<GalleryLightboxBody
-						images={visible}
-						index={lightbox}
-						name={props.name}
-						onSelect={setLightbox}
-						compact={props.compact}
-						safeAreaTop={props.safeAreaTop}
+			overlay={
+				lightbox === undefined ? null : (
+					<Modal
+						triggerRef={tileRef}
+						closeLabel="Close image"
 						onClose={() => setLightbox(undefined)}
-					/>
-				</Modal>
-			)}
-		</Modal>
+						className="flex h-full w-full flex-col bg-bg"
+						label={`Image ${lightbox + 1} of ${visible.length}`}
+					>
+						<GalleryLightboxBody
+							images={visible}
+							index={lightbox}
+							name={props.name}
+							onSelect={setLightbox}
+							compact={props.compact}
+							safeAreaTop={props.safeAreaTop}
+							onClose={() => setLightbox(undefined)}
+						/>
+					</Modal>
+				)
+			}
+		>
+			<div className={clsx("grid gap-2.5", galleryTileColumns(filter, props.compact))}>
+				{visible.map((image, index) => (
+					<button
+						type="button"
+						key={imageAssetKey(image)}
+						aria-label={`View image ${index + 1}`}
+						className="rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
+						onClick={(event) => {
+							tileRef.current = event.currentTarget;
+							setLightbox(index);
+						}}
+					>
+						<ManagedAssetImage
+							asset={image}
+							state="ready"
+							monogram={props.name}
+							fit={galleryTileFit(filter)}
+							className={clsx("w-full", galleryTileAspect(filter))}
+						/>
+					</button>
+				))}
+			</div>
+		</MediaDetailModal>
 	);
 }
