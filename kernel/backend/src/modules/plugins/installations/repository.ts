@@ -327,27 +327,6 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				},
 			);
 
-			const listSystemForUser = Effect.fn("PluginInstallationRepository.listSystemForUser")(
-				function* (userId: UserId) {
-					const rows = yield* database.run((db) =>
-						db
-							.select(installationState)
-							.from(schema.pluginInstallation)
-							.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
-							.where(
-								and(
-									isNull(schema.plugin.ownerId),
-									isNull(schema.pluginInstallation.uninstalledAt),
-									eq(schema.plugin.status, "active"),
-									eq(schema.pluginInstallation.userId, userId),
-								),
-							)
-							.orderBy(asc(schema.pluginInstallation.sortOrder), asc(schema.plugin.packageId)),
-					);
-					return rows;
-				},
-			);
-
 			const findByUserAndPlugin = Effect.fn("PluginInstallationRepository.findByUserAndPlugin")(
 				function* (userId: UserId, pluginId: string) {
 					const [row] = yield* database.run((db) =>
@@ -480,6 +459,43 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						.returning({ id: schema.pluginInstallation.id }),
 				);
 				return updated !== undefined;
+			});
+			const completeNoEntryInitializations = Effect.fn(
+				"PluginInstallationRepository.completeNoEntryInitializations",
+			)(function* (input: {
+				readonly userId: UserId;
+				readonly installations: ReadonlyArray<{
+					readonly installationId: string;
+					readonly activationId: string;
+				}>;
+			}) {
+				if (input.installations.length === 0) {
+					return [];
+				}
+				yield* database.requireTransaction;
+				yield* lockPluginIngestionShared(database);
+				const pairs = sql.join(
+					input.installations.map(
+						({ activationId, installationId }) => sql`(${installationId}, ${activationId})`,
+					),
+					sql`, `,
+				);
+				const updated = yield* database.run((db) =>
+					db
+						.update(schema.pluginInstallation)
+						.set({ health: "ready", healthReason: null, isInitialized: true })
+						.where(
+							and(
+								eq(schema.pluginInstallation.userId, input.userId),
+								sql`${schema.pluginInstallation.health} in ('ready', 'installing')`,
+								isNull(schema.pluginInstallation.uninstalledAt),
+								isNull(schema.pluginInstallation.incompatibilityReason),
+								sql`exists (select 1 from ${schema.plugin} where ${schema.plugin.id} = ${schema.pluginInstallation.pluginId} and ${schema.plugin.ownerId} is null and ${schema.plugin.status} = 'active' and (${schema.pluginInstallation.id}, ${schema.plugin.activationId}) in (${pairs}))`,
+							),
+						)
+						.returning({ id: schema.pluginInstallation.id }),
+				);
+				return updated.map(({ id }) => id);
 			});
 
 			const setHomeSavedView = Effect.fn("PluginInstallationRepository.setHomeSavedView")(
@@ -813,7 +829,6 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				findUserSettings,
 				saveUserSettings,
 				setHomeSavedView,
-				listSystemForUser,
 				findHomeSavedView,
 				listHydratedForUser,
 				findByUserAndPlugin,
@@ -826,6 +841,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				completeSystemInitialization,
 				clearHomeSavedViewReferences,
 				refreshClientConfigsForPlugin,
+				completeNoEntryInitializations,
 				quarantinePackageIdentityConflicts,
 				provisionSystemInstallationsForUser,
 				provisionSystemInstallationsForAllUsers,

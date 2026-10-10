@@ -3,15 +3,20 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
-	PluginInstallationRepository,
-	type PluginInstallationState,
-} from "#modules/plugins/installations/repository";
+	revisionDatabaseLayer,
+	revisionPackage,
+} from "#modules/plugins/packages/revision.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 import { databaseLayer } from "#testing/effect";
 
 import { makePluginUserBootstrapDispatcher, userBootstrapExecutionId } from "./plugin-dispatch";
@@ -68,105 +73,81 @@ const plugins = [
 	normalizedPlugin("sample", [{ slug: "only", description: "Only", scriptSlug: "bootstrap.only" }]),
 ];
 
-const systemInstallation = (pluginName: string): PluginInstallationState => {
+const systemInstallation = (pluginName: string) => {
 	const plugin = plugins.find(({ name }) => name === pluginName);
 	assert(plugin);
 	return {
-		sortOrder: 0,
 		health: "ready",
 		isHidden: false,
-		userSettings: {},
-		healthReason: null,
-		uninstalledAt: null,
-		homeSavedView: null,
-		isInitialized: false,
-		pluginScope: "system",
-		createdAt: new Date(0),
-		updatedAt: new Date(0),
-		incompatibilityReason: null,
-		activeConfigRevisionId: null,
-		pluginId: `${pluginName}-id`,
-		userId: UserId.make("user-1"),
-		id: `${pluginName}-installation`,
-		packageId: plugin.manifest.metadata.packageId,
-	};
+		pluginId: plugin.id,
+		activationId: `${plugin.id}-activation`,
+		installationId: `${pluginName}-installation`,
+		entries: plugin.manifest.userBootstrap.map(({ slug, scriptSlug }) => ({
+			slug,
+			scriptId: SandboxScriptId.make(`${scriptSlug}-id`),
+		})),
+	} satisfies Effect.Success<
+		ReturnType<PluginRuntimeResolver["Service"]["resolveUserInstallationBootstraps"]>
+	>[number];
 };
 
-const baseLayer = Layer.mergeAll(
-	databaseLayer,
-	Layer.mock(PluginRuntimeResolver)({
-		listSystemUserBootstraps: () =>
-			Effect.succeed(
-				plugins
-					.flatMap((plugin) =>
-						plugin.manifest.userBootstrap.map((bootstrap) => ({
-							bootstrap,
-							pluginId: plugin.id,
-							packageId: plugin.packageId,
-						})),
-					)
-					.sort(
-						(left, right) =>
-							left.packageId.localeCompare(right.packageId) ||
-							left.bootstrap.slug.localeCompare(right.bootstrap.slug),
-					),
-			),
-		resolveInstallationBootstrap: (installationId) => {
-			const plugin = plugins.find(({ name }) => `${name}-installation` === installationId);
-			return Effect.succeed(
-				plugin
-					? {
-							health: "ready",
-							pluginScope: "system",
-							userId: UserId.make("user-1"),
-							activationId: `${plugin.id}-activation`,
-							entries: plugin.manifest.userBootstrap.map(({ slug, scriptSlug }) => ({
-								slug,
-								scriptId: SandboxScriptId.make(`${scriptSlug}-id`),
-							})),
-						}
-					: null,
-			);
-		},
-		resolveActivePluginUserBootstrap: ({ pluginId, bootstrapSlug }) => {
-			const bootstrap = plugins
-				.find(({ id }) => id === pluginId)
-				?.manifest.userBootstrap.find(({ slug }) => slug === bootstrapSlug);
-			return bootstrap
-				? Effect.succeed({
-						bootstrap,
-						script: {
-							pluginId,
-							providerId: null,
-							name: bootstrap.scriptSlug,
-							slug: bootstrap.scriptSlug,
-							contentHash: `${bootstrap.scriptSlug}-hash`,
-							pluginRevisionId: `${pluginId}-revision-id`,
-							id: SandboxScriptId.make(`${bootstrap.scriptSlug}-id`),
-							metadata: {
-								kind: "script",
-								...emptySandboxExecutionMetadata,
-								slug: bootstrap.scriptSlug,
-								name: bootstrap.scriptSlug,
-							},
-						} satisfies NonNullable<
-							Effect.Success<
-								ReturnType<PluginRuntimeResolver["Service"]["resolveActivePluginUserBootstrap"]>
-							>
-						>["script"],
-					})
-				: Effect.succeed(null);
-		},
-	}),
-);
-
-const layerFor = (installed: Array<PluginInstallationState>) =>
+const layerFor = (installed: Array<ReturnType<typeof systemInstallation>>) =>
 	Layer.mergeAll(
+		databaseLayer,
 		Layer.mock(PluginInstallationRepository)({
-			listSystemForUser: () => Effect.succeed(installed),
 			completeSystemInitialization: () => Effect.succeed(true),
+			completeNoEntryInitializations: () => Effect.succeed([]),
 		}),
-		baseLayer,
+		Layer.mock(PluginRuntimeResolver)({
+			resolveUserInstallationBootstraps: () => Effect.succeed(installed),
+			resolveInstallationBootstrap: () =>
+				Effect.die("dispatchAll must not resolve installations one at a time"),
+			listSystemUserBootstraps: () =>
+				Effect.succeed(
+					plugins
+						.flatMap((plugin) =>
+							plugin.manifest.userBootstrap.map((bootstrap) => ({
+								bootstrap,
+								pluginId: plugin.id,
+								packageId: plugin.packageId,
+							})),
+						)
+						.sort(
+							(left, right) =>
+								left.packageId.localeCompare(right.packageId) ||
+								left.bootstrap.slug.localeCompare(right.bootstrap.slug),
+						),
+				),
+			resolveActivePluginUserBootstrap: ({ pluginId, bootstrapSlug }) => {
+				const bootstrap = plugins
+					.find(({ id }) => id === pluginId)
+					?.manifest.userBootstrap.find(({ slug }) => slug === bootstrapSlug);
+				return bootstrap
+					? Effect.succeed({
+							bootstrap,
+							script: {
+								pluginId,
+								providerId: null,
+								name: bootstrap.scriptSlug,
+								slug: bootstrap.scriptSlug,
+								contentHash: `${bootstrap.scriptSlug}-hash`,
+								pluginRevisionId: `${pluginId}-revision-id`,
+								id: SandboxScriptId.make(`${bootstrap.scriptSlug}-id`),
+								metadata: {
+									kind: "script",
+									...emptySandboxExecutionMetadata,
+									slug: bootstrap.scriptSlug,
+									name: bootstrap.scriptSlug,
+								},
+							} satisfies NonNullable<
+								Effect.Success<
+									ReturnType<PluginRuntimeResolver["Service"]["resolveActivePluginUserBootstrap"]>
+								>
+							>["script"],
+						})
+					: Effect.succeed(null);
+			},
+		}),
 	);
 
 layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((test) => {
@@ -276,7 +257,7 @@ layer(layerFor([systemInstallation("idle")]))((test) => {
 	test.effect("marks an exact no-bootstrap installation without running a script", () =>
 		Effect.gen(function* () {
 			const marks: Array<
-				Parameters<PluginInstallationRepository["Service"]["completeSystemInitialization"]>[0]
+				Parameters<PluginInstallationRepository["Service"]["completeNoEntryInitializations"]>[0]
 			> = [];
 			const repository = yield* PluginInstallationRepository;
 			const dispatcher = yield* makePluginUserBootstrapDispatcher(() =>
@@ -284,17 +265,60 @@ layer(layerFor([systemInstallation("idle")]))((test) => {
 			).pipe(
 				Effect.provideService(PluginInstallationRepository, {
 					...repository,
-					completeSystemInitialization: (input) =>
+					completeNoEntryInitializations: (input) =>
 						Effect.sync(() => {
 							marks.push(input);
-							return true;
+							return [];
 						}),
 				}),
 			);
 			const userId = UserId.make("user-1");
 			yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
 			expect(marks).toEqual([
-				{ userId, activationId: "idle-id-activation", installationId: "idle-installation" },
+				{
+					userId,
+					installations: [
+						{ activationId: "idle-id-activation", installationId: "idle-installation" },
+					],
+				},
+			]);
+		}),
+	);
+});
+
+layer(layerFor([systemInstallation("idle"), systemInstallation("sample")]))((test) => {
+	test.effect("completes no-entry installations before running any bootstrap script", () =>
+		Effect.gen(function* () {
+			const steps: Array<string> = [];
+			const repository = yield* PluginInstallationRepository;
+			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+				Effect.sync(() => {
+					steps.push(`execute ${payload.scriptId}`);
+					return { error: null };
+				}),
+			).pipe(
+				Effect.provideService(PluginInstallationRepository, {
+					...repository,
+					completeSystemInitialization: ({ installationId }) =>
+						Effect.sync(() => {
+							steps.push(`complete ${installationId}`);
+							return true;
+						}),
+					completeNoEntryInitializations: ({ installations }) =>
+						Effect.sync(() => {
+							steps.push(
+								`no-entry ${installations.map(({ installationId }) => installationId).join(",")}`,
+							);
+							return [];
+						}),
+				}),
+			);
+			const userId = UserId.make("user-1");
+			yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
+			expect(steps).toEqual([
+				"no-entry idle-installation",
+				"execute bootstrap.only-id",
+				"complete sample-installation",
 			]);
 		}),
 	);
@@ -382,19 +406,18 @@ layer(layerFor([systemInstallation("example")]))((test) => {
 					}),
 					Effect.provideService(PluginRuntimeResolver, {
 						...runtime,
-						resolveInstallationBootstrap: (id) =>
+						resolveUserInstallationBootstraps: (userId) =>
 							runtime
-								.resolveInstallationBootstrap(id)
+								.resolveUserInstallationBootstraps(userId)
 								.pipe(
-									Effect.map(
-										(captured) =>
-											captured && {
-												...captured,
-												entries: captured.entries.map((entry) => ({
-													...entry,
-													scriptId: SandboxScriptId.make(`${entry.slug}-old`),
-												})),
-											},
+									Effect.map((installed) =>
+										installed.map((captured) => ({
+											...captured,
+											entries: captured.entries.map((entry) => ({
+												...entry,
+												scriptId: SandboxScriptId.make(`${entry.slug}-old`),
+											})),
+										})),
 									),
 								),
 					}),
@@ -451,5 +474,84 @@ layer(layerFor([systemInstallation("example")]))((test) => {
 				]);
 			});
 		},
+	);
+});
+
+const bootstrappedPackage = (slug: string, bootstrapSlugs: Array<string>) => {
+	const value = revisionPackage(slug, "v1", undefined, PluginPackageId.make(`test/${slug}`));
+	return {
+		...value,
+		manifest: {
+			...value.manifest,
+			userBootstrap: bootstrapSlugs.map((bootstrapSlug) => ({
+				slug: bootstrapSlug,
+				description: bootstrapSlug,
+				scriptSlug: `${slug}.task`,
+			})),
+		},
+	};
+};
+
+layer(revisionDatabaseLayer)((test) => {
+	test.effect("initializes a user's installations with and without bootstrap entries", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* PluginRepository;
+			const installations = yield* PluginInstallationRepository;
+			const userId = UserId.make("owner");
+			const accountGeneration = { userId, token: "test-account-generation" };
+			const [alpha, beta, idle] = yield* session.transaction(
+				Effect.gen(function* () {
+					yield* repository.lockIngestion();
+					const pluginIds = yield* Effect.forEach(
+						[
+							bootstrappedPackage("alpha", ["seed"]),
+							bootstrappedPackage("beta", ["first", "second"]),
+							bootstrappedPackage("idle", []),
+						],
+						(plugin) => repository.persist(plugin, { ownerId: null, scope: "system" }),
+					);
+					yield* installations.provisionSystemInstallationsForUser(userId);
+					yield* session.run((db) =>
+						db
+							.update(tables.pluginInstallation)
+							.set({ health: "installing", isInitialized: false })
+							.where(eq(tables.pluginInstallation.userId, userId)),
+					);
+					return pluginIds;
+				}),
+			);
+			assert(alpha && beta && idle);
+			const executionIds: Array<string> = [];
+			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+				Effect.sync(() => {
+					executionIds.push(payload.executionId);
+					return { error: null };
+				}),
+			);
+			yield* dispatcher.dispatchAll(userId, accountGeneration);
+			expect(executionIds).toEqual([
+				userBootstrapExecutionId(userId, alpha, "seed", accountGeneration),
+				userBootstrapExecutionId(userId, beta, "first", accountGeneration),
+				userBootstrapExecutionId(userId, beta, "second", accountGeneration),
+			]);
+			const rows = yield* session.run((db) =>
+				db
+					.select({
+						health: tables.pluginInstallation.health,
+						pluginId: tables.pluginInstallation.pluginId,
+						healthReason: tables.pluginInstallation.healthReason,
+						isInitialized: tables.pluginInstallation.isInitialized,
+					})
+					.from(tables.pluginInstallation)
+					.where(eq(tables.pluginInstallation.userId, userId)),
+			);
+			const initialized = { health: "ready", healthReason: null, isInitialized: true };
+			expect(Object.fromEntries(rows.map(({ pluginId, ...state }) => [pluginId, state]))).toEqual({
+				[beta]: initialized,
+				[idle]: initialized,
+				[alpha]: initialized,
+			});
+		}),
 	);
 });

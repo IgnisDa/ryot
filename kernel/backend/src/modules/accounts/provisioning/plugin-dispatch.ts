@@ -40,38 +40,27 @@ export const makePluginUserBootstrapDispatcher = (
 			accountGeneration: AccountGeneration,
 			generation?: string,
 		) {
-			const installed = (yield* installations.listSystemForUser(userId)).filter(
+			const installed = (yield* runtime.resolveUserInstallationBootstraps(userId)).filter(
 				({ health, isHidden }) => !isHidden && (health === "ready" || health === "installing"),
 			);
-			const initialization = new Map<
-				string,
-				Pick<
-					NonNullable<Effect.Success<ReturnType<typeof runtime.resolveInstallationBootstrap>>>,
-					"activationId" | "entries"
-				> & { readonly installationId: string; readonly completed: Set<string> }
-			>();
-			for (const installation of installed) {
-				const captured = yield* runtime.resolveInstallationBootstrap(installation.id);
-				if (captured?.userId !== userId || captured.pluginScope !== "system") {
-					continue;
-				}
-				initialization.set(installation.pluginId, {
-					completed: new Set(),
-					entries: captured.entries,
-					installationId: installation.id,
-					activationId: captured.activationId,
-				});
-				if (captured.entries.length === 0) {
-					yield* completeInitialization({
-						userId,
-						installationId: installation.id,
-						activationId: captured.activationId,
-					});
-				}
+			const initialization = new Map(
+				installed.map((installation) => [
+					installation.pluginId,
+					{ ...installation, completed: new Set<string>() },
+				]),
+			);
+			const noEntries = installed
+				.filter(({ entries }) => entries.length === 0)
+				.map(({ activationId, installationId }) => ({ activationId, installationId }));
+			if (noEntries.length > 0) {
+				yield* database
+					.transaction(
+						installations.completeNoEntryInitializations({ userId, installations: noEntries }),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			}
-			const installedIds = new Set(installed.map(({ pluginId }) => pluginId));
 			const entries = (yield* runtime.listSystemUserBootstraps()).filter(({ pluginId }) =>
-				installedIds.has(pluginId),
+				initialization.has(pluginId),
 			);
 
 			for (const entry of entries) {
