@@ -46,10 +46,17 @@ const hasFixedEntityValue = (
 	predicate: Predicate | undefined,
 	tableAlias: string,
 	field: "entitySchemaPluginId" | "entitySchemaSlug",
-	value: string,
+	value: string | null,
 ): boolean => {
 	if (predicate?.type === "and") {
 		return predicate.predicates.some((part) => hasFixedEntityValue(part, tableAlias, field, value));
+	}
+	if (predicate?.type === "isNull" && value === null) {
+		return (
+			predicate.expr.type === "column" &&
+			predicate.expr.tableAlias === tableAlias &&
+			predicate.expr.field === field
+		);
 	}
 	if (predicate?.type !== "comparison" || predicate.operator !== "eq") {
 		return false;
@@ -58,8 +65,11 @@ const hasFixedEntityValue = (
 		left.type === "column" &&
 		left.tableAlias === tableAlias &&
 		left.field === field &&
-		right.type === "literal" &&
-		right.value === value;
+		(field === "entitySchemaPluginId"
+			? right.type === "pluginId" &&
+				right.reference.kind === "local" &&
+				right.reference.pluginId === value
+			: right.type === "literal" && right.value === value);
 	return matches(predicate.left, predicate.right) || matches(predicate.right, predicate.left);
 };
 
@@ -156,13 +166,15 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 				query.where,
 				entityAlias,
 				"entitySchemaPluginId",
-				settings.addAction.ownerPluginId,
+				settings.addAction.schema.owner.kind === "plugin"
+					? settings.addAction.schema.owner.pluginId
+					: null,
 			) ||
 			!hasFixedEntityValue(
 				query.where,
 				entityAlias,
 				"entitySchemaSlug",
-				settings.addAction.entitySchemaSlug,
+				settings.addAction.schema.slug,
 			))
 	) {
 		return yield* invalidEntityBrowserDefinition(

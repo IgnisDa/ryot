@@ -1,4 +1,6 @@
+import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { PluginInstallationHealth } from "@ryot-app/contract/modules/plugins/schemas";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	and,
@@ -40,15 +42,17 @@ export const pluginClientCatalogRecipe = defineRecipe(
 					slug: selectedField(column(plugin, "slug"), Schema.String),
 					icon: selectedField(column(plugin, "icon"), Schema.String),
 					pluginId: selectedField(column(plugin, "id"), Schema.String),
+					packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
 					sourceHash: selectedField(column(plugin, "sourceHash"), Schema.String),
 					installationId: selectedField(column(installation, "id"), Schema.String),
 					isHidden: selectedField(column(installation, "isHidden"), Schema.Boolean),
 					sortOrder: selectedField(column(installation, "sortOrder"), Schema.Finite),
 					health: selectedField(column(installation, "health"), PluginInstallationHealth),
+					scope: selectedField(column(plugin, "scope"), Schema.Literals(["system", "user"])),
 					clientApiVersion: selectedField(column(plugin, "clientApiVersion"), Schema.Literal(1)),
-					homeSavedViewSlug: selectedField(
-						column(installation, "homeSavedViewSlug"),
-						Schema.NullOr(Schema.String),
+					homeSavedView: selectedField(
+						column(installation, "homeSavedView"),
+						Schema.NullOr(SavedViewReference),
 					),
 				},
 			}),

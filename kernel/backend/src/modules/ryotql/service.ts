@@ -4,11 +4,15 @@ import { DbError } from "@ryot-app/contract/errors";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import type { RyotQLDocument, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
 import type { AccessClass } from "@ryot-app/contract/oauth";
-import { sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Match } from "effect";
 
+import { plugin } from "#lib/infrastructure/db/schema/tables/core";
+import { userPlugin } from "#lib/infrastructure/db/schema/tables/definitions";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import type { DefinitionReadContext } from "#modules/definition-registry/read-context";
 
+import { bindRyotQLDocument, pluginIdentityReferences, type PluginBinding } from "./binding";
 import type { RyotQLAudience, RyotQLExecutionScope } from "./catalog";
 import { executeNamedQuery } from "./executor";
 import { normalizeRyotQLDocument } from "./normalizer";
@@ -30,8 +34,6 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 				yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validationError });
 				return yield* new RyotQLBadRequest({ reason: { code: "invalid-query" } });
 			}
-			const normalizedDocument = normalizeRyotQLDocument(document, scope);
-
 			return yield* session
 				.transaction(
 					session.run((transaction) =>
@@ -42,6 +44,41 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 							yield* transaction.execute(
 								sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true)`,
 							);
+							let catalog: ReadonlyArray<PluginBinding> = [];
+							if (pluginIdentityReferences(document).length > 0) {
+								if (scope.type === "user") {
+									catalog = yield* transaction
+										.select({
+											scope: userPlugin.scope,
+											pluginId: userPlugin.pluginId,
+											packageId: userPlugin.packageId,
+										})
+										.from(userPlugin)
+										.where(
+											and(eq(userPlugin.userId, scope.userId), eq(userPlugin.health, "ready")),
+										);
+								} else {
+									const plugins = yield* transaction
+										.select({
+											pluginId: plugin.id,
+											ownerId: plugin.ownerId,
+											packageId: plugin.packageId,
+										})
+										.from(plugin)
+										.where(
+											and(
+												eq(plugin.status, "active"),
+												scope.type === "plugin" ? isNull(plugin.ownerId) : undefined,
+											),
+										);
+									catalog = Array.from(plugins, (entry) => ({
+										...entry,
+										scope: entry.ownerId === null ? ("system" as const) : ("user" as const),
+									}));
+								}
+							}
+							const bound = yield* bindRyotQLDocument(document, scope, catalog);
+							const normalizedDocument = normalizeRyotQLDocument(bound, scope);
 							const budget =
 								resultBytes === undefined
 									? undefined
@@ -94,8 +131,16 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			document: RyotQLDocument,
 			accessClass: AccessClass = "standard",
 			resultBytes?: number,
+			definitionContext?: DefinitionReadContext,
 		) => {
-			const scope = { userId, language, audience, accessClass, type: "user" } as const;
+			const scope = {
+				userId,
+				language,
+				audience,
+				accessClass,
+				type: "user",
+				definitionContext,
+			} as const;
 			return executeWithScope(scope, document, resultBytes).pipe(
 				Effect.catchIf(
 					(error): boolean =>

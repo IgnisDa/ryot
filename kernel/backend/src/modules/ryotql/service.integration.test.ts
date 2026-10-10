@@ -5,13 +5,19 @@ import {
 	type PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import { builtinSavedViewId, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	RowItem,
 	RyotQLDocument,
 	RyotQLResponse,
 } from "@ryot-app/contract/modules/ryotql/language";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
-import { NotificationSubscriptionId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	NotificationSubscriptionId,
+	PluginPackageId,
+	SavedViewId,
+	SignalSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { ascending, column, descending, field, rows, star, table } from "@ryot-app/ryotql";
 import {
 	automationHistoryRunRecipe,
@@ -65,6 +71,7 @@ import { RyotQLService } from "./service";
 const occurredAt = new Date(0);
 const futureExpiry = new Date("2100-01-01T00:00:00Z");
 const systemPluginSlug = "media-hub";
+const systemPackageId = PluginPackageId.make("455f7474-21f3-484d-9b44-ef045e9c1646");
 
 const trigger = (id: string) => ({
 	id,
@@ -89,7 +96,11 @@ const trigger = (id: string) => ({
 	},
 });
 
-const manifest = (slug: string, homeView: string | null): PluginManifest => ({
+const manifest = (
+	slug: string,
+	homeView: string | null,
+	packageId: PluginPackageId,
+): PluginManifest => ({
 	...fixtureManifest(),
 	workflows: [
 		{ slug: "import", scriptSlug: slug === systemPluginSlug ? "sys.import" : "private.import" },
@@ -97,6 +108,7 @@ const manifest = (slug: string, homeView: string | null): PluginManifest => ({
 	metadata: {
 		...fixtureManifest().metadata,
 		slug,
+		packageId,
 		name: `${slug} name`,
 		description: `${slug} description`,
 	},
@@ -155,19 +167,27 @@ const insertPlugin = Effect.fn(function* (input: {
 	readonly homeView: string | null;
 }) {
 	const revisionId = `${input.id}-revision`;
+	const packageId =
+		input.slug === systemPluginSlug ? systemPackageId : PluginPackageId.make(crypto.randomUUID());
 	const session = yield* DatabaseSession;
 	yield* session.run((db) =>
 		Effect.gen(function* () {
 			yield* db
 				.insert(plugin)
-				.values({ id: input.id, slug: input.slug, status: "disabled", ownerId: input.ownerId });
+				.values({
+					packageId,
+					id: input.id,
+					slug: input.slug,
+					status: "disabled",
+					ownerId: input.ownerId,
+				});
 			yield* db
 				.insert(pluginRevision)
 				.values({
 					id: revisionId,
 					pluginId: input.id,
 					sourceHash: `${input.id}-hash`,
-					manifest: manifest(input.slug, input.homeView),
+					manifest: manifest(input.slug, input.homeView, packageId),
 					clientConfigSchema: { fields: {}, unknownKeys: "strict" },
 				});
 			yield* db
@@ -358,8 +378,18 @@ const seedCatalog = Effect.gen(function* () {
 				},
 			]);
 			yield* db.insert(plugin).values([
-				{ slug: "installed", status: "disabled", id: "installed-plugin" },
-				{ slug: "removed", status: "disabled", id: "removed-plugin" },
+				{
+					slug: "installed",
+					status: "disabled",
+					id: "installed-plugin",
+					packageId: PluginPackageId.make(crypto.randomUUID()),
+				},
+				{
+					slug: "removed",
+					status: "disabled",
+					id: "removed-plugin",
+					packageId: PluginPackageId.make(crypto.randomUUID()),
+				},
 			]);
 			yield* insertPlugin({
 				ownerId: null,
@@ -399,7 +429,7 @@ const seedCatalog = Effect.gen(function* () {
 					userId: "owner",
 					id: "owner-system",
 					pluginId: "system-plugin",
-					homeSavedViewSlug: "kernel-view",
+					homeSavedView: { kind: "custom", savedViewId: SavedViewId.make("view-kernel") },
 				},
 				{
 					userId: "owner",
@@ -408,20 +438,20 @@ const seedCatalog = Effect.gen(function* () {
 					healthReason: "configured",
 					configuredSecretPaths: ["token"],
 					clientConfig: { visible: "yes" },
-					homeSavedViewSlug: "component-view",
+					homeSavedView: { kind: "custom", savedViewId: SavedViewId.make("view-component") },
 				},
 				{
 					isHidden: true,
 					userId: "owner",
 					id: "owner-disabled",
 					pluginId: "disabled-plugin",
-					homeSavedViewSlug: "plugin-component",
+					homeSavedView: { kind: "custom", savedViewId: SavedViewId.make("view-plugin-component") },
 				},
 				{
 					userId: "other",
 					id: "other-system",
 					pluginId: "system-plugin",
-					homeSavedViewSlug: "kernel-view",
+					homeSavedView: { kind: "custom", savedViewId: SavedViewId.make("view-kernel") },
 				},
 				{ userId: "other", id: "other-private", pluginId: "other-plugin" },
 			]);
@@ -992,15 +1022,15 @@ layer(catalogDatabaseLayer)((test) => {
 			expect(Object.values(backup ?? {})).not.toContain("secret-key");
 			expect(yield* readRows(other, "backupRun", ["id"])).toEqual([{ id: "backup-other" }]);
 			expect(yield* readRows(owner, "savedView", ["id"])).toEqual([
-				{ id: "builtin:owner:disabled-home" },
-				{ id: "builtin:owner:private-home" },
-				{ id: "builtin:owner:system-home" },
+				{ id: builtinSavedViewId("owner", definitionOwner("system-plugin"), "system-home") },
+				{ id: builtinSavedViewId("owner", definitionOwner("private-plugin"), "private-home") },
+				{ id: builtinSavedViewId("owner", definitionOwner("disabled-plugin"), "disabled-home") },
 				{ id: "view-component" },
 				{ id: "view-kernel" },
 				{ id: "view-plugin-component" },
 			]);
 			expect(yield* readRows(other, "savedView", ["id"])).toEqual([
-				{ id: "builtin:other:system-home" },
+				{ id: builtinSavedViewId("other", definitionOwner("system-plugin"), "system-home") },
 			]);
 		}),
 	);
@@ -1026,9 +1056,9 @@ layer(catalogDatabaseLayer)((test) => {
 				{ id: "view-plugin-component" },
 				{ id: "view-kernel" },
 				{ id: "view-component" },
-				{ id: "builtin:owner:system-home" },
-				{ id: "builtin:owner:private-home" },
-				{ id: "builtin:owner:disabled-home" },
+				{ id: builtinSavedViewId("owner", definitionOwner("disabled-plugin"), "disabled-home") },
+				{ id: builtinSavedViewId("owner", definitionOwner("private-plugin"), "private-home") },
+				{ id: builtinSavedViewId("owner", definitionOwner("system-plugin"), "system-home") },
 			]);
 			expect(yield* Effect.flip(execute({ rows: viewRows }, fitting / 2))).toMatchObject({
 				reason: { limitBytes: fitting / 2, code: "result-too-large" },
@@ -1082,22 +1112,28 @@ layer(catalogDatabaseLayer)((test) => {
 	test.effect("derives the effective home view from usable selections and manifest defaults", () =>
 		Effect.gen(function* () {
 			const expected = [
-				{ id: "installed", homeSavedViewSlug: null },
-				{ id: "other-private", homeSavedViewSlug: null },
-				{ id: "other-system", homeSavedViewSlug: "system-home" },
-				{ id: "owner-disabled", homeSavedViewSlug: null },
-				{ id: "owner-private", homeSavedViewSlug: "private-home" },
-				{ id: "owner-system", homeSavedViewSlug: "kernel-view" },
-				{ id: "uninstalled", homeSavedViewSlug: null },
+				{ id: "installed", homeSavedView: null },
+				{ id: "other-private", homeSavedView: null },
+				{
+					id: "other-system",
+					homeSavedView: { kind: "plugin", slug: "system-home", pluginId: "system-plugin" },
+				},
+				{ homeSavedView: null, id: "owner-disabled" },
+				{
+					id: "owner-private",
+					homeSavedView: { kind: "plugin", slug: "private-home", pluginId: "private-plugin" },
+				},
+				{ id: "owner-system", homeSavedView: { kind: "custom", savedViewId: "view-kernel" } },
+				{ id: "uninstalled", homeSavedView: null },
 			];
 
-			expect(yield* readRows("admin", "pluginInstallation", ["id", "homeSavedViewSlug"])).toEqual(
+			expect(yield* readRows("admin", "pluginInstallation", ["id", "homeSavedView"])).toEqual(
 				expected,
 			);
 			expect(
 				yield* readRows({ userId: "owner", audience: "plugin" }, "pluginInstallation", [
 					"id",
-					"homeSavedViewSlug",
+					"homeSavedView",
 				]),
 			).toEqual(expected.filter(({ id }) => id === "installed" || id.startsWith("owner-")));
 		}),
@@ -1153,7 +1189,7 @@ layer(catalogDatabaseLayer)((test) => {
 				{
 					isStartable: false,
 					id: "import-sys-missing",
-					missingPluginConfigKeys: [pluginConfigEnvironmentKey(systemPluginSlug, "clientSecret")],
+					missingPluginConfigKeys: [pluginConfigEnvironmentKey(systemPackageId, "clientSecret")],
 				},
 				{ isStartable: false, id: "import-sys-no-script", missingPluginConfigKeys: [] },
 				{ isStartable: true, id: "import-sys-ready", missingPluginConfigKeys: [] },

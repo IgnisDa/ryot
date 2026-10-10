@@ -3,7 +3,7 @@ import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginRevisionId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	aggregate,
 	and,
@@ -1091,9 +1091,11 @@ layer(makeServiceLayer())((test) => {
 			const service = yield* RyotQLService;
 			yield* service.executeForPlugin(
 				{
-					pluginSlug: "example",
+					signalSchemaSlugs: [],
 					entitySchemaSlugs: ["item"],
+					pluginId: PluginId.make("example-id"),
 					relationshipSchemaSlugs: ["example-monitoring"],
+					pluginRevisionId: PluginRevisionId.make("example-revision"),
 					eventSchemas: [{ entitySchemaSlug: "item", eventSchemaSlug: "review" }],
 				},
 				document,
@@ -1103,10 +1105,10 @@ layer(makeServiceLayer())((test) => {
 			const statements = yield* (yield* RecordedStatements).statements;
 			const statement = statements[2];
 			expect(statement).toContain(
-				'FROM (SELECT * FROM "entity" WHERE "user_id" IS NULL AND "entity_schema_slug" IN',
+				'FROM (SELECT * FROM "entity" WHERE "user_id" IS NULL AND "entity_schema_plugin_id" =',
 			);
 			expect(statement).toContain(
-				'FROM (SELECT * FROM "relationship" WHERE "relationship_schema_slug" IN',
+				'FROM (SELECT * FROM "relationship" WHERE "relationship_schema_plugin_id" =',
 			);
 			expect(statement).toContain('LEFT JOIN (SELECT * FROM "event" WHERE EXISTS');
 			expect(statement).toContain('"event"."event_schema_slug" =');
@@ -1127,9 +1129,11 @@ layer(makeServiceLayer())((test) => {
 				service.executeForPlugin(
 					{
 						eventSchemas: [],
-						pluginSlug: "example",
+						signalSchemaSlugs: [],
 						entitySchemaSlugs: [],
 						relationshipSchemaSlugs: [],
+						pluginId: PluginId.make("example-id"),
+						pluginRevisionId: PluginRevisionId.make("example-revision"),
 					},
 					{ queries: { plugins: rows(plugin, { fields: [] }) } },
 					1_048_576,
@@ -1141,6 +1145,43 @@ layer(makeServiceLayer())((test) => {
 			expect(statements).toEqual([]);
 		});
 	});
+});
+
+layer(makeServiceLayer())((test) => {
+	test.effect(
+		"replaces only pinned own definitions while preserving current effective foreign definitions",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const schema = table("entitySchema", "schema");
+				yield* service.executeForUser(
+					"user-1",
+					null,
+					"plugin",
+					{
+						queries: {
+							schemas: rows(schema, {
+								fields: [
+									field("owner", column(schema, "pluginId")),
+									field("properties", column(schema, "propertiesSchema")),
+								],
+							}),
+						},
+					},
+					"standard",
+					undefined,
+					{ pluginId: PluginId.make("own-id"), pluginRevisionId: PluginRevisionId.make("own-v1") },
+				);
+				const statements = yield* (yield* RecordedStatements).statements;
+				const statement = statements[2];
+				expect(statement).toContain('FROM "user_entity_schema" definition_read');
+				expect(statement).toContain("definition_read.plugin_id IS DISTINCT FROM");
+				expect(statement).toContain("UNION ALL SELECT");
+				expect(statement).toContain('definition_entity_schema" d join plugin_revision r');
+				expect(statement).toContain("r.plugin_id =");
+				expect(statement).toContain("available.is_definition_effective");
+			}),
+	);
 });
 
 layer(makeServiceLayer())((test) => {

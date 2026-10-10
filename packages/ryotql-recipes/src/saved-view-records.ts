@@ -1,3 +1,4 @@
+import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
@@ -29,6 +30,7 @@ const selection = {
 	sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Finite),
 	isBuiltin: selectedField(column(savedView, "isBuiltin"), Schema.Boolean),
 	renderer: selectedField(column(savedView, "renderer"), SavedViewRenderer),
+	reference: selectedField(column(savedView, "reference"), SavedViewReference),
 	pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(PluginSlug)),
 	createdAt: selectedField(column(savedView, "createdAt"), Schema.NullOr(IsoDateString)),
 	updatedAt: selectedField(column(savedView, "updatedAt"), Schema.NullOr(IsoDateString)),
@@ -40,14 +42,14 @@ export const savedViewRecordsRecipe = defineRecipe(
 	(input: {
 		readonly after?: string | undefined;
 		readonly limit: number;
-		readonly pluginSlug?: string | undefined;
+		readonly pluginId?: string | undefined;
 		readonly includeHidden?: boolean | undefined;
 	}) => {
 		const predicates = [
 			...((input.includeHidden ?? false)
 				? []
 				: [eq(column(savedView, "isHidden"), literal(false))]),
-			...(input.pluginSlug ? [eq(column(savedView, "pluginSlug"), literal(input.pluginSlug))] : []),
+			...(input.pluginId ? [eq(column(savedView, "pluginId"), literal(input.pluginId))] : []),
 		];
 		return {
 			map: ({ savedViews }) => Result.succeed(savedViews),
@@ -68,13 +70,13 @@ export const savedViewRecordsRecipe = defineRecipe(
 	},
 );
 
-export const savedViewRecordRecipe = defineRecipe((input: { readonly slug: string }) => ({
+export const savedViewRecordRecipe = defineRecipe((reference: SavedViewReference) => ({
 	map: ({ savedView: record }) => Result.succeed(record),
 	queries: {
 		savedView: selectedOptionalRow(savedView, {
 			selection,
 			orderBy: [ascending(column(savedView, "id"))],
-			where: eq(column(savedView, "slug"), literal(input.slug)),
+			where: eq(column(savedView, "reference"), literal(reference)),
 		}),
 	},
 }));

@@ -22,6 +22,8 @@ import {
 	column,
 	contains,
 	defineRecipe,
+	entitySchemaPredicate,
+	relationshipSchemaPredicate,
 	descending,
 	eq,
 	groupAscending,
@@ -80,7 +82,7 @@ const collectionMembershipWhere = (
 	const search = searchText?.trim();
 	return and(
 		eq(column(membership, "targetEntityId"), literal(collectionId)),
-		eq(column(membership, "relationshipSchemaSlug"), literal("member-of")),
+		relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
 		...(search ? [contains(column(entity, "name"), literal(search))] : []),
 	);
 };
@@ -232,7 +234,7 @@ export const allCollectionsRecipe = defineRecipe(
 					after: input.after,
 					limit: input.limit,
 					orderBy: [ascending(column(collection, "name"))],
-					where: eq(column(collection, "entitySchemaSlug"), literal("collection")),
+					where: entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
 					selection: {
 						id: selectedField(column(collection, "id"), EntityId),
 						name: selectedField(column(collection, "name"), Schema.String),
@@ -408,7 +410,7 @@ export const collectionMembersCountsRecipe = defineRecipe(
 						),
 					},
 					where: and(
-						eq(column(membership, "relationshipSchemaSlug"), literal("member-of")),
+						relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
 						inArray(
 							column(membership, "targetEntityId"),
 							input.collectionIds.map((collectionId) => literal(collectionId)),

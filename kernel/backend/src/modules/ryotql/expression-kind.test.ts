@@ -63,6 +63,7 @@ it("infers one kind per scalar expression variant", () => {
 	const cases: readonly { readonly kind: ScalarKind; readonly expr: ScalarExpression }[] = [
 		{ kind: "null", expr: literal(null) },
 		{ kind: "text", expr: literal("value") },
+		{ kind: "text", expr: { type: "pluginId", reference: { kind: "self" } } },
 		{ kind: "number", expr: literal(4) },
 		{ kind: "boolean", expr: literal(true) },
 		{ kind: "json", expr: literal({ nested: 1 }) },

@@ -17,6 +17,8 @@ const response = {
 				slug: "movies",
 				isHidden: false,
 				pluginSlug: "media",
+				pluginInstallationId: "media-workspace",
+				reference: { kind: "plugin", slug: "movies", pluginId: "media-owner" },
 			},
 		]),
 	},
@@ -34,13 +36,30 @@ describe("navigation recipe", () => {
 		]);
 		expect(document.queries.collections).toMatchObject({
 			output: { pagination: { limit: 100 } },
-			where: { right: { value: "collection" } },
 			from: { table: "entity", alias: "collection" },
+			where: {
+				predicates: [
+					{ right: { value: "collection" } },
+					{ type: "isNull", expr: { field: "entitySchemaPluginId" } },
+				],
+			},
 		});
 	});
 
 	it("decodes plain values and applies navigation defaults", () => {
 		expect(Result.getOrThrow(navigationRecipe().decode(response))).toEqual({
+			collections: [
+				{
+					sortOrder: 0,
+					reference: null,
+					isHidden: false,
+					icon: "layers-3",
+					pluginSlug: null,
+					slug: "collection-1",
+					name: "Sci-Fi Essentials",
+					pluginInstallationId: null,
+				},
+			],
 			savedViews: [
 				{
 					icon: "film",
@@ -49,16 +68,8 @@ describe("navigation recipe", () => {
 					slug: "movies",
 					isHidden: false,
 					pluginSlug: "media",
-				},
-			],
-			collections: [
-				{
-					sortOrder: 0,
-					isHidden: false,
-					icon: "layers-3",
-					pluginSlug: null,
-					slug: "collection-1",
-					name: "Sci-Fi Essentials",
+					pluginInstallationId: "media-workspace",
+					reference: { kind: "plugin", slug: "movies", pluginId: "media-owner" },
 				},
 			],
 		});

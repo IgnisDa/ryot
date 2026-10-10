@@ -15,25 +15,25 @@ export const SavedViewsRoutesLive = HttpApiBuilder.group(AppContract, "savedView
 				return yield* service.create(user, payload).pipe(dieOnDbError);
 			}),
 		)
-		.handle("update", ({ params, payload }) =>
+		.handle("update", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* SavedViewsService;
-				return yield* service.update(user, params.viewSlug, payload).pipe(dieOnDbError);
+				return yield* service.update(user, payload.reference, payload).pipe(dieOnDbError);
 			}),
 		)
-		.handle("delete", ({ params }) =>
+		.handle("delete", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* SavedViewsService;
-				return yield* service.delete(user, params.viewSlug).pipe(dieOnDbError);
+				return yield* service.delete(user, payload.reference).pipe(dieOnDbError);
 			}),
 		)
-		.handle("clone", ({ params }) =>
+		.handle("clone", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* SavedViewsService;
-				return yield* service.clone(user, params.viewSlug).pipe(dieOnDbError);
+				return yield* service.clone(user, payload.reference).pipe(dieOnDbError);
 			}),
 		)
 		.handle("reorder", ({ payload }) =>

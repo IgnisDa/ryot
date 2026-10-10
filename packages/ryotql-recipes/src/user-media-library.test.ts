@@ -1,4 +1,6 @@
+import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
 import type { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -15,8 +17,30 @@ const userMediaLibraryResponse = {
 } satisfies RyotQLResponse;
 
 describe("user media library recipe", () => {
+	it.each(["system", "user"] satisfies readonly PluginPackageReference["scope"][])(
+		"keeps the explicit %s package scope in the library query",
+		(scope) => {
+			const packageId = PluginPackageId.make("b9e38f86-52b1-4f29-aadb-e60a5f3a4e9c");
+			const query = userMediaLibraryRecipe({ scope, packageId, kind: "package" }).document.queries
+				.mediaLibrary;
+			expect(query?.where).toMatchObject({
+				predicates: [
+					{
+						predicates: [
+							{ right: { value: "media-library" }, left: { field: "entitySchemaSlug" } },
+							{
+								left: { field: "entitySchemaPluginId" },
+								right: { type: "pluginId", reference: { scope, packageId, kind: "package" } },
+							},
+						],
+					},
+					{ type: "isNotNull", expr: { field: "userId" } },
+				],
+			});
+		},
+	);
 	it("builds a user library entity lookup", () => {
-		const query = userMediaLibraryRecipe().document.queries.mediaLibrary;
+		const query = userMediaLibraryRecipe({ kind: "self" }).document.queries.mediaLibrary;
 		if (query?.output.type !== "rows") {
 			throw new Error("Expected a user library rows query");
 		}
@@ -27,10 +51,21 @@ describe("user media library recipe", () => {
 			type: "and",
 			predicates: [
 				{
-					operator: "eq",
-					type: "comparison",
-					right: { type: "literal", value: "media-library" },
-					left: { type: "column", field: "entitySchemaSlug", tableAlias: "mediaLibrary" },
+					type: "and",
+					predicates: [
+						{
+							operator: "eq",
+							type: "comparison",
+							right: { type: "literal", value: "media-library" },
+							left: { type: "column", field: "entitySchemaSlug", tableAlias: "mediaLibrary" },
+						},
+						{
+							operator: "eq",
+							type: "comparison",
+							right: { type: "pluginId", reference: { kind: "self" } },
+							left: { type: "column", tableAlias: "mediaLibrary", field: "entitySchemaPluginId" },
+						},
+					],
 				},
 				{
 					type: "isNotNull",
@@ -44,9 +79,9 @@ describe("user media library recipe", () => {
 	});
 
 	it("decodes the user library entity id", () => {
-		expect(Result.getOrThrow(userMediaLibraryRecipe().decode(userMediaLibraryResponse))).toEqual({
-			entityId: "library-1",
-		});
+		expect(
+			Result.getOrThrow(userMediaLibraryRecipe({ kind: "self" }).decode(userMediaLibraryResponse)),
+		).toEqual({ entityId: "library-1" });
 	});
 
 	it("rejects a malformed selected field", () => {
@@ -56,14 +91,14 @@ describe("user media library recipe", () => {
 			},
 		};
 
-		expect(Result.isFailure(userMediaLibraryRecipe().decode(response))).toBe(true);
+		expect(Result.isFailure(userMediaLibraryRecipe({ kind: "self" }).decode(response))).toBe(true);
 	});
 
 	it("rejects a missing user library", () => {
 		const response = {
 			data: { mediaLibrary: { ...userMediaLibraryResponse.data.mediaLibrary, items: [] } },
 		};
-		const decoded = userMediaLibraryRecipe().decode(response);
+		const decoded = userMediaLibraryRecipe({ kind: "self" }).decode(response);
 
 		expect(Result.isFailure(decoded)).toBe(true);
 		if (Result.isFailure(decoded)) {

@@ -67,7 +67,12 @@ describe("collections recipes", () => {
 			fields: [{ key: "id" }, { key: "name" }],
 			pagination: { limit: 7, after: "cursor" },
 		});
-		expect(query.where).toMatchObject({ right: { value: "collection" } });
+		expect(query.where).toMatchObject({
+			predicates: [
+				{ right: { value: "collection" } },
+				{ type: "isNull", expr: { field: "entitySchemaPluginId" } },
+			],
+		});
 		expect(
 			Result.getOrThrow(
 				recipe.decode({
@@ -329,7 +334,12 @@ describe("collections recipes", () => {
 		assert(query);
 		expect(query.where).toMatchObject({
 			predicates: [
-				{ right: { value: "member-of" }, left: { field: "relationshipSchemaSlug" } },
+				{
+					predicates: [
+						{ right: { value: "member-of" }, left: { field: "relationshipSchemaSlug" } },
+						{ type: "isNull", expr: { field: "relationshipSchemaPluginId" } },
+					],
+				},
 				{
 					expr: { field: "targetEntityId" },
 					values: [{ value: "collection-1" }, { value: "collection-2" }],

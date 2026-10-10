@@ -9,6 +9,12 @@ import {
 	PluginImportSource,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
+	definitionKey,
+	definitionOwner,
+	type DeclarationReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import {
 	ascending,
 	column,
 	defineRecipe,
@@ -27,7 +33,7 @@ export const importSourcesRecipe = defineRecipe(
 		readonly after?: string;
 		readonly limit: number;
 		readonly selected?: {
-			readonly slug: string;
+			readonly reference: DeclarationReference;
 			readonly settings: Readonly<Record<string, unknown>>;
 		};
 	}) => ({
@@ -35,19 +41,29 @@ export const importSourcesRecipe = defineRecipe(
 			Result.try(() => ({
 				...sources,
 				items: sources.items.map((item) => {
+					const reference = { slug: item.slug, owner: definitionOwner(item.pluginId) };
+					const selected =
+						input.selected !== undefined &&
+						definitionKey(
+							"import-source",
+							input.selected.reference.owner,
+							input.selected.reference.slug,
+						) === definitionKey("import-source", reference.owner, reference.slug)
+							? input.selected
+							: undefined;
 					const readiness =
 						item.readinessMetadata === null
 							? { plan: null, blockReasons: [], ready: item.isStartable }
 							: evaluateIngestionReadiness({
 									kind: "workflow",
 									operation: item.workflowSlug,
+									settings: selected?.settings,
 									settingsSchema: item.inputSchema,
 									metadata: item.readinessMetadata,
 									sourcePlan: item.plan ?? undefined,
-									settings:
-										input.selected?.slug === item.slug ? input.selected.settings : undefined,
 								});
 					return {
+						reference,
 						...item,
 						readiness: { ...readiness, ready: readiness.ready && item.isStartable },
 					};
@@ -65,6 +81,8 @@ export const importSourcesRecipe = defineRecipe(
 					isStartable: selectedField(column(source, "isStartable"), Schema.Boolean),
 					slug: selectedField(column(source, "slug"), PluginImportSource.fields.slug),
 					name: selectedField(column(source, "name"), PluginImportSource.fields.name),
+					pluginId: selectedField(column(source, "pluginId"), Schema.NullOr(PluginId)),
+					packageId: selectedField(column(source, "packageId"), Schema.NullOr(PluginPackageId)),
 					pluginSlug: selectedField(column(source, "pluginSlug"), Schema.NullOr(Schema.String)),
 					installationId: selectedField(
 						column(source, "installationId"),

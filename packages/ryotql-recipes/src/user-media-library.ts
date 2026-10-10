@@ -1,11 +1,11 @@
+import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,
 	column,
-	eq,
+	entitySchemaPredicate,
 	isNotNull,
-	literal,
 	defineRecipe,
 	selectedField,
 	selectedRow,
@@ -15,14 +15,14 @@ import { Result } from "effect";
 
 const entityMediaLibrary = table("entity", "mediaLibrary");
 
-export const userMediaLibraryRecipe = defineRecipe(() => ({
+export const userMediaLibraryRecipe = defineRecipe((reference: PluginIdentityReference) => ({
 	map: ({ mediaLibrary }) => Result.succeed(mediaLibrary),
 	queries: {
 		mediaLibrary: selectedRow(entityMediaLibrary, {
 			orderBy: [ascending(column(entityMediaLibrary, "id"))],
 			selection: { entityId: selectedField(column(entityMediaLibrary, "id"), EntityId) },
 			where: and(
-				eq(column(entityMediaLibrary, "entitySchemaSlug"), literal("media-library")),
+				entitySchemaPredicate(entityMediaLibrary, "media-library", reference),
 				isNotNull(column(entityMediaLibrary, "userId")),
 			),
 		}),
