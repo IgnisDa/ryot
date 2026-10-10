@@ -25,6 +25,7 @@ export const workoutSet = (overrides: Partial<WorkoutSet> = {}): WorkoutSet => (
 	confirmedAt: null,
 	personalBests: [],
 	recordStatus: "ready",
+	exerciseId: "exercise-1",
 	exerciseKind: "reps_and_weight",
 	...overrides,
 });
@@ -39,6 +40,8 @@ export const workoutExercise = (
 ): WorkoutExercise => ({
 	images: null,
 	id: "exercise-1",
+	previousWorkoutId: null,
+	defaultDurationUnit: null,
 	name: "Seated Dumbbell Curl",
 	previousWorkoutStartedAt: null,
 	...overrides,
@@ -54,10 +57,14 @@ export const workoutDetails = (
 	} = {},
 ): WorkoutDetails => ({
 	name: "Pull",
+	images: null,
+	videos: null,
 	comment: null,
 	supersets: null,
 	caloriesBurnt: null,
+	exerciseMedia: null,
 	exerciseNotes: null,
+	activeDuration: null,
 	id: EntityId.make("workout-1"),
 	endedAt: "2024-12-24T04:14:17.000Z",
 	startedAt: "2024-12-24T02:49:09.000Z",

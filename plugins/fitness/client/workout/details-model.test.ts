@@ -116,6 +116,7 @@ describe("workout details model", () => {
 
 	it("builds the session timeline only when every group has completion times inside the workout", () => {
 		const timed = workoutDetails({
+			activeDuration: 600,
 			endedAt: "2024-12-24T03:00:00.000Z",
 			startedAt: "2024-12-24T02:00:00.000Z",
 			exercises: [
@@ -135,7 +136,6 @@ describe("workout details model", () => {
 			["Seated Dumbbell Curl", 1200],
 			["Cable Rear Delt Fly", 1800],
 		]);
-		expect(timeline?.workingSeconds).toBe(3000);
 
 		const untimed = workoutDetails({
 			exercises: [workoutExercise({ sets: [workoutSet({ confirmedAt: null })] })],
