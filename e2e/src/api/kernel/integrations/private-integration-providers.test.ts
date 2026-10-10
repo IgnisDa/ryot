@@ -12,6 +12,7 @@ import {
 	invokePrivateIntegrationOperation,
 	listIntegrations,
 	releasePrivatePlugin,
+	testPluginPackageId,
 	updatePluginState,
 } from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
@@ -75,8 +76,8 @@ describe("private integration providers", () => {
 				(yield* invokePrivateIntegrationOperation({
 					client: owner.client,
 					integrationId: created.id,
-					pluginId: plugin.pluginId,
 					operationSlug: plugin.operationSlug,
+					packageId: plugin.manifest.metadata.packageId,
 				})).result,
 			).toEqual({ integrationId: created.id });
 
@@ -95,9 +96,11 @@ describe("private integration providers", () => {
 			const suffix = crypto.randomUUID();
 			const providerSlug = `e2e-shared-private-provider-${suffix}`;
 			const pluginSlug = `e2e-shared-private-integration-plugin-${suffix}`;
+			const packageId = testPluginPackageId();
 
 			const firstPlugin = yield* Effect.acquireRelease(
 				installPrivateIntegrationPlugin({
+					packageId,
 					pluginSlug,
 					providerSlug,
 					name: "First sink",
@@ -107,6 +110,7 @@ describe("private integration providers", () => {
 			);
 			const secondPlugin = yield* Effect.acquireRelease(
 				installPrivateIntegrationPlugin({
+					packageId,
 					pluginSlug,
 					providerSlug,
 					name: "Second sink",
@@ -121,8 +125,8 @@ describe("private integration providers", () => {
 			const secondProviders = (yield* listProviders(second.client)).filter(
 				({ slug }) => slug === providerSlug,
 			);
-			expect(firstProviders).toMatchObject([{ pluginSlug, name: "First sink" }]);
-			expect(secondProviders).toMatchObject([{ pluginSlug, name: "Second sink" }]);
+			expect(firstProviders).toMatchObject([{ packageId, name: "First sink" }]);
+			expect(secondProviders).toMatchObject([{ packageId, name: "Second sink" }]);
 
 			const firstIntegration = yield* scopedIntegration(first.client, {
 				slug: providerSlug,
@@ -142,25 +146,25 @@ describe("private integration providers", () => {
 			expect(
 				(yield* invokePrivateIntegrationOperation({
 					client: second.client,
-					pluginId: secondPlugin.pluginId,
 					integrationId: secondIntegration.id,
 					operationSlug: secondPlugin.operationSlug,
+					packageId: secondPlugin.manifest.metadata.packageId,
 				})).result,
 			).toEqual({ integrationId: secondIntegration.id });
 
 			const failure = yield* Effect.flip(
 				invokePrivateIntegrationOperation({
 					client: first.client,
-					pluginId: firstPlugin.pluginId,
 					integrationId: secondIntegration.id,
 					operationSlug: firstPlugin.operationSlug,
+					packageId: firstPlugin.manifest.metadata.packageId,
 				}),
 			);
 			assertTaggedError(failure, "PluginNotFoundError");
 			expect(failure.reason).toEqual({
 				code: "operation-not-found",
-				pluginId: firstPlugin.pluginId,
 				operationSlug: firstPlugin.operationSlug,
+				packageId: firstPlugin.manifest.metadata.packageId,
 			});
 		}),
 	);

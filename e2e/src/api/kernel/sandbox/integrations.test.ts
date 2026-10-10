@@ -1,3 +1,4 @@
+import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
@@ -79,7 +80,10 @@ describe("sandbox integration reads", () => {
 			const { result } = yield* client.call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { integrationId: current.id } },
-					params: { operationSlug: "read", pluginId: plugin.pluginId },
+					params: {
+						...pluginPackageSegments(plugin.manifest.metadata.packageId),
+						operationSlug: "read",
+					},
 				}),
 			);
 
@@ -91,7 +95,10 @@ describe("sandbox integration reads", () => {
 			const unauthenticated = yield* getApiClient().call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { integrationId: current.id } },
-					params: { operationSlug: "read", pluginId: plugin.pluginId },
+					params: {
+						...pluginPackageSegments(plugin.manifest.metadata.packageId),
+						operationSlug: "read",
+					},
 				}),
 			);
 			expect(unauthenticated.result).toEqual(result);
@@ -99,8 +106,11 @@ describe("sandbox integration reads", () => {
 			const stale = yield* Effect.flip(
 				getApiClient().call((c) =>
 					c.plugins.invoke({
-						params: { operationSlug: "read", pluginId: plugin.pluginId },
 						payload: { sourceHash: "stale-source-hash", payload: { integrationId: current.id } },
+						params: {
+							...pluginPackageSegments(plugin.manifest.metadata.packageId),
+							operationSlug: "read",
+						},
 					}),
 				),
 			);

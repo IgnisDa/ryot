@@ -1,5 +1,9 @@
 import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
-import { EntitySchemaSlug, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	EntitySchemaSlug,
+	pluginPackageSegments,
+	SignalSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -291,9 +295,17 @@ describe("plugin namespace backups", () => {
 					(contract) => contract.testSupport.reconcilePluginInstallations(),
 					adminHeaders(),
 				);
-				const before = yield* namespaceInstallation(target.client, destinationSystem.pluginId);
+				const incompatibleTarget = yield* createAuthenticatedClient(destinationApi);
+				const incompatibleViews = (yield* listSavedViews(incompatibleTarget.client)).map(
+					({ id }) => id,
+				);
+				const incompatibleProfile = yield* getUserSettings(incompatibleTarget.client);
+				const before = yield* namespaceInstallation(
+					incompatibleTarget.client,
+					destinationSystem.pluginId,
+				);
 				const incompatible = yield* restoreBackup(
-					target.client,
+					incompatibleTarget.client,
 					trustedArchive.bytes,
 					destinationApi,
 				);
@@ -305,10 +317,13 @@ describe("plugin namespace backups", () => {
 					},
 				});
 				expect(
-					(yield* namespaceInstallation(target.client, destinationSystem.pluginId)).sourceHash,
+					(yield* namespaceInstallation(incompatibleTarget.client, destinationSystem.pluginId))
+						.sourceHash,
 				).toBe(before.sourceHash);
-				expect((yield* listSavedViews(target.client)).map(({ id }) => id)).toEqual(originalViews);
-				expect(yield* getUserSettings(target.client)).toEqual(profile);
+				expect((yield* listSavedViews(incompatibleTarget.client)).map(({ id }) => id)).toEqual(
+					incompatibleViews,
+				);
+				expect(yield* getUserSettings(incompatibleTarget.client)).toEqual(incompatibleProfile);
 			}),
 	);
 	it.live(
@@ -340,7 +355,7 @@ describe("plugin namespace backups", () => {
 						slug: SignalSchemaSlug.make("tasted"),
 						owner: { kind: "plugin", pluginId: installed.pluginId },
 					});
-					yield* invokeNamespaceOperation(source.client, installed.pluginId, {
+					yield* invokeNamespaceOperation(source.client, installed.installation.packageId, {
 						action: "create-event",
 						entityId: imported.data.id,
 					});
@@ -439,7 +454,7 @@ describe("plugin namespace backups", () => {
 					[restoredB, "B1", 40],
 				] as const) {
 					expect(
-						(yield* invokeNamespaceOperation(target.client, installation.pluginId)).result,
+						(yield* invokeNamespaceOperation(target.client, installation.packageId)).result,
 					).toEqual({ label });
 					const bottles = yield* executeRyotQLRecipe(
 						target.client,
@@ -515,7 +530,10 @@ describe("plugin namespace backups", () => {
 					const result = yield* target.client.call((contract) =>
 						contract.plugins.invoke({
 							payload: { payload: { integrationId: integration.id } },
-							params: { pluginId: installed.pluginId, operationSlug: "inspect-integration" },
+							params: {
+								...pluginPackageSegments(installed.packageId),
+								operationSlug: "inspect-integration",
+							},
 						}),
 					);
 					expect(result.result).toEqual({ label, integrationId: integration.id });
@@ -620,7 +638,7 @@ describe("plugin namespace backups", () => {
 				expect(restored.pluginId).not.toBe(privateA.pluginId);
 				expect(restored.pluginId).not.toBe(system.pluginId);
 				const denied = yield* Effect.flip(
-					invokeNamespaceOperation(target.client, restored.pluginId),
+					invokeNamespaceOperation(target.client, restored.packageId),
 				);
 				assertTaggedError(denied, "PluginConflictError");
 				expect(denied.reason.code).toBe("package-identity-conflict");

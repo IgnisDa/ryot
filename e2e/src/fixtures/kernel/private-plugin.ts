@@ -1,5 +1,5 @@
 import type { ContractPathParams, ContractPayload } from "@ryot-app/contract/client";
-import { type PluginId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
@@ -24,7 +24,7 @@ const encoder = new TextEncoder();
 
 export type PrivatePluginPackage = PluginPackageInput & {
 	readonly operationSlug: string;
-	readonly pluginSlug: PluginSlug;
+	readonly pluginSlug: string;
 };
 
 type PrivatePluginPackageInput = {
@@ -99,12 +99,7 @@ export const privatePluginPackage = (
 			},
 		],
 	});
-	return {
-		manifest,
-		operationSlug,
-		pluginSlug: PluginSlug.make(pluginSlug),
-		files: { [entry]: encoder.encode(source) },
-	};
+	return { manifest, pluginSlug, operationSlug, files: { [entry]: encoder.encode(source) } };
 };
 
 export const settledPrivateInstallation = (
@@ -168,7 +163,7 @@ export const installPrivatePlugin = (
 export type PrivateBootstrapPluginPackage = {
 	readonly bootstrapSlug: string;
 	readonly operationSlug: string;
-	readonly pluginSlug: PluginSlug;
+	readonly pluginSlug: string;
 } & PluginPackageInput;
 
 export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage => {
@@ -215,9 +210,9 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 	});
 	return {
 		manifest,
+		pluginSlug,
 		operationSlug,
 		bootstrapSlug,
-		pluginSlug: PluginSlug.make(pluginSlug),
 		files: {
 			[bootstrapEntry]: encoder.encode(bootstrapSource),
 			[operationEntry]: encoder.encode(operationSandboxSource({ name, slug: operationScriptSlug })),
@@ -230,11 +225,11 @@ export const invokePrivatePluginOperation = (input: {
 	readonly client: Client;
 	readonly sourceHash?: string;
 	readonly operationSlug: string;
-	readonly pluginId: PluginId;
+	readonly packageId: PluginPackageId;
 }) =>
 	input.client.call((c) =>
 		c.plugins.invoke({
-			params: { pluginId: input.pluginId, operationSlug: input.operationSlug },
+			params: { ...pluginPackageSegments(input.packageId), operationSlug: input.operationSlug },
 			payload: {
 				payload: { prefix: input.prefix },
 				...(input.sourceHash === undefined ? {} : { sourceHash: input.sourceHash }),
@@ -319,11 +314,15 @@ export default defineOperation({
 });
 `;
 
-type PrivateSurfaceInput = { readonly name?: string; readonly pluginSlug?: string };
+type PrivateSurfaceInput = {
+	readonly name?: string;
+	readonly pluginSlug?: string;
+	readonly packageId?: PrivatePluginManifest["metadata"]["packageId"];
+};
 
 export type PrivateImportPluginPackage = {
 	readonly sourceSlug: string;
-	readonly pluginSlug: PluginSlug;
+	readonly pluginSlug: string;
 	readonly manifest: PrivatePluginManifest;
 	readonly files: PluginPackageInput["files"];
 };
@@ -331,7 +330,7 @@ export type PrivateImportPluginPackage = {
 export type PrivateIntegrationPluginPackage = {
 	readonly providerSlug: string;
 	readonly operationSlug: string;
-	readonly pluginSlug: PluginSlug;
+	readonly pluginSlug: string;
 	readonly manifest: PrivatePluginManifest;
 	readonly files: PluginPackageInput["files"];
 };
@@ -356,6 +355,7 @@ export const privateImportPluginPackage = (
 	const pluginSlug = input.pluginSlug ?? `e2e-private-import-plugin-${suffix}`;
 	const manifest = testPluginManifest({
 		pluginSlug,
+		packageId: input.packageId,
 		workflows: [{ scriptSlug, slug: workflowSlug }],
 		importSources: [
 			{
@@ -380,7 +380,7 @@ export const privateImportPluginPackage = (
 	return {
 		manifest,
 		sourceSlug,
-		pluginSlug: PluginSlug.make(pluginSlug),
+		pluginSlug,
 		files: { [entry]: encoder.encode(privateImportWorkflowSource(scriptSlug)) },
 	};
 };
@@ -397,6 +397,7 @@ export const privateIntegrationPluginPackage = (
 	const pluginSlug = input.pluginSlug ?? `e2e-private-integration-plugin-${suffix}`;
 	const manifest = testPluginManifest({
 		pluginSlug,
+		packageId: input.packageId,
 		operations: [
 			{
 				scriptSlug,
@@ -427,9 +428,9 @@ export const privateIntegrationPluginPackage = (
 	});
 	return {
 		manifest,
+		pluginSlug,
 		providerSlug,
 		operationSlug,
-		pluginSlug: PluginSlug.make(pluginSlug),
 		files: { [entry]: encoder.encode(privateIntegrationOperationSource(scriptSlug)) },
 	};
 };
@@ -479,11 +480,11 @@ export const invokePrivateIntegrationOperation = (input: {
 	readonly sourceHash?: string;
 	readonly integrationId: string;
 	readonly operationSlug: string;
-	readonly pluginId: PluginId;
+	readonly packageId: PluginPackageId;
 }) =>
 	input.client.call((c) =>
 		c.plugins.invoke({
-			params: { pluginId: input.pluginId, operationSlug: input.operationSlug },
+			params: { ...pluginPackageSegments(input.packageId), operationSlug: input.operationSlug },
 			payload: {
 				payload: { integrationId: input.integrationId },
 				...(input.sourceHash === undefined ? {} : { sourceHash: input.sourceHash }),

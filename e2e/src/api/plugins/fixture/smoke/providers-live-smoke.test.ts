@@ -1,4 +1,3 @@
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import { Effect } from "effect";
 
@@ -34,7 +33,7 @@ const MOVE_SAVED_VIEW_SLUG = "all-moves";
 const installFixture = (label: string) =>
 	Effect.gen(function* () {
 		const { client } = yield* createAuthenticatedClient();
-		const pluginSlug = PluginSlug.make(`fixture-${label}-${crypto.randomUUID()}`);
+		const pluginSlug = `fixture-${label}-${crypto.randomUUID()}`;
 		const pluginPackage = yield* fixtureClientPluginPackage("A", "", pluginSlug);
 		const installation = yield* Effect.acquireRelease(
 			installPrivatePluginPackage({ client, config: {}, pluginPackage }).pipe(
@@ -51,13 +50,13 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 		"searches PokeAPI with advanced options and imports a real Pokemon",
 		() =>
 			Effect.gen(function* () {
-				const { client, pluginId, pluginSlug } = yield* installFixture("pokeapi");
+				const { client, pluginId } = yield* installFixture("pokeapi");
 
 				const schemas = yield* listEntitySchemas(client, { pluginId, slugs: ["pokemon"] });
 				const schema = schemas[0];
 				assertPresent(schema, "Expected the fixture-owned 'pokemon' entity schema");
 				expect(schema.id).toBe("pokemon");
-				expect(schema.pluginSlug).toBe(pluginSlug);
+				expect(schema.pluginId).toBe(pluginId);
 				const searchable = yield* executeRyotQLRecipe(
 					client,
 					providerSearchRecipe({ schema: schema.reference }),
@@ -202,13 +201,13 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 		"searches PokeAPI moves with enum options and imports a real move",
 		() =>
 			Effect.gen(function* () {
-				const { client, pluginId, pluginSlug } = yield* installFixture("pokeapi-move");
+				const { client, pluginId } = yield* installFixture("pokeapi-move");
 
 				const schemas = yield* listEntitySchemas(client, { pluginId, slugs: ["move"] });
 				const schema = schemas[0];
 				assertPresent(schema, "Expected the fixture-owned 'move' entity schema");
 				expect(schema.id).toBe("move");
-				expect(schema.pluginSlug).toBe(pluginSlug);
+				expect(schema.pluginId).toBe(pluginId);
 				const searchable = yield* executeRyotQLRecipe(
 					client,
 					providerSearchRecipe({ schema: schema.reference }),

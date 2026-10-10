@@ -1,4 +1,4 @@
-import type { ContractPathParams } from "@ryot-app/contract/client";
+import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -8,7 +8,7 @@ import { requirePresent } from "~/support/assertions";
 
 export const createPokemonEntityFixture = (
 	client: Client,
-	pluginId: ContractPathParams<"plugins", "invoke">["pluginId"],
+	pluginId: PluginId,
 	options: { readonly name: string; readonly types: readonly string[] },
 ) =>
 	Effect.gen(function* () {

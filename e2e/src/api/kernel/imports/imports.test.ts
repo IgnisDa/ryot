@@ -80,12 +80,12 @@ describe("Plugin Import Public Boundary", () => {
 				...fixtureSource,
 				isStartable: true,
 				missingPluginConfigKeys: [],
-				pluginSlug: fixtureImportPlugin.pluginSlug,
+				packageId: fixtureImportPlugin.manifest.metadata.packageId,
 			});
 			expect(sources.find(({ slug }) => slug === FIXTURE_CONFIG_IMPORT_SOURCE)).toMatchObject({
 				...configSource,
 				isStartable: false,
-				pluginSlug: fixtureImportPlugin.pluginSlug,
+				packageId: fixtureImportPlugin.manifest.metadata.packageId,
 				missingPluginConfigKeys: [
 					pluginConfigEnvironmentKey(
 						fixtureImportPlugin.manifest.metadata.packageId,

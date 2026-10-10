@@ -1,9 +1,10 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
+import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type {
 	PluginIdentityReference,
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { PluginId } from "@ryot-app/contract/schema/brands";
+import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import {
 	ascending,
@@ -189,6 +190,18 @@ export const findSavedViewById = (
 			`Saved view '${id}' not found`,
 		);
 	});
+
+export const savedViewRecordPath = (view: {
+	readonly reference: SavedViewReference;
+	readonly packageId: PluginPackageId | null;
+}) =>
+	view.reference.kind === "plugin"
+		? savedViewPath({
+				kind: "plugin",
+				slug: view.reference.slug,
+				packageId: requirePresent(view.packageId, "Plugin saved view has no package identity"),
+			})
+		: savedViewPath(view.reference);
 
 type BuiltinSavedViewReference = Exclude<SavedViewReference, { kind: "custom" }>;
 

@@ -1,4 +1,4 @@
-import { EntityId, EventSchemaSlug, PluginId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EventSchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect, Schema } from "effect";
@@ -52,28 +52,34 @@ const uninstallSystemPlugin = (pluginId: PluginId, activationId: string) =>
 	);
 
 describe("plugins", () => {
-	it.live("retries a committed uninstall without removing a replacement under the same slug", () =>
-		Effect.gen(function* () {
-			const pluginSlug = PluginSlug.make(`e2e-uninstall-retry-${crypto.randomUUID()}`);
-			const pluginPackage = {
-				files: {},
-				manifest: testPluginManifest({ pluginSlug, entitySchemas: [] }),
-			};
-			const first = yield* installTestSupportSystemPlugin(pluginPackage);
-			let current = first;
-			yield* Effect.addFinalizer(() =>
-				uninstallSystemPlugin(current.pluginId, current.activationId).pipe(Effect.ignore),
-			);
-			const removed = yield* uninstallSystemPlugin(first.pluginId, first.activationId);
-			expect(removed).toEqual({ pluginId: first.pluginId });
-			expect(yield* uninstallSystemPlugin(first.pluginId, first.activationId)).toEqual(removed);
-			const replacement = yield* installTestSupportSystemPlugin(pluginPackage);
-			current = replacement;
-			expect(replacement.pluginId).toBe(first.pluginId);
-			expect(replacement.activationId).not.toBe(first.activationId);
-			expect(yield* uninstallSystemPlugin(first.pluginId, first.activationId)).toEqual(removed);
-			expect((yield* listAdminSystemPlugins).some(({ slug }) => slug === pluginSlug)).toBe(true);
-		}),
+	it.live(
+		"retries a committed uninstall without removing a replacement under the same package identity",
+		() =>
+			Effect.gen(function* () {
+				const pluginSlug = `e2e-uninstall-retry-${crypto.randomUUID()}`;
+				const pluginPackage = {
+					files: {},
+					manifest: testPluginManifest({ pluginSlug, entitySchemas: [] }),
+				};
+				const first = yield* installTestSupportSystemPlugin(pluginPackage);
+				let current = first;
+				yield* Effect.addFinalizer(() =>
+					uninstallSystemPlugin(current.pluginId, current.activationId).pipe(Effect.ignore),
+				);
+				const removed = yield* uninstallSystemPlugin(first.pluginId, first.activationId);
+				expect(removed).toEqual({ pluginId: first.pluginId });
+				expect(yield* uninstallSystemPlugin(first.pluginId, first.activationId)).toEqual(removed);
+				const replacement = yield* installTestSupportSystemPlugin(pluginPackage);
+				current = replacement;
+				expect(replacement.pluginId).toBe(first.pluginId);
+				expect(replacement.activationId).not.toBe(first.activationId);
+				expect(yield* uninstallSystemPlugin(first.pluginId, first.activationId)).toEqual(removed);
+				expect(
+					(yield* listAdminSystemPlugins).some(
+						({ packageId }) => packageId === pluginPackage.manifest.metadata.packageId,
+					),
+				).toBe(true);
+			}),
 	);
 
 	it.live("runs a third-party plugin lifecycle without restarting", () =>
@@ -314,12 +320,14 @@ export default defineAutomation({
 			);
 			const { client: installedClient } = yield* createAuthenticatedClient();
 			const listed = yield* listAdminSystemPlugins;
-			const activePlugin = listed.find(({ slug }) => slug === provider.pluginSlug);
+			const activePlugin = listed.find(
+				({ packageId }) => packageId === provider.manifest.metadata.packageId,
+			);
 			assertPresent(activePlugin, "Missing hot-installed lifecycle plugin");
 			expect(activePlugin).toMatchObject({
 				version: "1.0.0",
 				name: "E2E Test Plugin",
-				slug: provider.pluginSlug,
+				packageId: provider.manifest.metadata.packageId,
 			});
 			expect(activePlugin.activeRevisionId).toBe(provider.activePluginRevisionId);
 			const definitions = yield* listEntities(installedClient);
@@ -459,7 +467,7 @@ export default defineAutomation({
 			);
 			expect(automatedProperties["runId"]).toEqual(expect.any(String));
 			const reingestedPlugin = (yield* listAdminSystemPlugins).find(
-				({ slug }) => slug === provider.pluginSlug,
+				({ packageId }) => packageId === provider.manifest.metadata.packageId,
 			);
 			assertPresent(reingestedPlugin, "Missing reingested lifecycle plugin");
 			expect(reingestedPlugin.activeRevisionId).toBe(reingested.activePluginRevisionId);
@@ -507,7 +515,9 @@ export default defineAutomation({
 			provider.active = false;
 			expect(uninstalled).toEqual({ pluginId: reingestedPlugin.id });
 			const after = yield* listAdminSystemPlugins;
-			expect(after.some(({ slug }) => slug === provider.pluginSlug)).toBe(false);
+			expect(
+				after.some(({ packageId }) => packageId === provider.manifest.metadata.packageId),
+			).toBe(false);
 			expect((yield* listEntities(client)).some(({ slug }) => slug === schemaSlug)).toBe(false);
 			const historicalFailure = yield* Effect.flip(
 				enqueueSandboxScript(userId, {
@@ -537,10 +547,9 @@ export default defineAutomation({
 				pluginPackage: { manifest, files: {} },
 			});
 			const afterInstall = yield* listPlugins(client);
-			expect(afterInstall.find(({ slug }) => slug === pluginSlug)).toMatchObject({
-				config: {},
-				scope: "user",
-			});
+			expect(
+				afterInstall.find(({ packageId }) => packageId === manifest.metadata.packageId),
+			).toMatchObject({ config: {}, scope: "user" });
 			const uninstalled = yield* client.call((c) =>
 				c.plugins.uninstall({
 					params: { installationId: installed.id, activationId: installed.activationId },

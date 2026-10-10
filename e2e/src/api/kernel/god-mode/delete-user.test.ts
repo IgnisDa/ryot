@@ -155,7 +155,7 @@ describe("Delete user", () => {
 			const plugins = yield* collectRyotQLRecipeItems(observerClient, (after) =>
 				pluginInstallationsRecipe({ after, limit: 100 }),
 			);
-			expect(plugins.some((candidate) => candidate.slug === plugin.slug)).toBe(true);
+			expect(plugins.some((candidate) => candidate.packageId === plugin.packageId)).toBe(true);
 		}),
 	);
 });

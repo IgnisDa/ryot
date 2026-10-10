@@ -1,4 +1,5 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -183,7 +184,6 @@ it.live("renders the Music presentation facts in the canonical saved view", () =
 			siblingName: `Row Tracer B Side ${suffix}`,
 			trackProperties: { duration: 3735, publishYear: 2014 },
 		});
-		const { pluginId } = yield* findMediaEntitySchema(client, "music");
 		const events = yield* musicEventSchemas(client);
 		yield* createEventFixture(client, {
 			entityId: seeded.track.id,
@@ -196,7 +196,7 @@ it.live("renders the Music presentation facts in the canonical saved view", () =
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(
-			`${frontendUrl}${savedViewPath({ pluginId, kind: "plugin", slug: "all-music" })}`,
+			`${frontendUrl}${savedViewPath({ kind: "plugin", slug: "all-music", packageId: mediaPlugin.metadata.packageId })}`,
 		);
 		const view = page.locator("iframe").contentFrame();
 		const row = view.locator(`article[data-entity-id="${seeded.track.id}"]`);

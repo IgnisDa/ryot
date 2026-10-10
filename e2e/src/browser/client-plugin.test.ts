@@ -1,6 +1,5 @@
 import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -297,7 +296,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* installedPlugins.waitFor({ state: "visible" });
 		expect(
 			(yield* installedPlugins.innerText()).replace("Installed client plugins: ", "").split(", "),
-		).toEqual(expect.arrayContaining(["fitness", "fixture", "media"]));
+		).toEqual(expect.arrayContaining(["ryot/fitness", "ryot/fixture", "ryot/media"]));
 		yield* fixture.getByRole("button", { name: "Fetch greeting" }).click();
 		yield* expectVisibleText(home, "Hello, Ryot");
 		yield* fixture.getByRole("button", { name: "Fetch with invalid payload" }).click();
@@ -450,7 +449,7 @@ it.live("opens an external link from a sandbox click through host authority", ()
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
-		const pluginSlug = PluginSlug.make(`external-link-${crypto.randomUUID()}`);
+		const pluginSlug = `external-link-${crypto.randomUUID()}`;
 		const destination = `${frontendUrl}/e2e-external-link-${crypto.randomUUID()}`;
 		yield* installPrivatePluginPackage({
 			client,
@@ -502,9 +501,9 @@ export default function Home() {
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password, {
-			entryPath: pluginPath(installed.pluginId),
+			entryPath: pluginPath(installed.packageId),
 		});
-		yield* page.goto(`${frontendUrl}${pluginPath(installed.pluginId)}`);
+		yield* page.goto(`${frontendUrl}${pluginPath(installed.packageId)}`);
 		const frame = page.locator('main > div:not([aria-hidden="true"]) iframe');
 		yield* frame
 			.contentFrame()

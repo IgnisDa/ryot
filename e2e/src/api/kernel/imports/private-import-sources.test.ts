@@ -8,6 +8,7 @@ import {
 	installPrivateImportPlugin,
 	pollImportRunUntilTerminal,
 	releasePrivatePlugin,
+	testPluginPackageId,
 	updatePluginState,
 } from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
@@ -66,9 +67,11 @@ describe("private import sources", () => {
 			const suffix = crypto.randomUUID();
 			const sourceSlug = `e2e-shared-private-import-${suffix}`;
 			const pluginSlug = `e2e-shared-private-import-plugin-${suffix}`;
+			const packageId = testPluginPackageId();
 
 			const firstPlugin = yield* Effect.acquireRelease(
 				installPrivateImportPlugin({
+					packageId,
 					sourceSlug,
 					pluginSlug,
 					client: first.client,
@@ -78,6 +81,7 @@ describe("private import sources", () => {
 			);
 			const secondPlugin = yield* Effect.acquireRelease(
 				installPrivateImportPlugin({
+					packageId,
 					sourceSlug,
 					pluginSlug,
 					client: second.client,
@@ -92,8 +96,8 @@ describe("private import sources", () => {
 			const secondSources = (yield* listSources(second.client)).filter(
 				({ slug }) => slug === sourceSlug,
 			);
-			expect(firstSources).toMatchObject([{ pluginSlug, name: "First archive" }]);
-			expect(secondSources).toMatchObject([{ pluginSlug, name: "Second archive" }]);
+			expect(firstSources).toMatchObject([{ packageId, name: "First archive" }]);
+			expect(secondSources).toMatchObject([{ packageId, name: "Second archive" }]);
 
 			const firstRun = yield* first.client.call((c) =>
 				c.imports.createRun({

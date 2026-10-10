@@ -26,7 +26,7 @@ type InstallSandboxScriptInput = Pick<GenericTestPluginScript, "name" | "slug"> 
 		source: string;
 		scope?: "system" | "user";
 		configSchema?: PluginManifest["configSchema"];
-		pluginSlug?: PluginManifest["metadata"]["slug"];
+		pluginSlug?: string;
 		config?: ContractPayload<"plugins", "install">["config"];
 	};
 

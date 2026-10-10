@@ -13,7 +13,6 @@ import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
 	type PluginId,
-	PluginSlug,
 	RemoteImageUrl,
 	type SandboxProviderId,
 	SandboxScriptId,
@@ -152,7 +151,7 @@ type SavedViewSourceOwner = SavedViewGeneratedSource["owner"];
 type SavedViewSpec = {
 	name: string;
 	icon: string;
-	pluginSlug?: PluginSlug;
+	pluginSlug?: string;
 	layouts: SavedViewDefinition;
 	entitySchemaSlug: EntitySchemaInputSlug | null;
 };
@@ -391,7 +390,7 @@ async function createPluginScope(
 ) {
 	console.log(`  Creating plugin scope: ${name}...`);
 	const definition = { name, slug, icon, description: description ?? null, sortOrder: 0 };
-	const plugin = { ...definition, id: PluginSlug.make(slug) };
+	const plugin = { ...definition, id: slug };
 
 	console.log(`  ✓ Created plugin scope: ${name} (${plugin.id})`);
 	return plugin;
@@ -401,7 +400,7 @@ async function createEntitySchema(
 	apiClient: APIClient,
 	name: string,
 	slug: string,
-	pluginSlug: PluginSlug,
+	pluginSlug: string,
 	icon: string,
 	propertiesSchema: AppSchema,
 ) {
@@ -438,7 +437,7 @@ async function createEventSchema(
 	name: string,
 	slug: string,
 	entitySchemaReference: EntitySchemaReference,
-	pluginSlug: PluginSlug,
+	pluginSlug: string,
 	propertiesSchema: AppSchema,
 ) {
 	console.log(`      Creating event schema: ${name}...`);
@@ -641,7 +640,7 @@ async function createSavedView(
 	icon: string,
 	definition: SavedViewDefinition,
 	_entitySchemaSlug: EntitySchemaInputSlug | null,
-	pluginSlug?: PluginSlug,
+	pluginSlug?: string,
 ) {
 	return apiClient.run((c) =>
 		c.savedViews.create({
@@ -1306,7 +1305,7 @@ async function getBuiltinPlugin(apiClient: APIClient) {
 		throw new Error("Built-in media plugin not found");
 	}
 
-	return { ...builtinPlugin, id: PluginSlug.make(builtinPlugin.slug) };
+	return { ...builtinPlugin, id: builtinPlugin.packageId };
 }
 
 async function listMediaEntitySchemas(apiClient: APIClient, pluginId: PluginId) {
@@ -1853,27 +1852,27 @@ async function seedCollections(
 
 async function seedSavedViews(
 	client: APIClient,
-	whiskeyPluginSlug: PluginSlug,
-	placesPluginSlug: PluginSlug,
-	phonesPluginSlug: PluginSlug,
+	whiskeyPluginName: string,
+	placesPluginName: string,
+	phonesPluginName: string,
 ) {
 	console.log("\n💾 Seeding Saved Views...");
 
 	const savedViews: Awaited<ReturnType<typeof createSavedView>>[] = [];
 	const allSchemaSlugs = ["whiskey", "place", "smartphone", "feature-phone", "tablet"];
 	const whiskeyLayouts = (scope: readonly string[], columns: ReadonlyArray<SeedTableColumn>) =>
-		buildSeedLayouts(scope, columns, { pluginSlug: whiskeyPluginSlug });
+		buildSeedLayouts(scope, columns, { pluginSlug: whiskeyPluginName });
 	const placesLayouts = (scope: readonly string[], columns: ReadonlyArray<SeedTableColumn>) =>
-		buildSeedLayouts(scope, columns, { pluginSlug: placesPluginSlug });
+		buildSeedLayouts(scope, columns, { pluginSlug: placesPluginName });
 	const phonesLayouts = (scope: readonly string[], columns: ReadonlyArray<SeedTableColumn>) =>
-		buildSeedLayouts(scope, columns, { pluginSlug: phonesPluginSlug });
+		buildSeedLayouts(scope, columns, { pluginSlug: phonesPluginName });
 	const crossPluginLayouts = (scope: readonly string[], columns: ReadonlyArray<SeedTableColumn>) =>
 		buildSeedLayouts(scope, columns, {
 			authors: [
-				{ pluginSlug: whiskeyPluginSlug, entitySchemaSlugs: ["whiskey"] },
-				{ pluginSlug: placesPluginSlug, entitySchemaSlugs: ["place"] },
+				{ pluginSlug: whiskeyPluginName, entitySchemaSlugs: ["whiskey"] },
+				{ pluginSlug: placesPluginName, entitySchemaSlugs: ["place"] },
 				{
-					pluginSlug: phonesPluginSlug,
+					pluginSlug: phonesPluginName,
 					entitySchemaSlugs: ["smartphone", "feature-phone", "tablet"],
 				},
 			],
@@ -1881,7 +1880,7 @@ async function seedSavedViews(
 
 	const whiskeyViews: SavedViewSpec[] = [
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Premium Aged Whiskeys",
 			icon: "wine",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -1896,7 +1895,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Scotch Whiskeys",
 			icon: "wine",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -1910,7 +1909,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "High Proof Whiskeys",
 			icon: "flame",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -1925,7 +1924,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Recent Whiskey Additions",
 			icon: "clock",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -1939,7 +1938,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Japanese Whiskeys",
 			icon: "wine",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -1953,7 +1952,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Whiskey Regions Atlas",
 			icon: "map",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -1969,7 +1968,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Cask Strength Candidates",
 			icon: "flame",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -1987,7 +1986,7 @@ async function seedSavedViews(
 
 	const placeViews: SavedViewSpec[] = [
 		{
-			pluginSlug: placesPluginSlug,
+			pluginSlug: placesPluginName,
 			name: "Restaurants & Cafes",
 			icon: "utensils",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
@@ -2001,7 +2000,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: placesPluginSlug,
+			pluginSlug: placesPluginName,
 			name: "Cultural Venues",
 			icon: "landmark",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
@@ -2016,7 +2015,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: placesPluginSlug,
+			pluginSlug: placesPluginName,
 			name: "Parks & Outdoor Spaces",
 			icon: "tree",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
@@ -2030,7 +2029,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: placesPluginSlug,
+			pluginSlug: placesPluginName,
 			name: "Recently Added Places",
 			icon: "clock",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
@@ -2044,7 +2043,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: placesPluginSlug,
+			pluginSlug: placesPluginName,
 			name: "Places by Country",
 			icon: "globe",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
@@ -2059,7 +2058,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: placesPluginSlug,
+			pluginSlug: placesPluginName,
 			name: "Mapped Places",
 			icon: "map-pin",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
@@ -2074,7 +2073,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: placesPluginSlug,
+			pluginSlug: placesPluginName,
 			name: "City Address Book",
 			icon: "book-open",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
@@ -2092,7 +2091,7 @@ async function seedSavedViews(
 
 	const phoneViews: SavedViewSpec[] = [
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "Modern Smartphones",
 			icon: "smartphone",
 			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
@@ -2107,7 +2106,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "High Storage Devices",
 			icon: "hard-drive",
 			entitySchemaSlug: null,
@@ -2122,7 +2121,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "Apple Ecosystem Devices",
 			icon: "apple",
 			entitySchemaSlug: null,
@@ -2137,7 +2136,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "Android Devices",
 			icon: "android",
 			entitySchemaSlug: null,
@@ -2152,7 +2151,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "Premium Smartphones",
 			icon: "gem",
 			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
@@ -2168,7 +2167,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "Budget-Friendly Phones",
 			icon: "dollar-sign",
 			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
@@ -2182,7 +2181,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "Large Screen Devices",
 			icon: "smartphone",
 			entitySchemaSlug: null,
@@ -2197,7 +2196,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "Tablets with Cellular",
 			icon: "signal",
 			entitySchemaSlug: EntitySchemaSlug.make("tablet"),
@@ -2212,7 +2211,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "Feature Phones with Camera",
 			icon: "camera",
 			entitySchemaSlug: EntitySchemaSlug.make("feature-phone"),
@@ -2227,7 +2226,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "All Mobile Devices",
 			icon: "tablet",
 			entitySchemaSlug: null,
@@ -2305,7 +2304,7 @@ async function seedSavedViews(
 	const demoViews: SavedViewSpec[] = [
 		// ── Event joins ────────────────────────────────────────────────────────
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Latest Tasting",
 			icon: "star",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2321,7 +2320,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Highly Rated",
 			icon: "trophy",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2337,7 +2336,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Latest Purchase",
 			icon: "shopping-cart",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2353,7 +2352,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: placesPluginSlug,
+			pluginSlug: placesPluginName,
 			name: "Demo: Places – Last Visited",
 			icon: "calendar",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
@@ -2370,7 +2369,7 @@ async function seedSavedViews(
 		},
 		// ── Computed fields ────────────────────────────────────────────────────
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – ABV Reference",
 			icon: "percent",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2386,7 +2385,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Quality Tiers",
 			icon: "layers",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2402,7 +2401,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Full Description",
 			icon: "file-text",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2416,7 +2415,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Rating with ABV",
 			icon: "activity",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2432,7 +2431,7 @@ async function seedSavedViews(
 		},
 		// ── Complex filters ────────────────────────────────────────────────────
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Rare Bourbons",
 			icon: "award",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2447,7 +2446,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Not Rye",
 			icon: "x-circle",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2462,7 +2461,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Bourbon or Scotch, High Proof",
 			icon: "zap",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2478,7 +2477,7 @@ async function seedSavedViews(
 		},
 		// ── isNull / isNotNull ─────────────────────────────────────────────────
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Unknown Region",
 			icon: "help-circle",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2493,7 +2492,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: placesPluginSlug,
+			pluginSlug: placesPluginName,
 			name: "Demo: Places – Has Full Address",
 			icon: "map-pin",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
@@ -2509,7 +2508,7 @@ async function seedSavedViews(
 		},
 		// ── contains / neq ─────────────────────────────────────────────────────
 		{
-			pluginSlug: whiskeyPluginSlug,
+			pluginSlug: whiskeyPluginName,
 			name: "Demo: Whiskeys – Speyside",
 			icon: "map",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
@@ -2524,7 +2523,7 @@ async function seedSavedViews(
 			),
 		},
 		{
-			pluginSlug: phonesPluginSlug,
+			pluginSlug: phonesPluginName,
 			name: "Demo: Phones – Non-Apple",
 			icon: "smartphone",
 			entitySchemaSlug: null,
