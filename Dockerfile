@@ -12,7 +12,6 @@ WORKDIR /app/kernel/sandboxd
 COPY kernel/sandboxd/Cargo.toml kernel/sandboxd/Cargo.lock kernel/sandboxd/rust-toolchain.toml kernel/sandboxd/build.rs ./
 COPY kernel/sandboxd/src ./src
 COPY kernel/sandboxd/tests ./tests
-COPY kernel/sandboxd/bench ./bench
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS cook
