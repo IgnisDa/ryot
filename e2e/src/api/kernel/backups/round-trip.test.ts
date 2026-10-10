@@ -62,12 +62,10 @@ import {
 	uninstallTestPlugin,
 	updatePluginState,
 	waitForCreateEvents,
+	getGlobalEntityByProvenance,
 } from "~/fixtures/kernel";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
-import {
-	getGlobalEntityByProvenance,
-	queryInMediaLibraryRelationship,
-} from "~/fixtures/plugins/media";
+import { queryInMediaLibraryRelationship } from "~/fixtures/plugins/media";
 import {
 	assertCompleted,
 	assertTaggedError,

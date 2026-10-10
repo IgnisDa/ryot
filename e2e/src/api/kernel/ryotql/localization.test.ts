@@ -15,25 +15,21 @@ import {
 import { Effect } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createEntityFixture,
 	createPluginEntitySchema,
 	executeRyotQL,
 	fakeProviderDetailsResult,
-	getApiClient,
-	installTestProvider,
+	installTestProviders,
+	seedEntity,
+	seedPopulatedEntity,
+	testProviderEntitySchema,
+	uninstallTestProvider,
 	requireRyotQLValue,
 	requireRows,
 	seedEntityTranslation,
 	setUserLanguage,
-	uninstallTestPluginStrict,
 } from "~/fixtures/kernel";
-import {
-	findMediaEntitySchema,
-	seedMediaEntity,
-	seedPopulatedProviderEntity,
-} from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -150,20 +146,37 @@ describe("RyotQL entity localization", () => {
 	it.live("preserves translation status semantics", () =>
 		Effect.gen(function* () {
 			const base = yield* createAuthenticatedClient();
-			const { schema } = yield* findMediaEntitySchema(base.client, "movie");
-			const providerId = schema.providers.find((provider) => provider.name === "TMDB")?.providerId;
-			assertPresent(providerId, "TMDB movie provider not found");
-			const seedPopulated = () =>
-				seedPopulatedProviderEntity({
+			const providers = yield* Effect.acquireRelease(
+				installTestProviders({
+					scope: "system",
+					client: base.client,
+					providers: {
+						withoutLanguage: {
+							rootEntitySchemaSlug: "movie",
+							details: fakeProviderDetailsResult({ name: "Provider without canonical language" }),
+						},
+						canonical: {
+							rootEntitySchemaSlug: "movie",
+							information: { source: "e2e", canonicalLanguage: "en" },
+							details: fakeProviderDetailsResult({ name: "Provider with canonical language" }),
+						},
+					},
+				}),
+				({ canonical }) => uninstallTestProvider(canonical),
+			);
+			const entitySchema = testProviderEntitySchema(providers.canonical);
+			const seed = (providerId: string | null, populated: boolean) =>
+				(populated ? seedPopulatedEntity : seedEntity)({
 					providerId,
+					entitySchema,
 					properties: {},
-					entitySchemaSlug: schema.id,
 					name: `Movie ${crypto.randomUUID()}`,
 					externalId: `ryotql-status-${crypto.randomUUID()}`,
 				});
-			const ready = yield* seedPopulated();
-			const pending = yield* seedPopulated();
-			const negative = yield* seedPopulated();
+			const providerId = providers.canonical.providerId;
+			const ready = yield* seed(providerId, true);
+			const pending = yield* seed(providerId, true);
+			const negative = yield* seed(providerId, true);
 			yield* seedEntityTranslation({
 				language: "es",
 				entityId: ready.id,
@@ -176,46 +189,9 @@ describe("RyotQL entity localization", () => {
 				properties: null,
 				entityId: negative.id,
 			});
-			const unpopulated = yield* seedMediaEntity({
-				providerId,
-				userId: null,
-				properties: {},
-				name: "Unpopulated Movie",
-				entitySchemaSlug: schema.id,
-				externalId: `ryotql-status-${crypto.randomUUID()}`,
-			});
-			const providerless = yield* seedMediaEntity({
-				userId: null,
-				properties: {},
-				providerId: null,
-				name: "Providerless Movie",
-				entitySchemaSlug: schema.id,
-				externalId: `ryotql-status-${crypto.randomUUID()}`,
-			});
-			const providerWithoutCanonicalLanguage = yield* Effect.acquireRelease(
-				installTestProvider({
-					client: base.client,
-					rootEntitySchemaSlug: schema.id,
-					details: fakeProviderDetailsResult({ name: "Provider without canonical language" }),
-				}),
-				(provider) => uninstallTestPluginStrict(provider).pipe(Effect.orDie),
-			);
-			const missingCanonicalLanguage = yield* Effect.acquireRelease(
-				seedPopulatedProviderEntity({
-					properties: {},
-					entitySchemaSlug: schema.id,
-					name: "Missing Canonical Language Movie",
-					externalId: `ryotql-status-${crypto.randomUUID()}`,
-					providerId: providerWithoutCanonicalLanguage.providerId,
-				}),
-				(entity) =>
-					getApiClient()
-						.call(
-							(c) => c.testSupport.deleteGlobalEntities({ payload: { ids: [entity.id] } }),
-							adminHeaders(),
-						)
-						.pipe(Effect.orDie, Effect.asVoid),
-			);
+			const unpopulated = yield* seed(providerId, false);
+			const providerless = yield* seed(null, false);
+			const missingCanonicalLanguage = yield* seed(providers.withoutLanguage.providerId, true);
 
 			const { client: spanish } = yield* createAuthenticatedClient();
 			yield* setUserLanguage(spanish, "es");
