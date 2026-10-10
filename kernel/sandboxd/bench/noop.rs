@@ -23,7 +23,18 @@ fn resident_mib(pid: u32) -> f64 {
 
 fn main() {
     let threads = (CONCURRENT + 1).to_string();
-    let mut sidecar = support::spawn(Tier::Core, &["--threads", &threads, "--queue", &threads]);
+    let memory_budget = (CONCURRENT as u64 * 128 * support::MIB).to_string();
+    let mut sidecar = support::spawn(
+        Tier::Core,
+        &[
+            "--threads",
+            &threads,
+            "--queue",
+            &threads,
+            "--memory-budget",
+            &memory_budget,
+        ],
+    );
     for _ in 0..20 {
         sidecar.execute(Tier::Core, "export default () => null", Value::Null);
     }
