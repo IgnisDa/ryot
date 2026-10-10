@@ -15,7 +15,7 @@ export default defineScript({
 	manifest,
 	input: FitnessSettingsInput,
 	output: FitnessSettingsOutput,
-	run: (input) =>
+	run: (_input) =>
 		Effect.gen(function* () {
 			const range = yield* readArtifactRange(0, 16384);
 			if (range.size > 16384) {
@@ -25,9 +25,9 @@ export default defineScript({
 				Schema.fromJsonString(Schema.Record(Schema.String, jsonValueSchema)),
 			)(new TextDecoder("utf-8", { fatal: true }).decode(range.bytes));
 			const timezone = settings["timezone"];
-			if (input.source !== "open_scale" && (typeof timezone !== "string" || !timezone.trim())) {
+			if (typeof timezone !== "string" || !timezone.trim()) {
 				throw new Error("Import job is missing timezone");
 			}
-			return { timezone: typeof timezone === "string" ? timezone.trim() : "" };
+			return { timezone: timezone.trim() };
 		}),
 });

@@ -33,7 +33,7 @@ const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 export const startOpenScaleImport = (
 	client: Client,
 	pluginId: PluginId,
-	body: { uploadToken: string },
+	body: { uploadToken: string; timezone: string },
 ) =>
 	Effect.gen(function* () {
 		const result = yield* createFitnessImportRun(client, pluginId, {
@@ -53,7 +53,7 @@ export const runOpenScaleImportFixture = (client: Client, token: string) =>
 		);
 
 		const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
-		const runId = yield* startOpenScaleImport(client, pluginId, { uploadToken });
+		const runId = yield* startOpenScaleImport(client, pluginId, { uploadToken, timezone: "UTC" });
 		const completedRun = yield* pollImportRunUntilTerminal(client, runId);
 		return { runId, completedRun };
 	});

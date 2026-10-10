@@ -49,7 +49,32 @@ const OpenScaleAdapterResultSchema = Schema.Struct({
 
 type OpenScaleAdapterResult = typeof OpenScaleAdapterResultSchema.Type;
 
-export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
+const parseOpenScaleDate = (raw: string, timezone: string) => {
+	const value = raw.trim().replace(" ", "T");
+	const offset = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+	const local = value.replace(offset, "");
+	const wallClock = DateTime.make(local);
+	if (
+		Option.isNone(wallClock) ||
+		!DateTime.formatIso(wallClock.value).startsWith(local.split(".")[0] ?? local)
+	) {
+		return Option.none();
+	}
+	if (offset.test(value)) {
+		return DateTime.make(value);
+	}
+	const zoned = DateTime.makeZoned(wallClock.value, {
+		timeZone: timezone,
+		adjustForTimeZone: true,
+		disambiguation: "earlier",
+	});
+	return Option.isSome(zoned) &&
+		DateTime.toDate(zoned.value).getTime() === wallClock.value.epochMilliseconds
+		? Option.some(DateTime.toUtc(zoned.value))
+		: Option.none();
+};
+
+export const adaptOpenScaleCsv = (csvText: string, timezone: string): OpenScaleAdapterResult => {
 	const { rows, headers } = parseCsvText(csvText);
 	if (headers.length === 0) {
 		throw new Error("OpenScale CSV is empty or has no header row");
@@ -57,12 +82,14 @@ export const adaptOpenScaleCsv = (csvText: string): OpenScaleAdapterResult => {
 	return adaptOpenScaleRows(
 		rows.map((row, itemIndex) => ({ row, itemIndex })),
 		headers,
+		timezone,
 	);
 };
 
 export const adaptOpenScaleRows = (
 	rows: ReadonlyArray<{ row: Record<string, string>; itemIndex: number }>,
 	headers: ReadonlyArray<string>,
+	timezone: string,
 ): OpenScaleAdapterResult => {
 	const normalizedHeaders = headers.map((header) => header.toLowerCase().trim());
 	const datetimeColIdx =
@@ -115,7 +142,7 @@ export const adaptOpenScaleRows = (
 			continue;
 		}
 
-		const parsed = DateTime.make(datetimeRaw.trim().replace(" ", "T"));
+		const parsed = parseOpenScaleDate(datetimeRaw, timezone);
 		if (Option.isNone(parsed)) {
 			failures.push({
 				itemIndex: rowIdx,
