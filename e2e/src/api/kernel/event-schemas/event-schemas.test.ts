@@ -106,16 +106,12 @@ describe("GET /event-schemas", () => {
 			const reviewSchema = eventSchemas.find((schema) => schema.slug === "review");
 			assertPresent(reviewSchema, "Missing built-in review schema for exercise");
 			expect(reviewSchema.propertiesSchema).toMatchObject({
+				unknownKeys: "strict",
 				fields: {
 					text: {
+						label: "Note",
 						type: "string",
-						label: "Review",
-						description: "Your written thoughts or notes about this media",
-					},
-					isSpoiler: {
-						type: "boolean",
-						label: "Is Spoiler?",
-						description: "Whether this review contains spoilers",
+						description: "Your private note about this exercise",
 					},
 					rating: {
 						type: "number",
@@ -125,6 +121,8 @@ describe("GET /event-schemas", () => {
 					},
 				},
 			});
+			expect(Object.keys(reviewSchema.propertiesSchema.fields)).toHaveLength(2);
+			expect(reviewSchema.propertiesSchema.fields.text).not.toHaveProperty("validation");
 		}),
 	);
 

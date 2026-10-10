@@ -38,7 +38,6 @@ const timezoneUploadInputSchema = (...args: Parameters<typeof uploadInputSchema>
 
 export const fitnessPlugin = definePlugin({
 	crons: [],
-	operations: [],
 	httpRateLimits: [],
 	integrationProviders: [],
 	savedViews: fitnessSavedViews(),
@@ -64,6 +63,29 @@ export const fitnessPlugin = definePlugin({
 		{ slug: "import", scriptSlug: "workflow.import" },
 		{ slug: "import-application", scriptSlug: "workflow.import-application" },
 		{ slug: "import-merge", scriptSlug: "workflow.import-merge" },
+	],
+	operations: [
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "exercise-note-create",
+			scriptSlug: "operation.exercise-note-create",
+			description: "Create a private exercise note",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "exercise-note-update",
+			scriptSlug: "operation.exercise-note-update",
+			description: "Update a private exercise note",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "exercise-note-delete",
+			scriptSlug: "operation.exercise-note-delete",
+			description: "Delete a private exercise note",
+		},
 	],
 	providers: [
 		{
