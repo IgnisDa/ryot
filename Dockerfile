@@ -8,16 +8,16 @@ FROM rust-toolchain AS chef
 RUN cargo install cargo-chef --locked --version 0.1.78
 
 FROM chef AS planner
-WORKDIR /app/kernel/sandboxd
-COPY kernel/sandboxd/Cargo.toml kernel/sandboxd/Cargo.lock kernel/sandboxd/rust-toolchain.toml kernel/sandboxd/build.rs ./
-COPY kernel/sandboxd/src ./src
-COPY kernel/sandboxd/tests ./tests
+WORKDIR /app/kernel/sandbox/native
+COPY kernel/sandbox/native/Cargo.toml kernel/sandbox/native/Cargo.lock kernel/sandbox/native/rust-toolchain.toml kernel/sandbox/native/build.rs ./
+COPY kernel/sandbox/native/src ./src
+COPY kernel/sandbox/native/tests ./tests
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS cook
-WORKDIR /app/kernel/sandboxd
-COPY kernel/sandboxd/rust-toolchain.toml ./
-COPY --from=planner /app/kernel/sandboxd/recipe.json recipe.json
+WORKDIR /app/kernel/sandbox/native
+COPY kernel/sandbox/native/rust-toolchain.toml ./
+COPY --from=planner /app/kernel/sandbox/native/recipe.json recipe.json
 RUN cargo chef cook --release --recipe-path recipe.json
 RUN cargo chef cook --tests --recipe-path recipe.json
 
@@ -36,7 +36,7 @@ FROM builder-base AS backend-builder
 COPY --from=rust-toolchain /usr/local/cargo /usr/local/cargo
 COPY --from=rust-toolchain /usr/local/rustup /usr/local/rustup
 COPY --from=cook /usr/local/cargo/registry /usr/local/cargo/registry
-COPY --from=cook /app/kernel/sandboxd/target /app/kernel/sandboxd/target
+COPY --from=cook /app/kernel/sandbox/native/target /app/kernel/sandbox/native/target
 ENV CARGO_HOME=/usr/local/cargo
 ENV RUSTUP_HOME=/usr/local/rustup
 ENV PATH=/usr/local/cargo/bin:$PATH
@@ -50,13 +50,13 @@ RUN bun turbo --filter=@ryot-app/server build
 RUN bun run --cwd apps/server assemble
 
 FROM backend-builder AS sandbox-test
-WORKDIR /app/kernel/sandboxd
+WORKDIR /app/kernel/sandbox/native
 RUN cargo test --no-run
 WORKDIR /app
-RUN bash /app/kernel/sandboxd/provision.sh \
-    /app/kernel/sandboxd/dist/ryot-sandbox-launcher \
-    /app/kernel/sandboxd/dist/ryot-sandboxd \
-    /app/kernel/sandboxd/dist/snapshots && \
+RUN bash /app/kernel/sandbox/native/provision.sh \
+    /app/kernel/sandbox/dist/ryot-sandbox-launcher \
+    /app/kernel/sandbox/dist/ryot-sandboxd \
+    /app/kernel/sandbox/dist/snapshots && \
     chown -R 1001:1001 /app
 USER 1001:1001
 
@@ -75,8 +75,8 @@ RUN rm -rf /app/packages/client-plugin-compiler
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
-COPY --from=backend-builder /app/kernel/sandboxd/dist /tmp/ryot-sandboxd
-COPY kernel/sandboxd/provision.sh /tmp/provision-sandboxd.sh
+COPY --from=backend-builder /app/kernel/sandbox/dist /tmp/ryot-sandboxd
+COPY kernel/sandbox/native/provision.sh /tmp/provision-sandboxd.sh
 RUN bash /tmp/provision-sandboxd.sh \
     /tmp/ryot-sandboxd/ryot-sandbox-launcher \
     /tmp/ryot-sandboxd/ryot-sandboxd \

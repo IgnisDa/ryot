@@ -4,8 +4,8 @@ import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowE
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
-import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import {
 	TranslationExecution,
@@ -33,7 +33,7 @@ export class TranslateEntityWorkflowOperations extends Context.Service<
 export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 	TranslateEntityWorkflowOperations,
 	Effect.gen(function* () {
-		const sandbox = yield* SandboxExecutionService;
+		const sandbox = yield* ScriptExecutionService;
 		const translations = yield* TranslationsService;
 
 		const processSandboxTranslation = Effect.fn("processSandboxTranslation")(function* (

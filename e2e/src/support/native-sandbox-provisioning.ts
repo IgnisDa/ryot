@@ -63,7 +63,7 @@ const artifactMode = (artifact: string) => {
 export const verifyNativeSandboxProvisioning = Effect.fnUntraced(function* (root: string) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
-	const dist = path.join(root, "kernel/sandboxd/dist");
+	const dist = path.join(root, "kernel/sandbox/dist");
 	for (const artifact of artifacts) {
 		const artifactPath = path.join(dist, artifact);
 		const symlink = yield* isSymlink(fs, path, artifactPath);
@@ -82,7 +82,7 @@ export const verifyNativeSandboxProvisioning = Effect.fnUntraced(function* (root
 			message: "Native sandbox setup failure: Linux e2e must run as UID/GID 1001",
 		});
 	}
-	const setupCommand = `sudo bash kernel/sandboxd/provision.sh ${dist}/ryot-sandbox-launcher ${dist}/ryot-sandboxd ${dist}/snapshots`;
+	const setupCommand = `sudo bash kernel/sandbox/native/provision.sh ${dist}/ryot-sandbox-launcher ${dist}/ryot-sandboxd ${dist}/snapshots`;
 	const verifyInstalled = Effect.gen(function* () {
 		for (const installedPath of [
 			"/home/ryot",

@@ -81,7 +81,7 @@ or compiled `script.source`. Retained source maps preserve authored paths and li
 installation does not run this compiler. Archive hashes establish internal consistency, not source
 provenance.
 
-The kernel's `tooling/sandbox-runtime.ts` assembles generated runner, payload, and kernel script files.
+The sandbox's `tooling/runtime.ts` assembles the trusted runner and runtime payload; the backend's `tooling/kernel-scripts.ts` generates kernel script files.
 `src/runtime-build/` owns the generic registry and deterministic payload construction, bounded source
 watch inputs, and process capture for the production runtime-image verification. The compiler package
 does not depend on kernel modules.

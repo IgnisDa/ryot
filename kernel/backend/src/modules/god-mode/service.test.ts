@@ -5,11 +5,11 @@ import {
 	GodModeRequestFailure,
 } from "@ryot-app/contract/modules/god-mode/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref } from "effect";
 import { describe, it as vitestIt } from "vitest";
 
 import { RedisService } from "#lib/infrastructure/redis";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeRedisService, fakeDatabaseSession } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";

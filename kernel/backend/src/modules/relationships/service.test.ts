@@ -13,6 +13,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq } from "drizzle-orm";
 import { Cause, DateTime, Effect, Exit } from "effect";
 import { assert, describe } from "vitest";
@@ -24,7 +25,6 @@ import {
 } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { AutomationAttemptRepository } from "#modules/automations/attempt-repository";
 import {
 	withLifecycleBatchPlanning,

@@ -8,7 +8,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { makeMemoizingWorkflowEngine } from "#lib/test-utils/effect";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { TranslateEntityWorkflow, type TranslationExecution } from "./entity-translation-workflow";
 import {
@@ -18,7 +18,7 @@ import {
 import { TranslationsService } from "./service";
 import { translationExecution, translationPayload } from "./translation.test-support";
 
-type ScriptInput = Parameters<SandboxExecutionService["Service"]["executeScript"]>[0];
+type ScriptInput = Parameters<ScriptExecutionService["Service"]["executeScript"]>[0];
 class PinnedTranslationEffects extends Context.Service<
 	PinnedTranslationEffects,
 	{
@@ -55,7 +55,7 @@ const operationsLayer = Layer.unwrap(
 					Layer.succeed(WorkflowInstance, instance),
 					Layer.succeed(WorkflowEngine, makeMemoizingWorkflowEngine(instance, [])),
 					Layer.mock(TranslationsService)({ admitExecution: () => Ref.get(admitted) }),
-					Layer.mock(SandboxExecutionService)({
+					Layer.mock(ScriptExecutionService)({
 						executeScript: (input) =>
 							Ref.update(calls, (all) => [...all, input]).pipe(
 								Effect.as({ logs: [], error: null, status: "completed", value: { name: "Libro" } }),

@@ -1,11 +1,11 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, layer } from "@effect/vitest";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Effect, FileSystem, Layer } from "effect";
 
 import { HmacSigner } from "#lib/infrastructure/hmac-signer";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { S3Service } from "#lib/infrastructure/s3";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { ingestionTestScope } from "#modules/imports/ingestion.test-support";
 

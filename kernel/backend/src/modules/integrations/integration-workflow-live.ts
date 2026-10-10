@@ -10,6 +10,7 @@ import {
 	genericImportWorkflowResultSchema,
 } from "@ryot-app/sandbox-sdk/imports";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, FileSystem, Layer, Schema } from "effect";
 import { DurableClock, Workflow } from "effect/workflow";
@@ -18,7 +19,6 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { ProcessDataImportWorkflow } from "#modules/imports/data-workflow";
@@ -27,7 +27,7 @@ import { IngestionExecutionLive } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { toIntegrationWorkflowError } from "./failure-workflow";
 import { IntegrationIngestion } from "./ingestion";
@@ -63,7 +63,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 		const integrations = yield* IntegrationsRepository;
 		const owner = `${executionId}-import`;
 		const reference = `${executionId}-integration-orchestrator`;
-		const artifacts = yield* SandboxArtifactStore;
+		const artifacts = yield* ExecutionFileStore;
 		const release = () => artifacts.release(owner, reference);
 		const initial = yield* repository.getIngestionRun(scope);
 		if (!initial || ["cancelled", "expired"].includes(initial.status)) {
@@ -183,7 +183,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 					(dispatch) => dispatch,
 				);
 			} else {
-				const sandbox = yield* SandboxExecutionService;
+				const sandbox = yield* ScriptExecutionService;
 				const state = yield* ingestion.recoverInput(scope);
 				const fs = yield* FileSystem.FileSystem;
 				const config = yield* AppConfig;

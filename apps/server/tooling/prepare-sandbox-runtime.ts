@@ -12,26 +12,26 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { appConfigDefinition } from "@ryot-app/kernel-backend/lib/infrastructure/config/definition";
 import { AppConfig } from "@ryot-app/kernel-backend/lib/infrastructure/config/service";
+import { ServerRun } from "@ryot-app/kernel-backend/lib/infrastructure/server-run";
+import { SandboxHostConfigLive } from "@ryot-app/kernel-backend/modules/scripts/host/sandbox-host-live";
+import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
+import { SandboxSidecarAdmission } from "@ryot-app/sandbox/host/admission";
+import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
+import { SandboxSidecarClient } from "@ryot-app/sandbox/host/client";
+import { SandboxHostCallScope } from "@ryot-app/sandbox/host/config";
+import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
+import { ExecutionFiles } from "@ryot-app/sandbox/host/file-access";
+import { SandboxHostCallGate } from "@ryot-app/sandbox/host/host-call-gate";
+import { SandboxHostFunctions } from "@ryot-app/sandbox/host/host-functions";
+import { unusedSandboxHostFunctions } from "@ryot-app/sandbox/host/host.test-support";
+import type { SandboxRunInput } from "@ryot-app/sandbox/host/invocation";
+import { SandboxSidecarQuarantine } from "@ryot-app/sandbox/host/quarantine";
 import {
 	SandboxRecoveryStore,
 	SandboxRecoveryStoreError,
-} from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-recovery-store";
-import {
-	SandboxExecutionAuthority,
-	SandboxExecutionPrincipal,
-} from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/execution-principal";
-import { SandboxFileService } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/file-service";
-import { SandboxHostCallGate } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/host-call-gate";
-import { SandboxHostImplementations } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/host-implementations";
-import { SandboxService } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/service";
-import type { SandboxRunInput } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/shared";
-import { SandboxSidecarAdmission } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-admission";
-import { SandboxSidecarClient } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-client";
-import { SandboxSidecarQuarantine } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-quarantine";
-import { SandboxSidecarSupervisor } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/sidecar-supervisor";
-import { ServerRun } from "@ryot-app/kernel-backend/lib/infrastructure/server-run";
-import { unusedSandboxHostImplementations } from "@ryot-app/kernel-backend/lib/test-utils/sandbox-host-implementations";
-import { SANDBOX_COMPILED_FORMAT } from "@ryot-app/sandbox-compiler/protocol";
+} from "@ryot-app/sandbox/host/recovery-store";
+import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
+import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import {
 	ConfigProvider,
 	Context,
@@ -113,8 +113,8 @@ const ServerRunSmokeLive = Layer.succeed(ServerRun, { id: "production-runtime-sm
 
 const trustedPrincipals = new Map<string, SmokeTrust>();
 
-const encodePrincipal = Schema.encodeSync(Schema.fromJsonString(SandboxExecutionPrincipal));
-const resolveTrustedPrincipal = (principal: SandboxExecutionPrincipal) =>
+const encodePrincipal = Schema.encodeSync(Schema.fromJsonString(ScriptExecutionPrincipal));
+const resolveTrustedPrincipal = (principal: ScriptExecutionPrincipal) =>
 	trustedPrincipals.get(encodePrincipal(principal));
 
 const invalidSmokePrincipal = () =>
@@ -173,9 +173,9 @@ const SandboxSidecarSupervisorSmokeLive = Layer.effect(
 
 const recordedHostCalls: string[] = [];
 
-const SandboxHostImplementationsSmokeLive = Layer.succeed(
-	SandboxHostImplementations,
-	unusedSandboxHostImplementations({
+const SandboxHostFunctionsSmokeLive = Layer.succeed(
+	SandboxHostFunctions,
+	unusedSandboxHostFunctions({
 		getCachedValue: (_input, key) =>
 			key === smokeHostCallKey
 				? Effect.sync(() => {
@@ -186,16 +186,24 @@ const SandboxHostImplementationsSmokeLive = Layer.succeed(
 	}),
 );
 
-const SandboxServiceSmokeLive = Layer.effect(SandboxService, SandboxService.make).pipe(
+const SandboxExecutorSmokeLive = Layer.effect(SandboxExecutor, SandboxExecutor.make).pipe(
 	Layer.provideMerge(SandboxHostCallGate.layer),
-	Layer.provide(SandboxFileService.layer),
-	Layer.provide(SandboxHostImplementationsSmokeLive),
+	Layer.provide(ExecutionFiles.layer),
+	Layer.provide(SandboxHostFunctionsSmokeLive),
 	Layer.provideMerge(SandboxExecutionAuthoritySmokeLive),
 	Layer.provideMerge(SandboxSidecarSupervisorSmokeLive),
 );
 
-const RuntimeSmokeLive = SandboxServiceSmokeLive.pipe(
-	Layer.provideMerge(Layer.mergeAll(BunServices.layer, AppConfigSmokeLive, ServerRunSmokeLive)),
+const RuntimeSmokeLive = SandboxExecutorSmokeLive.pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(
+			BunServices.layer,
+			Layer.succeed(SandboxHostCallScope, { bound: (effect) => effect }),
+			SandboxHostConfigLive.pipe(
+				Layer.provide(Layer.merge(AppConfigSmokeLive, ServerRunSmokeLive)),
+			),
+		),
+	),
 );
 
 const verifyConfinedSidecars = Effect.gen(function* () {
@@ -238,7 +246,7 @@ const verifyConfinedSidecars = Effect.gen(function* () {
 
 const smoke = Effect.gen(function* () {
 	const crypto = yield* Crypto.Crypto;
-	const service = yield* SandboxService;
+	const service = yield* SandboxExecutor;
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const supervisor = yield* SandboxSidecarSupervisor;
@@ -260,7 +268,7 @@ const smoke = Effect.gen(function* () {
 		readonly trust: SmokeTrust;
 		readonly compiledCode: string;
 		readonly expectedTier: SmokeTier;
-		readonly principal: SandboxExecutionPrincipal;
+		readonly principal: ScriptExecutionPrincipal;
 	}> = [];
 
 	for (const trust of trusts) {
@@ -269,7 +277,7 @@ const smoke = Effect.gen(function* () {
 			const contentHash = Hex.encode(
 				yield* crypto.digest("SHA-256", new TextEncoder().encode(compiled.javascript)),
 			);
-			const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({
+			const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
 				scriptId,
 				contentHash,
 				providerId: null,

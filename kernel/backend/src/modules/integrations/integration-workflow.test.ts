@@ -6,12 +6,12 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { IngestionIssue, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId, IntegrationId } from "@ryot-app/contract/schema/brands";
+import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { SignalEmissionService } from "#modules/automations/signal-service";
@@ -22,7 +22,7 @@ import {
 	ingestionTestSource,
 } from "#modules/imports/ingestion.test-support";
 import { ImportsRepository } from "#modules/imports/repository";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { IntegrationConfirmationError, IntegrationIngestion } from "./ingestion";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
@@ -129,12 +129,12 @@ const rootCase = (
 					}),
 			}),
 			Layer.mock(SignalEmissionService)({}),
-			Layer.mock(SandboxArtifactStore)({
+			Layer.mock(ExecutionFileStore)({
 				retain: () => Effect.void,
 				release: () => Effect.void,
 				materializeOutputs: () => Effect.succeed(["durable-input-handle"]),
 			}),
-			Layer.mock(SandboxExecutionService)({
+			Layer.mock(ScriptExecutionService)({
 				executeWorkflow: (input) =>
 					Effect.sync(() => {
 						executions.push(input);

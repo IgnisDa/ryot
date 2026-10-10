@@ -14,8 +14,8 @@ import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { SandboxRepository } from "#modules/sandbox/repository";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 
 import { PluginConfigEncryptionKey } from "./config-encryption-key";
 import { PluginConfigRevisions } from "./config-revisions";

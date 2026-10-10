@@ -14,6 +14,7 @@ import {
 	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -23,7 +24,6 @@ import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
-import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import {
 	makeMemoizingWorkflowEngine,
 	makeRedisService,
@@ -43,7 +43,7 @@ import {
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
-import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
@@ -244,7 +244,7 @@ const populationLayer = (options: {
 				subject,
 			);
 			assert(pin?.pluginRevision);
-			const principal = yield* Schema.decodeEffect(SandboxExecutionPrincipal)({ ...pin, subject });
+			const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 			const payload: ProviderEntityPopulationPayload = {
 				...payloadFields,
 				providerId: provider.id,

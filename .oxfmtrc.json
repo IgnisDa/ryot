@@ -16,6 +16,8 @@
 		"**/.react-router/**",
 		"apps/frontend/app/styles/*.css",
 		"kernel/client/src/routeTree.gen.ts",
-		"apps/docs/src/includes/app-backend-config-schema.md"
+		"apps/docs/src/includes/app-backend-config-schema.md",
+		"kernel/sandbox/native/**",
+		"kernel/sandbox/protocol-fixtures/**"
 	]
 }

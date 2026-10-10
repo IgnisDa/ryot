@@ -7,7 +7,7 @@ import { IngestionCaptures } from "#modules/imports/capture-service";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { IngestionPayloads } from "#modules/uploads/object-storage/ingestion-payloads";
 
 export const ingestionRetirementTestLayer = Layer.effect(

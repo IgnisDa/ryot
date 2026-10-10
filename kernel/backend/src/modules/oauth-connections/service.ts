@@ -25,7 +25,7 @@ import type { SubkeyCiphertext } from "#lib/infrastructure/config/plugin-config-
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
-import { resolveContextConfig } from "#lib/infrastructure/sandbox-runtime/app-config";
+import { resolveContextConfig } from "#modules/plugins/config-access";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import {

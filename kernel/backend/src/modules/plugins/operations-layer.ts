@@ -2,9 +2,9 @@ import { Layer } from "effect";
 
 import { AuthServiceLive } from "#modules/auth/layer";
 import { IntegrationOperationScopeResolverProvidedLive } from "#modules/integrations/layer";
-import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
-import { SandboxRepository } from "#modules/sandbox/repository";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
+import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
+import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 
 import { PluginCatalogInvalidatorLive } from "./catalog-events";
 import { PluginInstallationRepository } from "./installation-repository";
@@ -19,7 +19,7 @@ export const OperationsServiceLive = OperationsService.layer.pipe(
 			AuthServiceLive,
 			PluginRepository.layer,
 			PluginRuntimeResolverLive,
-			SandboxExecutionServiceLive,
+			ScriptExecutionServiceLive,
 			SandboxRepository.layer,
 			SandboxWorkflowReferenceRepository.layer,
 			IntegrationOperationScopeResolverProvidedLive,
@@ -32,7 +32,7 @@ export const PluginInstallationWorkflowOperationsProvidedLive =
 		Layer.provide(
 			Layer.mergeAll(
 				PluginRuntimeResolverLive,
-				SandboxExecutionServiceLive,
+				ScriptExecutionServiceLive,
 				SandboxRepository.layer,
 				SandboxWorkflowReferenceRepository.layer,
 				PluginCatalogInvalidatorLive,

@@ -3,6 +3,7 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { CryptoHasher } from "bun";
 import type { FileSystem } from "effect";
 import { ByteSize, Clock, Context, DateTime, Effect, Layer, Option, Ref, Stream } from "effect";
@@ -10,7 +11,6 @@ import { ByteSize, Clock, Context, DateTime, Effect, Layer, Option, Ref, Stream 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { S3Service } from "#lib/infrastructure/s3";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, fakeDatabaseSession } from "#lib/test-utils/effect";
 import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
 

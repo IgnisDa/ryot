@@ -6,7 +6,7 @@ import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { RelationshipsRepository } from "#modules/relationships/repository";
-import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
+import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
 import { ProviderImportAdmission } from "./admission";
 import { EntityImportWorkflowOperationsLive } from "./operations-workflow";
@@ -15,7 +15,7 @@ import { ProviderEntitySearchService } from "./search-service";
 import { EntityImportService } from "./service";
 
 export const ProviderEntitySearchServiceLive = ProviderEntitySearchService.layer.pipe(
-	Layer.provide(Layer.merge(SandboxExecutionServiceLive, PluginRuntimeResolverLive)),
+	Layer.provide(Layer.merge(ScriptExecutionServiceLive, PluginRuntimeResolverLive)),
 );
 
 export const EntityImportServiceLive = EntityImportService.layer.pipe(
@@ -24,7 +24,7 @@ export const EntityImportServiceLive = EntityImportService.layer.pipe(
 		ProviderImportAdmission.liveLayer.pipe(
 			Layer.provide(
 				Layer.mergeAll(
-					SandboxExecutionServiceLive,
+					ScriptExecutionServiceLive,
 					PluginRuntimeResolverLive,
 					DomainWriteChecksLive,
 				),
@@ -35,7 +35,7 @@ export const EntityImportServiceLive = EntityImportService.layer.pipe(
 
 export const EntityImportWorkflowOperationsProvidedLive = EntityImportWorkflowOperationsLive.pipe(
 	Layer.provide(
-		Layer.mergeAll(LifecycleServicesLive, SandboxExecutionServiceLive, DomainWriteChecksLive),
+		Layer.mergeAll(LifecycleServicesLive, ScriptExecutionServiceLive, DomainWriteChecksLive),
 	),
 	Layer.provide(PluginRuntimeResolverLive),
 	Layer.provide(DefinitionRepository.layer),

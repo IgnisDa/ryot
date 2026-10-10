@@ -1,9 +1,9 @@
 import { expect, it } from "@effect/vitest";
 import type { IngestionCapture, IngestionRun } from "@ryot-app/contract/modules/imports/ingestion";
 import { IntegrationId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -21,8 +21,8 @@ import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
 import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
-import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { SandboxPluginScriptResolver } from "#modules/scripts/registry/plugin-script-resolver";
 
 import { IntegrationIngestion } from "./ingestion";
 import type { IntegrationWebhookDelivery } from "./jobs";
@@ -64,7 +64,7 @@ const runCase = (
 				calls.push({ input, method });
 			});
 		const dependencies = Layer.mergeAll(
-			Layer.mock(SandboxExecutionService)({}),
+			Layer.mock(ScriptExecutionService)({}),
 			mutationAdmissionTestLayer,
 			Layer.mock(IngestionCaptures)({ recover: () => record("recover", null) }),
 			Layer.mock(IngestionExecution)({ cleanup: (scope) => record("cleanup", scope) }),

@@ -29,7 +29,7 @@ import {
 	PluginRuntimeResolver,
 	UnsupportedProviderOperationError,
 } from "#modules/plugins/runtime-resolver";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 const decodeProviderSearchResult = Schema.decodeUnknownEffect(providerSearchResultSchema);
 const providerNotFound = (providerId: SearchProviderEntitiesBody["providerId"]) =>
@@ -49,7 +49,7 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
-			const sandbox = yield* SandboxExecutionService;
+			const sandbox = yield* ScriptExecutionService;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 
 			const resolveSearch = Effect.fn("ProviderEntitySearchService.resolveSearch")(function* (

@@ -11,11 +11,11 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { ProKeyService } from "#lib/infrastructure/pro-key";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import {
 	makeWorkflowEngine,
 	type MockOverrides,

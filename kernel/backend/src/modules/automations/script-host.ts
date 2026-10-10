@@ -1,0 +1,55 @@
+import { EntityId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import type { AutomationSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
+import {
+	requireSandboxCapabilityInput,
+	sandboxHostEffect,
+	type SandboxRunInput,
+} from "@ryot-app/sandbox/host/invocation";
+import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
+import { Effect } from "effect";
+
+import {
+	reportSandboxLifecycleWarnings,
+	sandboxLifecycleCommand,
+} from "#modules/scripts/host/execution-context";
+
+import { SignalEmissionService } from "./signal-service";
+
+export const makeSignalScriptHost = Effect.gen(function* () {
+	const signals = yield* SignalEmissionService;
+
+	return {
+		emitSignal: (rawInput, request) =>
+			requireSandboxCapabilityInput(rawInput, "emitSignal").pipe(
+				Effect.flatMap((input) =>
+					Effect.gen(function* () {
+						const command = yield* sandboxLifecycleCommand(
+							input,
+							"api",
+							`emitSignal:${request.discriminator}`,
+						);
+						const result = yield* sandboxHostEffect(
+							signals.emitSignal({
+								command,
+								properties: request.properties,
+								reference: {
+									owner: principalOwner(input.principal),
+									slug: SignalSchemaSlug.make(request.schemaSlug),
+								},
+								...(request.subjectEntityId
+									? { subjectEntityId: EntityId.make(request.subjectEntityId) }
+									: {}),
+								principal:
+									input.principal.subject.type === "automation-run" &&
+									input.principal.subject.executionUserId !== null
+										? { kind: "user", userId: UserId.make(input.principal.subject.executionUserId) }
+										: { kind: "system" },
+							}),
+						);
+						yield* reportSandboxLifecycleWarnings("emitSignal", result.warnings);
+						return { triggerId: result.triggerId, wasCreated: result.wasCreated };
+					}),
+				),
+			),
+	} satisfies Pick<AutomationSandboxHostImplementationMap<SandboxRunInput>, "emitSignal">;
+});

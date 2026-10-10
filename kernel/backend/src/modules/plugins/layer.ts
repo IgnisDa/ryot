@@ -9,8 +9,8 @@ import {
 	IntegrationPluginRevisionActivationLive,
 	IntegrationsRepository,
 } from "#modules/integrations/repository";
-import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { SavedViewPluginReferencesProvidedLive } from "#modules/saved-views/layer";
+import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/uploads/layer";
 
 import { PluginBackupRestore } from "./backup-restore";

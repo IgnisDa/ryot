@@ -2,12 +2,12 @@ import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq, sql } from "drizzle-orm";
 import { Deferred, Effect, Layer } from "effect";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";

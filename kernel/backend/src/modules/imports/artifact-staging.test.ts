@@ -2,6 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { expect, layer } from "@effect/vitest";
 import { ImportRunId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { ExecutionFileStaging } from "@ryot-app/sandbox/host/execution-file-staging";
 import { eq } from "drizzle-orm";
 import { DateTime, Effect, FileSystem, Layer, Option, Redacted, Schema } from "effect";
 import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
@@ -14,7 +15,6 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { HmacSigner } from "#lib/infrastructure/hmac-signer";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { S3Service } from "#lib/infrastructure/s3";
-import { SandboxArtifactStaging } from "#lib/infrastructure/sandbox-runtime/artifact-staging";
 import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
@@ -129,7 +129,7 @@ layer(
 								collections += 1;
 								const source = `${temporary}/collector-output`;
 								yield* fs.writeFile(source, new TextEncoder().encode("collected once"));
-								const port = yield* SandboxArtifactStaging;
+								const port = yield* ExecutionFileStaging;
 								const harvest = yield* port.prepare({
 									context: {},
 									compiledCode: "",

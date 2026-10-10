@@ -2,16 +2,16 @@ import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import { genericImportWorkflowInputSchema } from "@ryot-app/sandbox-sdk/imports";
+import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { reconcileGenericIngestionBatch } from "./batch-results";
 import { IngestionCaptures } from "./capture-service";
@@ -35,12 +35,12 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	yield* admitWorkflow(receipts, ProcessImportRunWorkflow, accountGeneration, executionId).pipe(
 		Effect.mapError(toWorkflowError),
 	);
-	const sandbox = yield* SandboxExecutionService;
+	const sandbox = yield* ScriptExecutionService;
 	const sourceStates = yield* ImportSourceStateStore;
 	const repository = yield* ImportsRepository;
 	const execution = yield* IngestionExecution;
 	const captures = yield* IngestionCaptures;
-	const artifacts = yield* SandboxArtifactStore;
+	const artifacts = yield* ExecutionFileStore;
 	const owner = `${executionId}-import`;
 	const reference = `${executionId}-import-orchestrator`;
 	const reconcile = (batch: Parameters<typeof reconcileGenericIngestionBatch>[1]) =>

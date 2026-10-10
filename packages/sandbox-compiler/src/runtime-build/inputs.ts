@@ -15,15 +15,6 @@ const defaultLimits: SourceWalkLimits = {
 	maxTotalBytes: 16 * 1024 * 1024,
 };
 
-export const SANDBOX_ISOLATE_SOURCE_FILES = [
-	"isolate-invocation.ts",
-	"isolate-bootstrap.ts",
-	"isolate-primordials.ts",
-	"isolate-utilities.ts",
-	"limits.ts",
-	"sidecar-protocol.ts",
-] as const;
-
 const workspaceScope = "@ryot-app/";
 
 const toolchainPackages = ["sandbox-compiler", "typescript-compiler", "vite-compiler"];
@@ -68,14 +59,12 @@ const runtimePackageDirectories = (workspaceRoot: string) =>
 		].sort();
 	});
 
-const sandboxSource = (file: string) => file.endsWith(".sandbox.ts");
-
 const runtimeTypeScriptSource = (file: string) =>
 	file.endsWith(".ts") && !file.endsWith(".test.ts") && !file.endsWith(".generated.ts");
 
 export const sandboxRuntimeInputs = (
-	kernelDirectory: string,
-	sandboxRuntimeDirectory: string,
+	ownerDirectory: string,
+	runtimeSourceFiles: ReadonlyArray<string>,
 	limitOverrides: Partial<SourceWalkLimits> = {},
 ) =>
 	Effect.gen(function* () {
@@ -83,21 +72,13 @@ export const sandboxRuntimeInputs = (
 		const limits = { ...defaultLimits, ...limitOverrides };
 		const budget = createSourceWalkBudget();
 		const options = { limits, budget };
-		const workspaceRoot = path.resolve(kernelDirectory, "../..");
-		const sources: Record<string, string> = {
-			...(yield* walkSourceFiles(
-				sandboxRuntimeDirectory,
-				workspaceRoot,
-				(file) => SANDBOX_ISOLATE_SOURCE_FILES.some((name) => file.endsWith(`/${name}`)),
-				options,
-			)),
-			...(yield* walkSourceFiles(
-				path.join(kernelDirectory, "src/modules/definition-registry/kernel-scripts"),
-				workspaceRoot,
-				sandboxSource,
-				options,
-			)),
-		};
+		const workspaceRoot = path.resolve(ownerDirectory, "../..");
+		const sources: Record<string, string> = yield* walkSourceFiles(
+			path.join(ownerDirectory, "src"),
+			workspaceRoot,
+			(file) => runtimeSourceFiles.some((name) => file.endsWith(`/src/${name}`)),
+			options,
+		);
 		const packageDirectories = yield* runtimePackageDirectories(workspaceRoot);
 		for (const directory of packageDirectories) {
 			Object.assign(
@@ -111,7 +92,7 @@ export const sandboxRuntimeInputs = (
 			);
 		}
 		const buildPaths = yield* walkSourcePaths(
-			path.join(kernelDirectory, "tooling"),
+			path.join(ownerDirectory, "tooling"),
 			runtimeTypeScriptSource,
 			options,
 		);
@@ -124,7 +105,7 @@ export const sandboxRuntimeInputs = (
 		for (const file of [
 			path.join(workspaceRoot, "package.json"),
 			path.join(workspaceRoot, "bun.lock"),
-			path.join(kernelDirectory, "package.json"),
+			path.join(ownerDirectory, "package.json"),
 			...packageDirectories.map((directory) => path.join(directory, "package.json")),
 		]) {
 			sources[relativeTo(file)] = yield* readSourceWithin(file, limits, budget);

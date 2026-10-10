@@ -1,8 +1,8 @@
 import { expect, layer } from "@effect/vitest";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Cause, Context, Effect, Layer, Option, Ref } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientError, HttpClientRequest } from "effect/http";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { EgressDenied, egressHttpClientLayer } from "./http-client";

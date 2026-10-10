@@ -17,12 +17,12 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref } from "effect";
 
 import { collectManagedAssetLocators } from "#lib/domain/data-references";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";

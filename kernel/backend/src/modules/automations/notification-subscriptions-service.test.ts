@@ -12,9 +12,9 @@ import {
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
-import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 

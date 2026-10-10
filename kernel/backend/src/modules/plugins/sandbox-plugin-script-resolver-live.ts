@@ -1,6 +1,6 @@
 import { Effect, Layer } from "effect";
 
-import { SandboxPluginScriptResolver } from "#modules/sandbox/plugin-script-resolver";
+import { SandboxPluginScriptResolver } from "#modules/scripts/registry/plugin-script-resolver";
 
 import { PluginRuntimeResolver } from "./runtime-resolver";
 

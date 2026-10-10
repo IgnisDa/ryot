@@ -15,9 +15,9 @@ import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import {
-	SandboxExecutionServiceLive,
+	ScriptExecutionServiceLive,
 	SandboxPluginScriptResolverLive,
-} from "#modules/sandbox/layer";
+} from "#modules/scripts/layer";
 
 import { IntegrationIngestion } from "./ingestion";
 import { IntegrationOperationScopeResolverLive } from "./operation-scope-resolver-live";
@@ -36,7 +36,7 @@ export const IntegrationIngestionLive = IntegrationIngestion.layer.pipe(
 			IngestionRetirementLive,
 			IngestionReadinessService.layer,
 			PluginInstallationRepository.layer,
-			SandboxExecutionServiceLive,
+			ScriptExecutionServiceLive,
 			SandboxPluginScriptResolverLive,
 		),
 	),

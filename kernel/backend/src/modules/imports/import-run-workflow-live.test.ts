@@ -5,15 +5,15 @@ import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { SandboxExecutionService } from "#modules/sandbox/service";
+import { ScriptExecutionService } from "#modules/scripts/executions/service";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionExecution } from "./execution-service";
@@ -91,7 +91,7 @@ const rootCase = (
 			Layer.mock(ImportSourceStateStore)({
 				materialize: () => Effect.succeed(ingestionTestSource),
 			}),
-			Layer.mock(SandboxArtifactStore)({
+			Layer.mock(ExecutionFileStore)({
 				retain: () => Effect.void,
 				release: () => Effect.void,
 				materializeInputs: (owner, _reference, grants) =>
@@ -102,7 +102,7 @@ const rootCase = (
 							: {}),
 					}),
 			}),
-			Layer.mock(SandboxExecutionService)({
+			Layer.mock(ScriptExecutionService)({
 				executeWorkflow: (input) => {
 					const call = Effect.sync(() => calls.push(input));
 					if (failure === "suspend") {
