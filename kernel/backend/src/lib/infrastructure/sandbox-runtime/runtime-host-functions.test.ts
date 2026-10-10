@@ -4,7 +4,7 @@ import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, MutableRef, Ref } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
-import { withEgressPolicy } from "#lib/infrastructure/egress/http-client";
+import { type EgressPolicy, withEgressPolicy } from "#lib/infrastructure/egress/http-client";
 import { makeRedisService } from "#lib/test-utils/effect";
 import { sandboxHttpRedirectClassifier } from "#modules/sandbox/durable-host-dispatcher";
 
@@ -16,6 +16,11 @@ import {
 	type SandboxHttpClassify,
 } from "./runtime-host-functions";
 import type { SandboxRunInput } from "./shared";
+
+const publicEgressPolicy: EgressPolicy = {
+	allowedNetworks: [],
+	resolver: { resolve: () => Effect.succeed(["93.184.215.14"]) },
+};
 
 const followAll: SandboxHttpClassify = () => Effect.succeed("follow");
 
@@ -305,7 +310,7 @@ describe("runtime sandbox host functions", () => {
 			test.effect("denies a non-HTTP destination before any request", () =>
 				Effect.gen(function* () {
 					const { sent, client } = yield* redirecting({});
-					const host = yield* hostWith(withEgressPolicy(client));
+					const host = yield* hostWith(withEgressPolicy(client, publicEgressPolicy));
 					const error = yield* host.httpCall(input, "GET", "file:///etc/passwd").pipe(Effect.flip);
 
 					expect(error).toEqual({
@@ -323,7 +328,7 @@ describe("runtime sandbox host functions", () => {
 					const { sent, client } = yield* redirecting({
 						"https://open.test/start": redirect(302, "file:///etc/passwd"),
 					});
-					const host = yield* hostWith(withEgressPolicy(client));
+					const host = yield* hostWith(withEgressPolicy(client, publicEgressPolicy));
 					const error = yield* host
 						.httpCall(input, "GET", "https://open.test/start")
 						.pipe(Effect.flip);

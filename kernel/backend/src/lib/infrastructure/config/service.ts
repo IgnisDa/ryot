@@ -12,6 +12,7 @@ import {
 	SchemaIssue,
 } from "effect";
 
+import { parseEgressAllowedNetworks } from "../egress/address-policy";
 import { SystemConfigSource, type SystemConfigValue } from "./system";
 
 const logLevels: Record<string, LogLevel.LogLevel> = {
@@ -235,6 +236,15 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			if (Result.isFailure(headers)) {
 				return yield* Effect.fail(
 					configError(`OTEL_EXPORTER_OTLP_HEADERS is invalid: ${headers.failure}.`),
+				);
+			}
+		}
+
+		if (Option.isSome(config.server.egressAllowedNetworks)) {
+			const networks = parseEgressAllowedNetworks(config.server.egressAllowedNetworks.value);
+			if (Result.isFailure(networks)) {
+				return yield* Effect.fail(
+					configError(`SERVER_EGRESS_ALLOWED_NETWORKS is invalid: ${networks.failure}.`),
 				);
 			}
 		}

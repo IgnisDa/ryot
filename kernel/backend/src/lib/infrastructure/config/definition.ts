@@ -345,6 +345,12 @@ const server = group(
 			description:
 				"Directory containing deployment-controlled system plugin archives; archives are not cryptographically authenticated",
 		}),
+		egressAllowedNetworks: stringField({
+			label: "Egress allowed networks",
+			envKey: "SERVER_EGRESS_ALLOWED_NETWORKS",
+			description:
+				"Comma-separated CIDR networks that outbound requests from plugins, notifications, and OAuth may reach although they are loopback, private, or otherwise special-purpose, such as 192.168.1.0/24; link-local, metadata, multicast, and unspecified ranges cannot be allowed",
+		}),
 	},
 );
 
