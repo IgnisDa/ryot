@@ -1,7 +1,7 @@
 # MyAnimeList
 
 Imports include manga, anime, ratings, history, and progress. Self-hosted instances require
-`RYOT_PLUGIN_MEDIA_MAL_CLIENT_ID`; see the [guide](../guides/anime-and-manga.md).
+`RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_MAL_CLIENT_ID`; see the [guide](../guides/anime-and-manga.md).
 
 1. Log in to MyAnimeList and open
    [exports](http://myanimelist.net/panel.php?go=export).

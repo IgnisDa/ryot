@@ -9,7 +9,7 @@ Hardcover API keys expire after one year or on January 1. Renew the key when req
 
 1. Create a [Hardcover](https://hardcover.app) account.
 2. Open [API Access](https://hardcover.app/account/api) and create an API key using the `Read-Only Stats / Export` preset.
-3. Set it as `RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY`.
+3. Set it as `RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_HARDCOVER_API_KEY`.
 
 ## Google Books
 

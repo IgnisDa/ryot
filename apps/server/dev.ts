@@ -87,7 +87,7 @@ const program = Effect.gen(function* () {
 		slugs.map((slug) =>
 			fs
 				.watch(path.join(pluginRoot(slug), "dist"))
-				.pipe(Stream.filter((event) => path.basename(event.path) === `${slug}.zip`)),
+				.pipe(Stream.filter((event) => path.basename(event.path).endsWith(".zip"))),
 		),
 		{ concurrency: "unbounded" },
 	).pipe(Stream.debounce("500 millis"), Stream.runHead, Effect.andThen(assemble));

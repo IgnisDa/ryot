@@ -11,6 +11,7 @@ import {
 	clientArtifactMetadata,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
+import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	ClientImageManifestJson,
 	equalArtifacts,
@@ -57,14 +58,38 @@ export const assemble = Effect.gen(function* () {
 	yield* fs.copy(path.resolve(serverRoot, "../../kernel/sandboxd/dist"), "sandboxd");
 	const shippedArtifacts: PluginClientArtifact[] = [];
 	for (const slug of slugs) {
-		const destination = path.join("plugins", `${slug}.zip`);
-		yield* fs.remove(path.join("plugins", slug), { force: true, recursive: true });
-		yield* fs.copyFile(path.join(packageRoot(slug), `dist/${slug}.zip`), destination);
+		const packageJson = yield* fs.readFileString(path.join(packageRoot(slug), "package.json"));
+		const packageEntry = yield* Schema.decodeEffect(
+			Schema.fromJsonString(
+				Schema.Struct({
+					exports: Schema.Struct({ ".": Schema.Struct({ default: Schema.String }) }),
+				}),
+			),
+		)(packageJson);
+		const manifestUrl = yield* path.toFileUrl(
+			path.resolve(packageRoot(slug), packageEntry.exports["."].default),
+		);
+		const manifestModule = yield* Effect.tryPromise(() => import(manifestUrl.href));
+		const authored = yield* Schema.decodeUnknownEffect(AuthoredPluginManifest)(
+			manifestModule.default,
+		);
+		const destination = path.join("plugins", `${authored.metadata.packageId}.zip`);
+		yield* fs.copyFile(
+			path.join(packageRoot(slug), `dist/${authored.metadata.packageId}.zip`),
+			destination,
+		);
 		const archive = yield* readPluginArchive(yield* fs.readFile(destination));
 		if (archive.compiledClient) {
 			if (
-				clientArtifactMetadata(archive.manifest.metadata.name, archive.compiledClient.files)
-					.hash !== archive.compiledClient.hash
+				clientArtifactMetadata(
+					archive.manifest.metadata.name,
+					archive.manifest.metadata.packageId,
+					archive.compiledClient.files,
+					{
+						imports: archive.compiledClient.imports,
+						clientDeclarationHash: archive.compiledClient.clientDeclarationHash,
+					},
+				).hash !== archive.compiledClient.hash
 			) {
 				return yield* Effect.die(
 					new Error(`Shipped plugin ${slug} has an invalid client artifact hash`),
@@ -84,6 +109,7 @@ export const assemble = Effect.gen(function* () {
 	];
 	const compiledRenderers = yield* Effect.forEach(kernelRenderers, (renderer) =>
 		compileClientPluginModule({
+			kind: "kernel",
 			name: renderer.name,
 			files: renderer.files,
 			apiVersion: CLIENT_API_VERSION,
