@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/contract/schema/core";
 
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import { fixtureCalendarSources } from "./calendar-sources";
 import { fixtureSavedViews } from "./saved-views";
 
 export const fixturePlugin = definePlugin({
@@ -20,6 +21,7 @@ export const fixturePlugin = definePlugin({
 	relationshipSchemas: [],
 	integrationProviders: [],
 	savedViews: fixtureSavedViews,
+	calendarSources: fixtureCalendarSources,
 	configSchema: { fields: {}, unknownKeys: "strict" },
 	metadata: {
 		icon: "puzzle",
