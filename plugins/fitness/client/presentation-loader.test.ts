@@ -20,6 +20,16 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
+const metricRow = (id: string, name: string, latest: Record<string, unknown>) => ({
+	...latest,
+	presentationId: id,
+	presentationName: name,
+	presentationImage: null,
+	presentationCallout: null,
+	presentationPrimary: "kg",
+	presentationSecondary: null,
+});
+
 describe("fitness presentation loaders", () => {
 	it.live("batches one schema and reuses fitness preparation with managed assets", () =>
 		Effect.gen(function* () {
@@ -31,8 +41,10 @@ describe("fitness presentation loaders", () => {
 						data: {
 							presentations: rows([
 								{
+									presentationLatestAt: null,
 									presentationSecondary: null,
 									presentationId: "exercise-1",
+									presentationLatestValue: null,
 									presentationName: "Bench Press",
 									presentationPrimary: "Strength",
 									presentationCallout: "Beginner",
@@ -57,6 +69,39 @@ describe("fitness presentation loaders", () => {
 				primary: "Strength",
 				batchAssets: [{ type: "local", key: "exercise/bench.png" }],
 			});
+			yield* Effect.promise(() => clock.dispose());
+		}),
+	);
+
+	it.live("shows a metric's latest reading and falls back to its unit without one", () =>
+		Effect.gen(function* () {
+			const clock = createTestRyotClock({
+				query: () =>
+					Effect.succeed({
+						data: {
+							presentations: rows([
+								metricRow("metric-1", "Weight", {
+									presentationLatestValue: 73.6,
+									presentationLatestAt: "2026-10-08T12:00:00.000Z",
+								}),
+								metricRow("metric-2", "Bone mass", {
+									presentationLatestAt: null,
+									presentationLatestValue: null,
+								}),
+							]),
+						},
+					}),
+			});
+			const loaded = yield* loadFitnessPresentations({
+				client: clock.client,
+				references: [
+					reference("metric-1", "measurement-metric", "Weight"),
+					reference("metric-2", "measurement-metric", "Bone mass"),
+				],
+			});
+
+			expect(loaded["metric-1"]?.primary).toBe("73.6 kg · 8 Oct");
+			expect(loaded["metric-2"]?.primary).toBe("kg");
 			yield* Effect.promise(() => clock.dispose());
 		}),
 	);

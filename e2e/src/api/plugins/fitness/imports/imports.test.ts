@@ -1,23 +1,21 @@
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
-import { measurementListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
+import { measurementReadingListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
 	getImportRun,
 	listManualImportRuns,
 	pollImportRunUntilTerminal,
 	uploadImportFile,
 } from "~/fixtures/kernel";
 import { runOpenScaleImportFixture, startOpenScaleImport } from "~/fixtures/plugins/fitness";
-import { queryInMediaLibraryRelationship } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("OpenScale Import E2E", () => {
-	it.live("completes an OpenScale import and creates measurement entities", () =>
+	it.live("completes an OpenScale import and creates measurement metrics and readings", () =>
 		Effect.gen(function* () {
 			const { token, client } = yield* createAuthenticatedClient();
 			const { runId, completedRun } = yield* runOpenScaleImportFixture(client, token);
@@ -54,18 +52,29 @@ describe("OpenScale Import E2E", () => {
 			expect(completedRun.startedAt).not.toBeNull();
 			expect(completedRun.finishedAt).not.toBeNull();
 
-			const { schema } = yield* findBuiltinSchemaBySlug(client, "measurement");
-			const result = yield* executeRyotQLRecipe(client, measurementListRecipe({ limit: 20 }));
-			expect(result.items).toHaveLength(3);
-			const memberships = yield* Effect.forEach(result.items, (measurement) =>
-				queryInMediaLibraryRelationship(client, measurement.id, schema.slug),
+			const result = yield* executeRyotQLRecipe(
+				client,
+				measurementReadingListRecipe({ limit: 20 }),
 			);
+			expect(result.items).toHaveLength(15);
+			expect(new Set(result.items.map(({ metricId }) => metricId)).size).toBe(5);
+			const weightReadings = result.items.filter(({ metricKey }) => metricKey === "weight");
+			expect(weightReadings.map(({ value, comment }) => ({ value, comment }))).toEqual([
+				{ value: 75.2, comment: "After lunch" },
+				{ value: 74.8, comment: null },
+				{ value: 75, comment: "Morning weight" },
+			]);
+			expect(weightReadings.map(({ occurredAt }) => occurredAt.slice(0, 10))).toEqual([
+				"2026-04-03",
+				"2026-04-02",
+				"2026-04-01",
+			]);
 			expect(
-				memberships.every(
-					(membership) =>
-						membership.data.entity?.type === "rows" && membership.data.entity.items.length === 0,
-				),
-			).toBe(true);
+				Object.fromEntries(result.items.map(({ unit, metricKey }) => [metricKey, unit])),
+			).toEqual({ fat: "%", water: "%", muscle: "%", bmi: "kg/m²", weight: "kg" });
+			expect(new Set(result.items.map(({ metricName }) => metricName))).toEqual(
+				new Set(["weight", "bmi", "fat", "water", "muscle"]),
+			);
 		}),
 	);
 

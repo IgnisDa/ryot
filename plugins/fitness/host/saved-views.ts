@@ -34,10 +34,12 @@ export const fitnessSavedViews = () => {
 	const inputs: ReadonlyArray<{
 		readonly name: string;
 		readonly slug: string;
+		readonly sortOrder: number;
 		readonly orderBy?: readonly OrderBy[] | undefined;
-		readonly entitySchemaSlug: "exercise" | "measurement" | "workout" | "workout-template";
+		readonly entitySchemaSlug: "exercise" | "workout" | "workout-template";
 	}> = [
 		{
+			sortOrder: 0,
 			name: "All Exercises",
 			slug: "all-exercises",
 			entitySchemaSlug: "exercise",
@@ -54,25 +56,21 @@ export const fitnessSavedViews = () => {
 			],
 		},
 		{
+			sortOrder: 1,
 			name: "All Workouts",
 			slug: "all-workouts",
 			entitySchemaSlug: "workout",
 			orderBy: [descending(castDate(jsonPath(column(entity, "properties"), "endedAt")))],
 		},
 		{
-			slug: "all-measurements",
-			name: "All Measurements",
-			entitySchemaSlug: "measurement",
-			orderBy: [descending(castDate(jsonPath(column(entity, "properties"), "recordedAt")))],
-		},
-		{
+			sortOrder: 3,
 			slug: "all-workout-templates",
 			name: "All Workout Templates",
 			entitySchemaSlug: "workout-template",
 			orderBy: [descending(column(entity, "createdAt"))],
 		},
 	];
-	return inputs.map((input, sortOrder) => {
+	const entityBrowserViews = inputs.map((input) => {
 		const schema = schemas.get(input.entitySchemaSlug);
 		if (!schema) {
 			throw new Error(`Missing fitness entity schema: ${input.entitySchemaSlug}`);
@@ -112,12 +110,12 @@ export const fitnessSavedViews = () => {
 			},
 		}).document;
 		return {
-			sortOrder,
 			dataSources,
 			name: input.name,
 			slug: input.slug,
 			icon: schema.icon,
 			pluginSlug: "fitness",
+			sortOrder: input.sortOrder,
 			renderer: { kind: "kernel", name: "entity-browser" } as const,
 			settings: {
 				pageSize: 20,
@@ -138,4 +136,19 @@ export const fitnessSavedViews = () => {
 			},
 		};
 	});
+	const metricSchema = schemas.get("measurement-metric");
+	if (!metricSchema) {
+		throw new Error("Missing fitness entity schema: measurement-metric");
+	}
+	const measurementsView = {
+		sortOrder: 2,
+		settings: {},
+		dataSources: null,
+		pluginSlug: "fitness",
+		icon: metricSchema.icon,
+		slug: "all-measurements",
+		name: "All Measurements",
+		renderer: { kind: "plugin", exportName: "measurements" } as const,
+	};
+	return [...entityBrowserViews.slice(0, 2), measurementsView, ...entityBrowserViews.slice(2)];
 };
