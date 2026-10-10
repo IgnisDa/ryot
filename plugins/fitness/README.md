@@ -125,6 +125,12 @@ on the client, because plugin `shared/` code may only import plugin-kit and cann
 compiler. The Exercises field is a `session-event` field over `workout-set` events on `exercise`
 entities.
 
+### Calendar Source
+
+`manifest/calendar-sources.ts` contributes the kernel Calendar source `workouts`: the user's workouts
+(not templates) at their `startedAt` instant, captioned with the distinct exercise count from
+`workoutTotals`. It has no art or done mark.
+
 ## Home
 
 `fitness-home` serves `/`. Without workouts it shows setup progress for goal, workout, template, and
