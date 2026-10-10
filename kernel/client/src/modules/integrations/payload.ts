@@ -71,7 +71,7 @@ export const createIntegrationBody = (input: {
 	readonly values: SchemaFormValues;
 	readonly provider: IntegrationProviderItem;
 }): CreateIntegrationBody => ({
-	provider: input.provider.slug,
+	provider: input.provider.reference,
 	...integrationCommonBody(input.provider.commonSchema, input.values),
 	providerSpecifics: toSchemaFormPayload(input.provider.settingsSchema, input.values),
 });

@@ -461,7 +461,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		runRequest(request.requestId, "operation", () =>
 			options.onOperation({
 				input: request.input,
-				pluginSlug: request.pluginSlug,
+				pluginId: request.pluginId,
 				operationSlug: request.operationSlug,
 			}),
 		);
@@ -474,9 +474,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						key: request.key,
 						value: request.value,
 						action: request.action,
-						pluginSlug: request.pluginSlug,
+						pluginId: request.pluginId,
 					}
-				: { key: request.key, action: request.action, pluginSlug: request.pluginSlug };
+				: { key: request.key, action: request.action, pluginId: request.pluginId };
 		runRequest(request.requestId, "storage", () => options.onStorage(capabilityRequest));
 	}
 

@@ -25,7 +25,7 @@ const definition = (entry: KernelRendererPath, automaticEntityPresentations: boo
 	({
 		entry,
 		files: [],
-		pluginDependencies: [],
+		pluginDependencies: {},
 		automaticEntityPresentations,
 		settingsSchema: { fields: {} },
 	}) satisfies ClientRendererDefinition;

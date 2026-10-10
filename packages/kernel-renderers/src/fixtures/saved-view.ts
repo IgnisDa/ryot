@@ -27,7 +27,10 @@ export const browserSettings = {
 	layouts: ["grid", "list", "table"],
 	ownerPluginIdField: "ownerPluginId",
 	entitySchemaSlugField: "entitySchemaSlug",
-	addAction: { ownerPluginId: "media", type: "provider-search", entitySchemaSlug: "book" },
+	addAction: {
+		type: "provider-search",
+		schema: { slug: "book", owner: { kind: "plugin", pluginId: "media" } },
+	},
 	tableColumns: [
 		{ label: "Image", field: "image", displayKind: "managed-asset" },
 		{ label: "Name", field: "column0", displayKind: "text" },

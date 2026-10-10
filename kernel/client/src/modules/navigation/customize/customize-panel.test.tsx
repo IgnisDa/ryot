@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Effect } from "effect";
 import { useState } from "react";
@@ -11,18 +12,23 @@ import {
 	type CustomizeDraft,
 } from "#/modules/navigation/customize/customize-state";
 
-const item = (slug: string, pluginSlug: string | null, isHidden = false) => ({
+const item = (slug: string, pluginInstallationId: string | null, isHidden = false) => ({
 	slug,
 	isHidden,
-	pluginSlug,
 	icon: "list",
+	id: `/v/c/${slug}`,
+	pluginInstallationId,
 	name: slug.toUpperCase(),
+	reference: { kind: "custom" as const, savedViewId: SavedViewId.make(slug) },
 });
 
 const workspace = (slug: string, isHidden = false) => ({
 	slug,
+	id: slug,
 	isHidden,
 	icon: "puzzle",
+	installationId: slug,
+	pluginId: `plugin-${slug}`,
 	name: `${slug.toUpperCase()} WORKSPACE`,
 });
 
@@ -37,8 +43,8 @@ function Harness(props: { readonly initial?: CustomizeDraft }) {
 	return (
 		<CustomizePanel
 			draft={current}
-			onToggle={(section, slug) =>
-				setCurrent((value) => toggleCustomizeItem({ slug, section, draft: value }))
+			onToggle={(section, id) =>
+				setCurrent((value) => toggleCustomizeItem({ id, section, draft: value }))
 			}
 			onMove={(section, fromIndex, toIndex) =>
 				setCurrent((value) => moveCustomizeItem({ section, toIndex, fromIndex, draft: value }))

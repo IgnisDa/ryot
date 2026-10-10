@@ -1,3 +1,4 @@
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -23,14 +24,32 @@ const source = (input: {
 	description: input.description ?? `${input.name} description`,
 });
 
+it("distinguishes equal plugin names with exact owner keys and scoped package labels", () => {
+	const first = pluginCatalogGroup({
+		name: "Whiskey",
+		scope: "system",
+		packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+		reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make("owner-a") } },
+	});
+	const second = pluginCatalogGroup({
+		scope: "user",
+		name: "Whiskey",
+		packageId: PluginPackageId.make("570e77e1-e450-40ea-b1cb-6e2ae3223bb3"),
+		reference: { slug: "common", owner: { kind: "plugin", pluginId: PluginId.make("owner-b") } },
+	});
+	expect(first.key).not.toBe(second.key);
+	expect(first.heading).toBe("Whiskey · System · ff9c9ec6");
+	expect(second.heading).toBe("Whiskey · Private · 570e77e1");
+});
+
 const toEntry = (item: ReturnType<typeof source>): CatalogEntry => ({
 	badge: "Badge",
 	slug: item.slug,
 	name: item.name,
 	description: item.description,
 	isAvailable: item.isAvailable,
-	group: pluginCatalogGroup(item.pluginSlug),
 	requirement: item.isAvailable ? undefined : "Not ready.",
+	group: { key: item.pluginSlug, heading: pluginHeading(item.pluginSlug) },
 });
 
 const sources = [

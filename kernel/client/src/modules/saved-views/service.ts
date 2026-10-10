@@ -1,3 +1,4 @@
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { savedViewRecordRecipe } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { Context, Data, Effect, Layer } from "effect";
 
@@ -14,10 +15,10 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 	make: Effect.sync(() => ({
 		loadRecord: Effect.fn("SavedViewsService.loadRecord")(function* (
 			client: SavedViewClient,
-			slug: string,
+			reference: SavedViewReference,
 		) {
 			return yield* client.data
-				.query(savedViewRecordRecipe({ slug }))
+				.query(savedViewRecordRecipe(reference))
 				.pipe(Effect.mapError((cause) => new SavedViewLoadError({ cause, stage: "record" })));
 		}),
 	})),

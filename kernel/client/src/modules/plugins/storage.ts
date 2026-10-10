@@ -1,5 +1,6 @@
 import {
 	PLUGIN_STORAGE_VALUE_MAX_BYTES,
+	PLUGIN_STORAGE_KEY_MAX_LENGTH,
 	type PluginStorageOutcome,
 	type PluginStorageRequest,
 } from "@ryot-app/client-plugin-contract";
@@ -16,8 +17,6 @@ const encodeValue = Schema.encodeSync(Schema.fromJsonString(JsonValue));
 export class PluginStorage extends Context.Service<PluginStorage>()("PluginStorage", {
 	make: Effect.gen(function* () {
 		const storage = yield* ClientStorage;
-		// Same-realm plugins in one frame cannot be told apart, so the slug is checked only against the
-		// frame's own composition.
 		const outcome = (
 			scope: ApiScope,
 			contributors: PreparedClientPage["identity"]["contributors"],
@@ -25,19 +24,21 @@ export class PluginStorage extends Context.Service<PluginStorage>()("PluginStora
 		): Effect.Effect<PluginStorageOutcome> =>
 			Effect.gen(function* () {
 				if (
+					request.key.length === 0 ||
+					request.key.length > PLUGIN_STORAGE_KEY_MAX_LENGTH ||
 					!contributors.some(
 						(contributor) =>
-							contributor.kind === "plugin" && contributor.pluginSlug === request.pluginSlug,
+							contributor.kind === "plugin" && contributor.pluginId === request.pluginId,
 					)
 				) {
 					return invalidRequest;
 				}
 				if (request.action === "get") {
-					const value = yield* storage.getPluginValue(scope, request.pluginSlug, request.key);
+					const value = yield* storage.getPluginValue(scope, request.pluginId, request.key);
 					return { value, outcome: "success" } as const;
 				}
 				if (request.action === "remove") {
-					yield* storage.removePluginValue(scope, request.pluginSlug, request.key);
+					yield* storage.removePluginValue(scope, request.pluginId, request.key);
 					return { value: null, outcome: "success" } as const;
 				}
 				if (
@@ -47,7 +48,7 @@ export class PluginStorage extends Context.Service<PluginStorage>()("PluginStora
 					return invalidRequest;
 				}
 				return yield* storage
-					.setPluginValue(scope, request.pluginSlug, request.key, request.value)
+					.setPluginValue(scope, request.pluginId, request.key, request.value)
 					.pipe(
 						Effect.match({
 							onSuccess: () => ({ value: null, outcome: "success" }) as const,

@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_authenticated")({
 	loader: ({ context, location, abortController }) =>
 		context.runtime.runPromise(
 			Effect.gen(function* () {
-				const [catalog, navigation, rememberedSlug, isPro] = yield* Effect.all(
+				const [catalog, navigation, rememberedPluginId, isPro] = yield* Effect.all(
 					[
 						Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
 						Effect.flatMap(NavigationService, (service) => service.load(context.ryot)),
@@ -51,22 +51,22 @@ export const Route = createFileRoute("/_authenticated")({
 					{ concurrency: "unbounded" },
 				);
 				if (location.pathname === "/") {
-					const selected = resolveRememberedWorkspace(catalog, rememberedSlug);
+					const selected = resolveRememberedWorkspace(catalog, rememberedPluginId);
 					if (selected !== null) {
-						if (selected.slug !== rememberedSlug) {
+						if (selected.pluginId !== rememberedPluginId) {
 							yield* Effect.flatMap(ClientStorage, (service) =>
-								service.setLastWorkspace(context.scope, selected.slug),
+								service.setLastWorkspace(context.scope, selected.pluginId),
 							);
 						}
 						// oxlint-disable-next-line typescript/only-throw-error
 						throw redirect({
 							replace: true,
-							to: "/$pluginSlug",
-							params: { pluginSlug: selected.slug },
+							to: "/p/$pluginId",
+							params: { pluginId: selected.pluginId },
 						});
 					}
 				}
-				return { isPro, catalog, navigation, rememberedSlug };
+				return { isPro, catalog, navigation, rememberedPluginId };
 			}),
 			{ signal: abortController.signal },
 		),
@@ -75,7 +75,7 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-	const { isPro, catalog, navigation, rememberedSlug } = Route.useLoaderData();
+	const { isPro, catalog, navigation, rememberedPluginId } = Route.useLoaderData();
 	const { scope, runtime, ryotRuntime, hostServices } = Route.useRouteContext();
 	const { userId, serverUrl } = scope;
 	useEffect(
@@ -91,7 +91,7 @@ function AuthenticatedLayout() {
 				<AuthenticatedShell
 					isPro={isPro}
 					navigation={navigation}
-					initialRememberedSlug={rememberedSlug}
+					initialRememberedPluginId={rememberedPluginId}
 				/>
 			</PluginCatalogProvider>
 		</RyotProvider>

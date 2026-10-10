@@ -38,6 +38,7 @@ function CatalogOption(props: {
 			onClick={props.onChoose}
 			disabled={!props.entry.isAvailable}
 			aria-label={props.chooseLabel(props.entry)}
+			title={`${props.entry.group.heading} · ${props.entry.slug}`}
 			className={clsx(
 				"flex w-full items-center gap-3 border-b border-border py-3 text-left",
 				props.isFirst && "border-t",

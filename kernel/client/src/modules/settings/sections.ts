@@ -14,6 +14,7 @@ export const settingsGroups = [
 				label: "Plugin preferences",
 				path: "/settings/plugin-preferences",
 			},
+			{ icon: "puzzle", slug: "plugins", label: "Plugins", path: "/settings/plugins" },
 			{ icon: "user", slug: "account", label: "Account", path: "/settings/account" },
 		],
 	},

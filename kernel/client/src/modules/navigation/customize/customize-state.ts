@@ -1,3 +1,4 @@
+import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import type { NavigationData, NavigationView } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 
@@ -6,39 +7,58 @@ import { sortWorkspaces } from "#/modules/navigation/workspace-state";
 export type CustomizeSection = "workspaces" | "views" | "savedViews";
 
 export type CustomizeDraftItem = {
+	readonly id: string;
 	readonly slug: string;
 	readonly name: string;
 	readonly icon: string;
 	readonly isHidden: boolean;
 };
 
-export type CustomizeDraftViewItem = CustomizeDraftItem & { readonly pluginSlug: string | null };
+export type CustomizeDraftViewItem = CustomizeDraftItem &
+	Pick<NavigationView, "reference" | "pluginInstallationId">;
+export type CustomizeDraftWorkspaceItem = CustomizeDraftItem &
+	Pick<PluginClientCatalog[number], "pluginId" | "installationId">;
 
 export type CustomizeDraft = {
 	readonly views: readonly CustomizeDraftViewItem[];
-	readonly workspaces: readonly CustomizeDraftItem[];
+	readonly workspaces: readonly CustomizeDraftWorkspaceItem[];
 	readonly savedViews: readonly CustomizeDraftViewItem[];
 };
 
 const clampIndex = (index: number, length: number) =>
 	Math.min(Math.max(index, 0), Math.max(length - 1, 0));
 
-const draftItems = (items: readonly NavigationView[], scopeSlug: string | null | undefined) =>
+const draftItems = (items: readonly NavigationView[], installationId: string | null | undefined) =>
 	[...items]
-		.filter((item) => item.pluginSlug === scopeSlug)
+		.filter((item) => item.pluginInstallationId === installationId)
 		.sort((left, right) => left.sortOrder - right.sortOrder)
-		.map(({ icon, name, slug, isHidden, pluginSlug }) => ({
+		.map(({ icon, name, slug, isHidden, reference, pluginInstallationId }) => ({
 			icon,
 			slug,
 			name,
 			isHidden,
-			pluginSlug,
+			reference,
+			pluginInstallationId,
+			id: savedViewPath(reference),
 		}));
 
 const draftWorkspaces = (catalog: PluginClientCatalog) =>
-	sortWorkspaces(catalog).map(({ icon, name, slug, isHidden }) => ({ icon, slug, name, isHidden }));
+	sortWorkspaces(catalog).map(
+		({ icon, name, slug, scope, isHidden, pluginId, packageId, installationId }) => ({
+			icon,
+			slug,
+			isHidden,
+			pluginId,
+			installationId,
+			id: installationId,
+			name: `${name} · ${scope === "system" ? "System" : "Private"} · ${packageId.slice(0, 8)}`,
+		}),
+	);
 
-const withVisibilityFlipped = (item: CustomizeDraftItem) => ({ ...item, isHidden: !item.isHidden });
+const withVisibilityFlipped = <T extends CustomizeDraftItem>(item: T) => ({
+	...item,
+	isHidden: !item.isHidden,
+});
 
 const areSectionsEqual = (
 	left: readonly CustomizeDraftItem[],
@@ -46,18 +66,18 @@ const areSectionsEqual = (
 ) =>
 	left.length === right.length &&
 	left.every(
-		(item, index) => item.slug === right[index]?.slug && item.isHidden === right[index]?.isHidden,
+		(item, index) => item.id === right[index]?.id && item.isHidden === right[index]?.isHidden,
 	);
 
 export function initCustomizeDraft(props: {
 	readonly data: NavigationData;
 	readonly catalog: PluginClientCatalog;
-	readonly workspaceSlug: string | undefined;
+	readonly workspaceInstallationId: string | undefined;
 }): CustomizeDraft {
 	return {
 		workspaces: draftWorkspaces(props.catalog),
 		savedViews: draftItems(props.data.savedViews, null),
-		views: draftItems(props.data.savedViews, props.workspaceSlug),
+		views: draftItems(props.data.savedViews, props.workspaceInstallationId),
 	};
 }
 
@@ -87,12 +107,12 @@ export function moveCustomizeItem(props: {
 }
 
 export function toggleCustomizeItem(props: {
-	readonly slug: string;
+	readonly id: string;
 	readonly draft: CustomizeDraft;
 	readonly section: CustomizeSection;
 }): CustomizeDraft {
 	const items = props.draft[props.section];
-	const item = items.find(({ slug }) => slug === props.slug);
+	const item = items.find(({ id }) => id === props.id);
 	if (item === undefined) {
 		return props.draft;
 	}
@@ -107,7 +127,7 @@ export function toggleCustomizeItem(props: {
 	return {
 		...props.draft,
 		[props.section]: items.map((sectionItem) =>
-			sectionItem.slug === props.slug ? withVisibilityFlipped(sectionItem) : sectionItem,
+			sectionItem.id === props.id ? withVisibilityFlipped(sectionItem) : sectionItem,
 		),
 	};
 }

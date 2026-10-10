@@ -1,8 +1,9 @@
+import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	ImportEntityBody,
 	SearchProviderEntitiesBody,
 } from "@ryot-app/contract/modules/provider-entities/schemas";
-import type { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import type { ProviderSearchResult } from "@ryot-app/ryotql-recipes/provider-search";
@@ -28,24 +29,17 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 			const api = yield* ProviderEntitiesApi;
 			const loadProviders = Effect.fn("ProviderAddService.loadProviders")(function* (
 				client: ProviderAddClient,
-				entitySchemaSlug: EntitySchemaSlug,
-				ownerPluginId?: string,
+				rootEntitySchema: EntitySchemaReference,
 			) {
 				return yield* client.data
-					.query(providerSearchRecipe({ ownerPluginId, rootEntitySchemaSlug: entitySchemaSlug }))
+					.query(providerSearchRecipe({ schema: rootEntitySchema }))
 					.pipe(
 						Effect.mapError((cause) => new ProviderAddLoadError({ cause, stage: "providers" })),
 					);
 			});
 			const loadEntityLinks = Effect.fn("ProviderAddService.loadEntityLinks")(function* (
 				client: ProviderAddClient,
-				input: {
-					readonly providerId: SandboxProviderId;
-					readonly entitySchemaSlug: EntitySchemaSlug;
-					readonly externalIds: readonly [string, ...string[]];
-					readonly relationshipSlug: string;
-					readonly librarySchemaSlug: string;
-				},
+				input: Parameters<typeof providerEntityLinksRecipe>[0],
 			) {
 				return yield* client.data
 					.query(providerEntityLinksRecipe(input))

@@ -1,10 +1,16 @@
 import type { PluginBridgeProviderSearchScreen } from "@ryot-app/client-plugin-contract";
 import { Button } from "@ryot-app/client-ui-sdk";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
+import {
+	definitionKey,
+	type SavedViewReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityBrowserLayout,
 	EntityBrowserSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
+import { PluginId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import {
 	createFileRoute,
 	notFound,
@@ -27,6 +33,17 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
 import { ClientStorage } from "#/persistence/storage";
 
+const validateSavedViewSearch = (search: Record<string, unknown>) => ({
+	add: search.add === true || search.add === "true" ? true : undefined,
+	q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
+	sort: typeof search.sort === "string" && search.sort !== "" ? search.sort : undefined,
+	layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
+	search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
+	dialog: typeof search.dialog === "string" && search.dialog !== "" ? search.dialog : undefined,
+	entityId:
+		typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
+});
+
 const entityBrowserSettings = (prepared: PreparedClientPage) => {
 	if (prepared.context.renderer.kind !== "kernel") {
 		return null;
@@ -37,32 +54,33 @@ const entityBrowserSettings = (prepared: PreparedClientPage) => {
 	return Result.isSuccess(decoded) ? decoded.success : null;
 };
 
-export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
+export const Route = createFileRoute("/_authenticated/v")({
 	staleTime: 30_000,
+	shouldReload: true,
 	component: SavedViewPage,
 	errorComponent: SavedViewError,
 	pendingComponent: SavedViewPending,
+	loaderDeps: ({ search }) => search,
 	notFoundComponent: SavedViewNotFound,
-	validateSearch: (search) => ({
-		add: search.add === true || search.add === "true" ? true : undefined,
-		q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
-		sort: typeof search.sort === "string" && search.sort !== "" ? search.sort : undefined,
-		layout: typeof search.layout === "string" && search.layout !== "" ? search.layout : undefined,
-		search: typeof search.search === "string" && search.search !== "" ? search.search : undefined,
-		dialog: typeof search.dialog === "string" && search.dialog !== "" ? search.dialog : undefined,
-		entityId:
-			typeof search.entityId === "string" && search.entityId !== "" ? search.entityId : undefined,
-	}),
-	loader: ({ params, context, abortController }) =>
+	validateSearch: validateSavedViewSearch,
+	loader: ({ context, location, abortController }) =>
 		context.runtime.runPromise(
 			Effect.gen(function* () {
-				const slug = params.viewSlug.trim();
-				if (slug.length === 0) {
+				const segments = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+				let reference: SavedViewReference;
+				if (segments[1] === "c" && segments[2] && segments.length === 3) {
+					reference = { kind: "custom", savedViewId: SavedViewId.make(segments[2]) };
+				} else if (segments[1] === "k" && segments[2] && segments.length === 3) {
+					reference = { kind: "kernel", slug: segments[2] };
+				} else if (segments[1] === "p" && segments[2] && segments[3] && segments.length === 4) {
+					reference = { kind: "plugin", slug: segments[3], pluginId: PluginId.make(segments[2]) };
+				} else {
 					// oxlint-disable-next-line typescript/only-throw-error
 					throw notFound();
 				}
+				const slug = savedViewPath(reference);
 				let prepared = yield* Effect.flatMap(ClientPagesApi, (api) =>
-					api.prepare(context.scope, { payload: { target: { slug, kind: "saved-view" } } }),
+					api.prepare(context.scope, { payload: { target: { reference, kind: "saved-view" } } }),
 				);
 				const settings = entityBrowserSettings(prepared);
 				if (settings !== null) {
@@ -106,8 +124,8 @@ function SavedViewPage() {
 	const openAdd = (request: PluginBridgeProviderSearchScreen) => {
 		if (
 			addAction === null ||
-			request.ownerPluginId !== addAction.ownerPluginId ||
-			request.entitySchemaSlug !== addAction.entitySchemaSlug
+			definitionKey("entity", request.schema.owner, request.schema.slug) !==
+				definitionKey("entity", addAction.schema.owner, addAction.schema.slug)
 		) {
 			return;
 		}
@@ -155,12 +173,7 @@ function SavedViewPage() {
 	});
 
 	return addOpen ? (
-		<ProviderAddModal
-			initialQuery={q}
-			onClose={closeAdd}
-			ownerPluginId={addAction.ownerPluginId}
-			entitySchemaSlug={addAction.entitySchemaSlug}
-		/>
+		<ProviderAddModal initialQuery={q} onClose={closeAdd} schema={addAction.schema} />
 	) : null;
 }
 
