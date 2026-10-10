@@ -107,17 +107,17 @@ BEGIN
 			COALESCE(r.show_episode_entity_id, r.podcast_episode_entity_id, r.entity_id),
 			'review',
 			r.entity_schema_plugin_id,
-			CASE WHEN r.entity_schema_slug = 'exercise' THEN jsonb_strip_nulls(jsonb_build_object(
-				'rating', CASE WHEN r.rating IS NOT NULL THEN LEAST(r.rating, 100) END,
-				'text',   NULLIF(r.text, '')
-			)) ELSE jsonb_strip_nulls(jsonb_build_object(
-				'rating',       CASE WHEN r.rating IS NOT NULL THEN LEAST(r.rating, 100) END,
-				'text',         NULLIF(r.text, ''),
-				'isSpoiler',    r.is_spoiler,
-				'animeEpisode', (r.anime_extra_information ->> 'episode')::int,
-				'mangaVolume',  (r.manga_extra_information ->> 'volume')::int,
-				'mangaChapter', NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
-			)) END,
+			jsonb_strip_nulls(
+				jsonb_build_object(
+					'rating', CASE WHEN r.rating IS NOT NULL THEN LEAST(r.rating, 100) END,
+					'text',   NULLIF(r.text, '')
+				) || CASE WHEN r.entity_schema_slug = 'exercise' THEN '{}'::jsonb ELSE jsonb_build_object(
+					'isSpoiler',    r.is_spoiler,
+					'animeEpisode', (r.anime_extra_information ->> 'episode')::int,
+					'mangaVolume',  (r.manga_extra_information ->> 'volume')::int,
+					'mangaChapter', NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
+				) END
+			),
 			r.posted_on,
 			r.posted_on
 		FROM rows r

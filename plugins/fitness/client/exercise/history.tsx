@@ -30,11 +30,9 @@ import {
 	type PersonalBestRow,
 	type SeriesRange,
 } from "./details-model";
+import { cardClass, cardHeadingClass, sectionHeadingClass } from "./styles";
 
 type Session = ExerciseDetails["sessions"][number];
-
-const cardClass =
-	"flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-surface p-5 font-ui";
 
 const formatMetric = (value: number, unit: Metric["unit"]) => {
 	if (unit === "kmh") {
@@ -143,7 +141,7 @@ function ProgressChart(props: {
 		<div className={cardClass}>
 			<div className="flex flex-wrap items-start justify-between gap-3">
 				<div className="flex flex-col gap-1">
-					<h3 className="font-semibold text-[16px] text-text">{metric.title}</h3>
+					<h3 className={cardHeadingClass}>{metric.title}</h3>
 					<span className="text-[13px] text-text-muted">
 						{peak === null || peak.value === null
 							? "No data yet"
@@ -208,7 +206,7 @@ function PersonalBests(props: {
 	}
 	return (
 		<div className={cardClass}>
-			<h3 className="font-semibold text-[16px] text-text">Personal bests</h3>
+			<h3 className={cardHeadingClass}>Personal bests</h3>
 			<ul className="flex flex-col divide-y divide-border">
 				{entries.map(({ entry, value }) => (
 					<li key={entry.type} className="flex items-baseline justify-between gap-4 py-2">
@@ -238,7 +236,7 @@ function BestWeightByReps(props: { readonly details: ExerciseDetails }) {
 	return (
 		<div className={cardClass}>
 			<div className="flex flex-col gap-1">
-				<h3 className="font-semibold text-[16px] text-text">Best weight by rep count</h3>
+				<h3 className={cardHeadingClass}>Best weight by rep count</h3>
 				<span className="text-[13px] text-text-muted">
 					Heaviest set completed for at least that many reps
 				</span>
@@ -274,7 +272,7 @@ export function HistorySection(props: {
 	if (totals.sets === 0) {
 		return (
 			<section className="flex flex-col gap-4" aria-labelledby="exercise-history">
-				<h2 id="exercise-history" className="font-display font-semibold text-[22px] text-text">
+				<h2 id="exercise-history" className={sectionHeadingClass}>
 					Your history
 				</h2>
 				<p className={clsx(cardClass, "text-[15px] text-text-muted")}>
@@ -291,7 +289,7 @@ export function HistorySection(props: {
 	return (
 		<section className="flex flex-col gap-4" aria-labelledby="exercise-history">
 			<div className="flex flex-wrap items-baseline justify-between gap-2 font-ui">
-				<h2 id="exercise-history" className="font-display font-semibold text-[22px] text-text">
+				<h2 id="exercise-history" className={sectionHeadingClass}>
 					Your history
 				</h2>
 				<span className="text-[14px] text-text-muted">
@@ -356,7 +354,7 @@ export function RecentSessions(props: {
 	}
 	return (
 		<section className="flex flex-col gap-4" aria-labelledby="exercise-sessions">
-			<h2 id="exercise-sessions" className="font-display font-semibold text-[22px] text-text">
+			<h2 id="exercise-sessions" className={sectionHeadingClass}>
 				Recent sessions
 			</h2>
 			<ul className="flex flex-col divide-y divide-border rounded-xl border border-border bg-surface font-ui">
