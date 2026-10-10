@@ -3,16 +3,16 @@ import {
 	type SandboxHostCapability,
 } from "@ryot-app/contract/modules/scripts/wire";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } from "@ryot-app/plugin-backend-sdk/core";
+import type { SandboxHostImplementationMap } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { sandboxHostFailure, type SandboxRunInput } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
 import type { ScriptExecutionPrincipal } from "./principal";
 
-export type SandboxCapabilitySystemKind = "automation" | "script";
-export type SandboxCapabilitySubject = "user" | "automation-run" | "system";
-export type SandboxCapabilityRequirement = {
+type SandboxCapabilitySystemKind = "automation" | "script";
+type SandboxCapabilitySubject = "user" | "automation-run" | "system";
+type SandboxCapabilityRequirement = {
 	readonly bridge: boolean;
 	readonly requiresProvider?: boolean;
 	readonly requiresSystemPlugin?: boolean;
@@ -21,7 +21,7 @@ export type SandboxCapabilityRequirement = {
 	readonly systemKinds?: readonly SandboxCapabilitySystemKind[];
 };
 
-export const SANDBOX_CAPABILITY_REQUIREMENTS = {
+const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	scratch: { subjects: [], bridge: false },
 	"artifact-read": { subjects: [], bridge: false },
 	createUserEntity: { bridge: true, subjects: ["user"] as const },
@@ -87,7 +87,7 @@ export type ScriptRunInput = Omit<SandboxRunInput, "principal"> & {
 	readonly principal: ScriptExecutionPrincipal;
 };
 
-export type ScriptHostImplementationMap = SdkSandboxHostImplementationMap<ScriptRunInput>;
+export type ScriptHostImplementationMap = SandboxHostImplementationMap<ScriptRunInput>;
 
 export type AdditionalScriptHostImplementationMap = Omit<
 	ScriptHostImplementationMap,
