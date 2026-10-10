@@ -160,25 +160,25 @@ const PluginInvocationFailureReason = Schema.Union([
 	}),
 ]);
 
-export class PluginRequestError extends Schema.TaggedError<PluginRequestError>()(
-	"PluginRequestError",
-	{ reason: PluginRequestFailureReason },
-) {}
+export class PluginRequestError extends Schema.TaggedError<
+	PluginRequestError,
+	{ readonly brand: unique symbol }
+>()("PluginRequestError", { reason: PluginRequestFailureReason }) {}
 
-export class PluginConflictError extends Schema.TaggedError<PluginConflictError>()(
-	"PluginConflictError",
-	{ reason: PluginConflictReason },
-) {}
+export class PluginConflictError extends Schema.TaggedError<
+	PluginConflictError,
+	{ readonly brand: unique symbol }
+>()("PluginConflictError", { reason: PluginConflictReason }) {}
 
-export class PluginNotFoundError extends Schema.TaggedError<PluginNotFoundError>()(
-	"PluginNotFoundError",
-	{ reason: PluginNotFoundReason },
-) {}
+export class PluginNotFoundError extends Schema.TaggedError<
+	PluginNotFoundError,
+	{ readonly brand: unique symbol }
+>()("PluginNotFoundError", { reason: PluginNotFoundReason }) {}
 
-export class PluginInvocationError extends Schema.TaggedError<PluginInvocationError>()(
-	"PluginInvocationError",
-	{ reason: PluginInvocationFailureReason },
-) {}
+export class PluginInvocationError extends Schema.TaggedError<
+	PluginInvocationError,
+	{ readonly brand: unique symbol }
+>()("PluginInvocationError", { reason: PluginInvocationFailureReason }) {}
 
 export const InstallPluginBody = Schema.Struct({
 	uploadToken: Schema.String,

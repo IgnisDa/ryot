@@ -24,14 +24,17 @@ const RyotQLBadRequestReason = Schema.Union([
 	Schema.Struct({ limitBytes: Schema.Finite, code: Schema.Literal("result-too-large") }),
 ]);
 
-export class RyotQLBadRequest extends Schema.TaggedError<RyotQLBadRequest>()("RyotQLBadRequest", {
-	reason: RyotQLBadRequestReason,
-}) {}
+export class RyotQLBadRequest extends Schema.TaggedError<
+	RyotQLBadRequest,
+	{ readonly brand: unique symbol }
+>()("RyotQLBadRequest", { reason: RyotQLBadRequestReason }) {}
 
-export class RyotQLInternalError extends Schema.TaggedError<RyotQLInternalError>()(
-	"RyotQLInternalError",
-	{ reason: Schema.Struct({ code: Schema.Literal("execution-failed") }) },
-) {}
+export class RyotQLInternalError extends Schema.TaggedError<
+	RyotQLInternalError,
+	{ readonly brand: unique symbol }
+>()("RyotQLInternalError", {
+	reason: Schema.Struct({ code: Schema.Literal("execution-failed") }),
+}) {}
 
 const execution = {
 	payload: RyotQLDocument,

@@ -34,15 +34,15 @@ export const IntegrationRequestFailureReason = Schema.Union([
 
 export type IntegrationRequestFailureReason = typeof IntegrationRequestFailureReason.Type;
 
-export class IntegrationRequestError extends Schema.TaggedError<IntegrationRequestError>()(
-	"IntegrationRequestError",
-	{ reason: IntegrationRequestFailureReason },
-) {}
+export class IntegrationRequestError extends Schema.TaggedError<
+	IntegrationRequestError,
+	{ readonly brand: unique symbol }
+>()("IntegrationRequestError", { reason: IntegrationRequestFailureReason }) {}
 
-export class IntegrationNotFoundError extends Schema.TaggedError<IntegrationNotFoundError>()(
-	"IntegrationNotFoundError",
-	{ reason: IntegrationRequestFailureReason },
-) {}
+export class IntegrationNotFoundError extends Schema.TaggedError<
+	IntegrationNotFoundError,
+	{ readonly brand: unique symbol }
+>()("IntegrationNotFoundError", { reason: IntegrationRequestFailureReason }) {}
 
 export const IntegrationProvider = Schema.String;
 

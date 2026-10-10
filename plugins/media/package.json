@@ -148,11 +148,11 @@
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
-		"effect": "4.0.0"
+		"effect": "4.0.5"
 	},
 	"devDependencies": {
-		"@effect/platform-bun": "4.0.0",
-		"@effect/vitest": "4.0.0",
+		"@effect/platform-bun": "4.0.5",
+		"@effect/vitest": "4.0.5",
 		"@ryot-app/cli": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
 		"@ryot-app/plugin-backend-compiler": "workspace:*",

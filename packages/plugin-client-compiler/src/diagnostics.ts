@@ -11,10 +11,13 @@ export type ClientPluginCompilerDiagnostic = Schema.Schema.Type<
 	typeof ClientPluginCompilerDiagnostic
 >;
 
-export class PluginClientCompilerFailure extends Schema.TaggedError<PluginClientCompilerFailure>()(
-	"PluginClientCompilerFailure",
-	{ message: Schema.String, diagnostics: Schema.Array(ClientPluginCompilerDiagnostic) },
-) {}
+export class PluginClientCompilerFailure extends Schema.TaggedError<
+	PluginClientCompilerFailure,
+	{ readonly brand: unique symbol }
+>()("PluginClientCompilerFailure", {
+	message: Schema.String,
+	diagnostics: Schema.Array(ClientPluginCompilerDiagnostic),
+}) {}
 
 export const clientPluginCompilerDiagnostic = (
 	code: string,

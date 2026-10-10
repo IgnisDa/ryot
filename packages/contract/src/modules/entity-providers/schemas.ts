@@ -129,28 +129,30 @@ const ProviderEntityNotFoundReason = Schema.Union([
 	}),
 ]);
 
-export class ProviderEntityBadRequest extends Schema.TaggedError<ProviderEntityBadRequest>()(
-	"ProviderEntityBadRequest",
-	{ reason: ProviderEntityBadRequestReason },
-) {}
+export class ProviderEntityBadRequest extends Schema.TaggedError<
+	ProviderEntityBadRequest,
+	{ readonly brand: unique symbol }
+>()("ProviderEntityBadRequest", { reason: ProviderEntityBadRequestReason }) {}
 
-export class ProviderEntityNotFound extends Schema.TaggedError<ProviderEntityNotFound>()(
-	"ProviderEntityNotFound",
-	{ reason: ProviderEntityNotFoundReason },
-) {}
+export class ProviderEntityNotFound extends Schema.TaggedError<
+	ProviderEntityNotFound,
+	{ readonly brand: unique symbol }
+>()("ProviderEntityNotFound", { reason: ProviderEntityNotFoundReason }) {}
 
-export class ProviderEntityImportBacklogFull extends Schema.TaggedError<ProviderEntityImportBacklogFull>()(
-	"ProviderEntityImportBacklogFull",
-	{
-		reason: strictStruct({
-			limit: Schema.Int,
-			retryAfterSeconds: Schema.Int,
-			code: Schema.Literal("import-backlog-full"),
-		}),
-	},
-) {}
+export class ProviderEntityImportBacklogFull extends Schema.TaggedError<
+	ProviderEntityImportBacklogFull,
+	{ readonly brand: unique symbol }
+>()("ProviderEntityImportBacklogFull", {
+	reason: strictStruct({
+		limit: Schema.Int,
+		retryAfterSeconds: Schema.Int,
+		code: Schema.Literal("import-backlog-full"),
+	}),
+}) {}
 
-export class ProviderEntityInternalError extends Schema.TaggedError<ProviderEntityInternalError>()(
-	"ProviderEntityInternalError",
-	{ reason: strictStruct({ code: Schema.Literal("unexpected-error") }) },
-) {}
+export class ProviderEntityInternalError extends Schema.TaggedError<
+	ProviderEntityInternalError,
+	{ readonly brand: unique symbol }
+>()("ProviderEntityInternalError", {
+	reason: strictStruct({ code: Schema.Literal("unexpected-error") }),
+}) {}

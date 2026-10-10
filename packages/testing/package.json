@@ -36,8 +36,8 @@
 		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
-		"@effect/platform-bun": "4.0.0",
-		"effect": "4.0.0",
+		"@effect/platform-bun": "4.0.5",
+		"effect": "4.0.5",
 		"vitest": "4.1.9"
 	},
 	"devDependencies": {

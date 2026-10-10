@@ -53,15 +53,15 @@ const RelationshipNotFoundReason = Schema.Union([
 	}),
 ]);
 
-export class RelationshipBadRequest extends Schema.TaggedError<RelationshipBadRequest>()(
-	"RelationshipBadRequest",
-	{ reason: RelationshipBadRequestReason },
-) {}
+export class RelationshipBadRequest extends Schema.TaggedError<
+	RelationshipBadRequest,
+	{ readonly brand: unique symbol }
+>()("RelationshipBadRequest", { reason: RelationshipBadRequestReason }) {}
 
-export class RelationshipNotFound extends Schema.TaggedError<RelationshipNotFound>()(
-	"RelationshipNotFound",
-	{ reason: RelationshipNotFoundReason },
-) {}
+export class RelationshipNotFound extends Schema.TaggedError<
+	RelationshipNotFound,
+	{ readonly brand: unique symbol }
+>()("RelationshipNotFound", { reason: RelationshipNotFoundReason }) {}
 
 export const RelationshipScope = Schema.Struct({
 	id: RelationshipId,

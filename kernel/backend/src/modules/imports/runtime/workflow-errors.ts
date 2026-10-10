@@ -4,7 +4,10 @@ import { Schema } from "effect";
 
 import { IngestionPayloadError } from "#modules/assets/storage/ingestion-payloads";
 
-export class ImportRunError extends Schema.TaggedError<ImportRunError>()("ImportRunError", {
+export class ImportRunError extends Schema.TaggedError<
+	ImportRunError,
+	{ readonly brand: unique symbol }
+>()("ImportRunError", {
 	message: Schema.String,
 	reason: Schema.optional(ImportRunFailureReason),
 }) {}

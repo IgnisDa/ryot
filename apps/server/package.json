@@ -10,8 +10,8 @@
 	},
 	"dependencies": {
 		"@better-auth/core": "1.7.2",
-		"@effect/platform-bun": "4.0.0",
-		"@effect/sql-pg": "4.0.0",
+		"@effect/platform-bun": "4.0.5",
+		"@effect/sql-pg": "4.0.5",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/fitness-plugin": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
@@ -20,7 +20,7 @@
 		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"drizzle-orm": "1.0.0-rc.5-169397b",
-		"effect": "4.0.0"
+		"effect": "4.0.5"
 	},
 	"devDependencies": {
 		"@ryot-app/kernel-renderers": "workspace:*",

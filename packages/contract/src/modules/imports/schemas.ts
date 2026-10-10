@@ -42,15 +42,17 @@ export const ImportRequestFailureReason = Schema.Union([
 
 export type ImportRequestFailureReason = typeof ImportRequestFailureReason.Type;
 
-export class ImportRequestError extends Schema.TaggedError<ImportRequestError>()(
-	"ImportRequestError",
-	{ reason: ImportRequestFailureReason },
-) {}
+export class ImportRequestError extends Schema.TaggedError<
+	ImportRequestError,
+	{ readonly brand: unique symbol }
+>()("ImportRequestError", { reason: ImportRequestFailureReason }) {}
 
-export class ImportNotFoundError extends Schema.TaggedError<ImportNotFoundError>()(
-	"ImportNotFoundError",
-	{ reason: Schema.Struct({ runId: ImportRunId, code: Schema.Literal("run-not-found") }) },
-) {}
+export class ImportNotFoundError extends Schema.TaggedError<
+	ImportNotFoundError,
+	{ readonly brand: unique symbol }
+>()("ImportNotFoundError", {
+	reason: Schema.Struct({ runId: ImportRunId, code: Schema.Literal("run-not-found") }),
+}) {}
 
 export const ImportConflictReason = Schema.Union([
 	Schema.Struct({ runId: ImportRunId, code: Schema.Literal("submission-key-conflict") }),
@@ -67,10 +69,10 @@ export const ImportConflictReason = Schema.Union([
 ]);
 export type ImportConflictReason = typeof ImportConflictReason.Type;
 
-export class ImportConflictError extends Schema.TaggedError<ImportConflictError>()(
-	"ImportConflictError",
-	{ reason: ImportConflictReason },
-) {}
+export class ImportConflictError extends Schema.TaggedError<
+	ImportConflictError,
+	{ readonly brand: unique symbol }
+>()("ImportConflictError", { reason: ImportConflictReason }) {}
 
 export const ImportRunFailureReason = Schema.Union([
 	PluginInstallationUnavailableReason,

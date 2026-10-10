@@ -14,13 +14,13 @@ export type PluginScriptMetadata = PluginScript extends infer Script
 		: never
 	: never;
 
-export class PluginScriptCompileMismatch extends Schema.TaggedError<PluginScriptCompileMismatch>()(
-	"PluginScriptCompileMismatch",
-	{
-		entry: Schema.String,
-		reason: Schema.Literals(["missing-output", "metadata-mismatch", "provider-path"]),
-	},
-) {}
+export class PluginScriptCompileMismatch extends Schema.TaggedError<
+	PluginScriptCompileMismatch,
+	{ readonly brand: unique symbol }
+>()("PluginScriptCompileMismatch", {
+	entry: Schema.String,
+	reason: Schema.Literals(["missing-output", "metadata-mismatch", "provider-path"]),
+}) {}
 
 export const pluginScriptCompileMismatchIssue = (error: PluginScriptCompileMismatch) =>
 	Match.value(error.reason).pipe(
