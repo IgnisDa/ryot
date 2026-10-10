@@ -2,7 +2,7 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createEventTestFixture,
+	createRatedItem,
 	deleteSandboxReplayProjection,
 	enqueueSandboxScript,
 	installTestPluginBundle,
@@ -12,6 +12,7 @@ import {
 	sampleOperationalPressure,
 	uninstallTestPlugin,
 	waitForEventCount,
+	ratedItemEntitySchema,
 } from "~/fixtures/kernel";
 import { requireArray, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -111,7 +112,6 @@ describe("universal durable sandbox tracer", () => {
 	it.live("replays a role-specific operation without duplicating durable effects", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const fixture = yield* createEventTestFixture(client);
 			const http = yield* startFakeHttpServerScoped((url) =>
 				url.pathname === "/failure"
 					? new Response("try later", { status: 503 })
@@ -124,6 +124,7 @@ describe("universal durable sandbox tracer", () => {
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					client,
+					entitySchemas: [ratedItemEntitySchema],
 					pluginSlug: `e2e-durable-tracer-${crypto.randomUUID()}`,
 					workflows: [{ slug: "tracer-child", scriptSlug: childSlug }],
 					files: {
@@ -169,6 +170,7 @@ describe("universal durable sandbox tracer", () => {
 				}),
 				uninstallTestPlugin,
 			);
+			const fixture = yield* createRatedItem(client, plugin.pluginId);
 			const scriptId = requirePresent(
 				plugin.scriptIds[operationSlug],
 				"Durable tracer operation was not installed",
