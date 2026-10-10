@@ -14,7 +14,7 @@ import type { PluginArchiveErrorReason, PluginArchivePackage } from "./index";
 import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive, writePluginArchive } from "./index";
 
 const encoder = new TextEncoder();
-const packageId = PluginPackageId.make("ee8040dd-5a40-42a1-916d-58190c1a06e8");
+const packageId = PluginPackageId.make("test/archive");
 
 const compareNames = (left: string, right: string) => {
 	if (left < right) {
@@ -48,7 +48,6 @@ const fixture = {
 			packageId,
 			icon: "fixture",
 			name: "Fixture",
-			slug: "fixture",
 			version: "1.0.0",
 			description: "Fixture",
 		},
@@ -317,7 +316,7 @@ describe("plugin archive", () => {
 	);
 	it.live("rejects mismatched manifest/client identities and tampered client hashes", () =>
 		Effect.gen(function* () {
-			const otherPackageId = PluginPackageId.make("97887987-a15b-452b-bfdc-633028850ad9");
+			const otherPackageId = PluginPackageId.make("test/other");
 			for (const compiledClient of [
 				{ ...compiledClientFixture, packageId: otherPackageId },
 				{ ...compiledClientFixture, hash: "wrong-hash" },

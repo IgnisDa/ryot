@@ -11,7 +11,7 @@ import {
 	PluginManifest,
 } from "./manifest";
 
-const packageId = PluginPackageId.make("965d3b69-bd20-491b-8387-c0cc73f152b1");
+const packageId = PluginPackageId.make("test/contract");
 
 const queryDocument = {
 	queries: {
@@ -34,14 +34,7 @@ const authoredManifest = definePlugin({
 	httpRateLimits: [],
 	relationshipSchemas: [],
 	workflows: [{ slug: "refresh.workflow", scriptSlug: "workflow.test" }],
-	metadata: {
-		packageId,
-		icon: "box",
-		name: "Test",
-		slug: "test",
-		version: "1.0.0",
-		description: "Test plugin",
-	},
+	metadata: { packageId, icon: "box", name: "Test", version: "1.0.0", description: "Test plugin" },
 	userBootstrap: [
 		{
 			slug: "bootstrap.test",
@@ -324,12 +317,10 @@ describe("definePlugin", () => {
 	});
 
 	it("preserves manifest literals", () => {
-		const slug: "test" = manifest.metadata.slug;
 		const scriptKind: "automation" = manifest.scripts[0].kind;
 		const cron = manifest.crons[0];
 		const scriptSlug: "automation.test" = cron.scriptSlug;
 
-		expect(slug).toBe("test");
 		expect(scriptSlug).toBe("automation.test");
 		expect(scriptKind).toBe("automation");
 	});
@@ -385,14 +376,8 @@ describe("definePlugin", () => {
 
 	it("decodes declarative public client exports by kind", () => {
 		const pluginDependencies: NonNullable<PluginClientEntry["pluginDependencies"]> = {
-			media: {
-				scope: "system",
-				packageId: PluginPackageId.make("97887987-a15b-452b-bfdc-633028850ad9"),
-			},
-			"private-fixture": {
-				scope: "user",
-				packageId: PluginPackageId.make("f2ed5599-c654-4f11-a9e6-2780ca55abda"),
-			},
+			media: { scope: "system", packageId: PluginPackageId.make("test/dependency") },
+			"private-fixture": { scope: "user", packageId: PluginPackageId.make("test/second") },
 		};
 		const client = {
 			homeView: null,

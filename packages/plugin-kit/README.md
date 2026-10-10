@@ -7,21 +7,22 @@ letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapp
 
 ## Package Layout
 
-Run `ryot plugin init-identity` once in the package root. It exclusively creates
-`shared/plugin-identity.ts` with a permanent UUIDv4 `PLUGIN_PACKAGE_ID`; it fails if that file exists.
-Import the constant into the manifest and set `metadata.packageId` with `PluginPackageId.make`.
-Builds never generate or change this identity. An independently installable fork needs a fresh UUID.
+Set `metadata.packageId` to a `publisher/name` package ID. It is required and must stay the same
+across updates. Each segment is lowercase `[a-z0-9]+(-[a-z0-9]+)*` and 1-64 characters; the ID has
+exactly one `/` and no `_`, `.`, or `--`. The `ryot/` publisher is reserved for bundled plugins:
+private installs and updates under it are rejected. An independently installable fork must choose
+a new package ID.
 
 ### Identity and queries
 
-The package UUID is portable. The local `plugin.id` identifies one system record or one user's
-private record. Names and slugs are display metadata, not selectors. Routes use `/p/<localPluginId>`;
-entity routes use `/e/<entityId>`. Saved views use `/v/c/<savedViewId>`, `/v/k/<slug>`, or
-`/v/p/<localPluginId>/<slug>` through the shared navigation helpers.
+The package ID is portable. The local `plugin.id` identifies one system record or one user's
+private record. Names and slugs are display metadata, not selectors. Routes use
+`/p/<publisher>/<name>`; entity routes use `/e/<entityId>`. Saved views use `/v/c/<savedViewId>`,
+`/v/k/<slug>`, or `/v/p/<publisher>/<name>/<slug>` through the shared navigation helpers.
 
 Domain recipes accept a `PluginIdentityReference`. Authored saved views and trusted sandbox scripts
 pass `{ kind: "self" }`. Browser contributors call
-`usePluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID))`; non-React query callbacks use the same
+`usePluginIdentity(PluginPackageId.make("publisher/name"))`; non-React query callbacks use the same
 `client.pluginIdentity` accessor. Presentation loaders use the selected entity's stored owner, not
 the page owner. Exact schema predicates combine local names with this owner; raw slug-only queries
 remain deliberately cross-plugin. Ordinary HTTP queries must use exact `local` references or
@@ -31,16 +32,16 @@ Client dependencies are an importer-local alias map:
 
 ```ts
 pluginDependencies: {
-  catalog: { packageId: PluginPackageId.make(CATALOG_PACKAGE_ID), scope: "system" },
+  catalog: { packageId: PluginPackageId.make("ryot/catalog"), scope: "system" },
 }
 ```
 
 Imports use `@ryot-app/plugins/catalog/<export-name>`. Aliases are local to each importer; compilation
-pins scope and the full package UUID. Dependencies do not grant read or write authority. Contributors
+pins scope and the full package ID. Dependencies do not grant read or write authority. Contributors
 share one JavaScript realm: identity bindings route resources reliably but do not isolate modules.
 
-System configuration keys use `RYOT_PLUGIN_<UUID_WITHOUT_HYPHENS_UPPERCASE>_<CONFIG_KEY>`, for example
-`RYOT_PLUGIN_BCAD4408A7E7465EACCBC1A553C78090_TMDB_ACCESS_TOKEN`. Private configuration never reads
+System configuration keys use `RYOT_PLUGIN__<PUBLISHER>__<NAME>__<CONFIG_KEY>` with segments uppercased and `-` replaced by `_`, for example
+`RYOT_PLUGIN__RYOT__MEDIA__TMDB_ACCESS_TOKEN`. Private configuration never reads
 deployment environment variables.
 
 One active system revision serves all users; each private owner selects their own active revision.
@@ -51,9 +52,9 @@ All replicas must run the same server/runtime release and deployment configurati
 A system package identity cannot be installed privately. If system activation conflicts with a
 retained private claim, activation succeeds and that private installation is quarantined. Its data
 and local references remain attached to it. Removing the conflict does not reactivate it; explicit
-re-enabling must validate the retained package again. UUIDs and content hashes do not verify a publisher.
+re-enabling must validate the retained package again. Package IDs and content hashes do not verify a publisher.
 
-Backups remap typed plugin references by package UUID and scope to destination-local owners. System
+Backups remap typed plugin references by package ID and scope to destination-local owners. System
 dependencies require a matching compatible destination system package; restore does not install,
 replace, downgrade, or configure system code. Conflicting private records remain private and
 quarantined. Arbitrary entity IDs and strings in opaque plugin JSON are not made portable or rewritten.
@@ -153,7 +154,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 
 | Section                | Purpose                                                                 |
 | ---------------------- | ----------------------------------------------------------------------- |
-| `metadata`             | Permanent package UUID, slug, name, description, version, and icon      |
+| `metadata`             | Permanent package ID, name, description, version, and icon              |
 | `configSchema`         | Plugin-owned environment configuration                                  |
 | `userSettingsSchema`   | Optional non-secret per-user preferences rendered by the kernel         |
 | `scripts`              | Build-derived sandbox entries and requirements                          |

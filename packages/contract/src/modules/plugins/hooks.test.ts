@@ -75,11 +75,10 @@ const authored = {
 	configSchema: { fields: {}, unknownKeys: "strict" },
 	metadata: {
 		icon: "box",
-		slug: "test",
 		name: "Test",
 		version: "1",
 		description: "Test",
-		packageId: "965d3b69-bd20-491b-8387-c0cc73f152b1",
+		packageId: "test/contract",
 	},
 	relationshipSchemas: [
 		{
