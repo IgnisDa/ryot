@@ -278,6 +278,9 @@ export {
 	type EntityReference,
 	type EntityResultsLayout,
 	type EntityPresentationLoader,
+	type EntityPresentationPrepare,
+	type EntityPresentationSource,
+	type EntityPresentationRegistration,
 	type EntityPresentationDefinition,
 	type EntityPresentationComponentProps,
 } from "./entity-results";
