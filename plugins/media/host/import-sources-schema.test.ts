@@ -1,19 +1,20 @@
 import { CreateImportRunBody } from "@ryot-app/contract/modules/imports/schemas";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
-import { createMediaImportRunBody, MediaCreateImportRunBody } from "./import-sources";
+import { MediaCreateImportRunBody } from "./import-sources";
 import { mediaPlugin } from "./plugin";
 
 const uploadToken = "upload-1";
 
+const createMediaImportRunBody = <const Source extends MediaCreateImportRunBody["source"]>(
+	body: Extract<MediaCreateImportRunBody, { readonly source: Source }>,
+) => ({ ...body, source: { slug: body.source, owner: definitionOwner("media-owner") } });
+
 it("builds a typed media request accepted by the open import envelope", () => {
-	const body = createMediaImportRunBody(PluginId.make("media-owner"), {
-		uploadToken,
-		source: "igdb",
-		collection: "Favorites",
-	});
+	const body = createMediaImportRunBody({ uploadToken, source: "igdb", collection: "Favorites" });
 
 	expect(Schema.decodeSync(CreateImportRunBody)(body)).toEqual(body);
 	expect(body.collection).toBe("Favorites");
@@ -114,17 +115,13 @@ it.each([
 });
 
 it("accepts explicit Trakt export, user, and list requests", () => {
-	const exportFile = createMediaImportRunBody(PluginId.make("media-owner"), {
+	const exportFile = createMediaImportRunBody({
 		mode: "export",
 		source: "trakt",
 		exportUploadToken: uploadToken,
 	});
-	const user = createMediaImportRunBody(PluginId.make("media-owner"), {
-		mode: "user",
-		source: "trakt",
-		username: "alice",
-	});
-	const list = createMediaImportRunBody(PluginId.make("media-owner"), {
+	const user = createMediaImportRunBody({ mode: "user", source: "trakt", username: "alice" });
+	const list = createMediaImportRunBody({
 		mode: "list",
 		source: "trakt",
 		collection: "Favorites",

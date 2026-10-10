@@ -1,6 +1,5 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { Effect, Schema } from "@ryot-app/client-sdk/effect";
-import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/client-sdk/react";
 import {
 	Button,
@@ -39,7 +38,7 @@ const noteMutation = <A, I>(slug: string, schema: Schema.Codec<A, I>) =>
 						slug,
 						input: payload,
 						output: ExerciseNoteOutput,
-						packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
+						packageId: PLUGIN_PACKAGE_ID,
 					}),
 				),
 				Effect.tap(() => Effect.sync(onSuccess)),

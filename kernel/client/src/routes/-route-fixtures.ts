@@ -73,9 +73,9 @@ export const catalog: PluginClientCatalog = [
 		isHidden: false,
 		clientApiVersion: 1,
 		homeSavedView: null,
-		pluginId: "plugin-1",
 		sourceHash: "source-hash",
 		installationId: "installation-1",
+		pluginId: PluginId.make("plugin-1"),
 		packageId: PluginPackageId.make("test/plugin-1"),
 	},
 ];
@@ -464,10 +464,10 @@ export const makeWorkspaceRecorder = (): WorkspaceStorageRecorder => ({
 });
 
 export const makeStorageStub = (
-	rememberedSlug: string | null = null,
+	rememberedPluginId: string | null = null,
 	recorder?: WorkspaceStorageRecorder,
 ): ClientStorage["Service"] => {
-	let lastWorkspace = rememberedSlug;
+	let lastWorkspace = rememberedPluginId === null ? null : PluginId.make(rememberedPluginId);
 	return makeClientStorageStub({
 		getServerSelection: Effect.succeed(server),
 		getLastWorkspace: (scope) =>

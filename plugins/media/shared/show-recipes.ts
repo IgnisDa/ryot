@@ -25,7 +25,6 @@ import {
 	propertyJson,
 	propertyNumber,
 	propertyText,
-	relationshipTo,
 	type Table,
 } from "./entity-selections";
 import {
@@ -36,7 +35,12 @@ import {
 	episodicScopedCoverageSelection,
 	mediaEpisodicRecipes,
 } from "./episodic-recipes";
-import { showEpisodicKindConfig } from "./lifecycle-expressions";
+import {
+	entitySchemaIs,
+	relationshipConnects,
+	sameSchemaOwner,
+	showEpisodicKindConfig,
+} from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
 import { mediaWatchProviderSelection } from "./media-recipes";
 import { ShowEpisodeOrderListSchema } from "./show-episode-order";
@@ -57,9 +61,9 @@ const showSeasonCount = (show: Table) => {
 			join("inner", relationship, eq(column(relationship, "targetEntityId"), column(season, "id"))),
 		],
 		where: and(
-			eq(column(season, "entitySchemaSlug"), literal("show-season")),
-			eq(column(season, "entitySchemaPluginId"), column(show, "entitySchemaPluginId")),
-			eq(column(relationship, "relationshipSchemaPluginId"), column(show, "entitySchemaPluginId")),
+			entitySchemaIs(season, "show-season"),
+			sameSchemaOwner(season, "entitySchemaPluginId", show),
+			sameSchemaOwner(relationship, "relationshipSchemaPluginId", show),
 			eq(column(relationship, "sourceEntityId"), column(show, "id")),
 			eq(column(relationship, "relationshipSchemaSlug"), literal("show-to-show-season")),
 		),
@@ -151,8 +155,8 @@ const showSeasonInclude = (show: Table, seasonLimit: number) => {
 			),
 		],
 		where: and(
-			eq(column(season, "entitySchemaSlug"), literal("show-season")),
-			relationshipTo(seasonRelationship, show, season, SHOW_SEASON_RELATIONSHIP),
+			entitySchemaIs(season, "show-season"),
+			relationshipConnects(seasonRelationship, show, season, SHOW_SEASON_RELATIONSHIP),
 		),
 		selection: {
 			...entityIdentitySelection(season),

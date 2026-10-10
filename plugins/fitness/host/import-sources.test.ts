@@ -1,12 +1,16 @@
 import { CreateImportRunBody } from "@ryot-app/contract/modules/imports/schemas";
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
-import { createFitnessImportRunBody, FitnessCreateImportRunBody } from "./import-sources";
+import { FitnessCreateImportRunBody } from "./import-sources";
 
 const uploadToken = "upload-1";
 const timezone = "Asia/Kolkata";
+
+const createFitnessImportRunBody = <const Source extends FitnessCreateImportRunBody["source"]>(
+	body: Extract<FitnessCreateImportRunBody, { readonly source: Source }>,
+) => ({ ...body, source: { slug: body.source, owner: definitionOwner("fitness-owner") } });
 const sources = [
 	["open_scale", { uploadToken, source: "open_scale" }],
 	["hevy", { timezone, uploadToken, source: "hevy" }],
@@ -16,7 +20,7 @@ const sources = [
 it.each(sources)(
 	"builds a typed %s request accepted by the open import envelope",
 	(source, input) => {
-		const body = createFitnessImportRunBody(PluginId.make("fitness-owner"), input);
+		const body = createFitnessImportRunBody(input);
 
 		expect(Schema.decodeSync(FitnessCreateImportRunBody)(input)).toEqual(input);
 		expect(Schema.decodeSync(CreateImportRunBody)(body)).toEqual(body);

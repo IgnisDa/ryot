@@ -4,7 +4,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
 import {
-	PluginManagementError,
+	errorDetail,
 	pluginManagementMutation,
 	pluginManagementQuery,
 } from "#/modules/plugins/management";
@@ -23,21 +23,13 @@ function PluginManagement() {
 			return <p role="status">Loading installations…</p>;
 		}
 		if (query.status === "error") {
-			return (
-				<p role="alert">
-					{query.error instanceof PluginManagementError ? query.error.detail : query.error?.message}
-				</p>
-			);
+			return <p role="alert">{errorDetail(query.error)}</p>;
 		}
 		return (
 			<PluginManagementPanel
 				pending={mutation.isPending}
 				installations={query.data ?? []}
-				error={
-					mutation.error instanceof PluginManagementError
-						? mutation.error.detail
-						: mutation.error?.message
-				}
+				error={errorDetail(mutation.error)}
 				status={
 					mutation.data
 						? `Command accepted for ${mutation.data.id}. Current health and initialization are shown after refreshing state.`

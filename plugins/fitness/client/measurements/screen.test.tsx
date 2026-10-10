@@ -5,8 +5,8 @@ import {
 	mountPluginPage,
 	routeLocation,
 	savedViewPageContext,
+	pluginContributor,
 } from "@ryot-app/client-sdk/testing";
-import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -129,14 +129,11 @@ const openPage = (
 				view: { icon: "ruler", name: "All Measurements" },
 			}),
 			contributors: [
-				{
-					kind: "plugin",
-					sourceHash: "fitness-source",
-					revisionId: "fitness-revision",
-					installationId: "fitness-installation",
-					pluginId: PluginId.make("fitness-owner"),
-					packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
-				},
+				pluginContributor({
+					name: "fitness",
+					pluginId: "fitness-owner",
+					packageId: PLUGIN_PACKAGE_ID,
+				}),
 			],
 		},
 	});

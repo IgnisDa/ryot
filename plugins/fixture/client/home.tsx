@@ -1,6 +1,6 @@
 import { RyotClientError, type TemporaryUploadToken } from "@ryot-app/client-sdk";
 import { Schema } from "@ryot-app/client-sdk/effect";
-import { PluginLink, PluginPackageId } from "@ryot-app/client-sdk/plugin";
+import { PluginLink } from "@ryot-app/client-sdk/plugin";
 import {
 	createRyotMutation,
 	createRyotQuery,
@@ -46,7 +46,7 @@ const greetingMutation = createRyotMutation<GreetingInput, typeof Greeting.Type>
 			input,
 			slug: "greet",
 			output: Greeting,
-			packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
+			packageId: PLUGIN_PACKAGE_ID,
 		}),
 );
 

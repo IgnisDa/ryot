@@ -1,5 +1,4 @@
 import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
-import { PluginPackageId } from "@ryot-app/plugin-kit/schema";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
@@ -11,7 +10,7 @@ import {
 	MetadataLookupOutput,
 } from "./operations";
 
-const packageId = PluginPackageId.make(PLUGIN_PACKAGE_ID);
+const packageId = PLUGIN_PACKAGE_ID;
 
 export const mediaMonitoringStatusRecipe = defineOperationRecipe({
 	packageId,

@@ -17,11 +17,11 @@ const catalog: PluginClientCatalog = [
 		scope: "system",
 		health: "ready",
 		isHidden: false,
-		pluginId: "owner",
 		clientApiVersion: 1,
 		homeSavedView: null,
 		sourceHash: "source",
 		installationId: "installation",
+		pluginId: PluginId.make("owner"),
 		packageId: PluginPackageId.make("test/owner"),
 	},
 ];

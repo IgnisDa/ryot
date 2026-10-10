@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { SavedViewId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { Effect } from "effect";
 import { useState } from "react";
@@ -28,8 +28,9 @@ const workspace = (slug: string, isHidden = false) => ({
 	isHidden,
 	icon: "puzzle",
 	installationId: slug,
-	pluginId: `plugin-${slug}`,
 	name: `${slug.toUpperCase()} WORKSPACE`,
+	pluginId: PluginId.make(`plugin-${slug}`),
+	packageId: PluginPackageId.make(`test/${slug}`),
 });
 
 const draft: CustomizeDraft = {

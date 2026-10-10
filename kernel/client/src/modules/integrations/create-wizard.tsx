@@ -16,12 +16,12 @@ import {
 	createIntegrationBody,
 	initialIntegrationFormValues,
 } from "#/modules/integrations/payload";
-import { integrationProviderKey } from "#/modules/integrations/presentation";
 import {
 	integrationLotDetail,
 	integrationLotLabel,
 	integrationProviderChooseLabel,
 	integrationProviderEntry,
+	integrationProviderItemKey,
 } from "#/modules/integrations/provider-selection";
 import {
 	integrationSaveFailure,
@@ -200,10 +200,7 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const [failure, setFailure] = useState<IntegrationSaveFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const listed = props.providers.status === "ready" ? props.providers.sources : [];
-	const provider = listed.find(
-		(item) =>
-			integrationProviderKey({ provider: item.slug, pluginId: item.pluginId }) === state.slug,
-	);
+	const provider = listed.find((item) => integrationProviderItemKey(item) === state.slug);
 
 	const connect = (values: SchemaFormValues) => {
 		return Effect.runPromise(

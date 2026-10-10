@@ -1,6 +1,7 @@
 import { KERNEL_SHORTCUTS, type KernelShortcut } from "@ryot-app/client-plugin-contract";
 import { Button, Modal, useShortcut, useValueChange } from "@ryot-app/client-ui-sdk";
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
+import type { PluginId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import {
 	Outlet,
@@ -69,20 +70,24 @@ import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
 import { useSafeAreaInsets } from "#/modules/navigation/safe-area";
 import {
 	activeSidebarKey,
-	sidebarItemHref,
+	navigationViewHref,
 	sidebarSections,
-	type SidebarItem,
+	type SidebarEntry,
 } from "#/modules/navigation/sidebar-sections";
-import { isWorkspaceRoot, resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
+import {
+	isWorkspaceRoot,
+	resolveRememberedWorkspace,
+	type WorkspaceTarget,
+} from "#/modules/navigation/workspace-state";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
-import { catalogPackageId, effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
+import { effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
 import { useStableHandler } from "#/modules/ui/use-stable-handler";
 import { ClientStorage } from "#/persistence/storage";
 
 export function AuthenticatedShell(props: {
 	readonly isPro: boolean;
 	readonly navigation: NavigationData;
-	readonly initialRememberedPluginId: string | null;
+	readonly initialRememberedPluginId: PluginId | null;
 }) {
 	const drawerId = useId();
 	const router = useRouter();
@@ -117,7 +122,7 @@ export function AuthenticatedShell(props: {
 	const routeWorkspace = effectiveCatalogPlugin(catalog, routePackageId) ?? null;
 	const activeKey = useMemo(() => activeSidebarKey(pathname), [pathname]);
 	const routeView = props.navigation.savedViews.find(
-		(view) => `view:${sidebarItemHref(view)}` === activeKey,
+		(view) => `view:${navigationViewHref(view)}` === activeKey,
 	);
 	const viewWorkspace = routeView?.pluginInstallationId
 		? catalog.find(({ installationId }) => installationId === routeView.pluginInstallationId)
@@ -206,33 +211,27 @@ export function AuthenticatedShell(props: {
 		);
 		return () => controller.abort();
 	}, [auth, impersonation, runtime, server]);
-	const selectWorkspace = (pluginId: string) => {
+	const selectWorkspace = ({ pluginId, packageId }: WorkspaceTarget) => {
 		impactLight();
-		const packageId = catalogPackageId(catalog, pluginId);
 		return runtime.runPromise(
 			Effect.gen(function* () {
 				yield* Effect.flatMap(ClientStorage, (storage) =>
 					storage.setLastWorkspace(scope, pluginId),
 				);
 				setRememberedPluginId(pluginId);
-				if (packageId === undefined) {
-					return;
-				}
 				yield* Effect.promise(() => navigate({ replace: true, href: pluginPath(packageId) }));
 			}),
 		);
 	};
 	const navigateHome = () =>
 		current === null ? undefined : navigate({ href: pluginPath(current.packageId) });
-	const navigateItem = (item: SidebarItem) => {
-		if (item.kind === "collection") {
-			return navigate({ to: "/e/$entityId", params: { entityId: item.slug } });
-		}
-		const href = sidebarItemHref(item);
-		return href === undefined
-			? undefined
-			: navigate({ href, replace: activeKey?.startsWith("view:") === true });
-	};
+	const navigateItem = (item: SidebarEntry) =>
+		item.kind === "collection"
+			? navigate({ to: "/e/$entityId", params: { entityId: item.slug } })
+			: navigate({
+					href: navigationViewHref(item),
+					replace: activeKey?.startsWith("view:") === true,
+				});
 	const interceptSearchBack = () => {
 		setSearchOpen(false);
 		return true;
@@ -308,10 +307,9 @@ export function AuthenticatedShell(props: {
 						storage.setLastWorkspace(scope, nextWorkspace.pluginId),
 					);
 					setRememberedPluginId(nextWorkspace.pluginId);
-					const packageId = catalogPackageId(catalog, nextWorkspace.pluginId);
-					if (packageId !== undefined) {
-						yield* Effect.promise(() => navigate({ replace: true, href: pluginPath(packageId) }));
-					}
+					yield* Effect.promise(() =>
+						navigate({ replace: true, href: pluginPath(nextWorkspace.packageId) }),
+					);
 					return;
 				}
 				leaveCustomize();

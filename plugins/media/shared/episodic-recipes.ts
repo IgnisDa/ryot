@@ -46,10 +46,10 @@ import {
 	propertyJson,
 	propertyNumber,
 	propertyText,
-	relationshipTo,
 	type Table,
 } from "./entity-selections";
 import {
+	entitySchemaIs,
 	episodeDisplayStateExpression,
 	episodeHasAired,
 	episodeIsUpcoming,
@@ -58,6 +58,8 @@ import {
 	episodicEpisodeQuery,
 	episodicLifecycleExpressions,
 	episodicNextUpInclude,
+	relationshipConnects,
+	sameSchemaOwner,
 	type EpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
@@ -97,12 +99,8 @@ export const episodeTraversal = (input: {
 			),
 		],
 		where: and(
-			eq(column(input.episode, "entitySchemaSlug"), literal(input.episodeSchemaSlug)),
-			eq(
-				column(input.episode, "entitySchemaPluginId"),
-				column(input.container, "entitySchemaPluginId"),
-			),
-			relationshipTo(relationship, input.container, input.episode, input.relationshipSlug),
+			entitySchemaIs(input.episode, input.episodeSchemaSlug),
+			relationshipConnects(relationship, input.container, input.episode, input.relationshipSlug),
 		),
 	};
 };
@@ -150,7 +148,7 @@ export const episodicScopedCoverageSelection = (input: {
 		select: propertyNumber(completion, "timeSpent"),
 		where: and(
 			eq(column(completion, "entityId"), column(episode, "id")),
-			eq(column(completion, "eventSchemaPluginId"), column(input.parent, "entitySchemaPluginId")),
+			sameSchemaOwner(completion, "eventSchemaPluginId", input.parent),
 			eq(column(completion, "eventSchemaSlug"), literal("complete")),
 		),
 	});
@@ -197,10 +195,7 @@ export const episodicEpisodeMembership = (
 		const relationship = table("relationship", `${alias}Relationship`);
 		return exists(relationship, {
 			where: and(
-				eq(
-					column(relationship, "relationshipSchemaPluginId"),
-					column(episode, "entitySchemaPluginId"),
-				),
+				sameSchemaOwner(relationship, "relationshipSchemaPluginId", episode),
 				eq(column(relationship, "targetEntityId"), column(episode, "id")),
 				eq(column(relationship, "sourceEntityId"), literal(parentEntityId)),
 				eq(
@@ -223,18 +218,15 @@ export const episodicEpisodeMembership = (
 			),
 		],
 		where: and(
-			eq(column(season, "entitySchemaSlug"), literal("show-season")),
-			eq(column(season, "entitySchemaPluginId"), column(episode, "entitySchemaPluginId")),
-			eq(
-				column(parentSeason, "relationshipSchemaPluginId"),
-				column(episode, "entitySchemaPluginId"),
-			),
+			entitySchemaIs(season, "show-season"),
+			sameSchemaOwner(season, "entitySchemaPluginId", episode),
+			sameSchemaOwner(parentSeason, "relationshipSchemaPluginId", episode),
 			eq(column(parentSeason, "sourceEntityId"), literal(parentEntityId)),
 			eq(
 				column(parentSeason, "relationshipSchemaSlug"),
 				literal(config.parentSeasonRelationshipSlug),
 			),
-			relationshipTo(seasonEpisode, season, episode, config.seasonEpisodeRelationshipSlug),
+			relationshipConnects(seasonEpisode, season, episode, config.seasonEpisodeRelationshipSlug),
 		),
 	});
 };

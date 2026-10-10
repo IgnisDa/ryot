@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { SavedViewId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginId, SavedViewId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
@@ -37,7 +37,8 @@ const workspace = (
 	scope: overrides.scope ?? "system",
 	homeSavedView: overrides.homeSavedView ?? null,
 	packageId: overrides.packageId ?? PluginPackageId.make("ryot/media"),
-	pluginId: overrides.pluginId ?? `plugin-${overrides.packageId?.split("/")[1] ?? "media"}`,
+	pluginId:
+		overrides.pluginId ?? PluginId.make(`plugin-${overrides.packageId?.split("/")[1] ?? "media"}`),
 });
 
 const navigation: NavigationData = { savedViews: [], collections: [] };
@@ -349,8 +350,8 @@ describe("workspace switcher", () => {
 					current={current}
 					catalog={[current]}
 					navigation={navigation}
-					onSelect={(slug) => {
-						selections.push(slug);
+					onSelect={({ pluginId }) => {
+						selections.push(pluginId);
 					}}
 				/>,
 			);
@@ -374,13 +375,6 @@ describe("workspace switcher", () => {
 					current={current}
 					summary="2 views"
 					navigation={navigation}
-					onSelect={(slug) => {
-						observations.push({
-							slug,
-							open: screen.queryByRole("menu") !== null,
-							focused: document.activeElement === trigger,
-						});
-					}}
 					catalog={[
 						current,
 						workspace({
@@ -389,6 +383,13 @@ describe("workspace switcher", () => {
 							packageId: PluginPackageId.make("test/fitness"),
 						}),
 					]}
+					onSelect={({ pluginId }) => {
+						observations.push({
+							slug: pluginId,
+							open: screen.queryByRole("menu") !== null,
+							focused: document.activeElement === trigger,
+						});
+					}}
 				/>,
 			);
 			const trigger = screen.getByRole("button", { name: /^Media workspace,/ });

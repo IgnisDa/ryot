@@ -17,6 +17,7 @@ import {
 	maximum,
 	or,
 	table,
+	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
 } from "@ryot-app/ryotql";
 import { buildSavedViewLayoutProjections } from "@ryot-app/ryotql-recipes/saved-views";
@@ -161,9 +162,8 @@ const savedViewOrderBy = (slug: string) => {
 	const membership = table("relationship", "savedViewMembership");
 	const addedAt = maximum(membership, column(membership, "createdAt"), {
 		where: and(
-			schemaOwnerPredicate(membership, "relationshipSchemaPluginId", { kind: "self" }),
+			relationshipSchemaPredicate(membership, "in-media-library", { kind: "self" }),
 			eq(column(membership, "sourceEntityId"), column(entity, "id")),
-			eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
 		),
 	});
 	const updatedAt = maximum(activity, column(activity, "updatedAt"), {

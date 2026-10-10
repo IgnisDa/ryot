@@ -1,4 +1,4 @@
-import { usePluginLocation, useRyotViewport, PluginPackageId } from "@ryot-app/client-sdk/plugin";
+import { usePluginLocation, useRyotViewport } from "@ryot-app/client-sdk/plugin";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
@@ -28,7 +28,7 @@ const workoutDetailsQuery = createRyotQuery<{ readonly entityId: string }, Worko
 		client.data.query(
 			workoutDetailsRecipe({
 				workoutId: input.entityId,
-				reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
+				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 			}),
 		),
 	{

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginPackageId, PluginId } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -424,8 +424,8 @@ describe("settings navigation", () => {
 					...catalog[0],
 					sortOrder: 1,
 					name: "Journal",
-					pluginId: "plugin-2",
 					installationId: "installation-2",
+					pluginId: PluginId.make("plugin-2"),
 					packageId: PluginPackageId.make("test/plugin-2"),
 				},
 			];
@@ -468,8 +468,8 @@ describe("settings navigation", () => {
 					...catalog[0],
 					sortOrder: 1,
 					name: "Journal",
-					pluginId: "plugin-2",
 					installationId: "installation-2",
+					pluginId: PluginId.make("plugin-2"),
 					packageId: PluginPackageId.make("test/plugin-2"),
 				},
 			];

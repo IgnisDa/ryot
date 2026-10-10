@@ -2,10 +2,10 @@ import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import {
 	pluginClientCatalogRecipe,
 	type PluginClientCatalog,
-	type PluginClientCatalogEntry,
 } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Context, Data, Effect, Layer } from "effect";
 
+import { loadAllPages } from "#/api/load-all-pages";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { KernelHostServices } from "#/host-services";
 
@@ -18,25 +18,9 @@ export class PluginCatalogService extends Context.Service<PluginCatalogService>(
 	{
 		make: Effect.sync(() => {
 			const load = Effect.fn("PluginCatalogService.load")((ryot: KernelRyotClient) =>
-				Effect.gen(function* () {
-					const catalog: PluginClientCatalogEntry[] = [];
-					let after: string | undefined;
-					let hasMore: boolean;
-					do {
-						const page = yield* ryot.data
-							.query(pluginClientCatalogRecipe({ after }))
-							.pipe(Effect.mapError((cause) => new PluginCatalogError({ cause })));
-						catalog.push(...page.items);
-						hasMore = page.pageInfo.hasMore;
-						if (hasMore && page.pageInfo.nextCursor === null) {
-							return yield* new PluginCatalogError({
-								cause: "Plugin catalog page omitted its next cursor",
-							});
-						}
-						after = page.pageInfo.nextCursor ?? undefined;
-					} while (hasMore);
-					return catalog satisfies PluginClientCatalog;
-				}),
+				loadAllPages((after) => ryot.data.query(pluginClientCatalogRecipe({ after }))).pipe(
+					Effect.mapError((cause) => new PluginCatalogError({ cause })),
+				),
 			);
 
 			return { load };

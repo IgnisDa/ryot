@@ -1,4 +1,4 @@
-import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
+import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 
@@ -16,12 +16,7 @@ export const createMediaEntityQuery = <Data>(
 ) =>
 	createRyotQuery<EntityInput, Data>(
 		({ input, client }) =>
-			client.data.query(
-				recipe({
-					...input,
-					reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
-				}),
-			),
+			client.data.query(recipe({ ...input, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) })),
 		{
 			entityInterest: ({ data, input }) => ({
 				foreground: [input.entityId],

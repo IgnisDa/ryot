@@ -804,8 +804,8 @@ describe("client page routes", () => {
 			const entries = Array.from({ length: 2 }, (_, index) => ({
 				...catalog[0],
 				name: `Plugin ${index + 1}`,
-				pluginId: `plugin-${index + 1}`,
 				installationId: `installation-${index + 1}`,
+				pluginId: PluginId.make(`plugin-${index + 1}`),
 				packageId: PluginPackageId.make(`test/plugin-${index + 1}`),
 			}));
 			const view = mount({
@@ -842,8 +842,8 @@ describe("client page routes", () => {
 		Effect.gen(function* () {
 			const entries = Array.from({ length: 2 }, (_, index) => ({
 				...catalog[0],
-				pluginId: `plugin-${index + 1}`,
 				installationId: `installation-${index + 1}`,
+				pluginId: PluginId.make(`plugin-${index + 1}`),
 				packageId: PluginPackageId.make(`test/plugin-${index + 1}`),
 			}));
 			const view = mount({ entries, entry: "/p/test/plugin-1" });
@@ -981,8 +981,8 @@ describe("client page routes", () => {
 			const entries = Array.from({ length: 4 }, (_, index) => ({
 				...catalog[0],
 				name: `Plugin ${index + 1}`,
-				pluginId: `plugin-${index + 1}`,
 				installationId: `installation-${index + 1}`,
+				pluginId: PluginId.make(`plugin-${index + 1}`),
 				packageId: PluginPackageId.make(`test/plugin-${index + 1}`),
 			}));
 			const view = mount({ entries, entry: "/p/test/plugin-1" });

@@ -30,7 +30,12 @@ export const resolveRememberedWorkspace = (
 	return visible.find(({ pluginId }) => pluginId === rememberedPluginId) ?? visible.at(0) ?? null;
 };
 
-export const isWorkspaceRoot = (pathname: string, workspace: PluginClientCatalogEntry | null) =>
-	workspace !== null &&
-	(pathname === pluginPath(workspace.packageId) ||
-		pathname === `${pluginPath(workspace.packageId)}/`);
+export type WorkspaceTarget = Pick<PluginClientCatalogEntry, "pluginId" | "packageId">;
+
+export const isWorkspaceRoot = (pathname: string, workspace: PluginClientCatalogEntry | null) => {
+	if (workspace === null) {
+		return false;
+	}
+	const root = pluginPath(workspace.packageId);
+	return pathname === root || pathname === `${root}/`;
+};

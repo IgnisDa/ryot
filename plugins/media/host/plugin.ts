@@ -4,7 +4,6 @@ import {
 	type KernelCollectionEventHookTarget,
 	type PluginHook,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
 import { builtinMediaEntitySchemaSlugs, mediaGroupSlugs } from "../shared/media-schema-slugs";
@@ -616,7 +615,7 @@ export const mediaPlugin = definePlugin({
 		icon: "film",
 		name: "Media",
 		version: "1.0.0",
-		packageId: PluginPackageId.make(PLUGIN_PACKAGE_ID),
+		packageId: PLUGIN_PACKAGE_ID,
 		description:
 			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},

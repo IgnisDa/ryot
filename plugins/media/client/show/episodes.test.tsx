@@ -149,7 +149,7 @@ const [summaryNextUp] = decodeShowSeasonEpisodesResult({ episodes: [secondEpisod
 const renderTab = (adapter: Partial<RyotClientAdapter>, nextUp: ShowEpisode | null = null) =>
 	mountRyotClient(adapter, <ShowEpisodesTab compact entityId="show-1" summary={{ nextUp }} />);
 
-const STORAGE_ENTRY = identityTupleKey("media-installation", "episode-order:show-1");
+const STORAGE_ENTRY = identityTupleKey("media-owner", "episode-order:show-1");
 
 const textOf = (container: HTMLElement, text: string) =>
 	Array.from(container.querySelectorAll("*")).find((element) => element.textContent === text);

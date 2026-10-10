@@ -25,7 +25,7 @@ const exerciseReviewPropertiesSchema = {
 	},
 };
 
-const fitnessEntitySchemaDefinitions = [
+export const fitnessEntitySchemas = [
 	{
 		icon: "library",
 		eventSchemas: [],
@@ -110,5 +110,3 @@ const fitnessEntitySchemaDefinitions = [
 		],
 	},
 ] as const;
-
-export const fitnessEntitySchemas = () => [...fitnessEntitySchemaDefinitions];

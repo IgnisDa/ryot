@@ -5,7 +5,7 @@
 back to `git describe --tags --always --dirty`; `apps/server/dev.ts` passes the same value to the
 unbundled server.
 
-`assemble.ts` copies the archives named in `shipped-plugins.json`, verifies their client artifact
+`assemble.ts` copies the archives of the package IDs listed in `shipped-plugins.json` (resolved by `shipped-plugins.ts`), verifies their client artifact
 hashes, compiles the client runtime and kernel renderers, and writes `plugins/client-image.json`.
 It also copies the canonical native executable, launcher, and snapshots to `sandboxd/`.
 Run it with `bun run assemble` from `apps/server`; its output matches the `/home/ryot` image layout.
