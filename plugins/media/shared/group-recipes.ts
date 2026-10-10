@@ -33,8 +33,10 @@ import type { MediaImage } from "./media-image";
 import { MediaImageAssetSchema, MediaImageListSchema } from "./media-image";
 import {
 	mediaCreditQueries,
+	mediaEntityHistoryRecipe,
 	mediaEntitySummarySelection,
 	mediaPeopleRecipe,
+	mediaReviewActivityEventSelection,
 	mediaReviewActivityRecipe,
 	mediaSummaryQueries,
 	mediaSummaryResult,
@@ -224,6 +226,11 @@ export const mediaGroupRecipes = <
 	);
 
 	const activityRecipe = mediaReviewActivityRecipe(config);
+	const historyRecipe = mediaEntityHistoryRecipe({
+		alias: config.alias,
+		slugs: ["review", "add-to-media-library"],
+		selection: mediaReviewActivityEventSelection,
+	});
 
 	const presentationEntity = table("entity", "entity");
 	const presentationCover = membership(presentationEntity, `${config.alias}PresentationCover`);
@@ -273,6 +280,7 @@ export const mediaGroupRecipes = <
 		peopleRecipe,
 		summaryRecipe,
 		membersRecipe,
+		historyRecipe,
 		activityRecipe,
 		presentationSource,
 	};

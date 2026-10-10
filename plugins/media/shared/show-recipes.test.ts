@@ -47,6 +47,7 @@ const EPISODE_EVENT_ROW = {
 	episodeNumber: 1,
 	episodeRuntime: 66,
 	id: "episode-review",
+	progressPercent: null,
 	consumedOn: "Jellyfin",
 	episodeId: "episode-1",
 	episodeName: "The Arrest",
@@ -114,7 +115,7 @@ const decodeActivity = (
 			episodeProgress: progressRows(input.episodeProgress ?? []),
 			watchDays: aggregateRows(input.watchDays ?? [WATCH_DAY_ROW]),
 			collectionEvents: activityRows(input.collectionEvents ?? []),
-			totals: activityRows([{ watchCount: input.watchCount ?? 0 }]),
+			totals: activityRows([{ historyEventCount: 0, watchCount: input.watchCount ?? 0 }]),
 		},
 	});
 
@@ -1222,6 +1223,7 @@ describe("media show query recipes", () => {
 				"episodeNumber",
 				"episodeRuntime",
 				"seasonNumber",
+				"progressPercent",
 				"eventSchemaSlug",
 			],
 		);

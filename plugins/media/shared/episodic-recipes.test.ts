@@ -113,6 +113,7 @@ const EPISODE_EVENT_ROW = {
 	episodeNumber: 1,
 	episodeRuntime: 66,
 	id: "episode-review",
+	progressPercent: null,
 	consumedOn: "Jellyfin",
 	episodeId: "episode-1",
 	episodeName: "The Arrest",
@@ -169,9 +170,9 @@ const decodeActivity = (
 			episodeEvents: rows(input.episodeEvents ?? []),
 			coverage: rows(input.coverage ?? [COVERAGE_ROW]),
 			collectionEvents: rows(input.collectionEvents ?? []),
-			totals: rows([{ watchCount: input.watchCount ?? 0 }]),
 			episodeProgress: progressRows(input.episodeProgress ?? []),
 			watchDays: aggregateRows(input.watchDays ?? [WATCH_DAY_ROW]),
+			totals: rows([{ historyEventCount: 0, watchCount: input.watchCount ?? 0 }]),
 		},
 	});
 
@@ -476,8 +477,8 @@ describe("episodic media recipes", () => {
 					collectionEvents: rows([]),
 					coverage: rows([COVERAGE_ROW]),
 					episodeProgress: progressRows([]),
-					totals: rows([{ watchCount: 1 }]),
 					watchDays: aggregateRows([WATCH_DAY_ROW]),
+					totals: rows([{ watchCount: 1, historyEventCount: 0 }]),
 					episodeEvents: rowsResult([EPISODE_EVENT_ROW], {
 						limit: 100,
 						hasMore: true,
