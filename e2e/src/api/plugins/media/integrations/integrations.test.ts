@@ -36,6 +36,40 @@ const plexMultipartBody = (boundary: string, payload: unknown) =>
 	].join("\r\n");
 
 describe("Webhook routes", () => {
+	it.live("uses Emby series IDs instead of episode IDs for show progress", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const integration = yield* createIntegration(client, {
+				providerSpecifics: { kind: "emby" },
+				provider: { slug: "emby", owner: definitionOwner((yield* mediaFixtureInstallation).id) },
+			});
+			const { tmdbId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
+				showName: "Emby Identity Show",
+			});
+			const { run } = yield* postIntegrationWebhookAndWait(client, integration, {
+				PlaybackInfo: { PositionTicks: 500 },
+				Series: { ProviderIds: { Tmdb: tmdbId } },
+				Item: {
+					IndexNumber: 2,
+					Type: "Episode",
+					Name: "Episode",
+					RunTimeTicks: 1000,
+					ParentIndexNumber: 1,
+					SeriesName: "Emby Identity Show",
+					ProviderIds: { Tmdb: "episode-not-show" },
+				},
+			});
+			expect(run).toMatchObject({ status: "completed", failureReason: null });
+			expect(run.summary.every(({ counts }) => counts.unsuccessful === 0)).toBe(true);
+			const events = yield* listEventsForEntity(client, episodeId, undefined, 20, {
+				eventSchemaSlug: "progress",
+			});
+			expect(events.map(({ properties }) => properties)).toMatchObject([
+				{ consumedOn: "emby", progressPercent: 50 },
+			]);
+		}),
+	);
+
 	it.live(
 		"POST /api/webhooks/integrations/{validKodiWebhookToken} attaches show progress to the resolved episode",
 		() =>
