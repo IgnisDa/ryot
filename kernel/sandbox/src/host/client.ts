@@ -258,7 +258,7 @@ export class SandboxSidecarClient extends Context.Service<SandboxSidecarClient>(
 						Effect.fail(new SidecarClientError({ message, reason: "transport" })),
 					);
 				};
-				const events = yield* Schema.decodeEffect(nativeEvents)(child);
+				const events = yield* Schema.decodeUnknownEffect(nativeEvents)(child);
 				events.once("exit", (code: number | null, signal: string | null) => {
 					Deferred.doneUnsafe(exited, Effect.succeed({ code, signal }));
 				});
