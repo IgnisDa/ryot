@@ -511,12 +511,14 @@ describe("plugin namespace backups", () => {
 						),
 					).toEqual([{ note: `${label} policy` }]);
 				}
-				expect(yield* executeRyotQLRecipe(target.client, namespaceSubscriptionsRecipe())).toEqual(
-					expect.arrayContaining([
-						{ isActive: true, pluginId: restoredA.pluginId },
-						{ isActive: true, pluginId: restoredB.pluginId },
-					]),
-				);
+				for (const restored of [restoredA, restoredB]) {
+					expect(
+						yield* executeRyotQLRecipe(
+							target.client,
+							namespaceSubscriptionsRecipe({ kind: "local", pluginId: restored.pluginId }),
+						),
+					).toEqual([{ isActive: true, pluginId: restored.pluginId }]);
+				}
 				const integrations = yield* listIntegrations(target.client);
 				for (const [installed, name, label] of [
 					[restoredA, "A namespace integration", "A1"],
