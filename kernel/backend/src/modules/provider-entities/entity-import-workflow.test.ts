@@ -465,7 +465,10 @@ const rootPopulationLayer = Layer.unwrap(
 	Effect.gen(function* () {
 		const transaction = yield* makeTransaction<LifecycleCommand>();
 		const postCommitCount = yield* Ref.make(0);
-		const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, "population-root");
+		const instance = WorkflowInstance.initial(
+			ProviderEntityPopulationWorkflow.background,
+			"population-root",
+		);
 		return Layer.mergeAll(
 			transaction.database,
 			definitionsLayer,

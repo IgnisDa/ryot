@@ -28,6 +28,12 @@ const entry = (
 	n = 0,
 ) => ({ n, lane, tenant, plugin });
 
+const lanesTaken = (store: PersistedQueue.PersistedQueueStore["Service"]) =>
+	interactiveFlowOrder(store, 3).pipe(
+		Effect.map((items) => items.map((item) => item.lane)),
+		Effect.timeout("5 seconds"),
+	);
+
 const takeOptions = (maxAttempts = 5) => ({
 	maxAttempts,
 	name: queueName,
@@ -84,6 +90,7 @@ const storeOptions = (prefix: string, overrides: Partial<FairQueueOptions>): Fai
 	prefix,
 	flowOf: decodeFlow,
 	pollInterval: Duration.millis(5),
+	lanes: [interactive, background],
 	capacity: { total: 100, background: 50 },
 	...overrides,
 });
@@ -193,6 +200,30 @@ layer(testRedisServiceLayer, { excludeTestServices: true })((test) => {
 			expect(threePlugins.filter((item) => item.tenant === "user:b").map((item) => item.n)).toEqual(
 				Array.from({ length: 20 }, (_, n) => n),
 			);
+		}),
+	);
+
+	test.effect("a lane-pinned store only hands out items of its own lanes", () =>
+		Effect.gen(function* () {
+			const backgroundRole = yield* makeTestStore({ lanes: [background] });
+			const interactiveRole = yield* makeTestStore({
+				lanes: [interactive],
+				prefix: backgroundRole.prefix,
+			});
+			yield* offerAll(
+				backgroundRole.store,
+				[0, 1, 2].flatMap((n) => [
+					entry(interactive, "user:a", "pa", n),
+					entry(background, "user:a", "pa", n),
+				]),
+			);
+
+			expect(yield* lanesTaken(backgroundRole.store)).toEqual([background, background, background]);
+			expect(yield* lanesTaken(interactiveRole.store)).toEqual([
+				interactive,
+				interactive,
+				interactive,
+			]);
 		}),
 	);
 

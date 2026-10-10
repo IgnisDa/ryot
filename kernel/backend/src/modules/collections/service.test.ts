@@ -194,7 +194,7 @@ const makeServiceLayer = (
 			};
 			const workflow = options.workflow ?? {};
 			const instance = WorkflowInstance.initial(
-				AddEntityToCollectionWorkflow,
+				AddEntityToCollectionWorkflow.background,
 				addWorkflowExecutionId,
 			);
 			const engine = makeWorkflowActivityEngine(instance, {

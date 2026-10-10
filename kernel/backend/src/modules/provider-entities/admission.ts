@@ -39,7 +39,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 						dispatchAdmittedWorkflow(
 							receipts,
 							engine,
-							EntityImportWorkflow,
+							EntityImportWorkflow.forLane(payload.command.causation.lane),
 							payload.command.accountGeneration,
 							{ payload, discard: true, executionId: row.id },
 							(admission) => admission,
@@ -56,7 +56,11 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				const running = yield* repository.listRunning();
 				const finished: string[] = [];
 				for (const row of running) {
-					const result = yield* engine.poll(EntityImportWorkflow, row.id);
+					const { command } = yield* decodePayload(row.payload);
+					const result = yield* engine.poll(
+						EntityImportWorkflow.forLane(command.causation.lane),
+						row.id,
+					);
 					if (Option.isNone(result)) {
 						yield* start(row);
 					} else if (result.value._tag === "Complete") {
@@ -108,8 +112,10 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				userId: UserId;
 			}) {
 				const removed = yield* repository.cancelQueued(input);
-				if (!removed) {
-					yield* engine.interrupt(EntityImportWorkflow, input.id);
+				const admitted = removed ? null : yield* repository.find(input);
+				if (admitted) {
+					const { command } = yield* decodePayload(admitted.payload).pipe(Effect.orDie);
+					yield* engine.interrupt(EntityImportWorkflow.forLane(command.causation.lane), input.id);
 				}
 				yield* wake;
 			});

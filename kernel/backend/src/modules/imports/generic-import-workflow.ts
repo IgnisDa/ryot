@@ -351,7 +351,7 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 	const providerEntity = yield* dispatchAdmittedWorkflow(
 		receipts,
 		engine,
-		EntityImportWorkflow,
+		EntityImportWorkflow.forLane(command.causation.lane),
 		command.accountGeneration,
 		{
 			executionId,
@@ -818,7 +818,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					const collectionResult = yield* dispatchAdmittedWorkflow(
 						receipts,
 						engine,
-						AddEntityToCollectionWorkflow,
+						AddEntityToCollectionWorkflow.forLane(payload.command.causation.lane),
 						payload.command.accountGeneration,
 						{
 							executionId: collectionExecutionId,

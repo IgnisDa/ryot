@@ -5,10 +5,14 @@ import { DurableDeferred } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { LifecycleDispatchRun } from "#lib/domain/lifecycle";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+import { implementLaneWorkflow } from "#lib/infrastructure/workflow-lane";
 
 import { automationAttemptIdentity } from "./attempt-repository";
-import { type AutomationDispatchState, AutomationExecutionOperations } from "./execution";
+import {
+	type AutomationDispatch,
+	type AutomationDispatchState,
+	AutomationExecutionOperations,
+} from "./execution";
 import { AutomationRunWorkflow, type AutomationRunWorkflowResult } from "./run-workflow";
 
 export const policyPatch = { resource: "entity", draft: { name: "Changed" } } as const;
@@ -47,6 +51,9 @@ export const requiredRun = (
 export const executionIdOf = (runId: string) =>
 	automationAttemptIdentity(AutomationRunId.make(runId), 1).workflowExecutionId;
 
+// Required hooks run on the lane of an interactive command.
+const RunWorkflow = AutomationRunWorkflow.interactive;
+
 // Runs named `held*` wait for `Release`; runs named `late*` finish their attempt immediately but
 // exit only after the deadline; `*failed*` runs fail; `submission-failed*` runs are never submitted;
 // `skipped*` runs were closed before their first submission.
@@ -70,12 +77,12 @@ export const release = (runId: string) =>
 	DurableDeferred.succeed(Release, {
 		value: undefined,
 		token: DurableDeferred.tokenFromExecutionId(Release, {
-			workflow: AutomationRunWorkflow,
+			workflow: RunWorkflow,
 			executionId: executionIdOf(runId),
 		}),
 	});
 
-export const runWorkflowLive = implementWorkflow(AutomationRunWorkflow, (payload) =>
+export const runWorkflowLive = implementLaneWorkflow(AutomationRunWorkflow, (payload) =>
 	Effect.gen(function* () {
 		const control = yield* RunControl;
 		yield* Ref.update(control.started, (all) => new Set(all).add(payload.runId));
@@ -114,9 +121,9 @@ export const operationsLive = Layer.effect(
 					Effect.map(
 						(started) =>
 							new Map(
-								runIds.map((runId): [AutomationRunId, AutomationDispatchState] => [
+								runIds.map((runId): [AutomationRunId, AutomationDispatch] => [
 									runId,
-									dispatchStateOf(runId, started),
+									{ lane: "interactive", state: dispatchStateOf(runId, started) },
 								]),
 							),
 					),
@@ -138,7 +145,7 @@ export const operationsLive = Layer.effect(
 					Effect.andThen(
 						payload.runId.startsWith("submission-failed")
 							? Effect.fail(new DbError({ message: "offline" }))
-							: engine.execute(AutomationRunWorkflow, {
+							: engine.execute(RunWorkflow, {
 									payload,
 									discard: true,
 									executionId: executionIdOf(payload.runId),

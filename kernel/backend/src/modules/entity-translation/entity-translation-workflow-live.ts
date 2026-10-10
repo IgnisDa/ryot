@@ -8,7 +8,8 @@ import { DateTime, Effect, Schema } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { implementLaneWorkflow } from "#lib/infrastructure/workflow-lane";
+import { makeActivity } from "#lib/infrastructure/workflow-scope";
 
 import {
 	TranslateEntityWorkflow,
@@ -84,9 +85,7 @@ export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(
 		Effect.annotateLogs(effect, { executionId, workflow: "TranslateEntityWorkflow" }),
 );
 
-const TranslateEntityWorkflowLive = implementWorkflow(
+export const TranslateEntityWorkflowDefinitionsLive = implementLaneWorkflow(
 	TranslateEntityWorkflow,
 	runTranslateEntityWorkflow,
 );
-
-export const TranslateEntityWorkflowDefinitionsLive = TranslateEntityWorkflowLive;

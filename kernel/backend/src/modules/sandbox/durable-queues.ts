@@ -234,6 +234,7 @@ export const SandboxExecutionQueueStoreLive = Layer.unwrap(
 			flowOf: sandboxSchedulingKey,
 			pollInterval: Duration.millis(25),
 			capacity: sandboxLaneCapacity(config.sandbox.workerConcurrency),
+			lanes: config.server.lanes === "all" ? ["interactive", "background"] : [config.server.lanes],
 		}),
 	),
 );

@@ -17,7 +17,6 @@ import {
 	AutomationAfterInputProjection,
 	AutomationInvocationFields,
 	AutomationPolicyInputProjection,
-	ExecutionLane,
 } from "../automations/lifecycle";
 import { SandboxExecutionMetadata } from "../plugins/execution-metadata";
 import { SandboxBoundaryReason } from "./boundary-reason";
@@ -107,7 +106,6 @@ export class SandboxCompilationFailure extends Schema.TaggedError<SandboxCompila
 ) {}
 
 export const EnqueueSandboxBody = strictStruct({
-	lane: ExecutionLane,
 	scriptId: SandboxScriptId,
 	context: Schema.optional(Schema.Unknown),
 });

@@ -184,7 +184,7 @@ const makeHarness = () => {
 		envelope: WorkflowReplayEnvelope = { requests, journalLength: 0, state: "pending" },
 		parentPayload = payload,
 	) => {
-		const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
+		const instance = WorkflowInstance.initial(SandboxScriptWorkflow.background, executionId);
 		function execute<Discard extends boolean>(
 			workflow: Parameters<Encoded["execute"]>[0],
 			options: Omit<Parameters<Encoded["execute"]>[1], "discard"> & { discard: Discard },
@@ -655,7 +655,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 							}),
 						);
 						const parentLayer = implementWorkflow(
-							SandboxScriptWorkflow,
+							SandboxScriptWorkflow.interactive,
 							(parentPayload, parentId) =>
 								runSandboxScriptWorkflowBody(parentPayload, parentId, (replay) =>
 									Effect.succeed({
@@ -692,7 +692,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 							Effect.flatMap((context) =>
 								Effect.gen(function* () {
 									const engine = yield* WorkflowEngine;
-									yield* engine.execute(SandboxScriptWorkflow, {
+									yield* engine.execute(SandboxScriptWorkflow.interactive, {
 										payload,
 										executionId,
 										discard: true,
@@ -702,13 +702,19 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 									});
 									yield* Effect.gen(function* () {
 										for (;;) {
-											const result = yield* engine.poll(SandboxScriptWorkflow, executionId);
+											const result = yield* engine.poll(
+												SandboxScriptWorkflow.interactive,
+												executionId,
+											);
 											const completion = yield* engine
 												.deferredResult(slot)
 												.pipe(
 													Effect.provideService(
 														WorkflowInstance,
-														WorkflowInstance.initial(SandboxScriptWorkflow, executionId),
+														WorkflowInstance.initial(
+															SandboxScriptWorkflow.interactive,
+															executionId,
+														),
 													),
 												);
 											if (
@@ -722,7 +728,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 										}
 									}).pipe(Effect.timeout("10 seconds"));
 									const completedDispatches = dispatches.filter((index) => index === 0).length;
-									yield* engine.resume(SandboxScriptWorkflow, executionId);
+									yield* engine.resume(SandboxScriptWorkflow.interactive, executionId);
 									yield* Deferred.await(resumed).pipe(Effect.timeout("10 seconds"));
 									expect(dispatches.filter((index) => index === 0)).toHaveLength(
 										completedDispatches,
@@ -733,7 +739,10 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 									});
 									yield* DurableDeferred.succeed(childReady, { token, value: undefined });
 									expect(
-										yield* engine.execute(SandboxScriptWorkflow, { payload, executionId }),
+										yield* engine.execute(SandboxScriptWorkflow.interactive, {
+											payload,
+											executionId,
+										}),
 									).toBe("done");
 								}).pipe(Effect.provideContext(context)),
 							),
@@ -783,27 +792,29 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 								}),
 						}),
 					);
-					const parent = implementWorkflow(SandboxScriptWorkflow, (parentPayload, parentId) =>
-						Effect.gen(function* () {
-							activations += 1;
-							return yield* runSandboxScriptWorkflowBody(parentPayload, parentId, (replay) =>
-								Effect.succeed({
-									logs: [],
-									inline: [],
-									error: null,
-									harvest: null,
-									status: "completed" as const,
-									value: replay.executionId.endsWith("-replay-0")
-										? { requests: calls, journalLength: 0, state: "pending" }
-										: {
-												output: "done",
-												requests: calls,
-												state: "completed",
-												journalLength: replay.journalLength,
-											},
-								}),
-							);
-						}),
+					const parent = implementWorkflow(
+						SandboxScriptWorkflow.interactive,
+						(parentPayload, parentId) =>
+							Effect.gen(function* () {
+								activations += 1;
+								return yield* runSandboxScriptWorkflowBody(parentPayload, parentId, (replay) =>
+									Effect.succeed({
+										logs: [],
+										inline: [],
+										error: null,
+										harvest: null,
+										status: "completed" as const,
+										value: replay.executionId.endsWith("-replay-0")
+											? { requests: calls, journalLength: 0, state: "pending" }
+											: {
+													output: "done",
+													requests: calls,
+													state: "completed",
+													journalLength: replay.journalLength,
+												},
+									}),
+								);
+							}),
 					);
 					const childWorkflow = implementWorkflow(Child, () =>
 						DurableDeferred.await(signal).pipe(Effect.as(null)),
@@ -816,10 +827,14 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 					const context = yield* Layer.build(workflows);
 					yield* Effect.gen(function* () {
 						const engine = yield* WorkflowEngine;
-						yield* engine.execute(SandboxScriptWorkflow, { payload, executionId, discard: true });
+						yield* engine.execute(SandboxScriptWorkflow.interactive, {
+							payload,
+							executionId,
+							discard: true,
+						});
 						yield* Effect.gen(function* () {
 							for (;;) {
-								const result = yield* engine.poll(SandboxScriptWorkflow, executionId);
+								const result = yield* engine.poll(SandboxScriptWorkflow.interactive, executionId);
 								const stored = yield* Effect.forEach(calls.slice(0, checkpointCount), ({ index }) =>
 									engine
 										.deferredResult(
@@ -828,7 +843,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 										.pipe(
 											Effect.provideService(
 												WorkflowInstance,
-												WorkflowInstance.initial(SandboxScriptWorkflow, executionId),
+												WorkflowInstance.initial(SandboxScriptWorkflow.interactive, executionId),
 											),
 										),
 								);
@@ -850,12 +865,12 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 							value: undefined,
 							token: DurableDeferred.tokenFromExecutionId(signal, {
 								executionId: child ? childId : executionId,
-								workflow: child ? Child : SandboxScriptWorkflow,
+								workflow: child ? Child : SandboxScriptWorkflow.interactive,
 							}),
 						});
-						expect(yield* engine.execute(SandboxScriptWorkflow, { payload, executionId })).toBe(
-							"done",
-						);
+						expect(
+							yield* engine.execute(SandboxScriptWorkflow.interactive, { payload, executionId }),
+						).toBe("done");
 						expect({ beforeRelease, afterRelease: activations }).toEqual({
 							afterRelease: 2,
 							beforeRelease: 1,

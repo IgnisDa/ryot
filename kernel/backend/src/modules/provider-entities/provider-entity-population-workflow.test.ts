@@ -257,7 +257,7 @@ layer(
 )((test) => {
 	test.effect("dispatches each population write between activities and logs blocked hooks", () => {
 		const instance = WorkflowInstance.initial(
-			ProviderEntityPopulationWorkflow,
+			ProviderEntityPopulationWorkflow.background,
 			payload.executionId,
 		);
 
@@ -291,7 +291,7 @@ layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) })
 	test.effect("replays the population body without re-running committed write activities", () => {
 		const activityRuns: string[] = [];
 		const instance = WorkflowInstance.initial(
-			ProviderEntityPopulationWorkflow,
+			ProviderEntityPopulationWorkflow.background,
 			payload.executionId,
 		);
 		const engine = makeMemoizingWorkflowEngine(instance, activityRuns);

@@ -438,7 +438,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				return yield* dispatchAdmittedWorkflow(
 					receipts,
 					engine,
-					AddEntityToCollectionWorkflow,
+					AddEntityToCollectionWorkflow.forLane(command.causation.lane),
 					command.accountGeneration,
 					{
 						executionId,

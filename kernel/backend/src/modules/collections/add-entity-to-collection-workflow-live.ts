@@ -6,7 +6,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { childLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { runLifecycleWriteStep } from "#lib/infrastructure/lifecycle-workflow-step";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+import { implementLaneWorkflow } from "#lib/infrastructure/workflow-lane";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -58,7 +58,7 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 		const receipts = yield* MutationReceipts.make;
 		yield* admitWorkflow(
 			receipts,
-			AddEntityToCollectionWorkflow,
+			AddEntityToCollectionWorkflow.forLane(payload.command.causation.lane),
 			payload.command.accountGeneration,
 			executionId,
 		);
@@ -113,7 +113,7 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 			const eventAttempt = yield* dispatchAdmittedWorkflow(
 				receipts,
 				engine,
-				EventCreateWorkflow,
+				EventCreateWorkflow.forLane(payload.command.causation.lane),
 				payload.command.accountGeneration,
 				{
 					executionId: eventExecutionId,
@@ -165,7 +165,7 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 		Effect.annotateLogs(effect, { executionId, workflow: "AddEntityToCollectionWorkflow" }),
 );
 
-export const AddEntityToCollectionWorkflowDefinitionsLive = implementWorkflow(
+export const AddEntityToCollectionWorkflowDefinitionsLive = implementLaneWorkflow(
 	AddEntityToCollectionWorkflow,
 	runAddEntityToCollectionWorkflow,
 );

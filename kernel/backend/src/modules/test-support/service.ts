@@ -339,8 +339,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				uninstallSystemPlugin: (pluginSlug: PluginSlug, activationId: string) =>
 					pluginIngestion.uninstallPlugin(pluginSlug, activationId),
 				enqueueSandbox: (input: TestSupportEnqueueSandboxBody) => {
-					const { executingUserId, ...payload } = input;
-					return sandbox.enqueue(executingUserId, payload);
+					const { lane, executingUserId, ...payload } = input;
+					return sandbox.enqueue(executingUserId, payload, lane);
 				},
 				deleteSandboxReplayProjection: (executionId: string) =>
 					redis

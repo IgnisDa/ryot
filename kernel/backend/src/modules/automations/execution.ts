@@ -1,5 +1,8 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import type {
+	AutomationWarning,
+	ExecutionLane,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Context, Duration, Effect, Layer, Option, Schedule, Schema } from "effect";
 import { DurableClock, DurableDeferred } from "effect/workflow";
@@ -31,6 +34,11 @@ export const AUTOMATION_IMMEDIATE_CONCURRENCY = 8;
 
 export type AutomationDispatchState = "claimed" | "closed" | "fresh";
 
+export type AutomationDispatch = {
+	readonly lane: ExecutionLane;
+	readonly state: AutomationDispatchState;
+};
+
 const dispatchStateOf = (
 	row: { readonly attemptCount: number; readonly status: string } | undefined,
 ): AutomationDispatchState => {
@@ -45,7 +53,7 @@ export class AutomationExecutionOperations extends Context.Service<
 	{
 		dispatchStates: (
 			runIds: ReadonlyArray<AutomationRunId>,
-		) => Effect.Effect<ReadonlyMap<AutomationRunId, AutomationDispatchState>, DbError>;
+		) => Effect.Effect<ReadonlyMap<AutomationRunId, AutomationDispatch>, DbError>;
 		skipQueuedPolicies: LifecycleExecution["Service"]["skipQueuedPolicies"];
 		submit: (payload: AutomationRunWorkflowPayload) => Effect.Effect<void, DbError>;
 		settle: (
@@ -66,19 +74,17 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 		return AutomationExecutionOperations.of({
 			skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
 			dispatchStates: (runIds) =>
-				runs
-					.listDispatchStates(runIds)
-					.pipe(
-						Effect.map(
-							(rows) =>
-								new Map(
-									runIds.map((runId): [AutomationRunId, AutomationDispatchState] => [
-										runId,
-										dispatchStateOf(rows.find(({ id }) => id === runId)),
-									]),
-								),
-						),
+				runs.listDispatchStates(runIds).pipe(
+					Effect.map(
+						(rows) =>
+							new Map(
+								runIds.map((runId): [AutomationRunId, AutomationDispatch] => {
+									const row = rows.find(({ id }) => id === runId);
+									return [runId, { state: dispatchStateOf(row), lane: row?.lane ?? "background" }];
+								}),
+							),
 					),
+				),
 			settle: (payload, deadline) =>
 				Effect.gen(function* () {
 					const attempt = yield* attempts.findAttempt(payload.runId, payload.attemptNumber);
@@ -100,21 +106,22 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 						payload.runId,
 						payload.attemptNumber,
 					).workflowExecutionId;
-					const account = yield* session
+					const { lane, account } = yield* session
 						.transaction(
 							Effect.gen(function* () {
 								const run = yield* runs.findById(payload.runId);
-								if (!run) {
+								const [dispatch] = yield* runs.listDispatchStates([payload.runId]);
+								if (!run || !dispatch) {
 									return yield* new DbError({ message: "Automation run is unavailable" });
 								}
 								if (run.executionUserId === null) {
-									return null;
+									return { account: null, lane: dispatch.lane };
 								}
 								const currentAccount = yield* receipts.currentAccount(run.executionUserId);
 								if (!(yield* runs.findById(payload.runId))) {
 									return yield* new DbError({ message: "Automation run is unavailable" });
 								}
-								return currentAccount;
+								return { lane: dispatch.lane, account: currentAccount };
 							}),
 						)
 						.pipe(
@@ -126,7 +133,7 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 					return yield* dispatchAdmittedWorkflow(
 						receipts,
 						engine,
-						AutomationRunWorkflow,
+						AutomationRunWorkflow.forLane(lane),
 						account,
 						{ payload, executionId, discard: true },
 						(admission) =>
@@ -162,7 +169,11 @@ const requireWorkflowBody = (operation: string) =>
 
 const OUTSIDE_WORKFLOW_RECHECK = Duration.millis(50);
 
-type RequiredRun = { readonly awaited: boolean; readonly payload: AutomationRunWorkflowPayload };
+type RequiredRun = {
+	readonly awaited: boolean;
+	readonly lane: ExecutionLane;
+	readonly payload: AutomationRunWorkflowPayload;
+};
 
 export const LifecycleExecutionLive = Layer.effect(
 	LifecycleExecution,
@@ -194,22 +205,27 @@ export const LifecycleExecutionLive = Layer.effect(
 				const states = yield* operations.dispatchStates(payloads.map(({ runId }) => runId)).pipe(
 					Effect.catchCauseIf(
 						(cause) => !Cause.hasInterruptsOnly(cause),
-						() => Effect.succeed(new Map<AutomationRunId, AutomationDispatchState>()),
+						() => Effect.succeed(new Map<AutomationRunId, AutomationDispatch>()),
 					),
 				);
 				return yield* Effect.forEach(
 					payloads,
 					(payload) => {
-						const state = states.get(payload.runId) ?? "closed";
-						return state === "fresh"
-							? operations.submit(payload).pipe(
-									Effect.as(true),
-									Effect.catchCauseIf(
-										(cause) => !Cause.hasInterruptsOnly(cause),
-										() => Effect.succeed(false),
-									),
-								)
-							: Effect.succeed(state === "claimed");
+						const { lane, state } = states.get(payload.runId) ?? {
+							state: "closed",
+							lane: "background",
+						};
+						const awaited =
+							state === "fresh"
+								? operations.submit(payload).pipe(
+										Effect.as(true),
+										Effect.catchCauseIf(
+											(cause) => !Cause.hasInterruptsOnly(cause),
+											() => Effect.succeed(false),
+										),
+									)
+								: Effect.succeed(state === "claimed");
+						return Effect.map(awaited, (value) => ({ lane, awaited: value }));
 					},
 					{ concurrency: AUTOMATION_IMMEDIATE_CONCURRENCY },
 				);
@@ -240,9 +256,9 @@ export const LifecycleExecutionLive = Layer.effect(
 					effects: [
 						Effect.forEach(
 							required.filter(({ awaited }) => awaited),
-							({ payload }) =>
+							({ lane, payload }) =>
 								engine
-									.execute(AutomationRunWorkflow, {
+									.execute(AutomationRunWorkflow.forLane(lane), {
 										payload,
 										executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
 											.workflowExecutionId,
@@ -299,10 +315,11 @@ export const LifecycleExecutionLive = Layer.effect(
 					run,
 					payload: { runId: run.id, attemptNumber: 1, acceptedPatches: [] },
 				}));
-				const awaited = yield* dispatchRuns(entries.map(({ payload }) => payload));
-				const required = entries.flatMap(({ run, payload }, index) =>
-					run.delivery === "async" ? [] : [{ run, payload, awaited: awaited[index] === true }],
-				);
+				const dispatched = yield* dispatchRuns(entries.map(({ payload }) => payload));
+				const required = entries.flatMap(({ run, payload }, index) => {
+					const dispatch = dispatched[index];
+					return run.delivery === "async" || !dispatch ? [] : [{ run, payload, ...dispatch }];
+				});
 				if (required.length === 0) {
 					return [];
 				}
@@ -348,10 +365,10 @@ export const LifecycleExecutionLive = Layer.effect(
 						Effect.gen(function* () {
 							const payload = { runId, acceptedPatches, attemptNumber: 1 };
 							const deadline = yield* startDeadline(`policy-${runId}`);
-							const [awaited] = yield* dispatchRuns([payload]);
+							const [dispatch] = yield* dispatchRuns([payload]);
 							const [settlement] = yield* settleRequired(
 								`policy-${runId}`,
-								[{ payload, awaited: awaited === true }],
+								dispatch ? [{ payload, ...dispatch }] : [],
 								deadline,
 							);
 							return settlement?._tag === "completed" &&

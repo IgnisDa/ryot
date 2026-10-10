@@ -54,6 +54,10 @@ const deferredRpc = Rpc.make("deferred", {
 	payload: { name: Schema.String },
 });
 
+// Interactive lane variants live in their own shard group.
+const shardOf = (identity: WorkflowIdentity) =>
+	ShardId.make(identity.workflowName.endsWith("Interactive") ? "interactive" : "default", 1);
+
 const saveClock = Effect.fnUntraced(function* (identity: WorkflowIdentity) {
 	const generator = yield* Snowflake.Generator;
 	const storage = yield* MessageStorage.MessageStorage;
@@ -69,7 +73,7 @@ const saveClock = Effect.fnUntraced(function* (identity: WorkflowIdentity) {
 			requestId: generator.nextUnsafe(),
 			payload: clockRpc.payloadSchema.make({ name: "sleep", workflowName: identity.workflowName }),
 			address: EntityAddress.make({
-				shardId: ShardId.make("default", 1),
+				shardId: shardOf(identity),
 				entityId: EntityId.make(identity.executionId),
 				entityType: EntityType.make(workflowClockEntityType),
 			}),
@@ -109,7 +113,7 @@ const request = Effect.fnUntraced(function* (
 				parent ? { "~effect/cluster/ClusterWorkflowEngine/payloadParentKey": parent } : {},
 			),
 			address: EntityAddress.make({
-				shardId: ShardId.make("default", 1),
+				shardId: shardOf(identity),
 				entityId: EntityId.make(identity.executionId),
 				entityType: EntityType.make(`Workflow/${identity.workflowName}`),
 			}),
@@ -205,6 +209,24 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 			expect(rows).toMatchObject([{ ...identity, shardId: null, status: "succeeded" }]);
 			expect(rows[0]?.expiredAt?.toISOString()).toBe("2026-10-03T00:00:00.000Z");
 			expect(rows[0]?.clearedAt?.toISOString()).toBe("2026-10-03T00:00:00.000Z");
+		}),
+	);
+
+	test.effect("clears a completed interactive-variant execution from its own shard group", () =>
+		Effect.gen(function* () {
+			yield* TestClock.setTime(Date.parse("2026-10-06T00:00:00Z"));
+			const identity = { executionId: "interactive", workflowName: "SuccessWorkflowInteractive" };
+			const collector = yield* WorkflowGarbageCollector;
+			const message = yield* saveRun(identity);
+			yield* saveClock(identity);
+			yield* completeRun(message);
+			yield* TestClock.adjust("24 hours");
+			expect(yield* collector.runBatch()).toEqual({ expiredTrees: 1, clearedExecutions: 1 });
+			expect(yield* counts()).toEqual([{ replies: 0, messages: 0 }]);
+			const rows = yield* (yield* DatabaseSession).run((db) =>
+				db.select().from(workflowExecution).where(eq(workflowExecution.executionId, "interactive")),
+			);
+			expect(rows).toMatchObject([{ ...identity, shardId: null, status: "succeeded" }]);
 		}),
 	);
 

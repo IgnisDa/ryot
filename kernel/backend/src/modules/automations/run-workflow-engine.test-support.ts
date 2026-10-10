@@ -7,6 +7,7 @@ import { AutomationRunWorkflowPayload } from "./run-workflow";
 
 type RunWorkflowSubmission = {
 	payload: AutomationRunWorkflowPayload;
+	workflowName: string;
 	executionId: string;
 	discard: boolean;
 };
@@ -25,9 +26,10 @@ export const recordingRunWorkflowEngineLayer = (
 			return Context.make(
 				WorkflowEngine,
 				makeWorkflowEngine({
-					execute: (_workflow, options) =>
+					execute: (workflow, options) =>
 						Effect.gen(function* () {
 							const submission = {
+								workflowName: workflow._tag,
 								executionId: options.executionId,
 								discard: options.discard === true,
 								payload: yield* Schema.decodeUnknownEffect(AutomationRunWorkflowPayload)(

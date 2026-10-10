@@ -16,7 +16,6 @@ import {
 	workflowHostRequestSchema,
 } from "@ryot-app/sandbox-sdk/workflow";
 import { Context, Effect, Option, Schema } from "effect";
-import { Workflow } from "effect/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
@@ -42,6 +41,7 @@ import {
 	sandboxLifecycleCommand,
 	sandboxRunUserId,
 } from "#lib/infrastructure/sandbox-runtime/shared";
+import { laneWorkflow } from "#lib/infrastructure/workflow-lane";
 import type { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 
 import {
@@ -502,16 +502,13 @@ export const SandboxDurableHostServiceWorkflowPayload = Schema.Struct({
 	sandbox: SandboxScriptWorkflowPayload,
 });
 
-export const SandboxDurableHostServiceWorkflow = Workflow.make(
-	"SandboxDurableHostServiceWorkflow",
-	{
-		error: SandboxRunError,
-		success: workflowDurableResultSchema,
-		payload: SandboxDurableHostServiceWorkflowPayload,
-		idempotencyKey: ({ request, parentExecutionId }) =>
-			`${parentExecutionId}-host-service-${request.index}`,
-	},
-);
+export const SandboxDurableHostServiceWorkflow = laneWorkflow("SandboxDurableHostServiceWorkflow", {
+	error: SandboxRunError,
+	success: workflowDurableResultSchema,
+	payload: SandboxDurableHostServiceWorkflowPayload,
+	idempotencyKey: ({ request, parentExecutionId }) =>
+		`${parentExecutionId}-host-service-${request.index}`,
+});
 
 export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHostServiceWorkflow")(
 	function* (payload: typeof SandboxDurableHostServiceWorkflowPayload.Type) {

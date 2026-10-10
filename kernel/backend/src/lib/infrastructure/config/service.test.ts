@@ -438,3 +438,67 @@ describe("automation configuration", () => {
 		);
 	});
 });
+
+const lanesEnvironmentLayer = (lanes: string | undefined, socketDir: string | undefined) =>
+	makeConfigProviderLayer({
+		REDIS_URL: "unused",
+		DATABASE_URL: "unused",
+		SERVER_ADMIN_ACCESS_TOKEN: "unused",
+		...(lanes === undefined ? {} : { SERVER_LANES: lanes }),
+		...(socketDir === undefined ? {} : { SERVER_RUNNER_SOCKET_DIR: socketDir }),
+	});
+
+describe("SERVER_LANES validation", () => {
+	for (const [lanes, socketDir, expected] of [
+		[undefined, undefined, "all"],
+		["all", undefined, "all"],
+		["interactive", "/run/ryot", "interactive"],
+		["background", "/run/ryot", "background"],
+	] as const) {
+		layer(lanesEnvironmentLayer(lanes, socketDir))((test) => {
+			test.effect(`loads SERVER_LANES=${lanes ?? "(unset)"}`, () =>
+				Effect.gen(function* () {
+					const result = yield* loaded;
+					assert(Exit.isSuccess(result));
+					expect(result.value.server.lanes).toBe(expected);
+				}),
+			);
+		});
+	}
+
+	for (const [lanes, socketDir, message] of [
+		["batch", undefined, "SERVER_LANES must be one of: all, interactive, background"],
+		[
+			"interactive",
+			undefined,
+			"SERVER_LANES=interactive requires SERVER_RUNNER_SOCKET_DIR to be an absolute path.",
+		],
+		[
+			"background",
+			"run/ryot",
+			"SERVER_LANES=background requires SERVER_RUNNER_SOCKET_DIR to be an absolute path.",
+		],
+		[
+			"all",
+			"/run/ryot",
+			"SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is set to a role.",
+		],
+		[
+			undefined,
+			"/run/ryot",
+			"SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is set to a role.",
+		],
+	] as const) {
+		layer(lanesEnvironmentLayer(lanes, socketDir))((test) => {
+			test.effect(
+				`rejects SERVER_LANES=${lanes ?? "(unset)"} with ${socketDir ?? "no"} socket directory`,
+				() =>
+					Effect.gen(function* () {
+						const result = yield* loaded;
+						assert(Exit.isFailure(result));
+						expect(Cause.pretty(result.cause)).toContain(message);
+					}),
+			);
+		});
+	}
+});

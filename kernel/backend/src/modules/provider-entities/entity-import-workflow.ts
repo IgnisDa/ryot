@@ -1,6 +1,5 @@
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { Cause, Clock, Effect, type Exit, Option, Schema } from "effect";
-import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
@@ -11,7 +10,7 @@ import {
 	type ProviderImportPhase,
 } from "#lib/infrastructure/runtime-metrics";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+import { implementLaneWorkflow, laneWorkflow } from "#lib/infrastructure/workflow-lane";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
@@ -24,7 +23,7 @@ export class EntityImportError extends Schema.TaggedError<EntityImportError>()(
 	{ message: Schema.String, stage: Schema.Literals(["population", "provider-import-automation"]) },
 ) {}
 
-export const EntityImportWorkflow = Workflow.make("EntityImportWorkflow", {
+export const EntityImportWorkflow = laneWorkflow("EntityImportWorkflow", {
 	success: ListedEntity satisfies DurableSchema,
 	error: EntityImportError satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
@@ -68,7 +67,7 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 		dispatchAdmittedWorkflow(
 			receipts,
 			engine,
-			ProviderEntityPopulationWorkflow,
+			ProviderEntityPopulationWorkflow.forLane(payload.command.causation.lane),
 			payload.command.accountGeneration,
 			{
 				executionId: populationExecutionId,
@@ -137,7 +136,7 @@ export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(functio
 	);
 });
 
-export const EntityImportWorkflowDefinitionsLive = implementWorkflow(
+export const EntityImportWorkflowDefinitionsLive = implementLaneWorkflow(
 	EntityImportWorkflow,
 	runEntityImportWorkflow,
 );

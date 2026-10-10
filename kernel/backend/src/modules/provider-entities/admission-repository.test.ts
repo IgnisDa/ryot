@@ -128,6 +128,7 @@ describe("provider import admission ledger", () => {
 				expect(yield* repository.find({ id: "queued", userId: alice })).toBeNull();
 				expect(yield* repository.find({ id: "running", userId: alice })).toEqual({
 					status: "running",
+					payload: { id: "running" },
 				});
 			}),
 		);

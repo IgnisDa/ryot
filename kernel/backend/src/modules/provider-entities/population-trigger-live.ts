@@ -34,7 +34,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 					yield* dispatchAdmittedWorkflow(
 						receipts,
 						engine,
-						ProviderEntityPopulationWorkflow,
+						ProviderEntityPopulationWorkflow.forLane(input.command.causation.lane),
 						input.command.accountGeneration,
 						{
 							executionId,

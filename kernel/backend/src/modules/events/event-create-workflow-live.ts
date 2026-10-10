@@ -29,7 +29,8 @@ import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { implementLaneWorkflow } from "#lib/infrastructure/workflow-lane";
+import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
@@ -371,7 +372,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 	const receipts = yield* MutationReceipts.make;
 	yield* admitWorkflow(
 		receipts,
-		EventCreateWorkflow,
+		EventCreateWorkflow.forLane(payload.command.causation.lane),
 		payload.command.accountGeneration,
 		executionId,
 	);
@@ -472,7 +473,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 	return { count, failure, outcomes, warnings };
 });
 
-export const EventCreateWorkflowDefinitionsLive = implementWorkflow(
+export const EventCreateWorkflowDefinitionsLive = implementLaneWorkflow(
 	EventCreateWorkflow,
 	runEventCreateWorkflow,
 );

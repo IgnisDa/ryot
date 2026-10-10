@@ -37,7 +37,7 @@ const importCommand = (executionId: string, userId: UserId) =>
 const importWithoutMembership = (entitySchemaSlug: string) => {
 	const executionId = `${entitySchemaSlug}-import`;
 	const calls: Array<{ name: string; options: Record<string, unknown> }> = [];
-	const instance = WorkflowInstance.initial(EntityImportWorkflow, executionId);
+	const instance = WorkflowInstance.initial(EntityImportWorkflow.background, executionId);
 	const entity = {
 		properties: {},
 		name: "Fixture",
@@ -109,7 +109,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 
 	it.effect("fails the import when provider-import completion fails", () => {
 		const executionId = "failed-import";
-		const instance = WorkflowInstance.initial(EntityImportWorkflow, executionId);
+		const instance = WorkflowInstance.initial(EntityImportWorkflow.background, executionId);
 		const entity = {
 			properties: {},
 			name: "Fixture",
@@ -185,7 +185,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 			};
 			let populationReady = false;
 			const runBody = () => {
-				const instance = WorkflowInstance.initial(EntityImportWorkflow, executionId);
+				const instance = WorkflowInstance.initial(EntityImportWorkflow.background, executionId);
 				return runEntityImportWorkflow(payload, executionId).pipe(
 					Effect.provideService(
 						WorkflowEngine,
