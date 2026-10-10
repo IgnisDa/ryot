@@ -9,3 +9,9 @@ tools can add these links. Otherwise, add media to Ryot manually or set links in
 3. Under **Settings > Integrations**, create a Komga integration.
 4. Enter the base URL, such as `https://komga.example.com` or `http://127.0.0.1:25600`.
 5. Enter an API key from Komga **User Settings > API Keys**.
+
+For manga, set each book's metadata number to its chapter number so progress stays attached to the
+correct chapter.
+
+Hardcover links with book slugs need the Media plugin's `hardcoverApiKey` setting to resolve the
+book ID. Other provider links do not need that key.

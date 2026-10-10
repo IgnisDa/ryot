@@ -214,6 +214,11 @@ can duplicate earlier activity.
 | Trakt   | `user` imports history/ratings/watchlist/lists/collection; `list` imports a public user list; `export` imports an uploaded ZIP without API calls. API modes need `traktClientId`. List URLs are restricted to Trakt's `/users/{username}/lists/{slug}`. Export ratings/comments may target episodes and seasons. |
 | Spotify | Extended-history ZIP: each `trackdone` Spotify-track play is identified by `(track, ts)`. Six-play transport groups do not change listening-event counts.                                                                                                                                                        |
 
+Rating scales belong to each source, not the rating value: Goodreads, StoryGraph, Hardcover, and
+Grouvee use five points; MyAnimeList and Watcharr use ten; AniList exports use 100. AniList manga
+imports retain chapter and volume progress separately. Jellyfin imports keep played items without a
+played timestamp with an unknown completion date; malformed nonempty timestamps fail per item.
+
 Trakt's API and export parsers have separate compiler-derived configuration requirements. Setup checks
 the selected installation/mode, not remote credential validity. Issues preserve source-record and
 operation identity; reports exclude raw captures, credentials, and execution pins.
@@ -244,6 +249,12 @@ rejected at ingress, not retained as recoverable source work.
   resolved through TVDB's episode endpoint, or TMDB's IMDb/TVDB episode lookup followed by a
   series-name search verified against the season's episode IDs. Lookups are cached for one day;
   external-ID-only misses are retried on the next event. Unofficial payload handling is unchanged.
+- **Komga:** requests authenticate with `X-API-Key`. Manga progress retains its chapter number;
+  metadata links can identify manga through AniList, MyAnimeList, and MangaUpdates, or books through
+  Hardcover, OpenLibrary, and Google Books. Ownership uses the same provider mapping.
+- **Emby:** episode IDs are never treated as show IDs. Explicit series IDs avoid lookups; otherwise
+  episode external IDs or verified series/episode names and coordinates resolve the TMDB show.
+  Only successful full-identity lookups are cached. Ambiguous or unresolved episodes fail per record.
 - **Audiobookshelf:** yank reads the account's in-progress items and fetches each item's current
   progress. The account's progress count supplies an explicit snapshot limit, avoiding the upstream
   default of 25 items. The higher audio/ebook fraction becomes a progress event; finished items at
