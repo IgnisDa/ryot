@@ -71,6 +71,5 @@ layer(pluginLoadLayer, { excludeTestServices: true })((test) => {
 					expect(integration.scripts).toContain(selection.value);
 				}
 			}),
-		120_000,
 	);
 });

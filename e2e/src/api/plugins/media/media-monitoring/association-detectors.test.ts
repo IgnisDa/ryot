@@ -88,7 +88,6 @@ beforeAll(
 				personEntityId = person.id;
 			}),
 		),
-	300_000,
 );
 
 afterAll(() =>

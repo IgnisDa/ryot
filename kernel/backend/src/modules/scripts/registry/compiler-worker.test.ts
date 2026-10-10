@@ -107,6 +107,5 @@ layer(BunServices.layer, { excludeTestServices: true })((test) => {
 
 				expect(yield* fs.readDirectory(workspaceParentPath)).toEqual([]);
 			}),
-		50_000,
 	);
 });
