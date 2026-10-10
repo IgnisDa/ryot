@@ -43,23 +43,17 @@ import {
 	type PluginBridgeNavigationState,
 	type PluginBridgeSession,
 	type PluginBridgeViewportInsets,
-	type PluginScreenReadiness,
 } from "#/modules/pages/bridge/session";
 import {
 	toNavigationRequest,
 	type PluginNavigationRequest,
 } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
+import type { PageHeaderPublication, PageScreenReadiness } from "#/modules/shell/page-presentation";
 import type { ThemeStore } from "#/modules/theme/store";
 
 const PLUGIN_BACK_SETTLE_MS = 500;
 const BOOTSTRAP_TIMEOUT_MS = 15_000;
-
-export type PluginHeaderPublication = {
-	readonly index: number;
-	readonly key: string;
-	readonly title: string | null;
-};
 
 type PluginHostStatus = "loading" | "handshake-failure";
 
@@ -90,12 +84,12 @@ export function PageIframeHost(props: {
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
 	readonly mutationCompleted: RyotClient["mutationCompleted"];
 	readonly onCheckFreshness: () => Effect.Effect<boolean, Error>;
-	readonly onHeader: (header: PluginHeaderPublication) => void;
+	readonly onHeader: (header: PageHeaderPublication) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly subscribeResume?: (resumed: () => void) => () => void;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
-	readonly onScreenState: (state: PluginScreenReadiness | null) => void;
+	readonly onScreenState: (state: PageScreenReadiness | null) => void;
 	readonly onProviderSearch: (request: PluginBridgeProviderSearchScreen) => void;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;

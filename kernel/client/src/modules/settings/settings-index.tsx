@@ -1,13 +1,13 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { useNavigate } from "@tanstack/react-router";
 
-import { useRememberedWorkspacePluginId } from "#/modules/navigation/authenticated-shell-context";
-import { useDesktopEffect } from "#/modules/navigation/breakpoint";
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { SettingsSectionNav } from "#/modules/settings/section-nav";
 import { settingsGroups } from "#/modules/settings/sections";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
+import { useRememberedWorkspacePluginId } from "#/modules/shell/authenticated-shell-context";
+import { useDesktopEffect } from "#/modules/shell/breakpoint";
 
 export function SettingsIndex() {
 	const navigate = useNavigate();

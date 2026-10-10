@@ -12,9 +12,9 @@ import { useRef, useState } from "react";
 import { axe } from "vitest-axe";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
-import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
-import type { SidebarSections } from "#/modules/navigation/sidebar-sections";
 import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
+import { MobileDrawer } from "#/modules/shell/mobile-drawer";
+import type { SidebarSections } from "#/modules/shell/sidebar-sections";
 
 const workspace = (
 	overrides: Partial<PluginClientCatalogEntry> = {},

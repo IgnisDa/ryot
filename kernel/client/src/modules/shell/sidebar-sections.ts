@@ -60,19 +60,6 @@ export function sidebarSections(props: {
 export const workspaceSummary = (sections: Pick<SidebarSections, "views">) =>
 	`${sections.views.length} view${sections.views.length === 1 ? "" : "s"}`;
 
-export function workspacePickerSummary(data: NavigationData, installationId: string) {
-	const views = data.savedViews
-		.filter((item) => item.pluginInstallationId === installationId && !item.isHidden)
-		.sort((a, b) => a.sortOrder - b.sortOrder);
-	if (views.length === 0) {
-		return "Custom workspace · 0 views";
-	}
-
-	const names = views.slice(0, 3).map((item) => item.name);
-	const remaining = views.length - names.length;
-	return `${names.join(", ")}${remaining > 0 ? ` +${remaining}` : ""}`;
-}
-
 export const navigationViewHref = (view: Pick<NavigationView, "packageId" | "reference">) => {
 	const href = savedViewHref(view.reference, view.packageId);
 	if (href === undefined) {

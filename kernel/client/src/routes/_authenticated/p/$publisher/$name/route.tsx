@@ -4,7 +4,6 @@ import type { PluginBridgeProviderSearchScreen } from "@ryot-app/plugin-client-c
 import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
@@ -16,6 +15,7 @@ import type { ClientPagePreparation } from "#/modules/pages/preparation/prepare"
 import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
+import { AppScreen } from "#/modules/shell/app-screen";
 
 export const Route = createFileRoute("/_authenticated/p/$publisher/$name")({
 	component: Outlet,

@@ -4,7 +4,7 @@ import {
 	createClientDocumentControllers,
 	type ClientPageScreenState,
 	type PluginHeaderState,
-} from "#/modules/navigation/authenticated-shell-context";
+} from "#/modules/shell/authenticated-shell-context";
 
 describe("active client document owner", () => {
 	it("rejects title and readiness publications from the replaced document owner", () => {

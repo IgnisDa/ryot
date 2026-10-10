@@ -36,11 +36,8 @@ import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { waitFor } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
 
-import {
-	openPluginBridge,
-	type PluginBridgeSession,
-	type PluginScreenReadiness,
-} from "#/modules/pages/bridge/session";
+import { openPluginBridge, type PluginBridgeSession } from "#/modules/pages/bridge/session";
+import type { PageScreenReadiness } from "#/modules/shell/page-presentation";
 
 const decodeInit = Schema.decodeUnknownSync(PluginBridgeInit);
 
@@ -166,7 +163,7 @@ const connect = (
 	const providerSearches: unknown[] = [];
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
-	const screenStates: PluginScreenReadiness[] = [];
+	const screenStates: PageScreenReadiness[] = [];
 	const pageShortcuts: (readonly PageShortcutKey[])[] = [];
 	const operationCalls: Array<{
 		readonly input: unknown;

@@ -7,13 +7,13 @@ import { useEffect } from "react";
 import { PublicApi } from "#/api/public";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
 import { EntityWatchService } from "#/modules/entity-watches/service";
-import { AuthenticatedShell } from "#/modules/navigation/authenticated-shell";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { NavigationService } from "#/modules/navigation/service";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
 import { PluginCatalogProvider } from "#/modules/plugins/catalog/provider";
 import { PluginCatalogService } from "#/modules/plugins/catalog/service";
+import { AuthenticatedShell } from "#/modules/shell/authenticated-shell";
 import { ClientStorage } from "#/persistence/storage";
 
 export const Route = createFileRoute("/_authenticated")({

@@ -11,8 +11,8 @@ import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
 import { makePluginInstallationsApi, makeSavedViewsApi } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
-import type { CustomizePlan } from "#/modules/navigation/customize/customize-plan";
-import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
+import type { CustomizePlan } from "#/modules/shell/customize/customize-plan";
+import { CustomizeSidebarService } from "#/modules/shell/customize/service";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 

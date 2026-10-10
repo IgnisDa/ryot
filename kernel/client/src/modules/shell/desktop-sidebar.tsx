@@ -7,11 +7,11 @@ import clsx from "clsx";
 import type { ReactNode } from "react";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
-import { AccountSummary } from "#/modules/navigation/account-summary";
-import type { CustomizeSection } from "#/modules/navigation/customize/customize-state";
-import { SidebarNav } from "#/modules/navigation/sidebar-nav";
-import type { SidebarEntry, SidebarSections } from "#/modules/navigation/sidebar-sections";
 import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
+import { AccountSummary } from "#/modules/shell/account-summary";
+import type { CustomizeSection } from "#/modules/shell/customize/customize-state";
+import { SidebarNav } from "#/modules/shell/sidebar-nav";
+import type { SidebarEntry, SidebarSections } from "#/modules/shell/sidebar-sections";
 
 type DesktopSidebarProps = {
 	readonly isPro: boolean;
