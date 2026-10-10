@@ -6,6 +6,7 @@ import { AuthLive } from "#/modules/auth/layer";
 import { ClientPagesLive } from "#/modules/client-pages/layer";
 import { EntitiesService } from "#/modules/entities/service";
 import { EntityInterestLive } from "#/modules/entity-interest/layer";
+import { ExternalLinksLive } from "#/modules/external-links/layer";
 import { GodModeLive } from "#/modules/god-mode/layer";
 import { ImportsService } from "#/modules/imports/service";
 import { IntegrationsLive } from "#/modules/integrations/layer";
@@ -22,6 +23,7 @@ export const ClientLive = Layer.mergeAll(
 	ClientPagesLive,
 	EntitiesService.layer,
 	EntityInterestLive,
+	ExternalLinksLive,
 	GodModeLive,
 	ImportsService.layer,
 	IntegrationsLive.pipe(Layer.provideMerge(DeepLinkClaims.layer)),

@@ -4,6 +4,8 @@ import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	type ExternalLinkOutcome,
+	type ExternalLinkRequest,
 	PluginBridgeClientMessage,
 	PluginBridgeHostMessage,
 	PluginBridgeLifecycleClose,
@@ -50,6 +52,7 @@ import {
 	type PluginStorageRequest,
 } from "@ryot-app/client-plugin-contract";
 import type { EntityInterestSubscription } from "@ryot-app/client-sdk";
+import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Cause, Effect, Fiber, Match, Result, Schema } from "effect";
 
 import type { WatchEntities } from "#/modules/entity-interest/service";
@@ -84,7 +87,14 @@ type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
 type PendingRequest = {
 	readonly fiber: Fiber.Fiber<unknown, unknown>;
-	readonly type: "asset" | "collection" | "operation" | "ryotql" | "storage" | "upload";
+	readonly type:
+		| "asset"
+		| "collection"
+		| "external-link"
+		| "operation"
+		| "ryotql"
+		| "storage"
+		| "upload";
 };
 
 type PluginBridgeOptions = {
@@ -117,6 +127,7 @@ type PluginBridgeOptions = {
 		request: PluginCollectionRequest,
 	) => Effect.Effect<PluginCollectionOutcome>;
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
+	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
 	readonly onDiagnostic?: (diagnostic: {
 		readonly type: PendingRequest["type"];
@@ -130,6 +141,13 @@ const decodeHostMessage = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 const encodeHostMessage = Schema.encodeResult(PluginBridgeHostMessage);
 const decodeClientMessage = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 const decodeLifecycleClose = Schema.decodeUnknownResult(PluginBridgeLifecycleClose);
+const decodeExternalLinkEnvelope = Schema.decodeUnknownResult(
+	strictStruct({
+		url: Schema.Unknown,
+		requestId: Schema.String,
+		type: Schema.Literal("external-link-request"),
+	}),
+);
 
 const isExpectedReady = (ready: PluginBridgeReady, init: PluginBridgeInit) =>
 	ready.sessionId === init.sessionId && ready.compositionHash === init.compositionHash;
@@ -361,12 +379,19 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		let decoded = decodeHostMessage(message);
 		if (Result.isFailure(decoded)) {
 			reportDiagnostic(type, requestId, decoded.failure);
+			let reason: string;
+			if (type === "external-link") {
+				reason = "link-open-failed";
+			} else if (failure || type === "storage" || type === "ryotql") {
+				reason = "transport";
+			} else {
+				reason = "malformed-result";
+			}
 			decoded = decodeHostMessage({
+				reason,
 				requestId,
 				outcome: "failure",
 				type: `${type}-result`,
-				reason:
-					failure || type === "storage" || type === "ryotql" ? "transport" : "malformed-result",
 			});
 		}
 		if (Result.isFailure(decoded)) {
@@ -384,7 +409,10 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		type: PendingRequest["type"],
 		operation: () => Effect.Effect<Outcome>,
 	) {
-		const failure = { outcome: "failure", reason: "transport" };
+		const failure = {
+			outcome: "failure",
+			reason: type === "external-link" ? "link-open-failed" : "transport",
+		};
 		if (pending.has(requestId)) {
 			return;
 		}
@@ -393,7 +421,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			return;
 		}
 		const fiber = Effect.runFork(
-			Effect.yieldNow.pipe(
+			(type === "external-link" ? Effect.void : Effect.yieldNow).pipe(
 				Effect.flatMap(() => operation()),
 				Effect.catchCause((cause) =>
 					Cause.hasInterrupts(cause)
@@ -403,6 +431,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 								return failure;
 							}),
 				),
+				Effect.tap(() => (type === "external-link" ? Effect.yieldNow : Effect.void)),
 				Effect.tap((outcome) =>
 					Effect.sync(() => {
 						if (state !== "active" || pending.get(requestId)?.fiber !== fiber) {
@@ -503,6 +532,13 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			if (state === "active") {
 				const decoded = decodeClientMessage(event.data);
 				if (Result.isFailure(decoded)) {
+					const externalLink = decodeExternalLinkEnvelope(event.data);
+					if (Result.isSuccess(externalLink)) {
+						runRequest(externalLink.success.requestId, "external-link", () =>
+							Effect.succeed({ outcome: "failure", reason: "invalid-request" }),
+						);
+						return;
+					}
 					fail();
 					return;
 				}
@@ -562,6 +598,11 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
 						Match.when({ type: "collection-request" }, (request) => handleCollection(request)),
 						Match.when({ type: "upload-request" }, (request) => handleUpload(request)),
+						Match.when({ type: "external-link-request" }, (request) =>
+							runRequest(request.requestId, "external-link", () =>
+								options.onExternalLink({ url: request.url }),
+							),
+						),
 						Match.when({ type: "storage-request" }, (request) => handleStorage(request)),
 						Match.exhaustive,
 					);
