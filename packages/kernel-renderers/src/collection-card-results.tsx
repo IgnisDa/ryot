@@ -1,39 +1,31 @@
-import { Schema } from "@ryot-app/client-sdk/effect";
+import { Option, Schema } from "@ryot-app/client-sdk/effect";
 import { PluginLink, type EntityReference } from "@ryot-app/client-sdk/plugin";
-import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
 import {
 	EntityArtWell,
 	SyncPip,
 	fieldSyncState,
 	isTitleProvisional,
 } from "@ryot-app/client-ui-sdk/sync";
-import {
-	collectionMembersCountsRecipe,
-	type CollectionMembersCountsResult,
-} from "@ryot-app/ryotql-recipes/collections";
-import { useState } from "react";
+import type { EntityBrowserResultItem } from "@ryot-app/ryotql-recipes/saved-views";
 
 import type { BrowserLayout } from "./entity-browser-controller";
 
-const CollectionIds = Schema.Array(Schema.String);
-const decodeCollectionIds = Schema.decodeUnknownSync(Schema.fromJsonString(CollectionIds));
+const CollectionPresentation = Schema.Struct({ presentationMemberCount: Schema.Finite });
 
 const countLabel = (count: number) => `${count.toLocaleString()} item${count === 1 ? "" : "s"}`;
 
-const countText = (count: number | undefined, hasError: boolean) => {
+const countText = (count: number | undefined) => {
 	if (count !== undefined) {
 		return countLabel(count);
 	}
-	return hasError ? "Count unavailable" : "Counting items…";
+	return "Count unavailable";
 };
 
 const CollectionCard = ({
 	count,
 	layout,
 	reference,
-	countError,
 }: {
-	readonly countError: boolean;
 	readonly count: number | undefined;
 	readonly reference: EntityReference;
 	readonly layout: Exclude<BrowserLayout, "table">;
@@ -72,37 +64,33 @@ const CollectionCard = ({
 					</PluginLink>
 					{isTitleProvisional(reference) && <SyncPip reason="translating" />}
 				</span>
-				<span className="text-xs text-text-muted">{countText(count, countError)}</span>
+				<span className="text-xs text-text-muted">{countText(count)}</span>
 			</div>
 		</article>
 	);
 };
 
 export const CollectionCardResults = ({
+	items,
 	layout,
 	references,
 }: {
+	readonly items: readonly EntityBrowserResultItem[];
 	readonly references: readonly EntityReference[];
 	readonly layout: Exclude<BrowserLayout, "table">;
 }) => {
-	const collectionIds = JSON.stringify([...new Set(references.map(({ entityId }) => entityId))]);
-	const [query] = useState(() =>
-		createRyotQuery<string, CollectionMembersCountsResult>(({ input, client }) =>
-			client.data.query(
-				collectionMembersCountsRecipe({ collectionIds: decodeCollectionIds(input) }),
-			),
-		),
+	const counts = new Map(
+		items.map(({ entityId, presentation }) => [
+			entityId,
+			Option.map(
+				Schema.decodeUnknownOption(CollectionPresentation)(presentation),
+				({ presentationMemberCount }) => presentationMemberCount,
+			).pipe(Option.getOrUndefined),
+		]),
 	);
-	const result = useRyotQuery(query, collectionIds);
 	return (
 		<div className="@container">
-			{result.isError && (
-				<button type="button" onClick={result.refetch} className="mb-3 text-sm text-accent-text">
-					Retry item counts
-				</button>
-			)}
 			<div
-				aria-busy={result.isPending || result.isFetching}
 				className={
 					layout === "grid"
 						? "grid grid-cols-2 gap-x-3 gap-y-5 @lg:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5 @6xl:grid-cols-6"
@@ -114,8 +102,7 @@ export const CollectionCardResults = ({
 						layout={layout}
 						reference={reference}
 						key={reference.entityId}
-						countError={result.isError}
-						count={result.data === undefined ? undefined : (result.data[reference.entityId] ?? 0)}
+						count={counts.get(reference.entityId)}
 					/>
 				))}
 			</div>

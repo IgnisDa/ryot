@@ -26,6 +26,7 @@ import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
 import { Fragment, act, createElement, type ComponentType } from "react";
 
+import type { EntityPresentationRegistration } from "./entity-results";
 import { createRyotClient, type RyotClientAdapter } from "./index";
 import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
 import { bootstrapClientPage, createClientBootstrap } from "./plugin";
@@ -237,6 +238,7 @@ export const mountPluginPage = (
 		readonly page?: ClientPageContext | undefined;
 		readonly location?: PluginLogicalLocation | undefined;
 		readonly bootstrap?: ReturnType<typeof createClientBootstrap> | undefined;
+		readonly entityPresentations?: readonly EntityPresentationRegistration[] | undefined;
 	} = {},
 ) => {
 	document.body.innerHTML = `<div id="${CLIENT_PAGE_ROOT_ELEMENT_ID}"></div>`;
@@ -246,7 +248,12 @@ export const mountPluginPage = (
 	metadataElement.textContent = JSON.stringify(compositionMetadata);
 	document.head.append(metadataElement);
 
-	const bootstrap = (options.bootstrap?.bootstrapClientPage ?? bootstrapClientPage)(component);
+	const bootstrap = (options.bootstrap?.bootstrapClientPage ?? bootstrapClientPage)(
+		component,
+		options.entityPresentations === undefined
+			? {}
+			: { entityPresentations: options.entityPresentations },
+	);
 	const channel = new MessageChannel();
 	const messages: unknown[] = [];
 	channel.port1.addEventListener("message", ({ data }) => messages.push(data));

@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import {
+	defineEntityPresentation,
+	type EntityPresentationRegistration,
+} from "@ryot-app/client-sdk/plugin";
+import {
 	disposePluginBridges,
 	createTestRyotClock,
 	mountPluginPage,
@@ -7,7 +11,7 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/client-sdk/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
-import { Effect, Schema } from "effect";
+import { Effect, Result, Schema } from "effect";
 
 import CollectionBrowserPage from "./collection-browser";
 import EntityBrowserPage from "./entity-browser";
@@ -27,11 +31,13 @@ const openBrowser = (
 		readonly savedViewId?: string;
 		readonly settings?: Record<string, unknown>;
 		readonly clock?: ReturnType<typeof createTestRyotClock>;
+		readonly entityPresentations?: readonly EntityPresentationRegistration[];
 	} = {},
 ) => {
 	views += 1;
 	const page = mountPluginPage(EntityBrowserPage, {
 		bootstrap: options.clock?.bootstrap,
+		entityPresentations: options.entityPresentations,
 		location: routeLocation("/v/all-books", options.search ?? ""),
 		page: savedViewPageContext({
 			rendererName: "entity-browser",
@@ -93,6 +99,7 @@ const collectionBrowserRow = (entityId: string, name: string) => ({
 	...browserRow(entityId, name),
 	ownerPluginId: null,
 	entitySchemaSlug: "collection",
+	presentationMemberCount: name === "Favorites" ? 2 : 0,
 });
 
 const answerBrowser = (
@@ -155,6 +162,50 @@ describe("entity browser", () => {
 			expect(dialog.textContent).toContain("Filters are not available yet.");
 			expect(screen.queryByRole("button", { name: /^Sort results/ })).toBeNull();
 			expect(dialog.textContent).not.toContain("View as");
+		}),
+	);
+
+	it.live("renders plugin presentation data from the ordered browser request", () =>
+		Effect.gen(function* () {
+			const presentation = defineEntityPresentation<string>({
+				component: ({ data }) => <p>{`Presented ${data}`}</p>,
+				loader: () => Effect.die("Embedded presentation should not load"),
+				prepare: ({ sources, references }) =>
+					Result.all(
+						Object.fromEntries(
+							references.map(({ entityId }) => {
+								const value = sources.get(entityId)?.["column0"];
+								return [
+									entityId,
+									typeof value === "string"
+										? Result.succeed(value)
+										: Result.fail(new Error("Missing presentation name")),
+								];
+							}),
+						),
+					),
+			});
+			const page = openBrowser({
+				entityPresentations: [
+					{
+						layout: "grid",
+						ownerPluginId: "media",
+						entitySchemaSlug: "book",
+						load: () => Promise.resolve(presentation),
+					},
+				],
+			});
+			const request = yield* browserRequest(page, 0);
+			replyBrowser(page, request.requestId, [
+				browserRow("book-2", "Second"),
+				browserRow("book-1", "First"),
+			]);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(page.container?.textContent).toContain("Presented SecondPresented First"),
+				),
+			);
+			expect(page.queryRequests()).toHaveLength(1);
 		}),
 	);
 
@@ -226,27 +277,6 @@ describe("entity browser", () => {
 					collectionBrowserRow("collection-2", "Empty"),
 				]),
 			);
-			const countRequest = yield* Effect.promise(() =>
-				waitFor(() => {
-					const request = page.queryRequests("collectionMembersCounts")[0];
-					expect(request).toBeDefined();
-					return request;
-				}),
-			);
-			if (!countRequest) {
-				throw new Error("The collection member count query was not issued");
-			}
-			page.replyQuery(countRequest.requestId, {
-				outcome: "success",
-				response: {
-					data: {
-						collectionMembersCounts: {
-							type: "aggregate",
-							items: [{ total: 2, collectionId: "collection-1" }],
-						},
-					},
-				},
-			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					expect(
@@ -257,6 +287,7 @@ describe("entity browser", () => {
 					).toContain("0 items");
 				}),
 			);
+			expect(page.queryRequests()).toHaveLength(1);
 		}),
 	);
 

@@ -85,6 +85,7 @@ type AddAction = { readonly label: string; readonly open: (initialQuery?: string
 export type BrowserResultsRenderer = (input: {
 	readonly layout: Exclude<BrowserLayout, "table">;
 	readonly references: readonly EntityReference[];
+	readonly items: BrowserResult["items"];
 }) => ReactNode;
 
 type EntityBrowserControllerProps<Meta> = {
@@ -359,6 +360,11 @@ export function EntityBrowserController<Meta>({
 		entitySchemaSlug: item.entitySchemaSlug,
 		...item.sync,
 	}));
+	const presentations = new Map(
+		current.items.flatMap(({ entityId, presentation }) =>
+			presentation === null ? [] : [[entityId, presentation] as const],
+		),
+	);
 	const assets = current.items.flatMap((item) => managedCellAssets(item.cells));
 	const tableIds =
 		layout === "table"
@@ -457,8 +463,13 @@ export function EntityBrowserController<Meta>({
 	} else if (layout === "table") {
 		content = <BrowserTable settled={settled} columns={columns} items={current.items} />;
 	} else {
-		content = renderResults?.({ layout, references }) ?? (
-			<EntityResults layout={layout} references={references} viewContext={viewContext} />
+		content = renderResults?.({ layout, references, items: current.items }) ?? (
+			<EntityResults
+				layout={layout}
+				references={references}
+				viewContext={viewContext}
+				presentations={presentations}
+			/>
 		);
 	}
 

@@ -1,5 +1,5 @@
 import type { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
-import { column, field, table } from "@ryot-app/ryotql";
+import { and, column, countDistinct, eq, field, literal, table } from "@ryot-app/ryotql";
 import {
 	buildSavedViewLayoutProjections,
 	savedViewRecipe,
@@ -107,6 +107,7 @@ const collectionSchema = {
 };
 
 const collection = table("entity", "entity");
+const collectionMembership = table("relationship", "collectionMembership");
 const collectionProjections = buildSavedViewLayoutProjections({
 	table: {
 		image: null,
@@ -122,6 +123,15 @@ const collectionDataSources = savedViewRecipe({
 		entitySchemaSlugs: ["collection"],
 		fields: [
 			...collectionProjections.table.fields,
+			field(
+				"presentationMemberCount",
+				countDistinct(collectionMembership, column(collectionMembership, "sourceEntityId"), {
+					where: and(
+						eq(column(collectionMembership, "targetEntityId"), column(collection, "id")),
+						eq(column(collectionMembership, "relationshipSchemaSlug"), literal("member-of")),
+					),
+				}),
+			),
 			field("ownerPluginId", column(collection, "entitySchemaPluginId")),
 			field("entitySchemaSlug", column(collection, "entitySchemaSlug")),
 		],

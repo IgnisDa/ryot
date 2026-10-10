@@ -9,6 +9,7 @@ import {
 } from "@ryot-app/client-ui-sdk/sync";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import * as Effect from "effect/Effect";
+import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import {
 	Component,
@@ -30,11 +31,9 @@ import {
 	useEntityRefresh,
 	usePageRefreshRequest,
 	useRyotQuery,
-	useRyotSchedule,
 	type RyotQuery,
 } from "./react";
 import { PluginLink, usePluginScreenSurface } from "./routing";
-import type { RyotSchedule } from "./schedule";
 
 export type EntityResultsLayout = "grid" | "list";
 
@@ -51,6 +50,13 @@ export type EntityPresentationComponentProps<Data> = {
 	readonly viewContext: JsonValue;
 };
 
+export type EntityPresentationSource = Readonly<Record<string, JsonValue>>;
+
+export type EntityPresentationPrepare<Data = unknown> = (context: {
+	readonly sources: ReadonlyMap<string, EntityPresentationSource>;
+	readonly references: readonly EntityReference[];
+}) => Result.Result<Readonly<Record<string, Data>>, unknown>;
+
 export type EntityPresentationLoader<Data = unknown> = (context: {
 	readonly client: RyotClient;
 	readonly references: readonly EntityReference[];
@@ -58,11 +64,13 @@ export type EntityPresentationLoader<Data = unknown> = (context: {
 
 export type EntityPresentationDefinition = {
 	readonly loader: EntityPresentationLoader;
+	readonly prepare: EntityPresentationPrepare;
 	readonly component: ComponentType<EntityPresentationComponentProps<unknown>>;
 };
 
 export const defineEntityPresentation = <Data,>(definition: {
 	readonly loader: EntityPresentationLoader<Data>;
+	readonly prepare: EntityPresentationPrepare<Data>;
 	readonly component: ComponentType<EntityPresentationComponentProps<Data>>;
 }): EntityPresentationDefinition => {
 	// This is the existential boundary: callers are checked with Data, then registries erase it.
@@ -82,94 +90,15 @@ type PresentationRuntime = {
 	readonly definition: EntityPresentationDefinition;
 	readonly query: RyotQuery<BatchInput, Readonly<Record<string, unknown>>>;
 };
+type PreparedPresentation =
+	| { readonly success: true; readonly data: unknown }
+	| { readonly success: false };
 
 type PresentationEntry = {
 	readonly getSnapshot: () => "idle" | "loading" | "ready" | "failed";
 	readonly subscribe: (listener: () => void) => () => void;
 	readonly load: () => void;
 	readonly getRuntime: () => PresentationRuntime | undefined;
-};
-
-type ScheduledTask = { readonly start: () => void; readonly fail: () => void };
-
-const createBatchScheduler = (schedule: RyotSchedule) => {
-	let active = 0;
-	let scheduled: (() => void) | undefined;
-	let disposed = false;
-	const queue: ScheduledTask[] = [];
-	const drain = () => {
-		scheduled = undefined;
-		if (disposed) {
-			return;
-		}
-		while (active < 4) {
-			const task = queue.shift();
-			if (!task) {
-				return;
-			}
-			active++;
-			task.start();
-		}
-	};
-	const scheduleDrain = () => {
-		if (!disposed && scheduled === undefined) {
-			scheduled = schedule.after(0, drain);
-		}
-	};
-	return {
-		dispose: () => {
-			disposed = true;
-			scheduled?.();
-			scheduled = undefined;
-			for (const task of queue.splice(0)) {
-				task.fail();
-			}
-		},
-		run: <Data,>(load: () => Effect.Effect<Data, RyotClientError>) =>
-			Effect.uninterruptibleMask((restore) =>
-				Effect.flatMap(
-					restore(
-						Effect.callback<void, RyotClientError>((resume) => {
-							if (disposed) {
-								resume(Effect.fail(new RyotClientError("disposed")));
-								return Effect.void;
-							}
-							let started = false;
-							const task: ScheduledTask = {
-								fail: () => resume(Effect.fail(new RyotClientError("disposed"))),
-								start: () => {
-									started = true;
-									resume(Effect.void);
-								},
-							};
-							queue.push(task);
-							drain();
-							return Effect.sync(() => {
-								if (!started) {
-									const index = queue.indexOf(task);
-									if (index !== -1) {
-										queue.splice(index, 1);
-									}
-								}
-							});
-						}),
-					),
-					() =>
-						Effect.ensuring(
-							restore(
-								Effect.flatMap(
-									Effect.try({ try: load, catch: () => new RyotClientError("transport") }),
-									(effect) => effect,
-								),
-							),
-							Effect.sync(() => {
-								active--;
-								scheduleDrain();
-							}),
-						),
-				),
-			),
-	};
 };
 
 const registryKey = (
@@ -219,11 +148,7 @@ const PresentationRegistryContext = createContext<ReadonlyMap<string, Presentati
 	null,
 );
 
-const createPresentationRuntime = (
-	registrations: readonly EntityPresentationRegistration[],
-	schedule: RyotSchedule,
-) => {
-	let scheduler: ReturnType<typeof createBatchScheduler> | undefined;
+const createPresentationRuntime = (registrations: readonly EntityPresentationRegistration[]) => {
 	const registry = new Map<string, PresentationEntry>();
 	for (const registration of registrations) {
 		let state: ReturnType<PresentationEntry["getSnapshot"]> = "idle";
@@ -257,26 +182,24 @@ const createPresentationRuntime = (
 								Effect.try(() => {
 									if (
 										typeof definition.loader !== "function" ||
+										typeof definition.prepare !== "function" ||
 										typeof definition.component !== "function"
 									) {
 										throw new Error("Invalid entity presentation definition");
 									}
 									const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
-										({ input, client }) =>
-											Effect.gen(function* () {
-												const references = referencesFromBatchInput(input);
-												const requested = new Set(references.map(({ entityId }) => entityId));
-												const batch = (scheduler ??= createBatchScheduler(schedule));
-												const result = yield* batch.run(() =>
-													definition.loader({ client, references }),
-												);
+										({ input, client }) => {
+											const references = referencesFromBatchInput(input);
+											const requested = new Set(references.map(({ entityId }) => entityId));
+											return Effect.flatMap(definition.loader({ client, references }), (result) => {
 												for (const entityId of Object.keys(result)) {
 													if (!requested.has(entityId)) {
-														return yield* new RyotClientError("malformed-result");
+														return Effect.fail(new RyotClientError("malformed-result"));
 													}
 												}
-												return result;
-											}),
+												return Effect.succeed(result);
+											});
+										},
 										{ cancelOnUnmount: true },
 									);
 									presentation = { query, definition };
@@ -296,7 +219,7 @@ const createPresentationRuntime = (
 			},
 		);
 	}
-	return { registry, dispose: () => scheduler?.dispose() };
+	return registry;
 };
 
 export const EntityPresentationRegistryProvider = ({
@@ -306,14 +229,9 @@ export const EntityPresentationRegistryProvider = ({
 	readonly children: ReactNode;
 	readonly registrations: readonly EntityPresentationRegistration[];
 }) => {
-	const schedule = useRyotSchedule();
-	const runtime = useMemo(
-		() => createPresentationRuntime(registrations, schedule),
-		[registrations, schedule],
-	);
-	useEffect(() => () => runtime.dispose(), [runtime]);
+	const registry = useMemo(() => createPresentationRuntime(registrations), [registrations]);
 	return (
-		<PresentationRegistryContext.Provider value={runtime.registry}>
+		<PresentationRegistryContext.Provider value={registry}>
 			{children}
 		</PresentationRegistryContext.Provider>
 	);
@@ -424,6 +342,30 @@ class PresentationErrorBoundary extends Component<
 }
 
 const PresentedEntity = ({
+	data,
+	reference,
+	definition,
+	viewContext,
+}: {
+	readonly data: unknown;
+	readonly viewContext: JsonValue;
+	readonly reference: EntityReference;
+	readonly definition: EntityPresentationDefinition;
+}) => {
+	const [attempt, setAttempt] = useState(0);
+	const Presentation = definition.component;
+	return (
+		<PresentationErrorBoundary
+			key={attempt}
+			reference={reference}
+			onRetry={() => setAttempt((value) => value + 1)}
+		>
+			<Presentation data={data} reference={reference} viewContext={viewContext} />
+		</PresentationErrorBoundary>
+	);
+};
+
+const LoadedEntity = ({
 	input,
 	runtime,
 	reference,
@@ -435,62 +377,62 @@ const PresentedEntity = ({
 	readonly runtime: PresentationRuntime;
 }) => {
 	const result = useRyotQuery(runtime.query, input);
-	const [attempt, setAttempt] = useState(0);
+	const data = result.data?.[reference.entityId];
 	if (result.isPending) {
 		return <StatusMessage tone="pending">Loading {reference.name ?? "entity"}...</StatusMessage>;
-	}
-	const data = result.data?.[reference.entityId];
-	if (result.isError && data === undefined) {
-		return (
-			<ItemFailure
-				reference={reference}
-				onRetry={result.refetch}
-				message="This entity could not be loaded."
-			/>
-		);
 	}
 	if (data === undefined) {
 		return (
 			<ItemFailure
 				reference={reference}
 				onRetry={result.refetch}
-				message="The presentation did not return this entity."
+				message={
+					result.isError
+						? "This entity could not be loaded."
+						: "The presentation did not return this entity."
+				}
 			/>
 		);
 	}
-	const Presentation = runtime.definition.component;
 	return (
 		<>
 			{result.isError && (
-				<div key="refresh-error">
+				<div>
 					<StatusMessage tone="error">Refresh failed.</StatusMessage>
 					<Button type="button" variant="text" onClick={result.refetch}>
 						Retry
 					</Button>
 				</div>
 			)}
-			<PresentationErrorBoundary
-				key={attempt}
+			<PresentedEntity
+				data={data}
 				reference={reference}
-				onRetry={() => setAttempt((value) => value + 1)}
-			>
-				<Presentation data={data} reference={reference} viewContext={viewContext} />
-			</PresentationErrorBoundary>
+				viewContext={viewContext}
+				definition={runtime.definition}
+			/>
 		</>
 	);
 };
 
 type ResolvedItem =
-	| { readonly reference: EntityReference; readonly runtime: null }
+	| { readonly kind: "generic"; readonly reference: EntityReference }
 	| {
+			readonly kind: "pending";
 			readonly reference: EntityReference;
-			readonly runtime: undefined;
 			readonly entry: PresentationEntry;
 	  }
+	| { readonly kind: "failed"; readonly reference: EntityReference }
 	| {
+			readonly kind: "load";
 			readonly input: BatchInput;
 			readonly reference: EntityReference;
 			readonly runtime: PresentationRuntime;
+	  }
+	| {
+			readonly kind: "ready";
+			readonly data: unknown;
+			readonly reference: EntityReference;
+			readonly definition: EntityPresentationDefinition;
 	  };
 
 const EntityResultItem = ({
@@ -502,18 +444,31 @@ const EntityResultItem = ({
 	readonly layout: EntityResultsLayout;
 	readonly viewContext: JsonValue;
 }) => {
-	if (item.runtime === null) {
+	if (item.kind === "generic") {
 		return <GenericEntityCard layout={layout} reference={item.reference} />;
 	}
-	if (item.runtime === undefined) {
+	if (item.kind === "pending") {
 		return <PendingPresentation layout={layout} entry={item.entry} reference={item.reference} />;
+	}
+	if (item.kind === "failed") {
+		return <ItemFailure reference={item.reference} message="This entity could not be loaded." />;
+	}
+	if (item.kind === "load") {
+		return (
+			<LoadedEntity
+				input={item.input}
+				runtime={item.runtime}
+				viewContext={viewContext}
+				reference={item.reference}
+			/>
+		);
 	}
 	return (
 		<PresentedEntity
-			input={item.input}
-			runtime={item.runtime}
+			data={item.data}
 			viewContext={viewContext}
 			reference={item.reference}
+			definition={item.definition}
 		/>
 	);
 };
@@ -572,10 +527,12 @@ export const EntityResults = ({
 	layout,
 	references,
 	viewContext,
+	presentations,
 }: {
 	readonly viewContext: JsonValue;
 	readonly layout: EntityResultsLayout;
 	readonly references: readonly EntityReference[];
+	readonly presentations: ReadonlyMap<string, EntityPresentationSource>;
 }) => {
 	const registry = useContext(PresentationRegistryContext);
 	if (!registry) {
@@ -707,19 +664,55 @@ export const EntityResults = ({
 			}
 			return { runtime, presentation };
 		});
-		const inputs = new Map<PresentationRuntime, Map<string, BatchInput>>();
+		const prepared = new Map<PresentationRuntime, Map<string, PreparedPresentation>>();
+		const loads = new Map<PresentationRuntime, Map<string, BatchInput>>();
 		for (const [runtime, group] of grouped) {
-			const runtimeInputs = new Map<string, BatchInput>();
-			inputs.set(runtime, runtimeInputs);
+			const runtimeData = new Map<string, PreparedPresentation>();
+			const runtimeLoads = new Map<string, BatchInput>();
+			prepared.set(runtime, runtimeData);
+			loads.set(runtime, runtimeLoads);
 			const unique = [
 				...new Map(group.map((reference) => [reference.entityId, reference])).values(),
 			];
 			unique.sort((left, right) => left.entityId.localeCompare(right.entityId));
 			for (let offset = 0; offset < unique.length; offset += 100) {
 				const batchReferences = unique.slice(offset, offset + 100);
-				const input = encodeBatchInput(batchReferences);
+				const sources = new Map<string, EntityPresentationSource>();
 				for (const reference of batchReferences) {
-					runtimeInputs.set(reference.entityId, input);
+					const source = presentations.get(reference.entityId);
+					if (source !== undefined) {
+						sources.set(reference.entityId, source);
+					}
+				}
+				if (sources.size !== batchReferences.length) {
+					const input = encodeBatchInput(batchReferences);
+					for (const reference of batchReferences) {
+						runtimeLoads.set(reference.entityId, input);
+					}
+					continue;
+				}
+				let result: Result.Result<Readonly<Record<string, unknown>>, unknown>;
+				try {
+					result = runtime.definition.prepare({ sources, references: batchReferences });
+				} catch (error) {
+					result = Result.fail(error);
+				}
+				if (Result.isFailure(result)) {
+					for (const reference of batchReferences) {
+						runtimeData.set(reference.entityId, { success: false });
+					}
+					continue;
+				}
+				const requested = new Set(batchReferences.map(({ entityId }) => entityId));
+				const hasUnexpected = Object.keys(result.success).some(
+					(entityId) => !requested.has(entityId),
+				);
+				for (const reference of batchReferences) {
+					const data = result.success[reference.entityId];
+					runtimeData.set(
+						reference.entityId,
+						hasUnexpected || data === undefined ? { success: false } : { data, success: true },
+					);
 				}
 			}
 		}
@@ -727,18 +720,27 @@ export const EntityResults = ({
 			const { runtime, presentation } = entries[index] ?? {};
 			if (!runtime) {
 				if (presentation) {
-					return { reference, runtime: undefined, entry: presentation };
+					return { reference, kind: "pending", entry: presentation };
 				}
-				return { reference, runtime: null };
+				return { reference, kind: "generic" };
 			}
-			const input = inputs.get(runtime)?.get(reference.entityId);
-			if (!input) {
-				throw new Error("Entity presentation batch input is missing");
+			const input = loads.get(runtime)?.get(reference.entityId);
+			if (input !== undefined) {
+				return { input, runtime, reference, kind: "load" };
 			}
-			return { input, runtime, reference };
+			const preparedPresentation = prepared.get(runtime)?.get(reference.entityId);
+			if (preparedPresentation?.success !== true) {
+				return { reference, kind: "failed" };
+			}
+			return {
+				reference,
+				kind: "ready",
+				definition: runtime.definition,
+				data: preparedPresentation.data,
+			};
 		});
 		// oxlint-disable-next-line react-hooks/exhaustive-deps -- The registry's entries change state without changing map identity.
-	}, [layout, references, registry, presentationState]);
+	}, [layout, presentations, references, registry, presentationState]);
 	return (
 		<div className="@container">
 			<div
