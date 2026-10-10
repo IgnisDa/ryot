@@ -1,6 +1,6 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
-import { Effect, Option, Schema } from "effect";
+import { Deferred, Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
@@ -175,6 +175,97 @@ const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 		expect(yield* match.isVisible()).toBe(true);
 	});
 
+it.live("shows the minimal interstitial while loading a plugin on desktop and mobile", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
+		const installed = yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const fixtureUrl = `${getFrontendUrl()}${pluginPath(installed.packageId)}`;
+		const runPromise = Effect.runPromiseWith(yield* Effect.context());
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password, { entryPath: "/" });
+		yield* page.waitForURL((url) => /^\/p\/[^/]+\/[^/]+$/.test(url.pathname));
+
+		for (const compact of [false, true]) {
+			yield* page.setViewportSize(
+				compact ? { width: 390, height: 844 } : { width: 1280, height: 800 },
+			);
+			yield* page.use((native) =>
+				native.emulateMedia({
+					colorScheme: compact ? "light" : "dark",
+					reducedMotion: compact ? "reduce" : "no-preference",
+				}),
+			);
+			const loadingDocument = yield* Deferred.make<void>();
+			const releaseDocument = yield* Deferred.make<void>();
+			yield* Effect.addFinalizer(() => Deferred.succeed(releaseDocument, undefined));
+			yield* page.use((native) =>
+				native.route("**/api/pages/document", (route) =>
+					runPromise(
+						Effect.gen(function* () {
+							yield* Deferred.succeed(loadingDocument, undefined);
+							yield* Deferred.await(releaseDocument);
+							yield* Effect.tryPromise(() => route.continue());
+						}),
+					),
+				),
+			);
+
+			yield* page.goto(fixtureUrl);
+			yield* Deferred.await(loadingDocument);
+			yield* page
+				.getByRole("heading", { level: 1, exact: true, name: "Opening Fixture" })
+				.waitFor({ state: "visible" });
+			const status = page.getByRole("status").filter({ hasText: "Getting your view ready" });
+			expect(yield* page.getByRole("main").count).toBe(1);
+			expect(yield* status.locator('[data-app-icon="puzzle"]').count).toBe(1);
+			expect(yield* page.getByRole("heading", { level: 1 }).count).toBe(1);
+			const layout = yield* status.evaluate((element) => {
+				const main = element.closest("main");
+				const title = element.querySelector("h1");
+				if (main === null || title === null) {
+					throw new Error("Loading screen is incomplete");
+				}
+				const panel = element.getBoundingClientRect();
+				const canvas = main.getBoundingClientRect();
+				return {
+					titleSize: Number.parseFloat(getComputedStyle(title).fontSize),
+					horizontalOffset: panel.x + panel.width / 2 - canvas.x - canvas.width / 2,
+					verticalOffset: panel.y + panel.height / 2 - canvas.y - canvas.height / 2,
+				};
+			});
+			expect(Math.abs(layout.horizontalOffset)).toBeLessThan(2);
+			expect(Math.abs(layout.verticalOffset)).toBeLessThan(50);
+			expect(layout.titleSize).toBe(16);
+			const animations = yield* status
+				.locator('[aria-hidden="true"] span')
+				.evaluateAll((elements) =>
+					elements.map((element) => getComputedStyle(element).animationName),
+				);
+			expect(animations.every((animation) => animation === "none")).toBe(compact);
+			if (compact) {
+				yield* page.getByRole("button", { name: "Open navigation" }).click();
+				yield* page.getByRole("dialog", { name: "Navigation" }).waitFor({ state: "visible" });
+				yield* page.getByTestId("drawer-scrim").click({ position: { x: 380, y: 400 } });
+				yield* page.getByRole("dialog", { name: "Navigation" }).waitFor({ state: "hidden" });
+			}
+
+			yield* Deferred.succeed(releaseDocument, undefined);
+			const frame = page.locator(
+				'main > div:not([aria-hidden="true"]) iframe[title="Fixture plugin"]',
+			);
+			yield* frame.waitFor({ state: "visible" });
+			yield* frame
+				.contentFrame()
+				.getByRole("heading", { level: 1, exact: true, name: FIXTURE_CLIENT_REVISION_MARKERS.A })
+				.waitFor({ state: "visible" });
+			expect(yield* status.count).toBe(0);
+			yield* page.use((native) => native.unroute("**/api/pages/document"));
+		}
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
 it.live("runs the client plugin lifecycle in a real browser", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
@@ -283,7 +374,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const drawer = page.getByRole("dialog", { name: "Navigation" });
 		yield* menuTrigger.click();
 		yield* drawer.waitFor({ state: "visible" });
-		yield* page.getByTestId("drawer-scrim").click();
+		yield* page.getByTestId("drawer-scrim").click({ position: { x: 380, y: 400 } });
 		yield* drawer.waitFor({ state: "hidden" });
 		expect(yield* sameFrame()).toBe(true);
 		expect(yield* frame.evaluate((element) => element === document.activeElement)).toBe(true);
