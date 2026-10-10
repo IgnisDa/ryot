@@ -1,5 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
-import { Badge, Button, Row, RowGroup, Switch } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Button, Row, RowGroup } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { MarkdownContent, markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import {
@@ -13,6 +13,7 @@ import { Fragment, useState } from "react";
 
 import { mediaArtworkClass } from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
+import { MediaMonitoringRow } from "./monitoring";
 import {
 	MediaExternalLink,
 	MediaFactRow,
@@ -186,17 +187,7 @@ function MediaStatusRail(props: {
 				/>
 			)}
 			{media.providerName === null ? null : (
-				<Row
-					title="Monitoring"
-					description="Keep provider details up to date"
-					trailing={
-						<Switch
-							checked={media.isMonitored}
-							label="Toggle media monitoring"
-							onChange={() => console.log("TODO: toggle media monitoring")}
-						/>
-					}
-				/>
+				<MediaMonitoringRow key={media.id} entityId={media.id} monitored={media.isMonitored} />
 			)}
 			<Row
 				title="In media library"

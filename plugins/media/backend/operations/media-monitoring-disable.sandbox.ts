@@ -2,7 +2,10 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
-import { MediaMonitoringDisableInput, MediaMonitoringOutput } from "../contracts/operations";
+import {
+	MediaMonitoringDisableInput,
+	MediaMonitoringOutput,
+} from "../../shared/media-monitoring-operations";
 import {
 	alignedMediaMonitoringResults,
 	queryMediaMonitoringTargets,

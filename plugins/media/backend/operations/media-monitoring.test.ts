@@ -3,9 +3,12 @@ import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
+import {
+	MediaMonitoringEnableInput,
+	MediaMonitoringOutput,
+} from "../../shared/media-monitoring-operations";
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
-import { MediaMonitoringEnableInput, MediaMonitoringOutput } from "../contracts/operations";
 import disableDefinition, { manifest as disableManifest } from "./media-monitoring-disable.sandbox";
 import enableDefinition, { manifest as enableManifest } from "./media-monitoring-enable.sandbox";
 import statusDefinition, { manifest as statusManifest } from "./media-monitoring-status.sandbox";

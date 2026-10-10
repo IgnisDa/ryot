@@ -196,6 +196,8 @@ IGDB dynamic search options come from its provider and are backend-cached.
 
 Monitoring status/enable/disable accept at most 50 visible, global, provider-backed monitorable
 entities. Enable atomically adds library membership and monitoring; disable removes monitoring only.
+Their schemas live in `shared/media-monitoring-operations.ts` for backend and client use. The summary
+monitoring switch disables during a write, reports failures inline, and refreshes queries on success.
 Invalid targets return aligned misses. Demo sessions can read status and resolve episodes, but
 monitoring changes and custom saves are protected. Integration metadata lookup uses integration auth.
 The cron pages its pinned query, deduplicates global IDs, and refreshes bounded provider batches with
