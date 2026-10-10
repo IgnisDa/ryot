@@ -7,14 +7,14 @@ import {
 	type genericImportFailureSchema,
 } from "@ryot-app/plugin-backend-sdk/imports";
 
-import { parseCsvText, readCsvCell } from "./csv";
-import { adaptHevyRows } from "./hevy";
+import { parseCsvText } from "./csv";
+import { adaptHevyRows, hevyWorkoutKey } from "./hevy";
 import { fitnessFailureOperationId } from "./identity";
 import { toMeasurementWriteItem } from "./measurement";
 import { adaptOpenScaleRows } from "./open-scale";
 import type { FitnessStageInput, FitnessStageOutput } from "./schemas";
 import { FitnessRecord } from "./schemas";
-import { adaptStrongAppRows } from "./strong-app";
+import { adaptStrongAppRows, strongAppWorkoutKey } from "./strong-app";
 import { toWorkoutWriteItem } from "./workout";
 
 const PAGE_BYTES = 512 * 1024;
@@ -183,10 +183,10 @@ const collect = Effect.fn(function* (
 		const itemIndex = input.itemIndex + records.length;
 		let key = String(itemIndex).padStart(12, "0");
 		if (source === "hevy") {
-			key = `${readCsvCell(row, ["start_time", "Start Time", "StartTime"]) ?? ""}:${readCsvCell(row, ["title", "Title"]) ?? ""}`;
+			key = hevyWorkoutKey(row);
 		}
 		if (source === "strong_app") {
-			key = `${readCsvCell(row, ["Date"]) ?? ""}:${readCsvCell(row, ["Workout Name", "WorkoutName"]) ?? ""}`;
+			key = strongAppWorkoutKey(row);
 		}
 		const record = { key, row, itemIndex, failures: [] };
 		const bytes = encoder.encode(encodeRecord(record)).length + 1;
@@ -346,7 +346,7 @@ const normalize = Effect.fn(function* (
 		}
 		const unit = source === "open_scale" ? "measurements" : "workouts";
 		for (const failure of result.failures) {
-			const failureUnit = failure.sourceLabel.startsWith("Exercise:") ? "exercises" : unit;
+			const failureUnit = "unit" in failure ? failure.unit : unit;
 			records.push({
 				itemIndex: failure.itemIndex,
 				key: String(failure.itemIndex).padStart(12, "0"),

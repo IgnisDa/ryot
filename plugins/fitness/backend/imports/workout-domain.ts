@@ -51,6 +51,7 @@ const WorkoutAdapterFailureSchema = Schema.Struct({
 	itemIndex: Schema.Finite,
 	sourceLabel: Schema.String,
 	sourceIdentifier: Schema.String,
+	unit: Schema.Literals(["workouts", "exercises"]),
 });
 
 export type WorkoutAdapterFailure = Schema.Schema.Type<typeof WorkoutAdapterFailureSchema>;

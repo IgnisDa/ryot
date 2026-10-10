@@ -26,6 +26,8 @@ type HevyRow = {
 	durationSeconds?: number | undefined;
 };
 
+const titleColumns = ["title", "Title"];
+
 const readHevyWeight = (row: Record<string, string>) => {
 	const kilograms = readOptionalCsvNumber(row, ["weight_kg", "Weight (kg)"]);
 	if (kilograms !== undefined) {
@@ -45,7 +47,7 @@ const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => {
 		itemIndex: rowIdx,
 		weight: readHevyWeight(row),
 		reps: readOptionalCsvNumber(row, ["reps", "Reps"]),
-		title: readRequiredCsvCell(row, ["title", "Title"], "Title"),
+		title: readRequiredCsvCell(row, titleColumns, "Title"),
 		description: readCsvCell(row, ["description", "Description"]),
 		endTime: readRequiredCsvCell(row, ["end_time", "End Time", "EndTime"], "End Time"),
 		setType: readRequiredCsvCell(row, ["set_type", "Set Type", "SetType"], "Set Type"),
@@ -159,6 +161,12 @@ const sourceLabelForWorkout = (row: HevyRow) => `${row.title} (${row.startTime})
 const sourceIdentifierForWorkout = (row: Pick<HevyRow, "startTime" | "title">) =>
 	`${row.startTime}:${row.title}`;
 
+export const hevyWorkoutKey = (row: Record<string, string>) =>
+	sourceIdentifierForWorkout({
+		title: readCsvCell(row, titleColumns) ?? "",
+		startTime: readCsvCell(row, ["start_time", "Start Time", "StartTime"]) ?? "",
+	});
+
 export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterResult => {
 	const { rows, headers } = parseCsvText(csvText);
 	if (headers.length === 0) {
@@ -180,6 +188,7 @@ export const adaptHevyRows = (
 		const parsed = Result.try(() => parseHevyRow(row, rowIdx));
 		if (Result.isFailure(parsed)) {
 			failures.push({
+				unit: "workouts",
 				itemIndex: rowIdx,
 				sourceLabel: `Row ${rowIdx + 1}`,
 				sourceIdentifier: String(rowIdx + 1),
@@ -210,6 +219,7 @@ export const adaptHevyRows = (
 		if (Option.isNone(startedAt)) {
 			failures.push({
 				sourceLabel,
+				unit: "workouts",
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
 				message: `Could not parse workout start time "${firstRow.startTime}"`,
@@ -232,6 +242,7 @@ export const adaptHevyRows = (
 			const kind = determineWorkoutExerciseKind(sets);
 			if (!kind) {
 				failures.push({
+					unit: "exercises",
 					sourceLabel: `Exercise: ${exerciseName}`,
 					sourceIdentifier: `${sourceIdentifier}:${exerciseName}`,
 					itemIndex: exerciseRows[0]?.itemIndex ?? firstRow.itemIndex,
@@ -245,6 +256,7 @@ export const adaptHevyRows = (
 		if (exercises.length === 0) {
 			failures.push({
 				sourceLabel,
+				unit: "workouts",
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
 				message: "Workout has no importable exercises",

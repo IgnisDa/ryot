@@ -25,6 +25,9 @@ type StrongAppRow = {
 	workoutNotes?: string | undefined;
 };
 
+const dateColumns = ["Date"];
+const workoutNameColumns = ["Workout Name", "WorkoutName"];
+
 const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongAppRow => {
 	const unlabelledWeight = readCsvCell(row, ["Weight"]);
 	if (unlabelledWeight !== undefined) {
@@ -47,10 +50,10 @@ const parseStrongAppRow = (row: Record<string, string>, rowIdx: number): StrongA
 		notes: readCsvCell(row, ["Notes"]),
 		reps: readOptionalCsvNumber(row, ["Reps"]),
 		seconds: readOptionalCsvNumber(row, ["Seconds"]),
-		date: readRequiredCsvCell(row, ["Date"], "Date"),
+		date: readRequiredCsvCell(row, dateColumns, "Date"),
 		setOrder: readRequiredCsvCell(row, ["Set Order"], "Set Order"),
 		workoutNotes: readCsvCell(row, ["Workout Notes", "WorkoutNotes"]),
-		workoutName: readRequiredCsvCell(row, ["Workout Name", "WorkoutName"], "Workout Name"),
+		workoutName: readRequiredCsvCell(row, workoutNameColumns, "Workout Name"),
 		exerciseName: readRequiredCsvCell(row, ["Exercise Name", "ExerciseName"], "Exercise Name"),
 		weight:
 			weightKilograms ?? (weightPounds !== undefined ? poundsToKilograms(weightPounds) : undefined),
@@ -111,6 +114,12 @@ const sourceLabelForWorkout = (row: StrongAppRow) => `${row.workoutName} (${row.
 const sourceIdentifierForWorkout = (row: Pick<StrongAppRow, "date" | "workoutName">) =>
 	`${row.date}:${row.workoutName}`;
 
+export const strongAppWorkoutKey = (row: Record<string, string>) =>
+	sourceIdentifierForWorkout({
+		date: readCsvCell(row, dateColumns) ?? "",
+		workoutName: readCsvCell(row, workoutNameColumns) ?? "",
+	});
+
 export const adaptStrongAppCsv = (csvText: string, timezone: string): WorkoutAdapterResult => {
 	const { rows, headers } = parseCsvText(csvText);
 	if (headers.length === 0) {
@@ -132,6 +141,7 @@ export const adaptStrongAppRows = (
 		const parsed = Result.try(() => parseStrongAppRow(row, rowIdx));
 		if (Result.isFailure(parsed)) {
 			failures.push({
+				unit: "workouts",
 				itemIndex: rowIdx,
 				sourceLabel: `Row ${rowIdx + 1}`,
 				sourceIdentifier: String(rowIdx + 1),
@@ -170,6 +180,7 @@ export const adaptStrongAppRows = (
 		if (Option.isNone(startedAt)) {
 			failures.push({
 				sourceLabel,
+				unit: "workouts",
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
 				message: `Could not parse workout date "${date}"`,
@@ -181,6 +192,7 @@ export const adaptStrongAppRows = (
 		if (Result.isFailure(parsedDuration)) {
 			failures.push({
 				sourceLabel,
+				unit: "workouts",
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
 				message:
@@ -204,6 +216,7 @@ export const adaptStrongAppRows = (
 			const kind = determineWorkoutExerciseKind(sets);
 			if (!kind) {
 				failures.push({
+					unit: "exercises",
 					sourceLabel: `Exercise: ${exerciseName}`,
 					sourceIdentifier: `${sourceIdentifier}:${exerciseName}`,
 					itemIndex: exerciseRows[0]?.itemIndex ?? firstRow.itemIndex,
@@ -217,6 +230,7 @@ export const adaptStrongAppRows = (
 		if (exercises.length === 0) {
 			failures.push({
 				sourceLabel,
+				unit: "workouts",
 				sourceIdentifier,
 				itemIndex: firstRow.itemIndex,
 				message: "Workout has no importable exercises",

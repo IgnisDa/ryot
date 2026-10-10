@@ -424,6 +424,68 @@ it.each(["hevy", "strong_app"])(
 	},
 );
 
+it.each(["hevy", "strong_app"])(
+	"keeps %s grouping and failure kinds source-owned with aliased headers and malformed rows",
+	(source) =>
+		Effect.runPromise(
+			runImport(
+				source,
+				(source === "hevy"
+					? [
+							"Title,StartTime,EndTime,ExerciseTitle,SetType,SetOrder,Weight (kg),Reps",
+							"Morning,2026-01-01 08:00:00,2026-01-01 09:00:00,Bench Press,normal,1,100,5",
+							"Evening,2026-01-01 08:00:00,2026-01-01 09:00:00,Bench Press,normal,1,110,5",
+							"Morning,2026-01-01 08:00:00,2026-01-01 09:00:00,Bench Press,normal,2,bad,5",
+							"Morning,2026-01-01 08:00:00,2026-01-01 09:00:00,Bench Press,normal,3,120,5",
+							"Exercise: Empty,2026-01-01 08:00:00,2026-01-01 09:00:00,Mystery,normal,1,,",
+							",2026-01-01 08:00:00,2026-01-01 09:00:00,Bench Press,normal,1,100,5",
+							"Malformed,,,Bench Press,normal,1,100,5",
+						]
+					: [
+							"Date,WorkoutName,WorkoutDuration,ExerciseName,Set Order,Weight (kg),Reps",
+							"2026-01-01 08:00:00,Morning,3600,Bench Press,1,100,5",
+							"2026-01-01 08:00:00,Evening,3600,Bench Press,1,110,5",
+							"2026-01-01 08:00:00,Morning,3600,Bench Press,2,bad,5",
+							"2026-01-01 08:00:00,Morning,3600,Bench Press,3,120,5",
+							"2026-01-01 08:00:00,Exercise: Empty,3600,Mystery,1,,",
+							"2026-01-01 08:00:00,,3600,Bench Press,1,100,5",
+							",Malformed,,Bench Press,1,100,5",
+						]
+				).join("\n"),
+			).pipe(
+				Effect.map((result) => {
+					const items = result.chunks.flatMap((chunk) => chunk.items);
+					expect(items.map((item) => item.itemIndex)).toEqual([0, 1]);
+					expect(items[0]?.events.map((event) => event.properties["weight"])).toEqual([100, 120]);
+					expect(items[1]?.events.map((event) => event.properties["weight"])).toEqual([110]);
+					expect(result.chunks.flatMap((chunk) => chunk.failures)).toMatchObject([
+						{ itemIndex: 2, unit: "workouts", sourceLabel: "Row 3", recordKind: "workouts" },
+						{
+							itemIndex: 4,
+							unit: "exercises",
+							recordKind: "exercises",
+							sourceLabel: "Exercise: Mystery",
+						},
+						{
+							itemIndex: 4,
+							unit: "workouts",
+							recordKind: "workouts",
+							sourceLabel: "Exercise: Empty (2026-01-01 08:00:00)",
+						},
+						{ itemIndex: 5, unit: "workouts", sourceLabel: "Row 6", recordKind: "workouts" },
+						{
+							itemIndex: 6,
+							unit: "workouts",
+							sourceLabel: "Row 7",
+							recordKind: "workouts",
+							message: source === "hevy" ? "Row is missing End Time" : "Row is missing Date",
+						},
+					]);
+				}),
+			),
+		),
+);
+
 it("applies more than one OpenScale batch with original row identities and measurement units", () =>
 	Effect.runPromise(
 		runImport(
