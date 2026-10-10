@@ -12,14 +12,12 @@ import {
 	installTestPluginBundle,
 	listAdminGlobalRelationships,
 	listAdminSandboxScripts,
-	listRelationshipSchemas,
-	requireRelationshipSchemaBySlug,
 	providerSandboxSource,
-	installTestSupportSystemPlugin,
 	type InstalledTestPlugin,
 	uninstallTestPlugin,
+	testPluginEntitySchema,
+	trendingSandboxSource,
 } from "~/fixtures/kernel";
-import { findMediaEntitySchema, trendingSandboxSource } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import {
 	afterAll,
@@ -31,6 +29,8 @@ import {
 	runPromise,
 } from "~/support/effect-test";
 
+const MOVIE_SCHEMA_SLUG = "movie";
+const TRENDING_SCHEMA_SLUG = "media-trending";
 const SCRIPT_SLUG = "movie.e2e-test-trending";
 const PROVIDER_SLUG = "movie.e2e-test-trending-provider";
 const DETAILS_SCRIPT_SLUG = `${PROVIDER_SLUG}.details`;
@@ -48,41 +48,36 @@ const TRENDING_SOURCE = trendingSandboxSource({
 
 let providerId: string;
 let queryClient: Client;
-let movieSchemaId: string;
 let trendingPluginId: InstalledTestPlugin["pluginId"];
-let mediaTrendingSchemaId: string;
 let trendingPlugin: InstalledTestPlugin | undefined;
 
-describe("POST /test-support/cron/plugin (media-trending cron)", () => {
+describe("plugin cron global writes", () => {
 	beforeAll(() =>
 		runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				queryClient = client;
 
-				const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
-				const relationshipSchemas = yield* listRelationshipSchemas(client, {
-					slugs: ["media-trending"],
-					owner: movieSchema.reference.owner,
-				});
-				movieSchemaId = movieSchema.id;
-				mediaTrendingSchemaId = requireRelationshipSchemaBySlug(
-					relationshipSchemas,
-					"media-trending",
-					movieSchema.reference.owner,
-				).id;
-
 				const detailsEntry = `backend/providers/${PROVIDER_SLUG}/details.sandbox.ts`;
 				const trendingEntry = `backend/providers/${PROVIDER_SLUG}/trending.sandbox.ts`;
 				const installed = yield* installTestPluginBundle({
 					scope: "system",
 					configSchema: { fields: {}, unknownKeys: "strict" },
+					entitySchemas: [testPluginEntitySchema({ slug: MOVIE_SCHEMA_SLUG })],
+					crons: [
+						{
+							scriptSlug: SCRIPT_SLUG,
+							slug: "e2e-test-trending",
+							schedule: { cron: "0 0 * * *" },
+							description: "Refresh E2E trending fixtures",
+						},
+					],
 					providers: [
 						{
 							slug: PROVIDER_SLUG,
 							information: { source: "e2e" },
 							name: "E2E Test Trending Provider",
-							rootEntitySchemaSlug: movieSchemaId,
+							rootEntitySchemaSlug: MOVIE_SCHEMA_SLUG,
 							operations: { details: DETAILS_SCRIPT_SLUG },
 						},
 					],
@@ -95,6 +90,20 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 							result: fakeProviderDetailsResult({ name: "E2E Test Trending Provider" }),
 						}),
 					},
+					relationshipSchemas: [
+						{
+							name: "Trending",
+							slug: TRENDING_SCHEMA_SLUG,
+							sourceEntitySchemaSlug: null,
+							targetEntitySchemaSlug: null,
+							propertiesSchema: {
+								fields: {
+									rank: { label: "Rank", type: "number", description: "Rank" },
+									fetchedAt: { type: "datetime", label: "Fetched at", description: "Fetched at" },
+								},
+							},
+						},
+					],
 					scripts: [
 						{
 							kind: "provider",
@@ -116,21 +125,6 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 							capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
 						},
 					],
-				});
-				installed.manifest = {
-					...installed.manifest,
-					crons: [
-						{
-							scriptSlug: SCRIPT_SLUG,
-							slug: "e2e-test-trending",
-							schedule: { cron: "0 0 * * *" },
-							description: "Refresh E2E trending fixtures",
-						},
-					],
-				};
-				yield* installTestSupportSystemPlugin({
-					files: installed.files,
-					manifest: installed.manifest,
 				});
 				const directScriptId = installed.scriptIds[SCRIPT_SLUG];
 				assertPresent(directScriptId, "Trending direct script was not installed");
@@ -174,7 +168,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 		}),
 	);
 
-	it.live("runs a direct media-trending cron script end-to-end and writes ranked self-edges", () =>
+	it.live("runs a direct cron script end-to-end and writes ranked self-edges", () =>
 		Effect.gen(function* () {
 			const result = yield* getApiClient().call(
 				(c) =>
@@ -191,7 +185,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 			const listCandidates = Effect.gen(function* () {
 				const relationships = yield* listAdminGlobalRelationships({
 					type: "self",
-					relationshipSchemaSlug: RelationshipSchemaSlug.make(mediaTrendingSchemaId),
+					relationshipSchemaSlug: RelationshipSchemaSlug.make(TRENDING_SCHEMA_SLUG),
 				});
 				return yield* Effect.forEach(relationships, (relationship) =>
 					Effect.gen(function* () {
