@@ -7,7 +7,6 @@ import {
 	createNotificationChannel,
 	fakeProviderDetailsResult,
 	getApiClient,
-	getBuiltinEntitySchemaSlug,
 	getEntity,
 	providerSandboxSource,
 	replaceSandboxScriptCompiledRepresentation,
@@ -20,6 +19,7 @@ import {
 	countMediaMonitoringRelationships,
 	disableMediaMonitoring,
 	enableMediaMonitoring,
+	findMediaEntitySchema,
 	getMediaMonitoringStatus,
 	queryInMediaLibraryRelationship,
 	seedMediaEntity,
@@ -78,7 +78,8 @@ beforeAll(() =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerCompilerClient = client;
-			movieSchemaId = yield* getBuiltinEntitySchemaSlug(client, "movie");
+			const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
+			movieSchemaId = movieSchema.id;
 			provider = yield* installTestProvider({
 				client,
 				scope: "system",
@@ -87,7 +88,8 @@ beforeAll(() =>
 				details: providerDetails("Continuing"),
 				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
 			});
-			const showSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show");
+			const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
+			const showSchemaId = showSchema.id;
 			discoveryProvider = yield* installTestProvider({
 				client,
 				scope: "system",
@@ -220,11 +222,15 @@ describe("media monitoring endpoints", () => {
 		Effect.gen(function* () {
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
-			const [seasonSchemaId, episodeSchemaId, groupSchemaId] = yield* Effect.all([
-				getBuiltinEntitySchemaSlug(owner.client, "show-season"),
-				getBuiltinEntitySchemaSlug(owner.client, "show-episode"),
-				getBuiltinEntitySchemaSlug(owner.client, "movie-group"),
-			]);
+			const [{ schema: seasonSchema }, { schema: episodeSchema }, { schema: groupSchema }] =
+				yield* Effect.all([
+					findMediaEntitySchema(owner.client, "show-season"),
+					findMediaEntitySchema(owner.client, "show-episode"),
+					findMediaEntitySchema(owner.client, "movie-group"),
+				]);
+			const seasonSchemaId = seasonSchema.id;
+			const episodeSchemaId = episodeSchema.id;
+			const groupSchemaId = groupSchema.id;
 			const unsupported = yield* Effect.all([
 				seedMediaEntity({
 					name: "Season",

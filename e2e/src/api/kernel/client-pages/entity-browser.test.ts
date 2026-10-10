@@ -14,8 +14,8 @@ describe("kernel entity browser E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const view = yield* createEntityBrowserSavedView(client);
-			const first = yield* prepareClientPage(client, view.slug);
-			const second = yield* prepareClientPage(client, view.slug);
+			const first = yield* prepareClientPage(client, view.reference);
+			const second = yield* prepareClientPage(client, view.reference);
 			assertCondition(
 				first.identity.kind === "kernel-saved-view" && second.identity.kind === "kernel-saved-view",
 				"Expected kernel saved-view preparation identities",

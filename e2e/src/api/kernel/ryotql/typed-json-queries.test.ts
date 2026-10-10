@@ -57,7 +57,7 @@ describe("RyotQL typed JSON entity queries", () => {
 			yield* Effect.all([
 				createEntityFixture(client, {
 					name: "Book Alpha",
-					entitySchemaSlug: book.schemaId,
+					entitySchema: book.reference,
 					properties: {
 						author: "Author A",
 						tags: ["featured", "paperback"],
@@ -72,7 +72,7 @@ describe("RyotQL typed JSON entity queries", () => {
 				}),
 				createEntityFixture(client, {
 					name: "Book Beta",
-					entitySchemaSlug: book.schemaId,
+					entitySchema: book.reference,
 					properties: {
 						author: "Author B",
 						tags: ["featured", "paperback"],
@@ -85,12 +85,12 @@ describe("RyotQL typed JSON entity queries", () => {
 				}),
 				createEntityFixture(client, {
 					name: "Movie Gamma",
-					entitySchemaSlug: movie.schemaId,
+					entitySchema: movie.reference,
 					properties: { director: "Director G", details: { score: 4.6 } },
 				}),
 				createEntityFixture(client, {
 					name: "Course Advanced",
-					entitySchemaSlug: course.schemaId,
+					entitySchema: course.reference,
 					properties: {
 						code: "100%_Ready",
 						tags: ["advanced", "api"],
@@ -99,7 +99,7 @@ describe("RyotQL typed JSON entity queries", () => {
 				}),
 				createEntityFixture(client, {
 					name: "Course Decoy",
-					entitySchemaSlug: course.schemaId,
+					entitySchema: course.reference,
 					properties: {
 						code: "100XXReady",
 						tags: ["advanced"],
@@ -234,7 +234,7 @@ describe("RyotQL typed JSON entity queries", () => {
 			yield* Effect.all([
 				createEntityFixture(client, {
 					name: "Cast Invalid",
-					entitySchemaSlug: schemaDefinition.schemaId,
+					entitySchema: schemaDefinition.reference,
 					properties: {
 						text: 42,
 						json: null,
@@ -245,7 +245,7 @@ describe("RyotQL typed JSON entity queries", () => {
 				}),
 				createEntityFixture(client, {
 					name: "Cast Valid",
-					entitySchemaSlug: schemaDefinition.schemaId,
+					entitySchema: schemaDefinition.reference,
 					properties: {
 						number: 12.5,
 						text: "ready",

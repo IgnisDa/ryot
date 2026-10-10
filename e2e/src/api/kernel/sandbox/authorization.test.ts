@@ -48,7 +48,7 @@ describe("sandbox capability authorization", () => {
 			const result = yield* getApiClient().call(
 				(c) =>
 					c.testSupport.triggerPluginCron({
-						payload: { pluginSlug: installed.pluginSlug, cronSlug: "system-denied-capability" },
+						payload: { pluginId: installed.pluginId, cronSlug: "system-denied-capability" },
 					}),
 				adminHeaders(),
 			);

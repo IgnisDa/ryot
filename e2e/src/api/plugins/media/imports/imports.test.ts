@@ -9,6 +9,7 @@ import {
 	waitForEventSlugs,
 } from "~/fixtures/kernel";
 import {
+	findMediaEntitySchema,
 	queryInMediaLibraryRelationship,
 	seedGlobalShowEpisodeTree,
 } from "~/fixtures/plugins/media";
@@ -20,6 +21,7 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 		() =>
 			Effect.gen(function* () {
 				const { token, client } = yield* createAuthenticatedClient();
+				const { pluginId } = yield* findMediaEntitySchema(client, "show");
 
 				// Pre-seed an already-populated show → season → episode tree so the import
 				// resolves the episode positionally without any external provider calls.
@@ -59,7 +61,12 @@ describe("Watcharr Show Import E2E (episode resolution)", () => {
 					"application/json",
 				);
 				const created = yield* client.call((c) =>
-					c.imports.createRun({ payload: { uploadToken, source: "watcharr" } }),
+					c.imports.createRun({
+						payload: {
+							uploadToken,
+							source: { slug: "watcharr", owner: { pluginId, kind: "plugin" } },
+						},
+					}),
 				);
 				const completedRun = yield* pollImportRunUntilTerminal(client, created.id);
 				const membership = yield* queryInMediaLibraryRelationship(client, showId, "show");

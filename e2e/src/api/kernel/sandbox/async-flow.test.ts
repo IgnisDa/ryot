@@ -175,16 +175,12 @@ describe("sandbox async flow", () => {
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const pluginSlug = createPluginScope();
-			const { slug, data: schema } = yield* createEntitySchema(client, {
+			const { slug, reference } = yield* createEntitySchema(client, {
 				pluginSlug,
 				name: "Sandbox Schema",
 				slug: `sandbox-schema-${crypto.randomUUID()}`,
 			});
-			yield* createEntity(client, {
-				properties: {},
-				name: "Test Entity",
-				entitySchemaSlug: schema.id,
-			});
+			yield* createEntity(client, { properties: {}, name: "Test Entity", entitySchema: reference });
 			const sandboxSlug = `execute-ryotql-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
 				client,

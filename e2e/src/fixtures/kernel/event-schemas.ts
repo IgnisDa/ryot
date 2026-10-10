@@ -1,5 +1,9 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import type {
+	EntitySchemaReference,
+	EventSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { Effect } from "effect";
 
@@ -13,7 +17,7 @@ type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 type PluginEventSchema = PluginEntitySchema["eventSchemas"][number];
 
 type CreateEventSchemaOptions = Pick<PluginEventSchema, "name" | "slug"> & {
-	entitySchemaSlug: PluginEntitySchema["slug"];
+	entitySchema: EntitySchemaReference;
 	propertiesSchema?: PluginEventSchema["propertiesSchema"];
 };
 
@@ -28,8 +32,8 @@ export function requireEventSchemaBySlug<T extends { slug: string }>(
 export const createEventSchema = (client: Client, body: CreateEventSchemaOptions) =>
 	Effect.gen(function* () {
 		const registered = requirePresent(
-			findTestEntitySchema(body.entitySchemaSlug),
-			`Entity schema '${body.entitySchemaSlug}' not found`,
+			findTestEntitySchema(client, body.entitySchema),
+			`Entity schema '${body.entitySchema.slug}' not found`,
 		);
 		const eventSchema = {
 			name: body.name,
@@ -54,21 +58,36 @@ export const createEventSchema = (client: Client, body: CreateEventSchemaOptions
 		return {
 			...eventSchema,
 			id: EventSchemaSlug.make(body.slug),
-			entitySchemaSlug: EntitySchemaSlug.make(body.entitySchemaSlug),
+			entitySchemaSlug: body.entitySchema.slug,
+			reference: {
+				owner: body.entitySchema.owner,
+				slug: EventSchemaSlug.make(body.slug),
+				entitySchemaSlug: body.entitySchema.slug,
+			} satisfies EventSchemaReference,
 		};
 	});
 
-export const listEventSchemas = (client: Client, entitySchemaSlug: string) =>
+export const listEventSchemas = (client: Client, reference: EntitySchemaReference) =>
 	collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 })).pipe(
 		Effect.map((schemas) =>
 			requirePresent(
-				schemas.find((schema) => schema.slug === entitySchemaSlug),
-				`Entity schema '${entitySchemaSlug}' not found`,
+				schemas.find(
+					(schema) =>
+						schema.slug === reference.slug &&
+						schema.pluginId ===
+							(reference.owner.kind === "kernel" ? null : reference.owner.pluginId),
+				),
+				`Entity schema '${reference.slug}' not found`,
 			)
 				.eventSchemas.items.map((schema) =>
 					Object.assign({}, schema, {
+						entitySchemaSlug: reference.slug,
 						id: EventSchemaSlug.make(schema.slug),
-						entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+						reference: {
+							owner: reference.owner,
+							entitySchemaSlug: reference.slug,
+							slug: EventSchemaSlug.make(schema.slug),
+						} satisfies EventSchemaReference,
 					}),
 				)
 				.sort((left, right) => left.slug.localeCompare(right.slug)),

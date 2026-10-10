@@ -510,8 +510,17 @@ const createFixtureEntity = (client: Client, marker: string = crypto.randomUUID(
 	createEntity(client, {
 		properties: { marker },
 		name: `Lifecycle ${marker}`,
-		entitySchemaSlug: EntitySchemaSlug.make(slugs.entity),
+		entitySchema: {
+			slug: EntitySchemaSlug.make(slugs.entity),
+			owner: {
+				kind: "plugin" as const,
+				pluginId: requirePresent(installed, "Lifecycle plugin is not installed").pluginId,
+			},
+		},
 	});
+
+const lifecyclePluginId = () =>
+	requirePresent(installed, "Lifecycle plugin is not installed").pluginId;
 
 const eventInput = (
 	entityId: EventInput["entityId"],
@@ -544,6 +553,8 @@ const eventRequestPayload = (input: EventInput): EventCreateRequestPayload => {
 			sessionEntityId: null,
 			entityId: input.entityId,
 			eventSchemaSlug: input.eventSchemaSlug,
+			eventSchemaPluginId: lifecyclePluginId(),
+			entitySchemaPluginId: lifecyclePluginId(),
 			entitySchemaSlug: EntitySchemaSlug.make(slugs.entity),
 			properties: { marker: Reflect.get(properties, "marker") },
 			occurredAt: requirePresent(input.occurredAt, "Fixture event requires occurredAt"),
@@ -644,9 +655,6 @@ describe("automation lifecycle triggers", () => {
 			const entity = yield* createFixtureEntity(user.client, "native-policy-source");
 			const { run, runId } = yield* startDataJsonImport(user, {
 				relationships: [],
-				entities: [
-					{ key: "entity", kind: "existing", entityId: entity.id, entitySchemaSlug: slugs.entity },
-				],
 				events: ["transform", "reject", "fail"].map((marker, index) => ({
 					key: marker,
 					entityKey: "entity",
@@ -654,6 +662,17 @@ describe("automation lifecycle triggers", () => {
 					eventSchemaSlug: slugs.policyEvent,
 					occurredAt: `2026-10-01T00:0${index}:00.000Z`,
 				})),
+				entities: [
+					{
+						key: "entity",
+						kind: "existing",
+						entityId: entity.id,
+						entitySchema: {
+							slug: EntitySchemaSlug.make(slugs.entity),
+							owner: { kind: "plugin" as const, pluginId: lifecyclePluginId() },
+						},
+					},
+				],
 			});
 			expect(run.status).toBe("completed");
 			expect(run.summary).toEqual([
@@ -733,6 +752,9 @@ describe("automation lifecycle triggers", () => {
 				id: transformedId,
 				entityId: entity.id,
 				properties: { marker: "transformed" },
+				eventSchemaPluginId: lifecyclePluginId(),
+				entitySchemaPluginId: lifecyclePluginId(),
+				entitySchemaSlug: EntitySchemaSlug.make(slugs.entity),
 				eventSchemaSlug: EventSchemaSlug.make(slugs.policyEvent),
 			});
 
@@ -827,6 +849,7 @@ describe("automation lifecycle triggers", () => {
 					createdAt: source.createdAt,
 					updatedAt: source.updatedAt,
 					properties: { marker: "snapshot-source" },
+					entitySchemaPluginId: lifecyclePluginId(),
 					entitySchemaSlug: EntitySchemaSlug.make(slugs.entity),
 				},
 			});
@@ -852,6 +875,8 @@ describe("automation lifecycle triggers", () => {
 				sessionEntityId: null,
 				occurredAt: event.occurredAt,
 				properties: { marker: "snapshot-event" },
+				eventSchemaPluginId: lifecyclePluginId(),
+				entitySchemaPluginId: lifecyclePluginId(),
 				entitySchemaSlug: EntitySchemaSlug.make(slugs.entity),
 				eventSchemaSlug: EventSchemaSlug.make(slugs.policyEvent),
 			});
@@ -862,7 +887,10 @@ describe("automation lifecycle triggers", () => {
 				sourceEntityId: source.id,
 				targetEntityId: target.id,
 				properties: { marker: "snapshot-relationship" },
-				relationshipSchemaSlug: RelationshipSchemaSlug.make(slugs.relationship),
+				relationshipSchema: {
+					slug: RelationshipSchemaSlug.make(slugs.relationship),
+					owner: { kind: "plugin" as const, pluginId: lifecyclePluginId() },
+				},
 			});
 			const relationshipInspection = yield* inspectCommittedCreate(
 				{ id: relationship.id, resource: "relationship" },
@@ -885,6 +913,7 @@ describe("automation lifecycle triggers", () => {
 					createdAt: relationship.createdAt,
 					updatedAt: relationship.createdAt,
 					properties: { marker: "snapshot-relationship" },
+					relationshipSchemaPluginId: lifecyclePluginId(),
 					relationshipSchemaSlug: RelationshipSchemaSlug.make(slugs.relationship),
 				},
 			});

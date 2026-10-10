@@ -18,8 +18,6 @@ import {
 	createEventFixture,
 	createRelationship,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
-	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
@@ -29,6 +27,7 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createGlobalBookEntityFixture,
+	findMediaEntitySchema,
 	insertLibraryMembership,
 	insertMediaMonitoring,
 	seedMediaEntity,
@@ -36,16 +35,24 @@ import {
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
+type MediaReference = Parameters<typeof showRecipes.summaryRecipe>[0]["reference"];
+
 const seedPodcast = (client: Client, episodeCount: number) =>
 	Effect.gen(function* () {
-		const { schema: podcastSchema } = yield* findBuiltinSchemaBySlug(client, "podcast");
-		const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "podcast-episode");
+		const { pluginId, schema: podcastSchema } = yield* findMediaEntitySchema(client, "podcast");
+		const { schema: podcastEpisodeSchema } = yield* findMediaEntitySchema(
+			client,
+			"podcast-episode",
+		);
+		const reference: MediaReference = { pluginId, kind: "local" };
 		const relationshipSchemas = yield* listRelationshipSchemas(client, {
+			owner: podcastSchema.reference.owner,
 			slugs: ["podcast-to-podcast-episode"],
 		});
 		const podcastEpisodeRelationship = requireRelationshipSchemaBySlug(
 			relationshipSchemas,
 			"podcast-to-podcast-episode",
+			podcastSchema.reference.owner,
 		);
 		const podcast = yield* seedMediaEntity({
 			userId: null,
@@ -73,7 +80,7 @@ const seedPodcast = (client: Client, episodeCount: number) =>
 					userId: null,
 					providerId: null,
 					name: `Podcast Episode ${index + 1}`,
-					entitySchemaSlug: podcastEpisodeSchemaId,
+					entitySchemaSlug: podcastEpisodeSchema.id,
 					externalId: `query-recipe-podcast-episode-${crypto.randomUUID()}`,
 					properties: {
 						publishDate: null,
@@ -88,15 +95,16 @@ const seedPodcast = (client: Client, episodeCount: number) =>
 			insertGlobalRelationship({
 				targetEntityId: episode.id,
 				sourceEntityId: podcast.id,
-				relationshipSchemaSlug: podcastEpisodeRelationship.id,
+				relationshipSchema: podcastEpisodeRelationship.reference,
 			}),
 		);
-		const episodeEventSchemas = yield* listEventSchemas(client, podcastEpisodeSchemaId);
-		const podcastEventSchemas = yield* listEventSchemas(client, podcastSchema.id);
+		const episodeEventSchemas = yield* listEventSchemas(client, podcastEpisodeSchema.reference);
+		const podcastEventSchemas = yield* listEventSchemas(client, podcastSchema.reference);
 
 		return {
 			podcast,
 			episodes,
+			reference,
 			episodeProgressEventSchemaSlug: requireEventSchemaBySlug(episodeEventSchemas, "progress").id,
 			episodeCompleteEventSchemaSlug: requireEventSchemaBySlug(episodeEventSchemas, "complete").id,
 			podcastCompleteEventSchemaSlug: requireEventSchemaBySlug(podcastEventSchemas, "complete").id,
@@ -119,19 +127,23 @@ const seedCredit = (input: {
 
 const seedActivityShow = (client: Client) =>
 	Effect.gen(function* () {
-		const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
-		const showSeasonSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-season");
-		const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-episode");
+		const { pluginId, schema: showSchema } = yield* findMediaEntitySchema(client, "show");
+		const { schema: showSeasonSchema } = yield* findMediaEntitySchema(client, "show-season");
+		const { schema: showEpisodeSchema } = yield* findMediaEntitySchema(client, "show-episode");
+		const reference: MediaReference = { pluginId, kind: "local" };
 		const relationshipSchemas = yield* listRelationshipSchemas(client, {
+			owner: showSchema.reference.owner,
 			slugs: ["show-to-show-season", "show-season-to-show-episode"],
 		});
 		const showToSeason = requireRelationshipSchemaBySlug(
 			relationshipSchemas,
 			"show-to-show-season",
+			showSchema.reference.owner,
 		);
 		const seasonToEpisode = requireRelationshipSchemaBySlug(
 			relationshipSchemas,
 			"show-season-to-show-episode",
+			showSchema.reference.owner,
 		);
 		const suffix = crypto.randomUUID();
 		const show = yield* seedMediaEntity({
@@ -147,7 +159,7 @@ const seedActivityShow = (client: Client) =>
 				userId: null,
 				providerId: null,
 				properties: { seasonNumber },
-				entitySchemaSlug: showSeasonSchemaId,
+				entitySchemaSlug: showSeasonSchema.id,
 				name: `Activity Season ${seasonNumber} ${suffix}`,
 				externalId: `activity-season-${seasonNumber}-${suffix}`,
 			}),
@@ -162,7 +174,7 @@ const seedActivityShow = (client: Client) =>
 				seedMediaEntity({
 					userId: null,
 					providerId: null,
-					entitySchemaSlug: showEpisodeSchemaId,
+					entitySchemaSlug: showEpisodeSchema.id,
 					name: `Activity S${seasonNumber}E${episodeNumber} ${suffix}`,
 					properties: { seasonNumber, episodeNumber, runtime: 30 + episodeNumber },
 					externalId: `activity-episode-${seasonNumber}-${episodeNumber}-${suffix}`,
@@ -177,33 +189,34 @@ const seedActivityShow = (client: Client) =>
 			insertGlobalRelationship({
 				sourceEntityId: show.id,
 				targetEntityId: regularSeason.id,
-				relationshipSchemaSlug: showToSeason.id,
+				relationshipSchema: showToSeason.reference,
 			}),
 			insertGlobalRelationship({
 				sourceEntityId: show.id,
 				targetEntityId: specialsSeason.id,
-				relationshipSchemaSlug: showToSeason.id,
+				relationshipSchema: showToSeason.reference,
 			}),
 			insertGlobalRelationship({
 				targetEntityId: firstEpisode.id,
 				sourceEntityId: regularSeason.id,
-				relationshipSchemaSlug: seasonToEpisode.id,
+				relationshipSchema: seasonToEpisode.reference,
 			}),
 			insertGlobalRelationship({
 				targetEntityId: secondEpisode.id,
 				sourceEntityId: regularSeason.id,
-				relationshipSchemaSlug: seasonToEpisode.id,
+				relationshipSchema: seasonToEpisode.reference,
 			}),
 			insertGlobalRelationship({
 				targetEntityId: specialEpisode.id,
 				sourceEntityId: specialsSeason.id,
-				relationshipSchemaSlug: seasonToEpisode.id,
+				relationshipSchema: seasonToEpisode.reference,
 			}),
 		]);
-		const showEventSchemas = yield* listEventSchemas(client, showSchema.id);
-		const episodeEventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
+		const showEventSchemas = yield* listEventSchemas(client, showSchema.reference);
+		const episodeEventSchemas = yield* listEventSchemas(client, showEpisodeSchema.reference);
 		return {
 			show,
+			reference,
 			firstEpisode,
 			secondEpisode,
 			specialEpisode,
@@ -234,21 +247,25 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("loads seasons and selected season episodes with independent limits", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
-			const showSeasonSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-season");
-			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-episode");
+			const { pluginId, schema: showSchema } = yield* findMediaEntitySchema(client, "show");
+			const { schema: showSeasonSchema } = yield* findMediaEntitySchema(client, "show-season");
+			const { schema: showEpisodeSchema } = yield* findMediaEntitySchema(client, "show-episode");
+			const reference: MediaReference = { pluginId, kind: "local" };
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				owner: showSchema.reference.owner,
 				slugs: ["show-to-show-season", "show-season-to-show-episode"],
 			});
 			const showSeasonRelationship = requireRelationshipSchemaBySlug(
 				relationshipSchemas,
 				"show-to-show-season",
+				showSchema.reference.owner,
 			);
 			const seasonEpisodeRelationship = requireRelationshipSchemaBySlug(
 				relationshipSchemas,
 				"show-season-to-show-episode",
+				showSchema.reference.owner,
 			);
-			const episodeEventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
+			const episodeEventSchemas = yield* listEventSchemas(client, showEpisodeSchema.reference);
 			const progressEventSchema = requireEventSchemaBySlug(episodeEventSchemas, "progress");
 			const completeEventSchema = requireEventSchemaBySlug(episodeEventSchemas, "complete");
 			const suffix = crypto.randomUUID();
@@ -278,7 +295,7 @@ describe("Media RyotQL query recipe results", () => {
 					userId: null,
 					providerId: null,
 					name: `Season ${seasonNumber}`,
-					entitySchemaSlug: showSeasonSchemaId,
+					entitySchemaSlug: showSeasonSchema.id,
 					externalId: `query-recipe-season-${seasonNumber}-${suffix}`,
 					properties: {
 						seasonNumber,
@@ -300,7 +317,7 @@ describe("Media RyotQL query recipe results", () => {
 						seedMediaEntity({
 							userId: null,
 							providerId: null,
-							entitySchemaSlug: showEpisodeSchemaId,
+							entitySchemaSlug: showEpisodeSchema.id,
 							name: `Season ${seasonNumber} Episode ${episodeNumber}`,
 							externalId: `query-recipe-episode-${seasonNumber}-${episodeNumber}-${suffix}`,
 							properties: {
@@ -336,47 +353,47 @@ describe("Media RyotQL query recipe results", () => {
 				insertGlobalRelationship({
 					sourceEntityId: show.id,
 					targetEntityId: seasonOne.id,
-					relationshipSchemaSlug: showSeasonRelationship.id,
+					relationshipSchema: showSeasonRelationship.reference,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: show.id,
 					targetEntityId: seasonTwo.id,
-					relationshipSchemaSlug: showSeasonRelationship.id,
+					relationshipSchema: showSeasonRelationship.reference,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: show.id,
 					targetEntityId: seasonThree.id,
-					relationshipSchemaSlug: showSeasonRelationship.id,
+					relationshipSchema: showSeasonRelationship.reference,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: seasonOne.id,
 					targetEntityId: firstEpisode.id,
-					relationshipSchemaSlug: seasonEpisodeRelationship.id,
+					relationshipSchema: seasonEpisodeRelationship.reference,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: seasonOne.id,
 					targetEntityId: secondEpisode.id,
-					relationshipSchemaSlug: seasonEpisodeRelationship.id,
+					relationshipSchema: seasonEpisodeRelationship.reference,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: seasonTwo.id,
 					targetEntityId: thirdEpisode.id,
-					relationshipSchemaSlug: seasonEpisodeRelationship.id,
+					relationshipSchema: seasonEpisodeRelationship.reference,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: seasonTwo.id,
 					targetEntityId: fourthEpisode.id,
-					relationshipSchemaSlug: seasonEpisodeRelationship.id,
+					relationshipSchema: seasonEpisodeRelationship.reference,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: seasonThree.id,
 					targetEntityId: fifthEpisode.id,
-					relationshipSchemaSlug: seasonEpisodeRelationship.id,
+					relationshipSchema: seasonEpisodeRelationship.reference,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: seasonThree.id,
 					targetEntityId: sixthEpisode.id,
-					relationshipSchemaSlug: seasonEpisodeRelationship.id,
+					relationshipSchema: seasonEpisodeRelationship.reference,
 				}),
 			]);
 			yield* createEventFixture(client, {
@@ -392,7 +409,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const showRow = yield* executeRyotQLRecipe(
 				client,
-				showSeasonsRecipe({ seasonLimit: 2, entityId: show.id }),
+				showSeasonsRecipe({ reference, seasonLimit: 2, entityId: show.id }),
 			);
 			assertPresent(showRow, "Expected show row");
 			const seasons = showRow.seasons;
@@ -404,11 +421,11 @@ describe("Media RyotQL query recipe results", () => {
 			assertPresent(secondSeasonResult, "Expected second season");
 			const firstSeason = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ limit: 1, containerId: firstSeasonResult.id }),
+				showSeasonEpisodesRecipe({ limit: 1, reference, containerId: firstSeasonResult.id }),
 			);
 			const secondSeason = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ limit: 1, containerId: secondSeasonResult.id }),
+				showSeasonEpisodesRecipe({ limit: 1, reference, containerId: secondSeasonResult.id }),
 			);
 			expect(firstSeason.items).toHaveLength(1);
 			expect(secondSeason.items).toHaveLength(1);
@@ -444,9 +461,15 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("reconstructs the show summary with provider, library, and collection state", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
-			const relationshipSchemas = yield* listRelationshipSchemas(client, { slugs: ["member-of"] });
-			const memberOf = requireRelationshipSchemaBySlug(relationshipSchemas, "member-of");
+			const { pluginId, schema: showSchema } = yield* findMediaEntitySchema(client, "show");
+			const reference: MediaReference = { pluginId, kind: "local" };
+			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				slugs: ["member-of"],
+				owner: { kind: "kernel" },
+			});
+			const memberOf = requireRelationshipSchemaBySlug(relationshipSchemas, "member-of", {
+				kind: "kernel",
+			});
 			const collection = yield* createCollection(client, {
 				name: `Summary Collection ${crypto.randomUUID()}`,
 			});
@@ -484,12 +507,12 @@ describe("Media RyotQL query recipe results", () => {
 				properties: {},
 				sourceEntityId: show.id,
 				targetEntityId: collection.id,
-				relationshipSchemaSlug: memberOf.id,
+				relationshipSchema: memberOf.reference,
 			});
 
 			const summary = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.summaryRecipe({ entityId: show.id, collectionLimit: 5 }),
+				showRecipes.summaryRecipe({ reference, entityId: show.id, collectionLimit: 5 }),
 			);
 			const summaryRow = summary.summary;
 			assertPresent(summaryRow, "Expected show summary row");
@@ -519,25 +542,36 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("reconstructs show overview credits, companies and outgoing suggestions", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const showSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show");
-			const personSchemaId = yield* getBuiltinEntitySchemaSlug(client, "person");
-			const companySchemaId = yield* getBuiltinEntitySchemaSlug(client, "company");
+			const { pluginId, schema: showSchema } = yield* findMediaEntitySchema(client, "show");
+			const { schema: personSchema } = yield* findMediaEntitySchema(client, "person");
+			const { schema: companySchema } = yield* findMediaEntitySchema(client, "company");
+			const reference: MediaReference = { pluginId, kind: "local" };
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				owner: showSchema.reference.owner,
 				slugs: ["person-to-show", "company-to-show", "media-suggestion"],
 			});
-			const personToShow = requireRelationshipSchemaBySlug(relationshipSchemas, "person-to-show");
+			const personToShow = requireRelationshipSchemaBySlug(
+				relationshipSchemas,
+				"person-to-show",
+				showSchema.reference.owner,
+			);
 			const mediaSuggestion = requireRelationshipSchemaBySlug(
 				relationshipSchemas,
 				"media-suggestion",
+				showSchema.reference.owner,
 			);
-			const companyToShow = requireRelationshipSchemaBySlug(relationshipSchemas, "company-to-show");
+			const companyToShow = requireRelationshipSchemaBySlug(
+				relationshipSchemas,
+				"company-to-show",
+				showSchema.reference.owner,
+			);
 			const suffix = crypto.randomUUID();
 			const seedShow = (name: string, images: readonly Record<string, unknown>[]) =>
 				seedMediaEntity({
 					name,
 					userId: null,
 					providerId: null,
-					entitySchemaSlug: showSchemaId,
+					entitySchemaSlug: showSchema.id,
 					externalId: `overview-${crypto.randomUUID()}`,
 					properties: {
 						images,
@@ -559,19 +593,23 @@ describe("Media RyotQL query recipe results", () => {
 			const [lead, writer, studio, network, suggestedFirst, suggestedSecond, incomingSource] =
 				yield* Effect.all([
 					seedCredit({
-						schemaSlug: personSchemaId,
+						schemaSlug: personSchema.id,
 						name: `Overview Lead ${suffix}`,
 						images: [{ type: "remote", purpose: "profile", url: "https://images.test/lead.jpg" }],
 					}),
-					seedCredit({ images: [], schemaSlug: personSchemaId, name: `Overview Writer ${suffix}` }),
 					seedCredit({
-						schemaSlug: companySchemaId,
+						images: [],
+						schemaSlug: personSchema.id,
+						name: `Overview Writer ${suffix}`,
+					}),
+					seedCredit({
+						schemaSlug: companySchema.id,
 						name: `Overview Studio ${suffix}`,
 						images: [{ type: "s3", purpose: "logo", key: "studio-logo" }],
 					}),
 					seedCredit({
 						images: [],
-						schemaSlug: companySchemaId,
+						schemaSlug: companySchema.id,
 						name: `Overview Network ${suffix}`,
 					}),
 					seedShow(`Overview Suggested A ${suffix}`, [
@@ -584,47 +622,48 @@ describe("Media RyotQL query recipe results", () => {
 				insertGlobalRelationship({
 					targetEntityId: show.id,
 					sourceEntityId: lead.id,
-					relationshipSchemaSlug: personToShow.id,
+					relationshipSchema: personToShow.reference,
 					properties: { order: 1, roles: ["Actor"], character: "Jamie" },
 				}),
 				insertGlobalRelationship({
 					targetEntityId: show.id,
 					sourceEntityId: writer.id,
-					relationshipSchemaSlug: personToShow.id,
+					relationshipSchema: personToShow.reference,
 					properties: { order: 2, roles: ["Writer", "Creator"] },
 				}),
 				insertGlobalRelationship({
 					targetEntityId: show.id,
 					sourceEntityId: studio.id,
-					relationshipSchemaSlug: companyToShow.id,
+					relationshipSchema: companyToShow.reference,
 					properties: { order: 1, roles: ["Production Company"] },
 				}),
 				insertGlobalRelationship({
 					targetEntityId: show.id,
 					sourceEntityId: network.id,
-					relationshipSchemaSlug: companyToShow.id,
+					relationshipSchema: companyToShow.reference,
 					properties: { order: 2, roles: ["Network"] },
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: show.id,
 					targetEntityId: suggestedFirst.id,
-					relationshipSchemaSlug: mediaSuggestion.id,
+					relationshipSchema: mediaSuggestion.reference,
 				}),
 				insertGlobalRelationship({
 					sourceEntityId: show.id,
 					targetEntityId: suggestedSecond.id,
-					relationshipSchemaSlug: mediaSuggestion.id,
+					relationshipSchema: mediaSuggestion.reference,
 				}),
 				insertGlobalRelationship({
 					targetEntityId: show.id,
 					sourceEntityId: incomingSource.id,
-					relationshipSchemaSlug: mediaSuggestion.id,
+					relationshipSchema: mediaSuggestion.reference,
 				}),
 			]);
 
 			const overview = yield* executeRyotQLRecipe(
 				client,
 				showRecipes.overviewRecipe({
+					reference,
 					peopleLimit: 12,
 					companyLimit: 6,
 					entityId: show.id,
@@ -671,12 +710,13 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("returns empty overview sections for a show with no relationships", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const showSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show");
+			const { pluginId, schema: showSchema } = yield* findMediaEntitySchema(client, "show");
+			const reference: MediaReference = { pluginId, kind: "local" };
 			const suffix = crypto.randomUUID();
 			const show = yield* seedMediaEntity({
 				userId: null,
 				providerId: null,
-				entitySchemaSlug: showSchemaId,
+				entitySchemaSlug: showSchema.id,
 				name: `Overview Bare ${suffix}`,
 				externalId: `overview-bare-${suffix}`,
 				properties: {
@@ -698,6 +738,7 @@ describe("Media RyotQL query recipe results", () => {
 			const overview = yield* executeRyotQLRecipe(
 				client,
 				showRecipes.overviewRecipe({
+					reference,
 					peopleLimit: 12,
 					companyLimit: 6,
 					entityId: show.id,
@@ -714,16 +755,23 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("reconstructs person credits through the reverse join in per-target order", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const personSchemaId = yield* getBuiltinEntitySchemaSlug(client, "person");
-			const movieSchemaId = yield* getBuiltinEntitySchemaSlug(client, "movie");
-			const musicGroupSchemaId = yield* getBuiltinEntitySchemaSlug(client, "music-group");
+			const { pluginId, schema: personSchema } = yield* findMediaEntitySchema(client, "person");
+			const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
+			const { schema: musicGroupSchema } = yield* findMediaEntitySchema(client, "music-group");
+			const reference: MediaReference = { pluginId, kind: "local" };
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				owner: personSchema.reference.owner,
 				slugs: ["person-to-movie", "person-to-music-group"],
 			});
-			const personToMovie = requireRelationshipSchemaBySlug(relationshipSchemas, "person-to-movie");
+			const personToMovie = requireRelationshipSchemaBySlug(
+				relationshipSchemas,
+				"person-to-movie",
+				personSchema.reference.owner,
+			);
 			const personToMusicGroup = requireRelationshipSchemaBySlug(
 				relationshipSchemas,
 				"person-to-music-group",
+				personSchema.reference.owner,
 			);
 			const suffix = crypto.randomUUID();
 			const seedMovie = (name: string, publishYear: number | null) =>
@@ -731,48 +779,48 @@ describe("Media RyotQL query recipe results", () => {
 					name,
 					userId: null,
 					providerId: null,
-					entitySchemaSlug: movieSchemaId,
+					entitySchemaSlug: movieSchema.id,
 					externalId: `overview-${crypto.randomUUID()}`,
 					properties: { images: [], publishYear, sourceUrl: null, description: null },
 				});
 
 			const [person, olderMovie, undatedMovie, newerMovie, secondBand, firstBand, unrelated] =
 				yield* Effect.all([
-					seedCredit({ images: [], schemaSlug: personSchemaId, name: `Credit Person ${suffix}` }),
+					seedCredit({ images: [], schemaSlug: personSchema.id, name: `Credit Person ${suffix}` }),
 					seedMovie(`Credit Older Movie ${suffix}`, 1999),
 					seedMovie(`Credit Undated Movie ${suffix}`, null),
 					seedMovie(`Credit Newer Movie ${suffix}`, 2014),
-					seedCredit({ images: [], name: `B Band ${suffix}`, schemaSlug: musicGroupSchemaId }),
-					seedCredit({ images: [], name: `A Band ${suffix}`, schemaSlug: musicGroupSchemaId }),
+					seedCredit({ images: [], name: `B Band ${suffix}`, schemaSlug: musicGroupSchema.id }),
+					seedCredit({ images: [], name: `A Band ${suffix}`, schemaSlug: musicGroupSchema.id }),
 					seedMovie(`Credit Unrelated Movie ${suffix}`, 2020),
 				]);
 			const credit = (
 				targetEntityId: string,
-				relationshipSchemaSlug: string,
+				relationshipSchema: typeof personToMovie,
 				properties: Record<string, unknown>,
 			) =>
 				insertGlobalRelationship({
 					properties,
 					targetEntityId,
-					relationshipSchemaSlug,
 					sourceEntityId: person.id,
+					relationshipSchema: relationshipSchema.reference,
 				});
 			yield* Effect.all([
-				credit(olderMovie.id, personToMovie.id, { roles: ["Actor"], character: "Tyler" }),
-				credit(undatedMovie.id, personToMovie.id, { roles: ["Director"] }),
-				credit(newerMovie.id, personToMovie.id, { roles: ["Writer"] }),
-				credit(secondBand.id, personToMusicGroup.id, { roles: ["Artist"] }),
-				credit(firstBand.id, personToMusicGroup.id, { roles: ["Artist"] }),
+				credit(olderMovie.id, personToMovie, { roles: ["Actor"], character: "Tyler" }),
+				credit(undatedMovie.id, personToMovie, { roles: ["Director"] }),
+				credit(newerMovie.id, personToMovie, { roles: ["Writer"] }),
+				credit(secondBand.id, personToMusicGroup, { roles: ["Artist"] }),
+				credit(firstBand.id, personToMusicGroup, { roles: ["Artist"] }),
 				insertGlobalRelationship({
 					targetEntityId: person.id,
 					sourceEntityId: unrelated.id,
-					relationshipSchemaSlug: personToMovie.id,
+					relationshipSchema: personToMovie.reference,
 				}),
 			]);
 
 			const overview = yield* executeRyotQLRecipe(
 				client,
-				personRecipes.overviewRecipe({ creditLimit: 12, entityId: person.id }),
+				personRecipes.overviewRecipe({ reference, creditLimit: 12, entityId: person.id }),
 			);
 
 			expect(overview.movie.items.map((item) => item.id)).toEqual([
@@ -798,10 +846,11 @@ describe("Media RyotQL query recipe results", () => {
 			const book = yield* createGlobalBookEntityFixture(client, {
 				name: `Summary Book ${crypto.randomUUID()}`,
 			});
+			const reference: MediaReference = { kind: "local", pluginId: book.pluginId };
 
 			const summary = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.summaryRecipe({ collectionLimit: 5, entityId: book.entity.id }),
+				showRecipes.summaryRecipe({ reference, collectionLimit: 5, entityId: book.entity.id }),
 			);
 
 			expect(summary.summary).toBeNull();
@@ -812,10 +861,13 @@ describe("Media RyotQL query recipe results", () => {
 	it.live("reports a missing entity through an absent show summary", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findMediaEntitySchema(client, "show");
+			const reference: MediaReference = { pluginId, kind: "local" };
 
 			const summary = yield* executeRyotQLRecipe(
 				client,
 				showRecipes.summaryRecipe({
+					reference,
 					collectionLimit: 5,
 					entityId: `missing-${crypto.randomUUID()}`,
 				}),
@@ -847,7 +899,11 @@ describe("Media RyotQL query recipe results", () => {
 
 			const episodes = yield* executeRyotQLRecipe(
 				client,
-				podcastEpisodesRecipe({ limit: 2, containerId: seeded.podcast.id }),
+				podcastEpisodesRecipe({
+					limit: 2,
+					reference: seeded.reference,
+					containerId: seeded.podcast.id,
+				}),
 			);
 			expect(episodes.items.map((episode) => [episode.episodeNumber, episode.state])).toEqual([
 				[3, "untracked"],
@@ -856,7 +912,11 @@ describe("Media RyotQL query recipe results", () => {
 			expect(episodes.pageInfo.hasMore).toBe(true);
 			const summary = yield* executeRyotQLRecipe(
 				client,
-				podcastRecipes.summaryRecipe({ collectionLimit: 1, entityId: seeded.podcast.id }),
+				podcastRecipes.summaryRecipe({
+					collectionLimit: 1,
+					reference: seeded.reference,
+					entityId: seeded.podcast.id,
+				}),
 			);
 			expect(summary.summary).toMatchObject({
 				watchedEpisodes: 1,
@@ -893,6 +953,7 @@ describe("Media RyotQL query recipe results", () => {
 								episodicByLifecycleStateRecipe({
 									limit: 10,
 									states: [state],
+									reference: seeded.reference,
 									entityId: seeded.podcast.id,
 									config: podcastEpisodicKindConfig,
 								}),
@@ -995,7 +1056,11 @@ describe("Media RyotQL query recipe results", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.activityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+				showRecipes.activityRecipe({
+					...ACTIVITY_LIMITS,
+					entityId: seeded.show.id,
+					reference: seeded.reference,
+				}),
 			);
 			const identity = activity.events.map((event) => ({
 				kind: event.kind,
@@ -1117,7 +1182,11 @@ describe("Media RyotQL query recipe results", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.activityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+				showRecipes.activityRecipe({
+					...ACTIVITY_LIMITS,
+					entityId: seeded.show.id,
+					reference: seeded.reference,
+				}),
 			);
 
 			expect(activity.events).toHaveLength(1);
@@ -1149,7 +1218,11 @@ describe("Media RyotQL query recipe results", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.activityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+				showRecipes.activityRecipe({
+					...ACTIVITY_LIMITS,
+					entityId: seeded.show.id,
+					reference: seeded.reference,
+				}),
 			);
 
 			expect(activity.watchDays[0]).toMatchObject({
@@ -1184,7 +1257,11 @@ describe("Media RyotQL query recipe results", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.activityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+				showRecipes.activityRecipe({
+					...ACTIVITY_LIMITS,
+					entityId: seeded.show.id,
+					reference: seeded.reference,
+				}),
 			);
 
 			expect(activity.events).toHaveLength(0);
@@ -1216,6 +1293,7 @@ describe("Media RyotQL query recipe results", () => {
 					...ACTIVITY_LIMITS,
 					parentEventLimit: 2,
 					entityId: seeded.show.id,
+					reference: seeded.reference,
 				}),
 			);
 

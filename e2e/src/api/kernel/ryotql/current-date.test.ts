@@ -36,12 +36,12 @@ describe("RyotQL currentDate", () => {
 			yield* Effect.all([
 				createEntityFixture(client, {
 					name: "Past",
-					entitySchemaSlug: schema.schemaId,
+					entitySchema: schema.reference,
 					properties: { publishDate: "2000-01-01" },
 				}),
 				createEntityFixture(client, {
 					name: "Future",
-					entitySchemaSlug: schema.schemaId,
+					entitySchema: schema.reference,
 					properties: { publishDate: "2999-01-01" },
 				}),
 			]);

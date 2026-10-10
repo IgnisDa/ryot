@@ -21,7 +21,6 @@ import {
 	createPluginEntitySchema,
 	executeRyotQL,
 	fakeProviderDetailsResult,
-	findBuiltinSchemaBySlug,
 	getApiClient,
 	installTestProvider,
 	requireRyotQLValue,
@@ -30,7 +29,11 @@ import {
 	setUserLanguage,
 	uninstallTestPluginStrict,
 } from "~/fixtures/kernel";
-import { seedMediaEntity, seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
+import {
+	findMediaEntitySchema,
+	seedMediaEntity,
+	seedPopulatedProviderEntity,
+} from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -81,7 +84,7 @@ describe("RyotQL entity localization", () => {
 	it.live("localizes selection, JSON paths, predicates, and ordering with canonical fallback", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
+			const { slug, reference } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLLocalizedItem",
 				propertiesSchema: {
 					fields: {
@@ -92,12 +95,12 @@ describe("RyotQL entity localization", () => {
 			});
 			const zulu = yield* createEntityFixture(client, {
 				name: "Zulu",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				properties: { rating: 5, description: "Canonical Zulu overview" },
 			});
 			const alpha = yield* createEntityFixture(client, {
 				name: "Alpha",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 				properties: { rating: 9, description: "Canonical Alpha overview" },
 			});
 			yield* seedEntityTranslation({
@@ -147,7 +150,7 @@ describe("RyotQL entity localization", () => {
 	it.live("preserves translation status semantics", () =>
 		Effect.gen(function* () {
 			const base = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(base.client, "movie");
+			const { schema } = yield* findMediaEntitySchema(base.client, "movie");
 			const providerId = schema.providers.find((provider) => provider.name === "TMDB")?.providerId;
 			assertPresent(providerId, "TMDB movie provider not found");
 			const seedPopulated = () =>

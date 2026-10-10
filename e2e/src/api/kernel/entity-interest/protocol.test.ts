@@ -1,12 +1,8 @@
 import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-interest/messages";
 import { Effect } from "effect";
 
-import {
-	createAuthenticatedClient,
-	findBuiltinSchemaBySlug,
-	openInterestWebSocketScoped,
-} from "~/fixtures/kernel";
-import { seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
+import { createAuthenticatedClient, openInterestWebSocketScoped } from "~/fixtures/kernel";
+import { findMediaEntitySchema, seedPopulatedProviderEntity } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -14,7 +10,7 @@ describe("entity interest protocol", () => {
 	it.live("deduplicates IDs and rejects over-limit updates without changing the revision", () =>
 		Effect.gen(function* () {
 			const auth = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(auth.client, "company");
+			const { schema } = yield* findMediaEntitySchema(auth.client, "company");
 			const providerId = schema.providers.find(({ name }) => name === "Anilist")?.providerId;
 			assertPresent(providerId, "Anilist company provider not found");
 			const entity = yield* seedPopulatedProviderEntity({

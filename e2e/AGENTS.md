@@ -8,7 +8,7 @@
 - Prefer scoped Effect support/fixtures (including fake HTTP servers); run Effects at plain Vitest setup/teardown boundaries. Native Promises belong at external callback APIs and browser-realm Playwright callbacks.
 - Keep provider tests hermetic except `providers-live-smoke.test.ts`.
 - Seed through typed `testSupport` operations and production service paths; do not mutate stored rows or add public script-execution fixtures.
-- Shared-API fixtures need collision-free external IDs, plugin slugs, and schema slugs.
+- Shared-API fixtures need collision-free external IDs and fresh package identities per case. Namespace acceptance fixtures deliberately reuse metadata and declaration slugs; select their owners by exact local or package identity.
 - Use `assertCompleted` and `requireCompletedSandboxValue` for async job results.
 - Do not refactor `src/scripts/seed.ts` unless explicitly requested.
 - Change worker, sandbox, or database pool settings only with fresh load evidence.

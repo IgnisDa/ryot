@@ -9,7 +9,6 @@ import {
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
-	findBuiltinSchemaBySlug,
 	getApiClient,
 	executeRyotQLRecipe,
 	providerSandboxSource,
@@ -19,7 +18,8 @@ import {
 	installTestProvider,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
-import { queryInMediaLibraryRelationship } from "~/fixtures/plugins/media";
+import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
+import { findMediaEntitySchema, queryInMediaLibraryRelationship } from "~/fixtures/plugins/media";
 import { assertCompleted, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
@@ -70,13 +70,13 @@ beforeAll(() =>
 					},
 				],
 			});
-			const { schema: audiobookSchema } = yield* findBuiltinSchemaBySlug(client, "audiobook");
+			const { schema: audiobookSchema } = yield* findMediaEntitySchema(client, "audiobook");
 			audiobookProvider = yield* installTestProvider({
 				client,
 				rootEntitySchemaSlug: audiobookSchema.id,
 				details: fakeProviderDetailsResult({ properties: {}, name: "E2E Imported Audiobook" }),
 			});
-			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
+			const { schema: workoutSchema } = yield* findFitnessEntitySchema(client, "workout");
 			workoutProvider = yield* installTestProvider({
 				client,
 				rootEntitySchemaSlug: workoutSchema.id,
@@ -180,7 +180,10 @@ describe("POST /provider-entities/imports — provider entity import", () => {
 describe("GET /provider-entities/imports/:jobId — provider entity import result", () => {
 	it.live("adds imported media entities to the user's library", () =>
 		Effect.gen(function* () {
-			const { schema } = yield* findBuiltinSchemaBySlug(providerClient, "audiobook");
+			const { schema } = yield* findMediaEntitySchema(providerClient, "audiobook");
+			const pluginId =
+				schema.reference.owner.kind === "plugin" ? schema.reference.owner.pluginId : undefined;
+			assertPresent(pluginId, "Media audiobook schema must have a plugin owner");
 			const externalId = `e2e-library-link-${crypto.randomUUID()}`;
 
 			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
@@ -197,6 +200,7 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 					entitySchemaSlug: schema.id,
 					librarySchemaSlug: "media-library",
 					relationshipSlug: "in-media-library",
+					reference: { pluginId, kind: "local" },
 					providerId: audiobookProvider.providerId,
 				}),
 			);
@@ -206,7 +210,7 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 
 	it.live("does not add schemas without a provider-import automation to the library", () =>
 		Effect.gen(function* () {
-			const { schema } = yield* findBuiltinSchemaBySlug(providerClient, "workout");
+			const { schema } = yield* findFitnessEntitySchema(providerClient, "workout");
 
 			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
 				providerId: workoutProvider.providerId,

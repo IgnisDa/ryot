@@ -11,11 +11,15 @@ import {
 	createPluginEntitySchema,
 	createSavedView,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
 	findSavedViewById,
 	getSavedView,
+	listInstalledPlugins,
 } from "~/fixtures/kernel";
-import { insertLibraryMembership, seedMediaEntity } from "~/fixtures/plugins/media";
+import {
+	findMediaEntitySchema,
+	insertLibraryMembership,
+	seedMediaEntity,
+} from "~/fixtures/plugins/media";
 import { assertPresent, requirePresent, resultToEffect } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -36,20 +40,24 @@ describe("saved views execution", () => {
 	it.live("counts rows from the persisted data source and its filter", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, pluginSlug } = yield* createPluginEntitySchema(client, {
+			const { schemaId, pluginId, reference } = yield* createPluginEntitySchema(client, {
 				schemaName: `Saved View Count ${crypto.randomUUID()}`,
 			});
+			const workspace = requirePresent(
+				(yield* listInstalledPlugins(client)).find((plugin) => plugin.pluginId === pluginId),
+				"Saved-view workspace installation is missing",
+			);
 			const matchingNames = [
 				`Saved View Count Match One ${crypto.randomUUID()}`,
 				`Saved View Count Match Two ${crypto.randomUUID()}`,
 			];
 			yield* Effect.forEach(
 				[...matchingNames, `Saved View Count Other ${crypto.randomUUID()}`],
-				(name) => createEntityFixture(client, { name, entitySchemaSlug: schemaId }),
+				(name) => createEntityFixture(client, { name, entitySchema: reference }),
 			);
 
 			const entity = table("entity", "entity");
-			const base = buildSavedViewDataSources([schemaId]);
+			const base = buildSavedViewDataSources([schemaId], { pluginId, kind: "local" });
 			const query = requirePresent(base.queries.savedView, "Saved-view query is missing");
 			const dataSources = {
 				...base,
@@ -66,8 +74,8 @@ describe("saved views execution", () => {
 			};
 			const created = yield* createSavedView(client, {
 				dataSources,
-				workspacePluginSlug: pluginSlug,
 				name: `Saved View Count ${crypto.randomUUID()}`,
+				workspaceInstallationId: workspace.installationId,
 			});
 			const persisted = yield* findSavedViewById(client, created.id);
 
@@ -79,7 +87,7 @@ describe("saved views execution", () => {
 		Effect.gen(function* () {
 			const userA = yield* createAuthenticatedClient();
 			const userB = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(userA.client, "show");
+			const { schema } = yield* findMediaEntitySchema(userA.client, "show");
 			const providerId = schema.providers[0]?.providerId;
 			assertPresent(providerId, "Expected a provider for the show schema");
 			const entity = yield* seedMediaEntity({
@@ -104,8 +112,12 @@ describe("saved views execution", () => {
 			});
 			yield* insertLibraryMembership(userA.client, { mediaEntityId: entity.id });
 
-			const userAView = yield* getSavedView(userA.client, "all-shows");
-			const userBView = yield* getSavedView(userB.client, "all-shows");
+			const ownerPluginId =
+				schema.reference.owner.kind === "plugin" ? schema.reference.owner.pluginId : undefined;
+			assertPresent(ownerPluginId, "Media schema must have a plugin owner");
+			const viewReference = { slug: "all-shows", kind: "plugin" as const, pluginId: ownerPluginId };
+			const userAView = yield* getSavedView(userA.client, viewReference);
+			const userBView = yield* getSavedView(userB.client, viewReference);
 			expect(yield* countSavedView(userA.client, userAView)).toBe(1);
 			expect(yield* countSavedView(userB.client, userBView)).toBe(0);
 		}),

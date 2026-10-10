@@ -2,6 +2,7 @@ import {
 	compileClientPluginModule,
 	type ClientPluginCompilerPackageInput,
 } from "@ryot-app/client-plugin-compiler";
+import { clientDeclarationHash } from "@ryot-app/client-plugin-contract";
 import { PluginScript, type PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import {
@@ -36,10 +37,13 @@ const compileClient = (manifest: PluginManifest, files: PluginPackageInput["file
 		return Effect.void;
 	}
 	return compileClientPluginModule({
+		kind: "plugin",
 		files: clientSources(files),
 		name: manifest.metadata.name,
 		apiVersion: client.apiVersion,
-		pluginDependencies: client.pluginDependencies ?? [],
+		packageId: manifest.metadata.packageId,
+		pluginDependencies: client.pluginDependencies ?? {},
+		clientDeclarationHash: clientDeclarationHash(client),
 		publicExports: Object.fromEntries(
 			Object.entries(client.exports ?? {}).map(([name, declaration]) => [
 				name,

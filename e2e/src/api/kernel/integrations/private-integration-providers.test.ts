@@ -22,7 +22,10 @@ const providerSpecifics = { endpoint: "https://private.example.com" };
 const listProviders = (client: Client) =>
 	collectRyotQLRecipeItems(client, (after) => integrationProvidersRecipe({ after, limit: 100 }));
 
-const scopedIntegration = (client: Client, provider: string) =>
+const scopedIntegration = (
+	client: Client,
+	provider: Parameters<typeof createIntegration>[1]["provider"],
+) =>
 	Effect.acquireRelease(createIntegration(client, { provider, providerSpecifics }), ({ id }) =>
 		deleteIntegration(client, id).pipe(
 			Effect.catchTag("IntegrationNotFoundError", () => Effect.void),
@@ -57,7 +60,11 @@ describe("private integration providers", () => {
 			});
 			expect(outsiderProviders.map(({ slug }) => slug)).not.toContain(plugin.providerSlug);
 
-			const created = yield* scopedIntegration(owner.client, plugin.providerSlug);
+			const provider = {
+				slug: plugin.providerSlug,
+				owner: { kind: "plugin" as const, pluginId: plugin.pluginId },
+			};
+			const created = yield* scopedIntegration(owner.client, provider);
 			const detail = requirePresent(
 				Option.getOrUndefined(yield* getIntegration(owner.client, created.id)),
 				"Expected owned integration",
@@ -68,13 +75,13 @@ describe("private integration providers", () => {
 				(yield* invokePrivateIntegrationOperation({
 					client: owner.client,
 					integrationId: created.id,
-					pluginSlug: plugin.pluginSlug,
+					pluginId: plugin.pluginId,
 					operationSlug: plugin.operationSlug,
 				})).result,
 			).toEqual({ integrationId: created.id });
 
 			const failure = yield* Effect.flip(
-				createIntegration(outsider.client, { providerSpecifics, provider: plugin.providerSlug }),
+				createIntegration(outsider.client, { provider, providerSpecifics }),
 			);
 			assertTaggedError(failure, "IntegrationRequestError");
 			expect(failure.reason).toEqual({ code: "provider-not-found", provider: plugin.providerSlug });
@@ -117,8 +124,14 @@ describe("private integration providers", () => {
 			expect(firstProviders).toMatchObject([{ pluginSlug, name: "First sink" }]);
 			expect(secondProviders).toMatchObject([{ pluginSlug, name: "Second sink" }]);
 
-			const firstIntegration = yield* scopedIntegration(first.client, providerSlug);
-			const secondIntegration = yield* scopedIntegration(second.client, providerSlug);
+			const firstIntegration = yield* scopedIntegration(first.client, {
+				slug: providerSlug,
+				owner: { kind: "plugin", pluginId: firstPlugin.pluginId },
+			});
+			const secondIntegration = yield* scopedIntegration(second.client, {
+				slug: providerSlug,
+				owner: { kind: "plugin", pluginId: secondPlugin.pluginId },
+			});
 
 			expect((yield* listIntegrations(first.client)).map(({ id }) => id)).toEqual([
 				firstIntegration.id,
@@ -129,7 +142,7 @@ describe("private integration providers", () => {
 			expect(
 				(yield* invokePrivateIntegrationOperation({
 					client: second.client,
-					pluginSlug: secondPlugin.pluginSlug,
+					pluginId: secondPlugin.pluginId,
 					integrationId: secondIntegration.id,
 					operationSlug: secondPlugin.operationSlug,
 				})).result,
@@ -138,7 +151,7 @@ describe("private integration providers", () => {
 			const failure = yield* Effect.flip(
 				invokePrivateIntegrationOperation({
 					client: first.client,
-					pluginSlug: firstPlugin.pluginSlug,
+					pluginId: firstPlugin.pluginId,
 					integrationId: secondIntegration.id,
 					operationSlug: firstPlugin.operationSlug,
 				}),
@@ -146,7 +159,7 @@ describe("private integration providers", () => {
 			assertTaggedError(failure, "PluginNotFoundError");
 			expect(failure.reason).toEqual({
 				code: "operation-not-found",
-				pluginSlug: firstPlugin.pluginSlug,
+				pluginId: firstPlugin.pluginId,
 				operationSlug: firstPlugin.operationSlug,
 			});
 		}),
@@ -160,18 +173,24 @@ describe("private integration providers", () => {
 				({ pluginSlug }) => releasePrivatePlugin(client, pluginSlug),
 			);
 
-			yield* updatePluginState(client, plugin.pluginSlug, { isHidden: true });
+			yield* updatePluginState(client, plugin.installationId, { isHidden: true });
 
 			const providers = yield* listProviders(client);
 			expect(providers.map(({ slug }) => slug)).not.toContain(plugin.providerSlug);
 
 			const failure = yield* Effect.flip(
-				createIntegration(client, { providerSpecifics, provider: plugin.providerSlug }),
+				createIntegration(client, {
+					providerSpecifics,
+					provider: {
+						slug: plugin.providerSlug,
+						owner: { kind: "plugin", pluginId: plugin.pluginId },
+					},
+				}),
 			);
 			assertTaggedError(failure, "IntegrationRequestError");
 			expect(failure.reason).toEqual({ code: "provider-not-found", provider: plugin.providerSlug });
 
-			yield* updatePluginState(client, plugin.pluginSlug, { isHidden: false });
+			yield* updatePluginState(client, plugin.installationId, { isHidden: false });
 			expect((yield* listProviders(client)).map(({ slug }) => slug)).toContain(plugin.providerSlug);
 		}),
 	);

@@ -3,13 +3,16 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	findBuiltinSchemaBySlug,
 	listEventSchemas,
 	requireEventSchemaBySlug,
 	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
-import { createBuiltinMediaLifecycleFixture, seedMediaEntity } from "~/fixtures/plugins/media";
+import {
+	createBuiltinMediaLifecycleFixture,
+	findMediaEntitySchema,
+	seedMediaEntity,
+} from "~/fixtures/plugins/media";
 import { assertPresent, requireNumber, requireObjectRecord } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -384,8 +387,8 @@ describe("Events built-in status schemas", () => {
 	it.live("creates dropped and on_hold events without positional episode fields for shows", () =>
 		Effect.gen(function* () {
 			const { client: apiClient } = yield* createAuthenticatedClient();
-			const { schema } = yield* findBuiltinSchemaBySlug(apiClient, "show");
-			const eventSchemas = yield* listEventSchemas(apiClient, schema.id);
+			const { schema } = yield* findMediaEntitySchema(apiClient, "show");
+			const eventSchemas = yield* listEventSchemas(apiClient, schema.reference);
 			const droppedEventSchema = requireEventSchemaBySlug(eventSchemas, "dropped");
 			const onHoldEventSchema = requireEventSchemaBySlug(eventSchemas, "on_hold");
 			const providerId = schema.providers[0]?.providerId;

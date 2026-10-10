@@ -57,7 +57,7 @@ export default defineOperation({
 `;
 
 export const preferencePrivatePluginPackage = (
-	input: Pick<PrivatePluginFactoryInput, "pluginSlug"> = {},
+	input: Pick<PrivatePluginFactoryInput, "packageId" | "pluginSlug"> = {},
 ) => {
 	const pluginPackage = privatePluginPackage(input);
 	const script = pluginPackage.manifest.scripts[0];
@@ -92,15 +92,15 @@ export const installPreferencePrivatePlugin = (input: {
 }) =>
 	Effect.gen(function* () {
 		const pluginPackage = preferencePrivatePluginPackage({ pluginSlug: input.pluginSlug });
-		yield* installPrivatePluginPackage({
+		const installed = yield* installPrivatePluginPackage({
 			config: {},
 			pluginPackage,
 			client: input.client,
 			...(input.baseUrl === undefined ? {} : { baseUrl: input.baseUrl }),
 		});
-		const installation = yield* settledPrivateInstallation(input.client, pluginPackage.pluginSlug);
+		const installation = yield* settledPrivateInstallation(input.client, installed.id);
 		const setting = yield* Effect.map(listPluginUserSettings(input.client), (settings) =>
-			settings.find(({ name }) => name === "Preference test plugin"),
+			settings.find(({ id }) => id === installation.installationId),
 		);
 		if (!setting) {
 			throw new Error("Private plugin settings were not listed after installation");

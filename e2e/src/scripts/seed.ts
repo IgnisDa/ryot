@@ -12,6 +12,7 @@ import type { FieldSelection, ScalarExpression } from "@ryot-app/contract/module
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
+	type PluginId,
 	PluginSlug,
 	RemoteImageUrl,
 	type SandboxProviderId,
@@ -27,10 +28,14 @@ import {
 	column,
 	coalesce,
 	defineRecipe,
+	document,
 	eq,
 	field,
 	jsonPath,
 	literal,
+	or,
+	rows,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
 	table,
@@ -54,7 +59,8 @@ import { enableTwoFactorForSession } from "../fixtures/kernel/auth-2fa";
 import { compilePluginPackage } from "../fixtures/kernel/compiled-package";
 import { encodePluginSourceFiles, testPluginManifest } from "../fixtures/kernel/test-plugin";
 
-type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
+type EntitySchemaReference = ContractPayload<"entities", "create">["entitySchema"];
+type EntitySchemaInputSlug = EntitySchemaReference["slug"];
 
 const ENABLE_2FA = process.argv.includes("--enable-2fa");
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3005";
@@ -137,6 +143,11 @@ type AddToCollectionBody = ContractPayload<"collections", "createMembership">;
 type CreateSavedViewBody = ContractRequest<"savedViews", "create">["payload"];
 type SavedViewDefinition = Pick<CreateSavedViewBody, "dataSources" | "settings">;
 type SavedViewProjectionInput = Parameters<typeof buildSavedViewLayoutProjections>[0];
+type SavedViewGeneratedSource = Extract<
+	Parameters<typeof savedViewRecipe>[0]["source"],
+	{ type: "generated" }
+>;
+type SavedViewSourceOwner = SavedViewGeneratedSource["owner"];
 
 type SavedViewSpec = {
 	name: string;
@@ -193,7 +204,15 @@ class APIClient {
 	}
 }
 
-const seedPluginManifests = new Map<string, ReturnType<typeof testPluginManifest>>();
+const seedPluginManifests = new Map<
+	string,
+	{
+		manifest: ReturnType<typeof testPluginManifest>;
+		pluginId: ContractSuccess<"testSupport", "installSystemPlugin">["pluginId"];
+		installationId: string;
+		sourceHash: string;
+	}
+>();
 
 async function installSeedDefinitions(
 	apiClient: APIClient,
@@ -204,16 +223,49 @@ async function installSeedDefinitions(
 ) {
 	const current = seedPluginManifests.get(input.pluginSlug);
 	const entitySchemas = [
-		...(current?.entitySchemas ?? []).filter(
+		...(current?.manifest.entitySchemas ?? []).filter(
 			(schema) => !input.entitySchemas.some((addition) => addition.slug === schema.slug),
 		),
 		...input.entitySchemas,
 	];
-	const manifest = testPluginManifest({ pluginSlug: input.pluginSlug, entitySchemas });
-	await apiClient.runAdmin((c) =>
-		c.testSupport.installSystemPlugin({ payload: { manifest, compiledScripts: [] } }),
+	const manifest = testPluginManifest({
+		packageId: current?.manifest.metadata.packageId,
+		pluginSlug: input.pluginSlug,
+		entitySchemas,
+	});
+	const result = current
+		? await apiClient.runAdmin((c) =>
+				c.testSupport.updateSystemPlugin({
+					params: { pluginId: current.pluginId },
+					payload: { manifest, compiledScripts: [], sourceHash: current.sourceHash },
+				}),
+			)
+		: await apiClient.runAdmin((c) =>
+				c.testSupport.installSystemPlugin({ payload: { manifest, compiledScripts: [] } }),
+			);
+	const installations = await apiClient.collectRecipeItems((after) =>
+		pluginInstallationsRecipe({ after, limit: 100 }),
 	);
-	seedPluginManifests.set(input.pluginSlug, manifest);
+	const installation = requirePresent(
+		installations.find(
+			(candidate) =>
+				candidate.pluginId === result.pluginId &&
+				candidate.scope === "system" &&
+				(!current || candidate.installationId === current.installationId),
+		),
+		`Installed seed plugin '${input.pluginSlug}' was not found in its exact installation`,
+	);
+	const registration = {
+		manifest,
+		pluginId: result.pluginId,
+		installationId: requirePresent(
+			installation.installationId,
+			`Installed seed plugin '${input.pluginSlug}' has no installation ID`,
+		),
+		sourceHash: installation.sourceHash,
+	};
+	seedPluginManifests.set(input.pluginSlug, registration);
+	return registration;
 }
 
 async function seedSandboxScript(apiClient: APIClient, executingUserId: string) {
@@ -366,8 +418,21 @@ async function createEntitySchema(
 		propertiesSchema: propertiesSchemaWithImages,
 		eventSchemas: [],
 	};
-	await installSeedDefinitions(apiClient, { pluginSlug, entitySchemas: [definition] });
-	const schema = { ...definition, pluginSlug, id: slug as EntitySchemaSlug };
+	const registration = await installSeedDefinitions(apiClient, {
+		pluginSlug,
+		entitySchemas: [definition],
+	});
+	const schemaId = slug as EntitySchemaSlug;
+	const reference: EntitySchemaReference = {
+		owner: { kind: "plugin", pluginId: registration.pluginId },
+		slug: schemaId,
+	};
+	const schema = {
+		...definition,
+		pluginSlug,
+		id: schemaId,
+		reference,
+	};
 
 	console.log(`    ✓ Created entity schema: ${name} (${schema.id})`);
 	return schema;
@@ -377,22 +442,33 @@ async function createEventSchema(
 	apiClient: APIClient,
 	name: string,
 	slug: string,
-	entitySchemaSlug: EntitySchemaSlug,
+	entitySchemaReference: EntitySchemaReference,
+	pluginSlug: PluginSlug,
 	propertiesSchema: AppSchema,
 ) {
 	console.log(`      Creating event schema: ${name}...`);
 	const schemas = await apiClient.collectRecipeItems((after) =>
 		entityDefinitionsRecipe({ after, limit: 100 }),
 	);
+	const registration = requirePresent(
+		seedPluginManifests.get(pluginSlug),
+		`Seed plugin '${pluginSlug}' was not installed`,
+	);
+	if (
+		entitySchemaReference.owner.kind !== "plugin" ||
+		entitySchemaReference.owner.pluginId !== registration.pluginId
+	) {
+		throw new Error(`Entity schema '${entitySchemaReference.slug}' has a different plugin owner`);
+	}
 	const entitySchema = requirePresent(
-		schemas.find((schema) => schema.slug === entitySchemaSlug),
-		`Entity schema '${entitySchemaSlug}' not found`,
+		schemas.find(
+			(schema) =>
+				schema.slug === entitySchemaReference.slug &&
+				schema.pluginId === registration.pluginId,
+		),
+		`Entity schema '${entitySchemaReference.slug}' not found for its exact plugin owner`,
 	);
 	const definition = { name, slug, propertiesSchema };
-	const pluginSlug = requirePresent(
-		entitySchema.pluginSlug,
-		`Entity schema '${entitySchemaSlug}' is not owned by an installed plugin`,
-	);
 	await installSeedDefinitions(apiClient, {
 		pluginSlug,
 		entitySchemas: [
@@ -417,7 +493,7 @@ async function createEventSchema(
 async function createEntity(
 	apiClient: APIClient,
 	name: string,
-	entitySchemaSlug: EntitySchemaSlug,
+	entitySchema: EntitySchemaReference,
 	properties: Record<string, unknown>,
 	imageUrl: string | null,
 ): Promise<ContractSuccess<"entities", "create">> {
@@ -425,7 +501,7 @@ async function createEntity(
 		c.entities.create({
 			payload: {
 				name,
-				entitySchemaSlug,
+				entitySchema,
 				properties: imageUrl
 					? {
 							...properties,
@@ -470,6 +546,14 @@ type SeedTableColumn = SavedViewProjectionInput["table"]["columns"][number];
 function buildSeedLayouts(
 	scope: readonly string[],
 	columns: ReadonlyArray<SeedTableColumn>,
+	source:
+		| { pluginSlug: string }
+		| {
+				authors: ReadonlyArray<{
+					pluginSlug: string;
+					entitySchemaSlugs: ReadonlyArray<string>;
+				}>;
+		},
 ): SavedViewDefinition {
 	const [first] = scope;
 	if (!first) {
@@ -482,16 +566,55 @@ function buildSeedLayouts(
 			columns: columns as [SeedTableColumn, ...SeedTableColumn[]],
 		},
 	});
-	const tableDocumentFor = (fields: readonly FieldSelection[]) =>
-		savedViewRecipe({
-			layout: { type: "table", mapping: projections.table.mappings },
+	const tableDocumentFor = (fields: readonly FieldSelection[]) => {
+		const layout: Parameters<typeof savedViewRecipe>[0]["layout"] = {
+			type: "table",
+			mapping: projections.table.mappings,
+		};
+		if ("pluginSlug" in source) {
+			return savedViewRecipe({
+				layout,
+				source: {
+					type: "generated",
+					fields,
+					limit: 20,
+					entitySchemaSlugs: scope as [string, ...string[]],
+					owner: seedPluginOwner(source.pluginSlug),
+				},
+			}).document;
+		}
+		const predicates = source.authors.flatMap((author) =>
+			scope
+				.filter((slug) => author.entitySchemaSlugs.includes(slug))
+				.map((slug) =>
+					and(
+						eq(column(seedEntity, "entitySchemaSlug"), literal(slug)),
+						schemaOwnerPredicate(
+							seedEntity,
+							"entitySchemaPluginId",
+							seedPluginOwner(author.pluginSlug),
+						),
+					),
+				),
+		);
+		if (predicates.length === 0) {
+			throw new Error("Seed saved view requires at least one owned schema");
+		}
+		return savedViewRecipe({
+			layout,
 			source: {
-				type: "generated",
-				fields,
-				limit: 20,
-				entitySchemaSlugs: scope as [string, ...string[]],
+				type: "persisted",
+				queryDocument: document({
+					savedView: rows(seedEntity, {
+						fields,
+						limit: 20,
+						orderBy: [ascending(column(seedEntity, "name"))],
+						where: or(...predicates),
+					}),
+				}),
 			},
 		}).document;
+	};
 	const dataSources = tableDocumentFor([
 		...projections.table.fields,
 		field("ownerPluginId", column(seedEntity, "entitySchemaPluginId")),
@@ -515,6 +638,14 @@ function buildSeedLayouts(
 	};
 }
 
+function seedPluginOwner(pluginSlug: string): SavedViewSourceOwner {
+	const registration = requirePresent(
+		seedPluginManifests.get(pluginSlug),
+		`Seed plugin '${pluginSlug}' was not installed`,
+	);
+	return { kind: "local", pluginId: registration.pluginId };
+}
+
 async function createSavedView(
 	apiClient: APIClient,
 	name: string,
@@ -529,7 +660,14 @@ async function createSavedView(
 				name,
 				icon,
 				renderer: { kind: "kernel", name: "entity-browser" },
-				workspacePluginSlug: pluginSlug,
+				...(pluginSlug === undefined
+					? {}
+					: {
+							workspaceInstallationId: requirePresent(
+								seedPluginManifests.get(pluginSlug)?.installationId,
+								`Seed plugin '${pluginSlug}' has no installation ID`,
+							),
+						}),
 				...definition,
 			},
 		}),
@@ -734,39 +872,53 @@ async function seedWhiskeys(client: APIClient) {
 		},
 	);
 
-	const tastingSchema = await createEventSchema(client, "Tasting", "tasting", entitySchema.id, {
-		fields: {
-			rating: {
-				type: "integer",
-				label: "Rating",
-				description: "Rating for the tasting",
-				validation: { required: true, maximum: 10, minimum: 1 },
-			},
-			notes: { type: "string", label: "Notes", description: "Tasting notes" },
-			location: {
-				type: "string",
-				label: "Location",
-				description: "Location where the tasting took place",
+	const tastingSchema = await createEventSchema(
+		client,
+		"Tasting",
+		"tasting",
+		entitySchema.reference,
+		entitySchema.pluginSlug,
+		{
+			fields: {
+				rating: {
+					type: "integer",
+					label: "Rating",
+					description: "Rating for the tasting",
+					validation: { required: true, maximum: 10, minimum: 1 },
+				},
+				notes: { type: "string", label: "Notes", description: "Tasting notes" },
+				location: {
+					type: "string",
+					label: "Location",
+					description: "Location where the tasting took place",
+				},
 			},
 		},
-	});
+	);
 
-	const purchaseSchema = await createEventSchema(client, "Purchase", "purchase", entitySchema.id, {
-		fields: {
-			price: {
-				type: "number",
-				label: "Price",
-				description: "Purchase price",
-				validation: { required: true },
+	const purchaseSchema = await createEventSchema(
+		client,
+		"Purchase",
+		"purchase",
+		entitySchema.reference,
+		entitySchema.pluginSlug,
+		{
+			fields: {
+				price: {
+					type: "number",
+					label: "Price",
+					description: "Purchase price",
+					validation: { required: true },
+				},
+				store: {
+					type: "string",
+					label: "Store",
+					description: "Store where the whiskey was purchased",
+				},
+				bottle_size: { type: "integer", label: "Bottle Size", description: "Bottle size in ml" },
 			},
-			store: {
-				type: "string",
-				label: "Store",
-				description: "Store where the whiskey was purchased",
-			},
-			bottle_size: { type: "integer", label: "Bottle Size", description: "Bottle size in ml" },
 		},
-	});
+	);
 
 	const entityCount = randomInt(90, 110);
 	console.log(`\n  Creating ${entityCount} whiskey entities...`);
@@ -780,7 +932,7 @@ async function seedWhiskeys(client: APIClient) {
 				const { entity } = await createEntity(
 					client,
 					whiskey.name,
-					entitySchema.id,
+					entitySchema.reference,
 					whiskey.properties,
 					generateImageUrl(whiskey.name, 400, 600),
 				);
@@ -853,51 +1005,72 @@ async function seedPlaces(client: APIClient) {
 		},
 	);
 
-	const visitSchema = await createEventSchema(client, "Visit", "visit", entitySchema.id, {
-		fields: {
-			date: {
-				type: "date",
-				label: "Date",
-				description: "Date of the visit",
-				validation: { required: true },
+	const visitSchema = await createEventSchema(
+		client,
+		"Visit",
+		"visit",
+		entitySchema.reference,
+		entitySchema.pluginSlug,
+		{
+			fields: {
+				date: {
+					type: "date",
+					label: "Date",
+					description: "Date of the visit",
+					validation: { required: true },
+				},
+				duration_hours: {
+					type: "number",
+					label: "Duration Hours",
+					description: "Duration of the visit in hours",
+				},
+				companions: {
+					type: "string",
+					label: "Companions",
+					description: "People who accompanied you",
+				},
+				notes: { type: "string", label: "Notes", description: "Notes about the visit" },
 			},
-			duration_hours: {
-				type: "number",
-				label: "Duration Hours",
-				description: "Duration of the visit in hours",
-			},
-			companions: {
-				type: "string",
-				label: "Companions",
-				description: "People who accompanied you",
-			},
-			notes: { type: "string", label: "Notes", description: "Notes about the visit" },
 		},
-	});
+	);
 
-	const ratingSchema = await createEventSchema(client, "Rating", "rating", entitySchema.id, {
-		fields: {
-			rating: {
-				type: "integer",
-				label: "Rating",
-				description: "Rating for the place",
-				validation: { required: true, maximum: 5, minimum: 1 },
-			},
-			review: { type: "string", label: "Review", description: "Written review" },
-			would_return: {
-				type: "boolean",
-				label: "Would Return",
-				description: "Whether you would return to this place",
+	const ratingSchema = await createEventSchema(
+		client,
+		"Rating",
+		"rating",
+		entitySchema.reference,
+		entitySchema.pluginSlug,
+		{
+			fields: {
+				rating: {
+					type: "integer",
+					label: "Rating",
+					description: "Rating for the place",
+					validation: { required: true, maximum: 5, minimum: 1 },
+				},
+				review: { type: "string", label: "Review", description: "Written review" },
+				would_return: {
+					type: "boolean",
+					label: "Would Return",
+					description: "Whether you would return to this place",
+				},
 			},
 		},
-	});
+	);
 
-	const photoSchema = await createEventSchema(client, "Photo", "photo", entitySchema.id, {
-		fields: {
-			photo_url: { type: "string", label: "Photo URL", description: "URL of the photo" },
-			caption: { type: "string", label: "Caption", description: "Caption for the photo" },
+	const photoSchema = await createEventSchema(
+		client,
+		"Photo",
+		"photo",
+		entitySchema.reference,
+		entitySchema.pluginSlug,
+		{
+			fields: {
+				photo_url: { type: "string", label: "Photo URL", description: "URL of the photo" },
+				caption: { type: "string", label: "Caption", description: "Caption for the photo" },
+			},
 		},
-	});
+	);
 
 	const entityCount = randomInt(90, 110);
 	console.log(`\n  Creating ${entityCount} place entities...`);
@@ -911,7 +1084,7 @@ async function seedPlaces(client: APIClient) {
 				const { entity } = await createEntity(
 					client,
 					place.name,
-					entitySchema.id,
+					entitySchema.reference,
 					place.properties,
 					generateImageUrl(place.name, 800, 600),
 				);
@@ -1055,7 +1228,7 @@ async function seedMobilePhones(client: APIClient) {
 				const { entity } = await createEntity(
 					client,
 					phone.name,
-					smartphoneSchema.id,
+					smartphoneSchema.reference,
 					phone.properties,
 					generateImageUrl(phone.name, 400, 600),
 				);
@@ -1081,7 +1254,7 @@ async function seedMobilePhones(client: APIClient) {
 				const { entity } = await createEntity(
 					client,
 					phone.name,
-					featurePhoneSchema.id,
+					featurePhoneSchema.reference,
 					phone.properties,
 					generateImageUrl(phone.name, 400, 600),
 				);
@@ -1109,7 +1282,7 @@ async function seedMobilePhones(client: APIClient) {
 				const { entity } = await createEntity(
 					client,
 					tablet.name,
-					tabletSchema.id,
+					tabletSchema.reference,
 					tablet.properties,
 					generateImageUrl(tablet.name, 400, 600),
 				);
@@ -1147,24 +1320,27 @@ async function getBuiltinPlugin(apiClient: APIClient) {
 	return { ...builtinPlugin, id: PluginSlug.make(builtinPlugin.slug) };
 }
 
-async function listMediaEntitySchemas(apiClient: APIClient, pluginSlug: PluginSlug) {
+async function listMediaEntitySchemas(apiClient: APIClient, pluginId: PluginId) {
 	const schemas = await apiClient.collectRecipeItems((after) =>
 		entityDefinitionsRecipe({ after, limit: 100 }),
 	);
 	return schemas
-		.filter((schema) => schema.pluginSlug === pluginSlug)
+		.filter((schema) => schema.pluginId === pluginId)
 		.map((schema) => ({ ...schema, id: schema.slug as EntitySchemaSlug }));
 }
 
 async function getMediaLifecycleEventSchemas(
 	apiClient: APIClient,
 	entitySchemaSlug: EntitySchemaSlug,
+	pluginId: PluginId,
 ) {
 	const entities = await apiClient.collectRecipeItems((after) =>
 		entityDefinitionsRecipe({ after, limit: 100 }),
 	);
 	const schemas = requirePresent(
-		entities.find((schema) => schema.slug === entitySchemaSlug),
+		entities.find(
+			(schema) => schema.slug === entitySchemaSlug && schema.pluginId === pluginId,
+		),
 		`Entity schema '${entitySchemaSlug}' not found`,
 	).eventSchemas.items.map((schema) => ({ ...schema, id: EventSchemaSlug.make(schema.slug) }));
 
@@ -1287,7 +1463,7 @@ async function seedMedia(client: APIClient) {
 	const builtinPluginScope = await getBuiltinPlugin(client);
 	console.log(`  Found builtin plugin: ${builtinPluginScope.name} (${builtinPluginScope.id})`);
 
-	const allSchemas = await listMediaEntitySchemas(client, builtinPluginScope.id);
+	const allSchemas = await listMediaEntitySchemas(client, builtinPluginScope.pluginId);
 	const schemas = allSchemas.filter((s) =>
 		(MEDIA_ENTITY_SCHEMA_SLUGS as readonly string[]).includes(s.slug),
 	);
@@ -1388,7 +1564,11 @@ async function seedMedia(client: APIClient) {
 		const slug = schema.slug as MediaEntitySchemaSlug;
 		console.log(`\n  Searching: ${schema.name} (${slug})...`);
 		// oxlint-disable-next-line no-await-in-loop
-		const eventSchemas = await getMediaLifecycleEventSchemas(client, schema.id);
+		const eventSchemas = await getMediaLifecycleEventSchemas(
+			client,
+			schema.id,
+			builtinPluginScope.pluginId,
+		);
 
 		const searchConfig = MEDIA_SEARCH_QUERIES[slug];
 		const selectedProvider = requirePresent(
@@ -1694,6 +1874,23 @@ async function seedSavedViews(
 
 	const savedViews: Awaited<ReturnType<typeof createSavedView>>[] = [];
 	const allSchemaSlugs = ["whiskey", "place", "smartphone", "feature-phone", "tablet"];
+	const whiskeyLayouts = (scope: readonly string[], columns: ReadonlyArray<SeedTableColumn>) =>
+		buildSeedLayouts(scope, columns, { pluginSlug: whiskeyPluginSlug });
+	const placesLayouts = (scope: readonly string[], columns: ReadonlyArray<SeedTableColumn>) =>
+		buildSeedLayouts(scope, columns, { pluginSlug: placesPluginSlug });
+	const phonesLayouts = (scope: readonly string[], columns: ReadonlyArray<SeedTableColumn>) =>
+		buildSeedLayouts(scope, columns, { pluginSlug: phonesPluginSlug });
+	const crossPluginLayouts = (scope: readonly string[], columns: ReadonlyArray<SeedTableColumn>) =>
+		buildSeedLayouts(scope, columns, {
+			authors: [
+				{ pluginSlug: whiskeyPluginSlug, entitySchemaSlugs: ["whiskey"] },
+				{ pluginSlug: placesPluginSlug, entitySchemaSlugs: ["place"] },
+				{
+					pluginSlug: phonesPluginSlug,
+					entitySchemaSlugs: ["smartphone", "feature-phone", "tablet"],
+				},
+			],
+		});
 
 	const whiskeyViews: SavedViewSpec[] = [
 		{
@@ -1701,7 +1898,7 @@ async function seedSavedViews(
 			name: "Premium Aged Whiskeys",
 			icon: "wine",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -1716,7 +1913,7 @@ async function seedSavedViews(
 			name: "Scotch Whiskeys",
 			icon: "wine",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -1730,7 +1927,7 @@ async function seedSavedViews(
 			name: "High Proof Whiskeys",
 			icon: "flame",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -1745,7 +1942,7 @@ async function seedSavedViews(
 			name: "Recent Whiskey Additions",
 			icon: "clock",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -1759,7 +1956,7 @@ async function seedSavedViews(
 			name: "Japanese Whiskeys",
 			icon: "wine",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -1773,7 +1970,7 @@ async function seedSavedViews(
 			name: "Whiskey Regions Atlas",
 			icon: "map",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Region", schemaField("whiskey", "region")),
@@ -1789,7 +1986,7 @@ async function seedSavedViews(
 			name: "Cask Strength Candidates",
 			icon: "flame",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -1807,7 +2004,7 @@ async function seedSavedViews(
 			name: "Restaurants & Cafes",
 			icon: "utensils",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
-			layouts: buildSeedLayouts(
+			layouts: placesLayouts(
 				["place"],
 				[
 					tableColumn("Name", "@name"),
@@ -1821,7 +2018,7 @@ async function seedSavedViews(
 			name: "Cultural Venues",
 			icon: "landmark",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
-			layouts: buildSeedLayouts(
+			layouts: placesLayouts(
 				["place"],
 				[
 					tableColumn("Name", "@name"),
@@ -1836,7 +2033,7 @@ async function seedSavedViews(
 			name: "Parks & Outdoor Spaces",
 			icon: "tree",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
-			layouts: buildSeedLayouts(
+			layouts: placesLayouts(
 				["place"],
 				[
 					tableColumn("Name", "@name"),
@@ -1850,7 +2047,7 @@ async function seedSavedViews(
 			name: "Recently Added Places",
 			icon: "clock",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
-			layouts: buildSeedLayouts(
+			layouts: placesLayouts(
 				["place"],
 				[
 					tableColumn("Name", "@name"),
@@ -1864,7 +2061,7 @@ async function seedSavedViews(
 			name: "Places by Country",
 			icon: "globe",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
-			layouts: buildSeedLayouts(
+			layouts: placesLayouts(
 				["place"],
 				[
 					tableColumn("Country", schemaField("place", "country")),
@@ -1879,7 +2076,7 @@ async function seedSavedViews(
 			name: "Mapped Places",
 			icon: "map-pin",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
-			layouts: buildSeedLayouts(
+			layouts: placesLayouts(
 				["place"],
 				[
 					tableColumn("Name", "@name"),
@@ -1894,7 +2091,7 @@ async function seedSavedViews(
 			name: "City Address Book",
 			icon: "book-open",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
-			layouts: buildSeedLayouts(
+			layouts: placesLayouts(
 				["place"],
 				[
 					tableColumn("City", schemaField("place", "city")),
@@ -1912,7 +2109,7 @@ async function seedSavedViews(
 			name: "Modern Smartphones",
 			icon: "smartphone",
 			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["smartphone"],
 				[
 					tableColumn("Name", "@name"),
@@ -1927,7 +2124,7 @@ async function seedSavedViews(
 			name: "High Storage Devices",
 			icon: "hard-drive",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["smartphone", "tablet"],
 				[
 					tableColumn("Name", "@name"),
@@ -1942,7 +2139,7 @@ async function seedSavedViews(
 			name: "Apple Ecosystem Devices",
 			icon: "apple",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["smartphone", "tablet"],
 				[
 					tableColumn("Name", "@name"),
@@ -1957,7 +2154,7 @@ async function seedSavedViews(
 			name: "Android Devices",
 			icon: "android",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["smartphone", "tablet"],
 				[
 					tableColumn("Name", "@name"),
@@ -1972,7 +2169,7 @@ async function seedSavedViews(
 			name: "Premium Smartphones",
 			icon: "gem",
 			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["smartphone"],
 				[
 					tableColumn("Name", "@name"),
@@ -1988,7 +2185,7 @@ async function seedSavedViews(
 			name: "Budget-Friendly Phones",
 			icon: "dollar-sign",
 			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["smartphone"],
 				[
 					tableColumn("Name", "@name"),
@@ -2002,7 +2199,7 @@ async function seedSavedViews(
 			name: "Large Screen Devices",
 			icon: "smartphone",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["smartphone", "tablet"],
 				[
 					tableColumn("Name", "@name"),
@@ -2017,7 +2214,7 @@ async function seedSavedViews(
 			name: "Tablets with Cellular",
 			icon: "signal",
 			entitySchemaSlug: EntitySchemaSlug.make("tablet"),
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["tablet"],
 				[
 					tableColumn("Name", "@name"),
@@ -2032,7 +2229,7 @@ async function seedSavedViews(
 			name: "Feature Phones with Camera",
 			icon: "camera",
 			entitySchemaSlug: EntitySchemaSlug.make("feature-phone"),
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["feature-phone"],
 				[
 					tableColumn("Name", "@name"),
@@ -2047,7 +2244,7 @@ async function seedSavedViews(
 			name: "All Mobile Devices",
 			icon: "tablet",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["smartphone", "feature-phone", "tablet"],
 				[
 					tableColumn("Name", "@name"),
@@ -2069,7 +2266,7 @@ async function seedSavedViews(
 			name: "Everything Recently Added",
 			icon: "star",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(allSchemaSlugs, [
+			layouts: crossPluginLayouts(allSchemaSlugs, [
 				tableColumn("Name", "@name"),
 				tableColumn("Created", "@createdAt"),
 				tableColumn(
@@ -2086,7 +2283,7 @@ async function seedSavedViews(
 			name: "All Items A-Z",
 			icon: "book",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(allSchemaSlugs, [
+			layouts: crossPluginLayouts(allSchemaSlugs, [
 				tableColumn("Name", "@name"),
 				tableColumn(
 					"Context",
@@ -2102,7 +2299,7 @@ async function seedSavedViews(
 			name: "Collection Showcase",
 			icon: "image",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(allSchemaSlugs, [
+			layouts: crossPluginLayouts(allSchemaSlugs, [
 				tableColumn("Name", "@name"),
 				tableColumn(
 					"Highlight",
@@ -2125,7 +2322,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Latest Tasting",
 			icon: "star",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2141,7 +2338,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Highly Rated",
 			icon: "trophy",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2157,7 +2354,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Latest Purchase",
 			icon: "shopping-cart",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2173,7 +2370,7 @@ async function seedSavedViews(
 			name: "Demo: Places – Last Visited",
 			icon: "calendar",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
-			layouts: buildSeedLayouts(
+			layouts: placesLayouts(
 				["place"],
 				[
 					tableColumn("Name", "@name"),
@@ -2190,7 +2387,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – ABV Reference",
 			icon: "percent",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2206,7 +2403,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Quality Tiers",
 			icon: "layers",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2222,7 +2419,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Full Description",
 			icon: "file-text",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2236,7 +2433,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Rating with ABV",
 			icon: "activity",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2252,7 +2449,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Rare Bourbons",
 			icon: "award",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2267,7 +2464,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Not Rye",
 			icon: "x-circle",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2282,7 +2479,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Bourbon or Scotch, High Proof",
 			icon: "zap",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2298,7 +2495,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Unknown Region",
 			icon: "help-circle",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2313,7 +2510,7 @@ async function seedSavedViews(
 			name: "Demo: Places – Has Full Address",
 			icon: "map-pin",
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
-			layouts: buildSeedLayouts(
+			layouts: placesLayouts(
 				["place"],
 				[
 					tableColumn("Name", "@name"),
@@ -2329,7 +2526,7 @@ async function seedSavedViews(
 			name: "Demo: Whiskeys – Speyside",
 			icon: "map",
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
-			layouts: buildSeedLayouts(
+			layouts: whiskeyLayouts(
 				["whiskey"],
 				[
 					tableColumn("Name", "@name"),
@@ -2344,7 +2541,7 @@ async function seedSavedViews(
 			name: "Demo: Phones – Non-Apple",
 			icon: "smartphone",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(
+			layouts: phonesLayouts(
 				["smartphone", "tablet"],
 				[
 					tableColumn("Name", "@name"),

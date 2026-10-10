@@ -6,10 +6,7 @@ import {
 	createAuthenticatedClient,
 	executeRyotQL,
 	executeRyotQLRecipe,
-	findBuiltinPluginBySlug,
-	findBuiltinSchemaBySlug,
 	getSavedView,
-	listEntitySchemas,
 	listEventsForEntity,
 	listSavedViews,
 	mergeUserState,
@@ -21,6 +18,7 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
+	findFitnessEntitySchema,
 	createWorkoutEntityFixture,
 	findWorkoutSetEventSchema,
 } from "~/fixtures/plugins/fitness";
@@ -36,38 +34,39 @@ describe("Exercises E2E", () => {
 	it.live("links the built-in exercise schema to the fitness plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-			const schemas = yield* listEntitySchemas(client, { pluginSlug: fitnessPlugin.slug });
-			const exerciseSchema = schemas.find((schema) => schema.slug === "exercise");
+			const { pluginId, schema: exerciseSchema } = yield* findFitnessEntitySchema(
+				client,
+				"exercise",
+			);
 
-			expect(exerciseSchema).toBeDefined();
-			expect(exerciseSchema?.name).toBe("Exercise");
-			expect(exerciseSchema?.slug).toBe("exercise");
-			expect(exerciseSchema?.icon).toBe("zap");
-			expect(exerciseSchema?.isBuiltin).toBe(true);
-			expect(exerciseSchema?.pluginSlug).toBe(fitnessPlugin.slug);
+			assertPresent(exerciseSchema, "Fitness exercise schema missing");
+			expect(exerciseSchema.name).toBe("Exercise");
+			expect(exerciseSchema.slug).toBe("exercise");
+			expect(exerciseSchema.icon).toBe("zap");
+			expect(exerciseSchema.isBuiltin).toBe(true);
+			expect(exerciseSchema.pluginId).toBe(pluginId);
 			expect(
-				exerciseSchema?.providers.find(
+				exerciseSchema.providers.find(
 					({ providerSlug }) => providerSlug === "exercise.free-exercise-db",
 				),
 			).toMatchObject({ name: "Free Exercise DB", providerId: expect.any(String) });
-			expect(exerciseSchema?.propertiesSchema.fields.images).toMatchObject({
+			expect(exerciseSchema.propertiesSchema.fields.images).toMatchObject({
 				type: "array",
 				label: "Images",
 			});
-			expect(exerciseSchema?.propertiesSchema.fields.videos).toMatchObject({
+			expect(exerciseSchema.propertiesSchema.fields.videos).toMatchObject({
 				type: "array",
 				label: "Videos",
 			});
-			expect(exerciseSchema?.propertiesSchema.fields).not.toHaveProperty("source");
+			expect(exerciseSchema.propertiesSchema.fields).not.toHaveProperty("source");
 		}),
 	);
 
 	it.live("creates the built-in All Exercises saved view with exercise defaults", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-			const views = yield* listSavedViews(client, { pluginSlug: fitnessPlugin.slug });
+			const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
+			const views = yield* listSavedViews(client, { pluginId });
 			const allExercisesView = views.find((view) => view.name === "All Exercises");
 			assertPresent(allExercisesView, "Expected the built-in All Exercises saved view");
 			const dataSources = requirePresent(
@@ -82,9 +81,9 @@ describe("Exercises E2E", () => {
 			);
 
 			expect(allExercisesView).toMatchObject({
+				pluginId,
 				isBuiltin: true,
 				name: "All Exercises",
-				pluginSlug: fitnessPlugin.slug,
 				renderer: { kind: "kernel", name: "entity-browser" },
 				settings: {
 					pageSize: 20,
@@ -101,8 +100,8 @@ describe("Exercises E2E", () => {
 					],
 					addAction: {
 						type: "provider-search",
+						ownerPluginId: pluginId,
 						entitySchemaSlug: "exercise",
-						ownerPluginId: expect.any(String),
 					},
 				},
 			});
@@ -150,7 +149,7 @@ describe("Exercises E2E", () => {
 						]),
 					}),
 					expect.objectContaining({
-						right: { type: "literal", value: expect.any(String) },
+						right: { type: "literal", value: pluginId },
 						left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 					}),
 				]),
@@ -183,11 +182,18 @@ describe("Exercises E2E", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
+				const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
 				const exerciseName = `Listed Exercise ${crypto.randomUUID()}`;
 				yield* createExerciseEntityFixture(client, { name: exerciseName, kind: "reps_and_weight" });
 				const exercise = requirePresent(
-					(yield* executeRyotQLRecipe(client, exerciseListRecipe({ limit: 1, name: exerciseName })))
-						.items[0],
+					(yield* executeRyotQLRecipe(
+						client,
+						exerciseListRecipe({
+							limit: 1,
+							name: exerciseName,
+							reference: { pluginId, kind: "local" },
+						}),
+					)).items[0],
 					"Expected the created exercise in the exercise list",
 				);
 
@@ -197,7 +203,11 @@ describe("Exercises E2E", () => {
 				expect(exercise.kind).toBe("reps_and_weight");
 				expect(exercise.equipment).toEqual([]);
 
-				const savedView = yield* getSavedView(client, "all-exercises");
+				const savedView = yield* getSavedView(client, {
+					pluginId,
+					kind: "plugin",
+					slug: "all-exercises",
+				});
 				const dataSources = requirePresent(
 					savedView.dataSources,
 					"All Exercises saved view has no data sources",
@@ -218,6 +228,7 @@ describe("Exercises E2E", () => {
 	it.live("sorts All Exercises by workout sessions and then name", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findFitnessEntitySchema(client, "exercise");
 			const { exerciseId: alphaExerciseId } = yield* createExerciseEntityFixture(client, {
 				name: "Alpha",
 			});
@@ -276,7 +287,11 @@ describe("Exercises E2E", () => {
 			);
 			expect((yield* waitForCreateEvents(client, createResult)).count).toBe(6);
 
-			const savedView = yield* getSavedView(client, "all-exercises");
+			const savedView = yield* getSavedView(client, {
+				pluginId,
+				kind: "plugin",
+				slug: "all-exercises",
+			});
 			const dataSources = requirePresent(
 				savedView.dataSources,
 				"All Exercises saved view has no data sources",
@@ -299,18 +314,18 @@ describe("Exercises E2E", () => {
 	it.live("merges workout-set events between exercises with the same kind", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: exerciseSchema } = yield* findBuiltinSchemaBySlug(client, "exercise");
+			const { schema: exerciseSchema } = yield* findFitnessEntitySchema(client, "exercise");
 			const { workoutId } = yield* createWorkoutEntityFixture(client);
 			const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
 			const source = yield* createEntity(client, {
 				name: "Source Exercise",
 				properties: { kind: "reps" },
-				entitySchemaSlug: exerciseSchema.id,
+				entitySchema: exerciseSchema.reference,
 			});
 			const target = yield* createEntity(client, {
 				name: "Target Exercise",
 				properties: { kind: "reps" },
-				entitySchemaSlug: exerciseSchema.id,
+				entitySchema: exerciseSchema.reference,
 			});
 
 			yield* client.call((c) =>
@@ -347,16 +362,16 @@ describe("Exercises E2E", () => {
 	it.live("rejects merging exercises with different kinds", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schema: exerciseSchema } = yield* findBuiltinSchemaBySlug(client, "exercise");
+			const { schema: exerciseSchema } = yield* findFitnessEntitySchema(client, "exercise");
 			const source = yield* createEntity(client, {
 				properties: { kind: "reps" },
 				name: "Source Reps Exercise",
-				entitySchemaSlug: exerciseSchema.id,
+				entitySchema: exerciseSchema.reference,
 			});
 			const target = yield* createEntity(client, {
 				name: "Target Duration Exercise",
 				properties: { kind: "duration" },
-				entitySchemaSlug: exerciseSchema.id,
+				entitySchema: exerciseSchema.reference,
 			});
 
 			const error = yield* Effect.flip(

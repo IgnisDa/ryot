@@ -52,13 +52,13 @@ describe("RyotQL row pagination", () => {
 	it.live("traverses equal sort values sequentially with primary-key tie breaking", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createSchema(client, "RyotQLPaginationTies");
+			const { schemaId, reference } = yield* createSchema(client, "RyotQLPaginationTies");
 			const entities = yield* Effect.forEach(
 				["Tie One", "Tie Two", "Tie Three", "Tie Four", "Tie Five"],
 				(name) =>
 					createEntityFixture(client, {
 						name,
-						entitySchemaSlug: schemaId,
+						entitySchema: reference,
 						properties: { sortValue: 1 },
 					}),
 			);
@@ -107,20 +107,20 @@ describe("RyotQL row pagination", () => {
 	it.live("keeps null sort values last across ascending and descending cursors", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createSchema(client, "RyotQLPaginationNulls");
+			const { schemaId, reference } = yield* createSchema(client, "RyotQLPaginationNulls");
 			const [, , nullOne, nullTwo] = yield* Effect.all([
 				createEntityFixture(client, {
 					name: "Low",
-					entitySchemaSlug: schemaId,
+					entitySchema: reference,
 					properties: { sortValue: 1 },
 				}),
 				createEntityFixture(client, {
 					name: "High",
-					entitySchemaSlug: schemaId,
+					entitySchema: reference,
 					properties: { sortValue: 2 },
 				}),
-				createEntityFixture(client, { name: "Null One", entitySchemaSlug: schemaId }),
-				createEntityFixture(client, { name: "Null Two", entitySchemaSlug: schemaId }),
+				createEntityFixture(client, { name: "Null One", entitySchema: reference }),
+				createEntityFixture(client, { name: "Null Two", entitySchema: reference }),
 			]);
 
 			const entity = table("entity", "entity");
@@ -168,9 +168,9 @@ describe("RyotQL row pagination", () => {
 	it.live("rejects malformed and query-incompatible cursors", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createSchema(client, "RyotQLPaginationInvalidCursor");
+			const { schemaId, reference } = yield* createSchema(client, "RyotQLPaginationInvalidCursor");
 			yield* Effect.forEach(["First", "Second", "Third"], (name) =>
-				createEntityFixture(client, { name, entitySchemaSlug: schemaId }),
+				createEntityFixture(client, { name, entitySchema: reference }),
 			);
 
 			const entity = table("entity", "entity");

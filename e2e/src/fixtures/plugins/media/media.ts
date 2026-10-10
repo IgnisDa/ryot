@@ -1,9 +1,6 @@
-import {
-	EntityId,
-	EntitySchemaSlug,
-	RelationshipSchemaSlug,
-	SandboxProviderId,
-} from "@ryot-app/contract/schema/brands";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import {
 	and,
 	ascending,
@@ -23,14 +20,12 @@ import {
 import { DateTime, Effect } from "effect";
 
 import { adminHeaders } from "~/fixtures/kernel/admin";
+import { listAdminSystemPlugins } from "~/fixtures/kernel/admin-system-plugins";
 import type { Client } from "~/fixtures/kernel/auth";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
+import { getEntity } from "~/fixtures/kernel/entities";
 import { insertGlobalRelationship } from "~/fixtures/kernel/entity-graph";
-import {
-	findBuiltinSchemaBySlug,
-	getBuiltinEntitySchemaSlug,
-	makeEntitySchemaSlug,
-} from "~/fixtures/kernel/entity-schemas";
+import { getBuiltinEntitySchemaSlug, makeEntitySchemaSlug } from "~/fixtures/kernel/entity-schemas";
 import { pollUntil } from "~/fixtures/kernel/polling";
 import {
 	listRelationshipSchemas,
@@ -50,73 +45,88 @@ import {
 	requireString,
 } from "~/support/assertions";
 
-import { findBuiltinSchemaWithProviders } from "./entity-schemas";
+import {
+	findBuiltinSchemaWithProviders,
+	findMediaEntitySchema,
+	mediaFixtureInstallation,
+} from "./entity-schemas";
 
 export const queryInMediaLibraryRelationship = (
 	client: Client,
 	entityId: string,
 	entitySchemaSlug: string,
 ) => {
-	const entity = table("entity", "entity");
-	const membership = table("relationship", "membership");
-	const mediaLibrary = table("entity", "mediaLibrary");
-	const existingLibrary = table("entity", "existingLibrary");
-	return executeRyotQL(
-		client,
-		document({
-			entity: rows(entity, {
-				limit: 1,
-				fields: [field("id", column(entity, "id"))],
-				where: and(
-					eq(column(entity, "id"), literal(entityId)),
-					eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
-					exists(membership, {
-						joins: [
-							join(
-								"inner",
-								existingLibrary,
-								eq(column(membership, "targetEntityId"), column(existingLibrary, "id")),
-							),
-						],
-						where: and(
-							eq(column(membership, "sourceEntityId"), column(entity, "id")),
-							eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
-							eq(column(existingLibrary, "entitySchemaSlug"), literal("media-library")),
+	return Effect.gen(function* () {
+		const selectedEntity = yield* getEntity(client, entityId);
+		const mediaPluginId = (yield* mediaFixtureInstallation).id;
+		const entity = table("entity", "entity");
+		const membership = table("relationship", "membership");
+		const mediaLibrary = table("entity", "mediaLibrary");
+		const existingLibrary = table("entity", "existingLibrary");
+		return yield* executeRyotQL(
+			client,
+			document({
+				entity: rows(entity, {
+					limit: 1,
+					fields: [field("id", column(entity, "id"))],
+					where: and(
+						eq(column(entity, "id"), literal(entityId)),
+						eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
+						eq(
+							column(entity, "entitySchemaPluginId"),
+							literal(selectedEntity.entitySchemaPluginId),
 						),
-					}),
-				),
-				include: [
-					include(membership, {
-						limit: 1,
-						key: "libraries",
-						orderBy: [ascending(column(membership, "id"))],
-						joins: [
-							join(
-								"inner",
-								mediaLibrary,
-								eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
+						exists(membership, {
+							joins: [
+								join(
+									"inner",
+									existingLibrary,
+									eq(column(membership, "targetEntityId"), column(existingLibrary, "id")),
+								),
+							],
+							where: and(
+								eq(column(membership, "sourceEntityId"), column(entity, "id")),
+								eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+								eq(column(membership, "relationshipSchemaPluginId"), literal(mediaPluginId)),
+								eq(column(existingLibrary, "entitySchemaSlug"), literal("media-library")),
+								eq(column(existingLibrary, "entitySchemaPluginId"), literal(mediaPluginId)),
 							),
-						],
-						where: and(
-							eq(column(membership, "sourceEntityId"), column(entity, "id")),
-							eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
-						),
-						fields: [
-							field("owned", jsonPath(column(membership, "properties"), "owned")),
-							field(
-								"ownershipSources",
-								jsonPath(column(membership, "properties"), "ownershipSources"),
+						}),
+					),
+					include: [
+						include(membership, {
+							limit: 1,
+							key: "libraries",
+							orderBy: [ascending(column(membership, "id"))],
+							joins: [
+								join(
+									"inner",
+									mediaLibrary,
+									eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
+								),
+							],
+							where: and(
+								eq(column(membership, "sourceEntityId"), column(entity, "id")),
+								eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+								eq(column(membership, "relationshipSchemaPluginId"), literal(mediaPluginId)),
 							),
-							field(
-								"ownershipSyncedAt",
-								jsonPath(column(membership, "properties"), "ownershipSyncedAt"),
-							),
-						],
-					}),
-				],
+							fields: [
+								field("owned", jsonPath(column(membership, "properties"), "owned")),
+								field(
+									"ownershipSources",
+									jsonPath(column(membership, "properties"), "ownershipSources"),
+								),
+								field(
+									"ownershipSyncedAt",
+									jsonPath(column(membership, "properties"), "ownershipSyncedAt"),
+								),
+							],
+						}),
+					],
+				}),
 			}),
-		}),
-	);
+		);
+	});
 };
 
 const getEntityByProvenance = (
@@ -188,12 +198,15 @@ export const getRelationshipBySchemaSlug = (
 	input: { sourceEntityId: string; targetEntityId: string; relationshipSchemaSlug: string },
 ) =>
 	Effect.gen(function* () {
+		const owner = definitionOwner((yield* mediaFixtureInstallation).id);
 		const schemas = yield* listRelationshipSchemas(client, {
+			owner,
 			slugs: [input.relationshipSchemaSlug],
 		});
 		const relationshipSchema = requireRelationshipSchemaBySlug(
 			schemas,
 			input.relationshipSchemaSlug,
+			owner,
 		);
 		const relationshipTable = table("relationship", "relationship");
 		const result = yield* executeRyotQL(
@@ -239,6 +252,13 @@ export const seedMediaEntity = (input: {
 }) =>
 	Effect.gen(function* () {
 		const entitySchemaSlug = makeEntitySchemaSlug(input.entitySchemaSlug);
+		const plugin = requirePresent(
+			(yield* listAdminSystemPlugins).find(
+				({ packageId }) => packageId === mediaPlugin.metadata.packageId,
+			),
+			"System media plugin missing",
+		);
+		const entitySchema = { slug: entitySchemaSlug, owner: definitionOwner(plugin.id) };
 		const providerId = input.providerId ? SandboxProviderId.make(input.providerId) : undefined;
 		const result = input.userId
 			? yield* requirePresent(
@@ -248,7 +268,7 @@ export const seedMediaEntity = (input: {
 					c.entities.create({
 						payload: {
 							providerId,
-							entitySchemaSlug,
+							entitySchema,
 							name: input.name,
 							properties: input.properties,
 							externalId: input.externalId,
@@ -260,7 +280,7 @@ export const seedMediaEntity = (input: {
 						c.testSupport.createGlobalEntity({
 							payload: {
 								providerId,
-								entitySchemaSlug,
+								entitySchema,
 								name: input.name,
 								properties: input.properties,
 								externalId: input.externalId,
@@ -288,7 +308,7 @@ export const createGlobalBookEntityFixture = (
 	options: { name?: string; externalId?: string } = {},
 ) =>
 	Effect.gen(function* () {
-		const { schema } = yield* findBuiltinSchemaWithProviders(client);
+		const { schema, pluginId } = yield* findBuiltinSchemaWithProviders(client);
 		const entity = yield* seedMediaEntity({
 			userId: null,
 			properties: {},
@@ -297,7 +317,7 @@ export const createGlobalBookEntityFixture = (
 			externalId: options.externalId ?? `global-book-${crypto.randomUUID()}`,
 			providerId: requirePresent(schema.providers[0]?.providerId, "Missing book provider"),
 		});
-		return { entity, schema };
+		return { entity, schema, pluginId };
 	});
 
 export const seedGlobalShowEpisodeTree = (
@@ -305,13 +325,13 @@ export const seedGlobalShowEpisodeTree = (
 	options: { showName: string; showProperties?: Record<string, unknown> },
 ) =>
 	Effect.gen(function* () {
-		const { schema: showSchema } = yield* findBuiltinSchemaBySlug(client, "show");
+		const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
 		const tmdbProvider = showSchema.providers.find((provider) => provider.name === "TMDB");
 		assertPresent(tmdbProvider, "Missing TMDB provider for built-in show schema");
 
 		const [seasonSchemaId, episodeSchemaId, relationshipSchemas] = yield* Effect.all([
-			getBuiltinEntitySchemaSlug(client, "show-season"),
-			getBuiltinEntitySchemaSlug(client, "show-episode"),
+			getBuiltinEntitySchemaSlug(client, "show-season", showSchema.reference.owner),
+			getBuiltinEntitySchemaSlug(client, "show-episode", showSchema.reference.owner),
 			listRelationshipSchemas(client, {
 				slugs: ["show-to-show-season", "show-season-to-show-episode"],
 			}),
@@ -319,10 +339,12 @@ export const seedGlobalShowEpisodeTree = (
 		const showToSeason = requireRelationshipSchemaBySlug(
 			relationshipSchemas,
 			"show-to-show-season",
+			showSchema.reference.owner,
 		);
 		const seasonToEpisode = requireRelationshipSchemaBySlug(
 			relationshipSchemas,
 			"show-season-to-show-episode",
+			showSchema.reference.owner,
 		);
 
 		const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
@@ -338,10 +360,15 @@ export const seedGlobalShowEpisodeTree = (
 				(c) =>
 					c.testSupport.createGlobalEntity({
 						payload: {
-							...input,
 							populatedAt,
+							name: input.name,
+							externalId: input.externalId,
+							properties: input.properties,
 							providerId: SandboxProviderId.make(tmdbProvider.providerId),
-							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							entitySchema: {
+								owner: showSchema.reference.owner,
+								slug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							},
 						},
 					}),
 				adminHeaders(),
@@ -370,7 +397,7 @@ export const seedGlobalShowEpisodeTree = (
 					payload: {
 						sourceEntityId: show.id,
 						targetEntityId: season.id,
-						relationshipSchemaSlug: RelationshipSchemaSlug.make(showToSeason.id),
+						relationshipSchema: showToSeason.reference,
 					},
 				}),
 			adminHeaders(),
@@ -381,7 +408,7 @@ export const seedGlobalShowEpisodeTree = (
 					payload: {
 						sourceEntityId: season.id,
 						targetEntityId: episode.id,
-						relationshipSchemaSlug: RelationshipSchemaSlug.make(seasonToEpisode.id),
+						relationshipSchema: seasonToEpisode.reference,
 					},
 				}),
 			adminHeaders(),
@@ -402,15 +429,15 @@ export const seedGlobalMovieWithCollection = (
 	},
 ) =>
 	Effect.gen(function* () {
-		const { schema: movieSchema } = yield* findBuiltinSchemaBySlug(client, "movie");
+		const { schema: movieSchema } = yield* findMediaEntitySchema(client, "movie");
 		const tmdbProvider = movieSchema.providers.find((provider) => provider.name === "TMDB");
 		assertPresent(tmdbProvider, "Missing TMDB provider for built-in movie schema");
 
 		const [groupSchemaId, personSchemaId, companySchemaId, relationshipSchemas] = yield* Effect.all(
 			[
-				getBuiltinEntitySchemaSlug(client, "movie-group"),
-				getBuiltinEntitySchemaSlug(client, "person"),
-				getBuiltinEntitySchemaSlug(client, "company"),
+				getBuiltinEntitySchemaSlug(client, "movie-group", movieSchema.reference.owner),
+				getBuiltinEntitySchemaSlug(client, "person", movieSchema.reference.owner),
+				getBuiltinEntitySchemaSlug(client, "company", movieSchema.reference.owner),
 				listRelationshipSchemas(client, {
 					slugs: [
 						"movie-group-to-movie",
@@ -424,10 +451,23 @@ export const seedGlobalMovieWithCollection = (
 		const groupToMovie = requireRelationshipSchemaBySlug(
 			relationshipSchemas,
 			"movie-group-to-movie",
+			movieSchema.reference.owner,
 		);
-		const personToMovie = requireRelationshipSchemaBySlug(relationshipSchemas, "person-to-movie");
-		const companyToMovie = requireRelationshipSchemaBySlug(relationshipSchemas, "company-to-movie");
-		const suggestion = requireRelationshipSchemaBySlug(relationshipSchemas, "media-suggestion");
+		const personToMovie = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"person-to-movie",
+			movieSchema.reference.owner,
+		);
+		const companyToMovie = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"company-to-movie",
+			movieSchema.reference.owner,
+		);
+		const suggestion = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"media-suggestion",
+			movieSchema.reference.owner,
+		);
 
 		const tmdbId = String(Math.floor(Math.random() * 1_000_000_000));
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
@@ -442,10 +482,15 @@ export const seedGlobalMovieWithCollection = (
 				(c) =>
 					c.testSupport.createGlobalEntity({
 						payload: {
-							...input,
 							populatedAt,
+							name: input.name,
+							externalId: input.externalId,
+							properties: input.properties,
 							providerId: SandboxProviderId.make(tmdbProvider.providerId),
-							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							entitySchema: {
+								owner: movieSchema.reference.owner,
+								slug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							},
 						},
 					}),
 				adminHeaders(),
@@ -473,13 +518,13 @@ export const seedGlobalMovieWithCollection = (
 			properties: { order: 1 },
 			targetEntityId: movie.id,
 			sourceEntityId: group.id,
-			relationshipSchemaSlug: groupToMovie.id,
+			relationshipSchema: groupToMovie.reference,
 		});
 		yield* insertGlobalRelationship({
 			properties: { order: 2 },
 			sourceEntityId: group.id,
 			targetEntityId: sibling.id,
-			relationshipSchemaSlug: groupToMovie.id,
+			relationshipSchema: groupToMovie.reference,
 		});
 
 		if (options.withCredits !== true) {
@@ -507,20 +552,20 @@ export const seedGlobalMovieWithCollection = (
 		yield* insertGlobalRelationship({
 			targetEntityId: movie.id,
 			sourceEntityId: person.id,
-			relationshipSchemaSlug: personToMovie.id,
+			relationshipSchema: personToMovie.reference,
 			properties: { order: 1, roles: ["Actor"], character: "The Lead" },
 		});
 		yield* insertGlobalRelationship({
 			targetEntityId: movie.id,
 			sourceEntityId: company.id,
-			relationshipSchemaSlug: companyToMovie.id,
+			relationshipSchema: companyToMovie.reference,
 			properties: { order: 1, roles: ["Production Company"] },
 		});
 		yield* insertGlobalRelationship({
 			properties: {},
 			sourceEntityId: movie.id,
 			targetEntityId: suggested.id,
-			relationshipSchemaSlug: suggestion.id,
+			relationshipSchema: suggestion.reference,
 		});
 		return { movie, group, sibling, credits: { person, company, suggested } };
 	});
@@ -537,15 +582,15 @@ export const seedGlobalMusicWithAlbum = (
 	},
 ) =>
 	Effect.gen(function* () {
-		const { schema: musicSchema } = yield* findBuiltinSchemaBySlug(client, "music");
+		const { schema: musicSchema } = yield* findMediaEntitySchema(client, "music");
 		const musicBrainz = musicSchema.providers.find((provider) => provider.name === "MusicBrainz");
 		assertPresent(musicBrainz, "Missing MusicBrainz provider for built-in music schema");
 
 		const [albumSchemaId, personSchemaId, companySchemaId, relationshipSchemas] = yield* Effect.all(
 			[
-				getBuiltinEntitySchemaSlug(client, "music-group"),
-				getBuiltinEntitySchemaSlug(client, "person"),
-				getBuiltinEntitySchemaSlug(client, "company"),
+				getBuiltinEntitySchemaSlug(client, "music-group", musicSchema.reference.owner),
+				getBuiltinEntitySchemaSlug(client, "person", musicSchema.reference.owner),
+				getBuiltinEntitySchemaSlug(client, "company", musicSchema.reference.owner),
 				listRelationshipSchemas(client, {
 					slugs: [
 						"music-group-to-music",
@@ -559,10 +604,23 @@ export const seedGlobalMusicWithAlbum = (
 		const albumToMusic = requireRelationshipSchemaBySlug(
 			relationshipSchemas,
 			"music-group-to-music",
+			musicSchema.reference.owner,
 		);
-		const personToMusic = requireRelationshipSchemaBySlug(relationshipSchemas, "person-to-music");
-		const companyToMusic = requireRelationshipSchemaBySlug(relationshipSchemas, "company-to-music");
-		const suggestion = requireRelationshipSchemaBySlug(relationshipSchemas, "media-suggestion");
+		const personToMusic = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"person-to-music",
+			musicSchema.reference.owner,
+		);
+		const companyToMusic = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"company-to-music",
+			musicSchema.reference.owner,
+		);
+		const suggestion = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"media-suggestion",
+			musicSchema.reference.owner,
+		);
 
 		const externalId = String(Math.floor(Math.random() * 1_000_000_000));
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
@@ -577,10 +635,15 @@ export const seedGlobalMusicWithAlbum = (
 				(c) =>
 					c.testSupport.createGlobalEntity({
 						payload: {
-							...input,
 							populatedAt,
+							name: input.name,
+							externalId: input.externalId,
+							properties: input.properties,
 							providerId: SandboxProviderId.make(musicBrainz.providerId),
-							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							entitySchema: {
+								owner: musicSchema.reference.owner,
+								slug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							},
 						},
 					}),
 				adminHeaders(),
@@ -608,13 +671,13 @@ export const seedGlobalMusicWithAlbum = (
 			properties: { order: 1 },
 			targetEntityId: track.id,
 			sourceEntityId: album.id,
-			relationshipSchemaSlug: albumToMusic.id,
+			relationshipSchema: albumToMusic.reference,
 		});
 		yield* insertGlobalRelationship({
 			properties: { order: 2 },
 			sourceEntityId: album.id,
 			targetEntityId: sibling.id,
-			relationshipSchemaSlug: albumToMusic.id,
+			relationshipSchema: albumToMusic.reference,
 		});
 
 		if (options.withCredits !== true) {
@@ -642,20 +705,20 @@ export const seedGlobalMusicWithAlbum = (
 		yield* insertGlobalRelationship({
 			targetEntityId: track.id,
 			sourceEntityId: person.id,
-			relationshipSchemaSlug: personToMusic.id,
+			relationshipSchema: personToMusic.reference,
 			properties: { order: 1, roles: ["Artist"] },
 		});
 		yield* insertGlobalRelationship({
 			targetEntityId: track.id,
 			sourceEntityId: company.id,
-			relationshipSchemaSlug: companyToMusic.id,
 			properties: { order: 1, roles: ["Label"] },
+			relationshipSchema: companyToMusic.reference,
 		});
 		yield* insertGlobalRelationship({
 			properties: {},
 			sourceEntityId: track.id,
 			targetEntityId: suggested.id,
-			relationshipSchemaSlug: suggestion.id,
+			relationshipSchema: suggestion.reference,
 		});
 		return { track, album, sibling, credits: { person, company, suggested } };
 	});
@@ -672,23 +735,39 @@ export const seedGlobalBookWithSeries = (
 	},
 ) =>
 	Effect.gen(function* () {
-		const { schema: bookSchema } = yield* findBuiltinSchemaBySlug(client, "book");
+		const { schema: bookSchema } = yield* findMediaEntitySchema(client, "book");
 		const hardcover = bookSchema.providers.find((provider) => provider.name === "Hardcover");
 		assertPresent(hardcover, "Missing Hardcover provider for built-in book schema");
 
 		const [seriesSchemaId, personSchemaId, companySchemaId, relationshipSchemas] =
 			yield* Effect.all([
-				getBuiltinEntitySchemaSlug(client, "book-group"),
-				getBuiltinEntitySchemaSlug(client, "person"),
-				getBuiltinEntitySchemaSlug(client, "company"),
+				getBuiltinEntitySchemaSlug(client, "book-group", bookSchema.reference.owner),
+				getBuiltinEntitySchemaSlug(client, "person", bookSchema.reference.owner),
+				getBuiltinEntitySchemaSlug(client, "company", bookSchema.reference.owner),
 				listRelationshipSchemas(client, {
 					slugs: ["book-group-to-book", "person-to-book", "company-to-book", "media-suggestion"],
 				}),
 			]);
-		const seriesToBook = requireRelationshipSchemaBySlug(relationshipSchemas, "book-group-to-book");
-		const personToBook = requireRelationshipSchemaBySlug(relationshipSchemas, "person-to-book");
-		const companyToBook = requireRelationshipSchemaBySlug(relationshipSchemas, "company-to-book");
-		const suggestion = requireRelationshipSchemaBySlug(relationshipSchemas, "media-suggestion");
+		const seriesToBook = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"book-group-to-book",
+			bookSchema.reference.owner,
+		);
+		const personToBook = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"person-to-book",
+			bookSchema.reference.owner,
+		);
+		const companyToBook = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"company-to-book",
+			bookSchema.reference.owner,
+		);
+		const suggestion = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"media-suggestion",
+			bookSchema.reference.owner,
+		);
 
 		const externalId = String(Math.floor(Math.random() * 1_000_000_000));
 		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
@@ -703,10 +782,15 @@ export const seedGlobalBookWithSeries = (
 				(c) =>
 					c.testSupport.createGlobalEntity({
 						payload: {
-							...input,
 							populatedAt,
+							name: input.name,
+							externalId: input.externalId,
+							properties: input.properties,
 							providerId: SandboxProviderId.make(hardcover.providerId),
-							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							entitySchema: {
+								owner: bookSchema.reference.owner,
+								slug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							},
 						},
 					}),
 				adminHeaders(),
@@ -734,13 +818,13 @@ export const seedGlobalBookWithSeries = (
 			targetEntityId: book.id,
 			properties: { order: 1 },
 			sourceEntityId: series.id,
-			relationshipSchemaSlug: seriesToBook.id,
+			relationshipSchema: seriesToBook.reference,
 		});
 		yield* insertGlobalRelationship({
 			properties: { order: 2 },
 			sourceEntityId: series.id,
 			targetEntityId: sibling.id,
-			relationshipSchemaSlug: seriesToBook.id,
+			relationshipSchema: seriesToBook.reference,
 		});
 
 		if (options.withCredits !== true) {
@@ -768,20 +852,20 @@ export const seedGlobalBookWithSeries = (
 		yield* insertGlobalRelationship({
 			targetEntityId: book.id,
 			sourceEntityId: person.id,
-			relationshipSchemaSlug: personToBook.id,
+			relationshipSchema: personToBook.reference,
 			properties: { order: 1, roles: ["Author"] },
 		});
 		yield* insertGlobalRelationship({
 			targetEntityId: book.id,
 			sourceEntityId: company.id,
-			relationshipSchemaSlug: companyToBook.id,
+			relationshipSchema: companyToBook.reference,
 			properties: { order: 1, roles: ["Publisher"] },
 		});
 		yield* insertGlobalRelationship({
 			properties: {},
 			sourceEntityId: book.id,
 			targetEntityId: suggested.id,
-			relationshipSchemaSlug: suggestion.id,
+			relationshipSchema: suggestion.reference,
 		});
 		return { book, series, sibling, credits: { person, company, suggested } };
 	});
@@ -794,11 +878,15 @@ export const insertLibraryMembership = (
 		const mediaLibraryEntityId = yield* getMediaLibraryEntityId(client);
 
 		const schemas = yield* listRelationshipSchemas(client, { slugs: ["in-media-library"] });
-		const inMediaLibrarySchema = requireRelationshipSchemaBySlug(schemas, "in-media-library");
+		const inMediaLibrarySchema = requireRelationshipSchemaBySlug(
+			schemas,
+			"in-media-library",
+			definitionOwner((yield* mediaFixtureInstallation).id),
+		);
 
 		yield* createRelationship(client, {
 			properties: input.properties ?? {},
-			relationshipSchemaSlug: inMediaLibrarySchema.id,
+			relationshipSchema: inMediaLibrarySchema.reference,
 			sourceEntityId: EntityId.make(input.mediaEntityId),
 			targetEntityId: EntityId.make(mediaLibraryEntityId),
 		});
@@ -808,12 +896,16 @@ export const insertMediaMonitoring = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
 		const mediaLibraryEntityId = yield* getMediaLibraryEntityId(client);
 		const schemas = yield* listRelationshipSchemas(client, { slugs: ["media-monitoring"] });
-		const monitoringSchema = requireRelationshipSchemaBySlug(schemas, "media-monitoring");
+		const monitoringSchema = requireRelationshipSchemaBySlug(
+			schemas,
+			"media-monitoring",
+			definitionOwner((yield* mediaFixtureInstallation).id),
+		);
 
 		yield* createRelationship(client, {
 			properties: {},
 			sourceEntityId: EntityId.make(entityId),
-			relationshipSchemaSlug: monitoringSchema.id,
+			relationshipSchema: monitoringSchema.reference,
 			targetEntityId: EntityId.make(mediaLibraryEntityId),
 		});
 	});

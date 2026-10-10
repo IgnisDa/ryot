@@ -1,4 +1,4 @@
-import type { PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
@@ -30,9 +30,9 @@ const mediaSetting = (client: Client) =>
 		);
 	});
 
-const invokeSettingsOperation = (client: Client, pluginSlug: PluginSlug, operationSlug: string) =>
+const invokeSettingsOperation = (client: Client, pluginId: PluginId, operationSlug: string) =>
 	client.call((contract) =>
-		contract.plugins.invoke({ payload: { payload: {} }, params: { pluginSlug, operationSlug } }),
+		contract.plugins.invoke({ payload: { payload: {} }, params: { pluginId, operationSlug } }),
 	);
 
 describe("plugin user settings", () => {
@@ -80,7 +80,7 @@ describe("plugin user settings", () => {
 			const readSettings = () =>
 				invokeSettingsOperation(
 					client,
-					plugin.pluginPackage.pluginSlug,
+					plugin.installation.pluginId,
 					plugin.pluginPackage.operationSlug,
 				);
 
@@ -121,13 +121,13 @@ describe("plugin user settings", () => {
 			const readFirstSettings = () =>
 				invokeSettingsOperation(
 					owner.client,
-					firstPlugin.pluginPackage.pluginSlug,
+					firstPlugin.installation.pluginId,
 					firstPlugin.pluginPackage.operationSlug,
 				);
 			const readSecondSettings = () =>
 				invokeSettingsOperation(
 					second.client,
-					secondPlugin.pluginPackage.pluginSlug,
+					secondPlugin.installation.pluginId,
 					secondPlugin.pluginPackage.operationSlug,
 				);
 
@@ -182,7 +182,8 @@ describe("plugin user settings", () => {
 				updatePrivatePlugin({
 					client,
 					payload: updatedPackage,
-					pluginSlug: plugin.pluginPackage.pluginSlug,
+					installationId: plugin.installation.installationId,
+					expectedSourceHash: plugin.installation.sourceHash,
 				}),
 			);
 			assertTaggedError(failure, "PluginRequestError");

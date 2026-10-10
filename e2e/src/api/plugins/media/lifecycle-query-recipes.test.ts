@@ -1,4 +1,4 @@
-import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import {
 	podcastEpisodicKindConfig,
 	showEpisodicKindConfig,
@@ -23,7 +23,7 @@ import {
 	executeRyotQL,
 	executeRyotQLRecipe,
 	fakeProviderDetailsResult,
-	getBuiltinEntitySchemaSlug,
+	getEntity,
 	insertGlobalRelationship,
 	installTestProvider,
 	listAdminGlobalRelationships,
@@ -42,6 +42,7 @@ import {
 } from "~/fixtures/kernel";
 import {
 	enableMediaMonitoring,
+	findMediaEntitySchema,
 	getGlobalEntityByProvenance,
 	insertLibraryMembership,
 	seedMediaEntity,
@@ -62,39 +63,58 @@ const lifecycleStates = [
 
 type LifecycleState = (typeof lifecycleStates)[number];
 type SeededMediaEntity = Effect.Success<ReturnType<typeof seedMediaEntity>>;
+type MediaReference = Parameters<typeof showRecipes.summaryRecipe>[0]["reference"];
+
+const localReferenceForEntity = (client: Client, entityId: string) =>
+	Effect.gen(function* () {
+		const entity = yield* getEntity(client, entityId);
+		assertPresent(entity.entitySchemaPluginId, "Expected a plugin-owned media entity");
+		const reference: MediaReference = { kind: "local", pluginId: entity.entitySchemaPluginId };
+		return reference;
+	});
 
 const loadLifecycleSchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const loaded = yield* Effect.all({
-			showSchemaId: getBuiltinEntitySchemaSlug(client, "show"),
-			podcastSchemaId: getBuiltinEntitySchemaSlug(client, "podcast"),
-			showSeasonSchemaId: getBuiltinEntitySchemaSlug(client, "show-season"),
-			showEpisodeSchemaId: getBuiltinEntitySchemaSlug(client, "show-episode"),
-			podcastEpisodeSchemaId: getBuiltinEntitySchemaSlug(client, "podcast-episode"),
-			relationshipSchemas: listRelationshipSchemas(client, {
-				slugs: ["show-to-show-season", "show-season-to-show-episode", "podcast-to-podcast-episode"],
-			}),
+		const [show, podcast, showSeason, showEpisode, podcastEpisode] = yield* Effect.all([
+			findMediaEntitySchema(client, "show"),
+			findMediaEntitySchema(client, "podcast"),
+			findMediaEntitySchema(client, "show-season"),
+			findMediaEntitySchema(client, "show-episode"),
+			findMediaEntitySchema(client, "podcast-episode"),
+		]);
+		const relationshipSchemas = yield* listRelationshipSchemas(client, {
+			owner: show.schema.reference.owner,
+			slugs: ["show-to-show-season", "show-season-to-show-episode", "podcast-to-podcast-episode"],
 		});
 		const [showEvents, showEpisodeEvents, podcastEvents, podcastEpisodeEvents] = yield* Effect.all([
-			listEventSchemas(client, loaded.showSchemaId),
-			listEventSchemas(client, loaded.showEpisodeSchemaId),
-			listEventSchemas(client, loaded.podcastSchemaId),
-			listEventSchemas(client, loaded.podcastEpisodeSchemaId),
+			listEventSchemas(client, show.schema.reference),
+			listEventSchemas(client, showEpisode.schema.reference),
+			listEventSchemas(client, podcast.schema.reference),
+			listEventSchemas(client, podcastEpisode.schema.reference),
 		]);
+		const reference: MediaReference = { kind: "local", pluginId: show.pluginId };
 		return {
-			...loaded,
+			reference,
+			showSchemaId: show.schema.id,
+			podcastSchemaId: podcast.schema.id,
+			showSeasonSchemaId: showSeason.schema.id,
+			showEpisodeSchemaId: showEpisode.schema.id,
+			podcastEpisodeSchemaId: podcastEpisode.schema.id,
 			showToSeasonRelationship: requireRelationshipSchemaBySlug(
-				loaded.relationshipSchemas,
+				relationshipSchemas,
 				"show-to-show-season",
-			).id,
+				show.schema.reference.owner,
+			).reference,
 			seasonToEpisodeRelationship: requireRelationshipSchemaBySlug(
-				loaded.relationshipSchemas,
+				relationshipSchemas,
 				"show-season-to-show-episode",
-			).id,
+				show.schema.reference.owner,
+			).reference,
 			podcastToEpisodeRelationship: requireRelationshipSchemaBySlug(
-				loaded.relationshipSchemas,
+				relationshipSchemas,
 				"podcast-to-podcast-episode",
-			).id,
+				podcast.schema.reference.owner,
+			).reference,
 			showEpisodeEvents: {
 				complete: requireEventSchemaBySlug(showEpisodeEvents, "complete").id,
 				progress: requireEventSchemaBySlug(showEpisodeEvents, "progress").id,
@@ -154,7 +174,7 @@ const seedShowEpisode = (
 		yield* insertGlobalRelationship({
 			targetEntityId: entity.id,
 			sourceEntityId: input.seasonId,
-			relationshipSchemaSlug: schemas.seasonToEpisodeRelationship,
+			relationshipSchema: schemas.seasonToEpisodeRelationship,
 		});
 		return entity;
 	});
@@ -201,7 +221,7 @@ const seedShow = (
 			yield* insertGlobalRelationship({
 				sourceEntityId: show.id,
 				targetEntityId: season.id,
-				relationshipSchemaSlug: schemas.showToSeasonRelationship,
+				relationshipSchema: schemas.showToSeasonRelationship,
 			});
 			for (let episodeNumber = 1; episodeNumber <= seasonInput.episodeCount; episodeNumber += 1) {
 				const entity = yield* seedShowEpisode(schemas, {
@@ -257,7 +277,7 @@ const seedPodcast = (
 			yield* insertGlobalRelationship({
 				sourceEntityId: podcast.id,
 				targetEntityId: episode.id,
-				relationshipSchemaSlug: schemas.podcastToEpisodeRelationship,
+				relationshipSchema: schemas.podcastToEpisodeRelationship,
 			});
 		}
 		return { podcast, episodes };
@@ -276,9 +296,10 @@ const waitForCompletions = (client: Client, entityId: string, expectedCount: num
 
 const readShowSummary = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
+		const reference = yield* localReferenceForEntity(client, entityId);
 		const result = yield* executeRyotQLRecipe(
 			client,
-			showRecipes.summaryRecipe({ entityId, collectionLimit: 1 }),
+			showRecipes.summaryRecipe({ entityId, reference, collectionLimit: 1 }),
 		);
 		assertPresent(result.summary, "Expected a show summary row");
 		return result.summary;
@@ -286,9 +307,10 @@ const readShowSummary = (client: Client, entityId: string) =>
 
 const readPodcastSummary = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
+		const reference = yield* localReferenceForEntity(client, entityId);
 		const result = yield* executeRyotQLRecipe(
 			client,
-			podcastRecipes.summaryRecipe({ entityId, collectionLimit: 1 }),
+			podcastRecipes.summaryRecipe({ entityId, reference, collectionLimit: 1 }),
 		);
 		assertPresent(result.summary, "Expected a podcast summary row");
 		return result.summary;
@@ -296,9 +318,10 @@ const readPodcastSummary = (client: Client, entityId: string) =>
 
 const readSeasonStates = (client: Client, seasonId: string) =>
 	Effect.gen(function* () {
+		const reference = yield* localReferenceForEntity(client, seasonId);
 		const page = yield* executeRyotQLRecipe(
 			client,
-			showSeasonEpisodesRecipe({ limit: 10, containerId: seasonId }),
+			showSeasonEpisodesRecipe({ reference, limit: 10, containerId: seasonId }),
 		);
 		return page.items.map((episode) => episode.state);
 	});
@@ -310,11 +333,18 @@ const assertEpisodicState = (
 	expected: LifecycleState,
 ) =>
 	Effect.gen(function* () {
+		const reference = yield* localReferenceForEntity(client, entityId);
 		const results = yield* Effect.all(
 			lifecycleStates.map((state) =>
 				executeRyotQLRecipe(
 					client,
-					episodicByLifecycleStateRecipe({ config, entityId, limit: 1, states: [state] }),
+					episodicByLifecycleStateRecipe({
+						config,
+						entityId,
+						limit: 1,
+						reference,
+						states: [state],
+					}),
 				),
 			),
 		);
@@ -551,7 +581,11 @@ describe("Media episodic lifecycle query recipes", () => {
 			assertPresent(season, "Expected show season");
 			const detail = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ limit: 10, containerId: season.id }),
+				showSeasonEpisodesRecipe({
+					limit: 10,
+					containerId: season.id,
+					reference: schemas.reference,
+				}),
 			);
 			assertPresent(detail, "Expected season episodes");
 			const episode = detail.items[0];
@@ -644,7 +678,11 @@ describe("Media episodic lifecycle query recipes", () => {
 			assertPresent(specialSeason, "Expected specials season");
 			const specialDetail = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ limit: 10, containerId: specialSeason.id }),
+				showSeasonEpisodesRecipe({
+					limit: 10,
+					reference: schemas.reference,
+					containerId: specialSeason.id,
+				}),
 			);
 			assertPresent(specialDetail, "Expected specials season episodes");
 			const specialEpisode = specialDetail.items[0];
@@ -750,7 +788,7 @@ describe("Media episodic lifecycle query recipes", () => {
 			expect(summary.state).toBe("caught_up");
 			const detail = yield* executeRyotQLRecipe(
 				client,
-				podcastEpisodesRecipe({ limit: 10, containerId: podcast.id }),
+				podcastEpisodesRecipe({ limit: 10, containerId: podcast.id, reference: schemas.reference }),
 			);
 			expect(detail.items.map((episode) => episode.state)).toEqual(["complete", "complete"]);
 		}),
@@ -875,7 +913,7 @@ describe("Media episodic lifecycle query recipes", () => {
 					type: "anchored",
 					direction: "outgoing",
 					anchorEntityId: EntityId.make(season.id),
-					relationshipSchemaSlug: RelationshipSchemaSlug.make(schemas.seasonToEpisodeRelationship),
+					relationshipSchemaSlug: schemas.seasonToEpisodeRelationship.slug,
 				});
 				expect(relationships.map((relationship) => relationship.targetEntityId)).toEqual([
 					firstEpisode.id,
@@ -1217,10 +1255,11 @@ describe("Media episodic next up and display state", () => {
 
 const loadMovieLifecycleSchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const movieSchemaId = yield* getBuiltinEntitySchemaSlug(client, "movie");
-		const movieEvents = yield* listEventSchemas(client, movieSchemaId);
+		const { schema, pluginId } = yield* findMediaEntitySchema(client, "movie");
+		const movieEvents = yield* listEventSchemas(client, schema.reference);
 		return {
-			movieSchemaId,
+			movieSchemaId: schema.id,
+			reference: { pluginId, kind: "local" } satisfies MediaReference,
 			movieEvents: {
 				onHold: requireEventSchemaBySlug(movieEvents, "on_hold").id,
 				backlog: requireEventSchemaBySlug(movieEvents, "backlog").id,
@@ -1245,9 +1284,10 @@ const seedMovie = (movieSchemaId: string) => {
 
 const readMovieSummary = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
+		const reference = yield* localReferenceForEntity(client, entityId);
 		const result = yield* executeRyotQLRecipe(
 			client,
-			movieRecipes.summaryRecipe({ entityId, collectionLimit: 1 }),
+			movieRecipes.summaryRecipe({ entityId, reference, collectionLimit: 1 }),
 		);
 		assertPresent(result.summary, "Expected a movie summary row");
 		return result.summary;
@@ -1380,6 +1420,7 @@ describe("Media lifecycle list recipes", () => {
 				episodicByLifecycleStateRecipe({
 					limit: 20,
 					states: ["in_progress"],
+					reference: schemas.reference,
 					config: showEpisodicKindConfig,
 				}),
 			);
@@ -1397,6 +1438,7 @@ describe("Media lifecycle list recipes", () => {
 				episodicByLifecycleStateRecipe({
 					limit: 20,
 					states: ["in_progress"],
+					reference: schemas.reference,
 					config: podcastEpisodicKindConfig,
 				}),
 			);
@@ -1419,6 +1461,7 @@ describe("Media lifecycle list recipes", () => {
 				episodicByLifecycleStateRecipe({
 					limit: 20,
 					states: ["backlog"],
+					reference: schemas.reference,
 					config: showEpisodicKindConfig,
 				}),
 			);
@@ -1432,15 +1475,15 @@ describe("Media lifecycle list recipes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadMovieLifecycleSchemas(client);
-			const animeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "anime");
-			const animeEvents = yield* listEventSchemas(client, animeSchemaId);
+			const { schema: animeSchema } = yield* findMediaEntitySchema(client, "anime");
+			const animeEvents = yield* listEventSchemas(client, animeSchema.reference);
 			const movie = yield* seedMovie(schemas.movieSchemaId);
 			const suffix = crypto.randomUUID();
 			const anime = yield* seedMediaEntity({
 				userId: null,
 				properties: {},
 				providerId: null,
-				entitySchemaSlug: animeSchemaId,
+				entitySchemaSlug: animeSchema.id,
 				name: `Lifecycle Anime ${suffix}`,
 				externalId: `lifecycle-anime-${suffix}`,
 			});
@@ -1472,7 +1515,11 @@ describe("Media lifecycle list recipes", () => {
 
 			const inProgress = yield* executeRyotQLRecipe(
 				client,
-				flatByLifecycleStateRecipe({ limit: 20, states: ["in_progress"] }),
+				flatByLifecycleStateRecipe({
+					limit: 20,
+					states: ["in_progress"],
+					reference: schemas.reference,
+				}),
 			);
 			expect(
 				inProgress.items.map((item) => [
@@ -1488,7 +1535,11 @@ describe("Media lifecycle list recipes", () => {
 
 			const backlog = yield* executeRyotQLRecipe(
 				client,
-				flatByLifecycleStateRecipe({ limit: 20, states: ["backlog"] }),
+				flatByLifecycleStateRecipe({
+					limit: 20,
+					states: ["backlog"],
+					reference: schemas.reference,
+				}),
 			);
 			expect(backlog.items.map((item) => [item.id, item.state])).toEqual([
 				[backlogged.id, "backlog"],

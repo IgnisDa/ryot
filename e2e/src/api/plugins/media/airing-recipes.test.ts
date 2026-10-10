@@ -5,7 +5,6 @@ import {
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQLRecipe,
-	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	listEventSchemas,
 	listRelationshipSchemas,
@@ -14,6 +13,7 @@ import {
 	type Client,
 } from "~/fixtures/kernel";
 import {
+	findMediaEntitySchema,
 	insertLibraryMembership,
 	insertMediaMonitoring,
 	seedMediaEntity,
@@ -31,26 +31,32 @@ const dayOffset = (days: number) =>
 
 const loadShowSchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const loaded = yield* Effect.all({
-			showSchemaId: getBuiltinEntitySchemaSlug(client, "show"),
-			seasonSchemaId: getBuiltinEntitySchemaSlug(client, "show-season"),
-			episodeSchemaId: getBuiltinEntitySchemaSlug(client, "show-episode"),
-			relationshipSchemas: listRelationshipSchemas(client, {
-				slugs: ["show-to-show-season", "show-season-to-show-episode"],
-			}),
+		const [show, season, episode] = yield* Effect.all([
+			findMediaEntitySchema(client, "show"),
+			findMediaEntitySchema(client, "show-season"),
+			findMediaEntitySchema(client, "show-episode"),
+		]);
+		const relationshipSchemas = yield* listRelationshipSchemas(client, {
+			owner: show.schema.reference.owner,
+			slugs: ["show-to-show-season", "show-season-to-show-episode"],
 		});
-		const episodeEvents = yield* listEventSchemas(client, loaded.episodeSchemaId);
+		const episodeEvents = yield* listEventSchemas(client, episode.schema.reference);
 		return {
-			...loaded,
+			pluginId: show.pluginId,
+			showSchemaId: show.schema.id,
+			seasonSchemaId: season.schema.id,
+			episodeSchemaId: episode.schema.id,
 			episodeComplete: requireEventSchemaBySlug(episodeEvents, "complete").id,
 			showToSeason: requireRelationshipSchemaBySlug(
-				loaded.relationshipSchemas,
+				relationshipSchemas,
 				"show-to-show-season",
-			).id,
+				show.schema.reference.owner,
+			).reference,
 			seasonToEpisode: requireRelationshipSchemaBySlug(
-				loaded.relationshipSchemas,
+				relationshipSchemas,
 				"show-season-to-show-episode",
-			).id,
+				show.schema.reference.owner,
+			).reference,
 		};
 	});
 
@@ -80,7 +86,7 @@ const seedAiringShow = (client: Client, schemas: ShowSchemas, publishDates: read
 		yield* insertGlobalRelationship({
 			sourceEntityId: show.id,
 			targetEntityId: season.id,
-			relationshipSchemaSlug: schemas.showToSeason,
+			relationshipSchema: schemas.showToSeason,
 		});
 		const episodes = yield* Effect.forEach(publishDates, (publishDate, index) =>
 			Effect.gen(function* () {
@@ -95,7 +101,7 @@ const seedAiringShow = (client: Client, schemas: ShowSchemas, publishDates: read
 				yield* insertGlobalRelationship({
 					sourceEntityId: season.id,
 					targetEntityId: episode.id,
-					relationshipSchemaSlug: schemas.seasonToEpisode,
+					relationshipSchema: schemas.seasonToEpisode,
 				});
 				return episode;
 			}),
@@ -155,7 +161,12 @@ describe("Shows airing soon", () => {
 
 			const airing = yield* executeRyotQLRecipe(
 				client,
-				showsAiringSoonRecipe({ limit: 20, from: dayOffset(0), until: dayOffset(14) }),
+				showsAiringSoonRecipe({
+					limit: 20,
+					from: dayOffset(0),
+					until: dayOffset(14),
+					reference: { kind: "local", pluginId: schemas.pluginId },
+				}),
 			);
 
 			expect(

@@ -4,12 +4,11 @@ import { Clock, Effect, Schema } from "effect";
 import {
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
-	findBuiltinSchemaBySlug,
 	getMediaPopulationGateResult,
 	installTestProvider,
 	sampleOperationalPressure,
 } from "~/fixtures/kernel";
-import { startMediaPopulationGate } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, startMediaPopulationGate } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 const ITEM_COUNT = 1_001;
@@ -26,7 +25,7 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 			Effect.gen(function* () {
 				const firstUser = yield* createAuthenticatedClient();
 				const secondUser = yield* createAuthenticatedClient();
-				const { schema } = yield* findBuiltinSchemaBySlug(firstUser.client, "book");
+				const { schema } = yield* findMediaEntitySchema(firstUser.client, "book");
 				const provider = yield* installTestProvider({
 					client: firstUser.client,
 					rootEntitySchemaSlug: schema.id,

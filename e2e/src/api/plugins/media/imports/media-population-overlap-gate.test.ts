@@ -4,12 +4,11 @@ import { Clock, Effect, Schema } from "effect";
 import {
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
-	findBuiltinSchemaBySlug,
 	getMediaPopulationGateResult,
 	installTestProvider,
 	sampleOperationalPressure,
 } from "~/fixtures/kernel";
-import { startMediaPopulationGate } from "~/fixtures/plugins/media";
+import { findMediaEntitySchema, startMediaPopulationGate } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";
 
 const CONCURRENCY_LEVELS = [5, 20] as const;
@@ -25,7 +24,7 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
 		() =>
 			Effect.gen(function* () {
 				const user = yield* createAuthenticatedClient();
-				const { schema } = yield* findBuiltinSchemaBySlug(user.client, "music");
+				const { schema } = yield* findMediaEntitySchema(user.client, "music");
 				const provider = yield* installTestProvider({
 					client: user.client,
 					rootEntitySchemaSlug: schema.id,

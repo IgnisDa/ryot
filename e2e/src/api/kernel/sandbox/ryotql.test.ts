@@ -1,4 +1,4 @@
-import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
@@ -33,16 +33,16 @@ describe("sandbox RyotQL reads", () => {
 	it.live("reads multiple visible entities through executeRyotql", () =>
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
-			const { schemaId } = yield* createPluginSchema(client);
+			const { reference } = yield* createPluginSchema(client);
 			const first = yield* createEntity(client, {
 				properties: {},
 				name: "First entity",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 			});
 			const second = yield* createEntity(client, {
 				properties: {},
 				name: "Second entity",
-				entitySchemaSlug: schemaId,
+				entitySchema: reference,
 			});
 			const slug = `ryotql-entities-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
@@ -226,6 +226,10 @@ describe("sandbox RyotQL reads", () => {
 						yield* uninstallTestPlugin(plugin).pipe(Effect.ignore);
 					}),
 			);
+			const entitySchemaReference = {
+				slug: EntitySchemaSlug.make(entitySchemaSlug),
+				owner: { kind: "plugin" as const, pluginId: installed.pluginId },
+			};
 			const { client, userId } = yield* createAuthenticatedClient();
 			yield* Effect.addFinalizer(() => deleteUserAndWait(userId).pipe(Effect.ignore));
 			const globalEntity = yield* api.call(
@@ -234,8 +238,8 @@ describe("sandbox RyotQL reads", () => {
 						payload: {
 							properties: {},
 							name: "Owned global entity",
+							entitySchema: entitySchemaReference,
 							externalId: `owned-global-${suffix}`,
-							entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 						},
 					}),
 				adminHeaders(),
@@ -244,14 +248,12 @@ describe("sandbox RyotQL reads", () => {
 			yield* createEntity(client, {
 				properties: {},
 				name: "User entity",
-				entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+				entitySchema: entitySchemaReference,
 			});
 
 			const trigger = yield* api.call(
 				(c) =>
-					c.testSupport.triggerPluginCron({
-						payload: { cronSlug, pluginSlug: PluginSlug.make(installed.pluginSlug) },
-					}),
+					c.testSupport.triggerPluginCron({ payload: { cronSlug, pluginId: installed.pluginId } }),
 				adminHeaders(),
 			);
 			expect(trigger.status).toBe("executed");
