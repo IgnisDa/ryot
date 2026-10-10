@@ -402,6 +402,7 @@ export const installTestPluginBundle = (
 		entitySchemas?: TestPluginManifest["entitySchemas"];
 		httpRateLimits?: TestPluginManifest["httpRateLimits"];
 		relationshipSchemas?: TestPluginManifest["relationshipSchemas"];
+		signalSchemas?: TestPluginManifest["signalSchemas"];
 		integrationProviders?: TestPluginManifest["integrationProviders"];
 	} & TestPluginOwner,
 ) =>
@@ -421,6 +422,7 @@ export const installTestPluginBundle = (
 			operations: input.operations ?? [],
 			importSources: input.importSources,
 			entitySchemas: input.entitySchemas,
+			signalSchemas: input.signalSchemas,
 			httpRateLimits: input.httpRateLimits,
 			clientDefinition: input.clientDefinition,
 			relationshipSchemas: input.relationshipSchemas,

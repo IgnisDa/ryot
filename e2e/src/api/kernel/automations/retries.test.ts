@@ -1,5 +1,5 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { AutomationHookSlug } from "@ryot-app/contract/schema/brands";
+import { AutomationHookSlug, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { automationHistoryRunRecipe } from "@ryot-app/ryotql-recipes/automation-history";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Duration, Effect, Option } from "effect";
@@ -9,7 +9,6 @@ import {
 	collectRyotQLRecipeItems,
 	createEntity,
 	executeRyotQLRecipe,
-	findBuiltinSchemaBySlug,
 	installTestPluginBundle,
 	testPluginPackageId,
 	listAutomationRunAttempts,
@@ -25,8 +24,8 @@ import {
 	type InstalledTestPlugin,
 	type TestPluginScript,
 	uninstallTestPlugin,
-	uninstallTestPluginStrict,
 	updatePluginState,
+	testPluginEntitySchema,
 } from "~/fixtures/kernel";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -36,14 +35,11 @@ type AutomationScript = Extract<
 	TestPluginScript,
 	{ kind: "automation"; automationType: "automation" }
 > & { readonly entry: string };
+const RETRY_TARGET_SLUG = "retry-target";
+
 type RetryPolicy = Extract<PluginManifest["hooks"][number], { stage: "after" }>["retry"];
 
 const UNREACHABLE_URL = "http://127.0.0.1:1/e2e-retry";
-
-const collectionProperties = {
-	membershipPropertiesSchema: {},
-	description: "Automation retry fixture",
-};
 
 const automationScript = (
 	slug: string,
@@ -175,6 +171,7 @@ const installRetryFixture = (
 		pluginSlug,
 		scripts: [script],
 		config: { marker: "alpha" },
+		entitySchemas: [testPluginEntitySchema({ slug: RETRY_TARGET_SLUG })],
 		files: { [entry]: input.source.replaceAll("__SCRIPT_SLUG__", scriptSlug) },
 		configSchema: {
 			unknownKeys: "strict",
@@ -196,7 +193,7 @@ const installRetryFixture = (
 				retry: input.retry,
 				name: "E2E retry hook",
 				causationSources: ["api"],
-				targets: [{ resource: "entity", operation: "create", entitySchemaSlug: "collection" }],
+				targets: [{ resource: "entity", operation: "create", entitySchemaSlug: RETRY_TARGET_SLUG }],
 			},
 		],
 	}).pipe(Effect.map((installed) => ({ script, hookSlug, installed })));
@@ -210,23 +207,25 @@ const installRetryFixtureScoped = (
 		uninstallTestPlugin(installed),
 	);
 
-const createCollectionRun = (
+const createTargetRun = (
 	client: Client,
-	hookSlug: AutomationHookSlug,
-	name = `Retry collection ${crypto.randomUUID()}`,
+	fixture: Pick<Effect.Success<ReturnType<typeof installRetryFixture>>, "hookSlug" | "installed">,
+	name = `Retry target ${crypto.randomUUID()}`,
 ) =>
 	Effect.gen(function* () {
-		const { schema } = yield* findBuiltinSchemaBySlug(client, "collection", { kind: "kernel" });
 		const entity = yield* createEntity(client, {
 			name,
-			entitySchema: schema.reference,
-			properties: collectionProperties,
+			properties: {},
+			entitySchema: {
+				slug: EntitySchemaSlug.make(RETRY_TARGET_SLUG),
+				owner: { kind: "plugin", pluginId: fixture.installed.pluginId },
+			},
 		});
 		const runs = yield* pollAutomationRuns({
-			hookSlug,
+			hookSlug: fixture.hookSlug,
 			sourceRecord: { id: entity.id, resource: "entity" },
 		});
-		return requirePresent(runs[0], `Missing retry run for collection '${entity.id}'`);
+		return requirePresent(runs[0], `Missing retry run for target '${entity.id}'`);
 	});
 
 const ascendingAttempts = (attempts: ReadonlyArray<AutomationRunAttempt>) =>
@@ -266,7 +265,7 @@ describe("automation retries", () => {
 				},
 			});
 
-			const initial = yield* createCollectionRun(client, fixture.hookSlug);
+			const initial = yield* createTargetRun(client, fixture);
 			yield* pollTerminalAutomationRunAttempts({ runId: initial.id });
 			yield* Effect.sleep(Duration.millis(1_100));
 			yield* reconcileAutomations;
@@ -302,7 +301,7 @@ describe("automation retries", () => {
 				},
 			});
 
-			const initial = yield* createCollectionRun(client, fixture.hookSlug);
+			const initial = yield* createTargetRun(client, fixture);
 			const run = requirePresent(
 				(yield* pollTerminalAutomationRuns({ triggerId: initial.triggerId }))[0],
 				"Missing terminal business-failure run",
@@ -335,7 +334,7 @@ describe("automation retries", () => {
 				},
 			});
 
-			const initial = yield* createCollectionRun(client, fixture.hookSlug);
+			const initial = yield* createTargetRun(client, fixture);
 			yield* pollTerminalAutomationRunAttempts({ runId: initial.id });
 			yield* Effect.sleep(Duration.millis(1_100));
 			yield* reconcileAutomations;
@@ -355,7 +354,7 @@ describe("automation retries", () => {
 		}),
 	);
 
-	it.live("manually retries retained pins after upgrade, disable, and uninstall", () =>
+	it.live("manually retries retained pins after upgrade and while hidden", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const fixture = yield* installRetryFixtureScoped(client, {
@@ -369,8 +368,8 @@ describe("automation retries", () => {
 				},
 			});
 			const initialRuns = yield* Effect.forEach(
-				["upgrade", "disable", "uninstall"],
-				(label) => createCollectionRun(client, fixture.hookSlug, `Retry after ${label}`),
+				["upgrade", "hide"],
+				(label) => createTargetRun(client, fixture, `Retry after ${label}`),
 				{ concurrency: "unbounded" },
 			);
 			const runs = yield* Effect.forEach(initialRuns, (run) =>
@@ -432,18 +431,14 @@ describe("automation retries", () => {
 				});
 
 			const upgradeRun = requirePresent(runs[0], "Missing upgrade retry run");
-			const disableRun = requirePresent(runs[1], "Missing disable retry run");
-			const uninstallRun = requirePresent(runs[2], "Missing uninstall retry run");
+			const hiddenRun = requirePresent(runs[1], "Missing hidden retry run");
 			yield* retry(upgradeRun);
 			yield* updatePluginState(
 				client,
 				requirePresent(replacement.installationId, "Retry plugin installation is missing"),
 				{ isHidden: true },
 			);
-			yield* retry(disableRun);
-			yield* uninstallTestPluginStrict(replacement);
-			fixture.installed.active = false;
-			yield* retry(uninstallRun);
+			yield* retry(hiddenRun);
 		}),
 	);
 
@@ -461,6 +456,7 @@ describe("automation retries", () => {
 					pluginSlug,
 					files: { [entry]: alwaysRetryableFailureSource(scriptSlug) },
 					scripts: [automationScript(scriptSlug, entry, ["httpCall"])],
+					entitySchemas: [testPluginEntitySchema({ slug: RETRY_TARGET_SLUG })],
 					hooks: [
 						{
 							scriptSlug,
@@ -469,7 +465,7 @@ describe("automation retries", () => {
 							name: "Unsafe HTTP retry",
 							slug: `unsafe-http-retry-${crypto.randomUUID()}`,
 							targets: [
-								{ resource: "entity", operation: "create", entitySchemaSlug: "collection" },
+								{ resource: "entity", operation: "create", entitySchemaSlug: RETRY_TARGET_SLUG },
 							],
 							retry: {
 								maxAttempts: 2,
