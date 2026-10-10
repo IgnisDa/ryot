@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { hostCallArgs } from "./host-call-args.test-support";
 import { MiB, SANDBOX_LIMITS } from "./limits";
-import { sandboxMemoryPlan } from "./sidecar-admission";
+import { sandboxMemoryPlan } from "./memory-plan";
 import { makeSidecarFrameReader, makeSidecarFrameWriter } from "./sidecar-framing";
 import {
 	sidecarInboundFrames,
