@@ -3,6 +3,7 @@ import "#/styles/index.css";
 import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
 import type { KernelRyotClientStore } from "#/api/ryot-client";
+import { DeviceLifecycle } from "#/modules/device/lifecycle";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PageTitleProvider } from "#/modules/navigation/page-title";
 import { SkipToContentLink } from "#/modules/navigation/skip-link";
@@ -23,6 +24,7 @@ function RootComponent() {
 	const { theme, runtime } = Route.useRouteContext();
 	return (
 		<PageTitleProvider>
+			<DeviceLifecycle runtime={runtime} />
 			<SkipToContentLink />
 			<ThemeController theme={theme} runtime={runtime} />
 			<Outlet />

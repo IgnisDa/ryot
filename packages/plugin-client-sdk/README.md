@@ -50,6 +50,9 @@ still removes their local pending completion. React query and mutation definitio
 which Atom runs directly; `mutateAsync` and storage hook methods return Promises at the React
 integration boundary.
 
+Read-only context operations set `refreshOnSuccess: false` on `operations.invoke` so a page-refresh
+handler does not trigger itself again. Writes retain the default mutation-refresh notification.
+
 `uploads` is one capability on every adapter that hides intent creation, byte transfer, and
 completion. Bridge payloads are structured-clone values, so a plugin sends a `Blob` or `File` with a
 file name and content type, and the host keeps the intent, upload URL, headers, and credential. A
@@ -59,13 +62,26 @@ non-`Blob` source fails with `invalid-input`. There is no cancellation; disposal
 `storage.remove(pluginId, key)` keep JSON values on this device through the kernel, because the
 plugin iframe has no `localStorage`. Values are scoped to the server, user, plugin, and key, survive
 logout, and are not synchronized. Keys are 1 to 128 characters; a malformed key fails locally with
-`invalid-input`. The kernel rejects a value over 8 KiB of JSON, or an ID that is not a plugin
+`invalid-input`. The kernel rejects a value over 64 KiB of UTF-8 JSON, or an ID that is not a plugin
 contributing to the frame, with `invalid-request`, and a full browser store with `quota`. Plugins in
 one frame share a realm and cannot be isolated from each other, so the ID check is only against the
 frame's own contributors. Device keys encode `[server, user, localPluginId, key]` as a canonical tuple.
 `usePluginStorage({ pluginId, key, schema })` reads once per local ID and key,
 treats an undecodable or unreadable value as `null`, and updates its value before persisting a `set`
 or `remove`. `createTestPluginStorage` from `./testing` supplies a Map-backed adapter capability.
+
+Recoverable drafts use the storage capability directly, not `usePluginStorage`: missing values are
+`null`, while inaccessible or malformed stored JSON fails without removing the original value.
+Register an Effect with `persistence.registerFlush` to make navigation and document replacement wait
+for durable input. A failed flush keeps the document open; remove the registration on disposal.
+
+`device` accepts plugin-scoped `schedule`, `cancel`, `awake`, `haptic`, and `return-shortcut` actions.
+Scheduling takes one key, UTC deadline, bounded title/body, semantic navigation target, and audible
+flag. It reports `scheduled`, `inexact`, `denied`, or `unsupported`; cancellation removes pending and
+delivered alerts. Native IDs and authenticated scope never cross the bridge. Awake demand and haptics
+apply only to active foreground pages. Return shortcuts persist only a label and navigation target.
+Scheduled alerts own their completion sound; callers must not duplicate it with application audio
+when scheduling reports `scheduled` or `inexact`. Muting uses a silent alert instead.
 
 `assets.resolve` accepts 1 to 64 managed local or S3 locators and returns signed URLs with expiry.
 Remote images do not use it. `ManagedAssetProvider` owns stable sorting, deduplication, batches of at

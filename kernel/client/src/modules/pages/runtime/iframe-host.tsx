@@ -19,6 +19,8 @@ import type {
 	PluginRyotQLRequest,
 	PluginStorageOutcome,
 	PluginStorageRequest,
+	PluginDeviceRequest,
+	PluginDeviceOutcome,
 } from "@ryot-app/plugin-client-contract";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { Button, ScreenFrame, useShortcut } from "@ryot-app/plugin-ui-sdk";
@@ -102,6 +104,9 @@ export function PageIframeHost(props: {
 		request: PluginOperationRequest,
 	) => Effect.Effect<PluginOperationDispatchOutcome>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
+	readonly onDevice?: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
+	readonly onFlushReady?: (flush: (() => Effect.Effect<boolean>) | undefined) => void;
+	readonly onReleaseResources?: () => void;
 }) {
 	const { key, index, compact, leading, edgeBack, location } = props.navigation;
 	const routePath = location.kind === "route" ? location.path : undefined;
@@ -124,6 +129,7 @@ export function PageIframeHost(props: {
 	const [overlayCount, setOverlayCount] = useState(0);
 	const [pageShortcuts, setPageShortcuts] = useState<readonly PageShortcutKey[]>([]);
 	const [updateAvailable, setUpdateAvailable] = useState(false);
+	const [persistenceFailed, setPersistenceFailed] = useState(false);
 	const [frameStatus, setFrameStatus] = useState<"ready" | "loading" | "handshake-failure">(
 		"loading",
 	);
@@ -131,8 +137,9 @@ export function PageIframeHost(props: {
 		latest.current = props;
 		latestCatalog.current = catalog;
 	});
-
 	const closeBridge = () => {
+		latest.current.onReleaseResources?.();
+		latest.current.onFlushReady?.(undefined);
 		bridge.current?.close();
 		bridge.current = undefined;
 		latest.current.onScreenState(null);
@@ -141,8 +148,19 @@ export function PageIframeHost(props: {
 		latest.current.onOverlayState(0);
 	};
 	const retryDocument = () => {
-		closeBridge();
-		props.onReloadCurrent();
+		Effect.runFork(
+			(bridge.current?.requestFlush() ?? Effect.succeed(true)).pipe(
+				Effect.tap((flushed) =>
+					Effect.sync(() => {
+						setPersistenceFailed(!flushed);
+						if (flushed) {
+							closeBridge();
+							latest.current.onReloadCurrent();
+						}
+					}),
+				),
+			),
+		);
 	};
 	const failHandshake = useEffectEvent(() => {
 		closeBridge();
@@ -221,19 +239,44 @@ export function PageIframeHost(props: {
 
 	useEffect(() => {
 		if (documentKey.current === props.documentKey) {
-			return;
+			return undefined;
 		}
-		documentKey.current = props.documentKey;
-		const current = latest.current;
-		setUpdateAvailable(false);
-		setOverlayCount(0);
-		setPageShortcuts([]);
-		current.onOverlayState(0);
-		current.onScreenState(null);
-		current.onHeader({ title: null, key: current.navigation.key, index: current.navigation.index });
-		if (current.page) {
-			bridge.current?.sendDocument(current.documentKey, current.page, current.navigation);
-		}
+		const requestedKey = props.documentKey;
+		const controller = new AbortController();
+		Effect.runFork(
+			(bridge.current?.requestFlush() ?? Effect.succeed(true)).pipe(
+				Effect.tap((flushed) =>
+					Effect.sync(() => {
+						if (latest.current.documentKey !== requestedKey) {
+							return;
+						}
+						if (!flushed) {
+							setPersistenceFailed(true);
+							return;
+						}
+						setPersistenceFailed(false);
+						documentKey.current = requestedKey;
+						const current = latest.current;
+						setUpdateAvailable(false);
+						setOverlayCount(0);
+						setPageShortcuts([]);
+						current.onOverlayState(0);
+						current.onScreenState(null);
+						current.onHeader({
+							title: null,
+							key: current.navigation.key,
+							index: current.navigation.index,
+						});
+						if (current.page) {
+							current.onReleaseResources?.();
+							bridge.current?.sendDocument(current.documentKey, current.page, current.navigation);
+						}
+					}),
+				),
+			),
+			{ signal: controller.signal },
+		);
+		return () => controller.abort();
 	}, [props.documentKey]);
 
 	const locationKey = JSON.stringify([
@@ -346,6 +389,9 @@ export function PageIframeHost(props: {
 					latest.current.onScreenState(state);
 				}
 			},
+			onDevice: (request) =>
+				latest.current.onDevice?.(request) ??
+				Effect.succeed({ outcome: "failure", reason: "invalid-request" }),
 			onOverlayState: (count) => {
 				if (bridge.current === connection.session) {
 					setOverlayCount(count);
@@ -392,6 +438,7 @@ export function PageIframeHost(props: {
 		if (!connection.failed) {
 			connection.session = nextBridge;
 			bridge.current = nextBridge;
+			latest.current.onFlushReady?.(nextBridge.requestFlush);
 		}
 	}
 	useEffect(() => {
@@ -414,6 +461,17 @@ export function PageIframeHost(props: {
 
 	return (
 		<div className="relative h-full w-full">
+			{persistenceFailed && (
+				<div
+					role="alert"
+					className="absolute top-0 right-0 left-0 z-10 flex items-center justify-between gap-2 bg-surface px-4 py-2 text-sm text-text"
+				>
+					<span>Your draft could not be saved. Your work is still open.</span>
+					<Button type="button" variant="secondary" onClick={retryDocument}>
+						Retry
+					</Button>
+				</div>
+			)}
 			{frameStatus === "ready" &&
 				props.active &&
 				props.inert !== true &&
