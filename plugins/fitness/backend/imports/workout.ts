@@ -1,8 +1,9 @@
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
+import { buildWorkoutSetEventProperties } from "../../shared/workout-set";
 import { workoutOperationId, workoutRecordId } from "./identity";
-import { buildWorkoutSetEventProperties, type WorkoutImportItem } from "./workout-domain";
+import type { WorkoutImportItem } from "./workout-domain";
 
 export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWriteItem => {
 	const operationId = (...parts: Array<string | number>) =>
@@ -41,9 +42,10 @@ export const toWorkoutWriteItem = (workout: WorkoutImportItem): GenericImportWri
 				outcome: { unit: "sets", recordKind: "workout-sets" },
 				operationId: operationId("set", exerciseOrder, setOrder),
 				properties: buildWorkoutSetEventProperties({
-					set,
+					...set,
 					setOrder,
 					exerciseOrder,
+					setLot: set.setLot,
 					exerciseKind: exercise.kind,
 				}),
 				attribution: {
