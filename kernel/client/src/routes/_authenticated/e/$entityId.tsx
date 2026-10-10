@@ -3,11 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
 import { useCollectionScreens } from "#/modules/collections/screens";
-import {
-	useClearClientPageDocument,
-	useClientPageDocument,
-	useHasPublishedClientPageDocument,
-} from "#/modules/pages/documents/state";
+import { useClearClientPageDocument, useClientPageDocument } from "#/modules/pages/documents/state";
+import { ClientPagePending } from "#/modules/pages/loading";
 import { prepareClientPage } from "#/modules/pages/preparation/prepare";
 import { AppScreen } from "#/modules/shell/app-screen";
 
@@ -15,7 +12,7 @@ export const Route = createFileRoute("/_authenticated/e/$entityId")({
 	staleTime: 30_000,
 	component: EntityPage,
 	errorComponent: EntityError,
-	pendingComponent: EntityPending,
+	pendingComponent: ClientPagePending,
 	loader: ({ params, context, abortController }) =>
 		context.runtime.runPromise(
 			prepareClientPage(context.scope, {
@@ -32,12 +29,12 @@ function EntityPage() {
 		return <EntityDocument prepared={preparation.prepared} />;
 	}
 	if (preparation.reason.code === "entity-not-found") {
-		return <EntityNotice clear title="Entity not found" />;
+		return <EntityNotice title="Entity not found" />;
 	}
 	if (preparation.reason.code === "entity-detail-page-not-registered") {
-		return <EntityNotice clear title="Entity page not registered" />;
+		return <EntityNotice title="Entity page not registered" />;
 	}
-	return <EntityNotice clear title="Required plugin unavailable" />;
+	return <EntityNotice title="Required plugin unavailable" />;
 }
 
 function EntityDocument(props: {
@@ -54,22 +51,11 @@ function EntityDocument(props: {
 	return collections.screen;
 }
 
-function EntityPending() {
-	return useHasPublishedClientPageDocument() ? null : <EntityNotice title="Entity loading" />;
-}
-
 function EntityError() {
-	return <EntityNotice clear title="Retryable entity load failure" />;
+	return <EntityNotice title="Retryable entity load failure" />;
 }
 
-function EntityNotice(props: { readonly title: string; readonly clear?: boolean }) {
-	if (props.clear) {
-		return <ClearedEntityNotice title={props.title} />;
-	}
-	return <AppScreen title={props.title}>{null}</AppScreen>;
-}
-
-function ClearedEntityNotice(props: { readonly title: string }) {
+function EntityNotice(props: { readonly title: string }) {
 	useClearClientPageDocument();
 	return <AppScreen title={props.title}>{null}</AppScreen>;
 }

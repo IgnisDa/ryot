@@ -21,11 +21,8 @@ import type { ApiScope } from "#/api/scope";
 import { useCollectionScreens } from "#/modules/collections/screens";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
-import {
-	useClearClientPageDocument,
-	useClientPageDocument,
-	useHasPublishedClientPageDocument,
-} from "#/modules/pages/documents/state";
+import { useClearClientPageDocument, useClientPageDocument } from "#/modules/pages/documents/state";
+import { ClientPagePending } from "#/modules/pages/loading";
 import { mergePageSearch } from "#/modules/pages/runtime/document-host";
 import { EntityPickerModal } from "#/modules/provider-add/modal";
 import { useEntityPickerSession } from "#/modules/provider-add/picker-session";
@@ -59,7 +56,7 @@ export const savedViewRouteOptions = {
 	staleTime: 30_000,
 	shouldReload: true,
 	errorComponent: SavedViewError,
-	pendingComponent: SavedViewPending,
+	pendingComponent: ClientPagePending,
 	notFoundComponent: SavedViewNotFound,
 	validateSearch: validateSavedViewSearch,
 	loaderDeps: ({ search }: { readonly search: SavedViewSearch }) => search,
@@ -184,23 +181,14 @@ export function SavedViewPage({
 	);
 }
 
-function SavedViewPending() {
-	return useHasPublishedClientPageDocument() ? null : (
-		<SavedViewNotice title="Loading saved view" message="Loading saved view..." />
-	);
-}
-
 function SavedViewNotFound() {
-	return (
-		<SavedViewNotice clear title="Saved view not found" message="This saved view does not exist." />
-	);
+	return <SavedViewNotice title="Saved view not found" message="This saved view does not exist." />;
 }
 
 function SavedViewError() {
 	const router = useRouter();
 	return (
 		<SavedViewNotice
-			clear
 			title="Saved view unavailable"
 			message="The saved view could not be loaded."
 			action={<Button onClick={() => void router.invalidate()}>Retry</Button>}
@@ -212,24 +200,8 @@ function SavedViewNotice(props: {
 	readonly title: string;
 	readonly message: string;
 	readonly action?: React.ReactNode;
-	readonly clear?: boolean;
 }) {
-	if (props.clear) {
-		return <ClearedSavedViewNotice {...props} />;
-	}
-	return <SavedViewNoticeContent {...props} />;
-}
-
-function ClearedSavedViewNotice(props: Parameters<typeof SavedViewNoticeContent>[0]) {
 	useClearClientPageDocument();
-	return <SavedViewNoticeContent {...props} />;
-}
-
-function SavedViewNoticeContent(props: {
-	readonly title: string;
-	readonly message: string;
-	readonly action?: React.ReactNode;
-}) {
 	usePageTitle(props.title);
 	return (
 		<main
