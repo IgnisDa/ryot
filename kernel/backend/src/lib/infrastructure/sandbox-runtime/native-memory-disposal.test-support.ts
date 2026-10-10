@@ -6,6 +6,7 @@ import { SandboxRecoveryStore } from "#lib/infrastructure/sandbox-recovery-store
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { testRedisUrl } from "#lib/test-utils/redis";
+import { unusedSandboxHostImplementations } from "#lib/test-utils/sandbox-host-implementations";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxExecutionAuthority } from "./execution-principal";
@@ -16,7 +17,6 @@ import { SandboxHostImplementations } from "./host-implementations";
 import {
 	nativePlatformLayer,
 	recordingSidecarClient,
-	unusedSandboxHostImplementations,
 	type SidecarRecorder,
 } from "./runner-native.test-support";
 import { SandboxService } from "./service";
@@ -29,6 +29,8 @@ import {
 } from "./sidecar-protocol";
 import { SandboxSidecarQuarantine } from "./sidecar-quarantine";
 import { SandboxSidecarSupervisor } from "./sidecar-supervisor";
+
+const shortDeadlineMs = 2_000;
 
 type RunFrame = typeof SidecarRunFrame.Type;
 type CallFrame = typeof SidecarHostCallFrame.Type;
@@ -56,6 +58,7 @@ export class NativeMemoryEvidence extends Context.Service<NativeMemoryEvidence>(
 				root: yield* fs.realPath(root),
 				activeHosts: new Set<string>(),
 				activeFiles: new Set<string>(),
+				shortDeadline: new Set<string>(),
 				registrations: new Map<string, SandboxHostCallGateRegistration>(),
 				done: new Map<string, (typeof SidecarDoneFrame.Type)["outcome"]>(),
 				events: yield* Queue.unbounded<{ readonly handle: string; readonly name: string }>(),
@@ -134,6 +137,9 @@ const recordingClient = recordingSidecarClient(
 							limits: frame.limits,
 							generation: frame.generation,
 						});
+						if (evidence.shortDeadline.has(executionId)) {
+							return { ...frame, limits: { ...frame.limits, deadlineMs: shortDeadlineMs } };
+						}
 					}
 				}
 				if (frame.type === "hostResult" && frame.result.status === "success") {

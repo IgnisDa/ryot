@@ -1,11 +1,9 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
-import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { encodeJson } from "./host-call-args.test-support";
 import { encodedJsonBytes } from "./json-bytes";
-
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 describe("encodedJsonBytes", () => {
 	it("matches serialized UTF-8 length for escapes, surrogates and nesting", () => {

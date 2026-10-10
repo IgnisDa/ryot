@@ -7,57 +7,19 @@ import { Base64 } from "effect/encoding";
 
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
-import { decodedHostCallArgs } from "./host-call-args.test-support";
+import { encodeJson, decodedHostCallArgs } from "./host-call-args.test-support";
 import { SANDBOX_LIMITS } from "./limits";
-import { runNative, runnerNativeLayer, type RunnerCompiled } from "./runner-native.test-support";
+import {
+	defineNativeScript,
+	runNative,
+	runnerNativeLayer,
+	type RunnerCompiled,
+} from "./runner-native.test-support";
 import type { SandboxInlineDurableHost } from "./shared";
 import { SandboxSidecarClient } from "./sidecar-client";
 import { SandboxInvocationSchema } from "./sidecar-protocol";
 
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
-
-const definitionEntryPoint = (kind: string | undefined) => {
-	if (kind === "operation") {
-		return "defineOperation";
-	}
-	if (kind === "workflow") {
-		return "defineWorkflow";
-	}
-	if (kind === "automation") {
-		return "defineAutomation";
-	}
-	return "defineScript";
-};
-
-const definition = (
-	run: string,
-	options: {
-		readonly input?: string;
-		readonly output?: string;
-		readonly imports?: string;
-		readonly topLevel?: string;
-		readonly kind?: "script" | "operation" | "workflow" | "provider" | "automation";
-	} = {},
-) => `
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-${options.kind === "operation" ? 'import { defineOperation } from "@ryot-app/sandbox-sdk/operation";' : ""}
-${options.kind === "workflow" ? 'import { defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";' : ""}
-${options.kind === "automation" ? 'import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";' : ""}
-${options.imports ?? ""}
-export const manifest = defineManifest({
-  kind: "${options.kind ?? "script"}", name: "Native runner", slug: "native-runner",
-  ${options.kind === "automation" ? 'automationType: "automation", inputProjection: { signal: { properties: ["message"] } },' : ""}
-});
-${options.topLevel ?? ""}
-export default ${definitionEntryPoint(options.kind)}({
-  manifest,
-  ${options.kind === "automation" ? "" : `input: ${options.input ?? "Schema.Struct({})"}, output: ${options.output ?? "Schema.Unknown"},`}
-  run: ${run},
-});
-`;
-
-const durableSource = definition(
+const durableSource = defineNativeScript(
 	`(input, host, execution) => Effect.gen(function* () {
   if (input.mode === "detached") { host.getCachedValue("detached"); return null; }
   if (input.mode === "parallel") {
@@ -92,7 +54,7 @@ export default { definitionType: "ryot:sandbox-script", manifest: { kind: "${com
 
 layer(runnerNativeLayer, { excludeTestServices: true })((test) => {
 	test.effect(
-		"sdk_root_workflow_preserves_pending_committed_replay_and_identity_failures_without_selected_functions",
+		"preserves pending, committed replay, and identity failures for an SDK root workflow without selected functions",
 		() =>
 			Effect.gen(function* () {
 				const compiled = yield* (yield* SandboxCompiler).compile(`
@@ -243,12 +205,12 @@ export default defineWorkflow({
 	);
 
 	test.effect(
-		"ordinary_execution_cannot_acquire_private_journal_from_a_selected_function_name",
+		"keeps ordinary executions from acquiring the private journal through a selected function name",
 		() =>
 			Effect.gen(function* () {
 				const compiler = yield* SandboxCompiler;
 				const root = yield* compiler.compile(
-					definition("() => Effect.succeed(null)", { kind: "workflow" }),
+					defineNativeScript("() => Effect.succeed(null)", { kind: "workflow" }),
 				);
 				const unavailable = yield* runNative(root, {});
 				expect(unavailable.response).toMatchObject({
@@ -262,11 +224,11 @@ export default defineWorkflow({
 			}),
 	);
 
-	test.effect("workflow_guard_and_dependency_wrapper_preserve_determinism", () =>
+	test.effect("preserves determinism through the workflow guard and dependency wrapper", () =>
 		Effect.gen(function* () {
 			{
 				const compiled = yield* (yield* SandboxCompiler).compile(
-					definition("() => Effect.succeed(null)", { kind: "operation" }),
+					defineNativeScript("() => Effect.succeed(null)", { kind: "operation" }),
 				);
 				const options = { workflowExecutionId: "deterministic-workflow" };
 				for (const [expression, message] of [
@@ -331,7 +293,7 @@ export default defineWorkflow({
 			}
 			{
 				const compiler = yield* SandboxCompiler;
-				const compiled = yield* compiler.compile(definition("() => Effect.succeed(null)"));
+				const compiled = yield* compiler.compile(defineNativeScript("() => Effect.succeed(null)"));
 				const ordinary = runtimeDefinition(
 					compiled,
 					"() => Effect.sync(() => ({ id: crypto.randomUUID(), now: Date.now() > 0, random: Math.random() >= 0, monotonic: performance.now() >= 0 }))",
@@ -349,7 +311,7 @@ export default defineWorkflow({
 				assert(first.response.success && second.response.success);
 				expect(first.response.value).not.toEqual(second.response.value);
 				const clock = yield* compiler.compile(
-					definition(
+					defineNativeScript(
 						`() => Effect.gen(function* () {
   const before = yield* Clock.currentTimeMillis;
   const start = yield* Clock.monotonicTimeNanos;
@@ -366,7 +328,7 @@ export default defineWorkflow({
 			}
 			{
 				const compiled = yield* (yield* SandboxCompiler).compile(
-					definition(
+					defineNativeScript(
 						`(_input, host) => createYoutubeMusicClient(host, undefined, {
   retrievePlayer: false, retrieveInnertubeConfig: false,
 }).pipe(Effect.map((client) => String(client.session.context.client.visitorData)))`,
@@ -392,10 +354,10 @@ export default defineWorkflow({
 		}),
 	);
 
-	test.effect("workflow_date_guard_survives_approved_dependency_calls", () =>
+	test.effect("keeps the workflow date guard across approved dependency calls", () =>
 		Effect.gen(function* () {
 			const compiled = yield* (yield* SandboxCompiler).compile(
-				definition(
+				defineNativeScript(
 					`(_input, host) => createYoutubeMusicClient(host, undefined, {
   retrievePlayer: false, retrieveInnertubeConfig: false,
 }).pipe(Effect.flatMap(() => Effect.sync(() => new Date().toISOString())))`,
@@ -417,10 +379,10 @@ export default defineWorkflow({
 		}),
 	);
 
-	test.effect("native_runner_rejects_decoded_ranges_longer_than_requested", () =>
+	test.effect("rejects decoded ranges longer than requested", () =>
 		Effect.gen(function* () {
 			const artifact = yield* (yield* SandboxCompiler).compile(
-				definition(
+				defineNativeScript(
 					"() => readArtifactRange(0, 4).pipe(Effect.map((range) => range.bytes.length))",
 					{ imports: 'import { readArtifactRange } from "@ryot-app/sandbox-sdk/filesystem";' },
 				),
@@ -451,7 +413,9 @@ export default defineWorkflow({
 			}
 
 			const journal = yield* (yield* SandboxCompiler).compile(
-				definition('(input, host) => host.getCachedValue("recorded")', { kind: "operation" }),
+				defineNativeScript('(input, host) => host.getCachedValue("recorded")', {
+					kind: "operation",
+				}),
 			);
 			const recorded = {
 				workflowExecutionId: "oversized-journal-range",
@@ -491,10 +455,10 @@ export default defineWorkflow({
 		}),
 	);
 
-	test.effect("inline_settlement_freezes_fibers_and_pauses_only_script_time", () =>
+	test.effect("freezes fibers and pauses only script time during inline settlement", () =>
 		Effect.gen(function* () {
 			const compiled = yield* (yield* SandboxCompiler).compile(
-				definition(
+				defineNativeScript(
 					`(_input, host) => Effect.gen(function* () {
   const ran: string[] = [];
   queueMicrotask(() => ran.push("microtask"));
@@ -532,16 +496,17 @@ export default defineWorkflow({
 				value: { state: "completed", output: { ran: [], value: "settled" } },
 			});
 			expect(result.inline).toHaveLength(1);
+			expect(result.controls).toEqual(["inlineBatch"]);
 		}),
 	);
 
-	test.effect("definitions_preserve_validation_manifests_and_failure_phases", () =>
+	test.effect("preserves validation, manifests, and failure phases for definitions", () =>
 		Effect.gen(function* () {
 			{
 				const compiler = yield* SandboxCompiler;
 				for (const kind of ["script", "operation", "workflow", "automation"] as const) {
 					const compiled = yield* compiler.compile(
-						definition("() => Effect.succeed(42)", { kind }),
+						defineNativeScript("() => Effect.succeed(42)", { kind }),
 					);
 					const context =
 						kind === "automation"
@@ -598,7 +563,7 @@ export default defineProvider({ manifest, operation: "search", run: input => Eff
 			{
 				const compiler = yield* SandboxCompiler;
 				const compiled = yield* compiler.compile(
-					definition("(input) => Effect.succeed(input.value)", {
+					defineNativeScript("(input) => Effect.succeed(input.value)", {
 						output: "Schema.Number",
 						input: "Schema.Struct({ value: Schema.Number })",
 					}),
@@ -638,7 +603,7 @@ export default defineProvider({ manifest, operation: "search", run: input => Eff
 			}
 			{
 				const compiler = yield* SandboxCompiler;
-				const compiled = yield* compiler.compile(definition("() => Effect.succeed(null)"));
+				const compiled = yield* compiler.compile(defineNativeScript("() => Effect.succeed(null)"));
 				for (const manifest of [
 					{ ...compiled.manifest, slug: "different-slug" },
 					{ ...compiled.manifest, name: "Different name" },
@@ -675,11 +640,11 @@ export default defineProvider({ manifest, operation: "search", run: input => Eff
 		}),
 	);
 
-	test.effect("native_runner_preserves_effect_and_ryotql_alias_identity", () =>
+	test.effect("preserves Effect and RyotQL alias identity", () =>
 		Effect.gen(function* () {
 			const compiler = yield* SandboxCompiler;
 			const compiled = yield* compiler.compile(
-				definition(
+				defineNativeScript(
 					'() => Effect.succeed(Effect === Reflect.get(PluginRuntime, "Effect") && sdkTable === pluginTable)',
 					{
 						imports: `import * as PluginRuntime from "@ryot-app/plugin-kit/effect";
@@ -695,11 +660,11 @@ import { table as pluginTable } from "@ryot-app/plugin-kit/ryotql";`,
 		}),
 	);
 
-	test.effect("native_runner_bounds_output_and_console_diagnostics", () =>
+	test.effect("bounds output and console diagnostics", () =>
 		Effect.gen(function* () {
 			const compiler = yield* SandboxCompiler;
 			const compiled = yield* compiler.compile(
-				definition(
+				defineNativeScript(
 					`(input) => Effect.sync(() => {
   if (input.mode === "output") return "x".repeat(${SANDBOX_LIMITS.execution.resultBytes + 1});
   for (let i = 0; i < ${SANDBOX_LIMITS.logs.entryCount + 10}; i++) console.log(i);
@@ -719,7 +684,7 @@ import { table as pluginTable } from "@ryot-app/plugin-kit/ryotql";`,
 		}),
 	);
 
-	test.effect("compiled_defects_preserve_authored_frames_and_sanitized_diagnostics", () =>
+	test.effect("preserves authored frames and sanitized diagnostics for compiled defects", () =>
 		Effect.gen(function* () {
 			const compiler = yield* SandboxCompiler;
 			const compiled =
@@ -756,7 +721,7 @@ export default defineScript({
 		}),
 	);
 
-	test.effect("compiled_multi_file_defects_preserve_authored_relative_frames", () =>
+	test.effect("preserves authored relative frames for multi-file compiled defects", () =>
 		Effect.gen(function* () {
 			const entry = "backend/scripts/entry.sandbox.ts";
 			const outputs = yield* compilePluginSandboxSourceEntries(
@@ -794,7 +759,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 		}),
 	);
 
-	test.effect("durable_replay_preserves_requests_failures_children_and_detached_work", () =>
+	test.effect("preserves requests, failures, children, and detached work in durable replay", () =>
 		Effect.gen(function* () {
 			{
 				const compiled = yield* (yield* SandboxCompiler).compile(durableSource);
@@ -871,7 +836,9 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 			{
 				const compiled = yield* (yield* SandboxCompiler).compile(durableSource);
 				const uncaught = yield* (yield* SandboxCompiler).compile(
-					definition('(_input, host) => host.getCachedValue("first")', { kind: "operation" }),
+					defineNativeScript('(_input, host) => host.getCachedValue("first")', {
+						kind: "operation",
+					}),
 				);
 				for (const request of [
 					cachedRequest(0, "changed"),
@@ -906,7 +873,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 			}
 			{
 				const compiled = yield* (yield* SandboxCompiler).compile(
-					definition("() => Effect.succeed(null)", { kind: "operation" }),
+					defineNativeScript("() => Effect.succeed(null)", { kind: "operation" }),
 				);
 				const target = runtimeDefinition(
 					compiled,
@@ -995,7 +962,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 		}),
 	);
 
-	test.effect("native_runner_keeps_inline_success_failure_and_committed_replay_evidence", () =>
+	test.effect("keeps inline success, failure, and committed replay evidence", () =>
 		Effect.gen(function* () {
 			const compiled = yield* (yield* SandboxCompiler).compile(durableSource);
 			const batches: string[][] = [];
@@ -1052,43 +1019,41 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 		}),
 	);
 
-	test.effect(
-		"native_runner_batches_parallel_calls_and_preserves_large_multibyte_inline_values",
-		() =>
-			Effect.gen(function* () {
-				const compiled = yield* (yield* SandboxCompiler).compile(durableSource);
-				const value = '日本語\\"'.repeat(40_000);
-				const batches: number[][] = [];
-				const { inline, response } = yield* runNative(
-					compiled,
-					{ mode: "parallel" },
-					{
-						lane: "background",
-						workflowExecutionId: "durable-parent",
-						inlineDurableHost: {
-							cancel: () => Effect.void,
-							capabilities: ["getCachedValue"],
-							settle: (requests) =>
-								Effect.sync(() => {
-									batches.push(requests.map((request) => request.index));
-									return requests.map(() => ({ value, state: "success" as const }));
-								}),
-						},
+	test.effect("batches parallel calls and preserves large multibyte inline values", () =>
+		Effect.gen(function* () {
+			const compiled = yield* (yield* SandboxCompiler).compile(durableSource);
+			const value = '日本語\\"'.repeat(40_000);
+			const batches: number[][] = [];
+			const { inline, response } = yield* runNative(
+				compiled,
+				{ mode: "parallel" },
+				{
+					lane: "background",
+					workflowExecutionId: "durable-parent",
+					inlineDurableHost: {
+						cancel: () => Effect.void,
+						capabilities: ["getCachedValue"],
+						settle: (requests) =>
+							Effect.sync(() => {
+								batches.push(requests.map((request) => request.index));
+								return requests.map(() => ({ value, state: "success" as const }));
+							}),
 					},
-				);
-				expect(batches).toEqual([[0, 1]]);
-				expect(response).toMatchObject({
-					success: true,
-					value: { state: "completed", output: [value, value] },
-				});
-				expect(inline.map((entry) => entry.value)).toEqual([
-					{ value, state: "success" },
-					{ value, state: "success" },
-				]);
-			}),
+				},
+			);
+			expect(batches).toEqual([[0, 1]]);
+			expect(response).toMatchObject({
+				success: true,
+				value: { state: "completed", output: [value, value] },
+			});
+			expect(inline.map((entry) => entry.value)).toEqual([
+				{ value, state: "success" },
+				{ value, state: "success" },
+			]);
+		}),
 	);
 
-	test.effect("native_runner_defers_whole_batches_and_rejects_non_inline_capabilities", () =>
+	test.effect("defers whole batches and rejects non-inline capabilities", () =>
 		Effect.gen(function* () {
 			const compiled = yield* (yield* SandboxCompiler).compile(durableSource);
 			let settlements = 0;
@@ -1128,10 +1093,10 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 		}),
 	);
 
-	test.effect("native_runner_reassembles_journal_entries_larger_than_host_frames", () =>
+	test.effect("reassembles journal entries larger than host frames", () =>
 		Effect.gen(function* () {
 			const compiled = yield* (yield* SandboxCompiler).compile(
-				definition(
+				defineNativeScript(
 					'(input, host) => host.getCachedValue("large").pipe(Effect.map((value) => { if (typeof value !== "string") throw new Error("Expected recorded string"); return { length: value.length, first: value.slice(0, 5), last: value.slice(-5) }; }))',
 					{ kind: "operation" },
 				),
@@ -1163,10 +1128,10 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 		}),
 	);
 
-	test.effect("native_runner_transports_selected_host_results_and_boundary_reasons", () =>
+	test.effect("transports selected host results and boundary reasons", () =>
 		Effect.gen(function* () {
 			const compiled = yield* (yield* SandboxCompiler).compile(
-				definition(
+				defineNativeScript(
 					'(input, host) => host.getCachedValue("key").pipe(Effect.catch((error) => Effect.succeed({ message: error.message, data: error.data })))',
 				),
 			);
@@ -1211,10 +1176,10 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 		}),
 	);
 
-	test.effect("native_runner_charges_failed_attempts_against_total_and_http_budgets", () =>
+	test.effect("charges failed attempts against the total and HTTP budgets", () =>
 		Effect.gen(function* () {
 			const compiled = yield* (yield* SandboxCompiler).compile(
-				definition(
+				defineNativeScript(
 					`(input, host) => Effect.gen(function* () {
   let last: unknown = null;
   const limit = input.mode === "http" ? ${SANDBOX_LIMITS.hostCalls.http} : ${SANDBOX_LIMITS.hostCalls.total};

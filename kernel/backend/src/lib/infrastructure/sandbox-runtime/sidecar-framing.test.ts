@@ -1,5 +1,6 @@
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Effect, Option, Result, Schema } from "effect";
+import { Base64 } from "effect/encoding";
 import { describe, expect, it } from "vitest";
 
 import { hostCallArgs } from "./host-call-args.test-support";
@@ -70,54 +71,6 @@ const runFrame = (handle: string, seq: number, text: string) =>
 		limits: { cpuMs: 1, deadlineMs: 1, heapBytes: 8 * 1024 * 1024, externalBytes: 1024 * 1024 },
 	}) satisfies InboundFrame;
 
-const base64 = (bytes: Uint8Array) => {
-	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	let output = "";
-	for (let index = 0; index < bytes.byteLength; index += 3) {
-		const first = bytes[index] ?? 0;
-		const second = bytes[index + 1];
-		const third = bytes[index + 2];
-		const word = (first << 16) | ((second ?? 0) << 8) | (third ?? 0);
-		output += alphabet[(word >> 18) & 63];
-		output += alphabet[(word >> 12) & 63];
-		output += second === undefined ? "=" : alphabet[(word >> 6) & 63];
-		output += third === undefined ? "=" : alphabet[word & 63];
-	}
-	return output;
-};
-
-const fromBase64 = (value: string) => {
-	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-	let padding = 0;
-	if (value.endsWith("==")) {
-		padding = 2;
-	} else if (value.endsWith("=")) {
-		padding = 1;
-	}
-	const bytes = new Uint8Array((value.length / 4) * 3 - padding);
-	let offset = 0;
-	for (let index = 0; index < value.length; index += 4) {
-		const first = alphabet.indexOf(value[index] ?? "");
-		const second = alphabet.indexOf(value[index + 1] ?? "");
-		const third = value[index + 2] === "=" ? 0 : alphabet.indexOf(value[index + 2] ?? "");
-		const fourth = value[index + 3] === "=" ? 0 : alphabet.indexOf(value[index + 3] ?? "");
-		const word = (first << 18) | (second << 12) | (third << 6) | fourth;
-		if (offset < bytes.byteLength) {
-			bytes[offset] = (word >> 16) & 255;
-			offset += 1;
-		}
-		if (offset < bytes.byteLength) {
-			bytes[offset] = (word >> 8) & 255;
-			offset += 1;
-		}
-		if (offset < bytes.byteLength) {
-			bytes[offset] = word & 255;
-			offset += 1;
-		}
-	}
-	return bytes;
-};
-
 const outboundParts = (
 	frame: Extract<OutboundFrame, { type: "done" | "hostCall" }>,
 	partSeq = frame.seq,
@@ -136,8 +89,8 @@ const outboundParts = (
 			seq: partSeq,
 			type: "part",
 			handle: partHandle,
-			data: base64(chunk),
 			frameType: frame.type,
+			data: Base64.encode(chunk),
 			generation: frame.generation,
 			byteLength: bytes.byteLength,
 		} satisfies OutboundFrame;
@@ -183,7 +136,7 @@ const decodeInboundBytes = (bytes: Uint8Array) => {
 };
 
 describe("sidecar framing", () => {
-	it("reader_bounds_pending_messages_per_execution", () => {
+	it("bounds pending reader messages per execution", () => {
 		const invalid: Array<{ readonly handle: string; readonly message: string }> = [];
 		const reader = makeSidecarFrameReader({
 			generation: 7,
@@ -202,7 +155,7 @@ describe("sidecar framing", () => {
 		expect(invalid).toEqual([{ handle: "bounded", message: "too many pending hostCall messages" }]);
 	});
 
-	it("writer_retire_purges_unstarted_results", () => {
+	it("purges unstarted results when the writer retires a handle", () => {
 		const output: Uint8Array[] = [];
 		let blockNext = true;
 		const writer = makeSidecarFrameWriter({
@@ -234,7 +187,7 @@ describe("sidecar framing", () => {
 		]);
 	});
 
-	it("reader_decodes_frames_fed_in_chunks_that_straddle_headers_and_bodies", () => {
+	it("decodes frames fed in chunks that straddle headers and bodies", () => {
 		const received: OutboundFrame[] = [];
 		const reader = makeSidecarFrameReader({
 			generation: 7,
@@ -256,7 +209,7 @@ describe("sidecar framing", () => {
 		expect(received).toEqual(frames);
 	});
 
-	it("client_handles_partial_writes_chunk_interleaving_and_desync", () => {
+	it("handles partial writes, chunk interleaving, and desync in the client", () => {
 		const received: OutboundFrame[] = [];
 		const invalid: { readonly handle: string; readonly message: string }[] = [];
 		const reader = makeSidecarFrameReader({
@@ -485,7 +438,9 @@ describe("sidecar framing", () => {
 			(frame): frame is Extract<InboundFrame, { type: "part" }> =>
 				frame.type === "part" && frame.handle === "first" && frame.frameType === "run",
 		);
-		const runPayload = concatBytes(runParts.map(({ data }) => fromBase64(data)));
+		const runPayload = concatBytes(
+			runParts.map(({ data }) => Result.getOrThrow(Base64.decode(data))),
+		);
 		const decodedRun = Schema.decodeSync(Schema.fromJsonString(SidecarInboundFrame), {
 			onExcessProperty: "error",
 		})(decoder.decode(runPayload));
@@ -511,7 +466,9 @@ describe("sidecar framing", () => {
 				frame.type === "part" && frame.frameType === "hostResult",
 		);
 		expect(hostResultParts.length).toBeGreaterThan(1);
-		const hostResultPayload = concatBytes(hostResultParts.map(({ data }) => fromBase64(data)));
+		const hostResultPayload = concatBytes(
+			hostResultParts.map(({ data }) => Result.getOrThrow(Base64.decode(data))),
+		);
 		const decodedHostResult = Schema.decodeSync(Schema.fromJsonString(SidecarInboundFrame), {
 			onExcessProperty: "error",
 		})(decoder.decode(hostResultPayload));
@@ -602,7 +559,7 @@ describe("sidecar framing", () => {
 	});
 });
 
-it("lane_pools_keep_rust_assemblies_within_connection_bound", () => {
+it("keeps Rust assemblies within the connection bound through lane pools", () => {
 	const maximumText = "x".repeat(SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult - 1024);
 	const sliceText = "x".repeat(Math.ceil((4 * MiB) / 3));
 	const runText = "x".repeat(SIDECAR_PROTOCOL_LIMITS.messageBytes.run - 4096);

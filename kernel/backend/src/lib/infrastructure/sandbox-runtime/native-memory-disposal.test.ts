@@ -19,32 +19,30 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import { testExecutionId } from "#lib/test-utils/redis";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
-import { hostCallArgs } from "./host-call-args.test-support";
+import { encodeJson, hostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
-import { SANDBOX_LIMITS } from "./limits";
+import { MiB, SANDBOX_LIMITS } from "./limits";
 import { NativeMemoryEvidence, nativeMemoryLayer } from "./native-memory-disposal.test-support";
-import { makeRunnerInput } from "./runner-native.test-support";
+import { defineNativeScript, makeRunnerInput } from "./runner-native.test-support";
 import { SandboxService } from "./service";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
 import { SidecarHostCallFrame } from "./sidecar-protocol";
 import { trackNativeKeys } from "./sidecar-recovery-native.test-support";
 import { SandboxSidecarSupervisor } from "./sidecar-supervisor";
 
-const MiB = 1024 * 1024;
 const token = '"\\\n漢🙂';
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const encodedTokenBytes = new TextEncoder().encode(encodeJson(token)).byteLength - 2;
 const externalBytes = SANDBOX_LIMITS.isolate.externalBytes;
 const journalEntries = 22;
 const tokenRepetitions = Math.floor((4.5 * MiB) / encodedTokenBytes);
 const unusedSettlement = () => Effect.die("Committed journal replay must not settle inline");
-const definition = (run: string, imports = "") => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-${imports}
-export const manifest = defineManifest({ kind: "script", name: "Native memory disposal", slug: "native-memory-disposal" });
-export default defineScript({ manifest, input: Schema.Struct({ mode: Schema.String }), output: Schema.Unknown, run: ${run} });
-`;
+const definition = (run: string, imports = "") =>
+	defineNativeScript(run, {
+		imports,
+		name: "Native memory disposal",
+		slug: "native-memory-disposal",
+		input: "Schema.Struct({ mode: Schema.String })",
+	});
 
 const journalSource = definition(`(_input, host) => Effect.gen(function* () {
   Reflect.set(globalThis, "nativeMemoryState", "journal");
@@ -222,7 +220,7 @@ const nextCall = Effect.fnUntraced(function* (
 });
 
 layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
-	test.effect("journal_reads_preserve_large_pinned_prefixes_with_bounded_frames", () =>
+	test.effect("preserves large pinned journal prefixes through bounded journal read frames", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const compiler = yield* SandboxCompiler;
@@ -315,217 +313,221 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 		),
 	);
 
-	test.effect("journal_reassembly_failures_and_interruption_release_native_reservations", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const compiler = yield* SandboxCompiler;
-				const service = yield* SandboxService;
-				const evidence = yield* NativeMemoryEvidence;
-				const track = yield* trackNativeKeys;
-				const compiled = yield* compiler.compile(
-					definition(`(_input, host) => Effect.gen(function* () {
+	test.effect(
+		"releases native reservations after journal reassembly failures and interruption",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const compiler = yield* SandboxCompiler;
+					const service = yield* SandboxService;
+					const evidence = yield* NativeMemoryEvidence;
+					const track = yield* trackNativeKeys;
+					const compiled = yield* compiler.compile(
+						definition(`(_input, host) => Effect.gen(function* () {
   Reflect.set(globalThis, "nativeMemoryState", "oversized-journal");
   const values = yield* Effect.all([0, 1, 2].map(i => host.getCachedValue("entry-" + i)), { concurrency: 3 });
   return values.map(value => typeof value === "string" ? value.length : -1);
 })`),
-				);
-				const fresh = yield* compiler.compile(freshSource);
-				for (const [label, size, cancel] of [
-					["individual", externalBytes + MiB, false],
-					["concurrent", externalBytes / 2, false],
-					["interrupted", externalBytes / 4, true],
-				] as const) {
-					const journal: WorkflowReplayJournalEntry[] = Array.from({ length: 3 }, (_, index) => ({
-						request: request(index),
-						value: {
-							state: "success",
-							value: "x".repeat(index === 0 || label !== "individual" ? size : 1),
-						},
-					}));
-					const input = makeRunnerInput(
-						compiled,
-						{ mode: label },
-						{
-							replayJournal: journal,
-							workflowExecutionId: `native-memory-parent-${label}`,
-							executionId: testExecutionId(`native-memory-journal-${label}`),
-							inlineDurableHost: {
-								settle: unusedSettlement,
-								cancel: () => Effect.void,
-								capabilities: ["getCachedValue"],
-							},
-						},
 					);
-					yield* track(input);
-					if (cancel) {
-						const fiber = yield* Effect.forkChild(service.run(input));
-						yield* nextCall(input.executionId, "journalRead", MiB);
-						yield* Fiber.interrupt(fiber);
-						const exit = yield* Fiber.await(fiber);
-						assert(Exit.isFailure(exit));
-						expect(Cause.hasInterrupts(exit.cause)).toBe(true);
-					} else {
-						const exit = yield* Effect.exit(service.run(input));
-						assertExitFails(
-							exit,
-							new SandboxRunError({
-								kind: "script-failure",
-								message: `ArrayBuffer limit of ${externalBytes} bytes exceeded`,
-							}),
+					const fresh = yield* compiler.compile(freshSource);
+					for (const [label, size, cancel] of [
+						["individual", externalBytes + MiB, false],
+						["concurrent", externalBytes / 2, false],
+						["interrupted", externalBytes / 4, true],
+					] as const) {
+						const journal: WorkflowReplayJournalEntry[] = Array.from({ length: 3 }, (_, index) => ({
+							request: request(index),
+							value: {
+								state: "success",
+								value: "x".repeat(index === 0 || label !== "individual" ? size : 1),
+							},
+						}));
+						const input = makeRunnerInput(
+							compiled,
+							{ mode: label },
+							{
+								replayJournal: journal,
+								workflowExecutionId: `native-memory-parent-${label}`,
+								executionId: testExecutionId(`native-memory-journal-${label}`),
+								inlineDurableHost: {
+									settle: unusedSettlement,
+									cancel: () => Effect.void,
+									capabilities: ["getCachedValue"],
+								},
+							},
 						);
+						yield* track(input);
+						if (cancel) {
+							const fiber = yield* Effect.forkChild(service.run(input));
+							yield* nextCall(input.executionId, "journalRead", MiB);
+							yield* Fiber.interrupt(fiber);
+							const exit = yield* Fiber.await(fiber);
+							assert(Exit.isFailure(exit));
+							expect(Cause.hasInterrupts(exit.cause)).toBe(true);
+						} else {
+							const exit = yield* Effect.exit(service.run(input));
+							assertExitFails(
+								exit,
+								new SandboxRunError({
+									kind: "script-failure",
+									message: `ArrayBuffer limit of ${externalBytes} bytes exceeded`,
+								}),
+							);
+							expect(
+								evidence.done.get(evidence.runs.get(input.executionId)?.handle ?? ""),
+							).toMatchObject({ status: "limit", limit: "external" });
+						}
+						const handle = evidence.runs.get(input.executionId)?.handle;
 						expect(
-							evidence.done.get(evidence.runs.get(input.executionId)?.handle ?? ""),
-						).toMatchObject({ status: "limit", limit: "external" });
+							evidence.calls
+								.filter((call) => call.handle === handle)
+								.every((call) => call.name === "journalRead"),
+						).toBe(true);
+						yield* assertDisposed(input.executionId);
+						const neighbour = makeRunnerInput(
+							fresh,
+							{ mode: "fresh" },
+							{ executionId: testExecutionId(`native-memory-fresh-${label}`) },
+						);
+						yield* track(neighbour);
+						expect(yield* service.run(neighbour)).toMatchObject({ success: true, value: "fresh" });
+						yield* assertDisposed(neighbour.executionId);
 					}
-					const handle = evidence.runs.get(input.executionId)?.handle;
-					expect(
-						evidence.calls
-							.filter((call) => call.handle === handle)
-							.every((call) => call.name === "journalRead"),
-					).toBe(true);
-					yield* assertDisposed(input.executionId);
+				}),
+			),
+	);
+
+	test.effect(
+		"assembles whole artifacts in reserved native memory and releases it after failed reads",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const compiler = yield* SandboxCompiler;
+					const service = yield* SandboxService;
+					const evidence = yield* NativeMemoryEvidence;
+					const fs = yield* FileSystem.FileSystem;
+					const path = yield* Path.Path;
+					const track = yield* trackNativeKeys;
+					const compiled = yield* compiler.compile(fileSource);
+					const artifactPath = path.join(evidence.root, "whole.bin");
+					for (const size of [
+						MiB - 1,
+						MiB,
+						MiB + 1,
+						externalBytes - 4 * MiB,
+						externalBytes,
+						externalBytes + 1,
+					]) {
+						yield* fs.writeFile(artifactPath, artifactBytes(size));
+						const input = {
+							...makeRunnerInput(
+								compiled,
+								{ mode: "whole" },
+								{ executionId: testExecutionId(`native-memory-artifact-${size}`) },
+							),
+							grants: { artifactPath },
+						};
+						yield* track(input);
+						if (size === externalBytes) {
+							assertExitFails(
+								yield* Effect.exit(service.run(input)),
+								new SandboxRunError({
+									kind: "script-failure",
+									message: `ArrayBuffer limit of ${externalBytes} bytes exceeded`,
+								}),
+							);
+							yield* assertDisposed(input.executionId);
+							continue;
+						}
+						const result = yield* service.run(input);
+						if (size > externalBytes) {
+							expect(result).toMatchObject({
+								value: null,
+								success: false,
+								error: {
+									phase: "execute",
+									message: "Sandbox artifact exceeds its reserved isolate memory",
+								},
+							});
+						} else {
+							expect(result).toMatchObject({
+								error: null,
+								success: true,
+								value: { length: size, chunks: Math.ceil(size / MiB) },
+							});
+							const handle = evidence.runs.get(input.executionId)?.handle;
+							const calls = evidence.calls.filter((call) => call.handle === handle);
+							expect(calls.every((call) => call.name === "artifactReadRange")).toBe(true);
+							expect(calls.length).toBe(Math.ceil(size / MiB));
+						}
+						yield* assertDisposed(input.executionId);
+					}
+					yield* fs.writeFile(artifactPath, artifactBytes(6 * MiB + 1));
+					const parallel = {
+						...makeRunnerInput(
+							compiled,
+							{ mode: "parallel" },
+							{ executionId: testExecutionId("native-memory-parallel-artifacts") },
+						),
+						grants: { artifactPath, namedArtifactPaths: { second: artifactPath } },
+					};
+					yield* track(parallel);
+					expect(yield* service.run(parallel)).toMatchObject({
+						success: true,
+						value: Array.from({ length: 2 }, () => ({ chunks: 7, length: 6 * MiB + 1 })),
+					});
+					const parallelCalls = evidence.calls.filter(
+						(call) => call.handle === evidence.runs.get(parallel.executionId)?.handle,
+					);
+					expect(parallelCalls.slice(0, 2).map((call) => call.args)).toEqual([
+						{ offset: 0, length: MiB },
+						{ offset: 0, length: MiB, key: "second" },
+					]);
+					yield* assertDisposed(parallel.executionId);
+					yield* fs.writeFile(artifactPath, artifactBytes(externalBytes / 2 + MiB));
+					const exhausted = {
+						...parallel,
+						executionId: testExecutionId("native-memory-concurrent-artifact-exhaustion"),
+					};
+					yield* track(exhausted);
+					assertExitFails(
+						yield* Effect.exit(service.run(exhausted)),
+						new SandboxRunError({
+							kind: "script-failure",
+							message: `ArrayBuffer limit of ${externalBytes} bytes exceeded`,
+						}),
+					);
+					yield* assertDisposed(exhausted.executionId);
+					const interrupted = {
+						...makeRunnerInput(
+							compiled,
+							{ mode: "whole" },
+							{ executionId: testExecutionId("native-memory-interrupted-artifact") },
+						),
+						grants: { artifactPath },
+					};
+					yield* track(interrupted);
+					const fiber = yield* Effect.forkChild(service.run(interrupted));
+					yield* nextCall(interrupted.executionId, "artifactReadRange", MiB);
+					yield* Fiber.interrupt(fiber);
+					const exit = yield* Fiber.await(fiber);
+					assert(Exit.isFailure(exit));
+					expect(Cause.hasInterrupts(exit.cause)).toBe(true);
+					yield* assertDisposed(interrupted.executionId);
+					const fresh = yield* compiler.compile(freshSource);
 					const neighbour = makeRunnerInput(
 						fresh,
 						{ mode: "fresh" },
-						{ executionId: testExecutionId(`native-memory-fresh-${label}`) },
+						{ executionId: testExecutionId("native-memory-fresh-artifact") },
 					);
 					yield* track(neighbour);
 					expect(yield* service.run(neighbour)).toMatchObject({ success: true, value: "fresh" });
 					yield* assertDisposed(neighbour.executionId);
-				}
-			}),
-		),
+				}),
+			),
 	);
 
-	test.effect("whole_artifact_assembly_uses_reserved_native_memory_and_releases_failed_reads", () =>
-		Effect.scoped(
-			Effect.gen(function* () {
-				const compiler = yield* SandboxCompiler;
-				const service = yield* SandboxService;
-				const evidence = yield* NativeMemoryEvidence;
-				const fs = yield* FileSystem.FileSystem;
-				const path = yield* Path.Path;
-				const track = yield* trackNativeKeys;
-				const compiled = yield* compiler.compile(fileSource);
-				const artifactPath = path.join(evidence.root, "whole.bin");
-				for (const size of [
-					MiB - 1,
-					MiB,
-					MiB + 1,
-					externalBytes - 4 * MiB,
-					externalBytes,
-					externalBytes + 1,
-				]) {
-					yield* fs.writeFile(artifactPath, artifactBytes(size));
-					const input = {
-						...makeRunnerInput(
-							compiled,
-							{ mode: "whole" },
-							{ executionId: testExecutionId(`native-memory-artifact-${size}`) },
-						),
-						grants: { artifactPath },
-					};
-					yield* track(input);
-					if (size === externalBytes) {
-						assertExitFails(
-							yield* Effect.exit(service.run(input)),
-							new SandboxRunError({
-								kind: "script-failure",
-								message: `ArrayBuffer limit of ${externalBytes} bytes exceeded`,
-							}),
-						);
-						yield* assertDisposed(input.executionId);
-						continue;
-					}
-					const result = yield* service.run(input);
-					if (size > externalBytes) {
-						expect(result).toMatchObject({
-							value: null,
-							success: false,
-							error: {
-								phase: "execute",
-								message: "Sandbox artifact exceeds its reserved isolate memory",
-							},
-						});
-					} else {
-						expect(result).toMatchObject({
-							error: null,
-							success: true,
-							value: { length: size, chunks: Math.ceil(size / MiB) },
-						});
-						const handle = evidence.runs.get(input.executionId)?.handle;
-						const calls = evidence.calls.filter((call) => call.handle === handle);
-						expect(calls.every((call) => call.name === "artifactReadRange")).toBe(true);
-						expect(calls.length).toBe(Math.ceil(size / MiB));
-					}
-					yield* assertDisposed(input.executionId);
-				}
-				yield* fs.writeFile(artifactPath, artifactBytes(6 * MiB + 1));
-				const parallel = {
-					...makeRunnerInput(
-						compiled,
-						{ mode: "parallel" },
-						{ executionId: testExecutionId("native-memory-parallel-artifacts") },
-					),
-					grants: { artifactPath, namedArtifactPaths: { second: artifactPath } },
-				};
-				yield* track(parallel);
-				expect(yield* service.run(parallel)).toMatchObject({
-					success: true,
-					value: Array.from({ length: 2 }, () => ({ chunks: 7, length: 6 * MiB + 1 })),
-				});
-				const parallelCalls = evidence.calls.filter(
-					(call) => call.handle === evidence.runs.get(parallel.executionId)?.handle,
-				);
-				expect(parallelCalls.slice(0, 2).map((call) => call.args)).toEqual([
-					{ offset: 0, length: MiB },
-					{ offset: 0, length: MiB, key: "second" },
-				]);
-				yield* assertDisposed(parallel.executionId);
-				yield* fs.writeFile(artifactPath, artifactBytes(externalBytes / 2 + MiB));
-				const exhausted = {
-					...parallel,
-					executionId: testExecutionId("native-memory-concurrent-artifact-exhaustion"),
-				};
-				yield* track(exhausted);
-				assertExitFails(
-					yield* Effect.exit(service.run(exhausted)),
-					new SandboxRunError({
-						kind: "script-failure",
-						message: `ArrayBuffer limit of ${externalBytes} bytes exceeded`,
-					}),
-				);
-				yield* assertDisposed(exhausted.executionId);
-				const interrupted = {
-					...makeRunnerInput(
-						compiled,
-						{ mode: "whole" },
-						{ executionId: testExecutionId("native-memory-interrupted-artifact") },
-					),
-					grants: { artifactPath },
-				};
-				yield* track(interrupted);
-				const fiber = yield* Effect.forkChild(service.run(interrupted));
-				yield* nextCall(interrupted.executionId, "artifactReadRange", MiB);
-				yield* Fiber.interrupt(fiber);
-				const exit = yield* Fiber.await(fiber);
-				assert(Exit.isFailure(exit));
-				expect(Cause.hasInterrupts(exit.cause)).toBe(true);
-				yield* assertDisposed(interrupted.executionId);
-				const fresh = yield* compiler.compile(freshSource);
-				const neighbour = makeRunnerInput(
-					fresh,
-					{ mode: "fresh" },
-					{ executionId: testExecutionId("native-memory-fresh-artifact") },
-				);
-				yield* track(neighbour);
-				expect(yield* service.run(neighbour)).toMatchObject({ success: true, value: "fresh" });
-				yield* assertDisposed(neighbour.executionId);
-			}),
-		),
-	);
-
-	test.effect("replay_exit_paths_dispose_isolates_and_retire_handles", () =>
+	test.effect("disposes isolates and retires handles on every replay exit path", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const compiler = yield* SandboxCompiler;
@@ -592,6 +594,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 							yield* Deferred.await(interrupted);
 						}
 					} else if (mode === "timeout") {
+						evidence.shortDeadline.add(input.executionId);
 						const exit = yield* Effect.exit(service.run(target));
 						assert(Exit.isFailure(exit));
 						const error = Cause.findErrorOption(exit.cause);
@@ -648,7 +651,7 @@ layer(nativeMemoryLayer, { excludeTestServices: true })((test) => {
 		),
 	);
 
-	test.effect("native_scratch_write_failure_is_returned_after_partial_upload_cleanup", () =>
+	test.effect("returns a native scratch write failure after cleaning up the partial upload", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const compiler = yield* SandboxCompiler;

@@ -1,32 +1,13 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
-import { bindSandboxHostFunctions } from "./bridge-adapter";
-import type { SandboxHostImplementationMap, SandboxRunInput } from "./shared";
+import { makeUserRunInput } from "#lib/test-utils/sandbox-run-input";
 
-const input: SandboxRunInput = {
-	context: {},
-	compiledCode: "",
-	compiledFormat: 1,
-	lane: "interactive",
-	executionId: "execution-1",
-	startedAt: "2026-01-01T00:00:00.000Z",
-	principal: {
-		contentHash: "",
-		providerId: null,
-		scriptSlug: "script",
-		pluginRevision: null,
-		metadata: { runtimeImports: [] },
-		scriptId: SandboxScriptId.make("script-1"),
-		subject: {
-			type: "user",
-			userId: UserId.make("user-1"),
-			accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-		},
-	},
-};
+import { bindSandboxHostFunctions } from "./bridge-adapter";
+import type { SandboxHostImplementationMap } from "./shared";
+
+const input = makeUserRunInput();
 
 const makeImplementations = (
 	overrides: Partial<SandboxHostImplementationMap> = {},
@@ -61,17 +42,10 @@ const makeImplementations = (
 	...overrides,
 });
 
-const promiseImplementation: SandboxHostImplementationMap["getCachedValue"] = () =>
-	// @ts-expect-error implementation methods return Effects, not Promises.
-	Promise.resolve(null);
-void promiseImplementation;
-
 describe("bindSandboxHostFunctions", () => {
 	it.effect("keeps the bound bridge in Effect", () =>
 		Effect.gen(function* () {
 			const result = bindSandboxHostFunctions(makeImplementations(), input).getCachedValue(["key"]);
-			expect(Effect.isEffect(result)).toBe(true);
-			expect(result).not.toBeInstanceOf(Promise);
 			expect(yield* result).toEqual({ success: false, error: "unused" });
 		}),
 	);

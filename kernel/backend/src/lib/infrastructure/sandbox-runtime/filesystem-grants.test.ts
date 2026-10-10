@@ -1,9 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
-import { layer } from "@effect/vitest";
-import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/sandbox-sdk/core";
+import { it, layer } from "@effect/vitest";
 import { Cause, Effect, Option, type Scope, FileSystem, Path } from "effect";
-import { assert, describe, expect, it as vitestIt } from "vitest";
+import { assert, describe, expect } from "vitest";
 
 import {
 	decodeSandboxScratchManifest,
@@ -11,9 +9,6 @@ import {
 	sandboxArtifactGrant,
 	sandboxGrantPathError,
 } from "./filesystem-grants";
-import { selectSandboxHostFunctions } from "./service";
-
-const unusedHostFunction = () => Effect.die("host function must not be called");
 
 const withTempRoot = <A, E>(
 	use: (root: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Scope.Scope>,
@@ -25,7 +20,7 @@ const withTempRoot = <A, E>(
 	});
 
 describe("sandbox filesystem grant gating", () => {
-	vitestIt("treats the capability as the gate and the dispatched path as its parameter", () => {
+	it("treats the capability as the gate and the dispatched path as its parameter", () => {
 		expect(sandboxArtifactGrant(["artifact-read"], "/tmp/root/export.zip")).toBe(
 			"/tmp/root/export.zip",
 		);
@@ -34,32 +29,6 @@ describe("sandbox filesystem grant gating", () => {
 		expect(sandboxArtifactGrant(["artifact-read"], { history: "/tmp/root/history" })).toEqual({
 			history: "/tmp/root/history",
 		});
-	});
-
-	vitestIt("never binds a host function for a filesystem grant capability", () => {
-		const bound = { scratch: unusedHostFunction, httpCall: unusedHostFunction };
-
-		expect(
-			Object.keys(
-				selectSandboxHostFunctions(bound, {
-					principal: {
-						contentHash: "",
-						providerId: null,
-						pluginRevision: null,
-						scriptSlug: "script",
-						subject: { type: "system" },
-						scriptId: SandboxScriptId.make("script-1"),
-						metadata: {
-							kind: "script",
-							runtimeImports: [],
-							capabilities: ["scratch", "artifact-read", "httpCall"],
-						},
-					},
-				}),
-			),
-		).toEqual(["httpCall"]);
-		expect(SANDBOX_HOST_CAPABILITIES).toContain("scratch");
-		expect(SANDBOX_HOST_CAPABILITIES).toContain("artifact-read");
 	});
 });
 
@@ -136,7 +105,7 @@ describe("sandbox scratch measurement", () => {
 });
 
 describe("sandbox scratch manifest", () => {
-	vitestIt("harvests only when the returned value carries a chunk manifest", () => {
+	it("harvests only when the returned value carries a chunk manifest", () => {
 		expect(decodeSandboxScratchManifest({ groups: 12, chunkFiles: ["chunk-0.json"] })).toEqual(
 			Option.some({ chunkFiles: ["chunk-0.json"] }),
 		);

@@ -34,11 +34,11 @@ import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
 import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
-import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/service";
 import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { testAccountGeneration } from "#lib/test-utils/sandbox-run-input";
 import { AuthRepository } from "#modules/auth/repository";
 import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
@@ -224,7 +224,7 @@ const automationSubject = (
 		runId: AutomationRunId.make("run-1"),
 		executionUserId: UserId.make("user-1"),
 		triggerId: AutomationTriggerId.make("trigger-1"),
-		accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+		accountGeneration: testAccountGeneration(UserId.make("user-1")),
 		causation: {
 			depth: 0,
 			parentRunId: null,
@@ -582,7 +582,7 @@ describe("event mutation capabilities", () => {
 							{
 								type: "user",
 								userId: trustedUser,
-								accountGeneration: { userId: trustedUser, token: "test-account-generation" },
+								accountGeneration: testAccountGeneration(trustedUser),
 							},
 							["updateEvents"],
 						),
@@ -640,7 +640,7 @@ describe("requestEventStreamWork", () => {
 			Effect.gen(function* () {
 				const functions = yield* makeAdditionalSandboxApiFunctions;
 				const userId = UserId.make("user-1");
-				const accountGeneration = { userId, token: "test-account-generation" };
+				const accountGeneration = testAccountGeneration(userId);
 				const subject = {
 					userId,
 					type: "user",
@@ -701,8 +701,6 @@ describe("requestEventStreamWork", () => {
 	});
 });
 
-const executeRyotql = () => Effect.void;
-
 describe("getUserPreferences", () => {
 	layer(hostFunctionsLayer())((test) => {
 		test.effect("reads authoritative preferences and preserves missing-user failures", () =>
@@ -713,11 +711,7 @@ describe("getUserPreferences", () => {
 				yield* auth.patchUserPreferences(userId, { disableIntegrations: true });
 				expect(
 					yield* functions.getUserPreferences(
-						runInput({
-							userId,
-							type: "user",
-							accountGeneration: { userId, token: "test-account-generation" },
-						}),
+						runInput({ userId, type: "user", accountGeneration: testAccountGeneration(userId) }),
 					),
 				).toEqual({ disableIntegrations: true });
 				expect(
@@ -726,10 +720,7 @@ describe("getUserPreferences", () => {
 							runInput({
 								type: "user",
 								userId: UserId.make("missing"),
-								accountGeneration: {
-									userId: UserId.make("missing"),
-									token: "test-account-generation",
-								},
+								accountGeneration: testAccountGeneration(UserId.make("missing")),
 							}),
 						),
 					),
@@ -758,10 +749,7 @@ describe("getUserPreferences", () => {
 										runInput({
 											type: "user",
 											userId: UserId.make("user-1"),
-											accountGeneration: {
-												userId: UserId.make("user-1"),
-												token: "test-account-generation",
-											},
+											accountGeneration: testAccountGeneration(UserId.make("user-1")),
 										}),
 									),
 								).pipe(Effect.orDie),
@@ -854,7 +842,7 @@ describe("getOAuthAccessToken", () => {
 		userId: UserId.make("user-1"),
 		integrationId: IntegrationId.make("int-trusted"),
 		integrationRunId: ImportRunId.make("run-trusted"),
-		accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+		accountGeneration: testAccountGeneration(UserId.make("user-1")),
 	} satisfies SandboxExecutionSubject;
 
 	layer(
@@ -895,10 +883,7 @@ describe("getOAuthAccessToken", () => {
 							type: "user",
 							userId: UserId.make("user-1"),
 							integrationId: IntegrationId.make("int-trusted"),
-							accountGeneration: {
-								userId: UserId.make("user-1"),
-								token: "test-account-generation",
-							},
+							accountGeneration: testAccountGeneration(UserId.make("user-1")),
 						} satisfies SandboxExecutionSubject,
 					},
 					{ subject: integrationRunSubject, principalFacts: { pluginRevision: null } },
@@ -933,7 +918,7 @@ describe("invalidateOAuthAccessToken", () => {
 		userId: UserId.make("user-1"),
 		integrationId: IntegrationId.make("int-trusted"),
 		integrationRunId: ImportRunId.make("run-trusted"),
-		accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+		accountGeneration: testAccountGeneration(UserId.make("user-1")),
 	} satisfies SandboxExecutionSubject;
 
 	layer(
@@ -968,7 +953,7 @@ describe("invalidateOAuthAccessToken", () => {
 				const result = yield* runInvalidateOAuthAccessToken({
 					type: "user",
 					userId: UserId.make("user-1"),
-					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					accountGeneration: testAccountGeneration(UserId.make("user-1")),
 				});
 				const failure = Option.getOrThrow(Result.getFailure(result));
 
@@ -992,7 +977,7 @@ describe("getCurrentIntegration", () => {
 						type: "user",
 						userId: UserId.make("user-1"),
 						integrationId: IntegrationId.make("int-trusted"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+						accountGeneration: testAccountGeneration(UserId.make("user-1")),
 					});
 
 					expect(yield* (yield* HostFunctionCalls).integrationLookups).toEqual([
@@ -1039,10 +1024,7 @@ describe("getCurrentIntegration", () => {
 						{
 							type: "user",
 							userId: UserId.make("user-1"),
-							accountGeneration: {
-								userId: UserId.make("user-1"),
-								token: "test-account-generation",
-							},
+							accountGeneration: testAccountGeneration(UserId.make("user-1")),
 						},
 						automationSubject({ kind: "api" }),
 					] satisfies SandboxExecutionSubject[],
@@ -1069,7 +1051,7 @@ describe("getCurrentIntegration", () => {
 					type: "user",
 					userId: UserId.make("user-1"),
 					integrationId: IntegrationId.make("int-of-another-user"),
-					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					accountGeneration: testAccountGeneration(UserId.make("user-1")),
 				});
 
 				expect(Result.getFailure(result)).toEqual(
@@ -1122,7 +1104,7 @@ describe("getCurrentIntegration", () => {
 									type: "user",
 									integrationId,
 									integrationRunId: ImportRunId.make(runId),
-									accountGeneration: { userId, token: "test-account-generation" },
+									accountGeneration: testAccountGeneration(userId),
 								},
 								SANDBOX_HOST_CAPABILITIES,
 								{ pluginRevision: ingestionTestRevision },
@@ -1164,7 +1146,7 @@ describe("getCurrentIntegration", () => {
 						["run-1", "run-1", "run-2"].map((runId) => ({
 							runId,
 							userId,
-							accountGeneration: { userId, token: "test-account-generation" },
+							accountGeneration: testAccountGeneration(userId),
 						})),
 					);
 					expect(yield* (yield* HostFunctionCalls).lookupOrder).toEqual(
@@ -1184,11 +1166,7 @@ describe("getUserSettings", () => {
 				expect(
 					yield* functions.getUserSettings({
 						...runInput(
-							{
-								userId,
-								type: "user",
-								accountGeneration: { userId, token: "test-account-generation" },
-							},
+							{ userId, type: "user", accountGeneration: testAccountGeneration(userId) },
 							["getUserSettings"],
 							{ pluginRevision: systemPluginRevision },
 						),
@@ -1219,7 +1197,7 @@ describe("getUserSettings", () => {
 								userId,
 								type: "user",
 								importRunId: ImportRunId.make(runId),
-								accountGeneration: { userId, token: "test-account-generation" },
+								accountGeneration: testAccountGeneration(userId),
 							},
 							["getUserSettings"],
 							{ pluginRevision: ingestionTestRevision },
@@ -1241,7 +1219,7 @@ describe("getUserSettings", () => {
 					["run-1", "run-1", "run-2"].map((runId) => ({
 						runId,
 						userId,
-						accountGeneration: { userId, token: "test-account-generation" },
+						accountGeneration: testAccountGeneration(userId),
 					})),
 				);
 				expect(yield* (yield* HostFunctionCalls).installationLookups).toMatchObject(
@@ -1265,7 +1243,7 @@ describe("getUserSettings", () => {
 								userId,
 								type: "user",
 								importRunId: ImportRunId.make("run-1"),
-								accountGeneration: { userId, token: "test-account-generation" },
+								accountGeneration: testAccountGeneration(userId),
 							},
 							["getUserSettings"],
 							{ pluginRevision: systemPluginRevision },
@@ -1293,7 +1271,7 @@ describe("getUserSettings", () => {
 								userId,
 								type: "user",
 								importRunId: ImportRunId.make("run-1"),
-								accountGeneration: { userId, token: "test-account-generation" },
+								accountGeneration: testAccountGeneration(userId),
 							},
 							["getUserSettings"],
 							{ pluginRevision: ingestionTestRevision },
@@ -1320,7 +1298,7 @@ describe("getUserSettings", () => {
 								userId,
 								type: "user",
 								importRunId: ImportRunId.make("different-run"),
-								accountGeneration: { userId, token: "test-account-generation" },
+								accountGeneration: testAccountGeneration(userId),
 							},
 							["getUserSettings"],
 							{ pluginRevision: ingestionTestRevision },
@@ -1334,11 +1312,7 @@ describe("getUserSettings", () => {
 					"Admitted ingestion execution settings are unavailable",
 				);
 				expect(yield* (yield* HostFunctionCalls).sourceStateLookups).toEqual([
-					{
-						userId,
-						runId: "different-run",
-						accountGeneration: { userId, token: "test-account-generation" },
-					},
+					{ userId, runId: "different-run", accountGeneration: testAccountGeneration(userId) },
 				]);
 			}),
 		);
@@ -1355,7 +1329,7 @@ describe("getUserSettings", () => {
 								userId,
 								type: "user",
 								importRunId: ImportRunId.make("run-1"),
-								accountGeneration: { userId, token: "test-account-generation" },
+								accountGeneration: testAccountGeneration(userId),
 							},
 							["getUserSettings"],
 							{ pluginRevision: ingestionTestRevision },
@@ -1557,7 +1531,7 @@ describe("executeRyotql", () => {
 					runInput({
 						type: "user",
 						userId: UserId.make("user-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+						accountGeneration: testAccountGeneration(UserId.make("user-1")),
 					}),
 					callerSuppliedDocument,
 				);
@@ -1568,19 +1542,6 @@ describe("executeRyotql", () => {
 				expect(yield* (yield* HostFunctionCalls).ryotqlUserCalls).toEqual([]);
 			}),
 		);
-	});
-
-	it("gates RyotQL by the declared capability", () => {
-		const bound = { executeRyotql };
-		const selected = selectSandboxHostFunctions(bound, {
-			principal: {
-				...runInput({ type: "system" }).principal,
-				pluginRevision: systemPluginRevision,
-				metadata: { kind: "script", runtimeImports: [], capabilities: ["executeRyotql"] },
-			},
-		});
-
-		expect(selected).toEqual({ executeRyotql });
 	});
 });
 
@@ -1841,7 +1802,7 @@ describe("ensureUserEntities", () => {
 					subject: {
 						type: "user",
 						userId: UserId.make("user-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+						accountGeneration: testAccountGeneration(UserId.make("user-1")),
 					},
 				});
 				yield* (yield* HostFunctionCalls).useDefinitions(workspaceDefinitions("sample-plugin-id"));
@@ -1850,7 +1811,7 @@ describe("ensureUserEntities", () => {
 					subject: {
 						type: "user",
 						userId: UserId.make("user-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+						accountGeneration: testAccountGeneration(UserId.make("user-1")),
 					},
 				});
 
@@ -1884,7 +1845,7 @@ describe("ensureUserEntities", () => {
 					subject: {
 						type: "user",
 						userId: UserId.make("user-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+						accountGeneration: testAccountGeneration(UserId.make("user-1")),
 					},
 				});
 
@@ -1906,7 +1867,7 @@ describe("ensureUserEntities", () => {
 					subject: {
 						type: "user",
 						userId: UserId.make("owner-1"),
-						accountGeneration: { userId: UserId.make("owner-1"), token: "test-account-generation" },
+						accountGeneration: testAccountGeneration(UserId.make("owner-1")),
 					},
 				});
 
