@@ -56,6 +56,7 @@ export const unusedSandboxHostImplementations = (
 		listEventSchemas: unusedHostCall,
 		getEntitySchemas: unusedHostCall,
 		createUserEntity: unusedHostCall,
+		updateUserEntity: unusedHostCall,
 		getUserPreferences: unusedHostCall,
 		ensureUserEntities: unusedHostCall,
 		getOAuthAccessToken: unusedHostCall,

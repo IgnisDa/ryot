@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { EventId } from "@ryot-app/contract/schema/brands";
 import type { AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
 import type { CreateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
@@ -185,7 +186,14 @@ const createHost = (
 		host: defineSandboxTestHost(manifest, {
 			createEvents: (items) => {
 				created.push([...items]);
-				return hostSuccess({ count: items.length });
+				return hostSuccess({
+					count: items.length,
+					outcomes: items.map((_, index) => ({
+						index,
+						status: "written" as const,
+						eventId: EventId.make(`created-event-${index}`),
+					})),
+				});
 			},
 			executeRyotql: (document) => {
 				documents.push(document);

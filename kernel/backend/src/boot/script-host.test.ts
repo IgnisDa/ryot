@@ -16,6 +16,7 @@ import {
 	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
+	EventId,
 	EventSchemaSlug,
 	ImportRunId,
 	IntegrationId,
@@ -2066,26 +2067,33 @@ describe("ensureUserEntities", () => {
 });
 
 describe("toSandboxCreateEventsResult", () => {
-	it.effect("preserves policy failures at the sandbox host boundary", () =>
-		Effect.gen(function* () {
-			const result = yield* Effect.result(
-				toSandboxCreateEventsResult({
-					count: 0,
-					outcomes: [],
-					warnings: [],
-					failure: {
-						index: 0,
-						reason: { code: "policy-execution-failed", runId: AutomationRunId.make("run-1") },
-					},
-				}),
-			);
+	it.effect(
+		"preserves policy failures and earlier committed event IDs at the sandbox host boundary",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* Effect.result(
+					toSandboxCreateEventsResult({
+						count: 1,
+						warnings: [],
+						outcomes: [{ index: 0, status: "written", eventId: EventId.make("committed-event") }],
+						failure: {
+							index: 1,
+							reason: { code: "policy-execution-failed", runId: AutomationRunId.make("run-1") },
+						},
+					}),
+				);
 
-			expect(Result.getFailure(result)).toEqual(
-				Option.some({
-					message: "Event creation failed: policy-execution-failed",
-					data: { count: 0, partial: true, code: "policy-execution-failed" },
-				}),
-			);
-		}),
+				expect(Result.getFailure(result)).toEqual(
+					Option.some({
+						message: "Event creation failed: policy-execution-failed",
+						data: {
+							count: 1,
+							partial: true,
+							code: "policy-execution-failed",
+							outcomes: [{ index: 0, status: "written", eventId: "committed-event" }],
+						},
+					}),
+				);
+			}),
 	);
 });

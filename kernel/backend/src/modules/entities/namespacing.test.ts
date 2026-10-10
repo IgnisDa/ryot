@@ -40,6 +40,8 @@ import { testPluginPackageId } from "#modules/plugins/test-support";
 import { relationshipDatabaseLayer } from "#modules/relationships/lifecycle.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { dispatchSandboxHostActivity } from "#modules/scripts/host/durable-dispatcher";
+import { unusedSandboxHostImplementations } from "#modules/scripts/host/host-implementations.test-support";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
@@ -47,6 +49,7 @@ import * as tables from "#schema/tables/combined";
 import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
 
 import { EntitiesRepository } from "./repository";
+import { makeEntityScriptHost } from "./script-host";
 import { EntitiesService } from "./service";
 import { kernelCollectionLifecycleCommand, type DomainLifecycleCommand } from "./write-context";
 
@@ -173,6 +176,182 @@ const createEvents = (
 };
 
 layer(relationshipDatabaseLayer())((test) => {
+	test.effect(
+		"retries user entity writes across durable attempts without duplicate rows or hooks",
+		() =>
+			Effect.gen(function* () {
+				const source = namespacePackage();
+				const capabilities = ["createUserEntity", "updateUserEntity"] as const;
+				const installed = yield* installRevisionPackage(
+					{
+						...source,
+						scripts: source.scripts.map((script) =>
+							script.metadata.kind === "provider"
+								? { ...script, metadata: { ...script.metadata, capabilities } }
+								: script,
+						),
+						manifest: {
+							...source.manifest,
+							scripts: source.manifest.scripts.map((script) =>
+								script.kind === "provider" ? { ...script, capabilities } : script,
+							),
+							hooks: source.manifest.hooks.map((hook) =>
+								Object.assign({}, hook, {
+									targets: [
+										{ resource: "entity", operation: "create", entitySchemaSlug: "bottle" },
+										{ resource: "entity", operation: "update", entitySchemaSlug: "bottle" },
+									] as const,
+								}),
+							),
+						},
+					},
+					firstUser,
+				);
+				const { command } = yield* admittedCommand(installed, firstUser, "write-attempt");
+				assert(command.writeContext);
+				const principal = command.writeContext;
+				const hosts = unusedSandboxHostImplementations();
+				const implementations = {
+					...hosts,
+					additional: { ...hosts.additional, ...(yield* makeEntityScriptHost) },
+				};
+				const options = {
+					idempotencyKey: "fixed-submission",
+					submittedAt: "2026-10-15T00:00:00.000Z",
+				};
+				const request = {
+					index: 0,
+					kind: "host" as const,
+					name: "createUserEntity",
+					args: {
+						capability: "createUserEntity" as const,
+						args: [
+							{ name: "Entry", entitySchemaSlug: "bottle", properties: { title: "initial" } },
+							options,
+						],
+					},
+				};
+				const scope = {
+					principal,
+					context: {},
+					executionId: "attempt-one",
+					lane: "interactive" as const,
+					startedAt: options.submittedAt,
+				};
+				const invalid = yield* dispatchSandboxHostActivity(
+					implementations,
+					{
+						...request,
+						args: {
+							...request.args,
+							args: [
+								{ name: "Entry", properties: { title: 3 }, entitySchemaSlug: "bottle" },
+								options,
+							],
+						},
+					},
+					scope,
+				);
+				expect(invalid).toMatchObject({
+					state: "failure",
+					error: { data: { code: "invalid-properties" } },
+				});
+				const [first, raced] = yield* Effect.all(
+					[
+						dispatchSandboxHostActivity(implementations, request, scope),
+						dispatchSandboxHostActivity(implementations, request, {
+							...scope,
+							executionId: "concurrent-attempt",
+						}),
+					],
+					{ concurrency: 2 },
+				);
+				assert(first);
+				expect(raced).toEqual(first);
+				expect(first.state).toBe("success");
+				expect(
+					yield* dispatchSandboxHostActivity(
+						implementations,
+						{ ...request, index: 8 },
+						{ ...scope, executionId: "attempt-two", startedAt: "2026-10-16T00:00:00.000Z" },
+					),
+				).toEqual(first);
+				const session = yield* DatabaseSession;
+				const rows = yield* session.run((db) =>
+					db.select().from(tables.entity).where(eq(tables.entity.userId, firstUser)),
+				);
+				expect(rows).toHaveLength(1);
+				const row = rows[0];
+				assert(row);
+				const update = {
+					index: 1,
+					kind: "host" as const,
+					name: "updateUserEntity",
+					args: {
+						capability: "updateUserEntity" as const,
+						args: [
+							{
+								name: "Changed",
+								entityId: row.id,
+								properties: { title: "changed" },
+								expected: {
+									name: row.name,
+									properties: { title: "initial" },
+									updatedAt: row.updatedAt.toISOString(),
+								},
+							},
+							options,
+						] as const,
+					},
+				};
+				const saved = yield* dispatchSandboxHostActivity(implementations, update, scope);
+				expect(saved.state).toBe("success");
+				const runs = yield* session.run((db) => db.select().from(tables.automationRun));
+				expect(runs).toHaveLength(2);
+				expect(
+					yield* dispatchSandboxHostActivity(implementations, update, {
+						...scope,
+						executionId: "attempt-three",
+					}),
+				).toEqual(saved);
+				expect(yield* session.run((db) => db.select().from(tables.automationRun))).toEqual(runs);
+				const stale = yield* dispatchSandboxHostActivity(
+					implementations,
+					{
+						...update,
+						args: {
+							...update.args,
+							args: [update.args.args[0], { ...options, idempotencyKey: "stale-edit" }],
+						},
+					},
+					scope,
+				);
+				expect(stale).toMatchObject({
+					state: "failure",
+					error: { data: { code: "mutation-conflict" } },
+				});
+				const conflict = yield* dispatchSandboxHostActivity(
+					implementations,
+					{
+						...request,
+						args: {
+							...request.args,
+							args: [{ properties: {}, name: "Different", entitySchemaSlug: "bottle" }, options],
+						},
+					},
+					scope,
+				);
+				expect(conflict).toMatchObject({
+					state: "failure",
+					error: { data: { code: "mutation-conflict" } },
+				});
+				expect(
+					yield* session.run((db) =>
+						db.select().from(tables.entity).where(eq(tables.entity.userId, firstUser)),
+					),
+				).toHaveLength(1);
+			}),
+	);
 	test.effect(
 		"rejects foreign same-name domain writes and unrestricted relationship endpoints",
 		() =>

@@ -22,7 +22,10 @@ import { makeNotificationScriptHost } from "#modules/notifications/script-host";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { makeOAuthConnectionScriptHost } from "#modules/oauth-connections/script-host";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/catalog/http-rate-limit-authority";
-import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
+import {
+	PluginRuntimeResolver,
+	PluginRuntimeResolverLive,
+} from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { makePluginScriptHost } from "#modules/plugins/script-host";
@@ -69,9 +72,12 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 
 const makeScriptLifecycleHostSteps = Effect.gen(function* () {
 	return {
-		...eventLifecycleHostSteps(yield* EventsService),
+		...eventLifecycleHostSteps(yield* EventsService, yield* PluginRuntimeResolver),
 		...entityLifecycleHostSteps(yield* EntitiesService),
-		...relationshipLifecycleHostSteps(yield* RelationshipMutationPipeline),
+		...relationshipLifecycleHostSteps(
+			yield* RelationshipMutationPipeline,
+			yield* PluginRuntimeResolver,
+		),
 	};
 });
 
