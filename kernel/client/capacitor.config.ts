@@ -4,7 +4,8 @@ const config: CapacitorConfig = {
 	webDir: "dist",
 	appName: "Ryot",
 	appId: "io.ryot.app",
-	backgroundColor: "#fd7e14",
+	backgroundColor: "#101113",
+	plugins: { Keyboard: { autoBackdropColor: "dom" } },
 };
 
 export default config;
