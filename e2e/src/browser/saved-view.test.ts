@@ -372,7 +372,7 @@ it.live("imports through the configured renderer provider search and refreshes m
 		yield* addFirst.waitFor({ state: "visible" });
 		yield* addFirst.click();
 		yield* dialog(page)
-			.getByRole("link", { name: `Open ${FIRST_RESULT_TITLE} in media library` })
+			.getByRole("link", { name: `Open ${FIRST_RESULT_TITLE}` })
 			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 		expect(yield* dialog(page).isVisible()).toBe(true);
 		expect(new URL(page.url()).searchParams.get("add")).toBe("true");
