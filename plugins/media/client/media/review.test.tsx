@@ -140,6 +140,58 @@ it.live("saves with Enter in the rating field without submitting a native form",
 	}),
 );
 
+for (const invalidRating of ["not a number", "1e", "-1", "101"]) {
+	it.live(`shows an inline error and blocks saving the invalid rating ${invalidRating}`, () =>
+		Effect.gen(function* () {
+			const requests: unknown[] = [];
+			const mounted = mountRyotClient(
+				{
+					invokeOperation: (request) =>
+						Effect.sync(() => {
+							requests.push(request);
+							return { count: 1 };
+						}),
+				},
+				<MediaReviewButton entityId="media-1" />,
+			);
+			try {
+				clickRyotElement(getByRole(mounted.container, "button", { name: "Write review" }));
+				const dialog = getByRole(document.body, "dialog");
+				input(getByLabelText(dialog, "Review"), "Thoughts");
+				const rating = getByLabelText(dialog, "Rating (0–100, optional)");
+				input(rating, invalidRating);
+				expect(rating).toHaveProperty("value", invalidRating);
+				expect(getByRole(dialog, "alert").textContent).toBe("Enter a number from 0 to 100.");
+				expect(rating.getAttribute("aria-describedby")).toBe(getByRole(dialog, "alert").id);
+				expect(rating.getAttribute("aria-invalid")).toBe("true");
+				const save = within(dialog).getByRole("button", { name: "Save review" });
+				expect(save.hasAttribute("disabled")).toBe(true);
+				clickRyotElement(save);
+				act(() => {
+					fireEvent.keyDown(rating, { key: "Enter" });
+				});
+				expect(requests).toEqual([]);
+				input(rating, "0");
+				expect(queryByRole(dialog, "alert")).toBeNull();
+				expect(rating.getAttribute("aria-invalid")).toBe("false");
+				clickRyotElement(save);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
+				);
+				expect(requests).toEqual([
+					{
+						packageId: "ryot/media",
+						slug: "media-review-create",
+						input: { rating: 0, text: "Thoughts", isSpoiler: false, entityId: "media-1" },
+					},
+				]);
+			} finally {
+				mounted.unmount();
+			}
+		}),
+	);
+}
+
 it.live("opens from empty activity and cancels without saving", () =>
 	Effect.sync(() => {
 		const requests: unknown[] = [];
