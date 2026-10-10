@@ -2192,6 +2192,7 @@ describe("collection host screens", () => {
 			);
 			fireEvent.change(notes, { target: { value: "New" } });
 			fireEvent.click(within(dialog).getByRole("button", { name: "Save details" }));
+			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Done" })));
 			yield* screenResult(bridge, "add-to-collection-screen-result", { kind: "saved" });
 			expect(saved).toEqual([
 				{ entityId: "book-1", collectionId: "collection-1", properties: { notes: "New" } },
@@ -2206,6 +2207,7 @@ describe("collection host screens", () => {
 				screen.findByRole("dialog", { name: "Remove from Favorites?" }),
 			);
 			fireEvent.click(within(confirmation).getByRole("button", { name: "Remove from collection" }));
+			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Done" })));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual({
@@ -2249,7 +2251,7 @@ describe("collection host screens", () => {
 				type: "add-to-collection-screen",
 			});
 			const picker = yield* Effect.promise(() =>
-				screen.findByRole("dialog", { name: "Add to collection" }),
+				screen.findByRole("dialog", { name: "Collections" }),
 			);
 			yield* Effect.promise(() => within(picker).findByText("You have no collections yet."));
 			fireEvent.change(within(picker).getByRole("textbox", { name: "Search collections" }), {
@@ -2268,6 +2270,7 @@ describe("collection host screens", () => {
 				screen.findByRole("dialog", { name: "Add to Books" }),
 			);
 			fireEvent.click(within(membership).getByRole("button", { name: "Add to collection" }));
+			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Done" })));
 
 			yield* screenResult(bridge, "add-to-collection-screen-result", { kind: "saved" });
 			expect(added).toEqual([

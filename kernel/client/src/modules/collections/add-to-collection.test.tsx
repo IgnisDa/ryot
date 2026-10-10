@@ -4,7 +4,7 @@ import { EntityId } from "@ryot-app/contract/schema/brands";
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Schema } from "effect";
 
 import { AddToCollection } from "./add-to-collection";
@@ -140,7 +140,9 @@ it.live("adds, edits, and removes membership details without closing the manager
 			const editNotes = yield* Effect.promise(() =>
 				screen.findByRole("textbox", { name: /Notes/ }),
 			);
-			expect(editNotes.getAttribute("value")).toBe("First note");
+			yield* Effect.promise(() =>
+				waitFor(() => expect(editNotes).toHaveProperty("value", "First note")),
+			);
 			fireEvent.change(editNotes, { target: { value: "Updated note" } });
 			fireEvent.click(screen.getByRole("button", { name: "Save details" }));
 			yield* Effect.promise(() => screen.findByRole("button", { name: /Favourites\s*Added/ }));
