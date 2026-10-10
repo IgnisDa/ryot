@@ -3,7 +3,11 @@ import type { Playwright } from "effect-playwright";
 
 import { getFrontendUrl } from "~/support/harness-target";
 
-type BrowserSignInOptions = { readonly entryPath?: string; readonly captureHistory?: boolean };
+type BrowserSignInOptions = {
+	readonly entryPath?: string;
+	readonly frontendUrl?: string;
+	readonly captureHistory?: boolean;
+};
 
 export const signInThroughHostedOAuth = (
 	page: Playwright.Page,
@@ -12,7 +16,7 @@ export const signInThroughHostedOAuth = (
 	options: BrowserSignInOptions = {},
 ) =>
 	Effect.gen(function* () {
-		const frontendUrl = getFrontendUrl();
+		const frontendUrl = options.frontendUrl ?? getFrontendUrl();
 		yield* page.goto(`${frontendUrl}${options.entryPath ?? "/auth"}`);
 		yield* page.waitForURL((url) => url.pathname === "/oauth/login");
 		yield* page.getByLabel("Email address").fill(email);
