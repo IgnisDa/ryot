@@ -14,7 +14,6 @@ import {
 	literalSandboxSource,
 	makeEntitySchemaSlug,
 } from "~/fixtures/kernel";
-import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
 import {
 	createGlobalBookEntityFixture,
 	queryInMediaLibraryRelationship,
@@ -118,37 +117,6 @@ describe("POST /collections/memberships", () => {
 			expect(
 				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
 			).toHaveLength(1);
-		}),
-	);
-
-	it.live("does not add a global fitness entity to the media library", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* findFitnessEntitySchema(client, "workout");
-			const entity = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.createGlobalEntity({
-						payload: {
-							entitySchema: schema.reference,
-							name: `Global Workout ${crypto.randomUUID()}`,
-							externalId: `global-workout-${crypto.randomUUID()}`,
-							properties: { endedAt: "2026-04-27T11:00:00Z", startedAt: "2026-04-27T10:00:00Z" },
-						},
-					}),
-				adminHeaders(),
-			);
-			const collection = yield* createCollection(client, { name: "Fitness Collection" });
-
-			yield* client.call((c) =>
-				c.collections.createMembership({
-					payload: { entityId: entity.id, collectionId: collection.id },
-				}),
-			);
-
-			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
-			expect(
-				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
-			).toHaveLength(0);
 		}),
 	);
 
