@@ -230,7 +230,7 @@ describe("plugin namespaces", () => {
 			const updated = yield* updateNamespacePackage(client, a, renamed);
 			expect(updated).toMatchObject({ id: a.id, pluginId: a.pluginId });
 			const installation = yield* namespaceInstallation(client, a.pluginId);
-			expect(installation.sourceHash).not.toBe(a.installation.sourceHash);
+			expect(installation.contentHash).not.toBe(a.installation.contentHash);
 			expect(installation.version).toBe(a.installation.version);
 			expect((yield* invokeNamespaceOperation(client, a.installation.packageId)).result).toEqual({
 				label: "A2",
@@ -251,8 +251,8 @@ describe("plugin namespaces", () => {
 				packageId: wrongId.manifest.metadata.packageId,
 				expectedPackageId: packages.a.manifest.metadata.packageId,
 			});
-			expect((yield* namespaceInstallation(client, a.pluginId)).sourceHash).toBe(
-				installation.sourceHash,
+			expect((yield* namespaceInstallation(client, a.pluginId)).contentHash).toBe(
+				installation.contentHash,
 			);
 		}),
 	);

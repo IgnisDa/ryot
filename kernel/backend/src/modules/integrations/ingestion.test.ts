@@ -4,7 +4,6 @@ import { IntegrationId, SandboxScriptId } from "@ryot-app/contract/schema/brands
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import {
@@ -18,8 +17,9 @@ import type { PreparedIngestionRelease } from "#modules/imports/runtime/prepared
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
 import { ImportRunError } from "#modules/imports/runtime/workflow-errors";
 import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxPluginScriptResolver } from "#modules/scripts/registry/plugin-script-resolver";

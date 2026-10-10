@@ -68,7 +68,7 @@ const preparedFor = (
 		{
 			packageId,
 			kind: "plugin",
-			sourceHash: `source-${pluginId}`,
+			contentHash: `source-${pluginId}`,
 			pluginId: PluginId.make(pluginId),
 			revisionId: `revision-${pluginId}`,
 			installationId: `installation-${pluginId}`,
@@ -105,19 +105,19 @@ const preparedFor = (
 			contributors,
 			exportName: "page",
 			kind: "plugin-page",
-			sourceHash: `source-${pluginId}`,
+			contentHash: `source-${pluginId}`,
 			installationId: `installation-${pluginId}`,
 			compositionHash: `composition-${pluginId}`,
 			compositionKey: `composition-key-${pluginId}`,
 			operationTargets: [
 				{
 					packageId,
-					sourceHash: `source-${pluginId}`,
+					contentHash: `source-${pluginId}`,
 					pluginId: PluginId.make(pluginId),
 					installationId: `installation-${pluginId}`,
 				},
 				{
-					sourceHash: "operations-only-source",
+					contentHash: "operations-only-source",
 					pluginId: PluginId.make("operations-only-id"),
 					installationId: "operations-only-installation",
 					packageId: PluginPackageId.make("test/operations-only"),
@@ -654,11 +654,11 @@ describe("client page routes", () => {
 				),
 			);
 			expect(view.operations[0]).toMatchObject({
-				sourceHash: "source-plugin-1",
+				contentHash: "source-plugin-1",
 				request: { input: null, operationSlug: "greet", packageId: "test/plugin-1" },
 			});
 			expect(view.operations[1]).toMatchObject({
-				sourceHash: "operations-only-source",
+				contentHash: "operations-only-source",
 				request: { input: null, operationSlug: "mutate", packageId: "test/operations-only" },
 			});
 		}),
@@ -1044,11 +1044,11 @@ describe("client page routes", () => {
 						const operationTargets = [
 							...prepared.identity.operationTargets.map((operationTarget) =>
 								operationTarget.packageId === "test/operations-only"
-									? { ...operationTarget, sourceHash: "operations-only-updated" }
+									? { ...operationTarget, contentHash: "operations-only-updated" }
 									: operationTarget,
 							),
 							{
-								sourceHash: "newly-installed-source",
+								contentHash: "newly-installed-source",
 								pluginId: PluginId.make("newly-installed-id"),
 								installationId: "newly-installed-installation",
 								packageId: PluginPackageId.make("test/newly-installed"),
@@ -1085,8 +1085,8 @@ describe("client page routes", () => {
 					packageId: "test/newly-installed",
 				});
 				yield* Effect.promise(() => waitFor(() => expect(view.operations).toHaveLength(2)));
-				expect(view.operations[0]).toMatchObject({ sourceHash: "operations-only-updated" });
-				expect(view.operations[1]).toMatchObject({ sourceHash: "newly-installed-source" });
+				expect(view.operations[0]).toMatchObject({ contentHash: "operations-only-updated" });
+				expect(view.operations[1]).toMatchObject({ contentHash: "newly-installed-source" });
 
 				act(() => view.events.send());
 				yield* Effect.promise(() =>
@@ -1118,8 +1118,8 @@ describe("client page routes", () => {
 					packageId: "test/newly-installed",
 				});
 				yield* Effect.promise(() => waitFor(() => expect(view.operations).toHaveLength(4)));
-				expect(view.operations[2]).toMatchObject({ sourceHash: "operations-only-updated" });
-				expect(view.operations[3]).toMatchObject({ sourceHash: "newly-installed-source" });
+				expect(view.operations[2]).toMatchObject({ contentHash: "operations-only-updated" });
+				expect(view.operations[3]).toMatchObject({ contentHash: "newly-installed-source" });
 			}),
 	);
 

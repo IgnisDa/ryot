@@ -9,9 +9,9 @@ import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, inArray, isNotNull, lte, notInArray } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
-import { isUniqueConstraintError } from "#lib/infrastructure/db/errors";
-import * as schema from "#lib/infrastructure/db/schema/tables/backups";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { isUniqueConstraintError } from "#platform/db/errors";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/backups";
 
 type BackupRunRow = typeof schema.backupRun.$inferSelect;
 

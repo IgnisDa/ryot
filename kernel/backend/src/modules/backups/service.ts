@@ -12,8 +12,8 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { DownloadTickets } from "#lib/infrastructure/download-tickets";
-import { ObjectStorageService } from "#modules/uploads/object-storage/service";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import { DownloadTickets } from "#platform/storage/download-tickets";
 
 import { ExportBackupWorkflow } from "./export/workflow";
 import { BackupAccountCleanliness } from "./restore/account-cleanliness";

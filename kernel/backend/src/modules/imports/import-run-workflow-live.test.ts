@@ -10,10 +10,10 @@ import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionExecution } from "./execution-service";

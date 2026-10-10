@@ -14,32 +14,29 @@ import { EntityId, EventId, type UserId } from "@ryot-app/contract/schema/brands
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
+import { AutomationsRepository } from "#modules/automations/repository";
 import {
 	collectEmbeddedEntityIds,
 	collectManagedAssetLocatorsInto,
 	rewriteManagedAssetLocators,
 	sortedManagedAssetLocators,
 	type DataReferenceError,
-} from "#lib/domain/data-references";
-import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import { AuthRepository } from "#modules/auth/repository";
-import { AutomationsRepository } from "#modules/automations/repository";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import {
-	buildDefinitionSnapshot,
-	type DefinitionSnapshot,
-} from "#modules/definition-registry/snapshot";
-import { mergeManifestDefinitions } from "#modules/definition-registry/source";
+} from "#modules/backups/data-references";
+import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { buildDefinitionSnapshot, type DefinitionSnapshot } from "#modules/definitions/snapshot";
+import { mergeManifestDefinitions } from "#modules/definitions/source";
+import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
-import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { concretePluginConfigSecretPaths } from "#modules/plugins/config-redaction";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRepository } from "#modules/plugins/repository";
+import { concretePluginConfigSecretPaths } from "#modules/plugins/configuration/redaction";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
-import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
 import { archiveError } from "../archive/error";
 import {
@@ -275,7 +272,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					id: plugin.id,
 					scope: plugin.scope,
 					manifest: plugin.manifest,
-					sourceHash: plugin.sourceHash,
+					contentHash: plugin.contentHash,
 					metadata: plugin.manifest.metadata,
 					version: plugin.manifest.metadata.version,
 					configSchema: plugin.manifest.configSchema,
@@ -671,7 +668,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							}
 							return {
 								manifest: plugin.manifest,
-								sourceHash: plugin.sourceHash,
+								contentHash: plugin.contentHash,
 								version: plugin.manifest.metadata.version,
 								packageId: plugin.manifest.metadata.packageId,
 								compiledScripts: compiledArtifacts.compiledScripts,
@@ -1057,10 +1054,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							(plugin) =>
 								plugin.scope === "system" && referencedPluginKeys.has(pluginPackageKey(plugin)),
 						)
-						.map(({ version, manifest, packageId, sourceHash }) => ({
+						.map(({ version, manifest, packageId, contentHash }) => ({
 							version,
 							packageId,
-							sourceHash,
+							contentHash,
 							definitionContract: archivePluginDefinitionContract(manifest),
 						}));
 					return {

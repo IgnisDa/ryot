@@ -13,17 +13,17 @@ import {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { Effect, Schema } from "effect";
 
+import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	toLifecycleDispatchPlan,
 	type LifecyclePlannedPolicy,
 	type LifecycleDispatchPlan,
-} from "#lib/domain/lifecycle";
-import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
+} from "#modules/automations/lifecycle/planning";
 import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
-} from "#lib/domain/lifecycle-policy-patch";
-import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
+} from "#modules/automations/lifecycle/policy-patch";
+import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
 import {
 	assertStableUnder,
 	type DomainLifecycleCommand,
@@ -33,7 +33,7 @@ import {
 	MutationReceiptIdentityConflict,
 	type MutationReceiptIdentity,
 } from "#modules/mutations/receipts";
-import { catalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
+import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
 import {
 	badProperties,

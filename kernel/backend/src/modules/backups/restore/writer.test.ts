@@ -28,34 +28,34 @@ import {
 import { count, eq, sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { AuthRepository } from "#modules/auth/repository";
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { AutomationsRepository } from "#modules/automations/repository";
-import {
-	buildDefinitionSnapshot,
-	type DefinitionSnapshot,
-} from "#modules/definition-registry/snapshot";
-import { mergeManifestDefinitions } from "#modules/definition-registry/source";
+import { buildDefinitionSnapshot, type DefinitionSnapshot } from "#modules/definitions/snapshot";
+import { mergeManifestDefinitions } from "#modules/definitions/source";
+import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { PluginBackupRestore } from "#modules/plugins/backup-restore";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import {
 	normalizePluginPackage,
 	normalizePluginSource,
-	pluginSourceHash,
-} from "#modules/plugins/pipeline";
-import { PluginRepository } from "#modules/plugins/repository";
-import { revisionDatabaseLayer, revisionPackage } from "#modules/plugins/revision.test-support";
-import type { NormalizedPlugin } from "#modules/plugins/types";
+	pluginContentHash,
+} from "#modules/plugins/packages/pipeline";
+import { PluginRepository } from "#modules/plugins/packages/repository";
+import {
+	revisionDatabaseLayer,
+	revisionPackage,
+} from "#modules/plugins/packages/revision.test-support";
+import type { NormalizedPlugin } from "#modules/plugins/packages/types";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
-import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { createArchiveStream, validateArchiveStream } from "../archive/archive";
 import {
@@ -171,7 +171,7 @@ it.effect(
 					packageId,
 					slug: "system",
 					version: "1.0.0",
-					sourceHash: source.sourceHash,
+					contentHash: source.contentHash,
 					definitionContract: archivePluginDefinitionContract(source.manifest),
 				},
 			];
@@ -229,7 +229,7 @@ it.effect(
 					packageId,
 					version: "v1",
 					slug: "whiskey",
-					sourceHash: previous.sourceHash,
+					contentHash: previous.contentHash,
 					definitionContract: archivePluginDefinitionContract(previous.manifest),
 				},
 			];
@@ -694,7 +694,7 @@ it.effect("rejects private-owned global snapshots during preflight", () =>
 					packageId,
 					version: "v1",
 					compiledScripts: [],
-					sourceHash: "a".repeat(64),
+					contentHash: "a".repeat(64),
 					manifest: packageValue.manifest,
 				},
 			],
@@ -1152,7 +1152,7 @@ describe("account backup restore in PostgreSQL", () => {
 					const packageValue: NormalizedPlugin = {
 						...basePackage,
 						manifest,
-						sourceHash: pluginSourceHash(
+						contentHash: pluginContentHash(
 							manifest,
 							basePackage.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
 								entry,
@@ -1405,7 +1405,7 @@ describe("account backup restore in PostgreSQL", () => {
 						packageId,
 						version: "v1",
 						slug: "shared",
-						sourceHash: normalized.sourceHash,
+						contentHash: normalized.contentHash,
 						definitionContract: archivePluginDefinitionContract(normalized.manifest),
 					},
 				];

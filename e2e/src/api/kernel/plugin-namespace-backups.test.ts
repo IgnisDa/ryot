@@ -318,8 +318,8 @@ describe("plugin namespace backups", () => {
 				});
 				expect(
 					(yield* namespaceInstallation(incompatibleTarget.client, destinationSystem.pluginId))
-						.sourceHash,
-				).toBe(before.sourceHash);
+						.contentHash,
+				).toBe(before.contentHash);
 				expect((yield* listSavedViews(incompatibleTarget.client)).map(({ id }) => id)).toEqual(
 					incompatibleViews,
 				);

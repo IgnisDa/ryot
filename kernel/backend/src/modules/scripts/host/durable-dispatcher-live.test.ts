@@ -39,23 +39,13 @@ import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { type EgressPolicy, withEgressPolicy } from "#lib/infrastructure/egress/http-client";
-import {
-	ProviderHttpAdmissionService,
-	ProviderHttpAdmissionUnavailable,
-	type ProviderHttpClaim,
-	type ProviderHttpPoll,
-	type ProviderHttpRegistration,
-	type ProviderHttpTicket,
-} from "#lib/infrastructure/provider-http-admission";
-import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { NotificationDeliveryWorkflow } from "#modules/notifications/notification-delivery-workflow";
 import {
 	type HttpRateLimitAuthorityResolution,
 	PluginHttpRateLimitAuthority,
-} from "#modules/plugins/http-rate-limit-authority";
+} from "#modules/plugins/catalog/http-rate-limit-authority";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipBatchSummary } from "#modules/relationships/mutation-pipeline";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
@@ -65,8 +55,18 @@ import {
 } from "#modules/scripts/host/durable-dispatcher";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import { unusedSandboxHostImplementations } from "#modules/scripts/host/host-implementations.test-support";
+import {
+	ProviderHttpAdmissionService,
+	ProviderHttpAdmissionUnavailable,
+	type ProviderHttpClaim,
+	type ProviderHttpPoll,
+	type ProviderHttpRegistration,
+	type ProviderHttpTicket,
+} from "#modules/scripts/host/http-admission";
 import { SandboxLifecycleHostFailure } from "#modules/scripts/host/lifecycle-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { type EgressPolicy, withEgressPolicy } from "#platform/egress/http-client";
+import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import { SandboxDurableHostDispatcherLive } from "./durable-dispatcher-live";
 import { SandboxHttpProgress } from "./http-progress";

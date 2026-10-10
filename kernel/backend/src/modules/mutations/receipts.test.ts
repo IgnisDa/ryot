@@ -12,11 +12,11 @@ import { DateTime, Deferred, Effect, Fiber, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { makeWorkflowEngine } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { mutationReceiptIdentity, MutationReceipts } from "./receipts";
 import { dispatchAdmittedWorkflow } from "./workflow-dispatch";

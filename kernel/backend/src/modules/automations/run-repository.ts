@@ -28,10 +28,10 @@ import {
 } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import { automationRun as table } from "#lib/infrastructure/db/schema/tables/automations";
-import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { redactPluginConfig } from "#modules/plugins/config-redaction";
+import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
+import { DatabaseSession } from "#platform/db/session";
+import { automationRun as table } from "#schema/tables/automations";
+import { pluginRevision } from "#schema/tables/core";
 
 const policyChainStopped = Schema.decodeSync(AutomationRunSkipReason)({
 	code: "policy-chain-stopped",

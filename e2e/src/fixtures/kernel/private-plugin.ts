@@ -223,7 +223,7 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 export const invokePrivatePluginOperation = (input: {
 	readonly prefix: string;
 	readonly client: Client;
-	readonly sourceHash?: string;
+	readonly contentHash?: string;
 	readonly operationSlug: string;
 	readonly packageId: PluginPackageId;
 }) =>
@@ -232,7 +232,7 @@ export const invokePrivatePluginOperation = (input: {
 			params: { ...pluginPackageSegments(input.packageId), operationSlug: input.operationSlug },
 			payload: {
 				payload: { prefix: input.prefix },
-				...(input.sourceHash === undefined ? {} : { sourceHash: input.sourceHash }),
+				...(input.contentHash === undefined ? {} : { contentHash: input.contentHash }),
 			},
 		}),
 	);
@@ -241,8 +241,8 @@ export const updatePrivatePlugin = (input: {
 	readonly client: Client;
 	readonly baseUrl?: string;
 	readonly installationId: ContractPathParams<"plugins", "update">["installationId"];
-	readonly expectedSourceHash: string;
-	readonly payload: Omit<UpdatePluginPayload, "uploadToken" | "sourceHash"> &
+	readonly expectedContentHash: string;
+	readonly payload: Omit<UpdatePluginPayload, "uploadToken" | "contentHash"> &
 		(PluginPackageInput | PluginArchivePackage);
 }) =>
 	Effect.gen(function* () {
@@ -257,7 +257,7 @@ export const updatePrivatePlugin = (input: {
 				params: { installationId: input.installationId },
 				payload: {
 					uploadToken,
-					sourceHash: input.expectedSourceHash,
+					contentHash: input.expectedContentHash,
 					...(config === undefined ? {} : { config }),
 					...(unsetConfigKeys === undefined ? {} : { unsetConfigKeys }),
 				},
@@ -477,7 +477,7 @@ export const installPrivateIntegrationPlugin = (
 
 export const invokePrivateIntegrationOperation = (input: {
 	readonly client: Client;
-	readonly sourceHash?: string;
+	readonly contentHash?: string;
 	readonly integrationId: string;
 	readonly operationSlug: string;
 	readonly packageId: PluginPackageId;
@@ -487,7 +487,7 @@ export const invokePrivateIntegrationOperation = (input: {
 			params: { ...pluginPackageSegments(input.packageId), operationSlug: input.operationSlug },
 			payload: {
 				payload: { integrationId: input.integrationId },
-				...(input.sourceHash === undefined ? {} : { sourceHash: input.sourceHash }),
+				...(input.contentHash === undefined ? {} : { contentHash: input.contentHash }),
 			},
 		}),
 	);

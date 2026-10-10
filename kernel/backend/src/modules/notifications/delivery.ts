@@ -2,7 +2,7 @@ import type { NotificationChannelSpecifics } from "@ryot-app/contract/modules/no
 import { Context, Data, Duration, Effect, Layer, Match, Option, Redacted } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 
-import { AppConfig, getSmtpCredentials } from "#lib/infrastructure/config/service";
+import { AppConfig, getSmtpCredentials } from "#platform/config/service";
 
 const PROJECT_NAME = "Ryot";
 const HTTP_TIMEOUT_MS = 10_000;

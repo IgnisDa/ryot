@@ -9,15 +9,15 @@ import { EventCreateItemError } from "@ryot-app/contract/modules/events/schemas"
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect, Schema } from "effect";
 
-import type { LifecyclePlan } from "#lib/domain/lifecycle";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import type { DurableSchema } from "#boot/workflow-engine";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import type { LifecyclePlan } from "#modules/automations/lifecycle/planning";
 import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
-} from "#lib/domain/lifecycle-policy-patch";
-import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { makeActivity } from "#lib/infrastructure/workflow-scope";
-import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
+} from "#modules/automations/lifecycle/policy-patch";
+import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
+import { makeActivity } from "#platform/workflow/scope";
 
 import { EventCreateWorkflowError, type EventCreateWorkflowPayload } from "./event-create-workflow";
 import {

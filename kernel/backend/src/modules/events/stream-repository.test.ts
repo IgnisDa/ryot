@@ -2,9 +2,9 @@ import { assert, expect, layer } from "@effect/vitest";
 import { EntityId, EventSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { DateTime, Effect, Layer } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { EventStreamRepository, type StreamKey } from "./stream-repository";
 

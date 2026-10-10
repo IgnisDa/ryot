@@ -22,7 +22,7 @@ function InstallationDetails(props: {
 					["Health", installation.health],
 					["Plugin ID", installation.pluginId],
 					["Package ID", installation.packageId],
-					["Source hash", installation.sourceHash],
+					["Content hash", installation.contentHash],
 					["Installation ID", installation.installationId],
 					["Active revision ID", installation.activeRevisionId],
 					["Hidden intent", installation.isHidden ? "Hidden" : "Shown"],

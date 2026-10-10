@@ -59,7 +59,7 @@ const runtimePage: ClientPageContext = {
 	contributors: [
 		{
 			kind: "plugin",
-			sourceHash: "source",
+			contentHash: "source",
 			revisionId: "revision",
 			installationId: "installation",
 			pluginId: PluginId.make("fixture"),
@@ -136,7 +136,7 @@ describe("plugin Effect request engine", () => {
 						pluginId,
 						packageId,
 						kind: "plugin",
-						sourceHash: "source",
+						contentHash: "source",
 						revisionId: "revision",
 						installationId: "installation",
 					},

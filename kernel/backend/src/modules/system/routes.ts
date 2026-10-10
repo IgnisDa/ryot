@@ -7,17 +7,17 @@ import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
-import { RYOT_VERSION } from "#lib/infrastructure/build-info";
+import { RYOT_VERSION } from "#platform/build-info";
 import {
 	AppConfig,
 	type AppConfigValue,
 	isOidcEnabled,
 	isS3Configured,
 	isSmtpEnabled,
-} from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { ProKeyService } from "#lib/infrastructure/pro-key";
-import { RedisService } from "#lib/infrastructure/redis";
+} from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import { ProKeyService } from "#platform/pro-key";
+import { RedisService } from "#platform/redis";
 
 const nonEmpty = (value: Option.Option<string>) =>
 	Option.filter(value, (candidate) => candidate.length > 0);

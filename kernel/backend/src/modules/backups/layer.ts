@@ -1,20 +1,20 @@
 import { Layer } from "effect";
 
-import { AuthRepository } from "#modules/auth/repository";
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/assets/layer";
 import { AutomationsRepository } from "#modules/automations/repository";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { NotificationsRepository } from "#modules/notifications/repository";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginBackupRestoreLive } from "#modules/plugins/layer";
-import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
-import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/uploads/layer";
 
 import { BackupExportSnapshot } from "./export/snapshot";
 import { ExportBackupWorkflowOperationsLive } from "./export/workflow";

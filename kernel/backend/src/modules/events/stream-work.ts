@@ -25,17 +25,17 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { rootLifecycleCausation } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { rootLifecycleCausation } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
-import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { DatabaseSession } from "#platform/db/session";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import * as tables from "#schema/tables/combined";
 
 import { resolveEventCreateItemScopes } from "./event-creation";
 import { EventsRepository } from "./repository";
@@ -91,7 +91,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 			const events = yield* EventsService;
 			const eventRows = yield* EventsRepository;
 			const entities = yield* EntitiesRepository;
-			const eventSchemas = yield* EventSchemasRepository;
+			const eventSchemas = yield* EventSchemaReader;
 			const planner = yield* LifecyclePlanner;
 			const lifecycle = yield* LifecycleExecution;
 			const receipts = yield* MutationReceipts.make;
@@ -125,7 +125,7 @@ export class EventStreamWorkService extends Context.Service<EventStreamWorkServi
 				}).pipe(
 					Effect.provideService(DomainWriteChecks, writes),
 					Effect.provideService(EntitiesRepository, entities),
-					Effect.provideService(EventSchemasRepository, eventSchemas),
+					Effect.provideService(EventSchemaReader, eventSchemas),
 				);
 				if (
 					scope.eventSchemaScope.pluginId !== input.pluginPin.id ||

@@ -7,14 +7,11 @@ import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/
 import { Context, DateTime, Effect, Layer, Option } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import {
-	interruptWorkflowAndWait,
-	isWorkflowSettled,
-} from "#lib/infrastructure/workflow-interruption";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
-import type { PluginIngestionRetirementPolicy } from "#modules/plugins/ingestion-retirement";
+import type { PluginIngestionRetirementPolicy } from "#modules/plugins/packages/ingestion-retirement";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { interruptWorkflowAndWait, isWorkflowSettled } from "#platform/workflow/interruption";
 
 import { IngestionCaptures } from "./capture-service";
 import { ImportsRepository } from "./repository";

@@ -8,7 +8,7 @@ import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import type { DurableSchema } from "#lib/infrastructure/workflow";
+import type { DurableSchema } from "#boot/workflow-engine";
 
 import { automationAttemptIdentity } from "./attempt-repository";
 

@@ -2,11 +2,11 @@ import { expect, layer } from "@effect/vitest";
 import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { DateTime, Effect, Layer } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { IntegrationsRepository } from "./repository";
 

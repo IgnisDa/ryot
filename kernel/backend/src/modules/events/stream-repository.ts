@@ -12,8 +12,8 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { asc, eq, inArray, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 export const StreamKeySchema = Schema.Struct({
 	userId: UserId,

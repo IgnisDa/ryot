@@ -4,9 +4,9 @@ import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { DownloadTickets } from "#lib/infrastructure/download-tickets";
-import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
-import { ObjectStorageService } from "#modules/uploads/object-storage/service";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import { DownloadTickets } from "#platform/storage/download-tickets";
+import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#testing/effect";
 
 import { BackupAccountCleanliness } from "./restore/account-cleanliness";
 import { BackupsRepository } from "./runs/repository";

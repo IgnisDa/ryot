@@ -26,11 +26,10 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { makeWorkflowActivityEngine, type MockOverrides } from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import {
@@ -38,8 +37,9 @@ import {
 	type DomainLifecycleCommand,
 } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
+import { makeWorkflowActivityEngine, type MockOverrides } from "#testing/effect";
 
 import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";
 import {
@@ -152,7 +152,7 @@ const mockCollections = Layer.mock(CollectionsRepository);
 const mockEntities = Layer.mock(EntitiesService);
 const mockEvents = Layer.mock(EventsService);
 const mockRelationships = Layer.mock(RelationshipsService);
-const mockRelationshipSchemas = Layer.mock(RelationshipSchemasRepository);
+const mockRelationshipSchemas = Layer.mock(RelationshipSchemaReader);
 
 type EntityCreateInput = Parameters<EntitiesService["Service"]["create"]>[0];
 type RelationshipCreateInput = Parameters<RelationshipsService["Service"]["prepareCreate"]>[0];

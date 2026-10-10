@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
 import {
 	buildDefinitionSnapshot,
 	definitionSourceFromSnapshot,
-} from "#modules/definition-registry/snapshot";
+} from "#modules/definitions/snapshot";
 
 import { orderDataGraph } from "./data-graph";
 

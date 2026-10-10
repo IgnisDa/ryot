@@ -3,17 +3,17 @@ import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/br
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { ProKeyService } from "#lib/infrastructure/pro-key";
-import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
 import { DataImportAdmission } from "#modules/imports/data-admission";
 import { IngestionExecution } from "#modules/imports/execution-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IngestionRetirement } from "#modules/imports/retirement-service";
 import { ImportsService } from "#modules/imports/service";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
-import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { ProKeyService } from "#platform/pro-key";
+import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#testing/effect";
 
 import { IntegrationIngestion } from "./ingestion";
 import { IntegrationsRepository } from "./repository";

@@ -3,7 +3,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import type { DurableSchema } from "#lib/infrastructure/workflow";
+import type { DurableSchema } from "#boot/workflow-engine";
 
 export const IntegrationSyncPayload = Schema.Struct({
 	executionId: Schema.String,

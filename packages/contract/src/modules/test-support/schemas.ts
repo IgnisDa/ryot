@@ -57,7 +57,7 @@ export type TestSupportInstallSystemPluginBodyBase64 =
 
 export const TestSupportUpdateSystemPluginBodyBase64 = Schema.Struct({
 	...TestSupportInstallSystemPluginBodyBase64.fields,
-	sourceHash: Schema.String,
+	contentHash: Schema.String,
 });
 export type TestSupportUpdateSystemPluginBodyBase64 =
 	typeof TestSupportUpdateSystemPluginBodyBase64.Type;

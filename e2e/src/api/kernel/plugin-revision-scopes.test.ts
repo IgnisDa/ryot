@@ -193,9 +193,9 @@ describe("plugin revision scopes", () => {
 			expect(a.pluginId).not.toBe(b.pluginId);
 			yield* updateNamespacePackage(alice.client, a, packages.a2);
 			const updated = yield* namespaceInstallation(alice.client, a.pluginId);
-			expect(updated.sourceHash).not.toBe(a.installation.sourceHash);
-			expect((yield* namespaceInstallation(bob.client, b.pluginId)).sourceHash).toBe(
-				b.installation.sourceHash,
+			expect(updated.contentHash).not.toBe(a.installation.contentHash);
+			expect((yield* namespaceInstallation(bob.client, b.pluginId)).contentHash).toBe(
+				b.installation.contentHash,
 			);
 			expect(
 				(yield* invokeNamespaceOperation(alice.client, a.installation.packageId)).result,
@@ -208,7 +208,7 @@ describe("plugin revision scopes", () => {
 					alice.client,
 					a.installation.packageId,
 					{},
-					a.installation.sourceHash,
+					a.installation.contentHash,
 				),
 			);
 			assertTaggedError(stale, "PluginConflictError");
@@ -289,7 +289,7 @@ describe("plugin revision scopes", () => {
 				const updated = yield* updateTestSupportSystemPlugin({
 					...packages.a2,
 					pluginId: system.pluginId,
-					sourceHash: original.sourceHash,
+					contentHash: original.contentHash,
 				});
 				activationId = updated.activationId;
 				for (const owner of [alice.client, bob.client]) {
@@ -304,7 +304,7 @@ describe("plugin revision scopes", () => {
 					updateTestSupportSystemPlugin({
 						...packages.a,
 						pluginId: system.pluginId,
-						sourceHash: original.sourceHash,
+						contentHash: original.contentHash,
 					}),
 				);
 				assertTaggedError(stale, "PluginConflictError");

@@ -5,7 +5,7 @@ import { generateId } from "better-auth";
 import { Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
-import type { DurableSchema } from "#lib/infrastructure/workflow";
+import type { DurableSchema } from "#boot/workflow-engine";
 
 export const NotificationDeliveryRequest = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("test") }),

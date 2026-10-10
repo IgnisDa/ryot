@@ -6,11 +6,11 @@ import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references"
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import * as fitnessPluginIdentity from "@ryot-app/fitness-plugin/shared/plugin-identity";
-import * as schema from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
-import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definition-registry/repository";
-import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/snapshot";
-import { PluginRepository } from "@ryot-app/kernel-backend/modules/plugins/repository";
+import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definitions/repository";
+import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definitions/snapshot";
+import { PluginRepository } from "@ryot-app/kernel-backend/modules/plugins/packages/repository";
+import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
+import * as schema from "@ryot-app/kernel-backend/schema/tables/combined";
 import * as mediaPluginIdentity from "@ryot-app/media-plugin/shared/plugin-identity";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";

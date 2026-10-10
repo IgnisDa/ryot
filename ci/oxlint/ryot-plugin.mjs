@@ -169,7 +169,7 @@ export default {
 							context.report({
 								node: callee.property,
 								message:
-									"Register workflows with implementWorkflow from kernel/backend/src/lib/infrastructure/workflow-scope.ts.",
+									"Register workflows with implementWorkflow from kernel/backend/src/platform/workflow/scope.ts.",
 							});
 						}
 					},

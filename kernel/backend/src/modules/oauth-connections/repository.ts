@@ -9,9 +9,9 @@ import type {
 import { and, count, eq, gt, inArray, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import type { SubkeyCiphertext } from "#lib/infrastructure/config/plugin-config-encryption";
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import type { SubkeyCiphertext } from "#platform/config/plugin-config-encryption";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 const connection = schema.oauthConnection;
 

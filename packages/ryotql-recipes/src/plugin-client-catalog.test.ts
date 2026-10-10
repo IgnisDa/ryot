@@ -14,8 +14,8 @@ const entry = {
 	clientApiVersion: 1,
 	homeSavedView: null,
 	pluginId: "plugin-1",
-	sourceHash: "source-hash",
 	packageId: "ryot/fitness",
+	contentHash: "source-hash",
 	installationId: "installation-1",
 };
 

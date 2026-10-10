@@ -18,20 +18,24 @@ import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { assert, describe } from "vitest";
 
-import { LifecyclePlanner, lifecycleRunId, type LifecycleBatchInput } from "#lib/domain/lifecycle";
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { seedKernelDefinitions } from "#modules/definition-registry/test-support";
+import {
+	LifecyclePlanner,
+	lifecycleRunId,
+	type LifecycleBatchInput,
+} from "#modules/automations/lifecycle/planning";
+import { seedKernelDefinitions } from "#modules/definitions/test-support";
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginRepository } from "#modules/plugins/repository";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
 	revisionDatabaseLayer,
-} from "#modules/plugins/revision.test-support";
+} from "#modules/plugins/packages/revision.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { LifecyclePlannerServiceLive } from "./layer";
 import { triggerFixture } from "./lifecycle.test-support";

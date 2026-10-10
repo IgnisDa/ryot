@@ -19,7 +19,7 @@ const catalog: PluginClientCatalog = [
 		isHidden: false,
 		clientApiVersion: 1,
 		homeSavedView: null,
-		sourceHash: "source",
+		contentHash: "source",
 		installationId: "installation",
 		pluginId: PluginId.make("owner"),
 		packageId: PluginPackageId.make("test/owner"),

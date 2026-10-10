@@ -5,11 +5,8 @@ import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { desc, eq, and } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import {
-	automationRun as run,
-	automationRunAttempt as attempt,
-} from "#lib/infrastructure/db/schema/tables/automations";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { DatabaseSession } from "#platform/db/session";
+import { automationRun as run, automationRunAttempt as attempt } from "#schema/tables/automations";
 
 export class AutomationHistoryRepository extends Context.Service<AutomationHistoryRepository>()(
 	"AutomationHistoryRepository",

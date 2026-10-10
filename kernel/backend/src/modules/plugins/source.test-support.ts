@@ -11,7 +11,7 @@ import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { derivePluginSandboxScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { Data, Effect, FileSystem, Stream } from "effect";
 
-import type { PluginSource } from "./types";
+import type { PluginSource } from "./packages/types";
 
 export class PluginSourceError extends Data.TaggedError("PluginSourceError")<{
 	readonly message: string;

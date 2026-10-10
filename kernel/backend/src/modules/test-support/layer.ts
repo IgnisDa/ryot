@@ -1,16 +1,16 @@
 import { Layer } from "effect";
 
-import { AuthServiceLive } from "#modules/auth/layer";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { AuthServiceLive } from "#modules/accounts/auth/layer";
+import { RelationshipSchemaReaderLive } from "#modules/definitions/layer";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
-import { InterestServicesLive } from "#modules/entity-interest/layer";
-import { TranslationsRepository } from "#modules/entity-translation/repository";
+import { TranslationsRepository } from "#modules/entities/localization/repository";
+import { InterestServicesLive } from "#modules/entities/watches/layer";
 import { ImportsServiceLive, IngestionExecutionLive } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
+import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginIngestionServiceLive, PluginInstallationRuntimeLive } from "#modules/plugins/layer";
-import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
-import { RelationshipSchemasRepositoryLive } from "#modules/relationship-schemas/layer";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { PluginCronServiceLive } from "#modules/scheduler/layer";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
@@ -32,7 +32,7 @@ export const TestSupportServicesLive = Layer.merge(
 				RelationshipsServiceLive,
 				PluginIngestionServiceLive,
 				PluginInstallationRuntimeLive,
-				RelationshipSchemasRepositoryLive,
+				RelationshipSchemaReaderLive,
 			),
 		),
 		Layer.provide(PluginRepository.layer),

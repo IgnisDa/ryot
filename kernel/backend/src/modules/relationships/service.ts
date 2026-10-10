@@ -8,15 +8,14 @@ import type { RelationshipId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import {
 	runLifecycleWriteInline,
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
-} from "#lib/infrastructure/lifecycle-workflow-step";
-import { DefinitionRepository } from "#modules/definition-registry/repository";
+} from "#modules/automations/lifecycle/write-step";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecks, type DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
@@ -27,7 +26,8 @@ import {
 import {
 	catalogDefinitionFingerprint,
 	type CatalogDefinitionFingerprint,
-} from "#modules/plugins/runtime-resolver";
+} from "#modules/plugins/catalog/runtime-resolver";
+import { DatabaseSession } from "#platform/db/session";
 
 import {
 	prepareProjectedRelationshipMutations,

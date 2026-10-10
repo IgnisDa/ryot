@@ -4,7 +4,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { CancelImportRunWorkflow, runCancelImportRunWorkflow } from "./cancel-workflow";
 import { ImportRunExecutionController } from "./execution-controller";

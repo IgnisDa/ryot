@@ -48,7 +48,7 @@ const workspace = (
 	clientApiVersion: 1,
 	homeSavedView: null,
 	name: slug.toUpperCase(),
-	sourceHash: `source-${slug}`,
+	contentHash: `source-${slug}`,
 	installationId: `installation-${slug}`,
 	pluginId: PluginId.make(`plugin-${slug}`),
 	packageId: PluginPackageId.make(`test/${slug}`),

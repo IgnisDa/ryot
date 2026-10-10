@@ -32,15 +32,15 @@
 - Derive child `executionId` values deterministically from the parent; random IDs can create children on replay.
 - Durable owners remain idempotent because ownership does not guarantee single-flight execution.
 - Background work uses the workflow engine, durable queues, and durable deferred signals; do not add another job queue.
-- Create activities with `makeActivity` and register workflows with `implementWorkflow` from `src/lib/infrastructure/workflow-scope.ts`; `LifecycleExecution.after` and `executePolicy` die inside activity bodies.
+- Create activities with `makeActivity` and register workflows with `implementWorkflow` from `src/platform/workflow/scope.ts`; `LifecycleExecution.after` and `executePolicy` die inside activity bodies.
 
 ## Infrastructure
 
 - Centralize backend Redis keys, channels, codecs, and parsing in Redis infrastructure; the sandbox owns its `ryot:sandbox:*` recovery and quarantine keys.
 - Keep sandbox and client-plugin compiler engines separate. They may share `@ryot-app/typescript-compiler` and server process supervision, but not policies, limits, protocols, output models, or public APIs.
 - Script execution: `src/modules/scripts/README.md`. Isolation: `kernel/sandbox/README.md`.
-- Entity interest: `src/modules/entity-interest/README.md`.
-- Authentication and proxy rules: `src/modules/auth/README.md`.
+- Entity watches: `src/modules/entities/watches/README.md`.
+- Authentication and proxy rules: `src/modules/accounts/auth/README.md`.
 - Public and service-owned event creates await `EventCreateWorkflow`; callers that use `discard: true` must poll for results.
 - Assert typed Effect failures with `assertExitFails` from `@ryot-app/testing/effect-assertions`; structural `Exit.fail` equality omits error messages.
 - `global-setup.ts` provisions one PostgreSQL and one Redis for the whole run, reusing an externally supplied `TEST_DATABASE_URL` or `TEST_REDIS_URL` when present, and hands them to suites through vitest `provide`/`inject` as `databaseUrl` and `redisUrl`. Database-backed suites read theirs with `testDatabaseUrl` and isolate themselves in a throwaway schema or database; Redis-backed suites read theirs with `testRedisUrl` and namespace their keys. Neither skips when its URL is absent.

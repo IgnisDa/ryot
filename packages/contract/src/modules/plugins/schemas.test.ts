@@ -10,7 +10,7 @@ import {
 	UpdatePrivatePluginBody,
 } from "./schemas";
 
-const uploadPayload = { sourceHash: "source-hash", uploadToken: "fixture-upload-token" };
+const uploadPayload = { contentHash: "source-hash", uploadToken: "fixture-upload-token" };
 const pluginId = PluginId.make("fixture-plugin-id");
 
 describe("UpdatePrivatePluginBody", () => {
@@ -95,8 +95,8 @@ it("accepts only JSON operation HTTP payloads and results", () => {
 	const decodeResult = Schema.decodeUnknownSync(PluginInvokeResult);
 
 	expect(
-		decodeBody({ sourceHash: "source-hash", payload: { values: [null, true, 1, "ok"] } }),
-	).toEqual({ sourceHash: "source-hash", payload: { values: [null, true, 1, "ok"] } });
+		decodeBody({ contentHash: "source-hash", payload: { values: [null, true, 1, "ok"] } }),
+	).toEqual({ contentHash: "source-hash", payload: { values: [null, true, 1, "ok"] } });
 	expect(decodeBody({ payload: { values: [null, true, 1, "ok"] } })).toEqual({
 		payload: { values: [null, true, 1, "ok"] },
 	});

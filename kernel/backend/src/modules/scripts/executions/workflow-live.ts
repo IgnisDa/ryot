@@ -1,6 +1,6 @@
 import { Layer } from "effect";
 
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+import { implementWorkflow } from "#platform/workflow/scope";
 
 import { ExecutableArtifacts } from "../registry/executable-artifacts";
 import { SandboxExecutionQueueWorkerLive } from "./queues";

@@ -12,7 +12,7 @@ import { Context, Effect, FileSystem, Layer, Match, Path, Schema, Semaphore } fr
 import {
 	type CompilerWorkerFailure,
 	makeCompilerWorkerRunner,
-} from "#lib/infrastructure/compiler-worker/runner";
+} from "#platform/process/compiler-worker";
 
 const processFailure = (code: string, message: string) =>
 	new SandboxCompilationFailure({

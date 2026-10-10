@@ -12,12 +12,12 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
+import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { ingestionTestSource } from "./ingestion.test-support";
 import { ImportsRepository } from "./repository";

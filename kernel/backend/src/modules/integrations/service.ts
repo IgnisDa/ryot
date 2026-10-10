@@ -26,12 +26,10 @@ import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { ProKeyService } from "#lib/infrastructure/pro-key";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
-} from "#lib/property-schema/property-schema-runtime";
+} from "#modules/definitions/properties/runtime";
 import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IngestionRetirement } from "#modules/imports/retirement-service";
@@ -39,11 +37,13 @@ import { ImportsService } from "#modules/imports/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
 import {
 	IntegrationProviderCatalog,
 	type RegisteredIntegrationProvider,
-} from "#modules/plugins/integration-provider-catalog";
+} from "#modules/plugins/catalog/integration-providers";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { DatabaseSession } from "#platform/db/session";
+import { ProKeyService } from "#platform/pro-key";
 
 import { IntegrationIngestion } from "./ingestion";
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";

@@ -4,8 +4,7 @@ import type { RelationshipId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { runLifecycleWriteStep } from "#lib/infrastructure/lifecycle-workflow-step";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+import { runLifecycleWriteStep } from "#modules/automations/lifecycle/write-step";
 import { kernelCollectionLifecycleCommand } from "#modules/entities/write-context";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -14,6 +13,7 @@ import {
 	PendingRelationshipMutations,
 	RelationshipSingleResult,
 } from "#modules/relationships/mutation-pipeline";
+import { implementWorkflow } from "#platform/workflow/scope";
 
 import {
 	AddEntityToCollectionWorkflow,

@@ -22,7 +22,7 @@ const workspace = (
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
-	sourceHash: "source-media",
+	contentHash: "source-media",
 	installationId: "installation-media",
 	...overrides,
 	scope: overrides.scope ?? "system",

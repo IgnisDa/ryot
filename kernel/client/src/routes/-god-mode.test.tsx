@@ -10,7 +10,7 @@ import { AdminApi, AdminApiError, type AdminApiService } from "#/api/admin";
 import { GodModeApi } from "#/api/god-mode";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { GodModeImpersonationService } from "#/modules/god-mode/impersonation";
-import { GodModeService } from "#/modules/god-mode/service";
+import { InstanceAdminService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
@@ -72,7 +72,7 @@ const makeView = (
 			godMode,
 			session,
 			Layer.succeed(GodModeImpersonationService, { start: () => Effect.void }),
-			GodModeService.layer.pipe(Layer.provide(godMode), Layer.provide(session)),
+			InstanceAdminService.layer.pipe(Layer.provide(godMode), Layer.provide(session)),
 			Layer.succeed(ServerService, {
 				connect: () => Effect.void,
 				selected: Effect.succeed(selected),

@@ -31,22 +31,24 @@ import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Result, Option } from "effect";
 import { assert } from "vitest";
 
-import { account, user } from "#lib/infrastructure/db/schema/tables/auth";
+import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
+import { DatabaseSession } from "#platform/db/session";
+import { account, user } from "#schema/tables/auth";
 import {
 	automationRun,
 	automationRunAttempt,
 	automationTrigger,
 	automationTriggerRecipient,
 	notificationSubscription,
-} from "#lib/infrastructure/db/schema/tables/automations";
-import { backupRun } from "#lib/infrastructure/db/schema/tables/backups";
+} from "#schema/tables/automations";
+import { backupRun } from "#schema/tables/backups";
 import {
 	plugin,
 	pluginConfigRevision,
 	pluginInstallation,
 	pluginRevision,
 	sandboxScript,
-} from "#lib/infrastructure/db/schema/tables/core";
+} from "#schema/tables/core";
 import {
 	definitionEntitySchema,
 	definitionEventSchema,
@@ -55,15 +57,13 @@ import {
 	definitionRelationshipSchema,
 	definitionSavedView,
 	definitionSignalSchema,
-} from "#lib/infrastructure/db/schema/tables/definitions";
-import { entity } from "#lib/infrastructure/db/schema/tables/entities";
-import { eventStream, eventStreamWork } from "#lib/infrastructure/db/schema/tables/event-streams";
-import { migrationReport } from "#lib/infrastructure/db/schema/tables/migration-reports";
-import { savedView, savedViewOverride } from "#lib/infrastructure/db/schema/tables/views";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeConfigProviderLayer } from "#lib/test-utils/effect";
-import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
+} from "#schema/tables/definitions";
+import { entity } from "#schema/tables/entities";
+import { eventStream, eventStreamWork } from "#schema/tables/event-streams";
+import { migrationReport } from "#schema/tables/migration-reports";
+import { savedView, savedViewOverride } from "#schema/tables/views";
+import { makeConfigProviderLayer } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import type { RyotQLAudience } from "./catalog";
 import { RyotQLService } from "./service";
@@ -179,7 +179,7 @@ const insertPlugin = Effect.fn(function* (input: {
 				.values({
 					id: revisionId,
 					pluginId: input.id,
-					sourceHash: `${input.id}-hash`,
+					contentHash: `${input.id}-hash`,
 					manifest: manifest(input.slug, input.homeView, packageId),
 					clientConfigSchema: { fields: {}, unknownKeys: "strict" },
 				});

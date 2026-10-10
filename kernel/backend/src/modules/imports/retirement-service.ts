@@ -2,11 +2,11 @@ import { ImportRunId, type UserId, type IntegrationId } from "@ryot-app/contract
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { interruptWorkflowAndWait } from "#lib/infrastructure/workflow-interruption";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
-import type { PluginIngestionRetirementPolicy } from "#modules/plugins/ingestion-retirement";
+import type { PluginIngestionRetirementPolicy } from "#modules/plugins/packages/ingestion-retirement";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { interruptWorkflowAndWait } from "#platform/workflow/interruption";
 
 import { reconcileGenericIngestionBatch } from "./batch-results";
 import { IngestionCaptures } from "./capture-service";

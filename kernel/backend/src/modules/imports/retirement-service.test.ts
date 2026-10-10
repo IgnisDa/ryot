@@ -4,10 +4,10 @@ import { Deferred, Effect, Fiber, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
-import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { makeWorkflowEngine } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionExecution } from "./execution-service";

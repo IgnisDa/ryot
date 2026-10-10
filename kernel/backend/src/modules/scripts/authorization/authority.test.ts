@@ -10,15 +10,15 @@ import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 import { assert, describe } from "vitest";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { PluginRepository } from "#modules/plugins/repository";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
 	revisionPackage,
-} from "#modules/plugins/revision.test-support";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+} from "#modules/plugins/packages/revision.test-support";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
 
 import { SandboxWorkflowPinning } from "../executions/workflow";
 import { ScriptExecutionWorkflowPayload } from "../executions/workflow-payload";

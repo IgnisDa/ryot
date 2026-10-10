@@ -4,8 +4,8 @@ import { Clock, Context, Effect, Layer, Ref, Schema } from "effect";
 import { DurableDeferred } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { LifecycleDispatchRun } from "#lib/domain/lifecycle";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+import { LifecycleDispatchRun } from "#modules/automations/lifecycle/planning";
+import { implementWorkflow } from "#platform/workflow/scope";
 
 import { automationAttemptIdentity } from "./attempt-repository";
 import {

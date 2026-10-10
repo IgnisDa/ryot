@@ -1,10 +1,10 @@
 import { DateTime, Effect, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import type { IngestionRecoveryCursor } from "#modules/imports/runtime/recovery-cursor";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { IntegrationRecoveryPage, IntegrationSyncRun } from "./jobs";

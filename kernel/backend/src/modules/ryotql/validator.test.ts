@@ -160,7 +160,7 @@ it("exposes only approved application-table fields", () => {
 			"status",
 			"activationId",
 			"version",
-			"sourceHash",
+			"contentHash",
 			"ingestedAt",
 			"description",
 			"configSchema",

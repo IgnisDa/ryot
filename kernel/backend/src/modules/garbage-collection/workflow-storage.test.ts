@@ -5,14 +5,14 @@ import { TestClock } from "effect/testing";
 import { DurableDeferred, Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { workflowExecution } from "#lib/infrastructure/db/schema/tables/workflow-executions";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
-import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
-import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
-import { testRedisUrl } from "#lib/test-utils/redis";
+import { WorkflowEngineLive } from "#boot/workflow-engine";
+import { DatabaseSession } from "#platform/db/session";
+import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { implementWorkflow } from "#platform/workflow/scope";
+import { workflowExecution } from "#schema/tables/workflow-executions";
+import { makeAppConfigLayer } from "#testing/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
+import { testRedisUrl } from "#testing/redis";
 
 import { WorkflowGarbageCollector } from "./workflows";
 

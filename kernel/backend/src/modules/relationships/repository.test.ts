@@ -3,7 +3,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
 import { assert, describe } from "vitest";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { DatabaseSession } from "#platform/db/session";
 
 import { baseInput, relationshipDatabaseLayer } from "./lifecycle.test-support";
 import { RelationshipsRepository } from "./repository";

@@ -10,7 +10,7 @@ export const PluginRevision = strictStruct({
 	version: Schema.String,
 	createdAt: IsoUtcString,
 	manifest: PluginManifest,
-	sourceHash: Schema.String,
+	contentHash: Schema.String,
 });
 export type PluginRevision = typeof PluginRevision.Type;
 

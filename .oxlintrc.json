@@ -104,7 +104,7 @@
 			{
 				"property": "make",
 				"object": "Activity",
-				"message": "Create activities with makeActivity from kernel/backend/src/lib/infrastructure/workflow-scope.ts."
+				"message": "Create activities with makeActivity from kernel/backend/src/platform/workflow/scope.ts."
 			},
 			{
 				"object": "vi",

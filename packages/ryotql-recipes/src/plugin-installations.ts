@@ -48,7 +48,7 @@ export const pluginInstallationsRecipe = defineRecipe(
 					name: selectedField(column(plugin, "name"), Schema.String),
 					version: selectedField(column(plugin, "version"), Schema.String),
 					packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
-					sourceHash: selectedField(column(plugin, "sourceHash"), Schema.String),
+					contentHash: selectedField(column(plugin, "contentHash"), Schema.String),
 					description: selectedField(column(plugin, "description"), Schema.String),
 					installationId: selectedField(column(installation, "id"), Schema.String),
 					isHidden: selectedField(column(installation, "isHidden"), Schema.Boolean),

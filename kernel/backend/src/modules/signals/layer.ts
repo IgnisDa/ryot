@@ -1,7 +1,7 @@
 import { Layer } from "effect";
 
-import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { RelationshipSchemasRepositoryLive } from "#modules/relationship-schemas/layer";
+import { RelationshipSchemaReaderLive } from "#modules/definitions/layer";
+import { DefinitionRepository } from "#modules/definitions/repository";
 
 import { SignalSchemasService } from "./service";
 import { SignalSchemasRepository } from "./signal-schemas-repository";
@@ -11,5 +11,5 @@ export const SignalSchemasRepositoryLive = SignalSchemasRepository.layer.pipe(
 );
 
 export const SignalSchemasServiceLive = SignalSchemasService.layer.pipe(
-	Layer.provide(Layer.merge(SignalSchemasRepositoryLive, RelationshipSchemasRepositoryLive)),
+	Layer.provide(Layer.merge(SignalSchemasRepositoryLive, RelationshipSchemaReaderLive)),
 );

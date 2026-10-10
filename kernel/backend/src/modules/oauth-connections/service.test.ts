@@ -29,33 +29,33 @@ import { HttpClient, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { HmacSigner } from "#lib/infrastructure/hmac-signer";
-import { LocalStorageService } from "#lib/infrastructure/local-storage";
-import { ProKeyService } from "#lib/infrastructure/pro-key";
-import { S3Service } from "#lib/infrastructure/s3";
-import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
-import { ingestionRetirementTestLayer } from "#lib/test-utils/ingestion-retirement";
-import { integrationCrudIngestionLayer } from "#lib/test-utils/integration-crud";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
+import { integrationCrudIngestionLayer } from "#modules/integrations/crud.test-support";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
-import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
-import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
-import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
-import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
-import { PluginRepository } from "#modules/plugins/repository";
+import { ImportSourceCatalog } from "#modules/plugins/catalog/import-sources";
+import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
+import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
+import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
+import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
+import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
+import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
 	installRevisionPackage,
 	oauthRevisionPackage,
 	revisionDatabaseLayer,
-} from "#modules/plugins/revision.test-support";
-import { ObjectStorageService } from "#modules/uploads/object-storage/service";
+} from "#modules/plugins/packages/revision.test-support";
+import { DatabaseSession } from "#platform/db/session";
+import { ProKeyService } from "#platform/pro-key";
+import { HmacSigner } from "#platform/storage/hmac-signer";
+import { LocalStorageService } from "#platform/storage/local-storage";
+import { S3Service } from "#platform/storage/s3";
+import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { OAuthConnectionsRepository } from "./repository";
 import { OAUTH_ACCESS_TOKEN_MESSAGES, OAuthConnectionsService } from "./service";
@@ -828,7 +828,7 @@ describe("OAuth connections", () => {
 			const next = oauthRevisionPackage("oauth-test", "oauth-yank");
 			yield* installRevisionPackage({
 				...next,
-				sourceHash: "oauth-next",
+				contentHash: "oauth-next",
 				manifest: {
 					...next.manifest,
 					oauthProviders: [],

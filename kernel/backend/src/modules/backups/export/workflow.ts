@@ -4,11 +4,11 @@ import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, FileSystem, Layer, Result, Schema, Stream } from "effect";
 import { Workflow } from "effect/workflow";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
-import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
-import { ObjectStorageService } from "#modules/uploads/object-storage/service";
+import type { DurableSchema } from "#boot/workflow-engine";
+import { ObjectStorageService } from "#modules/assets/storage/object-storage";
+import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { ARCHIVE_LIMITS, createArchiveStream } from "../archive/archive";
 import { BackupsRepository } from "../runs/repository";

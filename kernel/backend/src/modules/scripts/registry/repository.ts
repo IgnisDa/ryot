@@ -19,9 +19,9 @@ import {
 import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
+import { DatabaseSession } from "#platform/db/session";
+import * as schema from "#schema/tables/combined";
 
 import { installationExecutionGate } from "../authorization/installation-gate";
 

@@ -24,8 +24,8 @@ import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { DateTime, Effect, Option, Schema } from "effect";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
-import { pinnedDefinitionSource } from "#modules/definition-registry/read-context";
+import { pinnedDefinitionSource } from "#modules/definitions/read-context";
+import { mapDatabaseErrors } from "#platform/db/errors";
 
 import { definitionReadContext, pluginIdentityReferences } from "./binding";
 import {

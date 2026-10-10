@@ -4,7 +4,7 @@ import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Duration, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
-import { databaseLayer } from "#lib/test-utils/effect";
+import { databaseLayer } from "#testing/effect";
 
 import { AutomationAttemptRepository, automationAttemptIdentity } from "./attempt-repository";
 import {

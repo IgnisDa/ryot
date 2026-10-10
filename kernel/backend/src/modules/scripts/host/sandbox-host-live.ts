@@ -5,10 +5,10 @@ import { SandboxRedis } from "@ryot-app/sandbox/host/redis";
 import { Effect, Layer, Pool } from "effect";
 import { Reactivity } from "effect/reactivity";
 
-import { AppConfig, databaseConnectionBudget } from "#lib/infrastructure/config/service";
-import { DatabaseConnectionLimit } from "#lib/infrastructure/db/session";
-import { RedisService } from "#lib/infrastructure/redis";
-import { ServerRun } from "#lib/infrastructure/server-run";
+import { AppConfig, databaseConnectionBudget } from "#platform/config/service";
+import { DatabaseConnectionLimit } from "#platform/db/session";
+import { RedisService } from "#platform/redis";
+import { ServerRun } from "#platform/server-run";
 
 import { ScriptHostImplementations } from "./host-implementations";
 
