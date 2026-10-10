@@ -24,7 +24,7 @@ import { fakeDatabaseSession } from "#testing/effect";
 import type { MockOverrides } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { EntitiesRepository } from "./repository";
+import { EntitiesRepository, provenanceScopeKey } from "./repository";
 
 const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 
@@ -247,36 +247,66 @@ type Statement = Parameters<typeof dialect.sqlToQuery>[0];
 
 layer(
 	recordingLayer(repositoryWithDatabase, (record) => ({
-		select: () => ({ from: () => ({ where: () => Effect.succeed([{ count: 7 }]) }) }),
 		execute: (statement: Statement) => {
 			const query = dialect.sqlToQuery(statement);
-			return record(`${query.sql}:${query.params.join(":")}`);
+			return record({ sql: query.sql, params: query.params });
 		},
+		select: () => ({
+			from: () => ({
+				where: () => ({
+					groupBy: () =>
+						Effect.succeed([
+							{
+								count: 7,
+								providerId: "provider-1",
+								entitySchemaSlug: "person",
+								entitySchemaPluginId: "plugin-1",
+							},
+							{
+								count: 3,
+								providerId: "provider-1",
+								entitySchemaSlug: "person",
+								entitySchemaPluginId: null,
+							},
+						]),
+				}),
+			}),
+		}),
 	})),
 )((test) => {
-	test.effect("locks and counts the complete global provenance scope", () =>
-		Effect.gen(function* () {
-			const repository = yield* EntitiesRepository;
-			const input = {
-				entitySchemaPluginId: "plugin-1",
-				providerId: SandboxProviderId.make("provider-1"),
-				entitySchemaSlug: EntitySchemaSlug.make("person"),
-			};
-			yield* repository.lockGlobalEntityProvenanceScope(input);
-			const total = yield* repository.countGlobalEntitiesByProvenanceScope(input);
+	test.effect(
+		"locks every global provenance scope in one sorted statement and counts each scope",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* EntitiesRepository;
+				const plugin = {
+					entitySchemaPluginId: "plugin-1",
+					providerId: SandboxProviderId.make("provider-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("person"),
+				};
+				const kernel = { ...plugin, entitySchemaPluginId: null };
+				yield* repository.lockGlobalEntityProvenanceScopes([plugin, kernel, plugin]);
+				const totals = yield* repository.countGlobalEntitiesByProvenanceScopes([plugin, kernel]);
 
-			const executed = yield* recordedEntries;
-			expect(total).toBe(7);
-			expect(executed).toHaveLength(1);
-			expect(executed[0]).toContain("pg_advisory_xact_lock");
-			expect(executed[0]).toContain('["global-entities","plugin-1","person","provider-1"]');
-		}),
+				const executed = yield* recordedEntries;
+				expect(executed).toEqual([
+					{
+						sql: expect.stringContaining("with ordinality"),
+						params: [
+							'["global-entities","plugin-1","person","provider-1"]',
+							'["global-entities",null,"person","provider-1"]',
+						],
+					},
+				]);
+				expect(totals.get(provenanceScopeKey(plugin))).toBe(7);
+				expect(totals.get(provenanceScopeKey(kernel))).toBe(3);
+			}),
 	);
 });
 
 layer(
 	recordingLayer(repositoryWithDatabase, (record) => ({
-		execute: (statement: Statement) => record(String(dialect.sqlToQuery(statement).params[0])),
+		execute: (statement: Statement) => record(dialect.sqlToQuery(statement).params),
 	})),
 )((test) => {
 	test.effect("locks provider entity identities in canonical order", () =>
@@ -295,8 +325,10 @@ layer(
 			]);
 
 			expect(yield* recordedEntries).toEqual([
-				'["provider-entity","global","global","plugin-1","person","provider-1","alpha"]',
-				'["provider-entity","global","global","plugin-1","person","provider-1","zeta"]',
+				[
+					'["provider-entity","global","global","plugin-1","person","provider-1","alpha"]',
+					'["provider-entity","global","global","plugin-1","person","provider-1","zeta"]',
+				],
 			]);
 		}),
 	);

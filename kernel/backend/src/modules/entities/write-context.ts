@@ -100,10 +100,23 @@ export const assertStableUnder = <E>(
 
 export type DomainWritePin = { readonly id: string };
 
-const domainWriteOwner = (
-	command: Pick<DomainLifecycleCommand, "writeContext" | "kernelCollection">,
-	owner: DefinitionOwner,
-) => {
+type DomainWriteCommand = Pick<DomainLifecycleCommand, "writeContext" | "kernelCollection">;
+
+export type DomainWriteCheck = {
+	readonly owner: DefinitionOwner;
+	readonly command: DomainWriteCommand;
+	readonly scopeUserId: string | null;
+};
+
+const domainWriteCheckKey = (input: DomainWriteCheck) =>
+	stableStringify([
+		input.command.writeContext,
+		input.command.kernelCollection ?? false,
+		input.owner,
+		input.scopeUserId,
+	]);
+
+const domainWriteOwner = (command: DomainWriteCommand, owner: DefinitionOwner) => {
 	const plugin = command.writeContext?.pluginRevision;
 	return (
 		!plugin ||
@@ -118,7 +131,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 		const definitions = yield* DefinitionRepository;
 		const authority = yield* SandboxExecutionAuthority;
 		const check = Effect.fnUntraced(function* (
-			command: Pick<DomainLifecycleCommand, "writeContext" | "kernelCollection">,
+			command: DomainWriteCommand,
 			owner: DefinitionOwner,
 			scopeUserId: string | null,
 			lock = false,
@@ -260,6 +273,16 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 				.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
 			return owner.kind === "kernel" && command.kernelCollection === true ? null : revision;
 		});
+		const checkMany = Effect.fnUntraced(function* (checks: ReadonlyArray<DomainWriteCheck>) {
+			const pins = new Map<string, DomainWritePin | null>();
+			for (const input of checks) {
+				const key = domainWriteCheckKey(input);
+				if (!pins.has(key)) {
+					pins.set(key, yield* check(input.command, input.owner, input.scopeUserId, true));
+				}
+			}
+			return (input: DomainWriteCheck) => pins.get(domainWriteCheckKey(input));
+		});
 		const checkProvider = Effect.fnUntraced(function* (providerId: string, owner: DefinitionOwner) {
 			const [provider] = yield* session.run((db) =>
 				db
@@ -331,7 +354,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 						: yield* findPinnedDeclaration(kind, plugin.activeRevisionId, slug),
 			};
 		});
-		return { check, checkProvider, findPinnedDeclaration, resolvePinnedDeclaration };
+		return { check, checkMany, checkProvider, findPinnedDeclaration, resolvePinnedDeclaration };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
