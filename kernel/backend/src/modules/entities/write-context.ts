@@ -108,7 +108,7 @@ export type DomainWriteCheck = {
 	readonly scopeUserId: string | null;
 };
 
-const domainWriteCheckKey = (input: DomainWriteCheck) =>
+export const domainWriteCheckKey = (input: DomainWriteCheck) =>
 	stableStringify([
 		input.command.writeContext,
 		input.command.kernelCollection ?? false,
