@@ -3,7 +3,7 @@ import {
 	type DeclarationReference,
 	type PluginPackageReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { pluginPackageSegments, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Match } from "effect";
 
 export type CatalogEntryGroup = { readonly key: string; readonly heading: string };
@@ -24,9 +24,9 @@ type CatalogSource = { readonly name: string; readonly description: string };
 
 const UNTITLED_PLUGIN_HEADING = "Other";
 
-export const pluginHeading = (pluginSlug: string) => {
-	const words = pluginSlug
-		.split(/[-_\s]+/)
+export const pluginHeading = (packageId: PluginPackageId) => {
+	const words = pluginPackageSegments(packageId)
+		.name.split(/[-_\s]+/)
 		.filter((part) => part.length > 0)
 		.map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`);
 	return words.length === 0 ? UNTITLED_PLUGIN_HEADING : words.join(" ");
@@ -47,7 +47,7 @@ export const pluginCatalogGroup = (input: {
 	readonly scope: PluginPackageReference["scope"] | null;
 }): CatalogEntryGroup => ({
 	key: definitionKey("plugin", input.reference.owner),
-	heading: `${input.name} · ${pluginScopeLabel(input.scope)} · ${input.packageId?.slice(0, 8) ?? "Unknown package"}`,
+	heading: `${input.name} · ${pluginScopeLabel(input.scope)} · ${input.packageId ?? "Unknown package"}`,
 });
 
 const matchesCatalogQuery = (source: CatalogSource, query: string) => {

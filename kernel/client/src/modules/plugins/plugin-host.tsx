@@ -44,6 +44,7 @@ import {
 	type PluginBridgeViewportInsets,
 	type PluginScreenReadiness,
 } from "#/modules/plugins/bridge";
+import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import type { PluginOperationDispatchOutcome } from "#/modules/plugins/operations";
 import {
 	toNavigationRequest,
@@ -115,6 +116,8 @@ export function PluginFrame(props: {
 	const entitySchemaSlug = location.kind === "entity" ? location.entitySchemaSlug : undefined;
 	const { subscribeResume, chromeTriggerRef } = props;
 	const latest = useRef(props);
+	const { catalog } = usePluginCatalog();
+	const latestCatalog = useRef(catalog);
 	const [srcDoc, setSrcDoc] = useState<string>();
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
@@ -132,6 +135,7 @@ export function PluginFrame(props: {
 	);
 	useLayoutEffect(() => {
 		latest.current = props;
+		latestCatalog.current = catalog;
 	});
 
 	const closeBridge = () => {
@@ -355,7 +359,7 @@ export function PluginFrame(props: {
 				}
 			},
 			onNavigate: (request) => {
-				const navigation = toNavigationRequest(request);
+				const navigation = toNavigationRequest(request, latestCatalog.current);
 				if (navigation !== undefined) {
 					latest.current.onNavigate(navigation);
 				}

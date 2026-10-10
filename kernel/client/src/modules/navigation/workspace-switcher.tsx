@@ -32,7 +32,7 @@ type WorkspaceSwitcherProps = {
 const WORKSPACE_SHORTCUT_LABEL = "⌘⇧Space";
 
 const workspaceLabel = (workspace: PluginClientCatalogEntry) =>
-	`${workspace.name} · ${workspace.scope === "system" ? "System" : "Private"} · ${workspace.packageId.slice(0, 8)}`;
+	`${workspace.name} · ${workspace.scope === "system" ? "System" : "Private"} · ${workspace.packageId}`;
 
 function WorkspaceShortcut(props: { readonly enabled: boolean; readonly onOpen: () => void }) {
 	useShortcut(KERNEL_SHORTCUTS.workspaceSwitcher, props.onOpen, { enabled: props.enabled });

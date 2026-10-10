@@ -25,7 +25,6 @@ const catalog: PluginClientCatalog = [
 		sortOrder: 0,
 		icon: "puzzle",
 		name: "Fixture",
-		slug: "fixture",
 		health: "ready",
 		isHidden: false,
 		scope: "system",
@@ -34,7 +33,7 @@ const catalog: PluginClientCatalog = [
 		pluginId: "plugin-1",
 		sourceHash: "source-hash",
 		installationId: "installation-1",
-		packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+		packageId: PluginPackageId.make("test/fixture"),
 	},
 ];
 const ryot = createTestRyotClock();

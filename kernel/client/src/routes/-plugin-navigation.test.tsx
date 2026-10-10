@@ -63,14 +63,15 @@ const preparedFor = (
 	target: Exclude<ClientPageTarget, { readonly kind: "saved-view" }>,
 	pluginId = "plugin-1",
 ): PreparedClientPage => {
+	const packageId = PluginPackageId.make(`test/${pluginId}`);
 	const contributors: PreparedClientPage["identity"]["contributors"] = [
 		{
+			packageId,
 			kind: "plugin",
 			sourceHash: `source-${pluginId}`,
 			pluginId: PluginId.make(pluginId),
 			revisionId: `revision-${pluginId}`,
 			installationId: `installation-${pluginId}`,
-			packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
 		},
 	];
 	const entityTarget =
@@ -110,6 +111,7 @@ const preparedFor = (
 			compositionKey: `composition-key-${pluginId}`,
 			operationTargets: [
 				{
+					packageId,
 					sourceHash: `source-${pluginId}`,
 					pluginId: PluginId.make(pluginId),
 					installationId: `installation-${pluginId}`,
@@ -118,6 +120,7 @@ const preparedFor = (
 					sourceHash: "operations-only-source",
 					pluginId: PluginId.make("operations-only-id"),
 					installationId: "operations-only-installation",
+					packageId: PluginPackageId.make("test/operations-only"),
 				},
 			],
 		},
@@ -129,7 +132,7 @@ const preparedSavedView = (savedViewId: SavedViewId): PreparedClientPage => {
 		path: "/",
 		search: "",
 		kind: "plugin-route",
-		pluginId: PluginId.make("plugin-1"),
+		packageId: PluginPackageId.make("test/plugin-1"),
 	});
 	return {
 		...prepared,
@@ -193,7 +196,8 @@ function mount(options: {
 					),
 				);
 			}
-			const pluginId = target.kind === "plugin-route" ? target.pluginId : "plugin-1";
+			const pluginId =
+				target.kind === "plugin-route" ? target.packageId.replace("test/", "") : "plugin-1";
 			return Effect.succeed(preparedFor(target, pluginId));
 		});
 	const events = makePluginCatalogEventsTestLayer();
@@ -382,7 +386,7 @@ describe("client page routes", () => {
 	it.live("opens provider search from a plugin route without changing the page location", () =>
 		Effect.gen(function* () {
 			const view = mount({
-				entry: "/p/plugin-1?tab=home",
+				entry: "/p/test/plugin-1?tab=home",
 				loadProviders: () =>
 					Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
 			});
@@ -415,17 +419,17 @@ describe("client page routes", () => {
 
 	it.live("uses the hydrated parent catalog on plugin navigation", () =>
 		Effect.gen(function* () {
-			const view = mount({ entry: "/p/plugin-1" });
+			const view = mount({ entry: "/p/test/plugin-1" });
 			yield* Effect.promise(() => screen.findByTitle("Fixture plugin"));
 			expect(view.getCatalogLoads()).toBe(1);
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-1/details/one" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-1/details/one" }));
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(view.targets.at(-1)).toEqual({
 						search: "",
 						path: "/details/one",
 						kind: "plugin-route",
-						pluginId: "plugin-1",
+						packageId: "test/plugin-1",
 					}),
 				),
 			);
@@ -437,7 +441,7 @@ describe("client page routes", () => {
 		Effect.gen(function* () {
 			const savedViewId = SavedViewId.make("home-view-1");
 			const view = mount({
-				entry: "/p/plugin-1",
+				entry: "/p/test/plugin-1",
 				entries: [{ ...catalog[0], homeSavedView: { savedViewId, kind: "custom" } }],
 			});
 			const frame = yield* Effect.promise(() =>
@@ -447,9 +451,9 @@ describe("client page routes", () => {
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
 			expect(view.targets).toEqual([
-				{ path: "/", search: "", kind: "plugin-route", pluginId: "plugin-1" },
+				{ path: "/", search: "", kind: "plugin-route", packageId: "test/plugin-1" },
 			]);
-			expect(view.router.state.location.pathname).toBe("/p/plugin-1");
+			expect(view.router.state.location.pathname).toBe("/p/test/plugin-1");
 			expect(screen.getByRole("button", { name: /^Fixture workspace,/ })).toBeTruthy();
 			expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
 			expect(globalThis.document.querySelectorAll("iframe")).toHaveLength(1);
@@ -465,13 +469,13 @@ describe("client page routes", () => {
 
 	it.live("uses the normal plugin home route when no override is selected", () =>
 		Effect.gen(function* () {
-			const view = mount({ entry: "/p/plugin-1" });
+			const view = mount({ entry: "/p/test/plugin-1" });
 			yield* Effect.promise(() => screen.findByTitle("Fixture plugin"));
 
 			expect(view.targets).toEqual([
-				{ path: "/", search: "", kind: "plugin-route", pluginId: "plugin-1" },
+				{ path: "/", search: "", kind: "plugin-route", packageId: "test/plugin-1" },
 			]);
-			expect(view.router.state.location.pathname).toBe("/p/plugin-1");
+			expect(view.router.state.location.pathname).toBe("/p/test/plugin-1");
 		}),
 	);
 
@@ -480,7 +484,7 @@ describe("client page routes", () => {
 			const savedViewId = SavedViewId.make("broken-home-view");
 			const targets: ClientPageTarget[] = [];
 			mount({
-				entry: "/p/plugin-1",
+				entry: "/p/test/plugin-1",
 				entries: [{ ...catalog[0], homeSavedView: { savedViewId, kind: "custom" } }],
 				prepare: (_scope, request) => {
 					targets.push(request.payload.target);
@@ -490,7 +494,7 @@ describe("client page routes", () => {
 
 			yield* Effect.promise(() => screen.findByRole("heading", { name: "Plugin page not found" }));
 			expect(targets).toEqual([
-				{ path: "/", search: "", kind: "plugin-route", pluginId: "plugin-1" },
+				{ path: "/", search: "", kind: "plugin-route", packageId: "test/plugin-1" },
 			]);
 			expect(screen.queryByTitle(/plugin$/)).toBeNull();
 		}),
@@ -501,7 +505,7 @@ describe("client page routes", () => {
 			const savedViewId = SavedViewId.make("failed-home-view");
 			const targets: ClientPageTarget[] = [];
 			mount({
-				entry: "/p/plugin-1",
+				entry: "/p/test/plugin-1",
 				entries: [{ ...catalog[0], homeSavedView: { savedViewId, kind: "custom" } }],
 				prepare: (_scope, request) => {
 					targets.push(request.payload.target);
@@ -513,7 +517,7 @@ describe("client page routes", () => {
 				screen.findByRole("heading", { name: "Plugin page unavailable" }),
 			);
 			expect(targets).toEqual([
-				{ path: "/", search: "", kind: "plugin-route", pluginId: "plugin-1" },
+				{ path: "/", search: "", kind: "plugin-route", packageId: "test/plugin-1" },
 			]);
 			expect(screen.queryByTitle(/plugin$/)).toBeNull();
 		}),
@@ -521,7 +525,7 @@ describe("client page routes", () => {
 
 	it.live("prepares an ordinary plugin route and loads its document into srcdoc", () =>
 		Effect.gen(function* () {
-			const view = mount({ entry: "/p/plugin-1/details/one?tab=stats" });
+			const view = mount({ entry: "/p/test/plugin-1/details/one?tab=stats" });
 			const frame = yield* Effect.promise(() =>
 				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 			);
@@ -529,7 +533,12 @@ describe("client page routes", () => {
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
 			expect(view.targets).toEqual([
-				{ search: "tab=stats", path: "/details/one", kind: "plugin-route", pluginId: "plugin-1" },
+				{
+					search: "tab=stats",
+					path: "/details/one",
+					kind: "plugin-route",
+					packageId: "test/plugin-1",
+				},
 			]);
 			expect(frame.hasAttribute("src")).toBe(false);
 			expect(frame.getAttribute("srcdoc")).toContain('"hash":"composition-plugin-1"');
@@ -540,24 +549,24 @@ describe("client page routes", () => {
 			).toMatchObject({ location: { kind: "route", search: "tab=stats", path: "/details/one" } });
 			bridge.port.postMessage({
 				input: null,
-				pluginId: "plugin-1",
 				operationSlug: "greet",
 				requestId: "operation-1",
 				type: "operation-request",
+				packageId: "test/plugin-1",
 			});
 			bridge.port.postMessage({
 				input: null,
 				operationSlug: "mutate",
 				requestId: "operation-2",
 				type: "operation-request",
-				pluginId: "operations-only-id",
+				packageId: "test/operations-only",
 			});
 			bridge.port.postMessage({
 				input: null,
 				operationSlug: "mutate",
 				requestId: "operation-3",
 				type: "operation-request",
-				pluginId: "newly-installed-id",
+				packageId: "test/newly-installed",
 			});
 			yield* Effect.promise(() => waitFor(() => expect(view.operations).toHaveLength(2)));
 			yield* Effect.promise(() =>
@@ -572,18 +581,18 @@ describe("client page routes", () => {
 			);
 			expect(view.operations[0]).toMatchObject({
 				sourceHash: "source-plugin-1",
-				request: { input: null, pluginId: "plugin-1", operationSlug: "greet" },
+				request: { input: null, operationSlug: "greet", packageId: "test/plugin-1" },
 			});
 			expect(view.operations[1]).toMatchObject({
 				sourceHash: "operations-only-source",
-				request: { input: null, operationSlug: "mutate", pluginId: "operations-only-id" },
+				request: { input: null, operationSlug: "mutate", packageId: "test/operations-only" },
 			});
 		}),
 	);
 
 	it.live("reuses one composition runtime and bridge for plugin and entity documents", () =>
 		Effect.gen(function* () {
-			const view = mount({ entry: "/p/plugin-1/details/one" });
+			const view = mount({ entry: "/p/test/plugin-1/details/one" });
 			const pluginFrame = yield* Effect.promise(() =>
 				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 			);
@@ -633,9 +642,11 @@ describe("client page routes", () => {
 				),
 			);
 
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-1/details/one" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-1/details/one" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1/details/one")),
+				waitFor(() =>
+					expect(view.router.state.location.pathname).toBe("/p/test/plugin-1/details/one"),
+				),
 			);
 			expect(screen.getByTitle<HTMLIFrameElement>("Fixture plugin")).toBe(pluginFrame);
 		}),
@@ -646,7 +657,7 @@ describe("client page routes", () => {
 			let defaultLayout = "grid";
 			let preparations = 0;
 			const view = mount({
-				entry: "/p/plugin-1/details/one",
+				entry: "/p/test/plugin-1/details/one",
 				prepare: (_scope, request) => {
 					const target = request.payload.target;
 					if (target.kind === "saved-view") {
@@ -662,7 +673,7 @@ describe("client page routes", () => {
 					}
 					const prepared = preparedFor(
 						target,
-						target.kind === "plugin-route" && target.pluginId === "plugin-2"
+						target.kind === "plugin-route" && target.packageId === "test/plugin-2"
 							? "plugin-2"
 							: "plugin-1",
 					);
@@ -680,9 +691,11 @@ describe("client page routes", () => {
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 			const firstSrcDoc = frame.getAttribute("srcdoc");
 
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-1/details/two" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-1/details/two" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1/details/two")),
+				waitFor(() =>
+					expect(view.router.state.location.pathname).toBe("/p/test/plugin-1/details/two"),
+				),
 			);
 			expect(screen.getByTitle<HTMLIFrameElement>("Fixture plugin")).toBe(frame);
 			expect(frame.getAttribute("srcdoc")).toBe(firstSrcDoc);
@@ -693,7 +706,7 @@ describe("client page routes", () => {
 			);
 
 			defaultLayout = "list";
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-1/details/three" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-1/details/three" }));
 			yield* Effect.promise(() => waitFor(() => expect(preparations).toBe(3)));
 			expect(screen.getByTitle<HTMLIFrameElement>("Fixture plugin")).toBe(frame);
 			expect(frame.getAttribute("srcdoc")).toBe(firstSrcDoc);
@@ -717,13 +730,13 @@ describe("client page routes", () => {
 			const entries = Array.from({ length: 2 }, (_, index) => ({
 				...catalog[0],
 				name: `Plugin ${index + 1}`,
-				slug: `plugin-${index + 1}`,
 				pluginId: `plugin-${index + 1}`,
 				installationId: `installation-${index + 1}`,
+				packageId: PluginPackageId.make(`test/plugin-${index + 1}`),
 			}));
 			const view = mount({
 				entries,
-				entry: "/p/plugin-1",
+				entry: "/p/test/plugin-1",
 				auth: makeAuthStub({
 					settledSession: () =>
 						Effect.succeed({
@@ -736,7 +749,7 @@ describe("client page routes", () => {
 			const first = yield* Effect.promise(() =>
 				screen.findByTitle<HTMLIFrameElement>("Plugin 1 plugin"),
 			);
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-2" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-2" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2)),
 			);
@@ -755,11 +768,11 @@ describe("client page routes", () => {
 		Effect.gen(function* () {
 			const entries = Array.from({ length: 2 }, (_, index) => ({
 				...catalog[0],
-				slug: `plugin-${index + 1}`,
 				pluginId: `plugin-${index + 1}`,
 				installationId: `installation-${index + 1}`,
+				packageId: PluginPackageId.make(`test/plugin-${index + 1}`),
 			}));
-			const view = mount({ entries, entry: "/p/plugin-1" });
+			const view = mount({ entries, entry: "/p/test/plugin-1" });
 			const first = yield* Effect.promise(() =>
 				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 			);
@@ -774,14 +787,14 @@ describe("client page routes", () => {
 				}
 			});
 			observer.observe(document.querySelector("main") ?? document.body, { childList: true });
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-2" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-2" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2)),
 			);
 			expect(first.isConnected).toBe(true);
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-1/details" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-1/details" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-1/details")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-1/details")),
 			);
 			expect(first.isConnected).toBe(true);
 			expect(first.hasAttribute("src")).toBe(false);
@@ -808,7 +821,7 @@ describe("client page routes", () => {
 		Effect.gen(function* () {
 			let preparations = 0;
 			const view = mount({
-				entry: "/p/plugin-1",
+				entry: "/p/test/plugin-1",
 				prepare: (_scope, request) => {
 					const target = request.payload.target;
 					if (target.kind !== "plugin-route") {
@@ -831,7 +844,7 @@ describe("client page routes", () => {
 			);
 			expect(frame.isConnected).toBe(true);
 
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-1/details" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-1/details" }));
 			yield* Effect.promise(() => waitFor(() => expect(preparations).toBe(2)));
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -856,7 +869,7 @@ describe("client page routes", () => {
 		Effect.gen(function* () {
 			let preparations = 0;
 			const view = mount({
-				entry: "/p/plugin-1",
+				entry: "/p/test/plugin-1",
 				prepare: (_scope, request) => {
 					const target = request.payload.target;
 					if (target.kind !== "plugin-route") {
@@ -894,41 +907,41 @@ describe("client page routes", () => {
 			const entries = Array.from({ length: 4 }, (_, index) => ({
 				...catalog[0],
 				name: `Plugin ${index + 1}`,
-				slug: `plugin-${index + 1}`,
 				pluginId: `plugin-${index + 1}`,
 				installationId: `installation-${index + 1}`,
+				packageId: PluginPackageId.make(`test/plugin-${index + 1}`),
 			}));
-			const view = mount({ entries, entry: "/p/plugin-1" });
+			const view = mount({ entries, entry: "/p/test/plugin-1" });
 			const first = yield* Effect.promise(() =>
 				screen.findByTitle<HTMLIFrameElement>("Plugin 1 plugin"),
 			);
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-2" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-2" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2)),
 			);
 			const second = [...document.querySelectorAll("iframe")].find((frame) => frame !== first);
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-3" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-3" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3)),
 			);
 			const third = [...document.querySelectorAll("iframe")].find(
 				(frame) => frame !== first && frame !== second,
 			);
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-4" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-4" }));
 			yield* Effect.promise(() =>
 				waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3)),
 			);
 			expect(first.isConnected).toBe(false);
 			expect(second?.isConnected).toBe(true);
 
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-2" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-2" }));
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-2")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-2")),
 			);
 			expect(document.querySelectorAll("iframe")).toHaveLength(3);
 			expect(second?.isConnected).toBe(true);
 
-			yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-1" }));
+			yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-1" }));
 			yield* Effect.promise(() => waitFor(() => expect(third?.isConnected).toBe(false)));
 			expect(document.querySelectorAll("iframe")).toHaveLength(3);
 			expect(first.isConnected).toBe(false);
@@ -942,8 +955,8 @@ describe("client page routes", () => {
 			Effect.gen(function* () {
 				let preparation = 0;
 				const view = mount({
-					entry: "/p/plugin-1/details/one",
 					check: () => Effect.succeed(false),
+					entry: "/p/test/plugin-1/details/one",
 					prepare: (_scope, request) => {
 						const target = request.payload.target;
 						if (target.kind !== "plugin-route") {
@@ -956,7 +969,7 @@ describe("client page routes", () => {
 						}
 						const operationTargets = [
 							...prepared.identity.operationTargets.map((operationTarget) =>
-								operationTarget.pluginId === "operations-only-id"
+								operationTarget.packageId === "test/operations-only"
 									? { ...operationTarget, sourceHash: "operations-only-updated" }
 									: operationTarget,
 							),
@@ -964,6 +977,7 @@ describe("client page routes", () => {
 								sourceHash: "newly-installed-source",
 								pluginId: PluginId.make("newly-installed-id"),
 								installationId: "newly-installed-installation",
+								packageId: PluginPackageId.make("test/newly-installed"),
 							},
 						];
 						return Effect.succeed({
@@ -978,7 +992,7 @@ describe("client page routes", () => {
 				const firstBridge = connectFrame(firstFrame);
 				yield* Effect.promise(() => waitFor(() => expect(firstBridge.messages).toHaveLength(1)));
 
-				yield* Effect.promise(() => view.router.navigate({ href: "/p/plugin-1/details/two" }));
+				yield* Effect.promise(() => view.router.navigate({ href: "/p/test/plugin-1/details/two" }));
 				yield* Effect.promise(() => waitFor(() => expect(preparation).toBe(2)));
 				const nextFrame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
 				expect(nextFrame).toBe(firstFrame);
@@ -987,14 +1001,14 @@ describe("client page routes", () => {
 					operationSlug: "mutate",
 					type: "operation-request",
 					requestId: "retained-target",
-					pluginId: "operations-only-id",
+					packageId: "test/operations-only",
 				});
 				firstBridge.port.postMessage({
 					input: null,
 					requestId: "new-target",
 					operationSlug: "mutate",
 					type: "operation-request",
-					pluginId: "newly-installed-id",
+					packageId: "test/newly-installed",
 				});
 				yield* Effect.promise(() => waitFor(() => expect(view.operations).toHaveLength(2)));
 				expect(view.operations[0]).toMatchObject({ sourceHash: "operations-only-updated" });
@@ -1020,14 +1034,14 @@ describe("client page routes", () => {
 					operationSlug: "mutate",
 					type: "operation-request",
 					requestId: "updated-target",
-					pluginId: "operations-only-id",
+					packageId: "test/operations-only",
 				});
 				reloadedBridge.port.postMessage({
 					input: null,
 					operationSlug: "mutate",
 					type: "operation-request",
 					requestId: "adopted-target",
-					pluginId: "newly-installed-id",
+					packageId: "test/newly-installed",
 				});
 				yield* Effect.promise(() => waitFor(() => expect(view.operations).toHaveLength(4)));
 				expect(view.operations[2]).toMatchObject({ sourceHash: "operations-only-updated" });
@@ -1037,7 +1051,7 @@ describe("client page routes", () => {
 
 	it.live("uses explicit plugin navigation and merges page search with null deletion", () =>
 		Effect.gen(function* () {
-			const view = mount({ entry: "/p/plugin-1?keep=1&dialog=open" });
+			const view = mount({ entry: "/p/test/plugin-1?keep=1&dialog=open" });
 			const bridge = connectFrame(
 				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 			);
@@ -1048,16 +1062,21 @@ describe("client page routes", () => {
 			bridge.port.postMessage({
 				mode: "push",
 				type: "navigate",
-				target: { search: "q=x", path: "/entries", kind: "plugin-route", pluginId: "plugin-2" },
+				target: {
+					search: "q=x",
+					path: "/entries",
+					kind: "plugin-route",
+					packageId: "test/plugin-2",
+				},
 			});
 			yield* Effect.promise(() =>
-				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/plugin-2/entries")),
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/p/test/plugin-2/entries")),
 			);
 			expect(view.router.state.location.state.ryotEntryKey).toEqual(expect.any(String));
 			expect(view.router.state.location.state.ryotEntryKey).not.toBe(initialNavigation.key);
 
 			view.unmount();
-			const searchView = mount({ entry: "/p/plugin-1?keep=1&dialog=open" });
+			const searchView = mount({ entry: "/p/test/plugin-1?keep=1&dialog=open" });
 			const searchBridge = connectFrame(
 				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("Fixture plugin")),
 			);
@@ -1135,7 +1154,7 @@ describe("client page routes", () => {
 	it.live("renders an unregistered plugin page without mounting an artifact", () =>
 		Effect.gen(function* () {
 			mount({
-				entry: "/p/plugin-1/missing",
+				entry: "/p/test/plugin-1/missing",
 				prepare: () =>
 					preparationFailure({
 						path: "/missing",

@@ -21,7 +21,6 @@ const workspace = (
 	icon: "film",
 	sortOrder: 0,
 	name: "Media",
-	slug: "media",
 	health: "ready",
 	isHidden: false,
 	clientApiVersion: 1,
@@ -30,8 +29,8 @@ const workspace = (
 	...overrides,
 	scope: overrides.scope ?? "system",
 	homeSavedView: overrides.homeSavedView ?? null,
-	pluginId: overrides.pluginId ?? `plugin-${overrides.slug ?? "media"}`,
-	packageId: overrides.packageId ?? PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+	packageId: overrides.packageId ?? PluginPackageId.make("ryot/media"),
+	pluginId: overrides.pluginId ?? `plugin-${overrides.packageId?.split("/")[1] ?? "media"}`,
 });
 
 const snapshot = {
@@ -54,7 +53,7 @@ const sections: SidebarSections = {
 			icon: "house",
 			reference: null,
 			isHidden: false,
-			pluginSlug: null,
+			packageId: null,
 			pluginInstallationId: null,
 		},
 	],
@@ -232,10 +231,10 @@ describe("mobile drawer", () => {
 			const journal = workspace({
 				sortOrder: 1,
 				name: "Journal",
-				slug: "journal",
 				pluginId: "plugin-journal",
 				sourceHash: "source-journal",
 				installationId: "installation-journal",
+				packageId: PluginPackageId.make("test/journal"),
 			});
 			render(
 				<Harness

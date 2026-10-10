@@ -1,5 +1,4 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
-import { PluginId } from "@ryot-app/contract/schema/brands";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -16,7 +15,7 @@ export const sortWorkspaces = (catalog: PluginClientCatalog) =>
 	[...catalog].sort(
 		(left, right) =>
 			left.sortOrder - right.sortOrder ||
-			compareText(left.slug, right.slug) ||
+			compareText(left.packageId, right.packageId) ||
 			compareText(left.installationId, right.installationId),
 	);
 
@@ -31,13 +30,7 @@ export const resolveRememberedWorkspace = (
 	return visible.find(({ pluginId }) => pluginId === rememberedPluginId) ?? visible.at(0) ?? null;
 };
 
-export const resolvePluginRouteWorkspace = (
-	catalog: PluginClientCatalog,
-	pluginId: string,
-): PluginClientCatalogEntry | null =>
-	sortWorkspaces(catalog).find((plugin) => plugin.pluginId === pluginId) ?? null;
-
 export const isWorkspaceRoot = (pathname: string, workspace: PluginClientCatalogEntry | null) =>
 	workspace !== null &&
-	(pathname === pluginPath(PluginId.make(workspace.pluginId)) ||
-		pathname === `${pluginPath(PluginId.make(workspace.pluginId))}/`);
+	(pathname === pluginPath(workspace.packageId) ||
+		pathname === `${pluginPath(workspace.packageId)}/`);

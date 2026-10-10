@@ -32,7 +32,7 @@ import {
 import { createRyotClient } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import { MembershipResponse } from "@ryot-app/contract/modules/collections/schemas";
-import { EntityId, EntitySchemaSlug, PluginId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
 
@@ -170,7 +170,7 @@ const connect = (
 	const pageShortcuts: (readonly PageShortcutKey[])[] = [];
 	const operationCalls: Array<{
 		readonly input: unknown;
-		readonly pluginId: string;
+		readonly packageId: string;
 		readonly operationSlug: string;
 	}> = [];
 
@@ -207,7 +207,7 @@ const connect = (
 			((request) => {
 				operationCalls.push({
 					input: request.input,
-					pluginId: request.pluginId,
+					packageId: request.packageId,
 					operationSlug: request.operationSlug,
 				});
 				return Effect.never;
@@ -244,8 +244,8 @@ const connect = (
 				message !== null &&
 				"type" in message &&
 				message.type === "operation-request" &&
-				!("pluginId" in message)
-					? { ...message, pluginId: PluginId.make("fixture") }
+				!("packageId" in message)
+					? { ...message, packageId: PluginPackageId.make("test/fixture") }
 					: message;
 			rawPort.postMessage(value);
 		},
@@ -370,7 +370,7 @@ describe("bridge page screens", () => {
 					search: "",
 					path: "/music",
 					kind: "plugin-route" as const,
-					pluginId: PluginId.make("fixture"),
+					packageId: PluginPackageId.make("test/fixture"),
 				},
 			};
 			session.sendDocument("music", page, nav(detail, 1));
@@ -418,7 +418,7 @@ describe("bridge page screens", () => {
 					search: "",
 					path: "/music",
 					kind: "plugin-route" as const,
-					pluginId: PluginId.make("fixture"),
+					packageId: PluginPackageId.make("test/fixture"),
 				},
 			};
 			session.sendDocument("music", page, nav());
@@ -1006,7 +1006,7 @@ describe("plugin bridge", () => {
 					path: "/details/1",
 					search: "tab=stats",
 					kind: "plugin-route",
-					pluginId: PluginId.make("fixture"),
+					packageId: PluginPackageId.make("test/fixture"),
 				},
 			} satisfies PluginBridgeNavigate;
 
@@ -1286,7 +1286,11 @@ describe("plugin bridge", () => {
 				),
 			);
 			expect(calls).toEqual([
-				{ operationSlug: "greet", input: { greeting: "hi" }, pluginId: PluginId.make("fixture") },
+				{
+					operationSlug: "greet",
+					input: { greeting: "hi" },
+					packageId: PluginPackageId.make("test/fixture"),
+				},
 			]);
 		}),
 	);

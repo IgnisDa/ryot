@@ -30,7 +30,6 @@ const entry = {
 	sortOrder: 0,
 	icon: "puzzle",
 	name: "Fixture",
-	slug: "fixture",
 	health: "ready",
 	isHidden: false,
 	scope: "system",
@@ -38,8 +37,8 @@ const entry = {
 	homeSavedView: null,
 	pluginId: "plugin-1",
 	sourceHash: "source-hash",
+	packageId: "test/fixture",
 	installationId: "installation-1",
-	packageId: "ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6",
 } as const;
 
 const makeCatalogRuntime = (responses: ReadonlyArray<ContractSuccess<"ryotql", "execute">>) => {
@@ -67,7 +66,7 @@ const makeCatalogRuntime = (responses: ReadonlyArray<ContractSuccess<"ryotql", "
 
 describe("plugin catalog service", () => {
 	it.live("loads every catalog page through the direct Ryot client adapter", () => {
-		const nextEntry = { ...entry, slug: "second", installationId: "installation-2" };
+		const nextEntry = { ...entry, packageId: "test/second", installationId: "installation-2" };
 		const first = {
 			data: {
 				installations: {

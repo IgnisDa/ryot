@@ -50,7 +50,7 @@ import type { ClientRuntime } from "#/runtime";
 
 const MAX_RETAINED_FRAMES = 3;
 const pluginRouteIds = new Set([
-	"/_authenticated/p/$pluginId",
+	"/_authenticated/p/$publisher/$name",
 	"/_authenticated/e/$entityId",
 	"/_authenticated/v",
 ]);
@@ -164,9 +164,9 @@ export function ClientPageDocumentHost() {
 		() =>
 			document
 				? Match.value(document.prepared.context.target).pipe(
-						Match.when({ kind: "plugin-route" }, ({ path, pluginId }) =>
+						Match.when({ kind: "plugin-route" }, ({ path, packageId }) =>
 							rendererContributor?.kind === "plugin"
-								? toPluginLocation(pluginId, location.pathname, location.searchStr)
+								? toPluginLocation(packageId, location.pathname, location.searchStr)
 								: { path, kind: "route" as const, search: searchString(location.searchStr) },
 						),
 						Match.when({ kind: "entity" }, ({ entityId, entitySchemaSlug }) => ({
@@ -524,7 +524,7 @@ function ClientPageFrame(props: {
 			}}
 			onInvokeOperation={(request) => {
 				const target = props.operationTargets.find(
-					(candidate) => candidate.pluginId === request.pluginId,
+					(candidate) => candidate.packageId === request.packageId,
 				);
 				if (target === undefined) {
 					return Effect.succeed({

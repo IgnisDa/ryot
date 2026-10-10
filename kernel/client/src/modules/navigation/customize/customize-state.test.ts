@@ -1,3 +1,4 @@
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
@@ -16,15 +17,22 @@ import {
 	type CustomizeDraft,
 } from "#/modules/navigation/customize/customize-state";
 
-const view = (slug: string, pluginSlug: string | null, sortOrder: number, isHidden = false) => ({
+const viewReference = (slug: string) => ({
+	kind: "custom" as const,
+	savedViewId: SavedViewId.make(slug),
+});
+
+const viewId = (slug: string) => identityTupleKey(viewReference(slug));
+
+const view = (slug: string, workspaceName: string | null, sortOrder: number, isHidden = false) => ({
 	slug,
 	isHidden,
 	sortOrder,
-	pluginSlug,
 	icon: "list",
 	name: slug.toUpperCase(),
-	reference: { kind: "custom" as const, savedViewId: SavedViewId.make(slug) },
-	pluginInstallationId: pluginSlug === null ? null : `installation-${pluginSlug}`,
+	reference: viewReference(slug),
+	pluginInstallationId: workspaceName === null ? null : `installation-${workspaceName}`,
+	packageId: workspaceName === null ? null : PluginPackageId.make(`test/${workspaceName}`),
 });
 
 const workspace = (
@@ -32,7 +40,6 @@ const workspace = (
 	sortOrder: number,
 	isHidden = false,
 ): PluginClientCatalogEntry => ({
-	slug,
 	isHidden,
 	sortOrder,
 	icon: "plugin",
@@ -44,7 +51,7 @@ const workspace = (
 	pluginId: `plugin-${slug}`,
 	sourceHash: `source-${slug}`,
 	installationId: `installation-${slug}`,
-	packageId: PluginPackageId.make("ff9c9ec6-5774-42ef-881b-dc6a84ad3ba6"),
+	packageId: PluginPackageId.make(`test/${slug}`),
 });
 
 const catalog: PluginClientCatalog = [
@@ -67,20 +74,23 @@ const draft = initCustomizeDraft({ data, catalog, workspaceInstallationId: "inst
 
 describe("initCustomizeDraft", () => {
 	it("initializes all workspaces in catalog order, including hidden ones", () => {
-		expect(draft.workspaces.map((item) => item.slug)).toEqual(["disabled", "fitness", "media"]);
+		expect(draft.workspaces.map((item) => item.installationId)).toEqual([
+			"installation-disabled",
+			"installation-fitness",
+			"installation-media",
+		]);
 		expect(draft.workspaces.map((item) => item.isHidden)).toEqual([true, false, false]);
 		expect(draft.workspaces[0]).toMatchObject({
 			icon: "plugin",
 			isHidden: true,
-			slug: "disabled",
-			name: "DISABLED · System · ff9c9ec6",
+			name: "DISABLED · System · test/disabled",
 		});
 		expect(draft.views[0]?.pluginInstallationId).toBe("installation-media");
 	});
 
 	it("splits workspace views from global saved views and sorts each by sort order", () => {
-		expect(draft.views.map((item) => item.slug)).toEqual(["movies", "shows"]);
-		expect(draft.savedViews.map((item) => item.slug)).toEqual(["recent", "all"]);
+		expect(draft.views.map((item) => item.name)).toEqual(["MOVIES", "SHOWS"]);
+		expect(draft.savedViews.map((item) => item.name)).toEqual(["RECENT", "ALL"]);
 	});
 
 	it("keeps hidden items so they can be shown again", () => {
@@ -98,20 +108,24 @@ describe("moveCustomizeItem", () => {
 	it("moves an item within its own section", () => {
 		const moved = moveCustomizeItem({ draft, toIndex: 1, fromIndex: 0, section: "views" });
 
-		expect(moved.views.map((item) => item.slug)).toEqual(["shows", "movies"]);
+		expect(moved.views.map((item) => item.name)).toEqual(["SHOWS", "MOVIES"]);
 		expect(moved.savedViews).toBe(draft.savedViews);
 	});
 
 	it("clamps an out-of-range target into the section", () => {
 		const moved = moveCustomizeItem({ draft, toIndex: 9, fromIndex: 0, section: "views" });
 
-		expect(moved.views.map((item) => item.slug)).toEqual(["shows", "movies"]);
+		expect(moved.views.map((item) => item.name)).toEqual(["SHOWS", "MOVIES"]);
 	});
 
 	it("moves an item within the workspaces section", () => {
 		const moved = moveCustomizeItem({ draft, toIndex: 2, fromIndex: 0, section: "workspaces" });
 
-		expect(moved.workspaces.map((item) => item.slug)).toEqual(["fitness", "media", "disabled"]);
+		expect(moved.workspaces.map((item) => item.installationId)).toEqual([
+			"installation-fitness",
+			"installation-media",
+			"installation-disabled",
+		]);
 	});
 
 	it("returns the same draft for a move that changes nothing", () => {
@@ -121,21 +135,21 @@ describe("moveCustomizeItem", () => {
 
 describe("toggleCustomizeItem", () => {
 	it("flips visibility without moving the item", () => {
-		const toggled = toggleCustomizeItem({ draft, id: "/v/c/shows", section: "views" });
+		const toggled = toggleCustomizeItem({ draft, section: "views", id: viewId("shows") });
 
-		expect(toggled.views.map((item) => item.slug)).toEqual(["movies", "shows"]);
+		expect(toggled.views.map((item) => item.name)).toEqual(["MOVIES", "SHOWS"]);
 		expect(toggled.views.map((item) => item.isHidden)).toEqual([true, true]);
 	});
 
-	it("ignores a slug that is not in the section", () => {
-		expect(toggleCustomizeItem({ draft, id: "/v/c/all", section: "views" })).toBe(draft);
+	it("ignores an ID that is not in the section", () => {
+		expect(toggleCustomizeItem({ draft, section: "views", id: viewId("all") })).toBe(draft);
 	});
 
 	it("refuses to hide the final visible workspace", () => {
 		const onlyEnabled = {
 			...draft,
 			workspaces: draft.workspaces.map((item) =>
-				item.slug === "fitness" ? item : { ...item, isHidden: true },
+				item.installationId === "installation-fitness" ? item : { ...item, isHidden: true },
 			),
 		};
 
@@ -159,7 +173,7 @@ describe("toggleCustomizeItem", () => {
 	});
 
 	it("leaves the draft it was given untouched", () => {
-		toggleCustomizeItem({ draft, id: "/v/c/shows", section: "views" });
+		toggleCustomizeItem({ draft, section: "views", id: viewId("shows") });
 
 		expect(draft.views.map((item) => item.isHidden)).toEqual([true, false]);
 	});
@@ -173,7 +187,7 @@ describe("isCustomizeDraftDirty", () => {
 	});
 
 	it("reports a visibility change", () => {
-		const toggled = toggleCustomizeItem({ draft, id: "/v/c/all", section: "savedViews" });
+		const toggled = toggleCustomizeItem({ draft, id: viewId("all"), section: "savedViews" });
 
 		expect(isCustomizeDraftDirty({ draft: toggled, initial: draft })).toBe(true);
 	});

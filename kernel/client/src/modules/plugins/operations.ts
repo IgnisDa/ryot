@@ -10,7 +10,7 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginId } from "@ryot-app/contract/schema/brands";
+import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { isDemoOperationProtectedError } from "#/api/authenticated";
@@ -50,7 +50,7 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 						payload: { payload: invocation.request.input, sourceHash: invocation.sourceHash },
 						params: {
 							operationSlug: invocation.request.operationSlug,
-							pluginId: PluginId.make(invocation.request.pluginId),
+							...pluginPackageSegments(invocation.request.packageId),
 						},
 					})
 					.pipe(
