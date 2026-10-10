@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import {
 	createAuthenticatedClient,
 	createEntity,
+	createEventFixture,
 	createNotificationChannel,
 	deleteNotificationRule,
 	getEntity,
@@ -162,10 +163,15 @@ describe("notification subscription catalog and rules", () => {
 			});
 			const { schema } = yield* findFitnessEntitySchema(client, "workout");
 			const workoutName = `E2E Workout ${crypto.randomUUID()}`;
-			yield* createEntity(client, {
+			const workout = yield* createEntity(client, {
 				name: workoutName,
 				entitySchema: schema.reference,
 				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
+			});
+			yield* createEventFixture(client, {
+				entityId: workout.id,
+				properties: { workoutName },
+				eventSchemaSlug: "workout-completed",
 			});
 
 			const delivered = yield* pollUntil(

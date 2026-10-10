@@ -13,6 +13,7 @@ import {
 	createAuthenticatedClient,
 	createApiKey,
 	createEntity,
+	createEventFixture,
 	createNotificationChannel,
 	deleteUserAndWait,
 	enqueueProviderEntityImport,
@@ -187,10 +188,15 @@ describe("Delete user automation data cleanup", () => {
 				slug: SignalSchemaSlug.make("workout.created"),
 			};
 			const workoutName = `Delete User E2E Workout ${crypto.randomUUID()}`;
-			yield* createEntity(userClient, {
+			const workout = yield* createEntity(userClient, {
 				name: workoutName,
 				entitySchema: schema.reference,
 				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
+			});
+			yield* createEventFixture(userClient, {
+				entityId: workout.id,
+				properties: { workoutName },
+				eventSchemaSlug: "workout-completed",
 			});
 
 			const { id: triggerId } = yield* pollSignalTrigger({

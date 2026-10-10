@@ -201,7 +201,10 @@ describe("universal durable sandbox tracer", () => {
 
 			expect(requireArray(value.rows, "Durable tracer rows")).toHaveLength(1);
 			expect(value.claim).toEqual({ claimed: true });
-			expect(value.events).toEqual({ count: 1 });
+			expect(value.events).toEqual({
+				count: 1,
+				outcomes: [{ index: 0, status: "written", eventId: expect.any(String) }],
+			});
 			expect(value.child).toBe(`child:${fixture.entityId}`);
 			expect(value.parallel).toEqual([null, null]);
 			expect(value.preferences).toEqual({ disableIntegrations: false });
