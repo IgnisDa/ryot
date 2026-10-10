@@ -40,17 +40,12 @@ export class RelationshipSchemasRepository extends Context.Service<RelationshipS
 				sourceEntitySchemaSlug: EntitySchemaSlug;
 				targetEntitySchemaSlug: EntitySchemaSlug;
 			}) =>
-				definitions.getGlobalSnapshot.pipe(
-					Effect.map((snapshot) =>
-						toNullableScope(
-							Object.values(snapshot.relationshipSchemas).find(
-								(item) =>
-									item.sourceEntitySchemaSlug === input.sourceEntitySchemaSlug &&
-									item.targetEntitySchemaSlug === input.targetEntitySchemaSlug,
-							),
-						),
-					),
-				);
+				definitions
+					.findGlobalRelationshipSchemaByEndpoints(
+						input.sourceEntitySchemaSlug,
+						input.targetEntitySchemaSlug,
+					)
+					.pipe(Effect.map(toNullableScope));
 			return { findById, findBuiltinBySlug, findGlobalBySchemaIds };
 		}),
 	},
