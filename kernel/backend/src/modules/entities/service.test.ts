@@ -70,6 +70,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntitiesRepository } from "./repository";
 import { EntitiesService, type UpdateEntityInput } from "./service";
+import { DomainWriteChecksLive } from "./write-context";
 
 const owner = UserId.make("owner");
 const slug = EntitySchemaSlug.make("record");
@@ -231,6 +232,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 					);
 			const repositories = Layer.mergeAll(
 				EntitiesRepository.layer.pipe(Layer.provide(Layer.merge(base, runtime))),
+				DomainWriteChecksLive,
 				EventsRepository.layer,
 				EventSchemasRepository.layer.pipe(Layer.provide(runtime)),
 				AutomationTriggerRepository.layer,

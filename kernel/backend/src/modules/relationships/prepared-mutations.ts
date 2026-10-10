@@ -9,7 +9,7 @@ import { Cause, Effect, Schema } from "effect";
 
 import type { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
-import { DomainLifecycleCommand, makeDomainWriteChecks } from "#modules/entities/write-context";
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { catalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
 import {
@@ -58,9 +58,9 @@ export type PreparedUserRelationshipDelete = {
 export const makePreparedRelationshipMutations = (
 	dependencies: RelationshipMutationDependencies,
 ) => {
-	const { session, planner, runtime, receipts, execution, repository, definitions } = dependencies;
+	const { writes, session, planner, runtime, receipts, execution, repository, definitions } =
+		dependencies;
 	const primitives = makeRelationshipMutationPrimitives(dependencies);
-	const writes = makeDomainWriteChecks(session);
 	const transaction = rootTransaction(session);
 	const assertRootTransaction = rootTransactionGuard(session);
 	const assertActiveTransaction = activeTransactionGuard(session);

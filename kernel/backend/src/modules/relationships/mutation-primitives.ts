@@ -24,10 +24,7 @@ import {
 	canonicalLifecyclePolicyPatch,
 } from "#lib/domain/lifecycle-policy-patch";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
-import {
-	makeDomainWriteChecks,
-	type DomainLifecycleCommand,
-} from "#modules/entities/write-context";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import {
 	MutationReceiptIdentityConflict,
 	type MutationReceiptIdentity,
@@ -65,6 +62,7 @@ const draft = (
 	);
 
 export const makeRelationshipMutationPrimitives = ({
+	writes,
 	session,
 	planner,
 	entities,
@@ -79,7 +77,6 @@ export const makeRelationshipMutationPrimitives = ({
 				new DbError({ message: "Relationship mutation primitives require an active transaction" }),
 		),
 	);
-	const writes = makeDomainWriteChecks(session);
 	const validateMutation = Effect.fnUntraced(function* (mutation: Mutation, lock = false) {
 		const reference = relationshipSchemaReference(mutation.input);
 		if (

@@ -30,10 +30,7 @@ import { EntityRelationshipDefinitions } from "#modules/definition-registry/snap
 import { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import {
-	makeDomainWriteChecks,
-	type DomainLifecycleCommand,
-} from "#modules/entities/write-context";
+import { DomainWriteChecks, type DomainLifecycleCommand } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 
@@ -98,7 +95,7 @@ const resolveProviderEntityDefinitions = (
 		success: EntityRelationshipDefinitions satisfies DurableSchema,
 		execute: Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;
-			const checks = makeDomainWriteChecks(yield* DatabaseSession);
+			const checks = yield* DomainWriteChecks;
 			const manifest = yield* checks
 				.check(
 					payload.command,
@@ -550,7 +547,7 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 				message: "Provider population requires its exact persisted plugin authority",
 			});
 		}
-		const checks = makeDomainWriteChecks(yield* DatabaseSession);
+		const checks = yield* DomainWriteChecks;
 		const provider = yield* checks
 			.checkProvider(payload.providerId, definitionOwner(payload.pluginId))
 			.pipe(

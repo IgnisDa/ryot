@@ -17,7 +17,7 @@ import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
-import { makeDomainWriteChecks } from "#modules/entities/write-context";
+import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -66,7 +66,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		const execution = yield* LifecycleExecution;
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
-		const writes = makeDomainWriteChecks(session);
+		const writes = yield* DomainWriteChecks;
 		const reads = makeProviderExecutionReads(session);
 
 		const resolvePinnedProviderScript = Effect.fnUntraced(function* (input: {

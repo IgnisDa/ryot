@@ -19,6 +19,7 @@ import {
 	EntityPopulationTrigger,
 	type PopulationRequest,
 } from "#modules/entities/population-trigger";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import {
 	installRevisionPackage,
@@ -146,7 +147,7 @@ const triggerLayer = (
 					),
 			});
 			return EntityPopulationTriggerLive.pipe(
-				Layer.provide(SandboxExecutionServiceLive),
+				Layer.provide(Layer.merge(SandboxExecutionServiceLive, DomainWriteChecksLive)),
 				Layer.provideMerge(Layer.succeed(WorkflowEngine, engine)),
 				Layer.merge(Layer.succeed(PopulationFixture, { request, executions: Ref.get(executions) })),
 			);

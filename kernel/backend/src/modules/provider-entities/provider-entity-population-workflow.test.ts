@@ -33,6 +33,7 @@ import { planFixture } from "#modules/automations/lifecycle.test-support";
 import type { EntityRelationshipDefinitions } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import {
 	installRevisionPackage,
@@ -271,6 +272,7 @@ const populationLayer = (options: {
 			return Layer.mergeAll(
 				Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 				Layer.succeed(PluginRuntimeResolver, runtime),
+				DomainWriteChecksLive,
 				Layer.mock(EntitiesRepository)({ findEntityByExternalId: () => Effect.succeed(null) }),
 				Layer.mock(EntitiesService)({
 					persistPlannedProviderUpsert: upsertItem,

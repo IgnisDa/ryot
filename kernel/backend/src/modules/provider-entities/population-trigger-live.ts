@@ -8,7 +8,7 @@ import {
 	EntityPopulationTrigger,
 	entityPopulationExecutionId,
 } from "#modules/entities/population-trigger";
-import { makeDomainWriteChecks } from "#modules/entities/write-context";
+import { DomainWriteChecks } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -24,7 +24,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 		const receipts = yield* MutationReceipts.make;
 		const sandbox = yield* SandboxExecutionService;
 		const session = yield* DatabaseSession;
-		const checks = makeDomainWriteChecks(session);
+		const checks = yield* DomainWriteChecks;
 
 		return {
 			request: (input) =>
