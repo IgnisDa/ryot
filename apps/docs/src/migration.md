@@ -45,8 +45,6 @@ upload if you do not use S3. The changes look like this:
      pull_policy: always
      container_name: ryot
      restart: unless-stopped
-+    mem_limit: 2g
-+    memswap_limit: 2g
      ports:
        - "8000:8000"
      environment:
