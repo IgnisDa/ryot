@@ -44,6 +44,39 @@ collection schemas and the operation's RyotQL sees every event of the user. Upda
 `text` and `rating`. Note text is trimmed and limited to 2000 characters at the operation input;
 the stored schema stays unbounded for migrated notes.
 
+## Storage Units
+
+Workout and template set measurements use kg, km, and seconds. Workout `caloriesBurnt` uses kcal;
+displaying kJ multiplies by 4.184. Display preferences never change stored units.
+
+## Workout Preferences And Duration
+
+The exact user's Fitness installation owns the flat `userSettingsSchema` preferences: `unitSystem`
+(`metric`), `normalRestTime` (60 seconds), `warmUpRestTime`, `dropRestTime`, and `failureRestTime`
+(0 seconds), `muteSounds` and `promptForRestTimer` (false), `startTimerForDurationExercises` (true),
+and `energyUnit` (`kcal`, with `kJ` also supported). Defaults make an empty record valid; explicit null
+choices are invalid. Reset removes stored choices. These are not kernel preferences or plugin config.
+
+The user's `in-fitness-library` relationship owns optional per-exercise rest overrides with the same
+four names and `defaultDurationUnit` (`seconds` or `minutes`). These fields have no defaults. Missing
+or null overrides inherit; removing a field restores inheritance. Shared provider exercise entities
+never own these choices. Membership-only writes merge properties and preserve existing overrides.
+
+Rest precedence is explicit set choice, including template-set `restTime`, then the exercise override
+for its set type, then the global setting, then the declared default. Zero explicitly disables rest;
+it is not a missing value. Duration display precedence is occurrence choice, exercise override, then
+minutes. Weight/distance and energy display use an occurrence choice, then the global setting, then
+metric/kcal. Sound, rest prompting, and countdown behavior use a local choice when present, otherwise
+the global setting and its default. Preference changes do not alter saved measurements or rest times.
+
+Optional workout `activeDuration` records nonnegative whole seconds including ordinary rests but
+excluding explicit pauses. `startedAt` and `endedAt` retain actual timestamps. Missing/null active
+duration means unknown, not zero; elapsed time from timestamps is a separate measure. New logged
+sessions sum unpaused draft intervals and truncate the total once. Historical edits preserve recorded
+active duration unless explicitly corrected or cleared; repeats and templates do not copy it into a
+new session. Running timers, pause intervals, unconfirmed sets, and collapse state belong to local
+drafts, not saved properties. Current workout detail presentation uses elapsed time and metric values.
+
 ## Measurements
 
 A `measurement-metric` entity is one user-owned metric: its name is the display label, `key` is the
@@ -81,6 +114,11 @@ activity. Run reports count workouts or measurements in their source-owned units
 chunks. Activities describe source reading, exercise resolution, and writing separately from actual
 created, updated, unchanged, skipped, or unsuccessful outcomes. Active recovery retains inputs and
 execution pins until terminal cleanup; cancelling keeps committed results.
+
+Strong imports use the source-reported workout duration as `activeDuration`, truncated once to whole
+seconds. Excluding pauses is an assumption about that source's timer, not verified pause evidence.
+Its end timestamp remains start plus source duration. Hevy imports preserve start/end timestamps and
+leave active duration unknown because the export supplies no session-duration or pause evidence.
 
 An OpenScale row becomes one write item: each non-empty numeric column finds or creates the user's
 `measurement-metric` matched by column label and normalized `key`, and gets one

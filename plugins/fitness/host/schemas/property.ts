@@ -211,16 +211,23 @@ export const workoutPropertiesSchema: AppSchema = {
 			label: "Comment",
 			description: "Optional notes or comments about this workout",
 		},
-		caloriesBurnt: {
-			type: "number",
-			label: "Calories Burnt",
-			description: "Estimated calories burned during this workout",
-		},
 		startedAt: {
 			type: "datetime",
 			label: "Started At",
 			validation: { required: true },
 			description: "Date and time this workout session began",
+		},
+		caloriesBurnt: {
+			type: "number",
+			label: "Calories Burnt",
+			validation: { minimum: 0 },
+			description: "Estimated energy burned during this workout in kilocalories (kcal)",
+		},
+		activeDuration: {
+			type: "integer",
+			label: "Active Duration",
+			validation: { minimum: 0 },
+			description: "Recorded workout duration in seconds, including rests but excluding pauses",
 		},
 		supersets: {
 			type: "array",
@@ -270,6 +277,12 @@ const workoutTemplateSetProperties: Readonly<Record<string, AppPropertyDefinitio
 		type: "integer",
 		validation: { minimum: 0 },
 		description: "Nonnegative whole number of repetitions planned for this set",
+	},
+	restTime: {
+		type: "integer",
+		label: "Rest Time",
+		validation: { minimum: 0 },
+		description: "Planned rest after this set in seconds; zero disables rest",
 	},
 	setOrder: {
 		type: "integer",

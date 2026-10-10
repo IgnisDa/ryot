@@ -37,6 +37,32 @@ it("links imported exercises to the fitness library without media membership", (
 	expect(JSON.stringify(item)).not.toContain("in-media-library");
 });
 
+it.each([0, 3723])(
+	"persists a recorded active duration of %s without changing timestamps",
+	(activeDuration) => {
+		const item = toWorkoutWriteItem({
+			itemIndex: 0,
+			exercises: [],
+			activeDuration,
+			name: "Recorded session",
+			sourceLabel: "Recorded session",
+			endedAt: "2026-01-01T10:00:00.000Z",
+			sourceIdentifier: "recorded-session",
+			startedAt: "2026-01-01T08:00:00.000Z",
+		});
+		expect(item.entities).toContainEqual(
+			expect.objectContaining({
+				alias: "workout",
+				properties: {
+					activeDuration,
+					endedAt: "2026-01-01T10:00:00.000Z",
+					startedAt: "2026-01-01T08:00:00.000Z",
+				},
+			}),
+		);
+	},
+);
+
 it("requests exact catalog resolution while preserving custom fallback data and aliases", () => {
 	const item = toWorkoutWriteItem({
 		itemIndex: 0,
