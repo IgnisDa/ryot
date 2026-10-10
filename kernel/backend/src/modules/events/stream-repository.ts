@@ -422,7 +422,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 			});
 
 			const listCandidates = Effect.fn("EventStreamRepository.listCandidates")(function* (
-				limit = 100,
+				limit = 500,
 			) {
 				return yield* session.run((db) =>
 					db
