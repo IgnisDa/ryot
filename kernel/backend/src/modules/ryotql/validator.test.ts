@@ -177,6 +177,7 @@ it("exposes only approved application-table fields", () => {
 	expect(new Set(Object.keys(getCatalogTable("pluginInstallation")?.fields ?? {}))).toEqual(
 		new Set([
 			"id",
+			"activeConfigRevisionId",
 			"health",
 			"isInitialized",
 			"pluginId",
@@ -690,6 +691,7 @@ it("hides admin-only fields of user-visible tables from every user audience", ()
 		["user", "disabledAt"],
 		["user", "twoFactorEnabled"],
 		["plugin", "environmentConfigRevisionId"],
+		["pluginInstallation", "activeConfigRevisionId"],
 		["automationTrigger", "payload"],
 		["automationTrigger", "createdAt"],
 		["automationTrigger", "rootExecutionId"],

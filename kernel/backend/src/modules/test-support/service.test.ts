@@ -133,17 +133,9 @@ const recordingServiceLayer = <A>(
 const persistedPluginResult = (revision: string) => ({
 	id: "plugin-id",
 	activationId: "activation-id",
-	installationId: "installation-id",
-	configRevisionId: `config-${revision}`,
 	activeRevisionId: `revision-${revision}`,
 	scripts: [{ slug: "fixture.script", id: `script-${revision}` }],
 });
-
-const pluginInstallationResult = {
-	id: "installation-id",
-	activationId: "activation-id",
-	pluginId: PluginId.make("plugin-id"),
-};
 
 const systemPluginManifest = {
 	...fixtureManifest(),
@@ -193,7 +185,6 @@ const systemPluginIngestion = recordingServiceLayer<SystemPluginObservation>(
 						),
 						installationId: null,
 						configRevisionId: null,
-						scope: "system" as const,
 					})),
 				),
 		},
@@ -223,7 +214,7 @@ layer(systemPluginIngestion.layer)((test) => {
 					kind: "install",
 					input: { compiledClient, compiledScripts, manifest: systemPluginManifest },
 				},
-				{ kind: "result", identity: { ownerId: null, scope: "system", pluginId: "plugin-id" } },
+				{ kind: "result", identity: { pluginId: "plugin-id" } },
 			]);
 			expect(result).toEqual({
 				installationId: null,
@@ -266,83 +257,11 @@ layer(systemPluginIngestion.layer)((test) => {
 						manifest: systemPluginManifest,
 					},
 				},
-				{ kind: "result", identity: { pluginId, ownerId: null, scope: "system" } },
+				{ kind: "result", identity: { pluginId } },
 			]);
 			expect(result.activePluginRevisionId).toBe("revision-v2");
 		});
 	});
-});
-
-type PrivatePluginObservation =
-	| { kind: "install" }
-	| { kind: "update"; userId: UserId; installationId: string }
-	| {
-			identity: Parameters<PluginRepository["Service"]["findTestSupportOperationResult"]>[0];
-			kind: "result";
-	  };
-
-const privatePluginOperations = recordingServiceLayer<PrivatePluginObservation>(
-	(record, recorded) => ({
-		pluginInstallations: {
-			installPrivatePlugin: () =>
-				record({ kind: "install" }).pipe(Effect.as(pluginInstallationResult)),
-			updatePrivatePlugin: (input) =>
-				record({ kind: "update", userId: input.userId, installationId: input.installationId }).pipe(
-					Effect.as(pluginInstallationResult),
-				),
-		},
-		pluginRepository: {
-			findTestSupportOperationResult: (identity) =>
-				record({ identity, kind: "result" }).pipe(
-					Effect.andThen(recorded),
-					Effect.map((observations) =>
-						persistedPluginResult(
-							observations.some((observation) => observation.kind === "update") ? "v2" : "v1",
-						),
-					),
-				),
-		},
-	}),
-);
-
-layer(privatePluginOperations.layer)((test) => {
-	test.effect("returns a fresh persisted private handle after install and update", () =>
-		Effect.gen(function* () {
-			const service = yield* TestSupportService;
-			const installed = yield* service.installPrivatePlugin(UserId.make("owner"), {
-				config: {},
-				uploadToken: "install-upload",
-			});
-			const installationId = installed.installationId;
-			assert(installationId);
-			const updated = yield* service.updatePrivatePlugin(UserId.make("owner"), installationId, {
-				uploadToken: "update-upload",
-				contentHash: "current-source-hash",
-			});
-			expect(yield* privatePluginOperations.recorded).toEqual([
-				{ kind: "install" },
-				{ kind: "result", identity: { scope: "user", ownerId: "owner", pluginId: "plugin-id" } },
-				{ kind: "update", userId: UserId.make("owner"), installationId: "installation-id" },
-				{ kind: "result", identity: { scope: "user", ownerId: "owner", pluginId: "plugin-id" } },
-			]);
-			expect(installed).toEqual({
-				pluginId: "plugin-id",
-				activationId: "activation-id",
-				configRevisionId: "config-v1",
-				installationId: "installation-id",
-				activePluginRevisionId: "revision-v1",
-				scripts: [{ id: "script-v1", slug: "fixture.script" }],
-			});
-			expect(updated).toEqual({
-				pluginId: installed.pluginId,
-				activationId: "activation-id",
-				configRevisionId: "config-v2",
-				activePluginRevisionId: "revision-v2",
-				installationId: installed.installationId,
-				scripts: [{ id: "script-v2", slug: "fixture.script" }],
-			});
-		}),
-	);
 });
 
 const translationUpserts = recordingServiceLayer<unknown>((record) => ({

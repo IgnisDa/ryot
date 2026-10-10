@@ -2,10 +2,6 @@ import { createLocalAccountIssuer, createOAuthAccountIssuer } from "@better-auth
 import type { ContractPayload } from "@ryot-app/contract/client";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
-import type {
-	InstallPluginBody,
-	UpdatePrivatePluginBody,
-} from "@ryot-app/contract/modules/plugins/schemas";
 import {
 	TestSupportBadRequest,
 	TestSupportOperationFailure,
@@ -17,7 +13,6 @@ import {
 import {
 	AutomationExecutionId,
 	type EntityId,
-	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
 	type SandboxProviderId,
@@ -149,12 +144,9 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 						activationId: result.activationId,
 						pluginId: PluginId.make(result.id),
 						installationId: result.installationId,
+						configRevisionId: result.configRevisionId,
 						activePluginRevisionId: PluginRevisionId.make(result.activeRevisionId),
 						scripts: result.scripts.map(({ id, slug }) => ({ slug, id: SandboxScriptId.make(id) })),
-						configRevisionId:
-							result.configRevisionId === null
-								? null
-								: PluginConfigRevisionId.make(result.configRevisionId),
 					};
 				},
 			);
@@ -167,11 +159,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					compiledScripts: input.compiledScripts,
 					...(compiledClient === undefined ? {} : { compiledClient }),
 				});
-				return yield* getPluginOperationResult({
-					ownerId: null,
-					scope: "system",
-					pluginId: installed.pluginId,
-				});
+				return yield* getPluginOperationResult({ pluginId: installed.pluginId });
 			});
 			const updateSystemPlugin = Effect.fn("TestSupportService.updateSystemPlugin")(function* (
 				pluginId: PluginId,
@@ -185,40 +173,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					compiledScripts: input.compiledScripts,
 					...(compiledClient === undefined ? {} : { compiledClient }),
 				});
-				return yield* getPluginOperationResult({
-					ownerId: null,
-					scope: "system",
-					pluginId: updated.pluginId,
-				});
+				return yield* getPluginOperationResult({ pluginId: updated.pluginId });
 			});
-			const installPrivatePlugin = Effect.fn("TestSupportService.installPrivatePlugin")(function* (
-				userId: UserId,
-				input: InstallPluginBody,
-			) {
-				const installed = yield* pluginInstallations.installPrivatePlugin({ userId, ...input });
-				return yield* getPluginOperationResult({
-					scope: "user",
-					ownerId: userId,
-					pluginId: installed.pluginId,
-				});
-			});
-			const updatePrivatePlugin = Effect.fn("TestSupportService.updatePrivatePlugin")(function* (
-				userId: UserId,
-				installationId: string,
-				input: UpdatePrivatePluginBody,
-			) {
-				const updated = yield* pluginInstallations.updatePrivatePlugin({
-					userId,
-					installationId,
-					...input,
-				});
-				return yield* getPluginOperationResult({
-					scope: "user",
-					ownerId: userId,
-					pluginId: updated.pluginId,
-				});
-			});
-
 			const createGlobalEntity = Effect.fn("TestSupportService.createGlobalEntity")(function* (
 				input: CreateGlobalEntityInput,
 			) {
@@ -363,8 +319,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				createGlobalEntity,
 				updateSystemPlugin,
 				installSystemPlugin,
-				updatePrivatePlugin,
-				installPrivatePlugin,
 				setEntityPopulatedAt,
 				deleteGlobalEntities,
 				upsertEntityTranslation,

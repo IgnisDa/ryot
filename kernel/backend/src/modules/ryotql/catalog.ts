@@ -489,6 +489,7 @@ const pluginInstallation: CatalogTable = {
 		config: withAccess(physicalField("client_config", "json", false), "kernel"),
 		userSettings: withAccess(physicalField("user_settings", "json", false), "kernel"),
 		configuredSecrets: withAccess(textArrayField("configured_secret_paths"), "kernel"),
+		activeConfigRevisionId: withAccess(physicalField("active_config_revision_id", "text"), "admin"),
 		conflictingSystemPluginId: {
 			kind: "text",
 			nullable: true,

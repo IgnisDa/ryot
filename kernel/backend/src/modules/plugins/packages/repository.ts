@@ -699,11 +699,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const findTestSupportOperationResult = Effect.fn(
 			"PluginRepository.findTestSupportOperationResult",
-		)(function* (
-			identity:
-				| { readonly pluginId: string; readonly ownerId: null; readonly scope: "system" }
-				| { readonly pluginId: string; readonly ownerId: string; readonly scope: "user" },
-		) {
+		)(function* (identity: { readonly pluginId: string }) {
 			const [plugin] = yield* database.run((db) =>
 				db
 					.select({
@@ -716,9 +712,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						and(
 							eq(schema.plugin.id, identity.pluginId),
 							eq(schema.plugin.status, "active"),
-							identity.ownerId === null
-								? isNull(schema.plugin.ownerId)
-								: eq(schema.plugin.ownerId, identity.ownerId),
+							isNull(schema.plugin.ownerId),
 						),
 					)
 					.limit(1),
@@ -734,42 +728,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					.where(eq(schema.sandboxScript.pluginRevisionId, activeRevisionId))
 					.orderBy(asc(schema.sandboxScript.slug)),
 			);
-			if (identity.scope === "system") {
-				return {
-					...plugin,
-					scripts,
-					activeRevisionId,
-					installationId: null,
-					configRevisionId: null,
-				};
-			}
-			const [installation] = yield* database.run((db) =>
-				db
-					.select({
-						id: schema.pluginInstallation.id,
-						configRevisionId: schema.pluginInstallation.activeConfigRevisionId,
-					})
-					.from(schema.pluginInstallation)
-					.where(
-						and(
-							eq(schema.pluginInstallation.pluginId, plugin.id),
-							eq(schema.pluginInstallation.userId, identity.ownerId),
-							isNull(schema.pluginInstallation.incompatibilityReason),
-							isNull(schema.pluginInstallation.uninstalledAt),
-						),
-					)
-					.limit(1),
-			);
-			if (!installation) {
-				return null;
-			}
-			return {
-				...plugin,
-				scripts,
-				activeRevisionId,
-				installationId: installation.id,
-				configRevisionId: installation.configRevisionId,
-			};
+			return { ...plugin, scripts, activeRevisionId, installationId: null, configRevisionId: null };
 		});
 
 		const isActiveRevision = Effect.fn("PluginRepository.isActiveRevision")(function* (input: {

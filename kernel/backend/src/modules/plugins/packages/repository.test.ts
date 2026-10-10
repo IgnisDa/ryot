@@ -482,55 +482,6 @@ describe("plugin repository revisions", () => {
 	});
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect(
-			"returns current persisted test-support handles across private package updates",
-			() =>
-				Effect.gen(function* () {
-					const repository = yield* PluginRepository;
-					const firstPackage = revisionPackage("handle-fixture", "v1");
-					const first = yield* installRevisionPackage(firstPackage, owner);
-					const before = yield* repository.findTestSupportOperationResult({
-						scope: "user",
-						ownerId: owner,
-						pluginId: first.pluginId,
-					});
-					assert(before);
-					expect(before).toMatchObject({
-						id: first.pluginId,
-						activeRevisionId: first.revisionId,
-						installationId: first.installation.id,
-						configRevisionId: first.installation.activeConfigRevisionId,
-					});
-					expect(before.scripts).toHaveLength(5);
-
-					const second = yield* installRevisionPackage(
-						revisionPackage(
-							"handle-fixture",
-							"v2",
-							"handle-fixture-entity",
-							firstPackage.manifest.metadata.packageId,
-						),
-						owner,
-					);
-					const after = yield* repository.findTestSupportOperationResult({
-						scope: "user",
-						ownerId: owner,
-						pluginId: first.pluginId,
-					});
-					assert(after);
-					expect(after.id).toBe(before.id);
-					expect(after.installationId).toBe(before.installationId);
-					expect(after.activeRevisionId).toBe(second.revisionId);
-					expect(after.activeRevisionId).not.toBe(before.activeRevisionId);
-					expect(after.scripts.map(({ id }) => id)).not.toEqual(before.scripts.map(({ id }) => id));
-					expect(after.scripts.map(({ slug }) => slug)).toEqual(
-						before.scripts.map(({ slug }) => slug),
-					);
-				}),
-		);
-	});
-
-	layer(revisionDatabaseLayer)((test) => {
-		test.effect(
 			"fences entity references by stable plugin ownership rather than a colliding schema slug",
 			() =>
 				Effect.gen(function* () {
