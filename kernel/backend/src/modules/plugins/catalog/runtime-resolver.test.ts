@@ -959,11 +959,11 @@ describe("catalog reads across revision boundaries", () => {
 					yield* plugins.deactivate(installed.pluginId);
 					const [revision] = yield* session.run((db) =>
 						db
-							.select()
+							.select({ providers: tables.pluginRevision.providers })
 							.from(tables.pluginRevision)
 							.where(eq(tables.pluginRevision.id, installed.revisionId)),
 					);
-					expect(revision?.manifest.providers).toHaveLength(1);
+					expect(revision?.providers).toHaveLength(1);
 					expect(
 						yield* runtime.findSchemaProviderByReference({
 							slug: "fixture-provider",

@@ -18,7 +18,7 @@ type StoredInstallationRow = Omit<
 >;
 export type PluginInstallationRow = StoredInstallationRow & {
 	readonly config: Record<string, unknown>;
-	readonly configSchema?: (typeof schema.pluginRevision.$inferSelect)["manifest"]["configSchema"];
+	readonly configSchema?: (typeof schema.pluginRevision.$inferSelect)["configSchema"];
 };
 
 export type PluginInstallationHealth = PluginInstallationRow["health"];
@@ -31,7 +31,7 @@ export type PluginPrivateInstallationRow = Pick<
 > & {
 	readonly pluginId: PluginRow["id"];
 	readonly packageId: PluginRow["packageId"];
-	readonly manifest: (typeof schema.pluginRevision.$inferSelect)["manifest"];
+	readonly manifest: (typeof schema.pluginRevisionManifest.$inferSelect)["manifest"];
 	readonly installationId: PluginInstallationRow["id"];
 };
 
@@ -66,10 +66,10 @@ const provisionSystemInstallations = (
 const privateInstallation = {
 	pluginId: schema.plugin.id,
 	packageId: schema.plugin.packageId,
-	manifest: schema.pluginRevision.manifest,
 	userId: schema.pluginInstallation.userId,
 	health: schema.pluginInstallation.health,
 	installationId: schema.pluginInstallation.id,
+	manifest: schema.pluginRevisionManifest.manifest,
 	healthReason: schema.pluginInstallation.healthReason,
 	isInitialized: schema.pluginInstallation.isInitialized,
 	incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
@@ -672,8 +672,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						.from(schema.pluginInstallation)
 						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
 						.innerJoin(
-							schema.pluginRevision,
-							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+							schema.pluginRevisionManifest,
+							eq(schema.pluginRevisionManifest.pluginRevisionId, schema.plugin.activeRevisionId),
 						)
 						.where(
 							and(
