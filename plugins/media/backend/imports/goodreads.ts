@@ -139,7 +139,7 @@ export const adaptGoodreadsCsv = (
 		const review = createReviewEvent({
 			text: row["My Review"] ?? "",
 			occurredAt: fallbackOccurredAt,
-			rating: normalizeRating(row["My Rating"] ?? ""),
+			rating: normalizeRating(row["My Rating"] ?? "", 5),
 		});
 		if (review) {
 			group.events.push(review);

@@ -20,7 +20,7 @@ export const Item = Schema.Struct({
 	UserData: Schema.optional(
 		Schema.Struct({
 			IsFavorite: Schema.optional(Schema.Boolean),
-			LastPlayedDate: Schema.optional(Schema.String),
+			LastPlayedDate: Schema.optional(Schema.NullOr(Schema.String)),
 		}),
 	),
 });

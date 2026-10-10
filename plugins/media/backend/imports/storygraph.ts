@@ -87,7 +87,7 @@ export const adaptStorygraphCsv = (
 		const review = createReviewEvent({
 			occurredAt,
 			text: row["Review"] ?? "",
-			rating: normalizeRating(row["Star Rating"] ?? ""),
+			rating: normalizeRating(row["Star Rating"] ?? "", 5),
 		});
 		if (review) {
 			group.events.push(review);

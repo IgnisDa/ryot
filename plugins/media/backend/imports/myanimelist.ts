@@ -194,7 +194,7 @@ const adaptLot = (
 			} else if (status === "on_hold") {
 				group.events.push(createOnHoldEvent({ occurredAt }));
 			}
-			const review = createReviewEvent({ occurredAt, rating: normalizeRating(String(score)) });
+			const review = createReviewEvent({ occurredAt, rating: normalizeRating(String(score), 10) });
 			if (review) {
 				group.events.push(review);
 			}

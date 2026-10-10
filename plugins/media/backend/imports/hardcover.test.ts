@@ -6,6 +6,23 @@ const HARDCOVER_HEADERS =
 	"Title,Status,Hardcover Book ID,Lists,Date Started,Date Finished,Rating,Review,Review Contains Spoilers,Review Date,Owned";
 
 describe("adaptHardcoverCsv", () => {
+	it.each([
+		["0.5", 10],
+		["2.5", 50],
+		["5", 100],
+		["0", null],
+		["", null],
+	])("imports a five-point rating of %s as %s", (score, rating) => {
+		const result = adaptHardcoverCsv(`${HARDCOVER_HEADERS}\nBook,,1001,,,,${score},,,,`);
+		expect(result.failures).toEqual([]);
+		expect(
+			result.entityGroups
+				.flatMap((group) => group.events)
+				.filter((event) => event.eventSchemaSlug === "review")
+				.map((event) => event.properties["rating"]),
+		).toEqual(rating === null ? [] : [rating]);
+	});
+
 	it("maps historical lifecycle events, review details, and collections", () => {
 		const csv = [
 			HARDCOVER_HEADERS,

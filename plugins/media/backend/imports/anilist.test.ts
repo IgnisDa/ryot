@@ -3,6 +3,39 @@ import { describe, expect, it } from "vitest";
 import { adaptAnilistExport } from "./anilist";
 
 describe("adaptAnilistExport", () => {
+	it.each([1, 4, 5, 8, 10, 50, 100, 0])(
+		"preserves a hundred-point rating of %s in lists and reviews",
+		(score) => {
+			const result = adaptAnilistExport(
+				JSON.stringify({
+					lists: [
+						{ id: 1, score, progress: 0, series_id: 100, series_type: 0, progress_volume: 0 },
+					],
+					reviews: [
+						{
+							id: 2,
+							score,
+							text: "Review",
+							series_id: 100,
+							series_type: 0,
+							summary: "Summary",
+							updated_at: "2026-01-04 10:00:00",
+						},
+					],
+				}),
+				"Etc/GMT",
+			);
+			expect(result.failures).toEqual([]);
+			const reviews = result.entityGroups
+				.flatMap((group) => group.events)
+				.filter((event) => event.eventSchemaSlug === "review");
+			expect(reviews.map((event) => event.properties["rating"])).toEqual(
+				score === 0 ? [undefined] : [score, score],
+			);
+			expect(reviews.map((event) => event.properties["text"])).toContain("Summary\n\nReview");
+		},
+	);
+
 	it("maps progress coverage, reviews, favorites, and custom lists", () => {
 		const exportJson = JSON.stringify({
 			favourites: [{ favourite_id: 200, favourite_type: 2 }],
@@ -70,7 +103,7 @@ describe("adaptAnilistExport", () => {
 				{
 					eventSchemaSlug: "review",
 					occurredAt: "2026-01-02T13:00:00.000Z",
-					properties: { rating: 80, text: "Loved the pacing" },
+					properties: { rating: 8, text: "Loved the pacing" },
 				},
 				{
 					eventSchemaSlug: "review",
@@ -91,6 +124,7 @@ describe("adaptAnilistExport", () => {
 				{ properties: { mangaChapter: 1, progressPercent: 100 } },
 				{ properties: { mangaChapter: 2, progressPercent: 100 } },
 				{ properties: { mangaChapter: 3, progressPercent: 100 } },
+				{ properties: { mangaVolume: 1, progressPercent: 100 } },
 			],
 		});
 	});
@@ -195,7 +229,7 @@ describe("adaptAnilistExport", () => {
 		]);
 	});
 
-	it("does not fabricate manga chapter coverage from volume-only progress", () => {
+	it("preserves volume-only progress without fabricating manga chapters", () => {
 		const exportJson = JSON.stringify({
 			reviews: [],
 			favourites: [],
@@ -220,7 +254,6 @@ describe("adaptAnilistExport", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toEqual([
 			{
-				events: [],
 				itemIndex: 0,
 				collectionMemberships: [],
 				entityRef: {
@@ -230,8 +263,39 @@ describe("adaptAnilistExport", () => {
 					entitySchemaSlug: "manga",
 					providerSlug: "manga.anilist",
 				},
+				events: [1, 2, 3].map((mangaVolume) => ({
+					eventSchemaSlug: "progress",
+					occurredAt: "2026-01-03T09:00:00.000Z",
+					properties: { mangaVolume, progressPercent: 100 },
+				})),
 			},
 		]);
+	});
+
+	it.each([
+		{ progress: 0, progressVolume: -1 },
+		{ progress: 0, progressVolume: 1.5 },
+		{ progress: 0, progressVolume: Number.MAX_SAFE_INTEGER + 1 },
+		{ progressVolume: 1, progress: Number.MAX_SAFE_INTEGER },
+	])("rejects invalid manga coverage $progress/$progressVolume", ({ progress, progressVolume }) => {
+		const result = adaptAnilistExport(
+			JSON.stringify({
+				lists: [
+					{
+						id: 1,
+						score: 0,
+						progress,
+						series_id: 200,
+						series_type: 1,
+						progress_volume: progressVolume,
+					},
+				],
+			}),
+			"Etc/GMT",
+		);
+		expect(result.entityGroups).toEqual([]);
+		expect(result.failures).toHaveLength(1);
+		expect(result.failures[0]).toMatchObject({ itemIndex: 0 });
 	});
 
 	it("records malformed source items without failing the whole export", () => {

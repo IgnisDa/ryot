@@ -191,7 +191,9 @@ export const normalizeAnilist = Effect.fn(function* (input: MediaSourceInput) {
 			parsed &&
 			Result.isSuccess(parsed) &&
 			!result.failures.length &&
-			state.coverageStart + 128 < parsed.success.progress
+			state.coverageStart + 128 <
+				parsed.success.progress +
+					(parsed.success.series_type === 1 ? parsed.success.progress_volume : 0)
 		) {
 			state = { ...state, coverageStart: state.coverageStart + 128 };
 			break;

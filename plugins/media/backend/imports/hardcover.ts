@@ -83,7 +83,7 @@ export const adaptHardcoverCsv = (csvText: string, importedAt = nowIso()) => {
 		const review = createReviewEvent({
 			text: row["Review"] ?? "",
 			occurredAt: reviewOccurredAt,
-			rating: normalizeRating(row["Rating"] ?? ""),
+			rating: normalizeRating(row["Rating"] ?? "", 5),
 			...(row["Review Contains Spoilers"]
 				? { isSpoiler: normalizeBoolean(row["Review Contains Spoilers"]) }
 				: {}),

@@ -14,7 +14,7 @@ import {
 	finalizeEntityGroups,
 	normalizeRating,
 } from "./helpers";
-import type { MediaImportAdapterFailure } from "./schemas";
+import type { ImportMediaEvent, MediaImportAdapterFailure } from "./schemas";
 
 export const AnilistList = Schema.Struct({
 	id: Schema.Int,
@@ -142,6 +142,17 @@ export const adaptAnilistExport = (
 			continue;
 		}
 		const occurredAt = parseAnilistDate(item.updated_at, timezone) ?? importedAt;
+		const volumeProgress = target.entitySchemaSlug === "manga" ? item.progress_volume : 0;
+		const coverageCount = item.progress + volumeProgress;
+		if (
+			!Number.isSafeInteger(volumeProgress) ||
+			volumeProgress < 0 ||
+			!Number.isSafeInteger(coverageCount)
+		) {
+			failures.push({ itemIndex, message: "AniList progress count is invalid" });
+			itemIndex++;
+			continue;
+		}
 		const sourceLabel = `${target.sourceLabelPrefix} ${item.series_id}`;
 		const group = getOrCreateMediaEntityGroup(
 			groupMap,
@@ -156,19 +167,20 @@ export const adaptAnilistExport = (
 		);
 		for (
 			let progress = coverageStart + 1;
-			progress <= Math.min(item.progress, coverageStart + coverageLimit);
+			progress <= Math.min(coverageCount, coverageStart + coverageLimit);
 			progress++
 		) {
-			group.events.push({
-				occurredAt,
-				eventSchemaSlug: "progress",
-				properties:
-					target.entitySchemaSlug === "anime"
-						? { progressPercent: 100, animeEpisode: progress }
-						: { progressPercent: 100, mangaChapter: progress },
-			});
+			let properties: ImportMediaEvent["properties"];
+			if (target.entitySchemaSlug === "anime") {
+				properties = { progressPercent: 100, animeEpisode: progress };
+			} else if (progress <= item.progress) {
+				properties = { progressPercent: 100, mangaChapter: progress };
+			} else {
+				properties = { progressPercent: 100, mangaVolume: progress - item.progress };
+			}
+			group.events.push({ occurredAt, properties, eventSchemaSlug: "progress" });
 		}
-		if (coverageStart + coverageLimit < item.progress) {
+		if (coverageStart + coverageLimit < coverageCount) {
 			itemIndex++;
 			continue;
 		}
@@ -187,7 +199,7 @@ export const adaptAnilistExport = (
 		const defaultReview = createReviewEvent({
 			occurredAt,
 			text: item.notes ?? "",
-			rating: normalizeRating(String(item.score)),
+			rating: normalizeRating(String(item.score), 100),
 		});
 		if (defaultReview) {
 			group.events.push(defaultReview);
@@ -238,7 +250,7 @@ export const adaptAnilistExport = (
 		);
 		const event = createReviewEvent({
 			text: `${review.summary}\n\n${review.text}`,
-			rating: normalizeRating(String(review.score)),
+			rating: normalizeRating(String(review.score), 100),
 			occurredAt: parseAnilistDate(review.updated_at, timezone) ?? importedAt,
 		});
 		if (event) {
