@@ -8,6 +8,7 @@ import { Reactivity } from "effect/reactivity";
 import { AppConfig, databaseConnectionBudget } from "../config/service";
 import { DatabaseConnectionLimit } from "../db/session";
 import { recordSandboxAdmissionWait } from "../runtime-metrics";
+import { servedLanes, serverRole } from "../server-role";
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import { SIDECAR_PROTOCOL_LIMITS } from "./sidecar-protocol";
 import { SANDBOX_TRANSIENT_MEMORY, sandboxTransientPermitBytes } from "./transient-memory";
@@ -34,6 +35,8 @@ const inlinePermitBytes = sandboxTransientPermitBytes(
 	SANDBOX_LIMITS.bridge.requestBytes,
 );
 const interactiveHeadroomBytes = runBytes + processBytes;
+export const sharedModeMinimumBudgetBytes =
+	residentBytes + inlinePermitBytes + interactiveHeadroomBytes;
 
 export type SandboxMemoryPlan = {
 	readonly budget: number;
@@ -74,10 +77,11 @@ const limitError = (message: string) =>
 
 // Lane mode keeps one interactive run with a lazy process beside one background run with its own, and
 // caps each lane's pool at one inline batch plus its evidence; the interactive pool is filled first.
-// Shared mode has one inline-sized pool.
+// Shared mode has one inline-sized pool, and is the only mode of a process serving one lane.
 export const sandboxMemoryPlan = (
 	configuredMiB: Option.Option<number>,
 	effectiveMemory: number,
+	lanes: ReadonlyArray<ExecutionLane>,
 ): Result.Result<SandboxMemoryPlan, SandboxRunError> => {
 	if (!Number.isSafeInteger(effectiveMemory) || effectiveMemory <= 0) {
 		return Result.fail(limitError("Sandbox effective host memory is unavailable"));
@@ -91,7 +95,7 @@ export const sandboxMemoryPlan = (
 		return Result.fail(limitError("Sandbox memory budget exceeds half the effective host memory"));
 	}
 	const available = budget - residentBytes;
-	if (available >= 2 * inlinePermitBytes + 2 * interactiveHeadroomBytes) {
+	if (lanes.length > 1 && available >= 2 * inlinePermitBytes + 2 * interactiveHeadroomBytes) {
 		const poolCap = inlinePermitBytes + SANDBOX_TRANSIENT_MEMORY.inlineEvidenceBytes;
 		const interactive = Math.min(
 			available - 2 * interactiveHeadroomBytes - inlinePermitBytes,
@@ -126,8 +130,9 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
 			const concurrency = config.sandbox.workerConcurrency;
+			const served = servedLanes(yield* serverRole(config.server.lanes));
 			const plan = yield* Effect.fromResult(
-				sandboxMemoryPlan(config.sandbox.memoryBudgetMiB, process.constrainedMemory()),
+				sandboxMemoryPlan(config.sandbox.memoryBudgetMiB, process.constrainedMemory(), served),
 			);
 			const budget = plan.budget;
 			yield* Effect.logInfo("Sandbox memory admission planned").pipe(
