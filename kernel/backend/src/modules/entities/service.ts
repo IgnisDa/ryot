@@ -70,6 +70,7 @@ import { EntitiesRepository } from "./repository";
 import {
 	DomainLifecycleCommand,
 	DomainWriteConflict,
+	assertStableUnder,
 	DomainWriteChecks,
 	writerPropertiesSchema,
 } from "./write-context";
@@ -347,12 +348,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			const pinnedManifest = yield* writeChecks
 				.check(lifecycle, owner, scopeUserId, commit)
 				.pipe(Effect.mapError(writeFailure));
-			const activeDeclaration =
-				pinnedManifest && entitySchemaPluginId !== null
-					? (yield* writeChecks.activeManifest(entitySchemaPluginId)).entitySchemas.find(
-							({ slug }) => slug === draft.entitySchemaSlug,
-						)
-					: null;
+			const { pinned: pinnedDeclaration, active: activeDeclaration } =
+				yield* writeChecks.resolvePinnedDeclaration(
+					"entity",
+					pinnedManifest,
+					owner,
+					draft.entitySchemaSlug,
+				);
 			if (pinnedManifest && !activeDeclaration) {
 				return yield* bad(
 					"mutation-conflict",
@@ -371,9 +373,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					.checkProvider(draft.providerId, owner)
 					.pipe(Effect.mapError((error) => bad("mutation-conflict", error.message)));
 			}
-			const pinnedDeclaration = pinnedManifest?.entitySchemas.find(
-				({ slug }) => slug === draft.entitySchemaSlug,
-			);
 			if (pinnedManifest && !pinnedDeclaration) {
 				return yield* bad(
 					"mutation-conflict",
@@ -402,21 +401,18 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				),
 			);
 			if (commit && pinnedDeclaration) {
-				const stored = yield* parseAppSchemaProperties({
+				yield* assertStableUnder(
+					"Entity",
+					writerPropertiesSchema(activeDefinition.propertiesSchema),
 					properties,
-					kind: "Entity",
-					propertiesSchema: writerPropertiesSchema(activeDefinition.propertiesSchema),
-				}).pipe(
-					Effect.mapError(() =>
-						bad("mutation-conflict", "Pinned entity payload violates active storage constraints"),
-					),
+					(reason) =>
+						bad(
+							"mutation-conflict",
+							reason === "invalid"
+								? "Pinned entity payload violates active storage constraints"
+								: "Active entity constraints would change the pinned payload",
+						),
 				);
-				if (!same(stored, properties)) {
-					return yield* bad(
-						"mutation-conflict",
-						"Active entity constraints would change the pinned payload",
-					);
-				}
 			}
 			const validated = yield* Schema.decodeUnknownEffect(AutomationEntityDraft)({
 				...draft,
