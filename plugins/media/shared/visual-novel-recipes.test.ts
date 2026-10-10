@@ -30,7 +30,7 @@ describe("media visual novel query recipes", () => {
 		);
 
 		expect(summary.slice(-2)).toEqual(["progressPercent", "lengthMinutes"]);
-		expect(keys(visualNovelRecipes.presentationRecipe(["visual-novel-1"]), "rows")).toContain(
+		expect(visualNovelRecipes.presentationSource.fields.map(({ key }) => key)).toContain(
 			"lengthMinutes",
 		);
 	});

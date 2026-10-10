@@ -1,4 +1,4 @@
-import type { FieldSelection, OrderBy } from "@ryot-app/contract/modules/ryotql/language";
+import type { FieldSelection, Include, OrderBy } from "@ryot-app/contract/modules/ryotql/language";
 import { and, column, eq, exists, join, literal, table } from "@ryot-app/ryotql";
 import { savedViewRecipe, type SavedViewTableMapping } from "@ryot-app/ryotql-recipes/saved-views";
 
@@ -6,6 +6,7 @@ export const defaultMediaSavedViewRecipe = (input: {
 	readonly after?: string | undefined;
 	readonly limit?: number | undefined;
 	readonly fields: readonly FieldSelection[];
+	readonly include?: readonly [Include, ...Include[]] | undefined;
 	readonly schemas: readonly [string, ...string[]];
 	readonly orderBy?: readonly OrderBy[] | undefined;
 	readonly layout: {
@@ -22,6 +23,7 @@ export const defaultMediaSavedViewRecipe = (input: {
 		after: input.after,
 		limit: input.limit,
 		fields: input.fields,
+		include: input.include,
 		orderBy: input.orderBy,
 		entitySchemaSlugs: input.schemas,
 		where: exists(membership, {

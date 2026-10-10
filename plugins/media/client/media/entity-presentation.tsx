@@ -1,14 +1,14 @@
 import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { Effect, Result } from "@ryot-app/client-sdk/effect";
 import {
 	defineEntityPresentation,
 	PluginLink,
 	useRyotViewport,
 	type EntityPresentationComponentProps,
 	type EntityPresentationLoader,
+	type EntityPresentationPrepare,
 } from "@ryot-app/client-sdk/plugin";
 import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
-import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import {
 	fieldSyncState,
 	isTitleProvisional,
@@ -18,9 +18,12 @@ import {
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
-import { collectManagedAssetLocators, type MediaImages } from "./image";
+import {
+	mediaPresentationSourceRecipe,
+	type MediaPresentationSource,
+} from "../../shared/entity-presentations";
+import { collectManagedAssetLocators, type MediaImageAsset, type MediaImages } from "./image";
 import { ManagedAssetImage } from "./managed-assets";
-import { mediaPosterAsset } from "./summary-state";
 
 export type MediaArtworkAspect = "poster" | "square" | "still";
 
@@ -30,6 +33,12 @@ export type MediaPresentationSubject = EntitySyncState & {
 	readonly id: string;
 	readonly name: string;
 	readonly images: MediaImages;
+};
+
+export type MediaSavedViewPresentationSubject = EntitySyncState & {
+	readonly id: string;
+	readonly name: string;
+	readonly image: MediaImageAsset | null;
 };
 
 export type MediaPresentationViewData<Data> = Data & {
@@ -79,27 +88,57 @@ export const mediaArtworkClass = (input: {
 	return input.compact ? "h-20 w-14" : "h-24 w-16";
 };
 
-export const createMediaPresentationLoader =
-	<Data extends MediaPresentationSubject>(
-		recipe: (entityIds: readonly string[]) => PreparedRecipe<readonly Data[]>,
-	): EntityPresentationLoader<MediaPresentationViewData<Data>> =>
-	({ client, references }) => {
-		const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-		return client.data.query(recipe(entityIds)).pipe(
-			Effect.map((rows) => {
-				const batchAssets = collectManagedAssetLocators(rows.map((row) => mediaPosterAsset(row)));
-				return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
+export const createMediaPresentationPrepare =
+	<Data extends MediaSavedViewPresentationSubject>(
+		source: MediaPresentationSource<Data>,
+	): EntityPresentationPrepare<MediaPresentationViewData<Data>> =>
+	({ sources, references }) => {
+		const decoded = Result.all(
+			references.map((reference) => {
+				const raw = sources.get(reference.entityId);
+				if (raw === undefined) {
+					return Result.fail(
+						new Error(`Missing media presentation source for '${reference.entityId}'`),
+					);
+				}
+				return Result.flatMap(source.decode(raw), (data) =>
+					data.id === reference.entityId
+						? Result.succeed(data)
+						: Result.fail(
+								new Error(`Media presentation source ID did not match '${reference.entityId}'`),
+							),
+				);
 			}),
 		);
+		return Result.map(decoded, prepareMediaPresentationRows);
+	};
+
+const prepareMediaPresentationRows = <Data extends MediaSavedViewPresentationSubject>(
+	rows: readonly Data[],
+) => {
+	const batchAssets = collectManagedAssetLocators(rows.map(({ image }) => image ?? undefined));
+	return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
+};
+
+export const createMediaPresentationLoader =
+	<Data extends MediaSavedViewPresentationSubject>(
+		source: MediaPresentationSource<Data>,
+	): EntityPresentationLoader<MediaPresentationViewData<Data>> =>
+	({ client, references }) => {
+		const entitySchemaSlug = references[0]?.entitySchemaSlug ?? "";
+		const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
+		return client.data
+			.query(mediaPresentationSourceRecipe(source, { entityIds, entitySchemaSlug }))
+			.pipe(Effect.map(prepareMediaPresentationRows));
 	};
 
 export function MediaEntityArtwork(props: {
 	readonly compact: boolean;
 	readonly layout: MediaArtworkLayout;
 	readonly aspect: MediaArtworkAspect;
-	readonly data: MediaPresentationSubject;
+	readonly data: MediaSavedViewPresentationSubject;
 }) {
-	const poster = mediaPosterAsset(props.data);
+	const poster = props.data.image ?? undefined;
 	return (
 		<ManagedAssetImage
 			asset={poster}
@@ -117,7 +156,7 @@ function MediaPresentationTitle(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly leading?: string;
-	readonly data: MediaPresentationSubject;
+	readonly data: MediaSavedViewPresentationSubject;
 	readonly facts: ReactNode;
 }) {
 	return (
@@ -137,7 +176,7 @@ function MediaPresentationTitle(props: {
 	);
 }
 
-export function MediaCardContent<Data extends MediaPresentationSubject>(props: {
+export function MediaCardContent<Data extends MediaSavedViewPresentationSubject>(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly facts: ReactNode;
@@ -171,7 +210,7 @@ export function MediaCardContent<Data extends MediaPresentationSubject>(props: {
 	);
 }
 
-export function MediaRowContent<Data extends MediaPresentationSubject>(props: {
+export function MediaRowContent<Data extends MediaSavedViewPresentationSubject>(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly facts: ReactNode;
@@ -216,12 +255,14 @@ export function MediaRowContent<Data extends MediaPresentationSubject>(props: {
 	);
 }
 
-export const defineMediaPresentationPair = <Data extends MediaPresentationSubject>(input: {
+export const defineMediaPresentationPair = <Data extends MediaSavedViewPresentationSubject>(input: {
 	readonly aspect: MediaArtworkAspect;
-	readonly loader: EntityPresentationLoader<MediaPresentationViewData<Data>>;
+	readonly source: MediaPresentationSource<Data>;
 	readonly Facts: (props: { readonly compact: boolean; readonly data: Data }) => ReactNode;
 }) => {
 	const { Facts } = input;
+	const loader = createMediaPresentationLoader(input.source);
+	const prepare = createMediaPresentationPrepare(input.source);
 	const Card = ({
 		data,
 		reference,
@@ -253,7 +294,7 @@ export const defineMediaPresentationPair = <Data extends MediaPresentationSubjec
 		);
 	};
 	return {
-		rowPresentation: defineEntityPresentation({ component: Row, loader: input.loader }),
-		cardPresentation: defineEntityPresentation({ component: Card, loader: input.loader }),
+		rowPresentation: defineEntityPresentation({ loader, prepare, component: Row }),
+		cardPresentation: defineEntityPresentation({ loader, prepare, component: Card }),
 	};
 };

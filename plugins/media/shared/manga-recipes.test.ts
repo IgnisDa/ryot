@@ -36,7 +36,7 @@ describe("media manga query recipes", () => {
 		);
 
 		expect(summary.slice(-3)).toEqual(["progressPercent", "volumes", "chapters"]);
-		expect(keys(mangaRecipes.presentationRecipe(["manga-1"]), "rows")).toContain("chapters");
+		expect(mangaRecipes.presentationSource.fields.map(({ key }) => key)).toContain("chapters");
 	});
 
 	it("carries the recorded volume and chapter on every activity event", () => {

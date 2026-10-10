@@ -30,7 +30,7 @@ describe("media comic book query recipes", () => {
 		);
 
 		expect(summary.slice(-2)).toEqual(["progressPercent", "pages"]);
-		expect(keys(comicBookRecipes.presentationRecipe(["comic-book-1"]), "rows")).toContain("pages");
+		expect(comicBookRecipes.presentationSource.fields.map(({ key }) => key)).toContain("pages");
 	});
 
 	it("sums the comic book's pages over its completions and counts completions without pages", () => {

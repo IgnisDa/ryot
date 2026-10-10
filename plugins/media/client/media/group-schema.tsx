@@ -5,6 +5,7 @@ import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
+import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { MediaReviewActivityResult } from "../../shared/media-recipes";
 import { mediaCursorPageError, type MediaCursorPage } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
@@ -16,13 +17,12 @@ import {
 	type MediaDetailBodyInput,
 } from "./detail-screen";
 import {
-	createMediaPresentationLoader,
 	defineMediaPresentationPair,
 	MediaCardContent,
 	MediaRowContent,
 	type MediaArtworkAspect,
-	type MediaPresentationSubject,
 	type MediaPresentationViewData,
+	type MediaSavedViewPresentationSubject,
 } from "./entity-presentation";
 import { collectManagedAssetLocators, type MediaImagePurposes } from "./image";
 import {
@@ -40,7 +40,6 @@ import { defineMediaReviewActivityTab } from "./review-activity-tab";
 import {
 	mediaCountFact,
 	mediaCountLabels,
-	mediaPosterAsset,
 	mediaSourceLinks,
 	mediaSummaryStateMapper,
 	type MediaEntitySummaryValue,
@@ -65,9 +64,9 @@ type GroupSummary = MediaEntitySummaryValue &
 		readonly collections: { readonly items: readonly { readonly id: string }[] };
 	};
 
-type GroupPresentation = MediaPresentationSubject & GroupProgress;
+type GroupPresentation = MediaSavedViewPresentationSubject & GroupProgress;
 
-type GroupMember = MediaPresentationSubject & { readonly position: number | null };
+type GroupMember = MediaSavedViewPresentationSubject & { readonly position: number | null };
 
 type GroupCredits = {
 	readonly people: { readonly items: readonly MediaCreditPerson[] };
@@ -96,9 +95,7 @@ type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
 		readonly eventLimit: number;
 		readonly collectionEventLimit: number;
 	}) => PreparedRecipe<MediaReviewActivityResult>;
-	readonly presentationRecipe: (
-		entityIds: readonly string[],
-	) => PreparedRecipe<readonly Presentation[]>;
+	readonly presentationSource: MediaPresentationSource<Presentation>;
 };
 
 type MediaGroupOverviewRecipe<Overview> = (input: {
@@ -148,8 +145,8 @@ const groupProgressLabel = (progress: GroupProgress, verb: string) =>
 		? undefined
 		: `${progress.completedMemberCount} of ${progress.memberCount} ${verb}`;
 
-const memberAssets = (items: readonly MediaPresentationSubject[]) =>
-	collectManagedAssetLocators(items.map((item) => mediaPosterAsset(item)));
+const memberAssets = (items: readonly MediaSavedViewPresentationSubject[]) =>
+	collectManagedAssetLocators(items.map(({ image }) => image ?? undefined));
 
 const groupCreditsAreEmpty = <Overview extends GroupCredits>(overview: GroupOverview<Overview>) =>
 	!("people" in overview) ||
@@ -416,7 +413,7 @@ export const defineGroupMediaSchema = <
 	const presentations = defineMediaPresentationPair({
 		Facts,
 		aspect: descriptor.aspect,
-		loader: createMediaPresentationLoader(recipes.presentationRecipe),
+		source: recipes.presentationSource,
 	});
 
 	return {

@@ -1,21 +1,24 @@
 import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
 import {
 	defineEntityPresentation,
 	PluginLink,
 	useRyotViewport,
 	type EntityPresentationComponentProps,
 	type EntityPresentationLoader,
+	type EntityPresentationPrepare,
 } from "@ryot-app/client-sdk/plugin";
 import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 
 import {
-	mediaPresentationRecipe,
+	mediaPresentationSource,
 	type MediaPresentationData,
 } from "../../shared/entity-presentations";
-import { collectManagedAssetLocators, preferredMediaImageAsset } from "./image";
+import {
+	createMediaPresentationLoader,
+	createMediaPresentationPrepare,
+} from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
 
 export type MediaPresentationViewData = MediaPresentationData & {
@@ -29,21 +32,21 @@ const artworkSize = (layout: "grid" | "list", compact: boolean) => {
 	return compact ? "h-24 w-16" : "h-16 w-11 rounded-sm";
 };
 
-const posterAsset = (media: MediaPresentationData) =>
-	preferredMediaImageAsset(media.images, "cover");
+const posterAsset = (media: MediaPresentationData) => media.image ?? undefined;
 
-export const loadMediaPresentations: EntityPresentationLoader<MediaPresentationViewData> = ({
-	client,
-	references,
-}) => {
+export const prepareMediaPresentations: EntityPresentationPrepare<MediaPresentationViewData> = (
+	context,
+) => {
+	const { references } = context;
 	const slug = references[0]?.entitySchemaSlug ?? "";
-	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-	return client.data.query(mediaPresentationRecipe({ slug, entityIds })).pipe(
-		Effect.map((rows) => {
-			const batchAssets = collectManagedAssetLocators(rows.map(posterAsset));
-			return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
-		}),
-	);
+	return createMediaPresentationPrepare(mediaPresentationSource(slug))(context);
+};
+
+export const loadMediaPresentations: EntityPresentationLoader<MediaPresentationViewData> = (
+	context,
+) => {
+	const slug = context.references[0]?.entitySchemaSlug ?? "";
+	return createMediaPresentationLoader(mediaPresentationSource(slug))(context);
 };
 
 const ratingLabel = (rating: number | null) =>
@@ -161,9 +164,11 @@ function MediaRow({ data }: EntityPresentationComponentProps<MediaPresentationVi
 export const mediaCardPresentation = defineEntityPresentation({
 	component: MediaCard,
 	loader: loadMediaPresentations,
+	prepare: prepareMediaPresentations,
 });
 
 export const mediaRowPresentation = defineEntityPresentation({
 	component: MediaRow,
 	loader: loadMediaPresentations,
+	prepare: prepareMediaPresentations,
 });

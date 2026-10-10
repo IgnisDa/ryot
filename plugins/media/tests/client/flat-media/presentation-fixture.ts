@@ -1,10 +1,9 @@
 import { Result } from "@ryot-app/client-sdk/effect";
-import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 
-import { rowsResult } from "../query-result-fixture";
+import type { MediaPresentationSource } from "../../../shared/entity-presentations";
 
 const presentationRowDefaults = {
-	images: null,
+	image: null,
 	id: "media-1",
 	name: "Fixture",
 	publishDate: null,
@@ -17,28 +16,11 @@ const presentationRowDefaults = {
 };
 
 export const decodeFlatPresentation = <Presentation>(
-	recipes: {
-		readonly presentationRecipe: (
-			entityIds: readonly string[],
-		) => PreparedRecipe<readonly Presentation[]>;
-	},
+	recipes: { readonly presentationSource: MediaPresentationSource<Presentation> },
 	row: Record<string, unknown>,
 ) => {
-	const [decoded] = Result.getOrThrow(
-		recipes
-			.presentationRecipe(["media-1"])
-			.decode({
-				data: {
-					rows: rowsResult([{ ...presentationRowDefaults, ...row }], {
-						limit: 100,
-						hasMore: false,
-						nextCursor: null,
-					}),
-				},
-			}),
+	const decoded = Result.getOrThrow(
+		recipes.presentationSource.decode({ ...presentationRowDefaults, ...row }),
 	);
-	if (decoded === undefined) {
-		throw new Error("Expected decoded presentation data");
-	}
 	return { ...decoded, batchAssets: [] };
 };

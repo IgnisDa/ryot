@@ -126,35 +126,24 @@ const renderActivity = (state: Parameters<typeof fixtureSchema.Activity>[0]["sta
 	);
 
 const presentationData = (overrides: Record<string, unknown> = {}) => {
-	const decoded = flatFixtureRecipes
-		.presentationRecipe(["media-1"])
-		.decode({
-			data: {
-				rows: rowsResult(
-					[
-						{
-							id: "media-1",
-							publishDate: null,
-							publishYear: 1999,
-							name: "Fight Club",
-							progressPercent: 42,
-							state: "in_progress",
-							schemaSlug: "fixture",
-							populationStatus: "ready",
-							translationStatus: "none",
-							productionStatus: "Released",
-							images: [{ type: "remote", purpose: "cover", url: "https://images.test/fc.jpg" }],
-							...overrides,
-						},
-					],
-					{ limit: 100, hasMore: false, nextCursor: null },
-				),
-			},
-		});
-	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
+	const decoded = flatFixtureRecipes.presentationSource.decode({
+		id: "media-1",
+		publishDate: null,
+		publishYear: 1999,
+		name: "Fight Club",
+		progressPercent: 42,
+		state: "in_progress",
+		schemaSlug: "fixture",
+		populationStatus: "ready",
+		translationStatus: "none",
+		productionStatus: "Released",
+		image: { type: "remote", url: "https://images.test/fc.jpg" },
+		...overrides,
+	});
+	if (decoded._tag === "Failure") {
 		throw new Error("Expected decoded presentation data");
 	}
-	return { ...decoded.success[0], batchAssets: [] };
+	return { ...decoded.success, batchAssets: [] };
 };
 
 const tab = (container: HTMLElement, label: string) => {

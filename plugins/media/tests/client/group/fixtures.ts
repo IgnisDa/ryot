@@ -1,6 +1,7 @@
 import { Result } from "@ryot-app/client-sdk/effect";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 
+import type { MediaPresentationSource } from "../../../shared/entity-presentations";
 import { creatorActivityData } from "../creator/activity-fixture";
 import { rowsResult } from "../query-result-fixture";
 import { decodeMediaSummaryResult } from "../summary-fixture";
@@ -53,7 +54,7 @@ export const decodeGroupSummary = (overrides: Record<string, unknown> = {}) =>
 	decodeGroupSummaryOf(groupFixtureRecipes, overrides);
 
 export const groupMemberRow = (overrides: Record<string, unknown>) => ({
-	images: null,
+	image: null,
 	publishDate: null,
 	publishYear: null,
 	state: "complete",
@@ -123,29 +124,12 @@ export const decodeCreditGroupOverview = () =>
 	decodeCreditGroupOverviewOf(creditGroupFixtureRecipes);
 
 export const decodeGroupPresentation = <Presentation>(
-	recipes: {
-		readonly presentationRecipe: (
-			entityIds: readonly string[],
-		) => PreparedRecipe<readonly Presentation[]>;
-	},
+	recipes: { readonly presentationSource: MediaPresentationSource<Presentation> },
 	row: Record<string, unknown>,
 ) => {
-	const [decoded] = Result.getOrThrow(
-		recipes
-			.presentationRecipe(["group-1"])
-			.decode({
-				data: {
-					rows: rowsResult([{ ...groupSummaryRow, ...row }], {
-						limit: 100,
-						hasMore: false,
-						nextCursor: null,
-					}),
-				},
-			}),
+	const decoded = Result.getOrThrow(
+		recipes.presentationSource.decode({ ...groupSummaryRow, image: null, ...row }),
 	);
-	if (decoded === undefined) {
-		throw new Error("Expected decoded group presentation data");
-	}
 	return { ...decoded, batchAssets: [] };
 };
 

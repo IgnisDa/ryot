@@ -23,7 +23,7 @@ describe("media music query recipes", () => {
 
 		expect(summary.slice(-3)).toEqual(["progressPercent", "duration", "byVariousArtists"]);
 		expect(summary).not.toContain("watchProviders");
-		expect(keys(musicRecipes.presentationRecipe(["music-1"]), "rows")).toContain("duration");
+		expect(musicRecipes.presentationSource.fields.map(({ key }) => key)).toContain("duration");
 	});
 
 	it("converts the duration to minutes before summing listened time", () => {

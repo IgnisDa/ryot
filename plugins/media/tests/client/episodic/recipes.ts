@@ -1,5 +1,6 @@
 import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
 
+import type { MediaPresentationSource } from "../../../shared/entity-presentations";
 import {
 	episodicEpisodesRecipe,
 	episodicParentCoverageQuery,
@@ -48,9 +49,10 @@ export type EpisodicFixtureActivityResult = Recipe.Success<
 export type EpisodicFixtureOverviewResult = Recipe.Success<
 	typeof episodicFixtureRecipes.overviewRecipe
 >;
-export type EpisodicFixturePresentationData = Recipe.Success<
-	typeof episodicFixtureRecipes.presentationRecipe
->[number];
+export type EpisodicFixturePresentationData =
+	typeof episodicFixtureRecipes.presentationSource extends MediaPresentationSource<infer Data>
+		? Data
+		: never;
 export type EpisodicFixtureEpisode = Recipe.Success<
 	typeof episodicFixtureEpisodesRecipe
 >["items"][number];

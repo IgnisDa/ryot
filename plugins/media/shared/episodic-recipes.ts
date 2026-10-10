@@ -14,7 +14,6 @@ import {
 	first,
 	groupAscending,
 	groupDescending,
-	inArray,
 	isNull,
 	IsoDateString,
 	join,
@@ -33,6 +32,10 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
+import {
+	mediaPresentationImageSelection,
+	selectedPresentationSource,
+} from "./entity-presentations";
 import {
 	entityId,
 	entityIdentitySelection,
@@ -70,8 +73,6 @@ import {
 	mediaSummarySelection,
 	type MediaExtraQueries,
 } from "./media-recipes";
-
-const EPISODIC_PRESENTATION_LIMIT = 100;
 
 const episodicEpisodeSlugs = ["review"] as const;
 
@@ -748,49 +749,34 @@ export const mediaEpisodicRecipes = <
 		};
 	});
 
-	const presentationRecipe = defineRecipe((entityIds: readonly string[]) => {
-		const entity = table("entity", `${config.alias}PresentationEntity`);
-		const lifecycle = episodicLifecycleExpressions(
-			config.config,
-			entity,
-			`${config.alias}PresentationLifecycle`,
-		);
-		return {
-			map: ({ rows }) => Result.succeed(rows.items),
-			queries: {
-				rows: selectedRows(entity, {
-					limit: EPISODIC_PRESENTATION_LIMIT,
-					orderBy: [ascending(column(entity, "id"))],
-					where: and(
-						entitySchema(entity, config.slug),
-						inArray(
-							column(entity, "id"),
-							entityIds.map((requestedId) => literal(requestedId)),
-						),
-					),
-					selection: {
-						...entityIdentitySelection(entity),
-						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
-						images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
-						publishDate: selectedField(
-							propertyText(entity, "publishDate"),
-							Schema.NullOr(Schema.String),
-						),
-						publishYear: selectedField(
-							propertyNumber(entity, "publishYear"),
-							Schema.NullOr(Schema.Finite),
-						),
-						productionStatus: selectedField(
-							propertyText(entity, "productionStatus"),
-							Schema.NullOr(Schema.String),
-						),
-						...episodicCountSelection(config.config, entity, `${config.alias}Presentation`),
-						...config.presentationFields(entity),
-					},
-				}),
-			},
-		};
+	const presentationEntity = table("entity", "entity");
+	const presentationLifecycle = episodicLifecycleExpressions(
+		config.config,
+		presentationEntity,
+		`${config.alias}PresentationLifecycle`,
+	);
+	const presentationSource = selectedPresentationSource({
+		table: presentationEntity,
+		selection: {
+			...entityIdentitySelection(presentationEntity),
+			state: selectedField(presentationLifecycle.state, EpisodicLifecycleStateSchema),
+			...mediaPresentationImageSelection(presentationEntity),
+			publishDate: selectedField(
+				propertyText(presentationEntity, "publishDate"),
+				Schema.NullOr(Schema.String),
+			),
+			publishYear: selectedField(
+				propertyNumber(presentationEntity, "publishYear"),
+				Schema.NullOr(Schema.Finite),
+			),
+			productionStatus: selectedField(
+				propertyText(presentationEntity, "productionStatus"),
+				Schema.NullOr(Schema.String),
+			),
+			...episodicCountSelection(config.config, presentationEntity, `${config.alias}Presentation`),
+			...config.presentationFields(presentationEntity),
+		},
 	});
 
-	return { summaryRecipe, overviewRecipe, activityRecipe, presentationRecipe };
+	return { summaryRecipe, overviewRecipe, activityRecipe, presentationSource };
 };

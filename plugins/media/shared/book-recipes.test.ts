@@ -43,7 +43,7 @@ describe("media book query recipes", () => {
 
 		expect(summary.slice(-3)).toEqual(["progressPercent", "pages", "isCompilation"]);
 		expect(summary).not.toContain("watchProviders");
-		expect(keys(bookRecipes.presentationRecipe(["book-1"]), "rows")).toContain("pages");
+		expect(bookRecipes.presentationSource.fields.map(({ key }) => key)).toContain("pages");
 	});
 
 	it("sums the book's pages over its completions and counts completions of an unpaged book", () => {

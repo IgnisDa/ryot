@@ -235,8 +235,8 @@ describe("episodic media recipes", () => {
 	});
 
 	it("counts only aired regular episodes and reports the unaired ones as upcoming", () => {
-		const nested = JSON.stringify(nestedRecipes.presentationRecipe(["parent-1"]).document);
-		const flat = JSON.stringify(fixtureRecipes.presentationRecipe(["parent-1"]).document);
+		const nested = JSON.stringify(nestedRecipes.presentationSource.fields);
+		const flat = JSON.stringify(fixtureRecipes.presentationSource.fields);
 
 		for (const document of [nested, flat]) {
 			expect(document).toContain('"type":"currentDate"');
@@ -247,16 +247,14 @@ describe("episodic media recipes", () => {
 	});
 
 	it("counts a flat parent's episodes through its own relationship", () => {
-		const recipe = fixtureRecipes.presentationRecipe(["parent-1"]);
-		const document = JSON.stringify(recipe.document);
+		const document = JSON.stringify(fixtureRecipes.presentationSource.fields);
 
 		expect(document).toContain("podcast-to-podcast-episode");
 		expect(document).not.toContain("show-season-to-show-episode");
 	});
 
 	it("counts a nested parent's episodes through its seasons", () => {
-		const recipe = nestedRecipes.presentationRecipe(["parent-1"]);
-		const document = JSON.stringify(recipe.document);
+		const document = JSON.stringify(nestedRecipes.presentationSource.fields);
 
 		expect(document).toContain("show-to-show-season");
 		expect(document).toContain("show-season-to-show-episode");

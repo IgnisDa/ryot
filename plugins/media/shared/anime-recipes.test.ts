@@ -36,7 +36,7 @@ describe("media anime query recipes", () => {
 		);
 
 		expect(summary.slice(-3)).toEqual(["progressPercent", "episodes", "airingSchedule"]);
-		expect(keys(animeRecipes.presentationRecipe(["anime-1"]), "rows")).toContain("episodes");
+		expect(animeRecipes.presentationSource.fields.map(({ key }) => key)).toContain("episodes");
 	});
 
 	it("carries the recorded episode on every activity event", () => {

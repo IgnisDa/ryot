@@ -7,7 +7,7 @@ import {
 	decodePodcastOverview,
 	decodePodcastSummary,
 } from "../../tests/client/podcast/fixtures";
-import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
+import { readyQueryResult } from "../../tests/client/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { mapMediaOverview } from "../media/overview-state";
 import { podcastEpisodeCountLine } from "./episodes";
@@ -35,25 +35,15 @@ const presentationRow = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	productionStatus: "Ended",
-	images: [{ type: "remote", purpose: "cover", url: "https://images.test/reply-all.jpg" }],
+	image: { type: "remote", url: "https://images.test/reply-all.jpg" },
 };
 
 const presentationData = (overrides: Record<string, unknown> = {}) => {
-	const decoded = podcastRecipes
-		.presentationRecipe(["podcast-1"])
-		.decode({
-			data: {
-				rows: rowsResult([{ ...presentationRow, ...overrides }], {
-					limit: 100,
-					hasMore: false,
-					nextCursor: null,
-				}),
-			},
-		});
-	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
+	const decoded = podcastRecipes.presentationSource.decode({ ...presentationRow, ...overrides });
+	if (decoded._tag === "Failure") {
 		throw new Error("Expected decoded presentation data");
 	}
-	return { ...decoded.success[0], batchAssets: [] };
+	return { ...decoded.success, batchAssets: [] };
 };
 
 const renderOverview = () =>
