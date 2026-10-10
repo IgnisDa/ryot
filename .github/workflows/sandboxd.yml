@@ -56,14 +56,12 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Build the runtime payload, snapshots, and release executables
         run: bun turbo build --filter=@ryot-app/sandboxd
-      - name: Lint the sidecar and launcher
+      - name: Check the sidecar, launcher, and protocol fixtures
         working-directory: kernel/sandboxd
-        run: |
-          cargo fmt --check
-          cargo clippy --all-targets -- -D warnings
+        run: bun run check
       - name: Test the sidecar
         working-directory: kernel/sandboxd
-        run: cargo test
+        run: bun run test
       - name: Test explicit provisioning and launcher confinement under Docker defaults
         if: runner.os == 'Linux'
         run: bash kernel/sandboxd/tests/launcher/test-default-docker.sh

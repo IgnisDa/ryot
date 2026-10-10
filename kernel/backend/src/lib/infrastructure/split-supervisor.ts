@@ -20,7 +20,7 @@ export class SplitSupervisorError extends Schema.TaggedError<SplitSupervisorErro
 	}
 }
 
-export type SplitEntry = { readonly executable: string; readonly args: ReadonlyArray<string> };
+type SplitEntry = { readonly executable: string; readonly args: ReadonlyArray<string> };
 
 export const splitMemoryBudget = (
 	configuredMiB: Option.Option<number>,
@@ -51,7 +51,7 @@ export const splitMemoryBudget = (
 
 const inherited = { stdin: "ignore", stdout: "inherit", stderr: "inherit" } as const;
 
-export const migrationCommand = (entry: SplitEntry) =>
+const migrationCommand = (entry: SplitEntry) =>
 	ChildProcess.make(entry.executable, entry.args, {
 		...inherited,
 		extendEnv: true,
@@ -63,7 +63,7 @@ export const migrationCommand = (entry: SplitEntry) =>
 		},
 	});
 
-export const roleCommand = (
+const roleCommand = (
 	entry: SplitEntry,
 	role: ExecutionLane,
 	roleMiB: number,
@@ -124,13 +124,13 @@ export const runSplitSupervisor = Effect.fn("runSplitSupervisor")(function* (inp
 
 	const roleScope = yield* Scope.fork(yield* Effect.scope, "parallel");
 	const handles = yield* Effect.forEach(roles, (role) =>
-		spawner.spawn(roleCommand(input.entry, role, budget.roleMiB, socketDirectory)).pipe(
-			Effect.map((handle) => ({ handle, role })),
-		),
+		spawner
+			.spawn(roleCommand(input.entry, role, budget.roleMiB, socketDirectory))
+			.pipe(Effect.map((handle) => ({ role, handle }))),
 	).pipe(Scope.provide(roleScope));
-	const exits = handles.map(({ handle, role }) =>
+	const exits = handles.map(({ role, handle }) =>
 		handle.exitCode.pipe(
-			Effect.map((exitCode) => ({ exitCode, role })),
+			Effect.map((exitCode) => ({ role, exitCode })),
 			Effect.mapError(
 				(error) =>
 					new SplitSupervisorError({
