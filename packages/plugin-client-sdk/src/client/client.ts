@@ -25,6 +25,8 @@ import {
 	EntityWatch,
 	ExternalLinkRequest,
 	ExternalLinkSuccess,
+	PickEntityOutcome,
+	PickEntityRequest,
 	PluginCalendarSourceVisibilityRequest,
 	PluginCollectionRequest,
 	PluginDeviceRequest,
@@ -36,8 +38,6 @@ import {
 	PluginThemeSnapshot,
 	type PluginUploadRequest,
 	PluginUploadResult,
-	PickEntityOutcome,
-	PickEntityRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Result, Schema } from "effect";
@@ -47,8 +47,8 @@ import type {
 	EntityWatchSubscription,
 	FileUploadRequest,
 	OperationInvocation,
-	RyotClientAdapter,
 	RyotAddToCollectionRequest,
+	RyotClientAdapter,
 	RyotEditCollectionRequest,
 	RyotPageSearchUpdate,
 	RyotPickEntityRequest,

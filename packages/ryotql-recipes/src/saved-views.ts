@@ -3,22 +3,22 @@ import { EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
 import { SavedViewClientPageTarget } from "@ryot-app/contract/modules/pages/schemas";
 import { ownerIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import {
-	RyotQLDocument,
-	rowsResultSchema,
 	type FieldSelection,
 	type OrderBy,
 	type Predicate,
-	type TableReference,
+	rowsResultSchema,
+	RyotQLDocument,
 	type ScalarExpression,
+	type TableReference,
 } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityBrowserSavedViewSettings,
 	type EntityBrowserSavedViewSettings as EntityBrowserSavedViewSettingsValue,
 	ResultsTableSavedViewSettings,
-	SavedViewDisplayValue,
-	type SavedViewSubject,
 	type ResultsTableSavedViewSettings as ResultsTableSavedViewSettingsValue,
 	type SavedViewDisplayKind,
+	SavedViewDisplayValue,
+	type SavedViewSubject,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {

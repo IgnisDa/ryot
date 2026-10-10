@@ -47,12 +47,10 @@ export const creatorGroupTargetSlugs = [
 ] as const satisfies readonly MediaGroupSlug[];
 
 export type MediaCreatorCreditSlug =
-	| (typeof builtinMediaEntitySchemaSlugs)[number]
-	| (typeof creatorGroupTargetSlugs)[number];
+	(typeof builtinMediaEntitySchemaSlugs)[number] | (typeof creatorGroupTargetSlugs)[number];
 
 export type MediaArtworkSchemaSlug =
-	| (typeof builtinMediaEntitySchemaSlugs)[number]
-	| MediaGroupSlug;
+	(typeof builtinMediaEntitySchemaSlugs)[number] | MediaGroupSlug;
 
 export const mediaLibraryMemberEntitySchemaSlugs = [
 	"person",

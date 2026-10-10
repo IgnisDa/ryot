@@ -7,10 +7,7 @@ import { Box } from "@/components/ui/box";
 const DIGIT_COUNT = 6;
 const OTP_POSITIONS = [0, 1, 2, 3, 4, 5] as const;
 
-type OtpInputProps = {
-	disabled?: boolean;
-	onComplete: (code: string) => void;
-};
+type OtpInputProps = { disabled?: boolean; onComplete: (code: string) => void };
 
 export function OtpInput(props: OtpInputProps) {
 	const [focusedIndex, setFocusedIndex] = useState(-1);

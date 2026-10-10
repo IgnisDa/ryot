@@ -5,8 +5,8 @@ import {
 	type SignalSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
-	RelationshipSchemaSlug,
 	type EntityId,
+	RelationshipSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";

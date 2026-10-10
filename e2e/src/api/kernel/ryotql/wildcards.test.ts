@@ -14,6 +14,7 @@ import {
 import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createEntityFixture,
 	createEventFixture,
@@ -23,7 +24,6 @@ import {
 	requireRows,
 	requireRyotQLValue,
 	waitForEventWithSchema,
-	type Client,
 } from "~/fixtures/kernel";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";

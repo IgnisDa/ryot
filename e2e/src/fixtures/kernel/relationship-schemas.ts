@@ -1,7 +1,7 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
-	definitionOwner,
 	type DefinitionOwner,
+	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { relationshipDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";

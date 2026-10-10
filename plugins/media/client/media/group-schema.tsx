@@ -12,21 +12,21 @@ import { createElement, type ReactNode } from "react";
 import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { MediaReviewActivityResult } from "../../shared/media-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { mediaCursorPageError, type MediaCursorPage } from "./cursor-page-state";
+import { type MediaCursorPage, mediaCursorPageError } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
-	MediaDetailScreen,
-	mediaDetailPage,
 	type MediaDetailBodyInput,
+	mediaDetailPage,
+	MediaDetailScreen,
 } from "./detail-screen";
 import {
 	defineMediaPresentationPair,
-	MediaCardContent,
-	MediaRowContent,
 	type MediaArtworkAspect,
+	MediaCardContent,
 	type MediaPresentationViewData,
+	MediaRowContent,
 	type MediaSavedViewPresentationSubject,
 } from "./entity-presentation";
 import { collectManagedAssetLocators, type MediaImagePurposes } from "./image";
@@ -36,8 +36,8 @@ import {
 	type MediaOverviewRelationsRender,
 } from "./overview";
 import {
-	mediaCreditAssets,
 	type MediaCompany,
+	mediaCreditAssets,
 	type MediaCreditPerson,
 	type MediaOverviewState,
 } from "./overview-state";
@@ -45,12 +45,12 @@ import { defineMediaReviewActivityTab } from "./review-activity-tab";
 import {
 	mediaCountFact,
 	mediaCountLabels,
-	mediaSourceLinks,
-	mediaSummaryStateMapper,
 	type MediaEntitySummaryValue,
+	mediaSourceLinks,
+	type MediaStatusTone,
 	type MediaSummaryHeaderDetail,
 	type MediaSummaryState,
-	type MediaStatusTone,
+	mediaSummaryStateMapper,
 } from "./summary-state";
 
 const MEMBER_PAGE_LIMIT = 20;

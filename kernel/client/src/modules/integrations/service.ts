@@ -10,14 +10,14 @@ import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk
 import { integrationImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
 import type { ImportRunList } from "@ryot-app/ryotql-recipes/import-runs";
 import {
-	integrationProvidersRecipe,
 	type IntegrationProvidersPage,
+	integrationProvidersRecipe,
 } from "@ryot-app/ryotql-recipes/integration-providers";
 import {
-	integrationRecipe,
-	integrationsRecipe,
 	type IntegrationDetail,
 	type IntegrationList,
+	integrationRecipe,
+	integrationsRecipe,
 } from "@ryot-app/ryotql-recipes/integrations";
 import { Context, Data, Effect, Layer, Option } from "effect";
 

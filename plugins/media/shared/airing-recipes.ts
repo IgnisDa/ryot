@@ -1,19 +1,19 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
-	entitySchemaPredicate,
 	ascending,
 	castDate,
 	castNumber,
 	column,
 	count,
 	defineRecipe,
+	entitySchemaPredicate,
 	eq,
 	exists,
 	first,
 	gte,
-	IsoDateString,
 	isNull,
+	IsoDateString,
 	jsonArrayExists,
 	jsonArrayFirst,
 	jsonElement,
@@ -23,11 +23,11 @@ import {
 	lte,
 	neq,
 	or,
+	type Recipe,
 	selectedField,
 	selectedInclude,
 	selectedRows,
 	table,
-	type Recipe,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
@@ -45,8 +45,8 @@ import {
 	episodicEpisodeQuery,
 	episodicLifecycleExpressions,
 	mediaLifecycleExpressions,
-	showEpisodicKindConfig,
 	type ScalarExpression,
+	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
 

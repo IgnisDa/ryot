@@ -13,9 +13,7 @@ import {
 import { useDebouncedState, useDidUpdate } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { type ExerciseDurationUnit, SetLot } from "@ryot-app/generated/graphql/backend/graphql";
-import { isString } from "@ryot-app/ts-utils/lodash";
-import { snakeCase } from "@ryot-app/ts-utils/lodash";
-import { startCase } from "@ryot-app/ts-utils/lodash";
+import { isString, snakeCase, startCase } from "@ryot-app/ts-utils/lodash";
 import { IconClipboard, IconHeartSpark, IconTrash, IconZzz } from "@tabler/icons-react";
 import clsx from "clsx";
 import { produce } from "immer";
@@ -171,10 +169,7 @@ export const SetDisplay = (props: {
 								leftSection={<IconClipboard size={14} />}
 								onClick={() => {
 									if (!coreDetails.isServerKeyValidated) {
-										notifications.show({
-											color: "red",
-											message: PRO_REQUIRED_MESSAGE,
-										});
+										notifications.show({ color: "red", message: PRO_REQUIRED_MESSAGE });
 										return;
 									}
 									setCurrentWorkout(
@@ -333,9 +328,7 @@ export const SetDisplay = (props: {
 							size={hasRestTimerOfThisSetElapsed ? undefined : "lg"}
 							color={hasRestTimerOfThisSetElapsed ? "green" : "blue"}
 							opacity={hasRestTimerOfThisSetElapsed ? 0.5 : undefined}
-							style={{
-								cursor: hasRestTimerOfThisSetElapsed ? undefined : "pointer",
-							}}
+							style={{ cursor: hasRestTimerOfThisSetElapsed ? undefined : "pointer" }}
 							onClick={() => {
 								if (hasRestTimerOfThisSetElapsed) {
 									return;

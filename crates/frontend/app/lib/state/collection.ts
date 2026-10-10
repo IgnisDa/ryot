@@ -39,10 +39,7 @@ export const useBulkEditCollection = () => {
 
 	const start = async (collection: Collection, action: Action) => {
 		const result = await clientGqlService.request(CollectionContentsDocument, {
-			input: {
-				collectionId: collection.id,
-				search: { take: Number.MAX_SAFE_INTEGER },
-			},
+			input: { collectionId: collection.id, search: { take: Number.MAX_SAFE_INTEGER } },
 		});
 		setBec({
 			action,
@@ -97,9 +94,7 @@ export const useBulkEditCollection = () => {
 	};
 };
 
-export type CreateOrUpdateCollectionModalData = {
-	collectionId?: string;
-};
+export type CreateOrUpdateCollectionModalData = { collectionId?: string };
 
 const createOrUpdateCollectionModalAtom = atom<{
 	isOpen: boolean;
@@ -117,12 +112,7 @@ export const useCreateOrUpdateCollectionModal = () => {
 		setModal({ isOpen: false, data: null });
 	};
 
-	return {
-		open,
-		close,
-		data: modal.data,
-		isOpen: modal.isOpen,
-	};
+	return { open, close, data: modal.data, isOpen: modal.isOpen };
 };
 
 type EditEntityCollectionInformationData = {

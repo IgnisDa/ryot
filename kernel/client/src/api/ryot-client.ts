@@ -1,14 +1,14 @@
 import {
 	createRyotClient,
-	RyotClientError,
 	type RyotClientAdapter,
+	RyotClientError,
 } from "@ryot-app/plugin-client-sdk";
 import { makeRyotRuntime, type RyotRuntime } from "@ryot-app/plugin-client-sdk/runtime";
 import { Effect } from "effect";
 
 import { classifyCollectionFailure, CollectionsApi } from "#/api/collections";
 import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
-import { apiScopeKey, type ApiScope } from "#/api/scope";
+import { type ApiScope, apiScopeKey } from "#/api/scope";
 import { UploadsApi } from "#/api/uploads";
 import type { KernelHostServices } from "#/host-services";
 import {

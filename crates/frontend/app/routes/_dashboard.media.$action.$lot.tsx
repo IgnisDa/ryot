@@ -26,8 +26,7 @@ import {
 	UserMetadataListDocument,
 	type UserMetadataListInput,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot-app/ts-utils/lodash";
-import { startCase } from "@ryot-app/ts-utils/lodash";
+import { cloneDeep, startCase } from "@ryot-app/ts-utils/lodash";
 import { changeCase } from "@ryot-app/ts-utils/string";
 import { IconCheck, IconFilter, IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
@@ -188,9 +187,7 @@ export default function Page(props: { params: { action: string; lot: string } })
 			source: searchFilters.source,
 			search: { page: searchFilters.page, query: searchFilters.query },
 			sourceSpecifics: {
-				googleBooks: {
-					passRawQuery: searchFilters.googleBooksPassRawQuery || undefined,
-				},
+				googleBooks: { passRawQuery: searchFilters.googleBooksPassRawQuery || undefined },
 				igdb: {
 					filters: {
 						themeIds:
@@ -252,12 +249,14 @@ export default function Page(props: { params: { action: string; lot: string } })
 					}
 					const input = cloneDeep(listInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
-					return await clientGqlService.request(UserMetadataListDocument, { input }).then((r) =>
-						r.userMetadataList.response.items.map((m) => ({
-							entityId: m,
-							entityLot: EntityLot.Metadata,
-						})),
-					);
+					return await clientGqlService
+						.request(UserMetadataListDocument, { input })
+						.then((r) =>
+							r.userMetadataList.response.items.map((m) => ({
+								entityId: m,
+								entityLot: EntityLot.Metadata,
+							})),
+						);
 				}}
 			/>
 			<Container>
@@ -267,12 +266,7 @@ export default function Page(props: { params: { action: string; lot: string } })
 					variant="default"
 					onChange={(v) => {
 						if (v) {
-							navigate(
-								$path("/media/:action/:lot", {
-									action: v,
-									lot: lot.toLowerCase(),
-								}),
-							);
+							navigate($path("/media/:action/:lot", { action: v, lot: lot.toLowerCase() }));
 							if (v === "search") {
 								advanceOnboardingTourStep();
 							}
@@ -488,12 +482,7 @@ const FiltersModalForm = (props: FiltersModalFormProps) => {
 					onChange={(v) => {
 						v && onFiltersChange("sortBy", v as MediaSortBy);
 					}}
-					data={[
-						{
-							group: "Sort by",
-							items: convertEnumToSelectData(MediaSortBy),
-						},
-					]}
+					data={[{ group: "Sort by", items: convertEnumToSelectData(MediaSortBy) }]}
 				/>
 				{filters.sortBy !== MediaSortBy.Random ? (
 					<SortOrderToggle
@@ -573,10 +562,7 @@ const IgdbMultiselect = (props: IgdbMultiselectProps) => {
 			label={props.label}
 			value={props.value}
 			onChange={(v) => props.onChange(props.valueKey, v)}
-			data={props.data.map((item) => ({
-				label: item.name,
-				value: item.id.toString(),
-			}))}
+			data={props.data.map((item) => ({ label: item.name, value: item.id.toString() }))}
 		/>
 	);
 };
@@ -655,9 +641,7 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => {
 	);
 };
 
-type MediaListItemProps = {
-	item: string;
-};
+type MediaListItemProps = { item: string };
 
 const MediaListItem = (props: MediaListItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();

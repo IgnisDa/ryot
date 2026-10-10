@@ -54,11 +54,7 @@ After:
 import { fromPartial } from "@total-typescript/shoehorn";
 
 it("gets user by id", () => {
-  getUser(
-    fromPartial({
-      body: { id: "123" },
-    }),
-  );
+  getUser(fromPartial({ body: { id: "123" } }));
 });
 ```
 

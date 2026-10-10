@@ -6,11 +6,11 @@ import {
 	defineRecipe,
 	eq,
 	literal,
+	type Recipe,
+	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedMeasure,
-	schemaOwnerPredicate,
 	table,
-	type Recipe,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 

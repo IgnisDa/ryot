@@ -23,12 +23,12 @@ import type {
 	LiteralExpression,
 	NamedQuery,
 	OrderBy,
-	Predicate,
 	PluginIdExpression,
-	RyotQLDocument,
+	Predicate,
 	RowSelection,
 	RowsOutput,
 	RowsResult,
+	RyotQLDocument,
 	ScalarExpression,
 	TableReference,
 	TimeSeriesOutput,
@@ -462,9 +462,7 @@ type SelectedIncludeValue<Selected> =
 export type SelectedRow<
 	Selection extends SelectedSelection,
 	Includes extends SelectedIncludes = Record<never, never>,
-> = {
-	readonly [Key in keyof Selection]: SelectedValue<Selection[Key]>;
-} & {
+> = { readonly [Key in keyof Selection]: SelectedValue<Selection[Key]> } & {
 	readonly [Key in keyof Includes]: SelectedIncludeValue<Includes[Key]>;
 };
 
@@ -959,9 +957,7 @@ type SelectedMeasureValue<Measure> = Measure extends SelectedMeasure<infer A, in
 export type SelectedAggregateRow<
 	GroupBy extends SelectedSelection,
 	Measures extends SelectedMeasures,
-> = {
-	readonly [Key in keyof GroupBy]: SelectedValue<GroupBy[Key]>;
-} & {
+> = { readonly [Key in keyof GroupBy]: SelectedValue<GroupBy[Key]> } & {
 	readonly [Key in keyof Measures]: SelectedMeasureValue<Measures[Key]>;
 };
 

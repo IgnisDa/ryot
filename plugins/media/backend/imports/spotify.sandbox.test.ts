@@ -3,7 +3,7 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { compareMediaRecords, serializeMediaRecords } from "./collection";
 import type { MediaSourceRecord } from "./collection-schemas";
-import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
+import { mediaFilesystem, mediaStageInput, resetMediaFilesystem } from "./ingestion.test-support";
 import type { MediaReadBatchOutput } from "./process";
 import reader from "./read-batch.sandbox";
 import spotify from "./spotify.sandbox";

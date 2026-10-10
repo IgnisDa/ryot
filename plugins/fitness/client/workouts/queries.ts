@@ -10,21 +10,21 @@ import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { chunk } from "../../shared/collections";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
+	workoutCardsRecipe,
+	type WorkoutComparison,
 	workoutComparisonsRecipe,
 	workoutCountRecipe,
-	workoutExerciseTargetsRecipe,
-	workoutCardsRecipe,
-	workoutSummaryRecipe,
-	workoutWeeksRecipe,
-	type WorkoutComparison,
-	type WorkoutFilterPredicate,
 	type WorkoutExerciseTargets,
+	workoutExerciseTargetsRecipe,
+	type WorkoutFilterPredicate,
 	type WorkoutListItem,
 	type WorkoutPeriodTotals,
 	type WorkoutSummary,
+	workoutSummaryRecipe,
+	workoutWeeksRecipe,
 } from "../../shared/workout-list-recipes";
 import { compileWorkoutFilter } from "./filters";
-import { summaryWindows, type PeriodKey } from "./model";
+import { type PeriodKey, summaryWindows } from "./model";
 
 const LOOKUP_BATCH_SIZE = 100;
 

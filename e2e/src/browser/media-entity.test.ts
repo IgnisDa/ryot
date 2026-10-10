@@ -9,14 +9,14 @@ import {
 	fakeProviderDetailsResult,
 	fakeProviderTranslations,
 	getEntity,
-	shippedPluginTestProviders,
 	setUserLanguage,
+	shippedPluginTestProviders,
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
-	seedMediaEntity,
 	seedGlobalShowEpisodeTree,
+	seedMediaEntity,
 } from "~/fixtures/plugins/media";
 import { seedGlobalMediaGenres } from "~/fixtures/plugins/media/genres";
 import { signInThroughHostedOAuth } from "~/support/browser";

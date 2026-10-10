@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 
 import { Modal } from "./modal";
 import {
+	type OverlayBackAdapter,
 	OverlayBackProvider,
 	OverlayScope,
-	type OverlayBackAdapter,
 	useShortcut,
 } from "./shortcut";
 

@@ -1,6 +1,5 @@
 type LanguageResolution =
-	| { readonly kind: "canonical" }
-	| { readonly kind: "translate"; readonly language: string };
+	{ readonly kind: "canonical" } | { readonly kind: "translate"; readonly language: string };
 
 export const resolveLanguage = (input: {
 	readonly canonicalLanguage: string;

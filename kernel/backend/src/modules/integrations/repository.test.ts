@@ -1,5 +1,5 @@
 import { expect, layer } from "@effect/vitest";
-import { IntegrationId, UserId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { IntegrationId, type PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 import { describe } from "vitest";
@@ -13,8 +13,8 @@ import { PluginIngestionLock } from "#modules/plugins/packages/ingestion-lock";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
 	installRevisionPackage,
-	revisionPackage,
 	revisionDatabaseLayer,
+	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { SystemPlugins } from "#modules/plugins/packages/system";
 import { SavedViewsRepository } from "#modules/saved-views/repository";

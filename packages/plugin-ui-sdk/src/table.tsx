@@ -1,5 +1,5 @@
 import { type ColumnDef, tableFeatures, useTable } from "@tanstack/react-table";
-import { Fragment, type ComponentProps, type ReactNode } from "react";
+import { type ComponentProps, Fragment, type ReactNode } from "react";
 
 const features = tableFeatures({});
 const emptyBodyEndRows: ReadonlyArray<DataTableBodyEndRow> = [];

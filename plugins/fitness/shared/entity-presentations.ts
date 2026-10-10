@@ -10,12 +10,12 @@ import {
 	jsonPath,
 	latestEventField,
 	literal,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedRowsSource,
+	type SelectedSelection,
 	table,
 	titleCase,
-	type SelectedSelection,
-	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";

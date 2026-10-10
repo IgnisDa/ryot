@@ -6,14 +6,14 @@ import {
 	ascending,
 	column,
 	defineRecipe,
+	entitySchemaPredicate,
 	eq,
 	jsonPath,
 	literal,
+	type Recipe,
 	selectedField,
 	selectedOptionalRow,
 	table,
-	type Recipe,
-	entitySchemaPredicate,
 } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";

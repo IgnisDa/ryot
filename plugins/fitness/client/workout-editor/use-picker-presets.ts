@@ -1,11 +1,11 @@
-import { RyotClientError, type RyotClient } from "@ryot-app/plugin-client-sdk";
+import { type RyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import type { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { maxPickerPresets, PickerPresetsSchema, type PickerPreset } from "./picker-model";
+import { maxPickerPresets, type PickerPreset, PickerPresetsSchema } from "./picker-model";
 
 const PRESETS_STORAGE_KEY = "fitness-workout-exercise-picker-presets";
 

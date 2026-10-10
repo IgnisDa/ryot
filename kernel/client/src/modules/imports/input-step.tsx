@@ -2,9 +2,9 @@ import { renderSchemaAsset } from "@ryot-app/plugin-client-sdk/react";
 import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
-	SchemaForm,
 	type SchemaAssetUpload,
 	type SchemaFileUpload,
+	SchemaForm,
 	type SchemaFormApi,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { useState } from "react";

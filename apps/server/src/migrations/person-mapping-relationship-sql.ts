@@ -1,9 +1,9 @@
 import { legacyPersonCompanyPredicateSql } from "./person-mapping-entity-sql";
 import {
-	type ResolvedRelationshipTarget,
 	buildAbortOnRowsSql,
 	buildRelationshipTargetValuesSql,
 	buildReportSql,
+	type ResolvedRelationshipTarget,
 } from "./shared";
 
 // User-authored credits (an endpoint owned by a user) migrate with that owner. Provider credits

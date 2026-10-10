@@ -9,7 +9,7 @@ import { decodeServerOrigin } from "#/api/origin";
 import { DeviceScope, ReturnShortcutBar } from "#/modules/device/lifecycle";
 import { noopDevicePlatform } from "#/modules/device/platform.test-layer";
 import { DevicePlatform, DeviceService } from "#/modules/device/service";
-import { emptyDeviceState, type DeviceState } from "#/modules/device/state";
+import { type DeviceState, emptyDeviceState } from "#/modules/device/state";
 import { makeClientStorage } from "#/persistence/storage.test-layer";
 
 const storage = (read: () => DeviceState, write: (state: DeviceState) => void) =>

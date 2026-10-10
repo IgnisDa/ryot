@@ -1,5 +1,5 @@
 import type { KernelShortcut } from "@ryot-app/plugin-client-contract";
-import { createContext, useContext, type RefObject } from "react";
+import { createContext, type RefObject, useContext } from "react";
 
 import type { EdgeResolution } from "#/modules/navigation/edge-intent";
 import type { CustomizeDraftState } from "#/modules/shell/customize/use-customize-draft";

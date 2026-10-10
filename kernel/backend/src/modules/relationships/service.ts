@@ -1,8 +1,8 @@
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
-	RelationshipNotFound,
 	type RelationshipMutationResult,
+	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import type { RelationshipId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -11,51 +11,51 @@ import { Context, Effect, Layer } from "effect";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import {
-	runLifecycleWriteInline,
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
+	runLifecycleWriteInline,
 } from "#modules/automations/lifecycle/write-step";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { DomainWriteChecks, type DomainLifecycleCommand } from "#modules/entities/write-context";
+import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
 import {
+	type MutationReceiptIdentity,
 	mutationReceiptIdentity,
 	MutationReceipts,
-	type MutationReceiptIdentity,
 } from "#modules/mutations/receipts";
 import {
-	catalogDefinitionFingerprint,
 	type CatalogDefinitionFingerprint,
+	catalogDefinitionFingerprint,
 } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
 
 import {
+	type PendingRelationshipMutations,
 	prepareProjectedRelationshipMutations,
 	reconciliationSummary,
 	RelationshipMutationPipeline,
+	type RelationshipSingleResult,
 	singleRelationshipResult,
 	summarizeRelationshipMutations,
-	type PendingRelationshipMutations,
-	type RelationshipSingleResult,
 } from "./mutation-pipeline";
 import { classifyRelationshipReceiptConflict } from "./mutation-primitives";
 import {
-	rootTransaction,
-	rootTransactionGuard,
-	RelationshipRecordedResult,
-	validateUserRelationshipEntities,
-	relationshipSchemaReference,
-	relationshipIdentity,
 	type ChangeUserRelationshipBatch,
 	type CreateRelationshipInput,
 	type DeleteRelationshipInput,
 	type Mutation,
 	type ReconcileGlobalRelationshipGroup,
+	relationshipIdentity,
+	RelationshipRecordedResult,
+	relationshipSchemaReference,
+	relationshipWriteFailure,
+	rootTransaction,
+	rootTransactionGuard,
 	type UpdateRelationshipInput,
 	type UserRelationshipIdentity,
-	relationshipWriteFailure,
+	validateUserRelationshipEntities,
 } from "./mutation-support";
-import { RelationshipsRepository, type RelationshipIdentityInput } from "./repository";
+import { type RelationshipIdentityInput, RelationshipsRepository } from "./repository";
 
 export class RelationshipsService extends Context.Service<RelationshipsService>()(
 	"RelationshipsService",

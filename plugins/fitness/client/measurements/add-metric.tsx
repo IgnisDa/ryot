@@ -8,12 +8,12 @@ import {
 	StatusMessage,
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 
 import {
 	MeasurementMetricCreateInput,
-	MeasurementMetricCreateOutput,
 	measurementMetricCreateOperationSlug,
+	MeasurementMetricCreateOutput,
 } from "../../shared/measurement-metric-operations";
 import { measurementMetricKey, measurementMetricUnit } from "../../shared/measurement-metrics";
 import type { MeasurementSummary } from "../../shared/measurement-recipes";

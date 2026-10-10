@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
@@ -12,27 +12,27 @@ import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/even
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { getRouter } from "#/router";
 import {
-	theme,
-	server,
 	catalog,
-	ServerStub,
+	ClientPageSessionsRouteStubs,
+	CustomizeRouteStubs,
+	DeviceRouteStubs,
+	EntityRouteStubs,
+	ImportsRouteStubs,
+	InstanceAdminRouteStubs,
+	IntegrationRouteStubs,
 	makeAuthStub,
-	unauthenticated,
+	makeOAuthRouteStubs,
 	makePublicApiStub,
 	makeStorageStubLayer,
-	InstanceAdminRouteStubs,
-	CustomizeRouteStubs,
-	SavedViewRouteStubs,
-	EntityRouteStubs,
-	makeOAuthRouteStubs,
-	DeviceRouteStubs,
 	NavigationRouteStubs,
-	ProviderAddRouteStubs,
-	ImportsRouteStubs,
-	IntegrationRouteStubs,
-	PagesApiRouteStubs,
-	ClientPageSessionsRouteStubs,
 	NotificationChannelRouteStubs,
+	PagesApiRouteStubs,
+	ProviderAddRouteStubs,
+	SavedViewRouteStubs,
+	server,
+	ServerStub,
+	theme,
+	unauthenticated,
 } from "#/routes/-route-fixtures";
 
 const makePlan = (nativeApplicationId: OAuthLaunchPlan["client"]["nativeApplicationId"]) => {

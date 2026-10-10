@@ -8,15 +8,15 @@ import {
 } from "@ryot-app/contract/modules/entity-user-data/schemas";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
+	AutomationExecutionId,
+	AutomationHookSlug,
+	AutomationRunId,
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
-	AutomationHookSlug,
 	PluginId,
 	RelationshipId,
 	RelationshipSchemaSlug,
-	AutomationExecutionId,
-	AutomationRunId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
@@ -33,9 +33,9 @@ import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
+	type LifecyclePlan,
 	LifecyclePlanner,
 	toLifecycleDispatchPlan,
-	type LifecyclePlan,
 } from "#modules/automations/lifecycle/planning";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";

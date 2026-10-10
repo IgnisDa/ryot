@@ -3,15 +3,15 @@ import { describe, expect, it } from "vitest";
 
 import { PluginId } from "../../schema/brands";
 import {
-	AutomationCausation,
 	AutomationAfterInputProjection,
+	AutomationCausation,
 	AutomationInput,
-	AutomationPolicyInputProjection,
 	AutomationPolicyInput,
-	AutomationRun,
-	AutomationRunAttempt,
+	AutomationPolicyInputProjection,
 	AutomationPolicyOutput,
 	AutomationRetryPolicy,
+	AutomationRun,
+	AutomationRunAttempt,
 	AutomationTrigger,
 	AutomationTriggerPayload,
 	AutomationWarning,

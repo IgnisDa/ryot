@@ -15,8 +15,8 @@ import { describe, expect, it } from "vitest";
 import {
 	automationLifecycleCausation,
 	childLifecycleCommand,
-	populationLifecycleCommand,
 	lifecycleTrigger,
+	populationLifecycleCommand,
 	rootLifecycleCommand,
 } from "./command";
 

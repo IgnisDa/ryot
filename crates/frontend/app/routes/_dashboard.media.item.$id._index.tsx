@@ -181,10 +181,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 const seenIdSchema = z.object({ seenId: z.string() });
 
-const mergeMetadataSchema = z.object({
-	mergeFrom: z.string(),
-	mergeInto: z.string(),
-});
+const mergeMetadataSchema = z.object({ mergeFrom: z.string(), mergeInto: z.string() });
 
 const editSeenItem = z.object({
 	seenId: z.string(),
@@ -280,9 +277,7 @@ export default function Page() {
 			<Link
 				key="group-link"
 				style={{ color: "unset" }}
-				to={$path("/media/groups/item/:id", {
-					id: firstGroupAssociated.id,
-				})}
+				to={$path("/media/groups/item/:id", { id: firstGroupAssociated.id })}
 			>
 				<Text c="dimmed" fs="italic" span>
 					{metadataGroupTitleTranslation || metadataGroupDetails?.details.title || "Group"}{" "}
@@ -403,11 +398,7 @@ export default function Page() {
 									<Paper
 										p={4}
 										display="flex"
-										style={{
-											gap: 6,
-											alignItems: "center",
-											flexDirection: "column",
-										}}
+										style={{ gap: 6, alignItems: "center", flexDirection: "column" }}
 									>
 										<Image
 											h={24}
@@ -459,11 +450,7 @@ export default function Page() {
 												<Paper
 													p={4}
 													display="flex"
-													style={{
-														gap: 6,
-														alignItems: "center",
-														flexDirection: "column",
-													}}
+													style={{ gap: 6, alignItems: "center", flexDirection: "column" }}
 												>
 													<IconStarFilled size={22} style={{ color: reviewYellow }} />
 													<Text fz="sm">
@@ -562,13 +549,7 @@ export default function Page() {
 														<Text fw="bold">{c.name}</Text>
 														<ScrollArea
 															mt="xs"
-															w={{
-																base: 380,
-																xs: 440,
-																sm: 480,
-																md: 520,
-																lg: 580,
-															}}
+															w={{ base: 380, xs: 440, sm: 480, md: 520, lg: 580 }}
 														>
 															<Flex gap="md">
 																{c.items.map((creator) => (
@@ -702,9 +683,7 @@ export default function Page() {
 														<Menu.Label>In progress</Menu.Label>
 														<Menu.Item
 															onClick={() => {
-																initializeMetadataToUpdate({
-																	metadataId: loaderData.metadataId,
-																});
+																initializeMetadataToUpdate({ metadataId: loaderData.metadataId });
 															}}
 														>
 															Set progress
@@ -715,11 +694,7 @@ export default function Page() {
 															<StateChangeButtons />
 														) : null}
 														<Menu.Item
-															onClick={() =>
-																changeProgress({
-																	changeLatestInProgress: "100",
-																})
-															}
+															onClick={() => changeProgress({ changeLatestInProgress: "100" })}
 														>
 															I finished it
 														</Menu.Item>
@@ -747,9 +722,7 @@ export default function Page() {
 														) : null}
 														<Menu.Item
 															onClick={() => {
-																initializeMetadataToUpdate({
-																	metadataId: loaderData.metadataId,
-																});
+																initializeMetadataToUpdate({ metadataId: loaderData.metadataId });
 															}}
 														>
 															Add to {getVerb(Verb.Read, metadataDetails.data.lot)} history

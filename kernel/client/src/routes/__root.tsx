@@ -1,6 +1,6 @@
 // oxlint-disable-next-line import/no-unassigned-import
 import "#/styles/index.css";
-import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 
 import type { KernelRyotClientStore } from "#/api/ryot-client";
 import { DeviceLifecycle } from "#/modules/device/lifecycle";

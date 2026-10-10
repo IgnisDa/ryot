@@ -5,6 +5,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import {
 	fetchEntity,
+	type IntegrationPushHost,
 	integrationsDisabledForUser,
 	jsonObject,
 	listActiveIntegrations,
@@ -12,7 +13,6 @@ import {
 	normalizeBaseUrl,
 	parseJsonBody,
 	resolveEntityProviderName,
-	type IntegrationPushHost,
 } from "../lib/integration-push";
 
 const JELLYFIN_AUTH_HEADER =

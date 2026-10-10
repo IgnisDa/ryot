@@ -5,8 +5,8 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
-	createPluginScope,
 	createPluginSchema,
+	createPluginScope,
 	getEntity,
 	getEntitySchema,
 } from "~/fixtures/kernel";

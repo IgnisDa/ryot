@@ -21,9 +21,7 @@ type TextFieldProps = Pick<
 	| "submitBehavior"
 	| "blurOnSubmit"
 	| "onSubmitEditing"
-> & {
-	inputRef?: Ref<TextInputProps>;
-};
+> & { inputRef?: Ref<TextInputProps> };
 
 function TextField(props: TextFieldProps) {
 	const field = useFieldContext<string>();
@@ -48,11 +46,7 @@ function TextField(props: TextFieldProps) {
 	);
 }
 
-type SubmitButtonProps = {
-	label: string;
-	disabled?: boolean;
-	pendingLabel?: string;
-};
+type SubmitButtonProps = { label: string; disabled?: boolean; pendingLabel?: string };
 
 function SubmitButton(props: SubmitButtonProps) {
 	const form = useFormContext();

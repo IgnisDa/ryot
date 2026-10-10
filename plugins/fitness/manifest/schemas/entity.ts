@@ -4,8 +4,8 @@ import {
 	measurementMetricPropertiesSchema,
 	measurementReadingPropertiesSchema,
 	workoutPropertiesSchema,
-	workoutSetPropertiesSchema,
 	workoutRecordPropertiesSchema,
+	workoutSetPropertiesSchema,
 	workoutTemplatePropertiesSchema,
 } from "./property";
 

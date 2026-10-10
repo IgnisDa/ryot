@@ -21,8 +21,7 @@ import {
 	UserPeopleListDocument,
 	type UserPeopleListInput,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot-app/ts-utils/lodash";
-import { startCase } from "@ryot-app/ts-utils/lodash";
+import { cloneDeep, startCase } from "@ryot-app/ts-utils/lodash";
 import { IconCheck, IconFilter, IconListCheck, IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -187,12 +186,14 @@ export default function Page(props: { params: { action: string } }) {
 					}
 					const input = cloneDeep(listInput);
 					input.search = { ...input.search, take: Number.MAX_SAFE_INTEGER };
-					return await clientGqlService.request(UserPeopleListDocument, { input }).then((r) =>
-						r.userPeopleList.response.items.map((p) => ({
-							entityId: p,
-							entityLot: EntityLot.Person,
-						})),
-					);
+					return await clientGqlService
+						.request(UserPeopleListDocument, { input })
+						.then((r) =>
+							r.userPeopleList.response.items.map((p) => ({
+								entityId: p,
+								entityLot: EntityLot.Person,
+							})),
+						);
 				}}
 			/>
 			<Container>
@@ -260,11 +261,7 @@ export default function Page(props: { params: { action: string } }) {
 										label: startCase(o.toLowerCase()),
 									}))}
 									onChange={(v) => {
-										v &&
-											updateSearchFilters({
-												page: 1,
-												source: v as MediaSource,
-											});
+										v && updateSearchFilters({ page: 1, source: v as MediaSource });
 									}}
 								/>
 								<ActionIcon
@@ -427,9 +424,7 @@ const SearchFiltersModalForm = (props: SearchFiltersModalFormProps) => (
 	</Stack>
 );
 
-type PersonListItemProps = {
-	item: string;
-};
+type PersonListItemProps = { item: string };
 
 const PersonListItem = (props: PersonListItemProps) => {
 	const bulkEditingCollection = useBulkEditCollection();

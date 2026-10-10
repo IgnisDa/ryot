@@ -1,12 +1,12 @@
-import { useHotkey, type RegisterableHotkey } from "@tanstack/react-hotkeys";
+import { type RegisterableHotkey, useHotkey } from "@tanstack/react-hotkeys";
 import {
 	createContext,
+	type ReactNode,
 	useContext,
-	useLayoutEffect,
 	useEffectEvent,
+	useLayoutEffect,
 	useState,
 	useSyncExternalStore,
-	type ReactNode,
 } from "react";
 
 type ShortcutScope = { readonly id: symbol; readonly parent?: ShortcutScope };

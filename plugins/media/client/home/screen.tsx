@@ -6,7 +6,7 @@ import type { RefObject } from "react";
 import { libraryMediaCountRecipe } from "../../shared/lifecycle-list-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { ActivitySection } from "./activity-section";
-import { AiringRail, airingQuery } from "./airing-rail";
+import { airingQuery, AiringRail } from "./airing-rail";
 import { BacklogRail } from "./backlog-rail";
 import { ContinueRail, libraryEntries, libraryStateQuery } from "./continue-rail";
 import { FirstRun } from "./first-run";

@@ -135,11 +135,7 @@ const deleteSchema = z.object({
 	entity: z.enum(FitnessEntity),
 });
 
-const editWorkoutSchema = z.object({
-	id: z.string(),
-	endTime: z.string(),
-	startTime: z.string(),
-});
+const editWorkoutSchema = z.object({ id: z.string(), endTime: z.string(), startTime: z.string() });
 
 const WorkoutAssetsList = (props: { images: string[]; videos: string[] }) => {
 	const { setFullscreenImage } = useFullscreenImage();
@@ -222,10 +218,7 @@ export default function Page() {
 
 				const template =
 					templateDetailsData && workoutData.details.templateId
-						? {
-								id: workoutData.details.templateId,
-								name: templateDetailsData.details.name,
-							}
+						? { id: workoutData.details.templateId, name: templateDetailsData.details.name }
 						: null;
 
 				return {
@@ -430,15 +423,10 @@ export default function Page() {
 										<Menu.Item
 											onClick={() => {
 												if (!coreDetails.isServerKeyValidated) {
-													notifications.show({
-														color: "red",
-														message: PRO_REQUIRED_MESSAGE,
-													});
+													notifications.show({ color: "red", message: PRO_REQUIRED_MESSAGE });
 													return;
 												}
-												performDecision({
-													action: FitnessAction.CreateTemplate,
-												});
+												performDecision({ action: FitnessAction.CreateTemplate });
 											}}
 											leftSection={<IconTemplate size={14} />}
 										>
@@ -543,10 +531,7 @@ export default function Page() {
 								icon={<IconClock size={16} />}
 								data={humanizeDuration(
 									dayjsLib.duration(loaderData.duration, "second").asMilliseconds(),
-									{
-										round: true,
-										units: ["h", "m"],
-									},
+									{ round: true, units: ["h", "m"] },
 								)}
 							/>
 						) : null}

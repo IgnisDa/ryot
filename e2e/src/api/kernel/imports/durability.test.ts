@@ -4,6 +4,7 @@ import { Effect } from "effect";
 import getPort from "get-port";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createIntegration,
 	encodePluginSourceFiles,
@@ -14,7 +15,6 @@ import {
 	pollUntil,
 	sendDataWebhook,
 	testPluginManifest,
-	type Client,
 	testPluginPackageId,
 } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";

@@ -3,16 +3,16 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
-	createAuthenticatedClient,
 	adminHeaders,
+	checkClientPageFreshness,
+	createAuthenticatedClient,
 	getApiClient,
 	getSavedView,
-	installTestSupportSystemPlugin,
-	checkClientPageFreshness,
 	installNamespacePackage,
+	installTestSupportSystemPlugin,
 	pluginNamespacePackages,
-	updateNamespacePackage,
 	pollUntil,
+	updateNamespacePackage,
 } from "~/fixtures/kernel";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { assert, describe, expect, it } from "~/support/effect-test";

@@ -5,10 +5,10 @@ import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endp
 import { EntityId } from "../../schema/brands";
 import {
 	ClearEntityUserDataResponse,
-	MergeEntityUserDataBody,
-	MergeEntityUserDataResponse,
 	EntityUserDataBadRequest,
 	EntityUserDataNotFound,
+	MergeEntityUserDataBody,
+	MergeEntityUserDataResponse,
 } from "./schemas";
 
 export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")

@@ -1,4 +1,4 @@
-import { ExternalLinkRequest, type ExternalLinkOutcome } from "@ryot-app/plugin-client-contract";
+import { type ExternalLinkOutcome, ExternalLinkRequest } from "@ryot-app/plugin-client-contract";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 

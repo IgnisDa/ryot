@@ -1,7 +1,7 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "../../../lib/failures";
-import { type UnknownRecord, asRecord, stringValue } from "../../../lib/records";
+import { asRecord, stringValue, type UnknownRecord } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import {
 	type AlbumClient,

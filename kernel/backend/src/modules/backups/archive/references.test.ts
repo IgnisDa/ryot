@@ -8,8 +8,8 @@ import { testPluginPackageId } from "#modules/plugins/test-support";
 
 import {
 	exportQueryPluginReferences,
-	importQueryPluginReferences,
 	exportRendererSettings,
+	importQueryPluginReferences,
 	importRendererSettings,
 	redactSchemaSecrets,
 } from "./references";

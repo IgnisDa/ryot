@@ -181,9 +181,7 @@ export default function Page() {
 	const updateMutation = useMutation({
 		mutationFn: async () => {
 			invariant(loaderData.id);
-			await clientGqlService.request(UpdateCustomExerciseDocument, {
-				input: memoizedInput,
-			});
+			await clientGqlService.request(UpdateCustomExerciseDocument, { input: memoizedInput });
 			return loaderData.id;
 		},
 		onSuccess: (id) => {

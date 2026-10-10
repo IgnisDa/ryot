@@ -136,41 +136,26 @@ export const useUserPersonDetails = (personId?: string, enabled?: boolean) => {
 };
 
 export const useExerciseDetails = (exerciseId?: string, enabled?: boolean) => {
-	return useQuery({
-		...getExerciseDetailsQuery(exerciseId || ""),
-		enabled,
-	});
+	return useQuery({ ...getExerciseDetailsQuery(exerciseId || ""), enabled });
 };
 
 export const useUserExerciseDetails = (exerciseId?: string, enabled?: boolean) => {
-	return useQuery({
-		...getUserExerciseDetailsQuery(exerciseId || ""),
-		enabled,
-	});
+	return useQuery({ ...getUserExerciseDetailsQuery(exerciseId || ""), enabled });
 };
 
 export const useUserWorkoutDetails = (workoutId?: string | null, enabled?: boolean) => {
-	return useQuery({
-		...getWorkoutDetailsQuery(workoutId || ""),
-		enabled,
-	});
+	return useQuery({ ...getWorkoutDetailsQuery(workoutId || ""), enabled });
 };
 
 export const useUserWorkoutTemplateDetails = (
 	workoutTemplateId?: string | null,
 	enabled?: boolean,
 ) => {
-	return useQuery({
-		...getWorkoutTemplateDetailsQuery(workoutTemplateId || ""),
-		enabled,
-	});
+	return useQuery({ ...getWorkoutTemplateDetailsQuery(workoutTemplateId || ""), enabled });
 };
 
 export const useMetadataDetails = (metadataId?: string, enabled?: boolean) => {
-	const metadataDetailsQuery = useQuery({
-		...getMetadataDetailsQuery(metadataId),
-		enabled,
-	});
+	const metadataDetailsQuery = useQuery({ ...getMetadataDetailsQuery(metadataId), enabled });
 
 	const { isPartialStatusActive } = useEntityUpdateMonitor({
 		entityId: metadataId,
@@ -242,10 +227,7 @@ export const usePersonTranslationValue = (props: {
 };
 
 export const useMetadataGroupDetails = (metadataGroupId?: string, enabled?: boolean) => {
-	const query = useQuery({
-		...getMetadataGroupDetailsQuery(metadataGroupId),
-		enabled,
-	});
+	const query = useQuery({ ...getMetadataGroupDetailsQuery(metadataGroupId), enabled });
 
 	const { isPartialStatusActive } = useEntityUpdateMonitor({
 		entityId: metadataGroupId,
@@ -281,10 +263,7 @@ export const useMetadataGroupTranslationValue = (props: {
 };
 
 export const useUserMetadataGroupDetails = (metadataGroupId?: string, enabled?: boolean) => {
-	return useQuery({
-		...getUserMetadataGroupDetailsQuery(metadataGroupId),
-		enabled,
-	});
+	return useQuery({ ...getUserMetadataGroupDetailsQuery(metadataGroupId), enabled });
 };
 
 export const useUserEntityRecentlyConsumed = (
@@ -386,9 +365,7 @@ export const useApplicationEvents = () => {
 		sendEvent("Complete Onboarding Tour", {});
 	};
 	const createOrUpdateIntegration = (provider: string, isUpdate: boolean) => {
-		sendEvent(isUpdate ? "Update Integration" : "Create Integration", {
-			provider,
-		});
+		sendEvent(isUpdate ? "Update Integration" : "Create Integration", { provider });
 	};
 
 	return {
@@ -464,9 +441,7 @@ export const useDeployBulkMetadataProgressUpdateMutation = (title?: string) => {
 export const useAddEntitiesToCollectionMutation = () => {
 	const mutation = useMutation({
 		mutationFn: async (input: ChangeCollectionToEntitiesInput) => {
-			await clientGqlService.request(DeployAddEntitiesToCollectionJobDocument, {
-				input,
-			});
+			await clientGqlService.request(DeployAddEntitiesToCollectionJobDocument, { input });
 			return input;
 		},
 		onSettled: (d) => {
@@ -537,10 +512,7 @@ export const useInvalidateUserDetails = () => {
 	const invalidateUserDetails = useCallback(async () => {
 		fetcher.submit(
 			{ dummy: "data" },
-			{
-				method: "POST",
-				action: $path("/actions", { intent: "invalidateUserDetails" }),
-			},
+			{ method: "POST", action: $path("/actions", { intent: "invalidateUserDetails" }) },
 		);
 		await new Promise((r) => setTimeout(r, 1000));
 		revalidator.revalidate();
@@ -556,10 +528,7 @@ export const useMarkUserOnboardingTourStatus = () => {
 	const markUserOnboardingTourAsCompleted = useMutation({
 		mutationFn: async (isComplete: boolean) =>
 			clientGqlService.request(UpdateUserDocument, {
-				input: {
-					userId: userDetails.id,
-					isOnboardingTourCompleted: isComplete,
-				},
+				input: { userId: userDetails.id, isOnboardingTourCompleted: isComplete },
 			}),
 		onSuccess: () => invalidateUserDetails(),
 	});

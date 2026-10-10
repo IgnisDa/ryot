@@ -17,7 +17,7 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession, makeWorkflowEngine } from "#testing/effect";
 
-import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
+import { type TranslationOverlayInput, TranslationsRepository } from "./repository";
 import { TranslationsService } from "./service";
 import {
 	translationExecution as execution,

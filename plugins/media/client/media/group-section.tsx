@@ -1,7 +1,7 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import type { SelectedQuery } from "@ryot-app/plugin-client-sdk/ryotql";
 
-import type { MediaOverviewRows, mediaGroupQuery } from "../../shared/media-recipes";
+import type { mediaGroupQuery, MediaOverviewRows } from "../../shared/media-recipes";
 import type { MediaArtworkAspect } from "./entity-presentation";
 import { MediaEntityRailSection } from "./entity-rail";
 import { collectManagedAssetLocators } from "./image";

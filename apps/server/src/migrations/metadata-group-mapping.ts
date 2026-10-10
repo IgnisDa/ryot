@@ -4,13 +4,13 @@ import { Effect } from "effect";
 
 import { buildCaptureLegacyDescriptionsSql } from "./description-normalization";
 import {
+	buildAbortOnRowsSql,
+	buildLotEntityTargetValuesSql,
+	buildRelationshipTargetValuesSql,
+	buildReportSql,
 	type LotEntityMigrationTarget,
 	type ResolvedLotEntityMigrationTarget,
 	type ResolvedRelationshipTarget,
-	buildLotEntityTargetValuesSql,
-	buildRelationshipTargetValuesSql,
-	buildAbortOnRowsSql,
-	buildReportSql,
 } from "./shared";
 
 type MetadataGroupRelationshipTarget = { lot: string; relationshipSchemaSlug: string };

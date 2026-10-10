@@ -2,14 +2,14 @@ import { Schema } from "@ryot-app/plugin-client-sdk/effect";
 
 import {
 	exerciseForceSchema,
+	type ExerciseKind,
 	exerciseKindSchema,
 	exerciseLevelSchema,
 	exerciseMechanicSchema,
-	type ExerciseKind,
 } from "../../shared/exercise-kinds";
 import {
-	WorkoutExercisePickerSortSchema,
 	type WorkoutExercisePickerResult,
+	WorkoutExercisePickerSortSchema,
 } from "../../shared/workout-exercise-recipes";
 
 export const PickerFiltersSchema = Schema.Struct({

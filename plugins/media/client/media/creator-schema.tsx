@@ -9,8 +9,8 @@ import { createElement, type ReactNode } from "react";
 
 import type { MediaReviewActivityResult } from "../../shared/media-recipes";
 import {
-	MediaCreditRails,
 	mediaCreditItems,
+	MediaCreditRails,
 	mediaCreditRailsAreEmpty,
 	mediaCreditRailsManagedAssets,
 	type MediaCreditRailsOverview,
@@ -19,22 +19,22 @@ import {
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
-	MediaDetailScreen,
-	mediaDetailPage,
 	type MediaDetailBodyInput,
+	mediaDetailPage,
+	MediaDetailScreen,
 } from "./detail-screen";
 import type { MediaOverviewRelationsRender } from "./overview";
 import type { MediaOverviewState } from "./overview-state";
 import { mediaReviewActivityView } from "./review-activity-state";
 import { defineMediaReviewActivityTab } from "./review-activity-tab";
 import {
-	mediaSummaryStateMapper,
 	type MediaEntitySummaryValue,
 	type MediaSummaryArtwork,
 	type MediaSummaryFact,
 	type MediaSummaryHeaderDetail,
 	type MediaSummaryLink,
 	type MediaSummaryState,
+	mediaSummaryStateMapper,
 } from "./summary-state";
 
 const CREDIT_LIMIT = 12;

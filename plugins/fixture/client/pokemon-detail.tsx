@@ -1,9 +1,9 @@
-import { usePluginLocation, type EntityRendererProps } from "@ryot-app/plugin-client-sdk/plugin";
+import { type EntityRendererProps, usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 
-import { pokemonDetailQuery, type PokemonDetailData } from "./pokemon-detail-query";
+import { type PokemonDetailData, pokemonDetailQuery } from "./pokemon-detail-query";
 import { PokemonDetails } from "./pokemon-display";
 import PokemonTypes from "./pokemon-types";
 

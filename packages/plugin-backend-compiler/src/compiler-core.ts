@@ -5,10 +5,10 @@ import { DiagnosticCategory } from "typescript/unstable/async";
 import { bundleUserScript } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import {
+	pluginBackendCompilerDiagnostic,
+	PluginBackendCompilerFailure,
 	SANDBOX_SOURCE_FILE,
 	sandboxCompilationFailure,
-	PluginBackendCompilerFailure,
-	pluginBackendCompilerDiagnostic,
 	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";

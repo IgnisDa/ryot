@@ -17,6 +17,7 @@ import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 import { withQuery } from "ufo";
 import { z } from "zod";
+
 import { startOidcLogin } from "~/lib/oidc.server";
 import { passwordConfirmationSchema } from "~/lib/shared/validation";
 import {
@@ -60,9 +61,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const intent = getActionIntent(request);
 	return await match(intent)
 		.with("register", async () => {
-			const submission = parseWithZod(formData, {
-				schema: registerSchema,
-			});
+			const submission = parseWithZod(formData, { schema: registerSchema });
 			if (submission.status !== "success") {
 				return data({} as const, {
 					headers: await createToastHeaders({
@@ -77,10 +76,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const { registerUser } = await serverGqlService.request(RegisterUserDocument, {
 				input: {
 					data: {
-						password: {
-							password: submission.value.password,
-							username: submission.value.username,
-						},
+						password: { password: submission.value.password, username: submission.value.username },
 					},
 				},
 			});
@@ -89,9 +85,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					.with(RegisterErrorVariant.Disabled, () => "Registration is disabled")
 					.with(RegisterErrorVariant.IdentifierAlreadyExists, () => "This username already exists")
 					.exhaustive();
-				return data({} as const, {
-					headers: await createToastHeaders({ message, type: "error" }),
-				});
+				return data({} as const, { headers: await createToastHeaders({ message, type: "error" }) });
 			}
 			return await redirectWithToast($path("/auth"), {
 				type: "success",
@@ -101,12 +95,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.with("login", async () => {
 			const submission = processSubmission(formData, loginSchema);
 			const { loginUser } = await serverGqlService.request(LoginUserDocument, {
-				input: {
-					password: {
-						password: submission.password,
-						username: submission.username,
-					},
-				},
+				input: { password: { password: submission.password, username: submission.username } },
 			});
 			if (loginUser.__typename === "ApiKeyResponse") {
 				const headers = await getCookiesForApplication(loginUser.apiKey);
@@ -132,17 +121,13 @@ export const action = async ({ request }: Route.ActionArgs) => {
 				)
 				.with(LoginErrorVariant.IncorrectProviderChosen, () => "The provider chosen was incorrect")
 				.exhaustive();
-			return data({} as const, {
-				headers: await createToastHeaders({ message, type: "error" }),
-			});
+			return data({} as const, { headers: await createToastHeaders({ message, type: "error" }) });
 		})
 		.with("getOidcRedirectUrl", startOidcLogin)
 		.run();
 };
 
-const registerSchema = passwordConfirmationSchema.safeExtend({
-	username: z.string(),
-});
+const registerSchema = passwordConfirmationSchema.safeExtend({ username: z.string() });
 
 const loginSchema = z.object({
 	username: z.string(),
@@ -225,17 +210,9 @@ export default function Page() {
 				<Anchor
 					ta="right"
 					component={Link}
-					to={withQuery(".", {
-						intent: intent === "login" ? "register" : "login",
-					})}
+					to={withQuery(".", { intent: intent === "login" ? "register" : "login" })}
 				>
-					{
-						{
-							login: "Create a new account",
-							register: "Already have an account",
-						}[intent]
-					}
-					?
+					{{ login: "Create a new account", register: "Already have an account" }[intent]}?
 				</Anchor>
 			) : null}
 		</Stack>

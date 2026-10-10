@@ -2,8 +2,7 @@ import type {
 	ExerciseDetailsQuery,
 	UserExerciseDetailsQuery,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
-import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { isNumber, sortBy } from "@ryot-app/ts-utils/lodash";
 import { Howl } from "howler";
 import { produce } from "immer";
 import { useMemo } from "react";
@@ -73,11 +72,7 @@ const getNextSetInWorkout = (
 		for (let i = currentExerciseIdx + 1; i < currentWorkout.exercises.length; i++) {
 			const exerciseProgress = getProgressOfExercise(currentWorkout, i) !== "complete";
 			if (exerciseProgress) {
-				return {
-					setIdx: 0,
-					exerciseIdx: i,
-					wasLastSet: true,
-				};
+				return { setIdx: 0, exerciseIdx: i, wasLastSet: true };
 			}
 		}
 	}
@@ -87,11 +82,7 @@ const getNextSetInWorkout = (
 	if (isLastSetOfLastExercise) {
 		return { wasLastSet: true };
 	}
-	return {
-		wasLastSet: false,
-		setIdx: currentSetIdx + 1,
-		exerciseIdx: currentExerciseIdx,
-	};
+	return { wasLastSet: false, setIdx: currentSetIdx + 1, exerciseIdx: currentExerciseIdx };
 };
 
 type ExerciseDetails = ExerciseDetailsQuery["exerciseDetails"];

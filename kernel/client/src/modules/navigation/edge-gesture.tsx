@@ -1,9 +1,9 @@
 import { Effect } from "effect";
-import { type MotionValue, animate, motion, useReducedMotion } from "motion/react";
+import { animate, motion, type MotionValue, useReducedMotion } from "motion/react";
 import { useRef } from "react";
 
 import { impactHaptic } from "#/modules/device/haptics";
-import { EDGE_SWIPE_WIDTH, drawerWidth, gestureSpring } from "#/modules/navigation/drawer-metrics";
+import { drawerWidth, EDGE_SWIPE_WIDTH, gestureSpring } from "#/modules/navigation/drawer-metrics";
 import type { EdgeResolution } from "#/modules/navigation/edge-intent";
 
 const OPEN_VELOCITY_PX_PER_SECOND = 500;

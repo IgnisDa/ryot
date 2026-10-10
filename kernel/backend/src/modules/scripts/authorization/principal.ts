@@ -6,10 +6,10 @@ import {
 	sandboxSubjectUserId,
 } from "@ryot-app/contract/modules/scripts/schemas";
 import {
+	PluginConfigRevisionId,
 	PluginId,
 	PluginPackageId,
 	PluginRevisionId,
-	PluginConfigRevisionId,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,

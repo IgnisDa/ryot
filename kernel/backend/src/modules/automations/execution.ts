@@ -21,7 +21,7 @@ import {
 } from "#platform/workflow/execution-notifications";
 import { ActivityBody, makeActivity } from "#platform/workflow/scope";
 
-import { AutomationAttemptRepository, automationAttemptIdentity } from "./attempt-repository";
+import { automationAttemptIdentity, AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationRunRepository } from "./run-repository";
 import {
 	AutomationRunSettlement,

@@ -8,8 +8,8 @@ import { authDestination } from "#/modules/auth/flow";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { deriveCodeChallenge, generateOAuthRandomValue } from "#/modules/auth/pkce";
 import {
-	RuntimeOAuthClientService,
 	type RuntimeOAuthClientDescriptor,
+	RuntimeOAuthClientService,
 } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { ServerService } from "#/modules/server/service";

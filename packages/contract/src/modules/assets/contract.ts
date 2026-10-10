@@ -9,9 +9,9 @@ import {
 	CompleteUploadResponse,
 	DownloadResolutionInput,
 	DownloadResolutionResponse,
+	UploadBadRequest,
 	UploadIntentInput,
 	UploadIntentResponse,
-	UploadBadRequest,
 	UploadInternalError,
 } from "./schemas";
 

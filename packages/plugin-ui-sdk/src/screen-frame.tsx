@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useEffect, useState, type ComponentProps, type ReactNode, type RefObject } from "react";
+import { type ComponentProps, type ReactNode, type RefObject, useEffect, useState } from "react";
 
 export const SCREEN_BAR_HEIGHT = 54;
 

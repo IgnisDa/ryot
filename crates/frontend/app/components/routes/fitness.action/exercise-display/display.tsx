@@ -259,10 +259,7 @@ export const ExerciseDisplay = (props: {
 								leftSection={<IconReplace size={14} />}
 								onClick={() => {
 									if (!coreDetails.isServerKeyValidated) {
-										notifications.show({
-											message: PRO_REQUIRED_MESSAGE,
-											color: "red",
-										});
+										notifications.show({ message: PRO_REQUIRED_MESSAGE, color: "red" });
 										return;
 									}
 									setCurrentWorkout(

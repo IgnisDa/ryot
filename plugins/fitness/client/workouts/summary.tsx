@@ -3,7 +3,7 @@ import clsx from "clsx";
 
 import type { WorkoutSummary } from "../../shared/workout-list-recipes";
 import { ComputedResults } from "../workout-processing";
-import { buildHeatmap, buildSummaryTiles, periodOptions, type PeriodKey } from "./model";
+import { buildHeatmap, buildSummaryTiles, type PeriodKey, periodOptions } from "./model";
 import { toneClasses } from "./styles";
 
 const levelClasses = [

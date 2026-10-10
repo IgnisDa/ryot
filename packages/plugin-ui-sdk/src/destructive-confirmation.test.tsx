@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import { useRef, useState } from "react";
 
 import { DestructiveConfirmation } from "./destructive-confirmation";
-import { OverlayBackProvider, type OverlayBackAdapter } from "./shortcut";
+import { type OverlayBackAdapter, OverlayBackProvider } from "./shortcut";
 
 type Event = "close" | "confirm";
 

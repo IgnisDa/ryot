@@ -17,15 +17,15 @@ import {
 import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
-	createEventSchema,
 	createEntityFixture,
 	createEventFixture,
+	createEventSchema,
 	createPluginEntitySchema,
 	executeRyotQL,
 	requireRows,
 	requireRyotQLValue,
-	type Client,
 } from "~/fixtures/kernel";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";

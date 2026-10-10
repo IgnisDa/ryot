@@ -23,11 +23,7 @@ import { navHref } from "@/lib/navigation-data";
 export const RAIL_WIDTH = 168;
 export const SPRING_CONFIG = { damping: 22, stiffness: 280 };
 
-type Props = {
-	pinned?: boolean;
-	onClose: () => void;
-	translateX?: SharedValue<number>;
-};
+type Props = { pinned?: boolean; onClose: () => void; translateX?: SharedValue<number> };
 
 function RailItem(props: {
 	isActive: boolean;

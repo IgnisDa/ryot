@@ -41,22 +41,22 @@ import {
 } from "#/modules/navigation/workspace-state";
 import { ClientPageDocumentProvider } from "#/modules/pages/documents/state";
 import { ClientPageDocumentHost } from "#/modules/pages/runtime/document-host";
-import { toNavigationRequest, effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
+import { effectiveCatalogPlugin, toNavigationRequest } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import {
-	CustomizeContext,
 	ClientPageOverlayContext,
 	ClientPageScreenContext,
+	type ClientPageScreenState,
+	createClientDocumentControllers,
+	CustomizeContext,
+	type CustomizeController,
 	EdgeContext,
 	PluginHeaderContext,
+	type PluginHeaderState,
 	PluginTitleContext,
 	RememberedWorkspaceContext,
-	ShellChromeContext,
-	type CustomizeController,
-	type ClientPageScreenState,
-	type PluginHeaderState,
-	createClientDocumentControllers,
 	type ShellChrome,
+	ShellChromeContext,
 } from "#/modules/shell/authenticated-shell-context";
 import { useDesktopEffect, useIsDesktop } from "#/modules/shell/breakpoint";
 import { CustomizeSidebarPanel } from "#/modules/shell/customize/customize-sidebar-panel";
@@ -70,8 +70,8 @@ import { MobileDrawer } from "#/modules/shell/mobile-drawer";
 import { useSafeAreaInsets } from "#/modules/shell/safe-area";
 import {
 	navigationViewHref,
-	sidebarSections,
 	type SidebarEntry,
+	sidebarSections,
 } from "#/modules/shell/sidebar-sections";
 import { useStableHandler } from "#/modules/ui/use-stable-handler";
 import { ClientStorage } from "#/persistence/storage";

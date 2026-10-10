@@ -26,7 +26,7 @@ import {
 	type SidecarRunFrame,
 	type SidecarTier,
 } from "../protocol/messages";
-import { SandboxSidecarAdmission, type SandboxAdmissionLease } from "./admission";
+import { type SandboxAdmissionLease, SandboxSidecarAdmission } from "./admission";
 import { SandboxExecutionAuthority, type SandboxTrust } from "./authority";
 import { catchNonInterrupt } from "./catch-non-interrupt";
 import { SandboxSidecarClient } from "./client";
@@ -45,7 +45,7 @@ import {
 } from "./metrics";
 import type { SandboxPrincipal } from "./principal";
 import { SandboxSidecarQuarantine } from "./quarantine";
-import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "./recovery-store";
+import { type SandboxRecoveryIdentity, SandboxRecoveryStore } from "./recovery-store";
 import { selectSnapshotTier } from "./snapshot-tier";
 
 type Connection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;

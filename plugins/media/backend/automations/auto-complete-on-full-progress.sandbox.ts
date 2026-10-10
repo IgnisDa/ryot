@@ -33,8 +33,7 @@ type AutomationEventSnapshot = Extract<
 	{ resource: "event"; operation: "create"; category: "change" }
 >["after"];
 type CompletionSource =
-	| AutomationEventSnapshot
-	| (MediaProgressEvent & { readonly sessionEntityId?: string | null });
+	AutomationEventSnapshot | (MediaProgressEvent & { readonly sessionEntityId?: string | null });
 type CompletionCandidate = {
 	readonly emitterEventId: string;
 	readonly completionEvent: MediaProgressEvent;

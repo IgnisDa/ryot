@@ -12,11 +12,11 @@ import {
 	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
+	PluginId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
-	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
@@ -54,9 +54,9 @@ import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { writeChildEntitySet } from "./population";
 import {
+	type ProviderEntityPopulationPayload,
 	ProviderEntityPopulationWorkflow,
 	runProviderEntityPopulationWorkflow,
-	type ProviderEntityPopulationPayload,
 } from "./provider-entity-population-workflow";
 import { syncRelatedEntityGroup } from "./relationship-population";
 

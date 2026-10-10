@@ -12,7 +12,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { plugin } from "#schema/tables/core";
 import { userPlugin } from "#schema/tables/definitions";
 
-import { bindRyotQLDocument, pluginIdentityReferences, type PluginBinding } from "./binding";
+import { bindRyotQLDocument, type PluginBinding, pluginIdentityReferences } from "./binding";
 import type { RyotQLAudience, RyotQLExecutionScope } from "./catalog";
 import { executeNamedQuery } from "./executor";
 import { normalizeRyotQLDocument } from "./normalizer";

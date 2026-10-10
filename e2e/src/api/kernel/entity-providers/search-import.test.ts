@@ -3,7 +3,6 @@ import { DateTime, Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
 import {
-	uninstallTestProvider,
 	createAuthenticatedClient,
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
@@ -15,6 +14,7 @@ import {
 	pollProviderEntityImportResult,
 	searchProviderEntities,
 	testProviderEntitySchema,
+	uninstallTestProvider,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import {

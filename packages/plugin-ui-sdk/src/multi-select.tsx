@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { Check, ChevronDown, Search, X } from "lucide-react";
-import { useDeferredValue, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useDeferredValue, useRef, useState } from "react";
 
 import { useFieldEscape } from "./field-escape";
 import { Modal } from "./modal";

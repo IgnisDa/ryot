@@ -1,4 +1,4 @@
-import { PluginId, PluginRevisionId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,

@@ -2,9 +2,9 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifactRange } from "@ryot-app/plugin-backend-sdk/filesystem";
 import {
 	Gunzip,
-	Inflate,
-	gzipSync as gzipSyncFunction,
 	gunzipSync as gunzipSyncFunction,
+	gzipSync as gzipSyncFunction,
+	Inflate,
 	strFromU8 as strFromU8Function,
 	unzipSync as unzipSyncFunction,
 } from "fflate";

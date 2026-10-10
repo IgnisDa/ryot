@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 import { describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Effect, Layer, ManagedRuntime } from "effect";
@@ -22,24 +22,24 @@ import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer"
 import { ServerService } from "#/modules/server/service";
 import { getRouter } from "#/router";
 import {
-	theme,
-	server,
 	catalog,
-	makeAuthStub,
-	OAuthRouteStubs,
-	makeStorageStubLayer,
-	makePublicApiStub,
+	ClientPageSessionsRouteStubs,
 	CustomizeRouteStubs,
-	SavedViewRouteStubs,
-	EntityRouteStubs,
 	DeviceRouteStubs,
-	NavigationRouteStubs,
-	ProviderAddRouteStubs,
+	EntityRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
-	PagesApiRouteStubs,
-	ClientPageSessionsRouteStubs,
+	makeAuthStub,
+	makePublicApiStub,
+	makeStorageStubLayer,
+	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
+	OAuthRouteStubs,
+	PagesApiRouteStubs,
+	ProviderAddRouteStubs,
+	SavedViewRouteStubs,
+	server,
+	theme,
 } from "#/routes/-route-fixtures";
 
 const makeView = (

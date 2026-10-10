@@ -85,11 +85,7 @@ const createUpdateChange = (input: CreateUpdateChangeInput) => {
 		}))
 		.with(WatchTimes.JustCompletedNow, () => ({
 			createNewCompleted: {
-				finishedOnDate: {
-					...input.common,
-					...input.fields,
-					timestamp: input.currentDateFormatted,
-				},
+				finishedOnDate: { ...input.common, ...input.fields, timestamp: input.currentDateFormatted },
 			},
 		}))
 		.with(WatchTimes.CustomDates, () =>
@@ -101,9 +97,7 @@ const createUpdateChange = (input: CreateUpdateChangeInput) => {
 			}),
 		)
 		.with(WatchTimes.IDontRemember, () => ({
-			createNewCompleted: {
-				withoutDates: { ...input.common, ...input.fields },
-			},
+			createNewCompleted: { withoutDates: { ...input.common, ...input.fields } },
 		}))
 		.exhaustive();
 };

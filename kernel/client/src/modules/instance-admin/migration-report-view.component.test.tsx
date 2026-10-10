@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Effect, Cause, Exit } from "effect";
+import { Cause, Effect, Exit } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 import { MigrationReportView } from "#/modules/instance-admin/migration-report-view";

@@ -6,13 +6,13 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	collectionSyncMatches,
 	fetchEntity,
+	type IntegrationPushHost,
 	integrationsDisabledForUser,
 	jsonObject,
 	listActiveIntegrations,
 	logPushFailure,
 	normalizeBaseUrl,
 	resolveEntityProviderName,
-	type IntegrationPushHost,
 } from "../lib/integration-push";
 
 export const manifest = defineManifest({

@@ -13,8 +13,8 @@ import {
 import { UserLifecycleWorkflowDefinitionsLive } from "#modules/accounts/lifecycle/workflow";
 import { UserSettingsServiceLive } from "#modules/accounts/preferences/layer";
 import {
-	UserBootstrapSchedulingLive,
 	UserBootstrapLive,
+	UserBootstrapSchedulingLive,
 } from "#modules/accounts/provisioning/layer";
 import {
 	UserBootstrapWorkflowDefinitionsLive,
@@ -28,8 +28,8 @@ import {
 	AutomationRetentionLive,
 	AutomationRunWorkflowOperationsServiceLive,
 	LifecycleServicesLive,
-	PolicyBatchWorkflowProvidedLive,
 	NotificationSubscriptionsServiceLive,
+	PolicyBatchWorkflowProvidedLive,
 	SignalEmissionServiceLive,
 } from "#modules/automations/layer";
 import { AutomationRunWorkflowDefinitionsLive } from "#modules/automations/run-workflow-live";
@@ -59,8 +59,8 @@ import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
 import { InterestServicesLive } from "#modules/entities/watches/layer";
 import {
 	EventCreateWorkflowDefinitionsProvidedLive,
-	EventStreamWorkServiceLive,
 	EventsServiceLive,
+	EventStreamWorkServiceLive,
 } from "#modules/events/layer";
 import { EventStreamRepository } from "#modules/events/stream-repository";
 import { EventStreamWorkflowDefinitionsLive } from "#modules/events/stream-work";
@@ -70,12 +70,12 @@ import { ImportRunCancellationService } from "#modules/imports/cancellation-serv
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow-live";
 import {
+	DataImportWorkflowDefinitionsProvidedLive,
 	ImportsServiceLive,
 	IngestionArtifactStagingProvidedLive,
 	IngestionCaptureWorkflowDefinitionsProvidedLive,
 	IngestionRetirementLive,
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
-	DataImportWorkflowDefinitionsProvidedLive,
 } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
 import { InstanceAdminServiceLive } from "#modules/instance-admin/layer";
@@ -103,9 +103,9 @@ import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryp
 import { PluginInstallationSweepDispatcherLive } from "#modules/plugins/installations/sweep";
 import { PluginInstallationWorkflowDefinitionsLive } from "#modules/plugins/installations/workflow";
 import {
+	PluginIngestionServiceLive,
 	PluginInstallationMigrationLive,
 	PluginInstallationRuntimeLive,
-	PluginIngestionServiceLive,
 	PluginInvalidationSubscriberLive,
 } from "#modules/plugins/layer";
 import {
@@ -123,7 +123,7 @@ import { EventStreamProcessorLive } from "#modules/scripts/executions/event-stre
 import { SandboxExecutionQueueStoreLive } from "#modules/scripts/executions/queues";
 import { SandboxWorkflowDefinitionsLive } from "#modules/scripts/executions/workflow-live";
 import { SandboxHostConfigLive } from "#modules/scripts/host/sandbox-host-live";
-import { ScriptExecutionServiceLive, SandboxWorkflowPinningLive } from "#modules/scripts/layer";
+import { SandboxWorkflowPinningLive, ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { SignalSchemasServiceLive } from "#modules/signals/layer";

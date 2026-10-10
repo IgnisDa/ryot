@@ -6,10 +6,10 @@ import clsx from "clsx";
 
 import { DemoProtectionMessage } from "#/modules/demo-protection";
 import {
+	type IntegrationProviderNames,
 	integrationStateLabel,
 	integrationSyncLabel,
 	integrationTitle,
-	type IntegrationProviderNames,
 } from "#/modules/integrations/presentation";
 import { integrationLotLabel } from "#/modules/integrations/provider-selection";
 import { PreferenceRow } from "#/modules/settings/preferences-form";

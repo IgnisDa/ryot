@@ -6,8 +6,8 @@ import type {
 import { showRecipes } from "../../shared/show-recipes";
 import { mediaEpisodicActivityCopy } from "../media/activity-copy";
 import {
-	mediaEpisodicCoveragePercent,
 	type MediaEpisodicCoverage,
+	mediaEpisodicCoveragePercent,
 } from "../media/episodic-activity-state";
 import { defineEpisodicMediaSchema } from "../media/episodic-schema";
 import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";

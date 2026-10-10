@@ -17,7 +17,7 @@ import { startNativeNavigation } from "#/modules/navigation/native-navigation";
 import { createThemeStore, type ThemeStore } from "#/modules/theme/store";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
-import { makeClientRuntime, type ClientRuntime } from "#/runtime";
+import { type ClientRuntime, makeClientRuntime } from "#/runtime";
 
 function ClientApplication(props: {
 	readonly theme: ThemeStore;

@@ -13,6 +13,7 @@ import {
 import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createCollection,
 	createEventFixture,
@@ -22,7 +23,6 @@ import {
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
-	type Client,
 } from "~/fixtures/kernel";
 import {
 	createGlobalBookEntityFixture,

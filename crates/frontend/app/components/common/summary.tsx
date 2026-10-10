@@ -35,56 +35,28 @@ export const DisplaySummarySection = (props: {
 			<DisplayStatForMediaType
 				lot={MediaLot.Movie}
 				data={[
-					{
-						type: "number",
-						label: "Movies",
-						value: props.latestUserSummary.movieCount,
-					},
-					{
-						type: "duration",
-						label: "Runtime",
-						value: props.latestUserSummary.totalMovieDuration,
-					},
+					{ type: "number", label: "Movies", value: props.latestUserSummary.movieCount },
+					{ type: "duration", label: "Runtime", value: props.latestUserSummary.totalMovieDuration },
 				]}
 			/>
 			<DisplayStatForMediaType
 				lot={MediaLot.Music}
 				data={[
-					{
-						label: "Songs",
-						type: "number",
-						value: props.latestUserSummary.musicCount,
-					},
-					{
-						label: "Runtime",
-						type: "duration",
-						value: props.latestUserSummary.totalMusicDuration,
-					},
+					{ label: "Songs", type: "number", value: props.latestUserSummary.musicCount },
+					{ label: "Runtime", type: "duration", value: props.latestUserSummary.totalMusicDuration },
 				]}
 			/>
 			<DisplayStatForMediaType
 				lot={MediaLot.Show}
 				data={[
-					{
-						type: "number",
-						label: "Show episodes",
-						value: props.latestUserSummary.showCount,
-					},
-					{
-						label: "Runtime",
-						type: "duration",
-						value: props.latestUserSummary.totalShowDuration,
-					},
+					{ type: "number", label: "Show episodes", value: props.latestUserSummary.showCount },
+					{ label: "Runtime", type: "duration", value: props.latestUserSummary.totalShowDuration },
 				]}
 			/>
 			<DisplayStatForMediaType
 				lot={MediaLot.VideoGame}
 				data={[
-					{
-						type: "number",
-						label: "Video games",
-						value: props.latestUserSummary.videoGameCount,
-					},
+					{ type: "number", label: "Video games", value: props.latestUserSummary.videoGameCount },
 					{
 						label: "Runtime",
 						type: "duration",
@@ -111,11 +83,7 @@ export const DisplaySummarySection = (props: {
 			<DisplayStatForMediaType
 				lot={MediaLot.AudioBook}
 				data={[
-					{
-						type: "number",
-						label: "Audio books",
-						value: props.latestUserSummary.audioBookCount,
-					},
+					{ type: "number", label: "Audio books", value: props.latestUserSummary.audioBookCount },
 					{
 						label: "Runtime",
 						type: "duration",
@@ -126,26 +94,14 @@ export const DisplaySummarySection = (props: {
 			<DisplayStatForMediaType
 				lot={MediaLot.Book}
 				data={[
-					{
-						label: "Books",
-						type: "number",
-						value: props.latestUserSummary.bookCount,
-					},
-					{
-						label: "Pages",
-						type: "number",
-						value: props.latestUserSummary.totalBookPages,
-					},
+					{ label: "Books", type: "number", value: props.latestUserSummary.bookCount },
+					{ label: "Pages", type: "number", value: props.latestUserSummary.totalBookPages },
 				]}
 			/>
 			<DisplayStatForMediaType
 				lot={MediaLot.Podcast}
 				data={[
-					{
-						type: "number",
-						label: "Podcasts",
-						value: props.latestUserSummary.podcastCount,
-					},
+					{ type: "number", label: "Podcasts", value: props.latestUserSummary.podcastCount },
 					{
 						label: "Runtime",
 						type: "duration",
@@ -155,38 +111,18 @@ export const DisplaySummarySection = (props: {
 			/>
 			<DisplayStatForMediaType
 				lot={MediaLot.Manga}
-				data={[
-					{
-						label: "Manga",
-						type: "number",
-						value: props.latestUserSummary.mangaCount,
-					},
-				]}
+				data={[{ label: "Manga", type: "number", value: props.latestUserSummary.mangaCount }]}
 			/>
 			<DisplayStatForMediaType
 				lot={MediaLot.ComicBook}
 				data={[
-					{
-						type: "number",
-						label: "Comic Books",
-						value: props.latestUserSummary.comicBookCount,
-					},
-					{
-						label: "Pages",
-						type: "number",
-						value: props.latestUserSummary.totalComicBookPages,
-					},
+					{ type: "number", label: "Comic Books", value: props.latestUserSummary.comicBookCount },
+					{ label: "Pages", type: "number", value: props.latestUserSummary.totalComicBookPages },
 				]}
 			/>
 			<DisplayStatForMediaType
 				lot={MediaLot.Anime}
-				data={[
-					{
-						label: "Anime",
-						type: "number",
-						value: props.latestUserSummary.animeCount,
-					},
-				]}
+				data={[{ label: "Anime", type: "number", value: props.latestUserSummary.animeCount }]}
 			/>
 			{userPreferences.featuresEnabled.media.enabled ? (
 				<>
@@ -195,11 +131,7 @@ export const DisplaySummarySection = (props: {
 						icon={<IconServer />}
 						color={theme.colors.grape[8]}
 						data={[
-							{
-								label: "Media",
-								type: "number",
-								value: props.latestUserSummary.totalMetadataCount,
-							},
+							{ label: "Media", type: "number", value: props.latestUserSummary.totalMetadataCount },
 							{
 								type: "number",
 								label: "Reviews",
@@ -209,11 +141,7 @@ export const DisplaySummarySection = (props: {
 						]}
 					/>
 					{userPreferences.featuresEnabled.media.people ? (
-						<UnstyledLink
-							to={$path("/media/people/:action", {
-								action: "list",
-							})}
-						>
+						<UnstyledLink to={$path("/media/people/:action", { action: "list" })}>
 							<ActualDisplayStat
 								lot="People stats"
 								icon={<IconFriends />}
@@ -232,21 +160,13 @@ export const DisplaySummarySection = (props: {
 				</>
 			) : null}
 			{userPreferences.featuresEnabled.fitness.enabled ? (
-				<UnstyledLink
-					to={$path("/fitness/:entity/list", {
-						entity: "workouts",
-					})}
-				>
+				<UnstyledLink to={$path("/fitness/:entity/list", { entity: "workouts" })}>
 					<ActualDisplayStat
 						lot="Workouts"
 						color={theme.colors.teal[2]}
 						icon={<IconBarbell stroke={1.3} />}
 						data={[
-							{
-								type: "number",
-								label: "Workouts",
-								value: props.latestUserSummary.workoutCount,
-							},
+							{ type: "number", label: "Workouts", value: props.latestUserSummary.workoutCount },
 							{
 								label: "Runtime",
 								type: "duration",
@@ -348,12 +268,7 @@ const ActualDisplayStat = (props: {
 
 const DisplayStatForMediaType = (props: {
 	lot: MediaLot;
-	data: Array<{
-		label: string;
-		value: number;
-		hideIfZero?: true;
-		type: "duration" | "number";
-	}>;
+	data: Array<{ label: string; value: number; hideIfZero?: true; type: "duration" | "number" }>;
 }) => {
 	const userPreferences = useUserPreferences();
 	const isEnabled = userPreferences.featuresEnabled.media.specific.includes(props.lot);
@@ -362,10 +277,7 @@ const DisplayStatForMediaType = (props: {
 
 	return isEnabled && userPreferences.featuresEnabled.media.enabled ? (
 		<UnstyledLink
-			to={$path("/media/:action/:lot", {
-				action: "list",
-				lot: props.lot.toLowerCase(),
-			})}
+			to={$path("/media/:action/:lot", { action: "list", lot: props.lot.toLowerCase() })}
 		>
 			<ActualDisplayStat
 				icon={icon}

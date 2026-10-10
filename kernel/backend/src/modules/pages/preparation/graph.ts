@@ -1,7 +1,7 @@
 import {
-	ClientPagePreparationError,
 	type ClientPageCodeContributor,
 	type ClientPageCompositionIdentity,
+	ClientPagePreparationError,
 	type ClientRendererDefinition,
 } from "@ryot-app/contract/modules/pages/schemas";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
@@ -16,8 +16,8 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-	pluginExportSpecifier,
 	type PluginClientImport,
+	pluginExportSpecifier,
 } from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";

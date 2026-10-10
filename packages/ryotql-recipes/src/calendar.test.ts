@@ -17,8 +17,8 @@ import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 
 import {
-	type CalendarSource,
 	calendarOccurrencesPageRecipe,
+	type CalendarSource,
 	calendarSourcesRecipe,
 } from "./calendar";
 import { requireRowsQuery, rowsResult } from "./test-utils";

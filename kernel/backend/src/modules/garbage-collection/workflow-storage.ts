@@ -10,7 +10,7 @@ import {
 } from "#platform/db/workflow-message-fence";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 
-import { WorkflowExecutionExpired, workflowEntityPrefix } from "./workflow-models";
+import { workflowEntityPrefix, WorkflowExecutionExpired } from "./workflow-models";
 import { WorkflowGarbageCollectionRepository } from "./workflow-repository";
 
 export const WorkflowGarbageCollectionStorageLive = Layer.effect(

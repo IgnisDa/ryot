@@ -1,4 +1,4 @@
-import { assert, expect, it, afterEach } from "@effect/vitest";
+import { afterEach, assert, expect, it } from "@effect/vitest";
 import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
@@ -15,7 +15,7 @@ import reader from "../imports/read-batch.sandbox";
 import writer, { manifest as writerManifest } from "../imports/write-chunks.sandbox";
 import type { MediaIntegrationConfirmation } from "./schemas";
 import spotify, { manifest as spotifyManifest } from "./yanks/spotify.sandbox";
-import { runYoutubeMusicYank, manifest as youtubeManifest } from "./yanks/youtube-music.sandbox";
+import { manifest as youtubeManifest, runYoutubeMusicYank } from "./yanks/youtube-music.sandbox";
 
 afterEach(resetMediaFilesystem);
 const confirmation = (

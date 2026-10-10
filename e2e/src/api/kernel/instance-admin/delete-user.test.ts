@@ -6,32 +6,32 @@ import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-insta
 import { Effect, Schema } from "effect";
 
 import {
-	type DeleteUserOperation,
 	adminAccessTokenHeaders,
 	adminHeaders,
 	collectRyotQLRecipeItems,
-	createAuthenticatedClient,
 	createApiKey,
+	createAuthenticatedClient,
 	createEntity,
 	createEventFixture,
 	createNotificationChannel,
 	deleteUserAndWait,
+	type DeleteUserOperation,
 	enqueueProviderEntityImport,
 	executeAdminRyotQLRecipe,
 	fakeProviderDetailsResult,
 	findBuiltinPluginByPackage,
-	getAutomationRuleCount,
 	getApiClient,
+	getAutomationRuleCount,
 	getBuiltinEntitySchemaSlug,
-	listSignalTriggers,
 	listAutomationRuns,
 	listAutomationTriggerRecipients,
+	listSignalTriggers,
 	makeSession,
 	pollProviderEntityImportResult,
 	pollSignalTrigger,
 	pollSignalTriggerWithRecipientCount,
-	pollUserLifecycleOperation,
 	pollTerminalAutomationRuns,
+	pollUserLifecycleOperation,
 	shippedPluginTestProviders,
 	startFakeAppriseServerScoped,
 	updatePluginState,
@@ -43,7 +43,7 @@ import {
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
-import { runPromise, beforeAll, afterAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import { startIsolatedHarness } from "~/support/isolated-harness";
 import { webRequest } from "~/support/web-request";

@@ -1,21 +1,21 @@
 import {
+	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	CLIENT_PAGE_ROOT_ELEMENT_ID,
-	CLIENT_BRIDGE_BOOTSTRAP_READY,
-	KERNEL_SHORTCUTS,
 	ClientCompositionMetadata,
-	PluginBridgeInit,
 	type ClientPageContext,
+	KERNEL_SHORTCUTS,
+	PluginBridgeInit,
 } from "@ryot-app/plugin-client-contract";
 import { useShortcut } from "@ryot-app/plugin-ui-sdk";
 import { Result, Schema } from "effect";
 import {
-	createContext,
-	useContext,
-	useSyncExternalStore,
 	type ComponentType,
 	type ContextType,
+	createContext,
 	type ReactNode,
+	useContext,
+	useSyncExternalStore,
 } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
@@ -31,8 +31,8 @@ import type { ResolvePluginScreen } from "../navigation/stack";
 import { createPluginNavigationStore } from "../navigation/store";
 import type { PluginRouterNavigation } from "../navigation/store";
 import {
-	EntityPresentationRegistryProvider,
 	type EntityPresentationRegistration,
+	EntityPresentationRegistryProvider,
 } from "../presentations/entity-results";
 import { RyotProvider } from "../queries/provider";
 import { makeRyotPluginRuntime, type RyotPluginRuntime } from "../runtime/runtime";

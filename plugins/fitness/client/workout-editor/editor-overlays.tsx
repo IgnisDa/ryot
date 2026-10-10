@@ -43,8 +43,7 @@ type OverlayKind =
 	| "supersets";
 
 export type EditorOverlay =
-	| OverlayKind
-	| { readonly occurrenceId: string; readonly kind: OverlayKind };
+	OverlayKind | { readonly occurrenceId: string; readonly kind: OverlayKind };
 
 export function EditorOverlays(props: {
 	readonly now: number;

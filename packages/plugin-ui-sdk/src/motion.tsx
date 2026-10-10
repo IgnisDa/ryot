@@ -1,11 +1,11 @@
 import {
 	AnimatePresence,
 	motion,
+	type Transition,
 	useIsPresent,
 	useReducedMotion,
-	type Transition,
 } from "motion/react";
-import { Children, isValidElement, type ComponentProps, type ReactNode } from "react";
+import { Children, type ComponentProps, isValidElement, type ReactNode } from "react";
 
 export const motionTransition = { duration: 0.2, ease: [0.2, 0.7, 0.2, 1] } satisfies Transition;
 

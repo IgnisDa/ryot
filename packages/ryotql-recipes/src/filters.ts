@@ -1,13 +1,13 @@
 import {
-	Filter as FilterSchema,
-	FilterRule as FilterRuleSchema,
-	filterOperators,
-	linkFilterOperators,
 	type Filter,
-	mapFilterFieldReference,
+	Filter as FilterSchema,
 	type FilterField,
 	type FilterOperator,
+	filterOperators,
 	type FilterRule,
+	FilterRule as FilterRuleSchema,
+	linkFilterOperators,
+	mapFilterFieldReference,
 	type QueryFilterField,
 	type ValueFilterField,
 } from "@ryot-app/contract/modules/filters/schemas";

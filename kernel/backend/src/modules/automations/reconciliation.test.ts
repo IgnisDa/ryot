@@ -6,7 +6,7 @@ import { TestClock } from "effect/testing";
 
 import { databaseLayer } from "#testing/effect";
 
-import { AutomationAttemptRepository, automationAttemptIdentity } from "./attempt-repository";
+import { automationAttemptIdentity, AutomationAttemptRepository } from "./attempt-repository";
 import {
 	AUTOMATION_IMMEDIATE_CONCURRENCY,
 	AUTOMATION_IMMEDIATE_TIMEOUT_MS,
@@ -22,8 +22,8 @@ import {
 } from "./reconciliation";
 import { AutomationRunRepository } from "./run-repository";
 import {
-	RunWorkflowSubmissions,
 	recordingRunWorkflowEngineLayer,
+	RunWorkflowSubmissions,
 } from "./run-workflow-engine.test-support";
 
 const candidate = (id: string, attemptCount = 0) => ({

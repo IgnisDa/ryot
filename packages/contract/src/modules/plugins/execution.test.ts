@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
 
 import {
-	KERNEL_EVENT_CREATE_WORKFLOW,
 	hasReachableExternalEffects,
 	hasValidExecutableDependencies,
+	KERNEL_EVENT_CREATE_WORKFLOW,
 	selectSourcePlan,
 	sourcePlanConfigKeys,
 } from "./execution";

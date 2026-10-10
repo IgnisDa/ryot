@@ -11,32 +11,32 @@ import {
 import { Clock, Effect, Schema } from "effect";
 
 import {
+	type AutomationTrigger,
+	type AutomationTriggerFilter,
+	type Client,
 	createAuthenticatedClient,
 	createEntity,
 	createRelationship,
 	deleteSandboxReplayProjection,
 	enqueueSandboxScript,
+	type InstalledTestPlugin,
 	installTestPluginBundle,
 	listAutomationRunAttempts,
 	listAutomationRuns,
 	listAutomationTriggers,
 	listEventsForEntity,
-	waitForCreateEvents,
 	pollAutomationRuns,
 	pollSandboxResult,
 	pollTerminalAutomationRunAttempts,
 	pollTerminalAutomationRuns,
 	pollUntil,
 	postApiJson,
+	requireCompletedSandboxValue,
 	sampleOperationalPressure,
 	startDataJsonImport,
-	requireCompletedSandboxValue,
-	type AutomationTrigger,
-	type AutomationTriggerFilter,
-	type Client,
-	type InstalledTestPlugin,
 	type TestPluginScript,
 	uninstallTestPlugin,
+	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";

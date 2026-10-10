@@ -1,4 +1,4 @@
-import { readPluginArchive, type PluginArchivePackage } from "@ryot-app/plugin-archive";
+import { type PluginArchivePackage, readPluginArchive } from "@ryot-app/plugin-archive";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
 
 import { AppConfig } from "#platform/config/service";

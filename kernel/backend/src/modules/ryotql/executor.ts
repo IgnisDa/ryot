@@ -30,13 +30,13 @@ import { mapDatabaseErrors } from "#platform/db/errors";
 import { definitionReadContext, pluginIdentityReferences } from "./binding";
 import {
 	canAccessCatalogTable,
+	type CatalogTable,
 	getCatalogTable,
 	jsonElementsTable,
 	resolveCatalogField,
-	type CatalogTable,
 	type RyotQLExecutionScope,
 } from "./catalog";
-import { scalarExpressionKind, type KindResolver, type ScalarKind } from "./expression-kind";
+import { type KindResolver, scalarExpressionKind, type ScalarKind } from "./expression-kind";
 import type { NormalizedInclude, NormalizedNamedQuery, NormalizedRowsOutput } from "./normalizer";
 
 type SqlFragment = ReturnType<typeof sql>;

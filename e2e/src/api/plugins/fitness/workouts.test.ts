@@ -15,13 +15,13 @@ import {
 	getEntity,
 	insertRelationshipRow,
 	listSavedViews,
+	uploadPermanentAsset,
 	waitForCreateEvents,
 	waitForEventCount,
-	uploadPermanentAsset,
 } from "~/fixtures/kernel";
 import {
-	createWorkoutEntityFixture,
 	createExerciseEntityFixture,
+	createWorkoutEntityFixture,
 	createWorkoutTemplateEntityFixture,
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,

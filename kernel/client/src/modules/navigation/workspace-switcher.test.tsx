@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { PluginId, SavedViewId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,

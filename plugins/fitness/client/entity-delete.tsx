@@ -2,9 +2,9 @@ import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	createRyotMutation,
+	type RyotSubmission,
 	useRyot,
 	useRyotSubmission,
-	type RyotSubmission,
 } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Dialog, Notice } from "@ryot-app/plugin-ui-sdk";
 import { useEffect } from "react";
@@ -12,8 +12,8 @@ import { useEffect } from "react";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import {
 	WorkoutDeleteInputSchema,
-	WorkoutDeleteOutputSchema,
 	workoutDeleteOperationSlug,
+	WorkoutDeleteOutputSchema,
 	workoutTemplateDeleteOperationSlug,
 } from "../shared/workout-delete-operations";
 

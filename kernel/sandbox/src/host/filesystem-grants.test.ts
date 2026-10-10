@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { it, layer } from "@effect/vitest";
-import { Cause, Effect, Option, type Scope, FileSystem, Path } from "effect";
+import { Cause, Effect, FileSystem, Option, Path, type Scope } from "effect";
 import { assert, describe, expect } from "vitest";
 
 import {

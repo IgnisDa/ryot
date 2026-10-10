@@ -4,8 +4,8 @@ import { Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
-	EntityPopulationTrigger,
 	entityPopulationExecutionId,
+	EntityPopulationTrigger,
 } from "#modules/entities/population-trigger";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { MutationReceipts } from "#modules/mutations/receipts";

@@ -1,9 +1,9 @@
 import { describe, expect, it, layer } from "@effect/vitest";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
+	type PluginDeviceRequest,
 	PluginId,
 	PluginPackageId,
-	type PluginDeviceRequest,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { RyotScheduleService } from "@ryot-app/plugin-client-sdk/schedule";
 import { Schema } from "@ryot-app/plugin-kit/effect";

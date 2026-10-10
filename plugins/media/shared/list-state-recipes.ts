@@ -11,11 +11,11 @@ import {
 	IsoDateString,
 	join,
 	literal,
+	type Recipe,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
 	table,
-	type Recipe,
-	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EventId } from "@ryot-app/plugin-kit/schema";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";

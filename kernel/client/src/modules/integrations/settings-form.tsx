@@ -1,11 +1,11 @@
 import { renderSchemaAsset } from "@ryot-app/plugin-client-sdk/react";
 import {
-	SchemaForm,
 	type SchemaAssetUpload,
 	type SchemaFileUpload,
-	type SchemaOAuthConnect,
+	SchemaForm,
 	type SchemaFormApi,
 	type SchemaFormMode,
+	type SchemaOAuthConnect,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 
 import { integrationLotDetail } from "#/modules/integrations/provider-selection";

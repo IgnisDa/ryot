@@ -7,18 +7,18 @@ import type { ExerciseKind } from "../../shared/exercise-kinds";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	ExerciseOverrideUpdateInputSchema,
-	ExerciseOverrideUpdateOutputSchema,
 	exerciseOverrideUpdateOperationSlug,
+	ExerciseOverrideUpdateOutputSchema,
 } from "../../shared/workout-editor-context-operations";
 import type {
 	WorkoutEditorDisplay,
 	WorkoutEditorOccurrence,
 } from "../../shared/workout-editor-draft";
 import {
-	WorkoutExerciseOverridesSchema,
-	workoutRestFields,
 	type WorkoutExerciseOverrides,
+	WorkoutExerciseOverridesSchema,
 	type WorkoutRestField,
+	workoutRestFields,
 } from "../../shared/workout-editor-preferences";
 import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
 import { occurrenceDisplay } from "./draft-ops";

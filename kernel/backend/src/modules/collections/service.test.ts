@@ -41,8 +41,8 @@ import { RelationshipSchemaReader } from "#modules/definitions/relationship-sche
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import {
-	kernelCollectionLifecycleCommand,
 	type DomainLifecycleCommand,
+	kernelCollectionLifecycleCommand,
 } from "#modules/entities/write-context";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { RelationshipsService } from "#modules/relationships/service";

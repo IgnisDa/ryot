@@ -21,7 +21,7 @@ import {
 	animeSchema,
 	animeSummaryFacts,
 } from "./schema";
-import { animeUpcomingEpisodes, AnimeAiringScheduleSection } from "./sections";
+import { AnimeAiringScheduleSection, animeUpcomingEpisodes } from "./sections";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
 

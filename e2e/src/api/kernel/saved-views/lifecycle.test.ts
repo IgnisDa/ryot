@@ -3,6 +3,7 @@ import { Effect } from "effect";
 
 import {
 	buildUpdatedSavedViewBody,
+	type Client,
 	cloneSavedView,
 	createAuthenticatedClient,
 	createPluginScope,
@@ -15,7 +16,6 @@ import {
 	listSavedViews,
 	PRIVATE_PLUGIN_CONFIG_KEY,
 	reorderSavedViews,
-	type Client,
 	updateSavedView,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";

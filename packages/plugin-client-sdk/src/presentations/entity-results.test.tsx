@@ -13,11 +13,11 @@ import { usePageRefresh } from "../refresh/page-registry";
 import { createTestRyotClock } from "../testing";
 import {
 	defineEntityPresentation,
-	EntityPresentationRegistryProvider,
-	EntityResults,
 	type EntityPresentationRegistration,
+	EntityPresentationRegistryProvider,
 	type EntityPresentationSource,
 	type EntityReference,
+	EntityResults,
 } from "./entity-results";
 
 (
@@ -291,8 +291,7 @@ describe("EntityResults", () => {
 	it.live("loads and caches one lazy definition per provider", () =>
 		Effect.gen(function* () {
 			let definitionLoad:
-				| PromiseWithResolvers<ReturnType<typeof defineEntityPresentation<string>>>
-				| undefined;
+				PromiseWithResolvers<ReturnType<typeof defineEntityPresentation<string>>> | undefined;
 			let definitionLoads = 0;
 			let preparations = 0;
 			let mounts = 0;

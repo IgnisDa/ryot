@@ -5,8 +5,8 @@ import {
 	type EntityDecoderOptions as EntitiesDecoderOptions,
 } from "@nodable/entities";
 import {
-	XMLParser as XMLParserClass,
 	type EntityDecoderOptions as XMLEntityDecoder,
+	XMLParser as XMLParserClass,
 } from "fast-xml-parser";
 
 // The package exports EntityDecoder by name at runtime but only types it as a default export.

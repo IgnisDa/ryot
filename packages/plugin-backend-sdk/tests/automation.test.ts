@@ -1,8 +1,8 @@
 import {
 	automationInputSchema,
-	automationPolicyInputSchema,
 	automationPolicyBatchInputSchema,
 	automationPolicyBatchResultSchema,
+	automationPolicyInputSchema,
 	automationResultSchema,
 	defineAutomation,
 	defineAutomationPolicy,

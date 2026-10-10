@@ -28,8 +28,7 @@ import {
 	type UserAccessLinksQuery,
 } from "@ryot-app/generated/graphql/backend/graphql";
 import { formatQuantityWithCompactNotation } from "@ryot-app/ts-utils/format";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
-import { isString } from "@ryot-app/ts-utils/lodash";
+import { isNumber, isString } from "@ryot-app/ts-utils/lodash";
 import { getActionIntent, processSubmission } from "@ryot-app/ts-utils/request";
 import { zodCheckboxAsString, zodIntAsString } from "@ryot-app/ts-utils/zod";
 import { IconEye, IconEyeClosed, IconLock, IconLockAccess } from "@tabler/icons-react";
@@ -113,9 +112,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
-const revokeAccessLinkFormSchema = z.object({
-	accessLinkId: z.string(),
-});
+const revokeAccessLinkFormSchema = z.object({ accessLinkId: z.string() });
 
 const createAccessLinkFormSchema = z.object({
 	name: z.string(),

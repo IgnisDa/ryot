@@ -6,7 +6,7 @@
 	"scripts": {
 		"build": "bun --bun react-router build",
 		"dev": "bun --bun react-router dev --port 3000 --host",
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "tsc && bun fmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@conform-to/react": "1.17.0",

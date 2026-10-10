@@ -16,16 +16,8 @@ import { resolveServerUrl } from "@/lib/server";
 type ServerMode = "cloud" | "self-hosted";
 
 const options: { mode: ServerMode; label: string; subtitle: string }[] = [
-	{
-		mode: "cloud",
-		label: "Ryot Cloud",
-		subtitle: "Managed by Ryot at app.ryot.io",
-	},
-	{
-		mode: "self-hosted",
-		label: "Self-hosted",
-		subtitle: "Connect to your own instance",
-	},
+	{ mode: "cloud", label: "Ryot Cloud", subtitle: "Managed by Ryot at app.ryot.io" },
+	{ mode: "self-hosted", label: "Self-hosted", subtitle: "Connect to your own instance" },
 ];
 
 export default function Onboarding() {

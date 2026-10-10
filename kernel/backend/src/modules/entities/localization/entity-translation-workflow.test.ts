@@ -15,7 +15,7 @@ import {
 } from "./operations-workflow";
 import type { TranslationOverlayInput } from "./repository";
 import { TranslationsService } from "./service";
-import { translationPayload as payload, translationExecution } from "./translation.test-support";
+import { translationExecution, translationPayload as payload } from "./translation.test-support";
 
 const TestTranslateEntityWorkflow = Workflow.make("TestTranslateEntityWorkflow", {
 	success: Schema.Void,

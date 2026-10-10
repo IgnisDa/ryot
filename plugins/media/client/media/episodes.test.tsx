@@ -1,14 +1,14 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { RyotClientError, type RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
+import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { fireEvent, waitFor } from "@testing-library/dom";
 
 import {
 	decodeEpisodicEpisodePage,
+	EPISODIC_FIXTURE_RENDER,
 	episodicEpisode,
 	episodicEpisodePageData,
 	episodicFixtureEpisodesQuery,
-	EPISODIC_FIXTURE_RENDER,
 } from "../../tests/client/episodic/episodes-fixture";
 import type { EpisodicFixtureEpisode } from "../../tests/client/episodic/recipes";
 import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";

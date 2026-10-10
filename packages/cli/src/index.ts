@@ -7,8 +7,8 @@ import {
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginArchiveError,
-	writePluginArchive,
 	type PluginArchivePackage,
+	writePluginArchive,
 } from "@ryot-app/plugin-archive";
 import type { PluginBackendCompilerDiagnostic } from "@ryot-app/plugin-backend-compiler/diagnostics";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
@@ -17,14 +17,14 @@ import {
 	pluginScriptCompileMismatchIssue,
 } from "@ryot-app/plugin-backend-compiler/plugin-manifest";
 import {
-	pluginClientCompilerPlatformLayer,
 	compileClientPluginModule,
+	pluginClientCompilerPlatformLayer,
 } from "@ryot-app/plugin-client-compiler";
 import {
 	clientDeclarationHash,
 	isPluginSourceFile,
-	pluginClientFileExtension,
 	type PluginClientArtifact,
+	pluginClientFileExtension,
 } from "@ryot-app/plugin-client-contract";
 import { Clock, Data, Effect, FileSystem, Layer, Option, Path, Schema, Stream } from "effect";
 import { Command, Flag } from "effect/cli";

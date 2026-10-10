@@ -1,10 +1,10 @@
 import {
 	AutomationInput as automationInputSchema,
 	AutomationOutput as automationResultSchema,
-	AutomationPolicyInput as automationPolicyInputSchema,
-	AutomationPolicyOutput as automationPolicyResultSchema,
 	AutomationPolicyBatchInput as automationPolicyBatchInputSchema,
 	AutomationPolicyBatchOutput as automationPolicyBatchResultSchema,
+	AutomationPolicyInput as automationPolicyInputSchema,
+	AutomationPolicyOutput as automationPolicyResultSchema,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 

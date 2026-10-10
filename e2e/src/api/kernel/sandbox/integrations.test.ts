@@ -2,9 +2,9 @@ import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
+	createAuthenticatedClient,
 	createIntegration,
 	deleteIntegration,
-	createAuthenticatedClient,
 	getApiClient,
 	installTestPlugin,
 	integrationReadOperationSandboxSource,

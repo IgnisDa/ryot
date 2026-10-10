@@ -5,8 +5,8 @@ import {
 	type EntityPresentationRegistration,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
-	disposePluginBridges,
 	createTestRyotClock,
+	disposePluginBridges,
 	mountPluginPage,
 	routeLocation,
 	savedViewPageContext,

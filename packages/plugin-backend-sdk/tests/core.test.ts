@@ -1,6 +1,7 @@
 import {
-	claimPersistentValueResultSchema,
 	changeUserRelationshipsArgsSchema,
+	claimPersistentValueResultSchema,
+	deleteEventsArgsSchema,
 	ensureUserEntitiesArgsSchema,
 	httpCallArgsSchema,
 	httpCallResultSchema,
@@ -8,7 +9,6 @@ import {
 	partialCreateEventsResult,
 	spanArgsSchema,
 	updateEventsArgsSchema,
-	deleteEventsArgsSchema,
 	upsertGlobalEntitiesArgsSchema,
 	upsertGlobalRelationshipsArgsSchema,
 } from "@ryot-app/plugin-backend-sdk/core";
@@ -16,7 +16,7 @@ import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { describe, expect, test } from "vitest";
 
-import { SANDBOX_SCRIPT_DEFINITION, defineManifest, defineScript } from "../src/driver";
+import { defineManifest, defineScript, SANDBOX_SCRIPT_DEFINITION } from "../src/driver";
 import { jsonValueSchema } from "../src/wire";
 
 const decode = <A, I>(schema: Schema.Codec<A, I>) => Schema.decodeUnknownSync(schema);

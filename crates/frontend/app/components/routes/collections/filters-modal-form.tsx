@@ -8,8 +8,7 @@ import {
 	MediaLot,
 	MediaSource,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { snakeCase } from "@ryot-app/ts-utils/lodash";
-import { startCase } from "@ryot-app/ts-utils/lodash";
+import { snakeCase, startCase } from "@ryot-app/ts-utils/lodash";
 
 import { CollectionsFilter, SortOrderToggle } from "~/components/common/filters";
 import type { FilterState } from "~/components/routes/collections/filters-state";
@@ -55,12 +54,7 @@ export const FiltersModalForm = (props: {
 					size="xs"
 					value={props.filters.sortBy}
 					onChange={(v) => props.updateFilter("sortBy", v as CollectionContentsSortBy)}
-					data={[
-						{
-							group: "Sort by",
-							items: convertEnumToSelectData(CollectionContentsSortBy),
-						},
-					]}
+					data={[{ group: "Sort by", items: convertEnumToSelectData(CollectionContentsSortBy) }]}
 				/>
 				{props.filters.sortBy !== CollectionContentsSortBy.Random ? (
 					<SortOrderToggle
@@ -128,10 +122,7 @@ export const FiltersModalForm = (props: {
 								label={label}
 								key={filterKey}
 								value={props.filters[filterKey]}
-								data={filterData.map((value) => ({
-									value,
-									label: startCase(snakeCase(value)),
-								}))}
+								data={filterData.map((value) => ({ value, label: startCase(snakeCase(value)) }))}
 								onChange={(v) => props.updateFilter(filterKey, v as FilterState[ExerciseFilterKey])}
 							/>
 						);

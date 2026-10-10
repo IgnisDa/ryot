@@ -17,10 +17,7 @@ import {
 	type WorkoutSetStatistic,
 	type WorkoutSupersetsInformation,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { isNumber } from "@ryot-app/ts-utils/lodash";
-import { isString } from "@ryot-app/ts-utils/lodash";
-import { mergeWith } from "@ryot-app/ts-utils/lodash";
-import { sum } from "@ryot-app/ts-utils/lodash";
+import { isNumber, isString, mergeWith, sum } from "@ryot-app/ts-utils/lodash";
 import { queryOptions } from "@tanstack/react-query";
 import { createDraft, finishDraft } from "immer";
 import { atom, useAtom } from "jotai";
@@ -36,10 +33,7 @@ import { useS3PresignedUrls } from "~/lib/shared/hooks";
 import { clientGqlService, queryClient, queryFactory } from "~/lib/shared/react-query";
 import { FitnessAction } from "~/lib/types";
 
-export type WorkoutDuration = {
-	to?: string;
-	from: string;
-};
+export type WorkoutDuration = { to?: string; from: string };
 
 export type ExerciseSet = {
 	lot: SetLot;
@@ -276,10 +270,7 @@ export const currentWorkoutToCreateWorkoutInput = (
 	return input;
 };
 
-export type SetIdentifier = {
-	setIdentifier: string;
-	exerciseIdentifier: string;
-};
+export type SetIdentifier = { setIdentifier: string; exerciseIdentifier: string };
 
 export type CurrentWorkoutTimer = {
 	willEndAt: string;

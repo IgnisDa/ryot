@@ -1,8 +1,8 @@
 import type {
 	AutomationAfterInputProjection,
 	AutomationAfterPayload,
-	AutomationPopulationContext,
 	AutomationPolicyInputProjection,
+	AutomationPopulationContext,
 	AutomationProjectedAfterPayload,
 	AutomationProjectedRequestPayload,
 	AutomationRequestPayload,

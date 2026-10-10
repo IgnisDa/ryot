@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "@effect/vitest";
 import { act, render, screen } from "@testing-library/react";
 import { Effect } from "effect";
-import { useRef, type ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 import { axe } from "vitest-axe";
 
 import { SCREEN_BAR_HEIGHT, ScreenFrame } from "./screen-frame";

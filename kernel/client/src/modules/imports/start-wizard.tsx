@@ -2,9 +2,9 @@ import { useRyotMutation, useSchemaAssetUpload } from "@ryot-app/plugin-client-s
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	initialSchemaFormValues,
+	type SchemaFormValues,
 	toSchemaFormPayload,
 	useSchemaForm,
-	type SchemaFormValues,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Cause, Effect, Match } from "effect";
 import { useReducer, useState } from "react";
@@ -18,17 +18,17 @@ import {
 	importSourceEntry,
 	importSourceKey,
 } from "#/modules/imports/source-selection";
-import { importStartFailure, type ImportStartFailure } from "#/modules/imports/start-failure";
+import { type ImportStartFailure, importStartFailure } from "#/modules/imports/start-failure";
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { useFormSeed } from "#/modules/ui/use-form-seed";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
-	wizardReducer,
 	WIZARD_STEPS,
-	wizardStepLabel,
+	wizardReducer,
 	type WizardStepHeadings,
+	wizardStepLabel,
 } from "#/modules/ui/wizard/wizard-state";
 
 import { SelectedImportReadiness } from "./selected-readiness";

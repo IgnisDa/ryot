@@ -4,7 +4,7 @@ import { DateTime, Effect } from "effect";
 import { ImportsRepository } from "#modules/imports/repository";
 
 import { isIntegrationSourceFailure } from "./health";
-import { IntegrationsRepository, type IntegrationRecord } from "./repository";
+import { type IntegrationRecord, IntegrationsRepository } from "./repository";
 import { IntegrationsService } from "./service";
 
 export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeIntegrationRun")(

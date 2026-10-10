@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { PgDialect, getTableConfig } from "drizzle-orm/pg-core";
+import { getTableConfig, PgDialect } from "drizzle-orm/pg-core";
 
 import {
 	automationRun,

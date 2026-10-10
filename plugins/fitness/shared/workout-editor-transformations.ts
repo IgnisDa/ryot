@@ -10,8 +10,8 @@ import type {
 } from "./workout-editor-draft";
 import {
 	type WorkoutActiveDurationChange,
-	WorkoutEditorSaveInputSchema,
 	type WorkoutEditorSaveInput,
+	WorkoutEditorSaveInputSchema,
 } from "./workout-editor-operations";
 import {
 	resolveWorkoutDisplay,

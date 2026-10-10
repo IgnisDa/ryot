@@ -14,8 +14,8 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import {
-	importRunRecipe,
 	importIssuesRecipe,
+	importRunRecipe,
 	integrationImportRunsRecipe,
 	manualImportRunsRecipe,
 } from "@ryot-app/ryotql-recipes/import-runs";

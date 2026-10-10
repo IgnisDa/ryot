@@ -5,8 +5,8 @@ import {
 } from "@ryot-app/contract/schema/property-schema";
 import {
 	schemaChoiceLabel,
-	toSchemaFormPayload,
 	type SchemaFormValues,
+	toSchemaFormPayload,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 
 export type SchemaReviewRow = { readonly label: string; readonly value: string };

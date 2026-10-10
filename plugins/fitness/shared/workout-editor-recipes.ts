@@ -7,16 +7,16 @@ import {
 	entitySchemaPredicate,
 	eq,
 	inArray,
-	JsonValue,
 	isNotNull,
+	JsonValue,
 	literal,
+	type Recipe,
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
 	table,
-	type Recipe,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, EventId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 

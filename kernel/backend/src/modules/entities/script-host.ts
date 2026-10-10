@@ -29,8 +29,8 @@ import {
 } from "#modules/scripts/host/execution-context";
 import {
 	lifecycleHostFailure,
-	userLifecycleSource,
 	type LifecycleHostInput,
+	userLifecycleSource,
 } from "#modules/scripts/host/lifecycle-host";
 import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 

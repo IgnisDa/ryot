@@ -2,7 +2,7 @@ import type { HomePersonalBest, HomeTemplate, MuscleActivity } from "../../share
 import type { WorkoutExerciseTargets, WorkoutSummary } from "../../shared/workout-list-recipes";
 import type { ActiveEditorDraft } from "../exercise/active-draft";
 import { describeAgo, personalBestTitles } from "../exercise/details-model";
-import { DAY_MS, formatValue, formatDay } from "../measurements/model";
+import { DAY_MS, formatDay, formatValue } from "../measurements/model";
 import { countMuscleSets } from "../workout/details-model";
 import { formatSetMain, parseDate } from "../workout/format";
 import { buildHeatmap, dateKey, durationOf, plural, weekKey, yearUnless } from "../workouts/model";

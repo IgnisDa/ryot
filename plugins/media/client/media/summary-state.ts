@@ -15,10 +15,10 @@ import type { MediaArtworkAspect } from "./entity-presentation";
 import {
 	collectManagedAssetLocators,
 	mediaImageAssets,
-	orderedMediaImageAsset,
-	preferredMediaImageAsset,
 	type MediaImagePurposes,
 	type MediaImages,
+	orderedMediaImageAsset,
+	preferredMediaImageAsset,
 } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 
@@ -320,8 +320,7 @@ export const mediaSummaryHeaderDetail =
 	<Summary extends MediaSummaryValue & { readonly state: EpisodicLifecycleState }>(input: {
 		readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 		readonly progress?:
-			| ((summary: Summary) => { readonly percent: number } | undefined)
-			| undefined;
+			((summary: Summary) => { readonly percent: number } | undefined) | undefined;
 	}) =>
 	(summary: Summary): MediaSummaryHeaderDetail => ({
 		links: [],

@@ -55,11 +55,11 @@ Direct browser uploads use `PUT` with `Content-Type`. Add each exact frontend or
 
 ```json
 [
-	{
-		"AllowedOrigins": ["https://app.example.com", "https://localhost"],
-		"AllowedMethods": ["PUT"],
-		"AllowedHeaders": ["content-type"]
-	}
+  {
+    "AllowedOrigins": ["https://app.example.com", "https://localhost"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["content-type"]
+  }
 ]
 ```
 

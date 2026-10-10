@@ -2,8 +2,8 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	eventSchemasSandboxSource,
 	enqueueSandboxScript,
+	eventSchemasSandboxSource,
 	installSandboxScriptScoped,
 	pollSandboxResult,
 	testPluginEntitySchema,

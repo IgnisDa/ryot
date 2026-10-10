@@ -24,12 +24,7 @@ export interface UseEntityCrudConfig<TValues, TDetails, TCreateResult> {
 }
 
 export const useEntityCrud = <
-	TValues extends {
-		id?: string;
-		images: File[];
-		[key: string]: unknown;
-		existingImages: string[];
-	},
+	TValues extends { id?: string; images: File[]; [key: string]: unknown; existingImages: string[] },
 	TDetails,
 	TCreateResult,
 >(
@@ -67,9 +62,7 @@ export const useEntityCrud = <
 			const uploadedImages = await uploadImages(values.images, config.s3Prefix);
 			const s3Images = mergeImages(values.existingImages, uploadedImages);
 			const input = config.transformToUpdateInput(values, s3Images, config.entityId);
-			const result = await clientGqlService.request(config.updateDocument, {
-				input,
-			});
+			const result = await clientGqlService.request(config.updateDocument, { input });
 			return config.extractIdFromUpdateResult(result);
 		},
 		onSuccess: (id) => {

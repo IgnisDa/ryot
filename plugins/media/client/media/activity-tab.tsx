@@ -1,16 +1,16 @@
 import {
-	useRyotQuery,
 	type RyotQuery,
 	type RyotQueryResult,
+	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
 import {
-	MediaActivitySummaryFigures,
-	MediaActivityTimelineView,
 	type MediaActivityFigure,
 	type MediaActivityRowRender,
+	MediaActivitySummaryFigures,
+	MediaActivityTimelineView,
 } from "./activity-rows";
 import {
 	mapMediaActivity,

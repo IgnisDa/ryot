@@ -7,7 +7,7 @@ import { collectTraktApi } from "./api-collection";
 import audiobookshelf, { manifest as audiobookshelfManifest } from "./audiobookshelf.sandbox";
 import { compareMediaRecords, serializeMediaRecords } from "./collection";
 import type { MediaSourceInput, MediaSourceOutput, MediaSourceRecord } from "./collection-schemas";
-import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
+import { mediaFilesystem, mediaStageInput, resetMediaFilesystem } from "./ingestion.test-support";
 import jellyfin, { manifest as jellyfinManifest } from "./jellyfin.sandbox";
 import { collectMediaTracker } from "./media-tracker-collection";
 import plex, { manifest as plexManifest } from "./plex.sandbox";

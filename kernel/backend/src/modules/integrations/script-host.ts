@@ -19,7 +19,7 @@ import {
 	userSandboxRunUserId,
 } from "#modules/scripts/host/execution-context";
 
-import { IntegrationsRepository, type IntegrationRecord } from "./repository";
+import { type IntegrationRecord, IntegrationsRepository } from "./repository";
 
 const toSandboxIntegrationSettings = (settings: Readonly<Record<string, unknown>>) =>
 	Object.fromEntries(

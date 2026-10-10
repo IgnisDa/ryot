@@ -78,9 +78,7 @@ type PluginExecutionScope = ScriptPluginRevision["schemaScope"] & {
 };
 
 export type RyotQLExecutionScope =
-	| UserExecutionScope
-	| { readonly type: "admin" }
-	| PluginExecutionScope;
+	UserExecutionScope | { readonly type: "admin" } | PluginExecutionScope;
 
 export type RyotQLAccess =
 	| Pick<UserExecutionScope, "accessClass" | "audience" | "type">

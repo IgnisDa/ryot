@@ -1,8 +1,8 @@
 import type { QualifiedSchema } from "./migration-resolution";
 import {
 	buildAbortOnRowsSql,
-	buildRequireLegacyTableSql,
 	buildReportSql,
+	buildRequireLegacyTableSql,
 	quoteNullableSqlString,
 	quoteSqlString,
 } from "./shared";

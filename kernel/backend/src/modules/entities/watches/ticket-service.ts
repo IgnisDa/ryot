@@ -6,7 +6,7 @@ import { Clock, Context, Data, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ImpersonationSessions } from "#modules/accounts/auth/impersonation-sessions";
 import { makeOpaqueTickets } from "#platform/http/opaque-tickets";
-import { RedisService, redisKeys } from "#platform/redis";
+import { redisKeys, RedisService } from "#platform/redis";
 
 export const ENTITY_WATCH_SOCKET_TICKET_TTL_SECONDS = 30;
 

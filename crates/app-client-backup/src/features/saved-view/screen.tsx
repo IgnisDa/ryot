@@ -17,14 +17,14 @@ import { createQueryEngineClient, type QueryEngineEntityItem } from "../entity-d
 import { LoadMoreFooter, SavedViewHeader, ScreenState } from "./chrome";
 import { useSavedViewLayout } from "./layout";
 import {
-	SAVED_VIEW_RUNTIME_FIELD_KEYS,
-	type SavedViewLayout,
 	createSavedViewRuntimeRequest,
 	extractSavedViewImageEntries,
 	flattenSavedViewPages,
 	formatSavedViewFieldValue,
 	getEntityId,
 	isEntitySavedView,
+	SAVED_VIEW_RUNTIME_FIELD_KEYS,
+	type SavedViewLayout,
 } from "./runtime";
 import { SavedViewTableResults } from "./table";
 
@@ -377,11 +377,7 @@ export function SavedViewScreen(props: { viewSlug: string }) {
 			}
 
 			return queryEngineClient(
-				createSavedViewRuntimeRequest({
-					layout,
-					page: pageParam,
-					view: supportedView,
-				}),
+				createSavedViewRuntimeRequest({ layout, page: pageParam, view: supportedView }),
 			);
 		},
 		getNextPageParam: (lastPage, pages) =>

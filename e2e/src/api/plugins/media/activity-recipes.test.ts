@@ -3,6 +3,7 @@ import { mediaActivityRecipe } from "@ryot-app/media-plugin/shared/activity-reci
 import { Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQLRecipe,
@@ -11,7 +12,6 @@ import {
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
-	type Client,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
 import { describe, expect, it } from "~/support/effect-test";

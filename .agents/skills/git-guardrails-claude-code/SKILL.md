@@ -66,12 +66,7 @@ Add to the appropriate settings file:
     "PreToolUse": [
       {
         "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/block-dangerous-git.sh"
-          }
-        ]
+        "hooks": [{ "type": "command", "command": "~/.claude/hooks/block-dangerous-git.sh" }]
       }
     ]
   }

@@ -3,8 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { CreateBucketCommand, PutBucketCorsCommand, S3Client } from "@aws-sdk/client-s3";
 import {
-	startPostgresContainer,
 	type StartedPostgresContainer,
+	startPostgresContainer,
 	stopPostgresContainer,
 } from "@ryot-app/testing/postgres-container";
 import { Effect } from "effect";

@@ -23,10 +23,7 @@ export const RecommendationsSection = (props: { collectionId: string }) => {
 
 	const input: CollectionRecommendationsInput = {
 		collectionId: props.collectionId,
-		search: {
-			page: search.recommendationsPage,
-			query: search.recommendationsQuery,
-		},
+		search: { page: search.recommendationsPage, query: search.recommendationsQuery },
 	};
 
 	const { data: recommendations } = useQuery({

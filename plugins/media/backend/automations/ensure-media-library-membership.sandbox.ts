@@ -1,7 +1,7 @@
-import { defineAutomation, type AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
+import { type AutomationInput, defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import {
-	USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
 	type ChangeUserRelationshipBatch,
+	USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
@@ -13,12 +13,12 @@ import {
 	executeRyotqlRecipe,
 	inArray,
 	literal,
+	type pluginId,
 	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
 	table,
 	userMediaLibraryRecipe,
-	type pluginId,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";

@@ -21,7 +21,7 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { createPluginConfigEncryption } from "#platform/config/plugin-config-encryption";
 import type { DatabaseSession } from "#platform/db/session";
-import { RedisService, redisKeys } from "#platform/redis";
+import { redisKeys, RedisService } from "#platform/redis";
 import { fakeDatabaseSession, makeRedisService } from "#testing/effect";
 
 import { OperationalGateRepository } from "./operational-gate-repository";

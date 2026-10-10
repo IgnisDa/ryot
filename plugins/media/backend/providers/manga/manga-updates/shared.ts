@@ -6,20 +6,20 @@ import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { MediaSandboxError } from "../../../lib/failures";
 import { mediaGenreGroups } from "../../../lib/media-genres";
 import {
-	type UnknownRecord,
 	asRecord,
 	numberValue,
 	recordsValue,
 	stringValue,
+	type UnknownRecord,
 } from "../../../lib/records";
 import { normalizeRichDescription } from "../../../lib/rich-description";
 import {
 	imageUrlValue,
 	mangaUpdatesGet,
 	mangaUpdatesGetOptional,
+	type MangaUpdatesHost,
 	mangaUpdatesPost,
 	searchTotalItems,
-	type MangaUpdatesHost,
 } from "../../../lib/vendors/manga-updates";
 
 export const manifest = defineManifest({

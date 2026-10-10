@@ -26,19 +26,19 @@ import {
 } from "./mutation-primitives";
 import {
 	activeTransactionGuard,
-	relationshipReceiptIdentity,
-	RelationshipRecordedResult,
-	rootTransaction,
-	rootTransactionGuard,
-	snapshot,
-	relationshipSchemaReference,
-	relationshipIdentity,
-	RelationshipMutation,
 	type CreateRelationshipInput,
 	type DeleteRelationshipInput,
 	type Mutation,
+	relationshipIdentity,
+	RelationshipMutation,
 	type RelationshipMutationDependencies,
+	relationshipReceiptIdentity,
+	RelationshipRecordedResult,
+	relationshipSchemaReference,
 	relationshipWriteFailure,
+	rootTransaction,
+	rootTransactionGuard,
+	snapshot,
 } from "./mutation-support";
 import type { RelationshipIdentityInput } from "./repository";
 

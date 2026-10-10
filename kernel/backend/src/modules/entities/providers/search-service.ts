@@ -9,8 +9,8 @@ import {
 } from "@ryot-app/contract/modules/entity-providers/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
-	materializeAppSchemaChoices,
 	type AppSchema,
+	materializeAppSchemaChoices,
 } from "@ryot-app/contract/schema/property-schema";
 import {
 	providerSearchOptionsResultSchema,

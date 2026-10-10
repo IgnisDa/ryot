@@ -8,8 +8,8 @@ import type { ArchivePrivatePlugin } from "#modules/backups/archive/schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import {
 	buildDefinitionSnapshot,
-	definitionSourceFromSnapshot,
 	type DefinitionSnapshot,
+	definitionSourceFromSnapshot,
 } from "#modules/definitions/snapshot";
 import { mergeManifestDefinitions } from "#modules/definitions/source";
 

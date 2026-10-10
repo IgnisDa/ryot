@@ -50,7 +50,7 @@ RUN bun turbo --filter=@ryot-app/server build
 RUN bun run --cwd apps/server assemble
 
 FROM backend-builder AS sandbox-test
-COPY --from=prepare /app/.oxfmtrc.json /app/.oxfmtrc.json
+COPY --from=prepare /app/bunfig.toml /app/bunfig.toml
 WORKDIR /app/kernel/sandbox/native
 RUN cargo test --no-run
 WORKDIR /app

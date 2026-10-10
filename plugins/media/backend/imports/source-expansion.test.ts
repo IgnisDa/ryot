@@ -5,7 +5,7 @@ import { gzipSync } from "@ryot-app/plugin-backend-sdk/fflate";
 import { compareMediaRecords, serializeMediaRecords } from "./collection";
 import type { MediaSourceRecord } from "./collection-schemas";
 import goodreads from "./goodreads.sandbox";
-import { mediaFilesystem, resetMediaFilesystem, mediaStageInput } from "./ingestion.test-support";
+import { mediaFilesystem, mediaStageInput, resetMediaFilesystem } from "./ingestion.test-support";
 import myanimelist from "./myanimelist.sandbox";
 import spotify from "./spotify.sandbox";
 

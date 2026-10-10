@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 
 import {
-	createAuthenticatedClient,
 	checkClientPageFreshness,
+	createAuthenticatedClient,
 	createEntityBrowserSavedView,
 	prepareClientPage,
 } from "~/fixtures/kernel";

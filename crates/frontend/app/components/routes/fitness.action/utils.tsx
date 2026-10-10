@@ -15,12 +15,7 @@ export const getStopwatchMilliSeconds = (currentStopwatch: CurrentWorkoutStopwat
 };
 
 export const styles = {
-	body: {
-		height: "80%",
-		display: "flex",
-		alignItems: "center",
-		justifyContent: "center",
-	},
+	body: { height: "80%", display: "flex", alignItems: "center", justifyContent: "center" },
 };
 
 export const formatTimerDuration = (duration: number) =>

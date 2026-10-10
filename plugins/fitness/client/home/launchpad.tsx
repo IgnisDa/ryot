@@ -13,10 +13,10 @@ import { workoutSummaryQuery } from "../workouts/queries";
 import { buildWeekProgress, draftBanner } from "./model";
 import {
 	Chips,
-	HomeCard,
-	QueryBody,
 	goalPreferencesTarget,
+	HomeCard,
 	linkClass,
+	QueryBody,
 	secondaryLinkClass,
 } from "./section";
 

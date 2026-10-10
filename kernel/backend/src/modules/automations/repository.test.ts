@@ -6,8 +6,8 @@ import { assert, describe } from "vitest";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import {
 	installRevisionPackage,
-	revisionPackage,
 	revisionDatabaseLayer,
+	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 

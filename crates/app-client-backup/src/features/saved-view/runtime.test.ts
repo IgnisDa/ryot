@@ -9,14 +9,14 @@ import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import type { QueryEngineEntityItem } from "../entity-detail/query-engine";
 import type { EntitySavedView } from "./runtime";
 import {
-	SAVED_VIEW_PAGE_SIZE,
-	SAVED_VIEW_RUNTIME_FIELD_KEYS,
 	createSavedViewRuntimeFields,
 	createSavedViewRuntimeRequest,
 	extractSavedViewImageEntries,
 	flattenSavedViewPages,
 	formatSavedViewFieldValue,
 	isEntitySavedView,
+	SAVED_VIEW_PAGE_SIZE,
+	SAVED_VIEW_RUNTIME_FIELD_KEYS,
 } from "./runtime";
 
 const view = {
@@ -71,11 +71,7 @@ type SavedView = Parameters<typeof isEntitySavedView>[0];
 
 describe("saved view runtime request builder", () => {
 	it("builds a grid request with declared fields only", () => {
-		const result = createSavedViewRuntimeRequest({
-			view,
-			page: 2,
-			layout: "grid",
-		});
+		const result = createSavedViewRuntimeRequest({ view, page: 2, layout: "grid" });
 
 		expect(result.pagination).toEqual({ limit: SAVED_VIEW_PAGE_SIZE, page: 2 });
 		expect(result.scope).toEqual(["book"]);
@@ -89,11 +85,7 @@ describe("saved view runtime request builder", () => {
 	});
 
 	it("builds a list request with declared fields only", () => {
-		const result = createSavedViewRuntimeRequest({
-			view,
-			page: 3,
-			layout: "list",
-		});
+		const result = createSavedViewRuntimeRequest({ view, page: 3, layout: "list" });
 
 		expect(result.pagination).toEqual({ limit: SAVED_VIEW_PAGE_SIZE, page: 3 });
 		expect(result.scope).toEqual(["book"]);
@@ -107,11 +99,7 @@ describe("saved view runtime request builder", () => {
 	});
 
 	it("builds a table request with stable column keys", () => {
-		const result = createSavedViewRuntimeRequest({
-			view,
-			page: 1,
-			layout: "table",
-		});
+		const result = createSavedViewRuntimeRequest({ view, page: 1, layout: "table" });
 
 		expect(result.pagination).toEqual({ limit: SAVED_VIEW_PAGE_SIZE, page: 1 });
 		expect(result.scope).toEqual(["book"]);

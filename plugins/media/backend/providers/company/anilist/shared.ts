@@ -2,13 +2,13 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
-import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
+import { asRecord, numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
 import {
 	anilistGraphql,
+	type AnilistHost,
 	mediaScriptSlug,
 	parseAnilistId,
 	pickPreferredMediaName,
-	type AnilistHost,
 } from "../../../lib/vendors/anilist";
 
 export const manifest = defineManifest({

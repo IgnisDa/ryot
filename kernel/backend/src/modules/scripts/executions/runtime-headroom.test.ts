@@ -17,8 +17,8 @@ import {
 	DateTime,
 	Deferred,
 	Effect,
-	FileSystem,
 	Fiber,
+	FileSystem,
 	Layer,
 	Redacted,
 	Schema,
@@ -56,7 +56,7 @@ import {
 	compiledArtifactsLayer,
 	unusedKernelWorkflowReferencesLayer,
 } from "./fixtures.test-support";
-import { SandboxExecutionQueueWorkerLive, processSandboxExecutionQueue } from "./queues";
+import { processSandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./queues";
 import { ScriptExecutionWorkflowPayload } from "./workflow-payload";
 
 type CompiledFixture = Effect.Success<ReturnType<SandboxCompiler["Service"]["compile"]>>;

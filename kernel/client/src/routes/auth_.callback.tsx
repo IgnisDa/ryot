@@ -1,9 +1,9 @@
 import { Browser } from "@capacitor/browser";
 import {
-	OAuthCallbackQuery,
 	OAUTH_IMPERSONATION_CLIENT_IDS,
 	OAUTH_NATIVE_CLIENT_IDS,
 	OAUTH_WEB_CLIENT_IDS,
+	OAuthCallbackQuery,
 } from "@ryot-app/contract/oauth";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";

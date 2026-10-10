@@ -1,12 +1,12 @@
 import { useRyotMutation, useSchemaAssetUpload } from "@ryot-app/plugin-client-sdk/react";
 import { Button, FieldMessage, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
-	useSchemaForm,
 	type SchemaAssetUpload,
 	type SchemaFileUpload,
 	type SchemaFormApi,
 	type SchemaFormValues,
 	toSchemaFormPayload,
+	useSchemaForm,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Cause, Effect, Match } from "effect";
 import { useReducer, useState } from "react";
@@ -25,8 +25,8 @@ import {
 	integrationProviderItemKey,
 } from "#/modules/integrations/provider-selection";
 import {
-	integrationSaveFailure,
 	type IntegrationSaveFailure,
+	integrationSaveFailure,
 } from "#/modules/integrations/save-failure";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { createIntegrationMutation } from "#/modules/integrations/service";
@@ -38,10 +38,10 @@ import { useFormSeed } from "#/modules/ui/use-form-seed";
 import { WizardShell } from "#/modules/ui/wizard/wizard-shell";
 import {
 	createWizardState,
-	wizardReducer,
 	WIZARD_STEPS,
-	wizardStepLabel,
+	wizardReducer,
 	type WizardStepHeadings,
+	wizardStepLabel,
 } from "#/modules/ui/wizard/wizard-state";
 
 export const INTEGRATION_WIZARD_TITLE = "Connect a service";

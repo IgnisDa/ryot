@@ -13,9 +13,7 @@ import { ActivityIndicator, Pressable, Text, View } from "react-native";
 
 const SCOPE = "BUTTON";
 const Root = withStyleContext(Pressable, SCOPE);
-const StyledUIIcon = styled(UIIcon, {
-	className: "style",
-});
+const StyledUIIcon = styled(UIIcon, { className: "style" });
 const UIButton = createButton({
 	Text,
 	Root: Root,
@@ -58,25 +56,13 @@ const buttonTextStyle = tva({
 			ghost: "text-foreground ",
 			link: "text-primary data-[hover=true]:underline data-[active=true]:underline",
 		},
-		size: {
-			default: "text-sm",
-			sm: "text-xs",
-			lg: "text-sm",
-			icon: "text-sm",
-		},
+		size: { default: "text-sm", sm: "text-xs", lg: "text-sm", icon: "text-sm" },
 	},
 });
 
 const buttonSpinnerStyle = tva({
 	base: "",
-	parentVariants: {
-		size: {
-			default: "h-4 w-4",
-			sm: "h-3 w-3",
-			lg: "h-5 w-5",
-			icon: "h-4 w-4",
-		},
-	},
+	parentVariants: { size: { default: "h-4 w-4", sm: "h-3 w-3", lg: "h-5 w-5", icon: "h-4 w-4" } },
 });
 
 const buttonIconStyle = tva({
@@ -92,12 +78,7 @@ const buttonIconStyle = tva({
 				"text-foreground data-[hover=true]:text-accent-foreground data-[active=true]:text-accent-foreground",
 			link: "text-primary",
 		},
-		size: {
-			default: "h-4 w-4",
-			sm: "h-3 w-3",
-			lg: "h-5 w-5",
-			icon: "h-4 w-4",
-		},
+		size: { default: "h-4 w-4", sm: "h-3 w-3", lg: "h-5 w-5", icon: "h-4 w-4" },
 	},
 });
 const buttonGroupStyle = tva({
@@ -164,10 +145,7 @@ const ButtonSpinner = React.forwardRef<
 		<UIButton.Spinner
 			ref={ref}
 			{...rest}
-			className={buttonSpinnerStyle({
-				class: className,
-				parentVariants: { size: parentSize },
-			})}
+			className={buttonSpinnerStyle({ class: className, parentVariants: { size: parentSize } })}
 		/>
 	);
 });
@@ -223,12 +201,7 @@ const ButtonGroup = React.forwardRef<React.ComponentRef<typeof UIButton.Group>, 
 		} = props;
 		return (
 			<UIButton.Group
-				className={buttonGroupStyle({
-					space,
-					isAttached,
-					flexDirection,
-					class: className,
-				})}
+				className={buttonGroupStyle({ space, isAttached, flexDirection, class: className })}
 				{...rest}
 				ref={ref}
 			/>

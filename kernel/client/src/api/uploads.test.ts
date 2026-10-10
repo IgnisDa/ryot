@@ -3,14 +3,14 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import {
 	HttpClient,
 	HttpClientError,
-	HttpClientResponse,
 	type HttpClientRequest,
+	HttpClientResponse,
 } from "effect/http";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
-import { UploadsApi, type UploadByteTransfer } from "#/api/uploads";
+import { type UploadByteTransfer, UploadsApi } from "#/api/uploads";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 

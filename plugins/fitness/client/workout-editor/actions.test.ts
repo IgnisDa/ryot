@@ -2,8 +2,8 @@ import { Schema } from "@ryot-app/plugin-kit/effect";
 import { assert, describe, expect, it } from "vitest";
 
 import {
-	WorkoutEditorDraftSchema,
 	type WorkoutEditorDraft,
+	WorkoutEditorDraftSchema,
 	type WorkoutEditorOccurrence,
 	type WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
@@ -12,13 +12,13 @@ import {
 	changeOccurrenceDisplay,
 	completeWorkoutSet,
 	cycleWorkoutSuperset,
+	editSet,
 	finishWorkoutDraft,
 	newWorkoutOccurrence,
 	newWorkoutSet,
 	nextWorkoutOccurrence,
 	removeWorkoutItems,
 	resolvePendingRest,
-	editSet,
 	workoutProgressTarget,
 } from "./actions";
 

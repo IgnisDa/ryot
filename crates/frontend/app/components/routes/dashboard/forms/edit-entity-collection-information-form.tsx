@@ -37,10 +37,7 @@ export const EditEntityCollectionInformationForm = (props: {
 	);
 
 	const handleCustomFieldChange = (field: string, value: unknown) => {
-		setUserExtraInformationData((prev: Scalars["JSON"]["input"]) => ({
-			...prev,
-			[field]: value,
-		}));
+		setUserExtraInformationData((prev: Scalars["JSON"]["input"]) => ({ ...prev, [field]: value }));
 	};
 
 	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {

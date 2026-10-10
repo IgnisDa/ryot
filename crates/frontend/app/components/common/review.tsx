@@ -87,10 +87,7 @@ export const ReviewItemDisplay = (props: {
 		mutationFn: (reviewId: string) => clientGqlService.request(DeleteReviewDocument, { reviewId }),
 		onSuccess: () => {
 			refreshEntityDetails(props.entityId);
-			notifications.show({
-				color: "green",
-				message: "Review deleted successfully",
-			});
+			notifications.show({ color: "green", message: "Review deleted successfully" });
 		},
 		onError: () => notifications.show({ color: "red", message: "Failed to delete review" }),
 	});
@@ -120,9 +117,7 @@ export const ReviewItemDisplay = (props: {
 		props.review.textRendered ? (
 			<div
 				// oxlint-disable-next-line react/no-danger
-				dangerouslySetInnerHTML={{
-					__html: props.review.textRendered,
-				}}
+				dangerouslySetInnerHTML={{ __html: props.review.textRendered }}
 			/>
 		) : null;
 

@@ -4,10 +4,7 @@ import React from "react";
 import { textStyle } from "./styles";
 
 type ITextProps = React.ComponentProps<"span"> &
-	VariantProps<typeof textStyle> & {
-		selectable?: boolean;
-		numberOfLines?: number;
-	};
+	VariantProps<typeof textStyle> & { selectable?: boolean; numberOfLines?: number };
 
 const Text = React.forwardRef<React.ComponentRef<"span">, ITextProps>(function Text(
 	{
@@ -44,11 +41,7 @@ const Text = React.forwardRef<React.ComponentRef<"span">, ITextProps>(function T
 				? { userSelect: "text" }
 				: undefined;
 
-	const mergedStyle = {
-		...style,
-		...clampStyle,
-		...selectableStyle,
-	};
+	const mergedStyle = { ...style, ...clampStyle, ...selectableStyle };
 
 	return (
 		<span

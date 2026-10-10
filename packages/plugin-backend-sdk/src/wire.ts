@@ -1,7 +1,7 @@
 import {
-	JsonValue as jsonValueSchema,
 	type JsonPrimitive,
 	type JsonValue,
+	JsonValue as jsonValueSchema,
 } from "@ryot-app/contract/schema/json";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 

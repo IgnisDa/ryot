@@ -7,8 +7,8 @@ import {
 	enqueueProviderEntityImport,
 	getEntity,
 	openInterestWebSocketScoped,
-	pollProviderEntityImportResult,
 	pollEntityUntilTranslationStatus,
+	pollProviderEntityImportResult,
 	searchProviderEntities,
 	setUserLanguage,
 } from "~/fixtures/kernel";

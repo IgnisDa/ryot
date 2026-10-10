@@ -6,11 +6,11 @@ import { SANDBOX_SCRIPT_DEFINITION } from "./driver";
 import { jsonValueSchema, type SandboxHostError } from "./wire";
 import {
 	type WorkflowDurableCallRequest,
+	type WorkflowReplayEnvelope,
+	workflowReplayEnvelopeSchema,
 	type WorkflowReplayHost,
 	type WorkflowReplayJournal,
 	type WorkflowReplayJournalEntry,
-	type WorkflowReplayEnvelope,
-	workflowReplayEnvelopeSchema,
 } from "./workflow/protocol";
 import type { WorkflowReference, WorkflowScriptReference } from "./workflow/references";
 
@@ -21,10 +21,7 @@ class WorkflowJournalMismatchError extends Error {
 }
 
 type WorkflowReplayFailure =
-	| SandboxHostError
-	| Schema.SchemaError
-	| WorkflowJournalMismatchError
-	| typeof pending;
+	SandboxHostError | Schema.SchemaError | WorkflowJournalMismatchError | typeof pending;
 
 export type WorkflowReplay = {
 	readonly activity: <

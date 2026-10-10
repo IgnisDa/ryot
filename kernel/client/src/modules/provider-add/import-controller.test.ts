@@ -7,11 +7,11 @@ import { TestClock } from "effect/testing";
 
 import {
 	importProviderEntity,
-	type ProviderEntityImportEntry,
 	PROVIDER_IMPORT_BACKLOG_FULL_MESSAGE,
 	PROVIDER_IMPORT_FAILED_MESSAGE,
 	PROVIDER_IMPORT_TIMEOUT_MESSAGE,
 	PROVIDER_IMPORT_UNAVAILABLE_MESSAGE,
+	type ProviderEntityImportEntry,
 } from "#/modules/provider-add/import-controller";
 import { ProviderAddLoadError } from "#/modules/provider-add/service";
 

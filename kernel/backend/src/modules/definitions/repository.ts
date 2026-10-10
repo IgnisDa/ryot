@@ -1,7 +1,7 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import {
-	definitionKey,
 	type DeclarationReference,
+	definitionKey,
 	type DefinitionOwner,
 	type EventSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
@@ -13,24 +13,24 @@ import {
 	eq,
 	getTableColumns,
 	inArray,
+	type InferSelectViewModel,
 	isNull,
 	notInArray,
-	sql,
-	type InferSelectViewModel,
 	type SQL,
+	sql,
 } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
-import { ownerWhere, referenceWhere, referencesWhere } from "#platform/db/definition-owner";
+import { ownerWhere, referencesWhere, referenceWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
-import { DefinitionReadUnavailable, type DefinitionReadContext } from "./read-context";
+import { type DefinitionReadContext, DefinitionReadUnavailable } from "./read-context";
 import {
-	definitionRecord,
 	type CalendarSourceDefinition,
 	type DefinitionKind,
+	definitionRecord,
 	type DefinitionSnapshot,
 	type DefinitionSource,
 	type EntityRelationshipDefinitions,

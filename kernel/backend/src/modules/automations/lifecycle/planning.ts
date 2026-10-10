@@ -1,10 +1,10 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import {
-	type AutomationRun,
+	type AutomationBatchChangePayload,
 	type AutomationHookIdentity,
 	AutomationPluginAfterRun,
+	type AutomationRun,
 	AutomationTrigger,
-	type AutomationBatchChangePayload,
 	type LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";

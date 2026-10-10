@@ -2,27 +2,27 @@ import {
 	activeFiltersPhrase,
 	FilterChips,
 	FilterRules,
-	ViewFiltersSheet,
 	type ViewFilter,
 	type ViewFilterField,
+	ViewFiltersSheet,
 } from "@ryot-app/plugin-client-sdk/filters";
 import {
+	type EntityBrowserLayout,
+	type EntityReference,
 	EntityResults,
 	usePageShortcut,
 	usePluginLocation,
 	useRyotViewport,
-	type EntityBrowserLayout,
-	type EntityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
+	nextPageCursor,
+	paginationItems,
+	type RyotQuery,
 	useEntityRefresh,
 	useRyot,
 	useRyotInfiniteQuery,
-	nextPageCursor,
-	paginationItems,
 	useRyotSchedule,
-	type RyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	normalizeViewSearch,
@@ -52,13 +52,13 @@ import type {
 	SavedViewResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
 import {
+	type ComponentProps,
+	type ReactNode,
 	useEffect,
 	useEffectEvent,
 	useMemo,
 	useRef,
 	useState,
-	type ComponentProps,
-	type ReactNode,
 } from "react";
 
 import {
@@ -68,7 +68,7 @@ import {
 	BrowserPagination,
 	BrowserSearching,
 } from "./browser-states";
-import { BrowserTable, type BrowserColumns, type BrowserItemActions } from "./browser-table";
+import { type BrowserColumns, type BrowserItemActions, BrowserTable } from "./browser-table";
 import { managedCellAssets } from "./display-value";
 
 export type BrowserResult = SavedViewResult<EntityBrowserResultItem>;

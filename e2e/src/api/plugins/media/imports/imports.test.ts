@@ -3,8 +3,8 @@ import { Effect, Schema } from "effect";
 import {
 	createAuthenticatedClient,
 	getImportRun,
-	listEventSlugs,
 	listEventsForEntity,
+	listEventSlugs,
 	pollImportRunUntilTerminal,
 	uploadImportFile,
 	waitForEventSlugs,

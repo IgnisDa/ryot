@@ -9,15 +9,11 @@ import { getLogoutCookies, serverGqlService } from "~/lib/utilities.server";
 
 import type { Route } from "./+types/api.logout";
 
-const searchParamsSchema = z.object({
-	[redirectToQueryParam]: z.string().optional(),
-});
+const searchParamsSchema = z.object({ [redirectToQueryParam]: z.string().optional() });
 
 export const loader = async ({ request }: Route.LoaderArgs) => {
 	const query = parseSearchQuery(request, searchParamsSchema);
 	await serverGqlService.authenticatedRequest(request, LogoutUserDocument);
 
-	return redirect(query[redirectToQueryParam] || $path("/auth"), {
-		headers: getLogoutCookies(),
-	});
+	return redirect(query[redirectToQueryParam] || $path("/auth"), { headers: getLogoutCookies() });
 };

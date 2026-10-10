@@ -4,16 +4,16 @@ import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-insta
 import { Effect } from "effect";
 
 import {
+	collectRyotQLRecipeItems,
 	createTestAuthClient,
 	createTestUser,
-	collectRyotQLRecipeItems,
 	executeRyotQL,
 	getApiClient,
+	listNotificationSubscriptions,
 	makeSession,
+	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
-	requireRows,
-	listNotificationSubscriptions,
 	signInWithPassword,
 } from "~/fixtures/kernel";
 import { assert, describe, expect, it } from "~/support/effect-test";

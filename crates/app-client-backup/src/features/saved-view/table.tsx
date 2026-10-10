@@ -11,9 +11,9 @@ import { entityHref } from "@/lib/navigation-data";
 import type { QueryEngineEntityItem } from "../entity-detail/query-engine";
 import { LoadMoreFooter, SavedViewHeader } from "./chrome";
 import {
+	type EntitySavedView,
 	formatSavedViewFieldValue,
 	getEntityId,
-	type EntitySavedView,
 	type SavedViewLayout,
 } from "./runtime";
 import { createSavedViewTableColumns } from "./table-utils";

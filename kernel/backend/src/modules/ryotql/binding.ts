@@ -1,6 +1,6 @@
 import {
-	pluginPackageKey,
 	type PluginIdentityReference,
+	pluginPackageKey,
 } from "@ryot-app/contract/modules/plugins/references";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import {

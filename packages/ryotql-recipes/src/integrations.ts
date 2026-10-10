@@ -11,11 +11,11 @@ import {
 	descending,
 	eq,
 	literal,
-	table,
+	type Recipe,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
-	type Recipe,
+	table,
 } from "@ryot-app/ryotql";
 import { Option, Result, Schema } from "effect";
 

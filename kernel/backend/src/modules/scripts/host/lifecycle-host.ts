@@ -13,8 +13,8 @@ import { Effect, Schema } from "effect";
 
 import type { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
-	runLifecycleWriteInline,
 	type LifecyclePreparedStep,
+	runLifecycleWriteInline,
 } from "#modules/automations/lifecycle/write-step";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import type { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";

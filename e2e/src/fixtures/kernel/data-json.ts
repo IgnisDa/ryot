@@ -7,7 +7,7 @@ import { Effect, Option, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
-import type { createAuthenticatedClient, Client } from "./auth";
+import type { Client, createAuthenticatedClient } from "./auth";
 import { createPluginEntitySchema } from "./entity-graph";
 import { createEventSchema } from "./event-schemas";
 import { pollImportRunUntilTerminal, uploadImportFile } from "./imports";

@@ -5,9 +5,9 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createEntitySchema,
+	createPluginScope,
 	createRelationship,
 	createRelationshipSchema,
-	createPluginScope,
 	getApiClient,
 } from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";

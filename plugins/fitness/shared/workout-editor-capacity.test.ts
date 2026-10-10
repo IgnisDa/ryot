@@ -1,5 +1,5 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { sandboxContextError, SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
+import { SANDBOX_LIMITS, sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
 import { assert, expect, it } from "vitest";
 
 import { encodeWorkoutEditorDraft, WorkoutEditorDraftSchema } from "./workout-editor-draft";

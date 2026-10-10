@@ -1,8 +1,8 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
-	definitionOwner,
 	type DefinitionOwner,
+	definitionOwner,
 	type PluginPackageReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type {

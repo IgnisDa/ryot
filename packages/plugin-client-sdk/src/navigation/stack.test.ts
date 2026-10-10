@@ -4,9 +4,9 @@ import { describe, expect, it } from "vitest";
 
 import {
 	PLUGIN_SCREEN_STACK_LIMIT,
+	type PluginScreen,
 	presentScreens,
 	reconcileStack,
-	type PluginScreen,
 } from "./stack";
 
 const Home = () => null;

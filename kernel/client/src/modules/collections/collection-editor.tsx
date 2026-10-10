@@ -33,11 +33,11 @@ import { CollectionsApi } from "#/api/collections";
 import { CollectionLoadDialog } from "#/modules/collections/collection-load-dialog";
 import {
 	collectionFieldFrom,
+	type FieldDraft,
 	fieldDraftFrom,
 	fieldTypeChoices,
 	hasDefaultValue,
 	newFieldDraft,
-	type FieldDraft,
 } from "#/modules/collections/field-drafts";
 
 const collectionHeader = createRyotQuery<EntityId, CollectionHeaderResult>(({ input, client }) =>

@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { type KeyboardEvent, type ReactNode, useRef } from "react";
 
 export type TabOption<T extends string> = {
 	readonly value: T;

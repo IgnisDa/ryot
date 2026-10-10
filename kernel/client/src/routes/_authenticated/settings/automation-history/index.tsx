@@ -7,8 +7,8 @@ import {
 import { createFileRoute } from "@tanstack/react-router";
 
 import {
-	AutomationHistoryView,
 	type AutomationHistoryListState,
+	AutomationHistoryView,
 } from "#/modules/automation-history/history-view";
 import { automationHistoryPageQuery } from "#/modules/automation-history/service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";

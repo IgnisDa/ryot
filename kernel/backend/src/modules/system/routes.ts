@@ -1,7 +1,7 @@
 import { AppContract } from "@ryot-app/contract/contract";
 import {
-	SystemHealthFailure,
 	type SystemConfigResponse,
+	SystemHealthFailure,
 } from "@ryot-app/contract/modules/system/contract";
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";

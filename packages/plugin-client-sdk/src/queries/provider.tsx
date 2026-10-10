@@ -5,11 +5,11 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import {
 	createContext,
-	useEffect,
+	type ReactNode,
 	useContext,
+	useEffect,
 	useMemo,
 	useSyncExternalStore,
-	type ReactNode,
 } from "react";
 
 import type { RyotClient } from "../client/client";
@@ -20,7 +20,7 @@ import {
 	PageRefreshRegistryContext,
 } from "../refresh/page-registry";
 import { RyotClientService, RyotNavigationService, type RyotRuntime } from "../runtime/runtime";
-import { RyotScheduleService, type RyotSchedule } from "../schedule";
+import { type RyotSchedule, RyotScheduleService } from "../schedule";
 import { idleTTL } from "./definitions";
 
 export const RyotContext = createContext<

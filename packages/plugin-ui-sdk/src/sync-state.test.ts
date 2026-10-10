@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
 	entityMonogram,
+	type EntitySyncState,
 	fieldSyncState,
 	isTitleProvisional,
-	type EntitySyncState,
 	type SyncStatus,
 } from "./sync-state";
 

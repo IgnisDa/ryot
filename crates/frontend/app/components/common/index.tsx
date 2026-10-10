@@ -190,9 +190,7 @@ export const DisplayCollectionToEntity = (props: {
 				title={
 					<Anchor
 						component={Link}
-						to={$path("/collections/:id", {
-							id: props.col.details.collectionId,
-						})}
+						to={$path("/collections/:id", { id: props.col.details.collectionId })}
 					>
 						{props.col.details.collectionName}
 					</Anchor>

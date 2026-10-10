@@ -11,10 +11,10 @@ import { Context, Data, Effect, Layer, Semaphore } from "effect";
 import type { ApiScope } from "#/api/scope";
 import { apiScopeKey } from "#/api/scope";
 import {
+	type DeviceState,
 	emptyDeviceState,
 	MAX_ALERTS,
 	MAX_NATIVE_ALERT_ID,
-	type DeviceState,
 } from "#/modules/device/state";
 import { validatePluginLocation } from "#/modules/plugins/catalog/location";
 import { ClientStorage } from "#/persistence/storage";

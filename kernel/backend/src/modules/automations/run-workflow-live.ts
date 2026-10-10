@@ -1,15 +1,15 @@
 import { DbError, type SandboxFailureKind, type SandboxRunError } from "@ryot-app/contract/errors";
 import {
-	type AutomationPolicyReference,
-	AutomationInput,
 	AutomationAfterPayload,
 	AutomationEntityDraft,
-	AutomationPolicyBatchInput,
-	AutomationRunAttempt,
-	ExecutionLane,
 	type AutomationFailureKind,
+	AutomationInput,
+	AutomationPolicyBatchInput,
+	type AutomationPolicyReference,
 	type AutomationRun,
+	AutomationRunAttempt,
 	type AutomationTrigger,
+	ExecutionLane,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -18,13 +18,13 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import {
+	type SandboxExecutionError,
 	SandboxExecutionSubject,
 	SandboxScriptManifest,
-	type SandboxExecutionError,
 	type SandboxScriptManifest as SandboxScriptManifestType,
 } from "@ryot-app/contract/modules/scripts/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import { SandboxScriptId, EntityId } from "@ryot-app/contract/schema/brands";
+import { EntityId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
@@ -44,8 +44,8 @@ import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 import { pluginRevision } from "#schema/tables/core";
 
 import {
-	AutomationAttemptRepository,
 	automationAttemptIdentity,
+	AutomationAttemptRepository,
 	type FinalizeAutomationAttempt,
 } from "./attempt-repository";
 import { projectAutomationAfterInput, projectAutomationPolicyInput } from "./input-projection";

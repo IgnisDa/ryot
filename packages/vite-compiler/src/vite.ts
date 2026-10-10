@@ -1,7 +1,7 @@
 import type { TypeScriptProjectConfiguration } from "@ryot-app/typescript-compiler";
 import { Context, Effect, Layer, Path, Predicate } from "effect";
 import { build, createLogger, transformWithOxc } from "vite";
-import type { InlineConfig, LogErrorOptions, LogOptions, Logger, Plugin } from "vite";
+import type { InlineConfig, LogErrorOptions, Logger, LogOptions, Plugin } from "vite";
 
 import { viteCompilerError } from "./error";
 import type { ViteCompilerError, ViteDiagnostic } from "./error";

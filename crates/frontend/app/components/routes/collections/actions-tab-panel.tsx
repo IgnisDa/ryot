@@ -59,10 +59,7 @@ export function ActionsTabPanel(props: ActionsTabPanelProps) {
 					}
 					props.bulkEditingCollection.start(props.colDetails, "add");
 					navigate(
-						$path("/media/:action/:lot", {
-							action: "list",
-							lot: MediaLot.Movie.toLowerCase(),
-						}),
+						$path("/media/:action/:lot", { action: "list", lot: MediaLot.Movie.toLowerCase() }),
 					);
 				}}
 			>

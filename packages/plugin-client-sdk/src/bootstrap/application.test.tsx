@@ -3,11 +3,11 @@ import { EntityId, EntitySchemaSlug, PluginPackageId } from "@ryot-app/contract/
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-	type PluginBridgeInit,
+	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	type ClientPageContext,
+	type PluginBridgeInit,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/plugin-client-contract";
@@ -17,7 +17,7 @@ import { Deferred, Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { useEffect, useState } from "react";
 
 import { RyotClientError } from "../client/errors";
-import { usePluginParams, usePluginTitle, type EntityRendererProps } from "../navigation/routing";
+import { type EntityRendererProps, usePluginParams, usePluginTitle } from "../navigation/routing";
 import * as pluginSurface from "../plugin";
 import { createRyotQuery } from "../queries/definitions";
 import { useRyotQuery } from "../queries/hooks";
@@ -26,8 +26,8 @@ import { RyotClientService, RyotNavigationService } from "../runtime/runtime";
 import { RyotScheduleService } from "../schedule";
 import { createTestRyotClock, mountPluginPage, waitForMessagePortMacrotask } from "../testing";
 import {
-	bootstrapClientPlugin,
 	bootstrapClientPage,
+	bootstrapClientPlugin,
 	createClientBootstrap,
 	usePageContext,
 } from "./application";

@@ -5,8 +5,8 @@ import { useState } from "react";
 
 import {
 	availableCatalogEntries,
-	groupCatalogEntries,
 	type CatalogEntry,
+	groupCatalogEntries,
 } from "#/modules/ui/catalog/selection";
 import { StatusState } from "#/modules/ui/status-state";
 

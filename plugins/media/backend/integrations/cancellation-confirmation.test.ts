@@ -51,7 +51,7 @@ import { mediaFilesystem, resetMediaFilesystem } from "../imports/ingestion.test
 import root from "../imports/integration.sandbox";
 import { YankInput } from "./schemas";
 import spotify, { manifest as spotifyManifest } from "./yanks/spotify.sandbox";
-import { runYoutubeMusicYank, manifest as youtubeManifest } from "./yanks/youtube-music.sandbox";
+import { manifest as youtubeManifest, runYoutubeMusicYank } from "./yanks/youtube-music.sandbox";
 
 afterEach(resetMediaFilesystem);
 it.effect.each(["spotify", "youtube-music"] as const)(

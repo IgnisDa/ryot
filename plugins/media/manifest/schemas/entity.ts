@@ -1,12 +1,13 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import {
+	animePropertiesSchema,
 	audiobookPropertiesSchema,
 	bookPropertiesSchema,
 	comicBookPropertiesSchema,
 	companyPropertiesSchema,
-	mediaGroupPropertiesSchema,
 	mangaPropertiesSchema,
+	mediaGroupPropertiesSchema,
 	moviePropertiesSchema,
 	musicPropertiesSchema,
 	personPropertiesSchema,
@@ -15,9 +16,8 @@ import {
 	showEpisodePropertiesSchema,
 	showPropertiesSchema,
 	showSeasonPropertiesSchema,
-	visualNovelPropertiesSchema,
-	animePropertiesSchema,
 	videoGamePropertiesSchema,
+	visualNovelPropertiesSchema,
 } from "./property";
 
 const consumedOnField = {

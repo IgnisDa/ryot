@@ -5,8 +5,8 @@ import type { ResolvedEntityMigrationTarget } from "./shared";
 import {
 	buildAbortOnRowsSql,
 	buildEntityTargetValuesSql,
-	buildRequireLegacyTableSql,
 	buildReportSql,
+	buildRequireLegacyTableSql,
 	quoteNullableSqlString,
 	quoteSqlString,
 } from "./shared";

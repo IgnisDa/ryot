@@ -12,7 +12,7 @@
 		"ios": "bun run sync && cap run ios",
 		"android": "bun run sync && cap run android",
 		"generate-assets": "bun tooling/generate-assets.ts",
-		"check": "bun --check && oxfmt . --write && oxlint . --fix",
+		"check": "bun --check && bun fmt . --write && oxlint . --fix",
 		"dev": "RYOT_VERSION=$(git describe --tags --always --dirty) vite dev --port 3005",
 		"build": "RYOT_VERSION=${RYOT_VERSION:-$(git describe --tags --always --dirty)} vite build"
 	},

@@ -11,6 +11,7 @@ import {
 	dateBucket,
 	defineRecipe,
 	descending,
+	entitySchemaPredicate,
 	eq,
 	first,
 	groupAscending,
@@ -23,28 +24,27 @@ import {
 	jsonArrayExists,
 	literal,
 	lt,
+	type Recipe,
+	relationshipSchemaPredicate,
+	rows,
+	schemaOwnerPredicate,
 	selectedAggregate,
+	type SelectedAggregateRow,
 	selectedField,
 	selectedInclude,
 	selectedMeasure,
 	selectedRows,
 	sum,
 	table,
-	type Recipe,
-	type SelectedAggregateRow,
-	entitySchemaPredicate,
-	relationshipSchemaPredicate,
-	rows,
-	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
+	projectionNumber,
+	projectionProperty,
 	property,
 	propertyDate,
 	propertyNumber,
-	projectionNumber,
-	projectionProperty,
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
 import { workoutTemplateInclude } from "./query-recipes";

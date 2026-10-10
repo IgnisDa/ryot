@@ -28,7 +28,7 @@ import {
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
 import { ScriptExecutionService } from "./service";
-import { ScriptExecutionWorkflow, SandboxWorkflowPinning } from "./workflow";
+import { SandboxWorkflowPinning, ScriptExecutionWorkflow } from "./workflow";
 import { ScriptExecutionWorkflowPayload } from "./workflow-payload";
 
 const scriptId = SandboxScriptId.make("script-id");

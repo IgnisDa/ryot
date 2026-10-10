@@ -1,10 +1,10 @@
 import {
 	decodeEntityWatchClientMessage,
 	encodeEntityWatchServerMessage,
-	MAX_INTEREST_ENTITY_IDS,
 	type EntityWatchClientMessage,
 	type EntityWatchEntityUpdatedMessage,
 	type EntityWatchServerMessage,
+	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-watches/messages";
 import { OAUTH_ACCESS_TOKEN_TTL_SECONDS } from "@ryot-app/contract/oauth";
 import { Clock, Deferred, Duration, Effect, Fiber, Option, Queue, Result, Schedule } from "effect";

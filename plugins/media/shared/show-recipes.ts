@@ -1,21 +1,21 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
-	entitySchemaPredicate,
 	ascending,
 	column,
 	count,
 	defineRecipe,
+	entitySchemaPredicate,
 	eq,
 	inArray,
 	join,
 	literal,
+	relationshipSchemaPredicate,
 	selectedField,
 	selectedInclude,
 	selectedOptionalRow,
 	selectedRows,
 	table,
-	relationshipSchemaPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 

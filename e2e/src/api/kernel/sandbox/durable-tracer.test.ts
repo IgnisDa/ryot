@@ -8,11 +8,11 @@ import {
 	installTestPluginBundle,
 	pollSandboxResult,
 	pollUntil,
+	ratedItemEntitySchema,
 	requireCompletedSandboxValue,
 	sampleOperationalPressure,
 	uninstallTestPlugin,
 	waitForEventCount,
-	ratedItemEntitySchema,
 } from "~/fixtures/kernel";
 import { requireArray, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";

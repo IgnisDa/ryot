@@ -14,14 +14,14 @@ import {
 	fakeProviderSearchResult,
 	fakeProviderTranslations,
 	findSavedViewById,
-	savedViewRecordPath,
 	getEntity,
+	type InstalledTestProvider,
 	installTestProvider,
 	makeEntitySchemaSlug,
 	pollUntil,
+	savedViewRecordPath,
 	setUserLanguage,
 	uninstallTestProvider,
-	type InstalledTestProvider,
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,

@@ -1,16 +1,16 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
-	entitySchemaPredicate,
 	ascending,
 	average,
 	castNumber,
 	castText,
-	column,
 	coalesce,
+	column,
 	concat,
 	conditional,
 	defineRecipe,
+	entitySchemaPredicate,
 	eq,
 	inArray,
 	isNotNull,
@@ -19,12 +19,12 @@ import {
 	jsonPath,
 	literal,
 	selectedField,
-	selectedRowsSource,
-	table,
 	type SelectedIncludes,
 	type SelectedRow,
 	type SelectedRowsSource,
+	selectedRowsSource,
 	type SelectedSelection,
+	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 

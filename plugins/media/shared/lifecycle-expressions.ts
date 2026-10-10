@@ -24,8 +24,8 @@ import {
 	neq,
 	or,
 	selectedInclude,
-	table,
 	type SelectedSelection,
+	table,
 } from "@ryot-app/plugin-kit/ryotql";
 
 export type Predicate = Parameters<typeof conditional>[0];

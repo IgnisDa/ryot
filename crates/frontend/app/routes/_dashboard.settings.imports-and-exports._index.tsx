@@ -87,9 +87,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 					ImportSource.Grouvee,
 					ImportSource.Hardcover,
 					ImportSource.Storygraph,
-					() => ({
-						genericCsv: processSubmission(formData, genericCsvImportFormSchema),
-					}),
+					() => ({ genericCsv: processSubmission(formData, genericCsvImportFormSchema) }),
 				)
 				.with(ImportSource.Plex, ImportSource.Mediatracker, ImportSource.Audiobookshelf, () => ({
 					urlAndKey: processSubmission(formData, urlAndKeyImportFormSchema),
@@ -151,9 +149,7 @@ const traktImportFormSchema = z.object({
 
 const usernameImportFormSchema = z.object({ username: z.string() });
 
-const apiUrlImportFormSchema = z.object({
-	apiUrl: z.string(),
-});
+const apiUrlImportFormSchema = z.object({ apiUrl: z.string() });
 
 const apiKeySchema = z.object({ apiKey: z.string() });
 
@@ -634,10 +630,7 @@ export default function Page() {
 																		withColumnBorders
 																		records={report.details.failedItems}
 																		columns={[
-																			{
-																				title: "Identifier",
-																				accessor: "identifier",
-																			},
+																			{ title: "Identifier", accessor: "identifier" },
 																			{
 																				title: "Step",
 																				accessor: "step",
@@ -726,10 +719,7 @@ export default function Page() {
 	);
 }
 
-type ExportItemProps = {
-	refetch: () => void;
-	item: UserExportsQuery["userExports"][number];
-};
+type ExportItemProps = { refetch: () => void; item: UserExportsQuery["userExports"][number] };
 
 const DisplayExport = (props: ExportItemProps) => {
 	const deleteS3AssetMutation = useDeleteS3AssetMutation();

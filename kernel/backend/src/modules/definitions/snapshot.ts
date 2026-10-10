@@ -10,10 +10,10 @@ import {
 	PluginSignalAudiencePolicy,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
-	definitionKey,
-	definitionOwner,
 	type DeclarationReference,
+	definitionKey,
 	type DefinitionOwner,
+	definitionOwner,
 	type EventSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";

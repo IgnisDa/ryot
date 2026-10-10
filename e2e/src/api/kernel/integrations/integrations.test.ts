@@ -28,8 +28,8 @@ import {
 	postIntegrationWebhook,
 	postIntegrationWebhookAndWait,
 	syncIntegrations,
-	updateUserSettingsPreferences,
 	uninstallTestPluginStrict,
+	updateUserSettingsPreferences,
 } from "~/fixtures/kernel";
 import {
 	assertTaggedError,

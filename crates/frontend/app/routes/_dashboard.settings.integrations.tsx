@@ -337,73 +337,34 @@ const disabledSitesTransform = (val: string | undefined) =>
 
 const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
 	[IntegrationProvider.Audiobookshelf]: {
-		capabilities: {
-			isYank: true,
-			progressAdjustment: true,
-			syncToOwnedCollection: true,
-		},
+		capabilities: { isYank: true, progressAdjustment: true, syncToOwnedCollection: true },
 		fields: [
-			{
-				type: "text",
-				label: "Base Url",
-				name: "audiobookshelfBaseUrl",
-			},
-			{
-				type: "text",
-				label: "Token",
-				name: "audiobookshelfToken",
-			},
+			{ type: "text", label: "Base Url", name: "audiobookshelfBaseUrl" },
+			{ type: "text", label: "Token", name: "audiobookshelfToken" },
 		],
 	},
 	[IntegrationProvider.Komga]: {
-		capabilities: {
-			isYank: true,
-			progressAdjustment: true,
-			syncToOwnedCollection: true,
-		},
+		capabilities: { isYank: true, progressAdjustment: true, syncToOwnedCollection: true },
 		fields: [
 			{ name: "komgaBaseUrl", label: "Base Url", type: "text" },
-			{
-				type: "password",
-				label: "API Key",
-				name: "komgaApiKey",
-			},
+			{ type: "password", label: "API Key", name: "komgaApiKey" },
 		],
 	},
 	[IntegrationProvider.PlexYank]: {
-		capabilities: {
-			isYank: true,
-			progressAdjustment: true,
-			syncToOwnedCollection: true,
-		},
+		capabilities: { isYank: true, progressAdjustment: true, syncToOwnedCollection: true },
 		fields: [
-			{
-				type: "text",
-				label: "Base URL",
-				name: "plexYankBaseUrl",
-			},
-			{
-				type: "text",
-				label: "Plex token",
-				name: "plexYankToken",
-			},
+			{ type: "text", label: "Base URL", name: "plexYankBaseUrl" },
+			{ type: "text", label: "Plex token", name: "plexYankToken" },
 		],
 	},
 	[IntegrationProvider.YoutubeMusic]: {
-		capabilities: {
-			isPro: true,
-			isYank: true,
-			progressAdjustment: true,
-		},
+		capabilities: { isPro: true, isYank: true, progressAdjustment: true },
 		fields: [
 			{
 				type: "select",
 				label: "Timezone",
 				name: "youtubeMusicTimezone",
-				options: Intl.supportedValuesOf("timeZone").map((tz) => ({
-					value: tz,
-					label: tz,
-				})),
+				options: Intl.supportedValuesOf("timeZone").map((tz) => ({ value: tz, label: tz })),
 			},
 			{
 				type: "text",
@@ -428,48 +389,19 @@ const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
 	[IntegrationProvider.JellyfinPush]: {
 		capabilities: { isPro: true, isPush: true },
 		fields: [
-			{
-				type: "text",
-				label: "Base URL",
-				name: "jellyfinPushBaseUrl",
-			},
-			{
-				type: "text",
-				label: "Username",
-				name: "jellyfinPushUsername",
-			},
-			{
-				type: "password",
-				label: "Password",
-				notRequired: true,
-				name: "jellyfinPushPassword",
-			},
+			{ type: "text", label: "Base URL", name: "jellyfinPushBaseUrl" },
+			{ type: "text", label: "Username", name: "jellyfinPushUsername" },
+			{ type: "password", label: "Password", notRequired: true, name: "jellyfinPushPassword" },
 		],
 	},
 	[IntegrationProvider.Radarr]: {
 		capabilities: { isPush: true },
 		fields: [
-			{
-				type: "text",
-				label: "Base Url",
-				name: "radarrBaseUrl",
-			},
+			{ type: "text", label: "Base Url", name: "radarrBaseUrl" },
 			{ name: "radarrApiKey", label: "Token", type: "text" },
-			{
-				type: "number",
-				label: "Profile ID",
-				name: "radarrProfileId",
-			},
-			{
-				type: "text",
-				label: "Root Folder",
-				name: "radarrRootFolderPath",
-			},
-			{
-				type: "multiselect",
-				label: "Collections",
-				name: "radarrSyncCollectionIds",
-			},
+			{ type: "number", label: "Profile ID", name: "radarrProfileId" },
+			{ type: "text", label: "Root Folder", name: "radarrRootFolderPath" },
+			{ type: "multiselect", label: "Collections", name: "radarrSyncCollectionIds" },
 			{
 				type: "text",
 				label: "Tag IDs",
@@ -484,27 +416,11 @@ const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
 	[IntegrationProvider.Sonarr]: {
 		capabilities: { isPush: true },
 		fields: [
-			{
-				type: "text",
-				label: "Base Url",
-				name: "sonarrBaseUrl",
-			},
+			{ type: "text", label: "Base Url", name: "sonarrBaseUrl" },
 			{ name: "sonarrApiKey", label: "Token", type: "text" },
-			{
-				type: "number",
-				label: "Profile ID",
-				name: "sonarrProfileId",
-			},
-			{
-				type: "text",
-				label: "Root Folder",
-				name: "sonarrRootFolderPath",
-			},
-			{
-				type: "multiselect",
-				label: "Collections",
-				name: "sonarrSyncCollectionIds",
-			},
+			{ type: "number", label: "Profile ID", name: "sonarrProfileId" },
+			{ type: "text", label: "Root Folder", name: "sonarrRootFolderPath" },
+			{ type: "multiselect", label: "Collections", name: "sonarrSyncCollectionIds" },
 			{
 				type: "text",
 				label: "Tag IDs",
@@ -532,12 +448,8 @@ const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
 			},
 		],
 	},
-	[IntegrationProvider.Emby]: {
-		capabilities: { showUrl: true, progressAdjustment: true },
-	},
-	[IntegrationProvider.GenericJson]: {
-		capabilities: { showUrl: true, progressAdjustment: true },
-	},
+	[IntegrationProvider.Emby]: { capabilities: { showUrl: true, progressAdjustment: true } },
+	[IntegrationProvider.GenericJson]: { capabilities: { showUrl: true, progressAdjustment: true } },
 	[IntegrationProvider.JellyfinSink]: {
 		capabilities: { showUrl: true, progressAdjustment: true },
 		fields: [
@@ -562,9 +474,7 @@ const PROVIDER_CONFIGS: Record<IntegrationProvider, ProviderConfig> = {
 			},
 		],
 	},
-	[IntegrationProvider.Kodi]: {
-		capabilities: { showUrl: true, progressAdjustment: true },
-	},
+	[IntegrationProvider.Kodi]: { capabilities: { showUrl: true, progressAdjustment: true } },
 };
 
 const MINIMUM_PROGRESS = "2";
@@ -615,14 +525,10 @@ const createOrUpdateSchema = z.object({
 	providerSpecifics: createProviderSpecificsSchema(),
 	syncToOwnedCollection: zodCheckboxAsString.optional(),
 	provider: z.enum(IntegrationProvider).optional(),
-	extraSettings: z.object({
-		disableOnContinuousErrors: zodCheckboxAsString,
-	}),
+	extraSettings: z.object({ disableOnContinuousErrors: zodCheckboxAsString }),
 });
 
-const deleteSchema = z.object({
-	integrationId: z.string(),
-});
+const deleteSchema = z.object({ integrationId: z.string() });
 
 const getProviderCapabilities = (provider: IntegrationProvider) =>
 	PROVIDER_CONFIGS[provider]?.capabilities || {};
@@ -696,10 +602,7 @@ const ProviderField = (props: { field: FieldConfig; defaultValue?: unknown }) =>
 					required={!props.field.notRequired}
 					description={props.field.description}
 					defaultValue={(value as string[]) || undefined}
-					data={collections.map((c) => ({
-						value: c.id,
-						label: c.name,
-					}))}
+					data={collections.map((c) => ({ value: c.id, label: c.name }))}
 				/>
 			);
 		case "textarea":

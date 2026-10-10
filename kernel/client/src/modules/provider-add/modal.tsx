@@ -14,7 +14,7 @@ import { Modal } from "@ryot-app/plugin-ui-sdk";
 import type { EntityPickerSchema } from "@ryot-app/ryotql-recipes/entity-picker";
 import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useEffectEvent, useRef, useState, type ComponentProps } from "react";
+import { type ComponentProps, useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { toGlobalHref } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
@@ -48,8 +48,7 @@ type EntityPickerModalState = {
 };
 
 type EntityPickerView =
-	| { readonly kind: "browse" }
-	| { readonly kind: "create"; readonly name: string };
+	{ readonly kind: "browse" } | { readonly kind: "create"; readonly name: string };
 
 const loadedProviderState = (
 	remembered: SandboxProviderId | null,

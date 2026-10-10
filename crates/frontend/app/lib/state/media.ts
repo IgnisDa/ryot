@@ -1,4 +1,8 @@
-import { type EntityLot, MediaLot, type ReviewItem } from "@ryot-app/generated/graphql/backend/graphql";
+import {
+	type EntityLot,
+	MediaLot,
+	type ReviewItem,
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { atom, useAtom } from "jotai";
 import { match } from "ts-pattern";
 
@@ -65,11 +69,7 @@ export const useMetadataProgressUpdate = () => {
 		updateMetadataToUpdate(draft);
 	};
 
-	return {
-		metadataToUpdate,
-		updateMetadataToUpdate,
-		initializeMetadataToUpdate,
-	};
+	return { metadataToUpdate, updateMetadataToUpdate, initializeMetadataToUpdate };
 };
 
 export type ReviewEntityData = {
@@ -86,10 +86,7 @@ export const useReviewEntity = () => {
 	return useAtom(reviewEntityAtom);
 };
 
-export type AddEntityToCollectionsData = {
-	entityId: string;
-	entityLot: EntityLot;
-};
+export type AddEntityToCollectionsData = { entityId: string; entityLot: EntityLot };
 
 export const addEntityToCollectionsAtom = atom<AddEntityToCollectionsData | null>(null);
 

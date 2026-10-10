@@ -6,6 +6,7 @@ import { OAUTH_IMPERSONATION_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { Duration, Effect, Result } from "effect";
 
 import {
+	type Client,
 	createApiKey,
 	createAuthenticatedClient,
 	createImpersonationSession,
@@ -13,7 +14,6 @@ import {
 	getEntity,
 	makeSession,
 	openInterestWebSocketScoped,
-	type Client,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";

@@ -5,17 +5,17 @@ import { strictStruct } from "@ryot-app/plugin-backend-sdk/wire";
 
 import {
 	API_BASE_URL,
-	INDEX_LIMIT,
 	asRecord,
+	INDEX_LIMIT,
 	integerValue,
 	intersectEntries,
 	loadJson,
+	type PokeApiEntry,
 	PokeApiError,
+	type PokeApiHost,
 	stringValue,
 	titleCase,
 	toEntries,
-	type PokeApiEntry,
-	type PokeApiHost,
 } from "../../../lib/vendors/pokeapi";
 
 export const manifest = defineManifest({

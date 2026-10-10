@@ -12,8 +12,8 @@ import {
 	LifecycleExecution,
 } from "#modules/automations/lifecycle/execution";
 import {
-	LifecyclePersistenceError,
 	type LifecycleDispatchPlan,
+	LifecyclePersistenceError,
 } from "#modules/automations/lifecycle/planning";
 import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
@@ -32,7 +32,7 @@ import {
 	LifecycleExecutionLive,
 	OUTSIDE_WORKFLOW_BACKSTOP,
 } from "./execution";
-import { triggerFixture, queuedRunFixture } from "./lifecycle.test-support";
+import { queuedRunFixture, triggerFixture } from "./lifecycle.test-support";
 import {
 	behave,
 	executionIdOf,
@@ -48,8 +48,8 @@ import {
 import { AutomationRunRepository } from "./run-repository";
 import { AutomationRunWorkflow } from "./run-workflow";
 import {
-	RunWorkflowSubmissions,
 	recordingRunWorkflowEngineLayer,
+	RunWorkflowSubmissions,
 } from "./run-workflow-engine.test-support";
 
 const trigger = triggerFixture();

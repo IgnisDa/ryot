@@ -6,7 +6,7 @@ import clsx from "clsx";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { buildTemplateCards } from "./model";
 import { homeTemplatesQuery } from "./queries";
-import { Chips, HomeSection, QueryBody, SavedViewLink, primaryLinkClass } from "./section";
+import { Chips, HomeSection, primaryLinkClass, QueryBody, SavedViewLink } from "./section";
 
 export function TemplatesSection(props: { readonly now: Date; readonly timeZone: string }) {
 	const result = useRyotQuery(homeTemplatesQuery);

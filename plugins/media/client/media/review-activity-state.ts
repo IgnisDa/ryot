@@ -3,15 +3,15 @@ import type {
 	MediaReviewActivityResult,
 } from "../../shared/media-recipes";
 import {
-	mediaActivityRowsView,
-	mediaCollectionRow,
-	mediaLibraryRow,
-	mediaReviewRow,
 	type MediaActivityCollectionRow,
 	type MediaActivityLibraryRow,
 	type MediaActivityReviewRow,
+	mediaActivityRowsView,
 	type MediaActivitySpan,
 	type MediaActivityTimeline,
+	mediaCollectionRow,
+	mediaLibraryRow,
+	mediaReviewRow,
 } from "./activity-timeline";
 
 type ReviewSubject = { readonly on: "entity" };
@@ -19,9 +19,7 @@ type ReviewSubject = { readonly on: "entity" };
 const REVIEW_SUBJECT: ReviewSubject = { on: "entity" };
 
 export type MediaReviewActivityRow =
-	| MediaActivityCollectionRow
-	| MediaActivityLibraryRow
-	| MediaActivityReviewRow<ReviewSubject>;
+	MediaActivityCollectionRow | MediaActivityLibraryRow | MediaActivityReviewRow<ReviewSubject>;
 
 export type MediaReviewActivityView = {
 	readonly timeline: MediaActivityTimeline<MediaReviewActivityRow>;

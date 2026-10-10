@@ -4,8 +4,8 @@ import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 import {
 	WorkoutEditorSaveInputSchema,
-	WorkoutEditorSaveOutputSchema,
 	type WorkoutEditorSaveOutput,
+	WorkoutEditorSaveOutputSchema,
 } from "../../shared/workout-editor-operations";
 import { saveWorkoutEditor, type WorkoutEditorSaveError } from "./workout-editor-save";
 

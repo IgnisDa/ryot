@@ -24,20 +24,20 @@ trusted writer and revision; they cannot borrow kernel or another plugin's domai
 
 ```json
 {
-	"entities": [
-		{
-			"key": "bottle",
-			"kind": "custom",
-			"name": "Bottle",
-			"entitySchema": {
-				"owner": { "kind": "plugin", "pluginId": "local-whiskey-id" },
-				"slug": "bottle"
-			},
-			"properties": {}
-		}
-	],
-	"events": [],
-	"relationships": []
+  "entities": [
+    {
+      "key": "bottle",
+      "kind": "custom",
+      "name": "Bottle",
+      "entitySchema": {
+        "owner": { "kind": "plugin", "pluginId": "local-whiskey-id" },
+        "slug": "bottle"
+      },
+      "properties": {}
+    }
+  ],
+  "events": [],
+  "relationships": []
 }
 ```
 

@@ -1,8 +1,8 @@
 import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
-	useRyotQuery,
 	type RyotQueryResult,
+	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
@@ -18,8 +18,8 @@ import { WorkoutProcessing } from "../workout-processing";
 import {
 	buildExerciseGroups,
 	buildTimeline,
-	countEquipment,
 	cardMuscleSources,
+	countEquipment,
 	countMuscleSets,
 	summarizeWorkout,
 } from "./details-model";

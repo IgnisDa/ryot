@@ -16,8 +16,8 @@ import {
 	createWorkoutEntityFixture,
 	createWorkoutTemplateEntityFixture,
 	deleteWorkout,
-	LARGE_WORKOUT_BUDGET,
 	findWorkoutSetEventSchema,
+	LARGE_WORKOUT_BUDGET,
 	readWorkoutDetails,
 	seedExerciseWorkout,
 } from "~/fixtures/plugins/fitness";

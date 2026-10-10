@@ -4,11 +4,11 @@ import {
 	ascending,
 	column,
 	defineRecipe,
-	table,
+	entitySchemaPredicate,
+	type Recipe,
 	selectedField,
 	selectedRows,
-	type Recipe,
-	entitySchemaPredicate,
+	table,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 

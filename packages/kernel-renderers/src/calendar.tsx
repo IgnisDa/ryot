@@ -7,8 +7,8 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
-	ManagedAssetProvider,
 	createRyotQuery,
+	ManagedAssetProvider,
 	useAssetUrl,
 	useRyot,
 	useRyotQuery,
@@ -17,27 +17,27 @@ import {
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import {
 	Button,
+	type GroupColor,
+	groupColors,
+	groupColorVariable,
 	IconButton,
 	ScreenBarButton,
 	SegmentedControl,
 	StatusMessage,
 	Switch,
-	groupColorVariable,
-	groupColors,
 	useValueChange,
-	type GroupColor,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import {
-	calendarOccurrencesPageRecipe,
-	calendarSourcesRecipe,
 	type CalendarOccurrence,
+	calendarOccurrencesPageRecipe,
 	type CalendarSource,
+	calendarSourcesRecipe,
 	type CalendarWindow,
 } from "@ryot-app/ryotql-recipes/calendar";
 import clsx from "clsx";
-import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from "react";
 
 export const MAX_SOURCE_OCCURRENCES = 1000;
 

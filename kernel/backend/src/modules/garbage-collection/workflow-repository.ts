@@ -10,8 +10,8 @@ import { workflowExecution as table } from "#schema/tables/workflow-executions";
 
 import {
 	StoredWorkflowResult,
-	WorkflowClockPayload,
 	workflowClockEntityType,
+	WorkflowClockPayload,
 	workflowEntityPrefix,
 	WorkflowExecutionExpired,
 	WorkflowParentPayload,

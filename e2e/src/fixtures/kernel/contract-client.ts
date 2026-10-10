@@ -1,6 +1,6 @@
 import {
-	makeContractClient,
 	type ContractProgram,
+	makeContractClient,
 	type RequestHeaders,
 } from "@ryot-app/contract/client";
 import type { UserId } from "@ryot-app/contract/schema/brands";

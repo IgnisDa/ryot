@@ -91,10 +91,7 @@ export const DisplayPersonalBest = (props: {
 				<Text size="sm">{dayjsLib(data.details.endTime).format("ll")}</Text>
 				<Anchor
 					component={Link}
-					to={$path("/fitness/:entity/:id", {
-						entity: "workouts",
-						id: props.set.workoutId,
-					})}
+					to={$path("/fitness/:entity/:id", { entity: "workouts", id: props.set.workoutId })}
 					fw="bold"
 				>
 					<IconExternalLink size={16} />

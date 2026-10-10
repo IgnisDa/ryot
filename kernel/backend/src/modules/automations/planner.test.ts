@@ -5,7 +5,7 @@ import {
 	AutomationTrigger,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { PluginManifest, type PluginHookTarget } from "@ryot-app/contract/modules/plugins/manifest";
+import { type PluginHookTarget, PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	AutomationHookSlug,
 	AutomationTriggerId,
@@ -19,9 +19,9 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { assert, describe } from "vitest";
 
 import {
+	type LifecycleBatchInput,
 	LifecyclePlanner,
 	lifecycleRunId,
-	type LifecycleBatchInput,
 } from "#modules/automations/lifecycle/planning";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
 import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
@@ -29,8 +29,8 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
 	installRevisionPackage,
-	revisionPackage,
 	revisionDatabaseLayer,
+	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";

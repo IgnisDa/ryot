@@ -26,15 +26,8 @@ const config: ExpoConfig = {
 			},
 		],
 	],
-	ios: {
-		supportsTablet: true,
-		bundleIdentifier: isDebug ? "io.ryot.app.dev" : "io.ryot.app",
-	},
-	web: {
-		bundler: "metro",
-		output: "single",
-		favicon: "./assets/images/favicon.png",
-	},
+	ios: { supportsTablet: true, bundleIdentifier: isDebug ? "io.ryot.app.dev" : "io.ryot.app" },
+	web: { bundler: "metro", output: "single", favicon: "./assets/images/favicon.png" },
 	android: {
 		package: isDebug ? "io.ryot.app.dev" : "io.ryot.app",
 		adaptiveIcon: {

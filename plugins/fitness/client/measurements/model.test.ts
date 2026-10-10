@@ -7,12 +7,12 @@ import {
 	formatValue,
 	groupByMonth,
 	groupReadings,
+	type MeasurementReading,
 	rangeStartAt,
 	rollingAverage,
 	selectPinnedMetrics,
 	seriesWindow,
 	sortMetricRows,
-	type MeasurementReading,
 } from "./model";
 
 const now = new Date("2026-10-12T12:00:00.000Z");

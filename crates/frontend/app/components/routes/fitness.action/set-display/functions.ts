@@ -165,19 +165,14 @@ export const handleSetConfirmation = async (params: {
 	if (set.restTimer && newConfirmed && !promptForRestTimer) {
 		startTimer({
 			duration: set.restTimer.duration,
-			triggeredBy: {
-				setIdentifier: set.identifier,
-				exerciseIdentifier: exercise.identifier,
-			},
+			triggeredBy: { setIdentifier: set.identifier, exerciseIdentifier: exercise.identifier },
 		});
 	}
 
 	setCurrentWorkout(
 		produce(currentWorkout, (draft) => {
 			if (isWorkoutPaused) {
-				draft.durations.push({
-					from: dayjsLib().toISOString(),
-				});
+				draft.durations.push({ from: dayjsLib().toISOString() });
 			}
 			const currentExercise = draft.exercises[exerciseIdx];
 			const currentSet = currentExercise.sets[setIdx];

@@ -1,7 +1,7 @@
 import {
 	clientArtifactFile,
-	clientRuntimeArtifactMetadata,
 	type ClientRuntimeArtifact,
+	clientRuntimeArtifactMetadata,
 } from "@ryot-app/plugin-client-contract";
 import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { sortBy } from "@ryot-app/ts-utils/lodash";

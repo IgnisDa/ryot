@@ -133,11 +133,7 @@ export default function Page(props: { params: { id: string } }) {
 
 	const details = collectionContents?.response;
 	const colDetails = details
-		? {
-				id: collectionId,
-				name: details.details.name,
-				creatorUserId: details.user.id,
-			}
+		? { id: collectionId, name: details.details.name, creatorUserId: details.user.id }
 		: null;
 	const thisCollection = userCollections.find((c) => c.id === collectionId);
 
@@ -174,9 +170,7 @@ export default function Page(props: { params: { id: string } }) {
 													if (!thisCollection) {
 														return;
 													}
-													openCollectionModal({
-														collectionId: thisCollection.id,
-													});
+													openCollectionModal({ collectionId: thisCollection.id });
 												}}
 											>
 												<IconEdit size={18} />

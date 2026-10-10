@@ -1,7 +1,7 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
-import { useMemo, useRef, useState, type ReactNode } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 
 import type { MediaOverviewRows } from "../../shared/media-recipes";
 import type { MediaStatusCopy } from "./detail-screen";
@@ -13,16 +13,16 @@ import { galleryImages } from "./image-gallery-state";
 import { imageAssetKey, ManagedAssetImage } from "./managed-assets";
 import {
 	mediaCharacterLabel,
-	mediaCompanyAsset,
-	mediaOverviewError,
-	mediaPersonAsset,
-	mediaRolesLabel,
-	mediaUnlinkedCredits,
 	type MediaCompany,
+	mediaCompanyAsset,
 	type MediaCreditPerson,
+	mediaOverviewError,
 	type MediaOverviewState,
+	mediaPersonAsset,
 	type MediaRecommendation,
+	mediaRolesLabel,
 	type MediaUnlinkedCreator,
+	mediaUnlinkedCredits,
 } from "./overview-state";
 import {
 	MediaExternalLink,
@@ -34,13 +34,13 @@ import {
 import { mediaGalleryAssets, type MediaSummaryFields } from "./summary-state";
 import { mediaSyncCounts } from "./sync-counts";
 import {
+	type MediaWatchProviders,
 	regionLabel,
 	viewerRegion,
 	watchProviderAsset,
+	type WatchProviderGroup,
 	watchProviderGroups,
 	watchProviderLink,
-	type MediaWatchProviders,
-	type WatchProviderGroup,
 } from "./watch-providers";
 
 const CREDIT_COLUMN_CLASS = "min-w-0 flex-1";

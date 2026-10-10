@@ -118,8 +118,7 @@ type PollOutcome = SchemaOAuthConnectOutcome | { readonly kind: "pending" };
 type SettledOutcome = Exclude<PollOutcome, { readonly kind: "pending" }>;
 
 type NativeReturn =
-	| { readonly kind: "failed" }
-	| { readonly kind: "secret"; readonly secret: string };
+	{ readonly kind: "failed" } | { readonly kind: "secret"; readonly secret: string };
 
 const failed = (message: OAuthConnectFailed["message"]) =>
 	({ message, kind: "failed" }) as const satisfies SchemaOAuthConnectOutcome;

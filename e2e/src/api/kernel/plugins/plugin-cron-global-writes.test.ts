@@ -9,14 +9,14 @@ import {
 	fakeProviderDetailsResult,
 	getApiClient,
 	getEntity,
+	type InstalledTestPlugin,
 	installTestPluginBundle,
 	listAdminGlobalRelationships,
 	listAdminSandboxScripts,
 	providerSandboxSource,
-	type InstalledTestPlugin,
-	uninstallTestPlugin,
 	testPluginEntitySchema,
 	trendingSandboxSource,
+	uninstallTestPlugin,
 } from "~/fixtures/kernel";
 import { assertPresent, assertTaggedError, requireObjectRecord } from "~/support/assertions";
 import {

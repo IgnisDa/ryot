@@ -9,10 +9,7 @@ export const ImageSchema = Schema.Struct({
 
 export type Image = typeof ImageSchema.Type;
 
-export const UnlinkedCreatorSchema = Schema.Struct({
-	name: Schema.String,
-	role: Schema.String,
-});
+export const UnlinkedCreatorSchema = Schema.Struct({ name: Schema.String, role: Schema.String });
 
 export type UnlinkedCreator = typeof UnlinkedCreatorSchema.Type;
 
@@ -27,9 +24,7 @@ const mediaBaseFields = {
 	publishYear: Schema.optional(Schema.NullOr(Schema.Number.pipe(Schema.int()))),
 } as const;
 
-const imagesField = {
-	images: Schema.optional(Schema.NullOr(Schema.Array(ImageSchema))),
-} as const;
+const imagesField = { images: Schema.optional(Schema.NullOr(Schema.Array(ImageSchema))) } as const;
 
 const mediaWithCreatorsFields = {
 	...mediaBaseFields,

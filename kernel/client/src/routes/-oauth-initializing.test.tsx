@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 
@@ -11,25 +11,25 @@ import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/even
 import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer";
 import { getRouter } from "#/router";
 import {
-	theme,
 	catalog,
-	ServerStub,
-	makeAuthStub,
-	makeStorageStubLayer,
-	InstanceAdminRouteStubs,
-	makePublicApiStub,
-	CustomizeRouteStubs,
-	SavedViewRouteStubs,
-	EntityRouteStubs,
-	makeOAuthRouteStubs,
-	DeviceRouteStubs,
-	NavigationRouteStubs,
-	ProviderAddRouteStubs,
-	ImportsRouteStubs,
-	IntegrationRouteStubs,
-	PagesApiRouteStubs,
 	ClientPageSessionsRouteStubs,
+	CustomizeRouteStubs,
+	DeviceRouteStubs,
+	EntityRouteStubs,
+	ImportsRouteStubs,
+	InstanceAdminRouteStubs,
+	IntegrationRouteStubs,
+	makeAuthStub,
+	makeOAuthRouteStubs,
+	makePublicApiStub,
+	makeStorageStubLayer,
+	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
+	PagesApiRouteStubs,
+	ProviderAddRouteStubs,
+	SavedViewRouteStubs,
+	ServerStub,
+	theme,
 } from "#/routes/-route-fixtures";
 
 const mountInitializing = (overrides: Partial<HostedAuthService["Service"]> = {}) => {

@@ -25,8 +25,7 @@ export type LifecycleCommittedStep<Result> = {
 };
 
 export type LifecyclePreparedStep<Result, Pending> =
-	| LifecycleCommittedStep<Result>
-	| { readonly _tag: "PoliciesRequired"; readonly pending: Pending };
+	LifecycleCommittedStep<Result> | { readonly _tag: "PoliciesRequired"; readonly pending: Pending };
 
 export const mapCommittedResult = <Result, Mapped, Pending>(
 	step: LifecyclePreparedStep<Result, Pending>,

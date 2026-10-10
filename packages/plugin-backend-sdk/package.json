@@ -102,7 +102,7 @@
 	},
 	"scripts": {
 		"test": "bun --bun run vitest run",
-		"check": "bun --check && bun --cwd tests --check && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && bun --cwd tests --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@nodable/entities": "2.1.1",

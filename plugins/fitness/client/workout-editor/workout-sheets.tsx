@@ -20,7 +20,7 @@ import type {
 import type { resolveWorkoutLocalPreferences } from "../../shared/workout-editor-preferences";
 import { changeWorkoutEnergyUnit } from "./actions";
 import { formatEditorSeconds } from "./clock";
-import { isTemplateDraft, type DraftChange } from "./draft-ops";
+import { type DraftChange, isTemplateDraft } from "./draft-ops";
 import { EditorSheet } from "./editor-sheet";
 import { activeDurationSeconds } from "./timers";
 

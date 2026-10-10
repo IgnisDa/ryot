@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	UserCommandResult,
 	type UserCommand,
+	UserCommandResult,
 } from "@ryot-app/contract/modules/mutations/user-command";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";

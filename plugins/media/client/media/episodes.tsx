@@ -4,17 +4,17 @@ import clsx from "clsx";
 
 import type { MediaCursorPage } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
-import { mediaAspectClass, type MediaArtworkAspect } from "./entity-presentation";
+import { type MediaArtworkAspect, mediaAspectClass } from "./entity-presentation";
 import {
+	type MediaEpisode,
 	mediaEpisodeAirDateLabel,
 	mediaEpisodeAsset,
-	mediaEpisodeRuntimeLabel,
-	mediaEpisodeStateLabel,
-	mediaEpisodeSynopsis,
-	mediaEpisodesManagedAssets,
-	type MediaEpisode,
 	type MediaEpisodeImagePurpose,
+	mediaEpisodeRuntimeLabel,
+	mediaEpisodesManagedAssets,
+	mediaEpisodeStateLabel,
 	type MediaEpisodeStateLabels,
+	mediaEpisodeSynopsis,
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
 

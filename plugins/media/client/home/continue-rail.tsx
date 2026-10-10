@@ -7,13 +7,13 @@ import {
 } from "../../shared/lifecycle-expressions";
 import {
 	episodicByLifecycleStateRecipe,
-	flatByLifecycleStateRecipe,
 	type EpisodicByLifecycleStateResult,
+	flatByLifecycleStateRecipe,
 	type FlatByLifecycleStateResult,
 } from "../../shared/lifecycle-list-recipes";
 import { MediaProgressBar } from "../media/primitives";
 import { mediaAspectOf } from "../schema-aspects";
-import { HomeRail, HomeTileBadge, type HomeTile } from "./home-rail";
+import { HomeRail, type HomeTile, HomeTileBadge } from "./home-rail";
 import { episodePositionLabel, flatProgressLabel, resumeLabel } from "./labels";
 import { createHomeSectionQuery, type SectionData } from "./section-query";
 

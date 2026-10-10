@@ -30,9 +30,7 @@ export const CollectionItem = (props: CollectionItemProps) => {
 		mutationFn: (input: ReorderCollectionEntityInput) =>
 			clientGqlService.request(ReorderCollectionEntityDocument, { input }),
 		onSuccess: () => {
-			queryClient.invalidateQueries({
-				queryKey: queryFactory.collections.collectionContents._def,
-			});
+			queryClient.invalidateQueries({ queryKey: queryFactory.collections.collectionContents._def });
 		},
 		onError: (_error) => {
 			notifications.show({

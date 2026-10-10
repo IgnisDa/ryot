@@ -10,7 +10,7 @@ import {
 	type SandboxFilesystemBinding,
 } from "@ryot-app/plugin-backend-sdk/filesystem";
 import { zipSync } from "fflate";
-import { assert, afterEach, expect, test } from "vitest";
+import { afterEach, assert, expect, test } from "vitest";
 
 let activeBinding: SandboxFilesystemBinding | undefined;
 configureSandboxFilesystem(() => activeBinding);

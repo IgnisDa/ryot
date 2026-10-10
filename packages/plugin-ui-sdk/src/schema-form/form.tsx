@@ -3,15 +3,15 @@ import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	type AppPropertyDefinition,
 	type AppSchema,
-	type PropertyValidationIssue,
 	getOrderedAppSchemaFieldEntries,
 	isAppSchemaPathEffectivelyRequired,
 	isAppSchemaPathHidden,
+	type PropertyValidationIssue,
 } from "@ryot-app/contract/schema/property-schema";
 import { hasPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
 import { useForm } from "@tanstack/react-form";
 import { Schema } from "effect";
-import { useId, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { type ReactNode, type RefObject, useId, useLayoutEffect, useRef, useState } from "react";
 
 import { Button } from "../button";
 import { Chip } from "../chips";

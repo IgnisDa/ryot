@@ -3,10 +3,10 @@ import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences
 import {
 	Button,
 	Select,
+	type SelectChoice,
 	StatusMessage,
 	Switch,
 	TextField,
-	type SelectChoice,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useForm } from "@tanstack/react-form";

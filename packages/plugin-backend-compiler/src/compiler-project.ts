@@ -1,6 +1,6 @@
 import {
-	withTypeScriptProject,
 	type TypeScriptProjectConfiguration,
+	withTypeScriptProject,
 } from "@ryot-app/typescript-compiler";
 import { Data, Effect } from "effect";
 

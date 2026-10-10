@@ -12,9 +12,9 @@ import {
 	type ImportRunId,
 	type IntegrationId,
 	OAuthConnectionId,
+	type PluginPackageId,
 	pluginPackageIdFromSegments,
 	pluginPackageSegments,
-	type PluginPackageId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";

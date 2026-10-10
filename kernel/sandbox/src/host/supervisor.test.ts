@@ -16,19 +16,19 @@ import {
 	Metric,
 	Option,
 	Queue,
-	Scope,
 	Schema,
+	Scope,
 } from "effect";
 import { TestClock } from "effect/testing";
 
 import { MiB, SANDBOX_LIMITS } from "../protocol/limits";
 import {
-	SidecarHostCallFrame,
-	type SidecarOutboundFrame as OutboundFrame,
 	type SidecarDoneFrame,
-	type SidecarRunFrame,
+	SidecarHostCallFrame,
 	SidecarHostResultFrame,
 	type SidecarInboundFrame,
+	type SidecarOutboundFrame as OutboundFrame,
+	type SidecarRunFrame,
 } from "../protocol/messages";
 import { SandboxSidecarAdmission } from "./admission";
 import { SandboxExecutionAuthority } from "./authority";
@@ -44,9 +44,9 @@ import type { SandboxRunInput } from "./invocation";
 import { memoryPinnedJournal } from "./pinned-journal.test-support";
 import type { SandboxPrincipal } from "./principal";
 import { SandboxSidecarQuarantine } from "./quarantine";
-import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "./recovery-store";
+import { type SandboxRecoveryIdentity, SandboxRecoveryStore } from "./recovery-store";
 import { makeUserPrincipal, makeUserSubject } from "./run-input.test-support";
-import { SandboxSidecarSupervisor, type SandboxSidecarRun } from "./supervisor";
+import { type SandboxSidecarRun, SandboxSidecarSupervisor } from "./supervisor";
 
 type Connection = Effect.Success<ReturnType<SandboxSidecarClient["Service"]["connect"]>>;
 type ConnectSettings = Parameters<SandboxSidecarClient["Service"]["connect"]>[0];

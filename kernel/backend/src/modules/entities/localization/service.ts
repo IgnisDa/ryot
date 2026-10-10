@@ -15,12 +15,12 @@ import { DatabaseSession } from "#platform/db/session";
 import type * as schema from "#schema/tables/combined";
 
 import {
-	TranslateEntityWorkflow,
 	translateEntityExecutionId,
+	TranslateEntityWorkflow,
 	type TranslateEntityWorkflowPayload,
 	type TranslationExecution,
 } from "./entity-translation-workflow";
-import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
+import { type TranslationOverlayInput, TranslationsRepository } from "./repository";
 
 export type RequestFillInput = Omit<TranslateEntityWorkflowPayload, "command" | "executionId">;
 

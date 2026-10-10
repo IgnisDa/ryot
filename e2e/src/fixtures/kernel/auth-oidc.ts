@@ -9,9 +9,9 @@ import {
 	continueAfterInitialization,
 	continueOAuthAuthorization,
 	exchangeOAuthCallback,
+	type PendingOAuth,
 	prepareOAuth,
 	responseCookie,
-	type PendingOAuth,
 } from "./auth";
 
 export type MockOidcServer = {

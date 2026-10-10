@@ -19,8 +19,8 @@ import { lifecycleRunId, lifecycleTriggerId } from "#modules/automations/lifecyc
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import {
 	installRevisionPackage,
-	revisionPackage,
 	revisionDatabaseLayer,
+	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";

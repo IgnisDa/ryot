@@ -4,7 +4,7 @@ import { Context, Effect, Layer } from "effect";
 
 import { MAX_ROOT_PAGE_SIZE } from "#modules/ryotql/validator";
 
-import { InterestReconciler, type InterestPrincipal } from "./reconciler";
+import { type InterestPrincipal, InterestReconciler } from "./reconciler";
 import { EntityWatchStore, type PendingInterest } from "./store";
 
 const chunk = <T>(items: readonly T[], size: number) => {

@@ -15,9 +15,9 @@ import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
 import type { CustomizeSection } from "#/modules/shell/customize/customize-state";
 import {
 	navigationViewHref,
-	sidebarItemKey,
 	type SidebarEntry,
 	type SidebarItem,
+	sidebarItemKey,
 	type SidebarSections,
 	workspaceSummary,
 } from "#/modules/shell/sidebar-sections";

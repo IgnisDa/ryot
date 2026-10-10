@@ -127,10 +127,7 @@ export const BulkCollectionEditingAffix = (props: BulkCollectionEditingAffixProp
 								template={template}
 								value={bulkExtraInformation[template.name]}
 								onChange={(value) =>
-									setBulkExtraInformation((prev) => ({
-										...prev,
-										[template.name]: value,
-									}))
+									setBulkExtraInformation((prev) => ({ ...prev, [template.name]: value }))
 								}
 							/>
 						))}

@@ -10,9 +10,9 @@ import { makeSidecarFrameReader, makeSidecarFrameWriter } from "../protocol/fram
 import { SANDBOX_LIMITS } from "../protocol/limits";
 import {
 	SIDECAR_GENERATION_MAX,
-	SidecarTier,
-	SidecarOutboundFrame,
 	type SidecarInboundFrame,
+	SidecarOutboundFrame,
+	SidecarTier,
 } from "../protocol/messages";
 import { SandboxTrust } from "./authority";
 import {

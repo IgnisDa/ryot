@@ -16,12 +16,12 @@ import {
 	join,
 	JsonValue,
 	literal,
+	type Recipe,
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
 	table,
-	type Recipe,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 

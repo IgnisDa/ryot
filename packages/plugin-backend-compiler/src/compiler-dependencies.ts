@@ -2,7 +2,7 @@ import { SANDBOX_SDK_IMPORTS } from "@ryot-app/plugin-backend-sdk/imports";
 import { resolveTypeScriptCompilerPath } from "@ryot-app/typescript-compiler";
 import { Effect } from "effect";
 
-import { sandboxCompilationFailure, pluginBackendCompilerDiagnostic } from "./compiler-diagnostics";
+import { pluginBackendCompilerDiagnostic, sandboxCompilationFailure } from "./compiler-diagnostics";
 
 export const resolveSandboxCompilerDependencies = Effect.try({
 	catch: (error) =>

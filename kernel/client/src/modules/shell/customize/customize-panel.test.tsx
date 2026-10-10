@@ -7,9 +7,9 @@ import { axe } from "vitest-axe";
 
 import { CustomizePanel } from "#/modules/shell/customize/customize-panel";
 import {
+	type CustomizeDraft,
 	moveCustomizeItem,
 	toggleCustomizeItem,
-	type CustomizeDraft,
 } from "#/modules/shell/customize/customize-state";
 
 const item = (slug: string, pluginInstallationId: string | null, isHidden = false) => ({

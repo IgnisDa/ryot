@@ -2,15 +2,15 @@ import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import {
+	type HomeTemplate,
 	homeTemplatesRecipe,
 	muscleActivityRecipe,
 	recentPersonalBestsRecipe,
-	type HomeTemplate,
 } from "../../shared/home-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
-	workoutExerciseTargetsRecipe,
 	type WorkoutExerciseTargets,
+	workoutExerciseTargetsRecipe,
 } from "../../shared/workout-list-recipes";
 import { DAY_MS } from "../measurements/model";
 import { batched, loadWorkoutPages } from "../workouts/queries";

@@ -1,7 +1,7 @@
 import type { NotificationChannelSpecifics } from "@ryot-app/contract/modules/notifications/schemas";
 import type { NotificationChannelKind } from "@ryot-app/contract/modules/notifications/types";
 import { generateId } from "better-auth";
-import { index, jsonb, snakeCase, text, boolean } from "drizzle-orm/pg-core";
+import { boolean, index, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { timestamptz, updatedAtColumn } from "./timestamps";

@@ -9,10 +9,10 @@ import {
 	formatChange,
 	formatDay,
 	formatValue,
-	rangePhrase,
 	type MetricRow,
 	type MetricSort,
 	type RangeKey,
+	rangePhrase,
 } from "./model";
 import { tableHeaderClass } from "./styles";
 

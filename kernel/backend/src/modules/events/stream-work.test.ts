@@ -57,8 +57,8 @@ import { RedisService } from "#platform/redis";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import {
-	makeRedisService,
 	makeAppConfigLayer,
+	makeRedisService,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
 } from "#testing/effect";

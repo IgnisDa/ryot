@@ -15,7 +15,7 @@ import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators"
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { requiredReference, rewritePropertyReferences } from "#modules/backups/data-references";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { DefinitionSnapshot, definitionLookup } from "#modules/definitions/snapshot";
+import { definitionLookup, DefinitionSnapshot } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
@@ -36,15 +36,15 @@ import { maximumDocumentBytes } from "./data-admission";
 import {
 	dataGraphDependencies,
 	dataGraphPropertiesSchema,
+	type DataGraphRecord,
 	DataGraphRecordSchema,
 	orderDataGraph,
-	type DataGraphRecord,
 } from "./data-graph";
 import { IngestionExecution } from "./execution-service";
 import {
+	failureReasonByStage,
 	GenericImportEntity,
 	GenericImportProviderError,
-	failureReasonByStage,
 	prepareGenericImportEntity,
 	resolveProviderEntity,
 	runImportWriteStep,

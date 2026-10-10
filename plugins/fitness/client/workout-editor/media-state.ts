@@ -4,8 +4,7 @@ import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { WorkoutSetAssetLocator } from "../../shared/workout-set";
 
 export type WorkoutMediaTarget =
-	| { readonly kind: "workout" }
-	| { readonly kind: "occurrence"; readonly occurrenceId: string };
+	{ readonly kind: "workout" } | { readonly kind: "occurrence"; readonly occurrenceId: string };
 export type WorkoutMediaKind = "images" | "videos";
 
 export const sameMedia = (left: WorkoutSetAssetLocator, right: WorkoutSetAssetLocator) =>

@@ -155,9 +155,7 @@ export const getRatingUnitSuffix = (scale: UserReviewScale) =>
 		.otherwise(() => undefined);
 
 export const getExerciseDetailsPath = (exerciseId: string) =>
-	$path("/fitness/exercises/item/:id", {
-		id: encodeURIComponent(exerciseId),
-	});
+	$path("/fitness/exercises/item/:id", { id: encodeURIComponent(exerciseId) });
 
 export const getPersonDetailsPath = (personId: string) =>
 	$path("/media/people/item/:id", { id: personId });

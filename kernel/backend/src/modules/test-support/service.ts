@@ -4,11 +4,11 @@ import type { AutomationWarning } from "@ryot-app/contract/modules/automations/l
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	TestSupportBadRequest,
-	TestSupportOperationFailure,
-	type TestSupportInstallSystemPluginBodyBase64,
-	type TestSupportUpdateSystemPluginBodyBase64,
 	type TestSupportEnqueueSandboxBody,
+	type TestSupportInstallSystemPluginBodyBase64,
+	TestSupportOperationFailure,
 	type TestSupportTriggerPluginCronBody,
+	type TestSupportUpdateSystemPluginBodyBase64,
 } from "@ryot-app/contract/modules/test-support/schemas";
 import {
 	AutomationExecutionId,
@@ -27,8 +27,8 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import {
-	rootLifecycleCommand,
 	childLifecycleCommand,
+	rootLifecycleCommand,
 } from "#modules/automations/lifecycle/command";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import { TranslationsRepository } from "#modules/entities/localization/repository";

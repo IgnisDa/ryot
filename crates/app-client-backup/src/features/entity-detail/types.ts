@@ -8,8 +8,8 @@ import type {
 	AudiobookProperties,
 	BookProperties,
 	ComicBookProperties,
-	MovieProperties,
 	MangaProperties,
+	MovieProperties,
 	MusicProperties,
 	PodcastProperties,
 	ShowProperties,
@@ -22,9 +22,7 @@ export type AppUnlinkedCreator = UnlinkedCreator & { id?: string; image?: Entity
 
 export type EntityResponse = ContractSuccess<"entities", "get">;
 
-type EntityBase = Omit<EntityResponse, "image" | "properties"> & {
-	image: EntityImage;
-};
+type EntityBase = Omit<EntityResponse, "image" | "properties"> & { image: EntityImage };
 
 export type SupportedEntitySchemaSlug = Exclude<MediaScopeSlug, "person">;
 

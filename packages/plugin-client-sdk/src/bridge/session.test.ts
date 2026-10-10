@@ -7,8 +7,8 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type ClientCompositionMetadata,
-	type PluginBridgeInit,
 	type ClientPageContext,
+	type PluginBridgeInit,
 } from "@ryot-app/plugin-client-contract";
 import { Deferred, Effect, Fiber, Result, Schema } from "effect";
 import { createElement, Fragment } from "react";

@@ -7,9 +7,9 @@ import { ComputedResults } from "../workout-processing";
 import {
 	buildMuscleTiles,
 	buildPersonalBests,
+	type MuscleBand,
 	muscleBands,
 	RECENT_DAYS,
-	type MuscleBand,
 } from "./model";
 import { muscleActivityQuery, recentPersonalBestsQuery } from "./queries";
 import { HomeSection, QueryBody } from "./section";

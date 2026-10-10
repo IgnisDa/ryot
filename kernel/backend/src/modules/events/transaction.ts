@@ -1,7 +1,7 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
 
-import { DatabaseSessionStateError, type DatabaseSession } from "#platform/db/session";
+import { type DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
 import { runRootTransaction } from "#platform/db/transaction";
 
 export const eventRootTransaction =

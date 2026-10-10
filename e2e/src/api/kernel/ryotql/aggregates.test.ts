@@ -24,9 +24,9 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
+	createEntityFixture,
 	createEventFixture,
 	createEventSchema,
-	createEntityFixture,
 	createPluginEntitySchema,
 	createPluginScope,
 	createRelationship,

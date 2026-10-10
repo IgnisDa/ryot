@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import type { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { AuthService, toAuthSessionState } from "#/modules/auth/service";
-import { sanitizeRedirect, type SafeRedirect } from "#/modules/server/redirect";
+import { type SafeRedirect, sanitizeRedirect } from "#/modules/server/redirect";
 import { ServerService } from "#/modules/server/service";
 
 export type AuthSessionState =

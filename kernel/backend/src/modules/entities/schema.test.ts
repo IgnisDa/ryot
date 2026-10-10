@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { sql } from "drizzle-orm";
-import { Result, Effect } from "effect";
+import { Effect, Result } from "effect";
 import { Client } from "pg";
 
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";

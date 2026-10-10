@@ -7,10 +7,10 @@ import { SavedViewReference } from "../plugins/references";
 import { RyotQLBadRequest } from "../ryotql/contract";
 import {
 	CreateSavedViewBody,
-	SavedViewCommandResponse,
 	ReorderSavedViewsBody,
 	ReorderSavedViewsResponse,
 	SavedViewBadRequest,
+	SavedViewCommandResponse,
 	SavedViewNotFound,
 	updateSavedViewBody,
 } from "./schemas";

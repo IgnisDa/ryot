@@ -3,18 +3,18 @@ import { Duration, Effect, Result } from "effect";
 
 import {
 	adminHeaders,
-	uninstallTestProvider,
 	createAuthenticatedClient,
 	fakeProviderDetailsResult,
 	getApiClient,
 	getEntity,
 	getGlobalEntityByProvenance,
+	installTestProvider,
 	openInterestWebSocketScoped,
 	pollUntil,
-	installTestProvider,
 	seedEntity,
 	seedPopulatedEntity,
 	testProviderEntitySchema,
+	uninstallTestProvider,
 	waitForEntityPopulated,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";

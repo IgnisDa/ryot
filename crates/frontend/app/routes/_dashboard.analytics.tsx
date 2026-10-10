@@ -29,11 +29,7 @@ import {
 	formatQuantityWithCompactNotation,
 	humanizeDuration,
 } from "@ryot-app/ts-utils/format";
-import { isBoolean } from "@ryot-app/ts-utils/lodash";
-import { mapValues } from "@ryot-app/ts-utils/lodash";
-import { pickBy } from "@ryot-app/ts-utils/lodash";
-import { snakeCase } from "@ryot-app/ts-utils/lodash";
-import { sum } from "@ryot-app/ts-utils/lodash";
+import { isBoolean, mapValues, pickBy, snakeCase, sum } from "@ryot-app/ts-utils/lodash";
 import { changeCase } from "@ryot-app/ts-utils/string";
 import {
 	IconBarbell,
@@ -104,9 +100,7 @@ const useTimeSpanSettings = () => {
 	const loaderData = useLoaderData<typeof loader>();
 	const [timeSpanSettings, setTimeSpanSettings] = useLocalStorage<TimeSpanSettings>(
 		"TimeSpanSettings",
-		{
-			range: ApplicationTimeRange.Past30Days,
-		},
+		{ range: ApplicationTimeRange.Past30Days },
 	);
 
 	const startDate =
@@ -472,11 +466,13 @@ const MusclesChart = () => {
 						strokeWidth={0.5}
 						labelsType="percent"
 						tooltipDataSource="segment"
-						data={fitness.workoutMuscles.slice(0, count).map((item) => ({
-							value: item.count,
-							name: changeCase(item.muscle),
-							color: selectRandomElement(colors, item.muscle),
-						}))}
+						data={fitness.workoutMuscles
+							.slice(0, count)
+							.map((item) => ({
+								value: item.count,
+								name: changeCase(item.muscle),
+								color: selectRandomElement(colors, item.muscle),
+							}))}
 					/>
 				),
 			})}
@@ -500,11 +496,13 @@ const ExercisesChart = () => {
 						tickLine="none"
 						tooltipAnimationDuration={500}
 						series={[{ name: "value", label: "Times done" }]}
-						data={fitness.workoutExercises.slice(0, count).map((item) => ({
-							value: item.count,
-							name: changeCase(item.exercise),
-							color: selectRandomElement(colors, item.exercise),
-						}))}
+						data={fitness.workoutExercises
+							.slice(0, count)
+							.map((item) => ({
+								value: item.count,
+								name: changeCase(item.exercise),
+								color: selectRandomElement(colors, item.exercise),
+							}))}
 					/>
 				),
 			})}
@@ -679,10 +677,7 @@ type ChartContainerProps = {
 	children: (
 		count: number,
 		data: UserAnalyticsQuery["userAnalytics"]["response"],
-	) => {
-		render: ReactNode;
-		totalItems: number;
-	};
+	) => { render: ReactNode; totalItems: number };
 };
 
 const ChartContainer = (props: ChartContainerProps) => {

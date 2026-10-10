@@ -12,10 +12,10 @@ import {
 	formatDay,
 	formatValue,
 	isStale,
-	rangePhrase,
-	trendWindow,
 	type MetricRow,
 	type RangeKey,
+	rangePhrase,
+	trendWindow,
 	unitSuffix,
 } from "./model";
 

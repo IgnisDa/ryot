@@ -1,5 +1,4 @@
 import {
-	OAuthTokenResponse,
 	getOAuthEndpoint,
 	getOAuthResource,
 	OAUTH_NATIVE_CALLBACK_URIS,
@@ -7,15 +6,16 @@ import {
 	OAUTH_REVOKE_PATH,
 	OAUTH_TOKEN_PATH,
 	OAUTH_WEB_CLIENT_ID,
+	OAuthTokenResponse,
 } from "@ryot-app/contract/oauth";
 import { Effect, Schema } from "effect";
 
 import {
 	createTestUser,
 	exchangeOAuthTokens,
+	type PendingOAuth,
 	prepareOAuth,
 	refreshOAuthTokens,
-	type PendingOAuth,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";

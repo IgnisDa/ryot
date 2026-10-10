@@ -15,12 +15,12 @@ import {
 	eq,
 	inArray,
 	literal,
+	type Recipe,
 	schemaOwnerPredicate,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
 	table,
-	type Recipe,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 

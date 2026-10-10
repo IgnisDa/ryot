@@ -5,9 +5,9 @@ import {
 	createAuthenticatedClient,
 	createNotificationChannel,
 	fakeProviderDetailsResult,
+	pollUntil,
 	shippedPluginTestProviders,
 	startFakeAppriseServer,
-	pollUntil,
 } from "~/fixtures/kernel";
 import {
 	enableMediaMonitoring,

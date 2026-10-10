@@ -16,8 +16,8 @@ import {
 	encodePluginSourceFiles,
 	installTestSupportSystemPlugin,
 	testPluginManifest,
-	testPluginSavedView,
 	testPluginPackageId,
+	testPluginSavedView,
 } from "~/fixtures/kernel/test-plugin";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";

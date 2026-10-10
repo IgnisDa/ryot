@@ -35,10 +35,7 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 		queryFn: () =>
 			clientGqlService
 				.request(FilterPresetsDocument, {
-					input: {
-						contextType: config.contextType,
-						contextInformation: config.contextInformation,
-					},
+					input: { contextType: config.contextType, contextInformation: config.contextInformation },
 				})
 				.then((data) => data.filterPresets),
 	});
@@ -54,35 +51,23 @@ export const useFilterPresets = <TFilter extends { page: number }>(
 			}),
 		onSuccess: () => {
 			refetchFilterPresets();
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Filter preset saved",
-			});
+			notifications.show({ color: "green", title: "Success", message: "Filter preset saved" });
 		},
 	});
 
 	const deletePresetMutation = useMutation({
 		mutationFn: (filterPresetId: string) =>
-			clientGqlService.request(DeleteFilterPresetDocument, {
-				filterPresetId,
-			}),
+			clientGqlService.request(DeleteFilterPresetDocument, { filterPresetId }),
 		onSuccess: () => {
 			refetchFilterPresets();
 			setActivePresetId(null);
-			notifications.show({
-				color: "green",
-				title: "Success",
-				message: "Filter preset deleted",
-			});
+			notifications.show({ color: "green", title: "Success", message: "Filter preset deleted" });
 		},
 	});
 
 	const updateLastUsedMutation = useMutation({
 		mutationFn: (filterPresetId: string) =>
-			clientGqlService.request(UpdateFilterPresetLastUsedDocument, {
-				filterPresetId,
-			}),
+			clientGqlService.request(UpdateFilterPresetLastUsedDocument, { filterPresetId }),
 		onSuccess: async () => {
 			await new Promise((r) => setTimeout(r, 500));
 			refetchFilterPresets();

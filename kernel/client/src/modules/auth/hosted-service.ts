@@ -8,7 +8,7 @@ import { Context, Data, Deferred, Effect, Layer, Schema } from "effect";
 import type { ServerOrigin } from "#/api/origin";
 import type { TwoFactorMethod } from "#/modules/auth/flow";
 import { availableTwoFactorMethods, isTwoFactorRedirect } from "#/modules/auth/flow";
-import { registrationName, type CredentialsValues } from "#/modules/auth/form-values";
+import { type CredentialsValues, registrationName } from "#/modules/auth/form-values";
 
 export class HostedAuthError extends Data.TaggedError("HostedAuthError")<{
 	readonly code?: string;

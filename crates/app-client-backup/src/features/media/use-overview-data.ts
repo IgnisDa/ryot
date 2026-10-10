@@ -69,13 +69,7 @@ function extractEntityBase(item: QueryEngineItem | undefined) {
 	if (typeof id !== "string" || typeof title !== "string" || typeof entitySchemaSlug !== "string") {
 		return null;
 	}
-	return {
-		id,
-		title,
-		getVal,
-		entitySchemaSlug,
-		image: toEntityImage(getVal("entityImage")),
-	};
+	return { id, title, getVal, entitySchemaSlug, image: toEntityImage(getVal("entityImage")) };
 }
 
 const makeEventJoinColumnReference = (
@@ -528,16 +522,7 @@ export function useMediaOverviewData() {
 				const ratingVal = getVal("reviewRating");
 				const rating = typeof ratingVal === "number" ? ratingVal : null;
 
-				return [
-					{
-						id,
-						image,
-						title,
-						rating,
-						completedAt,
-						entitySchemaSlug,
-					},
-				];
+				return [{ id, image, title, rating, completedAt, entitySchemaSlug }];
 			});
 		},
 	});

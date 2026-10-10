@@ -1,5 +1,5 @@
 import { PluginId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
-import { sql, type SQL } from "drizzle-orm";
+import { type SQL, sql } from "drizzle-orm";
 import { Data, Schema } from "effect";
 
 export const DefinitionReadContext = Schema.Struct({

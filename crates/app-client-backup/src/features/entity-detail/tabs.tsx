@@ -43,7 +43,7 @@ import {
 	ShowSeasonsList,
 	VideoGameStats,
 } from "./type-specific-sections";
-import type { EntityDetail, AppUnlinkedCreator } from "./types";
+import type { AppUnlinkedCreator, EntityDetail } from "./types";
 
 type Collections = Awaited<ReturnType<typeof loadRelatedCollections>>;
 

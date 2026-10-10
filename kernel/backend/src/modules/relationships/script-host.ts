@@ -19,20 +19,20 @@ import {
 } from "#modules/scripts/host/execution-context";
 import {
 	lifecycleHostFailure,
-	userLifecycleSource,
-	writeInlineLifecycleItems,
 	type LifecycleHostInput,
 	type LifecycleItemWrite,
+	userLifecycleSource,
+	writeInlineLifecycleItems,
 } from "#modules/scripts/host/lifecycle-host";
 import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 
 import {
+	type PendingRelationshipMutations,
 	reconciliationSummary,
 	RelationshipBatchSummary,
 	RelationshipMutationPipeline,
 	RelationshipReconciliationSummary,
 	summarizeRelationshipMutations,
-	type PendingRelationshipMutations,
 } from "./mutation-pipeline";
 
 const toSandboxRelationshipIdentity = <

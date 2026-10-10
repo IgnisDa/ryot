@@ -13,9 +13,9 @@ import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
 import { useServerUrl } from "@/lib/atoms";
 import {
-	createContractRunner,
 	type ContractRunner,
 	type ContractSuccess,
+	createContractRunner,
 } from "@/lib/contract-client";
 
 type GodModeUser = ContractSuccess<"godMode", "listUsers">["users"][number];

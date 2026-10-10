@@ -1,5 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { DbError, badRequest, internalError } from "@ryot-app/contract/errors";
+import { badRequest, DbError, internalError } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -41,8 +41,8 @@ import type { StoredPlugin } from "../packages/types";
 import { fixtureClientArtifact } from "../source.test-support";
 import { fixtureManifest, testPluginPackageId } from "../test-support";
 import {
-	PluginInstallationRepository,
 	type PluginInstallationHydratedState,
+	PluginInstallationRepository,
 	type PluginPrivateInstallationRow,
 } from "./repository";
 import { PluginInstallationService } from "./service";

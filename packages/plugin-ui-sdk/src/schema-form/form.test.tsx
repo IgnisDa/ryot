@@ -8,7 +8,7 @@ import { useEffect } from "react";
 
 import type { SchemaAssetUpload } from "./asset/upload";
 import type { SchemaFileUpload } from "./file/upload";
-import { SchemaForm, useSchemaForm, type SchemaFormIcons } from "./form";
+import { SchemaForm, type SchemaFormIcons, useSchemaForm } from "./form";
 import { initialSchemaFormValues, type SchemaFormMode, type SchemaFormValues } from "./state";
 
 const icons: SchemaFormIcons = {

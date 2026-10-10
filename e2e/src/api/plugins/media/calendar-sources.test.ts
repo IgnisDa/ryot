@@ -1,18 +1,18 @@
 import {
+	type CalendarOccurrence,
 	calendarOccurrencesPageRecipe,
 	calendarSourcesRecipe,
-	type CalendarOccurrence,
 } from "@ryot-app/ryotql-recipes/calendar";
 import { Effect, Result } from "effect";
 
 import {
+	type Client,
 	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQLRecipe,
 	listEventSchemas,
 	requireEventSchemaBySlug,
-	type Client,
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,

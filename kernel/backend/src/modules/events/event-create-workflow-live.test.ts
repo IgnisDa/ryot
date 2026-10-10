@@ -1,14 +1,14 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	type AutomationBatchRequestPayload,
 	AutomationEventSnapshot,
 	type AutomationPolicyOutput,
-	type AutomationBatchRequestPayload,
-	AutomationRun,
-	DEFAULT_AUTOMATION_RETRY_POLICY,
 	type AutomationRequestPayload,
+	AutomationRun,
 	type AutomationTrigger,
 	type AutomationWarning,
+	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EventCreateItemError } from "@ryot-app/contract/modules/events/schemas";
 import {
@@ -43,10 +43,10 @@ import {
 	LifecycleExecution,
 } from "#modules/automations/lifecycle/execution";
 import {
-	LifecyclePlanner,
-	lifecycleRunId,
 	type LifecyclePlan,
 	type LifecyclePlannedPolicy,
+	LifecyclePlanner,
+	lifecycleRunId,
 } from "#modules/automations/lifecycle/planning";
 import {
 	PolicyBatchPayload,
@@ -564,10 +564,11 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 								executed: [...done, identities.get(input.runId) ?? "missing"],
 								queued: new Set([...queued].filter((id) => id !== input.runId)),
 							}));
-							const output = yield* (
-								options.execute?.({ ...input, index: executed.length, payload: patched.request }) ??
-									Effect.succeed({ action: "allow" as const })
-							);
+							const output = yield* options.execute?.({
+								...input,
+								index: executed.length,
+								payload: patched.request,
+							}) ?? Effect.succeed({ action: "allow" as const });
 							const changedEntityId = options.changeEntityMetadataDuringPolicy;
 							if (changedEntityId !== undefined) {
 								yield* update(({ changedEntityMetadata }) => ({
@@ -637,14 +638,12 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 								inputs: [...inputs, patched.request],
 							}));
 							const acceptedPatches = input.acceptedBatchPatches[itemIdentity] ?? [];
-							const decision = yield* (
-								options.execute?.({
-									acceptedPatches,
-									runId: input.runId,
-									payload: patched.request,
-									index: snapshot.executed.length,
-								}) ?? Effect.succeed({ action: "allow" as const })
-							);
+							const decision = yield* options.execute?.({
+								acceptedPatches,
+								runId: input.runId,
+								payload: patched.request,
+								index: snapshot.executed.length,
+							}) ?? Effect.succeed({ action: "allow" as const });
 							const changedEntityId = options.changeEntityMetadataDuringPolicy;
 							if (changedEntityId !== undefined) {
 								yield* update(({ changedEntityMetadata }) => ({

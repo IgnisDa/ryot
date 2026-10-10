@@ -14,8 +14,8 @@ import { PluginRepository } from "../packages/repository";
 import { PluginRevisionActivation } from "../packages/revision-activation";
 import {
 	installRevisionPackage,
-	revisionPackage,
 	revisionDatabaseLayer,
+	revisionPackage,
 } from "../packages/revision.test-support";
 import { SystemPlugins } from "../packages/system";
 import { fixtureManifest } from "../test-support";

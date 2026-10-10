@@ -3,10 +3,10 @@ import { sql } from "drizzle-orm";
 
 import {
 	canAccessCatalogTable,
-	expandCatalogSelections,
-	resolveCatalogField,
 	type CatalogField,
 	type CatalogTable,
+	expandCatalogSelections,
+	resolveCatalogField,
 	type RyotQLAccess,
 } from "./catalog";
 

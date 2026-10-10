@@ -9,15 +9,15 @@ import {
 	TextArea,
 } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
-import { useEffect, useId, useRef, useState, type RefObject } from "react";
+import { type RefObject, useEffect, useId, useRef, useState } from "react";
 
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
 import {
 	ExerciseNoteCreateInput,
 	ExerciseNoteDeleteInput,
+	exerciseNoteOperationSlugs,
 	ExerciseNoteOutput,
 	ExerciseNoteUpdateInput,
-	exerciseNoteOperationSlugs,
 } from "../../shared/exercise-note-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { formatShortDate } from "../workout/format";

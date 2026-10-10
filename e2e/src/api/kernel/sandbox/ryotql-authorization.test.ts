@@ -16,8 +16,8 @@ import {
 	eq,
 	exists,
 	field,
-	include,
 	inArray,
+	include,
 	join,
 	literal,
 	rows,
@@ -29,10 +29,10 @@ import type { RyotQLResponse, TestPluginScript } from "~/fixtures/kernel";
 import {
 	adminHeaders,
 	createAuthenticatedClient,
-	deleteUserAndWait,
 	createEntity,
 	createEventFixture,
 	createRelationship,
+	deleteUserAndWait,
 	executeRyotQL,
 	fakeProviderDetailsResult,
 	getApiClient,
@@ -40,8 +40,8 @@ import {
 	literalSandboxSource,
 	pollUntil,
 	providerSandboxSource,
-	requireRyotQLValue,
 	requireRows,
+	requireRyotQLValue,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
 import {

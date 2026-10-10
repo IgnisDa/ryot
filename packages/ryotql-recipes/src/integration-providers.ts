@@ -6,9 +6,9 @@ import {
 	IngestionReadinessMetadata,
 } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import {
-	sameDeclaration,
-	definitionOwner,
 	type DeclarationReference,
+	definitionOwner,
+	sameDeclaration,
 } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -16,10 +16,10 @@ import {
 	ascending,
 	column,
 	defineRecipe,
+	type Recipe,
 	selectedField,
 	selectedRows,
 	table,
-	type Recipe,
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 

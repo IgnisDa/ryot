@@ -113,9 +113,7 @@ export function TrackerSheet() {
 											{isActive && (
 												<Box
 													className="absolute left-0 top-2 bottom-2 w-0.75"
-													style={{
-														backgroundColor: tracker.accentColor ?? undefined,
-													}}
+													style={{ backgroundColor: tracker.accentColor ?? undefined }}
 												/>
 											)}
 											<Box className="mr-2">
@@ -157,9 +155,7 @@ export function TrackerSheet() {
 															{isSubActive && (
 																<Box
 																	className="absolute left-0 top-2 bottom-2 w-0.75"
-																	style={{
-																		backgroundColor: item.accentColor ?? undefined,
-																	}}
+																	style={{ backgroundColor: item.accentColor ?? undefined }}
 																/>
 															)}
 															<Box className="mr-2">
@@ -205,9 +201,7 @@ export function TrackerSheet() {
 												{isActive && (
 													<Box
 														className="absolute left-0 top-2 bottom-2 w-0.75"
-														style={{
-															backgroundColor: view.accentColor ?? undefined,
-														}}
+														style={{ backgroundColor: view.accentColor ?? undefined }}
 													/>
 												)}
 												<Box className="mr-2">

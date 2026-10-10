@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { withTypeScriptProject, type TypeScriptProjectAccess } from "@ryot-app/typescript-compiler";
+import { type TypeScriptProjectAccess, withTypeScriptProject } from "@ryot-app/typescript-compiler";
 import { Effect } from "effect";
 
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";

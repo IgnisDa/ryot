@@ -7,8 +7,8 @@ import { Context, Effect, Layer, Ref } from "effect";
 
 import {
 	installRevisionPackage,
-	revisionPackage,
 	revisionDatabaseLayer,
+	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";

@@ -6,9 +6,9 @@ import type { QualifiedSchema } from "./migration-resolution";
 import {
 	buildAbortOnRowsSql,
 	buildAnomalyReportSql,
-	buildRequireLegacyTableSql,
 	buildReportDetailSql,
 	buildReportSql,
+	buildRequireLegacyTableSql,
 	quoteNullableSqlString,
 	quoteSqlString,
 } from "./shared";

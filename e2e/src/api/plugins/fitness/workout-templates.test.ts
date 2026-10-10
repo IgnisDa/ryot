@@ -14,8 +14,8 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createEntity,
 	createCollection,
+	createEntity,
 	executeRyotQLRecipe,
 	getEntity,
 	insertRelationshipRow,
@@ -24,8 +24,8 @@ import {
 	uploadPermanentAsset,
 } from "~/fixtures/kernel";
 import {
-	createWorkoutTemplateEntityFixture,
 	createExerciseEntityFixture,
+	createWorkoutTemplateEntityFixture,
 	findFitnessEntitySchema,
 	findFitnessRelationshipSchema,
 } from "~/fixtures/plugins/fitness";

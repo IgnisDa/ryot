@@ -1,6 +1,6 @@
 import { ScreenFrame } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { useRef, type ReactNode } from "react";
+import { type ReactNode, useRef } from "react";
 
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";

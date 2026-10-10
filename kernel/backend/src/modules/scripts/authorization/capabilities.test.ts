@@ -3,10 +3,10 @@ import {
 	SANDBOX_HOST_CAPABILITIES,
 } from "@ryot-app/contract/modules/scripts/wire";
 import {
+	PluginConfigRevisionId,
 	PluginId,
 	PluginPackageId,
 	PluginRevisionId,
-	PluginConfigRevisionId,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";

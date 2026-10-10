@@ -6,8 +6,8 @@ import { exerciseListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
-	createEntity,
 	createAuthenticatedClient,
+	createEntity,
 	executeRyotQL,
 	executeRyotQLRecipe,
 	getSavedView,
@@ -15,15 +15,15 @@ import {
 	listSavedViews,
 	mergeEntityUserData,
 	pollUntil,
+	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
-	requireRows,
 	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
-	findFitnessEntitySchema,
 	createWorkoutEntityFixture,
+	findFitnessEntitySchema,
 	findWorkoutSetEventSchema,
 } from "~/fixtures/plugins/fitness";
 import {

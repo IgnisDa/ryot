@@ -16,6 +16,7 @@ import {
 	encodePluginSourceFiles,
 	executeRyotQL,
 	installPrivatePlugin,
+	installTestSupportSystemPlugin,
 	listSavedViews,
 	literalSandboxSource,
 	makeSession,
@@ -27,7 +28,6 @@ import {
 	testPluginManifest,
 	testPluginPackageId,
 	testPluginSavedView,
-	installTestSupportSystemPlugin,
 	updatePrivatePlugin,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";

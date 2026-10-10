@@ -3,11 +3,11 @@ import { Result, Schema } from "effect";
 import {
 	column,
 	defineRecipe,
+	type Recipe,
 	selectedField,
+	type SelectedQuery,
 	selectedRows,
 	table,
-	type Recipe,
-	type SelectedQuery,
 } from "./index";
 
 type Assert<Condition extends true> = Condition;

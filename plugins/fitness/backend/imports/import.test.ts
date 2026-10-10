@@ -11,7 +11,7 @@ import {
 	installSandboxTestFilesystem,
 	makeWorkflowReplayHost,
 } from "@ryot-app/plugin-backend-sdk/testing";
-import { jsonValueSchema, type JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+import { type JsonValue, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,

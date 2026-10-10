@@ -5,6 +5,7 @@ import {
 import { Clock, Effect } from "effect";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQLRecipe,
@@ -13,7 +14,6 @@ import {
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
-	type Client,
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,

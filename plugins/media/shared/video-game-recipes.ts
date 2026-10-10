@@ -21,10 +21,10 @@ import {
 import type { ScalarExpression } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
 import {
+	type MediaFlatOverviewInput,
 	mediaFlatRecipes,
 	mediaTimeSpentMeasure,
 	relatedRows,
-	type MediaFlatOverviewInput,
 } from "./media-recipes";
 import {
 	PlatformReleaseListSchema,

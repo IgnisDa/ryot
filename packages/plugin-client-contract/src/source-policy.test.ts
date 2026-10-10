@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
-	PLUGIN_CLIENT_ASSET_MIME_TYPES,
-	PLUGIN_CLIENT_FILE_EXTENSIONS,
 	isPluginClientArtifactContentType,
 	isPluginClientTextSource,
 	isPluginSourceFile,
+	PLUGIN_CLIENT_ASSET_MIME_TYPES,
+	PLUGIN_CLIENT_FILE_EXTENSIONS,
 	pluginClientAssetMimeType,
 	pluginClientFileExtension,
 } from "./source-policy";

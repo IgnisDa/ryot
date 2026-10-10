@@ -1,27 +1,27 @@
-import { RyotClientError, type ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import { type ManagedAssetLocator, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
-	PluginId,
 	defineEntityPresentation,
-	PluginLink,
-	useRyotViewport,
 	type EntityPresentationComponentProps,
 	type EntityPresentationLoader,
 	type EntityPresentationPrepare,
+	PluginId,
+	PluginLink,
+	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
 import {
+	type EntitySyncState,
 	fieldSyncState,
 	isTitleProvisional,
 	SyncPip,
-	type EntitySyncState,
 } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
 import {
-	mediaPresentationSourceRecipe,
 	type MediaPresentationSource,
+	mediaPresentationSourceRecipe,
 } from "../../shared/entity-presentations";
 import { collectManagedAssetLocators, type MediaImageAsset, type MediaImages } from "./image";
 import { ManagedAssetImage } from "./managed-assets";

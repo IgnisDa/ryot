@@ -3,16 +3,16 @@ import type {
 	FieldSelection,
 	Include,
 	NamedQuery,
-	RyotQLDocument,
 	RowsOutput,
+	RyotQLDocument,
 	TimeSeriesOutput,
 } from "@ryot-app/contract/modules/ryotql/language";
 
 import {
+	type CatalogTable,
 	expandCatalogSelections,
 	getCatalogTable,
 	jsonElementsTable,
-	type CatalogTable,
 	type RyotQLAccess,
 } from "./catalog";
 

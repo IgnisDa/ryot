@@ -1,8 +1,8 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	type DeclarationReference,
 	definitionKey,
 	type EntitySchemaReference,
-	type DeclarationReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
@@ -26,11 +26,11 @@ import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
 import {
+	type EntitySchemaProviderDetailsScope,
+	type EntitySchemaScope,
 	entitySelection,
 	entityVisibleToUserClause,
 	toListedEntity,
-	type EntitySchemaProviderDetailsScope,
-	type EntitySchemaScope,
 } from "./repository-support";
 
 export type InsertEntityInputBase = {

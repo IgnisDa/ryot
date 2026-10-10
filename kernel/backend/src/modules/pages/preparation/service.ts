@@ -24,8 +24,8 @@ import { ClientPageCompositionService } from "./composition-service";
 import { generateClientDocument } from "./document";
 import {
 	clientPageCodeContributors,
-	resolveClientPageGraph,
 	type GraphPlugin,
+	resolveClientPageGraph,
 	type ResolvedClientPageGraph,
 } from "./graph";
 import { getKernelClientRenderer, getKernelEntityRenderer } from "./kernel-renderers";

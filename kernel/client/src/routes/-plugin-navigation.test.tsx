@@ -45,10 +45,10 @@ import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { NavigationService } from "#/modules/navigation/service";
 import { PluginOperationsService } from "#/modules/pages/bridge/operations";
 import {
+	makePluginCalendarSources,
 	makePluginEntitySaves,
 	makePluginQueries,
 	makePluginStorage,
-	makePluginCalendarSources,
 } from "#/modules/pages/bridge/services.test-layer";
 import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
@@ -57,23 +57,23 @@ import type { ProviderAddService } from "#/modules/provider-add/service";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
+	catalog,
+	clientCompositionDocument,
 	CustomizeRouteStubs,
-	InstanceAdminRouteStubs,
-	ImportsRouteStubs,
-	IntegrationRouteStubs,
 	DeviceRouteStubs,
+	ImportsRouteStubs,
+	InstanceAdminRouteStubs,
+	IntegrationRouteStubs,
+	makeAuthStub,
+	makeProviderAddStub,
+	makePublicApiStub,
+	makeStorageStub,
+	navigationData,
 	NotificationChannelRouteStubs,
 	OAuthRouteStubs,
 	ProviderAddRouteStubs,
 	SavedViewRouteStubs,
 	ServerStub,
-	catalog,
-	clientCompositionDocument,
-	makeAuthStub,
-	navigationData,
-	makeProviderAddStub,
-	makePublicApiStub,
-	makeStorageStub,
 	theme,
 } from "#/routes/-route-fixtures";
 

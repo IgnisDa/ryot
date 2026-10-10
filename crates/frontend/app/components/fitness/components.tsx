@@ -34,8 +34,7 @@ import {
 	type UserUnitSystem,
 	type WorkoutSupersetsInformation,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { snakeCase } from "@ryot-app/ts-utils/lodash";
-import { startCase } from "@ryot-app/ts-utils/lodash";
+import { snakeCase, startCase } from "@ryot-app/ts-utils/lodash";
 import { changeCase } from "@ryot-app/ts-utils/string";
 import {
 	IconArrowLeftToArc,
@@ -75,8 +74,8 @@ import { FitnessEntity } from "~/lib/types";
 
 import { ExerciseImagesList } from "./display-items";
 import {
-	DisplaySetStatistics,
 	displayDistanceWithUnit,
+	DisplaySetStatistics,
 	displayWeightWithUnit,
 	formatDuration,
 	getDurationUnitLabel,
@@ -209,10 +208,7 @@ export const ExerciseHistory = (props: {
 									style={{ scrollMargin: 20 }}
 									to={
 										props.hideExerciseDetails
-											? $path("/fitness/:entity/:id", {
-													entity: "workouts",
-													id: props.entityId,
-												})
+											? $path("/fitness/:entity/:id", { entity: "workouts", id: props.entityId })
 											: getExerciseDetailsPath(exercise.id)
 									}
 								>
@@ -396,9 +392,7 @@ export const ExerciseUpdatePreferencesModal = (props: {
 					</SimpleGrid>
 					<Switch
 						label="Exclude from analytics"
-						{...form.getInputProps("excludeFromAnalytics", {
-							type: "checkbox",
-						})}
+						{...form.getInputProps("excludeFromAnalytics", { type: "checkbox" })}
 					/>
 					{match(props.exerciseLot)
 						.with(

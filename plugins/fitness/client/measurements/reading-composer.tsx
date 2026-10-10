@@ -10,7 +10,7 @@ import {
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { useRef, useState, type RefObject } from "react";
+import { type RefObject, useRef, useState } from "react";
 
 import type { MeasurementEntry } from "../../shared/measurement-reading-operations";
 import { DateTimeField } from "../datetime-field";

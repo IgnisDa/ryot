@@ -13,7 +13,7 @@ import {
 } from "../../../tests/backend/automations/automation-test-utils";
 import { mediaFilesystem } from "../../imports/ingestion.test-support";
 import { runIntegrationTestScript } from "../artifacts.test-support";
-import definition, { manifest, mangaRef } from "./komga.sandbox";
+import definition, { mangaRef, manifest } from "./komga.sandbox";
 
 const mangaLink = { label: "AniList", url: "https://anilist.co/manga/30002" };
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));

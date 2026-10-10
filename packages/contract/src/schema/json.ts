@@ -3,9 +3,7 @@ import { Schema } from "effect";
 export type JsonPrimitive = boolean | number | string | null;
 
 export type JsonValue =
-	| JsonPrimitive
-	| readonly JsonValue[]
-	| { readonly [key: string]: JsonValue };
+	JsonPrimitive | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 
 export const isJsonValue = (value: unknown): value is JsonValue => {
 	const active = new WeakSet<object>();

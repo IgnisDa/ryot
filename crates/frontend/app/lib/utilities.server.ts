@@ -5,7 +5,7 @@ import {
 	CoreDetailsDocument,
 	UserDetailsDocument,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { parse, type SerializeOptions, serialize } from "cookie";
+import { parse, serialize, type SerializeOptions } from "cookie";
 import { ClientError, GraphQLClient, type RequestDocument, type Variables } from "graphql-request";
 import type { VariablesAndRequestHeadersArgs } from "node_modules/graphql-request/build/legacy/helpers/types";
 import { createCookie, createCookieSessionStorage, data, redirect } from "react-router";
@@ -26,9 +26,7 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 		docs: RequestDocument | TypedDocumentNode<T, V>,
 		...vars: VariablesAndRequestHeadersArgs<V>
 	): Promise<T> {
-		const authHeaders = {
-			Authorization: `Bearer ${getAuthorizationCookie(remixRequest)}`,
-		};
+		const authHeaders = { Authorization: `Bearer ${getAuthorizationCookie(remixRequest)}` };
 		vars[1] = { ...authHeaders, ...vars[1] };
 		try {
 			return await this.request<T, V>(docs, ...vars);
@@ -46,10 +44,7 @@ class AuthenticatedGraphQLClient extends GraphQLClient {
 						return redirect($path("/auth"), {
 							headers: combineHeaders(
 								getLogoutCookies(),
-								await createToastHeaders({
-									type: "error",
-									message: "Your session has expired",
-								}),
+								await createToastHeaders({ type: "error", message: "Your session has expired" }),
 							),
 						});
 					},
@@ -152,10 +147,7 @@ export const getUserPreferences = async (request: Request) => {
 const temporaryFileUploadHandler = async (fileUpload: FileUpload) => {
 	const formData = new FormData();
 	formData.append("files[]", fileUpload, fileUpload.name);
-	const resp = await fetch(`${API_URL}/upload`, {
-		method: "POST",
-		body: formData,
-	});
+	const resp = await fetch(`${API_URL}/upload`, { method: "POST", body: formData });
 	const data = await resp.json();
 	return data[0];
 };
@@ -179,9 +171,7 @@ export const twoFactorSessionStorage = createCookieSessionStorage({
 	},
 });
 
-export const colorSchemeCookie = createCookie("ColorScheme", {
-	maxAge: 60 * 60 * 24 * 365,
-});
+export const colorSchemeCookie = createCookie("ColorScheme", { maxAge: 60 * 60 * 24 * 365 });
 
 const TypeSchema = z.enum(["message", "success", "error"]);
 const ToastSchema = z.object({
@@ -220,9 +210,7 @@ export const getToast = async (request: Request) => {
 	return {
 		toast,
 		headers: toast
-			? new Headers({
-					"set-cookie": await toastSessionStorage.destroySession(session),
-				})
+			? new Headers({ "set-cookie": await toastSessionStorage.destroySession(session) })
 			: null,
 	};
 };
@@ -231,16 +219,12 @@ export const getCookiesForApplication = async (token: string, tokenValidForDays?
 	const [coreDetails] = await Promise.all([getCoreDetails()]);
 	const maxAge = (tokenValidForDays || coreDetails.tokenValidForDays) * 24 * 60 * 60;
 	const options = { maxAge, path: "/" } satisfies SerializeOptions;
-	return combineHeaders({
-		"set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, token, options),
-	});
+	return combineHeaders({ "set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, token, options) });
 };
 
 export const getLogoutCookies = () => {
 	return combineHeaders({
-		"set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, "", {
-			expires: new Date(0),
-		}),
+		"set-cookie": serialize(FRONTEND_AUTH_COOKIE_NAME, "", { expires: new Date(0) }),
 	});
 };
 

@@ -32,8 +32,8 @@ import { validateSystemPluginSet } from "./system-set";
 import type { NormalizedPlugin, PluginSource, StoredPlugin } from "./types";
 import {
 	PluginValidationError,
-	validateIntegrationProviderSettingsSchemas,
 	validateImportSourceInputSchemas,
+	validateIntegrationProviderSettingsSchemas,
 	validatePluginExecutableScripts,
 	validatePluginManifestPolicy,
 	validatePluginManifestReferences,

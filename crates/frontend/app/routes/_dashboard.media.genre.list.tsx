@@ -53,15 +53,11 @@ export default function Page() {
 	const { filters, updateFilters } = useFiltersState(defaultFilterState);
 
 	const { data: userGenresList } = useQuery({
-		queryKey: queryFactory.media.userGenresList({
-			page: filters.page,
-			query: filters.query,
-		}).queryKey,
+		queryKey: queryFactory.media.userGenresList({ page: filters.page, query: filters.query })
+			.queryKey,
 		queryFn: () =>
 			clientGqlService
-				.request(UserGenresListDocument, {
-					input: { page: filters.page, query: filters.query },
-				})
+				.request(UserGenresListDocument, { input: { page: filters.page, query: filters.query } })
 				.then((data) => data.userGenresList),
 	});
 

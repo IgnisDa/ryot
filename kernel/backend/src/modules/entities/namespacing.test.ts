@@ -61,7 +61,7 @@ import { EntitiesRepository } from "./repository";
 import { makeEntityScriptHost } from "./script-host";
 import { EntitiesService, type UpsertEntityInput } from "./service";
 import { EntityUserDataService } from "./user-data/service";
-import { kernelCollectionLifecycleCommand, type DomainLifecycleCommand } from "./write-context";
+import { type DomainLifecycleCommand, kernelCollectionLifecycleCommand } from "./write-context";
 
 const firstUser = UserId.make("relationship-owner");
 const secondUser = UserId.make("second-namespace-owner");

@@ -6,8 +6,7 @@ export type SchemaFileCandidate = {
 };
 
 export type SchemaFilePickOutcome =
-	| { readonly kind: "canceled" }
-	| { readonly kind: "picked"; readonly file: SchemaFileCandidate };
+	{ readonly kind: "canceled" } | { readonly kind: "picked"; readonly file: SchemaFileCandidate };
 
 export type SchemaFilePicker = (options: {
 	readonly allowedFileExtensions: readonly string[];

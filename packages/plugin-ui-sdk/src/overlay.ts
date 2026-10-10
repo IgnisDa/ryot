@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useMemo, useRef, type RefObject } from "react";
+import { type RefObject, useCallback, useEffect, useEffectEvent, useMemo, useRef } from "react";
 
 export const editableSelector =
 	'input:not([type="hidden"]), textarea, [contenteditable]:not([contenteditable="false"])';

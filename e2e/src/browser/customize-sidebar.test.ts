@@ -7,9 +7,9 @@ import {
 	createSavedView,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
+	type InstalledTestProvider,
 	installTestProvider,
 	uninstallTestProvider,
-	type InstalledTestProvider,
 } from "~/fixtures/kernel";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";

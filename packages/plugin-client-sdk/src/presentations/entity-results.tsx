@@ -2,27 +2,27 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
 	EntityArtWell,
-	SettleHighlight,
-	SyncPip,
+	type EntitySyncState,
 	fieldSyncState,
 	isTitleProvisional,
-	type EntitySyncState,
+	SettleHighlight,
+	SyncPip,
 } from "@ryot-app/plugin-ui-sdk/sync";
 import * as Effect from "effect/Effect";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import {
 	Component,
+	type ComponentType,
 	createContext,
-	useContext,
+	type ReactNode,
 	useCallback,
+	useContext,
 	useEffect,
 	useMemo,
 	useRef,
 	useState,
 	useSyncExternalStore,
-	type ComponentType,
-	type ReactNode,
 } from "react";
 
 import type { RyotClient } from "../client/client";
@@ -102,8 +102,7 @@ type PresentationRuntime = {
 	readonly query: RyotQuery<BatchInput, Readonly<Record<string, unknown>>>;
 };
 type PreparedPresentation =
-	| { readonly success: true; readonly data: unknown }
-	| { readonly success: false };
+	{ readonly success: true; readonly data: unknown } | { readonly success: false };
 
 type PresentationEntry = {
 	readonly getSnapshot: () => "idle" | "loading" | "ready" | "failed";

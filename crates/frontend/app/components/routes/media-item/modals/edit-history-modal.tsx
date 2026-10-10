@@ -104,10 +104,7 @@ export const EditHistoryItemModal = (props: {
 								label="Season"
 								name="showSeasonNumber"
 								onChange={(v) => setSelectedSeasonNumber(v ? Number(v) : null)}
-								data={seasons.map((s) => ({
-									label: s.name,
-									value: String(s.seasonNumber),
-								}))}
+								data={seasons.map((s) => ({ label: s.name, value: String(s.seasonNumber) }))}
 								value={selectedSeasonNumber !== null ? String(selectedSeasonNumber) : null}
 							/>
 							<Select
@@ -211,10 +208,7 @@ export const EditHistoryItemModal = (props: {
 										disabled={!coreDetails.isServerKeyValidated}
 										rightSection={<Text size="xs">{input}</Text>}
 										onChange={(v) => {
-											setManualTimeSpentValue((prev) => ({
-												...prev,
-												[input]: v,
-											}));
+											setManualTimeSpentValue((prev) => ({ ...prev, [input]: v }));
 										}}
 									/>
 								))}

@@ -13,10 +13,7 @@ export const getMediaLinks = (userPreferences: UserPreferences) =>
 		...userPreferences.featuresEnabled.media.specific.map((f) => {
 			return {
 				label: changeCase(f),
-				link: $path("/media/:action/:lot", {
-					action: "list",
-					lot: f.toLowerCase(),
-				}),
+				link: $path("/media/:action/:lot", { action: "list", lot: f.toLowerCase() }),
 				tourControlTarget:
 					f === MediaLot.AudioBook
 						? `${OnboardingTourStepTarget.FirstSidebar} ${OnboardingTourStepTarget.GoBackToAudiobooksSection}`
@@ -24,22 +21,13 @@ export const getMediaLinks = (userPreferences: UserPreferences) =>
 			};
 		}),
 		userPreferences.featuresEnabled.media.groups
-			? {
-					label: "Groups",
-					link: $path("/media/groups/:action", { action: "list" }),
-				}
+			? { label: "Groups", link: $path("/media/groups/:action", { action: "list" }) }
 			: undefined,
 		userPreferences.featuresEnabled.media.people
-			? {
-					label: "People",
-					link: $path("/media/people/:action", { action: "list" }),
-				}
+			? { label: "People", link: $path("/media/people/:action", { action: "list" }) }
 			: undefined,
 		userPreferences.featuresEnabled.media.genres
-			? {
-					label: "Genres",
-					link: $path("/media/genre/list"),
-				}
+			? { label: "Genres", link: $path("/media/genre/list") }
 			: undefined,
 	].filter((link) => link !== undefined);
 
@@ -71,18 +59,9 @@ export const getSettingsLinks = (userDetails: ReturnType<typeof useUserDetails>)
 			link: $path("/settings/preferences"),
 			tourControlTarget: OnboardingTourStepTarget.OpenSettingsPreferences,
 		},
-		{
-			label: "Imports and Exports",
-			link: $path("/settings/imports-and-exports"),
-		},
-		{
-			label: "Security",
-			link: $path("/settings/security"),
-		},
-		{
-			label: "Sharing",
-			link: $path("/settings/sharing"),
-		},
+		{ label: "Imports and Exports", link: $path("/settings/imports-and-exports") },
+		{ label: "Security", link: $path("/settings/security") },
+		{ label: "Sharing", link: $path("/settings/sharing") },
 		{ label: "Integrations", link: $path("/settings/integrations") },
 		{ label: "Notifications", link: $path("/settings/notifications") },
 		{ label: "Miscellaneous", link: $path("/settings/miscellaneous") },

@@ -9,8 +9,8 @@ import { ProviderEntityPopulationWorkflow } from "#modules/entities/providers/pr
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 import { ProcessIngestionCaptureWorkflow } from "#modules/imports/capture-write-workflow";
 import {
-	ProcessDataImportWorkflow,
 	ProcessDataImportSegmentWorkflow,
+	ProcessDataImportWorkflow,
 } from "#modules/imports/data-workflow";
 import { ProcessGenericImportChunksWorkflow } from "#modules/imports/generic-import-workflow";
 import { ProcessImportRunWorkflow } from "#modules/imports/import-run-workflow";

@@ -1,6 +1,9 @@
 import { Text } from "@mantine/core";
 import { modals } from "@mantine/modals";
-import { MediaSource, PresignedPutS3UrlDocument } from "@ryot-app/generated/graphql/backend/graphql";
+import {
+	MediaSource,
+	PresignedPutS3UrlDocument,
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { startCase } from "@ryot-app/ts-utils/lodash";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
@@ -65,10 +68,7 @@ export const clientSideFileUpload = async (file: File, prefix: string) => {
 };
 
 export const convertEnumToSelectData = (value: { [id: number]: string }) =>
-	Object.values(value).map((v) => ({
-		value: v,
-		label: startCase(v.toString().toLowerCase()),
-	}));
+	Object.values(value).map((v) => ({ value: v, label: startCase(v.toString().toLowerCase()) }));
 
 export const triggerDownload = (url: string, filename: string) => {
 	const link = document.createElement("a");

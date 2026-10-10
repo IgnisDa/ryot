@@ -1,6 +1,6 @@
 import {
-	notificationChannelKinds,
 	type NotificationChannelKind,
+	notificationChannelKinds,
 } from "@ryot-app/contract/modules/notifications/types";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 

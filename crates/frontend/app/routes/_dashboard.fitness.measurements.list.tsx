@@ -17,9 +17,7 @@ import {
 	UserMeasurementsListDocument,
 	type UserMeasurementsListInput,
 } from "@ryot-app/generated/graphql/backend/graphql";
-import { cloneDeep } from "@ryot-app/ts-utils/lodash";
-import { reverse } from "@ryot-app/ts-utils/lodash";
-import { startCase } from "@ryot-app/ts-utils/lodash";
+import { cloneDeep, reverse, startCase } from "@ryot-app/ts-utils/lodash";
 import { IconChartArea, IconPencil, IconPlus, IconTable, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { DataTable } from "mantine-datatable";
@@ -73,9 +71,7 @@ export default function Page() {
 
 	const deleteUserMeasurementMutation = useMutation({
 		mutationFn: (timestamp: string) =>
-			clientGqlService.request(DeleteUserMeasurementDocument, {
-				timestamp,
-			}),
+			clientGqlService.request(DeleteUserMeasurementDocument, { timestamp }),
 		onSuccess: () => {
 			notifications.show({
 				color: "green",
@@ -85,11 +81,7 @@ export default function Page() {
 			refetch();
 		},
 		onError: () => {
-			notifications.show({
-				color: "red",
-				title: "Error",
-				message: "Failed to delete measurement",
-			});
+			notifications.show({ color: "red", title: "Error", message: "Failed to delete measurement" });
 		},
 	});
 
@@ -168,10 +160,7 @@ export default function Page() {
 									accessor: "timestamp",
 									render: ({ timestamp }) => dayjsLib(timestamp).format("lll"),
 								},
-								...selectedStatistics.map((s) => ({
-									title: s.label,
-									accessor: s.value,
-								})),
+								...selectedStatistics.map((s) => ({ title: s.label, accessor: s.value })),
 								{
 									width: 80,
 									accessor: "Edit",

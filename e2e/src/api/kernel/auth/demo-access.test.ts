@@ -1,7 +1,6 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { integrationWebhookUrl as buildIntegrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
 import {
-	OAuthTokenResponse,
 	getOAuthEndpoint,
 	getOAuthResource,
 	OAUTH_DEMO_WEB_CLIENT_ID,
@@ -10,6 +9,7 @@ import {
 	OAUTH_TOKEN_PATH,
 	OAUTH_WEB_CLIENT_ID,
 	type OAuthClientId,
+	OAuthTokenResponse,
 } from "@ryot-app/contract/oauth";
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
@@ -26,12 +26,14 @@ import {
 	createTestUser,
 	executeRyotQL,
 	executeRyotQLRecipe,
+	findPluginInstallationByPackage,
 	getTwoFactorStatus,
 	getUserSettings,
 	listEventSchemas,
 	listRelationshipSchemas,
 	makeSession,
 	mergeEntityUserData,
+	type PendingOAuth,
 	prepareOAuth,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
@@ -42,8 +44,6 @@ import {
 	signInWithPassword,
 	updateUserSettingsPreferences,
 	waitForCreateEvents,
-	type PendingOAuth,
-	findPluginInstallationByPackage,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import {

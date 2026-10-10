@@ -13,8 +13,8 @@ import {
 	EventMutationResponse,
 	EventNotFound,
 	EventOperationNotFound,
-	EventStale,
 	EventsInternalError,
+	EventStale,
 	EventUpdatePatch,
 } from "./schemas";
 

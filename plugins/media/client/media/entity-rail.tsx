@@ -4,16 +4,16 @@ import clsx from "clsx";
 import type { ReactNode } from "react";
 
 import {
-	mediaArtworkClass,
-	mediaRailWidthClass,
 	type MediaArtworkAspect,
+	mediaArtworkClass,
 	type MediaPresentationSubject,
+	mediaRailWidthClass,
 } from "./entity-presentation";
 import type { MediaImageAsset } from "./image";
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaLinkButton, MediaOverviewSection, MediaRail } from "./primitives";
 import { mediaPosterAsset } from "./summary-state";
-import { mediaSyncCounts, type MediaSyncCounts } from "./sync-counts";
+import { type MediaSyncCounts, mediaSyncCounts } from "./sync-counts";
 
 export type MediaRailStatus =
 	| { readonly kind: "pending" }

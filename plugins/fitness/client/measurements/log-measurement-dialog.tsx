@@ -1,5 +1,5 @@
 import { useRyotSubmission } from "@ryot-app/plugin-client-sdk/react";
-import { useEffect, useState, type RefObject } from "react";
+import { type RefObject, useEffect, useState } from "react";
 
 import type { MeasurementSummary } from "../../shared/measurement-recipes";
 import { selectPinnedMetrics } from "./model";

@@ -3,18 +3,18 @@ import { createRyotMutation, type RyotSubmission } from "@ryot-app/plugin-client
 
 import {
 	MeasurementMetricPinInput,
-	MeasurementMetricPinOutput,
 	measurementMetricPinOperationSlug,
+	MeasurementMetricPinOutput,
 } from "../../shared/measurement-metric-operations";
 import {
-	MeasurementReadingDeleteInput,
-	MeasurementReadingLogInput,
-	MeasurementReadingLogOutput,
 	type MeasurementEntry,
+	MeasurementReadingDeleteInput,
+	measurementReadingDeleteOperationSlug,
+	MeasurementReadingLogInput,
+	measurementReadingLogOperationSlug,
+	MeasurementReadingLogOutput,
 	MeasurementReadingOutput,
 	MeasurementReadingUpdateInput,
-	measurementReadingDeleteOperationSlug,
-	measurementReadingLogOperationSlug,
 	measurementReadingUpdateOperationSlug,
 } from "../../shared/measurement-reading-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";

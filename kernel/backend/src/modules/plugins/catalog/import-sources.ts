@@ -4,15 +4,15 @@ import type {
 	PluginImportSource,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import {
-	definitionOwner,
 	type DeclarationReference,
+	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
-	SandboxScriptId,
 	type PluginPackageId,
+	SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
-import { and, eq, sql, type SQL } from "drizzle-orm";
+import { and, eq, type SQL, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { installationSlugWhere, referenceWhere } from "#platform/db/definition-owner";

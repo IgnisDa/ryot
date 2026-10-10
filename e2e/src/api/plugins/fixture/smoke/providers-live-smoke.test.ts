@@ -6,14 +6,14 @@ import {
 	createAuthenticatedClient,
 	enqueueProviderEntityImport,
 	executeRyotQLRecipe,
-	listEntitySchemas,
-	listSavedViews,
 	fixtureClientPluginPackage,
 	installPrivatePluginPackage,
+	listEntitySchemas,
+	listSavedViews,
 	pollProviderEntityImportResult,
+	releasePrivatePlugin,
 	searchProviderEntities,
 	settledPrivateInstallation,
-	releasePrivatePlugin,
 } from "~/fixtures/kernel";
 import {
 	assertCompleted,

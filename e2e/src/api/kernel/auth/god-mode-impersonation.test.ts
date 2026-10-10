@@ -1,13 +1,13 @@
 import {
 	getOAuthEndpoint,
 	getWebOAuthLogoutCallbackUri,
-	OAuthUserInfoResponse,
 	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
 	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
 	OAUTH_NATIVE_CALLBACK_URIS,
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_USERINFO_PATH,
 	OAUTH_WEB_CLIENT_ID,
+	OAuthUserInfoResponse,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Effect, Schema } from "effect";

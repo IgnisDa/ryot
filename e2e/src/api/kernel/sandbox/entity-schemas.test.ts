@@ -2,11 +2,11 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	testPluginEntitySchema,
-	entitySchemasSandboxSource,
 	enqueueSandboxScript,
+	entitySchemasSandboxSource,
 	installSandboxScriptScoped,
 	pollSandboxResult,
+	testPluginEntitySchema,
 } from "~/fixtures/kernel";
 import { assertCompleted } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";

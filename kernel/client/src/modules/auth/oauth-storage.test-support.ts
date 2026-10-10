@@ -1,6 +1,6 @@
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { oauthStorageLayer, type OAuthStorageAdapter } from "#/modules/auth/oauth-storage";
+import { type OAuthStorageAdapter, oauthStorageLayer } from "#/modules/auth/oauth-storage";
 
 export class FakeOAuthStorage extends Context.Service<
 	FakeOAuthStorage,

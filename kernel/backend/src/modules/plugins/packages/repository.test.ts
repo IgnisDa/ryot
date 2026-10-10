@@ -28,8 +28,8 @@ import { pluginContentHash } from "./pipeline";
 import { PluginRepository } from "./repository";
 import {
 	installRevisionPackage,
-	revisionPackage,
 	revisionDatabaseLayer,
+	revisionPackage,
 } from "./revision.test-support";
 
 const owner = UserId.make("owner");

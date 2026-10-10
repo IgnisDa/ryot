@@ -11,10 +11,10 @@ import { makeSidecarFrameReader, makeSidecarFrameWriter } from "./framing";
 import { MiB, SANDBOX_LIMITS } from "./limits";
 import {
 	SIDECAR_PROTOCOL_LIMITS,
-	SidecarInboundFrame,
-	SidecarProtocolError,
 	type SidecarInboundFrame as InboundFrame,
+	SidecarInboundFrame,
 	type SidecarOutboundFrame as OutboundFrame,
+	SidecarProtocolError,
 } from "./messages";
 
 const encoder = new TextEncoder();

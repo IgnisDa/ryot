@@ -179,11 +179,7 @@ const UserActions = (props: { user: User; setUrlDisplayData: (data: UrlDisplayDa
 			invalidateUsersList();
 			const message = deleteUser ? "User deleted successfully" : "User cannot be deleted";
 			const color = deleteUser ? "green" : "red";
-			notifications.show({
-				color,
-				message,
-				title: deleteUser ? "Success" : "Error",
-			});
+			notifications.show({ color, message, title: deleteUser ? "Success" : "Error" });
 		},
 		onError: () => showErrorNotification("Failed to delete user"),
 	});
@@ -191,9 +187,7 @@ const UserActions = (props: { user: User; setUrlDisplayData: (data: UrlDisplayDa
 	const resetUserMutation = useMutation({
 		onError: () => showErrorNotification("Failed to reset user"),
 		mutationFn: async (toResetUserId: string) => {
-			const { resetUser } = await clientGqlService.request(ResetUserDocument, {
-				toResetUserId,
-			});
+			const { resetUser } = await clientGqlService.request(ResetUserDocument, { toResetUserId });
 			return resetUser;
 		},
 		onSuccess: async (resetUser) => {
@@ -255,10 +249,7 @@ const UserActions = (props: { user: User; setUrlDisplayData: (data: UrlDisplayDa
 							: `Are you sure you want to ${action} this user? ${newStatus ? "The user will be unable to log in." : "The user will be able to log in again."}`;
 
 					openConfirmationModal(confirmationMessage, () =>
-						toggleUserStatusMutation.mutate({
-							userId: props.user.id,
-							isDisabled: newStatus,
-						}),
+						toggleUserStatusMutation.mutate({ userId: props.user.id, isDisabled: newStatus }),
 					);
 				}}
 			>
@@ -327,20 +318,14 @@ const handleCurrentUserLogout = (
 	navigate(logoutRoute);
 };
 
-type UrlDisplayData = {
-	url: string;
-	title: string;
-	description: string;
-} | null;
+type UrlDisplayData = { url: string; title: string; description: string } | null;
 
 export const meta = () => {
 	return [{ title: "User Settings | Ryot" }];
 };
 
 const invalidateUsersList = () =>
-	queryClient.invalidateQueries({
-		queryKey: queryFactory.miscellaneous.usersList._def,
-	});
+	queryClient.invalidateQueries({ queryKey: queryFactory.miscellaneous.usersList._def });
 
 const UserInvitationModal = (props: {
 	opened: boolean;

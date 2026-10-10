@@ -3,7 +3,7 @@ import { Button } from "@ryot-app/plugin-ui-sdk";
 import type { ManagedRuntime } from "effect";
 import { useEffect, useEffectEvent, useLayoutEffect, useSyncExternalStore } from "react";
 
-import { apiScopeKey, type ApiScope } from "#/api/scope";
+import { type ApiScope, apiScopeKey } from "#/api/scope";
 import { DeviceService } from "#/modules/device/service";
 
 type DeviceRuntime = ManagedRuntime.ManagedRuntime<DeviceService, never>;

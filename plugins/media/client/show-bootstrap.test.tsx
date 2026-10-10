@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	type PluginBridgeInit,
 } from "@ryot-app/plugin-client-contract";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";

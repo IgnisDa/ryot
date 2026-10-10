@@ -7,9 +7,10 @@ import {
 	createAuthenticatedClient,
 	createEntity,
 	createPluginSchema,
+	createRatedItem,
 	deleteUserAndWait,
-	entityRowsSandboxSource,
 	enqueueSandboxScript,
+	entityRowsSandboxSource,
 	eventRowsSandboxSource,
 	executeRyotQL,
 	fakeProviderDetailsResult,
@@ -19,14 +20,13 @@ import {
 	pollSandboxResult,
 	pollUntil,
 	providerSandboxSource,
+	ratedItemEntitySchema,
+	requireRows,
 	requireRyotQLText,
 	requireRyotQLValue,
-	requireRows,
 	systemRyotqlProbeSandboxSource,
 	uninstallTestPlugin,
 	waitForCreateEvents,
-	createRatedItem,
-	ratedItemEntitySchema,
 } from "~/fixtures/kernel";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";

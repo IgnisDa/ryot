@@ -66,9 +66,7 @@ export const CreateOrUpdateCollectionModal = (props: { onClose: () => void }) =>
 					?.extraInformation?.isHidden,
 			),
 		},
-		validate: {
-			name: (value) => (value.trim() ? null : "Name is required"),
-		},
+		validate: { name: (value) => (value.trim() ? null : "Name is required") },
 	});
 
 	const updateTemplateField = (index: number, updates: Partial<CollectionExtraInformation>) => {
@@ -153,19 +151,12 @@ export const CreateOrUpdateCollectionModal = (props: { onClose: () => void }) =>
 								size="xs"
 								onClick={() => {
 									if (!coreDetails.isServerKeyValidated) {
-										notifications.show({
-											color: "red",
-											message: PRO_REQUIRED_MESSAGE,
-										});
+										notifications.show({ color: "red", message: PRO_REQUIRED_MESSAGE });
 										return;
 									}
 									form.setFieldValue("informationTemplate", [
 										...form.values.informationTemplate,
-										{
-											name: "",
-											description: "",
-											lot: CollectionExtraInformationLot.String,
-										},
+										{ name: "", description: "", lot: CollectionExtraInformationLot.String },
 									]);
 								}}
 							>
@@ -200,9 +191,7 @@ export const CreateOrUpdateCollectionModal = (props: { onClose: () => void }) =>
 										value={field.lot}
 										data={convertEnumToSelectData(CollectionExtraInformationLot)}
 										onChange={(v) =>
-											updateTemplateField(index, {
-												lot: v as CollectionExtraInformationLot,
-											})
+											updateTemplateField(index, { lot: v as CollectionExtraInformationLot })
 										}
 									/>
 									{field.lot !== CollectionExtraInformationLot.StringArray ? (
@@ -211,11 +200,7 @@ export const CreateOrUpdateCollectionModal = (props: { onClose: () => void }) =>
 											size="xs"
 											label="Default value"
 											value={field.defaultValue || ""}
-											onChange={(e) =>
-												updateTemplateField(index, {
-													defaultValue: e.target.value,
-												})
-											}
+											onChange={(e) => updateTemplateField(index, { defaultValue: e.target.value })}
 										/>
 									) : null}
 								</Group>

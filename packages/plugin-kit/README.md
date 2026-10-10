@@ -305,19 +305,19 @@ must reference an automation-kind script with the correct `automationType`.
 ```ts
 // Inside the authored manifest; "item" must be a declared entity schema.
 hooks: [
-	{
-		slug: "item.ensure-membership",
-		name: "Ensure library membership",
-		scriptSlug: "ensure-membership",
-		stage: "after",
-		delivery: "required",
-		targets: [
-			{ resource: "entity", operation: "create", entitySchemaSlug: "item" },
-			{ resource: "provider-entity-import", operation: "complete", entitySchemaSlug: "item" },
-		],
-		causationSources: ["api", "import", "integration"],
-		retry: { maxAttempts: 3, initialDelayMs: 1000, maxDelayMs: 60000, externalIdempotency: "none" },
-	},
+  {
+    slug: "item.ensure-membership",
+    name: "Ensure library membership",
+    scriptSlug: "ensure-membership",
+    stage: "after",
+    delivery: "required",
+    targets: [
+      { resource: "entity", operation: "create", entitySchemaSlug: "item" },
+      { resource: "provider-entity-import", operation: "complete", entitySchemaSlug: "item" },
+    ],
+    causationSources: ["api", "import", "integration"],
+    retry: { maxAttempts: 3, initialDelayMs: 1000, maxDelayMs: 60000, externalIdempotency: "none" },
+  },
 ];
 ```
 
@@ -365,7 +365,7 @@ Return a decision for each item, matched by its identity:
 
 ```ts
 {
-	items: [{ itemIdentity, decision }];
+  items: [{ itemIdentity, decision }];
 }
 ```
 

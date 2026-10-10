@@ -1,24 +1,24 @@
 import {
 	anchorOf,
 	decimalLabel,
-	mediaActivityRowsView,
-	mediaBeatRow,
-	mediaCollectionRow,
-	mediaCollectionRowLabel,
-	mediaCompletionRow,
-	mediaLibraryRow,
-	mediaReviewRow,
-	nonEmpty,
-	optionalText,
 	type MediaActivityBeatRow,
 	type MediaActivityCollectionRow,
 	type MediaActivityCompletionRow,
 	type MediaActivityEventRow,
 	type MediaActivityLibraryRow,
 	type MediaActivityReviewRow,
+	mediaActivityRowsView,
 	type MediaActivitySpan,
 	type MediaActivityTimeline,
+	mediaBeatRow,
+	mediaCollectionRow,
+	mediaCollectionRowLabel,
+	mediaCompletionRow,
+	mediaLibraryRow,
+	mediaReviewRow,
 	type NonEmpty,
+	nonEmpty,
+	optionalText,
 } from "./activity-timeline";
 import { formatLocalDateKey } from "./date";
 
@@ -48,9 +48,7 @@ export type MediaEpisodicCollectionEvent = {
 };
 
 export type MediaEpisodicActivityEvent<Episode> =
-	| MediaEpisodicParentEvent
-	| MediaEpisodicEpisodeEvent<Episode>
-	| MediaEpisodicCollectionEvent;
+	MediaEpisodicParentEvent | MediaEpisodicEpisodeEvent<Episode> | MediaEpisodicCollectionEvent;
 
 export type MediaEpisodicWatchDayRow = {
 	readonly day: string;

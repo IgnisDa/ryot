@@ -4,7 +4,7 @@ import type {
 	PluginLogicalLocation,
 } from "@ryot-app/plugin-client-contract";
 
-import { reconcileStack, type PluginScreen, type ResolvePluginScreen } from "./stack";
+import { type PluginScreen, reconcileStack, type ResolvePluginScreen } from "./stack";
 
 export type PluginNavigationEntry = {
 	readonly key: string;

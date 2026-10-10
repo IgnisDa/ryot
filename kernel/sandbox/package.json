@@ -39,7 +39,7 @@
 		"protocol:fixtures": "bun tooling/protocol-fixtures.ts",
 		"test": "bun --bun run vitest run && cd native && cargo test",
 		"build": "bun run tooling/runtime.ts && cd native && cargo build --release --bins && cargo run --release --bin ryot-sandbox-artifacts -- ../dist",
-		"check": "oxfmt . --write && oxlint . --fix && bun tooling/protocol-fixtures.ts --check && cd native && cargo fmt --check && cargo clippy --all-targets -- -D warnings"
+		"check": "bun fmt . --write && oxlint . --fix && bun tooling/protocol-fixtures.ts --check && cd native && cargo fmt --check && cargo clippy --all-targets -- -D warnings"
 	},
 	"dependencies": {
 		"@effect/platform-bun": "4.0.5",

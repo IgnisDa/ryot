@@ -61,16 +61,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 	const submission = processSubmission(formData, jobSchema);
 	await serverGqlService.authenticatedRequest(request, DeployBackgroundJobDocument, submission);
 	return data({} as const, {
-		headers: await createToastHeaders({
-			type: "success",
-			message: "Job has been deployed",
-		}),
+		headers: await createToastHeaders({ type: "success", message: "Job has been deployed" }),
 	});
 };
 
-const jobSchema = z.object({
-	jobName: z.enum(BackgroundJob),
-});
+const jobSchema = z.object({ jobName: z.enum(BackgroundJob) });
 
 export default function Page() {
 	const navigate = useNavigate();

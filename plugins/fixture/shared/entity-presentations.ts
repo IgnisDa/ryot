@@ -5,14 +5,14 @@ import {
 	castNumber,
 	castText,
 	column,
+	entitySchemaPredicate,
 	inArray,
 	jsonPath,
 	literal,
 	selectedField,
 	selectedRowsSource,
-	table,
 	type SelectedSelection,
-	entitySchemaPredicate,
+	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";

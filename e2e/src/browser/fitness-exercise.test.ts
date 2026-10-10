@@ -10,9 +10,9 @@ import {
 import {
 	createExerciseEntityFixture,
 	createWorkoutTemplateEntityFixture,
-	readWorkoutDetails,
 	findFitnessEntitySchema,
 	openFitnessPage,
+	readWorkoutDetails,
 	seedExerciseWorkout,
 } from "~/fixtures/plugins/fitness";
 import { signInThroughHostedOAuth } from "~/support/browser";

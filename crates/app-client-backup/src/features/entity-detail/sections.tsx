@@ -10,7 +10,7 @@ import type { RelatedCompany } from "./companies";
 import { formatMinutes, formatSeconds } from "./duration";
 import { ExpandableText } from "./expandable-text";
 import { formatRoleLabel, getPrimaryCreator } from "./people";
-import type { EntityDetail, AppUnlinkedCreator } from "./types";
+import type { AppUnlinkedCreator, EntityDetail } from "./types";
 
 const ACCENT = "#C9943A";
 

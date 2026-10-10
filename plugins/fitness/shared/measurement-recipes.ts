@@ -6,6 +6,7 @@ import {
 	column,
 	count,
 	defineRecipe,
+	entitySchemaPredicate,
 	eq,
 	eventSchemaPredicate,
 	first,
@@ -15,14 +16,13 @@ import {
 	latestEventField,
 	literal,
 	minimum,
+	type Recipe,
+	relationshipSchemaPredicate,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
 	selectedTimeSeries,
 	table,
-	type Recipe,
-	entitySchemaPredicate,
-	relationshipSchemaPredicate,
-	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 

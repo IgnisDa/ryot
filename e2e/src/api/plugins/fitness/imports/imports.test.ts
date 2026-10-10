@@ -14,9 +14,9 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createFitnessImportRun,
+	findFitnessEntitySchema,
 	runOpenScaleImportFixture,
 	startOpenScaleImport,
-	findFitnessEntitySchema,
 } from "~/fixtures/plugins/fitness";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";

@@ -1,4 +1,5 @@
 import {
+	type Context,
 	Effect,
 	FileSystem,
 	Layer,
@@ -7,11 +8,10 @@ import {
 	Option,
 	Path,
 	Redacted,
+	References,
 	Result,
 	Schema,
-	type Context,
 	Tracer,
-	References,
 } from "effect";
 import { FetchHttpClient } from "effect/http";
 import {

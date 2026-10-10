@@ -1,7 +1,6 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
-	entitySchemaPredicate,
 	ascending,
 	castBoolean,
 	coalesce,
@@ -10,6 +9,7 @@ import {
 	count,
 	defineRecipe,
 	descending,
+	entitySchemaPredicate,
 	eq,
 	eventOrderDescending,
 	first,
@@ -21,19 +21,19 @@ import {
 	jsonPath,
 	literal,
 	neq,
+	type Recipe,
+	relationshipSchemaPredicate,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedInclude,
-	selectedOptionalRow,
-	selectedRows,
-	sum,
-	schemaOwnerPredicate,
-	relationshipSchemaPredicate,
-	table,
-	type Recipe,
 	type SelectedIncludes,
+	selectedOptionalRow,
 	type SelectedQuery,
 	type SelectedRow,
+	selectedRows,
 	type SelectedSelection,
+	sum,
+	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import {
 	EntityId,
@@ -44,8 +44,8 @@ import {
 
 import {
 	mediaPresentationImageSelection,
-	selectedPresentationSource,
 	type MediaPresentationSource,
+	selectedPresentationSource,
 } from "./entity-presentations";
 import {
 	entityId,
@@ -59,8 +59,8 @@ import {
 	type Table,
 } from "./entity-selections";
 import {
-	MediaLifecycleStateSchema,
 	mediaLifecycleExpressions,
+	MediaLifecycleStateSchema,
 	type Predicate,
 	type ScalarExpression,
 } from "./lifecycle-expressions";
@@ -740,8 +740,7 @@ export type MediaFlatActivityCollectionEvent = Extract<
 >;
 
 export type MediaFlatActivityEvent<Extra = unknown> =
-	| MediaFlatActivityMediaEvent<Extra>
-	| MediaFlatActivityCollectionEvent;
+	MediaFlatActivityMediaEvent<Extra> | MediaFlatActivityCollectionEvent;
 
 type MediaReviewActivityParentRow = SelectedRow<
 	ReturnType<typeof mediaReviewActivityEventSelection>
@@ -845,8 +844,7 @@ export const mediaUnlinkedCreatorsOverviewQueries = (input: {
 
 export type MediaUnlinkedCreatorsOverview = {
 	readonly creators?:
-		| SelectedQuerySuccess<ReturnType<typeof mediaUnlinkedCreatorsQuery>>
-		| undefined;
+		SelectedQuerySuccess<ReturnType<typeof mediaUnlinkedCreatorsQuery>> | undefined;
 };
 
 export type MediaExtraQueries = Readonly<Record<string, SelectedQuery<unknown>>>;

@@ -8,7 +8,7 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Schema } from "effect";
-import { unzipSync, Zip, zipSync, ZipDeflate } from "fflate";
+import { unzipSync, Zip, ZipDeflate, zipSync } from "fflate";
 
 import type { PluginArchiveErrorReason, PluginArchivePackage } from "./index";
 import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive, writePluginArchive } from "./index";

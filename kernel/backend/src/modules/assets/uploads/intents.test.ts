@@ -7,7 +7,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 import Redis from "ioredis";
 
-import { RedisService, redisKeys } from "#platform/redis";
+import { redisKeys, RedisService } from "#platform/redis";
 import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
 import { makeRedisService } from "#testing/effect";

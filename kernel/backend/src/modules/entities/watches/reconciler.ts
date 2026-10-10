@@ -12,8 +12,8 @@ import { Context, DateTime, Effect, Layer, Result } from "effect";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { TranslationsService } from "#modules/entities/localization/service";
 import {
-	EntityPopulationTrigger,
 	entityPopulationExecutionId,
+	EntityPopulationTrigger,
 } from "#modules/entities/population-trigger";
 import { RyotQLService } from "#modules/ryotql/service";
 

@@ -1,11 +1,11 @@
 import clsx from "clsx";
 import {
+	type KeyboardEvent,
+	type RefObject,
 	useEffect,
 	useLayoutEffect,
 	useRef,
 	useState,
-	type KeyboardEvent,
-	type RefObject,
 } from "react";
 import { createPortal } from "react-dom";
 

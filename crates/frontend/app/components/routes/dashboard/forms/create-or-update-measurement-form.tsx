@@ -22,12 +22,7 @@ const buildInput = (measurement?: UserMeasurement | null) =>
 		timestamp: measurement?.timestamp || new Date().toISOString(),
 		information: {
 			statistics: measurement?.information?.statistics || [],
-			assets: {
-				s3Images: [],
-				s3Videos: [],
-				remoteVideos: [],
-				remoteImages: [],
-			},
+			assets: { s3Images: [], s3Videos: [], remoteVideos: [], remoteImages: [] },
 		},
 	}) as UserMeasurementInput;
 
@@ -51,9 +46,7 @@ export const CreateOrUpdateMeasurementForm = (props: {
 
 	const createMeasurementMutation = useMutation({
 		mutationFn: (input: UserMeasurementInput) =>
-			clientGqlService.request(CreateOrUpdateUserMeasurementDocument, {
-				input,
-			}),
+			clientGqlService.request(CreateOrUpdateUserMeasurementDocument, { input }),
 	});
 
 	useEffect(() => {
@@ -70,9 +63,7 @@ export const CreateOrUpdateMeasurementForm = (props: {
 						? "Your measurement has been updated"
 						: "Your measurement has been created",
 				});
-				queryClient.invalidateQueries({
-					queryKey: queryFactory.fitness.userMeasurementsList._def,
-				});
+				queryClient.invalidateQueries({ queryKey: queryFactory.fitness.userMeasurementsList._def });
 				if (!props.measurementToUpdate) {
 					events.createMeasurement();
 				}
@@ -104,10 +95,7 @@ export const CreateOrUpdateMeasurementForm = (props: {
 								const idx = form.values.information.statistics.findIndex((s) => s.name === name);
 								const newStatistics = [...form.values.information.statistics];
 								if (idx !== -1) {
-									newStatistics[idx] = {
-										...newStatistics[idx],
-										value: v.toString(),
-									};
+									newStatistics[idx] = { ...newStatistics[idx], value: v.toString() };
 								} else {
 									newStatistics.push({ name, value: v.toString() });
 								}

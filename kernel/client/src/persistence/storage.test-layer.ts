@@ -1,7 +1,7 @@
 import { Context, Effect, Layer } from "effect";
 
 import { emptyDeviceState } from "#/modules/device/state";
-import { ClientStorage, clientStorageLayer, type BrowserStorage } from "#/persistence/storage";
+import { type BrowserStorage, ClientStorage, clientStorageLayer } from "#/persistence/storage";
 
 export const makeClientStorageStub = (
 	overrides: Partial<ClientStorage["Service"]> = {},

@@ -5,7 +5,7 @@ import { useContext, useEffect } from "react";
 
 import { ActiveScreenContext } from "../active-screen";
 import type { makeQueryAtom } from "../queries/definitions";
-import { PageRefreshRegistryContext, type PageRefreshRegistry } from "./page-registry";
+import { type PageRefreshRegistry, PageRefreshRegistryContext } from "./page-registry";
 
 const pageQueries = new WeakMap<
 	AtomRegistry.AtomRegistry,

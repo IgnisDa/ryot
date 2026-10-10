@@ -1,7 +1,7 @@
 import {
 	CLIENT_API_VERSION,
-	pluginManifestSlug,
 	type PluginClientEntry,
+	pluginManifestSlug,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
 import { CanonicalBase64 } from "@ryot-app/contract/schema/base64";

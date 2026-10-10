@@ -236,8 +236,7 @@ export const insertReportRows = (
 	connection: SqlConnection.Connection,
 	rows: ReadonlyArray<
 		{ phase: string; message: string; count: number | null; elapsedSeconds: number | null } & (
-			| { level?: "info" }
-			| { level: "warning"; code: AnomalyCode }
+			{ level?: "info" } | { level: "warning"; code: AnomalyCode }
 		)
 	>,
 ) =>

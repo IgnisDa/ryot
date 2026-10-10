@@ -1,4 +1,4 @@
-import { defineAutomation, type AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
+import { type AutomationInput, defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";

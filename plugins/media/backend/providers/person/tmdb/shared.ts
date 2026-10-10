@@ -5,11 +5,11 @@ import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 import { getUserAllowNsfw } from "../../../lib/host";
 import { normalizePlainDescription } from "../../../lib/plain-description";
 import {
-	type UnknownRecord,
 	asRecord,
 	numberValue,
 	recordsValue,
 	stringValue,
+	type UnknownRecord,
 } from "../../../lib/records";
 import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
 import {

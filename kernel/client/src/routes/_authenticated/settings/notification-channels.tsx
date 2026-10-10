@@ -6,20 +6,20 @@ import {
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useState, type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
 import {
 	NOTIFICATION_CHANNELS_LOAD_ERROR,
-	NotificationChannelsView,
 	type NotificationChannelListState,
+	NotificationChannelsView,
 } from "#/modules/notifications/channels-view";
 import { NotificationChannelCreateWizard } from "#/modules/notifications/create-wizard";
 import { enabledNotificationChannelCount } from "#/modules/notifications/presentation";
 import {
-	NOTIFICATION_CHANNELS_PAGE_SIZE,
 	deleteNotificationChannelMutation,
+	NOTIFICATION_CHANNELS_PAGE_SIZE,
 	notificationChannelsQuery,
 	notificationSmtpEnabledQuery,
 	testNotificationChannelsMutation,

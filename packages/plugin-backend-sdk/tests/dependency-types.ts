@@ -1,4 +1,4 @@
-import { load, type CheerioAPI } from "@ryot-app/plugin-backend-sdk/cheerio";
+import { type CheerioAPI, load } from "@ryot-app/plugin-backend-sdk/cheerio";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { XMLParser } from "@ryot-app/plugin-backend-sdk/fast-xml-parser";
 import { strFromU8, type Unzipped, unzipSync } from "@ryot-app/plugin-backend-sdk/fflate";

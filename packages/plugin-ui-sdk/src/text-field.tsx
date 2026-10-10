@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useId, type ComponentProps, type ReactNode } from "react";
+import { type ComponentProps, type ReactNode, useId } from "react";
 
 type FieldProps = {
 	readonly invalid?: boolean | undefined;

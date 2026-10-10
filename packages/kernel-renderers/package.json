@@ -11,7 +11,7 @@
 	"scripts": {
 		"test": "bun --bun run vitest run",
 		"build": "bun run tooling/generate-sources.ts",
-		"check": "bun --check && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@ryot-app/ts-utils": "workspace:*"

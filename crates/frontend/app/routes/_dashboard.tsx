@@ -153,10 +153,7 @@ export default function Layout() {
 							steps={onboardingTourSteps}
 							run={isOnboardingTourInProgress}
 							stepIndex={currentOnboardingTourStepIndex}
-							styles={{
-								overlay: { zIndex: 120 },
-								tooltipContent: { padding: 0 },
-							}}
+							styles={{ overlay: { zIndex: 120 }, tooltipContent: { padding: 0 } }}
 						/>
 					);
 				}}
@@ -184,11 +181,7 @@ export default function Layout() {
 							color="orange"
 							variant="filled"
 							onClick={() =>
-								navigate(
-									$path("/fitness/:action", {
-										action: FitnessAction.LogWorkout,
-									}),
-								)
+								navigate($path("/fitness/:action", { action: FitnessAction.LogWorkout }))
 							}
 						>
 							<IconStretching size={32} />

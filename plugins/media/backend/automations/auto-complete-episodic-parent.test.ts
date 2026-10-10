@@ -8,8 +8,8 @@ import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import {
-	eventAutomationContext,
 	automationContext,
+	eventAutomationContext,
 	hostSuccess,
 } from "../../tests/backend/automations/automation-test-utils";
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";

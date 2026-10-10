@@ -1,5 +1,5 @@
-import { mediaImagePurposes, type MediaImage } from "../../shared/media-image";
-import { mediaGalleryImages, type MediaGalleryImage } from "./image";
+import { type MediaImage, mediaImagePurposes } from "../../shared/media-image";
+import { type MediaGalleryImage, mediaGalleryImages } from "./image";
 
 type MediaImagePurpose = NonNullable<MediaImage["purpose"]>;
 

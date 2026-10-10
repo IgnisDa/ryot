@@ -1,6 +1,5 @@
 import { apiKeyClient } from "@better-auth/api-key/client";
 import {
-	OAuthTokenResponse,
 	getOAuthEndpoint,
 	getOAuthResource,
 	getWebOAuthCallbackUri,
@@ -9,6 +8,7 @@ import {
 	OAUTH_SCOPE,
 	OAUTH_TOKEN_PATH,
 	OAUTH_WEB_CLIENT_ID,
+	OAuthTokenResponse,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { createAuthClient } from "better-auth/client";

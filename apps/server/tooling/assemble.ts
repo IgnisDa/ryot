@@ -16,8 +16,8 @@ import {
 import { readPluginArchive } from "@ryot-app/plugin-archive";
 import {
 	buildClientRuntime,
-	pluginClientCompilerPlatformLayer,
 	compileClientPluginModule,
+	pluginClientCompilerPlatformLayer,
 } from "@ryot-app/plugin-client-compiler";
 import {
 	CLIENT_API_VERSION,

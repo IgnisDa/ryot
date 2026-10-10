@@ -8,12 +8,12 @@ A document has a non-empty `queries` record. Each named query has `from: { table
 
 ```json
 {
-	"queries": {
-		"entities": {
-			"from": { "table": "entity", "alias": "entity" },
-			"output": { "type": "rows", "fields": [], "orderBy": [], "pagination": { "limit": 20 } }
-		}
-	}
+  "queries": {
+    "entities": {
+      "from": { "table": "entity", "alias": "entity" },
+      "output": { "type": "rows", "fields": [], "orderBy": [], "pagination": { "limit": 20 } }
+    }
+  }
 }
 ```
 

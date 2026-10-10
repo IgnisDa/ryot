@@ -2,8 +2,8 @@ import { expect, it } from "vitest";
 
 import {
 	KILOGRAMS_PER_POUND,
-	KILOMETERS_PER_MILE,
 	kilogramsToPounds,
+	KILOMETERS_PER_MILE,
 	kilometersToMiles,
 	milesToKilometers,
 	poundsToKilograms,

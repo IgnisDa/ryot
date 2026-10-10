@@ -8,11 +8,11 @@ import type {
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import {
 	EntityId,
+	EventSchemaSlug,
+	PluginId,
 	RelationshipId,
 	type SignalSchemaSlug,
 	UserId,
-	EventSchemaSlug,
-	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";

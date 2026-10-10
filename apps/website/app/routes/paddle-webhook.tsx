@@ -8,7 +8,7 @@ import { Effect } from "effect";
 import type { HttpClient } from "effect/http";
 import { data } from "react-router";
 
-import { customerPurchase, type customer } from "~/drizzle/schema.server";
+import { type customer, customerPurchase } from "~/drizzle/schema.server";
 import { revokeCancellation, revokePurchaseInProgress } from "~/lib/caches.server";
 import { getDb, getServerVariables } from "~/lib/config.server";
 import {

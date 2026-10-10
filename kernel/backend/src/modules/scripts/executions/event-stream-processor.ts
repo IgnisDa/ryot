@@ -6,8 +6,8 @@ import { EventProjectionBindings, EventStreamProcessor } from "#modules/events/s
 import { MutationReceipts } from "#modules/mutations/receipts";
 import {
 	findRevisionScriptForSession,
-	PluginRuntimeResolverLive,
 	PluginRuntimeResolver,
+	PluginRuntimeResolverLive,
 } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
 

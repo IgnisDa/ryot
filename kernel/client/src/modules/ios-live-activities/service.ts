@@ -11,7 +11,7 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { Context, Data, Effect, Layer, Schema, Semaphore } from "effect";
 
-import { apiScopeKey, type ApiScope } from "#/api/scope";
+import { type ApiScope, apiScopeKey } from "#/api/scope";
 
 type Installation = Pick<
 	Extract<PreparedClientPage["identity"]["contributors"][number], { readonly kind: "plugin" }>,

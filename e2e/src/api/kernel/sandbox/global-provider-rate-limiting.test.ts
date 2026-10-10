@@ -5,13 +5,14 @@ import getPort from "get-port";
 
 import {
 	adminHeaders,
+	type ContractSession,
 	createAuthenticatedClient,
 	encodePluginSourceFiles,
 	getApiClient,
 	httpCallFailureSandboxSource,
 	httpCallSandboxSource,
 	installTestPlugin,
-	testPluginPackageId,
+	installTestSupportSystemPlugin,
 	listAdminSandboxScripts,
 	listAdminSystemPlugins,
 	makeSession,
@@ -19,8 +20,7 @@ import {
 	pollUntil,
 	requireCompletedSandboxValue,
 	testPluginManifest,
-	installTestSupportSystemPlugin,
-	type ContractSession,
+	testPluginPackageId,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
@@ -336,8 +336,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 	let apiProcessA: ReturnType<typeof spawnApiProcess> | undefined;
 	let apiProcessB: ReturnType<typeof spawnApiProcess> | undefined;
 	let coreInfrastructure:
-		| Effect.Success<ReturnType<typeof startCoreTestInfrastructure>>
-		| undefined;
+		Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 	const apiOriginA = () => `http://127.0.0.1:${apiPortA}`;
 	const apiOriginB = () => `http://127.0.0.1:${apiPortB}`;

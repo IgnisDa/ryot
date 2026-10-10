@@ -14,12 +14,7 @@ export const convertSecondsToDuration = (totalSeconds?: string | null) => {
 	const d = Math.floor(remainingDuration.asDays());
 	const h = Math.floor(remainingDuration.subtract(d, "day").asHours());
 	const min = Math.floor(remainingDuration.subtract(d, "day").subtract(h, "hour").asMinutes());
-	return {
-		d: d || undefined,
-		h: h || undefined,
-		mo: mo || undefined,
-		min: min || undefined,
-	};
+	return { d: d || undefined, h: h || undefined, mo: mo || undefined, min: min || undefined };
 };
 
 export const convertDurationToSeconds = (duration: DurationInput) => {

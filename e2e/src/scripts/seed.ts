@@ -3,10 +3,10 @@
 import { faker } from "@faker-js/faker";
 import {
 	ContractPayload,
-	ContractSuccess,
-	makeContractClient,
 	type ContractProgram,
 	type ContractRequest,
+	ContractSuccess,
+	makeContractClient,
 } from "@ryot-app/contract/client";
 import type {
 	FieldSelection,
@@ -32,8 +32,8 @@ import {
 	and,
 	ascending,
 	castJson,
-	column,
 	coalesce,
+	column,
 	defineRecipe,
 	document,
 	eq,
@@ -41,12 +41,12 @@ import {
 	jsonPath,
 	literal,
 	or,
+	type PreparedRecipe,
 	rows,
 	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
 	table,
-	type PreparedRecipe,
 } from "@ryot-app/ryotql";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";

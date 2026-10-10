@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { describe, expect, it } from "@effect/vitest";
-import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
+import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Effect, Layer, ManagedRuntime } from "effect";
@@ -15,25 +15,25 @@ import { makePluginCatalog } from "#/modules/plugins/catalog/service.test-layer"
 import { ServerService } from "#/modules/server/service";
 import { getRouter } from "#/router";
 import {
-	theme,
-	server,
 	catalog,
-	makeAuthStub,
-	makeStorageStubLayer,
-	InstanceAdminRouteStubs,
-	makePublicApiStub,
-	CustomizeRouteStubs,
-	SavedViewRouteStubs,
-	EntityRouteStubs,
-	makeOAuthRouteStubs,
-	DeviceRouteStubs,
-	NavigationRouteStubs,
-	ProviderAddRouteStubs,
-	ImportsRouteStubs,
-	IntegrationRouteStubs,
-	PagesApiRouteStubs,
 	ClientPageSessionsRouteStubs,
+	CustomizeRouteStubs,
+	DeviceRouteStubs,
+	EntityRouteStubs,
+	ImportsRouteStubs,
+	InstanceAdminRouteStubs,
+	IntegrationRouteStubs,
+	makeAuthStub,
+	makeOAuthRouteStubs,
+	makePublicApiStub,
+	makeStorageStubLayer,
+	NavigationRouteStubs,
 	NotificationChannelRouteStubs,
+	PagesApiRouteStubs,
+	ProviderAddRouteStubs,
+	SavedViewRouteStubs,
+	server,
+	theme,
 } from "#/routes/-route-fixtures";
 
 type ResetCall = {

@@ -1,11 +1,11 @@
 import { Effect, Schema } from "effect";
 
 import { compileSandboxSource } from "./compiler-core";
-import { sandboxCompilationFailure, pluginBackendCompilerDiagnostic } from "./compiler-diagnostics";
+import { pluginBackendCompilerDiagnostic, sandboxCompilationFailure } from "./compiler-diagnostics";
 import { pluginBackendCompilerPlatformLayer } from "./compiler-platform";
 import {
-	CompilerWorkerRequest,
 	compilerWorkerFailure,
+	CompilerWorkerRequest,
 	compilerWorkerSuccess,
 } from "./compiler-protocol";
 

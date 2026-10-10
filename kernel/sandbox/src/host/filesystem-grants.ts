@@ -3,7 +3,7 @@ import {
 	type FilesystemGrantSandboxCapability,
 } from "@ryot-app/contract/modules/scripts/wire";
 import { sandboxScratchManifestSchema } from "@ryot-app/plugin-backend-sdk/filesystem";
-import { Effect, Schema, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Path, Schema } from "effect";
 
 import { SANDBOX_LIMITS } from "../protocol/limits";
 

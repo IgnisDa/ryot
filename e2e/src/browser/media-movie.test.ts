@@ -4,11 +4,11 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
+	type Client,
 	createAuthenticatedClient,
 	createEventFixture,
 	listEventSchemas,
 	requireEventSchemaBySlug,
-	type Client,
 } from "~/fixtures/kernel";
 import {
 	findMediaEntitySchema,

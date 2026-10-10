@@ -1,7 +1,7 @@
 import { Capacitor, registerPlugin } from "@capacitor/core";
 import {
-	PluginIosLiveActivityResult,
 	type PluginIosLiveActivityRequest,
+	PluginIosLiveActivityResult,
 } from "@ryot-app/plugin-client-contract";
 import { Effect, Layer, Schema } from "effect";
 

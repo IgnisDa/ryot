@@ -207,10 +207,5 @@ export async function loadRelatedCreators(
 		(c) => c.order ?? Number.POSITIVE_INFINITY,
 		(c) => c.createdAt ?? "",
 		(c) => c.position,
-	]).map(({ id, image, name, role }) => ({
-		id,
-		image,
-		name,
-		role,
-	}));
+	]).map(({ id, image, name, role }) => ({ id, image, name, role }));
 }
