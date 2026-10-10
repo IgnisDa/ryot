@@ -142,5 +142,103 @@
 				"message": "Do not set system time. Read time from an injected clock and drive it with TestClock."
 			}
 		]
-	}
+	},
+	"overrides": [
+		{
+			"files": ["kernel/sandbox/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["@ryot-app/kernel-backend", "@ryot-app/kernel-backend/**"],
+								"message": "The sandbox receives product capabilities through its ports and never imports the backend."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["kernel/backend/src/platform/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": ["#modules/**", "#boot/**"],
+								"message": "Platform code provides mechanisms to features and never imports feature implementations or composition."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["plugins/*/manifest/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"**/client/**",
+									"**/backend/**",
+									"!**/backend/contracts/**",
+									"@ryot-app/kernel-backend",
+									"@ryot-app/kernel-backend/**",
+									"@ryot-app/kernel-client",
+									"@ryot-app/kernel-client/**",
+									"@ryot-app/plugin-backend-sdk",
+									"@ryot-app/plugin-backend-sdk/**",
+									"@ryot-app/plugin-client-sdk",
+									"@ryot-app/plugin-client-sdk/**",
+									"@ryot-app/plugin-ui-sdk",
+									"@ryot-app/plugin-ui-sdk/**"
+								],
+								"message": "Manifest code reaches backend source only through backend/contracts and never imports environment-specific implementations."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["plugins/*/shared/**"],
+			"rules": {
+				"no-restricted-imports": [
+					"error",
+					{
+						"patterns": [
+							{
+								"group": [
+									"**/client/**",
+									"**/backend/**",
+									"**/manifest/**",
+									"@ryot-app/kernel-backend",
+									"@ryot-app/kernel-backend/**",
+									"@ryot-app/kernel-client",
+									"@ryot-app/kernel-client/**",
+									"@ryot-app/plugin-backend-sdk",
+									"@ryot-app/plugin-backend-sdk/**",
+									"@ryot-app/plugin-client-sdk",
+									"@ryot-app/plugin-client-sdk/**",
+									"@ryot-app/plugin-ui-sdk",
+									"@ryot-app/plugin-ui-sdk/**"
+								],
+								"message": "Shared plugin code is environment-neutral and never imports environment-specific implementations."
+							}
+						]
+					}
+				]
+			}
+		},
+		{
+			"files": ["plugins/*/manifest/**/*.test.ts", "plugins/*/shared/**/*.test.ts"],
+			"rules": { "no-restricted-imports": "off" }
+		}
+	]
 }

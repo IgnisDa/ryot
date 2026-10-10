@@ -1,12 +1,12 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import {
-	InternalOAuthProvisioningLive,
 	MigrationInfrastructureLive,
 	ObservabilityProvidedLive,
 	RuntimeServerLive,
 	SchemaMigrationLive,
-	SystemPluginIngestionLive,
 } from "@ryot-app/kernel-backend/boot/layers";
+import { InternalOAuthProvisioningLive } from "@ryot-app/kernel-backend/modules/accounts/auth/layer";
+import { SystemPluginIngestionLive } from "@ryot-app/kernel-backend/modules/plugins/layer";
 import { Config, ConfigProvider, Effect, Layer } from "effect";
 
 import { LegacyDataMigrationLive, LegacyTableRenameLive } from "./migrations/layers";
