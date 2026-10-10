@@ -123,6 +123,7 @@ describe("manga schema", () => {
 			noopAdapter,
 			<mangaSchema.Activity
 				compact
+				entityId="media-1"
 				refresh={() => undefined}
 				state={mangaSchema.mapActivity(
 					readyQueryResult(

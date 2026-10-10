@@ -66,6 +66,7 @@ describe("book schema", () => {
 			noopAdapter,
 			<bookSchema.Activity
 				compact
+				entityId="media-1"
 				refresh={() => undefined}
 				state={bookSchema.mapActivity(
 					readyQueryResult(

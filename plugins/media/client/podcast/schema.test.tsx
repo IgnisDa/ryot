@@ -159,6 +159,7 @@ describe("podcast schema", () => {
 			noopAdapter,
 			<podcastSchema.Activity
 				compact
+				entityId="media-1"
 				refresh={() => undefined}
 				state={podcastSchema.mapActivity(readyQueryResult(decodePodcastActivity()))}
 			/>,

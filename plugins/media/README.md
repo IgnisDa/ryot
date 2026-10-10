@@ -216,6 +216,11 @@ monitoring changes and custom saves are protected. Integration metadata lookup u
 The cron pages its pinned query, deduplicates global IDs, and refreshes bounded provider batches with
 deterministic child IDs; user-owned fields are not exposed by that global query.
 
+`media-review-create` saves a review on a visible media, group, creator, season, or episode owned by
+this plugin. It requires nonblank text, accepts an optional 0–100 rating and a spoiler flag, and is
+protected in demo sessions. The header and empty review activity tab open the same composer;
+successful writes refresh active queries through the client SDK mutation notification.
+
 ## Imports
 
 `workflow.media-import` uses its admitted `source-parser` selection. Generic admission, capture,

@@ -206,7 +206,12 @@ describe("group members tab", () => {
 const renderActivity = (state: Parameters<typeof groupFixtureSchema.Activity>[0]["state"]) =>
 	mountRyotClient(
 		noopAdapter,
-		<groupFixtureSchema.Activity compact state={state} refresh={() => undefined} />,
+		<groupFixtureSchema.Activity
+			compact
+			state={state}
+			entityId="media-1"
+			refresh={() => undefined}
+		/>,
 	);
 
 describe("group activity tab", () => {
