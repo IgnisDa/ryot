@@ -7,7 +7,7 @@ import {
 	EventId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -18,6 +18,7 @@ import * as tables from "#schema/tables/combined";
 import { makeWorkflowEngine } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
+import type { MutationReceiptIdentity } from "./receipts";
 import { mutationReceiptIdentity, MutationReceipts } from "./receipts";
 import { dispatchAdmittedWorkflow } from "./workflow-dispatch";
 
@@ -41,6 +42,83 @@ const identity = (name: string) =>
 		commandKind: "entity:create",
 	});
 const Result = Schema.Struct({ entityId: EntityId });
+const setOwner = UserId.make("receipt-set-owner");
+const setAccount = { userId: setOwner, token: "receipt-set-generation" };
+const setIdentity = (name: string, account: typeof setAccount = setAccount) =>
+	mutationReceiptIdentity({
+		input: { name },
+		ownerUserId: account.userId,
+		scopeUserId: account.userId,
+		commandKind: "entity:create",
+		command: { ...command, itemIdentity: name, accountGeneration: account },
+	});
+const hit = { dispatch: [], result: { entityId } };
+const record = (receipt: MutationReceiptIdentity) => ({
+	dispatch: [],
+	identity: receipt,
+	result: { entityId },
+});
+
+const seedAccount = Effect.fn(function* (account: typeof setAccount) {
+	const session = yield* DatabaseSession;
+	yield* session.run((db) =>
+		db
+			.insert(tables.user)
+			.values({
+				id: account.userId,
+				name: account.userId,
+				accountGeneration: account.token,
+				email: `${account.userId}@example.test`,
+			})
+			.onConflictDoNothing(),
+	);
+});
+
+const waitForAdvisoryWaiters = Effect.fn(function* (count: number) {
+	const session = yield* DatabaseSession;
+	for (let attempt = 0; attempt < 2_000; attempt += 1) {
+		const [row] = yield* session.run((db) =>
+			db.execute<{ readonly waiting: number }>(
+				sql`select count(*)::int as waiting from pg_locks l join pg_database d on d.oid = l.database
+					where l.locktype = 'advisory' and not l.granted and d.datname = current_database()`,
+				"objects",
+			),
+		);
+		if ((row?.waiting ?? 0) >= count) {
+			return true;
+		}
+	}
+	return false;
+});
+
+const holdReceiptLock = Effect.fn(function* (id: string) {
+	const session = yield* DatabaseSession;
+	const held = yield* Deferred.make<void>();
+	const release = yield* Deferred.make<void>();
+	const holder = yield* Effect.forkScoped(
+		session.transaction(
+			Effect.gen(function* () {
+				yield* session.run((db) =>
+					db.execute(sql`select pg_advisory_xact_lock(hashtext(${`mutation-receipt:${id}`}))`),
+				);
+				yield* Deferred.succeed(held, undefined);
+				yield* Deferred.await(release);
+			}),
+		),
+	);
+	yield* Deferred.await(held);
+	return { release: Deferred.succeed(release, undefined).pipe(Effect.andThen(Fiber.join(holder))) };
+});
+
+const receiptRowIds = Effect.fn(function* (ids: ReadonlyArray<string>) {
+	const session = yield* DatabaseSession;
+	return (yield* session.run((db) =>
+		db
+			.select({ id: tables.mutationReceipt.id })
+			.from(tables.mutationReceipt)
+			.where(inArray(tables.mutationReceipt.id, [...ids])),
+	)).map(({ id }) => id);
+});
 
 layer(
 	MutationReceipts.layer.pipe(Layer.provideMerge(isolatedDatabaseLayer("mutation_receipt_test"))),
@@ -577,5 +655,286 @@ layer(
 					yield* session.transaction(receipts.lookup(receiptFor(next.token), Result)),
 				).toBeNull();
 			}),
+	);
+
+	test.effect("looks up a set of receipts exactly as sequential lookups would", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			yield* seedAccount(setAccount);
+			const [first, second, missing] = ["set-first", "set-second", "set-missing"].map((name) =>
+				setIdentity(name),
+			);
+			assert(first && second && missing);
+			yield* session.transaction(receipts.insertMany([record(first), record(second)]));
+			const sequential = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
+				session.transaction(
+					Effect.forEach(identities, (receipt) => receipts.lookup(receipt, Result)),
+				);
+			const many = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
+				session.transaction(receipts.lookupMany(identities, Result));
+			const replayed = [first, missing, second, first];
+			expect(yield* many(replayed)).toEqual([hit, null, hit, hit]);
+			expect(yield* many(replayed)).toEqual(yield* sequential(replayed));
+			const conflicted = [first, missing, second, { ...first, inputFingerprint: "changed" }];
+			const conflict = yield* many(conflicted).pipe(Effect.flip);
+			expect(conflict).toMatchObject({
+				receiptId: first.id,
+				_tag: "MutationReceiptIdentityConflict",
+			});
+			expect(conflict).toEqual(yield* sequential(conflicted).pipe(Effect.flip));
+			expect(yield* many([])).toEqual([]);
+		}),
+	);
+
+	test.effect("inserts a set of receipts that a later transaction replays", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			yield* seedAccount(setAccount);
+			const identities = ["insert-many-a", "insert-many-b", "insert-many-c"].map((name) =>
+				setIdentity(name),
+			);
+			yield* session.transaction(
+				receipts.insertMany(
+					identities.map((receipt, batchIndex) => ({ ...record(receipt), batchIndex })),
+				),
+			);
+			expect(yield* session.transaction(receipts.lookupMany(identities, Result))).toEqual([
+				hit,
+				hit,
+				hit,
+			]);
+			expect(
+				yield* session.transaction(receipts.lookupMany(identities.toReversed(), Result)),
+			).toEqual([hit, hit, hit]);
+		}),
+	);
+
+	test.effect("rejects duplicate receipt identities before inserting any of the set", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			yield* seedAccount(setAccount);
+			const unique = setIdentity("duplicate-unique");
+			const repeated = setIdentity("duplicate-repeated");
+			expect(
+				yield* session
+					.transaction(
+						receipts.insertMany([
+							record(unique),
+							record(repeated),
+							record({ ...repeated, inputFingerprint: "changed" }),
+						]),
+					)
+					.pipe(Effect.flip),
+			).toMatchObject({ message: "Mutation receipt batch repeats an identity" });
+			expect(yield* receiptRowIds([unique.id, repeated.id])).toEqual([]);
+		}),
+	);
+
+	test.effect("rejects a set after its account generation changes, as lookup does", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			const retired = { token: "retired-generation", userId: UserId.make("receipt-set-retired") };
+			yield* seedAccount(retired);
+			const receipt = setIdentity("retired-set", retired);
+			yield* session.run((db) =>
+				db
+					.update(tables.user)
+					.set({ accountGeneration: "replacement-generation" })
+					.where(eq(tables.user.id, retired.userId)),
+			);
+			const expected = yield* session
+				.transaction(receipts.lookup(receipt, Result))
+				.pipe(Effect.flip);
+			expect(expected).toMatchObject({ message: "Mutation command belongs to a retired account" });
+			expect(
+				yield* session.transaction(receipts.lookupMany([receipt], Result)).pipe(Effect.flip),
+			).toEqual(expected);
+			expect(
+				yield* session.transaction(receipts.insertMany([record(receipt)])).pipe(Effect.flip),
+			).toEqual(expected);
+			expect(yield* receiptRowIds([receipt.id])).toEqual([]);
+		}),
+	);
+
+	test.effect(
+		"checks every identity of a shared generation for owner and scope, as lookup and insert do",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts;
+				yield* seedAccount(setAccount);
+				const other = UserId.make("receipt-set-other");
+				const valid = setIdentity("shared-generation-valid");
+				for (const mismatched of [
+					{ ...setIdentity("shared-generation-scope"), scopeUserId: other },
+					{ ...setIdentity("shared-generation-owner"), ownerUserId: other },
+				]) {
+					const expected = yield* session
+						.transaction(
+							Effect.forEach([valid, mismatched], (receipt) => receipts.lookup(receipt, Result)),
+						)
+						.pipe(Effect.flip);
+					expect(expected).toMatchObject({
+						message: "Mutation command account identity does not match its scope",
+					});
+					expect(
+						yield* session
+							.transaction(receipts.lookupMany([valid, mismatched], Result))
+							.pipe(Effect.flip),
+					).toEqual(expected);
+					expect(
+						yield* session.transaction(receipts.insert(record(mismatched))).pipe(Effect.flip),
+					).toEqual(expected);
+					expect(
+						yield* session
+							.transaction(receipts.insertMany([record(valid), record(mismatched)]))
+							.pipe(Effect.flip),
+					).toEqual(expected);
+					expect(yield* receiptRowIds([valid.id, mismatched.id])).toEqual([]);
+				}
+			}),
+	);
+
+	test.effect("raises the earliest error in input order across conflicts and scope checks", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			yield* seedAccount(setAccount);
+			const stored = setIdentity("error-order-stored");
+			yield* session.transaction(receipts.insert(record(stored)));
+			const conflict = { ...stored, inputFingerprint: "changed" };
+			const scoped = {
+				...setIdentity("error-order-scoped"),
+				scopeUserId: UserId.make("receipt-set-other"),
+			};
+			const lookupMany = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
+				session.transaction(receipts.lookupMany(identities, Result)).pipe(Effect.flip);
+			const sequential = (identities: ReadonlyArray<MutationReceiptIdentity>) =>
+				session
+					.transaction(Effect.forEach(identities, (receipt) => receipts.lookup(receipt, Result)))
+					.pipe(Effect.flip);
+			const conflictFirst = yield* lookupMany([stored, conflict, scoped]);
+			expect(conflictFirst).toMatchObject({
+				receiptId: stored.id,
+				_tag: "MutationReceiptIdentityConflict",
+			});
+			expect(conflictFirst).toEqual(yield* sequential([stored, conflict, scoped]));
+			const scopeFirst = yield* lookupMany([stored, scoped, conflict]);
+			expect(scopeFirst).toMatchObject({
+				message: "Mutation command account identity does not match its scope",
+			});
+			expect(scopeFirst).toEqual(yield* sequential([stored, scoped, conflict]));
+		}),
+	);
+
+	test.effect("locks overlapping sets in sorted order so concurrent transactions finish", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			yield* seedAccount(setAccount);
+			const low = { ...setIdentity("overlap-low"), id: "overlap-a" };
+			const high = { ...setIdentity("overlap-high"), id: "overlap-b" };
+			const { release } = yield* holdReceiptLock(low.id);
+			const ascending = yield* Effect.forkScoped(
+				session.transaction(receipts.lookupMany([low, high], Result)),
+			);
+			expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
+			const descending = yield* Effect.forkScoped(
+				session.transaction(receipts.lookupMany([high, low], Result)),
+			);
+			expect(yield* waitForAdvisoryWaiters(2)).toBe(true);
+			yield* release;
+			expect(yield* Fiber.join(ascending)).toEqual([null, null]);
+			expect(yield* Fiber.join(descending)).toEqual([null, null]);
+		}),
+	);
+
+	test.effect("locks receipt keys in code-unit order rather than input or collation order", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			yield* seedAccount(setAccount);
+			const lower = { ...setIdentity("lock-order-lower"), id: "lock-order-a" };
+			const upper = { ...setIdentity("lock-order-upper"), id: "Lock-order-B" };
+			const { release } = yield* holdReceiptLock(lower.id);
+			const waiting = yield* Effect.forkScoped(
+				session.transaction(receipts.lookupMany([lower, upper], Result)),
+			);
+			expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
+			const [upperLock] = yield* session.transaction(
+				session.run((db) =>
+					db.execute<{ readonly locked: boolean }>(
+						sql`select pg_try_advisory_xact_lock(hashtext(${`mutation-receipt:${upper.id}`})) as locked`,
+						"objects",
+					),
+				),
+			);
+			expect(upperLock?.locked).toBe(false);
+			yield* release;
+			expect(yield* Fiber.join(waiting)).toEqual([null, null]);
+		}),
+	);
+
+	test.effect("serializes a set lookup with a concurrent single lookup of the same receipt", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			yield* seedAccount(setAccount);
+			const shared = setIdentity("serialize-lookup-shared");
+			const other = setIdentity("serialize-lookup-other");
+			const inserted = yield* Deferred.make<void>();
+			const release = yield* Deferred.make<void>();
+			const writer = yield* Effect.forkScoped(
+				session.transaction(
+					Effect.gen(function* () {
+						expect(yield* receipts.lookup(shared, Result)).toBeNull();
+						yield* receipts.insert(record(shared));
+						yield* Deferred.succeed(inserted, undefined);
+						yield* Deferred.await(release);
+					}),
+				),
+			);
+			yield* Deferred.await(inserted);
+			const reader = yield* Effect.forkScoped(
+				session.transaction(receipts.lookupMany([other, shared], Result)),
+			);
+			expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
+			yield* Deferred.succeed(release, undefined);
+			yield* Fiber.join(writer);
+			expect(yield* Fiber.join(reader)).toEqual([null, hit]);
+		}),
+	);
+
+	test.effect("takes its own receipt locks when inserting a set without a prior lookup", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts;
+			yield* seedAccount(setAccount);
+			const shared = setIdentity("serialize-insert-shared");
+			const inserted = yield* Deferred.make<void>();
+			const release = yield* Deferred.make<void>();
+			const writer = yield* Effect.forkScoped(
+				session.transaction(
+					Effect.gen(function* () {
+						yield* receipts.insertMany([
+							record(setIdentity("serialize-insert-other")),
+							record(shared),
+						]);
+						yield* Deferred.succeed(inserted, undefined);
+						yield* Deferred.await(release);
+					}),
+				),
+			);
+			yield* Deferred.await(inserted);
+			const reader = yield* Effect.forkScoped(session.transaction(receipts.lookup(shared, Result)));
+			expect(yield* waitForAdvisoryWaiters(1)).toBe(true);
+			yield* Deferred.succeed(release, undefined);
+			yield* Fiber.join(writer);
+			expect(yield* Fiber.join(reader)).toEqual(hit);
+		}),
 	);
 });
