@@ -55,7 +55,7 @@ describe("person.audible sandbox script", () => {
 				expect(result.name).toBe("Author Name");
 				expect(result.properties).toEqual({
 					alternateNames: [],
-					description: "Bio text.",
+					description: "Bio text\\.",
 					sourceUrl: "https://www.audible.com/author/a1",
 					images: [{ type: "remote", purpose: "profile", url: "https://img/author.jpg" }],
 				});

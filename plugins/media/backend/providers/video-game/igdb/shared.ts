@@ -4,6 +4,7 @@ import { defineProvider, type ProviderDetailsRelatedEntity } from "@ryot-app/san
 import { strictStruct } from "@ryot-app/sandbox-sdk/wire";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { type RoleRelatedEntity, createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -473,10 +474,10 @@ export const details = defineProvider({
 							genres,
 							timeToBeat,
 							gameType: gameTypeName(game),
-							description: stringValue(game?.["summary"]),
 							providerRating: numberValue(game?.["rating"]),
 							sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
 							publishYear: extractYear(game?.["first_release_date"]),
+							description: normalizePlainDescription(game?.["summary"]),
 							platformReleases: buildPlatformReleases(game?.["release_dates"]),
 						},
 						relatedEntityGroups: [

@@ -15,6 +15,71 @@ const makeHost = (httpCall: ItunesHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, { httpCall });
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("podcast.itunes sandbox script", () => {
+	it("normalizes podcast and episode descriptions during population", () => {
+		const host = makeHost((_method, url) =>
+			httpSuccess({
+				results: url.includes("entity=podcastEpisode")
+					? [
+							{
+								trackId: 55,
+								trackName: "Episode",
+								releaseDate: "2020-01-01T00:00:00Z",
+								description: '<p>Episode <em>notes</em> <a href="/more">more</a></p>',
+							},
+						]
+					: [{ collectionName: "Podcast", description: "<p>Show <strong>summary</strong></p>" }],
+			}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "p1" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.properties).toMatchObject({ description: "Show **summary**" });
+					expect(result.childEntities).toMatchObject([
+						{
+							properties: {
+								description: "Episode *notes* [more](https://podcasts.apple.com/more)",
+							},
+						},
+					]);
+				}),
+			),
+		);
+	});
+
+	it.each(["podcast", "podcast-episode"])(
+		"normalizes the translated %s description",
+		(entitySchemaSlug) => {
+			const host = makeHost(() =>
+				httpSuccess({
+					results: [
+						{
+							trackId: 55,
+							trackName: "Episode",
+							collectionName: "Podcast",
+							description: "<p>Translated <strong>summary</strong></p>\n\n*More*",
+						},
+					],
+				}),
+			);
+			return Effect.runPromise(
+				runSandboxTestScript(
+					translate,
+					{
+						language: "fr",
+						externalId: "55",
+						entitySchemaSlug,
+						properties: { parentPodcastExternalId: "p1" },
+					},
+					host,
+					execution,
+				).pipe(
+					Effect.map((result) => {
+						expect(result.properties?.["description"]).toBe("Translated **summary**\n\n*More*");
+					}),
+				),
+			);
+		},
+	);
 	it("declares a script for each operation", () => {
 		expect([
 			[searchManifest.slug, search.operation],

@@ -334,7 +334,7 @@ describe("show.tmdb sandbox script", () => {
 								type: "production",
 								name: "Production Order",
 								externalId: "5acfb4960e0a26346d0046d2",
-								description: "The proper and intended order of Firefly episodes.",
+								description: "The proper and intended order of Firefly episodes\\.",
 								groups: [
 									{ order: 1, name: "Season 1", episodeExternalIds: ["1048593", "1048594"] },
 									{ order: 2, name: "Movie", episodeExternalIds: ["1048600"] },

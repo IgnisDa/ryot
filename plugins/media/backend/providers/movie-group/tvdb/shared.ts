@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { MediaSandboxError } from "../../../lib/failures";
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
 	bcp47ToTvdb,
@@ -46,7 +47,7 @@ export const details = defineProvider({
 			const list = asRecord(payload["data"]) ?? payload;
 			const translation = getTranslationFields(translationData);
 			const title = translation.name ?? stringValue(list["name"]) ?? "Unnamed List";
-			const description = translation.description ?? stringValue(list["overview"]);
+			const description = normalizePlainDescription(translation.description ?? list["overview"]);
 			const image = stringValue(list["image"]);
 			const images = image
 				? [{ url: image, type: "remote" as const, purpose: "cover" as const }]
@@ -103,6 +104,16 @@ export const translate = defineProvider({
 			return yield* tvdbGetOptional(
 				host,
 				`/lists/${input.externalId}/translations/${providerLanguage}`,
-			).pipe(Effect.map((translationData) => buildTranslationResult(translationData, null)));
+			).pipe(
+				Effect.map((translationData) => {
+					const result = buildTranslationResult(translationData, null);
+					const description = normalizePlainDescription(result.properties?.["description"]);
+					if (!description) {
+						return result;
+					}
+					const properties = { description };
+					return result.name === undefined ? { properties } : { properties, name: result.name };
+				}),
+			);
 		}),
 });

@@ -90,7 +90,7 @@ describe("person.music-brainz sandbox script", () => {
 					deathDate: "2005",
 					alternateNames: ["A1 Alias"],
 					sourceUrl: "https://musicbrainz.org/artist/a1",
-					description: "Group - Country: US - Active: 1990 - 2005 - the band",
+					description: "Group \\- Country\\: US \\- Active\\: 1990 \\- 2005 \\- the band",
 				});
 				return undefined;
 			}),

@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
-import { cleanHtmlDescription } from "../../../lib/clean-html-description";
+import { normalizeAnilistDescription } from "../../../lib/anilist-description";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
 import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
 import {
@@ -94,7 +94,7 @@ query StaffQuery($id: Int!, $page: Int!) {
     name { full }
     image { large }
     gender
-    description
+    description(asHtml: true)
     homeTown
     dateOfBirth { day year month }
     dateOfDeath { day year month }
@@ -187,90 +187,101 @@ export const details = defineProvider({
 			staffData: null,
 			characterEdges: [],
 		}).pipe(
-			Effect.map(({ staffData, staffEdges, characterEdges }) => {
-				const name = stringValue(asRecord(staffData["name"])?.["full"]);
-				if (!name) {
-					throw new Error("Anilist staff data is missing name");
-				}
+			Effect.flatMap(({ staffData, staffEdges, characterEdges }) =>
+				Effect.gen(function* () {
+					const name = stringValue(asRecord(staffData["name"])?.["full"]);
+					if (!name) {
+						throw new Error("Anilist staff data is missing name");
+					}
 
-				const relatedByKey = new Map<string, RoleRelatedEntity>();
-				const addMedia = (media: unknown, role: string) => {
-					const record = asRecord(media);
-					if (!record) {
-						return;
-					}
-					const idValue = numberValue(record["id"]);
-					const providerSlug = mediaScriptSlug(record["type"]);
-					if (idValue === null || !providerSlug) {
-						return;
-					}
-					const externalId = String(Math.trunc(idValue));
-					const key = `${providerSlug}:${externalId}`;
-					const existing = relatedByKey.get(key);
-					if (existing) {
-						if (!existing.relationshipProperties.roles.includes(role)) {
-							existing.relationshipProperties.roles.push(role);
+					const relatedByKey = new Map<string, RoleRelatedEntity>();
+					const addMedia = (media: unknown, role: string) => {
+						const record = asRecord(media);
+						if (!record) {
+							return;
 						}
-						return;
-					}
-					relatedByKey.set(key, {
-						externalId,
-						providerSlug,
-						relationshipProperties: { roles: [role] },
-						name: pickPreferredMediaName(record["title"]),
-					});
-				};
+						const idValue = numberValue(record["id"]);
+						const providerSlug = mediaScriptSlug(record["type"]);
+						if (idValue === null || !providerSlug) {
+							return;
+						}
+						const externalId = String(Math.trunc(idValue));
+						const key = `${providerSlug}:${externalId}`;
+						const existing = relatedByKey.get(key);
+						if (existing) {
+							if (!existing.relationshipProperties.roles.includes(role)) {
+								existing.relationshipProperties.roles.push(role);
+							}
+							return;
+						}
+						relatedByKey.set(key, {
+							externalId,
+							providerSlug,
+							relationshipProperties: { roles: [role] },
+							name: pickPreferredMediaName(record["title"]),
+						});
+					};
 
-				for (const edge of characterEdges) {
-					const record = asRecord(edge);
-					const characters = record?.["characters"];
-					const characterNames = (Array.isArray(characters) ? characters : []).flatMap(
-						(character) => {
-							const characterName = stringValue(asRecord(asRecord(character)?.["name"])?.["full"]);
-							return characterName ? [characterName] : [];
-						},
-					);
-					for (const characterName of characterNames.length > 0 ? characterNames : [null]) {
-						addMedia(record?.["node"], characterName ? `Voicing (${characterName})` : "Voicing");
+					for (const edge of characterEdges) {
+						const record = asRecord(edge);
+						const characters = record?.["characters"];
+						const characterNames = (Array.isArray(characters) ? characters : []).flatMap(
+							(character) => {
+								const characterName = stringValue(
+									asRecord(asRecord(character)?.["name"])?.["full"],
+								);
+								return characterName ? [characterName] : [];
+							},
+						);
+						for (const characterName of characterNames.length > 0 ? characterNames : [null]) {
+							addMedia(record?.["node"], characterName ? `Voicing (${characterName})` : "Voicing");
+						}
 					}
-				}
-				for (const edge of staffEdges) {
-					const record = asRecord(edge);
-					addMedia(record?.["node"], stringValue(record?.["staffRole"]) ?? "Production");
-				}
-				const relatedEntities = [...relatedByKey.values()];
-				const image = stringValue(asRecord(staffData["image"])?.["large"]);
+					for (const edge of staffEdges) {
+						const record = asRecord(edge);
+						addMedia(record?.["node"], stringValue(record?.["staffRole"]) ?? "Production");
+					}
+					const relatedEntities = [...relatedByKey.values()];
+					const image = stringValue(asRecord(staffData["image"])?.["large"]);
 
-				return {
-					name,
-					properties: {
-						alternateNames: [],
-						gender: stringValue(staffData["gender"]),
-						birthPlace: stringValue(staffData["homeTown"]),
-						sourceUrl: `https://anilist.co/staff/${staffId}`,
-						birthDate: formatFuzzyDate(staffData["dateOfBirth"]),
-						deathDate: formatFuzzyDate(staffData["dateOfDeath"]),
-						description: cleanHtmlDescription(staffData["description"]),
-						images: image
-							? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
-							: [],
-					},
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "person-to-anime",
-							entities: relatedEntities.filter((entity) => entity.providerSlug === "anime.anilist"),
+					return {
+						name,
+						properties: {
+							alternateNames: [],
+							gender: stringValue(staffData["gender"]),
+							birthPlace: stringValue(staffData["homeTown"]),
+							sourceUrl: `https://anilist.co/staff/${staffId}`,
+							birthDate: formatFuzzyDate(staffData["dateOfBirth"]),
+							deathDate: formatFuzzyDate(staffData["dateOfDeath"]),
+							images: image
+								? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
+								: [],
+							description: yield* normalizeAnilistDescription(
+								staffData["description"],
+								"https://anilist.co",
+							),
 						},
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "person-to-manga",
-							entities: relatedEntities.filter((entity) => entity.providerSlug === "manga.anilist"),
-						},
-					],
-				};
-			}),
+						relatedEntityGroups: [
+							{
+								direction: "outgoing" as const,
+								synchronization: "authoritative" as const,
+								relationshipSchemaSlug: "person-to-anime",
+								entities: relatedEntities.filter(
+									(entity) => entity.providerSlug === "anime.anilist",
+								),
+							},
+							{
+								direction: "outgoing" as const,
+								synchronization: "authoritative" as const,
+								relationshipSchemaSlug: "person-to-manga",
+								entities: relatedEntities.filter(
+									(entity) => entity.providerSlug === "manga.anilist",
+								),
+							},
+						],
+					};
+				}),
+			),
 		);
 	},
 });

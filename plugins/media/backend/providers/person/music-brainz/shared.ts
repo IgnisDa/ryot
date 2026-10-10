@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
 import { buildLuceneQuery, mbGet } from "../../../lib/vendors/music-brainz";
 
@@ -113,7 +114,7 @@ export const details = defineProvider({
 					stringValue(asRecord(artist["begin-area"])?.["name"]) ??
 					stringValue(asRecord(artist["area"])?.["name"]);
 
-				const description = buildArtistDescription(artist);
+				const description = normalizePlainDescription(buildArtistDescription(artist));
 
 				const aliases = Array.isArray(artist["aliases"]) ? artist["aliases"] : [];
 				const alternateNames = aliases.flatMap((alias) => {

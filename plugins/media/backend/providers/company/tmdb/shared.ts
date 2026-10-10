@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { type UnknownRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import { getImageUrl, getTmdbAccessToken, tmdbGet, type TmdbHost } from "../../../lib/vendors/tmdb";
 
@@ -128,7 +129,7 @@ export const details = defineProvider({
 					properties: {
 						alternateNames: [],
 						website: stringValue(companyData["homepage"]),
-						description: stringValue(companyData["description"]),
+						description: normalizePlainDescription(companyData["description"]),
 						sourceUrl: `https://www.themoviedb.org/company/${input.externalId}`,
 						images: logo ? [{ url: logo, type: "remote" as const, purpose: "logo" as const }] : [],
 						headquarters:

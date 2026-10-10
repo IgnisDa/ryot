@@ -4,6 +4,7 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { asRecord, stringValue } from "../../../lib/records";
 import { readNextPage, readResults, readTotalItems, vndbPost } from "../../../lib/vendors/vndb";
+import { normalizeVndbDescription } from "../../../lib/vndb-description";
 
 export const manifest = defineManifest({ name: "VNDB", kind: "provider", slug: "person.vndb" });
 
@@ -59,34 +60,39 @@ export const details = defineProvider({
 			{ filters: ["id", "=", input.externalId], fields: "id,name,description,lang,type,aliases" },
 			"VNDB producer details request failed",
 		).pipe(
-			Effect.map((payload) => {
-				const [first] = readResults(payload);
-				const producer = asRecord(first);
-				if (!producer) {
-					throw new Error("VNDB returned no data for this producer externalId");
-				}
-				const name = stringValue(producer["name"]);
-				if (!name) {
-					throw new Error("VNDB producer payload is missing name");
-				}
+			Effect.flatMap((payload) =>
+				Effect.gen(function* () {
+					const [first] = readResults(payload);
+					const producer = asRecord(first);
+					if (!producer) {
+						throw new Error("VNDB returned no data for this producer externalId");
+					}
+					const name = stringValue(producer["name"]);
+					if (!name) {
+						throw new Error("VNDB producer payload is missing name");
+					}
 
-				const alternateNames = (
-					Array.isArray(producer["aliases"]) ? producer["aliases"] : []
-				).flatMap((alias) => {
-					const value = stringValue(alias);
-					return value ? [value] : [];
-				});
+					const alternateNames = (
+						Array.isArray(producer["aliases"]) ? producer["aliases"] : []
+					).flatMap((alias) => {
+						const value = stringValue(alias);
+						return value ? [value] : [];
+					});
 
-				return {
-					name,
-					properties: {
-						images: [],
-						alternateNames,
-						sourceUrl: `https://vndb.org/${input.externalId}`,
-						description: stringValue(producer["description"]),
-					},
-				};
-			}),
+					return {
+						name,
+						properties: {
+							images: [],
+							alternateNames,
+							sourceUrl: `https://vndb.org/${input.externalId}`,
+							description: yield* normalizeVndbDescription(
+								producer["description"],
+								"https://vndb.org",
+							),
+						},
+					};
+				}),
+			),
 		);
 	},
 });

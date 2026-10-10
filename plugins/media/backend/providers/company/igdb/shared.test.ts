@@ -117,7 +117,7 @@ describe("company.igdb sandbox script", () => {
 				expect(result.properties).toEqual({
 					foundedYear: 2010,
 					alternateNames: [],
-					description: "A studio.",
+					description: "A studio\\.",
 					website: "https://studio.example",
 					sourceUrl: "https://www.igdb.com/companies/7",
 					images: [

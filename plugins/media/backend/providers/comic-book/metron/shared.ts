@@ -3,6 +3,7 @@ import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
 import { getIdentifier, loadMetronJson, type MetronHost } from "../../../lib/vendors/metron";
 
@@ -221,11 +222,11 @@ export const details = defineProvider({
 				name: title,
 				properties: {
 					genres: [],
-					description: stringValue(payload["desc"]),
 					publishDate: parsePublishDate(payload["cover_date"]),
 					publishYear: parsePublishYear(payload["cover_date"]),
 					pages: pageCount === null ? null : Math.trunc(pageCount),
 					sourceUrl: `https://metron.cloud/issue/${input.externalId}`,
+					description: yield* normalizeRichDescription(payload["desc"], "https://metron.cloud"),
 					images: image ? [{ url: image, type: "remote" as const, purpose: "cover" as const }] : [],
 				},
 				relatedEntityGroups: [

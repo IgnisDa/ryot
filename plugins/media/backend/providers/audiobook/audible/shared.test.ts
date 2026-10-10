@@ -138,7 +138,7 @@ describe("audiobook.audible sandbox script", () => {
 						publishYear: 2020,
 						providerRating: 4.5,
 						publishDate: "2020-05-02",
-						description: "Line one\nLine two",
+						description: "Line one\\\nLine two",
 						genres: ["Science Fiction", "Fantasy"],
 						sourceUrl: "https://www.audible.com/pd/mixed-book",
 						unlinkedCreators: [{ role: "Author", name: "No Asin" }],

@@ -14,6 +14,29 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: VndbHost["httpCall"]) => defineSandboxTestHost(manifest, { httpCall });
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("visual-novel.vndb sandbox script", () => {
+	it("keeps VNDB spoilers concealed and resolves BBCode links", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				results: [
+					{
+						id: "v17",
+						title: "Mystery",
+						description:
+							"[b]Story[/b] [spoiler]hidden [i]ending[/i][/spoiler] [url=/v4]related[/url]",
+					},
+				],
+			}),
+		);
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "v17" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.properties).toMatchObject({
+						description: "**Story** :spoiler[hidden *ending*] [related](https://vndb.org/v4)",
+					});
+				}),
+			),
+		);
+	});
 	it("declares a script for each operation", () => {
 		expect([
 			[searchManifest.slug, search.operation],

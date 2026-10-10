@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -113,14 +114,6 @@ export const details = defineProvider({
 
 				return {
 					name,
-					properties: {
-						images,
-						website,
-						foundedYear,
-						alternateNames: [],
-						description: stringValue(company?.["description"]),
-						sourceUrl: `https://www.igdb.com/companies/${input.externalId}`,
-					},
 					relatedEntityGroups: [
 						{
 							direction: "outgoing" as const,
@@ -129,6 +122,14 @@ export const details = defineProvider({
 							relationshipSchemaSlug: "company-to-video-game",
 						},
 					],
+					properties: {
+						images,
+						website,
+						foundedYear,
+						alternateNames: [],
+						sourceUrl: `https://www.igdb.com/companies/${input.externalId}`,
+						description: normalizePlainDescription(company?.["description"]),
+					},
 				};
 			}),
 		);

@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import {
 	escapeGraphqlString,
 	firstGraphqlErrorMessage,
@@ -111,76 +112,82 @@ query GetHardcoverAuthorDetails($id: Int!) {
 					"Hardcover author details request failed",
 				),
 			),
-			Effect.map((payloadValue) => {
-				const payload = asRecord(payloadValue);
-				const errorMessage = firstGraphqlErrorMessage(payload);
-				if (errorMessage) {
-					throw new Error(`Hardcover author details GraphQL error: ${errorMessage}`);
-				}
-				const authorData = asRecord(asRecord(payload?.["data"])?.["authors_by_pk"]);
-				if (!authorData) {
-					throw new Error("Hardcover returned no author data");
-				}
-				const name = stringValue(authorData["name"]);
-				if (!name) {
-					throw new Error("Hardcover author data is missing name");
-				}
-				const image = stringValue(asRecord(authorData["image"])?.["url"]);
-				const slug = stringValue(authorData["slug"]);
-				const links = authorData["links"];
-				const website =
-					(Array.isArray(links) ? links : [])
-						.map((link) => stringValue(asRecord(link)?.["url"]))
-						.find((url) => url) ?? null;
-				const alternateNamesValue = authorData["alternate_names"];
-				const alternateNames = (
-					Array.isArray(alternateNamesValue) ? alternateNamesValue : []
-				).flatMap((value) => (typeof value === "string" && value.trim() ? [value] : []));
-				const contributions = authorData["contributions"];
-				const mediaEntities = (Array.isArray(contributions) ? contributions : []).flatMap(
-					(contribution) => {
-						const contrib = asRecord(contribution);
-						const book = asRecord(contrib?.["book"]);
-						const bookId = idValue(book?.["id"]);
-						if (!bookId) {
-							return [];
-						}
-						return [
-							{
-								externalId: bookId,
-								providerSlug: "book.hardcover",
-								name: stringValue(book?.["title"]) ?? "Loading...",
-								relationshipProperties: {
-									roles: [stringValue(contrib?.["contribution"]) ?? "Author"],
+			Effect.flatMap((payloadValue) =>
+				Effect.gen(function* () {
+					const payload = asRecord(payloadValue);
+					const errorMessage = firstGraphqlErrorMessage(payload);
+					if (errorMessage) {
+						throw new Error(`Hardcover author details GraphQL error: ${errorMessage}`);
+					}
+					const authorData = asRecord(asRecord(payload?.["data"])?.["authors_by_pk"]);
+					if (!authorData) {
+						throw new Error("Hardcover returned no author data");
+					}
+					const name = stringValue(authorData["name"]);
+					if (!name) {
+						throw new Error("Hardcover author data is missing name");
+					}
+					const image = stringValue(asRecord(authorData["image"])?.["url"]);
+					const slug = stringValue(authorData["slug"]);
+					const links = authorData["links"];
+					const website =
+						(Array.isArray(links) ? links : [])
+							.map((link) => stringValue(asRecord(link)?.["url"]))
+							.find((url) => url) ?? null;
+					const alternateNamesValue = authorData["alternate_names"];
+					const alternateNames = (
+						Array.isArray(alternateNamesValue) ? alternateNamesValue : []
+					).flatMap((value) => (typeof value === "string" && value.trim() ? [value] : []));
+					const contributions = authorData["contributions"];
+					const mediaEntities = (Array.isArray(contributions) ? contributions : []).flatMap(
+						(contribution) => {
+							const contrib = asRecord(contribution);
+							const book = asRecord(contrib?.["book"]);
+							const bookId = idValue(book?.["id"]);
+							if (!bookId) {
+								return [];
+							}
+							return [
+								{
+									externalId: bookId,
+									providerSlug: "book.hardcover",
+									name: stringValue(book?.["title"]) ?? "Loading...",
+									relationshipProperties: {
+										roles: [stringValue(contrib?.["contribution"]) ?? "Author"],
+									},
 								},
-							},
-						];
-					},
-				);
-				return {
-					name,
-					relatedEntityGroups: [
-						{
-							entities: mediaEntities,
-							direction: "outgoing" as const,
-							relationshipSchemaSlug: "person-to-book",
-							synchronization: "authoritative" as const,
+							];
 						},
-					],
-					properties: {
-						website,
-						alternateNames,
-						sourceUrl: slug ? `https://hardcover.app/authors/${slug}` : null,
-						description: typeof authorData["bio"] === "string" ? authorData["bio"] : null,
-						birthDate: typeof authorData["born_date"] === "string" ? authorData["born_date"] : null,
-						deathDate:
-							typeof authorData["death_date"] === "string" ? authorData["death_date"] : null,
-						images: image
-							? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
-							: [],
-					},
-				};
-			}),
+					);
+					return {
+						name,
+						relatedEntityGroups: [
+							{
+								entities: mediaEntities,
+								direction: "outgoing" as const,
+								relationshipSchemaSlug: "person-to-book",
+								synchronization: "authoritative" as const,
+							},
+						],
+						properties: {
+							website,
+							alternateNames,
+							sourceUrl: slug ? `https://hardcover.app/authors/${slug}` : null,
+							birthDate:
+								typeof authorData["born_date"] === "string" ? authorData["born_date"] : null,
+							deathDate:
+								typeof authorData["death_date"] === "string" ? authorData["death_date"] : null,
+							images: image
+								? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
+								: [],
+							description: yield* normalizeRichDescription(
+								authorData["bio"],
+								"https://hardcover.app",
+							),
+						},
+					};
+				}),
+			),
 		);
 	},
 });

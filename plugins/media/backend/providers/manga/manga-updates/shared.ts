@@ -10,6 +10,7 @@ import {
 	recordsValue,
 	stringValue,
 } from "../../../lib/records";
+import { normalizeRichDescription } from "../../../lib/rich-description";
 import {
 	imageUrlValue,
 	mangaUpdatesGet,
@@ -206,8 +207,8 @@ export const details = defineProvider({
 					publishYear: parsePublishYear(payload?.["year"]),
 					chapters: numberValue(payload?.["latest_chapter"]),
 					providerRating: numberValue(payload?.["bayesian_rating"]),
-					description: typeof description === "string" ? description : null,
 					genres: collectGenres(payload?.["genres"], payload?.["categories"]),
+					description: yield* normalizeRichDescription(description, "https://www.mangaupdates.com"),
 				},
 			};
 		}),

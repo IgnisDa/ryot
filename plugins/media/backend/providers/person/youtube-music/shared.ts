@@ -1,5 +1,6 @@
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { type UnknownRecord, asRecord, stringValue } from "../../../lib/records";
 import {
 	type ArtistClient,
@@ -102,7 +103,7 @@ export const buildArtistDetails = (client: ArtistClient, externalId: string) =>
 
 			const header = asRecord(artistRecord?.["header"]);
 			const descriptionValue = asRecord(header?.["description"])?.["text"];
-			const description = typeof descriptionValue === "string" ? descriptionValue : null;
+			const description = normalizePlainDescription(descriptionValue);
 			const { media, groups } = collectArtistEntities(artistRecord);
 
 			return {

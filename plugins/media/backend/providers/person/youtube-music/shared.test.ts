@@ -33,7 +33,7 @@ describe("person.youtube-music sandbox script", () => {
 			expect(details.name).toBe("The Artist");
 			expect(details.properties).toEqual({
 				alternateNames: [],
-				description: "Bio.",
+				description: "Bio\\.",
 				sourceUrl: "https://music.youtube.com/channel/artist-1",
 				images: [
 					{ type: "remote", purpose: "profile", url: "https://img/big.jpg" },

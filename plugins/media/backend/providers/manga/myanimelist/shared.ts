@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { normalizePlainDescription } from "../../../lib/plain-description";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case-delimiters";
 import {
@@ -57,7 +58,6 @@ export const details = defineProvider({
 			}
 			const volumesValue = numberValue(payload?.["num_volumes"]);
 			const statusValue = stringValue(payload?.["status"]);
-			const synopsis = payload?.["synopsis"];
 			return {
 				name: title,
 				relatedEntityGroups: [
@@ -80,7 +80,7 @@ export const details = defineProvider({
 					images: collectImages(payload?.["main_picture"]),
 					publishDate: parsePublishDate(payload?.["start_date"]),
 					publishYear: parsePublishYear(payload?.["start_date"]),
-					description: typeof synopsis === "string" ? synopsis : null,
+					description: normalizePlainDescription(payload?.["synopsis"]),
 					productionStatus: statusValue ? toTitleCase(statusValue) : null,
 					sourceUrl: `https://myanimelist.net/manga/${payloadIdentifier}/${title}`,
 					volumes: volumesValue === null ? null : Math.max(0, Math.trunc(volumesValue)),
