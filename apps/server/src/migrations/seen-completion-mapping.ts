@@ -27,16 +27,21 @@ BEGIN
 		INNER JOIN "relationship" show_season_rel
 			ON  show_season_rel.source_entity_id = show_entity.id
 			AND show_season_rel.relationship_schema_slug = 'show-to-show-season'
+			AND show_season_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		INNER JOIN "entity" season
 			ON  season.id = show_season_rel.target_entity_id
 			AND season.entity_schema_slug = 'show-season'
+			AND season.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		INNER JOIN "relationship" season_episode_rel
 			ON  season_episode_rel.source_entity_id = season.id
 			AND season_episode_rel.relationship_schema_slug = 'show-season-to-show-episode'
+			AND season_episode_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		INNER JOIN "entity" episode
 			ON  episode.id = season_episode_rel.target_entity_id
 			AND episode.entity_schema_slug = 'show-episode'
+			AND episode.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		WHERE show_entity.entity_schema_slug = 'show'
+		  AND show_entity.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		  AND (show_season_rel.user_id IS NULL OR show_season_rel.user_id = show_entity.user_id)
 		  AND (season_episode_rel.user_id IS NULL OR season_episode_rel.user_id = show_entity.user_id)
 		  AND (season.user_id IS NULL OR season.user_id = show_entity.user_id)
@@ -52,10 +57,13 @@ BEGIN
 		INNER JOIN "relationship" podcast_episode_rel
 			ON  podcast_episode_rel.source_entity_id = podcast.id
 			AND podcast_episode_rel.relationship_schema_slug = 'podcast-to-podcast-episode'
+			AND podcast_episode_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		INNER JOIN "entity" episode
 			ON  episode.id = podcast_episode_rel.target_entity_id
 			AND episode.entity_schema_slug = 'podcast-episode'
+			AND episode.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		WHERE podcast.entity_schema_slug = 'podcast'
+		  AND podcast.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		  AND (podcast_episode_rel.user_id IS NULL OR podcast_episode_rel.user_id = podcast.user_id)
 		  AND (episode.user_id IS NULL OR episode.user_id = podcast.user_id)
 	), anime_keys AS (
@@ -66,6 +74,7 @@ BEGIN
 		FROM "entity" e
 		CROSS JOIN LATERAL generate_series(1, (e.properties ->> 'episodes')::int) AS gs
 		WHERE e.entity_schema_slug = 'anime'
+		  AND e.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		  AND (e.properties ->> 'episodes') ~ '^[0-9]+$'
 		  AND (e.properties ->> 'episodes')::int > 0
 	), manga_counts AS (
@@ -74,6 +83,7 @@ BEGIN
 			(e.properties ->> 'chapters')::numeric AS chapter_count
 		FROM "entity" e
 		WHERE e.entity_schema_slug = 'manga'
+		  AND e.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		  AND (e.properties ->> 'chapters') ~ '^[0-9]+(\\.[0-9]+)?$'
 		  AND (e.properties ->> 'chapters')::numeric > 0
 	), manga_keys AS (
@@ -104,16 +114,21 @@ BEGIN
 		INNER JOIN "relationship" show_season_rel
 			ON  show_season_rel.source_entity_id = show_entity.id
 			AND show_season_rel.relationship_schema_slug = 'show-to-show-season'
+			AND show_season_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		INNER JOIN "entity" season
 			ON  season.id = show_season_rel.target_entity_id
 			AND season.entity_schema_slug = 'show-season'
+			AND season.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		LEFT JOIN "relationship" season_episode_rel
 			ON  season_episode_rel.source_entity_id = season.id
 			AND season_episode_rel.relationship_schema_slug = 'show-season-to-show-episode'
+			AND season_episode_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		LEFT JOIN "entity" episode
 			ON  episode.id = season_episode_rel.target_entity_id
 			AND episode.entity_schema_slug = 'show-episode'
+			AND episode.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		WHERE show_entity.entity_schema_slug = 'show'
+		  AND show_entity.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		  AND (show_season_rel.user_id IS NULL OR show_season_rel.user_id = show_entity.user_id)
 		  AND (season_episode_rel.user_id IS NULL OR season_episode_rel.user_id = show_entity.user_id)
 		  AND (season.user_id IS NULL OR season.user_id = show_entity.user_id)
@@ -154,7 +169,8 @@ BEGIN
 		ON  required.entity_id = ev.session_entity_id
 		AND required.coverage_key = ev.entity_id
 		AND required.entity_schema_slug IN ('show', 'podcast')
-	WHERE ev.event_schema_slug IN ('progress', 'complete');
+	WHERE ev.event_schema_slug IN ('progress', 'complete')
+	  AND ev.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)};
 
 	CREATE INDEX ON _seen_child_lifecycle (
 		user_id,
@@ -272,6 +288,8 @@ BEGIN
 	FROM "event" ev
 	INNER JOIN "entity" e ON e.id = ev.entity_id
 	WHERE ev.event_schema_slug = 'progress'
+	  AND ev.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
+	  AND e.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 	  AND e.entity_schema_slug IN ('anime', 'manga')
 	  AND (ev.properties ->> 'progressPercent')::numeric = 100;
 
@@ -363,7 +381,9 @@ BEGIN
 			FROM "event" ev
 			INNER JOIN "entity" parent ON parent.id = ev.entity_id
 			WHERE parent.entity_schema_slug IN ('show', 'podcast')
+			  AND parent.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			  AND ev.event_schema_slug IN ('backlog', 'complete', 'dropped', 'on_hold')
+			  AND ev.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			  AND ev.session_entity_id IS DISTINCT FROM ev.entity_id
 		`,
 	})}
@@ -376,7 +396,9 @@ BEGIN
 			FROM "event" ev
 			INNER JOIN "entity" parent ON parent.id = ev.entity_id
 			WHERE parent.entity_schema_slug IN ('show', 'podcast')
+			  AND parent.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 			  AND ev.event_schema_slug = 'progress'
+			  AND ev.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		`,
 		message:
 			"seen -> event: % migrated progress event(s) are attached to a show or podcast itself rather than to one of its episodes, and V2 records episodic progress only on episodes: %. This is a defect in this migration's progress step rather than in the legacy data. Keep the dump and report it; retrying will not change the result.",
@@ -386,15 +408,22 @@ BEGIN
 		SELECT 1
 		FROM "event" ev
 		INNER JOIN "entity" episode
-			ON episode.id = ev.entity_id AND episode.entity_schema_slug = 'show-episode'
+			ON episode.id = ev.entity_id
+			AND episode.entity_schema_slug = 'show-episode'
+			AND episode.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		INNER JOIN "relationship" season_episode_rel
 			ON season_episode_rel.target_entity_id = episode.id
 			AND season_episode_rel.relationship_schema_slug = 'show-season-to-show-episode'
-		INNER JOIN "entity" season ON season.id = season_episode_rel.source_entity_id
+			AND season_episode_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
+		INNER JOIN "entity" season
+			ON season.id = season_episode_rel.source_entity_id
+			AND season.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		INNER JOIN "relationship" show_season_rel
 			ON show_season_rel.target_entity_id = season.id
 			AND show_season_rel.relationship_schema_slug = 'show-to-show-season'
+			AND show_season_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		WHERE ev.event_schema_slug IN ('progress', 'complete')
+		  AND ev.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		  AND (
 			((season.properties ->> 'seasonNumber')::int > 0
 				AND ev.session_entity_id IS DISTINCT FROM show_season_rel.source_entity_id)
@@ -409,11 +438,15 @@ BEGIN
 		SELECT 1
 		FROM "event" ev
 		INNER JOIN "entity" episode
-			ON episode.id = ev.entity_id AND episode.entity_schema_slug = 'podcast-episode'
+			ON episode.id = ev.entity_id
+			AND episode.entity_schema_slug = 'podcast-episode'
+			AND episode.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		INNER JOIN "relationship" podcast_episode_rel
 			ON podcast_episode_rel.target_entity_id = episode.id
 			AND podcast_episode_rel.relationship_schema_slug = 'podcast-to-podcast-episode'
+			AND podcast_episode_rel.relationship_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		WHERE ev.event_schema_slug IN ('progress', 'complete')
+		  AND ev.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		  AND ev.session_entity_id IS DISTINCT FROM podcast_episode_rel.source_entity_id
 	) THEN
 		RAISE EXCEPTION 'seen -> event: a migrated podcast episode event belongs to a watch session other than its own podcast. This is a defect in this migration''s session assignment rather than in the legacy data. Keep the dump and report it; retrying will not change the result.';
