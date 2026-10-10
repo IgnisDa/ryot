@@ -2,7 +2,7 @@ import { createContext, type ReactNode, useContext } from "react";
 
 import { useWorkoutProcessing } from "./use-workout-processing";
 
-const ProcessingContext = createContext({ failed: false, pending: false });
+const ProcessingContext = createContext({ failed: false, pending: false, loading: false });
 
 export function WorkoutProcessing(props: {
 	readonly exerciseId?: string;
@@ -18,8 +18,21 @@ export function WorkoutProcessing(props: {
 	);
 }
 
-export function ComputedResults(props: { readonly children: ReactNode }) {
+export function ComputedResults(props: {
+	readonly compact?: boolean;
+	readonly children: ReactNode;
+}) {
 	const processing = useContext(ProcessingContext);
+	if (props.compact && (processing.failed || processing.pending)) {
+		return processing.failed ? (
+			<span className="text-text-muted">—</span>
+		) : (
+			<span
+				aria-hidden="true"
+				className="inline-block h-[1em] w-12 max-w-full rounded bg-surface-2 align-middle"
+			/>
+		);
+	}
 	if (processing.failed) {
 		return (
 			<span role="status" className="font-ui text-text-muted">
@@ -30,7 +43,7 @@ export function ComputedResults(props: { readonly children: ReactNode }) {
 	if (processing.pending) {
 		return (
 			<span role="status" className="font-ui text-text-muted">
-				Updating calculated results…
+				{processing.loading ? "Checking calculated results…" : "Updating calculated results…"}
 			</span>
 		);
 	}

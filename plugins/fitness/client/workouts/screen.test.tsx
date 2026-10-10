@@ -65,6 +65,7 @@ const listWorkout = (id: string, name: string, startedAt: string) => ({
 
 type Answers = {
 	readonly total?: number;
+	readonly deferProcessing?: boolean;
 	readonly processingPending?: boolean;
 	readonly list?: (after: string | undefined) => ReturnType<typeof rows>;
 };
@@ -150,6 +151,9 @@ const openPage = (answers: Answers = {}, search = "") => {
 		}
 		for (const request of page.queryRequests()) {
 			if (!answered.has(request.requestId)) {
+				if (answers.deferProcessing && "processing" in request.document.queries) {
+					continue;
+				}
 				answered.add(request.requestId);
 				page.replyQuery(request.requestId, {
 					outcome: "success",
@@ -183,9 +187,39 @@ describe("all workouts page", () => {
 			answerCurrent = openPage({ processingPending: true }).answerPending;
 			yield* settle(() => {
 				const card = body.getByRole("article", { name: "Legs" });
-				expect(card.textContent).toContain("Updating calculated results…");
+				expect(card.textContent).not.toContain("Updating calculated results…");
 				expect(card.textContent).not.toContain("1 PR");
 				expect(card.textContent).not.toContain("1,000 kg");
+				expect(card.textContent).toContain("100 kg × 5");
+				expect(body.getAllByText("Updating calculated results…")).toHaveLength(1);
+			});
+			for (const label of ["List view", "Table view"]) {
+				fireEvent.click(body.getByRole("radio", { name: label }));
+				yield* settle(() => {
+					expect(body.getAllByText("Updating calculated results…")).toHaveLength(1);
+					expect(body.queryByText("1,000 kg")).toBeNull();
+				});
+			}
+		}),
+	);
+
+	it.live("checks calculated results once without filling cards with loading text", () =>
+		Effect.gen(function* () {
+			const answers = { deferProcessing: true };
+			answerCurrent = openPage(answers).answerPending;
+			yield* settle(() => {
+				const card = body.getByRole("article", { name: "Legs" });
+				expect(card.textContent).not.toContain("calculated results");
+				expect(card.textContent).not.toContain("1,000 kg");
+				expect(body.getAllByText("Checking calculated results…")).toHaveLength(1);
+				expect(body.queryByText("Updating calculated results…")).toBeNull();
+			});
+			answers.deferProcessing = false;
+			yield* settle(() => {
+				const card = body.getByRole("article", { name: "Legs" });
+				expect(card.textContent).toContain("1,000 kg");
+				expect(card.textContent).toContain("1 PR");
+				expect(body.queryByText("Checking calculated results…")).toBeNull();
 			});
 		}),
 	);

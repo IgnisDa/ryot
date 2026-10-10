@@ -20,7 +20,7 @@ function WorkoutName(props: { readonly card: WorkoutCard; readonly className?: s
 
 function RecordBadge(props: { readonly count: number }) {
 	return (
-		<ComputedResults>
+		<ComputedResults compact>
 			{props.count > 0 ? (
 				<Badge variant="accent">
 					<AppIcon size={12} name="star" />
@@ -43,7 +43,7 @@ function Comparison(props: { readonly card: WorkoutCard }) {
 		<>
 			<span className="truncate text-text-subtle">{comparison.label}</span>
 			{comparison.change === null ? null : (
-				<ComputedResults>
+				<ComputedResults compact>
 					<span
 						className={clsx(
 							"font-semibold whitespace-nowrap tabular-nums",
@@ -60,7 +60,7 @@ function Comparison(props: { readonly card: WorkoutCard }) {
 
 function RecordCount(props: { readonly count: number; readonly className?: string }) {
 	return (
-		<ComputedResults>
+		<ComputedResults compact>
 			<span
 				className={clsx(
 					"font-semibold",
@@ -108,7 +108,10 @@ export function WorkoutGridCard(props: { readonly card: WorkoutCard }) {
 				</div>
 				<div className="grid grid-cols-3 gap-2 px-4.5 py-3.5">
 					<Stat value={card.duration?.value ?? "—"} label={card.duration?.label ?? "Duration"} />
-					<Stat label="Volume" value={<ComputedResults>{card.volume ?? "—"}</ComputedResults>} />
+					<Stat
+						label="Volume"
+						value={<ComputedResults compact>{card.volume ?? "—"}</ComputedResults>}
+					/>
 					<Stat
 						value={formatNumber(card.sets)}
 						label={`Sets · ${plural(card.exercises, "exercise")}`}
@@ -195,7 +198,7 @@ export function WorkoutListRow(props: { readonly card: WorkoutCard }) {
 					</span>
 					<span>
 						<span className="block font-semibold text-text">
-							<ComputedResults>{card.volume ?? "—"}</ComputedResults>
+							<ComputedResults compact>{card.volume ?? "—"}</ComputedResults>
 						</span>
 						<span
 							className={clsx(
@@ -367,7 +370,7 @@ export function WorkoutTable(props: { readonly cards: readonly WorkoutCard[] }) 
 							</td>
 							<td className="px-3 py-2.5 text-right text-text-muted">{formatNumber(card.sets)}</td>
 							<td className="px-3 py-2.5 text-right">
-								<ComputedResults>{card.volume ?? "—"}</ComputedResults>
+								<ComputedResults compact>{card.volume ?? "—"}</ComputedResults>
 							</td>
 							<td className="px-3 py-2.5 text-right">
 								<RecordCount count={card.personalBests} />
