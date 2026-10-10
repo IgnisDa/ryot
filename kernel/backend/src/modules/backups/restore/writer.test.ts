@@ -1,6 +1,6 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, describe, expect, it, layer } from "@effect/vitest";
-import { DbError } from "@ryot-app/contract/errors";
+import { DbError, badRequest } from "@ryot-app/contract/errors";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -2224,6 +2224,39 @@ layer(assetRestoreLayer("user-id"))((test) => {
 					}),
 				),
 				assetForbidden,
+			);
+		}),
+	);
+});
+
+layer(assetRestoreLayer("user-id"))((test) => {
+	test.effect("rejects a restored custom view rendered by the kernel calendar", () =>
+		Effect.gen(function* () {
+			assertExitFails(
+				yield* restoreAssetRecords(
+					assetRecords({
+						savedViews: [
+							{
+								sortOrder: 0,
+								settings: {},
+								kind: "custom",
+								isHidden: false,
+								pluginKey: null,
+								icon: "calendar",
+								isBuiltin: false,
+								dataSources: null,
+								id: "calendar-copy",
+								installationId: null,
+								name: "Calendar copy",
+								slug: "calendar-copy",
+								createdAt: "2026-08-23T12:00:00.000Z",
+								updatedAt: "2026-08-23T12:00:00.000Z",
+								renderer: { kind: "kernel", name: "calendar" },
+							},
+						],
+					}),
+				),
+				badRequest("Backup saved view definition is invalid"),
 			);
 		}),
 	);

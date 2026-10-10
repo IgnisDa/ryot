@@ -636,6 +636,24 @@ describe("definePlugin", () => {
 		).toThrow();
 	});
 
+	it("rejects a plugin saved view rendered by the kernel calendar", () => {
+		const [savedView] = manifest.savedViews;
+		assert(savedView);
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				savedViews: [
+					{
+						...savedView,
+						settings: {},
+						dataSources: null,
+						renderer: { kind: "kernel", name: "calendar" },
+					},
+				],
+			}),
+		).toThrow();
+	});
+
 	it("rejects removed saved-view sandbox scripts", () => {
 		const [savedView] = manifest.savedViews;
 		assert(savedView);

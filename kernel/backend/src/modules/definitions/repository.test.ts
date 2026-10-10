@@ -733,7 +733,10 @@ describe("definition views", () => {
 				).toEqual(["add-entity-to-collection", "remove-entity-from-collection"]);
 				expect(yield* definitions.readKernelSource).toMatchObject({
 					relationshipSchemas: [],
-					savedViews: [{ pluginId: null, slug: "collections" }],
+					savedViews: [
+						{ pluginId: null, slug: "collections" },
+						{ pluginId: null, slug: "calendar" },
+					],
 				});
 			}),
 		);

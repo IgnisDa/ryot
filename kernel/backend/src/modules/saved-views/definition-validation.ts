@@ -179,6 +179,9 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 	customRenderer: CustomRendererRecord | null,
 	pluginPage: PluginPageRecord | null = null,
 ) {
+	if (renderer.kind === "kernel" && renderer.name === "calendar") {
+		return yield* invalidResultsTableDefinition("Calendar views are kernel built-ins only");
+	}
 	if (isEntityBrowserRenderer(renderer)) {
 		yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
 		return null;

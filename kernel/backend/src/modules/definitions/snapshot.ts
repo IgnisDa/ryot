@@ -243,6 +243,14 @@ const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
 	if (savedView.renderer.kind !== "kernel") {
 		return;
 	}
+	if (savedView.renderer.name === "calendar") {
+		if (savedView.dataSources !== null || Object.keys(savedView.settings).length > 0) {
+			throw new Error(
+				`Invalid saved view ${savedView.slug}: calendar views take no settings or data sources`,
+			);
+		}
+		return;
+	}
 	const settingsSchema =
 		savedView.renderer.name === "entity-browser" || savedView.renderer.name === "collection-browser"
 			? EntityBrowserSavedViewSettings

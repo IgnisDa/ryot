@@ -5,6 +5,7 @@ import { assert } from "vitest";
 
 import { fixtureManifest } from "../test-support";
 import {
+	decodePluginManifest,
 	PluginPackageReservedError,
 	PluginSurfaceError,
 	validatePluginManifestPolicy,
@@ -120,5 +121,23 @@ it.effect("reserves the ryot publisher for bundled plugins", () =>
 		const failure = Option.getOrThrow(Cause.findErrorOption(rejected.cause));
 		assert(failure instanceof PluginPackageReservedError);
 		expect(failure.packageId).toBe("ryot/community");
+	}),
+);
+
+it.effect("rejects a manifest whose saved view uses the kernel calendar renderer", () =>
+	Effect.gen(function* () {
+		const manifest = fixtureManifest();
+		const savedView = {
+			sortOrder: 0,
+			settings: {},
+			slug: "calendar",
+			name: "Calendar",
+			icon: "calendar",
+			dataSources: null,
+			renderer: { kind: "kernel", name: "calendar" },
+		};
+		const exit = yield* Effect.exit(decodePluginManifest({ ...manifest, savedViews: [savedView] }));
+		expect(Exit.isFailure(exit)).toBe(true);
+		expect(Exit.isSuccess(yield* Effect.exit(decodePluginManifest(manifest)))).toBe(true);
 	}),
 );
