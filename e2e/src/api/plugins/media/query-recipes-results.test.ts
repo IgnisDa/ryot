@@ -784,16 +784,25 @@ describe("Media RyotQL query recipe results", () => {
 					properties: { images: [], publishYear, sourceUrl: null, description: null },
 				});
 
-			const [person, olderMovie, undatedMovie, newerMovie, secondBand, firstBand, unrelated] =
-				yield* Effect.all([
-					seedCredit({ images: [], schemaSlug: personSchema.id, name: `Credit Person ${suffix}` }),
-					seedMovie(`Credit Older Movie ${suffix}`, 1999),
-					seedMovie(`Credit Undated Movie ${suffix}`, null),
-					seedMovie(`Credit Newer Movie ${suffix}`, 2014),
-					seedCredit({ images: [], name: `B Band ${suffix}`, schemaSlug: musicGroupSchema.id }),
-					seedCredit({ images: [], name: `A Band ${suffix}`, schemaSlug: musicGroupSchema.id }),
-					seedMovie(`Credit Unrelated Movie ${suffix}`, 2020),
-				]);
+			const [
+				person,
+				otherPerson,
+				olderMovie,
+				undatedMovie,
+				newerMovie,
+				secondBand,
+				firstBand,
+				unrelated,
+			] = yield* Effect.all([
+				seedCredit({ images: [], schemaSlug: personSchema.id, name: `Credit Person ${suffix}` }),
+				seedCredit({ images: [], schemaSlug: personSchema.id, name: `Other Person ${suffix}` }),
+				seedMovie(`Credit Older Movie ${suffix}`, 1999),
+				seedMovie(`Credit Undated Movie ${suffix}`, null),
+				seedMovie(`Credit Newer Movie ${suffix}`, 2014),
+				seedCredit({ images: [], name: `B Band ${suffix}`, schemaSlug: musicGroupSchema.id }),
+				seedCredit({ images: [], name: `A Band ${suffix}`, schemaSlug: musicGroupSchema.id }),
+				seedMovie(`Credit Unrelated Movie ${suffix}`, 2020),
+			]);
 			const credit = (
 				targetEntityId: string,
 				relationshipSchema: typeof personToMovie,
@@ -812,8 +821,8 @@ describe("Media RyotQL query recipe results", () => {
 				credit(secondBand.id, personToMusicGroup, { roles: ["Artist"] }),
 				credit(firstBand.id, personToMusicGroup, { roles: ["Artist"] }),
 				insertGlobalRelationship({
-					targetEntityId: person.id,
-					sourceEntityId: unrelated.id,
+					targetEntityId: unrelated.id,
+					sourceEntityId: otherPerson.id,
 					relationshipSchema: personToMovie.reference,
 				}),
 			]);
