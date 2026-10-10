@@ -294,7 +294,7 @@ export const shippedPluginTestProviders = (packageId: PluginPackageId) =>
 				...shipped,
 				pluginId,
 				compiledScripts: [...shipped.compiledScripts, ...compiled.compiledScripts],
-				sourceHash: requirePresent(current.sourceHash, "Shipped plugin has no source hash"),
+				contentHash: requirePresent(current.contentHash, "Shipped plugin has no content hash"),
 				manifest: {
 					...shipped.manifest,
 					scripts: [...shipped.manifest.scripts, ...compiled.manifest.scripts],
