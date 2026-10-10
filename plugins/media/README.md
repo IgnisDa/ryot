@@ -173,7 +173,10 @@ use only the HTTP budget left after the show/season calls and drop excess orders
 population.
 
 Provider refresh emits authoritative empty relationship groups where supported so removed links can
-be deleted. Consumers use normalized properties, not provider-specific branches. Descriptions and
+be deleted. TMDB and TVDB cast credits and AniList staff voice credits preserve character names in
+the person-to-media relationship's `character` field, separately from roles. Multiple names for one
+credit are deduplicated and joined with `/`; missing names stay absent. Detail credit lists display
+the recorded names as `as <character>`. Consumers use normalized properties, not provider-specific branches. Descriptions and
 translations use canonical `restrictedMarkdown`; provider boundaries normalize rich input, including
 VNDB BBCode and AniList spoilers. Clients never guess source syntax. See
 [Markdown conversion](../../packages/plugin-backend-sdk/README.md#markdown-conversion).

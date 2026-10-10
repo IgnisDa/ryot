@@ -4,7 +4,7 @@ import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { normalizeAnilistDescription } from "../../../lib/anilist-description";
 import { asRecord, numberValue, stringValue, type UnknownRecord } from "../../../lib/records";
-import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
+import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
 	anilistGraphql,
 	type AnilistHost,
@@ -194,8 +194,8 @@ export const details = defineProvider({
 						throw new Error("Anilist staff data is missing name");
 					}
 
-					const relatedByKey = new Map<string, RoleRelatedEntity>();
-					const addMedia = (media: unknown, role: string) => {
+					const related = createRoleAccumulator();
+					const addMedia = (media: unknown, role: string, character: string | null = null) => {
 						const record = asRecord(media);
 						if (!record) {
 							return;
@@ -206,19 +206,14 @@ export const details = defineProvider({
 							return;
 						}
 						const externalId = String(Math.trunc(idValue));
-						const key = `${providerSlug}:${externalId}`;
-						const existing = relatedByKey.get(key);
-						if (existing) {
-							if (!existing.relationshipProperties.roles.includes(role)) {
-								existing.relationshipProperties.roles.push(role);
-							}
-							return;
-						}
-						relatedByKey.set(key, {
+						related.add({
 							externalId,
 							providerSlug,
-							relationshipProperties: { roles: [role] },
 							name: pickPreferredMediaName(record["title"]),
+							relationshipProperties: {
+								roles: [role],
+								...(character === null ? {} : { character }),
+							},
 						});
 					};
 
@@ -234,14 +229,13 @@ export const details = defineProvider({
 							},
 						);
 						for (const characterName of characterNames.length > 0 ? characterNames : [null]) {
-							addMedia(record?.["node"], characterName ? `Voicing (${characterName})` : "Voicing");
+							addMedia(record?.["node"], "Voicing", characterName);
 						}
 					}
 					for (const edge of staffEdges) {
 						const record = asRecord(edge);
 						addMedia(record?.["node"], stringValue(record?.["staffRole"]) ?? "Production");
 					}
-					const relatedEntities = [...relatedByKey.values()];
 					const image = stringValue(asRecord(staffData["image"])?.["large"]);
 
 					return {
@@ -266,7 +260,7 @@ export const details = defineProvider({
 								direction: "outgoing" as const,
 								synchronization: "authoritative" as const,
 								relationshipSchemaSlug: "person-to-anime",
-								entities: relatedEntities.filter(
+								entities: related.entities.filter(
 									(entity) => entity.providerSlug === "anime.anilist",
 								),
 							},
@@ -274,7 +268,7 @@ export const details = defineProvider({
 								direction: "outgoing" as const,
 								synchronization: "authoritative" as const,
 								relationshipSchemaSlug: "person-to-manga",
-								entities: relatedEntities.filter(
+								entities: related.entities.filter(
 									(entity) => entity.providerSlug === "manga.anilist",
 								),
 							},

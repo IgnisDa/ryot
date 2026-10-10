@@ -11,7 +11,7 @@ import {
 	stringValue,
 	type UnknownRecord,
 } from "../../../lib/records";
-import type { RoleRelatedEntity } from "../../../lib/role-accumulator";
+import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
 	firstTranslationValue,
 	getImageUrl,
@@ -76,8 +76,12 @@ export const search = defineProvider({
 });
 
 const collectCredits = (combinedCredits: UnknownRecord) => {
-	const relatedEntities = new Map<string, RoleRelatedEntity>();
-	const addMedia = (media: UnknownRecord, fallbackRole: string) => {
+	const related = createRoleAccumulator();
+	const addMedia = (
+		media: UnknownRecord,
+		fallbackRole: string,
+		character: string | null = null,
+	) => {
 		const id = numberValue(media["id"]);
 		const mediaType = stringValue(media["media_type"]);
 		let providerSlug: string | null = null;
@@ -91,29 +95,21 @@ const collectCredits = (combinedCredits: UnknownRecord) => {
 		}
 		const externalId = String(Math.trunc(id));
 		const role = stringValue(media["job"]) ?? fallbackRole;
-		const key = `${providerSlug}:${externalId}`;
-		const existing = relatedEntities.get(key);
-		if (existing) {
-			existing.relationshipProperties.roles = [
-				...new Set([...existing.relationshipProperties.roles, role]),
-			];
-			return;
-		}
-		relatedEntities.set(key, {
+		related.add({
 			externalId,
 			providerSlug,
-			relationshipProperties: { roles: [role] },
 			name: stringValue(media["title"]) ?? stringValue(media["name"]) ?? "Loading...",
+			relationshipProperties: { roles: [role], ...(character === null ? {} : { character }) },
 		});
 	};
 
 	for (const media of recordsValue(combinedCredits["cast"])) {
-		addMedia(media, "Actor");
+		addMedia(media, "Actor", stringValue(media["character"]));
 	}
 	for (const media of recordsValue(combinedCredits["crew"])) {
 		addMedia(media, "Production");
 	}
-	return [...relatedEntities.values()];
+	return related.entities;
 };
 
 export const details = defineProvider({

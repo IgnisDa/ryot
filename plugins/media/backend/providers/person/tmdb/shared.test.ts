@@ -26,8 +26,16 @@ describe("person.tmdb sandbox script", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/combined_credits")) {
 				return httpSuccess({
-					cast: [{ id: 2, title: "Film", media_type: "movie" }],
-					crew: [{ id: 3, name: "Show", job: "Director", media_type: "tv" }],
+					crew: [
+						{ id: 2, title: "Film", job: "Writer", media_type: "movie" },
+						{ id: 3, name: "Show", job: "Director", media_type: "tv" },
+					],
+					cast: [
+						{ id: 2, title: "Film", media_type: "movie", character: " Hero " },
+						{ id: 2, title: "Film", media_type: "movie", character: "Villain" },
+						{ id: 2, title: "Film", character: "Hero", media_type: "movie" },
+						{ id: 3, name: "Show", character: " ", media_type: "tv" },
+					],
 				});
 			}
 			return httpSuccess({
@@ -67,7 +75,7 @@ describe("person.tmdb sandbox script", () => {
 								name: "Film",
 								externalId: "2",
 								providerSlug: "movie.tmdb",
-								relationshipProperties: { roles: ["Actor"] },
+								relationshipProperties: { roles: ["Actor", "Writer"], character: "Hero / Villain" },
 							},
 						],
 					},
@@ -80,7 +88,7 @@ describe("person.tmdb sandbox script", () => {
 								name: "Show",
 								externalId: "3",
 								providerSlug: "show.tmdb",
-								relationshipProperties: { roles: ["Director"] },
+								relationshipProperties: { roles: ["Actor", "Director"] },
 							},
 						],
 					},

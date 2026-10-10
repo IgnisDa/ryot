@@ -49,7 +49,7 @@ describe("credit lists", () => {
 									[
 										next
 											? { ...showPersonRow, id: "person-2", character: null, name: "Second Person" }
-											: showPersonRow,
+											: { ...showPersonRow, character: "Jamie / Narrator" },
 									],
 									{ limit: 30, hasMore: !next, nextCursor: next ? null : "cursor-1" },
 								),
@@ -70,7 +70,7 @@ describe("credit lists", () => {
 			);
 			const dialog = getByRole(document.body, "dialog", { name: "Cast & crew" });
 			expect(dialog.textContent).toContain("Actor");
-			expect(dialog.textContent).toContain("Jamie");
+			expect(dialog.textContent).toContain("as Jamie / Narrator");
 			expect(dialog.textContent).toContain("Unlinked Writer");
 			expect(getByRole(dialog, "link", { name: "Open Owen Cooper" }).getAttribute("href")).toBe(
 				"/e/person-1",
@@ -81,6 +81,9 @@ describe("credit lists", () => {
 				waitFor(() => expect(dialog.textContent).toContain("Second Person")),
 			);
 			expect(dialog.textContent).toContain("Owen Cooper");
+			expect(getByRole(dialog, "link", { name: "Open Second Person" }).textContent).not.toContain(
+				"as ",
+			);
 			expect(documents).toHaveLength(2);
 			expect(queryByRole(dialog, "button", { name: "Load more" })).toBeNull();
 			clickRyotElement(getByRole(dialog, "button", { name: "Close credits" }));
