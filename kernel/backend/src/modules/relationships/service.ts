@@ -142,7 +142,14 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					});
 				}
 				if (input.scope === "user") {
-					yield* validateUserRelationshipEntities(entities, input.userId, input, definition);
+					yield* validateUserRelationshipEntities(
+						yield* entities.getEntityScopesForUser(
+							[input.sourceEntityId, input.targetEntityId],
+							input.userId,
+						),
+						input,
+						definition,
+					);
 				}
 				return yield* prepareSingle(
 					{ ...input, relationshipSchemaPluginId: pluginId },

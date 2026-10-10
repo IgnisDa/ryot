@@ -12,9 +12,11 @@ import {
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
+import { chunksOf } from "effect/Array";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
+	type CommittedLifecycleWork,
 	type LifecycleDispatchPlan,
 	toLifecycleDispatchPlan,
 	type LifecyclePlanner,
@@ -26,7 +28,7 @@ import {
 } from "#modules/mutations/receipts";
 import { CatalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
-import type { EntitiesRepository, MutationEntity } from "./repository";
+import { type EntitiesRepository, type MutationEntity, STATEMENT_CHUNK_SIZE } from "./repository";
 import { DomainLifecycleCommand, type DomainWritePin } from "./write-context";
 
 export const PreparedEntityMutation = Schema.Struct({
@@ -79,6 +81,41 @@ export type PersistItem = {
 };
 export type MutationReceiptRecord = Parameters<MutationReceipts["Service"]["insert"]>[0];
 
+// Above one statement's bind budget, chunks follow id order so receipt locks stay globally sorted.
+const receiptChunks = <T>(items: ReadonlyArray<T>, idOf: (item: T) => string) => {
+	const indexed = items.map((item, index) => ({ item, index, id: idOf(item) }));
+	return items.length <= STATEMENT_CHUNK_SIZE
+		? [indexed]
+		: chunksOf(
+				indexed.sort((left, right) => (left.id < right.id ? -1 : Number(left.id > right.id))),
+				STATEMENT_CHUNK_SIZE,
+			);
+};
+
+export const makeReceiptBatches = (receipts: MutationReceipts["Service"]) => ({
+	insertReceipts: Effect.fnUntraced(function* (records: ReadonlyArray<MutationReceiptRecord>) {
+		for (const chunk of receiptChunks(records, ({ identity }) => identity.id)) {
+			yield* receipts.insertMany(chunk.map(({ item }) => item));
+		}
+	}),
+	lookupReceipts: Effect.fnUntraced(function* <Result>(
+		identities: ReadonlyArray<MutationReceiptIdentity>,
+		codec: Schema.Codec<Result, unknown>,
+	) {
+		const results: Array<CommittedLifecycleWork<Result> | null> = identities.map(() => null);
+		for (const chunk of receiptChunks(identities, ({ id }) => id)) {
+			const found = yield* receipts.lookupMany(
+				chunk.map(({ item }) => item),
+				codec,
+			);
+			for (const [position, { index }] of chunk.entries()) {
+				results[index] = found[position] ?? null;
+			}
+		}
+		return results;
+	}),
+});
+
 export const makePersistMutation = <E, R, Result>({
 	planner,
 	receipts,
@@ -107,7 +144,7 @@ export const makePersistMutation = <E, R, Result>({
 		const entityIds = inputs.map(({ entityId }) => entityId);
 		yield* repository.lockProviderEntityMutations(inputs.flatMap(provenanceOf));
 		yield* repository.lockMutationKeys(entityIds);
-		return yield* repository.getMutationEntities(entityIds);
+		return yield* repository.getMutationEntities(entityIds, true);
 	});
 	const persistMany = Effect.fnUntraced(function* (
 		items: ReadonlyArray<PersistItem>,

@@ -28,7 +28,6 @@ import {
 	LifecycleExecution,
 } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import {
 	installRevisionPackage,
@@ -45,6 +44,8 @@ import {
 	sourceEntityId,
 	targetEntityId,
 	userId,
+	installPolicyFixture,
+	ownedEndpoints,
 	relationshipDatabaseLayer,
 	RelationshipFixture,
 	relationshipsServiceWith,
@@ -59,106 +60,6 @@ const relationshipChangeBatch = (
 ): ReadonlyArray<ChangeUserRelationshipBatch> => [
 	{ deletes: [], creates: [{ ...baseInput, properties, propertiesMode }] },
 ];
-
-const ownedEndpoints = Effect.fnUntraced(function* (
-	installed: Pick<Effect.Success<ReturnType<typeof installRevisionPackage>>, "pluginId">,
-	slug: string,
-	scope: "global" | "user",
-) {
-	const entities = yield* EntitiesRepository;
-	const identity = {
-		properties: {},
-		populatedAt: null,
-		entitySchemaPluginId: installed.pluginId,
-		entitySchemaSlug: EntitySchemaSlug.make(slug),
-		...(scope === "global" ? { scope: "global" as const } : { userId, scope: "user" as const }),
-	};
-	const source = yield* entities.insertEntity({
-		...identity,
-		name: "Source",
-		id: EntityId.make(`${installed.pluginId}-source`),
-	});
-	const target = yield* entities.insertEntity({
-		...identity,
-		name: "Target",
-		id: EntityId.make(`${installed.pluginId}-target`),
-	});
-	return { sourceEntityId: source.entity.id, targetEntityId: target.entity.id };
-});
-
-const installPolicyFixture = Effect.fn(function* (owner: UserId | null = userId) {
-	const fixture = revisionPackage(
-		"relationship-policy-scope",
-		"v1",
-		owner === null ? "global-policy-entity" : "fixture",
-	);
-	const script = fixture.scripts.find(({ metadata }) => metadata.kind === "automation");
-	const schema = fixture.manifest.relationshipSchemas[0];
-	assert(script?.metadata.kind === "automation" && schema);
-	const policy = {
-		...script,
-		slug: "relationship-policy-scope.policy",
-		contentHash: "relationship-policy-scope-hash",
-		metadata: {
-			...script.metadata,
-			capabilities: [],
-			automationType: "policy" as const,
-			slug: "relationship-policy-scope.policy",
-			inputProjection: { relationship: { properties: ["rank"] } },
-		},
-	};
-	const installed = yield* installRevisionPackage(
-		{
-			...fixture,
-			scripts: [...fixture.scripts, policy],
-			manifest: {
-				...fixture.manifest,
-				scripts: [
-					...fixture.manifest.scripts,
-					{ ...policy.metadata, entry: "backend/policy.sandbox.ts" },
-				],
-				relationshipSchemas: [
-					{
-						...schema,
-						propertiesSchema,
-						sourceEntitySchemaSlug: null,
-						targetEntitySchemaSlug: null,
-					},
-				],
-				hooks: [
-					...fixture.manifest.hooks,
-					...(["create", "update", "delete"] as const).map((operation) => ({
-						scriptSlug: policy.slug,
-						stage: "before" as const,
-						slug: `policy-${operation}`,
-						name: `Policy ${operation}`,
-						targets: [
-							{ operation, resource: "relationship" as const, relationshipSchemaSlug: schema.slug },
-						],
-					})),
-				],
-			},
-		},
-		owner,
-	);
-	const entityDeclaration = fixture.manifest.entitySchemas[0];
-	assert(entityDeclaration);
-	const endpoints = yield* ownedEndpoints(
-		installed,
-		entityDeclaration.slug,
-		owner === null ? "global" : "user",
-	);
-	return {
-		...baseInput,
-		...endpoints,
-		relationshipSchemaPluginId: installed.pluginId,
-		relationshipSchemaSlug: RelationshipSchemaSlug.make(schema.slug),
-		relationshipSchema: {
-			owner: definitionOwner(installed.pluginId),
-			slug: RelationshipSchemaSlug.make(schema.slug),
-		},
-	};
-});
 
 describe("Relationships lifecycle owner", () => {
 	layer(relationshipDatabaseLayer())((test) => {
