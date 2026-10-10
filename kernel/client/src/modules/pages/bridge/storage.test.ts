@@ -7,7 +7,7 @@ import { Effect, Layer } from "effect";
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { PluginStorage } from "#/modules/pages/bridge/storage";
-import { pluginStorageKey } from "#/persistence/storage";
+import { clientStorageLayer, pluginStorageKey } from "#/persistence/storage";
 import { FakeBrowserStorage, fakeClientStorageLayer } from "#/persistence/storage.test-layer";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
@@ -142,6 +142,7 @@ describe("plugin storage outcome", () => {
 		test.effect("rejects a value whose serialized JSON exceeds the byte limit", () => {
 			return Effect.gen(function* () {
 				const storage = yield* FakeBrowserStorage;
+				expect(PLUGIN_STORAGE_VALUE_MAX_BYTES).toBe(65536);
 				// Two quote bytes plus two bytes per "é".
 				expect(yield* setOrder("é".repeat((PLUGIN_STORAGE_VALUE_MAX_BYTES - 2) / 2))).toEqual({
 					value: null,
@@ -158,6 +159,7 @@ describe("plugin storage outcome", () => {
 
 	layer(
 		pluginStorageLayer({
+			entries: [[pluginStorageKey(scope, media, "order"), '"existing"']],
 			setItem: () => {
 				throw new DOMException("full", "QuotaExceededError");
 			},
@@ -165,6 +167,7 @@ describe("plugin storage outcome", () => {
 	)((test) => {
 		test.effect("reports a rejected browser write as quota", () => {
 			return Effect.gen(function* () {
+				const storage = yield* FakeBrowserStorage;
 				expect(
 					yield* pluginStorageOutcome(scope, contributors, {
 						value: 1,
@@ -173,7 +176,91 @@ describe("plugin storage outcome", () => {
 						pluginId: media,
 					}),
 				).toEqual({ reason: "quota", outcome: "failure" });
+				expect((yield* storage.values).get(pluginStorageKey(scope, media, "order"))).toBe(
+					'"existing"',
+				);
 			});
 		});
+	});
+
+	layer(
+		pluginStorageLayer({
+			getItem: () => {
+				throw new Error("blocked read");
+			},
+			removeItem: () => {
+				throw new Error("blocked remove");
+			},
+		}),
+	)((test) => {
+		test.effect("reports failed reads and removes as transport errors", () =>
+			Effect.gen(function* () {
+				for (const action of ["get", "remove"] as const) {
+					expect(
+						yield* pluginStorageOutcome(scope, contributors, {
+							action,
+							key: "order",
+							pluginId: media,
+						}),
+					).toEqual({ outcome: "failure", reason: "transport" });
+				}
+			}),
+		);
+	});
+
+	layer(
+		pluginStorageLayer({
+			setItem: () => {
+				throw new Error("storage access denied");
+			},
+		}),
+	)((test) => {
+		test.effect("reports non-quota write failures as transport errors", () =>
+			Effect.gen(function* () {
+				expect(
+					yield* pluginStorageOutcome(scope, contributors, {
+						value: 1,
+						key: "order",
+						action: "set",
+						pluginId: media,
+					}),
+				).toEqual({ outcome: "failure", reason: "transport" });
+			}),
+		);
+	});
+
+	layer(pluginStorageLayer({ entries: [[pluginStorageKey(scope, media, "order"), "{not json"]] }))(
+		(test) => {
+			test.effect("reports malformed stored values as transport without deleting them", () =>
+				Effect.gen(function* () {
+					const storage = yield* FakeBrowserStorage;
+					expect(
+						yield* pluginStorageOutcome(scope, contributors, {
+							key: "order",
+							action: "get",
+							pluginId: media,
+						}),
+					).toEqual({ outcome: "failure", reason: "transport" });
+					expect((yield* storage.values).get(pluginStorageKey(scope, media, "order"))).toBe(
+						"{not json",
+					);
+				}),
+			);
+		},
+	);
+
+	layer(PluginStorage.layer.pipe(Layer.provideMerge(clientStorageLayer(undefined))))((test) => {
+		test.effect("reports unavailable browser storage instead of successful persistence", () =>
+			Effect.gen(function* () {
+				expect(
+					yield* pluginStorageOutcome(scope, contributors, {
+						value: 1,
+						key: "order",
+						action: "set",
+						pluginId: media,
+					}),
+				).toEqual({ outcome: "failure", reason: "transport" });
+			}),
+		);
 	});
 });
