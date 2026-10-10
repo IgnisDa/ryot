@@ -75,22 +75,13 @@ const HttpRateLimitResolution = Schema.Union([
 	}),
 ]);
 
-const AdmissionTiming = Schema.Struct({ grantedAtMs: Schema.Int, registeredAtMs: Schema.Int });
-type AdmissionTiming = typeof AdmissionTiming.Type;
-
 const HttpAdmission = Schema.Union([
 	Schema.TaggedStruct("Settled", {
 		resolution: HttpRateLimitResolution,
-		timing: Schema.NullOr(AdmissionTiming),
 		cleanupPolicy: Schema.NullOr(SandboxHttpPolicy),
 	}),
 	Schema.TaggedStruct("Interrupted", { cleanupPolicy: Schema.NullOr(SandboxHttpPolicy) }),
 ]);
-
-const timed = <A, E>(effect: Effect.Effect<A, E>) =>
-	Effect.flatMap(effect, (value) =>
-		Effect.map(Clock.currentTimeMillis, (atMs) => ({ atMs, value })),
-	);
 
 const HttpNetworkAttempt = Schema.Struct({
 	durationMs: Schema.Int,
@@ -358,7 +349,6 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 			blockWaitAttempt: 0,
 			admissionAttempt: 0,
 			blockedUntilMs: null,
-			registeredAtMs: null,
 			url: requestUrl ?? "",
 			coordinationAttempt: 0,
 			registrationAttempt: 0,
@@ -441,7 +431,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				return;
 			}
 			const blocked = yield* block(state.pendingBlock.declaration, state.pendingBlock.delayMs);
-			update({ pendingBlock: null, registeredAtMs: null, attempt: state.attempt + 1 });
+			update({ pendingBlock: null, attempt: state.attempt + 1 });
 			if (blocked.status === "blocked") {
 				const durationMs = blocked.blockedUntilMs - blocked.observedAtMs;
 				update({ blockedUntilMs: (yield* Clock.currentTimeMillis) + durationMs });
@@ -502,15 +492,11 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 						if (yield* cancelIfInterrupted()) {
 							return { cleanupPolicy: policy, _tag: "Interrupted" as const };
 						}
-						const { value: registered, atMs: registerAtMs } = yield* coordinateNow("register", () =>
-							timed(
-								admission
-									.register(admissionDeclaration(policy), ticket)
-									.pipe(Effect.catchTags(admissionFailure("register"))),
-							),
+						const registered = yield* coordinateNow("register", () =>
+							admission
+								.register(admissionDeclaration(policy), ticket)
+								.pipe(Effect.catchTags(admissionFailure("register"))),
 						);
-						const registeredAtMs = state.registeredAtMs ?? registerAtMs;
-						update({ registeredAtMs });
 						if (registered.status === "overloaded") {
 							overloadStreak += 1;
 							yield* pause(
@@ -518,30 +504,22 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 							);
 							const resolution = yield* resolve();
 							if (!resolution.matched) {
-								return {
-									resolution,
-									timing: null,
-									cleanupPolicy: policy,
-									_tag: "Settled" as const,
-								};
+								return { resolution, cleanupPolicy: policy, _tag: "Settled" as const };
 							}
 							policy = resolution;
 							continue registration;
 						}
 						overloadStreak = 0;
 						let nonce = registered.status === "claimed" ? "claimed" : null;
-						let grantedAtMs = registerAtMs;
 						for (;;) {
 							if (nonce === null) {
 								if (yield* cancelIfInterrupted()) {
 									return { cleanupPolicy: policy, _tag: "Interrupted" as const };
 								}
-								const { value: polled, atMs: polledAtMs } = yield* coordinateNow("poll", () =>
-									timed(
-										admission
-											.poll(admissionDeclaration(policy), ticket)
-											.pipe(Effect.catchTags(admissionFailure("poll"))),
-									),
+								const polled = yield* coordinateNow("poll", () =>
+									admission
+										.poll(admissionDeclaration(policy), ticket)
+										.pipe(Effect.catchTags(admissionFailure("poll"))),
 								);
 								if (polled.status === "retry") {
 									continue;
@@ -564,12 +542,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 									if (!resolution.matched || !samePolicy(policy, resolution)) {
 										yield* cancelNow(executionId, admissionDeclaration(policy), ticket);
 										if (!resolution.matched) {
-											return {
-												resolution,
-												timing: null,
-												cleanupPolicy: policy,
-												_tag: "Settled" as const,
-											};
+											return { resolution, cleanupPolicy: policy, _tag: "Settled" as const };
 										}
 										policy = resolution;
 										continue registration;
@@ -577,7 +550,6 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 									continue;
 								}
 								nonce = polled.status === "granted" ? polled.nonce : "claimed";
-								grantedAtMs = polledAtMs;
 							}
 							const current = policy;
 							const grant = nonce;
@@ -596,12 +568,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 										sandboxWorkflowExecutionId: executionId,
 									}),
 								);
-								return {
-									resolution: policy,
-									cleanupPolicy: policy,
-									_tag: "Settled" as const,
-									timing: { grantedAtMs, registeredAtMs },
-								};
+								return { resolution: policy, cleanupPolicy: policy, _tag: "Settled" as const };
 							}
 							if (claimed.status === "unknown") {
 								break;
@@ -609,7 +576,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 						}
 						const resolution = yield* resolve();
 						if (!resolution.matched) {
-							return { resolution, timing: null, cleanupPolicy: policy, _tag: "Settled" as const };
+							return { resolution, cleanupPolicy: policy, _tag: "Settled" as const };
 						}
 						policy = resolution;
 					}
@@ -630,7 +597,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 						const resolution = yield* resolveNow(executionId, url);
 						return resolution.matched
 							? yield* admitInMemory(resolution, url, ticket, activePolicy)
-							: { resolution, timing: null, cleanupPolicy: null, _tag: "Settled" as const };
+							: { resolution, cleanupPolicy: null, _tag: "Settled" as const };
 					});
 					return inline
 						? execute
@@ -654,7 +621,6 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 		const runNetworkAttempt = (
 			policy: MatchedHttpRateLimit | null,
 			redirect: SandboxHttpRedirect | null,
-			timing: AdmissionTiming | null,
 		) => {
 			update({ networkAttempt: state.networkAttempt + 1 });
 			const attempt = state.networkAttempt;
@@ -664,19 +630,6 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				name: `sandbox-http-${request.index}-network-${attempt}`,
 				execute: Effect.gen(function* () {
 					const startedAtMs = yield* Clock.currentTimeMillis;
-					if (policy && timing) {
-						yield* Effect.logInfo("sandbox HTTP admission timing").pipe(
-							Effect.annotateLogs({
-								attempt,
-								hop: redirect?.hop ?? 0,
-								requestIndex: request.index,
-								sandboxWorkflowExecutionId: executionId,
-								policyKey: bounded(policy.declaration.key, 128),
-								resumeDelayMs: Math.max(0, startedAtMs - timing.grantedAtMs),
-								ticketWaitMs: Math.max(0, timing.grantedAtMs - timing.registeredAtMs),
-							}),
-						);
-					}
 					const outcome = yield* dispatchSandboxHttpHop(
 						request,
 						hostCallScopeOf(payload, principal, executionId, startedAt),
@@ -713,7 +666,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 		};
 
 		if (requestUrl === null) {
-			const attempted = yield* runNetworkAttempt(null, null, null);
+			const attempted = yield* runNetworkAttempt(null, null);
 			return attempted.outcome._tag === "completed"
 				? attempted.outcome.result
 				: yield* new SandboxRunError({
@@ -733,11 +686,9 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 		for (;;) {
 			yield* save();
 			let policy: MatchedHttpRateLimit | null = null;
-			let timing: AdmissionTiming | null = null;
 			const admitted = yield* admit(state.url, { hop: state.hop, attempt: state.attempt });
 			if (admitted.resolution.matched) {
 				policy = admitted.resolution;
-				timing = admitted.timing;
 			}
 			if (policy === null && state.terminalRateLimit) {
 				return state.terminalRateLimit;
@@ -745,12 +696,10 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 			const attempted: typeof HttpNetworkAttempt.Type = yield* runNetworkAttempt(
 				policy,
 				state.redirect,
-				timing,
 			);
 			if (attempted.outcome._tag === "redirected") {
 				update({
 					attempt: 0,
-					registeredAtMs: null,
 					terminalRateLimit: null,
 					hop: attempted.outcome.hop,
 					url: attempted.outcome.url,
