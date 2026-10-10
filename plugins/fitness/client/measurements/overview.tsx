@@ -1,6 +1,6 @@
-import { Select } from "@ryot-app/client-ui-sdk";
-import { Sparkline, TimeSeriesChart } from "@ryot-app/client-ui-sdk/charts";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { Select } from "@ryot-app/plugin-ui-sdk";
+import { Sparkline, TimeSeriesChart } from "@ryot-app/plugin-ui-sdk/charts";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useMemo } from "react";
 

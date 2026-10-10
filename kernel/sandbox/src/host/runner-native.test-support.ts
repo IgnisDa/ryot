@@ -1,8 +1,8 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
-import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
+import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Layer, Result, Schema } from "effect";
 
@@ -75,11 +75,11 @@ export const defineNativeScript = (
 		readonly kind?: "script" | "operation" | "workflow" | "provider" | "automation";
 	} = {},
 ) => `
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-${options.kind === "operation" ? 'import { defineOperation } from "@ryot-app/sandbox-sdk/operation";' : ""}
-${options.kind === "workflow" ? 'import { defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";' : ""}
-${options.kind === "automation" ? 'import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";' : ""}
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+${options.kind === "operation" ? 'import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";' : ""}
+${options.kind === "workflow" ? 'import { defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";' : ""}
+${options.kind === "automation" ? 'import { defineAutomation } from "@ryot-app/plugin-backend-sdk/automation";' : ""}
 ${options.imports ?? ""}
 export const manifest = defineManifest({
   kind: "${options.kind ?? "script"}", name: "${options.name ?? "Native runner"}", slug: "${options.slug ?? "native-runner"}",
@@ -93,7 +93,10 @@ export default ${definitionEntryPoint(options.kind)}({
 });
 `;
 
-export const nativePlatformLayer = Layer.mergeAll(BunServices.layer, sandboxCompilerPlatformLayer);
+export const nativePlatformLayer = Layer.mergeAll(
+	BunServices.layer,
+	pluginBackendCompilerPlatformLayer,
+);
 
 export const recordingSidecarClient = <R>(makeRecorder: Effect.Effect<SidecarRecorder, never, R>) =>
 	Layer.effect(

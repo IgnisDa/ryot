@@ -1,8 +1,8 @@
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { listZipEntries } from "@ryot-app/sandbox-sdk/fflate";
-import { readArtifactRange } from "@ryot-app/sandbox-sdk/filesystem";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { listZipEntries } from "@ryot-app/plugin-backend-sdk/fflate";
+import { readArtifactRange } from "@ryot-app/plugin-backend-sdk/filesystem";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MediaControlInput, MediaControlOutput } from "./references";
 

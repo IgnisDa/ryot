@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useRememberedWorkspacePluginId } from "#/modules/navigation/authenticated-shell-context";
 import { useDesktopEffect } from "#/modules/navigation/breakpoint";
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
-import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
+import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { SettingsSectionNav } from "#/modules/settings/section-nav";
 import { settingsGroups } from "#/modules/settings/sections";
 import { SettingsFrame } from "#/modules/settings/settings-frame";

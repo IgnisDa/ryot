@@ -8,9 +8,9 @@ import {
 	EVENT_MUTATION_SANDBOX_LIMITS,
 	deleteEventsArgsSchema,
 	updateEventsArgsSchema,
-} from "@ryot-app/sandbox-sdk/core";
-import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
-import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/core";
+import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
+import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
 import {
 	requireSandboxCapabilityInput,
 	sandboxHostEffect,

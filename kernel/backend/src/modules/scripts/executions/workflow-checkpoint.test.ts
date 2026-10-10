@@ -2,10 +2,10 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
-import type { WorkflowReplayEnvelope } from "@ryot-app/sandbox-sdk/workflow";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
-import { SandboxExecutor as RuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor";
+import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
@@ -187,7 +187,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 			make: () => Effect.die("Admission must precede queue access"),
 		}),
 		Layer.succeed(
-			RuntimeSandboxExecutor,
+			SandboxExecutor,
 			stubRuntimeSandboxExecutor(() => Effect.die("Sandbox must not start")),
 		),
 		Layer.mock(SandboxWorkflowPinning)({

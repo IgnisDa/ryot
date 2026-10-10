@@ -1,5 +1,5 @@
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { DateTime, Effect, Option } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { asRecord, decodeJsonResponse, parseJsonResponse, stringValue } from "../records";
 

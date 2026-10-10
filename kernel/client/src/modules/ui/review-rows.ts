@@ -1,11 +1,11 @@
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	describeSchemaFormFields,
 	schemaChoiceLabel,
 	type SchemaFormField,
 	type SchemaFormValue,
 	type SchemaFormValues,
-} from "@ryot-app/client-ui-sdk/schema-form";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+} from "@ryot-app/plugin-ui-sdk/schema-form";
 
 export type SchemaReviewRow = { readonly label: string; readonly value: string };
 

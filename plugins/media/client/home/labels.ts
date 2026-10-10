@@ -1,4 +1,4 @@
-import { DateTime } from "@ryot-app/client-sdk/effect";
+import { DateTime } from "@ryot-app/plugin-client-sdk/effect";
 
 import { formatLocalDateKey } from "../media/date";
 

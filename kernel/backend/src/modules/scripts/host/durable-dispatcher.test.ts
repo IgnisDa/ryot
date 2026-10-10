@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
+import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import {
 	SANDBOX_HOST_EXECUTION_POLICY,
 	sandboxDurableHostDispatchStrategy,

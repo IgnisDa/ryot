@@ -1,4 +1,4 @@
-import { Button } from "@ryot-app/client-ui-sdk";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createErrorVisibility, useForm } from "@tanstack/react-form";
 import { Effect } from "effect";
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";

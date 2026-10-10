@@ -1,4 +1,4 @@
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect } from "effect";
 import { FetchHttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";

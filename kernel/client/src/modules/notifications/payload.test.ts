@@ -1,5 +1,5 @@
-import type { SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
 import { notificationChannelKinds } from "@ryot-app/contract/modules/notifications/types";
+import type { SchemaFormValues } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 

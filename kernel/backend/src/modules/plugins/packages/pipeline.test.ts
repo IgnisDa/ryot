@@ -5,7 +5,7 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginClientArtifact,
-} from "@ryot-app/client-plugin-contract";
+} from "@ryot-app/plugin-client-contract";
 import { Effect } from "effect";
 
 import { fixtureManifest } from "../test-support";

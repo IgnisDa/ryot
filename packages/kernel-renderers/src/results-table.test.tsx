@@ -4,7 +4,7 @@ import {
 	mountPluginPage,
 	routeLocation,
 	savedViewPageContext,
-} from "@ryot-app/client-sdk/testing";
+} from "@ryot-app/plugin-client-sdk/testing";
 import { screen, waitFor } from "@testing-library/dom";
 import { Effect } from "effect";
 

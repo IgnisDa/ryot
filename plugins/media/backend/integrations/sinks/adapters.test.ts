@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 
 import {
 	execution,

@@ -1,4 +1,4 @@
-import { defineManifest, defineWorkflow, Effect } from "@ryot-app/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { applyMediaSegment } from "../imports/application-segment";
 import { MediaApplicationInput, MediaApplicationOutput } from "../imports/process";

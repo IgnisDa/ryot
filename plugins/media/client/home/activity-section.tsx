@@ -1,5 +1,9 @@
-import { createRyotQuery, useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
-import { CalendarHeatmap, RankedBarList } from "@ryot-app/client-ui-sdk/charts";
+import {
+	createRyotQuery,
+	useRyotQuery,
+	type RyotQueryResult,
+} from "@ryot-app/plugin-client-sdk/react";
+import { CalendarHeatmap, RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
 import clsx from "clsx";
 
 import { mediaActivityRecipe, type MediaActivity } from "../../shared/activity-recipes";

@@ -1,8 +1,12 @@
 import {
 	genericImportActivityReference,
 	genericImportCaptureReference,
-} from "@ryot-app/sandbox-sdk/imports";
-import { Schema, selectExecutable, type WorkflowReplay } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import {
+	Schema,
+	selectExecutable,
+	type WorkflowReplay,
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import type {
 	MediaIntegrationCollectionInput,

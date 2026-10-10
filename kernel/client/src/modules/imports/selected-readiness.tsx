@@ -1,6 +1,6 @@
-import { useRyotQuery } from "@ryot-app/client-sdk/react";
-import { Button } from "@ryot-app/client-ui-sdk";
 import type { DeclarationReference } from "@ryot-app/contract/modules/plugins/references";
+import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 import type { ReactNode } from "react";
 
 import { selectedIntegrationReadinessQuery } from "#/modules/integrations/service";

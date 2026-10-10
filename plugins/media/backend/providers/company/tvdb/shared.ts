@@ -1,6 +1,6 @@
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
 
 import { asRecord, numberValue, recordsValue, stringValue } from "../../../lib/records";
 import { searchTvdb, tvdbGet } from "../../../lib/vendors/tvdb";

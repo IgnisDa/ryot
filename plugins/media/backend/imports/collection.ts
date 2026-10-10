@@ -1,7 +1,11 @@
-import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import type { zipEntrySchema } from "@ryot-app/sandbox-sdk/fflate";
-import { listZipEntries, readGzipRange, readZipEntryRange } from "@ryot-app/sandbox-sdk/fflate";
-import { readArtifactRange, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
+import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { zipEntrySchema } from "@ryot-app/plugin-backend-sdk/fflate";
+import {
+	listZipEntries,
+	readGzipRange,
+	readZipEntryRange,
+} from "@ryot-app/plugin-backend-sdk/fflate";
+import { readArtifactRange, writeScratchChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 import {
 	MediaNormalizedSourceRecord,

@@ -1,9 +1,9 @@
-import { Button } from "@ryot-app/client-ui-sdk";
+import { Button } from "@ryot-app/plugin-ui-sdk";
 import {
 	pickBrowserUploadFile,
 	SchemaFileField,
 	type SchemaFileUpload,
-} from "@ryot-app/client-ui-sdk/schema-form";
+} from "@ryot-app/plugin-ui-sdk/schema-form";
 
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 

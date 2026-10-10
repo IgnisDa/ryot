@@ -1,5 +1,5 @@
-import { genericImportActivityReference } from "@ryot-app/sandbox-sdk/imports";
-import type { WorkflowReplay } from "@ryot-app/sandbox-sdk/workflow";
+import { genericImportActivityReference } from "@ryot-app/plugin-backend-sdk/imports";
+import type { WorkflowReplay } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import type { MediaApplicationInput, MediaApplicationOutput } from "./process";
 import { appendMediaIssues } from "./reports";

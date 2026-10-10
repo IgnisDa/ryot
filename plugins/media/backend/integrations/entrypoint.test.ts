@@ -1,22 +1,22 @@
 import { afterEach, assert, expect, it } from "@effect/vitest";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	genericImportActivityReference,
 	genericImportApplyReference,
 	genericImportCaptureReference,
 	genericImportSealReference,
 	genericImportChunkSchema,
-} from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineSandboxTestHost,
 	makeWorkflowReplayHost,
 	runSandboxTestScript,
-} from "@ryot-app/sandbox-sdk/testing";
-import { jsonValueSchema, type JsonValue } from "@ryot-app/sandbox-sdk/wire";
+} from "@ryot-app/plugin-backend-sdk/testing";
+import { jsonValueSchema, type JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { TestClock } from "effect/testing";
 
 import {

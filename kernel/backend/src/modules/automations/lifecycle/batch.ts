@@ -2,7 +2,7 @@ import {
 	AutomationBatchChangePayload,
 	type AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Schema } from "effect";

@@ -1,6 +1,6 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { Effect, Schema } from "@ryot-app/client-sdk/effect";
-import { createRyotMutation } from "@ryot-app/client-sdk/react";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { createRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 
 import type { MeasurementMetricPinInput } from "../../shared/measurement-metric-operations";
 import {

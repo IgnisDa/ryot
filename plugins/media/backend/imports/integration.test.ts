@@ -1,10 +1,10 @@
 import { assert, expect, it } from "@effect/vitest";
-import { makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
-import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+import { makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
+import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { Cause, Effect, Exit } from "effect";
 
 import { mediaImportTestCommand } from "./ingestion.test-support";

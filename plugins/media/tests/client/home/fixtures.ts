@@ -1,4 +1,4 @@
-import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
+import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { Result } from "@ryot-app/plugin-kit/effect";
 
 import { rowsResult } from "../query-result-fixture";

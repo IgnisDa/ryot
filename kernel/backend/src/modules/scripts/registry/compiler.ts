@@ -3,8 +3,11 @@ import {
 	SandboxCompilationFailure,
 	SandboxScriptManifest,
 } from "@ryot-app/contract/modules/sandbox/schemas";
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
-import { CompilerWorkerRequest, CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import {
+	CompilerWorkerRequest,
+	CompilerWorkerResponse,
+} from "@ryot-app/plugin-backend-compiler/protocol";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { getCompilerWorkspaceRoot } from "@ryot-app/vite-compiler";
 import { Context, Effect, FileSystem, Layer, Match, Path, Schema, Semaphore } from "effect";
@@ -73,9 +76,9 @@ export const makeSandboxCompiler = (configuredWorkspaceParentPath?: string) =>
 		const current = new URL(import.meta.url);
 		const currentPath = yield* path.fromFileUrl(current).pipe(Effect.orDie);
 		const workerPath = currentPath.endsWith(".ts")
-			? Bun.resolveSync("@ryot-app/sandbox-compiler/worker", currentPath)
+			? Bun.resolveSync("@ryot-app/plugin-backend-compiler/worker", currentPath)
 			: yield* path
-					.fromFileUrl(new URL("./sandbox-compiler-worker.js", current))
+					.fromFileUrl(new URL("./plugin-backend-compiler-worker.js", current))
 					.pipe(Effect.orDie);
 		const runWorker = yield* makeCompilerWorkerRunner({
 			semaphore,

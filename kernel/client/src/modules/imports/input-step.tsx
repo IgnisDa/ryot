@@ -1,10 +1,10 @@
-import { Button, FieldMessage } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { Button, FieldMessage } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	SchemaForm,
 	type SchemaFileUpload,
 	type SchemaFormApi,
-} from "@ryot-app/client-ui-sdk/schema-form";
+} from "@ryot-app/plugin-ui-sdk/schema-form";
 import { useState } from "react";
 
 import type { ImportWizardSource } from "#/modules/imports/source-selection";

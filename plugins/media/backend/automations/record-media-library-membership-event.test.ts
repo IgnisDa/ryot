@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { PluginId } from "@ryot-app/plugin-kit/schema";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
 import {
 	automationContext,

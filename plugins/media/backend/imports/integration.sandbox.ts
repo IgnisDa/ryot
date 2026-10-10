@@ -5,7 +5,7 @@ import {
 	genericImportWorkflowResultSchema,
 	integrationConfirmationWorkflowInputSchema,
 	integrationConfirmationWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineManifest,
 	defineWorkflow,
@@ -13,7 +13,7 @@ import {
 	Effect,
 	Schema,
 	selectExecutable,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	MediaApplicationInput,

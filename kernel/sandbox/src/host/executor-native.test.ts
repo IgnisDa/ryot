@@ -103,8 +103,8 @@ const nativeServiceLayer = Layer.unwrap(
 ).pipe(Layer.provideMerge(BunServices.layer));
 
 const hostDefinitionSource = `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -123,9 +123,9 @@ export default defineScript({
 `;
 
 const artifactDefinitionSource = `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { readArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -145,8 +145,8 @@ export default defineScript({
 `;
 
 const blockedDefinitionSource = `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -167,8 +167,8 @@ export default defineScript({
 `;
 
 const neighbourDefinitionSource = `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -185,8 +185,8 @@ export default defineScript({
 `;
 
 const capsDefinitionSource = `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -216,10 +216,10 @@ const encodeContext = Schema.encodeSync(
 const encodedBytes = (value: string) => new TextEncoder().encode(value).byteLength;
 
 const grantedInlineDefinitionSource = `
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { readArtifact, readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { readArtifact, readNamedArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 export const manifest = defineManifest({
   kind: "operation",
@@ -245,7 +245,7 @@ export default defineOperation({
 `;
 
 const ambientAuthorityModule = (manifest: unknown) => `
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 const reachable = [];
 for (const name of ["Deno", "Bun", "process", "require", "fetch", "Request", "Response", "Blob", "File", "MessageChannel", "MessagePort", "BroadcastChannel", "SharedArrayBuffer", "Atomics", "WebAssembly", "Worker", "SharedWorker", "importScripts"]) {
   if (name in globalThis) reachable.push("global:" + name);
@@ -672,7 +672,7 @@ layer(nativeServiceLayer, { excludeTestServices: true })((test) => {
 							javascript,
 							manifest: {
 								...compiled.manifest,
-								runtimeImports: ["@ryot-app/sandbox-sdk/youtubei"],
+								runtimeImports: ["@ryot-app/plugin-backend-sdk/youtubei"],
 							},
 						},
 						fullExecutionId,

@@ -1,10 +1,10 @@
-import { Result } from "@ryot-app/sandbox-sdk/effect";
+import { Result } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	COMMON_HTML,
 	CURRENCY,
 	EntityDecoder,
 	XMLParser,
-} from "@ryot-app/sandbox-sdk/fast-xml-parser";
+} from "@ryot-app/plugin-backend-sdk/fast-xml-parser";
 
 import { nowIso, parseDateWithFormat } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";

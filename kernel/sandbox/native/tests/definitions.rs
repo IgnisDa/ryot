@@ -359,8 +359,8 @@ fn workflow_guard_and_dependency_wrapper_preserve_determinism() {
     let (compiled, metadata) = compiled_plugin_script("media", "workflow.media-import-segment");
     let mut source = String::from(
         r#"
-import { configureApprovedDependencyRuntime as runnerConfigureDependencyRuntime, withApprovedDependencyRuntime as runnerDependencyRuntime } from "@ryot-app/sandbox-sdk/dependency-runtime";
-if (Reflect.has(globalThis, Symbol.for("@ryot-app/sandbox-sdk/approved-dependency-runtime"))) throw new Error("approved dependency runtime leaked into globals");
+import { configureApprovedDependencyRuntime as runnerConfigureDependencyRuntime, withApprovedDependencyRuntime as runnerDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";
+if (Reflect.has(globalThis, Symbol.for("@ryot-app/plugin-backend-sdk/approved-dependency-runtime"))) throw new Error("approved dependency runtime leaked into globals");
 let runnerDependencyOverrideBlocked = false;
 try { runnerConfigureDependencyRuntime(operation => operation()); } catch { runnerDependencyOverrideBlocked = true; }
 if (!runnerDependencyOverrideBlocked) throw new Error("approved dependency runtime was replaceable");
@@ -395,9 +395,9 @@ throw new Error("native workflow guard and dependency wrapper passed");
 #[test]
 fn filesystem_binding_is_sealed_and_execution_scoped() {
     let source = r#"
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { configureSandboxFilesystem, readArtifact } from "@ryot-app/sandbox-sdk/filesystem";
-if (Object.hasOwn(globalThis, Symbol.for("@ryot-app/sandbox-sdk/filesystem"))) throw new Error("filesystem global bridge is present");
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { configureSandboxFilesystem, readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
+if (Object.hasOwn(globalThis, Symbol.for("@ryot-app/plugin-backend-sdk/filesystem"))) throw new Error("filesystem global bridge is present");
 let replacementBlocked = false;
 try { configureSandboxFilesystem(() => undefined); } catch { replacementBlocked = true; }
 if (!replacementBlocked) throw new Error("filesystem runtime was replaceable");
@@ -417,8 +417,8 @@ export default {
         "filesystem",
         &["artifact-read"],
         &[
-            "@ryot-app/sandbox-sdk/effect",
-            "@ryot-app/sandbox-sdk/filesystem",
+            "@ryot-app/plugin-backend-sdk/effect",
+            "@ryot-app/plugin-backend-sdk/filesystem",
         ],
     );
     let mut sidecar = support::spawn(Tier::Core, &[]);
@@ -445,8 +445,8 @@ export default {
     assert_eq!(result["value"], "abcdefgh");
     assert_eq!(reads, 2);
     let range_source = r#"
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { readArtifactRange } from "@ryot-app/sandbox-sdk/filesystem";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { readArtifactRange } from "@ryot-app/plugin-backend-sdk/filesystem";
 export default {
     definitionType: "ryot:sandbox-script",
     manifest: { kind: "script", name: "Filesystem", slug: "filesystem" },
@@ -509,7 +509,7 @@ export default {
 #[test]
 fn journal_reads_preserve_large_pinned_prefixes_with_bounded_frames() {
     let source = r#"
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export default {
     definitionType: "ryot:sandbox-script",
     manifest: { kind: "script", name: "Journal", slug: "journal" },
@@ -525,7 +525,7 @@ export default {
         "Journal",
         "journal",
         &["getCachedValue"],
-        &["@ryot-app/sandbox-sdk/effect"],
+        &["@ryot-app/plugin-backend-sdk/effect"],
     );
     let mut sidecar = support::spawn(Tier::Core, &[]);
     let mut invocation = definition_invocation(metadata, Value::Null, "large-journal");

@@ -1,16 +1,16 @@
-import {
-	initialSchemaFormValues,
-	toSchemaFormPayload,
-	type SchemaFormArrayValue,
-	type SchemaFormValue,
-	type SchemaFormValues,
-} from "@ryot-app/client-ui-sdk/schema-form";
 import type {
 	CreateIntegrationBody,
 	UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import {
+	initialSchemaFormValues,
+	toSchemaFormPayload,
+	type SchemaFormArrayValue,
+	type SchemaFormValue,
+	type SchemaFormValues,
+} from "@ryot-app/plugin-ui-sdk/schema-form";
 
 import type {
 	IntegrationClientDetail,

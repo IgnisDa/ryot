@@ -2,8 +2,8 @@ import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
-import { SandboxExecutor as RuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
+import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
 import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-support";
 import { makeSandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
@@ -47,8 +47,8 @@ const dispatcherLayer = Layer.succeed(SandboxDurableHostDispatcher, {
 	settleInline: () => Effect.die("inline dispatch is not expected"),
 });
 
-type RuntimeRunInput = Parameters<RuntimeSandboxExecutor["Service"]["run"]>[0];
-type RuntimeRunResult = Effect.Success<ReturnType<RuntimeSandboxExecutor["Service"]["run"]>>;
+type RuntimeRunInput = Parameters<SandboxExecutor["Service"]["run"]>[0];
+type RuntimeRunResult = Effect.Success<ReturnType<SandboxExecutor["Service"]["run"]>>;
 const recoveryPinHash = sha256Hex("durable-queue-test-recovery-pin");
 const recoveryIdentity = (executionId: string) => ({
 	executionId,
@@ -85,7 +85,7 @@ const runtimeSandboxLayer = (
 					),
 			};
 			return Layer.merge(
-				Layer.succeed(RuntimeSandboxExecutor, runtime),
+				Layer.succeed(SandboxExecutor, runtime),
 				Layer.succeed(RecordedRuns, { runs: Ref.get(runs), reserved: Ref.get(reserved) }),
 			);
 		}),
@@ -476,7 +476,7 @@ layer(
 				workflowExecutionId,
 				principal: inlinePrincipal([]),
 				executionId: `${workflowExecutionId}-replay-0`,
-			}).pipe(Effect.provideService(RuntimeSandboxExecutor, runtime), Effect.exit);
+			}).pipe(Effect.provideService(SandboxExecutor, runtime), Effect.exit);
 
 			assertExitFails(exit, new SandboxRecoverySuspended({ instance: "instance-1" }));
 		}),
@@ -522,7 +522,7 @@ layer(
 					workflowExecutionId,
 					principal: inlinePrincipal([]),
 					executionId: `${workflowExecutionId}-replay-1`,
-				}).pipe(Effect.provideService(RuntimeSandboxExecutor, runtime), Effect.result);
+				}).pipe(Effect.provideService(SandboxExecutor, runtime), Effect.result);
 			});
 
 			const changed = yield* replay("projection-changed", (key) =>

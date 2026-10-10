@@ -19,8 +19,8 @@
 			"default": "./backend/lib/vndb-description.ts"
 		},
 		".": {
-			"types": "./host/plugin.ts",
-			"default": "./host/plugin.ts"
+			"types": "./manifest/plugin.ts",
+			"default": "./manifest/plugin.ts"
 		},
 		"./shared/anime-recipes": {
 			"types": "./shared/anime-recipes.ts",
@@ -115,8 +115,8 @@
 			"default": "./shared/plugin-identity.ts"
 		},
 		"./import-sources": {
-			"types": "./host/import-sources.ts",
-			"default": "./host/import-sources.ts"
+			"types": "./manifest/import-sources.ts",
+			"default": "./manifest/import-sources.ts"
 		},
 		"./contracts/workflows": {
 			"types": "./backend/contracts/workflows.ts",
@@ -143,10 +143,10 @@
 	"dependencies": {
 		"@ryot-app/config": "workspace:*",
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
-		"@ryot-app/sandbox-sdk": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"effect": "4.0.0"
 	},
@@ -154,11 +154,11 @@
 		"@effect/platform-bun": "4.0.0",
 		"@effect/vitest": "4.0.0",
 		"@ryot-app/cli": "workspace:*",
-		"@ryot-app/client-plugin-contract": "workspace:*",
-		"@ryot-app/client-sdk": "workspace:*",
-		"@ryot-app/client-ui-sdk": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
-		"@ryot-app/sandbox-compiler": "workspace:*",
+		"@ryot-app/plugin-backend-compiler": "workspace:*",
+		"@ryot-app/plugin-client-contract": "workspace:*",
+		"@ryot-app/plugin-client-sdk": "workspace:*",
+		"@ryot-app/plugin-ui-sdk": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/dom": "^10.4.1",
 		"@types/react": "^19.2.0",

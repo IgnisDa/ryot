@@ -1,4 +1,3 @@
-import { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
 import { badRequest } from "@ryot-app/contract/errors";
 import { dataJsonIntegrationSettingsSchema } from "@ryot-app/contract/modules/imports/data-json";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -12,6 +11,7 @@ import {
 import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId, EventId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { PluginClientArtifact } from "@ryot-app/plugin-client-contract";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";

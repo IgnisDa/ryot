@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { Effect, Result } from "@ryot-app/client-sdk/effect";
+import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	disposePluginBridges,
 	entityLocation,
 	entityPageContext,
 	mountPluginPage,
-} from "@ryot-app/client-sdk/testing";
+} from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { useState } from "react";
 

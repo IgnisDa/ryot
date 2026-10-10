@@ -12,7 +12,7 @@ import {
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderDetailsRelatedEntityGroup,
-} from "@ryot-app/sandbox-sdk/provider";
+} from "@ryot-app/plugin-backend-sdk/provider";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
 

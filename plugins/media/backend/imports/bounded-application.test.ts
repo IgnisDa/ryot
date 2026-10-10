@@ -1,7 +1,7 @@
 import { afterEach, expect, it } from "@effect/vitest";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { genericImportChunkSchema } from "@ryot-app/sandbox-sdk/imports";
-import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
+import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 
 import { serializeMediaRecords } from "./collection";
 import { mediaFilesystem, resetMediaFilesystem } from "./ingestion.test-support";

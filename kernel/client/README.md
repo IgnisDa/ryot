@@ -11,6 +11,12 @@ Routes publish plugin routes, entity pages, saved views, and workspace homes to 
 page document host. Compatible prepared pages share a compiled React DOM artifact in a sandboxed,
 opaque-origin iframe.
 
+`modules/plugins` owns installation management and the executable catalog. `modules/pages` owns how
+a prepared page executes: `preparation` resolves targets and freshness, `documents` owns the
+published document and its `srcdoc`, `runtime` holds the document host that retains composition
+runtimes and the iframe host that runs one frame, and `bridge` owns the port session and its
+capability producers.
+
 The iframe receives no bearer credentials and has no direct Capacitor access. Its only privileged
 connection is the `MessagePort` transferred by the kernel after both peers validate the bridge and
 artifact identity. Plugin requests cross that port as narrow, schema-checked capabilities; the kernel
@@ -63,10 +69,10 @@ the canonical URL. The kernel sends each accepted location with its history `ind
 screen stacks use those values, never pathname inference, to distinguish push, pop, and replace.
 
 Protocol schemas and bridge identity live in
-[`@ryot-app/client-plugin-contract`](../../packages/client-plugin-contract/README.md). SDK runtime
-behavior lives in [`@ryot-app/client-sdk`](../../packages/client-sdk/README.md), and shared screen and
+[`@ryot-app/plugin-client-contract`](../../packages/plugin-client-contract/README.md). SDK runtime
+behavior lives in [`@ryot-app/plugin-client-sdk`](../../packages/plugin-client-sdk/README.md), and shared screen and
 interaction rules live in
-[`@ryot-app/client-ui-sdk`](../../packages/client-ui-sdk/README.md).
+[`@ryot-app/plugin-ui-sdk`](../../packages/plugin-ui-sdk/README.md).
 
 ## Application Services
 
@@ -113,7 +119,7 @@ The kernel also sends `compact` and safe-area insets. An iframe measures its con
 outer viewport, and `env(safe-area-inset-*)` is zero there. Plugins must use these kernel values for
 layout and custom chrome. Kernel surfaces can use CSS `env()` directly.
 
-`ScreenFrame` from `@ryot-app/client-ui-sdk` is the shared header implementation. `AppScreen` uses it
+`ScreenFrame` from `@ryot-app/plugin-ui-sdk` is the shared header implementation. `AppScreen` uses it
 for kernel routes and `PluginScreenFrame` uses it in plugin documents. The frame owns its bar,
 heading, gutters, and content rhythm but not the scroll container. A screen publishes one title;
 plugin title and readiness messages are accepted only from the active installation and current

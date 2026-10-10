@@ -1,5 +1,5 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { describe, expect, it } from "vitest";
 
 import { encodeJson } from "./host-call-args.test-support";

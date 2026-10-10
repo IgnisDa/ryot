@@ -1,11 +1,11 @@
-import { LifecycleCommand } from "@ryot-app/sandbox-sdk/imports";
+import { LifecycleCommand } from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineManifest,
 	defineWorkflow,
 	defineWorkflowReference,
 	Effect,
 	Schema,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import {
 	KernelEntityImportResult,

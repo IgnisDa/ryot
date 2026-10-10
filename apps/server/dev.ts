@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { clientPluginCompilerPlatformLayer } from "@ryot-app/client-plugin-compiler";
+import { pluginClientCompilerPlatformLayer } from "@ryot-app/plugin-client-compiler";
 import dotenv from "dotenv";
 import { Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess } from "effect/process";
@@ -128,5 +128,5 @@ const program = Effect.gen(function* () {
 
 BunRuntime.runMain(
 	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The development supervisor is a command-line entrypoint
-	program.pipe(Effect.provide(Layer.merge(BunServices.layer, clientPluginCompilerPlatformLayer))),
+	program.pipe(Effect.provide(Layer.merge(BunServices.layer, pluginClientCompilerPlatformLayer))),
 );

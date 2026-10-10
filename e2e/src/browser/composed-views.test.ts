@@ -1,7 +1,7 @@
-import { pluginExportSpecifier } from "@ryot-app/client-plugin-contract";
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
@@ -101,7 +101,7 @@ it.live("retains the document and bridge across same-composition saved views", (
 		const srcDoc = yield* frame.getAttribute("srcdoc");
 		expect(srcDoc).not.toBeNull();
 		expect(yield* frame.getAttribute("src")).toBeNull();
-		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/client-sdk/plugin");
+		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/plugin-client-sdk/plugin");
 		expect(runtimeUrl).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\//);
 		yield* frame
 			.contentFrame()
@@ -124,7 +124,7 @@ it.live("retains the document and bridge across same-composition saved views", (
 		expect(yield* frame.contentFrame().locator("body").getAttribute("data-e2e-runtime")).toBe(
 			"retained",
 		);
-		expect(yield* clientImportUrl(frame, "@ryot-app/client-sdk/plugin")).toBe(runtimeUrl);
+		expect(yield* clientImportUrl(frame, "@ryot-app/plugin-client-sdk/plugin")).toBe(runtimeUrl);
 		expect(requests.slice(before).filter((path) => path === "/api/client-pages/document")).toEqual(
 			[],
 		);
@@ -167,7 +167,7 @@ it.live("renders a saved view from an installed client plugin page", () =>
 		expect(privateModule).toMatch(
 			/^\/api\/client-assets\/[a-f0-9]{64}\/[A-Za-z0-9_-]{43}\/module\.js$/,
 		);
-		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/client-sdk/plugin");
+		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/plugin-client-sdk/plugin");
 		expect(runtimeUrl).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\//);
 		const runtimeResponse = yield* page.use((nativePage) =>
 			nativePage.context().request.get(new URL(runtimeUrl, apiUrl).href),
@@ -201,7 +201,9 @@ it.live("renders a saved view from an installed client plugin page", () =>
 			.contentFrame()
 			.getByRole("heading", { level: 1, name: "All Music" })
 			.waitFor();
-		expect(yield* clientImportUrl(mediaFrame, "@ryot-app/client-sdk/plugin")).toBe(runtimeUrl);
+		expect(yield* clientImportUrl(mediaFrame, "@ryot-app/plugin-client-sdk/plugin")).toBe(
+			runtimeUrl,
+		);
 		const shippedModule = yield* clientImportUrl(
 			mediaFrame,
 			pluginExportSpecifier(
@@ -739,7 +741,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		const workoutGrid = runtime.locator(`[data-entity-id="${workoutId}"][data-layout="grid"]`);
 		const pokemonGrid = runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="card"]`);
 		yield* expectRichEntities(showGrid, workoutGrid, pokemonGrid);
-		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/client-sdk/plugin");
+		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/plugin-client-sdk/plugin");
 		const runtimeBase = runtimeUrl.slice(0, runtimeUrl.lastIndexOf("/") + 1);
 		const fontRequests = assetRequests.filter((path) => path.endsWith(".woff2"));
 		expect(assetRequests).toContain(`${runtimeBase}runtime.css`);

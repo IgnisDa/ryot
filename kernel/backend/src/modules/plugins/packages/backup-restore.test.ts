@@ -1,11 +1,11 @@
 import { assert, expect, layer } from "@effect/vitest";
+import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_API_VERSION,
 	clientArtifactMetadata,
 	clientDeclarationHash,
-} from "@ryot-app/client-plugin-contract";
-import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
-import { UserId } from "@ryot-app/contract/schema/brands";
+} from "@ryot-app/plugin-client-contract";
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { describe } from "vitest";

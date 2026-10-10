@@ -1,11 +1,11 @@
-import { Option, Schema } from "@ryot-app/client-sdk/effect";
-import { PluginLink, type EntityReference } from "@ryot-app/client-sdk/plugin";
+import { Option, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { PluginLink, type EntityReference } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	EntityArtWell,
 	SyncPip,
 	fieldSyncState,
 	isTitleProvisional,
-} from "@ryot-app/client-ui-sdk/sync";
+} from "@ryot-app/plugin-ui-sdk/sync";
 import type { EntityBrowserResultItem } from "@ryot-app/ryotql-recipes/saved-views";
 
 import type { BrowserLayout } from "./entity-browser-controller";

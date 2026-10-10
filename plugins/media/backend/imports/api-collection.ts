@@ -1,5 +1,5 @@
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { mediaFailureMessage } from "../lib/error-message";
 import { MediaSandboxError } from "../lib/failures";

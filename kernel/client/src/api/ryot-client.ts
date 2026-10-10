@@ -1,5 +1,9 @@
-import { createRyotClient, RyotClientError, type RyotClientAdapter } from "@ryot-app/client-sdk";
-import { makeRyotRuntime, type RyotRuntime } from "@ryot-app/client-sdk/schedule";
+import {
+	createRyotClient,
+	RyotClientError,
+	type RyotClientAdapter,
+} from "@ryot-app/plugin-client-sdk";
+import { makeRyotRuntime, type RyotRuntime } from "@ryot-app/plugin-client-sdk/schedule";
 import { Effect } from "effect";
 
 import { classifyCollectionFailure, CollectionsApi } from "#/api/collections";

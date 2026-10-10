@@ -1,10 +1,10 @@
-import { genericImportCaptureReference } from "@ryot-app/sandbox-sdk/imports";
+import { genericImportCaptureReference } from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineManifest,
 	defineWorkflow,
 	Effect,
 	selectExecutable,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { fitnessParsers } from "../imports/references";
 import { FitnessMergeInput, FitnessMergeOutput } from "../imports/schemas";

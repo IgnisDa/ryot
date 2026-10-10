@@ -1,5 +1,5 @@
-import type { CoreSandboxHostMethodMap } from "@ryot-app/sandbox-sdk/core";
-import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { CoreSandboxHostMethodMap } from "@ryot-app/plugin-backend-sdk/core";
+import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import type { MediaIntegrationConfirmation } from "./schemas";
 

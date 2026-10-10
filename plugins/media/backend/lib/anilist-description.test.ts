@@ -1,6 +1,6 @@
-import { MarkdownContent, markdownPlainText } from "@ryot-app/client-ui-sdk/markdown";
-import { load } from "@ryot-app/sandbox-sdk/cheerio";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { load } from "@ryot-app/plugin-backend-sdk/cheerio";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { MarkdownContent, markdownPlainText } from "@ryot-app/plugin-ui-sdk/markdown";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { assert, describe, expect, it } from "vitest";

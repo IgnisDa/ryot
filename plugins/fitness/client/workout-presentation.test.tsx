@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/client-sdk/effect";
-import { disposePluginBridges, mountPluginPage, routeLocation } from "@ryot-app/client-sdk/testing";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import {
+	disposePluginBridges,
+	mountPluginPage,
+	routeLocation,
+} from "@ryot-app/plugin-client-sdk/testing";
 import { waitFor } from "@testing-library/dom";
 
 import type { WorkoutPresentationData } from "../shared/entity-presentations";

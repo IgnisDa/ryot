@@ -28,7 +28,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
-import type { ChangeUserRelationshipBatch } from "@ryot-app/sandbox-sdk/core";
+import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxRunInput } from "@ryot-app/sandbox/host/invocation";
 import { testAccountGeneration } from "@ryot-app/sandbox/host/run-input.test-support";
 import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";

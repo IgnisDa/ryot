@@ -2,8 +2,8 @@ import {
 	genericImportWorkflowResultSchema,
 	ingestionArtifactsSchema,
 	LifecycleCommand,
-} from "@ryot-app/sandbox-sdk/imports";
-import { Schema } from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/imports";
+import { Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { MediaSortedRun, MediaSourceInput } from "./collection-schemas";
 import { MediaImportAdapterBatch, MediaIntegrationAdapterResult } from "./schemas";

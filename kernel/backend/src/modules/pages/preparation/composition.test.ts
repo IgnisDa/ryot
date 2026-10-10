@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { pluginExportSpecifier } from "@ryot-app/client-plugin-contract";
+import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 
 import { composeClientPage } from "./composition";
 import { descriptions, identity, pageReference, presentationReference } from "./test-fixtures";
@@ -8,7 +8,7 @@ it("builds a structural manifest without copying compiled bytes or embedding gra
 	const manifest = composeClientPage({
 		identity: identity(),
 		artifacts: descriptions(),
-		runtimeEntries: { bootstrap: "bootstrap.js", "@ryot-app/client-sdk": "runtime.js" },
+		runtimeEntries: { bootstrap: "bootstrap.js", "@ryot-app/plugin-client-sdk": "runtime.js" },
 	});
 	expect(manifest.bootstrap).toEqual({ file: "bootstrap.js", artifactHash: "a".repeat(64) });
 	expect(manifest.imports[pluginExportSpecifier(pageReference, "main")]).toEqual({

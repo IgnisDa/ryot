@@ -1,7 +1,7 @@
 import { assert, expect, it, afterEach } from "@effect/vitest";
-import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { genericImportChunkSchema } from "@ryot-app/sandbox-sdk/imports";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { genericImportChunkSchema } from "@ryot-app/plugin-backend-sdk/imports";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { TestClock } from "effect/testing";
 
 import {

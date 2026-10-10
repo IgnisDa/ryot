@@ -1,8 +1,8 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { AutomationHistoryRetryResult } from "@ryot-app/contract/modules/automations/history-schemas";
 import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import { createRyotMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	automationHistoryRunRecipe,
 	automationHistoryRunsRecipe,

@@ -3,9 +3,9 @@ import type {
 	IntegrationRecord,
 	ListIntegrationsOptions,
 	ScriptHost,
-} from "@ryot-app/sandbox-sdk/core";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+} from "@ryot-app/plugin-backend-sdk/core";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { MediaSandboxError } from "./failures";
 

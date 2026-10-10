@@ -10,7 +10,7 @@ import {
 	type UserId,
 	type PluginId,
 } from "@ryot-app/contract/schema/brands";
-import type { ProviderDetailsChildEntity } from "@ryot-app/sandbox-sdk/provider";
+import type { ProviderDetailsChildEntity } from "@ryot-app/plugin-backend-sdk/provider";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 

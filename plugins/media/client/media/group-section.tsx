@@ -1,5 +1,5 @@
-import { PluginLink } from "@ryot-app/client-sdk/plugin";
-import type { SelectedQuery } from "@ryot-app/client-sdk/ryotql";
+import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import type { SelectedQuery } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import type { MediaOverviewRows, mediaGroupQuery } from "../../shared/media-recipes";
 import type { MediaArtworkAspect } from "./entity-presentation";

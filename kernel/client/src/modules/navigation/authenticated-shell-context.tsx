@@ -1,11 +1,11 @@
-import type { KernelShortcut } from "@ryot-app/client-plugin-contract";
+import type { KernelShortcut } from "@ryot-app/plugin-client-contract";
 import { createContext, useContext, type RefObject } from "react";
 
 import type { CustomizeDraftState } from "#/modules/navigation/customize/use-customize-draft";
 import type { EdgeResolution } from "#/modules/navigation/edge-intent";
 import type { SafeAreaInsets } from "#/modules/navigation/safe-area";
-import type { PluginScreenReadiness } from "#/modules/plugins/bridge";
-import type { PluginHeaderPublication } from "#/modules/plugins/plugin-host";
+import type { PluginScreenReadiness } from "#/modules/pages/bridge/session";
+import type { PluginHeaderPublication } from "#/modules/pages/runtime/iframe-host";
 
 export const RememberedWorkspaceContext = createContext<string | null | undefined>(undefined);
 

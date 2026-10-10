@@ -1,6 +1,9 @@
-import type { EntitySettleReason } from "@ryot-app/client-sdk";
-import type { EntityRendererProps, PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
-import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
+import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
+import type {
+	EntityRendererProps,
+	PluginIdentityReference,
+} from "@ryot-app/plugin-client-sdk/plugin";
+import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { createElement, type ReactNode } from "react";
 
 import type { MediaReviewActivityResult } from "../../shared/media-recipes";

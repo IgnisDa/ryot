@@ -591,8 +591,8 @@ const bootstrapScript = {
 	entry: "backend/bootstrap/bootstrap.sandbox.ts",
 };
 
-const bootstrapScriptSource = `import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+const bootstrapScriptSource = `import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({
 	kind: "script",
@@ -1459,9 +1459,9 @@ const operationScript = {
 	entry: "backend/operations/operation.sandbox.ts",
 };
 
-const operationScriptSource = `import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+const operationScriptSource = `import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
 export const manifest = defineManifest({
 	kind: "operation",

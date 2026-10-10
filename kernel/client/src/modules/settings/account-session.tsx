@@ -1,5 +1,5 @@
-import { StatusMessage } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { Effect } from "effect";

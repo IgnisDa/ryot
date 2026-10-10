@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/client-sdk/effect";
-import { disposePluginBridges, mountPluginPage, routeLocation } from "@ryot-app/client-sdk/testing";
 import { EntityId, RelationshipId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import {
+	disposePluginBridges,
+	mountPluginPage,
+	routeLocation,
+} from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 
 import { fixtureRoutePageContext } from "../tests/client/page-context";

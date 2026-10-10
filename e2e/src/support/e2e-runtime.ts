@@ -1,6 +1,6 @@
 import { BunPath } from "@effect/platform-bun";
-import { clientPluginCompilerPlatformLayer } from "@ryot-app/client-plugin-compiler";
-import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
+import { pluginClientCompilerPlatformLayer } from "@ryot-app/plugin-client-compiler";
 import { Effect, Layer } from "effect";
 import { chromium, PlaywrightSpawner } from "effect-playwright";
 import { FetchHttpClient } from "effect/http";
@@ -9,8 +9,8 @@ const e2eLayer = Layer.mergeAll(
 	BunPath.layer,
 	FetchHttpClient.layer,
 	PlaywrightSpawner.layer(chromium),
-	sandboxCompilerPlatformLayer,
-	clientPluginCompilerPlatformLayer,
+	pluginBackendCompilerPlatformLayer,
+	pluginClientCompilerPlatformLayer,
 );
 
 export type E2eServices = Layer.Success<typeof e2eLayer>;

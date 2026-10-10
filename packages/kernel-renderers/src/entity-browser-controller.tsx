@@ -1,4 +1,4 @@
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	EntityResults,
 	usePageRefresh,
@@ -6,7 +6,7 @@ import {
 	usePluginLocation,
 	useRyotViewport,
 	type EntityReference,
-} from "@ryot-app/client-sdk/plugin";
+} from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ManagedAssetProvider,
 	useEntityRefresh,
@@ -14,8 +14,8 @@ import {
 	useRyotQuery,
 	useRyotSchedule,
 	type RyotQuery,
-} from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
+} from "@ryot-app/plugin-client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import {
 	Badge,
 	Button,
@@ -25,9 +25,9 @@ import {
 	SegmentedControl,
 	Select,
 	useValueChange,
-} from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
 import type {
 	EntityBrowserResultItem,
 	SavedViewResult,

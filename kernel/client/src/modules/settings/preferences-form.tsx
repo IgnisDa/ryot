@@ -1,3 +1,5 @@
+import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
+import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import {
 	Button,
 	Select,
@@ -5,10 +7,8 @@ import {
 	Switch,
 	TextField,
 	type SelectChoice,
-} from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
-import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
+} from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useForm } from "@tanstack/react-form";
 import { Effect } from "effect";
 import { useState } from "react";

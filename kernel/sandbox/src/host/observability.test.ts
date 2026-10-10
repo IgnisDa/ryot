@@ -1,5 +1,5 @@
 import { describe, expect, it, layer } from "@effect/vitest";
-import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
+import { hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
 import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
 import {
 	Context,

@@ -26,7 +26,7 @@ describe("isolate runner diagnostics", () => {
 			stackError([
 				"    at run (ryot-module:/scripts/entry.sandbox.ts:10:11)",
 				`    at bundle (${specifier}:1:44)`,
-				"    at sdk (ryot-module:/external/sandbox-sdk/driver.ts:3:20)",
+				"    at sdk (ryot-module:/external/plugin-backend-sdk/driver.ts:3:20)",
 				"    at runner (file:///sandbox/runner.mjs:918:12)",
 			]),
 			"execute",

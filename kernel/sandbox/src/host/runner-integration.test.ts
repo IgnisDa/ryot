@@ -1,7 +1,7 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
-import { hostFailure, hostSuccess } from "@ryot-app/sandbox-sdk/wire";
-import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
+import { compilePluginSandboxSourceEntries } from "@ryot-app/plugin-backend-compiler/plugins";
+import { hostFailure, hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
+import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Effect, Schema } from "effect";
 import { Base64 } from "effect/encoding";
 
@@ -41,13 +41,13 @@ const cachedRequest = (index: number, key: string) => ({
 
 const uncheckedDefinition = (compiled: RunnerCompiled, run: string) => ({
 	...compiled,
-	javascript: `import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+	javascript: `import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export default { definitionType: "ryot:sandbox-script", manifest: { kind: "script", name: "Native runner", slug: "native-runner" }, input: Schema.Struct({ value: Schema.Unknown }), output: Schema.Number, run: ${run} };`,
 });
 
 const runtimeDefinition = (compiled: RunnerCompiled, run: string, topLevel = "") => ({
 	...compiled,
-	javascript: `import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+	javascript: `import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 ${topLevel}
 export default { definitionType: "ryot:sandbox-script", manifest: { kind: "${compiled.manifest.kind}", name: "Native runner", slug: "native-runner" }, input: Schema.Unknown, output: Schema.Unknown, run: ${run} };`,
 });
@@ -58,7 +58,7 @@ layer(runnerNativeLayer, { excludeTestServices: true })((test) => {
 		() =>
 			Effect.gen(function* () {
 				const compiled = yield* compileTestScript(`
-import { defineManifest, defineScriptReference, defineWorkflow, defineWorkflowReference, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { defineManifest, defineScriptReference, defineWorkflow, defineWorkflowReference, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "workflow", name: "SDK root workflow", slug: "sdk-root-workflow" });
 const activity = defineScriptReference({ scriptSlug: "root-activity", input: Schema.Struct({ count: Schema.Number }), output: Schema.Number });
 const child = defineWorkflowReference({ workflowSlug: "root-child", input: Schema.Struct({ count: Schema.Number }), output: Schema.Number });
@@ -316,7 +316,7 @@ export default defineWorkflow({
   yield* Effect.sleep("1 millis");
   return { before, after: yield* Clock.currentTimeMillis, elapsed: (yield* Clock.monotonicTimeNanos) > start };
 })`,
-						{ imports: 'import { Clock } from "@ryot-app/sandbox-sdk/effect";' },
+						{ imports: 'import { Clock } from "@ryot-app/plugin-backend-sdk/effect";' },
 					),
 				);
 				expect((yield* runNative(clock, {})).response).toMatchObject({
@@ -332,7 +332,8 @@ export default defineWorkflow({
 }).pipe(Effect.map((client) => String(client.session.context.client.visitorData)))`,
 						{
 							output: "Schema.String",
-							imports: 'import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";',
+							imports:
+								'import { createYoutubeMusicClient } from "@ryot-app/plugin-backend-sdk/youtubei";',
 						},
 					),
 				);
@@ -361,7 +362,8 @@ export default defineWorkflow({
 }).pipe(Effect.flatMap(() => Effect.sync(() => new Date().toISOString())))`,
 					{
 						output: "Schema.String",
-						imports: 'import { createYoutubeMusicClient } from "@ryot-app/sandbox-sdk/youtubei";',
+						imports:
+							'import { createYoutubeMusicClient } from "@ryot-app/plugin-backend-sdk/youtubei";',
 					},
 				),
 			);
@@ -382,7 +384,9 @@ export default defineWorkflow({
 			const artifact = yield* compileTestScript(
 				defineNativeScript(
 					"() => readArtifactRange(0, 4).pipe(Effect.map((range) => range.bytes.length))",
-					{ imports: 'import { readArtifactRange } from "@ryot-app/sandbox-sdk/filesystem";' },
+					{
+						imports: 'import { readArtifactRange } from "@ryot-app/plugin-backend-sdk/filesystem";',
+					},
 				),
 			);
 			for (const bytes of [4, 5]) {
@@ -501,7 +505,7 @@ export default defineWorkflow({
 	test.effect("surfaces a mismatched inline sleep reply as the SDK's typed journal mismatch", () =>
 		Effect.gen(function* () {
 			const compiled = yield* compileTestScript(`
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 export const manifest = defineManifest({ kind: "workflow", name: "Inline sleep", slug: "inline-sleep" });
 export default defineWorkflow({
   manifest,
@@ -581,9 +585,9 @@ export default defineWorkflow({
 					});
 				}
 				const provider = yield* compileTestScript(`
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "provider", name: "Native provider", slug: "native-provider" });
 export default defineProvider({ manifest, operation: "search", run: input => Effect.succeed({ items: [{ title: input.query, externalId: "result-1" }] }) });`);
 				expect((yield* runNative(provider, { query: "native result" })).response).toMatchObject({
@@ -676,7 +680,7 @@ export default defineProvider({ manifest, operation: "search", run: input => Eff
 					'() => Effect.succeed(Effect === Reflect.get(PluginRuntime, "Effect") && sdkTable === pluginTable)',
 					{
 						imports: `import * as PluginRuntime from "@ryot-app/plugin-kit/effect";
-import { table as sdkTable } from "@ryot-app/sandbox-sdk/ryotql";
+import { table as sdkTable } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { table as pluginTable } from "@ryot-app/plugin-kit/ryotql";`,
 					},
 				),
@@ -714,8 +718,8 @@ import { table as pluginTable } from "@ryot-app/plugin-kit/ryotql";`,
 	test.effect("preserves authored frames and sanitized diagnostics for compiled defects", () =>
 		Effect.gen(function* () {
 			const compiled =
-				yield* compileTestScript(`import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+				yield* compileTestScript(`import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 export const manifest = defineManifest({ kind: "script", name: "Authored defect", slug: "authored-defect" });
 export default defineScript({
@@ -802,8 +806,8 @@ export default defineScript({
   if (depth > 0) return failAuthored(depth - 1);
   throw new Error("nested authored defect");
 };`,
-					[entry]: `import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+					[entry]: `import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { failAuthored } from "../helpers/failure";
 export const manifest = defineManifest({ kind: "script", name: "Mapped plugin defect", slug: "mapped-plugin-defect" });
 export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Null, run: () => Effect.sync(failAuthored) });`,

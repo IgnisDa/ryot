@@ -3,7 +3,7 @@ import type {
 	IngestionBatch,
 	IngestionOutcome,
 } from "@ryot-app/contract/modules/imports/ingestion";
-import type { GenericImportChunk } from "@ryot-app/sandbox-sdk/imports";
+import type { GenericImportChunk } from "@ryot-app/plugin-backend-sdk/imports";
 import { Effect, Layer } from "effect";
 
 import {

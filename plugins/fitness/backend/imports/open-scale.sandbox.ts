@@ -1,4 +1,4 @@
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 
 import { FitnessStageInput, FitnessStageOutput } from "./schemas";
 import { runFitnessStage } from "./shared";

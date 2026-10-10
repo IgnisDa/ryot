@@ -1,7 +1,7 @@
-import type { AssetLocator } from "@ryot-app/client-sdk";
-import { Button } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import { EntityArtWell } from "@ryot-app/client-ui-sdk/sync";
+import type { AssetLocator } from "@ryot-app/plugin-client-sdk";
+import { Button } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { useState } from "react";
 

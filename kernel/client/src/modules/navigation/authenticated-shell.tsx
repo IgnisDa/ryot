@@ -1,11 +1,11 @@
-import { KERNEL_SHORTCUTS, type KernelShortcut } from "@ryot-app/client-plugin-contract";
-import { Button, Modal, useShortcut, useValueChange } from "@ryot-app/client-ui-sdk";
 import { pluginPath, savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import {
 	type PluginId,
 	pluginPackageIdFromSegments,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
+import { KERNEL_SHORTCUTS, type KernelShortcut } from "@ryot-app/plugin-client-contract";
+import { Button, Modal, useShortcut, useValueChange } from "@ryot-app/plugin-ui-sdk";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import {
 	Outlet,
@@ -35,8 +35,6 @@ import { oauthTokenKey } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { subscribeOAuthSessionBoundary } from "#/modules/auth/token-identity";
-import { ClientPageDocumentProvider } from "#/modules/client-pages/document";
-import { ClientPageDocumentHost } from "#/modules/client-pages/page-host";
 import { useIsDemoSession } from "#/modules/demo-protection";
 import {
 	CustomizeContext,
@@ -83,8 +81,10 @@ import {
 	resolveRememberedWorkspace,
 	type WorkspaceTarget,
 } from "#/modules/navigation/workspace-state";
-import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
-import { effectiveCatalogPlugin } from "#/modules/plugins/plugin-location";
+import { ClientPageDocumentProvider } from "#/modules/pages/documents/state";
+import { ClientPageDocumentHost } from "#/modules/pages/runtime/document-host";
+import { effectiveCatalogPlugin } from "#/modules/plugins/catalog/location";
+import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { useStableHandler } from "#/modules/ui/use-stable-handler";
 import { ClientStorage } from "#/persistence/storage";
 

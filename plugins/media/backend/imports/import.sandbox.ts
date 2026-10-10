@@ -3,14 +3,14 @@ import {
 	genericImportSealReference,
 	genericImportWorkflowInputSchema,
 	genericImportWorkflowResultSchema,
-} from "@ryot-app/sandbox-sdk/imports";
+} from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineManifest,
 	defineWorkflow,
 	defineWorkflowReference,
 	Effect,
 	selectExecutable,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import type { MediaSourceInput } from "./collection-schemas";
 import {

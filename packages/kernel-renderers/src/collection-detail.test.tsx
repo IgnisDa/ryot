@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	disposePluginBridges,
 	entityLocation,
 	kernelEntityPageContext,
 	mountPluginPage,
-} from "@ryot-app/client-sdk/testing";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
+} from "@ryot-app/plugin-client-sdk/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { Effect } from "effect";
 

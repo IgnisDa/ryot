@@ -1,5 +1,5 @@
-import { useRyot } from "@ryot-app/client-sdk/react";
-import type { SchemaFileUpload } from "@ryot-app/client-ui-sdk/schema-form";
+import { useRyot } from "@ryot-app/plugin-client-sdk/react";
+import type { SchemaFileUpload } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { Effect } from "effect";
 
 const UPLOAD_FAILURE_MESSAGE = "Could not upload this file. Try again.";

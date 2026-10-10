@@ -1,11 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
+import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	clientArtifactMetadata,
 	clientDeclarationHash,
 	type PluginClientArtifact,
-} from "@ryot-app/client-plugin-contract";
-import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+} from "@ryot-app/plugin-client-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, Schema } from "effect";
 import { unzipSync, Zip, zipSync, ZipDeflate } from "fflate";

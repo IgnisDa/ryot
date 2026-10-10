@@ -8,7 +8,7 @@ import type {
 } from "@ryot-app/contract/modules/sandbox/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
 import type {
 	ScriptPluginRevision,

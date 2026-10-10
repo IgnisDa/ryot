@@ -1,4 +1,4 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { MediaSandboxError } from "../../../lib/failures";
 import { type UnknownRecord, asRecord, stringValue } from "../../../lib/records";

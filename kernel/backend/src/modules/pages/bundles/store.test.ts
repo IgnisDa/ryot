@@ -1,11 +1,11 @@
 import { expect, layer } from "@effect/vitest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-} from "@ryot-app/client-plugin-contract";
-import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+} from "@ryot-app/plugin-client-contract";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { ImageClientArtifacts } from "./image-artifacts";

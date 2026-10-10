@@ -1,5 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_JOURNAL_CHUNK_BYTES } from "@ryot-app/sandbox/host/pinned-journal";
 import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-support";
 import { MiB, SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";

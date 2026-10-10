@@ -1,6 +1,6 @@
-import { PluginLink } from "@ryot-app/client-sdk/plugin";
-import { Button, Menu } from "@ryot-app/client-ui-sdk";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { Button, Menu } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { useRef, useState } from "react";
 

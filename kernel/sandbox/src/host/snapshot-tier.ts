@@ -1,4 +1,4 @@
-import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
+import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/plugin-backend-sdk/runtime-registry";
 import { Data, Result } from "effect";
 
 import type { SidecarTier } from "../protocol/messages";

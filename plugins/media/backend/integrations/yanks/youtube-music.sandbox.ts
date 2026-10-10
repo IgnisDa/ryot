@@ -1,6 +1,6 @@
-import type { ExecutionMetadata, ScriptHost } from "@ryot-app/sandbox-sdk/core";
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
+import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { readMediaCapture } from "../../imports/collection";
 import {

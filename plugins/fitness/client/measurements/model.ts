@@ -1,4 +1,4 @@
-import type { TimeSeriesPoint } from "@ryot-app/client-ui-sdk/charts";
+import type { TimeSeriesPoint } from "@ryot-app/plugin-ui-sdk/charts";
 
 import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";

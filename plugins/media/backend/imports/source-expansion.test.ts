@@ -1,6 +1,6 @@
 import { afterEach, expect, it } from "@effect/vitest";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import { gzipSync } from "@ryot-app/sandbox-sdk/fflate";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { gzipSync } from "@ryot-app/plugin-backend-sdk/fflate";
 
 import { compareMediaRecords, serializeMediaRecords } from "./collection";
 import type { MediaSourceRecord } from "./collection-schemas";

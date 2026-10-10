@@ -1,6 +1,6 @@
-import { KERNEL_SHORTCUTS } from "@ryot-app/client-plugin-contract";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
+import { KERNEL_SHORTCUTS } from "@ryot-app/plugin-client-contract";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,

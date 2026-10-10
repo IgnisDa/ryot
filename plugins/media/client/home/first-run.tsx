@@ -1,6 +1,6 @@
-import { PluginLink, EntitySchemaSlug } from "@ryot-app/client-sdk/plugin";
-import { usePluginIdentity, useRyot } from "@ryot-app/client-sdk/react";
-import { Button, Menu } from "@ryot-app/client-ui-sdk";
+import { PluginLink, EntitySchemaSlug } from "@ryot-app/plugin-client-sdk/plugin";
+import { usePluginIdentity, useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { Button, Menu } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useRef, useState } from "react";
 

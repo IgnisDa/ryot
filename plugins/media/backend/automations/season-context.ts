@@ -1,4 +1,4 @@
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
+import type { AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
 
 type Population = NonNullable<
 	Extract<

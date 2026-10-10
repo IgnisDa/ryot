@@ -1,7 +1,7 @@
 import {
 	type WorkflowReplayJournalEntry,
 	workflowReplayJournalEntrySchema,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import { encodeJson } from "./host-call-args.test-support";

@@ -1,5 +1,9 @@
-import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
-import { ManagedAssetProvider, useRyotQuery, type RyotQuery } from "@ryot-app/client-sdk/react";
+import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import {
+	ManagedAssetProvider,
+	useRyotQuery,
+	type RyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { useState, type ReactNode } from "react";
 
 import {

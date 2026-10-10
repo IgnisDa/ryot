@@ -1,13 +1,13 @@
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
-import { hostFailure, jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import { hostFailure, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	workflowDurableResultSchema,
 	workflowInlineRequestSchema,
 	workflowReplayJournalEntrySchema,
 	type WorkflowInlineRequest,
 	type WorkflowReplayJournalEntry,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 import type { Scope, Tracer } from "effect";
 import { Clock, Context, Data, Deferred, Effect, Layer, Option, Schema, Semaphore } from "effect";
 import { Base64 } from "effect/encoding";

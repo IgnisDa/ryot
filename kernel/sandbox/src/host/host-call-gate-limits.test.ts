@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
+import { hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
 import { Effect } from "effect";
 
 import { SANDBOX_LIMITS } from "../protocol/limits";

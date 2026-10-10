@@ -1,7 +1,7 @@
-import { defineAutomation, type AutomationInput } from "@ryot-app/sandbox-sdk/automation";
-import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+import { defineAutomation, type AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { userFitnessLibraryRecipe } from "../../shared/library-recipes";
 

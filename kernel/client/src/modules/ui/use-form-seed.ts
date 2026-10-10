@@ -1,4 +1,4 @@
-import type { SchemaFormApi, SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
+import type { SchemaFormApi, SchemaFormValues } from "@ryot-app/plugin-ui-sdk/schema-form";
 import { useEffect, useState } from "react";
 
 export function useFormSeed(

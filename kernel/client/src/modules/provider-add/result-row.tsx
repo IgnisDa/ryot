@@ -1,6 +1,6 @@
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import { EntityArtWell } from "@ryot-app/client-ui-sdk/sync";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import { Link } from "@tanstack/react-router";
 import { Match } from "effect";
 

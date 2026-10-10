@@ -1,7 +1,7 @@
 import { assert, expect, it } from "@effect/vitest";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
-import { driveWorkflowReplay, makeWorkflowReplayHost } from "@ryot-app/sandbox-sdk/testing";
-import type { WorkflowReplayEnvelope } from "@ryot-app/sandbox-sdk/workflow";
+import { driveWorkflowReplay, makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
+import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Effect, Schema } from "effect";
 
 import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";

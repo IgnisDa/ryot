@@ -9,7 +9,7 @@ import {
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/sandbox/wire";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";

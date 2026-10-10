@@ -1,4 +1,4 @@
-import { ManagedAssetProvider, type RyotQueryResult } from "@ryot-app/client-sdk/react";
+import { ManagedAssetProvider, type RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import type { ReactNode } from "react";
 
 import type { MediaArtworkAspect, MediaPresentationSubject } from "../media/entity-presentation";

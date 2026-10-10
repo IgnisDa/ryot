@@ -1,4 +1,4 @@
-import { useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
+import { useRyotQuery, type RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import type { ImportRunList } from "@ryot-app/ryotql-recipes/import-runs";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";

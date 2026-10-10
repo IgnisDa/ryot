@@ -1,5 +1,5 @@
-import { Result } from "@ryot-app/client-sdk/effect";
-import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
+import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { rowsResult } from "../query-result-fixture";
 import { flatFixtureRecipes } from "./recipes";

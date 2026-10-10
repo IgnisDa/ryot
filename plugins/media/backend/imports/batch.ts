@@ -1,11 +1,14 @@
-import type { LifecycleCommand, ingestionArtifactsSchema } from "@ryot-app/sandbox-sdk/imports";
+import type {
+	LifecycleCommand,
+	ingestionArtifactsSchema,
+} from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	defineScriptReference,
 	defineWorkflowReference,
 	Effect,
 	Schema,
 	type WorkflowReplay,
-} from "@ryot-app/sandbox-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../contracts/operations";
 import {

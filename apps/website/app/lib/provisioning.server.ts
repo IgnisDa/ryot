@@ -1,7 +1,7 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
 import PurchaseCompleteEmail, {
 	type PurchaseCompleteEmailProps,
-} from "@ryot-app/transactional/emails/purchase-complete";
+} from "@ryot-app/email-templates/emails/purchase-complete";
 import { and, eq, type InferSelectModel, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 import type { HttpClient } from "effect/http";

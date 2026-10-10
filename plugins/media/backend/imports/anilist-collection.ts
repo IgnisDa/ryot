@@ -1,4 +1,4 @@
-import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { adaptAnilistExport, AnilistList } from "./anilist";
 import {
