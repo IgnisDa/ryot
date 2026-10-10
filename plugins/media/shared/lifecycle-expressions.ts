@@ -267,6 +267,10 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 		isNotNull(progressProperty("animeEpisode")),
 		isNotNull(progressProperty("mangaChapter")),
 	);
+	const latestPosition = latestEventField(progressEvent, {
+		where: and(progressWhere, hasPosition),
+		select: coalesce(progressProperty("animeEpisode"), progressProperty("mangaChapter")),
+	});
 	const boundaryCompleteEvent = latestEntityCompletionExpressions(entity, `${alias}Boundary`);
 	const snapshotAlias = `${alias}SnapshotBoundary`;
 	const snapshotEvent = table("event", snapshotAlias);
@@ -276,6 +280,10 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 		eq(column(snapshotEvent, "eventSchemaSlug"), literal("list-state")),
 	);
 	const boundarySnapshotEvent = latestEventOrderExpressions(snapshotWhere, snapshotAlias);
+	const isCurrentProgress = and(
+		orderExpressionsAreAfter(latestProgress, boundaryCompleteEvent),
+		orderExpressionsAreAfter(latestProgress, boundarySnapshotEvent),
+	);
 	return {
 		latestSignal,
 		boundaryCompleteEvent,
@@ -284,26 +292,22 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 			literal("untracked"),
 			mediaStateFromLatestSignal(latestSignal.eventSchemaSlug, latestSignal.listState),
 		),
+		position: conditional(
+			eq(latestSignal.eventSchemaSlug, literal("list-state")),
+			literal(null),
+			conditional(isCurrentProgress, latestPosition, literal(null)),
+		),
 		progressPercent: conditional(
 			eq(latestSignal.eventSchemaSlug, literal("list-state")),
 			literal(null),
 			conditional(
-				and(
-					orderExpressionsAreAfter(latestProgress, boundaryCompleteEvent),
-					orderExpressionsAreAfter(latestProgress, boundarySnapshotEvent),
-				),
+				isCurrentProgress,
 				coalesce(
 					divide(
 						round(
 							multiply(
 								divide(
-									latestEventField(progressEvent, {
-										where: and(progressWhere, hasPosition),
-										select: coalesce(
-											progressProperty("animeEpisode"),
-											progressProperty("mangaChapter"),
-										),
-									}),
+									latestPosition,
 									coalesce(entityProperty("episodes"), entityProperty("chapters")),
 								),
 								literal(10000),

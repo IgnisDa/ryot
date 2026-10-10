@@ -677,6 +677,13 @@ it("declares the complete media-owned source", () => {
 		},
 		{
 			auth: "user",
+			demoAccess: "protected",
+			slug: "media-activity-log",
+			description: "Log media activity",
+			scriptSlug: "operation.media-activity-log",
+		},
+		{
+			auth: "user",
 			demoAccess: "allowed",
 			slug: "media-monitoring-status",
 			description: "Read media monitoring status",
