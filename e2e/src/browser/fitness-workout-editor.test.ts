@@ -21,6 +21,33 @@ import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
+it.live("dismisses a workout overlay with an edge swipe without leaving the draft", () =>
+	Effect.gen(function* () {
+		const { email, password } = yield* createAuthenticatedClient();
+		const page = yield* (yield* Playwright.Browser).newPage();
+		yield* page.setViewportSize({ width: 390, height: 844 });
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/p/ryot/fitness/workouts/new`);
+		const frame = page.locator("iframe:visible").contentFrame();
+		yield* frame.getByRole("textbox", { exact: true, name: "Name" }).fill("Swipe recovery");
+		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
+		const picker = frame.getByRole("dialog", { exact: true, name: "Choose exercises" });
+		yield* picker.waitFor({ state: "visible" });
+		yield* page.getByTestId("edge-gesture").waitFor({ state: "visible" });
+		yield* page.use((raw) => raw.mouse.move(8, 400));
+		yield* page.use((raw) => raw.mouse.down());
+		yield* page.use((raw) => raw.mouse.move(240, 400, { steps: 12 }));
+		yield* page.use((raw) => raw.mouse.up());
+		yield* picker.waitFor({ state: "hidden" });
+		expect(yield* frame.getByRole("textbox", { exact: true, name: "Name" }).inputValue()).toBe(
+			"Swipe recovery",
+		);
+		expect(yield* page.getByRole("dialog", { exact: true, name: "Navigation" }).isVisible()).toBe(
+			false,
+		);
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
 it.live("retains a competing historical edit instead of overwriting a newer save", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();

@@ -132,8 +132,8 @@ must supply an `index` and `key`.
 
 Overlay dismissal follows ownership:
 
-- React-state overlays register a `BackInterceptor`; Android hardware Back closes them before
-  history is popped.
+- React-state overlays register a `BackInterceptor`; Android hardware Back and the kernel's
+  overlay edge-swipe close them before history is popped, including at a workspace root.
 - URL-state overlays push a history entry and close by popping it, with replace only for direct
   entry. They do not register an interceptor.
 

@@ -297,9 +297,10 @@ export function AuthenticatedShell(props: {
 			}),
 		);
 	const saveCustomize = useStableHandler(() => void commitCustomize());
-	// The edge gesture performs a kernel-owned back directly, so it has to consult the same guard
-	// that `BackInterceptors` gives Android's hardware Back; otherwise one of them loses the draft.
 	const goBack = useStableHandler(() => {
+		if (backInterceptors.run()) {
+			return;
+		}
 		if (customizeActive) {
 			requestLeaveCustomize();
 			return;
