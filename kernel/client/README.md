@@ -29,7 +29,7 @@ are reported internally; interrupted and stale work has no reply.
 
 The opaque-origin iframe has no `localStorage`, so the kernel stores plugin storage values in its own
 `localStorage` through `ClientStorage`, one JSON entry per
-`ryot:plugin-storage:<api scope>:<plugin ID>:<key>`. Logout does not clear them. The kernel accepts
+`ryot:plugin-storage:` followed by the canonical `[server, user, plugin ID, key]` tuple. Logout does not clear them. The kernel accepts
 only IDs of plugin contributors in the frame's prepared composition; it cannot tell same-realm
 plugins apart, so that check bounds the frame, not an individual plugin.
 
