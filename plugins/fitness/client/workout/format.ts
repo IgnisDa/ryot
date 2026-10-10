@@ -40,12 +40,14 @@ export const formatSignedMeasure = (value: number, unit: MeasureUnit) => {
 	return value > 0 ? `+${magnitude}` : `−${magnitude}`;
 };
 
-const weightReps = (set: WorkoutSet) =>
+export type SetMeasures = Pick<WorkoutSet, "distance" | "duration" | "reps" | "weight">;
+
+const weightReps = (set: SetMeasures) =>
 	set.weight === null || set.weight === 0
 		? `${formatNumber(set.reps ?? 0)} reps`
 		: `${formatNumber(set.weight)} kg × ${formatNumber(set.reps ?? 0)}`;
 
-export const formatSetMain = (kind: ExerciseKind | null, set: WorkoutSet) => {
+export const formatSetMain = (kind: ExerciseKind | null, set: SetMeasures) => {
 	const reps = set.reps === null ? null : `${formatNumber(set.reps)} reps`;
 	const duration = set.duration === null ? null : formatDuration(set.duration);
 	const distance = set.distance === null ? null : `${formatNumber(set.distance)} km`;
