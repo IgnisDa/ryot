@@ -204,11 +204,20 @@ describe("media server sinks", () => {
 	);
 });
 
-const runJellyfin = (payload: unknown, providerSpecifics?: Record<string, string>) =>
+const runJellyfin = (
+	payload: unknown,
+	providerSpecifics?: Record<string, string>,
+	lookupHost: Partial<
+		Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue">
+	> = {},
+) =>
 	runIntegrationTestScript(
 		jellyfinDefinition,
 		sinkInput(encodeJson(payload)),
 		defineSandboxTestHost(jellyfinManifest, {
+			getPluginConfig: ({ required: keys = [] }) =>
+				hostSuccess(Object.fromEntries(keys.map((key) => [key, "token"]))),
+			...lookupHost,
 			getCurrentIntegration: () =>
 				hostSuccess(
 					integrationRecord({
@@ -267,10 +276,11 @@ describe("Jellyfin official webhook plugin", () => {
 		Effect.gen(function* () {
 			const result = yield* runJellyfin({
 				ItemType: "Episode",
-				Provider_TMDB: "202",
+				Provider_TMDB: "999",
 				RuntimeTicks: "2000",
 				SeasonNumber00: "01",
 				EpisodeNumber00: "02",
+				SeriesProvider_TMDB: "202",
 				PlayedToCompletion: "False",
 				PlaybackPositionTicks: "500",
 				NotificationType: "PlaybackProgress",
@@ -427,6 +437,156 @@ const tmdbRoutes =
 		}
 		return response === undefined ? hostFailure("request failed") : httpSuccess(response);
 	};
+
+const officialEpisode = {
+	SeasonNumber: 3,
+	EpisodeNumber: 11,
+	RunTimeTicks: 2000,
+	ItemType: "Episode",
+	Provider_tmdb: "68923",
+	Provider_tvdb: "19541",
+	SeriesName: "Babylon 5",
+	Provider_imdb: "tt0517686",
+	PlaybackPositionTicks: 500,
+	NotificationType: "PlaybackProgress",
+};
+
+const jellyfinLookupHost = (
+	routes: Record<string, Route>,
+	cache = new Map<string, JsonValue>(),
+): Omit<PlexHost, "getCurrentIntegration" | "getPluginConfig"> => ({
+	httpCall: tmdbRoutes(routes),
+	setCachedValue: (key: string, value: JsonValue) => {
+		cache.set(key, value);
+		return hostSuccess(null);
+	},
+	getCachedValue: (key: string) =>
+		hostSuccess(key === "tvdb_access_token" ? "Bearer token" : (cache.get(key) ?? null)),
+});
+
+describe("Jellyfin episode show resolution", () => {
+	it.live.each(["tmdb", "tvdb"])("resolves and caches the show on %s", (metadataProvider) =>
+		Effect.gen(function* () {
+			const cache = new Map<string, JsonValue>();
+			const routes: Record<string, Route> =
+				metadataProvider === "tvdb"
+					? { "/v4/episodes/19541": { data: { seriesId: 70726 } } }
+					: {
+							"/3/find/tt0517686?external_source=imdb_id": {
+								tv_episode_results: [{ show_id: 2426 }],
+							},
+						};
+			const result = yield* runJellyfin(
+				officialEpisode,
+				{ metadataProvider },
+				jellyfinLookupHost(routes, cache),
+			);
+			const cached = yield* runJellyfin(
+				officialEpisode,
+				{ metadataProvider },
+				jellyfinLookupHost({}, cache),
+			);
+			for (const value of [result, cached]) {
+				expect(value.failures).toEqual([]);
+				expect(value.entityGroups[0]).toMatchObject({
+					entityRef: {
+						providerSlug: `show.${metadataProvider}`,
+						externalId: metadataProvider === "tvdb" ? "70726" : "2426",
+					},
+					events: [
+						{
+							properties: { progressPercent: 25 },
+							unresolvedEpisode: { seasonNumber: 3, episodeNumber: 11 },
+						},
+					],
+				});
+			}
+		}),
+	);
+
+	it.live("verifies title search results against the TMDB episode ID", () =>
+		Effect.gen(function* () {
+			const result = yield* runJellyfin(
+				officialEpisode,
+				{},
+				jellyfinLookupHost({
+					"/3/tv/1/season/3": notFound,
+					"/3/tv/2426/season/3": { episodes: [{ id: 68923 }] },
+					"/3/find/19541?external_source=tvdb_id": { tv_episode_results: [] },
+					"/3/search/tv?query=Babylon+5": { results: [{ id: 1 }, { id: 2426 }] },
+					"/3/find/tt0517686?external_source=imdb_id": { tv_episode_results: [] },
+				}),
+			);
+			expect(result.failures).toEqual([]);
+			expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "2426" });
+		}),
+	);
+
+	it.live("retries external-ID-only misses and caches successful lookups", () =>
+		Effect.gen(function* () {
+			const payload = { ...officialEpisode, Provider_tmdb: "", Provider_imdb: "" };
+			const cache = new Map<string, JsonValue>();
+			const missing = yield* runJellyfin(
+				payload,
+				{},
+				jellyfinLookupHost(
+					{ "/3/find/19541?external_source=tvdb_id": { tv_episode_results: [] } },
+					cache,
+				),
+			);
+			expect(missing.entityGroups).toEqual([]);
+			expect(missing.failures[0]?.stage).toBe("provider_resolution");
+			expect(cache.size).toBe(0);
+			const found = yield* runJellyfin(
+				payload,
+				{},
+				jellyfinLookupHost(
+					{ "/3/find/19541?external_source=tvdb_id": { tv_episode_results: [{ show_id: 2426 }] } },
+					cache,
+				),
+			);
+			const cached = yield* runJellyfin(payload, {}, jellyfinLookupHost({}, cache));
+			for (const result of [found, cached]) {
+				expect(result.failures).toEqual([]);
+				expect(result.entityGroups[0]?.entityRef).toMatchObject({ externalId: "2426" });
+			}
+			const otherProvider = yield* runJellyfin(
+				{ ...payload, Provider_tvdb: "", Provider_imdb: "19541" },
+				{},
+				jellyfinLookupHost({}, cache),
+			);
+			expect(otherProvider.entityGroups).toEqual([]);
+			expect(otherProvider.failures[0]?.stage).toBe("provider_resolution");
+		}),
+	);
+
+	it.live.each(["ItemAdded", "MarkUnplayed", "PlaybackProgress"])(
+		"does not look up ignored %s events or users",
+		(NotificationType) =>
+			Effect.gen(function* () {
+				const result = yield* runJellyfin(
+					{ ...officialEpisode, NotificationType, NotificationUsername: "bob" },
+					{ username: "alice" },
+				);
+				expect(result).toEqual({ failures: [], entityGroups: [] });
+			}),
+	);
+
+	it.live.each(["missing", "no-series"])(
+		"never imports a TVDB episode ID as a show ID (%s)",
+		(scenario) =>
+			Effect.gen(function* () {
+				const response = scenario === "missing" ? notFound : { data: {} };
+				const result = yield* runJellyfin(
+					officialEpisode,
+					{ metadataProvider: "tvdb" },
+					jellyfinLookupHost({ "/v4/episodes/19541": response }),
+				);
+				expect(result.entityGroups).toEqual([]);
+				expect(result.failures[0]?.stage).toBe("provider_resolution");
+			}),
+	);
+});
 
 const runPlex = (
 	payload: unknown,

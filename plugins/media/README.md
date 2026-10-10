@@ -239,6 +239,10 @@ rejected at ingress, not retained as recoverable source work.
   receipt-confirmed creations claim `["media.spotify-play", integrationId, trackId, playedAt]`, expiring
   30 days after collection began. Confirmation replay neither refetches nor extends claims; HTTP
   failures expose status only.
+- **Jellyfin:** official episode webhooks use series-level provider IDs only. Missing show IDs are
+  resolved through TVDB's episode endpoint, or TMDB's IMDb/TVDB episode lookup followed by a
+  series-name search verified against the season's episode IDs. Lookups are cached for one day;
+  external-ID-only misses are retried on the next event. Unofficial payload handling is unchanged.
 - **YouTube Music:** first confirmed local-day observation records 35% progress, the next records
   100%, and the day's final ten minutes record 100% directly. Only created outcomes advance `:seen`
   and `:completed` claims; both expire at local midnight. Confirmation replay makes no source request

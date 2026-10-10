@@ -28,6 +28,7 @@ export default defineScript({
 				input.rawBody,
 				integration.providerSpecifics,
 				occurredAt,
+				host,
 			);
 		}).pipe(Effect.flatMap((result) => captureIntegrationRecords(manifest.slug, result))),
 });

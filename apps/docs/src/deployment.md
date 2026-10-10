@@ -173,3 +173,21 @@ Review the generated URL before installation. Cosmos creates the database and cr
 Deploy Ryot on a Cloudzy VPS with the one-click installer, which runs Ryot with Docker Compose on
 Ubuntu Server 24.04 LTS. See the [Cloudzy Marketplace page](https://cloudzy.com/marketplace/ryot/)
 for Docker management commands, configuration files, and installation paths.
+
+## Pethost
+
+[Pethost](https://pethost.dev) has a one-click template for Ryot:
+[Deploy Ryot on Pethost](https://pethost.dev/templates/ryot/).
+
+The template starts Ryot and PostgreSQL, generates `SERVER_ADMIN_ACCESS_TOKEN` and the
+database password, sets `FRONTEND_URL`, and serves Ryot over HTTPS at an address under your
+account's domain.
+
+Open the address and create your first user via the web interface's registration page. For
+a private instance, then add `USERS_ALLOW_REGISTRATION=false` to the project's `.env`, which
+the template's compose file passes to the `ryot` service, and deploy again to stop new
+sign-ups.
+
+The database's volume is kept across deploys and is part of the nightly backups. To deploy
+the [docker compose](./index.md#installation) file from a terminal instead, see the
+[step-by-step guide](https://pethost.dev/blog/self-host-ryot/).
