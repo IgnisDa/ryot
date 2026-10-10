@@ -127,9 +127,13 @@ describe("workspace state", () => {
 			workspace({ isHidden: true, packageId: PluginPackageId.make("test/disabled") }),
 		];
 
-		expect(effectiveCatalogPlugin(catalog, "test/fitness")?.packageId).toBe("test/fitness");
-		expect(effectiveCatalogPlugin(catalog, "test/disabled")?.packageId).toBe("test/disabled");
-		expect(effectiveCatalogPlugin(catalog, "missing")).toBeUndefined();
+		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("test/fitness"))?.packageId).toBe(
+			"test/fitness",
+		);
+		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("test/disabled"))?.packageId).toBe(
+			"test/disabled",
+		);
+		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("test/missing"))).toBeUndefined();
 	});
 
 	it("keeps direct routes resolvable when no workspace is enabled", () => {
@@ -137,7 +141,9 @@ describe("workspace state", () => {
 
 		expect(visibleWorkspaces(catalog)).toEqual([]);
 		expect(resolveRememberedWorkspace(catalog, "plugin-media")).toBeNull();
-		expect(effectiveCatalogPlugin(catalog, "ryot/media")?.packageId).toBe("ryot/media");
+		expect(effectiveCatalogPlugin(catalog, PluginPackageId.make("ryot/media"))?.packageId).toBe(
+			"ryot/media",
+		);
 	});
 
 	it("recognizes a workspace root with or without a trailing slash", () => {
