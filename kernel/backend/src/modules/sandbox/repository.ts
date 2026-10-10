@@ -88,6 +88,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			if (initialization && subject?.type !== "user") {
 				return null;
 			}
+			let accountDisabled = false;
 			if (executionUserId !== null && subject !== undefined && subject.type !== "system") {
 				const [account] = yield* database.run((db) =>
 					db
@@ -100,12 +101,13 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						.limit(1),
 				);
 				if (
-					account?.disabledAt !== null ||
+					!account ||
 					subject.accountGeneration?.userId !== executionUserId ||
 					account.accountGeneration !== subject.accountGeneration.token
 				) {
 					return null;
 				}
+				accountDisabled = account.disabledAt !== null;
 			}
 			const [row] = yield* database.run((db) =>
 				db
@@ -150,7 +152,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				return null;
 			}
 			if (row.pluginId === null) {
-				if (expectedRevision || initialization) {
+				if (expectedRevision || initialization || accountDisabled) {
 					return null;
 				}
 				return row.providerId === null
@@ -174,7 +176,10 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				return null;
 			}
 			const authority = decodedAuthority.value;
-			if (authority.packageId !== row.pluginPackageId) {
+			// A reset rebuilds the account while it stays disabled, so only its own bootstrap may run.
+			const bootstrapScript =
+				row.metadata.kind === "script" && authority.userBootstrapScriptSlugs.includes(row.slug);
+			if (authority.packageId !== row.pluginPackageId || (accountDisabled && !bootstrapScript)) {
 				return null;
 			}
 			if (
@@ -245,15 +250,13 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				if (
 					!installationExecutionGate({
 						initialization,
+						bootstrapScript,
 						installation: state,
 						activationId: row.activationId,
 						exactPin: expectedRevision !== undefined,
-						bootstrapScript:
-							row.metadata.kind === "script" &&
-							authority.userBootstrapScriptSlugs.includes(row.slug),
 					}) ||
 					(pluginScope === "user" && row.pluginStatus !== "active") ||
-					state.disabledAt !== null
+					(state.disabledAt !== null && !bootstrapScript)
 				) {
 					return yield* new SandboxRunError({
 						kind: "script-failure",

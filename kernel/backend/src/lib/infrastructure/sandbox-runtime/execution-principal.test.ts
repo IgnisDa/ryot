@@ -2,7 +2,7 @@ import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
-import { SandboxExecutionPrincipal } from "./execution-principal";
+import { isUserBootstrapPrincipal, SandboxExecutionPrincipal } from "./execution-principal";
 
 const principal = {
 	providerId: null,
@@ -100,4 +100,20 @@ it("rejects kernel identity together with a plugin revision", () => {
 	expect(() => decode({ ...principal, kernelScript: true })).toThrow(
 		"Kernel identity cannot accompany a plugin revision",
 	);
+});
+
+it("recognizes only a declared user bootstrap script as a bootstrap principal", () => {
+	const decode = Schema.decodeUnknownSync(SandboxExecutionPrincipal);
+	const bootstrap = (metadata: { kind: string }, slugs: string[]) =>
+		isUserBootstrapPrincipal(
+			decode({
+				...principal,
+				metadata: { ...metadata, runtimeImports: [] },
+				pluginRevision: { ...principal.pluginRevision, userBootstrapScriptSlugs: slugs },
+			}),
+		);
+
+	expect(bootstrap({ kind: "script" }, ["script"])).toBe(true);
+	expect(bootstrap({ kind: "script" }, ["other"])).toBe(false);
+	expect(bootstrap({ kind: "automation" }, ["script"])).toBe(false);
 });

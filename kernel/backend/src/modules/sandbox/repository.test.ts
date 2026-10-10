@@ -393,6 +393,14 @@ layer(pinRepositoryLayer)((test) => {
 						subject,
 					),
 				).toBeNull();
+				yield* database.respondWith((table, condition) =>
+					table === tables.sandboxScript
+						? [{ ...pluginPinRow, pluginOwnerId: userId }]
+						: respond(installation, true)(table, condition),
+				);
+				expect(
+					yield* repository.getScriptPin(SandboxScriptId.make(row.id), undefined, subject),
+				).toMatchObject({ scriptSlug: "plugin.script" });
 			}),
 	);
 	test.effect("pins active current plugin identity and exact bootstrap declaration", () =>
