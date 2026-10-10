@@ -81,7 +81,11 @@ export const AutomationAfterInputProjection = atLeastOneProjection({
 	signal: Schema.optional(strictStruct({ properties: uniqueProjectionNames })),
 });
 export type AutomationAfterInputProjection = typeof AutomationAfterInputProjection.Type;
-const policyResourceProjection = strictStruct({ properties: uniqueProjectionNames });
+const policyResourceProjection = strictStruct({
+	properties: uniqueProjectionNames,
+	entityProperties: Schema.optional(uniqueProjectionNames),
+	sessionEntityProperties: Schema.optional(uniqueProjectionNames),
+});
 export const AutomationPolicyInputProjection = atLeastOneProjection({
 	event: Schema.optional(policyResourceProjection),
 	entity: Schema.optional(policyResourceProjection),
@@ -358,6 +362,22 @@ export const AutomationRequestPayload = Schema.Union([
 	...AutomationRelationshipRequestPayload.members,
 ]);
 export type AutomationRequestPayload = typeof AutomationRequestPayload.Type;
+export const AutomationBatchRequestPayload = strictStruct({
+	operation: Schema.Literal("batch"),
+	category: Schema.Literal("request"),
+	itemIdentities: Schema.Array(nonEmpty),
+	references: Schema.Record(EntityId, AutomationEntityDraft),
+	resource: Schema.Literals(["entity", "event", "relationship"]),
+	items: Schema.Array(AutomationRequestPayload).check(Schema.isMinLength(1)),
+}).check(
+	Schema.makeFilter(
+		(batch) =>
+			batch.items.length === batch.itemIdentities.length &&
+			new Set(batch.itemIdentities).size === batch.itemIdentities.length &&
+			batch.items.every((item) => item.resource === batch.resource),
+	),
+);
+export type AutomationBatchRequestPayload = typeof AutomationBatchRequestPayload.Type;
 const withPopulation = <Fields extends Schema.Struct.Fields>(member: Schema.Struct<Fields>) =>
 	strictStruct({ ...member.fields, population: Schema.optional(AutomationPopulationContext) });
 const entityChanges = [
@@ -491,6 +511,7 @@ export const AutomationProjectedAfterPayload = Schema.Union([
 export type AutomationProjectedAfterPayload = typeof AutomationProjectedAfterPayload.Type;
 export const AutomationTriggerPayload = Schema.Union([
 	AutomationRequestPayload,
+	AutomationBatchRequestPayload,
 	AutomationChangePayload,
 	AutomationSignalPayload,
 ]);
@@ -503,8 +524,8 @@ export const AutomationTriggerKind = Schema.Union([
 		resource: Schema.Literals(["entity", "event", "relationship"]),
 	}),
 	strictStruct({
-		category: Schema.Literal("change"),
 		operation: Schema.Literal("batch"),
+		category: Schema.Literals(["request", "change"]),
 		resource: Schema.Literals(["entity", "event", "relationship"]),
 	}),
 	strictStruct({
@@ -694,13 +715,29 @@ export const AutomationInput = strictStruct({
 	}),
 });
 export type AutomationInput = typeof AutomationInput.Type;
+export const AutomationPolicyReference = strictStruct({
+	properties,
+	entitySchemaSlug: EntitySchemaSlug,
+	entitySchemaPluginId: Schema.NullOr(PluginId),
+});
 export const AutomationPolicyInput = strictStruct({
 	automation: strictStruct({
 		...AutomationInvocationFields,
 		payload: AutomationProjectedRequestPayload,
+		references: Schema.optional(Schema.Record(EntityId, AutomationPolicyReference)),
 	}),
 });
 export type AutomationPolicyInput = typeof AutomationPolicyInput.Type;
+export const AutomationPolicyBatchInput = strictStruct({
+	items: Schema.Array(
+		strictStruct({ itemIdentity: nonEmpty, payload: AutomationProjectedRequestPayload }),
+	),
+	automation: strictStruct({
+		...AutomationInvocationFields,
+		references: Schema.optional(Schema.Record(EntityId, AutomationPolicyReference)),
+	}),
+});
+export type AutomationPolicyBatchInput = typeof AutomationPolicyBatchInput.Type;
 export const AutomationOutput = JsonValue;
 export type AutomationOutput = typeof AutomationOutput.Type;
 const policyPropertiesPatch = strictStruct({
@@ -758,3 +795,7 @@ export const AutomationPolicyOutput = Schema.Union([
 	strictStruct({ patch: AutomationPolicyPatch, action: Schema.Literal("transform") }),
 ]);
 export type AutomationPolicyOutput = typeof AutomationPolicyOutput.Type;
+export const AutomationPolicyBatchOutput = strictStruct({
+	items: Schema.Array(strictStruct({ itemIdentity: nonEmpty, decision: AutomationPolicyOutput })),
+});
+export type AutomationPolicyBatchOutput = typeof AutomationPolicyBatchOutput.Type;

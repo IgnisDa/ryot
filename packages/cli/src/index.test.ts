@@ -157,7 +157,7 @@ export const manifest = defineManifest({
   kind: "automation", automationType: "${automationType}", slug: "${automationType}", name: "${automationType}",
   inputProjection: ${automationType === "policy" ? "{ event: { properties: [] } }" : "{ signal: { properties: [] } }"},
 });
-export default ${helper}({ manifest, run: () => Effect.succeed(${automationType === "policy" ? '{ action: "allow" as const }' : "null"}) });
+export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automationType === "policy" ? '{ items: _input.items.map(({ itemIdentity }) => ({ itemIdentity, decision: { action: "allow" as const } })) }' : "null"}) });
 `,
 				);
 			}

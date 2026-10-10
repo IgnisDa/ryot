@@ -167,6 +167,11 @@ export const EventCreateItemOutcome = Schema.Union([
 	strictStruct({ eventId: EventId, index: Schema.Finite, status: Schema.Literal("written") }),
 	strictStruct({
 		index: Schema.Finite,
+		status: Schema.Literal("failed"),
+		reason: EventCreateFailureReason,
+	}),
+	strictStruct({
+		index: Schema.Finite,
 		reason: Schema.String,
 		status: Schema.Literal("skipped_by_policy"),
 	}),

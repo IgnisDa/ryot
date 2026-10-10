@@ -19,6 +19,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/http";
 import { assert } from "vitest";
@@ -163,6 +164,7 @@ class FakeOperationDependencies extends Context.Service<
 	{
 		readonly events: Effect.Effect<ReadonlyArray<string>>;
 		readonly captured: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly referenceRegistrations: Effect.Effect<ReadonlyArray<string>>;
 		readonly packageLookups: Effect.Effect<ReadonlyArray<string>>;
 		readonly availableLookups: Effect.Effect<number>;
 		readonly offerOperations: (available: ReadonlyArray<AvailableOperation>) => Effect.Effect<void>;
@@ -175,6 +177,7 @@ class OperationFakeState extends Context.Service<
 	{
 		readonly events: Ref.Ref<ReadonlyArray<string>>;
 		readonly captured: Ref.Ref<ReadonlyArray<unknown>>;
+		readonly referenceRegistrations: Ref.Ref<ReadonlyArray<string>>;
 		readonly integration: Ref.Ref<IntegrationRecord | null>;
 		readonly available: Ref.Ref<ReadonlyArray<AvailableOperation>>;
 		readonly privateInstallation: Ref.Ref<PluginInstallationHydratedState | null>;
@@ -203,6 +206,7 @@ const makeLayer = (input: {
 				captured: yield* Ref.make<ReadonlyArray<unknown>>([]),
 				integration: yield* Ref.make(input.integration ?? null),
 				packageLookups: yield* Ref.make<ReadonlyArray<string>>([]),
+				referenceRegistrations: yield* Ref.make<ReadonlyArray<string>>([]),
 				privateInstallation: yield* Ref.make(input.privateInstallation ?? null),
 			};
 		}),
@@ -216,6 +220,7 @@ const makeLayer = (input: {
 					captured: Ref.get(state.captured),
 					packageLookups: Ref.get(state.packageLookups),
 					availableLookups: Ref.get(state.availableLookups),
+					referenceRegistrations: Ref.get(state.referenceRegistrations),
 					offerOperations: (available) => Ref.set(state.available, available),
 					useIntegration: (integration) => Ref.set(state.integration, integration),
 				}),
@@ -345,7 +350,11 @@ const makeLayer = (input: {
 						listReferences: () => Effect.succeed([]),
 						hasReferences: () => Effect.succeed(false),
 						hasInstallationReferences: () => Effect.succeed(false),
-						registerInTransaction: () => Effect.succeed({ status: "registered" as const }),
+						registerInTransaction: (registration) =>
+							Ref.update(state.referenceRegistrations, (all) => [
+								...all,
+								registration.executionId,
+							]).pipe(Effect.as({ status: "registered" as const })),
 					}),
 				),
 				Layer.mock(ScriptExecutionService)({
@@ -415,6 +424,7 @@ const invoke = (input: {
 	packageId: PluginPackageId;
 	payload?: JsonValue;
 	contentHash?: string;
+	idempotencyKey?: string;
 	operationSlug?: string;
 }) =>
 	Effect.flatMap(OperationsService, (service) =>
@@ -423,9 +433,91 @@ const invoke = (input: {
 			packageId: input.packageId,
 			payload: input.payload ?? {},
 			operationSlug: input.operationSlug ?? OPERATION_SLUG,
+			...(input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }),
 			...(input.contentHash === undefined ? {} : { contentHash: input.contentHash }),
 		}),
 	);
+
+layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
+	test.effect("reuses a keyed operation admission identity and cached result", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeOperationDependencies;
+			const request = {
+				payload: { value: "same" },
+				packageId: SYSTEM_PACKAGE_ID,
+				idempotencyKey: "operation-request-1",
+			};
+			expect(yield* invoke(request)).toBe("ok");
+			expect(yield* invoke(request)).toBe("ok");
+			expect(yield* invoke({ ...request, contentHash: SOURCE_HASH })).toBe("ok");
+			expect(yield* Effect.flip(invoke({ ...request, contentHash: "stale" }))).toMatchObject({
+				_tag: "PluginConflictError",
+				reason: { code: "source-revision-stale" },
+			});
+			const registrations = yield* fake.referenceRegistrations;
+			const captured = yield* fake.captured;
+			expect(registrations).toHaveLength(1);
+			expect(captured).toHaveLength(1);
+			expect(captured).toMatchObject([{ executionId: registrations[0] }]);
+		}),
+	);
+});
+
+layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
+	test.effect("derives distinct operation admission identities for distinct keys", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeOperationDependencies;
+			const request = { payload: { value: "same" }, packageId: SYSTEM_PACKAGE_ID };
+			expect(yield* invoke({ ...request, idempotencyKey: "operation-request-1" })).toBe("ok");
+			expect(yield* invoke({ ...request, idempotencyKey: "operation-request-2" })).toBe("ok");
+			const registrations = yield* fake.referenceRegistrations;
+			const captured = yield* fake.captured;
+			expect(registrations).toHaveLength(2);
+			expect(registrations[0]).not.toBe(registrations[1]);
+			expect(captured).toHaveLength(2);
+			expect(captured).toMatchObject([
+				{ executionId: registrations[0] },
+				{ executionId: registrations[1] },
+			]);
+		}),
+	);
+});
+
+layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))((test) => {
+	test.effect("rejects a keyed operation admission identity when its input changes", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeOperationDependencies;
+			const idempotencyKey = "operation-request-1";
+			expect(
+				yield* invoke({
+					idempotencyKey,
+					payload: { value: "first" },
+					packageId: SYSTEM_PACKAGE_ID,
+				}),
+			).toBe("ok");
+			assertExitFails(
+				yield* Effect.exit(
+					invoke({ idempotencyKey, packageId: SYSTEM_PACKAGE_ID, payload: { value: "second" } }),
+				),
+				new PluginRequestError({
+					reason: {
+						code: "validation-failed",
+						diagnostics: [
+							{
+								phase: "validate",
+								severity: "error",
+								code: "operation-idempotency-conflict",
+								message: "Operation idempotency key was reused with different input",
+							},
+						],
+					},
+				}),
+			);
+			expect(yield* fake.captured).toHaveLength(1);
+			expect(yield* fake.referenceRegistrations).toHaveLength(1);
+		}),
+	);
+});
 
 layer(
 	makeLayer({

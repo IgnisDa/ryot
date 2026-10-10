@@ -241,6 +241,7 @@ export const PluginInstallResult = Schema.Struct({
 export const PluginInvokeBody = Schema.Struct({
 	payload: JsonValue,
 	contentHash: Schema.optional(Schema.String),
+	idempotencyKey: Schema.optional(Schema.NonEmptyString),
 });
 
 export type PluginInvokeBody = Schema.Schema.Type<typeof PluginInvokeBody>;

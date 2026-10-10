@@ -161,7 +161,8 @@ export const LifecyclePlannerLive = Layer.effect(
 			);
 			const eventRequest =
 				suppliedTrigger.payload?.category === "request" &&
-				suppliedTrigger.payload.resource === "event"
+				suppliedTrigger.payload.resource === "event" &&
+				suppliedTrigger.payload.operation !== "batch"
 					? suppliedTrigger.payload
 					: null;
 			const exclusions = eventRequest

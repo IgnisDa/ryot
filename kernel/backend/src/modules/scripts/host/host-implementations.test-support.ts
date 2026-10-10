@@ -58,6 +58,7 @@ export const unusedSandboxHostImplementations = (
 		createUserEntity: unusedHostCall,
 		deleteUserEntity: unusedHostCall,
 		updateUserEntity: unusedHostCall,
+		commitUserChanges: unusedHostCall,
 		getUserPreferences: unusedHostCall,
 		getProAvailability: unusedHostCall,
 		ensureUserEntities: unusedHostCall,

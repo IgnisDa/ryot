@@ -85,12 +85,22 @@ A stale precondition fails before mutation with `data: { code: "event-stale", ev
 `entityStaleReasonSchema` matches. A committed retry returns its receipt before checking the
 original precondition again.
 Event creation returns `{ count, outcomes }`;
-each outcome is either `{ index, eventId, status: "written" }` or
-`{ index, reason, status: "skipped_by_policy" }`. A creation failure includes
+each outcome is `{ index, eventId, status: "written" }`,
+`{ index, reason, status: "skipped_by_policy" }`, or `{ index, reason, status: "failed" }`.
+Independent valid records remain eligible when another record fails validation. A creation failure includes
 `data: { count, outcomes, code, partial }`. Earlier committed items are not rolled back; identity
 conflicts use `code: "mutation-conflict"` and `partial: false`. Workflow attempts remain separate
 from committed item identities so an unfinished batch can be retried after partial failure. Each
-attempt seals only its newly committed batch-hook evidence. Committed item hooks are not recreated.
+operation seals its batch-hook evidence and retains its aggregate result. Committed item hooks are not recreated.
+
+`commitUserChanges` commits a root user entity, relationships, and event creates, updates, and
+deletes in one database transaction. References can target the root entity before it exists. Any
+validation or commit failure leaves the entire command unchanged. File uploads are separate.
+
+Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and
+projected entity references; `items` holds `{ itemIdentity, payload }` requests. Return
+`{ items: [{ itemIdentity, decision }] }` with exactly one decision for each supplied identity.
+Shared metadata is sent once, not repeated per request, so normal batches retain the sandbox input limit.
 
 ## Boundary Errors
 

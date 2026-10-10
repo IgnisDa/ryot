@@ -47,10 +47,16 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 			}) {
 				const outcome = yield* api
 					.invoke(invocation.scope, {
-						payload: { payload: invocation.request.input, contentHash: invocation.contentHash },
 						params: {
 							operationSlug: invocation.request.operationSlug,
 							...pluginPackageSegments(invocation.request.packageId),
+						},
+						payload: {
+							payload: invocation.request.input,
+							contentHash: invocation.contentHash,
+							...(invocation.request.idempotencyKey === undefined
+								? {}
+								: { idempotencyKey: invocation.request.idempotencyKey }),
 						},
 					})
 					.pipe(

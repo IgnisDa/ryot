@@ -249,10 +249,18 @@ export const PluginMetadata = strictStruct({
 
 export type PluginMetadata = Schema.Schema.Type<typeof PluginMetadata>;
 
+export const PluginEventProjection = strictStruct({
+	scriptSlug: Schema.NonEmptyString,
+	propertiesSchema: PluginAppSchema,
+});
+
+export type PluginEventProjection = Schema.Schema.Type<typeof PluginEventProjection>;
+
 export const PluginEventSchema = strictStruct({
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
+	projection: Schema.optional(PluginEventProjection),
 });
 
 export type PluginEventSchema = Schema.Schema.Type<typeof PluginEventSchema>;

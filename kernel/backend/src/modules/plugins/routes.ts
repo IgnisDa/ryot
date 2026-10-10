@@ -109,6 +109,9 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 						operationSlug: params.operationSlug,
 						packageId: pluginPackageIdFromSegments(params),
 						...(payload.contentHash === undefined ? {} : { contentHash: payload.contentHash }),
+						...(payload.idempotencyKey === undefined
+							? {}
+							: { idempotencyKey: payload.idempotencyKey }),
 					})
 					.pipe(dieOnDbError);
 				return { result };

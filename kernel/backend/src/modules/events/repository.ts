@@ -259,6 +259,31 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				return rows.map((row) => EventId.make(row.id));
 			},
 		);
+		const listSessionEventIds = Effect.fn("EventsRepository.listSessionEventIds")(
+			function* (input: {
+				userId: UserId;
+				sessionEntityId: EntityId;
+				eventSchemaSlug: string;
+				eventSchemaPluginId: string;
+			}) {
+				return yield* session
+					.run((db) =>
+						db
+							.select({ id: schema.event.id })
+							.from(schema.event)
+							.where(
+								and(
+									eq(schema.event.userId, input.userId),
+									eq(schema.event.sessionEntityId, input.sessionEntityId),
+									eq(schema.event.eventSchemaSlug, input.eventSchemaSlug),
+									eq(schema.event.eventSchemaPluginId, input.eventSchemaPluginId),
+								),
+							)
+							.orderBy(schema.event.id),
+					)
+					.pipe(Effect.map((rows) => rows.map((row) => EventId.make(row.id))));
+			},
+		);
 		const listEventIdentitiesForEntities = Effect.fn(
 			"EventsRepository.listEventIdentitiesForEntities",
 		)(function* (entityIds: ReadonlyArray<EntityId>) {
@@ -553,6 +578,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 			getCreateProgress,
 			deletePreparedEvent,
 			updatePreparedEvent,
+			listSessionEventIds,
 			listUserEventsForBackup,
 			listUserEventIdsForEntity,
 			updateEventEntityReferences,

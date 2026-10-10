@@ -1,9 +1,13 @@
 import { Schema, SchemaGetter } from "effect";
 
-import { EntityId } from "../../schema/brands";
+import { EntityId, UserId } from "../../schema/brands";
 import { IsoUtcString } from "../../schema/utils";
 
-export const EntityUpdatedReason = Schema.Literals(["populated", "translated"]);
+export const EntityUpdatedReason = Schema.Literals([
+	"populated",
+	"translated",
+	"projection-updated",
+]);
 export type EntityUpdatedReason = typeof EntityUpdatedReason.Type;
 
 export const EntityUpdatedMessage = Schema.Struct({
@@ -12,14 +16,26 @@ export const EntityUpdatedMessage = Schema.Struct({
 });
 export type EntityUpdatedMessage = typeof EntityUpdatedMessage.Type;
 
+export const EntityUpdatePublication = Schema.Struct({
+	...EntityUpdatedMessage.fields,
+	userId: Schema.optional(UserId),
+});
+export type EntityUpdatePublication = typeof EntityUpdatePublication.Type;
+
 export const encodeEntityUpdatedMessage = (
 	entityId: EntityId,
 	reason: EntityUpdatedReason,
-): string => JSON.stringify({ reason, entityId } satisfies EntityUpdatedMessage);
+	userId?: UserId,
+): string =>
+	JSON.stringify({
+		reason,
+		entityId,
+		...(userId === undefined ? {} : { userId }),
+	} satisfies EntityUpdatePublication);
 
 // Sync decoder for the ioredis message callback (not an Effect context).
 export const decodeEntityUpdatedMessage = Schema.decodeUnknownResult(
-	Schema.fromJsonString(EntityUpdatedMessage),
+	Schema.fromJsonString(EntityUpdatePublication),
 );
 
 export const MAX_INTEREST_ENTITY_IDS = 500;

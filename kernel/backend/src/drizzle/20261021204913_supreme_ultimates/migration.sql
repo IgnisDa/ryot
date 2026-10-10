@@ -118,7 +118,7 @@ CREATE TABLE "automation_trigger" (
 	"operation" text NOT NULL,
 	"resource_kind" text NOT NULL,
 	"initiator_kind" text NOT NULL,
-	CONSTRAINT "automation_trigger_kind_check" CHECK (("category" in ('request', 'change') and "resource_kind" in ('entity', 'event', 'relationship') and "operation" in ('create', 'update', 'delete')) or ("category" = 'change' and "resource_kind" in ('entity', 'event', 'relationship') and "operation" = 'batch') or ("category" = 'change' and "resource_kind" = 'provider-entity-import' and "operation" = 'complete') or ("category" = 'signal' and "resource_kind" = 'signal' and "operation" = 'emit')),
+	CONSTRAINT "automation_trigger_kind_check" CHECK (("category" in ('request', 'change') and "resource_kind" in ('entity', 'event', 'relationship') and "operation" in ('create', 'update', 'delete', 'batch')) or ("category" = 'change' and "resource_kind" = 'provider-entity-import' and "operation" = 'complete') or ("category" = 'signal' and "resource_kind" = 'signal' and "operation" = 'emit')),
 	CONSTRAINT "automation_trigger_causation_check" CHECK ("depth" >= 0 and "lane" in ('interactive', 'background') and "initiator_kind" in ('user', 'integration', 'system') and "source" in ('api', 'import', 'integration', 'bootstrap', 'provider-refresh', 'automation') and ("source" <> 'automation' or ("parent_run_id" is not null and "parent_trigger_id" is not null and "depth" > 0))),
 	CONSTRAINT "automation_trigger_payload_check" CHECK (("payload" is null) = ("payload_pruned_at" is not null)),
 	CONSTRAINT "automation_trigger_parent_check" CHECK ("parent_run_id" is null or "parent_trigger_id" is not null),
@@ -203,8 +203,8 @@ CREATE TABLE "definition_calendar_source" (
 	"caption" text,
 	"icon" text NOT NULL,
 	"start_at" text NOT NULL,
-	"query" jsonb NOT NULL,
 	"subject" jsonb NOT NULL,
+	"query" jsonb NOT NULL,
 	"precision" text NOT NULL,
 	"plugin_revision_id" text NOT NULL,
 	CONSTRAINT "definition_calendar_source_revision_slug_unique" UNIQUE("plugin_revision_id","slug")
@@ -229,6 +229,7 @@ CREATE TABLE "definition_event_schema" (
 	"name" text NOT NULL,
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
+	"projection" jsonb,
 	"properties_schema" jsonb NOT NULL,
 	"entity_schema_id" text NOT NULL,
 	CONSTRAINT "definition_event_schema_entity_slug_unique" UNIQUE("entity_schema_id","slug")
@@ -362,6 +363,13 @@ CREATE TABLE "event" (
 	"id" text PRIMARY KEY
 );
 --> statement-breakpoint
+CREATE TABLE "event_projection" (
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"properties" jsonb NOT NULL,
+	"stream_id" text NOT NULL,
+	"event_id" text PRIMARY KEY
+);
+--> statement-breakpoint
 CREATE TABLE "event_stream" (
 	"id" text PRIMARY KEY,
 	"event_schema_slug" text NOT NULL,
@@ -382,8 +390,8 @@ CREATE TABLE "event_stream_work" (
 	"attempt" integer DEFAULT 0 NOT NULL,
 	"plugin_pin" jsonb NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"output_schema" jsonb NOT NULL,
 	"checkpoint" jsonb DEFAULT 'null',
-	"output_properties" jsonb DEFAULT '[]' NOT NULL,
 	"id" text PRIMARY KEY,
 	"status" text DEFAULT 'queued' NOT NULL,
 	CONSTRAINT "event_stream_work_status_check" CHECK ("status" in ('queued', 'running', 'completed', 'failed')),
@@ -1144,6 +1152,7 @@ CREATE INDEX "event_session_entity_id_idx" ON "event" ("session_entity_id");--> 
 CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "event_user_entity_schema_order_idx" ON "event" ("user_id","entity_id","event_schema_slug","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entity_id","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "event_projection_stream_id_idx" ON "event_projection" ("stream_id");--> statement-breakpoint
 CREATE INDEX "import_run_block_deadline_idx" ON "import_run" ("block_deadline") WHERE "status" = 'blocked';--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint
@@ -1261,6 +1270,8 @@ ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fkey" FORE
 ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_projection" ADD CONSTRAINT "event_projection_stream_id_event_stream_id_fkey" FOREIGN KEY ("stream_id") REFERENCES "event_stream"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_projection" ADD CONSTRAINT "event_projection_event_id_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "event"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1364,7 +1375,7 @@ CREATE VIEW "global_entity_schema" AS (
 			where d.plugin_revision_id is null or g.plugin_id is not null
 		);--> statement-breakpoint
 CREATE VIEW "global_event_schema" AS (
-			select v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema
+			select v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, v.projection
 			from "global_entity_schema" e
 			join definition_event_schema v on v.entity_schema_id = e.id
 		);--> statement-breakpoint
@@ -1419,7 +1430,7 @@ CREATE VIEW "user_entity_schema" AS (
 			where p.is_present and p.is_listed
 		);--> statement-breakpoint
 CREATE VIEW "user_event_schema" AS (
-			select e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, e.is_effective
+			select e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, v.projection, e.is_effective
 			from "user_entity_schema" e
 			join definition_event_schema v on v.entity_schema_id = e.id
 		);--> statement-breakpoint

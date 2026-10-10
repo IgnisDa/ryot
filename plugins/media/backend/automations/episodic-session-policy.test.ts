@@ -10,16 +10,29 @@ import {
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./episodic-session-policy.sandbox";
 
+type BatchItem = { readonly itemIdentity: string; readonly context: AutomationPolicyInput };
+const batch = (first: BatchItem, ...rest: BatchItem[]) => {
+	const { payload: firstPayload, ...automation } = first.context.automation;
+	return {
+		automation,
+		items: [
+			{ payload: firstPayload, itemIdentity: first.itemIdentity },
+			...rest.map(({ context, itemIdentity }) => ({
+				itemIdentity,
+				payload: context.automation.payload,
+			})),
+		],
+	};
+};
 const run = (context: AutomationPolicyInput, parents: readonly Record<string, unknown>[] = []) =>
-	// oxlint-disable-next-line effecttsgo/unnecessary-effect-gen -- Unifies the policy's union of Effect return types
-	Effect.gen(function* () {
-		return yield* definition.run(
-			context,
+	definition
+		.run(
+			batch({ context, itemIdentity: "item" }),
 			defineSandboxTestHost(manifest, {
 				executeRyotql: () => hostSuccess(ryotqlRows("parents", parents)),
 			}),
-		);
-	});
+		)
+		.pipe(Effect.map((result) => result.items[0]?.decision));
 
 describe("episodic session policy", () => {
 	it.live("returns only the session patch", () =>
@@ -57,6 +70,50 @@ describe("episodic session policy", () => {
 			),
 		),
 	);
+
+	it("retains distinct identities and decisions for each batch item", () =>
+		Effect.runPromise(
+			definition
+				.run(
+					batch(
+						{
+							itemIdentity: "parent-event",
+							context: policyAutomationContext({ entityId: "show-1", entitySchemaSlug: "show" }),
+						},
+						{
+							itemIdentity: "episode-event",
+							context: policyAutomationContext({
+								entityId: "episode-1",
+								entitySchemaSlug: "show-episode",
+							}),
+						},
+					),
+					defineSandboxTestHost(manifest, {
+						executeRyotql: () =>
+							hostSuccess(ryotqlRows("parents", [{ seasonNumber: 1, parentEntityId: "show-1" }])),
+					}),
+				)
+				.pipe(
+					Effect.map(({ items }) => {
+						expect(items).toEqual([
+							{
+								itemIdentity: "parent-event",
+								decision: {
+									action: "transform",
+									patch: { resource: "event", draft: { sessionEntityId: "show-1" } },
+								},
+							},
+							{
+								itemIdentity: "episode-event",
+								decision: {
+									action: "transform",
+									patch: { resource: "event", draft: { sessionEntityId: "show-1" } },
+								},
+							},
+						]);
+					}),
+				),
+		));
 
 	it("assigns a regular show episode to its show and replaces a supplied session", () =>
 		Effect.runPromise(

@@ -1,10 +1,12 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	AutomationEntityDraft,
 	AutomationPolicyOutput,
+	AutomationPolicyBatchOutput,
 	AutomationPolicyPatch,
 	AutomationRunAttempt,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { AutomationRunId } from "@ryot-app/contract/schema/brands";
+import { AutomationRunId, EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
@@ -25,11 +27,15 @@ export const AutomationAttemptResult = Schema.Struct({
 	workflowExecutionId: AutomationRunAttempt.fields.workflowExecutionId,
 });
 export type AutomationAttemptResult = typeof AutomationAttemptResult.Type;
+export const AutomationPolicyRunOutput = Schema.Union([
+	AutomationPolicyOutput,
+	AutomationPolicyBatchOutput,
+]);
 
 export const AutomationRunWorkflowResult = Schema.Union([
 	Schema.Struct({
 		attempt: AutomationAttemptResult,
-		policyOutput: Schema.NullOr(AutomationPolicyOutput),
+		policyOutput: Schema.NullOr(AutomationPolicyRunOutput),
 	}),
 	Schema.Struct({ attempt: Schema.Null, policyOutput: Schema.Null }),
 ]);
@@ -39,6 +45,11 @@ export const AutomationRunWorkflowPayload = Schema.Struct({
 	runId: AutomationRunId,
 	acceptedPatches: Schema.Array(AutomationPolicyPatch),
 	attemptNumber: AutomationRunAttempt.fields.attemptNumber,
+	activeItemIdentities: Schema.optional(Schema.Array(Schema.String)),
+	acceptedReferences: Schema.optional(Schema.Record(EntityId, AutomationEntityDraft)),
+	acceptedBatchPatches: Schema.optional(
+		Schema.Record(Schema.String, Schema.Array(AutomationPolicyPatch)),
+	),
 });
 export type AutomationRunWorkflowPayload = typeof AutomationRunWorkflowPayload.Type;
 
@@ -56,7 +67,7 @@ export const settledAutomationRunResult = (
 ): Effect.Effect<AutomationRunWorkflowResult, DbError> =>
 	Effect.map(
 		stage === "before" && attempt.status === "succeeded"
-			? Schema.decodeUnknownEffect(AutomationPolicyOutput)(attempt.returnedValue).pipe(
+			? Schema.decodeUnknownEffect(AutomationPolicyRunOutput)(attempt.returnedValue).pipe(
 					Effect.mapError(
 						() => new DbError({ message: "Automation policy outcome is unavailable" }),
 					),

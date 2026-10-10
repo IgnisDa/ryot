@@ -9,6 +9,7 @@ import {
 	type PluginScript,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import { pluginPackageSegments, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
@@ -277,6 +278,44 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 				entitySchema.eventSchemas.map(({ slug }) => identityTupleKey(entitySchema.slug, slug)),
 			),
 		);
+		for (const entity of manifest.entitySchemas) {
+			for (const event of entity.eventSchemas) {
+				if (!event.projection) {
+					continue;
+				}
+				yield* assertReference("Event projection", event.projection.scriptSlug, scriptSlugs);
+				if (
+					manifest.scripts.find((script) => script.slug === event.projection?.scriptSlug)?.kind !==
+					"script"
+				) {
+					return yield* fail("Event projection processor must be a script");
+				}
+				const script = manifest.scripts.find(
+					(candidate) => candidate.slug === event.projection?.scriptSlug,
+				);
+				if (
+					script?.capabilities.some(
+						(capability) => !POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
+					) ||
+					script?.executableDependencies.some((dependency) => dependency.kind === "workflow")
+				) {
+					return yield* fail(
+						"Event projection processor must use only read-only host capabilities and cannot start workflows",
+					);
+				}
+				const fields = Object.keys(event.projection.propertiesSchema.fields);
+				if (
+					fields.length === 0 ||
+					fields.length > 20 ||
+					event.projection.propertiesSchema.unknownKeys !== "strict" ||
+					fields.some((field) => Object.hasOwn(event.propertiesSchema.fields, field))
+				) {
+					return yield* fail(
+						"Event projection requires a strict, non-empty output schema disjoint from source properties with at most 20 fields",
+					);
+				}
+			}
+		}
 		for (const hook of manifest.hooks) {
 			yield* assertSlug("automation hook", hook.slug);
 			yield* assertReference("Automation hook", hook.scriptSlug, scriptSlugs);

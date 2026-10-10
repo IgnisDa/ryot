@@ -11,7 +11,7 @@ import { Effect } from "effect";
 import type { ScriptExecutionPrincipal } from "./principal";
 
 type SandboxCapabilitySystemKind = "automation" | "script";
-type SandboxCapabilitySubject = "user" | "automation-run" | "system";
+type SandboxCapabilitySubject = "user" | "automation-run" | "system" | "event-projection";
 type SandboxCapabilityRequirement = {
 	readonly bridge: boolean;
 	readonly requiresProvider?: boolean;
@@ -27,6 +27,7 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	createUserEntity: { bridge: true, subjects: ["user"] as const },
 	deleteUserEntity: { bridge: true, subjects: ["user"] as const },
 	updateUserEntity: { bridge: true, subjects: ["user"] as const },
+	commitUserChanges: { bridge: true, subjects: ["user"] as const },
 	mergeUserEntityData: { bridge: true, subjects: ["user"] as const },
 	getOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
 	invalidateOAuthAccessToken: { bridge: true, subjects: ["user"] as const },
@@ -34,28 +35,58 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	createEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
 	updateEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
 	deleteEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
-	log: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	span: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	getUserSettings: { bridge: true, subjects: ["user", "automation-run"] as const },
-	listIntegrations: { bridge: true, subjects: ["user", "automation-run"] as const },
-	listEventSchemas: { bridge: true, subjects: ["user", "automation-run"] as const },
-	getEntitySchemas: { bridge: true, subjects: ["user", "automation-run"] as const },
 	httpCall: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	getUserPreferences: { bridge: true, subjects: ["user", "automation-run"] as const },
 	getProAvailability: { bridge: true, subjects: ["user", "automation-run"] as const },
 	verifyManagedAssets: { bridge: true, subjects: ["user", "automation-run"] as const },
-	getCurrentIntegration: { bridge: true, subjects: ["user", "automation-run"] as const },
 	changeUserRelationships: { bridge: true, subjects: ["user", "automation-run"] as const },
-	getCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	setCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	getPluginConfig: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	getPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	ensureUserEntities: { bridge: true, subjects: ["user"] as const, requiresUserBootstrap: true },
 	claimPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
+	log: {
+		bridge: true,
+		subjects: ["user", "automation-run", "system", "event-projection"] as const,
+	},
+	span: {
+		bridge: true,
+		subjects: ["user", "automation-run", "system", "event-projection"] as const,
+	},
+	getUserSettings: {
+		bridge: true,
+		subjects: ["user", "automation-run", "event-projection"] as const,
+	},
+	listIntegrations: {
+		bridge: true,
+		subjects: ["user", "automation-run", "event-projection"] as const,
+	},
+	listEventSchemas: {
+		bridge: true,
+		subjects: ["user", "automation-run", "event-projection"] as const,
+	},
+	getEntitySchemas: {
+		bridge: true,
+		subjects: ["user", "automation-run", "event-projection"] as const,
+	},
+	getUserPreferences: {
+		bridge: true,
+		subjects: ["user", "automation-run", "event-projection"] as const,
+	},
+	getCurrentIntegration: {
+		bridge: true,
+		subjects: ["user", "automation-run", "event-projection"] as const,
+	},
 	requestEventStreamWork: {
 		bridge: true,
 		requiresSystemPlugin: true,
 		subjects: ["user", "automation-run"],
+	},
+	getCachedValue: {
+		bridge: true,
+		subjects: ["user", "automation-run", "system", "event-projection"] as const,
+	},
+	getPluginConfig: {
+		bridge: true,
+		subjects: ["user", "automation-run", "system", "event-projection"] as const,
 	},
 	upsertGlobalRelationships: {
 		bridge: true,
@@ -69,18 +100,18 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		systemKinds: ["automation"] as const,
 		subjects: ["automation-run", "system"] as const,
 	},
-	executeRyotql: {
-		bridge: true,
-		requiresSystemPlugin: true,
-		subjects: ["user", "automation-run", "system"],
-		systemKinds: ["script", "automation"] as const,
-	},
 	upsertGlobalEntities: {
 		bridge: true,
 		requiresProvider: true,
 		requiresSystemPlugin: true,
 		subjects: ["system"] as const,
 		systemKinds: ["script"] as const,
+	},
+	executeRyotql: {
+		bridge: true,
+		requiresSystemPlugin: true,
+		systemKinds: ["script", "automation"] as const,
+		subjects: ["user", "automation-run", "system", "event-projection"],
 	},
 } satisfies Record<SandboxHostCapability, SandboxCapabilityRequirement>;
 
@@ -111,6 +142,7 @@ export type UserSandboxRunInput<Input extends ScriptRunInput = ScriptRunInput> =
 	readonly principal: Input["principal"] & {
 		readonly subject:
 			| Extract<ScriptExecutionPrincipal["subject"], { readonly type: "user" }>
+			| Extract<ScriptExecutionPrincipal["subject"], { readonly type: "event-projection" }>
 			| (Extract<ScriptExecutionPrincipal["subject"], { readonly type: "automation-run" }> & {
 					readonly executionUserId: UserId;
 			  });
@@ -154,11 +186,20 @@ type CapabilitySubject<Capability extends SandboxHostCapability> =
 
 type SandboxRunInputForSubject<Input extends ScriptRunInput, Subject> = Subject extends "user"
 	? DirectUserSandboxRunInput<Input>
-	: Subject extends "automation-run"
-		? AutomationRunSandboxRunInput<Input>
-		: Subject extends "system"
-			? SystemSandboxRunInput<Input>
-			: never;
+	: Subject extends "event-projection"
+		? Input & {
+				readonly principal: Input["principal"] & {
+					readonly subject: Extract<
+						ScriptExecutionPrincipal["subject"],
+						{ readonly type: "event-projection" }
+					>;
+				};
+			}
+		: Subject extends "automation-run"
+			? AutomationRunSandboxRunInput<Input>
+			: Subject extends "system"
+				? SystemSandboxRunInput<Input>
+				: never;
 
 type SandboxRunInputForCapability<
 	Capability extends SandboxHostCapability,
@@ -175,6 +216,12 @@ const sandboxCapabilityError = (
 ) => {
 	const requirement = sandboxCapabilityRequirement(capability);
 	const subject = input.principal.subject;
+	if (
+		subject.type === "event-projection" &&
+		!POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability)
+	) {
+		return `${capability} is not available to event projection runs`;
+	}
 	if (!input.principal.metadata.capabilities?.includes(capability)) {
 		return `${capability} is not declared by this script`;
 	}

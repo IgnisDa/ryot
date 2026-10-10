@@ -88,11 +88,12 @@ export const withLifecycleBatchPlanning = (
 };
 
 export const withLifecycleDispatch = (
-	execution: Omit<LifecycleExecution["Service"], "dispatch">,
+	execution: Omit<LifecycleExecution["Service"], "dispatch" | "executeBatchPolicy">,
 	session?: DatabaseSession["Service"],
 ): LifecycleExecution["Service"] =>
 	LifecycleExecution.of({
 		...execution,
+		executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
 		dispatch: (plans) =>
 			Effect.forEach(plans, (plan) =>
 				execution

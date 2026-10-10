@@ -7,9 +7,10 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { asc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -26,7 +27,7 @@ export type StreamKey = typeof StreamKeySchema.Type;
 
 type StreamTouch = StreamKey & { readonly occurredAt: Date };
 
-const streamId = (key: StreamKey) =>
+export const eventStreamId = (key: StreamKey) =>
 	sha256Hex(
 		stableStringify([key.userId, key.entityId, key.eventSchemaPluginId, key.eventSchemaSlug]),
 	);
@@ -55,9 +56,9 @@ const currentSelection = {
 	updatedAt: schema.eventStreamWork.updatedAt,
 	checkpoint: schema.eventStreamWork.checkpoint,
 	accountToken: schema.eventStreamWork.accountToken,
+	outputSchema: schema.eventStreamWork.outputSchema,
 	claimedRevision: schema.eventStreamWork.claimedRevision,
 	pluginRevisionId: schema.eventStreamWork.pluginRevisionId,
-	outputProperties: schema.eventStreamWork.outputProperties,
 	processorScriptId: schema.eventStreamWork.processorScriptId,
 	key: {
 		userId: schema.eventStream.userId,
@@ -80,7 +81,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 
 			const ensureAndLockStreams = Effect.fn("EventStreamRepository.ensureAndLockStreams")(
 				function* (keys: ReadonlyArray<StreamKey>) {
-					const entries = [...new Map(keys.map((key) => [streamId(key), key])).entries()].sort(
+					const entries = [...new Map(keys.map((key) => [eventStreamId(key), key])).entries()].sort(
 						([left], [right]) => left.localeCompare(right),
 					);
 					if (entries.length === 0) {
@@ -232,7 +233,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				yield* requireTransaction;
 				const occurredAtById = new Map<string, { readonly key: StreamKey; occurredAt: Date }>();
 				for (const { occurredAt, ...key } of keys) {
-					const id = streamId(key);
+					const id = eventStreamId(key);
 					const current = occurredAtById.get(id);
 					if (!current || occurredAt.getTime() < current.occurredAt.getTime()) {
 						occurredAtById.set(id, { key, occurredAt });
@@ -311,11 +312,11 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				processorScriptId: string;
 				pluginRevisionId: string;
 				accountToken: string;
-				outputProperties: ReadonlyArray<string>;
+				outputSchema: AppSchema;
 				pluginPin: JsonValue;
 			}) {
 				yield* requireTransaction;
-				const id = streamId(input.key);
+				const id = eventStreamId(input.key);
 				const [stream] = yield* ensureAndLockStreams([input.key]);
 				if (!stream) {
 					return yield* new DbError({ message: "Event stream insert returned no row" });
@@ -332,8 +333,8 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 							status: "queued",
 							pluginPin: input.pluginPin,
 							accountToken: input.accountToken,
+							outputSchema: input.outputSchema,
 							pluginRevisionId: input.pluginRevisionId,
-							outputProperties: input.outputProperties,
 							processorScriptId: input.processorScriptId,
 						})
 						.onConflictDoNothing(),
@@ -347,7 +348,8 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				const changedBinding =
 					work.processorScriptId !== input.processorScriptId ||
 					work.pluginRevisionId !== input.pluginRevisionId ||
-					stableStringify(work.outputProperties) !== stableStringify(input.outputProperties);
+					stableStringify(work.pluginPin) !== stableStringify(input.pluginPin) ||
+					stableStringify(work.outputSchema) !== stableStringify(input.outputSchema);
 				const staleCompletion =
 					work.status === "completed" &&
 					work.claimedRevision !== null &&
@@ -365,8 +367,8 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 								claimedRevision: null,
 								pluginPin: input.pluginPin,
 								accountToken: input.accountToken,
+								outputSchema: input.outputSchema,
 								pluginRevisionId: input.pluginRevisionId,
-								outputProperties: input.outputProperties,
 								processorScriptId: input.processorScriptId,
 							})
 							.where(eq(schema.eventStreamWork.id, id)),
@@ -380,7 +382,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 								updatedAt: now,
 								status: "queued",
 								accountToken: input.accountToken,
-								outputProperties: input.outputProperties,
+								outputSchema: input.outputSchema,
 							})
 							.where(eq(schema.eventStreamWork.id, id)),
 					);
@@ -395,7 +397,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 								checkpoint: null,
 								status: "queued",
 								accountToken: input.accountToken,
-								outputProperties: input.outputProperties,
+								outputSchema: input.outputSchema,
 							})
 							.where(eq(schema.eventStreamWork.id, id)),
 					);
@@ -406,7 +408,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 							.set({
 								updatedAt: now,
 								accountToken: input.accountToken,
-								outputProperties: input.outputProperties,
+								outputSchema: input.outputSchema,
 							})
 							.where(eq(schema.eventStreamWork.id, id)),
 					);
@@ -432,6 +434,64 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 						.limit(limit),
 				);
 			});
+
+			const bindingCandidates = Effect.fn("EventStreamRepository.bindingCandidates")(
+				function* (input: { after?: string; limit: number }) {
+					return yield* session.run((db) =>
+						db
+							.select({
+								id: schema.eventStream.id,
+								projection: schema.userEventSchema.projection,
+								key: {
+									userId: schema.eventStream.userId,
+									entityId: schema.eventStream.entityId,
+									eventSchemaSlug: schema.eventStream.eventSchemaSlug,
+									eventSchemaPluginId: schema.eventStream.eventSchemaPluginId,
+								},
+							})
+							.from(schema.eventStream)
+							.innerJoin(schema.entity, eq(schema.entity.id, schema.eventStream.entityId))
+							.innerJoin(
+								schema.userEventSchema,
+								and(
+									eq(schema.userEventSchema.userId, schema.eventStream.userId),
+									eq(schema.userEventSchema.entitySchemaSlug, schema.entity.entitySchemaSlug),
+									eq(schema.userEventSchema.slug, schema.eventStream.eventSchemaSlug),
+									sql`${schema.userEventSchema.pluginId} is not distinct from ${schema.eventStream.eventSchemaPluginId}`,
+								),
+							)
+							.innerJoin(
+								schema.plugin,
+								eq(schema.plugin.id, schema.eventStream.eventSchemaPluginId),
+							)
+							.leftJoin(
+								schema.eventStreamWork,
+								eq(schema.eventStreamWork.id, schema.eventStream.id),
+							)
+							.leftJoin(
+								schema.pluginInstallation,
+								and(
+									eq(schema.pluginInstallation.userId, schema.eventStream.userId),
+									eq(schema.pluginInstallation.pluginId, schema.eventStream.eventSchemaPluginId),
+								),
+							)
+							.where(
+								and(
+									eq(schema.userEventSchema.isEffective, true),
+									isNotNull(schema.userEventSchema.projection),
+									input.after === undefined ? undefined : gt(schema.eventStream.id, input.after),
+									or(
+										isNull(schema.eventStreamWork.id),
+										sql`${schema.eventStreamWork.pluginRevisionId} is distinct from ${schema.plugin.activeRevisionId}`,
+										sql`${schema.eventStreamWork.pluginPin}->>'configRevisionId' is distinct from (case when ${schema.plugin.ownerId} is null then ${schema.plugin.environmentConfigRevisionId} else ${schema.pluginInstallation.activeConfigRevisionId} end)`,
+									),
+								),
+							)
+							.orderBy(asc(schema.eventStream.id))
+							.limit(input.limit),
+					);
+				},
+			);
 
 			const claim = Effect.fn("EventStreamRepository.claim")(function* (
 				id: string,
@@ -559,6 +619,7 @@ export class EventStreamRepository extends Context.Service<EventStreamRepository
 				lockForEvents,
 				listCandidates,
 				invalidateEntity,
+				bindingCandidates,
 			};
 		}),
 	},

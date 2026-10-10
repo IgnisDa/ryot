@@ -17,6 +17,11 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import {
+	PolicyBatchPayload,
+	PolicyBatchWorkflow,
+	runPolicyBatchWorkflow,
+} from "#modules/automations/lifecycle/policy-batch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -30,6 +35,7 @@ import {
 	type EventCreateWorkflowPayload,
 } from "#modules/events/event-create-workflow";
 import { runEventCreateWorkflow } from "#modules/events/event-create-workflow-live";
+import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -49,7 +55,7 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
 import * as tables from "#schema/tables/combined";
-import { makeRedisService, makeWorkflowActivityEngine } from "#testing/effect";
+import { makeRedisService, makeWorkflowActivityEngine, makeWorkflowEngine } from "#testing/effect";
 
 import { EntitiesRepository } from "./repository";
 import { makeEntityScriptHost } from "./script-host";
@@ -197,16 +203,42 @@ const createEvents = (
 	executionId: string,
 ) => {
 	const instance = WorkflowInstance.initial(EventCreateWorkflow, executionId);
+	const original = makeWorkflowActivityEngine(instance);
 	return Effect.gen(function* () {
 		const repository = yield* EventsRepository.make;
 		const schemas = yield* EventSchemaReader.make;
+		const capturedContext =
+			yield* Effect.context<Effect.Services<ReturnType<typeof runPolicyBatchWorkflow>>>();
+		const engine = makeWorkflowEngine({
+			...original,
+			execute: (workflow, options) =>
+				workflow._tag === PolicyBatchWorkflow._tag
+					? Schema.decodeUnknownEffect(PolicyBatchPayload)(options.payload).pipe(
+							Effect.orDie,
+							Effect.flatMap((batch) => {
+								const childInstance = WorkflowInstance.initial(
+									PolicyBatchWorkflow,
+									options.executionId,
+								);
+								return runPolicyBatchWorkflow(batch).pipe(
+									Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(childInstance)),
+									Effect.provideService(WorkflowInstance, childInstance),
+									Effect.provide(capturedContext),
+								);
+							}),
+						)
+					: Effect.die(`Unexpected workflow: ${workflow._tag}`),
+		});
 		return yield* runEventCreateWorkflow({ userId, command, payload }, executionId).pipe(
+			Effect.provideServiceEffect(EventMutations, EventMutations.make),
 			Effect.provideService(EventsRepository, repository),
 			Effect.provideService(EventSchemaReader, schemas),
-			Effect.provideService(WorkflowInstance, instance),
-			Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+			Effect.provideService(WorkflowEngine, engine),
 		);
-	});
+	}).pipe(
+		Effect.provideService(WorkflowEngine, original),
+		Effect.provideService(WorkflowInstance, instance),
+	);
 };
 
 layer(relationshipDatabaseLayer())((test) => {

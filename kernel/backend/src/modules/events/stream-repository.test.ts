@@ -17,11 +17,14 @@ const streamKey = (userId: UserId, entityId: EntityId, eventSchemaSlug = "review
 
 const requestInput = (key: StreamKey) => ({
 	key,
-	outputProperties: ["rating"],
 	accountToken: "stream-account-token",
 	processorScriptId: "stream-processor",
 	pluginRevisionId: "stream-plugin-revision",
 	pluginPin: { revisionId: "stream-plugin-revision" },
+	outputSchema: {
+		unknownKeys: "strict" as const,
+		fields: { rating: { label: "rating", description: "rating", type: "number" as const } },
+	},
 });
 
 const date = (value: string) => DateTime.toDateUtc(DateTime.makeUnsafe(value));
@@ -51,6 +54,39 @@ const databaseLayer = EventStreamRepository.layer.pipe(
 );
 
 layer(databaseLayer)((test) => {
+	test.effect("rebuilds completed projections when only their configuration pin changes", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* EventStreamRepository;
+			const { key } = yield* seed("configuration-binding");
+			const request = requestInput(key);
+			const id = yield* session.transaction(
+				repository.request({
+					...request,
+					pluginPin: { ...request.pluginPin, configRevisionId: "first" },
+				}),
+			);
+			const claim = yield* session.transaction(repository.claim(id, 0));
+			assert(claim);
+			yield* session.transaction(
+				repository.finish(id, claim.attempt, { cursor: "complete" }, true),
+			);
+			yield* session.transaction(
+				repository.request({
+					...request,
+					pluginPin: { ...request.pluginPin, configRevisionId: "second" },
+				}),
+			);
+			const pending = yield* repository.get(id);
+			assert(pending);
+			expect(pending.status).toBe("queued");
+			expect(pending.checkpoint).toBeNull();
+			expect(pending.claimedRevision).toBeNull();
+			expect(pending.streamRevision).toBe(claim.streamRevision);
+			expect(pending.pluginPin).toEqual({ ...request.pluginPin, configRevisionId: "second" });
+		}),
+	);
+
 	test.effect(
 		"keeps the earliest dirty time and preserves completed checkpoints until new work",
 		() =>

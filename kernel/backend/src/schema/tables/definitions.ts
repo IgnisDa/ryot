@@ -10,6 +10,7 @@ import type { SourcePlan } from "@ryot-app/contract/modules/plugins/execution";
 import type {
 	PluginEntityEditor,
 	PluginEntityUserStatePolicy,
+	PluginEventProjection,
 	PluginImportSource,
 	PluginIntegrationProvider,
 	PluginRelationshipUserWritePolicy,
@@ -91,6 +92,7 @@ export const definitionEventSchema = snakeCase.table(
 	"definition_event_schema",
 	{
 		...definitionColumns(),
+		projection: jsonb().$type<PluginEventProjection>(),
 		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		entitySchemaId: text()
 			.notNull()
@@ -396,6 +398,7 @@ const eventSchemaColumns = () => ({
 	entitySchemaId: text().notNull(),
 	entitySchemaSlug: text().notNull(),
 	packageId: text().$type<PluginPackageId>(),
+	projection: jsonb().$type<PluginEventProjection>(),
 	propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 });
 
@@ -446,7 +449,7 @@ export const globalEntitySchema = snakeCase
 
 export const globalEventSchema = snakeCase.view("global_event_schema", eventSchemaColumns()).as(
 	sql`
-			select v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema
+			select v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, v.projection
 			from ${globalEntitySchema} e
 			join definition_event_schema v on v.entity_schema_id = e.id
 		`,
@@ -527,7 +530,7 @@ export const userEventSchema = snakeCase
 	})
 	.as(
 		sql`
-			select e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, e.is_effective
+			select e.user_id, v.id, v.entity_schema_id, e.slug as entity_schema_slug, e.plugin_id, e.package_id, e.plugin_revision_id, v.slug, v.name, v.position, v.properties_schema, v.projection, e.is_effective
 			from ${userEntitySchema} e
 			join definition_event_schema v on v.entity_schema_id = e.id
 		`,

@@ -335,6 +335,9 @@ export const createPluginRuntime = (
 					type: "operation-request",
 					operationSlug: operation.slug,
 					packageId: PluginPackageId.make(operation.packageId),
+					...(operation.idempotencyKey === undefined
+						? {}
+						: { idempotencyKey: operation.idempotencyKey }),
 				}) satisfies PluginBridgeOperationRequest,
 		);
 

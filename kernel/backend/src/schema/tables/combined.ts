@@ -6,6 +6,7 @@ export * from "./definitions";
 export * from "./entities";
 export * from "./events";
 export * from "./event-streams";
+export * from "./event-projections";
 export * from "./imports";
 export * from "./migration-reports";
 export * from "./mutations";

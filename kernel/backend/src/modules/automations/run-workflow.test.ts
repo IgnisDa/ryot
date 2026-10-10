@@ -7,12 +7,13 @@ import {
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/scripts/wire";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { assert } from "vitest";
 
 import { makeWorkflowActivityEngine } from "#testing/effect";
 
@@ -365,6 +366,7 @@ it.effect(
 			);
 			expect(prepared).toEqual({
 				scriptId: "script-old",
+				policyItemIdentity: null,
 				lane: trigger.causation.lane,
 				input: {
 					automation: {
@@ -472,7 +474,10 @@ it.effect(
 				policyScript,
 				accountGeneration,
 			);
-			expect(prepared.input.automation.payload).toEqual({
+			assert("items" in prepared.input);
+			const item = prepared.input.items[0];
+			assert(item);
+			expect(item.payload).toEqual({
 				...request,
 				draft: { ...request.draft, properties: {}, name: "Transformed" },
 			});
@@ -529,6 +534,110 @@ it.effect(
 				causation: { lane: "interactive" },
 			});
 		}),
+);
+
+it.effect(
+	"keeps a fifty-item policy batch within the input limit by sharing invocation metadata",
+	() =>
+		Effect.gen(function* () {
+			const itemIdentities = Array.from({ length: 50 }, (_, index) => `item-${index}`);
+			const batchTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
+				...requestTrigger,
+				kind: { resource: "entity", operation: "batch", category: "request" },
+				payload: {
+					references: {},
+					itemIdentities,
+					resource: "entity",
+					operation: "batch",
+					category: "request",
+					items: itemIdentities.map(() => request),
+				},
+			});
+			const hookMetadata = { note: "x".repeat(2000) };
+			const prepared = yield* prepareAutomationInvocation(
+				beforeRun,
+				batchTrigger,
+				{ ...payload, acceptedBatchPatches: {}, activeItemIdentities: itemIdentities },
+				policyScript,
+				accountGeneration,
+				hookMetadata,
+			);
+			assert("items" in prepared.input);
+			expect(prepared.input.items).toHaveLength(50);
+			expect(prepared.input.automation.hookMetadata).toEqual(hookMetadata);
+			const bytes = jsonByteLength(prepared.input);
+			assert(bytes !== null);
+			expect(bytes).toBeLessThan(65_536);
+		}),
+);
+
+it.effect("projects captured references for a session changed by an earlier batch policy", () =>
+	Effect.gen(function* () {
+		const eventRequest = yield* Schema.decodeEffect(AutomationRequestPayload)({
+			resource: "event",
+			category: "request",
+			operation: "create",
+			draft: {
+				properties: {},
+				entityId: "entity",
+				entitySchemaSlug: "record",
+				eventSchemaSlug: "activity",
+				sessionEntityId: "original",
+				eventSchemaPluginId: "plugin",
+				entitySchemaPluginId: "plugin",
+				occurredAt: trigger.occurredAt,
+			},
+		});
+		const batchTrigger = yield* Schema.decodeEffect(AutomationTrigger)({
+			...requestTrigger,
+			kind: { resource: "event", operation: "batch", category: "request" },
+			payload: {
+				references: {},
+				resource: "event",
+				operation: "batch",
+				category: "request",
+				items: [eventRequest],
+				itemIdentities: ["item"],
+			},
+		});
+		const prepared = yield* prepareAutomationInvocation(
+			beforeRun,
+			batchTrigger,
+			{
+				...payload,
+				acceptedBatchPatches: {
+					item: [{ resource: "event", draft: { sessionEntityId: EntityId.make("replacement") } }],
+				},
+				acceptedReferences: {
+					[EntityId.make("replacement")]: {
+						name: "Related",
+						providerId: null,
+						externalId: null,
+						populatedAt: null,
+						properties: { marker: "captured" },
+						entitySchemaPluginId: PluginId.make("plugin"),
+						entitySchemaSlug: EntitySchemaSlug.make("record"),
+					},
+				},
+			},
+			{
+				...policyScript,
+				inputProjection: {
+					event: { properties: [], entityProperties: [], sessionEntityProperties: ["marker"] },
+				},
+			},
+			accountGeneration,
+		);
+		assert("items" in prepared.input);
+		expect(prepared.input.automation.references?.[EntityId.make("replacement")]).toEqual({
+			entitySchemaSlug: "record",
+			entitySchemaPluginId: "plugin",
+			properties: { marker: "captured" },
+		});
+		const item = prepared.input.items[0];
+		assert(item?.payload.resource === "event");
+		expect(item.payload.draft.sessionEntityId).toBe("replacement");
+	}),
 );
 
 it.effect("uses safe standard preparation diagnostics", () =>
@@ -694,7 +803,14 @@ layer(
 					logs: [],
 					error: null,
 					status: "completed" as const,
-					value: { action: "reject", reason: "Rule declined" },
+					value: {
+						items: [
+							{
+								itemIdentity: requestTrigger.id,
+								decision: { action: "reject", reason: "Rule declined" },
+							},
+						],
+					},
 				}),
 		},
 	}),

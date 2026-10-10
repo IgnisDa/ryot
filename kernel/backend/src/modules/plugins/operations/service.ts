@@ -9,20 +9,23 @@ import {
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
 	PluginId,
+	AutomationExecutionId,
 	type IntegrationId,
 	type PluginPackageId,
-	type SandboxScriptId,
+	SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
-import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
+import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
-import { Context, Effect, Layer, Option, Result } from "effect";
+import { Context, Effect, Layer, Option, Result, Schema } from "effect";
 import type { Headers as PlatformHeaders } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { MutationReceipts, type MutationReceiptIdentity } from "#modules/mutations/receipts";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
-import { samePluginPin, type ScriptPluginRevision } from "#modules/scripts/authorization/principal";
+import { samePluginPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -58,6 +61,9 @@ type DispatchInput = {
 	readonly operationSlug: string;
 	readonly scriptId: SandboxScriptId;
 	readonly integrationId?: IntegrationId;
+};
+type AdmittedDispatch = DispatchInput & {
+	readonly admissionIdentity: MutationReceiptIdentity | null;
 };
 
 export class OperationsService extends Context.Service<OperationsService>()("OperationsService", {
@@ -128,6 +134,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 		const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
 			readonly payload: JsonValue;
 			readonly contentHash?: string;
+			readonly idempotencyKey?: string;
 			readonly operationSlug: string;
 			readonly packageId: PluginPackageId;
 			readonly headers: PlatformHeaders.Headers;
@@ -181,11 +188,72 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				Effect.map(Result.succeed),
 				Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
 			);
-			const executionId = `plugin-operation-${input.packageId}-${input.operationSlug}-${generateId()}`;
 			const pinDispatch = Effect.fn("OperationsService.pinDispatch")(function* (
 				dispatchInput: Omit<DispatchInput, "pluginRevision" | "executionId">,
 				resolved: NonNullable<Effect.Success<ReturnType<typeof resolveOperation>>>,
 			) {
+				const executionId = AutomationExecutionId.make(
+					`plugin-operation-${sha256Base64Url(
+						stableStringify([
+							dispatchInput.accountGeneration,
+							dispatchInput.pluginId,
+							resolved.plugin.installationId,
+							input.operationSlug,
+							dispatchInput.integrationId ?? null,
+							input.idempotencyKey ?? generateId(),
+						]),
+					)}`,
+				);
+				const admissionIdentity = {
+					executionId,
+					mutationScope: "user",
+					rootExecutionId: executionId,
+					id: `operation_${executionId}`,
+					itemIdentity: input.operationSlug,
+					ownerUserId: dispatchInput.userId,
+					scopeUserId: dispatchInput.userId,
+					commandKind: "plugin-operation:admit",
+					accountGeneration: dispatchInput.accountGeneration,
+					inputFingerprint: sha256Base64Url(stableStringify(input.payload)),
+				} satisfies MutationReceiptIdentity;
+				const admissionSchema = Schema.Struct({
+					scriptId: SandboxScriptId,
+					executionId: Schema.String,
+					pluginRevision: ScriptPluginRevision,
+				});
+				const existing =
+					input.idempotencyKey === undefined
+						? null
+						: yield* receipts
+								.lookup(admissionIdentity, admissionSchema)
+								.pipe(
+									Effect.catchTag(
+										"MutationReceiptIdentityConflict",
+										() =>
+											new PluginRequestError({
+												reason: {
+													code: "validation-failed",
+													diagnostics: [
+														{
+															phase: "validate",
+															severity: "error",
+															code: "operation-idempotency-conflict",
+															message: "Operation idempotency key was reused with different input",
+														},
+													],
+												},
+											}),
+									),
+								);
+				if (existing) {
+					return {
+						...dispatchInput,
+						admissionIdentity,
+						scriptId: existing.result.scriptId,
+						executionId: existing.result.executionId,
+						pluginRevision: existing.result.pluginRevision,
+					} satisfies AdmittedDispatch;
+				}
 				const subject = {
 					type: "user" as const,
 					userId: dispatchInput.userId,
@@ -221,11 +289,23 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					.pipe(
 						Effect.catchTag("SandboxWorkflowReferenceRegistrationError", () => operationNotFound),
 					);
+				if (input.idempotencyKey !== undefined) {
+					yield* receipts.insert({
+						dispatch: [],
+						identity: admissionIdentity,
+						result: {
+							executionId,
+							scriptId: dispatchInput.scriptId,
+							pluginRevision: pin.pluginRevision,
+						},
+					});
+				}
 				return {
 					...dispatchInput,
 					executionId,
 					pluginRevision: pin.pluginRevision,
-				} satisfies DispatchInput;
+					admissionIdentity: input.idempotencyKey === undefined ? null : admissionIdentity,
+				} satisfies AdmittedDispatch;
 			});
 
 			const resolveAuthorized = () =>
@@ -327,7 +407,38 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					)
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 			);
-			return yield* dispatch(authorized);
+			const resultIdentity =
+				authorized.admissionIdentity === null
+					? null
+					: {
+							...authorized.admissionIdentity,
+							commandKind: "plugin-operation:result",
+							id: `operation_result_${authorized.executionId}`,
+						};
+			if (resultIdentity) {
+				const completed = yield* receipts
+					.peek(resultIdentity, JsonValue)
+					.pipe(Effect.catchTag("MutationReceiptIdentityConflict", Effect.die));
+				if (completed) {
+					return completed.result;
+				}
+			}
+			const result = yield* dispatch(authorized);
+			if (resultIdentity) {
+				yield* database
+					.transaction(
+						Effect.gen(function* () {
+							const completed = yield* receipts
+								.lookup(resultIdentity, JsonValue)
+								.pipe(Effect.catchTag("MutationReceiptIdentityConflict", Effect.die));
+							if (!completed) {
+								yield* receipts.insert({ result, dispatch: [], identity: resultIdentity });
+							}
+						}),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+			}
+			return result;
 		});
 
 		return { invoke };

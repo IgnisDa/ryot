@@ -1,14 +1,15 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type {
+import {
 	AutomationRelationshipRequestPayload,
 	AutomationRelationshipSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
+import { AutomationTriggerId } from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
-import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { mutationReceiptRecord } from "#modules/entities/mutation-persistence";
 import {
 	type PreparedEntityCreate,
@@ -32,6 +33,7 @@ import {
 	snapshot,
 	relationshipSchemaReference,
 	relationshipIdentity,
+	RelationshipMutation,
 	type CreateRelationshipInput,
 	type DeleteRelationshipInput,
 	type Mutation,
@@ -60,6 +62,50 @@ export type PreparedUserRelationshipCreate = {
 export type PreparedUserRelationshipDelete = {
 	readonly [preparedUserRelationshipDelete]: PreparedData;
 };
+
+export const SerializedUserRelationshipCreate = Schema.Union([
+	Schema.Struct({
+		mutation: RelationshipMutation,
+		committed: Schema.Struct({
+			dispatch: Schema.Array(LifecycleDispatchPlan),
+			relationship: RelationshipRecordedResult.fields.relationship,
+		}),
+	}),
+	Schema.Struct({
+		mutation: RelationshipMutation,
+		request: AutomationRelationshipRequestPayload,
+		requestId: Schema.NullOr(AutomationTriggerId),
+		before: Schema.NullOr(AutomationRelationshipSnapshot),
+	}),
+]);
+export type SerializedUserRelationshipCreate = typeof SerializedUserRelationshipCreate.Type;
+
+export const serializeUserRelationshipCreate = (
+	prepared: PreparedUserRelationshipCreate,
+): PreparedData => prepared[preparedUserRelationshipCreate];
+
+export const restoreUserRelationshipCreate = Effect.fnUntraced(function* (
+	serialized: SerializedUserRelationshipCreate,
+) {
+	const decoded = yield* Schema.decodeEffect(SerializedUserRelationshipCreate)(serialized).pipe(
+		Effect.mapError(
+			() => new DbError({ message: "Invalid serialized prepared relationship create" }),
+		),
+	);
+	if ("committed" in decoded) {
+		const relationship = decoded.committed.relationship;
+		if (!relationship) {
+			return yield* new DbError({ message: "Committed relationship is missing its result" });
+		}
+		return Object.freeze({
+			[preparedUserRelationshipCreate]: {
+				...decoded,
+				committed: { ...decoded.committed, relationship },
+			},
+		});
+	}
+	return Object.freeze({ [preparedUserRelationshipCreate]: decoded });
+});
 
 // The source of a relationship to an entity that its caller creates in the same commit does not exist yet,
 // so its schema is taken from the creation token. Persistence validates against the stored source.
@@ -117,6 +163,7 @@ export const makePreparedRelationshipMutations = (
 		commandInput: DomainLifecycleCommand,
 		mode: "create" | "delete",
 		sourceCreate?: PreparedEntityCreate,
+		propertiesMode?: "merge" | "replace",
 	) {
 		yield* assertRootTransaction;
 		const input = relationshipIdentity(submitted);
@@ -131,7 +178,16 @@ export const makePreparedRelationshipMutations = (
 		yield* writes
 			.check(command, relationshipSchemaReference(input).owner, input.userId)
 			.pipe(Effect.mapError(relationshipWriteFailure));
-		const receiptMode = mode === "create" ? "upsert" : "delete";
+		let receiptMode: "merge" | "upsert" | "delete";
+		if (mode === "create") {
+			if (propertiesMode === "merge") {
+				receiptMode = "merge";
+			} else {
+				receiptMode = "upsert";
+			}
+		} else {
+			receiptMode = "delete";
+		}
 		const submittedProperties = "properties" in submitted ? submitted.properties : undefined;
 		const receipt = relationshipReceiptIdentity({
 			input,
@@ -234,8 +290,15 @@ export const makePreparedRelationshipMutations = (
 		input: CreateRelationshipInput,
 		command: DomainLifecycleCommand,
 		sourceCreate?: PreparedEntityCreate,
+		propertiesMode: "merge" | "replace" = "replace",
 	) {
-		const value = yield* prepareUserMutation(input, command, "create", sourceCreate);
+		const value = yield* prepareUserMutation(
+			input,
+			command,
+			"create",
+			sourceCreate,
+			propertiesMode,
+		);
 		return value === null ? null : Object.freeze({ [preparedUserRelationshipCreate]: value });
 	});
 	const prepareUserDelete = Effect.fn("RelationshipsService.prepareUserDelete")(function* (

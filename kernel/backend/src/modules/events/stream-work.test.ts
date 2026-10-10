@@ -14,7 +14,6 @@ import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Option, Ref, Schema } from "effect";
-import { TestClock } from "effect/testing";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
@@ -30,12 +29,15 @@ import {
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
+import { EventProjectionRepository } from "#modules/events/projection-repository";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
 import { EventStreamRepository } from "#modules/events/stream-repository";
 import {
+	EventProjectionBindings,
 	EventStreamDispatchWorkflow,
 	EventStreamProcessor,
+	EventStreamStepWorkflow,
 	EventStreamWorkService,
 } from "#modules/events/stream-work";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
@@ -51,19 +53,33 @@ import {
 } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { RedisService } from "#platform/redis";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
-import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
+import {
+	makeRedisService,
+	makeAppConfigLayer,
+	makeWorkflowActivityEngine,
+	makeWorkflowEngine,
+} from "#testing/effect";
 
 const userId = UserId.make("owner");
 const accountToken = "test-account-generation";
 const entitySchemaSlug = "fixture-exercise";
 const eventSchemaSlug = EventSchemaSlug.make("workout-set");
+const processorScriptSlug = "stream-fixture-processor";
 const eventSchema: PluginManifest["entitySchemas"][number]["eventSchemas"][number] = {
 	name: "Workout set",
 	slug: eventSchemaSlug,
 	propertiesSchema: {
 		fields: { rating: { type: "number", label: "Rating", description: "Derived rating" } },
+	},
+	projection: {
+		scriptSlug: processorScriptSlug,
+		propertiesSchema: {
+			unknownKeys: "strict",
+			fields: { score: { type: "number", label: "Score", description: "Computed score" } },
+		},
 	},
 };
 const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-05T00:00:00.000Z"));
@@ -84,7 +100,7 @@ const fixturePackage = (): NormalizedPlugin => {
 		...emptySandboxExecutionMetadata,
 		name: "Processor",
 		kind: "script" as const,
-		slug: "stream-fixture-processor",
+		slug: processorScriptSlug,
 	};
 	const entry = "backend/processor.sandbox.ts";
 	const manifest: PluginManifest = {
@@ -152,7 +168,6 @@ class StreamWorkControls extends Context.Service<
 				parentExecutionId: string | null;
 			}>
 		>;
-		requestOccurredAts: Effect.Effect<ReadonlyArray<string>>;
 	}
 >()("test/StreamWorkControls") {}
 
@@ -172,7 +187,7 @@ const fixtureLayer = Layer.effect(
 		const script = yield* (yield* PluginRuntimeResolver).findScriptAvailableToUser(
 			userId,
 			pluginId,
-			"stream-fixture-processor",
+			processorScriptSlug,
 		);
 		assert(script);
 		const subject = {
@@ -209,6 +224,20 @@ const repositoriesLayer = Layer.mergeAll(
 	eventsRepositoryLayer,
 	DomainWriteChecksLive.pipe(Layer.provide(fixtureLayer)),
 );
+const projectionBindingsLayer = Layer.effect(
+	EventProjectionBindings,
+	Effect.gen(function* () {
+		const fixture = yield* StreamWorkFixture;
+		return {
+			resolve: () =>
+				Effect.succeed({
+					principal: fixture.principal,
+					pluginPin: fixture.pluginPin,
+					accountGeneration: fixture.accountGeneration,
+				}),
+		};
+	}),
+).pipe(Layer.provideMerge(fixtureLayer));
 
 const streamWorkTestLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -223,27 +252,8 @@ const streamWorkTestLayer = Layer.unwrap(
 				parentExecutionId: string | null;
 			}>
 		>([]);
-		const requestOccurredAts = yield* Ref.make<ReadonlyArray<string>>([]);
 		const planner = LifecyclePlanner.of(
-			withLifecycleBatchPlanning(
-				{
-					plan: ({ trigger }) =>
-						Effect.gen(function* () {
-							if (trigger.kind.category === "request") {
-								yield* Ref.update(requestOccurredAts, (values) => [...values, trigger.occurredAt]);
-							}
-							if (
-								trigger.kind.category === "change" &&
-								(yield* Ref.get(failedLifecycleExecutions)).has(trigger.causation.executionId)
-							) {
-								return yield* new DbError({ message: "Injected lifecycle planning failure" });
-							}
-							return noHooks;
-						}),
-				},
-				200,
-				false,
-			),
+			withLifecycleBatchPlanning({ plan: () => Effect.succeed(noHooks) }, 200, false),
 		);
 		const lifecycle = withLifecycleDispatch({
 			after: () => Effect.succeed([]),
@@ -282,28 +292,58 @@ const streamWorkTestLayer = Layer.unwrap(
 					return yield* action(claim, executionId);
 				}),
 		});
+		const projectionRepositoryLayer = Layer.effect(
+			EventProjectionRepository,
+			Effect.gen(function* () {
+				const repository = yield* EventProjectionRepository;
+				return {
+					publish: (input: Parameters<EventProjectionRepository["Service"]["publish"]>[0]) =>
+						Effect.gen(function* () {
+							yield* repository.publish(input);
+							const executions = yield* Ref.get(failedLifecycleExecutions);
+							if (
+								[...executions].some((executionId) =>
+									executionId.startsWith(`event-stream-${input.streamId}-`),
+								)
+							) {
+								return yield* new DbError({ message: "Injected projection failure" });
+							}
+							return undefined;
+						}),
+				};
+			}),
+		).pipe(Layer.provide(EventProjectionRepository.layer));
 		const plannerLayer = Layer.succeed(LifecyclePlanner, planner);
 		const lifecycleLayer = Layer.succeed(LifecycleExecution, lifecycle);
 		const engineLayer = Layer.succeed(WorkflowEngine, engine);
+		const sharedDependencies = Layer.mergeAll(
+			repositoriesLayer,
+			engineLayer,
+			WorkflowExecutionNotifications.layer,
+			makeAppConfigLayer(),
+		);
+		const redisLayer = Layer.succeed(
+			RedisService,
+			makeRedisService({ publish: () => Effect.succeed(0) }),
+		);
 		const eventsServiceLayer = EventsService.layer.pipe(
-			Layer.provideMerge(
-				Layer.mergeAll(
-					repositoriesLayer,
-					plannerLayer,
-					lifecycleLayer,
-					engineLayer,
-					WorkflowExecutionNotifications.layer,
-					makeAppConfigLayer(),
-				),
-			),
+			Layer.provideMerge(Layer.mergeAll(sharedDependencies, plannerLayer, lifecycleLayer)),
+			Layer.provide(redisLayer),
 		);
 		const serviceLayer = EventStreamWorkService.layer.pipe(
-			Layer.provideMerge(Layer.merge(eventsServiceLayer, processor)),
+			Layer.provideMerge(
+				Layer.mergeAll(
+					sharedDependencies,
+					projectionRepositoryLayer.pipe(Layer.provide(sharedDependencies)),
+					projectionBindingsLayer,
+					processor,
+				),
+			),
+			Layer.provide(redisLayer),
 		);
 		const controlsLayer = Layer.succeed(StreamWorkControls, {
 			workflowCalls: Ref.get(workflowCalls),
 			processorCalls: Ref.get(processorCalls),
-			requestOccurredAts: Ref.get(requestOccurredAts),
 			setProcessor: (id, action) =>
 				Ref.update(actions, (current) => new Map(current).set(id, action)),
 			failLifecycleFor: (executionId) =>
@@ -315,7 +355,7 @@ const streamWorkTestLayer = Layer.unwrap(
 					return next;
 				}),
 		});
-		return Layer.merge(serviceLayer, controlsLayer);
+		return Layer.mergeAll(serviceLayer, eventsServiceLayer, controlsLayer);
 	}),
 );
 
@@ -368,9 +408,9 @@ const seedStream = (suffix: string) =>
 		);
 		const id = yield* service.request({
 			pluginPin: fixture.pluginPin,
+			request: { entityId, eventSchemaSlug },
 			accountGeneration: fixture.accountGeneration,
 			processorScriptId: fixture.processorScriptId,
-			request: { entityId, eventSchemaSlug, outputProperties: ["rating"] },
 			command: { ...command(`request-${suffix}`), writeContext: fixture.principal },
 		});
 		return { id, eventId, fixture, entityId };
@@ -379,19 +419,65 @@ const seedStream = (suffix: string) =>
 const page = (eventId: EventId, rating: number, cursor: string) => ({
 	done: false,
 	checkpoint: { cursor },
-	updates: [{ eventId, patch: { properties: { remove: [], set: { rating } } } }],
+	updates: [{ eventId, properties: { score: rating } }],
 });
 
+const process = (claim: Parameters<EventStreamWorkService["Service"]["process"]>[0]) =>
+	Effect.gen(function* () {
+		const service = yield* EventStreamWorkService;
+		const instance = WorkflowInstance.initial(
+			EventStreamStepWorkflow,
+			`event-stream-${claim.id}-${claim.attempt}`,
+		);
+		return yield* service
+			.process(claim)
+			.pipe(
+				Effect.provideService(WorkflowInstance, instance),
+				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+			);
+	});
+
+const sourceState = (eventId: EventId) =>
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const [source] = yield* session.run((db) =>
+			db
+				.select({
+					revision: tables.event.revision,
+					createdAt: tables.event.createdAt,
+					updatedAt: tables.event.updatedAt,
+					properties: tables.event.properties,
+					occurredAt: tables.event.occurredAt,
+				})
+				.from(tables.event)
+				.where(eq(tables.event.id, eventId)),
+		);
+		return source ?? null;
+	});
+
+const projection = (eventId: EventId) =>
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const [published] = yield* session.run((db) =>
+			db
+				.select({ properties: tables.eventProjection.properties })
+				.from(tables.eventProjection)
+				.where(eq(tables.eventProjection.eventId, eventId)),
+		);
+		return published ?? null;
+	});
+
 layer(streamWorkTestLayer)((test) => {
-	test.effect("registers only the owned event schema and declared output properties", () =>
+	test.effect("registers only the owned event schema and projection declaration", () =>
 		Effect.gen(function* () {
 			const service = yield* EventStreamWorkService;
 			const { id, fixture } = yield* seedStream("ownership");
 			const stream = yield* (yield* EventStreamRepository).get(id);
 			assert(stream);
+			assert(eventSchema.projection);
 			expect(stream.key.eventSchemaPluginId).toBe(fixture.pluginId);
 			expect(stream.pluginPin).toEqual({ ...fixture.pluginPin, writeContext: fixture.principal });
-			expect(stream.outputProperties).toEqual(["rating"]);
+			expect(stream.outputSchema).toEqual(eventSchema.projection.propertiesSchema);
 
 			const wrongOwner = yield* Effect.exit(
 				service.request({
@@ -399,11 +485,7 @@ layer(streamWorkTestLayer)((test) => {
 					processorScriptId: SandboxScriptId.make("foreign-processor"),
 					pluginPin: { ...fixture.pluginPin, id: PluginId.make("foreign-plugin") },
 					command: { ...command("foreign-request"), writeContext: fixture.principal },
-					request: {
-						eventSchemaSlug,
-						outputProperties: ["rating"],
-						entityId: EntityId.make("stream-ownership-exercise"),
-					},
+					request: { eventSchemaSlug, entityId: EntityId.make("stream-ownership-exercise") },
 				}),
 			);
 			assertExitFails(
@@ -413,23 +495,19 @@ layer(streamWorkTestLayer)((test) => {
 				}),
 			);
 
-			const undeclared = yield* Effect.exit(
+			const mismatchedProcessor = yield* Effect.exit(
 				service.request({
 					pluginPin: fixture.pluginPin,
 					accountGeneration: fixture.accountGeneration,
-					processorScriptId: SandboxScriptId.make("undeclared-processor"),
-					command: { ...command("undeclared-request"), writeContext: fixture.principal },
-					request: {
-						eventSchemaSlug,
-						outputProperties: ["not-declared"],
-						entityId: EntityId.make("stream-ownership-exercise"),
-					},
+					processorScriptId: SandboxScriptId.make("mismatched-processor"),
+					request: { eventSchemaSlug, entityId: EntityId.make("stream-ownership-exercise") },
+					command: { ...command("mismatched-processor-request"), writeContext: fixture.principal },
 				}),
 			);
 			assertExitFails(
-				undeclared,
+				mismatchedProcessor,
 				new DbError({
-					message: "Event stream processor must own its schema and declared output properties",
+					message: "Event stream processor does not belong to the exact admitted plugin revision",
 				}),
 			);
 		}),
@@ -440,8 +518,9 @@ layer(streamWorkTestLayer)((test) => {
 			const service = yield* EventStreamWorkService;
 			const controls = yield* StreamWorkControls;
 			const streams = yield* EventStreamRepository;
-			const events = yield* EventsRepository;
 			const { id, eventId } = yield* seedStream("page");
+			const sourceBefore = yield* sourceState(eventId);
+			assert(sourceBefore);
 			const claim = yield* service.claim({ id, attempt: 0 });
 			assert(claim);
 			expect(claim.attempt).toBe(1);
@@ -449,18 +528,23 @@ layer(streamWorkTestLayer)((test) => {
 			const claimExecutionId = `event-stream-${id}-${claim.attempt}`;
 			yield* controls.setProcessor(id, () => Effect.succeed(page(eventId, 9, "next-page")));
 
-			yield* service.process(claim);
+			yield* process(claim);
 
-			const updated = yield* events.getEventSnapshot({ userId, eventId });
-			assert(updated);
-			expect(updated.properties).toEqual({ rating: 9 });
+			const sourceAfter = yield* sourceState(eventId);
+			assert(sourceAfter);
+			expect(sourceAfter.properties).toEqual({ rating: 1 });
+			expect(sourceAfter.occurredAt).toEqual(sourceBefore.occurredAt);
+			expect(sourceAfter.createdAt).toEqual(sourceBefore.createdAt);
+			expect(sourceAfter.updatedAt).toEqual(sourceBefore.updatedAt);
+			expect(sourceAfter.revision).toBe(sourceBefore.revision);
+			expect(yield* projection(eventId)).toEqual({ properties: { score: 9 } });
 			const checkpointed = yield* streams.get(id);
 			assert(checkpointed);
 			expect(checkpointed.checkpoint).toEqual({ cursor: "next-page" });
 			expect(checkpointed.status).toBe("queued");
 			expect(checkpointed.dirtyFrom).toBeNull();
-			expect(checkpointed.streamRevision).toBe(claimRevision + 1);
-			expect(checkpointed.claimedRevision).toBe(claimRevision + 1);
+			expect(checkpointed.streamRevision).toBe(claimRevision);
+			expect(checkpointed.claimedRevision).toBe(claimRevision);
 
 			yield* service.dispatch(id);
 			const workflows = yield* controls.workflowCalls;
@@ -481,75 +565,54 @@ layer(streamWorkTestLayer)((test) => {
 		}),
 	);
 
-	test.effect(
-		"retries a prepared update with the persisted claim time after rolling back change planning",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* EventStreamWorkService;
-				const controls = yield* StreamWorkControls;
-				const streams = yield* EventStreamRepository;
-				const events = yield* EventsRepository;
-				const session = yield* DatabaseSession;
-				const { id, eventId } = yield* seedStream("retry");
-				const [before] = yield* session.run((db) =>
-					db
-						.select({ revision: tables.event.revision })
-						.from(tables.event)
-						.where(eq(tables.event.id, eventId)),
-				);
-				assert(before);
-				const claim = yield* service.claim({ id, attempt: 0 });
-				assert(claim);
-				const executionId = `event-stream-${id}-${claim.attempt}`;
-				const requestTimesBefore = (yield* controls.requestOccurredAts).length;
-				yield* controls.setProcessor(id, () => Effect.succeed(page(eventId, 8, "retry-page")));
-				yield* controls.failLifecycleFor(executionId);
+	test.effect("rolls back a failed projection publication and retries the page", () =>
+		Effect.gen(function* () {
+			const service = yield* EventStreamWorkService;
+			const controls = yield* StreamWorkControls;
+			const streams = yield* EventStreamRepository;
+			const { id, eventId } = yield* seedStream("retry");
+			const sourceBefore = yield* sourceState(eventId);
+			assert(sourceBefore);
+			const claim = yield* service.claim({ id, attempt: 0 });
+			assert(claim);
+			const executionId = `event-stream-${id}-${claim.attempt}`;
+			yield* controls.setProcessor(id, () => Effect.succeed(page(eventId, 8, "retry-page")));
+			yield* controls.failLifecycleFor(executionId);
 
-				assertExitFails(
-					yield* Effect.exit(service.process(claim)),
-					new DbError({ message: "Injected lifecycle planning failure" }),
-				);
-				const rolledBack = yield* events.getEventSnapshot({ userId, eventId });
-				assert(rolledBack);
-				expect(rolledBack.properties).toEqual({ rating: 1 });
-				const [afterRollback] = yield* session.run((db) =>
-					db
-						.select({ revision: tables.event.revision })
-						.from(tables.event)
-						.where(eq(tables.event.id, eventId)),
-				);
-				expect(afterRollback?.revision).toBe(before.revision);
-				expect((yield* controls.requestOccurredAts).slice(requestTimesBefore)).toEqual([
-					claim.occurredAt,
-				]);
-				const pending = yield* streams.get(id);
-				assert(pending);
-				expect(pending.status).toBe("running");
-				expect(pending.checkpoint).toBeNull();
+			assertExitFails(
+				yield* Effect.exit(process(claim)),
+				new DbError({ message: "Injected projection failure" }),
+			);
+			const rolledBack = yield* sourceState(eventId);
+			assert(rolledBack);
+			expect(rolledBack.properties).toEqual({ rating: 1 });
+			expect(rolledBack.occurredAt).toEqual(sourceBefore.occurredAt);
+			expect(rolledBack.createdAt).toEqual(sourceBefore.createdAt);
+			expect(rolledBack.updatedAt).toEqual(sourceBefore.updatedAt);
+			expect(rolledBack.revision).toBe(sourceBefore.revision);
+			expect(yield* projection(eventId)).toBeNull();
+			const pending = yield* streams.get(id);
+			assert(pending);
+			expect(pending.status).toBe("running");
+			expect(pending.checkpoint).toBeNull();
 
-				yield* controls.clearLifecycleFailureFor(executionId);
-				yield* TestClock.adjust("1 second");
-				yield* service.process(claim);
+			yield* controls.clearLifecycleFailureFor(executionId);
+			yield* process(claim);
 
-				const committed = yield* events.getEventSnapshot({ userId, eventId });
-				assert(committed);
-				expect(committed.properties).toEqual({ rating: 8 });
-				expect(committed.updatedAt).toBe(claim.occurredAt);
-				const [afterCommit] = yield* session.run((db) =>
-					db
-						.select({ revision: tables.event.revision })
-						.from(tables.event)
-						.where(eq(tables.event.id, eventId)),
-				);
-				expect(afterCommit?.revision).toBe(before.revision + 1);
-				expect((yield* controls.requestOccurredAts).slice(requestTimesBefore)).toEqual([
-					claim.occurredAt,
-					claim.occurredAt,
-				]);
-				const finished = yield* streams.get(id);
-				assert(finished);
-				expect(finished.checkpoint).toEqual({ cursor: "retry-page" });
-			}),
+			const sourceAfter = yield* sourceState(eventId);
+			assert(sourceAfter);
+			expect(sourceAfter.properties).toEqual({ rating: 1 });
+			expect(sourceAfter.occurredAt).toEqual(sourceBefore.occurredAt);
+			expect(sourceAfter.createdAt).toEqual(sourceBefore.createdAt);
+			expect(sourceAfter.updatedAt).toEqual(sourceBefore.updatedAt);
+			expect(sourceAfter.revision).toBe(sourceBefore.revision);
+			expect(yield* projection(eventId)).toEqual({ properties: { score: 8 } });
+			const finished = yield* streams.get(id);
+			assert(finished);
+			expect(finished.checkpoint).toEqual({ cursor: "retry-page" });
+			expect(finished.streamRevision).toBe(claim.revision);
+			expect(finished.claimedRevision).toBe(claim.revision);
+		}),
 	);
 
 	test.effect("dispatches coalesced stream steps independently of ambient workflow parents", () =>
@@ -576,14 +639,15 @@ layer(streamWorkTestLayer)((test) => {
 	);
 
 	test.effect(
-		"keeps same-attempt claim and reconciliation replays from duplicating a committed update",
+		"keeps same-attempt claim and reconciliation replays from duplicating a committed projection",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* EventStreamWorkService;
 				const controls = yield* StreamWorkControls;
 				const streams = yield* EventStreamRepository;
-				const events = yield* EventsRepository;
 				const { id, eventId } = yield* seedStream("replay");
+				const sourceBefore = yield* sourceState(eventId);
+				assert(sourceBefore);
 				const claim = yield* service.claim({ id, attempt: 0 });
 				assert(claim);
 				const replayedClaim = yield* service.claim({ id, attempt: 0 });
@@ -591,19 +655,24 @@ layer(streamWorkTestLayer)((test) => {
 				expect(replayedClaim.attempt).toBe(claim.attempt);
 				yield* controls.setProcessor(id, () => Effect.succeed(page(eventId, 7, "replay-page")));
 
-				yield* service.process(claim);
-				yield* service.process(replayedClaim);
+				yield* process(claim);
+				yield* process(replayedClaim);
 				yield* service.reconcile();
 				yield* service.reconcile();
 
-				const updated = yield* events.getEventSnapshot({ userId, eventId });
-				assert(updated);
-				expect(updated.properties).toEqual({ rating: 7 });
-				expect(updated.updatedAt).toBe(claim.occurredAt);
+				const sourceAfter = yield* sourceState(eventId);
+				assert(sourceAfter);
+				expect(sourceAfter.properties).toEqual({ rating: 1 });
+				expect(sourceAfter.occurredAt).toEqual(sourceBefore.occurredAt);
+				expect(sourceAfter.createdAt).toEqual(sourceBefore.createdAt);
+				expect(sourceAfter.updatedAt).toEqual(sourceBefore.updatedAt);
+				expect(sourceAfter.revision).toBe(sourceBefore.revision);
+				expect(yield* projection(eventId)).toEqual({ properties: { score: 7 } });
 				const work = yield* streams.get(id);
 				assert(work);
 				expect(work.checkpoint).toEqual({ cursor: "replay-page" });
-				expect(work.streamRevision).toBe(claim.revision + 1);
+				expect(work.streamRevision).toBe(claim.revision);
+				expect(work.claimedRevision).toBe(claim.revision);
 				const replayDispatches = (yield* controls.workflowCalls).filter(
 					({ executionId }) => executionId === `event-stream-${id}-2`,
 				);
@@ -630,17 +699,17 @@ layer(streamWorkTestLayer)((test) => {
 				const malformed = { done: false, updates: [], checkpoint: undefined };
 				const invalidOutputs: ReadonlyArray<{ output: unknown; message: string }> = [
 					{
-						message: "Event stream processor targeted an event outside its stream",
+						message: "Projection output targeted an event outside its stream",
 						output: {
 							...page(eventId, 3, "foreign"),
 							updates: [{ ...repeated.updates[0], eventId: foreign.eventId }],
 						},
 					},
 					{
-						message: "Event stream processor wrote outside its declared outputs",
+						message: "Projection output does not match its declared schema",
 						output: {
 							...page(eventId, 3, "undeclared"),
-							updates: [{ eventId, patch: { properties: { remove: [], set: { other: 3 } } } }],
+							updates: [{ eventId, properties: { other: 3 } }],
 						},
 					},
 					{
@@ -656,7 +725,7 @@ layer(streamWorkTestLayer)((test) => {
 				];
 				for (const { output, message } of invalidOutputs) {
 					yield* controls.setProcessor(id, () => Effect.succeed(output));
-					assertExitFails(yield* Effect.exit(service.process(claim)), new DbError({ message }));
+					assertExitFails(yield* Effect.exit(process(claim)), new DbError({ message }));
 				}
 			}),
 	);
@@ -684,7 +753,7 @@ layer(streamWorkTestLayer)((test) => {
 					}),
 				);
 
-				yield* service.process(claim);
+				yield* process(claim);
 
 				const source = yield* events.getEventSnapshot({ userId, eventId });
 				assert(source);
@@ -714,7 +783,7 @@ layer(streamWorkTestLayer)((test) => {
 				}),
 			);
 
-			yield* service.process(claim);
+			yield* process(claim);
 
 			expect(yield* events.getEventSnapshot({ userId, eventId })).toBeNull();
 			const work = yield* streams.get(id);
@@ -764,13 +833,9 @@ layer(streamWorkTestLayer)((test) => {
 			assert(claim);
 			const missingProcessor = new DbError({ message: "Processor script is missing" });
 			yield* controls.setProcessor(id, () => Effect.fail(missingProcessor));
-			yield* service
-				.process(claim)
-				.pipe(
-					Effect.catchTag("DbError", (error) =>
-						service.fail(claim.id, claim.attempt, error.message),
-					),
-				);
+			yield* process(claim).pipe(
+				Effect.catchTag("DbError", (error) => service.fail(claim.id, claim.attempt, error.message)),
+			);
 
 			const failed = yield* streams.get(id);
 			assert(failed);

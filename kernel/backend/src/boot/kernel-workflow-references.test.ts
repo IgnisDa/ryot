@@ -77,6 +77,7 @@ const eventStreamRepositoryLayer = (get: EventStreamRepository["Service"]["get"]
 		EventStreamRepository,
 		EventStreamRepository.of({
 			get,
+			bindingCandidates: () => Effect.die("Unexpected binding scan"),
 			fail: () => Effect.die("Unexpected EventStreamRepository.fail"),
 			lock: () => Effect.die("Unexpected EventStreamRepository.lock"),
 			claim: () => Effect.die("Unexpected EventStreamRepository.claim"),
@@ -248,10 +249,13 @@ const eventStreamWork = (
 	claimedRevision: null,
 	updatedAt: new Date(0),
 	id: "event-stream-work-id",
-	outputProperties: ["value"],
 	pluginRevisionId: "plugin-revision",
 	accountToken: "test-account-generation",
 	processorScriptId: SandboxScriptId.make("processor-script"),
+	outputSchema: {
+		unknownKeys: "strict" as const,
+		fields: { value: { label: "value", description: "value", type: "number" as const } },
+	},
 	key: {
 		userId,
 		entityId: EntityId.make("entity-1"),

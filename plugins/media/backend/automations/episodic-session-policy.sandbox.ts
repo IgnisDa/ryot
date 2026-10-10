@@ -1,6 +1,7 @@
 import {
 	defineAutomationPolicy,
 	automationPolicyResultSchema,
+	type AutomationPolicyBatchInput,
 	type AutomationPolicyInput,
 } from "@ryot-app/plugin-backend-sdk/automation";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
@@ -67,26 +68,34 @@ const assignPodcastEpisodeSession = (host: AutomationHost, payload: EventPayload
 		}),
 	).pipe(Effect.map((resolution) => sessionPolicyResult(payload, resolution)));
 
+const runItem = (input: AutomationPolicyInput, host: AutomationHost) => {
+	const payload = input.automation.payload;
+	if (payload.resource !== "event" || payload.operation !== "create") {
+		return Effect.succeed({ action: "allow" } as const);
+	}
+	const draft = payload.draft;
+	if (draft.entitySchemaSlug === "show" || draft.entitySchemaSlug === "podcast") {
+		return Effect.succeed({
+			action: "transform",
+			patch: { resource: "event", draft: { sessionEntityId: draft.entityId } },
+		} as const);
+	}
+	if (draft.entitySchemaSlug === "show-episode") {
+		return assignShowEpisodeSession(host, payload);
+	}
+	if (draft.entitySchemaSlug === "podcast-episode") {
+		return assignPodcastEpisodeSession(host, payload);
+	}
+	return Effect.succeed({ action: "allow" } as const);
+};
+
 export default defineAutomationPolicy({
 	manifest,
-	run: ({ automation }, host) => {
-		const payload = automation.payload;
-		if (payload.resource !== "event" || payload.operation !== "create") {
-			return Effect.succeed({ action: "allow" } as const);
-		}
-		const draft = payload.draft;
-		if (draft.entitySchemaSlug === "show" || draft.entitySchemaSlug === "podcast") {
-			return Effect.succeed({
-				action: "transform",
-				patch: { resource: "event", draft: { sessionEntityId: draft.entityId } },
-			} as const);
-		}
-		if (draft.entitySchemaSlug === "show-episode") {
-			return assignShowEpisodeSession(host, payload);
-		}
-		if (draft.entitySchemaSlug === "podcast-episode") {
-			return assignPodcastEpisodeSession(host, payload);
-		}
-		return Effect.succeed({ action: "allow" } as const);
-	},
+	run: ({ items, automation }: AutomationPolicyBatchInput, host) =>
+		Effect.forEach(items, ({ payload, itemIdentity }) =>
+			Effect.gen(function* () {
+				const decision = yield* runItem({ automation: { ...automation, payload } }, host);
+				return { decision, itemIdentity };
+			}),
+		).pipe(Effect.map((decisions) => ({ items: decisions }))),
 });

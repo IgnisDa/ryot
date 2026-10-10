@@ -629,6 +629,7 @@ const differentOwnerMerge = recordingServiceLayer<string>(({ record }) => ({
 		executePolicy: () => Effect.die("unused"),
 		skipQueuedPolicies: () => Effect.die("unused"),
 		dispatch: () => record("dispatch").pipe(Effect.as([])),
+		executeBatchPolicy: () => Effect.die("Unexpected batch policy"),
 	}),
 }));
 

@@ -1,3 +1,4 @@
+import { UserCommandResult } from "@ryot-app/contract/modules/mutations/user-command";
 import type {
 	AutomationSandboxHostCapability,
 	CoreSandboxHostCapability,
@@ -104,6 +105,7 @@ import {
 	setCachedValueResultSchema,
 	userPreferencesSchema,
 } from "./state";
+import { commitUserChangesArgsSchema, commitUserChangesResultSchema } from "./user-commands";
 
 type GetPluginConfigArgs = Schema.Schema.Type<typeof getPluginConfigArgsSchema>[0];
 type GetPluginConfigResult<Keys extends GetPluginConfigArgs> = Readonly<
@@ -207,6 +209,11 @@ export const domainSandboxHostContracts = {
 		args: deleteEventsArgsSchema,
 		result: deleteEventsResultSchema,
 		success: deleteEventsResultDataSchema,
+	},
+	commitUserChanges: {
+		success: UserCommandResult,
+		args: commitUserChangesArgsSchema,
+		result: commitUserChangesResultSchema,
 	},
 	listEventSchemas: {
 		args: listEventSchemasArgsSchema,

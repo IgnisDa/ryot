@@ -22,6 +22,7 @@ const toListed = (entitySchemaSlug: string, event: EventSchemaDefinition) => ({
 	pluginId: event.pluginId,
 	id: EventSchemaSlug.make(event.slug),
 	propertiesSchema: event.propertiesSchema,
+	...(event.projection === undefined ? {} : { projection: event.projection }),
 	entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 });
 
@@ -70,6 +71,7 @@ export class EventSchemaReader extends Context.Service<EventSchemaReader>()("Eve
 									pluginId: event.pluginId,
 									id: EventSchemaSlug.make(event.slug),
 									propertiesSchema: event.propertiesSchema,
+									...(event.projection === undefined ? {} : { projection: event.projection }),
 								}
 							: null,
 					),

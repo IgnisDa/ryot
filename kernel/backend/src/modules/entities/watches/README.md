@@ -1,6 +1,6 @@
 # Entity Interest
 
-Entity interest lets authenticated clients declare which entities are visible and receive population or translation completion hints. Reads remain side-effect-free; pending interest drives background work.
+Entity interest lets authenticated clients declare which entities are visible and receive population, translation, or projection completion hints. Reads remain side-effect-free; pending interest drives background work.
 
 ## Transport
 
@@ -23,19 +23,21 @@ Client frames:
 
 Server frames:
 
-| `type`           | Fields                                                        |
-| ---------------- | ------------------------------------------------------------- |
-| `ready`          | `sessionId`, `maxEntityIds`, `heartbeatIntervalMs`            |
-| `applied`        | `revision`                                                    |
-| `rejected`       | `revision`, `code: "interest-limit-exceeded"`, `maxEntityIds` |
-| `entity-updated` | `entityId`, `reason: "populated" \| "translated"`             |
-| `ping`           | `nonce`                                                       |
+| `type`           | Fields                                                                    |
+| ---------------- | ------------------------------------------------------------------------- |
+| `ready`          | `sessionId`, `maxEntityIds`, `heartbeatIntervalMs`                        |
+| `applied`        | `revision`                                                                |
+| `rejected`       | `revision`, `code: "interest-limit-exceeded"`, `maxEntityIds`             |
+| `entity-updated` | `entityId`, `reason: "populated" \| "translated" \| "projection-updated"` |
+| `ping`           | `nonce`                                                                   |
 
 After `ready`, send a complete `replace` at revision 1. Each later `replace` or `update` increments the current revision by one. Reconnect starts a new session and revision sequence. Keep at most one command unacknowledged and coalesce later changes until `applied`.
 
 IDs are deduplicated. `update` must be non-empty and its `add` and `remove` sets cannot overlap. An empty replacement is valid. The final membership may contain at most 500 IDs; an over-limit command is rejected without partial mutation. Client-only `foreground` and `visible` priorities decide which IDs enter that set and are not sent on the wire.
 
 `entity-updated` is a refresh hint, not entity data. `translated` also represents a completed negative-cache result. Localized child entities must be listed explicitly, and a language change requires reconnect because the ticket captures the preferred language.
+
+`projection-updated` refreshes computed results after completion or failure. Its internal publication includes the owning user ID, so a shared source entity never sends one user's processing state to another user's session. Public frames omit that ID. Projection hints do not complete population progression or start population settling indicators; pending-result queries also refresh while processing to recover from missed hints.
 
 ## Lifetime And Delivery
 

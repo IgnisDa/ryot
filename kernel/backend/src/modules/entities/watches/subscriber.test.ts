@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
-import { EntityId } from "@ryot-app/contract/schema/brands";
+import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import Redis from "ioredis";
 
@@ -38,6 +38,7 @@ class FakeSubscriberDependencies extends Context.Service<
 const subscriberLayer = (options: {
 	readonly watching: ReadonlyArray<string>;
 	readonly failProgression?: boolean;
+	readonly sessionUsers?: Readonly<Record<string, string>>;
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -63,6 +64,25 @@ const subscriberLayer = (options: {
 						Ref.update(lookedUp, (all) => [...all, entityId]).pipe(
 							Effect.andThen(Ref.get(watching)),
 							Effect.map((sessionIds) => [...sessionIds]),
+						),
+					getSessionMetadata: (sessionIds) =>
+						Effect.succeed(
+							sessionIds.flatMap((sessionId) => {
+								const userIdValue = options.sessionUsers?.[sessionId];
+								if (userIdValue === undefined) {
+									return [];
+								}
+								const userId = UserId.make(userIdValue);
+								return [
+									{
+										userId,
+										sessionId,
+										revision: 1,
+										preferredLanguage: null,
+										accountGeneration: { userId, token: "test-account-generation" },
+									},
+								];
+							}),
 						),
 				}),
 				Layer.succeed(FakeSubscriberDependencies, {
@@ -142,6 +162,38 @@ layer(subscriberLayer({ watching: [] }))((test) => {
 			expect(frames).toEqual([
 				{ reason: "translated", type: "entity-updated", entityId: "private-entity" },
 			]);
+		}),
+	);
+});
+
+layer(
+	subscriberLayer({
+		watching: ["owner-session", "other-session"],
+		sessionUsers: { "owner-session": "owner", "other-session": "other" },
+	}),
+)((test) => {
+	test.effect("routes scoped projection updates to the owning user's session", () =>
+		Effect.gen(function* () {
+			const sessions = yield* LocalInterestSessions;
+			const interestSubscriber = yield* EntityWatchSubscriber;
+			const ownerFrames: unknown[] = [];
+			const otherFrames: unknown[] = [];
+			yield* sessions.add("owner-session", (frame) => ownerFrames.push(frame));
+			yield* sessions.add("other-session", (frame) => otherFrames.push(frame));
+
+			yield* interestSubscriber.dispatch(
+				encodeEntityUpdatedMessage(
+					EntityId.make("global-entity"),
+					"projection-updated",
+					UserId.make("owner"),
+				),
+			);
+
+			expect(ownerFrames).toEqual([
+				{ type: "entity-updated", entityId: "global-entity", reason: "projection-updated" },
+			]);
+			expect(otherFrames).toEqual([]);
+			expect(yield* (yield* FakeSubscriberDependencies).progressed).toEqual([]);
 		}),
 	);
 });

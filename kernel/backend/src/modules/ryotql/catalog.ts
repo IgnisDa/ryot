@@ -256,6 +256,63 @@ const event: CatalogTable = {
 		sessionEntityId: physicalField("session_entity_id", "text"),
 		eventSchemaSlug: physicalField("event_schema_slug", "text", false),
 		eventSchemaPluginId: physicalField("event_schema_plugin_id", "text"),
+		projection: {
+			kind: "json",
+			nullable: true,
+			resolve: ({ sqlAlias }) => sql`(select p.properties from event_projection p
+				inner join event_stream_work w on w.id = p.stream_id
+				inner join event_stream s on s.id = w.id
+				inner join plugin g on g.id = s.event_schema_plugin_id
+				inner join plugin_installation i on i.plugin_id = g.id and i.user_id = s.user_id
+				where p.event_id = ${sql.raw(sqlAlias)}.id and w.status = 'completed'
+				and w.claimed_revision = s.revision and w.plugin_revision_id = g.active_revision_id
+				and w.plugin_pin ->> 'configRevisionId' = case when g.owner_user_id is null
+					then g.environment_config_revision_id else i.active_config_revision_id end
+				and g.status = 'active' and i.health = 'ready' and i.uninstalled_at is null)`,
+		},
+		projectionStatus: {
+			kind: "text",
+			nullable: false,
+			resolve: ({ sqlAlias }) => sql`coalesce((select case
+				when w.status = 'failed' then 'failed'
+				when w.status = 'completed' and w.claimed_revision = s.revision then 'ready'
+				else 'pending' end
+				from event_stream s inner join event_stream_work w on w.id = s.id
+				inner join plugin g on g.id = s.event_schema_plugin_id
+				inner join plugin_installation i on i.plugin_id = g.id and i.user_id = s.user_id
+				where s.user_id = ${sql.raw(sqlAlias)}.user_id and s.entity_id = ${sql.raw(sqlAlias)}.entity_id
+				and s.event_schema_plugin_id is not distinct from ${sql.raw(sqlAlias)}.event_schema_plugin_id
+				and s.event_schema_slug = ${sql.raw(sqlAlias)}.event_schema_slug
+				and w.plugin_revision_id = g.active_revision_id
+				and w.plugin_pin ->> 'configRevisionId' = case when g.owner_user_id is null then g.environment_config_revision_id else i.active_config_revision_id end
+				and g.status = 'active' and i.health = 'ready' and i.uninstalled_at is null),
+				case when exists (select 1 from user_event_schema d inner join entity e on e.id = ${sql.raw(sqlAlias)}.entity_id
+					where d.user_id = ${sql.raw(sqlAlias)}.user_id and d.entity_schema_slug = e.entity_schema_slug
+					and d.plugin_id is not distinct from ${sql.raw(sqlAlias)}.event_schema_plugin_id
+					and d.slug = ${sql.raw(sqlAlias)}.event_schema_slug and d.is_effective and d.projection is not null)
+				then 'pending' else 'none' end)`,
+		},
+	},
+};
+
+const eventProjection: CatalogTable = {
+	primaryKey: ["eventId"],
+	name: "event_projection",
+	visibility: {
+		user: {
+			column: "event_id",
+			parentColumn: "id",
+			type: "parentOwned",
+			pluginReadable: true,
+			parentTable: "event",
+			parentOwnerColumn: "user_id",
+		},
+	},
+	fields: {
+		eventId: physicalField("event_id", "text", false),
+		streamId: physicalField("stream_id", "text", false),
+		updatedAt: physicalField("updated_at", "date", false),
+		properties: physicalField("properties", "json", false),
 	},
 };
 
@@ -1155,6 +1212,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	sandboxScript,
 	automationRun,
 	calendarSource,
+	eventProjection,
 	eventStreamWork,
 	migrationReport,
 	sandboxProvider,

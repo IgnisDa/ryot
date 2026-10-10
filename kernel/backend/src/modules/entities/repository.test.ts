@@ -402,11 +402,14 @@ layer(eventStreamRepositoriesLayer)((test) => {
 			const streamId = yield* session.transaction(
 				streams.request({
 					key,
-					outputProperties: ["value"],
 					accountToken: "stream-account",
 					pluginRevisionId: "stream-revision",
 					processorScriptId: "stream-processor",
 					pluginPin: { revisionId: "stream-revision" },
+					outputSchema: {
+						unknownKeys: "strict" as const,
+						fields: { value: { label: "value", description: "value", type: "number" as const } },
+					},
 				}),
 			);
 			const beforeUpdate = yield* streams.get(streamId);

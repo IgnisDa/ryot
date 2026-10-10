@@ -40,6 +40,15 @@ export {
 	updateUserEntityDataSchema,
 	updateUserEntityResultSchema,
 } from "./core/entities";
+export { commitUserChangesArgsSchema, commitUserChangesResultSchema } from "./core/user-commands";
+export {
+	UserCommand as userCommandInputSchema,
+	UserCommandResult as commitUserChangesDataSchema,
+} from "@ryot-app/contract/modules/mutations/user-command";
+export type {
+	UserCommand as UserCommandInput,
+	UserCommandResult as CommittedUserChanges,
+} from "@ryot-app/contract/modules/mutations/user-command";
 export type {
 	EnsureUserEntityItem,
 	EnsureUserEntityResult,

@@ -433,34 +433,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				>,
 			) => invokeIosLiveActivity({ ...request, action: "availability" }),
 		},
-		operations: {
-			invoke: <
-				Input extends Schema.Codec<unknown, unknown>,
-				Output extends Schema.Codec<unknown, unknown>,
-			>(
-				request: OperationInvocation<Input, Output>,
-			): Effect.Effect<Output["Type"], RyotClientError> =>
-				Effect.gen(function* () {
-					const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
-						request.input,
-					).pipe(Effect.mapError(() => new RyotClientError("invalid-input")));
-					const invoke = adapter.invokeOperation;
-					if (!invoke) {
-						return yield* new RyotClientError("unsupported-capability");
-					}
-					const value = yield* adapterEffect(() =>
-						invoke({ input, slug: request.slug, packageId: request.packageId }),
-					);
-					if (!isJsonValue(value)) {
-						return yield* new RyotClientError("malformed-result");
-					}
-					const decoded = yield* decodeCapability(request.output, value);
-					if (request.refreshOnSuccess !== false) {
-						mutationCompleted.hint();
-					}
-					return decoded;
-				}),
-		},
 		assets: {
 			resolve: (assets: readonly ManagedAssetLocator[]) =>
 				Effect.gen(function* () {
@@ -491,6 +463,41 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						return yield* new RyotClientError("malformed-result");
 					}
 					return decoded.success;
+				}),
+		},
+		operations: {
+			invoke: <
+				Input extends Schema.Codec<unknown, unknown>,
+				Output extends Schema.Codec<unknown, unknown>,
+			>(
+				request: OperationInvocation<Input, Output>,
+			): Effect.Effect<Output["Type"], RyotClientError> =>
+				Effect.gen(function* () {
+					const input = yield* Schema.encodeUnknownEffect(Schema.toCodecJson(request.inputSchema))(
+						request.input,
+					).pipe(Effect.mapError(() => new RyotClientError("invalid-input")));
+					const invoke = adapter.invokeOperation;
+					if (!invoke) {
+						return yield* new RyotClientError("unsupported-capability");
+					}
+					const value = yield* adapterEffect(() =>
+						invoke({
+							input,
+							slug: request.slug,
+							packageId: request.packageId,
+							...(request.idempotencyKey === undefined
+								? {}
+								: { idempotencyKey: request.idempotencyKey }),
+						}),
+					);
+					if (!isJsonValue(value)) {
+						return yield* new RyotClientError("malformed-result");
+					}
+					const decoded = yield* decodeCapability(request.output, value);
+					if (request.refreshOnSuccess !== false) {
+						mutationCompleted.hint();
+					}
+					return decoded;
 				}),
 		},
 		entities: {

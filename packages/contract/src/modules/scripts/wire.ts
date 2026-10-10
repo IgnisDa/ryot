@@ -25,6 +25,7 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"executeRyotql",
 	"ensureUserEntities",
 	"createUserEntity",
+	"commitUserChanges",
 	"deleteUserEntity",
 	"updateUserEntity",
 	"mergeUserEntityData",

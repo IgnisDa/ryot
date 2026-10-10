@@ -190,6 +190,6 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 			},
 		).annotate(
 			OpenApi.Description,
-			"Invokes a named plugin operation as a synchronous sandbox execution, enforcing the operation's declared authentication mode.",
+			"Invokes a named plugin operation as a synchronous sandbox execution, enforcing the operation's declared authentication mode. An optional idempotency key reuses the same execution for retries with immutable input.",
 		),
 	);

@@ -351,9 +351,28 @@ alone never select kernel ownership.
 Before hooks use `defineAutomationPolicy` and `automationType: "policy"`. They execute sequentially
 by `(position, pluginId, hookSlug)`; omitted `position` means 1000. The compiler and runtime allow
 only the policy-safe host surface: `executeRyotql`, schema/integration/config/preference reads, cache
-reads, and diagnostic `log`/`span`.
-No domain writes, HTTP, signals, notifications, cache writes, persistent claims, child workflows, or filesystem grants
-are allowed. Outputs are `{ action: "allow" }`, `{ action: "reject", reason }`, or
+reads, and diagnostic `log`/`span`. Each run receives shared automation metadata and optional
+immutable references with per-item projected request snapshots:
+
+```ts
+{
+  automation: { /* shared invocation metadata and references */ },
+  items: [{ itemIdentity, payload }],
+}
+```
+
+Return a decision for each item, matched by its identity:
+
+```ts
+{
+	items: [{ itemIdentity, decision }];
+}
+```
+
+The request snapshots and references are read-only. Calculating values does not write them to source;
+changes require an explicit transform decision. No domain writes, HTTP, signals, notifications, cache
+writes, persistent claims, child workflows, or filesystem grants are allowed. Decisions are
+`{ action: "allow" }`, `{ action: "reject", reason }`, or
 `{ action: "transform", patch }`. A patch must name the current resource and contain a non-empty
 draft patch. Entity create/update may patch `name` and properties; relationship create/update may
 patch properties; event create/update may patch properties, `sessionEntityId`, and `occurredAt`.

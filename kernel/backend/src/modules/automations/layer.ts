@@ -12,6 +12,7 @@ import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationExecutionOperationsLive, LifecycleExecutionLive } from "./execution";
 import { AutomationHistoryRepository } from "./history-repository";
 import { AutomationHistoryService } from "./history-service";
+import { PolicyBatchWorkflowLive } from "./lifecycle/policy-batch";
 import { NotificationSubscriptionsService } from "./notification-subscriptions-service";
 import { LifecyclePlannerLive } from "./planner";
 import { AutomationPlannerResolver } from "./planner-resolver";
@@ -48,6 +49,10 @@ export const LifecyclePlannerServiceLive = LifecyclePlannerLive.pipe(
 
 export const LifecycleServicesLive = Layer.merge(LifecyclePlannerServiceLive, execution);
 
+export const PolicyBatchWorkflowProvidedLive = PolicyBatchWorkflowLive.pipe(
+	Layer.provide(Layer.merge(LifecycleServicesLive, EntitiesRepositoryLive)),
+);
+
 export const MigrationLifecycleServicesLive = LifecycleServicesLive.pipe(
 	Layer.provide(WorkflowEngineLive),
 );
@@ -69,6 +74,7 @@ export const AutomationRunWorkflowOperationsServiceLive = AutomationRunWorkflowO
 			AutomationRunRepository.layer,
 			AutomationTriggerRepository.layer,
 			SandboxRepository.layer,
+			EntitiesRepositoryLive,
 		),
 	),
 );
