@@ -20,7 +20,6 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Ref } from "effect";
@@ -39,6 +38,7 @@ import {
 import { EventsService } from "#modules/events/service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { makeWorkflowActivityEngine, type MockOverrides } from "#testing/effect";
 
 import { AddEntityToCollectionWorkflow } from "./add-entity-to-collection-workflow";

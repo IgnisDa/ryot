@@ -1,13 +1,13 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import type {
-	ScriptInstallationInitialization,
-	ScriptPluginRevision,
-} from "@ryot-app/sandbox/protocol/principal";
 import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
+import type {
+	ScriptInstallationInitialization,
+	ScriptPluginRevision,
+} from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 

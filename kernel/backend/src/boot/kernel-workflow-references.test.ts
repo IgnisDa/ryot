@@ -23,7 +23,6 @@ import {
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -34,6 +33,7 @@ import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 import { makeWorkflowEngine } from "#testing/effect";
 
@@ -63,7 +63,7 @@ const populationAuthority = (subject: SandboxExecutionSubject): ScriptExecutionP
 	});
 const executionAuthorityLayer = Layer.succeed(SandboxExecutionAuthority, {
 	resolve: (principal) =>
-		Schema.decodeEffect(ScriptExecutionPrincipal)(principal).pipe(
+		Schema.decodeUnknownEffect(ScriptExecutionPrincipal)(principal).pipe(
 			Effect.map((verified) => verified.pluginRevision?.scope ?? "system"),
 			Effect.mapError(
 				() => new SandboxRunError({ kind: "missing-artifact", message: "Invalid caller pin" }),

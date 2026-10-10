@@ -321,7 +321,10 @@ layer(
 
 			expect(runs.map((run) => run.compiledCode)).toEqual([queuedCode, kernelCode]);
 			expect(runs.map((run) => run.principal.scriptId)).toEqual([queuedScriptId, kernelScriptId]);
-			expect(runs.map((run) => run.principal.providerId)).toEqual(["provider-id", null]);
+			expect(runs.map((run) => run.principal)).toMatchObject([
+				{ providerId: "provider-id" },
+				{ providerId: null },
+			]);
 			expect(runs.map((run) => run.principal.contentHash)).toEqual([
 				queuedContentHash,
 				kernelContentHash,

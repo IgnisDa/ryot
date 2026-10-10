@@ -1,11 +1,10 @@
 import { IntegrationId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
-import { requireSandboxCapabilityInput } from "@ryot-app/sandbox/host/invocation";
-import {
-	automationRunSubject,
-	makeSubjectRunInput,
-} from "@ryot-app/sandbox/host/run-input.test-support";
+import { automationRunSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
+
+import { requireSandboxCapabilityInput } from "#modules/scripts/authorization/capabilities";
+import { makeSubjectRunInput } from "#modules/scripts/authorization/principal.test-support";
 
 import {
 	sandboxLifecycleCommand,

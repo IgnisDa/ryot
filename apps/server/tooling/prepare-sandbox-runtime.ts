@@ -10,6 +10,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { ScriptExecutionPrincipal } from "@ryot-app/kernel-backend/modules/scripts/authorization/principal";
 import { SandboxHostConfigLive } from "@ryot-app/kernel-backend/modules/scripts/host/sandbox-host-live";
 import { appConfigDefinition } from "@ryot-app/kernel-backend/platform/config/definition";
 import { AppConfig } from "@ryot-app/kernel-backend/platform/config/service";
@@ -25,13 +26,13 @@ import { SandboxHostCallGate } from "@ryot-app/sandbox/host/host-call-gate";
 import { SandboxHostFunctions } from "@ryot-app/sandbox/host/host-functions";
 import { unusedSandboxHostFunctions } from "@ryot-app/sandbox/host/host.test-support";
 import type { SandboxRunInput } from "@ryot-app/sandbox/host/invocation";
+import type { SandboxPrincipal } from "@ryot-app/sandbox/host/principal";
 import { SandboxSidecarQuarantine } from "@ryot-app/sandbox/host/quarantine";
 import {
 	SandboxRecoveryStore,
 	SandboxRecoveryStoreError,
 } from "@ryot-app/sandbox/host/recovery-store";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import {
 	ConfigProvider,
 	Context,
@@ -111,11 +112,9 @@ const AppConfigSmokeLive = AppConfig.layer.pipe(Layer.provideMerge(SandboxSmokeC
 
 const ServerRunSmokeLive = Layer.succeed(ServerRun, { id: "production-runtime-smoke" });
 
-const trustedPrincipals = new Map<string, SmokeTrust>();
+const trustedPrincipals = new Map<SandboxPrincipal, SmokeTrust>();
 
-const encodePrincipal = Schema.encodeSync(Schema.fromJsonString(ScriptExecutionPrincipal));
-const resolveTrustedPrincipal = (principal: ScriptExecutionPrincipal) =>
-	trustedPrincipals.get(encodePrincipal(principal));
+const resolveTrustedPrincipal = (principal: SandboxPrincipal) => trustedPrincipals.get(principal);
 
 const invalidSmokePrincipal = () =>
 	new SandboxRunError({
@@ -322,7 +321,7 @@ const smoke = Effect.gen(function* () {
 						}),
 				),
 			);
-			trustedPrincipals.set(encodePrincipal(principal), trust);
+			trustedPrincipals.set(principal, trust);
 			fixtures.push({ trust, principal, expectedTier: tier, compiledCode: compiled.javascript });
 		}
 	}

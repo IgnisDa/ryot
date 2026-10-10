@@ -55,7 +55,6 @@ const asPlugin = (input: SandboxRunInput, ownerId: UserId, renamed = false): San
 		...input.principal,
 		pluginRevision: makeUserPluginRevision({
 			ownerId,
-			slug: testExecutionId("plugin"),
 			compiledHashes: { [renamed ? "renamed" : "entry"]: input.principal.contentHash },
 		}),
 	},

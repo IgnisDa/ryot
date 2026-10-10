@@ -1,8 +1,10 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { ExecutionFileStaging } from "@ryot-app/sandbox/host/execution-file-staging";
-import { sandboxSubjectUserId } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, FileSystem, Layer } from "effect";
+
+import { decodeScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 
 import { IngestionCaptures } from "./capture-service";
 import { ImportsRepository } from "./repository";
@@ -39,10 +41,10 @@ export const IngestionArtifactStagingLive = Layer.effect(
 							message: "Staged artifact owner is not running",
 						});
 					}
+					const { pluginRevision } = yield* decodeScriptExecutionPrincipal(input.principal);
 					if (
-						run.pins?.pluginRevisionId !== (input.principal.pluginRevision?.revisionId ?? null) ||
-						run.pins.pluginConfigRevisionId !==
-							(input.principal.pluginRevision?.configRevisionId ?? null)
+						run.pins?.pluginRevisionId !== (pluginRevision?.revisionId ?? null) ||
+						run.pins.pluginConfigRevisionId !== (pluginRevision?.configRevisionId ?? null)
 					) {
 						return yield* new SandboxRunError({
 							kind: "invalid-input",

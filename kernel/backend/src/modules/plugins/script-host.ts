@@ -1,17 +1,16 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
-import {
-	requireSandboxCapabilityInput,
-	sandboxHostEffect,
-	sandboxHostFailure,
-	type AdditionalSandboxHostImplementationMap,
-} from "@ryot-app/sandbox/host/invocation";
+import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
 import {
 	admittedImportRunId,
 	makeAdmittedExecutionStateLoader,
 } from "#modules/imports/script-host";
+import {
+	type AdditionalScriptHostImplementationMap,
+	requireSandboxCapabilityInput,
+} from "#modules/scripts/authorization/capabilities";
 import { userSandboxRunUserId } from "#modules/scripts/host/execution-context";
 
 import { PluginRuntimeResolver } from "./catalog/runtime-resolver";
@@ -102,5 +101,5 @@ export const makePluginScriptHost = Effect.gen(function* () {
 					return yield* resolveStoredPluginUserSettings(settingsSchema, row.userSettings);
 				}),
 			),
-	} satisfies Pick<AdditionalSandboxHostImplementationMap, "getPluginConfig" | "getUserSettings">;
+	} satisfies Pick<AdditionalScriptHostImplementationMap, "getPluginConfig" | "getUserSettings">;
 });

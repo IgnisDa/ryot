@@ -12,7 +12,6 @@ import {
 	genericImportChunkSchema,
 } from "@ryot-app/plugin-backend-sdk/imports";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
-import { samePluginPin } from "@ryot-app/sandbox/protocol/principal";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Data, DateTime, Effect, Exit, Layer, Schema } from "effect";
@@ -34,6 +33,7 @@ import { MutationReceipts } from "#modules/mutations/receipts";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { resolveStoredPluginUserSettings } from "#modules/plugins/preferences/user-settings";
+import { samePluginPin } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxPluginScriptResolver } from "#modules/scripts/registry/plugin-script-resolver";
 import { DatabaseSession } from "#platform/db/session";

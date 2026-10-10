@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { describe } from "vitest";
 
-import { bindSandboxHostFunctions } from "./bridge-adapter";
+import { bindObservabilityHostFunctions, bindSandboxHostFunctions } from "./bridge-adapter";
 import type { SandboxHostImplementationMap } from "./invocation";
 import { makeUserRunInput } from "./run-input.test-support";
 
@@ -154,7 +154,7 @@ describe("bindSandboxHostFunctions", () => {
 					return Effect.succeed(null);
 				},
 			});
-			const bound = bindSandboxHostFunctions(implementations, input);
+			const bound = bindObservabilityHostFunctions(implementations, input);
 
 			expect(yield* bound.log([[{ message: "nope", level: "verbose" }]])).toEqual({
 				success: false,

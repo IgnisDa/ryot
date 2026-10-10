@@ -5,9 +5,10 @@ import type {
 	SandboxExecutionGrants,
 } from "@ryot-app/contract/modules/scripts/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Context, type Effect, type Scope } from "effect";
 import type { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 
 export class KernelWorkflowReferences extends Context.Service<
 	KernelWorkflowReferences,

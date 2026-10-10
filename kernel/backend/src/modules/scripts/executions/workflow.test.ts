@@ -21,8 +21,7 @@ import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
 import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-support";
-import { makeUserPrincipal, makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
-import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
+import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Deferred, Effect, Layer, Metric, Ref, Schema, Stream, type Exit } from "effect";
@@ -32,6 +31,8 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { makeUserPrincipal } from "#modules/scripts/authorization/principal.test-support";
 import { appendWorkflowJournalWithRedis } from "#modules/scripts/replay/journal";
 import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
 import { RedisService } from "#platform/redis";

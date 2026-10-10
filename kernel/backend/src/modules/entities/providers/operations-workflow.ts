@@ -4,7 +4,6 @@ import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Context, Effect, Layer, Schema } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -17,6 +16,7 @@ import {
 } from "#modules/automations/lifecycle/planning";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";

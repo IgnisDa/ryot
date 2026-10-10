@@ -1,17 +1,16 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
-import {
-	requireSandboxCapabilityInput,
-	sandboxHostEffect,
-	toSandboxJsonValue,
-	type AdditionalSandboxHostImplementationMap,
-	type UserSandboxRunInput,
-} from "@ryot-app/sandbox/host/invocation";
-import { principalOwner } from "@ryot-app/sandbox/protocol/principal";
+import { sandboxHostEffect, toSandboxJsonValue } from "@ryot-app/sandbox/host/invocation";
 import { Effect } from "effect";
 
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import {
+	type AdditionalScriptHostImplementationMap,
+	requireSandboxCapabilityInput,
+	type UserSandboxRunInput,
+} from "#modules/scripts/authorization/capabilities";
+import { principalOwner } from "#modules/scripts/authorization/principal";
 import {
 	sandboxDefinitionReadContext,
 	userSandboxRunUserId,
@@ -161,5 +160,5 @@ export const makeDefinitionScriptHost = Effect.gen(function* () {
 				),
 				sandboxHostEffect,
 			),
-	} satisfies Pick<AdditionalSandboxHostImplementationMap, "getEntitySchemas" | "listEventSchemas">;
+	} satisfies Pick<AdditionalScriptHostImplementationMap, "getEntitySchemas" | "listEventSchemas">;
 });

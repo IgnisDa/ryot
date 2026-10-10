@@ -1,12 +1,12 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import type {
-	SandboxExecutionGrants,
-	SandboxExecutionSubject,
+import {
+	type SandboxExecutionGrants,
+	type SandboxExecutionSubject,
+	sandboxSubjectUserId,
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { ingestionArtifactsSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
-import { sandboxSubjectUserId } from "@ryot-app/sandbox/protocol/principal";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 

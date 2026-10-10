@@ -7,7 +7,6 @@ import type {
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import type { GenericImportChunk } from "@ryot-app/plugin-backend-sdk/imports";
-import type { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -25,6 +24,7 @@ import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsService } from "#modules/relationships/service";
+import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { makeWorkflowEngine } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";

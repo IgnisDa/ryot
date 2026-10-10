@@ -1,12 +1,14 @@
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
+import {
+	type SandboxExecutionSubject,
+	sandboxSubjectUserId,
+} from "@ryot-app/contract/modules/scripts/schemas";
+import { Effect, Schema } from "effect";
+
 import {
 	ScriptExecutionPrincipal,
 	ScriptPluginRevision,
-	sandboxSubjectUserId,
-} from "@ryot-app/sandbox/protocol/principal";
-import { Effect, Schema } from "effect";
-
+} from "#modules/scripts/authorization/principal";
 import type { FairQueueFlow } from "#platform/workflow/fair-queue-store";
 
 const QueueElementScheduling = Schema.Struct({

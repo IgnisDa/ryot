@@ -6,12 +6,13 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { makeUserRunInput, makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
-import { ScriptPluginRevision } from "@ryot-app/sandbox/protocol/principal";
+import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { Effect, Layer, MutableRef, Ref, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
+import { makeUserRunInput } from "#modules/scripts/authorization/principal.test-support";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
 import { type EgressPolicy, withEgressPolicy } from "#platform/egress/http-client";
 import { RedisService } from "#platform/redis";

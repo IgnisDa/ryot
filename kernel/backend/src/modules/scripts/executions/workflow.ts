@@ -1,6 +1,9 @@
 import { SandboxFailureKind, SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
-import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
+import {
+	type SandboxExecutionPayload,
+	sandboxSubjectUserId,
+} from "@ryot-app/contract/modules/scripts/schemas";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
@@ -19,11 +22,6 @@ import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { sanitizeSandboxExecutionSegment } from "@ryot-app/sandbox/host/filesystem-grants";
 import { sandboxMetricKind } from "@ryot-app/sandbox/host/metrics";
 import { SANDBOX_LIMITS, sandboxWorkflowJournalByteError } from "@ryot-app/sandbox/protocol/limits";
-import {
-	ScriptExecutionPrincipal,
-	samePluginPin,
-	sandboxSubjectUserId,
-} from "@ryot-app/sandbox/protocol/principal";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, Clock, Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
@@ -34,6 +32,7 @@ import type { DurableSchema } from "#boot/workflow-engine";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { isDeclaredExecutableCall } from "#modules/scripts/authorization/executable-dependencies";
+import { samePluginPin, ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { sandboxStartedAt } from "#modules/scripts/host/execution-context";
 import type {
 	SandboxHttpProgress,

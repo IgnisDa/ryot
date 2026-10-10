@@ -148,11 +148,9 @@ export const makeRunnerInput = (
 			contentHash,
 			metadata: compiled.manifest,
 			subject: makeUserSubject(userId),
-			scriptSlug: compiled.manifest.slug,
 			scriptId: SandboxScriptId.make("native-runner-script"),
 			pluginRevision: makeUserPluginRevision({
 				ownerId: userId,
-				slug: "native-runner-plugin",
 				compiledHashes: { [compiled.manifest.slug]: contentHash },
 			}),
 		}),

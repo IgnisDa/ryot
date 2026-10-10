@@ -1,9 +1,10 @@
 import { it } from "@effect/vitest";
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
-import { makeUserPluginRevision } from "@ryot-app/sandbox/host/executor.test-support";
-import { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Effect, Schema } from "effect";
 import { expect } from "vitest";
+
+import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
+import { makeUserPluginRevision } from "#modules/scripts/authorization/principal.test-support";
 
 import { SandboxExecutionQueue } from "./queues";
 import { sandboxSchedulingKey } from "./scheduling-key";
