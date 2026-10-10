@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths: &paths
       - "kernel/backend/**"
-      - "kernel/sandboxd/**"
+      - "kernel/sandbox/**"
       - "packages/**"
       - "plugins/fitness/**"
       - "plugins/media/**"
@@ -89,15 +89,21 @@ jobs:
           cache-to: type=gha,mode=max,scope=linux-${{ matrix.arch }}
       - name: Check the sidecar, launcher, and protocol fixtures
         if: matrix.arch == 'amd64'
-        run: docker run --rm --user 1001 --workdir /app/kernel/sandboxd ryot-sandbox-test bun run check
+        run: docker run --rm --user 1001 --workdir /app/kernel/sandbox ryot-sandbox-test bun run check
       - name: Test the sidecar
-        run: docker run --rm --user 1001 --workdir /app/kernel/sandboxd ryot-sandbox-test cargo test
+        run: docker run --rm --user 1001 --workdir /app/kernel/sandbox/native ryot-sandbox-test cargo test
       - name: Test the launcher under Docker defaults
         run: |
-          docker run --rm --user 0 --workdir /app/kernel/sandboxd ryot-sandbox-test \
+          docker run --rm --user 0 --workdir /app/kernel/sandbox/native ryot-sandbox-test \
             cargo test --bin ryot-sandbox-launcher -- --test-threads=1
-          docker run --rm --user 0 --workdir /app/kernel/sandboxd ryot-sandbox-test \
+          docker run --rm --user 0 --workdir /app/kernel/sandbox/native ryot-sandbox-test \
             cargo test --test launcher -- --ignored --test-threads=1
+      - name: Test the sandbox host under Docker confinement
+        run: >-
+          docker run --rm --user 1001 --network host
+          --env TEST_REDIS_URL
+          --workdir /app/kernel/sandbox
+          ryot-sandbox-test bun --bun run vitest run --no-file-parallelism
       - name: Test the kernel backend under Docker confinement
         run: >-
           docker run --rm --user 1001 --network host
@@ -107,7 +113,7 @@ jobs:
       - name: Test the sandbox SDK workflow
         run: >-
           docker run --rm --user 1001 --network host
-          --workdir /app/packages/sandbox-sdk
+          --workdir /app/packages/plugin-backend-sdk
           ryot-sandbox-test bun --bun run vitest run --no-file-parallelism tests/workflow.test.ts
       - name: Run all six confined sandbox keys in the release image
         run: docker run --rm --network none ryot-image bun run dist/prepare-sandbox-runtime.js
