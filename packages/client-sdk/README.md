@@ -102,6 +102,9 @@ loader: ({ client, references }) =>
 ```
 
 The loader returns `Effect.Effect<Readonly<Record<string, Data>>, RyotClientError>`.
+`prepare` decodes embedded query rows without I/O. Missing rows or a failed preparation use the
+loader, so saved views can select only entity references. Thrown preparation errors and malformed
+prepared records remain item failures.
 Presentation batches contain up to 100 sorted references and at most four loaders run at once.
 Interrupted queued work is removed, and completed or interrupted work releases its slot. The
 registry's `load()` still returns a Promise because React's dynamic module import is a framework
