@@ -1,7 +1,19 @@
+import {
+	pluginPackageKey,
+	type PluginIdentityReference,
+	type PluginPackageReference,
+	definitionOwner,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
+	mapPluginIdentityReferences,
+	type RyotQLDocument,
+} from "@ryot-app/contract/modules/ryotql/language";
 import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
+import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	requiredReference,
@@ -12,6 +24,8 @@ import {
 import { archiveError } from "./error";
 import {
 	isArchiveJsonObject,
+	ArchiveEntityBrowserSavedViewSettings,
+	decodeArchiveJsonObject,
 	type ArchiveRecords,
 	type ArchiveEvent,
 	type ArchiveRelationship,
@@ -19,6 +33,123 @@ import {
 
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
+
+const isEntityBrowserRenderer = (renderer: { readonly kind: string; readonly name?: string }) =>
+	renderer.kind === "kernel" &&
+	(renderer.name === "entity-browser" || renderer.name === "collection-browser");
+
+export const exportRendererSettings = Effect.fn(function* (
+	renderer: { readonly kind: string; readonly name?: string },
+	settings: Readonly<Record<string, JsonValue>>,
+	pluginKeys: ReferenceMap,
+) {
+	if (!isEntityBrowserRenderer(renderer)) {
+		return settings;
+	}
+	const decoded = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(settings).pipe(
+		Effect.mapError((error) => archiveError("invalid_entry", error.message)),
+	);
+	const action = decoded.addAction;
+	const owner = action?.schema.owner;
+	const key = owner?.kind === "plugin" ? pluginKeys.get(owner.pluginId) : null;
+	if (owner?.kind === "plugin" && !key) {
+		return yield* archiveError(
+			"missing_reference_mapping",
+			"Backup renderer references unavailable plugin",
+		);
+	}
+	const encoded = yield* Schema.encodeEffect(ArchiveEntityBrowserSavedViewSettings)({
+		...decoded,
+		addAction:
+			action === null
+				? null
+				: { type: action.type, schema: { pluginKey: key ?? null, slug: action.schema.slug } },
+	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
+	return decodeArchiveJsonObject(encoded);
+});
+
+export const importRendererSettings = Effect.fn(function* (
+	renderer: { readonly kind: string; readonly name?: string },
+	settings: Readonly<Record<string, JsonValue>>,
+	pluginIds: ReferenceMap,
+) {
+	if (!isEntityBrowserRenderer(renderer)) {
+		return settings;
+	}
+	const decoded = yield* Schema.decodeUnknownEffect(ArchiveEntityBrowserSavedViewSettings)(
+		settings,
+	).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
+	const action = decoded.addAction;
+	const key = action?.schema.pluginKey;
+	const id = key == null ? null : pluginIds.get(key);
+	if (key != null && !id) {
+		return yield* archiveError(
+			"missing_reference_mapping",
+			"Backup renderer plugin mapping is incomplete",
+		);
+	}
+	const encoded = yield* Schema.encodeUnknownEffect(EntityBrowserSavedViewSettings)({
+		...decoded,
+		addAction:
+			action === null
+				? null
+				: {
+						type: action.type,
+						schema: { slug: action.schema.slug, owner: definitionOwner(id ?? null) },
+					},
+	}).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
+	return decodeArchiveJsonObject(encoded);
+});
+
+export const exportQueryPluginReferences = (
+	document: RyotQLDocument | null,
+	packages: ReadonlyMap<string, PluginPackageReference>,
+) =>
+	Effect.try({
+		catch: (error) => archiveError("missing_reference_mapping", String(error)),
+		try: () =>
+			document === null
+				? null
+				: mapPluginIdentityReferences(document, (reference): PluginIdentityReference => {
+						if (reference.kind === "package") {
+							return reference;
+						}
+						if (reference.kind === "self") {
+							throw new Error("Backup query contains an unbound self reference");
+						}
+						const target = packages.get(reference.pluginId);
+						if (!target) {
+							throw new Error(`Backup query references unavailable plugin '${reference.pluginId}'`);
+						}
+						return { kind: "package", ...target };
+					}),
+	});
+
+export const importQueryPluginReferences = (
+	document: RyotQLDocument | null,
+	pluginIds: ReferenceMap,
+	ownerPluginId: string | null,
+) =>
+	Effect.try({
+		catch: (error) => archiveError("missing_reference_mapping", String(error)),
+		try: () =>
+			document === null
+				? null
+				: mapPluginIdentityReferences(document, (reference): PluginIdentityReference => {
+						let id: string | null | undefined;
+						if (reference.kind === "package") {
+							id = pluginIds.get(pluginPackageKey(reference));
+						} else if (reference.kind === "self") {
+							id = ownerPluginId;
+						} else {
+							id = null;
+						}
+						if (!id) {
+							throw new Error("Backup query contains an unresolved plugin reference");
+						}
+						return { kind: "local", pluginId: PluginId.make(id) };
+					}),
+	});
 
 const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);
@@ -36,8 +167,26 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 			referenced.add(key);
 		}
 	};
+	for (const plugin of records.privatePlugins) {
+		for (const dependency of Object.values(plugin.manifest.client?.pluginDependencies ?? {})) {
+			add(pluginPackageKey(dependency));
+		}
+		for (const view of plugin.manifest.savedViews) {
+			if (view.dataSources !== null) {
+				mapPluginIdentityReferences(view.dataSources, (reference) => {
+					if (reference.kind === "package") {
+						add(pluginPackageKey(reference));
+					}
+					return reference;
+				});
+			}
+		}
+	}
 	for (const installation of records.installations) {
 		add(installation.packageKey);
+		if (installation.homeSavedView?.kind === "plugin") {
+			add(installation.homeSavedView.pluginKey);
+		}
 	}
 	for (const integration of records.integrations) {
 		add(integration.packageKey);
@@ -60,6 +209,20 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 		add(view.pluginKey);
 		if (view.kind === "custom" && view.renderer.kind === "plugin") {
 			add(view.renderer.pluginKey);
+		}
+		if (view.kind === "custom" && view.dataSources !== null) {
+			mapPluginIdentityReferences(view.dataSources, (reference) => {
+				if (reference.kind === "package") {
+					add(pluginPackageKey(reference));
+				}
+				return reference;
+			});
+		}
+		if (view.kind === "custom" && isEntityBrowserRenderer(view.renderer)) {
+			add(
+				Schema.decodeUnknownSync(ArchiveEntityBrowserSavedViewSettings)(view.settings).addAction
+					?.schema.pluginKey ?? null,
+			);
 		}
 	}
 	for (const subscription of records.notificationSubscriptions) {

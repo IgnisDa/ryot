@@ -1,11 +1,32 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	definitionKey,
+	definitionOwner,
+	pluginPackageKey,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
+	EntityId,
+	PluginId,
+	SavedViewId,
+	SignalSchemaSlug,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
+import {
+	ascending,
+	column,
+	document,
+	field,
+	literal,
+	pluginId,
+	rows,
+	table,
+} from "@ryot-app/ryotql";
 import { count, eq, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Ref, Stream } from "effect";
+import { Context, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -21,16 +42,28 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { PluginBackupRestore } from "#modules/plugins/backup-restore";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { pluginSourceHash } from "#modules/plugins/pipeline";
+import {
+	normalizePluginPackage,
+	normalizePluginSource,
+	pluginSourceHash,
+} from "#modules/plugins/pipeline";
 import { PluginRepository } from "#modules/plugins/repository";
 import { revisionDatabaseLayer, revisionPackage } from "#modules/plugins/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/types";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
+import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
-import type { ArchiveEvent, ArchiveRecords } from "../archive/schemas";
+import { createArchiveStream, validateArchiveStream } from "../archive/archive";
+import {
+	archivePluginDefinitionContract,
+	ArchiveEvent,
+	type ArchiveRecords,
+} from "../archive/schemas";
+import { BackupExportSnapshot } from "../export/snapshot";
 import { BackupRestorePersistence } from "./persistence";
 import {
 	assertDependencySchemaOwnership,
@@ -44,10 +77,18 @@ import {
 	selectTranslationsForRestore,
 } from "./writer";
 
+const fixedDate = new Date("2026-10-01T00:00:00.000Z");
+
 it("keeps restored installations inactive when required secrets were redacted", () => {
 	expect(
 		resolveRestoredInstallationLifecycle(
-			{ hiddenIntent: false, lifecycleIntent: "ready", configuredSecretPaths: ["/token"] },
+			{
+				healthReason: null,
+				hiddenIntent: false,
+				lifecycleIntent: "ready",
+				incompatibilityReason: null,
+				configuredSecretPaths: ["/token"],
+			},
 			{
 				unknownKeys: "strict",
 				fields: {
@@ -62,7 +103,12 @@ it("keeps restored installations inactive when required secrets were redacted", 
 			},
 			false,
 		),
-	).toEqual({ isHidden: true, health: "needs-configuration" });
+	).toEqual({
+		isHidden: true,
+		healthReason: null,
+		incompatibilityReason: null,
+		health: "needs-configuration",
+	});
 });
 
 it.effect(
@@ -94,23 +140,134 @@ it.effect(
 it("preserves needs-configuration health when the secret was already absent", () => {
 	expect(
 		resolveRestoredInstallationLifecycle(
-			{ hiddenIntent: true, configuredSecretPaths: [], lifecycleIntent: "needs-configuration" },
+			{
+				hiddenIntent: true,
+				healthReason: null,
+				configuredSecretPaths: [],
+				incompatibilityReason: null,
+				lifecycleIntent: "needs-configuration",
+			},
 			{ fields: {}, unknownKeys: "strict" },
 			false,
 		),
-	).toEqual({ isHidden: true, health: "needs-configuration" });
+	).toEqual({
+		isHidden: true,
+		healthReason: null,
+		incompatibilityReason: null,
+		health: "needs-configuration",
+	});
 });
 
-it.effect("requires an exact system plugin version and source hash", () =>
-	Effect.gen(function* () {
-		const required = [{ slug: "system", version: "1.0.0", sourceHash: "a".repeat(64) }];
-		const installed = [
-			{ slug: "system", id: "plugin-id", version: "1.0.0", sourceHash: "b".repeat(64) },
-		];
-		const error = yield* resolveRequiredPluginIds(required, installed).pipe(Effect.flip);
-		expect(error).toMatchObject({ pluginSlug: "system", requiredVersion: "1.0.0" });
-	}),
+it.effect(
+	"rejects a missing required system package without selecting a same-name private package",
+	() =>
+		Effect.gen(function* () {
+			const source = revisionPackage("system", "1.0.0", "bottle");
+			const packageId = source.manifest.metadata.packageId;
+			const required = [
+				{
+					packageId,
+					slug: "system",
+					version: "1.0.0",
+					sourceHash: source.sourceHash,
+					definitionContract: archivePluginDefinitionContract(source.manifest),
+				},
+			];
+			const installed = [
+				{
+					...source,
+					packageId,
+					slug: "system",
+					id: "plugin-id",
+					ownerId: "owner",
+					status: "active",
+					scope: "user" as const,
+					activationId: "activation",
+				},
+			];
+			const error = yield* resolveRequiredPluginIds(required, installed).pipe(Effect.flip);
+			expect(error).toMatchObject({ packageId, pluginSlug: "system", requiredVersion: "1.0.0" });
+		}),
 );
+
+it.effect(
+	"binds a compatible system revision by package identity, not mutable name or revision text",
+	() =>
+		Effect.gen(function* () {
+			const previous = revisionPackage("whiskey", "v1", "bottle");
+			const packageId = previous.manifest.metadata.packageId;
+			const next = revisionPackage("renamed", "v2", "bottle", packageId);
+			const manifest = {
+				...previous.manifest,
+				metadata: next.manifest.metadata,
+				entitySchemas: previous.manifest.entitySchemas.map((schema) => ({
+					...schema,
+					propertiesSchema: {
+						...schema.propertiesSchema,
+						fields: {
+							...schema.propertiesSchema.fields,
+							note: { label: "Note", description: "Note", type: "string" as const },
+						},
+					},
+				})),
+			};
+			const installed = {
+				...next,
+				manifest,
+				packageId,
+				ownerId: null,
+				slug: "renamed",
+				status: "active",
+				id: "verified-system",
+				scope: "system" as const,
+				activationId: "activation",
+			};
+			const required = [
+				{
+					packageId,
+					version: "v1",
+					slug: "whiskey",
+					sourceHash: previous.sourceHash,
+					definitionContract: archivePluginDefinitionContract(previous.manifest),
+				},
+			];
+			expect([...(yield* resolveRequiredPluginIds(required, [installed]))]).toEqual([
+				[pluginPackageKey({ packageId, scope: "system" }), "verified-system"],
+			]);
+			const incompatible = { ...installed, manifest: { ...manifest, entitySchemas: [] } };
+			expect(
+				(yield* resolveRequiredPluginIds(required, [incompatible]).pipe(Effect.flip)).packageId,
+			).toBe(packageId);
+		}),
+);
+
+it("preserves exported quarantine and hidden intent even when no system conflict remains", () => {
+	const state = {
+		hiddenIntent: false,
+		configuredSecretPaths: [],
+		healthReason: "Identity conflict",
+		lifecycleIntent: "incompatible" as const,
+		incompatibilityReason: "package-identity-conflict" as const,
+	};
+	expect(resolveRestoredInstallationLifecycle(state, { fields: {} }, false)).toEqual({
+		isHidden: false,
+		health: "incompatible",
+		healthReason: "Identity conflict",
+		incompatibilityReason: "package-identity-conflict",
+	});
+	expect(
+		resolveRestoredInstallationLifecycle(
+			{ ...state, hiddenIntent: true, lifecycleIntent: "ready", incompatibilityReason: null },
+			{ fields: {} },
+			false,
+			true,
+		),
+	).toMatchObject({
+		isHidden: true,
+		health: "incompatible",
+		incompatibilityReason: "package-identity-conflict",
+	});
+});
 
 it("detects nested required installation secrets in objects and arrays", () => {
 	const schema = {
@@ -154,11 +311,22 @@ it("detects nested required installation secrets in objects and arrays", () => {
 	for (const path of ["/credentials/token", "/accounts/0/token"]) {
 		expect(
 			resolveRestoredInstallationLifecycle(
-				{ hiddenIntent: false, lifecycleIntent: "ready", configuredSecretPaths: [path] },
+				{
+					healthReason: null,
+					hiddenIntent: false,
+					lifecycleIntent: "ready",
+					incompatibilityReason: null,
+					configuredSecretPaths: [path],
+				},
 				schema,
 				false,
 			),
-		).toEqual({ isHidden: true, health: "needs-configuration" });
+		).toEqual({
+			isHidden: true,
+			healthReason: null,
+			incompatibilityReason: null,
+			health: "needs-configuration",
+		});
 		expect(
 			resolveRestoredIntegrationDisabled(
 				{ isDisabled: false, configuredSecretPaths: [path] },
@@ -310,19 +478,26 @@ const provenanceRecords = (
 				}
 			: {
 					sortOrder: 0,
-					settings: {},
 					icon: "list",
 					kind: "custom",
 					isHidden: false,
 					isBuiltin: false,
 					name: "Owner view",
 					id: "saved-view-id",
+					installationId: null,
 					slug: "archived-user-view",
 					dataSources: provenanceQuery,
 					createdAt: "2026-08-23T12:00:00.000Z",
 					updatedAt: "2026-08-23T12:00:00.000Z",
-					renderer: { kind: "kernel", name: "entity-browser" },
+					renderer: { kind: "kernel", name: "results-table" },
 					pluginKey: input.viewKey === undefined ? "owner-key" : input.viewKey,
+					settings: {
+						pageSize: 50,
+						entityLink: null,
+						rowKeyFields: ["id"],
+						sourceName: "savedView",
+						columns: [{ field: "name", label: "Name", displayKind: "text" }],
+					},
 				},
 	],
 });
@@ -346,9 +521,12 @@ const provenanceEntityDefinition: DefinitionSnapshot["entitySchemas"][string] = 
 };
 
 const provenanceDefinitions: DefinitionSnapshot = {
-	entitySchemas: { "owner-entity": provenanceEntityDefinition },
+	entitySchemas: {
+		[definitionKey("entity", definitionOwner("owner-id"), "owner-entity")]:
+			provenanceEntityDefinition,
+	},
 	relationshipSchemas: {
-		"owner-link": {
+		[definitionKey("relationship", definitionOwner("owner-id"), "owner-link")]: {
 			name: "Owner link",
 			slug: "owner-link",
 			pluginId: "owner-id",
@@ -358,7 +536,7 @@ const provenanceDefinitions: DefinitionSnapshot = {
 		},
 	},
 	signalSchemas: {
-		"owner.signal": {
+		[definitionKey("signal", definitionOwner("owner-id"), "owner.signal")]: {
 			pluginId: "owner-id",
 			name: "Owner signal",
 			slug: "owner.signal",
@@ -369,7 +547,7 @@ const provenanceDefinitions: DefinitionSnapshot = {
 		},
 	},
 	savedViews: {
-		"owner-view": {
+		[definitionKey("saved-view", definitionOwner("owner-id"), "owner-view")]: {
 			icon: "list",
 			sortOrder: 0,
 			settings: {},
@@ -470,7 +648,9 @@ it.effect("preflights all qualified schema provenance including streamed events"
 				pluginIds,
 				"definitions" in testCase ? testCase.definitions : provenanceDefinitions,
 			).pipe(Effect.flip);
-			expect(error.message, testCase.name).toMatch(/wrong plugin owner|unmapped plugin key/);
+			expect(error.message, testCase.name).toMatch(
+				/wrong plugin owner|unmapped plugin key|unavailable/,
+			);
 		}
 	}),
 );
@@ -489,6 +669,44 @@ it("does not apply archived translations to an existing global entity", () => {
 	expect(selectTranslationsForRestore(false, translations)).toEqual([]);
 	expect(selectTranslationsForRestore(true, translations)).toBe(translations);
 });
+
+it.effect("rejects private-owned global snapshots during preflight", () =>
+	Effect.gen(function* () {
+		const packageValue = revisionPackage("whiskey", "v1", "bottle");
+		const packageId = packageValue.manifest.metadata.packageId;
+		const key = pluginPackageKey({ packageId, scope: "user" });
+		const dependency = provenanceRecords().entityDependencies[0];
+		assert(dependency);
+		const records: ArchiveRecords = {
+			...provenanceRecords(),
+			entities: [],
+			savedViews: [],
+			relationships: [],
+			notificationSubscriptions: [],
+			entityDependencies: [
+				{ ...dependency, entitySchemaSlug: "bottle", entitySchemaPluginKey: key },
+			],
+			privatePlugins: [
+				{
+					key,
+					packageId,
+					version: "v1",
+					slug: "whiskey",
+					compiledScripts: [],
+					sourceHash: "a".repeat(64),
+					manifest: packageValue.manifest,
+				},
+			],
+		};
+		const error = yield* preflightProvenance(
+			records,
+			{ count: 0, sha256: "", read: () => Stream.empty },
+			new Map([[key, "private-owner"]]),
+			provenanceDefinitions,
+		).pipe(Effect.flip);
+		expect(error.message).toContain("private entity cannot request global scope");
+	}),
+);
 
 it.effect(
 	"rejects structurally valid restored plugin views with incompatible settings or data sources",
@@ -551,8 +769,14 @@ class FakeRestorePersistence extends Context.Service<
 	}
 >()("test/FakeRestorePersistence") {}
 
-const eventSchema = { name: "Review", slug: "review", propertiesSchema: { fields: {} } };
+const eventSchema = {
+	pluginId: null,
+	name: "Review",
+	slug: "review",
+	propertiesSchema: { fields: {} },
+};
 const bootstrapEntitySchema = {
+	pluginId: null,
 	icon: "record",
 	pluginSlug: "fixture",
 	name: "Bootstrap entity",
@@ -614,7 +838,10 @@ const restoreArchivedEvents = (events: ReadonlyArray<ArchiveEvent>) =>
 				savedViews: {},
 				signalSchemas: {},
 				relationshipSchemas: {},
-				entitySchemas: { "bootstrap-entity": bootstrapEntitySchema },
+				entitySchemas: {
+					[definitionKey("entity", definitionOwner(null), "bootstrap-entity")]:
+						bootstrapEntitySchema,
+				},
 			},
 		);
 	});
@@ -753,7 +980,7 @@ layer(restoreWriterLayer())((test) => {
 		Effect.gen(function* () {
 			yield* restoreArchivedEvents([]);
 			const [restored] = yield* (yield* FakeRestorePersistence).restoredEntities;
-			expect(restored).toMatchObject({ id: "archived-bootstrap" });
+			expect(restored?.id).not.toBe("archived-bootstrap");
 			expect(restored).not.toHaveProperty("origin");
 		}),
 	);
@@ -856,7 +1083,7 @@ describe("account backup restore in PostgreSQL", () => {
 		PluginInstallationRepository.layer,
 	).pipe(Layer.provide(makeAppConfigLayer()));
 	layer(
-		BackupRestoreWriter.layer.pipe(
+		Layer.merge(BackupRestoreWriter.layer, BackupRestorePersistence.layer).pipe(
 			Layer.provideMerge(restoreDependencies),
 			Layer.provideMerge(revisionDatabaseLayer),
 		),
@@ -934,16 +1161,22 @@ describe("account backup restore in PostgreSQL", () => {
 							basePackage.compiledClient,
 						),
 					};
-					const pluginId = yield* plugins.persist(packageValue, {
+					const installedPluginId = yield* session.transaction(
+						plugins.persist(packageValue, {
+							scope: "user",
+							slug: "portable",
+							ownerId: "recipient",
+							packageId: packageValue.manifest.metadata.packageId,
+						}),
+					);
+					const pluginKey = pluginPackageKey({
 						scope: "user",
-						slug: "portable",
-						ownerId: "recipient",
+						packageId: packageValue.manifest.metadata.packageId,
 					});
-					const pluginKey = `user:portable:${packageValue.sourceHash}`;
 					const snapshot = buildDefinitionSnapshot(
 						mergeManifestDefinitions(
 							{ savedViews: [], signalSchemas: [], entitySchemas: [], relationshipSchemas: [] },
-							[{ id: pluginId, slug: "portable", manifest: packageValue.manifest }],
+							[{ slug: "portable", id: installedPluginId, manifest: packageValue.manifest }],
 						),
 					);
 					const timestamp = "2026-09-16T00:00:00.000Z";
@@ -994,13 +1227,16 @@ describe("account backup restore in PostgreSQL", () => {
 						installations: [
 							{
 								sortOrder: 1,
+								healthReason: null,
 								hiddenIntent: false,
+								isInitialized: true,
+								homeSavedView: null,
 								createdAt: timestamp,
 								updatedAt: timestamp,
 								packageKey: pluginKey,
-								homeSavedViewSlug: null,
 								lifecycleIntent: "ready",
 								config: { unit: "metric" },
+								incompatibilityReason: null,
 								id: "restored-installation",
 								configuredSecretPaths: ["/token"],
 								userSettings: { preference: true },
@@ -1024,22 +1260,25 @@ describe("account backup restore in PostgreSQL", () => {
 							}),
 					};
 					const writer = yield* BackupRestoreWriter;
-					yield* writer.restoreRecords(
-						UserId.make("recipient"),
-						records,
-						new Map(),
-						archivedEvents,
-						new Map([[pluginKey, pluginId]]),
-						snapshot,
+					yield* session.transaction(
+						writer.restoreRecords(
+							UserId.make("recipient"),
+							records,
+							new Map(),
+							archivedEvents,
+							new Map([[pluginKey, installedPluginId]]),
+							snapshot,
+						),
 					);
 					const restoredInstallation = yield* installations.findByUserAndPlugin(
 						UserId.make("recipient"),
-						pluginId,
+						installedPluginId,
 					);
 					assert(restoredInstallation?.activeConfigRevisionId);
 					const activeConfigRevisionId = restoredInstallation.activeConfigRevisionId;
 					expect(restoredInstallation).toMatchObject({
 						isHidden: true,
+						isInitialized: true,
 						health: "needs-configuration",
 					});
 					expect(restoredInstallation.config).toEqual({ unit: "metric" });
@@ -1093,5 +1332,579 @@ describe("account backup restore in PostgreSQL", () => {
 					}
 				}),
 		);
+		test.effect("does not overwrite a shared system entity from a user backup snapshot", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const plugins = yield* PluginRepository;
+				const writer = yield* BackupRestoreWriter;
+				const entities = yield* EntitiesRepository;
+				const persistence = yield* BackupRestorePersistence;
+				const base = revisionPackage("shared", "v1", "bottle");
+				const normalized = normalizePluginPackage(
+					yield* normalizePluginSource({
+						manifest: base.manifest,
+						compiledScripts: base.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
+							entry,
+							format: compiledFormat,
+							javascript: compiledCode,
+						})),
+					}),
+				);
+				const packageId = normalized.manifest.metadata.packageId;
+				const id = yield* session.transaction(
+					plugins.persist(normalized, {
+						packageId,
+						ownerId: null,
+						slug: "shared",
+						scope: "system",
+					}),
+				);
+				const provider = yield* plugins.resolveProviderBySlugs({
+					pluginId: id,
+					providerSlug: "shared-provider",
+				});
+				assert(provider);
+				const globalId = yield* session.transaction(
+					persistence.restoreEntity({
+						userId: null,
+						name: "Shared",
+						id: crypto.randomUUID(),
+						providerId: provider.id,
+						entitySchemaPluginId: id,
+						entitySchemaSlug: "bottle",
+						createdAt: archivedTimestamp,
+						updatedAt: archivedTimestamp,
+						externalId: "shared-external",
+						properties: { kind: "one", name: "Shared" },
+					}),
+				);
+				const before = yield* entities.listGlobalEntitiesByIdsForBackup([globalId]);
+				const key = pluginPackageKey({ packageId, scope: "system" });
+				const records: ArchiveRecords = {
+					...provenanceRecords(),
+					entities: [],
+					savedViews: [],
+					relationships: [],
+					notificationSubscriptions: [],
+					entityDependencies: [
+						{
+							translations: [],
+							populatedAt: null,
+							id: "archived-shared",
+							entitySchemaSlug: "bottle",
+							entitySchemaPluginKey: key,
+							name: "Untrusted overwrite",
+							externalId: "shared-external",
+							createdAt: archivedTimestamp.toISOString(),
+							updatedAt: archivedTimestamp.toISOString(),
+							properties: { kind: "one", name: "Untrusted overwrite" },
+							provider: { pluginKey: key, providerSlug: "shared-provider" },
+							identity: { pluginKey: key, kind: "provider", providerSlug: "shared-provider" },
+						},
+					],
+				};
+				const definitions = buildDefinitionSnapshot(
+					mergeManifestDefinitions(
+						{ savedViews: [], entitySchemas: [], signalSchemas: [], relationshipSchemas: [] },
+						[{ id, slug: "shared", manifest: normalized.manifest }],
+					),
+				);
+				const required = [
+					{
+						packageId,
+						version: "v1",
+						slug: "shared",
+						sourceHash: normalized.sourceHash,
+						definitionContract: archivePluginDefinitionContract(normalized.manifest),
+					},
+				];
+				const mapped = yield* writer.assertRequiredPlugins(required);
+				const events = { count: 0, sha256: "", read: () => Stream.empty };
+				yield* writer.preflight(records, events, mapped, definitions, required);
+				yield* session.transaction(
+					writer.restoreRecords(
+						UserId.make("recipient"),
+						records,
+						new Map(),
+						events,
+						mapped,
+						definitions,
+					),
+				);
+				expect(yield* entities.listGlobalEntitiesByIdsForBackup([globalId])).toEqual(before);
+			}),
+		);
 	});
+	for (const mode of [
+		"retained-quarantine",
+		"partial-quarantine",
+		"destination-conflict",
+	] as const) {
+		layer(
+			Layer.mergeAll(
+				BackupRestorePersistence.layer,
+				BackupRestoreWriter.layer,
+				PluginBackupRestore.layer,
+				BackupExportSnapshot.layer,
+			).pipe(
+				Layer.provideMerge(restoreDependencies),
+				Layer.provideMerge(revisionDatabaseLayer),
+				Layer.provideMerge(BunFileSystem.layer),
+				Layer.provide(
+					Layer.mock(ManagedAssetsService, {
+						verifyManagedAssetOwnership: () => Effect.succeed([]),
+					}),
+				),
+			),
+		)((test) => {
+			test.effect(
+				`round-trips equal-name private packages with ${mode} through production archives`,
+				() =>
+					Effect.gen(function* () {
+						const session = yield* DatabaseSession;
+						const plugins = yield* PluginRepository;
+						const persistence = yield* BackupRestorePersistence;
+						const installations = yield* PluginInstallationRepository;
+						const automations = yield* AutomationsRepository;
+						const sourceUser = UserId.make("owner");
+						const destinationUser = UserId.make("recipient");
+						const sources: Array<{
+							readonly packageValue: NormalizedPlugin;
+							readonly sourceId: string;
+							readonly entityId: EntityId;
+						}> = [];
+						for (const label of ["A", "B"]) {
+							const base = revisionPackage("whiskey", "v1", "bottle");
+							const authoredEntity = table("entity", "owned");
+							const authoredQuery = document({
+								records: rows(authoredEntity, {
+									fields: [
+										field("id", column(authoredEntity, "id")),
+										field("owner", pluginId({ kind: "self" })),
+									],
+								}),
+							});
+							const manifest: PluginManifest = {
+								...base.manifest,
+								metadata: { ...base.manifest.metadata, name: "Whiskey" },
+								integrationProviders: [
+									{
+										lot: "push",
+										slug: "import",
+										name: "Import",
+										description: "Owned integration",
+										settingsSchema: {
+											fields: {
+												note: { label: "Note", type: "string", description: "Opaque note" },
+											},
+										},
+									},
+								],
+								savedViews: [
+									{
+										icon: "box",
+										sortOrder: 0,
+										slug: "all-bottles",
+										name: "All bottles",
+										dataSources: authoredQuery,
+										renderer: { kind: "kernel", name: "results-table" },
+										settings: {
+											pageSize: 50,
+											entityLink: null,
+											rowKeyFields: ["id"],
+											sourceName: "records",
+											columns: [{ label: "Owner", field: "owner", displayKind: "text" }],
+										},
+									},
+								],
+							};
+							const source = yield* normalizePluginSource({
+								manifest,
+								compiledScripts: base.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
+									entry,
+									format: compiledFormat,
+									javascript: compiledCode,
+								})),
+							});
+							const packageValue = normalizePluginPackage(source);
+							const sourceId = yield* session.transaction(
+								plugins
+									.lockIngestion()
+									.pipe(
+										Effect.andThen(
+											plugins.persist(packageValue, {
+												scope: "user",
+												ownerId: sourceUser,
+												slug: manifest.metadata.slug,
+												packageId: manifest.metadata.packageId,
+											}),
+										),
+									),
+							);
+							const entityId = EntityId.make(crypto.randomUUID());
+							const entityTable = table("entity", "bottles");
+							const dataSources = document({
+								records: rows(entityTable, {
+									fields: [
+										field("id", column(entityTable, "id")),
+										field("owner", pluginId({ kind: "local", pluginId: PluginId.make(sourceId) })),
+										field("literal", literal(sourceId)),
+									],
+								}),
+							});
+							yield* session.transaction(
+								Effect.gen(function* () {
+									const installation = yield* persistence.restoreInstallation({
+										config: {},
+										isHidden: true,
+										userSettings: {},
+										pluginId: sourceId,
+										userId: sourceUser,
+										createdAt: fixedDate,
+										updatedAt: fixedDate,
+										health: "installing",
+										preserveExistingConfig: false,
+										sortOrder: label === "A" ? 1 : 2,
+										isInitialized: label !== "A" || mode !== "partial-quarantine",
+									});
+									assert(installation);
+									yield* persistence.activateRestored({
+										id: installation.id,
+										updatedAt: fixedDate,
+										isHidden: label === "B",
+										healthReason: label === "A" ? "Retained private claim" : null,
+										health:
+											mode !== "destination-conflict" && label === "A" ? "incompatible" : "ready",
+										incompatibilityReason:
+											mode !== "destination-conflict" && label === "A"
+												? "package-identity-conflict"
+												: null,
+									});
+									const provider = yield* plugins.resolveProviderBySlugs({
+										pluginId: sourceId,
+										providerSlug: "whiskey-provider",
+									});
+									assert(provider);
+									yield* persistence.restoreEntity({
+										name: label,
+										id: entityId,
+										externalId: label,
+										userId: sourceUser,
+										createdAt: fixedDate,
+										updatedAt: fixedDate,
+										providerId: provider.id,
+										entitySchemaSlug: "bottle",
+										entitySchemaPluginId: sourceId,
+										properties: { name: label, kind: "one" },
+									});
+									yield* persistence.restoreRelationship({
+										properties: {},
+										userId: sourceUser,
+										createdAt: fixedDate,
+										id: crypto.randomUUID(),
+										sourceEntityId: entityId,
+										targetEntityId: entityId,
+										relationshipSchemaPluginId: sourceId,
+										relationshipSchemaSlug: "whiskey-link",
+									});
+									yield* persistence.restoreEvents([
+										{
+											entityId,
+											userId: sourceUser,
+											createdAt: fixedDate,
+											updatedAt: fixedDate,
+											occurredAt: fixedDate,
+											id: crypto.randomUUID(),
+											sessionEntityId: entityId,
+											eventSchemaSlug: "changed",
+											properties: { value: label },
+											eventSchemaPluginId: sourceId,
+										},
+									]);
+									yield* automations.insertNotificationSubscription({
+										metadata: null,
+										isActive: false,
+										userId: sourceUser,
+										signalSchemaPluginId: sourceId,
+										signalSchemaSlug: SignalSchemaSlug.make("whiskey.signal"),
+									});
+									yield* persistence.restoreForUser({
+										lot: "push",
+										name: label,
+										isDisabled: false,
+										userId: sourceUser,
+										provider: "import",
+										createdAt: fixedDate,
+										updatedAt: fixedDate,
+										syncOwnership: false,
+										minimumProgress: "0",
+										lastFinishedAt: null,
+										maximumProgress: "100",
+										id: crypto.randomUUID(),
+										pluginInstallationId: installation.id,
+										providerSpecifics: { note: sourceId },
+										extraSettings: { disableOnContinuousErrors: false },
+									});
+									yield* persistence.restoreBuiltinOverride({
+										userId: sourceUser,
+										pluginId: sourceId,
+										slug: "all-bottles",
+										isHidden: label === "A",
+										sortOrder: label === "A" ? 4 : 8,
+									});
+									const view = yield* persistence.restoreCustomView({
+										name: label,
+										icon: "box",
+										dataSources,
+										sortOrder: 0,
+										isHidden: false,
+										userId: sourceUser,
+										createdAt: fixedDate,
+										updatedAt: fixedDate,
+										id: crypto.randomUUID(),
+										pluginInstallationId: installation.id,
+										slug: `bottles-${label.toLowerCase()}`,
+										renderer: { kind: "kernel", name: "results-table" },
+										settings: {
+											pageSize: 50,
+											entityLink: null,
+											rowKeyFields: ["id"],
+											sourceName: "records",
+											columns: [{ label: "Owner", field: "owner", displayKind: "text" }],
+										},
+									});
+									assert(view);
+									yield* installations.setHomeSavedView(sourceUser, installation.id, {
+										kind: "custom",
+										savedViewId: SavedViewId.make(view.id),
+									});
+								}),
+							);
+							sources.push({ sourceId, entityId, packageValue });
+						}
+						const fs = yield* FileSystem.FileSystem;
+						const directory = yield* fs.makeTempDirectoryScoped();
+						const exported = yield* session.transaction(
+							(yield* BackupExportSnapshot).prepareExportSnapshot(
+								sourceUser,
+								`${directory}/events.ndjson`,
+							),
+						);
+						expect(exported.records.privatePlugins).toHaveLength(2);
+						expect(
+							exported.records.installations.find(({ sortOrder }) => sortOrder === 1)
+								?.isInitialized,
+						).toBe(mode !== "partial-quarantine");
+						expect(new Set(exported.records.privatePlugins.map(({ key }) => key)).size).toBe(2);
+						const validated = yield* validateArchiveStream(
+							createArchiveStream({
+								assets: [],
+								appVersion: "test",
+								records: exported.records,
+								archiveId: "private-round-trip",
+								redactions: exported.redactions,
+								createdAt: "2026-10-01T00:00:00.000Z",
+								requiredPlugins: exported.requiredPlugins,
+								events: {
+									...exported.events,
+									chunks: Stream.toAsyncIterable(fs.stream(exported.events.path)),
+								},
+							}),
+							{ directory },
+						);
+						const first = sources[0];
+						assert(first);
+						let systemId: string | null = null;
+						if (mode === "destination-conflict") {
+							systemId = yield* session.transaction(
+								plugins
+									.lockIngestion()
+									.pipe(
+										Effect.andThen(
+											plugins.persist(first.packageValue, {
+												ownerId: null,
+												scope: "system",
+												slug: "whiskey",
+												packageId: first.packageValue.manifest.metadata.packageId,
+											}),
+										),
+									),
+							);
+						}
+						const systemBefore =
+							systemId === null ? null : yield* plugins.findActiveSystemPluginById(systemId);
+						const pluginRestore = yield* PluginBackupRestore;
+						const writer = yield* BackupRestoreWriter;
+						const prepared = yield* pluginRestore.prepare(validated.records.privatePlugins);
+						const ids = yield* session.transaction(
+							Effect.gen(function* () {
+								const persistedIds = yield* pluginRestore.persist(destinationUser, prepared);
+								const definitions = yield* pluginRestore.buildDefinitions(prepared, persistedIds);
+								yield* writer.preflight(
+									validated.records,
+									validated.events,
+									persistedIds,
+									definitions,
+									[],
+								);
+								yield* writer.restoreRecords(
+									destinationUser,
+									validated.records,
+									new Map(),
+									validated.events,
+									persistedIds,
+									definitions,
+								);
+								return persistedIds;
+							}),
+						);
+						for (const [index, source] of sources.entries()) {
+							const key = pluginPackageKey({
+								scope: "user",
+								packageId: source.packageValue.manifest.metadata.packageId,
+							});
+							const targetId = ids.get(key);
+							assert(targetId);
+							expect(targetId).not.toBe(source.sourceId);
+							const installation = yield* installations.findByUserAndPlugin(
+								destinationUser,
+								targetId,
+							);
+							expect(installation).toMatchObject({
+								isHidden: index === 1,
+								health: index === 0 ? "incompatible" : "ready",
+								isInitialized: index !== 0 || mode !== "partial-quarantine",
+								incompatibilityReason: index === 0 ? "package-identity-conflict" : null,
+							});
+						}
+						const restoredEntities = yield* (yield* EntitiesRepository).listUserEntitiesForBackup(
+							destinationUser,
+						);
+						expect(restoredEntities).toHaveLength(2);
+						for (const row of restoredEntities) {
+							expect([...ids.values()]).toContain(row.entitySchemaPluginId);
+							expect(row.provider?.pluginId).toBe(row.entitySchemaPluginId);
+							expect(sources.map(({ entityId }) => entityId)).not.toContain(row.id);
+						}
+						const restoredViews = yield* (yield* SavedViewsRepository).listForBackup(
+							destinationUser,
+						);
+						for (const view of restoredViews) {
+							if (!view.isBuiltin) {
+								const index = view.name === "A" ? 0 : 1;
+								const source = sources[index];
+								assert(source);
+								const destinationId = ids.get(
+									pluginPackageKey({
+										scope: "user",
+										packageId: source.packageValue.manifest.metadata.packageId,
+									}),
+								);
+								expect(view.dataSources?.queries["records"]?.output).toMatchObject({
+									fields: [
+										{},
+										{ expr: { reference: { kind: "local", pluginId: destinationId } } },
+										{ expr: { value: source.sourceId } },
+									],
+								});
+								const installation = yield* installations.findByUserAndPlugin(
+									destinationUser,
+									destinationId ?? "",
+								);
+								expect(installation?.homeSavedView).toEqual({
+									kind: "custom",
+									savedViewId: view.id,
+								});
+							}
+						}
+						const reexported = yield* session.transaction(
+							(yield* BackupExportSnapshot).prepareExportSnapshot(
+								destinationUser,
+								`${directory}/restored-events.ndjson`,
+							),
+						);
+						expect(reexported.records.privatePlugins).toHaveLength(2);
+						expect(
+							reexported.records.savedViews.filter((view) => view.kind === "builtin-override"),
+						).toHaveLength(2);
+						for (const view of reexported.records.savedViews) {
+							if (view.kind === "builtin-override") {
+								const source = sources[view.sortOrder === 4 ? 0 : 1];
+								assert(source);
+								const targetId = ids.get(
+									pluginPackageKey({
+										scope: "user",
+										packageId: source.packageValue.manifest.metadata.packageId,
+									}),
+								);
+								const definitions = yield* pluginRestore.buildDefinitions(prepared, ids);
+								const definition =
+									definitions.savedViews[
+										definitionKey("saved-view", definitionOwner(targetId ?? null), "all-bottles")
+									];
+								expect(definition?.dataSources?.queries["records"]?.output).toMatchObject({
+									fields: [{}, { expr: { reference: { kind: "local", pluginId: targetId } } }],
+								});
+								expect(view.pluginKey).toBe(
+									pluginPackageKey({
+										scope: "user",
+										packageId: source.packageValue.manifest.metadata.packageId,
+									}),
+								);
+							}
+						}
+						expect(reexported.records.integrations).toHaveLength(2);
+						for (const integration of reexported.records.integrations) {
+							const source = sources[integration.name === "A" ? 0 : 1];
+							assert(source);
+							expect(integration.providerSpecifics).toEqual({ note: source.sourceId });
+							expect(integration.packageKey).toBe(
+								pluginPackageKey({
+									scope: "user",
+									packageId: source.packageValue.manifest.metadata.packageId,
+								}),
+							);
+						}
+						expect(reexported.records.notificationSubscriptions).toHaveLength(2);
+						expect(
+							new Set(
+								reexported.records.notificationSubscriptions.map(
+									({ signalSchemaPluginKey }) => signalSchemaPluginKey,
+								),
+							).size,
+						).toBe(2);
+						expect(reexported.records.relationships).toHaveLength(2);
+						for (const relationship of reexported.records.relationships) {
+							const entity = reexported.records.entities.find(
+								({ id }) => id === relationship.sourceEntityId,
+							);
+							expect(entity?.entitySchemaPluginKey).toBe(relationship.relationshipSchemaPluginKey);
+							expect(relationship.targetEntityId).toBe(relationship.sourceEntityId);
+						}
+						const eventLines = (yield* fs.readFileString(reexported.events.path))
+							.trim()
+							.split("\n");
+						expect(eventLines).toHaveLength(2);
+						for (const line of eventLines) {
+							const event = yield* Schema.decodeEffect(Schema.fromJsonString(ArchiveEvent))(line);
+							const entity = reexported.records.entities.find(({ id }) => id === event.entityId);
+							expect(entity?.entitySchemaPluginKey).toBe(event.eventSchemaPluginKey);
+							expect(event.sessionEntityId).toBe(event.entityId);
+						}
+						expect(
+							reexported.records.installations.find(
+								({ lifecycleIntent }) => lifecycleIntent === "incompatible",
+							),
+						).toMatchObject({
+							hiddenIntent: false,
+							isInitialized: mode !== "partial-quarantine",
+							incompatibilityReason: "package-identity-conflict",
+						});
+						if (systemId !== null) {
+							expect(yield* plugins.findActiveSystemPluginById(systemId)).toEqual(systemBefore);
+						}
+					}).pipe(Effect.scoped),
+			);
+		});
+	}
 });

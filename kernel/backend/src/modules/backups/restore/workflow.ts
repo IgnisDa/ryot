@@ -25,11 +25,7 @@ import { validateArchiveStream } from "../archive/archive";
 import { BackupArchiveError, type BackupArchiveErrorReason } from "../archive/error";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
-import {
-	BackupRestoreWriter,
-	preflightProvenance,
-	RequiredBackupPluginUnavailable,
-} from "./writer";
+import { BackupRestoreWriter, RequiredBackupPluginUnavailable } from "./writer";
 
 const RestoreBackupWorkflowPayload = Schema.Struct({
 	userId: UserId,
@@ -96,6 +92,7 @@ const restoreFailure = (error: unknown): BackupRunFailureValue => {
 	}
 	if (error instanceof RequiredBackupPluginUnavailable) {
 		return {
+			packageId: error.packageId,
 			pluginSlug: error.pluginSlug,
 			code: "required-plugin-unavailable",
 			requiredVersion: error.requiredVersion,
@@ -232,11 +229,12 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							preparedPlugins,
 							preflightPluginIds,
 						);
-						yield* preflightProvenance(
+						yield* writer.preflight(
 							validated.records,
 							validated.events,
 							preflightPluginIds,
 							preflightDefinitions,
+							validated.manifest.requiredPlugins,
 						);
 						const provider = yield* objectStorage.selectStorageProvider("permanent");
 						for (const asset of validated.assets) {
@@ -259,9 +257,12 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							assetLocators.set(`s3:${sha256}`, staged.locator);
 						}
 						const restoreTransaction = Effect.fnUntraced(function* () {
+							yield* pluginRestore.lockIngestion;
 							yield* database.acquireUserWriteLock(payload.userId);
 							yield* cleanliness.assertAccountIsClean(payload.userId);
-							const pluginIdByKey = new Map(systemPluginIds);
+							const pluginIdByKey = new Map(
+								yield* writer.assertRequiredPlugins(validated.manifest.requiredPlugins),
+							);
 							const privatePluginIds = yield* pluginRestore.persist(
 								payload.userId,
 								preparedPlugins,
@@ -272,6 +273,13 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							const definitions = yield* pluginRestore.buildDefinitions(
 								preparedPlugins,
 								pluginIdByKey,
+							);
+							yield* writer.preflight(
+								validated.records,
+								validated.events,
+								pluginIdByKey,
+								definitions,
+								validated.manifest.requiredPlugins,
 							);
 							for (const staged of stagedBySha.values()) {
 								yield* managedAssets.registerManagedAssetInLockedTransaction(staged.metadata);

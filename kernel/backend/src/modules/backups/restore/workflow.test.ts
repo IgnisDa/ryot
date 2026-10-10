@@ -15,11 +15,13 @@ import {
 	type MockOverrides,
 } from "#lib/test-utils/effect";
 import { PluginBackupRestore } from "#modules/plugins/backup-restore";
+import { fixtureManifest } from "#modules/plugins/test-support";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { createArchiveStream } from "../archive/archive";
+import { archivePluginDefinitionContract } from "../archive/schemas";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
 import {
@@ -29,7 +31,7 @@ import {
 	RestoreBackupWorkflowOperationsLive,
 	runRestoreBackupWorkflow,
 } from "./workflow";
-import { BackupRestoreWriter } from "./writer";
+import { preflightProvenance, resolveRequiredPluginIds, BackupRestoreWriter } from "./writer";
 
 const localTempDir = "/tmp/ryot-backup-restore-tests";
 const EMPTY_SHA256 = new CryptoHasher("sha256").digest("hex");
@@ -113,12 +115,13 @@ const makeLayer = (
 								stagedObjects: Ref.get(objects),
 							}),
 							mockRepository(input.repository ?? {}),
-							mockWriter(input.writer ?? {}),
+							mockWriter({ preflight: preflightProvenance, ...input.writer }),
 							mockCleanliness(input.cleanliness ?? {}),
 							mockUploadIntents(input.uploadIntents ?? {}),
 							mockManagedAssets(input.managedAssets ?? {}),
 							mockObjectStorage(input.objectStorage ?? {}),
 							mockPluginRestore({
+								lockIngestion: Effect.void,
 								prepare: () => Effect.succeed([]),
 								persist: () => Effect.succeed(new Map()),
 								buildDefinitions: () =>
@@ -187,6 +190,56 @@ const openArchive = (archive: ReturnType<typeof createArchiveStream>) => () =>
 	Effect.succeed(
 		archive.pipe(Stream.mapError(() => new BadRequest({ message: "archive stream failed" }))),
 	);
+
+layer(
+	makeLayer(({ record }) => ({
+		repository: { getRunById: () => Effect.succeed(runningRun) },
+		pluginRestore: { persist: () => record("persist").pipe(Effect.as(new Map())) },
+		cleanliness: {
+			assertAccountIsClean: () => record("replace-account").pipe(Effect.as(undefined)),
+		},
+		writer: {
+			restoreRecords: () => record("restore").pipe(Effect.as(undefined)),
+			assertRequiredPlugins: (required) => resolveRequiredPluginIds(required, []),
+		},
+		objectStorage: {
+			selectStorageProvider: () => record("stage-assets").pipe(Effect.as("local" as const)),
+			openObject: openArchive(
+				createArchiveStream({
+					assets: [],
+					redactions: [],
+					appVersion: "test",
+					records: emptyRecords,
+					archiveId: "required-system",
+					createdAt: "2026-10-01T00:00:00.000Z",
+					events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
+					requiredPlugins: [
+						{
+							slug: "fixture",
+							version: "1.0.0",
+							sourceHash: "a".repeat(64),
+							packageId: fixtureManifest().metadata.packageId,
+							definitionContract: archivePluginDefinitionContract(fixtureManifest()),
+						},
+					],
+				}),
+			),
+		},
+	})),
+)((test) => {
+	test.effect("fails a missing system requirement before asset staging or account writes", () =>
+		Effect.gen(function* () {
+			const error = yield* (yield* RestoreBackupWorkflowOperations)
+				.restore(payload, archiveLocator)
+				.pipe(Effect.flip);
+			expect(error.failure).toMatchObject({
+				code: "required-plugin-unavailable",
+				packageId: fixtureManifest().metadata.packageId,
+			});
+			expect(yield* (yield* FakeRestoreDependencies).calls).toEqual([]);
+		}),
+	);
+});
 
 layer(
 	makeLayer(({ record }) => ({
@@ -423,6 +476,7 @@ layer(
 						requiredVersion: "2",
 						pluginSlug: "fixture",
 						code: "required-plugin-unavailable",
+						packageId: fixtureManifest().metadata.packageId,
 					},
 				}),
 				archiveLocator,
