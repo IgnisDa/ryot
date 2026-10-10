@@ -6,7 +6,6 @@ import { Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DownloadTickets } from "#lib/infrastructure/download-tickets";
-import { roleLogPath } from "#lib/infrastructure/server-role";
 
 type LogFile = ContractSuccess<"serverLogs", "list">["files"][number];
 
@@ -27,13 +26,9 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 		),
 		Effect.mapError(failed),
 	);
-	const activeNames = (["all", "interactive", "background"] as const).map((role) =>
-		path.basename(roleLogPath(path, logPath, role)),
-	);
-	const isActive = (name: string) => activeNames.includes(name);
-	const rotatedName = new RegExp(
-		`^\\d{8}-\\d{4}-\\d{2,3}-(?:${activeNames.map(escapeRegExp).join("|")})\\.gz$`,
-	);
+	const activeName = path.basename(logPath);
+	const isActive = (name: string) => name === activeName;
+	const rotatedName = new RegExp(`^\\d{8}-\\d{4}-\\d{2,3}-${escapeRegExp(activeName)}\\.gz$`);
 	const compareNames = (a: string, b: string) =>
 		Number(isActive(b)) - Number(isActive(a)) || b.localeCompare(a);
 	const logNames = Effect.fn("ServerLogs.logNames")(function* () {

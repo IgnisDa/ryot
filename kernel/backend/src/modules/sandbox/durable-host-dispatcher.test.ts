@@ -167,7 +167,7 @@ it("derives service workflow identity from the parent and call index", () => {
 		args: { args: [], capability: "emitSignal" as const },
 	};
 	expect(
-		SandboxDurableHostServiceWorkflow.background.idempotencyKey({
+		SandboxDurableHostServiceWorkflow.idempotencyKey({
 			request,
 			parentExecutionId: "sandbox-parent",
 			startedAt: "2026-08-06T00:00:00.000Z",

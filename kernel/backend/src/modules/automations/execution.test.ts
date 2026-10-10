@@ -195,7 +195,7 @@ const submissions = (runId: string) =>
 	);
 const runExists = (runId: string) =>
 	Effect.flatMap(WorkflowEngine, (engine) =>
-		engine.poll(AutomationRunWorkflow.interactive, executionIdOf(runId)),
+		engine.poll(AutomationRunWorkflow, executionIdOf(runId)),
 	).pipe(Effect.map(Option.isSome));
 
 layer(executionLayer)((test) => {
@@ -428,11 +428,11 @@ layer(
 			);
 			const states = yield* (yield* AutomationExecutionOperations).dispatchStates(runIds);
 			expect(runIds.map((id) => states.get(id))).toEqual([
-				{ state: "claimed", lane: "interactive" },
-				{ state: "claimed", lane: "background" },
-				{ state: "fresh", lane: "interactive" },
-				{ state: "closed", lane: "background" },
-				{ state: "closed", lane: "background" },
+				{ state: "claimed" },
+				{ state: "claimed" },
+				{ state: "fresh" },
+				{ state: "closed" },
+				{ state: "closed" },
 			]);
 		}),
 	);
@@ -453,7 +453,7 @@ layer(
 			expect(yield* yield* RunWorkflowSubmissions).toEqual(
 				(
 					[
-						["required", "AutomationRunWorkflowInteractive"],
+						["required", "AutomationRunWorkflow"],
 						["async", "AutomationRunWorkflow"],
 					] as const
 				).map(([id, workflowName]) => ({

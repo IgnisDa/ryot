@@ -9,10 +9,10 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";
+import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { laneWorkflow } from "#lib/infrastructure/workflow-lane";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
@@ -35,7 +35,7 @@ export const EventCreateWorkflowPayload = Schema.Struct({
 );
 export type EventCreateWorkflowPayload = typeof EventCreateWorkflowPayload.Type;
 
-export const EventCreateWorkflow = laneWorkflow("EventCreateWorkflow", {
+export const EventCreateWorkflow = Workflow.make("EventCreateWorkflow", {
 	success: CreateEventsResponse satisfies DurableSchema,
 	error: EventCreateWorkflowError satisfies DurableSchema,
 	payload: EventCreateWorkflowPayload satisfies DurableSchema,
@@ -57,7 +57,7 @@ export const enqueueEventCreate = Effect.fn("enqueueEventCreate")(function* (
 	return yield* dispatchAdmittedWorkflow(
 		receipts,
 		engine,
-		EventCreateWorkflow.forLane(input.command.causation.lane),
+		EventCreateWorkflow,
 		input.command.accountGeneration,
 		{ payload: input },
 		(admission) => admission,

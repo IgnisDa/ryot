@@ -1,11 +1,4 @@
-import {
-	booleanField,
-	defineConfig,
-	enumField,
-	group,
-	integerField,
-	stringField,
-} from "@ryot-app/config";
+import { booleanField, defineConfig, group, integerField, stringField } from "@ryot-app/config";
 
 const scheduler = group(
 	{ label: "Scheduler", description: "Scheduler settings" },
@@ -119,6 +112,12 @@ const sandbox = group(
 			description:
 				"Global sandbox execution concurrency across trust and snapshot tiers; keep it within available database and memory headroom",
 		}),
+		memoryBudgetMiB: integerField({
+			label: "Memory budget (MiB)",
+			envKey: "SANDBOX_MEMORY_BUDGET_MIB",
+			description:
+				"Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset",
+		}),
 		perUserSidecars: booleanField({
 			defaultValue: false,
 			label: "Per-user sidecars",
@@ -141,12 +140,6 @@ const sandbox = group(
 			label: "Development sandbox runtime directory",
 			description:
 				"Directory containing ryot-sandboxd and snapshots for non-Linux development; relative paths resolve from the working directory",
-		}),
-		memoryBudgetMiB: integerField({
-			label: "Memory budget (MiB)",
-			envKey: "SANDBOX_MEMORY_BUDGET_MIB",
-			description:
-				"Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset. With SERVER_LANES=split it is the deployment total, divided equally between the two roles, and is derived as half of effective memory when unset",
 		}),
 	},
 );
@@ -317,12 +310,6 @@ const server = group(
 			envKey: "SERVER_PRO_KEY",
 			description: "The key that can be used to enable Ryot Pro features",
 		}),
-		runnerSocketDir: stringField({
-			hidden: true,
-			label: "Runner socket directory",
-			envKey: "RYOT_RUNNER_SOCKET_DIR",
-			description: "Directory for internal runner sockets",
-		}),
 		clientDir: stringField({
 			hidden: true,
 			defaultValue: "./client",
@@ -357,25 +344,6 @@ const server = group(
 			envKey: "SERVER_PLUGINS_SYSTEM_DIR",
 			description:
 				"Directory containing deployment-controlled system plugin archives; archives are not cryptographically authenticated",
-		}),
-		lanes: enumField({
-			label: "Lanes",
-			defaultValue: "all",
-			envKey: "SERVER_LANES",
-			choices: { kind: "static", values: [{ value: "all" }, { value: "split" }] },
-			description:
-				"Use all for one server process, or split for separate interactive and background processes managed by the server",
-		}),
-		processRole: enumField({
-			hidden: true,
-			defaultValue: "all",
-			label: "Process role",
-			envKey: "RYOT_SERVER_ROLE",
-			description: "Internal role for supervised server processes",
-			choices: {
-				kind: "static",
-				values: [{ value: "all" }, { value: "interactive" }, { value: "background" }],
-			},
 		}),
 		egressAllowedNetworks: stringField({
 			label: "Egress allowed networks",

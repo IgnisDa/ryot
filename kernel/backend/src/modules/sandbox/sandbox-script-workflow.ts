@@ -53,7 +53,6 @@ import {
 	appendWorkflowJournal,
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
-import { laneWorkflow } from "#lib/infrastructure/workflow-lane";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -114,7 +113,7 @@ const SettledWorkflowRequest = Schema.Struct({
 	targetScriptId: Schema.NullOr(SandboxScriptId),
 });
 
-export const SandboxScriptWorkflow = laneWorkflow("SandboxScriptWorkflow", {
+export const SandboxScriptWorkflow = Workflow.make("SandboxScriptWorkflow", {
 	error: SandboxRunError satisfies DurableSchema,
 	success: jsonValueSchema satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
@@ -200,7 +199,7 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 							const subject = payload.subject;
 							yield* admitWorkflow(
 								receipts,
-								SandboxScriptWorkflow.forLane(payload.lane),
+								SandboxScriptWorkflow,
 								subject.type === "system" ? null : subject.accountGeneration,
 								executionId,
 							);
@@ -617,7 +616,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 						: dispatchAdmittedWorkflow(
 								receipts,
 								engine,
-								SandboxScriptWorkflow.forLane(payload.lane),
+								SandboxScriptWorkflow,
 								payload.subject.type === "system" ? null : payload.subject.accountGeneration,
 								{
 									executionId: childExecutionId,
@@ -980,7 +979,7 @@ export const runSandboxScriptWorkflow = Effect.fn("SandboxScriptWorkflow")(funct
 	const receipts = yield* MutationReceipts.make;
 	yield* admitWorkflow(
 		receipts,
-		SandboxScriptWorkflow.forLane(payload.lane),
+		SandboxScriptWorkflow,
 		payload.subject.type === "system" ? null : payload.subject.accountGeneration,
 		executionId,
 	).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
@@ -995,7 +994,7 @@ export const executeSandboxScriptWorkflow = Effect.fn("executeSandboxScriptWorkf
 	const value = yield* dispatchAdmittedWorkflow(
 		receipts,
 		engine,
-		SandboxScriptWorkflow.forLane(payload.lane),
+		SandboxScriptWorkflow,
 		payload.subject.type === "system" ? null : payload.subject.accountGeneration,
 		{ payload, executionId: payload.executionId },
 		(admission) => admission.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure"))),

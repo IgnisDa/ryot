@@ -428,7 +428,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const interrupted = (id: string, explicit: boolean, system = false) =>
 						Effect.gen(function* () {
 							const input = batchInput(id, system);
-							const instance = WorkflowInstance.initial(EventCreateWorkflow.interactive, id);
+							const instance = WorkflowInstance.initial(EventCreateWorkflow, id);
 							const exit = yield* runEventCreateWorkflow(input, id).pipe(
 								Effect.provideService(WorkflowInstance, instance),
 								Effect.provideService(WorkflowEngine, engine),
@@ -461,7 +461,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					).pipe(
 						Effect.provideService(
 							WorkflowInstance,
-							WorkflowInstance.initial(EventCreateWorkflow.interactive, "event-suspension-prefix"),
+							WorkflowInstance.initial(EventCreateWorkflow, "event-suspension-prefix"),
 						),
 						Effect.provideService(WorkflowEngine, engine),
 						Effect.provideService(LifecyclePlanner, recordingPlanner),
@@ -512,7 +512,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					const failed = yield* runEventCreateWorkflow(invalidInput, "invalid-first-event").pipe(
 						Effect.provideService(
 							WorkflowInstance,
-							WorkflowInstance.initial(EventCreateWorkflow.interactive, "invalid-first-event"),
+							WorkflowInstance.initial(EventCreateWorkflow, "invalid-first-event"),
 						),
 						Effect.provideService(WorkflowEngine, engine),
 						Effect.provideService(LifecyclePlanner, recordingPlanner),
@@ -574,7 +574,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							Effect.provideService(
 								WorkflowInstance,
 								WorkflowInstance.initial(
-									EventCreateWorkflow.interactive,
+									EventCreateWorkflow,
 									payload.command.causation.executionId,
 								),
 							),
@@ -644,7 +644,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							Effect.provideService(WorkflowEngine, engine),
 							Effect.provideService(
 								WorkflowInstance,
-								WorkflowInstance.initial(EventCreateWorkflow.interactive, id),
+								WorkflowInstance.initial(EventCreateWorkflow, id),
 							),
 							Effect.provideService(
 								LifecycleExecution,
@@ -1131,7 +1131,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					Effect.provideService(WorkflowEngine, measuredEngine),
 					Effect.provideService(
 						WorkflowInstance,
-						WorkflowInstance.initial(EventCreateWorkflow.interactive, "source-operation-fixture"),
+						WorkflowInstance.initial(EventCreateWorkflow, "source-operation-fixture"),
 					),
 				);
 				expect(result.count).toBe(1);
@@ -1155,11 +1155,8 @@ describe("Event lifecycle PostgreSQL", () => {
 							{ entityId, eventSchemaSlug, properties: { rating: 2 } },
 						],
 					};
-					const ownerExecutionId = yield* EventCreateWorkflow.interactive.executionId(payload);
-					const ownerInstance = WorkflowInstance.initial(
-						EventCreateWorkflow.interactive,
-						ownerExecutionId,
-					);
+					const ownerExecutionId = yield* EventCreateWorkflow.executionId(payload);
+					const ownerInstance = WorkflowInstance.initial(EventCreateWorkflow, ownerExecutionId);
 					const suspended = yield* Ref.make(false);
 					const retired = yield* Ref.make<ReadonlyArray<string>>([]);
 					const underlying = yield* LifecycleExecution;
@@ -1189,7 +1186,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
 						interrupt: (workflow, executionId) =>
 							Effect.gen(function* () {
-								expect(workflow._tag).toBe(EventCreateWorkflow.interactive._tag);
+								expect(workflow._tag).toBe(EventCreateWorkflow._tag);
 								expect(executionId).toBe(ownerExecutionId);
 								expect(
 									yield* session.run((db) =>
@@ -1208,7 +1205,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							}).pipe(Effect.orDie),
 						execute: (workflow, options) =>
 							Effect.gen(function* () {
-								if (workflow._tag !== EventCreateWorkflow.interactive._tag) {
+								if (workflow._tag !== EventCreateWorkflow._tag) {
 									return options.executionId;
 								}
 								const owners = yield* session.run((db) =>
@@ -1223,17 +1220,14 @@ describe("Event lifecycle PostgreSQL", () => {
 										),
 								);
 								expect(owners).toHaveLength(1);
-								expect(owners[0]?.workflowName).toBe(EventCreateWorkflow.interactive._tag);
+								expect(owners[0]?.workflowName).toBe(EventCreateWorkflow._tag);
 								const decoded = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)(
 									options.payload,
 								);
 								const instance =
 									options.executionId === ownerExecutionId
 										? ownerInstance
-										: WorkflowInstance.initial(
-												EventCreateWorkflow.interactive,
-												options.executionId,
-											);
+										: WorkflowInstance.initial(EventCreateWorkflow, options.executionId);
 								return yield* runEventCreateWorkflow(decoded, options.executionId).pipe(
 									Effect.provide(
 										sourceContext.pipe(
@@ -1319,7 +1313,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						).pipe(
 							Effect.provideService(
 								AdmittedWorkflowCatalogue,
-								Object.freeze([EventCreateWorkflow.interactive]),
+								Object.freeze([EventCreateWorkflow]),
 							),
 							Effect.provideService(AuthService, auth),
 							Effect.provideService(UserLifecycleRepository, repository),
@@ -1359,7 +1353,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							Effect.provideService(WorkflowEngine, recordingEngine),
 							Effect.provideService(
 								WorkflowInstance,
-								WorkflowInstance.initial(EventCreateWorkflow.interactive, ownerExecutionId),
+								WorkflowInstance.initial(EventCreateWorkflow, ownerExecutionId),
 							),
 							Effect.flip,
 						),

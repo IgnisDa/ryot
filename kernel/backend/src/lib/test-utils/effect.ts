@@ -17,7 +17,7 @@ import {
 	userWriteLockStatement,
 } from "#lib/infrastructure/db/session";
 import type { RedisService } from "#lib/infrastructure/redis";
-import { shardingConfigFor } from "#lib/infrastructure/workflow";
+import { shardingConfig } from "#lib/infrastructure/workflow";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 
 export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
@@ -99,9 +99,7 @@ export const makeSqlClusterWorkflowEngine = Effect.fnUntraced(function* () {
 		admin.unsafe(`DROP SCHEMA "${schemaName}" CASCADE`).pipe(Effect.orDie),
 	);
 	return ClusterWorkflowEngine.layer.pipe(
-		Layer.provide(
-			SingleRunner.layer({ runnerStorage: "sql", shardingConfig: shardingConfigFor("all") }),
-		),
+		Layer.provide(SingleRunner.layer({ shardingConfig, runnerStorage: "sql" })),
 		Layer.provide(
 			PgClient.layer({
 				url: Redacted.make(testDatabaseUrl()),
@@ -195,13 +193,10 @@ export const makeAppConfigLayer = (
 			secretAccessKey: Option.none(),
 		},
 		server: {
-			lanes: "all",
-			processRole: "all",
 			proKey: Option.none(),
 			clientDir: "./client",
 			disableNotifications: false,
 			pluginsSystemDir: "./plugins",
-			runnerSocketDir: Option.none(),
 			egressAllowedNetworks: Option.none(),
 			proKeyVerificationUrl: "https://api.unkey.com",
 			adminAccessToken: Redacted.make("test-admin-token"),

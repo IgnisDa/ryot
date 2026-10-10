@@ -42,7 +42,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 						dispatchAdmittedWorkflow(
 							receipts,
 							engine,
-							EntityImportWorkflow.forLane(payload.command.causation.lane),
+							EntityImportWorkflow,
 							payload.command.accountGeneration,
 							{ payload, discard: true, executionId: row.id },
 							(admission) => admission,
@@ -55,8 +55,6 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				id: string;
 				payload: unknown;
 			}) {
-				const { command } = yield* decodePayload(row.payload);
-				const workflow = EntityImportWorkflow.forLane(command.causation.lane);
 				yield* FiberMap.run(
 					completionWaiters,
 					row.id,
@@ -64,9 +62,9 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 						Effect.gen(function* () {
 							const awaitHint = yield* notifications.listen({
 								executionId: row.id,
-								workflowName: workflow._tag,
+								workflowName: EntityImportWorkflow._tag,
 							});
-							const result = yield* engine.poll(workflow, row.id);
+							const result = yield* engine.poll(EntityImportWorkflow, row.id);
 							if (Option.isNone(result) || result.value._tag !== "Complete") {
 								yield* awaitHint;
 							}
@@ -97,11 +95,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				const finished: string[] = [];
 				for (const row of running) {
 					yield* watchCompletion(row);
-					const { command } = yield* decodePayload(row.payload);
-					const result = yield* engine.poll(
-						EntityImportWorkflow.forLane(command.causation.lane),
-						row.id,
-					);
+					const result = yield* engine.poll(EntityImportWorkflow, row.id);
 					if (Option.isNone(result)) {
 						yield* start(row);
 					} else if (result.value._tag === "Complete") {
@@ -113,10 +107,9 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 					yield* FiberMap.remove(completionWaiters, id);
 				}
 				for (const row of admitted) {
-					const { command } = yield* decodePayload(row.payload);
 					yield* notifications.publish({
 						executionId: row.id,
-						workflowName: EntityImportWorkflow.forLane(command.causation.lane)._tag,
+						workflowName: EntityImportWorkflow._tag,
 					});
 					yield* start(row);
 					yield* watchCompletion(row);
@@ -166,8 +159,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				const removed = yield* repository.cancelQueued(input);
 				const admitted = removed ? null : yield* repository.find(input);
 				if (admitted) {
-					const { command } = yield* decodePayload(admitted.payload).pipe(Effect.orDie);
-					yield* engine.interrupt(EntityImportWorkflow.forLane(command.causation.lane), input.id);
+					yield* engine.interrupt(EntityImportWorkflow, input.id);
 				}
 				yield* wake;
 			});

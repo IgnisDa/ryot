@@ -272,7 +272,7 @@ layer(
 			expect(result.jobId).toBe(
 				createWorkflowJobId(
 					deriveJobIdSecret("test-admin-token"),
-					{ lane: "interactive", executionId: "exec-pending" },
+					{ executionId: "exec-pending" },
 					user.id,
 				),
 			);
@@ -336,13 +336,10 @@ const importResultLayer = (
 
 const importResultJobId = createWorkflowJobId(
 	deriveJobIdSecret("test-admin-token"),
-	{ lane: "interactive", executionId: "exec-abc" },
+	{ executionId: "exec-abc" },
 	user.id,
 );
-const importIdentity = {
-	executionId: "exec-abc",
-	workflowName: EntityImportWorkflow.forLane("interactive")._tag,
-};
+const importIdentity = { executionId: "exec-abc", workflowName: EntityImportWorkflow._tag };
 const importResult = Effect.flatMap(EntityImportService, (service) =>
 	service.getImportResult(user, importResultJobId),
 );
@@ -418,7 +415,7 @@ const importedEntity = {
 
 layer(
 	importResultLayer("running", (workflow, executionId) =>
-		workflow._tag === EntityImportWorkflow.interactive._tag && executionId === "exec-abc"
+		workflow._tag === EntityImportWorkflow._tag && executionId === "exec-abc"
 			? Effect.succeedSome(new Workflow.Complete({ exit: Exit.succeed(importedEntity) }))
 			: Effect.succeedNone,
 	),
@@ -432,7 +429,7 @@ layer(
 
 layer(
 	importResultLayer("running", (workflow, executionId) =>
-		workflow._tag === EntityImportWorkflow.interactive._tag && executionId === "exec-abc"
+		workflow._tag === EntityImportWorkflow._tag && executionId === "exec-abc"
 			? Effect.succeedSome(
 					new Workflow.Complete({
 						exit: Exit.fail({ message: "failed", stage: "population" as const }),
