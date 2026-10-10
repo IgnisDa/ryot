@@ -495,7 +495,7 @@ CREATE TABLE "import_run" (
 	"plugin_installation_id" text,
 	CONSTRAINT "import_run_owner_unique" UNIQUE("id","user_id","account_generation"),
 	CONSTRAINT "import_run_prepared_release_check" CHECK ("prepared_release" is null or ("pins" is not null and ("plan" is null or "plan" = "prepared_release"->'plan'))),
-	CONSTRAINT "import_run_block_check" CHECK ("status" <> 'blocked' or ("integration_lot" = 'sink' and "block_deadline" = "created_at" + interval '7 days')),
+	CONSTRAINT "import_run_block_check" CHECK ("status" <> 'blocked' or ("integration_lot" = 'sink' and "block_deadline" = "created_at" + interval '168 hours')),
 	CONSTRAINT "import_run_expiry_check" CHECK (("status" = 'expired') = ("expiry_reason" is not null)),
 	CONSTRAINT "import_run_status_check" CHECK ("status" in ('pending', 'blocked', 'expired', 'running', 'cancelling', 'completed', 'failed', 'cancelled')),
 	CONSTRAINT "import_run_integration_lot_check" CHECK (("integration_id" is null) = ("integration_lot" is null))
