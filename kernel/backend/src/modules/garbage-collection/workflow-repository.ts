@@ -6,6 +6,7 @@ import { type Envelope, type Reply, ShardId } from "effect/cluster";
 
 import { workflowExecution as table } from "#lib/infrastructure/db/schema/tables/workflow-executions";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import type { WorkflowIdentity } from "#lib/infrastructure/workflow-identity";
 
 import {
 	StoredWorkflowResult,
@@ -13,7 +14,6 @@ import {
 	workflowClockEntityType,
 	workflowEntityPrefix,
 	WorkflowExecutionExpired,
-	type WorkflowIdentity,
 	WorkflowParentPayload,
 } from "./workflow-models";
 

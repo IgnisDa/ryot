@@ -19,7 +19,13 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { createWorkflowJobId, deriveJobIdSecret, resolveWorkflowJob } from "#lib/shared/job-id";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
+import {
+	createWorkflowJobId,
+	deriveJobIdSecret,
+	resolveWorkflowJob,
+	type WorkflowJob,
+} from "#lib/shared/job-id";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -37,6 +43,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 			const repository = yield* EntitiesRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const admission = yield* ProviderImportAdmission;
+			const notifications = yield* WorkflowExecutionNotifications;
 			const jobIdSecret = deriveJobIdSecret(Redacted.value(config.server.adminAccessToken));
 
 			const importEntity = Effect.fn("EntityImportService.import")(function* (
@@ -136,31 +143,51 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				return job;
 			});
 
+			const readResult = (user: CurrentUserValue, lane: WorkflowJob["lane"], executionId: string) =>
+				Effect.gen(function* () {
+					const admitted = yield* admission.status({ id: executionId, userId: user.id });
+					if (admitted === "queued") {
+						return { status: "queued" } satisfies ImportEntityRunResult;
+					}
+					const result = Option.getOrUndefined(
+						yield* engine.poll(EntityImportWorkflow.forLane(lane), executionId),
+					);
+					// A signed job with neither a ledger row nor a workflow was cancelled before admission.
+					if (result === undefined && admitted === null) {
+						return { status: "cancelled" } satisfies ImportEntityRunResult;
+					}
+					return toEntityImportRunResult(result);
+				});
+
 			const getImportResult = Effect.fn("EntityImportService.getImportResult")(function* (
 				user: CurrentUserValue,
 				jobId: string,
 			) {
 				const { lane, executionId } = yield* resolveJob(user, jobId);
-				const admitted = yield* admission.status({ id: executionId, userId: user.id });
-				if (admitted === "queued") {
-					return { status: "queued" } satisfies ImportEntityRunResult;
-				}
-				const result = Option.getOrUndefined(
-					yield* engine.poll(EntityImportWorkflow.forLane(lane), executionId),
+				const identity = { executionId, workflowName: EntityImportWorkflow.forLane(lane)._tag };
+				return yield* Effect.scoped(
+					Effect.gen(function* () {
+						const awaitHint = yield* notifications.listen(identity);
+						const result = yield* readResult(user, lane, executionId);
+						if (result.status !== "queued" && result.status !== "running") {
+							return result;
+						}
+						yield* awaitHint.pipe(Effect.timeoutOption("20 seconds"));
+						return yield* readResult(user, lane, executionId);
+					}),
 				);
-				// A signed job with neither a ledger row nor a workflow was cancelled before admission.
-				if (result === undefined && admitted === null) {
-					return { status: "cancelled" } satisfies ImportEntityRunResult;
-				}
-				return toEntityImportRunResult(result);
 			});
 
 			const cancelImport = Effect.fn("EntityImportService.cancelImport")(function* (
 				user: CurrentUserValue,
 				jobId: string,
 			) {
-				const { executionId } = yield* resolveJob(user, jobId);
+				const { lane, executionId } = yield* resolveJob(user, jobId);
 				yield* admission.cancel({ id: executionId, userId: user.id });
+				yield* notifications.publish({
+					executionId,
+					workflowName: EntityImportWorkflow.forLane(lane)._tag,
+				});
 				return { jobId };
 			});
 
