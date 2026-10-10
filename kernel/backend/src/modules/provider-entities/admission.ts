@@ -14,6 +14,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
+import { preRegisterProviderDetails } from "./details-principal";
 import { EntityImportWorkflow } from "./entity-import-workflow";
 import { ProviderEntityImportWorkflowPayload } from "./schemas";
 
@@ -138,24 +139,22 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				payload: ProviderEntityImportWorkflowPayload;
 				userId: UserId;
 			}) {
-				const details = yield* runtime
-					.resolveUserDetailsScript(input.userId, input.payload.providerId)
-					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
 				const generation = input.payload.command.accountGeneration;
 				if (!generation || generation.userId !== input.userId) {
 					return yield* new DbError({
 						message: "Provider import account authority is unavailable",
 					});
 				}
-				const pin = yield* sandbox
-					.preRegisterPluginWorkflow({
-						scriptId: details.id,
-						executingUserId: input.userId,
+				const pin = yield* preRegisterProviderDetails(
+					{ sandbox, pluginRuntime: runtime },
+					{
+						userId: input.userId,
 						accountGeneration: generation,
 						pluginId: input.payload.pluginId,
+						providerId: input.payload.providerId,
 						executionId: input.payload.executionId,
-					})
-					.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
+					},
+				).pipe(Effect.mapError((error) => new DbError({ message: error.message })));
 				const outcome = yield* session
 					.transaction(
 						Effect.gen(function* () {

@@ -1044,6 +1044,7 @@ layer(relationshipDatabaseLayer())((test) => {
 						Effect.provideService(EntityImportWorkflowOperations, {
 							completeProviderEntityImport: () => Effect.void,
 							processProviderResolve: () => Effect.die("Unexpected provider resolve"),
+							preRegisterProviderImport: () => Effect.die("Unexpected provider pre-registration"),
 							processSandbox: () =>
 								Effect.succeed({ value, logs: [], error: null, status: "completed" }),
 						}),

@@ -14,6 +14,7 @@ import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
+import { preRegisterProviderDetails } from "./details-principal";
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
 
 export const EntityPopulationTriggerLive = Layer.effect(
@@ -29,8 +30,9 @@ export const EntityPopulationTriggerLive = Layer.effect(
 		return {
 			request: (input) =>
 				Effect.gen(function* () {
-					const provider = input.userId
-						? yield* pluginRuntime.findProviderAvailableToUser(input.userId, input.providerId)
+					const executingUserId = input.userId ?? input.command.accountGeneration?.userId ?? null;
+					const provider = executingUserId
+						? yield* pluginRuntime.findProviderAvailableToUser(executingUserId, input.providerId)
 						: yield* pluginRuntime.findActiveProviderById(input.providerId);
 					if (
 						!provider ||
@@ -45,20 +47,19 @@ export const EntityPopulationTriggerLive = Layer.effect(
 					);
 					let command = input.command;
 					if (input.command.writeContext === null) {
-						if (input.userId === null || input.command.accountGeneration === null) {
+						if (executingUserId === null || input.command.accountGeneration === null) {
 							return;
 						}
-						const details = yield* pluginRuntime.resolveUserDetailsScript(
-							input.userId,
-							input.providerId,
+						const pin = yield* preRegisterProviderDetails(
+							{ sandbox, pluginRuntime },
+							{
+								executionId,
+								userId: executingUserId,
+								pluginId: provider.pluginId,
+								providerId: input.providerId,
+								accountGeneration: input.command.accountGeneration,
+							},
 						);
-						const pin = yield* sandbox.preRegisterPluginWorkflow({
-							executionId,
-							scriptId: details.id,
-							pluginId: provider.pluginId,
-							executingUserId: input.userId,
-							accountGeneration: input.command.accountGeneration,
-						});
 						command = { ...input.command, writeContext: pin.principal };
 					}
 					yield* session.transaction(
