@@ -2,6 +2,7 @@ import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { type RyotQueryResult, useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { ProgressBar } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { MarkdownContent } from "@ryot-app/plugin-ui-sdk/markdown";
 import { SyncCountLine } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { type ReactNode, type Ref, useState } from "react";
@@ -186,6 +187,20 @@ export function useMediaOpenLink() {
 			});
 		},
 	};
+}
+
+export function MediaMarkdown(props: { readonly text: string }) {
+	const { error, openLink } = useMediaOpenLink();
+	return (
+		<>
+			<MarkdownContent text={props.text} onOpenLink={openLink} />
+			{error === null ? null : (
+				<p role="alert" className="text-[13px] text-text-muted">
+					{error}
+				</p>
+			)}
+		</>
+	);
 }
 
 export function MediaExternalLink(props: { readonly href: string; readonly label: string }) {
