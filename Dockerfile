@@ -95,6 +95,5 @@ COPY --from=backend-builder --chown=ryot-backend:ryot-backend /app/apps/server/p
 COPY --from=runtime-deps --chown=ryot-backend:ryot-backend /app/node_modules ./node_modules
 COPY --from=runtime-deps --chown=ryot-backend:ryot-backend /app/packages ./packages
 USER 1001:1001
-RUN bun run dist/prepare-sandbox-runtime.js
 ENV NODE_ENV=production
 CMD ["bun", "run", "dist/main.js"]
