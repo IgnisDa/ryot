@@ -1,3 +1,13 @@
+import { EntityBadRequest, EntityNotFound } from "@ryot-app/contract/modules/entities/schemas";
+import {
+	EventBadRequest,
+	EventNotFound,
+	EventStale,
+} from "@ryot-app/contract/modules/events/schemas";
+import {
+	RelationshipBadRequest,
+	RelationshipNotFound,
+} from "@ryot-app/contract/modules/relationships/schemas";
 import { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import {
 	automationSandboxHostContracts,
@@ -91,6 +101,19 @@ const preserveSandboxBoundaryFailure = (error: SandboxHostError) =>
 const preserveHttpFailureDetails = (error: SandboxHostError) =>
 	hostFailure(error.message, error.data);
 
+const writeFailureReason = Schema.Union([
+	SandboxBoundaryReason,
+	EntityBadRequest.fields.reason,
+	EntityNotFound.fields.reason,
+	EventBadRequest.fields.reason,
+	EventNotFound.fields.reason,
+	EventStale.fields.reason,
+	RelationshipBadRequest.fields.reason,
+	RelationshipNotFound.fields.reason,
+]);
+const preserveWriteFailure = (error: SandboxHostError) =>
+	hostFailure(error.message, Schema.is(writeFailureReason)(error.data) ? error.data : undefined);
+
 const bindHostFunction =
 	<Args extends ReadonlyArray<unknown>, Result, Success>(
 		fnName: string,
@@ -147,16 +170,6 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.createEvents,
 			implementations.createEvents,
 		),
-		updateEvents: bind(
-			"updateEvents",
-			domainSandboxHostContracts.updateEvents,
-			implementations.updateEvents,
-		),
-		deleteEvents: bind(
-			"deleteEvents",
-			domainSandboxHostContracts.deleteEvents,
-			implementations.deleteEvents,
-		),
 		getCachedValue: bind(
 			"getCachedValue",
 			coreSandboxHostContracts.getCachedValue,
@@ -186,11 +199,6 @@ export const bindSandboxHostFunctions = <Input>(
 			"listEventSchemas",
 			domainSandboxHostContracts.listEventSchemas,
 			implementations.listEventSchemas,
-		),
-		createUserEntity: bind(
-			"createUserEntity",
-			domainSandboxHostContracts.createUserEntity,
-			implementations.createUserEntity,
 		),
 		sendNotification: bind(
 			"sendNotification",
@@ -232,15 +240,22 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.getCurrentIntegration,
 			implementations.getCurrentIntegration,
 		),
+		updateEvents: bind(
+			"updateEvents",
+			domainSandboxHostContracts.updateEvents,
+			implementations.updateEvents,
+			{ failure: preserveWriteFailure },
+		),
+		deleteEvents: bind(
+			"deleteEvents",
+			domainSandboxHostContracts.deleteEvents,
+			implementations.deleteEvents,
+			{ failure: preserveWriteFailure },
+		),
 		requestEventStreamWork: bind(
 			"requestEventStreamWork",
 			domainSandboxHostContracts.requestEventStreamWork,
 			implementations.requestEventStreamWork,
-		),
-		changeUserRelationships: bind(
-			"changeUserRelationships",
-			domainSandboxHostContracts.changeUserRelationships,
-			implementations.changeUserRelationships,
 		),
 		executeRyotql: bind(
 			"executeRyotql",
@@ -252,6 +267,18 @@ export const bindSandboxHostFunctions = <Input>(
 			"upsertGlobalRelationships",
 			domainSandboxHostContracts.upsertGlobalRelationships,
 			implementations.upsertGlobalRelationships,
+		),
+		createUserEntity: bind(
+			"createUserEntity",
+			domainSandboxHostContracts.createUserEntity,
+			implementations.createUserEntity,
+			{ failure: preserveWriteFailure },
+		),
+		updateUserEntity: bind(
+			"updateUserEntity",
+			domainSandboxHostContracts.updateUserEntity,
+			implementations.updateUserEntity,
+			{ failure: preserveWriteFailure },
 		),
 		invalidateOAuthAccessToken: bind(
 			"invalidateOAuthAccessToken",
@@ -267,6 +294,12 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.listIntegrations,
 			implementations.listIntegrations,
 			{ normalize: (args) => normalizeOptionalNull(args, 0) },
+		),
+		changeUserRelationships: bind(
+			"changeUserRelationships",
+			domainSandboxHostContracts.changeUserRelationships,
+			implementations.changeUserRelationships,
+			{ failure: preserveWriteFailure },
 		),
 	};
 };

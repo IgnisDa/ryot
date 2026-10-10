@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { EventId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { PluginId } from "@ryot-app/plugin-kit/schema";
@@ -49,7 +50,14 @@ it.live("records an add-to-media-library event for a newly-created media members
 			listEventSchemas: () => hostSuccess([addToMediaLibrarySchema]),
 			createEvents: (events) => {
 				created.push(events);
-				return hostSuccess({ count: events.length });
+				return hostSuccess({
+					count: events.length,
+					outcomes: events.map((_, index) => ({
+						index,
+						status: "written" as const,
+						eventId: EventId.make(`created-event-${index}`),
+					})),
+				});
 			},
 		});
 
@@ -72,10 +80,6 @@ it.live("ignores non-media relationships", () =>
 	Effect.gen(function* () {
 		let calls = 0;
 		const host = defineSandboxTestHost(manifest, {
-			createEvents: () => {
-				calls += 1;
-				return hostSuccess({ count: 1 });
-			},
 			executeRyotql: () => {
 				calls += 1;
 				return hostSuccess(mediaEntityRows("workout"));
@@ -83,6 +87,17 @@ it.live("ignores non-media relationships", () =>
 			listEventSchemas: () => {
 				calls += 1;
 				return hostSuccess([addToMediaLibrarySchema]);
+			},
+			createEvents: (events) => {
+				calls += 1;
+				return hostSuccess({
+					count: 1,
+					outcomes: events.map((_, index) => ({
+						index,
+						status: "written" as const,
+						eventId: EventId.make(`created-event-${index}`),
+					})),
+				});
 			},
 		});
 

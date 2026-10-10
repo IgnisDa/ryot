@@ -1,4 +1,4 @@
-import { UpdateEventItem } from "@ryot-app/contract/modules/events/schemas";
+import { EventWritePrecondition, UpdateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import { EventId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import {
@@ -51,6 +51,7 @@ export const SandboxLifecycleHostInput = Schema.Union([
 		userId: UserId,
 		command: DomainLifecycleCommand,
 		eventIds: Schema.Array(EventId),
+		expected: Schema.optional(Schema.Record(Schema.String, EventWritePrecondition)),
 	}),
 ]);
 export type SandboxLifecycleHostInput = typeof SandboxLifecycleHostInput.Type;

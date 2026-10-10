@@ -8,6 +8,7 @@ import {
 	USER_ENTITY_WRITE_SANDBOX_LIMITS,
 } from "./limits";
 import { globalPropertiesSchema, nonEmptyString, sandboxIdSchema } from "./primitives";
+import { submissionOptionsSchema } from "./writes";
 
 export const sandboxEntitySchemaSlugListSchema = Schema.Array(sandboxIdSchema).pipe(
 	Schema.check(Schema.isMaxLength(USER_ENTITY_READ_SANDBOX_LIMITS.ids)),
@@ -92,9 +93,27 @@ export const ensureUserEntitiesArgsSchema = Schema.Tuple([
 ]);
 export const ensureUserEntitiesDataSchema = Schema.Array(ensureUserEntityResultSchema);
 export const ensureUserEntitiesResultSchema = hostResultSchema(ensureUserEntitiesDataSchema);
-export const createUserEntityArgsSchema = Schema.Tuple([ensureUserEntityItemSchema]);
+export const createUserEntityArgsSchema = Schema.Tuple([
+	ensureUserEntityItemSchema,
+	Schema.optional(Schema.UndefinedOr(submissionOptionsSchema)),
+]);
 export const createUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
 export const createUserEntityResultSchema = hostResultSchema(createUserEntityDataSchema);
+export const updateUserEntityArgsSchema = Schema.Tuple([
+	strictStruct({
+		entityId: sandboxIdSchema,
+		name: ensureUserEntityItemSchema.fields.name,
+		properties: ensureUserEntityItemSchema.fields.properties,
+		expected: strictStruct({
+			name: entityRecordSchema.fields.name,
+			updatedAt: entityRecordSchema.fields.updatedAt,
+			properties: ensureUserEntityItemSchema.fields.properties,
+		}),
+	}),
+	Schema.optional(Schema.UndefinedOr(submissionOptionsSchema)),
+]);
+export const updateUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
+export const updateUserEntityResultSchema = hostResultSchema(updateUserEntityDataSchema);
 export const upsertGlobalEntitiesArgsSchema = Schema.Tuple([
 	Schema.Array(upsertGlobalEntityItemSchema).pipe(
 		Schema.check(Schema.isMaxLength(GLOBAL_WRITE_SANDBOX_LIMITS.entityItems)),

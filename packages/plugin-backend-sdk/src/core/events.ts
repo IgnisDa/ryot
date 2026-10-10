@@ -1,4 +1,8 @@
 import {
+	CreateEventsResponse,
+	EventWritePrecondition,
+} from "@ryot-app/contract/modules/events/schemas";
+import {
 	EventStreamProcessorReference,
 	EventStreamWorkRequest,
 } from "@ryot-app/contract/modules/events/stream-work";
@@ -9,6 +13,7 @@ import { hostResultSchema, jsonValueSchema, strictStruct } from "../wire";
 import { sandboxEntitySchemaSlugListSchema } from "./entities";
 import { EVENT_MUTATION_SANDBOX_LIMITS } from "./limits";
 import { nonEmptyString, sandboxIdSchema } from "./primitives";
+import { submissionOptionsSchema } from "./writes";
 
 export const eventSchemaRecordSchema = strictStruct({
 	id: Schema.String,
@@ -41,6 +46,7 @@ export const createEventItemSchema = strictStruct({
 });
 export type CreateEventItem = Schema.Schema.Type<typeof createEventItemSchema>;
 export const createEventsResultDataSchema = strictStruct({
+	outcomes: CreateEventsResponse.fields.outcomes,
 	count: Schema.Number.pipe(Schema.check(Schema.isInt())),
 });
 const eventPropertiesPatchSchema = strictStruct({
@@ -65,37 +71,39 @@ const eventUpdatePatchSchema = strictStruct({
 export const updateEventItemSchema = strictStruct({
 	eventId: sandboxIdSchema,
 	patch: eventUpdatePatchSchema,
+	expected: Schema.optional(EventWritePrecondition),
 });
 export type UpdateEventItem = Schema.Schema.Type<typeof updateEventItemSchema>;
 export const updateEventsArgsSchema = Schema.Tuple([
 	Schema.Array(updateEventItemSchema).pipe(
 		Schema.check(Schema.isMaxLength(EVENT_MUTATION_SANDBOX_LIMITS.items)),
 	),
+	Schema.optional(Schema.UndefinedOr(submissionOptionsSchema)),
 ]);
 export const deleteEventsArgsSchema = Schema.Tuple([
 	Schema.Array(sandboxIdSchema).pipe(
 		Schema.check(Schema.isMaxLength(EVENT_MUTATION_SANDBOX_LIMITS.items)),
 	),
+	Schema.optional(
+		Schema.UndefinedOr(
+			strictStruct({
+				...submissionOptionsSchema.fields,
+				expected: Schema.optional(Schema.Record(Schema.String, EventWritePrecondition)),
+			}),
+		),
+	),
 ]);
-export const updateEventsResultDataSchema = createEventsResultDataSchema;
-export const deleteEventsResultDataSchema = createEventsResultDataSchema;
+export const updateEventsResultDataSchema = strictStruct({
+	count: Schema.Number.pipe(Schema.check(Schema.isInt())),
+});
+export const deleteEventsResultDataSchema = updateEventsResultDataSchema;
 export const updateEventsResultSchema = hostResultSchema(updateEventsResultDataSchema);
 export const deleteEventsResultSchema = hostResultSchema(deleteEventsResultDataSchema);
 export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
 export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
 export const createEventsArgsSchema = Schema.Tuple([
 	Schema.Array(createEventItemSchema),
-	Schema.optional(
-		Schema.UndefinedOr(
-			strictStruct({
-				submittedAt: Schema.String,
-				idempotencyKey: Schema.String.pipe(
-					Schema.check(Schema.isMinLength(1)),
-					Schema.check(Schema.isMaxLength(128)),
-				),
-			}),
-		),
-	),
+	Schema.optional(Schema.UndefinedOr(submissionOptionsSchema)),
 ]);
 export const requestEventStreamWorkArgsSchema = Schema.Tuple([
 	EventStreamWorkRequest,

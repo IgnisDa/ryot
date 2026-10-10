@@ -133,6 +133,30 @@ export default () => [directInitialization, helperInitialization];
 	}),
 );
 
+it.effect("infers user entity writes through the canonical host declarations", () =>
+	Effect.gen(function* () {
+		const entries = ["write.sandbox.ts"];
+		const results = yield* withProject(
+			{
+				"write.sandbox.ts": `
+import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+export default (host: ScriptHost) => {
+  const create = host.createUserEntity;
+  create({ name: "Record", entitySchemaSlug: "record", properties: {} }, { idempotencyKey: "create", submittedAt: "2026-10-15T00:00:00Z" });
+  return host.updateUserEntity({ entityId: "record", name: "Changed", properties: {}, expected: { name: "Record", updatedAt: "2026-10-15T00:00:00Z", properties: {} } });
+};
+`,
+			},
+			entries,
+			(project) => analyzeEntries(project, entries),
+		);
+		expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
+			["createUserEntity", "updateUserEntity"],
+		]);
+		expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[]]);
+	}),
+);
+
 it.effect("maps aliased intrinsic imports to their declared capabilities only", () =>
 	Effect.gen(function* () {
 		const entries = [

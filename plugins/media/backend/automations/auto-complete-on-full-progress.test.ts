@@ -1,3 +1,4 @@
+import { EventId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AutomationInput } from "@ryot-app/plugin-backend-sdk/automation";
 import type { CreateEventItem } from "@ryot-app/plugin-backend-sdk/core";
@@ -40,7 +41,14 @@ const createHost = (options: {
 			listEventSchemas: () => hostSuccess([completeSchema]),
 			createEvents: (items) => {
 				created.push(items);
-				return hostSuccess({ count: items.length });
+				return hostSuccess({
+					count: items.length,
+					outcomes: items.map((_, index) => ({
+						index,
+						status: "written" as const,
+						eventId: EventId.make(`created-event-${index}`),
+					})),
+				});
 			},
 			executeRyotql: (document) => {
 				documents.push(document);

@@ -65,6 +65,7 @@ const unusedSandboxHostFunctionMap = (
 	getPluginConfig: unusedHostCall,
 	getUserSettings: unusedHostCall,
 	createUserEntity: unusedHostCall,
+	updateUserEntity: unusedHostCall,
 	getEntitySchemas: unusedHostCall,
 	listEventSchemas: unusedHostCall,
 	listIntegrations: unusedHostCall,

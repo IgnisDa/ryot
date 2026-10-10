@@ -1,6 +1,9 @@
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
-import { createUserEntityArgsSchema } from "@ryot-app/plugin-backend-sdk/core";
+import { EntityId, EntitySchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	createUserEntityArgsSchema,
+	updateUserEntityArgsSchema,
+} from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
@@ -10,6 +13,7 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { runLifecycleWriteInline } from "#modules/automations/lifecycle/write-step";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { readScriptEntitySchemas } from "#modules/definitions/script-host";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	type AdditionalScriptHostImplementationMap,
 	requireSandboxCapabilityInput,
@@ -26,6 +30,7 @@ import {
 	userLifecycleSource,
 	type LifecycleHostInput,
 } from "#modules/scripts/host/lifecycle-host";
+import { sandboxSubmissionCommand } from "#modules/scripts/host/submission-command";
 
 import {
 	EntitiesService,
@@ -118,7 +123,15 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 	const entities = yield* EntitiesService;
 	const definitions = yield* DefinitionRepository;
 	const lifecycleExecution = yield* LifecycleExecution;
+	const runtime = yield* PluginRuntimeResolver;
 	const lifecycle = entityLifecycleHostSteps(entities);
+	const findInstallation = (
+		userId: UserId,
+		pluginId: Parameters<typeof runtime.findPluginAvailableToUser>[1],
+	) =>
+		runtime
+			.findPluginAvailableToUser(userId, pluginId)
+			.pipe(Effect.map((plugin) => plugin?.installationId ?? null));
 
 	return {
 		upsertGlobalEntities: (rawInput, items, options) =>
@@ -134,42 +147,40 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return lifecycle.upsertGlobalEntities.value(result);
 				}),
 			),
-		createUserEntity: (rawInput, rawItem) =>
+		updateUserEntity: (
+			rawInput,
+			rawItem,
+			options?: Parameters<AdditionalScriptHostImplementationMap["updateUserEntity"]>[2],
+		) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "createUserEntity");
-					const [item] = yield* Schema.decodeEffect(createUserEntityArgsSchema)([rawItem]);
+					const input = yield* requireSandboxCapabilityInput(rawInput, "updateUserEntity");
+					const [item, submission] = yield* Schema.decodeEffect(updateUserEntityArgsSchema)([
+						rawItem,
+						options,
+					]);
 					const revision = input.principal.pluginRevision;
 					const userId = UserId.make(userSandboxRunUserId(input));
-					const owner = definitionOwner(revision?.id ?? null);
-					const schemas = yield* readScriptEntitySchemas(definitions, input, [
-						item.entitySchemaSlug,
-					]);
-					const definition = schemas[definitionKey("entity", owner, item.entitySchemaSlug)];
-					if (
-						!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
-						!definition ||
-						definition.pluginId !== revision.id
-					) {
-						return yield* sandboxHostFailure("Entity schema is not owned by the executing plugin", {
-							code: "unavailable-operation",
-							operation: "createUserEntity",
-						});
-					}
-					const command = yield* sandboxLifecycleCommand(
+					const command = yield* sandboxSubmissionCommand(
 						input,
-						userLifecycleSource(input),
-						"createUserEntity",
+						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "updateUserEntity"),
+						submission,
+						findInstallation,
 					);
-					const { entity, warnings } = yield* entities.create({
+					if (!revision) {
+						return yield* sandboxHostFailure("Entity updates require a pinned plugin");
+					}
+					const { entity, warnings } = yield* entities.update({
 						userId,
 						scope: "user",
 						name: item.name,
 						lifecycle: command,
+						requireUserOwned: true,
+						expected: item.expected,
 						properties: item.properties,
-						entitySchema: { owner, slug: EntitySchemaSlug.make(item.entitySchemaSlug) },
+						entityId: EntityId.make(item.entityId),
 					});
-					yield* reportSandboxLifecycleWarnings("createUserEntity", warnings);
+					yield* reportSandboxLifecycleWarnings("updateUserEntity", warnings);
 					return { entityId: entity.id };
 				}),
 			),
@@ -222,8 +233,55 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
 				}),
 			),
+		createUserEntity: (
+			rawInput,
+			rawItem,
+			options?: Parameters<AdditionalScriptHostImplementationMap["createUserEntity"]>[2],
+		) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "createUserEntity");
+					const [item, submission] = yield* Schema.decodeEffect(createUserEntityArgsSchema)([
+						rawItem,
+						options,
+					]);
+					const revision = input.principal.pluginRevision;
+					const userId = UserId.make(userSandboxRunUserId(input));
+					const owner = definitionOwner(revision?.id ?? null);
+					const schemas = yield* readScriptEntitySchemas(definitions, input, [
+						item.entitySchemaSlug,
+					]);
+					const definition = schemas[definitionKey("entity", owner, item.entitySchemaSlug)];
+					if (
+						!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
+						!definition ||
+						definition.pluginId !== revision.id
+					) {
+						return yield* sandboxHostFailure("Entity schema is not owned by the executing plugin", {
+							code: "unavailable-operation",
+							operation: "createUserEntity",
+						});
+					}
+					const command = yield* sandboxSubmissionCommand(
+						input,
+						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "createUserEntity"),
+						submission,
+						findInstallation,
+					);
+					const { entity, warnings } = yield* entities.create({
+						userId,
+						scope: "user",
+						name: item.name,
+						lifecycle: command,
+						properties: item.properties,
+						entitySchema: { owner, slug: EntitySchemaSlug.make(item.entitySchemaSlug) },
+					});
+					yield* reportSandboxLifecycleWarnings("createUserEntity", warnings);
+					return { entityId: entity.id };
+				}),
+			),
 	} satisfies Pick<
 		AdditionalScriptHostImplementationMap,
-		"createUserEntity" | "ensureUserEntities" | "upsertGlobalEntities"
+		"createUserEntity" | "updateUserEntity" | "ensureUserEntities" | "upsertGlobalEntities"
 	>;
 });

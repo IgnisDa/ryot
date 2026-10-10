@@ -42,6 +42,9 @@ export {
 	upsertGlobalEntitiesResultSchema,
 	upsertGlobalEntityItemSchema,
 	upsertGlobalEntityResultSchema,
+	updateUserEntityArgsSchema,
+	updateUserEntityDataSchema,
+	updateUserEntityResultSchema,
 } from "./core/entities";
 export type {
 	EnsureUserEntityItem,

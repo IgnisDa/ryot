@@ -60,22 +60,35 @@ calls are mapped by canonical module and export in `src/intrinsics.ts`; `readArt
 `readArtifactRange`, and `readNamedArtifact` map to `artifact-read`. Compiler analysis checks the
 declaring module identity, not an import alias.
 
-`createUserEntity({ name, entitySchemaSlug, properties })` creates one user-owned entity and returns
-`{ entityId }`. It requires a user-subject execution and a schema owned by the executing plugin in
-both its pinned scope and the user's current definitions. The host binds ownership and derives a
-durable lifecycle command; entity validation, policy hooks, and mutation receipts use the normal
-entity service. It does not accept ownership, global scope, or provider provenance from scripts.
-`ensureUserEntities` remains a bootstrap-only singleton operation, not a metric creation path.
+`createUserEntity(item, options?)` creates one user-owned entity and returns `{ entityId }`. The item
+contains `name`, `entitySchemaSlug`, and `properties`. `updateUserEntity(item, options?)` takes
+`entityId`, `name`, `properties`, and the expected current `{ name, updatedAt, properties }`; it also
+returns `{ entityId }`. Both require a user-subject execution and a schema owned by the executing
+plugin in its pinned scope and the user's current definitions. Updates are limited to exact
+user-owned entities. The host binds ownership; entity validation, policy hooks, and mutation
+receipts use the normal entity service. Scripts cannot set ownership, global scope, provider
+provenance, or `populatedAt`. `ensureUserEntities` remains a bootstrap-only singleton operation,
+not a metric creation path.
 
-`createEvents(items, { idempotencyKey, submittedAt })` retains the ordinary per-item event workflow. A user plugin
-can supply a key of 1–128 characters and the original submission timestamp to replay committed
-readings or other events without duplication. Keys are scoped by authenticated account generation,
-installation, and script. Retry the exact same ordered batch and key; conflicting content is rejected.
-The retained submission timestamp supplies the stable write-command time and any omitted event times. Workflow attempts remain separate
+`createEvents(items, options?)`, `updateEvents(items, options?)`, `deleteEvents(ids, options?)`, and
+`changeUserRelationships(batches, options?)` accept the same optional submission options:
+`{ submittedAt, idempotencyKey }`. For stable retries, user-plugin writes require a key of 1–128
+characters and the original submission timestamp. The key is scoped by account generation,
+installation, script, and capability. Retry with the identical ordered data, timestamp, and key;
+reusing a key with changed committed data conflicts. The timestamp supplies the stable write-command
+time and any omitted event times. Omitting options keeps execution-scoped write identities.
+
+Event updates may include an `expected` snapshot with `entityId`, `occurredAt`, `updatedAt`,
+`properties`, and `sessionEntityId` (`null` or an ID). Delete options may include an `expected` map
+from every requested event ID to that snapshot. A stale precondition fails before mutation; a
+committed retry returns its receipt before checking the original snapshot again.
+Event creation returns `{ count, outcomes }`;
+each outcome is either `{ index, eventId, status: "written" }` or
+`{ index, reason, status: "skipped_by_policy" }`. A creation failure includes
+`data: { count, outcomes, code, partial }`. Earlier committed items are not rolled back; identity
+conflicts use `code: "mutation-conflict"` and `partial: false`. Workflow attempts remain separate
 from committed item identities so an unfinished batch can be retried after partial failure. Each
 attempt seals only its newly committed batch-hook evidence. Committed item hooks are not recreated.
-Partial creation fails with structured `data: { partial: true, count, code }`; it does not roll back earlier
-items. Identity conflicts return `code: "mutation-conflict"` and `partial: false`. Omitting the options keeps execution-scoped write identities.
 
 ## Boundary Errors
 
