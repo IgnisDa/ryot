@@ -10,7 +10,10 @@ import {
 import {
 	MeasurementMetricCreateInput,
 	MeasurementMetricCreateOutput,
+	MeasurementMetricPinInput,
+	MeasurementMetricPinOutput,
 	measurementMetricCreateOperationSlug,
+	measurementMetricPinOperationSlug,
 } from "../../shared/measurement-metric-operations";
 import {
 	MeasurementReadingDeleteInput,
@@ -27,6 +30,13 @@ export const measurementMetricCreateRecipe = defineOperationRecipe({
 	input: MeasurementMetricCreateInput,
 	output: MeasurementMetricCreateOutput,
 	operationSlug: measurementMetricCreateOperationSlug,
+});
+
+export const measurementMetricPinRecipe = defineOperationRecipe({
+	pluginSlug: "fitness",
+	input: MeasurementMetricPinInput,
+	output: MeasurementMetricPinOutput,
+	operationSlug: measurementMetricPinOperationSlug,
 });
 
 export const measurementReadingLogRecipe = defineOperationRecipe({
