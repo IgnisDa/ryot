@@ -89,8 +89,10 @@ export type UpdateEntityInput = Scope & {
 	name: string;
 	entityId: EntityId;
 	properties: unknown;
-	populatedAt: Date | null;
+	populatedAt?: Date | null;
+	requireUserOwned?: boolean;
 	lifecycle: DomainLifecycleCommand;
+	expected?: Pick<EntitySnapshotResult["entity"], "name" | "properties" | "updatedAt">;
 };
 export type UpsertEntityInput = CreateEntityInput & {
 	externalId: string;
@@ -987,6 +989,14 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const update = Effect.fn("EntitiesService.update")(function* (input: UpdateEntityInput) {
 			yield* assertOwner;
 			const ownedCurrent = yield* repository.getMutationEntity(input.entityId);
+			if (
+				input.requireUserOwned &&
+				(input.scope !== "user" || (ownedCurrent && ownedCurrent.userId !== input.userId))
+			) {
+				return yield* new EntityNotFound({
+					reason: { code: "entity-not-found", entityId: input.entityId },
+				});
+			}
 			if (ownedCurrent) {
 				yield* writeChecks
 					.check(
@@ -1002,7 +1012,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				entityId: input.entityId,
 				properties: input.properties,
 				writeContext: input.lifecycle.writeContext,
-				populatedAt: input.populatedAt?.toISOString() ?? null,
+				...(input.populatedAt === undefined
+					? {}
+					: { populatedAt: input.populatedAt?.toISOString() ?? null }),
+				...(input.expected === undefined ? {} : { expected: input.expected }),
+				...(input.requireUserOwned === undefined
+					? {}
+					: { requireUserOwned: input.requireUserOwned }),
 				...(input.scope === "user" ? { userId: input.userId } : {}),
 			};
 			for (const scopeUserId of input.scope === "user" ? [null, input.userId] : [null]) {
@@ -1033,20 +1049,33 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				!current ||
 				(input.scope === "global"
 					? current.userId !== null
-					: current.userId !== null && current.userId !== input.userId)
+					: current.userId !== input.userId && (input.requireUserOwned || current.userId !== null))
 			) {
 				return yield* new EntityNotFound({
 					reason: { code: "entity-not-found", entityId: input.entityId },
 				});
 			}
 			const before = snapshot(current.entity);
+			if (
+				input.expected &&
+				!same(input.expected, {
+					name: before.name,
+					updatedAt: before.updatedAt,
+					properties: before.properties,
+				})
+			) {
+				return yield* bad("mutation-conflict", "Entity changed since it was loaded");
+			}
 			yield* validateExistingEntity(current.entity, current.userId, input.lifecycle);
 			const validated = yield* validateDraft(
 				{
 					...draftOf(before),
 					name: input.name,
 					properties: input.properties,
-					populatedAt: input.populatedAt?.toISOString() ?? null,
+					populatedAt:
+						input.populatedAt === undefined
+							? before.populatedAt
+							: (input.populatedAt?.toISOString() ?? null),
 				},
 				current.userId,
 				definitionOwner(current.entity.entitySchemaPluginId),

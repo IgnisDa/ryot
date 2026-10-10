@@ -474,7 +474,63 @@ const proposal = (name: string, properties: { title: string }) => ({
 });
 
 describe("EntitiesService committed lifecycle", () => {
+	layer(entitiesLayer())((test) => {
+		test.effect("rejects stale loaded snapshots but replays a committed conditional update", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const session = yield* DatabaseSession;
+				const created = yield* service.create(createInput("conditional-create"));
+				const input = {
+					userId: owner,
+					name: "Changed",
+					scope: "user" as const,
+					requireUserOwned: true,
+					entityId: created.entity.id,
+					properties: { title: "changed" },
+					lifecycle: command("conditional-update"),
+					expected: {
+						name: created.entity.name,
+						updatedAt: created.entity.updatedAt,
+						properties: created.entity.properties,
+					},
+				};
+				const saved = yield* service.update(input);
+				expect(saved.entity.properties).toEqual({ title: "changed" });
+				const receiptCount = (yield* session.run((db) => db.select().from(tables.mutationReceipt)))
+					.length;
+				expect(yield* service.update(input)).toEqual(saved);
+				expect((yield* session.run((db) => db.select().from(tables.mutationReceipt))).length).toBe(
+					receiptCount,
+				);
+				expect(
+					yield* service.update({ ...input, lifecycle: command("stale-update") }).pipe(Effect.flip),
+				).toMatchObject({ reason: { code: "mutation-conflict" } });
+				expect(
+					yield* service.update({ ...input, name: "Different" }).pipe(Effect.flip),
+				).toMatchObject({ reason: { code: "mutation-conflict" } });
+			}),
+		);
+	});
 	layer(entitiesLayer({ noHooks: true }))((test) => {
+		test.effect("user-owned updates reject global records", () =>
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const global = yield* service.create({ ...createInput("global-record"), scope: "global" });
+				expect(
+					yield* service
+						.update({
+							userId: owner,
+							scope: "user",
+							name: "Changed",
+							requireUserOwned: true,
+							entityId: global.entity.id,
+							properties: { title: "changed" },
+							lifecycle: command("forbidden-global-update"),
+						})
+						.pipe(Effect.flip),
+				).toMatchObject({ reason: { code: "entity-not-found" } });
+			}),
+		);
 		test.effect("replays a no-hook create after source deletion without new history", () =>
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;

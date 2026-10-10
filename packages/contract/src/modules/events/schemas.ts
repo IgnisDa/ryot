@@ -10,7 +10,7 @@ import {
 } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
-import { AutomationWarning } from "../automations/lifecycle";
+import { AutomationEventSnapshot, AutomationWarning } from "../automations/lifecycle";
 
 export const EventPropertiesPatch = strictStruct({
 	remove: Schema.Array(Schema.String),
@@ -37,7 +37,20 @@ export const EventUpdatePatch = strictStruct({
 
 export type EventUpdatePatch = typeof EventUpdatePatch.Type;
 
-export const UpdateEventItem = strictStruct({ eventId: EventId, patch: EventUpdatePatch });
+export const EventWritePrecondition = strictStruct({
+	entityId: AutomationEventSnapshot.fields.entityId,
+	updatedAt: AutomationEventSnapshot.fields.updatedAt,
+	occurredAt: AutomationEventSnapshot.fields.occurredAt,
+	properties: AutomationEventSnapshot.fields.properties,
+	sessionEntityId: AutomationEventSnapshot.fields.sessionEntityId,
+});
+export type EventWritePrecondition = typeof EventWritePrecondition.Type;
+
+export const UpdateEventItem = strictStruct({
+	eventId: EventId,
+	patch: EventUpdatePatch,
+	expected: Schema.optional(EventWritePrecondition),
+});
 
 export type UpdateEventItem = typeof UpdateEventItem.Type;
 
