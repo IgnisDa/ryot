@@ -1,9 +1,8 @@
 # S3 memory admission
 
 **Status:** approved and implemented through slice M-S4: lane-mode memory plans, the interactive
-headroom predicate, lazy reclaim, lane transient pools and the lane-fair writer. Durable fair
-selection, CPU admission, HTTP tickets and benchmark statistics are separate S3 decisions
-([s3.md](s3.md)). Units are MiB;
+headroom predicate, lazy reclaim, lane transient pools and the lane-fair writer. Scheduling is in
+[s3.md](s3.md). Units are MiB;
 G = `SANDBOX_WORKER_CONCURRENCY` = 2 on the canonical host.
 
 ## Decisions
