@@ -14,7 +14,12 @@ import type {
 	MediaFlatActivityEvent,
 	MediaUnlinkedCreatorsOverview,
 } from "../../shared/media-recipes";
-import { MediaActivityReviewDetail, type MediaActivityRowRender } from "./activity-rows";
+import { createMediaHistoryQuery, type MediaHistoryRecipe } from "./activity-history";
+import {
+	MediaActivityReviewDetail,
+	type MediaActivityRowRender,
+	MediaActivityRows,
+} from "./activity-rows";
 import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
 import { decimalLabel, mediaActivitySpanLabel, mediaCollectionRowLabel } from "./activity-timeline";
 import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
@@ -38,6 +43,7 @@ import { MediaEntityRailSection } from "./entity-rail";
 import {
 	type MediaFlatActivityBeat,
 	type MediaFlatActivityRow,
+	mediaFlatActivityRow,
 	type MediaFlatActivitySummary,
 	type MediaFlatActivityView,
 	mediaFlatActivityView,
@@ -127,6 +133,7 @@ export type MediaFlatSchemaDescriptor<
 	Extra = unknown,
 > = {
 	readonly recipes: {
+		readonly historyRecipe: MediaHistoryRecipe<MediaFlatActivityEvent<NoInfer<Extra>>>;
 		readonly peopleRecipe: MediaCreditsRecipe;
 		readonly summaryRecipe: (input: {
 			readonly reference: PluginIdentityReference;
@@ -342,10 +349,12 @@ export const defineFlatMediaSchema = <
 	function ActivityRecord(props: {
 		readonly compact: boolean;
 		readonly view: MediaFlatSchemaActivityView<Extra>;
+		readonly history?: ReactNode;
 	}) {
 		const { view } = props;
 		return (
 			<MediaActivityRecord
+				history={props.history}
 				compact={props.compact}
 				render={activityRender}
 				timeline={view.timeline}
@@ -362,6 +371,16 @@ export const defineFlatMediaSchema = <
 		query: activityQuery,
 		Record: ActivityRecord,
 		emptyAction: "log-activity",
+		hasMoreActivities: (result) => result.truncated,
+		historyQuery: createMediaHistoryQuery(recipes.historyRecipe, (events) =>
+			events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
+		),
+		renderHistory: (events) => (
+			<MediaActivityRows
+				render={activityRender}
+				rows={events.map((event) => mediaFlatActivityRow(event, REVIEW_SUBJECT))}
+			/>
+		),
 	});
 
 	const header = mediaSummaryHeaderDetail({ facts: descriptor.facts, progress: summaryProgress });
@@ -465,7 +484,11 @@ export const defineFlatMediaSchema = <
 	const DetailBody = (input: MediaDetailBodyInput<Summary, Overview>) => (
 		<ScreenBody
 			{...input}
-			activity={createElement(ActivityTab, { compact: input.compact, entityId: input.entityId })}
+			activity={createElement(ActivityTab, {
+				compact: input.compact,
+				entityId: input.entityId,
+				safeAreaTop: input.safeAreaTop,
+			})}
 		/>
 	);
 

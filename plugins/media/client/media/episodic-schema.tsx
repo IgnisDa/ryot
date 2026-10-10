@@ -12,7 +12,12 @@ import type { MediaPresentationSource } from "../../shared/entity-presentations"
 import type { EpisodicActivityInput, EpisodicOverviewInput } from "../../shared/episodic-recipes";
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
-import { MediaActivityReviewDetail, type MediaActivityRowRender } from "./activity-rows";
+import { createMediaHistoryQuery, type MediaHistoryRecipe } from "./activity-history";
+import {
+	MediaActivityReviewDetail,
+	type MediaActivityRowRender,
+	MediaActivityRows,
+} from "./activity-rows";
 import {
 	defineMediaActivityTab,
 	type MediaActivityCopy,
@@ -37,10 +42,13 @@ import {
 } from "./entity-presentation";
 import {
 	type MediaEpisodicActivityCopy,
+	mediaEpisodicActivityRow,
 	type MediaEpisodicActivityValue,
 	mediaEpisodicActivityView,
 	type MediaEpisodicCoverage,
 	mediaEpisodicEpisodesLabel,
+	type MediaEpisodicEpisodeValue,
+	type MediaEpisodicHistoryEvent,
 	type MediaEpisodicRow,
 	mediaEpisodicRowLabel,
 	type MediaEpisodicSummary,
@@ -109,6 +117,7 @@ type EpisodicSummaryResult<Summary> = {
 
 type EpisodicActivityValue<Origin> = MediaEpisodicActivityValue<Origin> & {
 	readonly coverage: readonly { readonly id: string }[];
+	readonly hasMoreActivities: boolean;
 };
 
 export type MediaEpisodicSchemaDescriptor<
@@ -119,6 +128,9 @@ export type MediaEpisodicSchemaDescriptor<
 	Activity extends EpisodicActivityValue<Origin>,
 > = {
 	readonly recipes: {
+		readonly historyRecipe: MediaHistoryRecipe<
+			MediaEpisodicHistoryEvent<Origin & MediaEpisodicEpisodeValue>
+		>;
 		readonly peopleRecipe: MediaCreditsRecipe;
 		readonly summaryRecipe: (input: {
 			readonly reference: PluginIdentityReference;
@@ -285,10 +297,15 @@ export const defineEpisodicMediaSchema = <
 		];
 	};
 
-	function ActivityRecord(props: { readonly compact: boolean; readonly view: MediaEpisodicView }) {
+	function ActivityRecord(props: {
+		readonly compact: boolean;
+		readonly view: MediaEpisodicView;
+		readonly history?: ReactNode;
+	}) {
 		const { view } = props;
 		return (
 			<MediaActivityRecord
+				history={props.history}
 				compact={props.compact}
 				render={activityRender}
 				timeline={view.timeline}
@@ -306,6 +323,21 @@ export const defineEpisodicMediaSchema = <
 		query: activityQuery,
 		Record: ActivityRecord,
 		emptyAction: "log-activity",
+		hasMoreActivities: (result) => result.hasMoreActivities,
+		renderHistory: (events) => (
+			<MediaActivityRows
+				render={activityRender}
+				rows={events.map((event) => mediaEpisodicActivityRow(event, descriptor.episodeOrigin))}
+			/>
+		),
+		historyQuery: createMediaHistoryQuery(recipes.historyRecipe, (events) =>
+			events.flatMap((event) => {
+				if (event.kind === "episode") {
+					return [event.episode.id];
+				}
+				return event.kind === "collection" ? [event.collection.id] : [];
+			}),
+		),
 	});
 
 	const header = mediaSummaryHeaderDetail({
@@ -388,7 +420,11 @@ export const defineEpisodicMediaSchema = <
 	const DetailBody = (input: MediaDetailBodyInput<Summary, Overview>) => (
 		<ScreenBody
 			{...input}
-			activity={createElement(ActivityTab, { compact: input.compact, entityId: input.entityId })}
+			activity={createElement(ActivityTab, {
+				compact: input.compact,
+				entityId: input.entityId,
+				safeAreaTop: input.safeAreaTop,
+			})}
 			episodes={createElement(descriptor.EpisodesTab, {
 				compact: input.compact,
 				entityId: input.entityId,

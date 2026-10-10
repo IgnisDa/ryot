@@ -22,6 +22,13 @@ live in `client/media/` and shared recipe tests; schema tests cover descriptor o
 `shared/media-schema-slugs.ts` owns builtin/group slug sets. `client/media/activity-copy.ts` owns
 activity and progress verbs.
 
+Activity tabs show a bounded summary. When older activity exists, View complete history opens the
+shared detail modal with cursor-paged events. History merges entity, episode (for episodic media),
+and collection events in descending occurrence/creation/ID order, using the last displayed event as
+the boundary for every source. Episode history includes each completion and progress log, rather
+than the summary's daily watches and latest progress milestones. Coverage truncation alone does not
+expose the history button. History reuses the summary's row renderers and the shared SDK pagination.
+
 Recipe extensions use `extraOverviewQueries`, `activityEventFields`, and
 `mediaUnlinkedCreatorsOverviewQueries`. Extra relationship rails use `overviewRails`; their items
 participate in visible IDs, managed assets, and emptiness checks. Summary-sourced sections use
