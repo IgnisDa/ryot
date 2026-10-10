@@ -15,15 +15,13 @@ import {
 } from "#lib/infrastructure/sandbox-journal-store";
 import { SandboxRecoveryIdentity } from "#lib/infrastructure/sandbox-recovery-store";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import { sandboxInlineDurableCapabilities } from "#lib/infrastructure/sandbox-runtime/host-execution-policy";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { SandboxAdmissionLease } from "#lib/infrastructure/sandbox-runtime/sidecar-admission";
 import { SidecarRecoverySuspended } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
 import { servedLanes, serverRole } from "#lib/infrastructure/server-role";
 
-import {
-	SandboxDurableHostDispatcher,
-	sandboxInlineDurableCapabilities,
-} from "./durable-host-dispatcher";
+import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { SandboxExecutionResult } from "./execution-result";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";

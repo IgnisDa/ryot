@@ -8,11 +8,6 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, Clock, Context, Effect, Layer, Option, Schema } from "effect";
 
 import {
-	sandboxDurableHostDispatchStrategy,
-	sandboxHostResultBytes,
-} from "#modules/sandbox/durable-host-dispatcher";
-
-import {
 	recordSandboxExecution,
 	sandboxMetricKind,
 	type SandboxExecutionOutcome,
@@ -24,6 +19,10 @@ import type { SandboxExecutionPrincipal } from "./execution-principal";
 import { SandboxFileService } from "./file-service";
 import { isSandboxFilesystemGrantCapability } from "./filesystem-grants";
 import { SandboxHostCallGate } from "./host-call-gate";
+import {
+	sandboxDurableHostDispatchStrategy,
+	sandboxHostResultBytes,
+} from "./host-execution-policy";
 import { SandboxHostImplementations } from "./host-implementations";
 import { sandboxContextError, SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "./limits";
 import {
