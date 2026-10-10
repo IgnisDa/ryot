@@ -1479,26 +1479,26 @@ it("enforces the correlated expression depth limit", () => {
 
 it("validates JSON array operators, element scope, and outer references", () => {
 	const entity = table("entity", "entity");
-	const schedule = jsonPath(column(entity, "properties"), "airingSchedule");
-	const airingAt = castDate(jsonPath(jsonElement(), "airingAt"));
-	const upcoming = gt(airingAt, castDate(literal("2026-09-01T00:00:00.000Z")));
-	const nextAiringAt = jsonArrayFirst(schedule, {
+	const schedule = jsonPath(column(entity, "properties"), "slots");
+	const startsAt = castDate(jsonPath(jsonElement(), "startsAt"));
+	const upcoming = gt(startsAt, castDate(literal("2026-09-01T00:00:00.000Z")));
+	const nextStartsAt = jsonArrayFirst(schedule, {
 		where: upcoming,
-		select: airingAt,
-		orderBy: [ascending(airingAt)],
+		select: startsAt,
+		orderBy: [ascending(startsAt)],
 	});
 	expect(
 		validateRyotQLDocument(
 			document({
 				entities: rows(entity, {
-					orderBy: [ascending(nextAiringAt)],
+					orderBy: [ascending(nextStartsAt)],
 					where: and(
-						eq(column(entity, "entitySchemaSlug"), literal("anime")),
+						eq(column(entity, "entitySchemaSlug"), literal("series")),
 						jsonArrayExists(schedule, upcoming),
 					),
 					fields: [
 						field("name", column(entity, "name")),
-						field("nextAiringAt", nextAiringAt),
+						field("nextStartsAt", nextStartsAt),
 						field("upcomingCount", jsonArrayCount(schedule, upcoming)),
 					],
 				}),
@@ -1509,7 +1509,7 @@ it("validates JSON array operators, element scope, and outer references", () => 
 	expect(
 		validateRyotQLDocument(
 			document({
-				entities: rows(entity, { fields: [field("element", jsonPath(jsonElement(), "airingAt"))] }),
+				entities: rows(entity, { fields: [field("element", jsonPath(jsonElement(), "startsAt"))] }),
 			}),
 			userAccess,
 		),
@@ -1534,8 +1534,8 @@ it("validates JSON array operators, element scope, and outer references", () => 
 							"next",
 							jsonArrayFirst(schedule, {
 								where: upcoming,
-								select: airingAt,
-								orderBy: [ascending(jsonPath(jsonElement(), "airingAt"))],
+								select: startsAt,
+								orderBy: [ascending(jsonPath(jsonElement(), "startsAt"))],
 							}),
 						),
 					],

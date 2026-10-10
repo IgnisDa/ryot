@@ -88,6 +88,6 @@ Rows are kernel-owned rather than entity presentations, because one subject can 
 a month. A row shows the decoded `art` locator, or an icon tile in the source's group colour, with
 the subject name, caption, time (blank for date-only), and done mark, and links to the subject.
 `month=YYYY-MM` and `layout=month` live in the URL. Source chips (or the compact Sources sheet) call
-`calendarSources.setVisibility`, then refetch the sources; the server persists the hidden state.
+`calendarSources.setVisibility`; the server persists the hidden state and the host refreshes.
 The renderer display name is `CALENDAR_KERNEL_RENDERER_DISPLAY_NAME` from the contract, which the
 kernel host compares to gate that capability, so kernel renderer display names must stay unique.

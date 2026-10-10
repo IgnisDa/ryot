@@ -1590,21 +1590,21 @@ layer(
 )((test) => {
 	test.effect("compiles JSON array operators into element subqueries", () => {
 		const entity = table("entity", "entity");
-		const schedule = jsonPath(column(entity, "properties"), "airingSchedule");
-		const airingAt = castDate(jsonPath(jsonElement(), "airingAt"));
-		const upcoming = gt(airingAt, castDate(literal("2026-09-01T00:00:00.000Z")));
-		const nextAiringAt = jsonArrayFirst(schedule, {
+		const schedule = jsonPath(column(entity, "properties"), "slots");
+		const startsAt = castDate(jsonPath(jsonElement(), "startsAt"));
+		const upcoming = gt(startsAt, castDate(literal("2026-09-01T00:00:00.000Z")));
+		const nextStartsAt = jsonArrayFirst(schedule, {
 			where: upcoming,
-			select: airingAt,
-			orderBy: [ascending(airingAt)],
+			select: startsAt,
+			orderBy: [ascending(startsAt)],
 		});
 		const document = {
 			queries: {
 				entities: rows(entity, {
-					orderBy: [ascending(nextAiringAt)],
+					orderBy: [ascending(nextStartsAt)],
 					where: jsonArrayExists(schedule, upcoming),
 					fields: [
-						field("nextAiringAt", nextAiringAt),
+						field("nextStartsAt", nextStartsAt),
 						field("upcomingCount", jsonArrayCount(schedule, upcoming)),
 					],
 				}),
@@ -1627,7 +1627,7 @@ layer(
 				throw new Error("Expected entities rows result");
 			}
 			expect(entities.items).toEqual([
-				{ upcomingCount: 2, nextAiringAt: "2026-10-01T12:00:00.000Z" },
+				{ upcomingCount: 2, nextStartsAt: "2026-10-01T12:00:00.000Z" },
 			]);
 		});
 	});

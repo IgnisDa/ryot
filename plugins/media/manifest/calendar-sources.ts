@@ -26,7 +26,7 @@ import {
 } from "@ryot-app/ryotql";
 
 import { preferredMediaImageExpression } from "../shared/entity-presentations";
-import { libraryLinkExists, propertyText } from "../shared/entity-selections";
+import { libraryLinkExists } from "../shared/entity-selections";
 import {
 	episodeDisplayStateExpression,
 	episodicEpisodeQuery,
@@ -144,7 +144,7 @@ const animeAirings = () => {
 	);
 	const airingAt = castDate(jsonPath(column(element, "value"), "airingAt"));
 	const episodeNumber = castNumber(jsonPath(column(element, "value"), "episode"));
-	const releaseDate = castDate(propertyText(anime, "publishDate"));
+	const releaseDate = publishDate(anime);
 	const lifecycle = mediaLifecycleExpressions(anime, "calendarAnimeLifecycle");
 	return {
 		icon: "tv",
@@ -217,6 +217,15 @@ const releases = () => {
 		subject: subjectOf("entity", flatMediaSchemaSlugs),
 		query: {
 			from: entity,
+			output: {
+				type: "rows",
+				fields: [
+					field("startAt", publishDate(entity)),
+					field("caption", caption),
+					field("art", preferredMediaImageExpression(entity)),
+					field("done", asTrue(eq(lifecycle.state, literal("complete")))),
+				],
+			},
 			where: and(
 				schemaOwnerPredicate(entity, "entitySchemaPluginId", self),
 				inArray(
@@ -225,15 +234,6 @@ const releases = () => {
 				),
 				libraryLinkExists(entity, "calendarReleaseLibrary", "in-media-library"),
 			),
-			output: {
-				type: "rows",
-				fields: [
-					field("startAt", castDate(propertyText(entity, "publishDate"))),
-					field("caption", caption),
-					field("art", preferredMediaImageExpression(entity)),
-					field("done", asTrue(eq(lifecycle.state, literal("complete")))),
-				],
-			},
 		},
 	} satisfies PluginCalendarSource;
 };
