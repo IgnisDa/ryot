@@ -56,7 +56,7 @@
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/dom": "^10.4.1",
 		"@types/jsdom": "^30.0.0",
-		"bun-types": "1.4.2",
+		"bun-types": "1.4.3",
 		"jsdom": "^30.0.1",
 		"vitest": "4.1.9"
 	}

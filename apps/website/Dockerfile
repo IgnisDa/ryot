@@ -1,4 +1,4 @@
-ARG NODE_BASE_IMAGE=oven/bun:1.4.2-debian
+ARG NODE_BASE_IMAGE=oven/bun:1.4.3-debian
 
 FROM --platform=$BUILDPLATFORM $NODE_BASE_IMAGE AS website-build-base
 WORKDIR /app
