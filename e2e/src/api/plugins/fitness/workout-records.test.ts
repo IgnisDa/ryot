@@ -383,6 +383,7 @@ describe("Workout records E2E", () => {
 						payload: Array.from({ length: 101 }, (_, reps) => ({
 							entityId: exerciseId,
 							eventSchemaSlug: workoutSetEventSchema.id,
+							occurredAt: reps < 51 ? earlierStartedAt : laterStartedAt,
 							sessionEntityId: reps < 51 ? earlierWorkoutId : laterWorkoutId,
 							properties: { reps, exerciseOrder: 0, setOrder: reps < 51 ? reps : reps - 51 },
 						})),
@@ -418,7 +419,6 @@ describe("Workout records E2E", () => {
 				const storedLastSet = yield* storedWorkoutSet(client, exerciseId, lastSet.id);
 				expect(isoString(storedLastSet.occurredAt)).toBe(laterStartedAt);
 			}),
-		600_000,
 	);
 
 	it.live("keeps each set's recorded kind and tracks personal bests per kind", () =>
@@ -444,12 +444,14 @@ describe("Workout records E2E", () => {
 					payload: [
 						{
 							entityId: exerciseId,
+							occurredAt: earlierStartedAt,
 							sessionEntityId: earlierWorkoutId,
 							eventSchemaSlug: workoutSetEventSchema.id,
 							properties: { reps: 10, weight: 20, setOrder: 0, exerciseOrder: 0 },
 						},
 						{
 							entityId: exerciseId,
+							occurredAt: laterStartedAt,
 							sessionEntityId: laterWorkoutId,
 							eventSchemaSlug: workoutSetEventSchema.id,
 							properties: { reps: 6, setOrder: 0, exerciseOrder: 0, exerciseKind: "reps" },

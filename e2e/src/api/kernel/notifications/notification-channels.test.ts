@@ -14,11 +14,10 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notification-channels";
-import { Effect } from "effect";
+import { DateTime, Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createEntity,
 	createNotificationChannel,
 	deleteNotificationChannel,
 	executeRyotQL,
@@ -33,7 +32,7 @@ import {
 	testNotificationChannels,
 	updateNotificationChannel,
 } from "~/fixtures/kernel";
-import { findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
+import { findFitnessEntitySchema, saveWorkoutEditor } from "~/fixtures/plugins/fitness";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
@@ -303,11 +302,23 @@ describe("notification delivery", () => {
 				owner: schema.reference.owner,
 				slug: SignalSchemaSlug.make("workout.created"),
 			};
-			yield* createEntity(client, {
-				entitySchema: schema.reference,
-				name: `Zero Channel Workout ${crypto.randomUUID()}`,
-				properties: { endedAt: "2026-07-21T11:00:00Z", startedAt: "2026-07-21T10:00:00Z" },
+			const now = DateTime.formatIso(yield* DateTime.now);
+			const saved = yield* saveWorkoutEditor(client, {
+				submittedAt: now,
+				submissionId: crypto.randomUUID(),
+				data: {
+					images: [],
+					videos: [],
+					supersets: [],
+					startedAt: now,
+					kind: "workout",
+					occurrences: [],
+					target: { kind: "create" },
+					activeDuration: { kind: "preserve" },
+					name: `Zero Channel Workout ${crypto.randomUUID()}`,
+				},
 			});
+			expect(saved.kind).toBe("saved");
 
 			const { id: triggerId } = yield* pollSignalTrigger({
 				signalSchema,
