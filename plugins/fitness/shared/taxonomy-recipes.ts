@@ -15,23 +15,27 @@ import {
 	selectedInclude,
 	selectedRows,
 	table,
+	entitySchemaPredicate,
+	pluginId,
 } from "@ryot-app/plugin-kit/ryotql";
-import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { property } from "./entity-selections";
 import { exerciseTargetKindSchema, exerciseTargetRoleSchema } from "./taxonomy";
 
 type Table = ReturnType<typeof table>;
 type TaxonomyListInput = Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
+	readonly reference: PluginIdentityReference;
 	readonly name?: string | undefined;
 };
 type ExerciseTaxonomyInput = Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
+	readonly reference: PluginIdentityReference;
 	readonly exerciseId: string;
 };
 
 const taxonomyWhere = (entity: Table, schemaSlug: string, input: TaxonomyListInput) =>
 	and(
-		eq(column(entity, "entitySchemaSlug"), literal(schemaSlug)),
+		entitySchemaPredicate(entity, schemaSlug, input.reference),
 		...(input.name ? [eq(column(entity, "name"), literal(input.name))] : []),
 	);
 
@@ -42,6 +46,10 @@ const effectiveLink = (relationship: Table) => {
 		not(
 			exists(shared, {
 				where: and(
+					eq(
+						column(shared, "relationshipSchemaPluginId"),
+						column(relationship, "relationshipSchemaPluginId"),
+					),
 					isNull(column(shared, "userId")),
 					eq(column(shared, "sourceEntityId"), column(relationship, "sourceEntityId")),
 					eq(column(shared, "targetEntityId"), column(relationship, "targetEntityId")),
@@ -65,9 +73,12 @@ const exerciseLink = (
 	relationship: Table,
 	linked: Table,
 	exerciseId: Parameters<typeof eq>[1],
+	owner: Parameters<typeof eq>[1],
 ) => ({
 	joins: [join("inner", linked, eq(column(relationship, "targetEntityId"), column(linked, "id")))],
 	where: and(
+		eq(column(relationship, "relationshipSchemaPluginId"), owner),
+		eq(column(linked, "entitySchemaPluginId"), owner),
 		effectiveLink(relationship),
 		eq(column(relationship, "sourceEntityId"), exerciseId),
 		eq(
@@ -83,7 +94,13 @@ export const exerciseTargetInclude = (exercise: Table) => {
 	const target = table("entity", "exerciseTarget");
 	return selectedInclude(relationship, {
 		limit: 100,
-		...exerciseLink("target", relationship, target, column(exercise, "id")),
+		...exerciseLink(
+			"target",
+			relationship,
+			target,
+			column(exercise, "id"),
+			column(exercise, "entitySchemaPluginId"),
+		),
 		orderBy: [ascending(column(target, "name")), ascending(column(relationship, "id"))],
 		selection: {
 			name: selectedField(column(target, "name"), Schema.String),
@@ -97,7 +114,13 @@ export const exerciseEquipmentInclude = (exercise: Table) => {
 	const equipment = table("entity", "exerciseEquipment");
 	return selectedInclude(relationship, {
 		limit: 100,
-		...exerciseLink("equipment", relationship, equipment, column(exercise, "id")),
+		...exerciseLink(
+			"equipment",
+			relationship,
+			equipment,
+			column(exercise, "id"),
+			column(exercise, "entitySchemaPluginId"),
+		),
 		orderBy: [ascending(column(equipment, "name")), ascending(column(relationship, "id"))],
 		selection: {
 			id: selectedField(column(equipment, "id"), Schema.String),
@@ -157,7 +180,13 @@ export const exerciseTargetsRecipe = defineRecipe((input: ExerciseTaxonomyInput)
 				after: input.after,
 				limit: input.limit,
 				orderBy: [ascending(column(target, "name")), ascending(column(relationship, "id"))],
-				...exerciseLink("target", relationship, target, literal(input.exerciseId)),
+				...exerciseLink(
+					"target",
+					relationship,
+					target,
+					literal(input.exerciseId),
+					pluginId(input.reference),
+				),
 				selection: {
 					id: selectedField(column(target, "id"), EntityId),
 					name: selectedField(column(target, "name"), Schema.String),
@@ -184,7 +213,13 @@ export const exerciseEquipmentRecipe = defineRecipe((input: ExerciseTaxonomyInpu
 				after: input.after,
 				limit: input.limit,
 				orderBy: [ascending(column(equipmentTable, "name")), ascending(column(relationship, "id"))],
-				...exerciseLink("equipment", relationship, equipmentTable, literal(input.exerciseId)),
+				...exerciseLink(
+					"equipment",
+					relationship,
+					equipmentTable,
+					literal(input.exerciseId),
+					pluginId(input.reference),
+				),
 				selection: {
 					id: selectedField(column(equipmentTable, "id"), EntityId),
 					name: selectedField(column(equipmentTable, "name"), Schema.String),

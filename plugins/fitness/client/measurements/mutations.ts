@@ -1,5 +1,6 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { Effect, Schema } from "@ryot-app/client-sdk/effect";
+import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotMutation } from "@ryot-app/client-sdk/react";
 
 import type { MeasurementMetricPinInput } from "../../shared/measurement-metric-operations";
@@ -16,6 +17,7 @@ import {
 	measurementReadingLogOperationSlug,
 	measurementReadingUpdateOperationSlug,
 } from "../../shared/measurement-reading-operations";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 const readingMutation = <A, I>(slug: string, schema: Schema.Codec<A, I>) =>
 	createRyotMutation<
@@ -28,8 +30,8 @@ const readingMutation = <A, I>(slug: string, schema: Schema.Codec<A, I>) =>
 				client.operations.invoke({
 					slug,
 					input,
-					pluginSlug: "fitness",
 					output: MeasurementReadingOutput,
+					pluginId: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)).pluginId,
 				}),
 			),
 			Effect.tap(() => Effect.sync(onSuccess)),
@@ -57,9 +59,9 @@ export const pinMetricMutation = createRyotMutation<
 >(({ input, client }) =>
 	client.operations.invoke({
 		input,
-		pluginSlug: "fitness",
 		output: MeasurementMetricPinOutput,
 		slug: measurementMetricPinOperationSlug,
+		pluginId: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)).pluginId,
 	}),
 );
 

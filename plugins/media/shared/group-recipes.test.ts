@@ -34,6 +34,7 @@ describe("media group recipes", () => {
 			limit: 20,
 			after: "cursor-1",
 			groupId: "group-1",
+			reference: { kind: "self" },
 		});
 		const members = recipe.document.queries["members"];
 		if (members?.output.type !== "rows") {
@@ -48,9 +49,25 @@ describe("media group recipes", () => {
 		]);
 		expect(members.where).toMatchObject({
 			predicates: [
-				{ right: { value: "movie", type: "literal" } },
+				{
+					predicates: [
+						{ right: { value: "movie", type: "literal" } },
+						{
+							left: { field: "entitySchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 				{ right: { type: "literal", value: "group-1" } },
-				{ right: { type: "literal", value: "movie-group-to-movie" } },
+				{
+					predicates: [
+						{ right: { type: "literal", value: "movie-group-to-movie" } },
+						{
+							left: { field: "relationshipSchemaPluginId" },
+							right: { type: "pluginId", reference: { kind: "self" } },
+						},
+					],
+				},
 			],
 		});
 		expect(fieldKeys(members.output.fields)).toContain("position");
@@ -62,6 +79,7 @@ describe("media group recipes", () => {
 			peopleLimit: 12,
 			companyLimit: 6,
 			entityId: "group-1",
+			reference: { kind: "self" },
 		});
 		const people = recipe.document.queries["people"];
 		if (people?.output.type !== "rows") {

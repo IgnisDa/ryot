@@ -17,7 +17,11 @@ const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
 describe("media music query recipes", () => {
 	it("selects only the duration and various-artists fields the music schema declares", () => {
 		const summary = keys(
-			musicRecipes.summaryRecipe({ collectionLimit: 6, entityId: "music-1" }),
+			musicRecipes.summaryRecipe({
+				collectionLimit: 6,
+				entityId: "music-1",
+				reference: { kind: "self" },
+			}),
 			"summary",
 		);
 
@@ -32,6 +36,7 @@ describe("media music query recipes", () => {
 				eventLimit: 60,
 				entityId: "music-1",
 				collectionEventLimit: 60,
+				reference: { kind: "self" },
 			}),
 			"totals",
 		).find((field) => "key" in field && field.key === "consumedAmount");

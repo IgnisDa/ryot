@@ -19,6 +19,7 @@ describe("fitness query recipes", () => {
 			name: "Push Up",
 			entityId: "exercise-id",
 			after: "exercise-cursor",
+			reference: { kind: "self" },
 		});
 		const exercises = recipe.document.queries["exercises"];
 		if (exercises?.output.type !== "rows") {
@@ -29,9 +30,17 @@ describe("fitness query recipes", () => {
 			expect.objectContaining({
 				predicates: expect.arrayContaining([
 					expect.objectContaining({
-						operator: "eq",
-						right: { type: "literal", value: "exercise" },
-						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+						predicates: [
+							expect.objectContaining({
+								operator: "eq",
+								right: { type: "literal", value: "exercise" },
+								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+							}),
+							expect.objectContaining({
+								right: { type: "pluginId", reference: { kind: "self" } },
+								left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
+							}),
+						],
 					}),
 					expect.objectContaining({
 						operator: "eq",
@@ -46,14 +55,27 @@ describe("fitness query recipes", () => {
 				]),
 			}),
 		);
-		expect(exerciseListRecipe({}).document.queries.exercises?.where).toEqual({
+		expect(
+			exerciseListRecipe({ reference: { kind: "self" } }).document.queries.exercises?.where,
+		).toEqual({
 			type: "and",
 			predicates: [
 				{
-					operator: "eq",
-					type: "comparison",
-					right: { type: "literal", value: "exercise" },
-					left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+					type: "and",
+					predicates: [
+						{
+							operator: "eq",
+							type: "comparison",
+							right: { type: "literal", value: "exercise" },
+							left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+						},
+						{
+							operator: "eq",
+							type: "comparison",
+							right: { type: "pluginId", reference: { kind: "self" } },
+							left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
+						},
+					],
 				},
 			],
 		});
@@ -89,7 +111,11 @@ describe("fitness query recipes", () => {
 	});
 
 	it("uses the plural workouts include for template detail", () => {
-		const recipe = workoutTemplateDetailRecipe({ workoutLimit: 6, entityId: "template-id" });
+		const recipe = workoutTemplateDetailRecipe({
+			workoutLimit: 6,
+			entityId: "template-id",
+			reference: { kind: "self" },
+		});
 		const workoutTemplate = recipe.document.queries["workoutTemplate"];
 		if (workoutTemplate?.output.type !== "rows") {
 			throw new Error("Expected workout template rows query");
@@ -107,10 +133,15 @@ describe("fitness query recipes", () => {
 	});
 
 	it("uses explicit relationship directions for workout details", () => {
-		const workoutRecipe = workoutDetailRecipe({ templateLimit: 3, entityId: "workout-id" });
+		const workoutRecipe = workoutDetailRecipe({
+			templateLimit: 3,
+			entityId: "workout-id",
+			reference: { kind: "self" },
+		});
 		const templateRecipe = workoutTemplateDetailRecipe({
 			workoutLimit: 4,
 			entityId: "template-id",
+			reference: { kind: "self" },
 		});
 		const workout = workoutRecipe.document.queries["workout"];
 		const workoutTemplate = templateRecipe.document.queries["workoutTemplate"];
@@ -197,17 +228,27 @@ describe("fitness query recipes", () => {
 	});
 
 	it("queries shared and user-owned taxonomy entities and their exercise relationships", () => {
-		const targetList = targetListRecipe({ limit: 4, name: "Lats", after: "target-cursor" });
+		const targetList = targetListRecipe({
+			limit: 4,
+			name: "Lats",
+			after: "target-cursor",
+			reference: { kind: "self" },
+		});
 		const targetRows = targetList.document.queries.targets;
-		const equipmentList = equipmentListRecipe({ limit: 5 });
+		const equipmentList = equipmentListRecipe({ limit: 5, reference: { kind: "self" } });
 		const equipmentRows = equipmentList.document.queries.equipment;
 		const targets = exerciseTargetsRecipe({
 			limit: 3,
 			exerciseId: "exercise-1",
+			reference: { kind: "self" },
 			after: "relationship-cursor",
 		});
 		const targetRelationships = targets.document.queries.targets;
-		const equipment = exerciseEquipmentRecipe({ limit: 2, exerciseId: "exercise-1" });
+		const equipment = exerciseEquipmentRecipe({
+			limit: 2,
+			exerciseId: "exercise-1",
+			reference: { kind: "self" },
+		});
 		const equipmentRelationships = equipment.document.queries.equipment;
 		if (
 			targetRows?.output.type !== "rows" ||
@@ -222,7 +263,12 @@ describe("fitness query recipes", () => {
 		expect(targetRows.where).toEqual(
 			expect.objectContaining({
 				predicates: expect.arrayContaining([
-					expect.objectContaining({ right: { type: "literal", value: "exercise-target" } }),
+					expect.objectContaining({
+						predicates: [
+							expect.objectContaining({ right: { type: "literal", value: "exercise-target" } }),
+							expect.objectContaining({ right: { type: "pluginId", reference: { kind: "self" } } }),
+						],
+					}),
 					expect.objectContaining({ right: { value: "Lats", type: "literal" } }),
 				]),
 			}),
@@ -235,7 +281,12 @@ describe("fitness query recipes", () => {
 		]);
 		expect(equipmentRows.where).toMatchObject({
 			predicates: [
-				expect.objectContaining({ right: { type: "literal", value: "exercise-equipment" } }),
+				expect.objectContaining({
+					predicates: [
+						expect.objectContaining({ right: { type: "literal", value: "exercise-equipment" } }),
+						expect.objectContaining({ right: { type: "pluginId", reference: { kind: "self" } } }),
+					],
+				}),
 			],
 		});
 		expect(targetRelationships.output).toMatchObject({

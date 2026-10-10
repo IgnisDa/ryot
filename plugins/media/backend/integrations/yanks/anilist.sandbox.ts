@@ -144,6 +144,7 @@ const readLatestSnapshots = Effect.fn("AniList.readLatestSnapshots")(function* (
 		const page = yield* executeRyotqlRecipe(
 			host.executeRyotql,
 			listStateSnapshotsRecipe({
+				reference: { kind: "self" },
 				...(after === undefined ? {} : { after }),
 				sourceEntryIds,
 				sourceAccountId,

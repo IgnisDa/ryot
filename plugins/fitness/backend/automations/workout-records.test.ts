@@ -18,6 +18,8 @@ const eventSnapshot = (id: string, entityId: string, overrides: Record<string, u
 	sessionEntityId: "workout-1",
 	entitySchemaSlug: "exercise",
 	eventSchemaSlug: "workout-set",
+	eventSchemaPluginId: "fitness-owner",
+	entitySchemaPluginId: "fitness-owner",
 	...overrides,
 });
 
@@ -58,6 +60,7 @@ const entitySnapshot = {
 	createdAt: timestamp,
 	updatedAt: timestamp,
 	entitySchemaSlug: "workout",
+	entitySchemaPluginId: "fitness-owner",
 };
 
 const workoutUpdateInput = (changedProperties: readonly string[]) =>

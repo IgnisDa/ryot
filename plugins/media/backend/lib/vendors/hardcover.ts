@@ -30,11 +30,7 @@ export const getHardcoverApiKey = (host: HardcoverHost) =>
 		Effect.flatMap((value) => {
 			const apiKey = stringValue(value);
 			if (!apiKey) {
-				return Effect.fail(
-					new MediaSandboxError({
-						message: "RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY is not configured",
-					}),
-				);
+				return Effect.fail(new MediaSandboxError({ message: "hardcoverApiKey is not configured" }));
 			}
 			return Effect.succeed(apiKey);
 		}),

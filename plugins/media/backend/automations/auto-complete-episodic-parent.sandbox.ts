@@ -133,7 +133,7 @@ const snapshotCanComplete = (
 
 const readSnapshot = (host: AutomationHost, trigger: CompletionTrigger) =>
 	readEpisodicLifecycleSnapshot(
-		{ config: trigger.config, parentEntityId: trigger.parentEntityId },
+		{ config: trigger.config, reference: { kind: "self" }, parentEntityId: trigger.parentEntityId },
 		host.executeRyotql,
 	);
 

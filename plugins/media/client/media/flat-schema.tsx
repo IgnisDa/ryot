@@ -1,5 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
-import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";
+import type { EntityRendererProps, PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
@@ -124,10 +124,12 @@ export type MediaFlatSchemaDescriptor<
 > = {
 	readonly recipes: {
 		readonly summaryRecipe: (input: {
+			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly collectionLimit: number;
 		}) => PreparedRecipe<FlatSummaryResult<Summary>>;
 		readonly overviewRecipe: (input: {
+			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly groupLimit: number;
 			readonly peopleLimit: number;
@@ -135,6 +137,7 @@ export type MediaFlatSchemaDescriptor<
 			readonly recommendationLimit: number;
 		}) => PreparedRecipe<Overview>;
 		readonly activityRecipe: (input: {
+			readonly reference: PluginIdentityReference;
 			readonly entityId: string;
 			readonly eventLimit: number;
 			readonly collectionEventLimit: number;
@@ -234,6 +237,7 @@ export const defineFlatMediaSchema = <
 				groupLimit: GROUP_LIMIT,
 				entityId: input.entityId,
 				peopleLimit: PEOPLE_LIMIT,
+				reference: input.reference,
 				companyLimit: COMPANY_LIMIT,
 				recommendationLimit: RECOMMENDATION_LIMIT,
 			}),
@@ -251,6 +255,7 @@ export const defineFlatMediaSchema = <
 		(input) =>
 			recipes.activityRecipe({
 				entityId: input.entityId,
+				reference: input.reference,
 				eventLimit: ACTIVITY_EVENT_LIMIT,
 				collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
 			}),

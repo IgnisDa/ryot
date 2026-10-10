@@ -15,8 +15,10 @@ import {
 	selectedRows,
 	table,
 	type Recipe,
+	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EventId } from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { propertyText, type Table } from "./entity-selections";
 import { ListStatePropertiesSchema } from "./list-state";
@@ -33,6 +35,7 @@ export const listStateActivityPropertiesField = (event: Table) =>
 
 export const listStateSnapshotsRecipe = defineRecipe(
 	(input: {
+		readonly reference: PluginIdentityReference;
 		readonly after?: string | undefined;
 		readonly limit: number;
 		readonly sourceAccountId: string;
@@ -57,6 +60,8 @@ export const listStateSnapshotsRecipe = defineRecipe(
 						),
 					},
 					where: and(
+						schemaOwnerPredicate(entity, "entitySchemaPluginId", input.reference),
+						schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
 						eq(column(event, "eventSchemaSlug"), literal("list-state")),
 						eq(propertyText(event, "source"), literal("anilist")),
 						eq(propertyText(event, "sourceAccountId"), literal(input.sourceAccountId)),

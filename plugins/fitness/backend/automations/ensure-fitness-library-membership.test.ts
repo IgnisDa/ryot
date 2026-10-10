@@ -44,6 +44,7 @@ const entityCreate = (entitySchemaSlug: string) =>
 			name: "Bench Press",
 			createdAt: timestamp,
 			updatedAt: timestamp,
+			entitySchemaPluginId: "fitness-owner",
 		},
 	});
 
@@ -57,6 +58,7 @@ const providerImport = (entitySchemaSlug: string) =>
 		providerId: "provider-1",
 		externalId: "bench-press",
 		resource: "provider-entity-import",
+		entitySchemaPluginId: "fitness-owner",
 	});
 
 const recordingHost = () => {

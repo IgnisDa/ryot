@@ -1,4 +1,5 @@
 import { Result, Schema } from "@ryot-app/client-sdk/effect";
+import type { PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import {
 	and,
 	ascending,
@@ -13,6 +14,7 @@ import {
 	selectedRows,
 	table,
 	type Recipe,
+	entitySchemaPredicate,
 } from "@ryot-app/client-sdk/ryotql";
 
 const plugin = table("plugin", "plugin");
@@ -41,14 +43,14 @@ export const fixtureCollectionChoicesRecipe = defineRecipe(() => {
 
 export type FixtureCollectionChoice = Recipe.Success<typeof fixtureCollectionChoicesRecipe>[number];
 
-export const fixturePokemonChoicesRecipe = defineRecipe(() => {
+export const fixturePokemonChoicesRecipe = defineRecipe((reference: PluginIdentityReference) => {
 	const pokemon = table("entity", "pokemonChoice");
 	return {
 		map: ({ pokemon: pokemonRows }) => Result.succeed(pokemonRows.items),
 		queries: {
 			pokemon: selectedRows(pokemon, {
 				limit: 100,
-				where: eq(column(pokemon, "entitySchemaSlug"), literal("pokemon")),
+				where: entitySchemaPredicate(pokemon, "pokemon", reference),
 				orderBy: [ascending(column(pokemon, "name")), ascending(column(pokemon, "id"))],
 				selection: {
 					id: selectedField(column(pokemon, "id"), Schema.String),

@@ -41,8 +41,7 @@ const getTvdbApiKey = (host: TvdbHost) =>
 			if (!key) {
 				return Effect.fail(
 					new MediaSandboxError({
-						message:
-							"TVDB API key is not configured. Set RYOT_PLUGIN_MEDIA_TVDB_API_KEY in your environment.",
+						message: "TVDB API key is not configured. Set tvdbApiKey in the plugin configuration.",
 					}),
 				);
 			}

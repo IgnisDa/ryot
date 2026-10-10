@@ -15,7 +15,9 @@ import {
 	selectedRows,
 	table,
 	type Recipe,
+	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
 import { nullableEquals, property, propertyDate, propertyNumber } from "./entity-selections";
@@ -23,7 +25,11 @@ import { exerciseKindSchema } from "./exercise-kinds";
 import { PersonalBestSchema } from "./workout-records";
 
 export const workoutSetContextRecipe = defineRecipe(
-	(input: { readonly exerciseId: string; readonly workoutId: string }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly exerciseId: string;
+		readonly workoutId: string;
+	}) => {
 		const exercise = table("entity", "exercise");
 		const workout = table("entity", "workout");
 		return {
@@ -36,6 +42,7 @@ export const workoutSetContextRecipe = defineRecipe(
 						kind: selectedField(property(exercise, "kind"), Schema.NullOr(exerciseKindSchema)),
 					},
 					where: and(
+						schemaOwnerPredicate(exercise, "entitySchemaPluginId", input.reference),
 						eq(column(exercise, "id"), literal(input.exerciseId)),
 						eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
 					),
@@ -49,6 +56,7 @@ export const workoutSetContextRecipe = defineRecipe(
 						),
 					},
 					where: and(
+						schemaOwnerPredicate(workout, "entitySchemaPluginId", input.reference),
 						eq(column(workout, "id"), literal(input.workoutId)),
 						eq(column(workout, "entitySchemaSlug"), literal("workout")),
 					),
@@ -59,7 +67,10 @@ export const workoutSetContextRecipe = defineRecipe(
 );
 
 export const existingExerciseIdsRecipe = defineRecipe(
-	(input: { readonly exerciseIds: ReadonlyArray<string> }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly exerciseIds: ReadonlyArray<string>;
+	}) => {
 		const exercise = table("entity", "exercise");
 		return {
 			map: ({ exercises }) => Result.succeed(exercises.items.map(({ id }) => id)),
@@ -69,6 +80,7 @@ export const existingExerciseIdsRecipe = defineRecipe(
 					orderBy: [ascending(column(exercise, "id"))],
 					selection: { id: selectedField(column(exercise, "id"), EntityId) },
 					where: and(
+						schemaOwnerPredicate(exercise, "entitySchemaPluginId", input.reference),
 						eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
 						or(...input.exerciseIds.map((id) => eq(column(exercise, "id"), literal(id)))),
 					),
@@ -79,7 +91,11 @@ export const existingExerciseIdsRecipe = defineRecipe(
 );
 
 export const workoutSetExerciseIdsRecipe = defineRecipe(
-	(input: { readonly after?: string | undefined; readonly workoutId: string }) => {
+	(input: {
+		readonly reference: PluginIdentityReference;
+		readonly after?: string | undefined;
+		readonly workoutId: string;
+	}) => {
 		const event = table("event", "workoutSetContextEvent");
 		const exercise = table("entity", "workoutSetContextExercise");
 		const workout = table("entity", "workoutSetContextWorkout");
@@ -99,6 +115,9 @@ export const workoutSetExerciseIdsRecipe = defineRecipe(
 						join("inner", workout, eq(column(event, "sessionEntityId"), column(workout, "id"))),
 					],
 					where: and(
+						schemaOwnerPredicate(exercise, "entitySchemaPluginId", input.reference),
+						schemaOwnerPredicate(workout, "entitySchemaPluginId", input.reference),
+						schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
 						eq(column(event, "sessionEntityId"), literal(input.workoutId)),
 						eq(column(event, "eventSchemaSlug"), literal("workout-set")),
 						eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
@@ -114,6 +133,7 @@ export const workoutSetExerciseIdsRecipe = defineRecipe(
 
 export const workoutRecordRowsRecipe = defineRecipe(
 	(input: {
+		readonly reference: PluginIdentityReference;
 		readonly after?: string | undefined;
 		readonly exerciseId: string;
 		readonly limit: number;
@@ -146,6 +166,9 @@ export const workoutRecordRowsRecipe = defineRecipe(
 						join("inner", workout, eq(column(event, "sessionEntityId"), column(workout, "id"))),
 					],
 					where: and(
+						schemaOwnerPredicate(exercise, "entitySchemaPluginId", input.reference),
+						schemaOwnerPredicate(workout, "entitySchemaPluginId", input.reference),
+						schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
 						eq(column(event, "entityId"), literal(input.exerciseId)),
 						eq(column(event, "eventSchemaSlug"), literal("workout-set")),
 						eq(column(exercise, "entitySchemaSlug"), literal("exercise")),

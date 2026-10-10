@@ -18,8 +18,10 @@ import {
 	titleCase,
 	type SelectedIncludes,
 	type SelectedSelection,
+	schemaOwnerPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { propertyNumber } from "./entity-selections";
 import { ExerciseNotesSchema } from "./workout-details-recipes";
@@ -41,8 +43,14 @@ const selectedPresentationSource = <
 	});
 	return {
 		...source,
-		query: (entityIds: readonly string[]) =>
-			source.query({ limit: 100, where: input.where(entityIds) }),
+		query: (reference: PluginIdentityReference, entityIds: readonly string[]) =>
+			source.query({
+				limit: 100,
+				where: and(
+					input.where(entityIds),
+					schemaOwnerPredicate(input.table, "entitySchemaPluginId", reference),
+				),
+			}),
 	};
 };
 
@@ -67,6 +75,7 @@ const latestMetricReading = (
 		select: select(reading),
 		where: and(
 			eq(column(reading, "entityId"), column(metric, "id")),
+			eq(column(reading, "eventSchemaPluginId"), column(metric, "entitySchemaPluginId")),
 			eq(column(reading, "eventSchemaSlug"), literal("measurement-reading")),
 		),
 	});
@@ -139,6 +148,8 @@ export const workoutPresentationSets = (workout: Table) => {
 		],
 		where: and(
 			eq(column(set, "sessionEntityId"), column(workout, "id")),
+			eq(column(set, "eventSchemaPluginId"), column(workout, "entitySchemaPluginId")),
+			eq(column(exercise, "entitySchemaPluginId"), column(workout, "entitySchemaPluginId")),
 			eq(column(set, "eventSchemaSlug"), literal("workout-set")),
 			eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
 		),

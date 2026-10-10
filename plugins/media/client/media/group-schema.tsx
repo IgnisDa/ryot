@@ -1,5 +1,9 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
-import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";
+import {
+	type EntityRendererProps,
+	PluginPackageId,
+	type PluginIdentityReference,
+} from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
@@ -7,6 +11,7 @@ import { createElement, type ReactNode } from "react";
 
 import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { MediaReviewActivityResult } from "../../shared/media-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { mediaCursorPageError, type MediaCursorPage } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
@@ -82,15 +87,18 @@ type GroupOverview<Overview> = Overview | Record<never, never>;
 
 type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
 	readonly summaryRecipe: (input: {
+		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
 		readonly collectionLimit: number;
 	}) => PreparedRecipe<GroupSummaryResult<Summary>>;
 	readonly membersRecipe: (input: {
+		readonly reference: PluginIdentityReference;
 		readonly limit: number;
 		readonly groupId: string;
 		readonly after?: string | undefined;
 	}) => PreparedRecipe<MediaCursorPage<Member>>;
 	readonly activityRecipe: (input: {
+		readonly reference: PluginIdentityReference;
 		readonly entityId: string;
 		readonly eventLimit: number;
 		readonly collectionEventLimit: number;
@@ -99,6 +107,7 @@ type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
 };
 
 type MediaGroupOverviewRecipe<Overview> = (input: {
+	readonly reference: PluginIdentityReference;
 	readonly entityId: string;
 	readonly peopleLimit: number;
 	readonly companyLimit: number;
@@ -177,8 +186,13 @@ export const defineGroupMediaSchema = <
 		overviewRecipe === undefined
 			? undefined
 			: createMediaEntityQuery(
-					({ entityId }) =>
-						overviewRecipe({ entityId, peopleLimit: PEOPLE_LIMIT, companyLimit: COMPANY_LIMIT }),
+					({ entityId, reference }) =>
+						overviewRecipe({
+							entityId,
+							reference,
+							peopleLimit: PEOPLE_LIMIT,
+							companyLimit: COMPANY_LIMIT,
+						}),
 					(data) => [...data.people.items, ...data.companies.items].map(({ id }) => id),
 				);
 
@@ -191,6 +205,7 @@ export const defineGroupMediaSchema = <
 				recipes.membersRecipe({
 					groupId: input.entityId,
 					limit: MEMBER_PAGE_LIMIT,
+					reference: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)),
 					...(input.after === null ? {} : { after: input.after }),
 				}),
 			),

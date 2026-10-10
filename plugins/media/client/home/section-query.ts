@@ -1,6 +1,9 @@
 import { Result } from "@ryot-app/client-sdk/effect";
+import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
+
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 type SectionRecipes = Readonly<Record<string, PreparedRecipe<unknown>>>;
 
@@ -54,11 +57,16 @@ const sectionRecipe = <Recipes extends SectionRecipes>(
 });
 
 export const createHomeSectionQuery = <Input, Recipes extends SectionRecipes>(
-	recipes: (input: Input) => Recipes,
+	recipes: (input: Input, reference: PluginIdentityReference) => Recipes,
 	visible: (data: SectionData<Recipes>) => readonly string[],
 ) =>
 	createRyotQuery<Input, SectionData<Recipes>>(
-		({ input, client }) => client.data.query(sectionRecipe(recipes(input))),
+		({ input, client }) =>
+			client.data.query(
+				sectionRecipe(
+					recipes(input, client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID))),
+				),
+			),
 		{
 			entityInterest: ({ data }) => ({
 				foreground: [],

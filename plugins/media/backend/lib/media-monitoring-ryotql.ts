@@ -1,3 +1,4 @@
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 import { Result, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	and,
@@ -8,13 +9,13 @@ import {
 	exists,
 	inArray,
 	isNotNull,
-	isNull,
 	literal,
 	selectedField,
 	selectedInclude,
 	selectedRows,
 	table,
 	type Recipe,
+	schemaOwnerPredicate,
 } from "@ryot-app/sandbox-sdk/ryotql";
 
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
@@ -27,7 +28,6 @@ const mediaMonitorableEntitySchemaSlugs = [
 
 const providerBackedFilter = (entity: ReturnType<typeof table>) =>
 	and(
-		isNull(column(entity, "userId")),
 		isNotNull(column(entity, "externalId")),
 		isNotNull(column(entity, "providerId")),
 		inArray(
@@ -49,56 +49,63 @@ const monitoringRelationshipFilter = (
 ) =>
 	and(
 		eq(column(relationship, "sourceEntityId"), column(entity, "id")),
+		eq(column(relationship, "relationshipSchemaPluginId"), column(entity, "entitySchemaPluginId")),
 		isNotNull(column(relationship, "userId")),
 		eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
 	);
 
-export const mediaMonitoringTargetsRecipe = defineRecipe((entityIds: readonly string[]) => {
-	if (entityIds.length === 0) {
-		throw new Error("At least one entity id is required");
-	}
-	const entity = table("entity", "entity");
-	const relationship = table("relationship", "monitoringRelationship");
-	return {
-		map: ({ targets }) =>
-			Result.succeed(
-				targets.items.map((target) => ({
-					entityId: target.entityId,
-					externalId: target.externalId,
-					providerId: target.providerId,
-					entitySchemaSlug: target.entitySchemaSlug,
-					monitoringLibraryId: target.monitoringLibraries.items[0]?.libraryEntityId ?? null,
-				})),
-			),
-		queries: {
-			targets: selectedRows(entity, {
-				limit: entityIds.length,
-				selection: targetSelection(entity),
-				orderBy: [ascending(column(entity, "id"))],
-				where: and(
-					providerBackedFilter(entity),
-					inArray(
-						column(entity, "id"),
-						entityIds.map((entityId) => literal(entityId)),
-					),
+export const mediaMonitoringTargetsRecipe = defineRecipe(
+	(reference: PluginIdentityReference, entityIds: readonly string[]) => {
+		if (entityIds.length === 0) {
+			throw new Error("At least one entity id is required");
+		}
+		const entity = table("entity", "entity");
+		const relationship = table("relationship", "monitoringRelationship");
+		return {
+			map: ({ targets }) =>
+				Result.succeed(
+					targets.items.map((target) => ({
+						entityId: target.entityId,
+						externalId: target.externalId,
+						providerId: target.providerId,
+						entitySchemaSlug: target.entitySchemaSlug,
+						monitoringLibraryId: target.monitoringLibraries.items[0]?.libraryEntityId ?? null,
+					})),
 				),
-				include: {
-					monitoringLibraries: selectedInclude(relationship, {
-						limit: 1,
-						where: monitoringRelationshipFilter(entity, relationship),
-						orderBy: [ascending(column(relationship, "targetEntityId"))],
-						selection: {
-							libraryEntityId: selectedField(column(relationship, "targetEntityId"), Schema.String),
-						},
-					}),
-				},
-			}),
-		},
-	};
-});
+			queries: {
+				targets: selectedRows(entity, {
+					limit: entityIds.length,
+					selection: targetSelection(entity),
+					orderBy: [ascending(column(entity, "id"))],
+					where: and(
+						schemaOwnerPredicate(entity, "entitySchemaPluginId", reference),
+						providerBackedFilter(entity),
+						inArray(
+							column(entity, "id"),
+							entityIds.map((entityId) => literal(entityId)),
+						),
+					),
+					include: {
+						monitoringLibraries: selectedInclude(relationship, {
+							limit: 1,
+							where: monitoringRelationshipFilter(entity, relationship),
+							orderBy: [ascending(column(relationship, "targetEntityId"))],
+							selection: {
+								libraryEntityId: selectedField(
+									column(relationship, "targetEntityId"),
+									Schema.String,
+								),
+							},
+						}),
+					},
+				}),
+			},
+		};
+	},
+);
 
 export const mediaMonitoringSweepRecipe = defineRecipe(
-	(after: string | undefined, limit: number) => {
+	(reference: PluginIdentityReference, after: string | undefined, limit: number) => {
 		const entity = table("entity", "entity");
 		const relationship = table("relationship", "monitoringRelationship");
 		return {
@@ -111,6 +118,7 @@ export const mediaMonitoringSweepRecipe = defineRecipe(
 					selection: targetSelection(entity),
 					orderBy: [ascending(column(entity, "id"))],
 					where: and(
+						schemaOwnerPredicate(entity, "entitySchemaPluginId", reference),
 						providerBackedFilter(entity),
 						exists(relationship, { where: monitoringRelationshipFilter(entity, relationship) }),
 					),

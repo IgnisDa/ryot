@@ -1,10 +1,12 @@
-import { usePluginTitle, useRyotViewport } from "@ryot-app/client-sdk/plugin";
-import { useRyot } from "@ryot-app/client-sdk/react";
+import { usePluginTitle, useRyotViewport, PluginPackageId } from "@ryot-app/client-sdk/plugin";
+import { usePluginIdentity, useRyot } from "@ryot-app/client-sdk/react";
 import { Button } from "@ryot-app/client-ui-sdk";
 
+import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { fixtureRoute } from "./targets";
 
 export const FullBleed = () => {
+	const identity = usePluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID));
 	const ryot = useRyot();
 	const { safeAreaTop } = useRyotViewport();
 	usePluginTitle("Fixture full-bleed");
@@ -25,7 +27,9 @@ export const FullBleed = () => {
 					This screen renders no header frame. It paints under the status bar itself and owns its
 					own way back, so the drawer is only reachable by the left-edge gesture here.
 				</p>
-				<Button onClick={() => ryot.navigation.replace(fixtureRoute("/"))}>Back to home</Button>
+				<Button onClick={() => ryot.navigation.replace(fixtureRoute(identity.pluginId, "/"))}>
+					Back to home
+				</Button>
 			</div>
 		</main>
 	);

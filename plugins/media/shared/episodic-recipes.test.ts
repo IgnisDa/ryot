@@ -88,7 +88,8 @@ const COVERAGE_ROW = {
 	watchedUnknownRuntime: 0,
 };
 
-const activityRecipe = () => fixtureRecipes.activityRecipe(ACTIVITY_INPUT);
+const activityRecipe = () =>
+	fixtureRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } });
 
 const PARENT_EVENT_ROW = {
 	text: null,
@@ -175,8 +176,11 @@ const decodeActivity = (
 	});
 
 const nextUpOf = (recipes: typeof fixtureRecipes | typeof nestedRecipes) => {
-	const summary = recipes.summaryRecipe({ collectionLimit: 6, entityId: "parent-1" }).document
-		.queries["summary"];
+	const summary = recipes.summaryRecipe({
+		collectionLimit: 6,
+		entityId: "parent-1",
+		reference: { kind: "self" },
+	}).document.queries["summary"];
 	if (summary?.output.type !== "rows") {
 		throw new Error("Expected a summary rows query");
 	}
@@ -189,7 +193,11 @@ const nextUpOf = (recipes: typeof fixtureRecipes | typeof nestedRecipes) => {
 
 describe("episodic media recipes", () => {
 	it("selects the parent summary with its episodic state and episode aggregates", () => {
-		const recipe = fixtureRecipes.summaryRecipe({ collectionLimit: 6, entityId: "parent-1" });
+		const recipe = fixtureRecipes.summaryRecipe({
+			collectionLimit: 6,
+			entityId: "parent-1",
+			reference: { kind: "self" },
+		});
 		const summary = recipe.document.queries["summary"];
 		if (summary?.output.type !== "rows") {
 			throw new Error("Expected a summary rows query");
@@ -262,12 +270,19 @@ describe("episodic media recipes", () => {
 
 	it("reaches episode activity through the parent's nesting instead of the event session", () => {
 		const flat = activityRecipe().document.queries["episodeEvents"];
-		const nested = nestedRecipes.activityRecipe(ACTIVITY_INPUT).document.queries["episodeEvents"];
+		const nested = nestedRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } })
+			.document.queries["episodeEvents"];
 		if (flat?.output.type !== "rows" || nested?.output.type !== "rows") {
 			throw new Error("Expected episode event rows queries");
 		}
-		const flatMembership = flat.where?.type === "and" ? flat.where.predicates[2] : undefined;
-		const nestedMembership = nested.where?.type === "and" ? nested.where.predicates[2] : undefined;
+		const flatMembership =
+			flat.where?.type === "and"
+				? flat.where.predicates.find((predicate) => predicate.type === "exists")
+				: undefined;
+		const nestedMembership =
+			nested.where?.type === "and"
+				? nested.where.predicates.find((predicate) => predicate.type === "exists")
+				: undefined;
 		if (flatMembership?.type !== "exists" || nestedMembership?.type !== "exists") {
 			throw new Error("Expected episode membership existence predicates");
 		}
@@ -279,7 +294,8 @@ describe("episodic media recipes", () => {
 
 	it("orders in-progress episodes by the schema's own episode ordering", () => {
 		const flat = activityRecipe().document.queries["episodeProgress"];
-		const nested = nestedRecipes.activityRecipe(ACTIVITY_INPUT).document.queries["episodeProgress"];
+		const nested = nestedRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } })
+			.document.queries["episodeProgress"];
 		if (flat?.output.type !== "rows" || nested?.output.type !== "rows") {
 			throw new Error("Expected progress rows queries");
 		}

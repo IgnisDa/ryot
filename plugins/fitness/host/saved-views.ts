@@ -1,5 +1,8 @@
 import type { OrderBy } from "@ryot-app/contract/modules/ryotql/language";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
+	entitySchemaPredicate,
+	schemaOwnerPredicate,
 	and,
 	ascending,
 	castDate,
@@ -47,6 +50,7 @@ export const fitnessSavedViews = () => {
 				descending(
 					countDistinct(workoutSet, column(workoutSet, "sessionEntityId"), {
 						where: and(
+							schemaOwnerPredicate(workoutSet, "eventSchemaPluginId", { kind: "self" }),
 							eq(column(workoutSet, "entityId"), column(entity, "id")),
 							eq(column(workoutSet, "eventSchemaSlug"), literal("workout-set")),
 						),
@@ -90,7 +94,7 @@ export const fitnessSavedViews = () => {
 			...presentation.fields,
 		];
 		const where = and(
-			eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+			entitySchemaPredicate(entity, input.entitySchemaSlug, { kind: "self" }),
 			...(input.entitySchemaSlug === "exercise"
 				? [fitnessLibraryLinkExists(entity, "fitnessLibrary")]
 				: []),
@@ -114,7 +118,6 @@ export const fitnessSavedViews = () => {
 			name: input.name,
 			slug: input.slug,
 			icon: schema.icon,
-			pluginSlug: "fitness",
 			sortOrder: input.sortOrder,
 			renderer: { kind: "kernel", name: "entity-browser" } as const,
 			settings: {
@@ -130,8 +133,7 @@ export const fitnessSavedViews = () => {
 				tableColumns: projections.table.mappings.columns,
 				addAction: {
 					type: "provider-search",
-					ownerPluginId: "fitness",
-					entitySchemaSlug: input.entitySchemaSlug,
+					schema: { owner: { kind: "self" }, slug: EntitySchemaSlug.make(input.entitySchemaSlug) },
 				},
 			},
 		};
@@ -144,7 +146,6 @@ export const fitnessSavedViews = () => {
 		sortOrder: 2,
 		settings: {},
 		dataSources: null,
-		pluginSlug: "fitness",
 		icon: metricSchema.icon,
 		slug: "all-measurements",
 		name: "All Measurements",

@@ -65,7 +65,7 @@ export default defineAutomation({
 				{
 					properties: {},
 					entityId: entity.id,
-					eventSchemaSlug: eventSchema.id,
+					eventSchemaSlug: eventSchema.slug,
 					occurredAt: payload.after.createdAt,
 				},
 			]);

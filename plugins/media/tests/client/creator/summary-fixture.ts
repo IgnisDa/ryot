@@ -3,7 +3,11 @@ import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import { decodeMediaSummaryResult } from "../summary-fixture";
 import { creatorFixtureRecipes } from "./recipes";
 
-export const CREATOR_SUMMARY_INPUT = { collectionLimit: 6, entityId: "creator-1" };
+export const CREATOR_SUMMARY_INPUT = {
+	collectionLimit: 6,
+	entityId: "creator-1",
+	reference: { kind: "self" },
+} satisfies Parameters<typeof creatorFixtureRecipes.summaryRecipe>[0];
 
 export const creatorSummaryRecipe = creatorFixtureRecipes.summaryRecipe(CREATOR_SUMMARY_INPUT);
 

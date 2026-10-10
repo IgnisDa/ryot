@@ -1,4 +1,5 @@
 import { CreateImportRunBody } from "@ryot-app/contract/modules/imports/schemas";
+import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
@@ -8,7 +9,11 @@ import { mediaPlugin } from "./plugin";
 const uploadToken = "upload-1";
 
 it("builds a typed media request accepted by the open import envelope", () => {
-	const body = createMediaImportRunBody({ uploadToken, source: "igdb", collection: "Favorites" });
+	const body = createMediaImportRunBody(PluginId.make("media-owner"), {
+		uploadToken,
+		source: "igdb",
+		collection: "Favorites",
+	});
 
 	expect(Schema.decodeSync(CreateImportRunBody)(body)).toEqual(body);
 	expect(body.collection).toBe("Favorites");
@@ -109,22 +114,26 @@ it.each([
 });
 
 it("accepts explicit Trakt export, user, and list requests", () => {
-	const exportFile = createMediaImportRunBody({
+	const exportFile = createMediaImportRunBody(PluginId.make("media-owner"), {
 		mode: "export",
 		source: "trakt",
 		exportUploadToken: uploadToken,
 	});
-	const user = createMediaImportRunBody({ mode: "user", source: "trakt", username: "alice" });
-	const list = createMediaImportRunBody({
+	const user = createMediaImportRunBody(PluginId.make("media-owner"), {
+		mode: "user",
+		source: "trakt",
+		username: "alice",
+	});
+	const list = createMediaImportRunBody(PluginId.make("media-owner"), {
 		mode: "list",
 		source: "trakt",
 		collection: "Favorites",
 		url: "https://trakt.tv/users/alice/lists/favorites",
 	});
 
-	expect(Schema.decodeSync(MediaCreateImportRunBody)(exportFile)).toEqual(exportFile);
-	expect(Schema.decodeSync(MediaCreateImportRunBody)(user)).toEqual(user);
-	expect(Schema.decodeSync(MediaCreateImportRunBody)(list)).toEqual(list);
+	expect(Schema.decodeSync(CreateImportRunBody)(exportFile)).toEqual(exportFile);
+	expect(Schema.decodeSync(CreateImportRunBody)(user)).toEqual(user);
+	expect(Schema.decodeSync(CreateImportRunBody)(list)).toEqual(list);
 });
 
 it.each([
@@ -239,12 +248,23 @@ it("keeps every manifest source aligned with a strict plugin-owned guard", () =>
 it("accepts unknown JSON-compatible sources only through the generic envelope", () => {
 	expect(
 		Schema.decodeSync(CreateImportRunBody)({
-			source: "fixture_source",
 			options: { limit: 10, dryRun: true },
+			source: {
+				slug: "fixture_source",
+				owner: { kind: "plugin", pluginId: PluginId.make("fixture-owner") },
+			},
 		}),
-	).toEqual({ source: "fixture_source", options: { limit: 10, dryRun: true } });
-	expect(() => Schema.decodeSync(CreateImportRunBody)({ source: "", value: "invalid" })).toThrow();
+	).toEqual({
+		options: { limit: 10, dryRun: true },
+		source: { slug: "fixture_source", owner: { kind: "plugin", pluginId: "fixture-owner" } },
+	});
 	expect(() =>
-		Schema.decodeSync(CreateImportRunBody)({ value: Number.NaN, source: "fixture_source" }),
+		Schema.decodeUnknownSync(CreateImportRunBody)({ source: "", value: "invalid" }),
+	).toThrow();
+	expect(() =>
+		Schema.decodeSync(CreateImportRunBody)({
+			value: Number.NaN,
+			source: { slug: "fixture_source", owner: { kind: "plugin", pluginId: "fixture-owner" } },
+		}),
 	).toThrow();
 });

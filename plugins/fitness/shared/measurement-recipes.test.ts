@@ -20,7 +20,11 @@ const series = (values: readonly number[]) => ({
 
 describe("measurementSeriesRecipe", () => {
 	it("keeps only buckets that contain readings, since empty buckets are zero filled", () => {
-		const recipe = measurementSeriesRecipe({ ...window, metricIds: ["weight", "waist"] });
+		const recipe = measurementSeriesRecipe({
+			reference: { kind: "self" },
+			...window,
+			metricIds: ["weight", "waist"],
+		});
 		const decoded = Result.getOrThrow(
 			recipe.decode({
 				data: {
@@ -43,7 +47,10 @@ describe("measurementSeriesRecipe", () => {
 			(_, index) => `m${index}`,
 		);
 		expect(
-			Object.keys(measurementSeriesRecipe({ ...window, metricIds }).document.queries).length,
+			Object.keys(
+				measurementSeriesRecipe({ reference: { kind: "self" }, ...window, metricIds }).document
+					.queries,
+			).length,
 		).toBeLessThanOrEqual(10);
 	});
 });

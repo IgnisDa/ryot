@@ -1,5 +1,6 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { Effect, Schema } from "@ryot-app/client-sdk/effect";
+import { PluginPackageId } from "@ryot-app/client-sdk/plugin";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/client-sdk/react";
 import {
 	Button,
@@ -19,6 +20,7 @@ import {
 	ExerciseNoteUpdateInput,
 	exerciseNoteOperationSlugs,
 } from "../../shared/exercise-note-operations";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { formatShortDate } from "../workout/format";
 import { ratingSteps, ratingToStars, starsToRating, type WorkoutNote } from "./details-model";
 import { cardHeadingClass, sectionHeadingClass } from "./styles";
@@ -36,8 +38,8 @@ const noteMutation = <A, I>(slug: string, schema: Schema.Codec<A, I>) =>
 					client.operations.invoke({
 						slug,
 						input: payload,
-						pluginSlug: "fitness",
 						output: ExerciseNoteOutput,
+						pluginId: client.pluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID)).pluginId,
 					}),
 				),
 				Effect.tap(() => Effect.sync(onSuccess)),

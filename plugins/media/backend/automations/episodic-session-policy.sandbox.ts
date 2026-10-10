@@ -51,6 +51,7 @@ const assignShowEpisodeSession = (host: AutomationHost, payload: EventPayload) =
 	executeRyotqlRecipe(
 		host.executeRyotql,
 		resolveEpisodeParentRecipe({
+			reference: { kind: "self" },
 			config: showEpisodicKindConfig,
 			episodeEntityId: payload.draft.entityId,
 		}),
@@ -60,6 +61,7 @@ const assignPodcastEpisodeSession = (host: AutomationHost, payload: EventPayload
 	executeRyotqlRecipe(
 		host.executeRyotql,
 		resolveEpisodeParentRecipe({
+			reference: { kind: "self" },
 			config: podcastEpisodicKindConfig,
 			episodeEntityId: payload.draft.entityId,
 		}),

@@ -1,6 +1,7 @@
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
+	entitySchemaPredicate,
 	ascending,
 	average,
 	castNumber,
@@ -25,10 +26,10 @@ import {
 	type SelectedRowsSource,
 	type SelectedSelection,
 } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	entityIdentitySelection,
-	entitySchema,
 	propertyJson,
 	propertyNumber,
 	propertyText,
@@ -54,7 +55,11 @@ export const selectedPresentationSource = <
 
 export const mediaPresentationSourceRecipe = <Data>(
 	source: MediaPresentationSource<Data>,
-	input: { readonly entityIds: readonly string[]; readonly entitySchemaSlug: string },
+	input: {
+		readonly reference: PluginIdentityReference;
+		readonly entityIds: readonly string[];
+		readonly entitySchemaSlug: string;
+	},
 ) => {
 	const entity = table("entity", "entity");
 	return defineRecipe(() => ({
@@ -64,7 +69,7 @@ export const mediaPresentationSourceRecipe = <Data>(
 				limit: 100,
 				orderBy: [ascending(column(entity, "id"))],
 				where: and(
-					entitySchema(entity, input.entitySchemaSlug),
+					entitySchemaPredicate(entity, input.entitySchemaSlug, input.reference),
 					inArray(
 						column(entity, "id"),
 						input.entityIds.map((entityId) => literal(entityId)),
@@ -97,6 +102,7 @@ const reviewRatingAverage = (media: Table) => {
 	return average(review, castNumber(jsonPath(column(review, "properties"), "rating")), {
 		where: and(
 			eq(column(review, "entityId"), column(media, "id")),
+			eq(column(review, "eventSchemaPluginId"), column(media, "entitySchemaPluginId")),
 			eq(column(review, "eventSchemaSlug"), literal("review")),
 		),
 	});

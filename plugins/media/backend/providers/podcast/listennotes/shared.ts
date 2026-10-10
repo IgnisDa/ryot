@@ -64,9 +64,7 @@ const getApiKey = (host: ListennotesHost) =>
 			const apiKey = typeof value === "string" ? value.trim() : "";
 			if (!apiKey) {
 				return Effect.fail(
-					new MediaSandboxError({
-						message: "RYOT_PLUGIN_MEDIA_LISTENNOTES_API_KEY is not configured",
-					}),
+					new MediaSandboxError({ message: "listennotesApiKey is not configured" }),
 				);
 			}
 			return Effect.succeed(apiKey);

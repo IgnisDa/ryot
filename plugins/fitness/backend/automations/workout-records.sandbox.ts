@@ -113,7 +113,11 @@ const runWorkoutStartChange = (workout: EntityUpdate, host: AutomationHost) =>
 		do {
 			const page = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutSetExerciseIdsRecipe({ after, workoutId: workout.after.id }),
+				workoutSetExerciseIdsRecipe({
+					after,
+					reference: { kind: "self" },
+					workoutId: workout.after.id,
+				}),
 			);
 			const exerciseIds = new Set(page.items.map(({ entityId }) => entityId));
 			for (const entityId of exerciseIds) {
@@ -189,7 +193,10 @@ export default defineAutomation({
 			}
 			const existingExercises = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				existingExerciseIdsRecipe({ exerciseIds: [...streams.keys()] }),
+				existingExerciseIdsRecipe({
+					reference: { kind: "self" },
+					exerciseIds: [...streams.keys()],
+				}),
 			);
 			const existingExerciseIds = new Set(existingExercises);
 

@@ -62,7 +62,12 @@ const animeActivity = (
 ) =>
 	Result.getOrThrow(
 		animeRecipes
-			.activityRecipe({ eventLimit: 60, entityId: "anime-1", collectionEventLimit: 60 })
+			.activityRecipe({
+				eventLimit: 60,
+				entityId: "anime-1",
+				collectionEventLimit: 60,
+				reference: { kind: "self" },
+			})
 			.decode({
 				data: {
 					events: rowsResult(events, { limit: 60, hasMore: false, nextCursor: null }),

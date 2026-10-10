@@ -1,15 +1,17 @@
-import { PluginLink } from "@ryot-app/client-sdk/plugin";
-import { useRyot } from "@ryot-app/client-sdk/react";
+import { PluginLink, EntitySchemaSlug, PluginPackageId } from "@ryot-app/client-sdk/plugin";
+import { usePluginIdentity, useRyot } from "@ryot-app/client-sdk/react";
 import { Button, Menu } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
 import { useRef, useState } from "react";
 
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 
 const schemaLabel = (slug: string) =>
 	`${slug.charAt(0).toUpperCase()}${slug.slice(1)}`.replace("-", " ");
 
-export function FirstRun(props: { readonly compact: boolean; readonly pluginId: string }) {
+export function FirstRun(props: { readonly compact: boolean }) {
+	const identity = usePluginIdentity(PluginPackageId.make(PLUGIN_PACKAGE_ID));
 	const client = useRyot();
 	const trigger = useRef<HTMLButtonElement>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
@@ -55,8 +57,10 @@ export function FirstRun(props: { readonly compact: boolean; readonly pluginId: 
 						onSelect: () => {
 							setMenuOpen(false);
 							client.screens.openProviderSearch({
-								entitySchemaSlug: slug,
-								ownerPluginId: props.pluginId,
+								schema: {
+									slug: EntitySchemaSlug.make(slug),
+									owner: { kind: "plugin", pluginId: identity.pluginId },
+								},
 							});
 						},
 					}))}
