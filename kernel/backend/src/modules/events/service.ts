@@ -57,6 +57,7 @@ import {
 } from "#lib/domain/lifecycle-policy-patch";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { principalOwner } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import {
 	awaitWorkflowSettled,
 	WorkflowExecutionNotifications,
@@ -643,12 +644,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			const prepared = yield* transaction(
 				Effect.gen(function* () {
 					yield* writeChecks
-						.check(
-							command,
-							definitionOwner(command.writeContext?.pluginRevision?.id ?? null),
-							userId,
-							true,
-						)
+						.check(command, principalOwner(command.writeContext), userId, true)
 						.pipe(Effect.mapError(eventWriteFailure));
 					if (yield* lookupEditReceipt(input, command, receiptInput)) {
 						return null;
@@ -843,12 +839,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						}
 					}
 					yield* writeChecks
-						.check(
-							command,
-							definitionOwner(command.writeContext?.pluginRevision?.id ?? null),
-							scopeUserId,
-							true,
-						)
+						.check(command, principalOwner(command.writeContext), scopeUserId, true)
 						.pipe(Effect.mapError(eventWriteFailure));
 					const replay = yield* lookupReceipt(input, command, mutation);
 					if (replay) {
@@ -1577,12 +1568,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			const work = yield* transaction(
 				Effect.gen(function* () {
 					yield* writeChecks
-						.check(
-							command,
-							definitionOwner(command.writeContext?.pluginRevision?.id ?? null),
-							userId,
-							true,
-						)
+						.check(command, principalOwner(command.writeContext), userId, true)
 						.pipe(Effect.mapError(eventWriteFailure));
 					const aggregateReplay = yield* receipts
 						.lookup(batchIdentity, EventMutationBatchReceiptResult)
@@ -1690,12 +1676,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			const work = yield* transaction(
 				Effect.gen(function* () {
 					yield* writeChecks
-						.check(
-							command,
-							definitionOwner(command.writeContext?.pluginRevision?.id ?? null),
-							userId,
-							true,
-						)
+						.check(command, principalOwner(command.writeContext), userId, true)
 						.pipe(Effect.mapError(eventWriteFailure));
 					const aggregateReplay = yield* receipts
 						.lookup(batchIdentity, EventMutationBatchReceiptResult)

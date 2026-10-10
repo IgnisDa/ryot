@@ -10,7 +10,7 @@ export, including history, ratings, favorites, and custom lists.
 2. Add this callback URL to the app exactly:
 
    ```txt
-   <FRONTEND_URL>/api/oauth-connections/providers/media/anilist/callback
+   <FRONTEND_URL>/api/oauth-connections/providers/ryot/media/anilist/callback
    ```
 
 3. Set `RYOT_PLUGIN__RYOT__MEDIA__ANILIST_CLIENT_ID` and `RYOT_PLUGIN__RYOT__MEDIA__ANILIST_CLIENT_SECRET` on your

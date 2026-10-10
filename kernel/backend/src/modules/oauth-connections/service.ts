@@ -12,6 +12,9 @@ import {
 	type ImportRunId,
 	type IntegrationId,
 	OAuthConnectionId,
+	pluginPackageIdFromSegments,
+	pluginPackageSegments,
+	type PluginPackageId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -134,11 +137,13 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					),
 				);
 
-			const redirectUri = (pluginId: string, oauthProviderSlug: string) =>
-				new URL(
-					`/api/oauth-connections/providers/${encodeURIComponent(pluginId)}/${encodeURIComponent(oauthProviderSlug)}/callback`,
+			const redirectUri = (packageId: PluginPackageId, oauthProviderSlug: string) => {
+				const { name, publisher } = pluginPackageSegments(packageId);
+				return new URL(
+					`/api/oauth-connections/providers/${encodeURIComponent(publisher)}/${encodeURIComponent(name)}/${encodeURIComponent(oauthProviderSlug)}/callback`,
 					frontendUrl,
 				).toString();
+			};
 
 			const returnLocation = (
 				client: OAuthConnectionClient,
@@ -290,7 +295,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					state,
 					response_type: "code",
 					client_id: credentials.clientId,
-					redirect_uri: redirectUri(registered.pluginId, provider.slug),
+					redirect_uri: redirectUri(registered.packageId, provider.slug),
 				};
 				if (verifier !== null) {
 					parameters["code_challenge_method"] = "S256";
@@ -307,9 +312,14 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 
 			const callback = Effect.fn("OAuthConnectionsService.callback")(
 				function* (
-					path: { readonly pluginId: string; readonly oauthProviderSlug: string },
+					path: {
+						readonly name: string;
+						readonly publisher: string;
+						readonly oauthProviderSlug: string;
+					},
 					query: OAuthConnectionCallbackQuery,
 				) {
+					const packageId = pluginPackageIdFromSegments(path);
 					const receivedAt = yield* now;
 					const stateHash = query.state === undefined ? null : hashSecret(query.state);
 					const pending =
@@ -323,7 +333,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					const failed = returnLocation(pending.client, { connection: id, status: "failed" });
 					const fail = repository.markFailed({ id, from: "pending" }).pipe(Effect.as(failed));
 					if (
-						pending.pluginId !== path.pluginId ||
+						pending.packageId !== packageId ||
 						pending.oauthProviderSlug !== path.oauthProviderSlug ||
 						query.error !== undefined ||
 						query.code === undefined ||
@@ -337,7 +347,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 						pending.pluginInstallationId,
 					);
 					const provider =
-						registered?.pluginId === path.pluginId &&
+						registered?.packageId === packageId &&
 						oauthConnectionFieldProvider(registered.settingsSchema, pending.field) ===
 							pending.oauthProviderSlug
 							? yield* findOAuthProvider(registered, pending.oauthProviderSlug)
@@ -431,7 +441,7 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 						code,
 						...(codeVerifier === undefined ? {} : { codeVerifier }),
 						grantType: "authorization_code",
-						redirectUri: redirectUri(registered.pluginId, claimed.oauthProviderSlug),
+						redirectUri: redirectUri(registered.packageId, claimed.oauthProviderSlug),
 					})
 					.pipe(Effect.catchTag("OAuthTokenEndpointError", () => exchangeFailed));
 				const connectedAt = yield* now;

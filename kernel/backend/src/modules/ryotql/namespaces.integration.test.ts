@@ -662,12 +662,7 @@ layer(databaseLayer)((test) => {
 										})),
 									},
 								},
-								{
-									scope: "user",
-									ownerId: owner,
-									pluginId: installed.pluginId,
-									packageId: value.manifest.metadata.packageId,
-								},
+								{ scope: "user", ownerId: owner, pluginId: installed.pluginId },
 							);
 						}),
 					);

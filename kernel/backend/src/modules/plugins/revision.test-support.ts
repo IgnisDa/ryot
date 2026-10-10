@@ -241,13 +241,7 @@ export const installRevisionPackage = Effect.fn(function* (
 				yield* plugins.lockIngestion();
 				const pluginId = yield* plugins.persist(
 					packageValue,
-					owner
-						? { scope: "user", ownerId: owner, packageId: packageValue.manifest.metadata.packageId }
-						: {
-								ownerId: null,
-								scope: "system",
-								packageId: packageValue.manifest.metadata.packageId,
-							},
+					owner ? { scope: "user", ownerId: owner } : { ownerId: null, scope: "system" },
 				);
 				const installation = yield* installations.upsertState({
 					pluginId,

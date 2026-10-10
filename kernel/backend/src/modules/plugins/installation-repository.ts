@@ -4,7 +4,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
+import { lockPluginIngestionShared } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
@@ -437,11 +437,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				"PluginInstallationRepository.updateHealthForActivation",
 			)(function* (input: Parameters<typeof updateHealth>[0] & { activationId: string }) {
 				yield* database.requireTransaction;
-				yield* database.run((db) =>
-					db.execute(
-						sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
-					),
-				);
+				yield* lockPluginIngestionShared(database);
 				const [updated] = yield* database.run((db) =>
 					db
 						.update(schema.pluginInstallation)
@@ -473,11 +469,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				readonly userId: UserId;
 			}) {
 				yield* database.requireTransaction;
-				yield* database.run((db) =>
-					db.execute(
-						sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
-					),
-				);
+				yield* lockPluginIngestionShared(database);
 				const [updated] = yield* database.run((db) =>
 					db
 						.update(schema.pluginInstallation)

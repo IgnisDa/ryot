@@ -78,9 +78,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			};
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const listAvailable = (userId: CurrentUserValue["id"]) =>
-				pluginRuntime
-					.listPluginsAvailableToUser(userId, true)
-					.pipe(Effect.catchTag("PluginValidationError", Effect.die));
+				pluginRuntime.listPluginsAvailableToUser(userId, true);
 			const resolveUserPackage = (userId: CurrentUserValue["id"]) => (packageId: PluginPackageId) =>
 				pluginRuntime.resolveUserPackage(userId, packageId);
 			const resolveKernelRendererGraph = (

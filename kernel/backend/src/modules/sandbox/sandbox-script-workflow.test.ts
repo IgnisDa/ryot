@@ -518,7 +518,6 @@ const hotSwapLayer = recordingLayer(
 				execute: (
 					_workflowSlug,
 					_input,
-					_subject,
 					_lane,
 					_executionId,
 					_parentExecutionId,
@@ -1885,24 +1884,16 @@ layer(
 				const calls = yield* WorkflowTestCalls;
 				return Layer.succeed(KernelWorkflowReferences, {
 					resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
-					execute: (
-						workflowSlug,
-						input,
-						subject,
-						lane,
-						executionId,
-						parentExecutionId,
-						callerAuthority,
-					) =>
+					execute: (workflowSlug, input, lane, executionId, parentExecutionId, callerAuthority) =>
 						calls
 							.record("kernel-calls", {
 								lane,
 								input,
-								subject,
 								executionId,
 								workflowSlug,
 								callerAuthority,
 								parentExecutionId,
+								subject: callerAuthority.subject,
 							})
 							.pipe(Effect.as({ status: "completed", entity: { id: "entity-1" } })),
 				});

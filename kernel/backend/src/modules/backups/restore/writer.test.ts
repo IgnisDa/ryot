@@ -1158,11 +1158,7 @@ describe("account backup restore in PostgreSQL", () => {
 						),
 					};
 					const installedPluginId = yield* session.transaction(
-						plugins.persist(packageValue, {
-							scope: "user",
-							ownerId: "recipient",
-							packageId: packageValue.manifest.metadata.packageId,
-						}),
+						plugins.persist(packageValue, { scope: "user", ownerId: "recipient" }),
 					);
 					const pluginKey = pluginPackageKey({
 						scope: "user",
@@ -1347,7 +1343,7 @@ describe("account backup restore in PostgreSQL", () => {
 				);
 				const packageId = normalized.manifest.metadata.packageId;
 				const id = yield* session.transaction(
-					plugins.persist(normalized, { packageId, ownerId: null, scope: "system" }),
+					plugins.persist(normalized, { ownerId: null, scope: "system" }),
 				);
 				const provider = yield* plugins.resolveProviderBySlugs({
 					pluginId: id,
@@ -1522,11 +1518,7 @@ describe("account backup restore in PostgreSQL", () => {
 									.lockIngestion()
 									.pipe(
 										Effect.andThen(
-											plugins.persist(packageValue, {
-												scope: "user",
-												ownerId: sourceUser,
-												packageId: manifest.metadata.packageId,
-											}),
+											plugins.persist(packageValue, { scope: "user", ownerId: sourceUser }),
 										),
 									),
 							);
@@ -1710,11 +1702,7 @@ describe("account backup restore in PostgreSQL", () => {
 									.lockIngestion()
 									.pipe(
 										Effect.andThen(
-											plugins.persist(first.packageValue, {
-												ownerId: null,
-												scope: "system",
-												packageId: first.packageValue.manifest.metadata.packageId,
-											}),
+											plugins.persist(first.packageValue, { ownerId: null, scope: "system" }),
 										),
 									),
 							);
