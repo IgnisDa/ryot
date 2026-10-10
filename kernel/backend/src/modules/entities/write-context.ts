@@ -288,11 +288,13 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()("Dom
 				db
 					.select({
 						id: tables.sandboxProvider.id,
+						ownerId: tables.plugin.ownerId,
 						slug: tables.sandboxProvider.slug,
 						pluginId: tables.sandboxProvider.pluginId,
 						rootEntitySchemaSlug: tables.sandboxProvider.rootEntitySchemaSlug,
 					})
 					.from(tables.sandboxProvider)
+					.innerJoin(tables.plugin, eq(tables.plugin.id, tables.sandboxProvider.pluginId))
 					.where(
 						and(
 							eq(tables.sandboxProvider.id, providerId),

@@ -732,6 +732,62 @@ it("does not apply archived translations to an existing global entity", () => {
 	expect(selectTranslationsForRestore(true, translations)).toBe(translations);
 });
 
+it.effect("rejects user entities with system-provider provenance during preflight", () =>
+	Effect.gen(function* () {
+		const source = revisionPackage("shared", "v1", "bottle");
+		const packageId = source.manifest.metadata.packageId;
+		const key = pluginPackageKey({ packageId, scope: "system" });
+		const entity = provenanceRecords().entities[0];
+		assert(entity);
+		const records: ArchiveRecords = {
+			...provenanceRecords(),
+			savedViews: [],
+			relationships: [],
+			entityDependencies: [],
+			notificationSubscriptions: [],
+			entities: [
+				{
+					...entity,
+					externalId: "external",
+					entitySchemaSlug: "bottle",
+					entitySchemaPluginKey: key,
+					properties: { kind: "one", name: "Private" },
+					provider: { pluginKey: key, providerSlug: "shared-provider" },
+				},
+			],
+		};
+		const definitions = buildDefinitionSnapshot(
+			mergeManifestDefinitions(
+				{
+					savedViews: [],
+					entitySchemas: [],
+					signalSchemas: [],
+					calendarSources: [],
+					relationshipSchemas: [],
+				},
+				[{ id: "system-owner", manifest: source.manifest }],
+			),
+		);
+		const exit = yield* Effect.exit(
+			preflightProvenance(
+				records,
+				{ count: 0, sha256: "", read: () => Stream.empty },
+				new Map([[key, "system-owner"]]),
+				definitions,
+				[
+					{
+						packageId,
+						version: "v1",
+						contentHash: source.contentHash,
+						definitionContract: archivePluginDefinitionContract(source.manifest),
+					},
+				],
+			),
+		);
+		assertExitFails(exit, badRequest("Backup user entity cannot use a system provider"));
+	}),
+);
+
 it.effect("rejects private-owned global snapshots during preflight", () =>
 	Effect.gen(function* () {
 		const packageValue = revisionPackage("whiskey", "v1", "bottle");

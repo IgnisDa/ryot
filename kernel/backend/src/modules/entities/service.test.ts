@@ -1380,6 +1380,115 @@ describe("EntitiesService committed lifecycle", () => {
 			definitions: revisionDefinitions("provider-plugin", manifest),
 		});
 	});
+	const installProvider = Effect.fn(function* (scope: "system" | "user") {
+		yield* seedProvider;
+		const session = yield* DatabaseSession;
+		yield* session.run((db) =>
+			Effect.gen(function* () {
+				if (scope === "user") {
+					yield* db
+						.update(tables.plugin)
+						.set({ ownerId: owner })
+						.where(eq(tables.plugin.id, "provider-plugin"));
+				}
+				yield* db
+					.insert(tables.pluginInstallation)
+					.values({ userId: owner, pluginId: "provider-plugin" });
+			}),
+		);
+	});
+	layer(entitiesLayer())((test) => {
+		test.effect("rejects private API entities with system-provider provenance", () =>
+			Effect.gen(function* () {
+				yield* installProvider("system");
+				const session = yield* DatabaseSession;
+				const service = yield* EntitiesService;
+				const exit = yield* Effect.exit(
+					service.createFromApi({
+						...createInput("private-system-provider"),
+						providerId,
+						externalId: "external",
+						entitySchema: providerEntitySchema,
+					}),
+				);
+				assertExitFails(
+					exit,
+					new EntityBadRequest({ reason: { code: "provider-scope-mismatch" } }),
+				);
+				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+				expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual([]);
+			}),
+		);
+	});
+	for (const planned of [false, true]) {
+		layer(entitiesLayer())((test) => {
+			test.effect(
+				`rejects private system-provider entities in ${planned ? "planned" : "ordinary"} upserts`,
+				() =>
+					Effect.gen(function* () {
+						yield* installProvider("system");
+						const service = yield* EntitiesService;
+						const session = yield* DatabaseSession;
+						const input = {
+							...createInput("private-system-provider-upsert"),
+							providerId,
+							populatedAt: null,
+							updateExisting: true,
+							externalId: "external",
+							entitySchema: providerEntitySchema,
+						};
+						const exit = yield* Effect.exit(
+							planned
+								? session
+										.transaction(service.persistPlannedProviderUpsert(input))
+										.pipe(Effect.asVoid)
+								: service.upsert(input).pipe(Effect.asVoid),
+						);
+						assertExitFails(
+							exit,
+							new EntityBadRequest({ reason: { code: "provider-scope-mismatch" } }),
+						);
+						expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
+						expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
+							[],
+						);
+					}),
+			);
+		});
+	}
+	for (const scope of ["system", "user"] as const) {
+		layer(entitiesLayer())((test) => {
+			test.effect(
+				`keeps custom entities private and distinct from ${scope}-provider entities`,
+				() =>
+					Effect.gen(function* () {
+						yield* installProvider(scope);
+						const service = yield* EntitiesService;
+						const session = yield* DatabaseSession;
+						const input = { ...createInput("custom-entity"), entitySchema: providerEntitySchema };
+						const custom = yield* service.createFromApi(input);
+						const supplied = {
+							...input,
+							providerId,
+							externalId: "external",
+							lifecycle: command("provider-entity"),
+						};
+						const providerEntity = yield* scope === "system"
+							? service.createGlobal(supplied)
+							: service.createFromApi(supplied);
+						expect(custom.entity.id).not.toBe(providerEntity.entity.id);
+						expect(custom.entity).toMatchObject({ externalId: null, providerId: null });
+						const rows = yield* session.run((db) => db.select().from(tables.entity));
+						expect(rows).toHaveLength(2);
+						expect(rows.find(({ id }) => id === custom.entity.id)).toMatchObject({ userId: owner });
+						expect(rows.find(({ id }) => id === providerEntity.entity.id)).toMatchObject({
+							providerId,
+							userId: scope === "system" ? null : owner,
+						});
+					}),
+			);
+		});
+	}
 	layer(entitiesLayer())((test) => {
 		test.effect(
 			"persists provider provenance and population-only updates; existing provider create is a noop",

@@ -482,6 +482,9 @@ export const preflightProvenance = Effect.fn(function* (
 			];
 		yield* assertOwner(entity.entitySchemaPluginKey, schema, "entity schema");
 		yield* assertProvider(entity.provider, entity.entitySchemaPluginKey, entity.entitySchemaSlug);
+		if (entity.provider !== null && !privateKeys.has(entity.provider.pluginKey)) {
+			return yield* badRequest("Backup user entity cannot use a system provider");
+		}
 		if (schema) {
 			yield* validateProperties(entity.properties, schema.propertiesSchema, "Entity properties");
 		}

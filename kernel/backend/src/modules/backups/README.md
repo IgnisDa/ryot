@@ -41,6 +41,9 @@ Restore validation spools events and assets into the caller's scoped temp direct
 
 System requirements contain a definition contract derived from the manifest schemas. Restore binds only a matching destination system package. A compatible revision can satisfy the requirement after contract and restored-value validation. Missing or incompatible packages fail preflight. Account restore never installs system code or changes a system revision, environment configuration, or shared global entity that already exists. Private records cannot request global scope.
 
+User-owned entity records may carry provider provenance only from a private plugin. System-provider
+entities belong in global entity dependencies; preflight rejects them in the user-owned section.
+
 All database writes occur in one transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Temp deletion failure is logged and swallowed so it cannot turn a committed restore into a failed run.
 
 `restore/writer.ts` validates and maps archive records; `restore/persistence.ts` owns historical inserts, updates, installation config revisions, and client projections. Ordinary repositories expose runtime writes and backup reads, not historical restore writes. Both the restore writer and its persistence layer use the active database session inside the workflow's transaction.

@@ -494,9 +494,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					}
 				: yield* entitySchema(scopeUserId, { owner, slug: draft.entitySchemaSlug });
 			if (draft.providerId !== null) {
-				yield* writeChecks
+				const provider = yield* writeChecks
 					.checkProvider(draft.providerId, owner)
 					.pipe(Effect.mapError((error) => bad("mutation-conflict", error.message)));
+				if (provider.ownerId !== scopeUserId) {
+					return yield* new EntityBadRequest({ reason: { code: "provider-scope-mismatch" } });
+				}
 			}
 			if (pin && !pinnedDeclaration) {
 				return yield* bad(
