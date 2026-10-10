@@ -144,7 +144,7 @@ export const importRun = snakeCase.table(
 			.where(sql`${table.status} = 'blocked'`),
 		check(
 			"import_run_block_check",
-			sql`${table.status} <> 'blocked' or (${table.integrationLot} = 'sink' and ${table.blockDeadline} = ${table.createdAt} + interval '7 days')`,
+			sql`${table.status} <> 'blocked' or (${table.integrationLot} = 'sink' and ${table.blockDeadline} = ${table.createdAt} + interval '168 hours')`,
 		),
 		check(
 			"import_run_expiry_check",

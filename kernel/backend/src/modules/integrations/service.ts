@@ -1,4 +1,5 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	dataJsonSource,
 	dataJsonIntegrationSettingsSchema,
@@ -543,6 +544,14 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						failureReason,
 					)
 					.pipe(
+						Effect.tapError((error) =>
+							Effect.logError("Integration webhook admission failed", {
+								integrationId,
+								...(error instanceof DbError
+									? { code: error.code, constraint: error.constraint }
+									: {}),
+							}),
+						),
 						Effect.mapError(
 							() =>
 								new IntegrationRequestError({

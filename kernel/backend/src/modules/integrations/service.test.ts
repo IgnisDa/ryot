@@ -1,5 +1,6 @@
 import { describe, expect, it, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	IntegrationRequestError,
 	integrationCommonSchema,
@@ -12,7 +13,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Logger, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
@@ -144,6 +145,7 @@ const mockImports = Layer.mock(ImportsService);
 const mockOAuthConnections = Layer.mock(OAuthConnectionsService);
 const mockReadiness = Layer.mock(IngestionReadinessService);
 const mockDataAdmission = Layer.mock(DataImportAdmission);
+const mockIngestion = Layer.mock(IntegrationIngestion);
 
 const makeServiceLayer = (options: {
 	database?: Layer.Layer<DatabaseSession, unknown>;
@@ -152,6 +154,7 @@ const makeServiceLayer = (options: {
 	dependencies?: (tools: FakeTools) => {
 		engine?: WorkflowEngineOverrides;
 		dataAdmission?: MockOverrides<typeof mockDataAdmission>;
+		ingestion?: MockOverrides<typeof mockIngestion>;
 		imports?: MockOverrides<typeof mockImports>;
 		catalog?: MockOverrides<typeof mockCatalog>;
 		readiness?: MockOverrides<typeof mockReadiness>;
@@ -177,7 +180,7 @@ const makeServiceLayer = (options: {
 							}) ?? {};
 						return Layer.mergeAll(
 							mockDataAdmission(dependencies.dataAdmission ?? {}),
-							Layer.mock(IntegrationIngestion)({
+							mockIngestion({
 								release: () => Effect.succeed(true),
 								admitWebhook: (integration, webhook, failureReason) =>
 									Ref.update(calls, (all) => [
@@ -193,6 +196,7 @@ const makeServiceLayer = (options: {
 											},
 										}),
 									),
+								...dependencies.ingestion,
 							}),
 							Layer.succeed(FakeIntegrationDependencies, {
 								calls: Ref.get(calls),
@@ -666,6 +670,77 @@ describe("prepareYankRuns", () => {
 });
 
 describe("handleWebhook", () => {
+	const admissionIntegration = makeIntegration({
+		lot: "sink",
+		provider: "example-sink",
+		pluginInstallationId: "example-installation-id",
+	});
+	layer(
+		makeServiceLayer({
+			dependencies: () => ({
+				repository: {
+					getUserDisableIntegrations: () => Effect.succeed(false),
+					getByWebhookToken: () => Effect.succeed(admissionIntegration),
+				},
+				ingestion: {
+					admitWebhook: () =>
+						Effect.fail(
+							new DbError({
+								code: "23514",
+								message: "private-database-message",
+								constraint: "import_run_block_check",
+							}),
+						),
+				},
+				catalog: {
+					findOwnedForUser: () =>
+						Effect.succeed({
+							...systemPlugin("example"),
+							lot: "sink",
+							name: "Example sink",
+							slug: "example-sink",
+							requiresProKey: false,
+							description: "Example sink",
+							scriptSlug: "example-webhook",
+							settingsSchema: { fields: {} },
+						}),
+				},
+			}),
+		}),
+	)((test) => {
+		test.effect("logs admission constraint failures without request or database contents", () =>
+			Effect.gen(function* () {
+				const messages: unknown[] = [];
+				const logger = Logger.make<unknown, void>((entry) => {
+					messages.push(entry.message);
+				});
+				const service = yield* IntegrationsService;
+				const error = yield* Effect.flip(
+					service.handleWebhook({
+						rawBody: "private-webhook-body",
+						contentType: "application/json",
+						webhookToken: IntegrationWebhookToken.make("private-webhook-token"),
+					}),
+				).pipe(Effect.provideService(Logger.CurrentLoggers, new Set([logger])));
+
+				expect(error).toMatchObject({
+					_tag: "IntegrationRequestError",
+					reason: { code: "queue-unavailable", operation: "integration-webhook-admission" },
+				});
+				expect(messages).toEqual([
+					[
+						"Integration webhook admission failed",
+						{
+							code: "23514",
+							constraint: "import_run_block_check",
+							integrationId: admissionIntegration.id,
+						},
+					],
+				]);
+			}),
+		);
+	});
+
 	const dataIntegration = makeIntegration({ provider: "data-json", pluginInstallationId: null });
 	layer(
 		makeServiceLayer({

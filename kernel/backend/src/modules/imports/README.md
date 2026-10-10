@@ -134,8 +134,9 @@ starts, the root owns those resources and records a terminal run instead of dele
 ## Restart and configuration pinning
 
 Scheduled integrations require readiness before admission. Accepted webhooks may instead wait
-blocked for setup, with a fixed seven-day deadline from acceptance that readiness checks never
-extend. Expiry releases captured inputs without counting as a source failure for continuous-error
+blocked for setup, with a fixed 168-hour deadline from acceptance that readiness checks never
+extend. The database constraint uses elapsed hours, independent of session timezone or daylight-saving
+changes. Expiry releases captured inputs without counting as a source failure for continuous-error
 disabling. Release rechecks the exact installation/settings and retains the prepared selection for
 recovery.
 
