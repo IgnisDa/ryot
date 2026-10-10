@@ -1,5 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
+import { DbError } from "@ryot-app/contract/errors";
 import { and, eq, sql } from "drizzle-orm";
 import {
 	Cause,
@@ -35,6 +36,7 @@ import { Workflow } from "effect/workflow";
 
 import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
+import { workflowMessageExpiredCode } from "#platform/db/workflow-message-fence";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import type { WorkflowIdentity } from "#platform/workflow/identity";
 import { workflowExecution } from "#schema/tables/workflow-executions";
@@ -643,6 +645,51 @@ layer(Layer.effectContext(TestClock.withLive(Layer.build(collectorLayer))))((tes
 			assert(Option.isSome(resent));
 			expect(resent.value._tag).toBe("Duplicate");
 			yield* storage.clearAddress(address);
+		}),
+	);
+
+	test.effect("rejects a new request for an execution that was never admitted", () =>
+		Effect.gen(function* () {
+			const address = EntityAddress.make({
+				shardId: defaultShard,
+				entityId: EntityId.make("never-admitted"),
+				entityType: EntityType.make("Workflow/NeverAdmittedWorkflow"),
+			});
+			const before = yield* counts();
+			const saved = yield* Effect.exit(
+				(yield* MessageStorage.MessageStorage).saveRequest(
+					yield* deferredRequest(address, "orphan"),
+				),
+			);
+			assert(Exit.isFailure(saved));
+			expect(Cause.findDefect(saved.cause)).toEqual(
+				Result.succeed(new DbError({ message: "Workflow message has no admitted execution" })),
+			);
+			expect(yield* counts()).toEqual(before);
+		}),
+	);
+
+	test.effect("fences direct message inserts into an expired tree in the database", () =>
+		Effect.gen(function* () {
+			yield* TestClock.setTime(Date.parse("2027-08-01T00:00:00Z"));
+			const identity = { executionId: "direct-insert", workflowName: "DirectInsertWorkflow" };
+			yield* completeRun(yield* saveRun(identity));
+			yield* TestClock.adjust("24 hours");
+			expect(yield* (yield* WorkflowGarbageCollector).runBatch()).toEqual({
+				expiredTrees: 1,
+				clearedExecutions: 1,
+			});
+			const insert = yield* Effect.exit(
+				(yield* DatabaseSession).run((db) =>
+					db.execute(
+						sql`insert into cluster_messages (id, shard_id, entity_type, entity_id, kind, tag, request_id)
+						values (1, 'default:1', ${`Workflow/${identity.workflowName}`}, ${identity.executionId}, 0, 'deferred', 1)`,
+					),
+				),
+			);
+			assert(Exit.isFailure(insert));
+			expect(Cause.squash(insert.cause)).toMatchObject({ code: workflowMessageExpiredCode });
+			expect(yield* counts()).toEqual([{ replies: 0, messages: 0 }]);
 		}),
 	);
 });
