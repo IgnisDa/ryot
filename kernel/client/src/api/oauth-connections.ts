@@ -12,8 +12,6 @@ export class OAuthConnectionsApi extends Context.Service<OAuthConnectionsApi>()(
 			return {
 				create: (scope: ApiScope, request: ContractRequest<"oauthConnections", "create">) =>
 					api.run(scope, (client) => client.oauthConnections.create(request)),
-				status: (scope: ApiScope, request: ContractRequest<"oauthConnections", "status">) =>
-					api.run(scope, (client) => client.oauthConnections.status(request)),
 				complete: (scope: ApiScope, request: ContractRequest<"oauthConnections", "complete">) =>
 					api.run(scope, (client) => client.oauthConnections.complete(request)),
 			};

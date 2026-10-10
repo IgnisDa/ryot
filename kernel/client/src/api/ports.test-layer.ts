@@ -138,20 +138,10 @@ export const makeNotificationsApi = (overrides: Partial<NotificationsApi["Servic
 	});
 
 export const makeOAuthConnectionsApi = (overrides: Partial<OAuthConnectionsApi["Service"]> = {}) =>
-	Layer.succeed(OAuthConnectionsApi, {
-		create: unused,
-		status: unused,
-		complete: unused,
-		...overrides,
-	});
+	Layer.succeed(OAuthConnectionsApi, { create: unused, complete: unused, ...overrides });
 
 export const makeAccountApi = (overrides: Partial<AccountApi["Service"]> = {}) =>
-	Layer.succeed(AccountApi, {
-		refreshAvatar: unused,
-		twoFactorStatus: unused,
-		updatePreferences: unused,
-		...overrides,
-	});
+	Layer.succeed(AccountApi, { refreshAvatar: unused, updatePreferences: unused, ...overrides });
 
 export const makeInstanceAdminApi = (overrides: Partial<InstanceAdminApi["Service"]> = {}) =>
 	Layer.succeed(InstanceAdminApi, {

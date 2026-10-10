@@ -6,6 +6,7 @@ import {
 	useRyotMutation,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
+import { twoFactorStatusRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 
@@ -33,11 +34,7 @@ const accountIdentityQuery = createRyotQuery<void, SettledAuthSession, KernelHos
 );
 
 const twoFactorStatusQuery = createRyotQuery<void, TwoFactorStatus, KernelHostServices>(
-	({ hostServices }) =>
-		hostServices.runtime
-			.runSync(AccountApi)
-			.twoFactorStatus(hostServices.scope)
-			.pipe(Effect.mapError(() => new RyotClientError("transport"))),
+	({ client }) => client.data.query(twoFactorStatusRecipe()),
 	{ cancelOnUnmount: true },
 );
 

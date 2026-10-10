@@ -1,5 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/account/schemas";
+import type {
+	TwoFactorStatus,
+	UpdateUserPreferencesBody,
+} from "@ryot-app/contract/modules/account/schemas";
 import { PluginPackageId, PluginId } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
@@ -50,17 +53,27 @@ import {
 
 const AuthStub = makeAuthStub();
 
-const makeUserSettingsQueries = (get: () => typeof userSettings = () => userSettings) =>
+const makeUserSettingsQueries = (
+	get: () => typeof userSettings = () => userSettings,
+	getTwoFactorStatus: () => TwoFactorStatus = () => ({ enabled: false, available: false }),
+) =>
 	makeRyotQLApi({
 		execute: (_scope, request) => {
 			if (!("user" in request.payload.queries)) {
 				return Effect.die("Unexpected RyotQL document");
 			}
-			return Effect.try({ try: get, catch: (cause) => new AuthenticatedApiError({ cause }) }).pipe(
-				Effect.map((settings) => ({
+			const userQuery = request.payload.queries.user;
+			const selectsStatus =
+				userQuery.output.type === "rows" &&
+				userQuery.output.fields.some((field) => "key" in field && field.key === "status");
+			return Effect.try({
+				catch: (cause) => new AuthenticatedApiError({ cause }),
+				try: () => (selectsStatus ? { status: getTwoFactorStatus() } : get()),
+			}).pipe(
+				Effect.map((user) => ({
 					data: {
 						user: {
-							items: [settings],
+							items: [user],
 							type: "rows" as const,
 							pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 						},
@@ -593,9 +606,9 @@ describe("account settings", () => {
 				makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
 				undefined,
 				undefined,
-				makeUserSettingsStub({
-					twoFactorStatus: () => Effect.succeed({ enabled: true, available: true }),
-				}),
+				undefined,
+				undefined,
+				makeUserSettingsQueries(undefined, () => ({ enabled: true, available: true })),
 			);
 			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
 
@@ -612,9 +625,9 @@ describe("account settings", () => {
 				undefined,
 				undefined,
 				undefined,
-				makeUserSettingsStub({
-					twoFactorStatus: () => Effect.succeed({ enabled: true, available: true }),
-				}),
+				undefined,
+				undefined,
+				makeUserSettingsQueries(undefined, () => ({ enabled: true, available: true })),
 			);
 
 			const heading = yield* Effect.promise(() =>
@@ -641,9 +654,7 @@ describe("account settings", () => {
 				undefined,
 				undefined,
 				undefined,
-				makeUserSettingsStub({
-					twoFactorStatus: () => Effect.succeed({ available: true, enabled: opened.length > 0 }),
-				}),
+				undefined,
 				makeOAuthRouteStubs(
 					{},
 					{
@@ -654,6 +665,7 @@ describe("account settings", () => {
 					},
 					{ isNative: true },
 				),
+				makeUserSettingsQueries(undefined, () => ({ available: true, enabled: opened.length > 0 })),
 			);
 
 			yield* Effect.promise(() => screen.findByText("Off"));

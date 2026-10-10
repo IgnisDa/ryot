@@ -10,8 +10,6 @@ export class AccountApi extends Context.Service<AccountApi>()("AccountApi", {
 		return {
 			refreshAvatar: (scope: ApiScope) =>
 				api.run(scope, (client) => client.account.refreshAvatar()),
-			twoFactorStatus: (scope: ApiScope) =>
-				api.run(scope, (client) => client.account.getTwoFactorStatus()),
 			updatePreferences: (
 				scope: ApiScope,
 				request: ContractRequest<"account", "updatePreferences">,

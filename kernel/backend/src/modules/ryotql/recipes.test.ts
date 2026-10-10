@@ -17,8 +17,9 @@ import {
 } from "@ryot-app/ryotql-recipes/instance-admin";
 import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
 import { integrationRecipe } from "@ryot-app/ryotql-recipes/integrations";
+import { oauthConnectionStatusRecipe } from "@ryot-app/ryotql-recipes/oauth-connections";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
-import { userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
+import { twoFactorStatusRecipe, userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 
 import { validateRyotQLDocument } from "./validator";
 
@@ -28,6 +29,12 @@ const adminAccess = { type: "admin" } as const;
 
 const recipes = [
 	["user settings", userSettingsRecipe().document, userAccess],
+	["two-factor status", twoFactorStatusRecipe().document, userAccess],
+	[
+		"OAuth connection status",
+		oauthConnectionStatusRecipe({ id: "connection" }).document,
+		userAccess,
+	],
 	["backup runs", backupRunsRecipe(page).document, userAccess],
 	["backup run", backupRunRecipe({ id: "run" }).document, userAccess],
 	["plugin installations", pluginInstallationsRecipe(page).document, userAccess],

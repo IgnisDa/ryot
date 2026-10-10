@@ -5,14 +5,11 @@ import { Context, Effect, Layer } from "effect";
 import { AuthService } from "#modules/accounts/auth/service";
 import { generateUserAvatar } from "#modules/accounts/auth/user-avatar";
 
-import { UserSettingsRepository } from "./repository";
-
 export class UserSettingsService extends Context.Service<UserSettingsService>()(
 	"UserSettingsService",
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthService;
-			const repository = yield* UserSettingsRepository;
 
 			const updatePreferences = Effect.fn("UserSettingsService.updatePreferences")(function* (
 				user: CurrentUserValue,
@@ -34,18 +31,7 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 				const image = generateUserAvatar(crypto.randomUUID());
 				yield* auth.updateUserImage(user.id, image);
 			});
-
-			const getTwoFactorStatus = Effect.fn("UserSettingsService.getTwoFactorStatus")(function* (
-				user: CurrentUserValue,
-			) {
-				const state = yield* repository.findTwoFactorState(user.id);
-				return {
-					enabled: state.twoFactorEnabled === true,
-					available: state.accounts.some((account) => account.providerId === "credential"),
-				};
-			});
-
-			return { refreshAvatar, updatePreferences, getTwoFactorStatus };
+			return { refreshAvatar, updatePreferences };
 		}),
 	},
 ) {

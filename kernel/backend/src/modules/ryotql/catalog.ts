@@ -909,6 +909,17 @@ const user: CatalogTable = {
 		preferences: physicalField("preferences", "json", false),
 		disabledAt: withAccess(physicalField("disabled_at", "date"), "admin"),
 		twoFactorEnabled: withAccess(physicalField("two_factor_enabled", "boolean"), "admin"),
+		twoFactorStatus: {
+			kind: "json",
+			nullable: false,
+			access: "kernel",
+			demoReadable: false,
+			resolve: ({ sqlAlias }) =>
+				sql.raw(`jsonb_build_object(
+				'enabled', COALESCE(${sqlAlias}.two_factor_enabled, false),
+				'available', ${accountProviderExists(sqlAlias, "credential")}
+			)`),
+		},
 		authState: withAccess(
 			{
 				kind: "text",
@@ -926,6 +937,33 @@ const user: CatalogTable = {
 			},
 			"admin",
 		),
+	},
+};
+
+const oauthConnection: CatalogTable = {
+	primaryKey: ["id"],
+	name: "oauth_connection",
+	visibility: {
+		user: {
+			type: "owned",
+			column: "user_id",
+			demoReadable: false,
+			includeGlobal: false,
+			pluginReadable: false,
+		},
+	},
+	fields: {
+		id: physicalField("id", "text", false),
+		status: {
+			kind: "text",
+			nullable: false,
+			resolve: ({ sqlAlias }) =>
+				sql.raw(`CASE
+				WHEN ${sqlAlias}.status <> 'failed'
+					AND ${sqlAlias}.expires_at <= statement_timestamp() THEN 'expired'
+				ELSE ${sqlAlias}.status
+			END`),
+		},
 	},
 };
 
@@ -1213,6 +1251,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	sandboxScript,
 	automationRun,
 	calendarSource,
+	oauthConnection,
 	eventProjection,
 	eventStreamWork,
 	migrationReport,

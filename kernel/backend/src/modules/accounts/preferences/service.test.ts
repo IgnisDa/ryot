@@ -10,12 +10,7 @@ import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
 
-import { UserSettingsRepository } from "./repository";
 import { UserSettingsService } from "./service";
-
-type TwoFactorState = Effect.Success<
-	ReturnType<UserSettingsRepository["Service"]["findTwoFactorState"]>
->;
 
 const makeUser = (preferences: UserPreferences): CurrentUserValue => ({
 	image: null,
@@ -36,13 +31,8 @@ class FakeAuthSettings extends Context.Service<
 	}
 >()("test/FakeAuthSettings") {}
 
-const serviceLayer = (twoFactorState: TwoFactorState = { accounts: [], twoFactorEnabled: null }) =>
+const serviceLayer = () =>
 	UserSettingsService.layer.pipe(
-		Layer.provide(
-			Layer.succeed(UserSettingsRepository, {
-				findTwoFactorState: () => Effect.succeed(twoFactorState),
-			}),
-		),
 		Layer.provideMerge(
 			Layer.effectContext(
 				Effect.gen(function* () {
@@ -117,52 +107,6 @@ layer(serviceLayer())((test) => {
 			expect(calls).toHaveLength(1);
 			expect(calls[0]?.userId).toBe(user.id);
 			expect(calls[0]?.image.startsWith("data:image/svg+xml;base64,")).toBe(true);
-		}),
-	);
-});
-
-layer(
-	serviceLayer({
-		twoFactorEnabled: null,
-		accounts: [{ providerId: "oidc" }, { providerId: "credential" }],
-	}),
-)((test) => {
-	test.effect("offers two-factor management to users with a password account", () =>
-		Effect.gen(function* () {
-			const service = yield* UserSettingsService;
-
-			expect(yield* service.getTwoFactorStatus(makeUser(defaultUserPreferences))).toEqual({
-				enabled: false,
-				available: true,
-			});
-		}),
-	);
-});
-
-layer(serviceLayer({ twoFactorEnabled: true, accounts: [{ providerId: "credential" }] }))(
-	(test) => {
-		test.effect("reports enabled two-factor authentication", () =>
-			Effect.gen(function* () {
-				const service = yield* UserSettingsService;
-
-				expect(yield* service.getTwoFactorStatus(makeUser(defaultUserPreferences))).toEqual({
-					enabled: true,
-					available: true,
-				});
-			}),
-		);
-	},
-);
-
-layer(serviceLayer({ twoFactorEnabled: false, accounts: [{ providerId: "oidc" }] }))((test) => {
-	test.effect("withholds two-factor management from users without a password account", () =>
-		Effect.gen(function* () {
-			const service = yield* UserSettingsService;
-
-			expect(yield* service.getTwoFactorStatus(makeUser(defaultUserPreferences))).toEqual({
-				enabled: false,
-				available: false,
-			});
 		}),
 	);
 });

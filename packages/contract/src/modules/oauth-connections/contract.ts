@@ -12,7 +12,6 @@ import {
 	OAuthConnectionCallbackQuery,
 	OAuthConnectionNotFoundError,
 	OAuthConnectionRequestError,
-	OAuthConnectionState,
 } from "./schemas";
 
 export const OAuthConnectionsGroup = HttpApiGroup.make("oauthConnections")
@@ -44,13 +43,6 @@ export const OAuthConnectionsGroup = HttpApiGroup.make("oauthConnections")
 			OpenApi.Description,
 			"Complete an authorized OAuth connection with its one-time completion secret.",
 		),
-	)
-	.add(
-		HttpApiEndpoint.get("status", "/oauth-connections/:connectionId", {
-			success: OAuthConnectionState,
-			params: { connectionId: OAuthConnectionId },
-			error: [OAuthConnectionNotFoundError.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Read the status of one of the caller's OAuth connections."),
 	)
 	.middleware(AuthMiddleware)
 	.add(

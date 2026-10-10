@@ -26,14 +26,6 @@ export const OAuthConnectionsRoutesLive = HttpApiBuilder.group(
 						.pipe(dieOnDbError);
 				}),
 			)
-			.handle("status", ({ params }) =>
-				Effect.gen(function* () {
-					const user = yield* CurrentUser;
-					return yield* (yield* OAuthConnectionsService)
-						.status(user, params.connectionId)
-						.pipe(dieOnDbError);
-				}),
-			)
 			.handleRaw("callback", ({ query, params }) =>
 				Effect.gen(function* () {
 					const location = yield* (yield* OAuthConnectionsService).callback(params, query);

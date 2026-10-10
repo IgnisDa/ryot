@@ -12,6 +12,7 @@ import type {
 	SchemaOAuthConnect,
 	SchemaOAuthConnectOutcome,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
+import { oauthConnectionStatusRecipe } from "@ryot-app/ryotql-recipes/oauth-connections";
 import { useRouteContext } from "@tanstack/react-router";
 import {
 	Context,
@@ -24,11 +25,13 @@ import {
 	Match,
 	Option,
 	Queue,
+	Result,
 	Schedule,
 } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { OAuthConnectionsApi } from "#/api/oauth-connections";
+import { RyotQLApi } from "#/api/ryotql";
 import type { ApiScope } from "#/api/scope";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
@@ -165,9 +168,6 @@ const statusOutcome = (status: OAuthConnectionStatus, connectionId: OAuthConnect
 
 const statusErrorOutcome = (error: unknown): PollOutcome => {
 	const cause = apiCause(error);
-	if (cause instanceof OAuthConnectionNotFoundError) {
-		return failed(MESSAGES.missing);
-	}
 	return cause instanceof AuthUnauthorized ? failed(MESSAGES.signedOut) : { kind: "pending" };
 };
 
@@ -206,6 +206,7 @@ export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
 	{
 		make: Effect.gen(function* () {
 			const api = yield* OAuthConnectionsApi;
+			const queries = yield* RyotQLApi;
 			const claims = yield* DeepLinkClaims;
 			const platform = yield* OAuthConnectPlatform;
 			const runtimeClient = yield* RuntimeOAuthClientService;
@@ -231,8 +232,19 @@ export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
 					);
 
 			const pollStatus = (scope: ApiScope, connectionId: OAuthConnectionId) => {
-				const readOutcome = api.status(scope, { params: { connectionId } }).pipe(
-					Effect.map((state) => statusOutcome(state.status, connectionId)),
+				const recipe = oauthConnectionStatusRecipe({ id: connectionId });
+				const readOutcome = queries.execute(scope, { payload: recipe.document }).pipe(
+					Effect.flatMap((response) => {
+						const decoded = recipe.decode(response);
+						return Result.isSuccess(decoded)
+							? Effect.succeed(
+									Option.match(decoded.success, {
+										onNone: () => failed(MESSAGES.missing),
+										onSome: (status) => statusOutcome(status, connectionId),
+									}),
+								)
+							: Effect.fail(new OAuthConnectFailed({ message: MESSAGES.failed }));
+					}),
 					Effect.catch((error) => Effect.succeed(statusErrorOutcome(error))),
 				);
 				return Effect.acquireUseRelease(

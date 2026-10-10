@@ -1,3 +1,4 @@
+import { TwoFactorStatus } from "@ryot-app/contract/modules/account/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import {
@@ -28,3 +29,12 @@ export const userSettingsRecipe = defineRecipe(() => ({
 }));
 
 export type UserSettingsResult = Recipe.Success<typeof userSettingsRecipe>;
+
+export const twoFactorStatusRecipe = defineRecipe(() => ({
+	map: ({ user: current }) => Result.succeed(current.status),
+	queries: {
+		user: selectedRow(user, {
+			selection: { status: selectedField(column(user, "twoFactorStatus"), TwoFactorStatus) },
+		}),
+	},
+}));

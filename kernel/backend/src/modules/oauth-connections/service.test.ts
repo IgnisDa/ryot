@@ -337,11 +337,6 @@ const connectionRow = (id: OAuthConnectionId) =>
 		),
 	).pipe(Effect.map(([row]) => row));
 
-const connectionStatus = (user: UserId, id: OAuthConnectionId) =>
-	Effect.flatMap(OAuthConnectionsService, (service) =>
-		service.status(currentUser(user), id).pipe(Effect.map(({ status }) => status)),
-	);
-
 const accessToken = (input: {
 	readonly connectionId: OAuthConnectionId;
 	readonly pluginId: string;
@@ -498,7 +493,7 @@ describe("OAuth connections", () => {
 				code_challenge_method: "S256",
 				redirect_uri: `http://localhost:3000/api/oauth-connections/providers/${path.publisher}/${path.name}/account/callback`,
 			});
-			expect(yield* connectionStatus(owner, connectionId)).toBe("pending");
+			expect((yield* connectionRow(connectionId))?.status).toBe("pending");
 
 			const location = yield* callback(state);
 			expect(location.startsWith("http://localhost:3000/settings/oauth-return#")).toBe(true);
@@ -506,13 +501,13 @@ describe("OAuth connections", () => {
 			const secret = fragmentOf(location).get("secret");
 			assert(secret);
 			expect(location).not.toContain("auth-code-1");
-			expect(yield* connectionStatus(owner, connectionId)).toBe("authorized");
+			expect((yield* connectionRow(connectionId))?.status).toBe("authorized");
 			expect(yield* endpoint.requests).toEqual([]);
 
 			expect(yield* service.complete(currentUser(owner), connectionId, secret)).toEqual({
 				id: connectionId,
 			});
-			expect(yield* connectionStatus(owner, connectionId)).toBe("connected");
+			expect((yield* connectionRow(connectionId))?.status).toBe("connected");
 			const [exchange] = yield* endpoint.requests;
 			assert(exchange);
 			const verifier = exchange.form.get("code_verifier");
@@ -591,11 +586,8 @@ describe("OAuth connections", () => {
 					reason: { code: "oauth-connection-not-found" },
 				});
 			}
-			expect(
-				Exit.isFailure(yield* Effect.exit(service.status(currentUser(recipient), connectionId))),
-			).toBe(true);
 			expect(yield* endpoint.requests).toEqual([]);
-			expect(yield* connectionStatus(owner, connectionId)).toBe("authorized");
+			expect((yield* connectionRow(connectionId))?.status).toBe("authorized");
 
 			yield* service.complete(currentUser(owner), connectionId, secret);
 			const reused = yield* Effect.exit(service.complete(currentUser(owner), connectionId, secret));
@@ -623,7 +615,7 @@ describe("OAuth connections", () => {
 				status: "failed",
 				connection: mismatched.connectionId,
 			});
-			expect(yield* connectionStatus(owner, mismatched.connectionId)).toBe("failed");
+			expect((yield* connectionRow(mismatched.connectionId))?.status).toBe("failed");
 			expect(yield* callback(mismatched.state)).toBe(failedWeb);
 
 			const denied = yield* authorize(owner);
@@ -634,7 +626,7 @@ describe("OAuth connections", () => {
 			const expired = yield* authorize(owner);
 			yield* TestClock.adjust("11 minutes");
 			expect(yield* callback(expired.state)).toBe(failedWeb);
-			expect(yield* connectionStatus(owner, expired.connectionId)).toBe("expired");
+			expect((yield* connectionRow(expired.connectionId))?.status).toBe("pending");
 		}),
 	);
 
@@ -894,11 +886,11 @@ describe("OAuth connections", () => {
 			const input = { ...run, pluginId: installed.pluginId };
 
 			yield* invalidateAccessToken({ ...input, accessToken: "stale-access-token" });
-			expect(yield* connectionStatus(owner, run.connectionId)).toBe("connected");
+			expect((yield* connectionRow(run.connectionId))?.status).toBe("connected");
 
 			const current = yield* accessToken(input);
 			yield* invalidateAccessToken({ ...input, accessToken: current.accessToken });
-			expect(yield* connectionStatus(owner, run.connectionId)).toBe("expired");
+			expect((yield* connectionRow(run.connectionId))?.status).toBe("expired");
 			const stored = yield* connectionRow(run.connectionId);
 			expect(stored?.accessToken).toBeNull();
 			expect(stored?.refreshToken).toBeNull();
@@ -932,7 +924,7 @@ describe("OAuth connections", () => {
 					}),
 				)).message,
 			).toBe(OAUTH_ACCESS_TOKEN_MESSAGES.unavailable);
-			expect(yield* connectionStatus(owner, replacementConnectionId)).toBe("connected");
+			expect((yield* connectionRow(replacementConnectionId))?.status).toBe("connected");
 			expect((yield* endpoint.requests).length).toBe(requestsBeforeStaleRun.length);
 
 			const settled = yield* (yield* ImportsRepository.make).settleIngestion({
@@ -973,7 +965,7 @@ describe("OAuth connections", () => {
 				});
 			}
 			expect((yield* endpoint.requests).length).toBe(2);
-			expect(yield* connectionStatus(owner, run.connectionId)).toBe("expired");
+			expect((yield* connectionRow(run.connectionId))?.status).toBe("expired");
 			const stored = yield* connectionRow(run.connectionId);
 			expect(stored?.refreshToken).toBeNull();
 			expect(stored?.accessToken).toBeNull();

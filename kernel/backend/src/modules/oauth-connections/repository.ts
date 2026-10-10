@@ -207,20 +207,6 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 				},
 			);
 
-			const findForUser = Effect.fn("OAuthConnectionsRepository.findForUser")(function* (
-				id: OAuthConnectionId,
-				userId: UserId,
-			) {
-				const [row] = yield* database.run((db) =>
-					db
-						.select(connectionSelection)
-						.from(connection)
-						.where(and(eq(connection.id, id), eq(connection.userId, userId)))
-						.limit(1),
-				);
-				return row ?? null;
-			});
-
 			const findById = Effect.fn("OAuthConnectionsRepository.findById")(function* (
 				id: OAuthConnectionId,
 			) {
@@ -542,7 +528,6 @@ export class OAuthConnectionsRepository extends Context.Service<OAuthConnections
 				findById,
 				authorize,
 				markFailed,
-				findForUser,
 				markExpired,
 				insertPending,
 				markConnected,

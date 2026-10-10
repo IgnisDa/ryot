@@ -19,6 +19,7 @@ import {
 	createImpersonationSession,
 	endImpersonationSession,
 	getApiClient,
+	getTwoFactorStatus,
 	getUserSettings,
 	makeSession,
 	prepareImpersonationAuthorization,
@@ -297,10 +298,12 @@ describe("Instance Admin impersonation", () => {
 			);
 			expect(yield* Effect.promise(() => clearedSession.json())).toBeNull();
 
-			const invalidAccessToken = yield* webRequest(`${getApiUrl()}/account/two-factor`, {
-				headers: { Authorization: `Bearer ${rotated.access_token}` },
-			});
-			expect(invalidAccessToken.status).toBe(401);
+			const invalidAccessToken = yield* Effect.flip(
+				getTwoFactorStatus(
+					makeSession(getApiUrl(), { Authorization: `Bearer ${rotated.access_token}` }),
+				),
+			);
+			assertTaggedError(invalidAccessToken, "AuthUnauthorized");
 			const invalidRefreshToken = yield* refreshImpersonationOAuthTokens(
 				impersonation.pending.serverOrigin,
 				OAUTH_IMPERSONATION_WEB_CLIENT_ID,

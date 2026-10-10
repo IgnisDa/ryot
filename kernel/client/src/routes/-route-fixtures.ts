@@ -160,10 +160,7 @@ export const userSettings: UserSettingsResult = {
 };
 
 export const makeUserSettingsStub = (overrides: Partial<AccountApi["Service"]> = {}) =>
-	makeAccountApi({
-		twoFactorStatus: () => Effect.succeed({ enabled: false, available: false }),
-		...overrides,
-	});
+	makeAccountApi(overrides);
 
 export const makeAuthStub = (
 	overrides: Partial<AuthService["Service"]> = {},
