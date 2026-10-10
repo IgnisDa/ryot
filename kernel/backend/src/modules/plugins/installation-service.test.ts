@@ -142,7 +142,6 @@ type Recordings = {
 };
 
 const emptyRecordings: Recordings = {
-	artifactReadScopes: [],
 	removed: [],
 	created: [],
 	updated: [],
@@ -159,6 +158,7 @@ const emptyRecordings: Recordings = {
 	retirementEvents: [],
 	invalidatedUsers: [],
 	integrationFences: [],
+	artifactReadScopes: [],
 	activationRotations: [],
 	lifecycleDispatches: [],
 	homeViewTransactionScopes: [],
@@ -190,7 +190,9 @@ class InstallationFakeState extends Context.Service<
 >()("test/InstallationFakeState") {}
 
 type FakeInstallationOptions = {
-	readonly retainedArtifacts?: Effect.Success<ReturnType<PluginRepository["Service"]["listCompiledPackageArtifacts"]>>;
+	readonly retainedArtifacts?: Effect.Success<
+		ReturnType<PluginRepository["Service"]["listCompiledPackageArtifacts"]>
+	>;
 	readonly reservedPackageIds?: ReadonlySet<PluginPackageId>;
 	readonly activeRevisionChanged?: boolean;
 	readonly currentPrivatePluginOnLock?: StoredPlugin;
@@ -268,7 +270,6 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 			const read = <Key extends keyof Recordings>(key: Key) =>
 				Effect.map(Ref.get(recordings), (current) => current[key]);
 			return {
-				artifactReadScopes: read("artifactReadScopes"),
 				removed: read("removed"),
 				created: read("created"),
 				updated: read("updated"),
@@ -285,6 +286,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 				retirementEvents: read("retirementEvents"),
 				invalidatedUsers: read("invalidatedUsers"),
 				integrationFences: read("integrationFences"),
+				artifactReadScopes: read("artifactReadScopes"),
 				activationRotations: read("activationRotations"),
 				lifecycleDispatches: read("lifecycleDispatches"),
 				homeViewTransactionScopes: read("homeViewTransactionScopes"),
@@ -306,7 +308,10 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 				active ? ("transaction" as const) : ("root" as const),
 			);
 			return Layer.mergeAll(
-				Layer.succeed(SystemPlugins, { sources: [], packageIds: new Set(options.reservedPackageIds ?? []) }),
+				Layer.succeed(SystemPlugins, {
+					sources: [],
+					packageIds: new Set(options.reservedPackageIds ?? []),
+				}),
 				Layer.succeed(PluginIngestionRetirement, {
 					retire: (input) =>
 						Effect.gen(function* () {
@@ -337,11 +342,6 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 					user: (ownerId) => record(recordings, "invalidatedUsers", ownerId),
 				}),
 				Layer.mock(PluginRepository)({
-					listCompiledPackageArtifacts: () => Effect.gen(function* () {
-						yield* record(recordings, "artifactReadScopes", yield* transactionScope);
-						return options.retainedArtifacts ?? { compiledScripts: [] };
-					}),
-					isActiveRevision: ({ pluginId, sourceHash }) => Effect.succeed(!options.activeRevisionChanged && privatePlugins.some((plugin) => plugin.id === pluginId && plugin.sourceHash === sourceHash)),
 					findReferencedRemovedDeclarations: () => Effect.succeed([]),
 					listPrivateForUser: () => Effect.succeed([...privatePlugins]),
 					deactivate: (pluginId) => record(recordings, "deactivated", pluginId),
@@ -378,6 +378,18 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 							Ref.get(systemPlugins),
 							(plugins) => plugins.find((plugin) => plugin.packageId === packageId) ?? null,
 						),
+					listCompiledPackageArtifacts: () =>
+						Effect.gen(function* () {
+							yield* record(recordings, "artifactReadScopes", yield* transactionScope);
+							return options.retainedArtifacts ?? { compiledScripts: [] };
+						}),
+					isActiveRevision: ({ pluginId, sourceHash }) =>
+						Effect.succeed(
+							!options.activeRevisionChanged &&
+								privatePlugins.some(
+									(plugin) => plugin.id === pluginId && plugin.sourceHash === sourceHash,
+								),
+						),
 					recordUninstallReceipt: (receipt) =>
 						Ref.update(receipts, (all) => [
 							...all,
@@ -389,9 +401,35 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 								installationId: receipt.installationId ?? null,
 							},
 						]),
+					lockIngestion: () => {
+						const packageId = options.systemPackageIdAddedOnLock;
+						return Ref.set(ingestionLocked, true).pipe(
+							Effect.andThen(
+								packageId === undefined
+									? Effect.void
+									: Ref.update(systemPlugins, (plugins) => [
+											...plugins,
+											systemEntry(
+												privateManifest({
+													metadata: {
+														...privateManifest().metadata,
+														packageId,
+														slug: "reserved-system",
+													},
+												}),
+											),
+										]),
+							),
+						);
+					},
 					findPrivateByIdForUser: (pluginId) =>
 						Effect.gen(function* () {
-							if ((yield* Ref.get(ingestionLocked)) && options.currentPrivatePluginOnLock?.id === pluginId) return options.currentPrivatePluginOnLock;
+							if (
+								(yield* Ref.get(ingestionLocked)) &&
+								options.currentPrivatePluginOnLock?.id === pluginId
+							) {
+								return options.currentPrivatePluginOnLock;
+							}
 							const { persisted } = yield* Ref.get(recordings);
 							const saved = persisted.find(
 								({ plugin }) => `${plugin.metadata.slug}-plugin-id` === pluginId,
@@ -401,23 +439,6 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 								(saved ? storedPrivatePlugin(saved.plugin) : null)
 							);
 						}),
-					lockIngestion: () => {
-						const packageId = options.systemPackageIdAddedOnLock;
-						return Ref.set(ingestionLocked, true).pipe(Effect.andThen(packageId === undefined
-							? Effect.void
-							: Ref.update(systemPlugins, (plugins) => [
-									...plugins,
-									systemEntry(
-										privateManifest({
-											metadata: {
-												...privateManifest().metadata,
-												packageId,
-												slug: "reserved-system",
-											},
-										}),
-									),
-								])));
-					},
 				}),
 				Layer.mock(PluginInstallationRepository)({
 					assertIngestionActive: () => Effect.void,
@@ -429,11 +450,6 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 					listPrivateInstallations: () => Effect.succeed([...(options.privateInstallations ?? [])]),
 					updateState: (values) =>
 						record(recordings, "updated", values).pipe(Effect.as(applyStateUpdate(values))),
-					findByUserAndPlugin: (_user, pluginId) =>
-						Effect.gen(function* () {
-							if ((yield* Ref.get(ingestionLocked)) && options.currentInstallationOnLock?.pluginId === pluginId) return options.currentInstallationOnLock;
-							return installations.find((row) => row.pluginId === pluginId) ?? null;
-						}),
 					beginIngestionRetirement: (_owner, id) =>
 						Effect.flatMap(transactionScope, (scope) =>
 							record(recordings, "retirementEvents", `fence:${id}:${scope}`),
@@ -455,6 +471,16 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 								activationId: "private-fixture-activation",
 							})),
 						),
+					findByUserAndPlugin: (_user, pluginId) =>
+						Effect.gen(function* () {
+							if (
+								(yield* Ref.get(ingestionLocked)) &&
+								options.currentInstallationOnLock?.pluginId === pluginId
+							) {
+								return options.currentInstallationOnLock;
+							}
+							return installations.find((row) => row.pluginId === pluginId) ?? null;
+						}),
 					findHomeSavedView: (_ownerId, reference) =>
 						Effect.gen(function* () {
 							yield* record(recordings, "homeViewTransactionScopes", yield* transactionScope);
@@ -2256,55 +2282,145 @@ layer(makeLayer({ privatePlugins: [privatePlugin], installations: [privateInstal
 	},
 );
 
-const hiddenQuarantine = { ...incompatibleInstallation, isHidden: true, activeConfigRevisionId: "retained-config" };
+const hiddenQuarantine = {
+	...incompatibleInstallation,
+	isHidden: true,
+	activeConfigRevisionId: "retained-config",
+};
 
 layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine] }))((test) => {
-	test.effect("re-enables an initialized private installation from its retained archive without reseeding", () => Effect.gen(function* () {
-		const service = yield* PluginInstallationService;
-		const fake = yield* FakeInstallationDependencies;
-		expect(yield* service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false })).toEqual({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
-		expect(yield* fake.artifactReadScopes).toEqual(["root"]);
-		expect(yield* fake.updated).toEqual([{ id: hiddenQuarantine.id, config: hiddenQuarantine.config, isHidden: false, sortOrder: hiddenQuarantine.sortOrder }]);
-		expect(yield* fake.healthUpdates).toEqual([{ id: hiddenQuarantine.id, health: "ready", healthReason: null }]);
-		expect(yield* fake.activationRotations).toEqual([]);
-		expect(yield* fake.lifecycleDispatches).toEqual([]);
-		expect(yield* fake.persisted).toEqual([]);
-		expect(yield* fake.invalidatedUsers).toEqual([userId]);
-	}));
+	test.effect(
+		"re-enables an initialized private installation from its retained archive without reseeding",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fake = yield* FakeInstallationDependencies;
+				expect(
+					yield* service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
+				).toEqual({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
+				expect(yield* fake.artifactReadScopes).toEqual(["root"]);
+				expect(yield* fake.updated).toEqual([
+					{
+						isHidden: false,
+						id: hiddenQuarantine.id,
+						config: hiddenQuarantine.config,
+						sortOrder: hiddenQuarantine.sortOrder,
+					},
+				]);
+				expect(yield* fake.healthUpdates).toEqual([
+					{ health: "ready", healthReason: null, id: hiddenQuarantine.id },
+				]);
+				expect(yield* fake.activationRotations).toEqual([]);
+				expect(yield* fake.lifecycleDispatches).toEqual([]);
+				expect(yield* fake.persisted).toEqual([]);
+				expect(yield* fake.invalidatedUsers).toEqual([userId]);
+			}),
+	);
 });
 
-layer(makeLayer({ privatePlugins: [privatePlugin], installations: [{ ...hiddenQuarantine, isInitialized: false }] }))((test) => {
-	test.effect("re-enables partial initialization under a fresh lifecycle activation while preserving local identity", () => Effect.gen(function* () {
-		const service = yield* PluginInstallationService;
-		const fake = yield* FakeInstallationDependencies;
-		expect(yield* service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false, sortOrder: 7 })).toEqual({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
-		expect(yield* fake.updated).toEqual([{ id: hiddenQuarantine.id, config: hiddenQuarantine.config, isHidden: false, sortOrder: 7 }]);
-		expect(yield* fake.activationRotations).toEqual([{ pluginId: privatePlugin.id, ownerId: userId, expectedActivationId: privatePlugin.activationId }]);
-		expect(yield* fake.healthUpdates).toEqual([{ id: hiddenQuarantine.id, health: "installing", healthReason: null }]);
-		expect(yield* fake.lifecycleDispatches).toEqual([{ installationId: hiddenQuarantine.id, activationId: "recovered-activation" }]);
-		expect(yield* fake.persisted).toEqual([]);
-	}));
+layer(
+	makeLayer({
+		privatePlugins: [privatePlugin],
+		installations: [{ ...hiddenQuarantine, isInitialized: false }],
+	}),
+)((test) => {
+	test.effect(
+		"re-enables partial initialization under a fresh lifecycle activation while preserving local identity",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fake = yield* FakeInstallationDependencies;
+				expect(
+					yield* service.updateInstallation(userId, hiddenQuarantine.id, {
+						sortOrder: 7,
+						isHidden: false,
+					}),
+				).toEqual({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
+				expect(yield* fake.updated).toEqual([
+					{
+						sortOrder: 7,
+						isHidden: false,
+						id: hiddenQuarantine.id,
+						config: hiddenQuarantine.config,
+					},
+				]);
+				expect(yield* fake.activationRotations).toEqual([
+					{
+						ownerId: userId,
+						pluginId: privatePlugin.id,
+						expectedActivationId: privatePlugin.activationId,
+					},
+				]);
+				expect(yield* fake.healthUpdates).toEqual([
+					{ healthReason: null, health: "installing", id: hiddenQuarantine.id },
+				]);
+				expect(yield* fake.lifecycleDispatches).toEqual([
+					{ installationId: hiddenQuarantine.id, activationId: "recovered-activation" },
+				]);
+				expect(yield* fake.persisted).toEqual([]);
+			}),
+	);
 });
 
-layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine], reservedPackageIds: new Set([privatePlugin.packageId]) }))((test) => {
-	test.effect("does not re-enable a private UUID reserved by bundled deployment configuration", () => Effect.gen(function* () {
-		const service = yield* PluginInstallationService;
-		const fake = yield* FakeInstallationDependencies;
-		expect(failureOf(yield* Effect.exit(service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false })))).toMatchObject({ _tag: "PluginConflictError", reason: { code: "package-identity-conflict", pluginId: privatePlugin.id, packageId: privatePlugin.packageId } });
-		expect(yield* fake.updated).toEqual([]);
-		expect(yield* fake.healthUpdates).toEqual([]);
-	}));
+layer(
+	makeLayer({
+		privatePlugins: [privatePlugin],
+		installations: [hiddenQuarantine],
+		reservedPackageIds: new Set([privatePlugin.packageId]),
+	}),
+)((test) => {
+	test.effect(
+		"does not re-enable a private UUID reserved by bundled deployment configuration",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fake = yield* FakeInstallationDependencies;
+				expect(
+					failureOf(
+						yield* Effect.exit(
+							service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
+						),
+					),
+				).toMatchObject({
+					_tag: "PluginConflictError",
+					reason: {
+						pluginId: privatePlugin.id,
+						code: "package-identity-conflict",
+						packageId: privatePlugin.packageId,
+					},
+				});
+				expect(yield* fake.updated).toEqual([]);
+				expect(yield* fake.healthUpdates).toEqual([]);
+			}),
+	);
 });
 
-layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine], systemPackageIdAddedOnLock: privatePlugin.packageId }))((test) => {
-	test.effect("rechecks system UUID claims after retained archive validation", () => Effect.gen(function* () {
-		const service = yield* PluginInstallationService;
-		const fake = yield* FakeInstallationDependencies;
-		expect(failureOf(yield* Effect.exit(service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false })))).toMatchObject({ _tag: "PluginConflictError", reason: { code: "package-identity-conflict" } });
-		expect(yield* fake.artifactReadScopes).toEqual(["root"]);
-		expect(yield* fake.updated).toEqual([]);
-		expect(yield* fake.healthUpdates).toEqual([]);
-	}));
+layer(
+	makeLayer({
+		privatePlugins: [privatePlugin],
+		installations: [hiddenQuarantine],
+		systemPackageIdAddedOnLock: privatePlugin.packageId,
+	}),
+)((test) => {
+	test.effect("rechecks system UUID claims after retained archive validation", () =>
+		Effect.gen(function* () {
+			const service = yield* PluginInstallationService;
+			const fake = yield* FakeInstallationDependencies;
+			expect(
+				failureOf(
+					yield* Effect.exit(
+						service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
+					),
+				),
+			).toMatchObject({
+				_tag: "PluginConflictError",
+				reason: { code: "package-identity-conflict" },
+			});
+			expect(yield* fake.artifactReadScopes).toEqual(["root"]);
+			expect(yield* fake.updated).toEqual([]);
+			expect(yield* fake.healthUpdates).toEqual([]);
+		}),
+	);
 });
 
 for (const changed of [
@@ -2315,52 +2431,125 @@ for (const changed of [
 	{ currentInstallationOnLock: { ...hiddenQuarantine, isInitialized: false } },
 	{ activeRevisionChanged: true },
 ]) {
-	layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine], ...changed }))((test) => {
-		test.effect(`rejects changed retained recovery proof ${Object.keys(changed).join()}`, () => Effect.gen(function* () {
-			const service = yield* PluginInstallationService;
-			const fake = yield* FakeInstallationDependencies;
-			expect(failureOf(yield* Effect.exit(service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false })))).toMatchObject({ _tag: "PluginConflictError", reason: { code: "source-revision-stale" } });
-			expect(yield* fake.updated).toEqual([]);
-			expect(yield* fake.healthUpdates).toEqual([]);
-			expect(yield* fake.activationRotations).toEqual([]);
-		}));
+	layer(
+		makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine], ...changed }),
+	)((test) => {
+		test.effect(`rejects changed retained recovery proof ${Object.keys(changed).join()}`, () =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fake = yield* FakeInstallationDependencies;
+				expect(
+					failureOf(
+						yield* Effect.exit(
+							service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
+						),
+					),
+				).toMatchObject({ _tag: "PluginConflictError", reason: { code: "source-revision-stale" } });
+				expect(yield* fake.updated).toEqual([]);
+				expect(yield* fake.healthUpdates).toEqual([]);
+				expect(yield* fake.activationRotations).toEqual([]);
+			}),
+		);
 	});
 }
 
-layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine], retainedArtifacts: { compiledScripts: [{ entry: "unexpected.sandbox.js", format: 1, javascript: "export {};" }] } }))((test) => {
-	test.effect("does not clear quarantine when retained compiled artifacts disagree with the manifest", () => Effect.gen(function* () {
-		const service = yield* PluginInstallationService;
-		const fake = yield* FakeInstallationDependencies;
-		expect(failureOf(yield* Effect.exit(service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false })))).toMatchObject({ _tag: "PluginRequestError", reason: { code: "validation-failed" } });
-		expect(yield* fake.artifactReadScopes).toEqual(["root"]);
-		expect(yield* fake.updated).toEqual([]);
-		expect(yield* fake.healthUpdates).toEqual([]);
-	}));
+layer(
+	makeLayer({
+		privatePlugins: [privatePlugin],
+		installations: [hiddenQuarantine],
+		retainedArtifacts: {
+			compiledScripts: [{ format: 1, javascript: "export {};", entry: "unexpected.sandbox.js" }],
+		},
+	}),
+)((test) => {
+	test.effect(
+		"does not clear quarantine when retained compiled artifacts disagree with the manifest",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fake = yield* FakeInstallationDependencies;
+				expect(
+					failureOf(
+						yield* Effect.exit(
+							service.updateInstallation(userId, hiddenQuarantine.id, { isHidden: false }),
+						),
+					),
+				).toMatchObject({ _tag: "PluginRequestError", reason: { code: "validation-failed" } });
+				expect(yield* fake.artifactReadScopes).toEqual(["root"]);
+				expect(yield* fake.updated).toEqual([]);
+				expect(yield* fake.healthUpdates).toEqual([]);
+			}),
+	);
 });
 
-const configuredQuarantine = { ...configuredInstallation, health: "incompatible" as const, incompatibilityReason: "package-identity-conflict" as const, isHidden: true };
-layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configuredQuarantine], reservedPackageIds: new Set([configuredPlugin.packageId]) }))((test) => {
-	test.effect("allows hide and config patches without recovering a quarantined installation", () => Effect.gen(function* () {
-		const service = yield* PluginInstallationService;
-		const fake = yield* FakeInstallationDependencies;
-		expect(yield* service.updateInstallation(userId, configuredQuarantine.id, { isHidden: true, config: { region: "ca" } })).toEqual({ id: configuredQuarantine.id, pluginId: configuredPlugin.id });
-		expect(yield* fake.updated).toEqual([{ id: configuredQuarantine.id, isHidden: true, sortOrder: configuredQuarantine.sortOrder, config: { region: "ca", token: "stored-secret" } }]);
-		expect(yield* fake.artifactReadScopes).toEqual([]);
-		expect(yield* fake.healthUpdates).toEqual([]);
-		expect(yield* fake.activationRotations).toEqual([]);
-		expect(yield* fake.lifecycleDispatches).toEqual([]);
-	}));
+const configuredQuarantine = {
+	...configuredInstallation,
+	isHidden: true,
+	health: "incompatible" as const,
+	incompatibilityReason: "package-identity-conflict" as const,
+};
+layer(
+	makeLayer({
+		privatePlugins: [configuredPlugin],
+		installations: [configuredQuarantine],
+		reservedPackageIds: new Set([configuredPlugin.packageId]),
+	}),
+)((test) => {
+	test.effect("allows hide and config patches without recovering a quarantined installation", () =>
+		Effect.gen(function* () {
+			const service = yield* PluginInstallationService;
+			const fake = yield* FakeInstallationDependencies;
+			expect(
+				yield* service.updateInstallation(userId, configuredQuarantine.id, {
+					isHidden: true,
+					config: { region: "ca" },
+				}),
+			).toEqual({ id: configuredQuarantine.id, pluginId: configuredPlugin.id });
+			expect(yield* fake.updated).toEqual([
+				{
+					isHidden: true,
+					id: configuredQuarantine.id,
+					sortOrder: configuredQuarantine.sortOrder,
+					config: { region: "ca", token: "stored-secret" },
+				},
+			]);
+			expect(yield* fake.artifactReadScopes).toEqual([]);
+			expect(yield* fake.healthUpdates).toEqual([]);
+			expect(yield* fake.activationRotations).toEqual([]);
+			expect(yield* fake.lifecycleDispatches).toEqual([]);
+		}),
+	);
 });
 
 layer(makeLayer({ privatePlugins: [privatePlugin], installations: [hiddenQuarantine] }))((test) => {
-	test.effect("allows a compatible initialized package update to recover without changing installation identity", () => Effect.gen(function* () {
-		const service = yield* PluginInstallationService;
-		const fake = yield* FakeInstallationDependencies;
-		const manifest = { ...privatePlugin.manifest, metadata: { ...privatePlugin.manifest.metadata, version: "2.0.0" } };
-		expect(yield* service.updatePrivatePlugin({ userId, installationId: hiddenQuarantine.id, sourceHash: privatePlugin.sourceHash, manifest, compiledScripts: [] })).toEqual({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
-		expect((yield* fake.persisted)[0]).toMatchObject({ plugin: { metadata: { packageId: privatePlugin.packageId, version: "2.0.0" } }, identity: { pluginId: privatePlugin.id } });
-		expect(yield* fake.healthUpdates).toEqual([{ id: hiddenQuarantine.id, health: "ready", healthReason: null }]);
-		expect(yield* fake.activationRotations).toEqual([]);
-		expect(yield* fake.lifecycleDispatches).toEqual([]);
-	}));
+	test.effect(
+		"allows a compatible initialized package update to recover without changing installation identity",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const fake = yield* FakeInstallationDependencies;
+				const manifest = {
+					...privatePlugin.manifest,
+					metadata: { ...privatePlugin.manifest.metadata, version: "2.0.0" },
+				};
+				expect(
+					yield* service.updatePrivatePlugin({
+						userId,
+						manifest,
+						compiledScripts: [],
+						installationId: hiddenQuarantine.id,
+						sourceHash: privatePlugin.sourceHash,
+					}),
+				).toEqual({ id: hiddenQuarantine.id, pluginId: privatePlugin.id });
+				expect((yield* fake.persisted)[0]).toMatchObject({
+					identity: { pluginId: privatePlugin.id },
+					plugin: { metadata: { version: "2.0.0", packageId: privatePlugin.packageId } },
+				});
+				expect(yield* fake.healthUpdates).toEqual([
+					{ health: "ready", healthReason: null, id: hiddenQuarantine.id },
+				]);
+				expect(yield* fake.activationRotations).toEqual([]);
+				expect(yield* fake.lifecycleDispatches).toEqual([]);
+			}),
+	);
 });

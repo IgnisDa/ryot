@@ -225,8 +225,9 @@ export class OAuthConnectionsService extends Context.Service<OAuthConnectionsSer
 					if (
 						reference.owner.kind !== "plugin" ||
 						registered?.pluginId !== reference.owner.pluginId
-					)
-						{return yield* providerNotFound;}
+					) {
+						return yield* providerNotFound;
+					}
 				}
 				if (!registered) {
 					return yield* providerNotFound;

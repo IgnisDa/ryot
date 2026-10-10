@@ -427,12 +427,7 @@ async function createEntitySchema(
 		owner: { kind: "plugin", pluginId: registration.pluginId },
 		slug: schemaId,
 	};
-	const schema = {
-		...definition,
-		pluginSlug,
-		id: schemaId,
-		reference,
-	};
+	const schema = { ...definition, pluginSlug, id: schemaId, reference };
 
 	console.log(`    ✓ Created entity schema: ${name} (${schema.id})`);
 	return schema;
@@ -463,8 +458,7 @@ async function createEventSchema(
 	const entitySchema = requirePresent(
 		schemas.find(
 			(schema) =>
-				schema.slug === entitySchemaReference.slug &&
-				schema.pluginId === registration.pluginId,
+				schema.slug === entitySchemaReference.slug && schema.pluginId === registration.pluginId,
 		),
 		`Entity schema '${entitySchemaReference.slug}' not found for its exact plugin owner`,
 	);
@@ -548,12 +542,7 @@ function buildSeedLayouts(
 	columns: ReadonlyArray<SeedTableColumn>,
 	source:
 		| { pluginSlug: string }
-		| {
-				authors: ReadonlyArray<{
-					pluginSlug: string;
-					entitySchemaSlugs: ReadonlyArray<string>;
-				}>;
-		},
+		| { authors: ReadonlyArray<{ pluginSlug: string; entitySchemaSlugs: ReadonlyArray<string> }> },
 ): SavedViewDefinition {
 	const [first] = scope;
 	if (!first) {
@@ -1338,9 +1327,7 @@ async function getMediaLifecycleEventSchemas(
 		entityDefinitionsRecipe({ after, limit: 100 }),
 	);
 	const schemas = requirePresent(
-		entities.find(
-			(schema) => schema.slug === entitySchemaSlug && schema.pluginId === pluginId,
-		),
+		entities.find((schema) => schema.slug === entitySchemaSlug && schema.pluginId === pluginId),
 		`Entity schema '${entitySchemaSlug}' not found`,
 	).eventSchemas.items.map((schema) => ({ ...schema, id: EventSchemaSlug.make(schema.slug) }));
 

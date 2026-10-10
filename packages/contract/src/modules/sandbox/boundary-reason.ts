@@ -10,10 +10,10 @@ export const SandboxBoundaryReason = Schema.Union([
 	}),
 	Schema.Struct({
 		code: Schema.Literal("missing-required-config"),
-		keys: Schema.optional(Schema.Array(Schema.String)),
+		keys: Schema.optionalKey(Schema.Array(Schema.String)),
 	}),
 	Schema.Struct({
-		operation: Schema.optional(Schema.String),
+		operation: Schema.optionalKey(Schema.String),
 		code: Schema.Literals([
 			"missing-artifact-grant",
 			"unavailable-operation",
