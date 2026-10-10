@@ -28,7 +28,11 @@ import {
 } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import { automationRun as table } from "#lib/infrastructure/db/schema/tables/automations";
+import { automationRunLane } from "#lib/domain/lifecycle-command";
+import {
+	automationRun as table,
+	automationTrigger,
+} from "#lib/infrastructure/db/schema/tables/automations";
 import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redactPluginConfig } from "#modules/plugins/config-redaction";
@@ -252,12 +256,25 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				return yield* Effect.forEach(rows, decodeRow);
 			});
 			const listDispatchStates = Effect.fn(function* (ids: ReadonlyArray<AutomationRunId>) {
-				return yield* session.run((db) =>
+				const rows = yield* session.run((db) =>
 					db
-						.select({ id: table.id, status: table.status, attemptCount: table.attemptCount })
+						.select({
+							id: table.id,
+							status: table.status,
+							delivery: table.delivery,
+							attemptCount: table.attemptCount,
+							triggerLane: automationTrigger.lane,
+						})
 						.from(table)
+						.innerJoin(automationTrigger, eq(automationTrigger.id, table.triggerId))
 						.where(inArray(table.id, [...ids])),
 				);
+				return rows.map((row) => ({
+					id: row.id,
+					status: row.status,
+					attemptCount: row.attemptCount,
+					lane: automationRunLane({ delivery: row.delivery, causation: { lane: row.triggerLane } }),
+				}));
 			});
 			const listQueuedCandidates = Effect.fn(function* (input: {
 				now: Date;

@@ -249,6 +249,23 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			}
 		}
 
+		const socketDir = config.server.runnerSocketDir;
+		if (config.server.lanes === "all" && Option.isSome(socketDir)) {
+			return yield* Effect.fail(
+				configError("SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is set to a role."),
+			);
+		}
+		if (
+			config.server.lanes !== "all" &&
+			(Option.isNone(socketDir) || !socketDir.value.startsWith("/"))
+		) {
+			return yield* Effect.fail(
+				configError(
+					`SERVER_LANES=${config.server.lanes} requires SERVER_RUNNER_SOCKET_DIR to be an absolute path.`,
+				),
+			);
+		}
+
 		if (logging.file.path.trim().length === 0) {
 			return yield* Effect.fail(configError("SERVER_LOG_FILE must not be empty."));
 		}

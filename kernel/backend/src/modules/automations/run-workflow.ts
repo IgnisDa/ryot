@@ -6,9 +6,9 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
-import { Workflow } from "effect/workflow";
 
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { laneWorkflow } from "#lib/infrastructure/workflow-lane";
 
 import { automationAttemptIdentity } from "./attempt-repository";
 
@@ -42,7 +42,7 @@ export const AutomationRunWorkflowPayload = Schema.Struct({
 });
 export type AutomationRunWorkflowPayload = typeof AutomationRunWorkflowPayload.Type;
 
-export const AutomationRunWorkflow = Workflow.make("AutomationRunWorkflow", {
+export const AutomationRunWorkflow = laneWorkflow("AutomationRunWorkflow", {
 	error: DbError satisfies DurableSchema,
 	success: AutomationRunWorkflowResult satisfies DurableSchema,
 	payload: AutomationRunWorkflowPayload satisfies DurableSchema,
