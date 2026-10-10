@@ -4,21 +4,24 @@ import {
 	ascending,
 	column,
 	contains,
+	count,
 	defineRecipe,
 	descending,
+	entitySchemaPredicate,
 	eq,
 	exists,
 	first,
-	JsonValue,
-	join,
+	inArray,
 	isNotNull,
+	join,
+	JsonValue,
 	literal,
 	relationshipSchemaPredicate,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedRows,
 	table,
 	type Recipe,
-	entitySchemaPredicate,
 } from "@ryot-app/plugin-kit/ryotql";
 import {
 	EntityId,
@@ -31,6 +34,11 @@ import {
 import { property, propertyJson } from "./entity-selections";
 import { exerciseKindSchema, type ExerciseKind } from "./exercise-kinds";
 import { fitnessLibraryLinkExists } from "./library-recipes";
+import {
+	effectiveTaxonomyLink,
+	exerciseEquipmentInclude,
+	exerciseTargetInclude,
+} from "./taxonomy-recipes";
 
 type Table = ReturnType<typeof table>;
 
@@ -39,74 +47,99 @@ const membershipPropertiesSchema = Schema.Record(Schema.String, JsonValue);
 const assetLocators = Schema.Array(
 	Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]),
 );
+const exerciseForceSchema = Schema.Literals(["pull", "push", "static"]);
+const exerciseLevelSchema = Schema.Literals(["beginner", "intermediate", "expert"]);
+const exerciseMechanicSchema = Schema.Literals(["compound", "isolation"]);
 
-const exercisePickerWhere = (
-	input: {
-		readonly collectionId?: string | undefined;
-		readonly equipmentId?: string | undefined;
-		readonly kind?: ExerciseKind | undefined;
-		readonly reference: PluginIdentityReference;
-		readonly search?: string | undefined;
-		readonly targetId?: string | undefined;
-	},
+type ExerciseForce = typeof exerciseForceSchema.Type;
+type ExerciseLevel = typeof exerciseLevelSchema.Type;
+type ExerciseMechanic = typeof exerciseMechanicSchema.Type;
+
+type WorkoutExercisePickerInput = {
+	readonly after?: string | undefined;
+	readonly collectionIds?: readonly string[] | undefined;
+	readonly equipmentIds?: readonly string[] | undefined;
+	readonly forces?: readonly ExerciseForce[] | undefined;
+	readonly kinds?: readonly ExerciseKind[] | undefined;
+	readonly levels?: readonly ExerciseLevel[] | undefined;
+	readonly mechanics?: readonly ExerciseMechanic[] | undefined;
+	readonly reference: PluginIdentityReference;
+	readonly search?: string | undefined;
+	readonly sort?: "name" | "recently-added" | "times-performed" | undefined;
+	readonly targetIds?: readonly string[] | undefined;
+};
+
+const exerciseTaxonomyFilter = (
 	exercise: Table,
+	input: {
+		readonly entityAlias: string;
+		readonly entitySlug: string;
+		readonly ids: readonly string[];
+		readonly relationshipAlias: string;
+		readonly relationshipSlug: string;
+	},
 ) => {
+	const relationship = table("relationship", input.relationshipAlias);
+	const entity = table("entity", input.entityAlias);
+	return exists(relationship, {
+		joins: [
+			join("inner", entity, eq(column(relationship, "targetEntityId"), column(entity, "id"))),
+		],
+		where: and(
+			eq(
+				column(relationship, "relationshipSchemaPluginId"),
+				column(exercise, "entitySchemaPluginId"),
+			),
+			eq(column(entity, "entitySchemaPluginId"), column(exercise, "entitySchemaPluginId")),
+			effectiveTaxonomyLink(relationship),
+			eq(column(relationship, "sourceEntityId"), column(exercise, "id")),
+			eq(column(relationship, "relationshipSchemaSlug"), literal(input.relationshipSlug)),
+			eq(column(entity, "entitySchemaSlug"), literal(input.entitySlug)),
+			inArray(column(entity, "id"), input.ids.map(literal)),
+		),
+	});
+};
+
+const exercisePickerWhere = (input: WorkoutExercisePickerInput, exercise: Table) => {
 	const search = input.search?.trim();
 	const predicates = [
 		entitySchemaPredicate(exercise, "exercise", input.reference),
 		fitnessLibraryLinkExists(exercise, "pickerLibrary"),
 		...(search ? [contains(column(exercise, "name"), literal(search))] : []),
-		...(input.kind === undefined ? [] : [eq(property(exercise, "kind"), literal(input.kind))]),
+		...(input.kinds?.length ? [inArray(property(exercise, "kind"), input.kinds.map(literal))] : []),
+		...(input.forces?.length
+			? [inArray(property(exercise, "force"), input.forces.map(literal))]
+			: []),
+		...(input.levels?.length
+			? [inArray(property(exercise, "level"), input.levels.map(literal))]
+			: []),
+		...(input.mechanics?.length
+			? [inArray(property(exercise, "mechanic"), input.mechanics.map(literal))]
+			: []),
 	];
-	if (input.targetId !== undefined) {
-		const relationship = table("relationship", "pickerTargetRelationship");
-		const target = table("entity", "pickerTarget");
+	if (input.targetIds?.length) {
 		predicates.push(
-			exists(relationship, {
-				joins: [
-					join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
-				],
-				where: and(
-					eq(
-						column(relationship, "relationshipSchemaPluginId"),
-						column(exercise, "entitySchemaPluginId"),
-					),
-					eq(column(target, "entitySchemaPluginId"), column(exercise, "entitySchemaPluginId")),
-					eq(column(relationship, "sourceEntityId"), column(exercise, "id")),
-					eq(column(relationship, "relationshipSchemaSlug"), literal("exercise-targets")),
-					eq(column(target, "entitySchemaSlug"), literal("exercise-target")),
-					eq(column(target, "id"), literal(input.targetId)),
-				),
+			exerciseTaxonomyFilter(exercise, {
+				ids: input.targetIds,
+				entityAlias: "pickerTarget",
+				entitySlug: "exercise-target",
+				relationshipSlug: "exercise-targets",
+				relationshipAlias: "pickerTargetRelationship",
 			}),
 		);
 	}
-	if (input.equipmentId !== undefined) {
-		const relationship = table("relationship", "pickerEquipmentRelationship");
-		const equipment = table("entity", "pickerEquipment");
+	if (input.equipmentIds?.length) {
 		predicates.push(
-			exists(relationship, {
-				joins: [
-					join(
-						"inner",
-						equipment,
-						eq(column(relationship, "targetEntityId"), column(equipment, "id")),
-					),
-				],
-				where: and(
-					eq(
-						column(relationship, "relationshipSchemaPluginId"),
-						column(exercise, "entitySchemaPluginId"),
-					),
-					eq(column(equipment, "entitySchemaPluginId"), column(exercise, "entitySchemaPluginId")),
-					eq(column(relationship, "sourceEntityId"), column(exercise, "id")),
-					eq(column(relationship, "relationshipSchemaSlug"), literal("exercise-uses-equipment")),
-					eq(column(equipment, "entitySchemaSlug"), literal("exercise-equipment")),
-					eq(column(equipment, "id"), literal(input.equipmentId)),
-				),
+			exerciseTaxonomyFilter(exercise, {
+				ids: input.equipmentIds,
+				entityAlias: "pickerEquipment",
+				entitySlug: "exercise-equipment",
+				relationshipSlug: "exercise-uses-equipment",
+				relationshipAlias: "pickerEquipmentRelationship",
 			}),
 		);
 	}
-	if (input.collectionId !== undefined) {
+	if (input.collectionIds?.length) {
 		const relationship = table("relationship", "pickerCollectionRelationship");
 		const collection = table("entity", "pickerCollection");
 		predicates.push(
@@ -119,7 +152,7 @@ const exercisePickerWhere = (
 					),
 				],
 				where: and(
-					eq(column(collection, "id"), literal(input.collectionId)),
+					inArray(column(collection, "id"), input.collectionIds.map(literal)),
 					entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
 					eq(column(relationship, "sourceEntityId"), column(exercise, "id")),
 					relationshipSchemaPredicate(relationship, "member-of", { kind: "kernel" }),
@@ -152,46 +185,81 @@ const membershipField = (
 	});
 };
 
-export const workoutExercisePickerRecipe = defineRecipe(
-	(input: {
-		readonly after?: string | undefined;
-		readonly collectionId?: string | undefined;
-		readonly equipmentId?: string | undefined;
-		readonly kind?: ExerciseKind | undefined;
-		readonly reference: PluginIdentityReference;
-		readonly search?: string | undefined;
-		readonly targetId?: string | undefined;
-		readonly sort?: "name" | "recently-added" | undefined;
-	}) => {
-		const exercise = table("entity", "pickerExercise");
+const workoutSetCount = (exercise: Table, reference: PluginIdentityReference) => {
+	const workoutSet = table("event", "pickerWorkoutSetCount");
+	return count(workoutSet, {
+		where: and(
+			schemaOwnerPredicate(workoutSet, "eventSchemaPluginId", reference),
+			eq(column(workoutSet, "entityId"), column(exercise, "id")),
+			eq(column(workoutSet, "eventSchemaSlug"), literal("workout-set")),
+		),
+	});
+};
+
+export const workoutExercisePickerRecipe = defineRecipe((input: WorkoutExercisePickerInput) => {
+	const exercise = table("entity", "pickerExercise");
+	const sort = input.sort ?? "times-performed";
+	const orderBy = () => {
+		if (sort === "recently-added") {
+			return [
+				descending(membershipField(exercise, input.reference, "createdAt")),
+				ascending(column(exercise, "id")),
+			];
+		}
+		if (sort === "name") {
+			return [ascending(column(exercise, "name")), ascending(column(exercise, "id"))];
+		}
+		return [
+			descending(workoutSetCount(exercise, input.reference)),
+			ascending(column(exercise, "id")),
+		];
+	};
+	return {
+		map: ({ exercises }) => Result.succeed(exercises),
+		queries: {
+			exercises: selectedRows(exercise, {
+				limit: rowLimit,
+				after: input.after,
+				orderBy: orderBy(),
+				where: exercisePickerWhere(input, exercise),
+				include: {
+					targets: exerciseTargetInclude(exercise),
+					equipment: exerciseEquipmentInclude(exercise),
+				},
+				selection: {
+					id: selectedField(column(exercise, "id"), EntityId),
+					name: selectedField(column(exercise, "name"), Schema.String),
+					kind: selectedField(property(exercise, "kind"), Schema.NullOr(exerciseKindSchema)),
+					images: selectedField(propertyJson(exercise, "images"), Schema.NullOr(assetLocators)),
+					videos: selectedField(propertyJson(exercise, "videos"), Schema.NullOr(assetLocators)),
+					instructions: selectedField(
+						propertyJson(exercise, "instructions"),
+						Schema.NullOr(Schema.Array(Schema.String)),
+					),
+					membershipProperties: selectedField(
+						membershipField(exercise, input.reference, "properties"),
+						Schema.NullOr(membershipPropertiesSchema),
+					),
+				},
+			}),
+		},
+	};
+});
+
+export const workoutExerciseCollectionOptionsRecipe = defineRecipe(
+	(input: { readonly after?: string | undefined } = {}) => {
+		const collection = table("entity", "pickerCollectionOption");
 		return {
-			map: ({ exercises }) => Result.succeed(exercises),
+			map: ({ collections }) => Result.succeed(collections),
 			queries: {
-				exercises: selectedRows(exercise, {
+				collections: selectedRows(collection, {
 					limit: rowLimit,
 					after: input.after,
-					where: exercisePickerWhere(input, exercise),
-					orderBy:
-						input.sort === "recently-added"
-							? [
-									descending(membershipField(exercise, input.reference, "createdAt")),
-									ascending(column(exercise, "id")),
-								]
-							: [ascending(column(exercise, "name")), ascending(column(exercise, "id"))],
+					where: entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
+					orderBy: [ascending(column(collection, "name")), ascending(column(collection, "id"))],
 					selection: {
-						id: selectedField(column(exercise, "id"), EntityId),
-						name: selectedField(column(exercise, "name"), Schema.String),
-						kind: selectedField(property(exercise, "kind"), Schema.NullOr(exerciseKindSchema)),
-						images: selectedField(propertyJson(exercise, "images"), Schema.NullOr(assetLocators)),
-						videos: selectedField(propertyJson(exercise, "videos"), Schema.NullOr(assetLocators)),
-						instructions: selectedField(
-							propertyJson(exercise, "instructions"),
-							Schema.NullOr(Schema.Array(Schema.String)),
-						),
-						membershipProperties: selectedField(
-							membershipField(exercise, input.reference, "properties"),
-							Schema.NullOr(membershipPropertiesSchema),
-						),
+						id: selectedField(column(collection, "id"), EntityId),
+						name: selectedField(column(collection, "name"), Schema.String),
 					},
 				}),
 			},

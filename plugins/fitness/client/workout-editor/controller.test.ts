@@ -269,6 +269,57 @@ describe("workout editor controller", () => {
 		}),
 	);
 
+	it.live("unlocks only a definitely unwritten rejected submission", () =>
+		Effect.gen(function* () {
+			const harness = createController();
+			yield* harness.controller.load();
+			yield* harness.controller.start(draft());
+			yield* harness.controller.beginSubmission(saveInput());
+			harness.controller.setSaving(true);
+			harness.controller.setSaving(false);
+			expect(harness.controller.change((current) => ({ ...current, name: "Unsafe edit" }))).toBe(
+				false,
+			);
+			expect(
+				yield* harness.controller.rejectSubmission({
+					canEdit: true,
+					kind: "invalid",
+					code: "missing-measurement",
+				}),
+			).toBe(true);
+			expect(
+				harness.controller.change((current) => ({ ...current, name: "Corrected input" })),
+			).toBe(true);
+			yield* harness.controller.flush();
+			const recovered = decodeWorkoutEditorDraft(harness.stored);
+			expect(recovered._tag).toBe("Success");
+			if (recovered._tag === "Success") {
+				expect(recovered.success.submission).toBeUndefined();
+				expect(recovered.success.name).toBe("Corrected input");
+			}
+		}),
+	);
+
+	it.live("does not unlock an earlier uncertain save when a retry fails preflight", () =>
+		Effect.gen(function* () {
+			const harness = createController();
+			yield* harness.controller.load();
+			yield* harness.controller.start(draft());
+			yield* harness.controller.beginSubmission(saveInput());
+			harness.controller.setSaving(true);
+			harness.controller.setSaving(false);
+			yield* harness.controller.beginSubmission(saveInput());
+			harness.controller.setSaving(true);
+			harness.controller.setSaving(false);
+			expect(
+				yield* harness.controller.rejectSubmission({ canEdit: true, kind: "pro-required" }),
+			).toBe(false);
+			expect(
+				harness.controller.change((current) => ({ ...current, name: "Must remain frozen" })),
+			).toBe(false);
+		}),
+	);
+
 	it.live(
 		"persists timer changes before scheduling stable per-draft alerts and cancels after recovery",
 		() =>

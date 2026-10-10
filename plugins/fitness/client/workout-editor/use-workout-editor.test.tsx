@@ -30,9 +30,24 @@ function Probe() {
 		kind: "plugin-route",
 		packageId: PLUGIN_PACKAGE_ID,
 	});
+	const second = useWorkoutEditor({
+		search: "",
+		path: "/editor",
+		kind: "plugin-route",
+		packageId: PLUGIN_PACKAGE_ID,
+	});
 	return (
 		<PluginScreenFrame title="Editor probe">
 			<p>{snapshot.status === "ready" ? snapshot.draft.name : snapshot.status}</p>
+			<p>
+				Second:{" "}
+				{second.snapshot.status === "ready" ? second.snapshot.draft.name : second.snapshot.status}
+			</p>
+			<button
+				onClick={() => second.controller.change((draft) => ({ ...draft, name: "Shared update" }))}
+			>
+				Share update
+			</button>
 			<button onClick={() => setRenders(renders + 1)}>Render {renders}</button>
 		</PluginScreenFrame>
 	);
@@ -136,6 +151,9 @@ it.live(
 						.clientMessages()
 						.filter((request) => request.type === "storage-request" && request.action === "get"),
 				).toHaveLength(1);
+				act(() => screen.getByRole("button", { name: "Share update" }).click());
+				expect(screen.getByText("Shared update")).toBeTruthy();
+				expect(screen.getByText("Second: Shared update")).toBeTruthy();
 				page.send({ type: "page-refresh" });
 				yield* waitForMessagePortMacrotask;
 				yield* Effect.promise(() => clock.advance("1 second"));

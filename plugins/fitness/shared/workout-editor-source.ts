@@ -377,6 +377,7 @@ const templateDraft = (
 				images: source.images ?? [],
 				videos: source.videos ?? [],
 				sourceExerciseOrder: source.exerciseOrder,
+				display: { weightUnit: "kg", distanceUnit: "km", durationUnit: "seconds" },
 				sets: orderedSets.map((set) =>
 					makeSet(
 						sourceSetId(baseline.entity.id, source.exerciseOrder, set.setOrder),
@@ -511,10 +512,13 @@ export const cloneWorkoutEditorSource = (
 		endedAt: undefined,
 		startedAt: undefined,
 		submission: undefined,
+		pendingRest: undefined,
+		activeSetId: undefined,
 		draftId: input.draftId,
 		caloriesBurnt: undefined,
 		restCountdown: undefined,
 		activeDuration: undefined,
+		activeOccurrenceId: undefined,
 		executionCountdown: undefined,
 		stopwatchStartedAt: undefined,
 		activeDurationIntent: "preserve",

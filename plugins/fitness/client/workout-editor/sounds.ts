@@ -35,10 +35,20 @@ export const createWorkoutEditorSounds = (
 				if (muted || disposed) {
 					return false;
 				}
-				const player = players.get(sound) ?? createAudio(soundSources[sound]);
+				const player = yield* Effect.try(
+					() => players.get(sound) ?? createAudio(soundSources[sound]),
+				).pipe(Effect.orElseSucceed(() => undefined));
+				if (player === undefined) {
+					return false;
+				}
 				players.set(sound, player);
-				player.currentTime = 0;
-				return yield* Effect.tryPromise({ catch: () => false, try: () => player.play() }).pipe(
+				return yield* Effect.tryPromise({
+					catch: () => false,
+					try: () => {
+						player.currentTime = 0;
+						return player.play();
+					},
+				}).pipe(
 					Effect.map(() => true),
 					Effect.orElseSucceed(() => false),
 				);
