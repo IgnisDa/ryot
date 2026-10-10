@@ -472,9 +472,7 @@ describe("measurements page", () => {
 			});
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					expect(dialog.getByRole("alert").textContent).toContain(
-						"Demo accounts can't delete measurements",
-					),
+					expect(dialog.getByRole("alert").textContent).toContain("couldn't be deleted"),
 				),
 			);
 			fireEvent.click(dialog.getByRole("button", { name: "Delete measurement" }));
@@ -741,20 +739,22 @@ describe("measurements page", () => {
 				requestId: failed.requestId,
 			});
 			yield* Effect.promise(() =>
-				waitFor(() => expect(text(dialog.getByRole("form"))).toContain("couldn't be saved")),
+				waitFor(() =>
+					expect(text(dialog.getByRole("form"))).toContain("Some readings may already be saved"),
+				),
 			);
 			expect(dialog.getByLabelText("Weight (kg)").getAttribute("value")).toBe(" 0 ");
 			const readingQueries = page.queryRequests("readings").length;
-			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
+			fireEvent.click(dialog.getByRole("button", { name: "Retry save" }));
 			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(2)));
 			const retried = requests()[1];
 			assert(retried?.type === "operation-request");
 			expect(retried.input).toEqual(failed.input);
 			page.send({
 				outcome: "success",
-				value: { count: 2 },
 				type: "operation-result",
 				requestId: retried.requestId,
+				value: { count: 2, status: "saved" },
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
@@ -764,6 +764,79 @@ describe("measurements page", () => {
 				}),
 			);
 			expect(document.activeElement).toBe(trigger);
+		}),
+	);
+
+	it.live("cancels unsent input and retains partial submissions until retry completes", () =>
+		Effect.gen(function* () {
+			const { page, answerPending } = openPage();
+			const body = within(document.body);
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(body.getByRole("region", { name: "All metrics" })).toBeTruthy();
+				}),
+			);
+			const trigger = body.getByRole("button", { name: "Log measurement" });
+			const requests = () =>
+				page.clientMessages().filter(({ type }) => type === "operation-request");
+			fireEvent.click(trigger);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(body.getByRole("dialog", { name: "Log measurement" })).toBeTruthy()),
+			);
+			let dialog = within(body.getByRole("dialog", { name: "Log measurement" }));
+			fireEvent.change(dialog.getByLabelText("Weight (kg)"), { target: { value: "72" } });
+			fireEvent.click(dialog.getByRole("button", { name: "Cancel" }));
+			yield* Effect.promise(() => waitFor(() => expect(body.queryByRole("dialog")).toBeNull()));
+			expect(requests()).toEqual([]);
+			fireEvent.click(trigger);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(body.getByRole("dialog", { name: "Log measurement" })).toBeTruthy()),
+			);
+			dialog = within(body.getByRole("dialog", { name: "Log measurement" }));
+			expect(dialog.getByLabelText("Weight (kg)").getAttribute("value")).toBe("");
+			fireEvent.change(dialog.getByLabelText("Weight (kg)"), { target: { value: "0" } });
+			fireEvent.change(dialog.getByLabelText("Waist (cm)"), { target: { value: "80" } });
+			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
+			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(1)));
+			const first = requests()[0];
+			assert(first?.type === "operation-request");
+			expect(dialog.getByRole("button", { name: "Cancel" }).hasAttribute("disabled")).toBe(true);
+			const metricQueries = page.queryRequests("metrics").length;
+			page.send({
+				outcome: "success",
+				type: "operation-result",
+				requestId: first.requestId,
+				value: { count: 1, status: "incomplete" },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(dialog.getByRole("button", { name: "Retry save" })).toBeTruthy()),
+			);
+			expect(dialog.getByLabelText("Weight (kg)").closest("fieldset")?.disabled).toBe(true);
+			expect(dialog.getByRole("alert").textContent).toContain("does not undo saved readings");
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.queryRequests("metrics").length).toBeGreaterThan(metricQueries)),
+			);
+			expect(body.getByRole("dialog", { name: "Log measurement" })).toBeTruthy();
+			expect(dialog.getByLabelText("Weight (kg)").getAttribute("value")).toBe("0");
+			answerPending();
+			fireEvent.click(dialog.getByRole("button", { name: "Retry save" }));
+			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(2)));
+			const retry = requests()[1];
+			assert(retry?.type === "operation-request");
+			expect(retry.input).toEqual(first.input);
+			page.send({
+				outcome: "success",
+				type: "operation-result",
+				requestId: retry.requestId,
+				value: { count: 2, status: "saved" },
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(body.queryByRole("dialog")).toBeNull();
+				}),
+			);
 		}),
 	);
 

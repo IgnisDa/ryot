@@ -23,12 +23,14 @@ import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
 } from "#modules/events/event-create-workflow";
+import { toSandboxCreateEventsResult } from "#modules/events/script-host";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	NotificationDeliveryWorkflow,
 	NotificationDeliveryWorkflowPayload,
 } from "#modules/notifications/notification-delivery-workflow";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";
 import { infrastructureRunError } from "#modules/scripts/executions/run-error";
 import {
@@ -58,6 +60,7 @@ const PreparedSandboxCreateEvents = Schema.Struct({
 	userId: UserId,
 	command: DomainLifecycleCommand,
 	payload: Schema.Array(createEventItemSchema),
+	writeCommand: Schema.optional(DomainLifecycleCommand),
 });
 
 const PreparedSandboxSendNotification = Schema.Struct({
@@ -119,6 +122,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
+		const runtime = yield* PluginRuntimeResolver;
 		const authority = yield* SandboxExecutionAuthority;
 		const receipts = yield* MutationReceipts.make;
 		const httpDispatcher = yield* SandboxHttpDispatcher;
@@ -292,8 +296,12 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					const prepared = yield* makeActivity({
 						error: SandboxRunError,
 						success: PreparedSandboxCreateEvents,
-						execute: prepareSandboxCreateEvents(request, scope),
 						name: `prepare-sandbox-create-events-${request.index}`,
+						execute: prepareSandboxCreateEvents(request, scope, (userId, pluginId) =>
+							runtime
+								.findPluginAvailableToUser(userId, pluginId)
+								.pipe(Effect.map((plugin) => plugin?.installationId ?? null)),
+						),
 					});
 					const eventPayload = yield* Schema.decodeEffect(EventCreateWorkflowPayload)(
 						prepared,
@@ -321,13 +329,12 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					if (result._tag === "Failure") {
 						return yield* failureOrRethrow(result.cause);
 					}
-					yield* reportSandboxLifecycleWarnings("createEvents", result.value.warnings);
-					return result.value.failure
-						? durableHostFailure(`Event creation failed: ${result.value.failure.reason.code}`)
-						: ({
-								state: "success",
-								value: { count: result.value.count },
-							} satisfies WorkflowDurableResult);
+					return yield* toSandboxCreateEventsResult(result.value).pipe(
+						Effect.match({
+							onFailure: (error) => durableHostFailure(error.message, error.data),
+							onSuccess: (value) => ({ value, state: "success" }) satisfies WorkflowDurableResult,
+						}),
+					);
 				});
 			}
 

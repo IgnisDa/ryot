@@ -105,6 +105,7 @@ export const EventCreateFailureReason = Schema.Union([
 	}),
 	strictStruct({ code: Schema.Literal("entity-id-required") }),
 	strictStruct({ code: Schema.Literal("invalid-properties") }),
+	strictStruct({ code: Schema.Literal("mutation-conflict") }),
 	strictStruct({ code: Schema.Literal("event-schema-slug-required") }),
 	strictStruct({ entityId: EntityId, code: Schema.Literal("entity-not-found") }),
 	strictStruct({ entityId: EntityId, code: Schema.Literal("session-entity-not-found") }),

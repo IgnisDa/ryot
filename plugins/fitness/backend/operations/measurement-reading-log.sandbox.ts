@@ -1,11 +1,11 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
+import { measurementReadingProperties } from "../../shared/measurement-properties";
 import {
 	MeasurementReadingLogInput,
-	MeasurementReadingOutput,
-	measurementReadingProperties,
+	MeasurementReadingLogOutput,
 } from "../../shared/measurement-reading-operations";
 import { requireMeasurementMetrics } from "./measurement-readings";
 
@@ -17,21 +17,37 @@ export const manifest = defineManifest({
 
 export default defineOperation({
 	manifest,
-	output: MeasurementReadingOutput,
 	input: MeasurementReadingLogInput,
-	run: ({ values, comment, occurredAt }, host) =>
+	output: MeasurementReadingLogOutput,
+	run: ({ values, comment, occurredAt, submittedAt, submissionId }, host) =>
 		Effect.gen(function* () {
 			yield* requireMeasurementMetrics(
 				values.map(({ metricId }) => metricId),
 				host.executeRyotql,
 			);
-			return yield* host.createEvents(
-				values.map(({ value, metricId }) => ({
-					occurredAt,
-					entityId: metricId,
-					eventSchemaSlug: "measurement-reading",
-					properties: measurementReadingProperties(value, comment),
-				})),
-			);
+			return yield* host
+				.createEvents(
+					values.map(({ value, metricId }) => ({
+						occurredAt,
+						entityId: metricId,
+						eventSchemaSlug: "measurement-reading",
+						properties: measurementReadingProperties(value, comment),
+					})),
+					{ submittedAt, idempotencyKey: submissionId },
+				)
+				.pipe(
+					Effect.map(({ count }) => ({
+						count,
+						status: count === values.length ? ("saved" as const) : ("incomplete" as const),
+					})),
+					Effect.catch((error) => {
+						const partial = Schema.decodeUnknownOption(
+							Schema.Struct({ count: Schema.Int, partial: Schema.Literal(true) }),
+						)(error.data);
+						return Option.isSome(partial)
+							? Effect.succeed({ count: partial.value.count, status: "incomplete" as const })
+							: Effect.fail(error);
+					}),
+				);
 		}),
 });

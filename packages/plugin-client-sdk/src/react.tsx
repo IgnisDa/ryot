@@ -28,5 +28,7 @@ export {
 	useRyotTheme,
 } from "./queries/provider";
 export { usePluginStorage, type PluginStorageState } from "./queries/storage";
+export type { RyotSubmission } from "./queries/submission";
+export { useRyotSubmission } from "./queries/submission-hook";
 export { useEntityRefresh, useEntitySettle } from "./refresh/entity-hooks";
 export { usePageRefresh, usePageRefreshRequest } from "./refresh/page-registry";

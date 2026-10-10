@@ -40,11 +40,20 @@ import { EventStreamWorkService } from "./stream-work";
 const decodeCreateEventsPayload = Schema.decodeUnknownEffect(Schema.Array(CreateEventItem));
 
 export const toSandboxCreateEventsResult = (result: CreateEventsResponse) =>
-	result.failure
-		? Effect.fail(`Event creation failed: ${result.failure.reason.code}`)
-		: reportSandboxLifecycleWarnings("createEvents", result.warnings).pipe(
-				Effect.as({ count: result.count }),
-			);
+	reportSandboxLifecycleWarnings("createEvents", result.warnings).pipe(
+		Effect.andThen(() =>
+			result.failure
+				? Effect.fail({
+						message: `Event creation failed: ${result.failure.reason.code}`,
+						data: {
+							count: result.count,
+							code: result.failure.reason.code,
+							partial: result.failure.reason.code !== "mutation-conflict",
+						},
+					} satisfies SandboxHostError)
+				: Effect.succeed({ count: result.count }),
+		),
+	);
 
 export const eventLifecycleHostSteps = (events: EventsService["Service"]) => ({
 	deleteEvents: {
@@ -193,15 +202,6 @@ export const makeEventScriptHost = Effect.gen(function* () {
 
 	return {
 		requestEventStreamWork,
-		createEvents: (rawInput, body) =>
-			requireSandboxCapabilityInput(rawInput, "createEvents").pipe(
-				Effect.flatMap((input) =>
-					decodeCreateEventsPayload(body).pipe(
-						Effect.flatMap((payload) => createEvents(input, payload)),
-					),
-				),
-				sandboxHostEffect,
-			),
 		updateEvents: (rawInput, items) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -218,6 +218,17 @@ export const makeEventScriptHost = Effect.gen(function* () {
 					return yield* lifecycle.deleteEvents.commit(input);
 				}),
 			),
+		createEvents: (rawInput, body, options) =>
+			options !== undefined
+				? sandboxHostEffect(Effect.fail("Idempotent createEvents requires durable event dispatch"))
+				: requireSandboxCapabilityInput(rawInput, "createEvents").pipe(
+						Effect.flatMap((input) =>
+							decodeCreateEventsPayload(body).pipe(
+								Effect.flatMap((payload) => createEvents(input, payload)),
+							),
+						),
+						sandboxHostEffect,
+					),
 	} satisfies Pick<
 		AdditionalScriptHostImplementationMap,
 		"createEvents" | "deleteEvents" | "updateEvents" | "requestEventStreamWork"

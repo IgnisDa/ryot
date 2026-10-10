@@ -196,7 +196,7 @@ Reuse existing lifecycle helpers, mutation receipts, and event-stream workers. A
 ### First slice — Working measurement logging through All Measurements
 
 This is the first independently usable deliverable. Do not make it wait for the workout editor, native alerts, or a cross-resource transaction coordinator.
-**Completed prework:** metric creation, pagination, and reading log/edit/delete through All Measurements. Retry-safe reading submission remains incomplete.
+**Status:** complete. All Measurements supports metric creation, pagination, reading log/edit/delete, and retry-safe new reading submissions.
 
 **Files:** `plugins/fitness/client/measurements/{screen,queries}.tsx/ts`, a reusable composer under `client/measurements/`, focused measurement operations/contracts under `shared/` and `backend/operations/`, and `host/plugin.ts`.
 
@@ -204,15 +204,15 @@ This is the first independently usable deliverable. Do not make it wait for the 
 - [x] Use the current persisted model: metric entities supply names, keys, and optional units; reading events supply values, comments, and `occurredAt`. Do not add a grouped-entry name input or change the legacy migration.
 - [x] Query available metrics and record one or more finite values, including zero, with one shared timestamp and comment. Require at least one entered value.
 - [x] Add metric-only creation for an empty installation: display name, normalized stable key, and optional unit. Share key normalization and known units with OpenScale, reject empty keys and known-unit mismatches, and block duplicate keys in the form.
-- [ ] Extract genuinely shared metric/reading property-building helpers from the importer. Keep OpenScale source units, date parsing, import IDs, and attribution source-owned.
+- [x] Extract genuinely shared metric/reading property-building helpers from the importer. Keep OpenScale source units, date parsing, import IDs, and attribution source-owned.
 - [x] Add the plugin-scoped durable `createUserEntity` capability required for metrics, restricted to schemas owned by the executing plugin.
-- [ ] Use the existing event-write path to record readings. Give reading submissions stable scoped IDs so retries do not duplicate; keep the existing event-write path.
+- [x] Use the existing event-write path to record readings. Give reading submissions stable scoped IDs so retries do not duplicate; keep the existing event-write path.
 - [x] Keep reading input on validation/network/partial failure. Close and clear it only after completion.
 - [x] Page all metric summaries and make later reading-page errors retryable. Verify metric and reading pagination beyond 100 entries.
 - [x] Refresh the All Measurements summary, series, and reading log after a successful reading save through existing mutation/page-refresh behavior.
 - [x] Export the composer for later use inside the workout editor. Workout cancellation must not undo already saved readings.
 - [x] Add operation, DOM, and API tests for metric creation, unit/key normalization, duplicate checks, OpenScale reuse, privacy, and metric/reading pagination. Use synthetic fixtures, not private dump contents.
-- [ ] Add operation and DOM/browser tests for reading values including zero, units/comments, common timestamps, retry after partial failure/lost response, cancellation, and refreshed saved-view results.
+- [x] Add operation and DOM/browser tests for reading values including zero, units/comments, common timestamps, retry after partial failure/lost response, cancellation, and refreshed saved-view results.
 
 **Exit:** a user can open All Measurements, create a metric if necessary, log values, and see the new entry and refreshed summaries. This path must work before workout-specific implementation starts.
 

@@ -79,6 +79,21 @@ screen method. After a successful import, the host sends one narrow `page-refres
 pages can register their current source refetch with `usePageRefresh`; successful shared mutations use
 the same refresh registry.
 
+## Retryable Submissions
+
+`useRyotSubmission(mutation, { isComplete, createId })` composes an existing mutation whose input is
+`RyotSubmission<Input>` (`submissionId`, `submittedAt`, and `input`). It captures and freezes a structured-cloneable
+plain-data input on `submit`, blocks another submission immediately, and retains the same snapshot
+and ID on failure or an incomplete result. `retry` resends that snapshot. `abandon` releases retained
+work, but cannot interrupt pending writes or undo committed writes. The default completion predicate
+accepts successful results; domain callers provide a predicate for partial outcomes. IDs default to
+UUIDs; tests can inject their generator. The submission timestamp uses the SDK clock and is retained
+across retries.
+
+The helper provides no server durability, automatic retries, persistence, or error interpretation.
+Use it only where the owning backend write enforces retry safety. Fields, recovery messages, and
+whether an incomplete submission can be abandoned remain caller-owned.
+
 ## Entity Interest
 
 `ryot.entities.watch({ foreground, visible }, onUpdate)` returns

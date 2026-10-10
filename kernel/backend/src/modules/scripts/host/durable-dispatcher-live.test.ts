@@ -45,6 +45,7 @@ import {
 	type HttpRateLimitAuthorityResolution,
 	PluginHttpRateLimitAuthority,
 } from "#modules/plugins/catalog/http-rate-limit-authority";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipBatchSummary } from "#modules/relationships/mutation-pipeline";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
@@ -203,6 +204,9 @@ const dispatcherLayer = (options: {
 					options.httpClient ?? HttpClient.make(() => Effect.die("unused")),
 				),
 				Layer.succeed(WorkflowEngine, options.engine),
+				Layer.mock(PluginRuntimeResolver)({
+					findPluginAvailableToUser: () => Effect.die("unused"),
+				}),
 				Layer.succeed(WorkflowInstance, options.instance),
 				options.lifecycleExecution ?? unusedLifecycleExecution,
 				Layer.succeed(ScriptHostImplementations, options.implementations ?? implementations),

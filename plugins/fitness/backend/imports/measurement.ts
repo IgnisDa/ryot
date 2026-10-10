@@ -1,7 +1,10 @@
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 
 import { measurementMetricUnit } from "../../shared/measurement-metrics";
-import { measurementReadingProperties } from "../../shared/measurement-reading-operations";
+import {
+	measurementMetricProperties,
+	measurementReadingProperties,
+} from "../../shared/measurement-properties";
 import { measurementOperationId, measurementRecordId } from "./identity";
 import type { OpenScaleNormalizedItem } from "./open-scale";
 
@@ -40,7 +43,7 @@ export const toMeasurementWriteItem = (
 				alias: `metric-${index}`,
 				entitySchemaSlug: "measurement-metric",
 				operationId: operationId("metric", index),
-				properties: { key: statistic.key, ...(unit === undefined ? {} : { unit }) },
+				properties: measurementMetricProperties(statistic.key, unit),
 				match: {
 					name: statistic.label,
 					nameNormalization: "slug" as const,

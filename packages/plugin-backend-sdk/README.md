@@ -67,6 +67,16 @@ durable lifecycle command; entity validation, policy hooks, and mutation receipt
 entity service. It does not accept ownership, global scope, or provider provenance from scripts.
 `ensureUserEntities` remains a bootstrap-only singleton operation, not a metric creation path.
 
+`createEvents(items, { idempotencyKey, submittedAt })` retains the ordinary per-item event workflow. A user plugin
+can supply a key of 1–128 characters and the original submission timestamp to replay committed
+readings or other events without duplication. Keys are scoped by authenticated account generation,
+installation, and script. Retry the exact same ordered batch and key; conflicting content is rejected.
+The retained submission timestamp supplies the stable write-command time and any omitted event times. Workflow attempts remain separate
+from committed item identities so an unfinished batch can be retried after partial failure. Each
+attempt seals only its newly committed batch-hook evidence. Committed item hooks are not recreated.
+Partial creation fails with structured `data: { partial: true, count, code }`; it does not roll back earlier
+items. Identity conflicts return `code: "mutation-conflict"` and `partial: false`. Omitting the options keeps execution-scoped write identities.
+
 ## Boundary Errors
 
 `SandboxHostError` and `SandboxFilesystemError` carry a readable `message` and optional structured
