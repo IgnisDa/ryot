@@ -7,7 +7,6 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import type { PluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
-import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
 
 import { isWorkflowCallTargetKind, SandboxRepository } from "./repository";
@@ -84,16 +83,56 @@ const pluginPinRow = {
 	providerPluginId: "plugin-id",
 	pluginRevisionId: "revision-1",
 	activeRevisionId: "revision-1",
+	compiledHashes: { "plugin.script": "current-hash" },
 	metadata: { runtimeImports: [], kind: "script" as const },
 	environmentConfigRevisionId: environmentConfigRevisionId(),
 };
 
 const config = {
+	id: "config-1",
 	ownerUserId: null,
 	scope: "environment",
 	encryptedPayload: "encrypted",
 	pluginRevisionId: "revision-1",
 };
+
+type StoredAccount = { readonly disabledAt: Date | null; readonly accountGeneration: string };
+
+type StoredInstallation = {
+	readonly id: string;
+	readonly health: string;
+	readonly isHidden: boolean;
+	readonly disabledAt: Date | null;
+	readonly uninstalledAt: Date | null;
+	readonly isInitialized?: boolean;
+	readonly incompatibilityReason: string | null;
+	readonly activeConfigRevisionId: string | null;
+};
+
+const joinedPinRow = (
+	row: object,
+	account: StoredAccount | null,
+	installation: StoredInstallation | null,
+	storedConfig: Omit<typeof config, "ownerUserId"> & { readonly ownerUserId: string | null },
+) => ({
+	...row,
+	configId: storedConfig.id,
+	accountId: account ? "account-id" : null,
+	installationId: installation?.id ?? null,
+	configOwnerUserId: storedConfig.ownerUserId,
+	accountDisabledAt: account?.disabledAt ?? null,
+	installationHealth: installation?.health ?? null,
+	installationIsHidden: installation?.isHidden ?? null,
+	accountGeneration: account?.accountGeneration ?? null,
+	configPluginRevisionId: storedConfig.pluginRevisionId,
+	installationDisabledAt: installation?.disabledAt ?? null,
+	configPayloadPresent: storedConfig.encryptedPayload !== "",
+	installationUninstalledAt: installation?.uninstalledAt ?? null,
+	installationUserId: installation ? "installation-user-id" : null,
+	installationIncompatibilityReason: installation?.incompatibilityReason ?? null,
+	installationActiveConfigRevisionId: installation?.activeConfigRevisionId ?? null,
+	installationIsInitialized: installation ? (installation.isInitialized ?? false) : null,
+});
 
 type SQLCondition = { getSQL: () => SQL };
 type PinRows = (table: unknown, condition?: SQLCondition) => readonly unknown[];
@@ -141,12 +180,8 @@ const pinDatabaseLayer = (rows: PinRows) =>
 
 const pinRows =
 	(row: typeof pluginPinRow | null, storedConfig = config): PinRows =>
-	(table) => {
-		if (table === tables.pluginConfigRevision) {
-			return [storedConfig];
-		}
-		return row ? [row] : [];
-	};
+	() =>
+		row ? [joinedPinRow(row, null, null, storedConfig)] : [];
 
 const pinRepositoryLayer = SandboxRepository.layer.pipe(
 	Layer.provideMerge(pinDatabaseLayer(pinRows(null))),
@@ -188,18 +223,9 @@ layer(pinRepositoryLayer)((test) => {
 					incompatibilityReason: null,
 					activeConfigRevisionId: "config-1",
 				};
-				yield* database.respondWith((table) => {
-					if (table === tables.user) {
-						return [{ disabledAt: null, accountGeneration: "active-account" }];
-					}
-					if (table === tables.pluginInstallation) {
-						return [state];
-					}
-					if (table === tables.pluginConfigRevision) {
-						return [{ ...config, ownerUserId: userId }];
-					}
-					return [row];
-				});
+				const account = { disabledAt: null, accountGeneration: "active-account" };
+				const ownerConfig = { ...config, ownerUserId: userId };
+				yield* database.respondWith(() => [joinedPinRow(row, account, state, ownerConfig)]);
 				const binding = { installationId: state.id, activationId: row.activationId };
 				const pin = yield* repository.getScriptPin(
 					SandboxScriptId.make(row.id),
@@ -226,18 +252,9 @@ layer(pinRepositoryLayer)((test) => {
 						),
 					),
 				).toMatchObject({ data: { code: "installation-unavailable" } });
-				yield* database.respondWith((table) => {
-					if (table === tables.user) {
-						return [{ disabledAt: null, accountGeneration: "active-account" }];
-					}
-					if (table === tables.pluginInstallation) {
-						return [{ ...state, isInitialized: true }];
-					}
-					if (table === tables.pluginConfigRevision) {
-						return [{ ...config, ownerUserId: userId }];
-					}
-					return [row];
-				});
+				yield* database.respondWith(() => [
+					joinedPinRow(row, account, { ...state, isInitialized: true }, ownerConfig),
+				]);
 				expect(
 					yield* Effect.flip(
 						repository.getScriptPin(
@@ -282,21 +299,15 @@ layer(pinRepositoryLayer)((test) => {
 					activeConfigRevisionId: "config-1",
 				};
 				const respond =
-					(state: typeof installation, disabled = false): PinRows =>
-					(table) => {
-						if (table === tables.user) {
-							return [
-								{ accountGeneration: "current-account", disabledAt: disabled ? new Date(0) : null },
-							];
-						}
-						if (table === tables.pluginInstallation) {
-							return [state];
-						}
-						if (table === tables.pluginConfigRevision) {
-							return [{ ...config, ownerUserId: userId }];
-						}
-						return [row];
-					};
+					(state: StoredInstallation, disabled = false, script: object = row): PinRows =>
+					() => [
+						joinedPinRow(
+							script,
+							{ accountGeneration: "current-account", disabledAt: disabled ? new Date(0) : null },
+							state,
+							{ ...config, ownerUserId: userId },
+						),
+					];
 				yield* database.respondWith(respond(installation));
 				const original = yield* repository.getScriptPin(
 					SandboxScriptId.make(row.id),
@@ -305,10 +316,8 @@ layer(pinRepositoryLayer)((test) => {
 				);
 				assert(original?.pluginRevision);
 				expect(original.pluginRevision.userBootstrapScriptSlugs).toEqual(["plugin.script"]);
-				yield* database.respondWith((table, condition) =>
-					table === tables.sandboxScript
-						? [{ ...row, activeRevisionId: "revision-2" }]
-						: respond(installation)(table, condition),
+				yield* database.respondWith(
+					respond(installation, false, { ...row, activeRevisionId: "revision-2" }),
 				);
 				expect(
 					yield* repository.getScriptPin(
@@ -319,15 +328,12 @@ layer(pinRepositoryLayer)((test) => {
 				).toMatchObject({
 					pluginRevision: { revisionId: "revision-1", configRevisionId: "config-1" },
 				});
-				yield* database.respondWith((table, condition) => {
-					if (table === tables.pluginInstallation) {
-						return [{ ...installation, health: "installing" }];
-					}
-					if (table === tables.sandboxScript) {
-						return [{ ...row, activeRevisionId: "revision-2" }];
-					}
-					return respond(installation)(table, condition);
-				});
+				yield* database.respondWith(
+					respond({ ...installation, health: "installing" }, false, {
+						...row,
+						activeRevisionId: "revision-2",
+					}),
+				);
 				expect(
 					yield* repository.getScriptPin(
 						SandboxScriptId.make(row.id),
@@ -341,17 +347,13 @@ layer(pinRepositoryLayer)((test) => {
 				expect(
 					yield* repository.getScriptPin(SandboxScriptId.make(row.id), undefined, subject),
 				).toBeNull();
-				yield* database.respondWith((table, condition) => {
-					if (table === tables.pluginInstallation) {
-						return [
-							{ ...installation, activeConfigRevisionId: null, health: "needs-configuration" },
-						];
-					}
-					if (table === tables.sandboxScript) {
-						return [{ ...row, activeRevisionId: "revision-2" }];
-					}
-					return respond(installation)(table, condition);
-				});
+				yield* database.respondWith(
+					respond(
+						{ ...installation, activeConfigRevisionId: null, health: "needs-configuration" },
+						false,
+						{ ...row, activeRevisionId: "revision-2" },
+					),
+				);
 				expect(
 					yield* repository.getScriptPin(
 						SandboxScriptId.make(row.id),
@@ -364,16 +366,12 @@ layer(pinRepositoryLayer)((test) => {
 				expect(
 					yield* repository.getScriptPin(SandboxScriptId.make(row.id), undefined, subject),
 				).toBeNull();
-				yield* database.respondWith((table, condition) =>
-					table === tables.pluginInstallation
-						? [
-								{
-									...installation,
-									health: "incompatible",
-									incompatibilityReason: "package-identity-conflict",
-								},
-							]
-						: respond(installation)(table, condition),
+				yield* database.respondWith(
+					respond({
+						...installation,
+						health: "incompatible",
+						incompatibilityReason: "package-identity-conflict",
+					}),
 				);
 				const rejected = yield* Effect.flip(
 					repository.getScriptPin(SandboxScriptId.make(row.id), original.pluginRevision, subject),
@@ -393,10 +391,8 @@ layer(pinRepositoryLayer)((test) => {
 						subject,
 					),
 				).toBeNull();
-				yield* database.respondWith((table, condition) =>
-					table === tables.sandboxScript
-						? [{ ...pluginPinRow, pluginOwnerId: userId }]
-						: respond(installation, true)(table, condition),
+				yield* database.respondWith(
+					respond(installation, true, { ...pluginPinRow, pluginOwnerId: userId }),
 				);
 				expect(
 					yield* repository.getScriptPin(SandboxScriptId.make(row.id), undefined, subject),
@@ -487,6 +483,7 @@ const root = {
 	slug: "plugin.workflow",
 	contentHash: "workflow-v1",
 	metadata: { kind: "workflow" as const },
+	compiledHashes: { "plugin.child": "child-v1", "plugin.workflow": "workflow-v1" },
 	sandboxAuthority: {
 		...sandboxAuthority,
 		scriptKinds: { "plugin.child": "workflow", "plugin.workflow": "workflow" },
@@ -522,21 +519,12 @@ const isChildTarget = (condition: SQLCondition) =>
 	dialect.sqlToQuery(condition.getSQL()).params.includes("plugin.child");
 const workflowRows =
 	(selectedPinRow: typeof root): PinRows =>
-	(table, condition) => {
-		if (table === tables.pluginConfigRevision) {
-			return [config];
-		}
+	(_table, condition) => {
 		const params = condition ? dialect.sqlToQuery(condition.getSQL()).params : [];
 		if (params.includes("plugin.child")) {
 			return [{ id: "child-v1-id", metadata: { kind: "workflow" as const } }];
 		}
-		if (params.length === 1 && params[0] === "revision-1") {
-			return [
-				{ slug: "plugin.child", contentHash: "child-v1" },
-				{ slug: "plugin.workflow", contentHash: "workflow-v1" },
-			];
-		}
-		return [selectedPinRow];
+		return [joinedPinRow(selectedPinRow, null, null, config)];
 	};
 
 layer(SandboxRepository.layer.pipe(Layer.provideMerge(pinDatabaseLayer(workflowRows(root)))))(
