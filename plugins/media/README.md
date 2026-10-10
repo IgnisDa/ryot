@@ -246,7 +246,8 @@ rejected at ingress, not retained as recoverable source work.
 - **YouTube Music:** first confirmed local-day observation records 35% progress, the next records
   100%, and the day's final ten minutes record 100% directly. Only created outcomes advance `:seen`
   and `:completed` claims; both expire at local midnight. Confirmation replay makes no source request
-  and does not renew retention.
+  and does not renew retention. History requests send the origin used by cookie authentication.
+  Sign-in pages and unrecognized history layouts fail collection instead of reporting an empty day.
 
 ### AniList
 

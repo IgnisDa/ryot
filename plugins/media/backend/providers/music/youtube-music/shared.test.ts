@@ -138,6 +138,79 @@ describe("music.youtube-music sandbox script", () => {
 		);
 	});
 
+	it("rejects YouTube Music history when sign-in is required", () => {
+		const client = {
+			getHistory: () =>
+				Effect.succeed(
+					historyResponse([
+						{
+							itemSectionRenderer: {
+								contents: [
+									{
+										messageRenderer: {
+											button: {
+												buttonRenderer: { navigationEndpoint: { signInEndpoint: { hack: true } } },
+											},
+										},
+									},
+								],
+							},
+						},
+					]),
+				),
+		};
+		return Effect.runPromise(
+			Effect.flip(buildHistory(client, "UTC", "2026-08-05T12:00:00.000Z")).pipe(
+				Effect.map((error) => {
+					expect(error.message).toBe(
+						"YouTube Music history requires sign-in; authentication was not accepted",
+					);
+					return undefined;
+				}),
+			),
+		);
+	});
+	it.each([
+		{},
+		{ contents: { twoColumnBrowseResultsRenderer: {} } },
+		historyResponse([{ unknownRenderer: {} }]),
+	])("rejects malformed YouTube Music history response %#", (response) => {
+		const client = { getHistory: () => Effect.succeed(response) };
+		return Effect.runPromise(
+			Effect.flip(buildHistory(client, "UTC", "2026-08-05T12:00:00.000Z")).pipe(
+				Effect.map((error) => {
+					expect(error.message).toContain("Unrecognized YouTube Music history");
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("returns no songs when today's history shelf is absent", () => {
+		const client = {
+			getHistory: () =>
+				Effect.succeed(historyResponse([historyShelf("Yesterday", [historyItem("old", "Old")])])),
+		};
+		return Effect.runPromise(
+			buildHistory(client, "UTC", "2026-08-05T12:00:00.000Z").pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({ songs: [] });
+					return undefined;
+				}),
+			),
+		);
+	});
+	it("returns no songs for empty YouTube Music history", () => {
+		const client = { getHistory: () => Effect.succeed(historyResponse([])) };
+		return Effect.runPromise(
+			buildHistory(client, "UTC", "2026-08-05T12:00:00.000Z").pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({ songs: [] });
+					return undefined;
+				}),
+			),
+		);
+	});
+
 	it("passes workflow startedAt to the history entrypoint", () => {
 		const client = {
 			getHistory: () =>
