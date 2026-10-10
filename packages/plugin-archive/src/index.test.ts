@@ -618,6 +618,21 @@ describe("plugin archive", () => {
 		}),
 	);
 
+	it.live("round trips binary audio/mpeg client assets", () =>
+		Effect.gen(function* () {
+			const contents = new Uint8Array([0xff, 0x00, 0x49, 0x44, 0x33, 0x80]);
+			const audio = clientFixture([
+				{ contents, contentType: "audio/mpeg", name: "assets/add-set.mp3" },
+			]);
+			const bytes = writePluginArchive({ ...fixture, compiledClient: audio });
+			const entries = unzipSync(bytes);
+			const result = yield* readPluginArchive(bytes);
+
+			expect(entries["compiled-client/files/assets/add-set.mp3"]).toEqual(contents);
+			expect(result.compiledClient?.files).toEqual(audio.files);
+		}),
+	);
+
 	it("writes byte-identical archives across timezones", () => {
 		const utc = writeArchiveInTimezone("UTC");
 		expect(writeArchiveInTimezone("America/Los_Angeles")).toEqual(utc);

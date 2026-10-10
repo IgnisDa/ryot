@@ -201,6 +201,45 @@ it.layer(emittedLayer("export default 1;", '@import "./missing.css";'))(
 	},
 );
 
+it.layer(pluginClientCompilerPlatformLayer)("compiled audio assets", (test) => {
+	test.effect("emits exact binary audio/mpeg bytes for static asset URLs", () =>
+		Effect.gen(function* () {
+			const sounds = [
+				{ name: "add-set", contents: new Uint8Array([0xff, 0x00, 0x49, 0x44, 0x33]) },
+				{ name: "check", contents: new Uint8Array([0x00, 0x01, 0xfe, 0x7f]) },
+				{ name: "timer-started", contents: new Uint8Array([0x49, 0x44, 0x33, 0x00, 0xff]) },
+				{ name: "timer-completed", contents: new Uint8Array([0x80, 0x00, 0xfe, 0x49]) },
+			];
+			const references = sounds
+				.map(
+					({ name }) => `new URL(${JSON.stringify(`./sounds/${name}.mp3`)}, import.meta.url).href`,
+				)
+				.join(", ");
+			const { artifact } = yield* compileClientPluginModule({
+				...pluginIdentity,
+				name: "Audio plugin",
+				apiVersion: CLIENT_API_VERSION,
+				publicExports: { home: { kind: "component", entry: "client/home.tsx" } },
+				files: {
+					...Object.fromEntries(
+						sounds.map(({ name, contents }) => [`client/sounds/${name}.mp3`, contents]),
+					),
+					"client/home.tsx": bytes(
+						`const sources = [${references}]; export default function Home() { return <div>{sources.map((src) => <audio key={src} src={src} />)}</div>; }`,
+					),
+				},
+			});
+			const audioFiles = artifact.files.filter(({ contentType }) => contentType === "audio/mpeg");
+
+			expect(audioFiles).toHaveLength(sounds.length);
+			expect(audioFiles.map(({ contents }) => contents)).toEqual(
+				expect.arrayContaining(sounds.map(({ contents }) => contents)),
+			);
+			expect(audioFiles.every(({ name }) => name.endsWith(".mp3"))).toBe(true);
+		}),
+	);
+});
+
 it.layer(
 	emittedLayer(
 		"export default 1;",

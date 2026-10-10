@@ -12,6 +12,7 @@ export const PLUGIN_CLIENT_ARTIFACT_CONTENT_TYPES = [
 	"image/x-icon",
 	"image/svg+xml",
 	"font/woff2",
+	"audio/mpeg",
 	"application/wasm",
 ] as const;
 
@@ -29,6 +30,7 @@ export const PLUGIN_CLIENT_ASSET_EXTENSIONS = [
 	".webp",
 	".avif",
 	".ico",
+	".mp3",
 	".woff2",
 	".wasm",
 ] as const;
@@ -39,6 +41,7 @@ export const PLUGIN_CLIENT_ASSET_MIME_TYPES = {
 	".png": "image/png",
 	".gif": "image/gif",
 	".jpg": "image/jpeg",
+	".mp3": "audio/mpeg",
 	".jpeg": "image/jpeg",
 	".avif": "image/avif",
 	".webp": "image/webp",

@@ -18,6 +18,7 @@ const contentTypes: Readonly<Record<string, string>> = {
 	".gif": "image/gif",
 	".png": "image/png",
 	".jpg": "image/jpeg",
+	".mp3": "audio/mpeg",
 	".woff": "font/woff",
 	".jpeg": "image/jpeg",
 	".webp": "image/webp",
