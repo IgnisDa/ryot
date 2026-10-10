@@ -1,5 +1,4 @@
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import { PluginInstallationWriteResult } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
@@ -58,7 +57,7 @@ export const navigationRecipe = defineRecipe(() => ({
 				packageId: selectedField(column(savedView, "packageId"), Schema.NullOr(PluginPackageId)),
 				pluginInstallationId: selectedField(
 					column(savedView, "pluginInstallationId"),
-					Schema.NullOr(PluginInstallationWriteResult.fields.id),
+					Schema.NullOr(Schema.String),
 				),
 			},
 		}),

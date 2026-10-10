@@ -784,19 +784,13 @@ class PluginArchiveReader {
 			throw failure("compiled-client-invalid");
 		}
 		const files = metadata.files.map(({ name, contentType }) => {
-			const path = validateCompiledClientFile(name, contentType);
-			const contents = compiledClientFiles.get(path);
+			const contents = compiledClientFiles.get(`${compiledClientFilePrefix}${name}`);
 			if (contents === undefined) {
 				throw failure("compiled-client-invalid");
 			}
-			validateCompiledClientJavascript(contentType, contents);
 			return { name, contents, contentType };
 		});
-		try {
-			return validateCompiledClientArtifact({ ...metadata, files }, manifest);
-		} catch {
-			throw failure("compiled-client-invalid");
-		}
+		return validateCompiledClientArtifact({ ...metadata, files }, manifest);
 	}
 }
 
@@ -841,19 +835,12 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 				pluginPackage.compiledClient,
 				pluginPackage.manifest,
 			);
-			const metadata = {
-				hash: artifact.hash,
-				format: artifact.format,
-				imports: artifact.imports,
-				packageId: artifact.packageId,
-				apiVersion: artifact.apiVersion,
-				bridgeVersion: artifact.bridgeVersion,
-				compilerVersion: artifact.compilerVersion,
-				clientDeclarationHash: artifact.clientDeclarationHash,
+			const metadata = Schema.encodeSync(PluginClientArtifactArchiveMetadata)({
+				...artifact,
 				files: artifact.files
 					.map(({ name, contentType }) => ({ name, contentType }))
 					.sort((left, right) => compareCodeUnits(left.name, right.name)),
-			};
+			});
 			const compiledClientEntries: Array<readonly [string, Uint8Array]> = [
 				[compiledClientMetadataPath, encoder.encode(`${JSON.stringify(metadata, null, "\t")}\n`)],
 				...artifact.files.map(

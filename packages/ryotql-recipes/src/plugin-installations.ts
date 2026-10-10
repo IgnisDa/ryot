@@ -3,7 +3,6 @@ import { SavedViewReference } from "@ryot-app/contract/modules/plugins/reference
 import {
 	PluginInstallationHealth,
 	PluginInstallationIncompatibilityReason,
-	PluginInstallationWriteResult,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, PluginPackageId, PluginRevisionId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
@@ -51,6 +50,7 @@ export const pluginInstallationsRecipe = defineRecipe(
 					packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
 					sourceHash: selectedField(column(plugin, "sourceHash"), Schema.String),
 					description: selectedField(column(plugin, "description"), Schema.String),
+					installationId: selectedField(column(installation, "id"), Schema.String),
 					isHidden: selectedField(column(installation, "isHidden"), Schema.Boolean),
 					sortOrder: selectedField(column(installation, "sortOrder"), Schema.Finite),
 					activationId: selectedField(column(plugin, "activationId"), Schema.String),
@@ -66,10 +66,6 @@ export const pluginInstallationsRecipe = defineRecipe(
 					healthReason: selectedField(
 						column(installation, "healthReason"),
 						Schema.NullOr(Schema.String),
-					),
-					installationId: selectedField(
-						column(installation, "id"),
-						PluginInstallationWriteResult.fields.id,
 					),
 					homeSavedView: selectedField(
 						column(installation, "homeSavedView"),

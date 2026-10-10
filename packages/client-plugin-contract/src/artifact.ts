@@ -1,5 +1,6 @@
 import {
 	CLIENT_API_VERSION,
+	pluginManifestSlug,
 	type PluginClientEntry,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
@@ -8,6 +9,7 @@ import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Schema } from "effect";
 
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
@@ -33,16 +35,8 @@ export const pluginExportSpecifier = (reference: PluginPackageReference, exportN
 	`@ryot-app/plugins/${reference.scope}/${reference.packageId}/${exportName}`;
 
 export const PluginClientImport = strictStruct({
+	exportName: pluginManifestSlug,
 	reference: PluginPackageReference,
-	exportName: Schema.String.pipe(
-		Schema.check(
-			Schema.makeFilter((name) =>
-				/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(name)
-					? true
-					: "Expected a canonical public client export name",
-			),
-		),
-	),
 });
 export type PluginClientImport = typeof PluginClientImport.Type;
 
@@ -104,16 +98,10 @@ export const clientArtifactMetadata = (
 	packageId: PluginPackageId,
 	files: readonly PluginClientArtifactFile[],
 	identity: Pick<PluginClientArtifactMetadata, "clientDeclarationHash" | "imports">,
-): PluginClientArtifactMetadata => ({
-	...artifactMetadata(
-		pluginName,
-		files,
-		{ packageId, clientDeclarationHash: identity.clientDeclarationHash },
-		identity.imports,
-	),
-	packageId,
-	clientDeclarationHash: identity.clientDeclarationHash,
-});
+): PluginClientArtifactMetadata => {
+	const owner = { packageId, clientDeclarationHash: identity.clientDeclarationHash };
+	return { ...artifactMetadata(pluginName, files, owner, identity.imports), ...owner };
+};
 
 export const clientRuntimeArtifactMetadata = (
 	name: string,
@@ -135,14 +123,9 @@ const artifactMetadata = (
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 	};
-	const sortedImports = imports.slice().sort((left, right) => {
-		const leftSpecifier = pluginExportSpecifier(left.reference, left.exportName);
-		const rightSpecifier = pluginExportSpecifier(right.reference, right.exportName);
-		if (leftSpecifier < rightSpecifier) {
-			return -1;
-		}
-		return leftSpecifier > rightSpecifier ? 1 : 0;
-	});
+	const sortedImports = sortBy(imports, ({ reference, exportName }) =>
+		pluginExportSpecifier(reference, exportName),
+	);
 	const identity = { ...versions, ...owner, imports: sortedImports };
 	const fileIdentity = files
 		.map(({ name, contents, contentType }) => ({ name, contentType, sha256: sha256Hex(contents) }))
@@ -196,7 +179,3 @@ const CanonicalUint8ArrayFromBase64 = CanonicalBase64.pipe(
 
 export const PluginClientArtifactFromBase64 = pluginClientArtifact(CanonicalUint8ArrayFromBase64);
 export const ClientRuntimeArtifactFromBase64 = clientRuntimeArtifact(CanonicalUint8ArrayFromBase64);
-export const ClientArtifactFromBase64 = Schema.Union([
-	PluginClientArtifactFromBase64,
-	ClientRuntimeArtifactFromBase64,
-]);

@@ -7,9 +7,7 @@ const normalizeEnvironmentSegment = (value: string) =>
 		.replace(/^_+|_+$/g, "")
 		.toUpperCase();
 
-const packageEnvironmentSegment = (segment: string) => segment.replaceAll("-", "_").toUpperCase();
-
 export const pluginConfigEnvironmentKey = (packageId: PluginPackageId, key: string) => {
 	const { name, publisher } = pluginPackageSegments(packageId);
-	return `RYOT_PLUGIN__${packageEnvironmentSegment(publisher)}__${packageEnvironmentSegment(name)}__${normalizeEnvironmentSegment(key)}`;
+	return `RYOT_PLUGIN__${normalizeEnvironmentSegment(publisher)}__${normalizeEnvironmentSegment(name)}__${normalizeEnvironmentSegment(key)}`;
 };

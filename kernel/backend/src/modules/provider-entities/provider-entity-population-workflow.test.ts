@@ -1,6 +1,9 @@
 import { assert, expect, layer } from "@effect/vitest";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	definitionOwner,
+	definitionOwnerPluginId,
+} from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	AutomationTriggerId,
@@ -109,8 +112,7 @@ const listedEntity = (
 	externalId: input.externalId,
 	id: EntityId.make(input.externalId),
 	entitySchemaSlug: input.entitySchema.slug,
-	entitySchemaPluginId:
-		input.entitySchema.owner.kind === "plugin" ? input.entitySchema.owner.pluginId : null,
+	entitySchemaPluginId: definitionOwnerPluginId(input.entitySchema.owner),
 });
 
 const payloadFields = {

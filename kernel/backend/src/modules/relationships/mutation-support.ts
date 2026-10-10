@@ -7,6 +7,7 @@ import {
 import {
 	definitionOwner,
 	type RelationshipSchemaReference,
+	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
@@ -319,10 +320,7 @@ export const relationshipIdentity = (
 ): RelationshipIdentityInput => ({
 	...input,
 	relationshipSchemaSlug: input.relationshipSchema.slug,
-	relationshipSchemaPluginId:
-		input.relationshipSchema.owner.kind === "plugin"
-			? input.relationshipSchema.owner.pluginId
-			: null,
+	relationshipSchemaPluginId: definitionOwnerPluginId(input.relationshipSchema.owner),
 });
 
 export type RelationshipMutationDependencies = {

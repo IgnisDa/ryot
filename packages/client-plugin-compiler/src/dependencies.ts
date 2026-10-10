@@ -3,6 +3,9 @@ import { Effect } from "effect";
 
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 
+export const PLUGIN_IMPORT =
+	/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/([a-z0-9]+(?:[._-][a-z0-9]+)*)$/;
+
 const CLIENT_DEPENDENCY_REGISTRY = [
 	{ policy: "trusted", specifier: "clsx", typesPackage: "clsx", typesPath: "clsx.d.mts" },
 	{ policy: "trusted", specifier: "react", typesPath: "index.d.ts", typesPackage: "@types/react" },

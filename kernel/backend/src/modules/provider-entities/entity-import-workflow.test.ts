@@ -2,7 +2,11 @@ import { assert, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import {
+	definitionKey,
+	definitionOwner,
+	definitionOwnerPluginId,
+} from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	AutomationExecutionId,
@@ -181,9 +185,8 @@ const childEntityWork = (
 		entitySchemaSlug: input.entitySchema.slug,
 		id: EntityId.make(`entity-${input.externalId}`),
 		populatedAt: input.populatedAt?.toISOString() ?? null,
+		entitySchemaPluginId: definitionOwnerPluginId(input.entitySchema.owner),
 		properties: Schema.decodeUnknownSync(Schema.Record(Schema.String, JsonValue))(input.properties),
-		entitySchemaPluginId:
-			input.entitySchema.owner.kind === "plugin" ? input.entitySchema.owner.pluginId : null,
 	});
 	return {
 		result: { entity },
@@ -645,10 +648,7 @@ const rootPopulationLayer = Layer.unwrap(
 							providerId: input.providerId,
 							entitySchemaSlug: input.entitySchema.slug,
 							populatedAt: input.populatedAt?.toISOString() ?? null,
-							entitySchemaPluginId:
-								input.entitySchema.owner.kind === "plugin"
-									? input.entitySchema.owner.pluginId
-									: null,
+							entitySchemaPluginId: definitionOwnerPluginId(input.entitySchema.owner),
 							properties: yield* Schema.decodeUnknownEffect(
 								Schema.Record(Schema.String, JsonValue),
 							)(input.properties).pipe(

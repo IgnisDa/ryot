@@ -6,9 +6,12 @@ import {
 	type ClientRendererDefinition,
 	type PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
-import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
+import {
+	builtinSavedViewReference,
+	identityTupleKey,
+} from "@ryot-app/contract/modules/plugins/references";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
-import { PluginId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
@@ -190,13 +193,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				const selected = yield* repository.findHomeSavedView(userId, plugin.id);
 				const reference =
 					selected ??
-					(client.homeView === null
-						? null
-						: {
-								slug: client.homeView,
-								kind: "plugin" as const,
-								pluginId: PluginId.make(plugin.id),
-							});
+					(client.homeView === null ? null : builtinSavedViewReference(plugin.id, client.homeView));
 				return reference === null ? null : { reference, kind: "saved-view" as const };
 			});
 			const prepare = Effect.fn("ClientPages.prepare")(function* (

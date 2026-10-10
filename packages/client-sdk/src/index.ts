@@ -38,7 +38,7 @@ import {
 	type ManagedAssetLocator as ManagedAssetLocatorValue,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
-import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { EntityId, type PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
@@ -336,6 +336,13 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}
 			},
 		},
+		storage: {
+			get: (pluginId: PluginId, key: string) => accessStorage({ key, pluginId, action: "get" }),
+			remove: (pluginId: PluginId, key: string) =>
+				Effect.asVoid(accessStorage({ key, pluginId, action: "remove" })),
+			set: (pluginId: PluginId, key: string, value: JsonValue) =>
+				Effect.asVoid(accessStorage({ key, value, pluginId, action: "set" })),
+		},
 		uploads: {
 			uploadTemporary: (request: TemporaryUploadRequest) =>
 				Effect.gen(function* () {
@@ -345,16 +352,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					const value = yield* adapterEffect(() => adapter.uploadTemporary(request));
 					return yield* decodeCapability(TemporaryUploadToken, value);
 				}),
-		},
-		storage: {
-			get: (pluginId: string, key: string) =>
-				accessStorage({ key, action: "get", pluginId: PluginId.make(pluginId) }),
-			remove: (pluginId: string, key: string) =>
-				Effect.asVoid(accessStorage({ key, action: "remove", pluginId: PluginId.make(pluginId) })),
-			set: (pluginId: string, key: string, value: JsonValue) =>
-				Effect.asVoid(
-					accessStorage({ key, value, action: "set", pluginId: PluginId.make(pluginId) }),
-				),
 		},
 		collections: {
 			create: (input: typeof CreateCollectionBody.Encoded) =>
