@@ -55,7 +55,7 @@ export type PluginEntityDefinition = { readonly component: ComponentType<EntityR
 
 export type PluginRouterDefinition = {
 	readonly notFound?: ComponentType;
-	readonly home: PluginHomeDefinition;
+	readonly home?: PluginHomeDefinition;
 	readonly routes?: readonly PluginRouteDefinition[];
 	readonly entities?: Readonly<Record<string, PluginEntityDefinition>>;
 };
@@ -261,7 +261,7 @@ export const createPluginRouteResolver = (
 	return (location) =>
 		Match.value(location).pipe(
 			Match.when({ kind: "route" }, (route) => {
-				if (route.path === "/") {
+				if (route.path === "/" && definition.home !== undefined) {
 					return { params: {}, element: createElement(definition.home.component) };
 				}
 				const matched = matchRoute(definition.routes ?? [], route.path);

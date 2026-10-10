@@ -318,6 +318,23 @@ afterEach(() => {
 });
 
 describe("PluginRouter", () => {
+	it.live("opens explicit routes without treating an undeclared root as home", () =>
+		Effect.gen(function* () {
+			const channel = openChannel({
+				notFound: NotFound,
+				routes: [{ path: "/items/new", component: NewItemRoute }],
+			});
+			const container = renderRouter(channel);
+			act(() => channel.send("/items/new"));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(container.textContent).toContain("New item")),
+			);
+			act(() => channel.send("/"));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(container.textContent).toContain("Fixture page not found.")),
+			);
+		}),
+	);
 	it.live(
 		"withdraws retained-screen interest and waits for running refresh before pop catch-up",
 		() =>

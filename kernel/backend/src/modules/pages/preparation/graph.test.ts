@@ -41,6 +41,60 @@ const plugin = (name: string, client: NonNullable<PluginManifest["client"]>): Gr
 	};
 };
 
+it.effect("composes explicit plugin routes without inventing a home route", () =>
+	Effect.gen(function* () {
+		const page = plugin("rootless", {
+			apiVersion: 1,
+			homeView: null,
+			routes: { "/items/new": "create", "/items/$id/edit": "edit" },
+			exports: Object.fromEntries(
+				["create", "edit"].map((name) => [
+					name,
+					{
+						kind: "page" as const,
+						entry: `client/${name}.tsx`,
+						settingsSchema: { fields: {} },
+						automaticEntityPresentations: false,
+					},
+				]),
+			),
+		});
+		const input = {
+			plugin: page,
+			plugins: [page],
+			exportName: "create",
+			runtimeArtifactHash: "runtime",
+			application: "plugin-route" as const,
+		};
+		const graph = yield* resolveClientPageGraph(input);
+		expect(yield* resolveClientPageGraph({ ...input, exportName: "edit" })).toEqual(graph);
+		const manifest = composeClientPage({
+			identity: graph.identity,
+			runtimeEntries: { bootstrap: "bootstrap.js" },
+			artifacts: new Map([
+				["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+				["rootless-hash", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+			]),
+		});
+		expect(manifest.descriptor).toEqual({
+			automaticRegistry: [],
+			application: "plugin-route",
+			routes: {
+				routes: [
+					{
+						path: "/items/new",
+						module: { binding: "create", specifier: pluginExportSpecifier(page, "create") },
+					},
+					{
+						path: "/items/$id/edit",
+						module: { binding: "edit", specifier: pluginExportSpecifier(page, "edit") },
+					},
+				],
+			},
+		});
+	}),
+);
+
 it.effect("keeps eager dependencies separate from presentation-only transitive artifacts", () => {
 	const dependency = plugin("dependency", { exports: {}, apiVersion: 1, homeView: null });
 	const presentation = plugin("presentation", {
