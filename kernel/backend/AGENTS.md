@@ -25,6 +25,9 @@
 - Never hold a transaction across sandbox execution, network I/O, workflow boundaries, sleeps, or fan-out.
 - Provider population composes the import workflow. External event creation runs before-stage policy hooks, then plans pinned after-hook runs in the committing transaction.
 - Catalog reads query persisted revision content and definition views directly and never select sandbox script bodies; execution loads compiled code by script id.
+- Only the allowlisted cold owners read `plugin_revision_manifest`; every other reader uses revision section columns or `definition_*` rows. `ryot/no-hot-manifest-read` enforces this.
+- Plugin revisions are immutable; a database trigger installed at startup enforces it.
+- Batch writers take locks, receipts, and lookups set-based per batch, not per item.
 
 ## Durable Work
 
