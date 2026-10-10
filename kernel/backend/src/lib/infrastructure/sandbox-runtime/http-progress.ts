@@ -1,6 +1,7 @@
-import { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
 import { workflowDurableResultSchema } from "@ryot-app/sandbox-sdk/workflow";
 import { Schema } from "effect";
+
+import { HttpRateLimitPolicyDeclaration } from "#modules/plugins/http-rate-limits";
 
 import { ProviderHttpAdmissionDeclaration, ProviderHttpTicket } from "../provider-http-admission";
 import { SandboxHttpRedirect } from "./runtime-host-functions";
@@ -10,7 +11,7 @@ export const SandboxHttpPolicy = Schema.Struct({
 	origin: Schema.String,
 	durationMs: Schema.Int,
 	matched: Schema.Literal(true),
-	declaration: PluginHttpRateLimit,
+	declaration: HttpRateLimitPolicyDeclaration,
 });
 
 export const SandboxHttpProgress = Schema.Struct({
