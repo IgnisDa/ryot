@@ -6,6 +6,18 @@
 			"types": "./manifest/plugin.ts",
 			"default": "./manifest/plugin.ts"
 		},
+		"./workout-editor-recipes": {
+			"types": "./shared/workout-editor-recipes.ts",
+			"default": "./shared/workout-editor-recipes.ts"
+		},
+		"./workout-exercise-recipes": {
+			"types": "./shared/workout-exercise-recipes.ts",
+			"default": "./shared/workout-exercise-recipes.ts"
+		},
+		"./workout-history-recipes": {
+			"types": "./shared/workout-history-recipes.ts",
+			"default": "./shared/workout-history-recipes.ts"
+		},
 		"./query-recipes": {
 			"types": "./shared/query-recipes.ts",
 			"default": "./shared/query-recipes.ts"

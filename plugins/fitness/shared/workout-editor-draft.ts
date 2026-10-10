@@ -2,6 +2,8 @@ import { Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
 import { exerciseKindSchema } from "./exercise-kinds";
+import { decodeWorkoutEditorJson, encodeWorkoutEditorJson } from "./workout-editor-codec";
+import { WorkoutEditorSaveInputSchema } from "./workout-editor-operations";
 import { WorkoutEditorMediaSchema, WorkoutSetLotSchema } from "./workout-set";
 
 const nonEmptyString = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
@@ -89,6 +91,7 @@ export const WorkoutEditorOccurrenceSchema = Schema.Struct({
 	notes: Schema.Array(Schema.String),
 	sets: Schema.Array(WorkoutEditorSetSchema),
 	display: Schema.optional(WorkoutEditorDisplaySchema),
+	sourceExerciseOrder: Schema.optional(nonNegativeNumber),
 });
 
 export const WorkoutEditorSupersetSchema = Schema.Struct({
@@ -123,17 +126,27 @@ export const WorkoutEditorDraftSchema = Schema.Struct({
 	activeDurationStartedAt: Schema.optional(timestamp),
 	supersets: Schema.Array(WorkoutEditorSupersetSchema),
 	occurrences: Schema.Array(WorkoutEditorOccurrenceSchema),
+	submission: Schema.optional(WorkoutEditorSaveInputSchema),
 	pausedStopwatchSeconds: Schema.optional(nonNegativeNumber),
 	restCountdown: Schema.optional(WorkoutEditorCountdownSchema),
 	executionCountdown: Schema.optional(WorkoutEditorCountdownSchema),
 	activeDurationIntent: Schema.Literals(["preserve", "set", "clear"]),
 	localPreferences: Schema.optional(WorkoutEditorLocalPreferencesSchema),
-	submission: Schema.optional(Schema.Struct({ id: nonEmptyString, submittedAt: timestamp })),
 });
 
+export type WorkoutEditorSet = typeof WorkoutEditorSetSchema.Type;
+export type WorkoutEditorMode = typeof WorkoutEditorModeSchema.Type;
 export type WorkoutEditorDraft = typeof WorkoutEditorDraftSchema.Type;
 export type WorkoutEditorDisplay = typeof WorkoutEditorDisplaySchema.Type;
-export type WorkoutEditorLocalPreferences = typeof WorkoutEditorLocalPreferencesSchema.Type;
-export type WorkoutEditorMode = typeof WorkoutEditorModeSchema.Type;
 export type WorkoutEditorOccurrence = typeof WorkoutEditorOccurrenceSchema.Type;
-export type WorkoutEditorSet = typeof WorkoutEditorSetSchema.Type;
+export type WorkoutEditorLocalPreferences = typeof WorkoutEditorLocalPreferencesSchema.Type;
+
+export const encodeWorkoutEditorDraft = (draft: WorkoutEditorDraft) =>
+	encodeWorkoutEditorJson(JSON.stringify(Schema.encodeSync(WorkoutEditorDraftSchema)(draft)));
+
+export const decodeWorkoutEditorDraft = (value: unknown) => {
+	const decoded = decodeWorkoutEditorJson(value);
+	return decoded._tag === "Failure"
+		? decoded
+		: Schema.decodeResult(Schema.fromJsonString(WorkoutEditorDraftSchema))(decoded.success);
+};
