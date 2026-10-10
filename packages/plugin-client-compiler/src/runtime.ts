@@ -68,84 +68,8 @@ const generatedEntry = (specifier: string) =>
 			: []),
 	].join("\n");
 
-const generatedBootstrapSource = `
-import { bootstrapClientPage, bootstrapClientPlugin, loadStylesheet } from "@ryot-app/plugin-client-sdk/plugin";
-
-const isRecord = (value) => typeof value === "object" && value !== null && !Array.isArray(value);
-const isString = (value) => typeof value === "string";
-const isModuleReference = (value) =>
-	isRecord(value) && isString(value.specifier) && value.specifier.length > 0 && isString(value.binding) && value.binding.length > 0;
-const isAutomaticRegistryEntry = (value) =>
-	isRecord(value) && isString(value.ownerPluginId) && isString(value.entitySchemaSlug) && (value.layout === "grid" || value.layout === "list") && isModuleReference(value.module) && Array.isArray(value.stylesheets) && value.stylesheets.every(isString);
-const isRoute = (value) => isRecord(value) && isString(value.path) && isModuleReference(value.module);
-const isRouteRegistry = (value) =>
-	isRecord(value) && isModuleReference(value.home) && Array.isArray(value.routes) && value.routes.every(isRoute) && (value.notFound === undefined || isModuleReference(value.notFound));
-const isComposition = (value) =>
-	isRecord(value) && Array.isArray(value.automaticRegistry) && value.automaticRegistry.every(isAutomaticRegistryEntry) && (value.application === "page" ? isModuleReference(value.entry) : value.application === "plugin-route" && isRouteRegistry(value.routes));
-
-const descriptorElement = document.getElementById("ryot-client-composition");
-if (!(descriptorElement instanceof HTMLScriptElement) || descriptorElement.type !== "application/json") {
-	throw new Error("Client composition descriptor is missing or has an invalid type");
-}
-let descriptorValue;
-try {
-	descriptorValue = JSON.parse(descriptorElement.textContent ?? "");
-} catch {
-	throw new Error("Client composition descriptor is not valid JSON");
-}
-if (!isComposition(descriptorValue)) {
-	throw new Error("Client composition descriptor has an invalid shape");
-}
-
-const modulePromisesBySpecifier = new Map();
-const load = (specifier) => {
-	if (!modulePromisesBySpecifier.has(specifier)) {
-		modulePromisesBySpecifier.set(specifier, import(/* @vite-ignore */ specifier));
-	}
-	return modulePromisesBySpecifier.get(specifier);
-};
-const routeReferences = descriptorValue.application === "plugin-route"
-	? [descriptorValue.routes.home, ...descriptorValue.routes.routes.map((route) => route.module), ...(descriptorValue.routes.notFound === undefined ? [] : [descriptorValue.routes.notFound])]
-	: [];
-const moduleReferences = [
-	...(descriptorValue.application === "page" ? [descriptorValue.entry] : []),
-	...routeReferences,
-];
-const modules = new Map(await Promise.all(
-	[...new Set(moduleReferences.map(({ specifier }) => specifier))].map(async (specifier) => [specifier, await load(specifier)]),
-));
-const binding = (reference) => {
-	const module = modules.get(reference.specifier);
-	if (!module || !Object.hasOwn(module, reference.binding) || module[reference.binding] === undefined) {
-		throw new Error("Client composition export is missing: " + reference.specifier + "#" + reference.binding);
-	}
-	return module[reference.binding];
-};
-const entityPresentations = descriptorValue.automaticRegistry.map((registration) => ({
-	ownerPluginId: registration.ownerPluginId,
-	entitySchemaSlug: registration.entitySchemaSlug,
-	layout: registration.layout,
-	load: async () => {
-		await Promise.all(registration.stylesheets.map(loadStylesheet));
-		const module = await load(registration.module.specifier);
-		const reference = registration.module;
-		if (!Object.hasOwn(module, reference.binding) || module[reference.binding] === undefined) {
-			throw new Error("Client composition export is missing: " + reference.specifier + "#" + reference.binding);
-		}
-		return module[reference.binding];
-	},
-}));
-
-if (descriptorValue.application === "page") {
-	bootstrapClientPage(binding(descriptorValue.entry), { entityPresentations });
-} else {
-	const routeRegistry = descriptorValue.routes;
-	bootstrapClientPlugin({
-		home: { component: binding(routeRegistry.home) },
-		routes: routeRegistry.routes.map((route) => ({ path: route.path, component: binding(route.module) })),
-		...(routeRegistry.notFound === undefined ? {} : { notFound: binding(routeRegistry.notFound) }),
-	}, { entityPresentations });
-}
+const generatedBootstrapSource = `import { bootstrapComposition } from "@ryot-app/plugin-client-sdk/bootstrap";
+await bootstrapComposition();
 `;
 
 const localReferencePath = (from: string, reference: string) => {

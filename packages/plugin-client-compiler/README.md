@@ -60,7 +60,8 @@ URL rewriting, deduplication, and assets.
 Emitted JavaScript references are inspected with the shared Rolldown parser. Emitted CSS imports
 and declaration URLs are inspected with PostCSS and its value parser; comments and string content
 are not treated as references. The client compiler rejects nonliteral dynamic imports in plugin
-modules. The runtime keeps its generated bootstrap's dynamic imports.
+modules. The runtime's generated bootstrap entry only calls the SDK's `./bootstrap` composition
+bootstrap, which plugin source cannot import.
 Both output validators share URL classification and query/fragment stripping. Plugin modules allow
 declared dependencies and external URLs, but local references must name a root output file and must
 not contain `..`. Runtime module imports reject external URLs except `data:` and resolve local paths
