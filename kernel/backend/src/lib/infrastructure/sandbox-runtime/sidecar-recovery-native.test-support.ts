@@ -71,12 +71,7 @@ export const killNativeConnection = Effect.fnUntraced(function* (connection: Con
 const hosts = Layer.succeed(SandboxHostImplementations, unusedSandboxHostImplementations());
 
 const unused = () => Effect.die("Unexpected native recovery host dispatch");
-const tightenedRunLimits = {
-	cpuMs: 500,
-	deadlineMs: 5000,
-	heapBytes: 32 * MiB,
-	externalBytes: 16 * MiB,
-};
+const tightenedMemoryLimits = { heapBytes: 32 * MiB, externalBytes: 16 * MiB };
 
 const files = Layer.succeed(SandboxFileService, {
 	open: () =>
@@ -122,7 +117,7 @@ const recordingClient = recordingSidecarClient(
 			evidence.sent.push(record);
 			evidence.timeline.push({ ...record, direction: "sent" });
 			return frame.type === "run" && evidence.tightenedModules.has(frame.module.sha256)
-				? { ...frame, limits: tightenedRunLimits }
+				? { ...frame, limits: { ...frame.limits, ...tightenedMemoryLimits } }
 				: frame;
 		},
 	})),
