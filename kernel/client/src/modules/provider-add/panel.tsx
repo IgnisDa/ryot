@@ -96,7 +96,7 @@ export const resolveLibraryMembership = (
 
 type ProviderSearchPanelProps = {
 	readonly onClose: () => void;
-	readonly onImported: () => void;
+	readonly onImported: (entityId: EntityId) => void;
 	readonly uploadFile: SchemaFileUpload;
 	readonly providers: ProviderSummariesState;
 	readonly initialQuery?: string | undefined;
@@ -486,7 +486,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 					Effect.tap((entry) =>
 						Effect.sync(() => {
 							if (entry.status === "imported") {
-								props.onImported();
+								props.onImported(entry.entityId);
 							}
 							setEntry(entry);
 						}),

@@ -1,5 +1,6 @@
-import { PluginLink, EntitySchemaSlug } from "@ryot-app/plugin-client-sdk/plugin";
-import { usePluginIdentity, useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { EntitySchemaSlug, PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { usePluginIdentity, useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Menu } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useRef, useState } from "react";
@@ -13,6 +14,7 @@ const schemaLabel = (slug: string) =>
 export function FirstRun(props: { readonly compact: boolean }) {
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
 	const client = useRyot();
+	const schedule = useRyotSchedule();
 	const trigger = useRef<HTMLButtonElement>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
@@ -56,12 +58,17 @@ export function FirstRun(props: { readonly compact: boolean }) {
 						label: schemaLabel(slug),
 						onSelect: () => {
 							setMenuOpen(false);
-							client.screens.openProviderSearch({
-								schema: {
-									slug: EntitySchemaSlug.make(slug),
-									owner: { kind: "plugin", pluginId: identity.pluginId },
-								},
-							});
+							schedule.run(
+								client.screens
+									.openProviderSearch({
+										schema: {
+											slug: EntitySchemaSlug.make(slug),
+											owner: { kind: "plugin", pluginId: identity.pluginId },
+										},
+									})
+									.pipe(Effect.ignore),
+								() => undefined,
+							);
 						},
 					}))}
 				/>

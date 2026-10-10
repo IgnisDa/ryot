@@ -89,11 +89,11 @@ most 64, retained URLs during refresh, and renewal before the earliest expiry; k
 renderers are callers of this SDK behavior. Disposing a bridge session aborts pending resolution, but
 an issued URL remains valid until expiry.
 
-`screens.openProviderSearch` is the only provider-add screen capability. It carries the configured
-entity-schema owner and slug, plus an optional initial query; it does not expose a generic native
-screen method. After a successful import, the host sends one narrow `page-refresh` signal. Client
-pages can register their current source refetch with `usePageRefresh`; successful shared mutations use
-the same refresh registry.
+`screens.openProviderSearch` is the only provider-add screen capability. It returns an Effect with
+either imported entity IDs or a cancellation outcome. It carries the configured entity-schema owner
+and slug, plus an optional initial query; it does not expose a generic native screen method. After a
+successful import, the host sends one narrow `page-refresh` signal. Client pages can register their
+current source refetch with `usePageRefresh`; successful shared mutations use the same refresh registry.
 
 ## Retryable Submissions
 

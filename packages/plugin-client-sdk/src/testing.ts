@@ -256,6 +256,7 @@ export const mountPluginPage = (
 		readonly page?: ClientPageContext | undefined;
 		readonly location?: PluginLogicalLocation | undefined;
 		readonly bootstrap?: ReturnType<typeof createClientBootstrap> | undefined;
+		readonly onClientMessage?: ((message: PluginBridgeClientMessage) => void) | undefined;
 		readonly entityPresentations?: readonly EntityPresentationRegistration[] | undefined;
 	} = {},
 ) => {
@@ -274,7 +275,13 @@ export const mountPluginPage = (
 	);
 	const channel = new MessageChannel();
 	const messages: unknown[] = [];
-	channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+	channel.port1.addEventListener("message", ({ data }) => {
+		messages.push(data);
+		const decoded = decodeClientMessage(data);
+		if (Result.isSuccess(decoded)) {
+			options.onClientMessage?.(decoded.success);
+		}
+	});
 	channel.port1.start();
 	window.dispatchEvent(
 		new MessageEvent("message", {

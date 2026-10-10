@@ -1,4 +1,5 @@
 import { EntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
 
@@ -11,6 +12,7 @@ import {
 	PluginLogicalLocation,
 	PluginNavigationTarget,
 } from "../navigation";
+import { RyotClientErrorReason } from "./capabilities";
 
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
 export const CLIENT_BRIDGE_BOOTSTRAP_READY = "ryot-client-bootstrap-ready" as const;
@@ -155,11 +157,46 @@ export type ProviderSearchScreenRequest = Schema.Schema.Type<typeof ProviderSear
 
 export const PluginBridgeProviderSearchScreen = strictStruct({
 	...ProviderSearchScreenRequest.fields,
+	requestId: Schema.String,
 	type: Schema.Literal("provider-search-screen"),
 });
 
 export type PluginBridgeProviderSearchScreen = Schema.Schema.Type<
 	typeof PluginBridgeProviderSearchScreen
+>;
+
+export const ProviderSearchScreenOutcome = Schema.Union([
+	strictStruct({ kind: Schema.Literal("added"), entityIds: Schema.Array(EntityId) }),
+	strictStruct({ kind: Schema.Literal("cancelled") }),
+]);
+
+export type ProviderSearchScreenOutcome = Schema.Schema.Type<typeof ProviderSearchScreenOutcome>;
+
+export const PluginBridgeProviderSearchScreenCancel = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("provider-search-screen-cancel"),
+});
+
+export type PluginBridgeProviderSearchScreenCancel = Schema.Schema.Type<
+	typeof PluginBridgeProviderSearchScreenCancel
+>;
+
+const providerSearchScreenResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("provider-search-screen-result"),
+};
+
+export const PluginBridgeProviderSearchScreenResult = Schema.Union([
+	strictStruct({ ...providerSearchScreenResultFields, outcome: ProviderSearchScreenOutcome }),
+	strictStruct({
+		...providerSearchScreenResultFields,
+		reason: RyotClientErrorReason,
+		outcome: Schema.Literal("failure"),
+	}),
+]);
+
+export type PluginBridgeProviderSearchScreenResult = Schema.Schema.Type<
+	typeof PluginBridgeProviderSearchScreenResult
 >;
 
 export const PluginBridgePageRefresh = strictStruct({ type: Schema.Literal("page-refresh") });

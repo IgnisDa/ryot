@@ -69,7 +69,9 @@ export type RyotClientAdapter = {
 	readonly invokeOperation?: (
 		request: OperationAdapterRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
-	readonly openProviderSearch?: (request: ProviderSearchScreenRequest) => void;
+	readonly openProviderSearch?: (
+		request: ProviderSearchScreenRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
 	readonly mutateCollection?: (
 		request: CollectionAdapterRequest,
 	) => Effect.Effect<unknown, RyotClientError>;

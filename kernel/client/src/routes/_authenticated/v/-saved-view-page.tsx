@@ -7,11 +7,14 @@ import {
 	EntityBrowserLayout,
 	EntityBrowserSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import type { PluginBridgeProviderSearchScreen } from "@ryot-app/plugin-client-contract";
+import type {
+	PluginBridgeProviderSearchScreen,
+	ProviderSearchScreenOutcome,
+} from "@ryot-app/plugin-client-contract";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router";
 import { Effect, Result, Schema } from "effect";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
@@ -96,6 +99,14 @@ export function SavedViewPage({
 		select: (current) => current.resolvedLocation ?? current.location,
 	});
 	const pushedAdd = useRef(false);
+	const providerSearchCompletion = useRef<{
+		readonly complete: (outcome: ProviderSearchScreenOutcome) => void;
+		readonly requestId: string;
+	} | null>(null);
+	const [providerSearch, setProviderSearch] = useState<{
+		readonly complete: (outcome: ProviderSearchScreenOutcome) => void;
+		readonly requestId: string;
+	} | null>(null);
 	const addAction = entityBrowserSettings(loaded.prepared)?.addAction ?? null;
 	const addOpen = add === true && addAction !== null;
 
@@ -104,13 +115,6 @@ export function SavedViewPage({
 		const href = `${location.pathname}${nextSearch === "" ? "" : `?${nextSearch}`}`;
 		void navigate({ href, replace });
 	};
-	const openAdd = (request: PluginBridgeProviderSearchScreen) => {
-		if (addAction === null || !sameDeclaration(request.schema, addAction.schema)) {
-			return;
-		}
-		pushedAdd.current = true;
-		navigateAddSearch({ add: "true", q: request.initialQuery ?? null }, false);
-	};
 	const closeAdd = () => {
 		if (pushedAdd.current) {
 			pushedAdd.current = false;
@@ -118,6 +122,47 @@ export function SavedViewPage({
 			return;
 		}
 		navigateAddSearch({ q: null, add: null }, true);
+	};
+	const openAdd = (request: PluginBridgeProviderSearchScreen) => {
+		if (addAction === null || !sameDeclaration(request.schema, addAction.schema)) {
+			return Effect.succeed<ProviderSearchScreenOutcome>({ kind: "cancelled" });
+		}
+		return Effect.callback<ProviderSearchScreenOutcome>((resume) => {
+			if (providerSearchCompletion.current !== null) {
+				resume(Effect.succeed<ProviderSearchScreenOutcome>({ kind: "cancelled" }));
+				return Effect.void;
+			}
+			let completed = false;
+			const clear = () => {
+				if (providerSearchCompletion.current?.complete !== complete) {
+					return;
+				}
+				providerSearchCompletion.current = null;
+				setProviderSearch((current) => (current?.complete === complete ? null : current));
+			};
+			const complete = (outcome: ProviderSearchScreenOutcome) => {
+				if (completed) {
+					return;
+				}
+				completed = true;
+				clear();
+				if (outcome.kind === "cancelled") {
+					closeAdd();
+				}
+				resume(Effect.succeed(outcome));
+			};
+			providerSearchCompletion.current = { complete, requestId: request.requestId };
+			setProviderSearch({ complete, requestId: request.requestId });
+			pushedAdd.current = true;
+			navigateAddSearch({ add: "true", q: request.initialQuery ?? null }, false);
+			return Effect.sync(() => {
+				if (!completed && providerSearchCompletion.current?.complete === complete) {
+					completed = true;
+					clear();
+					closeAdd();
+				}
+			});
+		});
 	};
 
 	useEffect(() => {
@@ -152,7 +197,12 @@ export function SavedViewPage({
 	});
 
 	return addOpen ? (
-		<ProviderAddModal initialQuery={q} onClose={closeAdd} schema={addAction.schema} />
+		<ProviderAddModal
+			initialQuery={q}
+			onClose={closeAdd}
+			schema={addAction.schema}
+			onComplete={providerSearch?.complete}
+		/>
 	) : null;
 }
 

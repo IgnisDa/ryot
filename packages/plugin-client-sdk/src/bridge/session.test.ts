@@ -105,6 +105,10 @@ const query = (runtime: ReturnType<typeof createPluginRuntime>) =>
 		document,
 		decode: (response): Result.Result<unknown, RyotClientError> => Result.succeed(response),
 	});
+const providerSearch = (runtime: ReturnType<typeof createPluginRuntime>) =>
+	runtime.client.screens.openProviderSearch({
+		schema: { slug: "movie", owner: { kind: "plugin", pluginId: "fixture" } },
+	});
 const sent = (messages: unknown[], type: string) =>
 	messages.filter(
 		(message) =>
@@ -149,6 +153,71 @@ describe("plugin Effect request engine", () => {
 				failure: { reason: "disposed" },
 			});
 		}),
+	);
+
+	it.live("correlates provider-search success and ignores stale results", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const pending = yield* Effect.forkChild(providerSearch(runtime), { startImmediately: true });
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "provider-search-screen")).toEqual([
+				{
+					type: "provider-search-screen",
+					requestId: "provider-search-screen-1",
+					schema: { slug: "movie", owner: { kind: "plugin", pluginId: "fixture" } },
+				},
+			]);
+			channel.port1.postMessage({
+				type: "provider-search-screen-result",
+				requestId: "provider-search-screen-stale",
+				outcome: { kind: "added", entityIds: ["late-entity"] },
+			});
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				requestId: "provider-search-screen-1",
+				type: "provider-search-screen-result",
+				outcome: { kind: "added", entityIds: ["entity-1"] },
+			});
+			expect(yield* Fiber.join(pending)).toEqual({ kind: "added", entityIds: ["entity-1"] });
+		}),
+	);
+
+	it.live("returns provider-search cancellation as a semantic outcome", () =>
+		Effect.gen(function* () {
+			const { channel, runtime } = yield* openRuntime();
+			const pending = yield* Effect.forkChild(providerSearch(runtime), { startImmediately: true });
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: { kind: "cancelled" },
+				requestId: "provider-search-screen-1",
+				type: "provider-search-screen-result",
+			});
+			expect(yield* Fiber.join(pending)).toEqual({ kind: "cancelled" });
+		}),
+	);
+
+	it.live(
+		"cancels interrupted provider-search requests and fails pending requests on disposal",
+		() =>
+			Effect.gen(function* () {
+				const { runtime, messages } = yield* openRuntime();
+				const interrupted = yield* Effect.forkChild(providerSearch(runtime), {
+					startImmediately: true,
+				});
+				yield* waitForMessagePortMacrotask;
+				yield* Fiber.interrupt(interrupted);
+				yield* waitForMessagePortMacrotask;
+				expect(sent(messages, "provider-search-screen-cancel")).toEqual([
+					{ requestId: "provider-search-screen-1", type: "provider-search-screen-cancel" },
+				]);
+
+				const pending = yield* Effect.forkChild(Effect.result(providerSearch(runtime)), {
+					startImmediately: true,
+				});
+				yield* waitForMessagePortMacrotask;
+				runtime.dispose();
+				expect(yield* Fiber.join(pending)).toMatchObject({ failure: { reason: "disposed" } });
+			}),
 	);
 
 	it.live("acknowledges a flush only after registered persistence completes", () =>

@@ -1,6 +1,11 @@
 import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageContext } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotQuery, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotQuery,
+	useRyot,
+	useRyotQuery,
+	useRyotSchedule,
+} from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import {
@@ -74,6 +79,7 @@ const Browser = ({
 	readonly renderResults?: BrowserResultsRenderer | undefined;
 }) => {
 	const ryot = useRyot();
+	const schedule = useRyotSchedule();
 	const [query] = useState(() =>
 		createRyotQuery<string, BrowserQueryPage<null>>(
 			({ client, input: serialized }) => {
@@ -131,11 +137,19 @@ const Browser = ({
 					? undefined
 					: {
 							label: "Add to this view",
-							open: (initialQuery) =>
-								ryot.screens.openProviderSearch({
-									schema: addAction.schema,
-									...(initialQuery === undefined || initialQuery === "" ? {} : { initialQuery }),
-								}),
+							open: (initialQuery) => {
+								schedule.run(
+									ryot.screens
+										.openProviderSearch({
+											schema: addAction.schema,
+											...(initialQuery === undefined || initialQuery === ""
+												? {}
+												: { initialQuery }),
+										})
+										.pipe(Effect.ignore),
+									() => undefined,
+								);
+							},
 						}
 			}
 		/>

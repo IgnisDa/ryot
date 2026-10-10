@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { SandboxProviderId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { render, screen, waitFor } from "@testing-library/react";
 import { Effect } from "effect";
 import { axe } from "vitest-axe";

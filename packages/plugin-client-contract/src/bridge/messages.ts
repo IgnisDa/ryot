@@ -44,6 +44,8 @@ import {
 	PluginBridgePageShortcutPress,
 	PluginBridgePageShortcuts,
 	PluginBridgeProviderSearchScreen,
+	PluginBridgeProviderSearchScreenCancel,
+	PluginBridgeProviderSearchScreenResult,
 	PluginBridgeScreenState,
 	PluginBridgeTheme,
 	PluginBridgeViewport,
@@ -75,6 +77,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeCollectionRequest,
 	PluginBridgeDismissOverlayResult,
 	PluginBridgeProviderSearchScreen,
+	PluginBridgeProviderSearchScreenCancel,
 ]);
 
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
@@ -97,6 +100,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeStorageResult,
 	PluginBridgeOperationResult,
 	PluginBridgeCollectionResult,
+	PluginBridgeProviderSearchScreenResult,
 	PluginBridgePageShortcutPress,
 ]);
 
