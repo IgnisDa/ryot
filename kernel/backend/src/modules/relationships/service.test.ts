@@ -953,7 +953,10 @@ describe("Relationships lifecycle owner", () => {
 				const planner = yield* LifecyclePlanner;
 				const execution = yield* LifecycleExecution;
 				const policyInput = yield* installPolicyFixture();
-				yield* repository.createRelationship({ ...policyInput, properties: { rank: 1 } });
+				const created = yield* repository.createRelationship({
+					...policyInput,
+					properties: { rank: 1 },
+				});
 				const exit = yield* Effect.exit(
 					(yield* relationshipsServiceWith({
 						execution: withLifecycleDispatch({
@@ -961,7 +964,7 @@ describe("Relationships lifecycle owner", () => {
 							after: () => Effect.succeed([]),
 							executePolicy: () =>
 								repository
-									.updateRelationship({ ...policyInput, properties: { rank: 9 } })
+									.updateRelationshipsById([{ id: created.id, properties: { rank: 9 } }])
 									.pipe(Effect.as({ action: "allow" as const }), Effect.orDie),
 						}),
 						planner: withLifecycleBatchPlanning({
@@ -1756,10 +1759,10 @@ describe("Relationships lifecycle owner", () => {
 				const planner = yield* LifecyclePlanner;
 				const execution = yield* LifecycleExecution;
 
-				yield* repository.createRelationship(baseInput);
+				const created = yield* repository.createRelationship(baseInput);
 				const stale = yield* service.prepareUserDelete(baseInput, command("prepared-stale"));
 				assert(stale);
-				yield* repository.updateRelationship({ ...baseInput, properties: { rank: 9 } });
+				yield* repository.updateRelationshipsById([{ id: created.id, properties: { rank: 9 } }]);
 				expect(
 					yield* session.transaction(service.persistPreparedUserDelete(stale)).pipe(Effect.flip),
 				).toMatchObject({ reason: { code: "concurrent-relationship-change" } });
@@ -1851,7 +1854,7 @@ describe("Relationships lifecycle owner", () => {
 					const repository = yield* RelationshipsRepository;
 					const execution = yield* LifecycleExecution;
 					const input = yield* installPolicyFixture();
-					yield* repository.createRelationship(input);
+					const created = yield* repository.createRelationship(input);
 					let policyCalls = 0;
 					const service = yield* relationshipsServiceWith({
 						execution: withLifecycleDispatch({
@@ -1886,7 +1889,7 @@ describe("Relationships lifecycle owner", () => {
 							.filter(({ receiptType }) => receiptType === "item")
 							.map(({ result }) => result),
 					).toMatchObject([{ operation: "update", relationship: { properties: { rank: 1 } } }]);
-					yield* repository.deleteRelationship(input);
+					yield* repository.deleteRelationshipsById([created.id]);
 					const replayed = yield* service.prepareUserCreate(submitted, lifecycle);
 					assert(replayed);
 					expect(yield* session.transaction(service.persistPreparedUserCreate(replayed))).toEqual(

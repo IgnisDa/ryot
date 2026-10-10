@@ -98,17 +98,14 @@ export const ownedEndpoints = Effect.fnUntraced(function* (
 		entitySchemaSlug: EntitySchemaSlug.make(slug),
 		...(scope === "global" ? { scope: "global" as const } : { userId, scope: "user" as const }),
 	};
-	const source = yield* entities.insertEntity({
-		...identity,
-		name: "Source",
-		id: EntityId.make(`${installed.pluginId}-source`),
-	});
-	const target = yield* entities.insertEntity({
-		...identity,
-		name: "Target",
-		id: EntityId.make(`${installed.pluginId}-target`),
-	});
-	return { sourceEntityId: source.entity.id, targetEntityId: target.entity.id };
+	const [source, target] = yield* entities.insertEntities([
+		{ ...identity, name: "Source", id: EntityId.make(`${installed.pluginId}-source`) },
+		{ ...identity, name: "Target", id: EntityId.make(`${installed.pluginId}-target`) },
+	]);
+	if (!source || !target) {
+		return yield* Effect.die("Fixture entities were not inserted");
+	}
+	return { sourceEntityId: source.id, targetEntityId: target.id };
 });
 
 export const installPolicyFixture = Effect.fn(function* (owner: UserId | null = userId) {

@@ -156,9 +156,6 @@ const toPortableEntity = (
 const entitySchemaPluginWhere = (pluginId: string | null) =>
 	pluginIdWhere(schema.entity.entitySchemaPluginId, pluginId);
 
-const providerWhere = (providerId: SandboxProviderId | null | undefined) =>
-	providerId == null ? isNull(schema.entity.providerId) : eq(schema.entity.providerId, providerId);
-
 type FindEntityByExternalIdInput = {
 	externalId: string;
 	providerId: SandboxProviderId;
@@ -867,114 +864,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return rows.flat().map(toListedEntity);
 			});
 
-			const insertEntity = Effect.fn("EntitiesRepository.insertEntity")(function* (
-				input: InsertEntityInput,
-			) {
-				const values = entityValues(input);
-				if (input.scope === "global") {
-					const externalId = input.externalId;
-					const providerId = input.providerId;
-
-					if (!externalId) {
-						const [row] = yield* session.run((db) =>
-							db.insert(schema.entity).values(values).returning(entitySelection),
-						);
-						if (!row) {
-							return yield* new DbError({ message: "Global entity insert returned no row" });
-						}
-						return { wasInserted: true, entity: toListedEntity(row) };
-					}
-
-					const inserted = yield* session.run((db) =>
-						db
-							.insert(schema.entity)
-							.values(values)
-							.onConflictDoNothing()
-							.returning(entitySelection),
-					);
-
-					if (inserted[0]) {
-						return { wasInserted: true, entity: toListedEntity(inserted[0]) };
-					}
-
-					const [existing] = yield* session.run((db) =>
-						db
-							.select(entitySelection)
-							.from(schema.entity)
-							.where(
-								and(
-									isNull(schema.entity.userId),
-									eq(schema.entity.externalId, externalId),
-									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-									providerWhere(providerId),
-									entitySchemaPluginWhere(input.entitySchemaPluginId),
-								),
-							)
-							.limit(1)
-							.for("update"),
-					);
-
-					if (!existing) {
-						return yield* new DbError({ message: "Global entity insert conflict but not found" });
-					}
-
-					return { wasInserted: false, entity: toListedEntity(existing) };
-				}
-
-				const externalId = input.externalId;
-				const providerId = input.providerId;
-
-				if (externalId && providerId) {
-					const rows = yield* session.run((db) =>
-						db
-							.insert(schema.entity)
-							.values(values)
-							.onConflictDoNothing()
-							.returning(entitySelection),
-					);
-
-					const created = rows[0];
-					if (created) {
-						return { wasInserted: true, entity: toListedEntity(created) };
-					}
-
-					const [row] = yield* session.run((db) =>
-						db
-							.select(entitySelection)
-							.from(schema.entity)
-							.where(
-								and(
-									eq(schema.entity.userId, input.userId),
-									eq(schema.entity.externalId, externalId),
-									eq(schema.entity.entitySchemaSlug, input.entitySchemaSlug),
-									eq(schema.entity.providerId, providerId),
-									entitySchemaPluginWhere(input.entitySchemaPluginId),
-								),
-							)
-							.limit(1)
-							.for("update"),
-					);
-
-					const existing = row ? toListedEntity(row) : null;
-
-					if (existing) {
-						return { entity: existing, wasInserted: false };
-					}
-
-					return yield* new DbError({ message: "Entity insert returned no row" });
-				}
-
-				const [row] = yield* session.run((db) =>
-					db.insert(schema.entity).values(values).returning(entitySelection),
-				);
-
-				if (!row) {
-					return yield* new DbError({ message: "Entity insert returned no row" });
-				}
-
-				return { wasInserted: true, entity: toListedEntity(row) };
-			});
-
 			const updateEntity = Effect.fn("EntitiesRepository.updateEntity")(function* (
 				input: UpdateEntityInput,
 			) {
@@ -1080,7 +969,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			return {
 				getById,
 				deleteByIds,
-				insertEntity,
 				updateEntity,
 				insertEntities,
 				getByIdForUser,
