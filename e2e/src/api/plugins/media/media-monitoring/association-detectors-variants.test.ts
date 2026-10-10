@@ -1,4 +1,5 @@
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect } from "effect";
 
 import {
@@ -7,7 +8,7 @@ import {
 	enqueueProviderEntityImport,
 	fakeProviderDetailsResult,
 	pollProviderEntityImportResult,
-	installTestProvider,
+	shippedPluginTestProviders,
 	startFakeAppriseServer,
 	pollUntil,
 } from "~/fixtures/kernel";
@@ -19,18 +20,32 @@ import {
 import { assertCompleted, requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 
 let fakeApprise: FakeHttpServer;
+let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
-beforeAll(() =>
+beforeAll(
+	() =>
+		runPromise(
+			Effect.gen(function* () {
+				fakeApprise = yield* startFakeAppriseServer;
+				harness = yield* startIsolatedHarness("Association Detector Variants");
+				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			}),
+		),
+	300_000,
+);
+
+afterAll(() =>
 	runPromise(
 		Effect.gen(function* () {
-			fakeApprise = yield* startFakeAppriseServer;
+			yield* Effect.promise(() => fakeApprise.stop());
+			yield* harness?.stop ?? Effect.void;
 		}),
 	),
 );
-
-afterAll(() => fakeApprise.stop());
 
 function pollNotificationBody(key: string) {
 	return pollUntil(
@@ -57,16 +72,12 @@ describe("company and media-group association variants", () => {
 			]);
 			const companySchemaId = companySchema.id;
 			const movieSchemaId = movieSchema.id;
-			const companyProvider = yield* installTestProvider({
-				client,
-				scope: "system",
+			const companyProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: companySchemaId,
 				details: fakeProviderDetailsResult({ name: companyName }),
 				slug: `company.association-variant-e2e-${crypto.randomUUID()}`,
 			});
-			const movieProvider = yield* installTestProvider({
-				client,
-				scope: "system",
+			const movieProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: movieSchemaId,
 				slug: `movie.association-variant-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({
@@ -138,23 +149,17 @@ describe("company and media-group association variants", () => {
 			const personSchemaId = personSchema.id;
 			const companySchemaId = companySchema.id;
 			const musicGroupSchemaId = musicGroupSchema.id;
-			const personProvider = yield* installTestProvider({
-				client,
-				scope: "system",
+			const personProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: personSchemaId,
 				slug: `person.media-group-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: personName }),
 			});
-			const companyProvider = yield* installTestProvider({
-				client,
-				scope: "system",
+			const companyProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: companySchemaId,
 				slug: `company.media-group-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({ name: companyName }),
 			});
-			const musicGroupProvider = yield* installTestProvider({
-				client,
-				scope: "system",
+			const musicGroupProvider = yield* media.attachProvider({
 				rootEntitySchemaSlug: musicGroupSchemaId,
 				slug: `music-group.media-group-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({
