@@ -115,6 +115,20 @@ Entity interest covers loaded subjects/selected seasons as foreground and displa
 as visible. Activity declares referenced entity IDs, not event IDs. Settle marks commit after fresh
 data renders. Hints do not promise arbitrary realtime updates or freshness for unloaded data.
 
+### Calendar Sources
+
+`manifest/calendar-sources.ts` contributes four kernel Calendar sources, each limited to the user's media
+library through the subject's `in-media-library` link:
+
+- `show-episodes` and `podcast-episodes` list episodes on their `publishDate`, including season-0
+  specials (`S0 · E1`); art falls back from the episode to its show or podcast, and done follows the
+  episode display state.
+- `anime-airings` expands `airingSchedule` with a `jsonElements` join. The entry at UTC midnight of
+  the anime's `publishDate` is the release row, not an airing. An episode is done when the anime is
+  complete or the latest progress/list-state `animeEpisode` reaches it.
+- `releases` lists flat media by `publishDate`, captioned with the schema name; an anime with timed
+  airings shows both its release and `Episode 1`.
+
 ## Images And Providers
 
 ### Genres

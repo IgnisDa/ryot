@@ -137,6 +137,143 @@ export const seedMediaEntity = (
 		});
 	});
 
+type SeededEpisodeInput = {
+	readonly episodeNumber: number;
+	readonly publishDate: string;
+	readonly images?: readonly Record<string, unknown>[];
+};
+
+/** A library show whose seasons hold the given episodes; returns the show and its episodes. */
+export const seedLibraryShowEpisodes = (
+	client: Client,
+	input: {
+		readonly name: string;
+		readonly inLibrary?: boolean;
+		readonly images?: readonly Record<string, unknown>[];
+		readonly seasons: readonly {
+			readonly seasonNumber: number;
+			readonly episodes: readonly SeededEpisodeInput[];
+		}[];
+	},
+) =>
+	Effect.gen(function* () {
+		const [show, season, episode] = yield* Effect.all([
+			findMediaEntitySchema(client, "show"),
+			findMediaEntitySchema(client, "show-season"),
+			findMediaEntitySchema(client, "show-episode"),
+		]);
+		const relationshipSchemas = yield* listRelationshipSchemas(client, {
+			owner: show.schema.reference.owner,
+			slugs: ["show-to-show-season", "show-season-to-show-episode"],
+		});
+		const suffix = crypto.randomUUID();
+		const seeded = yield* seedMediaEntity({
+			userId: null,
+			providerId: null,
+			name: input.name,
+			entitySchemaSlug: show.schema.id,
+			externalId: `calendar-show-${suffix}`,
+			properties: { images: input.images ?? [] },
+		});
+		if (input.inLibrary !== false) {
+			yield* insertLibraryMembership(client, { mediaEntityId: seeded.id });
+		}
+		const episodes = [];
+		for (const { seasonNumber, episodes: seasonEpisodes } of input.seasons) {
+			const seasonEntity = yield* seedMediaEntity({
+				userId: null,
+				providerId: null,
+				properties: { seasonNumber },
+				entitySchemaSlug: season.schema.id,
+				name: `${input.name} S${seasonNumber}`,
+				externalId: `calendar-season-${seasonNumber}-${suffix}`,
+			});
+			yield* insertGlobalRelationship({
+				sourceEntityId: seeded.id,
+				targetEntityId: seasonEntity.id,
+				relationshipSchema: requireRelationshipSchemaBySlug(
+					relationshipSchemas,
+					"show-to-show-season",
+					show.schema.reference.owner,
+				).reference,
+			});
+			for (const { images, publishDate, episodeNumber } of seasonEpisodes) {
+				const episodeEntity = yield* seedMediaEntity({
+					userId: null,
+					providerId: null,
+					entitySchemaSlug: episode.schema.id,
+					name: `${input.name} S${seasonNumber}E${episodeNumber}`,
+					externalId: `calendar-episode-${seasonNumber}-${episodeNumber}-${suffix}`,
+					properties: { publishDate, seasonNumber, episodeNumber, images: images ?? [] },
+				});
+				yield* insertGlobalRelationship({
+					sourceEntityId: seasonEntity.id,
+					targetEntityId: episodeEntity.id,
+					relationshipSchema: requireRelationshipSchemaBySlug(
+						relationshipSchemas,
+						"show-season-to-show-episode",
+						show.schema.reference.owner,
+					).reference,
+				});
+				episodes.push({ seasonNumber, episodeNumber, id: episodeEntity.id });
+			}
+		}
+		return { episodes, show: seeded };
+	});
+
+/** A library podcast holding the given episodes; returns the podcast and its episodes. */
+export const seedLibraryPodcastEpisodes = (
+	client: Client,
+	input: {
+		readonly name: string;
+		readonly images?: readonly Record<string, unknown>[];
+		readonly episodes: readonly SeededEpisodeInput[];
+	},
+) =>
+	Effect.gen(function* () {
+		const [podcast, episode] = yield* Effect.all([
+			findMediaEntitySchema(client, "podcast"),
+			findMediaEntitySchema(client, "podcast-episode"),
+		]);
+		const relationshipSchemas = yield* listRelationshipSchemas(client, {
+			owner: podcast.schema.reference.owner,
+			slugs: ["podcast-to-podcast-episode"],
+		});
+		const relationshipSchema = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"podcast-to-podcast-episode",
+			podcast.schema.reference.owner,
+		).reference;
+		const suffix = crypto.randomUUID();
+		const seeded = yield* seedMediaEntity({
+			userId: null,
+			providerId: null,
+			name: input.name,
+			entitySchemaSlug: podcast.schema.id,
+			externalId: `calendar-podcast-${suffix}`,
+			properties: { images: input.images ?? [] },
+		});
+		yield* insertLibraryMembership(client, { mediaEntityId: seeded.id });
+		const episodes = [];
+		for (const { images, publishDate, episodeNumber } of input.episodes) {
+			const episodeEntity = yield* seedMediaEntity({
+				userId: null,
+				providerId: null,
+				entitySchemaSlug: episode.schema.id,
+				name: `${input.name} E${episodeNumber}`,
+				properties: { publishDate, episodeNumber, images: images ?? [] },
+				externalId: `calendar-podcast-episode-${episodeNumber}-${suffix}`,
+			});
+			yield* insertGlobalRelationship({
+				relationshipSchema,
+				sourceEntityId: seeded.id,
+				targetEntityId: episodeEntity.id,
+			});
+			episodes.push({ episodeNumber, id: episodeEntity.id });
+		}
+		return { episodes, podcast: seeded };
+	});
+
 export const createGlobalBookEntityFixture = (
 	client: Client,
 	options: { name?: string; externalId?: string } = {},

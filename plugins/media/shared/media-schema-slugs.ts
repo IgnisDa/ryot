@@ -17,6 +17,10 @@ export const builtinMediaEntitySchemaSlugs = [
 	"visual-novel",
 ] as const;
 
+export const flatMediaSchemaSlugs = builtinMediaEntitySchemaSlugs.filter(
+	(slug) => slug !== "show" && slug !== "podcast",
+);
+
 export const mediaGroupMemberSlugs = {
 	"book-group": "book",
 	"movie-group": "movie",
