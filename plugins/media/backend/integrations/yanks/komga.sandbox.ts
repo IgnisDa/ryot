@@ -194,6 +194,26 @@ const bookRef = Effect.fnUntraced(function* (
 	return null;
 });
 
+export const bookPercentProgress = (page: number, pagesCount: number) => {
+	const progressPercent = Math.min(Math.round((page / pagesCount) * 10_000) / 100, 99);
+	return progressPercent > 0 ? { progressPercent } : undefined;
+};
+
+export const mangaChapterProgress = (input: {
+	page: number;
+	pagesCount: number;
+	chapter: number | undefined;
+}) => {
+	const { chapter } = input;
+	if (chapter === undefined || !Number.isFinite(chapter) || chapter <= 0) {
+		return undefined;
+	}
+	if (input.page >= input.pagesCount) {
+		return { mangaChapter: chapter };
+	}
+	return Number.isInteger(chapter) && chapter > 1 ? { mangaChapter: chapter - 1 } : undefined;
+};
+
 export default defineScript({
 	manifest,
 	input: YankInput,
@@ -291,21 +311,18 @@ export default defineScript({
 				if (!progress || !book.media?.pagesCount || !progress.page) {
 					continue;
 				}
-				const percent = Math.min(
-					Math.round((progress.page / book.media.pagesCount) * 10_000) / 100,
-					99,
-				);
-				if (percent <= 0) {
+				const chapter = book.metadata?.number?.trim();
+				const progressProperties =
+					ref.entitySchemaSlug === "manga"
+						? mangaChapterProgress({
+								page: progress.page,
+								pagesCount: book.media.pagesCount,
+								chapter: chapter && /^\d+(?:\.\d+)?$/.test(chapter) ? Number(chapter) : undefined,
+							})
+						: bookPercentProgress(progress.page, book.media.pagesCount);
+				if (progressProperties === undefined) {
 					continue;
 				}
-				const chapter = book.metadata?.number?.trim();
-				const mangaChapter =
-					ref.entitySchemaSlug === "manga" &&
-					chapter &&
-					/^\d+(?:\.\d+)?$/.test(chapter) &&
-					Number.isFinite(Number(chapter))
-						? Number(chapter)
-						: undefined;
 				entityGroups.push({
 					entityRef: ref,
 					itemIndex: index,
@@ -314,11 +331,7 @@ export default defineScript({
 						{
 							occurredAt,
 							eventSchemaSlug: "progress",
-							properties: {
-								consumedOn: "komga",
-								progressPercent: percent,
-								...(mangaChapter === undefined ? {} : { mangaChapter }),
-							},
+							properties: { consumedOn: "Komga", ...progressProperties },
 							attribution: {
 								sourceLabel: ref.sourceLabel,
 								sourceIdentifier: book.id ?? String(index),

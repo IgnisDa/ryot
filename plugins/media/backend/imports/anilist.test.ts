@@ -36,7 +36,7 @@ describe("adaptAnilistExport", () => {
 		},
 	);
 
-	it("maps progress coverage, reviews, favorites, and custom lists", () => {
+	it("maps cumulative progress, reviews, favorites, and custom lists", () => {
 		const exportJson = JSON.stringify({
 			favourites: [{ favourite_id: 200, favourite_type: 2 }],
 			user: { custom_lists: { manga: ["Book Club"], anime: ["Watch Party"] } },
@@ -92,13 +92,8 @@ describe("adaptAnilistExport", () => {
 			events: [
 				{
 					eventSchemaSlug: "progress",
+					properties: { animeEpisode: 2 },
 					occurredAt: "2026-01-02T13:00:00.000Z",
-					properties: { animeEpisode: 1, progressPercent: 100 },
-				},
-				{
-					eventSchemaSlug: "progress",
-					occurredAt: "2026-01-02T13:00:00.000Z",
-					properties: { animeEpisode: 2, progressPercent: 100 },
 				},
 				{
 					eventSchemaSlug: "review",
@@ -114,19 +109,15 @@ describe("adaptAnilistExport", () => {
 		});
 		expect(result.entityGroups[1]).toMatchObject({
 			collectionMemberships: [{ collectionName: "Book Club" }, { collectionName: "Favorite" }],
+			events: [{ eventSchemaSlug: "progress", properties: { mangaVolume: 1, mangaChapter: 3 } }],
 			entityRef: {
 				kind: "resolved",
 				externalId: "200",
 				entitySchemaSlug: "manga",
 				providerSlug: "manga.anilist",
 			},
-			events: [
-				{ properties: { mangaChapter: 1, progressPercent: 100 } },
-				{ properties: { mangaChapter: 2, progressPercent: 100 } },
-				{ properties: { mangaChapter: 3, progressPercent: 100 } },
-				{ properties: { mangaVolume: 1, progressPercent: 100 } },
-			],
 		});
+		expect(result.entityGroups[1]?.events).toHaveLength(1);
 	});
 
 	it("maps list statuses to lifecycle events", () => {
@@ -198,32 +189,14 @@ describe("adaptAnilistExport", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups.map((group) => group.events)).toEqual([
 			[{ properties: {}, eventSchemaSlug: "backlog", occurredAt: "2026-01-02T13:00:00.000Z" }],
-			[
-				{
-					eventSchemaSlug: "progress",
-					properties: { progressPercent: 1 },
-					occurredAt: "2026-01-02T13:00:00.000Z",
-				},
-			],
-			[
-				{
-					eventSchemaSlug: "dropped",
-					properties: { progressPercent: 1 },
-					occurredAt: "2026-01-02T13:00:00.000Z",
-				},
-			],
-			[
-				{
-					eventSchemaSlug: "on_hold",
-					properties: { progressPercent: 1 },
-					occurredAt: "2026-01-02T13:00:00.000Z",
-				},
-			],
+			[{ properties: {}, eventSchemaSlug: "progress", occurredAt: "2026-01-02T13:00:00.000Z" }],
+			[{ properties: {}, eventSchemaSlug: "dropped", occurredAt: "2026-01-02T13:00:00.000Z" }],
+			[{ properties: {}, eventSchemaSlug: "on_hold", occurredAt: "2026-01-02T13:00:00.000Z" }],
 			[
 				{
 					eventSchemaSlug: "complete",
+					properties: { dateUnknown: true },
 					occurredAt: "2026-01-02T13:00:00.000Z",
-					properties: { completionMode: "unknown" },
 				},
 			],
 		]);
@@ -256,6 +229,13 @@ describe("adaptAnilistExport", () => {
 			{
 				itemIndex: 0,
 				collectionMemberships: [],
+				events: [
+					{
+						eventSchemaSlug: "progress",
+						properties: { mangaVolume: 3 },
+						occurredAt: "2026-01-03T09:00:00.000Z",
+					},
+				],
 				entityRef: {
 					kind: "resolved",
 					externalId: "200",
@@ -263,11 +243,6 @@ describe("adaptAnilistExport", () => {
 					entitySchemaSlug: "manga",
 					providerSlug: "manga.anilist",
 				},
-				events: [1, 2, 3].map((mangaVolume) => ({
-					eventSchemaSlug: "progress",
-					occurredAt: "2026-01-03T09:00:00.000Z",
-					properties: { mangaVolume, progressPercent: 100 },
-				})),
 			},
 		]);
 	});
@@ -276,27 +251,29 @@ describe("adaptAnilistExport", () => {
 		{ progress: 0, progressVolume: -1 },
 		{ progress: 0, progressVolume: 1.5 },
 		{ progress: 0, progressVolume: Number.MAX_SAFE_INTEGER + 1 },
-		{ progressVolume: 1, progress: Number.MAX_SAFE_INTEGER },
-	])("rejects invalid manga coverage $progress/$progressVolume", ({ progress, progressVolume }) => {
-		const result = adaptAnilistExport(
-			JSON.stringify({
-				lists: [
-					{
-						id: 1,
-						score: 0,
-						progress,
-						series_id: 200,
-						series_type: 1,
-						progress_volume: progressVolume,
-					},
-				],
-			}),
-			"Etc/GMT",
-		);
-		expect(result.entityGroups).toEqual([]);
-		expect(result.failures).toHaveLength(1);
-		expect(result.failures[0]).toMatchObject({ itemIndex: 0 });
-	});
+	])(
+		"rejects invalid manga volume progress $progress/$progressVolume",
+		({ progress, progressVolume }) => {
+			const result = adaptAnilistExport(
+				JSON.stringify({
+					lists: [
+						{
+							id: 1,
+							score: 0,
+							progress,
+							series_id: 200,
+							series_type: 1,
+							progress_volume: progressVolume,
+						},
+					],
+				}),
+				"Etc/GMT",
+			);
+			expect(result.entityGroups).toEqual([]);
+			expect(result.failures).toHaveLength(1);
+			expect(result.failures[0]).toMatchObject({ itemIndex: 0 });
+		},
+	);
 
 	it("records malformed source items without failing the whole export", () => {
 		const exportJson = JSON.stringify({

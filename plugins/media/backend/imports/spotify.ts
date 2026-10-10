@@ -80,12 +80,7 @@ export const adaptSpotifyStreamingHistory = (
 					.map((play) => ({
 						occurredAt: play.occurredAt,
 						eventSchemaSlug: "complete",
-						properties: {
-							consumedOn: "spotify",
-							timeSpent: play.timeSpent,
-							completedOn: play.occurredAt,
-							completionMode: "custom_timestamps",
-						},
+						properties: { consumedOn: "Spotify", timeSpent: play.timeSpent },
 					})),
 			});
 		}

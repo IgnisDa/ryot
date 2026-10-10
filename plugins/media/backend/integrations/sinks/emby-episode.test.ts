@@ -103,7 +103,7 @@ describe("Emby episode show resolution", () => {
 				events: [
 					{
 						occurredAt,
-						properties: { consumedOn: "emby", progressPercent: 50 },
+						properties: { consumedOn: "Emby", progressPercent: 50 },
 						unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 2 },
 					},
 				],

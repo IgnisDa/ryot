@@ -171,8 +171,8 @@ export const parseMediaServer = (
 				}
 				return progressResult({
 					occurredAt,
+					consumedOn: provider,
 					progressPercent: percent,
-					consumedOn: provider === "Jellyfin" ? "jellyfin_sink" : "emby",
 					...(locator ? { unresolvedEpisode: locator } : {}),
 					entityRef: resolvedMediaRef(entitySchemaSlug, metadataProvider, id, label),
 				});

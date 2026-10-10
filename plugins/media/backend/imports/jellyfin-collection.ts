@@ -163,14 +163,14 @@ export const collectJellyfin = Effect.fn(function* (input: MediaSourceInput, hos
 					? {
 							...(completedOn
 								? { occurredAt, eventSchemaSlug: "progress", properties: { progressPercent: 100 } }
-								: createCompleteEvent({ occurredAt, completedOn })),
+								: createCompleteEvent({ occurredAt, dateUnknown: !completedOn })),
 							unresolvedEpisode: {
 								type: "show" as const,
 								episodeNumber: item.IndexNumber ?? 0,
 								seasonNumber: item.ParentIndexNumber ?? 0,
 							},
 						}
-					: createCompleteEvent({ occurredAt, completedOn });
+					: createCompleteEvent({ occurredAt, dateUnknown: !completedOn });
 			records.push(
 				...normalizeMediaRecords(
 					{

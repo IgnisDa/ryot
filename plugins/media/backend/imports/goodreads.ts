@@ -117,7 +117,7 @@ export const adaptGoodreadsCsv = (
 		const readCount = normalizeReadCount(row["Read Count"] ?? "");
 		for (let index = eventStart; index < Math.min(readCount, eventStart + eventLimit); index++) {
 			group.events.push(
-				createCompleteEvent({ completedOn, occurredAt: completedOn ?? fallbackOccurredAt }),
+				createCompleteEvent({ occurredAt: fallbackOccurredAt, dateUnknown: completedOn === null }),
 			);
 		}
 		if (eventStart + eventLimit < readCount) {
@@ -125,7 +125,7 @@ export const adaptGoodreadsCsv = (
 		}
 		if (lifecycleStatus === "complete" && readCount === 0) {
 			group.events.push(
-				createCompleteEvent({ completedOn, occurredAt: completedOn ?? fallbackOccurredAt }),
+				createCompleteEvent({ occurredAt: fallbackOccurredAt, dateUnknown: completedOn === null }),
 			);
 		} else if (lifecycleStatus === "progress") {
 			group.events.push(createProgressEvent(fallbackOccurredAt));

@@ -151,8 +151,8 @@ export default defineScript({
 							const occurredAt = DateTime.formatIso(DateTime.makeUnsafe(timestamp * 1_000));
 							events.push({
 								occurredAt,
+								properties: {},
 								eventSchemaSlug: "complete",
-								properties: { completedOn: occurredAt, completionMode: "custom_timestamps" },
 								attribution: {
 									sourceLabel: item.title,
 									sourceIdentifier: String(item.ratingKey ?? item.key ?? currentIndex),

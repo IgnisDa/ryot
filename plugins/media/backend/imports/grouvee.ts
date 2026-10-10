@@ -127,7 +127,7 @@ export const adaptGrouveeCsv = (
 			const occurredAt = completedOn ?? startedOn ?? importedAt;
 			hasExplicitCompletion = true;
 			lastOccurredAt = occurredAt;
-			pushEvent(createCompleteEvent({ startedOn, occurredAt, completedOn }));
+			pushEvent(createCompleteEvent({ startedOn, occurredAt, dateUnknown: !completedOn }));
 		}
 		for (const statusEntry of parseStatusEntries(row["statuses"] ?? "")) {
 			const text = statusEntry.status?.trim();
@@ -145,7 +145,7 @@ export const adaptGrouveeCsv = (
 			const lifecycle = getShelfLifecycle(shelfName);
 			if (lifecycle === "complete") {
 				if (!hasExplicitCompletion) {
-					pushEvent(createCompleteEvent({ occurredAt: importedAt }));
+					pushEvent(createCompleteEvent({ dateUnknown: true, occurredAt: importedAt }));
 				}
 				hasExplicitCompletion = true;
 			} else if (lifecycle === "progress") {

@@ -146,18 +146,16 @@ const runSpotifyYank = (
 						occurredAt,
 						eventSchemaSlug: "complete",
 						operationId: integrationRecordId(["integration-source-event", key]),
+						properties: {
+							consumedOn: "Spotify",
+							timeSpent: Math.round(play.track.duration_ms / 600) / 100,
+						},
 						attribution: integrationSourceAttribution(
 							play.trackId,
 							play.track.name,
 							[key],
 							expiresAt,
 						),
-						properties: {
-							consumedOn: "spotify",
-							completedOn: occurredAt,
-							completionMode: "custom_timestamps",
-							timeSpent: Math.round(play.track.duration_ms / 600) / 100,
-						},
 					},
 				],
 			});

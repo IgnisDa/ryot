@@ -56,11 +56,7 @@ describe("adaptGrouveeCsv", () => {
 					{
 						eventSchemaSlug: "complete",
 						occurredAt: "2026-01-03T00:00:00.000Z",
-						properties: {
-							completionMode: "custom_timestamps",
-							startedOn: "2026-01-01T00:00:00.000Z",
-							completedOn: "2026-01-03T00:00:00.000Z",
-						},
+						properties: { startedOn: "2026-01-01T00:00:00.000Z" },
 					},
 				],
 			},
@@ -78,7 +74,7 @@ describe("adaptGrouveeCsv", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
 			collectionMemberships: [{ collectionName: "JRPG Club" }],
-			events: [{ eventSchemaSlug: "progress", properties: { progressPercent: 1 } }],
+			events: [{ properties: {}, eventSchemaSlug: "progress" }],
 		});
 	});
 
@@ -93,8 +89,8 @@ describe("adaptGrouveeCsv", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.events).toHaveLength(1);
 		expect(result.entityGroups[0]?.events[0]).toMatchObject({
+			properties: {},
 			eventSchemaSlug: "progress",
-			properties: { progressPercent: 1 },
 		});
 	});
 

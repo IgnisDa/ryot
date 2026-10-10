@@ -1,6 +1,6 @@
-import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import { adaptAnilistExport, anilistCoverageCount, AnilistList } from "./anilist";
+import { adaptAnilistExport } from "./anilist";
 import {
 	compareMediaRecords,
 	jsonArrayFrames,
@@ -17,10 +17,7 @@ import type { MediaSourceInput, MediaSourceRecord } from "./collection-schemas";
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
-const NormalizationState = Schema.Struct({
-	coverageStart: Schema.Int,
-	user: Schema.optional(Schema.Unknown),
-});
+const NormalizationState = Schema.Struct({ user: Schema.optional(Schema.Unknown) });
 export const collectAnilist = Effect.fn(function* (input: MediaSourceInput) {
 	let bytes: Uint8Array = input.ingestionArtifacts?.captures["carry"]
 		? yield* readMediaCapture("carry")
@@ -153,7 +150,7 @@ export const normalizeAnilist = Effect.fn(function* (input: MediaSourceInput) {
 	let itemIndex = input.itemIndex;
 	let state = header
 		? yield* Schema.decodeEffect(Schema.fromJsonString(NormalizationState))(header)
-		: { coverageStart: 0 };
+		: {};
 	const records: MediaSourceRecord[] = [];
 	for (let count = 0; count < 20; count++) {
 		const next = yield* read("records", offset);
@@ -163,7 +160,7 @@ export const normalizeAnilist = Effect.fn(function* (input: MediaSourceInput) {
 		}
 		const record = next.record;
 		if (record.section === "user") {
-			state = { user: record.raw, coverageStart: 0 };
+			state = { user: record.raw };
 			offset = next.next;
 			itemIndex++;
 			continue;
@@ -175,28 +172,8 @@ export const normalizeAnilist = Effect.fn(function* (input: MediaSourceInput) {
 			user: state.user,
 			[record.section]: [record.raw],
 		});
-		const result = adaptAnilistExport(
-			data,
-			String(input.settings["timezone"]),
-			input.importedAt,
-			state.coverageStart,
-			128,
-		);
-		records.push(
-			...normalizeMediaRecords(result, record.itemIndex, "anilist", state.coverageStart),
-		);
-		const parsed =
-			record.section === "lists" ? Schema.decodeUnknownResult(AnilistList)(record.raw) : null;
-		if (
-			parsed &&
-			Result.isSuccess(parsed) &&
-			!result.failures.length &&
-			state.coverageStart + 128 < anilistCoverageCount(parsed.success)
-		) {
-			state = { ...state, coverageStart: state.coverageStart + 128 };
-			break;
-		}
-		state = { ...state, coverageStart: 0 };
+		const result = adaptAnilistExport(data, String(input.settings["timezone"]), input.importedAt);
+		records.push(...normalizeMediaRecords(result, record.itemIndex, "anilist"));
 		offset = next.next;
 		itemIndex++;
 		if (encoder.encode(serializeMediaRecords(records)).length >= WINDOW_BYTES) {

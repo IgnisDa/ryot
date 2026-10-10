@@ -74,12 +74,7 @@ describe("adaptSpotifyStreamingHistory", () => {
 		expect(events[0]).toEqual({
 			eventSchemaSlug: "complete",
 			occurredAt: "2020-01-01T00:00:00.000Z",
-			properties: {
-				timeSpent: 3.59,
-				consumedOn: "spotify",
-				completionMode: "custom_timestamps",
-				completedOn: "2020-01-01T00:00:00.000Z",
-			},
+			properties: { timeSpent: 3.59, consumedOn: "Spotify" },
 		});
 		for (const group of result.entityGroups) {
 			expect(group.entityRef).toEqual({

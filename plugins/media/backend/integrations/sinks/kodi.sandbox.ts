@@ -58,7 +58,7 @@ export const parseKodi = (rawBody: string, occurredAt: string) =>
 		}
 		return progressResult({
 			occurredAt,
-			consumedOn: "kodi",
+			consumedOn: "Kodi",
 			progressPercent: progress,
 			entityRef: resolvedMediaRef(lot, "tmdb", id, id),
 			...(locator ? { unresolvedEpisode: locator } : {}),

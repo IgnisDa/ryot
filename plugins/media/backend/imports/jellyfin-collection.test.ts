@@ -77,16 +77,8 @@ it.live.each([undefined, null, "", "   "])(
 					eventSchemaSlug,
 				})),
 			).toEqual([
-				{
-					occurredAt: importedAt,
-					eventSchemaSlug: "complete",
-					properties: { completionMode: "unknown" },
-				},
-				{
-					occurredAt: importedAt,
-					eventSchemaSlug: "complete",
-					properties: { completionMode: "unknown" },
-				},
+				{ occurredAt: importedAt, eventSchemaSlug: "complete", properties: { dateUnknown: true } },
+				{ occurredAt: importedAt, eventSchemaSlug: "complete", properties: { dateUnknown: true } },
 			]);
 			expect(events[1]?.unresolvedEpisode).toEqual({
 				type: "show",
@@ -124,7 +116,7 @@ it.live("keeps played items whose UserData is absent", () =>
 		expect(records[0]?.group?.events[0]).toMatchObject({
 			occurredAt: importedAt,
 			eventSchemaSlug: "complete",
-			properties: { completionMode: "unknown" },
+			properties: { dateUnknown: true },
 		});
 	}),
 );
@@ -142,14 +134,7 @@ it.live("preserves dated movie completion and episode progress timestamps", () =
 		});
 		const events = records.flatMap((record) => record.group?.events ?? []);
 		expect(events).toMatchObject([
-			{
-				eventSchemaSlug: "complete",
-				occurredAt: "2025-02-03T02:05:06.000Z",
-				properties: {
-					completionMode: "custom_timestamps",
-					completedOn: "2025-02-03T02:05:06.000Z",
-				},
-			},
+			{ properties: {}, eventSchemaSlug: "complete", occurredAt: "2025-02-03T02:05:06.000Z" },
 			{
 				eventSchemaSlug: "progress",
 				properties: { progressPercent: 100 },
@@ -233,9 +218,7 @@ it.live("carries undated history across bounded movie and episode pages without 
 			true,
 		);
 		expect(
-			records.every(
-				(record) => record.group?.events[0]?.properties["completionMode"] === "unknown",
-			),
+			records.every((record) => record.group?.events[0]?.properties["dateUnknown"] === true),
 		).toBe(true);
 		expect(
 			new Set(

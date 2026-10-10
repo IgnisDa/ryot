@@ -55,7 +55,7 @@ describe("Kodi sink", () => {
 			events: [
 				{
 					eventSchemaSlug: "progress",
-					properties: { consumedOn: "kodi", progressPercent: 45 },
+					properties: { consumedOn: "Kodi", progressPercent: 45 },
 					unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 7 },
 				},
 			],
@@ -138,7 +138,7 @@ describe("media server sinks", () => {
 				entityRef: { externalId: "95396", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 				events: [
 					{
-						properties: { consumedOn: "emby", progressPercent: 50 },
+						properties: { consumedOn: "Emby", progressPercent: 50 },
 						unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
 					},
 				],
@@ -171,7 +171,7 @@ describe("media server sinks", () => {
 				entityRef: { externalId: "125988", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 				events: [
 					{
-						properties: { progressPercent: 25, consumedOn: "jellyfin_sink" },
+						properties: { progressPercent: 25, consumedOn: "Jellyfin" },
 						unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 4 },
 					},
 				],
@@ -648,7 +648,7 @@ describe("Plex sink", () => {
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups[0]).toMatchObject({
-				events: [{ properties: { progressPercent: 100, consumedOn: "plex_sink" } }],
+				events: [{ properties: { consumedOn: "Plex", progressPercent: 100 } }],
 				entityRef: { externalId: "27205", entitySchemaSlug: "movie", providerSlug: "movie.tmdb" },
 			});
 		}),
@@ -670,7 +670,7 @@ describe("Plex sink", () => {
 				entityRef: { externalId: "93740", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 				events: [
 					{
-						properties: { progressPercent: 80, consumedOn: "plex_sink" },
+						properties: { consumedOn: "Plex", progressPercent: 80 },
 						unresolvedEpisode: { type: "show", seasonNumber: 3, episodeNumber: 5 },
 					},
 				],

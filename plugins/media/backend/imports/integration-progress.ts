@@ -34,15 +34,13 @@ const isJsonObject = (value: JsonValue): value is Properties =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
 const jsonObject = (value: JsonValue): Properties | null => (isJsonObject(value) ? value : null);
 
-const subitemSignature = (properties: Properties) => {
-	const parts: string[] = [];
-	for (const key of ["animeEpisode", "mangaVolume", "mangaChapter"] as const) {
-		const value = properties[key];
-		if (typeof value === "number" || typeof value === "string") {
-			parts.push(`${key}=${String(value)}`);
-		}
+const positionProperties = { anime: "animeEpisode", manga: "mangaChapter" } as const;
+
+const progressPosition = (entitySchemaSlug: string, properties: Properties) => {
+	if (entitySchemaSlug !== "anime" && entitySchemaSlug !== "manga") {
+		return null;
 	}
-	return parts.join(",");
+	return parseProgressPercent(properties[positionProperties[entitySchemaSlug]]);
 };
 
 const consumedOnValue = (properties: Properties) =>
@@ -92,7 +90,6 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 					entitySchemaSlug,
 					event.eventSchemaSlug,
 					consumedOnValue(event.properties),
-					subitemSignature(event.properties),
 				];
 				const fingerprint = encodeProgressIdentity(identity);
 				const claimKey = encodeProgressIdentity([
@@ -102,16 +99,17 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 				]);
 				const decideProgress = Effect.fnUntraced(function* decideProgress() {
 					const parsed = parseProgressPercent(event.properties["progressPercent"]);
-					if (parsed === null) {
+					const position = progressPosition(entitySchemaSlug, event.properties);
+					if (parsed === null && position === null) {
 						return { reason: "invalid_progress" };
 					}
 					const integration = yield* host.getCurrentIntegration();
 					const minimum = toFiniteNumber(integration.minimumProgress) ?? 0;
 					const maximum = toFiniteNumber(integration.maximumProgress) ?? 100;
-					if (parsed < minimum) {
+					if (parsed !== null && parsed < minimum) {
 						return { reason: "below_minimum_progress" };
 					}
-					const progressPercent = parsed > maximum ? 100 : parsed;
+					const progressPercent = parsed !== null && parsed > maximum ? 100 : parsed;
 					const { items } = yield* executeRyotqlRecipe(
 						host.executeRyotql,
 						eventReadRecipe({
@@ -126,18 +124,26 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 							const properties = jsonObject(item.properties);
 							return (
 								properties !== null &&
-								consumedOnValue(properties) === consumedOnValue(event.properties) &&
-								subitemSignature(properties) === subitemSignature(event.properties)
+								consumedOnValue(properties) === consumedOnValue(event.properties)
 							);
 						}),
 						...(pending.get(fingerprint) ?? []),
 					].sort(sortLatestFirst);
-					const latest = matchingEvents[0] ? jsonObject(matchingEvents[0].properties) : null;
-					if (latest && parseProgressPercent(latest["progressPercent"]) === progressPercent) {
+					const comparable = (item: ProgressEvent) => {
+						const properties = jsonObject(item.properties);
+						if (properties === null) {
+							return null;
+						}
+						return position === null
+							? parseProgressPercent(properties["progressPercent"])
+							: progressPosition(entitySchemaSlug, properties);
+					};
+					const latestComparable = matchingEvents.map(comparable).find((value) => value !== null);
+					if (latestComparable === (position ?? progressPercent)) {
 						return { reason: "duplicate_progress" };
 					}
 					const now = yield* DateTime.nowAsDate;
-					if (progressPercent >= 100) {
+					if (progressPercent !== null && progressPercent >= 100) {
 						const config = yield* host.getPluginConfig({
 							optional: ["progressUpdateThresholdHours"],
 						});
@@ -157,7 +163,7 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 						}
 					}
 					const admitted =
-						parsed > maximum
+						parsed !== null && parsed > maximum
 							? { ...event, properties: { ...event.properties, progressPercent: 100 } }
 							: event;
 					pending.set(fingerprint, [
@@ -166,7 +172,7 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 					]);
 					return {
 						event: admitted,
-						reason: parsed > maximum ? "normalized_completion" : "admitted",
+						reason: parsed !== null && parsed > maximum ? "normalized_completion" : "admitted",
 					};
 				});
 				const decision = yield* decideProgress();

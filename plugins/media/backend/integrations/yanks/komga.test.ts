@@ -21,7 +21,7 @@ const bookLink = { label: "OpenLibrary", url: "https://openlibrary.org/works/OL4
 const book = (
 	id: string,
 	link = mangaLink,
-	number = "12.5",
+	number = "12",
 	readProgress: JsonValue = { page: 25, completed: false },
 ) => ({
 	id,
@@ -124,55 +124,67 @@ describe("Komga provider links", () => {
 });
 
 describe("Komga collection", () => {
-	it.live(
-		"posts a bounded search with API-key auth and preserves fractional manga chapter identity",
-		() =>
-			Effect.gen(function* () {
-				const { host, calls } = setup([
-					{ totalPages: 1, content: [book("chapter-12"), book("chapter-13", mangaLink, "13")] },
-				]);
-				const result = yield* runIntegrationTestScript(definition, {}, host, execution);
-				expect(calls).toEqual([
-					[
-						"POST",
-						"http://komga.test/api/v1/books/list?page=0&size=500",
-						{
-							body: encodeJson({
-								condition: { readStatus: { operator: "is", value: "IN_PROGRESS" } },
-							}),
-							headers: {
-								"X-API-Key": "komga-key",
-								Accept: "application/json",
-								"Content-Type": "application/json",
-							},
+	it.live("posts a bounded search with API-key auth", () =>
+		Effect.gen(function* () {
+			const { host, calls } = setup([
+				{ totalPages: 1, content: [book("chapter-13", mangaLink, "13")] },
+			]);
+			const result = yield* runIntegrationTestScript(definition, {}, host, execution);
+			expect(calls).toEqual([
+				[
+					"POST",
+					"http://komga.test/api/v1/books/list?page=0&size=500",
+					{
+						body: encodeJson({
+							condition: { readStatus: { operator: "is", value: "IN_PROGRESS" } },
+						}),
+						headers: {
+							"X-API-Key": "komga-key",
+							Accept: "application/json",
+							"Content-Type": "application/json",
 						},
-					],
-				]);
-				expect(result.failures).toEqual([]);
-				expect(result.entityGroups.map(({ events }) => events)).toEqual([
-					[
-						{
-							eventSchemaSlug: "progress",
-							occurredAt: execution.startedAt,
-							properties: { mangaChapter: 12.5, consumedOn: "komga", progressPercent: 25 },
-						},
-					],
-					[
-						{
-							eventSchemaSlug: "progress",
-							occurredAt: execution.startedAt,
-							properties: { mangaChapter: 13, consumedOn: "komga", progressPercent: 25 },
-						},
-					],
-				]);
-			}),
+					},
+				],
+			]);
+			expect(result.failures).toEqual([]);
+		}),
 	);
 
-	it.live("keeps chapter zero but does not invent chapters for malformed positions or books", () =>
+	it.live("writes the previous chapter for a partly read manga chapter and no percent", () =>
+		Effect.gen(function* () {
+			const { host } = setup([{ content: [book("partial", mangaLink, "12")] }]);
+			const result = yield* runIntegrationTestScript(definition, {}, host, execution);
+			expect(result.entityGroups.map(({ events }) => events[0]?.properties)).toEqual([
+				{ mangaChapter: 11, consumedOn: "Komga" },
+			]);
+		}),
+	);
+
+	it.live("writes the chapter itself once it is fully read", () =>
 		Effect.gen(function* () {
 			const { host } = setup([
 				{
 					content: [
+						book("whole", mangaLink, "12", { page: 100, completed: false }),
+						book("fractional", mangaLink, "12.5", { page: 100, completed: false }),
+					],
+				},
+			]);
+			const result = yield* runIntegrationTestScript(definition, {}, host, execution);
+			expect(result.entityGroups.map(({ events }) => events[0]?.properties)).toEqual([
+				{ mangaChapter: 12, consumedOn: "Komga" },
+				{ mangaChapter: 12.5, consumedOn: "Komga" },
+			]);
+		}),
+	);
+
+	it.live("skips partly read first, fractional, and malformed manga chapters", () =>
+		Effect.gen(function* () {
+			const { host } = setup([
+				{
+					content: [
+						book("first", mangaLink, "1"),
+						book("fractional", mangaLink, "12.5"),
 						book("zero", mangaLink, "0"),
 						book("missing", mangaLink, ""),
 						book("special", mangaLink, "12 extra"),
@@ -182,12 +194,12 @@ describe("Komga collection", () => {
 				},
 			]);
 			const result = yield* runIntegrationTestScript(definition, {}, host, execution);
+			expect(result.failures).toEqual([]);
 			expect(result.entityGroups.map(({ events }) => events[0]?.properties)).toEqual([
-				{ mangaChapter: 0, consumedOn: "komga", progressPercent: 25 },
-				{ consumedOn: "komga", progressPercent: 25 },
-				{ consumedOn: "komga", progressPercent: 25 },
-				{ consumedOn: "komga", progressPercent: 25 },
-				{ consumedOn: "komga", progressPercent: 25 },
+				{ consumedOn: "Komga", progressPercent: 25 },
+			]);
+			expect(result.entityGroups.map(({ entityRef }) => entityRef.entitySchemaSlug)).toEqual([
+				"book",
 			]);
 		}),
 	);

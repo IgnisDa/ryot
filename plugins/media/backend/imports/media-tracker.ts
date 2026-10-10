@@ -143,7 +143,7 @@ export const lifecycleEvent = (lifecycle: string, occurredAt: string) => {
 		return createOnHoldEvent({ occurredAt });
 	}
 	if (lifecycle === "complete") {
-		return createCompleteEvent({ occurredAt, completedOn: occurredAt });
+		return createCompleteEvent({ occurredAt });
 	}
 	return null;
 };
