@@ -26,9 +26,6 @@ import {
 	ProviderHttpAdmissionBlockResult,
 	type ProviderHttpAdmissionDeclaration,
 	ProviderHttpAdmissionService,
-	ProviderHttpClaim,
-	ProviderHttpPoll,
-	ProviderHttpRegistration,
 	type ProviderHttpTicket,
 	providerHttpTicketId,
 } from "#lib/infrastructure/provider-http-admission";
@@ -45,6 +42,7 @@ import {
 	reportSandboxLifecycleWarnings,
 	toSandboxHostError,
 } from "#lib/infrastructure/sandbox-runtime/shared";
+import { workflowInterruptRequested } from "#lib/infrastructure/workflow-interruption";
 import { implementLaneWorkflow } from "#lib/infrastructure/workflow-lane";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { GlobalEntityUpsertResults, PendingGlobalEntityUpsert } from "#modules/entities/service";
@@ -110,14 +108,26 @@ const HttpRateLimitResolution = Schema.Union([
 	}),
 ]);
 
-type AdmissionTiming = { readonly grantedAtMs: number; readonly registeredAtMs: number };
+type MatchedHttpRateLimitResolution = Extract<
+	typeof HttpRateLimitResolution.Type,
+	{ readonly matched: true }
+>;
+
+const AdmissionTiming = Schema.Struct({ grantedAtMs: Schema.Int, registeredAtMs: Schema.Int });
+type AdmissionTiming = typeof AdmissionTiming.Type;
+
+const HttpAdmission = Schema.Union([
+	Schema.TaggedStruct("Settled", {
+		resolution: HttpRateLimitResolution,
+		timing: Schema.NullOr(AdmissionTiming),
+	}),
+	Schema.TaggedStruct("Interrupted", {}),
+]);
 
 const timed = <A, E>(effect: Effect.Effect<A, E>) =>
 	Effect.flatMap(effect, (value) =>
 		Effect.map(Clock.currentTimeMillis, (atMs) => ({ atMs, value })),
 	);
-
-const observed = <S extends Schema.Top>(value: S) => Schema.Struct({ value, atMs: Schema.Int });
 
 const HttpNetworkAttempt = Schema.Struct({
 	durationMs: Schema.Int,
@@ -160,6 +170,65 @@ const admissionFailure = (stage: string) => ({
 	ProviderHttpAdmissionUnavailable: coordinationError(stage),
 	ProviderHttpAdmissionCorruptState: coordinationError(stage),
 });
+
+const coordinator = <PauseR>(
+	executionId: string,
+	pause: (backoffMs: number) => Effect.Effect<void, never, PauseR>,
+) => {
+	let failureStreak = 0;
+	let failureActive = false;
+	return <A, R>(stage: string, run: () => Effect.Effect<A, HttpAdmissionCoordinationError, R>) =>
+		Effect.gen(function* () {
+			for (;;) {
+				const outcome = yield* run().pipe(
+					Effect.map((value) => ({ value, success: true as const })),
+					Effect.catchTag("HttpAdmissionCoordinationError", (error) =>
+						Effect.succeed({ error, success: false as const }),
+					),
+				);
+				if (outcome.success) {
+					if (failureActive) {
+						yield* Effect.logInfo("sandbox HTTP admission coordination recovered").pipe(
+							Effect.annotateLogs({
+								status: "recovered",
+								stage: bounded(stage, 32),
+								sandboxWorkflowExecutionId: executionId,
+							}),
+						);
+					}
+					failureStreak = 0;
+					failureActive = false;
+					return outcome.value;
+				}
+				failureStreak += 1;
+				if (!failureActive) {
+					failureActive = true;
+					yield* Effect.logWarning("sandbox HTTP admission coordination failed").pipe(
+						Effect.annotateLogs({
+							status: "failed",
+							sandboxWorkflowExecutionId: executionId,
+							stage: bounded(outcome.error.stage, 32),
+						}),
+					);
+				}
+				yield* pause(
+					Math.min(
+						SANDBOX_LIMITS.http.coordinationBackoffMs,
+						1_000 * 2 ** Math.min(failureStreak - 1, 5),
+					),
+				);
+			}
+		});
+};
+
+const cancelFailed = (executionId: string) =>
+	Effect.logWarning("sandbox HTTP admission coordination failed").pipe(
+		Effect.annotateLogs({
+			stage: "cancel",
+			status: "failed",
+			sandboxWorkflowExecutionId: executionId,
+		}),
+	);
 
 const networkAttemptLogLevel = (result: WorkflowDurableResult) => {
 	if (result.state === "success") {
@@ -265,6 +334,10 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		const lifecycleExecution = yield* LifecycleExecution;
 		const rateLimitAuthority = yield* PluginHttpRateLimitAuthority;
 		const classify = sandboxHttpRedirectClassifier(rateLimitAuthority.resolve);
+		const cancelAdmission = (policy: MatchedHttpRateLimit, ticket: ProviderHttpTicket) =>
+			admission
+				.cancel(admissionDeclaration(policy), ticket)
+				.pipe(Effect.catchTags(admissionFailure("cancel")));
 		// Lease expiry is the backstop, so a failed cancel never holds the request back.
 		const cancelTicket = (
 			name: string,
@@ -276,16 +349,40 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				name,
 				success: Schema.Void,
 				error: HttpAdmissionCoordinationError,
-				execute: admission
-					.cancel(admissionDeclaration(policy), ticket)
-					.pipe(Effect.catchTags(admissionFailure("cancel"))),
+				execute: cancelAdmission(policy, ticket),
+			}).pipe(Effect.catchTag("HttpAdmissionCoordinationError", () => cancelFailed(executionId)));
+		const cancelNow = (
+			executionId: string,
+			policy: MatchedHttpRateLimit,
+			ticket: ProviderHttpTicket,
+		) =>
+			cancelAdmission(policy, ticket).pipe(
+				Effect.catchTag("HttpAdmissionCoordinationError", () => cancelFailed(executionId)),
+			);
+		const resolveNow = (executionId: string, url: string) =>
+			Effect.gen(function* () {
+				const startedAtMs = yield* Clock.currentTimeMillis;
+				const resolution = yield* rateLimitAuthority.resolve(url);
+				return {
+					...resolution,
+					durationMs: Math.max(0, (yield* Clock.currentTimeMillis) - startedAtMs),
+				};
 			}).pipe(
-				Effect.catchTag("HttpAdmissionCoordinationError", () =>
-					Effect.logWarning("sandbox HTTP admission coordination failed").pipe(
+				Effect.catchTags({
+					DbError: coordinationError("resolve"),
+					PluginValidationError: coordinationError("resolve"),
+				}),
+				Effect.tap((resolution) =>
+					Effect.logTrace("sandbox HTTP policy resolution completed").pipe(
 						Effect.annotateLogs({
-							stage: "cancel",
-							status: "failed",
+							stage: "resolve",
+							durationMs: resolution.durationMs,
 							sandboxWorkflowExecutionId: executionId,
+							status: resolution.matched ? "matched" : resolution.reason,
+							...(resolution.origin ? { origin: bounded(resolution.origin, 256) } : {}),
+							...(resolution.matched
+								? { policyKey: bounded(resolution.declaration.key, 128) }
+								: {}),
 						}),
 					),
 				),
@@ -301,16 +398,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 			startedAt: string,
 		) =>
 			Effect.gen(function* () {
-				let waitAttempt = 0;
 				let rateLimitCount = 0;
 				let networkAttempt = 0;
 				let blockWaitAttempt = 0;
-				let overloadWaitAttempt = 0;
+				let admissionAttempt = 0;
 				let coordinationAttempt = 0;
 				let registrationAttempt = 0;
-				let coordinationFailureStreak = 0;
 				let coordinationBackoffAttempt = 0;
-				let coordinationFailureActive = false;
 				let terminalRateLimit: WorkflowDurableResult | undefined;
 				const scheduling = yield* sandboxSchedulingKey({
 					payload: { principal, lane: payload.lane },
@@ -321,134 +415,36 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					),
 				);
 
+				const coordinateDurably = coordinator(executionId, (backoffMs) =>
+					DurableClock.sleep({
+						duration: Duration.millis(backoffMs),
+						inMemoryThreshold: Duration.millis(1),
+						name: `sandbox-http-${request.index}-coordination-backoff-${coordinationBackoffAttempt++}`,
+					}),
+				);
+
 				const coordinate = <Success extends Schema.Top>(
 					stage: string,
 					success: Success,
 					execute: () => Effect.Effect<Success["Type"], HttpAdmissionCoordinationError>,
 				) =>
-					Effect.gen(function* () {
-						for (;;) {
-							const activityAttempt = coordinationAttempt++;
-							const outcome = yield* makeActivity({
-								success,
-								execute: execute(),
-								error: HttpAdmissionCoordinationError,
-								name: `sandbox-http-${request.index}-${stage}-${activityAttempt}`,
-							}).pipe(
-								Effect.map((value) => ({ value, success: true as const })),
-								Effect.catchTag("HttpAdmissionCoordinationError", (error) =>
-									Effect.succeed({ error, success: false as const }),
-								),
-							);
-							if (outcome.success) {
-								if (coordinationFailureActive) {
-									yield* Effect.logInfo("sandbox HTTP admission coordination recovered").pipe(
-										Effect.annotateLogs({
-											status: "recovered",
-											stage: bounded(stage, 32),
-											sandboxWorkflowExecutionId: executionId,
-										}),
-									);
-								}
-								coordinationFailureStreak = 0;
-								coordinationFailureActive = false;
-								return outcome.value;
-							}
-							coordinationFailureStreak += 1;
-							if (!coordinationFailureActive) {
-								coordinationFailureActive = true;
-								yield* Effect.logWarning("sandbox HTTP admission coordination failed").pipe(
-									Effect.annotateLogs({
-										status: "failed",
-										sandboxWorkflowExecutionId: executionId,
-										stage: bounded(outcome.error.stage, 32),
-									}),
-								);
-							}
-							const backoffMs = Math.min(
-								SANDBOX_LIMITS.http.coordinationBackoffMs,
-								1_000 * 2 ** Math.min(coordinationFailureStreak - 1, 5),
-							);
-							yield* DurableClock.sleep({
-								duration: Duration.millis(backoffMs),
-								inMemoryThreshold: Duration.millis(1),
-								name: `sandbox-http-${request.index}-coordination-backoff-${coordinationBackoffAttempt++}`,
-							});
-						}
-					});
+					coordinateDurably(stage, () =>
+						makeActivity({
+							success,
+							execute: execute(),
+							error: HttpAdmissionCoordinationError,
+							name: `sandbox-http-${request.index}-${stage}-${coordinationAttempt++}`,
+						}),
+					);
 
 				const resolvePolicy = (url: string) =>
-					coordinate("resolve", HttpRateLimitResolution, () =>
-						Effect.gen(function* () {
-							const startedAtMs = yield* Clock.currentTimeMillis;
-							const resolution = yield* rateLimitAuthority.resolve(url);
-							return {
-								...resolution,
-								durationMs: Math.max(0, (yield* Clock.currentTimeMillis) - startedAtMs),
-							};
-						}).pipe(
-							Effect.catchTags({
-								DbError: coordinationError("resolve"),
-								PluginValidationError: coordinationError("resolve"),
-							}),
-						),
-					).pipe(
-						Effect.tap((resolution) =>
-							Effect.logTrace("sandbox HTTP policy resolution completed").pipe(
-								Effect.annotateLogs({
-									stage: "resolve",
-									durationMs: resolution.durationMs,
-									sandboxWorkflowExecutionId: executionId,
-									status: resolution.matched ? "matched" : resolution.reason,
-									...(resolution.origin ? { origin: bounded(resolution.origin, 256) } : {}),
-									...(resolution.matched
-										? { policyKey: bounded(resolution.declaration.key, 128) }
-										: {}),
-								}),
-							),
-						),
-					);
-
-				const register = (policy: MatchedHttpRateLimit, ticket: ProviderHttpTicket) =>
-					coordinate("register", observed(ProviderHttpRegistration), () =>
-						timed(
-							admission
-								.register(admissionDeclaration(policy), ticket)
-								.pipe(Effect.catchTags(admissionFailure("register"))),
-						),
-					);
-
-				const poll = (policy: MatchedHttpRateLimit, ticket: ProviderHttpTicket) =>
-					coordinate("poll", observed(ProviderHttpPoll), () =>
-						timed(
-							admission
-								.poll(admissionDeclaration(policy), ticket)
-								.pipe(Effect.catchTags(admissionFailure("poll"))),
-						),
-					);
-
-				const claim = (policy: MatchedHttpRateLimit, ticket: ProviderHttpTicket, nonce: string) =>
-					coordinate("claim", observed(ProviderHttpClaim), () =>
-						timed(
-							admission
-								.claim(admissionDeclaration(policy), ticket, nonce)
-								.pipe(Effect.catchTags(admissionFailure("claim"))),
-						),
-					);
+					coordinate("resolve", HttpRateLimitResolution, () => resolveNow(executionId, url));
 
 				const block = (policy: MatchedHttpRateLimit, delayMs: number) =>
 					coordinate("block", ProviderHttpAdmissionBlockResult, () =>
 						admission
 							.block(admissionDeclaration(policy), delayMs)
 							.pipe(Effect.catchTags(admissionFailure("block"))),
-					);
-
-				const cancelNow = (policy: MatchedHttpRateLimit, ticket: ProviderHttpTicket) =>
-					cancelTicket(
-						`sandbox-http-${request.index}-cancel-${coordinationAttempt++}`,
-						executionId,
-						policy,
-						ticket,
 					);
 
 				const cancelOnInterrupt = (policy: MatchedHttpRateLimit, ticket: ProviderHttpTicket) => {
@@ -460,8 +456,143 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					);
 				};
 
+				// Waits stay in memory: a suspended workflow replays its journal on every wake, and the
+				// grant lease is shorter than that replay under load. A re-executed admission is safe
+				// because registration is idempotent and a claimed ticket stays claimed.
+				const admitInMemory = (
+					initial: MatchedHttpRateLimitResolution,
+					url: string,
+					ticket: ProviderHttpTicket,
+				) =>
+					Effect.suspend(() => {
+						let policy = initial;
+						const coordinateNow = coordinator(executionId, (backoffMs) =>
+							Effect.sleep(Duration.millis(backoffMs)),
+						);
+						const resolve = () => coordinateNow("resolve", () => resolveNow(executionId, url));
+						const cancelIfInterrupted = () =>
+							workflowInterruptRequested.pipe(
+								Effect.tap((requested) =>
+									requested ? cancelNow(executionId, policy, ticket) : Effect.void,
+								),
+							);
+						return Effect.gen(function* () {
+							let overloadStreak = 0;
+							let registeredAtMs: number | undefined;
+							registration: for (;;) {
+								if (yield* cancelIfInterrupted()) {
+									return { _tag: "Interrupted" as const };
+								}
+								const { value: registered, atMs: registerAtMs } = yield* coordinateNow(
+									"register",
+									() =>
+										timed(
+											admission
+												.register(admissionDeclaration(policy), ticket)
+												.pipe(Effect.catchTags(admissionFailure("register"))),
+										),
+								);
+								registeredAtMs ??= registerAtMs;
+								if (registered.status === "overloaded") {
+									overloadStreak += 1;
+									yield* Effect.sleep(
+										Duration.millis(
+											Math.min(OVERLOAD_BACKOFF_MS, 1_000 * 2 ** Math.min(overloadStreak - 1, 5)),
+										),
+									);
+									const resolution = yield* resolve();
+									if (!resolution.matched) {
+										return { resolution, timing: null, _tag: "Settled" as const };
+									}
+									policy = resolution;
+									continue registration;
+								}
+								overloadStreak = 0;
+								let nonce = registered.status === "claimed" ? "claimed" : null;
+								let grantedAtMs = registerAtMs;
+								for (;;) {
+									if (nonce === null) {
+										if (yield* cancelIfInterrupted()) {
+											return { _tag: "Interrupted" as const };
+										}
+										const { value: polled, atMs: polledAtMs } = yield* coordinateNow("poll", () =>
+											timed(
+												admission
+													.poll(admissionDeclaration(policy), ticket)
+													.pipe(Effect.catchTags(admissionFailure("poll"))),
+											),
+										);
+										if (polled.status === "retry") {
+											continue;
+										}
+										if (polled.status === "unknown") {
+											break;
+										}
+										if (polled.status === "wait") {
+											yield* Effect.logDebug("sandbox HTTP admission waiting").pipe(
+												Effect.annotateLogs({
+													stage: "poll",
+													status: "waiting",
+													waitMs: polled.waitMs,
+													origin: bounded(policy.origin, 256),
+													sandboxWorkflowExecutionId: executionId,
+													policyKey: bounded(policy.declaration.key, 128),
+												}),
+											);
+											yield* Effect.sleep(Duration.millis(polled.waitMs));
+											const resolution = yield* resolve();
+											if (!resolution.matched || !samePolicy(policy, resolution)) {
+												yield* cancelNow(executionId, policy, ticket);
+												if (!resolution.matched) {
+													return { resolution, timing: null, _tag: "Settled" as const };
+												}
+												policy = resolution;
+												continue registration;
+											}
+											continue;
+										}
+										nonce = polled.status === "granted" ? polled.nonce : "claimed";
+										grantedAtMs = polledAtMs;
+									}
+									const current = policy;
+									const grant = nonce;
+									const claimed = yield* coordinateNow("claim", () =>
+										admission
+											.claim(admissionDeclaration(current), ticket, grant)
+											.pipe(Effect.catchTags(admissionFailure("claim"))),
+									);
+									nonce = null;
+									if (claimed.status === "admitted") {
+										yield* Effect.logTrace("sandbox HTTP admission claimed").pipe(
+											Effect.annotateLogs({
+												stage: "claim",
+												status: "admitted",
+												origin: bounded(policy.origin, 256),
+												sandboxWorkflowExecutionId: executionId,
+												policyKey: bounded(policy.declaration.key, 128),
+											}),
+										);
+										return {
+											resolution: policy,
+											_tag: "Settled" as const,
+											timing: { grantedAtMs, registeredAtMs },
+										};
+									}
+									if (claimed.status === "unknown") {
+										break;
+									}
+								}
+								const resolution = yield* resolve();
+								if (!resolution.matched) {
+									return { resolution, timing: null, _tag: "Settled" as const };
+								}
+								policy = resolution;
+							}
+						});
+					});
+
 				const admit = (
-					initial: MatchedHttpRateLimit,
+					initial: MatchedHttpRateLimitResolution,
 					url: string,
 					identity: { readonly hop: number; readonly attempt: number },
 				) =>
@@ -470,95 +601,16 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							...scheduling,
 							id: providerHttpTicketId({ ...identity, executionId, requestIndex: request.index }),
 						};
-						let policy = initial;
-						let overloadStreak = 0;
-						let guardedKey: string | undefined;
-						let registeredAtMs: number | undefined;
-						registration: for (;;) {
-							const { value: registered, atMs: registerAtMs } = yield* register(policy, ticket);
-							registeredAtMs ??= registerAtMs;
-							if (registered.status === "overloaded") {
-								overloadStreak += 1;
-								yield* sleepFor(
-									`sandbox-http-${request.index}-overload-wait-${overloadWaitAttempt++}`,
-									Math.min(OVERLOAD_BACKOFF_MS, 1_000 * 2 ** Math.min(overloadStreak - 1, 5)),
-								);
-								const resolution = yield* resolvePolicy(url);
-								if (!resolution.matched) {
-									return { resolution, timing: null };
-								}
-								policy = resolution;
-								continue registration;
-							}
-							overloadStreak = 0;
-							if (guardedKey !== policy.declaration.key) {
-								guardedKey = policy.declaration.key;
-								yield* cancelOnInterrupt(policy, ticket);
-							}
-							let nonce = registered.status === "claimed" ? "claimed" : null;
-							let grantedAtMs = registerAtMs;
-							for (;;) {
-								if (nonce === null) {
-									const { value: polled, atMs: polledAtMs } = yield* poll(policy, ticket);
-									if (polled.status === "retry") {
-										continue;
-									}
-									if (polled.status === "unknown") {
-										break;
-									}
-									if (polled.status === "wait") {
-										yield* Effect.logDebug("sandbox HTTP admission waiting").pipe(
-											Effect.annotateLogs({
-												stage: "poll",
-												status: "waiting",
-												waitMs: polled.waitMs,
-												origin: bounded(policy.origin, 256),
-												sandboxWorkflowExecutionId: executionId,
-												policyKey: bounded(policy.declaration.key, 128),
-											}),
-										);
-										yield* sleepFor(
-											`sandbox-http-${request.index}-admission-wait-${waitAttempt++}`,
-											polled.waitMs,
-										);
-										const resolution = yield* resolvePolicy(url);
-										if (!resolution.matched || !samePolicy(policy, resolution)) {
-											yield* cancelNow(policy, ticket);
-											if (!resolution.matched) {
-												return { resolution, timing: null };
-											}
-											policy = resolution;
-											continue registration;
-										}
-										continue;
-									}
-									nonce = polled.status === "granted" ? polled.nonce : "claimed";
-									grantedAtMs = polledAtMs;
-								}
-								const { value: claimed } = yield* claim(policy, ticket, nonce);
-								nonce = null;
-								if (claimed.status === "admitted") {
-									yield* Effect.logTrace("sandbox HTTP admission claimed").pipe(
-										Effect.annotateLogs({
-											stage: "claim",
-											status: "admitted",
-											origin: bounded(policy.origin, 256),
-											sandboxWorkflowExecutionId: executionId,
-											policyKey: bounded(policy.declaration.key, 128),
-										}),
-									);
-									return { resolution: policy, timing: { grantedAtMs, registeredAtMs } };
-								}
-								if (claimed.status === "unknown") {
-									break;
-								}
-							}
-							const resolution = yield* resolvePolicy(url);
-							if (!resolution.matched) {
-								return { resolution, timing: null };
-							}
-							policy = resolution;
+						yield* cancelOnInterrupt(initial, ticket);
+						const admitted = yield* makeActivity({
+							success: HttpAdmission,
+							execute: admitInMemory(initial, url, ticket),
+							name: `sandbox-http-${request.index}-admission-${admissionAttempt++}`,
+						});
+						if (admitted._tag === "Interrupted") {
+							return yield* Workflow.suspend(yield* WorkflowInstance);
 						}
+						return admitted;
 					});
 
 				const runNetworkAttempt = (
