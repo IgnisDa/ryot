@@ -1,46 +1,103 @@
 import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { Result } from "@ryot-app/client-sdk/effect";
 import {
 	defineEntityPresentation,
 	PluginLink,
 	useRyotViewport,
 	type EntityPresentationComponentProps,
 	type EntityPresentationLoader,
+	type EntityPresentationPrepare,
+	type EntityReference,
 } from "@ryot-app/client-sdk/plugin";
 import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
+import { defineRecipe } from "@ryot-app/client-sdk/ryotql";
 import { Button } from "@ryot-app/client-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import { useState } from "react";
 
-import { PokemonArtwork, PokemonDetails } from "./pokemon-display";
 import {
-	pokemonPresentationRecipe,
-	type PokemonPresentationData,
-} from "./pokemon-presentation-query";
+	pokemonPresentationSource,
+	type PokemonPresentationSourceData,
+} from "../shared/entity-presentations";
+import { PokemonArtwork, PokemonDetails } from "./pokemon-display";
 import PokemonTypes from "./pokemon-types";
 
-export type PokemonPresentationViewData = PokemonPresentationData & {
+export type PokemonPresentationViewData = {
+	readonly abilities: PokemonPresentationSourceData["presentationAbilities"];
+	readonly artwork: PokemonPresentationSourceData["presentationArtwork"];
 	readonly batchAssets: readonly ManagedAssetLocator[];
+	readonly height: PokemonPresentationSourceData["presentationHeight"];
+	readonly name: string;
+	readonly types: PokemonPresentationSourceData["presentationTypes"];
+	readonly weight: PokemonPresentationSourceData["presentationWeight"];
+};
+
+const buildPokemonPresentations = (
+	references: readonly EntityReference[],
+	sources: readonly PokemonPresentationSourceData[],
+) => {
+	const byId = new Map(sources.map((source) => [source.presentationId, source]));
+	return Result.map(
+		Result.all(
+			references.map((reference) => {
+				const source = byId.get(reference.entityId);
+				return source === undefined
+					? Result.fail(
+							new Error(`Missing Pokemon presentation source for '${reference.entityId}'`),
+						)
+					: Result.succeed(source);
+			}),
+		),
+		(rows) => {
+			const batchAssets = [
+				...new Map(
+					rows
+						.map(({ presentationArtwork }) => presentationArtwork)
+						.filter(
+							(asset): asset is ManagedAssetLocator => asset !== null && asset.type !== "remote",
+						)
+						.map((asset) => [`${asset.type}:${asset.key}`, asset]),
+				).values(),
+			];
+			return Object.fromEntries(
+				rows.map((source) => [
+					source.presentationId,
+					{
+						batchAssets,
+						name: source.presentationName,
+						types: source.presentationTypes,
+						height: source.presentationHeight,
+						weight: source.presentationWeight,
+						artwork: source.presentationArtwork,
+						abilities: source.presentationAbilities,
+					},
+				]),
+			);
+		},
+	);
+};
+
+export const preparePokemonPresentations: EntityPresentationPrepare<
+	PokemonPresentationViewData
+> = ({ sources, references }) => {
+	const source = pokemonPresentationSource();
+	return Result.flatMap(
+		Result.all(references.map((reference) => source.decode(sources.get(reference.entityId)))),
+		(rows) => buildPokemonPresentations(references, rows),
+	);
 };
 
 export const loadPokemonPresentations: EntityPresentationLoader<PokemonPresentationViewData> = ({
 	client,
 	references,
 }) => {
-	const requestedIds = [...new Set(references.map(({ entityId }) => entityId))];
-	return client.data.query(pokemonPresentationRecipe(requestedIds)).pipe(
-		Effect.map((rows) => {
-			const batchAssets = [
-				...new Map(
-					rows
-						.flatMap(({ artwork }) => artwork?.slice(0, 1) ?? [])
-						.filter((asset): asset is ManagedAssetLocator => asset.type !== "remote")
-						.map((asset) => [`${asset.type}:${asset.key}`, asset]),
-				).values(),
-			];
-			return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
-		}),
-	);
+	const source = pokemonPresentationSource();
+	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
+	const recipe = defineRecipe(() => ({
+		queries: { presentations: source.query(entityIds) },
+		map: ({ presentations }) => buildPokemonPresentations(references, presentations.items),
+	}))();
+	return client.data.query(recipe);
 };
 
 const PokemonExpandedDetails = ({
@@ -92,8 +149,8 @@ export const PokemonCard = ({
 			>
 				<PokemonArtwork
 					name={data.name}
-					asset={data.artwork?.[0]}
 					className="aspect-square w-full"
+					asset={data.artwork ?? undefined}
 					state={fieldSyncState(data.artwork, reference)}
 				/>
 				<span className="flex min-w-0 items-baseline gap-1.5">
@@ -126,7 +183,7 @@ export const PokemonRow = ({
 			>
 				<PokemonArtwork
 					name={data.name}
-					asset={data.artwork?.[0]}
+					asset={data.artwork ?? undefined}
 					state={fieldSyncState(data.artwork, reference)}
 					className={compact ? "size-14 shrink-0" : "size-16 shrink-0"}
 				/>
@@ -150,9 +207,11 @@ export const PokemonRow = ({
 export const pokemonCardPresentation = defineEntityPresentation({
 	component: PokemonCard,
 	loader: loadPokemonPresentations,
+	prepare: preparePokemonPresentations,
 });
 
 export const pokemonRowPresentation = defineEntityPresentation({
 	component: PokemonRow,
 	loader: loadPokemonPresentations,
+	prepare: preparePokemonPresentations,
 });

@@ -1,87 +1,95 @@
-import { PopulationStatus, TranslationStatus } from "@ryot-app/client-sdk";
-import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
+import { Result } from "@ryot-app/client-sdk/effect";
 import {
 	defineEntityPresentation,
 	PluginLink,
 	useRyotViewport,
 	type EntityPresentationComponentProps,
 	type EntityPresentationLoader,
+	type EntityPresentationPrepare,
+	type EntityReference,
 } from "@ryot-app/client-sdk/plugin";
-import {
-	and,
-	ascending,
-	castNumber,
-	castText,
-	column,
-	defineRecipe,
-	eq,
-	inArray,
-	jsonPath,
-	literal,
-	selectedField,
-	selectedRows,
-	table,
-	type Recipe,
-} from "@ryot-app/client-sdk/ryotql";
+import { defineRecipe } from "@ryot-app/client-sdk/ryotql";
 import { Badge } from "@ryot-app/client-ui-sdk";
 import { isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 
-export const movePresentationRecipe = defineRecipe((entityIds: readonly string[]) => {
-	const move = table("entity", "presentationMove");
-	const property = (key: string) => jsonPath(column(move, "properties"), key);
-	return {
-		map: ({ moves }) => Result.succeed(moves.items),
-		queries: {
-			moves: selectedRows(move, {
-				limit: 100,
-				orderBy: [ascending(column(move, "id"))],
-				where: and(
-					eq(column(move, "entitySchemaSlug"), literal("move")),
-					inArray(
-						column(move, "id"),
-						entityIds.map((entityId) => literal(entityId)),
-					),
-				),
-				selection: {
-					id: selectedField(column(move, "id"), Schema.String),
-					name: selectedField(column(move, "name"), Schema.String),
-					type: selectedField(castText(property("type")), Schema.NullOr(Schema.String)),
-					power: selectedField(castNumber(property("power")), Schema.NullOr(Schema.Finite)),
-					populationStatus: selectedField(column(move, "populationStatus"), PopulationStatus),
-					translationStatus: selectedField(column(move, "translationStatus"), TranslationStatus),
-					generation: selectedField(castText(property("generation")), Schema.NullOr(Schema.String)),
-					damageClass: selectedField(
-						castText(property("damageClass")),
-						Schema.NullOr(Schema.String),
-					),
-				},
-			}),
-		},
-	};
-});
+import {
+	movePresentationSource,
+	type MovePresentationSourceData,
+} from "../shared/entity-presentations";
 
-export type MovePresentationData = Recipe.Success<typeof movePresentationRecipe>[number];
+export type MovePresentationData = {
+	readonly damageClass: MovePresentationSourceData["presentationDamageClass"];
+	readonly generation: MovePresentationSourceData["presentationGeneration"];
+	readonly name: string;
+	readonly power: MovePresentationSourceData["presentationPower"];
+	readonly type: MovePresentationSourceData["presentationType"];
+};
+
+const buildMovePresentations = (
+	references: readonly EntityReference[],
+	sources: readonly MovePresentationSourceData[],
+) => {
+	const byId = new Map(sources.map((source) => [source.presentationId, source]));
+	return Result.map(
+		Result.all(
+			references.map((reference) => {
+				const source = byId.get(reference.entityId);
+				return source === undefined
+					? Result.fail(new Error(`Missing move presentation source for '${reference.entityId}'`))
+					: Result.succeed(source);
+			}),
+		),
+		(rows) =>
+			Object.fromEntries(
+				rows.map((source) => [
+					source.presentationId,
+					{
+						name: source.presentationName,
+						type: source.presentationType,
+						power: source.presentationPower,
+						generation: source.presentationGeneration,
+						damageClass: source.presentationDamageClass,
+					},
+				]),
+			),
+	);
+};
+
+export const prepareMovePresentations: EntityPresentationPrepare<MovePresentationData> = ({
+	sources,
+	references,
+}) => {
+	const source = movePresentationSource();
+	return Result.flatMap(
+		Result.all(references.map((reference) => source.decode(sources.get(reference.entityId)))),
+		(rows) => buildMovePresentations(references, rows),
+	);
+};
 
 export const loadMovePresentations: EntityPresentationLoader<MovePresentationData> = ({
 	client,
 	references,
 }) => {
+	const source = movePresentationSource();
 	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-	return client.data
-		.query(movePresentationRecipe(entityIds))
-		.pipe(Effect.map((moves) => Object.fromEntries(moves.map((move) => [move.id, move]))));
+	const recipe = defineRecipe(() => ({
+		queries: { presentations: source.query(entityIds) },
+		map: ({ presentations }) => buildMovePresentations(references, presentations.items),
+	}))();
+	return client.data.query(recipe);
 };
 
 function MovePresentation(props: {
 	readonly compact: boolean;
 	readonly layout: "grid" | "list";
 	readonly data: MovePresentationData;
+	readonly reference: EntityReference;
 }) {
 	return (
 		<article
 			data-layout={props.layout}
-			data-entity-id={props.data.id}
+			data-entity-id={props.reference.entityId}
 			className={clsx(
 				"min-w-0",
 				props.layout === "grid"
@@ -95,10 +103,13 @@ function MovePresentation(props: {
 					{props.data.type ?? "Move"}
 				</span>
 				<span className="flex min-w-0 items-baseline gap-1.5">
-					<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.data.id }}>
+					<PluginLink
+						className="min-w-0"
+						to={{ kind: "entity", entityId: props.reference.entityId }}
+					>
 						<span className="line-clamp-2 min-w-0 font-semibold text-text">{props.data.name}</span>
 					</PluginLink>
-					{isTitleProvisional(props.data) && <SyncPip reason="translating" />}
+					{isTitleProvisional(props.reference) && <SyncPip reason="translating" />}
 				</span>
 				{props.data.damageClass !== null && (
 					<span className="truncate text-xs text-text-muted">{props.data.damageClass}</span>
@@ -112,22 +123,24 @@ function MovePresentation(props: {
 	);
 }
 
-function MoveCard({ data }: EntityPresentationComponentProps<MovePresentationData>) {
+function MoveCard({ data, reference }: EntityPresentationComponentProps<MovePresentationData>) {
 	const { compact } = useRyotViewport();
-	return <MovePresentation data={data} layout="grid" compact={compact} />;
+	return <MovePresentation data={data} layout="grid" compact={compact} reference={reference} />;
 }
 
-function MoveRow({ data }: EntityPresentationComponentProps<MovePresentationData>) {
+function MoveRow({ data, reference }: EntityPresentationComponentProps<MovePresentationData>) {
 	const { compact } = useRyotViewport();
-	return <MovePresentation data={data} layout="list" compact={compact} />;
+	return <MovePresentation data={data} layout="list" compact={compact} reference={reference} />;
 }
 
 export const moveCardPresentation = defineEntityPresentation({
 	component: MoveCard,
 	loader: loadMovePresentations,
+	prepare: prepareMovePresentations,
 });
 
 export const moveRowPresentation = defineEntityPresentation({
 	component: MoveRow,
 	loader: loadMovePresentations,
+	prepare: prepareMovePresentations,
 });
