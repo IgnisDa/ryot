@@ -182,11 +182,7 @@ it.live("renders a saved view from an installed client plugin page", () =>
 			.getByTestId("desktop-sidebar")
 			.getByRole("button", { name: /workspace/ })
 			.click();
-		yield* page
-			.getByRole("menuitemradio", {
-				name: `Switch to Media · System · ${mediaPlugin.metadata.packageId} workspace`,
-			})
-			.click();
+		yield* page.getByRole("menuitemradio", { name: "Switch to Media workspace" }).click();
 		yield* page
 			.getByTestId("desktop-sidebar")
 			.getByRole("link", { exact: true, name: "All Music" })

@@ -228,9 +228,8 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 
 		yield* page.getByRole("button", { name: /workspace,/ }).click();
 		yield* page
-			.getByRole("menuitemradio", {
-				name: `Switch to Fixture · Private · ${installed.packageId} workspace`,
-			})
+			.getByRole("menuitemradio", { name: "Switch to Fixture workspace" })
+			.and(page.getByTitle(`${installed.packageId} · `))
 			.click();
 		yield* page.waitForURL(fixtureUrl);
 		yield* frame.waitFor({ state: "visible" });
