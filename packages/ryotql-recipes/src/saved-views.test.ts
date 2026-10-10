@@ -361,6 +361,7 @@ describe("saved-view recipes", () => {
 				{
 					cells: [],
 					name: "Piranesi",
+					presentation: row,
 					entityId: "book-1",
 					ownerPluginId: null,
 					entitySchemaSlug: "book",
