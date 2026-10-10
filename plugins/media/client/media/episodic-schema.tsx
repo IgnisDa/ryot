@@ -163,6 +163,7 @@ export type MediaEpisodicSchemaDescriptor<
 	readonly EpisodesTab: (props: {
 		readonly compact: boolean;
 		readonly entityId: string;
+		readonly safeAreaTop: number;
 		readonly summary: Summary | undefined;
 	}) => ReactNode;
 	readonly overviewTrailing?: (input: {
@@ -428,6 +429,7 @@ export const defineEpisodicMediaSchema = <
 			episodes={createElement(descriptor.EpisodesTab, {
 				compact: input.compact,
 				entityId: input.entityId,
+				safeAreaTop: input.safeAreaTop,
 				summary: input.state.status === "ready" ? input.state.summary : undefined,
 			})}
 		/>

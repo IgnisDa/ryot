@@ -147,7 +147,10 @@ const showAdapter = (input: {
 const [summaryNextUp] = decodeShowSeasonEpisodesResult({ episodes: [secondEpisode] }).items;
 
 const renderTab = (adapter: Partial<RyotClientAdapter>, nextUp: ShowEpisode | null = null) =>
-	mountRyotClient(adapter, <ShowEpisodesTab compact entityId="show-1" summary={{ nextUp }} />);
+	mountRyotClient(
+		adapter,
+		<ShowEpisodesTab compact safeAreaTop={0} entityId="show-1" summary={{ nextUp }} />,
+	);
 
 const STORAGE_ENTRY = identityTupleKey("media-owner", "episode-order:show-1");
 
@@ -347,7 +350,7 @@ describe("show season browser", () => {
 					query: () => Effect.fail(new RyotClientError("transport")),
 					watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 				},
-				<ShowEpisodesTab compact entityId="show-1" summary={undefined} />,
+				<ShowEpisodesTab compact safeAreaTop={0} entityId="show-1" summary={undefined} />,
 			);
 			yield* Effect.promise(() => flushRyotClient());
 

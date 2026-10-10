@@ -293,6 +293,7 @@ function ShowSeasonHeader(props: { readonly compact: boolean; readonly season: S
 function ShowSeasonBrowser(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
+	readonly safeAreaTop: number;
 	readonly seasons: ShowSeasonList;
 	readonly nextUp: ShowEpisode | null;
 	readonly selectedId: string | null;
@@ -320,6 +321,7 @@ function ShowSeasonBrowser(props: {
 				entityId={props.entityId}
 				render={SHOW_EPISODE_RENDER}
 				copy={SHOW_EPISODE_PAGES_COPY}
+				safeAreaTop={props.safeAreaTop}
 				query={showSeasonEpisodesQuery}
 				nextUp={nextUp?.seasonNumber === season.seasonNumber ? nextUp : null}
 			/>
@@ -361,6 +363,7 @@ function ShowOrderGroupHeader(props: {
 function ShowOrderBrowser(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
+	readonly safeAreaTop: number;
 	readonly order: ShowEpisodeOrder;
 }) {
 	const { order } = props;
@@ -394,6 +397,7 @@ function ShowOrderBrowser(props: {
 				compact={props.compact}
 				entityId={props.entityId}
 				query={showOrderEpisodesQuery}
+				safeAreaTop={props.safeAreaTop}
 				render={SHOW_ORDER_EPISODE_RENDER}
 				copy={SHOW_ORDER_EPISODE_PAGES_COPY}
 				containerId={`${order.externalId}:${index}`}
@@ -406,6 +410,7 @@ function ShowOrderBrowser(props: {
 export function ShowEpisodes(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
+	readonly safeAreaTop: number;
 	readonly refresh: () => void;
 	readonly state: ShowSeasonsState;
 	readonly nextUp: ShowEpisode | null;
@@ -449,6 +454,7 @@ export function ShowEpisodes(props: {
 					entityId={props.entityId}
 					onSelect={props.onSelect}
 					selectedId={props.selectedId}
+					safeAreaTop={props.safeAreaTop}
 				/>
 			) : (
 				<ShowOrderBrowser
@@ -456,6 +462,7 @@ export function ShowEpisodes(props: {
 					key={order.externalId}
 					compact={props.compact}
 					entityId={props.entityId}
+					safeAreaTop={props.safeAreaTop}
 				/>
 			)}
 		</div>
@@ -469,6 +476,7 @@ const persistOrder = (write: Promise<void>) => {
 function ShowEpisodesWithOrder(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
+	readonly safeAreaTop: number;
 	readonly nextUp: ShowEpisode | null;
 	readonly storage: Extract<PluginStorageState<string>, { readonly status: "ready" }>;
 }) {
@@ -496,6 +504,7 @@ function ShowEpisodesWithOrder(props: {
 				onSelect={setSelectedId}
 				refresh={result.refetch}
 				entityId={props.entityId}
+				safeAreaTop={props.safeAreaTop}
 				order={resolved?.order ?? null}
 				onSelectOrder={(orderId) =>
 					persistOrder(orderId === null ? remove() : storage.set(orderId))
@@ -509,6 +518,7 @@ function ShowEpisodesWithOrder(props: {
 export function ShowEpisodesTab(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
+	readonly safeAreaTop: number;
 	readonly summary: { readonly nextUp: ShowEpisode | null } | undefined;
 }) {
 	const identity = usePluginIdentity(PLUGIN_PACKAGE_ID);
@@ -527,6 +537,7 @@ export function ShowEpisodesTab(props: {
 			storage={storage}
 			compact={props.compact}
 			entityId={props.entityId}
+			safeAreaTop={props.safeAreaTop}
 			nextUp={props.summary?.nextUp ?? null}
 		/>
 	);
