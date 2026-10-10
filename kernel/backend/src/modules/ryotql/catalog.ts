@@ -92,6 +92,9 @@ export type CatalogTable = {
 	readonly primaryKey: readonly [string, ...string[]];
 	readonly visibility: CatalogVisibility;
 	readonly fields: Readonly<Record<string, CatalogField>>;
+	// Small per-user catalogs: an include reads one materialized copy instead of re-evaluating the
+	// view for every parent row.
+	readonly materializedInIncludes?: true;
 };
 
 type ExpandedCatalogSelections = {
@@ -477,6 +480,7 @@ const entitySchema: CatalogTable = {
 const eventSchema: CatalogTable = {
 	primaryKey: ["id"],
 	name: "user_event_schema",
+	materializedInIncludes: true,
 	visibility: {
 		...effectiveDefinitionVisibility,
 		plugin: { kind: "event", type: "schemaDefinition" },
@@ -615,6 +619,7 @@ const integrationProvider: CatalogTable = {
 
 const sandboxProvider: CatalogTable = {
 	primaryKey: ["id"],
+	materializedInIncludes: true,
 	name: "user_sandbox_provider",
 	visibility: {
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
