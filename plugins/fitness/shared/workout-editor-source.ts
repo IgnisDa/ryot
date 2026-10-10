@@ -91,7 +91,6 @@ const WorkoutEditorTemplatePropertiesSchema = Schema.Struct({
 
 const WorkoutEditorWorkoutSetPropertiesSchema = Schema.Struct({
 	rpe: optionalNullableRpe,
-	setLot: WorkoutSetLotSchema,
 	setOrder: nonNegativeInteger,
 	note: optionalNullableString,
 	restTime: optionalNullableRest,
@@ -103,6 +102,7 @@ const WorkoutEditorWorkoutSetPropertiesSchema = Schema.Struct({
 	duration: optionalNullableMeasurement,
 	distance: optionalNullableMeasurement,
 	restTimerStartedAt: optionalNullableString,
+	setLot: Schema.optional(WorkoutSetLotSchema),
 });
 
 type SourceBlocker = {
@@ -299,7 +299,7 @@ const workoutDraft = (
 				sets: orderedSets.map(({ event, properties: set }) =>
 					makeSet(event.id, set.exerciseKind, {
 						included: true,
-						setLot: set.setLot,
+						setLot: set.setLot ?? "normal",
 						...measuredStrings(set),
 						eventId: event.id,
 						note: set.note ?? undefined,

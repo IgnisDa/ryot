@@ -89,6 +89,31 @@ it("hydrates saved sets without confirmations and retains their recorded exercis
 	});
 });
 
+it("includes a saved set without the optional set type as a normal set", () => {
+	const set = event("set-1", "exercise-1");
+	const source = baseline(workoutProperties(), [
+		{
+			...set,
+			properties: Object.fromEntries(
+				Object.entries(set.properties).filter(([key]) => key !== "setLot"),
+			),
+		},
+	]);
+	const result = hydrateWorkoutEditorSource({
+		kind: "workout",
+		baseline: source,
+		draftId: "draft-1",
+		exercises: [exercise("exercise-1")],
+	});
+	assert(result.kind === "ready");
+	expect(result.draft.occurrences[0]?.sets[0]).toMatchObject({
+		included: true,
+		setLot: "normal",
+		eventId: "set-1",
+		occurredAt: startedAt,
+	});
+});
+
 it("retains the baseline rather than silently dropping orphaned or ambiguous occurrence media", () => {
 	for (const exerciseMedia of [
 		[{ videos: [], exerciseOrder: 2, images: [{ type: "local", key: "permanent/orphan.jpg" }] }],
