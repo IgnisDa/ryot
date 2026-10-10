@@ -609,7 +609,7 @@ const seedCatalog = Effect.gen(function* () {
 					run("run-other", { triggerId: "trigger-b", executionUserId: "other" }),
 				]);
 			yield* db.execute(
-				sql`update automation_run set queued_at = queued_at + (case id when 'run-eligible' then 100 when 'run-missing' then 200 when 'run-before' then 300 when 'run-succeeded' then 400 when 'run-expired' then 500 else 0 end) * interval '1 microsecond'`,
+				sql`update automation_run set queued_at = queued_at + (case id when 'run-eligible' then 100 when 'run-missing' then 200 when 'run-before' then 300 when 'run-succeeded' then 400 when 'run-expired' then 500 else 0 end) * interval '1 millisecond'`,
 			);
 			yield* db.insert(automationRunAttempt).values(
 				[
@@ -856,12 +856,12 @@ layer(catalogDatabaseLayer)((test) => {
 });
 
 layer(catalogDatabaseLayer)((test) => {
-	test.effect("pages timestamps that share a millisecond at full database precision", () =>
+	test.effect("pages timestamp cursors at full database precision", () =>
 		Effect.gen(function* () {
 			const runs = table("automationRun", "runs");
 			const queuedAt = column(runs, "queuedAt");
 			const fields = [field("id", column(runs, "id"))];
-			const microsecondOrder = [
+			const queuedOrder = [
 				{ id: "run-eligible" },
 				{ id: "run-missing" },
 				{ id: "run-before" },
@@ -871,10 +871,10 @@ layer(catalogDatabaseLayer)((test) => {
 
 			expect(
 				yield* collectPages(rows(runs, { fields, orderBy: [ascending(queuedAt)] }), owner),
-			).toEqual(microsecondOrder);
+			).toEqual(queuedOrder);
 			expect(
 				yield* collectPages(rows(runs, { fields, orderBy: [descending(queuedAt)] }), owner),
-			).toEqual(microsecondOrder.toReversed());
+			).toEqual(queuedOrder.toReversed());
 		}),
 	);
 });

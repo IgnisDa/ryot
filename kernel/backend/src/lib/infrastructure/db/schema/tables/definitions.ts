@@ -432,9 +432,9 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 	sortOrder: integer().notNull(),
 	isBuiltin: boolean().notNull(),
 	dataSources: jsonb().$type<RyotQLDocument>(),
-	createdAt: timestamp({ withTimezone: true }),
-	updatedAt: timestamp({ withTimezone: true }),
 	renderer: jsonb().$type<SavedViewRenderer>().notNull(),
+	createdAt: timestamp({ precision: 3, withTimezone: true }),
+	updatedAt: timestamp({ precision: 3, withTimezone: true }),
 	settings: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull(),
 }).as(sql`
 	select s.id, null::text as plugin_id, custom_plugin.slug as plugin_slug,
@@ -528,9 +528,9 @@ export const userSandboxProvider = snakeCase
 		installationId: text().notNull(),
 		rootEntitySchemaSlug: text().notNull(),
 		pluginScope: text().$type<PluginScope>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).notNull(),
-		updatedAt: timestamp({ withTimezone: true }).notNull(),
 		information: jsonb().$type<ProviderInformation>().notNull(),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
+		updatedAt: timestamp({ precision: 3, withTimezone: true }).notNull(),
 	})
 	.as(
 		sql`

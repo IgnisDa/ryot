@@ -24,13 +24,13 @@ export const backupRun = snakeCase.table(
 		artifactKey: text(),
 		progress: integer().notNull().default(0),
 		failure: jsonb().$type<BackupRunFailure>(),
-		expiresAt: timestamp({ withTimezone: true }),
-		startedAt: timestamp({ withTimezone: true }),
 		kind: text().notNull().$type<BackupRunKind>(),
-		finishedAt: timestamp({ withTimezone: true }),
+		expiresAt: timestamp({ precision: 3, withTimezone: true }),
+		startedAt: timestamp({ precision: 3, withTimezone: true }),
+		finishedAt: timestamp({ precision: 3, withTimezone: true }),
 		artifactProvider: text().$type<BackupRunArtifactProvider>(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		status: text().notNull().$type<BackupRunStatus>().default("pending"),
+		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

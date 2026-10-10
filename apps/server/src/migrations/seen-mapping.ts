@@ -255,7 +255,7 @@ BEGIN
 					NULLIF(r.providers_consumed_on[1], '')
 				)
 			)),
-			r.updated_at[r.n_ts] + interval '1 microsecond',
+			r.updated_at[r.n_ts] + interval '1 millisecond',
 			COALESCE(r.finished_on, r.updated_at[r.n_ts])
 		FROM rows r
 		WHERE (r.entity_schema_slug <> 'show' OR r.show_episode_entity_id IS NOT NULL)
@@ -363,8 +363,8 @@ BEGIN
 					))
 			END,
 			r.updated_at[r.n_ts] + CASE
-				WHEN r.terminal_slug = 'complete' THEN interval '1 microsecond'
-				ELSE interval '0 microseconds'
+				WHEN r.terminal_slug = 'complete' THEN interval '1 millisecond'
+				ELSE interval '0 milliseconds'
 			END,
 			CASE
 				WHEN r.terminal_slug = 'complete' THEN COALESCE(r.finished_on, r.updated_at[r.n_ts])
