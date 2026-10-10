@@ -30,6 +30,9 @@ snapshot and creates one isolate per execution. The sidecar ran a no-op in 15 ms
 used less memory under concurrency, and contained CPU, heap, and ArrayBuffer abuse that today's model
 does not. Measurements and the pitfalls the spike found are in [evidence.md](evidence.md).
 
+The six-pair production-path comparison is in [S3 results](s3.md#results). Provider request reductions
+lower details latency, but both loaded/unloaded endpoint ratios miss E2 under CPU saturation.
+
 ## Decisions
 
 - **One isolate per execution.** Contexts sharing an isolate share one heap limit and leak state.
@@ -247,7 +250,8 @@ are outlines requiring review before implementation.
 
 - **Status:** lanes, memory admission ([s3-memory.md](s3-memory.md)), fair execution and HTTP
   admission, lane-pinned backend processes and the `SERVER_LANES=split` supervisor are implemented and
-  tenant fairness passes; the E2 measurement remains. Contract, acceptance, and results:
+  tenant fairness passes. The six-pair measurement at `448dbda769` misses both E2 endpoint limits;
+  root workflow completion delivery is deferred upstream. Contract, acceptance, and results:
   [s3.md](s3.md).
 - **Outcome:** interactive and background lanes, and per-user and per-plugin fairness for all
   executions and for global HTTP admission slots.
@@ -282,6 +286,8 @@ S2, when workflow-engine rows become the dominant per-import cost.
 
 ## Follow-ups
 
+- Adopt the root `WorkflowEngine.execute` completion fix after
+  [Effect #9003](https://github.com/Effect-TS/effect/issues/9003) is resolved; retain the adoption TODO.
 - Remove `--no-turbofan` and its TODO once
   [denoland/rusty_v8#2088](https://github.com/denoland/rusty_v8/issues/2088) is fixed upstream and the
   termination suite passes without it.
