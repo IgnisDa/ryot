@@ -3,5 +3,4 @@
 - Keep process startup and layer sequencing here; domain behavior belongs in plugins and reusable runtime behavior belongs in the kernel.
 - Keep development assembly under `apps/server` aligned with the `/home/ryot` image layout and working-directory-relative configuration defaults.
 - Build the client runtime and kernel renderer artifacts during assembly into `plugins/client-image.json`. It contains their bytes and the public hashes of shipped plugin archives; the production server imports prebuilt artifacts and does not ship compiler workers.
-- Declare the shipped plugin set in `shipped-plugins.json` as package IDs; assembly, documentation generation, and the image all derive from it through `tooling/shipped-plugins.ts`.
-- Assembly ships one `plugins/<publisher>/<name>.zip` archive per declared plugin, derived from its `publisher/name` package ID.
+- Declare shipped plugins in `shipped-plugins.json` as package IDs and read it only through `tooling/shipped-plugins.ts`; assembly ships each as `plugins/<publisher>/<name>.zip`.
