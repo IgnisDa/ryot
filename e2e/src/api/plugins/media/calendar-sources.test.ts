@@ -130,8 +130,8 @@ describe("Media calendar sources", () => {
 			yield* createEventFixture(client, {
 				entityId: episode(1, 1),
 				eventSchemaSlug: complete,
+				properties: { dateUnknown: true },
 				occurredAt: "2026-09-06T00:00:00.000Z",
-				properties: { completionMode: "unknown" },
 			});
 
 			expect(summary(yield* occurrences(client, "show-episodes"))).toEqual([
@@ -174,8 +174,8 @@ describe("Media calendar sources", () => {
 			});
 			yield* createEventFixture(client, {
 				eventSchemaSlug: complete,
+				properties: { dateUnknown: true },
 				occurredAt: "2026-09-04T00:00:00.000Z",
-				properties: { completionMode: "unknown" },
 				entityId: requirePresent(episodes[0], "Expected a seeded episode").id,
 			});
 
@@ -232,24 +232,24 @@ describe("Media calendar sources", () => {
 			yield* createEventFixture(client, {
 				entityId: anime.id,
 				eventSchemaSlug: progress,
+				properties: { animeEpisode: 2 },
 				occurredAt: "2026-09-14T00:00:00.000Z",
-				properties: { animeEpisode: 2, progressPercent: 10 },
 			});
 			expect(yield* airings()).toEqual(expectedAirings(true, false));
 
 			yield* createEventFixture(client, {
 				entityId: anime.id,
 				eventSchemaSlug: progress,
+				properties: { animeEpisode: 1 },
 				occurredAt: "2026-09-15T00:00:00.000Z",
-				properties: { animeEpisode: 1, progressPercent: 10 },
 			});
 			expect(yield* airings()).toEqual(expectedAirings(false, false));
 
 			yield* createEventFixture(client, {
 				entityId: anime.id,
 				eventSchemaSlug: complete,
+				properties: { dateUnknown: true },
 				occurredAt: "2026-09-16T00:00:00.000Z",
-				properties: { completionMode: "unknown" },
 			});
 			expect(yield* airings()).toEqual(expectedAirings(true, true));
 		}),
@@ -311,8 +311,8 @@ describe("Media calendar sources", () => {
 			yield* createEventFixture(client, {
 				entityId: movie.id,
 				eventSchemaSlug: complete,
+				properties: { dateUnknown: true },
 				occurredAt: "2026-09-17T00:00:00.000Z",
-				properties: { completionMode: "unknown" },
 			});
 			expect(yield* releases()).toEqual([animeRow, movieRow(true)]);
 			expect((yield* releases()).map(({ subject }) => subject)).not.toContain(book.id);

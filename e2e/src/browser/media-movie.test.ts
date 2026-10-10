@@ -81,14 +81,14 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 		yield* createEventFixture(client, {
 			entityId: seeded.movie.id,
 			eventSchemaSlug: events.complete,
+			properties: { dateUnknown: true },
 			occurredAt: "2026-07-01T10:00:00.000Z",
-			properties: { completionMode: "unknown" },
 		});
 		yield* createEventFixture(client, {
 			entityId: seeded.movie.id,
 			eventSchemaSlug: events.complete,
+			properties: { dateUnknown: true },
 			occurredAt: "2026-07-08T10:00:00.000Z",
-			properties: { completionMode: "unknown" },
 		});
 
 		const browser = yield* Playwright.Browser;

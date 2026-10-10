@@ -112,9 +112,9 @@ const seedAiringShow = (client: Client, schemas: ShowSchemas, publishDates: read
 const watch = (client: Client, schemas: ShowSchemas, episodeId: string) =>
 	createEventFixture(client, {
 		entityId: episodeId,
+		properties: { dateUnknown: true },
 		occurredAt: "2026-01-01T00:00:00.000Z",
 		eventSchemaSlug: schemas.episodeComplete,
-		properties: { completionMode: "unknown" },
 	});
 
 const episodeId = (

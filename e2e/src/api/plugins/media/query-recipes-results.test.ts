@@ -399,9 +399,9 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { progressPercent: 50, consumedOn: "RyotQL test" },
 			});
 			yield* createEventFixture(client, {
+				properties: {},
 				entityId: firstEpisode.id,
 				eventSchemaSlug: completeEventSchema.id,
-				properties: { completionMode: "unknown" },
 			});
 
 			const showRow = yield* executeRyotQLRecipe(
@@ -895,8 +895,8 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { progressPercent: 50, consumedOn: "RyotQL test" },
 			});
 			yield* createEventFixture(client, {
+				properties: {},
 				entityId: secondEpisode.id,
-				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
 
@@ -977,22 +977,22 @@ describe("Media RyotQL query recipe results", () => {
 				properties: { progressPercent: 100, consumedOn: "RyotQL test" },
 			});
 			yield* createEventFixture(client, {
+				properties: {},
 				entityId: firstEpisode.id,
-				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
 			yield* assertPodcastState("in_progress");
 
 			yield* createEventFixture(client, {
+				properties: {},
 				entityId: secondEpisode.id,
-				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
 			yield* assertPodcastState("caught_up");
 
 			yield* createEventFixture(client, {
+				properties: {},
 				entityId: seeded.podcast.id,
-				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.podcastCompleteEventSchemaSlug,
 			});
 			yield* assertPodcastState("complete");
@@ -1024,7 +1024,7 @@ describe("Media RyotQL query recipe results", () => {
 				entityId: seeded.firstEpisode.id,
 				occurredAt: "2024-03-05T12:00:00.000Z",
 				eventSchemaSlug: seeded.episodeEvents.complete,
-				properties: { timeSpent: 45, consumedOn: "Jellyfin", completionMode: "unknown" },
+				properties: { timeSpent: 45, consumedOn: "Jellyfin" },
 			});
 			yield* createEventFixture(client, {
 				entityId: seeded.firstEpisode.id,
@@ -1045,9 +1045,9 @@ describe("Media RyotQL query recipe results", () => {
 				eventSchemaSlug: seeded.episodeEvents.progress,
 			});
 			yield* createEventFixture(client, {
+				properties: {},
 				entityId: seeded.show.id,
 				occurredAt: "2024-03-09T12:00:00.000Z",
-				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.showEvents.complete,
 			});
 			yield* createEventFixture(client, {
@@ -1213,9 +1213,9 @@ describe("Media RyotQL query recipe results", () => {
 				eventSchemaSlug: seeded.showEvents.backlog,
 			});
 			yield* createEventFixture(client, {
+				properties: {},
 				entityId: seeded.secondEpisode.id,
 				occurredAt: "2024-05-02T12:00:00.000Z",
-				properties: { completionMode: "unknown" },
 				eventSchemaSlug: seeded.episodeEvents.complete,
 			});
 
@@ -1251,9 +1251,9 @@ describe("Media RyotQL query recipe results", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const seeded = yield* seedActivityShow(client);
 			yield* createEventFixture(client, {
+				properties: {},
 				entityId: seeded.specialEpisode.id,
 				occurredAt: "2024-06-01T12:00:00.000Z",
-				properties: { completionMode: "unknown" },
 				sessionEntityId: seeded.specialEpisode.id,
 				eventSchemaSlug: seeded.episodeEvents.complete,
 			});
@@ -1284,8 +1284,8 @@ describe("Media RyotQL query recipe results", () => {
 			for (const occurredAt of ["2024-07-01T12:00:00.000Z", "2024-07-02T12:00:00.000Z"]) {
 				yield* createEventFixture(client, {
 					occurredAt,
+					properties: {},
 					entityId: seeded.show.id,
-					properties: { completionMode: "unknown" },
 					eventSchemaSlug: seeded.showEvents.complete,
 				});
 			}

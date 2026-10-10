@@ -48,10 +48,8 @@ describe("Event automations", () => {
 			const completionEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
 			expect(completionEvent.eventSchemaSlug).toBe("complete");
-			expect(completionEvent.properties).toMatchObject({
-				completedOn: isoAt(1),
-				completionMode: "custom_timestamps",
-			});
+			expect(completionEvent.properties).not.toHaveProperty("completedOn");
+			expect(completionEvent.properties).not.toHaveProperty("completionMode");
 			expect(completionEvent.occurredAt).toBe(isoAt(1));
 		}),
 	);
@@ -140,15 +138,9 @@ describe("Event automations", () => {
 					payload: [
 						{
 							entityId,
-							occurredAt: isoAt(1),
-							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { animeEpisode: 1, progressPercent: 100 },
-						},
-						{
-							entityId,
 							occurredAt: isoAt(2),
+							properties: { animeEpisode: 2 },
 							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { animeEpisode: 2, progressPercent: 100 },
 						},
 					],
 				}),
@@ -157,10 +149,7 @@ describe("Event automations", () => {
 			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
 			expect(completeEvent.eventSchemaSlug).toBe("complete");
-			expect(completeEvent.properties).toMatchObject({
-				completionMode: "custom_timestamps",
-				completedOn: "2024-01-02T00:00:00+00:00",
-			});
+			expect(completeEvent.properties).not.toHaveProperty("completedOn");
 			expect(completeEvent.occurredAt).toBe(isoAt(2));
 
 			const events = yield* listEventsForEntity(client, entityId, undefined, 100);
@@ -177,27 +166,59 @@ describe("Event automations", () => {
 				{ entitySchemaSlug: "anime", properties: { images: [], episodes: 101 } },
 			);
 
-			const progressItems = Array.from({ length: 101 }, (_, index) => ({
-				entityId,
-				occurredAt: isoMinuteAt(index),
-				eventSchemaSlug: progressEventSchemaSlug,
-				properties: { progressPercent: 100, animeEpisode: index + 1 },
-			}));
-			for (let start = 0; start < progressItems.length; start += 20) {
-				const batch = progressItems.slice(start, start + 20);
-				yield* waitForCreateEvents(
-					client,
-					yield* client.call((c) => c.events.create({ payload: batch })),
-				);
-			}
+			yield* waitForCreateEvents(
+				client,
+				yield* client.call((c) =>
+					c.events.create({
+						payload: [
+							{
+								entityId,
+								occurredAt: isoMinuteAt(100),
+								properties: { animeEpisode: 101 },
+								eventSchemaSlug: progressEventSchemaSlug,
+							},
+						],
+					}),
+				),
+			);
 
 			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
-			expect(completeEvent.properties).toMatchObject({
-				completionMode: "custom_timestamps",
-				completedOn: isoMinuteAt(100).replace(".000Z", "+00:00"),
-			});
+			expect(completeEvent.properties).not.toHaveProperty("completedOn");
 			expect(completeEvent.occurredAt).toBe(isoMinuteAt(100));
+		}),
+	);
+
+	it.live("anime progress at the final position creates exactly one completion", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+
+			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
+				client,
+				{ entitySchemaSlug: "anime", properties: { images: [], episodes: 28 } },
+			);
+			const progress = (animeEpisode: number, occurredAt: string) =>
+				client.call((c) =>
+					c.events.create({
+						payload: [
+							{
+								entityId,
+								occurredAt,
+								properties: { animeEpisode },
+								eventSchemaSlug: progressEventSchemaSlug,
+							},
+						],
+					}),
+				);
+
+			yield* progress(12, isoAt(1));
+			yield* progress(28, isoAt(2));
+			yield* waitForEventWithSchema(client, entityId, "complete");
+			yield* progress(28, isoAt(2));
+			yield* waitForEventCount(client, entityId, 4);
+
+			const events = yield* listEventsForEntity(client, entityId, undefined, 100);
+			expect(events.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
 		}),
 	);
 
@@ -216,8 +237,8 @@ describe("Event automations", () => {
 						{
 							entityId,
 							occurredAt: isoAt(1),
+							properties: { animeEpisode: 1 },
 							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { animeEpisode: 1, progressPercent: 100 },
 						},
 					],
 				}),
@@ -242,16 +263,7 @@ describe("Event automations", () => {
 			yield* client.call((c) =>
 				c.events.create({
 					payload: [
-						{
-							entityId,
-							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { mangaChapter: 1, progressPercent: 100 },
-						},
-						{
-							entityId,
-							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { mangaChapter: 2, progressPercent: 100 },
-						},
+						{ entityId, properties: { mangaChapter: 2 }, eventSchemaSlug: progressEventSchemaSlug },
 					],
 				}),
 			);
@@ -277,8 +289,8 @@ describe("Event automations", () => {
 						{
 							entityId,
 							occurredAt: isoAt(1),
+							properties: { mangaChapter: 1 },
 							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { mangaChapter: 1, progressPercent: 100 },
 						},
 					],
 				}),
@@ -414,10 +426,8 @@ describe("Event automations", () => {
 				const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
 				expect(completeEvent.eventSchemaSlug).toBe("complete");
-				expect(completeEvent.properties).toMatchObject({
-					completedOn: isoAt(1),
-					completionMode: "custom_timestamps",
-				});
+				expect(completeEvent.properties).not.toHaveProperty("completedOn");
+				expect(completeEvent.properties).not.toHaveProperty("completionMode");
 				expect(completeEvent.occurredAt).toBe(isoAt(1));
 			}),
 	);
@@ -448,11 +458,8 @@ describe("Event automations", () => {
 
 				const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
-				expect(completeEvent.properties).toMatchObject({
-					completedOn: isoAt(1),
-					consumedOn: "Jellyfin",
-					completionMode: "custom_timestamps",
-				});
+				expect(completeEvent.properties).toMatchObject({ consumedOn: "Jellyfin" });
+				expect(completeEvent.properties).not.toHaveProperty("completedOn");
 				expect(completeEvent.occurredAt).toBe(isoAt(1));
 			}),
 	);
@@ -482,10 +489,8 @@ describe("Event automations", () => {
 			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
 			expect(completeEvent.properties).not.toHaveProperty("consumedOn");
-			expect(completeEvent.properties).toMatchObject({
-				completedOn: isoAt(1),
-				completionMode: "custom_timestamps",
-			});
+			expect(completeEvent.properties).not.toHaveProperty("completedOn");
+			expect(completeEvent.properties).not.toHaveProperty("completionMode");
 			expect(completeEvent.occurredAt).toBe(isoAt(1));
 		}),
 	);

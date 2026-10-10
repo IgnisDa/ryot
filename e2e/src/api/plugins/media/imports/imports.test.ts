@@ -160,9 +160,9 @@ describe("Jellyfin import completion dates", () => {
 				eventSchemaSlug: "complete",
 			});
 			expect(completions.map(({ properties }) => properties)).toMatchObject([
-				{ completionMode: "unknown" },
+				{ dateUnknown: true },
 			]);
-			expect(completions[0]?.properties["completedOn"]).toBeUndefined();
+			expect(completions[0]?.properties["completionMode"]).toBeUndefined();
 		}),
 	);
 });

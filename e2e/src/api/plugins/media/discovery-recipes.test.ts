@@ -111,7 +111,7 @@ describe("Latest completion suggestions", () => {
 					occurredAt,
 					entityId: entity.id,
 					eventSchemaSlug: complete,
-					properties: { completionMode: "unknown" },
+					properties: { dateUnknown: true },
 				});
 			}
 

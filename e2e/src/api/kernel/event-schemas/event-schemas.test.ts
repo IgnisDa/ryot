@@ -198,7 +198,7 @@ describe("GET /event-schemas", () => {
 							type: "number",
 							label: "Progress Percent",
 							normalize: { round: { scale: 2 } },
-							validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
+							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
 					},
@@ -212,24 +212,12 @@ describe("GET /event-schemas", () => {
 						`Expected complete schema properties for ${slug} to be an object`,
 					),
 				).toMatchObject({
-					rules: [
-						{
-							kind: "validation",
-							path: ["completedOn"],
-							validation: { required: true },
-							when: { operator: "eq", path: ["completionMode"], value: "custom_timestamps" },
-						},
-					],
 					fields: {
+						dateUnknown: { type: "boolean", label: "Date Unknown" },
 						startedOn: {
 							type: "datetime",
 							label: "Started On",
 							description: "Date and time you started consuming this media",
-						},
-						completedOn: {
-							type: "datetime",
-							label: "Completed On",
-							description: "Date and time you finished consuming this media",
 						},
 						timeSpent: {
 							type: "number",
@@ -237,15 +225,16 @@ describe("GET /event-schemas", () => {
 							validation: { minimum: 0 },
 							description: "Time spent consuming this media in minutes",
 						},
-						completionMode: {
-							type: "string",
-							label: "Completion Mode",
-							validation: { required: true, pattern: "^(just_now|unknown|custom_timestamps)$" },
-							description:
-								"How the completion timestamps were determined: just_now, unknown, or custom_timestamps",
-						},
 					},
 				});
+				const completeProperties = requireObjectRecord(
+					completeSchema.propertiesSchema,
+					`Expected complete schema properties for ${slug} to be an object`,
+				);
+				expect(completeProperties["rules"]).toBeUndefined();
+				const completeFields = requireObjectRecord(completeProperties["fields"], "Expected fields");
+				expect(completeFields).not.toHaveProperty("completedOn");
+				expect(completeFields).not.toHaveProperty("completionMode");
 				const reviewSchema = eventSchemas.find((schema) => schema.slug === "review");
 				assertPresent(reviewSchema, `Missing built-in review schema for ${slug}`);
 				expect(reviewSchema.propertiesSchema).toBeDefined();
@@ -294,7 +283,7 @@ describe("GET /event-schemas", () => {
 							type: "number",
 							label: "Progress Percent",
 							normalize: { round: { scale: 2 } },
-							validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
+							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
 					},
@@ -319,7 +308,7 @@ describe("GET /event-schemas", () => {
 							type: "number",
 							label: "Progress Percent",
 							normalize: { round: { scale: 2 } },
-							validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
+							validation: { maximum: 100, exclusiveMinimum: 0 },
 							description: "Percentage of the media completed so far (0 to 100)",
 						},
 					},
@@ -418,11 +407,18 @@ describe("GET /event-schemas", () => {
 						type: "number",
 						label: "Progress Percent",
 						normalize: { round: { scale: 2 } },
-						validation: { maximum: 100, required: true, exclusiveMinimum: 0 },
+						validation: { maximum: 100, exclusiveMinimum: 0 },
 						description: "Percentage of the media completed so far (0 to 100)",
 					},
 				},
 			});
+
+			expect(
+				requireObjectRecord(
+					requireObjectRecord(movieProgressSchema, "Expected movie progress schema")["fields"],
+					"Expected fields",
+				)["progressPercent"],
+			).not.toHaveProperty("validation.required");
 
 			const progressSchemas = yield* Effect.forEach(
 				["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"],
@@ -493,16 +489,18 @@ describe("GET /event-schemas", () => {
 				expect(droppedSchema).toMatchObject({ fields: sessionFields });
 				expect(onHoldSchema).toMatchObject({ fields: sessionFields });
 			}
-			expect(showDroppedSchema).toMatchObject({
-				fields: {
-					...sessionFields,
-					progressPercent: {
-						type: "number",
-						label: "Progress Percent",
-						description: "Percentage of the media completed so far (0 to 100)",
-					},
-				},
-			});
+			expect(showDroppedSchema).toMatchObject({ fields: sessionFields });
+			for (const parentSchema of [
+				showDroppedSchema,
+				showOnHoldSchema,
+				podcastDroppedSchema,
+				podcastOnHoldSchema,
+			]) {
+				const parentFields = requireObjectRecord(parentSchema["fields"], "Expected fields");
+				expect(Object.keys(parentFields)).not.toContain("progressPercent");
+				expect(Object.keys(parentFields)).not.toContain("animeEpisode");
+				expect(Object.keys(parentFields)).not.toContain("mangaChapter");
+			}
 			expect(showOnHoldSchema).toMatchObject(showDroppedSchema);
 			expect(podcastDroppedSchema).toMatchObject(showDroppedSchema);
 			expect(podcastOnHoldSchema).toMatchObject(showDroppedSchema);

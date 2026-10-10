@@ -85,12 +85,16 @@ describe("Anime airing schedule", () => {
 				insertMediaMonitoring(client, monitored.id),
 				insertMediaMonitoring(client, notInLibrary.id),
 			]);
-			for (const anime of [watching, premiere, outsideWindow]) {
+			for (const [anime, properties] of [
+				[watching, { animeEpisode: 1 }],
+				[premiere, {}],
+				[outsideWindow, {}],
+			] as const) {
 				yield* createEventFixture(client, {
+					properties,
 					entityId: anime.id,
 					eventSchemaSlug: progressSlug,
 					occurredAt: "2026-08-02T00:00:00.000Z",
-					properties: { animeEpisode: 1, progressPercent: 10 },
 				});
 			}
 

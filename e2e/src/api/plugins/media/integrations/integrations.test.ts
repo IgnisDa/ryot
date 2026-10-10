@@ -65,7 +65,7 @@ describe("Webhook routes", () => {
 				eventSchemaSlug: "progress",
 			});
 			expect(events.map(({ properties }) => properties)).toMatchObject([
-				{ consumedOn: "emby", progressPercent: 50 },
+				{ consumedOn: "Emby", progressPercent: 50 },
 			]);
 		}),
 	);
@@ -202,11 +202,9 @@ describe("Progress normalization", () => {
 				expect(progressEvent.properties).toMatchObject({ progressPercent: 100 });
 				expect(progressEvent.occurredAt).toBeTruthy();
 
-				// The clamped 100% cascades into the builtin auto-complete trigger on this same
-				// episode entity — assert completedOn to directly prove the completion-timestamp
-				// fill, not just the progress event's own occurredAt.
 				const completeEvent = yield* waitForEventWithSchema(client, episodeId, "complete");
-				expect(completeEvent.properties).toMatchObject({ completedOn: progressEvent.occurredAt });
+				expect(completeEvent.occurredAt).toBe(progressEvent.occurredAt);
+				expect(completeEvent.properties).not.toHaveProperty("completedOn");
 			}),
 	);
 

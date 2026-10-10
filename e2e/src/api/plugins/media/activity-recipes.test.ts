@@ -22,7 +22,7 @@ const WINDOW = {
 	until: "2026-02-01T05:00:00.000Z",
 };
 
-const COMPLETE = { completionMode: "unknown" };
+const COMPLETE = {};
 
 const seed = (client: Client, slug: string, properties: Record<string, unknown>) =>
 	Effect.gen(function* () {
@@ -110,6 +110,26 @@ describe("Media activity recipe", () => {
 				{ events: 1, slug: "book", label: "Book" },
 				{ events: 1, slug: "show", label: "Show" },
 			]);
+		}),
+	);
+
+	it.live("counts dateUnknown completions in figures but not in day or media type buckets", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const movie = yield* seed(client, "movie", { runtime: 120 });
+			const book = yield* seed(client, "book", {});
+
+			yield* movie.log("complete", "2026-01-10T03:00:00.000Z", COMPLETE);
+			yield* book.log("complete", "2026-01-12T12:00:00.000Z", { timeSpent: 30, dateUnknown: true });
+
+			const activity = yield* executeRyotQLRecipe(
+				client,
+				mediaActivityRecipe({ reference: { kind: "local", pluginId: movie.pluginId }, ...WINDOW }),
+			);
+
+			expect(activity.figures).toEqual({ reviews: 0, finished: 2, minutes: 150 });
+			expect(activity.days).toEqual([{ events: 1, day: "2026-01-09T05:00:00.000Z" }]);
+			expect(activity.mediaTypes).toEqual([{ events: 1, slug: "movie", label: "Movie" }]);
 		}),
 	);
 });

@@ -133,86 +133,91 @@ describe("Episodic lifecycle sessions", () => {
 		}),
 	);
 
-	it.live("auto-completes an ended show over its aired episodes and their consumedOn alone", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const suffix = crypto.randomUUID();
-			const [{ schema: showSchema }, { schema: seasonSchema }, { schema: episodeSchema }] =
-				yield* Effect.all([
-					findMediaEntitySchema(client, "show"),
-					findMediaEntitySchema(client, "show-season"),
-					findMediaEntitySchema(client, "show-episode"),
-				]);
-			const relationshipSchemas = yield* listRelationshipSchemas(client, {
-				owner: showSchema.reference.owner,
-				slugs: ["show-to-show-season", "show-season-to-show-episode"],
-			});
-			const show = yield* seedMediaEntity({
-				providerId: null,
-				entitySchemaSlug: showSchema.id,
-				name: `Aired Coverage Show ${suffix}`,
-				externalId: `aired-coverage-show-${suffix}`,
-				properties: { totalSeasons: 1, totalEpisodes: 2, productionStatus: "Ended" },
-			});
-			const season = yield* seedMediaEntity({
-				providerId: null,
-				properties: { seasonNumber: 1 },
-				entitySchemaSlug: seasonSchema.id,
-				name: `Aired Coverage Season ${suffix}`,
-				externalId: `aired-coverage-season-${suffix}`,
-			});
-			yield* insertGlobalRelationship({
-				sourceEntityId: show.id,
-				targetEntityId: season.id,
-				relationshipSchema: requireRelationshipSchemaBySlug(
-					relationshipSchemas,
-					"show-to-show-season",
-					showSchema.reference.owner,
-				).reference,
-			});
-			const episodes = [];
-			for (const [index, publishDate] of ["2020-01-01", "2999-01-01"].entries()) {
-				const episode = yield* seedMediaEntity({
+	it.live(
+		"auto-completes an ended show over its aired episodes carrying consumedOn and dateUnknown",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const suffix = crypto.randomUUID();
+				const [{ schema: showSchema }, { schema: seasonSchema }, { schema: episodeSchema }] =
+					yield* Effect.all([
+						findMediaEntitySchema(client, "show"),
+						findMediaEntitySchema(client, "show-season"),
+						findMediaEntitySchema(client, "show-episode"),
+					]);
+				const relationshipSchemas = yield* listRelationshipSchemas(client, {
+					owner: showSchema.reference.owner,
+					slugs: ["show-to-show-season", "show-season-to-show-episode"],
+				});
+				const show = yield* seedMediaEntity({
 					providerId: null,
-					entitySchemaSlug: episodeSchema.id,
-					name: `Aired Coverage Episode ${index + 1} ${suffix}`,
-					externalId: `aired-coverage-episode-${index + 1}-${suffix}`,
-					properties: { publishDate, seasonNumber: 1, episodeNumber: index + 1 },
+					entitySchemaSlug: showSchema.id,
+					name: `Aired Coverage Show ${suffix}`,
+					externalId: `aired-coverage-show-${suffix}`,
+					properties: { totalSeasons: 1, totalEpisodes: 2, productionStatus: "Ended" },
+				});
+				const season = yield* seedMediaEntity({
+					providerId: null,
+					properties: { seasonNumber: 1 },
+					entitySchemaSlug: seasonSchema.id,
+					name: `Aired Coverage Season ${suffix}`,
+					externalId: `aired-coverage-season-${suffix}`,
 				});
 				yield* insertGlobalRelationship({
-					sourceEntityId: season.id,
-					targetEntityId: episode.id,
+					sourceEntityId: show.id,
+					targetEntityId: season.id,
 					relationshipSchema: requireRelationshipSchemaBySlug(
 						relationshipSchemas,
-						"show-season-to-show-episode",
+						"show-to-show-season",
 						showSchema.reference.owner,
 					).reference,
 				});
-				episodes.push(episode);
-			}
-			const [airedEpisode] = episodes;
-			if (airedEpisode === undefined) {
-				throw new Error("Expected the aired episode");
-			}
-			const eventSchemas = yield* listEventSchemas(client, episodeSchema.reference);
+				const episodes = [];
+				for (const [index, publishDate] of ["2020-01-01", "2999-01-01"].entries()) {
+					const episode = yield* seedMediaEntity({
+						providerId: null,
+						entitySchemaSlug: episodeSchema.id,
+						name: `Aired Coverage Episode ${index + 1} ${suffix}`,
+						externalId: `aired-coverage-episode-${index + 1}-${suffix}`,
+						properties: { publishDate, seasonNumber: 1, episodeNumber: index + 1 },
+					});
+					yield* insertGlobalRelationship({
+						sourceEntityId: season.id,
+						targetEntityId: episode.id,
+						relationshipSchema: requireRelationshipSchemaBySlug(
+							relationshipSchemas,
+							"show-season-to-show-episode",
+							showSchema.reference.owner,
+						).reference,
+					});
+					episodes.push(episode);
+				}
+				const [airedEpisode] = episodes;
+				if (airedEpisode === undefined) {
+					throw new Error("Expected the aired episode");
+				}
+				const eventSchemas = yield* listEventSchemas(client, episodeSchema.reference);
 
-			yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: airedEpisode.id,
-							occurredAt: "2026-04-08T00:00:00.000Z",
-							properties: { consumedOn: "Plex", completionMode: "unknown" },
-							eventSchemaSlug: requireEventSchemaBySlug(eventSchemas, "complete").id,
-						},
-					],
-				}),
-			);
+				yield* client.call((c) =>
+					c.events.create({
+						payload: [
+							{
+								entityId: airedEpisode.id,
+								occurredAt: "2026-04-08T00:00:00.000Z",
+								properties: { dateUnknown: true, consumedOn: "Plex" },
+								eventSchemaSlug: requireEventSchemaBySlug(eventSchemas, "complete").id,
+							},
+						],
+					}),
+				);
 
-			const parentCompletion = yield* waitForEventWithSchema(client, show.id, "complete");
-			expect(parentCompletion.occurredAt).toBe("2026-04-08T00:00:00.000Z");
-			expect(parentCompletion.properties).toMatchObject({ consumedOn: "Plex" });
-		}),
+				const parentCompletion = yield* waitForEventWithSchema(client, show.id, "complete");
+				expect(parentCompletion.occurredAt).toBe("2026-04-08T00:00:00.000Z");
+				expect(parentCompletion.properties).toMatchObject({
+					dateUnknown: true,
+					consumedOn: "Plex",
+				});
+			}),
 	);
 
 	it.live("assigns show and podcast parent lifecycle events to the parent itself", () =>
@@ -246,21 +251,21 @@ describe("Episodic lifecycle sessions", () => {
 							},
 							{
 								entityId,
-								properties: { progressPercent: 25 },
+								properties: {},
 								occurredAt: "2026-04-04T00:00:00.000Z",
 								eventSchemaSlug: onHoldEventSchemaSlug,
 							},
 							{
 								entityId,
-								properties: { progressPercent: 50 },
+								properties: {},
 								occurredAt: "2026-04-05T00:00:00.000Z",
 								eventSchemaSlug: droppedEventSchemaSlug,
 							},
 							{
 								entityId,
+								properties: {},
 								occurredAt: "2026-04-06T00:00:00.000Z",
 								eventSchemaSlug: completeEventSchemaSlug,
-								properties: { completionMode: "just_now" },
 							},
 						],
 					}),

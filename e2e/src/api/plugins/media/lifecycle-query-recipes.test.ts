@@ -1,5 +1,6 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import { animeRecipes } from "@ryot-app/media-plugin/shared/anime-recipes";
 import {
 	type EpisodicKindConfig,
 	podcastEpisodicKindConfig,
@@ -385,7 +386,7 @@ const createComplete = (
 		entityId,
 		occurredAt,
 		eventSchemaSlug,
-		properties: { completionMode: "unknown" },
+		properties: { dateUnknown: true },
 	});
 
 const readCreatedOrder = (client: Client, entityId: string, occurredAt: string) =>
@@ -1474,6 +1475,50 @@ describe("Media lifecycle list recipes", () => {
 		}),
 	);
 
+	it.live(
+		"derives anime in-progress percent from the cumulative position over total episodes",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { pluginId, schema: animeSchema } = yield* findMediaEntitySchema(client, "anime");
+				const animeEvents = yield* listEventSchemas(client, animeSchema.reference);
+				const suffix = crypto.randomUUID();
+				const anime = yield* seedMediaEntity({
+					userId: null,
+					providerId: null,
+					properties: { episodes: 28 },
+					entitySchemaSlug: animeSchema.id,
+					name: `Position Percent Anime ${suffix}`,
+					externalId: `position-percent-anime-${suffix}`,
+				});
+				yield* insertLibraryMembership(client, { mediaEntityId: anime.id });
+				yield* createEventFixture(client, {
+					entityId: anime.id,
+					properties: { animeEpisode: 12 },
+					occurredAt: "2026-06-05T01:00:00.000Z",
+					eventSchemaSlug: requireEventSchemaBySlug(animeEvents, "progress").id,
+				});
+
+				const reference: MediaReference = { pluginId, kind: "local" };
+				const result = yield* executeRyotQLRecipe(
+					client,
+					animeRecipes.summaryRecipe({ reference, entityId: anime.id, collectionLimit: 1 }),
+				);
+				assertPresent(result.summary, "Expected an anime summary row");
+				expect(result.summary).toMatchObject({ state: "in_progress" });
+				expect(result.summary.progressPercent).toBeCloseTo(42.86, 2);
+
+				const inProgress = yield* executeRyotQLRecipe(
+					client,
+					flatByLifecycleStateRecipe({ limit: 20, reference, states: ["in_progress"] }),
+				);
+				const listed = inProgress.items.find((item) => item.id === anime.id);
+				assertPresent(listed, "Expected the anime in the in-progress list");
+				expect(listed.progressPercent).toBeCloseTo(42.86, 2);
+				expect(listed.progressPercent).not.toBe(100);
+			}),
+	);
+
 	it.live("lists flat media across schemas with their recorded position", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
@@ -1484,8 +1529,8 @@ describe("Media lifecycle list recipes", () => {
 			const suffix = crypto.randomUUID();
 			const anime = yield* seedMediaEntity({
 				userId: null,
-				properties: {},
 				providerId: null,
+				properties: { episodes: 10 },
 				entitySchemaSlug: animeSchema.id,
 				name: `Lifecycle Anime ${suffix}`,
 				externalId: `lifecycle-anime-${suffix}`,
@@ -1505,8 +1550,8 @@ describe("Media lifecycle list recipes", () => {
 			);
 			yield* createEventFixture(client, {
 				entityId: anime.id,
+				properties: { animeEpisode: 4 },
 				occurredAt: "2026-06-04T02:00:00.000Z",
-				properties: { animeEpisode: 5, progressPercent: 40 },
 				eventSchemaSlug: requireEventSchemaBySlug(animeEvents, "progress").id,
 			});
 			yield* createEventFixture(client, {
@@ -1532,7 +1577,7 @@ describe("Media lifecycle list recipes", () => {
 					item.latestActivityAt,
 				]),
 			).toEqual([
-				[anime.id, 40, 5, "2026-06-04T02:00:00.000Z"],
+				[anime.id, 40, 4, "2026-06-04T02:00:00.000Z"],
 				[movie.id, 50, null, "2026-06-04T01:00:00.000Z"],
 			]);
 

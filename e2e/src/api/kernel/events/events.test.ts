@@ -114,11 +114,7 @@ describe("Events bulk POST", () => {
 							properties: { progressPercent: 25 },
 							eventSchemaSlug: progressEventSchemaSlug,
 						},
-						{
-							entityId,
-							eventSchemaSlug: completeEventSchemaSlug,
-							properties: { completionMode: "just_now" },
-						},
+						{ entityId, properties: {}, eventSchemaSlug: completeEventSchemaSlug },
 					],
 				}),
 			);
