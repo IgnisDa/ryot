@@ -1,3 +1,7 @@
+import {
+	builtinSavedViewReference,
+	definitionOwner,
+} from "@ryot-app/contract/modules/plugins/references";
 import type { IncludeResult, RowItem } from "@ryot-app/contract/modules/ryotql/language";
 import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import {
@@ -225,7 +229,7 @@ describe("Workout Templates E2E", () => {
 					isBuiltin: true,
 					name: "All Workout Templates",
 					renderer: { kind: "kernel", name: "entity-browser" },
-					reference: { pluginId, kind: "plugin", slug: "all-workout-templates" },
+					reference: builtinSavedViewReference(pluginId, "all-workout-templates"),
 					settings: {
 						defaultLayout: "grid",
 						sourceName: "savedView",
@@ -236,7 +240,7 @@ describe("Workout Templates E2E", () => {
 						entitySchemaSlugField: "entitySchemaSlug",
 						addAction: {
 							type: "provider-search",
-							schema: { slug: "workout-template", owner: { pluginId, kind: "plugin" } },
+							schema: { slug: "workout-template", owner: definitionOwner(pluginId) },
 						},
 						tableColumns: [
 							{ label: "Name", field: "column0", displayKind: "text" },

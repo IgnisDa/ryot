@@ -29,7 +29,7 @@ import {
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures/kernel/relationship-schemas";
-import { findRelationshipBySchema, createRelationship } from "~/fixtures/kernel/relationships";
+import { createRelationship } from "~/fixtures/kernel/relationships";
 import { executeRyotQL, requireRows, requireRyotQLText } from "~/fixtures/kernel/ryotql";
 import { assertPresent, requirePresent } from "~/support/assertions";
 
@@ -116,14 +116,6 @@ export const queryInMediaLibraryRelationship = (
 		);
 	});
 };
-
-export const getRelationshipBySchemaSlug = (
-	client: Client,
-	input: Omit<Parameters<typeof findRelationshipBySchema>[1], "owner">,
-) =>
-	Effect.flatMap(mediaFixtureInstallation, ({ id }) =>
-		findRelationshipBySchema(client, { ...input, owner: definitionOwner(id) }),
-	);
 
 export const seedMediaEntity = (
 	input: Omit<Parameters<typeof seedEntity>[0], "entitySchema"> & { entitySchemaSlug: string },

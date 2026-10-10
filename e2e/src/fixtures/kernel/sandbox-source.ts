@@ -1,7 +1,7 @@
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { JsonPrimitive } from "@ryot-app/contract/modules/sandbox/wire";
 
-export type SandboxSourceIdentity = { readonly name: string; readonly slug: string };
+type SandboxSourceIdentity = { readonly name: string; readonly slug: string };
 
 type ScriptModuleSourceInput = SandboxSourceIdentity & {
 	readonly run: string;

@@ -1,3 +1,4 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { BackupRunId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { managedAssetItemSchema } from "@ryot-app/contract/schema/core";
@@ -179,10 +180,7 @@ describe("backup lifecycle", () => {
 			const sourceEntity = yield* createEntity(source.client, {
 				name: title,
 				properties: { title, attachment: sourceLocator },
-				entitySchema: {
-					slug: schemaId,
-					owner: { kind: "plugin", pluginId: installedPlugin.pluginId },
-				},
+				entitySchema: { slug: schemaId, owner: definitionOwner(installedPlugin.pluginId) },
 			});
 			expect((yield* getEntity(source.client, sourceEntity.id)).properties).toEqual({
 				title,
@@ -210,10 +208,7 @@ describe("backup lifecycle", () => {
 				target.client,
 				yield* findEntityIdByName(target.client, {
 					name: title,
-					entitySchema: {
-						slug: schemaId,
-						owner: { kind: "plugin", pluginId: installedPlugin.pluginId },
-					},
+					entitySchema: { slug: schemaId, owner: definitionOwner(installedPlugin.pluginId) },
 				}),
 			);
 			const targetLocator = yield* Schema.decodeUnknownEffect(ManagedAssetLocator)(

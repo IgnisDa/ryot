@@ -1,5 +1,6 @@
 import { dataJsonSourceReference } from "@ryot-app/contract/modules/imports/data-json";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
@@ -307,7 +308,7 @@ describe("backup export and restore round trip", () => {
 				schemaId: EntitySchemaSlug.make(entitySchemaSlug),
 				reference: {
 					slug: EntitySchemaSlug.make(entitySchemaSlug),
-					owner: { kind: "plugin" as const, pluginId: systemPlugin.pluginId },
+					owner: definitionOwner(systemPlugin.pluginId),
 				},
 			};
 			const eventSchema = {
@@ -318,8 +319,8 @@ describe("backup export and restore round trip", () => {
 				propertiesSchema: relationshipPropertiesSchema,
 				id: RelationshipSchemaSlug.make(relationshipSchemaSlug),
 				reference: {
+					owner: definitionOwner(systemPlugin.pluginId),
 					slug: RelationshipSchemaSlug.make(relationshipSchemaSlug),
-					owner: { kind: "plugin" as const, pluginId: systemPlugin.pluginId },
 				},
 			};
 			const source = yield* createAuthenticatedClient();
@@ -520,7 +521,7 @@ describe("backup export and restore round trip", () => {
 			});
 			const restoredEntitySchemaReference = {
 				slug: entitySchema.schemaId,
-				owner: { kind: "plugin" as const, pluginId: restoredSystemPlugin.pluginId },
+				owner: definitionOwner(restoredSystemPlugin.pluginId),
 			};
 
 			const restoredMediaLibraryId = yield* getMediaLibraryId(target.client);
@@ -599,7 +600,7 @@ describe("backup export and restore round trip", () => {
 			const restoredRelationshipSchema = requirePresent(
 				(yield* listRelationshipSchemas(target.client, {
 					slugs: [relationshipSchema.id],
-					owner: { kind: "plugin", pluginId: restoredSystemPlugin.pluginId },
+					owner: definitionOwner(restoredSystemPlugin.pluginId),
 				}))[0],
 				"Restored relationship schema is not installed",
 			);
@@ -740,7 +741,7 @@ describe("backup export and restore round trip", () => {
 			const updater = yield* createAuthenticatedClient();
 			const installedSchema = yield* getEntitySchema(source.client, {
 				slug: EntitySchemaSlug.make(entitySchemaSlug),
-				owner: { kind: "plugin", pluginId: providerPlugin.pluginId },
+				owner: definitionOwner(providerPlugin.pluginId),
 			});
 			const providerId = requirePresent(
 				installedSchema.providers[0]?.providerId,
@@ -755,7 +756,7 @@ describe("backup export and restore round trip", () => {
 				archivedImport.jobId,
 			);
 			assertCompleted(archivedResult, "archived provider entity import");
-			const providerOwner = { kind: "plugin" as const, pluginId: providerPlugin.pluginId };
+			const providerOwner = definitionOwner(providerPlugin.pluginId);
 			const shelf = yield* createEntity(source.client, {
 				properties: {},
 				name: "Backup shelf",

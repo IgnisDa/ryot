@@ -1,3 +1,4 @@
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	entityDefinitionsRecipe,
@@ -83,7 +84,7 @@ describe("Definitions E2E", () => {
 				providerSearchRecipe({
 					schema: {
 						slug: EntitySchemaSlug.make(schemaSlug),
-						owner: { kind: "plugin" as const, pluginId: provider.pluginId },
+						owner: definitionOwner(provider.pluginId),
 					},
 				}),
 			);
@@ -100,7 +101,7 @@ describe("Definitions E2E", () => {
 					providerSearchRecipe({
 						schema: {
 							slug: EntitySchemaSlug.make(schemaSlug),
-							owner: { kind: "plugin" as const, pluginId: provider.pluginId },
+							owner: definitionOwner(provider.pluginId),
 						},
 					}),
 				),

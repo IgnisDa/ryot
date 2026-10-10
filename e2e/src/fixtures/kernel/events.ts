@@ -2,6 +2,7 @@ import type {
 	CreateEventsResponse,
 	EventCreatePending,
 } from "@ryot-app/contract/modules/events/schemas";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -90,7 +91,7 @@ export const createRatedItem = (client: Client, pluginId: PluginId) =>
 			properties: {},
 			name: "Rated item",
 			entitySchema: {
-				owner: { pluginId, kind: "plugin" },
+				owner: definitionOwner(pluginId),
 				slug: EntitySchemaSlug.make(ratedItemEntitySchema.slug),
 			},
 		}),
