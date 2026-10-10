@@ -664,3 +664,71 @@ describe("definition views", () => {
 		);
 	});
 });
+
+const integration = (slug: string) => ({
+	slug,
+	name: slug,
+	description: slug,
+	settingsSchema: { fields: {} },
+});
+
+describe("integration provider plans", () => {
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("stores each declared plan and none for push or planless providers", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const value = revisionPackage("integrations");
+				const executableDependencies = [
+					{
+						kind: "workflow" as const,
+						slug: "integrations-flow",
+						selection: { key: "remote", id: "collector", stage: "settings" as const },
+					},
+				];
+				yield* installRevisionPackage({
+					...value,
+					scripts: value.scripts.map((script) =>
+						script.slug === "integrations.task"
+							? Object.assign({}, script, {
+									metadata: Object.assign({}, script.metadata, { executableDependencies }),
+								})
+							: script,
+					),
+					manifest: {
+						...value.manifest,
+						scripts: value.manifest.scripts.map((script) =>
+							script.slug === "integrations.task"
+								? Object.assign({}, script, { executableDependencies })
+								: script,
+						),
+						integrationProviders: [
+							{
+								...integration("with-plan"),
+								lot: "yank",
+								scriptSlug: "integrations.task",
+								plan: { selections: { collector: { value: "remote" } } },
+							},
+							{ ...integration("without-plan"), lot: "sink", scriptSlug: "integrations.workflow" },
+							{ ...integration("push"), lot: "push" },
+						],
+					},
+				});
+				const rows = yield* session.run((db) =>
+					db
+						.select({
+							slug: tables.userIntegrationProvider.slug,
+							plan: tables.userIntegrationProvider.plan,
+						})
+						.from(tables.userIntegrationProvider)
+						.where(eq(tables.userIntegrationProvider.userId, owner)),
+				);
+				expect(rows.sort((left, right) => (left.slug < right.slug ? -1 : 1))).toEqual([
+					{ plan: null, slug: "data-json" },
+					{ plan: null, slug: "push" },
+					{ slug: "with-plan", plan: { selections: { collector: { value: "remote" } } } },
+					{ plan: null, slug: "without-plan" },
+				]);
+			}),
+		);
+	});
+});

@@ -90,6 +90,10 @@ export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) 
 		...definition,
 		pluginId,
 	})),
+	providers: manifest.providers.map(({ slug, rootEntitySchemaSlug }) => ({
+		slug,
+		rootEntitySchemaSlug,
+	})),
 	savedViews: manifest.savedViews.map((definition) =>
 		materializeSavedView(definition, pluginId, manifest.client),
 	),
@@ -105,6 +109,19 @@ export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) 
 		mergeIdentityProperties: definition.mergeIdentityProperties ?? [],
 		eventSchemas: definition.eventSchemas.map((eventSchema) => ({ ...eventSchema, pluginId })),
 	})),
+	providerOperations: manifest.providers.flatMap((provider) =>
+		Object.entries(provider.operations).flatMap(([operation, scriptSlug]) =>
+			scriptSlug === undefined
+				? []
+				: [
+						{
+							scriptSlug,
+							providerSlug: provider.slug,
+							operation: operation === "searchOptions" ? "search-options" : operation,
+						},
+					],
+		),
+	),
 });
 
 export type RevisionDefinitions = ReturnType<typeof revisionDefinitions>;

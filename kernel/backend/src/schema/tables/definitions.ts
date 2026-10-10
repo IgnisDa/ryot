@@ -2,6 +2,7 @@ import {
 	dataJsonImportInputSchema,
 	dataJsonIntegrationSettingsSchema,
 } from "@ryot-app/contract/modules/imports/data-json";
+import type { SourcePlan } from "@ryot-app/contract/modules/plugins/execution";
 import type {
 	PluginEntityUserStatePolicy,
 	PluginImportSource,
@@ -20,9 +21,11 @@ import { sql } from "drizzle-orm";
 import {
 	boolean,
 	check,
+	foreignKey,
 	index,
 	integer,
 	jsonb,
+	primaryKey,
 	snakeCase,
 	text,
 	timestamp,
@@ -164,6 +167,7 @@ export const definitionIntegrationProvider = snakeCase.table(
 		...definitionColumns(),
 		scriptSlug: text(),
 		description: text().notNull(),
+		plan: jsonb().$type<SourcePlan>(),
 		requiresProKey: boolean().notNull(),
 		settingsSchema: jsonb().$type<AppSchema>().notNull(),
 		supportsOwnershipSync: boolean().notNull().default(false),
@@ -182,6 +186,37 @@ export const definitionIntegrationProvider = snakeCase.table(
 			table.slug,
 		),
 		index("definition_integration_provider_slug_idx").on(table.slug),
+	],
+);
+
+export const definitionProvider = snakeCase.table(
+	"definition_provider",
+	{
+		slug: text().notNull(),
+		position: integer().notNull(),
+		rootEntitySchemaSlug: text().notNull(),
+		pluginRevisionId: text()
+			.notNull()
+			.references(() => pluginRevision.id, { onDelete: "cascade" }),
+	},
+	(table) => [primaryKey({ columns: [table.pluginRevisionId, table.slug] })],
+);
+
+export const definitionProviderOperation = snakeCase.table(
+	"definition_provider_operation",
+	{
+		operation: text().notNull(),
+		scriptSlug: text().notNull(),
+		providerSlug: text().notNull(),
+		pluginRevisionId: text().notNull(),
+	},
+	(table) => [
+		primaryKey({ columns: [table.pluginRevisionId, table.providerSlug, table.operation] }),
+		foreignKey({
+			name: "definition_provider_operation_provider_fk",
+			columns: [table.pluginRevisionId, table.providerSlug],
+			foreignColumns: [definitionProvider.pluginRevisionId, definitionProvider.slug],
+		}).onDelete("cascade"),
 	],
 );
 
@@ -503,6 +538,7 @@ export const userIntegrationProvider = snakeCase
 		...executableDefinitionColumns(),
 		scriptId: text(),
 		scriptSlug: text(),
+		plan: jsonb().$type<SourcePlan>(),
 		requiresProKey: boolean().notNull(),
 		supportsOwnershipSync: boolean().notNull(),
 		settingsSchema: jsonb().$type<AppSchema>().notNull(),
@@ -510,13 +546,13 @@ export const userIntegrationProvider = snakeCase
 	})
 	.as(
 		sql`
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, p.installation_id, p.config_revision_id, d.slug, d.name, d.description, d.position, d.lot, d.script_slug, s.id as script_id, d.settings_schema, d.requires_pro_key, d.supports_ownership_sync, d.plan
 			from ${userPlugin} p
 			join definition_integration_provider d on d.plugin_revision_id = p.active_revision_id
 			left join sandbox_script s on s.plugin_revision_id = d.plugin_revision_id and s.slug = d.script_slug
 			where p.is_executable
 			union all
-			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, ${sql.raw(`'${JSON.stringify(dataJsonIntegrationSettingsSchema).replaceAll("'", "''")}'::jsonb`)}, false, false
+			select u.id, 'kernel:data-json:' || u.id, null::text, null::text, null::text, null::text, null::text, null::text, 'data-json', 'Data webhook', 'Receive generic entities, relationships, and events as JSON.', 0, 'sink', null::text, null::text, ${sql.raw(`'${JSON.stringify(dataJsonIntegrationSettingsSchema).replaceAll("'", "''")}'::jsonb`)}, false, false, null::jsonb
 			from ${user} u
 		`,
 	);
@@ -541,8 +577,8 @@ export const userSandboxProvider = snakeCase
 			select p.user_id, s.id, s.plugin_id, p.package_id, p.scope as plugin_scope, p.installation_id, s.slug, s.name, s.root_entity_schema_slug, s.information, s.created_at, s.updated_at
 			from ${userPlugin} p
 			join sandbox_provider s on s.plugin_id = p.plugin_id
-			join plugin_revision r on r.id = p.active_revision_id
-			where p.is_executable and exists (select 1 from jsonb_array_elements(r.providers) m where m ->> 'slug' = s.slug and m ->> 'rootEntitySchemaSlug' = s.root_entity_schema_slug) and exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
+			join definition_provider d on d.plugin_revision_id = p.active_revision_id and d.slug = s.slug and d.root_entity_schema_slug = s.root_entity_schema_slug
+			where p.is_executable and exists (select 1 from ${userEntitySchema} e where e.user_id = p.user_id and e.plugin_id = s.plugin_id and e.slug = s.root_entity_schema_slug and e.is_effective)
 		`,
 	);
 
@@ -555,15 +591,13 @@ export const userSandboxProviderOperation = snakeCase.view("user_sandbox_provide
 	packageId: text().$type<PluginPackageId>().notNull(),
 }).as(sql`
 		select provider.user_id, provider.id as provider_id, provider.plugin_id, provider.package_id,
-			case when operation.key = 'searchOptions' then 'search-options' else operation.key end as operation,
-			case when operation.key = 'search' then script.metadata -> 'searchOptionsSchema' else null end as options_schema
+			operation.operation,
+			case when operation.operation = 'search' then script.metadata -> 'searchOptionsSchema' else null end as options_schema
 		from ${userSandboxProvider} provider
 		join plugin p on p.id = provider.plugin_id
-		join plugin_revision r on r.id = p.active_revision_id
-		join lateral jsonb_array_elements(r.providers) as definition(value) on definition.value ->> 'slug' = provider.slug
-		join lateral jsonb_each_text(definition.value -> 'operations') as operation(key, value) on true
-		join sandbox_script script on script.plugin_revision_id = r.id
-			and script.slug = operation.value and script.provider_id = provider.id
+		join definition_provider_operation operation on operation.plugin_revision_id = p.active_revision_id and operation.provider_slug = provider.slug
+		join sandbox_script script on script.plugin_revision_id = operation.plugin_revision_id
+			and script.slug = operation.script_slug and script.provider_id = provider.id
 			and script.metadata ->> 'kind' = 'provider'
-			and script.metadata ->> 'providerOperation' = case when operation.key = 'searchOptions' then 'search-options' else operation.key end
+			and script.metadata ->> 'providerOperation' = operation.operation
 	`);

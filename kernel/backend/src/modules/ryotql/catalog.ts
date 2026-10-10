@@ -583,6 +583,7 @@ const integrationProvider: CatalogTable = {
 	visibility: executableDefinitionVisibility,
 	fields: {
 		...executableDefinitionFields,
+		plan: physicalField("plan", "json"),
 		lot: physicalField("lot", "text", false),
 		scriptSlug: physicalField("script_slug", "text"),
 		settingsSchema: physicalField("settings_schema", "json", false),
@@ -599,14 +600,6 @@ const integrationProvider: CatalogTable = {
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`(${sqlAlias}.plugin_id IS NULL OR ${sqlAlias}.lot = 'push' OR ${sqlAlias}.script_id IS NOT NULL)`,
-				),
-		},
-		plan: {
-			kind: "json",
-			nullable: true,
-			resolve: ({ sqlAlias }) =>
-				sql.raw(
-					`(SELECT declared->'plan' FROM plugin_revision revision CROSS JOIN LATERAL jsonb_array_elements(revision.integration_providers) declared WHERE revision.id = ${sqlAlias}.plugin_revision_id AND declared->>'slug' = ${sqlAlias}.slug AND declared->>'lot' <> 'push')`,
 				),
 		},
 		readinessConnections: {
