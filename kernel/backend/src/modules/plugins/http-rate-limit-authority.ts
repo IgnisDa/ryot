@@ -10,7 +10,12 @@ import { PluginRepository } from "./repository";
 import { PluginValidationError } from "./validation";
 
 export type HttpRateLimitAuthorityResolution =
-	| Readonly<{ hash: string; matched: true; origin: string; declaration: HttpRateLimitPolicyDeclaration }>
+	| Readonly<{
+			hash: string;
+			matched: true;
+			origin: string;
+			declaration: HttpRateLimitPolicyDeclaration;
+	  }>
 	| Readonly<{
 			matched: false;
 			origin?: string;

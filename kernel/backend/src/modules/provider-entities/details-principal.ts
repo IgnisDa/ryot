@@ -18,14 +18,16 @@ export const preRegisterProviderDetails = (
 		readonly accountGeneration: AccountGeneration;
 	},
 ) =>
-	services.pluginRuntime.resolveUserDetailsScript(input.userId, input.providerId).pipe(
-		Effect.flatMap((details) =>
-			services.sandbox.preRegisterPluginWorkflow({
-				scriptId: details.id,
-				pluginId: input.pluginId,
-				executingUserId: input.userId,
-				executionId: input.executionId,
-				accountGeneration: input.accountGeneration,
-			}),
-		),
-	);
+	services.pluginRuntime
+		.resolveUserDetailsScript(input.userId, input.providerId)
+		.pipe(
+			Effect.flatMap((details) =>
+				services.sandbox.preRegisterPluginWorkflow({
+					scriptId: details.id,
+					pluginId: input.pluginId,
+					executingUserId: input.userId,
+					executionId: input.executionId,
+					accountGeneration: input.accountGeneration,
+				}),
+			),
+		);
