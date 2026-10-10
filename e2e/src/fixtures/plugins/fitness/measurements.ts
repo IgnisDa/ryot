@@ -1,5 +1,8 @@
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import { measurementMetricCreateRecipe } from "@ryot-app/fitness-plugin/contracts/operation-recipes";
+import {
+	measurementMetricCreateRecipe,
+	measurementReadingDeleteRecipe,
+} from "@ryot-app/fitness-plugin/contracts/operation-recipes";
 import { Effect, Schema } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -25,6 +28,26 @@ export const createMeasurementMetric = (
 		.pipe(
 			Effect.flatMap(({ result }) =>
 				Schema.decodeUnknownEffect(measurementMetricCreateRecipe.output)(result),
+			),
+		);
+
+export const deleteMeasurementReadings = (
+	client: Client,
+	input: typeof measurementReadingDeleteRecipe.input.Type,
+) =>
+	client
+		.call((contract) =>
+			contract.plugins.invoke({
+				payload: { payload: input },
+				params: {
+					operationSlug: measurementReadingDeleteRecipe.operationSlug,
+					pluginSlug: PluginSlug.make(measurementReadingDeleteRecipe.pluginSlug),
+				},
+			}),
+		)
+		.pipe(
+			Effect.flatMap(({ result }) =>
+				Schema.decodeUnknownEffect(measurementReadingDeleteRecipe.output)(result),
 			),
 		);
 

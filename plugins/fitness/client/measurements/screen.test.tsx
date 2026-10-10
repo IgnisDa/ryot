@@ -8,6 +8,7 @@ import {
 } from "@ryot-app/client-sdk/testing";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 
+import { formatDay, formatTime } from "./model";
 import { ReadingLog } from "./reading-log";
 import MeasurementsPage from "./screen";
 
@@ -350,6 +351,71 @@ describe("measurements page", () => {
 			expect(text(body.getByRole("region", { name: "All metrics" }))).toContain("0 readings");
 			expect(text(body.getByRole("region", { name: "All metrics" }))).toContain("—");
 			expect(document.activeElement).toBe(trigger);
+		}),
+	);
+
+	it.live("deletes every reading in a log row after confirmation and refreshes the log", () =>
+		Effect.gen(function* () {
+			let storedReadings = logRows;
+			const { page, answerPending } = openPage(metrics, {
+				readingsOnly: true,
+				readingsPage: () => storedReadings,
+			});
+			const body = within(document.body);
+			const rowLabel = `Delete measurement from ${formatDay(readingsAt, "UTC")} ${formatTime(readingsAt, "UTC")}`;
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(body.getAllByRole("button", { name: /^Delete measurement from/ })).toHaveLength(2);
+				}),
+			);
+			fireEvent.click(body.getByRole("button", { name: rowLabel }));
+			yield* Effect.promise(() => waitFor(() => expect(body.getByRole("dialog")).toBeTruthy()));
+			const dialog = within(body.getByRole("dialog"));
+			expect(text(body.getByRole("dialog"))).toContain("The 2 readings taken on");
+			const requests = () =>
+				page.clientMessages().filter(({ type }) => type === "operation-request");
+			fireEvent.click(dialog.getByRole("button", { name: "Delete measurement" }));
+			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(1)));
+			const [failed] = requests();
+			assert(failed?.type === "operation-request");
+			expect(failed).toMatchObject({
+				pluginSlug: "fitness",
+				input: { readingIds: ["r1", "r2"] },
+				operationSlug: "measurement-reading-delete",
+			});
+			page.send({
+				outcome: "failure",
+				type: "operation-result",
+				reason: "operation-failed",
+				requestId: failed.requestId,
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(dialog.getByRole("alert").textContent).toContain(
+						"Demo accounts can't delete measurements",
+					),
+				),
+			);
+			fireEvent.click(dialog.getByRole("button", { name: "Delete measurement" }));
+			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(2)));
+			const retried = requests()[1];
+			assert(retried?.type === "operation-request");
+			storedReadings = rows([reading("r3", "weight", "Weight", 73.1, daysAgo(5))]);
+			page.send({
+				outcome: "success",
+				value: { count: 2 },
+				type: "operation-result",
+				requestId: retried.requestId,
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(body.queryByRole("dialog")).toBeNull();
+					expect(body.getAllByRole("button", { name: /^Delete measurement from/ })).toHaveLength(1);
+				}),
+			);
+			expect(body.queryByRole("button", { name: rowLabel })).toBeNull();
 		}),
 	);
 
