@@ -18,18 +18,16 @@ import type {
 } from "@ryot-app/contract/modules/ryotql/language";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { DateTime, Effect, Option, Schema } from "effect";
 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
-import {
-	type DefinitionReadContext,
-	pinnedDefinitionSource,
-} from "#modules/definition-registry/read-context";
+import { pinnedDefinitionSource } from "#modules/definition-registry/read-context";
 
-import { pluginIdentityReferences } from "./binding";
+import { definitionReadContext, pluginIdentityReferences } from "./binding";
 import {
 	canAccessCatalogTable,
 	getCatalogTable,
@@ -558,6 +556,17 @@ const userVisibilityCondition = (
 	return policy.where ? sql`${owner} AND (${sql.raw(policy.where)})` : owner;
 };
 
+const ownedSlugsCondition = (
+	ownerColumn: string,
+	slugColumn: string,
+	slugs: readonly string[],
+	pluginId: string,
+): SqlFragment =>
+	sql`${identifier(ownerColumn)} = ${pluginId}::text AND ${identifier(slugColumn)} IN (${sql.join(
+		slugs.map((slug) => sql`${slug}::text`),
+		sql`, `,
+	)})`;
+
 const pluginVisibilityCondition = (
 	table: CatalogTable,
 	scope: Extract<RyotQLExecutionScope, { type: "plugin" }>,
@@ -592,10 +601,7 @@ const pluginVisibilityCondition = (
 		}
 		return declared.length === 0
 			? sql`false`
-			: sql`${identifier("plugin_id")} = ${scope.pluginId}::text AND ${identifier("slug")} IN (${sql.join(
-					declared.map((slug) => sql`${slug}::text`),
-					sql`, `,
-				)})`;
+			: ownedSlugsCondition("plugin_id", "slug", declared, scope.pluginId);
 	}
 	if (policy.type === "eventDefinition") {
 		if (scope.eventSchemas.length === 0) {
@@ -617,10 +623,12 @@ const pluginVisibilityCondition = (
 	if (ownedSlugs.length === 0) {
 		return sql`false`;
 	}
-	const ownership = sql`${identifier(policy.ownerColumn)} = ${scope.pluginId}::text AND ${identifier(policy.column)} IN (${sql.join(
-		ownedSlugs.map((slug) => sql`${slug}::text`),
-		sql`, `,
-	)})`;
+	const ownership = ownedSlugsCondition(
+		policy.ownerColumn,
+		policy.column,
+		ownedSlugs,
+		scope.pluginId,
+	);
 	if (policy.ownership === "relationshipSchemaSlugs") {
 		return sql`${ownership} AND EXISTS (
 			SELECT 1 FROM definition_relationship_schema declaration
@@ -643,21 +651,7 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 	}
 	const definition = table.visibility.plugin;
 	if (definition?.type === "schemaDefinition") {
-		let context:
-			| DefinitionReadContext
-			| Extract<RyotQLExecutionScope, { type: "plugin" }>
-			| undefined;
-		switch (scope.type) {
-			case "plugin":
-				context = scope;
-				break;
-			case "user":
-				context = scope.definitionContext;
-				break;
-			case "admin":
-				context = undefined;
-				break;
-		}
+		const context = definitionReadContext(scope);
 		if (context) {
 			const pinned = pinnedDefinitionSource(
 				definition.kind,
@@ -669,13 +663,10 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 			}
 			if (scope.type === "user") {
 				const fields = sql.join(
-					Object.keys(table.fields).map((field) => {
-						const catalogField = table.fields[field];
-						if (!catalogField) {
-							throw new Error("Missing definition field");
-						}
-						return sql`${catalogField.resolve({ language: scope.language, sqlAlias: "definition_read" })} AS ${identifier(field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`))}`;
-					}),
+					Object.entries(table.fields).map(
+						([field, catalogField]) =>
+							sql`${catalogField.resolve({ language: scope.language, sqlAlias: "definition_read" })} AS ${identifier(field.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`))}`,
+					),
 					sql`, `,
 				);
 				return sql`(SELECT ${fields} FROM ${identifier(table.name)} definition_read WHERE ${userVisibilityCondition(table, scope)} AND definition_read.plugin_id IS DISTINCT FROM ${context.pluginId}::text UNION ALL SELECT ${fields} FROM (${pinned}) definition_read WHERE EXISTS (SELECT 1 FROM user_plugin available WHERE available.user_id = ${scope.userId} AND available.plugin_id = ${context.pluginId} AND available.is_definition_effective))`;
@@ -1534,7 +1525,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 		encodeJson({
 			scope: executionScope,
 			references: pluginIdentityReferences({ queries: { query: rowsQuery } })
-				.map((reference) => encodeJson(reference))
+				.map((reference) => stableStringify(reference))
 				.sort(),
 		}),
 	);

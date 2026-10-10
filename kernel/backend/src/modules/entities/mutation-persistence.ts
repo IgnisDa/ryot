@@ -5,6 +5,10 @@ import {
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EntityBadRequest, type ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import {
+	definitionOwner,
+	type DefinitionOwner,
+} from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
@@ -66,7 +70,7 @@ export const makePersistMutation = <E, R, Result>({
 	validateDraft: (
 		draft: AutomationEntityDraft,
 		scopeUserId: UserId | null,
-		entitySchemaPluginId: string | null,
+		owner: DefinitionOwner,
 		lifecycle: DomainLifecycleCommand,
 		commit?: boolean,
 	) => Effect.Effect<Pick<PreparedMutation, "draft" | "entitySchemaFingerprint">, E, R>;
@@ -92,7 +96,7 @@ export const makePersistMutation = <E, R, Result>({
 		const currentSchema = yield* validateDraft(
 			input.draft,
 			input.scopeUserId,
-			input.entitySchemaPluginId,
+			definitionOwner(input.entitySchemaPluginId),
 			input.lifecycle,
 			true,
 		);
@@ -127,7 +131,7 @@ export const makePersistMutation = <E, R, Result>({
 			const parsed = yield* validateDraft(
 				draftOf(before),
 				input.scopeUserId,
-				input.entitySchemaPluginId,
+				definitionOwner(input.entitySchemaPluginId),
 				input.lifecycle,
 			).pipe(
 				Effect.mapError(() => conflict("Current entity cannot be processed by the pinned writer")),

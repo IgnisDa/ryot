@@ -16,7 +16,6 @@ import {
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import {
-	DomainWriteConflict,
 	makeDomainWriteChecks,
 	type DomainLifecycleCommand,
 } from "#modules/entities/write-context";
@@ -41,6 +40,7 @@ import {
 	type ReconcileGlobalRelationshipGroup,
 	type RelationshipMutationDependencies,
 	type RelationshipReconciliationScope,
+	relationshipWriteFailure,
 } from "./mutation-support";
 import {
 	relationshipMutationLockKey,
@@ -74,17 +74,7 @@ export const makePlannedRelationshipReconciliation = (
 		for (const group of groups) {
 			yield* writes
 				.check(command, group.relationshipSchema.owner, scopeUserId, true)
-				.pipe(
-					Effect.mapError(
-						(error) =>
-							new RelationshipBadRequest({
-								reason:
-									error instanceof DomainWriteConflict
-										? error.reason
-										: { code: "concurrent-relationship-change" },
-							}),
-					),
-				);
+				.pipe(Effect.mapError(relationshipWriteFailure));
 		}
 		const groupReceipts = groups.map((_, groupIndex) =>
 			mutationReceiptIdentity({

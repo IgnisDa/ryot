@@ -30,7 +30,6 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
-	DomainWriteConflict,
 	makeDomainWriteChecks,
 	type DomainLifecycleCommand,
 } from "#modules/entities/write-context";
@@ -66,6 +65,7 @@ import {
 	type Mutation,
 	type ReconcileGlobalRelationshipGroup,
 	type UserRelationshipIdentity,
+	relationshipWriteFailure,
 } from "./mutation-support";
 import { makePlannedRelationshipReconciliation } from "./planned-reconciliation";
 import { makePreparedRelationshipMutations } from "./prepared-mutations";
@@ -272,17 +272,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 							mutation.input.scope === "user" ? mutation.input.userId : null,
 							true,
 						)
-						.pipe(
-							Effect.mapError(
-								(error) =>
-									new RelationshipBadRequest({
-										reason:
-											error instanceof DomainWriteConflict
-												? error.reason
-												: { code: "concurrent-relationship-change" },
-									}),
-							),
-						);
+						.pipe(Effect.mapError(relationshipWriteFailure));
 				}
 				if (rootDecision) {
 					yield* receipts
@@ -395,17 +385,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 							mutation.input.scope === "user" ? mutation.input.userId : null,
 							true,
 						)
-						.pipe(
-							Effect.mapError(
-								(error) =>
-									new RelationshipBadRequest({
-										reason:
-											error instanceof DomainWriteConflict
-												? error.reason
-												: { code: "concurrent-relationship-change" },
-									}),
-							),
-						);
+						.pipe(Effect.mapError(relationshipWriteFailure));
 				}
 				if (pending.aggregate) {
 					const aggregate = pending.aggregate;
@@ -703,17 +683,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 					for (const input of [...batch.creates, ...batch.deletes]) {
 						yield* writes
 							.check(command, input.relationshipSchema.owner, userId)
-							.pipe(
-								Effect.mapError(
-									(error) =>
-										new RelationshipBadRequest({
-											reason:
-												error instanceof DomainWriteConflict
-													? error.reason
-													: { code: "concurrent-relationship-change" },
-										}),
-								),
-							);
+							.pipe(Effect.mapError(relationshipWriteFailure));
 					}
 					yield* receipts
 						.peekBatch(rootDecision)
@@ -788,17 +758,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 			) {
 				yield* writes
 					.check(command, principalOwner(command.writeContext), userId)
-					.pipe(
-						Effect.mapError(
-							(error) =>
-								new RelationshipBadRequest({
-									reason:
-										error instanceof DomainWriteConflict
-											? error.reason
-											: { code: "concurrent-relationship-change" },
-								}),
-						),
-					);
+					.pipe(Effect.mapError(relationshipWriteFailure));
 				const rootDecision = mutationReceiptIdentity({
 					command,
 					ownerUserId: userId,
@@ -849,17 +809,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				return Effect.gen(function* () {
 					yield* writes
 						.check(command, group.relationshipSchema.owner, null)
-						.pipe(
-							Effect.mapError(
-								(error) =>
-									new RelationshipBadRequest({
-										reason:
-											error instanceof DomainWriteConflict
-												? error.reason
-												: { code: "concurrent-relationship-change" },
-									}),
-							),
-						);
+						.pipe(Effect.mapError(relationshipWriteFailure));
 					yield* receipts
 						.peekBatch(rootDecision)
 						.pipe(Effect.mapError(classifyRelationshipReceiptConflict));
@@ -965,17 +915,7 @@ export class RelationshipMutationPipeline extends Context.Service<RelationshipMu
 				yield* assertRootTransaction;
 				yield* writes
 					.check(command, principalOwner(command.writeContext), null)
-					.pipe(
-						Effect.mapError(
-							(error) =>
-								new RelationshipBadRequest({
-									reason:
-										error instanceof DomainWriteConflict
-											? error.reason
-											: { code: "concurrent-relationship-change" },
-								}),
-						),
-					);
+					.pipe(Effect.mapError(relationshipWriteFailure));
 				const rootDecision = mutationReceiptIdentity({
 					command,
 					scopeUserId: null,

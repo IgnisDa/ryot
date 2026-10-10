@@ -1,4 +1,4 @@
-import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
+import { identityTupleKey, pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { Schema, Effect, Stream, FileSystem, Cause, type PlatformError } from "effect";
 import { Zip, Unzip, ZipDeflate, UnzipInflate, ZipPassThrough, UnzipPassThrough } from "fflate";
 
@@ -207,11 +207,11 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 	}
 	const viewSlugs = new Set<string>();
 	for (const view of records.savedViews) {
-		const key = JSON.stringify([
+		const key = identityTupleKey(
 			view.kind,
 			view.kind === "builtin-override" ? view.pluginKey : null,
 			view.slug,
-		]);
+		);
 		if (viewSlugs.has(key)) {
 			throw archiveError(
 				"duplicate_record_id",
@@ -221,30 +221,28 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 		}
 		viewSlugs.add(key);
 	}
-	const customViewIds = new Set(
-		records.savedViews.filter((view) => view.kind === "custom").map(({ id }) => id),
-	);
+	const customViews = records.savedViews.filter((view) => view.kind === "custom");
+	const customViewIds = new Set(customViews.map(({ id }) => id));
 	const installationById = new Map(records.installations.map((record) => [record.id, record]));
-	for (const record of [
-		...records.integrations,
-		...records.savedViews.filter((view) => view.kind === "custom"),
-	]) {
-		if (record.installationId !== null && !installationById.has(record.installationId)) {
+	for (const integration of records.integrations) {
+		if (integration.installationId === null) {
+			continue;
+		}
+		const installation = installationById.get(integration.installationId);
+		if (!installation) {
 			throw archiveError("missing_reference_mapping", "Backup references an unknown installation");
 		}
-		if (
-			"packageKey" in record &&
-			record.installationId !== null &&
-			installationById.get(record.installationId)?.packageKey !== record.packageKey
-		) {
+		if (installation.packageKey !== integration.packageKey) {
 			throw archiveError("invalid_entry", "Backup integration installation owner is inconsistent");
 		}
-		if (
-			"pluginKey" in record &&
-			(record.installationId === null
-				? record.pluginKey !== null
-				: installationById.get(record.installationId)?.packageKey !== record.pluginKey)
-		) {
+	}
+	for (const view of customViews) {
+		const installation =
+			view.installationId === null ? null : installationById.get(view.installationId);
+		if (view.installationId !== null && !installation) {
+			throw archiveError("missing_reference_mapping", "Backup references an unknown installation");
+		}
+		if ((installation?.packageKey ?? null) !== view.pluginKey) {
 			throw archiveError(
 				"invalid_entry",
 				"Backup custom view workspace association is inconsistent",
@@ -272,7 +270,7 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 	}
 	const signalSlugs = new Set<string>();
 	for (const subscription of records.notificationSubscriptions) {
-		const key = JSON.stringify([subscription.signalSchemaPluginKey, subscription.signalSchemaSlug]);
+		const key = identityTupleKey(subscription.signalSchemaPluginKey, subscription.signalSchemaSlug);
 		if (signalSlugs.has(key)) {
 			throw archiveError(
 				"duplicate_record_id",
