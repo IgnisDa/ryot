@@ -8,6 +8,7 @@ import { AssetArtWell } from "../asset-urls";
 import { supersetColorVariable } from "../group-colors";
 import { WorkoutMediaViewer } from "../media-viewer";
 import { setLabels, setLots } from "../set-lots";
+import { ComputedResults, useComputedResultsStatus } from "../workout-processing";
 import {
 	personalBestLabels,
 	type CardGroup,
@@ -36,16 +37,18 @@ function ExerciseArtwork(props: { readonly card: ExerciseCard; readonly compact:
 
 function RecordBadges(props: { readonly set: WorkoutSet }) {
 	return (
-		<span className="flex flex-wrap gap-1">
-			{(props.set.personalBests ?? []).map((record) => (
-				<span
-					key={record}
-					className="rounded-pill bg-accent-soft px-2 py-0.5 font-ui font-semibold text-[12px] text-accent-text"
-				>
-					{personalBestLabels[record]}
-				</span>
-			))}
-		</span>
+		<ComputedResults>
+			<span className="flex flex-wrap gap-1">
+				{(props.set.personalBests ?? []).map((record) => (
+					<span
+						key={record}
+						className="rounded-pill bg-accent-soft px-2 py-0.5 font-ui font-semibold text-[12px] text-accent-text"
+					>
+						{personalBestLabels[record]}
+					</span>
+				))}
+			</span>
+		</ComputedResults>
 	);
 }
 
@@ -67,9 +70,10 @@ function SetTable(props: {
 	readonly imperial: boolean;
 }) {
 	const { card, compact } = props;
+	const processing = useComputedResultsStatus();
 	const labels = setLabels(card.sets.map((set) => set.setLot));
 	const showRpe = card.sets.some((set) => set.rpe !== null);
-	const showOneRm = card.kind === "reps_and_weight";
+	const showOneRm = card.kind === "reps_and_weight" && !processing.pending && !processing.failed;
 	const columns = compact ? "grid-cols-[2rem_minmax(0,1fr)_auto]" : wideColumns(showOneRm, showRpe);
 	return (
 		<div role="table" className="font-ui" aria-label={`Sets for ${card.exercise.name}`}>
@@ -90,7 +94,8 @@ function SetTable(props: {
 				</div>
 			)}
 			{card.sets.map((set, index) => {
-				const hasRecords = (set.personalBests?.length ?? 0) > 0;
+				const hasRecords =
+					(set.personalBests?.length ?? 0) > 0 && !processing.pending && !processing.failed;
 				const lot = setLots[set.setLot ?? "normal"];
 				const secondary = [
 					showOneRm && set.oneRm !== null

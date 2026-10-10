@@ -1,167 +1,105 @@
 import {
-	automationPolicyResultSchema,
 	defineAutomationPolicy,
 	type AutomationPolicyInput,
+	type AutomationPolicyResult,
 } from "@ryot-app/plugin-backend-sdk/automation";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
 
-import { exerciseKindSchema, type ExerciseKind } from "../../shared/exercise-kinds";
-import { jsonValueEquals } from "../../shared/json-value-equals";
-import { workoutSetContextRecipe } from "../../shared/workout-record-recipes";
-import {
-	calculateWorkoutSetStatistics,
-	WorkoutSetMeasurementsSchema,
-} from "../../shared/workout-records";
-import { workoutSetDerivedFields } from "../../shared/workout-set";
+import { exerciseKindSchema } from "../../shared/exercise-kinds";
+import { WorkoutSetMeasurementsSchema } from "../../shared/workout-records";
 
 export const manifest = defineManifest({
 	kind: "automation",
 	automationType: "policy",
 	slug: "policy.workout-set",
-	name: "Normalize workout sets",
+	name: "Validate workout sets",
 	inputProjection: {
 		event: {
-			properties: [
-				"confirmedAt",
-				"distance",
-				"duration",
-				"exerciseKind",
-				"oneRm",
-				"pace",
-				"personalBests",
-				"reps",
-				"volume",
-				"weight",
-			],
+			entityProperties: ["kind"],
+			sessionEntityProperties: ["startedAt"],
+			properties: ["confirmedAt", "distance", "duration", "exerciseKind", "reps", "weight"],
 		},
 	},
 });
 
-type EventPayload = Extract<AutomationPolicyInput["automation"]["payload"], { resource: "event" }>;
-
-const derivedKeySet: ReadonlySet<string> = new Set(workoutSetDerivedFields);
-
-const allow = () => Schema.decodeSync(automationPolicyResultSchema)({ action: "allow" });
-
-const reject = (reason: string) =>
-	Schema.decodeSync(automationPolicyResultSchema)({ reason, action: "reject" });
-
-const isOwnDerivedOutputUpdate = (eventStreamWorkId: string | undefined, payload: EventPayload) =>
-	payload.operation === "update" &&
-	eventStreamWorkId !== undefined &&
-	payload.changedProperties.length > 0 &&
-	payload.changedProperties.every((property) => derivedKeySet.has(property)) &&
-	payload.before.entityId === payload.draft.entityId &&
-	payload.before.entitySchemaSlug === payload.draft.entitySchemaSlug &&
-	payload.before.eventSchemaSlug === payload.draft.eventSchemaSlug &&
-	payload.before.sessionEntityId === payload.draft.sessionEntityId &&
-	payload.before.occurredAt === payload.draft.occurredAt &&
-	payload.before.properties["confirmedAt"] === payload.draft.properties["confirmedAt"];
-
-const finiteMeasurements = (properties: Readonly<Record<string, unknown>>) =>
-	Schema.decodeUnknownResult(WorkoutSetMeasurementsSchema)({
-		reps: properties["reps"],
-		weight: properties["weight"],
-		distance: properties["distance"],
-		duration: properties["duration"],
+const validate = ({ automation }: AutomationPolicyInput): AutomationPolicyResult => {
+	const payload = automation.payload;
+	if (
+		payload.resource !== "event" ||
+		payload.operation === "delete" ||
+		payload.draft.entitySchemaSlug !== "exercise" ||
+		payload.draft.eventSchemaSlug !== "workout-set"
+	) {
+		return { action: "allow" };
+	}
+	const draft = payload.draft;
+	const workout =
+		draft.sessionEntityId === null ? undefined : automation.references?.[draft.sessionEntityId];
+	const exercise = automation.references?.[draft.entityId];
+	if (
+		exercise?.entitySchemaSlug !== "exercise" ||
+		exercise.entitySchemaPluginId !== draft.eventSchemaPluginId ||
+		workout?.entitySchemaSlug !== "workout" ||
+		workout.entitySchemaPluginId !== draft.eventSchemaPluginId ||
+		Schema.decodeUnknownResult(IsoDateString)(workout.properties["startedAt"])._tag === "Failure"
+	) {
+		return { action: "reject", reason: "workout_set_context_missing" };
+	}
+	const kind = draft.properties["exerciseKind"] ?? exercise.properties["kind"];
+	const decodedKind = Schema.decodeUnknownResult(exerciseKindSchema)(kind);
+	if (decodedKind._tag === "Failure") {
+		return {
+			action: "reject",
+			reason:
+				kind === undefined ? "workout_set_context_missing" : "workout_set_exercise_kind_invalid",
+		};
+	}
+	const measurements = Schema.decodeUnknownResult(WorkoutSetMeasurementsSchema)({
+		reps: draft.properties["reps"],
+		weight: draft.properties["weight"],
+		distance: draft.properties["distance"],
+		duration: draft.properties["duration"],
 	});
-
-const setProperty = (
-	properties: Readonly<Record<string, unknown>>,
-	set: Record<string, number | string>,
-	key: string,
-	value: number | string,
-) => {
-	if (!jsonValueEquals(properties[key], value)) {
-		set[key] = value;
+	if (measurements._tag === "Failure") {
+		return { action: "reject", reason: "workout_set_measurements_invalid" };
 	}
-};
-
-const transformSet = (properties: Readonly<Record<string, unknown>>, kind: ExerciseKind) => {
-	const measurementsResult = finiteMeasurements(properties);
-	if (measurementsResult._tag === "Failure") {
-		return reject("workout_set_measurements_invalid");
+	const confirmedAt = draft.properties["confirmedAt"];
+	const confirmed =
+		confirmedAt === undefined || confirmedAt === null
+			? undefined
+			: Schema.decodeUnknownResult(IsoDateString)(confirmedAt);
+	if (confirmed?._tag === "Failure") {
+		return { action: "reject", reason: "workout_set_confirmed_at_invalid" };
 	}
-	const statistics = calculateWorkoutSetStatistics(kind, measurementsResult.success);
-	const set: Record<string, number | string> = {};
-	const remove: string[] = [];
-	setProperty(properties, set, "exerciseKind", kind);
-	for (const [key, value] of [
-		["oneRm", statistics.oneRm],
-		["volume", statistics.volume],
-		["pace", statistics.pace],
-	] as const) {
-		if (value === undefined) {
-			if (Object.hasOwn(properties, key)) {
-				remove.push(key);
-			}
-		} else {
-			setProperty(properties, set, key, value);
-		}
+	const occurredAt = confirmed?.success;
+	const properties =
+		draft.properties["exerciseKind"] === decodedKind.success
+			? undefined
+			: { remove: [], set: { exerciseKind: decodedKind.success } };
+	if (!properties && (occurredAt === undefined || occurredAt === draft.occurredAt)) {
+		return { action: "allow" };
 	}
-	if (Object.hasOwn(properties, "personalBests")) {
-		remove.push("personalBests");
-	}
-	return Object.keys(set).length === 0 && remove.length === 0
-		? allow()
-		: Schema.decodeSync(automationPolicyResultSchema)({
-				action: "transform",
-				patch: { resource: "event", draft: { properties: { set, remove } } },
-			});
+	return {
+		action: "transform",
+		patch: {
+			resource: "event",
+			draft: {
+				...(properties ? { properties } : {}),
+				...(occurredAt === undefined || occurredAt === draft.occurredAt ? {} : { occurredAt }),
+			},
+		},
+	};
 };
 
 export default defineAutomationPolicy({
 	manifest,
-	run: ({ automation }, host) => {
-		const payload = automation.payload;
-		if (
-			payload.resource !== "event" ||
-			(payload.operation !== "create" && payload.operation !== "update")
-		) {
-			return Effect.succeed(allow());
-		}
-		if (
-			payload.draft.entitySchemaSlug !== "exercise" ||
-			payload.draft.eventSchemaSlug !== "workout-set"
-		) {
-			return Effect.succeed(allow());
-		}
-		if (isOwnDerivedOutputUpdate(automation.causation.eventStreamWorkId, payload)) {
-			return Effect.succeed(allow());
-		}
-		const workoutId = payload.draft.sessionEntityId;
-		if (workoutId === null) {
-			return Effect.succeed(reject("workout_set_context_missing"));
-		}
-		const recordedKind = payload.draft.properties["exerciseKind"];
-		const recorded =
-			recordedKind === undefined
-				? undefined
-				: Schema.decodeUnknownResult(exerciseKindSchema)(recordedKind);
-		if (recorded?._tag === "Failure") {
-			return Effect.succeed(reject("workout_set_exercise_kind_invalid"));
-		}
-		return Effect.gen(function* () {
-			const context = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				workoutSetContextRecipe({
-					workoutId,
-					reference: { kind: "self" },
-					exerciseId: payload.draft.entityId,
-				}),
-			);
-			const exerciseKind = recorded?.success ?? context.exercise?.kind;
-			if (
-				exerciseKind === undefined ||
-				exerciseKind === null ||
-				context.workout === null ||
-				context.workout.startedAt === null
-			) {
-				return reject("workout_set_context_missing");
-			}
-			return transformSet(payload.draft.properties, exerciseKind);
-		});
-	},
+	run: ({ items, automation }) =>
+		Effect.succeed({
+			items: items.map(({ payload, itemIdentity }) => ({
+				itemIdentity,
+				decision: validate({ automation: { ...automation, payload } }),
+			})),
+		}),
 });

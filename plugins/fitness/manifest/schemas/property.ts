@@ -8,7 +8,11 @@ import {
 	exerciseMechanics,
 } from "../../shared/exercise-kinds";
 import { personalBestTypes, workoutSetScales } from "../../shared/workout-records";
-import { workoutSetLots, type WorkoutSetField } from "../../shared/workout-set";
+import {
+	workoutSetLots,
+	workoutSetDerivedFields,
+	type WorkoutSetField,
+} from "../../shared/workout-set";
 
 const workoutSupersetItemProperties: Readonly<Record<string, AppPropertyDefinition>> = {
 	color: {
@@ -131,12 +135,6 @@ const workoutSetFields: Record<WorkoutSetField, AppPropertyDefinition> = {
 		normalize: { round: { scale: workoutSetScales.weight } },
 		description: "Weight used in this set in kilograms (kg)",
 	},
-	exerciseKind: {
-		type: "enum",
-		label: "Exercise Kind",
-		description: "Exercise kind this set was logged under",
-		choices: { kind: "static", values: exerciseKinds.map((value) => ({ value })) },
-	},
 	oneRm: {
 		type: "number",
 		label: "One Rm",
@@ -165,9 +163,17 @@ const workoutSetFields: Record<WorkoutSetField, AppPropertyDefinition> = {
 		normalize: { round: { scale: workoutSetScales.pace } },
 		description: "Speed calculated as kilometers per second from canonical metric measurements",
 	},
+	exerciseKind: {
+		type: "enum",
+		label: "Exercise Kind",
+		validation: { required: true },
+		description: "Exercise kind this set was logged under",
+		choices: { kind: "static", values: exerciseKinds.map((value) => ({ value })) },
+	},
 	personalBests: {
 		type: "array",
 		label: "Personal Bests",
+		validation: { required: true },
 		description: "Personal bests achieved in this set",
 		items: {
 			type: "enum",
@@ -180,7 +186,16 @@ const workoutSetFields: Record<WorkoutSetField, AppPropertyDefinition> = {
 
 export const workoutSetPropertiesSchema: AppSchema = {
 	unknownKeys: "strict",
-	fields: workoutSetFields,
+	fields: Object.fromEntries(
+		Object.entries(workoutSetFields).filter(
+			([key]) => !workoutSetDerivedFields.some((derived) => derived === key),
+		),
+	),
+};
+
+export const workoutRecordPropertiesSchema: AppSchema = {
+	unknownKeys: "strict",
+	fields: Object.fromEntries(workoutSetDerivedFields.map((key) => [key, workoutSetFields[key]])),
 };
 
 export const workoutPropertiesSchema: AppSchema = {

@@ -1,269 +1,201 @@
+import { expect, it } from "@effect/vitest";
 import { automationPolicyInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
-import { describe, expect, it } from "vitest";
 
-import definition, { manifest } from "./workout-set-policy.sandbox";
+import definition from "./workout-set-policy.sandbox";
 
-const timestamp = "2026-01-01T08:00:00.000Z";
-
-const policyInput = (payload: unknown, eventStreamWorkId?: string) =>
-	Schema.decodeUnknownSync(automationPolicyInputSchema)({
+const now = "2026-06-02T10:00:00.000Z";
+const references = {
+	workout: {
+		entitySchemaSlug: "workout",
+		properties: { startedAt: now },
+		entitySchemaPluginId: "fitness",
+	},
+	exercise: {
+		entitySchemaSlug: "exercise",
+		entitySchemaPluginId: "fitness",
+		properties: { kind: "reps_and_weight" },
+	},
+};
+const input = (
+	properties: Record<string, unknown>,
+	options: {
+		operation?: "create" | "update" | "delete";
+		sessionEntityId?: string | null;
+		entitySchemaSlug?: string;
+		references?: Record<string, unknown>;
+	} = {},
+) => {
+	const draft = {
+		properties,
+		occurredAt: now,
+		entityId: "exercise",
+		eventSchemaSlug: "workout-set",
+		eventSchemaPluginId: "fitness",
+		entitySchemaPluginId: "fitness",
+		entitySchemaSlug: options.entitySchemaSlug ?? "exercise",
+		sessionEntityId: options.sessionEntityId === undefined ? "workout" : options.sessionEntityId,
+	};
+	const snapshot = { ...draft, id: "event", createdAt: now, updatedAt: now };
+	return Schema.decodeUnknownSync(automationPolicyInputSchema)({
 		automation: {
-			payload,
-			runId: "run-1",
-			occurredAt: timestamp,
-			triggerId: "trigger-1",
-			executionUserId: "user-1",
+			runId: "run",
+			occurredAt: now,
+			triggerId: "trigger",
+			executionUserId: "user",
 			hookSlug: "fitness.workout-set",
+			references: options.references ?? references,
 			causation: {
 				depth: 0,
 				source: "api",
 				parentRunId: null,
 				lane: "interactive",
 				parentTriggerId: null,
-				executionId: "execution-1",
-				rootExecutionId: "execution-1",
-				initiator: { kind: "user", id: "user-1" },
-				...(eventStreamWorkId === undefined ? {} : { eventStreamWorkId }),
+				executionId: "execution",
+				rootExecutionId: "execution",
+				initiator: { id: "user", kind: "user" },
 			},
-		},
-	});
-
-const eventDraft = (
-	properties: Record<string, unknown>,
-	overrides: Record<string, unknown> = {},
-) => ({
-	properties,
-	entityId: "exercise-1",
-	sessionEntityId: "workout-1",
-	entitySchemaSlug: "exercise",
-	eventSchemaSlug: "workout-set",
-	eventSchemaPluginId: "fitness-owner",
-	entitySchemaPluginId: "fitness-owner",
-	occurredAt: "2026-01-01T08:15:00.000Z",
-	...overrides,
-});
-
-const eventSnapshot = (
-	properties: Record<string, unknown>,
-	overrides: Record<string, unknown> = {},
-) => ({
-	...eventDraft(properties, overrides),
-	id: "event-1",
-	createdAt: timestamp,
-	updatedAt: timestamp,
-});
-
-const contextResponse = (
-	options: { readonly kind?: string | null; readonly startedAt?: string | null } = {},
-) => ({
-	data: {
-		exercise: {
-			type: "rows" as const,
-			pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-			items: [
-				{ id: "exercise-1", kind: options.kind === undefined ? "reps_and_weight" : options.kind },
-			],
-		},
-		workout: {
-			type: "rows" as const,
-			pageInfo: { limit: 2, hasMore: false, nextCursor: null },
-			items: [
-				{
-					id: "workout-1",
-					startedAt: options.startedAt === undefined ? timestamp : options.startedAt,
-				},
-			],
-		},
-	},
-});
-
-const run = (
-	input: ReturnType<typeof policyInput>,
-	context = contextResponse(),
-	calls: unknown[] = [],
-) =>
-	definition.run(
-		input,
-		defineSandboxTestHost(manifest, {
-			executeRyotql: (document) => {
-				calls.push(document);
-				return Effect.succeed(context);
-			},
-		}),
-	);
-
-describe("workout set policy", () => {
-	it("derives statistics from metric measurements and removes supplied badges", () => {
-		const input = policyInput({
-			resource: "event",
-			category: "request",
-			operation: "create",
-			draft: eventDraft({
-				pace: 8,
-				reps: 10,
-				weight: 10,
-				oneRm: 900,
-				volume: 900,
-				restTime: 90,
-				distance: 2.5,
-				note: "Keep this note",
-				personalBests: ["time"],
-			}),
-		});
-
-		return Effect.runPromise(
-			run(input).pipe(
-				Effect.map((result) => {
-					expect(result).toEqual({
-						action: "transform",
-						patch: {
-							resource: "event",
-							draft: {
-								properties: {
-									remove: ["pace", "personalBests"],
-									set: { volume: 100, oneRm: 13.333333, exerciseKind: "reps_and_weight" },
-								},
-							},
-						},
-					});
-				}),
-			),
-		);
-	});
-
-	it("keeps zero measurements and does not change notes or rest fields", () => {
-		const input = policyInput({
-			resource: "event",
-			category: "request",
-			operation: "create",
-			draft: eventDraft({ reps: 0, weight: 0, restTime: 0, note: "Keep this" }),
-		});
-
-		return Effect.runPromise(
-			run(input).pipe(
-				Effect.map((result) => {
-					expect(result).toEqual({
-						action: "transform",
-						patch: {
-							resource: "event",
-							draft: { properties: { remove: [], set: { exerciseKind: "reps_and_weight" } } },
-						},
-					});
-				}),
-			),
-		);
-	});
-
-	it("corrects ordinary output edits but preserves trusted worker badges", () => {
-		const before = eventSnapshot({
-			reps: 8,
-			weight: 20,
-			volume: 160,
-			oneRm: 24.827586,
-			personalBests: ["reps", "one_rm"],
-		});
-		const ordinary = policyInput({
-			before,
-			resource: "event",
-			category: "request",
-			operation: "update",
-			changedProperties: ["oneRm"],
-			draft: eventDraft({
-				reps: 8,
-				weight: 20,
-				oneRm: 400,
-				volume: 160,
-				personalBests: ["reps", "one_rm"],
-			}),
-		});
-		const worker = policyInput(
-			{
-				before,
+			payload: {
 				resource: "event",
 				category: "request",
-				operation: "update",
-				changedProperties: ["oneRm", "personalBests"],
-				draft: eventDraft({
-					reps: 8,
-					weight: 20,
-					volume: 160,
-					oneRm: 24.827586,
-					personalBests: ["reps", "one_rm"],
-				}),
+				operation: options.operation ?? "create",
+				draft: options.operation === "delete" ? snapshot : draft,
+				...(options.operation === "update"
+					? { before: snapshot, changedProperties: ["reps"] }
+					: {}),
 			},
-			"stream-work-1",
-		);
-		const calls: unknown[] = [];
-
-		return Effect.runPromise(
-			Effect.gen(function* () {
-				const corrected = yield* run(ordinary, contextResponse(), calls);
-				const preserved = yield* run(worker, contextResponse(), calls);
-				expect(corrected).toEqual({
-					action: "transform",
-					patch: {
-						resource: "event",
-						draft: {
-							properties: {
-								remove: ["personalBests"],
-								set: { oneRm: 24.827586, exerciseKind: "reps_and_weight" },
-							},
-						},
-					},
-				});
-				expect(preserved).toEqual({ action: "allow" });
-				expect(calls).toHaveLength(1);
-			}),
-		);
+		},
 	});
+};
+type BatchItem = { readonly itemIdentity: string; readonly policyInput: ReturnType<typeof input> };
+const batch = (first: BatchItem, ...rest: BatchItem[]) => {
+	const { payload: firstPayload, ...automation } = first.policyInput.automation;
+	return {
+		automation,
+		items: [
+			{ payload: firstPayload, itemIdentity: first.itemIdentity },
+			...rest.map(({ policyInput, itemIdentity }) => ({
+				itemIdentity,
+				payload: policyInput.automation.payload,
+			})),
+		],
+	};
+};
+const run = (properties: Record<string, unknown>, options?: Parameters<typeof input>[1]) =>
+	definition
+		.run(batch({ itemIdentity: "set", policyInput: input(properties, options) }))
+		.pipe(Effect.map(({ items }) => items[0]?.decision));
 
-	it("keeps a recorded kind that differs from the exercise and rejects an unknown one", () => {
-		const recorded = policyInput({
-			resource: "event",
-			category: "request",
-			operation: "create",
-			draft: eventDraft({ reps: 12, oneRm: 28, weight: 20, volume: 240, exerciseKind: "reps" }),
+it.effect("records the exercise kind without writing computed fields", () =>
+	Effect.gen(function* () {
+		expect(yield* run({ reps: 10, weight: 20 })).toEqual({
+			action: "transform",
+			patch: {
+				resource: "event",
+				draft: { properties: { remove: [], set: { exerciseKind: "reps_and_weight" } } },
+			},
 		});
-		const unknown = policyInput({
-			resource: "event",
-			category: "request",
-			operation: "create",
-			draft: eventDraft({ reps: 12, exerciseKind: "sprints" }),
+	}),
+);
+
+it.effect("keeps each set's recorded kind instead of replacing it from the exercise", () =>
+	Effect.gen(function* () {
+		expect(yield* run({ reps: 0, exerciseKind: "reps" })).toEqual({ action: "allow" });
+		expect(
+			yield* run(
+				{ reps: 12, weight: 20, exerciseKind: "reps_and_weight" },
+				{ operation: "update" },
+			),
+		).toEqual({ action: "allow" });
+	}),
+);
+
+it.effect("uses confirmation time for event ordering without requiring it", () =>
+	Effect.gen(function* () {
+		const confirmedAt = "2026-06-02T10:05:00.000Z";
+		expect(yield* run({ reps: 10, confirmedAt, exerciseKind: "reps" })).toEqual({
+			action: "transform",
+			patch: { resource: "event", draft: { occurredAt: confirmedAt } },
 		});
-
-		return Effect.runPromise(
-			Effect.gen(function* () {
-				expect(yield* run(recorded, contextResponse({ kind: "reps_and_weight" }))).toEqual({
-					action: "transform",
-					patch: {
-						resource: "event",
-						draft: { properties: { set: {}, remove: ["oneRm", "volume"] } },
-					},
-				});
-				expect(yield* run(unknown)).toEqual({
-					action: "reject",
-					reason: "workout_set_exercise_kind_invalid",
-				});
-			}),
-		);
-	});
-
-	it("rejects a workout set without a complete exercise and workout context", () => {
-		const input = policyInput({
-			resource: "event",
-			category: "request",
-			operation: "create",
-			draft: eventDraft({ reps: 5 }),
+		expect(yield* run({ reps: 10, confirmedAt: now, exerciseKind: "reps" })).toEqual({
+			action: "allow",
 		});
+		expect(yield* run({ reps: 10, exerciseKind: "reps" })).toEqual({ action: "allow" });
+		expect(yield* run({ reps: 10, confirmedAt: "invalid" })).toEqual({
+			action: "reject",
+			reason: "workout_set_confirmed_at_invalid",
+		});
+	}),
+);
 
-		return Effect.runPromise(
-			run(input, contextResponse({ kind: null, startedAt: null })).pipe(
-				Effect.map((result) => {
-					expect(result).toEqual({ action: "reject", reason: "workout_set_context_missing" });
-				}),
+it.effect("rejects missing, malformed, or foreign workout context", () =>
+	Effect.gen(function* () {
+		for (const options of [
+			{ sessionEntityId: null },
+			{ references: {} },
+			{
+				references: {
+					...references,
+					workout: { ...references.workout, entitySchemaPluginId: "foreign" },
+				},
+			},
+			{
+				references: {
+					...references,
+					exercise: { ...references.exercise, entitySchemaPluginId: "foreign" },
+				},
+			},
+			{
+				references: {
+					...references,
+					workout: { ...references.workout, properties: { startedAt: "invalid" } },
+				},
+			},
+		]) {
+			expect(yield* run({ reps: 10 }, options)).toEqual({
+				action: "reject",
+				reason: "workout_set_context_missing",
+			});
+		}
+	}),
+);
+
+it.effect("rejects unsupported recorded kinds and invalid measurements", () =>
+	Effect.gen(function* () {
+		expect(yield* run({ reps: 10, exerciseKind: "invalid" })).toEqual({
+			action: "reject",
+			reason: "workout_set_exercise_kind_invalid",
+		});
+		expect(yield* run({ reps: "invalid" })).toEqual({
+			action: "reject",
+			reason: "workout_set_measurements_invalid",
+		});
+	}),
+);
+
+it.effect("does not apply create/update rules to deletions or other entity schemas", () =>
+	Effect.gen(function* () {
+		expect(yield* run({}, { references: {}, operation: "delete" })).toEqual({ action: "allow" });
+		expect(yield* run({}, { references: {}, entitySchemaSlug: "other" })).toEqual({
+			action: "allow",
+		});
+	}),
+);
+
+it.effect("retains independent decisions and identities throughout a batch", () =>
+	Effect.gen(function* () {
+		const result = yield* definition.run(
+			batch(
+				{ itemIdentity: "missing", policyInput: input({ reps: 10 }, { sessionEntityId: null }) },
+				{ itemIdentity: "valid", policyInput: input({ reps: 0, exerciseKind: "reps" }) },
 			),
 		);
-	});
-});
+		expect(result.items).toEqual([
+			{
+				itemIdentity: "missing",
+				decision: { action: "reject", reason: "workout_set_context_missing" },
+			},
+			{ itemIdentity: "valid", decision: { action: "allow" } },
+		]);
+	}),
+);

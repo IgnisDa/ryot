@@ -10,6 +10,7 @@ import { useMemo, useState } from "react";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { useActiveEditorDraft } from "../exercise/active-draft";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
+import { WorkoutProcessing } from "../workout-processing";
 import { buildWorkoutCards } from "../workouts/model";
 import { FirstRun } from "./first-run";
 import { MusclesSection, PersonalBestsSection } from "./insights";
@@ -58,44 +59,48 @@ export default function FitnessHomePage() {
 		</div>
 	);
 	return (
-		<PluginScreenFrame
-			title="Home"
-			actions={compact ? undefined : controls}
-			titleIcon={<AppIcon size={20} name="home" className="shrink-0 text-text-muted" />}
-			meta={
-				<p className="pb-2 text-[13px] text-text-muted">
-					{[formatHomeDate(now, timeZone), phrase].filter((part) => part !== null).join(" · ")}
-				</p>
-			}
-		>
-			{compact ? controls : null}
-			<div className="flex min-w-0 flex-col gap-6 font-ui">
-				{draft === undefined ? null : <ResumeBanner now={now} draft={draft} timeZone={timeZone} />}
-				<QueryBody result={latest} noun="your workouts">
-					{() =>
-						cards?.[0] === undefined ? (
-							<FirstRun goalSet={(context.data?.settings.weeklyWorkoutGoal ?? null) !== null} />
-						) : (
-							<>
-								<div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] items-start gap-4">
-									<WeekGoalSection
-										now={now}
-										timeZone={timeZone}
-										hasLiveDraft={draft?.mode.kind === "live"}
-									/>
-									<LastWorkoutCard card={cards[0]} />
-									<MeasurementsCard now={now} timeZone={timeZone} />
-								</div>
-								<TemplatesSection now={now} timeZone={timeZone} />
-								<div className="grid grid-cols-[repeat(auto-fit,minmax(340px,1fr))] items-start gap-6">
-									<MusclesSection now={now} timeZone={timeZone} />
-									<PersonalBestsSection now={now} timeZone={timeZone} imperial={imperial} />
-								</div>
-							</>
-						)
-					}
-				</QueryBody>
-			</div>
-		</PluginScreenFrame>
+		<WorkoutProcessing>
+			<PluginScreenFrame
+				title="Home"
+				actions={compact ? undefined : controls}
+				titleIcon={<AppIcon size={20} name="home" className="shrink-0 text-text-muted" />}
+				meta={
+					<p className="pb-2 text-[13px] text-text-muted">
+						{[formatHomeDate(now, timeZone), phrase].filter((part) => part !== null).join(" · ")}
+					</p>
+				}
+			>
+				{compact ? controls : null}
+				<div className="flex min-w-0 flex-col gap-6 font-ui">
+					{draft === undefined ? null : (
+						<ResumeBanner now={now} draft={draft} timeZone={timeZone} />
+					)}
+					<QueryBody result={latest} noun="your workouts">
+						{() =>
+							cards?.[0] === undefined ? (
+								<FirstRun goalSet={(context.data?.settings.weeklyWorkoutGoal ?? null) !== null} />
+							) : (
+								<>
+									<div className="grid grid-cols-[repeat(auto-fit,minmax(300px,1fr))] items-start gap-4">
+										<WeekGoalSection
+											now={now}
+											timeZone={timeZone}
+											hasLiveDraft={draft?.mode.kind === "live"}
+										/>
+										<LastWorkoutCard card={cards[0]} />
+										<MeasurementsCard now={now} timeZone={timeZone} />
+									</div>
+									<TemplatesSection now={now} timeZone={timeZone} />
+									<div className="grid grid-cols-[repeat(auto-fit,minmax(340px,1fr))] items-start gap-6">
+										<MusclesSection now={now} timeZone={timeZone} />
+										<PersonalBestsSection now={now} timeZone={timeZone} imperial={imperial} />
+									</div>
+								</>
+							)
+						}
+					</QueryBody>
+				</div>
+			</PluginScreenFrame>
+		</WorkoutProcessing>
 	);
 }

@@ -5,6 +5,7 @@ import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
 import { tableHeaderClass } from "../measurements/styles";
+import { ComputedResults } from "../workout-processing";
 import { formatNumber } from "../workout/format";
 import { changeTone, formatChange, plural, type WeekSection, type WorkoutCard } from "./model";
 import { toneClasses } from "./styles";
@@ -18,12 +19,16 @@ function WorkoutName(props: { readonly card: WorkoutCard; readonly className?: s
 }
 
 function RecordBadge(props: { readonly count: number }) {
-	return props.count > 0 ? (
-		<Badge variant="accent">
-			<AppIcon size={12} name="star" />
-			{plural(props.count, "PR")}
-		</Badge>
-	) : null;
+	return (
+		<ComputedResults>
+			{props.count > 0 ? (
+				<Badge variant="accent">
+					<AppIcon size={12} name="star" />
+					{plural(props.count, "PR")}
+				</Badge>
+			) : null}
+		</ComputedResults>
+	);
 }
 
 const muscleList = (card: WorkoutCard) =>
@@ -38,14 +43,16 @@ function Comparison(props: { readonly card: WorkoutCard }) {
 		<>
 			<span className="truncate text-text-subtle">{comparison.label}</span>
 			{comparison.change === null ? null : (
-				<span
-					className={clsx(
-						"font-semibold whitespace-nowrap tabular-nums",
-						toneClasses[changeTone(comparison.change)],
-					)}
-				>
-					{formatChange(comparison.change)} volume
-				</span>
+				<ComputedResults>
+					<span
+						className={clsx(
+							"font-semibold whitespace-nowrap tabular-nums",
+							toneClasses[changeTone(comparison.change)],
+						)}
+					>
+						{formatChange(comparison.change)} volume
+					</span>
+				</ComputedResults>
 			)}
 		</>
 	);
@@ -53,15 +60,17 @@ function Comparison(props: { readonly card: WorkoutCard }) {
 
 function RecordCount(props: { readonly count: number; readonly className?: string }) {
 	return (
-		<span
-			className={clsx(
-				"font-semibold",
-				props.count > 0 ? "text-accent-text" : "text-text-subtle",
-				props.className,
-			)}
-		>
-			{props.count > 0 ? formatNumber(props.count) : "—"}
-		</span>
+		<ComputedResults>
+			<span
+				className={clsx(
+					"font-semibold",
+					props.count > 0 ? "text-accent-text" : "text-text-subtle",
+					props.className,
+				)}
+			>
+				{props.count > 0 ? formatNumber(props.count) : "—"}
+			</span>
+		</ComputedResults>
 	);
 }
 
@@ -99,7 +108,7 @@ export function WorkoutGridCard(props: { readonly card: WorkoutCard }) {
 				</div>
 				<div className="grid grid-cols-3 gap-2 px-4.5 py-3.5">
 					<Stat value={card.duration?.value ?? "—"} label={card.duration?.label ?? "Duration"} />
-					<Stat label="Volume" value={card.volume ?? "—"} />
+					<Stat label="Volume" value={<ComputedResults>{card.volume ?? "—"}</ComputedResults>} />
 					<Stat
 						value={formatNumber(card.sets)}
 						label={`Sets · ${plural(card.exercises, "exercise")}`}
@@ -185,7 +194,9 @@ export function WorkoutListRow(props: { readonly card: WorkoutCard }) {
 						</span>
 					</span>
 					<span>
-						<span className="block font-semibold text-text">{card.volume ?? "—"}</span>
+						<span className="block font-semibold text-text">
+							<ComputedResults>{card.volume ?? "—"}</ComputedResults>
+						</span>
 						<span
 							className={clsx(
 								"text-[11.5px]",
@@ -355,7 +366,9 @@ export function WorkoutTable(props: { readonly cards: readonly WorkoutCard[] }) 
 								{formatNumber(card.exercises)}
 							</td>
 							<td className="px-3 py-2.5 text-right text-text-muted">{formatNumber(card.sets)}</td>
-							<td className="px-3 py-2.5 text-right">{card.volume ?? "—"}</td>
+							<td className="px-3 py-2.5 text-right">
+								<ComputedResults>{card.volume ?? "—"}</ComputedResults>
+							</td>
 							<td className="px-3 py-2.5 text-right">
 								<RecordCount count={card.personalBests} />
 							</td>

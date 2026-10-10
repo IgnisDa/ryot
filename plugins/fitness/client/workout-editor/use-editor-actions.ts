@@ -75,9 +75,6 @@ const saveFailureMessage = (result: Exclude<WorkoutEditorSaveOutput, { kind: "sa
 		case "invalid":
 			message = `This workout could not be saved: ${result.code.replaceAll("-", " ")}.`;
 			break;
-		case "incomplete":
-			message = "The save is incomplete. Retry the same submission to finish without duplicates.";
-			break;
 	}
 	return message;
 };
@@ -202,6 +199,7 @@ export function useEditorActions(input: {
 						packageId: PLUGIN_PACKAGE_ID,
 						slug: workoutEditorSaveOperationSlug,
 						output: WorkoutEditorSaveOutputSchema,
+						idempotencyKey: submission.submissionId,
 						inputSchema: WorkoutEditorSaveInputSchema,
 					})
 					.pipe(Effect.ensuring(Effect.sync(() => controller.setSaving(false))));

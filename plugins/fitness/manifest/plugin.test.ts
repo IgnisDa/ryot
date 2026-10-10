@@ -378,8 +378,7 @@ it("declares the complete fitness-owned source", () => {
 	]);
 });
 
-it("binds workout context and set policies before stream-based record recomputation", () => {
-	const contextPolicy = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-context");
+it("binds the combined set policy before stream-based record recomputation", () => {
 	const setPolicy = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-set");
 	const recordsHook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-records");
 	const contextRecordsHook = fitnessPlugin.hooks.find(
@@ -387,12 +386,7 @@ it("binds workout context and set policies before stream-based record recomputat
 	);
 	const notificationHook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.notification");
 
-	expect(contextPolicy).toMatchObject({
-		position: 100,
-		stage: "before",
-		scriptSlug: "policy.workout-context",
-	});
-	expect(contextPolicy?.targets).toEqual(
+	expect(setPolicy?.targets).toEqual(
 		(["create", "update"] as const).map((operation) => ({
 			operation,
 			resource: "event",

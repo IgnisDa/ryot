@@ -105,6 +105,9 @@ const respond = (
 	scenario: Scenario,
 ) => {
 	const names = Object.keys(queries);
+	if (names.includes("processing")) {
+		return { processing: aggregate([{ failed: 0, pending: 0 }]) };
+	}
 	if (names.includes("recentCount")) {
 		return {
 			recentCount: aggregate([{ count: 3 }]),

@@ -2,18 +2,14 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
-	coalesce,
 	column,
-	conditional,
 	defineRecipe,
 	descending,
 	eq,
 	exists,
 	first,
-	isNull,
 	isNotNull,
 	join,
-	jsonPath,
 	literal,
 	lt,
 	selectedField,
@@ -29,11 +25,12 @@ import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
-	nullableEquals,
 	property,
 	propertyDate,
 	propertyJson,
 	propertyNumber,
+	projectionNumber,
+	projectionProperty,
 } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
 import { workoutSelection, workoutTemplateInclude } from "./query-recipes";
@@ -90,7 +87,7 @@ const repeatedFromInclude = (workout: Table) => {
 const setMeasurementsSelection = (set: Table) => ({
 	reps: selectedField(propertyNumber(set, "reps"), nullableNumber),
 	weight: selectedField(propertyNumber(set, "weight"), nullableNumber),
-	volume: selectedField(propertyNumber(set, "volume"), nullableNumber),
+	volume: selectedField(projectionNumber(set, "volume"), nullableNumber),
 	duration: selectedField(propertyNumber(set, "duration"), nullableNumber),
 	distance: selectedField(propertyNumber(set, "distance"), nullableNumber),
 	exerciseOrder: selectedField(propertyNumber(set, "exerciseOrder"), nullableNumber),
@@ -102,41 +99,7 @@ const setOrdering = (set: Table) =>
 		ascending(propertyNumber(set, "setOrder")),
 	] as const;
 
-const recordStatus = (exercise: Table, set: Table) => {
-	const stream = table("eventStream", "workoutSetStream");
-	const work = table("eventStreamWork", "workoutSetWork");
-	const streamPluginId = column(stream, "eventSchemaPluginId");
-	const processing = first(work, {
-		orderBy: [ascending(column(work, "id"))],
-		joins: [join("inner", stream, eq(column(work, "id"), column(stream, "id")))],
-		where: and(
-			eq(column(stream, "entityId"), column(exercise, "id")),
-			nullableEquals(streamPluginId, column(exercise, "entitySchemaPluginId")),
-			nullableEquals(streamPluginId, column(set, "eventSchemaPluginId")),
-			eq(column(stream, "eventSchemaSlug"), column(set, "eventSchemaSlug")),
-		),
-		select: conditional(
-			eq(column(work, "status"), literal("failed")),
-			literal("failed"),
-			conditional(
-				and(
-					eq(column(work, "status"), literal("completed")),
-					eq(column(work, "claimedRevision"), column(stream, "revision")),
-				),
-				literal("ready"),
-				literal("pending"),
-			),
-		),
-	});
-	return coalesce(
-		processing,
-		conditional(
-			isNull(jsonPath(column(set, "properties"), "personalBests")),
-			literal("pending"),
-			literal("ready"),
-		),
-	);
-};
+const recordStatus = (set: Table) => column(set, "projectionStatus");
 
 const priorSession = (workout: Table, exercise: Table, pick: "sessionEntityId" | "startedAt") => {
 	const priorSet = table("event", "priorWorkoutSet");
@@ -276,18 +239,18 @@ export const workoutDetailsSetsRecipe = defineRecipe(
 						note: selectedField(property(set, "note"), nullableString),
 						rpe: selectedField(propertyNumber(set, "rpe"), nullableNumber),
 						exerciseId: selectedField(column(set, "entityId"), Schema.String),
-						oneRm: selectedField(propertyNumber(set, "oneRm"), nullableNumber),
+						oneRm: selectedField(projectionNumber(set, "oneRm"), nullableNumber),
 						restTime: selectedField(propertyNumber(set, "restTime"), nullableNumber),
 						setOrder: selectedField(propertyNumber(set, "setOrder"), nullableNumber),
 						confirmedAt: selectedField(propertyDate(set, "confirmedAt"), nullableString),
 						exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
 						setLot: selectedField(property(set, "setLot"), Schema.NullOr(WorkoutSetLotSchema)),
 						recordStatus: selectedField(
-							recordStatus(exercise, set),
+							recordStatus(set),
 							Schema.Literals(["pending", "ready", "failed"]),
 						),
 						personalBests: selectedField(
-							jsonPath(column(set, "properties"), "personalBests"),
+							projectionProperty(set, "personalBests"),
 							Schema.NullOr(Schema.Array(PersonalBestSchema)),
 						),
 					},

@@ -27,7 +27,6 @@ const workoutRecord = (overrides: Readonly<Record<string, unknown>> = {}) => ({
 	distance: null,
 	exerciseOrder: 0,
 	oneRm: 33.333333,
-	confirmedAt: null,
 	personalBests: null,
 	occurredAt: timestamp,
 	sessionId: "workout-1",
@@ -78,7 +77,7 @@ const makeHost = (
 };
 
 describe("workout record step", () => {
-	it("normalizes confirmed event times and preserves unconfirmed timestamps", () => {
+	it("uses recorded event times without returning timestamp updates", () => {
 		const calls: RyotQLDocument[] = [];
 		const writes: unknown[] = [];
 		const host = makeHost(
@@ -86,14 +85,12 @@ describe("workout record step", () => {
 				page([
 					workoutRecord({
 						id: "set-1",
-						confirmedAt: null,
 						occurredAt: "2026-01-01T07:00:00.000Z",
 						workoutStartedAt: "2026-01-01T08:00:00.000Z",
 					}),
 					workoutRecord({
 						id: "set-2",
 						occurredAt: "2026-01-01T08:10:00.000Z",
-						confirmedAt: "2026-01-01T08:30:00.000Z",
 						workoutStartedAt: "2026-01-01T08:00:00.000Z",
 					}),
 				]),
@@ -105,21 +102,34 @@ describe("workout record step", () => {
 		return Effect.runPromise(
 			definition.run(input(), host).pipe(
 				Effect.map((result) => {
-					expect(result.done).toBe(false);
-					expect(result.checkpoint).toMatchObject({ after: null, phase: "records" });
+					expect(result.done).toBe(true);
+					expect(result.checkpoint).toMatchObject({
+						after: null,
+						phase: "complete",
+						lastOccurredAt: "2026-01-01T08:10:00.000Z",
+					});
 					expect(result.updates).toEqual([
-						{ eventId: "set-2", patch: { occurredAt: "2026-01-01T08:30:00.000Z" } },
+						{
+							eventId: "set-1",
+							properties: {
+								volume: 250,
+								oneRm: 33.333333,
+								personalBests: ["reps", "one_rm", "volume", "weight"],
+							},
+						},
+						{ eventId: "set-2", properties: { volume: 250, oneRm: 33.333333, personalBests: [] } },
 					]);
 					expect(writes).toEqual([]);
 					const query = calls[0]?.queries.records;
 					assert(query?.output.type === "rows");
-					expect(query.output.orderBy[0]?.expr).toMatchObject({ field: "id" });
+					expect(query.output.orderBy[0]?.expr).toMatchObject({ field: "occurredAt" });
+					expect(query.output.orderBy.at(-1)?.expr).toMatchObject({ field: "id" });
 				}),
 			),
 		);
 	});
 
-	it("stores an empty personal-best result instead of removing the property", () => {
+	it("projects an empty personal-best result", () => {
 		const checkpoint = {
 			after: null,
 			phase: "records",
@@ -132,7 +142,7 @@ describe("workout record step", () => {
 			definition.run(input(checkpoint, timestamp), host).pipe(
 				Effect.map((result) => {
 					expect(result.updates).toEqual([
-						{ eventId: "set-1", patch: { properties: { remove: [], set: { personalBests: [] } } } },
+						{ eventId: "set-1", properties: { volume: 250, oneRm: 33.333333, personalBests: [] } },
 					]);
 				}),
 			),
@@ -167,24 +177,20 @@ describe("workout record step", () => {
 						expect(result.updates).toEqual([
 							{
 								eventId: "weighted",
-								patch: {
-									properties: {
-										remove: [],
-										set: { personalBests: ["reps", "one_rm", "volume", "weight"] },
-									},
+								properties: {
+									volume: 250,
+									oneRm: 33.333333,
+									personalBests: ["reps", "one_rm", "volume", "weight"],
 								},
 							},
-							{
-								eventId: "bodyweight",
-								patch: { properties: { remove: [], set: { personalBests: ["reps"] } } },
-							},
+							{ eventId: "bodyweight", properties: { personalBests: ["reps"] } },
 						]);
 					}),
 				),
 		);
 	});
 
-	it("removes stored statistics that are unavailable for the current set", () => {
+	it("omits statistics that are unavailable for the current set", () => {
 		const host = makeHost([
 			page([
 				workoutRecord({
@@ -207,37 +213,31 @@ describe("workout record step", () => {
 				.pipe(
 					Effect.map((result) => {
 						expect(result.updates).toEqual([
-							{
-								eventId: "set-1",
-								patch: {
-									properties: { set: { personalBests: [] }, remove: ["oneRm", "volume", "pace"] },
-								},
-							},
+							{ eventId: "set-1", properties: { personalBests: [] } },
 						]);
 					}),
 				),
 		);
 	});
 
-	it("keeps a full fifty-row normalization page within the event update cap", () => {
+	it("processes a fifty-row records page without timestamp updates", () => {
 		const records = Array.from({ length: 50 }, (_, index) =>
-			workoutRecord({
-				id: `set-${index}`,
-				confirmedAt: timestamp,
-				occurredAt: "2026-01-01T07:59:00.000Z",
-			}),
+			workoutRecord({ id: `set-${index}`, occurredAt: "2026-01-01T07:59:00.000Z" }),
 		);
 		const calls: RyotQLDocument[] = [];
 		const host = makeHost([page(records, { hasMore: true, nextCursor: "cursor-50" })], calls);
 
 		return Effect.runPromise(
 			definition
-				.run(input({ maxima: {}, after: null, phase: "normalize", lastOccurredAt: null }), host)
+				.run(input({ maxima: {}, after: null, phase: "records", lastOccurredAt: null }), host)
 				.pipe(
 					Effect.map((result) => {
 						expect(result.updates).toHaveLength(50);
 						expect(new Set(result.updates.map(({ eventId }) => eventId)).size).toBe(50);
-						expect(result.checkpoint).toMatchObject({ phase: "normalize", after: "cursor-50" });
+						expect(result.updates.every(({ properties }) => !("occurredAt" in properties))).toBe(
+							true,
+						);
+						expect(result.checkpoint).toMatchObject({ phase: "records", after: "cursor-50" });
 						const query = calls[0]?.queries.records;
 						assert(query?.output.type === "rows");
 						expect(query.output.pagination.limit).toBe(50);
@@ -288,7 +288,7 @@ describe("workout record step", () => {
 					lastOccurredAt: targetTime,
 				});
 				expect(completed.updates).toEqual([
-					{ eventId: "target", patch: { properties: { remove: [], set: { personalBests: [] } } } },
+					{ eventId: "target", properties: { volume: 250, oneRm: 33.333333, personalBests: [] } },
 				]);
 				expect(writes).toEqual([]);
 				const nonAppendCalls: RyotQLDocument[] = [];
@@ -297,11 +297,11 @@ describe("workout record step", () => {
 					input(completed.checkpoint, targetTime),
 					nonAppendHost,
 				);
-				expect(nonAppend.done).toBe(false);
-				const normalizationQuery = nonAppendCalls[0]?.queries.records;
-				assert(normalizationQuery?.output.type === "rows");
-				expect(normalizationQuery.output.pagination.limit).toBe(50);
-				expect(normalizationQuery.output.orderBy[0]?.expr).toMatchObject({ field: "id" });
+				expect(nonAppend.done).toBe(true);
+				const recordsQuery = nonAppendCalls[0]?.queries.records;
+				assert(recordsQuery?.output.type === "rows");
+				expect(recordsQuery.output.pagination.limit).toBe(50);
+				expect(recordsQuery.output.orderBy[0]?.expr).toMatchObject({ field: "occurredAt" });
 
 				const appendCalls: RyotQLDocument[] = [];
 				const appendHost = makeHost(
@@ -328,11 +328,10 @@ describe("workout record step", () => {
 				expect(appended.updates).toEqual([
 					{
 						eventId: "append",
-						patch: {
-							properties: {
-								remove: [],
-								set: { volume: 275, oneRm: 34.166667, personalBests: ["reps", "one_rm", "volume"] },
-							},
+						properties: {
+							volume: 275,
+							oneRm: 34.166667,
+							personalBests: ["reps", "one_rm", "volume"],
 						},
 					},
 				]);

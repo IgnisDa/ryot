@@ -14,6 +14,7 @@ import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-pref
 import { managedAssetBatch } from "../asset-urls";
 import { DisplayPreferences } from "../display-preferences";
 import { WorkoutMediaViewer } from "../media-viewer";
+import { WorkoutProcessing } from "../workout-processing";
 import {
 	buildExerciseGroups,
 	buildTimeline,
@@ -129,18 +130,20 @@ function WorkoutDetailsScreen(props: { readonly entityId: string }) {
 	const { compact } = useRyotViewport();
 	const result = useRyotQuery(workoutDetailsQuery, { entityId: props.entityId });
 	return (
-		<PluginScreenFrame hideTitle title={result.data?.name ?? null}>
-			<DisplayPreferences>
-				{(context) => (
-					<WorkoutDetailsBody
-						result={result}
-						compact={compact}
-						settings={context.settings}
-						proAvailable={context.proAvailable}
-					/>
-				)}
-			</DisplayPreferences>
-		</PluginScreenFrame>
+		<WorkoutProcessing workoutId={props.entityId}>
+			<PluginScreenFrame hideTitle title={result.data?.name ?? null}>
+				<DisplayPreferences>
+					{(context) => (
+						<WorkoutDetailsBody
+							result={result}
+							compact={compact}
+							settings={context.settings}
+							proAvailable={context.proAvailable}
+						/>
+					)}
+				</DisplayPreferences>
+			</PluginScreenFrame>
+		</WorkoutProcessing>
 	);
 }
 

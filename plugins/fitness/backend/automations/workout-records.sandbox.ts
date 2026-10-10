@@ -34,12 +34,8 @@ export const manifest = defineManifest({
 				{ equality: "json", property: "duration" },
 				{ equality: "json", property: "exerciseKind" },
 				{ equality: "json", property: "exerciseOrder" },
-				{ equality: "json", property: "oneRm" },
-				{ property: "pace", equality: "json" },
-				{ equality: "json", property: "personalBests" },
 				{ property: "reps", equality: "json" },
 				{ equality: "json", property: "setOrder" },
-				{ equality: "json", property: "volume" },
 				{ equality: "json", property: "weight" },
 			],
 		},
@@ -52,8 +48,6 @@ const recordStepReference = defineScriptReference({
 	scriptSlug: "script.workout-record-step",
 });
 
-const outputProperties = ["personalBests", "oneRm", "volume", "pace"] as const;
-const outputPropertySet = new Set<string>(outputProperties);
 const workoutSetSchemaSlug = Schema.decodeSync(EventStreamStepInput.fields.eventSchemaSlug)(
 	"workout-set",
 );
@@ -87,18 +81,6 @@ const snapshotsOf = (item: EventBatchItem): readonly EventSnapshot[] => {
 	return [item.before, item.after];
 };
 
-const isOwnDerivedOutputUpdate = (item: EventBatchItem, eventStreamWorkId: string | undefined) =>
-	item.operation === "update" &&
-	eventStreamWorkId !== undefined &&
-	item.changedProperties.length > 0 &&
-	item.changedProperties.every((property) => outputPropertySet.has(property)) &&
-	item.before.id === item.after.id &&
-	item.before.entityId === item.after.entityId &&
-	item.before.entitySchemaSlug === item.after.entitySchemaSlug &&
-	item.before.eventSchemaSlug === item.after.eventSchemaSlug &&
-	item.before.sessionEntityId === item.after.sessionEntityId &&
-	item.before.occurredAt === item.after.occurredAt;
-
 const runWorkoutStartChange = (workout: EntityUpdate, host: AutomationHost) =>
 	Effect.gen(function* () {
 		if (
@@ -127,7 +109,7 @@ const runWorkoutStartChange = (workout: EntityUpdate, host: AutomationHost) =>
 					);
 				}
 				const work = yield* host.requestEventStreamWork(
-					{ entityId, outputProperties, eventSchemaSlug: workoutSetSchemaSlug },
+					{ entityId, eventSchemaSlug: workoutSetSchemaSlug },
 					recordStepReference,
 				);
 				const dispatch = host.executeWorkflow?.(
@@ -165,15 +147,6 @@ export default defineAutomation({
 				return null;
 			}
 			const items = payload.items;
-			if (
-				automation.causation.eventStreamWorkId !== undefined &&
-				items.every((item) =>
-					isOwnDerivedOutputUpdate(item, automation.causation.eventStreamWorkId),
-				)
-			) {
-				return null;
-			}
-
 			const streams = new Map<EventSnapshot["entityId"], EventSnapshot["eventSchemaSlug"]>();
 			for (const item of items) {
 				for (const event of snapshotsOf(item)) {
@@ -205,7 +178,7 @@ export default defineAutomation({
 					continue;
 				}
 				const work = yield* host.requestEventStreamWork(
-					{ entityId, eventSchemaSlug, outputProperties },
+					{ entityId, eventSchemaSlug },
 					recordStepReference,
 				);
 				const dispatch = host.executeWorkflow?.(`workout-records:${entityId}`, kernelDispatch, {

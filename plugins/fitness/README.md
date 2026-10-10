@@ -34,7 +34,7 @@ relationships, leaving workouts started from it intact. Collection additions pre
 membership properties.
 
 Mutating inputs carry the stable `SubmissionEnvelope` identity and timestamp. Writers send editable
-set properties only; policies own derived statistics and personal-best badges. Retried writes keep
+set properties only; projection processors own derived statistics and personal-best badges. Retried writes keep
 their complete input, timestamp, and identity unchanged.
 
 ## Storage Units
@@ -168,13 +168,12 @@ inheritance.
 preserve occurrence/event identity across reorder. Draft encoding and baseline decoding bound
 decompression to 128 KiB; encoded drafts and uncompressed complete save inputs have separate 64 KiB
 budgets. The draft's retained submission freezes data, baseline, ID, and timestamp, including across
-settings changes. Mutation receipts make each service write retry-safe; no outer transaction rolls
-back earlier writes.
+settings changes. The save command commits the entity, sets, relationships, and any new-workout
+completion event atomically; asset uploads are separate.
 
-The workout precedes sets/relationships; a new workout gets its completion event only after required
-writes succeed. Templates store plans without execution events. Results distinguish completion,
-incomplete saves, conflicts, validation, and Pro gates. A `canEdit` rejection releases a submission
-only on its first attempt in the current session: retries/recovery may already have committed data.
+Templates store plans without execution events. Results distinguish completion, conflicts, validation,
+and Pro gates. A known business rejection from the atomic command unlocks edits; uncertain transport
+results retain the immutable retry.
 
 Historical edits preserve timestamps. `workout-time-correction` separately changes start/end and
 only sets/clears active duration explicitly, retaining unchanged precision. Free historical edits
@@ -219,12 +218,12 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
 - `fitness.workout-created` handles API-created completion events, excluding import causation, and
   emits `workout.created` from immutable event evidence. The notification formatter reads inline
   signal data, has one attempt, and never retries uncertain external delivery automatically.
-- `policy.workout-context` requires a workout and uses `confirmedAt` for set occurrence time when
-  present; otherwise it preserves the supplied event time. Writers use workout start for new untimed
-  historical sets. Every workout requires valid `startedAt`.
-- `policy.workout-set` preserves supplied/stored exercise kind, otherwise reads it from the exercise.
-  It validates declared metric properties, derives kind-specific statistics, and strips untrusted
-  personal-best badges. These policies target set events, not exercise/workout refreshes.
+- `policy.workout-set` validates a batch against captured exercise/workout references, requires a
+  valid workout `startedAt`, and uses `confirmedAt` for occurrence time when present. Otherwise it
+  preserves the supplied event time. It preserves recorded exercise kind or fills it from the exercise.
+  Writers use workout start for new untimed historical sets. Source schemas reject computed fields.
 - `fitness.workout-records` batches changed sets by exercise and dispatches bounded record steps.
-  Workers normalize confirmed times and recompute statistics/badges per recorded kind without
-  replaying historical hooks. Workout start changes trigger `fitness.workout-context-records` repairs.
+  Workers compute statistics/badges per recorded kind into separate projection rows without changing
+  source events or replaying historical hooks. Workout start changes trigger
+  `fitness.workout-context-records` repairs. Calculated displays remain hidden while results are pending
+  or failed, and pending queries refresh until processing finishes.

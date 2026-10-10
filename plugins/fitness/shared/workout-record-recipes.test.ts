@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
 	existingExerciseIdsRecipe,
 	workoutRecordRowsRecipe,
-	workoutSetContextRecipe,
 	workoutSetExerciseIdsRecipe,
 } from "./workout-record-recipes";
 
@@ -18,19 +17,10 @@ const rows = (
 
 const workoutRecord = (overrides: Readonly<Record<string, unknown>> = {}) => ({
 	reps: 10,
-	pace: null,
 	weight: 25,
 	id: "set-1",
-	setOrder: 0,
-	volume: 250,
 	distance: null,
 	duration: null,
-	oneRm: 33.333333,
-	confirmedAt: null,
-	exerciseOrder: null,
-	personalBests: null,
-	sessionId: "workout-1",
-	exerciseId: "exercise-1",
 	exerciseKind: "reps_and_weight",
 	occurredAt: "2026-01-01T08:10:00.000Z",
 	workoutStartedAt: "2026-01-01T08:00:00.000Z",
@@ -38,26 +28,6 @@ const workoutRecord = (overrides: Readonly<Record<string, unknown>> = {}) => ({
 });
 
 describe("workout record recipes", () => {
-	it("reads the current exercise and workout context", () => {
-		const context = workoutSetContextRecipe({
-			workoutId: "workout-1",
-			exerciseId: "exercise-1",
-			reference: { kind: "self" },
-		});
-		expect(Object.keys(context.document.queries)).toEqual(["exercise", "workout"]);
-		expect(context.document.queries.exercise?.where).toMatchObject({
-			type: "and",
-			predicates: expect.arrayContaining([
-				expect.objectContaining({ left: { field: "id", type: "column", tableAlias: "exercise" } }),
-				expect.objectContaining({ right: { type: "literal", value: "exercise" } }),
-			]),
-		});
-		expect(context.document.queries.workout?.output).toMatchObject({
-			type: "rows",
-			fields: expect.arrayContaining([expect.objectContaining({ key: "startedAt" })]),
-		});
-	});
-
 	it("reads only existing exercise identities for a bounded stream request", () => {
 		const recipe = existingExerciseIdsRecipe({
 			reference: { kind: "self" },
@@ -137,26 +107,9 @@ describe("workout record recipes", () => {
 		});
 	});
 
-	it("pages normalized anchors by event id and record rows by the stable null-last record order", () => {
-		const normalization = workoutRecordRowsRecipe({
-			limit: 200,
-			order: "id",
-			after: "id-cursor",
-			exerciseId: "exercise-1",
-			reference: { kind: "self" },
-		});
-		const idQuery = normalization.document.queries.records;
-		if (idQuery?.output.type !== "rows") {
-			throw new Error("Expected workout record rows query");
-		}
-		expect(idQuery.output.pagination).toEqual({ limit: 100, after: "id-cursor" });
-		expect(idQuery.output.orderBy).toEqual([
-			{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "workoutRecord" } },
-		]);
-
+	it("pages records by the stable null-last record order", () => {
 		const records = workoutRecordRowsRecipe({
-			limit: 100,
-			order: "records",
+			limit: 200,
 			after: "record-cursor",
 			exerciseId: "exercise-1",
 			reference: { kind: "self" },
@@ -165,51 +118,77 @@ describe("workout record recipes", () => {
 		if (recordsQuery?.output.type !== "rows") {
 			throw new Error("Expected workout record rows query");
 		}
-		expect(recordsQuery.output.orderBy).toMatchObject([
+		expect(recordsQuery.output.pagination).toEqual({ limit: 100, after: "record-cursor" });
+		expect(recordsQuery.output.orderBy).toEqual([
 			{
 				direction: "asc",
 				expr: { type: "column", field: "occurredAt", tableAlias: "workoutRecord" },
 			},
-			{ direction: "asc", expr: { type: "cast" } },
+			{
+				direction: "asc",
+				expr: {
+					type: "cast",
+					target: "date",
+					expr: {
+						type: "jsonPath",
+						path: ["startedAt"],
+						expr: { type: "column", field: "properties", tableAlias: "workout" },
+					},
+				},
+			},
 			{
 				direction: "asc",
 				expr: { type: "column", field: "sessionEntityId", tableAlias: "workoutRecord" },
 			},
-			{ direction: "asc", expr: { type: "cast", expr: { path: ["exerciseOrder"] } } },
-			{ direction: "asc", expr: { type: "cast", expr: { path: ["setOrder"] } } },
+			{
+				direction: "asc",
+				expr: {
+					type: "cast",
+					target: "number",
+					expr: {
+						type: "jsonPath",
+						path: ["exerciseOrder"],
+						expr: { type: "column", field: "properties", tableAlias: "workoutRecord" },
+					},
+				},
+			},
+			{
+				direction: "asc",
+				expr: {
+					type: "cast",
+					target: "number",
+					expr: {
+						type: "jsonPath",
+						path: ["setOrder"],
+						expr: { type: "column", field: "properties", tableAlias: "workoutRecord" },
+					},
+				},
+			},
 			{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "workoutRecord" } },
 		]);
 		expect(recordsQuery.joins).toHaveLength(2);
 		expect(
 			recordsQuery.output.fields.flatMap((field) => ("key" in field ? [field.key] : [])),
-		).toEqual(
-			expect.arrayContaining([
-				"id",
-				"exerciseKind",
-				"workoutStartedAt",
-				"occurredAt",
-				"confirmedAt",
-				"reps",
-				"weight",
-				"duration",
-				"distance",
-				"oneRm",
-				"volume",
-				"pace",
-				"personalBests",
-			]),
-		);
+		).toEqual([
+			"id",
+			"workoutStartedAt",
+			"occurredAt",
+			"exerciseKind",
+			"reps",
+			"weight",
+			"duration",
+			"distance",
+		]);
 	});
 
-	it("decodes required context, nullable measurements, and stored outputs", () => {
+	it("decodes only source context and nullable recorded measurements", () => {
 		const decoded = workoutRecordRowsRecipe({
 			limit: 1,
-			order: "records",
 			exerciseId: "exercise-1",
 			reference: { kind: "self" },
 		}).decode({
 			data: {
-				records: rows([workoutRecord({ distance: 0, exerciseOrder: 2 })], {
+				records: rows([workoutRecord({ distance: 0 })], {
 					limit: 1,
 					hasMore: false,
 					nextCursor: null,
@@ -220,18 +199,20 @@ describe("workout record recipes", () => {
 			throw decoded.failure;
 		}
 		expect(decoded.success.items).toEqual([
-			expect.objectContaining({
+			{
+				reps: 10,
+				weight: 25,
 				id: "set-1",
 				distance: 0,
-				confirmedAt: null,
-				personalBests: null,
+				duration: null,
 				exerciseKind: "reps_and_weight",
-			}),
+				occurredAt: "2026-01-01T08:10:00.000Z",
+				workoutStartedAt: "2026-01-01T08:00:00.000Z",
+			},
 		]);
 
 		const invalidKind = workoutRecordRowsRecipe({
 			limit: 1,
-			order: "records",
 			exerciseId: "exercise-1",
 			reference: { kind: "self" },
 		}).decode({

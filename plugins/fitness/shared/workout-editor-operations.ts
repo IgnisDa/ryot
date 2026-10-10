@@ -144,16 +144,10 @@ export const WorkoutEditorSaveOutputSchema = Schema.Union([
 		kind: Schema.Literal("saved"),
 		sets: Schema.Array(Schema.Struct({ eventId: nonEmptyEventId, clientId: NonEmptyString })),
 	}),
-	Schema.Struct({
-		entityId: nonEmptyEntityId,
-		kind: Schema.Literal("incomplete"),
-		committedSetIds: Schema.Array(NonEmptyString),
-	}),
-	Schema.Struct({ kind: Schema.Literal("conflict"), canEdit: Schema.optional(Schema.Boolean) }),
+	Schema.Struct({ kind: Schema.Literal("conflict") }),
 	Schema.Struct({
 		kind: Schema.Literal("invalid"),
 		setId: Schema.optional(NonEmptyString),
-		canEdit: Schema.optional(Schema.Boolean),
 		occurrenceId: Schema.optional(NonEmptyString),
 		code: Schema.Literals([
 			"duplicate-id",
@@ -169,7 +163,7 @@ export const WorkoutEditorSaveOutputSchema = Schema.Union([
 			"media-forbidden",
 		]),
 	}),
-	Schema.Struct({ kind: Schema.Literal("pro-required"), canEdit: Schema.optional(Schema.Boolean) }),
+	Schema.Struct({ kind: Schema.Literal("pro-required") }),
 ]);
 
 export type WorkoutEditorSaveInput = typeof WorkoutEditorSaveInputSchema.Type;

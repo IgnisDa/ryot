@@ -1,8 +1,18 @@
 import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
-import { Effect } from "effect";
+import {
+	column,
+	defineRecipe,
+	eq,
+	literal,
+	selectedField,
+	selectedOptionalRow,
+	table,
+} from "@ryot-app/ryotql";
+import { Effect, Result, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
+	executeRyotQLRecipe,
 	listEventsForEntity,
 	pollUntil,
 	waitForCreateEvents,
@@ -41,6 +51,30 @@ const waitForReadyWorkoutSets = (
 	);
 
 const isoString = (value: string | Date) => new Date(value).toISOString();
+
+const workoutSourceRecipe = defineRecipe((input: { readonly eventId: string }) => {
+	const source = table("event", "source");
+	return {
+		map: ({ event }) => Result.succeed(event),
+		queries: {
+			event: selectedOptionalRow(source, {
+				orderBy: [],
+				where: eq(column(source, "id"), literal(input.eventId)),
+				selection: {
+					updatedAt: selectedField(column(source, "updatedAt"), Schema.String),
+					properties: selectedField(
+						column(source, "properties"),
+						Schema.Record(Schema.String, Schema.Unknown),
+					),
+				},
+			}),
+		},
+	};
+});
+const storedWorkoutSource = (client: Client, eventId: string) =>
+	executeRyotQLRecipe(client, workoutSourceRecipe({ eventId })).pipe(
+		Effect.map((source) => requirePresent(source, "Expected the stored source event")),
+	);
 
 const storedWorkoutSet = (client: Client, exerciseId: string, eventId: string) =>
 	listEventsForEntity(client, exerciseId, undefined, 100).pipe(
@@ -101,6 +135,16 @@ describe("Workout records E2E", () => {
 				);
 				assertTaggedError(rejected, "EventBadRequest");
 				expect(rejected.reason).toMatchObject({ code: "invalid-properties" });
+				const computedWrite = yield* Effect.flip(
+					client.call((c) =>
+						c.events.update({
+							params: { eventId },
+							payload: { properties: { remove: [], set: { oneRm: 123 } } },
+						}),
+					),
+				);
+				assertTaggedError(computedWrite, "EventBadRequest");
+				expect(computedWrite.reason).toMatchObject({ code: "invalid-properties" });
 
 				yield* client.call((c) =>
 					c.events.update({
@@ -375,7 +419,9 @@ describe("Workout records E2E", () => {
 					createResult,
 					LARGE_WORKOUT_BUDGET.eventsMs,
 				);
-				expect(created.count).toBe(101);
+				expect(created).toMatchObject({ count: 101, failure: null });
+				const lastEventId = requireWorkoutSetEventId(created, 100);
+				const sourceBefore = yield* storedWorkoutSource(client, lastEventId);
 
 				const earlier = yield* waitForReadyWorkoutSets(
 					client,
@@ -395,6 +441,12 @@ describe("Workout records E2E", () => {
 				];
 				expect(allSets).toHaveLength(101);
 				expect(allSets.reduce((total, set) => total + (set.reps ?? 0), 0)).toBe(5050);
+				const sourceAfter = yield* storedWorkoutSource(client, lastEventId);
+				expect(sourceAfter.updatedAt).toBe(sourceBefore.updatedAt);
+				expect(sourceAfter.properties).toEqual(sourceBefore.properties);
+				for (const field of ["personalBests", "oneRm", "volume", "pace"]) {
+					expect(sourceAfter.properties).not.toHaveProperty(field);
+				}
 
 				const zeroRepSet = requirePresent(
 					earlier.items.find((item) => item.reps === 0),

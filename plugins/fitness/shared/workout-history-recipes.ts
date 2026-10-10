@@ -22,7 +22,7 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, EventId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
-import { property, propertyDate, propertyNumber } from "./entity-selections";
+import { property, propertyDate, propertyNumber, projectionNumber } from "./entity-selections";
 import { exerciseKindSchema, type ExerciseKind } from "./exercise-kinds";
 import { WorkoutSetLotSchema } from "./workout-set";
 
@@ -45,11 +45,11 @@ const workoutSetSelection = (event: Table) => ({
 	exerciseId: selectedField(column(event, "entityId"), EntityId),
 	rpe: selectedField(propertyNumber(event, "rpe"), nullableNumber),
 	reps: selectedField(propertyNumber(event, "reps"), nullableNumber),
-	pace: selectedField(propertyNumber(event, "pace"), nullableNumber),
-	oneRm: selectedField(propertyNumber(event, "oneRm"), nullableNumber),
+	pace: selectedField(projectionNumber(event, "pace"), nullableNumber),
 	occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
+	oneRm: selectedField(projectionNumber(event, "oneRm"), nullableNumber),
 	weight: selectedField(propertyNumber(event, "weight"), nullableNumber),
-	volume: selectedField(propertyNumber(event, "volume"), nullableNumber),
+	volume: selectedField(projectionNumber(event, "volume"), nullableNumber),
 	restTime: selectedField(propertyNumber(event, "restTime"), nullableNumber),
 	setOrder: selectedField(propertyNumber(event, "setOrder"), nullableNumber),
 	duration: selectedField(propertyNumber(event, "duration"), nullableNumber),

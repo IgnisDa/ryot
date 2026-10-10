@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { exerciseDetailsRecipe, type ExerciseDetails } from "../../shared/exercise-details-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { managedAssetBatch } from "../asset-urls";
+import { WorkoutProcessing } from "../workout-processing";
 import { useActiveEditorDraft } from "./active-draft";
 import { dedupeWorkoutNotes, type ExerciseRecord } from "./details-model";
 import { HistorySection, RecentSessions } from "./history";
@@ -137,9 +138,11 @@ function ExerciseDetailsScreen(props: { readonly entityId: string }) {
 	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
 	const result = useRyotQuery(exerciseDetailsQuery, { timeZone, entityId: props.entityId });
 	return (
-		<PluginScreenFrame hideTitle title={result.data?.exercise?.name ?? null}>
-			<ExerciseDetailsBody result={result} compact={compact} timeZone={timeZone} />
-		</PluginScreenFrame>
+		<WorkoutProcessing exerciseId={props.entityId}>
+			<PluginScreenFrame hideTitle title={result.data?.exercise?.name ?? null}>
+				<ExerciseDetailsBody result={result} compact={compact} timeZone={timeZone} />
+			</PluginScreenFrame>
+		</WorkoutProcessing>
 	);
 }
 

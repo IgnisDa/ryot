@@ -29,7 +29,10 @@ export const workoutEditorTimes = {
 export const saveWorkoutEditor = (
 	client: Client,
 	input: RecipeInput<typeof workoutEditorSaveRecipe>,
-) => invokeFitnessOperation(client, workoutEditorSaveRecipe, input);
+) =>
+	invokeFitnessOperation(client, workoutEditorSaveRecipe, input, {
+		idempotencyKey: input.submissionId,
+	});
 
 export const loadWorkoutEditorContext = (
 	client: Client,

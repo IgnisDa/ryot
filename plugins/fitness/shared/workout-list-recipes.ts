@@ -21,7 +21,6 @@ import {
 	join,
 	jsonArrayCount,
 	jsonArrayExists,
-	jsonPath,
 	literal,
 	lt,
 	selectedAggregate,
@@ -40,7 +39,13 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
-import { property, propertyDate, propertyNumber } from "./entity-selections";
+import {
+	property,
+	propertyDate,
+	propertyNumber,
+	projectionNumber,
+	projectionProperty,
+} from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
 import { workoutTemplateInclude } from "./query-recipes";
 import { exerciseTargetInclude } from "./taxonomy-recipes";
@@ -66,8 +71,7 @@ const workoutSets = (set: Table, workout: Table) =>
 		eq(column(set, "eventSchemaSlug"), literal("workout-set")),
 	);
 
-const personalBestCount = (set: Table) =>
-	jsonArrayCount(jsonPath(column(set, "properties"), "personalBests"));
+const personalBestCount = (set: Table) => jsonArrayCount(projectionProperty(set, "personalBests"));
 
 export const workoutTotals = (workout: Table, setAlias: string) => {
 	const set = table("event", setAlias);
@@ -121,7 +125,7 @@ const inRange = (workout: Table, range: Range) =>
 const workoutVolume = (workout: Table) => {
 	const set = table("event", "volumeWorkoutSet");
 	return selectedField(
-		sum(set, propertyNumber(set, "volume"), { where: workoutSets(set, workout) }),
+		sum(set, projectionNumber(set, "volume"), { where: workoutSets(set, workout) }),
 		nullableNumber,
 	);
 };
@@ -180,7 +184,7 @@ const workoutSetsInclude = (workout: Table) => {
 			id: selectedField(column(set, "id"), Schema.String),
 			reps: selectedField(propertyNumber(set, "reps"), nullableNumber),
 			exerciseId: selectedField(column(exercise, "id"), Schema.String),
-			oneRm: selectedField(propertyNumber(set, "oneRm"), nullableNumber),
+			oneRm: selectedField(projectionNumber(set, "oneRm"), nullableNumber),
 			weight: selectedField(propertyNumber(set, "weight"), nullableNumber),
 			exerciseName: selectedField(column(exercise, "name"), Schema.String),
 			setOrder: selectedField(propertyNumber(set, "setOrder"), nullableNumber),
@@ -189,7 +193,7 @@ const workoutSetsInclude = (workout: Table) => {
 			exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
 			exerciseOrder: selectedField(propertyNumber(set, "exerciseOrder"), nullableNumber),
 			personalBests: selectedField(
-				jsonPath(column(set, "properties"), "personalBests"),
+				projectionProperty(set, "personalBests"),
 				Schema.NullOr(Schema.Array(PersonalBestSchema)),
 			),
 		},
@@ -334,8 +338,8 @@ const workoutMeasures = (workout: Table) => ({
 });
 
 const setMeasures = (set: Table) => ({
-	volume: sumMeasure(propertyNumber(set, "volume")),
 	personalBests: sumMeasure(personalBestCount(set)),
+	volume: sumMeasure(projectionNumber(set, "volume")),
 });
 
 const rangeSources = (
@@ -461,10 +465,7 @@ const latestRecordQuery = (reference: Reference, range: Range) => {
 	return selectedRows(sources.set, {
 		limit: 1,
 		orderBy: [descending(column(sources.set, "occurredAt")), descending(column(sources.set, "id"))],
-		where: and(
-			sources.setWhere,
-			jsonArrayExists(jsonPath(column(sources.set, "properties"), "personalBests")),
-		),
+		where: and(sources.setWhere, jsonArrayExists(projectionProperty(sources.set, "personalBests"))),
 		joins: [
 			...sources.setJoins,
 			join("inner", exercise, eq(column(sources.set, "entityId"), column(exercise, "id"))),
