@@ -195,6 +195,19 @@ const eventWriteFailure = (error: DbError | DomainWriteConflict) =>
 		error.message,
 	);
 
+const matchesEventPrecondition = (
+	before: AutomationEventSnapshot,
+	expected: NonNullable<UpdateEventItem["expected"]>,
+) =>
+	stableStringify(expected) ===
+	stableStringify({
+		entityId: before.entityId,
+		updatedAt: before.updatedAt,
+		occurredAt: before.occurredAt,
+		properties: before.properties,
+		sessionEntityId: before.sessionEntityId,
+	});
+
 const applyUpdatePatch = (before: AutomationEventSnapshot, patch: EventUpdatePatch) => {
 	const properties = { ...before.properties };
 	if (patch.properties) {
@@ -637,6 +650,11 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 							reason: { code: "event-not-found", eventId: submitted.eventId },
 						});
 					}
+					if (submitted.expected && !matchesEventPrecondition(before, submitted.expected)) {
+						return yield* new EventStale({
+							reason: { code: "event-stale", eventId: submitted.eventId },
+						});
+					}
 					yield* writeChecks
 						.check(command, definitionOwner(before.eventSchemaPluginId), userId)
 						.pipe(Effect.mapError(eventWriteFailure));
@@ -847,7 +865,17 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					});
 					const before = yield* repository.getEventSnapshot(input);
 					if (!before) {
+						if (input.expected) {
+							return yield* new EventStale({
+								reason: { code: "event-stale", eventId: input.eventId },
+							});
+						}
 						return inline ? yield* recordNoopWork : null;
+					}
+					if (input.expected && !matchesEventPrecondition(before, input.expected)) {
+						return yield* new EventStale({
+							reason: { code: "event-stale", eventId: input.eventId },
+						});
 					}
 					const pin = yield* authorizeEventDelete(command, input, before, cascadeEntityIds);
 					if (!move) {
@@ -1443,7 +1471,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						command: DomainLifecycleCommand;
 						items: ReadonlyArray<EventIdentityInput>;
 						operation: "delete";
-						submitted: ReadonlyArray<EventId>;
+						submitted: unknown;
 				  },
 		) {
 			const batchIdentity = eventMutationBatchReceiptIdentity({
@@ -1605,6 +1633,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			eventIds: ReadonlyArray<EventId>,
 			userId: UserId,
 			command: DomainLifecycleCommand,
+			expected?: Readonly<Record<string, NonNullable<EventIdentityInput["expected"]>>>,
 		) {
 			if (eventIds.length > 100) {
 				return yield* eventBadRequest("mutation-conflict", "Event delete batch exceeds 100 items");
@@ -1619,20 +1648,25 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				return { count: 0, warnings: [] as AutomationWarning[] };
 			}
 			yield* assertRootTransaction;
-			const items = eventIds.map((eventId) => ({ userId, eventId }));
+			const items = eventIds.map((eventId) => ({ userId, eventId, expected: expected?.[eventId] }));
+			if (
+				expected &&
+				(Object.keys(expected).length !== eventIds.length ||
+					eventIds.some((id) => !Object.hasOwn(expected, id)))
+			) {
+				return yield* eventBadRequest(
+					"mutation-conflict",
+					"Event delete preconditions must match event IDs",
+				);
+			}
+			const submitted = expected === undefined ? eventIds : { eventIds, expected };
 			const batchIdentity = eventMutationBatchReceiptIdentity({
 				userId,
 				command,
-				submitted: eventIds,
+				submitted,
 				operation: "delete",
 			});
-			const prior = yield* batchReplay({
-				items,
-				userId,
-				command,
-				submitted: eventIds,
-				operation: "delete",
-			});
+			const prior = yield* batchReplay({ items, userId, command, submitted, operation: "delete" });
 			if (prior) {
 				return yield* dispatchBatchResult(prior);
 			}
@@ -1644,7 +1678,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						items,
 						userId,
 						command,
-						submitted: eventIds,
+						submitted,
 						operation: "delete",
 					});
 					if (racedReplay) {
@@ -1679,7 +1713,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 						),
 					);
 					yield* repository.lockEventRows({ userId, eventIds });
-					const commandInput = eventIds;
+					const commandInput = submitted;
 					const mutationBatch = { command, commandInput, identity: ["events"] };
 					const batch = prepared.some((item) => item !== null)
 						? yield* planner.prepareBatch({
