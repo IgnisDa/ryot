@@ -5,10 +5,16 @@ import {
 	buildEpisodeResolutionFallbackSql,
 } from "./episode-resolution-sql";
 // Each V1 `seen` row expands to one or more V2 events keyed by its `updated_at` timestamp array:
-// InProgress -> N progress events; episodic Completed -> N progress events (final at 100%) plus an
-// episode completion; other terminal states -> N-1 progress + 1 terminal event. progressPercent is
-// linearly interpolated to the target P and clamped to [1,100]:
-// percent[j] = ROUND(1 + (P-1)*j/(M-1), 2) over M events (P when M=1, or 1 before a terminal event).
+// InProgress -> N progress events; episodic Completed -> N progress events plus an episode
+// completion; other terminal states -> N-1 progress + 1 terminal event. With V1 progress P and M
+// generated progress events, rows split into three classes:
+// 1. Non-positional rows (flat media, anime/manga without an episode/chapter, show/podcast episodes):
+//    progressPercent = ROUND(P*j/M, 2) for j = 1..M when P > 0, otherwise omitted. Terminal
+//    dropped/on_hold carry P only when P > 0.
+// 2. Positional anime/manga rows: no progressPercent. Position N when the row reached 100 (completed
+//    or P >= 100; on progress events only the final one, so completion lands on the finished date),
+//    N-1 when partial and N is an integer > 1, omitted otherwise.
+// 3. Show/podcast parent dropped/on_hold: no progressPercent and no position.
 // Legacy ids are not preserved (one row -> many events); deterministic md5 ids give restart-safety.
 // manual_time_spent (seconds) becomes timeSpent (minutes). Unresolved show/podcast episode rows and
 // rows whose metadata_id has no migrated entity are skipped. Dropped: review_id, and
@@ -28,6 +34,31 @@ const seenAbsentDetailSql = buildEpisodeAbsentDetailSql("this watch", "u");
 const seenAmbiguousDetailSql = buildEpisodeAmbiguousDetailSql("u");
 
 const seenMalformedDetailSql = buildEpisodeMalformedDetailSql("u");
+
+const buildPositionValueSql = (alias: string) => `CASE
+	WHEN ${alias}.position_n > 0 THEN
+		CASE
+			WHEN ${alias}.reached_full THEN ${alias}.position_n
+			WHEN ${alias}.position_n = floor(${alias}.position_n) AND ${alias}.position_n > 1
+				THEN ${alias}.position_n - 1
+		END
+END`;
+
+const buildPositionKeysSql = (
+	alias: string,
+	value: string,
+) => `'animeEpisode', CASE WHEN ${alias}.entity_schema_slug = 'anime' THEN (${value})::int END,
+				'mangaChapter', CASE WHEN ${alias}.entity_schema_slug = 'manga' THEN (${value})::float8 END`;
+
+const positionColumnsSql = `
+				(
+					s.state = 'completed'
+					OR s.progress >= 100
+				)                                                     AS reached_full,
+				CASE e.entity_schema_slug
+					WHEN 'anime' THEN (s.anime_extra_information ->> 'episode')::int
+					WHEN 'manga' THEN NULLIF(s.manga_extra_information ->> 'chapter', '')::float8
+				END                                                   AS position_n,`;
 
 export const buildSeenMigrationSql = (mediaPluginId: string) => `
 DO $$
@@ -119,15 +150,14 @@ BEGIN
 				show_episode.entity_id                                AS show_episode_entity_id,
 				podcast_episode.entity_id                             AS podcast_episode_entity_id,
 				e.entity_schema_slug IN ('show', 'anime', 'manga', 'podcast') AS is_episodic,
-				GREATEST(LEAST(s.progress::numeric, 100), 1)          AS clamped_progress,
+				COALESCE(GREATEST(LEAST(s.progress::numeric, 100), 0), 0) AS clamped_progress,
 				(
 					s.state = 'completed'
 					OR (s.state = 'in_progress' AND s.progress >= 100)
-				)                                                     AS is_completion_state,
+				)                                                     AS is_completion_state,${positionColumnsSql}
 				s.state IN ('dropped', 'on_a_hold')                   AS is_interrupting_terminal_state,
 				s.providers_consumed_on,
 				s.show_extra_information,
-				s.anime_extra_information,
 				s.manga_extra_information,
 				s.podcast_extra_information,
 				s.finished_on,
@@ -170,7 +200,8 @@ BEGIN
 				(
 					is_interrupting_terminal_state
 					OR (is_completion_state AND NOT is_episodic)
-				) AS has_terminal_event
+				) AS has_terminal_event,
+				COALESCE(position_n > 0, false) AS is_positional
 			FROM rows
 		)
 		SELECT
@@ -183,29 +214,22 @@ BEGIN
 			jsonb_strip_nulls(jsonb_build_object(
 				'progressPercent',
 					CASE
-						WHEN NOT r.has_terminal_event THEN
-							CASE WHEN r.n_ts = 1
-							THEN r.progress_target
-							ELSE ROUND(
-								1 + (r.progress_target - 1) * (r.event_idx - 1)::numeric
-								  / (r.n_ts - 1),
-								2
-							)
-							END
-						ELSE
-							CASE WHEN r.n_ts = 2
-							THEN 1
-							ELSE ROUND(
-								1 + (r.progress_target - 1) * (r.event_idx - 1)::numeric
-								  / (r.n_ts - 2),
-								2
-							)
-							END
+						WHEN r.is_positional OR r.progress_target <= 0 THEN NULL
+						ELSE NULLIF(ROUND(
+							r.progress_target * r.event_idx::numeric
+							  / NULLIF(r.n_ts - CASE WHEN r.has_terminal_event THEN 1 ELSE 0 END, 0),
+							2
+						), 0)
 					END,
 				'consumedOn',    NULLIF(r.providers_consumed_on[r.event_idx], ''),
-				'animeEpisode',  (r.anime_extra_information ->> 'episode')::int,
-				'mangaVolume',   (r.manga_extra_information ->> 'volume')::int,
-				'mangaChapter',  NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
+				${buildPositionKeysSql(
+					"r",
+					`CASE
+					WHEN r.reached_full AND (r.has_terminal_event OR r.event_idx < r.n_ts) THEN NULL
+					ELSE ${buildPositionValueSql("r")}
+				END`,
+				)},
+				'mangaVolume',   (r.manga_extra_information ->> 'volume')::int
 			)),
 			r.event_ts,
 			CASE
@@ -278,11 +302,6 @@ BEGIN
 				WHEN r.entity_schema_slug = 'podcast' THEN r.metadata_id
 			END,
 			jsonb_strip_nulls(jsonb_build_object(
-				'completionMode', 'custom_timestamps',
-				'completedOn', to_char(
-					COALESCE(r.finished_on, r.updated_at[r.n_ts]) AT TIME ZONE 'UTC',
-					'YYYY-MM-DD"T"HH24:MI:SS"Z"'
-				),
 				'consumedOn', COALESCE(
 					NULLIF(r.providers_consumed_on[r.n_ts], ''),
 					NULLIF(r.providers_consumed_on[1], '')
@@ -315,7 +334,7 @@ BEGIN
 				s.metadata_id,
 				e.entity_schema_slug,
 				e.entity_schema_slug IN ('show', 'anime', 'manga', 'podcast') AS is_episodic,
-				GREATEST(LEAST(s.progress::numeric, 100), 1)          AS clamped_progress,
+				COALESCE(GREATEST(LEAST(s.progress::numeric, 100), 0), 0) AS clamped_progress,${positionColumnsSql}
 				CASE
 					WHEN s.state = 'dropped' THEN 'dropped'
 					WHEN s.state = 'on_a_hold' THEN 'on_hold'
@@ -326,7 +345,6 @@ BEGIN
 				END AS terminal_slug,
 				s.providers_consumed_on,
 				s.show_extra_information,
-				s.anime_extra_information,
 				s.manga_extra_information,
 				s.podcast_extra_information,
 				s.started_on,
@@ -349,11 +367,6 @@ BEGIN
 			CASE r.terminal_slug
 				WHEN 'complete' THEN
 					jsonb_strip_nulls(jsonb_build_object(
-						'completionMode', 'custom_timestamps',
-						'completedOn',    to_char(
-							COALESCE(r.finished_on, r.updated_at[r.n_ts]) AT TIME ZONE 'UTC',
-							'YYYY-MM-DD"T"HH24:MI:SS"Z"'
-						),
 						'startedOn',      CASE WHEN r.started_on IS NOT NULL THEN
 							to_char(r.started_on AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 						END,
@@ -365,7 +378,10 @@ BEGIN
 					))
 				WHEN 'dropped' THEN
 					jsonb_strip_nulls(jsonb_build_object(
-						'progressPercent', r.clamped_progress,
+						'progressPercent', CASE
+							WHEN r.entity_schema_slug IN ('show', 'podcast') OR r.position_n > 0 THEN NULL
+							WHEN r.clamped_progress > 0 THEN r.clamped_progress
+						END,
 						'consumedOn',      COALESCE(
 							NULLIF(r.providers_consumed_on[r.n_ts], ''),
 							NULLIF(r.providers_consumed_on[1], '')
@@ -374,13 +390,15 @@ BEGIN
 							to_char(r.started_on AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 						END,
 						'timeSpent',       r.manual_time_spent / 60.0,
-						'animeEpisode',    (r.anime_extra_information ->> 'episode')::int,
-						'mangaVolume',     (r.manga_extra_information ->> 'volume')::int,
-						'mangaChapter',    NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
+						${buildPositionKeysSql("r", buildPositionValueSql("r"))},
+						'mangaVolume',     (r.manga_extra_information ->> 'volume')::int
 					))
 				WHEN 'on_hold' THEN
 					jsonb_strip_nulls(jsonb_build_object(
-						'progressPercent', r.clamped_progress,
+						'progressPercent', CASE
+							WHEN r.entity_schema_slug IN ('show', 'podcast') OR r.position_n > 0 THEN NULL
+							WHEN r.clamped_progress > 0 THEN r.clamped_progress
+						END,
 						'consumedOn',      COALESCE(
 							NULLIF(r.providers_consumed_on[r.n_ts], ''),
 							NULLIF(r.providers_consumed_on[1], '')
@@ -389,9 +407,8 @@ BEGIN
 							to_char(r.started_on AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
 						END,
 						'timeSpent',       r.manual_time_spent / 60.0,
-						'animeEpisode',    (r.anime_extra_information ->> 'episode')::int,
-						'mangaVolume',     (r.manga_extra_information ->> 'volume')::int,
-						'mangaChapter',    NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
+						${buildPositionKeysSql("r", buildPositionValueSql("r"))},
+						'mangaVolume',     (r.manga_extra_information ->> 'volume')::int
 					))
 			END,
 			r.updated_at[r.n_ts] + CASE

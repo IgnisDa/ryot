@@ -1,5 +1,6 @@
 // Backfills whole-entity `complete` events for episodic media. Show and podcast coverage replays
-// child progress/completion in lifecycle order; anime and manga retain their positional pass model.
+// child progress/completion in lifecycle order; anime and manga replay runtime auto-completion: a
+// progress event whose position reaches the entity total, or whose progressPercent is 100, completes it.
 import { buildAbortOnRowsSql, buildReportSql, quoteSqlString } from "./shared";
 
 export const buildSeenEpisodicCompletionMigrationSql = (mediaPluginId: string) => `
@@ -66,39 +67,9 @@ BEGIN
 		  AND podcast.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 		  AND (podcast_episode_rel.user_id IS NULL OR podcast_episode_rel.user_id = podcast.user_id)
 		  AND (episode.user_id IS NULL OR episode.user_id = podcast.user_id)
-	), anime_keys AS (
-		SELECT
-			e.id AS entity_id,
-			'anime' AS entity_schema_slug,
-			gs::text AS coverage_key
-		FROM "entity" e
-		CROSS JOIN LATERAL generate_series(1, (e.properties ->> 'episodes')::int) AS gs
-		WHERE e.entity_schema_slug = 'anime'
-		  AND e.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
-		  AND (e.properties ->> 'episodes') ~ '^[0-9]+$'
-		  AND (e.properties ->> 'episodes')::int > 0
-	), manga_counts AS (
-		SELECT
-			e.id AS entity_id,
-			(e.properties ->> 'chapters')::numeric AS chapter_count
-		FROM "entity" e
-		WHERE e.entity_schema_slug = 'manga'
-		  AND e.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
-		  AND (e.properties ->> 'chapters') ~ '^[0-9]+(\\.[0-9]+)?$'
-		  AND (e.properties ->> 'chapters')::numeric > 0
-	), manga_keys AS (
-		SELECT entity_id, 'manga' AS entity_schema_slug, gs::text AS coverage_key
-		FROM manga_counts
-		CROSS JOIN LATERAL generate_series(1, floor(chapter_count)::int) AS gs
-		UNION ALL
-		SELECT entity_id, 'manga', (chapter_count::float8)::text
-		FROM manga_counts
-		WHERE chapter_count <> floor(chapter_count)
 	)
 	SELECT * FROM show_keys
-	UNION ALL SELECT * FROM podcast_keys
-	UNION ALL SELECT * FROM anime_keys
-	UNION ALL SELECT * FROM manga_keys;
+	UNION ALL SELECT * FROM podcast_keys;
 
 	CREATE INDEX ON _seen_required_coverage (entity_id, coverage_key);
 
@@ -141,16 +112,16 @@ BEGIN
 		FROM show_seasons
 		GROUP BY entity_id
 		HAVING count(*) > 0 AND bool_and(episode_count > 0) AND sum(episode_count) > 0
-	), other_counts AS (
+	), podcast_counts AS (
 		SELECT entity_id, entity_schema_slug, count(*)::int AS required_count
 		FROM _seen_required_coverage
-		WHERE entity_schema_slug IN ('podcast', 'anime', 'manga')
+		WHERE entity_schema_slug = 'podcast'
 		GROUP BY entity_id, entity_schema_slug
 		HAVING count(*) > 0
 	)
 	SELECT entity_id, 'show' AS entity_schema_slug, required_count FROM valid_shows
 	UNION ALL
-	SELECT entity_id, entity_schema_slug, required_count FROM other_counts;
+	SELECT entity_id, entity_schema_slug, required_count FROM podcast_counts;
 
 	CREATE UNIQUE INDEX ON _seen_required_counts (entity_id);
 
@@ -250,11 +221,6 @@ BEGIN
 					${quoteSqlString(mediaPluginId)},
 					entity_rec.entity_id,
 					jsonb_strip_nulls(jsonb_build_object(
-						'completionMode', 'custom_timestamps',
-						'completedOn', to_char(
-							event_rec.occurred_at AT TIME ZONE 'UTC',
-							'YYYY-MM-DD"T"HH24:MI:SS"Z"'
-						),
 						'consumedOn', agreed_consumed_on
 					)),
 					event_rec.created_at,
@@ -269,107 +235,67 @@ BEGIN
 		END LOOP;
 	END LOOP;
 
-	CREATE TEMP TABLE _seen_flat_progress_coverage ON COMMIT DROP AS
+	INSERT INTO "event" (
+		"id",
+		"user_id",
+		"entity_id",
+		"event_schema_slug",
+		"event_schema_plugin_id",
+		"properties",
+		"created_at",
+		"occurred_at"
+	)
 	SELECT
-		ev.id AS event_id,
+		ev.id || ':episodic-complete',
 		ev.user_id,
 		ev.entity_id,
+		'complete',
+		${quoteSqlString(mediaPluginId)},
+		jsonb_strip_nulls(jsonb_build_object(
+			'consumedOn', NULLIF(ev.properties ->> 'consumedOn', '')
+		)),
 		ev.created_at,
-		ev.occurred_at,
-		NULLIF(ev.properties ->> 'consumedOn', '') AS consumed_on,
-		CASE e.entity_schema_slug
-			WHEN 'anime' THEN
-				CASE WHEN (ev.properties ->> 'animeEpisode') ~ '^[0-9]+$'
-				THEN ev.properties ->> 'animeEpisode' END
-			WHEN 'manga' THEN
-				CASE WHEN (ev.properties ->> 'mangaChapter') ~ '^[0-9]+(\\.[0-9]+)?$'
-				THEN ((ev.properties ->> 'mangaChapter')::float8)::text END
-		END AS coverage_key
+		ev.occurred_at
 	FROM "event" ev
 	INNER JOIN "entity" e ON e.id = ev.entity_id
 	WHERE ev.event_schema_slug = 'progress'
 	  AND ev.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 	  AND e.entity_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
 	  AND e.entity_schema_slug IN ('anime', 'manga')
-	  AND (ev.properties ->> 'progressPercent')::numeric = 100;
-
-	DELETE FROM _seen_flat_progress_coverage progress
-	WHERE NOT EXISTS (
+	  AND (
+		(ev.properties ->> 'progressPercent')::numeric = 100
+		OR CASE e.entity_schema_slug
+			WHEN 'anime' THEN
+				CASE
+					WHEN (e.properties ->> 'episodes') ~ '^[0-9]+$'
+						AND (ev.properties ->> 'animeEpisode') ~ '^[0-9]+$'
+					THEN (e.properties ->> 'episodes')::int > 0
+						AND (ev.properties ->> 'animeEpisode')::int >= (e.properties ->> 'episodes')::int
+					ELSE false
+				END
+			WHEN 'manga' THEN
+				CASE
+					WHEN (e.properties ->> 'chapters') ~ '^[0-9]+(\\.[0-9]+)?$'
+						AND (ev.properties ->> 'mangaChapter') ~ '^[0-9]+(\\.[0-9]+)?$'
+					THEN (e.properties ->> 'chapters')::numeric > 0
+						AND (ev.properties ->> 'mangaChapter')::numeric >= (e.properties ->> 'chapters')::numeric
+					ELSE false
+				END
+		END
+	  )
+	  AND NOT EXISTS (
 		SELECT 1
-		FROM _seen_required_coverage required
-		WHERE required.entity_id = progress.entity_id
-		  AND required.coverage_key = progress.coverage_key
-		  AND required.entity_schema_slug IN ('anime', 'manga')
-	);
-
-	CREATE INDEX ON _seen_flat_progress_coverage (
-		user_id,
-		entity_id,
-		occurred_at,
-		created_at,
-		event_id
-	);
-	ANALYZE _seen_flat_progress_coverage;
-
-	FOR entity_rec IN
-		SELECT DISTINCT
-			progress.user_id,
-			progress.entity_id,
-			required.required_count
-		FROM _seen_flat_progress_coverage progress
-		INNER JOIN _seen_required_counts required
-			ON required.entity_id = progress.entity_id
-			AND required.entity_schema_slug IN ('anime', 'manga')
-		ORDER BY progress.user_id, progress.entity_id
-	LOOP
-		covered_keys := ARRAY[]::text[];
-
-		FOR event_rec IN
-			SELECT event_id, created_at, occurred_at, consumed_on, coverage_key
-			FROM _seen_flat_progress_coverage
-			WHERE user_id = entity_rec.user_id
-			  AND entity_id = entity_rec.entity_id
-			ORDER BY occurred_at, created_at, event_id
-		LOOP
-			IF NOT (event_rec.coverage_key = ANY(covered_keys)) THEN
-				covered_keys := covered_keys || event_rec.coverage_key;
-			END IF;
-
-			IF COALESCE(array_length(covered_keys, 1), 0) = entity_rec.required_count THEN
-				INSERT INTO "event" (
-					"id",
-					"user_id",
-					"entity_id",
-					"event_schema_slug",
-					"event_schema_plugin_id",
-					"properties",
-					"created_at",
-					"occurred_at"
-				)
-				VALUES (
-					event_rec.event_id || ':episodic-complete',
-					entity_rec.user_id,
-					entity_rec.entity_id,
-					'complete',
-					${quoteSqlString(mediaPluginId)},
-					jsonb_strip_nulls(jsonb_build_object(
-						'completionMode', 'custom_timestamps',
-						'completedOn', to_char(
-							event_rec.occurred_at AT TIME ZONE 'UTC',
-							'YYYY-MM-DD"T"HH24:MI:SS"Z"'
-						),
-						'consumedOn', event_rec.consumed_on
-					)),
-					event_rec.created_at,
-					event_rec.occurred_at
-				)
-				ON CONFLICT DO NOTHING;
-				GET DIAGNOSTICS batch_count = ROW_COUNT;
-				flat_complete_inserted := flat_complete_inserted + batch_count;
-				covered_keys := ARRAY[]::text[];
-			END IF;
-		END LOOP;
-	END LOOP;
+		FROM "event" later
+		WHERE later.user_id = ev.user_id
+		  AND later.entity_id = ev.entity_id
+		  AND later.event_schema_slug = 'complete'
+		  AND later.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
+		  AND later.id <> ev.id || ':episodic-complete'
+		  AND (later.occurred_at, later.created_at) >= (ev.occurred_at, ev.created_at)
+	  )
+	ON CONFLICT DO NOTHING;
+	GET DIAGNOSTICS batch_count = ROW_COUNT;
+	flat_complete_inserted := flat_complete_inserted + batch_count;
 
 	${buildAbortOnRowsSql({
 		countVariable: "invalid_rows",
