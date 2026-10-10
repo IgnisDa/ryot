@@ -772,7 +772,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						db
 							.select()
 							.from(schema.definitionEntitySchema)
-							.where(eq(schema.definitionEntitySchema.pluginRevisionId, context.pluginRevisionId)),
+							.where(eq(schema.definitionEntitySchema.pluginRevisionId, context.pluginRevisionId))
+							.orderBy(asc(schema.definitionEntitySchema.position)),
 					),
 					(row) => ({ ...row, ...owner }),
 				);
@@ -788,7 +789,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 											schema.definitionEventSchema.entitySchemaId,
 											entitySchemas.map(({ id }) => id),
 										),
-									),
+									)
+									.orderBy(asc(schema.definitionEventSchema.position)),
 							);
 				const relationshipSchemas = Array.from(
 					yield* session.run((db) =>
@@ -797,7 +799,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 							.from(schema.definitionRelationshipSchema)
 							.where(
 								eq(schema.definitionRelationshipSchema.pluginRevisionId, context.pluginRevisionId),
-							),
+							)
+							.orderBy(asc(schema.definitionRelationshipSchema.position)),
 					),
 					(row) => ({ ...row, ...owner }),
 				);
@@ -806,7 +809,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						db
 							.select()
 							.from(schema.definitionSignalSchema)
-							.where(eq(schema.definitionSignalSchema.pluginRevisionId, context.pluginRevisionId)),
+							.where(eq(schema.definitionSignalSchema.pluginRevisionId, context.pluginRevisionId))
+							.orderBy(asc(schema.definitionSignalSchema.position)),
 					),
 					(row) => ({ ...row, ...owner }),
 				);
@@ -815,7 +819,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						db
 							.select()
 							.from(schema.definitionSavedView)
-							.where(eq(schema.definitionSavedView.pluginRevisionId, context.pluginRevisionId)),
+							.where(eq(schema.definitionSavedView.pluginRevisionId, context.pluginRevisionId))
+							.orderBy(asc(schema.definitionSavedView.position)),
 					),
 					(row) => ({ ...row, ...owner }),
 				);
