@@ -55,6 +55,14 @@
 			"types": "./src/intrinsics.ts",
 			"default": "./src/intrinsics.ts"
 		},
+		"./markdown": {
+			"types": "./src/markdown.ts",
+			"default": "./src/markdown.ts"
+		},
+		"./markdown-text": {
+			"types": "./src/markdown-text.ts",
+			"default": "./src/markdown-text.ts"
+		},
 		"./operation": {
 			"types": "./src/operation.ts",
 			"default": "./src/operation.ts"
@@ -97,11 +105,20 @@
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@types/hast": "3.0.4",
+		"@types/mdast": "4.0.4",
 		"@types/papaparse": "5.5.2",
 		"cheerio": "1.2.0",
 		"effect": "4.0.0",
 		"fast-xml-parser": "5.8.0",
 		"fflate": "0.8.3",
+		"hast-util-raw": "9.1.0",
+		"hast-util-to-mdast": "10.1.2",
+		"mdast-util-directive": "3.1.1",
+		"mdast-util-from-markdown": "2.1.0",
+		"mdast-util-to-hast": "13.2.1",
+		"mdast-util-to-markdown": "2.2.0",
+		"micromark-extension-directive": "4.0.0",
 		"papaparse": "5.5.3",
 		"youtubei.js": "17.2.0"
 	},

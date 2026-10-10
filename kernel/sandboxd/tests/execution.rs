@@ -138,12 +138,15 @@ import { gunzipSync, gzipSync, strFromU8 } from "@ryot-app/sandbox-sdk/fflate";
 import { parse } from "@ryot-app/sandbox-sdk/papaparse";
 import { XMLParser } from "@ryot-app/sandbox-sdk/fast-xml-parser";
 import { load } from "@ryot-app/sandbox-sdk/cheerio";
+import { normalizeMarkdown } from "@ryot-app/sandbox-sdk/markdown";
 
 export default (input) => ({
     gzip: strFromU8(gunzipSync(gzipSync(new TextEncoder().encode(input.text)))),
     csv: parse("title,year\nDune,1965", { header: true }).data,
     xml: new XMLParser().parse("<book><title>Dune</title></book>"),
     html: load("<ul><li>a</li><li>b</li></ul>")("li").map((_, element) => load(element).text()).get(),
+    markdown: normalizeMarkdown('<h2>Title</h2><p><b>Bold</b> &amp; <a href="/book">book</a></p>\n\n:spoiler[secret]', { baseUrl: "https://example.com/base" }),
+    markdownStable: normalizeMarkdown(normalizeMarkdown(':spoiler[outer :spoiler[inner]]')) === ':spoiler[outer :spoiler[inner]]',
 });
 "#;
 
@@ -182,6 +185,8 @@ fn each_tier_runs_its_fixture_module() {
             "csv": [{ "title": "Dune", "year": "1965" }],
             "xml": { "book": { "title": "Dune" } },
             "html": ["a", "b"],
+            "markdown": "**Title**\n\n**Bold** & [book](https://example.com/book)\n\n:spoiler[secret]",
+            "markdownStable": true,
         })
     );
 
@@ -1005,6 +1010,7 @@ fn youtubei_client_is_constructed_through_http_call_host_calls() {
 fn imports_outside_the_tier_are_rejected_at_resolution() {
     for (tier, specifier) in [
         (Tier::Core, "@ryot-app/sandbox-sdk/cheerio"),
+        (Tier::Core, "@ryot-app/sandbox-sdk/markdown"),
         (Tier::Core, "@ryot-app/sandbox-sdk/youtubei"),
         (Tier::Data, "@ryot-app/sandbox-sdk/youtubei"),
         (Tier::Core, "ryot-runtime:/youtubei-17.2.0.mjs"),

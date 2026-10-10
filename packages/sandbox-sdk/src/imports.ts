@@ -36,6 +36,7 @@ export const SANDBOX_SDK_IMPORTS = [
 	SANDBOX_SDK_FILESYSTEM_IMPORT,
 	SANDBOX_SDK_IMPORT_WIRE_IMPORT,
 	"@ryot-app/sandbox-sdk/driver",
+	"@ryot-app/sandbox-sdk/markdown-text",
 	"@ryot-app/sandbox-sdk/operation",
 	"@ryot-app/sandbox-sdk/wire",
 	PLUGIN_KIT_SCHEMA_IMPORT,

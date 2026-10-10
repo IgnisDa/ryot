@@ -96,6 +96,7 @@ Only the following runtime-registry specifiers remain external in a sandbox modu
 - `effect`
 - `@ryot-app/plugin-kit/effect`
 - `@ryot-app/sandbox-sdk/cheerio`
+- `@ryot-app/sandbox-sdk/markdown`
 - `@ryot-app/sandbox-sdk/youtubei`
 - `@ryot-app/sandbox-sdk/fflate`
 - `@ryot-app/sandbox-sdk/papaparse`
@@ -107,6 +108,9 @@ Only the following runtime-registry specifiers remain external in a sandbox modu
 `@ryot-app/sandbox-sdk`. Other approved SDK entry points remain compiler-bundled through exact aliases.
 Runtime aliases for Effect and RyotQL resolve to the same files, so SDK and plugin-kit imports keep one
 module identity.
+
+`@ryot-app/sandbox-sdk/markdown` is a data-tier runtime module. The dependency-free
+`@ryot-app/sandbox-sdk/markdown-text` entry point is compiler-bundled and does not raise the snapshot tier.
 
 ## Output Audit
 

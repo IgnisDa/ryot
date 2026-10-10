@@ -216,13 +216,14 @@ it.layer(clientPluginCompilerPlatformLayer)("compileClientPluginModule", (test) 
 						"client/alpha.tsx": bytes(`
 import "./plugin.css";
 import { useState } from "react";
+import { MarkdownContent } from "@ryot-app/client-ui-sdk/markdown";
 import Card from "@ryot-app/plugins/media/show-card";
 import "@ryot-app/client-sdk/plugin";
 import { label } from "../shared/label";
 
 export default function Alpha() {
 	const [count] = useState(1);
-	return <Card count={count} label={label} />;
+	return <><Card count={count} label={label} /><MarkdownContent text="**Description**" onOpenLink={() => undefined} /></>;
 }
 `),
 					},
@@ -256,6 +257,7 @@ export default function Alpha() {
 						"react",
 						"react/jsx-runtime",
 						"@ryot-app/client-sdk/plugin",
+						"@ryot-app/client-ui-sdk/markdown",
 						"@ryot-app/plugins/media/show-card",
 					]),
 				);
