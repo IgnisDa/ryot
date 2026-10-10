@@ -2,6 +2,7 @@ import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
+import { buildCaptureLegacyDescriptionsSql } from "./description-normalization";
 import {
 	type LotEntityMigrationTarget,
 	type ResolvedLotEntityMigrationTarget,
@@ -216,6 +217,24 @@ BEGIN
 				"user_id" = COALESCE(entity."user_id", EXCLUDED."user_id")
 			WHERE entity."properties" = '{}'::jsonb OR entity."user_id" IS NULL;
 		GET DIAGNOSTICS batch_rows_inserted = ROW_COUNT;
+
+		${buildCaptureLegacyDescriptionsSql(`
+			WITH metadata_group_targets (lot, source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (
+				VALUES ${buildLotEntityTargetValuesSql(targets)}
+			)
+			SELECT mg.id::text AS "entityId", mg.description AS "description",
+				mg.source::text AS "source", mg.source_url AS "baseUrl"
+			FROM "metadata_group" mg
+			INNER JOIN metadata_group_targets target ON target.lot = mg.lot AND target.source = mg.source
+			INNER JOIN "entity" entity ON entity.id = mg.id
+				AND entity.entity_schema_slug = target.entity_schema_slug
+				AND entity.entity_schema_plugin_id IS NOT DISTINCT FROM target.entity_schema_plugin_id
+				AND entity.provider_id IS NOT DISTINCT FROM target.provider_id
+				AND entity.external_id IS NOT DISTINCT FROM mg.identifier
+				AND entity.user_id IS NOT DISTINCT FROM mg.created_by_user_id
+			WHERE mg.id::text > cursor_id AND mg.id::text <= next_cursor_id
+				AND target.provider_id IS NULL AND entity.properties ? 'description'
+		`)}
 
 		rows_inserted := rows_inserted + batch_rows_inserted;
 		cursor_id := next_cursor_id;
