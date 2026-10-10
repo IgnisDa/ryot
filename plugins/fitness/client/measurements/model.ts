@@ -1,5 +1,6 @@
 import type { TimeSeriesPoint } from "@ryot-app/client-ui-sdk/charts";
 
+import { MEASUREMENT_PIN_LIMIT } from "../../shared/measurement-metric-operations";
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
 import type { MeasurementReadingListResult } from "../../shared/query-recipes";
 
@@ -8,7 +9,6 @@ export type MetricSort = "recent" | "changed" | "az";
 export type MeasurementReading = MeasurementReadingListResult["items"][number];
 
 export const DAY_MS = 86_400_000;
-export const TILE_LIMIT = 4;
 export const STALE_AFTER_DAYS = 45;
 export const CHART_GAP_MS = 90 * DAY_MS;
 
@@ -107,16 +107,17 @@ const byRecency = (left: MeasurementSummary, right: MeasurementSummary) =>
 	(right.latestAt === null ? -Infinity : Date.parse(right.latestAt)) -
 	(left.latestAt === null ? -Infinity : Date.parse(left.latestAt));
 
-export const selectTileMetrics = (summaries: readonly MeasurementSummary[]) =>
+export const selectPinnedMetrics = (summaries: readonly MeasurementSummary[]) =>
 	summaries
-		.filter(({ rangeCount }) => rangeCount > 0)
+		.flatMap((summary) =>
+			summary.pinnedAt === null ? [] : [{ summary, pinnedAt: Date.parse(summary.pinnedAt) }],
+		)
 		.sort(
 			(left, right) =>
-				right.rangeCount - left.rangeCount ||
-				byRecency(left, right) ||
-				left.name.localeCompare(right.name),
+				left.pinnedAt - right.pinnedAt || left.summary.id.localeCompare(right.summary.id),
 		)
-		.slice(0, TILE_LIMIT);
+		.slice(0, MEASUREMENT_PIN_LIMIT)
+		.map(({ summary }) => summary);
 
 export const sortMetricRows = (rows: readonly MetricRow[], sort: MetricSort) =>
 	[...rows].sort((left, right) => {
