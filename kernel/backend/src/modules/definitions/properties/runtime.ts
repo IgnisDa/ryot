@@ -347,6 +347,9 @@ const collectRequiredIssues = (
 const omitValueAtPath = (input: PropertyValues, path: AppSchemaRulePath) => {
 	let value: PropertyValues = input;
 	for (const segment of path.slice(0, -1)) {
+		if (!Object.hasOwn(value, segment)) {
+			return;
+		}
 		const child = value[segment];
 		if (!isStringRecord(child)) {
 			return;
@@ -354,7 +357,7 @@ const omitValueAtPath = (input: PropertyValues, path: AppSchemaRulePath) => {
 		value = child;
 	}
 	const key = path.at(-1);
-	if (key !== undefined) {
+	if (key !== undefined && Object.hasOwn(value, key)) {
 		delete value[key];
 	}
 };
