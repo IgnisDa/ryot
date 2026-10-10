@@ -1,32 +1,67 @@
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { Result } from "@ryot-app/client-sdk/effect";
 import {
 	defineEntityPresentation,
 	PluginLink,
 	useRyotViewport,
 	type EntityPresentationComponentProps,
 	type EntityPresentationLoader,
+	type EntityPresentationPrepare,
+	type EntityReference,
 } from "@ryot-app/client-sdk/plugin";
+import { defineRecipe } from "@ryot-app/client-sdk/ryotql";
 import { Badge } from "@ryot-app/client-ui-sdk";
 import { isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 
 import {
-	workoutPresentationRecipe,
+	workoutPresentationSource,
 	type WorkoutPresentationData,
-} from "./workout-presentation-query";
+	type WorkoutPresentationSourceData,
+} from "../shared/entity-presentations";
 import { formatDuration, formatNumber, parseDate } from "./workout/format";
+
+const buildWorkoutPresentations = (
+	references: readonly EntityReference[],
+	sources: readonly WorkoutPresentationSourceData[],
+) => {
+	const byId = new Map(sources.map((source) => [source.presentationId, source]));
+	return Result.map(
+		Result.all(
+			references.map((reference) => {
+				const source = byId.get(reference.entityId);
+				return source === undefined
+					? Result.fail(
+							new Error(`Missing workout presentation source for '${reference.entityId}'`),
+						)
+					: Result.succeed(source);
+			}),
+		),
+		(rows) => Object.fromEntries(rows.map(({ presentationId, ...data }) => [presentationId, data])),
+	);
+};
+
+export const prepareWorkoutPresentations: EntityPresentationPrepare<WorkoutPresentationData> = ({
+	sources,
+	references,
+}) => {
+	const source = workoutPresentationSource();
+	return Result.flatMap(
+		Result.all(references.map((reference) => source.decode(sources.get(reference.entityId)))),
+		(rows) => buildWorkoutPresentations(references, rows),
+	);
+};
 
 export const loadWorkoutPresentations: EntityPresentationLoader<WorkoutPresentationData> = ({
 	client,
 	references,
 }) => {
-	const requestedIds = [...new Set(references.map(({ entityId }) => entityId))];
-	return client.data
-		.query(workoutPresentationRecipe(requestedIds))
-		.pipe(
-			Effect.map((workouts) =>
-				Object.fromEntries(workouts.map((workout) => [workout.id, workout])),
-			),
-		);
+	const source = workoutPresentationSource();
+	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
+	const recipe = defineRecipe(() => ({
+		queries: { presentations: source.query(entityIds) },
+		map: ({ presentations }) =>
+			buildWorkoutPresentations(references, presentations.items.map(source.map)),
+	}))();
+	return client.data.query(recipe);
 };
 
 const workoutDate = (startedAt: string | null) => {
@@ -149,9 +184,11 @@ const WorkoutRow = (props: EntityPresentationComponentProps<WorkoutPresentationD
 export const workoutCardPresentation = defineEntityPresentation({
 	component: WorkoutCard,
 	loader: loadWorkoutPresentations,
+	prepare: prepareWorkoutPresentations,
 });
 
 export const workoutRowPresentation = defineEntityPresentation({
 	component: WorkoutRow,
 	loader: loadWorkoutPresentations,
+	prepare: prepareWorkoutPresentations,
 });
