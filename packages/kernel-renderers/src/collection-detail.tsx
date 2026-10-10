@@ -1,11 +1,6 @@
 import { DateTime, Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
-import {
-	createRyotQuery,
-	usePageRefreshRequest,
-	useRyot,
-	useRyotQuery,
-} from "@ryot-app/plugin-client-sdk/react";
+import { createRyotQuery, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, IconButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -113,7 +108,6 @@ const CollectionBrowser = ({
 	readonly groups: CollectionMembersAggregateResult;
 }) => {
 	const ryot = useRyot();
-	const refresh = usePageRefreshRequest();
 	const openScreen = useHostScreen();
 	const editCollection = () =>
 		openScreen(ryot.screens.editCollection({ collectionId }), (outcome) => {
@@ -122,16 +116,10 @@ const CollectionBrowser = ({
 					kind: "saved-view",
 					reference: { kind: "kernel", slug: "collections" },
 				});
-			} else if (outcome.kind === "saved") {
-				refresh();
 			}
 		});
 	const memberDetails = (entityId: string) =>
-		openScreen(ryot.screens.addToCollection({ entityId, collectionId }), (outcome) => {
-			if (outcome.kind !== "cancelled") {
-				refresh();
-			}
-		});
+		openScreen(ryot.screens.addToCollection({ entityId, collectionId }));
 	const membershipPropertiesSchema = header?.membershipPropertiesSchema ?? null;
 	const filterFields = collectionMemberFilterFields({ groups, membershipPropertiesSchema });
 	const [query] = useState(() =>

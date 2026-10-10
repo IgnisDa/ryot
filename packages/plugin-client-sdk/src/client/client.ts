@@ -247,10 +247,24 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	};
 	const pickEntity = (request: RyotPickEntityRequest) =>
 		openScreen(PickEntityRequest, PickEntityOutcome, adapter.pickEntity, request);
+	const refreshAfterCollectionScreen = Effect.fnUntraced(function* (
+		outcome: AddToCollectionOutcome | EditCollectionOutcome,
+	) {
+		if (outcome.kind !== "cancelled") {
+			yield* Effect.sync(() => mutationCompleted.hint());
+		}
+	});
 	const editCollection = (request: RyotEditCollectionRequest) =>
-		openScreen(EditCollectionRequest, EditCollectionOutcome, adapter.editCollection, request);
+		openScreen(EditCollectionRequest, EditCollectionOutcome, adapter.editCollection, request).pipe(
+			Effect.tap(refreshAfterCollectionScreen),
+		);
 	const addToCollection = (request: RyotAddToCollectionRequest) =>
-		openScreen(AddToCollectionRequest, AddToCollectionOutcome, adapter.addToCollection, request);
+		openScreen(
+			AddToCollectionRequest,
+			AddToCollectionOutcome,
+			adapter.addToCollection,
+			request,
+		).pipe(Effect.tap(refreshAfterCollectionScreen));
 	const requestUpload = (request: PluginUploadRequest) =>
 		adapterEffect(() => adapter.upload(request)).pipe(
 			Effect.flatMap((value) => decodeCapability(PluginUploadResult, value)),

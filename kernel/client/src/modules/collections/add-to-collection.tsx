@@ -1,4 +1,5 @@
 import type { EntityId } from "@ryot-app/contract/schema/brands";
+import type { AddToCollectionOutcome } from "@ryot-app/plugin-client-contract";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotMutation,
@@ -33,6 +34,7 @@ import {
 	type CollectionHeaderResult,
 	collectionMembershipRecipe,
 	type CollectionMembershipResult,
+	collectionMembershipTargetRecipe,
 	collectionPickerRecipe,
 	type CollectionPickerResult,
 } from "@ryot-app/ryotql-recipes/collections";
@@ -49,6 +51,16 @@ import { useFormSeed } from "#/modules/ui/use-form-seed";
 type CollectionOption = CollectionPickerResult["items"][number];
 
 type MembershipTarget = { readonly entityId: EntityId; readonly collectionId: EntityId };
+
+const membershipTarget = createRyotQuery(
+	({
+		input,
+		client,
+	}: {
+		readonly input: { readonly entityId: EntityId };
+		readonly client: RyotClient;
+	}) => client.data.query(collectionMembershipTargetRecipe(input)),
+);
 
 const collectionOptions = createRyotQuery(
 	({
@@ -69,6 +81,7 @@ const membershipDetails = createRyotQuery(
 			},
 			{ concurrency: "unbounded" },
 		),
+	{ cancelOnUnmount: true },
 );
 
 const upsertMembership = createRyotMutation(
@@ -155,9 +168,9 @@ function CollectionOptions(props: {
 			{result.hasNextPage && !result.isError ? (
 				<LoadMoreButton
 					variant="secondary"
-					disabled={result.isFetching}
 					label="Show more collections"
 					onClick={result.fetchNextPage}
+					disabled={result.isFetchingNextPage}
 					isFetchingNextPage={result.isFetchingNextPage}
 				/>
 			) : null}
@@ -226,7 +239,7 @@ function MembershipForm(props: {
 						</Button>
 					) : null}
 					<Button disabled={busy} variant="secondary" onClick={props.onClose}>
-						Cancel
+						Back to collections
 					</Button>
 					<Button disabled={busy} loading={save.isPending} onClick={() => void form.handleSubmit()}>
 						{editing ? "Save details" : "Add to collection"}
@@ -304,18 +317,36 @@ export function AddToCollection(props: {
 	readonly onRemoved: () => void;
 }) {
 	const [search, setSearch] = useState("");
+	const target = useRyotQuery(membershipTarget, { entityId: props.entityId });
+	const outcome = useRef<AddToCollectionOutcome["kind"]>("cancelled");
 	const [view, setView] = useState<AddView>(
 		props.collectionId === undefined
 			? { kind: "pick" }
 			: { kind: "membership", collectionId: props.collectionId },
 	);
+	const returnToCollections = () => setView({ kind: "pick" });
+	const close = () => {
+		if (outcome.current === "saved") {
+			props.onSaved();
+		} else if (outcome.current === "removed") {
+			props.onRemoved();
+		} else {
+			props.onClose();
+		}
+	};
 	if (view.kind === "membership") {
 		return (
 			<SelectedCollection
-				onClose={props.onClose}
-				onSaved={props.onSaved}
-				onRemoved={props.onRemoved}
+				onClose={returnToCollections}
 				target={{ entityId: props.entityId, collectionId: view.collectionId }}
+				onSaved={() => {
+					outcome.current = "saved";
+					returnToCollections();
+				}}
+				onRemoved={() => {
+					outcome.current = "removed";
+					returnToCollections();
+				}}
 			/>
 		);
 	}
@@ -323,15 +354,20 @@ export function AddToCollection(props: {
 		return (
 			<CollectionEditor
 				initialName={view.name}
-				onDeleted={props.onClose}
-				onClose={() => setView({ kind: "pick" })}
+				onClose={returnToCollections}
+				onDeleted={returnToCollections}
 				onSaved={(collectionId) => setView({ collectionId, kind: "membership" })}
 			/>
 		);
 	}
 	const query = search.trim();
 	return (
-		<Dialog onClose={props.onClose} title="Add to collection" closeLabel="Close collections">
+		<Dialog
+			onClose={close}
+			closeLabel="Close collections"
+			footer={<Button onClick={close}>Done</Button>}
+			title={target.data ? `Collections for ${target.data.name}` : "Collections"}
+		>
 			<div className="grid gap-3">
 				<Field label="Search collections">
 					{(control) => (

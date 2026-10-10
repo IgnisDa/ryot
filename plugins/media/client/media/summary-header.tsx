@@ -11,6 +11,7 @@ import {
 import clsx from "clsx";
 import { Fragment, useState } from "react";
 
+import { MediaCollectionsRow } from "./collections";
 import { mediaArtworkClass } from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaMonitoringRow } from "./monitoring";
@@ -23,7 +24,6 @@ import {
 } from "./primitives";
 import { MediaReviewButton } from "./review";
 import {
-	mediaCollectionsLabel,
 	type MediaEntitySummaryValue,
 	mediaOwnershipLabel,
 	mediaPosterAsset,
@@ -199,14 +199,10 @@ function MediaStatusRail(props: {
 					}
 				/>
 			)}
-			<Row
-				title="Collections"
-				description={mediaCollectionsLabel(media.collections)}
-				trailing={
-					<Button size="sm" variant="ghost" onClick={() => console.log("TODO: manage collections")}>
-						Manage
-					</Button>
-				}
+			<MediaCollectionsRow
+				entityId={media.id}
+				key={`collections:${media.id}`}
+				collections={media.collections}
 			/>
 		</RowGroup>
 	);
