@@ -5,7 +5,10 @@ const config: CapacitorConfig = {
 	appName: "Ryot",
 	appId: "io.ryot.app",
 	backgroundColor: "#101113",
-	plugins: { Keyboard: { autoBackdropColor: "dom" } },
+	plugins: {
+		Keyboard: { autoBackdropColor: "dom" },
+		LocalNotifications: { presentationOptions: [] },
+	},
 };
 
 export default config;

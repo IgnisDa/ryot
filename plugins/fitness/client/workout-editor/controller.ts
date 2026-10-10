@@ -69,6 +69,7 @@ type WorkoutEditorControllerSnapshot =
 	  });
 
 type WorkoutEditorControllerPorts = {
+	readonly foreground: () => boolean;
 	readonly upload?: RyotClient["uploads"]["uploadPermanent"];
 	readonly cleanup?: RyotClient["uploads"]["cleanup"];
 	readonly device?:
@@ -600,13 +601,13 @@ export const createWorkoutEditorController = (
 		readonly restClientId?: string;
 	}) =>
 		Effect.gen(function* () {
-			if (isDisposed()) {
+			if (isDisposed() || !ports.foreground()) {
 				return;
 			}
 			if (expected === undefined) {
 				yield* refreshContext();
 			}
-			if (isDisposed() || !isReady(snapshot)) {
+			if (isDisposed() || !ports.foreground() || !isReady(snapshot)) {
 				return;
 			}
 			if (snapshot.draft.submission !== undefined) {

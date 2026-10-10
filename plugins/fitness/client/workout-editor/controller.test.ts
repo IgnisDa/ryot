@@ -102,6 +102,7 @@ const createController = (
 	options: {
 		readonly device?: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceResult>;
 		readonly events?: string[];
+		readonly foreground?: () => boolean;
 		readonly onRead?: () => unknown;
 		readonly now?: Effect.Effect<number, unknown>;
 		readonly onRemove?: () => void;
@@ -118,6 +119,7 @@ const createController = (
 		device: options.device,
 		target: options.target,
 		pluginId: options.pluginId,
+		foreground: options.foreground ?? (() => true),
 		now: options.now ?? Effect.succeed(Date.parse(startTime)),
 		storage: {
 			read: Effect.sync(() => {
@@ -391,54 +393,61 @@ describe("workout editor controller", () => {
 			}),
 	);
 
-	it.live(
-		"reschedules muted alerts, retains inexact availability, and reconciles a recovered deadline once",
-		() =>
-			Effect.gen(function* () {
-				let now = Date.parse(startTime);
-				const requests: PluginDeviceRequest[] = [];
-				const harness = createController({
-					now: Effect.sync(() => now),
-					pluginId: PluginId.make("fitness-installation"),
-					target: {
-						search: "",
-						path: "/workout",
-						kind: "plugin-route",
-						packageId: PluginPackageId.make("ryot/fitness"),
-					},
-					device: (request) =>
-						Effect.sync(() => {
-							requests.push(request);
-							return { status: request.action === "schedule" ? "inexact" : "done" };
-						}),
-				});
-				yield* harness.controller.load();
-				yield* harness.controller.start(timerDraft());
-				const running = harness.controller.getSnapshot();
-				expect(running.status === "ready" && running.alertStatus.execution).toBe("inexact");
-				harness.controller.change((current) => ({
-					...current,
-					localPreferences: { muteSounds: true },
-				}));
-				yield* harness.controller.flush();
-				expect(
-					requests
-						.filter((request) => request.action === "schedule")
-						.map((request) => request.audible),
-				).toEqual([true, false]);
-				now += 60_000;
-				yield* harness.controller.reconcile();
-				const completed = decodeWorkoutEditorDraft(harness.stored);
-				expect(completed._tag).toBe("Success");
-				if (completed._tag === "Success") {
-					expect(completed.success.occurrences[0]?.sets[0]?.confirmedAt).toBe(
-						"2026-10-15T10:00:20.000Z",
-					);
-					expect(completed.success.restCountdown).toBeUndefined();
-				}
-				const writes = harness.writes.length;
-				yield* harness.controller.reconcile();
-				expect(harness.writes).toHaveLength(writes);
-			}),
+	it.live("keeps background alerts scheduled and reconciles their deadlines once on return", () =>
+		Effect.gen(function* () {
+			let now = Date.parse(startTime);
+			let foreground = true;
+			const requests: PluginDeviceRequest[] = [];
+			const harness = createController({
+				now: Effect.sync(() => now),
+				foreground: () => foreground,
+				pluginId: PluginId.make("fitness-installation"),
+				target: {
+					search: "",
+					path: "/workout",
+					kind: "plugin-route",
+					packageId: PluginPackageId.make("ryot/fitness"),
+				},
+				device: (request) =>
+					Effect.sync(() => {
+						requests.push(request);
+						return { status: request.action === "schedule" ? "inexact" : "done" };
+					}),
+			});
+			yield* harness.controller.load();
+			yield* harness.controller.start(timerDraft());
+			const running = harness.controller.getSnapshot();
+			expect(running.status === "ready" && running.alertStatus.execution).toBe("inexact");
+			harness.controller.change((current) => ({
+				...current,
+				localPreferences: { muteSounds: true },
+			}));
+			yield* harness.controller.flush();
+			expect(
+				requests
+					.filter((request) => request.action === "schedule")
+					.map((request) => request.audible),
+			).toEqual([true, false]);
+			now += 60_000;
+			foreground = false;
+			const backgroundWrites = harness.writes.length;
+			const backgroundRequests = requests.length;
+			yield* harness.controller.reconcile();
+			expect(harness.writes).toHaveLength(backgroundWrites);
+			expect(requests).toHaveLength(backgroundRequests);
+			foreground = true;
+			yield* harness.controller.reconcile();
+			const completed = decodeWorkoutEditorDraft(harness.stored);
+			expect(completed._tag).toBe("Success");
+			if (completed._tag === "Success") {
+				expect(completed.success.occurrences[0]?.sets[0]?.confirmedAt).toBe(
+					"2026-10-15T10:00:20.000Z",
+				);
+				expect(completed.success.restCountdown).toBeUndefined();
+			}
+			const writes = harness.writes.length;
+			yield* harness.controller.reconcile();
+			expect(harness.writes).toHaveLength(writes);
+		}),
 	);
 });
