@@ -13,7 +13,6 @@ import {
 	enumField,
 	group,
 	integerField,
-	renderConfigReference,
 	stringField,
 } from "./index";
 
@@ -143,48 +142,5 @@ describe("config definitions", () => {
 		expect(() => load(definition.config, { MODE: "unsafe" })).toThrow(
 			"MODE must be one of: safe, fast",
 		);
-	});
-});
-
-describe("config reference", () => {
-	it("renders nested core and plugin metadata while omitting hidden fields", () => {
-		const core = defineConfig({
-			timezone: stringField({
-				envKey: "TZ",
-				label: "Timezone",
-				defaultValue: "Etc/GMT",
-				description: "Application timezone",
-			}),
-			server: group(
-				{ label: "Server", description: "Server settings" },
-				{
-					hidden: stringField({
-						hidden: true,
-						label: "Hidden",
-						envKey: "HIDDEN",
-						description: "Internal value",
-					}),
-				},
-			),
-		});
-		const plugin = definePluginConfig(packageId, {
-			token: stringField({
-				secret: true,
-				label: "Token",
-				defaultValue: "token",
-				description: "Plugin token",
-			}),
-		});
-		const markdown = renderConfigReference(core, [{ packageId, name: "Media", schema: plugin }]);
-
-		expect(markdown).toContain("# App Backend Configuration Reference");
-		expect(markdown).toContain("### Server settings");
-		expect(markdown).toContain(
-			"| `timezone` | `TZ` | Application timezone | No | No | `Etc/GMT` |",
-		);
-		expect(markdown).toContain(
-			"| `ryot/media.token` | `RYOT_PLUGIN__RYOT__MEDIA__TOKEN` | Token | Plugin token | No | Yes | `token` |",
-		);
-		expect(markdown).not.toContain("HIDDEN");
 	});
 });

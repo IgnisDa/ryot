@@ -1,4 +1,4 @@
-import { renderConfigReference } from "@ryot-app/config";
+import { renderConfigReference } from "@ryot-app/config/reference";
 import { appConfigDefinition } from "@ryot-app/kernel-backend/platform/config/definition";
 import { readPluginArchive } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
