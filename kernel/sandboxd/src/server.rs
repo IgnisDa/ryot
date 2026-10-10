@@ -14,8 +14,8 @@ use crate::execute::{Executor, HEAP_HEADROOM_BYTES, set_escalation, set_running}
 use crate::os::{ResidentMemory, lower_thread_priority};
 use crate::outbox::Outbox;
 use crate::protocol::{
-    Assembled, Assembly, ChunkedType, Console, DrainReason, FramingError, Inbound, Lane, Outbound,
-    Outcome, Phase, Run, Usage, decode_inbound, inbound_type, read_frame, valid_handle,
+    Assembled, Assembly, ChunkedType, DrainReason, Finished, FramingError, Inbound, Lane, Outbound,
+    Outcome, Phase, Run, decode_inbound, inbound_type, read_frame, valid_handle,
 };
 use crate::registry::{Entry, Registry};
 use crate::snapshots::Snapshot;
@@ -45,7 +45,7 @@ struct Shared {
 }
 
 impl Shared {
-    fn send_done(&self, handle: &str, outcome: Outcome, console: Console, usage: Usage) {
+    fn send_done(&self, handle: &str, (outcome, console, usage): Finished) {
         let message = Outbound::Done {
             generation: self.config.generation,
             handle: handle.to_owned(),
@@ -63,9 +63,9 @@ impl Shared {
         ));
     }
 
-    fn finish(&self, handle: &str, outcome: Outcome, console: Console, usage: Usage) {
+    fn finish(&self, handle: &str, finished: Finished) {
         self.registry.retire(handle);
-        self.send_done(handle, outcome, console, usage);
+        self.send_done(handle, finished);
         self.outbox.release(handle);
         let completed = self.completed.fetch_add(1, Ordering::SeqCst) + 1;
         if completed >= self.config.max_executions {
@@ -141,23 +141,18 @@ fn spawn_workers(
                         + HEAP_HEADROOM_BYTES
                         + run.limits.external_bytes
                         + (run.module.source.len() + run.input.get().len()) as u64;
-                    let (outcome, console, usage) = match shared.budget.reserve(reserve) {
-                        None => (
-                            Outcome::Failed(
-                                Phase::Admission,
-                                format!(
-                                    "execution needs {reserve} bytes, more than the memory budget"
-                                ),
-                            ),
-                            Console::default(),
-                            Usage::default(),
-                        ),
+                    let finished = match shared.budget.reserve(reserve) {
+                        None => Outcome::Failed(
+                            Phase::Admission,
+                            format!("execution needs {reserve} bytes, more than the memory budget"),
+                        )
+                        .without_run(),
                         Some(_reservation) if entry.state().cancelled => {
-                            (Outcome::Cancelled, Console::default(), Usage::default())
+                            Outcome::Cancelled.without_run()
                         }
                         Some(_reservation) => executor.execute(&run, &entry),
                     };
-                    shared.finish(&entry.handle, outcome, console, usage);
+                    shared.finish(&entry.handle, finished);
                     set_running(None);
                 }
             })
@@ -180,9 +175,7 @@ impl Reader {
         self.shared.in_flight.fetch_add(1, Ordering::SeqCst);
         self.shared.finish(
             handle,
-            Outcome::Failed(Phase::Protocol, message),
-            Console::default(),
-            Usage::default(),
+            Outcome::Failed(Phase::Protocol, message).without_run(),
         );
     }
 
@@ -214,28 +207,24 @@ impl Reader {
                 &run.handle,
                 Outcome::Failed(
                     Phase::Admission,
-                    format!("this sidecar serves the {:?} tier", self.shared.config.tier)
-                        .to_lowercase(),
-                ),
-                Console::default(),
-                Usage::default(),
+                    format!(
+                        "this sidecar serves the {} tier",
+                        self.shared.config.tier.as_str()
+                    ),
+                )
+                .without_run(),
             );
             return;
         }
         if self.shared.draining.load(Ordering::SeqCst) {
             self.shared.finish(
                 &run.handle,
-                Outcome::Failed(Phase::Admission, "sidecar is draining".to_owned()),
-                Console::default(),
-                Usage::default(),
+                Outcome::Failed(Phase::Admission, "sidecar is draining".to_owned()).without_run(),
             );
             return;
         }
-        let lane = match run.lane {
-            Lane::Interactive => &self.lanes[0],
-            Lane::Background => &self.lanes[1],
-        };
-        lane.send(Job { run, entry })
+        self.lanes[run.lane.index()]
+            .send(Job { run, entry })
             .expect("lane workers stay alive");
     }
 

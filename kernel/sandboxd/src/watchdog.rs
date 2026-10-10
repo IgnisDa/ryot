@@ -16,13 +16,14 @@ pub fn run(registry: Registry, grace: Duration, escalate: impl Fn(&Entry)) {
         let now = Instant::now();
         for entry in registry.active() {
             let mut state = entry.state();
-            if state.finished || state.isolate.is_none() {
+            if state.finished {
                 continue;
             }
+            let Some(isolate) = state.isolate.as_ref() else {
+                continue;
+            };
             if let Some(since) = state.terminating_since {
-                if let Some(isolate) = &state.isolate {
-                    isolate.terminate_execution();
-                }
+                isolate.terminate_execution();
                 // Only an isolate that keeps running or stays blocked in inline settlement after
                 // termination is a culprit; one waiting for a CPU slot stops as soon as it is polled.
                 let active_since = state
@@ -78,9 +79,8 @@ pub fn run(registry: Registry, grace: Duration, escalate: impl Fn(&Entry)) {
             }
             if state.interrupt.is_none() {
                 let data = Arc::into_raw(entry.clone());
-                let requested = state.isolate.as_ref().is_some_and(|isolate| {
-                    isolate.request_interrupt(check_external_memory, data as *mut c_void)
-                });
+                let requested =
+                    isolate.request_interrupt(check_external_memory, data as *mut c_void);
                 if requested {
                     state.interrupt = Some(data as usize);
                 } else {
