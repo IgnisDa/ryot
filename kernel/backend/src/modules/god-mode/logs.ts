@@ -6,11 +6,13 @@ import { Zip, ZipDeflate, ZipPassThrough } from "fflate";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { DownloadTickets } from "#lib/infrastructure/download-tickets";
+import { roleLogPath } from "#lib/infrastructure/server-role";
 
 type LogFile = ContractSuccess<"serverLogs", "list">["files"][number];
 
 const unavailable = () => new ServerLogsNotFound({ reason: { code: "log-file-unavailable" } });
 const failed = () => new ServerLogsFailure({ reason: { code: "log-read-failed" } });
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const fileId = (name: string, stat: FileSystem.File.Info) =>
 	Base64Url.encode(new TextEncoder().encode(`${name}\0${stat.dev}\0${Option.getOrNull(stat.ino)}`));
 
@@ -25,11 +27,15 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 		),
 		Effect.mapError(failed),
 	);
-	const activeName = path.basename(logPath);
-	const escapedName = activeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-	const rotatedName = new RegExp(`^\\d{8}-\\d{4}-\\d{2,3}-${escapedName}\\.gz$`);
+	const activeNames = (["all", "interactive", "background"] as const).map((role) =>
+		path.basename(roleLogPath(path, logPath, role)),
+	);
+	const isActive = (name: string) => activeNames.includes(name);
+	const rotatedName = new RegExp(
+		`^\\d{8}-\\d{4}-\\d{2,3}-(?:${activeNames.map(escapeRegExp).join("|")})\\.gz$`,
+	);
 	const compareNames = (a: string, b: string) =>
-		Number(b === activeName) - Number(a === activeName) || b.localeCompare(a);
+		Number(isActive(b)) - Number(isActive(a)) || b.localeCompare(a);
 	const logNames = Effect.fn("ServerLogs.logNames")(function* () {
 		const names = yield* fs.readDirectory(directory).pipe(
 			Effect.catchIf(
@@ -38,7 +44,7 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 			),
 			Effect.mapError(failed),
 		);
-		return names.filter((name) => name === activeName || rotatedName.test(name)).sort(compareNames);
+		return names.filter((name) => isActive(name) || rotatedName.test(name)).sort(compareNames);
 	});
 	const readLogFile = (name: string) =>
 		Effect.gen(function* () {
@@ -64,8 +70,8 @@ export const makeServerLogs = Effect.fn("makeServerLogs")(function* (logPath: st
 			return {
 				name,
 				id: fileId(name, stat),
+				active: isActive(name),
 				size: Number(stat.size),
-				active: name === activeName,
 				modifiedAt: stat.mtime.value.toISOString(),
 			};
 		}).pipe(Effect.mapError(failed));

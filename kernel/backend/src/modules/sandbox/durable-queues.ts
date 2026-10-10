@@ -18,6 +18,7 @@ import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/e
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 import { SandboxAdmissionLease } from "#lib/infrastructure/sandbox-runtime/sidecar-admission";
 import { SidecarRecoverySuspended } from "#lib/infrastructure/sandbox-runtime/sidecar-supervisor";
+import { servedLanes, serverRole } from "#lib/infrastructure/server-role";
 
 import {
 	SandboxDurableHostDispatcher,
@@ -222,19 +223,24 @@ export const SandboxExecutionQueueWorkerLive = Layer.unwrap(
 	),
 );
 
-export const sandboxLaneCapacity = (workerConcurrency: number) => ({
+export const sandboxLaneCapacity = (
+	workerConcurrency: number,
+	lanes: ReadonlyArray<ExecutionLane>,
+) => ({
 	total: workerConcurrency,
-	background: Math.max(1, Math.floor(workerConcurrency / 2)),
+	background: lanes.length > 1 ? Math.max(1, Math.floor(workerConcurrency / 2)) : workerConcurrency,
 });
 
 export const SandboxExecutionQueueStoreLive = Layer.unwrap(
-	Effect.map(AppConfig, (config) =>
-		fairQueueStoreLayer({
+	Effect.gen(function* () {
+		const config = yield* AppConfig;
+		const lanes = servedLanes(yield* serverRole(config.server.lanes));
+		return fairQueueStoreLayer({
+			lanes,
 			prefix: "ryot:sq:",
 			flowOf: sandboxSchedulingKey,
 			pollInterval: Duration.millis(25),
-			capacity: sandboxLaneCapacity(config.sandbox.workerConcurrency),
-			lanes: config.server.lanes === "all" ? ["interactive", "background"] : [config.server.lanes],
-		}),
-	),
+			capacity: sandboxLaneCapacity(config.sandbox.workerConcurrency, lanes),
+		});
+	}),
 );

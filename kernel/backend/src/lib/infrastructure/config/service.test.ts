@@ -454,6 +454,7 @@ describe("SERVER_LANES validation", () => {
 		["all", undefined, "all"],
 		["interactive", "/run/ryot", "interactive"],
 		["background", "/run/ryot", "background"],
+		["split", "/run/ryot", "split"],
 	] as const) {
 		layer(lanesEnvironmentLayer(lanes, socketDir))((test) => {
 			test.effect(`loads SERVER_LANES=${lanes ?? "(unset)"}`, () =>
@@ -467,7 +468,7 @@ describe("SERVER_LANES validation", () => {
 	}
 
 	for (const [lanes, socketDir, message] of [
-		["batch", undefined, "SERVER_LANES must be one of: all, interactive, background"],
+		["batch", undefined, "SERVER_LANES must be one of: all, interactive, background, split"],
 		[
 			"interactive",
 			undefined,
@@ -479,14 +480,19 @@ describe("SERVER_LANES validation", () => {
 			"SERVER_LANES=background requires SERVER_RUNNER_SOCKET_DIR to be an absolute path.",
 		],
 		[
+			"split",
+			undefined,
+			"SERVER_LANES=split requires SERVER_RUNNER_SOCKET_DIR to be an absolute path.",
+		],
+		[
 			"all",
 			"/run/ryot",
-			"SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is set to a role.",
+			"SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is a role or split.",
 		],
 		[
 			undefined,
 			"/run/ryot",
-			"SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is set to a role.",
+			"SERVER_RUNNER_SOCKET_DIR is only valid when SERVER_LANES is a role or split.",
 		],
 	] as const) {
 		layer(lanesEnvironmentLayer(lanes, socketDir))((test) => {

@@ -7,7 +7,7 @@ import { Context, Deferred, Effect, Layer, Schedule, Schema } from "effect";
 import { PersistedQueue } from "effect/persistence";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
-import { expect } from "vitest";
+import { expect, it } from "vitest";
 
 import { fairQueueKeys, fairQueueStoreLayer } from "#lib/infrastructure/fair-queue-store";
 import { RedisService } from "#lib/infrastructure/redis";
@@ -130,8 +130,8 @@ const queueLayer = Layer.mergeAll(
 					prefix,
 					pollInterval: "10 millis",
 					flowOf: sandboxSchedulingKey,
-					capacity: sandboxLaneCapacity(2),
 					lanes: ["interactive", "background"],
+					capacity: sandboxLaneCapacity(2, ["interactive", "background"]),
 				}),
 			),
 		),
@@ -195,4 +195,17 @@ layer(queueLayer, { excludeTestServices: true })((test) => {
 			expect(yield* Deferred.isDone(control.gate)).toBe(false);
 		}),
 	);
+});
+
+it("gives a process serving one lane the whole worker capacity", () => {
+	expect(sandboxLaneCapacity(4, ["interactive", "background"])).toEqual({
+		total: 4,
+		background: 2,
+	});
+	expect(sandboxLaneCapacity(1, ["interactive", "background"])).toEqual({
+		total: 1,
+		background: 1,
+	});
+	expect(sandboxLaneCapacity(4, ["background"])).toEqual({ total: 4, background: 4 });
+	expect(sandboxLaneCapacity(4, ["interactive"])).toEqual({ total: 4, background: 4 });
 });

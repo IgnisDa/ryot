@@ -246,10 +246,11 @@ layer(admissionLayer)((test) => {
 	);
 });
 
+const bothLanes = ["interactive", "background"] as const;
 const plannedBudget = (configured: Option.Option<number>, effectiveMemory: number) =>
-	Result.map(sandboxMemoryPlan(configured, effectiveMemory), (plan) => plan.budget);
+	Result.map(sandboxMemoryPlan(configured, effectiveMemory, bothLanes), (plan) => plan.budget);
 const plannedRegions = (budget: number) =>
-	Result.map(sandboxMemoryPlan(Option.some(budget), 8 * GiB), (plan) => ({
+	Result.map(sandboxMemoryPlan(Option.some(budget), 8 * GiB, bothLanes), (plan) => ({
 		mode: plan.mode,
 		dynamic: plan.dynamicBytes / MiB,
 		pools: [plan.pools.interactive / MiB, plan.pools.background / MiB],
@@ -261,15 +262,26 @@ it("sandbox_memory_budget_derives_from_effective_memory", () => {
 	expect(plannedBudget(Option.none(), 8 * GiB)).toEqual(Result.succeed(1536 * MiB));
 	expect(plannedBudget(Option.none(), 2 * GiB)).toEqual(Result.succeed(GiB));
 	expect(plannedBudget(Option.some(2048), 8 * GiB)).toEqual(Result.succeed(2 * GiB));
-	expect(planFailure(sandboxMemoryPlan(Option.some(2049), 4 * GiB))).toEqual({
+	expect(planFailure(sandboxMemoryPlan(Option.some(2049), 4 * GiB, bothLanes))).toEqual({
 		kind: "resource-unavailable",
 		message: "Sandbox memory budget exceeds half the effective host memory",
 	});
 	for (const effectiveMemory of [0, -1, Number.NaN, Number.MAX_SAFE_INTEGER + 2, 1.5]) {
-		expect(planFailure(sandboxMemoryPlan(Option.none(), effectiveMemory))).toEqual({
+		expect(planFailure(sandboxMemoryPlan(Option.none(), effectiveMemory, bothLanes))).toEqual({
 			kind: "resource-unavailable",
 			message: "Sandbox effective host memory is unavailable",
 		});
+	}
+});
+
+it("single_lane_process_always_plans_one_shared_pool", () => {
+	for (const lane of ["interactive", "background"] as const) {
+		expect(
+			Result.map(sandboxMemoryPlan(Option.some(1904), 8 * GiB, [lane]), (plan) => ({
+				mode: plan.mode,
+				pools: [plan.pools.interactive / MiB, plan.pools.background / MiB],
+			})),
+		).toEqual(Result.succeed({ mode: "shared", pools: [172, 172] }));
 	}
 });
 

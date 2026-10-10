@@ -9,6 +9,7 @@ import {
 	createEntity,
 	getApiClient,
 	installTestPluginBundle,
+	laneMarkerSource,
 	listInstalledPlugins,
 	pollUntil,
 	requireCompletedSandboxValue,
@@ -17,34 +18,19 @@ import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import {
 	buildApiEnv,
+	runMigrationProcess,
 	spawnApiProcess,
 	startCoreTestInfrastructure,
 	stopApiProcess,
 	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+import { roleLogFile } from "~/support/role-logs";
 import { webRequest } from "~/support/web-request";
 
 type Lane = ContractPayload<"testSupport", "enqueueSandbox">["lane"];
 
 const S3_BUCKET_NAME = "ryot-lane-roles-test";
-
-const markerSource = (slug: string) => `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-
-export const manifest = defineManifest({ kind: "script", name: "Lane marker", slug: ${JSON.stringify(slug)} });
-
-export default defineScript({
-  manifest,
-  input: Schema.Struct({ marker: Schema.String }),
-  output: Schema.String,
-  run: ({ marker }) => Effect.sync(() => {
-    console.log(marker);
-    return marker;
-  }),
-});
-`;
 
 const processorSource = (slug: string) => `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
@@ -125,8 +111,10 @@ describe("lane-pinned roles", () => {
 					});
 				const interactiveEnv = roleEnv("interactive", interactivePort);
 				const backgroundEnv = roleEnv("background", backgroundPort);
-				const logFile = (env: typeof interactiveEnv) =>
-					requirePresent(env.SERVER_LOG_FILE, "Role log file is unset");
+				const roleLog = (env: typeof interactiveEnv, role: Lane) =>
+					roleLogFile(requirePresent(env.SERVER_LOG_FILE, "Role log file is unset"), role);
+
+				yield* runMigrationProcess(interactiveEnv);
 
 				yield* Effect.acquireRelease(
 					Effect.gen(function* () {
@@ -179,7 +167,7 @@ describe("lane-pinned roles", () => {
 						},
 					],
 					files: {
-						"backend/scripts/marker.sandbox.ts": markerSource(markerSlug),
+						"backend/scripts/marker.sandbox.ts": laneMarkerSource(markerSlug),
 						"backend/scripts/processor.sandbox.ts": processorSource(processorSlug),
 						"backend/scripts/dispatcher.sandbox.ts": dispatcherSource(
 							dispatcherSlug,
@@ -280,32 +268,37 @@ describe("lane-pinned roles", () => {
 						const elapsedMs = (yield* Clock.currentTimeMillis) - startedAt;
 						return { elapsedMs, executionId, value: requireCompletedSandboxValue(result) };
 					});
-				const loggedBy = (env: typeof interactiveEnv, executionId: string, marker: string) =>
-					fs
-						.readFileString(logFile(env))
-						.pipe(
-							Effect.map((contents) =>
-								contents
-									.split("\n")
-									.some((line) => line.includes(executionId) && line.includes(marker)),
-							),
-						);
+				const loggedBy = (
+					env: typeof interactiveEnv,
+					role: Lane,
+					executionId: string,
+					marker: string,
+				) =>
+					Effect.gen(function* () {
+						const logFile = yield* roleLog(env, role);
+						if (!(yield* fs.exists(logFile))) {
+							return false;
+						}
+						return (yield* fs.readFileString(logFile))
+							.split("\n")
+							.some((line) => line.includes(executionId) && line.includes(marker));
+					});
 
-				for (const [lane, runner, other] of [
-					["interactive", interactiveEnv, backgroundEnv],
-					["background", backgroundEnv, interactiveEnv],
+				for (const [lane, runner, other, otherLane] of [
+					["interactive", interactiveEnv, backgroundEnv, "background"],
+					["background", backgroundEnv, interactiveEnv, "interactive"],
 				] as const) {
 					const marker = `lane-marker-${lane}-${crypto.randomUUID()}`;
 					const run = yield* runToCompletion({ lane, slug: markerSlug, context: { marker } });
 					expect(run.value).toBe(marker);
 					yield* pollUntil(
 						`${lane} run in its role log`,
-						loggedBy(runner, run.executionId, marker).pipe(
+						loggedBy(runner, lane, run.executionId, marker).pipe(
 							Effect.map((logged) => (logged ? true : null)),
 						),
 						30_000,
 					);
-					expect(yield* loggedBy(other, run.executionId, marker)).toBe(false);
+					expect(yield* loggedBy(other, otherLane, run.executionId, marker)).toBe(false);
 				}
 
 				const entity = yield* createEntity(client, {

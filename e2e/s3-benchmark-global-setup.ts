@@ -1,7 +1,8 @@
 import { Config, Effect, FileSystem, Schema } from "effect";
 
 import { setupE2e } from "./global-setup";
-import { MetricSnapshot } from "./s3-benchmark-records";
+import type { MetricSnapshot } from "./s3-benchmark-records";
+import { RoleMetricSnapshot } from "./s3-benchmark-records";
 import { runPromise } from "./src/support/e2e-runtime";
 import { startFakeHttpServer } from "./src/support/fake-http-server";
 
@@ -26,6 +27,9 @@ const Points = Schema.Struct({ dataPoints: Schema.Array(DataPoint) });
 const OtlpMetricsBody = Schema.Struct({
 	resourceMetrics: Schema.Array(
 		Schema.Struct({
+			resource: Schema.Struct({
+				attributes: Schema.Array(Schema.Struct({ key: Schema.String, value: AttributeValue })),
+			}),
 			scopeMetrics: Schema.Array(
 				Schema.Struct({
 					metrics: Schema.Array(
@@ -45,11 +49,17 @@ const OtlpMetricsBody = Schema.Struct({
 const optionalNumber = (value: number | string | undefined) =>
 	value === undefined ? null : Number(value);
 
-const metricSnapshotFromOtlp = (body: unknown): MetricSnapshot => {
+const ROLE_ATTRIBUTE = "ryot.server.role";
+
+const metricSnapshotFromOtlp = (body: unknown): Schema.Schema.Type<typeof RoleMetricSnapshot> => {
 	const decoded = Schema.decodeUnknownSync(OtlpMetricsBody)(body);
 	const metrics: Record<string, MetricSnapshot["metrics"][string]> = {};
 	let atMs = 0;
+	let role = "";
 	for (const resource of decoded.resourceMetrics) {
+		role =
+			resource.resource.attributes.find(({ key }) => key === ROLE_ATTRIBUTE)?.value.stringValue ??
+			role;
 		for (const scope of resource.scopeMetrics) {
 			for (const metric of scope.metrics) {
 				if (!metric.name.startsWith("ryot.")) {
@@ -75,14 +85,15 @@ const metricSnapshotFromOtlp = (body: unknown): MetricSnapshot => {
 			}
 		}
 	}
-	return { metrics, atMs: Math.round(atMs) };
+	return { role, snapshot: { metrics, atMs: Math.round(atMs) } };
 };
 
 const ServerEnv = Schema.fromJsonString(Schema.Record(Schema.String, Schema.String));
-const SnapshotLine = Schema.fromJsonString(MetricSnapshot);
+const SnapshotLine = Schema.fromJsonString(RoleMetricSnapshot);
 const TraceLine = Schema.fromJsonString(Schema.Unknown);
 
 const pinnedServerEnv = {
+	SERVER_LANES: "split",
 	DATABASE_POOL_MAX: "10",
 	SERVER_LOG_LEVEL: "info",
 	SERVER_LOG_ROTATION_SIZE: "4G",
@@ -103,8 +114,12 @@ const startMetricsSink = Effect.gen(function* () {
 			const received = pending.requests?.splice(0) ?? [];
 			for (const { body, path } of received) {
 				if (path === "/v1/metrics") {
-					lines.push(`${yield* Schema.encodeEffect(SnapshotLine)(metricSnapshotFromOtlp(body))}\n`);
-					yield* Effect.promise(() => Bun.write(metricsFile, lines.join("")));
+					const line = metricSnapshotFromOtlp(body);
+					// The one-shot migration process exports as `all`; it serves none of the measured work.
+					if (line.role === "interactive" || line.role === "background") {
+						lines.push(`${yield* Schema.encodeEffect(SnapshotLine)(line)}\n`);
+						yield* Effect.promise(() => Bun.write(metricsFile, lines.join("")));
+					}
 				}
 				if (path === "/v1/traces") {
 					const line = yield* Schema.encodeEffect(TraceLine)(body);
@@ -115,13 +130,25 @@ const startMetricsSink = Effect.gen(function* () {
 		}).pipe(Effect.orDie),
 	);
 	pending.requests = sink.requests;
-	return { sink, metricsFile, serverEnv: yield* Schema.encodeEffect(ServerEnv)(pinnedServerEnv) };
+	const socketDirectory = yield* fs.makeTempDirectory({ prefix: "ryot-s3-runner-" });
+	return {
+		sink,
+		metricsFile,
+		socketDirectory,
+		serverEnv: yield* Schema.encodeEffect(ServerEnv)(pinnedServerEnv),
+	};
 });
 
 // oxlint-disable-next-line effecttsgo/async-function -- Vitest globalSetup owns the Promise-returning setup contract.
 export default async () => {
-	const { sink, serverEnv, metricsFile } = await runPromise(startMetricsSink.pipe(Effect.orDie));
-	const stopServer = await setupE2e({ ...pinnedServerEnv, OTEL_EXPORTER_OTLP_ENDPOINT: sink.url });
+	const { sink, serverEnv, metricsFile, socketDirectory } = await runPromise(
+		startMetricsSink.pipe(Effect.orDie),
+	);
+	const stopServer = await setupE2e({
+		...pinnedServerEnv,
+		OTEL_EXPORTER_OTLP_ENDPOINT: sink.url,
+		SERVER_RUNNER_SOCKET_DIR: socketDirectory,
+	});
 	process.env.S3_BENCHMARK_SERVER_ENV = serverEnv;
 	process.env.S3_BENCHMARK_OTLP_FILE = metricsFile;
 	return () =>
@@ -129,6 +156,8 @@ export default async () => {
 			Effect.gen(function* () {
 				yield* Effect.promise(stopServer);
 				yield* Effect.promise(sink.stop);
+				const fs = yield* FileSystem.FileSystem;
+				yield* fs.remove(socketDirectory, { force: true, recursive: true });
 			}),
 		);
 };

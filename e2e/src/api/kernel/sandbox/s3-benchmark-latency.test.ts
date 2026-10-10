@@ -36,6 +36,7 @@ import {
 } from "~/fixtures/kernel/s3-benchmark";
 import { assertCompleted, assertCondition, requirePresent } from "~/support/assertions";
 import { describe, it } from "~/support/effect-test";
+import { getServerLogFile } from "~/support/harness-target";
 
 import { type LatencySample, LatencyTrialRecord } from "../../../../s3-benchmark-records";
 
@@ -76,7 +77,7 @@ const pollImportResult = (client: Client, jobId: string) =>
 
 describe.skipIf(process.env.S3_BENCHMARK !== "1")("S3 interactive latency benchmark", () => {
 	it.live(
-		"interactive_search_and_details_stay_within_ten_percent_under_import_load",
+		"interactive_search_and_details_meet_e2_under_import_load",
 		() =>
 			Effect.gen(function* () {
 				const parameters = yield* benchmarkParameters;
@@ -153,7 +154,7 @@ describe.skipIf(process.env.S3_BENCHMARK !== "1")("S3 interactive latency benchm
 								yield* pollImportResult(interactive.client, jobId),
 								`details import ${externalId}`,
 							);
-							return `${jobId.slice(0, jobId.lastIndexOf("."))}${DETAILS_EXECUTION_SUFFIX}`;
+							return `${jobId.slice(jobId.indexOf(".") + 1, jobId.lastIndexOf("."))}${DETAILS_EXECUTION_SUFFIX}`;
 						}),
 					);
 				if (measurable) {
@@ -198,7 +199,7 @@ describe.skipIf(process.env.S3_BENCHMARK !== "1")("S3 interactive latency benchm
 				const measureEndedAtMs = yield* Clock.currentTimeMillis;
 
 				yield* Effect.sleep(`${METRIC_FLUSH_WAIT_MS} millis`);
-				const timings = yield* readAdmissionTimings;
+				const timings = yield* readAdmissionTimings(getServerLogFile());
 				const search = searchSamples.map((sample) =>
 					withAdmission(
 						sample,

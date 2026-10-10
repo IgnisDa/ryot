@@ -142,6 +142,21 @@ export function spawnApiProcess(env: NodeJS.ProcessEnv, cwd = "../apps/server") 
 	});
 }
 
+export const runMigrationProcess = (env: NodeJS.ProcessEnv, cwd = "../apps/server") =>
+	Effect.gen(function* () {
+		const migrationEnv = Object.fromEntries(
+			Object.entries(env).filter(([key]) => key !== "SERVER_RUNNER_SOCKET_DIR"),
+		);
+		const migration = spawnApiProcess(
+			{ ...migrationEnv, SERVER_LANES: "all", RUN_MIGRATION_ONLY: "true" },
+			cwd,
+		);
+		const exitCode = yield* Effect.promise(() => migration.exited);
+		if (exitCode !== 0) {
+			throw new Error(`Migration process exited with code ${exitCode}`);
+		}
+	});
+
 export const waitForHealthCheck = (
 	url: string,
 	label: string,

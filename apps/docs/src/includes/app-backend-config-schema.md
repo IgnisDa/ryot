@@ -27,9 +27,9 @@
 | `server.proKey` | `SERVER_PRO_KEY` | The key that can be used to enable Ryot Pro features | No | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
-| `server.lanes` | `SERVER_LANES` | Work this process runs: all of it, or one role of a two-process deployment on one host where interactive serves HTTP and interactive-lane work and background runs everything else | No | No | `all` |
-| `server.runnerSocketDir` | `SERVER_RUNNER_SOCKET_DIR` | Absolute path of the private directory holding the Unix sockets both roles use to deliver workflow messages to each other; required when SERVER_LANES is interactive or background and rejected otherwise | No | No | — |
+| `server.runnerSocketDir` | `SERVER_RUNNER_SOCKET_DIR` | Absolute path of the private directory holding the Unix sockets both roles use to deliver workflow messages to each other; required when SERVER_LANES is interactive, background, or split and rejected otherwise | No | No | — |
 | `server.egressAllowedNetworks` | `SERVER_EGRESS_ALLOWED_NETWORKS` | Comma-separated CIDR networks that outbound requests from plugins, notifications, and OAuth may reach although they are loopback, private, or otherwise special-purpose, such as 192.168.1.0/24; link-local, metadata, multicast, and unspecified ranges cannot be allowed | No | No | — |
+| `server.lanes` | `SERVER_LANES` | Work this process runs: all of it; one role of a two-process deployment on one host, where interactive serves HTTP and interactive-lane work and background runs everything else; or split, which supervises both roles as child processes of one entry point, running migrations first and starting the background role at the lowest CPU priority | No | No | `all` |
 
 #### OIDC provider
 
@@ -53,9 +53,9 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `sandbox.workerConcurrency` | `SANDBOX_WORKER_CONCURRENCY` | Global sandbox execution concurrency across trust and snapshot tiers; keep it within available database and memory headroom | No | No | `2` |
-| `sandbox.memoryBudgetMiB` | `SANDBOX_MEMORY_BUDGET_MIB` | Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset | No | No | — |
 | `sandbox.perUserSidecars` | `SANDBOX_PER_USER_SIDECARS` | Run each plugin owner's user-tier scripts in their own sidecar processes instead of shared ones; use when mutually untrusted users share an instance | No | No | `false` |
 | `sandbox.importConcurrency` | `SANDBOX_IMPORT_CONCURRENCY` | Maximum provider imports running at once across all instances; the rest wait in a queue. Keep it equal to the total SANDBOX_WORKER_CONCURRENCY of all instances | No | No | `2` |
+| `sandbox.memoryBudgetMiB` | `SANDBOX_MEMORY_BUDGET_MIB` | Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset. With SERVER_LANES=split it is the deployment total, divided equally between the two roles, and is derived as half of effective memory when unset | No | No | — |
 
 ### PostgreSQL connection settings
 

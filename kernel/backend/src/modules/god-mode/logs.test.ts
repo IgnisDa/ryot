@@ -236,4 +236,33 @@ layer(BunServices.layer)((test) => {
 			}),
 		),
 	);
+
+	test.effect("lists the active and rotated files of every role", () =>
+		withLogDirectory((fs, path, directory) =>
+			Effect.gen(function* () {
+				const names = [
+					activeName,
+					"server.interactive.log",
+					"server.background.log",
+					"20261001-1200-01-server.interactive.log.gz",
+					"20261001-1300-01-server.background.log.gz",
+				];
+				for (const name of names) {
+					yield* fs.writeFileString(path.join(directory, name), name);
+				}
+				yield* fs.writeFileString(path.join(directory, "server.other.log"), "ignored");
+
+				const logs = yield* makeServerLogs(path.join(directory, activeName));
+				const { files } = yield* logs.list(undefined, 100);
+
+				expect(files.map((file) => [file.name, file.active])).toEqual([
+					[activeName, true],
+					["server.interactive.log", true],
+					["server.background.log", true],
+					["20261001-1300-01-server.background.log.gz", false],
+					["20261001-1200-01-server.interactive.log.gz", false],
+				]);
+			}),
+		),
+	);
 });

@@ -16,6 +16,7 @@ import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { SandboxDurableHostServicesLive } from "#lib/infrastructure/sandbox-runtime/layer";
+import { serverRole } from "#lib/infrastructure/server-role";
 import { ServerRun } from "#lib/infrastructure/server-run";
 import { WorkflowEngineLive } from "#lib/infrastructure/workflow";
 import { AuthServiceLive } from "#modules/auth/layer";
@@ -318,11 +319,12 @@ const RuntimeWorkLive = Layer.merge(
 );
 
 const RuntimeLive = Layer.unwrap(
-	Effect.map(AppConfig, ({ server }) => {
-		if (server.lanes === "interactive") {
+	Effect.gen(function* () {
+		const role = yield* serverRole((yield* AppConfig).server.lanes);
+		if (role === "interactive") {
 			return Layer.merge(RuntimeWorkLive, ServerLive);
 		}
-		if (server.lanes === "background") {
+		if (role === "background") {
 			return Layer.merge(RuntimeWorkLive, RuntimeSchedulersLive);
 		}
 		return Layer.mergeAll(RuntimeWorkLive, ServerLive, RuntimeSchedulersLive);

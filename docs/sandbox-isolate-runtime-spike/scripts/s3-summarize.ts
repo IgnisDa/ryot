@@ -10,10 +10,12 @@ import {
 	type LatencyTrialRecord,
 	type MetricSnapshot,
 	percentile,
+	type RoleMetrics,
 } from "../../../e2e/s3-benchmark-records";
 
-const D4_RATIO = 1.1;
+const E2_RATIOS = { search: 1.25, details: 1.6 } as const;
 const INVARIANT_KEYS = [
+	"SERVER_LANES",
 	"SERVER_LOG_LEVEL",
 	"DATABASE_POOL_MAX",
 	"SANDBOX_WORKER_CONCURRENCY",
@@ -109,8 +111,8 @@ const metricDelta = (snapshots: ReadonlyArray<MetricSnapshot>, name: string) => 
 	});
 };
 
-const maxGauge = (snapshots: ReadonlyArray<MetricSnapshot>, name: string) => {
-	const values = snapshots.flatMap(({ metrics }) =>
+const maxGauge = (roleMetrics: RoleMetrics, name: string) => {
+	const values = Object.values(roleMetrics).flatMap((snapshots) => snapshots).flatMap(({ metrics }) =>
 		(metrics[name] ?? []).flatMap(({ value }) => (value === null ? [] : [value])),
 	);
 	return values.length === 0 ? null : Math.max(...values);
@@ -142,10 +144,11 @@ const histogramSummary = (histogram: Histogram) => ({
 	p95UpperBoundMs: histogram.count === 0 ? null : histogramQuantile(histogram, 95),
 });
 
-const pooledMetric = (
-	records: ReadonlyArray<{ metrics: ReadonlyArray<MetricSnapshot> }>,
-	name: string,
-) => records.map((record) => metricDelta(record.metrics, name));
+// Each role exports its own cumulative stream, so deltas are taken per role and then summed.
+const pooledMetric = (records: ReadonlyArray<{ metrics: RoleMetrics }>, name: string) =>
+	records.flatMap((record) =>
+		Object.values(record.metrics).map((snapshots) => metricDelta(snapshots, name)),
+	);
 
 const byLane = (windows: ReadonlyArray<ReadonlyArray<SeriesWindow>>) =>
 	Object.fromEntries(
@@ -281,6 +284,17 @@ const decodeFile = <A>(
 	}
 };
 
+const metricsErrors = (label: string, metrics: RoleMetrics) => {
+	const roles = Object.entries(metrics);
+	return roles.length === 0
+		? [`${label}: no OTel metrics window was recorded`]
+		: roles.flatMap(([role, snapshots]) =>
+				snapshots.length < 2
+					? [`${label}: the ${role} role's OTel metrics window has fewer than two snapshots`]
+					: [],
+			);
+};
+
 const equalJson = (left: unknown, right: unknown) => JSON.stringify(left) === JSON.stringify(right);
 
 export const summarize = (directory: string, overrides: Partial<Options> = {}) => {
@@ -351,9 +365,7 @@ export const summarize = (directory: string, overrides: Partial<Options> = {}) =
 					errors.push(`${label}: ${endpoint} has a non-positive duration`);
 				}
 			}
-			if (trial.metrics.length < 2) {
-				errors.push(`${label}: the OTel metrics window has fewer than two snapshots`);
-			}
+			errors.push(...metricsErrors(label, trial.metrics));
 			if (trial.host.length === 0) {
 				errors.push(`${label}: no host samples`);
 			}
@@ -439,9 +451,10 @@ export const summarize = (directory: string, overrides: Partial<Options> = {}) =
 			const unloaded = stats(durations(pooled.unloaded[endpoint]));
 			const loaded = stats(durations(pooled.loaded[endpoint]));
 			const ratio = loaded.p95 / unloaded.p95;
+			const limit = E2_RATIOS[endpoint];
 			return [
 				endpoint,
-				{ unloaded, loaded, ratioP95: ratio, limit: D4_RATIO, passes: ratio <= D4_RATIO },
+				{ unloaded, loaded, ratioP95: ratio, limit, passes: ratio <= limit },
 			] as const;
 		}),
 	);
@@ -459,12 +472,12 @@ export const summarize = (directory: string, overrides: Partial<Options> = {}) =
 		},
 	}));
 
-	const d4Pass = ENDPOINTS.every((endpoint) => endpointReport[endpoint]?.passes === true);
+	const e2Pass = ENDPOINTS.every((endpoint) => endpointReport[endpoint]?.passes === true);
 	const fairnessPass = fairness?.result.pass === true;
 	const valid = errors.length === 0;
 	let verdict: "fail" | "invalid" | "pass" = "invalid";
 	if (valid) {
-		verdict = d4Pass && fairnessPass ? "pass" : "fail";
+		verdict = e2Pass && fairnessPass ? "pass" : "fail";
 	}
 
 	const loadedTrials = trials.filter((trial) => trial.mode === "loaded");
@@ -473,7 +486,8 @@ export const summarize = (directory: string, overrides: Partial<Options> = {}) =
 		verdict,
 		errors,
 		options,
-		d4: { ratio: D4_RATIO, pass: d4Pass, endpoints: endpointReport },
+		topology: reference?.configuration["SERVER_LANES"] ?? "all",
+		e2: { limits: E2_RATIOS, pass: e2Pass, endpoints: endpointReport },
 		percentileDefinition: "nearest-rank",
 		perPair,
 		fairness: fairness && {
@@ -516,13 +530,15 @@ const renderMarkdown = (summary: Summary) => {
 		lines.push("## Validation errors", "", ...summary.errors.map((error) => `- ${error}`), "");
 	}
 	lines.push(
-		"## D4 (pooled p95, loaded versus unloaded)",
+		"## E2 (pooled p95, loaded versus unloaded)",
+		"",
+		`Topology: SERVER_LANES=${summary.topology}.`,
 		"",
 		"| Endpoint | Unloaded n | Unloaded p50 ms | Unloaded p95 ms | Loaded n | Loaded p50 ms | Loaded p95 ms | Ratio | Limit | Result |",
 		"| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
 	);
 	for (const endpoint of ENDPOINTS) {
-		const report = summary.d4.endpoints[endpoint];
+		const report = summary.e2.endpoints[endpoint];
 		if (report === undefined) {
 			continue;
 		}
