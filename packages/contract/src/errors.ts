@@ -12,8 +12,8 @@ export class DbError extends Schema.TaggedError<DbError, { readonly brand: uniqu
 		message: Schema.String,
 		code: Schema.optional(Schema.String),
 		table: Schema.optional(Schema.String),
-		column: Schema.optional(Schema.String),
 		constraint: Schema.optional(Schema.String),
+		columnName: Schema.optional(Schema.String),
 	},
 ) {}
 
@@ -40,7 +40,7 @@ export const unknownToDbError = (cause: unknown) =>
 		message: unknownToMessage(cause),
 		...(pgStringField(cause, "code") ? { code: pgStringField(cause, "code") } : {}),
 		...(pgStringField(cause, "table") ? { table: pgStringField(cause, "table") } : {}),
-		...(pgStringField(cause, "column") ? { column: pgStringField(cause, "column") } : {}),
+		...(pgStringField(cause, "column") ? { columnName: pgStringField(cause, "column") } : {}),
 		...(pgStringField(cause, "constraint")
 			? { constraint: pgStringField(cause, "constraint") }
 			: {}),
