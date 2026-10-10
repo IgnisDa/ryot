@@ -745,11 +745,14 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		expect(assetRequests).toContain(`${runtimeBase}runtime.css`);
 		expect(fontRequests.length).toBeGreaterThan(0);
 		expect(fontRequests.every((path) => path.startsWith(runtimeBase))).toBe(true);
-		expect(yield* pokemonGrid.getAttribute("data-view-context")).toBe(
-			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-				savedView: { kind: "custom", savedViewId: viewRecord.id },
-			}),
-		);
+		expect(
+			yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+				requirePresent(
+					yield* pokemonGrid.getAttribute("data-view-context"),
+					"Pokemon grid view context is missing",
+				),
+			),
+		).toEqual({ savedView: { kind: "custom", savedViewId: viewRecord.id } });
 
 		yield* runtime.getByRole("radio", { name: "List view" }).click();
 		const showList = runtime.locator(`[data-entity-id="${showId}"][data-layout="list"]`);
@@ -758,11 +761,14 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		yield* pokemonList.waitFor({ state: "visible" });
 		yield* expectRichEntities(showList, workoutList, pokemonList);
 		expect(yield* runtime.locator("article").count).toBe(5);
-		expect(yield* pokemonList.getAttribute("data-view-context")).toBe(
-			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-				savedView: { kind: "custom", savedViewId: viewRecord.id },
-			}),
-		);
+		expect(
+			yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+				requirePresent(
+					yield* pokemonList.getAttribute("data-view-context"),
+					"Pokemon list view context is missing",
+				),
+			),
+		).toEqual({ savedView: { kind: "custom", savedViewId: viewRecord.id } });
 		expect(yield* runtime.locator("body").getAttribute("data-e2e-page")).toBe("stable");
 		expect(yield* frame.evaluate((current, initial) => current === initial, iframe)).toBe(true);
 		expect(yield* frame.count).toBe(1);
