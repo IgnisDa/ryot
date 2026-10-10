@@ -954,15 +954,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			const findGlobalRelationshipSchema = Effect.fn(
 				"DefinitionRepository.findGlobalRelationshipSchema",
 			)(function* (slug: string) {
-				const rows = yield* session.run((db) =>
-					db
-						.select()
-						.from(schema.globalRelationshipSchema)
-						.where(eq(schema.globalRelationshipSchema.slug, slug)),
-				);
-				return (
-					(yield* recordBySlug("relationship schema", rows.map(toRelationshipSchema)))[slug] ?? null
-				);
+				return (yield* findGlobalRelationshipSchemas([slug]))[slug] ?? null;
 			});
 
 			const findGlobalRelationshipSchemaByEndpoints = Effect.fn(

@@ -168,7 +168,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					}
 				}
 
-				const normalized = yield* normalizePluginPackage(normalizedSource);
+				const normalized = normalizePluginPackage(normalizedSource);
 				const stored = yield* inTransaction(
 					Effect.gen(function* () {
 						yield* assertNoCustomViewSlugCollisions(manifest);

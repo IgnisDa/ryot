@@ -31,6 +31,7 @@ import {
 } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import {
 	applyBaselineMigration,
 	baselineMigrationStatements,
@@ -383,6 +384,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 			const eventsService = EventsService.layer.pipe(
 				Layer.provide(
 					Layer.mergeAll(
+						WorkflowExecutionNotifications.layer,
 						repositories,
 						ports,
 						execution,

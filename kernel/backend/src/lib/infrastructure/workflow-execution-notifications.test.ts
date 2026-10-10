@@ -1,12 +1,15 @@
 import { expect, it, layer } from "@effect/vitest";
-import { Context, Effect, Exit, Fiber, Layer, Option, Redacted, Schema, Scope } from "effect";
+import { Context, Effect, Exit, Fiber, Layer, Option, Redacted, Ref, Schema, Scope } from "effect";
 import { TestClock } from "effect/testing";
 
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { testRedisServiceLayer, testRedisUrl } from "#lib/test-utils/redis";
 
 import { encodeWorkflowExecutionNotificationMessage, redisKeys, RedisService } from "./redis";
-import { WorkflowExecutionNotifications } from "./workflow-execution-notifications";
+import {
+	awaitWorkflowSettled,
+	WorkflowExecutionNotifications,
+} from "./workflow-execution-notifications";
 
 const firstIdentity = { executionId: "b", workflowName: "workflow:a" };
 const collidingIdentity = { executionId: "a:b", workflowName: "workflow" };
@@ -67,6 +70,44 @@ layer(WorkflowExecutionNotifications.layer.pipe(Layer.provideMerge(TestClock.lay
 				expect(yield* Fiber.join(collisionFiber)).toEqual(Option.none());
 			}),
 		),
+	);
+
+	test.effect(
+		"awaitWorkflowSettled re-reads on a hint and on the backstop, then once at the timeout",
+		() =>
+			Effect.gen(function* () {
+				const notifications = yield* WorkflowExecutionNotifications;
+				const reads = yield* Ref.make(0);
+				const waiting = yield* Effect.forkChild(
+					awaitWorkflowSettled({
+						timeout: "30 seconds",
+						backstop: "10 seconds",
+						identities: [firstIdentity],
+						isSettled: (count: number) => count >= 3,
+						read: Ref.updateAndGet(reads, (count) => count + 1),
+					}),
+				);
+				yield* Effect.yieldNow;
+				expect(yield* Ref.get(reads)).toBe(1);
+				yield* notifications.publish(firstIdentity);
+				yield* Effect.yieldNow;
+				expect(yield* Ref.get(reads)).toBe(2);
+				yield* TestClock.adjust("10 seconds");
+				expect(yield* Fiber.join(waiting)).toBe(3);
+				expect(
+					yield* awaitWorkflowSettled({
+						timeout: "5 seconds",
+						backstop: "10 seconds",
+						isSettled: () => false,
+						identities: [firstIdentity],
+						read: Ref.updateAndGet(reads, (count) => count + 1),
+					}).pipe(
+						Effect.forkChild,
+						Effect.tap(() => TestClock.adjust("5 seconds")),
+						Effect.flatMap(Fiber.join),
+					),
+				).toBe(5);
+			}),
 	);
 
 	test.effect("releases listeners and does not retain published results", () =>

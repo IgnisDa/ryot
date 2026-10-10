@@ -22,6 +22,7 @@ import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
 	makeAppConfigLayer,
@@ -294,6 +295,7 @@ const lifecycleDatabaseLayer = (
 			return EventsService.layer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
+						WorkflowExecutionNotifications.layer,
 						EventsRepository.layer.pipe(Layer.provideMerge(databaseSession)),
 						Layer.mock(EntitiesRepository)({
 							lockEntityReferencesByIds: () => Effect.void,

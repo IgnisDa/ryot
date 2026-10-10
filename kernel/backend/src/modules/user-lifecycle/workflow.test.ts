@@ -7,6 +7,7 @@ import { Context, Effect, Layer, Redacted, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { ingestionRetirementTestLayer } from "#lib/test-utils/ingestion-retirement";
@@ -193,6 +194,7 @@ const liveOperationsLayer = <R, E>(dependencies: {
 	UserLifecycleWorkflowOperationsLive.pipe(
 		Layer.provide(ingestionRetirementTestLayer),
 		Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
+		Layer.provide(WorkflowExecutionNotifications.layer),
 		Layer.provideMerge(Layer.mergeAll(Layer.mock(WorkflowEngine)({}), dependencies.overrides)),
 		Layer.provideMerge(dependencies.database),
 	);

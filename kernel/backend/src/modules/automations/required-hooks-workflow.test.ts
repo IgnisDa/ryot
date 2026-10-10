@@ -8,6 +8,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { WorkflowExecutionNotifications } from "#lib/infrastructure/workflow-execution-notifications";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { makeSqlClusterWorkflowEngine } from "#lib/test-utils/effect";
 
@@ -60,6 +61,7 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 							Layer.provideMerge(
 								LifecycleExecutionLive.pipe(Layer.provide(Layer.mock(DatabaseSession)({}))),
 							),
+							Layer.provideMerge(WorkflowExecutionNotifications.layer),
 							Layer.provideMerge(operationsLive),
 							Layer.provideMerge(engineLayer),
 							Layer.provideMerge(runControlLayer(1_200)),

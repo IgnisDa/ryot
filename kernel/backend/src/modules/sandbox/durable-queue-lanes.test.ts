@@ -17,7 +17,6 @@ import { makeAppConfigLayer, workflowEngineTestLayer } from "#lib/test-utils/eff
 import { testRedisServiceLayer } from "#lib/test-utils/redis";
 import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 
-import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
 	processSandboxExecutionQueue,
@@ -26,6 +25,7 @@ import {
 } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
+import { compiledArtifactsLayer } from "./sandbox-fixtures.test-support";
 import { sandboxSchedulingKey } from "./scheduling-key";
 
 const BACKGROUND_BACKLOG = 100;
@@ -67,7 +67,7 @@ const queueWorkflowLive = implementWorkflow(LaneWorkflow, ({ lane, executionId }
 			contentHash: scriptContentHash,
 			metadata: { runtimeImports: [] },
 		},
-	}).pipe(Effect.asVoid),
+	}).pipe(Effect.asVoid, Effect.orDie),
 );
 
 const controlLayer = Layer.effect(
@@ -116,9 +116,7 @@ const repositoryLayer = Layer.mock(SandboxRepository)({
 			metadata: { runtimeImports: [] },
 		}),
 });
-const artifactLayer = Layer.effect(SandboxCompiledArtifacts, SandboxCompiledArtifacts.make).pipe(
-	Layer.provideMerge(repositoryLayer),
-);
+const artifactLayer = compiledArtifactsLayer(repositoryLayer);
 
 const queueLayer = Layer.mergeAll(
 	queueWorkflowLive,

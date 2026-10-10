@@ -10,8 +10,8 @@ import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { automationAttemptIdentity } from "./attempt-repository";
 import {
 	type AutomationDispatch,
-	type AutomationDispatchState,
 	AutomationExecutionOperations,
+	dispatchStateOf,
 } from "./execution";
 import { AutomationRunWorkflow, type AutomationRunWorkflowResult } from "./run-workflow";
 
@@ -98,13 +98,6 @@ export const runWorkflowLive = implementWorkflow(AutomationRunWorkflow, (payload
 	}),
 );
 
-const dispatchStateOf = (runId: string, started: ReadonlySet<string>): AutomationDispatchState => {
-	if (runId.startsWith("skipped")) {
-		return "closed";
-	}
-	return started.has(runId) ? "claimed" : "fresh";
-};
-
 export const operationsLive = Layer.effect(
 	AutomationExecutionOperations,
 	Effect.gen(function* () {
@@ -113,18 +106,6 @@ export const operationsLive = Layer.effect(
 		return AutomationExecutionOperations.of({
 			skipQueuedPolicies: ({ triggerId }) =>
 				Ref.update(control.skipped, (all) => [...all, triggerId]),
-			dispatchStates: (runIds) =>
-				Ref.get(control.started).pipe(
-					Effect.map(
-						(started) =>
-							new Map(
-								runIds.map((runId): [AutomationRunId, AutomationDispatch] => [
-									runId,
-									{ state: dispatchStateOf(runId, started) },
-								]),
-							),
-					),
-				),
 			settle: (payload, deadline) =>
 				Ref.get(control.finished).pipe(
 					Effect.map((all) => {
@@ -149,6 +130,23 @@ export const operationsLive = Layer.effect(
 								}),
 					),
 					Effect.asVoid,
+				),
+			dispatchStates: (runIds) =>
+				Ref.get(control.started).pipe(
+					Effect.map(
+						(started) =>
+							new Map(
+								runIds.map((runId): [AutomationRunId, AutomationDispatch] => [
+									runId,
+									{
+										state: dispatchStateOf({
+											attemptCount: started.has(runId) ? 1 : 0,
+											status: runId.startsWith("skipped") ? "skipped" : "queued",
+										}),
+									},
+								]),
+							),
+					),
 				),
 		});
 	}),

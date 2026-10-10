@@ -44,21 +44,21 @@ import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { testExecutionId, testRedisClient } from "#lib/test-utils/redis";
 import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
 
-import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
 	executeSandboxExecution,
 	type SandboxExecutionQueuePayload,
+	SandboxProjectionMissing,
 	type SandboxReplayResult,
 } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
+import { compiledArtifactsLayer } from "./sandbox-fixtures.test-support";
 import {
 	performSandboxWorkflowChild,
 	performSandboxWorkflowRequest,
 	runSandboxScriptWorkflowBody,
-	SANDBOX_WORKFLOW_MAX_STEPS,
 	SandboxScriptWorkflow,
 	SandboxWorkflowPinning,
 	sandboxWorkflowChildExecutionId,
@@ -352,13 +352,6 @@ it("sanitizes child id names deterministically", () => {
 	expect(sandboxWorkflowChildExecutionId("parent", "events/import v1", 7)).toBe(
 		"parent-child-events-import-v1-7",
 	);
-	expect(sandboxWorkflowChildExecutionId("parent", "events/import v1", 7)).toBe(
-		sandboxWorkflowChildExecutionId("parent", "events/import v1", 7),
-	);
-});
-
-it("keeps workflow replay bounded by the kernel", () => {
-	expect(SANDBOX_WORKFLOW_MAX_STEPS).toBe(1_000);
 });
 
 const historicalScriptId = SandboxScriptId.make("historical-script-id");
@@ -448,10 +441,7 @@ const hotSwapLayer = recordingLayer(
 			getScript: (scriptId) =>
 				Effect.succeed(scriptId === historicalScriptId ? historicalScript : replacementScript),
 		});
-		const artifactsLayer = Layer.effect(
-			SandboxCompiledArtifacts,
-			SandboxCompiledArtifacts.make,
-		).pipe(Layer.provideMerge(repositoryLayer));
+		const artifactsLayer = compiledArtifactsLayer(repositoryLayer);
 		return Layer.mergeAll(
 			mutationAdmissionTestLayer,
 			activityEngineLayer(hotSwapExecutionId),
@@ -1187,13 +1177,7 @@ const firstInlineReplay = {
 	inline: [cachedEntry(inlineFirst)],
 	value: { journalLength: 0, state: "pending" as const, requests: [inlineFirst, inlineSecond] },
 };
-const projectionMissingReplay = {
-	...replayBase,
-	inline: [],
-	value: null,
-	pendingInline: [],
-	projectionMissing: true as const,
-};
+const projectionMissingReplay = Effect.fail(new SandboxProjectionMissing());
 const findReplayMetric = (outcome: string) =>
 	Effect.map(Metric.snapshot, (snapshots) =>
 		snapshots.find(
@@ -1206,7 +1190,7 @@ const runInlineWorkflow = <R>(
 	executionId: string,
 	processReplay: (
 		payload: SandboxExecutionQueuePayload,
-	) => Effect.Effect<SandboxReplayResult, SandboxRunError, R>,
+	) => Effect.Effect<SandboxReplayResult, SandboxRunError | SandboxProjectionMissing, R>,
 ) =>
 	runSandboxScriptWorkflowBody(
 		{
@@ -1323,7 +1307,7 @@ layer(inlineWorkflowLayer(inlineIds.missing))((test) => {
 				}
 				if (lost) {
 					lost = false;
-					return Effect.succeed(projectionMissingReplay);
+					return projectionMissingReplay;
 				}
 				return Effect.succeed({
 					...replayBase,
@@ -1355,9 +1339,9 @@ layer(inlineWorkflowLayer(inlineIds.lost))((test) => {
 			const error = yield* Effect.flip(
 				runInlineWorkflow(inlineIds.lost, (sandboxPayload) => {
 					replays += 1;
-					return Effect.succeed(
-						sandboxPayload.journalLength === 0 ? firstInlineReplay : projectionMissingReplay,
-					);
+					return sandboxPayload.journalLength === 0
+						? Effect.succeed(firstInlineReplay)
+						: projectionMissingReplay;
 				}),
 			);
 
@@ -1792,7 +1776,7 @@ layer(inlineWorkflowLayer(inlineIds.recurring))((test) => {
 					return Effect.succeed(firstInlineReplay);
 				}
 				if (outcome === "missing") {
-					return Effect.succeed(projectionMissingReplay);
+					return projectionMissingReplay;
 				}
 				return Effect.succeed({
 					...replayBase,

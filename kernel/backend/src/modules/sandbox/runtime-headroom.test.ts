@@ -50,11 +50,11 @@ import { testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
-import { SandboxCompiledArtifacts } from "./compiled-artifacts";
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { SandboxExecutionQueueWorkerLive, processSandboxExecutionQueue } from "./durable-queues";
 import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxRepository } from "./repository";
+import { compiledArtifactsLayer } from "./sandbox-fixtures.test-support";
 import { SandboxScriptWorkflowPayload } from "./sandbox-script-workflow-payload";
 
 type CompiledFixture = Effect.Success<ReturnType<SandboxCompiler["Service"]["compile"]>>;
@@ -295,10 +295,7 @@ const makeHeadroomLayer = Layer.unwrap(
 				}),
 		};
 		const repositoryLayer = Layer.succeed(SandboxRepository, repository);
-		const artifactLayer = Layer.effect(
-			SandboxCompiledArtifacts,
-			SandboxCompiledArtifacts.make,
-		).pipe(Layer.provideMerge(repositoryLayer));
+		const artifactLayer = compiledArtifactsLayer(repositoryLayer);
 		const fixtureServices = Layer.mergeAll(
 			artifactLayer,
 			Layer.succeed(KernelWorkflowReferences, {
@@ -437,7 +434,7 @@ const makeHeadroomLayer = Layer.unwrap(
 								principal: fixture.principal,
 								executionId: `${payload.executionId}-replay-${slot}`,
 								workflowExecutionId: `${payload.executionId}-slot-${slot}`,
-							});
+							}).pipe(Effect.orDie);
 							const completed = isCompleted(result.value);
 							expect(result.value).toMatchObject(
 								completed ? { output: [1, 2, 3, 4] } : { state: "pending" },
