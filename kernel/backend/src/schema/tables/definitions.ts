@@ -261,6 +261,10 @@ export const definitionProviderOperation = snakeCase.table(
 	],
 );
 
+// TODO: https://github.com/drizzle-team/drizzle-orm/issues/4076
+// drizzle-kit emits views without dependency ordering, so views that sort before `global_plugin`
+// inline this query instead of referencing `${globalPlugin}`. Once fixed, reference
+// `${globalPlugin}` in those views, inline this query into `globalPlugin`, and run `bun run db:generate`.
 const globalPluginQuery = sql`
  select p.id as plugin_id, p.package_id, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable
 	from plugin p
