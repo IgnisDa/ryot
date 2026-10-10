@@ -2,6 +2,7 @@ import type { TimeoutError } from "@ryot-app/contract/errors";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { WorkflowReplayJournalEntry } from "@ryot-app/sandbox-sdk/workflow";
+import { exponentialBackoffMs } from "@ryot-app/ts-utils/backoff";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import {
 	Cause,
@@ -13,6 +14,7 @@ import {
 	Exit,
 	Layer,
 	Result,
+	Schedule,
 	Scope,
 	Semaphore,
 } from "effect";
@@ -28,13 +30,24 @@ import {
 	sandboxMetricKind,
 } from "../runtime-metrics";
 import { SandboxRecoveryStore, type SandboxRecoveryIdentity } from "../sandbox-recovery-store";
-import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
+import { catchNonInterrupt } from "./catch-non-interrupt";
+import {
+	SandboxExecutionAuthority,
+	type SandboxExecutionPrincipal,
+	type SandboxTrust,
+} from "./execution-principal";
 import type { SandboxHostCallGateRegistration, SandboxHostResultDelivery } from "./host-call-gate";
 import type { SandboxInlineProgress } from "./inline-progress";
 import { SANDBOX_LIMITS } from "./limits";
 import { SandboxSidecarAdmission, type SandboxAdmissionLease } from "./sidecar-admission";
 import { SandboxSidecarClient } from "./sidecar-client";
-import type { SidecarDoneFrame, SidecarRunFrame, SidecarTier } from "./sidecar-protocol";
+import { isResidentInstance, residentInstance, sandboxInstanceKey } from "./sidecar-instance";
+import {
+	SIDECAR_GENERATION_MAX,
+	type SidecarDoneFrame,
+	type SidecarRunFrame,
+	type SidecarTier,
+} from "./sidecar-protocol";
 import { SandboxSidecarQuarantine } from "./sidecar-quarantine";
 import { selectSnapshotTier } from "./snapshot-tier";
 
@@ -43,7 +56,7 @@ type RunFrame = typeof SidecarRunFrame.Type;
 type DoneFrame = typeof SidecarDoneFrame.Type;
 type ProcessKey = {
 	readonly instance: string;
-	readonly trust: "system" | "user";
+	readonly trust: typeof SandboxTrust.Type;
 	readonly tier: typeof SidecarTier.Type;
 };
 type RunResult = {
@@ -131,7 +144,7 @@ export type SandboxSidecarRun<A = void> = {
 	>;
 };
 
-const resident = (key: ProcessKey) => key.tier === "core" && key.instance === `${key.trust}/core`;
+const resident = (key: ProcessKey) => isResidentInstance(key.instance);
 
 const idle = (entry: Instance, generation: Generation) =>
 	!resident(entry.key) &&
@@ -184,7 +197,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						message: "Sandbox runtime imports do not match a snapshot",
 					});
 				}
-				const shared = `${trust}/${tier.success}`;
+				const shared = sandboxInstanceKey(trust, tier.success);
 				if (trust === "system" || !config.sandbox.perUserSidecars) {
 					return { trust, instance: shared, tier: tier.success } satisfies ProcessKey;
 				}
@@ -195,7 +208,11 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						message: "Sandbox user-tier execution has no pinned owner",
 					});
 				}
-				return { trust, tier: tier.success, instance: `${shared}/${owner}` } satisfies ProcessKey;
+				return {
+					trust,
+					tier: tier.success,
+					instance: sandboxInstanceKey(trust, tier.success, owner),
+				} satisfies ProcessKey;
 			});
 			const getInstance = Effect.fnUntraced(function* (key: ProcessKey) {
 				const existing = instances.get(key.instance);
@@ -316,7 +333,8 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						entry.failures = 0;
 					}
 					entry.failures++;
-					entry.nextStartAt = now + Math.min(30, 2 ** Math.min(5, entry.failures - 1)) * 1000;
+					entry.nextStartAt =
+						now + exponentialBackoffMs(entry.failures, SANDBOX_LIMITS.sidecar.restartBackoffMs);
 					if (terminalFailure.reason !== "shutdown") {
 						yield* recordSandboxSidecarEvent({
 							...entry.key,
@@ -487,12 +505,10 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							}
 							return recordSandboxSidecarHostCall({ ...entry.key, outcome, function: frame.name });
 						}),
-						Effect.catchCauseIf(
-							(cause) => !Cause.hasInterrupts(cause),
-							() =>
-								generation.closing
-									? Effect.void
-									: scheduleClose(entry, generation, failureFor(entry, generation, "transport")),
+						catchNonInterrupt(() =>
+							generation.closing
+								? Effect.void
+								: scheduleClose(entry, generation, failureFor(entry, generation, "transport")),
 						),
 						Effect.ensuring(settle),
 						Effect.forkIn(run.scope),
@@ -524,7 +540,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 						if (entry.nextStartAt > now) {
 							yield* Effect.sleep(entry.nextStartAt - now);
 						}
-						if (nextGeneration >= 4_294_967_295) {
+						if (nextGeneration >= SIDECAR_GENERATION_MAX) {
 							return yield* startupError();
 						}
 						const generationId = ++nextGeneration;
@@ -599,30 +615,28 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							),
 							Effect.forkIn(scope),
 						);
-						{
-							yield* Effect.gen(function* () {
-								while (!generation.closing) {
-									yield* Effect.sleep("1 second");
-									const clockNow = yield* Clock.currentTimeMillis;
-									const generationIsClosing = yield* Effect.sync(() => generation.closing);
-									if (
-										!generationIsClosing &&
-										clockNow - generation.readyAt >= SANDBOX_LIMITS.sidecar.stableMs &&
-										entry.healthyEpoch === undefined
-									) {
-										entry.healthyEpoch = crypto.randomUUID();
-									}
-									if (
-										idle(entry, generation) &&
-										(yield* Clock.currentTimeMillis) - generation.lastActiveAt >=
-											SANDBOX_LIMITS.sidecar.idleMs
-									) {
-										yield* scheduleClose(entry, generation);
-										return;
-									}
+						yield* Effect.gen(function* () {
+							for (;;) {
+								yield* Effect.sleep(SANDBOX_LIMITS.sidecar.monitorIntervalMs);
+								if (generation.closing) {
+									return;
 								}
-							}).pipe(Effect.forkIn(scope));
-						}
+								const clockNow = yield* Clock.currentTimeMillis;
+								if (
+									clockNow - generation.readyAt >= SANDBOX_LIMITS.sidecar.stableMs &&
+									entry.healthyEpoch === undefined
+								) {
+									entry.healthyEpoch = crypto.randomUUID();
+								}
+								if (
+									idle(entry, generation) &&
+									clockNow - generation.lastActiveAt >= SANDBOX_LIMITS.sidecar.idleMs
+								) {
+									yield* scheduleClose(entry, generation);
+									return;
+								}
+							}
+						}).pipe(Effect.forkIn(scope));
 						return generation;
 					}),
 				);
@@ -772,7 +786,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 								if (budget.remainingMs <= 0 || absolute <= 0) {
 									return yield* cancel;
 								}
-								yield* Effect.sleep(Math.min(1000, budget.remainingMs, absolute));
+								yield* Effect.sleep(Math.min(budget.remainingMs, absolute));
 							}
 							return undefined;
 						}).pipe(Effect.forkScoped);
@@ -839,7 +853,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				const lease = yield* protection.probation
 					? reservation.pipe(
 							Effect.timeoutOrElse({
-								duration: "20 seconds",
+								duration: SANDBOX_LIMITS.sidecar.probationAdmissionMs,
 								orElse: () =>
 									Effect.fail(
 										new SandboxRunError({
@@ -947,7 +961,11 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				);
 			});
 			for (const trust of ["system", "user"] as const) {
-				const entry = yield* getInstance({ trust, tier: "core", instance: `${trust}/core` });
+				const entry = yield* getInstance({
+					trust,
+					tier: "core",
+					instance: residentInstance(trust),
+				});
 				yield* ensure(entry);
 			}
 			yield* Effect.addFinalizer(() =>
@@ -976,7 +994,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				const gauges = new Map<string, Parameters<typeof recordSandboxSidecarGauges>[0]>();
 				for (const entry of instances.values()) {
 					const generation = entry.current;
-					const key = `${entry.key.trust}/${entry.key.tier}`;
+					const key = sandboxInstanceKey(entry.key.trust, entry.key.tier);
 					const previous = gauges.get(key);
 					gauges.set(key, {
 						tier: entry.key.tier,
@@ -1015,12 +1033,10 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 			yield* Effect.forever(admission.pressure.pipe(Effect.andThen(reclaim))).pipe(
 				Effect.forkIn(parent),
 			);
-			yield* Effect.gen(function* () {
-				for (;;) {
-					yield* sample;
-					yield* Effect.sleep("1 second");
-				}
-			}).pipe(Effect.forkIn(parent));
+			yield* sample.pipe(
+				Effect.repeat({ schedule: Schedule.spaced(SANDBOX_LIMITS.sidecar.monitorIntervalMs) }),
+				Effect.forkIn(parent),
+			);
 			return { run, locate, reserve, completeRecovery, snapshot: () => ({ ...executions }) };
 		}),
 	},

@@ -116,7 +116,7 @@ const decodeInvocation = Schema.decodeUnknownEffect(
 	strictOptions,
 );
 
-export type SandboxInvocationBridge = {
+type SandboxInvocationBridge = {
 	readonly call: (name: string, args: JsonValue) => Promise<JsonValue>;
 	readonly inlineBatch: (args: JsonValue) => JsonValue;
 };
@@ -1383,7 +1383,7 @@ const runInvocation = Effect.fnUntraced(function* (
 });
 
 // oxlint-disable-next-line effecttsgo/async-function -- The native isolate entrypoint returns a Promise by contract.
-export const executeSandboxInvocation = async (
+const executeSandboxInvocation = async (
 	specifier: string,
 	input: string,
 	bridge: SandboxInvocationBridge,

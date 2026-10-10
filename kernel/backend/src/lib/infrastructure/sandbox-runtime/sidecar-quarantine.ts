@@ -1,12 +1,16 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { SandboxCrashStore } from "../sandbox-crash-store";
-import type { SandboxExecutionPrincipal } from "./execution-principal";
+import {
+	sandboxSubjectUserId,
+	type SandboxExecutionPrincipal,
+	type SandboxTrust,
+} from "./execution-principal";
 
 const encodeHashes = Schema.encodeSync(Schema.fromJsonString(Schema.Array(Schema.String)));
 const hashPattern = /^[0-9a-f]{64}$/;
-const encoder = new TextEncoder();
 const unavailable = () =>
 	new SandboxRunError({
 		kind: "resource-unavailable",
@@ -15,13 +19,9 @@ const unavailable = () =>
 
 const identitiesFor = Effect.fn("SandboxSidecarQuarantine.identities")(function* (
 	principal: SandboxExecutionPrincipal,
-	trust: "system" | "user",
+	trust: typeof SandboxTrust.Type,
 ) {
-	const subject = principal.subject;
-	let userId = subject.type === "user" ? subject.userId : null;
-	if (subject.type === "automation-run") {
-		userId = subject.executionUserId;
-	}
+	const userId = sandboxSubjectUserId(principal.subject);
 	if (trust === "system") {
 		if (principal.pluginRevision?.scope === "user") {
 			return yield* unavailable();
@@ -43,13 +43,7 @@ const identitiesFor = Effect.fn("SandboxSidecarQuarantine.identities")(function*
 	) {
 		return yield* unavailable();
 	}
-	const bytes = encoder.encode(encodeHashes(hashes));
-	const digest = yield* Effect.tryPromise(() => crypto.subtle.digest("SHA-256", bytes)).pipe(
-		Effect.mapError(unavailable),
-	);
-	const content = Array.from(new Uint8Array(digest), (byte) =>
-		byte.toString(16).padStart(2, "0"),
-	).join("");
+	const content = sha256Hex(encodeHashes(hashes));
 	return [`user:owner:${revision.ownerId}`, `user:content:${content}`];
 });
 
@@ -60,7 +54,7 @@ export class SandboxSidecarQuarantine extends Context.Service<SandboxSidecarQuar
 			const store = yield* SandboxCrashStore;
 			const open = Effect.fn("SandboxSidecarQuarantine.open")(function* (
 				principal: SandboxExecutionPrincipal,
-				trust: "system" | "user",
+				trust: typeof SandboxTrust.Type,
 			) {
 				const identities = yield* identitiesFor(principal, trust);
 				const owner = crypto.randomUUID();

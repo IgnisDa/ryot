@@ -1,3 +1,5 @@
+import { isSandboxCapability } from "./capability-policy";
+import { sandboxHostPermit } from "./host-execution-policy";
 import { SANDBOX_JSON_GRAPH_FACTOR } from "./json-bytes";
 import { MiB } from "./limits";
 
@@ -13,23 +15,18 @@ export const SANDBOX_TRANSIENT_MEMORY = {
 	inlineEvidenceBytes: 60 * MiB,
 } as const;
 
-const smallCapabilities = new Set([
-	"log",
-	"span",
-	"scratchWrite",
-	"getCachedValue",
-	"setCachedValue",
-	"artifactReadRange",
+const controlResultBytes = new Map<string, number>([
+	["inlineBatch", SANDBOX_TRANSIENT_MEMORY.inlineBatchBytes],
+	["journalRead", SANDBOX_TRANSIENT_MEMORY.journalReadBytes],
+	["scratchWrite", SANDBOX_TRANSIENT_MEMORY.smallBytes],
+	["artifactReadRange", SANDBOX_TRANSIENT_MEMORY.smallBytes],
 ]);
 
-export const sandboxTransientPermitBytes = (name: string, argsBytes: number) => {
-	let resultBytes: number = SANDBOX_TRANSIENT_MEMORY.ordinaryBytes;
-	if (name === "inlineBatch") {
-		resultBytes = SANDBOX_TRANSIENT_MEMORY.inlineBatchBytes;
-	} else if (name === "journalRead") {
-		resultBytes = SANDBOX_TRANSIENT_MEMORY.journalReadBytes;
-	} else if (smallCapabilities.has(name)) {
-		resultBytes = SANDBOX_TRANSIENT_MEMORY.smallBytes;
-	}
-	return SANDBOX_JSON_GRAPH_FACTOR * argsBytes + resultBytes;
-};
+const capabilityResultBytes = (name: string) =>
+	isSandboxCapability(name) && sandboxHostPermit(name) === "small"
+		? SANDBOX_TRANSIENT_MEMORY.smallBytes
+		: SANDBOX_TRANSIENT_MEMORY.ordinaryBytes;
+
+export const sandboxTransientPermitBytes = (name: string, argsBytes: number) =>
+	SANDBOX_JSON_GRAPH_FACTOR * argsBytes +
+	(controlResultBytes.get(name) ?? capabilityResultBytes(name));

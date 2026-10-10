@@ -156,6 +156,7 @@ const makeInput = (
 	compiledCode: "",
 	compiledFormat: 1,
 	lane: "interactive",
+	startedAt: "2026-01-01T00:00:00.000Z",
 	executionId: "file-service-execution",
 	workflowExecutionId: "child-workflow-execution",
 	principal: {

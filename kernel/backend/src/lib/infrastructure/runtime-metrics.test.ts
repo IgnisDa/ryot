@@ -29,7 +29,7 @@ describe("sandbox runtime metrics", () => {
 		expect(sandboxMetricKind({ kind: "something-new" })).toBe("unknown");
 		expect(sandboxMetricKind(null)).toBe("unknown");
 		expect(sandboxMetricHostFunction("httpCall")).toBe("httpCall");
-		expect(sandboxMetricHostFunction("replayJournal")).toBe("replayJournal");
+		expect(sandboxMetricHostFunction("replayJournal")).toBe("unknown");
 		expect(sandboxMetricHostFunction("/../etc/passwd")).toBe("unknown");
 	});
 

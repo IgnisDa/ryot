@@ -1,8 +1,8 @@
 use crate::protocol::{CONSOLE_ENTRIES, Console, ConsoleEntry, Level};
 use crate::surface::ConsoleSink;
 
-pub(crate) const MESSAGE_BYTES: usize = 8 * 1024;
-const CONSOLE_BYTES: usize = 256 * 1024;
+pub const MESSAGE_BYTES: usize = 8 * 1024;
+pub const CONSOLE_BYTES: usize = 256 * 1024;
 
 pub(crate) fn truncate_utf8(message: &mut String, max: usize) -> bool {
     if message.len() <= max {

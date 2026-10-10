@@ -9,6 +9,7 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
+import { sandboxSubjectUserId } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 import { IngestionCaptures } from "./capture-service";
 import { ImportsRepository } from "./repository";
@@ -35,7 +36,7 @@ export const ingestionArtifactGrants = Effect.fn("imports.ingestionArtifactGrant
 					message: "Staged artifact owner is unavailable",
 				});
 			}
-			const userId = subject.type === "user" ? subject.userId : subject.executionUserId;
+			const userId = sandboxSubjectUserId(subject);
 			if (!userId || !subject.accountGeneration) {
 				return yield* new SandboxRunError({
 					kind: "invalid-input",
@@ -111,7 +112,7 @@ export const ingestionArtifactGrants = Effect.fn("imports.ingestionArtifactGrant
 			message: "Ingestion artifact scope is invalid",
 		});
 	}
-	const userId = subject.type === "user" ? subject.userId : subject.executionUserId;
+	const userId = sandboxSubjectUserId(subject);
 	if (!userId || !subject.accountGeneration) {
 		return yield* new SandboxRunError({
 			kind: "invalid-input",

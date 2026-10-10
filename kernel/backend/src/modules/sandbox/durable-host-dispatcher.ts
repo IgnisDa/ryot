@@ -45,6 +45,7 @@ import type { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-li
 
 import { infrastructureRunError } from "./run-error";
 import {
+	type PinnedSandboxScriptWorkflowPayload,
 	SandboxScriptWorkflowPayload,
 	type SandboxScriptWorkflowPayload as SandboxScriptWorkflowPayloadValue,
 } from "./sandbox-script-workflow-payload";
@@ -391,7 +392,7 @@ export const runSandboxDurableHostServiceWorkflow = Effect.fn("SandboxDurableHos
 type SandboxDurableHostDispatcherValue = {
 	readonly dispatch: (
 		request: HostRequest,
-		payload: SandboxScriptWorkflowPayloadValue,
+		payload: PinnedSandboxScriptWorkflowPayload,
 		principal: SandboxExecutionPrincipal,
 		executionId: string,
 		progress?: SandboxHttpProgress,

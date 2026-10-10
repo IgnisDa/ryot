@@ -4,13 +4,15 @@ import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Data, Effect, FileSystem, Path } from "effect";
 import { Base64 } from "effect/encoding";
 
-import { MiB } from "../src/lib/infrastructure/sandbox-runtime/limits";
+import { MiB, SANDBOX_LIMITS } from "../src/lib/infrastructure/sandbox-runtime/limits";
+import {
+	sidecarInboundFrames,
+	sidecarOutboundFrames,
+} from "../src/lib/infrastructure/sandbox-runtime/sidecar-frame-codec.test-support";
 import {
 	SIDECAR_PROTOCOL_LIMITS,
 	type SidecarInboundFrame,
-	sidecarInboundFrames,
 	type SidecarOutboundFrame,
-	sidecarOutboundFrames,
 } from "../src/lib/infrastructure/sandbox-runtime/sidecar-protocol";
 
 class FixtureError extends Data.TaggedError("FixtureError")<{ message: string }> {}
@@ -258,6 +260,25 @@ const index = `${JSON.stringify(
 	"\t",
 )}\n`;
 
+const limitsJson = `${JSON.stringify(
+	{
+		hostCalls: SANDBOX_LIMITS.hostCalls.total,
+		partBytes: SIDECAR_PROTOCOL_LIMITS.partBytes,
+		nameLength: SIDECAR_PROTOCOL_LIMITS.nameLength,
+		frameBytes: SIDECAR_PROTOCOL_LIMITS.frameBytes,
+		consoleEntryBytes: SANDBOX_LIMITS.logs.entryBytes,
+		consoleTotalBytes: SANDBOX_LIMITS.logs.totalBytes,
+		hostArgsBytes: SANDBOX_LIMITS.bridge.requestBytes,
+		messageBytes: SIDECAR_PROTOCOL_LIMITS.messageBytes,
+		assemblyBytes: SIDECAR_PROTOCOL_LIMITS.assemblyBytes,
+		consoleEntries: SIDECAR_PROTOCOL_LIMITS.consoleEntries,
+		heapHeadroomBytes: SANDBOX_LIMITS.sidecar.heapHeadroomBytes,
+		concurrentHostCalls: SANDBOX_LIMITS.bridge.concurrentHostCalls,
+	},
+	null,
+	"\t",
+)}\n`;
+
 const program = Effect.gen(function* () {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
@@ -266,6 +287,7 @@ const program = Effect.gen(function* () {
 	yield* Effect.forEach(fixtures, verifyExpectation, { discard: true });
 	const expected = new Map<string, Uint8Array>([
 		["index.json", new TextEncoder().encode(index)],
+		["limits.json", new TextEncoder().encode(limitsJson)],
 		...fixtures.map(({ name, bytes }) => [`${name}.frame`, bytes] as const),
 	]);
 	if (!process.argv.includes("--check")) {

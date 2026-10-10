@@ -2,11 +2,8 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { Effect, FileSystem, Schema } from "effect";
 
-import {
-	sidecarInboundFrames,
-	sidecarOutboundFrames,
-	type SidecarProtocolError,
-} from "./sidecar-protocol";
+import { sidecarInboundFrames, sidecarOutboundFrames } from "./sidecar-frame-codec.test-support";
+import type { SidecarProtocolError } from "./sidecar-protocol";
 
 const fixtureDirectory = new URL("../../../../../sandboxd/protocol-fixtures/", import.meta.url)
 	.pathname;
@@ -83,9 +80,9 @@ layer(BunFileSystem.layer)((test) => {
 				yield* fs.readFileString(`${fixtureDirectory}index.json`),
 			);
 			const files = yield* fs.readDirectory(fixtureDirectory);
-			expect(files.filter((file) => file !== "index.json").sort()).toEqual(
-				fixtures.map(({ name }) => `${name}.frame`).sort(),
-			);
+			expect(
+				files.filter((file) => file !== "index.json" && file !== "limits.json").sort(),
+			).toEqual(fixtures.map(({ name }) => `${name}.frame`).sort());
 			for (const fixture of fixtures) {
 				const bytes = new Uint8Array(
 					yield* fs.readFile(`${fixtureDirectory}${fixture.name}.frame`),

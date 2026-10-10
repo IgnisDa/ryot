@@ -470,3 +470,49 @@ fn a_run_whose_module_hash_does_not_match_fails() {
         "the sidecar keeps serving"
     );
 }
+
+#[test]
+fn limits_match_backend() {
+    use ryot_sandboxd::console::{CONSOLE_BYTES, MESSAGE_BYTES};
+    use ryot_sandboxd::execute::{
+        CONCURRENT_HOST_CALLS, HEAP_HEADROOM_BYTES, HOST_ARGS_BYTES, HOST_CALLS,
+    };
+    use ryot_sandboxd::protocol::{CONSOLE_ENTRIES, NAME_LENGTH, PART_BYTES};
+    use ryot_sandboxd::server::ASSEMBLY_BYTES;
+
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("protocol-fixtures/limits.json");
+    let limits: Value =
+        serde_json::from_slice(&std::fs::read(path).expect("limits")).expect("limits");
+    let number = |value: &Value| value.as_u64().expect("number");
+    let message = |kind: ChunkedType| kind.message_bytes() as u64;
+    assert_eq!(number(&limits["nameLength"]), NAME_LENGTH as u64);
+    assert_eq!(number(&limits["partBytes"]), PART_BYTES as u64);
+    assert_eq!(number(&limits["frameBytes"]), FRAME_BYTES as u64);
+    assert_eq!(number(&limits["consoleEntries"]), CONSOLE_ENTRIES as u64);
+    assert_eq!(number(&limits["assemblyBytes"]), ASSEMBLY_BYTES as u64);
+    assert_eq!(
+        number(&limits["messageBytes"]["run"]),
+        message(ChunkedType::Run)
+    );
+    assert_eq!(
+        number(&limits["messageBytes"]["done"]),
+        message(ChunkedType::Done)
+    );
+    assert_eq!(
+        number(&limits["messageBytes"]["hostCall"]),
+        message(ChunkedType::HostCall)
+    );
+    assert_eq!(
+        number(&limits["messageBytes"]["hostResult"]),
+        message(ChunkedType::HostResult)
+    );
+    assert_eq!(number(&limits["hostCalls"]), u64::from(HOST_CALLS));
+    assert_eq!(number(&limits["consoleEntryBytes"]), MESSAGE_BYTES as u64);
+    assert_eq!(number(&limits["consoleTotalBytes"]), CONSOLE_BYTES as u64);
+    assert_eq!(number(&limits["hostArgsBytes"]), HOST_ARGS_BYTES as u64);
+    assert_eq!(number(&limits["heapHeadroomBytes"]), HEAP_HEADROOM_BYTES);
+    assert_eq!(
+        number(&limits["concurrentHostCalls"]),
+        CONCURRENT_HOST_CALLS as u64
+    );
+}

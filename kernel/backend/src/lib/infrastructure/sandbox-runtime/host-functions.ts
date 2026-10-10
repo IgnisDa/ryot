@@ -18,6 +18,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { isJsonValue } from "@ryot-app/contract/schema/json";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	EVENT_MUTATION_SANDBOX_LIMITS,
@@ -42,7 +43,6 @@ import { isDeclaredExecutableCall } from "#lib/infrastructure/sandbox-runtime/ex
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	type AdditionalSandboxHostImplementationMap,
-	isJsonValue,
 	requireSandboxCapabilityInput,
 	reportSandboxLifecycleWarnings,
 	sandboxLifecycleCommand,
@@ -76,8 +76,8 @@ import {
 	RelationshipMutationPipeline,
 	summarizeRelationshipMutations,
 	type PendingRelationshipMutations,
-	type RelationshipBatchSummary,
-	type RelationshipReconciliationSummary,
+	RelationshipBatchSummary,
+	RelationshipReconciliationSummary,
 } from "#modules/relationships/mutation-pipeline";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SandboxRepository } from "#modules/sandbox/repository";
@@ -233,6 +233,29 @@ const userLifecycleSource = (input: UserSandboxRunInput) =>
 const hasInvalidPopulatedAt = (item: LifecycleHostInput<"UpsertGlobalEntities">["items"][number]) =>
 	item.populatedAt !== null && Number.isNaN(new Date(item.populatedAt).getTime());
 
+export type LifecycleItemWrite<Item, Result> = {
+	readonly items: ReadonlyArray<Item>;
+	readonly result: Schema.Codec<Result, unknown>;
+	readonly applyPolicies: (
+		pending: PendingRelationshipMutations,
+	) => Effect.Effect<PendingRelationshipMutations, SandboxLifecycleHostFailure>;
+	readonly prepare: (
+		item: Item,
+		index: number,
+	) => Effect.Effect<
+		LifecyclePreparedStep<Result, PendingRelationshipMutations>,
+		SandboxLifecycleHostFailure
+	>;
+	readonly commit: (
+		item: Item,
+	) => (
+		pending: PendingRelationshipMutations,
+	) => Effect.Effect<
+		LifecyclePreparedStep<Result, PendingRelationshipMutations>,
+		SandboxLifecycleHostFailure
+	>;
+};
+
 const makeSandboxLifecycleHostSteps = (dependencies: {
 	readonly events: EventsService["Service"];
 	readonly entities: EntitiesService["Service"];
@@ -383,28 +406,26 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 				),
 		},
 		changeUserRelationships: {
-			applyPolicies: applyRelationshipHostPolicies,
 			value: (results: ReadonlyArray<RelationshipBatchSummary>) =>
 				results.map(({ created, deleted }) => ({ created, deleted })),
-			commit: (pending: PendingRelationshipMutations) =>
-				relationships
-					.commitProjected(pending, summarizeRelationshipMutations)
-					.pipe(Effect.mapError(lifecycleHostFailure)),
-			prepare: (
-				input: LifecycleHostInput<"ChangeUserRelationships">,
-				_batch: LifecycleHostInput<"ChangeUserRelationships">["batches"][number],
-				index: number,
-			) => {
+			itemWrite: (input: LifecycleHostInput<"ChangeUserRelationships">) => {
 				const batches = input.batches.map((entry) => ({
 					creates: entry.creates.map(toSandboxRelationshipIdentity),
 					deletes: entry.deletes.map(toSandboxRelationshipIdentity),
 				}));
-				const current = batches[index];
-				return current
-					? relationships
+				return {
+					items: batches,
+					result: RelationshipBatchSummary,
+					applyPolicies: applyRelationshipHostPolicies,
+					commit: () => (pending: PendingRelationshipMutations) =>
+						relationships
+							.commitProjected(pending, summarizeRelationshipMutations)
+							.pipe(Effect.mapError(lifecycleHostFailure)),
+					prepare: (current: (typeof batches)[number], index: number) =>
+						relationships
 							.prepareChangeUserBatch(input.userId, current, index, input.command, batches)
-							.pipe(Effect.mapError(lifecycleHostFailure))
-					: Effect.die("Missing user relationship batch");
+							.pipe(Effect.mapError(lifecycleHostFailure)),
+				} satisfies LifecycleItemWrite<(typeof batches)[number], RelationshipBatchSummary>;
 			},
 			validate: (
 				rawInput: SandboxRunInput,
@@ -437,29 +458,32 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 				),
 		},
 		upsertGlobalRelationships: {
-			applyPolicies: applyRelationshipHostPolicies,
 			value: (results: ReadonlyArray<RelationshipReconciliationSummary>) =>
 				results.map(({ deleted, upserted }) => ({ deleted, upserted })),
-			commit: (
-				group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
-				pending: PendingRelationshipMutations,
-			) =>
-				relationships
-					.commitProjected(pending, reconciliationSummary(group.relationships.length))
-					.pipe(Effect.mapError(lifecycleHostFailure)),
-			prepare: (
-				input: LifecycleHostInput<"UpsertGlobalRelationships">,
-				group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
-				index: number,
-			) =>
-				relationships
-					.prepareReconcileGlobalGroup(
-						toReconcileGroup(group),
-						index,
-						input.command,
-						input.groups.map(toReconcileGroup),
-					)
-					.pipe(Effect.mapError(lifecycleHostFailure)),
+			itemWrite: (input: LifecycleHostInput<"UpsertGlobalRelationships">) => {
+				const groups = input.groups.map(toReconcileGroup);
+				return {
+					items: input.groups,
+					result: RelationshipReconciliationSummary,
+					applyPolicies: applyRelationshipHostPolicies,
+					prepare: (
+						group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
+						index: number,
+					) =>
+						relationships
+							.prepareReconcileGlobalGroup(toReconcileGroup(group), index, input.command, groups)
+							.pipe(Effect.mapError(lifecycleHostFailure)),
+					commit:
+						(group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number]) =>
+						(pending: PendingRelationshipMutations) =>
+							relationships
+								.commitProjected(pending, reconciliationSummary(group.relationships.length))
+								.pipe(Effect.mapError(lifecycleHostFailure)),
+				} satisfies LifecycleItemWrite<
+					LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
+					RelationshipReconciliationSummary
+				>;
+			},
 			validate: (
 				rawInput: SandboxRunInput,
 				groups: LifecycleHostInput<"UpsertGlobalRelationships">["groups"],
@@ -600,28 +624,9 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 			connectionId: OAuthConnectionId.make(connectionId),
 		};
 	});
-	const writeInlineLifecycleItems = Effect.fnUntraced(function* <Item, Result>(options: {
-		readonly items: ReadonlyArray<Item>;
-		readonly capability: SandboxHostCapability;
-		readonly applyPolicies: (
-			pending: PendingRelationshipMutations,
-		) => Effect.Effect<PendingRelationshipMutations, SandboxLifecycleHostFailure>;
-		readonly prepare: (
-			item: Item,
-			index: number,
-		) => Effect.Effect<
-			LifecyclePreparedStep<Result, PendingRelationshipMutations>,
-			SandboxLifecycleHostFailure
-		>;
-		readonly commit: (
-			item: Item,
-		) => (
-			pending: PendingRelationshipMutations,
-		) => Effect.Effect<
-			LifecyclePreparedStep<Result, PendingRelationshipMutations>,
-			SandboxLifecycleHostFailure
-		>;
-	}) {
+	const writeInlineLifecycleItems = Effect.fnUntraced(function* <Item, Result>(
+		options: LifecycleItemWrite<Item, Result> & { readonly capability: SandboxHostCapability },
+	) {
 		const warnings = [];
 		const results = [];
 		for (const [index, item] of options.items.entries()) {
@@ -753,6 +758,28 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						.pipe(Effect.mapError((error) => error.message));
 				}),
 			),
+		changeUserRelationships: (rawInput, batches) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* lifecycle.changeUserRelationships.validate(rawInput, batches);
+					const results = yield* writeInlineLifecycleItems({
+						capability: "changeUserRelationships",
+						...lifecycle.changeUserRelationships.itemWrite(input),
+					});
+					return lifecycle.changeUserRelationships.value(results);
+				}),
+			),
+		upsertGlobalRelationships: (rawInput, groups) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* lifecycle.upsertGlobalRelationships.validate(rawInput, groups);
+					const results = yield* writeInlineLifecycleItems({
+						capability: "upsertGlobalRelationships",
+						...lifecycle.upsertGlobalRelationships.itemWrite(input),
+					});
+					return lifecycle.upsertGlobalRelationships.value(results);
+				}),
+			),
 		invalidateOAuthAccessToken: (rawInput, options) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -784,21 +811,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						.pipe(Effect.map((rows) => rows.map(toSandboxIntegration))),
 				);
 			}),
-		changeUserRelationships: (rawInput, batches) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* lifecycle.changeUserRelationships.validate(rawInput, batches);
-					const results = yield* writeInlineLifecycleItems({
-						items: input.batches,
-						capability: "changeUserRelationships",
-						commit: () => lifecycle.changeUserRelationships.commit,
-						applyPolicies: lifecycle.changeUserRelationships.applyPolicies,
-						prepare: (batch, index) =>
-							lifecycle.changeUserRelationships.prepare(input, batch, index),
-					});
-					return lifecycle.changeUserRelationships.value(results);
-				}),
-			),
 		upsertGlobalEntities: (rawInput, items, options) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -810,22 +822,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					});
 					yield* reportSandboxLifecycleWarnings("upsertGlobalEntities", warnings);
 					return lifecycle.upsertGlobalEntities.value(result);
-				}),
-			),
-		upsertGlobalRelationships: (rawInput, groups) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* lifecycle.upsertGlobalRelationships.validate(rawInput, groups);
-					const results = yield* writeInlineLifecycleItems({
-						items: input.groups,
-						capability: "upsertGlobalRelationships",
-						applyPolicies: lifecycle.upsertGlobalRelationships.applyPolicies,
-						commit: (group) => (pending) =>
-							lifecycle.upsertGlobalRelationships.commit(group, pending),
-						prepare: (group, index) =>
-							lifecycle.upsertGlobalRelationships.prepare(input, group, index),
-					});
-					return lifecycle.upsertGlobalRelationships.value(results);
 				}),
 			),
 		getPluginConfig: (input, rawAccess) =>

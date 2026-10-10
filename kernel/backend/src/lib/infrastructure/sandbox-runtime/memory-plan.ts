@@ -6,21 +6,25 @@ import { MiB, SANDBOX_LIMITS } from "./limits";
 import { SIDECAR_PROTOCOL_LIMITS } from "./sidecar-protocol";
 import { SANDBOX_TRANSIENT_MEMORY, sandboxTransientPermitBytes } from "./transient-memory";
 
-export const processBytes = 128 * MiB;
+export const processBytes = SANDBOX_LIMITS.sidecar.rssOverheadBytes;
 const residentBytes = 2 * processBytes;
 const defaultMemoryBudgetBytes = 1536 * MiB;
 export const isolateBytes =
 	SANDBOX_LIMITS.isolate.heapBytes +
 	SANDBOX_LIMITS.isolate.externalBytes +
 	SANDBOX_LIMITS.sidecar.heapHeadroomBytes;
-const outstandingHostCalls = SANDBOX_LIMITS.bridge.concurrentHostCalls + 1;
+const fixedStackAndStagingBytes = 15 * MiB;
+const runStartBytes = 28 * MiB;
+const inboundFrameBytes = 4 * MiB;
+const rustEncodingBytes = 5 * MiB;
 // Isolate, fixed stack and staging, run start, then per outstanding host call its inbound frame,
 // Rust encoding and Rust result delivery, then the done text Rust holds before disposal.
 export const runBytes =
 	isolateBytes +
-	15 * MiB +
-	28 * MiB +
-	outstandingHostCalls * (4 * MiB + 5 * MiB + SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult) +
+	fixedStackAndStagingBytes +
+	runStartBytes +
+	SANDBOX_LIMITS.bridge.outstandingHostCalls *
+		(inboundFrameBytes + rustEncodingBytes + SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult) +
 	SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
 const inlinePermitBytes = sandboxTransientPermitBytes(
 	"inlineBatch",

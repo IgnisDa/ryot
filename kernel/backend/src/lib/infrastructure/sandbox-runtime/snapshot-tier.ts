@@ -5,7 +5,7 @@ import type { SidecarTier } from "./sidecar-protocol";
 
 type SnapshotTier = typeof SidecarTier.Type;
 
-export class UnknownSandboxRuntimeImports extends Data.TaggedError("UnknownSandboxRuntimeImports")<{
+class UnknownSandboxRuntimeImports extends Data.TaggedError("UnknownSandboxRuntimeImports")<{
 	readonly imports: ReadonlyArray<string>;
 }> {}
 
