@@ -1,6 +1,7 @@
 import {
-	PluginClientArtifactFromBase64,
-	type PluginClientArtifact,
+	ClientRuntimeArtifactFromBase64,
+	type ClientRuntimeArtifact,
+	type ClientArtifact,
 } from "@ryot-app/client-plugin-contract";
 import { Context, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
 
@@ -10,14 +11,14 @@ export const ClientImageManifestJson = Schema.fromJsonString(
 	Schema.Struct({
 		publicArtifactHashes: Schema.Array(Schema.String),
 		runtime: Schema.Struct({
-			artifact: PluginClientArtifactFromBase64,
+			artifact: ClientRuntimeArtifactFromBase64,
 			entries: Schema.Record(Schema.String, Schema.String),
 		}),
 		renderers: Schema.Array(
 			Schema.Struct({
 				name: Schema.String,
 				sourceHash: Schema.String,
-				artifact: PluginClientArtifactFromBase64,
+				artifact: ClientRuntimeArtifactFromBase64,
 			}),
 		),
 	}),
@@ -27,8 +28,10 @@ export class ImageClientArtifactsValidationError extends Data.TaggedError(
 	"ImageClientArtifactsValidationError",
 )<{ message: string }> {}
 
-export const equalArtifacts = (left: PluginClientArtifact, right: PluginClientArtifact) =>
+export const equalArtifacts = (left: ClientArtifact, right: ClientArtifact) =>
 	left.hash === right.hash &&
+	("packageId" in left ? left.packageId : null) ===
+		("packageId" in right ? right.packageId : null) &&
 	left.files.length === right.files.length &&
 	left.files.every((file) =>
 		right.files.some(
@@ -42,7 +45,7 @@ export const equalArtifacts = (left: PluginClientArtifact, right: PluginClientAr
 
 export const parseClientImageManifest = (manifest: typeof ClientImageManifestJson.Type) =>
 	Effect.gen(function* () {
-		const imageArtifactsByHash = new Map<string, PluginClientArtifact>();
+		const imageArtifactsByHash = new Map<string, ClientRuntimeArtifact>();
 		for (const artifact of [
 			manifest.runtime.artifact,
 			...manifest.renderers.map(({ artifact: rendererArtifact }) => rendererArtifact),
@@ -73,7 +76,7 @@ export const parseClientImageManifest = (manifest: typeof ClientImageManifestJso
 		}
 		const renderers = new Map<
 			string,
-			{ readonly sourceHash: string; readonly artifact: PluginClientArtifact }
+			{ readonly sourceHash: string; readonly artifact: ClientRuntimeArtifact }
 		>();
 		for (const { name, artifact, sourceHash } of manifest.renderers) {
 			if (renderers.has(name)) {

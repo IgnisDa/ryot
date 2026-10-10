@@ -4,7 +4,7 @@ import {
 	ClientPagePreparationError,
 	PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
-import { EntityId, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -33,7 +33,7 @@ const routeTarget = {
 	path: "/",
 	search: "",
 	kind: "plugin-route" as const,
-	pluginSlug: PluginSlug.make("fixture"),
+	pluginId: PluginId.make("plugin-id"),
 };
 
 const manifest = fixtureManifest();
@@ -41,6 +41,8 @@ const plugin = {
 	id: "plugin-id",
 	slug: "fixture",
 	isHidden: false,
+	clientImports: [],
+	healthReason: null,
 	compiledHashes: {},
 	scope: "user" as const,
 	health: "ready" as const,
@@ -50,6 +52,7 @@ const plugin = {
 	installationId: "installation",
 	clientArtifactHash: pluginHash,
 	ownerUserId: UserId.make("user-1"),
+	packageId: manifest.metadata.packageId,
 	manifest: {
 		...manifest,
 		metadata: { ...manifest.metadata, slug: "fixture" },
@@ -117,9 +120,12 @@ const recordingDependenciesLayer = Layer.effectContext(
 										...description,
 										hash,
 										format: 1,
+										imports: [],
 										apiVersion: 1,
+										packageId: null,
 										bridgeVersion: 1,
 										compilerVersion: 1,
+										clientDeclarationHash: null,
 									}
 								: null,
 						);
@@ -150,7 +156,12 @@ const pagesLayer = ClientPagesService.layer.pipe(
 					}),
 				),
 			),
-			Layer.succeed(ClientPagesRepository, ClientPagesRepository.of(Object.create(null))),
+			Layer.succeed(
+				ClientPagesRepository,
+				ClientPagesRepository.of(
+					Object.assign(Object.create(null), { findHomeSavedView: () => Effect.succeed(null) }),
+				),
+			),
 			Layer.effectContext(
 				Effect.gen(function* () {
 					const available = yield* Ref.make<ReadonlyArray<typeof plugin>>([plugin]);
@@ -242,7 +253,7 @@ layer(pagesLayer)((test) => {
 			assertExitFails(
 				exit,
 				new ClientPagePreparationError({
-					reason: { code: "plugin-unavailable", pluginId: PluginSlug.make("fixture") },
+					reason: { pluginId: plugin.id, code: "plugin-unavailable" },
 				}),
 			);
 			expect(yield* recorded.calls).toEqual(before);

@@ -17,6 +17,8 @@ export class ClientArtifactStore extends Context.Service<ClientArtifactStore>()(
 				const { files, ...metadata } = artifact;
 				return Effect.succeed({
 					...metadata,
+					packageId: null,
+					clientDeclarationHash: null,
 					files: files
 						.map(({ name, contentType }) => ({ name, contentType }))
 						.sort((left, right) => left.name.localeCompare(right.name)),
