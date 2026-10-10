@@ -67,6 +67,7 @@ const reading = (
 });
 
 const readingsAt = daysAgo(2);
+const loggedAt = new Date("2026-05-01T07:30").toISOString();
 const logRows = rows([
 	reading("r1", "weight", "Weight", 73.6, readingsAt),
 	reading("r2", "sugar", "Sugar level", 130, readingsAt),
@@ -583,6 +584,166 @@ describe("measurements page", () => {
 				}),
 			);
 			expect(page.queryRequests("metrics")).toHaveLength(1);
+		}),
+	);
+
+	it.live("logs entered values, including zero, at one time and keeps the form on failure", () =>
+		Effect.gen(function* () {
+			const { page, answerPending } = openPage();
+			const body = within(document.body);
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(body.getByRole("region", { name: "All metrics" })).toBeTruthy();
+				}),
+			);
+			const trigger = body.getByRole("button", { name: "Log measurement" });
+			fireEvent.click(trigger);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(body.getByRole("dialog", { name: "Log measurement" })).toBeTruthy()),
+			);
+			const dialog = within(body.getByRole("dialog", { name: "Log measurement" }));
+			expect(dialog.getByLabelText("Weight (kg)").getAttribute("value")).toBe("");
+			expect(dialog.getByLabelText("Waist (cm)").getAttribute("value")).toBe("");
+			expect(dialog.queryByLabelText("Sugar level (mg/dL)")).toBeNull();
+			const requests = () =>
+				page.clientMessages().filter(({ type }) => type === "operation-request");
+			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(dialog.getByRole("alert").textContent).toBe("Enter at least one value."),
+				),
+			);
+			fireEvent.change(dialog.getByLabelText("Weight (kg)"), { target: { value: "heavy" } });
+			yield* Effect.promise(() =>
+				waitFor(() => expect(dialog.getByRole("alert").textContent).toBe("Enter a number.")),
+			);
+			fireEvent.change(dialog.getByLabelText("Weight (kg)"), { target: { value: " 0 " } });
+			fireEvent.click(dialog.getByRole("button", { name: "Remove Waist" }));
+			fireEvent.click(dialog.getByRole("button", { name: /^Add metric value/ }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(body.getByRole("radio", { name: "Sugar level" })).toBeTruthy()),
+			);
+			fireEvent.click(body.getByRole("radio", { name: "Sugar level" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(dialog.getByLabelText("Sugar level (mg/dL)")).toBeTruthy()),
+			);
+			fireEvent.change(dialog.getByLabelText("Sugar level (mg/dL)"), {
+				target: { value: "121.5" },
+			});
+			fireEvent.change(dialog.getByLabelText("Date and time"), {
+				target: { value: "2026-05-01T07:30" },
+			});
+			fireEvent.change(dialog.getByLabelText("Comment (optional)"), {
+				target: { value: " Fasted " },
+			});
+			expect(requests()).toEqual([]);
+			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
+			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(1)));
+			const [failed] = requests();
+			assert(failed?.type === "operation-request");
+			expect(failed).toMatchObject({
+				pluginSlug: "fitness",
+				operationSlug: "measurement-reading-log",
+				input: {
+					comment: "Fasted",
+					occurredAt: loggedAt,
+					values: [
+						{ value: 0, metricId: "weight" },
+						{ value: 121.5, metricId: "sugar" },
+					],
+				},
+			});
+			page.send({
+				outcome: "failure",
+				reason: "transport",
+				type: "operation-result",
+				requestId: failed.requestId,
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(text(dialog.getByRole("form"))).toContain("couldn't be saved")),
+			);
+			expect(dialog.getByLabelText("Weight (kg)").getAttribute("value")).toBe(" 0 ");
+			const readingQueries = page.queryRequests("readings").length;
+			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
+			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(2)));
+			const retried = requests()[1];
+			assert(retried?.type === "operation-request");
+			expect(retried.input).toEqual(failed.input);
+			page.send({
+				outcome: "success",
+				value: { count: 2 },
+				type: "operation-result",
+				requestId: retried.requestId,
+			});
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(body.queryByRole("dialog")).toBeNull();
+					expect(page.queryRequests("readings").length).toBeGreaterThan(readingQueries);
+				}),
+			);
+			expect(document.activeElement).toBe(trigger);
+		}),
+	);
+
+	it.live("edits a log row by updating, adding, and clearing values at its original time", () =>
+		Effect.gen(function* () {
+			const { page, answerPending } = openPage();
+			const body = within(document.body);
+			yield* Effect.promise(() =>
+				waitFor(() => {
+					answerPending();
+					expect(body.getAllByRole("button", { name: /^Edit measurement from/ })).toHaveLength(2);
+				}),
+			);
+			fireEvent.click(
+				body.getAllByRole("button", { name: /^Edit measurement from/ })[0] ?? document.body,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(body.getByRole("dialog", { name: "Edit measurement" })).toBeTruthy()),
+			);
+			const dialog = within(body.getByRole("dialog", { name: "Edit measurement" }));
+			expect(dialog.getByLabelText("Weight (kg)").getAttribute("value")).toBe("73.6");
+			expect(dialog.getByLabelText("Sugar level (mg/dL)").getAttribute("value")).toBe("130");
+			expect(dialog.queryByLabelText("Waist (cm)")).toBeNull();
+			fireEvent.change(dialog.getByLabelText("Weight (kg)"), { target: { value: "0" } });
+			fireEvent.change(dialog.getByLabelText("Sugar level (mg/dL)"), { target: { value: "" } });
+			fireEvent.click(dialog.getByRole("button", { name: /^Add metric value/ }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(body.getByRole("radio", { name: "Waist" })).toBeTruthy()),
+			);
+			fireEvent.click(body.getByRole("radio", { name: "Waist" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(dialog.getByLabelText("Waist (cm)")).toBeTruthy()),
+			);
+			fireEvent.change(dialog.getByLabelText("Waist (cm)"), { target: { value: "80" } });
+			fireEvent.click(dialog.getByRole("button", { name: "Save" }));
+			const requests = () =>
+				page.clientMessages().filter(({ type }) => type === "operation-request");
+			yield* Effect.promise(() => waitFor(() => expect(requests()).toHaveLength(1)));
+			const [request] = requests();
+			assert(request?.type === "operation-request");
+			expect(request).toMatchObject({
+				pluginSlug: "fitness",
+				operationSlug: "measurement-reading-update",
+				input: {
+					comment: "",
+					occurredAt: readingsAt,
+					readingIds: ["r1", "r2"],
+					values: [
+						{ value: 0, metricId: "weight" },
+						{ value: 80, metricId: "waist" },
+					],
+				},
+			});
+			page.send({
+				outcome: "success",
+				value: { count: 3 },
+				type: "operation-result",
+				requestId: request.requestId,
+			});
+			yield* Effect.promise(() => waitFor(() => expect(body.queryByRole("dialog")).toBeNull()));
 		}),
 	);
 });

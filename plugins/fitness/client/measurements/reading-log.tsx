@@ -1,15 +1,8 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
-import { Effect, Schema } from "@ryot-app/client-sdk/effect";
-import { createRyotMutation, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
-import { Fragment, useMemo, useRef, useState } from "react";
+import { Fragment, useMemo, useRef, useState, type RefObject } from "react";
 
-import {
-	MeasurementReadingDeleteInput,
-	MeasurementReadingOutput,
-	measurementReadingDeleteOperationSlug,
-} from "../../shared/measurement-reading-operations";
 import { sectionHeadingClass } from "../exercise/styles";
 import {
 	formatDay,
@@ -24,7 +17,9 @@ import {
 	type ReadingGroup,
 	type ReadingValue,
 } from "./model";
+import { deleteReadingsMutation, readingFailureMessage, updateReadingsMutation } from "./mutations";
 import { readingsQuery } from "./queries";
+import { MeasurementDialog } from "./reading-composer";
 
 type LogMetric = { readonly id: string; readonly name: string; readonly unit: string | null };
 
@@ -51,38 +46,55 @@ function ValueCell(props: { readonly reading: ReadingValue | undefined }) {
 	);
 }
 
-const deleteReadingsMutation = createRyotMutation<
-	{ readonly readings: typeof MeasurementReadingDeleteInput.Type; readonly onDeleted: () => void },
-	typeof MeasurementReadingOutput.Type
->(({ client, input: { readings, onDeleted } }) =>
-	Schema.encodeEffect(Schema.toCodecJson(MeasurementReadingDeleteInput))(readings).pipe(
-		Effect.mapError(() => new RyotClientError("invalid-input")),
-		Effect.flatMap((input) =>
-			client.operations.invoke({
-				input,
-				pluginSlug: "fitness",
-				output: MeasurementReadingOutput,
-				slug: measurementReadingDeleteOperationSlug,
-			}),
-		),
-		Effect.tap(() => Effect.sync(onDeleted)),
-	),
-);
-
-const deleteFailureMessage = (error: Error | null) => {
-	if (error === null) {
-		return undefined;
-	}
-	return error instanceof RyotClientError && error.reason === "operation-failed"
-		? "The server declined this change. Demo accounts can't delete measurements."
-		: "The measurement couldn't be deleted. Try again.";
-};
-
 const actionButtonClass = "rounded-md border border-border px-2 py-0.5 text-[12px] text-text-muted";
 
-function ReadingActions(props: { readonly timeZone: string; readonly group: ReadingGroup }) {
-	const { group, timeZone } = props;
+function EditMeasurementDialog(props: {
+	readonly group: ReadingGroup;
+	readonly onClose: () => void;
+	readonly metrics: readonly LogMetric[];
+	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+}) {
+	const { group, metrics } = props;
+	const update = useRyotMutation(updateReadingsMutation);
+	const [initial] = useState(() => ({
+		comment: group.comment,
+		occurredAt: group.occurredAt,
+		values: metrics.flatMap(({ id }) => {
+			const reading = group.values.get(id);
+			return reading === undefined ? [] : [{ metricId: id, value: reading.value }];
+		}),
+	}));
+	return (
+		<MeasurementDialog
+			initial={initial}
+			metrics={metrics}
+			submitLabel="Save"
+			pendingLabel="Saving…"
+			onChange={update.reset}
+			onClose={props.onClose}
+			label="Edit measurement"
+			pending={update.isPending}
+			triggerRef={props.triggerRef}
+			errorMessage={readingFailureMessage(update.error, "edit")}
+			onSubmit={(readings) =>
+				update.mutate({
+					onSuccess: props.onClose,
+					readings: { ...readings, readingIds: [...group.values.values()].map(({ id }) => id) },
+				})
+			}
+		/>
+	);
+}
+
+function ReadingActions(props: {
+	readonly timeZone: string;
+	readonly group: ReadingGroup;
+	readonly metrics: readonly LogMetric[];
+}) {
+	const { group, metrics, timeZone } = props;
+	const editTrigger = useRef<HTMLButtonElement>(null);
 	const deleteTrigger = useRef<HTMLButtonElement>(null);
+	const [editing, setEditing] = useState(false);
 	const [confirming, setConfirming] = useState(false);
 	const remove = useRyotMutation(deleteReadingsMutation);
 	const takenAt = `${formatDay(group.occurredAt, timeZone)} ${formatTime(group.occurredAt, timeZone)}`;
@@ -91,8 +103,10 @@ function ReadingActions(props: { readonly timeZone: string; readonly group: Read
 		<td className="px-3 py-2 text-right whitespace-nowrap">
 			<button
 				type="button"
+				ref={editTrigger}
+				onClick={() => setEditing(true)}
 				className={clsx(actionButtonClass, "mr-1")}
-				onClick={() => console.log("TODO: edit measurement")}
+				aria-label={`Edit measurement from ${takenAt}`}
 			>
 				Edit
 			</button>
@@ -116,14 +130,22 @@ function ReadingActions(props: { readonly timeZone: string; readonly group: Read
 					title="Delete measurement?"
 					actionLabel="Delete measurement"
 					onClose={() => setConfirming(false)}
-					errorMessage={deleteFailureMessage(remove.error)}
+					errorMessage={readingFailureMessage(remove.error, "delete")}
 					detail={`The ${count === 1 ? "reading" : `${count} readings`} taken on ${takenAt} will be removed permanently.`}
 					onConfirm={() =>
 						remove.mutate({
-							onDeleted: () => setConfirming(false),
+							onSuccess: () => setConfirming(false),
 							readings: { readingIds: [...group.values.values()].map(({ id }) => id) },
 						})
 					}
+				/>
+			) : null}
+			{editing ? (
+				<EditMeasurementDialog
+					group={group}
+					metrics={metrics}
+					triggerRef={editTrigger}
+					onClose={() => setEditing(false)}
 				/>
 			) : null}
 		</td>
@@ -222,7 +244,7 @@ export function ReadingLogTable(props: {
 												)}
 											</td>
 											<td className="px-3 py-2">{group.comment}</td>
-											<ReadingActions group={group} timeZone={timeZone} />
+											<ReadingActions group={group} metrics={metrics} timeZone={timeZone} />
 										</tr>
 										{open ? (
 											<tr>

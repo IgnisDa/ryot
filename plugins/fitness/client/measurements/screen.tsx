@@ -1,10 +1,10 @@
 import { usePageContext, useRyotViewport } from "@ryot-app/client-sdk/plugin";
-import { useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
+import { useRyotMutation, useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button, SegmentedControl, StatusMessage } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
 import { AddMetricDialog } from "./add-metric";
@@ -19,11 +19,46 @@ import {
 	type MetricSort,
 	type RangeKey,
 } from "./model";
+import { logReadingsMutation, readingFailureMessage } from "./mutations";
 import { ChartCard, MetricTiles } from "./overview";
 import { seriesQuery, summaryQuery } from "./queries";
+import { MeasurementDialog } from "./reading-composer";
 import { ReadingLog } from "./reading-log";
 
-const logMeasurement = () => console.log("TODO: log measurement");
+function LogMeasurementDialog(props: {
+	readonly onClose: () => void;
+	readonly metrics: readonly MeasurementSummary[];
+	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+}) {
+	const { metrics } = props;
+	const log = useRyotMutation(logReadingsMutation);
+	const [initial] = useState(() => {
+		const tiles = selectTileMetrics(metrics);
+		return {
+			comment: null,
+			occurredAt: new Date().toISOString(),
+			values: (tiles.length === 0 ? metrics.slice(0, 1) : tiles).map(({ id }) => ({
+				value: null,
+				metricId: id,
+			})),
+		};
+	});
+	return (
+		<MeasurementDialog
+			initial={initial}
+			metrics={metrics}
+			submitLabel="Save"
+			onChange={log.reset}
+			pendingLabel="Saving…"
+			label="Log measurement"
+			onClose={props.onClose}
+			pending={log.isPending}
+			triggerRef={props.triggerRef}
+			errorMessage={readingFailureMessage(log.error, "log")}
+			onSubmit={(readings) => log.mutate({ readings, onSuccess: props.onClose })}
+		/>
+	);
+}
 
 export function MeasurementsView(props: {
 	readonly now: Date;
@@ -186,7 +221,9 @@ export default function MeasurementsPage() {
 	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
 	const [range, setRange] = useState<RangeKey>("1Y");
 	const [addingMetric, setAddingMetric] = useState(false);
+	const [logging, setLogging] = useState(false);
 	const addMetricTrigger = useRef<HTMLButtonElement>(null);
+	const logTrigger = useRef<HTMLButtonElement>(null);
 	const result = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt(range, now) });
 	const controls = (
 		<div className={clsx("flex flex-wrap items-center gap-2.5", compact && "pb-4")}>
@@ -197,7 +234,12 @@ export default function MeasurementsPage() {
 				optionClassName="px-3"
 				options={rangeOptions.map(({ key }) => ({ value: key, label: key, content: key }))}
 			/>
-			<Button onClick={logMeasurement} className="min-h-9 px-3.5 py-1.5">
+			<Button
+				ref={logTrigger}
+				onClick={() => setLogging(true)}
+				className="min-h-9 px-3.5 py-1.5"
+				disabled={result.data === undefined || result.data.length === 0}
+			>
 				Log measurement
 			</Button>
 			<Button
@@ -232,6 +274,13 @@ export default function MeasurementsPage() {
 					metrics={result.data}
 					triggerRef={addMetricTrigger}
 					onClose={() => setAddingMetric(false)}
+				/>
+			) : null}
+			{logging && result.data !== undefined ? (
+				<LogMeasurementDialog
+					metrics={result.data}
+					triggerRef={logTrigger}
+					onClose={() => setLogging(false)}
 				/>
 			) : null}
 		</PluginScreenFrame>
