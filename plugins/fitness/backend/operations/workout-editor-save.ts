@@ -42,7 +42,6 @@ const editableFields = [
 	"duration",
 	"exerciseKind",
 	"exerciseOrder",
-	"images",
 	"note",
 	"reps",
 	"restTime",
@@ -50,7 +49,6 @@ const editableFields = [
 	"rpe",
 	"setLot",
 	"setOrder",
-	"videos",
 	"weight",
 ];
 const invalid = (
@@ -146,6 +144,11 @@ const workoutProperties = (
 		startedAt: data.startedAt,
 		supersets: supersetsFor(data),
 		exerciseNotes: data.occurrences.map(({ notes }, exerciseOrder) => ({ notes, exerciseOrder })),
+		exerciseMedia: data.occurrences.flatMap((occurrence, exerciseOrder) =>
+			occurrence.images.length === 0 && occurrence.videos.length === 0
+				? []
+				: [{ exerciseOrder, images: occurrence.images, videos: occurrence.videos }],
+		),
 	});
 	if (data.comment !== undefined) {
 		properties["comment"] = data.comment;
@@ -225,12 +228,13 @@ const mediaFrom = (properties: Properties): typeof WorkoutEditorMediaSchema.Type
 		...(Array.isArray(properties["images"]) ? properties["images"] : []),
 		...(Array.isArray(properties["videos"]) ? properties["videos"] : []),
 	]);
-	const exercises = properties["exercises"];
-	const nested = Array.isArray(exercises)
-		? exercises.flatMap((item) =>
-				item !== null && typeof item === "object" && !Array.isArray(item) ? mediaFrom(item) : [],
-			)
-		: [];
+	const nested = [properties["exercises"], properties["exerciseMedia"]].flatMap((items) =>
+		Array.isArray(items)
+			? items.flatMap((item) =>
+					item !== null && typeof item === "object" && !Array.isArray(item) ? mediaFrom(item) : [],
+				)
+			: [],
+	);
 	return [...(decoded._tag === "Success" ? decoded.success : []), ...nested];
 };
 
@@ -556,16 +560,9 @@ export const saveWorkoutEditor = Effect.fn("saveWorkoutEditor")(function* (
 	const media = [
 		...data.images,
 		...data.videos,
-		...(data.kind === "template"
-			? data.occurrences.flatMap((occurrence) => [...occurrence.images, ...occurrence.videos])
-			: data.occurrences.flatMap(({ sets }) =>
-					sets.flatMap((set) => [...set.images, ...set.videos]),
-				)),
+		...data.occurrences.flatMap((occurrence) => [...occurrence.images, ...occurrence.videos]),
 	];
-	const existingMedia = [
-		...mediaFrom(baseline?.entity.properties ?? {}),
-		...(baseline?.sets.flatMap(({ properties: values }) => mediaFrom(values)) ?? []),
-	];
+	const existingMedia = mediaFrom(baseline?.entity.properties ?? {});
 	const managed = media
 		.filter((locator) => locator.type !== "remote")
 		.filter((locator) => !existingMedia.some((old) => same(old, locator)));

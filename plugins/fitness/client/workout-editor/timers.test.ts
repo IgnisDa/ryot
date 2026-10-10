@@ -53,8 +53,6 @@ const draft = (overrides: Partial<WorkoutEditorDraft> = {}) =>
 				sets: [
 					{
 						reps: "0",
-						images: [],
-						videos: [],
 						duration: "2",
 						included: false,
 						setLot: "normal",

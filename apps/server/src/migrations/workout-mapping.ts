@@ -235,6 +235,21 @@ BEGIN
 					),
 					'[]'::jsonb
 				),
+				'exerciseMedia', COALESCE(
+					(
+						SELECT jsonb_agg(
+							jsonb_build_object(
+								'exerciseOrder', (ex.ordinality - 1)::int,
+								'images', COALESCE(${buildLegacyImagesSql("ex.value -> 'assets'")}, '[]'::jsonb),
+								'videos', COALESCE(${buildLegacyVideosSql("ex.value -> 'assets'")}, '[]'::jsonb)
+							)
+							ORDER BY ex.ordinality
+						)
+						FROM jsonb_array_elements(COALESCE(w.information -> 'exercises', '[]'::jsonb))
+							WITH ORDINALITY AS ex(value, ordinality)
+					),
+					'[]'::jsonb
+				),
 				'supersets',     CASE
 					WHEN jsonb_array_length(COALESCE(w.information -> 'supersets', '[]'::jsonb)) > 0
 					THEN w.information -> 'supersets'
@@ -379,8 +394,6 @@ BEGIN
 				'confirmedAt',        s.value ->> 'confirmed_at',
 				'restTimerStartedAt', s.value ->> 'rest_timer_started_at',
 				'exerciseKind',       ex.value ->> 'lot',
-				'images',              ${buildLegacyImagesSql("ex.value -> 'assets'")},
-				'videos',              ${buildLegacyVideosSql("ex.value -> 'assets'")},
 				'reps',               ${buildDecimalStatField("s.value", "reps")},
 				'weight',             round(CASE
 					WHEN lower(ex.value ->> 'unit_system') = 'imperial'

@@ -86,8 +86,6 @@ const timerDraft = () =>
 				exerciseKind: "duration",
 				sets: [
 					{
-						images: [],
-						videos: [],
 						duration: "20",
 						included: false,
 						setLot: "normal",

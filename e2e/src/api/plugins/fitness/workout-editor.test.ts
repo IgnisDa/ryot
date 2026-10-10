@@ -95,8 +95,6 @@ const workoutData = (overrides: Partial<WorkoutData> = {}): WorkoutData => ({
 });
 
 const workoutSet = (overrides: Partial<WorkoutSetInput> = {}): WorkoutSetInput => ({
-	images: [],
-	videos: [],
 	setLot: "normal",
 	occurredAt: setOccurredAt,
 	confirmedAt: setOccurredAt,
@@ -113,6 +111,8 @@ const workoutOccurrence = (
 ): WorkoutData["occurrences"][number] => ({
 	sets,
 	notes: [],
+	images: [],
+	videos: [],
 	exerciseId,
 	clientId: `occurrence-${crypto.randomUUID()}`,
 	...overrides,
@@ -213,6 +213,13 @@ const createImportedWorkout = (client: Client, exerciseId: EntityId) =>
 				videos: [{ type: "s3", key: "workouts/imported-workout.mp4" }],
 				images: [{ type: "local", key: "permanent/imported-workout.jpg" }],
 				exerciseNotes: [{ exerciseOrder: 0, notes: ["Imported exercise note"] }],
+				exerciseMedia: [
+					{
+						exerciseOrder: 0,
+						videos: [{ type: "s3", key: "workouts/imported-exercise.mp4" }],
+						images: [{ type: "local", key: "permanent/imported-exercise.jpg" }],
+					},
+				],
 			},
 		});
 		const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
@@ -233,8 +240,6 @@ const createImportedWorkout = (client: Client, exerciseId: EntityId) =>
 							exerciseOrder: 0,
 							note: "Imported set note",
 							exerciseKind: "reps_and_weight",
-							videos: [{ type: "s3", key: "workouts/imported-set.mp4" }],
-							images: [{ type: "local", key: "permanent/imported-set.jpg" }],
 						},
 					},
 				],
@@ -250,11 +255,11 @@ const importedWorkoutImages: WorkoutData["images"] = [
 const importedWorkoutVideos: WorkoutData["videos"] = [
 	{ type: "s3", key: "workouts/imported-workout.mp4" },
 ];
-const importedSetImages: WorkoutSetInput["images"] = [
-	{ type: "local", key: "permanent/imported-set.jpg" },
+const importedOccurrenceImages: WorkoutData["occurrences"][number]["images"] = [
+	{ type: "local", key: "permanent/imported-exercise.jpg" },
 ];
-const importedSetVideos: WorkoutSetInput["videos"] = [
-	{ type: "s3", key: "workouts/imported-set.mp4" },
+const importedOccurrenceVideos: WorkoutData["occurrences"][number]["videos"] = [
+	{ type: "s3", key: "workouts/imported-exercise.mp4" },
 ];
 
 const updateImportedWorkoutData = (input: {
@@ -265,8 +270,8 @@ const updateImportedWorkoutData = (input: {
 	readonly reps: number;
 	readonly images: WorkoutData["images"];
 	readonly videos: WorkoutData["videos"];
-	readonly setImages: WorkoutSetInput["images"];
-	readonly setVideos: WorkoutSetInput["videos"];
+	readonly occurrenceImages: WorkoutData["occurrences"][number]["images"];
+	readonly occurrenceVideos: WorkoutData["occurrences"][number]["videos"];
 }): WorkoutData => {
 	const originalSet = requirePresent(input.baseline.sets[0], "Expected the imported workout set");
 	return workoutData({
@@ -292,11 +297,14 @@ const updateImportedWorkoutData = (input: {
 						occurredAt: originalSet.occurredAt,
 						measurements: { weight: 40, reps: input.reps },
 						...(input.note === undefined ? {} : { note: input.note }),
-						images: input.setImages,
-						videos: input.setVideos,
 					}),
 				],
-				{ sourceExerciseOrder: 0, notes: ["Imported exercise note"] },
+				{
+					sourceExerciseOrder: 0,
+					images: input.occurrenceImages,
+					videos: input.occurrenceVideos,
+					notes: ["Imported exercise note"],
+				},
 			),
 		],
 	});
@@ -356,11 +364,11 @@ describe("Workout editor E2E", () => {
 					exerciseId,
 					note: "Imported set note",
 					baseline: original.baseline,
-					setImages: importedSetImages,
-					setVideos: importedSetVideos,
 					images: importedWorkoutImages,
 					videos: importedWorkoutVideos,
 					conflictToken: original.conflictToken,
+					occurrenceImages: importedOccurrenceImages,
+					occurrenceVideos: importedOccurrenceVideos,
 				});
 				const editInput = operationInput(editData);
 				const saved = yield* saveWorkoutEditor(client, editInput);
@@ -382,14 +390,18 @@ describe("Workout editor E2E", () => {
 					activeDuration: 2400,
 					images: importedWorkoutImages,
 					videos: importedWorkoutVideos,
+					exerciseMedia: [
+						{
+							exerciseOrder: 0,
+							images: importedOccurrenceImages,
+							videos: importedOccurrenceVideos,
+						},
+					],
 				});
 				expect(editedSet).toMatchObject({ id: originalSet.id, occurredAt: originalSet.occurredAt });
-				expect(editedSet.properties).toMatchObject({
-					reps: 12,
-					note: "Imported set note",
-					images: importedSetImages,
-					videos: importedSetVideos,
-				});
+				expect(editedSet.properties).toMatchObject({ reps: 12, note: "Imported set note" });
+				expect(editedSet.properties).not.toHaveProperty("images");
+				expect(editedSet.properties).not.toHaveProperty("videos");
 
 				const removeInput = operationInput(
 					updateImportedWorkoutData({
@@ -397,8 +409,8 @@ describe("Workout editor E2E", () => {
 						exerciseId,
 						images: [],
 						videos: [],
-						setImages: [],
-						setVideos: [],
+						occurrenceImages: [],
+						occurrenceVideos: [],
 						baseline: edited.baseline,
 						conflictToken: edited.conflictToken,
 					}),
@@ -413,10 +425,101 @@ describe("Workout editor E2E", () => {
 				expect(withoutProtectedData.baseline.entity.properties).toMatchObject({
 					images: [],
 					videos: [],
+					exerciseMedia: [],
 				});
 				expect(remainingSet.properties).not.toHaveProperty("note");
-				expect(remainingSet.properties).toMatchObject({ images: [], videos: [] });
 			}),
+	);
+
+	it.live("reorders occurrence media with its exercise in a historical workout", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient(apiUrl);
+			const { exerciseId } = yield* createExerciseEntityFixture(client);
+			const firstImages: WorkoutData["occurrences"][number]["images"] = [
+				{ type: "remote", url: "https://example.com/first.jpg" },
+			];
+			const firstVideos: WorkoutData["occurrences"][number]["videos"] = [
+				{ type: "remote", url: "https://example.com/first.mp4" },
+			];
+			const secondImages: WorkoutData["occurrences"][number]["images"] = [
+				{ type: "remote", url: "https://example.com/second.jpg" },
+			];
+			const secondVideos: WorkoutData["occurrences"][number]["videos"] = [
+				{ type: "remote", url: "https://example.com/second.mp4" },
+			];
+			const created = yield* workoutSave(
+				client,
+				workoutData({
+					occurrences: [
+						workoutOccurrence(exerciseId, [workoutSet()], {
+							images: firstImages,
+							videos: firstVideos,
+						}),
+						workoutOccurrence(exerciseId, [workoutSet()], {
+							images: secondImages,
+							videos: secondVideos,
+						}),
+					],
+				}),
+			);
+			assertCondition(created.kind === "saved", "Expected workout creation with occurrence media");
+			const original = yield* loadWorkoutBaseline(client, created.entityId);
+			const firstSet = requirePresent(
+				original.baseline.sets.find(({ properties }) => properties["exerciseOrder"] === 0),
+				"Expected the first occurrence set",
+			);
+			const secondSet = requirePresent(
+				original.baseline.sets.find(({ properties }) => properties["exerciseOrder"] === 1),
+				"Expected the second occurrence set",
+			);
+			const reordered = yield* workoutSave(
+				client,
+				workoutData({
+					name: original.baseline.entity.name,
+					target: {
+						kind: "update",
+						entityId: created.entityId,
+						conflictToken: original.conflictToken,
+					},
+					occurrences: [
+						workoutOccurrence(
+							exerciseId,
+							[
+								workoutSet({
+									eventId: secondSet.id,
+									confirmedAt: setOccurredAt,
+									occurredAt: secondSet.occurredAt,
+								}),
+							],
+							{ images: secondImages, videos: secondVideos, sourceExerciseOrder: 1 },
+						),
+						workoutOccurrence(
+							exerciseId,
+							[
+								workoutSet({
+									eventId: firstSet.id,
+									confirmedAt: setOccurredAt,
+									occurredAt: firstSet.occurredAt,
+								}),
+							],
+							{ images: firstImages, videos: firstVideos, sourceExerciseOrder: 0 },
+						),
+					],
+				}),
+			);
+			assertCondition(reordered.kind === "saved", "Expected workout reordering to save");
+			const current = yield* loadWorkoutBaseline(client, created.entityId);
+			expect(current.baseline.entity.properties["exerciseMedia"]).toMatchObject([
+				{ exerciseOrder: 0, images: secondImages, videos: secondVideos },
+				{ exerciseOrder: 1, images: firstImages, videos: firstVideos },
+			]);
+			expect(
+				current.baseline.sets.map(({ id, properties }) => [id, properties["exerciseOrder"]]),
+			).toContainEqual([secondSet.id, 0]);
+			expect(
+				current.baseline.sets.map(({ id, properties }) => [id, properties["exerciseOrder"]]),
+			).toContainEqual([firstSet.id, 1]);
+		}),
 	);
 
 	it.live("loads context defaults and updates an exercise override", () =>
@@ -480,6 +583,31 @@ describe("Workout editor E2E", () => {
 				canEdit: true,
 				kind: "pro-required",
 			});
+
+			const occurrenceMediaWorkout = workoutData({
+				occurrences: [
+					workoutOccurrence(exerciseId, [workoutSet()], {
+						images: [{ type: "remote", url: "https://example.com/exercise.jpg" }],
+						videos: [{ type: "remote", url: "https://example.com/exercise.mp4" }],
+					}),
+				],
+			});
+			const occurrenceMediaSaved = yield* workoutSave(client, occurrenceMediaWorkout);
+			assertCondition(
+				occurrenceMediaSaved.kind === "saved",
+				"Expected occurrence media to save without Pro",
+			);
+			const occurrenceMediaBaseline = yield* loadWorkoutBaseline(
+				client,
+				occurrenceMediaSaved.entityId,
+			);
+			expect(occurrenceMediaBaseline.baseline.entity.properties["exerciseMedia"]).toMatchObject([
+				{
+					exerciseOrder: 0,
+					images: [{ type: "remote", url: "https://example.com/exercise.jpg" }],
+					videos: [{ type: "remote", url: "https://example.com/exercise.mp4" }],
+				},
+			]);
 		}),
 	);
 

@@ -41,6 +41,12 @@ const WorkoutEditorSourceSupersetSchema = Schema.Struct({
 	exercises: Schema.Array(nonNegativeInteger),
 });
 
+const WorkoutEditorExerciseMediaSchema = Schema.Struct({
+	images: WorkoutEditorMediaSchema,
+	videos: WorkoutEditorMediaSchema,
+	exerciseOrder: nonNegativeInteger,
+});
+
 const WorkoutEditorWorkoutPropertiesSchema = Schema.Struct({
 	startedAt: timestamp,
 	images: optionalNullableMedia,
@@ -51,6 +57,7 @@ const WorkoutEditorWorkoutPropertiesSchema = Schema.Struct({
 	caloriesBurnt: optionalNullableMeasurement,
 	exerciseNotes: Schema.optional(Schema.NullOr(ExerciseNotesSchema)),
 	supersets: Schema.optional(Schema.NullOr(Schema.Array(WorkoutEditorSourceSupersetSchema))),
+	exerciseMedia: Schema.optional(Schema.NullOr(Schema.Array(WorkoutEditorExerciseMediaSchema))),
 });
 
 const WorkoutEditorTemplateSetPropertiesSchema = Schema.Struct({
@@ -87,8 +94,6 @@ const WorkoutEditorWorkoutSetPropertiesSchema = Schema.Struct({
 	setLot: WorkoutSetLotSchema,
 	setOrder: nonNegativeInteger,
 	note: optionalNullableString,
-	images: optionalNullableMedia,
-	videos: optionalNullableMedia,
 	restTime: optionalNullableRest,
 	exerciseKind: exerciseKindSchema,
 	exerciseOrder: nonNegativeInteger,
@@ -146,8 +151,6 @@ const makeSet = (
 ): WorkoutEditorSet => ({
 	clientId,
 	exerciseKind,
-	images: values.images ?? [],
-	videos: values.videos ?? [],
 	setLot: values.setLot ?? "normal",
 	included: values.included ?? false,
 	restChoice: values.restChoice ?? { kind: "inherited" },
@@ -254,6 +257,17 @@ const workoutDraft = (
 		next.sets.push({ event, properties: setProperties });
 		groups.set(setProperties.exerciseOrder, next);
 	}
+	const mediaOrders = new Set<number>();
+	for (const media of properties.exerciseMedia ?? []) {
+		if (
+			mediaOrders.has(media.exerciseOrder) ||
+			(!groups.has(media.exerciseOrder) && (media.images.length > 0 || media.videos.length > 0))
+		) {
+			blockers.push({ code: "invalid-record", exerciseId: baseline.entity.id });
+			break;
+		}
+		mediaOrders.add(media.exerciseOrder);
+	}
 	const orderedGroups = [...groups.entries()].sort(([left], [right]) => left - right);
 	const occurrences = orderedGroups.flatMap(([order, group]) => {
 		const providerExercise = exercisesById.get(group.exerciseId);
@@ -274,10 +288,13 @@ const workoutDraft = (
 		const exerciseNotes = properties.exerciseNotes?.find(
 			(item) => item.exerciseOrder === order,
 		)?.notes;
+		const exerciseMedia = properties.exerciseMedia?.find((item) => item.exerciseOrder === order);
 		return [
 			makeOccurrence(occurrenceId, group.exerciseId, firstSet.properties.exerciseKind, {
 				sourceExerciseOrder: order,
 				notes: exerciseNotes ?? [],
+				images: exerciseMedia?.images ?? [],
+				videos: exerciseMedia?.videos ?? [],
 				display: { weightUnit: "kg", distanceUnit: "km", durationUnit: "seconds" },
 				sets: orderedSets.map(({ event, properties: set }) =>
 					makeSet(event.id, set.exerciseKind, {
@@ -285,8 +302,6 @@ const workoutDraft = (
 						setLot: set.setLot,
 						...measuredStrings(set),
 						eventId: event.id,
-						images: set.images ?? [],
-						videos: set.videos ?? [],
 						note: set.note ?? undefined,
 						occurredAt: event.occurredAt,
 						confirmedAt: set.confirmedAt ?? undefined,
@@ -491,8 +506,6 @@ export const cloneWorkoutEditorSource = (
 			sourceExerciseOrder: undefined,
 			sets: occurrence.sets.map((set) => ({
 				...set,
-				images: [],
-				videos: [],
 				included: false,
 				eventId: undefined,
 				occurredAt: undefined,
@@ -517,6 +530,7 @@ export const cloneWorkoutEditorSource = (
 		draftId: input.draftId,
 		caloriesBurnt: undefined,
 		restCountdown: undefined,
+		uploadedAssets: undefined,
 		activeDuration: undefined,
 		activeOccurrenceId: undefined,
 		executionCountdown: undefined,

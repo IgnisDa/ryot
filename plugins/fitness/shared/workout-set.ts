@@ -36,7 +36,6 @@ export type WorkoutSetPropertiesInput = {
 	readonly duration?: number | undefined;
 	readonly exerciseKind: ExerciseKind;
 	readonly exerciseOrder: number;
-	readonly images?: ReadonlyArray<WorkoutSetAssetLocator> | undefined;
 	readonly note?: string | undefined;
 	readonly reps?: number | undefined;
 	readonly restTime?: number | undefined;
@@ -44,7 +43,6 @@ export type WorkoutSetPropertiesInput = {
 	readonly rpe?: number | undefined;
 	readonly setLot: WorkoutSetLot;
 	readonly setOrder: number;
-	readonly videos?: ReadonlyArray<WorkoutSetAssetLocator> | undefined;
 	readonly weight?: number | undefined;
 };
 
@@ -113,8 +111,6 @@ export const buildWorkoutSetEventProperties = (input: WorkoutSetPropertiesInput)
 			? {}
 			: { restTimerStartedAt: input.restTimerStartedAt }),
 		...(input.rpe === undefined ? {} : { rpe: input.rpe }),
-		...(input.images === undefined ? {} : { images: [...input.images] }),
-		...(input.videos === undefined ? {} : { videos: [...input.videos] }),
 		...measurementProperties,
 		...(statistics.pace === undefined ? {} : { pace: statistics.pace }),
 		...(statistics.volume === undefined ? {} : { volume: statistics.volume }),
