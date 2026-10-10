@@ -317,6 +317,12 @@ const server = group(
 			envKey: "SERVER_PRO_KEY",
 			description: "The key that can be used to enable Ryot Pro features",
 		}),
+		runnerSocketDir: stringField({
+			hidden: true,
+			label: "Runner socket directory",
+			envKey: "RYOT_RUNNER_SOCKET_DIR",
+			description: "Directory for internal runner sockets",
+		}),
 		clientDir: stringField({
 			hidden: true,
 			defaultValue: "./client",
@@ -344,6 +350,14 @@ const server = group(
 			envKey: "SERVER_PRO_KEY_VERIFICATION_URL",
 			description: "Base URL used to verify the Pro key",
 		}),
+		lanes: enumField({
+			label: "Lanes",
+			defaultValue: "all",
+			envKey: "SERVER_LANES",
+			choices: { kind: "static", values: [{ value: "all" }, { value: "split" }] },
+			description:
+				"Use all for one server process, or split for separate interactive and background processes managed by the server",
+		}),
 		pluginsSystemDir: stringField({
 			hidden: true,
 			defaultValue: "./plugins",
@@ -352,33 +366,22 @@ const server = group(
 			description:
 				"Directory containing deployment-controlled system plugin archives; archives are not cryptographically authenticated",
 		}),
-		runnerSocketDir: stringField({
-			label: "Runner socket directory",
-			envKey: "SERVER_RUNNER_SOCKET_DIR",
-			description:
-				"Absolute path of the private directory holding the Unix sockets both roles use to deliver workflow messages to each other; required when SERVER_LANES is interactive, background, or split and rejected otherwise",
+		processRole: enumField({
+			hidden: true,
+			defaultValue: "all",
+			label: "Process role",
+			envKey: "RYOT_SERVER_ROLE",
+			description: "Internal role for supervised server processes",
+			choices: {
+				kind: "static",
+				values: [{ value: "all" }, { value: "interactive" }, { value: "background" }],
+			},
 		}),
 		egressAllowedNetworks: stringField({
 			label: "Egress allowed networks",
 			envKey: "SERVER_EGRESS_ALLOWED_NETWORKS",
 			description:
 				"Comma-separated CIDR networks that outbound requests from plugins, notifications, and OAuth may reach although they are loopback, private, or otherwise special-purpose, such as 192.168.1.0/24; link-local, metadata, multicast, and unspecified ranges cannot be allowed",
-		}),
-		lanes: enumField({
-			label: "Lanes",
-			defaultValue: "all",
-			envKey: "SERVER_LANES",
-			choices: {
-				kind: "static",
-				values: [
-					{ value: "all" },
-					{ value: "interactive" },
-					{ value: "background" },
-					{ value: "split" },
-				],
-			},
-			description:
-				"Work this process runs: all of it; one role of a two-process deployment on one host, where interactive serves HTTP and interactive-lane work and background runs everything else; or split, which supervises both roles as child processes of one entry point, running migrations first and starting the background role at the lowest CPU priority",
 		}),
 	},
 );

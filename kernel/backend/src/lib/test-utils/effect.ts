@@ -196,6 +196,7 @@ export const makeAppConfigLayer = (
 		},
 		server: {
 			lanes: "all",
+			processRole: "all",
 			proKey: Option.none(),
 			clientDir: "./client",
 			disableNotifications: false,

@@ -31,11 +31,11 @@ manifest.
 `sandboxHostContracts` in `src/core.ts` owns bridge argument and result schemas. The contract package
 owns `SANDBOX_HOST_CAPABILITIES` and its policy-safe subset in
 `@ryot-app/contract/modules/sandbox/wire`. Kernel `SANDBOX_CAPABILITY_REQUIREMENTS` and
-`SANDBOX_DURABLE_HOST_DISPATCH` are exhaustive records; a bridge operation change must keep both
-covered. SDK functions whose effects are not visible as direct host calls are mapped by canonical
-module and export in `src/intrinsics.ts`; `readArtifact`, `readArtifactRange`, and
-`readNamedArtifact` map to `artifact-read`. Compiler analysis checks the declaring module identity,
-not an import alias.
+`SANDBOX_HOST_EXECUTION_POLICY` (including its `dispatch` field) are exhaustive records; a bridge
+operation change must keep both covered. SDK functions whose effects are not visible as direct host
+calls are mapped by canonical module and export in `src/intrinsics.ts`; `readArtifact`,
+`readArtifactRange`, and `readNamedArtifact` map to `artifact-read`. Compiler analysis checks the
+declaring module identity, not an import alias.
 
 ## Boundary Errors
 

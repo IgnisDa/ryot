@@ -70,9 +70,10 @@ or encoded retention.
   (`modules/sandbox/durable-queues.ts:150-158`), binds only `log` and `span` live, and dispatches
   other capabilities durably after the replay ends; inline settlement accepts only `activity`
   capabilities, which neither start workflows nor need another sandbox slot.
-- Executions without a workflow ID bind live only capabilities whose `SANDBOX_DURABLE_HOST_DISPATCH`
-  strategy is `activity` or `diagnostic`, plus file grants. `selectSandboxHostFunctions` enforces this
-  so a future live caller cannot hold resources while a workflow-dispatched capability waits.
+- Executions without a workflow ID bind live only capabilities whose entry in
+  `SANDBOX_HOST_EXECUTION_POLICY` has `dispatch` set to `activity` or `diagnostic`, plus file grants.
+  `selectSandboxHostFunctions` enforces this so a future live caller cannot hold resources while a
+  workflow-dispatched capability waits.
 - Script kind does not determine execution mode, so manifests are not restricted by kind.
 
 ## 4. Representation changes (M2)
