@@ -168,39 +168,37 @@ describe("Event automations", () => {
 		}),
 	);
 
-	it.live(
-		"logging more than 100 anime episodes creates a completion event",
-		() =>
-			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
+	it.live("logging more than 100 anime episodes creates a completion event", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
 
-				const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
+			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
+				client,
+				{ entitySchemaSlug: "anime", properties: { images: [], episodes: 101 } },
+			);
+
+			const progressItems = Array.from({ length: 101 }, (_, index) => ({
+				entityId,
+				occurredAt: isoMinuteAt(index),
+				eventSchemaSlug: progressEventSchemaSlug,
+				properties: { progressPercent: 100, animeEpisode: index + 1 },
+			}));
+			for (let start = 0; start < progressItems.length; start += 20) {
+				const batch = progressItems.slice(start, start + 20);
+				yield* waitForCreateEvents(
 					client,
-					{ entitySchemaSlug: "anime", properties: { images: [], episodes: 101 } },
+					yield* client.call((c) => c.events.create({ payload: batch })),
 				);
+			}
 
-				const progressItems = Array.from({ length: 101 }, (_, index) => ({
-					entityId,
-					occurredAt: isoMinuteAt(index),
-					eventSchemaSlug: progressEventSchemaSlug,
-					properties: { progressPercent: 100, animeEpisode: index + 1 },
-				}));
-				for (let start = 0; start < progressItems.length; start += 20) {
-					const batch = progressItems.slice(start, start + 20);
-					yield* waitForCreateEvents(
-						client,
-						yield* client.call((c) => c.events.create({ payload: batch })),
-					);
-				}
+			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
-				const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
-
-				expect(completeEvent.properties).toMatchObject({
-					completionMode: "custom_timestamps",
-					completedOn: isoMinuteAt(100).replace(".000Z", "+00:00"),
-				});
-				expect(completeEvent.occurredAt).toBe(isoMinuteAt(100));
-			}),
+			expect(completeEvent.properties).toMatchObject({
+				completionMode: "custom_timestamps",
+				completedOn: isoMinuteAt(100).replace(".000Z", "+00:00"),
+			});
+			expect(completeEvent.occurredAt).toBe(isoMinuteAt(100));
+		}),
 	);
 
 	it.live("anime with unknown episode count does not create a completion event", () =>

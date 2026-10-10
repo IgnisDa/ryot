@@ -31,14 +31,13 @@ const SHOW_COVER = `<svg xmlns="http://www.w3.org/2000/svg" width="60" height="9
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
 let mediaProviders: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				harness = yield* startIsolatedHarness("Browser Media Entity");
-				mediaProviders = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
-			}),
-		),
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			harness = yield* startIsolatedHarness("Browser Media Entity");
+			mediaProviders = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+		}),
+	),
 );
 
 afterAll(() => runPromise(harness?.stop ?? Effect.void));

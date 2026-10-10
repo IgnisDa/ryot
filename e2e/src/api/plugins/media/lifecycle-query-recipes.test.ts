@@ -417,14 +417,13 @@ const readCreatedOrder = (client: Client, entityId: string, occurredAt: string) 
 let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
 let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
-beforeAll(
-	() =>
-		runPromise(
-			Effect.gen(function* () {
-				harness = yield* startIsolatedHarness("Media Lifecycle Query Recipes");
-				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
-			}),
-		),
+beforeAll(() =>
+	runPromise(
+		Effect.gen(function* () {
+			harness = yield* startIsolatedHarness("Media Lifecycle Query Recipes");
+			media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+		}),
+	),
 );
 
 afterAll(() => runPromise(harness?.stop ?? Effect.void));

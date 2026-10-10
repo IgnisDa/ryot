@@ -723,28 +723,26 @@ describe("plugin archive", () => {
 		);
 	});
 
-	it.live(
-		"returns a boundary archive accepted by its reader",
-		() =>
-			Effect.gen(function* () {
-				const path = pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes);
-				const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes);
-				const pluginBytes = writePluginArchive({
-					manifest: fixture.manifest,
-					compiledClient: clientFixture([
-						{
-							contents: bytes,
-							contentType: "image/svg+xml",
-							name: path.slice("compiled-client/files/".length),
-						},
-					]),
-				});
-				const result = yield* readPluginArchive(pluginBytes);
+	it.live("returns a boundary archive accepted by its reader", () =>
+		Effect.gen(function* () {
+			const path = pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes);
+			const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes);
+			const pluginBytes = writePluginArchive({
+				manifest: fixture.manifest,
+				compiledClient: clientFixture([
+					{
+						contents: bytes,
+						contentType: "image/svg+xml",
+						name: path.slice("compiled-client/files/".length),
+					},
+				]),
+			});
+			const result = yield* readPluginArchive(pluginBytes);
 
-				expect(sha256Hex(result.compiledClient?.files[0]?.contents ?? new Uint8Array(0))).toBe(
-					sha256Hex(bytes),
-				);
-			}),
+			expect(sha256Hex(result.compiledClient?.files[0]?.contents ?? new Uint8Array(0))).toBe(
+				sha256Hex(bytes),
+			);
+		}),
 	);
 
 	it("rejects a writer path one byte over the limit", () =>

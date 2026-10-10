@@ -138,40 +138,38 @@ describe("interest authorization", () => {
 		}),
 	);
 
-	it.live(
-		"closes missing, expired, malformed, and reused tickets identically",
-		() =>
-			Effect.gen(function* () {
-				const auth = yield* createAuthenticatedClient();
-				const reused = yield* createSocketTicket(auth.client);
-				yield* consumeTicket(reused.ticket);
-				const expired = yield* createSocketTicket(auth.client);
-				yield* Effect.sleep(Duration.seconds(31));
+	it.live("closes missing, expired, malformed, and reused tickets identically", () =>
+		Effect.gen(function* () {
+			const auth = yield* createAuthenticatedClient();
+			const reused = yield* createSocketTicket(auth.client);
+			yield* consumeTicket(reused.ticket);
+			const expired = yield* createSocketTicket(auth.client);
+			yield* Effect.sleep(Duration.seconds(31));
 
-				const closes = yield* Effect.all(
-					[
-						waitForSocketClose(
-							encodeEntityWatchClientMessage({ type: "authenticate", ticket: "A".repeat(43) }),
-						),
-						waitForSocketClose(
-							encodeEntityWatchClientMessage({ type: "authenticate", ticket: expired.ticket }),
-						),
-						waitForSocketClose(
-							encodeEntityWatchClientMessage({ ticket: "malformed", type: "authenticate" }),
-						),
-						waitForSocketClose(
-							encodeEntityWatchClientMessage({ type: "authenticate", ticket: reused.ticket }),
-						),
-					],
-					{ concurrency: "unbounded" },
-				);
-				expect(closes).toEqual([
-					{ code: 1008, reason: "Authentication failed" },
-					{ code: 1008, reason: "Authentication failed" },
-					{ code: 1008, reason: "Authentication failed" },
-					{ code: 1008, reason: "Authentication failed" },
-				]);
-			}),
+			const closes = yield* Effect.all(
+				[
+					waitForSocketClose(
+						encodeEntityWatchClientMessage({ type: "authenticate", ticket: "A".repeat(43) }),
+					),
+					waitForSocketClose(
+						encodeEntityWatchClientMessage({ type: "authenticate", ticket: expired.ticket }),
+					),
+					waitForSocketClose(
+						encodeEntityWatchClientMessage({ ticket: "malformed", type: "authenticate" }),
+					),
+					waitForSocketClose(
+						encodeEntityWatchClientMessage({ type: "authenticate", ticket: reused.ticket }),
+					),
+				],
+				{ concurrency: "unbounded" },
+			);
+			expect(closes).toEqual([
+				{ code: 1008, reason: "Authentication failed" },
+				{ code: 1008, reason: "Authentication failed" },
+				{ code: 1008, reason: "Authentication failed" },
+				{ code: 1008, reason: "Authentication failed" },
+			]);
+		}),
 	);
 
 	it.live("requires authentication as the first frame and before the deadline", () =>
