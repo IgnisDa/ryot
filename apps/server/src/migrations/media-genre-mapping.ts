@@ -61,7 +61,7 @@ const migrateGenres = Effect.fn("migrateGenres")(function* (
 	let cursor: string | null = null;
 	let omitted = 0;
 	for (;;) {
-		const rows = yield* connection
+		const rows: ReadonlyArray<typeof GenreInput.Type> = yield* connection
 			.execute(
 				`
 			WITH batch AS (
