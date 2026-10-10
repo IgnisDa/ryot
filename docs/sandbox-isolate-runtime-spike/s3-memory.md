@@ -152,8 +152,9 @@ shrinks to 3 × actual encoded evidence (retained bytes, done-time text, queue-r
 which stays charged to the same lane partition until the queue result is returned. The handoff never
 needs new capacity after side effects, so it cannot fail. Accumulated evidence reduces the room for the
 next batch's I; once it does not fit, later batches defer before settlement. Legal inline evidence held
-at once per background run is therefore (P_bg − I) / 3; at 1,536 and above with k = 27 that is (232 − 172) / 3 ≈
-20 MiB. Interactive runs in lane mode (P_int = H < I) never settle inline; their batches defer. The queue result carries inline entries as encoded
+at once per run is therefore (P − I) / 3 for its lane's pool P; with k = 27 that is (232 − 172) / 3 ≈
+20 MiB at 1,536 and above for the interactive pool, and 8 MiB for the background pool at 1,536. Both
+pools are at least I in lane mode, so an interactive run's first batch settles inline. The queue result carries inline entries as encoded
 JSON text; the workflow body decodes them as before (accepted residual).
 
 ### 5.4 Processes and per-connection transport
@@ -225,26 +226,27 @@ sum of those holdings.
 
 **Modes (M10)**, selected at boot and recorded in metrics and startup logs:
 
-- Lane mode when D ≥ 2 × (E + 128) with P_bg ≥ I, that is budget ≥ 256 + H + I + 852. Then
-  P_bg = min(budget − 256 − H − 852, I + 60) and D takes the rest; the cap keeps at most two
-  ordinary results per lane (§5.4) and 20 MiB of inline evidence.
+- Lane mode when D ≥ 2 × (E + 128) with both pools ≥ I, that is budget ≥ 256 + 2I + 852. Then
+  P_int = min(budget − 256 − 852 − I, I + 60), P_bg = min(budget − 256 − 852 − P_int, I + 60) and D
+  takes the rest; the cap keeps at most two ordinary results per lane (§5.4) and 20 MiB of inline
+  evidence.
 - Shared mode when budget is below that and ≥ 256 + I + E + 128; P = I; no interactive reservation.
   The S3 latency guarantee is claimed only in lane mode.
 - Typed boot failure below 256 + I + E + 128.
 
-At k = 27 (H 83, I 172, E 298):
+At k = 27 (I 172, E 298):
 
-|            Budget | Mode                 |                          D | Outcomes (every admitted state ≤ budget)                                                                   |
-| ----------------: | -------------------- | -------------------------: | ---------------------------------------------------------------------------------------------------------- |
-|               800 | boot failure (< 854) |                          — | typed configuration error                                                                                  |
-|               964 | shared               |                        536 | one run on a resident core or with a lazy process; never two                                               |
-|             1,094 | shared               |                        666 | two core runs (596); one lazy + one core run (724) waits                                                   |
-|             1,363 | lane                 |   852 (P_int 83, P_bg 172) | background run with lazy (426) plus interactive headroom (426) always held; inline evidence capacity 0     |
-|   1,536 (default) | lane                 |   965 (P_int 83, P_bg 232) | as 1,363, with 20 MiB of concurrent inline evidence and 113 MiB of spare D                                 |
-| 1,904 (canonical) | lane                 | 1,333 (P_int 83, P_bg 232) | as 1,536, with 481 MiB of spare D: up to four concurrent core runs (three background plus one interactive) |
+|            Budget | Mode                 |                           D | Outcomes (every admitted state ≤ budget)                                                               |
+| ----------------: | -------------------- | --------------------------: | ------------------------------------------------------------------------------------------------------ |
+|               800 | boot failure (< 854) |                           — | typed configuration error                                                                              |
+|               964 | shared               |                         536 | one run on a resident core or with a lazy process; never two                                           |
+|             1,094 | shared               |                         666 | two core runs (596); one lazy + one core run (724) waits                                               |
+|             1,452 | lane                 |   852 (P_int 172, P_bg 172) | background run with lazy (426) plus interactive headroom (426) always held; inline evidence capacity 0 |
+|   1,536 (default) | lane                 |   852 (P_int 232, P_bg 196) | as 1,452, with 20 MiB of interactive and 8 MiB of background concurrent inline evidence                |
+| 1,904 (canonical) | lane                 | 1,184 (P_int 232, P_bg 232) | as 1,536, with 20 MiB of concurrent inline evidence per lane and 332 MiB of spare D                    |
 
-As functions of k (k ≤ 40 allowed): lane threshold = 1,309 + 2k (1,363 at k = 27, 1,389 at k = 40);
-capped P_bg = k + 205; canonical D = 1,387 − 2k. Spare D beyond 2 × (E + 128) admits more runs only
+As functions of k (k ≤ 40 allowed): lane threshold = 1,398 + 2k (1,452 at k = 27, 1,478 at k = 40);
+capped P = k + 205; canonical D = 1,238 − 2k. Spare D beyond 2 × (E + 128) admits more runs only
 when G is raised (scheduling decision).
 
 Shared mode remains a lower-throughput configuration under honest accounting: at the 1,536 default, two
@@ -309,7 +311,7 @@ Order: L0 durable worker slot → L1 admission ticket (slot + E + process) → L
 | Evidence accumulates in the lane partition; the next batch defers before settlement once I no longer fits                                                                                                                                                                                                                                      | `inline_evidence_exhaustion_defers_before_settlement`                                                   |
 | Rust done text: 6 Mi BMP 3-byte characters and lone surrogates rejected or held within the 6 MiB term before drop                                                                                                                                                                                                                              | `done_text_is_measured_before_materialization` (Rust)                                                   |
 | Rust delivery with 4 parked slotted results plus an inline reply stays within the 60 MiB term                                                                                                                                                                                                                                                  | `parked_results_and_inline_reply_fit_delivery_term` (Rust)                                              |
-| Boot mode and predicate at budgets 800, 964, 1,094, 1,363, 1,536, 1,904 match §8, including two core-process runs and a waiting lazy-plus-core pair at 1,094 and the P_bg cap at 1,904; background work is admitted and completes in shared mode                                                                                               | `admission_mode_follows_budget_and_admits_background_work`                                              |
+| Boot mode and predicate at budgets 800, 964, 1,094, 1,452, 1,536, 1,904 match §8, including two core-process runs and a waiting lazy-plus-core pair at 1,094 and the P_bg cap at 1,904; background work is admitted and completes in shared mode                                                                                               | `admission_mode_follows_budget_and_admits_background_work`                                              |
 | Interactive permit acquisition, host call, journal read and result delivery complete while background holds all of P_bg, an inline settlement is in progress and maximum background results are queued on the same connection; fails if interactive permits come from P_bg or wait behind background writer traffic beyond one frame per round | `interactive_host_calls_progress_while_background_transient_capacity_is_exhausted`                      |
 
 Plus `bun run check`, `bun turbo --filter='!@ryot-app/e2e' test`, affected e2e files (`enqueue`,

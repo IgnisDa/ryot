@@ -29,10 +29,6 @@ const runBytes =
 	28 * MiB +
 	outstandingHostCalls * (4 * MiB + 5 * MiB + SIDECAR_PROTOCOL_LIMITS.messageBytes.hostResult) +
 	SIDECAR_PROTOCOL_LIMITS.messageBytes.done;
-const ordinaryPermitBytes = sandboxTransientPermitBytes(
-	"httpCall",
-	SANDBOX_LIMITS.bridge.requestBytes,
-);
 const inlinePermitBytes = sandboxTransientPermitBytes(
 	"inlineBatch",
 	SANDBOX_LIMITS.bridge.requestBytes,
@@ -77,7 +73,8 @@ const limitError = (message: string) =>
 	new SandboxRunError({ message, kind: "resource-unavailable" });
 
 // Lane mode keeps one interactive run with a lazy process beside one background run with its own, and
-// caps the background pool at one inline batch plus its evidence. Shared mode has one inline-sized pool.
+// caps each lane's pool at one inline batch plus its evidence; the interactive pool is filled first.
+// Shared mode has one inline-sized pool.
 export const sandboxMemoryPlan = (
 	configuredMiB: Option.Option<number>,
 	effectiveMemory: number,
@@ -94,16 +91,18 @@ export const sandboxMemoryPlan = (
 		return Result.fail(limitError("Sandbox memory budget exceeds half the effective host memory"));
 	}
 	const available = budget - residentBytes;
-	if (available >= ordinaryPermitBytes + inlinePermitBytes + 2 * interactiveHeadroomBytes) {
-		const background = Math.min(
-			available - ordinaryPermitBytes - 2 * interactiveHeadroomBytes,
-			inlinePermitBytes + SANDBOX_TRANSIENT_MEMORY.inlineEvidenceBytes,
+	if (available >= 2 * inlinePermitBytes + 2 * interactiveHeadroomBytes) {
+		const poolCap = inlinePermitBytes + SANDBOX_TRANSIENT_MEMORY.inlineEvidenceBytes;
+		const interactive = Math.min(
+			available - 2 * interactiveHeadroomBytes - inlinePermitBytes,
+			poolCap,
 		);
+		const background = Math.min(available - 2 * interactiveHeadroomBytes - interactive, poolCap);
 		return Result.succeed({
 			budget,
 			mode: "lane",
-			pools: { background, interactive: ordinaryPermitBytes },
-			dynamicBytes: available - ordinaryPermitBytes - background,
+			pools: { background, interactive },
+			dynamicBytes: available - interactive - background,
 		});
 	}
 	if (available >= inlinePermitBytes + interactiveHeadroomBytes) {

@@ -283,14 +283,16 @@ it.effect("admission_mode_follows_budget_and_admits_background_work", () =>
 						"Sandbox memory budget cannot fit resident core processes, transient memory and a lazy run",
 				});
 			}
-			expect([854, 964, 1094, 1362, 1363, 1536, 1904].map(plannedRegions)).toEqual([
+			expect([854, 964, 1094, 1362, 1451, 1452, 1480, 1536, 1904].map(plannedRegions)).toEqual([
 				Result.succeed({ dynamic: 426, mode: "shared", pools: [172, 172] }),
 				Result.succeed({ dynamic: 536, mode: "shared", pools: [172, 172] }),
 				Result.succeed({ dynamic: 666, mode: "shared", pools: [172, 172] }),
 				Result.succeed({ dynamic: 934, mode: "shared", pools: [172, 172] }),
-				Result.succeed({ mode: "lane", dynamic: 852, pools: [83, 172] }),
-				Result.succeed({ mode: "lane", dynamic: 965, pools: [83, 232] }),
-				Result.succeed({ mode: "lane", dynamic: 1333, pools: [83, 232] }),
+				Result.succeed({ dynamic: 1023, mode: "shared", pools: [172, 172] }),
+				Result.succeed({ mode: "lane", dynamic: 852, pools: [172, 172] }),
+				Result.succeed({ mode: "lane", dynamic: 852, pools: [200, 172] }),
+				Result.succeed({ mode: "lane", dynamic: 852, pools: [232, 196] }),
+				Result.succeed({ mode: "lane", dynamic: 1184, pools: [232, 232] }),
 			]);
 
 			const admission = yield* makeSandboxAdmission(1094);
@@ -330,7 +332,7 @@ it.effect("admission_mode_follows_budget_and_admits_background_work", () =>
 it.effect("fair_admission_releases_tickets_and_reservations_exactly_once", () =>
 	Effect.scoped(
 		Effect.gen(function* () {
-			const admission = yield* makeSandboxAdmission(1363);
+			const admission = yield* makeSandboxAdmission(1452);
 			const idle = idleSnapshot(admission);
 
 			const held = yield* acquireScope;

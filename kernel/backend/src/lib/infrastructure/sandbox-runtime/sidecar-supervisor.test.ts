@@ -1803,7 +1803,7 @@ const withLaneSupervisor = <A, E, R>(work: Parameters<typeof withSupervisor<A, E
 				...config.sandbox,
 				workerConcurrency: 3,
 				perUserSidecars: true,
-				memoryBudgetMiB: Option.some(1363),
+				memoryBudgetMiB: Option.some(1452),
 			},
 		};
 		const admission = yield* SandboxSidecarAdmission.make.pipe(

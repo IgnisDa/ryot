@@ -1209,7 +1209,7 @@ const decodeFrameHandle = Schema.decodeUnknownSync(
 it.effect("interactive_memory_headroom_preserves_existing_execution_limits", () =>
 	Effect.scoped(
 		Effect.gen(function* () {
-			const admission = yield* makeSandboxAdmission(1363, 3);
+			const admission = yield* makeSandboxAdmission(1452, 3);
 			const gate = yield* gateFor(admission);
 			const parentSpan = yield* Effect.currentSpan;
 			yield* enterLazy(admission, "user/data", 1, "background");
@@ -1274,6 +1274,56 @@ it.effect("interactive_memory_headroom_preserves_existing_execution_limits", () 
 				released();
 			}
 		}).pipe(Effect.withSpan("host-call-gate.interactive-headroom")),
+	),
+);
+
+it.effect("interactive_inline_batch_settles_at_the_lane_edge", () =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const admission = yield* makeSandboxAdmission(1452, 3);
+			expect(admission.plan.mode).toBe("lane");
+			const gate = yield* gateFor(admission);
+			const parentSpan = yield* Effect.currentSpan;
+			yield* enterLazy(admission, "user/data", 1, "interactive");
+			const settled = { count: 0 };
+			const registration = yield* gate.register(
+				makeOptions(
+					parentSpan,
+					makeInput(["httpCall"], {
+						lane: "interactive",
+						replayJournal: memoryPinnedJournal([]),
+						workflowExecutionId: "interactive-inline",
+						inlineDurableHost: {
+							capabilities: ["httpCall"],
+							settle: (requests) =>
+								Effect.sync(() => {
+									settled.count += 1;
+									return requests.map((): WorkflowDurableResult => ({
+										value: null,
+										state: "success",
+									}));
+								}),
+						},
+					}),
+					{ httpCall: successHostFunction() },
+					makeFiles(),
+					"interactive-inline",
+				),
+			);
+			expect(
+				frameValue(
+					yield* registration.dispatch(
+						makeFrame(
+							0,
+							"inlineBatch",
+							{ requests: httpRequests(1) },
+							{ handle: "interactive-inline" },
+						),
+					),
+				),
+			).toEqual({ results: [{ value: null, state: "success" }] });
+			expect(settled.count).toBe(1);
+		}).pipe(Effect.withSpan("host-call-gate.interactive-inline")),
 	),
 );
 
