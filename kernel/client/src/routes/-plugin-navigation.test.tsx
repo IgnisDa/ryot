@@ -680,7 +680,7 @@ describe("client page routes", () => {
 					expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-1" }),
 				),
 			);
-			expect(screen.getByTitle<HTMLIFrameElement>("Entity details plugin")).toBe(pluginFrame);
+			expect(screen.getByTitle<HTMLIFrameElement>("Fixture plugin")).toBe(pluginFrame);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
@@ -702,7 +702,7 @@ describe("client page routes", () => {
 					expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-2" }),
 				),
 			);
-			expect(screen.getByTitle<HTMLIFrameElement>("Entity details plugin")).toBe(pluginFrame);
+			expect(screen.getByTitle<HTMLIFrameElement>("Fixture plugin")).toBe(pluginFrame);
 			yield* Effect.promise(() =>
 				waitFor(() =>
 					expect(bridge.messages).toContainEqual(
@@ -1179,7 +1179,7 @@ describe("client page routes", () => {
 			const entries = [{ ...catalog[0], isHidden: true }];
 			const view = mount({ entries, entry: "/e/entity-1?tab=activity" });
 			const frame = yield* Effect.promise(() =>
-				screen.findByTitle<HTMLIFrameElement>("Entity details plugin"),
+				screen.findByTitle<HTMLIFrameElement>("Fixture plugin"),
 			);
 			const bridge = connectFrame(frame);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
