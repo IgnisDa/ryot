@@ -29,6 +29,17 @@ ENV RYOT_VERSION=$RYOT_VERSION
 RUN bun turbo --filter=@ryot-app/server build
 RUN bun run --cwd apps/server assemble
 
+FROM backend-builder AS sandbox-test
+WORKDIR /app/kernel/sandboxd
+RUN cargo test --no-run
+WORKDIR /app
+RUN bash /app/kernel/sandboxd/provision.sh \
+    /app/kernel/sandboxd/dist/ryot-sandbox-launcher \
+    /app/kernel/sandboxd/dist/ryot-sandboxd \
+    /app/kernel/sandboxd/dist/snapshots && \
+    chown -R 1001:1001 /app
+USER 1001:1001
+
 FROM builder-base AS client-builder
 ARG RYOT_VERSION="unknown"
 ENV RYOT_VERSION=$RYOT_VERSION
