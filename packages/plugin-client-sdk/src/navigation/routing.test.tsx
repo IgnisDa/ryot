@@ -3,6 +3,7 @@ import { SavedViewReference } from "@ryot-app/contract/modules/plugins/reference
 import { EntityId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	PluginEntityLocation,
+	type EntityWatch,
 	type PluginBridgeNavigate,
 	type PluginLeadingIntent,
 	type PluginLogicalLocation,
@@ -13,10 +14,12 @@ import { Effect, Match, Schema } from "effect";
 import { useEffect, useState, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
-import type { RyotClientAdapter, RyotNavigationTarget, EntityWatch, EntityUpdate } from "./index";
-import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
-import { PluginScreenFrame } from "./plugin-screen";
-import { RyotProvider, useRyot, useEntityRefresh } from "./react";
+import type { EntityUpdate, RyotClientAdapter } from "../client/adapter";
+import type { RyotNavigationTarget } from "../client/navigation-target";
+import { PluginScreenFrame } from "../plugin-screen";
+import { RyotProvider, useRyot } from "../queries/provider";
+import { useEntityRefresh } from "../refresh/entity-hooks";
+import { createTestRyotClock, waitForMessagePortMacrotask } from "../testing";
 import {
 	createPluginRouteResolver,
 	PluginLink,
@@ -27,7 +30,7 @@ import {
 	type EntityRendererProps,
 	type PluginRouterDefinition,
 } from "./routing";
-import { createTestRyotClock, waitForMessagePortMacrotask } from "./testing";
+import { createPluginNavigationStore, type PluginRouterNavigation } from "./store";
 
 (
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }

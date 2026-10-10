@@ -16,19 +16,18 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { useEffect, useState } from "react";
 
+import { usePluginParams, usePluginTitle, type EntityRendererProps } from "../navigation/routing";
+import * as pluginSurface from "../plugin";
+import { useRyot, useRyotSchedule, useRyotTheme } from "../queries/provider";
+import { RyotClientService, RyotNavigationService } from "../runtime/runtime";
+import { RyotScheduleService } from "../schedule";
+import { createTestRyotClock, mountPluginPage, waitForMessagePortMacrotask } from "../testing";
 import {
 	bootstrapClientPlugin,
 	bootstrapClientPage,
 	createClientBootstrap,
 	usePageContext,
-	usePluginParams,
-	usePluginTitle,
-	type EntityRendererProps,
-} from "./plugin";
-import * as pluginSurface from "./plugin";
-import { useRyot, useRyotSchedule, useRyotTheme } from "./react";
-import { RyotClientService, RyotNavigationService, RyotScheduleService } from "./schedule";
-import { createTestRyotClock, mountPluginPage, waitForMessagePortMacrotask } from "./testing";
+} from "./application";
 
 const metadata = {
 	hash: "composition-hash",

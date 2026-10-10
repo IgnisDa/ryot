@@ -1,5 +1,5 @@
-import type { EntityUpdate } from "./index";
-import type { RyotSchedule } from "./schedule";
+import type { EntityUpdate } from "../client/adapter";
+import type { RyotSchedule } from "../schedule";
 
 export type EntitySettleReason = "populating" | "translating";
 

@@ -3,7 +3,7 @@ import {
 	RyotClientError,
 	type RyotClientAdapter,
 } from "@ryot-app/plugin-client-sdk";
-import { makeRyotRuntime, type RyotRuntime } from "@ryot-app/plugin-client-sdk/schedule";
+import { makeRyotRuntime, type RyotRuntime } from "@ryot-app/plugin-client-sdk/runtime";
 import { Effect } from "effect";
 
 import { classifyCollectionFailure, CollectionsApi } from "#/api/collections";

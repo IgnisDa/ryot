@@ -2,8 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Fiber, Result, Schema } from "effect";
 
-import { createRyotClient, RyotClientError } from "./index";
-import { createTestRyotAdapter } from "./testing";
+import { createTestRyotAdapter } from "../testing";
+import { createRyotClient } from "./client";
+import { RyotClientError } from "./errors";
 
 const document = { output: {}, queries: {} } as PreparedRecipe<string>["document"];
 const recipe: PreparedRecipe<string> = {
