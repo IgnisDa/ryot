@@ -184,7 +184,38 @@ describe("POST /uploads/cleanup", () => {
 				}),
 			);
 			assertTaggedError(rejected, "EntityBadRequest");
-			expect(rejected.reason.code).toBe("mutation-conflict");
+			expect(rejected.reason).toEqual({ code: "asset-forbidden" });
+		}),
+	);
+	it.live("rejects another user's locator so its owner can still clean it up", () =>
+		Effect.gen(function* () {
+			const { asset, client } = yield* uploadAndComplete("owned.png", "image/png");
+			const stranger = yield* createAuthenticatedClient();
+			const schema = yield* createEntitySchema(stranger.client, {
+				pluginSlug: `foreign-asset-${crypto.randomUUID()}`,
+				propertiesSchema: { fields: { images: imagesField("Attached images") } },
+			});
+			const rejected = yield* Effect.flip(
+				createEntity(stranger.client, {
+					name: "Borrowed attachment",
+					entitySchema: schema.reference,
+					properties: { images: [asset] },
+				}),
+			);
+			assertTaggedError(rejected, "EntityBadRequest");
+			expect(rejected.reason).toEqual({ code: "asset-forbidden" });
+			expect(yield* client.call((c) => c.uploads.cleanup({ payload: { asset } }))).toEqual({
+				status: "deleted",
+			});
+			const unregistered = yield* Effect.flip(
+				client.call((c) =>
+					c.uploads.cleanup({
+						payload: { asset: { type: asset.type, key: `permanent/${crypto.randomUUID()}.png` } },
+					}),
+				),
+			);
+			assertTaggedError(unregistered, "UploadBadRequest");
+			expect(unregistered.reason).toEqual({ code: "asset-forbidden" });
 		}),
 	);
 });

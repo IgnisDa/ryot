@@ -80,6 +80,8 @@ export const mutationWriteCheck = (
 const concurrentChange = () =>
 	new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } });
 
+const assetForbidden = () => new RelationshipBadRequest({ reason: { code: "asset-forbidden" } });
+
 const assertStableSource = (
 	mutation: Mutation,
 	validated: ValidatedMutation,
@@ -441,14 +443,20 @@ export const makeRelationshipMutationPrimitives = ({
 				propertiesSchema: validated.active.propertiesSchema,
 			});
 		}
-		const assetRecords = decisions.flatMap(({ request, propertiesSchema }) =>
+		const assetRecords = decisions.flatMap(({ input, request, propertiesSchema }) =>
 			request && request.operation !== "delete"
-				? [{ propertiesSchema, properties: request.draft.properties }]
+				? [
+						{
+							propertiesSchema,
+							properties: request.draft.properties,
+							ownerUserId: input.scope === "user" ? input.userId : null,
+						},
+					]
 				: [],
 		);
-		if (yield* lockAssetReferences(assetRecords)) {
-			return yield* concurrentChange();
-		}
+		yield* lockAssetReferences(assetRecords).pipe(
+			Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden),
+		);
 		const deleted = yield* repository.deleteRelationshipsById(
 			decisions.flatMap(({ row, request }) =>
 				request?.operation === "delete" && row ? [row.id] : [],
@@ -503,16 +511,14 @@ export const makeRelationshipMutationPrimitives = ({
 	) {
 		yield* assertActiveTransaction;
 		yield* assertStableSource(mutation, validated, before);
-		if (
-			request.operation !== "delete" &&
-			(yield* lockAssetReferences([
+		if (request.operation !== "delete") {
+			yield* lockAssetReferences([
 				{
 					properties: request.draft.properties,
 					propertiesSchema: validated.active.propertiesSchema,
+					ownerUserId: mutation.input.scope === "user" ? mutation.input.userId : null,
 				},
-			]))
-		) {
-			return yield* concurrentChange();
+			]).pipe(Effect.catchTag("ManagedAssetReferenceRejected", assetForbidden));
 		}
 		if (request.operation === "create") {
 			const saved = yield* repository.createRelationship({

@@ -100,18 +100,15 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				null,
 				page?.kind === "page" ? page : null,
 			);
-			if (
-				page?.kind === "page" &&
-				(yield* lockAssetReferences([
-					{ properties: settings, propertiesSchema: page.settingsSchema },
-				]))
-			) {
-				return yield* new SavedViewBadRequest({
-					reason: {
-						code: "settings-incompatible",
-						message: "Settings reference a retired managed asset",
-					},
-				});
+			if (page?.kind === "page") {
+				yield* lockAssetReferences([
+					{ ownerUserId: userId, properties: settings, propertiesSchema: page.settingsSchema },
+				]).pipe(
+					Effect.catchTag(
+						"ManagedAssetReferenceRejected",
+						() => new SavedViewBadRequest({ reason: { code: "asset-forbidden" } }),
+					),
+				);
 			}
 			return dataSources;
 		});

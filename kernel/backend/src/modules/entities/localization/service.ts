@@ -193,14 +193,24 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 								message: "Translation entity schema is unavailable",
 							});
 						}
-						if (
-							input.properties !== null &&
-							(yield* lockAssetReferences([{ propertiesSchema, properties: input.properties }]))
-						) {
-							return yield* new SandboxRunError({
-								kind: "invalid-input",
-								message: "Translation references a retired managed asset",
-							});
+						if (input.properties !== null) {
+							yield* lockAssetReferences([
+								{
+									propertiesSchema,
+									properties: input.properties,
+									ownerUserId: execution.entityScopeUserId,
+								},
+							]).pipe(
+								Effect.catchTag(
+									"ManagedAssetReferenceRejected",
+									() =>
+										new SandboxRunError({
+											kind: "invalid-input",
+											data: { code: "asset-forbidden" },
+											message: "Translation references a forbidden managed asset",
+										}),
+								),
+							);
 						}
 						return yield* repository.upsertOverlay(input);
 					}),

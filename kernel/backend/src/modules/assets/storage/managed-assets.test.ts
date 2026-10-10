@@ -523,12 +523,11 @@ layer(cleanupLayer({ referenced: true, record: cleanupRecord(userId) }))((test) 
 });
 
 layer(cleanupLayer({ record: null }))((test) => {
-	test.effect("returns missing for an unknown managed asset", () =>
+	test.effect("rejects cleanup for an unknown managed asset", () =>
 		Effect.gen(function* () {
 			const service = yield* ManagedAssetsService;
-			expect(yield* service.cleanupManagedAsset(user, cleanupLocator)).toEqual({
-				status: "missing",
-			});
+			const exit = yield* Effect.exit(service.cleanupManagedAsset(user, cleanupLocator));
+			assertExitFails(exit, new UploadBadRequest({ reason: { code: "asset-forbidden" } }));
 		}),
 	);
 });

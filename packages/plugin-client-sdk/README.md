@@ -56,9 +56,9 @@ handler does not trigger itself again. Writes retain the default mutation-refres
 `uploads` is one capability on every adapter that hides intent creation, byte transfer, completion,
 and cleanup. `uploadTemporary({ source, fileName, contentType })` returns a `TemporaryUploadToken`;
 `uploadPermanent` with the same request shape returns a `ManagedAssetLocator`; `cleanup(asset)` returns
-`{ status: "deleted" | "referenced" | "missing" }`. Bridge payloads are structured-clone values, so
-file uploads send a `Blob` or `File` with a file name and content type, while cleanup sends only the
-managed locator. The host keeps the intent, upload URL, headers, and credential. A non-`Blob` source
+`{ status: "deleted" | "referenced" }` and fails with `asset-forbidden` for a missing or foreign
+asset. Bridge payloads are structured-clone values, so file uploads send a `Blob` or `File` with a
+file name and content type, while cleanup sends only the managed locator. The host keeps the intent, upload URL, headers, and credential. A non-`Blob` source
 fails with `invalid-input`. There is no cancellation; disposal aborts an in-flight request.
 
 `storage.get(pluginId, key)`, `storage.set(pluginId, key, value)`, and

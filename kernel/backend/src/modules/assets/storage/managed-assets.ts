@@ -140,10 +140,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				const retirement = yield* session.transaction(
 					Effect.gen(function* () {
 						const managed = yield* repository.lockByLocator(locator);
-						if (!managed) {
-							return "missing" as const;
-						}
-						if (managed.ownerUserId !== user.id) {
+						if (!managed || managed.ownerUserId !== user.id) {
 							return yield* new UploadBadRequest({ reason: { code: "asset-forbidden" } });
 						}
 						if (managed.retiredAt !== null) {
