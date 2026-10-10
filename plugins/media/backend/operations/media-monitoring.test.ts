@@ -146,12 +146,14 @@ describe("media monitoring operations", () => {
 						creates: [
 							{
 								properties: {},
+								propertiesMode: "merge",
 								sourceEntityId: "entity-a",
 								targetEntityId: "library-1",
 								relationshipSchemaSlug: "in-media-library",
 							},
 							{
 								properties: {},
+								propertiesMode: "merge",
 								sourceEntityId: "entity-a",
 								targetEntityId: "library-1",
 								relationshipSchemaSlug: "media-monitoring",

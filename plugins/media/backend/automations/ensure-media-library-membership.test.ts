@@ -76,6 +76,7 @@ it.each(["book", "show", "anime", "manga", "video-game", "music", "person", "com
 								creates: [
 									{
 										properties: {},
+										propertiesMode: "merge",
 										sourceEntityId: "entity-1",
 										targetEntityId: "library-1",
 										relationshipSchemaSlug: "in-media-library",
@@ -185,12 +186,14 @@ it("upserts each distinct event or collection target once per written batch", ()
 						creates: [
 							{
 								properties: {},
+								propertiesMode: "merge",
 								sourceEntityId: "entity-1",
 								targetEntityId: "library-1",
 								relationshipSchemaSlug: "in-media-library",
 							},
 							{
 								properties: {},
+								propertiesMode: "merge",
 								sourceEntityId: "entity-2",
 								targetEntityId: "library-1",
 								relationshipSchemaSlug: "in-media-library",
@@ -263,6 +266,7 @@ it.live("uses trusted user scope for direct creation", () =>
 					creates: [
 						{
 							properties: {},
+							propertiesMode: "merge",
 							sourceEntityId: "entity-1",
 							targetEntityId: "library-1",
 							relationshipSchemaSlug: "in-media-library",
