@@ -58,6 +58,7 @@ export const UnresolvedEpisodeRef = Schema.Union([
 		type: Schema.Literal("show"),
 	}),
 	Schema.Struct({ episodeNumber: Schema.Int, type: Schema.Literal("podcast") }),
+	Schema.Struct({ episodeTitle: Schema.NonEmptyString, type: Schema.Literal("podcast-title") }),
 ]);
 
 export type UnresolvedEpisodeRef = typeof UnresolvedEpisodeRef.Type;

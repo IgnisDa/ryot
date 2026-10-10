@@ -49,8 +49,11 @@ const unresolvedEpisodeMessage = (episode: UnresolvedEpisodeRef) => {
 	if (episode.type === "show-season") {
 		return `Could not resolve show season ${episode.seasonNumber}`;
 	}
-	return episode.type === "show"
-		? `Could not resolve show episode S${episode.seasonNumber}E${episode.episodeNumber}`
+	if (episode.type === "show") {
+		return `Could not resolve show episode S${episode.seasonNumber}E${episode.episodeNumber}`;
+	}
+	return episode.type === "podcast-title"
+		? `Could not resolve podcast episode ${episode.episodeTitle}`
 		: `Could not resolve podcast episode ${episode.episodeNumber}`;
 };
 
@@ -242,13 +245,21 @@ export function* runMediaImportBatch(
 				seasonNumber: unresolvedEpisode.seasonNumber,
 			};
 		}
-		return unresolvedEpisode.type === "show"
+		if (unresolvedEpisode.type === "show") {
+			return {
+				index,
+				kind: "show" as const,
+				showEntityId: parentEntityId,
+				seasonNumber: unresolvedEpisode.seasonNumber,
+				episodeNumber: unresolvedEpisode.episodeNumber,
+			};
+		}
+		return unresolvedEpisode.type === "podcast-title"
 			? {
 					index,
-					kind: "show" as const,
-					showEntityId: parentEntityId,
-					seasonNumber: unresolvedEpisode.seasonNumber,
-					episodeNumber: unresolvedEpisode.episodeNumber,
+					kind: "podcast-title" as const,
+					podcastEntityId: parentEntityId,
+					episodeTitle: unresolvedEpisode.episodeTitle,
 				}
 			: {
 					index,
@@ -330,6 +341,7 @@ export function* runMediaImportBatch(
 					show: "show-episode",
 					podcast: "podcast-episode",
 					"show-season": "show-season",
+					"podcast-title": "podcast-episode",
 				}[event.unresolvedEpisode.type],
 			});
 		}

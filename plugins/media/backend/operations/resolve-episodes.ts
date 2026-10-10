@@ -143,10 +143,12 @@ export const resolveEpisodeRecipe = defineRecipe(
 						entitySchemaPredicate(podcast, "podcast", reference),
 						entitySchemaPredicate(episode, "podcast-episode", reference),
 						relationshipSchemaPredicate(relationship, "podcast-to-podcast-episode", reference),
-						eq(
-							castNumber(jsonPath(column(episode, "properties"), "episodeNumber")),
-							literal(ref.episodeNumber),
-						),
+						ref.kind === "podcast-title"
+							? eq(column(episode, "name"), literal(ref.episodeTitle))
+							: eq(
+									castNumber(jsonPath(column(episode, "properties"), "episodeNumber")),
+									literal(ref.episodeNumber),
+								),
 						eq(column(podcast, "id"), literal(ref.podcastEntityId)),
 					),
 				}),

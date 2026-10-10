@@ -7,6 +7,10 @@ finished media.
 
 Media must have an Audible ID, iTunes ID, or ISBN.
 
+Ryot syncs the current listening or reading percentage. For podcasts, the current episode title must
+match an episode in the provider's podcast listing. Ownership sync is optional and does not import
+finished history.
+
 1. Get an API token from the Audiobookshelf
    [authentication](https://api.audiobookshelf.org/#authentication) docs.
 2. Under **Settings > Integrations**, create an Audiobookshelf integration with the server details
