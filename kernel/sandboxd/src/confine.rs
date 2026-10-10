@@ -6,26 +6,59 @@ use seccompiler::{
     SeccompRule, TargetArch,
 };
 
-pub const DENIED_SYSCALLS: [i64; 18] = [
-    libc::SYS_socket,
-    libc::SYS_execve,
-    libc::SYS_execveat,
-    libc::SYS_ptrace,
-    libc::SYS_process_vm_readv,
-    libc::SYS_process_vm_writev,
-    libc::SYS_userfaultfd,
-    libc::SYS_io_uring_setup,
-    libc::SYS_io_uring_enter,
-    libc::SYS_io_uring_register,
-    libc::SYS_bpf,
-    libc::SYS_perf_event_open,
-    libc::SYS_mount,
-    libc::SYS_umount2,
-    libc::SYS_unshare,
-    libc::SYS_setns,
-    libc::SYS_pivot_root,
-    libc::SYS_kexec_load,
+const ALLOWED_SYSCALLS: &[i64] = &[
+    libc::SYS_brk,
+    libc::SYS_clock_gettime,
+    libc::SYS_clock_nanosleep,
+    libc::SYS_close,
+    libc::SYS_epoll_ctl,
+    #[cfg(target_arch = "aarch64")]
+    libc::SYS_epoll_pwait,
+    #[cfg(target_arch = "x86_64")]
+    libc::SYS_epoll_wait,
+    libc::SYS_exit,
+    libc::SYS_exit_group,
+    libc::SYS_futex,
+    libc::SYS_getpid,
+    libc::SYS_getrandom,
+    libc::SYS_gettid,
+    libc::SYS_madvise,
+    libc::SYS_mmap,
+    libc::SYS_mprotect,
+    libc::SYS_mremap,
+    libc::SYS_munmap,
+    #[cfg(target_arch = "x86_64")]
+    libc::SYS_pkey_alloc,
+    #[cfg(target_arch = "x86_64")]
+    libc::SYS_pkey_mprotect,
+    libc::SYS_pread64,
+    libc::SYS_read,
+    libc::SYS_recvfrom,
+    libc::SYS_rseq,
+    libc::SYS_rt_sigaction,
+    libc::SYS_rt_sigprocmask,
+    libc::SYS_rt_sigreturn,
+    libc::SYS_sched_getaffinity,
+    libc::SYS_sched_getparam,
+    libc::SYS_sched_getscheduler,
+    libc::SYS_sendto,
+    libc::SYS_set_robust_list,
+    libc::SYS_sigaltstack,
+    #[cfg(target_arch = "x86_64")]
+    libc::SYS_uname,
+    libc::SYS_write,
 ];
+
+fn rule(conditions: &[(u8, SeccompCmpArgLen, SeccompCmpOp, u64)]) -> Result<SeccompRule, String> {
+    conditions
+        .iter()
+        .map(|(argument, length, operation, value)| {
+            SeccompCondition::new(*argument, length.clone(), operation.clone(), *value)
+        })
+        .collect::<Result<Vec<_>, _>>()
+        .and_then(SeccompRule::new)
+        .map_err(|error| format!("building syscall argument restrictions failed: {error}"))
+}
 
 fn prctl(option: libc::c_int, value: libc::c_ulong) -> Result<(), String> {
     // SAFETY: the options used here take integer arguments only.
@@ -82,37 +115,87 @@ pub fn lock_down() -> Result<(), String> {
     } else {
         TargetArch::aarch64
     };
-    let mut rules = DENIED_SYSCALLS
+    let mut rules = ALLOWED_SYSCALLS
         .iter()
         .map(|syscall| (*syscall, Vec::new()))
         .collect::<BTreeMap<_, _>>();
-    let namespace_flags = libc::CLONE_NEWCGROUP
-        | libc::CLONE_NEWIPC
-        | libc::CLONE_NEWNET
-        | libc::CLONE_NEWNS
-        | libc::CLONE_NEWPID
-        | libc::CLONE_NEWTIME
-        | libc::CLONE_NEWUSER
-        | libc::CLONE_NEWUTS;
-    let clone_rules = (0..32)
-        .map(|bit| 1_u64 << bit)
-        .filter(|flag| flag & namespace_flags as u64 != 0)
-        .map(|flag| {
-            SeccompCondition::new(
-                0,
-                SeccompCmpArgLen::Dword,
-                SeccompCmpOp::MaskedEq(flag),
-                flag,
-            )
-            .and_then(|condition| SeccompRule::new(vec![condition]))
-        })
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| format!("building clone rules failed: {error}"))?;
-    rules.insert(libc::SYS_clone, clone_rules);
+    let thread_flags = libc::CLONE_VM
+        | libc::CLONE_FS
+        | libc::CLONE_FILES
+        | libc::CLONE_SIGHAND
+        | libc::CLONE_THREAD
+        | libc::CLONE_SYSVSEM
+        | libc::CLONE_SETTLS
+        | libc::CLONE_PARENT_SETTID
+        | libc::CLONE_CHILD_CLEARTID;
+    use SeccompCmpArgLen::{Dword, Qword};
+    use SeccompCmpOp::{Eq, MaskedEq};
+    rules.insert(
+        libc::SYS_clone,
+        vec![rule(&[(0, Qword, Eq, thread_flags as u64)])?],
+    );
+    rules.insert(
+        libc::SYS_epoll_create1,
+        vec![rule(&[(0, Dword, Eq, libc::EPOLL_CLOEXEC as u64)])?],
+    );
+    rules.insert(
+        libc::SYS_eventfd2,
+        vec![rule(&[
+            (0, Dword, Eq, 0),
+            (
+                1,
+                Dword,
+                Eq,
+                (libc::EFD_CLOEXEC | libc::EFD_NONBLOCK) as u64,
+            ),
+        ])?],
+    );
+    rules.insert(
+        libc::SYS_fcntl,
+        vec![rule(&[(1, Dword, Eq, libc::F_DUPFD_CLOEXEC as u64)])?],
+    );
+    rules.insert(
+        libc::SYS_openat,
+        vec![rule(&[(
+            2,
+            Dword,
+            MaskedEq(u32::MAX as u64 & !(libc::O_CLOEXEC as u64)),
+            libc::O_RDONLY as u64,
+        )])?],
+    );
+    rules.insert(
+        libc::SYS_prctl,
+        vec![rule(&[(0, Dword, Eq, libc::PR_SET_NAME as u64)])?],
+    );
+    rules.insert(
+        libc::SYS_setpriority,
+        vec![rule(&[
+            (0, Dword, Eq, libc::PRIO_PROCESS as u64),
+            (2, Dword, Eq, 10),
+        ])?],
+    );
+    rules.insert(
+        libc::SYS_socketpair,
+        vec![rule(&[
+            (0, Dword, Eq, libc::AF_UNIX as u64),
+            (
+                1,
+                Dword,
+                Eq,
+                (libc::SOCK_STREAM | libc::SOCK_CLOEXEC | libc::SOCK_NONBLOCK) as u64,
+            ),
+            (2, Dword, Eq, 0),
+        ])?],
+    );
+    // SAFETY: getpid has no memory-safety preconditions; all later threads share this process id.
+    let pid = unsafe { libc::getpid() };
+    rules.insert(libc::SYS_tgkill, vec![rule(&[(0, Dword, Eq, pid as u64)])?]);
+    // The filter installed first always rejects clone3 with ENOSYS, including under Docker.
+    rules.insert(libc::SYS_clone3, Vec::new());
     let filter: BpfProgram = SeccompFilter::new(
         rules,
-        SeccompAction::Allow,
         SeccompAction::Errno(libc::EPERM as u32),
+        SeccompAction::Allow,
         arch,
     )
     .and_then(TryInto::try_into)
@@ -143,7 +226,6 @@ pub fn lock_down() -> Result<(), String> {
         x32.append(&mut filter);
         x32
     };
-    seccompiler::apply_filter(&filter).map_err(|error| format!("seccomp failed: {error}"))?;
     // glibc retries pthread creation with clone only when clone3 returns ENOSYS.
     let clone3: BpfProgram = SeccompFilter::new(
         BTreeMap::from([(libc::SYS_clone3, Vec::new())]),
@@ -154,6 +236,7 @@ pub fn lock_down() -> Result<(), String> {
     .and_then(TryInto::try_into)
     .map_err(|error| format!("building the clone3 filter failed: {error}"))?;
     seccompiler::apply_filter(&clone3).map_err(|error| format!("seccomp failed: {error}"))?;
+    seccompiler::apply_filter(&filter).map_err(|error| format!("seccomp failed: {error}"))?;
     let error = std::fs::File::open("/").err();
     if error.as_ref().and_then(std::io::Error::raw_os_error) != Some(libc::EACCES) {
         return Err(format!("Landlock did not deny a file open: {error:?}"));
