@@ -172,7 +172,7 @@ const getNamedRowsQuery = (
 	return Result.succeed({ ...query, output: query.output });
 };
 
-const unusedFieldKey = (fields: readonly FieldSelection[], base: string) => {
+export const unusedFieldKey = (fields: readonly FieldSelection[], base: string) => {
 	const keys = new Set(fields.map(({ key }) => key));
 	let key = base;
 	while (keys.has(key)) {
@@ -244,7 +244,7 @@ const browserOrderBy = (
 	return Result.succeed([...(choice ? configured : source.output.orderBy), ascending(entityId)]);
 };
 
-const subjectSchemaPredicate = (subject: SavedViewSubject, entity: TableReference) =>
+export const subjectSchemaPredicate = (subject: SavedViewSubject, entity: TableReference) =>
 	or(
 		...subject.schemas.map(({ slug, owner }) =>
 			entitySchemaPredicate(entity, slug, ownerIdentityReference(owner)),
