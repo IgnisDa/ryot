@@ -32,6 +32,7 @@ type SnapshotFixture = {
 
 type ChildEvent = EventOrderTuple & {
 	readonly entityId: string;
+	readonly dateUnknown: boolean;
 	readonly consumedOn: string | null;
 	readonly eventSchemaSlug: "progress" | "complete";
 };
@@ -44,7 +45,16 @@ const childEvent = (
 	eventSchemaSlug: "progress" | "complete",
 	occurredAt: string,
 	consumedOn: string | null = null,
-): ChildEvent => ({ id, entityId, consumedOn, occurredAt, eventSchemaSlug, createdAt: occurredAt });
+	dateUnknown = false,
+): ChildEvent => ({
+	id,
+	entityId,
+	consumedOn,
+	occurredAt,
+	dateUnknown,
+	eventSchemaSlug,
+	createdAt: occurredAt,
+});
 
 const completeCoverage = (productionStatus = "Ended"): SnapshotFixture => ({
 	productionStatus,
@@ -74,6 +84,7 @@ const snapshotRow = (fixture: SnapshotFixture) => {
 	let coverageComplete = false;
 	let coverageClosingEvent: EventOrderTuple | null = null;
 	let agreedConsumedOn: string | null = null;
+	let allDatesUnknown = false;
 	const completions = new Map<string, ChildEvent>();
 	for (const event of fixture.events) {
 		if (!fixture.requiredEpisodeIds.includes(event.entityId)) {
@@ -92,6 +103,9 @@ const snapshotRow = (fixture: SnapshotFixture) => {
 			const consumedOnValues = fixture.requiredEpisodeIds.map(
 				(entityId) => completions.get(entityId)?.consumedOn ?? null,
 			);
+			allDatesUnknown = fixture.requiredEpisodeIds.every(
+				(entityId) => completions.get(entityId)?.dateUnknown === true,
+			);
 			const firstConsumedOn = consumedOnValues[0] ?? null;
 			agreedConsumedOn =
 				firstConsumedOn !== null &&
@@ -103,6 +117,7 @@ const snapshotRow = (fixture: SnapshotFixture) => {
 		coverageComplete = nextCoverageComplete;
 	}
 	return {
+		allDatesUnknown,
 		agreedConsumedOn,
 		state: fixture.state,
 		id: latest?.id ?? null,
@@ -426,15 +441,52 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 						entityId: "show-1",
 						sessionEntityId: "show-1",
 						eventSchemaSlug: "complete",
+						properties: { consumedOn: "Plex" },
 						occurredAt: "2026-01-03T00:00:00.000Z",
-						properties: {
-							consumedOn: "Plex",
-							completionMode: "custom_timestamps",
-							completedOn: "2026-01-03T00:00:00.000Z",
-						},
 					},
 				],
 			]);
+		}),
+	);
+
+	it.live.each([
+		{
+			known: false,
+			name: "flags the parent completion when every closing episode date is unknown",
+		},
+		{
+			known: true,
+			name: "leaves the parent completion unflagged when any closing episode date is known",
+		},
+	])("$name", ({ known }) =>
+		Effect.gen(function* () {
+			const fixture = {
+				...completeCoverage(),
+				events: [
+					childEvent(
+						"complete-1",
+						"episode-1",
+						"complete",
+						"2026-01-02T00:00:00.000Z",
+						"Plex",
+						true,
+					),
+					childEvent(
+						"complete-2",
+						"episode-2",
+						"complete",
+						"2026-01-03T00:00:00.000Z",
+						"Plex",
+						!known,
+					),
+				],
+			};
+			const testHost = createHost([fixture, fixture]);
+			yield* run(eventContext(), testHost.host);
+
+			expect(testHost.created[0]?.[0]?.properties).toEqual(
+				known ? { consumedOn: "Plex" } : { dateUnknown: true, consumedOn: "Plex" },
+			);
 		}),
 	);
 
@@ -725,14 +777,11 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			const testHost = createHost([fixture, fixture]);
 			yield* run(eventContext({}, "podcast-episode"), testHost.host);
 			expect(testHost.created[0]?.[0]).toEqual({
+				properties: {},
 				entityId: "show-1",
 				sessionEntityId: "show-1",
 				eventSchemaSlug: "complete",
 				occurredAt: "2026-01-03T00:00:00.000Z",
-				properties: {
-					completionMode: "custom_timestamps",
-					completedOn: "2026-01-03T00:00:00.000Z",
-				},
 			});
 		}),
 	);

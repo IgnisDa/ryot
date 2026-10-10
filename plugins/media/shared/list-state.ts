@@ -18,10 +18,10 @@ export const ListStatePropertiesSchema = Schema.Struct({
 	sourceAccountId: Schema.NonEmptyString,
 	mangaVolume: Schema.optional(nonNegativeInteger),
 	animeEpisode: Schema.optional(nonNegativeInteger),
-	mangaChapter: Schema.optional(nonNegativeInteger),
 	startedDate: Schema.optional(listStateDateSchema),
 	completedDate: Schema.optional(listStateDateSchema),
 	state: Schema.Literals(["backlog", "in_progress", "on_hold", "dropped", "complete"]),
+	mangaChapter: Schema.optional(Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)))),
 });
 
 export type ListStateProperties = Schema.Schema.Type<typeof ListStatePropertiesSchema>;

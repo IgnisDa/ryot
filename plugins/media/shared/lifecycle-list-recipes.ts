@@ -7,6 +7,7 @@ import {
 	entitySchemaPredicate,
 	eq,
 	inArray,
+	isNotNull,
 	IsoDateString,
 	latestEventField,
 	literal,
@@ -50,7 +51,7 @@ const listedMediaSelection = (entity: Table) => ({
 	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
 });
 
-/** The position property of the entity's latest progress or list-state event. */
+/** The position property of the latest progress or list-state event that carries one. */
 export const latestPosition = (entity: Table, property: string) => {
 	const positionEvent = table("event", "listLatestPosition");
 	return latestEventField(positionEvent, {
@@ -58,6 +59,7 @@ export const latestPosition = (entity: Table, property: string) => {
 		where: and(
 			eq(column(positionEvent, "entityId"), column(entity, "id")),
 			eventSlugIsOneOf(positionEvent, ["progress", "list-state"]),
+			isNotNull(propertyNumber(positionEvent, property)),
 		),
 	});
 };

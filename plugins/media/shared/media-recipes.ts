@@ -680,7 +680,7 @@ export const mediaFlatActivityParentSlugs = [
 const mediaFlatActivityEventSelection = (event: Table) => ({
 	...mediaActivityEventSelection(event),
 	startedOn: selectedField(propertyText(event, "startedOn"), Schema.NullOr(IsoDateString)),
-	completedOn: selectedField(propertyText(event, "completedOn"), Schema.NullOr(IsoDateString)),
+	dateUnknown: selectedField(propertyBoolean(event, "dateUnknown"), Schema.NullOr(Schema.Boolean)),
 	progressPercent: selectedField(
 		propertyNumber(event, "progressPercent"),
 		Schema.NullOr(Schema.Finite),

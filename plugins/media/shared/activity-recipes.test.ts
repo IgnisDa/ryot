@@ -23,6 +23,15 @@ describe("media activity recipe", () => {
 		).toBeNull();
 	});
 
+	it("leaves completions with an unknown date out of the day and type counts only", () => {
+		const { queries } = mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).document;
+		const where = (name: string) => JSON.stringify(queries[name]?.where);
+
+		expect(where("days")).toContain("dateUnknown");
+		expect(where("mediaTypes")).toContain("dateUnknown");
+		expect(where("figures")).not.toContain("dateUnknown");
+	});
+
 	it("reads the empty sums of a quiet year as zero", () => {
 		const decoded = mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).decode({
 			data: {

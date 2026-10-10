@@ -11,11 +11,14 @@ import {
 	groupAscending,
 	gte,
 	inArray,
+	isNull,
 	IsoDateString,
 	join,
 	literal,
 	lt,
 	measureDescending,
+	not,
+	or,
 	type Recipe,
 	schemaOwnerPredicate,
 	selectedAggregate,
@@ -25,7 +28,7 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
-import { propertyNumber, type Table } from "./entity-selections";
+import { propertyBoolean, propertyNumber, type Table } from "./entity-selections";
 import {
 	eventSlugIsOneOf,
 	lifecycleEventSlugs,
@@ -74,7 +77,8 @@ const DAY_LIMIT = 400;
  * completions of builtin media (episodes excluded), their minutes (`timeSpent`, else the entity's
  * `runtime`, both minutes) and reviews. `days` counts progress and complete events per day in
  * `timeZone`, each day reported as the instant it starts. `mediaTypes` counts the same events per
- * builtin media type, with the type's schema name.
+ * builtin media type, with the type's schema name. Completions with an unknown date count toward
+ * `figures` only.
  */
 export const mediaActivityRecipe = defineRecipe(
 	(input: {
@@ -83,9 +87,10 @@ export const mediaActivityRecipe = defineRecipe(
 		readonly until: string;
 		readonly timeZone: string;
 	}) => {
-		const scoped = (alias: string, eventSlugs: readonly string[]) => {
+		const scoped = (alias: string, eventSlugs: readonly string[], dated = false) => {
 			const event = table("event", `${alias}Event`);
 			const entity = table("entity", `${alias}Entity`);
+			const dateUnknown = propertyBoolean(event, "dateUnknown");
 			return {
 				event,
 				entity,
@@ -95,6 +100,15 @@ export const mediaActivityRecipe = defineRecipe(
 					schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
 					eventSlugIsOneOf(event, eventSlugs),
 					slugIsOneOf(entity, activityEntitySlugs),
+					...(dated
+						? [
+								or(
+									not(eq(column(event, "eventSchemaSlug"), literal("complete"))),
+									isNull(dateUnknown),
+									eq(dateUnknown, literal(false)),
+								),
+							]
+						: []),
 					gte(column(event, "occurredAt"), castDate(literal(input.from))),
 					lt(column(event, "occurredAt"), castDate(literal(input.until))),
 				),
@@ -102,8 +116,8 @@ export const mediaActivityRecipe = defineRecipe(
 		};
 		const figures = scoped("activityFigures", ["complete", "review"]);
 		const isComplete = eq(column(figures.event, "eventSchemaSlug"), literal("complete"));
-		const days = scoped("activityDays", lifecycleEventSlugs);
-		const types = scoped("activityTypes", lifecycleEventSlugs);
+		const days = scoped("activityDays", lifecycleEventSlugs, true);
+		const types = scoped("activityTypes", lifecycleEventSlugs, true);
 		const typeSchema = table("entitySchema", "activityTypesSchema");
 		return {
 			map: ({ mediaTypes, days: dayRows, figures: totals }) =>

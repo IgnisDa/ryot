@@ -22,7 +22,7 @@ const emptyEventProperties = {
 	timeSpent: null,
 	isSpoiler: null,
 	consumedOn: null,
-	completedOn: null,
+	dateUnknown: null,
 	progressPercent: null,
 };
 

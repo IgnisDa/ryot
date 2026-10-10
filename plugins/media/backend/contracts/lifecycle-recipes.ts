@@ -3,6 +3,7 @@ import { Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
 	ascending,
+	castBoolean,
 	castNumber,
 	castText,
 	column,
@@ -92,6 +93,7 @@ export type CoverageClosingEvent = Schema.Schema.Type<typeof CoverageClosingEven
 
 export const EpisodicLifecycleSnapshotSchema = Schema.Struct({
 	parentEntityId: Schema.String,
+	allDatesUnknown: Schema.Boolean,
 	coverageComplete: Schema.Boolean,
 	state: EpisodicLifecycleStateSchema,
 	agreedConsumedOn: Schema.NullOr(Schema.String),
@@ -344,6 +346,11 @@ const currentCoverageCompletionExpressions = (
 			orderBy: eventOrderAscending(completion),
 			select: castText(jsonPath(column(completion, "properties"), "consumedOn")),
 		}),
+		dateUnknown: first(completion, {
+			where: completionWhere,
+			orderBy: eventOrderAscending(completion),
+			select: castBoolean(jsonPath(column(completion, "properties"), "dateUnknown")),
+		}),
 	};
 };
 
@@ -384,7 +391,16 @@ const aggregateCoverageCompletionExpressions = (
 		select: completion.consumedOn,
 		orderBy: [ascending(column(episode, "id"))],
 	});
+	const unknownDateCount = count(episode, {
+		joins: episodeQuery.joins,
+		where: and(completedEpisode, eq(completion.dateUnknown, literal(true))),
+	});
 	return {
+		allDatesUnknown: conditional(
+			and(coverageComplete, eq(unknownDateCount, requiredCount)),
+			literal(true),
+			literal(false),
+		),
 		agreedConsumedOn: conditional(
 			and(
 				coverageComplete,
@@ -436,6 +452,7 @@ export const episodicLifecycleSnapshotRecipe = defineRecipe(
 					boundaryCompleteEvent,
 					state: parentResult.state,
 					parentEntityId: parentResult.parentEntityId,
+					allDatesUnknown: parentResult.allDatesUnknown,
 					agreedConsumedOn: parentResult.agreedConsumedOn,
 					coverageComplete: parentResult.coverageComplete,
 					productionStatus: parentResult.productionStatus,
@@ -454,6 +471,7 @@ export const episodicLifecycleSnapshotRecipe = defineRecipe(
 						...signalSelection(expressions.latestSignal),
 						parentEntityId: selectedField(column(parent, "id"), Schema.String),
 						state: selectedField(expressions.state, EpisodicLifecycleStateSchema),
+						allDatesUnknown: selectedField(completion.allDatesUnknown, Schema.Boolean),
 						closingId: selectedField(completion.closingEvent.id, Schema.NullOr(Schema.String)),
 						agreedConsumedOn: selectedField(
 							completion.agreedConsumedOn,

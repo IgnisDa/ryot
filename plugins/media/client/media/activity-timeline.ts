@@ -39,7 +39,7 @@ export type MediaActivityCompletionRow = ActivityAnchor & {
 	readonly type: "completion";
 	readonly minutes: number | undefined;
 	readonly startedOn: string | undefined;
-	readonly completedOn: string | undefined;
+	readonly dateUnknown: boolean;
 };
 
 export type MediaActivityReviewRow<Subject> = ActivityAnchor & {
@@ -117,15 +117,20 @@ export const reviewBody = (event: {
 export const mediaCompletionRow = (
 	event: MediaActivityEventRow & {
 		readonly startedOn: string | null;
-		readonly completedOn: string | null;
+		readonly dateUnknown: boolean | null;
 	},
-): MediaActivityCompletionRow => ({
-	...anchorOf(event, "completion"),
-	type: "completion",
-	minutes: event.timeSpent ?? undefined,
-	startedOn: event.startedOn ?? undefined,
-	completedOn: event.completedOn ?? undefined,
-});
+): MediaActivityCompletionRow => {
+	const dateUnknown = event.dateUnknown === true;
+	const anchor = anchorOf(event, "completion");
+	return {
+		...anchor,
+		dateUnknown,
+		type: "completion",
+		minutes: event.timeSpent ?? undefined,
+		startedOn: event.startedOn ?? undefined,
+		dateKey: dateUnknown ? "date-unknown" : anchor.dateKey,
+	};
+};
 
 export const mediaReviewRow = <Subject>(
 	event: SelectedRow<ReturnType<typeof mediaReviewEventSelection>>,
@@ -316,7 +321,8 @@ export const mediaTrackLengthLabel = (seconds: number) => {
 		: `${hours}:${paddedUnit(minutes)}:${paddedUnit(rest)}`;
 };
 
-export const mediaActivityDateLabel = (row: ActivityAnchor) => formatLocalDateLabel(row.occurredAt);
+export const mediaActivityDateLabel = (row: ActivityAnchor & { readonly dateUnknown?: boolean }) =>
+	row.dateUnknown === true ? "Date unknown" : formatLocalDateLabel(row.occurredAt);
 
 export const mediaActivityRatingLabel = (rating: number) => `${decimalLabel(rating)} / 100`;
 

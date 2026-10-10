@@ -58,8 +58,8 @@ const progressPercentPropertiesSchema = (): AppSchema => ({
 			type: "number" as const,
 			label: "Progress Percent",
 			normalize: { round: { scale: 2 } },
+			validation: { maximum: 100, exclusiveMinimum: 0 },
 			description: "Percentage of the media completed so far (0 to 100)",
-			validation: { maximum: 100, exclusiveMinimum: 0, required: true as const },
 		},
 	},
 });
@@ -100,6 +100,11 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 			return progressPercentPropertiesSchema();
 	}
 };
+
+const statusPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AppSchema =>
+	entitySchemaSlug === "show" || entitySchemaSlug === "podcast"
+		? { fields: { ...consumedOnField } }
+		: progressPropertiesSchemaByEntity(entitySchemaSlug);
 
 const listStateDateComponent = (label: string, maximum?: number) => ({
 	label,
@@ -211,7 +216,7 @@ const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
 						mangaChapter: {
 							position: 9,
 							label: "Manga Chapter",
-							type: "integer" as const,
+							type: "number" as const,
 							validation: { minimum: 0 },
 							description: "Chapter number AniList reports for this manga",
 						},
@@ -307,46 +312,29 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 		name: "Dropped",
 		slug: "dropped",
 		propertiesSchema: withStartedOn(
-			withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug)),
+			withTimeSpent(statusPropertiesSchemaByEntity(entitySchemaSlug)),
 		),
 	},
 	{
 		name: "On Hold",
 		slug: "on_hold",
 		propertiesSchema: withStartedOn(
-			withTimeSpent(progressPropertiesSchemaByEntity(entitySchemaSlug)),
+			withTimeSpent(statusPropertiesSchemaByEntity(entitySchemaSlug)),
 		),
 	},
 	{
 		name: "Complete",
 		slug: "complete",
 		propertiesSchema: {
-			rules: [
-				{
-					path: ["completedOn"],
-					kind: "validation" as const,
-					validation: { required: true as const },
-					when: { operator: "eq" as const, path: ["completionMode"], value: "custom_timestamps" },
-				},
-			],
 			fields: {
 				...consumedOnField,
 				timeSpent: timeSpentField,
 				startedOn: startedOnField,
-				completedOn: {
-					label: "Completed On",
-					type: "datetime" as const,
-					description: "Date and time you finished consuming this media",
-				},
-				completionMode: {
-					type: "string" as const,
-					label: "Completion Mode",
+				dateUnknown: {
+					label: "Date Unknown",
+					type: "boolean" as const,
 					description:
-						"How the completion timestamps were determined: just_now, unknown, or custom_timestamps",
-					validation: {
-						required: true as const,
-						pattern: "^(just_now|unknown|custom_timestamps)$",
-					},
+						"Whether the completion date is unknown; occurredAt is the real completion time otherwise",
 				},
 			},
 		},

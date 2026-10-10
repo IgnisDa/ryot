@@ -17,6 +17,7 @@ import {
 	ungroupedFixtureSchema,
 } from "../../tests/client/flat-media/schema-fixture";
 import { readyQueryResult } from "../../tests/client/query-result-fixture";
+import { mediaActivityDateLabel } from "./activity-timeline";
 import type { MediaFlatSchemaActivityView, MediaFlatSchemaRow } from "./flat-schema";
 
 const viewOf = (input: Parameters<typeof decodeFlatActivity>[0] = {}) => {
@@ -99,6 +100,24 @@ describe("flat media activity state", () => {
 			"completion-media-complete-repeat",
 			"completion-media-complete",
 		]);
+	});
+
+	it("dates a completion with an unknown date as Date unknown and keeps it out of day grouping", () => {
+		const view = viewOf({
+			collectionEvents: [],
+			events: [
+				{ ...flatCompletionEventRow, dateUnknown: true },
+				{ ...flatProgressEventRow, occurredAt: flatCompletionEventRow.occurredAt },
+			],
+		});
+		const completion = allRows(view).find((row) => row.type === "completion");
+		const progress = allRows(view).find((row) => row.type === "progress");
+
+		assert(completion?.type === "completion" && progress !== undefined);
+		expect(completion.dateUnknown).toBe(true);
+		expect(completion.dateKey).not.toBe(progress.dateKey);
+		expect(mediaActivityDateLabel(completion)).toBe("Date unknown");
+		expect(mediaActivityDateLabel(progress)).not.toBe("Date unknown");
 	});
 
 	it("keeps a single completion on the flat layout", () => {
