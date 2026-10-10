@@ -283,18 +283,16 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			);
 			const lockEntityReferencesByIds = Effect.fn("EntitiesRepository.lockEntityReferencesByIds")(
 				function* (entityIds: ReadonlyArray<EntityId>) {
-					const ids = [...new Set(entityIds)].sort();
-					if (ids.length === 0) {
-						return;
+					for (const ids of chunksOf([...new Set(entityIds)].sort(), STATEMENT_CHUNK_SIZE)) {
+						yield* session.run((db) =>
+							db
+								.select({ id: schema.entity.id })
+								.from(schema.entity)
+								.where(inArray(schema.entity.id, ids))
+								.orderBy(sql`${schema.entity.id} collate "C"`)
+								.for("key share"),
+						);
 					}
-					yield* session.run((db) =>
-						db
-							.select({ id: schema.entity.id })
-							.from(schema.entity)
-							.where(inArray(schema.entity.id, ids))
-							.orderBy(sql`${schema.entity.id} collate "C"`)
-							.for("key share"),
-					);
 				},
 			);
 			const listMatchCandidatesBySchema = Effect.fn(
@@ -781,25 +779,27 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const countGlobalEntitiesByProvenanceScopes = Effect.fn(
 				"EntitiesRepository.countGlobalEntitiesByProvenanceScopes",
 			)(function* (inputs: ReadonlyArray<GlobalEntityProvenanceScopeInput>) {
-				if (inputs.length === 0) {
-					return new Map<string, number>();
-				}
-				const rows = yield* session.run((db) =>
-					db
-						.select({
-							count: count(),
-							providerId: schema.entity.providerId,
-							entitySchemaSlug: schema.entity.entitySchemaSlug,
-							entitySchemaPluginId: schema.entity.entitySchemaPluginId,
-						})
-						.from(schema.entity)
-						.where(and(isNull(schema.entity.userId), or(...inputs.map(provenanceScopeWhere))))
-						.groupBy(
-							schema.entity.providerId,
-							schema.entity.entitySchemaSlug,
-							schema.entity.entitySchemaPluginId,
-						),
-				);
+				const scopes = [
+					...new Map(inputs.map((input) => [provenanceScopeKey(input), input])).values(),
+				];
+				const rows = yield* Effect.forEach(chunksOf(scopes, STATEMENT_CHUNK_SIZE), (chunk) =>
+					session.run((db) =>
+						db
+							.select({
+								count: count(),
+								providerId: schema.entity.providerId,
+								entitySchemaSlug: schema.entity.entitySchemaSlug,
+								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+							})
+							.from(schema.entity)
+							.where(and(isNull(schema.entity.userId), or(...chunk.map(provenanceScopeWhere))))
+							.groupBy(
+								schema.entity.providerId,
+								schema.entity.entitySchemaSlug,
+								schema.entity.entitySchemaPluginId,
+							),
+					),
+				).pipe(Effect.map((chunks) => chunks.flat()));
 				return new Map(
 					rows.flatMap((row) =>
 						row.providerId === null
