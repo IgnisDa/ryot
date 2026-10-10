@@ -132,6 +132,7 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 			["relationship schema", manifest.relationshipSchemas],
 			["signal schema", manifest.signalSchemas],
 			["saved view", manifest.savedViews],
+			["calendar source", manifest.calendarSources ?? []],
 			["provider", manifest.providers],
 			["hook", manifest.hooks],
 			["import source", manifest.importSources],
@@ -188,6 +189,9 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 		}
 		for (const definition of manifest.savedViews) {
 			yield* assertSlug("saved view", definition.slug);
+		}
+		for (const definition of manifest.calendarSources ?? []) {
+			yield* assertSlug("calendar source", definition.slug);
 		}
 		for (const provider of manifest.providers) {
 			yield* assertSlug("provider", provider.slug);

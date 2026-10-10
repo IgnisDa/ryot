@@ -2,6 +2,8 @@ import { assert, expect, it } from "@effect/vitest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
+import { calendarSourcePackage } from "#modules/calendar-sources/test-support";
+
 import { fixtureManifest } from "../test-support";
 import { validatePluginManifestPolicy, validatePluginManifestReferences } from "./validation";
 
@@ -112,5 +114,29 @@ it.effect("reserves canonical package identities rather than route or display na
 			),
 		).toMatchObject({ _tag: "PluginPackageReservedError", packageId: manifest.metadata.packageId });
 		expect(yield* validatePluginManifestPolicy(manifest, { scope: "system" })).toBeUndefined();
+	}),
+);
+
+it.effect("rejects duplicate and path-like calendar source slugs", () =>
+	Effect.gen(function* () {
+		const manifest = fixtureManifest();
+		const [source] = calendarSourcePackage("fixture").manifest.calendarSources;
+		assert(source);
+		expect(
+			yield* validatePluginManifestReferences({ ...manifest, calendarSources: [source] }),
+		).toBeUndefined();
+		expect(
+			yield* Effect.flip(
+				validatePluginManifestReferences({ ...manifest, calendarSources: [source, source] }),
+			),
+		).toMatchObject({ issues: ["Duplicate calendar source slug: dates"] });
+		expect(
+			yield* Effect.flip(
+				validatePluginManifestReferences({
+					...manifest,
+					calendarSources: [{ ...source, slug: "nested/dates" }],
+				}),
+			),
+		).toMatchObject({ issues: ["calendar source slug cannot contain '/': nested/dates"] });
 	}),
 );

@@ -107,3 +107,22 @@ export const savedViewOverride = snakeCase.table(
 			.where(sql`${table.pluginId} is not null`),
 	],
 );
+
+export const calendarSourceOverride = snakeCase.table(
+	"calendar_source_override",
+	{
+		slug: text().notNull(),
+		pluginId: text().notNull(),
+		isHidden: boolean().notNull().default(false),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		unique("calendar_source_override_user_plugin_slug_unique").on(
+			table.userId,
+			table.pluginId,
+			table.slug,
+		),
+	],
+);

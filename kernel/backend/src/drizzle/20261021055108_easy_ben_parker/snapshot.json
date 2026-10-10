@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "aa0cc987-604f-47ba-aaf7-e279db0a9bd7",
+	"id": "463da012-d1c0-4004-95bb-534a64ce4884",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -28,6 +28,12 @@
 		{ "isRlsEnabled": false, "name": "backup_run", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
+			"name": "calendar_source_override",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
 			"name": "client_artifact",
 			"entityType": "tables",
 			"schema": "public"
@@ -47,6 +53,12 @@
 		{
 			"isRlsEnabled": false,
 			"name": "data_import_submission",
+			"entityType": "tables",
+			"schema": "public"
+		},
+		{
+			"isRlsEnabled": false,
+			"name": "definition_calendar_source",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -1784,6 +1796,58 @@
 			"table": "backup_run"
 		},
 		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "calendar_source_override"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "calendar_source_override"
+		},
+		{
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"name": "is_hidden",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "calendar_source_override"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "calendar_source_override"
+		},
+		{
 			"type": "smallint",
 			"typeSchema": null,
 			"notNull": true,
@@ -2081,6 +2145,175 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "data_import_submission"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "slug",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "name",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "position",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "art",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "done",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "caption",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "icon",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "start_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "query",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "subject",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "precision",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plugin_revision_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_calendar_source"
 		},
 		{
 			"type": "text",
@@ -2793,6 +3026,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "properties_schema",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_relationship_schema"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_write_policy",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "definition_relationship_schema"
@@ -10638,6 +10884,27 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
+			"name": "definition_calendar_source_slug_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "definition_calendar_source"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
 			"name": "definition_entity_schema_slug_idx",
 			"entityType": "indexes",
 			"schema": "public",
@@ -13243,6 +13510,19 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "calendar_source_override_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "calendar_source_override"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["artifact_hash"],
 			"schemaTo": "public",
 			"tableTo": "client_artifact",
@@ -13279,6 +13559,19 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "data_import_submission"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["plugin_revision_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin_revision",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "definition_calendar_source_zr3mUgmh593q_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "definition_calendar_source"
 		},
 		{
 			"nameExplicit": false,
@@ -14712,6 +15005,14 @@
 		{
 			"columns": ["id"],
 			"nameExplicit": false,
+			"name": "definition_calendar_source_pkey",
+			"schema": "public",
+			"table": "definition_calendar_source",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
 			"name": "definition_entity_schema_pkey",
 			"schema": "public",
 			"table": "definition_entity_schema",
@@ -15122,12 +15423,30 @@
 		},
 		{
 			"nameExplicit": true,
+			"columns": ["user_id", "plugin_id", "slug"],
+			"nullsNotDistinct": false,
+			"name": "calendar_source_override_user_plugin_slug_unique",
+			"entityType": "uniques",
+			"schema": "public",
+			"table": "calendar_source_override"
+		},
+		{
+			"nameExplicit": true,
 			"columns": ["hash", "package_id"],
 			"nullsNotDistinct": false,
 			"name": "client_artifact_hash_package_unique",
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "client_artifact"
+		},
+		{
+			"nameExplicit": true,
+			"columns": ["plugin_revision_id", "slug"],
+			"nullsNotDistinct": false,
+			"name": "definition_calendar_source_revision_slug_unique",
+			"entityType": "uniques",
+			"schema": "public",
+			"table": "definition_calendar_source"
 		},
 		{
 			"nameExplicit": true,
@@ -15817,6 +16136,17 @@
 			"table": "workflow_execution"
 		},
 		{
+			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done\n\t\t\tfrom definition_calendar_source d\n\t\t\tjoin plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tjoin (\n select p.id as plugin_id, p.package_id, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t",
+			"with": null,
+			"withNoData": null,
+			"using": null,
+			"tablespace": null,
+			"materialized": false,
+			"name": "global_calendar_source",
+			"entityType": "views",
+			"schema": "public"
+		},
+		{
 			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties\n\t\t\tfrom definition_entity_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join (\n select p.id as plugin_id, p.package_id, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
@@ -15850,7 +16180,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema\n\t\t\tfrom definition_relationship_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, d.user_write_policy\n\t\t\tfrom definition_relationship_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join \"global_plugin\" g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -15883,6 +16213,28 @@
 			"schema": "public"
 		},
 		{
+			"definition": "\n\t\t\tselect user_id, plugin_id, package_id, installation_id, scope, owner_user_id, active_revision_id, config_revision_id, health, is_hidden, sort_order, is_listed, is_definition_effective, is_executable\n\t\t\tfrom \"user_plugin_state\"\n\t\t\twhere is_present\n\t\t",
+			"with": null,
+			"withNoData": null,
+			"using": null,
+			"tablespace": null,
+			"materialized": false,
+			"name": "user_plugin",
+			"entityType": "views",
+			"schema": "public"
+		},
+		{
+			"definition": "\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done, p.is_definition_effective as is_effective, coalesce(o.is_hidden, false) as is_hidden\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_calendar_source d on d.plugin_revision_id = p.active_revision_id\n\t\t\tleft join \"calendar_source_override\" o on o.user_id = p.user_id and o.plugin_id = p.plugin_id and o.slug = d.slug\n\t\t\twhere p.is_listed\n\t\t",
+			"with": null,
+			"withNoData": null,
+			"using": null,
+			"tablespace": null,
+			"materialized": false,
+			"name": "user_calendar_source_effective",
+			"entityType": "views",
+			"schema": "public"
+		},
+		{
 			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.merge_identity_properties, p.is_definition_effective\n\t\t\tfrom \"user_plugin_state\" p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_present and p.is_listed\n\t\t",
 			"with": null,
 			"withNoData": null,
@@ -15901,17 +16253,6 @@
 			"tablespace": null,
 			"materialized": false,
 			"name": "user_event_schema",
-			"entityType": "views",
-			"schema": "public"
-		},
-		{
-			"definition": "\n\t\t\tselect user_id, plugin_id, package_id, installation_id, scope, owner_user_id, active_revision_id, config_revision_id, health, is_hidden, sort_order, is_listed, is_definition_effective, is_executable\n\t\t\tfrom \"user_plugin_state\"\n\t\t\twhere is_present\n\t\t",
-			"with": null,
-			"withNoData": null,
-			"using": null,
-			"tablespace": null,
-			"materialized": false,
-			"name": "user_plugin",
 			"entityType": "views",
 			"schema": "public"
 		},
@@ -15938,7 +16279,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective\n\t\t\tfrom definition_relationship_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, true as is_effective, d.user_write_policy\n\t\t\tfrom definition_relationship_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.source_entity_schema_slug, d.target_entity_schema_slug, d.properties_schema, p.is_definition_effective and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug)), d.user_write_policy\n\t\t\tfrom \"user_plugin\" p\n\t\t\tjoin definition_relationship_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (d.source_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.source_entity_schema_slug)) and (d.target_entity_schema_slug is null or exists (select 1 from definition_entity_schema e where e.plugin_revision_id = p.active_revision_id and e.slug = d.target_entity_schema_slug))\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,

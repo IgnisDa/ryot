@@ -145,6 +145,7 @@ const collectionDataSources = document({
 });
 
 export const kernelDefinitionSource = (): DefinitionSource => ({
+	calendarSources: [],
 	entitySchemas: [collectionSchema],
 	relationshipSchemas: [
 		{

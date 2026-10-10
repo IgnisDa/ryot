@@ -50,6 +50,7 @@ import { ImportsRepository } from "./repository";
 const snapshot = buildDefinitionSnapshot({
 	savedViews: [],
 	signalSchemas: [],
+	calendarSources: [],
 	relationshipSchemas: [],
 	entitySchemas: [
 		{

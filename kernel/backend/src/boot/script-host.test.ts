@@ -1819,6 +1819,7 @@ describe("changeUserRelationships", () => {
 const workspaceDefinitions = (schemaPluginId: string = systemPluginRevision.id) => ({
 	savedViews: [],
 	signalSchemas: [],
+	calendarSources: [],
 	relationshipSchemas: [],
 	entitySchemas: [
 		{

@@ -29,6 +29,7 @@ import * as schema from "#schema/tables/combined";
 import { DefinitionReadUnavailable, type DefinitionReadContext } from "./read-context";
 import {
 	definitionRecord,
+	type CalendarSourceDefinition,
 	type DefinitionKind,
 	type DefinitionSnapshot,
 	type DefinitionSource,
@@ -46,6 +47,20 @@ type EventSchemaRow = InferSelectViewModel<typeof schema.globalEventSchema>;
 type RelationshipSchemaRow = InferSelectViewModel<typeof schema.globalRelationshipSchema>;
 type SignalSchemaRow = InferSelectViewModel<typeof schema.globalSignalSchema>;
 type SavedViewRow = InferSelectViewModel<typeof schema.globalSavedView>;
+type CalendarSourceRow = Pick<
+	InferSelectViewModel<typeof schema.globalCalendarSource>,
+	| "art"
+	| "done"
+	| "icon"
+	| "name"
+	| "slug"
+	| "query"
+	| "caption"
+	| "startAt"
+	| "subject"
+	| "pluginId"
+	| "precision"
+>;
 
 type EventSchemaFields = Pick<
 	EventSchemaRow,
@@ -54,6 +69,7 @@ type EventSchemaFields = Pick<
 
 type DefinitionRows = {
 	readonly savedViews: ReadonlyArray<SavedViewRow>;
+	readonly calendarSources: ReadonlyArray<CalendarSourceRow>;
 	readonly entitySchemas: ReadonlyArray<EntitySchemaRow>;
 	readonly eventSchemas: ReadonlyArray<EventSchemaFields>;
 	readonly signalSchemas: ReadonlyArray<SignalSchemaRow>;
@@ -132,6 +148,20 @@ const toSavedView = (row: SavedViewRow): SavedViewDefinition => ({
 	dataSources: row.dataSources,
 });
 
+const toCalendarSource = (row: CalendarSourceRow): CalendarSourceDefinition => ({
+	art: row.art,
+	done: row.done,
+	icon: row.icon,
+	name: row.name,
+	slug: row.slug,
+	query: row.query,
+	caption: row.caption,
+	startAt: row.startAt,
+	subject: row.subject,
+	pluginId: row.pluginId,
+	precision: row.precision,
+});
+
 const recordByIdentity = <
 	Definition extends { readonly slug: string; readonly pluginId: string | null },
 >(
@@ -152,6 +182,10 @@ const toSnapshot = Effect.fn(function* (rows: DefinitionRows) {
 	return {
 		savedViews: yield* recordByIdentity("saved-view", rows.savedViews.map(toSavedView)),
 		signalSchemas: yield* recordByIdentity("signal", rows.signalSchemas.map(toSignalSchema)),
+		calendarSources: yield* recordByIdentity(
+			"calendar-source",
+			rows.calendarSources.map(toCalendarSource),
+		),
 		relationshipSchemas: yield* recordByIdentity(
 			"relationship",
 			rows.relationshipSchemas.map(toRelationshipSchema),
@@ -183,6 +217,7 @@ const toEntityRelationshipDefinitions = Effect.fn(function* (rows: {
 const toSource = (snapshot: DefinitionSnapshot): DefinitionSource => ({
 	savedViews: Object.values(snapshot.savedViews),
 	signalSchemas: Object.values(snapshot.signalSchemas),
+	calendarSources: Object.values(snapshot.calendarSources),
 	relationshipSchemas: Object.values(snapshot.relationshipSchemas),
 	entitySchemas: Object.values(snapshot.entitySchemas).map(({ eventSchemas, ...entitySchema }) =>
 		Object.assign({}, entitySchema, { eventSchemas: Object.values(eventSchemas) }),
@@ -349,6 +384,28 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								),
 						);
 					}
+					if (definitions.calendarSources.length > 0) {
+						yield* session.run((db) =>
+							db
+								.insert(schema.definitionCalendarSource)
+								.values(
+									definitions.calendarSources.map((definition, position) => ({
+										position,
+										pluginRevisionId,
+										art: definition.art,
+										done: definition.done,
+										icon: definition.icon,
+										name: definition.name,
+										slug: definition.slug,
+										query: definition.query,
+										caption: definition.caption,
+										startAt: definition.startAt,
+										subject: definition.subject,
+										precision: definition.precision,
+									})),
+								),
+						);
+					}
 					if (definitions.importSources.length > 0) {
 						yield* session.run((db) =>
 							db
@@ -425,6 +482,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			const replaceKernelDefinitions = Effect.fn("DefinitionRepository.replaceKernelDefinitions")(
 				function* (source: DefinitionSource) {
 					if (
+						source.calendarSources.length > 0 ||
 						[
 							...source.entitySchemas,
 							...source.entitySchemas.flatMap(({ eventSchemas }) => eventSchemas),
@@ -678,7 +736,21 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						.where(userWhere(schema.userSavedView, userId, options))
 						.orderBy(...userDefinitionOrder(schema.userSavedView)),
 				);
-				return { savedViews, eventSchemas, entitySchemas, signalSchemas, relationshipSchemas };
+				const calendarSources = yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.userCalendarSourceEffective)
+						.where(userWhere(schema.userCalendarSourceEffective, userId, options))
+						.orderBy(...userDefinitionOrder(schema.userCalendarSourceEffective)),
+				);
+				return {
+					savedViews,
+					eventSchemas,
+					entitySchemas,
+					signalSchemas,
+					calendarSources,
+					relationshipSchemas,
+				};
 			});
 
 			const readGlobalRows = Effect.fn("DefinitionRepository.readGlobalRows")(function* () {
@@ -712,7 +784,20 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						.from(schema.globalSavedView)
 						.orderBy(...globalDefinitionOrder(schema.globalSavedView)),
 				);
-				return { savedViews, eventSchemas, entitySchemas, signalSchemas, relationshipSchemas };
+				const calendarSources = yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.globalCalendarSource)
+						.orderBy(...globalDefinitionOrder(schema.globalCalendarSource)),
+				);
+				return {
+					savedViews,
+					eventSchemas,
+					entitySchemas,
+					signalSchemas,
+					calendarSources,
+					relationshipSchemas,
+				};
 			});
 
 			const readKernelRows = Effect.fn("DefinitionRepository.readKernelRows")(function* () {
@@ -781,6 +866,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						eventSchemas,
 						entitySchemas,
 						signalSchemas,
+						calendarSources: [],
 						relationshipSchemas,
 					}),
 				);
@@ -861,7 +947,24 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					),
 					(row) => ({ ...row, ...owner }),
 				);
-				return { savedViews, eventSchemas, entitySchemas, signalSchemas, relationshipSchemas };
+				const calendarSources = Array.from(
+					yield* session.run((db) =>
+						db
+							.select()
+							.from(schema.definitionCalendarSource)
+							.where(eq(schema.definitionCalendarSource.pluginRevisionId, context.pluginRevisionId))
+							.orderBy(asc(schema.definitionCalendarSource.position)),
+					),
+					(row) => ({ ...row, ...owner }),
+				);
+				return {
+					savedViews,
+					eventSchemas,
+					entitySchemas,
+					signalSchemas,
+					calendarSources,
+					relationshipSchemas,
+				};
 			});
 
 			const revisionDeclarationReaders: {
@@ -986,6 +1089,10 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						signalSchemas: [
 							...current.signalSchemas.filter(({ pluginId }) => pluginId !== context.pluginId),
 							...pinned.signalSchemas,
+						],
+						calendarSources: [
+							...current.calendarSources.filter(({ pluginId }) => pluginId !== context.pluginId),
+							...pinned.calendarSources,
 						],
 						eventSchemas: [
 							...current.eventSchemas.filter(

@@ -463,6 +463,12 @@ const expressionScope = (query: CorrelatedQuerySet, ancestors: AliasScope) => {
 	return scope;
 };
 
+export const queryExpressionKind = (
+	query: CorrelatedQuerySet,
+	expr: ScalarExpression,
+	access: RyotQLAccess,
+) => expressionKind(expr, expressionScope(query, new Map()), access);
+
 const validateQuerySet = (
 	query: QuerySet,
 	ancestors: AliasScope,

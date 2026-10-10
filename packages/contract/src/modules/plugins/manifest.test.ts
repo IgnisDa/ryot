@@ -1,7 +1,7 @@
 import { Result, Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
-import { PluginPackageId } from "../../schema/brands";
+import { EntitySchemaSlug, PluginPackageId } from "../../schema/brands";
 import { emptySandboxExecutionMetadata } from "../../testing";
 import { uploadContentTypeExtensions } from "../assets/upload-policy";
 import {
@@ -1715,5 +1715,121 @@ describe("definePlugin", () => {
 		]) {
 			expect(() => Schema.decodeUnknownSync(PluginManifest)(candidate)).toThrow();
 		}
+	});
+});
+
+const withSources = (calendarSources: ReadonlyArray<unknown>) => ({ ...manifest, calendarSources });
+
+describe("calendar sources", () => {
+	const calendarSource = {
+		icon: "calendar",
+		precision: "date",
+		startAt: "startAt",
+		caption: "caption",
+		name: "Entity dates",
+		slug: "entity-dates",
+		subject: {
+			entityAlias: "entity",
+			schemas: [{ owner: { kind: "self" }, slug: EntitySchemaSlug.make("entity.test") }],
+		},
+		query: {
+			from: { alias: "entity", table: "entity" },
+			output: {
+				type: "rows",
+				fields: [
+					{ key: "startAt", expr: { type: "column", field: "createdAt", tableAlias: "entity" } },
+					{ key: "caption", expr: { field: "name", type: "column", tableAlias: "entity" } },
+				],
+			},
+		},
+	} as const;
+
+	it("decodes declared sources and keeps manifests without sources valid", () => {
+		expect(Schema.decodeSync(PluginManifest)(manifest).calendarSources).toBeUndefined();
+		expect(
+			Schema.decodeUnknownSync(PluginManifest)(withSources([calendarSource])).calendarSources,
+		).toEqual([calendarSource]);
+		expect(
+			definePlugin({ ...authoredManifest, calendarSources: [calendarSource] }).calendarSources,
+		).toEqual([calendarSource]);
+	});
+
+	it("rejects named fields the query does not project", () => {
+		for (const field of ["startAt", "caption", "art", "done"] as const) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)(
+					withSources([{ ...calendarSource, [field]: "missing" }]),
+				),
+			).toThrow();
+		}
+	});
+
+	it("rejects a subject alias that is not in the query", () => {
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)(
+				withSources([
+					{ ...calendarSource, subject: { ...calendarSource.subject, entityAlias: "other" } },
+				]),
+			),
+		).toThrow();
+	});
+
+	it("rejects duplicate source slugs", () => {
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)(withSources([calendarSource, calendarSource])),
+		).toThrow();
+		expect(
+			Result.isSuccess(
+				Schema.decodeUnknownResult(PluginManifest)(
+					withSources([calendarSource, { ...calendarSource, slug: "other-dates" }]),
+				),
+			),
+		).toBe(true);
+	});
+
+	it("rejects authored ordering, pagination, and cursors", () => {
+		for (const output of [
+			{ orderBy: [] },
+			{ pagination: { limit: 20 } },
+			{ pagination: { limit: 20, after: "cursor" } },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)(
+					withSources([
+						{
+							...calendarSource,
+							query: {
+								...calendarSource.query,
+								output: { ...calendarSource.query.output, ...output },
+							},
+						},
+					]),
+				),
+			).toThrow();
+		}
+	});
+
+	it("rejects unknown precisions and other output kinds", () => {
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)(
+				withSources([{ ...calendarSource, precision: "week" }]),
+			),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)(
+				withSources([
+					{
+						...calendarSource,
+						query: {
+							...calendarSource.query,
+							output: {
+								type: "aggregate",
+								measures: [{ key: "count", aggregation: { function: "count" } }],
+							},
+						},
+					},
+				]),
+			),
+		).toThrow();
 	});
 });

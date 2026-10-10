@@ -12,7 +12,9 @@ import {
 	AutomationRetryPolicy,
 	AutomationSource,
 } from "../automations/lifecycle";
-import { withAuthoredSavedViewConfig } from "../saved-views/schemas";
+import { CalendarSourcePrecision, CalendarSourceQuery } from "../calendar-sources/schemas";
+import { OutputFieldKey } from "../ryotql/language";
+import { AuthoredSavedViewSubject, withAuthoredSavedViewConfig } from "../saved-views/schemas";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../scripts/wire";
 import {
 	hasReachableExternalEffects,
@@ -327,6 +329,21 @@ export const PluginSavedView = withAuthoredSavedViewConfig({
 });
 
 export type PluginSavedView = Schema.Schema.Type<typeof PluginSavedView>;
+
+export const PluginCalendarSource = strictStruct({
+	icon: Schema.String,
+	name: Schema.String,
+	startAt: OutputFieldKey,
+	slug: pluginManifestSlug,
+	subject: AuthoredSavedViewSubject,
+	precision: CalendarSourcePrecision,
+	art: Schema.optional(OutputFieldKey),
+	done: Schema.optional(OutputFieldKey),
+	caption: Schema.optional(OutputFieldKey),
+	query: Schema.toType(CalendarSourceQuery),
+});
+
+export type PluginCalendarSource = Schema.Schema.Type<typeof PluginCalendarSource>;
 
 const sandboxManifestString = Schema.String.pipe(
 	Schema.check(
@@ -832,6 +849,7 @@ const PluginManifestAuthoredFields = {
 	userSettingsSchema: Schema.optional(PluginUserSettingsSchema),
 	integrationProviders: Schema.Array(PluginIntegrationProvider),
 	oauthProviders: Schema.optional(Schema.Array(PluginOAuthProvider)),
+	calendarSources: Schema.optional(Schema.Array(PluginCalendarSource)),
 };
 
 const AuthoredPluginManifestFields = strictStruct(PluginManifestAuthoredFields);
@@ -992,16 +1010,42 @@ const hasValidOAuthProviderReferences = (
 const uniqueSlugs = (declarations: readonly { readonly slug: string }[]) =>
 	new Set(declarations.map(({ slug }) => slug)).size === declarations.length;
 
+const hasValidCalendarSource = ({
+	art,
+	done,
+	query,
+	caption,
+	startAt,
+	subject,
+}: PluginCalendarSource) => {
+	const projected = new Set(
+		query.output.fields.flatMap((selection) => ("key" in selection ? [selection.key] : [])),
+	);
+	const aliases = new Set([
+		query.from.alias,
+		...(query.joins ?? []).map((join) =>
+			join.type === "jsonElements" ? join.alias : join.table.alias,
+		),
+	]);
+	return (
+		aliases.has(subject.entityAlias) &&
+		[startAt, caption, art, done].every((key) => key === undefined || projected.has(key))
+	);
+};
+
 const hasValidLocalDeclarations = (manifest: typeof AuthoredPluginManifestFields.Type) => {
+	const calendarSources = manifest.calendarSources ?? [];
 	if (
 		![
 			manifest.entitySchemas,
 			manifest.relationshipSchemas,
 			manifest.signalSchemas,
 			manifest.savedViews,
+			calendarSources,
 			manifest.operations,
 			manifest.crons,
-		].every(uniqueSlugs)
+		].every(uniqueSlugs) ||
+		!calendarSources.every(hasValidCalendarSource)
 	) {
 		return false;
 	}

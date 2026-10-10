@@ -190,6 +190,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 			const source: DefinitionSource = {
 				savedViews: [],
 				signalSchemas: [],
+				calendarSources: [],
 				relationshipSchemas: [],
 				entitySchemas: [
 					recordSchema,

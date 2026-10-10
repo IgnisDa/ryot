@@ -246,6 +246,7 @@ export const relationshipDatabaseLayer = (
 			const source: DefinitionSource = {
 				savedViews: [],
 				signalSchemas: [],
+				calendarSources: [],
 				relationshipSchemas: [relationshipSchema],
 				entitySchemas: [
 					{

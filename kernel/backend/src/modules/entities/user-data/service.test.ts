@@ -135,6 +135,7 @@ const makeDefinitionsLayer = (
 				buildDefinitionSnapshot({
 					savedViews: [],
 					signalSchemas: [],
+					calendarSources: [],
 					relationshipSchemas: [],
 					entitySchemas: [
 						...pluginIds.map((pluginId): DefinitionSource["entitySchemas"][number] => ({

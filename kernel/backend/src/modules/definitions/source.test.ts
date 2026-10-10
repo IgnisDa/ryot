@@ -1,6 +1,7 @@
 import type { AuthoredEntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	EntitySchemaSlug,
+	PluginId,
 	PluginPackageId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
@@ -231,5 +232,59 @@ it("resolves self relationship owners on filter fields", () => {
 			relationship: { slug: "tagged", owner: { kind: "plugin", pluginId: "plugin-a" } },
 		},
 		browserView.settings.filterFields[2],
+	]);
+});
+
+it("materializes calendar sources with self references bound to the stable plugin id", () => {
+	const entity = table("entity", "entity");
+	const calendarSource = {
+		name: "Dates",
+		slug: "dates",
+		icon: "calendar",
+		startAt: "startAt",
+		precision: "date" as const,
+		subject: browserSettings.subject,
+		query: {
+			from: entity,
+			output: {
+				type: "rows" as const,
+				fields: [
+					field("startAt", column(entity, "createdAt")),
+					field("owner", pluginId({ kind: "self" })),
+				],
+			},
+		},
+	};
+
+	expect(revisionDefinitions("plugin-a", fixtureManifest()).calendarSources).toEqual([]);
+	expect(
+		revisionDefinitions("plugin-a", { ...fixtureManifest(), calendarSources: [calendarSource] })
+			.calendarSources,
+	).toEqual([
+		{
+			art: null,
+			done: null,
+			name: "Dates",
+			slug: "dates",
+			caption: null,
+			icon: "calendar",
+			precision: "date",
+			startAt: "startAt",
+			pluginId: "plugin-a",
+			subject: {
+				entityAlias: "entity",
+				schemas: [{ slug: "bottle", owner: { kind: "plugin", pluginId: "plugin-a" } }],
+			},
+			query: {
+				from: entity,
+				output: {
+					type: "rows",
+					fields: [
+						field("startAt", column(entity, "createdAt")),
+						field("owner", pluginId({ kind: "local", pluginId: PluginId.make("plugin-a") })),
+					],
+				},
+			},
+		},
 	]);
 });

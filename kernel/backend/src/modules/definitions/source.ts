@@ -1,3 +1,4 @@
+import { mapCalendarSourceQueryReferences } from "@ryot-app/contract/modules/calendar-sources/schemas";
 import { mapFilterFieldReference } from "@ryot-app/contract/modules/filters/schemas";
 import { sourcePlanConfigKeys } from "@ryot-app/contract/modules/plugins/execution";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -17,7 +18,7 @@ import { Array as Arr, Result, Schema } from "effect";
 
 import { formatPropertyIssues } from "#modules/definitions/properties/runtime";
 
-import type { DefinitionSource, SavedViewDefinition } from "./snapshot";
+import type { CalendarSourceDefinition, DefinitionSource, SavedViewDefinition } from "./snapshot";
 
 export const materializeSavedView = (
 	definition: PluginManifest["savedViews"][number],
@@ -96,6 +97,31 @@ export const materializeSavedView = (
 	return { ...definition, pluginId, settings, dataSources, renderer: definition.renderer };
 };
 
+export const materializeCalendarSource = (
+	definition: NonNullable<PluginManifest["calendarSources"]>[number],
+	pluginId: string,
+): CalendarSourceDefinition => ({
+	pluginId,
+	icon: definition.icon,
+	name: definition.name,
+	slug: definition.slug,
+	startAt: definition.startAt,
+	art: definition.art ?? null,
+	done: definition.done ?? null,
+	precision: definition.precision,
+	caption: definition.caption ?? null,
+	query: mapCalendarSourceQueryReferences(definition.query, (reference) =>
+		reference.kind === "self" ? { kind: "local", pluginId: PluginId.make(pluginId) } : reference,
+	),
+	subject: {
+		entityAlias: definition.subject.entityAlias,
+		schemas: Arr.map(definition.subject.schemas, ({ slug, owner }) => ({
+			slug,
+			owner: owner.kind === "self" ? definitionOwner(pluginId) : owner,
+		})),
+	},
+});
+
 export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) => ({
 	integrationProviders: manifest.integrationProviders,
 	signalSchemas: manifest.signalSchemas.map((definition) => ({ ...definition, pluginId })),
@@ -109,6 +135,9 @@ export const revisionDefinitions = (pluginId: string, manifest: PluginManifest) 
 	})),
 	savedViews: manifest.savedViews.map((definition) =>
 		materializeSavedView(definition, pluginId, manifest.client),
+	),
+	calendarSources: (manifest.calendarSources ?? []).map((definition) =>
+		materializeCalendarSource(definition, pluginId),
 	),
 	importSources: manifest.importSources.map((source) => ({
 		...source,
@@ -153,6 +182,10 @@ export const mergeManifestDefinitions = (
 		entitySchemas: [
 			...base.entitySchemas,
 			...revisions.flatMap(({ entitySchemas }) => entitySchemas),
+		],
+		calendarSources: [
+			...base.calendarSources,
+			...revisions.flatMap(({ calendarSources }) => calendarSources),
 		],
 		relationshipSchemas: [
 			...revisions.flatMap(({ relationshipSchemas }) => relationshipSchemas),

@@ -1,3 +1,7 @@
+import type {
+	CalendarSourcePrecision,
+	CalendarSourceQuery,
+} from "@ryot-app/contract/modules/calendar-sources/schemas";
 import {
 	dataJsonImportInputSchema,
 	dataJsonIntegrationSettingsSchema,
@@ -13,7 +17,10 @@ import type {
 	PluginSignalSchema,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
+import type {
+	SavedViewRenderer,
+	SavedViewSubject,
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import type { ProviderInformation } from "@ryot-app/contract/modules/scripts/schemas";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
@@ -36,7 +43,12 @@ import {
 import { user } from "./auth";
 import { plugin, pluginInstallation, pluginRevision } from "./core";
 import { timestamptz } from "./timestamps";
-import { builtinSavedViewIdSql, savedView, savedViewOverride } from "./views";
+import {
+	builtinSavedViewIdSql,
+	calendarSourceOverride,
+	savedView,
+	savedViewOverride,
+} from "./views";
 
 type PluginScope = "system" | "user";
 type InstallationHealth =
@@ -141,6 +153,31 @@ export const definitionSavedView = snakeCase.table(
 			.on(table.pluginRevisionId, table.slug)
 			.nullsNotDistinct(),
 		index("definition_saved_view_slug_idx").on(table.slug),
+	],
+);
+
+export const definitionCalendarSource = snakeCase.table(
+	"definition_calendar_source",
+	{
+		...definitionColumns(),
+		art: text(),
+		done: text(),
+		caption: text(),
+		icon: text().notNull(),
+		startAt: text().notNull(),
+		subject: jsonb().$type<SavedViewSubject>().notNull(),
+		query: jsonb().$type<CalendarSourceQuery>().notNull(),
+		precision: text().$type<CalendarSourcePrecision>().notNull(),
+		pluginRevisionId: text()
+			.notNull()
+			.references(() => pluginRevision.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		unique("definition_calendar_source_revision_slug_unique").on(
+			table.pluginRevisionId,
+			table.slug,
+		),
+		index("definition_calendar_source_slug_idx").on(table.slug),
 	],
 );
 
@@ -380,6 +417,17 @@ const savedViewColumns = () => ({
 	renderer: jsonb().$type<SavedViewRenderer>().notNull(),
 });
 
+const calendarSourceColumns = () => ({
+	art: text(),
+	done: text(),
+	caption: text(),
+	icon: text().notNull(),
+	startAt: text().notNull(),
+	subject: jsonb().$type<SavedViewSubject>().notNull(),
+	query: jsonb().$type<CalendarSourceQuery>().notNull(),
+	precision: text().$type<CalendarSourcePrecision>().notNull(),
+});
+
 export const globalEntitySchema = snakeCase
 	.view("global_entity_schema", { ...globalColumns(), ...entitySchemaColumns() })
 	.as(
@@ -433,6 +481,21 @@ export const globalSavedView = snakeCase
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join ${globalPlugin} g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
 			where d.plugin_revision_id is null or g.plugin_id is not null
+		`,
+	);
+
+export const globalCalendarSource = snakeCase
+	.view("global_calendar_source", {
+		...globalColumns(),
+		...calendarSourceColumns(),
+		pluginId: text().notNull(),
+	})
+	.as(
+		sql`
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done
+			from definition_calendar_source d
+			join plugin_revision r on r.id = d.plugin_revision_id
+			join (${globalPluginQuery}) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
 		`,
 	);
 
@@ -552,6 +615,23 @@ export const userSavedViewEffective = snakeCase.view("user_saved_view_effective"
 	left join ${savedViewOverride} o on o.user_id = d.user_id and o.slug = d.slug
 		and o.plugin_id is not distinct from d.plugin_id
 `);
+
+export const userCalendarSourceEffective = snakeCase
+	.view("user_calendar_source_effective", {
+		...userColumns(),
+		...calendarSourceColumns(),
+		pluginId: text().notNull(),
+		isHidden: boolean().notNull(),
+	})
+	.as(
+		sql`
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope as plugin_scope, d.slug, d.name, d.position, d.icon, d.query, d.subject, d.start_at, d.precision, d.caption, d.art, d.done, p.is_definition_effective as is_effective, coalesce(o.is_hidden, false) as is_hidden
+			from ${userPlugin} p
+			join definition_calendar_source d on d.plugin_revision_id = p.active_revision_id
+			left join ${calendarSourceOverride} o on o.user_id = p.user_id and o.plugin_id = p.plugin_id and o.slug = d.slug
+			where p.is_listed
+		`,
+	);
 
 const executableDefinitionColumns = () => ({
 	pluginId: text(),
