@@ -1,4 +1,5 @@
 import type { ClientRendererDefinition } from "@ryot-app/contract/modules/pages/schemas";
+import { CALENDAR_KERNEL_RENDERER_DISPLAY_NAME } from "@ryot-app/contract/modules/saved-views/schemas";
 import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
 
 import { kernelRendererSources } from "./sources.generated";
@@ -88,4 +89,11 @@ export const kernelCollectionDetailRenderer = renderer(
 	"client/collection-detail.tsx",
 	COLLECTION_PATHS,
 	true,
+);
+
+export const kernelCalendarRenderer = renderer(
+	CALENDAR_KERNEL_RENDERER_DISPLAY_NAME,
+	"client/calendar.tsx",
+	[],
+	false,
 );
