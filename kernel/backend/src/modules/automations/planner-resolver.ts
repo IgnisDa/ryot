@@ -5,6 +5,10 @@ import type {
 	PluginHookTarget,
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	definitionOwner,
+	type DefinitionOwner,
+} from "@ryot-app/contract/modules/plugins/references";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
@@ -64,8 +68,35 @@ const targetSnapshot = (payload: ItemPayload) => {
 	return payload.operation === "delete" ? payload.before : payload.after;
 };
 
-const matchesItem = (target: PluginHookTarget, payload: ItemPayload): boolean => {
-	if (target.resource !== payload.resource || target.operation !== payload.operation) {
+export const automationPayloadPluginId = (payload: ItemPayload) => {
+	const snapshot = targetSnapshot(payload);
+	if (payload.resource === "signal") {
+		return payload.signalSchemaPluginId;
+	}
+	if (payload.resource === "relationship" && "relationshipSchemaPluginId" in snapshot) {
+		return snapshot.relationshipSchemaPluginId;
+	}
+	if (payload.resource === "event" && "eventSchemaPluginId" in snapshot) {
+		return snapshot.eventSchemaPluginId;
+	}
+	if ("entitySchemaPluginId" in snapshot) {
+		return snapshot.entitySchemaPluginId;
+	}
+	return undefined;
+};
+
+const matchesItem = (
+	owner: DefinitionOwner,
+	target: PluginHookTarget,
+	payload: ItemPayload,
+): boolean => {
+	const targetOwner = "owner" in target ? target.owner : owner;
+	if (
+		target.resource !== payload.resource ||
+		target.operation !== payload.operation ||
+		automationPayloadPluginId(payload) !==
+			(targetOwner.kind === "plugin" ? targetOwner.pluginId : null)
+	) {
 		return false;
 	}
 	const snapshot = targetSnapshot(payload);
@@ -78,6 +109,9 @@ const matchesItem = (target: PluginHookTarget, payload: ItemPayload): boolean =>
 		case "event":
 			return (
 				"eventSchemaSlug" in snapshot &&
+				"entitySchemaPluginId" in snapshot &&
+				snapshot.entitySchemaPluginId ===
+					(targetOwner.kind === "plugin" ? targetOwner.pluginId : null) &&
 				snapshot.eventSchemaSlug === target.eventSchemaSlug &&
 				snapshot.entitySchemaSlug === target.entitySchemaSlug
 			);
@@ -95,14 +129,18 @@ const matchesItem = (target: PluginHookTarget, payload: ItemPayload): boolean =>
 	}
 };
 
-export const matchesTarget = (target: PluginHookTarget, trigger: AutomationTrigger): boolean => {
+export const matchesTarget = (
+	owner: DefinitionOwner,
+	target: PluginHookTarget,
+	trigger: AutomationTrigger,
+): boolean => {
 	const payload = trigger.payload;
 	if (!payload) {
 		return false;
 	}
 	return payload.operation === "batch"
-		? payload.items.some((item) => matchesItem(target, item))
-		: matchesItem(target, payload);
+		? payload.items.some((item) => matchesItem(owner, target, item))
+		: matchesItem(owner, target, payload);
 };
 
 export class AutomationPlannerResolver extends Context.Service<AutomationPlannerResolver>()(
@@ -297,7 +335,10 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						: [];
 				const kernelDefinition =
 					signal?.signalSchemaPluginId === null
-						? yield* definitions.findGlobalSignalSchema(signal.signalSchemaSlug)
+						? yield* definitions.findGlobalSignalSchema({
+								owner: { kind: "kernel" },
+								slug: signal.signalSchemaSlug,
+							})
 						: null;
 				const kernelSignal =
 					kernelDefinition && kernelDefinition.pluginId == null ? kernelDefinition : null;
@@ -315,6 +356,14 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				for (const plugin of available) {
 					for (const hook of plugin.hooks) {
 						if (
+							hook.targets.some((target) => "owner" in target) &&
+							(hook.stage === "before" || hook.executionScope === "global")
+						) {
+							return yield* new DbError({
+								message: `Invalid kernel collection observer authority ${plugin.id}/${hook.slug}`,
+							});
+						}
+						if (
 							hook.stage !== (trigger.kind.category === "request" ? "before" : "after") ||
 							(hook.causationSources && !hook.causationSources.includes(trigger.causation.source))
 						) {
@@ -328,7 +377,11 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 						) {
 							continue;
 						}
-						if (!hook.targets.some((target) => matchesTarget(target, trigger))) {
+						if (
+							!hook.targets.some((target) =>
+								matchesTarget(definitionOwner(plugin.id), target, trigger),
+							)
+						) {
 							continue;
 						}
 						const notification =

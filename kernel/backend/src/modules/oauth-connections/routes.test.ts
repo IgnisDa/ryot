@@ -51,7 +51,7 @@ it.effect("redirects provider callbacks without caching, referrers, or provider 
 		expect(yield* Ref.get(received)).toEqual([
 			{
 				query: { state: "state-1", code: "provider-code" },
-				path: { pluginSlug: "media", oauthProviderSlug: "spotify" },
+				path: { pluginId: "media", oauthProviderSlug: "spotify" },
 			},
 		]);
 	}),

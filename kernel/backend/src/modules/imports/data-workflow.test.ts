@@ -3,7 +3,12 @@ import type {
 	IngestionBatch,
 	IngestionOutcome,
 } from "@ryot-app/contract/modules/imports/ingestion";
-import { AutomationExecutionId, EventId, IntegrationId } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationExecutionId,
+	EntitySchemaSlug,
+	EventId,
+	IntegrationId,
+} from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Layer, Schema } from "effect";
@@ -49,12 +54,14 @@ const snapshot = buildDefinitionSnapshot({
 	entitySchemas: [
 		{
 			icon: "file",
+			pluginId: null,
 			name: "Record",
 			slug: "record",
 			pluginSlug: null,
 			propertiesSchema: { fields: {} },
 			eventSchemas: [
 				{
+					pluginId: null,
 					name: "Recorded",
 					slug: "recorded",
 					propertiesSchema: {
@@ -218,15 +225,18 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite = false) {
 	const context = yield* Layer.build(dependencies);
 	const execute = runDataImportSegmentWorkflow({
 		batch,
-		command,
 		snapshot,
+		command: { ...command, writeContext: null },
 		...ingestionTestScope,
 		relationshipIds: {},
 		failedKeys: ["failed"],
 		executionId: "segment-owner",
 		entityIds: { subject: "subject-id", related: "related-id" },
-		entitySchemasByKey: { failed: "record", subject: "record" },
 		startingCounters: { totalItems: 54, failedItems: 1, importedItems: 49, processedItems: 50 },
+		entitySchemasByKey: {
+			failed: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("record") },
+			subject: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("record") },
+		},
 	}).pipe(Effect.provideContext(context));
 	return { execute, outcomes, receipts, submitted, projections };
 });
@@ -377,14 +387,14 @@ it.effect(
 											kind: "custom",
 											properties: {},
 											name: "Unknown",
-											entitySchemaSlug: "unavailable",
+											entitySchema: { slug: "unavailable", owner: { kind: "kernel" } },
 										},
 										...Array.from({ length: 51 }, (_, index) => ({
 											kind: "custom",
 											properties: {},
 											key: `entity-${index}`,
 											name: `Entity ${index}`,
-											entitySchemaSlug: "record",
+											entitySchema: { slug: "record", owner: { kind: "kernel" } },
 										})),
 									],
 								}),
@@ -437,7 +447,9 @@ it.effect(
 			expect(segments[0]?.startingCounters.processedItems).toBe(1);
 			expect(segments[1]?.startingCounters.processedItems).toBe(51);
 			expect(segments[1]?.entityIds).toEqual({ "entity-0": "id:entity-0" });
-			expect(segments[1]?.entitySchemasByKey).toEqual({ "entity-50": "record" });
+			expect(segments[1]?.entitySchemasByKey).toEqual({
+				"entity-50": { slug: "record", owner: { kind: "kernel" } },
+			});
 			expect(sealed).toBe(true);
 			expect(outcomes.get("data-plan:0:unknown")?.result).toBe("unsuccessful");
 		}),

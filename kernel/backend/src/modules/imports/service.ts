@@ -264,10 +264,10 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			const sourcePayload = buildImportSourcePayload(properties, registered) ?? {};
 			const created = yield* createManualRun({
 				userId: user.id,
-				source: body.source,
+				source: body.source.slug,
 				accountGeneration: user.accountGeneration,
 				pluginInstallationId: registered.installationId,
-				inputSummary: buildImportInputSummary(body.source, {}),
+				inputSummary: buildImportInputSummary(body.source.slug, {}),
 			}).pipe(Effect.result);
 			if (Result.isFailure(created)) {
 				return yield* created.failure;
@@ -322,7 +322,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 
 			const summarized = yield* updateInputSummary({
 				runId: run.id,
-				inputSummary: buildImportInputSummary(body.source, fileNames),
+				inputSummary: buildImportInputSummary(body.source.slug, fileNames),
 			}).pipe(Effect.result);
 			if (Result.isFailure(summarized)) {
 				yield* cleanupUploads(claimedUploadIntentIds);
@@ -338,7 +338,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				sourcePayload,
 				workflowScriptId,
 				namedArtifactPaths,
-				source: body.source,
+				source: body.source.slug,
 				uploadIntentIds: claimedUploadIntentIds,
 			});
 		});
@@ -353,12 +353,12 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				plan: IngestionPlan,
 				pins: Omit<IngestionPins, "executionId">,
 			): Effect.fn.Return<CreateImportRunResult, CreateImportRunError> {
-				const inputSummary = buildImportInputSummary(body.source, {});
+				const inputSummary = buildImportInputSummary(body.source.slug, {});
 				const sourcePayload = buildImportSourcePayload(properties, registered) ?? {};
 				const run = yield* createManualRun({
 					inputSummary,
 					userId: user.id,
-					source: body.source,
+					source: body.source.slug,
 					accountGeneration: user.accountGeneration,
 					pluginInstallationId: registered.installationId,
 				});
@@ -371,8 +371,8 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					sourcePayload,
 					workflowScriptId,
 					uploadIntentIds: [],
-					source: body.source,
 					namedArtifactPaths: {},
+					source: body.source.slug,
 				});
 			},
 		);
@@ -381,20 +381,20 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
 		): Effect.fn.Return<CreateImportRunResult, CreateImportRunError> {
-			if (body.source === dataJsonSource) {
+			if (body.source.owner.kind === "kernel" && body.source.slug === dataJsonSource) {
 				return yield* dataAdmission.startUpload(user, body);
 			}
 			const resolution = yield* importSources.resolveForUser(user.id, body.source);
 			if (!resolution) {
 				return yield* new ImportRequestError({
-					reason: { source: body.source, code: "source-not-found" },
+					reason: { source: body.source.slug, code: "source-not-found" },
 				});
 			}
 			const registered = resolution.source;
 			const workflowScript = resolution.script;
 			if (!workflowScript) {
 				return yield* new ImportRequestError({
-					reason: { source: body.source, code: "workflow-unavailable" },
+					reason: { source: body.source.slug, code: "workflow-unavailable" },
 				});
 			}
 			const properties = yield* parseRegistryImportSourceInput(registered, body).pipe(
@@ -407,7 +407,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				.evaluateImport({
 					userId: user.id,
 					settings: properties,
-					sourceSlug: body.source,
+					sourceSlug: body.source.slug,
 					installationId: registered.installationId,
 				})
 				.pipe(
@@ -419,7 +419,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			if (!evaluated.readiness.ready || !plan) {
 				return yield* new ImportRequestError({
 					reason: {
-						source: body.source,
+						source: body.source.slug,
 						code: "source-not-ready",
 						blockReasons: evaluated.readiness.blockReasons,
 					},
@@ -585,7 +585,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 							runId,
 							command,
 							userId: scope.userId,
-							dataJson: run.source === dataJsonSource,
+							dataJson: run.pluginInstallationId === null && run.source === dataJsonSource,
 						},
 					},
 					(admission) => admission,

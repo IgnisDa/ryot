@@ -16,6 +16,31 @@ property references. Provider entities use normal provider resolution; custom en
 user-owned. Writes are append-only, use the normal lifecycle hooks, and commit incrementally, so
 failed records do not roll back earlier committed records.
 
+Source selection uses `{ owner, slug }`. Kernel Data JSON is
+`{ owner: { kind: "kernel" }, slug: "data-json" }`; a plugin's same local slug selects only that
+plugin. Entity, relationship, and provider references in documents also include their exact owner.
+Events resolve through their parent entity. Plugin generic-import children retain their original
+trusted writer and revision; they cannot borrow kernel or another plugin's domain authority.
+
+```json
+{
+	"entities": [
+		{
+			"key": "bottle",
+			"kind": "custom",
+			"name": "Bottle",
+			"entitySchema": {
+				"owner": { "kind": "plugin", "pluginId": "local-whiskey-id" },
+				"slug": "bottle"
+			},
+			"properties": {}
+		}
+	],
+	"events": [],
+	"relationships": []
+}
+```
+
 ## Root ownership and IDs
 
 Every import run has one durable root selected by its persisted `executionKind`:

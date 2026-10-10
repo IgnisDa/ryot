@@ -1,7 +1,15 @@
 import type { DataJsonDocument } from "@ryot-app/contract/modules/imports/data-json";
+import {
+	EntitySchemaSlug,
+	PluginId,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
-import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import {
+	buildDefinitionSnapshot,
+	definitionSourceFromSnapshot,
+} from "#modules/definition-registry/snapshot";
 
 import { orderDataGraph } from "./data-graph";
 
@@ -12,6 +20,7 @@ const definitions = buildDefinitionSnapshot({
 		{
 			name: "Link",
 			slug: "link",
+			pluginId: null,
 			propertiesSchema: { fields: {} },
 			sourceEntitySchemaSlug: "record",
 			targetEntitySchemaSlug: "record",
@@ -20,6 +29,7 @@ const definitions = buildDefinitionSnapshot({
 	entitySchemas: [
 		{
 			icon: "file",
+			pluginId: null,
 			name: "Record",
 			slug: "record",
 			pluginSlug: null,
@@ -35,6 +45,7 @@ const definitions = buildDefinitionSnapshot({
 			},
 			eventSchemas: [
 				{
+					pluginId: null,
 					name: "Recorded",
 					slug: "recorded",
 					propertiesSchema: {
@@ -57,24 +68,81 @@ const custom = (key: string, parent?: string): DataJsonDocument["entities"][numb
 	key,
 	name: key,
 	kind: "custom",
-	entitySchemaSlug: "record",
 	properties: parent ? { parent } : {},
+	entitySchema: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("record") },
 });
 
 describe("Data graph dependency planning", () => {
+	it("keeps kernel and same-name plugin schemas distinct when planning property references", () => {
+		const source = definitionSourceFromSnapshot(definitions);
+		const entity = source.entitySchemas[0];
+		if (!entity) {
+			throw new Error("Missing record fixture");
+		}
+		const snapshot = buildDefinitionSnapshot({
+			...source,
+			entitySchemas: [
+				entity,
+				{
+					...entity,
+					eventSchemas: [],
+					pluginId: "first",
+					pluginSlug: "whiskey",
+					propertiesSchema: { fields: {} },
+				},
+				{
+					...entity,
+					pluginId: "second",
+					pluginSlug: "whiskey",
+					eventSchemas: Array.from(entity.eventSchemas, (event) => ({
+						...event,
+						pluginId: "second",
+					})),
+				},
+			],
+		});
+		const plan = orderDataGraph(
+			{
+				events: [],
+				relationships: [],
+				entities: [
+					{ ...custom("kernel", "missing") },
+					{
+						...custom("first", "missing"),
+						entitySchema: {
+							slug: EntitySchemaSlug.make("record"),
+							owner: { kind: "plugin", pluginId: PluginId.make("first") },
+						},
+					},
+					{
+						...custom("second", "missing"),
+						entitySchema: {
+							slug: EntitySchemaSlug.make("record"),
+							owner: { kind: "plugin", pluginId: PluginId.make("second") },
+						},
+					},
+					{
+						...custom("absent"),
+						entitySchema: {
+							slug: EntitySchemaSlug.make("record"),
+							owner: { kind: "plugin", pluginId: PluginId.make("absent") },
+						},
+					},
+				],
+			},
+			snapshot,
+		);
+		expect(plan.records.map(({ record }) => record.key)).toEqual(["first"]);
+		expect(plan.failures.map(({ item, message }) => [item.record.key, message])).toEqual([
+			["kernel", "Unknown reference 'missing'"],
+			["second", "Unknown reference 'missing'"],
+			["absent", "Schema is unavailable"],
+		]);
+	});
 	it("orders forward property references before relationships and their dependent events", () => {
 		const plan = orderDataGraph(
 			{
 				entities: [custom("child", "parent"), custom("parent")],
-				relationships: [
-					{
-						key: "link",
-						properties: {},
-						sourceEntityKey: "child",
-						targetEntityKey: "parent",
-						relationshipSchemaSlug: "link",
-					},
-				],
 				events: [
 					{
 						key: "event",
@@ -83,6 +151,18 @@ describe("Data graph dependency planning", () => {
 						eventSchemaSlug: "recorded",
 						properties: { link: "link" },
 						occurredAt: "2026-10-01T00:00:00Z",
+					},
+				],
+				relationships: [
+					{
+						key: "link",
+						properties: {},
+						sourceEntityKey: "child",
+						targetEntityKey: "parent",
+						relationshipSchema: {
+							owner: { kind: "kernel" },
+							slug: RelationshipSchemaSlug.make("link"),
+						},
 					},
 				],
 			},

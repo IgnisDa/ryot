@@ -1,9 +1,14 @@
 import { badRequest, DbError, notFound } from "@ryot-app/contract/errors";
+import { AutomationSignalPayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
-	AutomationSignalPayload,
-	LifecycleCommand,
-} from "@ryot-app/contract/modules/automations/lifecycle";
-import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+	definitionKey,
+	type SignalSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
+import {
+	RelationshipSchemaSlug,
+	type EntityId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { LifecyclePlanner, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
@@ -13,16 +18,15 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { PluginRepository } from "#modules/plugins/repository";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
-import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 export type EmitSignalInput = {
-	command: LifecycleCommand;
-	schemaSlug: string;
+	command: DomainLifecycleCommand;
+	reference: SignalSchemaReference;
 	properties: unknown;
 	principal: { kind: "user"; userId: UserId } | { kind: "system" };
 	subjectEntityId?: EntityId;
@@ -37,26 +41,41 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 			const execution = yield* LifecycleExecution;
 			const triggers = yield* AutomationTriggerRepository;
 			const plugins = yield* PluginRepository;
-			const schemas = yield* SignalSchemasRepository;
 			const entities = yield* EntitiesRepository;
 			const relationships = yield* RelationshipsRepository;
-			const relationshipSchemas = yield* RelationshipSchemasRepository;
 			const definitions = yield* DefinitionRepository;
 
 			const emitSignal = Effect.fn("SignalEmissionService.emitSignal")(function* (
 				input: EmitSignalInput,
 			) {
-				const command = yield* Schema.decodeEffect(LifecycleCommand)(input.command).pipe(
+				const command = yield* Schema.decodeEffect(DomainLifecycleCommand)(input.command).pipe(
 					Effect.mapError(() => badRequest("Invalid signal lifecycle command")),
 				);
 				const actorUserId = input.principal.kind === "user" ? input.principal.userId : null;
+				const pinnedPlugin = command.writeContext?.pluginRevision;
+				if (
+					pinnedPlugin &&
+					(input.reference.owner.kind !== "plugin" ||
+						input.reference.owner.pluginId !== pinnedPlugin.id)
+				) {
+					return yield* badRequest("Signal owner does not match the pinned execution authority");
+				}
+				const definitionContext = pinnedPlugin
+					? { pluginId: pinnedPlugin.id, pluginRevisionId: pinnedPlugin.revisionId }
+					: undefined;
 				const plan = yield* session.transaction(
 					Effect.gen(function* () {
 						yield* plugins.lockIngestionShared();
-						const schema = yield* schemas.findVisibleBySlug({
-							userId: actorUserId,
-							slug: input.schemaSlug,
-						});
+						const snapshot = definitionContext
+							? yield* definitions.getSnapshotForContext(definitionContext, actorUserId)
+							: null;
+						const schema = snapshot
+							? snapshot.signalSchemas[
+									definitionKey("signal", input.reference.owner, input.reference.slug)
+								]
+							: yield* actorUserId === null
+									? definitions.findGlobalSignalSchema(input.reference)
+									: definitions.findUserSignalSchema(actorUserId, input.reference);
 						if (!schema) {
 							return yield* notFound("Signal schema not found");
 						}
@@ -71,8 +90,8 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 							operation: "emit",
 							category: "signal",
 							resource: "signal",
-							signalSchemaSlug: input.schemaSlug,
-							signalSchemaPluginId: schema.pluginId ?? null,
+							signalSchemaPluginId: schema.pluginId,
+							signalSchemaSlug: input.reference.slug,
 							...(input.subjectEntityId === undefined
 								? {}
 								: { subjectEntityId: input.subjectEntityId }),
@@ -94,6 +113,11 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 							if (!subject) {
 								return yield* notFound("Entity not found");
 							}
+							if (pinnedPlugin && subject.entitySchemaPluginId !== pinnedPlugin.id) {
+								return yield* badRequest(
+									"Signal subject does not belong to the pinned plugin owner",
+								);
+							}
 						}
 						let recipients: ReadonlyArray<UserId> = [];
 						const policy = schema.audiencePolicy;
@@ -101,20 +125,33 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 							if (!input.subjectEntityId) {
 								return yield* badRequest("Related-users audience requires a subject entity");
 							}
-							const relationshipSchema =
-								actorUserId === null
-									? yield* relationshipSchemas.findById(policy.relationshipSchemaSlug, null)
-									: (yield* definitions.findUserRelationshipSchemas(actorUserId, [
-											policy.relationshipSchemaSlug,
-										]))[policy.relationshipSchemaSlug];
+							const relationshipSchemaKey = definitionKey(
+								"relationship",
+								input.reference.owner,
+								policy.relationshipSchemaSlug,
+							);
+							let relationshipSchema;
+							if (snapshot) {
+								relationshipSchema = snapshot.relationshipSchemas[relationshipSchemaKey];
+							} else if (actorUserId === null) {
+								const schemas = yield* definitions.findGlobalRelationshipSchemas([
+									{ owner: input.reference.owner, slug: policy.relationshipSchemaSlug },
+								]);
+								relationshipSchema = schemas[relationshipSchemaKey];
+							} else {
+								const schemas = yield* definitions.findUserRelationshipSchemas(actorUserId, [
+									{ owner: input.reference.owner, slug: policy.relationshipSchemaSlug },
+								]);
+								relationshipSchema = schemas[relationshipSchemaKey];
+							}
 							if (!relationshipSchema) {
 								return yield* badRequest("Signal audience relationship schema not found");
 							}
 							recipients = yield* relationships.listEnabledOwnersForSubject({
 								subjectSide: policy.subjectSide,
 								subjectEntityId: input.subjectEntityId,
-								relationshipSchemaSlug: policy.relationshipSchemaSlug,
-								relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
+								relationshipSchemaPluginId: relationshipSchema.pluginId,
+								relationshipSchemaSlug: RelationshipSchemaSlug.make(policy.relationshipSchemaSlug),
 							});
 						}
 						return yield* planner.plan({ trigger, recipients });
