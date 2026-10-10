@@ -17,6 +17,7 @@ import {
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { ServerRun } from "#lib/infrastructure/server-run";
+import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { deleteRedisKeysOnExit, testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
 import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
@@ -24,7 +25,7 @@ import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 import { SandboxExecutionAuthority, type SandboxExecutionPrincipal } from "./execution-principal";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { SandboxHostImplementations } from "./host-implementations";
-import { nativeConfigLayer, unusedSandboxHostImplementations } from "./runner-native.test-support";
+import { unusedSandboxHostImplementations } from "./runner-native.test-support";
 import { SandboxService } from "./service";
 import type { SandboxRunInput } from "./shared";
 import { SandboxSidecarAdmission } from "./sidecar-admission";
@@ -97,7 +98,7 @@ const nativeServiceLayer = Layer.unwrap(
 			hostInterrupted: yield* Deferred.make<void>(),
 			releaseHost: yield* Deferred.make<{ readonly key: string; readonly source: string }>(),
 		};
-		const appConfig = nativeConfigLayer({
+		const appConfig = makeAppConfigLayer({
 			fileStorage: { localTempDir: root },
 			redisUrl: Redacted.make(testRedisUrl()),
 		});

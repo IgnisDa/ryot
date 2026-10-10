@@ -2,6 +2,7 @@ import { unknownToMessage } from "@ryot-app/contract/errors";
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { BACKGROUND_STARVATION_LIMIT } from "./fair-queue-store";
 import { redisKeys, RedisService } from "./redis";
 import { recordHttpAdmissionTicket } from "./runtime-metrics";
 
@@ -24,18 +25,9 @@ export const PROVIDER_HTTP_TICKET_LIMITS = {
 	retryAfterMs: 3_600_000,
 } as const;
 
-export const ProviderHttpAdmissionTiming = Schema.Struct({
-	ticketLeaseMs: PositiveSafeInteger,
-	tombstoneTtlMs: PositiveSafeInteger,
-	minimumGrantLeaseMs: PositiveSafeInteger,
-});
-export type ProviderHttpAdmissionTiming = typeof ProviderHttpAdmissionTiming.Type;
-
-const productionTiming: ProviderHttpAdmissionTiming = {
-	ticketLeaseMs: 120_000,
-	tombstoneTtlMs: 600_000,
-	minimumGrantLeaseMs: 1_000,
-};
+const TICKET_LEASE_MS = 120_000;
+const MINIMUM_GRANT_LEASE_MS = 1_000;
+const TOMBSTONE_TTL_MS = 600_000;
 
 export const ProviderHttpAdmissionDeclaration = Schema.Struct({
 	key: NonEmptyString,
@@ -125,45 +117,22 @@ const AdmissionResponse = Schema.Union([
 ]);
 type AdmissionResponse = typeof AdmissionResponse.Type;
 
-// Every key is declared and shares the policy's hash tag; argument and state numbers are parsed
-// strictly, and corrupt policy structures fail the policy closed without refreshing their TTL.
+// Every key is declared and shares the policy's hash tag.
 const admissionScript = `
 local MAX_SAFE_INTEGER = 9007199254740991
 local POLICY_LIMIT = ${PROVIDER_HTTP_TICKET_LIMITS.policy}
 local TENANT_LIMIT = ${PROVIDER_HTTP_TICKET_LIMITS.tenant}
 local SYSTEM_TENANT_LIMIT = ${PROVIDER_HTTP_TICKET_LIMITS.systemTenant}
 local SCAN_LIMIT = ${PROVIDER_HTTP_TICKET_LIMITS.scan}
-local RETRY_AFTER_LIMIT = ${PROVIDER_HTTP_TICKET_LIMITS.retryAfterMs}
-local STARVATION_LIMIT = 4
+local STARVATION_LIMIT = ${BACKGROUND_STARVATION_LIMIT}
+local TICKET_LEASE = ${TICKET_LEASE_MS}
+local MINIMUM_GRANT_LEASE = ${MINIMUM_GRANT_LEASE_MS}
+local TOMBSTONE_TTL = ${TOMBSTONE_TTL_MS}
 local POLL_SLACK = 250
 local ID_LENGTH = 1024
 local SEGMENT_LENGTH = 512
-local CORRUPT = {}
 local LANES = { interactive = KEYS[5], background = KEYS[6] }
 local dirty = false
-
-local function corrupt()
-  error(CORRUPT)
-end
-
-local function parse_non_negative_integer(value)
-  if type(value) ~= "string" or not string.match(value, "^%d+$") then
-    return nil
-  end
-  local parsed = tonumber(value)
-  if not parsed or parsed < 0 or parsed > MAX_SAFE_INTEGER or parsed % 1 ~= 0 then
-    return nil
-  end
-  return parsed
-end
-
-local function parse_positive_integer(value)
-  local parsed = parse_non_negative_integer(value)
-  if not parsed or parsed == 0 then
-    return nil
-  end
-  return parsed
-end
 
 local function format_integer(value)
   return string.format("%.0f", value)
@@ -174,80 +143,38 @@ local function valid_segment(value, length)
     and string.match(value, "^[%w%-_%.!~%*'%(%):%%]+$") ~= nil
 end
 
-local function read(...)
-  local reply = redis.pcall(...)
-  if type(reply) == "table" and reply.err then
-    corrupt()
-  end
-  return reply
-end
-
 local function write(...)
   dirty = true
   return redis.call(...)
 end
 
 local time = redis.call("TIME")
-local seconds = parse_non_negative_integer(time[1])
-local microseconds = parse_non_negative_integer(time[2])
-if not seconds or not microseconds or microseconds >= 1000000 then
-  return { "corrupt" }
-end
-local now = seconds * 1000 + math.floor(microseconds / 1000)
+local now = tonumber(time[1]) * 1000 + math.floor(tonumber(time[2]) / 1000)
 
 local operation = ARGV[1]
 local declaration_hash = ARGV[2]
-local spacing = parse_positive_integer(ARGV[3])
-local base_ttl = parse_positive_integer(ARGV[4])
-local ticket_lease = parse_positive_integer(ARGV[5])
-local minimum_grant_lease = parse_positive_integer(ARGV[6])
-local tombstone_ttl = parse_positive_integer(ARGV[7])
-if not valid_segment(declaration_hash, SEGMENT_LENGTH) or not spacing or not base_ttl
-  or not ticket_lease or not minimum_grant_lease or not tombstone_ttl then
+local spacing = tonumber(ARGV[3])
+local base_ttl = tonumber(ARGV[4])
+if not valid_segment(declaration_hash, SEGMENT_LENGTH) then
   return { "corrupt" }
 end
-local grant_lease = math.max(spacing, minimum_grant_lease)
-local hint_ceiling = math.floor(ticket_lease / 2)
-local idle_ttl = math.max(base_ttl, ticket_lease, tombstone_ttl)
-
-local STATE_FIELDS = { h = true, a = true, b = true, g = true, n = true, x = true, s = true, q = true }
-local STATE_NUMBERS = { "a", "b", "x", "s", "q" }
-local TICKET_NUMBERS = { "w", "d", "r" }
+local grant_lease = math.max(spacing, MINIMUM_GRANT_LEASE)
+local hint_ceiling = math.floor(TICKET_LEASE / 2)
+local idle_ttl = math.max(base_ttl, TICKET_LEASE, TOMBSTONE_TTL)
 
 local function load_state()
-  local raw = read("HGETALL", KEYS[1])
+  local raw = redis.call("HGETALL", KEYS[1])
   if #raw == 0 then
     return nil
   end
-  if #raw ~= 16 then
-    corrupt()
-  end
   local values = {}
   for index = 1, #raw, 2 do
-    local field = raw[index]
-    if not STATE_FIELDS[field] or values[field] ~= nil then
-      corrupt()
-    end
-    values[field] = raw[index + 1]
+    values[raw[index]] = raw[index + 1]
   end
-  local state = { h = values.h, g = values.g, n = values.n }
-  if not valid_segment(state.h, SEGMENT_LENGTH) then
-    corrupt()
-  end
-  for _, field in ipairs(STATE_NUMBERS) do
-    state[field] = parse_non_negative_integer(values[field])
-    if not state[field] then
-      corrupt()
-    end
-  end
-  if state.g == "" then
-    if state.n ~= "" or state.x ~= 0 then
-      corrupt()
-    end
-  elseif not valid_segment(state.g, ID_LENGTH) or not valid_segment(state.n, SEGMENT_LENGTH) then
-    corrupt()
-  end
-  return state
+  return {
+    h = values.h, g = values.g, n = values.n, a = tonumber(values.a), b = tonumber(values.b),
+    x = tonumber(values.x), s = tonumber(values.s), q = tonumber(values.q),
+  }
 end
 
 local function new_state(hash)
@@ -280,30 +207,15 @@ local function commit(state)
 end
 
 local function load_ticket(id)
-  local raw = read("HGET", KEYS[2], id)
+  local raw = redis.call("HGET", KEYS[2], id)
   if not raw then
     return nil
   end
-  local ok, decoded = pcall(cjson.decode, raw)
-  if not ok or type(decoded) ~= "table" then
-    return false
-  end
-  local fields = 0
-  for _ in pairs(decoded) do
-    fields = fields + 1
-  end
-  local ticket = { h = decoded.h, l = decoded.l, t = decoded.t, p = decoded.p }
-  if fields ~= 7 or not valid_segment(ticket.h, SEGMENT_LENGTH) or not LANES[ticket.l]
-    or not valid_segment(ticket.t, SEGMENT_LENGTH) or not valid_segment(ticket.p, SEGMENT_LENGTH) then
-    return false
-  end
-  for _, field in ipairs(TICKET_NUMBERS) do
-    ticket[field] = parse_non_negative_integer(decoded[field])
-    if not ticket[field] then
-      return false
-    end
-  end
-  return ticket
+  local decoded = cjson.decode(raw)
+  return {
+    h = decoded.h, l = decoded.l, t = decoded.t, p = decoded.p,
+    w = tonumber(decoded.w), d = tonumber(decoded.d), r = tonumber(decoded.r),
+  }
 end
 
 local function save_ticket(id, ticket)
@@ -315,25 +227,11 @@ local function save_ticket(id, ticket)
 end
 
 local function read_array(key, field)
-  local raw = read("HGET", key, field)
+  local raw = redis.call("HGET", key, field)
   if not raw then
     return nil
   end
-  local ok, decoded = pcall(cjson.decode, raw)
-  if not ok or type(decoded) ~= "table" or #decoded == 0 then
-    corrupt()
-  end
-  local entries = 0
-  for index, value in pairs(decoded) do
-    entries = entries + 1
-    if type(index) ~= "number" or not valid_segment(value, ID_LENGTH) then
-      corrupt()
-    end
-  end
-  if entries ~= #decoded then
-    corrupt()
-  end
-  return decoded
+  return cjson.decode(raw)
 end
 
 local function write_array(key, field, values)
@@ -362,15 +260,7 @@ local function flow_field(lane, tenant, plugin)
 end
 
 local function read_count(field)
-  local raw = read("HGET", KEYS[9], field)
-  if not raw then
-    return 0
-  end
-  local value = parse_positive_integer(raw)
-  if not value then
-    corrupt()
-  end
-  return value
+  return tonumber(redis.call("HGET", KEYS[9], field) or "0")
 end
 
 local function write_count(field, value)
@@ -386,12 +276,12 @@ local function lane_count(lane)
 end
 
 local function tombstoned(id)
-  local claimed_at = parse_non_negative_integer(read("ZSCORE", KEYS[3], id))
-  return claimed_at ~= nil and claimed_at + tombstone_ttl > now
+  local claimed_at = tonumber(redis.call("ZSCORE", KEYS[3], id))
+  return claimed_at ~= nil and claimed_at + TOMBSTONE_TTL > now
 end
 
 local function ticket_dead(state, ticket)
-  return ticket.h ~= state.h or math.max(ticket.w, state.b) + ticket_lease <= now
+  return ticket.h ~= state.h or math.max(ticket.w, state.b) + TICKET_LEASE <= now
 end
 
 -- A tenant is in its lane ring exactly while it has a plugin ring, and a plugin is in its tenant's
@@ -403,13 +293,7 @@ local function enqueue(id, ticket)
   local flow = read_array(KEYS[8], tenant_flow)
   local tenant_total = read_count("t\\n" .. tenant_ring)
   local lane_total = lane_count(ticket.l)
-  if flow and (not ring or not index_of(ring, ticket.p)) then
-    corrupt()
-  end
   if not ring then
-    if read("LPOS", LANES[ticket.l], ticket.t) then
-      corrupt()
-    end
     write("RPUSH", LANES[ticket.l], ticket.t)
     ring = {}
   end
@@ -431,16 +315,10 @@ local function remove_entry(state, id, lane, tenant, plugin, rotate)
   local tenant_flow = flow_field(lane, tenant, plugin)
   local ring = read_array(KEYS[7], tenant_ring)
   local flow = read_array(KEYS[8], tenant_flow)
-  if not ring or not flow then
-    corrupt()
-  end
   local plugin_index = index_of(ring, plugin)
   local flow_index = index_of(flow, id)
   local tenant_total = read_count("t\\n" .. tenant_ring)
   local lane_total = lane_count(lane)
-  if not plugin_index or not flow_index or tenant_total == 0 or lane_total == 0 then
-    corrupt()
-  end
   table.remove(flow, flow_index)
   write_array(KEYS[8], tenant_flow, flow)
   if #flow == 0 or rotate then
@@ -469,31 +347,20 @@ local function remove_ticket(state, id, ticket, rotate)
   remove_entry(state, id, ticket.l, ticket.t, ticket.p, rotate)
 end
 
--- Without its coordinates a corrupt ticket leaves a dangling flow entry that selection removes.
-local function drop_corrupt_ticket(state, id)
-  write("HDEL", KEYS[2], id)
-  write("ZREM", KEYS[4], id)
-  if state.g == id then
-    clear_grant(state)
-  end
-end
-
 local function cleanup(state)
-  local expired = read("ZRANGEBYSCORE", KEYS[3], "-inf", format_integer(now - tombstone_ttl), "LIMIT", 0, SCAN_LIMIT)
+  local expired = redis.call("ZRANGEBYSCORE", KEYS[3], "-inf", format_integer(now - TOMBSTONE_TTL), "LIMIT", 0, SCAN_LIMIT)
   for _, id in ipairs(expired) do
     write("ZREM", KEYS[3], id)
   end
-  if state.b + ticket_lease > now then
+  if state.b + TICKET_LEASE > now then
     return 0
   end
   local removed = 0
-  local candidates = read("ZRANGEBYSCORE", KEYS[4], "-inf", format_integer(now - ticket_lease), "LIMIT", 0, SCAN_LIMIT)
+  local candidates = redis.call("ZRANGEBYSCORE", KEYS[4], "-inf", format_integer(now - TICKET_LEASE), "LIMIT", 0, SCAN_LIMIT)
   for _, id in ipairs(candidates) do
     local ticket = load_ticket(id)
     if ticket == nil then
       write("ZREM", KEYS[4], id)
-    elseif ticket == false then
-      drop_corrupt_ticket(state, id)
     elseif ticket_dead(state, ticket) then
       remove_ticket(state, id, ticket, false)
     end
@@ -511,15 +378,9 @@ end
 
 local function scan_flow(state, caller, lane, tenant, plugin, dead, budget)
   local flow = read_array(KEYS[8], flow_field(lane, tenant, plugin))
-  if not flow then
-    corrupt()
-  end
   for index = 1, math.min(#flow, SCAN_LIMIT) do
     local id = flow[index]
     local ticket = load_ticket(id)
-    if ticket and (ticket.l ~= lane or ticket.t ~= tenant or ticket.p ~= plugin) then
-      corrupt()
-    end
     if not ticket or ticket_dead(state, ticket) then
       dead[#dead + 1] = { id = id, lane = lane, tenant = tenant, plugin = plugin }
       if #dead >= budget then
@@ -538,12 +399,9 @@ local function select_ticket(state, caller, budget)
   local dead = {}
   local visited = 0
   for _, lane in ipairs(lane_order(state)) do
-    local tenants = read("LRANGE", LANES[lane], 0, SCAN_LIMIT - 1)
+    local tenants = redis.call("LRANGE", LANES[lane], 0, SCAN_LIMIT - 1)
     for _, tenant in ipairs(tenants) do
       local ring = read_array(KEYS[7], ring_field(lane, tenant))
-      if not ring then
-        corrupt()
-      end
       for _, plugin in ipairs(ring) do
         if visited >= SCAN_LIMIT then
           return nil, dead, false
@@ -570,18 +428,12 @@ end
 -- Estimated turn: an outstanding grant, the higher lane's share, tenants ahead in this lane ring
 -- and full rounds for the ticket's place among its tenant's plugins and its flow depth.
 local function wake_hint(state, id, ticket)
-  local tenant_index = read("LPOS", LANES[ticket.l], ticket.t)
-  local tenants = read("LLEN", LANES[ticket.l])
+  local tenant_index = redis.call("LPOS", LANES[ticket.l], ticket.t)
+  local tenants = redis.call("LLEN", LANES[ticket.l])
   local ring = read_array(KEYS[7], ring_field(ticket.l, ticket.t))
   local flow = read_array(KEYS[8], flow_field(ticket.l, ticket.t, ticket.p))
-  if not tenant_index or not ring or not flow then
-    corrupt()
-  end
   local plugin_index = index_of(ring, ticket.p)
   local depth = index_of(flow, id)
-  if not plugin_index or not depth then
-    corrupt()
-  end
   local position = tenant_index + ((depth - 1) * #ring + plugin_index - 1) * tenants
   if state.g ~= "" then
     position = position + 1
@@ -610,9 +462,6 @@ local function register(id, lane, tenant, plugin)
   end
   cleanup(state)
   local existing = load_ticket(id)
-  if existing == false then
-    return { "corrupt" }
-  end
   if existing then
     if ticket_dead(state, existing) then
       remove_ticket(state, id, existing, false)
@@ -627,7 +476,7 @@ local function register(id, lane, tenant, plugin)
   if tenant == "system" then
     tenant_limit = SYSTEM_TENANT_LIMIT
   end
-  if read("HLEN", KEYS[2]) >= POLICY_LIMIT or read_count("t\\n" .. ring_field(lane, tenant)) >= tenant_limit then
+  if redis.call("HLEN", KEYS[2]) >= POLICY_LIMIT or read_count("t\\n" .. ring_field(lane, tenant)) >= tenant_limit then
     commit(state)
     return { "overloaded", format_integer(now) }
   end
@@ -645,9 +494,6 @@ local function poll(id)
     return { "claimed" }
   end
   local ticket = load_ticket(id)
-  if ticket == false then
-    return { "corrupt" }
-  end
   if state.h ~= declaration_hash then
     if ticket then
       remove_ticket(state, id, ticket, false)
@@ -725,9 +571,6 @@ local function claim(id, nonce)
     return { "unknown" }
   end
   local ticket = load_ticket(id)
-  if ticket == false then
-    return { "corrupt" }
-  end
   if not ticket or state.h ~= declaration_hash or ticket_dead(state, ticket) then
     if ticket then
       remove_ticket(state, id, ticket, false)
@@ -762,9 +605,7 @@ local function cancel(id)
     return { "cancelled" }
   end
   local ticket = load_ticket(id)
-  if ticket == false then
-    drop_corrupt_ticket(state, id)
-  elseif ticket then
+  if ticket then
     remove_ticket(state, id, ticket, false)
   end
   commit(state)
@@ -787,30 +628,26 @@ end
 
 local function main()
   if operation == "block" then
-    local delay = parse_non_negative_integer(ARGV[8])
-    if not delay or delay > RETRY_AFTER_LIMIT then
-      return { "corrupt" }
-    end
-    return block(delay)
+    return block(tonumber(ARGV[5]))
   end
-  local id = ARGV[8]
+  local id = ARGV[5]
   if not valid_segment(id, ID_LENGTH) then
     return { "corrupt" }
   end
   if operation == "register" then
-    if not LANES[ARGV[9]] or not valid_segment(ARGV[10], SEGMENT_LENGTH) or not valid_segment(ARGV[11], SEGMENT_LENGTH) then
+    if not LANES[ARGV[6]] or not valid_segment(ARGV[7], SEGMENT_LENGTH) or not valid_segment(ARGV[8], SEGMENT_LENGTH) then
       return { "corrupt" }
     end
-    return register(id, ARGV[9], ARGV[10], ARGV[11])
+    return register(id, ARGV[6], ARGV[7], ARGV[8])
   end
   if operation == "poll" then
     return poll(id)
   end
   if operation == "claim" then
-    if not valid_segment(ARGV[9], SEGMENT_LENGTH) then
+    if not valid_segment(ARGV[6], SEGMENT_LENGTH) then
       return { "corrupt" }
     end
-    return claim(id, ARGV[9])
+    return claim(id, ARGV[6])
   end
   if operation == "cancel" then
     return cancel(id)
@@ -818,23 +655,7 @@ local function main()
   return { "corrupt" }
 end
 
-local ok, reply = pcall(main)
-if ok then
-  return reply
-end
-if reply ~= CORRUPT then
-  if type(reply) == "table" and reply.err then
-    return redis.error_reply(reply.err)
-  end
-  return redis.error_reply(tostring(reply))
-end
--- Keys created before corruption was detected still get a bound; existing TTLs are not refreshed.
-for index = 1, #KEYS do
-  if redis.call("PTTL", KEYS[index]) == -1 then
-    redis.call("PEXPIRE", KEYS[index], idle_ttl)
-  end
-end
-return { "corrupt" }
+return main()
 `;
 
 const corruptState = (message: string) => new ProviderHttpAdmissionCorruptState({ message });
@@ -848,20 +669,6 @@ const parseTimestamp = (value: string, operation: string) => {
 		? Effect.succeed(timestamp)
 		: Effect.fail(corruptState(`Redis returned an invalid ${operation} timestamp`));
 };
-
-const validateDeclaration = (declaration: ProviderHttpAdmissionDeclaration) =>
-	declaration.key.length > 0 &&
-	declaration.hash.length > 0 &&
-	Number.isSafeInteger(declaration.requests) &&
-	declaration.requests > 0 &&
-	Number.isSafeInteger(declaration.intervalMs) &&
-	declaration.intervalMs > 0 &&
-	declaration.intervalMs <= Math.floor(MAX_SAFE_INTEGER / 10)
-		? Effect.succeed({
-				ttlMs: Math.max(10 * declaration.intervalMs, MINIMUM_TTL_MS),
-				spacingMs: Math.ceil(declaration.intervalMs / declaration.requests),
-			})
-		: Effect.fail(corruptState("Provider HTTP admission declaration is invalid"));
 
 const decodeResponse = (value: unknown) =>
 	Schema.decodeUnknownEffect(AdmissionResponse)(value).pipe(
@@ -895,9 +702,7 @@ const recordExpired = (declaration: ProviderHttpAdmissionDeclaration, lane: stri
 		? recordHttpAdmissionTicket({ lane, outcome: "expired", policy: declaration.key })
 		: Effect.void;
 
-export const makeProviderHttpAdmission = Effect.fnUntraced(function* (
-	timing: ProviderHttpAdmissionTiming,
-) {
+export const makeProviderHttpAdmission = Effect.fnUntraced(function* () {
 	const redis = yield* RedisService;
 
 	const execute = (
@@ -906,7 +711,8 @@ export const makeProviderHttpAdmission = Effect.fnUntraced(function* (
 		values: ReadonlyArray<string>,
 	) =>
 		Effect.gen(function* () {
-			const { ttlMs, spacingMs } = yield* validateDeclaration(declaration);
+			const ttlMs = Math.max(10 * declaration.intervalMs, MINIMUM_TTL_MS);
+			const spacingMs = Math.ceil(declaration.intervalMs / declaration.requests);
 			const keys = policyKeys(declaration.key);
 			const response = yield* Effect.tryPromise({
 				catch: (error) =>
@@ -922,9 +728,6 @@ export const makeProviderHttpAdmission = Effect.fnUntraced(function* (
 						declaration.hash,
 						String(spacingMs),
 						String(ttlMs),
-						String(timing.ticketLeaseMs),
-						String(timing.minimumGrantLeaseMs),
-						String(timing.tombstoneTtlMs),
 						...values,
 					),
 			}).pipe(
@@ -1048,7 +851,7 @@ export const makeProviderHttpAdmission = Effect.fnUntraced(function* (
 
 export class ProviderHttpAdmissionService extends Context.Service<ProviderHttpAdmissionService>()(
 	"ProviderHttpAdmissionService",
-	{ make: makeProviderHttpAdmission(productionTiming) },
+	{ make: makeProviderHttpAdmission() },
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }

@@ -153,13 +153,14 @@ export const isS3Configured = (config: AppConfigValue): boolean => {
 	);
 };
 
-const reservedDatabaseConnections = 4;
+// One cluster runner connection, two durable queue worker connections, and one application connection.
+const fixedApplicationConnections = 4;
 
 export const databaseConnectionBudget = (config: {
 	readonly database: { readonly poolMax: number };
 	readonly sandbox: { readonly workerConcurrency: number };
 }) => {
-	const application = reservedDatabaseConnections + config.sandbox.workerConcurrency;
+	const application = fixedApplicationConnections + config.sandbox.workerConcurrency;
 	return { application, sandboxDispatch: config.database.poolMax - application };
 };
 
@@ -329,11 +330,11 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			}
 		}
 
-		const workerConcurrency = config.sandbox.workerConcurrency;
-		if (databaseConnectionBudget(config).sandboxDispatch < 1) {
+		const { application, sandboxDispatch } = databaseConnectionBudget(config);
+		if (sandboxDispatch < 1) {
 			return yield* Effect.fail(
 				configError(
-					`DATABASE_POOL_MAX (${config.database.poolMax}) must leave at least one sandbox host database dispatch connection after reserving one cluster runner connection, two durable queue worker connections, one application connection, and ${workerConcurrency} sandbox worker connections (DATABASE_POOL_MAX - SANDBOX_WORKER_CONCURRENCY - ${reservedDatabaseConnections} must be at least 1). Raise DATABASE_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
+					`DATABASE_POOL_MAX (${config.database.poolMax}) must exceed the application pool (${application} = ${fixedApplicationConnections} + SANDBOX_WORKER_CONCURRENCY ${config.sandbox.workerConcurrency}) by at least one sandbox host database dispatch connection. Raise DATABASE_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
 				),
 			);
 		}

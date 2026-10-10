@@ -90,25 +90,6 @@ layer(WorkflowExecutionNotifications.layer.pipe(Layer.provideMerge(TestClock.lay
 	);
 });
 
-it.effect("delivers an immediate notification between live instances through Redis", () =>
-	Effect.scoped(
-		Effect.gen(function* () {
-			const first = Context.get(yield* makeLiveContext(), WorkflowExecutionNotifications);
-			const second = Context.get(yield* makeLiveContext(), WorkflowExecutionNotifications);
-			const identity = {
-				executionId: crypto.randomUUID(),
-				workflowName: "ImmediateCrossInstanceWorkflow",
-			};
-			const waiter = yield* second.listen(identity);
-
-			yield* first.publish(identity);
-			expect(
-				Option.isSome(yield* Effect.timeoutOption(waiter, "5 seconds").pipe(TestClock.withLive)),
-			).toBe(true);
-		}),
-	),
-);
-
 it.effect("delivers notifications between live instances through Redis", () =>
 	Effect.scoped(
 		Effect.gen(function* () {

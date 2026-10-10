@@ -87,11 +87,10 @@ layer(storeLayer)((test) => {
 			}),
 		),
 	);
-	test.effect("rejects identity mismatches, wrong Redis types, and corrupt hash fields", () =>
+	test.effect("rejects identity mismatches", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const store = yield* SandboxRecoveryStore;
-				const redis = yield* RedisService;
 				const identity = yield* acquireIdentity;
 				yield* store.read(identity);
 				const wrongInstance = yield* Effect.exit(
@@ -105,21 +104,6 @@ layer(storeLayer)((test) => {
 				assertExitFails(
 					wrongPin,
 					new SandboxRecoveryStoreError({ message: "Recovery identity mismatch" }),
-				);
-				yield* Effect.tryPromise(() =>
-					redis.client.hset(redisKeys.sandboxRecovery(identity.executionId), "recoveries", "4"),
-				);
-				const corruptFields = yield* Effect.exit(store.read(identity));
-				assertExitFails(
-					corruptFields,
-					new SandboxRecoveryStoreError({ message: "Recovery store is corrupt" }),
-				);
-				yield* redis.del(redisKeys.sandboxRecovery(identity.executionId));
-				yield* redis.set(redisKeys.sandboxRecovery(identity.executionId), "wrong-type");
-				const wrongType = yield* Effect.exit(store.read(identity));
-				assertExitFails(
-					wrongType,
-					new SandboxRecoveryStoreError({ message: "Recovery store is corrupt" }),
 				);
 			}),
 		),

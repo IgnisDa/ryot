@@ -47,7 +47,7 @@ import {
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { testExecutionId, testRedisUrl } from "#lib/test-utils/redis";
-import { makeUserPluginRevision, sandboxRuntimeDirectory } from "#lib/test-utils/sandbox-runtime";
+import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
 import { SandboxCompiledArtifacts } from "./compiled-artifacts";
@@ -201,7 +201,6 @@ const makeHeadroomLayer = Layer.unwrap(
 		applicationUrl.searchParams.set("application_name", applicationName);
 		const temporaryRoot = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-headroom-" });
 		const root = yield* fs.realPath(temporaryRoot);
-		const runtimeDirectory = yield* sandboxRuntimeDirectory;
 		const controlFactory: HeadroomControl = {
 			batches: [],
 			pidPairs: [],
@@ -217,9 +216,9 @@ const makeHeadroomLayer = Layer.unwrap(
 			fourCallbacksStarted: yield* Deferred.make<void>(),
 		};
 		const appConfig = makeAppConfigLayer({
+			sandbox: { workerConcurrency: 2 },
 			fileStorage: { localTempDir: root },
 			redisUrl: Redacted.make(testRedisUrl()),
-			sandbox: { runtimeDirectory, workerConcurrency: 2 },
 			database: { poolMax: 7, url: Redacted.make(applicationUrl.toString()) },
 		});
 		const observerFactory = {

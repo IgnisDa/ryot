@@ -85,19 +85,19 @@ const database = group(
 			validation: { required: true },
 			description: "PostgreSQL connection string",
 		}),
-		poolMax: integerField({
-			defaultValue: 10,
-			envKey: "DATABASE_POOL_MAX",
-			label: "Shared pool maximum",
-			description:
-				"Maximum number of PostgreSQL connections shared by application and workflow operations",
-		}),
 		connectionTimeoutMs: integerField({
 			defaultValue: 10_000,
 			label: "Connection timeout",
 			envKey: "DATABASE_CONNECTION_TIMEOUT_MS",
 			description:
 				"Maximum milliseconds to wait when acquiring a PostgreSQL connection from the pool",
+		}),
+		poolMax: integerField({
+			defaultValue: 10,
+			envKey: "DATABASE_POOL_MAX",
+			label: "Shared pool maximum",
+			description:
+				"Total PostgreSQL connections one process may open: SANDBOX_WORKER_CONCURRENCY + 4 for application and workflow work, and the remainder for sandbox host database calls",
 		}),
 	},
 );
@@ -131,15 +131,6 @@ const sandbox = group(
 			envKey: "SANDBOX_IMPORT_CONCURRENCY",
 			description:
 				"Maximum provider imports running at once across all instances; the rest wait in a queue. Keep it equal to the total SANDBOX_WORKER_CONCURRENCY of all instances",
-		}),
-		runtimeDirectory: stringField({
-			hidden: true,
-			defaultValue: "./sandboxd",
-			validation: { required: true },
-			envKey: "SANDBOX_RUNTIME_DIRECTORY",
-			label: "Development sandbox runtime directory",
-			description:
-				"Directory containing ryot-sandboxd and snapshots for non-Linux development; relative paths resolve from the working directory",
 		}),
 	},
 );
