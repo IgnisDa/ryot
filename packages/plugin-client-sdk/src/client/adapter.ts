@@ -8,6 +8,7 @@ import type {
 	EditCollectionRequest,
 	EntityWatch,
 	ExternalLinkRequest,
+	PluginCalendarSourceVisibilityRequest,
 	PluginCollectionRequest,
 	PluginDeviceRequest,
 	PluginIosLiveActivityRequest,
@@ -89,6 +90,9 @@ export type RyotClientAdapter = {
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly saveEntity?: (
 		request: EntityEditorSaveRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
+	readonly setCalendarSourceVisibility?: (
+		request: PluginCalendarSourceVisibilityRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly mutateCollection?: (
 		request: CollectionAdapterRequest,

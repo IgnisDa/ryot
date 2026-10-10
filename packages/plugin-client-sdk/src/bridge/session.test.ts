@@ -322,6 +322,57 @@ describe("plugin Effect request engine", () => {
 			}),
 	);
 
+	it.live("sends calendar source visibility changes and hints a refresh only on success", () =>
+		Effect.gen(function* () {
+			const { channel, runtime, messages } = yield* openRuntime();
+			const hints: null[] = [];
+			runtime.client.mutationCompleted.subscribe(() => hints.push(null));
+			const hide = yield* Effect.forkChild(
+				runtime.client.calendarSources.setVisibility({
+					isHidden: true,
+					slug: "reminders",
+					pluginId: "fixture",
+				}),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			expect(sent(messages, "calendar-source-visibility-request")).toEqual([
+				{
+					isHidden: true,
+					slug: "reminders",
+					pluginId: "fixture",
+					requestId: "calendar-source-visibility-1",
+					type: "calendar-source-visibility-request",
+				},
+			]);
+			channel.port1.postMessage({
+				outcome: "success",
+				requestId: "calendar-source-visibility-1",
+				type: "calendar-source-visibility-result",
+			});
+			yield* Fiber.join(hide);
+			expect(hints).toHaveLength(1);
+
+			const show = yield* Effect.forkChild(
+				runtime.client.calendarSources.setVisibility({
+					isHidden: false,
+					slug: "reminders",
+					pluginId: "fixture",
+				}),
+				{ startImmediately: true },
+			);
+			yield* waitForMessagePortMacrotask;
+			channel.port1.postMessage({
+				outcome: "failure",
+				reason: "invalid-request",
+				requestId: "calendar-source-visibility-2",
+				type: "calendar-source-visibility-result",
+			});
+			expect(yield* Effect.flip(Fiber.join(show))).toMatchObject({ reason: "invalid-request" });
+			expect(hints).toHaveLength(1);
+		}),
+	);
+
 	it.live("correlates collection screen outcomes and ignores stale or mistyped results", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();

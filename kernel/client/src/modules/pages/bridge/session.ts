@@ -20,6 +20,7 @@ import {
 	type PluginAssetRequest,
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
+	type PluginBridgeCalendarSourceVisibilityRequest,
 	type PluginBridgeCollectionRequest,
 	type PluginBridgeEntitySaveRequest,
 	type PluginBridgeDismissOverlay,
@@ -48,6 +49,8 @@ import {
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 	type PluginThemeSnapshot,
+	type PluginCalendarSourceVisibilityOutcome,
+	type PluginCalendarSourceVisibilityRequest,
 	type PluginCollectionOutcome,
 	type PluginCollectionRequest,
 	type PluginEntitySaveOutcome,
@@ -105,6 +108,7 @@ type PendingRequest = {
 		| HostScreenType
 		| "device"
 		| "asset"
+		| "calendar-source-visibility"
 		| "collection"
 		| "entity-editor-save"
 		| "external-link"
@@ -162,6 +166,9 @@ type PluginBridgeOptions = {
 	readonly onCollection: (
 		request: PluginCollectionRequest,
 	) => Effect.Effect<PluginCollectionOutcome>;
+	readonly onCalendarSourceVisibility: (
+		request: PluginCalendarSourceVisibilityRequest,
+	) => Effect.Effect<PluginCalendarSourceVisibilityOutcome>;
 	readonly onEntitySave: (
 		request: EntityEditorSaveRequest,
 	) => Effect.Effect<PluginEntitySaveOutcome>;
@@ -558,6 +565,13 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		runRequest(request.requestId, "collection", () => options.onCollection(capabilityRequest));
 	}
 
+	function handleCalendarSourceVisibility(request: PluginBridgeCalendarSourceVisibilityRequest) {
+		const { requestId, type: _type, ...capabilityRequest } = request;
+		runRequest(requestId, "calendar-source-visibility", () =>
+			options.onCalendarSourceVisibility(capabilityRequest),
+		);
+	}
+
 	function handleEntitySave(request: PluginBridgeEntitySaveRequest) {
 		const { requestId, type: _type, ...capabilityRequest }: PluginBridgeEntitySaveRequest = request;
 		runRequest(requestId, "entity-editor-save", () => options.onEntitySave(capabilityRequest));
@@ -732,6 +746,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
 						Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
 						Match.when({ type: "collection-request" }, (request) => handleCollection(request)),
+						Match.when({ type: "calendar-source-visibility-request" }, (request) =>
+							handleCalendarSourceVisibility(request),
+						),
 						Match.when({ type: "entity-editor-save-request" }, (request) =>
 							handleEntitySave(request),
 						),

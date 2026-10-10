@@ -124,6 +124,10 @@ create a collection inline, or, with a `collectionId`, that membership's details
 `{ kind: "saved" }`, `{ kind: "removed" }`, or `{ kind: "cancelled" }`. Both accept IDs only;
 collection update and delete are not otherwise exposed to plugins.
 
+`calendarSources.setVisibility({ pluginId, slug, isHidden })` hides or shows one calendar source for
+the current user and hints a page refresh on success. Only the kernel calendar renderer is allowed to
+call it; other documents receive `invalid-request`.
+
 `screens.pickEntity({ schema, initialQuery?, library? })` opens the kernel entity picker. It
 carries an exact `EntitySchemaReference` and returns an Effect with `{ kind: "selected", entityIds }`,
 `{ kind: "cancelled" }`, or `{ kind: "create-requested" }`. With a `library` membership the kernel

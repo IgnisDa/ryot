@@ -25,6 +25,7 @@ import {
 	EntityWatch,
 	ExternalLinkRequest,
 	ExternalLinkSuccess,
+	PluginCalendarSourceVisibilityRequest,
 	PluginCollectionRequest,
 	PluginDeviceRequest,
 	PluginDeviceResult,
@@ -146,6 +147,22 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			const decoded = yield* decodeCapability(outputSchema, value);
 			mutationCompleted.hint();
 			return decoded;
+		});
+	const setCalendarSourceVisibility = (
+		request: Schema.Codec.Encoded<typeof PluginCalendarSourceVisibilityRequest>,
+	): Effect.Effect<void, RyotClientError> =>
+		Effect.gen(function* () {
+			const decodedRequest = Schema.decodeResult(PluginCalendarSourceVisibilityRequest)(request);
+			if (Result.isFailure(decodedRequest)) {
+				return yield* new RyotClientError("invalid-input");
+			}
+			const setVisibility = adapter.setCalendarSourceVisibility;
+			if (!setVisibility) {
+				return yield* new RyotClientError("unsupported-capability");
+			}
+			yield* adapterEffect(() => setVisibility(decodedRequest.success));
+			mutationCompleted.hint();
+			return undefined;
 		});
 	const saveEntity = (
 		request: Schema.Codec.Encoded<typeof EntityEditorSaveRequest>,
@@ -291,6 +308,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		overlayBack,
 		mutationCompleted,
 		screens: { pickEntity, editCollection, addToCollection },
+		calendarSources: { setVisibility: setCalendarSourceVisibility },
 		uploads: { uploadPermanent, uploadTemporary, cleanup: cleanupUpload },
 		pluginIdentity: (packageId: PluginPackageId) => {
 			if (!adapter.pluginIdentity) {

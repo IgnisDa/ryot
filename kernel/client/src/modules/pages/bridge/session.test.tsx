@@ -151,6 +151,9 @@ const connect = (
 		readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
 		readonly watchEntities?: Parameters<typeof openPluginBridge>[0]["watchEntities"];
 		readonly onCollection?: Parameters<typeof openPluginBridge>[0]["onCollection"];
+		readonly onCalendarSourceVisibility?: Parameters<
+			typeof openPluginBridge
+		>[0]["onCalendarSourceVisibility"];
 		readonly onEntitySave?: Parameters<typeof openPluginBridge>[0]["onEntitySave"];
 		readonly onOperation?: Parameters<typeof openPluginBridge>[0]["onOperation"];
 		readonly onRyotQL?: Parameters<typeof openPluginBridge>[0]["onRyotQL"];
@@ -213,6 +216,7 @@ const connect = (
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
 		onDevice: options.onDevice ?? (() => Effect.succeed(invalidDeviceRequest)),
+		onCalendarSourceVisibility: options.onCalendarSourceVisibility ?? (() => Effect.never),
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
 		onPickEntity: (request) => {
 			entityPicks.push(request);
@@ -1204,6 +1208,7 @@ describe("plugin bridge", () => {
 				onKernelShortcut: () => undefined,
 				onExternalLink: () => Effect.never,
 				onFailure: () => failures.push(null),
+				onCalendarSourceVisibility: () => Effect.never,
 				viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 				onDevice: () => Effect.succeed(invalidDeviceRequest),
 				watchEntities: () => ({ update: () => {}, dispose: () => {} }),
@@ -1779,6 +1784,36 @@ describe("plugin bridge", () => {
 					packageId: PluginPackageId.make("test/fixture"),
 				},
 			]);
+		}),
+	);
+
+	it.live("round-trips a calendar source visibility change without its envelope", () =>
+		Effect.gen(function* () {
+			const calls: unknown[] = [];
+			const { init, received, failures, pluginPort } = connect({
+				onCalendarSourceVisibility: (request) => {
+					calls.push(request);
+					return Effect.succeed({ outcome: "success" as const });
+				},
+			});
+			pluginPort.postMessage(readyFor(init));
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+
+			pluginPort.postMessage({
+				isHidden: true,
+				slug: "reminders",
+				pluginId: "plugin-1",
+				requestId: "calendar-1",
+				type: "calendar-source-visibility-request",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+			expect(received[1]).toEqual({
+				outcome: "success",
+				requestId: "calendar-1",
+				type: "calendar-source-visibility-result",
+			});
+			expect(calls).toEqual([{ isHidden: true, slug: "reminders", pluginId: "plugin-1" }]);
+			expect(failures).toEqual([]);
 		}),
 	);
 

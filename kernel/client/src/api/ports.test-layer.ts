@@ -3,6 +3,7 @@ import { Effect, Layer } from "effect";
 import { AccountApi } from "#/api/account";
 import { AutomationHistoryApi } from "#/api/automation-history";
 import { BackupsApi } from "#/api/backups";
+import { CalendarSourcesApi } from "#/api/calendar-sources";
 import { CollectionsApi } from "#/api/collections";
 import { EntityProvidersApi } from "#/api/entity-providers";
 import { EntityWatchApi } from "#/api/entity-watches";
@@ -52,6 +53,9 @@ export const makeCollectionsApi = (overrides: Partial<CollectionsApi["Service"]>
 		deleteMembership: unused,
 		...overrides,
 	});
+
+export const makeCalendarSourcesApi = (overrides: Partial<CalendarSourcesApi["Service"]> = {}) =>
+	Layer.succeed(CalendarSourcesApi, { setVisibility: unused, ...overrides });
 
 export const makeSavedViewsApi = (overrides: Partial<SavedViewsApi["Service"]> = {}) =>
 	Layer.succeed(SavedViewsApi, { update: unused, reorder: unused, ...overrides });
@@ -171,6 +175,7 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makeAutomationHistoryApi(),
 	makeRyotQLApi(),
 	makeCollectionsApi(),
+	makeCalendarSourcesApi(),
 	makeImportsApi(),
 	makeBackupsApi(),
 	makeUploadsApi(),

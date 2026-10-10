@@ -12,6 +12,8 @@ import type {
 	PageShortcutKey,
 	PluginAssetOutcome,
 	PluginAssetRequest,
+	PluginCalendarSourceVisibilityOutcome,
+	PluginCalendarSourceVisibilityRequest,
 	PluginCollectionOutcome,
 	PluginCollectionRequest,
 	PluginEntitySaveOutcome,
@@ -126,6 +128,9 @@ export function PageIframeHost(props: {
 	readonly onEntitySave: (
 		request: EntityEditorSaveRequest,
 	) => Effect.Effect<PluginEntitySaveOutcome>;
+	readonly onCalendarSourceVisibility: (
+		request: PluginCalendarSourceVisibilityRequest,
+	) => Effect.Effect<PluginCalendarSourceVisibilityOutcome>;
 	readonly onQuery: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
 	readonly onInvokeOperation: (
 		request: PluginOperationRequest,
@@ -399,6 +404,7 @@ export function PageIframeHost(props: {
 			onIosLiveActivity: (request) => latest.current.onIosLiveActivity(request),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
+			onCalendarSourceVisibility: (request) => latest.current.onCalendarSourceVisibility(request),
 			onFailure: () => {
 				connection.failed = true;
 				closeBridge();

@@ -15,8 +15,8 @@ input as proof. Document replacement and retained-frame policy belong to the
 Internal modules split the package: `src/source-policy.ts` (file extensions, content types, source
 predicates), `src/navigation.ts` (page targets and context, locations, navigation targets, shortcuts),
 `src/bridge/lifecycle.ts` (init, document, theme, viewport, header, screen, entity picker,
-overlay, and close messages), `src/bridge/capabilities.ts` (operation, collection, asset, upload, storage, RyotQL,
-entity-watch, and external-link payloads), and `src/bridge/messages.ts` (the client and host message
+overlay, and close messages), `src/bridge/capabilities.ts` (operation, collection, calendar source visibility, asset, upload,
+storage, RyotQL, entity-watch, and external-link payloads), and `src/bridge/messages.ts` (the client and host message
 unions). `src/index.ts` only aggregates them.
 
 `src/artifact.ts` defines artifact schemas, exact-byte file copies, and the single metadata hash
@@ -56,6 +56,13 @@ JSON value. Result success returns the value or null (always null for set/remove
 `invalid-request`, `quota`, or `transport`. `PLUGIN_STORAGE_KEY_MAX_LENGTH` is wire policy;
 `PLUGIN_STORAGE_VALUE_MAX_BYTES` is host policy. Scope, persistence, and hook behavior belong to the
 [SDK storage API](../plugin-client-sdk/README.md#capabilities).
+
+`calendar-source-visibility-request` carries the `SetCalendarSourceVisibilityBody` (local plugin ID,
+source slug, hidden flag). Its result is bare success or `invalid-request` (the document is not the
+kernel calendar, or the source is not effective for the user), `malformed-result`, or `transport`.
+The kernel host accepts it only from the kernel saved view whose renderer is the calendar; that gate
+limits which document may ask, not what a request may change. The server endpoint scopes the write
+to the signed-in user's effective sources.
 
 Reserved kernel shortcuts are semantic bridge messages, not public `RyotClient` capabilities. Raw
 keyboard events never cross the boundary. Page shortcuts are declarative and two-way: a document

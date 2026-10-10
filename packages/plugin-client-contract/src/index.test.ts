@@ -879,6 +879,30 @@ describe("plugin client bridge contract", () => {
 		).toBe(true);
 	});
 
+	it("decodes strict calendar source visibility requests and results", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const request = {
+			isHidden: true,
+			slug: "reminders",
+			pluginId: "plugin-1",
+			requestId: "calendar-1",
+			type: "calendar-source-visibility-request" as const,
+		};
+		const result = { requestId: "calendar-1", type: "calendar-source-visibility-result" as const };
+
+		expect(Result.isSuccess(decodeClient(request))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, userId: "user-controlled" }))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, isHidden: "yes" }))).toBe(true);
+		expect(Result.isSuccess(decodeHost({ ...result, outcome: "success" }))).toBe(true);
+		expect(
+			Result.isSuccess(decodeHost({ ...result, outcome: "failure", reason: "invalid-request" })),
+		).toBe(true);
+		expect(Result.isFailure(decodeHost({ ...result, reason: "quota", outcome: "failure" }))).toBe(
+			true,
+		);
+	});
+
 	it("bounds storage keys and carries a value only on set", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
