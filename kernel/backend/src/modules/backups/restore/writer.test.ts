@@ -31,9 +31,9 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { count, eq, sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
 
+import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
-import { managedAssetProperty } from "#modules/assets/storage/managed-assets.test-support";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { buildDefinitionSnapshot, type DefinitionSnapshot } from "#modules/definitions/snapshot";
 import { mergeManifestDefinitions } from "#modules/definitions/source";

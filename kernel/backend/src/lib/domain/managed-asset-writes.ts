@@ -5,6 +5,7 @@ import { Data, Effect } from "effect";
 
 import {
 	collectManagedAssetLocators,
+	managedAssetLocatorKey,
 	type ManagedAssetPropertyRecord,
 } from "#lib/domain/managed-asset-locators";
 import type { DatabaseSession } from "#platform/db/session";
@@ -20,8 +21,6 @@ export type OwnedManagedAssetPropertyRecord = ManagedAssetPropertyRecord & {
 
 const locatorWhere = (locator: ManagedAssetLocator) =>
 	and(eq(managedAsset.provider, locator.type), eq(managedAsset.key, locator.key));
-
-const locatorKey = (locator: ManagedAssetLocator) => `${locator.type}\0${locator.key}`;
 
 // Every locator is checked, not only newly added ones: managed_asset rows are removed only by the
 // owner-account cascade, and only rows owned by that same owner may reference them.
@@ -46,11 +45,13 @@ export const makeManagedAssetReferenceLocker = (session: DatabaseSession["Servic
 				.for("share"),
 		);
 		const assets = new Map(
-			rows.map((row) => [locatorKey({ key: row.key, type: row.provider }), row] as const),
+			rows.map(
+				(row) => [managedAssetLocatorKey({ key: row.key, type: row.provider }), row] as const,
+			),
 		);
 		const rejected = records.some((record) =>
 			collectManagedAssetLocators([record], true).some((locator) => {
-				const asset = assets.get(locatorKey(locator));
+				const asset = assets.get(managedAssetLocatorKey(locator));
 				return (
 					record.ownerUserId === null ||
 					asset?.retiredAt !== null ||

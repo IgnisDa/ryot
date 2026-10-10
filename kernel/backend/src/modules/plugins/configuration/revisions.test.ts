@@ -9,7 +9,7 @@ import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes"
 import {
 	insertManagedAsset,
 	managedAssetProperty,
-} from "#modules/assets/storage/managed-assets.test-support";
+} from "#lib/domain/managed-asset-writes.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/core";
 
