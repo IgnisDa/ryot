@@ -167,7 +167,7 @@ export function WorkoutEditorScreen(props: {
 	const { onStarted, prepareDraft } = props;
 	const client = useRyot();
 	const schedule = useRyotSchedule();
-	const { compact } = useRyotViewport();
+	const { compact, safeAreaBottom } = useRyotViewport();
 	const { isActive, scrollRootRef } = usePluginScreenSurface();
 	const { sounds, snapshot, controller } = useWorkoutEditor(props.target);
 	const [overlay, setOverlay] = useState<EditorOverlay>();
@@ -710,6 +710,8 @@ export function WorkoutEditorScreen(props: {
 				editorDraft === undefined ? undefined : (
 					<Button
 						onClick={() => setOverlay("finish")}
+						className="absolute right-4 z-20 shadow-card"
+						style={{ bottom: Math.max(24, safeAreaBottom + 16) }}
 						disabled={
 							disabled ||
 							uploading ||
