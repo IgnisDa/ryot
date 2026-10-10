@@ -16,6 +16,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { setLocalStatementTimeout, DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
@@ -84,6 +85,7 @@ const plannerSchemaLayer = Layer.effect(PlannerSchema, makePlannerSchema).pipe(
 // while `lockCatalog` still takes one real `plugin-config:` key.
 const seedCatalog = (statements: readonly string[]) =>
 	Effect.gen(function* () {
+		const manifest = { ...fixtureManifest(), hooks: [], scripts: [], signalSchemas: [] };
 		yield* (yield* DatabaseSession).run((db) =>
 			Effect.gen(function* () {
 				yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
@@ -101,10 +103,11 @@ const seedCatalog = (statements: readonly string[]) =>
 					.insert(tables.pluginRevision)
 					.values({
 						pluginId,
+						manifest,
 						id: "fixture-revision",
 						contentHash: "fixture-source",
 						clientConfigSchema: { fields: {} },
-						manifest: { ...fixtureManifest(), hooks: [], scripts: [], signalSchemas: [] },
+						sandboxAuthority: pluginSandboxAuthority(manifest),
 					});
 				yield* db
 					.update(tables.plugin)

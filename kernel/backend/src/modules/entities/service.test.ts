@@ -51,6 +51,7 @@ import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions"
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { revisionPackage } from "#modules/plugins/packages/revision.test-support";
+import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
@@ -1014,6 +1015,7 @@ describe("EntitiesService committed lifecycle", () => {
 							pluginId: "provider-plugin",
 							contentHash: "provider-source",
 							clientConfigSchema: { fields: {} },
+							sandboxAuthority: pluginSandboxAuthority(manifest),
 						});
 					yield* db
 						.update(tables.plugin)

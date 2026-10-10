@@ -4,6 +4,7 @@ import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
+import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -21,6 +22,7 @@ import type { SandboxExecutionResult } from "#modules/scripts/executions/result"
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
 import { makeActivity } from "#platform/workflow/scope";
+import * as tables from "#schema/tables/combined";
 
 import { preRegisterProviderDetails } from "./details-principal";
 import { makeProviderExecutionReads } from "./execution-reads";
@@ -87,13 +89,24 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			pluginRevision: { id: string; revisionId: string };
 		}) {
 			const owner = definitionOwner(input.pluginRevision.id);
-			const manifest = yield* writes
+			const pin = yield* writes
 				.check(input.command, owner, input.userId)
 				.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
 			const provider = yield* writes
 				.checkProvider(input.providerId, owner)
 				.pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
-			const slug = manifest?.providers.find(
+			const [revision] = pin
+				? yield* session
+						.run((db) =>
+							db
+								.select({ providers: tables.pluginRevision.providers })
+								.from(tables.pluginRevision)
+								.where(eq(tables.pluginRevision.id, pin.id))
+								.limit(1),
+						)
+						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")))
+				: [];
+			const slug = revision?.providers.find(
 				({ slug: providerSlug }) => providerSlug === provider.slug,
 			)?.operations[input.operation];
 			const script = slug

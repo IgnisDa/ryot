@@ -34,6 +34,7 @@ import {
 	lockPluginIngestionShared,
 	PLUGIN_INGESTION_ADVISORY_LOCK_KEY,
 } from "#modules/plugins/packages/ingestion-fence";
+import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -1088,6 +1089,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 								clientArtifactHash,
 								manifest: plugin.manifest,
 								contentHash: plugin.contentHash,
+								sandboxAuthority: pluginSandboxAuthority(plugin.manifest),
 								clientConfigSchema: redactPluginConfig(plugin.manifest.configSchema, {})
 									.configSchema,
 							})
