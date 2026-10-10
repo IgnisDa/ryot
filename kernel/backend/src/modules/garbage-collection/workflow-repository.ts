@@ -1,5 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { type Envelope, type Reply, ShardId } from "effect/cluster";
 
@@ -24,12 +25,20 @@ const identityFilter = (identity: WorkflowIdentity) =>
 const treeFilter = (root: WorkflowIdentity) =>
 	and(eq(table.rootWorkflowName, root.workflowName), eq(table.rootExecutionId, root.executionId));
 
+const rootExecution = alias(table, "root");
+
 const RequestIdentity = Schema.Struct({
 	entityType: Schema.String,
 	executionId: Schema.String,
 	workflowName: Schema.String,
 	tag: Schema.NullOr(Schema.String),
 });
+const LockedRequest = Schema.Struct({ ...RequestIdentity.fields, rootExpired: Schema.Boolean });
+
+const requestWorkflowName = sql`case when message.entity_type = ${workflowClockEntityType}
+	then message.payload::jsonb->>'workflowName'
+	else substring(message.entity_type from ${workflowEntityPrefix.length + 1})
+end`;
 
 export class WorkflowGarbageCollectionRepository extends Context.Service<WorkflowGarbageCollectionRepository>()(
 	"WorkflowGarbageCollectionRepository",
@@ -44,26 +53,27 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 				);
 				return row;
 			});
-			const lockRoot = Effect.fn("WorkflowGarbageCollectionRepository.lockRoot")(function* (
-				row: ExecutionRow,
-			) {
-				const [root] = yield* session.run((db) =>
-					db
-						.select()
-						.from(table)
-						.where(
-							identityFilter({
-								executionId: row.rootExecutionId,
-								workflowName: row.rootWorkflowName,
-							}),
-						)
-						.for("update"),
-				);
-				if (!root) {
-					return yield* new DbError({ message: "Workflow execution root is missing" });
-				}
-				return root;
-			});
+			// Locking the root row in the same statement fences the message against tree expiry, which
+			// takes the root `FOR UPDATE SKIP LOCKED` before re-checking the tree.
+			const lockExecution = Effect.fn("WorkflowGarbageCollectionRepository.lockExecution")(
+				function* (identity: WorkflowIdentity) {
+					const [locked] = yield* session.run((db) =>
+						db
+							.select({ execution: table, rootExpiredAt: rootExecution.expiredAt })
+							.from(table)
+							.innerJoin(
+								rootExecution,
+								and(
+									eq(rootExecution.workflowName, table.rootWorkflowName),
+									eq(rootExecution.executionId, table.rootExecutionId),
+								),
+							)
+							.where(identityFilter(identity))
+							.for("update", { of: rootExecution }),
+					);
+					return locked;
+				},
+			);
 			const admit = Effect.fn("WorkflowGarbageCollectionRepository.admit")(function* (
 				envelope: Envelope.Encoded,
 			) {
@@ -80,28 +90,33 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 							)).workflowName
 						: envelope.address.entityType.slice(workflowEntityPrefix.length),
 				};
-				const parentPayload =
-					!clock && envelope._tag === "Request" && envelope.tag === "run"
-						? yield* Schema.decodeUnknownEffect(WorkflowParentPayload)(envelope.payload)
-						: undefined;
-				const parentIdentity =
-					parentPayload?.["~effect/cluster/ClusterWorkflowEngine/payloadParentKey"];
-				const parent = parentIdentity ? yield* find(parentIdentity) : undefined;
-				if (parentIdentity && !parent) {
-					return yield* new DbError({ message: "Workflow parent execution is missing" });
-				}
-				let row = yield* find(identity);
-				if (!row) {
-					if (clock || envelope._tag !== "Request" || envelope.tag !== "run") {
+				const expired = Effect.die(new WorkflowExecutionExpired(identity));
+				if (clock || envelope._tag !== "Request" || envelope.tag !== "run") {
+					const locked = yield* lockExecution(identity);
+					if (!locked) {
 						return yield* new DbError({ message: "Workflow message has no admitted execution" });
 					}
-					if (parent) {
-						const root = yield* lockRoot(parent);
-						if (root.expiredAt !== null) {
-							return yield* Effect.die(new WorkflowExecutionExpired(identity));
-						}
+					return locked.rootExpiredAt === null ? yield* Effect.void : yield* expired;
+				}
+				const parentIdentity = (yield* Schema.decodeUnknownEffect(WorkflowParentPayload)(
+					envelope.payload,
+				))["~effect/cluster/ClusterWorkflowEngine/payloadParentKey"];
+				let locked = yield* lockExecution(identity);
+				let parent: ExecutionRow | undefined;
+				if (parentIdentity) {
+					const lockedParent = locked
+						? { rootExpiredAt: null, execution: yield* find(parentIdentity) }
+						: yield* lockExecution(parentIdentity);
+					if (!lockedParent?.execution) {
+						return yield* new DbError({ message: "Workflow parent execution is missing" });
 					}
-					yield* session.run((db) =>
+					if (lockedParent.rootExpiredAt !== null) {
+						return yield* expired;
+					}
+					parent = lockedParent.execution;
+				}
+				if (!locked) {
+					const [inserted] = yield* session.run((db) =>
 						db
 							.insert(table)
 							.values({
@@ -113,25 +128,24 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 									ShardId.make(envelope.address.shardId.group, envelope.address.shardId.id),
 								),
 							})
-							.onConflictDoNothing(),
+							.onConflictDoNothing()
+							.returning(),
 					);
-					row = yield* find(identity);
+					locked = inserted
+						? { execution: inserted, rootExpiredAt: null }
+						: yield* lockExecution(identity);
 				}
-				if (!row) {
+				if (!locked) {
 					return yield* new DbError({ message: "Workflow execution admission failed" });
 				}
 				if (
 					parent &&
-					(row.rootWorkflowName !== parent.rootWorkflowName ||
-						row.rootExecutionId !== parent.rootExecutionId)
+					(locked.execution.rootWorkflowName !== parent.rootWorkflowName ||
+						locked.execution.rootExecutionId !== parent.rootExecutionId)
 				) {
 					return yield* new DbError({ message: "Workflow execution belongs to another root" });
 				}
-				const root = yield* lockRoot(row);
-				if (root.expiredAt !== null) {
-					return yield* Effect.die(new WorkflowExecutionExpired(identity));
-				}
-				return yield* Effect.void;
+				return locked.rootExpiredAt === null ? yield* Effect.void : yield* expired;
 			});
 			const requestIdentity = Effect.fn("WorkflowGarbageCollectionRepository.requestIdentity")(
 				function* (requestId: string) {
@@ -139,11 +153,33 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 						db.execute<typeof RequestIdentity.Type>(
 							sql`
 						select tag, entity_id as "executionId", entity_type as "entityType",
-							case when entity_type = ${workflowClockEntityType}
-								then payload::jsonb->>'workflowName'
-								else substring(entity_type from ${workflowEntityPrefix.length + 1})
-							end as "workflowName"
-						from cluster_messages where id = ${requestId}
+							${requestWorkflowName} as "workflowName"
+						from cluster_messages message where id = ${requestId}
+					`,
+							"objects",
+						),
+					);
+					return request;
+				},
+			);
+			const lockRequestRoot = Effect.fn("WorkflowGarbageCollectionRepository.lockRequestRoot")(
+				function* (requestId: string) {
+					const [request] = yield* session.run((db) =>
+						db.execute<typeof LockedRequest.Type>(
+							sql`
+						select message.tag, message.entity_id as "executionId",
+							message.entity_type as "entityType", execution.workflow_name as "workflowName",
+							root.expired_at is not null as "rootExpired"
+						from cluster_messages message
+						join workflow_execution execution
+							on execution.workflow_name = ${requestWorkflowName}
+							and execution.execution_id = message.entity_id
+						join workflow_execution root
+							on root.workflow_name = execution.root_workflow_name
+							and root.execution_id = execution.root_execution_id
+						where message.id = ${requestId}
+							and starts_with(message.entity_type, ${workflowEntityPrefix})
+						for update of root
 					`,
 							"objects",
 						),
@@ -155,18 +191,14 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 				reply: Reply.Encoded,
 			) {
 				yield* session.requireTransaction;
+				const locked = yield* lockRequestRoot(reply.requestId);
+				if (locked) {
+					return locked.rootExpired ? undefined : locked;
+				}
 				const request = yield* requestIdentity(reply.requestId);
-				if (!request) {
-					return undefined;
-				}
-				if (!request.entityType.startsWith(workflowEntityPrefix)) {
-					return request;
-				}
-				const row = yield* find({
-					executionId: request.executionId,
-					workflowName: request.workflowName,
-				});
-				return row && (yield* lockRoot(row)).expiredAt === null ? request : undefined;
+				return request && !request.entityType.startsWith(workflowEntityPrefix)
+					? request
+					: undefined;
 			});
 			const complete = Effect.fn("WorkflowGarbageCollectionRepository.complete")(function* (
 				reply: Reply.Encoded,
