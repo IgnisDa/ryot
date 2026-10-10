@@ -687,6 +687,135 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 	return child._tag === "Success" ? child.value : yield* Effect.failCause(child.cause);
 });
 
+type ObservedRequest = Extract<ObservedWorkflowReplay, { state: "pending" }>["requests"][number];
+
+interface WorkflowRunScope {
+	readonly executionId: string;
+	readonly instance: Context.Service.Shape<typeof WorkflowInstance>;
+	readonly payload: SandboxScriptWorkflowPayloadValue;
+	readonly pin: typeof SandboxWorkflowPin.Type;
+}
+
+const settleSandboxRequest = Effect.fnUntraced(function* (
+	{ pin, payload, instance, executionId }: WorkflowRunScope,
+	{ request, targetScriptId }: ObservedRequest,
+	pending: SandboxInlineProgress | undefined,
+) {
+	const engine = yield* WorkflowEngine;
+	const deferred = DurableDeferred.make(`sandbox-request-${request.index}`, {
+		success: SettledWorkflowRequest,
+	});
+	const stored = yield* engine
+		.deferredResult(deferred)
+		.pipe(Effect.provideService(WorkflowInstance, instance));
+	if (Option.isSome(stored)) {
+		const settled = yield* stored.value;
+		if (
+			!sameRequestIdentity(settled.entry.request, request) ||
+			settled.targetScriptId !== (targetScriptId ?? null)
+		) {
+			return yield* sandboxFailure(
+				"script-failure",
+				`SandboxWorkflowNondeterminism: settled request[${request.index}] identity or pinned target changed`,
+			);
+		}
+		return settled.entry.value;
+	}
+	return yield* Effect.uninterruptibleMask((restore) =>
+		Effect.gen(function* () {
+			const value = yield* restore(
+				pending?._tag === "Completed"
+					? Effect.succeed(pending.value)
+					: performSandboxWorkflowRequest(
+							request,
+							targetScriptId,
+							{ ...payload, startedAt: pin.startedAt, scriptId: pin.principal.scriptId },
+							pin.principal,
+							executionId,
+							pending?._tag === "Http" ? pending.progress : undefined,
+						).pipe(Effect.provideService(WorkflowInstance, instance)),
+			);
+			const jsonValue = yield* decodeDurableResult(value);
+			// A sibling suspension must not interrupt the completion write after dispatch has returned.
+			yield* engine
+				.deferredDone(deferred, {
+					deferredName: deferred.name,
+					executionId: instance.executionId,
+					workflowName: instance.workflow._tag,
+					exit: Exit.succeed({
+						entry: { request, value: jsonValue },
+						targetScriptId: targetScriptId ?? null,
+					}),
+				})
+				.pipe(Effect.provideService(WorkflowInstance, instance));
+			return jsonValue;
+		}),
+	);
+});
+
+const makeReplayJournal = () => {
+	const entries: WorkflowReplayJournalEntry[] = [];
+	let bytes = 2;
+	const append = Effect.fnUntraced(function* (request: WorkflowDurableCallRequest, value: unknown) {
+		const journalValue = yield* decodeDurableResult(value);
+		const entryBytes = jsonByteLength({ request, value: journalValue });
+		if (entryBytes === null) {
+			return yield* sandboxFailure(
+				"script-failure",
+				`Sandbox workflow durable journal exceeds ${SANDBOX_LIMITS.journalBytes} UTF-8 bytes`,
+			);
+		}
+		const journalByteError = sandboxWorkflowJournalByteError(bytes, entryBytes, entries.length);
+		if (journalByteError) {
+			return yield* sandboxFailure("script-failure", journalByteError);
+		}
+		bytes += entryBytes + (entries.length === 0 ? 0 : 1);
+		entries.push({ request, value: journalValue });
+		return undefined;
+	});
+	return {
+		append,
+		entries,
+		get bytes() {
+			return bytes;
+		},
+	};
+};
+
+const validatePendingInline = Effect.fnUntraced(function* (
+	replay: SandboxReplayResult,
+	observed: ObservedWorkflowReplay,
+) {
+	const pending = new Map<number, SandboxInlineProgress>();
+	for (const entry of replay.pendingInline) {
+		const request =
+			observed.state === "pending"
+				? observed.requests.find((candidate) => candidate.request.index === entry.request.index)
+						?.request
+				: undefined;
+		if (
+			!request ||
+			pending.has(request.index) ||
+			!sameRequestIdentity(request, entry.request) ||
+			(entry._tag === "Http" && entry.request.args.capability !== "httpCall")
+		) {
+			return yield* sandboxFailure(
+				"script-failure",
+				"Sandbox inline progress does not match the pending replay",
+			);
+		}
+		if (entry._tag === "Completed") {
+			yield* Schema.decodeUnknownEffect(
+				request.kind === "sleep" ? Schema.Null : workflowDurableResultSchema,
+			)(entry.value).pipe(
+				Effect.mapError((error) => sandboxFailure("infrastructure", unknownToMessage(error))),
+			);
+		}
+		pending.set(request.index, entry);
+	}
+	return pending;
+});
+
 export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(function* <R>(
 	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
@@ -723,104 +852,41 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 
 	const replayKind = sandboxMetricKind(pin.principal.metadata);
 	const originalInstance = yield* WorkflowInstance;
-	const engine = yield* WorkflowEngine;
-	const settleRequest = Effect.fnUntraced(function* (
-		observed: Extract<ObservedWorkflowReplay, { state: "pending" }>["requests"][number],
-		pending: SandboxInlineProgress | undefined,
-	) {
-		const { request, targetScriptId } = observed;
-		const deferred = DurableDeferred.make(`sandbox-request-${request.index}`, {
-			success: SettledWorkflowRequest,
-		});
-		const stored = yield* engine
-			.deferredResult(deferred)
-			.pipe(Effect.provideService(WorkflowInstance, originalInstance));
-		if (Option.isSome(stored)) {
-			const settled = yield* stored.value;
-			if (
-				!sameRequestIdentity(settled.entry.request, request) ||
-				settled.targetScriptId !== (targetScriptId ?? null)
-			) {
-				return yield* sandboxFailure(
-					"script-failure",
-					`SandboxWorkflowNondeterminism: settled request[${request.index}] identity or pinned target changed`,
-				);
-			}
-			return settled.entry.value;
-		}
-		return yield* Effect.uninterruptibleMask((restore) =>
-			Effect.gen(function* () {
-				const value = yield* restore(
-					pending?._tag === "Completed"
-						? Effect.succeed(pending.value)
-						: performSandboxWorkflowRequest(
-								request,
-								targetScriptId,
-								{ ...payload, startedAt: pin.startedAt, scriptId: pin.principal.scriptId },
-								pin.principal,
-								executionId,
-								pending?._tag === "Http" ? pending.progress : undefined,
-							).pipe(Effect.provideService(WorkflowInstance, originalInstance)),
-				);
-				const jsonValue = yield* decodeDurableResult(value);
-				// A sibling suspension must not interrupt the completion write after dispatch has returned.
-				yield* engine
-					.deferredDone(deferred, {
-						deferredName: deferred.name,
-						executionId: originalInstance.executionId,
-						workflowName: originalInstance.workflow._tag,
-						exit: Exit.succeed({
-							entry: { request, value: jsonValue },
-							targetScriptId: targetScriptId ?? null,
-						}),
-					})
-					.pipe(Effect.provideService(WorkflowInstance, originalInstance));
-				return jsonValue;
-			}),
-		);
-	});
+	const scope: WorkflowRunScope = { pin, payload, executionId, instance: originalInstance };
 
 	const replayWorkflow = Effect.fnUntraced(function* () {
-		const journal: WorkflowReplayJournalEntry[] = [];
-		let journalBytes = 2;
+		const journal = makeReplayJournal();
 		let projected = 0;
 		let projectionRebuilds = 0;
 		let replayStartedAt = 0;
-		const appendJournalEntry = (request: WorkflowDurableCallRequest, value: unknown) =>
-			Effect.gen(function* () {
-				const journalValue = yield* decodeDurableResult(value);
-				const entryBytes = jsonByteLength({ request, value: journalValue });
-				if (entryBytes === null) {
-					return yield* sandboxFailure(
-						"script-failure",
-						`Sandbox workflow durable journal exceeds ${SANDBOX_LIMITS.journalBytes} UTF-8 bytes`,
-					);
-				}
-				const journalByteError = sandboxWorkflowJournalByteError(
-					journalBytes,
-					entryBytes,
-					journal.length,
-				);
-				if (journalByteError) {
-					return yield* sandboxFailure("script-failure", journalByteError);
-				}
-				journalBytes += entryBytes + (journal.length === 0 ? 0 : 1);
-				journal.push({ request, value: journalValue });
-				return undefined;
-			});
 		const finishReplay = (outcome: SandboxReplayOutcome) =>
 			Effect.flatMap(Clock.currentTimeMillis, (finishedAt) =>
 				recordSandboxWorkflowReplayFinished({
 					outcome,
-					journalBytes,
 					kind: replayKind,
-					journalEntries: journal.length,
+					journalBytes: journal.bytes,
+					journalEntries: journal.entries.length,
 					durationMs: Math.max(0, finishedAt - replayStartedAt),
 				}),
 			);
-		for (let step = 0; journal.length <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
-			yield* appendWorkflowJournal(executionId, projected, journal.slice(projected));
-			projected = journal.length;
+		const failReplay = Effect.fnUntraced(function* (
+			replay: SandboxReplayResult,
+			step: number,
+			error: NonNullable<SandboxExecutionResult["error"]>,
+			description: string,
+		) {
+			yield* finishReplay("failed");
+			if (payload.resultMode === "execution") {
+				return toSandboxExecutionResult(replay, null, error);
+			}
+			return yield* sandboxFailure(
+				"script-failure",
+				`Workflow replay ${step} failed: ${description}`,
+			);
+		});
+		for (let step = 0; journal.entries.length <= SANDBOX_WORKFLOW_MAX_STEPS; step += 1) {
+			yield* appendWorkflowJournal(executionId, projected, journal.entries.slice(projected));
+			projected = journal.entries.length;
 			const replayExecutionId = `${executionId}-replay-${step}`;
 			replayStartedAt = yield* Clock.currentTimeMillis;
 			const replay = yield* Effect.scoped(
@@ -829,9 +895,9 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 					context: payload.input,
 					startedAt: pin.startedAt,
 					principal: pin.principal,
-					journalLength: journal.length,
 					executionId: replayExecutionId,
 					workflowExecutionId: executionId,
+					journalLength: journal.entries.length,
 					...(payload.grants ? { grants: payload.grants } : {}),
 				}),
 			).pipe(Effect.catchTag("SandboxProjectionMissing", () => Effect.void));
@@ -871,91 +937,56 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			);
 			if (replay.error) {
 				yield* cancelPending;
-				yield* finishReplay("failed");
-				if (payload.resultMode === "execution") {
-					return toSandboxExecutionResult(replay, null, replay.error);
-				}
-				return yield* sandboxFailure(
-					"script-failure",
-					`Workflow replay ${step} failed: ${replay.error.phase}: ${replay.error.message}`,
+				return yield* failReplay(
+					replay,
+					step,
+					replay.error,
+					`${replay.error.phase}: ${replay.error.message}`,
 				);
 			}
 			const observed = yield* observeWorkflowReplay(
 				replay.value,
-				journal,
+				journal.entries,
 				replay.inline,
 				pin.principal.pluginRevision,
 				pin.principal.metadata,
 				step,
 			).pipe(Effect.onError(() => cancelPending));
-			const pending = new Map<number, SandboxInlineProgress>();
-			for (const entry of replay.pendingInline) {
-				const request =
-					observed.state === "pending"
-						? observed.requests.find((candidate) => candidate.request.index === entry.request.index)
-								?.request
-						: undefined;
-				if (
-					!request ||
-					pending.has(request.index) ||
-					!sameRequestIdentity(request, entry.request) ||
-					(entry._tag === "Http" && entry.request.args.capability !== "httpCall")
-				) {
-					yield* cancelPending;
-					return yield* sandboxFailure(
-						"script-failure",
-						"Sandbox inline progress does not match the pending replay",
-					);
-				}
-				if (entry._tag === "Completed") {
-					yield* Schema.decodeUnknownEffect(
-						request.kind === "sleep" ? Schema.Null : workflowDurableResultSchema,
-					)(entry.value).pipe(
-						Effect.mapError((error) => sandboxFailure("infrastructure", unknownToMessage(error))),
-						Effect.onError(() => cancelPending),
-					);
-				}
-				pending.set(request.index, entry);
-			}
-			if (journal.length + replay.inline.length > SANDBOX_WORKFLOW_MAX_STEPS) {
+			const pending = yield* validatePendingInline(replay, observed).pipe(
+				Effect.onError(() => cancelPending),
+			);
+			if (journal.entries.length + replay.inline.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}
 			for (const entry of replay.inline) {
-				yield* appendJournalEntry(entry.request, entry.value);
+				yield* journal.append(entry.request, entry.value);
 			}
 			if (observed.state === "failed") {
-				yield* finishReplay("failed");
-				if (payload.resultMode === "execution") {
-					return toSandboxExecutionResult(replay, null, {
-						phase: "execute",
-						kind: observed.kind,
-						message: observed.error,
-					});
-				}
-				return yield* sandboxFailure(
-					"script-failure",
-					`Workflow replay ${step} failed: ${observed.error}`,
+				return yield* failReplay(
+					replay,
+					step,
+					{ phase: "execute", kind: observed.kind, message: observed.error },
+					observed.error,
 				);
 			}
 			if (observed.state === "completed") {
 				yield* finishReplay("completed");
-				const observedOutput =
+				const output =
 					replay.harvest && isObjectRecord(observed.output)
 						? withHarvestedChunks(observed.output, replay.harvest.chunkHandles)
 						: observed.output;
-				if (payload.resultMode === "execution") {
-					return toSandboxExecutionResult(replay, observedOutput);
-				}
-				return observedOutput;
+				return payload.resultMode === "execution"
+					? toSandboxExecutionResult(replay, output)
+					: output;
 			}
 			yield* finishReplay("pending");
-			if (journal.length + observed.requests.length > SANDBOX_WORKFLOW_MAX_STEPS) {
+			if (journal.entries.length + observed.requests.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}
 			const values = yield* Effect.forEach(
 				observed.requests,
 				(observedRequest) =>
-					settleRequest(observedRequest, pending.get(observedRequest.request.index)),
+					settleSandboxRequest(scope, observedRequest, pending.get(observedRequest.request.index)),
 				{ concurrency: SANDBOX_LIMITS.bridge.concurrentHostCalls },
 			);
 			for (let index = 0; index < observed.requests.length; index += 1) {
@@ -967,7 +998,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 						"Sandbox workflow durable batch returned incomplete results",
 					);
 				}
-				yield* appendJournalEntry(observedRequest.request, value);
+				yield* journal.append(observedRequest.request, value);
 			}
 		}
 

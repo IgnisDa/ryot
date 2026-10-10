@@ -15,6 +15,7 @@ import { makeSqlClusterWorkflowEngine } from "#lib/test-utils/effect";
 import { LifecycleExecutionLive } from "./execution";
 import { triggerFixture } from "./lifecycle.test-support";
 import {
+	behave,
 	operationsLive,
 	release,
 	requiredRun,
@@ -67,6 +68,12 @@ it.layer(Layer.merge(BunServices.layer, Reactivity.layer), { excludeTestServices
 							Layer.provideMerge(runControlLayer(1_200)),
 						),
 					);
+					yield* behave({
+						"held-cluster": { hold: true },
+						"held-pair-first": { hold: true },
+						"held-pair-second": { hold: true },
+						"late-cluster": { lateExit: true },
+					}).pipe(Effect.provideContext(context));
 					const [single, pair, late] = yield* Effect.all(
 						[
 							Effect.forkChild(Effect.delay(release("held-cluster"), "200 millis")).pipe(

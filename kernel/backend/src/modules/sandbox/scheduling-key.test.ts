@@ -1,27 +1,25 @@
 import { it } from "@effect/vitest";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 import { expect } from "vitest";
 
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import { makeUserPluginRevision } from "#lib/test-utils/sandbox-runtime";
 
 import { SandboxExecutionQueue } from "./durable-queues";
 import { sandboxSchedulingKey } from "./scheduling-key";
 
-const userPlugin = {
-	scope: "user",
-	id: "plugin-1",
-	slug: "plugin",
-	ownerId: "user-1",
-	workflowScripts: {},
-	revisionId: "revision-1",
-	configRevisionId: "config-1",
-	userBootstrapScriptSlugs: [],
+const userPlugin = makeUserPluginRevision({
+	slug: "plugin-1",
+	ownerId: UserId.make("user-1"),
 	compiledHashes: { script: "hash-1" },
-	configSchema: { fields: {}, unknownKeys: "strict" },
-	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+});
+const systemPlugin = {
+	...userPlugin,
+	ownerId: null,
+	scope: "system",
+	id: PluginId.make("system-plugin"),
 };
-const systemPlugin = { ...userPlugin, ownerId: null, scope: "system", id: "system-plugin" };
 const accountGeneration = { userId: UserId.make("user-1"), token: "test-account-generation" };
 const userSubject = { type: "user", userId: "user-1", accountGeneration };
 const automationSubject = (
