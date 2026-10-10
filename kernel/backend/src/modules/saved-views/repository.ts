@@ -1,0 +1,395 @@
+import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
+import { PluginSlug, SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
+import { Context, Effect, Layer } from "effect";
+
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
+
+type ListedSavedViewRow = typeof schema.userSavedViewEffective.$inferSelect;
+
+type CreateSavedViewInput = {
+	readonly slug: string;
+	readonly name: string;
+	readonly icon: string;
+	readonly userId: UserId;
+	readonly pluginInstallationId?: string | null | undefined;
+	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
+	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
+	readonly settings: (typeof schema.savedView.$inferSelect)["settings"];
+};
+
+type UpdateSavedViewData = {
+	readonly icon: string;
+	readonly name: string;
+	readonly isHidden: boolean;
+	readonly sortOrder?: number | undefined;
+	readonly pluginInstallationId: string | null;
+	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
+	readonly settings: (typeof schema.savedView.$inferSelect)["settings"];
+	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
+};
+
+const toListedSavedView = (row: ListedSavedViewRow): ListedSavedView => {
+	const base = {
+		slug: row.slug,
+		name: row.name,
+		icon: row.icon,
+		renderer: row.renderer,
+		settings: row.settings,
+		isHidden: row.isHidden,
+		sortOrder: row.sortOrder,
+		id: SavedViewId.make(row.id),
+		dataSources: row.dataSources,
+		pluginSlug: row.pluginSlug === null ? null : PluginSlug.make(row.pluginSlug),
+	};
+	if (row.isBuiltin) {
+		return { ...base, isBuiltin: true, createdAt: null, updatedAt: null };
+	}
+	if (row.createdAt === null || row.updatedAt === null) {
+		throw new Error("Custom saved view has no creation or update timestamp");
+	}
+	return {
+		...base,
+		isBuiltin: false,
+		createdAt: row.createdAt.toISOString(),
+		updatedAt: row.updatedAt.toISOString(),
+	};
+};
+
+const withSavedViewScope = (pluginInstallationId?: string) =>
+	pluginInstallationId
+		? eq(schema.savedView.pluginInstallationId, pluginInstallationId)
+		: isNull(schema.savedView.pluginInstallationId);
+
+export class SavedViewsRepository extends Context.Service<SavedViewsRepository>()(
+	"SavedViewsRepository",
+	{
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const hasCustomInstallationReferences = Effect.fn(
+				"SavedViewsRepository.hasCustomInstallationReferences",
+			)(function* (userId: UserId, pluginInstallationId: string) {
+				const [row] = yield* session.run((db) =>
+					db
+						.select({ id: schema.savedView.id })
+						.from(schema.savedView)
+						.where(
+							and(
+								eq(schema.savedView.userId, userId),
+								eq(schema.savedView.pluginInstallationId, pluginInstallationId),
+							),
+						)
+						.limit(1),
+				);
+				return row !== undefined;
+			});
+
+			const listForBackup = Effect.fn("SavedViewsRepository.listForBackup")(function* (
+				userId: UserId,
+			) {
+				const rows = yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.userSavedViewEffective)
+						.where(eq(schema.userSavedViewEffective.userId, userId))
+						.orderBy(asc(schema.userSavedViewEffective.id)),
+				);
+				return rows.map((row) =>
+					Object.assign(toListedSavedView(row), { pluginInstallationId: row.pluginInstallationId }),
+				);
+			});
+
+			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
+				userId: UserId,
+				input: { pluginInstallationId?: string | undefined; includeHidden: boolean },
+			) {
+				const clauses = [eq(schema.userSavedViewEffective.userId, userId)];
+
+				if (!input.includeHidden) {
+					clauses.push(eq(schema.userSavedViewEffective.isHidden, false));
+				}
+
+				if (input.pluginInstallationId) {
+					clauses.push(
+						eq(schema.userSavedViewEffective.pluginInstallationId, input.pluginInstallationId),
+					);
+				}
+
+				const rows = yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.userSavedViewEffective)
+						.where(and(...clauses))
+						.orderBy(
+							asc(schema.userSavedViewEffective.pluginSlug),
+							asc(schema.userSavedViewEffective.sortOrder),
+							asc(schema.userSavedViewEffective.slug),
+						),
+				);
+
+				return rows.map(toListedSavedView);
+			});
+
+			const findBySlug = Effect.fn("SavedViewsRepository.findBySlug")(function* (
+				userId: UserId,
+				viewSlug: string,
+			) {
+				const [row] = yield* session.run((db) =>
+					db
+						.select()
+						.from(schema.userSavedViewEffective)
+						.where(
+							and(
+								eq(schema.userSavedViewEffective.userId, userId),
+								eq(schema.userSavedViewEffective.slug, viewSlug),
+							),
+						)
+						.limit(1),
+				);
+
+				return row
+					? Object.assign(toListedSavedView(row), {
+							pluginId: row.pluginId,
+							pluginInstallationId: row.pluginInstallationId,
+						})
+					: null;
+			});
+
+			const lockBySlug = Effect.fn("SavedViewsRepository.lockBySlug")(function* (
+				userId: UserId,
+				viewSlug: string,
+			) {
+				const [row] = yield* session.run((db) =>
+					db
+						.select({ id: schema.savedView.id })
+						.from(schema.savedView)
+						.where(and(eq(schema.savedView.userId, userId), eq(schema.savedView.slug, viewSlug)))
+						.for("update", { of: schema.savedView })
+						.limit(1),
+				);
+
+				return row ? yield* findBySlug(userId, viewSlug) : null;
+			});
+
+			const create = Effect.fn("SavedViewsRepository.create")(function* (
+				userId: UserId,
+				input: CreateSavedViewInput,
+			) {
+				const [orderRow] = yield* session.run((db) =>
+					db
+						.select({ maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)` })
+						.from(schema.savedView)
+						.where(
+							and(
+								eq(schema.savedView.userId, userId),
+								withSavedViewScope(input.pluginInstallationId ?? undefined),
+							),
+						),
+				);
+
+				const rows = yield* session.run((db) =>
+					db
+						.insert(schema.savedView)
+						.values({
+							userId,
+							slug: input.slug,
+							name: input.name,
+							icon: input.icon,
+							renderer: input.renderer,
+							settings: input.settings,
+							dataSources: input.dataSources,
+							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
+							pluginInstallationId: input.pluginInstallationId ?? null,
+						})
+						.onConflictDoNothing({ target: [schema.savedView.userId, schema.savedView.slug] })
+						.returning({ id: schema.savedView.id }),
+				);
+
+				return rows[0] ? { id: SavedViewId.make(rows[0].id) } : null;
+			});
+
+			const updateBySlug = Effect.fn("SavedViewsRepository.updateBySlug")(function* (
+				userId: UserId,
+				viewSlug: string,
+				data: UpdateSavedViewData,
+				currentPluginInstallationId: string | null,
+			) {
+				return yield* session.run((db) =>
+					Effect.gen(function* () {
+						let sortOrder = data.sortOrder;
+						if (
+							sortOrder === undefined &&
+							currentPluginInstallationId !== data.pluginInstallationId
+						) {
+							sortOrder = yield* getNextSortOrder(db, userId, data.pluginInstallationId);
+						}
+
+						const [row] = yield* db
+							.update(schema.savedView)
+							.set({
+								icon: data.icon,
+								name: data.name,
+								renderer: data.renderer,
+								settings: data.settings,
+								isHidden: data.isHidden,
+								dataSources: data.dataSources,
+								revision: sql`${schema.savedView.revision} + 1`,
+								pluginInstallationId: data.pluginInstallationId,
+								...(sortOrder === undefined ? {} : { sortOrder }),
+							})
+							.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
+							.returning({ id: schema.savedView.id });
+
+						return row ? { id: SavedViewId.make(row.id) } : null;
+					}),
+				);
+			});
+
+			const setBuiltinState = Effect.fn("SavedViewsRepository.setBuiltinState")(function* (
+				userId: UserId,
+				viewSlug: string,
+				isHidden: boolean,
+				sortOrder: number,
+			) {
+				const current = yield* findBySlug(userId, viewSlug);
+				if (!current?.isBuiltin) {
+					return null;
+				}
+				if (current.isHidden === isHidden && current.sortOrder === sortOrder) {
+					return current;
+				}
+				const [definition] = yield* session.run((db) =>
+					db
+						.select({ sortOrder: schema.userSavedView.sortOrder })
+						.from(schema.userSavedView)
+						.where(
+							and(eq(schema.userSavedView.userId, userId), eq(schema.userSavedView.slug, viewSlug)),
+						)
+						.limit(1),
+				);
+				if (!definition) {
+					return null;
+				}
+				if (!isHidden && sortOrder === definition.sortOrder) {
+					yield* session.run((db) =>
+						db
+							.delete(schema.savedViewOverride)
+							.where(
+								and(
+									eq(schema.savedViewOverride.userId, userId),
+									eq(schema.savedViewOverride.slug, viewSlug),
+								),
+							),
+					);
+					return yield* findBySlug(userId, viewSlug);
+				}
+				yield* session.run((db) =>
+					db
+						.insert(schema.savedViewOverride)
+						.values({ userId, isHidden, sortOrder, slug: viewSlug, pluginId: current.pluginId })
+						.onConflictDoUpdate({
+							target: [schema.savedViewOverride.userId, schema.savedViewOverride.slug],
+							set: {
+								isHidden,
+								sortOrder,
+								pluginId: current.pluginId,
+								revision: sql`${schema.savedViewOverride.revision} + 1`,
+							},
+						}),
+				);
+				return yield* findBySlug(userId, viewSlug);
+			});
+
+			const reorderBySlugs = Effect.fn("SavedViewsRepository.reorderBySlugs")(function* (
+				userId: UserId,
+				pluginInstallationId: string | null,
+				viewSlugs: ReadonlyArray<string>,
+			) {
+				let updated = 0;
+				for (const [sortOrder, slug] of viewSlugs.entries()) {
+					const view = yield* findBySlug(userId, slug);
+					if (!view || view.pluginInstallationId !== pluginInstallationId) {
+						continue;
+					}
+					if (view.isBuiltin) {
+						if (yield* setBuiltinState(userId, slug, view.isHidden, sortOrder)) {
+							updated++;
+						}
+					} else {
+						if (view.sortOrder === sortOrder) {
+							updated++;
+							continue;
+						}
+						const [row] = yield* session.run((db) =>
+							db
+								.update(schema.savedView)
+								.set({ sortOrder, revision: sql`${schema.savedView.revision} + 1` })
+								.where(and(eq(schema.savedView.userId, userId), eq(schema.savedView.slug, slug)))
+								.returning({ slug: schema.savedView.slug }),
+						);
+						if (row) {
+							updated++;
+						}
+					}
+				}
+				return updated;
+			});
+
+			const deleteBySlug = Effect.fn("SavedViewsRepository.deleteBySlug")(function* (
+				userId: UserId,
+				viewSlug: string,
+			) {
+				const [row] = yield* session.run((db) =>
+					db
+						.delete(schema.savedView)
+						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
+						.returning({ id: schema.savedView.id }),
+				);
+
+				return row ? { id: SavedViewId.make(row.id) } : null;
+			});
+
+			return {
+				create,
+				findBySlug,
+				lockBySlug,
+				listByUser,
+				updateBySlug,
+				deleteBySlug,
+				listForBackup,
+				reorderBySlugs,
+				setBuiltinState,
+				hasCustomInstallationReferences,
+			};
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}
+
+const getNextSortOrder = Effect.fn(function* (
+	db: EffectPgDatabase,
+	userId: UserId,
+	pluginInstallationId: string | null,
+) {
+	const [orderRow] = yield* mapDatabaseErrors(
+		db
+			.select({
+				maxSortOrder: sql<number>`coalesce(max(${schema.userSavedViewEffective.sortOrder}), -1)`,
+			})
+			.from(schema.userSavedViewEffective)
+			.where(
+				and(
+					eq(schema.userSavedViewEffective.userId, userId),
+					pluginInstallationId
+						? eq(schema.userSavedViewEffective.pluginInstallationId, pluginInstallationId)
+						: isNull(schema.userSavedViewEffective.pluginInstallationId),
+				),
+			),
+	);
+
+	return (orderRow?.maxSortOrder ?? -1) + 1;
+});

@@ -1,0 +1,94 @@
+import { expect, layer } from "@effect/vitest";
+import { NotFound } from "@ryot-app/contract/errors";
+import { EntityId } from "@ryot-app/contract/schema/brands";
+import { Effect } from "effect";
+
+import { assertExitFails } from "#lib/test-utils/assertions";
+
+import { LocalInterestSessions, type LocalInterestSessionEnqueue } from "./connections";
+
+const message = {
+	reason: "populated",
+	type: "entity-updated",
+	entityId: EntityId.make("entity-1"),
+} as const;
+
+layer(LocalInterestSessions.layer)((test) => {
+	test.effect("routes updates only to a local interest session", () =>
+		Effect.gen(function* () {
+			const sessions = yield* LocalInterestSessions;
+			const messages: unknown[] = [];
+			const enqueue: LocalInterestSessionEnqueue = (received) => messages.push(received);
+
+			yield* sessions.add("session-1", enqueue);
+			yield* sessions.enqueue("session-1", message);
+			yield* sessions.enqueue("remote-session", message);
+			yield* sessions.remove("session-1", enqueue);
+			yield* sessions.enqueue("session-1", message);
+
+			expect(messages).toEqual([message]);
+		}),
+	);
+});
+
+layer(LocalInterestSessions.layer)((test) => {
+	test.effect("claims a session once and preserves the original callback", () =>
+		Effect.gen(function* () {
+			const sessions = yield* LocalInterestSessions;
+			const firstMessages: unknown[] = [];
+			const secondMessages: unknown[] = [];
+			const first: LocalInterestSessionEnqueue = (received) => firstMessages.push(received);
+			const second: LocalInterestSessionEnqueue = (received) => secondMessages.push(received);
+
+			yield* sessions.add("session-1", first);
+			const duplicate = yield* Effect.exit(sessions.add("session-1", second));
+			yield* sessions.enqueue("session-1", message);
+
+			assertExitFails(duplicate, new NotFound({ message: "Unknown session" }));
+			expect(firstMessages).toEqual([message]);
+			expect(secondMessages).toEqual([]);
+		}),
+	);
+});
+
+const first: LocalInterestSessionEnqueue = () => undefined;
+
+layer(LocalInterestSessions.layer)((test) => {
+	test.effect("does not remove a replacement callback from a stale release", () =>
+		Effect.gen(function* () {
+			const sessions = yield* LocalInterestSessions;
+			const messages: unknown[] = [];
+			const second: LocalInterestSessionEnqueue = (received) => messages.push(received);
+
+			yield* sessions.add("session-1", first);
+			yield* sessions.remove("session-1", first);
+			yield* sessions.add("session-1", second);
+			yield* sessions.remove("session-1", first);
+			yield* sessions.enqueue("session-1", message);
+
+			expect(messages).toEqual([message]);
+		}),
+	);
+});
+
+layer(LocalInterestSessions.layer)((test) => {
+	test.effect("closes only sockets attached to the ended auth session", () =>
+		Effect.gen(function* () {
+			const sessions = yield* LocalInterestSessions;
+			const closed: string[] = [];
+			yield* sessions.add("socket-a", () => undefined, {
+				authSessionId: "auth-session-a",
+				close: () => Effect.sync(() => closed.push("socket-a")).pipe(Effect.asVoid),
+			});
+			yield* sessions.add("socket-b", () => undefined, {
+				authSessionId: "auth-session-b",
+				close: () => Effect.sync(() => closed.push("socket-b")).pipe(Effect.asVoid),
+			});
+			yield* sessions.add("socket-normal", () => undefined);
+
+			yield* sessions.closeAuthSession("auth-session-a");
+
+			expect(closed).toEqual(["socket-a"]);
+		}),
+	);
+});

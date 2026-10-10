@@ -1,0 +1,34 @@
+{
+	"name": "@ryot-app/server",
+	"private": true,
+	"scripts": {
+		"dev": "bun run dev.ts",
+		"build": "bun run tooling/build.ts",
+		"assemble": "bun run tooling/assemble.ts",
+		"check": "bun --check && oxfmt . --write && oxlint . --fix",
+		"run-migration": "bun turbo --filter=@ryot-app/kernel-backend --filter=@ryot-app/kernel-renderers build && RUN_MIGRATION_ONLY=true bun run src/main.ts"
+	},
+	"dependencies": {
+		"@better-auth/core": "1.7.2",
+		"@effect/platform-bun": "4.0.0",
+		"@effect/sql-pg": "4.0.0",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/fitness-plugin": "workspace:*",
+		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/sandbox-compiler": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"drizzle-orm": "1.0.0-rc.5-169397b",
+		"effect": "4.0.0"
+	},
+	"devDependencies": {
+		"@ryot-app/client-plugin-compiler": "workspace:*",
+		"@ryot-app/client-plugin-contract": "workspace:*",
+		"@ryot-app/kernel-renderers": "workspace:*",
+		"@ryot-app/media-plugin": "workspace:*",
+		"@ryot-app/plugin-archive": "workspace:*",
+		"@ryot-app/sandboxd": "workspace:*",
+		"bun-types": "1.4.3",
+		"dotenv": "17.3.1"
+	}
+}

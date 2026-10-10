@@ -1,16 +1,15 @@
 # Plex Sink
 
 ::: info
-This will only import media that are in progress. Perform an
-[import](../importing/plex.md) if you want to import media that are finished.
+This integration reads only in-progress media. Use an [import](../importing/plex.md) for finished
+media.
 :::
 
-Automatically add [Plex](https://www.plex.tv) show and movie plays to Ryot. It will
-work for all the media that have a valid TMDb ID attached to their metadata.
+Media must have a valid TMDB ID. Set `RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN`: Plex sends only episode
+IDs, so Ryot looks up the show of each episode on TMDB, and the show does not need to be in Ryot
+first.
 
-1. Generate a slug in the integration settings page using the following settings:
-    - Username => The exact value Plex sends as `Account.title` in its webhook payload.
-       This is typically your Plex `Username`. This will be used to filter webhooks for
-       the specified Plex account only. Leave it empty to accept events from all users.
-2. In your Plex Webhooks settings, add a new webhook using the following settings:
-    - Webhook Url => `<paste_url_copied>`
+1. Under **Settings > Integrations**, create a Plex Sink integration. The optional username must
+   equal `Account.title` in the Plex webhook, usually the Plex username. Leave it empty to accept
+   all users.
+2. Copy the generated URL and add it under Plex **Webhooks**.

@@ -1,0 +1,144 @@
+{
+	"env": { "node": true, "browser": true },
+	"settings": { "react": { "version": "19.0.0" } },
+	"$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
+	"jsPlugins": ["eslint-plugin-perfectionist", "./ci/oxlint/ryot-plugin.mjs"],
+	"extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
+	"categories": { "perf": "warn", "suspicious": "warn", "correctness": "error" },
+	"plugins": ["react", "typescript", "unicorn", "import", "oxc", "node", "promise"],
+	"options": { "typeAware": true, "denyWarnings": true, "reportUnusedDisableDirectives": "error" },
+	"ignorePatterns": [
+		"**/out/**",
+		"**/dist/**",
+		"**/.wxt/**",
+		"**/build/**",
+		"**/.vitepress/**",
+		"apps/frontend/app/styles/*.css",
+		"**/lib/infrastructure/sandbox-runtime/*.sandbox.ts"
+	],
+	"rules": {
+		"curly": "error",
+		"no-else-return": "warn",
+		"import/no-cycle": "error",
+		"react-in-jsx-scope": "off",
+		"eqeqeq": ["error", "smart"],
+		"no-param-reassign": "error",
+		"default-param-last": "error",
+		"unicorn/no-array-sort": "off",
+		"react/rules-of-hooks": "error",
+		"import/no-duplicates": "error",
+		"import/no-self-import": "error",
+		"promise/no-return-wrap": "error",
+		"effecttsgo/new-promise": "error",
+		"ryot/no-promise-chains": "error",
+		"react/self-closing-comp": "error",
+		"typescript/require-await": "warn",
+		"react/no-array-index-key": "warn",
+		"typescript/no-deprecated": "error",
+		"eslint/no-nested-ternary": "error",
+		"import/no-named-as-default": "off",
+		"typescript/no-explicit-any": "warn",
+		"typescript/await-thenable": "error",
+		"effecttsgo/async-function": "error",
+		"ryot/no-workflow-to-layer": "error",
+		"typescript/prefer-as-const": "error",
+		"react-hooks/exhaustive-deps": "error",
+		"typescript/only-throw-error": "error",
+		"import/newline-after-import": "error",
+		"effecttsgo/unstable-api-usage": "off",
+		"react/jsx-no-useless-fragment": "warn",
+		"react/jsx-curly-brace-presence": "warn",
+		"typescript/no-misused-promises": "error",
+		"typescript/no-inferrable-types": "error",
+		"effecttsgo/node-builtin-import": "error",
+		"typescript/prefer-optional-chain": "warn",
+		"typescript/no-floating-promises": "error",
+		"typescript/no-non-null-assertion": "warn",
+		"effecttsgo/leaking-requirements": "error",
+		"effecttsgo/strict-effect-provide": "warn",
+		"effecttsgo/effect-fn-opportunity": "error",
+		"import/first": ["error", "absolute-first"],
+		"unicorn/prefer-number-properties": "error",
+		"effecttsgo/global-date-in-effect": "error",
+		"effecttsgo/process-env-in-effect": "error",
+		"unicorn/no-await-expression-member": "warn",
+		"typescript/consistent-type-imports": "warn",
+		"effecttsgo/global-fetch-in-effect": "error",
+		"typescript/no-unnecessary-condition": "warn",
+		"effecttsgo/global-timers-in-effect": "error",
+		"effecttsgo/prefer-schema-over-json": "error",
+		"effecttsgo/multiple-effect-provide": "error",
+		"effecttsgo/nested-effect-gen-yield": "error",
+		"typescript/prefer-nullish-coalescing": "warn",
+		"typescript/prefer-enum-initializers": "error",
+		"effecttsgo/global-console-in-effect": "error",
+		"effecttsgo/run-effect-inside-effect": "error",
+		"effecttsgo/promise-in-effect-success": "error",
+		"effecttsgo/abort-controller-in-effect": "error",
+		"typescript/no-import-type-side-effects": "warn",
+		"react/jsx-no-constructed-context-values": "warn",
+		"typescript/switch-exhaustiveness-check": "error",
+		"typescript/no-unnecessary-type-assertion": "warn",
+		"effecttsgo/any-unknown-in-error-context": "off",
+		"effecttsgo/unsafe-effect-type-assertion": "error",
+		"effecttsgo/global-error-in-effect-failure": "error",
+		"effecttsgo/layer-merge-all-with-dependencies": "error",
+		"eslint/no-underscore-dangle": ["error", { "allow": ["_tag"] }],
+		"typescript/no-unused-vars": [
+			"error",
+			{ "varsIgnorePattern": "^_", "argsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+		],
+		"perfectionist/sort-objects": [
+			"error",
+			{ "type": "line-length", "order": "asc", "partitionByNewLine": true }
+		],
+		"perfectionist/sort-jsx-props": [
+			"error",
+			{ "type": "line-length", "order": "asc", "partitionByNewLine": true }
+		],
+		"no-restricted-properties": [
+			"error",
+			{ "property": "toSorted", "message": "Use sortBy from @ryot-app/ts-utils instead." },
+			{
+				"property": "make",
+				"object": "Activity",
+				"message": "Create activities with makeActivity from kernel/backend/src/lib/infrastructure/workflow-scope.ts."
+			},
+			{
+				"object": "vi",
+				"property": "mock",
+				"message": "Do not mock modules. Inject dependencies through Effect Layers or a package test surface."
+			},
+			{
+				"object": "vi",
+				"property": "doMock",
+				"message": "Do not mock modules. Inject dependencies through Effect Layers or a package test surface."
+			},
+			{
+				"object": "vi",
+				"property": "hoisted",
+				"message": "vi.hoisted exists to support module mocks. Inject dependencies instead."
+			},
+			{
+				"object": "vi",
+				"property": "spyOn",
+				"message": "Do not spy on application code or globals. Pass a recording function at the injected seam."
+			},
+			{
+				"object": "vi",
+				"property": "fn",
+				"message": "Do not use mock functions. Pass a plain recording function at the injected seam."
+			},
+			{
+				"object": "vi",
+				"property": "useFakeTimers",
+				"message": "Do not fake timers. Schedule through an injected clock and drive it with TestClock."
+			},
+			{
+				"object": "vi",
+				"property": "setSystemTime",
+				"message": "Do not set system time. Read time from an injected clock and drive it with TestClock."
+			}
+		]
+	}
+}

@@ -1,0 +1,275 @@
+import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
+import clsx from "clsx";
+import type { ReactNode, Ref } from "react";
+
+import type { MediaSummaryFact } from "./summary-state";
+import type { MediaSyncCounts } from "./sync-counts";
+
+export function MediaRefreshStatus(props: { readonly result: RyotQueryResult<unknown> }) {
+	if (props.result.status !== "error" || props.result.data === undefined) {
+		return null;
+	}
+	return (
+		<div role="status" className="flex items-center gap-3 py-2 font-ui text-[12px] text-text-muted">
+			<span>Refresh failed. Showing last loaded content.</span>
+			<MediaLinkButton label="Try again" onClick={props.result.refetch} />
+		</div>
+	);
+}
+
+export function MediaChip(props: { readonly label: string }) {
+	return (
+		<span className="rounded-pill border border-border bg-surface-2 px-2.5 py-1 font-ui text-[12px] text-text-muted">
+			{props.label}
+		</span>
+	);
+}
+
+export function MediaFact(props: {
+	readonly label: string;
+	readonly value: string;
+	readonly suffix?: string | undefined;
+}) {
+	return (
+		<div className="min-w-20">
+			<p className="font-ui font-semibold text-[15px] text-text">
+				{props.value}
+				{props.suffix === undefined ? null : (
+					<span className="font-ui text-[13px]">{props.suffix}</span>
+				)}
+			</p>
+			<p className="font-ui text-[12px] text-text">{props.label}</p>
+		</div>
+	);
+}
+
+export function MediaFactDivider() {
+	return <div className="h-9 w-px bg-border" />;
+}
+
+export function MediaFactRow(props: {
+	readonly compact: boolean;
+	readonly facts: readonly MediaSummaryFact[];
+}) {
+	const { compact } = props;
+	return (
+		<div
+			className={clsx(
+				"flex flex-wrap items-center gap-y-4 pt-0.5",
+				!compact && "flex-nowrap gap-x-4",
+			)}
+		>
+			{props.facts.map((fact, index) => (
+				<div
+					key={fact.label}
+					className={clsx("flex items-center gap-3", compact ? "w-1/2" : "w-auto flex-none")}
+				>
+					{index === 0 || (compact && index % 2 === 0) ? null : (
+						<div className={clsx("flex", compact ? "mr-3" : "mr-4")}>
+							<MediaFactDivider />
+						</div>
+					)}
+					{compact && (
+						<div className="flex w-5 items-center">
+							<AppIcon
+								size={18}
+								name={fact.icon}
+								className={fact.iconClass ?? "text-text-subtle"}
+							/>
+						</div>
+					)}
+					<MediaFact label={fact.label} value={fact.value} suffix={fact.suffix} />
+				</div>
+			))}
+		</div>
+	);
+}
+
+export function MediaProgressBar(props: { readonly percent: number }) {
+	return (
+		<div className="h-1 max-w-md overflow-hidden rounded-pill bg-surface-2">
+			<div style={{ width: `${props.percent}%` }} className="h-full rounded-pill bg-success" />
+		</div>
+	);
+}
+
+export function MediaRailRow(props: {
+	readonly icon: string;
+	readonly title: string;
+	readonly compact: boolean;
+	readonly detail?: string;
+	readonly divided?: boolean;
+	readonly trailing?: ReactNode;
+}) {
+	return (
+		<div
+			className={clsx(
+				"flex flex-col gap-2.5 px-4 py-3.5",
+				props.divided !== false && "border-b border-border",
+			)}
+		>
+			<div className="flex items-center gap-3">
+				{props.compact && <AppIcon size={18} name={props.icon} className="text-text-subtle" />}
+				<div className="min-w-0 flex-1">
+					<p className="font-ui font-medium text-[14px] text-text">{props.title}</p>
+					{props.detail === undefined ? null : (
+						<p className="font-ui text-[12px] text-text-subtle">{props.detail}</p>
+					)}
+				</div>
+				{props.trailing}
+			</div>
+		</div>
+	);
+}
+
+export function MediaLabeledRows(props: {
+	readonly rows: readonly {
+		readonly key: string;
+		readonly title: string;
+		readonly detail?: string | undefined;
+	}[];
+}) {
+	return (
+		<div className="flex flex-col gap-2.5">
+			{props.rows.map((row) => (
+				<div key={row.key} className="flex flex-col">
+					<p className="font-ui font-medium text-[13px] leading-4.5 text-text">{row.title}</p>
+					{row.detail === undefined || row.detail === "" ? null : (
+						<p className="font-ui text-[11px] leading-3.75 text-text-subtle">{row.detail}</p>
+					)}
+				</div>
+			))}
+		</div>
+	);
+}
+
+export function MediaRail(props: { readonly compact: boolean; readonly children: ReactNode }) {
+	return (
+		<div className="overflow-x-auto">
+			<div className={clsx("flex w-max", props.compact ? "gap-3" : "gap-4")}>{props.children}</div>
+		</div>
+	);
+}
+
+export function MediaOverviewSection(props: {
+	readonly title: string;
+	readonly compact: boolean;
+	readonly divided?: boolean;
+	readonly action?: ReactNode;
+	readonly children: ReactNode;
+	readonly className?: string | undefined;
+	readonly sync?: MediaSyncCounts | undefined;
+}) {
+	return (
+		<section
+			className={clsx(props.divided !== false && "border-t border-border pt-5", props.className)}
+		>
+			<div className="flex items-center justify-between gap-3 pb-4">
+				<div className="flex min-w-0 items-baseline gap-3">
+					<h2
+						className={clsx(
+							"font-display font-semibold text-text",
+							props.compact ? "text-[17px]" : "text-xl",
+						)}
+					>
+						{props.title}
+					</h2>
+					{props.sync === undefined ? null : (
+						<span className="font-ui text-[12px] text-text-muted">
+							<SyncCountLine
+								populating={props.sync.populating}
+								translating={props.sync.translating}
+							/>
+						</span>
+					)}
+				</div>
+				{props.action}
+			</div>
+			{props.children}
+		</section>
+	);
+}
+
+export function MediaLinkButton({
+	ref,
+	...props
+}: {
+	readonly label: string;
+	readonly onClick: () => void;
+	readonly tone?: "accent" | "plain";
+	readonly ref?: Ref<HTMLButtonElement>;
+}) {
+	return (
+		<button
+			ref={ref}
+			type="button"
+			onClick={props.onClick}
+			className={clsx(
+				"font-ui font-medium text-[13px]",
+				props.tone === "plain" ? "text-text" : "text-accent-text",
+			)}
+		>
+			{props.label}
+		</button>
+	);
+}
+
+export function MediaExternalLink(props: { readonly href: string; readonly label: string }) {
+	return (
+		<a
+			target="_blank"
+			rel="noreferrer"
+			href={props.href}
+			className="font-ui font-medium text-[13px] text-accent-text"
+		>
+			{props.label}
+		</a>
+	);
+}
+
+export function MediaActionButton(props: {
+	readonly label: string;
+	readonly compact: boolean;
+	readonly onClick: () => void;
+	readonly variant: "primary" | "secondary";
+}) {
+	const isPrimary = props.variant === "primary";
+	return (
+		<button
+			type="button"
+			onClick={props.onClick}
+			className={clsx(
+				"flex items-center justify-center rounded-md",
+				props.compact ? "h-12 flex-1" : "h-8 w-full flex-none",
+				isPrimary ? "bg-accent" : "border border-border bg-surface-2",
+			)}
+		>
+			<span
+				className={clsx(
+					"font-ui font-semibold text-[14px]",
+					isPrimary ? "text-accent-ink" : "text-text",
+				)}
+			>
+				{props.label}
+			</span>
+		</button>
+	);
+}
+
+export function MediaStatusMessage(props: {
+	readonly title: string;
+	readonly detail: string;
+	readonly onRetry?: () => void;
+}) {
+	return (
+		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
+			<p className="text-center font-ui font-medium text-base text-text">{props.title}</p>
+			<p className="max-w-xl text-center font-ui text-sm text-text-muted">{props.detail}</p>
+			{props.onRetry === undefined ? null : (
+				<MediaLinkButton label="Try again" onClick={props.onRetry} />
+			)}
+		</div>
+	);
+}

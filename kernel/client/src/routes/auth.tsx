@@ -1,0 +1,164 @@
+import { Button } from "@ryot-app/client-ui-sdk";
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import { Effect, Match } from "effect";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+
+import { decodeServerOrigin } from "#/api/origin";
+import { OAuthLauncher, type OAuthLaunchPlan } from "#/modules/auth/oauth-launcher";
+import { AuthService } from "#/modules/auth/service";
+import { AuthStatus } from "#/modules/auth/status";
+import { sanitizeRedirect } from "#/modules/server/redirect";
+
+export const Route = createFileRoute("/auth")({
+	component: OAuthLaunch,
+	errorComponent: OAuthLaunchUnavailable,
+	validateSearch: (search) => ({ redirect: sanitizeRedirect(search.redirect) }),
+	pendingComponent: () => (
+		<AuthStatus
+			title="Preparing sign-in"
+			message="Restoring your session and contacting the server..."
+		/>
+	),
+	beforeLoad: ({ search, context }) =>
+		context.runtime.runPromise(
+			Effect.flatMap(OAuthLauncher, (launcher) => launcher.prepare(search.redirect)).pipe(
+				Effect.map((result) => {
+					if (result._tag === "MissingServer") {
+						// oxlint-disable-next-line typescript/only-throw-error
+						throw redirect({
+							replace: true,
+							to: "/onboarding",
+							search: { redirect: search.redirect },
+						});
+					}
+					if (result._tag === "Authenticated") {
+						// oxlint-disable-next-line typescript/only-throw-error
+						throw redirect({
+							replace: true,
+							to: result.destination,
+							search: { redirect: undefined },
+						});
+					}
+					return { plan: result.plan };
+				}),
+			),
+		),
+});
+
+function OAuthLaunchUnavailable({ error }: { error: unknown }) {
+	const router = useRouter();
+	const reason =
+		typeof error === "object" && error !== null && "reason" in error ? error.reason : undefined;
+	const message = Match.value(reason).pipe(
+		Match.when(
+			"unknown-native-application",
+			() => "This native application identifier is not registered for Ryot sign-in.",
+		),
+		Match.when("storage-failed", () => "This device would not store the sign-in request securely."),
+		Match.orElse(() => "The server could not prepare a secure sign-in request."),
+	);
+	return (
+		<AuthStatus
+			message={message}
+			title="Could not start sign-in"
+			actions={
+				<Button
+					type="button"
+					variant="primary"
+					className="w-full"
+					onClick={() => void router.invalidate()}
+				>
+					Try again
+				</Button>
+			}
+		/>
+	);
+}
+
+function OAuthLaunch() {
+	const search = Route.useSearch();
+	const navigate = Route.useNavigate();
+	const { plan, runtime } = Route.useRouteContext();
+	const launcher = runtime.runSync(OAuthLauncher);
+	const auth = runtime.runSync(AuthService);
+	const launched = useRef(false);
+	const [failedPlan, setFailedPlan] = useState<OAuthLaunchPlan>();
+	const isNative = plan.client.nativeApplicationId !== null;
+
+	function launch(target: OAuthLaunchPlan) {
+		setFailedPlan(undefined);
+		runtime.runFork(
+			launcher
+				.launch(target)
+				.pipe(Effect.catchCause(() => Effect.sync(() => setFailedPlan(target)))),
+		);
+	}
+	const launchAuth = useEffectEvent(launch);
+
+	useEffect(() => {
+		if (!isNative && !launched.current) {
+			launched.current = true;
+			launchAuth(plan);
+		}
+	}, [isNative, plan]);
+
+	function changeServer() {
+		return runtime.runPromise(
+			Effect.gen(function* () {
+				yield* auth.changeServer(decodeServerOrigin(plan.pending.serverOrigin));
+				yield* Effect.promise(() =>
+					navigate({ replace: true, to: "/onboarding", search: { redirect: search.redirect } }),
+				);
+			}),
+		);
+	}
+
+	const hostname = new URL(plan.pending.serverOrigin).hostname;
+
+	if (failedPlan) {
+		return (
+			<AuthStatus
+				title="Could not open sign-in"
+				message="The browser could not be opened. Try again or select another server."
+				actions={
+					<>
+						<Button
+							type="button"
+							variant="primary"
+							className="w-full"
+							onClick={() => launch(failedPlan)}
+						>
+							Try again
+						</Button>
+						{isNative && (
+							<Button type="button" variant="text" onClick={() => void changeServer()}>
+								Change server
+							</Button>
+						)}
+					</>
+				}
+			/>
+		);
+	}
+
+	if (isNative) {
+		return (
+			<AuthStatus
+				title="Sign in to Ryot"
+				message={`Continue with ${hostname}.`}
+				actions={
+					<>
+						<Button type="button" variant="primary" className="w-full" onClick={() => launch(plan)}>
+							Continue to sign in
+						</Button>
+						<Button type="button" variant="text" onClick={() => void changeServer()}>
+							Change server
+						</Button>
+					</>
+				}
+			/>
+		);
+	}
+
+	return <AuthStatus title="Opening sign-in" message={`Continuing with ${hostname}...`} />;
+}

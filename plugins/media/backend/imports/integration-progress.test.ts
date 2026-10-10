@@ -1,0 +1,274 @@
+import { expect, it } from "@effect/vitest";
+import type { LogEntry } from "@ryot-app/sandbox-sdk/core";
+import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+
+import {
+	eventRecord,
+	hostSuccess,
+	integrationRecord,
+	ryotqlRows,
+} from "../../tests/backend/automations/automation-test-utils";
+import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
+import { createMediaImportChunk } from "./chunks";
+import { admitIntegrationProgress } from "./integration-progress";
+import type { MediaImportWriteChunkInput } from "./schemas";
+import { manifest } from "./write-chunks.sandbox";
+
+const input = (
+	properties: Readonly<Record<string, JsonValue>> = { consumedOn: "Plex", progressPercent: 50 },
+	event: Partial<MediaImportWriteChunkInput["entityGroups"][number]["events"][number]> = {},
+): MediaImportWriteChunkInput => ({
+	failures: [],
+	integration: { importRunId: "run-1", integrationId: "integration-1" },
+	populationResults: [{ index: 0, entityId: "movie-1", status: "completed" }],
+	entityGroups: [
+		{
+			itemIndex: 7,
+			collectionMemberships: [],
+			entityRef: {
+				kind: "resolved",
+				externalId: "42",
+				sourceLabel: "Movie",
+				entitySchemaSlug: "movie",
+				providerSlug: "movie.tmdb",
+			},
+			events: [
+				{
+					properties,
+					operationId: "event-1",
+					eventSchemaSlug: "progress",
+					occurredAt: "2026-01-01T00:00:00.000Z",
+					...event,
+				},
+			],
+		},
+	],
+});
+
+const createHost = (
+	options: {
+		minimum?: number;
+		maximum?: number;
+		threshold?: JsonValue;
+		events?: ReturnType<typeof eventRecord>[];
+	} = {},
+) => {
+	const calls: string[] = [];
+	const queries: JsonValue[] = [];
+	const logs: LogEntry[] = [];
+	const host = defineSandboxTestHost(manifest, {
+		log: (entries) => {
+			logs.push(...entries);
+			return hostSuccess(null);
+		},
+		getPluginConfig: () => {
+			calls.push("config");
+			return hostSuccess({ progressUpdateThresholdHours: options.threshold ?? 2 });
+		},
+		executeRyotql: (query) => {
+			calls.push("query");
+			queries.push(query);
+			return hostSuccess(ryotqlRows("events", options.events ?? []));
+		},
+		getCurrentIntegration: () => {
+			calls.push("integration");
+			return hostSuccess(
+				integrationRecord({
+					minimumProgress: options.minimum ?? 0,
+					maximumProgress: options.maximum ?? 100,
+				}),
+			);
+		},
+	});
+	return { host, logs, calls, queries };
+};
+
+it.live("leaves ordinary imports and non-progress events untouched without admission calls", () =>
+	Effect.gen(function* () {
+		const { host, logs, calls } = createHost();
+		const ordinary = { ...input(), integration: undefined };
+		expect(yield* admitIntegrationProgress(ordinary, host)).toEqual(ordinary);
+		const nonProgress = input({}, { eventSchemaSlug: "review" });
+		expect(yield* admitIntegrationProgress(nonProgress, host)).toEqual(nonProgress);
+		expect(calls).toEqual([]);
+		expect(logs).toEqual([]);
+	}),
+);
+
+it.live.each(["not-a-number", "", 3])(
+	"omits invalid or below-minimum progress %s from import writes",
+	(progressPercent) =>
+		Effect.gen(function* () {
+			const { host, logs, calls } = createHost({ minimum: 5 });
+			const admitted = yield* admitIntegrationProgress(input({ progressPercent }), host);
+			const chunk = createMediaImportChunk(admitted, "2026-01-01T00:00:00.000Z");
+			expect(chunk.items[0]?.events).toEqual([]);
+			expect(chunk.items[0]?.relationships).toHaveLength(1);
+			expect(calls).not.toContain("query");
+			expect(logs[0]?.attributes).toMatchObject({
+				itemIndex: 7,
+				importRunId: "run-1",
+				integrationId: "integration-1",
+				reason: progressPercent === 3 ? "below_minimum_progress" : "invalid_progress",
+			});
+		}),
+);
+
+it.live(
+	"clamps above maximum to completion while preserving unmodified numeric representations and timestamps",
+	() =>
+		Effect.gen(function* () {
+			const { host } = createHost({ maximum: 95 });
+			const normalized = yield* admitIntegrationProgress(
+				input({ consumedOn: "Plex", progressPercent: 97 }),
+				host,
+			);
+			expect(normalized.entityGroups[0]?.events[0]).toEqual({
+				operationId: "event-1",
+				eventSchemaSlug: "progress",
+				occurredAt: "2026-01-01T00:00:00.000Z",
+				properties: { consumedOn: "Plex", progressPercent: 100 },
+			});
+			yield* Effect.forEach(
+				[95, "35.555", 35.555],
+				(progressPercent) => {
+					const original = input({ progressPercent });
+					return admitIntegrationProgress(original, host).pipe(
+						Effect.map((admitted) => expect(admitted).toEqual(original)),
+					);
+				},
+				{ concurrency: "unbounded" },
+			);
+		}),
+);
+
+it.live(
+	"compares the latest matching consumption/subitem identity and suppresses duplicates within a produced batch",
+	() =>
+		Effect.gen(function* () {
+			const { host } = createHost({
+				events: [
+					eventRecord({
+						occurredAt: "2026-01-01T00:00:00.000Z",
+						properties: { animeEpisode: 1, consumedOn: "Plex", progressPercent: 35 },
+					}),
+					eventRecord({
+						occurredAt: "2026-01-02T00:00:00.000Z",
+						properties: { animeEpisode: 1, consumedOn: "Other", progressPercent: 50 },
+					}),
+				],
+			});
+			const duplicate = yield* admitIntegrationProgress(
+				input({ animeEpisode: "1", consumedOn: "Plex", progressPercent: "35" }),
+				host,
+			);
+			expect(duplicate.entityGroups[0]?.events).toEqual([]);
+			const distinctProperties: Readonly<Record<string, JsonValue>>[] = [
+				{ animeEpisode: 1, consumedOn: "Other", progressPercent: 35 },
+				{ animeEpisode: 2, consumedOn: "Plex", progressPercent: 35 },
+				{ mangaVolume: 1, mangaChapter: 1, consumedOn: "Plex", progressPercent: 35 },
+			];
+			yield* Effect.forEach(
+				distinctProperties,
+				(properties) => {
+					const original = input(properties, { occurredAt: "2026-01-03T00:00:00.000Z" });
+					const repeated = {
+						...original,
+						entityGroups: original.entityGroups.map((group) => ({
+							...group,
+							events: [...group.events, ...group.events],
+						})),
+					};
+					return admitIntegrationProgress(repeated, host).pipe(
+						Effect.map((admitted) => expect(admitted).toEqual(original)),
+					);
+				},
+				{ concurrency: "unbounded" },
+			);
+		}),
+);
+
+it.live.each([
+	{ minutes: 30, threshold: 2, suppressed: true },
+	{ minutes: 180, threshold: 2, suppressed: false },
+	{ minutes: 90, threshold: "1", suppressed: false },
+	{ minutes: 30, suppressed: true, threshold: "invalid" },
+	{ minutes: 30, threshold: 0, suppressed: true },
+])(
+	"debounces against committed history: $minutes minutes, threshold $threshold",
+	({ minutes, threshold, suppressed }) =>
+		Effect.gen(function* () {
+			const now = yield* DateTime.now;
+			const { host } = createHost({
+				threshold,
+				events: [
+					eventRecord({
+						properties: { consumedOn: "Plex", progressPercent: 100 },
+						occurredAt: DateTime.formatIso(DateTime.subtract(now, { minutes })),
+					}),
+					eventRecord({
+						properties: { consumedOn: "Plex", progressPercent: 50 },
+						occurredAt: DateTime.formatIso(DateTime.subtract(now, { minutes: 1 })),
+					}),
+				],
+			});
+			const result = yield* admitIntegrationProgress(
+				input({ consumedOn: "Plex", progressPercent: 100 }),
+				host,
+			);
+			expect(result.entityGroups[0]?.events).toHaveLength(suppressed ? 0 : 1);
+		}),
+);
+
+it.live(
+	"uses the resolved episode identity and stable integration key across import executions",
+	() =>
+		Effect.gen(function* () {
+			const { host, logs, queries } = createHost();
+			const episode = input(
+				{ consumedOn: "Plex", progressPercent: 100 },
+				{ subjectEntityId: "episode-1", subjectEntitySchemaSlug: "show-episode" },
+			);
+			yield* Effect.forEach(
+				[
+					["integration-1", "run-1"],
+					["integration-1", "run-2"],
+					["integration-2", "run-3"],
+				] as const,
+				([integrationId, importRunId]) =>
+					admitIntegrationProgress(
+						{ ...episode, integration: { importRunId, integrationId } },
+						host,
+					),
+			);
+			const queryValues = ryotqlDocumentNodes(queries[0]);
+			expect(queryValues).toContain("episode-1");
+			expect(queryValues).toContain("show-episode");
+			expect(queryValues).not.toContain("movie-1");
+			expect(logs[0]?.attributes?.["claimKey"]).toBe(
+				'["media.integration-progress.v1","integration-1","episode-1","show-episode","progress","Plex",""]',
+			);
+			expect(logs[1]?.attributes?.["claimKey"]).toBe(logs[0]?.attributes?.["claimKey"]);
+			expect(logs[2]?.attributes?.["claimKey"]).not.toBe(logs[0]?.attributes?.["claimKey"]);
+			expect(logs.map((log) => log.attributes?.["importRunId"])).toEqual([
+				"run-1",
+				"run-2",
+				"run-3",
+			]);
+		}),
+);
+
+it.live("keeps unresolved population failures out of admission", () =>
+	Effect.gen(function* () {
+		const { host, calls } = createHost();
+		const unresolved = { ...input(), populationResults: [] };
+		const admitted = yield* admitIntegrationProgress(unresolved, host);
+		expect(createMediaImportChunk(admitted, "2026-01-01T00:00:00.000Z")).toMatchObject({
+			items: [],
+			failures: [{ stage: "provider_resolution" }],
+		});
+		expect(calls).toEqual([]);
+	}),
+);

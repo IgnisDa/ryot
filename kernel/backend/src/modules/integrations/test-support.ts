@@ -1,0 +1,49 @@
+import {
+	ImportRunId,
+	IntegrationId,
+	IntegrationWebhookToken,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+
+import type { IntegrationRecord } from "./repository";
+
+const now = "2026-06-17T00:00:00.000Z";
+
+export const testWebhookToken = IntegrationWebhookToken.make("webhook-token-1");
+
+export const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): IntegrationRecord => ({
+	name: null,
+	lot: "sink",
+	createdAt: now,
+	updatedAt: now,
+	isDisabled: false,
+	minimumProgress: 2,
+	maximumProgress: 95,
+	syncOwnership: false,
+	lastFinishedAt: null,
+	providerSpecifics: {},
+	pluginSlug: "fixture",
+	provider: "test-provider",
+	userId: UserId.make("user_1"),
+	pluginInstallationId: "inst_1",
+	id: IntegrationId.make("int_1"),
+	extraSettings: { disableOnContinuousErrors: true },
+	...overrides,
+});
+
+export const makeRun = (status: "completed" | "failed") => ({
+	status,
+	progress: 0,
+	failedItems: 0,
+	createdAt: now,
+	updatedAt: now,
+	startedAt: null,
+	finishedAt: null,
+	totalItems: null,
+	inputSummary: {},
+	importedItems: 0,
+	processedItems: 0,
+	failureReason: null,
+	source: "test-provider",
+	id: ImportRunId.make("run_1"),
+});

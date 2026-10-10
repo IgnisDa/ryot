@@ -1,0 +1,78 @@
+name: Sandbox Sidecar
+
+on:
+  push:
+    paths: &paths
+      - "kernel/sandboxd/**"
+      - "kernel/backend/src/lib/infrastructure/sandbox-runtime/**"
+      - "kernel/backend/tooling/**"
+      - "packages/contract/**"
+      - "packages/plugin-kit/**"
+      - "packages/ryotql/**"
+      - "packages/sandbox-compiler/**"
+      - "packages/sandbox-sdk/**"
+      - "packages/typescript-compiler/**"
+      - "packages/vite-compiler/**"
+      - "plugins/media/**"
+      - "plugins/fitness/**"
+      - "apps/server/**"
+      - "Dockerfile"
+      - ".dockerignore"
+      - "bun.lock"
+      - "package.json"
+      - "turbo.json"
+      - ".github/workflows/sandboxd.yml"
+  pull_request:
+    paths: *paths
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-14]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: "1.4.3"
+      - name: Install the pinned Rust toolchain
+        working-directory: kernel/sandboxd
+        run: rustup toolchain install
+      - name: Cache Rust dependencies and build artifacts
+        uses: Swatinem/rust-cache@63fed3e2fecf6f7b51dc6f043341b79ef82a9ae7 # v2.9.2
+        with:
+          key: ${{ matrix.runner }}
+          workspaces: kernel/sandboxd -> target
+          cache-on-failure: true
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+      - name: Build the runtime payload, snapshots, and release executables
+        run: bun turbo build --filter=@ryot-app/sandboxd
+      - name: Lint the sidecar and launcher
+        working-directory: kernel/sandboxd
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+      - name: Test the sidecar
+        working-directory: kernel/sandboxd
+        run: cargo test
+      - name: Test explicit provisioning and launcher confinement under Docker defaults
+        if: runner.os == 'Linux'
+        run: bash kernel/sandboxd/tests/launcher/test-default-docker.sh
+
+  image:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Build the release image from source
+        run: docker build .

@@ -1,0 +1,31 @@
+{
+	"name": "@ryot-app/typescript-compiler",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./src/index.ts",
+			"default": "./src/index.ts"
+		},
+		"./javascript-references": {
+			"types": "./src/javascript-references.ts",
+			"default": "./src/javascript-references.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "bun --check && oxfmt . --write && oxlint . --fix"
+	},
+	"dependencies": {
+		"@oxc-project/types": "0.132.0",
+		"effect": "4.0.0",
+		"rolldown": "1.0.2",
+		"typescript": "7.0.2"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.0",
+		"@ryot-app/testing": "workspace:*",
+		"bun-types": "1.4.3",
+		"vitest": "4.1.9"
+	}
+}

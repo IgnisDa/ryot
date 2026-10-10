@@ -1,0 +1,244 @@
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import { defineAutomationPolicy } from "@ryot-app/sandbox-sdk/automation";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import {
+	entityReadRecipe,
+	executeRyotqlRecipe,
+	type EntityReadResult,
+} from "@ryot-app/sandbox-sdk/ryotql";
+import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+
+import type { LogEntry, PolicyHost, ScriptHost, SpanEntry } from "../src/core.js";
+import { defineManifest, defineScript } from "../src/driver.js";
+import { type SandboxHostError, jsonValueSchema } from "../src/wire.js";
+import type { Equal, Expect } from "./type-assertions.js";
+
+const scriptManifest = defineManifest({ kind: "script", name: "Script host", slug: "script-host" });
+const manifestWithCapabilities = { ...scriptManifest, capabilities: ["httpCall"] as const };
+// @ts-expect-error source manifests cannot declare generated capabilities.
+defineManifest(manifestWithCapabilities);
+
+defineScript({
+	output: Schema.Boolean,
+	input: Schema.Struct({}),
+	manifest: scriptManifest,
+	run: (_input, host) =>
+		Effect.gen(function* () {
+			const scriptHostType: Expect<Equal<keyof typeof host, keyof ScriptHost>> = true;
+			void scriptHostType;
+			const logs: ReadonlyArray<LogEntry> = [
+				{ level: "info", message: "Started", attributes: { attempt: 1 } },
+			];
+			const spans: ReadonlyArray<SpanEntry> = [{ name: "provider.run" }];
+			const logged: null = yield* host.log(logs);
+			const spanned: null = yield* host.span(spans);
+			void logged;
+			void spanned;
+
+			const http = yield* host.httpCall("POST", "https://example.com", {
+				body: "payload",
+				allowInsecureConnections: true,
+				headers: { Accept: "application/json" },
+			});
+			const status: number = http.status;
+			const headers: Readonly<Record<string, string>> = http.headers;
+			void headers;
+			void status;
+
+			const cached: JsonValue | null = yield* host.getCachedValue("key");
+			const stored: null = yield* host.setCachedValue("key", { nested: [true] }, 60);
+			const claim = yield* host.claimPersistentValue("key", "value", 60);
+			if (!claim.claimed) {
+				const value: JsonValue | null = claim.value;
+				void value;
+			}
+			const pluginConfig = yield* host.getPluginConfig({
+				required: ["apiKey"],
+				optional: ["language"],
+			});
+			const requiredApiKey: JsonValue = pluginConfig.apiKey;
+			const optionalLanguage: JsonValue | undefined = pluginConfig.language;
+			// @ts-expect-error config reads do not expose unrequested keys.
+			const unrequestedApiToken: JsonValue | undefined = pluginConfig.apiToken;
+			const preferences = yield* host.getUserPreferences();
+			const disableIntegrations: boolean = preferences.disableIntegrations;
+			const settings: Readonly<Record<string, JsonValue>> = yield* host.getUserSettings();
+			const allowNsfw: JsonValue | undefined = settings["allowNsfw"];
+			void cached;
+			void stored;
+			void pluginConfig;
+			void requiredApiKey;
+			void optionalLanguage;
+			void unrequestedApiToken;
+			void disableIntegrations;
+			void allowNsfw;
+			void settings;
+
+			const errorType: Expect<
+				Equal<Effect.Error<ReturnType<typeof host.httpCall>>, SandboxHostError>
+			> = true;
+			void errorType;
+
+			// @ts-expect-error httpCall options require a string body.
+			yield* host.httpCall("POST", "https://example.com", { body: 42 });
+			// @ts-expect-error httpCall insecure connection opt-in requires a boolean.
+			yield* host.httpCall("POST", "https://example.com", { allowInsecureConnections: "yes" });
+			// @ts-expect-error log takes exactly one batch argument.
+			yield* host.log(logs, logs);
+			// @ts-expect-error span entries reject excess fields.
+			yield* host.span([{ extra: true, name: "provider.run" }]);
+			return true;
+		}),
+});
+
+const ordinaryScriptManifest = defineManifest({
+	kind: "script",
+	name: "Ordinary script",
+	slug: "ordinary-script",
+});
+defineScript({
+	input: Schema.Struct({}),
+	manifest: ordinaryScriptManifest,
+	output: Schema.NullOr(jsonValueSchema),
+	run: (_input, host) => {
+		const hostType: Expect<Equal<keyof typeof host, keyof ScriptHost>> = true;
+		void hostType;
+		return host.getCachedValue("key");
+	},
+});
+defineSandboxTestHost(ordinaryScriptManifest, {
+	// @ts-expect-error host methods must return Effect values, not wire Promises.
+	getCachedValue: () => Promise.resolve({ data: null, success: true }),
+});
+
+const domainScriptManifest = defineManifest({
+	kind: "script",
+	name: "Domain script",
+	slug: "domain-script",
+});
+defineScript({
+	output: Schema.Boolean,
+	input: Schema.Struct({}),
+	manifest: domainScriptManifest,
+	run: (_input, host) =>
+		Effect.gen(function* () {
+			const integration = yield* host.getCurrentIntegration();
+			const token: { readonly accessToken: string; readonly expiresAt: string } =
+				yield* host.getOAuthAccessToken({ field: "account" });
+			const invalidated: null = yield* host.invalidateOAuthAccessToken({
+				field: "account",
+				accessToken: token.accessToken,
+			});
+			void token;
+			void invalidated;
+			const [entitySchema] = yield* host.getEntitySchemas(["schema-1"]);
+			if (!entitySchema) {
+				return false;
+			}
+			const lot: "push" | "sink" | "yank" = integration.lot;
+			const provider: string = integration.provider;
+			const setting: JsonValue | undefined = integration.providerSpecifics["customSetting"];
+			yield* host.listEventSchemas(["schema-1"]);
+			yield* host.listIntegrations({ provider: "plugin_defined_provider" });
+			const providers: ReadonlyArray<{ readonly name: string; readonly providerId: string }> =
+				entitySchema.providers;
+			const created = yield* host.createEvents([
+				{ entityId: "entity-1", properties: { watched: true }, eventSchemaSlug: "event-schema-1" },
+			]);
+			const [changed] = yield* host.changeUserRelationships([
+				{
+					deletes: [],
+					creates: [
+						{
+							properties: {},
+							sourceEntityId: "entity-1",
+							targetEntityId: "library-1",
+							relationshipSchemaSlug: "in-media-library",
+						},
+					],
+				},
+			]);
+			const changedCount: number | undefined = changed?.created;
+			const [ensuredEntity] = yield* host.ensureUserEntities([
+				{ properties: {}, name: "Library", entitySchemaSlug: "media-library" },
+			]);
+			const ensuredEntityId: string | undefined = ensuredEntity?.entityId;
+			const ensuredWasInserted: boolean | undefined = ensuredEntity?.wasInserted;
+			const total: number = created.count;
+			void provider;
+			void setting;
+			const [savedEntity] = yield* host.upsertGlobalEntities(
+				[
+					{
+						name: "Cooper",
+						populatedAt: null,
+						externalId: "person-1",
+						entitySchemaSlug: "person",
+						properties: { role: "actor" },
+					},
+				],
+				{ maximumTotal: 100 },
+			);
+			const inserted: boolean | undefined =
+				savedEntity?.status === "upserted" ? savedEntity.wasInserted : undefined;
+			const [reconciled] = yield* host.upsertGlobalRelationships([
+				{ relationships: [], selector: { type: "self" }, relationshipSchemaSlug: "same-as" },
+			]);
+			const deleted: number | undefined = reconciled?.deleted;
+			const query = yield* host.executeRyotql({ queries: {} });
+			const queryResult: Expect<Equal<typeof query, unknown>> = true;
+			const entities = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				entityReadRecipe({ entityIds: ["entity-1"] }),
+			);
+			const recipeResult: Expect<Equal<typeof entities, EntityReadResult>> = true;
+			const entitySchemasArg: Expect<
+				Equal<Parameters<typeof host.getEntitySchemas>[0], ReadonlyArray<string>>
+			> = true;
+			void lot;
+			void total;
+			void deleted;
+			void inserted;
+			void providers;
+			void queryResult;
+			void recipeResult;
+			void changedCount;
+			void ensuredEntityId;
+			void entitySchemasArg;
+			void ensuredWasInserted;
+			return true;
+		}),
+});
+
+const policyManifest = defineManifest({
+	kind: "automation",
+	name: "Policy host",
+	slug: "policy-host",
+	automationType: "policy",
+	inputProjection: { event: { properties: [] } },
+});
+defineAutomationPolicy({
+	manifest: policyManifest,
+	run: (_input, host) => {
+		const hostType: Expect<Equal<keyof typeof host, keyof PolicyHost>> = true;
+		void hostType;
+		// @ts-expect-error policy hosts do not expose workflow execution.
+		void host.executeWorkflow;
+		// @ts-expect-error policy hosts expose only policy-safe methods.
+		host.httpCall("GET", "https://example.com");
+		return Effect.succeed({ action: "allow" as const });
+	},
+});
+
+const promiseScriptManifest = defineManifest({
+	kind: "script",
+	name: "Promise driver rejection",
+	slug: "promise-driver-rejection",
+});
+defineScript({
+	output: Schema.Boolean,
+	input: Schema.Struct({}),
+	manifest: promiseScriptManifest,
+	// @ts-expect-error scripts must return Effect values.
+	run: () => Promise.resolve(true),
+});

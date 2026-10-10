@@ -1,0 +1,88 @@
+import { describe, expect, it } from "@effect/vitest";
+import { SandboxProviderId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { render, screen, waitFor } from "@testing-library/react";
+import { Effect } from "effect";
+import { axe } from "vitest-axe";
+
+import { ProviderSearchPanel, resolveLibraryMembership } from "#/modules/provider-add/panel";
+import type { ProviderSearchSummary } from "#/modules/provider-add/service";
+
+const bookSlug = EntitySchemaSlug.make("book");
+
+const provider = (index: number): ProviderSearchSummary => ({
+	searchOptionsSchema: null,
+	rootEntitySchemaSlug: bookSlug,
+	providerSlug: `provider-${index}`,
+	providerName: `Provider ${index}`,
+	providerId: SandboxProviderId.make(`provider-${index}`),
+});
+
+const providers = [provider(1), provider(2)];
+
+const renderPanel = () =>
+	render(
+		<ProviderSearchPanel
+			onClose={() => undefined}
+			entitySchemaSlug={bookSlug}
+			onImported={() => undefined}
+			librarySchemaSlug="media-library"
+			onSelectProvider={() => undefined}
+			relationshipSlug="in-media-library"
+			providers={{ providers, status: "ready" }}
+			selectedProviderId={providers[0].providerId}
+			search={() => Effect.die(new Error("not used"))}
+			importEntity={() => Effect.die(new Error("not used"))}
+			uploadFile={() => Promise.reject(new Error("not used"))}
+			loadEntityLinks={() => Effect.die(new Error("not used"))}
+			loadSearchOptions={() => Effect.die(new Error("not used"))}
+		/>,
+	);
+
+describe("provider search panel", () => {
+	it("resolves the library membership for media and fitness exercises", () => {
+		expect(resolveLibraryMembership("media", bookSlug)).toEqual({
+			librarySchemaSlug: "media-library",
+			relationshipSlug: "in-media-library",
+		});
+		expect(resolveLibraryMembership("fitness", EntitySchemaSlug.make("exercise"))).toEqual({
+			librarySchemaSlug: "fitness-library",
+			relationshipSlug: "in-fitness-library",
+		});
+	});
+
+	it.live("exposes the providers as a single-tab-stop radiogroup", () =>
+		Effect.gen(function* () {
+			renderPanel();
+
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
+				),
+			);
+			expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("tabindex"))).toEqual([
+				"0",
+				"-1",
+			]);
+			expect(screen.getByRole("radio", { name: "Provider 1" }).getAttribute("aria-checked")).toBe(
+				"true",
+			);
+		}),
+	);
+
+	it.live("passes an axe pass on the rendered panel", () =>
+		Effect.gen(function* () {
+			const view = renderPanel();
+
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
+				),
+			);
+			const results = yield* Effect.promise(() =>
+				axe(view.container, { rules: { "color-contrast": { enabled: false } } }),
+			);
+
+			expect(results.violations.map((violation) => violation.id)).toEqual([]);
+		}),
+	);
+});

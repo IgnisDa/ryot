@@ -1,13 +1,12 @@
 # Ryot Helm Chart
 
-Deploys [Ryot](https://github.com/IgnisDa/ryot) - "The only self-hosted tracker
-you will ever need" - on Kubernetes, with an optional bundled PostgreSQL
-database.
+Deploys [Ryot](https://github.com/IgnisDa/ryot) on Kubernetes with bundled PostgreSQL and Redis by default.
 
-## Install from GHCR (OCI)
+## Install
 
-The chart is published to GitHub Container Registry as an OCI artifact
-(requires Helm 3.8+):
+### OCI chart
+
+Published releases are available from GHCR with Helm 3.8 or later:
 
 ```bash
 helm install ryot oci://ghcr.io/ignisda/charts/ryot \
@@ -17,83 +16,53 @@ helm install ryot oci://ghcr.io/ignisda/charts/ryot \
   --set config.frontendUrl="https://ryot.your-domain.com"
 ```
 
-Omitting `--version` installs the latest published chart version.
+Omit `--version` to install the latest chart. Each GitHub release publishes a chart whose version is the release tag without a leading `v`.
 
-## TL;DR (from a checkout)
+### Local checkout
 
 ```bash
 helm install ryot ./ci/helm/ryot \
   --set secret.adminAccessToken.value="$(openssl rand -hex 16)" \
-  --set config.frontendUrl="https://ryot.your-domain.com" \
-  --set postgres.auth.password="$(openssl rand -hex 16)"
+  --set postgres.auth.password="$(openssl rand -hex 16)" \
+  --set config.frontendUrl="https://ryot.your-domain.com"
 ```
 
-## Releases
+The chart creates one Ryot `Deployment`, a `Service`, optional `Ingress`, `ConfigMap`, and `Secret`. Bundled PostgreSQL and Redis each use a single-node `StatefulSet` and headless `Service`. No `ServiceAccount` is created.
 
-Each published GitHub release packages the chart and pushes it to
-`oci://ghcr.io/ignisda/charts/ryot`. The release tag drives the chart version
-(a leading `v` is stripped).
+## PostgreSQL
 
-## What gets deployed
+### Bundled
 
-- A single `Deployment` running the Ryot container (frontend + backend + Caddy
-  proxy in one image, listening on port `8000`).
-- A `Service` (ClusterIP by default) exposing port `8000`.
-- An optional `Ingress`.
-- An optional bundled PostgreSQL `StatefulSet` + headless `Service` +
-  `Secret`, using the official `postgres` image.
-- A `ConfigMap` for non-sensitive env and a `Secret` for sensitive env.
+`postgres.enabled=true` deploys PostgreSQL and constructs `DATABASE_URL` at runtime. Set `postgres.auth.password` or `postgres.auth.existingSecret`; the chart has no default password and refuses to render without one. Keep component values URL-safe because they are embedded in the URL.
 
-No `ServiceAccount` is created.
+The password is read from the PostgreSQL secret without copying the complete URL into another manifest. After initialization, do not change a chart-managed password only through values: PostgreSQL retains the old password while the application receives the new one. The chart blocks this mismatch during upgrades. Rotate the database user password first, then update the secret as directed by the error.
 
-## Database options
+PostgreSQL persistence is enabled by default with an `8Gi` claim. Keep it enabled for production. Disabling it uses ephemeral storage and loses data when the pod is replaced. When persistence is enabled, `size` and `mountPath` are required. Changing the requested size does not guarantee that an existing PVC can expand; this depends on its StorageClass.
 
-### Bundled PostgreSQL (default)
+### External
 
-`postgres.enabled=true` (default) deploys a single-node Postgres StatefulSet and
-wires `DATABASE_URL` automatically. The password comes from
-`postgres.auth.password` (stored in a chart-managed secret) or from an existing
-secret via `postgres.auth.existingSecret`.
+Set `postgres.enabled=false`, then choose one mode in precedence order. Full PostgreSQL URLs may use `postgres://` or `postgresql://`.
 
-`DATABASE_URL` is composed at runtime inside the pod, so the password is only
-ever read from the Postgres secret and never written into a second manifest.
-
-> The chart ships **no default password**. With `postgres.enabled=true` you must
-> set a strong `postgres.auth.password` or reference one via
-> `postgres.auth.existingSecret`, otherwise the chart refuses to render. Keep it
-> URL-safe (it is embedded in the connection string).
-
-### Bring your own database
-
-Set `postgres.enabled=false`. Three ways to point Ryot at your database, in
-order of precedence:
-
-1. **Full URL inline** - stored in a chart-managed `Secret` (key `database-url`):
+1. Store a full URL in the chart-managed secret:
 
    ```yaml
    postgres:
      enabled: false
    externalDatabase:
-     url: "postgres://user:pass@db.example.com:5432/ryot"
+     url: postgresql://user:pass@db.example.com:5432/ryot
    ```
 
-2. **Full URL from an existing secret** - reference a secret you manage:
+2. Reference a secret containing the full URL:
 
    ```yaml
    postgres:
      enabled: false
    externalDatabase:
      existingSecret: my-ryot-db
-     existingSecretKey: database-url   # default
+     existingSecretKey: database-url
    ```
 
-3. **Individual components** - used when `url` and `existingSecret` are both
-   empty. The chart composes `DATABASE_URL` at runtime. Each component may be
-   inline (`value`) or pulled from a secret (`existingSecret` + `existingSecretKey`).
-   Any component referencing an existing secret is read via `secretKeyRef` and
-   never appears in plaintext in the manifest. For inline values, `password` is
-   written to the chart-managed Secret; the other inline components (host,
-   port, database, username) are passed as plain env values.
+3. Leave `url` and `existingSecret` empty and supply components:
 
    ```yaml
    postgres:
@@ -108,25 +77,52 @@ order of precedence:
      username:
        value: ryotuser
      password:
-       # inline -> chart Secret, or:
        existingSecret: ryot-db-creds
        existingSecretKey: password
    ```
 
-   Because the password is read via `secretKeyRef`, it never appears in the
-   composed `DATABASE_URL` literal in the manifest.
+Each component accepts either `value` or `existingSecret` plus `existingSecretKey`. Secret-backed components use `secretKeyRef`; inline passwords go into the chart-managed secret. Percent-encode reserved URL characters in all composed components.
 
-## Sensitive values
+## Redis
 
-These are always sourced from a `Secret` (chart-managed or existing), never
-from the ConfigMap:
+`redis.enabled=true` deploys Redis and constructs `REDIS_URL`. Authentication is optional for the cluster-internal default; set `redis.auth.password` or `redis.auth.existingSecret` to enable it.
 
-| Env var                     | Value                                  | Existing-secret keys                                          |
-| --------------------------- | -------------------------------------- | ------------------------------------------------------------- |
-| `SERVER_ADMIN_ACCESS_TOKEN` | `secret.adminAccessToken.value` (required) | `secret.adminAccessToken.existingSecret` / `.existingSecretKey` |
-| `SERVER_PRO_KEY`            | `secret.proKey.value` (optional)         | `secret.proKey.existingSecret` / `.existingSecretKey`           |
-| `DATABASE_URL`              | bundled / `externalDatabase.url`       | `externalDatabase.existingSecret` / `.existingSecretKey`      |
-| provider tokens (any)       | `secretEnv` map                        | `secretEnvFrom` map                                           |
+Redis persistence is disabled by default because Redis holds sessions, workflow state, and caches. Enable `redis.persistence.enabled` when that state must survive pod replacement; `size` and `mountPath` are then required.
+
+For external Redis, disable the bundled instance and provide an inline URL or existing secret:
+
+```yaml
+redis:
+  enabled: false
+externalRedis:
+  existingSecret: my-ryot-redis
+  existingSecretKey: redis-url
+```
+
+An inline `externalRedis.url` is stored in the chart-managed secret.
+
+## Secrets
+
+Sensitive values are sourced from chart-managed or existing Kubernetes secrets, never the `ConfigMap`:
+
+| Environment variable        | Inline value                      | Existing secret                          |
+| --------------------------- | --------------------------------- | ---------------------------------------- |
+| `SERVER_ADMIN_ACCESS_TOKEN` | `secret.adminAccessToken.value`   | `secret.adminAccessToken.existingSecret` |
+| `SERVER_PRO_KEY`            | `secret.proKey.value`             | `secret.proKey.existingSecret`           |
+| `DATABASE_URL`              | bundled or `externalDatabase.url` | `externalDatabase.existingSecret`        |
+| `REDIS_URL`                 | bundled or `externalRedis.url`    | `externalRedis.existingSecret`           |
+| Provider credentials        | `secretEnv`                       | `secretEnvFrom`                          |
+
+Provider tokens and client secrets must use `secretEnv` or `secretEnvFrom`, not `config.extraEnv`. The latter is rendered into a `ConfigMap` and is only for non-sensitive settings. See the [Ryot configuration docs](https://docs.ryot.io/configuration.html).
+
+```yaml
+secretEnv:
+  RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN: "xxxx"
+secretEnvFrom:
+  RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET:
+    existingSecret: ryot-providers
+    key: twitch-client-secret
+```
 
 ## Ingress
 
@@ -134,7 +130,6 @@ from the ConfigMap:
 ingress:
   enabled: true
   className: nginx
-  annotations: {}
   hosts:
     - host: ryot.your-domain.com
       paths:
@@ -146,103 +141,48 @@ ingress:
         - ryot.your-domain.com
 ```
 
-## Provider tokens & extra config
+## Upgrades
 
-Provider access tokens and client IDs/secrets (TMDB, Twitch, Trakt,
-MyAnimeList, ...) are **sensitive** and must go in a Secret, never the
-ConfigMap. The chart provides a dynamic secret-env mapping for this. See the
-[Ryot configuration docs](https://docs.ryot.io/configuration.html).
+Back up PostgreSQL, review release notes and value changes, then upgrade with the same values and secret references used for installation:
 
-Inline values - written to the chart-managed Secret:
-
-```yaml
-secretEnv:
-  MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN: "xxxx"
-  VIDEO_GAMES_TWITCH_CLIENT_ID: "xxxx"
-  VIDEO_GAMES_TWITCH_CLIENT_SECRET: "xxxx"
+```bash
+helm upgrade ryot oci://ghcr.io/ignisda/charts/ryot --version x.y.z -f values.yaml
 ```
 
-Or map env vars to keys in your own existing secret(s):
-
-```yaml
-secretEnvFrom:
-  VIDEO_GAMES_TWITCH_CLIENT_SECRET:
-    existingSecret: ryot-providers
-    key: twitch-client-secret
-  ANIME_AND_MANGA_MAL_CLIENT_ID:
-    existingSecret: ryot-providers
-    key: mal-client-id
-```
-
-`config.extraEnv` remains available for genuinely non-sensitive options only
-(it lands in a ConfigMap).
+Keep the original bundled PostgreSQL password unless it has first been rotated inside PostgreSQL. Review StatefulSet and PVC changes before applying them.
 
 ## Validation
 
-The chart fails to render (`helm install` / `template` / `lint`) with a clear
-message when required configuration is missing or inconsistent, including:
+The chart rejects missing image or service settings, inconsistent secret references, incomplete external database or Redis settings, invalid persistence settings, and incomplete ingress hosts.
 
-- `image.repository` and `service.port` unset.
-- `secret.adminAccessToken` not provided (value or existing secret).
-- Any `existingSecret` set without its corresponding key.
-- `postgres.enabled=true` with no password, blank username/database, or
-  (when persistence is on) missing size/mountPath.
-- `postgres.enabled=false` with no usable external database: no `url`, no
-  `existingSecret`, and missing component(s) (`host`/`port`/`database`/
-  `username`/`password`).
-- `ingress.enabled=true` with no hosts, a host missing `host`, or a host with
-  no paths.
+```bash
+helm lint ci/helm/ryot \
+  --set secret.adminAccessToken.value=tok \
+  --set postgres.auth.password=pw
+helm template ryot ci/helm/ryot \
+  --set secret.adminAccessToken.value=tok \
+  --set postgres.auth.password=pw
+```
 
-### Render-time tests (helm-unittest)
-
-Render-time tests live in [`tests/`](./tests) and use the
-[helm-unittest](https://github.com/helm-unittest/helm-unittest) plugin. They
-assert every guardrail above fails as expected and that the happy paths render
-correctly. `database_url_test.yaml` covers `DATABASE_URL` creation across all
-modes (bundled, external URL inline/existing-secret, and components inline /
-from-secret / mixed).
+Render-time tests use the [helm-unittest](https://github.com/helm-unittest/helm-unittest) plugin:
 
 ```bash
 helm plugin install https://github.com/helm-unittest/helm-unittest
 helm unittest ci/helm/ryot
 ```
 
-### Runtime tests (helm test)
-
-Post-install smoke tests live in [`templates/tests/`](./templates/tests) as
-`helm.sh/hook: test` Pods. Run them against a deployed release:
+Post-install test pods verify `/api/system/health` through the service and validate the effective `DATABASE_URL` with `pg_isready` and `SELECT 1`. The database test accepts both `postgres://` and `postgresql://` URLs.
 
 ```bash
 helm test <release-name>
 ```
 
-- **test-http-connection** - GETs `/health` through the Service (with retries)
-  to confirm Ryot is serving.
-- **test-database-url** - injects the *exact* same database env the app
-  receives, then resolves the composed `DATABASE_URL`, checks it is a valid
-  `postgres://` string, and runs `pg_isready` + `psql 'SELECT 1'` against it.
-  This validates DATABASE_URL creation end-to-end (the `$(VAR)` interpolation a
-  render-time test cannot resolve).
+The health endpoint checks PostgreSQL and Redis, and is also the default liveness and readiness target.
 
-## Health
+## Troubleshooting
 
-Ryot exposes `/health` on the service port; liveness and readiness probes use it.
+Use `helm template --debug` for render failures. For a deployment, inspect `kubectl get pods`, `kubectl describe pod <pod>`, application logs, and `helm test <release-name> --logs`. Health failures usually mean that Ryot cannot reach PostgreSQL or Redis; verify service names, secret keys, URL encoding, and credentials. If a bundled PostgreSQL password mismatch blocks an upgrade, follow the rotation instructions in the error instead of deleting persistent data.
 
-## Notable values
+## Values
 
-| Key                          | Default                  | Description                          |
-| ---------------------------- | ------------------------ | ------------------------------------ |
-| `image.repository`           | `ghcr.io/ignisda/ryot`   | Image repo                           |
-| `image.tag`                  | `""` (chart appVersion)  | Image tag                            |
-| `config.timezone`            | `GMT`                    | `TZ`                                 |
-| `config.frontendUrl`         | `""`                     | `FRONTEND_URL`                       |
-| `config.usersAllowRegistration` | `true`               | `USERS_ALLOW_REGISTRATION`           |
-| `postgres.enabled`           | `true`                   | Deploy bundled PostgreSQL            |
-| `postgres.auth.password`     | `""` (required)          | Bundled DB password (no default)     |
-| `postgres.persistence.size`  | `8Gi`                    | Data volume size                     |
-| `service.port`               | `8000`                   | Service port                         |
-| `ingress.enabled`            | `false`                  | Enable ingress                       |
-
-See [values.yaml](./values.yaml) for the full list, or the auto-generated
-[VALUES.md](./VALUES.md) for the rendered reference table (regenerated on every
-PR by [helm-docs](https://github.com/norwoodj/helm-docs)).
+See annotated [values.yaml](./values.yaml) or generated [VALUES.md](./VALUES.md). The main-branch workflow regenerates `VALUES.md` with [helm-docs](https://github.com/norwoodj/helm-docs); document values in `values.yaml` and do not edit `VALUES.md` directly.

@@ -1,0 +1,53 @@
+import { Context, Effect, Layer } from "effect";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+
+import {
+	TranslateEntityWorkflow,
+	translateEntityExecutionId,
+	type TranslateEntityWorkflowPayload,
+} from "./entity-translation-workflow";
+import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
+
+export type RequestFillInput = Omit<TranslateEntityWorkflowPayload, "executionId">;
+
+export class TranslationsService extends Context.Service<TranslationsService>()(
+	"TranslationsService",
+	{
+		make: Effect.gen(function* () {
+			const engine = yield* WorkflowEngine;
+			const repository = yield* TranslationsRepository;
+
+			// Idempotently enqueue a translation fill for one entity into a target language. The workflow
+			// execution id coalesces duplicate requests, so repeated requests never re-run a fill. Callers
+			// must ensure the entity is already populated (a fill on an unpopulated entity writes an
+			// all-null overlay row that permanently mislabels its status as "none").
+			const requestFill = (input: RequestFillInput) => {
+				const executionId = translateEntityExecutionId({
+					language: input.language,
+					entityId: input.entityId,
+				});
+				return engine
+					.execute(TranslateEntityWorkflow.forLane(input.lane), {
+						executionId,
+						discard: true,
+						payload: { ...input, executionId },
+					})
+					.pipe(
+						Effect.asVoid,
+						Effect.tapCause((cause) => Effect.logWarning("translation fill enqueue failed", cause)),
+						Effect.orDie,
+					);
+			};
+
+			const upsert = Effect.fn("TranslationsService.upsert")(function* (
+				input: TranslationOverlayInput,
+			) {
+				return yield* repository.upsertOverlay(input);
+			});
+
+			return { upsert, requestFill };
+		}),
+	},
+) {
+	static readonly layer = Layer.effect(this, this.make);
+}

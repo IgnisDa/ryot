@@ -1,0 +1,107 @@
+import { Browser } from "@capacitor/browser";
+import {
+	OAuthCallbackQuery,
+	OAUTH_IMPERSONATION_CLIENT_IDS,
+	OAUTH_NATIVE_CLIENT_IDS,
+	OAUTH_WEB_CLIENT_IDS,
+} from "@ryot-app/contract/oauth";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { Effect, Schema } from "effect";
+
+import { decodeServerOrigin } from "#/api/origin";
+import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
+import { AuthService } from "#/modules/auth/service";
+import { AuthStatus } from "#/modules/auth/status";
+import { OAuthTokenError, OAuthTokenService } from "#/modules/auth/token-service";
+import { sanitizeRedirect } from "#/modules/server/redirect";
+import { ServerService } from "#/modules/server/service";
+
+const searchValue = (value: unknown) =>
+	typeof value === "string" && value !== "" ? value : undefined;
+
+const completingSignIn = {
+	title: "Completing sign-in",
+	message: "Finishing the secure token exchange...",
+};
+
+export const Route = createFileRoute("/auth_/callback")({
+	component: CompletingSignIn,
+	errorComponent: CouldNotCompleteSignIn,
+	pendingComponent: () => <AuthStatus {...completingSignIn} />,
+	validateSearch: (search) =>
+		Schema.decodeSync(OAuthCallbackQuery)({
+			code: searchValue(search.code),
+			error: searchValue(search.error),
+			state: searchValue(search.state),
+			error_description: searchValue(search.error_description),
+		}),
+	beforeLoad: ({ search, context }) =>
+		context.runtime.runPromise(
+			Effect.gen(function* () {
+				const runtimeClient = yield* RuntimeOAuthClientService;
+				const selected = runtimeClient.isNative
+					? yield* Effect.flatMap(ServerService, (service) => service.selected)
+					: decodeServerOrigin(window.location.origin);
+				if (selected === null) {
+					return yield* new OAuthTokenError({ reason: "missing-authorization" });
+				}
+				const origin = selected;
+				const client = yield* runtimeClient
+					.forServer(origin)
+					.pipe(
+						Effect.catchTag("RuntimeOAuthClientError", () =>
+							Effect.fail(new OAuthTokenError({ reason: "invalid-callback" })),
+						),
+					);
+				if (!search.state) {
+					return yield* new OAuthTokenError({ reason: "invalid-callback" });
+				}
+				if (client.nativeApplicationId !== null) {
+					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.ignore);
+				}
+				const tokens = yield* OAuthTokenService;
+				if (search.error) {
+					return yield* tokens.rejectAuthorization(origin, search.state);
+				}
+				if (!search.code) {
+					return yield* new OAuthTokenError({ reason: "invalid-callback" });
+				}
+				const pending = yield* tokens.completeAuthorization(
+					origin,
+					client.nativeApplicationId === null ? OAUTH_WEB_CLIENT_IDS : OAUTH_NATIVE_CLIENT_IDS,
+					client.callbackUri,
+					search.state,
+					search.code,
+				);
+				yield* Effect.flatMap(AuthService, (auth) => auth.settledSession(origin, true));
+				return OAUTH_IMPERSONATION_CLIENT_IDS.some((clientId) => clientId === pending.clientId)
+					? ({ kind: "impersonation" } as const)
+					: ({
+							kind: "redirect",
+							destination: sanitizeRedirect(pending.destination) ?? "/",
+						} as const);
+			}).pipe(
+				Effect.map((result) => {
+					if (result.kind === "impersonation") {
+						window.location.replace("/");
+						return;
+					}
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw redirect({ replace: true, to: result.destination });
+				}),
+			),
+		),
+});
+
+function CompletingSignIn() {
+	return <AuthStatus {...completingSignIn} />;
+}
+
+function CouldNotCompleteSignIn() {
+	return (
+		<AuthStatus
+			title="Could not complete sign-in"
+			message="This authorization response is invalid or has already been used. Start sign-in again."
+		/>
+	);
+}

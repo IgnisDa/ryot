@@ -1,0 +1,12 @@
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+
+import { searchOptions } from "./shared";
+
+export const manifest = defineManifest({
+	kind: "provider",
+	name: "IGDB Video Game Search Options",
+	slug: "video-game.igdb.search-options",
+});
+
+export default defineProvider({ manifest, run: searchOptions.run, operation: "search-options" });

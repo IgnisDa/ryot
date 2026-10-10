@@ -1,0 +1,342 @@
+import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
+	CLIENT_PAGE_ROOT_ELEMENT_ID,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+	ClientPageContext,
+	PluginBridgeClientMessage,
+	PluginEntityLocation,
+	type PluginAssetOutcome,
+	type PluginBridgeHostMessage,
+	type PluginBridgeLocation,
+	type PluginLogicalLocation,
+	type PluginRouteLocation,
+	type PluginRyotQLOutcome,
+} from "@ryot-app/client-plugin-contract";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
+import * as Clock from "effect/Clock";
+import type * as Duration from "effect/Duration";
+import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
+import * as ManagedRuntime from "effect/ManagedRuntime";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
+import * as TestClock from "effect/testing/TestClock";
+import { Fragment, act, createElement, type ComponentType } from "react";
+
+import type { EntityPresentationRegistration } from "./entity-results";
+import { createRyotClient, type RyotClientAdapter } from "./index";
+import { createPluginNavigationStore, type PluginRouterNavigation } from "./navigation/store";
+import { bootstrapClientPage, createClientBootstrap } from "./plugin";
+import { makeRyotPluginLayer, RyotScheduleService } from "./schedule";
+
+// Fills only the required capabilities, so tests of a missing optional one still see
+// `unsupported-capability`.
+export const createTestRyotAdapter = (
+	overrides: Partial<RyotClientAdapter> = {},
+): RyotClientAdapter => ({
+	query: () => Effect.succeed({}),
+	uploadTemporary: () =>
+		Effect.succeed({ token: "test-upload-token", expiresAt: "2026-01-01T00:00:00.000Z" }),
+	...overrides,
+});
+
+/**
+ * An in-memory `accessStorage` capability for `usePluginStorage` and `client.storage`. `entries` is
+ * keyed by `${pluginSlug}:${key}` so tests can seed and inspect values directly.
+ */
+export const createTestPluginStorage = (initial: Iterable<readonly [string, JsonValue]> = []) => {
+	const entries = new Map<string, JsonValue>(initial);
+	const accessStorage: NonNullable<RyotClientAdapter["accessStorage"]> = (request) => {
+		const entry = `${request.pluginSlug}:${request.key}`;
+		if (request.action === "set") {
+			entries.set(entry, request.value);
+		} else if (request.action === "remove") {
+			entries.delete(entry);
+		} else {
+			return Effect.succeed(entries.get(entry) ?? null);
+		}
+		return Effect.succeed(null);
+	};
+	return { entries, accessStorage };
+};
+
+// MessagePort delivery is a real macrotask, so it also drains promise chains queued by prior work.
+export const waitForMessagePortMacrotask = Effect.callback<void>((resume) => {
+	const channel = new MessageChannel();
+	channel.port1.addEventListener("message", () => resume(Effect.void), { once: true });
+	channel.port1.start();
+	channel.port2.postMessage(undefined);
+	return Effect.sync(() => {
+		channel.port1.close();
+		channel.port2.close();
+	});
+});
+
+export const advanceRyotSchedule = (millis: Duration.Input): Effect.Effect<void> =>
+	Effect.andThen(TestClock.adjust(millis), waitForMessagePortMacrotask);
+
+/** Used by runtimes whose test never mounts a `PluginRouter`. */
+const inertNavigation = (): PluginRouterNavigation => {
+	const store = createPluginNavigationStore(() => ({
+		params: {},
+		element: createElement(Fragment),
+	}));
+	return {
+		back: () => undefined,
+		subscribe: store.subscribe,
+		openDrawer: () => undefined,
+		publishTitle: () => undefined,
+		getSnapshot: store.getSnapshot,
+		registerShortcut: () => () => undefined,
+		completeTransition: store.completeTransition,
+	};
+};
+
+/**
+ * A `RyotSchedule` backed by a `TestClock`, plus the runtime `RyotProvider` needs. Pass `navigation`
+ * to drive a mounted `PluginRouter`. Pass `bootstrap` explicitly to bootstrapped pages that
+ * should use this clock; the page owns its runtime, while this harness owns the schedule.
+ */
+export const createTestRyotClock = (
+	overrides: Partial<RyotClientAdapter> = {},
+	navigation: PluginRouterNavigation = inertNavigation(),
+) => {
+	const client = createRyotClient(createTestRyotAdapter(overrides));
+	const runtime = ManagedRuntime.make(
+		// Keep the test clock in the output so clock adjustments reach the same harness-owned instance.
+		Layer.provideMerge(
+			makeRyotPluginLayer(client, navigation, RyotScheduleService.layer),
+			TestClock.layer({ warningDelay: "1 hour" }),
+		),
+	);
+	const clock = runtime.runSync(Clock.Clock);
+	const bootstrap = createClientBootstrap((bootstrapClient, bootstrapNavigation) =>
+		ManagedRuntime.make(
+			makeRyotPluginLayer(
+				bootstrapClient,
+				bootstrapNavigation,
+				Layer.provide(RyotScheduleService.layer, Layer.succeed(Clock.Clock, clock)),
+			),
+		),
+	);
+	return {
+		client,
+		runtime,
+		bootstrap,
+		dispose: () => runtime.dispose(),
+		advance: (millis: Duration.Input) => act(() => runtime.runPromise(advanceRyotSchedule(millis))),
+		setTime: (timestamp: number) =>
+			act(() =>
+				runtime.runPromise(
+					Effect.andThen(TestClock.setTime(timestamp), waitForMessagePortMacrotask),
+				),
+			),
+	};
+};
+
+const compositionMetadata = {
+	hash: "test-composition-hash",
+	format: CLIENT_ARTIFACT_FORMAT,
+	apiVersion: CLIENT_API_VERSION,
+	compilerVersion: CLIENT_COMPILER_VERSION,
+	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+};
+
+const decodeClientMessage = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+
+export const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
+	path,
+	search,
+	kind: "route",
+});
+
+export const entityLocation = (
+	entityId: string,
+	entitySchemaSlug: string,
+	search = "",
+): PluginEntityLocation =>
+	Schema.decodeSync(PluginEntityLocation)({ search, entityId, kind: "entity", entitySchemaSlug });
+
+export const entityPageContext = (options: {
+	readonly pluginId: string;
+	readonly entityId: string;
+	readonly exportName: string;
+	readonly entitySchemaSlug: string;
+	readonly params?: Record<string, string> | undefined;
+	readonly settings?: Record<string, unknown> | undefined;
+}): ClientPageContext =>
+	Schema.decodeUnknownSync(ClientPageContext)({
+		view: null,
+		dataSources: null,
+		settings: options.settings ?? {},
+		route: { params: options.params ?? {} },
+		renderer: { kind: "plugin", pluginId: options.pluginId, exportName: options.exportName },
+		target: {
+			kind: "entity",
+			entityId: options.entityId,
+			entitySchemaPluginId: options.pluginId,
+			entitySchemaSlug: options.entitySchemaSlug,
+		},
+	});
+
+export const savedViewPageContext = (options: {
+	readonly savedViewId: string;
+	readonly rendererName: string;
+	readonly settings: Record<string, unknown>;
+	readonly dataSources: Record<string, unknown>;
+	readonly view?: { readonly name: string; readonly icon: string } | undefined;
+}): ClientPageContext =>
+	Schema.decodeUnknownSync(ClientPageContext)({
+		route: { params: {} },
+		settings: options.settings,
+		dataSources: options.dataSources,
+		renderer: { kind: "kernel", name: options.rendererName },
+		target: { kind: "saved-view", slug: options.savedViewId },
+		view: options.view ?? { icon: "library", name: "All Records" },
+	});
+
+export const kernelEntityPageContext = (options: {
+	readonly entityId: string;
+	readonly entitySchemaSlug: string;
+	readonly rendererName: string;
+	readonly settings?: Record<string, unknown> | undefined;
+}): ClientPageContext =>
+	Schema.decodeUnknownSync(ClientPageContext)({
+		view: null,
+		dataSources: null,
+		route: { params: {} },
+		settings: options.settings ?? {},
+		renderer: { kind: "kernel", name: options.rendererName },
+		target: {
+			kind: "entity",
+			entityId: options.entityId,
+			entitySchemaPluginId: null,
+			entitySchemaSlug: options.entitySchemaSlug,
+		},
+	});
+
+const mounted: Array<{ dispose: () => void }> = [];
+
+export const disposePluginBridges = () => {
+	while (mounted.length > 0) {
+		mounted.pop()?.dispose();
+	}
+};
+
+/**
+ * Boots `component` the way the kernel does: embedded composition metadata, a `MessagePort` bridge
+ * handshake, and an optional first location. Everything below the bridge — the route resolver,
+ * `PluginRouter`, `usePluginLocation`, `useRyotQuery`, `PluginScreenFrame` — stays real, so tests
+ * assert on the messages the page actually puts on the port.
+ */
+export const mountPluginPage = (
+	component: ComponentType,
+	options: {
+		readonly page?: ClientPageContext | undefined;
+		readonly location?: PluginLogicalLocation | undefined;
+		readonly bootstrap?: ReturnType<typeof createClientBootstrap> | undefined;
+		readonly entityPresentations?: readonly EntityPresentationRegistration[] | undefined;
+	} = {},
+) => {
+	document.body.innerHTML = `<div id="${CLIENT_PAGE_ROOT_ELEMENT_ID}"></div>`;
+	const metadataElement = document.createElement("script");
+	metadataElement.type = "application/json";
+	metadataElement.id = CLIENT_COMPOSITION_METADATA_ELEMENT_ID;
+	metadataElement.textContent = JSON.stringify(compositionMetadata);
+	document.head.append(metadataElement);
+
+	const bootstrap = (options.bootstrap?.bootstrapClientPage ?? bootstrapClientPage)(
+		component,
+		options.entityPresentations === undefined
+			? {}
+			: { entityPresentations: options.entityPresentations },
+	);
+	const channel = new MessageChannel();
+	const messages: unknown[] = [];
+	channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+	channel.port1.start();
+	window.dispatchEvent(
+		new MessageEvent("message", {
+			source: window.parent,
+			ports: [channel.port2],
+			data: {
+				mode: "light",
+				safeAreaTop: 0,
+				safeAreaBottom: 0,
+				page: options.page,
+				sessionId: "test-session",
+				documentKey: "test-document",
+				format: compositionMetadata.format,
+				compositionHash: compositionMetadata.hash,
+				apiVersion: compositionMetadata.apiVersion,
+				bridgeVersion: compositionMetadata.bridgeVersion,
+				compilerVersion: compositionMetadata.compilerVersion,
+			},
+		}),
+	);
+
+	const send = (message: PluginBridgeHostMessage) => channel.port1.postMessage(message);
+	const navigate = (
+		location: PluginLogicalLocation,
+		overrides: Partial<Omit<PluginBridgeLocation, "location" | "type">> = {},
+	) =>
+		send({
+			index: 0,
+			key: "k0",
+			compact: false,
+			edgeBack: false,
+			type: "location",
+			leading: "drawer",
+			...overrides,
+			location,
+		});
+	// `PluginBridgeReady` is not a member of the client union, so the handshake message drops out
+	// here by design; `messages` keeps every raw payload for tests that need it.
+	const clientMessages = () =>
+		messages
+			.map((message) => decodeClientMessage(message))
+			.filter(Result.isSuccess)
+			.map((decoded) => decoded.success);
+	const clientMessagesOfType = <TType extends PluginBridgeClientMessage["type"]>(type: TType) =>
+		clientMessages().filter(
+			(message): message is Extract<PluginBridgeClientMessage, { readonly type: TType }> =>
+				message.type === type,
+		);
+
+	const page = {
+		send,
+		messages,
+		navigate,
+		clientMessages,
+		assetCancels: () => clientMessagesOfType("asset-cancel"),
+		assetRequests: () => clientMessagesOfType("asset-request"),
+		container: document.getElementById(CLIENT_PAGE_ROOT_ELEMENT_ID),
+		replyAssets: (requestId: string, outcome: PluginAssetOutcome) =>
+			send({ ...outcome, requestId, type: "asset-result" }),
+		replyQuery: (requestId: string, outcome: PluginRyotQLOutcome) =>
+			send({ ...outcome, requestId, type: "ryotql-result" }),
+		queryRequests: (queryKey?: string) =>
+			clientMessagesOfType("ryotql-request").filter(
+				(request) => queryKey === undefined || queryKey in request.document.queries,
+			),
+		dispose: () => {
+			const index = mounted.indexOf(page);
+			if (index >= 0) {
+				mounted.splice(index, 1);
+			}
+			bootstrap.dispose();
+			channel.port1.close();
+			channel.port2.close();
+			document.head.innerHTML = "";
+			document.body.innerHTML = "";
+		},
+	};
+	mounted.push(page);
+	if (options.location !== undefined) {
+		navigate(options.location);
+	}
+	return page;
+};

@@ -1,0 +1,307 @@
+import { BunServices } from "@effect/platform-bun";
+import { PgClient } from "@effect/sql-pg";
+import { ConfigProvider, Context, Effect, Layer, Option, Redacted } from "effect";
+import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
+import { Workflow } from "effect/workflow";
+import {
+	layerMemory as workflowEngineMemoryLayer,
+	WorkflowEngine,
+	WorkflowInstance,
+} from "effect/workflow/WorkflowEngine";
+
+import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
+import {
+	DatabaseSession,
+	DatabaseSessionStateError,
+	userWriteLockStatement,
+} from "#lib/infrastructure/db/session";
+import type { RedisService } from "#lib/infrastructure/redis";
+import { shardingConfigFor } from "#lib/infrastructure/workflow";
+import { testDatabaseUrl } from "#lib/test-utils/database";
+
+export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
+	? Omit<TArgs[0], "_tag">
+	: never;
+
+export const databaseLayer = Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
+	Layer.provideMerge(
+		Layer.unwrap(Effect.sync(() => PgClient.layer({ url: Redacted.make(testDatabaseUrl()) }))),
+	),
+);
+
+export const fakeDatabaseSession = (
+	database: object,
+	overrides: Partial<DatabaseSession["Service"]> = {},
+): Layer.Layer<DatabaseSession> => {
+	const executor = Object.assign(Object.create(null), database);
+	const active = Context.Reference<boolean>("test/FakeDatabaseSessionTransaction", {
+		defaultValue: () => false,
+	});
+	const requireRoot = Effect.flatMap(active, (inTransaction) =>
+		inTransaction
+			? Effect.fail(new DatabaseSessionStateError({ reason: "transaction-already-active" }))
+			: Effect.void,
+	);
+	const requireTransaction = Effect.flatMap(active, (inTransaction) =>
+		inTransaction
+			? Effect.void
+			: Effect.fail(new DatabaseSessionStateError({ reason: "transaction-required" })),
+	);
+	const run: DatabaseSession["Service"]["run"] = (statement) =>
+		mapDatabaseErrors(statement(executor));
+	return Layer.mock(DatabaseSession)({
+		run,
+		requireRoot,
+		requireTransaction,
+		isTransactionActive: active,
+		acquireUserWriteLock: (userId) => Effect.asVoid(run(userWriteLockStatement(userId))),
+		transaction: (work) =>
+			requireRoot.pipe(
+				Effect.andThen(mapDatabaseErrors(work.pipe(Effect.provideService(active, true)))),
+			),
+		...overrides,
+	});
+};
+
+export type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Service"]>, "execute"> & {
+	execute?: (
+		...args: Parameters<WorkflowEngine["Service"]["execute"]>
+	) => Effect.Effect<unknown, unknown>;
+};
+
+export const makeWorkflowEngine = (
+	overrides: WorkflowEngineOverrides = {},
+): WorkflowEngine["Service"] =>
+	Object.assign(
+		WorkflowEngine.of({
+			poll: () => Effect.die("unused"),
+			resume: () => Effect.die("unused"),
+			execute: () => Effect.die("unused"),
+			register: () => Effect.die("unused"),
+			interrupt: () => Effect.die("unused"),
+			deferredDone: () => Effect.die("unused"),
+			scheduleClock: () => Effect.die("unused"),
+			deferredResult: () => Effect.die("unused"),
+			interruptUnsafe: () => Effect.die("unused"),
+			activityExecute: () => Effect.die("unused"),
+		}),
+		overrides,
+	);
+
+export const workflowEngineTestLayer = workflowEngineMemoryLayer;
+
+// The cluster engine persists its messages in a schema private to the calling scope.
+export const makeSqlClusterWorkflowEngine = Effect.fnUntraced(function* () {
+	const admin = yield* PgClient.make({ url: Redacted.make(testDatabaseUrl()) });
+	const schemaName = `workflow_${crypto.randomUUID().replaceAll("-", "")}`;
+	yield* Effect.acquireRelease(admin.unsafe(`CREATE SCHEMA "${schemaName}"`), () =>
+		admin.unsafe(`DROP SCHEMA "${schemaName}" CASCADE`).pipe(Effect.orDie),
+	);
+	return ClusterWorkflowEngine.layer.pipe(
+		Layer.provide(
+			SingleRunner.layer({ runnerStorage: "sql", shardingConfig: shardingConfigFor("all") }),
+		),
+		Layer.provide(
+			PgClient.layer({
+				url: Redacted.make(testDatabaseUrl()),
+				startupParameters: { search_path: schemaName },
+			}),
+		),
+		Layer.provide(BunServices.layer),
+	);
+});
+
+export const makeRedisService = (
+	overrides: Partial<RedisService["Service"]> = {},
+): RedisService["Service"] =>
+	Object.assign(Object.create(null), {
+		client: undefined,
+		del: () => Effect.die("unused"),
+		get: () => Effect.die("unused"),
+		set: () => Effect.die("unused"),
+		zadd: () => Effect.die("unused"),
+		zrem: () => Effect.die("unused"),
+		claim: () => Effect.die("unused"),
+		publish: () => Effect.die("unused"),
+		renewLease: () => Effect.die("unused"),
+		setAndIndex: () => Effect.die("unused"),
+		acquireLease: () => Effect.die("unused"),
+		releaseLease: () => Effect.die("unused"),
+		zrangeByScore: () => Effect.die("unused"),
+		setAndIndexAndSet: () => Effect.die("unused"),
+		setAndIndexAndDelete: () => Effect.die("unused"),
+		setAndRemoveFromIndex: () => Effect.die("unused"),
+		...overrides,
+	});
+
+type ConfigLeafValue = Option.Option<unknown> | Redacted.Redacted<unknown>;
+
+type DeepPartial<T> = T extends ConfigLeafValue
+	? T
+	: T extends object
+		? { [K in keyof T]?: DeepPartial<T[K]> }
+		: T;
+
+export const makeAppConfigLayer = (
+	overrides?: DeepPartial<AppConfigValue>,
+): Layer.Layer<AppConfig> => {
+	const defaults = {
+		port: 3000,
+		nodeEnv: "test",
+		timezone: "Etc/GMT",
+		disableTelemetry: false,
+		redisUrl: Redacted.make("unused"),
+		frontendUrl: "http://localhost:3000",
+		database: { poolMax: 10, connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
+		users: { disableLocalAuth: false, allowRegistration: true, demoAccountId: Option.none() },
+		frontend: {
+			oidcButtonLabel: Option.none(),
+			umami: { hostUrl: Option.none(), websiteId: Option.none() },
+		},
+		automations: {
+			maxDepth: 8,
+			maxRuns: 100,
+			batchMaxItems: 200,
+			retryWindowDays: 7,
+			historyRetentionDays: 30,
+		},
+		scheduler: {
+			disableDispatchers: false,
+			infrequentCronJobsSchedule: "0 0 * * *",
+			frequentCronJobsSchedule: "every 5 minutes",
+		},
+		sandbox: {
+			importConcurrency: 2,
+			workerConcurrency: 2,
+			perUserSidecars: false,
+			memoryBudgetMiB: Option.none(),
+			runtimeDirectory: "./sandboxd",
+		},
+		observability: {
+			otlp: { headers: Option.none(), endpoint: Option.none() },
+			logging: {
+				level: "Info",
+				file: { rotationSize: "10M", rotationInterval: "1d", path: "./logs/ryot.log" },
+			},
+		},
+		fileStorage: {
+			url: Option.none(),
+			region: Option.none(),
+			localDir: "./storage",
+			localTempDir: "./work",
+			bucketName: Option.none(),
+			accessKeyId: Option.none(),
+			secretAccessKey: Option.none(),
+		},
+		server: {
+			lanes: "all",
+			proKey: Option.none(),
+			clientDir: "./client",
+			disableNotifications: false,
+			pluginsSystemDir: "./plugins",
+			runnerSocketDir: Option.none(),
+			egressAllowedNetworks: Option.none(),
+			proKeyVerificationUrl: "https://api.unkey.com",
+			adminAccessToken: Redacted.make("test-admin-token"),
+			oidc: { clientId: Option.none(), issuerUrl: Option.none(), clientSecret: Option.none() },
+			smtp: {
+				user: Option.none(),
+				server: Option.none(),
+				password: Option.none(),
+				mailbox: "Ryot <no-reply@ryot.io>",
+			},
+		},
+	} satisfies AppConfigValue;
+	return Layer.succeed(AppConfig, {
+		...defaults,
+		...overrides,
+		users: { ...defaults.users, ...overrides?.users },
+		sandbox: { ...defaults.sandbox, ...overrides?.sandbox },
+		database: { ...defaults.database, ...overrides?.database },
+		scheduler: { ...defaults.scheduler, ...overrides?.scheduler },
+		automations: { ...defaults.automations, ...overrides?.automations },
+		fileStorage: { ...defaults.fileStorage, ...overrides?.fileStorage },
+		frontend: {
+			...defaults.frontend,
+			...overrides?.frontend,
+			umami: { ...defaults.frontend.umami, ...overrides?.frontend?.umami },
+		},
+		server: {
+			...defaults.server,
+			...overrides?.server,
+			oidc: { ...defaults.server.oidc, ...overrides?.server?.oidc },
+			smtp: { ...defaults.server.smtp, ...overrides?.server?.smtp },
+		},
+		observability: {
+			...defaults.observability,
+			...overrides?.observability,
+			otlp: { ...defaults.observability.otlp, ...overrides?.observability?.otlp },
+			logging: {
+				...defaults.observability.logging,
+				...overrides?.observability?.logging,
+				file: {
+					...defaults.observability.logging.file,
+					...overrides?.observability?.logging?.file,
+				},
+			},
+		},
+	});
+};
+
+export const makeConfigProviderLayer = (values: Readonly<Record<string, unknown>> = {}) =>
+	ConfigProvider.layer(ConfigProvider.fromUnknown(values));
+
+export const makeMemoizingWorkflowEngine = (
+	instance: WorkflowInstance["Service"],
+	activityRuns: string[],
+) => {
+	const results = new Map<string, Workflow.Complete<unknown, unknown>>();
+	let engine: WorkflowEngine["Service"];
+
+	engine = makeWorkflowEngine({
+		activityExecute: (activity) =>
+			Effect.gen(function* () {
+				const stored = results.get(activity.name);
+				if (stored) {
+					return stored;
+				}
+				activityRuns.push(activity.name);
+				const exit = yield* Effect.exit(
+					activity.execute.pipe(
+						Effect.provideService(WorkflowEngine, engine),
+						Effect.provideService(WorkflowInstance, instance),
+					),
+				);
+				const complete = new Workflow.Complete({ exit });
+				results.set(activity.name, complete);
+				return complete;
+			}),
+	});
+
+	return engine;
+};
+
+export const makeWorkflowActivityEngine = (
+	instance: WorkflowInstance["Service"],
+	overrides: WorkflowEngineOverrides = {},
+) => {
+	let engine: WorkflowEngine["Service"];
+
+	engine = makeWorkflowEngine({
+		activityExecute: (activity) =>
+			Effect.gen(function* () {
+				const exit = yield* Effect.exit(
+					activity.execute.pipe(
+						Effect.provideService(WorkflowEngine, engine),
+						Effect.provideService(WorkflowInstance, instance),
+					),
+				);
+
+				return new Workflow.Complete({ exit });
+			}),
+		...overrides,
+	});
+
+	return engine;
+};

@@ -1,0 +1,148 @@
+import { describe, expect, it } from "@effect/vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { Effect } from "effect";
+import { useState } from "react";
+import { axe } from "vitest-axe";
+
+import { CustomizePanel } from "#/modules/navigation/customize/customize-panel";
+import {
+	moveCustomizeItem,
+	toggleCustomizeItem,
+	type CustomizeDraft,
+} from "#/modules/navigation/customize/customize-state";
+
+const item = (slug: string, pluginSlug: string | null, isHidden = false) => ({
+	slug,
+	isHidden,
+	pluginSlug,
+	icon: "list",
+	name: slug.toUpperCase(),
+});
+
+const workspace = (slug: string, isHidden = false) => ({
+	slug,
+	isHidden,
+	icon: "puzzle",
+	name: `${slug.toUpperCase()} WORKSPACE`,
+});
+
+const draft: CustomizeDraft = {
+	savedViews: [item("recent", null)],
+	workspaces: [workspace("media"), workspace("fitness", true)],
+	views: [item("shows", "media"), item("movies", "media", true)],
+};
+
+function Harness(props: { readonly initial?: CustomizeDraft }) {
+	const [current, setCurrent] = useState(props.initial ?? draft);
+	return (
+		<CustomizePanel
+			draft={current}
+			onToggle={(section, slug) =>
+				setCurrent((value) => toggleCustomizeItem({ slug, section, draft: value }))
+			}
+			onMove={(section, fromIndex, toIndex) =>
+				setCurrent((value) => moveCustomizeItem({ section, toIndex, fromIndex, draft: value }))
+			}
+		/>
+	);
+}
+
+describe("CustomizePanel", () => {
+	it("counts the pinned Home row in the Views heading", () => {
+		render(<Harness />);
+
+		expect(screen.getByText("Workspaces · 1 of 2 shown")).toBeDefined();
+		expect(screen.getByText("Views · 2 of 3 shown")).toBeDefined();
+		expect(screen.getByText("Saved Views · 1 of 1 shown")).toBeDefined();
+	});
+
+	it("shows Home as pinned and gives it no visibility switch", () => {
+		render(<Harness />);
+
+		expect(screen.getByText("Always shown")).toBeDefined();
+		expect(screen.queryByRole("switch", { name: "Show Home in sidebar" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "Reorder Home" })).toBeNull();
+	});
+
+	it("reflects a hidden view in its switch and updates the count when toggled", () => {
+		render(<Harness />);
+
+		const shows = screen.getByRole("switch", { name: "Show SHOWS in sidebar" });
+		expect(screen.getByRole("switch", { name: "Show MOVIES in sidebar" }).ariaChecked).toBe(
+			"false",
+		);
+
+		fireEvent.click(shows);
+
+		expect(screen.getByText("Views · 1 of 3 shown")).toBeDefined();
+	});
+
+	it("reorders a section with the keyboard", () => {
+		render(<Harness />);
+
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder SHOWS" }), { key: "ArrowDown" });
+
+		expect(screen.getByRole("list", { name: "Views" }).textContent).toMatch(/MOVIES.*SHOWS/);
+	});
+
+	it("shows hidden workspaces and reorders them with the keyboard", () => {
+		render(<Harness />);
+
+		expect(
+			screen.getByRole("switch", { name: "Show FITNESS WORKSPACE in sidebar" }).ariaChecked,
+		).toBe("false");
+		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder MEDIA WORKSPACE" }), {
+			key: "ArrowDown",
+		});
+
+		expect(screen.getByRole("list", { name: "Workspaces" }).textContent).toMatch(
+			/FITNESS WORKSPACE.*MEDIA WORKSPACE/,
+		);
+	});
+
+	it("disables the switch for the final enabled workspace", () => {
+		render(<Harness />);
+
+		expect(
+			screen
+				.getByRole("switch", { name: "Show MEDIA WORKSPACE in sidebar" })
+				.hasAttribute("disabled"),
+		).toBe(true);
+		expect(
+			screen
+				.getByRole("switch", { name: "Show FITNESS WORKSPACE in sidebar" })
+				.hasAttribute("disabled"),
+		).toBe(false);
+	});
+
+	it("explains that collections are not customizable", () => {
+		render(<Harness />);
+
+		expect(
+			screen.getByText(
+				"Collections are always shown and are not included in sidebar customization.",
+			),
+		).toBeDefined();
+	});
+
+	it("shows the saved views empty state while keeping the pinned Home row", () => {
+		render(<Harness initial={{ views: [], workspaces: [], savedViews: [] }} />);
+
+		expect(screen.getByText("No saved views yet.")).toBeDefined();
+		expect(screen.getByText("Views · 1 of 1 shown")).toBeDefined();
+	});
+
+	it.live("passes an axe pass", () =>
+		Effect.gen(function* () {
+			render(<Harness />);
+
+			const results = yield* Effect.promise(() =>
+				axe(document.body, {
+					rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
+				}),
+			);
+
+			expect(results.violations.map((violation) => violation.id)).toEqual([]);
+		}),
+	);
+});

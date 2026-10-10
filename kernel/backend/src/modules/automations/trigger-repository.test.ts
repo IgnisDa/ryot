@@ -1,0 +1,123 @@
+import { expect, layer } from "@effect/vitest";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { eq, sql } from "drizzle-orm";
+import { Data, DateTime, Effect, Layer } from "effect";
+import { describe } from "vitest";
+
+import { automationTrigger } from "#lib/infrastructure/db/schema/tables/automations";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { revisionDatabaseLayer } from "#modules/plugins/revision.test-support";
+
+import { triggerFixture } from "./lifecycle.test-support";
+import { AutomationTriggerRepository } from "./trigger-repository";
+
+class Rollback extends Data.TaggedError("TriggerTestRollback") {}
+
+describe("AutomationTriggerRepository", () => {
+	layer(AutomationTriggerRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		(test) => {
+			test.effect("round trips strict snapshots, verifies replay and deduplicates recipients", () =>
+				Effect.gen(function* () {
+					const repo = yield* AutomationTriggerRepository;
+					const trigger = triggerFixture();
+					expect(yield* repo.insert(trigger)).toEqual(trigger);
+					expect(yield* repo.insert(trigger)).toEqual(trigger);
+					expect(
+						yield* repo
+							.insert({ ...trigger, occurredAt: "2026-09-16T00:00:00.000Z" })
+							.pipe(Effect.flip),
+					).toMatchObject({ _tag: "DbError" });
+					expect(yield* repo.findById(trigger.id)).toEqual(trigger);
+					const owner = UserId.make("owner");
+					const recipient = UserId.make("recipient");
+					yield* repo.insertRecipients(trigger.id, [recipient, owner, owner]);
+					expect(yield* repo.insertRecipients(trigger.id, [recipient])).toEqual([
+						{ userId: owner, triggerId: trigger.id },
+						{ userId: recipient, triggerId: trigger.id },
+					]);
+					yield* (yield* DatabaseSession).run((db) =>
+						db
+							.update(automationTrigger)
+							.set({
+								payload: null,
+								payloadPrunedAt: DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt)),
+							})
+							.where(eq(automationTrigger.id, trigger.id)),
+					);
+					expect(yield* repo.findById(trigger.id)).toEqual({
+						...trigger,
+						payload: null,
+						payloadPrunedAt: trigger.createdAt,
+					});
+				}),
+			);
+			test.effect("scheduling_lane_survives_durable_boundaries: triggers persist their lane", () =>
+				Effect.gen(function* () {
+					const repo = yield* AutomationTriggerRepository;
+					const fixture = triggerFixture("background-lane-trigger");
+					const trigger = {
+						...fixture,
+						causation: { ...fixture.causation, lane: "background" as const },
+					};
+					yield* repo.insert(trigger);
+					expect((yield* repo.findById(trigger.id))?.causation.lane).toBe("background");
+					const invalid = yield* (yield* DatabaseSession)
+						.run((db) =>
+							db.execute(
+								sql`update ${automationTrigger} set lane = 'urgent' where ${automationTrigger.id} = ${trigger.id}`,
+							),
+						)
+						.pipe(Effect.flip);
+					expect(invalid._tag).toBe("DbError");
+				}),
+			);
+			test.effect("preserves event-stream work attribution across inserts and reads", () =>
+				Effect.gen(function* () {
+					const repo = yield* AutomationTriggerRepository;
+					const fixture = triggerFixture("event-stream-work-trigger");
+					const trigger = {
+						...fixture,
+						causation: { ...fixture.causation, eventStreamWorkId: "stream-work" },
+					};
+
+					expect(yield* repo.insert(trigger)).toEqual(trigger);
+					expect(yield* repo.insert(trigger)).toEqual(trigger);
+					expect(
+						yield* repo
+							.insert({
+								...trigger,
+								causation: { ...trigger.causation, eventStreamWorkId: "different-stream-work" },
+							})
+							.pipe(Effect.flip),
+					).toMatchObject({
+						_tag: "DbError",
+						message: `Automation trigger identity conflict: ${trigger.id}`,
+					});
+					expect(yield* repo.findById(trigger.id)).toEqual(trigger);
+				}),
+			);
+		},
+	);
+	layer(AutomationTriggerRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)))(
+		(test) => {
+			test.effect("uses the caller transaction for triggers and recipients", () =>
+				Effect.gen(function* () {
+					const repo = yield* AutomationTriggerRepository;
+					const session = yield* DatabaseSession;
+					const trigger = triggerFixture("rolled-back");
+					yield* session
+						.transaction(
+							Effect.gen(function* () {
+								yield* repo.insert(trigger);
+								yield* repo.insertRecipients(trigger.id, [UserId.make("owner")]);
+								return yield* new Rollback();
+							}),
+						)
+						.pipe(Effect.catchTag("TriggerTestRollback", () => Effect.void));
+					expect(yield* repo.findById(trigger.id)).toBeNull();
+					expect(yield* repo.listRecipients(trigger.id)).toEqual([]);
+				}),
+			);
+		},
+	);
+});

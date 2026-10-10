@@ -1,0 +1,70 @@
+{
+	"name": "@ryot-app/fitness-plugin",
+	"private": true,
+	"exports": {
+		".": {
+			"types": "./host/plugin.ts",
+			"default": "./host/plugin.ts"
+		},
+		"./query-recipes": {
+			"types": "./shared/query-recipes.ts",
+			"default": "./shared/query-recipes.ts"
+		},
+		"./taxonomy": {
+			"types": "./shared/taxonomy.ts",
+			"default": "./shared/taxonomy.ts"
+		},
+		"./taxonomy-recipes": {
+			"types": "./shared/taxonomy-recipes.ts",
+			"default": "./shared/taxonomy-recipes.ts"
+		},
+		"./workout-records": {
+			"types": "./shared/workout-records.ts",
+			"default": "./shared/workout-records.ts"
+		},
+		"./workout-details-recipes": {
+			"types": "./shared/workout-details-recipes.ts",
+			"default": "./shared/workout-details-recipes.ts"
+		},
+		"./exercise-kinds": {
+			"types": "./shared/exercise-kinds.ts",
+			"default": "./shared/exercise-kinds.ts"
+		},
+		"./import-sources": {
+			"types": "./host/import-sources.ts",
+			"default": "./host/import-sources.ts"
+		}
+	},
+	"scripts": {
+		"build": "ryot plugin build",
+		"test": "bun --bun run vitest run",
+		"check": "bun --check && oxfmt . --write && oxlint . --fix"
+	},
+	"dependencies": {
+		"@ryot-app/config": "workspace:*",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
+		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"effect": "4.0.0"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.0",
+		"@ryot-app/cli": "workspace:*",
+		"@ryot-app/client-sdk": "workspace:*",
+		"@ryot-app/client-ui-sdk": "workspace:*",
+		"@ryot-app/kernel-backend": "workspace:*",
+		"@ryot-app/sandbox-compiler": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
+		"@testing-library/dom": "^10.4.1",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"bun-types": "1.4.3",
+		"clsx": "2.1.1",
+		"jsdom": "^30.0.1",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"vitest": "4.1.9"
+	}
+}

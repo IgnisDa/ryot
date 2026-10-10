@@ -1,0 +1,65 @@
+{
+	"name": "@ryot-app/sandbox-compiler",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./builtins": {
+			"types": "./src/compiler-builtins.ts",
+			"default": "./src/compiler-builtins.ts"
+		},
+		"./diagnostics": {
+			"types": "./src/compiler-diagnostics.ts",
+			"default": "./src/compiler-diagnostics.ts"
+		},
+		"./limits": {
+			"types": "./src/limits.ts",
+			"default": "./src/limits.ts"
+		},
+		"./protocol": {
+			"types": "./src/compiler-protocol.ts",
+			"default": "./src/compiler-protocol.ts"
+		},
+		"./plugin-manifest": {
+			"types": "./src/compiler-plugin-manifest.ts",
+			"default": "./src/compiler-plugin-manifest.ts"
+		},
+		"./platform": {
+			"types": "./src/compiler-platform.ts",
+			"default": "./src/compiler-platform.ts"
+		},
+		"./plugins": {
+			"types": "./src/compiler-plugins.ts",
+			"default": "./src/compiler-plugins.ts"
+		},
+		"./worker": {
+			"types": "./src/compiler-worker.ts",
+			"default": "./src/compiler-worker.ts"
+		},
+		"./runtime-build/*": {
+			"types": "./src/runtime-build/*.ts",
+			"default": "./src/runtime-build/*.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun --bun run vitest run",
+		"check": "bun --check && oxfmt . --write && oxlint . --fix",
+		"build": "bun build src/compiler-worker.ts --outdir dist --entry-naming sandbox-compiler-worker.js --target bun --sourcemap --external @ryot-app/vite-compiler"
+	},
+	"dependencies": {
+		"@effect/platform-bun": "4.0.0",
+		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/plugin-kit": "workspace:*",
+		"@ryot-app/sandbox-sdk": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
+		"@ryot-app/typescript-compiler": "workspace:*",
+		"@ryot-app/vite-compiler": "workspace:*",
+		"effect": "4.0.0",
+		"typescript": "7.0.2"
+	},
+	"devDependencies": {
+		"@effect/vitest": "4.0.0",
+		"@ryot-app/testing": "workspace:*",
+		"bun-types": "1.4.3",
+		"vitest": "4.1.9"
+	}
+}

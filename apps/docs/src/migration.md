@@ -4,234 +4,174 @@ All steps below are required unless otherwise stated. Directly upgrading across 
 major versions is not supported. If you want to upgrade from a version older than the last
 major release, please follow each major version's migration steps in order.
 
-## From `v9.*` to `v10.*`
+## From `v10.*` to `v11.*`
 
-:::warning Environment Variables Change
-
-- If you had `SCHEDULER_FREQUENT_CRON_JOBS_EVERY_MINUTES=2` in your environment, then change
-   it to `SCHEDULER_FREQUENT_CRON_JOBS_SCHEDULE="every 2 minutes"`. Read more about
-   [yank integrations](./integrations/overview.md#yank-integrations).
-- Localization-specific environment variables (eg: `MOVIES_AND_SHOWS_TMDB_LOCALE`,
-   `ANIME_AND_MANGA_ANILIST_PREFERRED_LANGUAGE` etc.) have been removed and are now
-   user level settings. Find them in language preference settings.
+::: warning A bigger upgrade than usual
+Ryot `v11` is a rewrite. Your data is converted automatically the first time `v11` starts,
+but the upgrade needs a few extra steps, and you cannot go back to `v10` without a backup.
+Read this whole section before you start.
 :::
 
-1. Upgrade the server to `v9.6.0` to make sure all `v9` migrations are applied. For
-   example, you can make this change: `image: "ignisda/ryot:v9.6.0"` in your docker-compose
-   file.
+### Before you upgrade
+
+1. Upgrade the server to `v10.5.2` to make sure all `v10` migrations are applied. For
+   example, you can make this change: `image: "ignisda/ryot:v10.5.2"` in your
+   docker-compose file.
 2. Create a backup of your database. Follow this
-   [guide](./exporting.md#exporting-the-entire-database).
-3. Now you can upgrade to the latest version (`v10.*`). For example you can make this
-   change: `image: "ignisda/ryot:v10"` in your docker-compose file. This will
-   automatically apply all migrations required for the new version.
+   [guide](./backups.md#whole-server-backups). If you use S3 for file storage, back up your
+   bucket too.
 
-## From `v8.*` to `v9.*`
+### Update your docker-compose file
 
-::: warning API Credentials Required
-Default access tokens for MyAnimeList, Trakt, and TMDB have been removed. Self-hosted
-instances must obtain their own API credentials before upgrading to v9.
+`v11` needs [Redis](https://redis.io) alongside PostgreSQL, and a volume for the files you
+upload if you do not use S3. The changes look like this:
 
-This change was made because the shared default API keys were hitting rate limits and
-exceeding free tier quotas due to Ryot's growing popularity with many self-hosted instances,
-causing errors for all users.
+```diff
+ services:
+   ryot-db:
+     image: postgres:18-alpine
+     # ...unchanged
+
++  ryot-redis:
++    image: redis:8-alpine
++    restart: unless-stopped
++    container_name: ryot-redis
++    volumes:
++      - redis_storage:/data
+
+   ryot:
+-    image: ignisda/ryot:v10
++    image: ignisda/ryot:v11
+     pull_policy: always
+     container_name: ryot
+     restart: unless-stopped
+     ports:
+       - "8000:8000"
+     environment:
+       - TZ=Europe/Amsterdam
++      - REDIS_URL=redis://ryot-redis:6379
+       - FRONTEND_URL=https://ryot.your-domain.com
+       - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
+       - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0
++    volumes:
++      - ryot_storage:/home/ryot/storage
+
+ volumes:
++  ryot_storage:
++  redis_storage:
+   postgres_storage:
+```
+
+A few settings are now stricter:
+
+- `FRONTEND_URL` is required. Set it to the exact address you open Ryot at, such as
+  `https://ryot.your-domain.com`, with nothing after the domain or port.
+- `SERVER_ADMIN_ACCESS_TOKEN` must be at least 32 characters long. If yours is shorter,
+  generate a new one, for example with `openssl rand -hex 16`.
+
+::: tip Using S3?
+Keep your `FILE_STORAGE_S3_*` settings exactly as they were. Ryot moves your existing images
+during the upgrade and needs access to the same bucket to do so. With S3 configured, you do not
+need the `ryot_storage` volume. See [File Storage](./guides/file-storage.md).
 :::
 
-1. **REQUIRED**: Obtain and configure API credentials for the services you use:
-   - **TMDB**: Follow the [movies and shows guide](./guides/movies-and-shows.md)
-   - **Trakt**: Follow the [Trakt guide](./guides/trakt.md)
-   - **MyAnimeList**: Follow the [anime and manga guide](./guides/anime-and-manga.md)
+### Update your environment variables
 
-2. Upgrade the server to `v8.10.0` to make sure all `v8` migrations are applied. For
-   example, you can make this change: `image: "ignisda/ryot:v8.10.0"` in your docker-compose
-   file.
+Many settings have been renamed. Rename any of these that you use:
 
-3. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
-   is a guide on how to do this.
+| Old name                             | New name                                            |
+| ------------------------------------ | --------------------------------------------------- |
+| `MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN` | `RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN`               |
+| `MOVIES_AND_SHOWS_TVDB_API_KEY`      | `RYOT_PLUGIN_MEDIA_TVDB_API_KEY`                    |
+| `ANIME_AND_MANGA_MAL_CLIENT_ID`      | `RYOT_PLUGIN_MEDIA_MAL_CLIENT_ID`                   |
+| `BOOKS_GOOGLE_BOOKS_API_KEY`         | `RYOT_PLUGIN_MEDIA_GOOGLE_BOOKS_API_KEY`            |
+| `BOOKS_HARDCOVER_API_KEY`            | `RYOT_PLUGIN_MEDIA_HARDCOVER_API_KEY`               |
+| `COMIC_BOOK_METRON_USERNAME`         | `RYOT_PLUGIN_MEDIA_METRON_USERNAME`                 |
+| `COMIC_BOOK_METRON_PASSWORD`         | `RYOT_PLUGIN_MEDIA_METRON_PASSWORD`                 |
+| `MUSIC_SPOTIFY_CLIENT_ID`            | `RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_ID`               |
+| `MUSIC_SPOTIFY_CLIENT_SECRET`        | `RYOT_PLUGIN_MEDIA_SPOTIFY_CLIENT_SECRET`           |
+| `PODCASTS_LISTENNOTES_API_TOKEN`     | `RYOT_PLUGIN_MEDIA_LISTENNOTES_API_KEY`             |
+| `VIDEO_GAMES_TWITCH_CLIENT_ID`       | `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_ID`                |
+| `VIDEO_GAMES_TWITCH_CLIENT_SECRET`   | `RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET`            |
+| `VIDEO_GAMES_GIANT_BOMB_API_KEY`     | `RYOT_PLUGIN_MEDIA_GIANT_BOMB_API_KEY`              |
+| `SERVER_IMPORTER_TRAKT_CLIENT_ID`    | `RYOT_PLUGIN_MEDIA_TRAKT_CLIENT_ID`                 |
+| `SERVER_PROGRESS_UPDATE_THRESHOLD`   | `RYOT_PLUGIN_MEDIA_PROGRESS_UPDATE_THRESHOLD_HOURS` |
 
-4. Now you can upgrade to the latest version (`v9.*`). For example you can make this
-   change: `image: "ignisda/ryot:v9"` in your docker-compose file. This will
-   automatically apply all migrations required for the new version.
+`SCHEDULER_INFREQUENT_CRON_JOBS_SCHEDULE` now takes a cron expression. If you set it, change a
+value such as `every midnight` to `0 0 * * *`.
 
-## From `v7.*` to `v8.*`
+These settings no longer exist and can be deleted: `SERVER_BACKEND_HOST`,
+`SERVER_BACKEND_PORT`, `SERVER_CORS_ORIGINS`, `SERVER_DISABLE_BACKGROUND_JOBS`,
+`SERVER_GRAPHQL_PLAYGROUND_ENABLED`, `SERVER_MAX_FILE_SIZE_MB`,
+`SERVER_SLEEP_BEFORE_STARTUP_SECONDS`, `USERS_TOKEN_VALID_FOR_DAYS`,
+`FRONTEND_DASHBOARD_MESSAGE`, `BOOKS_OPENLIBRARY_COVER_IMAGE_SIZE` and
+`VIDEO_GAMES_IGDB_IMAGE_SIZE`.
 
-1. Upgrade the server to `v7.16.0` to make sure all `v7` migrations are applied. For
-   example, you can make this change: `image: "ignisda/ryot:v7.16.0"` in your docker-compose
-   file.
+The [configuration](./configuration.md#all-parameters) page lists every setting `v11`
+understands.
 
-2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
-   is a guide on how to do this.
+### Start Ryot
 
-3. Now you can upgrade to the latest version (`v8.*`). For example you can make this
-   change: `image: "ignisda/ryot:v8"` in your docker-compose file. This will
-   automatically apply all migrations required for the new version.
+Start the server with the new image. The first start converts all your data, which can take a
+while on a large library. Let it finish before you stop or restart the container.
 
-4. **OPTIONAL**: Login as the admin user and go to the "Miscellaneous" settings page and
-   click on the button to "Perform background tasks".
+If some of your data cannot be converted, Ryot stops and its logs explain what it found and how
+to fix it. Restore your backup, fix the problem in `v10`, and then start `v11` again.
 
-## From `v6.*` to `v7.*`
+Once Ryot is running, open `<FRONTEND_URL>/god-mode`, unlock it with your
+`SERVER_ADMIN_ACCESS_TOKEN`, and check the **Migration report**. It lists anything that was
+skipped during the upgrade, such as an episode that could not be matched or an image that could
+not be moved.
 
-1. Upgrade the server to `v6.11.0` to make sure all `v6` migrations are applied. For
-   example, you can make this change: `image: "ignisda/ryot:v6.11.0"` in your docker-compose
-   file.
+### Sign in again
 
-2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
-   is a guide on how to do this.
+Everyone is signed out after the upgrade.
 
-3. Now you can upgrade to the latest version (`v7.*`). For example you can make this
-   change: `image: "ignisda/ryot:v7"` in your docker-compose file. This will
-   automatically apply all migrations required for the new version.
+**If you signed in with a username and password:**
 
-4. Login as the admin user and go to the "Miscellaneous" settings page and click on the
-   button to "Perform background tasks".
+- You now sign in with an email address instead of a username. If your username was already
+  an email address, that is your new login. Otherwise, your login becomes your username
+  followed by `@ryot.local`, such as `jane@ryot.local`.
+- Old passwords no longer work. An administrator needs to open **God Mode > Users**, click
+  **Generate reset link** for each user, and send them the link so they can choose a new
+  password. The same page shows each person's new login email.
 
-## From `v5.*` to `v6.*`
+**If you signed in with OpenID Connect:** update the redirect URL in your provider to
+`<FRONTEND_URL>/api/auth/callback/oidc` and allow the `openid email profile` scopes. See
+[Authentication](./guides/authentication.md).
 
-::: warning Integrations deleted
-All integrations will need to be recreated. Please take a look at the [docs](./integrations/overview.md)
-for the new webhook format.
-:::
+Administrator accounts are gone: server administration now happens in God Mode, which anyone
+with the `SERVER_ADMIN_ACCESS_TOKEN` can unlock.
 
-1. Upgrade the server to `v5.5.6` to make sure all `v5` migrations are applied. For
-   example, you can make this change: `image: "ignisda/ryot:v5.5.6"` in your docker-compose
-   file.
+### Check your integrations
 
-2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
-   is a guide on how to do this.
+Your integrations and notification settings are carried over, including their passwords and
+API keys. Webhook URLs for integrations that send data to Ryot (Plex, Jellyfin, Emby, Kodi and
+the browser extension) keep working, so you do not need to change anything in those apps.
 
-3. Now you can upgrade to the latest version (`v6.*`). For example you can make this
-   change: `image: "ignisda/ryot:latest"` in your docker-compose file. This will
-   automatically apply all migrations.
+Legacy Generic JSON integrations are not carried over. Recreate them as Data webhook integrations.
+Manual Data import and Data webhooks use the v11 `data-json` format; v10 Generic JSON payloads are
+not compatible. See [Data JSON](./importing/data-json.md).
 
-## From `v4.*` to `v5.*`
+### What to expect after the upgrade
 
-1. Upgrade the server to `v4.4.3` to make sure all `v4` migrations are applied. For
-   example, you can make this change: `image: "ignisda/ryot:v4.4.3"` in your docker-compose
-   file.
+Media that `v10` had already fetched keeps its posters and details. Items in your Monitoring
+collection, podcasts, shows not from TMDB, and cast and crew pages are downloaded again as you
+browse, so right after the upgrade some of them may show only their title for a moment.
+Recommendations are not carried over and come back when an item is refreshed.
 
-2. Create a backup of your database. [Here](./exporting.md#exporting-the-entire-database)
-   is a guide on how to do this.
+These are not carried over:
 
-3. Now you can upgrade to the latest version (`v5.*`). For example you can make this
-   change: `image: "ignisda/ryot:latest"` in your docker-compose file. This will
-   automatically apply all migrations.
+- Share links.
+- Saved filters.
+- Past import reports.
+- Calendar and activity history.
+- Notification history.
+- Visibility settings and comments on reviews.
+- Watch provider display settings.
+- Photos attached to measurements.
 
-## From `v3.*` to `v4.*`
+These features have been removed:
 
-::: warning Webhook URL changes
-If you were using Plex, Jellyfin or Kodi, all webhooks urls will now have the `/backend`
-prefix. Please take a look at the [integration](./integrations/overview.md#sink-integrations) docs for the
-new format.
-:::
-
-1. Upgrade the server to `v3.5.4` to make sure all pending migrations are applied. For
-   example, you can make this change: `image: "ignisda/ryot:v3.5.4"` in your docker-compose
-   file.
-
-2. Go to the "Preferences" settings, then the "General" tab, and click on "Disable yank
-   integrations" twice. This will ensure that latest preferences have been applied.
-
-3. Go to the "Miscellaneous" settings and click on "Re-evaluate workouts".
-
-4. Next, click on the button to "Clean and regenerate" your summary. This takes time if
-   you have a lot of media. Go to the dashboard and check the time under the "Summary"
-   section. It should say "Calculated just now".
-
-5. Logout and then clear the local storage and cookies for your domain.
-   [Here](https://intercom.help/scoutpad/en/articles/3478364-how-to-clear-local-storage-of-web-browser)
-   is a guide on how to do this. Uninstall the PWA if you have it installed.
-
-6. [Create a backup](https://simplebackups.com/blog/docker-postgres-backup-restore-guide-with-examples/#back-up-a-docker-postgresql-database) of the database.
-
-7. Connect to the database (`docker exec -u postgres -it ryot-db psql`) and run these SQL
-   queries:
-   ```sql
-   DELETE FROM seaql_migrations;
-
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230410_create_metadata', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230413_create_person', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230417_create_user', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230419_create_seen', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230501_create_metadata_group', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230502_create_genre', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230504_create_collection', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230505_create_review', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230509_create_import_report', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230622_create_exercise', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230804_create_user_measurement', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230819_create_workout', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230901_create_partial_metadata', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230912_create_calendar_event', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20231003_create_partial_metadata_to_person', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20231016_create_collection_to_entity', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20231017_create_user_to_entity', 1697640078);
-   ```
-
-8. Now you can upgrade to the latest version (`v4.*`) safely. For example you can make this
-   change: `image: "ignisda/ryot:latest"` in your docker-compose file.
-
-## From `v2.*` to `v3.*`
-
-1. Upgrade the server to `v2.24.2` to make sure all pending migrations are applied.
-
-2. Go to the "Miscellaneous" settings and click on the button to "Clean and regenerate"
-   your summary. This takes time if you have a lot of media. Go to the dashboard and check
-   the time under the "Summary" section. It should say "Calculated just now".
-
-3. Go to the "Preferences" settings, then the "General" tab, and click any switch button
-   twice to make sure the latest settings have been applied.
-
-4. Stop the running server and create a backup of your database.
-
-5. Connect to the database and run these SQL queries:
-   ```sql
-   DELETE FROM seaql_migrations;
-
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230410_create_metadata', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230413_create_person', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230417_create_user', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230419_create_seen', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230502_create_genre', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230505_create_review', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230507_create_collection', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230509_create_import_report', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230622_create_exercise', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230804_create_user_measurement', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230819_create_workout', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230901_create_metadata_group', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230901_create_partial_metadata', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230912_create_calendar_event', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20231003_create_partial_metadata_to_person', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20231016_create_collection_to_entity', 1697640078);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20231017_create_user_to_entity', 1697640078);
-   ```
-
-6. Now you can upgrade to the latest release safely.
-
-## From `v1.*` to `v2.*`
-
-1. Stop the running server and create a backup of your database.
-
-2. Run the last release of the server to perform all migrations (make sure to connect it to the correct database).
-   ```bash
-   $ docker run --volume ./ryot/data:/data ignisda/ryot:v1.22.1
-   ```
-
-3. Once the migrations from the above step are done, stop the server.
-
-4. Before upgrading to the public release, connect to the database again and run these migrations:
-   ```sql
-   DELETE FROM seaql_migrations;
-
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230410_create_metadata', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230412_create_creator', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230417_create_user', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230419_create_seen', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230502_create_genre', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230505_create_review', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230507_create_collection', 1684693316);
-   INSERT INTO seaql_migrations (version, applied_at) VALUES ('m20230509_create_import_report', 1684693316);
-   ```
-
-5. Now you can upgrade to the latest release safely.
-
-6. **OPTIONAL**: Once you have the new server up and running, go to the "Miscellaneous" settings page and click on the button to "Update All Metadata".
+- The old JSON export. Use [account backups](./backups.md) instead. Exports made with `v10`
+  cannot be imported into `v11`.
