@@ -20,26 +20,26 @@ This is a greenfield project. Refactor existing modules and change persisted sch
 
 ## Settled behavior
 
-| Area                | Required behavior                                                                                                                                                                                                                                |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Drafts              | One active draft per server/user/device. Starting another action offers Resume or Discard. Navigation does not discard or pause it.                                                                                                              |
-| Storage units       | kg, km, seconds, and kcal. Display choices never relabel or modify the physical quantity.                                                                                                                                                        |
-| Duration            | Active duration includes ordinary rest and excludes explicit workout pauses. Countdown and stopwatch pause independently. Confirming a set resumes a paused workout.                                                                             |
+| Area                | Required behavior                                                                                                                                                                                                                                  |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Drafts              | One active draft per server/user/device. Starting another action offers Resume or Discard. Navigation does not discard or pause it.                                                                                                                |
+| Storage units       | kg, km, seconds, and kcal. Display choices never relabel or modify the physical quantity.                                                                                                                                                          |
+| Duration            | Active duration includes ordinary rest and excludes explicit workout pauses. Countdown and stopwatch pause independently. Confirming a set resumes a paused workout.                                                                               |
 | Confirmation        | Only confirmed sets become workout history. Existing saved sets remain included even when they have no `confirmedAt`. Unconfirming cancels that set's active countdown safely.                                                                     |
-| Rest                | Automatic start or an inline manual start control. Explicit Skip rest and zero rest both perform normal progression. Save configured rest, not measured elapsed rest. Record automatic and manual rest-start times.                              |
+| Rest                | Automatic start or an inline manual start control. Explicit Skip rest and zero rest both perform normal progression. Save configured rest, not measured elapsed rest. Record automatic and manual rest-start times.                                |
 | Execution countdown | Honor the countdown preference; offer manual confirmation too. Validate required fields before automatic execution. Zero measurements are valid for manual confirmation; only positive durations start countdowns. Skip does not claim completion. |
-| Late completion     | Reconcile an expired execution countdown once, using its original deadline. Do not start a fresh overdue rest countdown. Deleted, replaced, or unconfirmed targets cannot receive a stale completion.                                            |
-| Supersets           | Preserve the cycling/navigation UX, membership, colors, collapse, and scrolling. Keep per-set rest; do not invent a separate end-of-round rest model. Use consistent cyclic targeting rather than the old first-other-incomplete implementation. |
-| Replacement         | Restrict candidates to the occurrence's kind. Replace only that occurrence's exercise identity; preserve its sets and completion state. Do not introduce the previously suggested confirmed-set block.                                           |
-| History             | Keep automatic prefill, Previous-value copy, and append-all-sets as distinct operations. Previous values span repeated occurrences and older sessions when necessary.                                                                            |
-| Preferences         | Follow precedence in `plugins/fitness/README.md`. Zero disables rest. Existing explicit values survive preference changes and set-type changes.                                                                                                  |
-| Historical edits    | Preserve original workout times, active duration, and existing set times. No live execution timers. New historical sets without a supplied time use workout start, not today's time.                                                             |
-| Repeats             | Copy reusable exercise/set data and structure. Retain exercise and set notes. Clear session energy, workout reflections, RPE, completion times, active duration, and personal attachments.                                                   |
-| Templates           | No live execution or confirmations. Retain exercise-only entries. Omit completely empty set rows; allow partially specified planned measurements. Keep optional planned rest.                                                                    |
-| Save                | Write the workout before its sets through existing services. Retries reuse stable IDs and do not duplicate; clear the draft only after success. Retain set identities and reject conflicting edits.                                              |
-| Media               | Restore existing media when editing. Removal is a draft change until Save. Cancel cannot delete saved references. Support image preview and actual video playback.                                                                               |
-| Measurements        | First implementation slice, working through All Measurements. Use the current metric/reading model without grouped-entry names. Independent saves; cancelling a workout does not remove a measurement.                                           |
-| Pro                 | Retain old gates. Never strip existing protected data from a loaded record or silently lose it during saving.                                                                                                                                    |
+| Late completion     | Reconcile an expired execution countdown once, using its original deadline. Do not start a fresh overdue rest countdown. Deleted, replaced, or unconfirmed targets cannot receive a stale completion.                                              |
+| Supersets           | Preserve the cycling/navigation UX, membership, colors, collapse, and scrolling. Keep per-set rest; do not invent a separate end-of-round rest model. Use consistent cyclic targeting rather than the old first-other-incomplete implementation.   |
+| Replacement         | Restrict candidates to the occurrence's kind. Replace only that occurrence's exercise identity; preserve its sets and completion state. Do not introduce the previously suggested confirmed-set block.                                             |
+| History             | Keep automatic prefill, Previous-value copy, and append-all-sets as distinct operations. Previous values span repeated occurrences and older sessions when necessary.                                                                              |
+| Preferences         | Follow precedence in `plugins/fitness/README.md`. Zero disables rest. Existing explicit values survive preference changes and set-type changes.                                                                                                    |
+| Historical edits    | Preserve original workout times, active duration, and existing set times. No live execution timers. New historical sets without a supplied time use workout start, not today's time.                                                               |
+| Repeats             | Copy reusable exercise/set data and structure. Retain exercise and set notes. Clear session energy, workout reflections, RPE, completion times, active duration, and personal attachments.                                                         |
+| Templates           | No live execution or confirmations. Retain exercise-only entries. Omit completely empty set rows; allow partially specified planned measurements. Keep optional planned rest.                                                                      |
+| Save                | Write the workout before its sets through existing services. Retries reuse stable IDs and do not duplicate; clear the draft only after success. Retain set identities and reject conflicting edits.                                                |
+| Media               | Restore existing media when editing. Removal is a draft change until Save. Cancel cannot delete saved references. Support image preview and actual video playback.                                                                                 |
+| Measurements        | First implementation slice, working through All Measurements. Use the current metric/reading model without grouped-entry names. Independent saves; cancelling a workout does not remove a measurement.                                             |
+| Pro                 | Retain old gates. Never strip existing protected data from a loaded record or silently lose it during saving.                                                                                                                                      |
 
 The old Pro gates were template creation/saving, same-kind replacement, set notes, inline history and copy-all-history, workout-level media, and enabling prompted rest. Automatic history prefill, Previous values, RPE, exercise notes, and exercise-level media were not explicitly Pro-gated by this editor. Do not broaden these gates accidentally.
 
@@ -236,12 +236,14 @@ The subsequent phases reuse this slice's contracts, helpers, submission handling
 
 **Depends on:** Phase 1; reuse minimal entity-create support from the measurement slice.
 
-**Owners:** `packages/contract`, `packages/sandbox-sdk`, `kernel/backend/src/modules/{mutations,entities,events,relationships,plugins}`, and sandbox compiler/runtime capability dispatch.
+**Status:** complete. Generic user-entity create/update, save-related event/relationship retries, conditional entity/event writes, and committed event identities are available through production host dispatch.
 
-- [ ] Extend the first slice's minimal generic entity-write support for the create/update behavior required by workouts/templates. Keep these primitives schema-neutral and bounded.
-- [ ] Extend SDK host contracts, the contract capability vocabulary, compiler intrinsic analysis where needed, runtime capability requirements, durable dispatch strategy, boot composition, and tests together.
-- [ ] Keep per-item policies and schema checks. Retries reuse stable scoped IDs and do not duplicate.
-- [ ] Test duplicate-free retry after a lost response, validation failure, and conflicting edits. Do not assert whole-save rollback.
+**Owners:** `packages/contract`, `packages/plugin-backend-sdk`, `kernel/backend/src/modules/{mutations,entities,events,relationships,plugins}`, and sandbox compiler/runtime capability dispatch.
+
+- [x] Extend the first slice's minimal generic entity-write support for the create/update behavior required by workouts/templates. Keep these primitives schema-neutral and bounded.
+- [x] Extend SDK host contracts, the contract capability vocabulary, compiler intrinsic analysis where needed, runtime capability requirements, durable dispatch strategy, boot composition, and tests together.
+- [x] Keep per-item policies and schema checks. Retries reuse stable scoped IDs and do not duplicate.
+- [x] Test duplicate-free retry after a lost response, validation failure, and conflicting edits. Do not assert whole-save rollback.
 
 **Exit:** production-path tests prove preservation of lifecycle hooks, generic kernel ownership, and duplicate-free retry.
 
@@ -334,6 +336,7 @@ The product and ownership decisions in this plan are settled:
 
 - Measurement logging is the first usable slice, through All Measurements, using the current metric/reading model without grouped-entry names.
 - Saves are simple idempotent writes through existing services, not a resource coordinator.
+- A partially committed save keeps its submitted snapshot, timestamp, and IDs fixed until completion. Later changes are a separate edit after that save completes.
 - The library picker, selection behavior, same-kind replacement, and provider-result consumption belong to Fitness. The kernel exposes the generic provider-add flow and correlated added-entity references.
 - The legacy walkthrough is deferred.
 - Greenfield refactors and persisted-schema changes are permitted when needed for long-term ownership and viability; obsolete paths and compatibility layers are not.
