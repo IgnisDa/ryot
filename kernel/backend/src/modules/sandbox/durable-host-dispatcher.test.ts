@@ -27,6 +27,7 @@ it("classifies every bridge host capability exactly once", () => {
 		emitSignal: { dispatch: "service-workflow" },
 		deleteEvents: { dispatch: "lifecycle-workflow" },
 		updateEvents: { dispatch: "lifecycle-workflow" },
+		createUserEntity: { dispatch: "service-workflow" },
 		invalidateOAuthAccessToken: { dispatch: "activity" },
 		ensureUserEntities: { dispatch: "service-workflow" },
 		sendNotification: { dispatch: "notification-workflow" },
