@@ -21,6 +21,8 @@ import {
 	createMeasurementMetric,
 	createMeasurementReadingFixture,
 	deleteMeasurementReadings,
+	logMeasurementReadings,
+	updateMeasurementReadings,
 } from "~/fixtures/plugins/fitness";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -125,6 +127,79 @@ describe("Measurements E2E", () => {
 			expect((yield* executeRyotQLRecipe(client, measurementReadingListRecipe({}))).items).toEqual(
 				[],
 			);
+		}),
+	);
+
+	it.live("logs readings at one time and edits, adds, and clears them in place", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { client: otherClient } = yield* createAuthenticatedClient();
+			const weight = yield* createMeasurementMetric(client, { name: "Weight" });
+			const waist = yield* createMeasurementMetric(client, { name: "Waist" });
+			const hip = yield* createMeasurementMetric(client, { name: "Hip" });
+			const listReadings = () =>
+				executeRyotQLRecipe(client, measurementReadingListRecipe({})).pipe(
+					Effect.map(({ items }) =>
+						items.map(({ value, comment, metricKey, occurredAt }) => ({
+							value,
+							comment,
+							metricKey,
+							occurredAt: new Date(occurredAt).toISOString(),
+						})),
+					),
+				);
+			const logged = {
+				comment: " Morning ",
+				occurredAt: "2026-04-27T08:00:00.000Z",
+				values: [
+					{ value: 0, metricId: weight.entityId },
+					{ value: 80, metricId: waist.entityId },
+				],
+			};
+
+			const foreignLog = yield* Effect.flip(logMeasurementReadings(otherClient, logged));
+			assertTaggedError(foreignLog, "PluginInvocationError");
+			expect(foreignLog.reason).toMatchObject({
+				diagnostics: [{ message: expect.stringContaining("Measurement metric not found") }],
+			});
+			expect(yield* logMeasurementReadings(client, logged)).toEqual({ count: 2 });
+			expect(yield* listReadings()).toEqual([
+				{
+					value: 80,
+					metricKey: "waist",
+					comment: "Morning",
+					occurredAt: "2026-04-27T08:00:00.000Z",
+				},
+				{
+					value: 0,
+					comment: "Morning",
+					metricKey: "weight",
+					occurredAt: "2026-04-27T08:00:00.000Z",
+				},
+			]);
+
+			const readingIds = (yield* executeRyotQLRecipe(
+				client,
+				measurementReadingListRecipe({}),
+			)).items.map(({ id }) => id);
+			const edited = {
+				readingIds,
+				occurredAt: "2026-04-28T09:15:00.000Z",
+				values: [
+					{ value: 71.2, metricId: weight.entityId },
+					{ value: 95, metricId: hip.entityId },
+				],
+			};
+			const foreignEdit = yield* Effect.flip(updateMeasurementReadings(otherClient, edited));
+			assertTaggedError(foreignEdit, "PluginInvocationError");
+			expect(foreignEdit.reason).toMatchObject({
+				diagnostics: [{ message: expect.stringContaining("Measurement reading not found") }],
+			});
+			expect(yield* updateMeasurementReadings(client, edited)).toEqual({ count: 3 });
+			expect(yield* listReadings()).toEqual([
+				{ value: 95, comment: null, metricKey: "hip", occurredAt: "2026-04-28T09:15:00.000Z" },
+				{ value: 71.2, comment: null, metricKey: "weight", occurredAt: "2026-04-28T09:15:00.000Z" },
+			]);
 		}),
 	);
 
