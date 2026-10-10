@@ -480,6 +480,82 @@ describe("entity browser", () => {
 		}),
 	);
 
+	it.live("preserves ongoing typing when a completed search is echoed through the URL", () =>
+		Effect.gen(function* () {
+			const clock = testClock();
+			const page = openBrowser({ clock });
+			const initial = yield* browserRequest(page, 0);
+			replyBrowser(page, initial.requestId, []);
+			const search = yield* Effect.promise(() =>
+				screen.findByRole<HTMLInputElement>("searchbox", { name: "Search All Books" }),
+			);
+			search.focus();
+			fireEvent.change(search, { target: { value: "the" } });
+			yield* Effect.promise(() => clock.advance(300));
+			const request = yield* browserRequest(page, 1);
+			fireEvent.change(search, { target: { value: "the office" } });
+			replyBrowser(page, request.requestId, []);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(page.clientMessages()).toContainEqual({
+						mode: "replace",
+						type: "page-search",
+						update: { sort: null, filters: null, search: "the" },
+					}),
+				),
+			);
+			page.navigate(routeLocation("/v/all-books", "search=the"));
+			yield* Effect.promise(() => waitFor(() => expect(search.value).toBe("the office")));
+			expect(document.activeElement).toBe(search);
+			yield* Effect.promise(() => clock.advance(300));
+			const next = yield* browserRequest(page, 2);
+			expect(yield* encodeJson(next.document)).toContain("the office");
+		}),
+	);
+
+	it.live("keeps a newer committed search when an older URL update arrives", () =>
+		Effect.gen(function* () {
+			const clock = testClock();
+			const page = openBrowser({ clock });
+			const initial = yield* browserRequest(page, 0);
+			replyBrowser(page, initial.requestId, []);
+			const search = yield* Effect.promise(() =>
+				screen.findByRole<HTMLInputElement>("searchbox", { name: "Search All Books" }),
+			);
+			fireEvent.change(search, { target: { value: "the" } });
+			yield* Effect.promise(() => clock.advance(300));
+			const first = yield* browserRequest(page, 1);
+			replyBrowser(page, first.requestId, []);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(page.clientMessages()).toContainEqual({
+						mode: "replace",
+						type: "page-search",
+						update: { sort: null, filters: null, search: "the" },
+					}),
+				),
+			);
+			fireEvent.change(search, { target: { value: "the office" } });
+			yield* Effect.promise(() => clock.advance(300));
+			const second = yield* browserRequest(page, 2);
+			page.navigate(routeLocation("/v/all-books", "search=the"));
+			replyBrowser(page, second.requestId, []);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(page.clientMessages()).toContainEqual({
+						mode: "replace",
+						type: "page-search",
+						update: { sort: null, filters: null, search: "the office" },
+					}),
+				),
+			);
+			expect(search.value).toBe("the office");
+			page.navigate(routeLocation("/v/all-books", "search=the+office"));
+			page.navigate(routeLocation("/v/all-books", "search=the"));
+			yield* Effect.promise(() => waitFor(() => expect(search.value).toBe("the")));
+		}),
+	);
+
 	it.live("commits Enter immediately and debounces clearing the draft", () =>
 		Effect.gen(function* () {
 			const clock = testClock();
