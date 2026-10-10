@@ -4,19 +4,16 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { MediaSandboxError } from "../../lib/failures";
 import { asRecord, recordsValue, stringValue } from "../../lib/records";
 import { tmdbGet } from "../../lib/vendors/tmdb";
-import { nestedNumber, pathValue, textValue } from "../shared";
-import { isNotFound, searchTmdbShow } from "./tmdb-episode";
+import { firstPathText, nestedNumber, textValue } from "../shared";
+import { isNotFound, searchTmdbShow, tmdbEpisodeExternalIds } from "./tmdb-episode";
 
 type LookupHost = Pick<
 	ScriptHost,
 	"httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
 >;
 
-const embyString = (payload: unknown, paths: string[][]) =>
-	paths.map((path) => textValue(pathValue(payload, path))).find(Boolean);
-
 const episodeId = (payload: unknown, provider: string) =>
-	embyString(payload, [
+	firstPathText(payload, [
 		["Item", "ProviderIds", provider],
 		["ProviderIds", provider],
 		[`Provider_${provider}`],
@@ -26,7 +23,7 @@ const episodeId = (payload: unknown, provider: string) =>
 const normalizedTitle = (value: unknown) => textValue(value)?.toLowerCase().replace(/\s+/g, " ");
 
 export const findEmbyShow = Effect.fnUntraced(function* (payload: unknown, host: LookupHost) {
-	const seriesId = embyString(payload, [
+	const seriesId = firstPathText(payload, [
 		["Series", "ProviderIds", "tmdb"],
 		["Item", "SeriesProviderIds", "tmdb"],
 		["SeriesProviderIds", "tmdb"],
@@ -41,12 +38,12 @@ export const findEmbyShow = Effect.fnUntraced(function* (payload: unknown, host:
 	const tmdbId = episodeId(payload, "tmdb");
 	const imdbId = episodeId(payload, "imdb");
 	const tvdbId = episodeId(payload, "tvdb");
-	const seriesName = embyString(payload, [
+	const seriesName = firstPathText(payload, [
 		["Item", "SeriesName"],
 		["SeriesName"],
 		["Series", "Name"],
 	]);
-	const episodeName = embyString(payload, [
+	const episodeName = firstPathText(payload, [
 		["Item", "EpisodeTitle"],
 		["Item", "Name"],
 		["EpisodeTitle"],
@@ -81,17 +78,11 @@ export const findEmbyShow = Effect.fnUntraced(function* (payload: unknown, host:
 	if (!token) {
 		return yield* new MediaSandboxError({ message: "TMDB access token is not configured" });
 	}
-	const externalIds = (
-		[
-			[imdbId, "imdb_id"],
-			[tvdbId, "tvdb_id"],
-		] as const
-	).flatMap(([id, source]) => (id ? [[id, source] as const] : []));
 	let showId = yield* searchTmdbShow(host, token, {
 		seriesName,
-		externalIds,
 		seasonNumber,
 		episodeId: tmdbId,
+		externalIds: tmdbEpisodeExternalIds(imdbId, tvdbId),
 	});
 	if (
 		!showId &&

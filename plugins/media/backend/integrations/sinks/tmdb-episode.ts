@@ -10,6 +10,14 @@ export type TmdbEpisode = {
 	externalIds: ReadonlyArray<readonly [string, "imdb_id" | "tvdb_id"]>;
 };
 
+export const tmdbEpisodeExternalIds = (imdbId: string | undefined, tvdbId: string | undefined) =>
+	(
+		[
+			[imdbId, "imdb_id"],
+			[tvdbId, "tvdb_id"],
+		] as const
+	).flatMap(([id, source]) => (id ? [[id, source] as const] : []));
+
 export const isNotFound = (error: unknown) =>
 	asRecord(asRecord(error)?.["data"])?.["status"] === 404;
 
