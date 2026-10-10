@@ -1,4 +1,5 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	type ImportEntityBody,
 	type ImportEntityRunResult,
@@ -10,6 +11,7 @@ import {
 	AutomationExecutionId,
 	EntitySchemaSlug,
 	SandboxProviderId,
+	PluginId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -73,7 +75,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 
 				const entitySchemaScope = yield* repository.findEntitySchemaForUser({
 					userId: user.id,
-					entitySchemaSlug,
+					entitySchema: { slug: entitySchemaSlug, owner: definitionOwner(provider.pluginId) },
 				});
 				if (!entitySchemaScope) {
 					return yield* new ProviderEntityNotFound({
@@ -88,25 +90,29 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 					externalId,
 					executionId,
 					entitySchemaSlug,
+					pluginId: PluginId.make(provider.pluginId),
 					entityScope: {
 						userId: user.id,
 						type: provider.pluginScope === "user" ? ("user" as const) : ("global" as const),
 					},
-					command: rootLifecycleCommand({
-						occurredAt,
-						source: "api",
-						lane: "interactive",
-						initiator: { id: user.id, kind: "user" },
-						accountGeneration: user.accountGeneration,
-						executionId: AutomationExecutionId.make(executionId),
-						itemIdentity: stableStringify([
-							"provider-entity-import",
-							user.id,
-							providerId,
-							entitySchemaSlug,
-							externalId,
-						]),
-					}),
+					command: {
+						...rootLifecycleCommand({
+							occurredAt,
+							source: "api",
+							lane: "interactive",
+							initiator: { id: user.id, kind: "user" },
+							accountGeneration: user.accountGeneration,
+							executionId: AutomationExecutionId.make(executionId),
+							itemIdentity: stableStringify([
+								"provider-entity-import",
+								user.id,
+								providerId,
+								entitySchemaSlug,
+								externalId,
+							]),
+						}),
+						writeContext: null,
+					},
 				};
 				const admitted = yield* admission.submit({ userId: user.id, payload: workflowPayload });
 				if (admitted.status === "backlog-full") {

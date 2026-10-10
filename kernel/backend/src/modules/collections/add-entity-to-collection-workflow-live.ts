@@ -4,9 +4,9 @@ import type { RelationshipId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { childLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { runLifecycleWriteStep } from "#lib/infrastructure/lifecycle-workflow-step";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+import { kernelCollectionLifecycleCommand } from "#modules/entities/write-context";
 import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -24,6 +24,7 @@ import {
 	CollectionMembershipResult,
 	CollectionsService,
 	PendingCollectionMembership,
+	childCollectionLifecycleCommand,
 } from "./service";
 
 type AddEntityToCollectionWorkflowOperationsValue = Pick<
@@ -55,11 +56,12 @@ export const AddEntityToCollectionWorkflowOperationsLive = Layer.effect(
 
 export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollectionWorkflow")(
 	function* (payload: AddEntityToCollectionWorkflowPayload, executionId: string) {
+		const command = kernelCollectionLifecycleCommand(payload.command);
 		const receipts = yield* MutationReceipts.make;
 		yield* admitWorkflow(
 			receipts,
 			AddEntityToCollectionWorkflow,
-			payload.command.accountGeneration,
+			command.accountGeneration,
 			executionId,
 		);
 		yield* Effect.annotateCurrentSpan({
@@ -81,7 +83,7 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 				prepare: operations.prepareCompensation(
 					payload.userId,
 					relationshipId,
-					childLifecycleCommand(payload.command, `compensation:${relationshipId}`),
+					childCollectionLifecycleCommand(command, `compensation:${relationshipId}`),
 				),
 			});
 			if (compensation.warnings.length > 0) {
@@ -99,8 +101,8 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 			error: AddEntityToCollectionWorkflowError,
 			applyPolicies: operations.applyMembershipPolicies,
 			prepare: operations.prepareMembership({
+				command,
 				userId: payload.userId,
-				command: payload.command,
 				entityId: payload.entityId,
 				properties: payload.properties,
 				collectionId: payload.collectionId,
@@ -119,7 +121,7 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 					executionId: eventExecutionId,
 					payload: {
 						userId: payload.userId,
-						command: childLifecycleCommand(payload.command, `event:${result.memberOf.id}`),
+						command: childCollectionLifecycleCommand(command, `event:${result.memberOf.id}`),
 						payload: [
 							{
 								occurredAt: result.occurredAt,

@@ -18,7 +18,10 @@ import {
 	type ProviderHttpTicket,
 	providerHttpTicketId,
 } from "#lib/infrastructure/provider-http-admission";
-import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
+import {
+	SandboxExecutionAuthority,
+	type SandboxExecutionPrincipal,
+} from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { SandboxHttpRedirect } from "#lib/infrastructure/sandbox-runtime/runtime-host-functions";
 import { workflowInterruptRequested } from "#lib/infrastructure/workflow-interruption";
@@ -268,6 +271,7 @@ const sleepFor = (name: string, waitMs: number) =>
 			});
 
 const makeSandboxHttpDispatcher = Effect.gen(function* () {
+	const executionAuthority = yield* SandboxExecutionAuthority;
 	const engine = yield* WorkflowEngine;
 	const httpClient = yield* HttpClient.HttpClient;
 	const admission = yield* ProviderHttpAdmissionService;
@@ -629,6 +633,7 @@ const makeSandboxHttpDispatcher = Effect.gen(function* () {
 				success: HttpNetworkAttempt,
 				name: `sandbox-http-${request.index}-network-${attempt}`,
 				execute: Effect.gen(function* () {
+					yield* executionAuthority.resolve(principal);
 					const startedAtMs = yield* Clock.currentTimeMillis;
 					const outcome = yield* dispatchSandboxHttpHop(
 						request,

@@ -1,4 +1,4 @@
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
@@ -21,7 +21,13 @@ const principal = {
 		userBootstrapScriptSlugs: [],
 		compiledHashes: { script: "hash-1" },
 		configSchema: { fields: {}, unknownKeys: "strict" },
-		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+		packageId: PluginPackageId.make("00000000-0000-4000-8000-000000000001"),
+		schemaScope: {
+			eventSchemas: [],
+			signalSchemaSlugs: [],
+			entitySchemaSlugs: [],
+			relationshipSchemaSlugs: [],
+		},
 	},
 	subject: {
 		runId: "run-1",

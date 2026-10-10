@@ -19,6 +19,7 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type {
 	SandboxPluginRevision,
 	SandboxExecutionPrincipal,
+	SandboxInstallationInitialization,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
@@ -48,7 +49,12 @@ const sandboxExecutionFailure = (error: SandboxRunError) => ({
 	logs: [],
 	value: null,
 	status: "completed" as const,
-	error: { kind: error.kind, message: error.message, phase: "execute" as const },
+	error: {
+		kind: error.kind,
+		message: error.message,
+		phase: "execute" as const,
+		...(error.data === undefined ? {} : { data: error.data }),
+	},
 });
 
 const toPluginWorkflowResult = (result: Workflow.Result<JsonValue, SandboxRunError> | undefined) =>
@@ -265,6 +271,8 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				lane: ExecutionLane;
 				executionId: string;
 				scriptId: SandboxScriptId;
+				pluginRevision?: SandboxPluginRevision;
+				initialization?: SandboxInstallationInitialization;
 				grants?: SandboxExecutionGrants;
 				subject: SandboxExecutionSubject;
 			}) {
@@ -291,6 +299,8 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						scriptId: input.scriptId,
 						executionId: input.executionId,
 						...(input.grants ? { grants: input.grants } : {}),
+						...(input.pluginRevision ? { pluginRevision: input.pluginRevision } : {}),
+						...(input.initialization ? { initialization: input.initialization } : {}),
 					}).pipe(
 						Effect.provideService(WorkflowEngine, engine),
 						Effect.provideService(DatabaseSession, database),

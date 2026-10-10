@@ -3,7 +3,6 @@ import {
 	type AutomationEntityChangePayload,
 	AutomationEntitySnapshot,
 	AutomationTrigger,
-	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EntityBadRequest, type ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
@@ -20,12 +19,13 @@ import {
 import { CatalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
 import type { EntitiesRepository } from "./repository";
+import { DomainLifecycleCommand } from "./write-context";
 
 export const PreparedEntityMutation = Schema.Struct({
 	entityId: EntityId,
-	lifecycle: LifecycleCommand,
 	draft: AutomationEntityDraft,
 	receipt: MutationReceiptIdentity,
+	lifecycle: DomainLifecycleCommand,
 	scopeUserId: Schema.NullOr(UserId),
 	before: Schema.NullOr(AutomationEntitySnapshot),
 	entitySchemaPluginId: Schema.NullOr(Schema.String),
@@ -55,21 +55,28 @@ export const makePersistMutation = <E, R, Result>({
 	repository,
 	resultCodec,
 	validateDraft,
+	authorizeMutation,
 }: {
 	repository: EntitiesRepository["Service"];
 	planner: LifecyclePlanner["Service"];
 	receipts: MutationReceipts["Service"];
 	resultCodec: Schema.Codec<Result, unknown>;
 	resultOf: (entity: ListedEntity, wasInserted: boolean) => Result;
+	authorizeMutation: (mutation: PreparedMutation) => Effect.Effect<void, E, R>;
 	validateDraft: (
 		draft: AutomationEntityDraft,
 		scopeUserId: UserId | null,
+		entitySchemaPluginId: string | null,
+		lifecycle: DomainLifecycleCommand,
+		commit?: boolean,
 	) => Effect.Effect<Pick<PreparedMutation, "draft" | "entitySchemaFingerprint">, E, R>;
 }) =>
 	Effect.fnUntraced(function* (
 		input: PreparedMutation,
 		batch?: { id: string; hasCandidates: boolean; index: number },
 	) {
+		yield* repository.lockSchemaCatalog();
+		yield* authorizeMutation(input);
 		const replay = yield* receipts
 			.lookup(input.receipt, resultCodec)
 			.pipe(
@@ -82,12 +89,14 @@ export const makePersistMutation = <E, R, Result>({
 		if (replay) {
 			return { result: replay.result, dispatch: replay.dispatch };
 		}
-		yield* repository.lockSchemaCatalog();
-		const currentSchema = yield* validateDraft(input.draft, input.scopeUserId);
-		if (
-			!same(currentSchema.entitySchemaFingerprint, input.entitySchemaFingerprint) ||
-			!same(currentSchema.draft, input.draft)
-		) {
+		const currentSchema = yield* validateDraft(
+			input.draft,
+			input.scopeUserId,
+			input.entitySchemaPluginId,
+			input.lifecycle,
+			true,
+		);
+		if (!same(currentSchema.draft, input.draft)) {
 			return yield* conflict("Entity schema changed before the source write committed");
 		}
 		yield* repository.lockMutationKeys([input.entityId]);
@@ -97,6 +106,7 @@ export const makePersistMutation = <E, R, Result>({
 					externalId: input.draft.externalId,
 					providerId: input.draft.providerId,
 					entitySchemaSlug: input.draft.entitySchemaSlug,
+					entitySchemaPluginId: input.entitySchemaPluginId,
 					...(input.scopeUserId === null
 						? { scope: "global" as const }
 						: { scope: "user" as const, userId: input.scopeUserId }),
@@ -105,8 +115,26 @@ export const makePersistMutation = <E, R, Result>({
 		}
 		const current = yield* repository.getMutationEntity(input.entityId, true);
 		const before = current ? snapshot(current.entity) : null;
-		if (current && current.userId !== input.scopeUserId) {
+		if (
+			current &&
+			(current.userId !== input.scopeUserId ||
+				(current.entity.entitySchemaPluginId ?? null) !== input.entitySchemaPluginId ||
+				current.entity.entitySchemaSlug !== input.draft.entitySchemaSlug)
+		) {
 			return yield* conflict("Entity scope changed");
+		}
+		if (before && input.lifecycle.writeContext?.pluginRevision) {
+			const parsed = yield* validateDraft(
+				draftOf(before),
+				input.scopeUserId,
+				input.entitySchemaPluginId,
+				input.lifecycle,
+			).pipe(
+				Effect.mapError(() => conflict("Current entity cannot be processed by the pinned writer")),
+			);
+			if (!same(parsed.draft.properties, before.properties)) {
+				return yield* conflict("Pinned entity constraints would change the current stored value");
+			}
 		}
 		let entity: ListedEntity;
 		let evidence: AutomationEntityChangePayload | undefined;

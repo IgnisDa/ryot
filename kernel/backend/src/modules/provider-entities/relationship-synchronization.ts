@@ -1,7 +1,8 @@
-import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
@@ -11,13 +12,13 @@ export const persistPlannedRelationshipSynchronization = Effect.fn(
 	"persistPlannedRelationshipSynchronization",
 )(function* (
 	input: {
-		command: LifecycleCommand;
+		command: DomainLifecycleCommand;
 		anchorEntityId: EntityId;
 		direction: "incoming" | "outgoing";
 		synchronization: "additive" | "authoritative";
 		relationshipSchemaSlug: RelationshipSchemaSlug;
 		onConflict: "preserveExisting" | "replaceProperties";
-		relationshipSchemaPluginId?: string | null | undefined;
+		relationshipSchemaPluginId: string | null;
 		entries: ReadonlyArray<RelationshipEntry>;
 	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
@@ -55,7 +56,10 @@ export const persistPlannedRelationshipSynchronization = Effect.fn(
 
 	const group = {
 		selector,
-		relationshipSchemaSlug: input.relationshipSchemaSlug,
+		relationshipSchema: {
+			slug: input.relationshipSchemaSlug,
+			owner: definitionOwner(input.relationshipSchemaPluginId),
+		},
 		relationships: [...entries.values()].map(({ entityId, properties }) => ({
 			properties,
 			sourceEntityId: input.direction === "outgoing" ? input.anchorEntityId : entityId,

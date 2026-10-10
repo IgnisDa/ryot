@@ -1,6 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -20,6 +19,7 @@ import {
 } from "./operations-workflow";
 import type { TranslationOverlayInput } from "./repository";
 import { TranslationsService } from "./service";
+import { translationPayload as payload, translationExecution } from "./translation.test-support";
 
 const TestTranslateEntityWorkflow = Workflow.make("TestTranslateEntityWorkflow", {
 	success: Schema.Void,
@@ -28,23 +28,11 @@ const TestTranslateEntityWorkflow = Workflow.make("TestTranslateEntityWorkflow",
 	idempotencyKey: ({ executionId }) => executionId,
 });
 
-const payload = {
-	language: "es",
-	lane: "interactive",
-	externalId: "ext-1",
-	executionId: "exec-1",
-	entitySchemaSlug: "record",
-	userId: UserId.make("user-1"),
-	entityId: EntityId.make("entity-1"),
-	properties: { title: "Test Record" },
-	providerId: SandboxProviderId.make("provider-1"),
-	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-} satisfies TranslateEntityWorkflowPayload;
-
 class FakeTranslationEffects extends Context.Service<
 	FakeTranslationEffects,
 	{
 		readonly upserts: Effect.Effect<ReadonlyArray<TranslationOverlayInput>>;
+		readonly released: Effect.Effect<ReadonlyArray<string>>;
 		readonly published: Effect.Effect<ReadonlyArray<{ channel: string; message: string }>>;
 	}
 >()("test/FakeTranslationEffects") {}
@@ -53,6 +41,7 @@ const makeTestLayer = (processSandbox: TranslateEntityWorkflowOperationsValue["p
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const upserts = yield* Ref.make<ReadonlyArray<TranslationOverlayInput>>([]);
+			const released = yield* Ref.make<ReadonlyArray<string>>([]);
 			const published = yield* Ref.make<ReadonlyArray<{ channel: string; message: string }>>([]);
 			const instance = WorkflowInstance.initial(TestTranslateEntityWorkflow, payload.executionId);
 			return Layer.mergeAll(
@@ -66,7 +55,11 @@ const makeTestLayer = (processSandbox: TranslateEntityWorkflowOperationsValue["p
 							Ref.update(published, (all) => [...all, { channel, message }]).pipe(Effect.as(0)),
 					}),
 				),
-				Layer.mock(TranslateEntityWorkflowOperations, { processSandbox }),
+				Layer.succeed(TranslateEntityWorkflowOperations, {
+					processSandbox,
+					releaseRegistration: (executionId) =>
+						Ref.update(released, (all) => [...all, executionId]),
+				}),
 				Layer.mock(TranslationsService)({
 					requestFill: () => Effect.void,
 					upsert: (input) =>
@@ -76,6 +69,7 @@ const makeTestLayer = (processSandbox: TranslateEntityWorkflowOperationsValue["p
 				}),
 				Layer.succeed(FakeTranslationEffects, {
 					upserts: Ref.get(upserts),
+					released: Ref.get(released),
 					published: Ref.get(published),
 				}),
 			);
@@ -85,10 +79,13 @@ const makeTestLayer = (processSandbox: TranslateEntityWorkflowOperationsValue["p
 layer(
 	makeTestLayer(() =>
 		Effect.succeed({
-			logs: [],
-			error: null,
-			status: "completed" as const,
-			value: { name: "Libro de Prueba", properties: { title: "Libro de Prueba" } },
+			execution: translationExecution,
+			result: {
+				logs: [],
+				error: null,
+				status: "completed" as const,
+				value: { name: "Libro de Prueba", properties: { title: "Libro de Prueba" } },
+			},
 		}),
 	),
 )((test) => {
@@ -105,6 +102,7 @@ layer(
 				properties: { title: "Libro de Prueba" },
 			});
 			expect(yield* effects.published).toHaveLength(1);
+			expect(yield* effects.released).toEqual([payload.executionId]);
 		}),
 	);
 });
@@ -112,13 +110,16 @@ layer(
 layer(
 	makeTestLayer(() =>
 		Effect.succeed({
-			logs: [],
-			value: null,
-			status: "completed" as const,
-			error: {
-				phase: "execute" as const,
-				kind: "script-failure" as const,
-				message: "Translate script execution failed",
+			execution: translationExecution,
+			result: {
+				logs: [],
+				value: null,
+				status: "completed" as const,
+				error: {
+					phase: "execute" as const,
+					kind: "script-failure" as const,
+					message: "Translate script execution failed",
+				},
 			},
 		}),
 	),
@@ -132,13 +133,17 @@ layer(
 			assert(Option.isSome(failure));
 			assert(failure.value instanceof Error);
 			expect(failure.value.message).toBe("Translate script execution failed");
+			expect(yield* (yield* FakeTranslationEffects).released).toEqual([]);
 		}),
 	);
 });
 
 layer(
 	makeTestLayer(() =>
-		Effect.succeed({ logs: [], error: null, value: { name: 12345 }, status: "completed" as const }),
+		Effect.succeed({
+			execution: translationExecution,
+			result: { logs: [], error: null, value: { name: 12345 }, status: "completed" as const },
+		}),
 	),
 )((test) => {
 	test.effect("fails when the sandbox result does not decode as a translate result", () =>

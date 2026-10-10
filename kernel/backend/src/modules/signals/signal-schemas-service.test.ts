@@ -1,10 +1,13 @@
 import { expect, layer } from "@effect/vitest";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { RelationshipSchemaSlug, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type { SignalSchemaDefinition } from "#modules/definition-registry/snapshot";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
 import { SignalSchemaContractDrift, SignalSchemasService } from "./service";
@@ -35,10 +38,12 @@ const definition = {
 const scope = {
 	...definition,
 	userId: null,
+	pluginId: null,
 	id: SignalSchemaSlug.make("signal-schema-1"),
 } satisfies SignalSchemaScope;
 
 const relationshipScope = {
+	pluginId: null,
 	isBuiltin: true,
 	slug: "example-monitoring",
 	name: "Example monitoring",
@@ -107,7 +112,7 @@ layer(
 	makeLayer(
 		makeSignalSchemasRepository({
 			insertBuiltin: () => Effect.succeed(scope),
-			findGlobalBySlug: () => Effect.succeed(null),
+			findKernelBySlug: () => Effect.succeed(null),
 		}),
 	),
 )((test) => {
@@ -121,10 +126,62 @@ layer(
 	);
 });
 
+const sameSlugDefinitions = [
+	{
+		pluginId: null,
+		name: "Kernel signal",
+		slug: "fixture.signal",
+		catalogState: "active",
+		propertiesSchema: { fields: {} },
+		audiencePolicy: { kind: "actor" },
+		notificationHookSlug: "kernel-notification",
+	},
+	{
+		pluginId: "plugin-id",
+		name: "Plugin signal",
+		slug: "fixture.signal",
+		catalogState: "active",
+		propertiesSchema: { fields: {} },
+		audiencePolicy: { kind: "actor" },
+		notificationHookSlug: "plugin-notification",
+	},
+] as const satisfies ReadonlyArray<SignalSchemaDefinition>;
+
+const signalDefinitionLayer = Layer.mock(DefinitionRepository)({
+	findGlobalSignalSchema: (reference) =>
+		Effect.succeed(
+			sameSlugDefinitions.find(
+				(candidate) =>
+					definitionKey("signal", definitionOwner(candidate.pluginId), candidate.slug) ===
+					definitionKey("signal", reference.owner, reference.slug),
+			) ?? null,
+		),
+});
+
+layer(SignalSchemasRepository.layer.pipe(Layer.provide(signalDefinitionLayer)))((test) => {
+	test.effect("looks up the kernel signal when a plugin defines the same slug", () =>
+		Effect.gen(function* () {
+			const repository = yield* SignalSchemasRepository;
+
+			expect(yield* repository.findKernelBySlug("fixture.signal")).toMatchObject({
+				pluginId: null,
+				name: "Kernel signal",
+				slug: "fixture.signal",
+			});
+			expect(
+				yield* repository.findGlobalByReference({
+					owner: definitionOwner("plugin-id"),
+					slug: SignalSchemaSlug.make("fixture.signal"),
+				}),
+			).toMatchObject({ pluginId: "plugin-id", name: "Plugin signal", slug: "fixture.signal" });
+		}),
+	);
+});
+
 layer(
 	makeLayer(
 		makeSignalSchemasRepository({
-			findGlobalBySlug: () => Effect.succeed(scope),
+			findKernelBySlug: () => Effect.succeed(scope),
 			insertBuiltin: () => Effect.die("unexpected insert"),
 			updateBuiltinDisplay: () => Effect.die("unexpected update"),
 		}),
@@ -142,7 +199,7 @@ layer(
 	makeLayer(
 		makeSignalSchemasRepository({
 			updateBuiltinDisplay: () => Effect.succeed(scope),
-			findGlobalBySlug: () =>
+			findKernelBySlug: () =>
 				Effect.succeed({ ...scope, name: "Old name", catalogState: "hidden" as const }),
 		}),
 	),
@@ -161,7 +218,7 @@ layer(
 layer(
 	makeLayer(
 		makeSignalSchemasRepository({
-			findGlobalBySlug: () => Effect.succeed({ ...scope, propertiesSchema: { fields: {} } }),
+			findKernelBySlug: () => Effect.succeed({ ...scope, propertiesSchema: { fields: {} } }),
 		}),
 	),
 )((test) => {
@@ -182,7 +239,7 @@ layer(
 layer(
 	makeLayer(
 		makeSignalSchemasRepository({
-			findGlobalBySlug: () =>
+			findKernelBySlug: () =>
 				Effect.succeed({
 					...scope,
 					audiencePolicy: {
@@ -211,7 +268,7 @@ layer(
 layer(
 	makeLayer(
 		makeSignalSchemasRepository(),
-		makeRelationshipSchemasRepository({ findById: () => Effect.succeed(null) }),
+		makeRelationshipSchemasRepository({ findKernelBySlug: () => Effect.succeed(null) }),
 	),
 )((test) => {
 	test.effect("rejects an invalid related-users schema contract", () =>

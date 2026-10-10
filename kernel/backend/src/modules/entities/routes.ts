@@ -16,15 +16,18 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 		Effect.gen(function* () {
 			const user = yield* CurrentUser;
 			const service = yield* EntitiesService;
-			const lifecycle = rootLifecycleCommand({
-				source: "api",
-				lane: "interactive",
-				itemIdentity: "entity",
-				initiator: { id: user.id, kind: "user" },
-				accountGeneration: user.accountGeneration,
-				executionId: AutomationExecutionId.make(generateId()),
-				occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-			});
+			const lifecycle = {
+				...rootLifecycleCommand({
+					source: "api",
+					lane: "interactive",
+					itemIdentity: "entity",
+					initiator: { id: user.id, kind: "user" },
+					accountGeneration: user.accountGeneration,
+					executionId: AutomationExecutionId.make(generateId()),
+					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+				}),
+				writeContext: null,
+			};
 
 			return yield* service
 				.create({
@@ -35,7 +38,7 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 					externalId: payload.externalId,
 					properties: payload.properties,
 					providerId: payload.providerId,
-					entitySchemaSlug: payload.entitySchemaSlug,
+					entitySchema: payload.entitySchema,
 				})
 				.pipe(dieOnDbError);
 		}),

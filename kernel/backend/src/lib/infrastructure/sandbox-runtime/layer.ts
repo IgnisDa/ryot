@@ -7,6 +7,7 @@ import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-a
 import { PluginRepository } from "#modules/plugins/repository";
 import { SandboxHostImplementationsLive } from "#modules/sandbox/layer";
 import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxExecutionAuthorityLive } from "#modules/sandbox/runtime-authority";
 
 import {
 	SandboxDurableHostDispatcherLive,
@@ -25,6 +26,7 @@ export const SandboxDurableHostServicesLive = Layer.merge(
 	),
 	SandboxDurableHostServiceWorkflowLive.pipe(Layer.provide(SandboxHostImplementationsLive)),
 ).pipe(
+	Layer.provide(SandboxExecutionAuthorityLive),
 	Layer.provide(SandboxRepository.layer),
 	Layer.provide(LifecycleServicesLive),
 	Layer.provide(PluginRepository.layer),

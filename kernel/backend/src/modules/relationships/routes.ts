@@ -18,15 +18,18 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* RelationshipsService;
-				const command = rootLifecycleCommand({
-					source: "api",
-					lane: "interactive",
-					itemIdentity: "relationship",
-					initiator: { id: user.id, kind: "user" },
-					accountGeneration: user.accountGeneration,
-					executionId: AutomationExecutionId.make(generateId()),
-					occurredAt: (yield* DateTime.nowAsDate).toISOString(),
-				});
+				const command = {
+					...rootLifecycleCommand({
+						source: "api",
+						lane: "interactive",
+						itemIdentity: "relationship",
+						initiator: { id: user.id, kind: "user" },
+						accountGeneration: user.accountGeneration,
+						executionId: AutomationExecutionId.make(generateId()),
+						occurredAt: (yield* DateTime.nowAsDate).toISOString(),
+					}),
+					writeContext: null,
+				};
 				return yield* service.createUser(user.id, payload, command);
 			}).pipe(dieOnDbError),
 		),

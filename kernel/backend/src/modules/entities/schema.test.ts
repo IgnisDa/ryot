@@ -1,4 +1,5 @@
 import { expect, layer } from "@effect/vitest";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Result, Effect } from "effect";
 import { Client } from "pg";
@@ -16,10 +17,20 @@ layer(revisionDatabaseLayer)((test) => {
 				Effect.gen(function* () {
 					yield* db
 						.insert(tables.plugin)
-						.values({ slug: "schema", status: "inactive", id: "schema-plugin" });
+						.values({
+							slug: "schema",
+							status: "inactive",
+							id: "schema-plugin",
+							packageId: PluginPackageId.make(crypto.randomUUID()),
+						});
 					yield* db
 						.insert(tables.plugin)
-						.values({ slug: "provider", status: "inactive", id: "provider-plugin" });
+						.values({
+							slug: "provider",
+							status: "inactive",
+							id: "provider-plugin",
+							packageId: PluginPackageId.make(crypto.randomUUID()),
+						});
 					yield* db
 						.insert(tables.sandboxProvider)
 						.values({

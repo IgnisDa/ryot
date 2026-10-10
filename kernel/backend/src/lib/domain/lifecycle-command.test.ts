@@ -60,6 +60,7 @@ describe("lifecycle commands", () => {
 			scopeEntity: {
 				name: "Root",
 				id: EntityId.make("root"),
+				entitySchemaPluginId: null,
 				entitySchemaSlug: EntitySchemaSlug.make("item"),
 			},
 		};
@@ -90,6 +91,7 @@ describe("lifecycle commands", () => {
 				providerId: null,
 				externalId: null,
 				populatedAt: null,
+				entitySchemaPluginId: null,
 				entitySchemaSlug: EntitySchemaSlug.make("item"),
 			},
 		} satisfies AutomationTriggerPayload;
@@ -101,6 +103,8 @@ describe("lifecycle commands", () => {
 				occurredAt,
 				properties: {},
 				sessionEntityId: null,
+				eventSchemaPluginId: null,
+				entitySchemaPluginId: null,
 				entityId: EntityId.make("entity-1"),
 				entitySchemaSlug: EntitySchemaSlug.make("item"),
 				eventSchemaSlug: EventSchemaSlug.make("progress"),

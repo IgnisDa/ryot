@@ -3,14 +3,18 @@ import {
 	AutomationRelationshipSnapshot,
 	type AutomationRelationshipRequestPayload,
 	type AutomationRelationshipChangePayload,
-	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	definitionOwner,
+	type RelationshipSchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 	RelationshipScope,
+	CreateRelationshipBody,
 } from "@ryot-app/contract/modules/relationships/schemas";
-import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { type EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { createUserRelationshipSchema } from "@ryot-app/sandbox-sdk/core";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -25,6 +29,7 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 import type { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import type { EntitiesRepository } from "#modules/entities/repository";
+import { DomainLifecycleCommand, writerPropertiesSchema } from "#modules/entities/write-context";
 import {
 	mutationReceiptIdentity,
 	mutationReceiptOwner,
@@ -42,13 +47,22 @@ import {
 	relationshipMutationLockKey,
 } from "./repository";
 
-export type CreateRelationshipInput = RelationshipIdentityInput & { properties: unknown };
+export const CreateRelationshipInput = Schema.Union([
+	Schema.Struct({
+		...CreateRelationshipBody.fields,
+		properties: Schema.Unknown,
+		scope: Schema.Literal("global"),
+	}),
+	Schema.Struct({
+		...CreateRelationshipBody.fields,
+		userId: UserId,
+		properties: Schema.Unknown,
+		scope: Schema.Literal("user"),
+	}),
+]);
+export type CreateRelationshipInput = typeof CreateRelationshipInput.Type;
 export type UpdateRelationshipInput = CreateRelationshipInput;
-export type UserRelationshipIdentity = {
-	sourceEntityId: EntityId;
-	targetEntityId: EntityId;
-	relationshipSchemaSlug: RelationshipSchemaSlug;
-};
+export type UserRelationshipIdentity = Omit<CreateRelationshipBody, "properties">;
 export type ChangeUserRelationshipBatch = {
 	creates: ReadonlyArray<
 		UserRelationshipIdentity &
@@ -59,7 +73,7 @@ export type ChangeUserRelationshipBatch = {
 	deletes: ReadonlyArray<UserRelationshipIdentity>;
 };
 export type ReconcileGlobalRelationshipGroup = {
-	relationshipSchemaSlug: RelationshipSchemaSlug;
+	relationshipSchema: RelationshipSchemaReference;
 	selector:
 		| { type: "self" }
 		| { type: "anchored"; direction: "incoming" | "outgoing"; anchorEntityId: EntityId };
@@ -72,6 +86,7 @@ export type ReconcileGlobalRelationshipGroup = {
 export type RelationshipReconciliationScope =
 	| { readonly scope: "global" }
 	| { readonly scope: "user"; readonly userId: UserId };
+export type DeleteRelationshipInput = UserRelationshipIdentity & RelationshipReconciliationScope;
 export type PlannedRelationshipReconciliationResult = ReadonlyArray<{
 	readonly created: number;
 	readonly updated: number;
@@ -80,7 +95,7 @@ export type PlannedRelationshipReconciliationResult = ReadonlyArray<{
 }>;
 
 export const RelationshipMutation = Schema.Struct({
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
 	input: RelationshipIdentityInput,
 	properties: Schema.optional(Schema.Unknown),
 	propertiesSchema: Schema.optional(AppSchema),
@@ -115,11 +130,13 @@ export const relationshipReceiptIdentity = (
 		),
 		input: {
 			scope: mutation.input.scope,
+			writeContext: mutation.command.writeContext,
 			...(mutation.input.scope === "user" ? { userId: mutation.input.userId } : {}),
 			properties: mutation.properties ?? null,
 			sourceEntityId: mutation.input.sourceEntityId,
 			targetEntityId: mutation.input.targetEntityId,
 			relationshipSchemaSlug: mutation.input.relationshipSchemaSlug,
+			relationshipSchemaPluginId: mutation.input.relationshipSchemaPluginId,
 		},
 	});
 
@@ -147,10 +164,12 @@ export const relationshipKey = (input: { sourceEntityId: EntityId; targetEntityI
 	`${input.sourceEntityId}\u0000${input.targetEntityId}`;
 export const badProperties = (paths: ReadonlyArray<ReadonlyArray<string>>) =>
 	new RelationshipBadRequest({ reason: { paths, code: "invalid-properties" } });
-export const parseProperties = (properties: unknown, propertiesSchema: AppSchema) =>
-	parseAppSchemaProperties({ properties, propertiesSchema, kind: "Relationship" }).pipe(
-		Effect.mapError((error) => badProperties(error.issues.map(({ path }) => path))),
-	);
+export const parseProperties = (properties: unknown, propertiesSchema: AppSchema, strict = false) =>
+	parseAppSchemaProperties({
+		properties,
+		kind: "Relationship",
+		propertiesSchema: strict ? writerPropertiesSchema(propertiesSchema) : propertiesSchema,
+	}).pipe(Effect.mapError((error) => badProperties(error.issues.map(({ path }) => path))));
 export const snapshot = (
 	row: NonNullable<
 		Effect.Success<ReturnType<RelationshipsRepository["Service"]["findRelationship"]>>
@@ -164,6 +183,7 @@ export const snapshot = (
 		sourceEntityId: row.sourceEntityId,
 		targetEntityId: row.targetEntityId,
 		relationshipSchemaSlug: row.relationshipSchemaSlug,
+		relationshipSchemaPluginId: row.relationshipSchemaPluginId,
 	}).pipe(
 		Effect.mapError(() => new DbError({ message: "Invalid persisted relationship snapshot" })),
 	);
@@ -211,10 +231,10 @@ export const rootTransactionGuard = (session: DatabaseSession["Service"]) =>
 	);
 
 export const itemCommand = (
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
 	input: RelationshipIdentityInput,
 	suffix: string,
-): LifecycleCommand => ({
+): DomainLifecycleCommand => ({
 	...command,
 	itemIdentity: `${command.itemIdentity}:${suffix}:${relationshipMutationLockKey(input)}`,
 });
@@ -235,8 +255,33 @@ export const validateUserRelationshipEntities = Effect.fnUntraced(function* (
 		});
 	}
 	if (
+		(definition.pluginId !== null || definition.sourceEntitySchemaSlug !== null) &&
+		source.entitySchemaPluginId !== definition.pluginId
+	) {
+		return yield* new RelationshipBadRequest({
+			reason: {
+				code: "owner-mismatch",
+				expected: definitionOwner(definition.pluginId),
+				actual: definitionOwner(source.entitySchemaPluginId),
+			},
+		});
+	}
+	if (
+		(definition.pluginId !== null || definition.targetEntitySchemaSlug !== null) &&
+		target.entitySchemaPluginId !== definition.pluginId
+	) {
+		return yield* new RelationshipBadRequest({
+			reason: {
+				code: "owner-mismatch",
+				expected: definitionOwner(definition.pluginId),
+				actual: definitionOwner(target.entitySchemaPluginId),
+			},
+		});
+	}
+	if (
 		definition.sourceEntitySchemaSlug &&
-		definition.sourceEntitySchemaSlug !== source.entitySchemaSlug
+		(definition.sourceEntitySchemaSlug !== source.entitySchemaSlug ||
+			source.entitySchemaPluginId !== definition.pluginId)
 	) {
 		return yield* new RelationshipBadRequest({
 			reason: {
@@ -248,7 +293,8 @@ export const validateUserRelationshipEntities = Effect.fnUntraced(function* (
 	}
 	if (
 		definition.targetEntitySchemaSlug &&
-		definition.targetEntitySchemaSlug !== target.entitySchemaSlug
+		(definition.targetEntitySchemaSlug !== target.entitySchemaSlug ||
+			target.entitySchemaPluginId !== definition.pluginId)
 	) {
 		return yield* new RelationshipBadRequest({
 			reason: {
@@ -259,6 +305,24 @@ export const validateUserRelationshipEntities = Effect.fnUntraced(function* (
 		});
 	}
 	return undefined;
+});
+
+export const relationshipSchemaReference = (
+	input: Pick<RelationshipIdentityInput, "relationshipSchemaPluginId" | "relationshipSchemaSlug">,
+): RelationshipSchemaReference => ({
+	slug: input.relationshipSchemaSlug,
+	owner: definitionOwner(input.relationshipSchemaPluginId),
+});
+
+export const relationshipIdentity = (
+	input: DeleteRelationshipInput,
+): RelationshipIdentityInput => ({
+	...input,
+	relationshipSchemaSlug: input.relationshipSchema.slug,
+	relationshipSchemaPluginId:
+		input.relationshipSchema.owner.kind === "plugin"
+			? input.relationshipSchema.owner.pluginId
+			: null,
 });
 
 export type RelationshipMutationDependencies = {

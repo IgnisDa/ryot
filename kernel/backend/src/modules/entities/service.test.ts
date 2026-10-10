@@ -5,6 +5,11 @@ import type {
 	AutomationPolicyOutput,
 	AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	definitionKey,
+	definitionOwner,
+	type EntitySchemaReference,
+} from "@ryot-app/contract/modules/plugins/references";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import {
 	AutomationExecutionId,
@@ -52,6 +57,7 @@ import {
 	buildDefinitionSnapshot,
 	type DefinitionSource,
 } from "#modules/definition-registry/snapshot";
+import { revisionDefinitions } from "#modules/definition-registry/source";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
@@ -59,6 +65,7 @@ import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-ke
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
+import { revisionPackage } from "#modules/plugins/revision.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntitiesRepository } from "./repository";
@@ -66,8 +73,9 @@ import { EntitiesService, type UpdateEntityInput } from "./service";
 
 const owner = UserId.make("owner");
 const slug = EntitySchemaSlug.make("record");
-const command = (id: string) =>
-	rootLifecycleCommand({
+const entitySchema: EntitySchemaReference = { slug, owner: { kind: "kernel" } };
+const command = (id: string) => ({
+	...rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
 		itemIdentity: "entity",
@@ -75,9 +83,11 @@ const command = (id: string) =>
 		executionId: AutomationExecutionId.make(id),
 		occurredAt: IsoUtcString.make("2026-09-15T00:00:00.000Z"),
 		accountGeneration: { userId: owner, token: "test-account-generation" },
-	});
-const systemCommand = (id: string) =>
-	rootLifecycleCommand({
+	}),
+	writeContext: null,
+});
+const systemCommand = (id: string) => ({
+	...rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
 		itemIdentity: "entity",
@@ -85,12 +95,14 @@ const systemCommand = (id: string) =>
 		initiator: { id: null, kind: "system" },
 		executionId: AutomationExecutionId.make(id),
 		occurredAt: IsoUtcString.make("2026-09-15T00:00:00.000Z"),
-	});
+	}),
+	writeContext: null,
+});
 const createInput = (id: string) => ({
+	entitySchema,
 	userId: owner,
 	name: " Original ",
 	lifecycle: command(id),
-	entitySchemaSlug: slug,
 	scope: "user" as const,
 	properties: { title: "original" },
 });
@@ -152,11 +164,17 @@ const entitiesLayer = (options: TestOptions = {}) =>
 				entitySchemas: [
 					{
 						slug,
+						pluginId: null,
 						name: "Record",
 						icon: "record",
 						pluginSlug: null,
 						eventSchemas: [
-							{ name: "Progress", slug: "progress", propertiesSchema: { fields: {} } },
+							{
+								pluginId: null,
+								name: "Progress",
+								slug: "progress",
+								propertiesSchema: { fields: {} },
+							},
 						],
 						propertiesSchema: {
 							fields: {
@@ -185,10 +203,11 @@ const entitiesLayer = (options: TestOptions = {}) =>
 						}),
 						Layer.mock(DefinitionRepository)({
 							findUserEntitySchemas: () => {
-								const definition = buildDefinitionSnapshot(source).entitySchemas[slug];
+								const key = definitionKey("entity", entitySchema.owner, slug);
+								const definition = buildDefinitionSnapshot(source).entitySchemas[key];
 								assert(definition);
 								return Effect.map(Ref.get(schemaActivated), (activated) => ({
-									[slug]: activated
+									[key]: activated
 										? {
 												...definition,
 												propertiesSchema: {
@@ -695,7 +714,7 @@ describe("EntitiesService committed lifecycle", () => {
 						yield* service
 							.create({
 								...createInput("missing"),
-								entitySchemaSlug: EntitySchemaSlug.make("missing"),
+								entitySchema: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("missing") },
 							})
 							.pipe(Effect.flip),
 					).toMatchObject({ reason: { code: "entity-schema-not-found" } });
@@ -725,8 +744,8 @@ describe("EntitiesService committed lifecycle", () => {
 					externalId,
 					name: externalId,
 					populatedAt: null,
-					entitySchemaSlug: slug,
 					properties: { title: externalId },
+					entitySchema: providerEntitySchema,
 				}));
 				expect(
 					yield* service
@@ -924,8 +943,8 @@ describe("EntitiesService committed lifecycle", () => {
 						}),
 				);
 				const globalEntity = yield* service.createGlobal({
+					entitySchema,
 					name: "Global",
-					entitySchemaSlug: slug,
 					properties: { title: "global" },
 					lifecycle: systemCommand("global-create"),
 				});
@@ -969,25 +988,64 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 
 	const providerId = SandboxProviderId.make("fixture-provider");
+	const providerEntitySchema: EntitySchemaReference = {
+		slug,
+		owner: definitionOwner("provider-plugin"),
+	};
 	const seedProvider = Effect.gen(function* () {
 		const session = yield* DatabaseSession;
-		yield* session.run((db) =>
-			Effect.gen(function* () {
-				yield* db
-					.insert(tables.plugin)
-					.values({ slug: "provider", status: "disabled", id: "provider-plugin" });
-				yield* db
-					.insert(tables.sandboxProvider)
-					.values({
-						id: providerId,
-						slug: "provider",
-						name: "Provider",
-						rootEntitySchemaSlug: slug,
-						pluginId: "provider-plugin",
-						information: { source: "fixture" },
-					});
-			}),
+		const declarations = yield* DefinitionRepository.make;
+		const kernelSchema = yield* declarations.findGlobalEntitySchema(entitySchema);
+		assert(kernelSchema);
+		const source = revisionPackage("provider", "v1", slug).manifest;
+		const manifest = {
+			...source,
+			entitySchemas: Array.from(source.entitySchemas, (definition) => ({
+				...definition,
+				propertiesSchema: kernelSchema.propertiesSchema,
+			})),
+		};
+		yield* session.transaction(
+			session.run((db) =>
+				Effect.gen(function* () {
+					yield* db
+						.insert(tables.plugin)
+						.values({
+							slug: "provider",
+							status: "inactive",
+							id: "provider-plugin",
+							packageId: manifest.metadata.packageId,
+						});
+					yield* db
+						.insert(tables.pluginRevision)
+						.values({
+							manifest,
+							id: "provider-revision",
+							pluginId: "provider-plugin",
+							sourceHash: "provider-source",
+							clientConfigSchema: { fields: {} },
+						});
+					yield* db
+						.update(tables.plugin)
+						.set({ status: "active", activeRevisionId: "provider-revision" })
+						.where(eq(tables.plugin.id, "provider-plugin"));
+					yield* db
+						.insert(tables.sandboxProvider)
+						.values({
+							id: providerId,
+							slug: "provider",
+							name: "Provider",
+							rootEntitySchemaSlug: slug,
+							pluginId: "provider-plugin",
+							information: { source: "fixture" },
+						});
+				}),
+			),
 		);
+		yield* (yield* DefinitionRepository.make).writeRevisionDefinitions({
+			pluginRevisionId: "provider-revision",
+			definitions: revisionDefinitions("provider-plugin", "provider", manifest),
+		});
 	});
 	layer(entitiesLayer())((test) => {
 		test.effect(
@@ -1002,9 +1060,9 @@ describe("EntitiesService committed lifecycle", () => {
 						name: "Global",
 						populatedAt: null,
 						externalId: "external",
-						entitySchemaSlug: slug,
 						lifecycle: command("global"),
 						properties: { title: "global" },
+						entitySchema: providerEntitySchema,
 					};
 					const created = yield* service.createGlobal(input);
 					expect(created.entity).toMatchObject({
@@ -1054,8 +1112,8 @@ describe("EntitiesService committed lifecycle", () => {
 					externalId,
 					name: externalId,
 					populatedAt: null,
-					entitySchemaSlug: slug,
 					properties: { title: externalId },
+					entitySchema: providerEntitySchema,
 				}));
 				const result = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
 					maximumTotal: 2,
@@ -1336,10 +1394,10 @@ describe("EntitiesService committed lifecycle", () => {
 					populatedAt: null,
 					updateExisting: true,
 					externalId: "planned",
-					entitySchemaSlug: slug,
 					scope: "global" as const,
 					lifecycle: command("planned"),
 					properties: { title: "planned" },
+					entitySchema: providerEntitySchema,
 				};
 				expect(yield* service.persistPlannedProviderUpsert(input).pipe(Effect.flip)).toMatchObject({
 					code: "active-transaction-required",
@@ -1399,9 +1457,9 @@ describe("EntitiesService committed lifecycle", () => {
 					name: externalId,
 					populatedAt: null,
 					updateExisting: true,
-					entitySchemaSlug: slug,
 					scope: "global" as const,
 					properties: { title: externalId },
+					entitySchema: providerEntitySchema,
 					lifecycle: { ...lifecycle, itemIdentity: `${lifecycle.itemIdentity}:${externalId}` },
 				});
 				const work = yield* session.transaction(
@@ -1444,8 +1502,8 @@ describe("EntitiesService committed lifecycle", () => {
 								populatedAt: null,
 								externalId: "policy",
 								updateExisting: true,
-								entitySchemaSlug: slug,
 								properties: { title: "policy" },
+								entitySchema: providerEntitySchema,
 								lifecycle: command("planned-policy"),
 							}),
 						)
@@ -1468,9 +1526,7 @@ describe("EntitiesService committed lifecycle", () => {
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
 				const session = yield* DatabaseSession;
-				const items = [
-					{ name: "Routine", entitySchemaSlug: slug, properties: { title: "routine" } },
-				];
+				const items = [{ entitySchema, name: "Routine", properties: { title: "routine" } }];
 				const first = yield* service.ensureUserEntities(owner, items, command("ensure"));
 				expect(first).toMatchObject([{ wasInserted: true, warnings: [warning, warning] }]);
 				expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual(first);
@@ -1509,7 +1565,7 @@ describe("EntitiesService committed lifecycle", () => {
 				yield* service
 					.ensureUserEntities(
 						owner,
-						[{ name: "Routine", entitySchemaSlug: slug, properties: { title: "routine" } }],
+						[{ entitySchema, name: "Routine", properties: { title: "routine" } }],
 						command("ensure-rollback"),
 					)
 					.pipe(Effect.flip);

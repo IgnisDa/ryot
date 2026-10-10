@@ -1,4 +1,5 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
+import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import type { httpCallOptionsSchema } from "@ryot-app/sandbox-sdk/core";
 import { httpCallResponseSchema } from "@ryot-app/sandbox-sdk/core";
@@ -306,11 +307,23 @@ export const executeSandboxHttp = (
 		}),
 	);
 
-const cacheScope = (input: SandboxRunInput) =>
-	[sandboxRunUserId(input), input.principal.providerId ?? input.principal.scriptId] as const;
+const cacheScope = (input: SandboxRunInput) => {
+	const pluginScope = input.principal.pluginRevision
+		? (["plugin", input.principal.pluginRevision.id] as const)
+		: (["kernel"] as const);
+	let operationScope: readonly [string, string];
+	if (input.principal.providerId !== null) {
+		operationScope = ["provider", input.principal.providerId];
+	} else if (input.principal.pluginRevision) {
+		operationScope = ["script", input.principal.scriptSlug];
+	} else {
+		operationScope = ["kernel", input.principal.scriptSlug];
+	}
+	return [sandboxRunUserId(input), pluginScope, operationScope] as const;
+};
 
 const persistentKey = (input: SandboxRunInput, key: string) =>
-	redisKeys.sandboxCache(...cacheScope(input), key.trim());
+	redisKeys.sandboxCache(null, "namespace", identityTupleKey(...cacheScope(input), key.trim()));
 
 export const makeRuntimeSandboxApiFunctions = (
 	classify: SandboxHttpClassify,
@@ -324,7 +337,17 @@ export const makeRuntimeSandboxApiFunctions = (
 		const serverRun = yield* ServerRun;
 		const httpClient = yield* HttpClient.HttpClient;
 		const runKey = (input: SandboxRunInput, key: string) =>
-			redisKeys.sandboxRunCache(serverRun.id, ...cacheScope(input), key.trim());
+			redisKeys.sandboxRunCache(
+				serverRun.id,
+				null,
+				"namespace",
+				identityTupleKey(
+					...cacheScope(input),
+					input.principal.pluginRevision?.revisionId ?? input.principal.contentHash,
+					input.principal.pluginRevision?.configRevisionId ?? null,
+					key.trim(),
+				),
+			);
 
 		return {
 			setCachedValue: (input, key, value, expiry) =>

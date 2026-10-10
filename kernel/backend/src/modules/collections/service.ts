@@ -1,8 +1,5 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import type {
-	AutomationWarning,
-	LifecycleCommand,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CollectionBadRequest,
 	CollectionNotFound,
@@ -13,23 +10,19 @@ import {
 } from "@ryot-app/contract/modules/collections/schemas";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import type { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
-	AutomationExecutionId,
 	EntityId,
 	EventSchemaSlug,
+	RelationshipSchemaSlug,
 	type RelationshipId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { generateId } from "better-auth";
-import { Context, DateTime, Effect, Layer, Schema, Struct } from "effect";
+import { Context, Effect, Layer, Schema, Struct } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { rootLifecycleCommand, childLifecycleCommand } from "#lib/domain/lifecycle-command";
 import type {
 	LifecycleCommittedStep,
 	LifecyclePreparedStep,
@@ -41,6 +34,10 @@ import {
 import { trimToNull } from "#lib/shared/validation";
 import type { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesService, type PendingEntityMutation } from "#modules/entities/service";
+import {
+	kernelCollectionLifecycleCommand,
+	type DomainLifecycleCommand,
+} from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
@@ -76,6 +73,14 @@ export type PendingCollectionMembership = typeof PendingCollectionMembership.Typ
 export const CollectionEntityResult = Schema.Struct(Struct.pick(ListedEntity.fields, ["id"]));
 export type CollectionEntityResult = typeof CollectionEntityResult.Type;
 
+export const childCollectionLifecycleCommand = (
+	command: DomainLifecycleCommand,
+	itemIdentity: string,
+): DomainLifecycleCommand => ({
+	...command,
+	itemIdentity: stableStringify([command.itemIdentity, itemIdentity]),
+});
+
 const invalidMembership = (error: RelationshipBadRequest) =>
 	new CollectionBadRequest({
 		reason: {
@@ -99,22 +104,6 @@ const requireBuiltinOrDie =
 	(found: T | null | undefined): Effect.Effect<T> =>
 		found != null ? Effect.succeed(found) : Effect.die(message);
 
-const userCommand = Effect.fnUntraced(function* (
-	accountGeneration: AccountGeneration,
-	itemIdentity: string,
-	executionId = AutomationExecutionId.make(generateId()),
-) {
-	return rootLifecycleCommand({
-		executionId,
-		itemIdentity,
-		source: "api",
-		accountGeneration,
-		lane: "interactive",
-		initiator: { kind: "user", id: accountGeneration.userId },
-		occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-	});
-});
-
 export class CollectionsService extends Context.Service<CollectionsService>()(
 	"CollectionsService",
 	{
@@ -128,7 +117,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
 			const memberOfSchema = yield* Effect.cached(
 				relationshipSchemasRepository
-					.findBuiltinBySlug("member-of")
+					.findKernelBySlug("member-of")
 					.pipe(
 						Effect.flatMap(
 							requireBuiltinOrDie("member-of relationship schema not found in database"),
@@ -150,7 +139,11 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				"CollectionsService.getBuiltinCollectionEventSchema",
 			)(function* (slug: string) {
 				const entitySchema = yield* collectionEntitySchema;
-				return yield* repository.findBuiltinEventSchemaBySlug(entitySchema.entitySchemaSlug, slug);
+				return yield* repository.findBuiltinEventSchemaBySlug({
+					owner: { kind: "kernel" },
+					slug: EventSchemaSlug.make(slug),
+					entitySchemaSlug: entitySchema.entitySchemaSlug,
+				});
 			});
 
 			const addEventSchema = yield* Effect.cached(
@@ -164,7 +157,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			const queueCollectionEvent = (input: {
 				readonly userId: UserId;
 				readonly entityId: EntityId;
-				readonly command: LifecycleCommand;
+				readonly command: DomainLifecycleCommand;
 				readonly eventSchemaSlug: EventSchemaSlug;
 				readonly properties: Record<string, unknown>;
 			}) =>
@@ -195,6 +188,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			const create = Effect.fn("CollectionsService.create")(function* (
 				user: CurrentUserValue,
 				payload: CreateCollectionBody,
+				command: DomainLifecycleCommand,
 			) {
 				const name = trimToNull(payload.name);
 				if (!name) {
@@ -202,7 +196,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						reason: { field: "name", code: "name-required" },
 					});
 				}
-				const lifecycle = yield* userCommand(user.accountGeneration, "collection:create");
+				const lifecycle = kernelCollectionLifecycleCommand(command);
 
 				if (payload.membershipPropertiesSchema !== undefined) {
 					yield* parseLabeledPropertySchemaInput(
@@ -238,7 +232,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						properties,
 						scope: "user",
 						userId: user.id,
-						entitySchemaSlug: entitySchema.entitySchemaSlug,
+						entitySchema: entitySchema.entitySchema,
 					})
 					.pipe(
 						Effect.catchTags({
@@ -257,7 +251,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 
 			const prepareGetOrCreateCollection = Effect.fn(
 				"CollectionsService.prepareGetOrCreateCollection",
-			)(function* (userId: UserId, name: string, command: LifecycleCommand) {
+			)(function* (userId: UserId, name: string, command: DomainLifecycleCommand) {
 				const entitySchema = yield* collectionEntitySchema;
 				const existing = yield* repository.findCollectionByNameForUser({
 					name,
@@ -271,8 +265,8 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						result: { id: existing.id },
 					} satisfies LifecycleCommittedStep<CollectionEntityResult>;
 				}
-				const lifecycle = childLifecycleCommand(
-					command,
+				const lifecycle = childCollectionLifecycleCommand(
+					kernelCollectionLifecycleCommand(command),
 					stableStringify(["collection:get-or-create", name]),
 				);
 				return yield* entities
@@ -282,7 +276,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						lifecycle,
 						scope: "user",
 						properties: {},
-						entitySchemaSlug: entitySchema.entitySchemaSlug,
+						entitySchema: entitySchema.entitySchema,
 					})
 					.pipe(
 						Effect.map(collectionStep),
@@ -301,11 +295,12 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 					return yield* Effect.die("membership upsert returned no relationship");
 				}
 				const { wasInserted, ...memberOf } = committed.result.relationship;
+				const kernelMemberOf = { ...memberOf, relationshipSchemaPluginId: null };
 				return {
 					...committed,
 					result: {
 						...membership,
-						memberOf,
+						memberOf: kernelMemberOf,
 						operation: committed.result.operation,
 						addEventSchemaSlug: wasInserted ? membership.addEventSchemaSlug : null,
 					},
@@ -335,7 +330,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				function* (input: {
 					userId: UserId;
 					entityId: EntityId;
-					command: LifecycleCommand;
+					command: DomainLifecycleCommand;
 					properties?: unknown;
 					collectionId: EntityId;
 				}) {
@@ -395,8 +390,10 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						sourceEntityId: input.entityId,
 						properties: validatedProperties,
 						targetEntityId: input.collectionId,
-						relationshipSchemaSlug: memberOfRelationshipSchema.id,
-						relationshipSchemaPluginId: memberOfRelationshipSchema.pluginId ?? null,
+						relationshipSchema: {
+							owner: { kind: "kernel" },
+							slug: RelationshipSchemaSlug.make(memberOfRelationshipSchema.slug),
+						},
 					} as const;
 					const membership = {
 						entityId: entity.id,
@@ -428,13 +425,9 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			const addToCollection = Effect.fn("CollectionsService.addToCollection")(function* (
 				user: CurrentUserValue,
 				payload: CreateMembershipBody,
+				command: DomainLifecycleCommand,
 			) {
-				const executionId = AutomationExecutionId.make(generateId());
-				const command = yield* userCommand(
-					user.accountGeneration,
-					"collection:add-membership",
-					executionId,
-				);
+				const executionId = command.causation.executionId;
 				return yield* dispatchAdmittedWorkflow(
 					receipts,
 					engine,
@@ -459,7 +452,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			const prepareCompensation = (
 				userId: UserId,
 				relationshipId: RelationshipId,
-				command: LifecycleCommand,
+				command: DomainLifecycleCommand,
 			) =>
 				relationships
 					.prepareDeleteUserRelationshipById(userId, relationshipId, command)
@@ -488,8 +481,9 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			const removeFromCollection = Effect.fn("CollectionsService.removeFromCollection")(function* (
 				user: CurrentUserValue,
 				payload: DeleteMembershipBody,
+				command: DomainLifecycleCommand,
 			) {
-				const command = yield* userCommand(user.accountGeneration, "collection:remove-membership");
+				const lifecycle = kernelCollectionLifecycleCommand(command);
 				const collection = yield* repository.getCollectionById(payload.collectionId, user.id);
 				if (!collection) {
 					return yield* new CollectionNotFound({
@@ -512,10 +506,12 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 							userId: user.id,
 							sourceEntityId: payload.entityId,
 							targetEntityId: payload.collectionId,
-							relationshipSchemaSlug: membershipSchema.id,
-							relationshipSchemaPluginId: membershipSchema.pluginId ?? null,
+							relationshipSchema: {
+								owner: { kind: "kernel" },
+								slug: RelationshipSchemaSlug.make(membershipSchema.slug),
+							},
 						},
-						command,
+						lifecycle,
 					)
 					.pipe(
 						Effect.catchTags({
@@ -540,6 +536,8 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						},
 					});
 				}
+				const { wasInserted: _wasInserted, ...deletedRelationship } = deleted;
+				const memberOf = { ...deletedRelationship, relationshipSchemaPluginId: null };
 
 				const removeEvent = yield* removeEventSchema;
 				if (removeEvent) {
@@ -547,7 +545,7 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 						userId: user.id,
 						entityId: payload.collectionId,
 						eventSchemaSlug: removeEvent.id,
-						command: childLifecycleCommand(command, `event:${deleted.id}`),
+						command: childCollectionLifecycleCommand(lifecycle, `event:${deleted.id}`),
 						properties: {
 							entityId: entity.id,
 							relationshipId: deleted.id,
@@ -555,11 +553,9 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 							relationshipProperties: deleted.properties,
 						},
 					});
-					const { wasInserted: _wasInserted, ...memberOf } = deleted;
 					return { memberOf, warnings: [...result.warnings, ...eventWarnings] };
 				}
 
-				const { wasInserted: _wasInserted, ...memberOf } = deleted;
 				return { memberOf, warnings: result.warnings };
 			});
 

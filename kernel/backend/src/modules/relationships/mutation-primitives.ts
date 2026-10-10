@@ -5,8 +5,8 @@ import {
 	AutomationRelationshipDraft,
 	type AutomationRelationshipRequestPayload,
 	type AutomationRelationshipSnapshot,
-	type LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
@@ -25,6 +25,11 @@ import {
 } from "#lib/domain/lifecycle-policy-patch";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import {
+	DomainWriteConflict,
+	makeDomainWriteChecks,
+	type DomainLifecycleCommand,
+} from "#modules/entities/write-context";
+import {
 	MutationReceiptIdentityConflict,
 	type MutationReceiptIdentity,
 } from "#modules/mutations/receipts";
@@ -37,6 +42,8 @@ import {
 	parseProperties,
 	relationshipChange,
 	snapshot,
+	relationshipSchemaReference,
+	validateUserRelationshipEntities,
 	type Mutation,
 	type RelationshipMutationDependencies,
 	type RelationshipRecordedResult,
@@ -72,11 +79,126 @@ export const makeRelationshipMutationPrimitives = ({
 				new DbError({ message: "Relationship mutation primitives require an active transaction" }),
 		),
 	);
+	const writes = makeDomainWriteChecks(session);
+	const validateMutation = Effect.fnUntraced(function* (mutation: Mutation, lock = false) {
+		const reference = relationshipSchemaReference(mutation.input);
+		if (
+			mutation.command.writeContext?.pluginRevision &&
+			mutation.command.kernelCollection === true &&
+			reference.owner.kind === "kernel" &&
+			reference.slug !== "member-of"
+		) {
+			return yield* new RelationshipBadRequest({
+				reason: {
+					code: "owner-mismatch",
+					actual: reference.owner,
+					expected: { kind: "plugin", pluginId: mutation.command.writeContext.pluginRevision.id },
+				},
+			});
+		}
+		const manifest = yield* writes
+			.check(
+				mutation.command,
+				reference.owner,
+				mutation.input.scope === "user" ? mutation.input.userId : null,
+				lock,
+			)
+			.pipe(
+				Effect.mapError(
+					(error) =>
+						new RelationshipBadRequest({
+							reason:
+								error instanceof DomainWriteConflict
+									? error.reason
+									: { code: "concurrent-relationship-change" },
+						}),
+				),
+			);
+		const activeDeclaration =
+			manifest && reference.owner.kind === "plugin"
+				? (yield* writes.activeManifest(reference.owner.pluginId)).relationshipSchemas.find(
+						({ slug }) => slug === reference.slug,
+					)
+				: null;
+		let active: RelationshipSchemaDefinition | null = activeDeclaration
+			? { ...activeDeclaration, pluginId: mutation.input.relationshipSchemaPluginId }
+			: null;
+		if (!activeDeclaration) {
+			if (mutation.input.scope === "user") {
+				active =
+					(yield* definitions.findUserRelationshipSchemas(mutation.input.userId, [reference]))[
+						definitionKey("relationship", reference.owner, reference.slug)
+					] ?? null;
+			} else {
+				active = yield* definitions.findGlobalRelationshipSchema(reference);
+			}
+		}
+		if (!active) {
+			return yield* new RelationshipNotFound({
+				reason: { schema: reference, code: "relationship-schema-not-found" },
+			});
+		}
+		const declared = manifest?.relationshipSchemas.find(({ slug }) => slug === reference.slug);
+		if (manifest && !declared) {
+			return yield* new RelationshipBadRequest({
+				reason: { code: "concurrent-relationship-change" },
+			});
+		}
+		const pinned = declared ? { ...declared, pluginId: active.pluginId } : active;
+		if (mutation.input.scope === "user") {
+			yield* validateUserRelationshipEntities(
+				entities,
+				mutation.input.userId,
+				mutation.input,
+				pinned,
+			);
+		} else {
+			const source = yield* entities.getMutationEntity(mutation.input.sourceEntityId);
+			const target = yield* entities.getMutationEntity(mutation.input.targetEntityId);
+			if (
+				!source ||
+				!target ||
+				source.userId !== null ||
+				target.userId !== null ||
+				(pinned.pluginId !== null &&
+					(source.entity.entitySchemaPluginId !== pinned.pluginId ||
+						target.entity.entitySchemaPluginId !== pinned.pluginId)) ||
+				(pinned.sourceEntitySchemaSlug !== null &&
+					(source.entity.entitySchemaSlug !== pinned.sourceEntitySchemaSlug ||
+						source.entity.entitySchemaPluginId !== pinned.pluginId)) ||
+				(pinned.targetEntitySchemaSlug !== null &&
+					(target.entity.entitySchemaSlug !== pinned.targetEntitySchemaSlug ||
+						target.entity.entitySchemaPluginId !== pinned.pluginId))
+			) {
+				return yield* new RelationshipBadRequest({
+					reason: { code: "concurrent-relationship-change" },
+				});
+			}
+		}
+		return { active, pinned };
+	});
 	const prepareRequest = Effect.fnUntraced(function* (
 		mutation: Mutation,
 		before: AutomationRelationshipSnapshot | null,
 	) {
 		yield* assertActiveTransaction;
+		const validated = yield* validateMutation(mutation);
+		if (before && mutation.command.writeContext?.pluginRevision) {
+			const stored = yield* parseProperties(
+				before.properties,
+				validated.pinned.propertiesSchema,
+				true,
+			).pipe(
+				Effect.mapError(
+					() => new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
+				),
+			);
+			if (!equal(stored, before.properties)) {
+				return yield* new RelationshipBadRequest({
+					reason: { code: "concurrent-relationship-change" },
+				});
+			}
+		}
 		if (!before && mutation.mode === "update") {
 			return yield* new RelationshipNotFound({ reason: { code: "relationship-not-found" } });
 		}
@@ -98,10 +220,15 @@ export const makeRelationshipMutationPrimitives = ({
 				? mergeProperties(before?.properties, mutation.properties)
 				: mutation.properties;
 		const value = yield* Schema.decodeUnknownEffect(AutomationRelationshipDraft)({
-			properties,
 			sourceEntityId: mutation.input.sourceEntityId,
 			targetEntityId: mutation.input.targetEntityId,
 			relationshipSchemaSlug: mutation.input.relationshipSchemaSlug,
+			relationshipSchemaPluginId: mutation.input.relationshipSchemaPluginId,
+			properties: yield* parseProperties(
+				properties,
+				validated.pinned.propertiesSchema,
+				Boolean(mutation.command.writeContext?.pluginRevision),
+			),
 		}).pipe(Effect.mapError(() => badProperties([])));
 		if (before && equal(before.properties, value.properties)) {
 			return null;
@@ -188,23 +315,26 @@ export const makeRelationshipMutationPrimitives = ({
 		if (request.operation === "delete") {
 			return request;
 		}
+		const validated = yield* validateMutation(mutation);
 		let definition: RelationshipSchemaDefinition | null | undefined;
 		if (resolved) {
 			definition = resolved.definition;
 		} else if (mutation.input.scope === "user") {
+			const reference = relationshipSchemaReference(mutation.input);
 			definition = (yield* definitions.findUserRelationshipSchemas(mutation.input.userId, [
-				mutation.input.relationshipSchemaSlug,
-			]))[mutation.input.relationshipSchemaSlug];
+				reference,
+			]))[definitionKey("relationship", reference.owner, reference.slug)];
 		} else {
 			definition = yield* definitions.findGlobalRelationshipSchema(
-				mutation.input.relationshipSchemaSlug,
+				relationshipSchemaReference(mutation.input),
 			);
 		}
 		if (
 			!definition ||
 			(definition.pluginId ?? null) !== (mutation.input.relationshipSchemaPluginId ?? null) ||
 			!mutation.schemaFingerprint ||
-			!equal(catalogDefinitionFingerprint(definition), mutation.schemaFingerprint)
+			(!mutation.command.writeContext?.pluginRevision &&
+				!equal(catalogDefinitionFingerprint(definition), mutation.schemaFingerprint))
 		) {
 			return yield* new RelationshipBadRequest({
 				reason: { code: "concurrent-relationship-change" },
@@ -212,8 +342,19 @@ export const makeRelationshipMutationPrimitives = ({
 		}
 		const properties = yield* parseProperties(
 			request.draft.properties,
-			definition.propertiesSchema,
+			validated.pinned.propertiesSchema,
+			Boolean(mutation.command.writeContext?.pluginRevision),
 		);
+		const stored = yield* parseProperties(
+			properties,
+			definition.propertiesSchema,
+			Boolean(mutation.command.writeContext?.pluginRevision),
+		);
+		if (!equal(stored, properties)) {
+			return yield* new RelationshipBadRequest({
+				reason: { code: "concurrent-relationship-change" },
+			});
+		}
 		return { ...request, draft: yield* draft(request, properties) };
 	});
 	const persistSource = Effect.fnUntraced(function* (
@@ -223,8 +364,26 @@ export const makeRelationshipMutationPrimitives = ({
 		prepared = false,
 	) {
 		yield* assertActiveTransaction;
+		const validated = yield* validateMutation(mutation, true);
 		const row = prepared ? null : yield* repository.findRelationship(mutation.input);
 		const current = row ? yield* snapshot(row) : null;
+		const stored = prepared ? before : current;
+		if (stored && mutation.command.writeContext?.pluginRevision) {
+			const parsed = yield* parseProperties(
+				stored.properties,
+				validated.pinned.propertiesSchema,
+				true,
+			).pipe(
+				Effect.mapError(
+					() => new RelationshipBadRequest({ reason: { code: "concurrent-relationship-change" } }),
+				),
+			);
+			if (!equal(parsed, stored.properties)) {
+				return yield* new RelationshipBadRequest({
+					reason: { code: "concurrent-relationship-change" },
+				});
+			}
+		}
 		if (!prepared && !equal(current, before)) {
 			return yield* new RelationshipBadRequest({
 				reason: { code: "concurrent-relationship-change" },
@@ -283,9 +442,9 @@ export const makeRelationshipMutationPrimitives = ({
 	});
 	const planChange = Effect.fnUntraced(function* (input: {
 		mutation: Mutation;
-		requestId: LifecycleCommand["causation"]["parentTriggerId"];
+		requestId: DomainLifecycleCommand["causation"]["parentTriggerId"];
 		payload: ReturnType<typeof relationshipChange>;
-		population?: LifecycleCommand["population"];
+		population?: DomainLifecycleCommand["population"];
 	}) {
 		yield* assertActiveTransaction;
 		const { command } = input.mutation;
@@ -310,6 +469,9 @@ export const makeRelationshipMutationPrimitives = ({
 	});
 	const lockMutations = Effect.fnUntraced(function* (mutations: ReadonlyArray<Mutation>) {
 		yield* assertActiveTransaction;
+		for (const mutation of mutations) {
+			yield* validateMutation(mutation, true);
+		}
 		yield* entities.lockEntityReferencesByIds(
 			mutations.flatMap(({ input }) => [input.sourceEntityId, input.targetEntityId]),
 		);
@@ -346,7 +508,7 @@ export const makeRelationshipMutationPrimitives = ({
 };
 
 export const relationshipPopulation = (
-	command: LifecycleCommand,
+	command: DomainLifecycleCommand,
 	counts: Pick<
 		NonNullable<AutomationPopulationContext["batch"]>,
 		"createdCount" | "updatedCount" | "deletedCount"

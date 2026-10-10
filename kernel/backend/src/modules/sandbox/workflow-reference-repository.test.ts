@@ -86,7 +86,12 @@ const makeRegisterLayer = (options: {
 											options.active
 												? [
 														{
+															health: "ready",
+															isHidden: false,
+															status: "active",
+															uninstalledAt: null,
 															slug: input.pluginId,
+															incompatibilityReason: null,
 															installationId: options.installationId ?? null,
 															ownerId: options.pluginScope === "user" ? "owner" : null,
 														},

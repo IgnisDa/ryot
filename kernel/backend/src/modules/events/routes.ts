@@ -18,15 +18,18 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
 				const service = yield* EventsService;
-				const command = rootLifecycleCommand({
-					source: "api",
-					lane: "interactive",
-					itemIdentity: "events",
-					initiator: { id: user.id, kind: "user" },
-					accountGeneration: user.accountGeneration,
-					executionId: AutomationExecutionId.make(generateId()),
-					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-				});
+				const command = {
+					...rootLifecycleCommand({
+						source: "api",
+						lane: "interactive",
+						itemIdentity: "events",
+						initiator: { id: user.id, kind: "user" },
+						accountGeneration: user.accountGeneration,
+						executionId: AutomationExecutionId.make(generateId()),
+						occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+					}),
+					writeContext: null,
+				};
 				return yield* service.createHttp({ payload, userId: user.id }, command).pipe(
 					Effect.catchTag("EventCreateItemError", (error) =>
 						Effect.logError("event creation escaped item failure handling", error).pipe(
@@ -63,15 +66,18 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 				const user = yield* CurrentUser;
 				const service = yield* EventsService;
 				const eventId = EventId.make(params.eventId);
-				const command = rootLifecycleCommand({
-					source: "api",
-					lane: "interactive",
-					itemIdentity: `event:${eventId}:edit`,
-					initiator: { id: user.id, kind: "user" },
-					accountGeneration: user.accountGeneration,
-					executionId: AutomationExecutionId.make(generateId()),
-					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-				});
+				const command = {
+					...rootLifecycleCommand({
+						source: "api",
+						lane: "interactive",
+						itemIdentity: `event:${eventId}:edit`,
+						initiator: { id: user.id, kind: "user" },
+						accountGeneration: user.accountGeneration,
+						executionId: AutomationExecutionId.make(generateId()),
+						occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+					}),
+					writeContext: null,
+				};
 				return yield* service
 					.edit({ eventId, patch: payload }, user.id, command)
 					.pipe(
@@ -88,15 +94,18 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 				const user = yield* CurrentUser;
 				const service = yield* EventsService;
 				const eventId = EventId.make(params.eventId);
-				const command = rootLifecycleCommand({
-					source: "api",
-					lane: "interactive",
-					itemIdentity: `event:${eventId}:delete`,
-					initiator: { id: user.id, kind: "user" },
-					accountGeneration: user.accountGeneration,
-					executionId: AutomationExecutionId.make(generateId()),
-					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-				});
+				const command = {
+					...rootLifecycleCommand({
+						source: "api",
+						lane: "interactive",
+						itemIdentity: `event:${eventId}:delete`,
+						initiator: { id: user.id, kind: "user" },
+						accountGeneration: user.accountGeneration,
+						executionId: AutomationExecutionId.make(generateId()),
+						occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+					}),
+					writeContext: null,
+				};
 				return yield* service.delete({ eventId, userId: user.id }, command).pipe(
 					Effect.filterOrFail(
 						(result) => result.eventId !== null,

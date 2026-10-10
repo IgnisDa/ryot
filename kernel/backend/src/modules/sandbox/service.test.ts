@@ -19,6 +19,7 @@ import {
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
+import { fixtureManifest } from "#modules/plugins/test-support";
 
 import {
 	SandboxPluginScriptResolver,
@@ -432,10 +433,16 @@ const originalRevision = {
 	scope: "system" as const,
 	id: PluginId.make("fixture"),
 	userBootstrapScriptSlugs: [],
+	packageId: fixtureManifest().metadata.packageId,
 	revisionId: PluginRevisionId.make("fixture-revision-1"),
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
 	configRevisionId: PluginConfigRevisionId.make("fixture-config-1"),
-	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+	schemaScope: {
+		eventSchemas: [],
+		entitySchemaSlugs: [],
+		signalSchemaSlugs: [],
+		relationshipSchemaSlugs: [],
+	},
 };
 const replacementRevision = {
 	...originalRevision,
@@ -544,10 +551,16 @@ const pluginWorkflowPin = {
 		scope: "system" as const,
 		id: PluginId.make("fixture"),
 		userBootstrapScriptSlugs: [],
+		packageId: fixtureManifest().metadata.packageId,
 		revisionId: PluginRevisionId.make("fixture-revision"),
 		configSchema: { fields: {}, unknownKeys: "strict" as const },
 		configRevisionId: PluginConfigRevisionId.make("fixture-config"),
-		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+		schemaScope: {
+			eventSchemas: [],
+			entitySchemaSlugs: [],
+			signalSchemaSlugs: [],
+			relationshipSchemaSlugs: [],
+		},
 	},
 };
 const pluginWorkflowOptions = {

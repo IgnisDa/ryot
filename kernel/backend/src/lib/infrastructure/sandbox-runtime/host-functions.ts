@@ -1,10 +1,10 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
-import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	CreateEventItem,
 	UpdateEventItem,
 	type CreateEventsResponse,
 } from "@ryot-app/contract/modules/events/schemas";
+import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 import {
@@ -14,6 +14,7 @@ import {
 	type ImportRunId,
 	IntegrationId,
 	OAuthConnectionId,
+	PluginId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 	UserId,
@@ -50,6 +51,7 @@ import {
 	sandboxHostFailure,
 	sandboxRunIntegrationId,
 	sandboxRunUserId,
+	sandboxDefinitionReadContext,
 	sandboxHostEffect,
 	toSandboxHostError,
 	toSandboxJsonValue,
@@ -64,6 +66,7 @@ import {
 	type GlobalEntityUpsertResults,
 	type PendingGlobalEntityUpsert,
 } from "#modules/entities/service";
+import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
 import { EventStreamWorkService } from "#modules/events/stream-work";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
@@ -102,30 +105,33 @@ type SandboxHostFunctionContext =
 const CreateEventsPayload = Schema.Array(CreateEventItem);
 
 export const SandboxLifecycleHostInput = Schema.Union([
-	Schema.TaggedStruct("Failure", { message: Schema.String }),
+	Schema.TaggedStruct("Failure", {
+		message: Schema.String,
+		data: Schema.optional(jsonValueSchema),
+	}),
 	Schema.TaggedStruct("UpsertGlobalEntities", {
-		command: LifecycleCommand,
 		providerId: SandboxProviderId,
+		command: DomainLifecycleCommand,
 		items: Schema.Array(upsertGlobalEntityItemSchema),
 		options: Schema.NullOr(upsertGlobalEntitiesOptionsSchema),
 	}),
 	Schema.TaggedStruct("ChangeUserRelationships", {
 		userId: UserId,
-		command: LifecycleCommand,
+		command: DomainLifecycleCommand,
 		batches: Schema.Array(changeUserRelationshipBatchSchema),
 	}),
 	Schema.TaggedStruct("UpsertGlobalRelationships", {
-		command: LifecycleCommand,
+		command: DomainLifecycleCommand,
 		groups: Schema.Array(upsertGlobalRelationshipGroupSchema),
 	}),
 	Schema.TaggedStruct("UpdateEvents", {
 		userId: UserId,
-		command: LifecycleCommand,
+		command: DomainLifecycleCommand,
 		items: Schema.Array(UpdateEventItem),
 	}),
 	Schema.TaggedStruct("DeleteEvents", {
 		userId: UserId,
-		command: LifecycleCommand,
+		command: DomainLifecycleCommand,
 		eventIds: Schema.Array(EventId),
 	}),
 ]);
@@ -155,18 +161,23 @@ const toSandboxRelationshipIdentity = <
 	T extends {
 		readonly sourceEntityId: string;
 		readonly targetEntityId: string;
-		readonly relationshipSchemaSlug?: string;
+		readonly relationshipSchemaSlug: string;
 	},
 >(
 	relationship: T,
-) => ({
-	...relationship,
-	sourceEntityId: EntityId.make(relationship.sourceEntityId),
-	targetEntityId: EntityId.make(relationship.targetEntityId),
-	...(relationship.relationshipSchemaSlug === undefined
-		? {}
-		: { relationshipSchemaSlug: RelationshipSchemaSlug.make(relationship.relationshipSchemaSlug) }),
-});
+	pluginId: string | null,
+) => {
+	const { relationshipSchemaSlug, ...identity } = relationship;
+	return {
+		...identity,
+		sourceEntityId: EntityId.make(relationship.sourceEntityId),
+		targetEntityId: EntityId.make(relationship.targetEntityId),
+		relationshipSchema: {
+			owner: definitionOwner(pluginId),
+			slug: RelationshipSchemaSlug.make(relationshipSchemaSlug),
+		},
+	};
+};
 
 const toSandboxIntegrationSettings = (settings: Readonly<Record<string, unknown>>) =>
 	Object.fromEntries(
@@ -275,8 +286,11 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 					name: item.name,
 					externalId: item.externalId,
 					properties: item.properties,
-					entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
 					populatedAt: item.populatedAt === null ? null : new Date(item.populatedAt),
+					entitySchema: {
+						slug: EntitySchemaSlug.make(item.entitySchemaSlug),
+						owner: definitionOwner(input.command.writeContext?.pluginRevision?.id ?? null),
+					},
 				})),
 				input.providerId,
 				input.command,
@@ -409,25 +423,6 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 		changeUserRelationships: {
 			value: (results: ReadonlyArray<RelationshipBatchSummary>) =>
 				results.map(({ created, deleted }) => ({ created, deleted })),
-			itemWrite: (input: LifecycleHostInput<"ChangeUserRelationships">) => {
-				const batches = input.batches.map((entry) => ({
-					creates: entry.creates.map(toSandboxRelationshipIdentity),
-					deletes: entry.deletes.map(toSandboxRelationshipIdentity),
-				}));
-				return {
-					items: batches,
-					result: RelationshipBatchSummary,
-					applyPolicies: applyRelationshipHostPolicies,
-					commit: () => (pending: PendingRelationshipMutations) =>
-						relationships
-							.commitProjected(pending, summarizeRelationshipMutations)
-							.pipe(Effect.mapError(lifecycleHostFailure)),
-					prepare: (current: (typeof batches)[number], index: number) =>
-						relationships
-							.prepareChangeUserBatch(input.userId, current, index, input.command, batches)
-							.pipe(Effect.mapError(lifecycleHostFailure)),
-				} satisfies LifecycleItemWrite<(typeof batches)[number], RelationshipBatchSummary>;
-			},
 			validate: (
 				rawInput: SandboxRunInput,
 				batches: LifecycleHostInput<"ChangeUserRelationships">["batches"],
@@ -457,29 +452,63 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 						} as const;
 					}),
 				),
+			itemWrite: (input: LifecycleHostInput<"ChangeUserRelationships">) => {
+				const batches = input.batches.map((entry) => ({
+					creates: entry.creates.map((relationship) =>
+						toSandboxRelationshipIdentity(
+							relationship,
+							input.command.writeContext?.pluginRevision?.id ?? null,
+						),
+					),
+					deletes: entry.deletes.map((relationship) =>
+						toSandboxRelationshipIdentity(
+							relationship,
+							input.command.writeContext?.pluginRevision?.id ?? null,
+						),
+					),
+				}));
+				return {
+					items: batches,
+					result: RelationshipBatchSummary,
+					applyPolicies: applyRelationshipHostPolicies,
+					commit: () => (pending: PendingRelationshipMutations) =>
+						relationships
+							.commitProjected(pending, summarizeRelationshipMutations)
+							.pipe(Effect.mapError(lifecycleHostFailure)),
+					prepare: (current: (typeof batches)[number], index: number) =>
+						relationships
+							.prepareChangeUserBatch(input.userId, current, index, input.command, batches)
+							.pipe(Effect.mapError(lifecycleHostFailure)),
+				} satisfies LifecycleItemWrite<(typeof batches)[number], RelationshipBatchSummary>;
+			},
 		},
 		upsertGlobalRelationships: {
 			value: (results: ReadonlyArray<RelationshipReconciliationSummary>) =>
 				results.map(({ deleted, upserted }) => ({ deleted, upserted })),
 			itemWrite: (input: LifecycleHostInput<"UpsertGlobalRelationships">) => {
-				const groups = input.groups.map(toReconcileGroup);
+				const groups = input.groups.map((group) => toReconcileGroup(group, input.command));
 				return {
 					items: input.groups,
 					result: RelationshipReconciliationSummary,
 					applyPolicies: applyRelationshipHostPolicies,
-					prepare: (
-						group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
-						index: number,
-					) =>
-						relationships
-							.prepareReconcileGlobalGroup(toReconcileGroup(group), index, input.command, groups)
-							.pipe(Effect.mapError(lifecycleHostFailure)),
 					commit:
 						(group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number]) =>
 						(pending: PendingRelationshipMutations) =>
 							relationships
 								.commitProjected(pending, reconciliationSummary(group.relationships.length))
 								.pipe(Effect.mapError(lifecycleHostFailure)),
+					prepare: (
+						group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
+						index: number,
+					) =>
+						relationships
+							.prepareReconcileGlobalGroup(
+								toReconcileGroup(group, input.command),
+								index,
+								input.command,
+								groups,
+							)
+							.pipe(Effect.mapError(lifecycleHostFailure)),
 				} satisfies LifecycleItemWrite<
 					LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
 					RelationshipReconciliationSummary
@@ -533,13 +562,21 @@ export const makeSandboxLifecycleHostApi = Effect.gen(function* () {
 
 const toReconcileGroup = (
 	group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
+	command: DomainLifecycleCommand,
 ) => ({
-	relationships: group.relationships.map(toSandboxRelationshipIdentity),
-	relationshipSchemaSlug: RelationshipSchemaSlug.make(group.relationshipSchemaSlug),
 	selector:
 		group.selector.type === "self"
 			? group.selector
 			: { ...group.selector, anchorEntityId: EntityId.make(group.selector.anchorEntityId) },
+	relationshipSchema: {
+		slug: RelationshipSchemaSlug.make(group.relationshipSchemaSlug),
+		owner: definitionOwner(command.writeContext?.pluginRevision?.id ?? null),
+	},
+	relationships: group.relationships.map((relationship) => ({
+		...relationship,
+		sourceEntityId: EntityId.make(relationship.sourceEntityId),
+		targetEntityId: EntityId.make(relationship.targetEntityId),
+	})),
 });
 
 export const makeAdditionalSandboxApiFunctions: Effect.Effect<
@@ -561,6 +598,18 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	const pluginInstallations = yield* PluginInstallationRepository;
 	const oauthConnections = yield* OAuthConnectionsService;
 	const lifecycle = yield* makeSandboxLifecycleHostApi;
+	const readEntitySchemas = (input: UserSandboxRunInput, slugs: ReadonlyArray<string>) => {
+		const userId = UserId.make(userSandboxRunUserId(input));
+		const context = sandboxDefinitionReadContext(input);
+		return context
+			? definitions
+					.getSnapshotForContext(context, userId)
+					.pipe(Effect.map((snapshot) => snapshot.entitySchemas))
+			: definitions.findUserEntitySchemas(
+					userId,
+					slugs.map((slug) => ({ slug, owner: definitionOwner(null) })),
+				);
+	};
 	const loadExecutionState = Effect.fn("loadAdmittedImportExecutionState")(function* (
 		input: UserSandboxRunInput,
 		runId: ImportRunId,
@@ -708,7 +757,17 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return yield* Effect.fail("Event stream processor script could not be resolved");
 				}
 				const workId = yield* eventStreamWork
-					.request({ request, pluginPin, accountGeneration, processorScriptId: target.scriptId })
+					.request({
+						request,
+						pluginPin,
+						accountGeneration,
+						processorScriptId: target.scriptId,
+						command: yield* sandboxLifecycleCommand(
+							input,
+							userLifecycleSource(input),
+							"requestEventStreamWork",
+						),
+					})
 					.pipe(Effect.mapError((error) => error.message));
 				return { workId };
 			}),
@@ -886,120 +945,6 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return yield* resolveStoredPluginUserSettings(settingsSchema, row.userSettings);
 				}),
 			),
-		listEventSchemas: (rawInput, entitySchemaSlugs) =>
-			requireSandboxCapabilityInput(rawInput, "listEventSchemas").pipe(
-				Effect.flatMap((input) =>
-					requireUniqueNonEmptyStrings(
-						entitySchemaSlugs,
-						"listEventSchemas expects non-empty entitySchemaSlugs",
-					).pipe(
-						Effect.flatMap((resolvedEntitySchemaSlugs) => {
-							if (resolvedEntitySchemaSlugs.length === 0) {
-								return Effect.succeed([]);
-							}
-
-							return definitions
-								.findUserEntitySchemas(
-									UserId.make(userSandboxRunUserId(input)),
-									resolvedEntitySchemaSlugs,
-								)
-								.pipe(
-									Effect.flatMap((entitySchemas) =>
-										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
-											const entitySchema = entitySchemas[entitySchemaSlug];
-											return entitySchema
-												? Effect.succeed(
-														Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
-															entitySchemaSlug,
-															id: eventSchema.slug,
-															slug: eventSchema.slug,
-															name: eventSchema.name,
-															propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
-														})),
-													)
-												: Effect.fail("Entity schema not found");
-										}).pipe(Effect.map((schemas) => schemas.flat())),
-									),
-								);
-						}),
-					),
-				),
-				sandboxHostEffect,
-			),
-		createUserEntity: (rawInput, rawItem) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "createUserEntity");
-					const [item] = yield* Schema.decodeEffect(createUserEntityArgsSchema)([rawItem]);
-					const revision = input.principal.pluginRevision;
-					const userId = UserId.make(userSandboxRunUserId(input));
-					const schemas = yield* definitions.findUserEntitySchemas(userId, [item.entitySchemaSlug]);
-					const definition = schemas[item.entitySchemaSlug];
-					if (
-						!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
-						!definition ||
-						definition.pluginId !== revision.id
-					) {
-						return yield* sandboxHostFailure("Entity schema is not owned by the executing plugin", {
-							code: "unavailable-operation",
-							operation: "createUserEntity",
-						});
-					}
-					const command = yield* sandboxLifecycleCommand(
-						input,
-						userLifecycleSource(input),
-						"createUserEntity",
-					);
-					const { entity, warnings } = yield* entities.create({
-						userId,
-						scope: "user",
-						name: item.name,
-						lifecycle: command,
-						properties: item.properties,
-						entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
-					});
-					yield* reportSandboxLifecycleWarnings("createUserEntity", warnings);
-					return { entityId: entity.id };
-				}),
-			),
-		ensureUserEntities: (rawInput, items) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
-					const revision = input.principal.pluginRevision;
-					const userId = UserId.make(userSandboxRunUserId(input));
-					const entitySchemas = yield* definitions.findUserEntitySchemas(
-						userId,
-						items.map(({ entitySchemaSlug }) => entitySchemaSlug),
-					);
-					for (const item of items) {
-						const definition = entitySchemas[item.entitySchemaSlug];
-						if (
-							!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
-							!definition ||
-							definition.pluginId !== revision.id
-						) {
-							return yield* Effect.fail(
-								`ensureUserEntities cannot write foreign entity schema: ${item.entitySchemaSlug}`,
-							);
-						}
-					}
-					const command = yield* sandboxLifecycleCommand(input, "bootstrap", "ensureUserEntities");
-					const results = yield* entities.ensureUserEntities(
-						userId,
-						items.map((item) => ({
-							...item,
-							entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
-						})),
-						command,
-					);
-					yield* reportSandboxLifecycleWarnings(
-						"ensureUserEntities",
-						results.flatMap((result) => result.warnings),
-					);
-					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
-				}),
-			),
 		getCurrentIntegration: (rawInput) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -1035,6 +980,137 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 					return toSandboxIntegration({ ...integration, ...state.executionSettings.integration });
 				}),
 			),
+		createUserEntity: (rawInput, rawItem) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "createUserEntity");
+					const [item] = yield* Schema.decodeEffect(createUserEntityArgsSchema)([rawItem]);
+					const revision = input.principal.pluginRevision;
+					const userId = UserId.make(userSandboxRunUserId(input));
+					const owner = definitionOwner(revision?.id ?? null);
+					const schemas = yield* readEntitySchemas(input, [item.entitySchemaSlug]);
+					const definition = schemas[definitionKey("entity", owner, item.entitySchemaSlug)];
+					if (
+						!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
+						!definition ||
+						definition.pluginId !== revision.id
+					) {
+						return yield* sandboxHostFailure("Entity schema is not owned by the executing plugin", {
+							code: "unavailable-operation",
+							operation: "createUserEntity",
+						});
+					}
+					const command = yield* sandboxLifecycleCommand(
+						input,
+						userLifecycleSource(input),
+						"createUserEntity",
+					);
+					const { entity, warnings } = yield* entities.create({
+						userId,
+						scope: "user",
+						name: item.name,
+						lifecycle: command,
+						properties: item.properties,
+						entitySchema: { owner, slug: EntitySchemaSlug.make(item.entitySchemaSlug) },
+					});
+					yield* reportSandboxLifecycleWarnings("createUserEntity", warnings);
+					return { entityId: entity.id };
+				}),
+			),
+		listEventSchemas: (rawInput, entitySchemaSlugs) =>
+			requireSandboxCapabilityInput(rawInput, "listEventSchemas").pipe(
+				Effect.flatMap((input) =>
+					requireUniqueNonEmptyStrings(
+						entitySchemaSlugs,
+						"listEventSchemas expects non-empty entitySchemaSlugs",
+					).pipe(
+						Effect.flatMap((resolvedEntitySchemaSlugs) => {
+							if (resolvedEntitySchemaSlugs.length === 0) {
+								return Effect.succeed([]);
+							}
+
+							return readEntitySchemas(input, resolvedEntitySchemaSlugs).pipe(
+								Effect.flatMap((entitySchemas) =>
+									Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
+										const entitySchema =
+											entitySchemas[
+												definitionKey(
+													"entity",
+													definitionOwner(input.principal.pluginRevision?.id ?? null),
+													entitySchemaSlug,
+												)
+											];
+										return entitySchema
+											? Effect.succeed(
+													Object.values(entitySchema.eventSchemas).map((eventSchema) => ({
+														entitySchemaSlug,
+														id: eventSchema.slug,
+														slug: eventSchema.slug,
+														name: eventSchema.name,
+														propertiesSchema: toSandboxJsonValue(eventSchema.propertiesSchema),
+														pluginId:
+															eventSchema.pluginId === null
+																? null
+																: PluginId.make(eventSchema.pluginId),
+													})),
+												)
+											: Effect.fail("Entity schema not found");
+									}).pipe(Effect.map((schemas) => schemas.flat())),
+								),
+							);
+						}),
+					),
+				),
+				sandboxHostEffect,
+			),
+		ensureUserEntities: (rawInput, items) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* requireSandboxCapabilityInput(rawInput, "ensureUserEntities");
+					const revision = input.principal.pluginRevision;
+					const userId = UserId.make(userSandboxRunUserId(input));
+					const entitySchemas = yield* readEntitySchemas(
+						input,
+						items.map(({ entitySchemaSlug }) => entitySchemaSlug),
+					);
+					for (const item of items) {
+						const definition =
+							entitySchemas[
+								definitionKey(
+									"entity",
+									definitionOwner(revision?.id ?? null),
+									item.entitySchemaSlug,
+								)
+							];
+						if (
+							!revision?.schemaScope.entitySchemaSlugs.includes(item.entitySchemaSlug) ||
+							!definition ||
+							definition.pluginId !== revision.id
+						) {
+							return yield* Effect.fail(
+								`ensureUserEntities cannot write foreign entity schema: ${item.entitySchemaSlug}`,
+							);
+						}
+					}
+					const command = yield* sandboxLifecycleCommand(input, "bootstrap", "ensureUserEntities");
+					const results = yield* entities.ensureUserEntities(
+						userId,
+						items.map(({ entitySchemaSlug, ...item }) => ({
+							...item,
+							entitySchema: {
+								owner: definitionOwner(revision?.id ?? null),
+								slug: EntitySchemaSlug.make(entitySchemaSlug),
+							},
+						})),
+						command,
+					);
+					yield* reportSandboxLifecycleWarnings(
+						"ensureUserEntities",
+						results.flatMap((result) => result.warnings),
+					);
+					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
+				}),
+			),
 		executeRyotql: (rawInput, query) =>
 			requireSandboxCapabilityInput(rawInput, "executeRyotql").pipe(
 				Effect.flatMap((input) => {
@@ -1054,7 +1130,11 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								}
 								const document = yield* decodeRyotQLDocument(query);
 								return yield* ryotqlService.executeForPlugin(
-									{ pluginSlug: revision.slug, ...revision.schemaScope },
+									{
+										pluginId: revision.id,
+										pluginRevisionId: revision.revisionId,
+										...revision.schemaScope,
+									},
 									document,
 									SANDBOX_LIMITS.ryotqlResultBytes,
 								);
@@ -1078,6 +1158,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								document,
 								"standard",
 								SANDBOX_LIMITS.ryotqlResultBytes,
+								sandboxDefinitionReadContext(input),
 							);
 						}),
 					);
@@ -1095,57 +1176,64 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								return Effect.succeed([]);
 							}
 
-							return definitions
-								.findUserEntitySchemas(
-									UserId.make(userSandboxRunUserId(input)),
-									resolvedEntitySchemaSlugs,
-								)
-								.pipe(
-									Effect.flatMap((entitySchemas) =>
-										Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
-											const definition = entitySchemas[entitySchemaSlug];
-											if (!definition) {
-												return Effect.fail("Entity schema not found");
+							return readEntitySchemas(input, resolvedEntitySchemaSlugs).pipe(
+								Effect.flatMap((entitySchemas) =>
+									Effect.forEach(resolvedEntitySchemaSlugs, (entitySchemaSlug) => {
+										const definition =
+											entitySchemas[
+												definitionKey(
+													"entity",
+													definitionOwner(input.principal.pluginRevision?.id ?? null),
+													entitySchemaSlug,
+												)
+											];
+										if (!definition) {
+											return Effect.fail("Entity schema not found");
+										}
+										return Effect.succeed({
+											definition,
+											entitySchemaSlug,
+											pluginSlug: definition.pluginSlug,
+										});
+									}),
+								),
+								Effect.flatMap((schemas) =>
+									Effect.gen(function* () {
+										const links = yield* pluginRuntime.listSchemaProviders({
+											userId: userSandboxRunUserId(input),
+											entitySchemas: resolvedEntitySchemaSlugs.map((slug) => ({
+												slug: EntitySchemaSlug.make(slug),
+												owner: definitionOwner(input.principal.pluginRevision?.id ?? null),
+											})),
+										});
+										const providersBySchema = new Map<
+											string,
+											Array<{ name: string; providerId: string }>
+										>();
+										for (const { provider, entitySchemaSlug } of links) {
+											if (provider.pluginId !== input.principal.pluginRevision?.id) {
+												continue;
 											}
-											if (!definition.pluginSlug) {
-												return Effect.fail("Entity schema plugin not found");
-											}
-											return Effect.succeed({
-												definition,
-												entitySchemaSlug,
-												pluginSlug: definition.pluginSlug,
-											});
-										}),
-									),
-									Effect.flatMap((schemas) =>
-										Effect.gen(function* () {
-											const links = yield* pluginRuntime.listSchemaProviders({
-												userId: userSandboxRunUserId(input),
-												entitySchemaSlugs: resolvedEntitySchemaSlugs,
-											});
-											const providersBySchema = new Map<
-												string,
-												Array<{ name: string; providerId: string }>
-											>();
-											for (const { provider, entitySchemaSlug } of links) {
-												const providers = providersBySchema.get(entitySchemaSlug) ?? [];
-												providers.push({ name: provider.name, providerId: provider.id });
-												providersBySchema.set(entitySchemaSlug, providers);
-											}
+											const providers = providersBySchema.get(entitySchemaSlug) ?? [];
+											providers.push({ name: provider.name, providerId: provider.id });
+											providersBySchema.set(entitySchemaSlug, providers);
+										}
 
-											return schemas.map(({ definition, pluginSlug, entitySchemaSlug }) => ({
-												pluginSlug,
-												isBuiltin: true,
-												id: entitySchemaSlug,
-												icon: definition.icon,
-												name: definition.name,
-												slug: definition.slug,
-												providers: providersBySchema.get(entitySchemaSlug) ?? [],
-												propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
-											}));
-										}).pipe(Effect.mapError(unknownToMessage)),
-									),
-								);
+										return schemas.map(({ definition, pluginSlug, entitySchemaSlug }) => ({
+											pluginSlug,
+											isBuiltin: true,
+											id: entitySchemaSlug,
+											icon: definition.icon,
+											name: definition.name,
+											slug: definition.slug,
+											providers: providersBySchema.get(entitySchemaSlug) ?? [],
+											propertiesSchema: toSandboxJsonValue(definition.propertiesSchema),
+											pluginId:
+												definition.pluginId === null ? null : PluginId.make(definition.pluginId),
+										}));
+									}).pipe(Effect.mapError(unknownToMessage)),
+								),
+							);
 						}),
 					),
 				),

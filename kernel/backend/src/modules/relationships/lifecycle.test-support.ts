@@ -1,3 +1,4 @@
+import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -64,9 +65,11 @@ export const baseInput = {
 	scope: "user" as const,
 	relationshipSchemaSlug,
 	properties: { rank: 1 },
+	relationshipSchemaPluginId: null,
+	relationshipSchema: { slug: relationshipSchemaSlug, owner: { kind: "kernel" as const } },
 };
-export const command = (id: string, actorUserId: UserId = userId) =>
-	rootLifecycleCommand({
+export const command = (id: string, actorUserId: UserId = userId) => ({
+	...rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
 		itemIdentity: "relationship",
@@ -74,7 +77,9 @@ export const command = (id: string, actorUserId: UserId = userId) =>
 		executionId: AutomationExecutionId.make(id),
 		initiator: { kind: "user", id: actorUserId },
 		accountGeneration: { userId: actorUserId, token: "test-account-generation" },
-	});
+	}),
+	writeContext: null,
+});
 
 export class RelationshipFixture extends Context.Service<
 	RelationshipFixture,
@@ -138,6 +143,7 @@ export const relationshipDatabaseLayer = (
 				relationshipSchemas: [relationshipSchema],
 				entitySchemas: [
 					{
+						pluginId: null,
 						name: "Fixture",
 						icon: "fixture",
 						pluginSlug: null,
@@ -177,7 +183,7 @@ export const relationshipDatabaseLayer = (
 											Effect.gen(function* () {
 												yield* Ref.update(globalRelationshipSchemaCalls, (calls) => [
 													...calls,
-													[...slugs],
+													slugs.map(({ slug }) => slug),
 												]);
 												return yield* definitions.findGlobalRelationshipSchemas(slugs);
 											}),
@@ -187,10 +193,17 @@ export const relationshipDatabaseLayer = (
 												const activated = yield* Ref.get(schemaActivated);
 												return options.omitSchemaBeforeWrite ||
 													state === "disabled" ||
-													!slugs.includes(relationshipSchemaSlug)
+													!slugs.some(
+														({ slug, owner }) =>
+															owner.kind === "kernel" && slug === relationshipSchemaSlug,
+													)
 													? {}
 													: {
-															[relationshipSchemaSlug]:
+															[definitionKey(
+																"relationship",
+																{ kind: "kernel" },
+																relationshipSchemaSlug,
+															)]:
 																activated || state === "updated"
 																	? {
 																			...relationshipSchema,

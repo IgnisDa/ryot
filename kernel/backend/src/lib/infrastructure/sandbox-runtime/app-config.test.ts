@@ -1,5 +1,6 @@
 import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect } from "effect";
 
@@ -7,7 +8,7 @@ import { makeConfigProviderLayer } from "#lib/test-utils/effect";
 
 import { getPluginConfig } from "./app-config";
 
-const pluginSlug = "test-plugin";
+const packageId = PluginPackageId.make("3b7e9f29-42a1-4f20-83aa-e9d0acba2001");
 const pluginConfigSchema = {
 	unknownKeys: "strict",
 	fields: {
@@ -26,7 +27,7 @@ const pluginEnvironmentLayer = (values: Readonly<Record<string, string>>) =>
 	makeConfigProviderLayer(
 		Object.fromEntries(
 			Object.entries(values).map(([configKey, value]) => [
-				pluginConfigEnvironmentKey(pluginSlug, configKey),
+				pluginConfigEnvironmentKey(packageId, configKey),
 				value,
 			]),
 		),
@@ -39,7 +40,7 @@ const runPluginConfig = (
 	getPluginConfig({
 		access: { required: keys },
 		metadata: { requiredPluginConfigKeys },
-		context: { pluginSlug, kind: "environment", configSchema: pluginConfigSchema },
+		context: { packageId, kind: "environment", configSchema: pluginConfigSchema },
 	}).pipe(Effect.result);
 
 const runInstallationConfig = (
@@ -115,7 +116,7 @@ describe("getPluginConfig", () => {
 				expect(
 					yield* getPluginConfig({
 						access: { optional: ["apiToken"] },
-						context: { pluginSlug, kind: "environment", configSchema: pluginConfigSchema },
+						context: { packageId, kind: "environment", configSchema: pluginConfigSchema },
 						metadata: { requiredPluginConfigKeys: [], optionalPluginConfigKeys: ["apiToken"] },
 					}),
 				).toEqual({});
@@ -145,9 +146,9 @@ describe("getPluginConfig", () => {
 			).toBe('Plugin config key "enabled" is not a required read by this script');
 		}),
 	);
-	it("derives stable environment keys from the plugin slug and config key", () => {
-		expect(pluginConfigEnvironmentKey("example-tools", "apiToken")).toBe(
-			"RYOT_PLUGIN_EXAMPLE_TOOLS_API_TOKEN",
+	it("selects package-specific environment configuration", () => {
+		expect(pluginConfigEnvironmentKey(packageId, "apiToken")).toBe(
+			"RYOT_PLUGIN_3B7E9F2942A14F2083AAE9D0ACBA2001_API_TOKEN",
 		);
 	});
 

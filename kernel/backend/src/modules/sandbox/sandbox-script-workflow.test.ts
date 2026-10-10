@@ -42,7 +42,10 @@ import {
 } from "#lib/test-utils/effect";
 import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { testExecutionId, testRedisClient } from "#lib/test-utils/redis";
+import { makeUserPrincipal, makeUserSubject } from "#lib/test-utils/sandbox-run-input";
 import { stubRuntimeSandboxService } from "#lib/test-utils/sandbox-runtime";
+import { fixtureManifest } from "#modules/plugins/test-support";
+import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
@@ -90,10 +93,16 @@ const pluginRevision = {
 	scope: "system" as const,
 	id: PluginId.make("plugin"),
 	userBootstrapScriptSlugs: [],
+	packageId: fixtureManifest().metadata.packageId,
 	revisionId: PluginRevisionId.make("revision-1"),
 	configRevisionId: PluginConfigRevisionId.make("config-1"),
 	configSchema: { fields: {}, unknownKeys: "strict" as const },
-	schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+	schemaScope: {
+		eventSchemas: [],
+		entitySchemaSlugs: [],
+		signalSchemaSlugs: [],
+		relationshipSchemaSlugs: [],
+	},
 };
 
 const automationSubject = {
@@ -118,6 +127,8 @@ const automationSubject = {
 		rootExecutionId: AutomationExecutionId.make("execution-1"),
 	},
 };
+const trustedUserId = UserId.make("trusted-user");
+const trustedUserSubject = makeUserSubject(trustedUserId);
 
 class WorkflowTestCalls extends Context.Service<
 	WorkflowTestCalls,
@@ -238,6 +249,11 @@ layer(
 						contentHash: "hash-1",
 						executionId: "execution-1",
 						scriptId: "historical-script",
+						expectedRevision: {
+							id: pluginRevision.id,
+							revisionId: pluginRevision.revisionId,
+							configRevisionId: pluginRevision.configRevisionId,
+						},
 					},
 				]);
 				const pinning = yield* SandboxWorkflowPinning;
@@ -440,8 +456,9 @@ const hotSwapLayer = recordingLayer(
 			Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
 			artifactsLayer,
 			Layer.mock(SandboxPluginScriptResolver)({
-				findActiveScriptById: () =>
-					calls.record("pin-events", "resolve-active").pipe(
+				findActiveScriptById: (_scriptId, executingUserId) =>
+					calls.record("active-script-users", executingUserId).pipe(
+						Effect.andThen(calls.record("pin-events", "resolve-active")),
 						Effect.andThen(Ref.get(active)),
 						Effect.map((id) => (id === historicalScriptId ? historicalScript : replacementScript)),
 					),
@@ -506,8 +523,9 @@ const hotSwapLayer = recordingLayer(
 					_lane,
 					_executionId,
 					_parentExecutionId,
-					callerScriptId,
-				) => calls.record("kernel-callers", callerScriptId).pipe(Effect.as({ kernel: "recorded" })),
+					callerAuthority,
+				) =>
+					calls.record("kernel-callers", callerAuthority).pipe(Effect.as({ kernel: "recorded" })),
 			}),
 			Layer.mock(SandboxDurableHostDispatcher)({
 				cancelInline: () => Effect.void,
@@ -524,11 +542,11 @@ layer(withWorkflowPinning(hotSwapLayer))((test) => {
 		const payload = {
 			input: {},
 			executionId,
+			subject: trustedUserSubject,
 			lane: "interactive" as const,
 			scriptId: historicalScriptId,
 			resultMode: "execution" as const,
 			resolutionMode: "active" as const,
-			subject: { type: "system" as const },
 		};
 
 		return Effect.gen(function* () {
@@ -550,7 +568,11 @@ layer(withWorkflowPinning(hotSwapLayer))((test) => {
 				value: { content: "pinned-v1", journal: [{ kernel: "recorded" }] },
 			});
 			expect(yield* (yield* ActiveWorkflowScript).current).toBe(replacementScriptId);
-			expect((yield* calls.entries("kernel-callers")).at(-1)).toBe(historicalScriptId);
+			expect(yield* calls.entries("active-script-users")).toEqual([trustedUserId]);
+			expect((yield* calls.entries("kernel-callers")).at(-1)).toMatchObject({
+				pluginRevision,
+				scriptId: historicalScriptId,
+			});
 			expect(executedContent).toEqual([historicalContent, historicalContent]);
 			expect(executedContent).not.toContain(replacementContent);
 			expect((yield* calls.entries("pin-events")).slice(0, 5)).toEqual([
@@ -564,6 +586,7 @@ layer(withWorkflowPinning(hotSwapLayer))((test) => {
 				{
 					executionId,
 					pluginId: "plugin",
+					userId: trustedUserId,
 					scriptId: historicalScriptId,
 					contentHash: historicalScript.contentHash,
 				},
@@ -1084,7 +1107,7 @@ it.effect("accepts inline entries only as the replay's continuation of its loade
 
 const inlineScriptId = SandboxScriptId.make("inline-script");
 
-const inlineWorkflowLayer = (executionId: string) =>
+const inlineWorkflowLayer = (executionId: string, principal?: SandboxExecutionPrincipal) =>
 	withWorkflowPinning(
 		recordingLayer(
 			Effect.gen(function* () {
@@ -1094,8 +1117,8 @@ const inlineWorkflowLayer = (executionId: string) =>
 				return Layer.mergeAll(
 					mutationAdmissionTestLayer,
 					Layer.mock(SandboxArtifactStore)({
-						retain: () => Effect.void,
-						release: () => Effect.void,
+						retain: () => calls.record("artifact-retained", executionId),
+						release: () => calls.record("artifact-released", executionId),
 					}),
 					Layer.mock(SandboxPluginScriptResolver)({
 						findActiveScriptById: () => Effect.die("unused"),
@@ -1131,7 +1154,15 @@ const inlineWorkflowLayer = (executionId: string) =>
 					Layer.mock(SandboxRepository)({
 						resolveWorkflowCallScript: () => Effect.succeed(null),
 						getScriptPin: () =>
-							Effect.succeed({
+							Effect.succeed(principal?.pluginRevision ? {
+								providerId: null,
+								pluginRevision: principal.pluginRevision,
+								scriptSlug: principal.scriptSlug,
+								scriptId: principal.scriptId,
+								contentHash: principal.contentHash,
+								metadata: principal.metadata,
+								...(principal.initialization ? { initialization: principal.initialization } : {}),
+							} : {
 								providerId: null,
 								pluginRevision: null,
 								scriptSlug: "inline",
@@ -1145,9 +1176,9 @@ const inlineWorkflowLayer = (executionId: string) =>
 							}),
 					}),
 					Layer.mock(SandboxWorkflowReferenceRepository)({
-						release: () => Effect.die("unused"),
+						release: () => calls.record("references-released", executionId),
 						lockIngestionShared: () => Effect.void,
-						registerInTransaction: () => Effect.die("unused"),
+						registerInTransaction: () => calls.record("references-retained", executionId).pipe(Effect.as({ status: "registered" as const })),
 					}),
 				);
 			}),
@@ -1195,6 +1226,62 @@ const runInlineWorkflow = <R>(
 		executionId,
 		processReplay,
 	);
+
+const retainedUserSubject = makeUserSubject(UserId.make("user-1"));
+const retainedUserPrincipal = makeUserPrincipal({
+	subject: retainedUserSubject,
+	scriptId: inlineScriptId,
+	scriptSlug: "inline",
+	contentHash: "inline-hash",
+	metadata: { kind: "operation", runtimeImports: [], capabilities: ["getCachedValue", "setCachedValue"] },
+	pluginRevision: { ...pluginRevision, scope: "user", ownerId: retainedUserSubject.userId },
+});
+
+for (const code of ["package-identity-conflict", "installation-unavailable"] as const) {
+	for (const mode of ["execution", "workflow"] as const) {
+		const executionId = testExecutionId(`retained-user-${code}-${mode}`);
+		layer(inlineWorkflowLayer(executionId, retainedUserPrincipal))((test) => {
+			test.effect(`${mode} mode retains typed ${code} after admitted replay without changing recorded results`, () => Effect.gen(function* () {
+				const calls = yield* WorkflowTestCalls;
+				const data = { code, pluginId: pluginRevision.id, installationId: "private-installation" };
+				const failure = new SandboxRunError({ kind: "script-failure", message: "Sandbox installation is unavailable", data });
+				const replay = (input: SandboxExecutionQueuePayload) => input.journalLength === 0 ? Effect.succeed(firstInlineReplay) : Effect.fail(failure);
+				const run = runSandboxScriptWorkflowBody({ input: {}, executionId, lane: "interactive", resolutionMode: "exact", scriptId: inlineScriptId, subject: retainedUserSubject, ...(mode === "execution" ? { resultMode: "execution" as const } : {}) }, executionId, replay);
+				if (mode === "execution") {
+					expect(yield* run).toEqual({ logs: [], value: null, status: "completed", error: { kind: "resource-unavailable", phase: "execute", message: failure.message, data } });
+				} else {
+					assertExitFails(yield* Effect.exit(run), failure);
+				}
+				expect(yield* calls.entries("dispatched")).toEqual([1]);
+				expect(yield* calls.entries("references-retained")).toEqual([executionId]);
+				expect(yield* calls.entries("references-released")).toEqual([executionId]);
+				expect(yield* calls.entries("artifact-released")).toEqual([executionId]);
+				const redis = yield* RedisService;
+				const inspection = yield* inspectSandboxJournal(redis, executionId, 2);
+				assert(inspection !== null);
+				expect(yield* readPinnedJournal(pinSandboxJournal(redis, executionId, inspection))).toEqual([cachedEntry(inlineFirst), { request: inlineSecond, value: { value: "written", state: "success" } }]);
+			}));
+		});
+	}
+}
+
+for (const kind of ["infrastructure", "missing-artifact", "invalid-input", "resource-unavailable"] as const) {
+	const executionId = testExecutionId(`execution-mode-unchanged-${kind}`);
+	layer(inlineWorkflowLayer(executionId, retainedUserPrincipal))((test) => {
+		test.effect(`execution mode still fails for ${kind} without installation revocation data`, () => Effect.gen(function* () {
+			const failure = new SandboxRunError({ kind, message: `Unchanged ${kind} failure`, ...(kind === "resource-unavailable" ? { data: { code: "execution-limit" as const, operation: "httpCall" } } : {}) });
+			assertExitFails(yield* Effect.exit(runSandboxScriptWorkflowBody({ input: {}, executionId, lane: "interactive", resolutionMode: "exact", resultMode: "execution", scriptId: inlineScriptId, subject: retainedUserSubject }, executionId, () => Effect.fail(failure))), failure);
+		}));
+	});
+}
+
+const returnedRevocationId = testExecutionId("returned-replay-revocation");
+layer(inlineWorkflowLayer(returnedRevocationId, retainedUserPrincipal))((test) => {
+	test.effect("preserves boundary data on an execution error returned by the replay", () => Effect.gen(function* () {
+		const data = { code: "package-identity-conflict", pluginId: pluginRevision.id, installationId: "private-installation" } as const;
+		expect(yield* runSandboxScriptWorkflowBody({ input: {}, executionId: returnedRevocationId, lane: "interactive", resolutionMode: "exact", resultMode: "execution", scriptId: inlineScriptId, subject: retainedUserSubject }, returnedRevocationId, () => Effect.succeed({ ...replayBase, inline: [], pendingInline: [], value: null, error: { phase: "execute", kind: "script-failure", message: "Sandbox installation is unavailable", data } }))).toEqual({ logs: [], value: null, status: "completed", error: { phase: "execute", kind: "resource-unavailable", message: "Sandbox installation is unavailable", data } });
+	}));
+});
 
 const inlineIds = {
 	lost: testExecutionId("inline-lost"),
@@ -1579,6 +1666,11 @@ layer(
 					scriptId: SandboxScriptId.make("parent-script"),
 				},
 				"parent",
+				makeUserPrincipal({
+					pluginRevision,
+					subject: automationSubject,
+					scriptId: SandboxScriptId.make("parent-script"),
+				}),
 			);
 			expect(result).toEqual({ child: true });
 			expect((yield* calls.entries("executed-workflows")).at(-1)).toBe(SandboxScriptWorkflow);
@@ -1676,7 +1768,7 @@ layer(
 						lane,
 						executionId,
 						parentExecutionId,
-						callerScriptId,
+						callerAuthority,
 					) =>
 						calls
 							.record("kernel-calls", {
@@ -1685,7 +1777,7 @@ layer(
 								subject,
 								executionId,
 								workflowSlug,
-								callerScriptId,
+								callerAuthority,
 								parentExecutionId,
 							})
 							.pipe(Effect.as({ status: "completed", entity: { id: "entity-1" } })),
@@ -1721,17 +1813,29 @@ layer(
 					},
 				},
 				"parent",
+				makeUserPrincipal({
+					pluginRevision,
+					scriptId: SandboxScriptId.make("parent-script"),
+					subject: {
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					},
+				}),
 			);
 
 			expect(result).toEqual({ status: "completed", entity: { id: "entity-1" } });
-			expect(yield* (yield* WorkflowTestCalls).entries("kernel-calls")).toEqual([
+			expect(yield* (yield* WorkflowTestCalls).entries("kernel-calls")).toMatchObject([
 				{
 					lane: "interactive",
 					parentExecutionId: "parent",
-					callerScriptId: "parent-script",
 					input: { externalId: "record-1" },
 					executionId: "parent-child-import-3-4",
 					workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
+					callerAuthority: { pluginRevision, scriptId: "parent-script" },
 					subject: {
 						type: "user",
 						userId: "trusted-user",

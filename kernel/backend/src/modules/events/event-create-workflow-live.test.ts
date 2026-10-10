@@ -54,15 +54,18 @@ const userId = UserId.make("user");
 const entityId = EntityId.make("subject");
 const eventSchemaSlug = EventSchemaSlug.make("rating");
 const entitySchemaSlug = EntitySchemaSlug.make("record");
-const command = rootLifecycleCommand({
-	source: "api",
-	occurredAt: now,
-	lane: "interactive",
-	itemIdentity: "events",
-	initiator: { id: userId, kind: "user" },
-	executionId: AutomationExecutionId.make("batch"),
-	accountGeneration: { userId, token: "test-account-generation" },
-});
+const command = {
+	...rootLifecycleCommand({
+		source: "api",
+		occurredAt: now,
+		lane: "interactive",
+		itemIdentity: "events",
+		initiator: { id: userId, kind: "user" },
+		executionId: AutomationExecutionId.make("batch"),
+		accountGeneration: { userId, token: "test-account-generation" },
+	}),
+	writeContext: null,
+};
 const payload: EventCreateWorkflowPayload = {
 	userId,
 	command,
@@ -450,14 +453,17 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 										entitySchemaSlug,
 										providerId: null,
 										populatedAt: null,
+										entitySchemaPluginId: null,
 										properties: changedEntityMetadata.has(requestedId) ? { changed: true } : {},
 									},
 						),
 				}),
 				Layer.mock(EventSchemasRepository)({
 					lockCatalog: () =>
-						update(({ options }) => ({
-							schemaActivated: options.activateSchemaBeforeWrite ?? false,
+						update(({ options, triggers }) => ({
+							schemaActivated:
+								(options.activateSchemaBeforeWrite ?? false) &&
+								triggers.some(({ kind }) => kind.category === "request"),
 						})),
 					getScopeForUser: () =>
 						read(({ schemaDisabled, schemaActivated }) =>
@@ -465,6 +471,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 								? null
 								: {
 										name: "Rating",
+										pluginId: null,
 										slug: "rating",
 										eventSchemaSlug,
 										entitySchemaSlug,
@@ -510,6 +517,10 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 								eventSchemaName: input.eventSchemaName,
 								sessionEntityId: input.sessionEntityId,
 								occurredAt: input.occurredAt.toISOString(),
+								eventSchemaPluginId:
+									input.eventSchemaPluginId === null
+										? null
+										: PluginId.make(input.eventSchemaPluginId),
 							};
 						}),
 				}),

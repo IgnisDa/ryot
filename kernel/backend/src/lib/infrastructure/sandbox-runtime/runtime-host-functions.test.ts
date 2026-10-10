@@ -1,16 +1,23 @@
-import { describe, expect, layer } from "@effect/vitest";
+import { assert, describe, expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
-import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer, MutableRef, Ref } from "effect";
+import {
+	PluginPackageId,
+	SandboxProviderId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { Effect, Layer, MutableRef, Ref, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
 import { type EgressPolicy, withEgressPolicy } from "#lib/infrastructure/egress/http-client";
 import { makeRedisService } from "#lib/test-utils/effect";
-import { makeUserRunInput } from "#lib/test-utils/sandbox-run-input";
+import { makeUserRunInput, makeUserSubject } from "#lib/test-utils/sandbox-run-input";
+import { fixtureManifest } from "#modules/plugins/test-support";
 import { sandboxHttpRedirectClassifier } from "#modules/sandbox/durable-host-dispatcher";
 
 import { RedisService } from "../redis";
 import { ServerRun } from "../server-run";
+import { SandboxPluginRevision } from "./execution-principal";
 import {
 	executeSandboxHttp,
 	makeRuntimeSandboxApiFunctions,
@@ -34,6 +41,29 @@ const hostWith = (client: HttpClient.HttpClient, classify: SandboxHttpClassify =
 	);
 
 const input = makeUserRunInput();
+const pluginInput = makeUserRunInput({
+	principal: {
+		pluginRevision: Schema.decodeSync(SandboxPluginRevision)({
+			ownerId: null,
+			id: "plugin-a",
+			scope: "system",
+			slug: "same-name",
+			compiledHashes: {},
+			workflowScripts: {},
+			revisionId: "revision-1",
+			configRevisionId: "config-1",
+			configSchema: { fields: {} },
+			userBootstrapScriptSlugs: [],
+			packageId: fixtureManifest().metadata.packageId,
+			schemaScope: {
+				eventSchemas: [],
+				entitySchemaSlugs: [],
+				signalSchemaSlugs: [],
+				relationshipSchemaSlugs: [],
+			},
+		}),
+	},
+});
 
 const runtimeHostLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -72,6 +102,89 @@ const runtimeHostLayer = Layer.unwrap(
 describe("runtime sandbox host functions", () => {
 	layer(runtimeHostLayer)((test) => {
 		test.effect(
+			"isolates disposable values by exact pins and keeps persistent keys across updates",
+			() =>
+				Effect.gen(function* () {
+					const host = yield* makeRuntimeSandboxApiFunctions(followAll);
+					const revision = pluginInput.principal.pluginRevision;
+					assert(revision);
+					yield* host.setCachedValue(pluginInput, "value", "original", 60);
+					expect(yield* host.claimPersistentValue(pluginInput, "value", "persistent", 60)).toEqual({
+						claimed: true,
+					});
+					const upgraded = {
+						...pluginInput,
+						principal: {
+							...pluginInput.principal,
+							scriptId: SandboxScriptId.make("new-script-row"),
+							pluginRevision: yield* Schema.decodeEffect(SandboxPluginRevision)({
+								...revision,
+								revisionId: "revision-2",
+								configRevisionId: "config-2",
+							}),
+						},
+					};
+					expect(yield* host.getCachedValue(upgraded, "value")).toBeNull();
+					expect(yield* host.getPersistentValue(upgraded, "value")).toBe("persistent");
+					const reconfigured = {
+						...pluginInput,
+						principal: {
+							...pluginInput.principal,
+							pluginRevision: yield* Schema.decodeEffect(SandboxPluginRevision)({
+								...revision,
+								configRevisionId: "config-2",
+							}),
+						},
+					};
+					expect(yield* host.getCachedValue(reconfigured, "value")).toBeNull();
+					expect(yield* host.getCachedValue(pluginInput, "value")).toBe("original");
+				}),
+		);
+		test.effect(
+			"isolates equal local names, credential users, and tagged provider/script identities",
+			() =>
+				Effect.gen(function* () {
+					const host = yield* makeRuntimeSandboxApiFunctions(followAll);
+					const revision = pluginInput.principal.pluginRevision;
+					assert(revision);
+					yield* host.setCachedValue(pluginInput, "name:with:separators", "owned", 60);
+					yield* host.claimPersistentValue(pluginInput, "name:with:separators", "owned", 60);
+					const sameName = {
+						...pluginInput,
+						principal: {
+							...pluginInput.principal,
+							pluginRevision: yield* Schema.decodeEffect(SandboxPluginRevision)({
+								...revision,
+								id: "plugin-b",
+								packageId: fixtureManifest(
+									PluginPackageId.make("4a58c0e1-e066-4a6a-b3bb-c8f54e490001"),
+								).metadata.packageId,
+							}),
+						},
+					};
+					const otherUser = {
+						...pluginInput,
+						principal: {
+							...pluginInput.principal,
+							subject: makeUserSubject(UserId.make("other-user")),
+						},
+					};
+					const provider = {
+						...pluginInput,
+						principal: {
+							...pluginInput.principal,
+							providerId: SandboxProviderId.make(pluginInput.principal.scriptSlug),
+						},
+					};
+					for (const isolated of [sameName, otherUser, provider]) {
+						expect(yield* host.getCachedValue(isolated, "name:with:separators")).toBeNull();
+						expect(yield* host.getPersistentValue(isolated, "name:with:separators")).toBeNull();
+					}
+				}),
+		);
+	});
+	layer(runtimeHostLayer)((test) => {
+		test.effect(
 			"reads persistent completion without claiming and retains its namespace across server runs",
 			() =>
 				Effect.gen(function* () {
@@ -86,10 +199,7 @@ describe("runtime sandbox host functions", () => {
 					expect(yield* restarted.getPersistentValue(input, "completion")).toBe(true);
 					expect(
 						yield* restarted.getPersistentValue(
-							{
-								...input,
-								principal: { ...input.principal, scriptId: SandboxScriptId.make("other-script") },
-							},
+							{ ...input, principal: { ...input.principal, scriptSlug: "other-script" } },
 							"completion",
 						),
 					).toBeNull();
