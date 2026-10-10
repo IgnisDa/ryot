@@ -251,6 +251,14 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				);
 				return yield* Effect.forEach(rows, decodeRow);
 			});
+			const listDispatchStates = Effect.fn(function* (ids: ReadonlyArray<AutomationRunId>) {
+				return yield* session.run((db) =>
+					db
+						.select({ id: table.id, status: table.status, attemptCount: table.attemptCount })
+						.from(table)
+						.where(inArray(table.id, [...ids])),
+				);
+			});
 			const listQueuedCandidates = Effect.fn(function* (input: {
 				now: Date;
 				limit: number;
@@ -389,6 +397,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				insertQueued,
 				deleteExpired,
 				listByTrigger,
+				listDispatchStates,
 				skipQueuedPolicies,
 				clearHistoryPayloads,
 				listQueuedCandidates,

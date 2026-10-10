@@ -68,27 +68,8 @@ export const settledAutomationRunResult = (
 		}),
 	);
 
-export const AutomationObservation = Schema.Union([
+export const AutomationRunSettlement = Schema.Union([
 	Schema.TaggedStruct("completed", { result: AutomationRunWorkflowResult }),
-	Schema.TaggedStruct("expired", {}),
+	Schema.TaggedStruct("pending", {}),
 ]);
-export type AutomationObservation = typeof AutomationObservation.Type;
-
-export const AutomationObservationWorkflowPayload = Schema.Struct({
-	...AutomationRunWorkflowPayload.fields,
-	deadline: Schema.Finite,
-});
-export type AutomationObservationWorkflowPayload = typeof AutomationObservationWorkflowPayload.Type;
-
-export const automationObservationExecutionId = (runId: AutomationRunId, attemptNumber: number) =>
-	`${automationAttemptIdentity(runId, attemptNumber).workflowExecutionId}-observation`;
-
-// A short-lived observer owns the deadline race, so a losing clock or a late run exit only reaches a
-// completed workflow and never wakes the long-lived workflow that waits for the outcome.
-export const AutomationObservationWorkflow = Workflow.make("AutomationObservationWorkflow", {
-	error: DbError satisfies DurableSchema,
-	success: AutomationObservation satisfies DurableSchema,
-	payload: AutomationObservationWorkflowPayload satisfies DurableSchema,
-	idempotencyKey: ({ runId, attemptNumber }) =>
-		automationObservationExecutionId(runId, attemptNumber),
-});
+export type AutomationRunSettlement = typeof AutomationRunSettlement.Type;

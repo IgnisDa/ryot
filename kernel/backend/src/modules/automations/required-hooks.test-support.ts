@@ -1,13 +1,14 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { AutomationRunId } from "@ryot-app/contract/schema/brands";
+import { AutomationRunId, type AutomationTriggerId } from "@ryot-app/contract/schema/brands";
 import { Clock, Context, Effect, Layer, Ref, Schema } from "effect";
 import { DurableDeferred } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { LifecycleDispatchRun } from "#lib/domain/lifecycle";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 
 import { automationAttemptIdentity } from "./attempt-repository";
-import { AutomationExecutionOperations } from "./execution";
+import { type AutomationDispatchState, AutomationExecutionOperations } from "./execution";
 import { AutomationRunWorkflow, type AutomationRunWorkflowResult } from "./run-workflow";
 
 export const policyPatch = { resource: "entity", draft: { name: "Changed" } } as const;
@@ -30,14 +31,29 @@ const runResult = (
 		failureKind: status === "failed" ? "sandbox-timeout" : null,
 	},
 });
+export const requiredRun = (
+	id: string,
+	triggerId: AutomationTriggerId,
+	delivery: "required" | "async" = "required",
+) =>
+	Schema.decodeSync(LifecycleDispatchRun)({
+		id,
+		delivery,
+		triggerId,
+		hookSlug: id,
+		stage: "after",
+		status: "queued",
+	});
 export const executionIdOf = (runId: string) =>
 	automationAttemptIdentity(AutomationRunId.make(runId), 1).workflowExecutionId;
 
 // Runs named `held*` wait for `Release`; runs named `late*` finish their attempt immediately but
-// exit only after the deadline; `*failed*` runs fail; `submission-failed*` runs are never submitted.
+// exit only after the deadline; `*failed*` runs fail; `submission-failed*` runs are never submitted;
+// `skipped*` runs were closed before their first submission.
 export class RunControl extends Context.Service<
 	RunControl,
 	{
+		readonly started: Ref.Ref<ReadonlySet<string>>;
 		readonly submitted: Ref.Ref<ReadonlyArray<string>>;
 		readonly transactionActive: Ref.Ref<boolean>;
 		readonly skipped: Ref.Ref<ReadonlyArray<string>>;
@@ -62,6 +78,7 @@ export const release = (runId: string) =>
 export const runWorkflowLive = implementWorkflow(AutomationRunWorkflow, (payload) =>
 	Effect.gen(function* () {
 		const control = yield* RunControl;
+		yield* Ref.update(control.started, (all) => new Set(all).add(payload.runId));
 		if (payload.runId.startsWith("held")) {
 			yield* DurableDeferred.await(Release);
 		}
@@ -77,6 +94,13 @@ export const runWorkflowLive = implementWorkflow(AutomationRunWorkflow, (payload
 	}),
 );
 
+const dispatchStateOf = (runId: string, started: ReadonlySet<string>): AutomationDispatchState => {
+	if (runId.startsWith("skipped")) {
+		return "closed";
+	}
+	return started.has(runId) ? "claimed" : "fresh";
+};
+
 export const operationsLive = Layer.effect(
 	AutomationExecutionOperations,
 	Effect.gen(function* () {
@@ -85,6 +109,18 @@ export const operationsLive = Layer.effect(
 		return AutomationExecutionOperations.of({
 			skipQueuedPolicies: ({ triggerId }) =>
 				Ref.update(control.skipped, (all) => [...all, triggerId]),
+			dispatchStates: (runIds) =>
+				Ref.get(control.started).pipe(
+					Effect.map(
+						(started) =>
+							new Map(
+								runIds.map((runId): [AutomationRunId, AutomationDispatchState] => [
+									runId,
+									dispatchStateOf(runId, started),
+								]),
+							),
+					),
+				),
 			settle: (payload, deadline) =>
 				Ref.get(control.finished).pipe(
 					Effect.map((all) => {
@@ -94,7 +130,7 @@ export const operationsLive = Layer.effect(
 									_tag: "completed",
 									result: runResult(payload.runId, finished.status, finished.finishedAt),
 								} as const)
-							: ({ _tag: "expired" } as const);
+							: ({ _tag: "pending" } as const);
 					}),
 				),
 			submit: (payload) =>
@@ -122,6 +158,7 @@ export const runControlLayer = (lateExitMs: number) =>
 			lateExitMs: Effect.succeed(lateExitMs),
 			skipped: Ref.make<ReadonlyArray<string>>([]),
 			submitted: Ref.make<ReadonlyArray<string>>([]),
+			started: Ref.make<ReadonlySet<string>>(new Set()),
 			parentStarts: Ref.make<ReadonlyMap<string, number>>(new Map()),
 			finished: Ref.make<
 				ReadonlyMap<string, { status: "succeeded" | "failed"; finishedAt: number }>
