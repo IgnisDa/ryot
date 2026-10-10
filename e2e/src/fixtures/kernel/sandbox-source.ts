@@ -233,6 +233,7 @@ export function eventRowsSandboxSource(input: SandboxSourceIdentity) {
 		inputSchema:
 			"Schema.Struct({ entityId: Schema.String, entitySchemaSlug: Schema.String, eventSchemaSlug: Schema.String })",
 		run: `(input, host) => executeRyotqlRecipe(host.executeRyotql, eventReadRecipe({
+        owner: { kind: "self" },
         entityId: input.entityId,
         entitySchemaSlug: input.entitySchemaSlug,
         eventSchemaSlug: input.eventSchemaSlug,

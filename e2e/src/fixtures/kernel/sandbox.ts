@@ -26,42 +26,30 @@ type InstallSandboxScriptInput = Pick<GenericTestPluginScript, "name" | "slug"> 
 		source: string;
 		scope?: "system" | "user";
 		configSchema?: PluginManifest["configSchema"];
+		entitySchemas?: PluginManifest["entitySchemas"];
 		pluginSlug?: string;
 		config?: ContractPayload<"plugins", "install">["config"];
 	};
 
-const installSandboxScript = (input: InstallSandboxScriptInput) =>
-	installTestPlugin(
-		input.scope === "system"
-			? {
-					scope: "system",
-					source: input.source,
-					config: input.config,
-					pluginSlug: input.pluginSlug,
-					configSchema: input.configSchema,
-					script: {
-						kind: "script",
-						name: input.name,
-						slug: input.slug,
-						capabilities: input.capabilities ?? [],
-						requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [],
-					},
-				}
-			: {
-					client: input.client,
-					source: input.source,
-					config: input.config,
-					pluginSlug: input.pluginSlug,
-					configSchema: input.configSchema,
-					script: {
-						kind: "script",
-						name: input.name,
-						slug: input.slug,
-						capabilities: input.capabilities ?? [],
-						requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [],
-					},
-				},
+const installSandboxScript = (input: InstallSandboxScriptInput) => {
+	const common = {
+		source: input.source,
+		config: input.config,
+		pluginSlug: input.pluginSlug,
+		configSchema: input.configSchema,
+		entitySchemas: input.entitySchemas,
+		script: {
+			name: input.name,
+			slug: input.slug,
+			kind: "script" as const,
+			capabilities: input.capabilities ?? [],
+			requiredPluginConfigKeys: input.requiredPluginConfigKeys ?? [],
+		},
+	};
+	return installTestPlugin(
+		input.scope === "system" ? { scope: "system", ...common } : { client: input.client, ...common },
 	);
+};
 
 export const installSandboxScriptScoped = (input: Parameters<typeof installSandboxScript>[0]) =>
 	Effect.acquireRelease(installSandboxScript(input), uninstallTestPlugin);
