@@ -25,8 +25,7 @@
 		"oxlint": "1.85.0",
 		"oxlint-tsgolint": "7.0.2003",
 		"tsconfig-moon": "1.4.2",
-		"turbo": "2.10.12",
-		"typescript": "7.0.2"
+		"turbo": "2.10.12"
 	},
 	"packageManager": "bun@1.4.3"
 }

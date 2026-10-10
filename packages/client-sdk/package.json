@@ -38,7 +38,7 @@
 	},
 	"scripts": {
 		"test": "bun --bun run vitest run",
-		"check": "tsc && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@effect/atom-react": "4.0.0",
@@ -58,7 +58,6 @@
 		"@types/react-dom": "^19.2.0",
 		"bun-types": "1.4.3",
 		"jsdom": "^30.0.1",
-		"typescript": "7.0.2",
 		"vite": "^8.0.0",
 		"vitest": "4.1.9"
 	}

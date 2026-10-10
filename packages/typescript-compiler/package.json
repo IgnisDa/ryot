@@ -14,7 +14,7 @@
 	},
 	"scripts": {
 		"test": "bun --bun run vitest run",
-		"check": "tsc && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@oxc-project/types": "0.132.0",

@@ -10,7 +10,7 @@
 	},
 	"scripts": {
 		"test": "bun --bun run vitest run",
-		"check": "tsc && oxfmt . --write && oxlint . --fix"
+		"check": "bun --check && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@ryot-app/ts-utils": "workspace:*",
@@ -23,7 +23,6 @@
 		"@effect/vitest": "4.0.0",
 		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.3",
-		"typescript": "7.0.2",
 		"vitest": "4.1.9"
 	}
 }
