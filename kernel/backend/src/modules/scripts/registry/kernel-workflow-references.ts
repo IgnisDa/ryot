@@ -1,10 +1,10 @@
 import type { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	SandboxExecutionSubject,
 	SandboxExecutionGrants,
-} from "@ryot-app/contract/modules/sandbox/schemas";
+} from "@ryot-app/contract/modules/scripts/schemas";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { ScriptExecutionPrincipal } from "@ryot-app/sandbox/protocol/principal";
 import { Context, type Effect, type Scope } from "effect";
 import type { WorkflowEngine } from "effect/workflow/WorkflowEngine";

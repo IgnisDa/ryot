@@ -515,7 +515,7 @@ describe("bridge entity interest", () => {
 				const bridge = connect({ watchEntities: client.entities.watch });
 				bridge.pluginPort.postMessage(readyFor(bridge.init));
 				yield* Effect.promise(() => waitFor(() => expect(bridge.readies).toHaveLength(1)));
-				bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-interest" });
+				bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-watches" });
 				yield* Effect.promise(() =>
 					waitFor(() => expect(declarations).toEqual([{ visible: [], foreground: ["a"] }])),
 				);
@@ -530,7 +530,7 @@ describe("bridge entity interest", () => {
 						}),
 					),
 				);
-				bridge.pluginPort.postMessage({ foreground: [], visible: ["b"], type: "entity-interest" });
+				bridge.pluginPort.postMessage({ foreground: [], visible: ["b"], type: "entity-watches" });
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(declarations).toEqual([
@@ -596,7 +596,7 @@ describe("bridge entity interest", () => {
 					operationSlug: "operation",
 				});
 			}
-			bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-interest" });
+			bridge.pluginPort.postMessage({ visible: [], foreground: ["a"], type: "entity-watches" });
 			yield* Effect.promise(() => waitFor(() => expect(declarations).toBe(1)));
 			expect(bridge.failures).toEqual([]);
 		}),

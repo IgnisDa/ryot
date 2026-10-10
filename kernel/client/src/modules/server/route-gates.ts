@@ -6,7 +6,7 @@ export type RootGateDecision =
 	| { readonly action: "redirect"; readonly to: "/onboarding" };
 
 export type OnboardingGateDecision =
-	| { readonly action: "enter-god-mode"; readonly to: SafeRedirect }
+	| { readonly action: "enter-instance-admin"; readonly to: SafeRedirect }
 	| { readonly action: "stay"; readonly redirectTo: SafeRedirect | undefined }
 	| {
 			readonly to: "/auth";
@@ -37,7 +37,9 @@ export function decideOnboardingGate(
 export function decideOnboardingCompletion(redirectIntent: unknown): OnboardingCompletionDecision {
 	const redirectTo = sanitizeRedirect(redirectIntent);
 	const pathname = redirectTo && new URL(redirectTo, "https://ryot.invalid").pathname;
-	return redirectTo !== undefined && pathname !== undefined && /^\/god-mode(?:\/|$)/.test(pathname)
-		? { to: redirectTo, action: "enter-god-mode" }
+	return redirectTo !== undefined &&
+		pathname !== undefined &&
+		/^\/instance-admin(?:\/|$)/.test(pathname)
+		? { to: redirectTo, action: "enter-instance-admin" }
 		: { redirectTo, to: "/auth", action: "start-oauth" };
 }

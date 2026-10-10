@@ -4,10 +4,10 @@ import { ApiLive, TransportLive } from "#/api/layer";
 import { AssetsLive } from "#/modules/assets/layer";
 import { AuthLive } from "#/modules/auth/layer";
 import { EntitiesService } from "#/modules/entities/service";
-import { EntityInterestLive } from "#/modules/entity-interest/layer";
+import { EntityWatchLive } from "#/modules/entity-watches/layer";
 import { ExternalLinksLive } from "#/modules/external-links/layer";
-import { GodModeLive } from "#/modules/god-mode/layer";
 import { ImportsService } from "#/modules/imports/service";
+import { InstanceAdminLive } from "#/modules/instance-admin/layer";
 import { IntegrationsLive } from "#/modules/integrations/layer";
 import { DeepLinkClaims } from "#/modules/navigation/deep-link";
 import { NavigationLive } from "#/modules/navigation/layer";
@@ -21,9 +21,9 @@ import { ServerLive } from "#/modules/server/layer";
 export const ClientLive = Layer.mergeAll(
 	AssetsLive,
 	EntitiesService.layer,
-	EntityInterestLive,
+	EntityWatchLive,
 	ExternalLinksLive,
-	GodModeLive,
+	InstanceAdminLive,
 	ImportsService.layer,
 	IntegrationsLive.pipe(Layer.provideMerge(DeepLinkClaims.layer)),
 	NavigationLive,

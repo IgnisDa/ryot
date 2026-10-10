@@ -9,7 +9,7 @@ export {
 	eventReadRecipe,
 	type EntityReadResult,
 	type EventReadResult,
-} from "@ryot-app/ryotql-recipes/sandbox";
+} from "@ryot-app/ryotql-recipes/scripts";
 export { userMediaLibraryRecipe } from "@ryot-app/ryotql-recipes/user-media-library";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
 export {

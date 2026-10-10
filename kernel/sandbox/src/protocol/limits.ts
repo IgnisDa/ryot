@@ -1,5 +1,5 @@
-import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/sandbox/boundary-reason";
-import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
+import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
+import { SANDBOX_HOST_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import {
 	jsonByteLength,
 	SANDBOX_COMPILER_LIMITS,

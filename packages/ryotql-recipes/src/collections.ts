@@ -1,13 +1,10 @@
 import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
 import {
-	JsonValue,
-	type JsonValue as JsonValueType,
-} from "@ryot-app/contract/modules/ryotql/language";
-import {
 	SavedViewDisplayValue,
 	type SavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	AppSchema,
 	getOrderedAppSchemaFieldEntries,
@@ -160,7 +157,7 @@ export const collectionMemberTableColumns = (
 	);
 
 const displayValue = (
-	value: JsonValueType | undefined,
+	value: JsonValue | undefined,
 	displayKind: SavedViewDisplayValue["displayKind"],
 ) => Schema.decodeUnknownResult(SavedViewDisplayValue)({ displayKind, value: value ?? null });
 
@@ -170,7 +167,7 @@ const collectionMemberCells = (
 		readonly entitySchemaSlug: string;
 		readonly ownerPluginId: string | null;
 		readonly ownerPluginName: string | null;
-		readonly properties: Readonly<Record<string, JsonValueType>>;
+		readonly properties: Readonly<Record<string, JsonValue>>;
 	},
 	membershipPropertiesSchema: AppSchemaValue | null,
 ) =>
@@ -179,7 +176,7 @@ const collectionMemberCells = (
 		const cells = yield* Result.all(
 			collectionMemberColumnDescriptors(membershipPropertiesSchema).map(
 				({ source, column: tableColumn }) => {
-					let rawValue: JsonValueType | undefined;
+					let rawValue: JsonValue | undefined;
 					if (source === "name") {
 						rawValue = member.name;
 					} else if (source === "type") {

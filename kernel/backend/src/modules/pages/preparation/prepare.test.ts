@@ -1,5 +1,5 @@
 import { assert, expect, it } from "@effect/vitest";
-import { ClientPagePreparationError } from "@ryot-app/contract/modules/client-pages/schemas";
+import { ClientPagePreparationError } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntityId, EntitySchemaSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";

@@ -3,14 +3,14 @@ import { AppContract } from "@ryot-app/contract/contract";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
-import { EntityInterestTicketService } from "./ticket-service";
+import { EntityWatchTicketService } from "./ticket-service";
 
-export const InterestRoutesLive = HttpApiBuilder.group(AppContract, "entity-interest", (handlers) =>
+export const InterestRoutesLive = HttpApiBuilder.group(AppContract, "entity-watches", (handlers) =>
 	handlers.handle("createSocketTicket", () =>
 		Effect.gen(function* () {
 			const user = yield* CurrentUser;
 			const authorization = yield* AuthorizationContext;
-			const tickets = yield* EntityInterestTicketService;
+			const tickets = yield* EntityWatchTicketService;
 			if (authorization.impersonation !== undefined) {
 				if (
 					authorization.credential.kind !== "oauth" ||

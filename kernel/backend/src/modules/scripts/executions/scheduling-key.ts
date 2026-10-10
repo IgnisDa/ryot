@@ -1,5 +1,5 @@
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	ScriptExecutionPrincipal,
 	ScriptPluginRevision,

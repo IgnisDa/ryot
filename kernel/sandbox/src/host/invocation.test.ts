@@ -1,7 +1,7 @@
 import {
 	POLICY_SAFE_SANDBOX_CAPABILITIES,
 	SANDBOX_HOST_CAPABILITIES,
-} from "@ryot-app/contract/modules/sandbox/wire";
+} from "@ryot-app/contract/modules/scripts/wire";
 import {
 	PluginId,
 	PluginPackageId,

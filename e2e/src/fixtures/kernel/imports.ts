@@ -1,6 +1,6 @@
+import { TemporaryUploadToken } from "@ryot-app/contract/modules/assets/schemas";
 import { IngestionIssue } from "@ryot-app/contract/modules/imports/ingestion";
 import { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
-import { TemporaryUploadToken } from "@ryot-app/contract/modules/uploads/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import {

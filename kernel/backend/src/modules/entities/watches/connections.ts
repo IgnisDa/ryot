@@ -1,8 +1,8 @@
 import { notFound } from "@ryot-app/contract/errors";
-import type { EntityInterestEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
+import type { EntityWatchEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { Context, Effect, Layer } from "effect";
 
-export type LocalInterestSessionEnqueue = (message: EntityInterestEntityUpdatedMessage) => void;
+export type LocalInterestSessionEnqueue = (message: EntityWatchEntityUpdatedMessage) => void;
 type LocalInterestSessionRevocation = {
 	readonly authSessionId: string;
 	readonly close: () => Effect.Effect<void>;
@@ -40,7 +40,7 @@ export class LocalInterestSessions extends Context.Service<LocalInterestSessions
 						sessions.delete(sessionId);
 					}
 				});
-			const enqueue = (sessionId: string, message: EntityInterestEntityUpdatedMessage) =>
+			const enqueue = (sessionId: string, message: EntityWatchEntityUpdatedMessage) =>
 				Effect.sync(() => sessions.get(sessionId)?.enqueue(message));
 			const closeAuthSession = Effect.fn("LocalInterestSessions.closeAuthSession")(function* (
 				authSessionId: string,

@@ -13,21 +13,21 @@ const WRONG_TOKEN = "wrong-token";
 const isExcludedLogName = (name: string) =>
 	name.endsWith(".stdout") || name.endsWith(".stderr") || name.endsWith(".txt");
 
-it.live("downloads retained server logs from God Mode", () =>
+it.live("downloads retained server logs from Instance Admin", () =>
 	Effect.gen(function* () {
 		const seeded = yield* seedServerLog();
 		const fs = yield* FileSystem.FileSystem;
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 800 } });
 
-		yield* page.goto(`${getFrontendUrl()}/god-mode/users`);
+		yield* page.goto(`${getFrontendUrl()}/instance-admin/users`);
 		yield* page.getByLabel("Admin access token").fill(getAdminAccessToken());
-		yield* page.getByRole("button", { name: "Unlock God Mode" }).click();
+		yield* page.getByRole("button", { name: "Unlock Instance Admin" }).click();
 
-		const sidebar = page.getByTestId("god-mode-sidebar");
+		const sidebar = page.getByTestId("instance-admin-sidebar");
 		yield* sidebar.waitFor({ state: "visible" });
 		yield* sidebar.getByRole("link", { name: "Server logs" }).click();
-		yield* page.waitForURL((url) => url.pathname === "/god-mode/logs");
+		yield* page.waitForURL((url) => url.pathname === "/instance-admin/logs");
 		yield* page.getByRole("heading", { level: 1, name: "Server logs" }).waitFor();
 
 		yield* page.getByText(seeded.activeName, { exact: true }).waitFor({ state: "visible" });
@@ -66,16 +66,16 @@ it.live("downloads retained server logs from God Mode", () =>
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
-it.live("keeps the God Mode token gate through invalid tokens and locking", () =>
+it.live("keeps the Instance Admin token gate through invalid tokens and locking", () =>
 	Effect.gen(function* () {
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 800 } });
 
-		yield* page.goto(`${getFrontendUrl()}/god-mode/logs`);
+		yield* page.goto(`${getFrontendUrl()}/instance-admin/logs`);
 		const tokenInput = page.getByLabel("Admin access token");
 		yield* tokenInput.waitFor({ state: "visible" });
 		yield* tokenInput.fill(WRONG_TOKEN);
-		yield* page.getByRole("button", { name: "Unlock God Mode" }).click();
+		yield* page.getByRole("button", { name: "Unlock Instance Admin" }).click();
 
 		const alert = page.getByRole("alert");
 		yield* alert.waitFor({ state: "visible" });
@@ -84,7 +84,7 @@ it.live("keeps the God Mode token gate through invalid tokens and locking", () =
 		expect(yield* page.getByRole("heading", { name: "Server logs" }).count).toBe(0);
 
 		yield* tokenInput.fill(getAdminAccessToken());
-		yield* page.getByRole("button", { name: "Unlock God Mode" }).click();
+		yield* page.getByRole("button", { name: "Unlock Instance Admin" }).click();
 		yield* page.getByRole("heading", { level: 1, name: "Server logs" }).waitFor();
 		yield* page.getByRole("button", { name: "Lock" }).click();
 		yield* page.getByLabel("Admin access token").waitFor({ state: "visible" });

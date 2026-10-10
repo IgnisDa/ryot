@@ -1,16 +1,8 @@
 import { Schema } from "effect";
 
-import {
-	JsonValue as JsonValueSchema,
-	type JsonPrimitive as JsonPrimitiveType,
-	type JsonValue as JsonValueType,
-} from "../../schema/json";
+import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { PluginIdentityReference } from "../plugins/references";
-
-export const JsonValue = JsonValueSchema;
-export type JsonValue = JsonValueType;
-export type JsonPrimitive = JsonPrimitiveType;
 
 export const TableReference = strictStruct({ alias: Schema.String, table: Schema.String }).annotate(
 	{ identifier: "RyotQLTableReference" },
@@ -25,7 +17,7 @@ export const ColumnExpression = strictStruct({
 export type ColumnExpression = typeof ColumnExpression.Type;
 
 export const LiteralExpression = strictStruct({
-	value: JsonValueSchema,
+	value: JsonValue,
 	type: Schema.Literal("literal"),
 }).annotate({ identifier: "RyotQLLiteralExpression" });
 export type LiteralExpression = typeof LiteralExpression.Type;
@@ -645,7 +637,7 @@ export type RowItem = Readonly<Record<string, unknown>>;
 
 const ResultValue: Schema.Codec<unknown, unknown> = Schema.suspend(() =>
 	Schema.Union([
-		JsonValueSchema,
+		JsonValue,
 		strictStruct({
 			pageInfo: IncludePageInfo,
 			items: Schema.Array(Schema.Record(Schema.String, ResultValue)),
@@ -670,7 +662,7 @@ export type RowsResult = typeof RowsResult.Type;
 export const AggregateResult = strictStruct({
 	type: Schema.Literal("aggregate"),
 	pageInfo: Schema.optional(IncludePageInfo),
-	items: Schema.Array(Schema.Record(Schema.String, JsonValueSchema)),
+	items: Schema.Array(Schema.Record(Schema.String, JsonValue)),
 }).annotate({ identifier: "RyotQLAggregateResult" });
 export type AggregateResult = typeof AggregateResult.Type;
 

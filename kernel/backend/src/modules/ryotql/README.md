@@ -1,6 +1,6 @@
 # RyotQL
 
-RyotQL is the only read surface for persisted rows. `POST /ryotql/execute` and `POST /ryotql/plugin/execute` are the authenticated user APIs for the kernel and plugin audiences; `POST /god-mode/ryotql/execute` is the admin API. Only non-row data (streams, file bytes, workflow job results, process state, health, and public config) stays on dedicated HTTP endpoints.
+RyotQL is the only read surface for persisted rows. `POST /ryotql/execute` and `POST /ryotql/plugin/execute` are the authenticated user APIs for the kernel and plugin audiences; `POST /instance-admin/ryotql/execute` is the admin API. Only non-row data (streams, file bytes, workflow job results, process state, health, and public config) stays on dedicated HTTP endpoints.
 
 ## Document And Result Shape
 
@@ -35,7 +35,7 @@ A document cannot provide a user ID, plugin identity, execution scope, or grant.
 | -------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | User, `kernel` | Kernel UI, API keys, and OAuth through `/ryotql/execute`                                          | Tables with a user policy, except `admin` fields                                                     |
 | User, `plugin` | Client-plugin iframes through `/ryotql/plugin/execute`, user-subject sandbox scripts, saved views | Plugin-readable tables only, except `kernel` and `admin` fields                                      |
-| Admin          | `/god-mode/ryotql/execute`                                                                        | Tables with an admin policy and all their fields; entity text is canonical                           |
+| Admin          | `/instance-admin/ryotql/execute`                                                                  | Tables with an admin policy and all their fields; entity text is canonical                           |
 | System plugin  | Pinned system-scope scripts with `executeRyotql`                                                  | Global entities whose schema the plugin owns, plus events and relationships whose definition it owns |
 
 System-plugin ownership checks use the exact local plugin ID and pinned declarations, including the containing entity schema for events. Definition queries use the caller's pinned own revision. Trusted user-subject definition contexts also replace only the caller's own definitions with that pin; foreign definitions use their current effective revision.

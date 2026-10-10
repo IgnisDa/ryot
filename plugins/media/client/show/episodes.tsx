@@ -72,7 +72,7 @@ export const showSeasonsQuery = createRyotQuery<{ readonly entityId: string }, S
 			}),
 		),
 	{
-		entityInterest: ({ data, input }) => ({
+		entityWatch: ({ data, input }) => ({
 			foreground: [input.entityId],
 			visible: data?.seasons.items.map(({ id }) => id) ?? [],
 		}),
@@ -93,7 +93,7 @@ export const showSeasonEpisodesQuery = createRyotQuery<
 			}),
 		),
 	{
-		entityInterest: ({ data, input }) => ({
+		entityWatch: ({ data, input }) => ({
 			visible: data?.items.map(({ id }) => id) ?? [],
 			foreground: [input.entityId, input.containerId],
 		}),
@@ -133,7 +133,7 @@ export const showOrderEpisodesQuery = createRyotQuery<
 		);
 	},
 	{
-		entityInterest: ({ data, input }) => ({
+		entityWatch: ({ data, input }) => ({
 			foreground: [input.entityId],
 			visible: data?.items.map(({ id }) => id) ?? [],
 		}),
@@ -156,7 +156,7 @@ const showOrderGroupCoverageQuery = createRyotQuery<
 					}),
 				);
 	},
-	{ entityInterest: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
+	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );
 
 const SHOW_EPISODE_RENDER: MediaEpisodeRender<ShowEpisode> = {

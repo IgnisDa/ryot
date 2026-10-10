@@ -16,14 +16,14 @@ function AdministrationRoute() {
 				detail="Manage server-wide data and operations."
 			>
 				<Link
-					to="/god-mode"
+					to="/instance-admin"
 					className="flex items-center gap-4 rounded-xl border border-border bg-surface p-4 transition-colors hover:bg-surface-2"
 				>
 					<span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
 						<AppIcon size={20} name="crown" />
 					</span>
 					<span className="min-w-0 flex-1">
-						<span className="block font-semibold text-text">God Mode</span>
+						<span className="block font-semibold text-text">Instance Admin</span>
 						<span className="block text-sm text-text-muted">
 							Requires an admin access token. The token stays in memory on this device.
 						</span>

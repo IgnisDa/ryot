@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
 import { strictStruct } from "../../schema/utils";
-import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
+import { SANDBOX_HOST_CAPABILITIES } from "../scripts/wire";
 
 const name = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
 

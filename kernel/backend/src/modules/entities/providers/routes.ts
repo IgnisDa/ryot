@@ -1,7 +1,7 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { DbError } from "@ryot-app/contract/errors";
-import { ProviderEntityInternalError } from "@ryot-app/contract/modules/provider-entities/schemas";
+import { ProviderEntityInternalError } from "@ryot-app/contract/modules/entity-providers/schemas";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
@@ -24,9 +24,9 @@ const mapProviderEntityDbError = <A, E, R>(
 		),
 	);
 
-export const ProviderEntitiesRoutesLive = HttpApiBuilder.group(
+export const EntityProvidersRoutesLive = HttpApiBuilder.group(
 	AppContract,
-	"providerEntities",
+	"entityProviders",
 	(handlers) =>
 		handlers
 			.handle("search", ({ payload }) =>

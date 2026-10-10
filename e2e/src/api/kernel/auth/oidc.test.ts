@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url";
 
 import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
 import { activeSignalSchemasRecipe } from "@ryot-app/ryotql-recipes/definitions";
-import { godModeUsersRecipe } from "@ryot-app/ryotql-recipes/god-mode";
+import { instanceAdminUsersRecipe } from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -39,7 +39,7 @@ const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 const clientDist = fileURLToPath(new URL("../../../../../kernel/client/dist", import.meta.url));
 const existingOidcUsername = `user-${crypto.randomUUID()}`;
 const listUsers = (apiUrl: string, email: string) =>
-	executeAdminRyotQLRecipe(godModeUsersRecipe({ limit: 50, search: email }), apiUrl);
+	executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ limit: 50, search: email }), apiUrl);
 const attempt = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.orDie);
 
 const countUsersByEmail = (apiUrl: string, email: string) =>
@@ -328,7 +328,7 @@ describe("OIDC idempotency (API A)", () => {
 			const client = makeSession(getApiUrlA());
 			const provisioned = yield* client.call(
 				(c) =>
-					c.godMode.provisionUser({
+					c.instanceAdmin.provisionUser({
 						payload: { email, name: username, provider: "oidc", oidcIssuerId: username },
 					}),
 				adminHeaders(),

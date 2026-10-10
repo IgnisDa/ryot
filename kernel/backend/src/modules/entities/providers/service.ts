@@ -1,12 +1,12 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
-import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	type ImportEntityBody,
 	type ImportEntityRunResult,
 	ProviderEntityBadRequest,
 	ProviderEntityImportBacklogFull,
 	ProviderEntityNotFound,
-} from "@ryot-app/contract/modules/provider-entities/schemas";
+} from "@ryot-app/contract/modules/entity-providers/schemas";
+import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
 	EntitySchemaSlug,

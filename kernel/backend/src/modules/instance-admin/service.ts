@@ -1,10 +1,10 @@
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
 import {
-	GodModeInternalFailure,
-	GodModeNotFound,
-	GodModeRequestFailure,
+	InstanceAdminInternalFailure,
+	InstanceAdminNotFound,
+	InstanceAdminRequestFailure,
 	type ProvisionUserBody,
-} from "@ryot-app/contract/modules/god-mode/contract";
+} from "@ryot-app/contract/modules/instance-admin/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, DateTime, Effect, Layer } from "effect";
 
@@ -45,7 +45,7 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 				const existing = yield* repository.findUserIdByEmail(input.email);
 
 				if (existing) {
-					return yield* new GodModeRequestFailure({
+					return yield* new InstanceAdminRequestFailure({
 						reason: { email: input.email, code: "user-already-exists" },
 					});
 				}
@@ -79,7 +79,7 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 				const user = yield* repository.findUserDisabledState(userId);
 
 				if (!user) {
-					return yield* new GodModeNotFound({ reason: { userId, code: "user-not-found" } });
+					return yield* new InstanceAdminNotFound({ reason: { userId, code: "user-not-found" } });
 				}
 
 				const updatedAt = yield* DateTime.nowAsDate;
@@ -98,7 +98,9 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 				userId: UserId,
 			) {
 				if (config.users.disableLocalAuth) {
-					return yield* new GodModeRequestFailure({ reason: { code: "local-auth-disabled" } });
+					return yield* new InstanceAdminRequestFailure({
+						reason: { code: "local-auth-disabled" },
+					});
 				}
 
 				const userRow = yield* repository.findUserById(userId);
@@ -107,21 +109,21 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 					: null;
 
 				if (!userData) {
-					return yield* new GodModeNotFound({ reason: { userId, code: "user-not-found" } });
+					return yield* new InstanceAdminNotFound({ reason: { userId, code: "user-not-found" } });
 				}
 
 				const authState = classifyAuthState(userData.accounts);
 				const eligibilityError = checkResetEligibility(authState);
 				if (eligibilityError) {
-					return yield* new GodModeRequestFailure({ reason: eligibilityError });
+					return yield* new InstanceAdminRequestFailure({ reason: eligibilityError });
 				}
 
 				return yield* requestPasswordResetLink(userData.user.email).pipe(
 					Effect.catchTags({
 						InternalError: () =>
-							new GodModeInternalFailure({ reason: { code: "password-reset-failed" } }),
+							new InstanceAdminInternalFailure({ reason: { code: "password-reset-failed" } }),
 						BadRequest: () =>
-							new GodModeRequestFailure({ reason: { code: "password-reset-in-progress" } }),
+							new InstanceAdminRequestFailure({ reason: { code: "password-reset-in-progress" } }),
 					}),
 				);
 			});

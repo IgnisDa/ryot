@@ -3,7 +3,7 @@ import type {
 	ClientCompositionModuleReference,
 	ClientPageCompositionIdentity,
 	ClientPageCompositionManifest,
-} from "@ryot-app/contract/modules/client-pages/schemas";
+} from "@ryot-app/contract/modules/pages/schemas";
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 
 export type ArtifactDescription = {

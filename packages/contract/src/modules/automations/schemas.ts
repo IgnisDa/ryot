@@ -1,11 +1,11 @@
 import { Schema } from "effect";
 
 import { NotificationSubscriptionId, RelationshipSchemaSlug } from "../../schema/brands";
+import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { SignalSchemaReference } from "../plugins/references";
-import { jsonValueSchema } from "../sandbox/wire";
 
-export const AutomationRuleMetadata = jsonValueSchema;
+export const AutomationRuleMetadata = JsonValue;
 
 export type AutomationRuleMetadata = typeof AutomationRuleMetadata.Type;
 

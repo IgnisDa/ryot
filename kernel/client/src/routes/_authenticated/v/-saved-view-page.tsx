@@ -1,4 +1,4 @@
-import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import {
 	sameDeclaration,
 	type SavedViewReference,
@@ -13,7 +13,7 @@ import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tansta
 import { Effect, Result, Schema } from "effect";
 import { useEffect, useRef } from "react";
 
-import { ClientPagesApi } from "#/api/client-pages";
+import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
@@ -64,7 +64,7 @@ export const loadSavedView = Effect.fn("loadSavedView")(function* (
 	reference: SavedViewReference,
 	viewPath: string,
 ) {
-	let prepared = yield* Effect.flatMap(ClientPagesApi, (api) =>
+	let prepared = yield* Effect.flatMap(PagesApi, (api) =>
 		api.prepare(scope, { payload: { target: { reference, kind: "saved-view" } } }),
 	);
 	const settings = entityBrowserSettings(prepared);

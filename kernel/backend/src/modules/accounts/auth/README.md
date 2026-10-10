@@ -28,11 +28,11 @@ Disable, deletion, and password reset revoke browser sessions and OAuth token re
 
 ## Impersonation
 
-God Mode authorizes a one-use, 60-second Redis handoff to a hosted browser. Redemption creates a standard-access Better Auth session with an immutable one-hour deadline and continues the initiating client's OAuth/PKCE request. The PKCE verifier stays in that client's storage. Marked sessions authorize only impersonation clients, and those clients require marked sessions.
+Instance Admin authorizes a one-use, 60-second Redis handoff to a hosted browser. Redemption creates a standard-access Better Auth session with an immutable one-hour deadline and continues the initiating client's OAuth/PKCE request. The PKCE verifier stays in that client's storage. Marked sessions authorize only impersonation clients, and those clients require marked sessions.
 
-Impersonation token issuance, refresh, UserInfo, and application API authentication validate the originating session. Session renewal cannot extend the deadline. Session deletion revokes its OAuth credentials and publishes an invalidation for its entity-interest sockets; sockets also enforce the deadline and periodically recheck the session. Normal user sessions are unaffected.
+Impersonation token issuance, refresh, UserInfo, and application API authentication validate the originating session. Session renewal cannot extend the deadline. Session deletion revokes its OAuth credentials and publishes an invalidation for its entity-watches sockets; sockets also enforce the deadline and periodically recheck the session. Normal user sessions are unaffected.
 
-The client replaces its previous login and shows an impersonation banner. Logout uses the existing end-session ceremony and returns to locked God Mode. Normal password and fresh-login checks still apply. Account changes, issued API keys, and started jobs retain their normal lifetimes.
+The client replaces its previous login and shows an impersonation banner. Logout uses the existing end-session ceremony and returns to locked Instance Admin. Normal password and fresh-login checks still apply. Account changes, issued API keys, and started jobs retain their normal lifetimes.
 
 God-mode password reset capture reserves a random ID for each email, subscribes before initiating an internal Better Auth request, and carries that ID in the internal request header. The reset callback delivers only if that request's ID still owns the Redis reservation. The capture scope releases its subscriber and its own reservation on success, failure, timeout, or interruption. A late Better Auth Promise cannot deliver into a later reservation.
 

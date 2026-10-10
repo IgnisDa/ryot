@@ -118,7 +118,7 @@ while on a large library. Let it finish before you stop or restart the container
 If some of your data cannot be converted, Ryot stops and its logs explain what it found and how
 to fix it. Restore your backup, fix the problem in `v10`, and then start `v11` again.
 
-Once Ryot is running, open `<FRONTEND_URL>/god-mode`, unlock it with your
+Once Ryot is running, open `<FRONTEND_URL>/instance-admin`, unlock it with your
 `SERVER_ADMIN_ACCESS_TOKEN`, and check the **Migration report**. It lists anything that was
 skipped during the upgrade, such as an episode that could not be matched or an image that could
 not be moved.
@@ -132,7 +132,7 @@ Everyone is signed out after the upgrade.
 - You now sign in with an email address instead of a username. If your username was already
   an email address, that is your new login. Otherwise, your login becomes your username
   followed by `@ryot.local`, such as `jane@ryot.local`.
-- Old passwords no longer work. An administrator needs to open **God Mode > Users**, click
+- Old passwords no longer work. An administrator needs to open **Instance Admin > Users**, click
   **Generate reset link** for each user, and send them the link so they can choose a new
   password. The same page shows each person's new login email.
 
@@ -140,7 +140,7 @@ Everyone is signed out after the upgrade.
 `<FRONTEND_URL>/api/auth/callback/oidc` and allow the `openid email profile` scopes. See
 [Authentication](./guides/authentication.md).
 
-Administrator accounts are gone: server administration now happens in God Mode, which anyone
+Administrator accounts are gone: server administration now happens in Instance Admin, which anyone
 with the `SERVER_ADMIN_ACCESS_TOKEN` can unlock.
 
 ### Check your integrations

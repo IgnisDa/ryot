@@ -1,5 +1,5 @@
 import { UpdateEventItem } from "@ryot-app/contract/modules/events/schemas";
-import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
+import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import { EventId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	changeUserRelationshipBatchSchema,

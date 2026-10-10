@@ -32,7 +32,7 @@ const workoutDetailsQuery = createRyotQuery<{ readonly entityId: string }, Worko
 			}),
 		),
 	{
-		entityInterest: ({ data, input }) => ({
+		entityWatch: ({ data, input }) => ({
 			foreground: [input.entityId],
 			visible: data?.exercises.items.map(({ id }) => id) ?? [],
 		}),

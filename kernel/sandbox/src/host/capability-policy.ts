@@ -1,4 +1,4 @@
-import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
+import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 
 export type SandboxCapabilitySystemKind = "automation" | "script";
 export type SandboxCapabilitySubject = "user" | "automation-run" | "system";

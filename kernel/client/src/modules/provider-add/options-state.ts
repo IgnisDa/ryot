@@ -1,4 +1,4 @@
-import type { SearchProviderOptionsResponse } from "@ryot-app/contract/modules/provider-entities/schemas";
+import type { SearchProviderOptionsResponse } from "@ryot-app/contract/modules/entity-providers/schemas";
 import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 

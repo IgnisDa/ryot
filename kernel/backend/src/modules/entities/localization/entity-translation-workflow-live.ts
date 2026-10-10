@@ -1,5 +1,5 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
-import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
+import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import {
 	providerTranslateResultSchema,
 	type ProviderTranslateResult,

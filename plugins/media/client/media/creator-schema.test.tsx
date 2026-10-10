@@ -17,7 +17,7 @@ import {
 	creatorSummaryRow,
 	decodeCreatorSummaryResult,
 } from "../../tests/client/creator/summary-fixture";
-import { declaresEntityInterest } from "../../tests/client/interest-fixture";
+import { declaresEntityWatch } from "../../tests/client/interest-fixture";
 import {
 	malformedQueryResult,
 	readyQueryResult,
@@ -254,7 +254,7 @@ describe("creator activity tab", () => {
 const rows = (items: readonly unknown[]) =>
 	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });
 
-const declaresInterest = declaresEntityInterest("creator-1");
+const declaresInterest = declaresEntityWatch("creator-1");
 
 describe("creator query entity interest", () => {
 	declaresInterest(

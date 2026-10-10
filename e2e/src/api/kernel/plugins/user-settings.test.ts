@@ -3,6 +3,7 @@ import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { Effect, Schema } from "effect";
 import { unzipSync, zipSync } from "fflate";
 
+import { getUserSettings, setUserLanguage } from "~/fixtures/kernel/account";
 import type { Client } from "~/fixtures/kernel/auth";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
@@ -17,7 +18,6 @@ import {
 } from "~/fixtures/kernel/plugin-user-settings";
 import { updatePrivatePlugin } from "~/fixtures/kernel/private-plugin";
 import { uploadTemporaryArchive } from "~/fixtures/kernel/temporary-archive";
-import { getUserSettings, setUserLanguage } from "~/fixtures/kernel/user-settings";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 

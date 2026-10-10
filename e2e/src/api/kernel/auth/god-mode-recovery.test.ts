@@ -1,5 +1,5 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { godModeUsersRecipe } from "@ryot-app/ryotql-recipes/god-mode";
+import { instanceAdminUsersRecipe } from "@ryot-app/ryotql-recipes/instance-admin";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { DateTime, Effect } from "effect";
 
@@ -27,7 +27,7 @@ const listPluginsWithHeaders = (headers: Record<string, string>) =>
 		pluginInstallationsRecipe({ after, limit: 100 }),
 	);
 const listUsers = (search?: string) =>
-	executeAdminRyotQLRecipe(godModeUsersRecipe({ search, limit: 50 }));
+	executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ search, limit: 50 }));
 const uniqueTimestamp = () => DateTime.toEpochMillis(DateTime.nowUnsafe());
 
 const getUserIdByEmail = (email: string) =>
@@ -41,7 +41,7 @@ const getUserIdByEmail = (email: string) =>
 const issueResetToken = (userId: UserId) =>
 	Effect.gen(function* () {
 		const { resetUrl } = yield* getApiClient().call(
-			(c) => c.godMode.resetUserPassword({ params: { userId } }),
+			(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
 			adminHeaders(),
 		);
 		return requirePresent(new URL(resetUrl).searchParams.get("token"), "missing token");
@@ -54,7 +54,7 @@ const createNoAccountUser = (name: string) =>
 	Effect.gen(function* () {
 		const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
 		const { userId } = yield* getApiClient().call(
-			(c) => c.godMode.provisionUser({ payload: { name, email, provider: "credential" } }),
+			(c) => c.instanceAdmin.provisionUser({ payload: { name, email, provider: "credential" } }),
 			adminHeaders(),
 		);
 		return { email, userId: UserId.make(userId) };
@@ -65,7 +65,7 @@ const createOidcUser = (name: string) =>
 		const email = `${name.toLowerCase()}-${uniqueTimestamp()}@example.com`;
 		const { userId } = yield* getApiClient().call(
 			(c) =>
-				c.godMode.provisionUser({
+				c.instanceAdmin.provisionUser({
 					payload: { name, email, provider: "oidc", oidcIssuerId: `oidc-sub-${uniqueTimestamp()}` },
 				}),
 			adminHeaders(),
@@ -79,7 +79,7 @@ describe("God-mode admin token enforcement", () => {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.adminRyotql.execute({ payload: godModeUsersRecipe({ limit: 50 }).document }),
+					c.adminRyotql.execute({ payload: instanceAdminUsersRecipe({ limit: 50 }).document }),
 				),
 			);
 			assertTaggedError(error, "AuthUnauthorized");
@@ -91,7 +91,8 @@ describe("God-mode admin token enforcement", () => {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.adminRyotql.execute({ payload: godModeUsersRecipe({ limit: 50 }).document }),
+					(c) =>
+						c.adminRyotql.execute({ payload: instanceAdminUsersRecipe({ limit: 50 }).document }),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
@@ -104,7 +105,7 @@ describe("God-mode admin token enforcement", () => {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.godMode.resetUserPassword({ params: { userId: UserId.make("any-id") } }),
+					c.instanceAdmin.resetUserPassword({ params: { userId: UserId.make("any-id") } }),
 				),
 			);
 			assertTaggedError(error, "AuthUnauthorized");
@@ -116,7 +117,7 @@ describe("God-mode admin token enforcement", () => {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.resetUserPassword({ params: { userId: UserId.make("any-id") } }),
+					(c) => c.instanceAdmin.resetUserPassword({ params: { userId: UserId.make("any-id") } }),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
@@ -129,7 +130,7 @@ describe("God-mode admin token enforcement", () => {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.godMode.setUserDisabled({
+					c.instanceAdmin.setUserDisabled({
 						payload: { disabled: true },
 						params: { userId: UserId.make("any-id") },
 					}),
@@ -145,7 +146,7 @@ describe("God-mode admin token enforcement", () => {
 			const error = yield* Effect.flip(
 				client.call(
 					(c) =>
-						c.godMode.setUserDisabled({
+						c.instanceAdmin.setUserDisabled({
 							payload: { disabled: true },
 							params: { userId: UserId.make("any-id") },
 						}),
@@ -216,7 +217,7 @@ describe("User provisioning", () => {
 
 			yield* client.call(
 				(c) =>
-					c.godMode.provisionUser({
+					c.instanceAdmin.provisionUser({
 						payload: { email, provider: "credential", name: "Provisioned Credential" },
 					}),
 				adminHeaders(),
@@ -234,7 +235,7 @@ describe("User provisioning", () => {
 
 			yield* client.call(
 				(c) =>
-					c.godMode.provisionUser({
+					c.instanceAdmin.provisionUser({
 						payload: {
 							email,
 							provider: "oidc",
@@ -258,13 +259,13 @@ describe("User provisioning", () => {
 			const error = yield* Effect.flip(
 				client.call(
 					(c) =>
-						c.godMode.provisionUser({
+						c.instanceAdmin.provisionUser({
 							payload: { email, name: "Duplicate", provider: "credential" },
 						}),
 					adminHeaders(),
 				),
 			);
-			assertTaggedError(error, "GodModeRequestFailure");
+			assertTaggedError(error, "InstanceAdminRequestFailure");
 			expect(error.reason.code).toBe("user-already-exists");
 		}),
 	);
@@ -283,7 +284,7 @@ describe("God-mode disable set", () => {
 			yield* listPluginsWithHeaders({ "X-Api-Key": apiKey });
 
 			const disabledData = yield* client.call(
-				(c) => c.godMode.setUserDisabled({ params: { userId }, payload: { disabled: true } }),
+				(c) => c.instanceAdmin.setUserDisabled({ params: { userId }, payload: { disabled: true } }),
 				adminHeaders(),
 			);
 			expect(disabledData).toEqual({ id: userId });
@@ -303,7 +304,8 @@ describe("God-mode disable set", () => {
 			expect(blockedSignIn.error?.status).toBe(403);
 
 			const enableData = yield* client.call(
-				(c) => c.godMode.setUserDisabled({ params: { userId }, payload: { disabled: false } }),
+				(c) =>
+					c.instanceAdmin.setUserDisabled({ params: { userId }, payload: { disabled: false } }),
 				adminHeaders(),
 			);
 			expect(enableData).toEqual({ id: userId });
@@ -326,7 +328,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const userId = yield* getUserIdByEmail(email);
 
 			const resetData = yield* client.call(
-				(c) => c.godMode.resetUserPassword({ params: { userId } }),
+				(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
 				adminHeaders(),
 			);
 			expect(resetData.email).toBe(email);
@@ -360,7 +362,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const userId = yield* getUserIdByEmail(email);
 
 			const resetData = yield* client.call(
-				(c) => c.godMode.resetUserPassword({ params: { userId } }),
+				(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
 				adminHeaders(),
 			);
 			const token = new URL(resetData.resetUrl).searchParams.get("token");
@@ -446,7 +448,7 @@ describe("Reset link generation and completion for no-account user", () => {
 			const { email, userId } = yield* createNoAccountUser("NoneReset");
 
 			const resetData = yield* client.call(
-				(c) => c.godMode.resetUserPassword({ params: { userId } }),
+				(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
 				adminHeaders(),
 			);
 			expect(resetData.email).toBe(email);
@@ -476,9 +478,12 @@ describe("OIDC user restrictions", () => {
 			const { userId } = yield* createOidcUser("BlockedOidc");
 
 			const error = yield* Effect.flip(
-				client.call((c) => c.godMode.resetUserPassword({ params: { userId } }), adminHeaders()),
+				client.call(
+					(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
+					adminHeaders(),
+				),
 			);
-			assertTaggedError(error, "GodModeRequestFailure");
+			assertTaggedError(error, "InstanceAdminRequestFailure");
 			expect(error.reason).toEqual({ authState: "oidc", code: "password-reset-unsupported" });
 		}),
 	);
@@ -500,9 +505,12 @@ describe("Mixed auth user restrictions", () => {
 			);
 
 			const error = yield* Effect.flip(
-				client.call((c) => c.godMode.resetUserPassword({ params: { userId } }), adminHeaders()),
+				client.call(
+					(c) => c.instanceAdmin.resetUserPassword({ params: { userId } }),
+					adminHeaders(),
+				),
 			);
-			assertTaggedError(error, "GodModeRequestFailure");
+			assertTaggedError(error, "InstanceAdminRequestFailure");
 			expect(error.reason).toEqual({ authState: "mixed", code: "password-reset-unsupported" });
 		}),
 	);

@@ -73,5 +73,5 @@ export const pokemonDetailQuery = createRyotQuery<{ readonly entityId: string },
 		client.data.query(
 			pokemonDetailRecipe({ ...input, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
 		),
-	{ entityInterest: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
+	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );

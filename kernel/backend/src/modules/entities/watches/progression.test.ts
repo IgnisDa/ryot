@@ -16,8 +16,8 @@ import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver
 import { RedisService } from "#platform/redis";
 import { databaseLayer, makeRedisService } from "#testing/effect";
 
-import { EntityInterestProgression } from "./progression";
-import { EntityInterestStore } from "./store";
+import { EntityWatchProgression } from "./progression";
+import { EntityWatchStore } from "./store";
 
 const entityId = EntityId.make("entity-1");
 const entity = {
@@ -34,7 +34,7 @@ const entity = {
 };
 
 type SessionMetadata = Effect.Success<
-	ReturnType<EntityInterestStore["Service"]["getSessionMetadata"]>
+	ReturnType<EntityWatchStore["Service"]["getSessionMetadata"]>
 >;
 const spanishSession: SessionMetadata[number] = {
 	revision: 1,
@@ -68,7 +68,7 @@ const makeLayer = (input: {
 			const released = yield* Ref.make<ReadonlyArray<string>>([]);
 			const requests = yield* Ref.make<ReadonlyArray<RequestFillInput>>([]);
 			const event = (name: string) => Ref.update(events, (all) => [...all, name]);
-			const store = Layer.mock(EntityInterestStore)({
+			const store = Layer.mock(EntityWatchStore)({
 				listInterestedSessions: () => event("list").pipe(Effect.as([...input.sessions])),
 				getSessionMetadata: (sessionIds) =>
 					event(`metadata:${sessionIds.join(",")}`).pipe(Effect.as(input.metadata(sessionIds))),
@@ -84,7 +84,7 @@ const makeLayer = (input: {
 						),
 					),
 			});
-			return EntityInterestProgression.layer.pipe(
+			return EntityWatchProgression.layer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
 						databaseLayer,
@@ -169,11 +169,11 @@ layer(
 )((test) => {
 	test.effect("uses one entity lease and requests each distinct noncanonical language", () =>
 		Effect.gen(function* () {
-			const progression = yield* EntityInterestProgression;
+			const progression = yield* EntityWatchProgression;
 			yield* progression.populated(entityId);
 
 			const effects = yield* FakeProgressionEffects;
-			expect(yield* effects.acquired).toEqual([["ryot:entity-interest:progress:entity-1", 30]]);
+			expect(yield* effects.acquired).toEqual([["ryot:entity-watches:progress:entity-1", 30]]);
 			expect(yield* effects.events).toEqual([
 				"acquire",
 				"list",
@@ -184,7 +184,7 @@ layer(
 				["interactive", "es"],
 				["interactive", "fr"],
 			]);
-			expect(yield* effects.released).toEqual(["ryot:entity-interest:progress:entity-1"]);
+			expect(yield* effects.released).toEqual(["ryot:entity-watches:progress:entity-1"]);
 		}),
 	);
 });
@@ -208,18 +208,18 @@ layer(
 		};
 
 		return Effect.gen(function* () {
-			const progression = yield* EntityInterestProgression;
+			const progression = yield* EntityWatchProgression;
 			yield* progression.populated(entityId);
 
 			const effects = yield* FakeProgressionEffects;
 			const acquired = yield* effects.acquired;
 			expect(acquired).toHaveLength(2);
 			expect(acquired.map(([key]) => key)).toEqual([
-				"ryot:entity-interest:progress:entity-1",
-				"ryot:entity-interest:progress:entity-1",
+				"ryot:entity-watches:progress:entity-1",
+				"ryot:entity-watches:progress:entity-1",
 			]);
 			expect(sleeps).toEqual([29_000]);
-			expect(yield* effects.released).toEqual(["ryot:entity-interest:progress:entity-1"]);
+			expect(yield* effects.released).toEqual(["ryot:entity-watches:progress:entity-1"]);
 		}).pipe(Effect.provideService(Clock.Clock, clock));
 	});
 });
@@ -229,7 +229,7 @@ layer(
 )((test) => {
 	test.effect("does not translate with a same-schema provider from another owner", () =>
 		Effect.gen(function* () {
-			yield* (yield* EntityInterestProgression).populated(entityId);
+			yield* (yield* EntityWatchProgression).populated(entityId);
 			expect(yield* (yield* FakeProgressionEffects).requests).toEqual([]);
 		}),
 	);
@@ -247,10 +247,10 @@ layer(
 )((test) => {
 	test.effect("releases progression when translation authority becomes unavailable", () =>
 		Effect.gen(function* () {
-			yield* (yield* EntityInterestProgression).populated(entityId);
+			yield* (yield* EntityWatchProgression).populated(entityId);
 			const effects = yield* FakeProgressionEffects;
 			expect(yield* effects.requests).toMatchObject([{ entitySchemaPluginId: "plugin" }]);
-			expect(yield* effects.released).toEqual(["ryot:entity-interest:progress:entity-1"]);
+			expect(yield* effects.released).toEqual(["ryot:entity-watches:progress:entity-1"]);
 		}),
 	);
 });
@@ -271,11 +271,11 @@ layer(
 		() =>
 			Effect.gen(function* () {
 				assertExitFails(
-					yield* Effect.exit((yield* EntityInterestProgression).populated(entityId)),
+					yield* Effect.exit((yield* EntityWatchProgression).populated(entityId)),
 					unavailableQueue,
 				);
 				expect(yield* (yield* FakeProgressionEffects).released).toEqual([
-					"ryot:entity-interest:progress:entity-1",
+					"ryot:entity-watches:progress:entity-1",
 				]);
 			}),
 	);

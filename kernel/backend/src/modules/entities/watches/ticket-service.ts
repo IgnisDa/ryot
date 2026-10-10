@@ -1,5 +1,5 @@
-import { EntityInterestTicketFailure } from "@ryot-app/contract/modules/entity-interest/contract";
-import type { EntityInterestSocketTicketResponse } from "@ryot-app/contract/modules/entity-interest/messages";
+import { EntityWatchTicketFailure } from "@ryot-app/contract/modules/entity-watches/contract";
+import type { EntityWatchSocketTicketResponse } from "@ryot-app/contract/modules/entity-watches/messages";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Context, Data, DateTime, Effect, Layer, Schema } from "effect";
@@ -8,13 +8,13 @@ import { ImpersonationSessions } from "#modules/accounts/auth/impersonation-sess
 import { makeOpaqueTickets } from "#platform/http/opaque-tickets";
 import { RedisService, redisKeys } from "#platform/redis";
 
-export const ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS = 30;
+export const ENTITY_WATCH_SOCKET_TICKET_TTL_SECONDS = 30;
 
-export class EntityInterestInvalidTicket extends Data.TaggedError("EntityInterestInvalidTicket") {}
+export class EntityWatchInvalidTicket extends Data.TaggedError("EntityWatchInvalidTicket") {}
 
-const invalidTicket = () => new EntityInterestInvalidTicket();
+const invalidTicket = () => new EntityWatchInvalidTicket();
 const storeUnavailable = () =>
-	new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } });
+	new EntityWatchTicketFailure({ reason: { code: "ticket-store-unavailable" } });
 const TicketValue = Schema.Struct({
 	userId: UserId,
 	accountGeneration: AccountGeneration,
@@ -24,8 +24,8 @@ const TicketValue = Schema.Struct({
 	),
 });
 
-export class EntityInterestTicketService extends Context.Service<EntityInterestTicketService>()(
-	"EntityInterestTicketService",
+export class EntityWatchTicketService extends Context.Service<EntityWatchTicketService>()(
+	"EntityWatchTicketService",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
@@ -34,22 +34,22 @@ export class EntityInterestTicketService extends Context.Service<EntityInterestT
 				redis,
 				invalid: invalidTicket,
 				unavailable: storeUnavailable,
-				key: redisKeys.entityInterestTicket,
+				key: redisKeys.entityWatchTicket,
 				codec: Schema.fromJsonString(TicketValue),
-				ttlSeconds: ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
+				ttlSeconds: ENTITY_WATCH_SOCKET_TICKET_TTL_SECONDS,
 			});
 
-			const create = Effect.fn("EntityInterestTicketService.create")(function* (
+			const create = Effect.fn("EntityWatchTicketService.create")(function* (
 				input: typeof TicketValue.Type,
 			) {
 				const created = yield* tickets.create(input);
 				return {
 					ticket: created.ticket,
 					expiresAt: DateTime.formatIso(DateTime.makeUnsafe(created.expiresAt)),
-				} satisfies EntityInterestSocketTicketResponse;
+				} satisfies EntityWatchSocketTicketResponse;
 			});
 
-			const consume = Effect.fn("EntityInterestTicketService.consume")(function* (ticket: string) {
+			const consume = Effect.fn("EntityWatchTicketService.consume")(function* (ticket: string) {
 				const principal = yield* tickets.consume(ticket);
 				if (principal.impersonation === undefined) {
 					return principal;

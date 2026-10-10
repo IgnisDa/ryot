@@ -2,11 +2,11 @@ import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
-import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
-	UserStateBadRequest,
-	UserStateNotFound,
-} from "@ryot-app/contract/modules/user-state/schemas";
+	EntityUserDataBadRequest,
+	EntityUserDataNotFound,
+} from "@ryot-app/contract/modules/entity-user-data/schemas";
+import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -67,11 +67,11 @@ const command = {
 	...rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
-		itemIdentity: "user-state",
+		itemIdentity: "entity-user-data",
 		initiator: { id: user.id, kind: "user" },
 		accountGeneration: user.accountGeneration,
 		occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
-		executionId: AutomationExecutionId.make("user-state-execution"),
+		executionId: AutomationExecutionId.make("entity-user-data-execution"),
 	}),
 	writeContext: null,
 };
@@ -218,7 +218,9 @@ const recordingServiceLayer = <A>(
 		readonly session: DatabaseSession["Service"];
 	}) => Parameters<typeof makeServiceLayer>[0],
 ) => {
-	const Recorded = Context.Service<Effect.Effect<ReadonlyArray<A>>>("test/RecordedUserStateCalls");
+	const Recorded = Context.Service<Effect.Effect<ReadonlyArray<A>>>(
+		"test/RecordedEntityUserDataCalls",
+	);
 	return {
 		recorded: Effect.flatten(Recorded),
 		layer: Layer.unwrap(
@@ -283,12 +285,12 @@ layer(
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
 			const exit = yield* Effect.exit(
-				service.clearUserState(user, EntityId.make("library-entity"), command),
+				service.clearEntityUserData(user, EntityId.make("library-entity"), command),
 			);
 
 			assertExitFails(
 				exit,
-				new UserStateBadRequest({ reason: { operation: "clear", code: "operation-denied" } }),
+				new EntityUserDataBadRequest({ reason: { operation: "clear", code: "operation-denied" } }),
 			);
 		}),
 	);
@@ -314,7 +316,7 @@ layer(deletedEvents.layer)((test) => {
 	test.effect("deletes matching events through EventsService when clearing user state", () =>
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
-			const result = yield* service.clearUserState(user, EntityId.make("entity-1"), command);
+			const result = yield* service.clearEntityUserData(user, EntityId.make("entity-1"), command);
 
 			expect(result).toEqual({
 				warnings: [],
@@ -485,7 +487,7 @@ layer(clearPhases.layer)((test) => {
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const service = yield* EntityUserDataService;
-				const result = yield* service.clearUserState(user, EntityId.make("entity-1"), command);
+				const result = yield* service.clearEntityUserData(user, EntityId.make("entity-1"), command);
 				expect(yield* session.isTransactionActive).toBe(false);
 
 				const observations = yield* clearPhases.recorded;
@@ -539,7 +541,7 @@ layer(failedPreparation.layer)((test) => {
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
 			const exit = yield* Effect.exit(
-				service.clearUserState(user, EntityId.make("entity-1"), command),
+				service.clearEntityUserData(user, EntityId.make("entity-1"), command),
 			);
 
 			assertExitFails(exit, preparationFailure);
@@ -553,14 +555,17 @@ layer(makeServiceLayer())((test) => {
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
 			const exit = yield* Effect.exit(
-				service.mergeUserState(
+				service.mergeEntityUserData(
 					user,
 					{ mergeFrom: EntityId.make("entity-id"), mergeInto: EntityId.make("entity-id") },
 					command,
 				),
 			);
 
-			assertExitFails(exit, new UserStateBadRequest({ reason: { code: "same-entity-merge" } }));
+			assertExitFails(
+				exit,
+				new EntityUserDataBadRequest({ reason: { code: "same-entity-merge" } }),
+			);
 		}),
 	);
 });
@@ -577,7 +582,7 @@ layer(
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
 			const exit = yield* Effect.exit(
-				service.mergeUserState(
+				service.mergeEntityUserData(
 					user,
 					{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
 					command,
@@ -586,7 +591,7 @@ layer(
 
 			assertExitFails(
 				exit,
-				new UserStateNotFound({
+				new EntityUserDataNotFound({
 					reason: {
 						code: "entity-not-found",
 						entityIds: [EntityId.make("from"), EntityId.make("into")],
@@ -625,7 +630,7 @@ layer(differentOwnerMerge.layer)((test) => {
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
 			const exit = yield* Effect.exit(
-				service.mergeUserState(
+				service.mergeEntityUserData(
 					user,
 					{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
 					command,
@@ -634,7 +639,7 @@ layer(differentOwnerMerge.layer)((test) => {
 
 			assertExitFails(
 				exit,
-				new UserStateBadRequest({ reason: { code: "entity-schema-mismatch" } }),
+				new EntityUserDataBadRequest({ reason: { code: "entity-schema-mismatch" } }),
 			);
 			expect(yield* differentOwnerMerge.recorded).toEqual([]);
 		}),
@@ -659,7 +664,7 @@ layer(
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
 			const sourceDenied = yield* Effect.exit(
-				service.mergeUserState(
+				service.mergeEntityUserData(
 					user,
 					{
 						mergeFrom: EntityId.make("blocked-source"),
@@ -669,7 +674,7 @@ layer(
 				),
 			);
 			const destinationDenied = yield* Effect.exit(
-				service.mergeUserState(
+				service.mergeEntityUserData(
 					user,
 					{
 						mergeFrom: EntityId.make("allowed-source"),
@@ -679,7 +684,7 @@ layer(
 				),
 			);
 
-			const expected = new UserStateBadRequest({
+			const expected = new EntityUserDataBadRequest({
 				reason: { operation: "merge", code: "operation-denied" },
 			});
 			assertExitFails(sourceDenied, expected);
@@ -705,7 +710,7 @@ layer(
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
 			const exit = yield* Effect.exit(
-				service.mergeUserState(
+				service.mergeEntityUserData(
 					user,
 					{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
 					command,
@@ -714,7 +719,7 @@ layer(
 
 			assertExitFails(
 				exit,
-				new UserStateBadRequest({ reason: { code: "entity-schema-mismatch" } }),
+				new EntityUserDataBadRequest({ reason: { code: "entity-schema-mismatch" } }),
 			);
 		}),
 	);
@@ -736,7 +741,7 @@ layer(
 	test.effect("allows merging entities with matching declared identity properties", () =>
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
-			const result = yield* service.mergeUserState(
+			const result = yield* service.mergeEntityUserData(
 				user,
 				{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
 				command,
@@ -771,7 +776,7 @@ layer(
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
 			const exit = yield* Effect.exit(
-				service.mergeUserState(
+				service.mergeEntityUserData(
 					user,
 					{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
 					command,
@@ -780,7 +785,7 @@ layer(
 
 			assertExitFails(
 				exit,
-				new UserStateBadRequest({
+				new EntityUserDataBadRequest({
 					reason: { property: "kind", code: "identity-property-mismatch" },
 				}),
 			);
@@ -865,7 +870,7 @@ layer(mergeMoves.layer)((test) => {
 	test.effect("moves events and relationships when the schema has no merge identity metadata", () =>
 		Effect.gen(function* () {
 			const service = yield* EntityUserDataService;
-			const result = yield* service.mergeUserState(
+			const result = yield* service.mergeEntityUserData(
 				user,
 				{ mergeFrom: EntityId.make("from"), mergeInto: EntityId.make("into") },
 				command,
@@ -879,13 +884,13 @@ layer(mergeMoves.layer)((test) => {
 				movedRelationshipsCount: 3,
 			});
 			expect(yield* mergeMoves.recorded).toEqual([
-				"prepare:event-1:from->into:user-state:event:event-1:update",
-				"prepare:event-2:from->into:user-state:event:event-2:update",
-				"prepare:into->target-1:create:user-state:relationship:relationship-1:create",
-				"prepare:from->target-1:delete:user-state:relationship:relationship-1:delete",
-				"prepare:target-2->into:create:user-state:relationship:relationship-2:create",
-				"prepare:target-2->from:delete:user-state:relationship:relationship-2:delete",
-				"prepare:from->from:delete:user-state:relationship:relationship-3:delete",
+				"prepare:event-1:from->into:entity-user-data:event:event-1:update",
+				"prepare:event-2:from->into:entity-user-data:event:event-2:update",
+				"prepare:into->target-1:create:entity-user-data:relationship:relationship-1:create",
+				"prepare:from->target-1:delete:entity-user-data:relationship:relationship-1:delete",
+				"prepare:target-2->into:create:entity-user-data:relationship:relationship-2:create",
+				"prepare:target-2->from:delete:entity-user-data:relationship:relationship-2:delete",
+				"prepare:from->from:delete:entity-user-data:relationship:relationship-3:delete",
 				"persist:event",
 				"persist:event",
 				"persist:relationship:create",
@@ -928,13 +933,15 @@ layer(
 		}),
 	}),
 )((test) => {
-	test.effect("returns a typed user-state failure when the relationship schema is inactive", () =>
-		Effect.gen(function* () {
-			const service = yield* EntityUserDataService;
-			assertExitFails(
-				yield* Effect.exit(service.mergeUserState(user, { mergeFrom, mergeInto }, command)),
-				new UserStateBadRequest({ reason: { code: "relationship-merge-failed" } }),
-			);
-		}),
+	test.effect(
+		"returns a typed entity-user-data failure when the relationship schema is inactive",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* EntityUserDataService;
+				assertExitFails(
+					yield* Effect.exit(service.mergeEntityUserData(user, { mergeFrom, mergeInto }, command)),
+					new EntityUserDataBadRequest({ reason: { code: "relationship-merge-failed" } }),
+				);
+			}),
 	);
 });

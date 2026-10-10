@@ -29,7 +29,11 @@ export const canonicalClientArtifactFileName = (fileName: string): string | null
 	return null;
 };
 
-export const buildClientAssetUrl = (artifactHash: string, accessKey: string, fileName: string) => {
+export const buildPageBundleFileUrl = (
+	artifactHash: string,
+	accessKey: string,
+	fileName: string,
+) => {
 	if (
 		!CLIENT_ARTIFACT_HASH_PATTERN.test(artifactHash) ||
 		(accessKey !== "public" && !/^[A-Za-z0-9_-]{43}$/.test(accessKey)) ||
@@ -37,5 +41,5 @@ export const buildClientAssetUrl = (artifactHash: string, accessKey: string, fil
 	) {
 		throw new Error("Invalid client asset reference");
 	}
-	return `/api/client-assets/${artifactHash}/${accessKey}/${fileName.split("/").map(encodeURIComponent).join("/")}`;
+	return `/api/page-bundles/${artifactHash}/${accessKey}/${fileName.split("/").map(encodeURIComponent).join("/")}`;
 };

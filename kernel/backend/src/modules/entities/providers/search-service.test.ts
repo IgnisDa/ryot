@@ -3,7 +3,7 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	ProviderEntityBadRequest,
 	ProviderEntityNotFound,
-} from "@ryot-app/contract/modules/provider-entities/schemas";
+} from "@ryot-app/contract/modules/entity-providers/schemas";
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";

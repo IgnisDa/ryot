@@ -152,7 +152,7 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `httpRateLimits`       | Deployment-global limits by normalized HTTP(S) origin                   |
 | `integrationProviders` | Push, sink, or yank integrations                                        |
 | `oauthProviders`       | Optional kernel-managed OAuth clients for integration settings (system) |
-| `entitySchemas`        | Entities, events, user-state policy, and merge identity                 |
+| `entitySchemas`        | Entities, events, entity-user-data policy, and merge identity           |
 | `relationshipSchemas`  | Typed relationship endpoints                                            |
 | `signalSchemas`        | Signal audience, catalog, and formatter definitions                     |
 | `client`               | Version 1 public exports, routes, entities, dependencies, and home view |

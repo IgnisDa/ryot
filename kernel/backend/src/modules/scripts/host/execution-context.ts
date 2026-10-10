@@ -3,8 +3,8 @@ import {
 	type AutomationSource,
 	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
-import type { SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
+import { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
+import type { SandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { automationInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";

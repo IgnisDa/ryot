@@ -2,13 +2,13 @@ import type {
 	ClientArtifactFileReference,
 	ClientCompositionDocument,
 	ClientPageCompositionManifest,
-} from "@ryot-app/contract/modules/client-pages/schemas";
+} from "@ryot-app/contract/modules/pages/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { ClientArtifactGrantService } from "#modules/pages/bundles/grant-service";
 import { ClientArtifactStore } from "#modules/pages/bundles/store";
-import { buildClientAssetUrl } from "#modules/pages/bundles/url";
+import { buildPageBundleFileUrl } from "#modules/pages/bundles/url";
 
 import type { ArtifactDescription } from "./composition";
 
@@ -47,7 +47,7 @@ export const planClientDocumentPreloads = (
 			throw new Error(`Client artifact is missing: ${hash}`);
 		}
 		for (const { name, contentType } of description.files) {
-			const url = buildClientAssetUrl(hash, key, name);
+			const url = buildPageBundleFileUrl(hash, key, name);
 			if (/^(text|application)\/javascript(?:;|$)/.test(contentType)) {
 				modulepreloads.add(url);
 			} else if (contentType.startsWith("text/css")) {
@@ -76,7 +76,7 @@ export const renderClientDocument = (
 		if (!key || !artifacts.get(artifactHash)?.files.some(({ name }) => name === file)) {
 			throw new Error(`Client document file is missing: ${artifactHash}/${file}`);
 		}
-		return buildClientAssetUrl(artifactHash, key, file);
+		return buildPageBundleFileUrl(artifactHash, key, file);
 	};
 	const imports = Object.fromEntries(
 		Object.entries(manifest.imports).map(([specifier, reference]) => [specifier, url(reference)]),
@@ -100,7 +100,7 @@ export const renderClientDocument = (
 	};
 };
 
-export const generateClientDocument = Effect.fn("ClientPages.generateDocument")(function* (
+export const generateClientDocument = Effect.fn("Pages.generateDocument")(function* (
 	userId: UserId,
 	compositionHash: string,
 	manifest: ClientPageCompositionManifest,

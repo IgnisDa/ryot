@@ -6,30 +6,27 @@ import { HttpApiBuilder } from "effect/http-api";
 
 import { UserSettingsService } from "./service";
 
-export const UserSettingsRoutesLive = HttpApiBuilder.group(
-	AppContract,
-	"userSettings",
-	(handlers) =>
-		handlers
-			.handle("updatePreferences", ({ payload }) =>
-				Effect.gen(function* () {
-					const user = yield* CurrentUser;
-					const service = yield* UserSettingsService;
-					return yield* service.updatePreferences(user, payload).pipe(dieOnDbError);
-				}),
-			)
-			.handle("refreshAvatar", () =>
-				Effect.gen(function* () {
-					const user = yield* CurrentUser;
-					const service = yield* UserSettingsService;
-					return yield* service.refreshAvatar(user).pipe(dieOnDbError);
-				}),
-			)
-			.handle("getTwoFactorStatus", () =>
-				Effect.gen(function* () {
-					const user = yield* CurrentUser;
-					const service = yield* UserSettingsService;
-					return yield* service.getTwoFactorStatus(user).pipe(dieOnDbError);
-				}),
-			),
+export const UserSettingsRoutesLive = HttpApiBuilder.group(AppContract, "account", (handlers) =>
+	handlers
+		.handle("updatePreferences", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* UserSettingsService;
+				return yield* service.updatePreferences(user, payload).pipe(dieOnDbError);
+			}),
+		)
+		.handle("refreshAvatar", () =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* UserSettingsService;
+				return yield* service.refreshAvatar(user).pipe(dieOnDbError);
+			}),
+		)
+		.handle("getTwoFactorStatus", () =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* UserSettingsService;
+				return yield* service.getTwoFactorStatus(user).pipe(dieOnDbError);
+			}),
+		),
 );

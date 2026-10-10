@@ -1,14 +1,14 @@
 import { expect, layer } from "@effect/vitest";
-import { ClientAssetsGroup } from "@ryot-app/contract/modules/client-pages/contract";
+import { PageBundlesGroup } from "@ryot-app/contract/modules/pages/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref, Result } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApi, HttpApiBuilder } from "effect/http-api";
 
 import { ClientArtifactGrantService } from "./grant-service";
-import { ClientAssetsRoutesLive, serveClientAsset } from "./routes";
+import { PageBundlesRoutesLive, servePageBundleFile } from "./routes";
 import { ClientArtifactStore } from "./store";
-import { buildClientAssetUrl } from "./url";
+import { buildPageBundleFileUrl } from "./url";
 
 const publicHash = "a".repeat(64);
 const privateHash = "b".repeat(64);
@@ -59,12 +59,12 @@ layer(servicesLayer)((test) => {
 		"serves public and authorized files through one handler with distinct cache policy",
 		() =>
 			Effect.gen(function* () {
-				const publicFile = yield* serveClientAsset({
+				const publicFile = yield* servePageBundleFile({
 					accessKey: "public",
 					fileName: "module.js",
 					artifactHash: publicHash,
 				});
-				const privateFile = yield* serveClientAsset({
+				const privateFile = yield* servePageBundleFile({
 					accessKey: token,
 					fileName: "module.js",
 					artifactHash: privateHash,
@@ -76,14 +76,14 @@ layer(servicesLayer)((test) => {
 					`${publicHash}/module.js`,
 					`${privateHash}/module.js`,
 				]);
-				expect(buildClientAssetUrl(publicHash, "public", "nested/module.js")).toBe(
-					`/api/client-assets/${publicHash}/public/nested/module.js`,
+				expect(buildPageBundleFileUrl(publicHash, "public", "nested/module.js")).toBe(
+					`/api/page-bundles/${publicHash}/public/nested/module.js`,
 				);
-				expect(buildClientAssetUrl(privateHash, token, "module.js")).toBe(
-					`/api/client-assets/${privateHash}/${token}/module.js`,
+				expect(buildPageBundleFileUrl(privateHash, token, "module.js")).toBe(
+					`/api/page-bundles/${privateHash}/${token}/module.js`,
 				);
-				expect(buildClientAssetUrl(publicHash, "public", "some module.js")).toBe(
-					`/api/client-assets/${publicHash}/public/some%20module.js`,
+				expect(buildPageBundleFileUrl(publicHash, "public", "some module.js")).toBe(
+					`/api/page-bundles/${publicHash}/public/some%20module.js`,
 				);
 			}),
 	);
@@ -102,7 +102,7 @@ layer(servicesLayer)((test) => {
 					{ accessKey: "public", artifactHash: publicHash, fileName: "%252e%252e%252fsecret.js" },
 					{ accessKey: "public", fileName: "module.js", artifactHash: "invalid" },
 				]) {
-					expect(Result.isFailure(yield* Effect.result(serveClientAsset(input)))).toBe(true);
+					expect(Result.isFailure(yield* Effect.result(servePageBundleFile(input)))).toBe(true);
 				}
 				expect(yield* (yield* FakeClientArtifactStore).reads).toEqual([]);
 			}),
@@ -115,9 +115,9 @@ layer(servicesLayer)((test) => {
 			const services = Layer.succeedContext(
 				yield* Effect.context<ClientArtifactStore | ClientArtifactGrantService>(),
 			);
-			const api = HttpApi.make("ryot").add(ClientAssetsGroup);
+			const api = HttpApi.make("ryot").add(PageBundlesGroup);
 			const route = HttpApiBuilder.layer(api).pipe(
-				Layer.provide(Layer.mergeAll(ClientAssetsRoutesLive, HttpServer.layerServices)),
+				Layer.provide(Layer.mergeAll(PageBundlesRoutesLive, HttpServer.layerServices)),
 				Layer.provideMerge(services),
 				HttpRouter.provideRequest(services),
 			);
@@ -126,7 +126,7 @@ layer(servicesLayer)((test) => {
 				({ handler }) => {
 					const request = (hash: string, accessKey: string, name: string) =>
 						Effect.promise(() =>
-							handler(new Request(`http://server.test/client-assets/${hash}/${accessKey}/${name}`)),
+							handler(new Request(`http://server.test/page-bundles/${hash}/${accessKey}/${name}`)),
 						);
 					return Effect.gen(function* () {
 						const publicFile = yield* request(publicHash, "public", "module.js");

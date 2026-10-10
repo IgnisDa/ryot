@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
-import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
+import { UploadBadRequest } from "@ryot-app/contract/modules/assets/schemas";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { Context, Effect, Layer, Ref, Stream } from "effect";
 

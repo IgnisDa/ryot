@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import { PluginId, PluginPackageId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
-import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../sandbox/schemas";
+import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../scripts/schemas";
 import { SavedViewReference } from "./references";
 
 const PluginValidationDiagnostic = Schema.Struct({

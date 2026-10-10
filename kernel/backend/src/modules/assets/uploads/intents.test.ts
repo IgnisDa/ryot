@@ -1,7 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { badRequest } from "@ryot-app/contract/errors";
-import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";

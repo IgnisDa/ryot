@@ -52,10 +52,10 @@ import {
 	type PluginStorageOutcome,
 	type PluginStorageRequest,
 } from "@ryot-app/plugin-client-contract";
-import type { EntityInterestSubscription } from "@ryot-app/plugin-client-sdk";
+import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
 import { Cause, Effect, Fiber, Match, Result, Schema } from "effect";
 
-import type { WatchEntities } from "#/modules/entity-interest/service";
+import type { WatchEntities } from "#/modules/entity-watches/service";
 
 const HANDSHAKE_TIMEOUT_MS = 15_000;
 const OVERLAY_DISMISS_TIMEOUT_MS = 1_000;
@@ -176,7 +176,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	let state: PluginBridgeState = "ready";
 	const listeners = new AbortController();
 	const pending = new Map<string, PendingRequest>();
-	let interest: EntityInterestSubscription | undefined;
+	let interest: EntityWatchSubscription | undefined;
 	let overlayCount = 0;
 	let nextOverlayRequestId = 0;
 	let overlayDismiss:
@@ -544,7 +544,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				}
 				Match.value(decoded.success)
 					.pipe(
-						Match.when({ type: "entity-interest" }, ({ visible, foreground }) => {
+						Match.when({ type: "entity-watches" }, ({ visible, foreground }) => {
 							const declaration = { visible, foreground };
 							interestIds = new Set([...declaration.foreground, ...declaration.visible]);
 							try {

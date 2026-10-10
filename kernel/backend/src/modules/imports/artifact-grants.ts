@@ -2,7 +2,7 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import type {
 	SandboxExecutionGrants,
 	SandboxExecutionSubject,
-} from "@ryot-app/contract/modules/sandbox/schemas";
+} from "@ryot-app/contract/modules/scripts/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { ingestionArtifactsSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";

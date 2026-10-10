@@ -1,4 +1,5 @@
 import { badRequest, DbError } from "@ryot-app/contract/errors";
+import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { dataJsonIntegrationSettingsSchema } from "@ryot-app/contract/modules/imports/data-json";
 import {
 	definitionKey,
@@ -11,7 +12,6 @@ import {
 	EntityBrowserSavedViewSettings,
 	type SavedViewRenderer,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,

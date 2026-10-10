@@ -209,7 +209,7 @@ export const defineGroupMediaSchema = <
 				}),
 			),
 		{
-			entityInterest: ({ data, input }) => ({
+			entityWatch: ({ data, input }) => ({
 				foreground: [input.entityId],
 				visible: data?.items.map(({ id }) => id) ?? [],
 			}),

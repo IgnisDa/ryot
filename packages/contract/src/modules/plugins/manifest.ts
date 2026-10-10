@@ -5,6 +5,7 @@ import { PluginPackageId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
 import { HttpUrl, strictStruct } from "../../schema/utils";
+import { isSupportedUploadFileExtension } from "../assets/upload-policy";
 import {
 	AutomationAfterInputProjection,
 	AutomationPolicyInputProjection,
@@ -12,9 +13,8 @@ import {
 	AutomationSource,
 } from "../automations/lifecycle";
 import { RyotQLDocument } from "../ryotql/language";
-import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../sandbox/wire";
 import { AuthoredSavedViewRenderer } from "../saved-views/schemas";
-import { isSupportedUploadFileExtension } from "../uploads/upload-policy";
+import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "../scripts/wire";
 import {
 	hasReachableExternalEffects,
 	hasValidExecutableDependencies,

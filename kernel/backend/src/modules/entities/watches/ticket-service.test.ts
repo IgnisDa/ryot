@@ -1,5 +1,5 @@
 import { assert, expect, layer } from "@effect/vitest";
-import { EntityInterestTicketFailure } from "@ryot-app/contract/modules/entity-interest/contract";
+import { EntityWatchTicketFailure } from "@ryot-app/contract/modules/entity-watches/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import Redis from "ioredis";
@@ -10,9 +10,9 @@ import { RedisService, redisKeys } from "#platform/redis";
 import { makeRedisService } from "#testing/effect";
 
 import {
-	ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
-	EntityInterestInvalidTicket,
-	EntityInterestTicketService,
+	ENTITY_WATCH_SOCKET_TICKET_TTL_SECONDS,
+	EntityWatchInvalidTicket,
+	EntityWatchTicketService,
 } from "./ticket-service";
 
 class FakeTicketStore extends Context.Service<
@@ -64,7 +64,7 @@ const makeLayer = (
 				},
 			);
 			return Layer.provideMerge(
-				EntityInterestTicketService.layer,
+				EntityWatchTicketService.layer,
 				Layer.merge(
 					Layer.succeed(RedisService, makeRedisService({ client })),
 					Layer.mock(ImpersonationSessions)({
@@ -91,12 +91,12 @@ const failure = <A, E>(exit: Exit.Exit<A, E>) => {
 	return error.value;
 };
 
-describe("EntityInterestTicketService", () => {
+describe("EntityWatchTicketService", () => {
 	layer(makeLayer())((test) => {
 		test.effect("creates a 32-byte opaque ticket with a 30-second expiry", () =>
 			Effect.gen(function* () {
 				const store = yield* FakeTicketStore;
-				const service = yield* EntityInterestTicketService;
+				const service = yield* EntityWatchTicketService;
 				const created = yield* service.create({
 					preferredLanguage: "es",
 					userId: UserId.make("user-1"),
@@ -107,13 +107,13 @@ describe("EntityInterestTicketService", () => {
 				expect(Buffer.from(created.ticket, "base64url")).toHaveLength(32);
 				expect([...(yield* store.values).keys()][0]).not.toContain(created.ticket);
 				expect([...(yield* store.values).keys()][0]).toMatch(
-					new RegExp(`^${redisKeys.entityInterestTicket("")}[a-f0-9]{64}$`),
+					new RegExp(`^${redisKeys.entityWatchTicket("")}[a-f0-9]{64}$`),
 				);
 				expect([...(yield* store.values).values()]).toEqual([
 					'{"userId":"user-1","accountGeneration":{"userId":"user-1","token":"test-account-generation"},"preferredLanguage":"es"}',
 				]);
 				expect([...(yield* store.expiries).values()]).toEqual([
-					ENTITY_INTEREST_SOCKET_TICKET_TTL_SECONDS,
+					ENTITY_WATCH_SOCKET_TICKET_TTL_SECONDS,
 				]);
 				expect(Date.parse(created.expiresAt)).toBeGreaterThan(0);
 			}),
@@ -123,7 +123,7 @@ describe("EntityInterestTicketService", () => {
 	layer(makeLayer({ createUnavailable: true }))((test) => {
 		test.effect("exposes store unavailability when ticket creation fails", () =>
 			Effect.gen(function* () {
-				const service = yield* EntityInterestTicketService;
+				const service = yield* EntityWatchTicketService;
 				const exit = yield* Effect.exit(
 					service.create({
 						preferredLanguage: null,
@@ -133,7 +133,7 @@ describe("EntityInterestTicketService", () => {
 				);
 
 				expect(failure(exit)).toEqual(
-					new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
+					new EntityWatchTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
 				);
 			}),
 		);
@@ -142,7 +142,7 @@ describe("EntityInterestTicketService", () => {
 	layer(makeLayer())((test) => {
 		test.effect("consumes a ticket only once", () =>
 			Effect.gen(function* () {
-				const service = yield* EntityInterestTicketService;
+				const service = yield* EntityWatchTicketService;
 				const created = yield* service.create({
 					preferredLanguage: null,
 					userId: UserId.make("user-1"),
@@ -155,7 +155,7 @@ describe("EntityInterestTicketService", () => {
 					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 				});
 				const reused = yield* Effect.exit(service.consume(created.ticket));
-				expect(failure(reused)).toEqual(new EntityInterestInvalidTicket());
+				expect(failure(reused)).toEqual(new EntityWatchInvalidTicket());
 			}),
 		);
 	});
@@ -165,7 +165,7 @@ describe("EntityInterestTicketService", () => {
 			"rejects an impersonation ticket when its auth session ended before consumption",
 			() =>
 				Effect.gen(function* () {
-					const service = yield* EntityInterestTicketService;
+					const service = yield* EntityWatchTicketService;
 					const created = yield* service.create({
 						preferredLanguage: null,
 						userId: UserId.make("user-1"),
@@ -174,7 +174,7 @@ describe("EntityInterestTicketService", () => {
 					});
 
 					const exit = yield* Effect.exit(service.consume(created.ticket));
-					expect(failure(exit)).toEqual(new EntityInterestInvalidTicket());
+					expect(failure(exit)).toEqual(new EntityWatchInvalidTicket());
 				}),
 		);
 	});
@@ -182,7 +182,7 @@ describe("EntityInterestTicketService", () => {
 	layer(makeLayer())((test) => {
 		test.effect("allows only one concurrent consumer", () =>
 			Effect.gen(function* () {
-				const service = yield* EntityInterestTicketService;
+				const service = yield* EntityWatchTicketService;
 				const created = yield* service.create({
 					preferredLanguage: "fr",
 					userId: UserId.make("user-1"),
@@ -203,11 +203,11 @@ describe("EntityInterestTicketService", () => {
 	layer(makeLayer({ consumeUnavailable: true }))((test) => {
 		test.effect("distinguishes ticket-store outages from invalid tickets", () =>
 			Effect.gen(function* () {
-				const service = yield* EntityInterestTicketService;
+				const service = yield* EntityWatchTicketService;
 				const exit = yield* Effect.exit(service.consume("A".repeat(43)));
 
 				expect(failure(exit)).toEqual(
-					new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
+					new EntityWatchTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
 				);
 			}),
 		);
@@ -219,7 +219,7 @@ describe("EntityInterestTicketService", () => {
 			() =>
 				Effect.gen(function* () {
 					const store = yield* FakeTicketStore;
-					const service = yield* EntityInterestTicketService;
+					const service = yield* EntityWatchTicketService;
 					const created = yield* service.create({
 						preferredLanguage: null,
 						userId: UserId.make("user-1"),
@@ -229,7 +229,7 @@ describe("EntityInterestTicketService", () => {
 
 					for (const ticket of [created.ticket, "malformed", "A".repeat(43)]) {
 						const exit = yield* Effect.exit(service.consume(ticket));
-						expect(failure(exit)).toEqual(new EntityInterestInvalidTicket());
+						expect(failure(exit)).toEqual(new EntityWatchInvalidTicket());
 					}
 				}),
 		);
@@ -239,7 +239,7 @@ describe("EntityInterestTicketService", () => {
 		test.effect("rejects malformed Redis values without exposing the ticket", () =>
 			Effect.gen(function* () {
 				const store = yield* FakeTicketStore;
-				const service = yield* EntityInterestTicketService;
+				const service = yield* EntityWatchTicketService;
 				const created = yield* service.create({
 					preferredLanguage: null,
 					userId: UserId.make("user-1"),
@@ -251,7 +251,7 @@ describe("EntityInterestTicketService", () => {
 
 				const exit = yield* Effect.exit(service.consume(created.ticket));
 				const error = failure(exit);
-				expect(error).toEqual(new EntityInterestInvalidTicket());
+				expect(error).toEqual(new EntityWatchInvalidTicket());
 				expect(String(error)).not.toContain(created.ticket);
 				if (Exit.isFailure(exit)) {
 					expect(Cause.pretty(exit.cause)).not.toContain(created.ticket);

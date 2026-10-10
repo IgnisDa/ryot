@@ -1,14 +1,15 @@
 import { Schema } from "effect";
 
 import { SavedViewId } from "../../schema/brands";
+import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
+import { AssetLocator } from "../assets/schemas";
 import {
 	AuthoredEntitySchemaReference,
 	EntitySchemaReference,
 	SavedViewReference,
 } from "../plugins/references";
-import { JsonValue, OutputFieldKey, RyotQLDocument } from "../ryotql/language";
-import { AssetLocator } from "../uploads/schemas";
+import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 
 const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("duplicate-name") }),

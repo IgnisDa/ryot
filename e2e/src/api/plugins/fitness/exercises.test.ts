@@ -13,7 +13,7 @@ import {
 	getSavedView,
 	listEventsForEntity,
 	listSavedViews,
-	mergeUserState,
+	mergeEntityUserData,
 	pollUntil,
 	requireRyotQLText,
 	requireRyotQLValue,
@@ -349,7 +349,10 @@ describe("Exercises E2E", () => {
 				}),
 			);
 
-			const result = yield* mergeUserState(client, { mergeFrom: source.id, mergeInto: target.id });
+			const result = yield* mergeEntityUserData(client, {
+				mergeFrom: source.id,
+				mergeInto: target.id,
+			});
 			const sourceEvents = yield* listEventsForEntity(client, source.id, undefined, 100);
 			const targetEvents = yield* listEventsForEntity(client, target.id, undefined, 100);
 
@@ -377,11 +380,13 @@ describe("Exercises E2E", () => {
 
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.userState.mergeUserState({ payload: { mergeFrom: source.id, mergeInto: target.id } }),
+					c.entityUserData.mergeEntityUserData({
+						payload: { mergeFrom: source.id, mergeInto: target.id },
+					}),
 				),
 			);
 
-			assertTaggedError(error, "UserStateBadRequest");
+			assertTaggedError(error, "EntityUserDataBadRequest");
 			expect(error.reason).toEqual({ property: "kind", code: "identity-property-mismatch" });
 		}),
 	);

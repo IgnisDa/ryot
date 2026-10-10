@@ -1,3 +1,4 @@
+import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import {
 	pluginPackageKey,
 	type PluginIdentityReference,
@@ -8,10 +9,9 @@ import {
 	mapPluginIdentityReferences,
 	type RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/language";
-import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
-import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Schema } from "effect";

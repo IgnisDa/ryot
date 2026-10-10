@@ -200,7 +200,7 @@ layer(
 			Effect.gen(function* () {
 				const service = yield* UserLifecycleService;
 				expect(yield* service.deleteUser(userId).pipe(Effect.flip)).toMatchObject({
-					_tag: "GodModeInternalFailure",
+					_tag: "InstanceAdminInternalFailure",
 					reason: { code: "lifecycle-dispatch-failed" },
 				});
 				expect(prepared.operation.status).toBe("pending");

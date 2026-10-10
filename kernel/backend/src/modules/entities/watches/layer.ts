@@ -11,15 +11,15 @@ import { RyotQLService } from "#modules/ryotql/service";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 
 import { LocalInterestSessions } from "./connections";
-import { EntityInterestProgression } from "./progression";
+import { EntityWatchProgression } from "./progression";
 import { InterestReconciler } from "./reconciler";
 import { InterestService } from "./service";
-import { EntityInterestStore } from "./store";
-import { EntityInterestSubscriber } from "./subscriber";
-import { EntityInterestTicketService } from "./ticket-service";
+import { EntityWatchStore } from "./store";
+import { EntityWatchSubscriber } from "./subscriber";
+import { EntityWatchTicketService } from "./ticket-service";
 
-export const EntityInterestStateLive = Layer.merge(
-	EntityInterestStore.layer,
+export const EntityWatchStateLive = Layer.merge(
+	EntityWatchStore.layer,
 	LocalInterestSessions.layer,
 );
 
@@ -36,23 +36,23 @@ export const InterestReconcilerLive = InterestReconciler.layer.pipe(
 	Layer.provide(PluginRuntimeResolverLive),
 );
 
-export const EntityInterestProgressionLive = EntityInterestProgression.layer.pipe(
+export const EntityWatchProgressionLive = EntityWatchProgression.layer.pipe(
 	Layer.provide(
-		Layer.mergeAll(EntityInterestStateLive, EntitiesServiceRuntimeLive, TranslationsServiceLive),
+		Layer.mergeAll(EntityWatchStateLive, EntitiesServiceRuntimeLive, TranslationsServiceLive),
 	),
 	Layer.provide(PluginRuntimeResolverLive),
 	Layer.provide(DefinitionRepository.layer),
 );
 
 export const InterestServicesLive = Layer.mergeAll(
-	EntityInterestStateLive,
+	EntityWatchStateLive,
 	InterestReconcilerLive,
 	InterestService.layer.pipe(
-		Layer.provide(Layer.merge(EntityInterestStateLive, InterestReconcilerLive)),
+		Layer.provide(Layer.merge(EntityWatchStateLive, InterestReconcilerLive)),
 	),
-	EntityInterestTicketService.layer.pipe(Layer.provideMerge(ImpersonationSessions.layer)),
-	EntityInterestProgressionLive,
-	EntityInterestSubscriber.layer.pipe(
-		Layer.provide(Layer.merge(EntityInterestStateLive, EntityInterestProgressionLive)),
+	EntityWatchTicketService.layer.pipe(Layer.provideMerge(ImpersonationSessions.layer)),
+	EntityWatchProgressionLive,
+	EntityWatchSubscriber.layer.pipe(
+		Layer.provide(Layer.merge(EntityWatchStateLive, EntityWatchProgressionLive)),
 	),
 );

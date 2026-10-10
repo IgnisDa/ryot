@@ -2,8 +2,8 @@ import type {
 	AutomationEventDraft,
 	AutomationEventSnapshot,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	automationInputSchema,
 	automationPolicyInputSchema,

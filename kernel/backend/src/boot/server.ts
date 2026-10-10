@@ -24,7 +24,7 @@ import { AutomationHistoryRoutesLive } from "#modules/automations/history-routes
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupDownloadsRoutesLive, BackupsRoutesLive } from "#modules/backups/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
-import { ProviderEntitiesRoutesLive } from "#modules/entities/providers/routes";
+import { EntityProvidersRoutesLive } from "#modules/entities/providers/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { EntityUserDataRoutesLive } from "#modules/entities/user-data/routes";
 import { InterestRoutesLive } from "#modules/entities/watches/routes";
@@ -39,8 +39,8 @@ import {
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { OAuthConnectionsRoutesLive } from "#modules/oauth-connections/routes";
-import { ClientAssetsRoutesLive } from "#modules/pages/bundles/routes";
-import { ClientPagesRoutesLive } from "#modules/pages/preparation/routes";
+import { PageBundlesRoutesLive } from "#modules/pages/bundles/routes";
+import { PagesRoutesLive } from "#modules/pages/preparation/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
 import { AdminRyotQLRoutesLive, RyotQLRoutesLive } from "#modules/ryotql/routes";
@@ -104,16 +104,14 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(BackupDownloadsRoutesLive),
 	Layer.provide(RelationshipsRoutesLive),
 	Layer.provide(EntitiesRoutesLive),
-	Layer.provide(ProviderEntitiesRoutesLive),
+	Layer.provide(EntityProvidersRoutesLive),
 	Layer.provide(Layer.mergeAll(EntityUserDataRoutesLive, UserSettingsRoutesLive)),
 	Layer.provide(EventsRoutesLive),
 	Layer.provide(UploadsRoutesLive),
 	Layer.provide(LocalUploadsRoutesLive),
 	Layer.provide(SavedViewsRoutesLive),
 	Layer.provide(PluginsRoutesLive),
-	Layer.provide(
-		Layer.mergeAll(CollectionsRoutesLive, ClientPagesRoutesLive, ClientAssetsRoutesLive),
-	),
+	Layer.provide(Layer.mergeAll(CollectionsRoutesLive, PagesRoutesLive, PageBundlesRoutesLive)),
 	Layer.provide(
 		Layer.mergeAll(
 			InstanceAdminRoutesLive,

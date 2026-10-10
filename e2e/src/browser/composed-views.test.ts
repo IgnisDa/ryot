@@ -102,13 +102,13 @@ it.live("retains the document and bridge across same-composition saved views", (
 		expect(srcDoc).not.toBeNull();
 		expect(yield* frame.getAttribute("src")).toBeNull();
 		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/plugin-client-sdk/plugin");
-		expect(runtimeUrl).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\//);
+		expect(runtimeUrl).toMatch(/^\/api\/page-bundles\/[a-f0-9]{64}\/public\//);
 		yield* frame
 			.contentFrame()
 			.locator("body")
 			.evaluate((body) => body.setAttribute("data-e2e-runtime", "retained"));
 		const before = requests.length;
-		expect(requests).toContain("/api/client-pages/document");
+		expect(requests).toContain("/api/pages/document");
 		yield* page
 			.getByTestId("desktop-sidebar")
 			.getByRole("link", { exact: true, name: "Composition second view" })
@@ -125,10 +125,8 @@ it.live("retains the document and bridge across same-composition saved views", (
 			"retained",
 		);
 		expect(yield* clientImportUrl(frame, "@ryot-app/plugin-client-sdk/plugin")).toBe(runtimeUrl);
-		expect(requests.slice(before).filter((path) => path === "/api/client-pages/document")).toEqual(
-			[],
-		);
-		expect(requests.slice(before).filter((path) => path.startsWith("/api/client-assets/"))).toEqual(
+		expect(requests.slice(before).filter((path) => path === "/api/pages/document")).toEqual([]);
+		expect(requests.slice(before).filter((path) => path.startsWith("/api/page-bundles/"))).toEqual(
 			[],
 		);
 	}).pipe(PlaywrightSpawner.withBrowser),
@@ -165,10 +163,10 @@ it.live("renders a saved view from an installed client plugin page", () =>
 			pluginExportSpecifier({ scope: "user", packageId: installation.packageId }, "fixture-home"),
 		);
 		expect(privateModule).toMatch(
-			/^\/api\/client-assets\/[a-f0-9]{64}\/[A-Za-z0-9_-]{43}\/module\.js$/,
+			/^\/api\/page-bundles\/[a-f0-9]{64}\/[A-Za-z0-9_-]{43}\/module\.js$/,
 		);
 		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/plugin-client-sdk/plugin");
-		expect(runtimeUrl).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\//);
+		expect(runtimeUrl).toMatch(/^\/api\/page-bundles\/[a-f0-9]{64}\/public\//);
 		const runtimeResponse = yield* page.use((nativePage) =>
 			nativePage.context().request.get(new URL(runtimeUrl, apiUrl).href),
 		);
@@ -211,7 +209,7 @@ it.live("renders a saved view from an installed client plugin page", () =>
 				"media-card",
 			),
 		);
-		expect(shippedModule).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\/module\.js$/);
+		expect(shippedModule).toMatch(/^\/api\/page-bundles\/[a-f0-9]{64}\/public\/module\.js$/);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
@@ -380,7 +378,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 			pluginExportSpecifier({ scope: "user", packageId: installation.packageId }, "pokemon-card"),
 		);
 		expect(privateModule).toMatch(
-			/^\/api\/client-assets\/[a-f0-9]{64}\/[A-Za-z0-9_-]{43}\/module\.js$/,
+			/^\/api\/page-bundles\/[a-f0-9]{64}\/[A-Za-z0-9_-]{43}\/module\.js$/,
 		);
 		const privateBase = privateModule.slice(0, privateModule.lastIndexOf("/") + 1);
 		const warmedFiles = yield* runtime.locator("link").evaluateAll(
@@ -634,7 +632,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		yield* page.use((nativePage) => {
 			nativePage.on("request", (request) => {
 				const path = new URL(request.url()).pathname;
-				if (path.startsWith("/api/client-assets/")) {
+				if (path.startsWith("/api/page-bundles/")) {
 					assetRequests.push(path);
 				}
 			});
@@ -656,7 +654,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 				"workout-card",
 			),
 		);
-		expect(fitnessModule).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\/module\.js$/);
+		expect(fitnessModule).toMatch(/^\/api\/page-bundles\/[a-f0-9]{64}\/public\/module\.js$/);
 		const fitnessCss = fitnessModule.replace(/module\.js$/, "module.css");
 		yield* expectVisibleText(runtime.locator("body"), "01 Alpha fallback");
 		yield* expectVisibleText(runtime.locator("body"), "02 Beta fallback");

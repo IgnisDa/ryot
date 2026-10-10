@@ -4,25 +4,21 @@ import { Context, Duration, Effect, Layer } from "effect";
 import { TranslationsService } from "#modules/entities/localization/service";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import {
-	ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS,
-	redisKeys,
-	RedisService,
-} from "#platform/redis";
+import { ENTITY_WATCH_PROGRESSION_LEASE_SECONDS, redisKeys, RedisService } from "#platform/redis";
 
-import { EntityInterestStore } from "./store";
+import { EntityWatchStore } from "./store";
 
-export class EntityInterestProgression extends Context.Service<EntityInterestProgression>()(
-	"EntityInterestProgression",
+export class EntityWatchProgression extends Context.Service<EntityWatchProgression>()(
+	"EntityWatchProgression",
 	{
 		make: Effect.gen(function* () {
 			const redis = yield* RedisService;
-			const store = yield* EntityInterestStore;
+			const store = yield* EntityWatchStore;
 			const entities = yield* EntitiesService;
 			const translations = yield* TranslationsService;
 			const providerResolver = yield* PluginRuntimeResolver;
 
-			const requestTranslations = Effect.fn("EntityInterestProgression.requestTranslations")(
+			const requestTranslations = Effect.fn("EntityWatchProgression.requestTranslations")(
 				function* (entityId: EntityId) {
 					const sessionIds = yield* store.listInterestedSessions(entityId);
 					const metadata = yield* store.getSessionMetadata(sessionIds);
@@ -93,14 +89,14 @@ export class EntityInterestProgression extends Context.Service<EntityInterestPro
 				},
 			);
 
-			const populated = Effect.fn("EntityInterestProgression.populated")(function* (
+			const populated = Effect.fn("EntityWatchProgression.populated")(function* (
 				entityId: EntityId,
 			) {
-				const leaseKey = redisKeys.entityInterestProgressionLease(entityId);
-				let owner = yield* redis.acquireLease(leaseKey, ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS);
+				const leaseKey = redisKeys.entityWatchProgressionLease(entityId);
+				let owner = yield* redis.acquireLease(leaseKey, ENTITY_WATCH_PROGRESSION_LEASE_SECONDS);
 				if (owner === null) {
-					yield* Effect.sleep(Duration.seconds(ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS - 1));
-					owner = yield* redis.acquireLease(leaseKey, ENTITY_INTEREST_PROGRESSION_LEASE_SECONDS);
+					yield* Effect.sleep(Duration.seconds(ENTITY_WATCH_PROGRESSION_LEASE_SECONDS - 1));
+					owner = yield* redis.acquireLease(leaseKey, ENTITY_WATCH_PROGRESSION_LEASE_SECONDS);
 				}
 				if (owner !== null) {
 					yield* requestTranslations(entityId).pipe(

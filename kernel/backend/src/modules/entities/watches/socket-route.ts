@@ -1,15 +1,15 @@
 import { Effect } from "effect";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
-import { runEntityInterestSocketSession } from "./socket-session";
+import { runEntityWatchSocketSession } from "./socket-session";
 
 export const InterestSocketRouteLive = HttpRouter.add(
 	"GET",
-	"/entity-interest/ws",
+	"/entity-watches/ws",
 	Effect.gen(function* () {
 		const request = yield* HttpServerRequest.HttpServerRequest;
 		const socket = yield* request.upgrade;
-		yield* runEntityInterestSocketSession(socket).pipe(
+		yield* runEntityWatchSocketSession(socket).pipe(
 			Effect.catchCause((cause) => Effect.logError("entity interest socket failed", cause)),
 		);
 		return HttpServerResponse.empty();
