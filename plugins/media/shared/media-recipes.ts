@@ -35,6 +35,11 @@ import {
 import { EntityId, EntitySchemaSlug, EventId } from "@ryot-app/plugin-kit/schema";
 
 import {
+	mediaPresentationImageSelection,
+	selectedPresentationSource,
+	type MediaPresentationSource,
+} from "./entity-presentations";
+import {
 	entityId,
 	entityIdentitySelection,
 	entitySchema,
@@ -426,7 +431,7 @@ const mediaFlatPresentationSelection = <Duration extends SelectedSelection>(
 ) => ({
 	...entityIdentitySelection(entity),
 	state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
-	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
+	...mediaPresentationImageSelection(entity),
 	...duration,
 	progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
 	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
@@ -774,8 +779,6 @@ export type MediaUnlinkedCreatorsOverview = {
 		| undefined;
 };
 
-const MEDIA_FLAT_PRESENTATION_LIMIT = 100;
-
 export type MediaExtraQueries = Readonly<Record<string, SelectedQuery<unknown>>>;
 
 /** A recipe factory's own overview queries, absent when it declares none. */
@@ -798,8 +801,8 @@ export type MediaActivityOf<Recipes extends { readonly activityRecipe: unknown }
 export type MediaActivityEventOf<Recipes extends { readonly activityRecipe: unknown }> =
 	MediaActivityOf<Recipes> extends { readonly events: readonly (infer Event)[] } ? Event : never;
 
-export type MediaPresentationDataOf<Recipes extends { readonly presentationRecipe: unknown }> =
-	Recipe.Success<Recipes["presentationRecipe"]> extends readonly (infer Data)[] ? Data : never;
+export type MediaPresentationDataOf<Recipes extends { readonly presentationSource: unknown }> =
+	Recipes["presentationSource"] extends MediaPresentationSource<infer Data> ? Data : never;
 
 export type MediaFlatOverviewInput = {
 	readonly entityId: string;
@@ -927,32 +930,17 @@ export const mediaFlatRecipes = <
 			config.presentationFields(entity),
 		);
 
-	const presentationRecipe = defineRecipe((entityIds: readonly string[]) => {
-		const entity = table("entity", `${config.alias}PresentationEntity`);
-		return {
-			map: ({ rows }) => Result.succeed(rows.items),
-			queries: {
-				rows: selectedRows(entity, {
-					limit: MEDIA_FLAT_PRESENTATION_LIMIT,
-					orderBy: [ascending(column(entity, "id"))],
-					selection: presentationSelection(entity, `${config.alias}Presentation`),
-					where: and(
-						entitySchema(entity, config.slug),
-						inArray(
-							column(entity, "id"),
-							entityIds.map((requestedId) => literal(requestedId)),
-						),
-					),
-				}),
-			},
-		};
+	const presentationEntity = table("entity", "entity");
+	const presentationSource = selectedPresentationSource({
+		table: presentationEntity,
+		selection: presentationSelection(presentationEntity, `${config.alias}Presentation`),
 	});
 
 	return {
 		summaryRecipe,
 		overviewRecipe,
 		activityRecipe,
-		presentationRecipe,
+		presentationSource,
 		presentationSelection,
 	};
 };

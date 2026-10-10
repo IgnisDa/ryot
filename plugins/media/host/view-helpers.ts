@@ -1,13 +1,15 @@
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
-import { castJson, column, jsonPath, table } from "@ryot-app/ryotql";
+import { column, jsonPath, table } from "@ryot-app/ryotql";
 import type { SavedViewLayoutProjectionsInput } from "@ryot-app/ryotql-recipes/saved-views";
+
+import { preferredMediaImageExpression } from "../shared/entity-presentations";
 
 type ViewExpressions = { readonly table: Omit<SavedViewLayoutProjectionsInput["table"], "entity"> };
 
 const entity = table("entity", "entity");
 const entityColumn = (name: string) => column(entity, name);
 const entityProperty = (property: string) => jsonPath(column(entity, "properties"), property);
-const entityImage = () => castJson(jsonPath(column(entity, "properties"), "images", 0));
+const entityImage = () => preferredMediaImageExpression(entity);
 const text = (expression: ScalarExpression) => ({ expression, displayKind: "text" as const });
 const number = (expression: ScalarExpression) => ({ expression, displayKind: "number" as const });
 

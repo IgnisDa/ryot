@@ -4,12 +4,12 @@ import {
 	ascending,
 	castJson,
 	column,
+	coalesce,
 	count,
 	defineRecipe,
 	eq,
 	exists,
 	first,
-	inArray,
 	join,
 	jsonPath,
 	literal,
@@ -19,6 +19,7 @@ import {
 	type SelectedSelection,
 } from "@ryot-app/plugin-kit/ryotql";
 
+import { preferredMediaImageExpression, selectedPresentationSource } from "./entity-presentations";
 import {
 	entityIdentitySelection,
 	entitySchema,
@@ -27,7 +28,7 @@ import {
 	type Table,
 } from "./entity-selections";
 import type { MediaImage } from "./media-image";
-import { MediaImageListSchema } from "./media-image";
+import { MediaImageAssetSchema, MediaImageListSchema } from "./media-image";
 import {
 	mediaCreditQueries,
 	mediaEntitySummarySelection,
@@ -40,8 +41,6 @@ import {
 	mediaGroupMemberSlugs,
 	type MediaGroupSlug,
 } from "./media-schema-slugs";
-
-const MEDIA_GROUP_PRESENTATION_LIMIT = 100;
 
 type CreditGroupSlug = (typeof creatorGroupTargetSlugs)[number];
 
@@ -96,28 +95,13 @@ export const mediaGroupRecipes = <
 		};
 	};
 
-	const groupProgressSelection = (group: Table, alias: string) => {
+	const groupCountSelection = (group: Table, alias: string) => {
 		const all = membership(group, `${alias}All`);
 		const completed = membership(group, `${alias}Completed`);
 		const completion = table("event", `${alias}CompletionEvent`);
-		const cover = membership(group, `${alias}Cover`);
 		return {
 			memberCount: selectedField(count(all.member, all), Schema.Finite),
 			parts: selectedField(propertyNumber(group, "parts"), Schema.NullOr(Schema.Finite)),
-			memberImages: selectedField(
-				castJson(
-					first(cover.member, {
-						...cover,
-						select: jsonPath(column(cover.member, "properties"), "images"),
-						orderBy: [
-							ascending(propertyNumber(cover.relationship, "order")),
-							ascending(column(cover.member, "name")),
-							ascending(column(cover.member, "id")),
-						],
-					}),
-				),
-				MediaImageListSchema,
-			),
 			completedMemberCount: selectedField(
 				count(completed.member, {
 					joins: completed.joins,
@@ -132,6 +116,27 @@ export const mediaGroupRecipes = <
 					),
 				}),
 				Schema.Finite,
+			),
+		};
+	};
+
+	const groupProgressSelection = (group: Table, alias: string) => {
+		const cover = membership(group, `${alias}Cover`);
+		return {
+			...groupCountSelection(group, alias),
+			memberImages: selectedField(
+				castJson(
+					first(cover.member, {
+						...cover,
+						select: jsonPath(column(cover.member, "properties"), "images"),
+						orderBy: [
+							ascending(propertyNumber(cover.relationship, "order")),
+							ascending(column(cover.member, "name")),
+							ascending(column(cover.member, "id")),
+						],
+					}),
+				),
+				MediaImageListSchema,
 			),
 		};
 	};
@@ -203,32 +208,29 @@ export const mediaGroupRecipes = <
 
 	const activityRecipe = mediaReviewActivityRecipe(config);
 
-	const presentationRecipe = defineRecipe((entityIds: readonly string[]) => {
-		const entity = table("entity", `${config.alias}PresentationEntity`);
-		return {
-			map: ({ rows }) => Result.succeed(rows.items.map(withMemberCoverFallback)),
-			queries: {
-				rows: selectedRows(entity, {
-					limit: MEDIA_GROUP_PRESENTATION_LIMIT,
-					orderBy: [ascending(column(entity, "id"))],
-					where: and(
-						entitySchema(entity, config.slug),
-						inArray(
-							column(entity, "id"),
-							entityIds.map((requestedId) => literal(requestedId)),
-						),
-					),
-					selection: {
-						...entityIdentitySelection(entity),
-						images: selectedField(
-							castJson(jsonPath(column(entity, "properties"), "images")),
-							MediaImageListSchema,
-						),
-						...groupProgressSelection(entity, `${config.alias}Presentation`),
-					},
-				}),
-			},
-		};
+	const presentationEntity = table("entity", "entity");
+	const presentationCover = membership(presentationEntity, `${config.alias}PresentationCover`);
+	const presentationSource = selectedPresentationSource({
+		table: presentationEntity,
+		selection: {
+			...entityIdentitySelection(presentationEntity),
+			image: selectedField(
+				coalesce(
+					preferredMediaImageExpression(presentationEntity),
+					first(presentationCover.member, {
+						...presentationCover,
+						select: preferredMediaImageExpression(presentationCover.member),
+						orderBy: [
+							ascending(propertyNumber(presentationCover.relationship, "order")),
+							ascending(column(presentationCover.member, "name")),
+							ascending(column(presentationCover.member, "id")),
+						],
+					}),
+				),
+				Schema.NullOr(MediaImageAssetSchema),
+			),
+			...groupCountSelection(presentationEntity, `${config.alias}Presentation`),
+		},
 	});
 
 	const overviewRecipe = defineRecipe(
@@ -245,7 +247,7 @@ export const mediaGroupRecipes = <
 		}),
 	);
 
-	const recipes = { summaryRecipe, membersRecipe, activityRecipe, presentationRecipe };
+	const recipes = { summaryRecipe, membersRecipe, activityRecipe, presentationSource };
 
 	type Credits = Slug extends CreditGroupSlug
 		? { readonly overviewRecipe: typeof overviewRecipe }
