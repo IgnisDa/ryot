@@ -19,7 +19,7 @@
 	},
 	"devDependencies": {
 		"@effect/tsgo": "0.53.1",
-		"bun-types": "1.4.3",
+		"bun-types": "1.4.4",
 		"eslint-plugin-perfectionist": "5.12.1",
 		"oxfmt": "0.70.0",
 		"oxlint": "1.85.0",
@@ -27,5 +27,5 @@
 		"tsconfig-moon": "1.4.2",
 		"turbo": "2.10.12"
 	},
-	"packageManager": "bun@1.4.3"
+	"packageManager": "bun@1.4.4"
 }
