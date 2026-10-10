@@ -3,8 +3,8 @@ export const workoutOperationId = (itemIndex: number, ...parts: Array<string | n
 
 export const workoutRecordId = (itemIndex: number) => JSON.stringify(["workout", itemIndex]);
 
-export const measurementOperationId = (itemIndex: number) =>
-	JSON.stringify(["measurement", itemIndex, "entity"]);
+export const measurementOperationId = (itemIndex: number, ...parts: Array<string | number>) =>
+	JSON.stringify(["measurement", itemIndex, ...parts]);
 
 export const measurementRecordId = (itemIndex: number) =>
 	JSON.stringify(["measurement", itemIndex]);

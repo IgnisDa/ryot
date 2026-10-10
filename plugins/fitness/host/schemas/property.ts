@@ -389,42 +389,30 @@ export const workoutTemplatePropertiesSchema: AppSchema = {
 	},
 };
 
-export const measurementPropertiesSchema: AppSchema = {
+export const measurementMetricPropertiesSchema: AppSchema = {
 	fields: {
-		comment: {
+		unit: {
+			label: "Unit",
 			type: "string",
-			label: "Comment",
-			description: "Optional notes about this measurement",
+			description: "Unit readings of this metric are recorded in",
 		},
-		recordedAt: {
-			type: "datetime",
-			label: "Recorded At",
-			description: "Date and time this measurement was recorded",
+		key: {
+			label: "Key",
+			type: "string",
+			validation: { required: true },
+			description: "Stable identifier of this metric within the user's measurements",
 		},
-		statistics: {
-			type: "array",
-			label: "Statistics",
-			description: "Array of measurement statistics",
-			items: {
-				label: "Item",
-				type: "object",
-				description: "Item",
-				properties: {
-					key: { label: "Key", type: "string", description: "Key", validation: { required: true } },
-					value: {
-						type: "number",
-						label: "Value",
-						description: "Value",
-						validation: { required: true },
-					},
-					label: {
-						type: "string",
-						label: "Label",
-						description: "Label",
-						validation: { required: true },
-					},
-				},
-			},
+	},
+};
+
+export const measurementReadingPropertiesSchema: AppSchema = {
+	fields: {
+		comment: { type: "string", label: "Comment", description: "Optional notes about this reading" },
+		value: {
+			type: "number",
+			label: "Value",
+			validation: { required: true },
+			description: "Recorded value of the metric",
 		},
 	},
 };

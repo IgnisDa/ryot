@@ -1,0 +1,213 @@
+import { usePageContext, useRyotViewport } from "@ryot-app/client-sdk/plugin";
+import { useRyotQuery } from "@ryot-app/client-sdk/react";
+import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
+import { Button, SegmentedControl, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import clsx from "clsx";
+import { useMemo, useState } from "react";
+
+import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
+import { MetricsTable } from "./metrics-table";
+import {
+	buildMetricRows,
+	rangeOptions,
+	rangeStartAt,
+	selectTileMetrics,
+	seriesWindow,
+	sortMetricRows,
+	type MetricSort,
+	type RangeKey,
+} from "./model";
+import { ChartCard, MetricTiles } from "./overview";
+import { seriesQuery, summaryQuery } from "./queries";
+import { ReadingLog } from "./reading-log";
+
+const logMeasurement = () => console.log("TODO: log measurement");
+
+export function MeasurementsView(props: {
+	readonly now: Date;
+	readonly compact: boolean;
+	readonly range: RangeKey;
+	readonly timeZone: string;
+	readonly series: readonly MeasurementSeries[];
+	readonly summaries: readonly MeasurementSummary[];
+}) {
+	const { now, range, series, compact, timeZone, summaries } = props;
+	const [sort, setSort] = useState<MetricSort>("recent");
+	const [selectedChoice, setSelectedChoice] = useState<string | null>(null);
+	const [compareChoice, setCompareChoice] = useState("");
+	const rows = useMemo(() => buildMetricRows(summaries, series), [summaries, series]);
+	const tiles = useMemo(
+		() =>
+			selectTileMetrics(summaries).flatMap(({ id }) =>
+				rows.filter(({ summary }) => summary.id === id),
+			),
+		[summaries, rows],
+	);
+	const sortedRows = useMemo(() => sortMetricRows(rows, sort), [rows, sort]);
+	const window = useMemo(() => seriesWindow(range, now, summaries), [range, now, summaries]);
+	const selected = rows.find(({ summary }) => summary.id === selectedChoice) ?? tiles[0] ?? rows[0];
+	const compare =
+		rows.find(
+			({ summary }) => summary.id === compareChoice && summary.id !== selected?.summary.id,
+		) ?? null;
+	const select = (metricId: string) => {
+		setSelectedChoice(metricId);
+		if (metricId === compareChoice) {
+			setCompareChoice("");
+		}
+	};
+	return (
+		<div className="flex min-w-0 flex-col gap-6">
+			{tiles.length === 0 ? null : (
+				<MetricTiles
+					now={now}
+					rows={tiles}
+					range={range}
+					onSelect={select}
+					timeZone={timeZone}
+					selectedId={selected?.summary.id ?? null}
+				/>
+			)}
+			{selected === undefined ? null : (
+				<ChartCard
+					now={now}
+					range={range}
+					window={window}
+					compare={compare}
+					compact={compact}
+					selected={selected}
+					timeZone={timeZone}
+					onCompareChange={setCompareChoice}
+					others={rows.filter(({ summary }) => summary.id !== selected.summary.id)}
+				/>
+			)}
+			<MetricsTable
+				sort={sort}
+				range={range}
+				rows={sortedRows}
+				onSelect={select}
+				timeZone={timeZone}
+				onSortChange={setSort}
+				selectedId={selected?.summary.id ?? null}
+			/>
+			<ReadingLog
+				key={range}
+				range={range}
+				timeZone={timeZone}
+				startAt={rangeStartAt(range, now)}
+				metrics={rows.map(({ summary }) => summary)}
+				columns={tiles.map(({ summary }) => summary)}
+			/>
+		</div>
+	);
+}
+
+function MeasurementsContent(props: {
+	readonly now: Date;
+	readonly compact: boolean;
+	readonly range: RangeKey;
+	readonly timeZone: string;
+	readonly summaries: readonly MeasurementSummary[];
+}) {
+	const { now, range, compact, timeZone, summaries } = props;
+	const window = useMemo(() => seriesWindow(range, now, summaries), [range, now, summaries]);
+	const metricIds = useMemo(() => summaries.map(({ id }) => id), [summaries]);
+	const result = useRyotQuery(seriesQuery, { ...window, metricIds });
+	if (result.data !== undefined) {
+		return (
+			<MeasurementsView
+				now={now}
+				range={range}
+				compact={compact}
+				timeZone={timeZone}
+				series={result.data}
+				summaries={summaries}
+			/>
+		);
+	}
+	if (result.isError) {
+		return (
+			<div className="flex flex-col items-start gap-3 font-ui">
+				<StatusMessage tone="error">Your measurement trends couldn't be loaded.</StatusMessage>
+				<Button variant="secondary" onClick={result.refetch}>
+					Try again
+				</Button>
+			</div>
+		);
+	}
+	return (
+		<StatusMessage tone="pending" className="font-ui">
+			Loading trends…
+		</StatusMessage>
+	);
+}
+
+function MeasurementsBody(props: {
+	readonly now: Date;
+	readonly compact: boolean;
+	readonly range: RangeKey;
+	readonly timeZone: string;
+}) {
+	const { now, range } = props;
+	const result = useRyotQuery(summaryQuery, { rangeStart: rangeStartAt(range, now) });
+	if (result.data === undefined) {
+		return result.isError ? (
+			<div className="flex flex-col items-start gap-3 font-ui">
+				<StatusMessage tone="error">Your measurements couldn't be loaded.</StatusMessage>
+				<Button variant="secondary" onClick={result.refetch}>
+					Try again
+				</Button>
+			</div>
+		) : (
+			<StatusMessage tone="pending" className="font-ui">
+				Loading measurements…
+			</StatusMessage>
+		);
+	}
+	if (result.data.length === 0) {
+		return (
+			<div className="flex flex-col items-start gap-2 rounded-xl border border-dashed border-border p-6 font-ui">
+				<h2 className="font-display text-[22px] font-semibold text-text">No measurements yet</h2>
+				<p className="text-[14px] text-text-muted">
+					Log a measurement, or import your history from OpenScale, to see trends here.
+				</p>
+			</div>
+		);
+	}
+	return <MeasurementsContent {...props} summaries={result.data} />;
+}
+
+export default function MeasurementsPage() {
+	const { view } = usePageContext();
+	const { compact } = useRyotViewport();
+	const [now] = useState(() => new Date());
+	const [timeZone] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const [range, setRange] = useState<RangeKey>("1Y");
+	const controls = (
+		<div className={clsx("flex flex-wrap items-center gap-2.5", compact && "pb-4")}>
+			<SegmentedControl
+				value={range}
+				label="Time range"
+				onChange={setRange}
+				optionClassName="px-3"
+				options={rangeOptions.map(({ key }) => ({ value: key, label: key, content: key }))}
+			/>
+			<Button onClick={logMeasurement} className="min-h-9 px-3.5 py-1.5">
+				Log measurement
+			</Button>
+		</div>
+	);
+	return (
+		<PluginScreenFrame
+			title={view?.name ?? "Measurements"}
+			actions={compact ? undefined : controls}
+			titleIcon={
+				<AppIcon size={20} name={view?.icon ?? "ruler"} className="shrink-0 text-text-muted" />
+			}
+		>
+			{compact ? controls : null}
+			<MeasurementsBody now={now} range={range} compact={compact} timeZone={timeZone} />
+		</PluginScreenFrame>
+	);
+}
