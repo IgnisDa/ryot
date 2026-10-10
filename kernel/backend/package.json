@@ -38,6 +38,7 @@
 		"./modules/scripts/host/sandbox-host-live": "./src/modules/scripts/host/sandbox-host-live.ts",
 		"./modules/scripts/plugin-load.test-support": "./src/modules/scripts/plugin-load.test-support.ts",
 		"./modules/scripts/registry/plugin-script-resolver": "./src/modules/scripts/registry/plugin-script-resolver.ts",
+		"./platform/build-info": "./src/platform/build-info.ts",
 		"./platform/config/definition": "./src/platform/config/definition.ts",
 		"./platform/config/service": "./src/platform/config/service.ts",
 		"./platform/db/errors": "./src/platform/db/errors.ts",
