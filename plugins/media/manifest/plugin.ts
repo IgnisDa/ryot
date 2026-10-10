@@ -734,6 +734,13 @@ export const mediaPlugin = definePlugin({
 	operations: [
 		{
 			auth: "user",
+			demoAccess: "protected",
+			slug: "media-review-create",
+			description: "Create a media review",
+			scriptSlug: "operation.media-review-create",
+		},
+		{
+			auth: "user",
 			demoAccess: "allowed",
 			slug: "media-monitoring-status",
 			description: "Read media monitoring status",
