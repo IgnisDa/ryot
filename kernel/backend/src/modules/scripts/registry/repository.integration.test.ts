@@ -1,9 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
-import {
-	type SandboxExecutionSubject,
-	SandboxExecutionSubject as SandboxExecutionSubjectSchema,
-} from "@ryot-app/contract/modules/scripts/schemas";
+import { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import {
 	PluginConfigRevisionId,
 	PluginId,
@@ -157,7 +154,7 @@ const userSubject = (userId: UserId, token = `generation-${userId}`) =>
 	({ userId, type: "user", accountGeneration: { token, userId } }) as const;
 
 const automationSubject = (executionUserId: UserId | null) =>
-	Schema.decodeSync(SandboxExecutionSubjectSchema)({
+	Schema.decodeSync(SandboxExecutionSubject)({
 		stage: "after",
 		pluginId: null,
 		executionUserId,

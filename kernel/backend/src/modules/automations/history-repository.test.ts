@@ -212,6 +212,12 @@ const seedRun = (
 		);
 	});
 
+const pinnedRevision = {
+	pluginId: "plugin",
+	pluginConfigRevisionId: "config",
+	pluginRevisionId: "pinned-revision",
+};
+
 const seedPinnedRevisions = (pinnedManifest: (base: PluginManifest) => PluginManifest) =>
 	Effect.gen(function* () {
 		const base = fixtureManifest();
@@ -397,11 +403,7 @@ describe("automation retry persistence", () => {
 								},
 							})
 							.where(eq(automationTrigger.id, "trigger"));
-						yield* seedRun("pinned", owner.id, "after", {
-							pluginId: "plugin",
-							pluginConfigRevisionId: "config",
-							pluginRevisionId: "pinned-revision",
-						});
+						yield* seedRun("pinned", owner.id, "after", pinnedRevision);
 						const service = yield* AutomationHistoryService;
 						const runId = AutomationRunId.make("pinned");
 						const [storedHistory] = yield* db
@@ -488,11 +490,7 @@ describe("automation retry persistence", () => {
 								}),
 							})
 							.where(eq(automationTrigger.id, "trigger"));
-						yield* seedRun("pinned", owner.id, "after", {
-							pluginId: "plugin",
-							pluginConfigRevisionId: "config",
-							pluginRevisionId: "pinned-revision",
-						});
+						yield* seedRun("pinned", owner.id, "after", pinnedRevision);
 						const [stored] = yield* db
 							.select({ historyPayload: automationRun.historyPayload })
 							.from(automationRun)
