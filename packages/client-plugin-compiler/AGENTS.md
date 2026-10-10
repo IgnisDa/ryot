@@ -8,5 +8,5 @@ Rationale lives in `README.md`.
 - Restrict `shared/**` bare imports to the three plugin-kit neutral shims and relative imports to `shared/`. Keep this policy aligned with the sandbox compiler.
 - Inject the official Tailwind Vite entry once with automatic scanning disabled. Emit plugin CSS before compiler-owned fonts, theme, palette, and base styles.
 - Scan plugin client sources plus both SDKs for Tailwind classes. Visual code may live in either SDK; never rely on incidental class overlap.
-- Hash every emitted module file and the plugin name; sort final artifact files by name.
+- Hash every emitted module file, name, imported target, and package identity (or explicit kernel identity). Authored artifacts also hash the full client declaration; sort final artifact files by name.
 - Embed artifact identity in the compiler, never plugin source. Reuse cache only when all current artifact metadata matches; do not add stale fallback.

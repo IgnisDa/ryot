@@ -7,7 +7,9 @@ import {
 	CLIENT_COMPILER_VERSION,
 	type ClientCompositionMetadata,
 	type PluginBridgeInit,
+	type ClientPageContext,
 } from "@ryot-app/client-plugin-contract";
+import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Effect, Fiber, Result, Schema } from "effect";
 import { createElement, Fragment } from "react";
 
@@ -42,7 +44,25 @@ const resolution = {
 	url: "https://ryot.test/api/uploads/local/download?key=permanent%2Fimage.png",
 };
 const channels: MessageChannel[] = [];
-const openRuntime = () =>
+const runtimePage: ClientPageContext = {
+	view: null,
+	settings: {},
+	dataSources: null,
+	route: { params: {} },
+	renderer: { kind: "plugin", exportName: "main", pluginId: "fixture" },
+	target: { path: "/", search: "", kind: "plugin-route", pluginId: PluginId.make("fixture") },
+	contributors: [
+		{
+			kind: "plugin",
+			sourceHash: "source",
+			revisionId: "revision",
+			installationId: "installation",
+			pluginId: PluginId.make("fixture"),
+			packageId: PluginPackageId.make("a90cb974-23b9-4b0e-8f02-82d4c968439d"),
+		},
+	],
+};
+const openRuntime = (page: ClientPageContext = runtimePage) =>
 	Effect.gen(function* () {
 		const channel = new MessageChannel();
 		channels.push(channel);
@@ -55,7 +75,7 @@ const openRuntime = () =>
 		}));
 		const runtime = createPluginRuntime(
 			channel.port2,
-			init,
+			{ ...init, page },
 			metadata,
 			{ setAttribute: () => {} },
 			navigation,
@@ -94,6 +114,40 @@ afterEach(() => {
 });
 
 describe("plugin Effect request engine", () => {
+	it.live("binds only the exact prepared contributors and rejects foreign storage ownership", () =>
+		Effect.gen(function* () {
+			const packageId = PluginPackageId.make("a90cb974-23b9-4b0e-8f02-82d4c968439d");
+			const otherPackageId = PluginPackageId.make("baf8e00e-5094-4f92-bf16-0f227985dd50");
+			const pluginId = PluginId.make("private-owner");
+			const page: ClientPageContext = {
+				view: null,
+				settings: {},
+				dataSources: null,
+				route: { params: {} },
+				renderer: { pluginId, kind: "plugin", exportName: "main" },
+				target: { pluginId, path: "/", search: "", kind: "plugin-route" },
+				contributors: [
+					{
+						pluginId,
+						packageId,
+						kind: "plugin",
+						sourceHash: "source",
+						revisionId: "revision",
+						installationId: "installation",
+					},
+				],
+			};
+			const { runtime, messages } = yield* openRuntime(page);
+			expect(runtime.client.pluginIdentity(packageId)).toEqual({ pluginId, kind: "local" });
+			expect(() => runtime.client.pluginIdentity(otherPackageId)).toThrow(RyotClientError);
+			expect((yield* Effect.flip(runtime.client.storage.get("foreign-owner", "key"))).reason).toBe(
+				"invalid-request",
+			);
+			expect(sent(messages, "storage-request")).toEqual([]);
+			runtime.dispose();
+			expect(() => runtime.client.pluginIdentity(packageId)).toThrow(RyotClientError);
+		}),
+	);
 	it.live(
 		"correlates external links and clears interrupted and disposed calls without cancellation",
 		() =>
@@ -268,7 +322,7 @@ describe("plugin Effect request engine", () => {
 				runtime.client.operations.invoke({
 					input: {},
 					slug: "greet",
-					pluginSlug: "fixture",
+					pluginId: "fixture",
 					output: Schema.String,
 				}),
 				{ startImmediately: true },
@@ -410,7 +464,7 @@ describe("plugin Effect request engine", () => {
 					runtime.client.operations.invoke({
 						input: null,
 						slug: "greet",
-						pluginSlug: "fixture",
+						pluginId: "fixture",
 						output: Schema.String,
 					}),
 				),
@@ -438,7 +492,7 @@ describe("plugin Effect request engine", () => {
 				runtime.client.operations.invoke({
 					input: {},
 					slug: "greet",
-					pluginSlug: "fixture",
+					pluginId: "fixture",
 					output: Schema.String,
 				}),
 				{ startImmediately: true },
@@ -447,7 +501,7 @@ describe("plugin Effect request engine", () => {
 			expect(sent(messages, "operation-request")).toEqual([
 				{
 					input: {},
-					pluginSlug: "fixture",
+					pluginId: "fixture",
 					operationSlug: "greet",
 					requestId: "operation-1",
 					type: "operation-request",

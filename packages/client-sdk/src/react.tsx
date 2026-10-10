@@ -8,6 +8,7 @@ import {
 import { OverlayBackProvider } from "@ryot-app/client-ui-sdk";
 import { SETTLE_RING_DURATION_MS } from "@ryot-app/client-ui-sdk/sync";
 import { MANAGED_ASSET_RESOLUTION_MAX_ASSETS } from "@ryot-app/contract/modules/uploads/schemas";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -77,6 +78,9 @@ const RyotContext = createContext<
 	  }
 	| undefined
 >(undefined);
+
+export const usePluginIdentity = (packageId: PluginPackageId) =>
+	useRyot().pluginIdentity(packageId);
 
 type QueryContext<Input, HostServices> = {
 	readonly input: Input;
@@ -502,19 +506,19 @@ export type PluginStorageState<A> =
 
 export const usePluginStorage = <A,>(options: {
 	readonly key: string;
-	readonly pluginSlug: string;
+	readonly pluginId: string;
 	readonly schema: Schema.Codec<A, JsonValue>;
 }): PluginStorageState<A> => {
 	const client = useRyot();
-	const { key, schema, pluginSlug } = options;
-	const identity = JSON.stringify([pluginSlug, key]);
+	const { key, schema, pluginId } = options;
+	const identity = JSON.stringify([pluginId, key]);
 	const [stored, setStored] = useState<{ readonly identity: string; readonly value: A | null }>();
 	const decode = useEffectEvent((value: JsonValue | null) =>
 		value === null ? null : Option.getOrNull(Schema.decodeOption(schema)(value)),
 	);
 	useEffect(() => {
 		const fiber = Effect.runFork(
-			client.storage.get(pluginSlug, key).pipe(
+			client.storage.get(pluginId, key).pipe(
 				Effect.map(decode),
 				Effect.orElseSucceed(() => null),
 				Effect.tap((value) =>
@@ -529,19 +533,19 @@ export const usePluginStorage = <A,>(options: {
 		return () => {
 			Effect.runFork(Fiber.interrupt(fiber));
 		};
-	}, [client, identity, key, pluginSlug]);
+	}, [client, identity, key, pluginId]);
 	const set = useCallback(
 		(value: A) => {
 			const encoded = Schema.encodeSync(schema)(value);
 			setStored({ value, identity });
-			return Effect.runPromise(client.storage.set(pluginSlug, key, encoded));
+			return Effect.runPromise(client.storage.set(pluginId, key, encoded));
 		},
-		[client, identity, key, pluginSlug, schema],
+		[client, identity, key, pluginId, schema],
 	);
 	const remove = useCallback(() => {
 		setStored({ identity, value: null });
-		return Effect.runPromise(client.storage.remove(pluginSlug, key));
-	}, [client, identity, key, pluginSlug]);
+		return Effect.runPromise(client.storage.remove(pluginId, key));
+	}, [client, identity, key, pluginId]);
 	return stored?.identity === identity
 		? { set, remove, status: "ready", value: stored.value }
 		: { status: "loading" };

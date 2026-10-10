@@ -1,6 +1,6 @@
 import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import type { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
+import type { ClientRuntimeArtifact } from "@ryot-app/client-plugin-contract";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Effect, Layer } from "effect";
 
@@ -41,7 +41,7 @@ const reachableChunks = (
 	return chunks;
 };
 
-const artifactSnapshot = (artifact: PluginClientArtifact) =>
+const artifactSnapshot = (artifact: ClientRuntimeArtifact) =>
 	artifact.files.map(({ name, contents, contentType }) => [
 		name,
 		contentType,
@@ -179,6 +179,8 @@ it.layer(clientPluginCompilerPlatformLayer)("buildClientRuntime", (test) => {
 		Effect.gen(function* () {
 			const first = yield* buildClientRuntime;
 			const second = yield* buildClientRuntime;
+			expect(first.kind).toBe("kernel");
+			expect(first.artifact).not.toHaveProperty("packageId");
 
 			expect(Object.keys(first.entries)).toEqual([...CLIENT_DEPENDENCY_SPECIFIERS, "bootstrap"]);
 			for (const [index, specifier] of CLIENT_DEPENDENCY_SPECIFIERS.entries()) {

@@ -2,6 +2,7 @@ import { Schema } from "effect";
 
 import { IntegrationId } from "../../schema/brands";
 import type { AppSchema } from "../../schema/property-schema";
+import { DeclarationReference } from "../plugins/references";
 import { integrationLots } from "./types";
 
 const IntegrationLot = Schema.Literals([...integrationLots]);
@@ -138,7 +139,7 @@ export const IntegrationSnapshot = Schema.Struct({
 export type IntegrationSnapshot = typeof IntegrationSnapshot.Type;
 
 export const CreateIntegrationBody = Schema.Struct({
-	provider: IntegrationProvider,
+	provider: DeclarationReference,
 	name: Schema.optional(Schema.String),
 	isDisabled: Schema.optional(Schema.Boolean),
 	providerSpecifics: IntegrationProviderSettings,

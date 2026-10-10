@@ -54,6 +54,7 @@ export const CollectionResponse = Schema.Struct({
 	createdAt: Schema.String,
 	updatedAt: Schema.String,
 	properties: Schema.Unknown,
+	entitySchemaPluginId: Schema.Null,
 	entitySchemaSlug: EntitySchemaSlug,
 	externalId: Schema.NullOr(Schema.String),
 	warnings: Schema.Array(AutomationWarning),
@@ -68,6 +69,7 @@ const MembershipRelationship = Schema.Struct({
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
 	properties: Schema.Unknown,
+	relationshipSchemaPluginId: Schema.Null,
 	relationshipSchemaSlug: RelationshipSchemaSlug,
 });
 

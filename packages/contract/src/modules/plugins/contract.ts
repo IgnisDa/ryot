@@ -9,7 +9,7 @@ import {
 	UserInitializing,
 } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
-import { PluginSlug, UserId } from "../../schema/brands";
+import { PluginId, UserId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import {
 	InstallPluginBody,
@@ -61,31 +61,35 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 			],
 		}).annotate(
 			OpenApi.Description,
-			"Validates, compiles, and installs a private plugin from a manifest, source file map, and initial config.",
+			"Validates a precompiled plugin archive and installs it privately with initial configuration.",
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.put("protected")("update", "/plugins/:pluginSlug", {
-			payload: UpdatePrivatePluginBody,
-			params: { pluginSlug: PluginSlug },
-			success: PluginInstallationWriteResult,
-			error: [
-				PluginRequestError.pipe(HttpApiSchema.status(400)),
-				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
-				PluginConflictError.pipe(HttpApiSchema.status(409)),
-			],
-		}).annotate(
+		AuthenticatedMutationEndpoint.put("protected")(
+			"update",
+			"/plugins/installations/:installationId/package",
+			{
+				payload: UpdatePrivatePluginBody,
+				success: PluginInstallationWriteResult,
+				params: { installationId: Schema.String },
+				error: [
+					PluginRequestError.pipe(HttpApiSchema.status(400)),
+					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+					PluginConflictError.pipe(HttpApiSchema.status(409)),
+				],
+			},
+		).annotate(
 			OpenApi.Description,
-			"Validates, compiles, and atomically replaces the caller's private plugin package.",
+			"Validates a precompiled archive and atomically updates the selected private plugin package.",
 		),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.delete("protected")(
 			"uninstall",
-			"/plugins/:pluginSlug/:activationId",
+			"/plugins/installations/:installationId/:activationId",
 			{
 				success: PluginInstallationWriteResult,
-				params: { pluginSlug: PluginSlug, activationId: Schema.String },
+				params: { activationId: Schema.String, installationId: Schema.String },
 				error: [
 					PluginConflictError.pipe(HttpApiSchema.status(409)),
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
@@ -99,11 +103,11 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 	.add(
 		AuthenticatedMutationEndpoint.patch("protected")(
 			"updatePluginState",
-			"/plugins/:pluginSlug/state",
+			"/plugins/installations/:installationId/state",
 			{
-				params: { pluginSlug: PluginSlug },
 				payload: UpdatePluginInstallationBody,
 				success: PluginInstallationWriteResult,
+				params: { installationId: Schema.String },
 				error: [
 					PluginRequestError.pipe(HttpApiSchema.status(400)),
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
@@ -115,11 +119,11 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 	.add(
 		AuthenticatedMutationEndpoint.put("protected")(
 			"setHomeView",
-			"/plugins/:pluginSlug/home-view",
+			"/plugins/installations/:installationId/home-view",
 			{
 				payload: PluginHomeViewSelection,
 				success: PluginHomeViewSelection,
-				params: { pluginSlug: PluginSlug },
+				params: { installationId: Schema.String },
 				error: [
 					PluginRequestError.pipe(HttpApiSchema.status(400)),
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
@@ -164,11 +168,11 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		// Operation manifests enforce their own demo access when invoked.
 		AuthenticatedMutationEndpoint.post("allowed")(
 			"invoke",
-			"/plugins/:pluginSlug/operations/:operationSlug",
+			"/plugins/:pluginId/operations/:operationSlug",
 			{
 				payload: PluginInvokeBody,
 				success: PluginInvokeResult,
-				params: { pluginSlug: PluginSlug, operationSlug: Schema.String },
+				params: { pluginId: PluginId, operationSlug: Schema.String },
 				error: [
 					AuthUnauthorized.pipe(HttpApiSchema.status(401)),
 					DemoOperationProtected.pipe(HttpApiSchema.status(403)),

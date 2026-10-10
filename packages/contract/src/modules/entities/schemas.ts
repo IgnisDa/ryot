@@ -4,11 +4,19 @@ import {
 	AutomationRunId,
 	EntityId,
 	EntitySchemaSlug,
+	PluginId,
 	SandboxProviderId,
 } from "../../schema/brands";
 import { AutomationWarning } from "../automations/lifecycle";
+import { DefinitionOwner, EntitySchemaReference } from "../plugins/references";
 
 const EntityBadRequestReason = Schema.Union([
+	Schema.Struct({
+		actual: DefinitionOwner,
+		expected: DefinitionOwner,
+		code: Schema.Literal("owner-mismatch"),
+	}),
+	Schema.Struct({ code: Schema.Literal("global-scope-forbidden") }),
 	Schema.Struct({
 		message: Schema.String,
 		code: Schema.Literals([
@@ -37,10 +45,7 @@ const EntityBadRequestReason = Schema.Union([
 
 const EntityNotFoundReason = Schema.Union([
 	Schema.Struct({ entityId: EntityId, code: Schema.Literal("entity-not-found") }),
-	Schema.Struct({
-		entitySchemaSlug: EntitySchemaSlug,
-		code: Schema.Literal("entity-schema-not-found"),
-	}),
+	Schema.Struct({ schema: EntitySchemaReference, code: Schema.Literal("entity-schema-not-found") }),
 ]);
 
 export class EntityBadRequest extends Schema.TaggedError<EntityBadRequest>()("EntityBadRequest", {
@@ -61,6 +66,7 @@ export const ListedEntity = Schema.Struct({
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(Schema.String),
 	providerId: Schema.NullOr(SandboxProviderId),
+	entitySchemaPluginId: Schema.NullOr(PluginId),
 });
 
 export type ListedEntity = typeof ListedEntity.Type;
@@ -86,11 +92,6 @@ export const EntitySyncState = Schema.Struct({
 
 export type EntitySyncState = typeof EntitySyncState.Type;
 
-const RequiredEntitySchemaSlug = Schema.Trim.pipe(
-	Schema.check(Schema.makeFilter((value) => value.length > 0)),
-	Schema.decodeTo(EntitySchemaSlug),
-);
-
 const OptionalExternalId = Schema.String.pipe(
 	Schema.decodeTo(Schema.UndefinedOr(Schema.String), {
 		encode: SchemaGetter.transform((value) => value ?? ""),
@@ -114,7 +115,7 @@ const OptionalSandboxProviderId = Schema.String.pipe(
 export const CreateEntityBody = Schema.Struct({
 	name: Schema.String,
 	properties: Schema.Unknown,
-	entitySchemaSlug: RequiredEntitySchemaSlug,
+	entitySchema: EntitySchemaReference,
 	externalId: Schema.optional(OptionalExternalId),
 	providerId: Schema.optional(OptionalSandboxProviderId),
 });

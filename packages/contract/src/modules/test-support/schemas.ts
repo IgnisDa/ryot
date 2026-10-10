@@ -6,7 +6,6 @@ import {
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
-	PluginSlug,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
@@ -56,6 +55,13 @@ export const TestSupportInstallSystemPluginBodyBase64 = Schema.Struct({
 export type TestSupportInstallSystemPluginBodyBase64 =
 	typeof TestSupportInstallSystemPluginBodyBase64.Type;
 
+export const TestSupportUpdateSystemPluginBodyBase64 = Schema.Struct({
+	...TestSupportInstallSystemPluginBodyBase64.fields,
+	sourceHash: Schema.String,
+});
+export type TestSupportUpdateSystemPluginBodyBase64 =
+	typeof TestSupportUpdateSystemPluginBodyBase64.Type;
+
 export const TestSupportPluginWriteResult = Schema.Struct({
 	pluginId: PluginId,
 	activationId: Schema.String,
@@ -81,7 +87,7 @@ export const TestSupportEnqueueSandboxResponse = Schema.Struct({
 export const TestSupportSandboxReplayProjectionBody = Schema.Struct({ executionId: Schema.String });
 
 export const TestSupportTriggerPluginCronBody = strictStruct({
-	pluginSlug: PluginSlug,
+	pluginId: PluginId,
 	cronSlug: Schema.String,
 });
 
@@ -89,13 +95,13 @@ export type TestSupportTriggerPluginCronBody = typeof TestSupportTriggerPluginCr
 
 export const TestSupportPluginCronResult = Schema.Union([
 	Schema.Struct({
-		pluginSlug: PluginSlug,
+		pluginId: PluginId,
 		cronSlug: Schema.String,
 		status: Schema.Literal("notFound"),
 	}),
 	Schema.Struct({
+		pluginId: PluginId,
 		result: Schema.Unknown,
-		pluginSlug: PluginSlug,
 		cronSlug: Schema.String,
 		executionId: Schema.String,
 		status: Schema.Literals(["executed", "failed"]),
@@ -105,8 +111,8 @@ export const TestSupportPluginCronResult = Schema.Union([
 export type TestSupportPluginCronResult = typeof TestSupportPluginCronResult.Type;
 
 export const TestSupportStartWorkflowLoadGateBody = strictStruct({
+	pluginId: PluginId,
 	source: Schema.String,
-	pluginSlug: PluginSlug,
 	executingUserId: UserId,
 	workflowSlug: Schema.String,
 	providerId: SandboxProviderId,

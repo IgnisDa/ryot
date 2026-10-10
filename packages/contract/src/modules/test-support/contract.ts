@@ -2,17 +2,9 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AdminMiddleware } from "../../auth-middleware";
-import {
-	EntityId,
-	EntitySchemaSlug,
-	ImportRunId,
-	PluginId,
-	PluginSlug,
-	RelationshipSchemaSlug,
-	SandboxProviderId,
-	UserId,
-} from "../../schema/brands";
+import { EntityId, ImportRunId, PluginId, SandboxProviderId, UserId } from "../../schema/brands";
 import { ListedEntity } from "../entities/schemas";
+import { EntitySchemaReference, RelationshipSchemaReference } from "../plugins/references";
 import {
 	InstallPluginBody,
 	PluginConflictError,
@@ -24,6 +16,7 @@ import { RelationshipScope } from "../relationships/schemas";
 import { SandboxRunResult } from "../sandbox/schemas";
 import {
 	TestSupportInstallSystemPluginBodyBase64,
+	TestSupportUpdateSystemPluginBodyBase64,
 	TestSupportPluginWriteResult,
 	TestSupportEnqueueSandboxBody,
 	TestSupportEnqueueSandboxResponse,
@@ -51,7 +44,7 @@ const testSupportErrors = [
 const CreateGlobalEntityBody = Schema.Struct({
 	properties,
 	name: Schema.String,
-	entitySchemaSlug: EntitySchemaSlug,
+	entitySchema: EntitySchemaReference,
 	externalId: Schema.optional(Schema.String),
 	providerId: Schema.optional(SandboxProviderId),
 	populatedAt: Schema.optional(Schema.NullOr(Schema.String)),
@@ -146,7 +139,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 				sourceEntityId: EntityId,
 				targetEntityId: EntityId,
 				properties: Schema.optional(properties),
-				relationshipSchemaSlug: RelationshipSchemaSlug,
+				relationshipSchema: RelationshipSchemaReference,
 			}),
 		}).annotate(OpenApi.Description, "Creates or updates a global relationship"),
 	)
@@ -218,6 +211,22 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		}).annotate(OpenApi.Description, "Installs a system-scope plugin for testing"),
 	)
 	.add(
+		HttpApiEndpoint.put("updateSystemPlugin", "/test-support/system-plugins/:pluginId/package", {
+			params: { pluginId: PluginId },
+			success: TestSupportPluginWriteResult,
+			payload: TestSupportUpdateSystemPluginBodyBase64,
+			error: [
+				...testSupportErrors,
+				PluginRequestError.pipe(HttpApiSchema.status(400)),
+				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+				PluginConflictError.pipe(HttpApiSchema.status(409)),
+			],
+		}).annotate(
+			OpenApi.Description,
+			"Updates an exact system plugin after checking its active source hash",
+		),
+	)
+	.add(
 		HttpApiEndpoint.post("installPrivatePlugin", "/test-support/users/:userId/plugins", {
 			payload: InstallPluginBody,
 			params: { userId: UserId },
@@ -230,17 +239,21 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 		}).annotate(OpenApi.Description, "Installs a private plugin for an E2E fixture owner"),
 	)
 	.add(
-		HttpApiEndpoint.put("updatePrivatePlugin", "/test-support/users/:userId/plugins/:pluginSlug", {
-			payload: UpdatePrivatePluginBody,
-			success: TestSupportPluginWriteResult,
-			params: { userId: UserId, pluginSlug: PluginSlug },
-			error: [
-				...testSupportErrors,
-				PluginRequestError.pipe(HttpApiSchema.status(400)),
-				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
-				PluginConflictError.pipe(HttpApiSchema.status(409)),
-			],
-		}).annotate(OpenApi.Description, "Updates a private plugin for an E2E fixture owner"),
+		HttpApiEndpoint.put(
+			"updatePrivatePlugin",
+			"/test-support/users/:userId/plugins/installations/:installationId/package",
+			{
+				payload: UpdatePrivatePluginBody,
+				success: TestSupportPluginWriteResult,
+				params: { userId: UserId, installationId: Schema.String },
+				error: [
+					...testSupportErrors,
+					PluginRequestError.pipe(HttpApiSchema.status(400)),
+					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+					PluginConflictError.pipe(HttpApiSchema.status(409)),
+				],
+			},
+		).annotate(OpenApi.Description, "Updates a private plugin for an E2E fixture owner"),
 	)
 	.add(
 		HttpApiEndpoint.post(
@@ -255,10 +268,10 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.add(
 		HttpApiEndpoint.delete(
 			"uninstallSystemPlugin",
-			"/test-support/system-plugins/:pluginSlug/:activationId",
+			"/test-support/system-plugins/:pluginId/:activationId",
 			{
 				success: Schema.Struct({ pluginId: PluginId }),
-				params: { pluginSlug: PluginSlug, activationId: Schema.String },
+				params: { pluginId: PluginId, activationId: Schema.String },
 				error: [
 					...testSupportErrors,
 					PluginConflictError.pipe(HttpApiSchema.status(409)),

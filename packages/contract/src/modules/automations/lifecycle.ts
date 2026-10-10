@@ -160,6 +160,7 @@ export const AutomationEntityDraft = strictStruct({
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(IsoUtcString),
 	providerId: Schema.NullOr(SandboxProviderId),
+	entitySchemaPluginId: Schema.NullOr(PluginId),
 });
 export type AutomationEntityDraft = typeof AutomationEntityDraft.Type;
 export const AutomationEntitySnapshot = strictStruct({
@@ -172,11 +173,6 @@ export type AutomationEntitySnapshot = typeof AutomationEntitySnapshot.Type;
 
 export const AutomationPopulationContext = strictStruct({
 	rootPreviouslyPopulated: Schema.Boolean,
-	scopeEntity: strictStruct({
-		id: AutomationEntitySnapshot.fields.id,
-		name: AutomationEntitySnapshot.fields.name,
-		entitySchemaSlug: AutomationEntitySnapshot.fields.entitySchemaSlug,
-	}),
 	batch: Schema.optional(
 		strictStruct({
 			id: nonEmpty,
@@ -188,11 +184,18 @@ export const AutomationPopulationContext = strictStruct({
 			isLeader: Schema.Boolean,
 		}),
 	),
+	scopeEntity: strictStruct({
+		id: AutomationEntitySnapshot.fields.id,
+		name: AutomationEntitySnapshot.fields.name,
+		entitySchemaSlug: AutomationEntitySnapshot.fields.entitySchemaSlug,
+		entitySchemaPluginId: AutomationEntitySnapshot.fields.entitySchemaPluginId,
+	}),
 	parentEntity: Schema.optional(
 		strictStruct({
 			name: AutomationEntitySnapshot.fields.name,
 			properties: AutomationEntitySnapshot.fields.properties,
 			entitySchemaSlug: AutomationEntitySnapshot.fields.entitySchemaSlug,
+			entitySchemaPluginId: AutomationEntitySnapshot.fields.entitySchemaPluginId,
 		}),
 	),
 });
@@ -223,6 +226,8 @@ export const AutomationEventDraft = strictStruct({
 	eventSchemaSlug: EventSchemaSlug,
 	entitySchemaSlug: EntitySchemaSlug,
 	sessionEntityId: Schema.NullOr(EntityId),
+	eventSchemaPluginId: Schema.NullOr(PluginId),
+	entitySchemaPluginId: Schema.NullOr(PluginId),
 });
 export type AutomationEventDraft = typeof AutomationEventDraft.Type;
 export const AutomationEventSnapshot = strictStruct({
@@ -237,6 +242,7 @@ export const AutomationRelationshipDraft = strictStruct({
 	sourceEntityId: EntityId,
 	targetEntityId: EntityId,
 	relationshipSchemaSlug: RelationshipSchemaSlug,
+	relationshipSchemaPluginId: Schema.NullOr(PluginId),
 });
 export type AutomationRelationshipDraft = typeof AutomationRelationshipDraft.Type;
 export const AutomationRelationshipSnapshot = strictStruct({
@@ -379,6 +385,7 @@ const AutomationProviderImportChangePayload = strictStruct({
 	category: Schema.Literal("change"),
 	entitySchemaSlug: EntitySchemaSlug,
 	operation: Schema.Literal("complete"),
+	entitySchemaPluginId: Schema.NullOr(PluginId),
 	resource: Schema.Literal("provider-entity-import"),
 });
 const batchChange = <

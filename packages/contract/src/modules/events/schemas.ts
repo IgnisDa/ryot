@@ -6,6 +6,7 @@ import {
 	EntityId,
 	EventId,
 	EventSchemaSlug,
+	PluginId,
 } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
@@ -50,6 +51,8 @@ export class EventBadRequest extends Schema.TaggedError<EventBadRequest>()("Even
 			"mutation-conflict",
 			"policy-execution-failed",
 			"policy-rejected",
+			"owner-mismatch",
+			"global-scope-forbidden",
 		]),
 	}),
 }) {}
@@ -78,6 +81,7 @@ export const ListedEvent = Schema.Struct({
 	eventSchemaName: Schema.String,
 	eventSchemaSlug: EventSchemaSlug,
 	sessionEntityId: Schema.optional(EntityId),
+	eventSchemaPluginId: Schema.NullOr(PluginId),
 	properties: Schema.Record(Schema.String, Schema.Unknown),
 });
 
