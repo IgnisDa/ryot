@@ -61,7 +61,7 @@ and next-up always use default seasons; next-up appears only in aired order.
 | Movie             | Minutes, falling back to runtime         | Cover/backdrop and watch providers                                                  |
 | Music             | Minutes, falling back to `duration / 60` | Stored duration is seconds, displayed `m:ss`; square cover                          |
 | Book / Comic Book | Pages                                    | Book supports unlinked creators; Comic Book has person credits only                 |
-| Manga             | Chapters                                 | Volume/chapter progress; no group or creator credits                                |
+| Manga             | Chapters                                 | Cumulative chapter progress with optional volume; no group or creator credits       |
 | Anime             | Episodes                                 | Episode progress; no group; future airing schedule, with next episode in summary    |
 | Audiobook         | Minutes, falling back to runtime         | Author/Narrator credits, unlinked contributors, square cover                        |
 | Visual Novel      | Minutes, falling back to `lengthMinutes` | No group; developer person credits; screenshots are gallery-only                    |
@@ -69,7 +69,9 @@ and next-up always use default seasons; next-up appears only in aired order.
 
 Flat summaries return `{ summary, entitySchemaSlug }`; activity returns completion count, consumed
 amount, unknown count, truncation, and events. Unknown completion measures render lower-bound totals,
-not zero. Anime/Manga progress labels use recorded positions, falling back to percentages.
+not zero. Anime/Manga progress labels use the latest recorded position; the in-progress percentage is
+that position divided by the episode or chapter total when both are known, else the latest recorded
+percentage.
 `mediaTimeSpentMeasure` and `mediaEntityCountMeasure` own the shared calculations. Schemas without a
 group omit both `groupSlug` and group descriptor copy. Unlinked credits appear as non-clickable
 creator tiles and do not contribute sync marks.
@@ -235,8 +237,9 @@ can duplicate earlier activity.
 | Spotify | Extended-history ZIP: each `trackdone` Spotify-track play is identified by `(track, ts)`. Six-play transport groups do not change listening-event counts.                                                                                                                                                        |
 
 Rating scales belong to each source, not the rating value: Goodreads, StoryGraph, Hardcover, and
-Grouvee use five points; MyAnimeList and Watcharr use ten; AniList exports use 100. AniList manga
-imports retain chapter and volume progress separately. Jellyfin imports keep played items without a
+Grouvee use five points; MyAnimeList and Watcharr use ten; AniList exports use 100. MyAnimeList and
+AniList imports write one cumulative progress event per entry (`animeEpisode` or `mangaChapter`);
+AniList volumes ride on that event as `mangaVolume`. IMDb imports write no consumption source. Jellyfin imports keep played items without a
 played timestamp with an unknown completion date; malformed nonempty timestamps fail per item.
 
 Trakt's API and export parsers have separate compiler-derived configuration requirements. Setup checks
@@ -269,8 +272,9 @@ rejected at ingress, not retained as recoverable source work.
   resolved through TVDB's episode endpoint, or TMDB's IMDb/TVDB episode lookup followed by a
   series-name search verified against the season's episode IDs. Lookups are cached for one day;
   external-ID-only misses are retried on the next event. Unofficial payload handling is unchanged.
-- **Komga:** requests authenticate with `X-API-Key`. Manga progress retains its chapter number;
-  metadata links can identify manga through AniList, MyAnimeList, and MangaUpdates, or books through
+- **Komga:** requests authenticate with `X-API-Key`. A partly read manga chapter N writes position
+  N-1 when N is an integer above 1 and nothing otherwise; a fully read chapter writes N. Manga never
+  receive a chapter's own percent; other books keep whole-book percent. Metadata links can identify manga through AniList, MyAnimeList, and MangaUpdates, or books through
   Hardcover, OpenLibrary, and Google Books. Ownership uses the same provider mapping.
 - **Emby:** episode IDs are never treated as show IDs. Explicit series IDs avoid lookups; otherwise
   episode external IDs or verified series/episode names and coordinates resolve the TMDB show.
@@ -321,8 +325,13 @@ hooks must filter items themselves and remain idempotent across chunks.
 
 Flat schemas use their latest backlog/progress/completion/drop/hold signal; progress means
 `in_progress`, no signal means `untracked`, and there is no `caught_up`. Completion boundaries are
-entity-scoped, with progress reported only after the latest completion. Anime/Manga record positions
-on their own events; whole-entity completion carries no episode fields. Reviews do not affect state.
+entity-scoped, with progress reported only after the latest completion. `progressPercent` is optional
+on progress, dropped, and on-hold events (above 0, at most 100); Show/Podcast parent dropped and
+on-hold events carry neither percent nor position. A percent-less, position-less progress event means
+"started". Anime `animeEpisode` and manga `mangaChapter` are cumulative ("consumed through N"),
+carry no percent, and `mangaVolume` is an optional annotation, never a completion unit; the latest
+position is the one on the latest progress or list-state event that carries one. Whole-entity
+completion carries no episode fields. Reviews do not affect state.
 
 Shows/Podcasts track child episodes. Parent aggregate signals can interrupt episode-derived activity;
 later regular-episode activity resumes it. Complete aired coverage means `caught_up`, otherwise
@@ -348,19 +357,27 @@ Show/Podcast completion. Relationship changes recompute coverage but do not crea
 Completion time is the latest false-to-true coverage transition and does not move on repeated
 evaluation; consumption source is copied only when all required completions agree.
 
-100% progress completes other flat media. Anime/Manga require full position coverage and reset for
-repeats. Completion needs no preceding progress. Percentages use half-up rounding to two decimals;
-known historical dates use `custom_timestamps`, unknown dates `unknown`, and immediate completion
-`just_now`. Distinct completion passes retain separate events and timestamps.
+100% progress completes other flat media. Anime/Manga complete when a created progress event's
+position reaches the episode or chapter total, or its percent is 100; no completion is written when
+an equal-or-later completion exists, so repeated delivery stays idempotent and a later repeat
+completes again. Completion needs no preceding progress. Percentages use half-up rounding to two
+decimals. A completion's `occurredAt` is its completion time unless `dateUnknown` is true; unknown
+dates stay out of per-day and per-type activity buckets but count in totals, and render as "Date
+unknown". Distinct completion passes retain separate events and timestamps.
 
 AniList writes `list-state` snapshots, not inferred progress/completion history. Snapshots contain
 state, positions, repeat count, and partial dates at pinned observation time. Identical polls append
 nothing even if source `updatedAt` changes, preserving later local actions. Missing remote entries
 do not delete local history; ratings, notes, and custom lists are outside the integration.
 
+Integration progress consumption sources are display names: Jellyfin, Emby, Plex, Kodi, Komga,
+Audiobookshelf, YouTube Music, and Spotify; the browser extension keeps the page hostname.
+
 Integration progress admission runs after population/episode resolution in `import.write-chunks`.
-It applies minimum filtering, maximum clamping, per-consumption duplicate suppression, and configured
-100% debounce against committed history. The run guard serializes competing deliveries; failed writes
+It accepts a percent or, for Anime/Manga, a position; an event with neither is rejected. Minimum
+filtering, maximum clamping, and configured 100% debounce apply to percent only. Duplicate
+suppression compares the latest committed or pending event of the same consumption source by position
+for positional events, otherwise by percent. The run guard serializes competing deliveries; failed writes
 leave no completion claim. Missing sink timestamps are supplied and auto-completion retains the
 trigger's time. Numeric normalization stays schema-owned. Source/event indexes and deterministic
 population/write identities preserve attribution when admission filters records.

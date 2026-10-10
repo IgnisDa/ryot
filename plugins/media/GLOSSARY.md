@@ -50,10 +50,10 @@ _Avoid_: Series completion
 An episodic viewing or listening sequence bounded by parent completions, distinct from lifetime episode history. Specials remain outside the cycle.
 
 **Progress**:
-A recorded partial consumption position, expressed as a percentage and, for applicable media, an episode, volume, or chapter position.
+A recorded partial consumption, expressed as an optional percentage or, for anime and manga, a cumulative episode or chapter position meaning "consumed through" it. A progress record with neither means the item was started.
 
 **Completion**:
-A recorded finished consumption of an item or episode, with any known consumption times and amount. Completion does not mean ownership or removal from the library.
+A recorded finished consumption of an item or episode, dated by its occurrence time unless marked as having an unknown date, with any known consumption amount. Completion does not mean ownership or removal from the library.
 
 **List state**:
 A source-reported snapshot of an anime or manga list entry, including its state, progress, repeat count, and any partial dates. It is distinct from a separately recorded consumption occurrence.
