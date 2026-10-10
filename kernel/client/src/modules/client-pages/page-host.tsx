@@ -431,7 +431,13 @@ function ClientPageFrame(props: {
 	const router = useRouter();
 	const navigate = useNavigate();
 	const active = useRef(props.active);
+	const { catalog } = usePluginCatalog();
 	const { context, identity } = props.document.prepared;
+	const renderer = context.renderer;
+	const rendererName =
+		renderer.kind === "plugin"
+			? catalog.find(({ pluginId }) => pluginId === renderer.pluginId)?.name
+			: undefined;
 
 	const checkFreshness = useCallback(
 		() => props.runtime.runSync(ClientPageFreshness).check(props.scope, identity),
@@ -464,7 +470,6 @@ function ClientPageFrame(props: {
 			viewport={viewport}
 			active={props.active}
 			inert={props.document.inert}
-			title={props.document.title}
 			navigation={props.navigation}
 			watchEntities={watchEntities}
 			chromeLeading={props.edgeLeading}
@@ -474,6 +479,7 @@ function ClientPageFrame(props: {
 			backInterceptors={props.backInterceptors}
 			chromeTriggerRef={props.chrome.triggerRef}
 			mutationCompleted={ryot.mutationCompleted}
+			title={rendererName ?? props.document.title}
 			onNavigateBack={() => router.history.back()}
 			onKernelShortcut={props.chrome.onKernelShortcut}
 			documentKey={documentOwner(props.document.prepared)}

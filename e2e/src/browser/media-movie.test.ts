@@ -116,7 +116,7 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 		});
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
-		const frame = page.locator('iframe[title="media plugin"]');
+		const frame = page.locator('iframe[title="Media plugin"]');
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media
@@ -207,7 +207,7 @@ it.live("keeps the collection rail for a Movie with no credits or recommendation
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/e/${seeded.movie.id}`);
-		const frame = page.locator('iframe[title="media plugin"]');
+		const frame = page.locator('iframe[title="Media plugin"]');
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media
@@ -263,7 +263,7 @@ it.live("renders the Movie presentation facts in the canonical saved view", () =
 		yield* view.getByRole("link", { exact: true, name: movieName }).click();
 		yield* page.waitForURL(`${frontendUrl}/e/${seeded.movie.id}`);
 		yield* page
-			.locator('iframe[title="media plugin"]')
+			.locator('iframe[title="Media plugin"]')
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible", timeout: 150_000 });
