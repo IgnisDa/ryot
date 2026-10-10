@@ -115,7 +115,7 @@ function ImportRunRoute() {
 	const nowMs = useNowMs(RUN_POLL_MS);
 	const sourceNames = importSourceNames(sources.data ?? []);
 	const run = state?.status === "ready" ? state.run : undefined;
-	const title = run === undefined ? "Import" : importSourceName(run.source, sourceNames);
+	const title = run === undefined ? "Import" : importSourceName(run, sourceNames);
 	const duration = run === undefined ? undefined : runDurationLabel(run, nowMs);
 
 	useRunPolling({
