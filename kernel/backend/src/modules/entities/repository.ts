@@ -295,7 +295,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 							.select({ id: schema.entity.id })
 							.from(schema.entity)
 							.where(inArray(schema.entity.id, ids))
-							.orderBy(asc(schema.entity.id))
+							.orderBy(sql`${schema.entity.id} collate "C"`)
 							.for("key share"),
 					);
 				},
