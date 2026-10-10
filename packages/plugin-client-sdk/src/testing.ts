@@ -43,8 +43,15 @@ export const createTestRyotAdapter = (
 	overrides: Partial<RyotClientAdapter> = {},
 ): RyotClientAdapter => ({
 	query: () => Effect.succeed({}),
-	uploadTemporary: () =>
-		Effect.succeed({ token: "test-upload-token", expiresAt: "2026-01-01T00:00:00.000Z" }),
+	upload: (request) => {
+		if (request.action === "temporary") {
+			return Effect.succeed({ token: "test-upload-token", expiresAt: "2026-01-01T00:00:00.000Z" });
+		}
+		if (request.action === "permanent") {
+			return Effect.succeed({ type: "local", key: "permanent/test-upload" });
+		}
+		return Effect.succeed({ status: "missing" });
+	},
 	...overrides,
 });
 

@@ -788,6 +788,7 @@ describe("plugin client bridge contract", () => {
 			fileName: "items.csv",
 			requestId: "request-1",
 			contentType: "text/csv",
+			action: "temporary" as const,
 			type: "upload-request" as const,
 			source: new Blob(["id,title"], { type: "text/csv" }),
 		};
@@ -801,6 +802,19 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeRequest({ ...request, source: new Uint8Array([1, 2, 3]) }))).toBe(
 			true,
 		);
+		expect(
+			Result.isFailure(decodeRequest({ ...request, action: "permanent", source: "not a Blob" })),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeRequest({
+					action: "cleanup",
+					type: "upload-request",
+					requestId: "request-1",
+					asset: { type: "local", key: "permanent/items.csv" },
+				}),
+			),
+		).toBe(true);
 	});
 
 	it("accepts a File as an upload source because File extends Blob", () => {
@@ -809,6 +823,7 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isSuccess(
 				decodeRequest({
+					action: "temporary",
 					fileName: "items.csv",
 					requestId: "request-1",
 					type: "upload-request",
@@ -819,16 +834,39 @@ describe("plugin client bridge contract", () => {
 		).toBe(true);
 	});
 
-	it("reports an upload outcome as a token or a bridge reason", () => {
+	it("reports discriminated upload outcomes or a bridge reason", () => {
 		const decodeResult = Schema.decodeUnknownResult(PluginBridgeUploadResult);
 
 		expect(
 			Result.isSuccess(
 				decodeResult({
 					outcome: "success",
+					action: "temporary",
 					type: "upload-result",
 					requestId: "request-1",
 					token: { token: "upload-token", expiresAt: "2026-01-01T00:00:00.000Z" },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeResult({
+					outcome: "success",
+					action: "permanent",
+					type: "upload-result",
+					requestId: "request-2",
+					asset: { type: "local", key: "permanent/items.csv" },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeResult({
+					action: "cleanup",
+					outcome: "success",
+					status: "referenced",
+					type: "upload-result",
+					requestId: "request-3",
 				}),
 			),
 		).toBe(true);

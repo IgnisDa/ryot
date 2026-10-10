@@ -1,7 +1,8 @@
 import {
+	CleanupManagedAssetOutput,
+	ManagedAssetLocator,
 	ManagedAssetResolutionBatch,
 	TemporaryUploadToken,
-	type ManagedAssetLocator,
 } from "@ryot-app/contract/modules/assets/schemas";
 import {
 	CollectionResponse,
@@ -33,6 +34,7 @@ import type {
 	EntityUpdate,
 	EntityWatchSubscription,
 	OperationInvocation,
+	PermanentUploadRequest,
 	RyotClientAdapter,
 	RyotPageSearchUpdate,
 	RyotProviderSearchScreenRequest,
@@ -188,6 +190,35 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			Effect.flatMap((outcome) => decodeCapability(ProviderSearchScreenOutcome, outcome)),
 		);
 	};
+	const uploadFile = <A>(
+		action: "temporary" | "permanent",
+		request: TemporaryUploadRequest | PermanentUploadRequest,
+		output: Schema.Codec<A, unknown>,
+	): Effect.Effect<A, RyotClientError> =>
+		Effect.gen(function* () {
+			if (!(request.source instanceof Blob)) {
+				return yield* new RyotClientError("invalid-input");
+			}
+			const uploadRequest =
+				action === "temporary"
+					? { ...request, action: "temporary" as const }
+					: { ...request, action: "permanent" as const };
+			const value = yield* adapterEffect(() => adapter.upload(uploadRequest));
+			return yield* decodeCapability(output, value);
+		});
+	const cleanupUpload = (
+		asset: ManagedAssetLocator,
+	): Effect.Effect<CleanupManagedAssetOutput, RyotClientError> =>
+		Effect.gen(function* () {
+			const decodedAsset = Schema.decodeResult(ManagedAssetLocator)(asset);
+			if (Result.isFailure(decodedAsset)) {
+				return yield* new RyotClientError("invalid-input");
+			}
+			const value = yield* adapterEffect(() =>
+				adapter.upload({ action: "cleanup", asset: decodedAsset.success }),
+			);
+			return yield* decodeCapability(CleanupManagedAssetOutput, value);
+		});
 
 	return {
 		overlayBack,
@@ -206,6 +237,13 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				}
 				return adapter.registerFlush(flush);
 			},
+		},
+		uploads: {
+			cleanup: cleanupUpload,
+			uploadPermanent: (request: PermanentUploadRequest) =>
+				uploadFile("permanent", request, ManagedAssetLocator),
+			uploadTemporary: (request: TemporaryUploadRequest) =>
+				uploadFile("temporary", request, TemporaryUploadToken),
 		},
 		navigation: {
 			push: (target: RyotNavigationTarget) => navigate("push", target),
@@ -237,16 +275,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				Effect.asVoid(accessStorage({ key, pluginId, action: "remove" })),
 			set: (pluginId: PluginId, key: string, value: JsonValue) =>
 				Effect.asVoid(accessStorage({ key, value, pluginId, action: "set" })),
-		},
-		uploads: {
-			uploadTemporary: (request: TemporaryUploadRequest) =>
-				Effect.gen(function* () {
-					if (!(request.source instanceof Blob)) {
-						return yield* new RyotClientError("invalid-input");
-					}
-					const value = yield* adapterEffect(() => adapter.uploadTemporary(request));
-					return yield* decodeCapability(TemporaryUploadToken, value);
-				}),
 		},
 		collections: {
 			create: (input: typeof CreateCollectionBody.Encoded) =>

@@ -50,7 +50,7 @@ import type {
 	RyotPageSearchUpdate,
 	RyotProviderSearchScreenRequest,
 	EntityUpdate,
-	TemporaryUploadRequest,
+	UploadAdapterRequest,
 } from "../client/adapter";
 import { createRyotClient } from "../client/client";
 import { RyotClientError } from "../client/errors";
@@ -343,17 +343,11 @@ export const createPluginRuntime = (
 						({ ...entry, requestId, type: "storage-request" }) satisfies PluginBridgeStorageRequest,
 				);
 
-	const uploadTemporary = (upload: TemporaryUploadRequest) =>
+	const upload = (request: UploadAdapterRequest) =>
 		sendRequest(
 			"upload",
 			(requestId) =>
-				({
-					requestId,
-					source: upload.source,
-					type: "upload-request",
-					fileName: upload.fileName,
-					contentType: upload.contentType,
-				}) satisfies PluginBridgeUploadRequest,
+				({ ...request, requestId, type: "upload-request" }) satisfies PluginBridgeUploadRequest,
 		);
 	const settle = (
 		type: RequestType,
@@ -426,11 +420,11 @@ export const createPluginRuntime = (
 
 	const client = createRyotClient({
 		query,
+		upload,
 		navigate,
 		resolveAssets,
 		accessStorage,
 		invokeOperation,
-		uploadTemporary,
 		mutateCollection,
 		navigatePageSearch,
 		openProviderSearch,
@@ -682,11 +676,19 @@ export const createPluginRuntime = (
 					);
 				}),
 				Match.when({ type: "upload-result" }, (result) => {
-					settle(
-						"upload",
-						result.requestId,
-						result.outcome === "failure" ? result : { outcome: "success", value: result.token },
-					);
+					if (result.outcome === "failure") {
+						settle("upload", result.requestId, result);
+						return;
+					}
+					let value: unknown;
+					if (result.action === "temporary") {
+						value = result.token;
+					} else if (result.action === "permanent") {
+						value = result.asset;
+					} else {
+						value = { status: result.status };
+					}
+					settle("upload", result.requestId, { value, outcome: "success" });
 				}),
 				Match.when({ type: "asset-result" }, (result) => {
 					settle(

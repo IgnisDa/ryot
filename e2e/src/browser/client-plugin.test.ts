@@ -320,6 +320,29 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* uploaded.waitFor({ state: "visible" });
 		expect(yield* uploaded.isVisible()).toBe(true);
 
+		yield* fixture
+			.getByLabel("Choose a permanent file to upload")
+			.setInputFiles({
+				mimeType: "image/png",
+				name: "fixture-permanent.png",
+				buffer: Buffer.from(
+					"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7XcAAAAASUVORK5CYII=",
+					"base64",
+				),
+			});
+		const permanentImage = home.getByRole("img", { name: "Permanent fixture upload" });
+		yield* permanentImage.waitFor({ state: "visible" });
+		yield* permanentImage.waitForFunction(
+			(image) => image instanceof HTMLImageElement && image.naturalWidth > 0,
+		);
+		expect(
+			yield* permanentImage.evaluate((image) =>
+				image instanceof HTMLImageElement ? image.naturalWidth : -1,
+			),
+		).toBeGreaterThan(0);
+		yield* home.getByRole("button", { name: "Remove permanent upload" }).click();
+		yield* expectVisibleText(home, "Permanent upload cleanup: deleted");
+
 		const html = page.locator("html");
 		const openSettings = Effect.gen(function* () {
 			yield* page.getByRole("link", { name: "Open settings" }).click();
