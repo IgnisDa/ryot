@@ -1,12 +1,7 @@
 import type { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import type {
-	ExecutionMetadata,
-	PolicyHost,
-	SandboxManifest,
-	ScriptHost,
-	ScriptManifest,
-} from "./core";
+import type { PolicyHost, ScriptHost } from "./core/script-host";
+import type { ExecutionMetadata, SandboxManifest, ScriptManifest } from "./core/script-manifest";
 
 type ScriptExecution<
 	Input extends Schema.Codec<unknown, unknown>,

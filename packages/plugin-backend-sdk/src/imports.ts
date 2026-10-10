@@ -22,7 +22,7 @@ import {
 	SANDBOX_SDK_WORKFLOW_IMPORT,
 } from "./runtime-registry";
 import { jsonValueSchema, strictStruct } from "./wire";
-import { defineWorkflowReference } from "./workflow";
+import { defineWorkflowReference } from "./workflow/references";
 
 export { LifecycleCommand };
 export * from "./runtime-registry";

@@ -51,7 +51,7 @@ surface but does not grant host access. `defineManifest` describes static identi
 kind-specific authored fields; capability metadata comes from the compiler, not the authored
 manifest.
 
-`sandboxHostContracts` in `src/core.ts` owns bridge argument and result schemas. The contract package
+`sandboxHostContracts` in `src/core/host-contracts.ts` owns bridge argument and result schemas. The contract package
 owns `SANDBOX_HOST_CAPABILITIES` and its policy-safe subset in
 `@ryot-app/contract/modules/scripts/wire`. Kernel `SANDBOX_CAPABILITY_REQUIREMENTS` and
 `SANDBOX_HOST_EXECUTION_POLICY` (including its `dispatch` field) are exhaustive records; a bridge
