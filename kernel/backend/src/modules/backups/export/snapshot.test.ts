@@ -21,10 +21,10 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref } from "effect";
 
+import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators";
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { AutomationsRepository } from "#modules/automations/repository";
-import { collectManagedAssetLocators } from "#modules/backups/data-references";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
 import { mergeManifestDefinitions } from "#modules/definitions/source";
@@ -81,6 +81,49 @@ it("does not archive managed assets stored in schema-declared secret fields", ()
 			},
 		]),
 	).toEqual([{ type: "local", key: "permanent/public.bin" }]);
+});
+
+it("collects nested managed assets once per locator", () => {
+	const asset = {
+		type: "object",
+		properties: {},
+		label: "Asset",
+		description: "Asset",
+		validation: { asset: true },
+	} as const;
+	const propertiesSchema: AppSchema = {
+		fields: {
+			cover: asset,
+			gallery: {
+				type: "array",
+				label: "Gallery",
+				description: "Gallery",
+				items: {
+					type: "object",
+					label: "Gallery item",
+					description: "Gallery item",
+					properties: { image: asset },
+				},
+			},
+		},
+	};
+	expect(
+		collectManagedAssetLocators([
+			{
+				propertiesSchema,
+				properties: {
+					cover: { type: "local", key: "permanent/one.bin" },
+					gallery: [
+						{ image: { type: "s3", key: "permanent/two.png" } },
+						{ image: { type: "local", key: "permanent/one.bin" } },
+					],
+				},
+			},
+		]),
+	).toEqual([
+		{ type: "local", key: "permanent/one.bin" },
+		{ type: "s3", key: "permanent/two.png" },
+	]);
 });
 
 it.effect("rejects non-null notification metadata without its signal schema", () =>
@@ -879,6 +922,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 								locators.map((locator) => ({
 									size: 1,
 									ownerUserId,
+									retiredAt: null,
 									key: locator.key,
 									provider: locator.type,
 									contentType: "image/png",

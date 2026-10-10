@@ -8,6 +8,7 @@ import { generateId } from "better-auth";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
+import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import {
 	parseAppSchemaProperties,
 	parseAppSchemaPropertiesSafe,
@@ -288,6 +289,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
+			const lockAssetReferences = makeManagedAssetReferenceLocker(database);
 			const encryptionKey = yield* PluginConfigEncryptionKey;
 			const lock = Effect.fn("PluginConfigRevisions.lock")(function* (pluginId: string) {
 				yield* database.run((db) =>
@@ -408,6 +410,11 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 								allowMissingRequiredSecrets,
 							);
 				const properties = restored.properties;
+				if (yield* lockAssetReferences([{ properties, propertiesSchema: revision.configSchema }])) {
+					return yield* new DbError({
+						message: "Plugin config references a retired managed asset",
+					});
+				}
 				const payloadFingerprint = yield* encryption
 					.fingerprint(properties)
 					.pipe(

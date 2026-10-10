@@ -396,6 +396,7 @@ const hostFunctionsLayer = (
 				Layer.succeed(
 					ManagedAssetsService,
 					ManagedAssetsService.of({
+						cleanupManagedAsset: () => Effect.die("Unexpected asset cleanup"),
 						resolveDownloads: () => Effect.die("Unexpected download resolution"),
 						registerManagedAsset: () => Effect.die("Unexpected asset registration"),
 						listManagedAssetsForOwner: () => Effect.die("Unexpected asset listing"),

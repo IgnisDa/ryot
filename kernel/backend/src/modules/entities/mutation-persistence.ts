@@ -10,10 +10,13 @@ import {
 	type DefinitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
+import type { ManagedAssetPropertyRecord } from "#lib/domain/managed-asset-locators";
+import type { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	type CommittedLifecycleWork,
@@ -139,10 +142,12 @@ export const makePersistMutation = <E, R, Result>({
 	resultCodec,
 	validateDraft,
 	authorizeMutation,
+	lockAssetReferences,
 }: {
 	repository: EntitiesRepository["Service"];
 	planner: LifecyclePlanner["Service"];
 	receipts: MutationReceipts["Service"];
+	lockAssetReferences: ManagedAssetReferenceLocker;
 	resultCodec: Schema.Codec<Result, unknown>;
 	resultOf: (entity: ListedEntity, wasInserted: boolean) => Result;
 	authorizeMutation: (mutation: PreparedMutation) => Effect.Effect<void, E, R>;
@@ -153,7 +158,11 @@ export const makePersistMutation = <E, R, Result>({
 		lifecycle: DomainLifecycleCommand,
 		commit?: boolean,
 		pin?: DomainWritePin | null,
-	) => Effect.Effect<Pick<PreparedMutation, "draft" | "entitySchemaFingerprint">, E, R>;
+	) => Effect.Effect<
+		Pick<PreparedMutation, "draft" | "entitySchemaFingerprint"> & { propertiesSchema: AppSchema },
+		E,
+		R
+	>;
 }) => {
 	const lockRows = Effect.fnUntraced(function* (inputs: ReadonlyArray<PreparedMutation>) {
 		const entityIds = inputs.map(({ entityId }) => entityId);
@@ -166,6 +175,7 @@ export const makePersistMutation = <E, R, Result>({
 		batch?: PersistBatch,
 		locked?: ReadonlyMap<EntityId, MutationEntity>,
 	) {
+		const assetRecords: ManagedAssetPropertyRecord[] = [];
 		for (const { pin, input } of items) {
 			const currentSchema = yield* validateDraft(
 				input.draft,
@@ -178,6 +188,15 @@ export const makePersistMutation = <E, R, Result>({
 			if (!same(currentSchema.draft, input.draft)) {
 				return yield* conflict("Entity schema changed before the source write committed");
 			}
+			if (input.operation !== "delete") {
+				assetRecords.push({
+					properties: input.draft.properties,
+					propertiesSchema: currentSchema.propertiesSchema,
+				});
+			}
+		}
+		if (yield* lockAssetReferences(assetRecords)) {
+			return yield* conflict("Entity references a retired managed asset");
 		}
 		const rows = locked ?? (yield* lockRows(items.map(({ input }) => input)));
 		const writes: Array<{ item: PersistItem; before: AutomationEntitySnapshot | null }> = [];

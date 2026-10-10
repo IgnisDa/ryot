@@ -41,6 +41,7 @@ import {
 } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
@@ -272,6 +273,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const entities = yield* EntitiesRepository;
 		const eventSchemas = yield* EventSchemaReader;
 		const session = yield* DatabaseSession;
+		const lockAssetReferences = makeManagedAssetReferenceLocker(session);
 		const writeChecks = yield* DomainWriteChecks;
 		const retryFieldPreconditionStale = <A, E, R>(
 			work: Effect.Effect<A, E, R>,
@@ -1334,6 +1336,16 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			let change: AutomationEventChangePayload;
 			if (prepared.operation === "edit" || prepared.operation === "move") {
 				yield* verifyPreparedEditContext(prepared);
+				if (
+					yield* lockAssetReferences([
+						{ properties: prepared.draft.properties, propertiesSchema: prepared.propertiesSchema },
+					])
+				) {
+					return yield* eventBadRequest(
+						"invalid-properties",
+						"Event references a retired managed asset",
+					);
+				}
 				const updated = yield* repository.updatePreparedEvent({
 					...prepared.input,
 					draft: prepared.draft,

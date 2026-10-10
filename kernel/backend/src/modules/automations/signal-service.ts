@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { makeManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner, toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
@@ -37,6 +38,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const lockAssetReferences = makeManagedAssetReferenceLocker(session);
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
 			const triggers = yield* AutomationTriggerRepository;
@@ -84,6 +86,13 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 							properties: input.properties,
 							propertiesSchema: schema.propertiesSchema,
 						}).pipe(Effect.mapError((error) => badRequest(error.message)));
+						if (
+							yield* lockAssetReferences([
+								{ properties, propertiesSchema: schema.propertiesSchema },
+							])
+						) {
+							return yield* badRequest("Signal properties reference a retired managed asset");
+						}
 						const normalized = yield* Schema.decodeUnknownEffect(AutomationSignalPayload)({
 							properties,
 							actorUserId,

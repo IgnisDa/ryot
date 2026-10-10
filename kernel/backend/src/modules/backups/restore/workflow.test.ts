@@ -524,7 +524,10 @@ layer(
 						.execute(
 							sql`insert into ${sql.identifier(rollbackSchema)}.restore_row (id) values ('managed-asset')`,
 						)
-						.pipe(Effect.orDie, Effect.as({ ...metadata, createdAt: rollbackCreatedAt })),
+						.pipe(
+							Effect.orDie,
+							Effect.as({ ...metadata, retiredAt: null, createdAt: rollbackCreatedAt }),
+						),
 				),
 			cleanupStagedPermanentAsset: (staged) =>
 				Effect.gen(function* () {

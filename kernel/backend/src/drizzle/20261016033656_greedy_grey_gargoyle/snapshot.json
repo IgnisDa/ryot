@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "dad5c451-7117-4249-9bcd-19943fd2c4b0",
+	"id": "f5084b95-640b-4795-af23-c2690f65678b",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -2493,19 +2493,6 @@
 			"table": "definition_integration_provider"
 		},
 		{
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "plan",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "definition_integration_provider"
-		},
-		{
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -2514,6 +2501,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "description",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "definition_integration_provider"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "plan",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "definition_integration_provider"
@@ -4867,6 +4867,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "content_type",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "managed_asset"
+		},
+		{
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "retired_at",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "managed_asset"

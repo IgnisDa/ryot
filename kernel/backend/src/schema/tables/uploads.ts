@@ -10,6 +10,7 @@ export const managedAsset = snakeCase.table(
 		sha256: text().notNull(),
 		size: integer().notNull(),
 		contentType: text().notNull(),
+		retiredAt: timestamp({ precision: 3, withTimezone: true }),
 		provider: text().notNull().$type<ManagedAssetLocator["type"]>(),
 		createdAt: timestamp({ precision: 3, withTimezone: true }).defaultNow().notNull(),
 		ownerUserId: text()

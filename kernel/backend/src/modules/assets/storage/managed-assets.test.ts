@@ -14,12 +14,16 @@ import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
 import { databaseLayer, fakeDatabaseSession } from "#testing/effect";
 
+import { ManagedAssetReferencesRepository } from "./managed-asset-references-repository";
 import { ManagedAssetsService } from "./managed-assets";
 import { ManagedAssetsRepository } from "./managed-assets-repository";
 import { ObjectStorageService } from "./object-storage";
 
 const mockLocalStorage = Layer.mock(LocalStorageService);
 const mockManagedAssetsRepository = Layer.mock(ManagedAssetsRepository);
+const mockManagedAssetReferencesRepository = Layer.mock(ManagedAssetReferencesRepository)({
+	hasReference: () => Effect.succeed(false),
+});
 const mockObjectStorage = Layer.mock(ObjectStorageService);
 const mockS3 = Layer.mock(S3Service);
 const mockUserLifecycleGuard = Layer.mock(LifecycleWriteGuard);
@@ -34,6 +38,7 @@ const user: CurrentUserValue = {
 	accountGeneration: { userId, token: "test-account-generation" },
 };
 const managedAssetCreatedAt = new Date("2026-01-01T00:00:00.000Z");
+const cleanupLocator = { type: "s3" as const, key: "permanent/cleanup.png" };
 const localFileInfo = {
 	dev: 1n,
 	mode: 0o644,
@@ -71,6 +76,15 @@ class FakeS3Presigner extends Context.Service<
 	FakeS3Presigner,
 	{ readonly presigned: Effect.Effect<ReadonlyArray<PresignedDownload>> }
 >()("test/FakeS3Presigner") {}
+
+class CleanupEffects extends Context.Service<
+	CleanupEffects,
+	{
+		readonly deletes: Effect.Effect<number>;
+		readonly retirements: Effect.Effect<number>;
+		readonly referenceChecks: Effect.Effect<number>;
+	}
+>()("test/CleanupEffects") {}
 
 const missingObject = () => Effect.fail(new BadRequest({ message: "missing" }));
 
@@ -162,6 +176,58 @@ const recordingPresignerLayer = Layer.unwrap(
 	}),
 );
 
+const cleanupLayer = (options: {
+	readonly record: {
+		readonly key: string;
+		readonly size: number;
+		readonly ownerUserId: UserId;
+		readonly provider: "local" | "s3";
+		readonly sha256: string;
+		readonly contentType: string;
+		readonly createdAt: Date;
+		readonly retiredAt: Date | null;
+	} | null;
+	readonly referenced?: boolean;
+	readonly deleteFails?: boolean;
+}) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const deletes = yield* Ref.make(0);
+			const retirements = yield* Ref.make(0);
+			const referenceChecks = yield* Ref.make(0);
+			const dependencies = Layer.mergeAll(
+				databaseLayer,
+				mockLocalStorage({}),
+				mockS3({ isConfigured: true }),
+				mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
+				mockManagedAssetsRepository({
+					lockByLocator: () => Effect.succeed(options.record),
+					retireOwned: () => Ref.update(retirements, (count) => count + 1).pipe(Effect.as(true)),
+				}),
+				Layer.mock(ManagedAssetReferencesRepository)({
+					hasReference: () =>
+						Ref.update(referenceChecks, (count) => count + 1).pipe(
+							Effect.as(options.referenced ?? false),
+						),
+				}),
+				mockObjectStorage({
+					deleteObject: () =>
+						Ref.update(deletes, (count) => count + 1).pipe(
+							Effect.andThen(options.deleteFails ? missingObject() : Effect.void),
+						),
+				}),
+			);
+			return Layer.mergeAll(
+				Layer.succeed(CleanupEffects, {
+					deletes: Ref.get(deletes),
+					retirements: Ref.get(retirements),
+					referenceChecks: Ref.get(referenceChecks),
+				}),
+				ManagedAssetsService.layer.pipe(Layer.provideMerge(dependencies)),
+			);
+		}),
+	);
+
 const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }>) =>
 	ManagedAssetsService.layer.pipe(
 		Layer.provideMerge(
@@ -171,6 +237,7 @@ const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }
 				mockObjectStorage({}),
 				mockS3({ isConfigured: true }),
 				mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
+				mockManagedAssetReferencesRepository,
 				mockManagedAssetsRepository({
 					listByOwnerAndLocators: (ownerUserId) =>
 						Effect.succeed(
@@ -179,6 +246,7 @@ const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }
 								size: 100,
 								ownerUserId,
 								provider: type,
+								retiredAt: null,
 								sha256: "a".repeat(64),
 								contentType: "image/png",
 								createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -236,6 +304,7 @@ const downloadLayer = ManagedAssetsService.layer.pipe(
 			mockObjectStorage({}),
 			recordingPresignerLayer,
 			mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
+			mockManagedAssetReferencesRepository,
 			mockManagedAssetsRepository({
 				listByOwnerAndLocators: (ownerUserId) =>
 					Effect.succeed(
@@ -244,6 +313,7 @@ const downloadLayer = ManagedAssetsService.layer.pipe(
 							size: 1,
 							ownerUserId,
 							provider: type,
+							retiredAt: null,
 							sha256: "a".repeat(64),
 							createdAt: managedAssetCreatedAt,
 							contentType: type === "s3" ? "image/svg+xml" : "image/png",
@@ -291,6 +361,7 @@ const concurrentStagingLayer = ManagedAssetsService.layer.pipe(
 			mockLocalStorage({}),
 			mockS3({ isConfigured: true }),
 			mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
+			mockManagedAssetReferencesRepository,
 			mockManagedAssetsRepository({ getByLocator: () => Effect.succeed(null) }),
 			inMemoryObjectStorageLayer,
 		),
@@ -341,6 +412,7 @@ const blockedRegistrationLayer = ManagedAssetsService.layer.pipe(
 			mockLocalStorage({}),
 			mockObjectStorage({}),
 			mockS3({ isConfigured: true }),
+			mockManagedAssetReferencesRepository,
 			mockManagedAssetsRepository({
 				registerPermanentOwnedObject: () => Effect.die("registration must be blocked"),
 			}),
@@ -373,6 +445,7 @@ const racedRegistrationLayer = ManagedAssetsService.layer.pipe(
 			makeLifecycleDatabaseLayer(false),
 			mockLocalStorage({}),
 			mockS3({ isConfigured: true }),
+			mockManagedAssetReferencesRepository,
 			mockManagedAssetsRepository({
 				getByLocator: () => Effect.succeed(null),
 				registerPermanentOwnedObject: () => Effect.die("registration must be blocked"),
@@ -406,5 +479,94 @@ layer(racedRegistrationLayer)((test) => {
 				expect(yield* objectStorage.stored).toBeNull();
 				expect(yield* objectStorage.deletes).toBe(1);
 			}),
+	);
+});
+
+const cleanupRecord = (ownerUserId: UserId, retiredAt: Date | null = null) => ({
+	size: 1,
+	retiredAt,
+	ownerUserId,
+	sha256: "a".repeat(64),
+	key: cleanupLocator.key,
+	contentType: "image/png",
+	provider: cleanupLocator.type,
+	createdAt: managedAssetCreatedAt,
+});
+
+layer(cleanupLayer({ record: cleanupRecord(userId) }))((test) => {
+	test.effect("deletes an owned unreferenced managed asset and keeps its tombstone", () =>
+		Effect.gen(function* () {
+			const service = yield* ManagedAssetsService;
+			const effects = yield* CleanupEffects;
+			expect(yield* service.cleanupManagedAsset(user, cleanupLocator)).toEqual({
+				status: "deleted",
+			});
+			expect(yield* effects.referenceChecks).toBe(1);
+			expect(yield* effects.retirements).toBe(1);
+			expect(yield* effects.deletes).toBe(1);
+		}),
+	);
+});
+
+layer(cleanupLayer({ referenced: true, record: cleanupRecord(userId) }))((test) => {
+	test.effect("retains a referenced managed asset", () =>
+		Effect.gen(function* () {
+			const service = yield* ManagedAssetsService;
+			const effects = yield* CleanupEffects;
+			expect(yield* service.cleanupManagedAsset(user, cleanupLocator)).toEqual({
+				status: "referenced",
+			});
+			expect(yield* effects.retirements).toBe(0);
+			expect(yield* effects.deletes).toBe(0);
+		}),
+	);
+});
+
+layer(cleanupLayer({ record: null }))((test) => {
+	test.effect("returns missing for an unknown managed asset", () =>
+		Effect.gen(function* () {
+			const service = yield* ManagedAssetsService;
+			expect(yield* service.cleanupManagedAsset(user, cleanupLocator)).toEqual({
+				status: "missing",
+			});
+		}),
+	);
+});
+
+layer(cleanupLayer({ record: cleanupRecord(UserId.make("foreign-user")) }))((test) => {
+	test.effect("rejects cleanup for another owner's managed asset", () =>
+		Effect.gen(function* () {
+			const service = yield* ManagedAssetsService;
+			const exit = yield* Effect.exit(service.cleanupManagedAsset(user, cleanupLocator));
+			assertExitFails(exit, new UploadBadRequest({ reason: { code: "asset-forbidden" } }));
+		}),
+	);
+});
+
+layer(cleanupLayer({ deleteFails: true, record: cleanupRecord(userId) }))((test) => {
+	test.effect("retains retirement evidence when object deletion fails", () =>
+		Effect.gen(function* () {
+			const service = yield* ManagedAssetsService;
+			const effects = yield* CleanupEffects;
+			const exit = yield* Effect.exit(service.cleanupManagedAsset(user, cleanupLocator));
+			assertExitFails(exit, new BadRequest({ message: "missing" }));
+			expect(yield* effects.retirements).toBe(1);
+			expect(yield* effects.deletes).toBe(1);
+		}),
+	);
+});
+
+layer(cleanupLayer({ record: cleanupRecord(userId, managedAssetCreatedAt) }))((test) => {
+	test.effect("retries object deletion for an already-retired owned locator", () =>
+		Effect.gen(function* () {
+			const service = yield* ManagedAssetsService;
+			const effects = yield* CleanupEffects;
+			expect(yield* service.cleanupManagedAsset(user, cleanupLocator)).toEqual({
+				status: "deleted",
+			});
+			expect(yield* effects.referenceChecks).toBe(0);
+			expect(yield* effects.retirements).toBe(0);
+			expect(yield* effects.deletes).toBe(1);
+		}),
 	);
 });

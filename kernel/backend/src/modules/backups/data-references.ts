@@ -1,4 +1,4 @@
-import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
@@ -8,6 +8,10 @@ type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
 
 const isJsonObject = (value: unknown): value is JsonObject => isObjectRecord(value);
+
+type ArchivedManagedAssetLocator = Exclude<AssetLocator, { readonly type: "remote" }>;
+
+const assetKey = (locator: ArchivedManagedAssetLocator) => `${locator.type}:${locator.key}`;
 
 export class DataReferenceError extends Schema.TaggedError<
 	DataReferenceError,
@@ -145,73 +149,6 @@ export const rewritePropertyReferences = Effect.fn(function* (
 	}
 	return rewritten;
 });
-
-type ArchivedManagedAssetLocator = Exclude<AssetLocator, { readonly type: "remote" }>;
-
-const assetKey = (locator: ArchivedManagedAssetLocator) => `${locator.type}:${locator.key}`;
-
-type DataReferencePropertyRecord = {
-	readonly propertiesSchema: AppSchema;
-	readonly properties: Readonly<Record<string, unknown>>;
-};
-
-const collectPropertyAssets = (
-	property: AppPropertyDefinition,
-	value: unknown,
-	assets: ManagedAssetLocator[],
-) => {
-	if (property.secret === true) {
-		return;
-	}
-	if (property.type === "object") {
-		if (property.validation?.asset && isJsonObject(value)) {
-			if (
-				(value["type"] === "local" || value["type"] === "s3") &&
-				typeof value["key"] === "string"
-			) {
-				assets.push({ key: value["key"], type: value["type"] });
-			}
-			return;
-		}
-		if (isJsonObject(value)) {
-			for (const [key, child] of Object.entries(property.properties)) {
-				collectPropertyAssets(child, value[key], assets);
-			}
-		}
-		return;
-	}
-	if (property.type === "array" && Array.isArray(value)) {
-		for (const item of value) {
-			collectPropertyAssets(property.items, item, assets);
-		}
-	}
-};
-
-export const collectManagedAssetLocatorsInto = (
-	records: ReadonlyArray<DataReferencePropertyRecord>,
-	collected: Map<string, ManagedAssetLocator>,
-) => {
-	const assets: ManagedAssetLocator[] = [];
-	for (const { properties, propertiesSchema } of records) {
-		for (const [key, property] of Object.entries(propertiesSchema.fields)) {
-			collectPropertyAssets(property, properties[key], assets);
-		}
-	}
-	for (const asset of assets) {
-		collected.set(assetKey(asset), asset);
-	}
-};
-
-export const sortedManagedAssetLocators = (collected: ReadonlyMap<string, ManagedAssetLocator>) =>
-	[...collected.values()].sort((left, right) => assetKey(left).localeCompare(assetKey(right)));
-
-export const collectManagedAssetLocators = (
-	records: ReadonlyArray<DataReferencePropertyRecord>,
-): ReadonlyArray<ManagedAssetLocator> => {
-	const collected = new Map<string, ManagedAssetLocator>();
-	collectManagedAssetLocatorsInto(records, collected);
-	return sortedManagedAssetLocators(collected);
-};
 
 const readAssetLocator = (value: JsonValue): AssetLocator | null => {
 	if (!isJsonObject(value)) {
