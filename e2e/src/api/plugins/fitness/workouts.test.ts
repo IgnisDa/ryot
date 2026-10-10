@@ -179,10 +179,10 @@ describe("Workouts E2E", () => {
 			);
 
 			expect(allWorkoutsView).toMatchObject({
-				pluginId,
 				isBuiltin: true,
 				name: "All Workouts",
 				renderer: { kind: "kernel", name: "entity-browser" },
+				reference: { pluginId, kind: "plugin", slug: "all-workouts" },
 				settings: {
 					defaultLayout: "grid",
 					sourceName: "savedView",
@@ -193,8 +193,7 @@ describe("Workouts E2E", () => {
 					entitySchemaSlugField: "entitySchemaSlug",
 					addAction: {
 						type: "provider-search",
-						ownerPluginId: pluginId,
-						entitySchemaSlug: "workout",
+						schema: { slug: "workout", owner: { pluginId, kind: "plugin" } },
 					},
 					tableColumns: [
 						{ label: "Name", field: "column0", displayKind: "text" },
@@ -229,11 +228,11 @@ describe("Workouts E2E", () => {
 								right: { type: "literal", value: "workout" },
 								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 							}),
+							expect.objectContaining({
+								right: { type: "pluginId", reference: { pluginId, kind: "local" } },
+								left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
+							}),
 						]),
-					}),
-					expect.objectContaining({
-						right: { type: "literal", value: pluginId },
-						left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 					}),
 				]),
 			});

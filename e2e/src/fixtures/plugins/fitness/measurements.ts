@@ -7,9 +7,8 @@ import {
 	measurementReadingLogRecipe,
 	measurementReadingUpdateRecipe,
 } from "@ryot-app/fitness-plugin/contracts/operation-recipes";
-import { invokeOperationRecipe, type OperationRecipe } from "@ryot-app/plugin-kit/operations";
-import type { PluginPackageId } from "@ryot-app/plugin-kit/schema";
-import { Effect } from "effect";
+import type { OperationRecipe } from "@ryot-app/plugin-kit/operations";
+import { Effect, Schema } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
@@ -28,31 +27,19 @@ const invokeMeasurementOperation = <
 >(
 	client: Client,
 	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
-	input: Input,
+	payload: InputEncoded,
 ) =>
-	invokeOperationRecipe(
-		recipe,
-		input,
-		(request: {
-			readonly packageId: PluginPackageId;
-			readonly payload: InputEncoded;
-			readonly operationSlug: string;
-		}) =>
-			client
-				.call((contract) =>
-					contract.plugins.invoke({
-						payload: { payload: request.payload },
-						params: {
-							...pluginPackageSegments(request.packageId),
-							operationSlug: request.operationSlug,
-						},
-					}),
-				)
-				.pipe(Effect.map(({ result }) => result)),
-	);
+	client
+		.call((contract) =>
+			contract.plugins.invoke({
+				payload: { payload },
+				params: { ...pluginPackageSegments(recipe.packageId), operationSlug: recipe.operationSlug },
+			}),
+		)
+		.pipe(Effect.flatMap(({ result }) => Schema.decodeUnknownEffect(recipe.output)(result)));
 
-type RecipeInput<Recipe extends { readonly input: { readonly Type: unknown } }> =
-	Recipe["input"]["Type"];
+type RecipeInput<Recipe extends { readonly input: { readonly Encoded: unknown } }> =
+	Recipe["input"]["Encoded"];
 
 export const createMeasurementMetric = (
 	client: Client,
