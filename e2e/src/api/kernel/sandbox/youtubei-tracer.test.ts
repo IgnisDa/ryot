@@ -48,6 +48,7 @@ export default defineScript({
 			const first = yield* Effect.tryPromise(() => client.actions.execute("/first", { value: 1 })).pipe(
 				Effect.catch(() => Effect.succeed({ status_code: 599 })),
 			);
+    yield* host.httpCall("GET", new URL("/checkpoint", input.firstUrl).href);
     const second = yield* Effect.tryPromise(() => client.actions.execute("/second", { value: 2 }));
     return [first.status_code, second.status_code];
   }),
@@ -74,7 +75,7 @@ describe("Youtubei durable tracer", () => {
 					httpRateLimits: [
 						{
 							requests: 1,
-							intervalMs: 1_000,
+							intervalMs: 2_000,
 							origins: [new URL(http.url).origin],
 							key: `e2e.youtubei-tracer.${crypto.randomUUID()}`,
 						},
@@ -113,7 +114,7 @@ describe("Youtubei durable tracer", () => {
 				"Youtubei tracer output must be an array",
 			);
 			expect(value.map((status) => requireNumber(status, "Youtubei status"))).toEqual([200, 200]);
-			expect(http.requests.map(({ path }) => path)).toEqual(["/first", "/second"]);
+			expect(http.requests.map(({ path }) => path)).toEqual(["/first", "/checkpoint", "/second"]);
 		}),
 	);
 });
