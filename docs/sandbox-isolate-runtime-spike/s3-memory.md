@@ -207,7 +207,7 @@ messages leave one maximum host result (12 MiB) free for interactive results.
 ## 8. Admission predicate, modes and budget arithmetic (G = 2)
 
 **Static carve-outs** (fixed at boot): resident core processes 256 and the transient pools. Lane mode
-has P_int = H and P_bg; shared mode has one pool P = I. Pools are caps on concurrent permit holdings
+has P_int and P_bg, each at least I; shared mode has one pool P = I. Pools are caps on concurrent permit holdings
 (including inline evidence), checked FIFO within each pool; they are never lent across lanes.
 
 **Dynamic region** D = budget − 256 − pools. It holds every admitted run's E and every started lazy
