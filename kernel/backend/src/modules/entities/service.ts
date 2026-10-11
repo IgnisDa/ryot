@@ -22,6 +22,7 @@ import {
 	EntitySchemaSlug,
 	type SandboxProviderId,
 } from "@ryot-app/contract/schema/brands";
+import { collectImmutableProperties } from "@ryot-app/contract/schema/property-schema";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -74,6 +75,7 @@ import {
 	snapshot,
 	type PreparedMutation,
 } from "./mutation-persistence";
+import { makePreparedEntityCreate, type PreparedEntityCreate } from "./prepared-entity-create";
 import {
 	EntitiesRepository,
 	ensureScopeKey,
@@ -130,6 +132,26 @@ export type EnsureUserEntityItem = {
 	entitySchema: EntitySchemaReference;
 	name: string;
 	properties: unknown;
+};
+const preparedUserEntitySave = Symbol("PreparedUserEntitySave");
+type PreparedUserEntitySave = {
+	readonly entityId: EntityId;
+	readonly created: PreparedEntityCreate | null;
+	readonly [preparedUserEntitySave]: PreparedMutation;
+};
+type PrepareUserEntitySaveInput = {
+	userId: UserId;
+	name: string;
+	properties: unknown;
+	entitySchema: EntitySchemaReference;
+	lifecycle: DomainLifecycleCommand;
+	target:
+		| { kind: "create" }
+		| {
+				kind: "update";
+				entityId: EntityId;
+				expected: Pick<EntitySnapshotResult["entity"], "name" | "properties" | "updatedAt">;
+		  };
 };
 export const PendingEntityMutation = Schema.Struct({
 	...PreparedEntityMutation.fields,
@@ -491,6 +513,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				propertiesSchema: definition.propertiesSchema,
 				entitySchemaPluginId: definition.pluginId ?? null,
 				entitySchemaFingerprint: catalogDefinitionFingerprint(definition),
+				immutableProperties: [
+					...new Set([
+						...collectImmutableProperties(definition.propertiesSchema),
+						...collectImmutableProperties(activeDefinition.propertiesSchema),
+					]),
+				],
 			};
 		});
 		const validateExistingEntity = Effect.fnUntraced(function* (
@@ -721,6 +749,28 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				.pipe(Effect.mapError(writeFailure));
 			return yield* planner.planBatch({ ...batch, resource: "entity" });
 		});
+		const assertImmutablePropertiesKept = Effect.fnUntraced(function* (prepared: PreparedMutation) {
+			if (
+				prepared.operation !== "update" ||
+				prepared.before === null ||
+				prepared.scopeUserId === null
+			) {
+				return yield* Effect.void;
+			}
+			const { immutableProperties } = yield* validateDraft(
+				prepared.draft,
+				prepared.scopeUserId,
+				definitionOwner(prepared.entitySchemaPluginId),
+				prepared.lifecycle,
+			);
+			for (const property of immutableProperties) {
+				const stored = prepared.before.properties[property];
+				if (stored !== undefined && !same(stored, prepared.draft.properties[property])) {
+					return yield* new EntityBadRequest({ reason: { property, code: "immutable-property" } });
+				}
+			}
+			return yield* Effect.void;
+		});
 		const persistAndBatch = Effect.fnUntraced(function* (pending: PendingEntityMutation) {
 			const prepared = yield* acceptedMutation(pending);
 			const batchScope = { identity: ["batch"], command: prepared.lifecycle };
@@ -740,12 +790,17 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		const commitMutation = Effect.fn("EntitiesService.commitMutation")(
 			(pending: PendingEntityMutation) => transaction(persistAndBatch(pending)),
 		);
+		const persistCheckedUpdate = Effect.fnUntraced(function* (pending: PendingEntityMutation) {
+			yield* assertImmutablePropertiesKept(yield* acceptedMutation(pending));
+			return yield* persistAndBatch(pending);
+		});
 		const saveInline = <E, R>(
 			step: Effect.Effect<LifecyclePreparedStep<EntitySnapshotResult, PendingEntityMutation>, E, R>,
+			commit: typeof commitMutation = commitMutation,
 		) =>
 			runLifecycleWriteInline(execution, {
+				commit,
 				prepare: step,
-				commit: commitMutation,
 				applyPolicies: applyMutationPolicies,
 			}).pipe(Effect.map(({ result, warnings }) => ({ ...result, warnings })));
 		const planCreate = Effect.fnUntraced(function* (
@@ -1229,7 +1284,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						}
 						return pending.policies.length > 0
 							? { pending, _tag: "PoliciesRequired" as const }
-							: yield* persistAndBatch(pending);
+							: yield* persistCheckedUpdate(pending);
 					}),
 				).pipe(
 					Effect.filterOrFail(
@@ -1237,8 +1292,130 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						() => bad("automation-limit", "Entity request exceeds automation limits"),
 					),
 				),
+				(pending) => transaction(persistCheckedUpdate(pending)),
 			);
 			return { entity, warnings };
+		});
+		const prepareUserSave = Effect.fn("EntitiesService.prepareUserSave")(function* (
+			input: PrepareUserEntitySaveInput,
+		) {
+			yield* assertOwner;
+			const { userId, lifecycle, entitySchema: reference } = input;
+			let pendingInput: Parameters<typeof planMutation>[0];
+			if (input.target.kind === "create") {
+				const validated = yield* validateDraft(
+					{
+						providerId: null,
+						externalId: null,
+						name: input.name,
+						populatedAt: null,
+						properties: input.properties,
+						entitySchemaSlug: reference.slug,
+					},
+					userId,
+					reference.owner,
+					lifecycle,
+				);
+				pendingInput = {
+					...validated,
+					lifecycle,
+					before: null,
+					scopeUserId: userId,
+					operation: "create",
+					receiptKind: "entity:create",
+					entityId: commandEntityId(lifecycle),
+					receiptInput: createReceiptInput({
+						userId,
+						lifecycle,
+						scope: "user",
+						name: input.name,
+						entitySchema: reference,
+						properties: input.properties,
+					}),
+				};
+			} else {
+				const { entityId, expected } = input.target;
+				const current = yield* repository.getMutationEntity(entityId);
+				if (
+					!current ||
+					current.userId !== userId ||
+					current.entity.entitySchemaSlug !== reference.slug ||
+					(current.entity.entitySchemaPluginId ?? null) !== definitionOwnerPluginId(reference.owner)
+				) {
+					return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
+				}
+				yield* writeChecks
+					.check(lifecycle, definitionOwner(current.entity.entitySchemaPluginId), current.userId)
+					.pipe(Effect.mapError(writeFailure));
+				const before = snapshot(current.entity);
+				if (
+					!same(expected, {
+						name: before.name,
+						updatedAt: before.updatedAt,
+						properties: before.properties,
+					})
+				) {
+					return yield* new EntityStale({ reason: { entityId, code: "entity-stale" } });
+				}
+				yield* validateExistingEntity(current.entity, current.userId, lifecycle);
+				const validated = yield* validateDraft(
+					{ ...draftOf(before), name: input.name, properties: input.properties },
+					current.userId,
+					definitionOwner(current.entity.entitySchemaPluginId),
+					lifecycle,
+				);
+				pendingInput = {
+					...validated,
+					before,
+					entityId,
+					lifecycle,
+					scopeUserId: userId,
+					operation: "update",
+					receiptKind: "entity:update",
+					receiptInput: {
+						userId,
+						entityId,
+						expected,
+						scope: "user",
+						requireUserOwned: true,
+						name: input.name.trim(),
+						properties: input.properties,
+						writeContext: lifecycle.writeContext,
+					},
+				};
+			}
+			const prepared = yield* acceptedMutation(
+				yield* applyMutationPolicies(yield* planMutation(pendingInput)),
+			);
+			return Object.freeze({
+				entityId: prepared.entityId,
+				[preparedUserEntitySave]: prepared,
+				created:
+					prepared.operation === "create"
+						? makePreparedEntityCreate({
+								userId,
+								entityId: prepared.entityId,
+								entitySchemaSlug: prepared.draft.entitySchemaSlug,
+								entitySchemaPluginId: prepared.entitySchemaPluginId,
+							})
+						: null,
+			});
+		});
+		const persistPreparedUserSave = Effect.fn("EntitiesService.persistPreparedUserSave")(function* (
+			saved: PreparedUserEntitySave,
+		) {
+			yield* assertActiveTransaction;
+			const prepared = saved[preparedUserEntitySave];
+			yield* assertImmutablePropertiesKept(prepared);
+			const batchScope = { identity: ["batch"], command: prepared.lifecycle };
+			const decision = yield* planner.prepareBatch({
+				...batchScope,
+				resource: "entity",
+				scopes: [prepared.scopeUserId],
+			});
+			const persisted = yield* persistSnapshots.persistSave(prepared, { ...decision, index: 0 });
+			const batch = yield* entityBatchPlans(batchScope);
+			return { entity: persisted.result.entity, dispatch: [...persisted.dispatch, ...batch] };
 		});
 		const deleteByIds = Effect.fn("EntitiesService.deleteByIds")(function* (
 			ids: readonly [EntityId, ...EntityId[]],
@@ -2066,6 +2243,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			deleteByIds,
 			createGlobal,
 			commitMutation,
+			prepareUserSave,
 			getByIdAnyScope,
 			replayCreateStep,
 			prepareCreateStep,
@@ -2073,6 +2251,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			prepareReferenceStep,
 			upsertGlobalEntities,
 			applyMutationPolicies,
+			persistPreparedUserSave,
 			applyGlobalEntityPolicies,
 			persistPlannedProviderUpsert,
 			persistPlannedProviderUpserts,

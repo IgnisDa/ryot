@@ -15,3 +15,11 @@ Prepared policy inputs still retain the source snapshot needed to detect concurr
 
 Provider root-write activities retain the entity snapshot and dispatch references.
 Collection preparation projects the entity result to its identifier before journaling it.
+
+# Immutable properties
+
+A top-level entity property marked `immutable` keeps its stored value on user-scope updates:
+`EntitiesService.update` and the entity editor save fail with `immutable-property` when the final,
+post-policy properties change or omit a stored value. The flag comes from the union of the pinned and
+active schema. Provider upserts, including user-scope `updateExisting`, and global writes are unaffected
+because the provider owns that data.
