@@ -1,12 +1,11 @@
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createNotificationChannel,
 	fakeProviderDetailsResult,
-	providerSandboxSource,
-	replaceSandboxScriptCompiledRepresentation,
-	installTestProvider,
+	shippedPluginTestProviders,
 	startFakeAppriseServer,
 	pollUntil,
 } from "~/fixtures/kernel";
@@ -19,18 +18,32 @@ import {
 import { requireObjectRecord } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
+import { startIsolatedHarness } from "~/support/isolated-harness";
 
 let fakeApprise: FakeHttpServer;
+let harness: Effect.Success<ReturnType<typeof startIsolatedHarness>> | undefined;
+let media: Effect.Success<ReturnType<typeof shippedPluginTestProviders>>;
 
-beforeAll(() =>
+beforeAll(
+	() =>
+		runPromise(
+			Effect.gen(function* () {
+				fakeApprise = yield* startFakeAppriseServer;
+				harness = yield* startIsolatedHarness("Media Entity Update Signals");
+				media = yield* shippedPluginTestProviders(mediaPlugin.metadata.packageId);
+			}),
+		),
+	300_000,
+);
+
+afterAll(() =>
 	runPromise(
 		Effect.gen(function* () {
-			fakeApprise = yield* startFakeAppriseServer;
+			yield* Effect.promise(() => fakeApprise.stop());
+			yield* harness?.stop ?? Effect.void;
 		}),
 	),
 );
-
-afterAll(() => fakeApprise.stop());
 
 function pollNotificationBodies(key: string, count: number) {
 	return pollUntil(
@@ -58,9 +71,7 @@ describe("hierarchical media entity-update signals", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { schema: animeSchema } = yield* findMediaEntitySchema(client, "anime");
 			const animeSchemaId = animeSchema.id;
-			const animeProvider = yield* installTestProvider({
-				client,
-				scope: "system",
+			const animeProvider = yield* media.attachProvider({
 				slug: animeSlug,
 				details: buildDetails(12, 2025),
 				rootEntitySchemaSlug: animeSchemaId,
@@ -88,16 +99,7 @@ describe("hierarchical media entity-update signals", () => {
 			);
 
 			fakeApprise.requests.length = 0;
-			yield* replaceSandboxScriptCompiledRepresentation(
-				client,
-				animeProvider.detailsScriptId,
-				providerSandboxSource({
-					name: animeName,
-					operation: "details",
-					result: buildDetails(13, 2026),
-					slug: `${animeProvider.providerSlug}.details`,
-				}),
-			);
+			yield* media.update(animeProvider.providerSlug, { details: buildDetails(13, 2026) });
 			yield* triggerCronAndWaitForEntity(monitor, anime.id);
 
 			const delivered = yield* pollNotificationBodies("anime-monitor", 2);
@@ -179,10 +181,8 @@ describe("hierarchical media entity-update signals", () => {
 				const { client } = yield* createAuthenticatedClient();
 				const { schema: showSchema } = yield* findMediaEntitySchema(client, "show");
 				const showSchemaId = showSchema.id;
-				const showProvider = yield* installTestProvider({
-					client,
+				const showProvider = yield* media.attachProvider({
 					slug: showSlug,
-					scope: "system",
 					rootEntitySchemaSlug: showSchemaId,
 					details: buildDetails({
 						episodeName: "Episode 1",
@@ -219,22 +219,13 @@ describe("hierarchical media entity-update signals", () => {
 				).toEqual([]);
 
 				fakeApprise.requests.length = 0;
-				yield* replaceSandboxScriptCompiledRepresentation(
-					client,
-					showProvider.detailsScriptId,
-					providerSandboxSource({
-						name: showName,
-						operation: "details",
-						slug: `${showProvider.providerSlug}.details`,
-						result: buildDetails({
+				yield* media.update(showProvider.providerSlug, { details: buildDetails({
 							specialName: "Special 1 Renamed",
 							episodeName: "Episode 1 Renamed",
 							episodePublishDate: "2026-02-01",
 							specialPublishDate: "2026-02-01",
 							episodeImageUrl: "https://example.com/entity-update-after.jpg",
-						}),
-					}),
-				);
+						}) });
 				yield* triggerCronAndWaitForEntity(monitor, show.id);
 
 				const delivered = yield* pollNotificationBodies("show-episode-monitor", 3);
