@@ -101,7 +101,6 @@ const createRequestAnswerer = () => {
 				pageIndex: number,
 				after: string | undefined,
 			) => ReturnType<typeof rows>;
-			readonly editorExercisePage?: () => ReturnType<typeof rows>;
 			readonly storedPresets?: JsonValue;
 		},
 	) => {
@@ -135,17 +134,10 @@ const createRequestAnswerer = () => {
 			for (const key of Object.keys(request.document.queries)) {
 				const query = request.document.queries[key];
 				if (key === "exercises" && query?.output.type === "rows") {
-					const fields = query.output.fields.flatMap((field) =>
-						"key" in field ? [field.key] : [],
+					data.exercises = options.exercisePage(
+						pickerExercisePageIndex++,
+						query.output.pagination.after,
 					);
-					if (fields.includes("properties")) {
-						data.exercises = options.editorExercisePage?.() ?? rows([]);
-					} else {
-						data.exercises = options.exercisePage(
-							pickerExercisePageIndex++,
-							query.output.pagination.after,
-						);
-					}
 				} else if (key === "membership") {
 					data[key] = rows([]);
 				} else {
@@ -177,15 +169,6 @@ const requireProviderRequest = (page: ReturnType<typeof mountPluginPage>) => {
 	}
 	return request;
 };
-
-const pickerExerciseQueryCount = (page: ReturnType<typeof mountPluginPage>) =>
-	page.queryRequests("exercises").filter((request) => {
-		const query = request.document.queries.exercises;
-		return (
-			query?.output.type === "rows" &&
-			!query.output.fields.some((field) => "key" in field && field.key === "properties")
-		);
-	}).length;
 
 const replyProviderSearch = (
 	page: ReturnType<typeof mountPluginPage>,
@@ -324,7 +307,7 @@ describe("ExercisePicker", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => {
 					answerRequests(page, { exercisePage: (index) => pickerPage(index) });
-					expect(pickerExerciseQueryCount(page)).toBe(2);
+					expect(page.queryRequests("exercises").length).toBe(2);
 					expect(screen.getByText("No exercises match “hidden by search”")).toBeTruthy();
 				}),
 			);
@@ -347,24 +330,14 @@ describe("ExercisePicker", () => {
 			});
 			yield* Effect.promise(() =>
 				waitFor(() => {
-					answerRequests(page, {
-						exercisePage: (index) => pickerPage(index),
-						editorExercisePage: () =>
-							rows([
-								{
-									id: "exercise-added",
-									name: "Newly added exercise",
-									properties: { kind: "reps" },
-								},
-							]),
-					});
-					expect(pickerExerciseQueryCount(page)).toBe(4);
+					answerRequests(page, { exercisePage: (index) => pickerPage(index) });
+					expect(page.queryRequests("exercises").length).toBe(4);
 					expect(screen.getByRole("button", { name: "Remove Newly added exercise" })).toBeTruthy();
 					expect(screen.getByRole("button", { name: "Add from provider" })).toBeTruthy();
 				}),
 			);
 
-			expect(page.queryRequests("exercises")).toHaveLength(5);
+			expect(page.queryRequests("exercises")).toHaveLength(4);
 			expect(screen.queryByRole("checkbox", { name: "Newly added exercise" })).toBeNull();
 			expect(applied).toHaveLength(0);
 			click(screen.getByRole("button", { name: "Add 1 exercise" }));
@@ -408,8 +381,6 @@ describe("ExercisePicker", () => {
 				waitFor(() => {
 					answerRequests(page, {
 						exercisePage: (index) => rows(index === 1 ? [providerReps] : [duration]),
-						editorExercisePage: () =>
-							rows([{ id: "exercise-reps", name: "Rep exercise", properties: { kind: "reps" } }]),
 					});
 					expect(
 						screen.getByText(

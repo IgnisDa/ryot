@@ -1,118 +1,74 @@
-import { RyotClientError, type RyotClient } from "@ryot-app/plugin-client-sdk";
-import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { EntitySchemaSlug, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { readCursorPages } from "@ryot-app/plugin-client-sdk";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import type { useRyot } from "@ryot-app/plugin-client-sdk/react";
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
-	useRyot,
 	useRyotQuery,
-	useRyotSchedule,
 } from "@ryot-app/plugin-client-sdk/react";
-import {
-	Button,
-	Card,
-	Dialog,
-	EmptyState,
-	Field,
-	MenuButton,
-	MultiSelect,
-	Notice,
-	Skeleton,
-	TextField,
-} from "@ryot-app/plugin-ui-sdk";
+import { Button, EmptyState, Notice, Skeleton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
-import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
 
-import { exerciseKindSchema, exerciseKinds, type ExerciseKind } from "../../shared/exercise-kinds";
+import type { ExerciseKind } from "../../shared/exercise-kinds";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { equipmentListRecipe, targetListRecipe } from "../../shared/taxonomy-recipes";
 import {
 	workoutExerciseCollectionOptionsRecipe,
 	workoutExercisePickerRecipe,
-	type WorkoutExercisePickerResult,
 } from "../../shared/workout-exercise-recipes";
-import { managedAssetBatch, useAssetUrl } from "../asset-urls";
-import { readEditorExercises, readEditorPages } from "./queries";
-
-const exerciseForces = ["pull", "push", "static"] as const;
-const exerciseLevels = ["beginner", "intermediate", "expert"] as const;
-const exerciseMechanics = ["compound", "isolation"] as const;
-const exerciseForceSchema = Schema.Literals(exerciseForces);
-const exerciseLevelSchema = Schema.Literals(exerciseLevels);
-const exerciseMechanicSchema = Schema.Literals(exerciseMechanics);
-
-const pickerFiltersSchema = Schema.Struct({
-	targetIds: Schema.Array(Schema.String),
-	kinds: Schema.Array(exerciseKindSchema),
-	equipmentIds: Schema.Array(Schema.String),
-	forces: Schema.Array(exerciseForceSchema),
-	levels: Schema.Array(exerciseLevelSchema),
-	collectionIds: Schema.Array(Schema.String),
-	mechanics: Schema.Array(exerciseMechanicSchema),
-});
-
-const pickerSortSchema = Schema.Literals(["name", "recently-added", "times-performed"]);
-const pickerPresetSchema = Schema.Struct({
-	id: Schema.String,
-	sort: pickerSortSchema,
-	filters: pickerFiltersSchema,
-	search: Schema.String.pipe(Schema.check(Schema.isMaxLength(512))),
-	name: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(80))),
-});
-const pickerPresetsSchema = Schema.Array(pickerPresetSchema).pipe(
-	Schema.check(Schema.isMaxLength(20)),
-);
-
-type PickerFilters = typeof pickerFiltersSchema.Type;
-type PickerSort = typeof pickerSortSchema.Type;
-type PickerPreset = typeof pickerPresetSchema.Type;
-type PickerExercise = WorkoutExercisePickerResult["items"][number];
-type PickerQueryInput = {
-	readonly after: string | undefined;
-	readonly filters: PickerFilters;
-	readonly search: string;
-	readonly sort: PickerSort;
-};
+import { AssetArtWell, managedAssetBatch } from "../asset-urls";
+import { EditorSheet } from "./editor-sheet";
+import {
+	emptyFilters,
+	labelForKind,
+	type PickerExercise,
+	type PickerFilters,
+	type PickerSort,
+} from "./picker-model";
+import { PickerSelectionTray } from "./picker-selection-tray";
+import { PresetForm, PickerToolbar } from "./picker-toolbar";
+import { useCursorPages, type PagedInput } from "./use-cursor-pages";
+import { usePickerPresets } from "./use-picker-presets";
+import { useProviderSearch } from "./use-provider-search";
 
 type ExercisePickerProps = {
 	readonly replacement?: { readonly name: string; readonly kind: ExerciseKind };
 	readonly onClose: () => void;
-	readonly onApply: (exercises: readonly WorkoutExercisePickerResult["items"][number][]) => void;
-};
-
-const PRESETS_STORAGE_KEY = "fitness-workout-exercise-picker-presets";
-const emptyFilters: PickerFilters = {
-	kinds: [],
-	forces: [],
-	levels: [],
-	mechanics: [],
-	targetIds: [],
-	equipmentIds: [],
-	collectionIds: [],
+	readonly onApply: (exercises: readonly PickerExercise[]) => void;
 };
 
 const pickerOptionsQuery = createRyotQuery(({ client }) => {
 	const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
 	return Effect.gen(function* () {
 		const [targets, equipment, collections] = yield* Effect.all([
-			readEditorPages((after) =>
+			readCursorPages((after) =>
 				client.data.query(targetListRecipe({ after, reference, limit: 100 })),
 			),
-			readEditorPages((after) =>
+			readCursorPages((after) =>
 				client.data.query(equipmentListRecipe({ after, reference, limit: 100 })),
 			),
-			readEditorPages((after) =>
+			readCursorPages((after) =>
 				client.data.query(workoutExerciseCollectionOptionsRecipe({ after })),
 			),
 		]);
-		return { targets, equipment, collections };
+		return { targets: targets.items, equipment: equipment.items, collections: collections.items };
 	});
 });
 
-const pickerExercisesQuery = createRyotQuery<PickerQueryInput, WorkoutExercisePickerResult>(
-	({ input, client }) =>
+const pickerExercisesQuery = createRyotQuery(
+	({
+		input,
+		client,
+	}: {
+		readonly client: ReturnType<typeof useRyot>;
+		readonly input: PagedInput<{
+			readonly search: string;
+			readonly sort: PickerSort;
+			readonly filters: PickerFilters;
+		}>;
+	}) =>
 		client.data.query(
 			workoutExercisePickerRecipe({
 				...input.filters,
@@ -123,11 +79,6 @@ const pickerExercisesQuery = createRyotQuery<PickerQueryInput, WorkoutExercisePi
 			}),
 		),
 );
-
-const capitalize = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
-
-const labelForKind = (kind: ExerciseKind | null) =>
-	kind === null ? "Exercise" : capitalize(kind.replaceAll("_", " "));
 
 const metaForExercise = (exercise: PickerExercise) =>
 	[
@@ -142,8 +93,6 @@ function ExerciseOption(props: {
 	readonly replacing: boolean;
 	readonly onToggle: () => void;
 }) {
-	const asset = props.exercise.images?.[0];
-	const url = useAssetUrl(asset);
 	const meta = metaForExercise(props.exercise);
 	return (
 		<button
@@ -158,12 +107,10 @@ function ExerciseOption(props: {
 				props.selected && "bg-accent-soft",
 			)}
 		>
-			<EntityArtWell
-				url={url}
-				shape="rounded"
+			<AssetArtWell
+				name={props.exercise.name}
 				className="size-11 shrink-0"
-				monogram={props.exercise.name}
-				state={asset === undefined ? "absent" : "ready"}
+				asset={props.exercise.images?.[0]}
 			/>
 			<span className="min-w-0 flex-1">
 				<span className="block font-semibold text-text [overflow-wrap:anywhere]">
@@ -188,201 +135,55 @@ function ExerciseOption(props: {
 	);
 }
 
-function readProviderExercise(
-	client: RyotClient,
-	exercise: { readonly id: string; readonly name: string },
-) {
-	const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
-	return readEditorPages((after) =>
-		client.data.query(
-			workoutExercisePickerRecipe({ after, reference, sort: "name", search: exercise.name }),
-		),
-	).pipe(Effect.map((items) => items.find(({ id }) => id === exercise.id)));
-}
-
 export function ExercisePicker(props: ExercisePickerProps) {
-	const client = useRyot();
-	const identity = client.pluginIdentity(PLUGIN_PACKAGE_ID);
-	const pluginId = identity.pluginId;
-	const schedule = useRyotSchedule();
+	const replacement = props.replacement;
+	const replacing = replacement !== undefined;
 	const options = useRyotQuery(pickerOptionsQuery);
+	const presets = usePickerPresets();
+	const searchRef = useRef<HTMLInputElement>(null);
 	const [filters, setFilters] = useState<PickerFilters>(emptyFilters);
 	const [sort, setSort] = useState<PickerSort>("times-performed");
 	const [search, setSearch] = useState("");
 	const deferredSearch = useDeferredValue(search.trim());
-	const [pages, setPages] = useState<readonly (string | undefined)[]>([undefined]);
 	const [selected, setSelected] = useState<readonly PickerExercise[]>([]);
-	const [providerPending, setProviderPending] = useState(false);
-	const [providerError, setProviderError] = useState(false);
-	const [providerNotice, setProviderNotice] = useState<string>();
-	const providerCancel = useRef<(() => void) | undefined>(undefined);
-	const providerRunning = useRef(false);
-	const searchRef = useRef<HTMLInputElement>(null);
-	const writingPreset = useRef(false);
-	const presetSequence = useRef(0);
-	const [presets, setPresets] = useState<readonly PickerPreset[]>([]);
-	const [presetStatus, setPresetStatus] = useState<"loading" | "ready" | "error">("loading");
-	const [presetReadError, setPresetReadError] = useState(false);
-	const [presetWriteError, setPresetWriteError] = useState(false);
-	const [pendingPresetWrite, setPendingPresetWrite] = useState<readonly PickerPreset[] | null>(
-		null,
-	);
-	const [presetName, setPresetName] = useState("");
 	const [activePresetId, setActivePresetId] = useState("");
-	const [presetNameError, setPresetNameError] = useState(false);
 	const [savingPreset, setSavingPreset] = useState(false);
-	const { compact, safeAreaBottom } = useRyotViewport();
-	const after = pages.at(-1);
-	const replacementKind = props.replacement?.kind;
+	const [presetName, setPresetName] = useState("");
+	const [presetNameError, setPresetNameError] = useState(false);
 	const effectiveFilters = useMemo(
-		() => (replacementKind === undefined ? filters : { ...filters, kinds: [replacementKind] }),
-		[filters, replacementKind],
+		() => (replacement === undefined ? filters : { ...filters, kinds: [replacement.kind] }),
+		[filters, replacement],
 	);
-	const result = useRyotQuery(pickerExercisesQuery, {
+	const exercises = useCursorPages(pickerExercisesQuery, {
 		sort,
-		after,
 		search: deferredSearch,
 		filters: effectiveFilters,
 	});
-	const [loaded, setLoaded] = useState<{
-		readonly items: readonly PickerExercise[];
-		readonly result: WorkoutExercisePickerResult | undefined;
-	}>({ items: [], result: undefined });
-	if (result.data !== undefined && result.data !== loaded.result) {
-		setLoaded({
-			result: result.data,
-			items:
-				after === undefined
-					? result.data.items
-					: [
-							...new Map(
-								[...loaded.items, ...result.data.items].map((exercise) => [exercise.id, exercise]),
-							).values(),
-						],
-		});
-	}
-	const items = loaded.items;
+	const providerSearch = useProviderSearch({
+		search,
+		replacementKind: replacement?.kind,
+		onFound: (found) => {
+			if (replacing) {
+				const first = found[0];
+				if (first !== undefined) {
+					setSelected([first]);
+				}
+			} else {
+				setSelected((current) => [
+					...current,
+					...found.filter(({ id }) => !current.some((exercise) => exercise.id === id)),
+				]);
+			}
+			exercises.refetch();
+		},
+	});
 	const selectedIds = new Set(selected.map(({ id }) => id));
 
-	const resetPages = () => setPages([undefined]);
+	const clearPreset = () => setActivePresetId("");
 	const changeFilter = <Key extends keyof PickerFilters>(key: Key, value: PickerFilters[Key]) => {
 		setFilters((current) => ({ ...current, [key]: value }));
-		setActivePresetId("");
-		resetPages();
+		clearPreset();
 	};
-	const changeSort = (value: string) => {
-		if (Schema.is(pickerSortSchema)(value)) {
-			setSort(value);
-			setActivePresetId("");
-			resetPages();
-		}
-	};
-
-	const loadPresets = useCallback(() => {
-		const read = client.storage.get(pluginId, PRESETS_STORAGE_KEY);
-		return schedule.run(
-			Effect.gen(function* () {
-				setPresetStatus("loading");
-				setPresetReadError(false);
-				const stored = yield* read;
-				if (stored === null) {
-					return [] as const;
-				}
-				return yield* Schema.decodeUnknownEffect(pickerPresetsSchema)(stored).pipe(
-					Effect.mapError(() => new RyotClientError("malformed-result")),
-				);
-			}).pipe(
-				Effect.tap((value) =>
-					Effect.sync(() => {
-						setPresets(value);
-						setPresetStatus("ready");
-					}),
-				),
-				Effect.catch(() =>
-					Effect.sync(() => {
-						setPresetReadError(true);
-						setPresetStatus("error");
-					}),
-				),
-			),
-			() => undefined,
-		);
-	}, [client, pluginId, schedule]);
-
-	useEffect(() => loadPresets(), [loadPresets]);
-
-	const persistPresets = (next: readonly PickerPreset[]) => {
-		if (writingPreset.current) {
-			return;
-		}
-		writingPreset.current = true;
-		setPendingPresetWrite(next);
-		setPresetWriteError(false);
-		schedule.run(
-			Schema.encodeEffect(pickerPresetsSchema)(next).pipe(
-				Effect.flatMap((encoded) => client.storage.set(pluginId, PRESETS_STORAGE_KEY, encoded)),
-				Effect.tap(() =>
-					Effect.sync(() => {
-						setPresets(next);
-						setPendingPresetWrite(null);
-					}),
-				),
-				Effect.catch(() => Effect.sync(() => setPresetWriteError(true))),
-			),
-			() => {
-				writingPreset.current = false;
-			},
-		);
-	};
-
-	const savePreset = () => {
-		if (writingPreset.current) {
-			return false;
-		}
-		const name = presetName.trim();
-		if (name === "" || name.length > 80) {
-			setPresetNameError(true);
-			return false;
-		}
-		if (presets.length >= 20) {
-			return false;
-		}
-		let id = `${schedule.now()}-${presetSequence.current++}`;
-		while (presets.some((preset) => preset.id === id)) {
-			id = `${schedule.now()}-${presetSequence.current++}`;
-		}
-		const preset: PickerPreset = { id, name, sort, filters, search: search.trim() };
-		setPresetNameError(false);
-		setActivePresetId(preset.id);
-		setPresetName("");
-		persistPresets([...presets, preset]);
-		return true;
-	};
-
-	const applyPreset = (id: string) => {
-		setActivePresetId(id);
-		const preset = presets.find((candidate) => candidate.id === id);
-		if (preset === undefined) {
-			return;
-		}
-		setFilters(preset.filters);
-		setSort(preset.sort);
-		setSearch(preset.search);
-		resetPages();
-	};
-
-	const deletePreset = () => {
-		if (writingPreset.current) {
-			return;
-		}
-		const next = presets.filter(({ id }) => id !== activePresetId);
-		if (next.length === presets.length) {
-			return;
-		}
-		setActivePresetId("");
-		persistPresets(next);
-	};
-
 	const toggleExercise = (exercise: PickerExercise) => {
 		if (exercise.kind === null) {
 			return;
@@ -391,405 +192,115 @@ export function ExercisePicker(props: ExercisePickerProps) {
 			if (current.some(({ id }) => id === exercise.id)) {
 				return current.filter(({ id }) => id !== exercise.id);
 			}
-			if (props.replacement !== undefined) {
-				return exercise.kind === props.replacement.kind ? [exercise] : current;
+			if (replacement !== undefined) {
+				return exercise.kind === replacement.kind ? [exercise] : current;
 			}
 			return [...current, exercise];
 		});
 	};
-
-	const openProviderSearch = () => {
-		if (providerRunning.current) {
+	const savePreset = () => {
+		const name = presetName.trim();
+		if (name === "" || name.length > 80) {
+			setPresetNameError(true);
 			return;
 		}
-		providerRunning.current = true;
-		setProviderPending(true);
-		setProviderError(false);
-		setProviderNotice(undefined);
-		const work = Effect.gen(function* () {
-			const outcome = yield* client.screens.openProviderSearch({
-				initialQuery: search,
-				schema: { owner: { pluginId, kind: "plugin" }, slug: EntitySchemaSlug.make("exercise") },
-			});
-			if (outcome.kind === "cancelled") {
-				return { exercises: [], kind: "cancelled" as const };
-			}
-			const exercises = yield* readEditorExercises(client, outcome.entityIds);
-			const byId = new Map(exercises.map((exercise) => [exercise.id, exercise]));
-			const providerExercises = yield* Effect.forEach(
-				outcome.entityIds,
-				(id): Effect.Effect<PickerExercise | void, RyotClientError> => {
-					const exercise = byId.get(id);
-					return exercise === undefined ? Effect.void : readProviderExercise(client, exercise);
-				},
-			);
-			return {
-				kind: "added" as const,
-				exercises: providerExercises.filter(
-					(exercise): exercise is PickerExercise => exercise !== undefined,
-				),
-			};
-		}).pipe(
-			Effect.tap((outcome) =>
-				outcome.kind === "cancelled"
-					? Effect.void
-					: Effect.sync(() => {
-							const eligible = outcome.exercises.filter(
-								(exercise) =>
-									exercise.kind !== null &&
-									(props.replacement === undefined || exercise.kind === props.replacement.kind),
-							);
-							if (eligible.length < outcome.exercises.length) {
-								setProviderNotice(
-									"The exercise was added to your library, but its kind is not eligible for this selection.",
-								);
-							}
-							if (props.replacement !== undefined) {
-								const exercise = eligible[0];
-								if (exercise !== undefined) {
-									setSelected([exercise]);
-								}
-							} else {
-								for (const exercise of eligible) {
-									setSelected((current) =>
-										current.some(({ id }) => id === exercise.id) ? current : [...current, exercise],
-									);
-								}
-							}
-							result.refetch();
-						}),
-			),
-			Effect.catch(() => Effect.sync(() => setProviderError(true))),
-			Effect.asVoid,
-		);
-		providerCancel.current = schedule.run(work, () => {
-			providerRunning.current = false;
-			setProviderPending(false);
-		});
+		const id = crypto.randomUUID();
+		if (presets.add({ id, name, sort, filters, search: search.trim() })) {
+			setPresetNameError(false);
+			setActivePresetId(id);
+			setPresetName("");
+			setSavingPreset(false);
+		}
 	};
-	useEffect(() => () => providerCancel.current?.(), []);
+	const applyPreset = (id: string) => {
+		setActivePresetId(id);
+		const preset = presets.presets.find((candidate) => candidate.id === id);
+		if (preset !== undefined) {
+			setFilters(preset.filters);
+			setSort(preset.sort);
+			setSearch(preset.search);
+		}
+	};
+	const deletePreset = () => {
+		if (presets.remove(activePresetId)) {
+			clearPreset();
+		}
+	};
 
-	const canWritePresets = presetStatus === "ready" && pendingPresetWrite === null;
-	const rowAssets = managedAssetBatch(items.map(({ images }) => images?.[0]));
-	const nextCursor = result.data?.pageInfo.nextCursor;
-	const canShowMore =
-		result.data?.pageInfo.hasMore === true &&
-		nextCursor !== null &&
-		nextCursor !== undefined &&
-		!pages.includes(nextCursor);
-	const replacing = props.replacement !== undefined;
-	const icons = {
-		closeIcon: <AppIcon name="x" size={16} />,
-		checkIcon: <AppIcon size={14} name="check" />,
-		searchIcon: <AppIcon size={14} name="search" />,
-		chevronIcon: <AppIcon size={13} name="chevron-down" />,
-	};
-	const chip =
-		"inline-flex h-8 shrink-0 items-center gap-1.5 rounded-pill border border-border-emphasis bg-surface px-3 text-[13px] font-medium whitespace-nowrap hover:bg-hover pointer-coarse:h-10";
-	const sortLabels: Record<PickerSort, string> = {
-		name: "Name",
-		"recently-added": "Recently added",
-		"times-performed": "Times performed",
-	};
-	const appliedPreset = presets.find(({ id }) => id === activePresetId);
+	const noMatches = !exercises.isPending && !exercises.isError && exercises.items.length === 0;
 	return (
-		<Dialog
+		<EditorSheet
 			size="lg"
 			onClose={props.onClose}
 			initialFocusRef={searchRef}
-			dismissible={!providerPending}
-			safeAreaBottom={safeAreaBottom}
+			dismissible={!providerSearch.pending}
 			closeLabel="Cancel exercise selection"
-			placement={compact ? "sheet" : "center"}
-			closeIcon={<AppIcon name="x" size={18} />}
-			title={replacing ? `Replace ${props.replacement.name}` : "Add exercises"}
+			title={replacing ? `Replace ${replacement.name}` : "Add exercises"}
 			description={
 				replacing
-					? `Only ${labelForKind(props.replacement.kind)} exercises can replace it. Matching values are kept.`
+					? `Only ${labelForKind(replacement.kind)} exercises can replace it. Matching values are kept.`
 					: undefined
 			}
 			footer={
-				<>
-					<div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-						<p aria-live="polite" className="sr-only">
-							{selected.length} selected
-						</p>
-						{selected.length === 0 ? (
-							<span className="text-sm text-text-muted">
-								{replacing ? "Choose one exercise" : "Nothing selected"}
-							</span>
-						) : (
-							<ul
-								aria-label="Selected exercises"
-								className="flex min-w-0 gap-1.5 overflow-x-auto [scrollbar-width:none]"
-							>
-								{selected.map((exercise) => (
-									<li key={exercise.id} className="shrink-0">
-										<button
-											type="button"
-											aria-label={`Remove ${exercise.name}`}
-											onClick={() => toggleExercise(exercise)}
-											className="inline-flex h-8 max-w-44 items-center gap-1.5 rounded-pill border border-accent-border bg-accent-soft px-3 text-[13px] font-medium text-accent-text pointer-coarse:h-10"
-										>
-											<span className="truncate">{exercise.name}</span>
-											<AppIcon name="x" size={13} />
-										</button>
-									</li>
-								))}
-							</ul>
-						)}
-					</div>
-					<Button
-						className="flex-none"
-						disabled={selected.length === 0 || providerPending}
-						onClick={() => {
-							props.onApply(selected);
-							props.onClose();
-						}}
-					>
-						{replacing
-							? "Replace exercise"
-							: `Add ${selected.length} ${selected.length === 1 ? "exercise" : "exercises"}`}
-					</Button>
-				</>
+				<PickerSelectionTray
+					selected={selected}
+					replacing={replacing}
+					onRemove={toggleExercise}
+					disabled={providerSearch.pending}
+					onApply={() => {
+						props.onApply(selected);
+						props.onClose();
+					}}
+				/>
 			}
 		>
 			<div className="grid gap-3">
-				<div className="sticky -top-3 z-10 -mx-5 grid gap-2.5 bg-raised px-5 pt-3 pb-2">
-					<div className="relative">
-						<span
-							aria-hidden="true"
-							className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-text-subtle"
-						>
-							<AppIcon size={16} name="search" />
-						</span>
-						<TextField
-							type="search"
-							value={search}
-							ref={searchRef}
-							maxLength={512}
-							autoComplete="off"
-							className="w-full pl-9"
-							aria-label="Search exercises"
-							placeholder="Search your library"
-							onChange={(event) => {
-								setSearch(event.currentTarget.value);
-								setActivePresetId("");
-								resetPages();
-							}}
-						/>
-					</div>
-					<div
-						role="toolbar"
-						aria-label="Filters"
-						className="-mx-5 flex gap-1.5 overflow-x-auto px-5 pb-0.5 [scrollbar-width:none]"
-					>
-						<MenuButton
-							label="Sort exercises"
-							items={(["times-performed", "name", "recently-added"] as const).map((value) => ({
-								key: value,
-								onSelect: () => changeSort(value),
-								label: value === sort ? `${sortLabels[value]} ✓` : sortLabels[value],
-							}))}
-							renderTrigger={(trigger) => (
-								<button {...trigger} type="button" className={chip} aria-label="Sort exercises">
-									<AppIcon size={14} name="arrow-up-down" />
-									{sortLabels[sort]}
-									{icons.chevronIcon}
-								</button>
-							)}
-						/>
-						{replacing ? (
-							<span className={clsx(chip, "border-accent-border bg-accent-soft text-accent-text")}>
-								{labelForKind(props.replacement.kind)}
-							</span>
-						) : (
-							<MultiSelect
-								{...icons}
-								label="Kind"
-								variant="chip"
-								selected={filters.kinds}
-								choices={exerciseKinds.map((value) => ({ value, label: labelForKind(value) }))}
-								onChange={(kinds) =>
-									changeFilter(
-										"kinds",
-										kinds.filter((kind): kind is ExerciseKind =>
-											Schema.is(exerciseKindSchema)(kind),
-										),
-									)
-								}
-							/>
-						)}
-						<MultiSelect
-							{...icons}
-							label="Target"
-							variant="chip"
-							selected={filters.targetIds}
-							onChange={(targetIds) => changeFilter("targetIds", targetIds)}
-							choices={(options.data?.targets ?? []).map(({ id, name }) => ({
-								value: id,
-								label: name,
-							}))}
-						/>
-						<MultiSelect
-							{...icons}
-							variant="chip"
-							label="Equipment"
-							selected={filters.equipmentIds}
-							onChange={(equipmentIds) => changeFilter("equipmentIds", equipmentIds)}
-							choices={(options.data?.equipment ?? []).map(({ id, name }) => ({
-								value: id,
-								label: name,
-							}))}
-						/>
-						<MultiSelect
-							{...icons}
-							variant="chip"
-							label="Collection"
-							selected={filters.collectionIds}
-							onChange={(collectionIds) => changeFilter("collectionIds", collectionIds)}
-							choices={(options.data?.collections ?? []).map(({ id, name }) => ({
-								value: id,
-								label: name,
-							}))}
-						/>
-						<MultiSelect
-							{...icons}
-							label="Force"
-							variant="chip"
-							selected={filters.forces}
-							choices={exerciseForces.map((value) => ({ value, label: capitalize(value) }))}
-							onChange={(forces) =>
-								changeFilter(
-									"forces",
-									forces.filter((force): force is PickerFilters["forces"][number] =>
-										Schema.is(exerciseForceSchema)(force),
-									),
-								)
-							}
-						/>
-						<MultiSelect
-							{...icons}
-							label="Level"
-							variant="chip"
-							selected={filters.levels}
-							choices={exerciseLevels.map((value) => ({ value, label: capitalize(value) }))}
-							onChange={(levels) =>
-								changeFilter(
-									"levels",
-									levels.filter((level): level is PickerFilters["levels"][number] =>
-										Schema.is(exerciseLevelSchema)(level),
-									),
-								)
-							}
-						/>
-						<MultiSelect
-							{...icons}
-							variant="chip"
-							label="Mechanics"
-							selected={filters.mechanics}
-							choices={exerciseMechanics.map((value) => ({ value, label: capitalize(value) }))}
-							onChange={(mechanics) =>
-								changeFilter(
-									"mechanics",
-									mechanics.filter((mechanic): mechanic is PickerFilters["mechanics"][number] =>
-										Schema.is(exerciseMechanicSchema)(mechanic),
-									),
-								)
-							}
-						/>
-						{replacing ? null : (
-							<MenuButton
-								label="Presets"
-								renderTrigger={(trigger) => (
-									<button
-										{...trigger}
-										type="button"
-										aria-label="Presets"
-										className={clsx(
-											chip,
-											appliedPreset !== undefined &&
-												"border-accent-border bg-accent-soft text-accent-text",
-										)}
-									>
-										<AppIcon size={14} name="layers-3" />
-										{appliedPreset?.name ?? "Presets"}
-										{icons.chevronIcon}
-									</button>
-								)}
-								items={[
-									...presets.map(({ id, name }) => ({
-										key: id,
-										onSelect: () => applyPreset(id),
-										label: id === activePresetId ? `${name} ✓` : name,
-									})),
-									{
-										key: "save",
-										label: "Save current filters…",
-										onSelect: () => setSavingPreset(true),
-										disabled: !canWritePresets || presets.length >= 20,
-									},
-									...(appliedPreset === undefined
-										? []
-										: [
-												{
-													key: "delete",
-													destructive: true,
-													onSelect: deletePreset,
-													disabled: !canWritePresets,
-													label: `Delete ${appliedPreset.name}`,
-												},
-											]),
-								]}
-							/>
-						)}
-					</div>
-				</div>
+				<PickerToolbar
+					sort={sort}
+					search={search}
+					filters={filters}
+					searchRef={searchRef}
+					options={options.data}
+					onFilter={changeFilter}
+					presets={presets.presets}
+					presetsFull={presets.full}
+					onApplyPreset={applyPreset}
+					onDeletePreset={deletePreset}
+					activePresetId={activePresetId}
+					canWritePresets={presets.canWrite}
+					replacementKind={replacement?.kind}
+					onSavePreset={() => setSavingPreset(true)}
+					onSort={(value) => {
+						setSort(value);
+						clearPreset();
+					}}
+					onSearch={(value) => {
+						setSearch(value);
+						clearPreset();
+					}}
+				/>
 				{savingPreset ? (
-					<Card className="grid gap-2.5 p-3">
-						<Field
-							label="Preset name"
-							error={presetNameError ? "Enter a name with 1 to 80 characters." : undefined}
-							hint={`Saves search, filters and sort on this device. ${presets.length} of 20 used.`}
-						>
-							{(control) => (
-								<TextField
-									{...control}
-									maxLength={80}
-									value={presetName}
-									onChange={(event) => setPresetName(event.currentTarget.value)}
-								/>
-							)}
-						</Field>
-						<div className="flex justify-end gap-2">
-							<Button size="sm" variant="ghost" onClick={() => setSavingPreset(false)}>
-								Cancel
-							</Button>
-							<Button
-								size="sm"
-								disabled={!canWritePresets || presets.length >= 20}
-								onClick={() => {
-									if (savePreset()) {
-										setSavingPreset(false);
-									}
-								}}
-							>
-								Save preset
-							</Button>
-						</div>
-					</Card>
+					<PresetForm
+						name={presetName}
+						onSave={savePreset}
+						onName={setPresetName}
+						nameError={presetNameError}
+						used={presets.presets.length}
+						onCancel={() => setSavingPreset(false)}
+						canSave={presets.canWrite && !presets.full}
+					/>
 				) : null}
-				{presets.length >= 20 && !replacing ? (
+				{presets.full && !replacing ? (
 					<Notice tone="info" icon={<AppIcon size={16} name="info" />}>
 						You can save up to 20 presets. Delete one to save another.
 					</Notice>
 				) : null}
-				{presetReadError ? (
+				{presets.status === "error" ? (
 					<Notice
 						tone="danger"
 						icon={<AppIcon size={16} name="circle-alert" />}
 						action={
-							<Button size="sm" variant="secondary" onClick={loadPresets}>
+							<Button size="sm" variant="secondary" onClick={presets.reload}>
 								Retry loading presets
 							</Button>
 						}
@@ -797,20 +308,12 @@ export function ExercisePicker(props: ExercisePickerProps) {
 						Saved presets could not be read or decoded. They were not changed.
 					</Notice>
 				) : null}
-				{presetWriteError ? (
+				{presets.writeError ? (
 					<Notice
 						tone="danger"
 						icon={<AppIcon size={16} name="circle-alert" />}
 						action={
-							<Button
-								size="sm"
-								variant="secondary"
-								onClick={() => {
-									if (pendingPresetWrite !== null) {
-										persistPresets(pendingPresetWrite);
-									}
-								}}
-							>
+							<Button size="sm" variant="secondary" onClick={presets.retryWrite}>
 								Retry saving presets
 							</Button>
 						}
@@ -831,12 +334,12 @@ export function ExercisePicker(props: ExercisePickerProps) {
 						Filter options could not be loaded.
 					</Notice>
 				) : null}
-				{providerNotice ? (
+				{providerSearch.notice ? (
 					<Notice tone="info" icon={<AppIcon size={16} name="info" />}>
-						{providerNotice}
+						{providerSearch.notice}
 					</Notice>
 				) : null}
-				{providerError ? (
+				{providerSearch.failed ? (
 					<Notice
 						tone="danger"
 						icon={<AppIcon size={16} name="circle-alert" />}
@@ -844,8 +347,8 @@ export function ExercisePicker(props: ExercisePickerProps) {
 							<Button
 								size="sm"
 								variant="secondary"
-								disabled={providerPending}
-								onClick={openProviderSearch}
+								onClick={providerSearch.open}
+								disabled={providerSearch.pending}
 							>
 								Try again
 							</Button>
@@ -854,21 +357,23 @@ export function ExercisePicker(props: ExercisePickerProps) {
 						The provider search could not be completed. Your selection is unchanged.
 					</Notice>
 				) : null}
-				<ManagedAssetProvider assets={rowAssets}>
+				<ManagedAssetProvider
+					assets={managedAssetBatch(exercises.items.map(({ images }) => images?.[0]))}
+				>
 					<div role="region" className="grid" aria-label="Exercise library">
-						{result.isPending && items.length === 0 ? (
+						{exercises.isPending && exercises.items.length === 0 ? (
 							<div role="status" className="grid gap-2" aria-label="Loading exercises">
 								{[0, 1, 2].map((index) => (
 									<Skeleton key={index} className="h-14" />
 								))}
 							</div>
 						) : null}
-						{result.isError ? (
+						{exercises.isError ? (
 							<Notice
 								tone="danger"
 								icon={<AppIcon size={16} name="circle-alert" />}
 								action={
-									<Button size="sm" variant="secondary" onClick={result.refetch}>
+									<Button size="sm" variant="secondary" onClick={exercises.refetch}>
 										Retry
 									</Button>
 								}
@@ -876,7 +381,7 @@ export function ExercisePicker(props: ExercisePickerProps) {
 								Exercises could not be loaded.
 							</Notice>
 						) : null}
-						{!result.isPending && !result.isError && items.length === 0 ? (
+						{noMatches ? (
 							<EmptyState
 								icon={<AppIcon size={20} name="search-x" />}
 								description="Try another name or clear filters, or add it from an exercise provider."
@@ -887,37 +392,37 @@ export function ExercisePicker(props: ExercisePickerProps) {
 								}
 							/>
 						) : null}
-						{items.map((exercise) => {
-							const incompatible =
-								exercise.kind === null ||
-								(props.replacement !== undefined && exercise.kind !== props.replacement.kind);
-							return (
-								<ExerciseOption
-									key={exercise.id}
-									exercise={exercise}
-									replacing={replacing}
-									disabled={incompatible}
-									selected={selectedIds.has(exercise.id)}
-									onToggle={() => toggleExercise(exercise)}
-								/>
-							);
-						})}
+						{exercises.items.map((exercise) => (
+							<ExerciseOption
+								key={exercise.id}
+								exercise={exercise}
+								replacing={replacing}
+								selected={selectedIds.has(exercise.id)}
+								onToggle={() => toggleExercise(exercise)}
+								disabled={
+									exercise.kind === null ||
+									(replacement !== undefined && exercise.kind !== replacement.kind)
+								}
+							/>
+						))}
 						<div className="grid gap-2 pt-3.5">
-							{canShowMore ? (
+							{exercises.hasMore && !exercises.invalidCursor ? (
 								<Button
 									variant="ghost"
-									disabled={result.isFetching}
-									onClick={() => setPages((current) => [...current, nextCursor])}
+									onClick={exercises.showMore}
+									disabled={exercises.isFetching}
 								>
 									Show more
 								</Button>
 							) : null}
 							<Button
-								disabled={providerPending}
-								onClick={openProviderSearch}
-								variant={items.length === 0 && !result.isPending ? "primary" : "outline"}
+								onClick={providerSearch.open}
+								disabled={providerSearch.pending}
+								variant={
+									exercises.items.length === 0 && !exercises.isPending ? "primary" : "outline"
+								}
 							>
-								{providerPending ? (
+								{providerSearch.pending ? (
 									"Searching providers…"
 								) : (
 									<>
@@ -930,6 +435,6 @@ export function ExercisePicker(props: ExercisePickerProps) {
 					</div>
 				</ManagedAssetProvider>
 			</div>
-		</Dialog>
+		</EditorSheet>
 	);
 }

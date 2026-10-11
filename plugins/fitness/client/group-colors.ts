@@ -1,6 +1,8 @@
+import { groupColorVariable } from "@ryot-app/plugin-ui-sdk";
+
 import { supersetColor } from "../shared/superset-colors";
 
-export const supersetColorVariable = (color: string) => `var(--group-${supersetColor(color)})`;
+export const supersetColorVariable = (color: string, options?: { readonly soft?: boolean }) =>
+	groupColorVariable(supersetColor(color), options);
 
-export const supersetSoftColorVariable = (color: string) =>
-	`var(--group-${supersetColor(color)}-soft)`;
+export const supersetLetter = (index: number) => String.fromCharCode(65 + (index % 26));

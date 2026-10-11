@@ -1,14 +1,11 @@
-import { Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Dialog, Field, TextArea } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { ManagedAssetProvider, useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
+import { Button, Field, TextArea } from "@ryot-app/plugin-ui-sdk";
 
 import type { WorkoutEditorOccurrence } from "../../shared/workout-editor-draft";
-import { WorkoutEditorMediaSchema, type WorkoutSetAssetLocator } from "../../shared/workout-set";
-import { managedAssetBatch, useAssetUrl } from "../asset-urls";
+import type { WorkoutSetAssetLocator } from "../../shared/workout-set";
+import { managedAssetBatch } from "../asset-urls";
+import { EditorSheet } from "./editor-sheet";
 import type { EditorExercise } from "./queries";
-
-const instructionsSchema = Schema.Array(Schema.String);
 
 function DemonstrationImage(props: {
 	readonly image: WorkoutSetAssetLocator;
@@ -30,44 +27,32 @@ export function ExerciseInstructions(props: { readonly exercise: EditorExercise 
 		return null;
 	}
 	const { exercise } = props;
-	const images = Schema.decodeUnknownResult(WorkoutEditorMediaSchema)(
-		exercise.properties["images"] ?? [],
-	);
-	const instructions = Schema.decodeUnknownResult(instructionsSchema)(
-		exercise.properties["instructions"] ?? [],
-	);
+	const images = exercise.images ?? [];
+	const instructions = exercise.instructions ?? [];
 	const imageKeyCounts = new Map<string, number>();
-	const imageItems =
-		images._tag === "Success"
-			? images.success.map((image) => {
-					const locator = image.type === "remote" ? image.url : image.key;
-					const baseKey = JSON.stringify([image.type, locator]);
-					const occurrence = imageKeyCounts.get(baseKey) ?? 0;
-					imageKeyCounts.set(baseKey, occurrence + 1);
-					return { image, key: JSON.stringify([baseKey, occurrence]) };
-				})
-			: [];
+	const imageItems = images.map((image) => {
+		const locator = image.type === "remote" ? image.url : image.key;
+		const baseKey = JSON.stringify([image.type, locator]);
+		const occurrence = imageKeyCounts.get(baseKey) ?? 0;
+		imageKeyCounts.set(baseKey, occurrence + 1);
+		return { image, key: JSON.stringify([baseKey, occurrence]) };
+	});
 	const instructionKeyCounts = new Map<string, number>();
-	const instructionItems =
-		instructions._tag === "Success"
-			? instructions.success.map((instruction) => {
-					const occurrence = instructionKeyCounts.get(instruction) ?? 0;
-					instructionKeyCounts.set(instruction, occurrence + 1);
-					return { instruction, key: JSON.stringify([instruction, occurrence]) };
-				})
-			: [];
+	const instructionItems = instructions.map((instruction) => {
+		const occurrence = instructionKeyCounts.get(instruction) ?? 0;
+		instructionKeyCounts.set(instruction, occurrence + 1);
+		return { instruction, key: JSON.stringify([instruction, occurrence]) };
+	});
 	return (
 		<div className="flex flex-col gap-3">
-			{images._tag === "Success" ? (
-				<ManagedAssetProvider assets={managedAssetBatch(images.success)}>
-					<div className="flex gap-3 overflow-x-auto">
-						{imageItems.map(({ key, image }) => (
-							<DemonstrationImage key={key} image={image} name={exercise.name} />
-						))}
-					</div>
-				</ManagedAssetProvider>
-			) : null}
-			{instructions._tag === "Success" && instructions.success.length > 0 ? (
+			<ManagedAssetProvider assets={managedAssetBatch(images)}>
+				<div className="flex gap-3 overflow-x-auto">
+					{imageItems.map(({ key, image }) => (
+						<DemonstrationImage key={key} image={image} name={exercise.name} />
+					))}
+				</div>
+			</ManagedAssetProvider>
+			{instructionItems.length > 0 ? (
 				<ol className="list-decimal space-y-2 pl-5 text-sm text-text">
 					{instructionItems.map(({ key, instruction }) => (
 						<li key={key}>{instruction}</li>
@@ -81,22 +66,18 @@ export function ExerciseInstructions(props: { readonly exercise: EditorExercise 
 }
 
 export function ExerciseNotesSheet(props: {
-	readonly compact: boolean;
 	readonly disabled: boolean;
-	readonly safeAreaBottom: number;
 	readonly occurrence: WorkoutEditorOccurrence;
 	readonly exercise: EditorExercise | undefined;
 	readonly onNotes: (notes: readonly string[]) => void;
 	readonly onClose: () => void;
 }) {
 	return (
-		<Dialog
+		<EditorSheet
+			wide="side"
 			onClose={props.onClose}
 			title="Instructions and notes"
-			safeAreaBottom={props.safeAreaBottom}
 			closeLabel="Close instructions and notes"
-			closeIcon={<AppIcon name="x" size={18} />}
-			placement={props.compact ? "sheet" : "side"}
 			footer={<Button onClick={props.onClose}>Done</Button>}
 			description={props.exercise?.name ?? "Unavailable exercise"}
 		>
@@ -122,6 +103,6 @@ export function ExerciseNotesSheet(props: {
 					)}
 				</Field>
 			</div>
-		</Dialog>
+		</EditorSheet>
 	);
 }

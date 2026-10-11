@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import type { ExerciseDetails } from "../../shared/exercise-details-recipes";
 import type { PersonalBest } from "../../shared/workout-records";
+import { setLots } from "../set-lots";
 import {
 	formatDuration,
 	formatMeasure,
@@ -316,30 +317,24 @@ export function HistorySection(props: {
 	);
 }
 
-const setTones = {
-	failure: "border-danger text-danger",
-	warm_up: "border-dashed border-border-strong text-text-muted",
-} as const;
-
 function SessionSet(props: {
 	readonly kind: ExerciseRecord["kind"];
 	readonly set: Session["sets"]["items"][number];
 }) {
 	const { set, kind } = props;
-	const lot = set.setLot === "warm_up" || set.setLot === "failure" ? set.setLot : null;
+	const lot = setLots[set.setLot ?? "normal"];
 	return (
 		<li
-			data-set-lot={lot ?? "normal"}
+			data-set-lot={set.setLot ?? "normal"}
 			className={clsx(
 				"flex items-center gap-1.5 rounded-pill border px-3 py-1 text-[13px] tabular-nums",
-				lot === null ? "border-border bg-surface-2 text-text" : setTones[lot],
+				lot.pill,
 			)}
 		>
 			{formatSetMain(kind, set)}
-			{lot === "warm_up" ? (
-				<span className="text-[11px] font-semibold uppercase">Warm-up</span>
-			) : null}
-			{lot === "failure" ? <span className="text-[11px] font-semibold uppercase">Fail</span> : null}
+			{lot.tag === undefined ? null : (
+				<span className="text-[11px] font-semibold uppercase">{lot.label}</span>
+			)}
 		</li>
 	);
 }

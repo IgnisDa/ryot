@@ -1,6 +1,8 @@
 import type { ExerciseKind } from "../../shared/exercise-kinds";
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import type { PersonalBest } from "../../shared/workout-records";
+import { supersetLetter } from "../group-colors";
+import { parseDate } from "./format";
 
 export type WorkoutExercise = WorkoutDetails["exercises"]["items"][number];
 export type WorkoutSet = WorkoutExercise["sets"]["items"][number];
@@ -85,13 +87,7 @@ const measureOf = (set: Measured, unit: MeasureUnit) => {
 const sumMeasure = (sets: readonly Measured[], unit: MeasureUnit) =>
 	sets.reduce((total, set) => total + measureOf(set, unit), 0);
 
-const timeOf = (value: string | null) => {
-	if (value === null) {
-		return null;
-	}
-	const time = new Date(value).getTime();
-	return Number.isFinite(time) ? time : null;
-};
+const timeOf = (value: string | null) => parseDate(value)?.getTime() ?? null;
 
 const cardRecordStatus = (sets: readonly WorkoutSet[]): WorkoutSet["recordStatus"] => {
 	if (sets.some((set) => set.recordStatus === "failed")) {
@@ -99,8 +95,6 @@ const cardRecordStatus = (sets: readonly WorkoutSet[]): WorkoutSet["recordStatus
 	}
 	return sets.some((set) => set.recordStatus === "pending") ? "pending" : "ready";
 };
-
-const supersetLetter = (index: number) => String.fromCharCode(65 + (index % 26));
 
 export const buildExerciseGroups = (workout: WorkoutDetails): readonly CardGroup[] => {
 	const occurrences = workout.exercises.items.flatMap((exercise) => {
@@ -267,20 +261,6 @@ export const countEquipment = (groups: readonly CardGroup[]) => {
 	return [...counts.entries()]
 		.map(([name, exercises]) => ({ name, exercises }))
 		.sort((left, right) => right.exercises - left.exercises || left.name.localeCompare(right.name));
-};
-
-const setLotLetters: Readonly<Record<string, string>> = { drop: "D", failure: "F", warm_up: "W" };
-
-export const setLabels = (sets: readonly WorkoutSet[]) => {
-	let working = 0;
-	return sets.map((set) => {
-		const letter = set.setLot === null ? undefined : setLotLetters[set.setLot];
-		if (letter !== undefined) {
-			return letter;
-		}
-		working += 1;
-		return String(working);
-	});
 };
 
 export const personalBestLabels: Readonly<Record<PersonalBest, string>> = {

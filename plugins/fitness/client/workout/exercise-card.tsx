@@ -1,20 +1,22 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { Card } from "@ryot-app/plugin-ui-sdk";
-import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
-import { useAssetUrl } from "../asset-urls";
-import { supersetColorVariable, supersetSoftColorVariable } from "../group-colors";
+import { supersetColor } from "../../shared/superset-colors";
+import { durationDisplayUnit } from "../../shared/workout-units";
+import { AssetArtWell } from "../asset-urls";
+import { supersetColorVariable } from "../group-colors";
 import { WorkoutMediaViewer } from "../media-viewer";
+import { setLabels, setLots } from "../set-lots";
 import {
 	personalBestLabels,
-	setLabels,
 	type CardGroup,
 	type ExerciseCard,
 	type WorkoutSet,
 } from "./details-model";
 import {
 	formatClock,
+	formatExerciseMeta,
 	formatMeasure,
 	formatNumber,
 	formatSetMain,
@@ -22,40 +24,15 @@ import {
 	formatSignedMeasure,
 } from "./format";
 
-const setLotNames: Readonly<Record<string, string>> = {
-	drop: "Drop set",
-	normal: "Working set",
-	warm_up: "Warm-up set",
-	failure: "Set to failure",
-};
-
-const setLotTones: Readonly<Record<string, string>> = {
-	drop: "bg-surface-2 text-translate",
-	failure: "bg-surface-2 text-danger",
-	warm_up: "bg-surface-2 text-warning",
-};
-
 function ExerciseArtwork(props: { readonly card: ExerciseCard; readonly compact: boolean }) {
-	const asset = props.card.exercise.images?.[0];
-	const url = useAssetUrl(asset);
 	return (
-		<EntityArtWell
-			url={url}
-			shape="rounded"
-			monogram={props.card.exercise.name}
-			state={asset === undefined ? "absent" : "ready"}
+		<AssetArtWell
+			name={props.card.exercise.name}
+			asset={props.card.exercise.images?.[0]}
 			className={clsx("shrink-0", props.compact ? "size-11" : "size-14")}
 		/>
 	);
 }
-
-const exerciseMeta = (card: ExerciseCard) =>
-	[
-		...card.exercise.targets.items
-			.filter((target) => target.role === null || target.role === "primary")
-			.map((target) => target.name),
-		...card.exercise.equipment.items.map((equipment) => equipment.name),
-	].join(" · ");
 
 function RecordBadges(props: { readonly set: WorkoutSet }) {
 	return (
@@ -90,7 +67,7 @@ function SetTable(props: {
 	readonly imperial: boolean;
 }) {
 	const { card, compact } = props;
-	const labels = setLabels(card.sets);
+	const labels = setLabels(card.sets.map((set) => set.setLot));
 	const showRpe = card.sets.some((set) => set.rpe !== null);
 	const showOneRm = card.kind === "reps_and_weight";
 	const columns = compact ? "grid-cols-[2rem_minmax(0,1fr)_auto]" : wideColumns(showOneRm, showRpe);
@@ -114,7 +91,7 @@ function SetTable(props: {
 			)}
 			{card.sets.map((set, index) => {
 				const hasRecords = (set.personalBests?.length ?? 0) > 0;
-				const lot = set.setLot ?? "normal";
+				const lot = setLots[set.setLot ?? "normal"];
 				const secondary = [
 					showOneRm && set.oneRm !== null
 						? `${formatMeasure(set.oneRm, "kg", props.imperial)} 1RM`
@@ -134,11 +111,11 @@ function SetTable(props: {
 					>
 						<span
 							role="cell"
-							title={setLotNames[lot]}
-							aria-label={`${setLotNames[lot] ?? "Set"} ${labels[index]}`}
+							title={lot.name}
+							aria-label={`${lot.name} ${labels[index]}`}
 							className={clsx(
-								"flex size-6.5 items-center justify-center rounded-pill text-[13px] font-semibold",
-								setLotTones[lot] ?? "bg-surface-2 text-text-muted",
+								"flex size-6.5 items-center justify-center rounded-pill bg-surface-2 text-[13px] font-semibold",
+								lot.tone ?? "text-text-muted",
 							)}
 						>
 							{labels[index]}
@@ -148,7 +125,7 @@ function SetTable(props: {
 								card.kind,
 								set,
 								props.imperial,
-								card.exercise.defaultDurationUnit ?? "minutes",
+								durationDisplayUnit(card.exercise.defaultDurationUnit),
 							)}
 							{compact && secondary.length > 0 ? (
 								<span className="font-normal text-[13px] text-text-muted">
@@ -209,17 +186,16 @@ export function ExerciseCardView(props: {
 	readonly workoutStartedAt: string | null;
 }) {
 	const { card, compact } = props;
-	const meta = exerciseMeta(card);
+	const meta = formatExerciseMeta({
+		targets: card.exercise.targets.items,
+		equipment: card.exercise.equipment.items,
+	});
 	return (
 		<Card
 			padding="none"
 			data-exercise-id={card.exercise.id}
 			className="min-w-0 overflow-hidden"
-			style={
-				props.groupColor === undefined
-					? undefined
-					: { boxShadow: `inset 3px 0 0 ${supersetColorVariable(props.groupColor)}` }
-			}
+			groupColor={props.groupColor === undefined ? undefined : supersetColor(props.groupColor)}
 		>
 			<div className="flex items-start gap-3 px-4 pt-4 pb-3">
 				<PluginLink
@@ -238,7 +214,7 @@ export function ExerciseCardView(props: {
 										? undefined
 										: {
 												color: supersetColorVariable(props.groupColor),
-												backgroundColor: supersetSoftColorVariable(props.groupColor),
+												backgroundColor: supersetColorVariable(props.groupColor, { soft: true }),
 											}
 								}
 							>
@@ -321,7 +297,7 @@ export function ExerciseGroups(props: {
 								className="rounded-pill px-2.5 py-1 font-semibold text-[13px]"
 								style={{
 									color: supersetColorVariable(group.color),
-									backgroundColor: supersetSoftColorVariable(group.color),
+									backgroundColor: supersetColorVariable(group.color, { soft: true }),
 								}}
 							>
 								Superset {group.label}

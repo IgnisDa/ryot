@@ -1,14 +1,6 @@
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import {
-	Button,
-	Dialog,
-	Field,
-	FieldMessage,
-	SegmentedControl,
-	TextField,
-} from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { Button, Field, FieldMessage, SegmentedControl, TextField } from "@ryot-app/plugin-ui-sdk";
 import { useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -21,13 +13,17 @@ import type {
 	WorkoutEditorDisplay,
 	WorkoutEditorOccurrence,
 } from "../../shared/workout-editor-draft";
-import { WorkoutExerciseOverridesSchema } from "../../shared/workout-editor-preferences";
+import {
+	WorkoutExerciseOverridesSchema,
+	workoutRestFields,
+	type WorkoutRestField,
+} from "../../shared/workout-editor-preferences";
 import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
+import { occurrenceDisplay } from "./draft-ops";
+import { EditorSheet } from "./editor-sheet";
 import type { EditorExercise } from "./queries";
 
-const restFields = ["normalRestTime", "warmUpRestTime", "dropRestTime", "failureRestTime"] as const;
-
-const restLabels: Record<(typeof restFields)[number], string> = {
+const restLabels: Record<WorkoutRestField, string> = {
 	dropRestTime: "Drop set rest (seconds)",
 	normalRestTime: "Normal rest (seconds)",
 	warmUpRestTime: "Warm-up rest (seconds)",
@@ -40,8 +36,6 @@ const validRest = (value: string | undefined) =>
 	value === undefined || value.trim() === "" || /^\d+$/.test(value.trim());
 
 export function UnitsAndDefaultsSheet(props: {
-	readonly compact: boolean;
-	readonly safeAreaBottom: number;
 	readonly exercise: EditorExercise;
 	readonly occurrence: WorkoutEditorOccurrence;
 	readonly onDisplay: (display: WorkoutEditorDisplay) => void;
@@ -52,7 +46,7 @@ export function UnitsAndDefaultsSheet(props: {
 	const schedule = useRyotSchedule();
 	const [values, setValues] = useState(() =>
 		Object.fromEntries(
-			restFields.map((field) => [
+			workoutRestFields.map((field) => [
 				field,
 				props.exercise.overrides[field] == null ? "" : String(props.exercise.overrides[field]),
 			]),
@@ -66,7 +60,7 @@ export function UnitsAndDefaultsSheet(props: {
 	const save = () => {
 		const set = Schema.decodeUnknownResult(WorkoutExerciseOverridesSchema)({
 			...Object.fromEntries(
-				restFields.flatMap((field) =>
+				workoutRestFields.flatMap((field) =>
 					values[field]?.trim() ? [[field, Number(values[field])]] : [],
 				),
 			),
@@ -82,7 +76,7 @@ export function UnitsAndDefaultsSheet(props: {
 			set: set.success,
 			exerciseId: props.exercise.id,
 			remove: [
-				...restFields.filter((field) => !values[field]?.trim()),
+				...workoutRestFields.filter((field) => !values[field]?.trim()),
 				...(duration === "inherited" ? ["defaultDurationUnit"] : []),
 			],
 		});
@@ -118,21 +112,15 @@ export function UnitsAndDefaultsSheet(props: {
 		);
 	};
 	const fields = requiredWorkoutMeasurementsByKind[props.occurrence.exerciseKind];
-	const display = props.occurrence.display ?? {
-		weightUnit: "kg",
-		distanceUnit: "km",
-		durationUnit: "minutes",
-	};
+	const display = occurrenceDisplay(props.occurrence);
 	return (
-		<Dialog
+		<EditorSheet
+			wide="side"
 			dismissible={!pending}
 			onClose={props.onClose}
 			title="Units and rest defaults"
 			description={props.exercise.name}
-			safeAreaBottom={props.safeAreaBottom}
 			closeLabel="Close units and rest defaults"
-			closeIcon={<AppIcon name="x" size={18} />}
-			placement={props.compact ? "sheet" : "side"}
 			footer={
 				<>
 					<Button disabled={pending} variant="secondary" onClick={props.onClose}>
@@ -195,7 +183,7 @@ export function UnitsAndDefaultsSheet(props: {
 					<p className="text-xs text-text-muted">
 						Blank uses your Fitness settings. 0 turns rest off. Sets with their own rest keep it.
 					</p>
-					{restFields.map((field) => (
+					{workoutRestFields.map((field) => (
 						<Field key={field} label={restLabels[field]}>
 							{(control) => (
 								<TextField
@@ -230,6 +218,6 @@ export function UnitsAndDefaultsSheet(props: {
 				</fieldset>
 				{error === undefined ? null : <FieldMessage>{error}</FieldMessage>}
 			</div>
-		</Dialog>
+		</EditorSheet>
 	);
 }

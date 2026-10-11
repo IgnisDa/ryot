@@ -1,6 +1,6 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Dialog, EmptyState, IconButton, Notice } from "@ryot-app/plugin-ui-sdk";
+import { Button, EmptyState, IconButton, Notice } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useRef, useState } from "react";
 
@@ -8,14 +8,13 @@ import type { WorkoutEditorDraft } from "../../shared/workout-editor-draft";
 import type { WorkoutSetAssetLocator } from "../../shared/workout-set";
 import { managedAssetBatch } from "../asset-urls";
 import { MediaPreview } from "../media-preview";
+import { EditorSheet } from "./editor-sheet";
 import { targetMedia, type WorkoutMediaKind, type WorkoutMediaTarget } from "./media-state";
 
 export function WorkoutMediaOverlay(props: {
 	readonly draft: WorkoutEditorDraft;
 	readonly target: WorkoutMediaTarget;
 	readonly label: string;
-	readonly compact: boolean;
-	readonly safeAreaBottom: number;
 	readonly canUpload: boolean;
 	readonly disabled: boolean;
 	readonly uploading: boolean;
@@ -58,13 +57,10 @@ export function WorkoutMediaOverlay(props: {
 		...current.videos.map((asset) => ({ asset, kind: "videos" as const })),
 	];
 	return (
-		<Dialog
+		<EditorSheet
 			onClose={props.onClose}
 			closeLabel="Close attachments"
-			safeAreaBottom={props.safeAreaBottom}
 			title={`Attachments for ${props.label}`}
-			closeIcon={<AppIcon name="x" size={18} />}
-			placement={props.compact ? "sheet" : "center"}
 			footer={
 				props.canUpload ? (
 					<>
@@ -179,6 +175,6 @@ export function WorkoutMediaOverlay(props: {
 					</>
 				) : null}
 			</div>
-		</Dialog>
+		</EditorSheet>
 	);
 }

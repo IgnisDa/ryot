@@ -10,7 +10,7 @@ import {
 	type EntityPresentationPrepare,
 	type EntityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { ManagedAssetProvider, useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
 import { defineRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import {
 	EntityArtWell,
@@ -24,7 +24,7 @@ import {
 	fitnessPresentationSource,
 	type FitnessPresentationSourceData,
 } from "../shared/entity-presentations";
-import { managedAssetBatch, useAssetUrl } from "./asset-urls";
+import { managedAssetBatch } from "./asset-urls";
 import { formatDay, formatValue } from "./measurements/model";
 
 export type FitnessPresentationViewData = {

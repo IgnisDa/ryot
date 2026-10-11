@@ -1,33 +1,19 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { disposePluginBridges } from "@ryot-app/plugin-client-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
-import { Effect } from "effect";
-import { act, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { act, useEffect, useState } from "react";
 
 import type {
 	WorkoutEditorDraft,
 	WorkoutEditorOccurrence,
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
+import { mountDialogInPluginPage } from "../../tests/client/plugin-page";
 import { SetSheet } from "./set-sheet";
 
-const roots: Root[] = [];
-
-const mount = () => {
-	const container = document.createElement("div");
-	document.body.append(container);
-	const root = createRoot(container);
-	roots.push(root);
-	return (node: ReactNode) => act(() => root.render(node));
-};
-
-afterEach(() => {
-	for (const root of roots.splice(0)) {
-		act(() => root.unmount());
-	}
-	document.body.innerHTML = "";
-});
+afterEach(disposePluginBridges);
 
 const makeSet = (included: boolean, clientId = "set-1"): WorkoutEditorSet => ({
 	clientId,
@@ -72,9 +58,7 @@ const propsFor = (
 		set,
 		pro: false,
 		occurrence,
-		compact: false,
 		disabled: false,
-		safeAreaBottom: 0,
 		previous: undefined,
 		inheritedRestSeconds: 60,
 		onClose: () => undefined,
@@ -92,21 +76,40 @@ const click = (element: Element) =>
 		fireEvent.click(element);
 	});
 
+type SheetProps = Parameters<typeof SetSheet>[0];
+
+const mountSheet = (initial: SheetProps) => {
+	let update: (props: SheetProps) => void = () => undefined;
+	function Probe() {
+		const [props, setProps] = useState(initial);
+		useEffect(() => {
+			update = setProps;
+		}, []);
+		return <SetSheet {...props} />;
+	}
+	return Effect.map(
+		mountDialogInPluginPage(() => <Probe />),
+		() => (props: SheetProps) => act(() => update(props)),
+	);
+};
+
 describe("SetSheet", () => {
-	it("deletes incomplete sets directly", () => {
-		const deleted: string[] = [];
-		mount()(<SetSheet {...propsFor(makeSet(false), { onDelete: () => deleted.push("set") })} />);
+	it.live("deletes incomplete sets directly", () =>
+		Effect.gen(function* () {
+			const deleted: string[] = [];
+			yield* mountSheet(propsFor(makeSet(false), { onDelete: () => deleted.push("set") }));
 
-		click(screen.getByRole("button", { name: "Delete set" }));
+			click(screen.getByRole("button", { name: "Delete set" }));
 
-		expect(deleted).toEqual(["set"]);
-		expect(screen.queryByRole("dialog", { name: "Delete completed set?" })).toBeNull();
-	});
+			expect(deleted).toEqual(["set"]);
+			expect(screen.queryByRole("dialog", { name: "Delete completed set?" })).toBeNull();
+		}),
+	);
 
 	it.live("asks before deleting a completed set and cancel changes nothing", () =>
 		Effect.gen(function* () {
 			const deleted: string[] = [];
-			mount()(<SetSheet {...propsFor(makeSet(true), { onDelete: () => deleted.push("set") })} />);
+			yield* mountSheet(propsFor(makeSet(true), { onDelete: () => deleted.push("set") }));
 
 			click(screen.getByRole("button", { name: "Delete set" }));
 
@@ -127,44 +130,43 @@ describe("SetSheet", () => {
 		}),
 	);
 
-	it("confirms only for the current completed set while enabled and uses the latest callback", () => {
-		const deleted: string[] = [];
-		const render = mount();
-		render(<SetSheet {...propsFor(makeSet(true), { onDelete: () => deleted.push("stale") })} />);
-		click(screen.getByRole("button", { name: "Delete set" }));
+	it.live(
+		"confirms only for the current completed set while enabled and uses the latest callback",
+		() =>
+			Effect.gen(function* () {
+				const deleted: string[] = [];
+				const render = yield* mountSheet(
+					propsFor(makeSet(true), { onDelete: () => deleted.push("stale") }),
+				);
+				click(screen.getByRole("button", { name: "Delete set" }));
 
-		const confirmation = screen.getByRole("dialog", { name: "Delete completed set?" });
-		const confirm = within(confirmation).getByRole("button", { name: "Delete set" });
+				const confirmation = screen.getByRole("dialog", { name: "Delete completed set?" });
+				const confirm = within(confirmation).getByRole("button", { name: "Delete set" });
 
-		render(
-			<SetSheet {...propsFor(makeSet(false), { onDelete: () => deleted.push("not-included") })} />,
-		);
-		expect(confirm.hasAttribute("disabled")).toBe(true);
-		click(confirm);
-		expect(deleted).toEqual([]);
+				render(propsFor(makeSet(false), { onDelete: () => deleted.push("not-included") }));
+				expect(confirm.hasAttribute("disabled")).toBe(true);
+				click(confirm);
+				expect(deleted).toEqual([]);
 
-		render(
-			<SetSheet
-				{...propsFor(makeSet(true, "replacement-set"), {
-					onDelete: () => deleted.push("replacement"),
-				})}
-			/>,
-		);
-		expect(confirm.hasAttribute("disabled")).toBe(true);
+				render(
+					propsFor(makeSet(true, "replacement-set"), {
+						onDelete: () => deleted.push("replacement"),
+					}),
+				);
+				expect(confirm.hasAttribute("disabled")).toBe(true);
 
-		render(
-			<SetSheet
-				{...propsFor(makeSet(true), { disabled: true, onDelete: () => deleted.push("disabled") })}
-			/>,
-		);
-		expect(confirm.hasAttribute("disabled")).toBe(true);
-		click(confirm);
-		expect(deleted).toEqual([]);
+				render(
+					propsFor(makeSet(true), { disabled: true, onDelete: () => deleted.push("disabled") }),
+				);
+				expect(confirm.hasAttribute("disabled")).toBe(true);
+				click(confirm);
+				expect(deleted).toEqual([]);
 
-		render(<SetSheet {...propsFor(makeSet(true), { onDelete: () => deleted.push("current") })} />);
-		expect(confirm.hasAttribute("disabled")).toBe(false);
-		click(confirm);
+				render(propsFor(makeSet(true), { onDelete: () => deleted.push("current") }));
+				expect(confirm.hasAttribute("disabled")).toBe(false);
+				click(confirm);
 
-		expect(deleted).toEqual(["current"]);
-	});
+				expect(deleted).toEqual(["current"]);
+			}),
+	);
 });

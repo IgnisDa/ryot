@@ -1,13 +1,14 @@
+import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
-	WorkoutEditorContextOutputSchema,
 	WorkoutEditorContextInputSchema,
+	WorkoutEditorContextOutputSchema,
 	workoutEditorContextOperationSlug,
 } from "../../shared/workout-editor-context-operations";
 
-export const workoutEditorContextQuery = createRyotQuery(({ client }) =>
+export const invokeWorkoutEditorContext = (client: RyotClient) =>
 	client.operations.invoke({
 		input: {},
 		refreshOnSuccess: false,
@@ -15,5 +16,8 @@ export const workoutEditorContextQuery = createRyotQuery(({ client }) =>
 		slug: workoutEditorContextOperationSlug,
 		output: WorkoutEditorContextOutputSchema,
 		inputSchema: WorkoutEditorContextInputSchema,
-	}),
+	});
+
+export const workoutEditorContextQuery = createRyotQuery(({ client }) =>
+	invokeWorkoutEditorContext(client),
 );

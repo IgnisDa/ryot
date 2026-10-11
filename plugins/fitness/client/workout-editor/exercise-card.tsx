@@ -1,4 +1,4 @@
-import { Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	Button,
 	Card,
@@ -9,7 +9,6 @@ import {
 	Notice,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { useState } from "react";
 
@@ -18,36 +17,30 @@ import type {
 	WorkoutEditorOccurrence,
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
+import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-preferences";
+import type { WorkoutSetLot } from "../../shared/workout-set";
+import { AssetArtWell } from "../asset-urls";
+import { editSet, newWorkoutSet } from "./actions";
+import { formatEditorSeconds } from "./clock";
 import {
-	resolveWorkoutRestTime,
-	type WorkoutPreferenceSettings,
-} from "../../shared/workout-editor-preferences";
-import { WorkoutEditorMediaSchema, type WorkoutSetLot } from "../../shared/workout-set";
-import { useAssetUrl } from "../asset-urls";
-import { newWorkoutSet, updateOccurrence, updateSet } from "./actions";
+	isTemplateDraft,
+	resolveSetRestTime,
+	updateOccurrence,
+	type DraftChange,
+} from "./draft-ops";
 import { usePreviousSets } from "./previous-sets";
 import type { EditorExercise } from "./queries";
-import { formatEditorSeconds } from "./session-timers";
 import { SetGrid, type InvalidSet } from "./set-grid";
 import { SetSheet } from "./set-sheet";
-
-export const exerciseArtwork = (exercise: EditorExercise | undefined) => {
-	const images = Schema.decodeUnknownResult(WorkoutEditorMediaSchema)(
-		exercise?.properties["images"] ?? [],
-	);
-	return images._tag === "Success" ? images.success[0] : undefined;
-};
 
 export type ExerciseSheet = "attachments" | "defaults" | "history" | "notes" | "replace";
 
 export function ExerciseCard(props: {
 	readonly now: number;
 	readonly pro: boolean;
-	readonly compact: boolean;
 	readonly disabled: boolean;
 	readonly unavailable: boolean;
 	readonly grouped: boolean;
-	readonly safeAreaBottom: number;
 	readonly countdownEnabled: boolean;
 	readonly draft: WorkoutEditorDraft;
 	readonly invalid: InvalidSet | undefined;
@@ -55,7 +48,7 @@ export function ExerciseCard(props: {
 	readonly occurrence: WorkoutEditorOccurrence;
 	readonly settings: WorkoutPreferenceSettings;
 	readonly exercise: EditorExercise | undefined;
-	readonly onChange: (transform: (draft: WorkoutEditorDraft) => WorkoutEditorDraft) => boolean;
+	readonly onChange: (transform: Parameters<DraftChange>[0]) => boolean;
 	readonly onConfirm: (set: WorkoutEditorSet) => void;
 	readonly onStartExecution: (set: WorkoutEditorSet) => void;
 	readonly onPrevious: (set: WorkoutEditorSet) => void;
@@ -68,26 +61,21 @@ export function ExerciseCard(props: {
 	readonly onManage: (kind: "reorder" | "bulk-delete" | "supersets") => void;
 }) {
 	const { exercise, settings, onChange, occurrence, draft: editorDraft } = props;
+	const { compact } = useRyotViewport();
 	const disabled = props.disabled || exercise === undefined;
-	const template =
-		editorDraft.mode.kind === "template-create" || editorDraft.mode.kind === "template-edit";
+	const template = isTemplateDraft(editorDraft);
 	const change = (transform: (occurrence: WorkoutEditorOccurrence) => WorkoutEditorOccurrence) =>
 		onChange((draft) => updateOccurrence(draft, occurrence.clientId, transform));
 	const patchSet = (id: string, transform: (set: WorkoutEditorSet) => WorkoutEditorSet) =>
-		onChange((draft) => updateSet(draft, occurrence.clientId, id, transform));
+		onChange((draft) => editSet(draft, occurrence.clientId, id, transform));
 	const previous = usePreviousSets(editorDraft, occurrence);
 	const [openSetId, setOpenSetId] = useState<string>();
 	const openSet = occurrence.sets.find(({ clientId }) => clientId === openSetId);
-	const artwork = exerciseArtwork(exercise);
-	const artworkUrl = useAssetUrl(artwork);
-	const restFor = (lot: WorkoutSetLot, set?: WorkoutEditorSet) =>
-		resolveWorkoutRestTime({
-			lot,
-			settings,
-			overrides: exercise?.overrides ?? {},
-			explicitSeconds: set?.restChoice.kind === "explicit" ? set.restChoice.seconds : undefined,
-		});
-	const normalRest = restFor("normal");
+	const restFor = (set: Pick<WorkoutEditorSet, "restChoice" | "setLot">) =>
+		resolveSetRestTime(set, settings, exercise?.overrides ?? {});
+	const inheritedRestFor = (setLot: WorkoutSetLot) =>
+		restFor({ setLot, restChoice: { kind: "inherited" } });
+	const normalRest = inheritedRestFor("normal");
 	const name = exercise?.name ?? "Unavailable exercise";
 	const attachments = occurrence.images.length + occurrence.videos.length;
 	const note = occurrence.notes.join("\n").trim();
@@ -119,13 +107,7 @@ export function ExerciseCard(props: {
 				id={`occurrence-${occurrence.clientId}`}
 			>
 				<div className="flex items-center gap-2.5">
-					<EntityArtWell
-						monogram="?"
-						state="absent"
-						url={undefined}
-						shape="rounded"
-						className="size-10 shrink-0"
-					/>
+					<AssetArtWell name="?" asset={undefined} className="size-10 shrink-0" />
 					<div className="min-w-0 flex-1">
 						<h2 className="text-[15px] font-semibold">{name}</h2>
 						<p className="text-xs text-text-muted">Removed from your library</p>
@@ -161,12 +143,10 @@ export function ExerciseCard(props: {
 			className="grid scroll-mt-6 gap-2 px-2.5 pt-3 pb-1.5 outline-none"
 		>
 			<div className="flex items-start gap-2.5 px-1">
-				<EntityArtWell
-					monogram={name}
-					shape="rounded"
-					url={artworkUrl}
-					state={artwork === undefined ? "absent" : "ready"}
-					className={props.compact ? "size-10 shrink-0" : "size-11 shrink-0"}
+				<AssetArtWell
+					name={name}
+					asset={exercise?.images?.[0]}
+					className={compact ? "size-10 shrink-0" : "size-11 shrink-0"}
 				/>
 				<div className="min-w-0 flex-1">
 					<h2 className="text-[15px] leading-5 font-semibold">
@@ -183,7 +163,7 @@ export function ExerciseCard(props: {
 						<p className="mt-0.5 text-xs text-text-muted">{meta.join(" · ")}</p>
 					)}
 				</div>
-				{!props.compact && !template ? (
+				{!compact && !template ? (
 					<Button size="sm" variant="ghost" onClick={() => props.onSheet("history")}>
 						<AppIcon size={15} name="history" />
 						History
@@ -210,7 +190,7 @@ export function ExerciseCard(props: {
 					label={`${name} actions`}
 					icon={<AppIcon size={18} name="more-horizontal" />}
 					items={[
-						...(props.compact && !template
+						...(compact && !template
 							? [{ key: "history", label: "History", onSelect: () => props.onSheet("history") }]
 							: []),
 						{
@@ -288,10 +268,10 @@ export function ExerciseCard(props: {
 					</Collapse>
 					<SetGrid
 						now={props.now}
+						compact={compact}
 						draft={editorDraft}
 						previous={previous}
 						disabled={disabled}
-						compact={props.compact}
 						invalid={props.invalid}
 						occurrence={occurrence}
 						onComplete={props.onConfirm}
@@ -305,7 +285,7 @@ export function ExerciseCard(props: {
 							patchSet(id, transform);
 						}}
 						restSeconds={(set) => {
-							const rest = restFor(set.setLot, set);
+							const rest = restFor(set);
 							return rest.kind === "resolved" ? rest.seconds : undefined;
 						}}
 					/>
@@ -364,8 +344,6 @@ export function ExerciseCard(props: {
 						draft={editorDraft}
 						disabled={disabled}
 						occurrence={occurrence}
-						compact={props.compact}
-						safeAreaBottom={props.safeAreaBottom}
 						onClose={() => setOpenSetId(undefined)}
 						previous={previous.get(openSet.clientId)}
 						onCopyPrevious={() => {
@@ -377,7 +355,7 @@ export function ExerciseCard(props: {
 							patchSet(openSet.clientId, transform);
 						}}
 						inheritedRestSeconds={(() => {
-							const rest = restFor(openSet.setLot);
+							const rest = inheritedRestFor(openSet.setLot);
 							return rest.kind === "resolved" ? rest.seconds : 0;
 						})()}
 						onDelete={() => {

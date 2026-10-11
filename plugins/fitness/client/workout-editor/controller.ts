@@ -1,18 +1,6 @@
-import {
-	RyotClientError,
-	type ManagedAssetLocator,
-	type RyotClient,
-	type RyotSchedule,
-} from "@ryot-app/plugin-client-sdk";
+import { RyotClientError, type ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
 import { Effect, Semaphore } from "@ryot-app/plugin-client-sdk/effect";
-import type {
-	PluginDeviceRequest,
-	PluginDeviceResult,
-	PluginId,
-	PluginNavigationTarget,
-} from "@ryot-app/plugin-client-sdk/plugin";
 
-import type { WorkoutEditorContextOutputSchema } from "../../shared/workout-editor-context-operations";
 import {
 	decodeWorkoutEditorDraft,
 	encodeWorkoutEditorDraft,
@@ -23,6 +11,12 @@ import type {
 	WorkoutEditorSaveOutput,
 } from "../../shared/workout-editor-operations";
 import { completeWorkoutSet } from "./actions";
+import { createAlertSynchronizer } from "./controller-alerts";
+import type {
+	ReadySnapshot,
+	WorkoutEditorControllerPorts,
+	WorkoutEditorControllerSnapshot,
+} from "./controller-types";
 import {
 	attachDraftMedia,
 	draftMedia,
@@ -33,60 +27,7 @@ import {
 } from "./media-state";
 import { invalidateWorkoutCountdowns, reconcileWorkoutTimers } from "./timers";
 
-type WorkoutEditorContext = typeof WorkoutEditorContextOutputSchema.Type;
-type TimerName = "execution" | "rest";
-type TimerSnapshot = {
-	readonly clientId: string;
-	readonly deadline: string;
-	readonly key: string;
-	readonly audible: boolean;
-};
-
-type ContextSnapshot = {
-	readonly context: WorkoutEditorContext | undefined;
-	readonly contextError: unknown;
-};
-
-type WorkoutEditorControllerSnapshot =
-	| (ContextSnapshot & { readonly status: "loading" })
-	| (ContextSnapshot & { readonly status: "empty" })
-	| (ContextSnapshot & {
-			readonly error: unknown;
-			readonly rawValue: unknown;
-			readonly status: "recovery-error";
-	  })
-	| (ContextSnapshot & {
-			readonly alertStatus: Readonly<Partial<Record<TimerName, PluginDeviceResult["status"]>>>;
-			readonly deviceError: unknown;
-			readonly dirty: boolean;
-			readonly draft: WorkoutEditorDraft;
-			readonly persistenceError: unknown;
-			readonly saving: boolean;
-			readonly uploading: boolean;
-			readonly uploadError?: unknown;
-			readonly status: "ready";
-			readonly timerError: unknown;
-	  });
-
-type WorkoutEditorControllerPorts = {
-	readonly foreground: () => boolean;
-	readonly upload?: RyotClient["uploads"]["uploadPermanent"];
-	readonly cleanup?: RyotClient["uploads"]["cleanup"];
-	readonly device?:
-		| ((request: PluginDeviceRequest) => Effect.Effect<PluginDeviceResult, unknown>)
-		| undefined;
-	readonly now: Effect.Effect<number, unknown>;
-	readonly pluginId?: PluginId | undefined;
-	readonly refreshContext?: Effect.Effect<WorkoutEditorContext, unknown> | undefined;
-	readonly schedule?: Pick<RyotSchedule, "after" | "run"> | undefined;
-	readonly storage: {
-		readonly read: Effect.Effect<unknown, unknown>;
-		readonly remove: Effect.Effect<void, unknown>;
-		readonly write: (value: string) => Effect.Effect<void, unknown>;
-	};
-	readonly target?: PluginNavigationTarget | undefined;
-	readonly feedback?: (() => Effect.Effect<void>) | undefined;
-};
+type ExpectedCountdowns = { readonly executionClientId?: string; readonly restClientId?: string };
 
 type WorkoutEditorController = {
 	readonly uploadMedia: (
@@ -104,10 +45,7 @@ type WorkoutEditorController = {
 	readonly flush: () => Effect.Effect<void, unknown>;
 	readonly getSnapshot: () => WorkoutEditorControllerSnapshot;
 	readonly load: () => Effect.Effect<void, unknown>;
-	readonly reconcile: (expected?: {
-		readonly executionClientId?: string;
-		readonly restClientId?: string;
-	}) => Effect.Effect<void, unknown>;
+	readonly reconcile: (expected?: ExpectedCountdowns) => Effect.Effect<void, unknown>;
 	readonly refreshContext: () => Effect.Effect<void, unknown>;
 	readonly rejectSubmission: (result: WorkoutEditorSaveOutput) => Effect.Effect<boolean, unknown>;
 	readonly setSaving: (saving: boolean) => void;
@@ -121,18 +59,13 @@ const initialSnapshot: WorkoutEditorControllerSnapshot = {
 	contextError: undefined,
 };
 
-const isReady = (
-	snapshot: WorkoutEditorControllerSnapshot,
-): snapshot is Extract<WorkoutEditorControllerSnapshot, { readonly status: "ready" }> =>
+const isReady = (snapshot: WorkoutEditorControllerSnapshot): snapshot is ReadySnapshot =>
 	snapshot.status === "ready";
 
 const isRecoveryError = (
 	snapshot: WorkoutEditorControllerSnapshot,
 ): snapshot is Extract<WorkoutEditorControllerSnapshot, { readonly status: "recovery-error" }> =>
 	snapshot.status === "recovery-error";
-
-const alertKey = (draftId: string, timer: TimerName) =>
-	`fitness-workout-editor:${draftId}:${timer}`;
 
 export const createWorkoutEditorController = (
 	ports: WorkoutEditorControllerPorts,
@@ -141,11 +74,6 @@ export const createWorkoutEditorController = (
 	const loadSemaphore = Semaphore.makeUnsafe(1);
 	const persistenceSemaphore = Semaphore.makeUnsafe(1);
 	const mediaSemaphore = Semaphore.makeUnsafe(1);
-	const timerCallbacks = new Map<
-		TimerName,
-		{ readonly cancel: () => void; readonly snapshot: TimerSnapshot }
-	>();
-	const scheduledAlerts = new Map<TimerName, TimerSnapshot>();
 	let snapshot: WorkoutEditorControllerSnapshot = initialSnapshot;
 	let loaded = false;
 	let loadFailed = false;
@@ -154,7 +82,6 @@ export const createWorkoutEditorController = (
 	let flushRunning = false;
 	let discarding = false;
 	let disposed = false;
-	let shortcutSet: boolean | undefined;
 	let firstSubmissionAttempt = false;
 	let canReleaseRejection = false;
 
@@ -166,262 +93,37 @@ export const createWorkoutEditorController = (
 	};
 
 	const getSnapshot = () => snapshot;
-	const isEmpty = () => getSnapshot().status === "empty";
 	const canDiscard = () => isReady(snapshot) || isRecoveryError(snapshot);
-	const isDisposed = () => disposed;
 
-	const updateReady = (
-		update: (
-			current: Extract<WorkoutEditorControllerSnapshot, { readonly status: "ready" }>,
-		) => Extract<WorkoutEditorControllerSnapshot, { readonly status: "ready" }>,
-	) => {
+	const updateReady = (update: (current: ReadySnapshot) => ReadySnapshot) => {
 		if (isReady(snapshot)) {
 			publish(update(snapshot));
 		}
 	};
 
-	const setContextFailure = (error: unknown) => {
-		publish({ ...snapshot, contextError: error });
-	};
+	const contextState = () => ({ context: snapshot.context, contextError: snapshot.contextError });
 
-	const runDevice = (
-		request: PluginDeviceRequest,
-	): Effect.Effect<PluginDeviceResult | undefined> =>
-		ports.device === undefined
-			? Effect.as(Effect.void, undefined)
-			: Effect.match(ports.device(request), {
-					onSuccess: (result) => result,
-					onFailure: (error) => {
-						updateReady((current) => ({ ...current, deviceError: error }));
-						return undefined;
-					},
-				});
-
-	const syncShortcut = (draft: WorkoutEditorDraft | undefined) => {
-		const pluginId = ports.pluginId;
-		const target = ports.target;
-		if (ports.device === undefined || pluginId === undefined || target === undefined) {
-			return Effect.void;
-		}
-		const shouldSet = draft?.mode.kind === "live" && draft.endedAt === undefined;
-		if (shouldSet === shortcutSet) {
-			return Effect.void;
-		}
-		const request: PluginDeviceRequest = {
-			pluginId,
-			action: "return-shortcut",
-			shortcut: shouldSet ? { target, label: "Resume workout" } : null,
-		};
-		return Effect.tap(runDevice(request), (result) =>
-			Effect.sync(() => {
-				if (result !== undefined && result.status !== "denied" && result.status !== "unsupported") {
-					shortcutSet = shouldSet;
-				}
-			}),
-		);
-	};
-
-	const desiredTimer = (draft: WorkoutEditorDraft, timer: TimerName): TimerSnapshot | undefined => {
-		const countdown = timer === "execution" ? draft.executionCountdown : draft.restCountdown;
-		if (countdown === undefined || countdown.pausedRemainingSeconds !== undefined) {
-			return undefined;
-		}
-		return {
-			clientId: countdown.clientId,
-			deadline: countdown.deadline,
-			key: alertKey(draft.draftId, timer),
-			audible: !(
-				draft.localPreferences?.muteSounds ??
-				snapshot.context?.settings.muteSounds ??
-				false
-			),
-		};
-	};
-
-	const matchesDesiredTimer = (timer: TimerName, wanted: TimerSnapshot) => {
-		if (!isReady(snapshot)) {
-			return false;
-		}
-		const current = desiredTimer(snapshot.draft, timer);
-		return current?.clientId === wanted.clientId && current.deadline === wanted.deadline;
-	};
-
-	const pulseTimerWarning = Effect.fnUntraced(function* (
-		timer: TimerName,
-		wanted: TimerSnapshot,
-		pulseAt: number,
-	) {
-		const canPulse = () => !disposed && ports.foreground() && matchesDesiredTimer(timer, wanted);
-		if (!canPulse()) {
-			return;
-		}
-		const now = yield* Effect.match(ports.now, {
-			onSuccess: (value) => value,
-			onFailure: (error) => {
-				updateReady((current) => ({ ...current, timerError: error }));
-				return undefined;
-			},
-		});
-		if (now === undefined || !Number.isFinite(now) || now - pulseAt > 500 || !canPulse()) {
-			return;
-		}
-		const pluginId = ports.pluginId;
-		if (pluginId !== undefined) {
-			yield* runDevice({ pluginId, action: "haptic" });
-		}
+	const readySnapshot = (draft: WorkoutEditorDraft, dirty: boolean): ReadySnapshot => ({
+		dirty,
+		draft,
+		saving: false,
+		alertStatus: {},
+		status: "ready",
+		uploading: false,
+		timerError: undefined,
+		deviceError: undefined,
+		persistenceError: undefined,
+		...contextState(),
 	});
 
-	const scheduleTimerCallbacks = (draft: WorkoutEditorDraft) =>
-		disposed
-			? Effect.void
-			: Effect.match(ports.now, {
-					onFailure: (error) => {
-						updateReady((current) => ({ ...current, timerError: error }));
-						return undefined;
-					},
-					onSuccess: (now) => {
-						for (const timer of ["execution", "rest"] as const) {
-							const wanted = desiredTimer(draft, timer);
-							const current = timerCallbacks.get(timer);
-							if (
-								wanted !== undefined &&
-								current !== undefined &&
-								current.snapshot.clientId === wanted.clientId &&
-								current.snapshot.deadline === wanted.deadline
-							) {
-								continue;
-							}
-							current?.cancel();
-							timerCallbacks.delete(timer);
-							if (wanted === undefined || ports.schedule === undefined) {
-								continue;
-							}
-							const expected =
-								timer === "execution"
-									? { executionClientId: wanted.clientId }
-									: { restClientId: wanted.clientId };
-							const schedule = ports.schedule;
-							const cancels: (() => void)[] = [];
-							for (const offset of [3000, 2000, 1000]) {
-								const pulseAt = Date.parse(wanted.deadline) - offset;
-								const delay = pulseAt - now;
-								if (delay > 0) {
-									cancels.push(
-										schedule.after(delay, () =>
-											schedule.run(
-												Effect.ignore(pulseTimerWarning(timer, wanted, pulseAt)),
-												() => undefined,
-											),
-										),
-									);
-								}
-							}
-							cancels.push(
-								schedule.after(Math.max(0, Date.parse(wanted.deadline) - now), () =>
-									schedule.run(Effect.ignore(reconcile(expected)), () => undefined),
-								),
-							);
-							const cancel = () => {
-								for (const cancelCallback of cancels) {
-									cancelCallback();
-								}
-							};
-							timerCallbacks.set(timer, { cancel, snapshot: wanted });
-						}
-						return undefined;
-					},
-				});
-
-	const syncAlerts = (draft: WorkoutEditorDraft | undefined, removedDraftId?: string) => {
-		const pluginId = ports.pluginId;
-		const target = ports.target;
-		if (ports.device === undefined || pluginId === undefined) {
-			return Effect.void;
-		}
-		return Effect.gen(function* () {
-			for (const timer of ["execution", "rest"] as const) {
-				const wanted = draft === undefined ? undefined : desiredTimer(draft, timer);
-				const current = scheduledAlerts.get(timer);
-				if (wanted === undefined) {
-					let stableKey: string | undefined;
-					if (draft !== undefined) {
-						stableKey = alertKey(draft.draftId, timer);
-					} else if (removedDraftId !== undefined) {
-						stableKey = alertKey(removedDraftId, timer);
-					}
-					for (const key of new Set([current?.key, stableKey])) {
-						if (key === undefined) {
-							continue;
-						}
-						const cancelled = yield* runDevice({ key, pluginId, action: "cancel" });
-						if (cancelled !== undefined && cancelled.status !== "denied") {
-							scheduledAlerts.delete(timer);
-						}
-					}
-					continue;
-				}
-				if (current !== undefined && current.key !== wanted.key) {
-					const cancelled = yield* runDevice({ pluginId, key: current.key, action: "cancel" });
-					if (cancelled !== undefined && cancelled.status !== "denied") {
-						scheduledAlerts.delete(timer);
-					}
-				}
-				if (target === undefined) {
-					continue;
-				}
-				const prior = scheduledAlerts.get(timer);
-				if (
-					prior?.key === wanted.key &&
-					prior.deadline === wanted.deadline &&
-					prior.clientId === wanted.clientId &&
-					prior.audible === wanted.audible
-				) {
-					continue;
-				}
-				const result = yield* runDevice({
-					target,
-					pluginId,
-					key: wanted.key,
-					action: "schedule",
-					audible: wanted.audible,
-					deadline: wanted.deadline,
-					title: timer === "rest" ? "Rest complete" : "Exercise complete",
-					body:
-						timer === "rest" ? "Your rest timer is complete." : "Your exercise timer is complete.",
-				});
-				if (result) {
-					updateReady((currentState) => ({
-						...currentState,
-						alertStatus: { ...currentState.alertStatus, [timer]: result.status },
-						deviceError:
-							result.status === "denied" || result.status === "unsupported"
-								? result.status
-								: undefined,
-					}));
-				}
-				if (
-					result !== undefined &&
-					(result.status === "scheduled" || result.status === "inexact")
-				) {
-					scheduledAlerts.set(timer, wanted);
-				}
-			}
-		});
-	};
-
-	const synchronize = (draft: WorkoutEditorDraft | undefined, removedDraftId?: string) =>
-		Effect.gen(function* () {
-			yield* syncAlerts(draft, removedDraftId);
-			yield* syncShortcut(draft);
-			if (draft !== undefined) {
-				yield* scheduleTimerCallbacks(draft);
-			} else {
-				for (const { cancel } of timerCallbacks.values()) {
-					cancel();
-				}
-				timerCallbacks.clear();
-			}
-		});
+	const alerts = createAlertSynchronizer({
+		ports,
+		getSnapshot,
+		updateReady,
+		isDisposed: () => disposed,
+		foreground: ports.foreground,
+		reconcile: (expected) => reconcile(expected),
+	});
 
 	const persistDraft = (draft: WorkoutEditorDraft) =>
 		Effect.try({
@@ -445,7 +147,7 @@ export const createWorkoutEditorController = (
 					}
 					const current = snapshot;
 					if (revision <= persistedRevision) {
-						yield* synchronize(current.draft);
+						yield* alerts.synchronize(current.draft);
 						return;
 					}
 					const writingRevision = revision;
@@ -457,24 +159,15 @@ export const createWorkoutEditorController = (
 						dirty: revision > persistedRevision,
 					}));
 					if (revision <= persistedRevision) {
-						yield* synchronize(isReady(snapshot) ? snapshot.draft : undefined);
+						yield* alerts.synchronize(isReady(snapshot) ? snapshot.draft : undefined);
 						return;
 					}
 				}
 			}),
 		);
-	const flush = () =>
-		mediaSemaphore.withPermit(
-			Effect.gen(function* () {
-				yield* flushDraft();
-				yield* cleanupAbandonedMedia();
-			}),
-		);
 
 	const cleanupAssets = (assets: readonly ManagedAssetLocator[]) =>
-		Effect.forEach(assets, (asset) => ports.cleanup?.(asset).pipe(Effect.ignore) ?? Effect.void, {
-			discard: true,
-		});
+		Effect.forEach(assets, (asset) => ports.cleanup(asset).pipe(Effect.ignore), { discard: true });
 
 	const cleanupAbandonedMedia = () =>
 		Effect.gen(function* () {
@@ -482,8 +175,7 @@ export const createWorkoutEditorController = (
 				disposed ||
 				!isReady(snapshot) ||
 				snapshot.saving ||
-				snapshot.draft.submission !== undefined ||
-				ports.cleanup === undefined
+				snapshot.draft.submission !== undefined
 			) {
 				return;
 			}
@@ -517,14 +209,16 @@ export const createWorkoutEditorController = (
 			yield* flushDraft();
 		});
 
+	const flush = () =>
+		mediaSemaphore.withPermit(
+			Effect.gen(function* () {
+				yield* flushDraft();
+				yield* cleanupAbandonedMedia();
+			}),
+		);
+
 	const startFlush = () => {
-		if (
-			disposed ||
-			flushRunning ||
-			ports.schedule === undefined ||
-			!isReady(snapshot) ||
-			!snapshot.dirty
-		) {
+		if (disposed || flushRunning || !isReady(snapshot) || !snapshot.dirty) {
 			return;
 		}
 		flushRunning = true;
@@ -556,21 +250,15 @@ export const createWorkoutEditorController = (
 		return true;
 	};
 
-	const refreshContext = () => {
-		if (ports.refreshContext === undefined) {
-			return Effect.void;
-		}
-		return Effect.match(ports.refreshContext, {
+	const refreshContext = () =>
+		Effect.match(ports.refreshContext, {
 			onFailure: (error) => {
-				setContextFailure(error);
-				return undefined;
+				publish({ ...snapshot, contextError: error });
 			},
 			onSuccess: (context) => {
 				publish({ ...snapshot, context, contextError: undefined });
-				return undefined;
 			},
 		});
-	};
 
 	const load = () =>
 		loadSemaphore.withPermit(
@@ -580,11 +268,7 @@ export const createWorkoutEditorController = (
 					yield* reconcile();
 					return;
 				}
-				publish({
-					status: "loading",
-					context: snapshot.context,
-					contextError: snapshot.contextError,
-				});
+				publish({ status: "loading", ...contextState() });
 				const result = yield* Effect.match(ports.storage.read, {
 					onFailure: (error) => ({ error, kind: "failure" as const }),
 					onSuccess: (rawValue) => ({ rawValue, kind: "success" as const }),
@@ -596,21 +280,16 @@ export const createWorkoutEditorController = (
 						error: result.error,
 						rawValue: undefined,
 						status: "recovery-error",
-						context: snapshot.context,
-						contextError: snapshot.contextError,
+						...contextState(),
 					});
 					return;
 				}
 				if (result.rawValue === null) {
 					revision = 0;
 					persistedRevision = 0;
-					publish({
-						status: "empty",
-						context: snapshot.context,
-						contextError: snapshot.contextError,
-					});
+					publish({ status: "empty", ...contextState() });
 					yield* refreshContext();
-					yield* synchronize(undefined);
+					yield* alerts.synchronize(undefined);
 					return;
 				}
 				const decoded = decodeWorkoutEditorDraft(result.rawValue);
@@ -619,61 +298,36 @@ export const createWorkoutEditorController = (
 					publish({
 						error: decoded.failure,
 						status: "recovery-error",
-						context: snapshot.context,
 						rawValue: result.rawValue,
-						contextError: snapshot.contextError,
+						...contextState(),
 					});
 					return;
 				}
-				revision = 0;
-				persistedRevision = 0;
-				loadFailed = false;
 				const invalidated = invalidateWorkoutCountdowns(decoded.success);
-				const recovered = invalidated.draft;
+				loadFailed = false;
 				revision = invalidated.changed ? 1 : 0;
 				persistedRevision = 0;
-				publish({
-					saving: false,
-					alertStatus: {},
-					status: "ready",
-					uploading: false,
-					draft: recovered,
-					timerError: undefined,
-					deviceError: undefined,
-					context: snapshot.context,
-					dirty: invalidated.changed,
-					persistenceError: undefined,
-					contextError: snapshot.contextError,
-				});
+				publish(readySnapshot(invalidated.draft, invalidated.changed));
 				yield* reconcile();
 			}),
 		);
 
-	const reconcile = (expected?: {
-		readonly executionClientId?: string;
-		readonly restClientId?: string;
-	}) =>
+	const reconcile = (expected?: ExpectedCountdowns) =>
 		Effect.gen(function* () {
-			if (isDisposed() || !ports.foreground()) {
+			if (disposed || !ports.foreground()) {
 				return;
 			}
 			if (expected === undefined) {
 				yield* refreshContext();
 			}
-			if (isDisposed() || !ports.foreground() || !isReady(snapshot)) {
+			if (disposed || !ports.foreground() || !isReady(snapshot)) {
 				return;
 			}
 			if (snapshot.draft.submission !== undefined) {
 				yield* flush();
 				return;
 			}
-			const now = yield* Effect.match(ports.now, {
-				onSuccess: (value) => value,
-				onFailure: (error) => {
-					updateReady((current) => ({ ...current, timerError: error }));
-					return undefined;
-				},
-			});
+			const now = yield* alerts.readNow;
 			if (now === undefined) {
 				return;
 			}
@@ -716,7 +370,7 @@ export const createWorkoutEditorController = (
 					now - Date.parse(rest.deadline) < 1500 &&
 					result.draft.restCountdown?.clientId !== rest.clientId)
 			) {
-				yield* ports.feedback?.() ?? Effect.void;
+				yield* ports.feedback();
 			}
 		});
 
@@ -756,10 +410,8 @@ export const createWorkoutEditorController = (
 				persistedRevision = 0;
 				loadFailed = false;
 				loaded = true;
-				const context = snapshot.context;
-				const contextError = snapshot.contextError;
-				publish({ context, contextError, status: "empty" });
-				yield* synchronize(undefined, removedDraftId);
+				publish({ status: "empty", ...contextState() });
+				yield* alerts.synchronize(undefined, removedDraftId);
 				yield* cleanupAssets(uploadedAssets);
 				return true;
 			}).pipe(Effect.uninterruptible),
@@ -773,16 +425,13 @@ export const createWorkoutEditorController = (
 		refreshContext,
 		finish: () => removeDraft(true),
 		discard: () => removeDraft(false),
+		dispose: () => {
+			disposed = true;
+			alerts.dispose();
+		},
 		subscribe: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
-		},
-		dispose: () => {
-			disposed = true;
-			for (const { cancel } of timerCallbacks.values()) {
-				cancel();
-			}
-			timerCallbacks.clear();
 		},
 		setSaving: (saving) => {
 			if (saving) {
@@ -791,6 +440,18 @@ export const createWorkoutEditorController = (
 			}
 			updateReady((current) => ({ ...current, saving }));
 		},
+		start: (draft) =>
+			Effect.gen(function* () {
+				if (snapshot.status !== "empty" || discarding) {
+					return false;
+				}
+				loaded = true;
+				loadFailed = false;
+				revision += 1;
+				publish(readySnapshot(draft, true));
+				yield* flush();
+				return true;
+			}),
 		change: (transform) => {
 			if (
 				disposed ||
@@ -824,30 +485,6 @@ export const createWorkoutEditorController = (
 				yield* flush();
 				return true;
 			}),
-		start: (draft) =>
-			Effect.gen(function* () {
-				if (!isEmpty() || discarding) {
-					return false;
-				}
-				loaded = true;
-				loadFailed = false;
-				revision += 1;
-				publish({
-					draft,
-					dirty: true,
-					saving: false,
-					alertStatus: {},
-					status: "ready",
-					uploading: false,
-					timerError: undefined,
-					deviceError: undefined,
-					context: snapshot.context,
-					persistenceError: undefined,
-					contextError: snapshot.contextError,
-				});
-				yield* flush();
-				return true;
-			}),
 		beginSubmission: (input) =>
 			Effect.gen(function* () {
 				if (!isReady(snapshot) || snapshot.saving || snapshot.uploading || discarding) {
@@ -873,14 +510,12 @@ export const createWorkoutEditorController = (
 		uploadMedia: (target, kind, file) =>
 			mediaSemaphore.withPermit(
 				Effect.gen(function* () {
-					const upload = ports.upload;
 					if (
 						disposed ||
 						discarding ||
 						!isReady(snapshot) ||
 						snapshot.saving ||
 						snapshot.draft.submission !== undefined ||
-						upload === undefined ||
 						targetMedia(snapshot.draft, target) === undefined
 					) {
 						return yield* new RyotClientError("invalid-input");
@@ -891,7 +526,7 @@ export const createWorkoutEditorController = (
 					const draftId = snapshot.draft.draftId;
 					updateReady((current) => ({ ...current, uploading: true, uploadError: undefined }));
 					yield* Effect.gen(function* () {
-						const asset = yield* upload({
+						const asset = yield* ports.upload({
 							source: file,
 							fileName: file.name,
 							contentType: file.type,

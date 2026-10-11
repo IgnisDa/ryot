@@ -7,39 +7,28 @@ import type {
 	WorkoutEditorOccurrence,
 	WorkoutEditorSet,
 } from "../../shared/workout-editor-draft";
-import { requiredWorkoutMeasurementsByKind, type WorkoutSetLot } from "../../shared/workout-set";
+import { requiredWorkoutMeasurementsByKind } from "../../shared/workout-set";
+import { setLabels, setLots } from "../set-lots";
+import { formatEditorSeconds } from "./clock";
 import { CompletionToggle } from "./completion-toggle";
-import { formatEditorSeconds } from "./session-timers";
+import { occurrenceDisplay } from "./draft-ops";
+import { remainingSeconds } from "./timers";
 
 type SetMeasurement =
 	(typeof requiredWorkoutMeasurementsByKind)[keyof typeof requiredWorkoutMeasurementsByKind][number];
 
 export type InvalidSet = { readonly setId: string; readonly fields: readonly SetMeasurement[] };
 
-export const setLotLabels: Record<WorkoutSetLot, string> = {
-	drop: "Drop",
-	normal: "Normal",
-	warm_up: "Warm-up",
-	failure: "Failure",
-};
-
-export const setLotTags: Partial<
-	Record<WorkoutSetLot, { readonly tag: string; readonly tone: string }>
-> = {
-	drop: { tag: "D", tone: "text-info" },
-	failure: { tag: "F", tone: "text-danger" },
-	warm_up: { tag: "W", tone: "text-warning" },
-};
-
 const measurementUnit = (field: SetMeasurement, occurrence: WorkoutEditorOccurrence) => {
+	const display = occurrenceDisplay(occurrence);
 	if (field === "weight") {
-		return occurrence.display?.weightUnit ?? "kg";
+		return display.weightUnit;
 	}
 	if (field === "distance") {
-		return occurrence.display?.distanceUnit ?? "km";
+		return display.distanceUnit;
 	}
 	if (field === "duration") {
-		return occurrence.display?.durationUnit ?? "minutes";
+		return display.durationUnit;
 	}
 	return undefined;
 };
@@ -55,12 +44,6 @@ const columnLabel = (field: SetMeasurement, occurrence: WorkoutEditorOccurrence)
 const unitAbbreviations: Partial<Record<string, string>> = { seconds: "s", minutes: "min" };
 
 const has = (value: string | undefined) => value !== undefined && value.trim() !== "";
-
-export const missingMeasurements = (set: WorkoutEditorSet) =>
-	requiredWorkoutMeasurementsByKind[set.exerciseKind].filter((field) => {
-		const value = set[field];
-		return !has(value) || !Number.isFinite(Number(value)) || Number(value) < 0;
-	});
 
 export const previousSummary = (
 	previous: WorkoutEditorSet | undefined,
@@ -129,10 +112,7 @@ export function SetGrid(props: {
 	]
 		.filter((column) => column !== undefined)
 		.join(" ");
-	const ordinals = occurrence.sets.map(
-		(_, index) =>
-			occurrence.sets.slice(0, index + 1).filter(({ setLot }) => setLot !== "warm_up").length,
-	);
+	const labels = setLabels(occurrence.sets.map(({ setLot }) => setLot));
 	return (
 		<div className="grid gap-0.5">
 			<div
@@ -158,7 +138,7 @@ export function SetGrid(props: {
 			<MotionList className="grid gap-0.5">
 				{occurrence.sets.map((set, index) => {
 					const number = index + 1;
-					const lot = setLotTags[set.setLot];
+					const lot = setLots[set.setLot];
 					const previous = props.previous.get(set.clientId);
 					const summary = previousSummary(previous, occurrence);
 					const invalid = props.invalid?.setId === set.clientId ? props.invalid : undefined;
@@ -167,8 +147,6 @@ export function SetGrid(props: {
 					const rest =
 						draft.restCountdown?.setId === set.clientId ? draft.restCountdown : undefined;
 					const restSeconds = props.restSeconds(set);
-					const remaining = (countdown: NonNullable<WorkoutEditorDraft["restCountdown"]>) =>
-						countdown.pausedRemainingSeconds ?? (Date.parse(countdown.deadline) - props.now) / 1000;
 					const starts =
 						live &&
 						props.countdownEnabled &&
@@ -177,7 +155,7 @@ export function SetGrid(props: {
 						execution === undefined;
 					let restText = "Rest off";
 					if (rest !== undefined) {
-						restText = `Resting ${formatEditorSeconds(remaining(rest))} / ${formatEditorSeconds(rest.durationSeconds)}`;
+						restText = `Resting ${formatEditorSeconds(remainingSeconds(rest, props.now))} / ${formatEditorSeconds(rest.durationSeconds)}`;
 					} else if (restSeconds === undefined) {
 						restText = "Invalid rest";
 					} else if (restSeconds > 0) {
@@ -205,13 +183,13 @@ export function SetGrid(props: {
 								<button
 									type="button"
 									onClick={() => props.onOpenSet(set)}
-									aria-label={`Set ${number}, ${setLotLabels[set.setLot]}. Set options`}
+									aria-label={`Set ${number}, ${lot.label}. Set options`}
 									className={clsx(
 										"h-8 min-w-8 rounded-sm px-1.5 text-left text-[13px] font-semibold tabular-nums hover:bg-hover pointer-coarse:h-10",
-										lot?.tone ?? "text-text",
+										lot.tone ?? "text-text",
 									)}
 								>
-									{lot?.tag ?? ordinals[index]}
+									{labels[index]}
 								</button>
 								{showPrevious ? (
 									<button
@@ -326,7 +304,7 @@ export function SetGrid(props: {
 									<p className="flex items-center gap-1.5 pt-0.5 pb-1 pl-10 text-xs font-semibold text-info">
 										<AppIcon size={12} name="timer" />
 										{execution.pausedRemainingSeconds === undefined ? "Running" : "Paused"} ·{" "}
-										{formatEditorSeconds(remaining(execution))} left
+										{formatEditorSeconds(remainingSeconds(execution, props.now))} left
 									</p>
 								)}
 							</Collapse>

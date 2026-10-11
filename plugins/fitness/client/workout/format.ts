@@ -1,3 +1,5 @@
+import { clockFormat } from "@ryot-app/plugin-ui-sdk";
+
 import type { ExerciseKind } from "../../shared/exercise-kinds";
 import { kilogramsToPounds, kilometersToMiles } from "../../shared/workout-units";
 import type { MeasureUnit, WorkoutSet } from "./details-model";
@@ -6,12 +8,7 @@ const numberFormat = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }
 
 export const formatNumber = (value: number) => numberFormat.format(value);
 
-const pad = (value: number) => String(value).padStart(2, "0");
-
-export const formatClock = (seconds: number) => {
-	const whole = Math.round(seconds);
-	return `${Math.floor(whole / 60)}:${pad(whole % 60)}`;
-};
+export const formatClock = (seconds: number) => clockFormat.format(Math.round(seconds));
 
 export const formatDuration = (seconds: number) => {
 	const whole = Math.round(seconds);
@@ -25,6 +22,17 @@ export const formatDuration = (seconds: number) => {
 	}
 	return whole % 60 === 0 ? `${minutes} min` : formatClock(whole);
 };
+
+export const formatExerciseMeta = (exercise: {
+	readonly equipment: readonly { readonly name: string }[];
+	readonly targets: readonly { readonly name: string; readonly role: string | null }[];
+}) =>
+	[
+		...exercise.targets
+			.filter((target) => target.role === null || target.role === "primary")
+			.map((target) => target.name),
+		...exercise.equipment.map((equipment) => equipment.name),
+	].join(" · ");
 
 export const formatMeasure = (value: number, unit: MeasureUnit, imperial = false) => {
 	if (unit === "seconds") {

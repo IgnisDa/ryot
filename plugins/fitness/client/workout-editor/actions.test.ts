@@ -18,7 +18,7 @@ import {
 	nextWorkoutOccurrence,
 	removeWorkoutItems,
 	resolvePendingRest,
-	updateSet,
+	editSet,
 	workoutProgressTarget,
 } from "./actions";
 
@@ -474,7 +474,7 @@ describe("workout editor actions", () => {
 				}),
 			],
 		});
-		const result = updateSet(draft, "occurrence-1", "occurrence-1-set", (set) => ({
+		const result = editSet(draft, "occurrence-1", "occurrence-1-set", (set) => ({
 			...set,
 			reps: "",
 		}));
