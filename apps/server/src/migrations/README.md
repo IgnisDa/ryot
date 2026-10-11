@@ -77,6 +77,8 @@ When legacy debounce rows collapse to one V2 claim, preserve the longest remaini
 
 Historical rows are copied directly and never replay current lifecycle or notification hooks. The workout-set pass only recalculates normalized values, derived statistics, and personal bests; it does not dispatch workflows or hooks. The migration aborts if the migration creates any automation triggers, recipients, runs, or attempts; with no runs, it cannot emit automation notifications. Notification channels and notification-subscription preferences are current user configuration, not notification history, and remain migrated.
 
+Seen-history copying and description normalization each defer their table's non-constraint indexes and rebuild their catalog definitions in the same transaction. Primary, unique, and constraint-backed indexes remain active. Seen copying also restores its foreign keys with set-based validation before commit. An abort rolls back data, constraint, and index changes for that phase. Targeted statistics refreshes follow bulk loads before downstream joins and lifecycle validation.
+
 ## Reports And Failures
 
 After Drizzle creates V2 schema, each phase appends structured rows to `migration_report`: sequence, timestamp, phase, level, message, optional count, elapsed seconds, and — on anomalies only — a stable `code`. The table remains for inspection; pre-schema table renames cannot report there.

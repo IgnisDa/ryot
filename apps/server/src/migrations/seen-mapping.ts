@@ -47,11 +47,45 @@ DECLARE
 	parent_session_events int   := 0;
 	special_episode_events int  := 0;
 	batch_count    int;
+	index_rec record;
+	index_statement text;
+	index_statements text[] := ARRAY[]::text[];
+	constraint_rec record;
+	constraint_statement text;
+	constraint_statements text[] := ARRAY[]::text[];
 	started_at     timestamptz  := clock_timestamp();
 BEGIN
 	${buildRequireLegacyTableSql("seen -> event", "seen")}
 
 	${buildEpisodeResolutionFallbackSql(mediaPluginId)}
+
+	FOR constraint_rec IN
+		SELECT conname, pg_get_constraintdef(oid) AS definition
+		FROM pg_constraint
+		WHERE conrelid = '"event"'::regclass AND contype = 'f'
+		ORDER BY conname
+	LOOP
+		constraint_statements := array_append(constraint_statements,
+			format('ALTER TABLE "event" ADD CONSTRAINT %I %s', constraint_rec.conname, constraint_rec.definition));
+		EXECUTE format('ALTER TABLE "event" DROP CONSTRAINT %I', constraint_rec.conname);
+	END LOOP;
+
+	FOR index_rec IN
+		SELECT namespace.nspname, index_class.relname, pg_get_indexdef(index_class.oid) AS definition
+		FROM pg_index index_entry
+		INNER JOIN pg_class index_class ON index_class.oid = index_entry.indexrelid
+		INNER JOIN pg_namespace namespace ON namespace.oid = index_class.relnamespace
+		WHERE index_entry.indrelid = '"event"'::regclass
+			AND NOT index_entry.indisunique
+			AND NOT EXISTS (
+				SELECT 1 FROM pg_constraint constraint_entry
+				WHERE constraint_entry.conindid = index_entry.indexrelid
+			)
+		ORDER BY index_class.relname
+	LOOP
+		index_statements := array_append(index_statements, index_rec.definition);
+		EXECUTE format('DROP INDEX %I.%I', index_rec.nspname, index_rec.relname);
+	END LOOP;
 
 	LOOP
 		WITH batch AS (
@@ -65,7 +99,6 @@ BEGIN
 
 		EXIT WHEN next_cursor_id IS NULL;
 
-		-- Progress events: full stream for in-progress and episodic completions; otherwise before terminal.
 		INSERT INTO "event" (
 			"id",
 			"user_id",
@@ -264,7 +297,6 @@ BEGIN
 		GET DIAGNOSTICS batch_count = ROW_COUNT;
 		child_complete_inserted := child_complete_inserted + batch_count;
 
-		-- Terminal events: non-episodic complete, dropped, and on_hold.
 		INSERT INTO "event" (
 			"id",
 			"user_id",
@@ -379,6 +411,16 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
+	FOREACH index_statement IN ARRAY index_statements LOOP
+		EXECUTE index_statement;
+	END LOOP;
+
+	FOREACH constraint_statement IN ARRAY constraint_statements LOOP
+		EXECUTE constraint_statement;
+	END LOOP;
+
+	ANALYZE "event";
+
 	${buildAbortOnRowsSql({
 		countVariable: "missing_completion_rows",
 		sampleVariable: "missing_completion_sample",
@@ -425,8 +467,6 @@ BEGIN
 	  AND (season.properties ->> 'seasonNumber')::int = 0
 	  AND ev.session_entity_id IS NULL;
 
-	-- Absent, ambiguous and malformed are different data problems, so they are classified here and
-	-- reported separately. Each row carries its own explanation: the legacy tables are dropped later.
 	CREATE TEMP TABLE _seen_unresolved_positions ON COMMIT DROP AS
 	SELECT
 		s.id                 AS legacy_record_id,
