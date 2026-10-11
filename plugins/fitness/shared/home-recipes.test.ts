@@ -18,34 +18,70 @@ const aggregate = (items: readonly Record<string, unknown>[]) => ({ items, type:
 describe("muscleActivityRecipe", () => {
 	const recipe = muscleActivityRecipe({ reference, weekStartAt: "2026-10-14T00:00:00.000Z" });
 
-	it("keeps every muscle inside the document query limit", () => {
-		expect(Object.keys(recipe.document.queries).length).toBeLessThanOrEqual(10);
+	it("uses one target aggregate", () => {
+		expect(Object.keys(recipe.document.queries)).toEqual(["activity"]);
 	});
 
-	it("weights roles, counts unset roles as primary, and orders longest since first", () => {
+	it("normalizes null totals and orders never-trained then longest since first", () => {
 		const decoded = Result.getOrThrow(
 			recipe.decode({
 				data: {
-					targets: rows([
-						{ name: "Chest" },
-						{ name: "Lats" },
-						{ name: "Neck" },
-						{ name: "Triceps" },
-					]),
-					groups: aggregate([
-						{ sets: 3, name: "Chest", role: "primary", lastAt: "2026-10-10T09:00:00.000Z" },
-						{ sets: 4, name: "Chest", role: "secondary", lastAt: "2026-10-15T09:00:00.000Z" },
-						{ sets: 2, role: null, name: "Lats", lastAt: "2026-10-12T09:00:00.000Z" },
-						{ sets: null, name: "Triceps", role: "secondary", lastAt: "2026-10-08T09:00:00.000Z" },
+					activity: aggregate([
+						{
+							id: "chest",
+							name: "Chest",
+							weeklySets: 5,
+							lastTrainedAt: "2026-10-15T09:00:00.000Z",
+						},
+						{ id: "lats", name: "Lats", weeklySets: 2, lastTrainedAt: "2026-10-12T09:00:00.000Z" },
+						{ id: "neck", name: "Neck", weeklySets: 0, lastTrainedAt: null },
+						{
+							id: "triceps",
+							name: "Triceps",
+							weeklySets: null,
+							lastTrainedAt: "2026-10-08T09:00:00.000Z",
+						},
+						{ id: "calves", name: "Calves", weeklySets: null, lastTrainedAt: null },
+						{ id: "back", name: "Back", weeklySets: 1, lastTrainedAt: "2026-10-12T09:00:00.000Z" },
 					]),
 				},
 			}),
 		);
 		expect(decoded).toEqual([
-			{ name: "Neck", weeklySets: 0, lastTrainedAt: null },
-			{ weeklySets: 0, name: "Triceps", lastTrainedAt: "2026-10-08T09:00:00.000Z" },
-			{ name: "Lats", weeklySets: 2, lastTrainedAt: "2026-10-12T09:00:00.000Z" },
-			{ name: "Chest", weeklySets: 5, lastTrainedAt: "2026-10-15T09:00:00.000Z" },
+			{ id: "calves", weeklySets: 0, name: "Calves", lastTrainedAt: null },
+			{ id: "neck", name: "Neck", weeklySets: 0, lastTrainedAt: null },
+			{ id: "triceps", weeklySets: 0, name: "Triceps", lastTrainedAt: "2026-10-08T09:00:00.000Z" },
+			{ id: "back", name: "Back", weeklySets: 1, lastTrainedAt: "2026-10-12T09:00:00.000Z" },
+			{ id: "lats", name: "Lats", weeklySets: 2, lastTrainedAt: "2026-10-12T09:00:00.000Z" },
+			{ id: "chest", name: "Chest", weeklySets: 5, lastTrainedAt: "2026-10-15T09:00:00.000Z" },
+		]);
+	});
+
+	it("keeps same-name target identities and histories separate", () => {
+		expect(
+			Result.getOrThrow(
+				recipe.decode({
+					data: {
+						activity: aggregate([
+							{
+								id: "shared",
+								name: "Chest",
+								weeklySets: 2,
+								lastTrainedAt: "2026-10-15T09:00:00.000Z",
+							},
+							{
+								id: "private",
+								name: "Chest",
+								weeklySets: 0,
+								lastTrainedAt: "2026-10-10T09:00:00.000Z",
+							},
+						]),
+					},
+				}),
+			),
+		).toEqual([
+			{ id: "private", name: "Chest", weeklySets: 0, lastTrainedAt: "2026-10-10T09:00:00.000Z" },
+			{ id: "shared", name: "Chest", weeklySets: 2, lastTrainedAt: "2026-10-15T09:00:00.000Z" },
 		]);
 	});
 });

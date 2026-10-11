@@ -90,20 +90,57 @@ describe("buildWeekProgress", () => {
 
 describe("buildMuscleTiles", () => {
 	const activity: readonly MuscleActivity[] = [
-		{ name: "Neck", weeklySets: 0, lastTrainedAt: null },
-		{ name: "Lats", weeklySets: 12, lastTrainedAt: "2026-10-18T10:00:00.000Z" },
-		{ name: "Chest", weeklySets: 4.5, lastTrainedAt: "2026-10-21T08:00:00.000Z" },
-		{ weeklySets: 0, name: "Calves", lastTrainedAt: "2026-10-14T08:00:00.000Z" },
-		{ weeklySets: 0, name: "Glutes", lastTrainedAt: "2026-10-01T08:00:00.000Z" },
+		{ id: "neck", name: "Neck", weeklySets: 0, lastTrainedAt: null },
+		{ id: "lats", name: "Lats", weeklySets: 12, lastTrainedAt: "2026-10-18T10:00:00.000Z" },
+		{ id: "chest", name: "Chest", weeklySets: 4.5, lastTrainedAt: "2026-10-21T08:00:00.000Z" },
+		{ id: "calves", weeklySets: 0, name: "Calves", lastTrainedAt: "2026-10-14T08:00:00.000Z" },
+		{ id: "glutes", weeklySets: 0, name: "Glutes", lastTrainedAt: "2026-10-01T08:00:00.000Z" },
 	];
 
 	it("bands days since the last session and labels weekly sets", () => {
 		expect(buildMuscleTiles(activity, now, "UTC")).toEqual([
-			{ name: "Neck", band: "cold", days: "Never", sets: "No sets this week" },
-			{ days: "3d", name: "Lats", band: "fresh", sets: "12 sets" },
-			{ days: "0d", name: "Chest", band: "recent", sets: "4.5 sets" },
-			{ days: "7d", band: "stale", name: "Calves", sets: "No sets this week" },
-			{ days: "20d", band: "cold", name: "Glutes", sets: "No sets this week" },
+			{ id: "neck", name: "Neck", band: "cold", days: "Never", sets: "No sets this week" },
+			{ id: "lats", days: "3d", name: "Lats", band: "fresh", sets: "12 sets" },
+			{ days: "0d", id: "chest", name: "Chest", band: "recent", sets: "4.5 sets" },
+			{ days: "7d", id: "calves", band: "stale", name: "Calves", sets: "No sets this week" },
+			{ days: "20d", id: "glutes", band: "cold", name: "Glutes", sets: "No sets this week" },
+		]);
+	});
+
+	it("keeps equal-name tiles distinct and describes stabilizer-only recent activity", () => {
+		expect(
+			buildMuscleTiles(
+				[
+					{ id: "shared", name: "Chest", weeklySets: 1, lastTrainedAt: "2026-10-14T08:00:00.000Z" },
+					{
+						id: "private",
+						name: "Chest",
+						weeklySets: 0,
+						lastTrainedAt: "2026-10-21T08:00:00.000Z",
+					},
+				],
+				now,
+				"UTC",
+			),
+		).toEqual([
+			{ days: "7d", id: "shared", name: "Chest", band: "stale", sets: "1 set" },
+			{ days: "0d", id: "private", name: "Chest", band: "recent", sets: "No sets this week" },
+		]);
+	});
+
+	it("uses local calendar dates and treats invalid dates as never trained", () => {
+		expect(
+			buildMuscleTiles(
+				[
+					{ id: "local", name: "Local", weeklySets: 1, lastTrainedAt: "2026-10-21T00:30:00.000Z" },
+					{ id: "invalid", weeklySets: 0, name: "Invalid", lastTrainedAt: "invalid" },
+				],
+				now,
+				"America/Los_Angeles",
+			),
+		).toEqual([
+			{ days: "1d", id: "local", name: "Local", sets: "1 set", band: "recent" },
+			{ band: "cold", id: "invalid", days: "Never", name: "Invalid", sets: "No sets this week" },
 		]);
 	});
 });

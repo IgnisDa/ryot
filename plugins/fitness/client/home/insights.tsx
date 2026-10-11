@@ -48,7 +48,7 @@ export function MusclesSection(props: { readonly now: Date; readonly timeZone: s
 						<div className="grid grid-cols-[repeat(auto-fill,minmax(130px,1fr))] gap-2">
 							{buildMuscleTiles(activity, now, timeZone).map((tile) => (
 								<div
-									key={tile.name}
+									key={tile.id}
 									className={clsx(
 										"flex flex-col gap-0.5 rounded-lg px-3 py-2",
 										bandClasses[tile.band],
