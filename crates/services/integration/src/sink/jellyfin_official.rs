@@ -414,29 +414,50 @@ pub fn resolve(
     )))
 }
 
-/// Pick the episode id to look up the show of an episode with, when the payload does not
-/// carry an id of the show for the configured metadata provider.
+/// How to look up the show of an episode whose payload does not carry an id of the show
+/// for the configured metadata provider.
+#[derive(Debug, PartialEq)]
+enum EpisodeShowLookup {
+    /// By the TVDB id of the episode.
+    TvdbEpisode(String),
+    /// By the TMDb id of the episode, trying its IMDb and TVDB ids first.
+    TmdbEpisode(String),
+    /// By the IMDb or TVDB id of the episode, which has no TMDb id.
+    TmdbExternalIds,
+}
+
+/// Pick how to look up the show of an episode, when the payload does not carry an id of
+/// the show for the configured metadata provider.
 fn episode_show_lookup(
     info: &OfficialPlayback,
     metadata_provider: Option<&str>,
-) -> Option<(MediaSource, String)> {
+) -> Option<EpisodeShowLookup> {
     if !info.item_type.eq_ignore_ascii_case("Episode") {
         return None;
     }
-    let (source, show_id, episode_id) = match uses_tvdb(metadata_provider) {
-        true => (MediaSource::Tvdb, &info.tvdb_id, &info.episode_tvdb_id),
-        false => (MediaSource::Tmdb, &info.tmdb_id, &info.episode_tmdb_id),
-    };
-    match show_id {
-        Some(_) => None,
-        None => episode_id.clone().map(|id| (source, id)),
+    if uses_tvdb(metadata_provider) {
+        return match info.tvdb_id {
+            Some(_) => None,
+            None => info
+                .episode_tvdb_id
+                .clone()
+                .map(EpisodeShowLookup::TvdbEpisode),
+        };
+    }
+    if info.tmdb_id.is_some() {
+        return None;
+    }
+    match &info.episode_tmdb_id {
+        Some(id) => Some(EpisodeShowLookup::TmdbEpisode(id.clone())),
+        None => (info.episode_imdb_id.is_some() || info.episode_tvdb_id.is_some())
+            .then_some(EpisodeShowLookup::TmdbExternalIds),
     }
 }
 
 // The official plugin only sends the IDs of an episode, so its show is looked up on TMDb
 // through the IMDb or TVDB ID of the episode, or else by title and the TMDb ID of the episode.
 async fn find_show_on_tmdb(
-    episode_id: &str,
+    episode_id: Option<&str>,
     info: &OfficialPlayback,
     ss: &Arc<SupportingService>,
 ) -> Result<Option<String>> {
@@ -457,7 +478,9 @@ async fn find_show_on_tmdb(
             return Ok(show_id);
         }
     }
-    let (Some(series_name), Some(season_number)) = (&info.series_name, info.season_number) else {
+    let (Some(episode_id), Some(series_name), Some(season_number)) =
+        (episode_id, &info.series_name, info.season_number)
+    else {
         return Ok(None);
     };
     tmdb_service
@@ -466,15 +489,14 @@ async fn find_show_on_tmdb(
         .with_context(|| format!("Could not look up show {series_name:?} on TMDb"))
 }
 
-/// Find the show of an episode on the configured metadata provider by the episode id.
+/// Find the show of an episode on the configured metadata provider.
 async fn find_episode_show_id(
-    source: MediaSource,
-    episode_id: &str,
+    lookup: &EpisodeShowLookup,
     info: &OfficialPlayback,
     ss: &Arc<SupportingService>,
 ) -> Result<Option<String>> {
-    let show_id = match source {
-        MediaSource::Tvdb => {
+    let show_id = match lookup {
+        EpisodeShowLookup::TvdbEpisode(episode_id) => {
             cache_service::get_or_set_with_callback(
                 ss,
                 ApplicationCacheKey::TvdbEpisodeShowId(episode_id.to_owned()),
@@ -489,15 +511,17 @@ async fn find_episode_show_id(
             )
             .await?
         }
-        _ => {
+        EpisodeShowLookup::TmdbEpisode(episode_id) => {
             cache_service::get_or_set_with_callback(
                 ss,
                 ApplicationCacheKey::TmdbEpisodeShowId(episode_id.to_owned()),
                 ApplicationCacheValue::TmdbEpisodeShowId,
-                || find_show_on_tmdb(episode_id, info, ss),
+                || find_show_on_tmdb(Some(episode_id), info, ss),
             )
             .await?
         }
+        // The cache is keyed by the TMDb id of the episode, which is unknown here.
+        EpisodeShowLookup::TmdbExternalIds => return find_show_on_tmdb(None, info, ss).await,
     };
     Ok(show_id.response)
 }
@@ -512,11 +536,11 @@ pub async fn sink_progress_official(
     let value: Value = serde_json::from_str(&payload)?;
     let mut info = parse_official_payload(&value)?;
     if is_importable(&info, username.as_deref())
-        && let Some((source, episode_id)) = episode_show_lookup(&info, provider.as_deref())
+        && let Some(lookup) = episode_show_lookup(&info, provider.as_deref())
     {
-        let show_id = find_episode_show_id(source, &episode_id, &info, ss).await?;
-        match source {
-            MediaSource::Tvdb => info.tvdb_id = show_id,
+        let show_id = find_episode_show_id(&lookup, &info, ss).await?;
+        match lookup {
+            EpisodeShowLookup::TvdbEpisode(_) => info.tvdb_id = show_id,
             _ => info.tmdb_id = show_id,
         }
     }
@@ -654,11 +678,11 @@ mod tests {
         assert_eq!(info.episode_imdb_id.as_deref(), Some("tt0517686"));
         assert_eq!(
             episode_show_lookup(&info, Some("tvdb")),
-            Some((MediaSource::Tvdb, "19541".to_owned()))
+            Some(EpisodeShowLookup::TvdbEpisode("19541".to_owned()))
         );
         assert_eq!(
             episode_show_lookup(&info, None),
-            Some((MediaSource::Tmdb, "68923".to_owned()))
+            Some(EpisodeShowLookup::TmdbEpisode("68923".to_owned()))
         );
         let mut info = info;
         info.tvdb_id = Some("70726".to_owned());
@@ -668,6 +692,25 @@ mod tests {
             first_details(&result).unwrap(),
             ("70726".to_owned(), Some(3), Some(11))
         );
+    }
+
+    #[test]
+    fn official_episode_without_tmdb_id_is_looked_up_by_external_ids() {
+        let mut payload = plugin_episode_payload();
+        payload.as_object_mut().unwrap().remove("Provider_tmdb");
+        let info = parse_official_payload(&payload).unwrap();
+        assert!(episode_show_lookup(&info, None).is_some());
+        assert_eq!(
+            episode_show_lookup(&info, None),
+            Some(EpisodeShowLookup::TmdbExternalIds)
+        );
+        // TVDB lookups still need the TVDB id of the episode.
+        payload.as_object_mut().unwrap().remove("Provider_tvdb");
+        let info = parse_official_payload(&payload).unwrap();
+        assert_eq!(episode_show_lookup(&info, Some("tvdb")), None);
+        payload.as_object_mut().unwrap().remove("Provider_imdb");
+        let info = parse_official_payload(&payload).unwrap();
+        assert!(episode_show_lookup(&info, None).is_none());
     }
 
     #[test]
