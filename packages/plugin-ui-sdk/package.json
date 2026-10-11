@@ -44,6 +44,7 @@
 	},
 	"dependencies": {
 		"@ryot-app/contract": "workspace:*",
+		"@ryot-app/ts-utils": "workspace:*",
 		"@tanstack/charts": "0.18.0",
 		"@tanstack/react-form": "2.0.0-alpha.1",
 		"@tanstack/react-hotkeys": "0.10.0",

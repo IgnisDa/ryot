@@ -60,6 +60,7 @@ import {
 	selectedMeasure,
 	table,
 } from "@ryot-app/ryotql";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Result, Schema } from "effect";
 import { Base64Url } from "effect/encoding";
 
@@ -415,11 +416,8 @@ export const filterOperatorsFor = (field: QueryFilterField): readonly FilterOper
 
 const decodeRule = Schema.decodeUnknownResult(FilterRuleSchema);
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
-
 const leniently = (node: unknown, fields: readonly QueryFilterField[]): Filter | undefined => {
-	if (!isRecord(node)) {
+	if (!isObjectRecord(node)) {
 		return undefined;
 	}
 	if ("field" in node) {

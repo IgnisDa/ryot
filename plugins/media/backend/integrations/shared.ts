@@ -1,6 +1,6 @@
 import type { ExecutionMetadata, ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { isRecord } from "@ryot-app/plugin-backend-sdk/wire";
+import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import type {
 	ImportEntityRef,
@@ -80,8 +80,8 @@ export const progressPercent = (position?: number, duration?: number) => {
 };
 
 export const jsonRecord = (value: string) => {
-	const parsed: unknown = JSON.parse(value);
-	if (!isRecord(parsed)) {
+	const parsed = asRecord(JSON.parse(value));
+	if (parsed === null) {
 		throw new Error("Expected a JSON object");
 	}
 	return parsed;
@@ -94,8 +94,9 @@ const nested = (input: unknown, keys: string[]) => {
 		if (!current || typeof current !== "object") {
 			continue;
 		}
-		if (isRecord(current)) {
-			const entries = Object.entries(current);
+		const record = asRecord(current);
+		if (record !== null) {
+			const entries = Object.entries(record);
 			for (const key of keys) {
 				const match = entries.find(
 					([name, value]) => value != null && name.toLowerCase() === key.toLowerCase(),
@@ -135,13 +136,12 @@ export const nestedNumber = (input: unknown, keys: string[]) => {
 };
 
 export const pathValue = (input: unknown, path: string[]) =>
-	path.reduce<unknown>(
-		(current, key) =>
-			isRecord(current)
-				? Object.entries(current).find(([name]) => name.toLowerCase() === key.toLowerCase())?.[1]
-				: undefined,
-		input,
-	);
+	path.reduce<unknown>((current, key) => {
+		const record = asRecord(current);
+		return record === null
+			? undefined
+			: Object.entries(record).find(([name]) => name.toLowerCase() === key.toLowerCase())?.[1];
+	}, input);
 
 export const firstPathText = (payload: unknown, paths: string[][]) =>
 	paths.map((path) => textValue(pathValue(payload, path))).find(Boolean);

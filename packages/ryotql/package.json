@@ -11,6 +11,7 @@
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
+		"@ryot-app/ts-utils": "workspace:*",
 		"effect": "4.0.5"
 	},
 	"devDependencies": {

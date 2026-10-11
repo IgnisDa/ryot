@@ -1,7 +1,6 @@
-import type { AppPropertyDefinition, AppSchema } from "./property-schema";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
-const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
-	typeof value === "object" && value !== null && !Array.isArray(value);
+import type { AppPropertyDefinition, AppSchema } from "./property-schema";
 
 export const hasPropertySecrets = (property: AppPropertyDefinition): boolean =>
 	property.secret === true ||
@@ -19,7 +18,7 @@ const retainValue = (
 	) {
 		return stored;
 	}
-	if (property.type === "object" && isRecord(submitted) && isRecord(stored)) {
+	if (property.type === "object" && isObjectRecord(submitted) && isObjectRecord(stored)) {
 		return retainPropertySecrets({ fields: property.properties }, stored, submitted);
 	}
 	return submitted;

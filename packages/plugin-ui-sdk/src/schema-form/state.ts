@@ -14,6 +14,7 @@ import {
 	decodeAppSchemaPropertyValues,
 	parseAppSchemaPropertiesSafe,
 } from "@ryot-app/contract/schema/property-values";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Result } from "effect";
 
 export type SchemaFormValue = JsonValue | undefined;
@@ -148,7 +149,7 @@ export const describeSchemaFormField = (
 };
 
 const isRecord = (value: unknown): value is Readonly<Record<string, JsonValue>> =>
-	typeof value === "object" && value !== null && !Array.isArray(value) && isJsonValue(value);
+	isObjectRecord(value) && isJsonValue(value);
 
 export const propertyFormDefault = (
 	property: AppPropertyDefinition,
