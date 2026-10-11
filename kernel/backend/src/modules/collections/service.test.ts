@@ -1,7 +1,10 @@
 import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
-import { CollectionBadRequest } from "@ryot-app/contract/modules/collections/schemas";
+import {
+	CollectionBadRequest,
+	type CreateMembershipBody,
+} from "@ryot-app/contract/modules/collections/schemas";
 import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -358,13 +361,17 @@ const sandboxWriteContext = {
 	},
 } satisfies ScriptExecutionPrincipal;
 
-const runAddWorkflowWithCommand = (lifecycle: DomainLifecycleCommand) =>
+const runAddWorkflowWithCommand = (
+	lifecycle: DomainLifecycleCommand,
+	mode?: CreateMembershipBody["mode"],
+) =>
 	runAddEntityToCollectionWorkflow(
 		{
 			entityId,
 			collectionId,
 			userId: user.id,
 			command: lifecycle,
+			...(mode === undefined ? {} : { mode }),
 			executionId: addWorkflowExecutionId,
 		},
 		addWorkflowExecutionId,
@@ -391,11 +398,14 @@ layer(makeServiceLayer())((test) => {
 			const service = yield* CollectionsService;
 			yield* service.addToCollection(
 				user,
-				{ entityId, collectionId },
+				{ entityId, collectionId, mode: "add-if-absent" },
 				command("membership-execution", "collection:add-membership"),
 			);
 			const [dispatch] = yield* (yield* CollectionCalls).workflowDispatches;
-			expect(dispatch?.payload).toMatchObject({ command: { writeContext: null } });
+			expect(dispatch?.payload).toMatchObject({
+				mode: "add-if-absent",
+				command: { writeContext: null },
+			});
 		}),
 	);
 
@@ -479,8 +489,13 @@ layer(
 )((test) => {
 	test.effect("does not dispatch an added event for an existing membership", () =>
 		Effect.gen(function* () {
-			const result = yield* runAddWorkflow;
+			const result = yield* runAddWorkflowWithCommand(
+				command(addWorkflowExecutionId),
+				"add-if-absent",
+			);
+			const [relationshipInput] = yield* (yield* CollectionCalls).relationshipInputs;
 			expect(result.memberOf.id).toBe(relationshipId);
+			expect(relationshipInput?.ifAbsent).toBe(true);
 			expect(yield* (yield* CollectionCalls).workflowDispatches).toEqual([]);
 		}),
 	);
