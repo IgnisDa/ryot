@@ -7,7 +7,7 @@ import {
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { makeRecordingTracer } from "@ryot-app/testing/recording-tracer";
 import { eq, sql } from "drizzle-orm";
-import { Context, Deferred, Effect, Fiber, Layer, Redacted, type Tracer } from "effect";
+import { Context, Deferred, Effect, Fiber, Layer, type Tracer } from "effect";
 import { assert, describe } from "vitest";
 
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
@@ -19,8 +19,8 @@ import { insertPluginRevision, fixtureManifest } from "#modules/plugins/test-sup
 import { setLocalStatementTimeout, DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
-import { testDatabaseUrl } from "#testing/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { LifecyclePlannerServiceLive } from "./layer";
 import { triggerFixture } from "./lifecycle.test-support";
@@ -65,13 +65,8 @@ const plannerSchemaLayer = Layer.effect(PlannerSchema, makePlannerSchema).pipe(
 					DefinitionRepository.layer,
 				),
 			),
-			Layer.provideMerge(DatabaseSession.layer),
-			Layer.provide(
-				makeAppConfigLayer({
-					automations: { maxRuns: 1 },
-					database: { url: Redacted.make(testDatabaseUrl()) },
-				}),
-			),
+			Layer.provideMerge(isolatedDatabaseLayer("planner_locks")),
+			Layer.provide(makeAppConfigLayer({ automations: { maxRuns: 1 } })),
 		),
 	),
 	Layer.provideMerge(makeConfigProviderLayer()),
