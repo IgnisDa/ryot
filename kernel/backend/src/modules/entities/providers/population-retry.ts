@@ -4,18 +4,12 @@ import {
 	EntityPopulationRetryRefused,
 	type RetryEntityPopulationResult,
 } from "@ryot-app/contract/modules/entities/schemas";
-import {
-	AutomationExecutionId,
-	type EntityId,
-	type PluginId,
-} from "@ryot-app/contract/schema/brands";
-import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Context, DateTime, Effect, Layer } from "effect";
+import type { EntityId, PluginId } from "@ryot-app/contract/schema/brands";
+import { Context, Effect, Layer } from "effect";
 
-import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import {
-	entityPopulationExecutionId,
 	EntityPopulationTrigger,
+	userPopulationRequest,
 } from "#modules/entities/population-trigger";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { MutationReceipts } from "#modules/mutations/receipts";
@@ -74,32 +68,23 @@ export class EntityPopulationRetryService extends Context.Service<EntityPopulati
 						}),
 					)
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-				if (cleared === null) {
+				const failedAt = cleared?.failedAt ?? cleared?.relatedFailedAt ?? null;
+				if (cleared === null || failedAt === null) {
 					return { retried: false } satisfies RetryEntityPopulationResult;
 				}
-				const attempt = cleared.failedAt.getTime();
-				const executionId = entityPopulationExecutionId(entity.id, user.accountGeneration, attempt);
-				yield* trigger.request({
-					attempt,
-					providerId,
-					externalId,
-					entityId: entity.id,
-					userId: cleared.userId,
-					entitySchemaSlug: entity.entitySchemaSlug,
-					entitySchemaPluginId: entity.entitySchemaPluginId,
-					command: {
-						...rootLifecycleCommand({
-							source: "api",
-							lane: "interactive",
-							itemIdentity: executionId,
-							initiator: { id: user.id, kind: "user" },
-							accountGeneration: user.accountGeneration,
-							executionId: AutomationExecutionId.make(executionId),
-							occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-						}),
-						writeContext: null,
-					},
-				});
+				yield* trigger.request(
+					yield* userPopulationRequest({
+						providerId,
+						externalId,
+						initiator: user.id,
+						entityId: entity.id,
+						userId: cleared.userId,
+						accountGeneration: user.accountGeneration,
+						entitySchemaSlug: entity.entitySchemaSlug,
+						entitySchemaPluginId: entity.entitySchemaPluginId,
+						execution: { level: "full", attempt: failedAt.getTime() },
+					}),
+				);
 				return { retried: true } satisfies RetryEntityPopulationResult;
 			});
 

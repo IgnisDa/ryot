@@ -14,7 +14,9 @@ const item = {
 	populationStatus: "ready",
 	properties: { pages: 320 },
 	translationStatus: "ready",
+	relatedPopulationStatus: "pending",
 	entitySchemaPluginId: "plugin-media",
+	populatedAt: "2026-10-23T10:15:30.123Z",
 };
 const provenanceResponse = (items: readonly unknown[]) => rowsResponse("entity", items, pageInfo);
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("entities", items, pageInfo);
@@ -36,8 +38,10 @@ describe("entity recipes", () => {
 			"externalId",
 			"entitySchemaSlug",
 			"populationStatus",
+			"populatedAt",
 			"translationStatus",
 			"providerId",
+			"relatedPopulationStatus",
 			"entitySchemaPluginId",
 		]);
 		expect(query.where).toMatchObject({ values: [{ value: "entity-1" }, { value: "entity-2" }] });
@@ -55,13 +59,21 @@ describe("entity recipes", () => {
 							userId: null,
 							externalId: null,
 							providerId: null,
+							populatedAt: null,
 							entitySchemaPluginId: null,
 						},
 					]),
 				),
 			),
 		).toEqual([
-			{ ...item, userId: null, externalId: null, providerId: null, entitySchemaPluginId: null },
+			{
+				...item,
+				userId: null,
+				externalId: null,
+				providerId: null,
+				populatedAt: null,
+				entitySchemaPluginId: null,
+			},
 		]);
 	});
 
@@ -72,6 +84,14 @@ describe("entity recipes", () => {
 		).toBe(true);
 		expect(
 			Result.isFailure(recipe.decode(responseWithItems([{ ...item, populationStatus: "bad" }]))),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				recipe.decode(responseWithItems([{ ...item, relatedPopulationStatus: "bad" }])),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(recipe.decode(responseWithItems([{ ...item, populatedAt: "not-a-date" }]))),
 		).toBe(true);
 		expect(
 			Result.isFailure(recipe.decode({ data: { entities: { items: [], type: "aggregate" } } })),

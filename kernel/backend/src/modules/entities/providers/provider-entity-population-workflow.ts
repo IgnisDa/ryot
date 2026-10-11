@@ -79,6 +79,8 @@ const ValidatedEntityDetails = Schema.Struct({
 
 type ValidatedEntityDetails = typeof ValidatedEntityDetails.Type;
 
+const PopulationTarget = Schema.Struct({ entity: ListedEntity, relatedPopulated: Schema.Boolean });
+
 const SandboxJsonObjectSchema = Schema.Record(Schema.String, jsonValueSchema);
 const decodeProviderDetailsResult = Schema.decodeUnknownEffect(providerDetailsResultSchema);
 
@@ -192,9 +194,9 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	return yield* makeActivity({
 		name: "check-existing-entity",
 		error: SandboxRunError satisfies DurableSchema,
-		success: Schema.NullOr(ListedEntity) satisfies DurableSchema,
+		success: Schema.NullOr(PopulationTarget) satisfies DurableSchema,
 		execute: repository
-			.findEntityByExternalId({
+			.findPopulationTarget({
 				...entityScope,
 				externalId: payload.externalId,
 				providerId: payload.providerId,
@@ -302,6 +304,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 						properties: details.properties,
 						providerId: payload.providerId,
 						updateExisting: options.mode !== "refresh",
+						preservePopulatedAt: options.mode === "initial",
 						entitySchema: {
 							slug: payload.entitySchemaSlug,
 							owner: definitionOwner(payload.pluginId),
@@ -527,6 +530,72 @@ const recordPopulationFailure = Effect.fn("recordProviderPopulationFailure")(fun
 	}
 });
 
+const recordRelatedPopulationFailure = Effect.fn("recordProviderRelatedPopulationFailure")(
+	function* (
+		payload: EntityImportPayload,
+		options: SynchronizeOptions,
+		existing: ListedEntity | null,
+		failure: EntityPopulationFailure,
+	) {
+		if (
+			existing === null ||
+			options.mode !== "initial" ||
+			options.level !== "full" ||
+			failure === "script-failure"
+		) {
+			return;
+		}
+		const session = yield* DatabaseSession;
+		const checks = yield* DomainWriteChecks;
+		const repository = yield* EntitiesRepository;
+		const scope = getEntityWriteScope(payload);
+		const marked = yield* makeActivity({
+			name: "mark-related-population-failed",
+			error: SandboxRunError satisfies DurableSchema,
+			success: Schema.Boolean satisfies DurableSchema,
+			execute: Effect.gen(function* () {
+				const failedAt = yield* DateTime.nowAsDate;
+				return yield* retryOnDeadlock(
+					session.transaction(
+						Effect.gen(function* () {
+							const authority = yield* Effect.result(
+								checks.check(
+									payload.command,
+									definitionOwner(payload.pluginId),
+									scope.scope === "user" ? scope.userId : null,
+									true,
+								),
+							);
+							if (Result.isFailure(authority)) {
+								return false;
+							}
+							yield* repository.lockMutationKeys([existing.id]);
+							return yield* repository.markRelatedPopulationFailed({
+								failure,
+								failedAt,
+								entityId: existing.id,
+							});
+						}),
+					),
+				).pipe(mapDbErrorToSandbox);
+			}),
+		});
+		if (marked) {
+			yield* publishPrimaryEntity(existing.id);
+		}
+	},
+);
+
+const recordFailure = (
+	payload: EntityImportPayload,
+	options: SynchronizeOptions,
+	existing: ListedEntity | null,
+	failure: EntityPopulationFailure,
+) =>
+	recordPopulationFailure(payload, existing, failure).pipe(
+		Effect.andThen(recordRelatedPopulationFailure(payload, options, existing, failure)),
+	);
+
 const shouldWriteChildEntitySet = (options: SynchronizeOptions, scope: ChildEntitySetScope) =>
 	scope.childEntities.length > 0 ||
 	(options.mode === "refresh" && scope.expectedChildEntitySchemaSlug !== undefined);
@@ -702,7 +771,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	if (sandboxResult.error) {
 		const failure = populationFailureOf(sandboxResult.error);
 		if (failure !== null) {
-			yield* recordPopulationFailure(payload, existing, failure);
+			yield* recordFailure(payload, options, existing, failure);
 		}
 		return yield* new SandboxRunError({
 			kind: sandboxResult.error.kind,
@@ -714,7 +783,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	const details = yield* validateEntityDetails(sandboxResult.value).pipe(
 		Effect.tapError((error) =>
 			error.kind === "invalid-output"
-				? recordPopulationFailure(payload, existing, "invalid-output")
+				? recordFailure(payload, options, existing, "invalid-output")
 				: Effect.void,
 		),
 	);
@@ -856,10 +925,15 @@ export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopu
 		});
 		const entityScope = getEntityWriteScope(payload);
 		const definitions = yield* resolveProviderEntityDefinitions(entityScope, payload);
-		const existing = yield* checkExistingEntity(payload, entityScope, definitions);
+		const target = yield* checkExistingEntity(payload, entityScope, definitions);
+		const existing = target?.entity ?? null;
 		if (payload.mode === "ensure") {
-			if (existing && existing.populatedAt !== null) {
-				return existing;
+			if (
+				target !== null &&
+				target.entity.populatedAt !== null &&
+				(payload.level === "base" || target.relatedPopulated)
+			) {
+				return target.entity;
 			}
 			return yield* synchronizeEntityGraph(
 				payload,

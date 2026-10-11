@@ -208,6 +208,23 @@ const entityPopulationStatus: CatalogField = {
 	},
 };
 
+const entityRelatedPopulationStatus: CatalogField = {
+	kind: "text",
+	nullable: false,
+	resolve: ({ sqlAlias }) => {
+		const providerId = sql.raw(`${sqlAlias}.provider_id`);
+		const externalId = sql.raw(`${sqlAlias}.external_id`);
+		const relatedPopulatedAt = sql.raw(`${sqlAlias}.related_populated_at`);
+		const relatedPopulationFailedAt = sql.raw(`${sqlAlias}.related_population_failed_at`);
+		return sql`CASE
+			WHEN ${relatedPopulatedAt} IS NOT NULL THEN 'ready'
+			WHEN ${providerId} IS NULL OR ${externalId} IS NULL THEN 'none'
+			WHEN ${relatedPopulationFailedAt} IS NOT NULL THEN 'failed'
+			ELSE 'pending'
+		END`;
+	},
+};
+
 const entity: CatalogTable = {
 	name: "entity",
 	primaryKey: ["id"],
@@ -233,6 +250,7 @@ const entity: CatalogTable = {
 		populatedAt: physicalField("populated_at", "date"),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
+		relatedPopulationStatus: entityRelatedPopulationStatus,
 		entitySchemaSlug: physicalField("entity_schema_slug", "text", false),
 		entitySchemaPluginId: physicalField("entity_schema_plugin_id", "text"),
 	},

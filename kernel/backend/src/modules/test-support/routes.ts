@@ -110,7 +110,11 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 		.handle("setEntityPopulatedAt", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.setEntityPopulatedAt(params.entityId, payload.populatedAt);
+				return yield* svc.setEntityPopulatedAt(
+					params.entityId,
+					payload.populatedAt,
+					payload.level ?? "full",
+				);
 			}).pipe(mapTestSupportFailure),
 		)
 		.handle("upsertEntityTranslation", ({ payload }) =>

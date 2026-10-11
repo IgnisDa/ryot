@@ -22,6 +22,8 @@ import {
 } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
+import { IsoDateString } from "./codecs";
+
 export const entityWatchRecipe = defineRecipe(
 	(input: { readonly entityIds: readonly [string, ...string[]] }) => {
 		const entity = table("entity", "entity");
@@ -42,6 +44,7 @@ export const entityWatchRecipe = defineRecipe(
 						externalId: selectedField(column(entity, "externalId"), Schema.NullOr(Schema.String)),
 						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
 						populationStatus: selectedField(column(entity, "populationStatus"), PopulationStatus),
+						populatedAt: selectedField(column(entity, "populatedAt"), Schema.NullOr(IsoDateString)),
 						translationStatus: selectedField(
 							column(entity, "translationStatus"),
 							TranslationStatus,
@@ -49,6 +52,10 @@ export const entityWatchRecipe = defineRecipe(
 						providerId: selectedField(
 							column(entity, "providerId"),
 							Schema.NullOr(SandboxProviderId),
+						),
+						relatedPopulationStatus: selectedField(
+							column(entity, "relatedPopulationStatus"),
+							PopulationStatus,
 						),
 						entitySchemaPluginId: selectedField(
 							column(entity, "entitySchemaPluginId"),

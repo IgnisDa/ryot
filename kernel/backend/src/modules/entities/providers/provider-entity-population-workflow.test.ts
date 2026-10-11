@@ -278,7 +278,8 @@ const populationLayer = (options: {
 				Layer.succeed(PluginRuntimeResolver, runtime),
 				DomainWriteChecksLive,
 				Layer.mock(EntitiesRepository)({
-					findEntityByExternalId: () => Effect.succeed(null),
+					stampChildRelatedPopulated: () => Effect.void,
+					findPopulationTarget: () => Effect.succeed(null),
 					stampRelatedPopulated: () => record("related-stamp"),
 				}),
 				Layer.mock(EntitiesService)({

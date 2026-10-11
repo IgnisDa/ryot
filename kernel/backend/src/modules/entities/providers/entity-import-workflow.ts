@@ -76,7 +76,7 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 			{
 				executionId: populationExecutionId,
 				payload: {
-					level: "full",
+					level: "base",
 					mode: "ensure",
 					command: payload.command,
 					pluginId: payload.pluginId,

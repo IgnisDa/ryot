@@ -39,8 +39,24 @@ A `full` run persists everything above and stamps `entity.related_populated_at` 
 only: it ignores any returned `relatedEntityGroups` (no relationship writes, no generation claims,
 no sweeps, no related-pages workflow) and stamps `populated_at` alone, so existing relationships stay
 untouched. Providers should skip related fetches at `base`; a provider that ignores `level` stays
-valid. `ensure` and `refresh` semantics and execution IDs do not depend on the level, and failure
-marking applies to both levels. Every dispatcher currently requests `full`.
+valid. Child entities have no related level: every child-set write stamps `related_populated_at`
+with the child's `populated_at` when it is still null.
+
+`ensure` at `base` runs only while `populated_at` is null; `ensure` at `full` also runs while
+`related_populated_at` is null, upgrading a base-populated entity. `refresh` always requests `full`.
+An `ensure` run upserts the root with `preservePopulatedAt`, so the entity update keeps a non-null
+`populated_at` in SQL (`coalesce`) instead of clearing it, even when an overlapping base run stamped
+the entity after this run read it; every other entity update writes `populated_at` as given. Child
+sets keep their initial (non-refresh) semantics during an upgrade.
+
+`EntityImportWorkflow` (and so `kernel:entity-import`) requests `base`. Entity interest requests
+`base` for visible and `full` for foreground interest (see the entity-interest README). The kernel
+provider-population reference and the retry route request `full`; the monitoring sweep refreshes.
+Relationship lifecycle hooks of an imported entity (such as plugin monitoring association
+notifications) therefore run when the entity is first opened in the foreground or refreshed by a
+monitoring sweep, not at import time.
+Execution IDs come from one helper: `populate-<entityId>-<level>-<generation>`, an upgrade adds
+`-<populatedAtMs>-<hourBucket>`, and a retry adds `-<attempt>`.
 
 ### Paged related groups
 
@@ -102,15 +118,29 @@ admission failures before execution, a missing `related` script, and root, relat
 write failures. A failed refresh of a populated entity writes nothing, and the related-pages workflow
 never records failures.
 
-`POST /entities/:entityId/population/retry` with `{ pluginId }` retries a failed population. It
+A `full` `ensure` run of an entity that already exists records a related-level failure instead when
+its `details` run returns invalid output (including a result that fails details validation) or
+exceeds a host-call budget (`execution-limit`). Script failures without that boundary code, such as
+an upstream rate limit, never mark the related level, because any user can request an upgrade of a
+shared entity. The record is `entity.related_population_failed_at` and
+`entity.related_population_failure` (same closed code set and check constraint, never exposed). The
+write rechecks domain write authority, takes the `entity-mutation:` lock, and updates the row only
+while `populated_at` is set, `related_populated_at` is null, and the row is provider-backed. After
+commit the workflow publishes `populated`, and `relatedPopulationStatus` reads `failed`. Refresh and
+base runs never mark the related level, and the related stamp clears both columns.
+
+`POST /entities/:entityId/population/retry` with `{ pluginId }` retries a failed population or a
+failed related level. It
 answers the same `not-found` for missing and invisible entities, then refuses
 `not-provider-backed`, `plugin-mismatch` (the plugin does not own the entity's schema) and
 `provider-unavailable` (the caller cannot run the entity's provider), all before any write. The
 clear runs in one transaction with the caller's account write lock, account admission and the
-entity-mutation lock, and clears the columns only if a failure is still recorded. Without one it
-returns `{ retried: false }`. Otherwise it requests population with the cleared failure time in
-epoch milliseconds as the attempt suffix, `populate-<entityId>-<generation>-<attempt>`, so the
-workflow runs again instead of returning the stored failure, and returns `{ retried: true }`. Each
+entity-mutation lock, and one conditional update clears the population failure and, while
+`related_populated_at` is null, the related failure, returning both previous failure times. Without
+a cleared failure it returns `{ retried: false }`. Otherwise it requests a `full` population with the
+cleared failure time in epoch milliseconds as the attempt suffix,
+`populate-<entityId>-full-<generation>-<attempt>`, so the workflow runs again instead of returning
+the stored failure, and returns `{ retried: true }`. Each
 recorded failure allows at most one retry run, and a new failure appears only after a full provider
 run, so there is no retry interval.
 
