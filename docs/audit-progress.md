@@ -13,7 +13,7 @@
 
 ## Status
 
-**14 implemented, 3 in progress, 66 pending; 3 excluded.**
+**15 implemented, 2 in progress, 66 pending; 3 excluded.**
 
 “Implemented” means affected checks and tests passed and the change is committed with this tracker. Batch-wide acceptance is recorded separately below. Rows follow the audit's ranked order; sequencing can change to respect dependencies and keep changes reviewable.
 
@@ -33,7 +33,7 @@
 | B07-R2 | Implemented | Restored data and run completion share one transaction; completed status governs replay and ambiguous-commit recovery. See this finding's `audit:` commit. |
 | F03-R2 | Implemented | One pure expiry reconciliation owns completion and feedback; invalid expiry clears execution without confirmation, rest, or progression. See this finding's `audit:` commit. |
 | F03-R1 | In progress | One workout-editor save owner. |
-| C04-R1 | In progress | Release partially acquired native listeners. |
+| C04-R1 | Implemented | Registration scopes release each acquired listener on failure, interruption, stop, or disposal, including late handles. See this finding's `audit:` commit. |
 | C05-R1 | In progress | Keep form edits from reloading remote catalog pages. |
 | F05-R1 | Implemented | One target-ID aggregate preserves equal-name histories and all-role recency; tiles use IDs. See this finding's `audit:` commit. |
 | M05-R2 | Pending | Require one purpose shape across manifests and readers. |
@@ -168,3 +168,4 @@
 - F03-R2: removed the fallback auto-confirm path. Added combined invalid-input, prompt, late-observation, replacement, and independent-rest regressions. Fitness check passed before 16 editor files / 163 tests. Read-only review reported no findings. No persisted shapes, suppressions, or bypass casts changed.
 - B07-R2: historical writes and `completeRun` use the captured database transaction. Completed status replaces progress-90 replay logic; ambiguous failures reread completion before retry/failure. Cleanup only deletes the temporary upload best-effort. Backend check passed before 11 backup files / 130 tests, including real PostgreSQL commit/rollback, lost acknowledgement, postcommit cancellation, replay, unavailable cleanup, and deadlock retry. Read-only review reported no findings. Drain active restores before deployment; no compatibility path was added.
 - F05-R1: one ID-keyed aggregate retains visibility, effective-link deduplication, bounds, never-trained targets, and sorting. Set weights remain primary/untyped 1, secondary 0.5, stabilizer 0; recency includes every role. Fitness check passed before all 85 files / 537 tests. E2E check and the new `home-recipes.test.ts` API regression passed against PostgreSQL, covering equal-name targets and generated SQL. Read-only review reported no findings.
+- C04-R1: each DOM/native listener is acquired with an immediate scoped finalizer; partial failure, interruption, stop, and disposal close registration scopes and release late handles. Scoped device type/format/lint checks passed before four files / 33 tests. Read-only review reported no findings. Full client type checking passed; full lint initially encountered concurrent C05-R1 edits and must be rerun for batch acceptance. Physical-device behavior was not tested. Native promises that never settle can still delay cleanup; removal remains best-effort.

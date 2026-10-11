@@ -5,6 +5,7 @@ import { LocalNotifications } from "@capacitor/local-notifications";
 import { Clock, Effect, Fiber, Layer } from "effect";
 
 import { impactHaptic, selectionHaptic } from "#/modules/device/haptics";
+import { listenDeviceEvents } from "#/modules/device/listeners";
 import {
 	cancelNativeAlert,
 	removeDeliveredNativeAlerts,
@@ -42,6 +43,37 @@ export const DevicePlatformLive = Layer.effect(
 				native
 					? cancelNativeAlert(LocalNotifications, id).pipe(Effect.mapError(platformError))
 					: Effect.sync(() => cancelWeb(id)),
+			listen: (tap, foreground, receivedAlert) =>
+				Effect.gen(function* () {
+					yield* Effect.acquireRelease(
+						Effect.sync(() => {
+							onTap = tap;
+						}),
+						() =>
+							Effect.sync(() => {
+								onTap = undefined;
+							}),
+					);
+					yield* listenDeviceEvents(
+						{ native, app: App, document, notifications: LocalNotifications },
+						tap,
+						(active) => {
+							foreground(active);
+							if (!active) {
+								return;
+							}
+							if (native) {
+								runFork(removeDeliveredNativeAlerts(LocalNotifications).pipe(Effect.ignore));
+							} else {
+								for (const notification of delivered.values()) {
+									notification.close();
+								}
+								delivered.clear();
+							}
+						},
+						receivedAlert,
+					);
+				}),
 			awake: (enabled) =>
 				Effect.gen(function* () {
 					awakeWanted = enabled;
@@ -114,59 +146,6 @@ export const DevicePlatformLive = Layer.effect(
 					}
 					return yield* scheduleNativeAlert(LocalNotifications, android, id, request);
 				}).pipe(Effect.mapError(platformError)),
-			listen: (tap, foreground, receivedAlert) => {
-				let nativeActive = !native;
-				const visibility = () => {
-					const active = nativeActive && document.visibilityState === "visible";
-					foreground(active);
-					if (!active) {
-						return;
-					}
-					if (native) {
-						runFork(removeDeliveredNativeAlerts(LocalNotifications).pipe(Effect.ignore));
-					} else {
-						for (const notification of delivered.values()) {
-							notification.close();
-						}
-						delivered.clear();
-					}
-				};
-				return Effect.gen(function* () {
-					onTap = tap;
-					document.addEventListener("visibilitychange", visibility);
-					if (!native) {
-						visibility();
-						return () => {
-							document.removeEventListener("visibilitychange", visibility);
-						};
-					}
-					const action = yield* Effect.tryPromise(() =>
-						LocalNotifications.addListener("localNotificationActionPerformed", ({ notification }) =>
-							onTap?.(notification.id),
-						),
-					);
-					const received = yield* Effect.tryPromise(() =>
-						LocalNotifications.addListener("localNotificationReceived", ({ id }) =>
-							receivedAlert(id),
-						),
-					);
-					const app = yield* Effect.tryPromise(() =>
-						App.addListener("appStateChange", ({ isActive }) => {
-							nativeActive = isActive;
-							visibility();
-						}),
-					);
-					const current = yield* Effect.tryPromise(() => App.getState());
-					nativeActive = current.isActive;
-					visibility();
-					return () => {
-						document.removeEventListener("visibilitychange", visibility);
-						void action.remove();
-						void received.remove();
-						void app.remove();
-					};
-				}).pipe(Effect.mapError(platformError));
-			},
 		};
 	}),
 );
