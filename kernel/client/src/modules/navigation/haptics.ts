@@ -13,17 +13,16 @@ export const impactLight = () => {
 	Effect.runFork(lightImpact);
 };
 
-export const selectionChanged = () => {
-	if (!isNativePlatform()) {
-		return;
-	}
-	Effect.runFork(
-		Effect.ignore(
-			Effect.gen(function* () {
-				yield* Effect.tryPromise(() => Haptics.selectionStart());
-				yield* Effect.tryPromise(() => Haptics.selectionChanged());
-				yield* Effect.tryPromise(() => Haptics.selectionEnd());
-			}),
-		),
-	);
-};
+export const selectionChange = Effect.suspend(() =>
+	isNativePlatform()
+		? Effect.ignore(
+				Effect.gen(function* () {
+					yield* Effect.tryPromise(() => Haptics.selectionStart());
+					yield* Effect.tryPromise(() => Haptics.selectionChanged());
+					yield* Effect.tryPromise(() => Haptics.selectionEnd());
+				}),
+			)
+		: Effect.void,
+);
+
+export const selectionChanged = () => Effect.runFork(selectionChange);

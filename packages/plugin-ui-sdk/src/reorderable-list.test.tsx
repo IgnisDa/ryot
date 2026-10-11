@@ -14,14 +14,19 @@ const rows: readonly Row[] = [
 	{ slug: "books", name: "Books" },
 ];
 
-function Harness(props: { readonly onReorder?: (from: number, to: number) => void }) {
+function Harness(props: {
+	readonly onReorder?: (from: number, to: number) => void;
+	readonly onDrop?: () => void;
+}) {
 	const [items, setItems] = useState(rows);
 	return (
 		<ReorderableList
 			label="Views"
 			items={items}
 			itemHeight={44}
+			onPickUp={() => {}}
 			itemKey={(item) => item.slug}
+			onDrop={() => props.onDrop?.()}
 			itemLabel={(item) => item.name}
 			handleIcon={<span data-testid="grip" />}
 			renderItem={({ item, handle }) => (
@@ -58,7 +63,13 @@ describe("ReorderableList", () => {
 
 	it("moves a row down and back up with the arrow keys", () => {
 		const moves: Array<[number, number]> = [];
-		render(<Harness onReorder={(from, to) => moves.push([from, to])} />);
+		const feedback: string[] = [];
+		render(
+			<Harness
+				onDrop={() => feedback.push("drop")}
+				onReorder={(from, to) => moves.push([from, to])}
+			/>,
+		);
 
 		fireEvent.keyDown(screen.getByRole("button", { name: "Reorder Shows" }), { key: "ArrowDown" });
 		expect(names()).toEqual(["Movies", "Shows", "Books"]);
@@ -69,6 +80,7 @@ describe("ReorderableList", () => {
 			[0, 1],
 			[1, 0],
 		]);
+		expect(feedback).toEqual(["drop", "drop"]);
 	});
 
 	it("sends a row to either end with Home and End", () => {

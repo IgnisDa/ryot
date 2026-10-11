@@ -45,16 +45,22 @@ const harness = (initial: DeviceState = emptyDeviceState) => {
 	const cancelled: number[] = [];
 	const scheduled: number[] = [];
 	const awake: boolean[] = [];
+	const haptics: NonNullable<
+		Extract<PluginDeviceRequest, { readonly action: "haptic" }>["kind"]
+	>[] = [];
 	const navigated: PluginNavigationTarget[] = [];
 	let tap: ((id: number) => void) | undefined;
 	let foreground: ((active: boolean) => void) | undefined;
 	let delivered: ((id: number) => void) | undefined;
 	let listens = 0;
 	const platform = Layer.succeed(DevicePlatform, {
-		haptic: Effect.void,
 		cancel: (id) =>
 			Effect.sync(() => {
 				cancelled.push(id);
+			}),
+		haptic: (kind) =>
+			Effect.sync(() => {
+				haptics.push(kind);
 			}),
 		awake: (enabled) =>
 			Effect.sync(() => {
@@ -76,6 +82,7 @@ const harness = (initial: DeviceState = emptyDeviceState) => {
 	});
 	return {
 		awake,
+		haptics,
 		cancelled,
 		scheduled,
 		navigated,
@@ -100,6 +107,23 @@ const harness = (initial: DeviceState = emptyDeviceState) => {
 };
 
 describe("device authority", () => {
+	const hapticRouting = harness();
+	layer(hapticRouting.layer)((test) => {
+		test.effect("routes selection haptics and defaults to impact", () =>
+			Effect.gen(function* () {
+				const service = yield* DeviceService;
+				yield* service.start;
+				yield* service.setScope(scope);
+				yield* service.outcome(scope, contributors, "frame", true, { pluginId, action: "haptic" });
+				yield* service.outcome(scope, contributors, "frame", true, {
+					pluginId,
+					action: "haptic",
+					kind: "selection",
+				});
+				expect(hapticRouting.haptics).toEqual(["impact", "selection"]);
+			}),
+		);
+	});
 	const scopedAlerts = harness();
 	layer(scopedAlerts.layer)((test) => {
 		test.effect("replaces scoped keys with fresh IDs and ignores stale taps", () =>
@@ -214,8 +238,8 @@ describe("device authority", () => {
 	});
 	let unreadableWrites = 0;
 	const unreadablePlatform = Layer.succeed(DevicePlatform, {
-		haptic: Effect.void,
 		awake: () => Effect.void,
+		haptic: () => Effect.void,
 		cancel: () => Effect.void,
 		listen: () => Effect.succeed(() => {}),
 		schedule: () => Effect.die("must not schedule"),
@@ -247,8 +271,8 @@ describe("device authority", () => {
 	const navigatedDuringScheduling: PluginNavigationTarget[] = [];
 	let tapDuringScheduling: ((id: number) => void) | undefined;
 	const serializationPlatform = Layer.succeed(DevicePlatform, {
-		haptic: Effect.void,
 		awake: () => Effect.void,
+		haptic: () => Effect.void,
 		cancel: (id) =>
 			Effect.sync(() => {
 				cancelledDuringScheduling.push(id);

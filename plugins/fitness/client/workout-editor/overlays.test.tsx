@@ -247,8 +247,10 @@ describe("workout editor overlays", () => {
 		mount()(
 			<ReorderOverlay
 				compact={false}
+				onDrop={() => {}}
 				safeAreaBottom={0}
 				onClose={() => {}}
+				onPickUp={() => {}}
 				draft={reorderDraft}
 				names={reorderNames}
 				initialOccurrenceId="row"

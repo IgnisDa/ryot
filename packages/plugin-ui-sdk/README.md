@@ -164,6 +164,9 @@ flick uses the same dismissal gate as Escape and the scrim. The content area kee
 inside their scroll containers, clear of pinned chrome. Native iOS keyboard resizing requires a
 second reveal after WebKit resets its scroll insets; sandboxed plugin focus is not visible to the kernel.
 
+`ReorderableList` requires pickup and drop feedback callbacks. Drop feedback also runs for successful
+keyboard moves. Callers supply native feedback through their platform capability.
+
 `useShortcut` ignores single-key shortcuts while editable content has focus and registers each
 shortcut in the nearest `OverlayScope`. Only the top scope runs, so callers do not gate shortcuts on
 whether another overlay is open.
