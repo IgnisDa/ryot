@@ -54,7 +54,7 @@ it.live("dismisses a workout overlay with an edge swipe without leaving the draf
 		yield* details.getByRole("textbox", { exact: true, name: "Name" }).fill("Swipe recovery");
 		yield* details.getByRole("button", { exact: true, name: "Done" }).click();
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
-		const picker = frame.getByRole("dialog", { exact: true, name: "Choose exercises" });
+		const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
 		yield* picker.waitFor({ state: "visible" });
 		yield* page.getByTestId("edge-gesture").waitFor({ state: "visible" });
 		yield* page.use((raw) => raw.mouse.move(8, 400));
@@ -154,7 +154,7 @@ it.live("retries a committed workout after a lost response and reload without du
 		yield* frame.getByRole("button", { exact: true, name: "Add" }).click();
 		yield* renameDraft(frame, name);
 		yield* frame.getByRole("button", { exact: true, name: "Add exercises" }).click();
-		const picker = frame.getByRole("dialog", { exact: true, name: "Choose exercises" });
+		const picker = frame.getByRole("dialog", { exact: true, name: "Add exercises" });
 		for (const exerciseName of [first, second]) {
 			yield* picker.getByRole("searchbox", { name: "Search exercises" }).fill(exerciseName);
 			yield* picker.getByRole("checkbox", { exact: true, name: exerciseName }).check();
