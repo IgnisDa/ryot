@@ -1,15 +1,14 @@
 import { type AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 
 import { managedAssetLocatorKey } from "#lib/domain/managed-asset-locators";
 
+import { isArchiveJsonObject } from "./archive/schemas";
+
 type JsonObject = Record<string, JsonValue>;
 type ReferenceMap = ReadonlyMap<string, string>;
-
-const isJsonObject = (value: unknown): value is JsonObject => isObjectRecord(value);
 
 const isManagedAssetLocator = Schema.is(ManagedAssetLocator);
 
@@ -51,7 +50,7 @@ const collectPropertyReferenceIds = (
 		ids.add(value);
 		return;
 	}
-	if (definition.type === "object" && isJsonObject(value)) {
+	if (definition.type === "object" && isArchiveJsonObject(value)) {
 		for (const [key, child] of Object.entries(definition.properties)) {
 			collectPropertyReferenceIds(child, value[key], ids, kind);
 		}
@@ -102,7 +101,7 @@ const rewritePropertyValueReferences = (
 				? yield* requiredReference(mapping, value, kind)
 				: value;
 		}
-		if (definition.type === "object" && isJsonObject(value)) {
+		if (definition.type === "object" && isArchiveJsonObject(value)) {
 			const rewritten: JsonObject = { ...value };
 			for (const [key, child] of Object.entries(definition.properties)) {
 				const childValue = value[key];
@@ -151,7 +150,7 @@ export const rewritePropertyReferences = Effect.fn(function* (
 });
 
 const readAssetLocator = (value: JsonValue): AssetLocator | null => {
-	if (!isJsonObject(value)) {
+	if (!isArchiveJsonObject(value)) {
 		return null;
 	}
 	if (value["type"] === "remote" && typeof value["url"] === "string") {
@@ -191,7 +190,7 @@ const rewritePropertyAssets = (
 				}
 				return replacement;
 			}
-			if (!isJsonObject(value)) {
+			if (!isArchiveJsonObject(value)) {
 				return value;
 			}
 			const rewritten: JsonObject = { ...value };
