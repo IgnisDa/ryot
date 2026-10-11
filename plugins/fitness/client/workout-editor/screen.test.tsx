@@ -176,6 +176,19 @@ const openEditor = (
 	});
 	const answered = new Set<string>();
 	const saveInputs: JsonValue[] = [];
+	const saveListeners = new Set<(input: JsonValue) => void>();
+	const saveRequested = Effect.callback<JsonValue>((resume) => {
+		const saved = saveInputs[0];
+		if (saved !== undefined) {
+			resume(Effect.succeed(saved));
+			return Effect.void;
+		}
+		const listener = (input: JsonValue) => resume(Effect.succeed(input));
+		saveListeners.add(listener);
+		return Effect.sync(() => {
+			saveListeners.delete(listener);
+		});
+	});
 	const readingInputs: JsonValue[] = [];
 	const deviceRequests: Array<{ action: string; enabled?: boolean }> = [];
 	const storageActions: string[] = [];
@@ -215,6 +228,13 @@ const openEditor = (
 					requestId: request.requestId,
 					value: { status: request.action === "schedule" ? "scheduled" : "done" },
 				});
+			} else if (request.type === "ios-live-activity-request") {
+				page.send({
+					outcome: "success",
+					requestId: request.requestId,
+					value: { status: "unsupported" },
+					type: "ios-live-activity-result",
+				});
 			} else if (request.type === "operation-request") {
 				if (request.operationSlug === workoutEditorSaveOperationSlug) {
 					saveInputs.push(request.input);
@@ -247,6 +267,9 @@ const openEditor = (
 					type: "operation-result",
 					requestId: request.requestId,
 				});
+				if (request.operationSlug === workoutEditorSaveOperationSlug) {
+					saveListeners.forEach((listener) => listener(request.input));
+				}
 			} else if (request.type === "ryotql-request") {
 				const data: Record<string, QueryData[string]> = {};
 				for (const queryName of Object.keys(request.document.queries)) {
@@ -275,7 +298,15 @@ const openEditor = (
 		}
 	};
 	respond = answerPending;
-	return { page, saveInputs, readingInputs, answerPending, deviceRequests, storageActions };
+	return {
+		page,
+		saveInputs,
+		saveRequested,
+		readingInputs,
+		answerPending,
+		deviceRequests,
+		storageActions,
+	};
 };
 
 const waitForEditor = Effect.fnUntraced(function* (answerPending: () => void) {
@@ -670,7 +701,7 @@ describe("WorkoutEditorScreen", () => {
 					confirmedAt: startedAt,
 				});
 				const draft = editorDraft([editorOccurrence("reps_and_weight", [set])]);
-				const { page, saveInputs, answerPending } = openEditor(clock, {
+				const { page, saveInputs, saveRequested, answerPending } = openEditor(clock, {
 					value: encodeWorkoutEditorDraft(draft),
 				});
 				yield* waitForEditor(answerPending);
@@ -692,12 +723,8 @@ describe("WorkoutEditorScreen", () => {
 				click(screen.getByRole("button", { name: "Finish" }));
 				const review = screen.getByRole("dialog", { name: "Finish workout?" });
 				click(within(review).getByRole("button", { name: "Save workout" }));
-				yield* Effect.promise(() =>
-					waitFor(() => {
-						answerPending();
-						expect(saveInputs).toHaveLength(1);
-					}),
-				);
+				yield* saveRequested;
+				expect(saveInputs).toHaveLength(1);
 
 				expect(saveInputs[0]).toMatchObject({
 					data: {

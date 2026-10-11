@@ -17,6 +17,7 @@ import type {
 	WorkoutEditorControllerPorts,
 	WorkoutEditorControllerSnapshot,
 } from "./controller-types";
+import { createWorkoutIosActivityPublisher } from "./ios-live-activity-sync";
 import {
 	attachDraftMedia,
 	draftMedia,
@@ -30,6 +31,9 @@ import { invalidateWorkoutCountdowns, reconcileWorkoutTimers } from "./timers";
 type ExpectedCountdowns = { readonly executionClientId?: string; readonly restClientId?: string };
 
 type WorkoutEditorController = {
+	readonly setExerciseNames: (
+		exercises: readonly { readonly id: string; readonly name: string }[],
+	) => void;
 	readonly uploadMedia: (
 		target: WorkoutMediaTarget,
 		kind: WorkoutMediaKind,
@@ -85,6 +89,8 @@ export const createWorkoutEditorController = (
 	const isDisposed = () => disposed;
 	let firstSubmissionAttempt = false;
 	let canReleaseRejection = false;
+	let exerciseNames: ReadonlyMap<string, string> = new Map();
+	const iosActivity = createWorkoutIosActivityPublisher(ports);
 
 	const publish = (next: WorkoutEditorControllerSnapshot) => {
 		snapshot = next;
@@ -149,6 +155,11 @@ export const createWorkoutEditorController = (
 					const current = snapshot;
 					if (revision <= persistedRevision) {
 						yield* alerts.synchronize(current.draft);
+						iosActivity.synchronize(
+							current.draft,
+							exerciseNames,
+							snapshot.context?.settings.unitSystem === "imperial",
+						);
 						return;
 					}
 					const writingRevision = revision;
@@ -161,6 +172,11 @@ export const createWorkoutEditorController = (
 					}));
 					if (revision <= persistedRevision) {
 						yield* alerts.synchronize(isReady(snapshot) ? snapshot.draft : undefined);
+						iosActivity.synchronize(
+							isReady(snapshot) ? snapshot.draft : undefined,
+							exerciseNames,
+							snapshot.context?.settings.unitSystem === "imperial",
+						);
 						return;
 					}
 				}
@@ -291,6 +307,7 @@ export const createWorkoutEditorController = (
 					publish({ status: "empty", ...contextState() });
 					yield* refreshContext();
 					yield* alerts.synchronize(undefined);
+					iosActivity.synchronize(undefined, exerciseNames);
 					return;
 				}
 				const decoded = decodeWorkoutEditorDraft(result.rawValue);
@@ -393,6 +410,7 @@ export const createWorkoutEditorController = (
 				}
 				discarding = true;
 				const removedDraftId = isReady(snapshot) ? snapshot.draft.draftId : undefined;
+				const removedDraft = isReady(snapshot) ? snapshot.draft : undefined;
 				const uploadedAssets = isReady(snapshot) ? (snapshot.draft.uploadedAssets ?? []) : [];
 				const removed = yield* Effect.match(ports.storage.remove, {
 					onSuccess: () => ({ kind: "success" as const }),
@@ -413,6 +431,15 @@ export const createWorkoutEditorController = (
 				loaded = true;
 				publish({ status: "empty", ...contextState() });
 				yield* alerts.synchronize(undefined, removedDraftId);
+				iosActivity.finish(
+					removedDraft,
+					exerciseNames,
+					requiresSubmission,
+					snapshot.context?.settings.unitSystem === "imperial",
+				);
+				if (removedDraft === undefined) {
+					iosActivity.synchronize(undefined, exerciseNames);
+				}
 				yield* cleanupAssets(uploadedAssets);
 				return true;
 			}).pipe(Effect.uninterruptible),
@@ -468,6 +495,17 @@ export const createWorkoutEditorController = (
 				return false;
 			}
 			return setDraft(next);
+		},
+		setExerciseNames: (exercises) => {
+			const next = new Map(exercises.map(({ id, name }) => [id, name]));
+			if (
+				next.size === exerciseNames.size &&
+				[...next].every(([id, name]) => exerciseNames.get(id) === name)
+			) {
+				return;
+			}
+			exerciseNames = next;
+			ports.schedule.run(flushDraft().pipe(Effect.ignore), () => undefined);
 		},
 		rejectSubmission: (result) =>
 			Effect.gen(function* () {

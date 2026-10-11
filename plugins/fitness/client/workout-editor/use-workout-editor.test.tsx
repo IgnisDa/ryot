@@ -111,6 +111,13 @@ it.live(
 							value: { status: "done" },
 							requestId: request.requestId,
 						});
+					} else if (request.type === "ios-live-activity-request") {
+						page.send({
+							outcome: "success",
+							requestId: request.requestId,
+							value: { status: "unsupported" },
+							type: "ios-live-activity-result",
+						});
 					} else if (request.type === "operation-request") {
 						page.send({
 							outcome: "success",

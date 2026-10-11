@@ -42,6 +42,7 @@ export type WorkoutEditorControllerSnapshot =
 export type ReadySnapshot = Extract<WorkoutEditorControllerSnapshot, { readonly status: "ready" }>;
 
 export type WorkoutEditorControllerPorts = {
+	readonly iosLiveActivities: RyotClient["iosLiveActivities"];
 	readonly pluginId: PluginId;
 	readonly target: PluginNavigationTarget;
 	readonly foreground: () => boolean;
